@@ -4,7 +4,7 @@ const theme = {
       family: "'Nunito', sans-serif",
     },
     colors: {
-      brand: "rgb(53, 128, 217)",
+      brand: "#3580d9",
     },
   },
   button: {

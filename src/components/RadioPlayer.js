@@ -18,8 +18,7 @@ import { Play, Pause, VolumeMute, Volume } from "grommet-icons"
 
 import ReactHowler from "react-howler"
 
-const streamURL = "http://99.198.118.250:8391/stream?type=http&nocache=4"
-// const streamURL = "78.129.178.98:9092/stream?type=http&icy=http"
+const streamURL = process.env.GATSBY_STREAM_URL
 
 const RadioPlayer = () => {
   const [playing, setPlaying] = useState(false)
