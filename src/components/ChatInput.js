@@ -4,6 +4,7 @@ import React, {
   useRef,
   useState,
   useCallback,
+  memo,
 } from "react"
 import { Formik, Field } from "formik"
 import { Box, Button, TextInput, ThemeContext } from "grommet"
@@ -15,7 +16,6 @@ import styled from "styled-components"
 
 import { SESSION_ID, SESSION_USERNAME } from "../constants"
 import SocketContext from "../contexts/SocketContext"
-import RoomContext from "../contexts/RoomContext"
 
 const InputContainer = styled(Box)`
   > div {
@@ -23,12 +23,11 @@ const InputContainer = styled(Box)`
   }
 `
 
-const ChatInput = () => {
+const ChatInput = ({ users }) => {
   const username = session.getItem(SESSION_USERNAME)
   const userId = session.getItem(SESSION_ID)
   const { socket } = useContext(SocketContext)
   const theme = useContext(ThemeContext)
-  const { state, dispatch } = useContext(RoomContext)
   const inputRef = useRef(null)
   const [isTyping, setTyping] = useState(false)
 
@@ -49,7 +48,7 @@ const ChatInput = () => {
     handleTypingStop()
   }, [])
 
-  const userSuggestions = state.users.map(x => ({
+  const userSuggestions = users.map(x => ({
     id: x.userId,
     display: x.username,
   }))
@@ -134,7 +133,9 @@ const ChatInput = () => {
       value={form.values.content}
       autoFocus
       onChange={e => {
-        handleKeyInput()
+        if (e.target.value && e.target.value !== "") {
+          handleKeyInput()
+        }
         form.setFieldValue(field.name, e.target.value)
       }}
     >
@@ -199,15 +200,4 @@ const ChatInput = () => {
   )
 }
 
-export default ChatInput
-//
-// <TextInput
-//   onChange={handleChange}
-//   onBlur={handleBlur}
-//   resize={false}
-//   value={values.content}
-//   name="content"
-//   placeholder="Chat..."
-//   flex="grow"
-//   style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
-// />
+export default memo(ChatInput)

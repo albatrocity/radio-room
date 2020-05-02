@@ -74,6 +74,8 @@ export default (state, action) => {
       return { ...state, typing: action.payload }
     case "VIEW_LISTENERS":
       return { ...state, viewingListeners: action.payload }
+    case "ADMIN_PANEL":
+      return { ...state, adminPanel: action.payload }
     default:
       return state
   }
@@ -89,4 +91,5 @@ export const initialState = {
   isNewUser: false,
   editingUser: false,
   viewingListeners: false,
+  adminPanel: false,
 }

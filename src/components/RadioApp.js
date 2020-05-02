@@ -26,12 +26,16 @@ const RadioApp = () => {
     playerInitialState
   )
 
+  const socketContextValue = useMemo(() => {
+    return { socket }
+  }, [socket])
+
   const playerContextValue = useMemo(() => {
     return { state: playerState, dispatch: playerDispatch }
   }, [playerState, playerDispatch])
 
   return (
-    <SocketContext.Provider value={{ socket }}>
+    <SocketContext.Provider value={socketContextValue}>
       <RoomContext.Provider value={contextValue}>
         <PlayerContext.Provider value={playerContextValue}>
           <Box height={size[1] ? `${size[1]}px` : "100vh"}>

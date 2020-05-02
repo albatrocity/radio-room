@@ -11,8 +11,7 @@ const NowPlaying = () => {
   const size = useContext(ResponsiveContext)
   const { title, bitrate, album, artist, track, release = {} } = state.meta
   const { mbid, releaseDate } = release
-  const loading = isEmpty(state.meta)
-  const offline = bitrate === "0"
+  const offline = bitrate === "0" || !bitrate || isEmpty(state.meta)
   const artworkSize = size === "small" ? "xsmall" : "small"
 
   return (
@@ -27,11 +26,6 @@ const NowPlaying = () => {
       )}
       {!offline && (
         <>
-          {loading && (
-            <Heading level={4} margin={{ top: "none", bottom: "small" }}>
-              Loading...
-            </Heading>
-          )}
           <Box direction="row" gap="small" justify="center">
             {mbid ? (
               <Box width={artworkSize}>

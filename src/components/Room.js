@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useCallback } from "react"
-import { SESSION_ID, SESSION_USERNAME } from "../constants"
+import Konami from "react-konami-code"
 import {
   Box,
   Header,
@@ -16,6 +16,8 @@ import {
 import { Close } from "grommet-icons"
 import { get } from "lodash/fp"
 
+import { SESSION_ID, SESSION_USERNAME } from "../constants"
+import AdminPanel from "./AdminPanel"
 import RadioPlayer from "./RadioPlayer"
 import Listeners from "./Listeners"
 import UserList from "./UserList"
@@ -82,6 +84,7 @@ const Room = () => {
 
   return (
     <Box flex="grow">
+      <Konami action={() => dispatch({ type: "ADMIN_PANEL", payload: true })} />
       {(state.isNewUser || state.editingUser) && (
         <Layer responsive={false}>
           <Box
@@ -120,13 +123,42 @@ const Room = () => {
           </Box>
         </Layer>
       )}
+      {state.adminPanel && (
+        <Layer
+          responsive={false}
+          onClickOutside={() =>
+            dispatch({ type: "ADMIN_PANEL", payload: false })
+          }
+        >
+          <Box
+            fill="horizontal"
+            direction="row"
+            justify="between"
+            align="center"
+            pad="medium"
+            flex={{ shrink: 0 }}
+          >
+            <Heading margin="none" level={2}>
+              Admin
+            </Heading>
+            <Button
+              onClick={() => dispatch({ type: "ADMIN_PANEL", payload: false })}
+              plain
+              icon={<Close />}
+            />
+          </Box>
+          <Box width="300px" pad="medium" overflow="auto">
+            <AdminPanel />
+          </Box>
+        </Layer>
+      )}
       <Box>
         <NowPlaying />
         <RadioPlayer />
       </Box>
       <Box direction="row-responsive" flex="grow">
         <Box flex={{ grow: 1, shrink: 1 }} pad="medium">
-          <Chat />
+          <Chat users={state.users} />
         </Box>
         <Box
           style={{ minWidth: "200px" }}
