@@ -1,6 +1,7 @@
 import React, { useReducer, useMemo } from "react"
 import { Box, Heading, Paragraph, Header, Menu, Main } from "grommet"
 
+import useWindowSize from "./useWindowSize"
 import Room from "./Room"
 import RoomContext from "../contexts/RoomContext"
 import SocketContext from "../contexts/SocketContext"
@@ -14,6 +15,7 @@ import socket from "../lib/socket"
 
 const RadioApp = () => {
   const [state, dispatch] = useReducer(roomReducer, initialState)
+  const size = useWindowSize()
 
   const contextValue = useMemo(() => {
     return { state, dispatch }
@@ -32,7 +34,7 @@ const RadioApp = () => {
     <SocketContext.Provider value={{ socket }}>
       <RoomContext.Provider value={contextValue}>
         <PlayerContext.Provider value={playerContextValue}>
-          <Box height="100vh">
+          <Box height={size[1] ? `${size[1]}px` : "100vh"}>
             <Main flex={{ grow: 1, shrink: 1 }}>
               <Room />
             </Main>

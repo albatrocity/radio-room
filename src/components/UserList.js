@@ -35,7 +35,7 @@ const UserList = () => {
                       duration: 200,
                       size: "large",
                     }
-                  : "none"
+                  : null
               }
               style={{ opacity: userTyping ? 1 : 0 }}
             >
