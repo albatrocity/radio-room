@@ -6,6 +6,7 @@
   "author": "Kyle Mathews <mathews.kyle@gmail.com>",
   "dependencies": {
     "add": "^2.0.6",
+    "babel-plugin-styled-components": "^1.10.7",
     "date-fn": "^0.0.2",
     "formik": "^2.1.4",
     "gatsby": "^2.21.0",
@@ -16,6 +17,7 @@
     "gatsby-plugin-offline": "^3.2.0",
     "gatsby-plugin-react-helmet": "^3.3.0",
     "gatsby-plugin-sharp": "^2.6.0",
+    "gatsby-plugin-styled-components": "^3.3.0",
     "gatsby-source-filesystem": "^2.3.0",
     "gatsby-transformer-sharp": "^2.5.0",
     "grommet": "^2.13.0",
