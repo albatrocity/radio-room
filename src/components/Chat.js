@@ -6,9 +6,15 @@ import ChatInput from "./ChatInput"
 
 const Chat = () => {
   return (
-    <Box>
-      <ChatMessages />
+    <Box
+      height="100%"
+      flex={{ grow: 1 }}
+      className="chat"
+      justify="between"
+      gap="small"
+    >
       <ChatInput />
+      <ChatMessages />
     </Box>
   )
 }

@@ -3,11 +3,7 @@ import PropTypes from "prop-types"
 import React from "react"
 import { Header as H } from "grommet"
 
-const Header = ({ siteTitle }) => (
-  <H background="brand">
-    <Menu label="account" items={[{ label: "logout" }]} />
-  </H>
-)
+const Header = ({ siteTitle }) => <H background="brand"></H>
 
 Header.propTypes = {
   siteTitle: PropTypes.string,
