@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "author": "Kyle Mathews <mathews.kyle@gmail.com>",
   "dependencies": {
+    "@xstate/react": "^0.8.1",
     "add": "^2.0.6",
     "babel-plugin-styled-components": "^1.10.7",
     "date-fn": "^0.0.2",
@@ -35,6 +36,7 @@
     "socket.io-client": "^2.3.0",
     "styled-components": "^5.1.0",
     "uuid": "^8.0.0",
+    "xstate": "^4.9.1",
     "yarn": "^1.22.4"
   },
   "devDependencies": {
