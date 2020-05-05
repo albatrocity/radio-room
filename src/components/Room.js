@@ -1,4 +1,5 @@
 import React, { useEffect, useContext, useCallback } from "react"
+import { useMachine } from "@xstate/react"
 import Konami from "react-konami-code"
 import {
   Box,
@@ -26,11 +27,11 @@ import FormUsername from "./FormUsername"
 import Chat from "./Chat"
 import RoomContext from "../contexts/RoomContext"
 import SocketContext from "../contexts/SocketContext"
-import PlayerContext from "../contexts/PlayerContext"
+import { audioMachine } from "../machines/audioMachine"
 
 const Room = () => {
   const { state, dispatch } = useContext(RoomContext)
-  const playerCtx = useContext(PlayerContext)
+  const [playerState, playerSend] = useMachine(audioMachine)
   const { socket } = useContext(SocketContext)
 
   const hideListeners = useCallback(
@@ -44,7 +45,7 @@ const Room = () => {
 
   useEffect(() => {
     socket.on("meta", payload => {
-      playerCtx.dispatch({ type: "SET_META", payload })
+      playerSend("SET_META", { meta: get("meta", payload) })
     })
     socket.on("user joined", payload => {
       dispatch({ type: "USER_ADDED", payload })
@@ -54,11 +55,11 @@ const Room = () => {
     })
     socket.on("login", payload => {
       dispatch({ type: "LOGIN", payload })
-      playerCtx.dispatch({ type: "LOGIN", payload })
     })
     socket.on("init", payload => {
       dispatch({ type: "INIT", payload })
-      playerCtx.dispatch({ type: "SET_META", payload: get("meta", payload) })
+      console.log("INIT GET META", get("meta", payload))
+      playerSend("SET_META", { meta: get("meta", payload) })
     })
     socket.on("new message", payload => {
       dispatch({ type: "NEW_MESSAGE", payload })

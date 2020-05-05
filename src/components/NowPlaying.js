@@ -1,15 +1,23 @@
 import React, { useContext } from "react"
+import { useMachine } from "@xstate/react"
 import { Box, Heading, Text, Image, ResponsiveContext } from "grommet"
 import { Music, Unlink } from "grommet-icons"
 import { isEmpty } from "lodash/fp"
 
 import safeDate from "../lib/safeDate"
-import PlayerContext from "../contexts/PlayerContext"
+import { audioMachine } from "../machines/audioMachine"
 
 const NowPlaying = () => {
-  const { state } = useContext(PlayerContext)
   const size = useContext(ResponsiveContext)
-  const { title, bitrate, album, artist, track, release = {} } = state.meta
+  const [state, send] = useMachine(audioMachine)
+  const {
+    title,
+    bitrate,
+    album,
+    artist,
+    track,
+    release = {},
+  } = state.context.meta
   const { mbid, releaseDate } = release
   const offline = bitrate === "0" || !bitrate || isEmpty(state.meta)
   const artworkSize = size === "small" ? "xsmall" : "small"

@@ -8,6 +8,12 @@ export const audioMachine = Machine(
     type: "parallel",
     context: {
       volume: 1.0,
+      meta: {},
+    },
+    on: {
+      SET_META: {
+        actions: ["setMeta"],
+      },
     },
     states: {
       progress: {
@@ -62,6 +68,9 @@ export const audioMachine = Machine(
     actions: {
       setVolume: assign((context, event) => ({
         volume: event.volume,
+      })),
+      setMeta: assign((context, event) => ({
+        meta: event.meta,
       })),
     },
     guards: {

@@ -26,7 +26,8 @@ const RadioPlayer = () => {
   const [state, send] = useMachine(audioMachine)
   const playing = state.matches({ progress: "playing" })
   const muted = state.matches({ volume: "muted" })
-  const { volume } = state.context
+  const { volume, meta } = state.context
+  console.log("meta", meta)
 
   return (
     <Box>
