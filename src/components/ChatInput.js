@@ -6,6 +6,7 @@ import React, {
   useCallback,
   memo,
 } from "react"
+
 import { Formik, Field } from "formik"
 import { Box, Button, TextInput, ThemeContext } from "grommet"
 import { Chat } from "grommet-icons"
@@ -15,7 +16,6 @@ import session from "sessionstorage"
 import styled from "styled-components"
 
 import { SESSION_ID, SESSION_USERNAME } from "../constants"
-import SocketContext from "../contexts/SocketContext"
 
 const InputContainer = styled(Box)`
   > div {
@@ -23,10 +23,9 @@ const InputContainer = styled(Box)`
   }
 `
 
-const ChatInput = ({ users }) => {
+const ChatInput = ({ onTypingStart, onTypingStop, onSend, users}) => {
   const username = session.getItem(SESSION_USERNAME)
   const userId = session.getItem(SESSION_ID)
-  const { socket } = useContext(SocketContext)
   const theme = useContext(ThemeContext)
   const inputRef = useRef(null)
   const [isTyping, setTyping] = useState(false)
@@ -37,9 +36,9 @@ const ChatInput = ({ users }) => {
 
   useEffect(() => {
     if (isTyping) {
-      socket.emit("typing")
+      onTypingStart()
     } else {
-      socket.emit("stop typing")
+      onTypingStop()
     }
   }, [isTyping])
 
@@ -161,7 +160,7 @@ const ChatInput = ({ users }) => {
           return errors
         }}
         onSubmit={(values, { setSubmitting, resetForm }) => {
-          socket.emit("new message", values.content)
+          onSend(values.content)
           resetForm()
           setSubmitting(false)
           inputRef.current.focus()

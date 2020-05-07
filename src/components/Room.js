@@ -1,5 +1,4 @@
 import React, { useEffect, useContext, useCallback } from "react"
-import { useMachine } from "@xstate/react"
 import Konami from "react-konami-code"
 import {
   Box,
@@ -26,66 +25,29 @@ import NowPlaying from "./NowPlaying"
 import FormUsername from "./FormUsername"
 import Chat from "./Chat"
 import RoomContext from "../contexts/RoomContext"
-import SocketContext from "../contexts/SocketContext"
-import { audioMachine } from "../machines/audioMachine"
 
 const Room = () => {
-  const { state, dispatch } = useContext(RoomContext)
-  const [playerState, playerSend] = useMachine(audioMachine)
-  const { socket } = useContext(SocketContext)
+  const { state, send } = useContext(RoomContext)
 
   const hideListeners = useCallback(
-    () => dispatch({ type: "VIEW_LISTENERS", payload: false }),
-    [dispatch]
+    () => send({ type: "VIEW_LISTENERS", payload: false }),
+    [send]
   )
   const hideNameForm = useCallback(
-    () => dispatch({ type: "CLOSE_USERNAME_FORM" }),
-    [dispatch]
+    () => send({ type: "CLOSE_USERNAME_FORM" }),
+    [send]
   )
 
   useEffect(() => {
-    socket.on("meta", payload => {
-      playerSend("SET_META", { meta: get("meta", payload) })
-    })
-    socket.on("user joined", payload => {
-      dispatch({ type: "USER_ADDED", payload })
-    })
-    socket.on("user left", payload => {
-      dispatch({ type: "REMOVE_USER", payload })
-    })
-    socket.on("login", payload => {
-      dispatch({ type: "LOGIN", payload })
-    })
-    socket.on("init", payload => {
-      dispatch({ type: "INIT", payload })
-      console.log("INIT GET META", get("meta", payload))
-      playerSend("SET_META", { meta: get("meta", payload) })
-    })
-    socket.on("new message", payload => {
-      dispatch({ type: "NEW_MESSAGE", payload })
-    })
-    socket.on("typing", payload => {
-      dispatch({ type: "TYPING", payload })
-    })
-  }, [])
-
-  useEffect(() => {
-    dispatch({
-      type: "LOGIN",
-      payload: null,
-    })
-
+    send("SETUP")
     return () => {
-      dispatch({
-        type: "USER_DISCONNECTED",
-        payload: null,
-      })
+      send("USER_DISCONNECTED")
     }
   }, [])
 
   return (
     <Box flex="grow">
-      <Konami action={() => dispatch({ type: "ADMIN_PANEL", payload: true })} />
+      <Konami action={() => send({ type: "ADMIN_PANEL", payload: true })} />
       {(state.isNewUser || state.editingUser) && (
         <Layer responsive={false}>
           <Box
@@ -127,9 +89,7 @@ const Room = () => {
       {state.adminPanel && (
         <Layer
           responsive={false}
-          onClickOutside={() =>
-            dispatch({ type: "ADMIN_PANEL", payload: false })
-          }
+          onClickOutside={() => send({ type: "ADMIN_PANEL", payload: false })}
         >
           <Box
             fill="horizontal"
@@ -143,7 +103,7 @@ const Room = () => {
               Admin
             </Heading>
             <Button
-              onClick={() => dispatch({ type: "ADMIN_PANEL", payload: false })}
+              onClick={() => send({ type: "ADMIN_PANEL", payload: false })}
               plain
               icon={<Close />}
             />
@@ -159,7 +119,7 @@ const Room = () => {
       </Box>
       <Box direction="row-responsive" flex="grow">
         <Box flex={{ grow: 1, shrink: 1 }} pad="medium">
-          <Chat users={state.users} />
+          <Chat />
         </Box>
         <Box
           style={{ minWidth: "200px" }}

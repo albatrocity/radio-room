@@ -43,6 +43,7 @@ export default (state, action) => {
 
       session.setItem(SESSION_USERNAME, username)
       session.setItem(SESSION_ID, userId)
+      console.log("login", username, userId)
       socket.emit("login", { username, userId })
       return {
         ...state,

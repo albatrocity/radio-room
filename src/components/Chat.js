@@ -1,10 +1,16 @@
-import React, { memo } from "react"
+import React, { memo, useCallback, useContext, useMemo } from "react"
 import { Box } from "grommet"
 
 import ChatMessages from "./ChatMessages"
 import ChatInput from "./ChatInput"
+import RoomContext from "../contexts/RoomContext"
 
-const Chat = ({ users }) => {
+const Chat = () => {
+  const { state, send } = useContext(RoomContext)
+  const sendMessage = useCallback((msg) => send("SEND_MESSAGE", { payload: msg }), [send])
+  const stopTyping = useCallback(() => send("STOP_TYPING"), [send])
+  const startTyping = useCallback(() => send("START_TYPING"), [send])
+
   return (
     <Box
       height="100%"
@@ -13,8 +19,13 @@ const Chat = ({ users }) => {
       justify="between"
       gap="small"
     >
-      <ChatInput users={users} />
-      <ChatMessages />
+      <ChatInput
+        users={state.users}
+        onTypingStart={() => startTyping()}
+        onTypingStop={() => stopTyping()}
+        onSend={(msg) => sendMessage(msg)}
+      />
+      <ChatMessages messages={state.messages} currentUserId={state.currentUser.userId} />
     </Box>
   )
 }

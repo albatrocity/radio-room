@@ -24,10 +24,9 @@ const streamURL = process.env.GATSBY_STREAM_URL
 const RadioPlayer = () => {
   const player = useRef(null)
   const [state, send] = useMachine(audioMachine)
-  const playing = state.matches({ progress: "playing" })
-  const muted = state.matches({ volume: "muted" })
+  const playing = state.matches({ ready: { progress: "playing" } })
+  const muted = state.matches({ ready: { volume: "muted" } })
   const { volume, meta } = state.context
-  console.log("meta", meta)
 
   return (
     <Box>

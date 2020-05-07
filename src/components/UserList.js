@@ -1,15 +1,15 @@
 import React, { useContext } from "react"
 import { uniqBy, get, find } from "lodash/fp"
-import { Box, Heading, Text, Button, ResponsiveContext } from "grommet"
+import { Box, Text, Button } from "grommet"
 import { Edit, MoreVertical } from "grommet-icons"
 
 import RoomContext from "../contexts/RoomContext"
+import { roomMachine } from "../machines/roomMachine"
 
 const UserList = () => {
-  const {
-    state: { typing, currentUser, users },
-    dispatch,
-  } = useContext(RoomContext)
+  const { state, send } = useContext(RoomContext)
+
+  const { users, typing, currentUser } = state
   const userList = uniqBy("userId", users)
 
   return (
@@ -47,7 +47,7 @@ const UserList = () => {
             {x.userId === get("userId", currentUser) && (
               <Button
                 plain
-                onClick={() => dispatch({ type: "EDIT_USER" })}
+                onClick={() => send("EDIT_USER")}
                 icon={<Edit size="small" />}
               />
             )}

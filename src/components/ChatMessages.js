@@ -8,10 +8,8 @@ import SystemMessage from "./SystemMessage"
 import TypingIndicator from "./TypingIndicator"
 import RoomContext from "../contexts/RoomContext"
 
-const ChatMessages = () => {
-  const { state } = useContext(RoomContext)
-  const sortedMessages = reverse(sortBy("timestamp", state.messages))
-  const currentUserId = get("currentUser.userId", state)
+const ChatMessages = ({ messages, currentUserId}) => {
+  const sortedMessages = reverse(sortBy("timestamp", messages))
   return (
     <Box
       flex={{ grow: 1, shrink: 1 }}
@@ -19,8 +17,8 @@ const ChatMessages = () => {
       overflow="auto"
       className="chatMessages"
     >
-      <TypingIndicator />
       <div className="chatMessages-overflow" style={{ height: "100%" }}>
+        <TypingIndicator />
         {sortedMessages.map(x =>
           get("user.id", x) === "system" ? (
             <SystemMessage key={x.timestamp} {...x} />
