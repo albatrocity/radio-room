@@ -9,10 +9,10 @@ import { audioMachine } from "../machines/audioMachine"
 
 const NowPlaying = () => {
   const size = useContext(ResponsiveContext)
-  const [state, send] = useMachine(audioMachine)
-  const { title, bitrate, album, artist, track, release = {} } =
+  const [state] = useMachine(audioMachine)
+  const { bitrate, album, artist, track, release = {} } =
     get("context.meta", state) || {}
-  const { mbid, releaseDate } = (release || {})
+  const { mbid, releaseDate } = release || {}
   const offline = bitrate === "0" || !bitrate || isEmpty(state.context.meta)
   const artworkSize = size === "small" ? "xsmall" : "small"
 

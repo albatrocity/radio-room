@@ -8,7 +8,7 @@ import React, {
 } from "react"
 
 import { Formik, Field } from "formik"
-import { Box, Button, TextInput, ThemeContext } from "grommet"
+import { Box, Button, ThemeContext } from "grommet"
 import { Chat } from "grommet-icons"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
@@ -23,7 +23,7 @@ const InputContainer = styled(Box)`
   }
 `
 
-const ChatInput = ({ onTypingStart, onTypingStop, onSend, users}) => {
+const ChatInput = ({ onTypingStart, onTypingStop, onSend, users }) => {
   const username = session.getItem(SESSION_USERNAME)
   const userId = session.getItem(SESSION_ID)
   const theme = useContext(ThemeContext)

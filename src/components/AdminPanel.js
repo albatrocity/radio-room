@@ -1,11 +1,9 @@
-import React, { useContext } from "react"
+import React from "react"
 import { Formik, Field } from "formik"
-import { Box, Button, Form } from "grommet"
-
-import SocketContext from "../contexts/SocketContext"
+import { Button, Form } from "grommet"
+import socket from "../lib/socket"
 
 const AdminPanel = () => {
-  const { socket } = useContext(SocketContext)
   return (
     <Formik
       initialValues={{ title: "" }}

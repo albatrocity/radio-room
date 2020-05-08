@@ -1,19 +1,6 @@
-import React, { useState, useRef, useEffect } from "react"
+import React, { useRef } from "react"
 import { useMachine } from "@xstate/react"
-import {
-  Box,
-  Header,
-  Main,
-  Button,
-  Icons,
-  Heading,
-  Paragraph,
-  Menu,
-  Sidebar,
-  Nav,
-  Avatar,
-  RangeInput,
-} from "grommet"
+import { Box, Button, Nav, RangeInput } from "grommet"
 import { Play, Pause, VolumeMute, Volume } from "grommet-icons"
 import ReactHowler from "react-howler"
 
