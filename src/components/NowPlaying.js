@@ -14,6 +14,7 @@ const NowPlaying = ({ state, onCover }) => {
   const { mbid, releaseDate } = release || {}
 
   const artworkSize = size === "small" ? "xsmall" : "small"
+  console.log(artworkSize)
   const releaseUrl = mbid && `https://musicbrainz.org/release/${mbid}`
   const coverUrl = cover
     ? cover
@@ -61,8 +62,8 @@ const NowPlaying = ({ state, onCover }) => {
             ) : (
               <Box
                 background="light-2"
-                height="small"
-                width="small"
+                width={artworkSize}
+                height={artworkSize}
                 align="center"
                 justify="center"
               >
