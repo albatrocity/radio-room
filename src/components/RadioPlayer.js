@@ -31,6 +31,7 @@ const RadioPlayer = ({
           pad={{ horizontal: "small" }}
         >
           <Box
+            basis="80px"
             animation={
               !playing
                 ? {
