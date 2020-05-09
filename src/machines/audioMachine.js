@@ -37,6 +37,7 @@ export const audioMachine = Machine(
           SET_META: {
             actions: ["setMeta"],
           },
+          OFFLINE: "offline",
         },
         states: {
           progress: {
@@ -57,8 +58,8 @@ export const audioMachine = Machine(
               found: {},
             },
             on: {
-              COVER_NOT_FOUND: "cover.none",
-              TRY_COVER: "cover.found",
+              COVER_NOT_FOUND: ".none",
+              TRY_COVER: ".found",
             },
           },
           volume: {
@@ -96,6 +97,23 @@ export const audioMachine = Machine(
               },
             },
           },
+        },
+      },
+      offline: {
+        invoke: {
+          src: _ => cb => {
+            socket.on("meta", payload => {
+              cb({ type: "SET_META", meta: payload })
+              cb({ type: "TRY_COVER" })
+            })
+          },
+          onError: "willRetry",
+        },
+        on: {
+          SET_META: {
+            actions: ["setMeta"],
+          },
+          ONLINE: "ready",
         },
       },
       willRetry: {

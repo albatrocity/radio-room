@@ -7,9 +7,8 @@ import { get, find } from "lodash/fp"
 
 import FormAdminMeta from "./FormAdminMeta"
 import FormAdminArtwork from "./FormAdminArtwork"
-import RadioPlayer from "./RadioPlayer"
 import Listeners from "./Listeners"
-import NowPlaying from "./NowPlaying"
+import PlayerUi from "./PlayerUi"
 import FormUsername from "./FormUsername"
 import Chat from "./Chat"
 import UserList from "./UserList"
@@ -25,7 +24,11 @@ const Room = () => {
         socket.emit("disconnect", authState.currentUser.userId)
       },
       setDj: (context, event) => {
-        socket.emit("set DJ", authState.currentUser.userId)
+        if (event.type === "START_DJ_SESSION") {
+          socket.emit("set DJ", authState.currentUser.userId)
+        } else {
+          socket.emit("set DJ", null)
+        }
       },
       checkDj: (context, event) => {
         const isDj = get(
@@ -65,11 +68,12 @@ const Room = () => {
 
   const hideListeners = useCallback(() => send("CLOSE_VIEWING"), [send])
   const hideNameForm = useCallback(() => send("CLOSE_EDIT"), [send])
+  console.log(roomState)
 
   return (
     <Box flex="grow">
       <Konami action={() => send("ACTIVATE_ADMIN")} />
-      {roomState.matches("connected.editing.username") && (
+      {roomState.matches("connected.participating.editing.username") && (
         <Layer responsive={false}>
           <Box
             fill="horizontal"
@@ -94,7 +98,7 @@ const Room = () => {
           />
         </Layer>
       )}
-      {roomState.matches("connected.modalViewing.listeners") && (
+      {roomState.matches("connected.participating.modalViewing.listeners") && (
         <Layer responsive={false} onClickOutside={hideListeners}>
           <Box
             fill="horizontal"
@@ -118,8 +122,8 @@ const Room = () => {
         </Layer>
       )}
 
-      {roomState.matches("connected.administrating.meta") && (
-        <Layer responsive={false} onClickOutside={() => send("CLOSE_ADMIN")}>
+      {roomState.matches("connected.participating.editing.meta") && (
+        <Layer responsive={false} onClickOutside={() => send("CLOSE_EDIT")}>
           <Box
             fill="horizontal"
             direction="row"
@@ -131,11 +135,7 @@ const Room = () => {
             <Heading margin="none" level={3}>
               Send Station Info
             </Heading>
-            <Button
-              onClick={() => send("CLOSE_ADMIN")}
-              plain
-              icon={<Close />}
-            />
+            <Button onClick={() => send("CLOSE_EDIT")} plain icon={<Close />} />
           </Box>
           <Box width="300px" pad="medium" overflow="auto">
             <FormAdminMeta onSubmit={value => socket.emit("fix meta", value)} />
@@ -143,8 +143,8 @@ const Room = () => {
         </Layer>
       )}
 
-      {roomState.matches("connected.administrating.artwork") && (
-        <Layer responsive={false} onClickOutside={() => send("CLOSE_ADMIN")}>
+      {roomState.matches("connected.participating.editing.artwork") && (
+        <Layer responsive={false} onClickOutside={() => send("CLOSE_EDIT")}>
           <Box
             fill="horizontal"
             direction="row"
@@ -156,11 +156,7 @@ const Room = () => {
             <Heading margin="none" level={3}>
               Set Cover Artwork
             </Heading>
-            <Button
-              onClick={() => send("CLOSE_ADMIN")}
-              plain
-              icon={<Close />}
-            />
+            <Button onClick={() => send("CLOSE_EDIT")} plain icon={<Close />} />
           </Box>
           <Box width="300px" pad="medium" overflow="auto">
             <FormAdminArtwork
@@ -170,10 +166,8 @@ const Room = () => {
         </Layer>
       )}
 
-      <Box>
-        <NowPlaying />
-        <RadioPlayer />
-      </Box>
+      <PlayerUi />
+
       <Box direction="row-responsive" flex="grow">
         <Box flex={{ grow: 1, shrink: 1 }} pad="medium">
           <Chat users={roomState.context.users} />
@@ -196,19 +190,25 @@ const Room = () => {
               <Heading level={3} margin={{ bottom: "xsmall" }}>
                 Admin
               </Heading>
-              {roomState.matches("djaying.notDj") && (
-                <Box gap="small">
+              <Box gap="small">
+                {roomState.matches("djaying.notDj") && (
                   <Button
                     label="I am the DJ"
                     onClick={() => send("START_DJ_SESSION")}
                     primary
                   />
+                )}
+                {roomState.matches("djaying.isDj") && (
                   <Button
-                    label="Change Cover Art"
-                    onClick={() => send("ADMIN_EDIT_ARTWORK")}
+                    label="End DJ Session"
+                    onClick={() => send("END_DJ_SESSION")}
                   />
-                </Box>
-              )}
+                )}
+                <Button
+                  label="Change Cover Art"
+                  onClick={() => send("ADMIN_EDIT_ARTWORK")}
+                />
+              </Box>
             </Box>
           )}
         </Box>

@@ -22,7 +22,7 @@ export const roomMachine = Machine(
     type: "parallel",
     states: {
       admin: {
-        id: "roomAdmin",
+        id: "admin",
         initial: "notAdmin",
         states: {
           isAdmin: {
@@ -42,6 +42,7 @@ export const roomMachine = Machine(
         states: {
           isDj: {
             entry: ["setDj"],
+            exit: ["setDj"],
             on: {
               "": [
                 {
@@ -64,58 +65,59 @@ export const roomMachine = Machine(
         initial: "participating",
         states: {
           participating: {
-            on: {
-              VIEW_LISTENERS: {
-                target: "#room.connected.modalViewing.listeners",
-                actions: [() => console.log("listeners")],
+            type: "parallel",
+            states: {
+              editing: {
+                initial: "none",
+                states: {
+                  none: {},
+                  username: {},
+                  meta: {
+                    on: {
+                      "": [
+                        {
+                          target: "none",
+                          in: "#room.admin.notAdmin",
+                        },
+                      ],
+                    },
+                  },
+                  artwork: {
+                    on: {
+                      "": [
+                        {
+                          target: "none",
+                          in: "#room.admin.notAdmin",
+                        },
+                      ],
+                    },
+                  },
+                },
+                on: {
+                  CLOSE_EDIT: ".none",
+                  EDIT_USERNAME: ".username",
+                  ADMIN_EDIT_META: {
+                    target: ".meta",
+                    in: "#room.admin.isAdmin",
+                  },
+                  ADMIN_EDIT_ARTWORK: {
+                    target: ".artwork",
+                    in: "#room.admin.isAdmin",
+                  },
+                },
+              },
+              modalViewing: {
+                initial: "none",
+                states: {
+                  none: {},
+                  listeners: {},
+                },
+                on: {
+                  CLOSE_VIEWING: ".none",
+                  VIEW_LISTENERS: ".listeners",
+                },
               },
             },
-          },
-          administrating: {
-            states: {
-              meta: {},
-              artwork: {},
-            },
-            on: {
-              "": [
-                {
-                  target: "participating",
-                  in: "#room.admin.notAdmin",
-                },
-              ],
-              CLOSE_ADMIN: "participating",
-            },
-          },
-          editing: {
-            initial: "none",
-            states: {
-              none: {},
-              username: {},
-            },
-            on: {
-              CLOSE_EDIT: "participating",
-            },
-          },
-          modalViewing: {
-            initial: "none",
-            states: {
-              none: {},
-              listeners: {},
-            },
-            on: {
-              CLOSE_VIEWING: "participating",
-            },
-          },
-        },
-        on: {
-          EDIT_USERNAME: "#room.connected.editing.username",
-          ADMIN_EDIT_META: {
-            target: "#room.connected.administrating.meta",
-            in: "#room.admin.isAdmin",
-          },
-          ADMIN_EDIT_ARTWORK: {
-            target: "#room.connected.administrating.artwork",
-            in: "#room.admin.isAdmin",
           },
         },
       },
