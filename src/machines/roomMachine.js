@@ -65,10 +65,6 @@ export const roomMachine = Machine(
         states: {
           participating: {
             on: {
-              ADMINISTRATE: {
-                target: "administrating",
-                in: "#room.admin.isAdmin",
-              },
               VIEW_LISTENERS: {
                 target: "#room.connected.modalViewing.listeners",
                 actions: [() => console.log("listeners")],
@@ -76,6 +72,10 @@ export const roomMachine = Machine(
             },
           },
           administrating: {
+            states: {
+              meta: {},
+              artwork: {},
+            },
             on: {
               "": [
                 {
@@ -109,6 +109,14 @@ export const roomMachine = Machine(
         },
         on: {
           EDIT_USERNAME: "#room.connected.editing.username",
+          ADMIN_EDIT_META: {
+            target: "#room.connected.administrating.meta",
+            in: "#room.admin.isAdmin",
+          },
+          ADMIN_EDIT_ARTWORK: {
+            target: "#room.connected.administrating.artwork",
+            in: "#room.admin.isAdmin",
+          },
         },
       },
     },

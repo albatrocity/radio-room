@@ -1,7 +1,6 @@
 import { Machine, assign } from "xstate"
 import socket from "../lib/socket"
 
-// This machine is completely decoupled from React
 export const audioMachine = Machine(
   {
     id: "audio",
@@ -29,6 +28,7 @@ export const audioMachine = Machine(
           src: _ => cb => {
             socket.on("meta", payload => {
               cb({ type: "SET_META", meta: payload })
+              cb({ type: "TRY_COVER" })
             })
           },
           onError: "willRetry",
@@ -48,6 +48,17 @@ export const audioMachine = Machine(
               stopped: {
                 on: { TOGGLE: "playing" },
               },
+            },
+          },
+          cover: {
+            initial: "found",
+            states: {
+              none: {},
+              found: {},
+            },
+            on: {
+              COVER_NOT_FOUND: "cover.none",
+              TRY_COVER: "cover.found",
             },
           },
           volume: {

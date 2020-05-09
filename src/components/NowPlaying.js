@@ -9,12 +9,18 @@ import { audioMachine } from "../machines/audioMachine"
 
 const NowPlaying = () => {
   const size = useContext(ResponsiveContext)
-  const [state] = useMachine(audioMachine)
-  const { bitrate, album, artist, track, release = {} } =
+  const [state, send] = useMachine(audioMachine)
+  const { bitrate, album, artist, track, release = {}, cover } =
     get("context.meta", state) || {}
   const { mbid, releaseDate } = release || {}
+  console.log(state.context.meta)
   const offline = bitrate === "0" || !bitrate || isEmpty(state.context.meta)
   const artworkSize = size === "small" ? "xsmall" : "small"
+  const coverUrl = cover
+    ? cover
+    : mbid
+    ? `https://coverartarchive.org/release/${mbid}/front-500`
+    : null
 
   return (
     <Box pad="small" align="center" background="dark-1">
@@ -29,12 +35,13 @@ const NowPlaying = () => {
       {!offline && (
         <>
           <Box direction="row" gap="small" justify="center">
-            {mbid ? (
+            {coverUrl && state.matches("ready.cover.found") ? (
               <Box width={artworkSize}>
                 <Image
+                  onError={() => send("IMAGE_NOT_FOUND")}
                   height="small"
                   width="small"
-                  src={`https://coverartarchive.org/release/${mbid}/front-500`}
+                  src={coverUrl}
                 />
               </Box>
             ) : (

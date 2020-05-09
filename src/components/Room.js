@@ -5,7 +5,8 @@ import { Box, Button, Layer, Heading } from "grommet"
 import { Close } from "grommet-icons"
 import { get, find } from "lodash/fp"
 
-import AdminPanel from "./AdminPanel"
+import FormAdminMeta from "./FormAdminMeta"
+import FormAdminArtwork from "./FormAdminArtwork"
 import RadioPlayer from "./RadioPlayer"
 import Listeners from "./Listeners"
 import NowPlaying from "./NowPlaying"
@@ -116,12 +117,9 @@ const Room = () => {
           </Box>
         </Layer>
       )}
-      {/*
-      {state.adminPanel && (
-        <Layer
-          responsive={false}
-          onClickOutside={() => send({ type: "ADMIN_PANEL", payload: false })}
-        >
+
+      {roomState.matches("connected.administrating.meta") && (
+        <Layer responsive={false} onClickOutside={() => send("CLOSE_ADMIN")}>
           <Box
             fill="horizontal"
             direction="row"
@@ -130,21 +128,48 @@ const Room = () => {
             pad="medium"
             flex={{ shrink: 0 }}
           >
-            <Heading margin="none" level={2}>
-              Admin
+            <Heading margin="none" level={3}>
+              Send Station Info
             </Heading>
             <Button
-              onClick={() => send({ type: "ADMIN_PANEL", payload: false })}
+              onClick={() => send("CLOSE_ADMIN")}
               plain
               icon={<Close />}
             />
           </Box>
           <Box width="300px" pad="medium" overflow="auto">
-            <AdminPanel />
+            <FormAdminMeta onSubmit={value => socket.emit("fix meta", value)} />
           </Box>
         </Layer>
       )}
-      */}
+
+      {roomState.matches("connected.administrating.artwork") && (
+        <Layer responsive={false} onClickOutside={() => send("CLOSE_ADMIN")}>
+          <Box
+            fill="horizontal"
+            direction="row"
+            justify="between"
+            align="center"
+            pad="medium"
+            flex={{ shrink: 0 }}
+          >
+            <Heading margin="none" level={3}>
+              Set Cover Artwork
+            </Heading>
+            <Button
+              onClick={() => send("CLOSE_ADMIN")}
+              plain
+              icon={<Close />}
+            />
+          </Box>
+          <Box width="300px" pad="medium" overflow="auto">
+            <FormAdminArtwork
+              onSubmit={value => socket.emit("set cover", value)}
+            />
+          </Box>
+        </Layer>
+      )}
+
       <Box>
         <NowPlaying />
         <RadioPlayer />
@@ -168,12 +193,21 @@ const Room = () => {
           />
           {roomState.matches("admin.isAdmin") && (
             <Box pad="small" flex={{ shrink: 0 }}>
-              <Heading level={3}>Admin</Heading>
+              <Heading level={3} margin={{ bottom: "xsmall" }}>
+                Admin
+              </Heading>
               {roomState.matches("djaying.notDj") && (
-                <Button
-                  label="I am the DJ"
-                  onClick={() => send("START_DJ_SESSION")}
-                />
+                <Box gap="small">
+                  <Button
+                    label="I am the DJ"
+                    onClick={() => send("START_DJ_SESSION")}
+                    primary
+                  />
+                  <Button
+                    label="Change Cover Art"
+                    onClick={() => send("ADMIN_EDIT_ARTWORK")}
+                  />
+                </Box>
               )}
             </Box>
           )}
