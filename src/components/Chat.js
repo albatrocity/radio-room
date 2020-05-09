@@ -5,6 +5,7 @@ import { Box } from "grommet"
 import socket from "../lib/socket"
 import ChatMessages from "./ChatMessages"
 import ChatInput from "./ChatInput"
+import { handleNotifications } from "../lib/handleNotifications"
 import AuthContext from "../contexts/AuthContext"
 import { chatMachine } from "../machines/chatMachine"
 
@@ -14,6 +15,7 @@ const Chat = ({ users }) => {
     activities: {
       setupListeners: ctx => {
         const handleNewMessage = payload => {
+          handleNotifications(payload)
           chatSend({ type: "MESSAGE_RECEIVED", data: payload })
         }
         const handleTyping = payload => {
