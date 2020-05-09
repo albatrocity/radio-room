@@ -1,21 +1,12 @@
-import React, { useMemo, useContext } from "react"
+import React, { useMemo } from "react"
 import { tail, map, get, reject, last } from "lodash/fp"
 import { Box, Text } from "grommet"
 
-import RoomContext from "../contexts/RoomContext"
-
-const TypingIndicator = () => {
-  const {
-    state: { typing, currentUser },
-  } = useContext(RoomContext)
-
+const TypingIndicator = ({ typing, currentUserId }) => {
   const typingUsers = useMemo(
     () =>
-      map(
-        u => get("username", u),
-        reject({ userId: get("userId", currentUser) }, typing)
-      ),
-    [typing]
+      map(u => get("username", u), reject({ userId: currentUserId }, typing)),
+    [typing, currentUserId]
   )
 
   const formattedNames = useMemo(

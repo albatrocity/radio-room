@@ -1,38 +1,61 @@
-import React, { useContext } from "react"
-import { Box, Heading, Text, Image, ResponsiveContext } from "grommet"
+import React, { useContext, useEffect } from "react"
+import { useMachine } from "@xstate/react"
+import { Box, Heading, Text, Image, ResponsiveContext, Anchor } from "grommet"
 import { Music, Unlink } from "grommet-icons"
-import { isEmpty } from "lodash/fp"
+import { isEmpty, get } from "lodash/fp"
 
 import safeDate from "../lib/safeDate"
-import PlayerContext from "../contexts/PlayerContext"
+import { audioMachine } from "../machines/audioMachine"
 
-const NowPlaying = () => {
-  const { state } = useContext(PlayerContext)
+const NowPlaying = ({ state, onCover }) => {
   const size = useContext(ResponsiveContext)
-  const { title, bitrate, album, artist, track, release = {} } = state.meta
-  const { mbid, releaseDate } = release
-  const offline = bitrate === "0" || !bitrate || isEmpty(state.meta)
+  const { bitrate, album, artist, track, release = {}, cover } =
+    get("context.meta", state) || {}
+  const { mbid, releaseDate } = release || {}
+
   const artworkSize = size === "small" ? "xsmall" : "small"
+  const releaseUrl = mbid && `https://musicbrainz.org/release/${mbid}`
+  const coverUrl = cover
+    ? cover
+    : mbid
+    ? `https://coverartarchive.org/release/${mbid}/front-500`
+    : null
+
+  useEffect(() => {
+    if (coverUrl) {
+      onCover(true)
+    } else {
+      onCover(false)
+    }
+  }, [coverUrl])
 
   return (
     <Box pad="small" align="center" background="dark-1">
-      {offline && (
-        <Box direction="row" gap="small" align="center">
-          <Unlink color="black" />
-          <Heading margin="none" level={2}>
-            Offline :(
-          </Heading>
-        </Box>
-      )}
-      {!offline && (
+      {state.matches("offline") && (
         <>
+          <Box direction="row" gap="small" align="center">
+            <Unlink color="black" />
+            <Heading margin="none" level={2}>
+              Offline :(
+            </Heading>
+          </Box>
+          <Heading margin="none" level={4}>
+            Nobody's broadcasting right now.
+          </Heading>
+        </>
+      )}
+      {state.matches("ready") && (
+        <Anchor href={releaseUrl} target="_blank">
           <Box direction="row" gap="small" justify="center">
-            {mbid ? (
-              <Box width={artworkSize}>
+            {coverUrl && state.matches("ready.cover.found") ? (
+              <Box width={artworkSize} height={artworkSize}>
                 <Image
+                  onError={() => {
+                    onCover(false)
+                  }}
                   height="small"
                   width="small"
-                  src={`https://coverartarchive.org/release/${mbid}/front-500`}
+                  src={coverUrl}
                 />
               </Box>
             ) : (
@@ -67,7 +90,7 @@ const NowPlaying = () => {
               )}
             </Box>
           </Box>
-        </>
+        </Anchor>
       )}
     </Box>
   )

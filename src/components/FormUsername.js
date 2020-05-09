@@ -1,16 +1,9 @@
-import React, { useContext } from "react"
+import React from "react"
 import { Formik } from "formik"
 import { Box, Button, TextInput, Heading } from "grommet"
-import session from "sessionstorage"
 
-import { SESSION_ID, SESSION_USERNAME } from "../constants"
-import RoomContext from "../contexts/RoomContext"
-
-const FormUsername = () => {
-  const username = session.getItem(SESSION_USERNAME)
-  const userId = session.getItem(SESSION_ID)
-  const { state, dispatch } = useContext(RoomContext)
-
+const FormUsername = ({ onClose, onSubmit, currentUser }) => {
+  const { username, userId } = currentUser
   return (
     <Box pad="small" gap="small" width="medium">
       <Formik
@@ -24,7 +17,7 @@ const FormUsername = () => {
         }}
         onSubmit={(values, { setSubmitting, resetForm }) => {
           setSubmitting(false)
-          dispatch({ type: "CHANGE_USERNAME", payload: values.username })
+          onSubmit(values.username)
         }}
       >
         {({
@@ -62,10 +55,7 @@ const FormUsername = () => {
           </form>
         )}
       </Formik>
-      <Button
-        label={state.editingUser ? "Cancel" : "Remain Anonymous"}
-        onClick={() => dispatch({ type: "CLOSE_USERNAME_FORM" })}
-      />
+      <Button label={"Cancel"} onClick={() => onClose()} />
     </Box>
   )
 }

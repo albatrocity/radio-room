@@ -1,5 +1,5 @@
 import React, { memo } from "react"
-import { Box, Paragraph, Heading, Text } from "grommet"
+import { Box, Paragraph, Text } from "grommet"
 import { format } from "date-fns"
 
 const SystemMessage = ({ content, timestamp, user }) => {

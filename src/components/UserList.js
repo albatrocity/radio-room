@@ -1,16 +1,18 @@
 import React, { useContext } from "react"
-import { uniqBy, get, find } from "lodash/fp"
-import { Box, Heading, Text, Button, ResponsiveContext } from "grommet"
-import { Edit, MoreVertical } from "grommet-icons"
+import { uniqBy, get, find, sortBy, reverse } from "lodash/fp"
+import { Box, Text, Button } from "grommet"
+import { Edit, MoreVertical, Microphone } from "grommet-icons"
 
-import RoomContext from "../contexts/RoomContext"
+import AuthContext from "../contexts/AuthContext"
 
-const UserList = () => {
-  const {
-    state: { typing, currentUser, users },
-    dispatch,
-  } = useContext(RoomContext)
-  const userList = uniqBy("userId", users)
+const UserList = ({ users, onEditUser }) => {
+  const { state: authState } = useContext(AuthContext)
+  const typing = []
+
+  const { currentUser } = authState
+  const userList = reverse(
+    sortBy(["isDj", "connectedAt"], uniqBy("userId", users))
+  )
 
   return (
     <div>
@@ -25,6 +27,8 @@ const UserList = () => {
             border={{ side: "bottom" }}
             gap="xsmall"
             pad={{ vertical: "xsmall" }}
+            elevation={x.isDj ? "small" : "none"}
+            background={x.isDj ? "dark-2" : "transparent"}
           >
             <Box
               animation={
@@ -41,15 +45,24 @@ const UserList = () => {
             >
               <MoreVertical color="light-4" size="small" />
             </Box>
+            {x.isDj && (
+              <Box>
+                <Microphone size="14px" />
+              </Box>
+            )}
             <Box align="start" flex={{ grow: 1, shrink: 1 }}>
-              <Text size="small">{x.username || "anonymous"}</Text>
+              <Text weight={x.isDj ? 700 : 500} size="small">
+                {x.username || "anonymous"}
+              </Text>
             </Box>
             {x.userId === get("userId", currentUser) && (
-              <Button
-                plain
-                onClick={() => dispatch({ type: "EDIT_USER" })}
-                icon={<Edit size="small" />}
-              />
+              <Box pad={{ horizontal: "xsmall" }}>
+                <Button
+                  plain
+                  onClick={() => onEditUser()}
+                  icon={<Edit size="small" />}
+                />
+              </Box>
             )}
           </Box>
         )

@@ -1,77 +1,67 @@
-import React, { useState, useRef, useEffect } from "react"
-import {
-  Box,
-  Header,
-  Main,
-  Button,
-  Icons,
-  Heading,
-  Paragraph,
-  Menu,
-  Sidebar,
-  Nav,
-  Avatar,
-  RangeInput,
-} from "grommet"
-
+import React, { useRef, memo } from "react"
+import { useMachine } from "@xstate/react"
+import { Box, Button, Nav, RangeInput } from "grommet"
 import { Play, Pause, VolumeMute, Volume } from "grommet-icons"
-
 import ReactHowler from "react-howler"
+
+import { audioMachine } from "../machines/audioMachine"
 
 const streamURL = process.env.GATSBY_STREAM_URL
 
-const RadioPlayer = () => {
-  const [playing, setPlaying] = useState(false)
-  const [muted, setMuted] = useState(false)
-  const [volume, setVolume] = useState(1.0)
+const RadioPlayer = ({
+  volume,
+  meta,
+  state,
+  onVolume,
+  onPlayPause,
+  onMute,
+}) => {
   const player = useRef(null)
-
-  const stop = () => {
-    player.current && player.current.stop()
-    setPlaying(false)
-  }
-
-  useEffect(() => {
-    if (!muted && volume === "0") {
-      setVolume(1.0)
-    }
-  }, [muted])
-
-  useEffect(() => {
-    if (volume === "0") {
-      setMuted(true)
-    } else {
-      setMuted(false)
-    }
-  }, [volume])
+  const playing = state.matches({ ready: { progress: "playing" } })
+  const muted = state.matches({ ready: { volume: "muted" } })
 
   return (
     <Box>
-      <Nav
-        direction="row"
-        background="brand"
-        justify="center"
-        align="center"
-        pad={{ horizontal: "small" }}
-      >
-        <Button
-          icon={playing ? <Pause /> : <Play />}
-          onClick={() => (playing ? stop() : setPlaying(true))}
-        />
-        <Button
-          icon={muted ? <VolumeMute /> : <Volume />}
-          onClick={() => (muted ? setMuted(false) : setMuted(true))}
-        />
-        <Box width="medium">
-          <RangeInput
-            value={muted ? 0 : volume}
-            max={1.0}
-            min={0}
-            step={0.1}
-            onChange={event => setVolume(event.target.value)}
+      {state.matches("ready") && (
+        <Nav
+          direction="row"
+          background="brand"
+          justify="center"
+          align="center"
+          pad={{ horizontal: "small" }}
+        >
+          <Box
+            animation={
+              !playing
+                ? {
+                    type: "pulse",
+                    delay: 0,
+                    duration: 400,
+                    size: "large",
+                  }
+                : null
+            }
+          >
+            <Button
+              icon={playing ? <Pause /> : <Play />}
+              onClick={() => onPlayPause()}
+            />
+          </Box>
+          <Button
+            icon={muted ? <VolumeMute /> : <Volume />}
+            onClick={() => onMute()}
           />
-        </Box>
-      </Nav>
+          <Box width="medium">
+            <RangeInput
+              value={muted ? 0 : volume}
+              max={1.0}
+              min={0}
+              step={0.1}
+              onChange={event => onVolume(event.target.value)}
+            />
+          </Box>
+        </Nav>
+      )}
       <ReactHowler
         src={[streamURL]}
         preload={false}
@@ -85,4 +75,4 @@ const RadioPlayer = () => {
   )
 }
 
-export default RadioPlayer
+export default memo(RadioPlayer)
