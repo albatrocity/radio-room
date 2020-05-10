@@ -31,11 +31,17 @@ export const roomMachine = Machine(
           isAdmin: {
             on: {
               DEACTIVATE_ADMIN: "notAdmin",
+              KICK_USER: {
+                actions: ["kickUser"],
+              },
             },
           },
           notAdmin: {
             on: {
-              ACTIVATE_ADMIN: "isAdmin",
+              ACTIVATE_ADMIN: {
+                target: "isAdmin",
+                actions: ["adminActivated"],
+              },
             },
           },
         },
@@ -63,6 +69,7 @@ export const roomMachine = Machine(
           },
         },
       },
+      disconnected: {},
       connected: {
         activities: ["setupListeners"],
         initial: "participating",
@@ -120,6 +127,10 @@ export const roomMachine = Machine(
                   ADMIN_EDIT_SETTINGS: {
                     target: ".settings",
                     in: "#room.admin.isAdmin",
+                  },
+                  DISCONNECT: {
+                    target: "#room.disconnected",
+                    actions: ["setRetry"],
                   },
                 },
               },

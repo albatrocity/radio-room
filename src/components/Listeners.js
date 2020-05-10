@@ -9,6 +9,7 @@ const Listeners = ({
   dj,
   onViewListeners,
   onEditUser,
+  onKickUser,
   onEditSettings,
   typing,
 }) => {
@@ -42,6 +43,7 @@ const Listeners = ({
             dj={dj}
             onEditSettings={onEditSettings}
             onEditUser={onEditUser}
+            onKickUser={onKickUser}
             typing={typing}
           />
         )}

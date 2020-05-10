@@ -2,15 +2,16 @@ import React, { memo } from "react"
 import { Box, Paragraph, Text } from "grommet"
 import { format } from "date-fns"
 
-const SystemMessage = ({ content, timestamp, user }) => {
+const SystemMessage = ({ content, timestamp, user, meta = {} }) => {
   const date = new Date(timestamp)
   const time = format(date, "p")
   const dateString = format(date, "M/d/y")
+  const { status } = meta
   return (
     <Box
       pad="small"
       border={{ side: "bottom" }}
-      background="light-2"
+      background={status === "critical" ? "status-critical" : "light-2"}
       align="center"
     >
       <Paragraph
