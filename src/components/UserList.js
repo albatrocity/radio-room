@@ -32,7 +32,12 @@ const UserList = ({ listeners, onEditUser, dj, typing, onEditSettings }) => {
           <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
             DJ
           </Heading>
-          <ListItemUser user={dj} currentUser={currentUser} typing={typing} />
+          <ListItemUser
+            user={dj}
+            currentUser={currentUser}
+            onEditUser={onEditUser}
+            typing={typing}
+          />
 
           {currentDj && !dj.extraInfo && !dj.donationURL && (
             <Box
