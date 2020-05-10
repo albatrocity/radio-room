@@ -4,6 +4,7 @@ import Linkify from "react-linkify"
 import nl2br from "react-nl2br"
 import { Currency } from "grommet-icons"
 import styled from "styled-components"
+import { get, isEqual } from "lodash/fp"
 import { Edit } from "grommet-icons"
 
 import AuthContext from "../contexts/AuthContext"
@@ -19,7 +20,10 @@ const UserList = ({ listeners, onEditUser, dj, typing, onEditSettings }) => {
   const { state: authState } = useContext(AuthContext)
 
   const { currentUser } = authState
-  const currentDj = authState.currentUser.userId === dj.userId
+  const currentDj = isEqual(
+    get("currentUser.userId", authState),
+    get("userId", dj)
+  )
 
   return (
     <div>
