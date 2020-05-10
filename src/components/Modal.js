@@ -9,7 +9,11 @@ const Modal = ({
   heading,
   width = "300px",
 }) => (
-  <Layer responsive={responsive} onClickOutside={() => onClose()}>
+  <Layer
+    responsive={responsive}
+    onClickOutside={() => onClose()}
+    onEsc={() => onClose()}
+  >
     <Box
       fill="horizontal"
       direction="row"

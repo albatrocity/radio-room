@@ -9,6 +9,7 @@ const Listeners = ({
   dj,
   onViewListeners,
   onEditUser,
+  onEditSettings,
   typing,
 }) => {
   const size = useContext(ResponsiveContext)
@@ -39,6 +40,7 @@ const Listeners = ({
           <UserList
             listeners={listeners}
             dj={dj}
+            onEditSettings={onEditSettings}
             onEditUser={onEditUser}
             typing={typing}
           />

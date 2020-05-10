@@ -118,6 +118,7 @@ const Room = () => {
             listeners={listeners}
             dj={dj}
             typing={roomMachine.context.typing}
+            onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
             onEditUser={() => send("EDIT_USERNAME")}
           />
         </Modal>
@@ -166,6 +167,7 @@ const Room = () => {
           <Listeners
             listeners={listeners}
             dj={dj}
+            onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
             onViewListeners={view =>
               view ? send("VIEW_LISTENERS") : send("CLOSE_VIEWING")
             }
@@ -195,11 +197,33 @@ const Room = () => {
                   label="Change Cover Art"
                   onClick={() => send("ADMIN_EDIT_ARTWORK")}
                 />
-                <Button
-                  label="Settings"
-                  icon={<SettingsOption />}
-                  onClick={() => send("ADMIN_EDIT_SETTINGS")}
-                />
+                <Box
+                  animation={
+                    roomState.matches(
+                      "connected.participating.editing.settings"
+                    )
+                      ? {
+                          type: "pulse",
+                          delay: 0,
+                          duration: 400,
+                          size: "medium",
+                        }
+                      : null
+                  }
+                >
+                  <Button
+                    label="Settings"
+                    primary={
+                      roomState.matches(
+                        "connected.participating.editing.settings"
+                      )
+                        ? true
+                        : false
+                    }
+                    icon={<SettingsOption />}
+                    onClick={() => send("ADMIN_EDIT_SETTINGS")}
+                  />
+                </Box>
               </Box>
             </Box>
           )}
