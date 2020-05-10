@@ -4,24 +4,12 @@ import socket from "../lib/socket"
 export const audioMachine = Machine(
   {
     id: "audio",
-    initial: "initial",
+    initial: "offline",
     context: {
       volume: 1.0,
       meta: {},
     },
     states: {
-      initial: {
-        invoke: {
-          src: _ => cb => {
-            socket.on("init", payload => {
-              cb({ type: "LOGIN", meta: payload.meta })
-            })
-          },
-        },
-        on: {
-          LOGIN: { target: "ready", actions: ["setMeta"] },
-        },
-      },
       ready: {
         type: "parallel",
         invoke: {
@@ -101,23 +89,16 @@ export const audioMachine = Machine(
       },
       offline: {
         invoke: {
-          src: _ => cb => {
-            socket.on("meta", payload => {
-              cb({ type: "SET_META", meta: payload })
-              cb({ type: "TRY_COVER" })
-            })
-          },
+          src: "pingOffline",
           onError: "willRetry",
+          onDone: { target: "ready", actions: ["setMeta"] },
         },
         on: {
-          SET_META: {
-            actions: ["setMeta"],
-          },
           ONLINE: "ready",
         },
       },
       willRetry: {
-        after: { 2000: "ready" },
+        after: { 2000: "offline" },
       },
     },
   },
@@ -127,7 +108,11 @@ export const audioMachine = Machine(
         volume: event.volume,
       })),
       setMeta: assign((context, event) => {
-        return { meta: event.meta }
+        if (event.hasOwnProperty("data")) {
+          return { meta: event.data.meta }
+        } else {
+          return { meta: event.meta }
+        }
       }),
     },
     guards: {

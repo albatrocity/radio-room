@@ -3,12 +3,26 @@ import { Box } from "grommet"
 import { useMachine } from "@xstate/react"
 import { isEmpty, get } from "lodash/fp"
 
+import socket from "../lib/socket"
 import NowPlaying from "./NowPlaying"
 import RadioPlayer from "./RadioPlayer"
 import { audioMachine } from "../machines/audioMachine"
 
 const PlayerUi = () => {
-  const [state, send] = useMachine(audioMachine)
+  const [state, send] = useMachine(audioMachine, {
+    services: {
+      pingOffline: () => {
+        return new Promise((resolve, reject) => {
+          socket.on("meta", payload => {
+            resolve(payload)
+          })
+          socket.on("init", payload => {
+            resolve(payload)
+          })
+        })
+      },
+    },
+  })
   const playing = state.matches({ ready: { progress: "playing" } })
   const muted = state.matches({ ready: { volume: "muted" } })
   const { volume, meta } = state.context

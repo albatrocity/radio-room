@@ -24,7 +24,10 @@ const TypingIndicator = ({ typing, currentUserId }) => {
   )
 
   return (
-    <Box style={{ opacity: typingUsers.length > 0 ? 1 : 0 }}>
+    <Box
+      style={{ opacity: typingUsers.length > 0 ? 1 : 0 }}
+      pad={{ left: "40px", bottom: "small" }}
+    >
       <Text size="small">
         {formattedNames} {typingUsers.length === 1 ? "is" : "are"} typing...
       </Text>

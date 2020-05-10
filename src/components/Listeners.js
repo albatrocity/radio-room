@@ -1,12 +1,17 @@
 import React, { useContext, useCallback } from "react"
-import { uniqBy } from "lodash/fp"
+import { uniqBy, sortBy, reject, find } from "lodash/fp"
 import { Box, Heading, Text, Button, ResponsiveContext } from "grommet"
 
 import UserList from "./UserList"
 
-const Listeners = ({ users, onViewListeners, onEditUser }) => {
+const Listeners = ({
+  listeners = [],
+  dj,
+  onViewListeners,
+  onEditUser,
+  typing,
+}) => {
   const size = useContext(ResponsiveContext)
-  const userList = uniqBy("userId", users)
 
   const isSmall = size === "small"
 
@@ -16,17 +21,13 @@ const Listeners = ({ users, onViewListeners, onEditUser }) => {
 
   return (
     <Box pad="small" className="list-outer" height="100%">
-      {isSmall ? (
+      {isSmall && (
         <Box>
           <Button
             onClick={handleListeners}
-            label={`Listeners (${userList.length})`}
+            label={`Listeners (${listeners.length})`}
           />
         </Box>
-      ) : (
-        <Heading level={3}>
-          Listeners <Text size="small">({userList.length})</Text>
-        </Heading>
       )}
       <Box
         flex={{ grow: 1, shrink: 1 }}
@@ -34,7 +35,14 @@ const Listeners = ({ users, onViewListeners, onEditUser }) => {
         overflow="auto"
         className="list-overflow"
       >
-        {!isSmall && <UserList users={users} onEditUser={onEditUser} />}
+        {!isSmall && (
+          <UserList
+            listeners={listeners}
+            dj={dj}
+            onEditUser={onEditUser}
+            typing={typing}
+          />
+        )}
       </Box>
     </Box>
   )

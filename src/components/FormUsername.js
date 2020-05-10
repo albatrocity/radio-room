@@ -1,6 +1,6 @@
 import React from "react"
 import { Formik } from "formik"
-import { Box, Button, TextInput, Heading } from "grommet"
+import { Box, Button, TextInput, Heading, Paragraph } from "grommet"
 
 const FormUsername = ({ onClose, onSubmit, currentUser }) => {
   const { username, userId } = currentUser
@@ -31,7 +31,7 @@ const FormUsername = ({ onClose, onSubmit, currentUser }) => {
           isValid,
         }) => (
           <form onSubmit={handleSubmit}>
-            <Heading level={3}>What's your name?</Heading>
+            <Paragraph>What are we gonna call you in here?</Paragraph>
             <Box direction="row" fill="horizontal">
               <TextInput
                 onChange={handleChange}
