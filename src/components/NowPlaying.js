@@ -14,7 +14,6 @@ const NowPlaying = ({ state, onCover }) => {
   const { mbid, releaseDate } = release || {}
 
   const artworkSize = size === "small" ? "xsmall" : "small"
-  console.log(artworkSize)
   const releaseUrl = mbid && `https://musicbrainz.org/release/${mbid}`
   const coverUrl = cover
     ? cover

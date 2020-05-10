@@ -1,74 +1,104 @@
-import React, { useContext } from "react"
-import { uniqBy, get, find, sortBy, reverse } from "lodash/fp"
-import { Box, Text, Button } from "grommet"
-import { Edit, MoreVertical, Microphone } from "grommet-icons"
+import React, { useContext, memo } from "react"
+import { Box, Text, Anchor, Heading } from "grommet"
+import Linkify from "react-linkify"
+import nl2br from "react-nl2br"
+import { Currency } from "grommet-icons"
+import styled from "styled-components"
+import { Edit } from "grommet-icons"
 
 import AuthContext from "../contexts/AuthContext"
+import ListItemUser from "./ListItemUser"
 
-const UserList = ({ users, onEditUser }) => {
+const StyledText = styled(Text)`
+  a {
+    color: ${p => p.theme.global.colors[p.theme.anchor.color.dark]};
+  }
+`
+
+const UserList = ({ listeners, onEditUser, dj, typing, onEditSettings }) => {
   const { state: authState } = useContext(AuthContext)
-  const typing = []
 
   const { currentUser } = authState
-  const userList = reverse(
-    sortBy(["isDj", "connectedAt"], uniqBy("userId", users))
-  )
+  const currentDj = authState.currentUser.userId === dj.userId
 
   return (
     <div>
-      {userList.map(x => {
-        const userTyping = find({ userId: get("userId", x) }, typing)
-        return (
-          <Box
-            direction="row"
-            align="center"
-            key={x.userId}
-            justify="between"
-            border={{ side: "bottom" }}
-            gap="xsmall"
-            pad={{ vertical: "xsmall" }}
-            elevation={x.isDj ? "small" : "none"}
-            background={x.isDj ? "dark-2" : "transparent"}
-          >
+      {dj && (
+        <Box margin={{ bottom: "small" }}>
+          <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
+            DJ
+          </Heading>
+          <ListItemUser user={dj} currentUser={currentUser} typing={typing} />
+
+          {currentDj && !dj.extraInfo && !dj.donationURL && (
             <Box
-              animation={
-                userTyping
-                  ? {
-                      type: "pulse",
-                      delay: 0,
-                      duration: 200,
-                      size: "large",
-                    }
-                  : null
-              }
-              style={{ opacity: userTyping ? 1 : 0 }}
+              background="dark-1"
+              pad="small"
+              elevation="medium"
+              border={{ side: "vertical" }}
             >
-              <MoreVertical color="light-4" size="small" />
-            </Box>
-            {x.isDj && (
-              <Box>
-                <Microphone size="14px" />
+              <Box
+                margin="xsmall"
+                pad="xsmall"
+                direction="row"
+                border={{ side: "all", style: "dashed" }}
+                align="center"
+                gap="xsmall"
+                onClick={() => onEditSettings()}
+              >
+                <Text size="small">
+                  Add info here, like links to anything you're promoting and a
+                  donation link.
+                </Text>
+                <Edit />
               </Box>
-            )}
-            <Box align="start" flex={{ grow: 1, shrink: 1 }}>
-              <Text weight={x.isDj ? 700 : 500} size="small">
-                {x.username || "anonymous"}
-              </Text>
             </Box>
-            {x.userId === get("userId", currentUser) && (
-              <Box pad={{ horizontal: "xsmall" }}>
-                <Button
-                  plain
-                  onClick={() => onEditUser()}
-                  icon={<Edit size="small" />}
-                />
-              </Box>
-            )}
-          </Box>
-        )
-      })}
+          )}
+
+          {(dj.extraInfo || dj.donationURL) && (
+            <Box
+              background="dark-1"
+              pad="small"
+              elevation="medium"
+              border={{ side: "vertical" }}
+            >
+              {dj.donationURL !== "" && (
+                <Text truncate={true}>
+                  <Anchor
+                    icon={<Currency />}
+                    href={dj.donationURL}
+                    label={dj.donationURL}
+                  />
+                </Text>
+              )}
+
+              {dj.extraInfo !== "" && (
+                <Linkify>
+                  <StyledText size="small">{nl2br(dj.extraInfo)}</StyledText>
+                </Linkify>
+              )}
+            </Box>
+          )}
+        </Box>
+      )}
+      <Box>
+        <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
+          Listeners <Text size="small">({listeners.length})</Text>
+        </Heading>
+        {listeners.map(x => {
+          return (
+            <ListItemUser
+              key={x.userId}
+              user={x}
+              typing={typing}
+              currentUser={currentUser}
+              onEditUser={onEditUser}
+            />
+          )
+        })}
+      </Box>
     </div>
   )
 }
 
-export default UserList
+export default memo(UserList)

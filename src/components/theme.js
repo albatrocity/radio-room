@@ -12,6 +12,16 @@ const theme = {
       radius: "0.3rem",
     },
   },
+  formField: {
+    info: {
+      margin: "xlarge",
+      fontSize: "small",
+      color: "brand",
+    },
+    info: {
+      size: "small",
+    },
+  },
 }
 
 export default theme

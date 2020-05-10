@@ -18,6 +18,9 @@ export const roomMachine = Machine(
       LOGIN: {
         actions: ["setData"],
       },
+      TYPING: {
+        actions: ["setTyping"],
+      },
     },
     type: "parallel",
     states: {
@@ -92,6 +95,16 @@ export const roomMachine = Machine(
                       ],
                     },
                   },
+                  settings: {
+                    on: {
+                      "": [
+                        {
+                          target: "none",
+                          in: "#room.admin.notAdmin",
+                        },
+                      ],
+                    },
+                  },
                 },
                 on: {
                   CLOSE_EDIT: ".none",
@@ -102,6 +115,10 @@ export const roomMachine = Machine(
                   },
                   ADMIN_EDIT_ARTWORK: {
                     target: ".artwork",
+                    in: "#room.admin.isAdmin",
+                  },
+                  ADMIN_EDIT_SETTINGS: {
+                    target: ".settings",
                     in: "#room.admin.isAdmin",
                   },
                 },
@@ -125,6 +142,9 @@ export const roomMachine = Machine(
   },
   {
     actions: {
+      setTyping: assign((ctx, event) => {
+        return { typing: event.data }
+      }),
       setUsers: assign({
         users: (context, event) => {
           return event.data.users

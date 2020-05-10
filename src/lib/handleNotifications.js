@@ -33,6 +33,4 @@ export const handleNotifications = async payload => {
       native: true,
     })
   }
-  console.log(payload)
-  console.log(currentUser)
 }

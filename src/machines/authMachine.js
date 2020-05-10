@@ -6,6 +6,7 @@ export const authMachine = Machine(
     initial: "unauthenticated",
     context: {
       currentUser: {},
+      isNewUser: false,
     },
     states: {
       unauthenticated: {
@@ -46,7 +47,7 @@ export const authMachine = Machine(
           },
           UPDATE_USERNAME: {
             target: "editingUsername",
-            actions: ["getCurrentUser"],
+            actions: ["unsetNew", "getCurrentUser"],
           },
         },
       },
@@ -55,7 +56,15 @@ export const authMachine = Machine(
   {
     actions: {
       setCurrentUser: assign((ctx, event) => {
-        return { currentUser: event.data.currentUser }
+        return {
+          currentUser: event.data.currentUser,
+          isNewUser: event.data.isNewUser,
+        }
+      }),
+      unsetNew: assign((ctx, event) => {
+        return {
+          isNewUser: false,
+        }
       }),
     },
   }

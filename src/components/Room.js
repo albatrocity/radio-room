@@ -1,17 +1,19 @@
-import React, { useContext, useCallback } from "react"
+import React, { useContext, useCallback, useEffect } from "react"
 import { useMachine } from "@xstate/react"
 import Konami from "react-konami-code"
 import { Box, Button, Layer, Heading } from "grommet"
-import { Close } from "grommet-icons"
-import { get, find } from "lodash/fp"
+import { Close, SettingsOption } from "grommet-icons"
+import { get, find, uniqBy, reject, sortBy } from "lodash/fp"
 
 import FormAdminMeta from "./FormAdminMeta"
 import FormAdminArtwork from "./FormAdminArtwork"
+import FormAdminSettings from "./FormAdminSettings"
 import Listeners from "./Listeners"
 import PlayerUi from "./PlayerUi"
 import FormUsername from "./FormUsername"
 import Chat from "./Chat"
 import UserList from "./UserList"
+import Modal from "./Modal"
 import AuthContext from "../contexts/AuthContext"
 import { roomMachine } from "../machines/roomMachine"
 import socket from "../lib/socket"
@@ -51,10 +53,14 @@ const Room = () => {
         const handleInit = payload => {
           send({ type: "LOGIN", data: payload })
         }
+        const handleTyping = payload => {
+          send({ type: "TYPING", data: payload })
+        }
 
         socket.on("init", handleInit)
         socket.on("user joined", handleUserJoin)
         socket.on("user left", handleUserLeave)
+        socket.on("typing", handleTyping)
 
         return () => {
           socket.removeListener("init", handleInit)
@@ -66,104 +72,84 @@ const Room = () => {
     },
   })
 
+  useEffect(() => {
+    if (authState.isNewUser) {
+      send("EDIT_USERNAME")
+    }
+  }, [authState.isNewUser])
+
   const hideListeners = useCallback(() => send("CLOSE_VIEWING"), [send])
   const hideNameForm = useCallback(() => send("CLOSE_EDIT"), [send])
-  console.log(roomState)
+
+  const listeners = sortBy(
+    "connectedAt",
+    uniqBy("userId", reject({ isDj: true }, roomState.context.users))
+  )
+  const dj = find({ isDj: true }, roomState.context.users)
 
   return (
     <Box flex="grow">
       <Konami action={() => send("ACTIVATE_ADMIN")} />
       {roomState.matches("connected.participating.editing.username") && (
-        <Layer responsive={false}>
-          <Box
-            fill="horizontal"
-            direction="row"
-            justify="between"
-            align="center"
-            pad="medium"
-            flex={{ shrink: 0 }}
-          >
-            <Heading margin="none" level={2}>
-              Name
-            </Heading>
-            <Button onClick={hideNameForm} plain icon={<Close />} />
-          </Box>
+        <Modal
+          onClose={() => hideNameForm()}
+          heading="Your Name"
+          width="medium"
+        >
           <FormUsername
             currentUser={authState.currentUser}
-            onClose={() => send("CLOSE_EDIT")}
+            isNewUser={authState.isNewUser}
+            onClose={() => {
+              send("CLOSE_EDIT")
+            }}
             onSubmit={username => {
               authSend({ type: "UPDATE_USERNAME", data: username })
               hideNameForm()
             }}
           />
-        </Layer>
+        </Modal>
       )}
       {roomState.matches("connected.participating.modalViewing.listeners") && (
-        <Layer responsive={false} onClickOutside={hideListeners}>
-          <Box
-            fill="horizontal"
-            direction="row"
-            justify="between"
-            align="center"
-            pad="medium"
-            flex={{ shrink: 0 }}
-          >
-            <Heading margin="none" level={2}>
-              Listeners ({roomState.context.users.length})
-            </Heading>
-            <Button onClick={hideListeners} plain icon={<Close />} />
-          </Box>
-          <Box width="300px" pad="medium" overflow="auto">
-            <UserList
-              users={roomState.context.users}
-              onEditUser={() => send("EDIT_USERNAME")}
-            />
-          </Box>
-        </Layer>
+        <Modal
+          onClose={() => hideListeners()}
+          heading={`Listeners (${listeners.length})`}
+        >
+          <UserList
+            listeners={listeners}
+            dj={dj}
+            typing={roomMachine.context.typing}
+            onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
+            onEditUser={() => send("EDIT_USERNAME")}
+          />
+        </Modal>
       )}
 
       {roomState.matches("connected.participating.editing.meta") && (
-        <Layer responsive={false} onClickOutside={() => send("CLOSE_EDIT")}>
-          <Box
-            fill="horizontal"
-            direction="row"
-            justify="between"
-            align="center"
-            pad="medium"
-            flex={{ shrink: 0 }}
-          >
-            <Heading margin="none" level={3}>
-              Send Station Info
-            </Heading>
-            <Button onClick={() => send("CLOSE_EDIT")} plain icon={<Close />} />
-          </Box>
-          <Box width="300px" pad="medium" overflow="auto">
-            <FormAdminMeta onSubmit={value => socket.emit("fix meta", value)} />
-          </Box>
-        </Layer>
+        <Modal onClose={() => send("CLOSE_EDIT")} heading="Set Station Info">
+          <FormAdminMeta onSubmit={value => socket.emit("fix meta", value)} />
+        </Modal>
       )}
 
       {roomState.matches("connected.participating.editing.artwork") && (
-        <Layer responsive={false} onClickOutside={() => send("CLOSE_EDIT")}>
-          <Box
-            fill="horizontal"
-            direction="row"
-            justify="between"
-            align="center"
-            pad="medium"
-            flex={{ shrink: 0 }}
-          >
-            <Heading margin="none" level={3}>
-              Set Cover Artwork
-            </Heading>
-            <Button onClick={() => send("CLOSE_EDIT")} plain icon={<Close />} />
-          </Box>
-          <Box width="300px" pad="medium" overflow="auto">
-            <FormAdminArtwork
-              onSubmit={value => socket.emit("set cover", value)}
-            />
-          </Box>
-        </Layer>
+        <Modal onClose={() => send("CLOSE_EDIT")} heading="Set Cover Artwork">
+          <FormAdminArtwork
+            onSubmit={value => socket.emit("set cover", value)}
+          />
+        </Modal>
+      )}
+
+      {roomState.matches("connected.participating.editing.settings") && (
+        <Modal
+          onClose={() => send("CLOSE_EDIT")}
+          heading="Settings"
+          width="medium"
+        >
+          <FormAdminSettings
+            onSubmit={value => {
+              socket.emit("settings", value)
+            }}
+          />
+        </Modal>
       )}
 
       <PlayerUi />
@@ -173,16 +159,19 @@ const Room = () => {
           <Chat users={roomState.context.users} />
         </Box>
         <Box
-          style={{ minWidth: "200px" }}
-          flex={{ shrink: 0 }}
+          style={{ minWidth: "200px", maxWidth: "380px" }}
+          flex={{ shrink: 0, grow: 0 }}
           background="light-2"
           elevation="small"
         >
           <Listeners
-            users={roomState.context.users}
+            listeners={listeners}
+            dj={dj}
+            onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
             onViewListeners={view =>
               view ? send("VIEW_LISTENERS") : send("CLOSE_VIEWING")
             }
+            typing={roomState.context.typing}
             onEditUser={() => send("EDIT_USERNAME")}
           />
           {roomState.matches("admin.isAdmin") && (
@@ -208,6 +197,33 @@ const Room = () => {
                   label="Change Cover Art"
                   onClick={() => send("ADMIN_EDIT_ARTWORK")}
                 />
+                <Box
+                  animation={
+                    roomState.matches(
+                      "connected.participating.editing.settings"
+                    )
+                      ? {
+                          type: "pulse",
+                          delay: 0,
+                          duration: 400,
+                          size: "medium",
+                        }
+                      : null
+                  }
+                >
+                  <Button
+                    label="Settings"
+                    primary={
+                      roomState.matches(
+                        "connected.participating.editing.settings"
+                      )
+                        ? true
+                        : false
+                    }
+                    icon={<SettingsOption />}
+                    onClick={() => send("ADMIN_EDIT_SETTINGS")}
+                  />
+                </Box>
               </Box>
             </Box>
           )}
