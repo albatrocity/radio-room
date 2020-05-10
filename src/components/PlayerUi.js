@@ -14,10 +14,20 @@ const PlayerUi = () => {
       pingOffline: () => {
         return new Promise((resolve, reject) => {
           socket.on("meta", payload => {
-            resolve(payload)
+            if (
+              get("meta.bitrate", payload) &&
+              get("meta.bitrate", payload) !== "0"
+            ) {
+              resolve(payload)
+            }
           })
           socket.on("init", payload => {
-            resolve(payload)
+            if (
+              get("meta.bitrate", payload) &&
+              get("meta.bitrate", payload) !== "0"
+            ) {
+              resolve(payload)
+            }
           })
         })
       },

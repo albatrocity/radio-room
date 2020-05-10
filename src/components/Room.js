@@ -1,8 +1,8 @@
 import React, { useContext, useCallback, useEffect } from "react"
 import { useMachine } from "@xstate/react"
 import Konami from "react-konami-code"
-import { Box, Button, Layer, Heading } from "grommet"
-import { Close, SettingsOption } from "grommet-icons"
+import { Box, Button, Heading } from "grommet"
+import { SettingsOption } from "grommet-icons"
 import { get, find, uniqBy, reject, sortBy } from "lodash/fp"
 
 import FormAdminMeta from "./FormAdminMeta"

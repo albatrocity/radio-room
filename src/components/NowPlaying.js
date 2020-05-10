@@ -1,5 +1,4 @@
 import React, { useContext, useEffect } from "react"
-import { useMachine } from "@xstate/react"
 import { Box, Heading, Text, Image, ResponsiveContext, Anchor } from "grommet"
 import { Music, Unlink } from "grommet-icons"
 import { isEmpty, get } from "lodash/fp"
