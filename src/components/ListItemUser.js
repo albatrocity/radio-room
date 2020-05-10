@@ -1,11 +1,18 @@
 import React, { memo } from "react"
-import { get, find } from "lodash/fp"
+import { get, find, isEqual } from "lodash/fp"
 
 import { Box, Text, Button } from "grommet"
-import { Edit, MoreVertical, Microphone } from "grommet-icons"
+import { Edit, MoreVertical, Microphone, Close } from "grommet-icons"
 
-const ListItemUser = ({ user, currentUser, onEditUser, typing }) => {
+const ListItemUser = ({
+  user,
+  currentUser,
+  onEditUser,
+  onKickUser,
+  typing,
+}) => {
   const userTyping = find({ userId: get("userId", user) }, typing)
+
   return (
     <Box key={user.userId}>
       <Box
@@ -55,6 +62,16 @@ const ListItemUser = ({ user, currentUser, onEditUser, typing }) => {
             />
           </Box>
         )}
+        {get("isAdmin", currentUser) &&
+          !isEqual(get("userId", user), get("userId", currentUser)) && (
+            <Box pad={{ horizontal: "xsmall" }}>
+              <Button
+                plain
+                onClick={() => onKickUser(user.userId)}
+                icon={<Close size="small" />}
+              />
+            </Box>
+          )}
       </Box>
     </Box>
   )

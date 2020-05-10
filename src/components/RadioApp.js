@@ -18,6 +18,13 @@ const RadioApp = () => {
         }
         socket.on("init", handleInit)
 
+        socket.on("disconnect", () => {
+          authSend("USER_DISCONNECTED")
+        })
+        socket.on("kicked", () => {
+          authSend({ type: "USER_DISCONNECTED", shouldRetry: false })
+        })
+
         return () => {
           socket.removeListener("init", handleInit)
         }
@@ -33,7 +40,10 @@ const RadioApp = () => {
         })
       },
       disconnectUser: (context, event) => {
-        socket.emit("disconnect", context.currentUser.userId)
+        if (!context.shouldRetry) {
+          socket.close()
+          socket.emit("disconnect", context.currentUser.userId)
+        }
       },
       changeUsername: (context, event) => {
         socket.emit("change username", {
@@ -45,10 +55,10 @@ const RadioApp = () => {
   })
 
   const size = useWindowSize()
-
-  const authContextValue = useMemo(() => {
-    return { state: authState.context, send: authSend }
-  }, [authState.context, authSend])
+  const authContextValue = useMemo(
+    () => ({ state: authState, send: authSend }),
+    [authState, authSend]
+  )
 
   useEffect(() => {
     authSend("SETUP")

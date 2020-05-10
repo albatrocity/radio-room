@@ -69,7 +69,7 @@ const Chat = ({ users }) => {
       />
       <ChatMessages
         messages={chatState.context.messages}
-        currentUserId={authState.currentUser.userId}
+        currentUserId={authState.context.currentUser.userId}
         typing={currentlyTyping}
       />
     </Box>

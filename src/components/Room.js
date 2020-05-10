@@ -23,11 +23,11 @@ const Room = () => {
   const [roomState, send] = useMachine(roomMachine, {
     actions: {
       disconnectUser: (context, event) => {
-        socket.emit("disconnect", authState.currentUser.userId)
+        socket.emit("disconnect", authState.context.currentUser.userId)
       },
       setDj: (context, event) => {
         if (event.type === "START_DJ_SESSION") {
-          socket.emit("set DJ", authState.currentUser.userId)
+          socket.emit("set DJ", authState.context.currentUser.userId)
         } else {
           socket.emit("set DJ", null)
         }
@@ -35,11 +35,20 @@ const Room = () => {
       checkDj: (context, event) => {
         const isDj = get(
           "isDj",
-          find({ userId: authState.currentUser.userId }, event.data.users)
+          find(
+            { userId: authState.context.currentUser.userId },
+            event.data.users
+          )
         )
         if (!isDj) {
           send("END_DJ_SESSION")
         }
+      },
+      kickUser: (context, event) => {
+        socket.emit("kick user", { userId: event.userId })
+      },
+      adminActivated: (context, event) => {
+        authSend("ACTIVATE_ADMIN")
       },
     },
     activities: {
@@ -56,11 +65,17 @@ const Room = () => {
         const handleTyping = payload => {
           send({ type: "TYPING", data: payload })
         }
+        const handleDisconnect = payload => {
+          send({ type: "DISCONNECT", data: payload })
+        }
 
         socket.on("init", handleInit)
         socket.on("user joined", handleUserJoin)
         socket.on("user left", handleUserLeave)
         socket.on("typing", handleTyping)
+        socket.on("disconnect", () => {
+          authSend("USER_DISCONNECTED")
+        })
 
         return () => {
           socket.removeListener("init", handleInit)
@@ -73,10 +88,10 @@ const Room = () => {
   })
 
   useEffect(() => {
-    if (authState.isNewUser) {
+    if (authState.context.isNewUser) {
       send("EDIT_USERNAME")
     }
-  }, [authState.isNewUser])
+  }, [authState.context.isNewUser])
 
   const hideListeners = useCallback(() => send("CLOSE_VIEWING"), [send])
   const hideNameForm = useCallback(() => send("CLOSE_EDIT"), [send])
@@ -97,8 +112,8 @@ const Room = () => {
           width="medium"
         >
           <FormUsername
-            currentUser={authState.currentUser}
-            isNewUser={authState.isNewUser}
+            currentUser={authState.context.currentUser}
+            isNewUser={authState.context.isNewUser}
             onClose={() => {
               send("CLOSE_EDIT")
             }}
@@ -158,76 +173,80 @@ const Room = () => {
         <Box flex={{ grow: 1, shrink: 1 }} pad="medium">
           <Chat users={roomState.context.users} />
         </Box>
-        <Box
-          style={{ minWidth: "200px", maxWidth: "380px" }}
-          flex={{ shrink: 0, grow: 0 }}
-          background="light-2"
-          elevation="small"
-        >
-          <Listeners
-            listeners={listeners}
-            dj={dj}
-            onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
-            onViewListeners={view =>
-              view ? send("VIEW_LISTENERS") : send("CLOSE_VIEWING")
-            }
-            typing={roomState.context.typing}
-            onEditUser={() => send("EDIT_USERNAME")}
-          />
-          {roomState.matches("admin.isAdmin") && (
-            <Box pad="small" flex={{ shrink: 0 }}>
-              <Heading level={3} margin={{ bottom: "xsmall" }}>
-                Admin
-              </Heading>
-              <Box gap="small">
-                {roomState.matches("djaying.notDj") && (
+
+        {authState.matches("authenticated") && (
+          <Box
+            style={{ minWidth: "200px", maxWidth: "380px" }}
+            flex={{ shrink: 0, grow: 0 }}
+            background="light-2"
+            elevation="small"
+          >
+            <Listeners
+              listeners={listeners}
+              dj={dj}
+              onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
+              onViewListeners={view =>
+                view ? send("VIEW_LISTENERS") : send("CLOSE_VIEWING")
+              }
+              typing={roomState.context.typing}
+              onEditUser={() => send("EDIT_USERNAME")}
+              onKickUser={userId => send({ type: "KICK_USER", userId })}
+            />
+            {roomState.matches("admin.isAdmin") && (
+              <Box pad="small" flex={{ shrink: 0 }}>
+                <Heading level={3} margin={{ bottom: "xsmall" }}>
+                  Admin
+                </Heading>
+                <Box gap="small">
+                  {roomState.matches("djaying.notDj") && (
+                    <Button
+                      label="I am the DJ"
+                      onClick={() => send("START_DJ_SESSION")}
+                      primary
+                    />
+                  )}
+                  {roomState.matches("djaying.isDj") && (
+                    <Button
+                      label="End DJ Session"
+                      onClick={() => send("END_DJ_SESSION")}
+                    />
+                  )}
                   <Button
-                    label="I am the DJ"
-                    onClick={() => send("START_DJ_SESSION")}
-                    primary
+                    label="Change Cover Art"
+                    onClick={() => send("ADMIN_EDIT_ARTWORK")}
                   />
-                )}
-                {roomState.matches("djaying.isDj") && (
-                  <Button
-                    label="End DJ Session"
-                    onClick={() => send("END_DJ_SESSION")}
-                  />
-                )}
-                <Button
-                  label="Change Cover Art"
-                  onClick={() => send("ADMIN_EDIT_ARTWORK")}
-                />
-                <Box
-                  animation={
-                    roomState.matches(
-                      "connected.participating.editing.settings"
-                    )
-                      ? {
-                          type: "pulse",
-                          delay: 0,
-                          duration: 400,
-                          size: "medium",
-                        }
-                      : null
-                  }
-                >
-                  <Button
-                    label="Settings"
-                    primary={
+                  <Box
+                    animation={
                       roomState.matches(
                         "connected.participating.editing.settings"
                       )
-                        ? true
-                        : false
+                        ? {
+                            type: "pulse",
+                            delay: 0,
+                            duration: 400,
+                            size: "medium",
+                          }
+                        : null
                     }
-                    icon={<SettingsOption />}
-                    onClick={() => send("ADMIN_EDIT_SETTINGS")}
-                  />
+                  >
+                    <Button
+                      label="Settings"
+                      primary={
+                        roomState.matches(
+                          "connected.participating.editing.settings"
+                        )
+                          ? true
+                          : false
+                      }
+                      icon={<SettingsOption />}
+                      onClick={() => send("ADMIN_EDIT_SETTINGS")}
+                    />
+                  </Box>
                 </Box>
               </Box>
-            </Box>
-          )}
-        </Box>
+            )}
+          </Box>
+        )}
       </Box>
     </Box>
   )

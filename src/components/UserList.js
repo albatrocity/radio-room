@@ -16,12 +16,19 @@ const StyledText = styled(Text)`
   }
 `
 
-const UserList = ({ listeners, onEditUser, dj, typing, onEditSettings }) => {
+const UserList = ({
+  listeners,
+  onEditUser,
+  onKickUser,
+  dj,
+  typing,
+  onEditSettings,
+}) => {
   const { state: authState } = useContext(AuthContext)
 
-  const { currentUser } = authState
+  const { currentUser, isAdmin } = authState.context
   const currentDj = isEqual(
-    get("currentUser.userId", authState),
+    get("context.currentUser.userId", authState),
     get("userId", dj)
   )
 
@@ -102,6 +109,7 @@ const UserList = ({ listeners, onEditUser, dj, typing, onEditSettings }) => {
               typing={typing}
               currentUser={currentUser}
               onEditUser={onEditUser}
+              onKickUser={onKickUser}
             />
           )
         })}
