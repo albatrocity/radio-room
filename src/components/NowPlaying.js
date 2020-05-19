@@ -28,6 +28,15 @@ const NowPlaying = ({ state, onCover }) => {
     }
   }, [coverUrl])
 
+  const MetaWrapper = ({ releaseUrl, children }) =>
+    releaseUrl ? (
+      <Anchor href={releaseUrl} target="_blank" color="white">
+        {children}
+      </Anchor>
+    ) : (
+      <>{children}</>
+    )
+
   return (
     <Box pad="small" align="center" background="dark-1">
       {state.matches("offline") && (
@@ -44,7 +53,7 @@ const NowPlaying = ({ state, onCover }) => {
         </>
       )}
       {state.matches("ready") && (
-        <Anchor href={releaseUrl} target="_blank">
+        <MetaWrapper href={releaseUrl} target="_blank" color="white">
           <Box direction="row" gap="small" justify="center">
             {coverUrl && state.matches("ready.cover.found") ? (
               <Box width={artworkSize} height={artworkSize}>
@@ -89,7 +98,7 @@ const NowPlaying = ({ state, onCover }) => {
               )}
             </Box>
           </Box>
-        </Anchor>
+        </MetaWrapper>
       )}
     </Box>
   )
