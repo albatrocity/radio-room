@@ -9,7 +9,7 @@ import { handleNotifications } from "../lib/handleNotifications"
 import AuthContext from "../contexts/AuthContext"
 import { chatMachine } from "../machines/chatMachine"
 
-const Chat = ({ users }) => {
+const Chat = ({ users, modalActive }) => {
   const { state: authState } = useContext(AuthContext)
   const [chatState, chatSend] = useMachine(chatMachine, {
     activities: {
@@ -63,6 +63,7 @@ const Chat = ({ users }) => {
     >
       <ChatInput
         users={users}
+        modalActive={modalActive}
         onTypingStart={() => chatSend("START_TYPING")}
         onTypingStop={() => chatSend("STOP_TYPING")}
         onSend={msg => chatSend("SUBMIT_MESSAGE", { data: msg })}

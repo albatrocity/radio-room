@@ -23,16 +23,75 @@ const InputContainer = styled(Box)`
   }
 `
 
-const ChatInput = ({ onTypingStart, onTypingStop, onSend, users }) => {
+const renderUserSuggestion = (
+  suggestion,
+  search,
+  highlightedDisplay,
+  index,
+  focused
+) => {
+  return (
+    <div className={`user ${focused ? "focused" : ""}`}>
+      {highlightedDisplay}
+    </div>
+  )
+}
+
+const Input = ({
+  field,
+  form,
+  inputRef,
+  inputStyle,
+  handleKeyInput,
+  userSuggestions,
+  mentionStyle,
+  renderUserSuggestion,
+  autoFocus,
+  ...props
+}) => (
+  <MentionsInput
+    name="content"
+    singleLine
+    inputRef={inputRef}
+    style={inputStyle}
+    value={form.values.content}
+    autoFocus={autoFocus}
+    onChange={e => {
+      if (e.target.value && e.target.value !== "") {
+        handleKeyInput()
+      }
+      form.setFieldValue(field.name, e.target.value)
+    }}
+  >
+    <Mention
+      trigger="@"
+      appendSpaceOnAdd={true}
+      data={userSuggestions}
+      style={mentionStyle}
+      renderSuggestion={renderUserSuggestion}
+    />
+  </MentionsInput>
+)
+
+const ChatInput = ({
+  onTypingStart,
+  onTypingStop,
+  onSend,
+  users,
+  modalActive,
+}) => {
   const username = session.getItem(SESSION_USERNAME)
   const userId = session.getItem(SESSION_ID)
   const theme = useContext(ThemeContext)
   const inputRef = useRef(null)
   const [isTyping, setTyping] = useState(false)
 
-  const handleTypingStop = debounce(() => {
-    setTyping(false)
-  }, 2000)
+  const handleTypingStop = useCallback(
+    debounce(() => {
+      setTyping(false)
+    }, 2000),
+    []
+  )
 
   useEffect(() => {
     if (isTyping) {
@@ -109,45 +168,6 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, users }) => {
     },
   }
 
-  const renderUserSuggestion = (
-    suggestion,
-    search,
-    highlightedDisplay,
-    index,
-    focused
-  ) => {
-    return (
-      <div className={`user ${focused ? "focused" : ""}`}>
-        {highlightedDisplay}
-      </div>
-    )
-  }
-
-  const Input = ({ field, form, ...props }) => (
-    <MentionsInput
-      name="content"
-      singleLine
-      inputRef={inputRef}
-      style={inputStyle}
-      value={form.values.content}
-      autoFocus
-      onChange={e => {
-        if (e.target.value && e.target.value !== "") {
-          handleKeyInput()
-        }
-        form.setFieldValue(field.name, e.target.value)
-      }}
-    >
-      <Mention
-        trigger="@"
-        appendSpaceOnAdd={true}
-        data={userSuggestions}
-        style={mentionStyle}
-        renderSuggestion={renderUserSuggestion}
-      />
-    </MentionsInput>
-  )
-
   return (
     <Box>
       <Formik
@@ -182,7 +202,17 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, users }) => {
                 <Chat />
               </Box>
               <InputContainer flex={{ grow: 1, shrink: 1 }}>
-                <Field component={Input} name="content" />
+                <Field
+                  component={Input}
+                  name="content"
+                  inputRef={inputRef}
+                  inputStyle={inputStyle}
+                  handleKeyInput={handleKeyInput}
+                  userSuggestions={userSuggestions}
+                  mentionStyle={mentionStyle}
+                  renderUserSuggestion={renderUserSuggestion}
+                  autoFocus={modalActive}
+                />
               </InputContainer>
               <Button
                 label="Submit"

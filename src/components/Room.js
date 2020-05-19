@@ -171,7 +171,10 @@ const Room = () => {
 
       <Box direction="row-responsive" flex="grow">
         <Box flex={{ grow: 1, shrink: 1 }} pad="medium">
-          <Chat users={roomState.context.users} />
+          <Chat
+            users={roomState.context.users}
+            modalActive={roomState.matches("connected.participating.editing")}
+          />
         </Box>
 
         {authState.matches("authenticated") && (
