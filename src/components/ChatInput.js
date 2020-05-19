@@ -37,40 +37,42 @@ const renderUserSuggestion = (
   )
 }
 
-const Input = ({
-  field,
-  form,
-  inputRef,
-  inputStyle,
-  handleKeyInput,
-  userSuggestions,
-  mentionStyle,
-  renderUserSuggestion,
-  autoFocus,
-  ...props
-}) => (
-  <MentionsInput
-    name="content"
-    singleLine
-    inputRef={inputRef}
-    style={inputStyle}
-    value={form.values.content}
-    autoFocus={autoFocus}
-    onChange={e => {
-      if (e.target.value && e.target.value !== "") {
-        handleKeyInput()
-      }
-      form.setFieldValue(field.name, e.target.value)
-    }}
-  >
-    <Mention
-      trigger="@"
-      appendSpaceOnAdd={true}
-      data={userSuggestions}
-      style={mentionStyle}
-      renderSuggestion={renderUserSuggestion}
-    />
-  </MentionsInput>
+const Input = memo(
+  ({
+    field,
+    form,
+    inputRef,
+    inputStyle,
+    handleKeyInput,
+    userSuggestions,
+    mentionStyle,
+    renderUserSuggestion,
+    autoFocus,
+    ...props
+  }) => (
+    <MentionsInput
+      name="content"
+      singleLine
+      inputRef={inputRef}
+      style={inputStyle}
+      value={form.values.content}
+      autoFocus={autoFocus}
+      onChange={e => {
+        if (e.target.value && e.target.value !== "") {
+          handleKeyInput()
+        }
+        form.setFieldValue(field.name, e.target.value)
+      }}
+    >
+      <Mention
+        trigger="@"
+        appendSpaceOnAdd={true}
+        data={userSuggestions}
+        style={mentionStyle}
+        renderSuggestion={renderUserSuggestion}
+      />
+    </MentionsInput>
+  )
 )
 
 const ChatInput = ({
