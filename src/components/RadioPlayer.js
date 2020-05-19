@@ -38,7 +38,7 @@ const RadioPlayer = ({
                     type: "pulse",
                     delay: 0,
                     duration: 400,
-                    size: "medium",
+                    size: "large",
                   }
                 : null
             }
