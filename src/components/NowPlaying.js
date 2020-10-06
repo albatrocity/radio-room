@@ -5,6 +5,7 @@ import { isEmpty, get } from "lodash/fp"
 
 import safeDate from "../lib/safeDate"
 import { audioMachine } from "../machines/audioMachine"
+import AlbumArtwork from "./AlbumArtwork"
 
 const NowPlaying = ({ state, onCover }) => {
   const size = useContext(ResponsiveContext)
@@ -57,14 +58,7 @@ const NowPlaying = ({ state, onCover }) => {
           <Box direction="row" gap="small" justify="center">
             {coverUrl && state.matches("ready.cover.found") ? (
               <Box width={artworkSize} height={artworkSize}>
-                <Image
-                  onError={() => {
-                    onCover(false)
-                  }}
-                  height="small"
-                  width="small"
-                  src={coverUrl}
-                />
+                <AlbumArtwork src={coverUrl} onCover={onCover} />
               </Box>
             ) : (
               <Box
