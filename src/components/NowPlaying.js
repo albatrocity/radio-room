@@ -1,24 +1,27 @@
-import React, { useContext, useEffect, memo } from "react"
+import React, { useContext, useEffect, memo, useMemo } from "react"
 import { Box, Heading, Text, Image, ResponsiveContext, Anchor } from "grommet"
 import { Music, Unlink } from "grommet-icons"
 import { isEmpty, get } from "lodash/fp"
 
+import AlbumArtwork from "./AlbumArtwork"
+
 import safeDate from "../lib/safeDate"
 import { audioMachine } from "../machines/audioMachine"
 
-const NowPlaying = ({ state, onCover }) => {
+const NowPlaying = ({ onCover, ready, offline, meta, coverFound }) => {
   const size = useContext(ResponsiveContext)
-  const { bitrate, album, artist, track, release = {}, cover } =
-    get("context.meta", state) || {}
+  const { bitrate, album, artist, track, release = {}, cover } = meta || {}
   const { mbid, releaseDate } = release || {}
 
   const artworkSize = size === "small" ? "xsmall" : "small"
   const releaseUrl = mbid && `https://musicbrainz.org/release/${mbid}`
-  const coverUrl = cover
-    ? cover
-    : mbid
-    ? `https://coverartarchive.org/release/${mbid}/front-500`
-    : null
+  const coverUrl = useMemo(() =>
+    cover
+      ? cover
+      : mbid
+      ? `https://coverartarchive.org/release/${mbid}/front-500`
+      : null
+  )
 
   useEffect(() => {
     if (coverUrl) {
@@ -38,63 +41,63 @@ const NowPlaying = ({ state, onCover }) => {
     )
 
   return (
-    <Box pad="small" align="center" background="dark-1">
-      {state.matches("offline") && (
+    <Box pad="small" align="center" background="accent-1">
+      {offline && (
         <>
           <Box direction="row" gap="small" align="center">
-            <Unlink color="black" />
-            <Heading margin="none" level={2}>
+            <Unlink color="white" />
+            <Heading margin="none" level={2} color="white">
               Offline :(
             </Heading>
           </Box>
-          <Heading margin="none" level={4}>
+          <Heading margin="none" level={4} color="white">
             Nobody's broadcasting right now.
           </Heading>
         </>
       )}
-      {state.matches("ready") && (
+      {ready && (
         <MetaWrapper href={releaseUrl} target="_blank" color="white">
           <Box direction="row" gap="small" justify="center">
-            {coverUrl && state.matches("ready.cover.found") ? (
-              <Box width={artworkSize} height={artworkSize}>
-                <Image
-                  onError={() => {
-                    onCover(false)
-                  }}
-                  height="small"
-                  width="small"
-                  src={coverUrl}
-                />
+            {coverUrl && coverFound ? (
+              <Box
+                width={artworkSize}
+                height={artworkSize}
+                flex={{ shrink: 0, grow: 1 }}
+              >
+                <AlbumArtwork coverUrl={coverUrl} onCover={onCover} />
               </Box>
             ) : (
               <Box
-                background="light-2"
+                background="light-1"
                 width={artworkSize}
                 height={artworkSize}
                 align="center"
                 justify="center"
+                flex={{ shrink: 0, grow: 1 }}
               >
                 <Music size="large" />
               </Box>
             )}
             <Box justify="center">
               {track && (
-                <Heading margin="none" level={3}>
+                <Heading color="accent-4" margin="none" level={3}>
                   {track}
                 </Heading>
               )}
               {artist && (
-                <Heading margin="none" level={4}>
+                <Heading color="accent-4" margin="none" level={4}>
                   {artist}
                 </Heading>
               )}
               {album && (
-                <Text margin="none" size="small">
+                <Text color="accent-4" margin="none" size="small">
                   {album}
                 </Text>
               )}
               {releaseDate && (
-                <Text size="xsmall">Released {safeDate(releaseDate)}</Text>
+                <Text color="accent-4" size="xsmall">
+                  Released {safeDate(releaseDate)}
+                </Text>
               )}
             </Box>
           </Box>

@@ -23,7 +23,7 @@ const ListItemUser = ({
         gap="xsmall"
         pad={{ vertical: "xsmall" }}
         elevation={user.isDj ? "small" : "none"}
-        background={user.isDj ? "dark-2" : "transparent"}
+        background={user.isDj ? "accent-2" : "transparent"}
       >
         <Box
           animation={

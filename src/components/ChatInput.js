@@ -199,8 +199,8 @@ const ChatInput = ({
           isValid,
         }) => (
           <form onSubmit={handleSubmit}>
-            <Box direction="row" fill="horizontal" gap="small" justify="center">
-              <Box align="center" justify="center">
+            <Box direction="row" fill="horizontal" justify="center">
+              <Box align="center" justify="center" margin={{ right: "small" }}>
                 <Chat />
               </Box>
               <InputContainer flex={{ grow: 1, shrink: 1 }}>

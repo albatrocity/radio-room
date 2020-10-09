@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react"
+import React, { useCallback, useEffect, memo } from "react"
 import { Box } from "grommet"
 import { useMachine } from "@xstate/react"
 import { isEmpty, get } from "lodash/fp"
@@ -35,11 +35,11 @@ const PlayerUi = () => {
   })
   const playing = state.matches({ ready: { progress: "playing" } })
   const muted = state.matches({ ready: { volume: "muted" } })
+  const ready = state.matches("ready")
+  const coverFound = state.matches("ready.cover.found")
   const { volume, meta } = state.context
-  const { bitrate, album, artist, track, release = {}, cover } =
-    get("context.meta", state) || {}
-
-  const offline = bitrate === "0" || !bitrate || isEmpty(state.context.meta)
+  const offline =
+    get("bitrate", meta) === "0" || !get("bitrate", meta) || isEmpty(meta)
 
   useEffect(() => {
     if (offline) {
@@ -55,21 +55,31 @@ const PlayerUi = () => {
     } else {
       send("COVER_NOT_FOUND")
     }
-  })
+  }, [])
 
   return (
     <Box>
-      <NowPlaying state={state} onCover={onCover} />
+      <NowPlaying
+        playing={playing}
+        muted={muted}
+        ready={ready}
+        onCover={onCover}
+        coverFound={coverFound}
+        offline={offline}
+        meta={meta}
+      />
       <RadioPlayer
         volume={volume}
         meta={meta}
+        ready={ready}
+        playing={playing}
+        muted={muted}
         onVolume={v => send("CHANGE_VOLUME", { volume: v })}
         onPlayPause={() => send("TOGGLE")}
         onMute={() => send("TOGGLE_MUTE")}
-        state={state}
       />
     </Box>
   )
 }
 
-export default PlayerUi
+export default memo(PlayerUi)

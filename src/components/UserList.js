@@ -48,10 +48,10 @@ const UserList = ({
 
           {currentDj && !dj.extraInfo && !dj.donationURL && (
             <Box
-              background="dark-1"
+              background="accent-4"
               pad="small"
               elevation="medium"
-              border={{ side: "vertical" }}
+              border={{ side: "all" }}
             >
               <Box
                 margin="xsmall"
@@ -73,10 +73,10 @@ const UserList = ({
 
           {(dj.extraInfo || dj.donationURL) && (
             <Box
-              background="dark-1"
+              background="white"
               pad="small"
               elevation="medium"
-              border={{ side: "vertical" }}
+              border={{ side: "all" }}
             >
               {dj.donationURL !== "" && (
                 <Text truncate={true}>

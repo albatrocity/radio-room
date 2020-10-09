@@ -11,7 +11,7 @@ const SystemMessage = ({ content, timestamp, user, meta = {} }) => {
     <Box
       pad="small"
       border={{ side: "bottom" }}
-      background={status === "critical" ? "status-critical" : "light-2"}
+      background={status === "critical" ? "status-critical" : "light-1"}
       align="center"
     >
       <Paragraph

@@ -1,5 +1,4 @@
 import React, { useRef, memo } from "react"
-import { useMachine } from "@xstate/react"
 import { Box, Button, Nav, RangeInput } from "grommet"
 import { Play, Pause, VolumeMute, Volume } from "grommet-icons"
 import ReactHowler from "react-howler"
@@ -11,27 +10,28 @@ const streamURL = process.env.GATSBY_STREAM_URL
 const RadioPlayer = ({
   volume,
   meta,
-  state,
+  playing,
+  ready,
+  muted,
   onVolume,
   onPlayPause,
   onMute,
 }) => {
   const player = useRef(null)
-  const playing = state.matches({ ready: { progress: "playing" } })
-  const muted = state.matches({ ready: { volume: "muted" } })
 
   return (
     <Box>
-      {state.matches("ready") && (
+      {ready && (
         <Nav
           direction="row"
-          background="brand"
+          background="accent-4"
           justify="center"
           align="center"
-          pad={{ horizontal: "small" }}
+          border={{ side: "bottom", color: "#adb871" }}
+          pad={{ horizontal: "large" }}
         >
           <Box
-            basis="80px"
+            align="center"
             animation={
               !playing
                 ? {
@@ -44,12 +44,14 @@ const RadioPlayer = ({
             }
           >
             <Button
-              icon={playing ? <Pause /> : <Play />}
+              icon={playing ? <Pause color="brand" /> : <Play color="brand" />}
               onClick={() => onPlayPause()}
             />
           </Box>
           <Button
-            icon={muted ? <VolumeMute /> : <Volume />}
+            icon={
+              muted ? <VolumeMute color="brand" /> : <Volume color="brand" />
+            }
             onClick={() => onMute()}
           />
           <Box width="medium">

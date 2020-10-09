@@ -181,8 +181,7 @@ const Room = () => {
           <Box
             style={{ minWidth: "200px", maxWidth: "380px" }}
             flex={{ shrink: 0, grow: 0 }}
-            background="light-2"
-            elevation="small"
+            background="light-1"
           >
             <Listeners
               listeners={listeners}
