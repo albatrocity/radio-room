@@ -68,14 +68,14 @@ const NowPlaying = ({ onCover, ready, offline, meta, coverFound }) => {
               </Box>
             ) : (
               <Box
-                background="light-1"
+                background="accent-4"
                 width={artworkSize}
                 height={artworkSize}
                 align="center"
                 justify="center"
                 flex={{ shrink: 0, grow: 1 }}
               >
-                <Music size="large" />
+                <Music size="large" color="accent-1" />
               </Box>
             )}
             <Box justify="center">
