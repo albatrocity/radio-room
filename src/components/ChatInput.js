@@ -57,6 +57,7 @@ const Input = memo(
       style={inputStyle}
       value={form.values.content}
       autoFocus={autoFocus}
+      autocomplete="off"
       onChange={e => {
         if (e.target.value && e.target.value !== "") {
           handleKeyInput()
@@ -148,7 +149,9 @@ const ChatInput = ({
         height: "100%",
         display: "flex",
         flexGrow: 1,
-        border: "2px inset",
+        border: "1px solid rgba(0,0,0,0.15)",
+        borderRadius: "4px 0 0 4px",
+        padding: "0.2rem",
       },
     },
 

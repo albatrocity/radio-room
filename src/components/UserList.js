@@ -33,7 +33,7 @@ const UserList = ({
   )
 
   return (
-    <div>
+    <Box gap="small">
       {dj && (
         <Box margin={{ bottom: "small" }}>
           <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
@@ -114,7 +114,7 @@ const UserList = ({
           )
         })}
       </Box>
-    </div>
+    </Box>
   )
 }
 

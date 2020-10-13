@@ -17,18 +17,22 @@ const Modal = ({
     <Box
       fill="horizontal"
       direction="row"
-      justify="between"
+      justify="end"
       align="center"
       pad={{ horizontal: "medium", vertical: "small" }}
       border={{ side: "bottom" }}
       flex={{ shrink: 0 }}
     >
       {heading && (
-        <Heading margin="none" level={3}>
-          {heading}
-        </Heading>
+        <Box flex={{ grow: 1, shrink: 1 }}>
+          <Heading margin="none" level={3}>
+            {heading}
+          </Heading>
+        </Box>
       )}
-      <Button onClick={() => onClose()} plain icon={<Close />} />
+      <Box>
+        <Button onClick={() => onClose()} plain icon={<Close />} />
+      </Box>
     </Box>
     <Box width={width} pad="medium" overflow="auto">
       {children}
