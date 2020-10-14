@@ -38,7 +38,7 @@ const ListItemUser = ({
           }
           style={{ opacity: userTyping ? 1 : 0 }}
         >
-          <MoreVertical color="dark-4" size="small" />
+          <MoreVertical color="accent-3" size="small" />
         </Box>
         {user.isDj && (
           <Box>
