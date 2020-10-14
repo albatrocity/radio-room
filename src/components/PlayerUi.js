@@ -14,11 +14,8 @@ const PlayerUi = () => {
       pingOffline: () => {
         return new Promise((resolve, reject) => {
           socket.on("meta", payload => {
-            if (
-              get("meta.bitrate", payload) &&
-              get("meta.bitrate", payload) !== "0"
-            ) {
-              resolve(payload)
+            if (get("bitrate", payload) && get("bitrate", payload) !== "0") {
+              resolve({ meta: payload })
             }
           })
           socket.on("init", payload => {
@@ -38,6 +35,7 @@ const PlayerUi = () => {
   const ready = state.matches("ready")
   const coverFound = state.matches("ready.cover.found")
   const { volume, meta } = state.context
+
   const offline =
     get("bitrate", meta) === "0" || !get("bitrate", meta) || isEmpty(meta)
 
