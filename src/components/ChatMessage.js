@@ -58,7 +58,7 @@ const ChatMessage = ({
         {user.username}
       </Heading>
       <Paragraph margin={{ bottom: "xsmall" }}>
-        <Linkify>{parsedContent}</Linkify>
+        <Linkify properties={{ target: "_blank" }}>{parsedContent}</Linkify>
       </Paragraph>
       {images.length > 0 && (
         <Box gap="small">
