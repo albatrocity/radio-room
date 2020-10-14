@@ -1,10 +1,16 @@
 import React, { memo, useEffect, useState, useMemo } from "react"
-import { Box, Paragraph, Heading, Text, Image } from "grommet"
+import { Box, Paragraph, Heading, Text, Image, Anchor } from "grommet"
 import Linkify from "react-linkify"
 import { format } from "date-fns"
 import { includes, filter, reduce, get, concat } from "lodash/fp"
 import getUrls from "../lib/getUrls"
 import isImageUrl from "is-image-url"
+
+const componentDecorator = (href, text, key) => (
+  <Anchor href={href} key={key} target="_blank" rel="noopener noreferrer">
+    {text}
+  </Anchor>
+)
 
 const ChatMessage = ({
   content,
@@ -58,7 +64,9 @@ const ChatMessage = ({
         {user.username}
       </Heading>
       <Paragraph margin={{ bottom: "xsmall" }}>
-        <Linkify properties={{ target: "_blank" }}>{parsedContent}</Linkify>
+        <Linkify componentDecorator={componentDecorator}>
+          {parsedContent}
+        </Linkify>
       </Paragraph>
       {images.length > 0 && (
         <Box gap="small">
