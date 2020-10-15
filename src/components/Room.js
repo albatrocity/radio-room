@@ -1,8 +1,8 @@
 import React, { useContext, useCallback, useEffect } from "react"
 import { useMachine } from "@xstate/react"
 import Konami from "react-konami-code"
-import { Box, Button, Heading } from "grommet"
-import { SettingsOption } from "grommet-icons"
+import { Box, Button, Heading, Layer } from "grommet"
+import { SettingsOption, List } from "grommet-icons"
 import { get, find, uniqBy, reject, sortBy } from "lodash/fp"
 
 import FormAdminMeta from "./FormAdminMeta"
@@ -10,6 +10,7 @@ import FormAdminArtwork from "./FormAdminArtwork"
 import FormAdminSettings from "./FormAdminSettings"
 import Listeners from "./Listeners"
 import PlayerUi from "./PlayerUi"
+import Playlist from "./Playlist"
 import FormUsername from "./FormUsername"
 import Chat from "./Chat"
 import UserList from "./UserList"
@@ -50,6 +51,9 @@ const Room = () => {
       adminActivated: (context, event) => {
         authSend("ACTIVATE_ADMIN")
       },
+      clearPlaylist: (context, event) => {
+        socket.emit("clear playlist")
+      },
     },
     activities: {
       setupListeners: ctx => {
@@ -65,6 +69,9 @@ const Room = () => {
         const handleTyping = payload => {
           send({ type: "TYPING", data: payload })
         }
+        const handlePlaylist = payload => {
+          send({ type: "PLAYLIST_DATA", data: payload })
+        }
         const handleDisconnect = payload => {
           send({ type: "DISCONNECT", data: payload })
         }
@@ -73,6 +80,7 @@ const Room = () => {
         socket.on("user joined", handleUserJoin)
         socket.on("user left", handleUserLeave)
         socket.on("typing", handleTyping)
+        socket.on("playlist", handlePlaylist)
         socket.on("disconnect", () => {
           authSend("USER_DISCONNECTED")
         })
@@ -81,6 +89,7 @@ const Room = () => {
           socket.removeListener("init", handleInit)
           socket.removeListener("user joined", handleUserJoin)
           socket.removeListener("user left", handleUserLeave)
+          socket.removeListener("playlist", handlePlaylist)
           socket.emit("disconnect")
         }
       },
@@ -105,6 +114,21 @@ const Room = () => {
   return (
     <Box flex="grow">
       <Konami action={() => send("ACTIVATE_ADMIN")} />
+      {roomState.matches("playlist.active") && (
+        <Modal
+          position="left"
+          full="vertical"
+          responsive={false}
+          heading="Playlist"
+          contentPad="none"
+          onClose={() => send("TOGGLE_PLAYLIST")}
+          width={{ min: "100%", max: "90vw" }}
+        >
+          <Box>
+            <Playlist data={roomState.context.playlist} />
+          </Box>
+        </Modal>
+      )}
       {roomState.matches("connected.participating.editing.username") && (
         <Modal
           onClose={() => hideNameForm()}
@@ -167,7 +191,10 @@ const Room = () => {
         </Modal>
       )}
 
-      <PlayerUi />
+      <PlayerUi
+        onShowPlaylist={() => send("TOGGLE_PLAYLIST")}
+        hasPlaylist={roomState.context.playlist.length > 0}
+      />
 
       <Box direction="row-responsive" flex="grow">
         <Box flex={{ grow: 1, shrink: 1 }} pad="medium">
@@ -217,6 +244,7 @@ const Room = () => {
                     label="Change Cover Art"
                     onClick={() => send("ADMIN_EDIT_ARTWORK")}
                   />
+
                   <Box
                     animation={
                       roomState.matches(
@@ -244,6 +272,14 @@ const Room = () => {
                       onClick={() => send("ADMIN_EDIT_SETTINGS")}
                     />
                   </Box>
+                  {roomState.matches("djaying.isDj") && (
+                    <Button
+                      label="Clear Playlist"
+                      primary
+                      icon={<List />}
+                      onClick={() => send("ADMIN_CLEAR_PLAYLIST")}
+                    />
+                  )}
                 </Box>
               </Box>
             )}

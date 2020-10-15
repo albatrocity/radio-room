@@ -8,7 +8,7 @@ import NowPlaying from "./NowPlaying"
 import RadioPlayer from "./RadioPlayer"
 import { audioMachine } from "../machines/audioMachine"
 
-const PlayerUi = () => {
+const PlayerUi = ({ onShowPlaylist, hasPlaylist }) => {
   const [state, send] = useMachine(audioMachine, {
     services: {
       pingOffline: () => {
@@ -75,6 +75,8 @@ const PlayerUi = () => {
         onVolume={v => send("CHANGE_VOLUME", { volume: v })}
         onPlayPause={() => send("TOGGLE")}
         onMute={() => send("TOGGLE_MUTE")}
+        onShowPlaylist={onShowPlaylist}
+        hasPlaylist={hasPlaylist}
       />
     </Box>
   )

@@ -8,11 +8,14 @@ const Modal = ({
   onClose,
   heading,
   width = "300px",
+  contentPad,
+  ...rest
 }) => (
   <Layer
     responsive={responsive}
     onClickOutside={() => onClose()}
     onEsc={() => onClose()}
+    {...rest}
   >
     <Box
       fill="horizontal"
@@ -34,7 +37,7 @@ const Modal = ({
         <Button onClick={() => onClose()} plain icon={<Close />} />
       </Box>
     </Box>
-    <Box width={width} pad="medium" overflow="auto">
+    <Box width={width} pad={contentPad || "medium"} overflow="auto">
       {children}
     </Box>
   </Layer>

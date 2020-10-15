@@ -57,7 +57,7 @@ const Input = memo(
       style={inputStyle}
       value={form.values.content}
       autoFocus={autoFocus}
-      autocomplete="off"
+      autoComplete="off"
       onChange={e => {
         if (e.target.value && e.target.value !== "") {
           handleKeyInput()

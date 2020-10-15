@@ -7,6 +7,7 @@ export const roomMachine = Machine(
     context: {
       users: [],
       typing: [],
+      playlist: [],
     },
     on: {
       USER_ADDED: {
@@ -21,9 +22,28 @@ export const roomMachine = Machine(
       TYPING: {
         actions: ["setTyping"],
       },
+      PLAYLIST_DATA: {
+        actions: ["setPlaylist"],
+      },
     },
     type: "parallel",
     states: {
+      playlist: {
+        id: "playlist",
+        initial: "inactive",
+        states: {
+          active: {
+            on: {
+              TOGGLE_PLAYLIST: "inactive",
+            },
+          },
+          inactive: {
+            on: {
+              TOGGLE_PLAYLIST: "active",
+            },
+          },
+        },
+      },
       admin: {
         id: "admin",
         initial: "notAdmin",
@@ -128,6 +148,9 @@ export const roomMachine = Machine(
                     target: ".settings",
                     in: "#room.admin.isAdmin",
                   },
+                  ADMIN_CLEAR_PLAYLIST: {
+                    actions: ["clearPlaylist"],
+                  },
                   DISCONNECT: {
                     target: "#room.disconnected",
                     actions: ["setRetry"],
@@ -164,6 +187,14 @@ export const roomMachine = Machine(
       setData: assign({
         users: (context, event) => {
           return event.data.users
+        },
+        playlist: (context, event) => {
+          return event.data.playlist
+        },
+      }),
+      setPlaylist: assign({
+        playlist: (context, event) => {
+          return event.data
         },
       }),
     },

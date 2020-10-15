@@ -6,7 +6,7 @@ import SEO from "../components/seo"
 
 const IndexPage = () => (
   <Layout>
-    <SEO />
+    <SEO title="Koney Live" />
     <RadioApp />
   </Layout>
 )

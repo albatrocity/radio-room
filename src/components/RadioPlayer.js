@@ -1,6 +1,6 @@
 import React, { useRef, memo } from "react"
 import { Box, Button, Nav, RangeInput } from "grommet"
-import { Play, Pause, VolumeMute, Volume } from "grommet-icons"
+import { Play, Pause, VolumeMute, Volume, List } from "grommet-icons"
 import ReactHowler from "react-howler"
 
 import { audioMachine } from "../machines/audioMachine"
@@ -16,6 +16,8 @@ const RadioPlayer = ({
   onVolume,
   onPlayPause,
   onMute,
+  onShowPlaylist,
+  hasPlaylist,
 }) => {
   const player = useRef(null)
 
@@ -63,6 +65,11 @@ const RadioPlayer = ({
               onChange={event => onVolume(event.target.value)}
             />
           </Box>
+          {hasPlaylist && (
+            <Box flex={{ shrink: 0 }}>
+              <Button onClick={onShowPlaylist} icon={<List color="brand" />} />
+            </Box>
+          )}
         </Nav>
       )}
       <ReactHowler
