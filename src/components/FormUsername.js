@@ -8,14 +8,11 @@ const FormUsername = ({ onClose, onSubmit, currentUser }) => {
     <Box pad="small" gap="small" width="medium">
       <Formik
         initialValues={{ username: "", userId }}
-        validate={values => {
-          const errors = {}
-          if (!values.username) {
-            errors.username = "Required"
-          }
-          return errors
-        }}
         onSubmit={(values, { setSubmitting, resetForm }) => {
+          if (!values.username || values.username === "") {
+            console.log("CLOSE")
+            return onClose()
+          }
           setSubmitting(false)
           onSubmit(values.username)
         }}
