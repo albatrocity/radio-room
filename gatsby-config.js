@@ -18,12 +18,13 @@ module.exports = {
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
-        name: `gatsby-starter-default`,
-        short_name: `starter`,
+        name: `Koney Live`,
+        short_name: `Koney`,
         start_url: `/`,
-        background_color: `#3580d9`,
-        theme_color: `#3580d9`,
+        background_color: `#fff`,
+        theme_color: `#f14561`,
         display: `minimal-ui`,
+        icon: `src/images/icon.jpeg`,
       },
     },
     {
