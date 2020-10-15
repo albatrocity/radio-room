@@ -7,7 +7,12 @@ import ChatMessage from "./ChatMessage"
 import SystemMessage from "./SystemMessage"
 import TypingIndicator from "./TypingIndicator"
 
-const ChatMessages = ({ messages, currentUserId, typing }) => {
+const ChatMessages = ({
+  messages,
+  currentUserId,
+  typing,
+  onOpenReactionPicker,
+}) => {
   const sortedMessages = reverse(sortBy("timestamp", messages))
   return (
     <Box
@@ -26,6 +31,7 @@ const ChatMessages = ({ messages, currentUserId, typing }) => {
               key={x.timestamp}
               {...x}
               currentUserId={currentUserId}
+              onOpenReactionPicker={onOpenReactionPicker}
             />
           )
         )}

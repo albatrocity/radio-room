@@ -1,7 +1,7 @@
 import React, { useContext, useCallback, useEffect } from "react"
 import { useMachine } from "@xstate/react"
 import Konami from "react-konami-code"
-import { Box, Button, Heading, Layer } from "grommet"
+import { Box, Button, Heading, Layer, Drop } from "grommet"
 import { SettingsOption, List } from "grommet-icons"
 import { get, find, uniqBy, reject, sortBy } from "lodash/fp"
 
@@ -15,6 +15,7 @@ import FormUsername from "./FormUsername"
 import Chat from "./Chat"
 import UserList from "./UserList"
 import Modal from "./Modal"
+import ReactionPicker from "./ReactionPicker"
 import AuthContext from "../contexts/AuthContext"
 import { roomMachine } from "../machines/roomMachine"
 import socket from "../lib/socket"
@@ -53,6 +54,10 @@ const Room = () => {
       },
       clearPlaylist: (context, event) => {
         socket.emit("clear playlist")
+      },
+      submitReaction: (context, event) => {
+        const { emoji, reactTo } = event
+        socket.emit("add reaction", { emoji, reactTo })
       },
     },
     activities: {
@@ -111,9 +116,30 @@ const Room = () => {
   )
   const dj = find({ isDj: true }, roomState.context.users)
 
+  const onOpenReactionPicker = useCallback((dropRef, reactTo) => {
+    send("TOGGLE_REACTION_PICKER", { dropRef, reactTo })
+  })
+
   return (
     <Box flex="grow">
       <Konami action={() => send("ACTIVATE_ADMIN")} />
+      {roomState.matches("reactionPicker.active") &&
+        roomState.context.reactionPickerRef && (
+          <Drop
+            onClickOutside={() => send("TOGGLE_REACTION_PICKER")}
+            onEsc={() => send("TOGGLE_REACTION_PICKER")}
+            target={roomState.context.reactionPickerRef.current}
+          >
+            <ReactionPicker
+              onSelect={emoji => {
+                send("SELECT_REACTION", {
+                  emoji,
+                  reactTo: roomState.context.reactTo,
+                })
+              }}
+            />
+          </Drop>
+        )}
       {roomState.matches("playlist.active") && (
         <Modal
           position="left"
@@ -201,6 +227,7 @@ const Room = () => {
           <Chat
             users={roomState.context.users}
             modalActive={roomState.matches("connected.participating.editing")}
+            onOpenReactionPicker={onOpenReactionPicker}
           />
         </Box>
 

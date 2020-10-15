@@ -8,6 +8,8 @@ export const roomMachine = Machine(
       users: [],
       typing: [],
       playlist: [],
+      reactionPickerRef: null,
+      reactTo: null,
     },
     on: {
       USER_ADDED: {
@@ -28,6 +30,28 @@ export const roomMachine = Machine(
     },
     type: "parallel",
     states: {
+      reactionPicker: {
+        id: "reactionPicker",
+        initial: "inactive",
+        states: {
+          active: {
+            entry: ["setReaction"],
+            on: {
+              TOGGLE_REACTION_PICKER: "inactive",
+              SELECT_REACTION: {
+                target: "inactive",
+                actions: ["submitReaction"],
+              },
+            },
+          },
+          inactive: {
+            entry: ["clearReaction"],
+            on: {
+              TOGGLE_REACTION_PICKER: "active",
+            },
+          },
+        },
+      },
       playlist: {
         id: "playlist",
         initial: "inactive",
@@ -196,6 +220,17 @@ export const roomMachine = Machine(
         playlist: (context, event) => {
           return event.data
         },
+      }),
+      setReaction: assign({
+        reactionPickerRef: (ctx, event) => {
+          console.log(event)
+          return event.dropRef
+        },
+        reactTo: (ctx, event) => event.reactTo,
+      }),
+      clearReaction: assign({
+        reactionPickerRef: null,
+        reactTo: null,
       }),
     },
   }
