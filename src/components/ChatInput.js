@@ -7,7 +7,7 @@ import React, {
   memo,
 } from "react"
 
-import { Formik, Field } from "formik"
+import { Formik, FastField } from "formik"
 import { Box, Button, ThemeContext } from "grommet"
 import { Chat } from "grommet-icons"
 import { MentionsInput, Mention } from "react-mentions"
@@ -37,43 +37,41 @@ const renderUserSuggestion = (
   )
 }
 
-const Input = memo(
-  ({
-    field,
-    form,
-    inputRef,
-    inputStyle,
-    handleKeyInput,
-    userSuggestions,
-    mentionStyle,
-    renderUserSuggestion,
-    autoFocus,
-    ...props
-  }) => (
-    <MentionsInput
-      name="content"
-      singleLine
-      inputRef={inputRef}
-      style={inputStyle}
-      value={form.values.content}
-      autoFocus={autoFocus}
-      autoComplete="off"
-      onChange={e => {
-        if (e.target.value && e.target.value !== "") {
-          handleKeyInput()
-        }
-        form.setFieldValue(field.name, e.target.value)
-      }}
-    >
-      <Mention
-        trigger="@"
-        appendSpaceOnAdd={true}
-        data={userSuggestions}
-        style={mentionStyle}
-        renderSuggestion={renderUserSuggestion}
-      />
-    </MentionsInput>
-  )
+const Input = ({
+  field,
+  form,
+  inputRef,
+  inputStyle,
+  handleKeyInput,
+  userSuggestions,
+  mentionStyle,
+  renderUserSuggestion,
+  autoFocus,
+  ...props
+}) => (
+  <MentionsInput
+    name="content"
+    singleLine
+    inputRef={inputRef}
+    style={inputStyle}
+    value={form.values.content}
+    autoFocus={autoFocus}
+    autoComplete="off"
+    onChange={e => {
+      if (e.target.value && e.target.value !== "") {
+        handleKeyInput()
+      }
+      form.setFieldValue(field.name, e.target.value)
+    }}
+  >
+    <Mention
+      trigger="@"
+      appendSpaceOnAdd={true}
+      data={userSuggestions}
+      style={mentionStyle}
+      renderSuggestion={renderUserSuggestion}
+    />
+  </MentionsInput>
 )
 
 const ChatInput = ({
@@ -207,7 +205,7 @@ const ChatInput = ({
                 <Chat />
               </Box>
               <InputContainer flex={{ grow: 1, shrink: 1 }}>
-                <Field
+                <FastField
                   component={Input}
                   name="content"
                   inputRef={inputRef}
