@@ -1,7 +1,7 @@
 import React, { useContext, useCallback, useEffect, useMemo } from "react"
 import { useMachine } from "@xstate/react"
 import Konami from "react-konami-code"
-import { Box, Button, Heading, Layer, Drop } from "grommet"
+import { Box, Text, Button, Heading, Layer, Drop, Anchor } from "grommet"
 import { SettingsOption, List } from "grommet-icons"
 import { get, find, uniqBy, reject, sortBy } from "lodash/fp"
 
@@ -311,7 +311,7 @@ const Room = () => {
               onKickUser={userId => send({ type: "KICK_USER", userId })}
             />
             {roomState.matches("admin.isAdmin") && (
-              <Box pad="small" flex={{ shrink: 0 }}>
+              <Box pad="medium" flex={{ shrink: 0 }}>
                 <Heading level={3} margin={{ bottom: "xsmall" }}>
                   Admin
                 </Heading>
@@ -379,6 +379,19 @@ const Room = () => {
                 </Box>
               </Box>
             )}
+            <Box pad="medium">
+              <Text size="xsmall">
+                If you're having issues, we're sorry! Try refreshing the page.
+                If all hope is lost, contact{" "}
+                <Text size="xsmall" weight={700}>
+                  @Ross
+                </Text>{" "}
+                in the chat or{" "}
+                <Anchor href="mailto:albatrocity@gmail.com">
+                  send him a nice email.
+                </Anchor>
+              </Text>
+            </Box>
           </Box>
         )}
       </Box>
