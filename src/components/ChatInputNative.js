@@ -16,6 +16,7 @@ import session from "sessionstorage"
 import styled from "styled-components"
 
 import { SESSION_ID, SESSION_USERNAME } from "../constants"
+import { useUsers } from "../contexts/useUsers"
 
 const InputContainer = styled(Box)`
   > div {
@@ -75,13 +76,10 @@ const Input = ({
   </MentionsInput>
 )
 
-const ChatInput = ({
-  onTypingStart,
-  onTypingStop,
-  onSend,
-  users,
-  modalActive,
-}) => {
+const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
+  const {
+    state: { users },
+  } = useUsers()
   const username = session.getItem(SESSION_USERNAME)
   const userId = session.getItem(SESSION_ID)
   const theme = useContext(ThemeContext)

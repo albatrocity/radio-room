@@ -174,6 +174,11 @@ const Room = () => {
     send("SELECT_REACTION", { reactTo, emoji })
   })
 
+  const isEditing = useMemo(
+    () => roomState.matches("connected.participating.editing"),
+    [roomState]
+  )
+
   return (
     <Box flex="grow">
       <Konami action={() => send("ACTIVATE_ADMIN")} />
@@ -280,8 +285,7 @@ const Room = () => {
       <Box direction="row-responsive" flex="grow">
         <Box flex={{ grow: 1, shrink: 1 }} pad="medium">
           <Chat
-            users={roomState.context.users}
-            modalActive={roomState.matches("connected.participating.editing")}
+            modalActive={isEditing}
             onOpenReactionPicker={onOpenReactionPicker}
             onReactionClick={toggleReaction}
           />

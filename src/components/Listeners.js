@@ -22,7 +22,7 @@ const Listeners = ({
   }, [onViewListeners])
 
   return (
-    <Box pad="small" className="list-outer" height="100%">
+    <Box pad="medium" className="list-outer" height="100%">
       {isSmall && (
         <Box>
           <Button
