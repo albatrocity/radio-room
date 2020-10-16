@@ -511,3 +511,8 @@ pre tt:after {
     font-size: 100%;
   }
 }
+
+.emoji-mart-emoji {
+  line-height: 1em;
+  vertical-align: middle;
+}

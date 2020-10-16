@@ -6,8 +6,8 @@ import { includes, filter, reduce, get, concat } from "lodash/fp"
 import getUrls from "../lib/getUrls"
 import isImageUrl from "is-image-url"
 
-import ReactionPicker from "./ReactionPicker"
 import ReactionCounter from "./ReactionCounter"
+import ParsedEmojiMessage from "./ParsedEmojiMessage"
 
 const componentDecorator = (href, text, key) => (
   <Anchor href={href} key={key} target="_blank" rel="noopener noreferrer">
@@ -81,7 +81,7 @@ const ChatMessage = ({
       </Box>
       <Paragraph margin={{ bottom: "xsmall" }}>
         <Linkify componentDecorator={componentDecorator}>
-          {parsedContent}
+          <ParsedEmojiMessage content={parsedContent} />
         </Linkify>
       </Paragraph>
       {images.length > 0 && (
