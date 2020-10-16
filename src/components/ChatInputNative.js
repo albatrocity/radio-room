@@ -38,8 +38,6 @@ const renderUserSuggestion = (
 }
 
 const Input = ({
-  field,
-  form,
   inputRef,
   inputStyle,
   handleKeyInput,
@@ -47,21 +45,24 @@ const Input = ({
   mentionStyle,
   renderUserSuggestion,
   autoFocus,
+  value,
+  onChange,
   ...props
 }) => (
   <MentionsInput
     name="content"
     singleLine
+    allowSuggestionsAboveCursor={true}
     inputRef={inputRef}
     style={inputStyle}
-    value={form.values.content}
+    value={value}
     autoFocus={autoFocus}
     autoComplete="off"
     onChange={e => {
       if (e.target.value && e.target.value !== "") {
         handleKeyInput()
       }
-      form.setFieldValue(field.name, e.target.value)
+      onChange(e.target.value)
     }}
   >
     <Mention
@@ -86,6 +87,8 @@ const ChatInput = ({
   const theme = useContext(ThemeContext)
   const inputRef = useRef(null)
   const [isTyping, setTyping] = useState(false)
+  const [isSubmitting, setSubmitting] = useState(false)
+  const [content, setContent] = useState("")
 
   const handleTypingStop = useCallback(
     debounce(() => {
@@ -102,6 +105,8 @@ const ChatInput = ({
     }
   }, [isTyping])
 
+  const isValid = content !== ""
+
   const handleKeyInput = useCallback(() => {
     setTyping(true)
     handleTypingStop()
@@ -114,6 +119,7 @@ const ChatInput = ({
 
   const mentionStyle = {
     backgroundColor: theme.global.colors["accent-4"],
+    fontWeight: 700,
     height: "100%",
   }
 
@@ -171,63 +177,46 @@ const ChatInput = ({
     },
   }
 
+  const handleSubmit = e => {
+    e.preventDefault()
+    onSend(content)
+    setContent("")
+    setSubmitting(false)
+    inputRef.current.focus()
+  }
+
   return (
     <Box>
-      <Formik
-        initialValues={{ content: "", username, userId }}
-        validate={values => {
-          const errors = {}
-          if (!values.content) {
-            errors.content = "Required"
-          }
-          return errors
-        }}
-        onSubmit={(values, { setSubmitting, resetForm }) => {
-          onSend(values.content)
-          resetForm()
-          setSubmitting(false)
-          inputRef.current.focus()
-        }}
-      >
-        {({
-          values,
-          errors,
-          touched,
-          handleChange,
-          handleBlur,
-          handleSubmit,
-          isSubmitting,
-          isValid,
-        }) => (
-          <form onSubmit={handleSubmit}>
-            <Box direction="row" fill="horizontal" justify="center">
-              <Box align="center" justify="center" margin={{ right: "medium" }}>
-                <Chat />
-              </Box>
-              <InputContainer flex={{ grow: 1, shrink: 1 }}>
-                <FastField
-                  component={Input}
-                  name="content"
-                  inputRef={inputRef}
-                  inputStyle={inputStyle}
-                  handleKeyInput={handleKeyInput}
-                  userSuggestions={userSuggestions}
-                  mentionStyle={mentionStyle}
-                  renderUserSuggestion={renderUserSuggestion}
-                  autoFocus={modalActive}
-                />
-              </InputContainer>
-              <Button
-                label="Submit"
-                type="submit"
-                primary
-                disabled={isSubmitting || !isValid}
-                style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
-              />
-            </Box>
-          </form>
-        )}
-      </Formik>
+      <form onSubmit={handleSubmit}>
+        <Box direction="row" fill="horizontal" justify="center">
+          <Box align="center" justify="center" margin={{ right: "medium" }}>
+            <Chat />
+          </Box>
+          <InputContainer flex={{ grow: 1, shrink: 1 }}>
+            <Input
+              name="content"
+              onChange={value => {
+                setContent(value)
+              }}
+              value={content}
+              inputRef={inputRef}
+              inputStyle={inputStyle}
+              handleKeyInput={handleKeyInput}
+              userSuggestions={userSuggestions}
+              mentionStyle={mentionStyle}
+              renderUserSuggestion={renderUserSuggestion}
+              autoFocus={modalActive}
+            />
+          </InputContainer>
+          <Button
+            label="Submit"
+            type="submit"
+            primary
+            disabled={isSubmitting || !isValid}
+            style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
+          />
+        </Box>
+      </form>
     </Box>
   )
 }
