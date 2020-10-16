@@ -1,7 +1,6 @@
 import React, { useContext, memo } from "react"
 import { Box, Text, Anchor, Heading } from "grommet"
 import Linkify from "react-linkify"
-import nl2br from "react-nl2br"
 import { Currency } from "grommet-icons"
 import styled from "styled-components"
 import { get, isEqual } from "lodash/fp"
@@ -9,6 +8,7 @@ import { Edit } from "grommet-icons"
 
 import AuthContext from "../contexts/AuthContext"
 import ListItemUser from "./ListItemUser"
+import ParsedEmojiMessage from "./ParsedEmojiMessage"
 
 const StyledText = styled(Text)`
   a {
@@ -55,7 +55,7 @@ const UserList = ({
           {currentDj && !dj.extraInfo && !dj.donationURL && (
             <Box
               background="accent-4"
-              pad="small"
+              pad="medium"
               elevation="medium"
               border={{ side: "all" }}
             >
@@ -80,14 +80,14 @@ const UserList = ({
           {dj.extraInfo && (
             <Box
               background="white"
-              pad="small"
+              pad="medium"
               elevation="medium"
               border={{ side: "all" }}
             >
               {dj.extraInfo !== "" && (
-                <Linkify componentDecorator={componentDecorator}>
-                  <StyledText size="small">{nl2br(dj.extraInfo)}</StyledText>
-                </Linkify>
+                <Text>
+                  <ParsedEmojiMessage content={dj.extraInfo} />
+                </Text>
               )}
             </Box>
           )}

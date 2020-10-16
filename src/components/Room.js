@@ -355,7 +355,7 @@ const Room = () => {
                           ? true
                           : false
                       }
-                      icon={<SettingsOption />}
+                      icon={<SettingsOption size="small" />}
                       onClick={() => send("ADMIN_EDIT_SETTINGS")}
                     />
                   </Box>
@@ -363,8 +363,15 @@ const Room = () => {
                     <Button
                       label="Clear Playlist"
                       primary
-                      icon={<List />}
-                      onClick={() => send("ADMIN_CLEAR_PLAYLIST")}
+                      icon={<List size="small" />}
+                      onClick={() => {
+                        const confirmation = window.confirm(
+                          "Are you sure you want to clear the playlist? This cannot be undone."
+                        )
+                        if (confirmation) {
+                          send("ADMIN_CLEAR_PLAYLIST")
+                        }
+                      }}
                     />
                   )}
                 </Box>

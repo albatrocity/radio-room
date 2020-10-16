@@ -9,12 +9,6 @@ import isImageUrl from "is-image-url"
 import ReactionCounter from "./ReactionCounter"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 
-const componentDecorator = (href, text, key) => (
-  <Anchor href={href} key={key} target="_blank" rel="noopener noreferrer">
-    {text}
-  </Anchor>
-)
-
 const ChatMessage = ({
   content,
   mentions = [],
@@ -80,9 +74,7 @@ const ChatMessage = ({
         </Box>
       </Box>
       <Paragraph margin={{ bottom: "xsmall" }}>
-        <Linkify componentDecorator={componentDecorator}>
-          <ParsedEmojiMessage content={parsedContent} />
-        </Linkify>
+        <ParsedEmojiMessage content={parsedContent} />
       </Paragraph>
       {images.length > 0 && (
         <Box gap="small">
