@@ -1,7 +1,7 @@
-import React, { useRef } from "react"
+import React, { useRef, memo } from "react"
 import { Box, Button } from "grommet"
 import { groupBy, map, keys } from "lodash/fp"
-import { FormAdd, Emoji } from "grommet-icons"
+import { FormAdd, Emoji as EmojiIcon } from "grommet-icons"
 
 import ReactionCounterItem from "./ReactionCounterItem"
 
@@ -10,12 +10,14 @@ const ReactionAddButton = ({ onOpenPicker, reactTo }) => {
   return (
     <Button
       hoverIndicator
+      pad="xsmall"
+      size="small"
       ref={ref}
       onClick={() => onOpenPicker(ref, reactTo)}
       round="xsmall"
       icon={
         <>
-          <Emoji size="small" />
+          <EmojiIcon size="small" />
           <FormAdd size="small" />
         </>
       }
@@ -23,15 +25,22 @@ const ReactionAddButton = ({ onOpenPicker, reactTo }) => {
   )
 }
 
-const ReactionCounter = ({ reactions, onOpenPicker, reactTo }) => {
+const ReactionCounter = ({
+  reactions,
+  onOpenPicker,
+  reactTo,
+  onReactionClick,
+}) => {
   const emoji = groupBy("emoji", reactions)
   return (
-    <Box direction="row" wrap={true} gap="xsmall">
+    <Box direction="row" wrap={true} gap="xsmall" align="center">
       {keys(emoji).map(x => (
         <ReactionCounterItem
           key={x}
           count={emoji[x].length}
           users={map("user", emoji[x])}
+          onReactionClick={onReactionClick}
+          reactTo={reactTo}
           emoji={x}
         />
       ))}
@@ -40,4 +49,4 @@ const ReactionCounter = ({ reactions, onOpenPicker, reactTo }) => {
   )
 }
 
-export default ReactionCounter
+export default memo(ReactionCounter)

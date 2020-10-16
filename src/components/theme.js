@@ -20,6 +20,11 @@ const theme = {
     border: {
       radius: "0.3rem",
     },
+    secondary: {
+      border: {
+        color: "light-3",
+      },
+    },
   },
   formField: {
     info: {

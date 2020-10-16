@@ -8,18 +8,22 @@ export const roomMachine = Machine(
       users: [],
       typing: [],
       playlist: [],
+      reactions: {
+        track: {},
+        message: {},
+      },
       reactionPickerRef: null,
       reactTo: null,
     },
     on: {
       USER_ADDED: {
-        actions: ["setUsers", "checkDj"],
+        actions: ["setUsers", "checkDj", "dispatchUsers"],
       },
       REMOVE_USER: {
-        actions: ["setUsers"],
+        actions: ["setUsers", "dispatchUsers"],
       },
       LOGIN: {
-        actions: ["setData"],
+        actions: ["setData", "dispatchUsers", "dispatchReactions"],
       },
       TYPING: {
         actions: ["setTyping"],
@@ -27,21 +31,26 @@ export const roomMachine = Machine(
       PLAYLIST_DATA: {
         actions: ["setPlaylist"],
       },
+      REACTIONS_DATA: {
+        actions: ["setReactions", "dispatchReactions"],
+      },
     },
     type: "parallel",
     states: {
       reactionPicker: {
         id: "reactionPicker",
         initial: "inactive",
+        on: {
+          SELECT_REACTION: {
+            target: ".inactive",
+            actions: ["toggleReaction"],
+          },
+        },
         states: {
           active: {
             entry: ["setReaction"],
             on: {
               TOGGLE_REACTION_PICKER: "inactive",
-              SELECT_REACTION: {
-                target: "inactive",
-                actions: ["submitReaction"],
-              },
             },
           },
           inactive: {
@@ -215,15 +224,22 @@ export const roomMachine = Machine(
         playlist: (context, event) => {
           return event.data.playlist
         },
+        reactions: (context, event) => {
+          return event.data.reactions
+        },
       }),
       setPlaylist: assign({
         playlist: (context, event) => {
           return event.data
         },
       }),
+      setReactions: assign({
+        reactions: (context, event) => {
+          return event.data.reactions
+        },
+      }),
       setReaction: assign({
         reactionPickerRef: (ctx, event) => {
-          console.log(event)
           return event.dropRef
         },
         reactTo: (ctx, event) => event.reactTo,

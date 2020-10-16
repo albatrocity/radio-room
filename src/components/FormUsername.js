@@ -10,7 +10,6 @@ const FormUsername = ({ onClose, onSubmit, currentUser }) => {
         initialValues={{ username: "", userId }}
         onSubmit={(values, { setSubmitting, resetForm }) => {
           if (!values.username || values.username === "") {
-            console.log("CLOSE")
             return onClose()
           }
           setSubmitting(false)

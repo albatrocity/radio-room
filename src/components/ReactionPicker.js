@@ -4,7 +4,13 @@ import data from "emoji-mart/data/apple.json"
 import { Picker } from "emoji-mart"
 
 const ReactionPicker = ({ onSelect }) => (
-  <Picker data={data} set="apple" onSelect={onSelect} />
+  <Picker
+    autoFocus={true}
+    title={""}
+    data={data}
+    set="apple"
+    onSelect={onSelect}
+  />
 )
 
 export default ReactionPicker

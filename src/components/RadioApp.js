@@ -5,6 +5,8 @@ import { useMachine } from "@xstate/react"
 import useWindowSize from "./useWindowSize"
 import Room from "./Room"
 import AuthContext from "../contexts/AuthContext"
+import { ChatReactionsProvider } from "../contexts/useChatReactions"
+import { UsersProvider } from "../contexts/useUsers"
 import { authMachine } from "../machines/authMachine"
 import { getCurrentUser } from "../lib/getCurrentUser"
 import socket from "../lib/socket"
@@ -69,11 +71,15 @@ const RadioApp = () => {
 
   return (
     <AuthContext.Provider value={authContextValue}>
-      <Box height={size[1] ? `${size[1]}px` : "100vh"}>
-        <Main flex={{ grow: 1, shrink: 1 }}>
-          <Room />
-        </Main>
-      </Box>
+      <ChatReactionsProvider>
+        <UsersProvider>
+          <Box height={size[1] ? `${size[1]}px` : "100vh"}>
+            <Main flex={{ grow: 1, shrink: 1 }}>
+              <Room />
+            </Main>
+          </Box>
+        </UsersProvider>
+      </ChatReactionsProvider>
     </AuthContext.Provider>
   )
 }

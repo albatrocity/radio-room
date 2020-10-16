@@ -22,6 +22,8 @@ const ChatMessage = ({
   user,
   currentUserId,
   onOpenReactionPicker,
+  onReactionClick,
+  reactions,
 }) => {
   const [parsedImageUrls, setParsedImageUrls] = useState([])
   const date = new Date(timestamp)
@@ -89,15 +91,14 @@ const ChatMessage = ({
           {dateString}
         </Text>
       </Box>
-      <ReactionCounter
-        onOpenPicker={onOpenReactionPicker}
-        reactTo={{ type: "message", id: timestamp }}
-        reactions={[
-          { emoji: "🎉", by: "ross" },
-          { emoji: "🎉", by: "bob" },
-          { emoji: "😉", by: "tim" },
-        ]}
-      />
+      <Box pad="xsmall">
+        <ReactionCounter
+          onOpenPicker={onOpenReactionPicker}
+          reactTo={{ type: "message", id: timestamp }}
+          reactions={reactions}
+          onReactionClick={onReactionClick}
+        />
+      </Box>
     </Box>
   )
 }
