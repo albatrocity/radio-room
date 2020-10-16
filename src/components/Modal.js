@@ -27,7 +27,7 @@ const Modal = ({
       flex={{ shrink: 0 }}
     >
       {heading && (
-        <Box flex={{ grow: 1, shrink: 1 }}>
+        <Box flex={{ grow: 1, shrink: 1 }} pad="small">
           <Heading margin="none" level={3}>
             {heading}
           </Heading>

@@ -67,7 +67,7 @@ const ChatMessage = ({
 
   return (
     <Box
-      pad={isMention ? "small" : { vertical: "small" }}
+      pad={"medium"}
       border={{ side: "bottom" }}
       background={isMention ? "accent-4" : "none"}
       onMouseEnter={() => setHovered(true)}

@@ -213,11 +213,7 @@ const Room = () => {
         </Modal>
       )}
       {roomState.matches("connected.participating.editing.username") && (
-        <Modal
-          onClose={() => hideNameForm()}
-          heading="Your Name"
-          width="medium"
-        >
+        <Modal onClose={() => hideNameForm()} heading="Your Name">
           <FormUsername
             currentUser={authState.context.currentUser}
             isNewUser={authState.context.isNewUser}

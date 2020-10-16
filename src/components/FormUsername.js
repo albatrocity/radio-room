@@ -1,11 +1,11 @@
 import React from "react"
 import { Formik } from "formik"
-import { Box, Button, TextInput, Heading, Paragraph } from "grommet"
+import { Box, Button, Text, TextInput, Heading, Paragraph } from "grommet"
 
 const FormUsername = ({ onClose, onSubmit, currentUser }) => {
   const { username, userId } = currentUser
   return (
-    <Box pad="medium" gap="small" width="medium">
+    <Box pad="medium" gap="medium" width="medium">
       <Formik
         initialValues={{ username: "", userId }}
         onSubmit={(values, { setSubmitting, resetForm }) => {
@@ -30,6 +30,7 @@ const FormUsername = ({ onClose, onSubmit, currentUser }) => {
             <Paragraph>What are we gonna call you in here?</Paragraph>
             <Box direction="row" fill="horizontal">
               <TextInput
+                size="medium"
                 onChange={handleChange}
                 onBlur={handleBlur}
                 resize={false}
@@ -51,7 +52,10 @@ const FormUsername = ({ onClose, onSubmit, currentUser }) => {
           </form>
         )}
       </Formik>
-      <Button label={"Cancel"} onClick={() => onClose()} />
+      <Text color="dark-4" size="xsmall">
+        None of the data used in this app is permanently stored or shared with
+        any other service. This is a fun-making operation only.
+      </Text>
     </Box>
   )
 }
