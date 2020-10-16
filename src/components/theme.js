@@ -219,27 +219,22 @@ const theme = {
     small: {
       size: "11px",
       height: "15px",
-      maxWidth: "171px",
     },
     medium: {
       size: "12px",
       height: "16px",
-      maxWidth: "192px",
     },
     large: {
       size: "15px",
       height: "19px",
-      maxWidth: "235px",
     },
     xlarge: {
       size: "17px",
       height: "21px",
-      maxWidth: "277px",
     },
     xxlarge: {
       size: "23px",
       height: "27px",
-      maxWidth: "363px",
     },
   },
   text: {

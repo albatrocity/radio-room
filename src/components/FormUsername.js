@@ -5,7 +5,7 @@ import { Box, Button, TextInput, Heading, Paragraph } from "grommet"
 const FormUsername = ({ onClose, onSubmit, currentUser }) => {
   const { username, userId } = currentUser
   return (
-    <Box pad="small" gap="small" width="medium">
+    <Box pad="medium" gap="small" width="medium">
       <Formik
         initialValues={{ username: "", userId }}
         onSubmit={(values, { setSubmitting, resetForm }) => {

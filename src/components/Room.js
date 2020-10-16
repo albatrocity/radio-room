@@ -180,9 +180,12 @@ const Room = () => {
       {roomState.matches("reactionPicker.active") &&
         roomState.context.reactionPickerRef && (
           <Drop
+            plain
+            overflow="visible"
             onClickOutside={() => send("TOGGLE_REACTION_PICKER")}
             onEsc={() => send("TOGGLE_REACTION_PICKER")}
             target={roomState.context.reactionPickerRef.current}
+            align={{ top: "top", right: "right" }}
           >
             <ReactionPicker
               onSelect={emoji => {

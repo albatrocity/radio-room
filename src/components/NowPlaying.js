@@ -51,7 +51,7 @@ const NowPlaying = ({ onCover, ready, offline, meta, coverFound }) => {
               Offline :(
             </Heading>
           </Box>
-          <Heading margin="none" level={4} color="white">
+          <Heading margin="none" level={4} textAlign="center" color="white">
             Nobody's broadcasting right now.
           </Heading>
         </>

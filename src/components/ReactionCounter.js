@@ -39,7 +39,9 @@ const ReactionCounter = ({
     <Box direction="row" wrap={false} gap="xsmall" align="center">
       <Box direction="row" wrap={!isMobile} flex={{ grow: 1, shrink: 1 }}>
         <Box
-          overflow={isMobile ? "auto" : "hidden"}
+          overflow={
+            isMobile ? { horizontal: "auto", vertical: "hidden" } : "hidden"
+          }
           gap="xsmall"
           wrap={!isMobile}
           align="center"
