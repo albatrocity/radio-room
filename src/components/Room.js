@@ -237,13 +237,15 @@ const Room = () => {
           onClose={() => hideListeners()}
           heading={`Listeners (${listeners.length})`}
         >
-          <UserList
-            listeners={listeners}
-            dj={dj}
-            typing={roomMachine.context.typing}
-            onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
-            onEditUser={() => send("EDIT_USERNAME")}
-          />
+          <Box pad="small">
+            <UserList
+              listeners={listeners}
+              dj={dj}
+              typing={roomMachine.context.typing}
+              onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
+              onEditUser={() => send("EDIT_USERNAME")}
+            />
+          </Box>
         </Modal>
       )}
 

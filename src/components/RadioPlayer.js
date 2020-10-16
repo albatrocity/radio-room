@@ -70,7 +70,9 @@ const RadioPlayer = ({
                 reactTo={{ type: "track", id: trackId }}
                 reactions={reactions}
                 onReactionClick={onReactionClick}
-                color="accent-4"
+                buttonColor="rgba(255,255,255,0.4)"
+                iconColor="brand"
+                showAddButton={true}
               />
             ) : (
               <RangeInput
