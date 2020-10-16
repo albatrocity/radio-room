@@ -86,7 +86,9 @@ const PlayerUi = ({
               reactTo={{ type: "track", id: trackId }}
               reactions={trackState.reactions[trackId]}
               onReactionClick={onReactionClick}
-              color="accent-4"
+              buttonColor="accent-4"
+              iconColor="accent-4"
+              showAddButton={true}
             />
           </Box>
         </Box>

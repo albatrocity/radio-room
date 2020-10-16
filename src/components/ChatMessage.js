@@ -1,5 +1,13 @@
-import React, { memo, useEffect, useState, useMemo } from "react"
-import { Box, Paragraph, Heading, Text, Image, Anchor } from "grommet"
+import React, { memo, useEffect, useContext, useState, useMemo } from "react"
+import {
+  Box,
+  Paragraph,
+  Heading,
+  Text,
+  Image,
+  Anchor,
+  ResponsiveContext,
+} from "grommet"
 import Linkify from "react-linkify"
 import { format } from "date-fns"
 import { includes, filter, reduce, get, concat } from "lodash/fp"
@@ -19,7 +27,10 @@ const ChatMessage = ({
   onReactionClick,
   reactions,
 }) => {
+  const size = useContext(ResponsiveContext)
+  const isMobile = size === "small"
   const [parsedImageUrls, setParsedImageUrls] = useState([])
+  const [hovered, setHovered] = useState(false)
   const date = new Date(timestamp)
   const time = format(date, "p")
   const dateString = format(date, "M/d/y")
@@ -59,6 +70,8 @@ const ChatMessage = ({
       pad={isMention ? "small" : { vertical: "small" }}
       border={{ side: "bottom" }}
       background={isMention ? "accent-4" : "none"}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <Box direction="row-responsive" align="center" gap="small">
         <Heading level={4} margin={{ bottom: "xsmall", top: "xsmall" }}>
@@ -91,6 +104,9 @@ const ChatMessage = ({
           reactTo={{ type: "message", id: timestamp }}
           reactions={reactions}
           onReactionClick={onReactionClick}
+          iconColor="dark-5"
+          iconHoverColor="brand"
+          showAddButton={isMobile ? true : hovered}
         />
       </Box>
     </Box>

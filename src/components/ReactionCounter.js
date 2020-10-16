@@ -1,23 +1,42 @@
-import React, { useRef, memo, useContext } from "react"
+import React, { useRef, memo, useContext, useState } from "react"
 import { Box, Button, ResponsiveContext } from "grommet"
 import { groupBy, map, keys } from "lodash/fp"
 import { FormAdd, Emoji as EmojiIcon } from "grommet-icons"
 
 import ReactionCounterItem from "./ReactionCounterItem"
 
-const ReactionAddButton = ({ onOpenPicker, reactTo, color, isMobile }) => {
+const ReactionAddButton = ({
+  onOpenPicker,
+  reactTo,
+  iconColor,
+  iconHoverColor,
+  buttonColor,
+  isMobile,
+  disabled = false,
+}) => {
   const ref = useRef()
+  const [hovered, setHovered] = useState(false)
   return (
     <Button
-      hoverIndicator
       size="small"
+      disabled={disabled}
       ref={ref}
+      color={buttonColor}
       onClick={() => onOpenPicker(ref, reactTo)}
-      round="xsmall"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       icon={
         <>
-          <EmojiIcon size="small" />
-          {!isMobile && <FormAdd size="small" />}
+          <EmojiIcon
+            color={hovered ? iconHoverColor : iconColor}
+            size="small"
+          />
+          {!isMobile && (
+            <FormAdd
+              color={hovered ? iconHoverColor : iconColor}
+              size="small"
+            />
+          )}
         </>
       }
     />
@@ -29,7 +48,10 @@ const ReactionCounter = ({
   onOpenPicker,
   reactTo,
   onReactionClick,
-  color,
+  buttonColor,
+  iconColor,
+  iconHoverColor,
+  showAddButton,
 }) => {
   const emoji = groupBy("emoji", reactions)
   const size = useContext(ResponsiveContext)
@@ -58,17 +80,21 @@ const ReactionCounter = ({
               onReactionClick={onReactionClick}
               reactTo={reactTo}
               emoji={x}
-              color={color}
+              color={buttonColor}
             />
           ))}
         </Box>
       </Box>
+
       <Box flex={{ shrink: 1, grow: 0 }}>
         <ReactionAddButton
           onOpenPicker={onOpenPicker}
           reactTo={reactTo}
-          color={color}
+          buttonColor={buttonColor}
+          iconColor={showAddButton ? iconColor : "transparent"}
+          disabled={!showAddButton}
           isMobile={isMobile}
+          iconHoverColor={iconHoverColor}
         />
       </Box>
     </Box>
