@@ -18,13 +18,15 @@ import Modal from "./Modal"
 import ReactionPicker from "./ReactionPicker"
 import AuthContext from "../contexts/AuthContext"
 import { useChatReactions } from "../contexts/useChatReactions"
+import { useTrackReactions } from "../contexts/useTrackReactions"
 import { useUsers } from "../contexts/useUsers"
 import { roomMachine } from "../machines/roomMachine"
 import socket from "../lib/socket"
 
 const Room = () => {
   const { state: authState, send: authSend } = useContext(AuthContext)
-  const { state, dispatch } = useChatReactions()
+  const { dispatch: chatDispatch } = useChatReactions()
+  const { dispatch: trackDispatch } = useTrackReactions()
   const { dispatch: usersDispatch } = useUsers()
   const [roomState, send] = useMachine(roomMachine, {
     actions: {
@@ -60,7 +62,9 @@ const Room = () => {
         socket.emit("clear playlist")
       },
       dispatchReactions: (context, event) => {
-        dispatch({ type: "SET", payload: event.data.reactions })
+        console.log("dispatch reactions", event.data.reactions)
+        chatDispatch({ type: "SET", payload: event.data.reactions })
+        trackDispatch({ type: "SET", payload: event.data.reactions })
       },
       dispatchUsers: (context, event) => {
         usersDispatch({ type: "SET", payload: event.data.users })
@@ -270,6 +274,8 @@ const Room = () => {
       <PlayerUi
         onShowPlaylist={() => send("TOGGLE_PLAYLIST")}
         hasPlaylist={roomState.context.playlist.length > 0}
+        onReactionClick={toggleReaction}
+        onOpenReactionPicker={onOpenReactionPicker}
       />
 
       <Box direction="row-responsive" flex="grow">

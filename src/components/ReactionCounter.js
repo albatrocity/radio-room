@@ -5,7 +5,7 @@ import { FormAdd, Emoji as EmojiIcon } from "grommet-icons"
 
 import ReactionCounterItem from "./ReactionCounterItem"
 
-const ReactionAddButton = ({ onOpenPicker, reactTo }) => {
+const ReactionAddButton = ({ onOpenPicker, reactTo, color }) => {
   const ref = useRef()
   return (
     <Button
@@ -14,6 +14,7 @@ const ReactionAddButton = ({ onOpenPicker, reactTo }) => {
       ref={ref}
       onClick={() => onOpenPicker(ref, reactTo)}
       round="xsmall"
+      color={"black"}
       icon={
         <>
           <EmojiIcon size="small" />
@@ -29,6 +30,7 @@ const ReactionCounter = ({
   onOpenPicker,
   reactTo,
   onReactionClick,
+  color,
 }) => {
   const emoji = groupBy("emoji", reactions)
   return (
@@ -41,9 +43,14 @@ const ReactionCounter = ({
           onReactionClick={onReactionClick}
           reactTo={reactTo}
           emoji={x}
+          color={color}
         />
       ))}
-      <ReactionAddButton onOpenPicker={onOpenPicker} reactTo={reactTo} />
+      <ReactionAddButton
+        onOpenPicker={onOpenPicker}
+        reactTo={reactTo}
+        color={color}
+      />
     </Box>
   )
 }

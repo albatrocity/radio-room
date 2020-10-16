@@ -6,6 +6,7 @@ import useWindowSize from "./useWindowSize"
 import Room from "./Room"
 import AuthContext from "../contexts/AuthContext"
 import { ChatReactionsProvider } from "../contexts/useChatReactions"
+import { TrackReactionsProvider } from "../contexts/useTrackReactions"
 import { UsersProvider } from "../contexts/useUsers"
 import { authMachine } from "../machines/authMachine"
 import { getCurrentUser } from "../lib/getCurrentUser"
@@ -72,13 +73,15 @@ const RadioApp = () => {
   return (
     <AuthContext.Provider value={authContextValue}>
       <ChatReactionsProvider>
-        <UsersProvider>
-          <Box height={size[1] ? `${size[1]}px` : "100vh"}>
-            <Main flex={{ grow: 1, shrink: 1 }}>
-              <Room />
-            </Main>
-          </Box>
-        </UsersProvider>
+        <TrackReactionsProvider>
+          <UsersProvider>
+            <Box height={size[1] ? `${size[1]}px` : "100vh"}>
+              <Main flex={{ grow: 1, shrink: 1 }}>
+                <Room />
+              </Main>
+            </Box>
+          </UsersProvider>
+        </TrackReactionsProvider>
       </ChatReactionsProvider>
     </AuthContext.Provider>
   )

@@ -12,15 +12,16 @@ const NowPlaying = ({ onCover, ready, offline, meta, coverFound }) => {
   const size = useContext(ResponsiveContext)
   const { bitrate, album, artist, track, release = {}, cover } = meta || {}
   const { mbid, releaseDate } = release || {}
-
   const artworkSize = size === "small" ? "xsmall" : "small"
   const releaseUrl = mbid && `https://musicbrainz.org/release/${mbid}`
-  const coverUrl = useMemo(() =>
-    cover
-      ? cover
-      : mbid
-      ? `https://coverartarchive.org/release/${mbid}/front-500`
-      : null
+  const coverUrl = useMemo(
+    () =>
+      cover
+        ? cover
+        : mbid
+        ? `https://coverartarchive.org/release/${mbid}/front-500`
+        : null,
+    [mbid, cover]
   )
 
   useEffect(() => {

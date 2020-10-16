@@ -14,6 +14,7 @@ const ReactionCounterItem = ({
   emoji,
   onReactionClick,
   reactTo,
+  color = "light-2",
 }) => {
   const theme = useContext(ThemeContext)
   const size = useContext(ResponsiveContext)
@@ -32,7 +33,7 @@ const ReactionCounterItem = ({
     <>
       <Button
         direction="row"
-        color="light-2"
+        color={color}
         primary={currentUserReaction}
         gap="small"
         round="xsmall"

@@ -1,14 +1,22 @@
 import React, { useCallback, useEffect, memo } from "react"
 import { Box } from "grommet"
 import { useMachine } from "@xstate/react"
-import { isEmpty, get } from "lodash/fp"
+import { isEmpty, get, kebabCase } from "lodash/fp"
 
 import socket from "../lib/socket"
 import NowPlaying from "./NowPlaying"
 import RadioPlayer from "./RadioPlayer"
+import ReactionCounter from "./ReactionCounter"
 import { audioMachine } from "../machines/audioMachine"
+import { useTrackReactions } from "../contexts/useTrackReactions"
 
-const PlayerUi = ({ onShowPlaylist, hasPlaylist }) => {
+const PlayerUi = ({
+  onShowPlaylist,
+  hasPlaylist,
+  onOpenReactionPicker,
+  onReactionClick,
+}) => {
+  const { state: trackState } = useTrackReactions()
   const [state, send] = useMachine(audioMachine, {
     services: {
       pingOffline: () => {
@@ -35,6 +43,8 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }) => {
   const ready = state.matches("ready")
   const coverFound = state.matches("ready.cover.found")
   const { volume, meta } = state.context
+  const { bitrate, album, artist, track, release = {}, cover } = meta || {}
+  const trackId = kebabCase(`${track}-${artist}-${album}`)
 
   const offline =
     get("bitrate", meta) === "0" || !get("bitrate", meta) || isEmpty(meta)
@@ -66,6 +76,15 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }) => {
         offline={offline}
         meta={meta}
       />
+      <Box pad="small" background="brand">
+        <ReactionCounter
+          onOpenPicker={onOpenReactionPicker}
+          reactTo={{ type: "track", id: trackId }}
+          reactions={trackState.reactions[trackId]}
+          onReactionClick={onReactionClick}
+          color="accent-4"
+        />
+      </Box>
       <RadioPlayer
         volume={volume}
         meta={meta}
