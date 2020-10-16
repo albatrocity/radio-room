@@ -381,15 +381,11 @@ const Room = () => {
             )}
             <Box pad="medium">
               <Text size="xsmall">
-                If you're having issues, we're sorry! Try refreshing the page.
-                If all hope is lost, contact{" "}
+                If you're having issues, try refreshing the page, or contact{" "}
                 <Text size="xsmall" weight={700}>
                   @Ross
                 </Text>{" "}
-                in the chat or{" "}
-                <Anchor href="mailto:albatrocity@gmail.com">
-                  send him a nice email.
-                </Anchor>
+                in the chat
               </Text>
             </Box>
           </Box>
