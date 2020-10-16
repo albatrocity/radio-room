@@ -91,23 +91,6 @@ const FormAdminSettings = ({ onSubmit }) => {
           }) => (
             <Form onSubmit={handleSubmit}>
               <Box gap="small">
-                <TextInput
-                  checked={values.donationURL}
-                  onChange={e => {
-                    handleChange(e)
-                    if (e.target.value !== initialValues.donationURL) {
-                      setTouched({ donationURL: true })
-                    } else {
-                      setTouched({ donationURL: false })
-                    }
-                  }}
-                  onBlur={handleBlur}
-                  value={values.donationURL}
-                  label="Donation URL"
-                  placeholder="Donation URL"
-                  name="donationURL"
-                  icon={<Currency />}
-                />
                 <TextArea
                   checked={values.extraInfo}
                   onChange={e => {
@@ -120,7 +103,6 @@ const FormAdminSettings = ({ onSubmit }) => {
                   }}
                   onBlur={handleBlur}
                   value={values.extraInfo}
-                  label="Donation URL"
                   placeholder="Any additional info/links"
                   name="extraInfo"
                 />

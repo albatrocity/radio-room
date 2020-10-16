@@ -71,23 +71,13 @@ const UserList = ({
             </Box>
           )}
 
-          {(dj.extraInfo || dj.donationURL) && (
+          {dj.extraInfo && (
             <Box
               background="white"
               pad="small"
               elevation="medium"
               border={{ side: "all" }}
             >
-              {dj.donationURL !== "" && (
-                <Text truncate={true}>
-                  <Anchor
-                    icon={<Currency />}
-                    href={dj.donationURL}
-                    label={dj.donationURL}
-                  />
-                </Text>
-              )}
-
               {dj.extraInfo !== "" && (
                 <Linkify>
                   <StyledText size="small">{nl2br(dj.extraInfo)}</StyledText>

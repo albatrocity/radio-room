@@ -14,7 +14,6 @@ const ReactionAddButton = ({ onOpenPicker, reactTo, color, isMobile }) => {
       ref={ref}
       onClick={() => onOpenPicker(ref, reactTo)}
       round="xsmall"
-      color={"black"}
       icon={
         <>
           <EmojiIcon size="small" />
