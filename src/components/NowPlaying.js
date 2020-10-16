@@ -58,7 +58,7 @@ const NowPlaying = ({ onCover, ready, offline, meta, coverFound }) => {
       )}
       {ready && (
         <MetaWrapper href={releaseUrl} target="_blank" color="white">
-          <Box direction="row" gap="small" justify="center">
+          <Box direction="row" gap="medium" justify="center">
             {coverUrl && coverFound ? (
               <Box
                 width={artworkSize}
