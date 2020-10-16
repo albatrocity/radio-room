@@ -1,7 +1,7 @@
-import React, { useContext, useCallback, useEffect } from "react"
+import React, { useContext, useCallback, useEffect, useMemo } from "react"
 import { useMachine } from "@xstate/react"
 import Konami from "react-konami-code"
-import { Box, Button, Heading, Layer } from "grommet"
+import { Box, Button, Heading, Layer, Drop } from "grommet"
 import { SettingsOption, List } from "grommet-icons"
 import { get, find, uniqBy, reject, sortBy } from "lodash/fp"
 
@@ -15,12 +15,17 @@ import FormUsername from "./FormUsername"
 import Chat from "./Chat"
 import UserList from "./UserList"
 import Modal from "./Modal"
+import ReactionPicker from "./ReactionPicker"
 import AuthContext from "../contexts/AuthContext"
+import { useChatReactions } from "../contexts/useChatReactions"
+import { useUsers } from "../contexts/useUsers"
 import { roomMachine } from "../machines/roomMachine"
 import socket from "../lib/socket"
 
 const Room = () => {
   const { state: authState, send: authSend } = useContext(AuthContext)
+  const { state, dispatch } = useChatReactions()
+  const { dispatch: usersDispatch } = useUsers()
   const [roomState, send] = useMachine(roomMachine, {
     actions: {
       disconnectUser: (context, event) => {
@@ -54,6 +59,41 @@ const Room = () => {
       clearPlaylist: (context, event) => {
         socket.emit("clear playlist")
       },
+      dispatchReactions: (context, event) => {
+        dispatch({ type: "SET", payload: event.data.reactions })
+      },
+      dispatchUsers: (context, event) => {
+        usersDispatch({ type: "SET", payload: event.data.users })
+      },
+      toggleReaction: (context, event) => {
+        const { reactTo, emoji } = event
+        const subjectReactions = context.reactions[reactTo.type][reactTo.id]
+        const existing = find(
+          { user: authState.context.currentUser.userId, emoji: emoji.colons },
+          subjectReactions
+        )
+        if (existing) {
+          socket.emit("remove reaction", {
+            emoji,
+            reactTo,
+            user: authState.context.currentUser,
+          })
+        } else {
+          socket.emit("add reaction", {
+            emoji,
+            reactTo,
+            user: authState.context.currentUser,
+          })
+        }
+      },
+      removeReaction: (context, event) => {
+        const { emoji, reactTo } = event
+        socket.emit("remove reaction", {
+          emoji,
+          reactTo,
+          user: authState.context.currentUser,
+        })
+      },
     },
     activities: {
       setupListeners: ctx => {
@@ -75,12 +115,16 @@ const Room = () => {
         const handleDisconnect = payload => {
           send({ type: "DISCONNECT", data: payload })
         }
+        const handleReactions = payload => {
+          send({ type: "REACTIONS_DATA", data: payload })
+        }
 
         socket.on("init", handleInit)
         socket.on("user joined", handleUserJoin)
         socket.on("user left", handleUserLeave)
         socket.on("typing", handleTyping)
         socket.on("playlist", handlePlaylist)
+        socket.on("reactions", handleReactions)
         socket.on("disconnect", () => {
           authSend("USER_DISCONNECTED")
         })
@@ -90,6 +134,7 @@ const Room = () => {
           socket.removeListener("user joined", handleUserJoin)
           socket.removeListener("user left", handleUserLeave)
           socket.removeListener("playlist", handlePlaylist)
+          socket.removeListener("reactions", handleReactions)
           socket.emit("disconnect")
         }
       },
@@ -102,6 +147,10 @@ const Room = () => {
     }
   }, [authState.context.isNewUser])
 
+  useEffect(() => {
+    usersDispatch({ type: "SET", payload: roomState.context.users })
+  }, [roomState.context.users])
+
   const hideListeners = useCallback(() => send("CLOSE_VIEWING"), [send])
   const hideNameForm = useCallback(() => send("CLOSE_EDIT"), [send])
 
@@ -109,11 +158,38 @@ const Room = () => {
     "connectedAt",
     uniqBy("userId", reject({ isDj: true }, roomState.context.users))
   )
-  const dj = find({ isDj: true }, roomState.context.users)
+  const dj = useMemo(() => find({ isDj: true }, roomState.context.users), [
+    roomState.context.users,
+  ])
+
+  const onOpenReactionPicker = useCallback((dropRef, reactTo) => {
+    send("TOGGLE_REACTION_PICKER", { dropRef, reactTo })
+  })
+
+  const toggleReaction = useCallback(({ reactTo, emoji }) => {
+    send("SELECT_REACTION", { reactTo, emoji })
+  })
 
   return (
     <Box flex="grow">
       <Konami action={() => send("ACTIVATE_ADMIN")} />
+      {roomState.matches("reactionPicker.active") &&
+        roomState.context.reactionPickerRef && (
+          <Drop
+            onClickOutside={() => send("TOGGLE_REACTION_PICKER")}
+            onEsc={() => send("TOGGLE_REACTION_PICKER")}
+            target={roomState.context.reactionPickerRef.current}
+          >
+            <ReactionPicker
+              onSelect={emoji => {
+                send("SELECT_REACTION", {
+                  emoji,
+                  reactTo: roomState.context.reactTo,
+                })
+              }}
+            />
+          </Drop>
+        )}
       {roomState.matches("playlist.active") && (
         <Modal
           position="left"
@@ -201,6 +277,8 @@ const Room = () => {
           <Chat
             users={roomState.context.users}
             modalActive={roomState.matches("connected.participating.editing")}
+            onOpenReactionPicker={onOpenReactionPicker}
+            onReactionClick={toggleReaction}
           />
         </Box>
 

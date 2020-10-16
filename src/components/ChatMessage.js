@@ -6,6 +6,9 @@ import { includes, filter, reduce, get, concat } from "lodash/fp"
 import getUrls from "../lib/getUrls"
 import isImageUrl from "is-image-url"
 
+import ReactionPicker from "./ReactionPicker"
+import ReactionCounter from "./ReactionCounter"
+
 const componentDecorator = (href, text, key) => (
   <Anchor href={href} key={key} target="_blank" rel="noopener noreferrer">
     {text}
@@ -18,6 +21,9 @@ const ChatMessage = ({
   timestamp,
   user,
   currentUserId,
+  onOpenReactionPicker,
+  onReactionClick,
+  reactions,
 }) => {
   const [parsedImageUrls, setParsedImageUrls] = useState([])
   const date = new Date(timestamp)
@@ -84,6 +90,14 @@ const ChatMessage = ({
         <Text size="xsmall" color="dark-4">
           {dateString}
         </Text>
+      </Box>
+      <Box pad="xsmall">
+        <ReactionCounter
+          onOpenPicker={onOpenReactionPicker}
+          reactTo={{ type: "message", id: timestamp }}
+          reactions={reactions}
+          onReactionClick={onReactionClick}
+        />
       </Box>
     </Box>
   )

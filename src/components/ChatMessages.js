@@ -6,9 +6,18 @@ import { get } from "lodash/fp"
 import ChatMessage from "./ChatMessage"
 import SystemMessage from "./SystemMessage"
 import TypingIndicator from "./TypingIndicator"
+import { useChatReactions } from "../contexts/useChatReactions"
 
-const ChatMessages = ({ messages, currentUserId, typing }) => {
+const ChatMessages = ({
+  messages,
+  currentUserId,
+  typing,
+  onOpenReactionPicker,
+  onReactionClick,
+}) => {
   const sortedMessages = reverse(sortBy("timestamp", messages))
+  const { state } = useChatReactions()
+
   return (
     <Box
       flex={{ grow: 1, shrink: 1 }}
@@ -26,6 +35,9 @@ const ChatMessages = ({ messages, currentUserId, typing }) => {
               key={x.timestamp}
               {...x}
               currentUserId={currentUserId}
+              onOpenReactionPicker={onOpenReactionPicker}
+              onReactionClick={onReactionClick}
+              reactions={state.reactions[x.timestamp]}
             />
           )
         )}
