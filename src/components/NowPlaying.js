@@ -42,7 +42,7 @@ const NowPlaying = ({ onCover, ready, offline, meta, coverFound }) => {
     )
 
   return (
-    <Box pad="small" align="center" background="accent-1">
+    <Box pad="medium" align="center" background="accent-1">
       {offline && (
         <>
           <Box direction="row" gap="small" align="center">

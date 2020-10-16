@@ -2,6 +2,7 @@ import React, { useRef, memo } from "react"
 import { Box, Button, Nav, RangeInput } from "grommet"
 import { Play, Pause, VolumeMute, Volume, List } from "grommet-icons"
 import ReactHowler from "react-howler"
+import ReactionCounter from "./ReactionCounter"
 
 import { audioMachine } from "../machines/audioMachine"
 
@@ -18,6 +19,12 @@ const RadioPlayer = ({
   onMute,
   onShowPlaylist,
   hasPlaylist,
+  isMobile,
+  onReactionClick,
+  onOpenPicker,
+  reactions,
+  trackId,
+  onOpenReactionPicker,
 }) => {
   const player = useRef(null)
 
@@ -57,13 +64,23 @@ const RadioPlayer = ({
             onClick={() => onMute()}
           />
           <Box width="medium">
-            <RangeInput
-              value={muted ? 0 : volume}
-              max={1.0}
-              min={0}
-              step={0.1}
-              onChange={event => onVolume(event.target.value)}
-            />
+            {isMobile ? (
+              <ReactionCounter
+                onOpenPicker={onOpenPicker}
+                reactTo={{ type: "track", id: trackId }}
+                reactions={reactions}
+                onReactionClick={onReactionClick}
+                color="accent-4"
+              />
+            ) : (
+              <RangeInput
+                value={muted ? 0 : volume}
+                max={1.0}
+                min={0}
+                step={0.1}
+                onChange={event => onVolume(event.target.value)}
+              />
+            )}
           </Box>
           {hasPlaylist && (
             <Box flex={{ shrink: 0 }}>

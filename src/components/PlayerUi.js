@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, memo } from "react"
-import { Box } from "grommet"
+import React, { useCallback, useEffect, useContext, memo } from "react"
+import { Box, ResponsiveContext } from "grommet"
 import { useMachine } from "@xstate/react"
 import { isEmpty, get, kebabCase } from "lodash/fp"
 
@@ -17,6 +17,8 @@ const PlayerUi = ({
   onReactionClick,
 }) => {
   const { state: trackState } = useTrackReactions()
+  const size = useContext(ResponsiveContext)
+  const isMobile = size === "small"
   const [state, send] = useMachine(audioMachine, {
     services: {
       pingOffline: () => {
@@ -76,15 +78,17 @@ const PlayerUi = ({
         offline={offline}
         meta={meta}
       />
-      <Box pad="small" background="brand">
-        <ReactionCounter
-          onOpenPicker={onOpenReactionPicker}
-          reactTo={{ type: "track", id: trackId }}
-          reactions={trackState.reactions[trackId]}
-          onReactionClick={onReactionClick}
-          color="accent-4"
-        />
-      </Box>
+      {!offline && !isMobile && (
+        <Box pad="small" background="brand">
+          <ReactionCounter
+            onOpenPicker={onOpenReactionPicker}
+            reactTo={{ type: "track", id: trackId }}
+            reactions={trackState.reactions[trackId]}
+            onReactionClick={onReactionClick}
+            color="accent-4"
+          />
+        </Box>
+      )}
       <RadioPlayer
         volume={volume}
         meta={meta}
@@ -96,6 +100,11 @@ const PlayerUi = ({
         onMute={() => send("TOGGLE_MUTE")}
         onShowPlaylist={onShowPlaylist}
         hasPlaylist={hasPlaylist}
+        isMobile={isMobile}
+        trackId={trackId}
+        onReactionClick={onReactionClick}
+        onOpenPicker={onOpenReactionPicker}
+        reactions={trackState.reactions[trackId]}
       />
     </Box>
   )

@@ -9,6 +9,7 @@ const ReactionPicker = ({ onSelect }) => {
   return (
     <NimblePicker
       autoFocus={true}
+      sheetSize={20}
       title={""}
       data={data}
       set="apple"

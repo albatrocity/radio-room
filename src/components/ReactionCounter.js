@@ -1,11 +1,11 @@
-import React, { useRef, memo } from "react"
-import { Box, Button } from "grommet"
+import React, { useRef, memo, useContext } from "react"
+import { Box, Button, ResponsiveContext } from "grommet"
 import { groupBy, map, keys } from "lodash/fp"
 import { FormAdd, Emoji as EmojiIcon } from "grommet-icons"
 
 import ReactionCounterItem from "./ReactionCounterItem"
 
-const ReactionAddButton = ({ onOpenPicker, reactTo, color }) => {
+const ReactionAddButton = ({ onOpenPicker, reactTo, color, isMobile }) => {
   const ref = useRef()
   return (
     <Button
@@ -18,7 +18,7 @@ const ReactionAddButton = ({ onOpenPicker, reactTo, color }) => {
       icon={
         <>
           <EmojiIcon size="small" />
-          <FormAdd size="small" />
+          {!isMobile && <FormAdd size="small" />}
         </>
       }
     />
@@ -33,24 +33,40 @@ const ReactionCounter = ({
   color,
 }) => {
   const emoji = groupBy("emoji", reactions)
+  const size = useContext(ResponsiveContext)
+  const isMobile = size === "small"
   return (
-    <Box direction="row" wrap={true} gap="xsmall" align="center">
-      {keys(emoji).map(x => (
-        <ReactionCounterItem
-          key={x}
-          count={emoji[x].length}
-          users={map("user", emoji[x])}
-          onReactionClick={onReactionClick}
+    <Box direction="row" wrap={false} gap="xsmall" align="center">
+      <Box direction="row" wrap={!isMobile} flex={{ grow: 1, shrink: 1 }}>
+        <Box
+          overflow={isMobile ? "auto" : "hidden"}
+          gap="xsmall"
+          wrap={!isMobile}
+          align="center"
+          direction="row"
+          justify="between"
+        >
+          {keys(emoji).map(x => (
+            <ReactionCounterItem
+              key={x}
+              count={emoji[x].length}
+              users={map("user", emoji[x])}
+              onReactionClick={onReactionClick}
+              reactTo={reactTo}
+              emoji={x}
+              color={color}
+            />
+          ))}
+        </Box>
+      </Box>
+      <Box flex={{ shrink: 1, grow: 0 }}>
+        <ReactionAddButton
+          onOpenPicker={onOpenPicker}
           reactTo={reactTo}
-          emoji={x}
           color={color}
+          isMobile={isMobile}
         />
-      ))}
-      <ReactionAddButton
-        onOpenPicker={onOpenPicker}
-        reactTo={reactTo}
-        color={color}
-      />
+      </Box>
     </Box>
   )
 }
