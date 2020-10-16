@@ -1,4 +1,5 @@
 import React, { useMemo, useReducer, useContext, createContext } from "react"
+import { sortBy, uniqBy, reject, find } from "lodash/fp"
 
 const UsersContext = createContext({})
 
@@ -6,7 +7,17 @@ const UsersReducer = (state, action) => {
   const { payload } = action
   switch (action.type) {
     case "SET":
-      return { ...state, users: payload }
+      return {
+        ...state,
+        users: payload,
+        listeners: sortBy(
+          "connectedAt",
+          uniqBy("userId", reject({ isDj: true }, payload))
+        ),
+        dj: find({ isDj: true }, payload),
+      }
+    case "SET_TYPING":
+      return { ...state, typing: payload }
     default:
       return state
   }
@@ -14,6 +25,9 @@ const UsersReducer = (state, action) => {
 
 const initialState = {
   users: [],
+  listeners: [],
+  dj: null,
+  typing: [],
 }
 
 function UsersProvider(props) {

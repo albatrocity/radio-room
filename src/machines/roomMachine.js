@@ -6,7 +6,6 @@ export const roomMachine = Machine(
     initial: "connected",
     context: {
       users: [],
-      typing: [],
       playlist: [],
       reactions: {
         track: {},
@@ -24,9 +23,6 @@ export const roomMachine = Machine(
       },
       LOGIN: {
         actions: ["setData", "dispatchUsers", "dispatchReactions"],
-      },
-      TYPING: {
-        actions: ["setTyping"],
       },
       PLAYLIST_DATA: {
         actions: ["setPlaylist"],
@@ -209,9 +205,6 @@ export const roomMachine = Machine(
   },
   {
     actions: {
-      setTyping: assign((ctx, event) => {
-        return { typing: event.data }
-      }),
       setUsers: assign({
         users: (context, event) => {
           return event.data.users

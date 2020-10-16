@@ -21,7 +21,7 @@ const ListItemUser = ({
         justify="between"
         border={{ side: "bottom" }}
         gap="xsmall"
-        pad={{ vertical: "xsmall" }}
+        pad={{ vertical: user.isDj ? "medium" : "small" }}
         elevation={user.isDj ? "small" : "none"}
         background={user.isDj ? "accent-2" : "transparent"}
       >
@@ -54,7 +54,7 @@ const ListItemUser = ({
           </Text>
         </Box>
         {user.userId === get("userId", currentUser) && (
-          <Box pad={{ horizontal: "xsmall" }}>
+          <Box pad={{ horizontal: "medium" }}>
             <Button
               plain
               onClick={() => onEditUser()}

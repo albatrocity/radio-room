@@ -62,7 +62,6 @@ const Room = () => {
         socket.emit("clear playlist")
       },
       dispatchReactions: (context, event) => {
-        console.log("dispatch reactions", event.data.reactions)
         chatDispatch({ type: "SET", payload: event.data.reactions })
         trackDispatch({ type: "SET", payload: event.data.reactions })
       },
@@ -111,7 +110,7 @@ const Room = () => {
           send({ type: "LOGIN", data: payload })
         }
         const handleTyping = payload => {
-          send({ type: "TYPING", data: payload })
+          usersDispatch({ type: "SET_TYPING", payload })
         }
         const handlePlaylist = payload => {
           send({ type: "PLAYLIST_DATA", data: payload })
@@ -151,20 +150,8 @@ const Room = () => {
     }
   }, [authState.context.isNewUser])
 
-  useEffect(() => {
-    usersDispatch({ type: "SET", payload: roomState.context.users })
-  }, [roomState.context.users])
-
   const hideListeners = useCallback(() => send("CLOSE_VIEWING"), [send])
   const hideNameForm = useCallback(() => send("CLOSE_EDIT"), [send])
-
-  const listeners = sortBy(
-    "connectedAt",
-    uniqBy("userId", reject({ isDj: true }, roomState.context.users))
-  )
-  const dj = useMemo(() => find({ isDj: true }, roomState.context.users), [
-    roomState.context.users,
-  ])
 
   const onOpenReactionPicker = useCallback((dropRef, reactTo) => {
     send("TOGGLE_REACTION_PICKER", { dropRef, reactTo })
@@ -235,13 +222,12 @@ const Room = () => {
       {roomState.matches("connected.participating.modalViewing.listeners") && (
         <Modal
           onClose={() => hideListeners()}
-          heading={`Listeners (${listeners.length})`}
+          heading={`Listeners (${
+            reject({ isDj: true }, roomState.context.users).length
+          })`}
         >
           <Box pad="small">
             <UserList
-              listeners={listeners}
-              dj={dj}
-              typing={roomMachine.context.typing}
               onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
               onEditUser={() => send("EDIT_USERNAME")}
             />
@@ -300,13 +286,10 @@ const Room = () => {
             background="light-1"
           >
             <Listeners
-              listeners={listeners}
-              dj={dj}
               onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
               onViewListeners={view =>
                 view ? send("VIEW_LISTENERS") : send("CLOSE_VIEWING")
               }
-              typing={roomState.context.typing}
               onEditUser={() => send("EDIT_USERNAME")}
               onKickUser={userId => send({ type: "KICK_USER", userId })}
             />

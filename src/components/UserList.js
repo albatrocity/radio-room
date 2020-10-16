@@ -1,12 +1,13 @@
-import React, { useContext, memo } from "react"
+import React, { useContext, useMemo, memo } from "react"
 import { Box, Text, Anchor, Heading } from "grommet"
 import Linkify from "react-linkify"
 import { Currency } from "grommet-icons"
 import styled from "styled-components"
-import { get, isEqual } from "lodash/fp"
+import { get, isEqual, find, uniqBy } from "lodash/fp"
 import { Edit } from "grommet-icons"
 
 import AuthContext from "../contexts/AuthContext"
+import { useUsers } from "../contexts/useUsers"
 import ListItemUser from "./ListItemUser"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 
@@ -22,15 +23,11 @@ const componentDecorator = (href, text, key) => (
   </Anchor>
 )
 
-const UserList = ({
-  listeners,
-  onEditUser,
-  onKickUser,
-  dj,
-  typing,
-  onEditSettings,
-}) => {
+const UserList = ({ onEditUser, onKickUser, onEditSettings }) => {
   const { state: authState } = useContext(AuthContext)
+  const {
+    state: { typing, listeners, dj },
+  } = useUsers()
 
   const { currentUser, isAdmin } = authState.context
   const currentDj = isEqual(

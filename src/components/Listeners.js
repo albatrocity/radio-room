@@ -2,18 +2,19 @@ import React, { useContext, useCallback } from "react"
 import { uniqBy, sortBy, reject, find } from "lodash/fp"
 import { Box, Heading, Text, Button, ResponsiveContext } from "grommet"
 
+import { useUsers } from "../contexts/useUsers"
 import UserList from "./UserList"
 
 const Listeners = ({
-  listeners = [],
-  dj,
   onViewListeners,
   onEditUser,
   onKickUser,
   onEditSettings,
-  typing,
 }) => {
   const size = useContext(ResponsiveContext)
+  const {
+    state: { listeners, dj, typing },
+  } = useUsers()
 
   const isSmall = size === "small"
 
