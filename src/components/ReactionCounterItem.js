@@ -32,7 +32,7 @@ const ReactionCounterItem = ({
     <>
       <Button
         direction="row"
-        color="light-3"
+        color="light-2"
         primary={currentUserReaction}
         gap="small"
         round="xsmall"
@@ -44,10 +44,15 @@ const ReactionCounterItem = ({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         size="small"
+        style={{ padding: "0.1rem 0.2rem" }}
         icon={
-          <Box height={theme.paragraph[size].size}>
+          <Box
+            height={`${
+              parseInt(theme.paragraph[size].size.replace("px", "")) + 4
+            }px`}
+          >
             <Emoji
-              size={parseInt(theme.paragraph[size].size.replace("px", ""))}
+              size={parseInt(theme.paragraph[size].size.replace("px", "")) + 4}
               emoji={emoji}
             />
           </Box>

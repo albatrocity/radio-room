@@ -10,7 +10,6 @@ const ReactionAddButton = ({ onOpenPicker, reactTo }) => {
   return (
     <Button
       hoverIndicator
-      pad="xsmall"
       size="small"
       ref={ref}
       onClick={() => onOpenPicker(ref, reactTo)}

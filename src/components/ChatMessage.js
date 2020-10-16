@@ -66,9 +66,19 @@ const ChatMessage = ({
       border={{ side: "bottom" }}
       background={isMention ? "accent-4" : "none"}
     >
-      <Heading level={4} margin={{ bottom: "xsmall", top: "xsmall" }}>
-        {user.username}
-      </Heading>
+      <Box direction="row-responsive" align="center" gap="small">
+        <Heading level={4} margin={{ bottom: "xsmall", top: "xsmall" }}>
+          {user.username}
+        </Heading>
+        <Box flex={{ shrink: 0 }} direction="row" gap="xsmall">
+          <Text size="xsmall" color="dark-3">
+            {time}
+          </Text>
+          <Text size="xsmall" color="dark-4">
+            {dateString}
+          </Text>
+        </Box>
+      </Box>
       <Paragraph margin={{ bottom: "xsmall" }}>
         <Linkify componentDecorator={componentDecorator}>
           {parsedContent}
@@ -83,15 +93,7 @@ const ChatMessage = ({
           ))}
         </Box>
       )}
-      <Box direction="row" gap="xsmall">
-        <Text size="xsmall" color="dark-3">
-          {time}
-        </Text>
-        <Text size="xsmall" color="dark-4">
-          {dateString}
-        </Text>
-      </Box>
-      <Box pad="xsmall">
+      <Box direction="row" gap="xsmall" align="center">
         <ReactionCounter
           onOpenPicker={onOpenReactionPicker}
           reactTo={{ type: "message", id: timestamp }}
