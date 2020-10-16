@@ -16,6 +16,12 @@ const StyledText = styled(Text)`
   }
 `
 
+const componentDecorator = (href, text, key) => (
+  <Anchor href={href} key={key} target="_blank" rel="noopener noreferrer">
+    {text}
+  </Anchor>
+)
+
 const UserList = ({
   listeners,
   onEditUser,
@@ -79,7 +85,7 @@ const UserList = ({
               border={{ side: "all" }}
             >
               {dj.extraInfo !== "" && (
-                <Linkify>
+                <Linkify componentDecorator={componentDecorator}>
                   <StyledText size="small">{nl2br(dj.extraInfo)}</StyledText>
                 </Linkify>
               )}
