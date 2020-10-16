@@ -79,14 +79,16 @@ const PlayerUi = ({
         meta={meta}
       />
       {!offline && !isMobile && (
-        <Box pad="small" background="brand">
-          <ReactionCounter
-            onOpenPicker={onOpenReactionPicker}
-            reactTo={{ type: "track", id: trackId }}
-            reactions={trackState.reactions[trackId]}
-            onReactionClick={onReactionClick}
-            color="accent-4"
-          />
+        <Box pad="small" background="brand" align="center">
+          <Box width={{ max: "medium" }} fill flex={{ grow: 1 }}>
+            <ReactionCounter
+              onOpenPicker={onOpenReactionPicker}
+              reactTo={{ type: "track", id: trackId }}
+              reactions={trackState.reactions[trackId]}
+              onReactionClick={onReactionClick}
+              color="accent-4"
+            />
+          </Box>
         </Box>
       )}
       <RadioPlayer

@@ -37,7 +37,11 @@ const ReactionCounter = ({
   const isMobile = size === "small"
   return (
     <Box direction="row" wrap={false} gap="xsmall" align="center">
-      <Box direction="row" wrap={!isMobile} flex={{ grow: 1, shrink: 1 }}>
+      <Box
+        direction="row"
+        wrap={!isMobile}
+        flex={isMobile ? { grow: 1, shrink: 1 } : undefined}
+      >
         <Box
           overflow={
             isMobile ? { horizontal: "auto", vertical: "hidden" } : "hidden"
@@ -46,7 +50,6 @@ const ReactionCounter = ({
           wrap={!isMobile}
           align="center"
           direction="row"
-          justify="between"
         >
           {keys(emoji).map(x => (
             <ReactionCounterItem
