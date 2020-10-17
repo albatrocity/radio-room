@@ -24,6 +24,8 @@ const PlayerUi = ({
       pingOffline: () => {
         return new Promise((resolve, reject) => {
           socket.on("meta", payload => {
+            console.log("PAYLAOD", payload)
+            resolve({ meta: payload })
             if (get("bitrate", payload) && get("bitrate", payload) !== "0") {
               resolve({ meta: payload })
             }

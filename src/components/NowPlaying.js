@@ -52,7 +52,7 @@ const NowPlaying = ({ onCover, ready, offline, meta, coverFound }) => {
             </Heading>
           </Box>
           <Heading margin="none" level={4} textAlign="center" color="white">
-            Official broadcast starts at 10pm CST on 10/16
+            Until next time!
           </Heading>
         </>
       )}

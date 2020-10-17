@@ -1,11 +1,13 @@
 import React, { useMemo } from "react"
-import { tail, map, get, reject, last } from "lodash/fp"
+import { tail, map, get, reject, last, uniq } from "lodash/fp"
 import { Box, Text } from "grommet"
 
 const TypingIndicator = ({ typing, currentUserId }) => {
   const typingUsers = useMemo(
     () =>
-      map(u => get("username", u), reject({ userId: currentUserId }, typing)),
+      uniq(
+        map(u => get("username", u), reject({ userId: currentUserId }, typing))
+      ),
     [typing, currentUserId]
   )
 
@@ -17,6 +19,7 @@ const TypingIndicator = ({ typing, currentUserId }) => {
       } else if (typingUsers.length > 2) {
         return "Several people"
       } else {
+        console.log(``)
         return `${tail(typingUsers).join(", ")} and ${lastUser}`
       }
     },
