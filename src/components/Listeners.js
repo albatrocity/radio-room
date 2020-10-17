@@ -39,14 +39,16 @@ const Listeners = ({
         className="list-overflow"
       >
         {!isSmall && (
-          <UserList
-            listeners={listeners}
-            dj={dj}
-            onEditSettings={onEditSettings}
-            onEditUser={onEditUser}
-            onKickUser={onKickUser}
-            typing={typing}
-          />
+          <div>
+            <UserList
+              listeners={listeners}
+              dj={dj}
+              onEditSettings={onEditSettings}
+              onEditUser={onEditUser}
+              onKickUser={onKickUser}
+              typing={typing}
+            />
+          </div>
         )}
       </Box>
     </Box>
