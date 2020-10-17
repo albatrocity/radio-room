@@ -191,10 +191,12 @@ export const roomMachine = Machine(
                 states: {
                   none: {},
                   listeners: {},
+                  help: {},
                 },
                 on: {
                   CLOSE_VIEWING: ".none",
                   VIEW_LISTENERS: ".listeners",
+                  VIEW_HELP: ".help",
                 },
               },
             },

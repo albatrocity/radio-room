@@ -1,8 +1,18 @@
 import React, { useContext, useCallback, useEffect, useMemo } from "react"
 import { useMachine } from "@xstate/react"
 import Konami from "react-konami-code"
-import { Box, Text, Button, Heading, Layer, Drop, Anchor } from "grommet"
-import { SettingsOption, List } from "grommet-icons"
+import {
+  Box,
+  Text,
+  Button,
+  Heading,
+  Layer,
+  Drop,
+  Paragraph,
+  Anchor,
+  ResponsiveContext,
+} from "grommet"
+import { SettingsOption, List, HelpOption } from "grommet-icons"
 import { get, find, uniqBy, reject, sortBy } from "lodash/fp"
 
 import FormAdminMeta from "./FormAdminMeta"
@@ -25,6 +35,8 @@ import socket from "../lib/socket"
 
 const Room = () => {
   const { state: authState, send: authSend } = useContext(AuthContext)
+  const size = useContext(ResponsiveContext)
+  const isMobile = size === "small"
   const { dispatch: chatDispatch } = useChatReactions()
   const { dispatch: trackDispatch } = useTrackReactions()
   const { dispatch: usersDispatch } = useUsers()
@@ -234,6 +246,74 @@ const Room = () => {
           </Box>
         </Modal>
       )}
+      {roomState.matches("connected.participating.modalViewing.help") && (
+        <Modal
+          onClose={() => send("CLOSE_VIEWING")}
+          heading="???"
+          margin="large"
+        >
+          <Box pad={{ top: 0, bottom: "large", horizontal: "medium" }}>
+            <div>
+              <Heading level={3}>Cordial</Heading>
+              <Paragraph>
+                Thanks for being here! You are participating in a somewhat
+                communal listening of an internet radio broadcast. This is made
+                for fun only.
+              </Paragraph>
+              <Heading level={3}>Psuedo-legal</Heading>
+              <Paragraph>
+                No personally identifiably information (other than the name you
+                submit) is collected by this service. All chat, playlist, and
+                username data is stored in server memory and will be obliterated
+                when the server restarts or crashes. Take solace in this
+                sandcastle by the waves.
+              </Paragraph>
+              <Heading level={3}>Help</Heading>
+              <Paragraph>
+                If you're experiencing issues, try refreshing the page. If all
+                hope is lost, contact <Text weight={700}>@Ross</Text> in the
+                chat or send him{" "}
+                <Anchor href="mailto:albatrocity@gmail.com">
+                  a nice email
+                </Anchor>
+                .
+              </Paragraph>
+              <Heading level={3}>Technical</Heading>
+              <Paragraph margin={{ bottom: "large" }}>
+                This is a{" "}
+                <Anchor target="_blank" href="http://reactjs.org">
+                  React
+                </Anchor>
+                /
+                <Anchor target="_blank" href="http://gatsbyjs.com">
+                  Gatsby
+                </Anchor>{" "}
+                web application (using the{" "}
+                <Anchor target="_blank" href="http://v2.grommet.io">
+                  Grommet
+                </Anchor>{" "}
+                component library) that communicates to a NodeJS web process to
+                facilitate{" "}
+                <Anchor target="_blank" href="http://socket.io">
+                  Socket.io
+                </Anchor>{" "}
+                connections and poll a Shoutcast server that's actually
+                streaming the audio. Cover art and release information is
+                fetched from the{" "}
+                <Anchor target="_blank" href="https://musicbrainz.org">
+                  MusicBrainz
+                </Anchor>{" "}
+                API. Typically, broadcasting is done using some excellent
+                software from{" "}
+                <Anchor target="_blank" href="http://rogueamoeba.com">
+                  Rogue Amoeba
+                </Anchor>
+                .
+              </Paragraph>
+            </div>
+          </Box>
+        </Modal>
+      )}
 
       {roomState.matches("connected.participating.editing.meta") && (
         <Modal onClose={() => send("CLOSE_EDIT")} heading="Set Station Info">
@@ -285,14 +365,27 @@ const Room = () => {
             flex={{ shrink: 0, grow: 0 }}
             background="light-1"
           >
-            <Listeners
-              onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
-              onViewListeners={view =>
-                view ? send("VIEW_LISTENERS") : send("CLOSE_VIEWING")
-              }
-              onEditUser={() => send("EDIT_USERNAME")}
-              onKickUser={userId => send({ type: "KICK_USER", userId })}
-            />
+            <Box direction={isMobile ? "row" : "column"} fill align="center">
+              <Box flex={true}>
+                <Listeners
+                  onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
+                  onViewListeners={view =>
+                    view ? send("VIEW_LISTENERS") : send("CLOSE_VIEWING")
+                  }
+                  onEditUser={() => send("EDIT_USERNAME")}
+                  onKickUser={userId => send({ type: "KICK_USER", userId })}
+                />
+              </Box>
+              <Box pad="medium" align="center" flex={{ grow: 0, shrink: 0 }}>
+                <Button
+                  size="small"
+                  secondary
+                  hoverIndicator={{ color: "light-3" }}
+                  icon={<HelpOption size="medium" color="brand" />}
+                  onClick={() => send("VIEW_HELP")}
+                />
+              </Box>
+            </Box>
             {roomState.matches("admin.isAdmin") && (
               <Box pad="medium" flex={{ shrink: 0 }}>
                 <Heading level={3} margin={{ bottom: "xsmall" }}>
@@ -362,15 +455,6 @@ const Room = () => {
                 </Box>
               </Box>
             )}
-            <Box pad="medium">
-              <Text size="xsmall">
-                If you're having issues, try refreshing the page, or contact{" "}
-                <Text size="xsmall" weight={700}>
-                  @Ross
-                </Text>{" "}
-                in the chat
-              </Text>
-            </Box>
           </Box>
         )}
       </Box>
