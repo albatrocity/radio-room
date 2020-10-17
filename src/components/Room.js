@@ -257,8 +257,9 @@ const Room = () => {
               <Heading level={3}>Cordial</Heading>
               <Paragraph>
                 Thanks for being here! You are participating in a somewhat
-                communal listening of an internet radio broadcast. This is made
-                for fun only.
+                communal listening of an internet radio broadcast. Please note
+                that there's a 10-15 second broadcast delay. This is made for
+                fun only.
               </Paragraph>
               <Heading level={3}>Psuedo-legal</Heading>
               <Paragraph>
