@@ -366,7 +366,7 @@ const Room = () => {
             background="light-1"
           >
             <Box direction={isMobile ? "row" : "column"} fill align="center">
-              <Box flex={true}>
+              <Box flex={true} fill>
                 <Listeners
                   onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
                   onViewListeners={view =>
