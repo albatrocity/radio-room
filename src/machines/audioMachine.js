@@ -25,7 +25,7 @@ export const audioMachine = Machine(
           SET_META: {
             actions: ["setMeta"],
           },
-          OFFLINE: "offline",
+          OFFLINE: "ready",
         },
         states: {
           progress: {
@@ -98,7 +98,7 @@ export const audioMachine = Machine(
         },
       },
       willRetry: {
-        after: { 2000: "offline" },
+        after: { 2000: "ready" },
       },
     },
   },
