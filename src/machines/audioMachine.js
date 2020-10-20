@@ -1,5 +1,5 @@
 import { Machine, assign } from "xstate"
-import socket from "../lib/socket"
+import socketService from "../lib/socketService"
 
 export const audioMachine = Machine(
   {
@@ -9,20 +9,18 @@ export const audioMachine = Machine(
       volume: 1.0,
       meta: {},
     },
+    invoke: {
+      src: (ctx, event) => socketService,
+      onError: "willRetry",
+    },
     states: {
       ready: {
         type: "parallel",
-        invoke: {
-          src: _ => cb => {
-            socket.on("meta", payload => {
-              cb({ type: "SET_META", meta: payload })
-              cb({ type: "TRY_COVER" })
-            })
-          },
-          onError: "willRetry",
-        },
         on: {
-          SET_META: {
+          META: {
+            actions: ["setMeta"],
+          },
+          INIT: {
             actions: ["setMeta"],
           },
           OFFLINE: "offline",
@@ -88,13 +86,10 @@ export const audioMachine = Machine(
         },
       },
       offline: {
-        invoke: {
-          src: "pingOffline",
-          onError: "willRetry",
-          onDone: { target: "ready", actions: ["setMeta"] },
-        },
         on: {
           ONLINE: "ready",
+          INIT: { target: "ready", actions: ["setMeta"] },
+          META: { target: "ready", actions: ["setMeta"] },
         },
       },
       willRetry: {
@@ -108,6 +103,7 @@ export const audioMachine = Machine(
         volume: event.volume,
       })),
       setMeta: assign((context, event) => {
+        console.log("setMeta", event)
         if (event.hasOwnProperty("data")) {
           return { meta: event.data.meta }
         } else {

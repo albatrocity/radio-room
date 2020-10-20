@@ -15,44 +15,15 @@ import socket from "../lib/socket"
 const RadioApp = () => {
   const [authState, authSend] = useMachine(authMachine, {
     actions: {
-      setupListeners: ctx => {
-        const handleInit = payload => {
-          authSend({ type: "LOGIN", data: payload })
-        }
-        socket.on("init", handleInit)
-
-        socket.on("disconnect", () => {
-          authSend("USER_DISCONNECTED")
-        })
-        socket.on("kicked", () => {
-          authSend({ type: "USER_DISCONNECTED", shouldRetry: false })
-        })
-
-        return () => {
-          socket.removeListener("init", handleInit)
-        }
-      },
       getCurrentUser: (context, event) => {
         const { currentUser, isNewUser } = getCurrentUser(event.data)
         authSend({ type: "CREDENTIALS", data: { currentUser, isNewUser } })
-      },
-      login: (context, event) => {
-        socket.emit("login", {
-          username: context.currentUser.username,
-          userId: context.currentUser.userId,
-        })
       },
       disconnectUser: (context, event) => {
         if (!context.shouldRetry) {
           socket.close()
           socket.emit("disconnect", context.currentUser.userId)
         }
-      },
-      changeUsername: (context, event) => {
-        socket.emit("change username", {
-          userId: context.currentUser.userId,
-          username: context.currentUser.username,
-        })
       },
     },
   })
@@ -64,7 +35,7 @@ const RadioApp = () => {
   )
 
   useEffect(() => {
-    authSend("SETUP")
+    authSend("SETUP", { origin: "dsakdjkdas" })
     return () => {
       authSend("USER_DISCONNECTED")
     }
@@ -77,6 +48,7 @@ const RadioApp = () => {
           <UsersProvider>
             <Box height={size[1] ? `${size[1]}px` : "100vh"}>
               <Main flex={{ grow: 1, shrink: 1 }}>
+                <pre>{JSON.stringify(authState.value)}</pre>
                 <Room />
               </Main>
             </Box>

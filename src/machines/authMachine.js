@@ -1,5 +1,6 @@
-import { Machine, assign } from "xstate"
+import { Machine, assign, send } from "xstate"
 import { isNil } from "lodash/fp"
+import socketService from "../lib/socketService"
 
 export const authMachine = Machine(
   {
@@ -10,6 +11,10 @@ export const authMachine = Machine(
       isNewUser: false,
       isAdmin: false,
       shouldRetry: true,
+    },
+    invoke: {
+      id: "socket",
+      src: (ctx, event) => socketService,
     },
     states: {
       unauthenticated: {
@@ -27,11 +32,11 @@ export const authMachine = Machine(
         },
       },
       initiated: {
-        entry: ["getCurrentUser", () => console.log("initiated entry")],
+        entry: ["getCurrentUser"],
         on: {
           CREDENTIALS: {
             target: "connecting",
-            actions: ["setupListeners", "setCurrentUser"],
+            actions: ["setCurrentUser", "login"],
           },
         },
       },
@@ -44,12 +49,8 @@ export const authMachine = Machine(
         },
       },
       connecting: {
-        entry: [
-          "login",
-          () => console.log("connecting entry action after login."),
-        ],
         on: {
-          LOGIN: {
+          INIT: {
             target: "authenticated",
           },
         },
@@ -70,6 +71,14 @@ export const authMachine = Machine(
           ACTIVATE_ADMIN: {
             actions: ["activateAdmin"],
           },
+          disconnect: {
+            target: "disconnected",
+            actions: ["setRetry", "disconnectUser"],
+          },
+          kicked: {
+            target: "disconnected",
+            actions: ["disconnectUser"],
+          },
         },
       },
     },
@@ -87,6 +96,9 @@ export const authMachine = Machine(
           isNewUser: false,
         }
       }),
+      login: send((ctx, event) => ({ type: "login", data: event.data }), {
+        to: "socket",
+      }),
       activateAdmin: assign((ctx, event) => {
         return {
           isAdmin: true,
@@ -98,6 +110,18 @@ export const authMachine = Machine(
           return isNil(event.shouldRetry) ? true : event.shouldRetry
         },
       }),
+      changeUsername: send(
+        (ctx, event) => ({
+          type: "change username",
+          data: {
+            userId: ctx.currentUser.userId,
+            username: ctx.currentUser.username,
+          },
+        }),
+        {
+          to: "socket",
+        }
+      ),
     },
     guards: {
       shouldRetry: ctx => ctx.shouldRetry,

@@ -22,21 +22,25 @@ const PlayerUi = ({
   const [state, send] = useMachine(audioMachine, {
     services: {
       pingOffline: () => {
-        return new Promise((resolve, reject) => {
-          socket.on("meta", payload => {
-            if (get("bitrate", payload) && get("bitrate", payload) !== "0") {
-              resolve({ meta: payload })
-            }
-          })
-          socket.on("init", payload => {
-            if (
-              get("meta.bitrate", payload) &&
-              get("meta.bitrate", payload) !== "0"
-            ) {
-              resolve(payload)
-            }
-          })
-        })
+        // return new Promise((resolve, reject) => {
+        //   socket.on("event", payload => {
+        //     if (
+        //       payload.type === "META" &&
+        //       get("data.bitrate", payload) &&
+        //       get("data.bitrate", payload) !== "0"
+        //     ) {
+        //       resolve({ meta: payload.data })
+        //     }
+        //     if (payload.type === "INIT") {
+        //       if (
+        //         get("data.meta.bitrate", payload) &&
+        //         get("data.meta.bitrate", payload) !== "0"
+        //       ) {
+        //         resolve(payload.data)
+        //       }
+        //     }
+        //   })
+        // })
       },
     },
   })
