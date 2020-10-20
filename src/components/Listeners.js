@@ -1,20 +1,19 @@
 import React, { useContext, useCallback } from "react"
+import { useMachine } from "@xstate/react"
 import { uniqBy, sortBy, reject, find } from "lodash/fp"
 import { Box, Heading, Text, Button, ResponsiveContext } from "grommet"
 
-import { useUsers } from "../contexts/useUsers"
+import { usersMachine } from "../machines/usersMachine"
+import { typingMachine } from "../machines/typingMachine"
 import UserList from "./UserList"
 
-const Listeners = ({
-  onViewListeners,
-  onEditUser,
-  onKickUser,
-  onEditSettings,
-}) => {
+const Listeners = ({ onViewListeners, onEditUser, onEditSettings }) => {
   const size = useContext(ResponsiveContext)
+  const [state, send] = useMachine(usersMachine)
+
   const {
-    state: { listeners, dj, typing },
-  } = useUsers()
+    context: { listeners, dj, currentUser },
+  } = state
 
   const isSmall = size === "small"
 
@@ -40,14 +39,7 @@ const Listeners = ({
       >
         {!isSmall && (
           <div>
-            <UserList
-              listeners={listeners}
-              dj={dj}
-              onEditSettings={onEditSettings}
-              onEditUser={onEditUser}
-              onKickUser={onKickUser}
-              typing={typing}
-            />
+            <UserList onEditSettings={onEditSettings} onEditUser={onEditUser} />
           </div>
         )}
       </Box>

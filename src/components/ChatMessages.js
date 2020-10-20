@@ -11,7 +11,6 @@ import { useChatReactions } from "../contexts/useChatReactions"
 const ChatMessages = ({
   messages,
   currentUserId,
-  typing,
   onOpenReactionPicker,
   onReactionClick,
 }) => {
@@ -26,7 +25,7 @@ const ChatMessages = ({
       className="chatMessages"
     >
       <div className="chatMessages-overflow" style={{ height: "100%" }}>
-        <TypingIndicator typing={typing} currentUserId={currentUserId} />
+        <TypingIndicator currentUserId={currentUserId} />
         {sortedMessages.map(x =>
           get("user.id", x) === "system" ? (
             <SystemMessage key={x.timestamp} {...x} />

@@ -1,5 +1,6 @@
 import { Machine, assign } from "xstate"
 import socketService from "../lib/socketService"
+import { isEmpty, isNil } from "lodash/fp"
 
 export const audioMachine = Machine(
   {
@@ -14,12 +15,13 @@ export const audioMachine = Machine(
       onError: "willRetry",
     },
     states: {
-      ready: {
+      online: {
         type: "parallel",
         on: {
-          META: {
-            actions: ["setMeta"],
-          },
+          META: [
+            { target: "online", actions: ["setMeta"], cond: "hasBitrate" },
+            { target: "offline", actions: ["setMeta"] },
+          ],
           INIT: {
             actions: ["setMeta"],
           },
@@ -87,9 +89,15 @@ export const audioMachine = Machine(
       },
       offline: {
         on: {
-          ONLINE: "ready",
-          INIT: { target: "ready", actions: ["setMeta"] },
-          META: { target: "ready", actions: ["setMeta"] },
+          ONLINE: "online",
+          INIT: [
+            { target: "online", actions: ["setMeta"], cond: "hasBitrate" },
+            { target: "offline", actions: ["setMeta"] },
+          ],
+          META: [
+            { target: "online", actions: ["setMeta"], cond: "hasBitrate" },
+            { target: "offline", actions: ["setMeta"] },
+          ],
         },
       },
       willRetry: {
@@ -103,17 +111,15 @@ export const audioMachine = Machine(
         volume: event.volume,
       })),
       setMeta: assign((context, event) => {
-        console.log("setMeta", event)
-        if (event.hasOwnProperty("data")) {
-          return { meta: event.data.meta }
-        } else {
-          return { meta: event.meta }
-        }
+        return { meta: event.data.meta }
       }),
     },
     guards: {
       volumeAboveZero: (context, event) => parseFloat(event.volume) > 0,
       volumeIsZero: (context, event) => parseFloat(event.volume) === 0,
+      hasBitrate: (context, event) => {
+        return !isEmpty(event.data.meta) && !isNil(event.data.meta.bitrate)
+      },
     },
   }
 )

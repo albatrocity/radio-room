@@ -9,10 +9,8 @@ const ListItemUser = ({
   currentUser,
   onEditUser,
   onKickUser,
-  typing,
+  userTyping,
 }) => {
-  const userTyping = find({ userId: get("userId", user) }, typing)
-
   return (
     <Box key={user.userId}>
       <Box

@@ -48,7 +48,6 @@ const RadioApp = () => {
           <UsersProvider>
             <Box height={size[1] ? `${size[1]}px` : "100vh"}>
               <Main flex={{ grow: 1, shrink: 1 }}>
-                <pre>{JSON.stringify(authState.value)}</pre>
                 <Room />
               </Main>
             </Box>

@@ -1,6 +1,7 @@
 import { Machine, assign, send } from "xstate"
 import { isNil } from "lodash/fp"
 import socketService from "../lib/socketService"
+import eventBus from "../lib/eventBus"
 
 export const authMachine = Machine(
   {
@@ -12,10 +13,16 @@ export const authMachine = Machine(
       isAdmin: false,
       shouldRetry: true,
     },
-    invoke: {
-      id: "socket",
-      src: (ctx, event) => socketService,
-    },
+    invoke: [
+      {
+        id: "eventBus",
+        src: (ctx, event) => eventBus,
+      },
+      {
+        id: "socket",
+        src: (ctx, event) => socketService,
+      },
+    ],
     states: {
       unauthenticated: {
         on: {
@@ -36,7 +43,7 @@ export const authMachine = Machine(
         on: {
           CREDENTIALS: {
             target: "connecting",
-            actions: ["setCurrentUser", "login"],
+            actions: ["setCurrentUser", "sendUser", "login"],
           },
         },
       },
@@ -91,14 +98,35 @@ export const authMachine = Machine(
           isNewUser: event.data.isNewUser,
         }
       }),
+      sendUser: send(
+        (ctx, event) => {
+          return {
+            type: "SET_CURRENT_USER",
+            data: {
+              currentUser: {
+                userId: ctx.currentUser.userId,
+                username: ctx.currentUser.username,
+              },
+            },
+          }
+        },
+        {
+          to: "eventBus",
+        }
+      ),
       unsetNew: assign((ctx, event) => {
         return {
           isNewUser: false,
         }
       }),
-      login: send((ctx, event) => ({ type: "login", data: event.data }), {
-        to: "socket",
-      }),
+      login: send(
+        (ctx, event) => {
+          return { type: "login", data: event.data.currentUser }
+        },
+        {
+          to: "socket",
+        }
+      ),
       activateAdmin: assign((ctx, event) => {
         return {
           isAdmin: true,

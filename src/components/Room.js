@@ -134,23 +134,23 @@ const Room = () => {
           send({ type: "REACTIONS_DATA", data: payload })
         }
 
-        socket.on("init", handleInit)
-        socket.on("user joined", handleUserJoin)
-        socket.on("user left", handleUserLeave)
-        socket.on("typing", handleTyping)
-        socket.on("playlist", handlePlaylist)
-        socket.on("reactions", handleReactions)
-        socket.on("disconnect", () => {
-          authSend("USER_DISCONNECTED")
-        })
+        // socket.on("init", handleInit)
+        // socket.on("user joined", handleUserJoin)
+        // socket.on("user left", handleUserLeave)
+        // socket.on("typing", handleTyping)
+        // socket.on("playlist", handlePlaylist)
+        // socket.on("reactions", handleReactions)
+        // socket.on("disconnect", () => {
+        //   authSend("USER_DISCONNECTED")
+        // })
 
         return () => {
-          socket.removeListener("init", handleInit)
-          socket.removeListener("user joined", handleUserJoin)
-          socket.removeListener("user left", handleUserLeave)
-          socket.removeListener("playlist", handlePlaylist)
-          socket.removeListener("reactions", handleReactions)
-          socket.emit("disconnect")
+          // socket.removeListener("init", handleInit)
+          // socket.removeListener("user joined", handleUserJoin)
+          // socket.removeListener("user left", handleUserLeave)
+          // socket.removeListener("playlist", handlePlaylist)
+          // socket.removeListener("reactions", handleReactions)
+          // socket.emit("disconnect")
         }
       },
     },
@@ -360,104 +360,102 @@ const Room = () => {
           />
         </Box>
 
-        {authState.matches("authenticated") && (
-          <Box
-            style={{ minWidth: "200px", maxWidth: "380px" }}
-            flex={{ shrink: 0, grow: 0 }}
-            background="light-1"
-          >
-            <Box direction={isMobile ? "row" : "column"} fill align="center">
-              <Box flex={true} fill>
-                <Listeners
-                  onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
-                  onViewListeners={view =>
-                    view ? send("VIEW_LISTENERS") : send("CLOSE_VIEWING")
-                  }
-                  onEditUser={() => send("EDIT_USERNAME")}
-                  onKickUser={userId => send({ type: "KICK_USER", userId })}
-                />
-              </Box>
-              <Box pad="medium" align="center" flex={{ grow: 0, shrink: 0 }}>
-                <Button
-                  size="small"
-                  secondary
-                  hoverIndicator={{ color: "light-3" }}
-                  icon={<HelpOption size="medium" color="brand" />}
-                  onClick={() => send("VIEW_HELP")}
-                />
-              </Box>
+        <Box
+          style={{ minWidth: "200px", maxWidth: "380px" }}
+          flex={{ shrink: 0, grow: 0 }}
+          background="light-1"
+        >
+          <Box direction={isMobile ? "row" : "column"} fill align="center">
+            <Box flex={true} fill>
+              <Listeners
+                onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
+                onViewListeners={view =>
+                  view ? send("VIEW_LISTENERS") : send("CLOSE_VIEWING")
+                }
+                onEditUser={() => send("EDIT_USERNAME")}
+                onKickUser={userId => send({ type: "KICK_USER", userId })}
+              />
             </Box>
-            {roomState.matches("admin.isAdmin") && (
-              <Box pad="medium" flex={{ shrink: 0 }}>
-                <Heading level={3} margin={{ bottom: "xsmall" }}>
-                  Admin
-                </Heading>
-                <Box gap="small">
-                  {roomState.matches("djaying.notDj") && (
-                    <Button
-                      label="I am the DJ"
-                      onClick={() => send("START_DJ_SESSION")}
-                      primary
-                    />
-                  )}
-                  {roomState.matches("djaying.isDj") && (
-                    <Button
-                      label="End DJ Session"
-                      onClick={() => send("END_DJ_SESSION")}
-                    />
-                  )}
+            <Box pad="medium" align="center" flex={{ grow: 0, shrink: 0 }}>
+              <Button
+                size="small"
+                secondary
+                hoverIndicator={{ color: "light-3" }}
+                icon={<HelpOption size="medium" color="brand" />}
+                onClick={() => send("VIEW_HELP")}
+              />
+            </Box>
+          </Box>
+          {roomState.matches("admin.isAdmin") && (
+            <Box pad="medium" flex={{ shrink: 0 }}>
+              <Heading level={3} margin={{ bottom: "xsmall" }}>
+                Admin
+              </Heading>
+              <Box gap="small">
+                {roomState.matches("djaying.notDj") && (
                   <Button
-                    label="Change Cover Art"
-                    onClick={() => send("ADMIN_EDIT_ARTWORK")}
+                    label="I am the DJ"
+                    onClick={() => send("START_DJ_SESSION")}
+                    primary
                   />
+                )}
+                {roomState.matches("djaying.isDj") && (
+                  <Button
+                    label="End DJ Session"
+                    onClick={() => send("END_DJ_SESSION")}
+                  />
+                )}
+                <Button
+                  label="Change Cover Art"
+                  onClick={() => send("ADMIN_EDIT_ARTWORK")}
+                />
 
-                  <Box
-                    animation={
+                <Box
+                  animation={
+                    roomState.matches(
+                      "connected.participating.editing.settings"
+                    )
+                      ? {
+                          type: "pulse",
+                          delay: 0,
+                          duration: 400,
+                          size: "medium",
+                        }
+                      : null
+                  }
+                >
+                  <Button
+                    label="Settings"
+                    primary={
                       roomState.matches(
                         "connected.participating.editing.settings"
                       )
-                        ? {
-                            type: "pulse",
-                            delay: 0,
-                            duration: 400,
-                            size: "medium",
-                          }
-                        : null
+                        ? true
+                        : false
                     }
-                  >
-                    <Button
-                      label="Settings"
-                      primary={
-                        roomState.matches(
-                          "connected.participating.editing.settings"
-                        )
-                          ? true
-                          : false
-                      }
-                      icon={<SettingsOption size="small" />}
-                      onClick={() => send("ADMIN_EDIT_SETTINGS")}
-                    />
-                  </Box>
-                  {roomState.matches("djaying.isDj") && (
-                    <Button
-                      label="Clear Playlist"
-                      primary
-                      icon={<List size="small" />}
-                      onClick={() => {
-                        const confirmation = window.confirm(
-                          "Are you sure you want to clear the playlist? This cannot be undone."
-                        )
-                        if (confirmation) {
-                          send("ADMIN_CLEAR_PLAYLIST")
-                        }
-                      }}
-                    />
-                  )}
+                    icon={<SettingsOption size="small" />}
+                    onClick={() => send("ADMIN_EDIT_SETTINGS")}
+                  />
                 </Box>
+                {roomState.matches("djaying.isDj") && (
+                  <Button
+                    label="Clear Playlist"
+                    primary
+                    icon={<List size="small" />}
+                    onClick={() => {
+                      const confirmation = window.confirm(
+                        "Are you sure you want to clear the playlist? This cannot be undone."
+                      )
+                      if (confirmation) {
+                        send("ADMIN_CLEAR_PLAYLIST")
+                      }
+                    }}
+                  />
+                )}
               </Box>
-            )}
-          </Box>
-        )}
+            </Box>
+          )}
+        </Box>
       </Box>
     </Box>
   )

@@ -19,49 +19,14 @@ const PlayerUi = ({
   const { state: trackState } = useTrackReactions()
   const size = useContext(ResponsiveContext)
   const isMobile = size === "small"
-  const [state, send] = useMachine(audioMachine, {
-    services: {
-      pingOffline: () => {
-        // return new Promise((resolve, reject) => {
-        //   socket.on("event", payload => {
-        //     if (
-        //       payload.type === "META" &&
-        //       get("data.bitrate", payload) &&
-        //       get("data.bitrate", payload) !== "0"
-        //     ) {
-        //       resolve({ meta: payload.data })
-        //     }
-        //     if (payload.type === "INIT") {
-        //       if (
-        //         get("data.meta.bitrate", payload) &&
-        //         get("data.meta.bitrate", payload) !== "0"
-        //       ) {
-        //         resolve(payload.data)
-        //       }
-        //     }
-        //   })
-        // })
-      },
-    },
-  })
-  const playing = state.matches({ ready: { progress: "playing" } })
-  const muted = state.matches({ ready: { volume: "muted" } })
-  const ready = state.matches("ready")
+  const [state, send] = useMachine(audioMachine)
+  const playing = state.matches({ online: { progress: "playing" } })
+  const muted = state.matches({ online: { volume: "muted" } })
+  const ready = state.matches("online")
   const coverFound = state.matches("ready.cover.found")
   const { volume, meta } = state.context
   const { bitrate, album, artist, track, release = {}, cover } = meta || {}
   const trackId = kebabCase(`${track}-${artist}-${album}`)
-
-  const offline =
-    get("bitrate", meta) === "0" || !get("bitrate", meta) || isEmpty(meta)
-
-  useEffect(() => {
-    if (offline) {
-      send("OFFLINE")
-    } else {
-      send("ONLINE")
-    }
-  }, [offline])
 
   const onCover = useCallback(hasCover => {
     if (hasCover) {
@@ -76,13 +41,12 @@ const PlayerUi = ({
       <NowPlaying
         playing={playing}
         muted={muted}
-        ready={ready}
         onCover={onCover}
         coverFound={coverFound}
-        offline={offline}
+        offline={state.matches("offline")}
         meta={meta}
       />
-      {!offline && !isMobile && (
+      {state.matches("online") && !isMobile && (
         <Box pad="small" background="brand" align="center">
           <Box width={{ max: "medium" }} fill flex={{ grow: 1 }}>
             <ReactionCounter
@@ -97,23 +61,24 @@ const PlayerUi = ({
           </Box>
         </Box>
       )}
-      <RadioPlayer
-        volume={volume}
-        meta={meta}
-        ready={ready}
-        playing={playing}
-        muted={muted}
-        onVolume={v => send("CHANGE_VOLUME", { volume: v })}
-        onPlayPause={() => send("TOGGLE")}
-        onMute={() => send("TOGGLE_MUTE")}
-        onShowPlaylist={onShowPlaylist}
-        hasPlaylist={hasPlaylist}
-        isMobile={isMobile}
-        trackId={trackId}
-        onReactionClick={onReactionClick}
-        onOpenPicker={onOpenReactionPicker}
-        reactions={trackState.reactions[trackId]}
-      />
+      {state.matches("online") && (
+        <RadioPlayer
+          volume={volume}
+          meta={meta}
+          playing={playing}
+          muted={muted}
+          onVolume={v => send("CHANGE_VOLUME", { volume: v })}
+          onPlayPause={() => send("TOGGLE")}
+          onMute={() => send("TOGGLE_MUTE")}
+          onShowPlaylist={onShowPlaylist}
+          hasPlaylist={hasPlaylist}
+          isMobile={isMobile}
+          trackId={trackId}
+          onReactionClick={onReactionClick}
+          onOpenPicker={onOpenReactionPicker}
+          reactions={trackState.reactions[trackId]}
+        />
+      )}
     </Box>
   )
 }

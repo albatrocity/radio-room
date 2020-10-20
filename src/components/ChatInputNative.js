@@ -6,17 +6,15 @@ import React, {
   useCallback,
   memo,
 } from "react"
+import { useMachine } from "@xstate/react"
 
+import { usersMachine } from "../machines/usersMachine"
 import { Formik, FastField } from "formik"
 import { Box, Button, ThemeContext } from "grommet"
 import { Chat } from "grommet-icons"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
-import session from "sessionstorage"
 import styled from "styled-components"
-
-import { SESSION_ID, SESSION_USERNAME } from "../constants"
-import { useUsers } from "../contexts/useUsers"
 
 const InputContainer = styled(Box)`
   > div {
@@ -77,11 +75,14 @@ const Input = ({
 )
 
 const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
+  const [state] = useMachine(usersMachine)
   const {
-    state: { users },
-  } = useUsers()
-  const username = session.getItem(SESSION_USERNAME)
-  const userId = session.getItem(SESSION_ID)
+    context: {
+      users,
+      currentUser: { username, userId },
+    },
+  } = state
+
   const theme = useContext(ThemeContext)
   const inputRef = useRef(null)
   const [isTyping, setTyping] = useState(false)

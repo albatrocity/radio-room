@@ -5,7 +5,6 @@ export const roomMachine = Machine(
     id: "room",
     initial: "connected",
     context: {
-      users: [],
       playlist: [],
       reactions: {
         track: {},
@@ -15,14 +14,8 @@ export const roomMachine = Machine(
       reactTo: null,
     },
     on: {
-      USER_ADDED: {
-        actions: ["setUsers", "checkDj", "dispatchUsers"],
-      },
-      REMOVE_USER: {
-        actions: ["setUsers", "dispatchUsers"],
-      },
       LOGIN: {
-        actions: ["setData", "dispatchUsers", "dispatchReactions"],
+        actions: ["setData", "dispatchReactions"],
       },
       PLAYLIST_DATA: {
         actions: ["setPlaylist"],
@@ -207,15 +200,7 @@ export const roomMachine = Machine(
   },
   {
     actions: {
-      setUsers: assign({
-        users: (context, event) => {
-          return event.data.users
-        },
-      }),
       setData: assign({
-        users: (context, event) => {
-          return event.data.users
-        },
         playlist: (context, event) => {
           return event.data.playlist
         },
