@@ -9,6 +9,7 @@ import { ChatReactionsProvider } from "../contexts/useChatReactions"
 import { TrackReactionsProvider } from "../contexts/useTrackReactions"
 import { UsersProvider } from "../contexts/useUsers"
 import { authMachine } from "../machines/authMachine"
+import { dataMachine } from "../machines/dataMachine"
 import { getCurrentUser } from "../lib/getCurrentUser"
 import socket from "../lib/socket"
 
@@ -35,7 +36,7 @@ const RadioApp = () => {
   )
 
   useEffect(() => {
-    authSend("SETUP", { origin: "dsakdjkdas" })
+    authSend("SETUP")
     return () => {
       authSend("USER_DISCONNECTED")
     }

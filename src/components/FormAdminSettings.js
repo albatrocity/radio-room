@@ -24,16 +24,20 @@ const FormAdminSettings = ({ onSubmit }) => {
     services: {
       fetchSettings: () => {
         return new Promise((resolve, reject) => {
-          socket.on("settings", settings => {
-            resolve(settings)
+          socket.on("event", message => {
+            if (message.type === "SETTINGS") {
+              resolve(message.data.settings)
+            }
           })
           socket.emit("get settings")
         })
       },
       watchForUpdate: () => {
         return new Promise((resolve, reject) => {
-          socket.on("settings", settings => {
-            resolve(settings)
+          socket.on("event", message => {
+            if (message.type === "SETTINGS") {
+              resolve(message.data.settings)
+            }
           })
         })
       },

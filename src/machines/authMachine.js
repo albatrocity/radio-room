@@ -43,7 +43,7 @@ export const authMachine = Machine(
         on: {
           CREDENTIALS: {
             target: "connecting",
-            actions: ["setCurrentUser", "sendUser", "login"],
+            actions: ["setCurrentUser", "login"],
           },
         },
       },
@@ -66,6 +66,7 @@ export const authMachine = Machine(
         },
       },
       authenticated: {
+        entry: ["sendUser"],
         on: {
           USER_DISCONNECTED: {
             target: "disconnected",
@@ -76,7 +77,10 @@ export const authMachine = Machine(
             actions: ["unsetNew", "getCurrentUser"],
           },
           ACTIVATE_ADMIN: {
-            actions: ["activateAdmin"],
+            actions: ["activateAdmin", "sendUser"],
+          },
+          REQUEST_CURRENT_USER: {
+            actions: ["sendUser"],
           },
           disconnect: {
             target: "disconnected",
@@ -128,6 +132,7 @@ export const authMachine = Machine(
         }
       ),
       activateAdmin: assign((ctx, event) => {
+        console.log("ACTIVATE ADMIN")
         return {
           isAdmin: true,
           currentUser: { ...ctx.currentUser, isAdmin: true },

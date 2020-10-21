@@ -36,7 +36,7 @@ const renderUserSuggestion = (
   )
 }
 
-const Input = ({
+const Input = memo({
   inputRef,
   inputStyle,
   handleKeyInput,
@@ -75,7 +75,9 @@ const Input = ({
 )
 
 const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
-  const [state] = useMachine(usersMachine)
+  console.log("ChatInputNative")
+  // const [state] = useMachine(usersMachine)
+  const state = { context: { users: [], currentUser: {} } }
   const {
     context: {
       users,

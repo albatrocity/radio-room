@@ -1,12 +1,11 @@
 import { Machine, send, assign } from "xstate"
 import socketService from "../lib/socketService"
-import eventBus from "../lib/eventBus"
 import { handleNotifications } from "../lib/handleNotifications"
 
 export const chatMachine = Machine(
   {
     id: "chat",
-    initial: "ready",
+    initial: "unauthenticated",
     context: {
       messages: [],
       currentUser: null,
@@ -21,21 +20,25 @@ export const chatMachine = Machine(
     },
     invoke: [
       {
-        id: "eventBus",
-        src: (ctx, event) => eventBus,
-      },
-      {
         id: "socket",
         src: (ctx, event) => socketService,
       },
     ],
     states: {
+      unauthenticated: {
+        on: {
+          INIT: {
+            target: "ready",
+            actions: ["setData"],
+          },
+        },
+      },
       ready: {
         type: "parallel",
         on: {
           SUBMIT_MESSAGE: { actions: ["sendMessage"] },
           NEW_MESSAGE: { actions: ["addMessage", "handleNotifications"] },
-          SET_CURRENT_USER: {
+          SET_USERS: {
             actions: ["setCurrentUser"],
           },
         },
@@ -95,7 +98,7 @@ export const chatMachine = Machine(
         },
       }),
       handleNotifications: (ctx, event) => {
-        handleNotifications(event.data)
+        handleNotifications(event.data, ctx.currentUser)
       },
       setData: assign({
         messages: (context, event) => {
@@ -104,10 +107,13 @@ export const chatMachine = Machine(
         typing: (context, event) => {
           return event.data.typing
         },
+        currentUser: (context, event) => event.data.currentUser,
       }),
       setCurrentUser: assign({
         currentUser: (context, event) => {
           return event.data.currentUser
+            ? event.data.currentUser
+            : context.currentUser
         },
       }),
     },

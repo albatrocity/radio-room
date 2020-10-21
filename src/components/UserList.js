@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, memo } from "react"
+import React, { useEffect, useMemo, memo } from "react"
 import { useMachine } from "@xstate/react"
 import { Box, Text, Anchor, Heading } from "grommet"
 import Linkify from "react-linkify"
@@ -34,6 +34,8 @@ const UserList = ({ onEditUser, onEditSettings }) => {
   const {
     context: { typing },
   } = typingState
+
+  console.log("currentUser", currentUser)
 
   const currentDj = isEqual(get("userId", currentUser), get("userId", dj))
 

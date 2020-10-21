@@ -1,9 +1,15 @@
-import React, { useRef, memo, useContext, useState } from "react"
-import { Box, Button, ResponsiveContext } from "grommet"
+import React, { useRef, memo, useContext, useEffect, useState } from "react"
+import { useMachine, useService } from "@xstate/react"
+import { Box, Button, ResponsiveContext, Drop } from "grommet"
 import { groupBy, map, keys } from "lodash/fp"
 import { FormAdd, Emoji as EmojiIcon } from "grommet-icons"
 
+import { reactionsMachine } from "../machines/reactionsMachine"
+import { dataService } from "../machines/dataMachine"
+import AuthContext from "../contexts/AuthContext"
+import { useTrackReactions } from "../contexts/useTrackReactions"
 import ReactionCounterItem from "./ReactionCounterItem"
+import ReactionPicker from "./ReactionPicker"
 
 const ReactionAddButton = ({
   onOpenPicker,
@@ -16,13 +22,14 @@ const ReactionAddButton = ({
 }) => {
   const ref = useRef()
   const [hovered, setHovered] = useState(false)
+
   return (
     <Button
       size="small"
       disabled={disabled}
       ref={ref}
       color={buttonColor}
-      onClick={() => onOpenPicker(ref, reactTo)}
+      onClick={() => onOpenPicker({ ref, reactTo })}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       icon={
@@ -45,17 +52,32 @@ const ReactionAddButton = ({
 
 const ReactionCounter = ({
   reactions,
-  onOpenPicker,
   reactTo,
-  onReactionClick,
   buttonColor,
   iconColor,
   iconHoverColor,
   showAddButton,
 }) => {
-  const emoji = groupBy("emoji", reactions)
+  const [dataState] = useService(dataService)
+  const [state, send] = useMachine(reactionsMachine, {
+    context: {
+      dropRef: null,
+      reactTo,
+      currentUser: dataState.context.currentUser,
+      reactions: reactions,
+    },
+  })
+
+  useEffect(() => {
+    send("SET_REACT_TO", {
+      data: { reactTo, reactions: dataState.context.reactions },
+    })
+  }, [reactTo])
+
+  const emoji = groupBy("emoji", state.context.reactions)
   const size = useContext(ResponsiveContext)
   const isMobile = size === "small"
+
   return (
     <Box direction="row" wrap={false} gap="xsmall" align="center">
       <Box
@@ -77,7 +99,10 @@ const ReactionCounter = ({
               key={x}
               count={emoji[x].length}
               users={map("user", emoji[x])}
-              onReactionClick={onReactionClick}
+              currentUserId={state.context.currentUser.userId}
+              onReactionClick={emoji => {
+                send("SELECT_REACTION", { data: emoji })
+              }}
               reactTo={reactTo}
               emoji={x}
               color={buttonColor}
@@ -88,7 +113,7 @@ const ReactionCounter = ({
 
       <Box flex={{ shrink: 1, grow: 0 }}>
         <ReactionAddButton
-          onOpenPicker={onOpenPicker}
+          onOpenPicker={options => send("TOGGLE", { data: options })}
           reactTo={reactTo}
           buttonColor={buttonColor}
           iconColor={showAddButton ? iconColor : "transparent"}
@@ -97,6 +122,21 @@ const ReactionCounter = ({
           iconHoverColor={iconHoverColor}
         />
       </Box>
+
+      {state.matches("open") && (
+        <Drop
+          target={state.context.dropRef.current}
+          plain
+          overflow="visible"
+          onClickOutside={() => send("TOGGLE")}
+          onEsc={() => send("TOGGLE")}
+          align={{ top: "top", right: "right" }}
+        >
+          <ReactionPicker
+            onSelect={emoji => send("SELECT_REACTION", { data: emoji })}
+          />
+        </Drop>
+      )}
     </Box>
   )
 }

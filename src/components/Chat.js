@@ -1,14 +1,23 @@
 import React, { memo, useMemo } from "react"
-import { useMachine } from "@xstate/react"
+import { useMachine, useService } from "@xstate/react"
 import { Box } from "grommet"
 
 import socket from "../lib/socket"
 import ChatMessages from "./ChatMessages"
 import ChatInput from "./ChatInputNative"
+import TypingIndicator from "./TypingIndicator"
 import { chatMachine } from "../machines/chatMachine"
+import { dataService } from "../machines/dataMachine"
 
 const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
-  const [chatState, chatSend] = useMachine(chatMachine)
+  const [dataState] = useService(dataService)
+  const { currentUser } = dataState.context
+  const [chatState, chatSend] = useMachine(chatMachine, {
+    context: { currentUser },
+  })
+  const currentUserId = chatState.context.currentUser
+    ? chatState.context.currentUser.userId
+    : null
 
   return (
     <Box
@@ -18,21 +27,20 @@ const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
       justify="between"
       gap="small"
     >
-      <ChatInput
-        modalActive={modalActive}
-        onTypingStart={() => chatSend("START_TYPING")}
-        onTypingStop={() => chatSend("STOP_TYPING")}
-        onSend={msg => chatSend("SUBMIT_MESSAGE", { data: msg })}
-      />
+      <Box>
+        <ChatInput
+          modalActive={modalActive}
+          onTypingStart={() => chatSend("START_TYPING")}
+          onTypingStop={() => chatSend("STOP_TYPING")}
+          onSend={msg => chatSend("SUBMIT_MESSAGE", { data: msg })}
+        />
+        <TypingIndicator currentUserId={currentUserId} />
+      </Box>
       <ChatMessages
         onOpenReactionPicker={onOpenReactionPicker}
         onReactionClick={onReactionClick}
         messages={chatState.context.messages}
-        currentUserId={
-          chatState.context.currentUser
-            ? chatState.context.currentUser.userId
-            : null
-        }
+        currentUserId={currentUserId}
       />
     </Box>
   )

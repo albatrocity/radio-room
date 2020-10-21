@@ -42,9 +42,6 @@ const Room = () => {
   const { dispatch: usersDispatch } = useUsers()
   const [roomState, send] = useMachine(roomMachine, {
     actions: {
-      disconnectUser: (context, event) => {
-        socket.emit("disconnect", authState.context.currentUser.userId)
-      },
       setDj: (context, event) => {
         if (event.type === "START_DJ_SESSION") {
           socket.emit("set DJ", authState.context.currentUser.userId)
@@ -64,94 +61,11 @@ const Room = () => {
           send("END_DJ_SESSION")
         }
       },
-      kickUser: (context, event) => {
-        socket.emit("kick user", { userId: event.userId })
-      },
       adminActivated: (context, event) => {
         authSend("ACTIVATE_ADMIN")
       },
       clearPlaylist: (context, event) => {
         socket.emit("clear playlist")
-      },
-      dispatchReactions: (context, event) => {
-        chatDispatch({ type: "SET", payload: event.data.reactions })
-        trackDispatch({ type: "SET", payload: event.data.reactions })
-      },
-      dispatchUsers: (context, event) => {
-        usersDispatch({ type: "SET", payload: event.data.users })
-      },
-      toggleReaction: (context, event) => {
-        const { reactTo, emoji } = event
-        const subjectReactions = context.reactions[reactTo.type][reactTo.id]
-        const existing = find(
-          { user: authState.context.currentUser.userId, emoji: emoji.colons },
-          subjectReactions
-        )
-        if (existing) {
-          socket.emit("remove reaction", {
-            emoji,
-            reactTo,
-            user: authState.context.currentUser,
-          })
-        } else {
-          socket.emit("add reaction", {
-            emoji,
-            reactTo,
-            user: authState.context.currentUser,
-          })
-        }
-      },
-      removeReaction: (context, event) => {
-        const { emoji, reactTo } = event
-        socket.emit("remove reaction", {
-          emoji,
-          reactTo,
-          user: authState.context.currentUser,
-        })
-      },
-    },
-    activities: {
-      setupListeners: ctx => {
-        const handleUserJoin = payload => {
-          send({ type: "USER_ADDED", data: payload })
-        }
-        const handleUserLeave = payload => {
-          send({ type: "REMOVE_USER", data: payload })
-        }
-        const handleInit = payload => {
-          send({ type: "LOGIN", data: payload })
-        }
-        const handleTyping = payload => {
-          usersDispatch({ type: "SET_TYPING", payload })
-        }
-        const handlePlaylist = payload => {
-          send({ type: "PLAYLIST_DATA", data: payload })
-        }
-        const handleDisconnect = payload => {
-          send({ type: "DISCONNECT", data: payload })
-        }
-        const handleReactions = payload => {
-          send({ type: "REACTIONS_DATA", data: payload })
-        }
-
-        // socket.on("init", handleInit)
-        // socket.on("user joined", handleUserJoin)
-        // socket.on("user left", handleUserLeave)
-        // socket.on("typing", handleTyping)
-        // socket.on("playlist", handlePlaylist)
-        // socket.on("reactions", handleReactions)
-        // socket.on("disconnect", () => {
-        //   authSend("USER_DISCONNECTED")
-        // })
-
-        return () => {
-          // socket.removeListener("init", handleInit)
-          // socket.removeListener("user joined", handleUserJoin)
-          // socket.removeListener("user left", handleUserLeave)
-          // socket.removeListener("playlist", handlePlaylist)
-          // socket.removeListener("reactions", handleReactions)
-          // socket.emit("disconnect")
-        }
       },
     },
   })

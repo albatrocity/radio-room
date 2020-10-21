@@ -15,10 +15,6 @@ export const usersMachine = Machine(
     },
     invoke: [
       {
-        id: "eventBus",
-        src: (ctx, event) => eventBus,
-      },
-      {
         id: "socket",
         src: (ctx, event) => socketService,
       },
@@ -39,19 +35,26 @@ export const usersMachine = Machine(
       KICK_USER: {
         actions: ["kickUser"],
       },
+      SET_USERS: {
+        actions: ["setUsers"],
+      },
+      SET_DATA: {
+        actions: ["setUsers"],
+      },
       INIT: {
         actions: ["setUsers"],
       },
     },
     states: {
-      disconnected: {},
       connected: {},
     },
   },
   {
     actions: {
+      log: (context, event) =>
+        console.log("usersMachine event", context, event),
       kickUser: (context, event) => {
-        send("kick user", { to: "socket" })
+        // send("kick user", { to: "socket" })
       },
       checkDj: (context, event) => {
         const isDj = get(
@@ -68,6 +71,11 @@ export const usersMachine = Machine(
         },
       }),
       setUsers: assign({
+        currentUser: (context, event) => {
+          return event.data.currentUser
+            ? event.data.currentUser
+            : context.currentUser
+        },
         users: (context, event) => {
           return event.data.users
         },

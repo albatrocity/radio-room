@@ -42,12 +42,16 @@ export const audioMachine = Machine(
           cover: {
             initial: "found",
             states: {
-              none: {},
-              found: {},
-            },
-            on: {
-              COVER_NOT_FOUND: ".none",
-              TRY_COVER: ".found",
+              none: {
+                on: {
+                  TRY_COVER: "found",
+                },
+              },
+              found: {
+                on: {
+                  COVER_NOT_FOUND: "none",
+                },
+              },
             },
           },
           volume: {

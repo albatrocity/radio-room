@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useContext, memo } from "react"
+import React, { useCallback, useContext, memo } from "react"
 import { Box, ResponsiveContext } from "grommet"
-import { useMachine } from "@xstate/react"
+import { useMachine, useService } from "@xstate/react"
 import { isEmpty, get, kebabCase } from "lodash/fp"
 
 import socket from "../lib/socket"
@@ -8,6 +8,7 @@ import NowPlaying from "./NowPlaying"
 import RadioPlayer from "./RadioPlayer"
 import ReactionCounter from "./ReactionCounter"
 import { audioMachine } from "../machines/audioMachine"
+import { dataService } from "../machines/dataMachine"
 import { useTrackReactions } from "../contexts/useTrackReactions"
 
 const PlayerUi = ({
@@ -16,28 +17,31 @@ const PlayerUi = ({
   onOpenReactionPicker,
   onReactionClick,
 }) => {
-  const { state: trackState } = useTrackReactions()
   const size = useContext(ResponsiveContext)
   const isMobile = size === "small"
+  const [dataState] = useService(dataService)
   const [state, send] = useMachine(audioMachine)
   const playing = state.matches({ online: { progress: "playing" } })
   const muted = state.matches({ online: { volume: "muted" } })
   const ready = state.matches("online")
-  const coverFound = state.matches("ready.cover.found")
+  const coverFound = state.matches("online.cover.found")
   const { volume, meta } = state.context
   const { bitrate, album, artist, track, release = {}, cover } = meta || {}
   const trackId = kebabCase(`${track}-${artist}-${album}`)
 
   const onCover = useCallback(hasCover => {
-    if (hasCover) {
-      send("TRY_COVER")
-    } else {
-      send("COVER_NOT_FOUND")
+    if (ready) {
+      if (hasCover) {
+        send("TRY_COVER")
+      } else {
+        send("COVER_NOT_FOUND")
+      }
     }
   }, [])
 
   return (
     <Box>
+      <pre>{JSON.stringify(state.value)}</pre>
       <NowPlaying
         playing={playing}
         muted={muted}
@@ -52,7 +56,7 @@ const PlayerUi = ({
             <ReactionCounter
               onOpenPicker={onOpenReactionPicker}
               reactTo={{ type: "track", id: trackId }}
-              reactions={trackState.reactions[trackId]}
+              reactions={dataState.context.reactions["track"][trackId]}
               onReactionClick={onReactionClick}
               buttonColor="accent-4"
               iconColor="accent-4"
@@ -76,7 +80,7 @@ const PlayerUi = ({
           trackId={trackId}
           onReactionClick={onReactionClick}
           onOpenPicker={onOpenReactionPicker}
-          reactions={trackState.reactions[trackId]}
+          reactions={dataState.context.reactions["track"][trackId]}
         />
       )}
     </Box>

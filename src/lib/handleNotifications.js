@@ -1,8 +1,7 @@
 import addNotification from "react-push-notification"
 import { get, isEqual, includes } from "lodash/fp"
-import { getCurrentUser } from "./getCurrentUser"
 
-export const handleNotifications = async payload => {
+export const handleNotifications = async (payload, currentUser) => {
   var hidden, visibilityChange
   if (typeof document.hidden !== "undefined") {
     // Opera 12.10 and Firefox 18 and later support
@@ -16,7 +15,6 @@ export const handleNotifications = async payload => {
     visibilityChange = "webkitvisibilitychange"
   }
 
-  const { currentUser } = await getCurrentUser()
   const mentioned = includes(
     get("userId", currentUser),
     get("mentions", payload)

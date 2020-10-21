@@ -1,4 +1,5 @@
-import { Machine, assign } from "xstate"
+import { Machine, assign, send } from "xstate"
+import socketService from "../lib/socketService"
 
 export const roomMachine = Machine(
   {
@@ -15,15 +16,21 @@ export const roomMachine = Machine(
     },
     on: {
       LOGIN: {
-        actions: ["setData", "dispatchReactions"],
+        actions: ["setData"],
       },
-      PLAYLIST_DATA: {
+      PLAYLIST: {
         actions: ["setPlaylist"],
       },
-      REACTIONS_DATA: {
-        actions: ["setReactions", "dispatchReactions"],
+      INIT: {
+        actions: ["setData"],
       },
     },
+    invoke: [
+      {
+        id: "socket",
+        src: (ctx, event) => socketService,
+      },
+    ],
     type: "parallel",
     states: {
       reactionPicker: {
@@ -113,7 +120,6 @@ export const roomMachine = Machine(
       },
       disconnected: {},
       connected: {
-        activities: ["setupListeners"],
         initial: "participating",
         states: {
           participating: {
@@ -228,6 +234,17 @@ export const roomMachine = Machine(
         reactionPickerRef: null,
         reactTo: null,
       }),
+      kickUser: send(
+        (ctx, event) => ({
+          type: "kick user",
+          data: {
+            userId: event.userId,
+          },
+        }),
+        {
+          to: "socket",
+        }
+      ),
     },
   }
 )
