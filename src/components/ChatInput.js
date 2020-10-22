@@ -86,8 +86,6 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     },
   } = state
 
-  console.log("USRRS", users)
-
   const theme = useContext(ThemeContext)
   const inputRef = useRef(null)
   const [isTyping, setTyping] = useState(false)
@@ -113,8 +111,6 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     id: x.userId,
     display: x.username,
   }))
-
-  console.log("userSuggestions", userSuggestions)
 
   const mentionStyle = {
     backgroundColor: theme.global.colors["accent-4"],

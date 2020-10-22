@@ -29,15 +29,18 @@ const PlayerUi = ({
   const { bitrate, album, artist, track, release = {}, cover } = meta || {}
   const trackId = kebabCase(`${track}-${artist}-${album}`)
 
-  const onCover = useCallback(hasCover => {
-    if (ready) {
-      if (hasCover) {
-        send("TRY_COVER")
-      } else {
-        send("COVER_NOT_FOUND")
+  const onCover = useCallback(
+    hasCover => {
+      if (ready) {
+        if (hasCover) {
+          send("TRY_COVER")
+        } else {
+          send("COVER_NOT_FOUND")
+        }
       }
-    }
-  }, [])
+    },
+    [ready]
+  )
 
   return (
     <Box>

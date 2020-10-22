@@ -182,7 +182,6 @@ export const authMachine = Machine(
       shouldRetry: ctx => ctx.shouldRetry,
       shouldNotRetry: ctx => !ctx.shouldRetry,
       isAdmin: ctx => {
-        console.log("isAdmin", ctx.currentUser)
         return ctx.currentUser.isAdmin
       },
     },
