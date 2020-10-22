@@ -1,14 +1,20 @@
 import React, { useMemo } from "react"
-import { tail, map, get, reject, last, uniq } from "lodash/fp"
+import { useMachine } from "@xstate/react"
+import { take, map, get, reject, last } from "lodash/fp"
 import { Box, Text } from "grommet"
 
-const TypingIndicator = ({ typing, currentUserId }) => {
-  const typingUsers = useMemo(
-    () =>
-      uniq(
-        map(u => get("username", u), reject({ userId: currentUserId }, typing))
-      ),
-    [typing, currentUserId]
+import { typingMachine } from "../machines/typingMachine"
+
+const TypingIndicator = ({ currentUserId }) => {
+  const [state] = useMachine(typingMachine)
+
+  const {
+    context: { typing },
+  } = state
+
+  const typingUsers = map(
+    u => get("username", u),
+    reject({ userId: currentUserId }, typing)
   )
 
   const formattedNames = useMemo(
@@ -16,11 +22,12 @@ const TypingIndicator = ({ typing, currentUserId }) => {
       const lastUser = last(typingUsers)
       if (typingUsers.length === 1) {
         return lastUser
-      } else if (typingUsers.length > 2) {
+      } else if (typingUsers.length > 4) {
         return "Several people"
       } else {
-        console.log(``)
-        return `${tail(typingUsers).join(", ")} and ${lastUser}`
+        return `${take(typingUsers.length - 1, typingUsers).join(
+          ", "
+        )} and ${lastUser}`
       }
     },
     [typingUsers]

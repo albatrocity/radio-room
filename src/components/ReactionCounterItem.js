@@ -5,29 +5,21 @@ import { ThemeContext, ResponsiveContext } from "grommet"
 import { map, get, find } from "lodash/fp"
 import styled from "styled-components"
 
-import { useUsers } from "../contexts/useUsers"
-import AuthContext from "../contexts/AuthContext"
+import ListUsernames from "./ListUsernames"
 
 const ReactionCounterItem = ({
   count,
   users,
   emoji,
   onReactionClick,
-  reactTo,
+  currentUserId,
   color = "light-2",
 }) => {
   const theme = useContext(ThemeContext)
   const size = useContext(ResponsiveContext)
-  const { state: authState } = useContext(AuthContext)
-  const { state } = useUsers()
   const buttonRef = useRef()
   const [hovered, setHovered] = useState(false)
-  const currentUserReaction =
-    users.indexOf(authState.context.currentUser.userId) > -1
-  const usernames = map(
-    x => get("username", find({ userId: x }, state.users)),
-    users
-  )
+  const currentUserReaction = users.indexOf(currentUserId) > -1
 
   return (
     <>
@@ -40,7 +32,7 @@ const ReactionCounterItem = ({
         align="center"
         justify="center"
         focusIndicator={false}
-        onClick={() => onReactionClick({ reactTo, emoji: { colons: emoji } })}
+        onClick={() => onReactionClick({ colons: emoji })}
         ref={buttonRef}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -66,8 +58,8 @@ const ReactionCounterItem = ({
       />
       {hovered && (
         <Drop target={buttonRef.current} align={{ bottom: "top" }}>
-          <Box pad="small">
-            <Text size="xsmall">{usernames.join(", ")}</Text>
+          <Box pad="small" width="small" align="center">
+            <ListUsernames ids={users} />
           </Box>
         </Drop>
       )}

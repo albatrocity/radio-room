@@ -1,26 +1,46 @@
-import { Machine, assign } from "xstate"
+import { Machine, send, assign } from "xstate"
+import socketService from "../lib/socketService"
+import { handleNotifications } from "../lib/handleNotifications"
 
 export const chatMachine = Machine(
   {
     id: "chat",
-    initial: "ready",
+    initial: "unauthenticated",
     context: {
       messages: [],
-      typing: [],
+      currentUser: null,
     },
     on: {
       LOGIN: {
         actions: ["setData"],
       },
+      INIT: {
+        actions: ["setData"],
+      },
     },
+    invoke: [
+      {
+        id: "socket",
+        src: (ctx, event) => socketService,
+      },
+    ],
     states: {
+      unauthenticated: {
+        on: {
+          INIT: {
+            target: "ready",
+            actions: ["setData"],
+          },
+        },
+      },
       ready: {
         type: "parallel",
-        activities: ["setupListeners"],
         on: {
           SUBMIT_MESSAGE: { actions: ["sendMessage"] },
-          MESSAGE_RECEIVED: { actions: ["addMessage"] },
-          TYPING: { actions: ["setTyping"] },
+          NEW_MESSAGE: { actions: ["addMessage", "handleNotifications"] },
+          SET_USERS: {
+            actions: ["setCurrentUser"],
+          },
         },
         states: {
           typing: {
@@ -45,6 +65,30 @@ export const chatMachine = Machine(
   },
   {
     actions: {
+      sendMessage: send(
+        (ctx, event) => {
+          return { type: "new message", data: event.data }
+        },
+        {
+          to: "socket",
+        }
+      ),
+      startTyping: send(
+        (ctx, event) => {
+          return { type: "typing" }
+        },
+        {
+          to: "socket",
+        }
+      ),
+      stopTyping: send(
+        (ctx, event) => {
+          return { type: "stop typing" }
+        },
+        {
+          to: "socket",
+        }
+      ),
       setTyping: assign((ctx, event) => {
         return { typing: event.data }
       }),
@@ -53,12 +97,23 @@ export const chatMachine = Machine(
           return [...context.messages, event.data]
         },
       }),
+      handleNotifications: (ctx, event) => {
+        handleNotifications(event.data, ctx.currentUser)
+      },
       setData: assign({
         messages: (context, event) => {
           return event.data.messages
         },
         typing: (context, event) => {
           return event.data.typing
+        },
+        currentUser: (context, event) => event.data.currentUser,
+      }),
+      setCurrentUser: assign({
+        currentUser: (context, event) => {
+          return event.data.currentUser
+            ? event.data.currentUser
+            : context.currentUser
         },
       }),
     },

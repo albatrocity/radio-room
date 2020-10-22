@@ -8,7 +8,7 @@ import AlbumArtwork from "./AlbumArtwork"
 import safeDate from "../lib/safeDate"
 import { audioMachine } from "../machines/audioMachine"
 
-const NowPlaying = ({ onCover, ready, offline, meta, coverFound }) => {
+const NowPlaying = ({ onCover, offline, meta, coverFound }) => {
   const size = useContext(ResponsiveContext)
   const { bitrate, album, artist, track, release = {}, cover } = meta || {}
   const { mbid, releaseDate } = release || {}
@@ -43,7 +43,7 @@ const NowPlaying = ({ onCover, ready, offline, meta, coverFound }) => {
 
   return (
     <Box pad="medium" align="center" background="accent-1">
-      {offline && (
+      {offline ? (
         <>
           <Box direction="row" gap="small" align="center">
             <Unlink color="white" />
@@ -51,12 +51,8 @@ const NowPlaying = ({ onCover, ready, offline, meta, coverFound }) => {
               Offline :(
             </Heading>
           </Box>
-          <Heading margin="none" level={4} textAlign="center" color="white">
-            Until next time!
-          </Heading>
         </>
-      )}
-      {ready && (
+      ) : (
         <MetaWrapper href={releaseUrl} target="_blank" color="white">
           <Box direction="row" gap="medium" justify="center">
             {coverUrl && coverFound ? (

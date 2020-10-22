@@ -1,57 +1,23 @@
-import React, { memo, useContext, useMemo } from "react"
-import { useMachine } from "@xstate/react"
+import React, { memo, useMemo } from "react"
+import { useMachine, useService } from "@xstate/react"
 import { Box } from "grommet"
 
 import socket from "../lib/socket"
 import ChatMessages from "./ChatMessages"
 import ChatInput from "./ChatInputNative"
-import { handleNotifications } from "../lib/handleNotifications"
-import AuthContext from "../contexts/AuthContext"
+import TypingIndicator from "./TypingIndicator"
 import { chatMachine } from "../machines/chatMachine"
+import { useAuth } from "../contexts/useAuth"
 
 const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
-  const { state: authState } = useContext(AuthContext)
+  const [authState] = useAuth()
+  const { currentUser } = authState.context
   const [chatState, chatSend] = useMachine(chatMachine, {
-    activities: {
-      setupListeners: ctx => {
-        const handleNewMessage = payload => {
-          handleNotifications(payload)
-          chatSend({ type: "MESSAGE_RECEIVED", data: payload })
-        }
-        const handleTyping = payload => {
-          chatSend({ type: "TYPING", data: payload })
-        }
-        const handleInit = payload => {
-          chatSend({ type: "LOGIN", data: payload })
-        }
-
-        socket.on("init", handleInit)
-        socket.on("new message", handleNewMessage)
-        socket.on("typing", handleTyping)
-
-        return () => {
-          socket.removeListener("init", handleInit)
-          socket.removeListener("new message", handleNewMessage)
-          socket.removeListener("typing", handleTyping)
-        }
-      },
-    },
-    actions: {
-      sendMessage: (context, event) => {
-        socket.emit("new message", event.data)
-      },
-      startTyping: (context, event) => {
-        socket.emit("typing")
-      },
-      stopTyping: (context, event) => {
-        socket.emit("stop typing")
-      },
-    },
+    context: { currentUser },
   })
-
-  const currentlyTyping = useMemo(() => chatState.context.typing, [
-    chatState.context.typing,
-  ])
+  const currentUserId = chatState.context.currentUser
+    ? chatState.context.currentUser.userId
+    : null
 
   return (
     <Box
@@ -61,18 +27,20 @@ const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
       justify="between"
       gap="small"
     >
-      <ChatInput
-        modalActive={modalActive}
-        onTypingStart={() => chatSend("START_TYPING")}
-        onTypingStop={() => chatSend("STOP_TYPING")}
-        onSend={msg => chatSend("SUBMIT_MESSAGE", { data: msg })}
-      />
+      <Box>
+        <ChatInput
+          modalActive={modalActive}
+          onTypingStart={() => chatSend("START_TYPING")}
+          onTypingStop={() => chatSend("STOP_TYPING")}
+          onSend={msg => chatSend("SUBMIT_MESSAGE", { data: msg })}
+        />
+        <TypingIndicator currentUserId={currentUserId} />
+      </Box>
       <ChatMessages
         onOpenReactionPicker={onOpenReactionPicker}
         onReactionClick={onReactionClick}
         messages={chatState.context.messages}
-        currentUserId={authState.context.currentUser.userId}
-        typing={currentlyTyping}
+        currentUserId={currentUserId}
       />
     </Box>
   )

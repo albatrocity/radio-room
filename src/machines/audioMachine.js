@@ -1,5 +1,6 @@
 import { Machine, assign } from "xstate"
-import socket from "../lib/socket"
+import socketService from "../lib/socketService"
+import { isEmpty, isNil } from "lodash/fp"
 
 export const audioMachine = Machine(
   {
@@ -9,20 +10,19 @@ export const audioMachine = Machine(
       volume: 1.0,
       meta: {},
     },
+    invoke: {
+      src: (ctx, event) => socketService,
+      onError: "willRetry",
+    },
     states: {
-      ready: {
+      online: {
         type: "parallel",
-        invoke: {
-          src: _ => cb => {
-            socket.on("meta", payload => {
-              cb({ type: "SET_META", meta: payload })
-              cb({ type: "TRY_COVER" })
-            })
-          },
-          onError: "willRetry",
-        },
         on: {
-          SET_META: {
+          META: [
+            { target: "online", actions: ["setMeta"], cond: "hasBitrate" },
+            { target: "offline", actions: ["setMeta"] },
+          ],
+          INIT: {
             actions: ["setMeta"],
           },
           OFFLINE: "ready",
@@ -42,12 +42,16 @@ export const audioMachine = Machine(
           cover: {
             initial: "found",
             states: {
-              none: {},
-              found: {},
-            },
-            on: {
-              COVER_NOT_FOUND: ".none",
-              TRY_COVER: ".found",
+              none: {
+                on: {
+                  TRY_COVER: "found",
+                },
+              },
+              found: {
+                on: {
+                  COVER_NOT_FOUND: "none",
+                },
+              },
             },
           },
           volume: {
@@ -88,13 +92,16 @@ export const audioMachine = Machine(
         },
       },
       offline: {
-        invoke: {
-          src: "pingOffline",
-          onError: "willRetry",
-          onDone: { target: "ready", actions: ["setMeta"] },
-        },
         on: {
-          ONLINE: "ready",
+          ONLINE: "online",
+          INIT: [
+            { target: "online", actions: ["setMeta"], cond: "hasBitrate" },
+            { target: "offline", actions: ["setMeta"] },
+          ],
+          META: [
+            { target: "online", actions: ["setMeta"], cond: "hasBitrate" },
+            { target: "offline", actions: ["setMeta"] },
+          ],
         },
       },
       willRetry: {
@@ -108,16 +115,15 @@ export const audioMachine = Machine(
         volume: event.volume,
       })),
       setMeta: assign((context, event) => {
-        if (event.hasOwnProperty("data")) {
-          return { meta: event.data.meta }
-        } else {
-          return { meta: event.meta }
-        }
+        return { meta: event.data.meta }
       }),
     },
     guards: {
       volumeAboveZero: (context, event) => parseFloat(event.volume) > 0,
       volumeIsZero: (context, event) => parseFloat(event.volume) === 0,
+      hasBitrate: (context, event) => {
+        return !isEmpty(event.data.meta) && !isNil(event.data.meta.bitrate)
+      },
     },
   }
 )

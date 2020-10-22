@@ -1,4 +1,5 @@
-import React, { useContext, useMemo, memo } from "react"
+import React, { useEffect, useMemo, memo } from "react"
+import { useMachine } from "@xstate/react"
 import { Box, Text, Anchor, Heading } from "grommet"
 import Linkify from "react-linkify"
 import { Currency } from "grommet-icons"
@@ -6,8 +7,9 @@ import styled from "styled-components"
 import { get, isEqual, find, uniqBy } from "lodash/fp"
 import { Edit } from "grommet-icons"
 
-import AuthContext from "../contexts/AuthContext"
 import { useUsers } from "../contexts/useUsers"
+import { useAuth } from "../contexts/useAuth"
+import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 
@@ -23,17 +25,23 @@ const componentDecorator = (href, text, key) => (
   </Anchor>
 )
 
-const UserList = ({ onEditUser, onKickUser, onEditSettings }) => {
-  const { state: authState } = useContext(AuthContext)
-  const {
-    state: { typing, listeners, dj },
-  } = useUsers()
+const UserList = ({ onEditUser, onEditSettings }) => {
+  const [state, send] = useUsers()
+  const [authState, authSend] = useAuth()
+  const [typingState] = useMachine(typingMachine)
 
-  const { currentUser, isAdmin } = authState.context
-  const currentDj = isEqual(
-    get("context.currentUser.userId", authState),
-    get("userId", dj)
-  )
+  const {
+    context: { listeners, dj },
+  } = state
+  const {
+    context: { currentUser },
+  } = authState
+  const {
+    context: { typing },
+  } = typingState
+
+  const currentDj = isEqual(get("userId", currentUser), get("userId", dj))
+  const isTyping = user => find({ userId: get("userId", user) }, typing)
 
   return (
     <Box gap="small">
@@ -46,7 +54,7 @@ const UserList = ({ onEditUser, onKickUser, onEditSettings }) => {
             user={dj}
             currentUser={currentUser}
             onEditUser={onEditUser}
-            typing={typing}
+            userTyping={isTyping(dj)}
           />
 
           {currentDj && !dj.extraInfo && !dj.donationURL && (
@@ -99,10 +107,10 @@ const UserList = ({ onEditUser, onKickUser, onEditSettings }) => {
             <ListItemUser
               key={x.userId}
               user={x}
-              typing={typing}
+              userTyping={isTyping(x)}
               currentUser={currentUser}
               onEditUser={onEditUser}
-              onKickUser={onKickUser}
+              onKickUser={user => authSend("KICK_USER", x)}
             />
           )
         })}

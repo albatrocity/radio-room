@@ -6,7 +6,9 @@ import React, {
   useCallback,
   memo,
 } from "react"
+import { useMachine } from "@xstate/react"
 
+import { usersMachine } from "../machines/usersMachine"
 import { Formik, FastField } from "formik"
 import { Box, Button, ThemeContext } from "grommet"
 import { Chat } from "grommet-icons"
@@ -76,21 +78,23 @@ const Input = ({
 )
 
 const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
+  const [state] = useMachine(usersMachine)
   const {
-    state: { users },
-  } = useUsers()
-  const username = session.getItem(SESSION_USERNAME)
-  const userId = session.getItem(SESSION_ID)
+    context: {
+      users,
+      currentUser: { username, userId },
+    },
+  } = state
+
+  console.log("USRRS", users)
+
   const theme = useContext(ThemeContext)
   const inputRef = useRef(null)
   const [isTyping, setTyping] = useState(false)
 
-  const handleTypingStop = useCallback(
-    debounce(() => {
-      setTyping(false)
-    }, 2000),
-    []
-  )
+  const handleTypingStop = debounce(() => {
+    setTyping(false)
+  }, 2000)
 
   useEffect(() => {
     if (isTyping) {
@@ -109,6 +113,8 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     id: x.userId,
     display: x.username,
   }))
+
+  console.log("userSuggestions", userSuggestions)
 
   const mentionStyle = {
     backgroundColor: theme.global.colors["accent-4"],

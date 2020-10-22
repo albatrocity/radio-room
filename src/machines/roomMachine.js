@@ -1,11 +1,11 @@
-import { Machine, assign } from "xstate"
+import { Machine, assign, send } from "xstate"
+import socketService from "../lib/socketService"
 
 export const roomMachine = Machine(
   {
     id: "room",
     initial: "connected",
     context: {
-      users: [],
       playlist: [],
       reactions: {
         track: {},
@@ -15,22 +15,22 @@ export const roomMachine = Machine(
       reactTo: null,
     },
     on: {
-      USER_ADDED: {
-        actions: ["setUsers", "checkDj", "dispatchUsers"],
-      },
-      REMOVE_USER: {
-        actions: ["setUsers", "dispatchUsers"],
-      },
       LOGIN: {
-        actions: ["setData", "dispatchUsers", "dispatchReactions"],
+        actions: ["setData"],
       },
-      PLAYLIST_DATA: {
+      PLAYLIST: {
         actions: ["setPlaylist"],
       },
-      REACTIONS_DATA: {
-        actions: ["setReactions", "dispatchReactions"],
+      INIT: {
+        actions: ["setData"],
       },
     },
+    invoke: [
+      {
+        id: "socket",
+        src: (ctx, event) => socketService,
+      },
+    ],
     type: "parallel",
     states: {
       reactionPicker: {
@@ -80,9 +80,6 @@ export const roomMachine = Machine(
           isAdmin: {
             on: {
               DEACTIVATE_ADMIN: "notAdmin",
-              KICK_USER: {
-                actions: ["kickUser"],
-              },
             },
           },
           notAdmin: {
@@ -120,7 +117,6 @@ export const roomMachine = Machine(
       },
       disconnected: {},
       connected: {
-        activities: ["setupListeners"],
         initial: "participating",
         states: {
           participating: {
@@ -207,15 +203,7 @@ export const roomMachine = Machine(
   },
   {
     actions: {
-      setUsers: assign({
-        users: (context, event) => {
-          return event.data.users
-        },
-      }),
       setData: assign({
-        users: (context, event) => {
-          return event.data.users
-        },
         playlist: (context, event) => {
           return event.data.playlist
         },

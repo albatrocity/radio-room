@@ -1,5 +1,14 @@
-import { Machine, assign } from "xstate"
+import { Machine, assign, send, interpret } from "xstate"
 import { isNil } from "lodash/fp"
+import socketService from "../lib/socketService"
+import eventBus from "../lib/eventBus"
+import { getCurrentUser } from "../lib/getCurrentUser"
+
+const getStoredUser = (ctx, event) =>
+  new Promise((resolve, reject) => {
+    const { currentUser, isNewUser } = getCurrentUser(event.data)
+    resolve({ currentUser, isNewUser })
+  })
 
 export const authMachine = Machine(
   {
@@ -11,6 +20,12 @@ export const authMachine = Machine(
       isAdmin: false,
       shouldRetry: true,
     },
+    invoke: [
+      {
+        id: "socket",
+        src: (ctx, event) => socketService,
+      },
+    ],
     states: {
       unauthenticated: {
         on: {
@@ -18,7 +33,6 @@ export const authMachine = Machine(
         },
       },
       disconnected: {
-        entry: [() => console.log("disconnected entry")],
         on: {
           "": {
             target: "initiated",
@@ -27,29 +41,35 @@ export const authMachine = Machine(
         },
       },
       initiated: {
-        entry: ["getCurrentUser", () => console.log("initiated entry")],
-        on: {
-          CREDENTIALS: {
+        invoke: {
+          id: "getStoredUser",
+          src: getStoredUser,
+          onError: {
+            target: "unauthenticated",
+          },
+          onDone: {
             target: "connecting",
-            actions: ["setupListeners", "setCurrentUser"],
+            actions: ["setCurrentUser"],
           },
         },
       },
-      editingUsername: {
-        on: {
-          CREDENTIALS: {
-            target: "connecting",
-            actions: ["setCurrentUser", "changeUsername"],
+      updating: {
+        invoke: {
+          id: "getStoredUser",
+          src: getStoredUser,
+          onError: {
+            target: "unauthenticated",
+          },
+          onDone: {
+            target: "authenticated",
+            actions: ["setCurrentUser"],
           },
         },
       },
       connecting: {
-        entry: [
-          "login",
-          () => console.log("connecting entry action after login."),
-        ],
+        entry: "login",
         on: {
-          LOGIN: {
+          INIT: {
             target: "authenticated",
           },
         },
@@ -61,14 +81,30 @@ export const authMachine = Machine(
         on: {
           USER_DISCONNECTED: {
             target: "disconnected",
-            actions: ["setRetry", "disconnectUser"],
+            actions: ["disconnectUser"],
+            cond: "shouldNotRetry",
           },
           UPDATE_USERNAME: {
-            target: "editingUsername",
-            actions: ["unsetNew", "getCurrentUser"],
+            actions: ["unsetNew", "updateUsername", "changeUsername"],
+            target: "updating",
           },
           ACTIVATE_ADMIN: {
-            actions: ["activateAdmin"],
+            actions: ["activateAdmin", "sendUser"],
+          },
+          REQUEST_CURRENT_USER: {
+            actions: ["sendUser"],
+          },
+          KICK_USER: {
+            actions: ["kickUser"],
+            cond: "isAdmin",
+          },
+          disconnect: {
+            target: "disconnected",
+            actions: ["disconnectUser"],
+          },
+          KICKED: {
+            target: "disconnected",
+            actions: ["disableRetry", "disconnectUser"],
           },
         },
       },
@@ -87,20 +123,73 @@ export const authMachine = Machine(
           isNewUser: false,
         }
       }),
+      login: send(
+        (ctx, event) => {
+          return { type: "login", data: ctx.currentUser }
+        },
+        {
+          to: "socket",
+        }
+      ),
       activateAdmin: assign((ctx, event) => {
         return {
           isAdmin: true,
           currentUser: { ...ctx.currentUser, isAdmin: true },
         }
       }),
-      setRetry: assign({
-        shouldRetry: (context, event) => {
-          return isNil(event.shouldRetry) ? true : event.shouldRetry
-        },
+      disableRetry: assign({
+        shouldRetry: (context, event) => false,
       }),
+      changeUsername: send(
+        (ctx, event) => ({
+          type: "change username",
+          data: {
+            userId: ctx.currentUser.userId,
+            username: ctx.currentUser.username,
+          },
+        }),
+        {
+          to: "socket",
+        }
+      ),
+      updateUsername: assign({
+        currentUser: (ctx, event) => ({
+          ...ctx.currentUser,
+          username: event.data,
+        }),
+      }),
+      disconnectUser: send(
+        (ctx, event) => ({
+          type: "disconnect",
+          data: ctx.currentUser.userId,
+        }),
+        {
+          to: "socket",
+        }
+      ),
+      kickUser: send(
+        (ctx, event) => ({
+          type: "kick user",
+          data: {
+            userId: event.userId,
+          },
+        }),
+        {
+          to: "socket",
+        }
+      ),
     },
     guards: {
       shouldRetry: ctx => ctx.shouldRetry,
+      shouldNotRetry: ctx => !ctx.shouldRetry,
+      isAdmin: ctx => {
+        console.log("isAdmin", ctx.currentUser)
+        return ctx.currentUser.isAdmin
+      },
     },
   }
 )
+
+// export const authService = interpret(authMachine)
+//
+// authService.start()

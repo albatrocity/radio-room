@@ -1,67 +1,23 @@
 import React, { useMemo, useEffect } from "react"
 import { Box, Main } from "grommet"
-import { useMachine } from "@xstate/react"
+import { useService, useMachine } from "@xstate/react"
 
 import useWindowSize from "./useWindowSize"
 import Room from "./Room"
-import AuthContext from "../contexts/AuthContext"
-import { ChatReactionsProvider } from "../contexts/useChatReactions"
-import { TrackReactionsProvider } from "../contexts/useTrackReactions"
+import { AuthProvider } from "../contexts/useAuth"
 import { UsersProvider } from "../contexts/useUsers"
+import { ReactionsProvider } from "../contexts/useReactions"
 import { authMachine } from "../machines/authMachine"
-import { getCurrentUser } from "../lib/getCurrentUser"
+import { usersMachine } from "../machines/usersMachine"
+import { allReactionsMachine } from "../machines/allReactionsMachine"
 import socket from "../lib/socket"
 
 const RadioApp = () => {
-  const [authState, authSend] = useMachine(authMachine, {
-    actions: {
-      setupListeners: ctx => {
-        const handleInit = payload => {
-          authSend({ type: "LOGIN", data: payload })
-        }
-        socket.on("init", handleInit)
-
-        socket.on("disconnect", () => {
-          authSend("USER_DISCONNECTED")
-        })
-        socket.on("kicked", () => {
-          authSend({ type: "USER_DISCONNECTED", shouldRetry: false })
-        })
-
-        return () => {
-          socket.removeListener("init", handleInit)
-        }
-      },
-      getCurrentUser: (context, event) => {
-        const { currentUser, isNewUser } = getCurrentUser(event.data)
-        authSend({ type: "CREDENTIALS", data: { currentUser, isNewUser } })
-      },
-      login: (context, event) => {
-        socket.emit("login", {
-          username: context.currentUser.username,
-          userId: context.currentUser.userId,
-        })
-      },
-      disconnectUser: (context, event) => {
-        if (!context.shouldRetry) {
-          socket.close()
-          socket.emit("disconnect", context.currentUser.userId)
-        }
-      },
-      changeUsername: (context, event) => {
-        socket.emit("change username", {
-          userId: context.currentUser.userId,
-          username: context.currentUser.username,
-        })
-      },
-    },
-  })
+  const [authState, authSend] = useMachine(authMachine)
+  const [usersState, usersSend] = useMachine(usersMachine)
+  const [reactionsState, reactionsSend] = useMachine(allReactionsMachine)
 
   const size = useWindowSize()
-  const authContextValue = useMemo(
-    () => ({ state: authState, send: authSend }),
-    [authState, authSend]
-  )
 
   useEffect(() => {
     authSend("SETUP")
@@ -71,19 +27,17 @@ const RadioApp = () => {
   }, [authSend])
 
   return (
-    <AuthContext.Provider value={authContextValue}>
-      <ChatReactionsProvider>
-        <TrackReactionsProvider>
-          <UsersProvider>
-            <Box height={size[1] ? `${size[1]}px` : "100vh"}>
-              <Main flex={{ grow: 1, shrink: 1 }}>
-                <Room />
-              </Main>
-            </Box>
-          </UsersProvider>
-        </TrackReactionsProvider>
-      </ChatReactionsProvider>
-    </AuthContext.Provider>
+    <AuthProvider value={[authState, authSend]}>
+      <ReactionsProvider value={[reactionsState, reactionsSend]}>
+        <UsersProvider value={[usersState, usersSend]}>
+          <Box height={size[1] ? `${size[1]}px` : "100vh"}>
+            <Main flex={{ grow: 1, shrink: 1 }}>
+              <Room />
+            </Main>
+          </Box>
+        </UsersProvider>
+      </ReactionsProvider>
+    </AuthProvider>
   )
 }
 

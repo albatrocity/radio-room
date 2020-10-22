@@ -12,7 +12,6 @@ const RadioPlayer = ({
   volume,
   meta,
   playing,
-  ready,
   muted,
   onVolume,
   onPlayPause,
@@ -30,67 +29,63 @@ const RadioPlayer = ({
 
   return (
     <Box>
-      {ready && (
-        <Nav
-          direction="row"
-          background="accent-4"
-          justify="center"
+      <Nav
+        direction="row"
+        background="accent-4"
+        justify="center"
+        align="center"
+        border={{ side: "bottom", color: "#adb871" }}
+        pad={{ horizontal: "large" }}
+      >
+        <Box
           align="center"
-          border={{ side: "bottom", color: "#adb871" }}
-          pad={{ horizontal: "large" }}
+          animation={
+            !playing
+              ? {
+                  type: "pulse",
+                  delay: 0,
+                  duration: 400,
+                  size: "large",
+                }
+              : null
+          }
         >
-          <Box
-            align="center"
-            animation={
-              !playing
-                ? {
-                    type: "pulse",
-                    delay: 0,
-                    duration: 400,
-                    size: "large",
-                  }
-                : null
-            }
-          >
-            <Button
-              icon={playing ? <Pause color="brand" /> : <Play color="brand" />}
-              onClick={() => onPlayPause()}
-            />
-          </Box>
           <Button
-            icon={
-              muted ? <VolumeMute color="brand" /> : <Volume color="brand" />
-            }
-            onClick={() => onMute()}
+            icon={playing ? <Pause color="brand" /> : <Play color="brand" />}
+            onClick={() => onPlayPause()}
           />
-          <Box width="medium">
-            {isMobile ? (
-              <ReactionCounter
-                onOpenPicker={onOpenPicker}
-                reactTo={{ type: "track", id: trackId }}
-                reactions={reactions}
-                onReactionClick={onReactionClick}
-                buttonColor="rgba(255,255,255,0.4)"
-                iconColor="brand"
-                showAddButton={true}
-              />
-            ) : (
-              <RangeInput
-                value={muted ? 0 : volume}
-                max={1.0}
-                min={0}
-                step={0.1}
-                onChange={event => onVolume(event.target.value)}
-              />
-            )}
-          </Box>
-          {hasPlaylist && (
-            <Box flex={{ shrink: 0 }}>
-              <Button onClick={onShowPlaylist} icon={<List color="brand" />} />
-            </Box>
+        </Box>
+        <Button
+          icon={muted ? <VolumeMute color="brand" /> : <Volume color="brand" />}
+          onClick={() => onMute()}
+        />
+        <Box width="medium">
+          {isMobile ? (
+            <ReactionCounter
+              onOpenPicker={onOpenPicker}
+              reactTo={{ type: "track", id: trackId }}
+              reactions={reactions}
+              onReactionClick={onReactionClick}
+              buttonColor="rgba(255,255,255,0.4)"
+              iconColor="brand"
+              showAddButton={true}
+            />
+          ) : (
+            <RangeInput
+              value={muted ? 0 : volume}
+              max={1.0}
+              min={0}
+              step={0.1}
+              onChange={event => onVolume(event.target.value)}
+            />
           )}
-        </Nav>
-      )}
+        </Box>
+        {hasPlaylist && (
+          <Box flex={{ shrink: 0 }}>
+            <Button onClick={onShowPlaylist} icon={<List color="brand" />} />
+          </Box>
+        )}
+      </Nav>
       <ReactHowler
         src={[streamURL]}
         preload={false}

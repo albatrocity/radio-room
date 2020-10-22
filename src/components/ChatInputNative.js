@@ -12,11 +12,9 @@ import { Box, Button, ThemeContext } from "grommet"
 import { Chat } from "grommet-icons"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
-import session from "sessionstorage"
-import styled from "styled-components"
-
-import { SESSION_ID, SESSION_USERNAME } from "../constants"
 import { useUsers } from "../contexts/useUsers"
+import { useAuth } from "../contexts/useAuth"
+import styled from "styled-components"
 
 const InputContainer = styled(Box)`
   > div {
@@ -77,11 +75,17 @@ const Input = ({
 )
 
 const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
+  const [usersState] = useUsers()
+  const [authState] = useAuth()
   const {
-    state: { users },
-  } = useUsers()
-  const username = session.getItem(SESSION_USERNAME)
-  const userId = session.getItem(SESSION_ID)
+    context: { users },
+  } = usersState
+  const {
+    context: {
+      currentUser: { username, userId },
+    },
+  } = authState
+
   const theme = useContext(ThemeContext)
   const inputRef = useRef(null)
   const [isTyping, setTyping] = useState(false)

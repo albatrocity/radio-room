@@ -13,7 +13,10 @@ const ChatReactionsReducer = (state, action) => {
 }
 
 const initialState = {
-  reactions: {},
+  reactions: {
+    track: {},
+    message: {},
+  },
 }
 
 function ChatReactionsProvider(props) {
