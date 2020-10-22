@@ -8,7 +8,7 @@ import NowPlaying from "./NowPlaying"
 import RadioPlayer from "./RadioPlayer"
 import ReactionCounter from "./ReactionCounter"
 import { audioMachine } from "../machines/audioMachine"
-import { dataService } from "../machines/dataMachine"
+import { useReactions } from "../contexts/useReactions"
 import { useTrackReactions } from "../contexts/useTrackReactions"
 
 const PlayerUi = ({
@@ -18,8 +18,8 @@ const PlayerUi = ({
   onReactionClick,
 }) => {
   const size = useContext(ResponsiveContext)
+  const [reactionsState] = useReactions()
   const isMobile = size === "small"
-  const [dataState] = useService(dataService)
   const [state, send] = useMachine(audioMachine)
   const playing = state.matches({ online: { progress: "playing" } })
   const muted = state.matches({ online: { volume: "muted" } })
@@ -41,7 +41,6 @@ const PlayerUi = ({
 
   return (
     <Box>
-      <pre>{JSON.stringify(state.value)}</pre>
       <NowPlaying
         playing={playing}
         muted={muted}
@@ -56,7 +55,7 @@ const PlayerUi = ({
             <ReactionCounter
               onOpenPicker={onOpenReactionPicker}
               reactTo={{ type: "track", id: trackId }}
-              reactions={dataState.context.reactions["track"][trackId]}
+              reactions={reactionsState.context.reactions["track"][trackId]}
               onReactionClick={onReactionClick}
               buttonColor="accent-4"
               iconColor="accent-4"
@@ -80,7 +79,7 @@ const PlayerUi = ({
           trackId={trackId}
           onReactionClick={onReactionClick}
           onOpenPicker={onOpenReactionPicker}
-          reactions={dataState.context.reactions["track"][trackId]}
+          reactions={reactionsState.context.reactions["track"][trackId]}
         />
       )}
     </Box>

@@ -4,7 +4,6 @@ import { uniqBy, sortBy, reject, find } from "lodash/fp"
 import { Box, Heading, Text, Button, ResponsiveContext } from "grommet"
 
 import { usersMachine } from "../machines/usersMachine"
-import { dataService } from "../machines/dataMachine"
 import { typingMachine } from "../machines/typingMachine"
 import UserList from "./UserList"
 

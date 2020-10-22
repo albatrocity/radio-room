@@ -7,11 +7,11 @@ import ChatMessages from "./ChatMessages"
 import ChatInput from "./ChatInputNative"
 import TypingIndicator from "./TypingIndicator"
 import { chatMachine } from "../machines/chatMachine"
-import { dataService } from "../machines/dataMachine"
+import { useAuth } from "../contexts/useAuth"
 
 const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
-  const [dataState] = useService(dataService)
-  const { currentUser } = dataState.context
+  const [authState] = useAuth()
+  const { currentUser } = authState.context
   const [chatState, chatSend] = useMachine(chatMachine, {
     context: { currentUser },
   })

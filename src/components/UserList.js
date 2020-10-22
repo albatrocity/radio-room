@@ -7,7 +7,8 @@ import styled from "styled-components"
 import { get, isEqual, find, uniqBy } from "lodash/fp"
 import { Edit } from "grommet-icons"
 
-import { usersMachine } from "../machines/usersMachine"
+import { useUsers } from "../contexts/useUsers"
+import { useAuth } from "../contexts/useAuth"
 import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
@@ -25,20 +26,21 @@ const componentDecorator = (href, text, key) => (
 )
 
 const UserList = ({ onEditUser, onEditSettings }) => {
-  const [state, send] = useMachine(usersMachine)
+  const [state, send] = useUsers()
+  const [authState, authSend] = useAuth()
   const [typingState] = useMachine(typingMachine)
 
   const {
-    context: { listeners, dj, currentUser },
+    context: { listeners, dj },
   } = state
+  const {
+    context: { currentUser },
+  } = authState
   const {
     context: { typing },
   } = typingState
 
-  console.log("currentUser", currentUser)
-
   const currentDj = isEqual(get("userId", currentUser), get("userId", dj))
-
   const isTyping = user => find({ userId: get("userId", user) }, typing)
 
   return (
@@ -108,7 +110,7 @@ const UserList = ({ onEditUser, onEditSettings }) => {
               userTyping={isTyping(x)}
               currentUser={currentUser}
               onEditUser={onEditUser}
-              onKickUser={user => send("KICK_USER", { user })}
+              onKickUser={user => authSend("KICK_USER", x)}
             />
           )
         })}

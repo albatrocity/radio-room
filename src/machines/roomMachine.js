@@ -80,9 +80,6 @@ export const roomMachine = Machine(
           isAdmin: {
             on: {
               DEACTIVATE_ADMIN: "notAdmin",
-              KICK_USER: {
-                actions: ["kickUser"],
-              },
             },
           },
           notAdmin: {
@@ -234,17 +231,6 @@ export const roomMachine = Machine(
         reactionPickerRef: null,
         reactTo: null,
       }),
-      kickUser: send(
-        (ctx, event) => ({
-          type: "kick user",
-          data: {
-            userId: event.userId,
-          },
-        }),
-        {
-          to: "socket",
-        }
-      ),
     },
   }
 )

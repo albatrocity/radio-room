@@ -72,6 +72,7 @@ export const usersMachine = Machine(
       }),
       setUsers: assign({
         currentUser: (context, event) => {
+          console.log("SET USERS", event)
           return event.data.currentUser
             ? event.data.currentUser
             : context.currentUser

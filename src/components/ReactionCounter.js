@@ -5,9 +5,8 @@ import { groupBy, map, keys } from "lodash/fp"
 import { FormAdd, Emoji as EmojiIcon } from "grommet-icons"
 
 import { reactionsMachine } from "../machines/reactionsMachine"
-import { dataService } from "../machines/dataMachine"
-import AuthContext from "../contexts/AuthContext"
-import { useTrackReactions } from "../contexts/useTrackReactions"
+import { useAuth } from "../contexts/useAuth"
+import { useReactions } from "../contexts/useReactions"
 import ReactionCounterItem from "./ReactionCounterItem"
 import ReactionPicker from "./ReactionPicker"
 
@@ -58,19 +57,20 @@ const ReactionCounter = ({
   iconHoverColor,
   showAddButton,
 }) => {
-  const [dataState] = useService(dataService)
+  const [authState] = useAuth()
+  const [reactionsState] = useReactions()
   const [state, send] = useMachine(reactionsMachine, {
     context: {
       dropRef: null,
       reactTo,
-      currentUser: dataState.context.currentUser,
-      reactions: reactions,
+      currentUser: authState.context.currentUser,
+      reactions: reactionsState.context.reactions[reactTo.type][reactTo.id],
     },
   })
 
   useEffect(() => {
     send("SET_REACT_TO", {
-      data: { reactTo, reactions: dataState.context.reactions },
+      data: { reactTo, reactions: reactionsState.context.reactions },
     })
   }, [reactTo])
 

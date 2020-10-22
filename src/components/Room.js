@@ -1,5 +1,5 @@
 import React, { useContext, useCallback, useEffect, useMemo } from "react"
-import { useMachine } from "@xstate/react"
+import { useMachine, useService } from "@xstate/react"
 import Konami from "react-konami-code"
 import {
   Box,
@@ -26,20 +26,21 @@ import Chat from "./Chat"
 import UserList from "./UserList"
 import Modal from "./Modal"
 import ReactionPicker from "./ReactionPicker"
-import AuthContext from "../contexts/AuthContext"
 import { useChatReactions } from "../contexts/useChatReactions"
 import { useTrackReactions } from "../contexts/useTrackReactions"
 import { useUsers } from "../contexts/useUsers"
+import { useAuth } from "../contexts/useAuth"
 import { roomMachine } from "../machines/roomMachine"
 import socket from "../lib/socket"
 
 const Room = () => {
-  const { state: authState, send: authSend } = useContext(AuthContext)
   const size = useContext(ResponsiveContext)
   const isMobile = size === "small"
   const { dispatch: chatDispatch } = useChatReactions()
   const { dispatch: trackDispatch } = useTrackReactions()
   const { dispatch: usersDispatch } = useUsers()
+  const [authState, authSend] = useAuth()
+
   const [roomState, send] = useMachine(roomMachine, {
     actions: {
       setDj: (context, event) => {
@@ -166,7 +167,7 @@ const Room = () => {
           heading="???"
           margin="large"
         >
-          <Box pad={{ top: 0, bottom: "large", horizontal: "medium" }}>
+          <Box pad={{ bottom: "large", horizontal: "medium" }}>
             <div>
               <Heading level={3}>Cordial</Heading>
               <Paragraph>
@@ -287,7 +288,6 @@ const Room = () => {
                   view ? send("VIEW_LISTENERS") : send("CLOSE_VIEWING")
                 }
                 onEditUser={() => send("EDIT_USERNAME")}
-                onKickUser={userId => send({ type: "KICK_USER", userId })}
               />
             </Box>
             <Box pad="medium" align="center" flex={{ grow: 0, shrink: 0 }}>

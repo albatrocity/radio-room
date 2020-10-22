@@ -1,11 +1,10 @@
 import React from "react"
-import { useService } from "@xstate/react"
 import { Text } from "grommet"
 import { map, filter, compact, get } from "lodash/fp"
-import { dataService } from "../machines/dataMachine"
+import { useUsers } from "../contexts/useUsers"
 
 const ListUsernames = ({ ids }) => {
-  const [state] = useService(dataService)
+  const [state] = useUsers()
   const { users } = state.context
   const usernames = compact(
     map(
