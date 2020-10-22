@@ -35,12 +35,7 @@ function useChatReactions() {
       "useShopifyProducts must be used within a ChatReactionsProvider"
     )
   }
-  const [state, dispatch] = context
-
-  return {
-    state,
-    dispatch,
-  }
+  return context
 }
 
 export { ChatReactionsProvider, useChatReactions }
