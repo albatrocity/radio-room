@@ -1820,11 +1820,6 @@
     "@webassemblyjs/wast-parser" "1.9.0"
     "@xtuc/long" "4.2.2"
 
-"@xstate/inspect@^0.1.1":
-  version "0.1.1"
-  resolved "https://registry.yarnpkg.com/@xstate/inspect/-/inspect-0.1.1.tgz#9d7b4f66c353a30e665c759c00d700bfc707f560"
-  integrity sha512-1aRFHH8DBCud9YSc/YB5T1j2AzV86ZKrJJfMohHctLuNOsLAL++Pp6BE+FbixLyhOiP66yLFoJCY2/Gdn0j/VQ==
-
 "@xstate/react@^0.8.1":
   version "0.8.1"
   resolved "https://registry.yarnpkg.com/@xstate/react/-/react-0.8.1.tgz#df200547cca24c909572b7aef1ddab8bca3a0603"
