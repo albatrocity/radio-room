@@ -1,6 +1,5 @@
 import { Machine, assign, send } from "xstate"
 import socketService from "../lib/socketService"
-import eventBus from "../lib/eventBus"
 import { sortBy, uniqBy, reject, find, get } from "lodash/fp"
 
 export const typingMachine = Machine(

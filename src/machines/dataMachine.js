@@ -1,7 +1,6 @@
 import { Machine, interpret, assign, send } from "xstate"
 import { isNil } from "lodash/fp"
 import socketService from "../lib/socketService"
-import eventBus from "../lib/eventBus"
 
 export const dataMachine = Machine(
   {

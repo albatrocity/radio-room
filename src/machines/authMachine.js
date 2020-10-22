@@ -1,7 +1,6 @@
 import { Machine, assign, send, interpret } from "xstate"
 import { isNil } from "lodash/fp"
 import socketService from "../lib/socketService"
-import eventBus from "../lib/eventBus"
 import { getCurrentUser } from "../lib/getCurrentUser"
 
 const getStoredUser = (ctx, event) =>
