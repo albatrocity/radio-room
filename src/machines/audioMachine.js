@@ -25,7 +25,7 @@ export const audioMachine = Machine(
           INIT: {
             actions: ["setMeta"],
           },
-          OFFLINE: "offline",
+          OFFLINE: "ready",
         },
         states: {
           progress: {
@@ -105,7 +105,7 @@ export const audioMachine = Machine(
         },
       },
       willRetry: {
-        after: { 2000: "offline" },
+        after: { 2000: "ready" },
       },
     },
   },
