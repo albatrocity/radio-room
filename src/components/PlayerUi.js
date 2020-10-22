@@ -9,7 +9,6 @@ import RadioPlayer from "./RadioPlayer"
 import ReactionCounter from "./ReactionCounter"
 import { audioMachine } from "../machines/audioMachine"
 import { useReactions } from "../contexts/useReactions"
-import { useTrackReactions } from "../contexts/useTrackReactions"
 
 const PlayerUi = ({
   onShowPlaylist,

@@ -26,8 +26,6 @@ import Chat from "./Chat"
 import UserList from "./UserList"
 import Modal from "./Modal"
 import ReactionPicker from "./ReactionPicker"
-import { useChatReactions } from "../contexts/useChatReactions"
-import { useTrackReactions } from "../contexts/useTrackReactions"
 import { useUsers } from "../contexts/useUsers"
 import { useAuth } from "../contexts/useAuth"
 import { roomMachine } from "../machines/roomMachine"
@@ -36,9 +34,6 @@ import socket from "../lib/socket"
 const Room = () => {
   const size = useContext(ResponsiveContext)
   const isMobile = size === "small"
-  const { dispatch: chatDispatch } = useChatReactions()
-  const { dispatch: trackDispatch } = useTrackReactions()
-  const { dispatch: usersDispatch } = useUsers()
   const [authState, authSend] = useAuth()
 
   const [roomState, send] = useMachine(roomMachine, {
