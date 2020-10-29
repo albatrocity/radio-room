@@ -19,7 +19,11 @@ export const audioMachine = Machine(
         type: "parallel",
         on: {
           META: [
-            { target: "online", actions: ["setMeta"], cond: "hasBitrate" },
+            {
+              target: ".progress.playing",
+              actions: ["setMeta"],
+              cond: "hasBitrate",
+            },
             { target: "offline", actions: ["setMeta"] },
           ],
           INIT: {

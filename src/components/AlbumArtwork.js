@@ -1,15 +1,17 @@
 import React, { memo } from "react"
-import { Image } from "grommet"
+import { Image, Box } from "grommet"
 
 const AlbumArtwork = ({ coverUrl, onCover }) => (
-  <Image
-    onError={() => {
-      onCover(false)
-    }}
-    height="small"
-    width="small"
-    src={coverUrl}
-  />
+  <Box width="small" height="small">
+    <Image
+      onError={() => {
+        onCover(false)
+      }}
+      height="100%"
+      width="100%"
+      src={coverUrl}
+    />
+  </Box>
 )
 
 export default memo(AlbumArtwork)

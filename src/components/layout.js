@@ -11,7 +11,7 @@ import { Grommet, Box } from "grommet"
 import { useStaticQuery, graphql } from "gatsby"
 
 import theme from "./theme"
-import "./layout.css"
+// import "./layout.css"
 
 const Layout = ({ children }) => {
   const data = useStaticQuery(graphql`
@@ -25,7 +25,7 @@ const Layout = ({ children }) => {
   `)
 
   return (
-    <Grommet theme={theme}>
+    <Grommet theme={theme} themeMode="dark" full>
       <Box fill>{children}</Box>
     </Grommet>
   )

@@ -10,7 +10,8 @@ import { audioMachine } from "../machines/audioMachine"
 
 const NowPlaying = ({ onCover, offline, meta, coverFound }) => {
   const size = useContext(ResponsiveContext)
-  const { bitrate, album, artist, track, release = {}, cover } = meta || {}
+  const { bitrate, album, artist, track, release = {}, cover, title } =
+    meta || {}
   const { mbid, releaseDate } = release || {}
   const artworkSize = size === "small" ? "xsmall" : "small"
   const releaseUrl = mbid && `https://musicbrainz.org/release/${mbid}`
@@ -76,9 +77,9 @@ const NowPlaying = ({ onCover, offline, meta, coverFound }) => {
               </Box>
             )}
             <Box justify="center">
-              {track && (
+              {(track || title) && (
                 <Heading color="accent-4" margin="none" level={3}>
-                  {track}
+                  {track || title}
                 </Heading>
               )}
               {artist && (
