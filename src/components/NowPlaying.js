@@ -79,7 +79,7 @@ const NowPlaying = ({ onCover, offline, meta, coverFound }) => {
             <Box justify="center">
               {(track || title) && (
                 <Heading color="accent-4" margin="none" level={3}>
-                  {track || title}
+                  {track || title.replace(/\|/g, "")}
                 </Heading>
               )}
               {artist && (

@@ -18,14 +18,6 @@ export const audioMachine = Machine(
       online: {
         type: "parallel",
         on: {
-          META: [
-            {
-              target: ".progress.playing",
-              actions: ["setMeta"],
-              cond: "hasBitrate",
-            },
-            { target: "offline", actions: ["setMeta"] },
-          ],
           INIT: {
             actions: ["setMeta"],
           },
@@ -36,10 +28,30 @@ export const audioMachine = Machine(
             initial: "stopped",
             states: {
               playing: {
-                on: { TOGGLE: "stopped" },
+                on: {
+                  TOGGLE: "stopped",
+                  META: [
+                    {
+                      target: "playing",
+                      actions: ["setMeta"],
+                      cond: "hasBitrate",
+                    },
+                    { target: "#audio.offline", actions: ["setMeta"] },
+                  ],
+                },
               },
               stopped: {
-                on: { TOGGLE: "playing" },
+                on: {
+                  TOGGLE: "playing",
+                  META: [
+                    {
+                      target: "stopped",
+                      actions: ["setMeta"],
+                      cond: "hasBitrate",
+                    },
+                    { target: "#audio.offline", actions: ["setMeta"] },
+                  ],
+                },
               },
             },
           },
