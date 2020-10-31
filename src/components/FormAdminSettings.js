@@ -70,6 +70,7 @@ const FormAdminSettings = ({ onSubmit }) => {
             fetchMeta: state.context.fetchMeta,
             donationURL: state.context.donationURL,
             extraInfo: state.context.extraInfo,
+            password: state.context.password || "",
           }}
           validate={values => {
             const errors = {}
@@ -140,6 +141,29 @@ const FormAdminSettings = ({ onSubmit }) => {
                     value={values.fetchMeta}
                     label="Fetch album metadata"
                     name="fetchMeta"
+                  />
+                </FormField>
+
+                <FormField
+                  disabled={state.matches("pending")}
+                  info={
+                    <Text size="small" color="text-xweak">
+                      Setting a password will prevent people from using this
+                      interface to listen to the radio stream. It also prevents
+                      them from using or viewing the chat. Clearing this
+                      password will open the experience up to anyone.
+                    </Text>
+                  }
+                >
+                  <TextInput
+                    onChange={e => {
+                      handleChange(e)
+                    }}
+                    onBlur={handleBlur}
+                    value={values.password}
+                    label="Password"
+                    name="password"
+                    placeholder="Password"
                   />
                 </FormField>
                 <Box

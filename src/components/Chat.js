@@ -26,6 +26,9 @@ const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
       className="chat"
       justify="between"
       gap="small"
+      style={{
+        filter: authState.matches("unauthorized") ? "blur(0.5rem)" : "none",
+      }}
     >
       <Box>
         <ChatInput

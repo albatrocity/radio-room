@@ -22,6 +22,7 @@ import Listeners from "./Listeners"
 import PlayerUi from "./PlayerUi"
 import Playlist from "./Playlist"
 import FormUsername from "./FormUsername"
+import FormPassword from "./FormPassword"
 import Chat from "./Chat"
 import UserList from "./UserList"
 import Modal from "./Modal"
@@ -66,14 +67,8 @@ const Room = () => {
     },
   })
 
-  useEffect(() => {
-    if (authState.context.isNewUser) {
-      send("EDIT_USERNAME")
-    }
-  }, [authState.context.isNewUser])
-
   const hideListeners = useCallback(() => send("CLOSE_VIEWING"), [send])
-  const hideNameForm = useCallback(() => send("CLOSE_EDIT"), [send])
+  const hideEditForm = useCallback(() => send("CLOSE_EDIT"), [send])
 
   const onOpenReactionPicker = useCallback((dropRef, reactTo) => {
     send("TOGGLE_REACTION_PICKER", { dropRef, reactTo })
@@ -126,8 +121,11 @@ const Room = () => {
           </Box>
         </Modal>
       )}
-      {roomState.matches("connected.participating.editing.username") && (
-        <Modal onClose={() => hideNameForm()} heading="Your Name">
+      {((authState.matches("authenticated") &&
+        roomState.matches("connected.participating.editing.username")) ||
+        (authState.matches("authenticated") &&
+          authState.context.isNewUser)) && (
+        <Modal onClose={() => hideEditForm()} heading="Your Name">
           <FormUsername
             currentUser={authState.context.currentUser}
             isNewUser={authState.context.isNewUser}
@@ -136,7 +134,18 @@ const Room = () => {
             }}
             onSubmit={username => {
               authSend({ type: "UPDATE_USERNAME", data: username })
-              hideNameForm()
+              hideEditForm()
+            }}
+          />
+        </Modal>
+      )}
+      {authState.matches("unauthorized") && (
+        <Modal heading="Password">
+          <FormPassword
+            currentUser={authState.context.currentUser}
+            error={authState.context.passwordError}
+            onSubmit={password => {
+              authSend({ type: "SET_PASSWORD", data: password })
             }}
           />
         </Modal>
@@ -275,7 +284,16 @@ const Room = () => {
           flex={{ shrink: 0, grow: 0 }}
           background="light-1"
         >
-          <Box direction={isMobile ? "row" : "column"} fill align="center">
+          <Box
+            direction={isMobile ? "row" : "column"}
+            fill
+            align="center"
+            style={{
+              filter: authState.matches("unauthorized")
+                ? "blur(0.5rem)"
+                : "none",
+            }}
+          >
             <Box flex={true} fill>
               <Listeners
                 onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}

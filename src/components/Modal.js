@@ -13,8 +13,8 @@ const Modal = ({
 }) => (
   <Layer
     responsive={responsive}
-    onClickOutside={() => onClose()}
-    onEsc={() => onClose()}
+    onClickOutside={() => (onClose ? onClose() : null)}
+    onEsc={() => (onClose ? onClose() : null)}
     {...rest}
   >
     <Box
@@ -33,9 +33,11 @@ const Modal = ({
           </Heading>
         </Box>
       )}
-      <Box>
-        <Button onClick={() => onClose()} plain icon={<Close />} />
-      </Box>
+      {onClose && (
+        <Box>
+          <Button onClick={() => onClose()} plain icon={<Close />} />
+        </Box>
+      )}
     </Box>
     <Box width={width} pad={contentPad || "medium"} overflow="auto">
       {children}

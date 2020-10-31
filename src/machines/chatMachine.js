@@ -1,6 +1,7 @@
 import { Machine, send, assign } from "xstate"
 import socketService from "../lib/socketService"
 import { handleNotifications } from "../lib/handleNotifications"
+import { take, concat } from "lodash/fp"
 
 export const chatMachine = Machine(
   {
@@ -94,7 +95,7 @@ export const chatMachine = Machine(
       }),
       addMessage: assign({
         messages: (context, event) => {
-          return [...context.messages, event.data]
+          return take(60, concat(event.data, context.messages))
         },
       }),
       handleNotifications: (ctx, event) => {

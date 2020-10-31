@@ -8,6 +8,7 @@ export const settingsMachine = Machine(
       fetchMeta: true,
       extraInfo: "",
       donationURL: "",
+      password: "",
     },
     states: {
       pending: {
@@ -53,6 +54,7 @@ export const settingsMachine = Machine(
           fetchMeta: event.data.fetchMeta,
           extraInfo: event.data.extraInfo,
           donationURL: event.data.donationURL,
+          password: event.data.password,
         }
       }),
     },

@@ -116,6 +116,7 @@ export const roomMachine = Machine(
         },
       },
       disconnected: {},
+      unauthorized: {},
       connected: {
         initial: "participating",
         states: {

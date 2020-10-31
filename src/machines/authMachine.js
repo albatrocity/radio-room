@@ -1,12 +1,21 @@
 import { Machine, assign, send, interpret } from "xstate"
-import { isNil } from "lodash/fp"
+import { get } from "lodash/fp"
 import socketService from "../lib/socketService"
 import { getCurrentUser } from "../lib/getCurrentUser"
+import { getPassword, savePassword } from "../lib/passwordOperations"
 
 const getStoredUser = (ctx, event) =>
   new Promise((resolve, reject) => {
-    const { currentUser, isNewUser } = getCurrentUser(event.data)
+    const { currentUser, isNewUser } = getCurrentUser(
+      get("data.username", event),
+      ctx.password
+    )
     resolve({ currentUser, isNewUser })
+  })
+const getStoredPassword = (ctx, event) =>
+  new Promise((resolve, reject) => {
+    const password = getPassword(event.data)
+    resolve({ password })
   })
 
 export const authMachine = Machine(
@@ -18,6 +27,7 @@ export const authMachine = Machine(
       isNewUser: false,
       isAdmin: false,
       shouldRetry: true,
+      password: null,
     },
     invoke: [
       {
@@ -27,8 +37,13 @@ export const authMachine = Machine(
     ],
     states: {
       unauthenticated: {
+        entry: ["getStoredPassword", "checkPasswordRequirement"],
         on: {
-          SETUP: { target: "initiated" },
+          SET_PASSWORD_REQUIREMENT: [
+            { target: "initiated", cond: "passwordAccepted" },
+            { target: "unauthorized", cond: "requiresPassword" },
+            { target: "initiated" },
+          ],
         },
       },
       disconnected: {
@@ -71,6 +86,9 @@ export const authMachine = Machine(
           INIT: {
             target: "authenticated",
           },
+          UNAUTHORIZED: {
+            target: "unauthorized",
+          },
         },
         after: {
           3000: "connecting",
@@ -107,6 +125,33 @@ export const authMachine = Machine(
           },
         },
       },
+      authorizing: {
+        invoke: {
+          id: "getStoredPassword",
+          src: getStoredPassword,
+          onError: {
+            target: "unauthenticated",
+          },
+          onDone: {
+            target: "initiated",
+          },
+        },
+      },
+      unauthorized: {
+        on: {
+          SET_PASSWORD: {
+            actions: ["savePassword", "submitPassword"],
+          },
+          SET_PASSWORD_ACCEPTED: [
+            { actions: ["setPasswordError"], cond: "passwordRejected" },
+            {
+              actions: ["setPasswordError"],
+              target: "initiated",
+              cond: "passwordAccepted",
+            },
+          ],
+        },
+      },
     },
   },
   {
@@ -124,7 +169,10 @@ export const authMachine = Machine(
       }),
       login: send(
         (ctx, event) => {
-          return { type: "login", data: ctx.currentUser }
+          return {
+            type: "login",
+            data: { ...ctx.currentUser, password: ctx.password },
+          }
         },
         {
           to: "socket",
@@ -157,6 +205,13 @@ export const authMachine = Machine(
           username: event.data,
         }),
       }),
+      setPasswordError: assign({
+        passwordError: (ctx, event) =>
+          event.data.passwordAccepted ? null : "Password incorrect",
+      }),
+      getStoredPassword: assign({
+        password: (ctx, event) => getPassword(),
+      }),
       disconnectUser: send(
         (ctx, event) => ({
           type: "disconnect",
@@ -177,12 +232,40 @@ export const authMachine = Machine(
           to: "socket",
         }
       ),
+      checkPasswordRequirement: send(
+        (ctx, event) => ({
+          type: "check password",
+          data: ctx.password,
+        }),
+        {
+          to: "socket",
+        }
+      ),
+      submitPassword: send(
+        (ctx, event) => ({
+          type: "submit password",
+          data: event.data,
+        }),
+        {
+          to: "socket",
+        }
+      ),
+      savePassword: savePassword,
     },
     guards: {
       shouldRetry: ctx => ctx.shouldRetry,
       shouldNotRetry: ctx => !ctx.shouldRetry,
       isAdmin: ctx => {
         return ctx.currentUser.isAdmin
+      },
+      requiresPassword: (ctx, event) => {
+        return event.data.passwordRequired
+      },
+      passwordAccepted: (ctx, event) => {
+        return event.data.passwordAccepted
+      },
+      passwordRejected: (ctx, event) => {
+        return !event.data.passwordAccepted
       },
     },
   }

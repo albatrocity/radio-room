@@ -36,42 +36,44 @@ const renderUserSuggestion = (
   )
 }
 
-const Input = ({
-  inputRef,
-  inputStyle,
-  handleKeyInput,
-  userSuggestions,
-  mentionStyle,
-  renderUserSuggestion,
-  autoFocus,
-  value,
-  onChange,
-  ...props
-}) => (
-  <MentionsInput
-    name="content"
-    singleLine
-    allowSuggestionsAboveCursor={true}
-    inputRef={inputRef}
-    style={inputStyle}
-    value={value}
-    autoFocus={autoFocus}
-    autoComplete="off"
-    onChange={e => {
-      if (e.target.value && e.target.value !== "") {
-        handleKeyInput()
-      }
-      onChange(e.target.value)
-    }}
-  >
-    <Mention
-      trigger="@"
-      appendSpaceOnAdd={true}
-      data={userSuggestions}
-      style={mentionStyle}
-      renderSuggestion={renderUserSuggestion}
-    />
-  </MentionsInput>
+const Input = memo(
+  ({
+    inputRef,
+    inputStyle,
+    handleKeyInput,
+    userSuggestions,
+    mentionStyle,
+    renderUserSuggestion,
+    autoFocus,
+    value,
+    onChange,
+    ...props
+  }) => (
+    <MentionsInput
+      name="content"
+      singleLine
+      allowSuggestionsAboveCursor={true}
+      inputRef={inputRef}
+      style={inputStyle}
+      value={value}
+      autoFocus={autoFocus}
+      autoComplete="off"
+      onChange={e => {
+        if (e.target.value && e.target.value !== "") {
+          handleKeyInput()
+        }
+        onChange(e.target.value)
+      }}
+    >
+      <Mention
+        trigger="@"
+        appendSpaceOnAdd={true}
+        data={userSuggestions}
+        style={mentionStyle}
+        renderSuggestion={renderUserSuggestion}
+      />
+    </MentionsInput>
+  )
 )
 
 const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {

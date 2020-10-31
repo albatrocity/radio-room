@@ -9,6 +9,7 @@ import RadioPlayer from "./RadioPlayer"
 import ReactionCounter from "./ReactionCounter"
 import { audioMachine } from "../machines/audioMachine"
 import { useReactions } from "../contexts/useReactions"
+import { useAuth } from "../contexts/useAuth"
 
 const PlayerUi = ({
   onShowPlaylist,
@@ -20,6 +21,7 @@ const PlayerUi = ({
   const [reactionsState] = useReactions()
   const isMobile = size === "small"
   const [state, send] = useMachine(audioMachine)
+  const [authState] = useAuth()
   const playing = state.matches({ online: { progress: "playing" } })
   const muted = state.matches({ online: { volume: "muted" } })
   const ready = state.matches("online")
@@ -42,7 +44,11 @@ const PlayerUi = ({
   )
 
   return (
-    <Box>
+    <Box
+      style={{
+        filter: authState.matches("unauthorized") ? "blur(0.5rem)" : "none",
+      }}
+    >
       <NowPlaying
         playing={playing}
         muted={muted}
