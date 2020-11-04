@@ -1,6 +1,6 @@
 module.exports = {
   siteMetadata: {
-    title: `🔉 Koney Live`,
+    title: `🔉 a dumb radio show`,
     description: `Listen to something`,
     author: `@albatrocity`,
   },
@@ -18,8 +18,8 @@ module.exports = {
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
-        name: `Koney Live`,
-        short_name: `Koney`,
+        name: `A dumb radio show`,
+        short_name: `Radio`,
         start_url: `/`,
         background_color: `#fff`,
         theme_color: `#f14561`,
@@ -30,7 +30,7 @@ module.exports = {
     {
       resolve: `gatsby-plugin-google-fonts`,
       options: {
-        fonts: [`nunito\:300,400,400i,700`],
+        fonts: [`cabin\:400,400i,700,700i`],
         display: "swap",
       },
     },

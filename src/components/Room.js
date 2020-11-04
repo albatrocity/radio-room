@@ -271,7 +271,7 @@ const Room = () => {
       />
 
       <Box direction="row-responsive" flex="grow">
-        <Box flex={{ grow: 1, shrink: 1 }} pad="medium">
+        <Box flex={{ grow: 1, shrink: 1 }}>
           <Chat
             modalActive={isEditing}
             onOpenReactionPicker={onOpenReactionPicker}
@@ -282,7 +282,7 @@ const Room = () => {
         <Box
           style={{ minWidth: "200px", maxWidth: "380px" }}
           flex={{ shrink: 0, grow: 0 }}
-          background="light-1"
+          background="background-front"
         >
           <Box
             direction={isMobile ? "row" : "column"}
@@ -307,7 +307,7 @@ const Room = () => {
               <Button
                 size="small"
                 secondary
-                hoverIndicator={{ color: "light-3" }}
+                hoverIndicator={{ color: "background-front" }}
                 icon={<HelpOption size="medium" color="brand" />}
                 onClick={() => send("VIEW_HELP")}
               />

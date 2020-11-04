@@ -69,7 +69,7 @@ const ChatMessage = ({
     <Box
       pad={"medium"}
       border={{ side: "bottom" }}
-      background={isMention ? "accent-4" : "none"}
+      background={isMention ? "accent-3" : "none"}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >

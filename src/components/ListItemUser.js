@@ -56,7 +56,7 @@ const ListItemUser = ({
             <Button
               plain
               onClick={() => onEditUser()}
-              icon={<Edit size="small" />}
+              icon={<Edit size="small" color="brand" />}
             />
           </Box>
         )}

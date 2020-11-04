@@ -49,7 +49,7 @@ const NowPlaying = ({ onCover, offline, meta, coverFound }) => {
           <Box direction="row" gap="small" align="center">
             <Unlink color="white" />
             <Heading margin="none" level={2} color="white">
-              Offline :(
+              Offline
             </Heading>
           </Box>
         </>

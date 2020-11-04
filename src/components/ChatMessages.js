@@ -22,19 +22,21 @@ const ChatMessages = ({
       className="chatMessages"
     >
       <div className="chatMessages-overflow" style={{ height: "100%" }}>
-        {sortedMessages.map(x =>
-          get("user.id", x) === "system" ? (
-            <SystemMessage key={x.timestamp} {...x} />
-          ) : (
-            <ChatMessage
-              key={x.timestamp}
-              {...x}
-              currentUserId={currentUserId}
-              onOpenReactionPicker={onOpenReactionPicker}
-              onReactionClick={onReactionClick}
-            />
-          )
-        )}
+        <Box pad={{ horizontal: "small" }}>
+          {sortedMessages.map(x =>
+            get("user.id", x) === "system" ? (
+              <SystemMessage key={x.timestamp} {...x} />
+            ) : (
+              <ChatMessage
+                key={x.timestamp}
+                {...x}
+                currentUserId={currentUserId}
+                onOpenReactionPicker={onOpenReactionPicker}
+                onReactionClick={onReactionClick}
+              />
+            )
+          )}
+        </Box>
       </div>
     </Box>
   )

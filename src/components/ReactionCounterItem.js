@@ -13,7 +13,7 @@ const ReactionCounterItem = ({
   emoji,
   onReactionClick,
   currentUserId,
-  color = "light-2",
+  color = "background-front",
 }) => {
   const theme = useContext(ThemeContext)
   const size = useContext(ResponsiveContext)

@@ -30,7 +30,7 @@ const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
         filter: authState.matches("unauthorized") ? "blur(0.5rem)" : "none",
       }}
     >
-      <Box>
+      <Box pad={{ horizontal: "small", bottom: "none", top: "small" }}>
         <ChatInput
           modalActive={modalActive}
           onTypingStart={() => chatSend("START_TYPING")}

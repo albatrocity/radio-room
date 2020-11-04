@@ -25,7 +25,7 @@ const Layout = ({ children }) => {
   `)
 
   return (
-    <Grommet theme={theme} themeMode="dark" full>
+    <Grommet theme={theme} themeMode="light" full>
       <Box fill>{children}</Box>
     </Grommet>
   )

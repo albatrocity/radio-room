@@ -7,7 +7,7 @@ const Modal = ({
   responsive = false,
   onClose,
   heading,
-  width = "300px",
+  width = "medium",
   contentPad,
   ...rest
 }) => (
@@ -25,6 +25,7 @@ const Modal = ({
       pad={{ horizontal: "medium", vertical: "small" }}
       border={{ side: "bottom" }}
       flex={{ shrink: 0 }}
+      background="background-front"
     >
       {heading && (
         <Box flex={{ grow: 1, shrink: 1 }} pad="small">

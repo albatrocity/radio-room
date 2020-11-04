@@ -34,7 +34,7 @@ const RadioPlayer = ({
         background="accent-4"
         justify="center"
         align="center"
-        border={{ side: "bottom", color: "#adb871" }}
+        border={{ side: "bottom", color: "brand" }}
         pad={{ horizontal: "large" }}
       >
         <Box
