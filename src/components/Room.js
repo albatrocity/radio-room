@@ -276,7 +276,13 @@ const Room = () => {
             onReactionClick={toggleReaction}
           />
         </Box>
-        <Box width="small" flex={{ shrink: 0, grow: 0 }} background="light-1">
+
+        <Box
+          width="medium"
+          fill={isMobile ? "horizontal" : undefined}
+          flex={{ shrink: 0, grow: 0 }}
+          background="background-front"
+        >
           <Box
             direction={isMobile ? "row" : "column"}
             fill
@@ -297,7 +303,7 @@ const Room = () => {
               />
             </Box>
             {!roomState.matches("admin.isAdmin") && (
-              <Box pad="medium" align="center" flex={{ grow: 0, shrink: 0 }}>
+              <Box pad="small" align="center" flex={{ grow: 0, shrink: 0 }}>
                 <Button
                   size="small"
                   secondary
