@@ -67,6 +67,13 @@ const Room = () => {
     },
   })
 
+  useEffect(() => {
+    console.log("NEW USER")
+    if (authState.context.isNewUser) {
+      send("EDIT_USERNAME")
+    }
+  }, [authState.context.isNewUser])
+
   const hideListeners = useCallback(() => send("CLOSE_VIEWING"), [send])
   const hideEditForm = useCallback(() => send("CLOSE_EDIT"), [send])
 
@@ -121,15 +128,8 @@ const Room = () => {
           </Box>
         </Modal>
       )}
-      {((authState.matches("authenticated") &&
-        roomState.matches("connected.participating.editing.username")) ||
-        (authState.matches("authenticated") &&
-          authState.context.isNewUser)) && (
-        <Modal
-          onClose={() => hideEditForm()}
-          heading="Your Name"
-          canClose={!authState.context.isNewUser}
-        >
+      {roomState.matches("connected.participating.editing.username") && (
+        <Modal onClose={() => hideEditForm()} heading="Your Name">
           <FormUsername
             currentUser={authState.context.currentUser}
             isNewUser={authState.context.isNewUser}
@@ -277,11 +277,7 @@ const Room = () => {
           />
         </Box>
 
-        <Box
-          style={{ minWidth: "200px", maxWidth: "380px" }}
-          flex={{ shrink: 0, grow: 0 }}
-          background="light-1"
-        >
+        <Box width="small" flex={{ shrink: 0, grow: 0 }} background="light-1">
           <Box
             direction={isMobile ? "row" : "column"}
             fill
@@ -301,15 +297,17 @@ const Room = () => {
                 onEditUser={() => send("EDIT_USERNAME")}
               />
             </Box>
-            <Box pad="medium" align="center" flex={{ grow: 0, shrink: 0 }}>
-              <Button
-                size="small"
-                secondary
-                hoverIndicator={{ color: "light-3" }}
-                icon={<HelpOption size="medium" color="brand" />}
-                onClick={() => send("VIEW_HELP")}
-              />
-            </Box>
+            {!roomState.matches("admin.isAdmin") && (
+              <Box pad="medium" align="center" flex={{ grow: 0, shrink: 0 }}>
+                <Button
+                  size="small"
+                  secondary
+                  hoverIndicator={{ color: "light-3" }}
+                  icon={<HelpOption size="medium" color="brand" />}
+                  onClick={() => send("VIEW_HELP")}
+                />
+              </Box>
+            )}
           </Box>
           {roomState.matches("admin.isAdmin") && (
             <Box pad="medium" flex={{ shrink: 0 }}>
