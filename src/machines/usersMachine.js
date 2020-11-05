@@ -1,4 +1,4 @@
-import { Machine, assign, send } from "xstate"
+import { Machine, assign } from "xstate"
 import socketService from "../lib/socketService"
 import { sortBy, uniqBy, reject, find, get } from "lodash/fp"
 

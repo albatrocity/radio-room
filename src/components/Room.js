@@ -125,13 +125,15 @@ const Room = () => {
         roomState.matches("connected.participating.editing.username")) ||
         (authState.matches("authenticated") &&
           authState.context.isNewUser)) && (
-        <Modal onClose={() => hideEditForm()} heading="Your Name">
+        <Modal
+          onClose={() => hideEditForm()}
+          heading="Your Name"
+          canClose={!authState.context.isNewUser}
+        >
           <FormUsername
             currentUser={authState.context.currentUser}
             isNewUser={authState.context.isNewUser}
-            onClose={() => {
-              send("CLOSE_EDIT")
-            }}
+            onClose={hideEditForm}
             onSubmit={username => {
               authSend({ type: "UPDATE_USERNAME", data: username })
               hideEditForm()
@@ -236,13 +238,13 @@ const Room = () => {
       )}
 
       {roomState.matches("connected.participating.editing.meta") && (
-        <Modal onClose={() => send("CLOSE_EDIT")} heading="Set Station Info">
+        <Modal onClose={hideEditForm} heading="Set Station Info">
           <FormAdminMeta onSubmit={value => socket.emit("fix meta", value)} />
         </Modal>
       )}
 
       {roomState.matches("connected.participating.editing.artwork") && (
-        <Modal onClose={() => send("CLOSE_EDIT")} heading="Set Cover Artwork">
+        <Modal onClose={hideEditForm} heading="Set Cover Artwork">
           <FormAdminArtwork
             onSubmit={value => socket.emit("set cover", value)}
           />
@@ -250,11 +252,7 @@ const Room = () => {
       )}
 
       {roomState.matches("connected.participating.editing.settings") && (
-        <Modal
-          onClose={() => send("CLOSE_EDIT")}
-          heading="Settings"
-          width="medium"
-        >
+        <Modal onClose={hideEditForm} heading="Settings" width="medium">
           <FormAdminSettings
             onSubmit={value => {
               socket.emit("settings", value)
@@ -262,6 +260,13 @@ const Room = () => {
           />
         </Modal>
       )}
+
+      <div>
+        <pre>{JSON.stringify(roomState.value, null, 2)}</pre>
+      </div>
+      <div>
+        <pre>{JSON.stringify(authState.value, null, 2)}</pre>
+      </div>
 
       <PlayerUi
         onShowPlaylist={() => send("TOGGLE_PLAYLIST")}
