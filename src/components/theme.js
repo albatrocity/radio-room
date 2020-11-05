@@ -10,7 +10,7 @@ const theme = {
         light: "#00AAEA",
       },
       "accent-1": "#EE492A",
-      "accent-2": "#B8E9FA",
+      "accent-2": "#F9D000",
       "accent-3": "#F9D000",
       "accent-4": "#fefcef",
       background: {
