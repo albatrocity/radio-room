@@ -261,13 +261,6 @@ const Room = () => {
         </Modal>
       )}
 
-      <div>
-        <pre>{JSON.stringify(roomState.value, null, 2)}</pre>
-      </div>
-      <div>
-        <pre>{JSON.stringify(authState.value, null, 2)}</pre>
-      </div>
-
       <PlayerUi
         onShowPlaylist={() => send("TOGGLE_PLAYLIST")}
         hasPlaylist={roomState.context.playlist.length > 0}
