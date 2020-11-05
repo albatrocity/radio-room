@@ -278,7 +278,8 @@ const Room = () => {
         </Box>
 
         <Box
-          width="small"
+          width="medium"
+          fill={isMobile ? "horizontal" : undefined}
           flex={{ shrink: 0, grow: 0 }}
           background="background-front"
         >
@@ -302,7 +303,7 @@ const Room = () => {
               />
             </Box>
             {!roomState.matches("admin.isAdmin") && (
-              <Box pad="medium" align="center" flex={{ grow: 0, shrink: 0 }}>
+              <Box pad="small" align="center" flex={{ grow: 0, shrink: 0 }}>
                 <Button
                   size="small"
                   secondary
