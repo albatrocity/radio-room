@@ -63,6 +63,7 @@ const UserList = ({ onEditUser, onEditSettings }) => {
               pad="medium"
               elevation="medium"
               border={{ side: "all" }}
+              focusIndicator={false}
             >
               <Box
                 margin="xsmall"
@@ -72,6 +73,7 @@ const UserList = ({ onEditUser, onEditSettings }) => {
                 align="center"
                 gap="xsmall"
                 onClick={() => onEditSettings()}
+                focusIndicator={false}
               >
                 <Text size="small">
                   Add info here, like links to anything you're promoting and a

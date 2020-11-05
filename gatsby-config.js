@@ -1,8 +1,8 @@
 module.exports = {
   siteMetadata: {
-    title: `🔉 a dumb radio show`,
-    description: `Listen to something`,
-    author: `@albatrocity`,
+    title: `🔉 Shy Boys Live`,
+    description: ``,
+    author: `@shyboyskc`,
   },
   plugins: [
     `gatsby-plugin-react-helmet`,
@@ -18,12 +18,13 @@ module.exports = {
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
-        name: `A dumb radio show`,
-        short_name: `Radio`,
+        name: `Shy Boys Live`,
+        short_name: `Shy Boys`,
         start_url: `/`,
         background_color: `#fff`,
         theme_color: `#f14561`,
         display: `minimal-ui`,
+        icon: `src/images/icon.jpg`,
       },
     },
     {
