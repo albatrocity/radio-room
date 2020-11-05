@@ -1,7 +1,7 @@
 import { Machine, assign, send, interpret } from "xstate"
 import { get } from "lodash/fp"
 import socketService from "../lib/socketService"
-import { getCurrentUser } from "../lib/getCurrentUser"
+import { getCurrentUser, saveCurrentUser } from "../lib/getCurrentUser"
 import { getPassword, savePassword } from "../lib/passwordOperations"
 
 const getStoredUser = (ctx, event) =>
@@ -10,6 +10,13 @@ const getStoredUser = (ctx, event) =>
       get("data.username", event),
       ctx.password
     )
+    resolve({ currentUser, isNewUser })
+  })
+const setStoredUser = (ctx, event) =>
+  new Promise((resolve, reject) => {
+    const { currentUser, isNewUser } = saveCurrentUser({
+      currentUser: { username: event.data },
+    })
     resolve({ currentUser, isNewUser })
   })
 const getStoredPassword = (ctx, event) =>
@@ -69,8 +76,8 @@ export const authMachine = Machine(
       },
       updating: {
         invoke: {
-          id: "getStoredUser",
-          src: getStoredUser,
+          id: "setStoredUser",
+          src: setStoredUser,
           onError: {
             target: "unauthenticated",
           },
@@ -251,6 +258,7 @@ export const authMachine = Machine(
         }
       ),
       savePassword: savePassword,
+      saveUser: saveCurrentUser,
     },
     guards: {
       shouldRetry: ctx => ctx.shouldRetry,

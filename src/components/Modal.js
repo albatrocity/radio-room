@@ -7,6 +7,7 @@ const Modal = ({
   responsive = false,
   onClose,
   heading,
+  canClose = true,
   width = "medium",
   contentPad,
   ...rest
@@ -34,7 +35,7 @@ const Modal = ({
           </Heading>
         </Box>
       )}
-      {onClose && (
+      {onClose && canClose && (
         <Box>
           <Button onClick={() => onClose()} plain icon={<Close />} />
         </Box>
