@@ -194,7 +194,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
       <form onSubmit={handleSubmit}>
         <Box direction="row" fill="horizontal" justify="center">
           <Box align="center" justify="center" margin={{ right: "medium" }}>
-            <Chat />
+            <Chat color="accent-3" />
           </Box>
           <InputContainer flex={{ grow: 1, shrink: 1 }}>
             <Input

@@ -7,11 +7,11 @@ const theme = {
     colors: {
       brand: {
         dark: "#00AAEA",
-        light: "#00AAEA",
+        light: "#EE8D9C",
       },
-      "accent-1": "#EE492A",
-      "accent-2": "#B8E9FA",
-      "accent-3": "#F9D000",
+      "accent-1": "#afd4c8",
+      "accent-2": "#221F1F",
+      "accent-3": "#3c4468",
       "accent-4": "#fefcef",
       background: {
         dark: "#383D45",
@@ -23,7 +23,7 @@ const theme = {
       },
       "background-front": {
         dark: "#73767C",
-        light: "#B8E9FA",
+        light: "#DDEDE8",
       },
       "background-contrast": {
         dark: "#FFFFFF11",
@@ -31,7 +31,7 @@ const theme = {
       },
       text: {
         dark: "#EEEEEE",
-        light: "#333333",
+        light: "#3c4468",
       },
       "text-strong": {
         dark: "#FFFFFF",
@@ -47,7 +47,7 @@ const theme = {
       },
       border: {
         dark: "#444444",
-        light: "#73cae8",
+        light: "#3c4468",
       },
       control: "brand",
       "active-background": "background-contrast",
@@ -314,7 +314,7 @@ const theme = {
   },
   heading: {
     level: {
-      "1": {
+      1: {
         small: {
           size: "26px",
           height: "31px",
@@ -336,7 +336,7 @@ const theme = {
           maxWidth: "1580px",
         },
       },
-      "2": {
+      2: {
         small: {
           size: "23px",
           height: "28px",
@@ -358,7 +358,7 @@ const theme = {
           maxWidth: "940px",
         },
       },
-      "3": {
+      3: {
         small: {
           size: "20px",
           height: "25px",
@@ -380,7 +380,7 @@ const theme = {
           maxWidth: "727px",
         },
       },
-      "4": {
+      4: {
         small: {
           size: "18px",
           height: "23px",
@@ -402,7 +402,7 @@ const theme = {
           maxWidth: "513px",
         },
       },
-      "5": {
+      5: {
         small: {
           size: "14px",
           height: "19px",
@@ -424,7 +424,7 @@ const theme = {
           maxWidth: "273px",
         },
       },
-      "6": {
+      6: {
         small: {
           size: "12px",
           height: "17px",
