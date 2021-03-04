@@ -19,7 +19,7 @@ const theme = {
     },
     breakpoints: {
       small: {
-        value: 384,
+        value: 414,
         borderSize: {
           xsmall: "1px",
           small: "2px",

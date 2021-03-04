@@ -21,30 +21,36 @@ const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
 
   return (
     <Box
-      height="100%"
-      flex={{ grow: 1 }}
       className="chat"
+      height="100%"
       justify="between"
+      flex={{ grow: 1, shrink: 1 }}
       gap="small"
       style={{
         filter: authState.matches("unauthorized") ? "blur(0.5rem)" : "none",
       }}
     >
+      <Box
+        height="100%"
+        flex={{ shrink: 1, grow: 1 }}
+        className="messages-container"
+      >
+        <ChatMessages
+          onOpenReactionPicker={onOpenReactionPicker}
+          onReactionClick={onReactionClick}
+          messages={chatState.context.messages}
+          currentUserId={currentUserId}
+        />
+      </Box>
       <Box>
+        <TypingIndicator currentUserId={currentUserId} />
         <ChatInput
           modalActive={modalActive}
           onTypingStart={() => chatSend("START_TYPING")}
           onTypingStop={() => chatSend("STOP_TYPING")}
           onSend={msg => chatSend("SUBMIT_MESSAGE", { data: msg })}
         />
-        <TypingIndicator currentUserId={currentUserId} />
       </Box>
-      <ChatMessages
-        onOpenReactionPicker={onOpenReactionPicker}
-        onReactionClick={onReactionClick}
-        messages={chatState.context.messages}
-        currentUserId={currentUserId}
-      />
     </Box>
   )
 }

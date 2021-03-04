@@ -1,14 +1,15 @@
 import React, { useRef, memo, useContext, useEffect, useState } from "react"
 import { useMachine, useService } from "@xstate/react"
-import { Box, Button, ResponsiveContext, Drop } from "grommet"
+import { Box, Button, Layer, ResponsiveContext, Drop } from "grommet"
 import { groupBy, map, keys } from "lodash/fp"
-import { FormAdd, Emoji as EmojiIcon } from "grommet-icons"
+import { FormAdd, Close, Emoji as EmojiIcon } from "grommet-icons"
 
 import { reactionsMachine } from "../machines/reactionsMachine"
 import { useAuth } from "../contexts/useAuth"
 import { useReactions } from "../contexts/useReactions"
 import ReactionCounterItem from "./ReactionCounterItem"
 import ReactionPicker from "./ReactionPicker"
+import Modal from "./Modal"
 
 const ReactionAddButton = ({
   onOpenPicker,
@@ -124,18 +125,35 @@ const ReactionCounter = ({
       </Box>
 
       {state.matches("open") && (
-        <Drop
-          target={state.context.dropRef.current}
-          plain
-          overflow="visible"
-          onClickOutside={() => send("TOGGLE")}
-          onEsc={() => send("TOGGLE")}
-          align={{ top: "top", right: "right" }}
-        >
-          <ReactionPicker
-            onSelect={emoji => send("SELECT_REACTION", { data: emoji })}
-          />
-        </Drop>
+        <>
+          {isMobile ? (
+            <Layer
+              responsive={false}
+              onClose={() => send("TOGGLE")}
+              onClickOutside={() => send("TOGGLE")}
+              style={{ backgroundColor: "transparent" }}
+            >
+              <Box>
+                <ReactionPicker
+                  onSelect={emoji => send("SELECT_REACTION", { data: emoji })}
+                />
+              </Box>
+            </Layer>
+          ) : (
+            <Drop
+              target={state.context.dropRef.current}
+              plain
+              overflow="visible"
+              onClickOutside={() => send("TOGGLE")}
+              onEsc={() => send("TOGGLE")}
+              align={{ top: "top", right: "right" }}
+            >
+              <ReactionPicker
+                onSelect={emoji => send("SELECT_REACTION", { data: emoji })}
+              />
+            </Drop>
+          )}
+        </>
       )}
     </Box>
   )

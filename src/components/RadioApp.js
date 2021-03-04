@@ -30,11 +30,9 @@ const RadioApp = () => {
     <AuthProvider value={[authState, authSend]}>
       <ReactionsProvider value={[reactionsState, reactionsSend]}>
         <UsersProvider value={[usersState, usersSend]}>
-          <Box height={size[1] ? `${size[1]}px` : "100vh"}>
-            <Main flex={{ grow: 1, shrink: 1 }}>
-              <Room />
-            </Main>
-          </Box>
+          <Main flex={{ grow: 1, shrink: 1 }}>
+            <Room />
+          </Main>
         </UsersProvider>
       </ReactionsProvider>
     </AuthProvider>
