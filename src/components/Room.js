@@ -68,7 +68,6 @@ const Room = () => {
   })
 
   useEffect(() => {
-    console.log("NEW USER")
     if (authState.context.isNewUser) {
       send("EDIT_USERNAME")
     }
@@ -91,28 +90,9 @@ const Room = () => {
   )
 
   return (
-    <Box className="room" flex={true}>
+    <Box className="room" flex={true} height={isMobile ? "auto" : "100vh"}>
       <Konami action={() => send("ACTIVATE_ADMIN")} />
-      {roomState.matches("reactionPicker.active") &&
-        roomState.context.reactionPickerRef && (
-          <Drop
-            plain
-            overflow="visible"
-            onClickOutside={() => send("TOGGLE_REACTION_PICKER")}
-            onEsc={() => send("TOGGLE_REACTION_PICKER")}
-            target={roomState.context.reactionPickerRef.current}
-            align={{ top: "top", right: "right" }}
-          >
-            <ReactionPicker
-              onSelect={emoji => {
-                send("SELECT_REACTION", {
-                  emoji,
-                  reactTo: roomState.context.reactTo,
-                })
-              }}
-            />
-          </Drop>
-        )}
+
       {roomState.matches("playlist.active") && (
         <Modal
           position="left"
@@ -153,12 +133,7 @@ const Room = () => {
         </Modal>
       )}
       {roomState.matches("connected.participating.modalViewing.listeners") && (
-        <Modal
-          onClose={() => hideListeners()}
-          heading={`Listeners (${
-            reject({ isDj: true }, roomState.context.users).length
-          })`}
-        >
+        <Modal onClose={() => hideListeners()} margin="large">
           <Box pad="small">
             <UserList
               onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
@@ -280,7 +255,8 @@ const Room = () => {
         </Box>
 
         <Box
-          width="medium"
+          width={isMobile ? "auto" : "20vw"}
+          style={{ minWidth: "250px" }}
           fill={isMobile ? "horizontal" : undefined}
           flex={{ shrink: 0, grow: 0 }}
           background="background-front"

@@ -15,7 +15,7 @@ import SystemMessage from "./SystemMessage"
 const StyledScrollToBottom = styled(ScrollToBottom)`
   height: 100%;
   @media only screen and (max-width: 480px) {
-    height: calc(100vh - 260px);
+    height: calc(100vh - 330px);
   }
   .default-scroll-button {
     display: none;
