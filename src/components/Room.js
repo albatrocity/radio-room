@@ -91,7 +91,7 @@ const Room = () => {
   )
 
   return (
-    <Box flex="grow">
+    <Box className="room" flex={true}>
       <Konami action={() => send("ACTIVATE_ADMIN")} />
       {roomState.matches("reactionPicker.active") &&
         roomState.context.reactionPickerRef && (
@@ -261,14 +261,16 @@ const Room = () => {
         </Modal>
       )}
 
-      <PlayerUi
-        onShowPlaylist={() => send("TOGGLE_PLAYLIST")}
-        hasPlaylist={roomState.context.playlist.length > 0}
-        onReactionClick={toggleReaction}
-        onOpenReactionPicker={onOpenReactionPicker}
-      />
+      <Box flex={{ shrink: 0, grow: 0 }} basis="auto">
+        <PlayerUi
+          onShowPlaylist={() => send("TOGGLE_PLAYLIST")}
+          hasPlaylist={roomState.context.playlist.length > 0}
+          onReactionClick={toggleReaction}
+          onOpenReactionPicker={onOpenReactionPicker}
+        />
+      </Box>
 
-      <Box direction="row-responsive" flex="grow">
+      <Box direction="row-responsive" flex={true}>
         <Box flex={{ grow: 1, shrink: 1 }} pad="medium">
           <Chat
             modalActive={isEditing}
