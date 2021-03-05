@@ -13,6 +13,7 @@ import { useAuth } from "../contexts/useAuth"
 const MessagesContainer = styled(Box)`
   .scroll-to-bottom {
     height: 100%;
+    position: relative;
 
     .default-scroll-button {
       display: none;
