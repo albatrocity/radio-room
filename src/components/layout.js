@@ -9,6 +9,7 @@ import React from "react"
 import PropTypes from "prop-types"
 import { Grommet, Box } from "grommet"
 import { useStaticQuery, graphql } from "gatsby"
+import Div100vh from "react-div-100vh"
 
 import theme from "./theme"
 import "./layout.css"
@@ -26,7 +27,7 @@ const Layout = ({ children }) => {
 
   return (
     <Grommet theme={theme}>
-      <Box fill>{children}</Box>
+      <Div100vh>{children}</Div100vh>
     </Grommet>
   )
 }

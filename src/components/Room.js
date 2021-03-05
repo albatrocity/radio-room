@@ -1,6 +1,7 @@
 import React, { useContext, useCallback, useEffect, useMemo } from "react"
 import { useMachine, useService } from "@xstate/react"
 import Konami from "react-konami-code"
+
 import {
   Box,
   Text,
@@ -90,7 +91,7 @@ const Room = () => {
   )
 
   return (
-    <Box className="room" flex={true} height={isMobile ? "auto" : "100vh"}>
+    <Box className="room" flex={true} height={"100vh"}>
       <Konami action={() => send("ACTIVATE_ADMIN")} />
 
       {roomState.matches("playlist.active") && (
@@ -245,8 +246,8 @@ const Room = () => {
         />
       </Box>
 
-      <Box direction="row-responsive" flex={true}>
-        <Box flex={{ grow: 1, shrink: 1 }} pad="medium">
+      <Box direction="row-responsive" flex={true} height="100%">
+        <Box flex={{ grow: 1, shrink: 1 }} height="100%" pad="medium">
           <Chat
             modalActive={isEditing}
             onOpenReactionPicker={onOpenReactionPicker}
