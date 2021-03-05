@@ -12,13 +12,18 @@ import ScrollToBottom, {
 import ChatMessage from "./ChatMessage"
 import SystemMessage from "./SystemMessage"
 
-const StyledScrollToBottom = styled(ScrollToBottom)`
+const Container = styled(Box)`
   height: 100%;
-  @media only screen and (max-width: 480px) {
-    height: calc(100vh - 330px);
+  .scroll-to-bottom {
+    height: 100%;
+    .default-scroll-button {
+      display: none;
+    }
   }
-  .default-scroll-button {
-    display: none;
+  .scroll-view {
+    height: 100%;
+    overflow-y: auto;
+    width: 100%;
   }
 `
 
@@ -84,9 +89,15 @@ const ChatMessages = ({ messages, ...rest }) => {
   const sortedMessages = sortBy("timestamp", messages)
 
   return (
-    <StyledScrollToBottom followButtonClassName="default-scroll-button">
-      <ScrollInner messages={sortedMessages} {...rest} />
-    </StyledScrollToBottom>
+    <Container>
+      <ScrollToBottom
+        followButtonClassName="default-scroll-button"
+        scrollViewClassName="scroll-view"
+        className="scroll-to-bottom"
+      >
+        <ScrollInner messages={sortedMessages} {...rest} />
+      </ScrollToBottom>
+    </Container>
   )
 }
 
