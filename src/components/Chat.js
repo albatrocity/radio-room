@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from "react"
 import { useMachine, useService } from "@xstate/react"
 import { Box } from "grommet"
+import styled from "styled-components"
 
 import socket from "../lib/socket"
 import ChatMessages from "./ChatMessages"
@@ -8,6 +9,21 @@ import ChatInput from "./ChatInputNative"
 import TypingIndicator from "./TypingIndicator"
 import { chatMachine } from "../machines/chatMachine"
 import { useAuth } from "../contexts/useAuth"
+
+const MessagesContainer = styled(Box)`
+  .scroll-to-bottom {
+    height: 100%;
+
+    .default-scroll-button {
+      display: none;
+    }
+  }
+  .scroll-view {
+    height: 100%;
+    overflow-y: auto;
+    width: 100%;
+  }
+`
 
 const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
   const [authState] = useAuth()
@@ -30,7 +46,7 @@ const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
         filter: authState.matches("unauthorized") ? "blur(0.5rem)" : "none",
       }}
     >
-      <Box
+      <MessagesContainer
         height="100%"
         flex={{ shrink: 1, grow: 1 }}
         className="messages-container"
@@ -41,7 +57,7 @@ const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
           messages={chatState.context.messages}
           currentUserId={currentUserId}
         />
-      </Box>
+      </MessagesContainer>
       <Box>
         <TypingIndicator currentUserId={currentUserId} />
         <ChatInput

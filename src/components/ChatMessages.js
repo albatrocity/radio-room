@@ -12,16 +12,6 @@ import ScrollToBottom, {
 import ChatMessage from "./ChatMessage"
 import SystemMessage from "./SystemMessage"
 
-const StyledScrollToBottom = styled(ScrollToBottom)`
-  height: 100%;
-  @media only screen and (max-width: 480px) {
-    height: calc(100vh - 330px);
-  }
-  .default-scroll-button {
-    display: none;
-  }
-`
-
 const ScrollInner = ({
   messages,
   currentUserId,
@@ -84,9 +74,13 @@ const ChatMessages = ({ messages, ...rest }) => {
   const sortedMessages = sortBy("timestamp", messages)
 
   return (
-    <StyledScrollToBottom followButtonClassName="default-scroll-button">
+    <ScrollToBottom
+      followButtonClassName="default-scroll-button"
+      scrollViewClassName="scroll-view"
+      className="scroll-to-bottom"
+    >
       <ScrollInner messages={sortedMessages} {...rest} />
-    </StyledScrollToBottom>
+    </ScrollToBottom>
   )
 }
 
