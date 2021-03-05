@@ -80,9 +80,9 @@ const theme = {
     },
     focus: {
       outline: {
-        color: 'brand',
-        size: '2px'
-      }
+        color: "brand",
+        size: "2px",
+      },
     },
     selected: {
       background: "selected-background",
