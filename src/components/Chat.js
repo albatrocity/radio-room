@@ -30,11 +30,7 @@ const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
         filter: authState.matches("unauthorized") ? "blur(0.5rem)" : "none",
       }}
     >
-      <Box
-        height="100%"
-        flex={{ shrink: 1, grow: 1 }}
-        className="messages-container"
-      >
+      <Box height="100%" className="messages-container">
         <ChatMessages
           onOpenReactionPicker={onOpenReactionPicker}
           onReactionClick={onReactionClick}
