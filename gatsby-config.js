@@ -18,12 +18,13 @@ module.exports = {
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
-        name: `A dumb radio show`,
+        name: `Ross' Radio Show`,
         short_name: `Radio`,
         start_url: `/`,
         background_color: `#fff`,
         theme_color: `#f14561`,
         display: `minimal-ui`,
+        icon: `src/images/icon.svg`,
       },
     },
     {
