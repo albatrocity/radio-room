@@ -63,7 +63,7 @@ const ScrollInner = ({
         <Box
           elevation="large"
           style={{ position: "absolute", right: 0, bottom: "1em" }}
-          round="small"
+          round="medium"
         >
           <Button
             elevation="large"
