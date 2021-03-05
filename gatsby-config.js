@@ -15,18 +15,18 @@ module.exports = {
     },
     `gatsby-transformer-sharp`,
     `gatsby-plugin-sharp`,
-    {
-      resolve: `gatsby-plugin-manifest`,
-      options: {
-        name: `Koney Live`,
-        short_name: `Koney`,
-        start_url: `/`,
-        background_color: `#fff`,
-        theme_color: `#f14561`,
-        display: `minimal-ui`,
-        icon: `src/images/icon.jpg`,
-      },
-    },
+    // {
+    //   resolve: `gatsby-plugin-manifest`,
+    //   options: {
+    //     name: `Koney Live`,
+    //     short_name: `Koney`,
+    //     start_url: `/`,
+    //     background_color: `#fff`,
+    //     theme_color: `#f14561`,
+    //     display: `minimal-ui`,
+    //     icon: `src/images/icon.jpg`,
+    //   },
+    // },
     {
       resolve: `gatsby-plugin-google-fonts`,
       options: {
