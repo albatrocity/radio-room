@@ -11201,7 +11201,7 @@ react-linkify@^1.0.0-alpha:
     linkify-it "^2.0.3"
     tlds "^1.199.0"
 
-react-mentions@^4.0.2:
+react-mentions@^4.1.1:
   version "4.1.1"
   resolved "https://registry.yarnpkg.com/react-mentions/-/react-mentions-4.1.1.tgz#9f74928f7a33d587151e95dc7ef303f2002790de"
   integrity sha512-+BK8dQzXPZUBFYfbv1hwbve9lp0lGYHOUyb1hk9s13mzvmVD9S+l9oszo1CaumVjYdb9olJ4NMJW2jBRGck9Rw==
