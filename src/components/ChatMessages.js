@@ -16,6 +16,7 @@ const Container = styled(Box)`
   height: 100%;
   .scroll-to-bottom {
     height: 100%;
+    position: relative;
     .default-scroll-button {
       display: none;
     }
