@@ -47,17 +47,23 @@ const Input = memo(
     autoFocus,
     value,
     onChange,
+    handleSubmit,
     ...props
   }) => (
     <MentionsInput
       name="content"
-      singleLine
       allowSuggestionsAboveCursor={true}
       inputRef={inputRef}
       style={inputStyle}
       value={value}
       autoFocus={autoFocus}
       autoComplete="off"
+      rows={1}
+      onKeyDown={e => {
+        if (e.keyCode === 13 && !e.shiftKey) {
+          handleSubmit(e)
+        }
+      }}
       onChange={e => {
         if (e.target.value && e.target.value !== "") {
           handleKeyInput()
@@ -137,30 +143,18 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
 
     highlighter: {
       overflow: "hidden",
+      padding: 0,
+      border: "none",
+      height: "100%",
     },
 
     input: {
       margin: 0,
-    },
-
-    "&singleLine": {
-      control: {},
-
-      highlighter: {
-        padding: 0,
-        border: "none",
-        height: "100%",
-      },
-
-      input: {
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexGrow: 1,
-        border: "1px solid rgba(0,0,0,0.15)",
-        borderRadius: "4px 0 0 4px",
-        padding: "0.2rem",
-      },
+      width: "100%",
+      border: "1px solid rgba(0,0,0,0.15)",
+      borderRadius: "4px 0 0 4px",
+      padding: "0.2em",
+      lineHeight: "2em",
     },
 
     suggestions: {
@@ -183,8 +177,10 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
 
   const handleSubmit = e => {
     e.preventDefault()
-    onSend(content)
-    setContent("")
+    if (content !== "") {
+      onSend(content)
+      setContent("")
+    }
     setSubmitting(false)
     inputRef.current.focus()
   }
@@ -193,7 +189,12 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     <Box>
       <form onSubmit={handleSubmit}>
         <Box direction="row" fill="horizontal" justify="center">
-          <Box align="center" justify="center" margin={{ right: "medium" }}>
+          <Box
+            align="center"
+            flex={{ shrink: 0 }}
+            justify="center"
+            margin={{ right: "medium" }}
+          >
             <Chat />
           </Box>
           <InputContainer flex={{ grow: 1, shrink: 1 }}>
@@ -202,6 +203,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
               onChange={value => {
                 setContent(value)
               }}
+              handleSubmit={handleSubmit}
               value={content}
               inputRef={inputRef}
               inputStyle={inputStyle}
