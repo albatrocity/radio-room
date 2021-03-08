@@ -1,8 +1,7 @@
 import React, { memo, useEffect, useState } from "react"
-import { sortBy, reverse } from "lodash/fp"
 import { Box, Button } from "grommet"
 import { LinkBottom } from "grommet-icons"
-import { get } from "lodash/fp"
+import { get, find, sortBy, reverse, isEqual } from "lodash/fp"
 import styled from "styled-components"
 import ScrollToBottom, {
   useScrollToBottom,
@@ -47,13 +46,24 @@ const ScrollInner = ({
     }
   }, [sticky, messages])
 
-  const lastMessageIndex = messages.indexOf(lastMessage)
+  const lastMessageIndex = lastMessage
+    ? messages.indexOf(find({ timestamp: lastMessage.timestamp }, messages))
+    : -1
   const messagesSinceLast = messages.length - 1 - lastMessageIndex
 
   return (
     <>
-      {messages.map(x =>
-        get("user.id", x) === "system" ? (
+      {messages.map((x, i) => {
+        console.log(x)
+        const sameUserAsLastMessage = isEqual(
+          get("user.userId", x),
+          get("user.userId", messages[i - 1])
+        )
+        const sameUserAsNextMessage = isEqual(
+          get("user.userId", x),
+          get("user.userId", messages[i + 1])
+        )
+        return get("user.id", x) === "system" ? (
           <SystemMessage key={x.timestamp} {...x} />
         ) : (
           <ChatMessage
@@ -62,9 +72,11 @@ const ScrollInner = ({
             currentUserId={currentUserId}
             onOpenReactionPicker={onOpenReactionPicker}
             onReactionClick={onReactionClick}
+            showUsername={!sameUserAsLastMessage}
+            anotherUserMessage={sameUserAsNextMessage}
           />
         )
-      )}
+      })}
       {!sticky && (
         <Box
           elevation="large"
