@@ -195,7 +195,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
             justify="center"
             margin={{ right: "medium" }}
           >
-            <Chat />
+            <Chat size="16px" />
           </Box>
           <InputContainer flex={{ grow: 1, shrink: 1 }}>
             <Input

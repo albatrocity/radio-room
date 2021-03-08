@@ -26,6 +26,8 @@ const ChatMessage = ({
   onOpenReactionPicker,
   onReactionClick,
   reactions,
+  showUsername,
+  anotherUserMessage,
 }) => {
   const size = useContext(ResponsiveContext)
   const isMobile = size === "small"
@@ -67,33 +69,59 @@ const ChatMessage = ({
 
   return (
     <Box
-      pad={"medium"}
-      border={{ side: "bottom" }}
+      pad={{ horizontal: "medium", vertical: "small" }}
+      border={anotherUserMessage ? null : { side: "bottom" }}
       background={isMention ? "accent-4" : "none"}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <Box direction="row-responsive" align="center" gap="small">
-        <Heading level={4} margin={{ bottom: "xsmall", top: "xsmall" }}>
-          {user.username}
-        </Heading>
-        <Box flex={{ shrink: 0 }} direction="row" gap="xsmall">
-          <Text size="xsmall" color="dark-3">
-            {time}
-          </Text>
-          <Text size="xsmall" color="dark-4">
-            {dateString}
-          </Text>
+      {showUsername && (
+        <Box
+          direction="row-responsive"
+          align="center"
+          gap="small"
+          justify="between"
+        >
+          <Heading level={4} margin={{ bottom: "xsmall", top: "xsmall" }}>
+            {user.username}
+          </Heading>
+          <Box flex={{ shrink: 0 }} direction="row" gap="xsmall">
+            <Text size="xsmall" color="dark-3">
+              {time}
+            </Text>
+            <Text size="xsmall" color="dark-4">
+              {dateString}
+            </Text>
+          </Box>
         </Box>
+      )}
+      <Box direction="row" gap="xsmall" flex={true} wrap={true} align="center">
+        <Box flex={{ grow: 1 }}>
+          <Paragraph style={{ margin: 0, wordWrap: "break-word" }}>
+            <ParsedEmojiMessage content={parsedContent} />
+          </Paragraph>
+        </Box>
+        {!showUsername && hovered && (
+          <Box
+            flex={{ shrink: 0 }}
+            direction="row"
+            gap="xsmall"
+            justify="between"
+          >
+            <Text size="xsmall" color="dark-3">
+              {time}
+            </Text>
+            <Text size="xsmall" color="dark-4">
+              {dateString}
+            </Text>
+          </Box>
+        )}
       </Box>
-      <Paragraph margin={{ bottom: "xsmall" }}>
-        <ParsedEmojiMessage content={parsedContent} />
-      </Paragraph>
       {images.length > 0 && (
         <Box gap="small">
           {images.map(x => (
             <div key={x}>
-              <Image src={x} />
+              <Image style={{ maxWidth: "100%" }} fit="contain" src={x} />
             </div>
           ))}
         </Box>
@@ -106,7 +134,7 @@ const ChatMessage = ({
           onReactionClick={onReactionClick}
           iconColor="dark-5"
           iconHoverColor="brand"
-          showAddButton={isMobile ? true : hovered}
+          showAddButton={hovered}
         />
       </Box>
     </Box>
