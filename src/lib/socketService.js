@@ -1,7 +1,10 @@
 import socket from "./socket"
 
 function socketService(callback, receive) {
-  socket.on("event", e => {
+  socket.on("event", async e => {
+    if (socket.disconnected) {
+      await socket.connect()
+    }
     callback({ type: e.type, data: e.data })
   })
 
