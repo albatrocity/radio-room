@@ -2,7 +2,7 @@ import React, { memo, useEffect, useState } from "react"
 import { sortBy, reverse } from "lodash/fp"
 import { Box, Button } from "grommet"
 import { LinkBottom } from "grommet-icons"
-import { get } from "lodash/fp"
+import { get, find } from "lodash/fp"
 import styled from "styled-components"
 import ScrollToBottom, {
   useScrollToBottom,
@@ -47,7 +47,9 @@ const ScrollInner = ({
     }
   }, [sticky, messages])
 
-  const lastMessageIndex = messages.indexOf(lastMessage)
+  const lastMessageIndex = lastMessage
+    ? messages.indexOf(find({ timestamp: lastMessage.timestamp }, messages))
+    : -1
   const messagesSinceLast = messages.length - 1 - lastMessageIndex
 
   return (
