@@ -26,6 +26,7 @@ const ReactionAddButton = ({
   return (
     <Button
       size="small"
+      plain
       disabled={disabled}
       ref={ref}
       color={buttonColor}
