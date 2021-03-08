@@ -1,6 +1,7 @@
 import React, { useMemo, useEffect } from "react"
 import { Box, Main } from "grommet"
 import { useService, useMachine } from "@xstate/react"
+import { usePageVisibility } from "react-page-visibility"
 
 import useWindowSize from "./useWindowSize"
 import Room from "./Room"
@@ -16,6 +17,7 @@ const RadioApp = () => {
   const [authState, authSend] = useMachine(authMachine)
   const [usersState, usersSend] = useMachine(usersMachine)
   const [reactionsState, reactionsSend] = useMachine(allReactionsMachine)
+  const isVisible = usePageVisibility()
 
   const size = useWindowSize()
 
@@ -25,6 +27,12 @@ const RadioApp = () => {
       authSend("USER_DISCONNECTED")
     }
   }, [authSend])
+
+  useEffect(() => {
+    if (isVisible) {
+      authSend("SETUP")
+    }
+  }, [isVisible])
 
   return (
     <AuthProvider value={[authState, authSend]}>

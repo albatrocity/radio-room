@@ -59,6 +59,10 @@ export const authMachine = Machine(
             target: "initiated",
             cond: "shouldRetry",
           },
+          SETUP: {
+            target: "initiated",
+            action: "log",
+          },
         },
       },
       initiated: {
@@ -103,6 +107,9 @@ export const authMachine = Machine(
       },
       authenticated: {
         on: {
+          SETUP: {
+            target: "connecting",
+          },
           USER_DISCONNECTED: {
             target: "disconnected",
             actions: ["disconnectUser"],

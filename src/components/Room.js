@@ -110,7 +110,11 @@ const Room = () => {
         </Modal>
       )}
       {roomState.matches("connected.participating.editing.username") && (
-        <Modal onClose={() => hideEditForm()} heading="Your Name">
+        <Modal
+          onClose={() => hideEditForm()}
+          heading="Your Name"
+          margin="medium"
+        >
           <FormUsername
             currentUser={authState.context.currentUser}
             isNewUser={authState.context.isNewUser}
@@ -123,7 +127,7 @@ const Room = () => {
         </Modal>
       )}
       {authState.matches("unauthorized") && (
-        <Modal heading="Password">
+        <Modal heading="Password" margin="large">
           <FormPassword
             currentUser={authState.context.currentUser}
             error={authState.context.passwordError}
