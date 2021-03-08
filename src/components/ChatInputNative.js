@@ -154,7 +154,6 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
       border: "1px solid rgba(0,0,0,0.15)",
       borderRadius: "4px 0 0 4px",
       padding: "0.2em",
-      lineHeight: "2em",
     },
 
     suggestions: {
