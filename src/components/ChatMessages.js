@@ -54,7 +54,6 @@ const ScrollInner = ({
   return (
     <>
       {messages.map((x, i) => {
-        console.log(x)
         const sameUserAsLastMessage = isEqual(
           get("user.userId", x),
           get("user.userId", messages[i - 1])
