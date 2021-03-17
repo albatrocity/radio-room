@@ -7,7 +7,7 @@ import SEO from "../components/seo"
 
 const IndexPage = () => (
   <Layout>
-    <SEO title="R.I.Peter" />
+    <SEO title="Snacky Vol 2" />
     <Helmet>
       <meta
         name="viewport"

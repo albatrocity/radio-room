@@ -1,8 +1,8 @@
 module.exports = {
   siteMetadata: {
-    title: `R.I.Peter`,
-    description: `Soft Serve`,
-    author: `@ripeter`,
+    title: `Snacky Vol 2`,
+    description: `A synth and drum project`,
+    author: `@albatrocity`,
   },
   plugins: [
     `gatsby-plugin-react-helmet`,
@@ -18,8 +18,8 @@ module.exports = {
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
-        name: `R.I.Peter`,
-        short_name: `R.I.Peter`,
+        name: `Snacky Vol 2`,
+        short_name: `Snacky`,
         start_url: `/`,
         background_color: `#fff`,
         theme_color: `#bf0111`,
@@ -30,7 +30,7 @@ module.exports = {
     {
       resolve: `gatsby-plugin-google-fonts`,
       options: {
-        fonts: [`Maven+Pro:400,400i,700`],
+        fonts: [`Fredoka+One`, `Maven+Pro:400,400i,700`],
         display: "swap",
       },
     },

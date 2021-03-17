@@ -1,5 +1,13 @@
 import React, { useContext, useEffect, memo, useMemo } from "react"
-import { Box, Heading, Text, Image, ResponsiveContext, Anchor } from "grommet"
+import {
+  Box,
+  Heading,
+  Text,
+  Image,
+  ResponsiveContext,
+  Anchor,
+  Tip,
+} from "grommet"
 import { Music, Unlink } from "grommet-icons"
 import { isEmpty, get } from "lodash/fp"
 
@@ -78,9 +86,23 @@ const NowPlaying = ({ onCover, offline, meta, coverFound }) => {
             )}
             <Box justify="center">
               {(track || title) && (
-                <Heading color="accent-4" margin="none" level={3}>
-                  {track || title.replace(/\|/g, "")}
-                </Heading>
+                <Tip
+                  stretch={false}
+                  content={
+                    <Box background="white" pad="xsmall">
+                      {track || title.replace(/\|/g, "")}
+                    </Box>
+                  }
+                >
+                  <Heading
+                    color="accent-4"
+                    margin="none"
+                    level={3}
+                    truncate={true}
+                  >
+                    {track || title.replace(/\|/g, "")}
+                  </Heading>
+                </Tip>
               )}
               {artist && (
                 <Heading color="accent-4" margin="none" level={4}>

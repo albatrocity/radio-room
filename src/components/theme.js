@@ -6,11 +6,11 @@ const theme = {
       family: "'Maven Pro', sans-serif",
     },
     colors: {
-      brand: "#bf0111",
-      "accent-1": "#0392c4",
-      "accent-2": "#e4033d",
-      "accent-3": "#39e7ef",
-      "accent-4": "#fff9a3",
+      brand: "#f7165e",
+      "accent-1": "#1a878e",
+      "accent-2": "#f7165e",
+      "accent-3": "#f7c444",
+      "accent-4": "#77ffd6",
     },
     focus: {
       outline: {
@@ -80,6 +80,9 @@ const theme = {
     },
   },
   heading: {
+    font: {
+      family: "'Fredoka One', sans-serif",
+    },
     level: {
       "1": {
         small: {
