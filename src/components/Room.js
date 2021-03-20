@@ -36,7 +36,12 @@ import socket from "../lib/socket"
 const Room = () => {
   const size = useContext(ResponsiveContext)
   const isMobile = size === "small"
+  const [usersState, usersSend] = useUsers()
   const [authState, authSend] = useAuth()
+
+  const {
+    context: { listeners, dj },
+  } = usersState
 
   const [roomState, send] = useMachine(roomMachine, {
     actions: {
@@ -73,6 +78,12 @@ const Room = () => {
       send("EDIT_USERNAME")
     }
   }, [authState.context.isNewUser])
+
+  useEffect(() => {
+    if (authState.context.isAdmin) {
+      send("ACTIVATE_ADMIN")
+    }
+  }, [authState.context.isAdmin])
 
   const hideListeners = useCallback(() => send("CLOSE_VIEWING"), [send])
   const hideEditForm = useCallback(() => send("CLOSE_EDIT"), [send])
@@ -138,12 +149,19 @@ const Room = () => {
         </Modal>
       )}
       {roomState.matches("connected.participating.modalViewing.listeners") && (
-        <Modal onClose={() => hideListeners()} margin="large">
-          <Box pad="small">
-            <UserList
-              onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
-              onEditUser={() => send("EDIT_USERNAME")}
-            />
+        <Modal
+          heading={`Listeners (${listeners.length})`}
+          onClose={() => hideListeners()}
+          margin="large"
+        >
+          <Box pad="small" overflow="auto">
+            <div>
+              <UserList
+                showHeading={false}
+                onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
+                onEditUser={() => send("EDIT_USERNAME")}
+              />
+            </div>
           </Box>
         </Modal>
       )}
@@ -285,7 +303,7 @@ const Room = () => {
                 onEditUser={() => send("EDIT_USERNAME")}
               />
             </Box>
-            {!roomState.matches("admin.isAdmin") && (
+            {!authState.context.isAdmin && (
               <Box pad="small" align="center" flex={{ grow: 0, shrink: 0 }}>
                 <Button
                   size="small"
@@ -297,7 +315,7 @@ const Room = () => {
               </Box>
             )}
           </Box>
-          {roomState.matches("admin.isAdmin") && (
+          {authState.context.isAdmin && (
             <Box pad="medium" flex={{ shrink: 0 }}>
               <Heading level={3} margin={{ bottom: "xsmall" }}>
                 Admin
