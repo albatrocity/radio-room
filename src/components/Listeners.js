@@ -22,7 +22,7 @@ const Listeners = ({ onViewListeners, onEditUser, onEditSettings }) => {
   }, [onViewListeners])
 
   return (
-    <Box pad="medium" className="list-outer" height="100%">
+    <Box className="list-outer" height="100%">
       {isSmall && (
         <Box>
           <Button
@@ -39,7 +39,12 @@ const Listeners = ({ onViewListeners, onEditUser, onEditSettings }) => {
       >
         {!isSmall && (
           <div>
-            <UserList onEditSettings={onEditSettings} onEditUser={onEditUser} />
+            <Box pad="medium">
+              <UserList
+                onEditSettings={onEditSettings}
+                onEditUser={onEditUser}
+              />
+            </Box>
           </div>
         )}
       </Box>

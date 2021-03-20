@@ -36,7 +36,12 @@ import socket from "../lib/socket"
 const Room = () => {
   const size = useContext(ResponsiveContext)
   const isMobile = size === "small"
+  const [usersState, usersSend] = useUsers()
   const [authState, authSend] = useAuth()
+
+  const {
+    context: { listeners, dj },
+  } = usersState
 
   const [roomState, send] = useMachine(roomMachine, {
     actions: {
@@ -138,12 +143,19 @@ const Room = () => {
         </Modal>
       )}
       {roomState.matches("connected.participating.modalViewing.listeners") && (
-        <Modal onClose={() => hideListeners()} margin="large">
-          <Box pad="small">
-            <UserList
-              onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
-              onEditUser={() => send("EDIT_USERNAME")}
-            />
+        <Modal
+          heading={`Listeners (${listeners.length})`}
+          onClose={() => hideListeners()}
+          margin="large"
+        >
+          <Box pad="small" overflow="auto">
+            <div>
+              <UserList
+                showHeading={false}
+                onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
+                onEditUser={() => send("EDIT_USERNAME")}
+              />
+            </div>
           </Box>
         </Modal>
       )}

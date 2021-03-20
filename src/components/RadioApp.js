@@ -29,7 +29,7 @@ const RadioApp = () => {
   }, [authSend])
 
   useEffect(() => {
-    if (isVisible) {
+    if (isVisible && socket.disconnected) {
       authSend("SETUP")
     }
   }, [isVisible])
