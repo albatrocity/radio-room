@@ -6,11 +6,11 @@ import { getPassword, savePassword } from "../lib/passwordOperations"
 
 const getStoredUser = (ctx, event) =>
   new Promise((resolve, reject) => {
-    const { currentUser, isNewUser } = getCurrentUser(
+    const { currentUser, isNewUser, isAdmin } = getCurrentUser(
       get("data.username", event),
       ctx.password
     )
-    resolve({ currentUser, isNewUser })
+    resolve({ currentUser, isNewUser, isAdmin })
   })
 const setStoredUser = (ctx, event) =>
   new Promise((resolve, reject) => {
@@ -61,7 +61,6 @@ export const authMachine = Machine(
           },
           SETUP: {
             target: "initiated",
-            action: "log",
           },
         },
       },
@@ -120,10 +119,7 @@ export const authMachine = Machine(
             target: "updating",
           },
           ACTIVATE_ADMIN: {
-            actions: ["activateAdmin", "sendUser"],
-          },
-          REQUEST_CURRENT_USER: {
-            actions: ["sendUser"],
+            actions: ["activateAdmin", "saveUser"],
           },
           KICK_USER: {
             actions: ["kickUser"],
@@ -174,6 +170,7 @@ export const authMachine = Machine(
         return {
           currentUser: event.data.currentUser,
           isNewUser: event.data.isNewUser,
+          isAdmin: event.data.isAdmin,
         }
       }),
       unsetNew: assign((ctx, event) => {

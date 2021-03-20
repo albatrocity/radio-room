@@ -2,11 +2,17 @@ import session from "sessionstorage"
 import { v4 as uuidv4 } from "uuid"
 
 import generateAnonName from "./generateAnonName"
-import { SESSION_ID, SESSION_USERNAME, SESSION_PASSWORD } from "../constants"
+import {
+  SESSION_ID,
+  SESSION_USERNAME,
+  SESSION_PASSWORD,
+  SESSION_ADMIN,
+} from "../constants"
 
 export const getCurrentUser = un => {
   const isNewUser = !session.getItem(SESSION_ID)
   const userId = session.getItem(SESSION_ID) || uuidv4()
+  const isAdmin = session.getItem(SESSION_ADMIN) === "true"
 
   const username = un || session.getItem(SESSION_USERNAME) || generateAnonName()
   const password = session.getItem(SESSION_PASSWORD)
@@ -16,6 +22,7 @@ export const getCurrentUser = un => {
   return {
     currentUser: { username, userId, password },
     isNewUser: isNewUser,
+    isAdmin,
     password,
   }
 }
@@ -23,9 +30,13 @@ export const getCurrentUser = un => {
 export const saveCurrentUser = ({ currentUser }) => {
   const userId = session.getItem(SESSION_ID)
   session.setItem(SESSION_USERNAME, currentUser.username)
+  if (currentUser.isAdmin) {
+    session.setItem(SESSION_ADMIN, true)
+  }
 
   return {
     currentUser: { username: currentUser.username, userId },
+    isAdmin: currentUser.isAdmin,
     isNewUser: false,
   }
 }

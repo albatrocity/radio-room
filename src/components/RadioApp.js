@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect } from "react"
 import { Box, Main } from "grommet"
+import { find, isEqual, get } from "lodash/fp"
 import { useService, useMachine } from "@xstate/react"
 import { usePageVisibility } from "react-page-visibility"
 
@@ -29,8 +30,19 @@ const RadioApp = () => {
   }, [authSend])
 
   useEffect(() => {
-    if (isVisible && socket.disconnected) {
-      authSend("SETUP")
+    if (isVisible) {
+      const listener = find(
+        { userId: get("context.currentUser.userId", authState) },
+        get("context.listeners", usersState)
+      )
+      const dj = isEqual(
+        get("context.dj.userId", usersState),
+        get("context.currentUser.userId", authState)
+      )
+      if (!listener && !dj) {
+        console.log("SETUP")
+        authSend("SETUP")
+      }
     }
   }, [isVisible])
 
