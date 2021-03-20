@@ -4,7 +4,7 @@ import { Box, Text, Anchor, Heading } from "grommet"
 import Linkify from "react-linkify"
 import { Currency } from "grommet-icons"
 import styled from "styled-components"
-import { get, isEqual, find, uniqBy } from "lodash/fp"
+import { get, isEqual, find, uniqBy, reverse, reject } from "lodash/fp"
 import { Edit } from "grommet-icons"
 
 import { useUsers } from "../contexts/useUsers"
@@ -25,7 +25,7 @@ const componentDecorator = (href, text, key) => (
   </Anchor>
 )
 
-const UserList = ({ onEditUser, onEditSettings }) => {
+const UserList = ({ onEditUser, onEditSettings, showHeading = true }) => {
   const [state, send] = useUsers()
   const [authState, authSend] = useAuth()
   const [typingState] = useMachine(typingMachine)
@@ -41,15 +41,18 @@ const UserList = ({ onEditUser, onEditSettings }) => {
   } = typingState
 
   const currentDj = isEqual(get("userId", currentUser), get("userId", dj))
+  const currentListener = find({ userId: currentUser.userId }, listeners)
   const isTyping = user => find({ userId: get("userId", user) }, typing)
 
   return (
     <Box gap="small">
       {dj && (
         <Box margin={{ bottom: "small" }}>
-          <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
-            DJ
-          </Heading>
+          {showHeading && (
+            <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
+              DJ
+            </Heading>
+          )}
           <ListItemUser
             user={dj}
             currentUser={currentUser}
@@ -99,10 +102,22 @@ const UserList = ({ onEditUser, onEditSettings }) => {
         </Box>
       )}
       <Box>
-        <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
-          Listeners <Text size="small">({listeners.length})</Text>
-        </Heading>
-        {listeners.map(x => {
+        {showHeading && (
+          <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
+            Listeners <Text size="small">({listeners.length})</Text>
+          </Heading>
+        )}
+        {currentListener && (
+          <ListItemUser
+            key={currentListener.userId}
+            user={currentListener}
+            userTyping={isTyping(currentUser.userId)}
+            currentUser={currentUser}
+            onEditUser={onEditUser}
+            onKickUser={user => authSend("KICK_USER", currentListener)}
+          />
+        )}
+        {reverse(reject({ userId: currentUser.userId }, listeners)).map(x => {
           return (
             <ListItemUser
               key={x.userId}
