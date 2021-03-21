@@ -24,7 +24,7 @@ const Listeners = ({ onViewListeners, onEditUser, onEditSettings }) => {
   return (
     <Box className="list-outer" height="100%">
       {isSmall && (
-        <Box>
+        <Box pad={{ horizontal: "medium", vertical: "small" }}>
           <Button
             onClick={handleListeners}
             label={`Listeners (${listeners.length})`}
