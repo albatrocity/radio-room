@@ -31,7 +31,21 @@ const RadioApp = () => {
 
   useEffect(() => {
     if (isVisible) {
-      authSend("SETUP")
+      const listener = find(
+        { userId: get("context.currentUser.userId", authState) },
+        get("context.listeners", usersState)
+      )
+      const dj = isEqual(
+        get("context.dj.userId", usersState),
+        get("context.currentUser.userId", authState)
+      )
+      console.log("listner", listener)
+      console.log("dj", dj)
+      if (!listener && !dj) {
+        console.log("SETUP")
+        authSend("SETUP")
+      }
+      // authSend("SETUP")
     }
   }, [isVisible])
 
