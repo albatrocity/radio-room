@@ -374,6 +374,11 @@ const snacks = [
   "Frozen Yogurt",
   "Oatmeal Raisin Cookie",
   "Saltwater Taffy",
+  "Cinnamon Twist",
+  "Caramel Candy",
+  "Peanut Butter Cookie",
+  "Pumpkin Pie",
+  "Focaccia Bread",
 ]
 
 const generateAnonName = () => {
