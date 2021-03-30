@@ -62,7 +62,7 @@ const UserList = ({ onEditUser, onEditSettings, showHeading = true }) => {
 
           {currentDj && !dj.extraInfo && !dj.donationURL && (
             <Box
-              background="accent-4"
+              background="accent-3"
               pad="medium"
               elevation="medium"
               border={{ side: "all" }}

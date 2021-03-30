@@ -6,11 +6,11 @@ const theme = {
       family: "'Maven Pro', sans-serif",
     },
     colors: {
-      brand: "#f7165e",
-      "accent-1": "#1a878e",
-      "accent-2": "#f7165e",
-      "accent-3": "#f7c444",
-      "accent-4": "#77ffd6",
+      brand: "#d03d50",
+      "accent-1": "#4f9187",
+      "accent-2": "#dfa4b0",
+      "accent-3": "#dfa4b0",
+      "accent-4": "#e7aa48",
     },
     focus: {
       outline: {

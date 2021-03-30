@@ -1,7 +1,7 @@
 module.exports = {
   siteMetadata: {
-    title: `Snacky Vol 2`,
-    description: `A synth and drum project`,
+    title: `Fritz Hutchison`,
+    description: ``,
     author: `@albatrocity`,
   },
   plugins: [
@@ -18,8 +18,8 @@ module.exports = {
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
-        name: `Snacky Vol 2`,
-        short_name: `Snacky`,
+        name: `Fritz Hutchison`,
+        short_name: `Fritz`,
         start_url: `/`,
         background_color: `#fff`,
         theme_color: `#bf0111`,

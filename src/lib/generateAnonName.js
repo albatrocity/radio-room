@@ -382,7 +382,7 @@ const snacks = [
 ]
 
 const generateAnonName = () => {
-  return `${sample(snacks)}`
+  return `${sample(animals)}`
 }
 
 export default generateAnonName
