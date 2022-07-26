@@ -7,14 +7,11 @@ import {
   Text,
   Button,
   Heading,
-  Layer,
-  Drop,
   Paragraph,
   Anchor,
   ResponsiveContext,
 } from "grommet"
 import { SettingsOption, List, HelpOption } from "grommet-icons"
-import { get, find, uniqBy, reject, sortBy } from "lodash/fp"
 
 import FormAdminMeta from "./FormAdminMeta"
 import FormAdminArtwork from "./FormAdminArtwork"
@@ -28,7 +25,6 @@ import Chat from "./Chat"
 import UserList from "./UserList"
 import Modal from "./Modal"
 import { GlobalStateContext } from "../contexts/global"
-import { useUsers } from "../contexts/useUsers"
 import socket from "../lib/socket"
 
 const isEditingSelector = (state) =>
@@ -54,6 +50,8 @@ const isNewUserSelector = (state) => state.context.isNewUser
 const isUnauthorizedSelector = (state) => state.matches("unauthorized")
 const currentUserSelector = (state) => state.context.currentUser
 const passwordErrorSelector = (state) => state.context.passwordError
+const listenersSelector = (state) => state.context.listeners
+const djSelector = (state) => state.context.dj
 
 const Room = () => {
   const size = useContext(ResponsiveContext)
@@ -106,11 +104,9 @@ const Room = () => {
   const playlist = useSelector(globalServices.roomService, playlistSelector)
 
   const isMobile = size === "small"
-  const [usersState, usersSend] = useUsers()
 
-  const {
-    context: { listeners, dj },
-  } = usersState
+  const listeners = useSelector(globalServices.usersService, listenersSelector)
+  const dj = useSelector(globalServices.usersService, djSelector)
 
   // const [roomState, send] = useMachine(roomMachine, {
   //   actions: {

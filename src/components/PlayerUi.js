@@ -1,17 +1,16 @@
 import React, { useCallback, useContext, memo } from "react"
 import { Box, ResponsiveContext } from "grommet"
 import { useMachine, useSelector } from "@xstate/react"
-import { isEmpty, get, kebabCase } from "lodash/fp"
+import { kebabCase } from "lodash/fp"
 
-import socket from "../lib/socket"
 import { GlobalStateContext } from "../contexts/global"
 import NowPlaying from "./NowPlaying"
 import RadioPlayer from "./RadioPlayer"
 import ReactionCounter from "./ReactionCounter"
 import { audioMachine } from "../machines/audioMachine"
-import { useReactions } from "../contexts/useReactions"
 
 const isUnauthorizedSelector = (state) => state.matches("unauthorized")
+const allReactionsSelector = (state) => state.context.reactions
 
 const PlayerUi = ({
   onShowPlaylist,
@@ -21,12 +20,15 @@ const PlayerUi = ({
 }) => {
   const size = useContext(ResponsiveContext)
   const globalServices = useContext(GlobalStateContext)
-  const [reactionsState] = useReactions()
   const isMobile = size === "small"
   const [state, send] = useMachine(audioMachine)
   const isUnauthorized = useSelector(
     globalServices.authService,
     isUnauthorizedSelector,
+  )
+  const allReactions = useSelector(
+    globalServices.allReactionsService,
+    allReactionsSelector,
   )
 
   const playing = state.matches({ online: { progress: "playing" } })
@@ -70,7 +72,7 @@ const PlayerUi = ({
             <ReactionCounter
               onOpenPicker={onOpenReactionPicker}
               reactTo={{ type: "track", id: trackId }}
-              reactions={reactionsState.context.reactions["track"][trackId]}
+              reactions={allReactions["track"][trackId]}
               onReactionClick={onReactionClick}
               buttonColor="accent-4"
               iconColor="accent-4"
@@ -94,7 +96,7 @@ const PlayerUi = ({
           trackId={trackId}
           onReactionClick={onReactionClick}
           onOpenPicker={onOpenReactionPicker}
-          reactions={reactionsState.context.reactions["track"][trackId]}
+          reactions={allReactions["track"][trackId]}
         />
       )}
     </Box>

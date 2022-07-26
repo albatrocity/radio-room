@@ -13,8 +13,6 @@ import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
 
 import { GlobalStateContext } from "../contexts/global"
-import { useUsers } from "../contexts/useUsers"
-import { useAuth } from "../contexts/useAuth"
 import styled from "styled-components"
 import { useSelector } from "@xstate/react"
 
@@ -88,7 +86,6 @@ const currentUserSelector = (state) => state.context.currentUser
 const usersSelector = (state) => state.context.users
 
 const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
-  const [usersState] = useUsers()
   const globalServices = useContext(GlobalStateContext)
   const currentUser = useSelector(
     globalServices.authService,

@@ -287,7 +287,3 @@ export const authMachine = createMachine(
     },
   },
 )
-
-// export const authService = interpret(authMachine)
-//
-// authService.start()
