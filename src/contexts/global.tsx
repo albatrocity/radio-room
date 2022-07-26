@@ -3,12 +3,14 @@ import { useInterpret } from "@xstate/react"
 import { authMachine } from "../machines/authMachine"
 import { chatMachine } from "../machines/chatMachine"
 import { roomMachine } from "../machines/roomMachine"
+import { usersMachine } from "../machines/usersMachine"
 import { ActorRefFrom } from "xstate"
 
 interface GlobalStateContextType {
   authService: ActorRefFrom<typeof authMachine>
   chatService: ActorRefFrom<typeof chatMachine>
   roomService: ActorRefFrom<typeof roomMachine>
+  usersService: ActorRefFrom<typeof usersMachine>
 }
 
 export const GlobalStateContext = createContext(
@@ -18,12 +20,15 @@ export const GlobalStateContext = createContext(
 )
 
 export const GlobalStateProvider = (props) => {
-  // const authService = useInterpret(authMachine)
-  // const chatService = useInterpret(chatMachine)
+  const authService = useInterpret(authMachine)
+  const chatService = useInterpret(chatMachine)
   const roomService = useInterpret(roomMachine)
+  const usersService = useInterpret(usersMachine)
 
   return (
-    <GlobalStateContext.Provider value={{ roomService }}>
+    <GlobalStateContext.Provider
+      value={{ authService, roomService, usersService, chatService }}
+    >
       {props.children}
     </GlobalStateContext.Provider>
   )

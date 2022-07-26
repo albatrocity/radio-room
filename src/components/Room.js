@@ -29,43 +29,31 @@ import UserList from "./UserList"
 import Modal from "./Modal"
 import { GlobalStateContext } from "../contexts/global"
 import { useUsers } from "../contexts/useUsers"
-import { useAuth } from "../contexts/useAuth"
-import { roomMachine } from "../machines/roomMachine"
 import socket from "../lib/socket"
 
-const isEditingSelector = (state) => {
-  return state.matches("connected.participating.editing")
-}
-const playlistActiveSelector = (state) => {
-  return state.matches("playlist.active")
-}
-const isEditingUsernameSelector = (state) => {
-  return state.matches("connected.participating.editing.username")
-}
-const isModalViewingListenersSelector = (state) => {
-  return state.matches("connected.participating.modalViewing.listeners")
-}
-const isModalViewingHelpSelector = (state) => {
-  return state.matches("connected.participating.modalViewing.help")
-}
-const isEditingMetaSelector = (state) => {
-  return state.matches("connected.participating.editing.meta")
-}
-const isEditingArtworkSelector = (state) => {
-  return state.matches("connected.participating.editing.artwork")
-}
-const isEditingSettingsSelector = (state) => {
-  return state.matches("connected.participating.editing.settings")
-}
-const isDjSelector = (state) => {
-  return state.matches("djaying.isDj")
-}
-const isNotDjSelector = (state) => {
-  return state.matches("djaying.notDj")
-}
-const playlistSelector = (state) => {
-  return state.context.playlist
-}
+const isEditingSelector = (state) =>
+  state.matches("connected.participating.editing")
+const playlistActiveSelector = (state) => state.matches("playlist.active")
+const isEditingUsernameSelector = (state) =>
+  state.matches("connected.participating.editing.username")
+const isModalViewingListenersSelector = (state) =>
+  state.matches("connected.participating.modalViewing.listeners")
+const isModalViewingHelpSelector = (state) =>
+  state.matches("connected.participating.modalViewing.help")
+const isEditingMetaSelector = (state) =>
+  state.matches("connected.participating.editing.meta")
+const isEditingArtworkSelector = (state) =>
+  state.matches("connected.participating.editing.artwork")
+const isEditingSettingsSelector = (state) =>
+  state.matches("connected.participating.editing.settings")
+const isDjSelector = (state) => state.matches("djaying.isDj")
+const isNotDjSelector = (state) => state.matches("djaying.notDj")
+const playlistSelector = (state) => state.context.playlist
+const isAdminSelector = (state) => state.context.isAdmin
+const isNewUserSelector = (state) => state.context.isNewUser
+const isUnauthorizedSelector = (state) => state.matches("unauthorized")
+const currentUserSelector = (state) => state.context.currentUser
+const passwordErrorSelector = (state) => state.context.passwordError
 
 const Room = () => {
   const size = useContext(ResponsiveContext)
@@ -99,13 +87,26 @@ const Room = () => {
     globalServices.roomService,
     isEditingSettingsSelector,
   )
+  const isNewUser = useSelector(globalServices.authService, isNewUserSelector)
+  const isAdmin = useSelector(globalServices.authService, isAdminSelector)
+  const isUnauthorized = useSelector(
+    globalServices.authService,
+    isUnauthorizedSelector,
+  )
+  const currentUser = useSelector(
+    globalServices.authService,
+    currentUserSelector,
+  )
+  const passwordError = useSelector(
+    globalServices.authService,
+    passwordErrorSelector,
+  )
   const isDj = useSelector(globalServices.roomService, isDjSelector)
   const isNotDj = useSelector(globalServices.roomService, isNotDjSelector)
   const playlist = useSelector(globalServices.roomService, playlistSelector)
 
   const isMobile = size === "small"
   const [usersState, usersSend] = useUsers()
-  const [authState, authSend] = useAuth()
 
   const {
     context: { listeners, dj },
@@ -142,16 +143,16 @@ const Room = () => {
   // })
 
   useEffect(() => {
-    if (authState.context.isNewUser) {
+    if (isNewUser) {
       globalServices.roomService.send("EDIT_USERNAME")
     }
-  }, [authState.context.isNewUser])
+  }, [isNewUser])
 
   useEffect(() => {
-    if (authState.context.isAdmin) {
+    if (isAdmin) {
       globalServices.roomService.send("ACTIVATE_ADMIN")
     }
-  }, [authState.context.isAdmin])
+  }, [isAdmin])
 
   const hideListeners = useCallback(
     () => globalServices.roomService.send("CLOSE_VIEWING"),
@@ -207,23 +208,29 @@ const Room = () => {
           margin="medium"
         >
           <FormUsername
-            currentUser={authState.context.currentUser}
-            isNewUser={authState.context.isNewUser}
+            currentUser={currentUser}
+            isNewUser={isNewUser}
             onClose={hideEditForm}
             onSubmit={(username) => {
-              authSend({ type: "UPDATE_USERNAME", data: username })
+              globalServices.authService.send({
+                type: "UPDATE_USERNAME",
+                data: username,
+              })
               hideEditForm()
             }}
           />
         </Modal>
       )}
-      {authState.matches("unauthorized") && (
+      {isUnauthorized && (
         <Modal heading="Password" margin="large">
           <FormPassword
-            currentUser={authState.context.currentUser}
-            error={authState.context.passwordError}
+            currentUser={currentUser}
+            error={passwordError}
             onSubmit={(password) => {
-              authSend({ type: "SET_PASSWORD", data: password })
+              globalServices.authService.send({
+                type: "SET_PASSWORD",
+                data: password,
+              })
             }}
           />
         </Modal>
@@ -375,9 +382,7 @@ const Room = () => {
             fill
             align="center"
             style={{
-              filter: authState.matches("unauthorized")
-                ? "blur(0.5rem)"
-                : "none",
+              filter: isUnauthorized ? "blur(0.5rem)" : "none",
             }}
           >
             <Box flex={true} fill>
@@ -395,7 +400,7 @@ const Room = () => {
                 }
               />
             </Box>
-            {!authState.context.isAdmin && (
+            {!isAdmin && (
               <Box pad="small" align="center" flex={{ grow: 0, shrink: 0 }}>
                 <Button
                   size="small"
@@ -407,7 +412,7 @@ const Room = () => {
               </Box>
             )}
           </Box>
-          {authState.context.isAdmin && (
+          {isAdmin && (
             <Box pad="medium" flex={{ shrink: 0 }}>
               <Heading level={3} margin={{ bottom: "xsmall" }}>
                 Admin

@@ -7,14 +7,16 @@ import React, {
   memo,
 } from "react"
 
-import { Formik, FastField } from "formik"
 import { Box, Button, ThemeContext } from "grommet"
 import { Chat } from "grommet-icons"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
+
+import { GlobalStateContext } from "../contexts/global"
 import { useUsers } from "../contexts/useUsers"
 import { useAuth } from "../contexts/useAuth"
 import styled from "styled-components"
+import { useSelector } from "@xstate/react"
 
 const InputContainer = styled(Box)`
   > div {
@@ -27,7 +29,7 @@ const renderUserSuggestion = (
   search,
   highlightedDisplay,
   index,
-  focused
+  focused,
 ) => {
   return (
     <div className={`user ${focused ? "focused" : ""}`}>
@@ -59,12 +61,12 @@ const Input = memo(
       autoFocus={autoFocus}
       autoComplete="off"
       rows={1}
-      onKeyDown={e => {
+      onKeyDown={(e) => {
         if (e.keyCode === 13 && !e.shiftKey) {
           handleSubmit(e)
         }
       }}
-      onChange={e => {
+      onChange={(e) => {
         if (e.target.value && e.target.value !== "") {
           handleKeyInput()
         }
@@ -79,20 +81,21 @@ const Input = memo(
         renderSuggestion={renderUserSuggestion}
       />
     </MentionsInput>
-  )
+  ),
 )
+
+const currentUserSelector = (state) => state.context.currentUser
+const usersSelector = (state) => state.context.users
 
 const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
   const [usersState] = useUsers()
-  const [authState] = useAuth()
-  const {
-    context: { users },
-  } = usersState
-  const {
-    context: {
-      currentUser: { username, userId },
-    },
-  } = authState
+  const globalServices = useContext(GlobalStateContext)
+  const currentUser = useSelector(
+    globalServices.authService,
+    currentUserSelector,
+  )
+  const users = useSelector(globalServices.usersService, usersSelector)
+  const { username, userId } = currentUser
 
   const theme = useContext(ThemeContext)
   const inputRef = useRef(null)
@@ -104,7 +107,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     debounce(() => {
       setTyping(false)
     }, 2000),
-    []
+    [],
   )
 
   useEffect(() => {
@@ -122,7 +125,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     handleTypingStop()
   }, [])
 
-  const userSuggestions = users.map(x => ({
+  const userSuggestions = users.map((x) => ({
     id: x.userId,
     display: x.username,
   }))
@@ -174,7 +177,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     },
   }
 
-  const handleSubmit = e => {
+  const handleSubmit = (e) => {
     e.preventDefault()
     if (content !== "") {
       onSend(content)
@@ -199,7 +202,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
           <InputContainer flex={{ grow: 1, shrink: 1 }}>
             <Input
               name="content"
-              onChange={value => {
+              onChange={(value) => {
                 setContent(value)
               }}
               handleSubmit={handleSubmit}

@@ -1,17 +1,26 @@
-import React, { memo, useMemo } from "react"
-import { useMachine, useService } from "@xstate/react"
+import React, { memo, useContext } from "react"
+import { useMachine, useSelector } from "@xstate/react"
 import { Box } from "grommet"
 
-import socket from "../lib/socket"
+import { GlobalStateContext } from "../contexts/global"
 import ChatMessages from "./ChatMessages"
 import ChatInput from "./ChatInputNative"
 import TypingIndicator from "./TypingIndicator"
 import { chatMachine } from "../machines/chatMachine"
-import { useAuth } from "../contexts/useAuth"
+
+const currentUserSelector = (state) => state.context.currentUser
+const isUnauthorizedSelector = (state) => state.matches("unauthorized")
 
 const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
-  const [authState] = useAuth()
-  const { currentUser } = authState.context
+  const globalServices = useContext(GlobalStateContext)
+  const currentUser = useSelector(
+    globalServices.authService,
+    currentUserSelector,
+  )
+  const isUnauthorized = useSelector(
+    globalServices.authService,
+    isUnauthorizedSelector,
+  )
   const [chatState, chatSend] = useMachine(chatMachine, {
     context: { currentUser },
   })
@@ -27,7 +36,7 @@ const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
       flex={{ grow: 1, shrink: 1 }}
       gap="small"
       style={{
-        filter: authState.matches("unauthorized") ? "blur(0.5rem)" : "none",
+        filter: isUnauthorized ? "blur(0.5rem)" : "none",
       }}
     >
       <Box height="100%" className="messages-container">
@@ -44,7 +53,7 @@ const Chat = ({ modalActive, onOpenReactionPicker, onReactionClick }) => {
           modalActive={modalActive}
           onTypingStart={() => chatSend("START_TYPING")}
           onTypingStop={() => chatSend("STOP_TYPING")}
-          onSend={msg => chatSend("SUBMIT_MESSAGE", { data: msg })}
+          onSend={(msg) => chatSend("SUBMIT_MESSAGE", { data: msg })}
         />
       </Box>
     </Box>
