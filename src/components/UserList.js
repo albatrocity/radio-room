@@ -1,48 +1,36 @@
-import React, { useEffect, useMemo, memo } from "react"
-import { useMachine } from "@xstate/react"
+import React, { memo, useContext } from "react"
+import { useMachine, useSelector } from "@xstate/react"
 import { Box, Text, Anchor, Heading } from "grommet"
-import Linkify from "react-linkify"
-import { Currency } from "grommet-icons"
-import styled from "styled-components"
 import { get, isEqual, find, uniqBy, reverse, reject } from "lodash/fp"
 import { Edit } from "grommet-icons"
 
-import { useUsers } from "../contexts/useUsers"
-import { useAuth } from "../contexts/useAuth"
 import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
+import { GlobalStateContext } from "../contexts/global"
 
-const StyledText = styled(Text)`
-  a {
-    color: ${p => p.theme.global.colors[p.theme.anchor.color.dark]};
-  }
-`
-
-const componentDecorator = (href, text, key) => (
-  <Anchor href={href} key={key} target="_blank" rel="noopener noreferrer">
-    {text}
-  </Anchor>
-)
+const currentUserSelector = (state) => state.context.currentUser
+const listenersSelector = (state) => state.context.listeners
+const djSelector = (state) => state.context.dj
 
 const UserList = ({ onEditUser, onEditSettings, showHeading = true }) => {
-  const [state, send] = useUsers()
-  const [authState, authSend] = useAuth()
+  const globalServices = useContext(GlobalStateContext)
   const [typingState] = useMachine(typingMachine)
 
-  const {
-    context: { listeners, dj },
-  } = state
-  const {
-    context: { currentUser },
-  } = authState
+  const currentUser = useSelector(
+    globalServices.authService,
+    currentUserSelector,
+  )
+  const listeners = useSelector(globalServices.usersService, listenersSelector)
+  const dj = useSelector(globalServices.usersService, djSelector)
+
   const {
     context: { typing },
   } = typingState
 
   const currentDj = isEqual(get("userId", currentUser), get("userId", dj))
   const currentListener = find({ userId: currentUser.userId }, listeners)
-  const isTyping = user => find({ userId: get("userId", user) }, typing)
+  const isTyping = (user) => find({ userId: get("userId", user) }, typing)
 
   return (
     <Box gap="small">
@@ -114,10 +102,10 @@ const UserList = ({ onEditUser, onEditSettings, showHeading = true }) => {
             userTyping={isTyping(currentUser.userId)}
             currentUser={currentUser}
             onEditUser={onEditUser}
-            onKickUser={user => authSend("KICK_USER", currentListener)}
+            onKickUser={(user) => authSend("KICK_USER", currentListener)}
           />
         )}
-        {reverse(reject({ userId: currentUser.userId }, listeners)).map(x => {
+        {reverse(reject({ userId: currentUser.userId }, listeners)).map((x) => {
           return (
             <ListItemUser
               key={x.userId}
@@ -125,7 +113,7 @@ const UserList = ({ onEditUser, onEditSettings, showHeading = true }) => {
               userTyping={isTyping(x)}
               currentUser={currentUser}
               onEditUser={onEditUser}
-              onKickUser={user => authSend("KICK_USER", x)}
+              onKickUser={(user) => authSend("KICK_USER", x)}
             />
           )
         })}

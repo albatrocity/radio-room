@@ -1,15 +1,13 @@
 import React, { useRef, memo, useContext, useEffect, useState } from "react"
-import { useMachine, useService } from "@xstate/react"
+import { useMachine, useSelector } from "@xstate/react"
 import { Box, Button, Layer, ResponsiveContext, Drop } from "grommet"
 import { groupBy, map, keys } from "lodash/fp"
-import { FormAdd, Close, Emoji as EmojiIcon } from "grommet-icons"
+import { FormAdd, Emoji as EmojiIcon } from "grommet-icons"
 
 import { reactionsMachine } from "../machines/reactionsMachine"
-import { useAuth } from "../contexts/useAuth"
-import { useReactions } from "../contexts/useReactions"
 import ReactionCounterItem from "./ReactionCounterItem"
 import ReactionPicker from "./ReactionPicker"
-import Modal from "./Modal"
+import { GlobalStateContext } from "../contexts/global"
 
 const ReactionAddButton = ({
   onOpenPicker,
@@ -51,6 +49,9 @@ const ReactionAddButton = ({
   )
 }
 
+const currentUserSelector = (state) => state.context.currentUser
+const reactionsSelector = (state) => state.context.reactions
+
 const ReactionCounter = ({
   reactions,
   reactTo,
@@ -59,20 +60,28 @@ const ReactionCounter = ({
   iconHoverColor,
   showAddButton,
 }) => {
-  const [authState] = useAuth()
-  const [reactionsState] = useReactions()
+  const globalServices = useContext(GlobalStateContext)
+  const currentUser = useSelector(
+    globalServices.authService,
+    currentUserSelector,
+  )
+  const allReactions = useSelector(
+    globalServices.allReactionsService,
+    reactionsSelector,
+  )
+
   const [state, send] = useMachine(reactionsMachine, {
     context: {
       dropRef: null,
       reactTo,
-      currentUser: authState.context.currentUser,
-      reactions: reactionsState.context.reactions[reactTo.type][reactTo.id],
+      currentUser,
+      reactions: allReactions[reactTo.type][reactTo.id],
     },
   })
 
   useEffect(() => {
     send("SET_REACT_TO", {
-      data: { reactTo, reactions: reactionsState.context.reactions },
+      data: { reactTo, reactions: allReactions },
     })
   }, [reactTo])
 
@@ -96,13 +105,13 @@ const ReactionCounter = ({
           align="center"
           direction="row"
         >
-          {keys(emoji).map(x => (
+          {keys(emoji).map((x) => (
             <ReactionCounterItem
               key={x}
               count={emoji[x].length}
               users={map("user", emoji[x])}
-              currentUserId={state.context.currentUser.userId}
-              onReactionClick={emoji => {
+              currentUserId={currentUser.userId}
+              onReactionClick={(emoji) => {
                 send("SELECT_REACTION", { data: emoji })
               }}
               reactTo={reactTo}
@@ -115,7 +124,7 @@ const ReactionCounter = ({
 
       <Box flex={{ shrink: 1, grow: 0 }}>
         <ReactionAddButton
-          onOpenPicker={options => send("TOGGLE", { data: options })}
+          onOpenPicker={(options) => send("TOGGLE", { data: options })}
           reactTo={reactTo}
           buttonColor={buttonColor}
           iconColor={showAddButton ? iconColor : "transparent"}
@@ -136,7 +145,7 @@ const ReactionCounter = ({
             >
               <Box>
                 <ReactionPicker
-                  onSelect={emoji => send("SELECT_REACTION", { data: emoji })}
+                  onSelect={(emoji) => send("SELECT_REACTION", { data: emoji })}
                 />
               </Box>
             </Layer>
@@ -150,7 +159,7 @@ const ReactionCounter = ({
               align={{ top: "top", right: "right" }}
             >
               <ReactionPicker
-                onSelect={emoji => send("SELECT_REACTION", { data: emoji })}
+                onSelect={(emoji) => send("SELECT_REACTION", { data: emoji })}
               />
             </Drop>
           )}

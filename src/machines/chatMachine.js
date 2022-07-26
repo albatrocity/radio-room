@@ -1,9 +1,9 @@
-import { Machine, send, assign } from "xstate"
+import { createMachine, send, assign } from "xstate"
 import socketService from "../lib/socketService"
 import { handleNotifications } from "../lib/handleNotifications"
 import { take, concat, uniqBy } from "lodash/fp"
 
-export const chatMachine = Machine(
+export const chatMachine = createMachine(
   {
     id: "chat",
     initial: "unauthenticated",
@@ -72,7 +72,7 @@ export const chatMachine = Machine(
         },
         {
           to: "socket",
-        }
+        },
       ),
       startTyping: send(
         (ctx, event) => {
@@ -80,7 +80,7 @@ export const chatMachine = Machine(
         },
         {
           to: "socket",
-        }
+        },
       ),
       stopTyping: send(
         (ctx, event) => {
@@ -88,7 +88,7 @@ export const chatMachine = Machine(
         },
         {
           to: "socket",
-        }
+        },
       ),
       setTyping: assign((ctx, event) => {
         return { typing: event.data }
@@ -97,7 +97,7 @@ export const chatMachine = Machine(
         messages: (context, event) => {
           return uniqBy(
             "timestamp",
-            take(60, concat(event.data, context.messages))
+            take(60, concat(event.data, context.messages)),
           )
         },
       }),
@@ -121,5 +121,5 @@ export const chatMachine = Machine(
         },
       }),
     },
-  }
+  },
 )

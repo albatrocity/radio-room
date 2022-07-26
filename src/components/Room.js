@@ -1,5 +1,5 @@
 import React, { useContext, useCallback, useEffect, useMemo } from "react"
-import { useMachine, useService } from "@xstate/react"
+import { useSelector } from "@xstate/react"
 import Konami from "react-konami-code"
 
 import {
@@ -7,14 +7,11 @@ import {
   Text,
   Button,
   Heading,
-  Layer,
-  Drop,
   Paragraph,
   Anchor,
   ResponsiveContext,
 } from "grommet"
 import { SettingsOption, List, HelpOption } from "grommet-icons"
-import { get, find, uniqBy, reject, sortBy } from "lodash/fp"
 
 import FormAdminMeta from "./FormAdminMeta"
 import FormAdminArtwork from "./FormAdminArtwork"
@@ -27,128 +24,183 @@ import FormPassword from "./FormPassword"
 import Chat from "./Chat"
 import UserList from "./UserList"
 import Modal from "./Modal"
-import ReactionPicker from "./ReactionPicker"
-import { useUsers } from "../contexts/useUsers"
-import { useAuth } from "../contexts/useAuth"
-import { roomMachine } from "../machines/roomMachine"
+import { GlobalStateContext } from "../contexts/global"
 import socket from "../lib/socket"
+
+const isEditingSelector = (state) =>
+  state.matches("connected.participating.editing")
+const playlistActiveSelector = (state) => state.matches("playlist.active")
+const isEditingUsernameSelector = (state) =>
+  state.matches("connected.participating.editing.username")
+const isModalViewingListenersSelector = (state) =>
+  state.matches("connected.participating.modalViewing.listeners")
+const isModalViewingHelpSelector = (state) =>
+  state.matches("connected.participating.modalViewing.help")
+const isEditingMetaSelector = (state) =>
+  state.matches("connected.participating.editing.meta")
+const isEditingArtworkSelector = (state) =>
+  state.matches("connected.participating.editing.artwork")
+const isEditingSettingsSelector = (state) =>
+  state.matches("connected.participating.editing.settings")
+const isDjSelector = (state) => state.matches("djaying.isDj")
+const isNotDjSelector = (state) => state.matches("djaying.notDj")
+const playlistSelector = (state) => state.context.playlist
+const isAdminSelector = (state) => state.context.isAdmin
+const isNewUserSelector = (state) => state.context.isNewUser
+const isUnauthorizedSelector = (state) => state.matches("unauthorized")
+const currentUserSelector = (state) => state.context.currentUser
+const passwordErrorSelector = (state) => state.context.passwordError
+const listenersSelector = (state) => state.context.listeners
+const djSelector = (state) => state.context.dj
 
 const Room = () => {
   const size = useContext(ResponsiveContext)
+  const globalServices = useContext(GlobalStateContext)
+  const isEditing = useSelector(globalServices.roomService, isEditingSelector)
+  const playlistActive = useSelector(
+    globalServices.roomService,
+    playlistActiveSelector,
+  )
+  const isEditingUsername = useSelector(
+    globalServices.roomService,
+    isEditingUsernameSelector,
+  )
+  const isModalViewingListeners = useSelector(
+    globalServices.roomService,
+    isModalViewingListenersSelector,
+  )
+  const isModalViewingHelp = useSelector(
+    globalServices.roomService,
+    isModalViewingHelpSelector,
+  )
+  const isEditingMeta = useSelector(
+    globalServices.roomService,
+    isEditingMetaSelector,
+  )
+  const isEditingArtwork = useSelector(
+    globalServices.roomService,
+    isEditingArtworkSelector,
+  )
+  const isEditingSettings = useSelector(
+    globalServices.roomService,
+    isEditingSettingsSelector,
+  )
+  const isNewUser = useSelector(globalServices.authService, isNewUserSelector)
+  const isAdmin = useSelector(globalServices.authService, isAdminSelector)
+  const isUnauthorized = useSelector(
+    globalServices.authService,
+    isUnauthorizedSelector,
+  )
+  const currentUser = useSelector(
+    globalServices.authService,
+    currentUserSelector,
+  )
+  const passwordError = useSelector(
+    globalServices.authService,
+    passwordErrorSelector,
+  )
+  const isDj = useSelector(globalServices.roomService, isDjSelector)
+  const isNotDj = useSelector(globalServices.roomService, isNotDjSelector)
+  const playlist = useSelector(globalServices.roomService, playlistSelector)
+
   const isMobile = size === "small"
-  const [usersState, usersSend] = useUsers()
-  const [authState, authSend] = useAuth()
 
-  const {
-    context: { listeners, dj },
-  } = usersState
+  const listeners = useSelector(globalServices.usersService, listenersSelector)
 
-  const [roomState, send] = useMachine(roomMachine, {
-    actions: {
-      setDj: (context, event) => {
-        if (event.type === "START_DJ_SESSION") {
-          socket.emit("set DJ", authState.context.currentUser.userId)
-        } else {
-          socket.emit("set DJ", null)
-        }
-      },
-      checkDj: (context, event) => {
-        const isDj = get(
-          "isDj",
-          find(
-            { userId: authState.context.currentUser.userId },
-            event.data.users
-          )
-        )
-        if (!isDj) {
-          send("END_DJ_SESSION")
-        }
-      },
-      adminActivated: (context, event) => {
-        authSend("ACTIVATE_ADMIN")
-      },
-      clearPlaylist: (context, event) => {
-        socket.emit("clear playlist")
-      },
+  useEffect(() => {
+    if (isNewUser) {
+      globalServices.roomService.send("EDIT_USERNAME")
+    }
+  }, [isNewUser])
+
+  useEffect(() => {
+    if (isAdmin) {
+      globalServices.roomService.send("ACTIVATE_ADMIN")
+    }
+  }, [isAdmin])
+
+  const hideListeners = useCallback(
+    () => globalServices.roomService.send("CLOSE_VIEWING"),
+    [globalServices],
+  )
+  const hideEditForm = useCallback(
+    () => globalServices.roomService.send("CLOSE_EDIT"),
+    [globalServices],
+  )
+
+  const onOpenReactionPicker = useCallback(
+    (dropRef, reactTo) => {
+      globalServices.roomService.send("TOGGLE_REACTION_PICKER", {
+        dropRef,
+        reactTo,
+      })
     },
-  })
+    [globalServices],
+  )
 
-  useEffect(() => {
-    if (authState.context.isNewUser) {
-      send("EDIT_USERNAME")
-    }
-  }, [authState.context.isNewUser])
-
-  useEffect(() => {
-    if (authState.context.isAdmin) {
-      send("ACTIVATE_ADMIN")
-    }
-  }, [authState.context.isAdmin])
-
-  const hideListeners = useCallback(() => send("CLOSE_VIEWING"), [send])
-  const hideEditForm = useCallback(() => send("CLOSE_EDIT"), [send])
-
-  const onOpenReactionPicker = useCallback((dropRef, reactTo) => {
-    send("TOGGLE_REACTION_PICKER", { dropRef, reactTo })
-  })
-
-  const toggleReaction = useCallback(({ reactTo, emoji }) => {
-    send("SELECT_REACTION", { reactTo, emoji })
-  })
-
-  const isEditing = useMemo(
-    () => roomState.matches("connected.participating.editing"),
-    [roomState]
+  const toggleReaction = useCallback(
+    ({ reactTo, emoji }) => {
+      globalServices.roomService.send("SELECT_REACTION", { reactTo, emoji })
+    },
+    [globalServices],
   )
 
   return (
     <Box className="room" flex={true} height={"100vh"}>
-      <Konami action={() => send("ACTIVATE_ADMIN")} />
+      <Konami
+        action={() => globalServices.roomService.send("ACTIVATE_ADMIN")}
+      />
 
-      {roomState.matches("playlist.active") && (
+      {playlistActive && (
         <Modal
           position="left"
           full="vertical"
           responsive={false}
           heading="Playlist"
           contentPad="none"
-          onClose={() => send("TOGGLE_PLAYLIST")}
+          onClose={() => globalServices.roomService.send("TOGGLE_PLAYLIST")}
           width={{ min: "100%", max: "90vw" }}
         >
           <Box>
-            <Playlist data={roomState.context.playlist} />
+            <Playlist data={playlist} />
           </Box>
         </Modal>
       )}
-      {roomState.matches("connected.participating.editing.username") && (
+      {isEditingUsername && (
         <Modal
           onClose={() => hideEditForm()}
           heading="Your Name"
           margin="medium"
         >
           <FormUsername
-            currentUser={authState.context.currentUser}
-            isNewUser={authState.context.isNewUser}
+            currentUser={currentUser}
+            isNewUser={isNewUser}
             onClose={hideEditForm}
-            onSubmit={username => {
-              authSend({ type: "UPDATE_USERNAME", data: username })
+            onSubmit={(username) => {
+              globalServices.authService.send({
+                type: "UPDATE_USERNAME",
+                data: username,
+              })
               hideEditForm()
             }}
           />
         </Modal>
       )}
-      {authState.matches("unauthorized") && (
+      {isUnauthorized && (
         <Modal heading="Password" margin="large">
           <FormPassword
-            currentUser={authState.context.currentUser}
-            error={authState.context.passwordError}
-            onSubmit={password => {
-              authSend({ type: "SET_PASSWORD", data: password })
+            currentUser={currentUser}
+            error={passwordError}
+            onSubmit={(password) => {
+              globalServices.authService.send({
+                type: "SET_PASSWORD",
+                data: password,
+              })
             }}
           />
         </Modal>
       )}
-      {roomState.matches("connected.participating.modalViewing.listeners") && (
+      {isModalViewingListeners && (
         <Modal
           heading={`Listeners (${listeners.length})`}
           onClose={() => hideListeners()}
@@ -158,16 +210,20 @@ const Room = () => {
             <div>
               <UserList
                 showHeading={false}
-                onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
-                onEditUser={() => send("EDIT_USERNAME")}
+                onEditSettings={() =>
+                  globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
+                }
+                onEditUser={() =>
+                  globalServices.roomService.send("EDIT_USERNAME")
+                }
               />
             </div>
           </Box>
         </Modal>
       )}
-      {roomState.matches("connected.participating.modalViewing.help") && (
+      {isModalViewingHelp && (
         <Modal
-          onClose={() => send("CLOSE_VIEWING")}
+          onClose={() => globalServices.roomService.send("CLOSE_VIEWING")}
           heading="???"
           margin="large"
         >
@@ -235,24 +291,24 @@ const Room = () => {
         </Modal>
       )}
 
-      {roomState.matches("connected.participating.editing.meta") && (
+      {isEditingMeta && (
         <Modal onClose={hideEditForm} heading="Set Station Info">
-          <FormAdminMeta onSubmit={value => socket.emit("fix meta", value)} />
+          <FormAdminMeta onSubmit={(value) => socket.emit("fix meta", value)} />
         </Modal>
       )}
 
-      {roomState.matches("connected.participating.editing.artwork") && (
+      {isEditingArtwork && (
         <Modal onClose={hideEditForm} heading="Set Cover Artwork">
           <FormAdminArtwork
-            onSubmit={value => socket.emit("set cover", value)}
+            onSubmit={(value) => socket.emit("set cover", value)}
           />
         </Modal>
       )}
 
-      {roomState.matches("connected.participating.editing.settings") && (
+      {isEditingSettings && (
         <Modal onClose={hideEditForm} heading="Settings" width="medium">
           <FormAdminSettings
-            onSubmit={value => {
+            onSubmit={(value) => {
               socket.emit("settings", value)
             }}
           />
@@ -261,8 +317,10 @@ const Room = () => {
 
       <Box flex={{ shrink: 0, grow: 0 }} basis="auto">
         <PlayerUi
-          onShowPlaylist={() => send("TOGGLE_PLAYLIST")}
-          hasPlaylist={roomState.context.playlist.length > 0}
+          onShowPlaylist={() =>
+            globalServices.roomService.send("TOGGLE_PLAYLIST")
+          }
+          hasPlaylist={playlist.length > 0}
           onReactionClick={toggleReaction}
           onOpenReactionPicker={onOpenReactionPicker}
         />
@@ -289,61 +347,69 @@ const Room = () => {
             fill
             align="center"
             style={{
-              filter: authState.matches("unauthorized")
-                ? "blur(0.5rem)"
-                : "none",
+              filter: isUnauthorized ? "blur(0.5rem)" : "none",
             }}
           >
             <Box flex={true} fill>
               <Listeners
-                onEditSettings={() => send("ADMIN_EDIT_SETTINGS")}
-                onViewListeners={view =>
-                  view ? send("VIEW_LISTENERS") : send("CLOSE_VIEWING")
+                onEditSettings={() =>
+                  globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
                 }
-                onEditUser={() => send("EDIT_USERNAME")}
+                onViewListeners={(view) =>
+                  view
+                    ? globalServices.roomService.send("VIEW_LISTENERS")
+                    : globalServices.roomService.send("CLOSE_VIEWING")
+                }
+                onEditUser={() =>
+                  globalServices.roomService.send("EDIT_USERNAME")
+                }
               />
             </Box>
-            {!authState.context.isAdmin && (
+            {!isAdmin && (
               <Box pad="small" align="center" flex={{ grow: 0, shrink: 0 }}>
                 <Button
                   size="small"
                   secondary
                   hoverIndicator={{ color: "light-3" }}
                   icon={<HelpOption size="medium" color="brand" />}
-                  onClick={() => send("VIEW_HELP")}
+                  onClick={() => globalServices.roomService.send("VIEW_HELP")}
                 />
               </Box>
             )}
           </Box>
-          {authState.context.isAdmin && (
+          {isAdmin && (
             <Box pad="medium" flex={{ shrink: 0 }}>
               <Heading level={3} margin={{ bottom: "xsmall" }}>
                 Admin
               </Heading>
               <Box gap="small">
-                {roomState.matches("djaying.notDj") && (
+                {isNotDj && (
                   <Button
                     label="I am the DJ"
-                    onClick={() => send("START_DJ_SESSION")}
+                    onClick={() =>
+                      globalServices.roomService.send("START_DJ_SESSION")
+                    }
                     primary
                   />
                 )}
-                {roomState.matches("djaying.isDj") && (
+                {isDj && (
                   <Button
                     label="End DJ Session"
-                    onClick={() => send("END_DJ_SESSION")}
+                    onClick={() =>
+                      globalServices.roomService.send("END_DJ_SESSION")
+                    }
                   />
                 )}
                 <Button
                   label="Change Cover Art"
-                  onClick={() => send("ADMIN_EDIT_ARTWORK")}
+                  onClick={() =>
+                    globalServices.roomService.send("ADMIN_EDIT_ARTWORK")
+                  }
                 />
 
                 <Box
                   animation={
-                    roomState.matches(
-                      "connected.participating.editing.settings"
-                    )
+                    isEditingSettings
                       ? {
                           type: "pulse",
                           delay: 0,
@@ -355,28 +421,24 @@ const Room = () => {
                 >
                   <Button
                     label="Settings"
-                    primary={
-                      roomState.matches(
-                        "connected.participating.editing.settings"
-                      )
-                        ? true
-                        : false
-                    }
+                    primary={isEditingSettings ? true : false}
                     icon={<SettingsOption size="small" />}
-                    onClick={() => send("ADMIN_EDIT_SETTINGS")}
+                    onClick={() =>
+                      globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
+                    }
                   />
                 </Box>
-                {roomState.matches("djaying.isDj") && (
+                {isDj && (
                   <Button
                     label="Clear Playlist"
                     primary
                     icon={<List size="small" />}
                     onClick={() => {
                       const confirmation = window.confirm(
-                        "Are you sure you want to clear the playlist? This cannot be undone."
+                        "Are you sure you want to clear the playlist? This cannot be undone.",
                       )
                       if (confirmation) {
-                        send("ADMIN_CLEAR_PLAYLIST")
+                        globalServices.roomService.send("ADMIN_CLEAR_PLAYLIST")
                       }
                     }}
                   />

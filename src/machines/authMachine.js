@@ -1,4 +1,4 @@
-import { Machine, assign, send, interpret } from "xstate"
+import { assign, send, createMachine } from "xstate"
 import { get } from "lodash/fp"
 import socketService from "../lib/socketService"
 import { getCurrentUser, saveCurrentUser } from "../lib/getCurrentUser"
@@ -8,7 +8,7 @@ const getStoredUser = (ctx, event) =>
   new Promise((resolve, reject) => {
     const { currentUser, isNewUser, isAdmin } = getCurrentUser(
       get("data.username", event),
-      ctx.password
+      ctx.password,
     )
     resolve({ currentUser, isNewUser, isAdmin })
   })
@@ -25,7 +25,7 @@ const getStoredPassword = (ctx, event) =>
     resolve({ password })
   })
 
-export const authMachine = Machine(
+export const authMachine = createMachine(
   {
     id: "auth",
     initial: "unauthenticated",
@@ -187,7 +187,7 @@ export const authMachine = Machine(
         },
         {
           to: "socket",
-        }
+        },
       ),
       activateAdmin: assign((ctx, event) => {
         return {
@@ -208,7 +208,7 @@ export const authMachine = Machine(
         }),
         {
           to: "socket",
-        }
+        },
       ),
       updateUsername: assign({
         currentUser: (ctx, event) => ({
@@ -230,7 +230,7 @@ export const authMachine = Machine(
         }),
         {
           to: "socket",
-        }
+        },
       ),
       kickUser: send(
         (ctx, event) => ({
@@ -241,7 +241,7 @@ export const authMachine = Machine(
         }),
         {
           to: "socket",
-        }
+        },
       ),
       checkPasswordRequirement: send(
         (ctx, event) => ({
@@ -250,7 +250,7 @@ export const authMachine = Machine(
         }),
         {
           to: "socket",
-        }
+        },
       ),
       submitPassword: send(
         (ctx, event) => ({
@@ -259,15 +259,15 @@ export const authMachine = Machine(
         }),
         {
           to: "socket",
-        }
+        },
       ),
       savePassword: savePassword,
       saveUser: saveCurrentUser,
     },
     guards: {
-      shouldRetry: ctx => ctx.shouldRetry,
-      shouldNotRetry: ctx => !ctx.shouldRetry,
-      isAdmin: ctx => {
+      shouldRetry: (ctx) => ctx.shouldRetry,
+      shouldNotRetry: (ctx) => !ctx.shouldRetry,
+      isAdmin: (ctx) => {
         return ctx.currentUser.isAdmin
       },
       requiresPassword: (ctx, event) => {
@@ -280,9 +280,5 @@ export const authMachine = Machine(
         return !event.data.passwordAccepted
       },
     },
-  }
+  },
 )
-
-// export const authService = interpret(authMachine)
-//
-// authService.start()

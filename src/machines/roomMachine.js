@@ -1,7 +1,7 @@
-import { Machine, assign, send } from "xstate"
+import { assign, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 
-export const roomMachine = Machine(
+export const roomMachine = createMachine(
   {
     id: "room",
     initial: "connected",
@@ -233,5 +233,5 @@ export const roomMachine = Machine(
         reactTo: null,
       }),
     },
-  }
+  },
 )

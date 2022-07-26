@@ -1,50 +1,31 @@
-import React, { useMemo, useEffect } from "react"
-import { Box, Main } from "grommet"
-import { find, isEqual, get } from "lodash/fp"
-import { useService, useMachine } from "@xstate/react"
+import React, { useContext, useEffect } from "react"
+import { Main } from "grommet"
 import { usePageVisibility } from "react-page-visibility"
 
-import useWindowSize from "./useWindowSize"
+import { GlobalStateContext } from "../contexts/global"
 import Room from "./Room"
-import { AuthProvider } from "../contexts/useAuth"
-import { UsersProvider } from "../contexts/useUsers"
-import { ReactionsProvider } from "../contexts/useReactions"
-import { authMachine } from "../machines/authMachine"
-import { usersMachine } from "../machines/usersMachine"
-import { allReactionsMachine } from "../machines/allReactionsMachine"
-import socket from "../lib/socket"
 
 const RadioApp = () => {
-  const [authState, authSend] = useMachine(authMachine)
-  const [usersState, usersSend] = useMachine(usersMachine)
-  const [reactionsState, reactionsSend] = useMachine(allReactionsMachine)
   const isVisible = usePageVisibility()
-
-  const size = useWindowSize()
+  const globalServices = useContext(GlobalStateContext)
 
   useEffect(() => {
-    authSend("SETUP")
+    globalServices.authService.send("SETUP")
     return () => {
-      authSend("USER_DISCONNECTED")
+      globalServices.authService.send("USER_DISCONNECTED")
     }
-  }, [authSend])
+  }, [globalServices.authService])
 
   useEffect(() => {
     if (isVisible) {
-      authSend("SETUP")
+      globalServices.authService.send("SETUP")
     }
   }, [isVisible])
 
   return (
-    <AuthProvider value={[authState, authSend]}>
-      <ReactionsProvider value={[reactionsState, reactionsSend]}>
-        <UsersProvider value={[usersState, usersSend]}>
-          <Main flex={{ grow: 1, shrink: 1 }}>
-            <Room />
-          </Main>
-        </UsersProvider>
-      </ReactionsProvider>
-    </AuthProvider>
+    <Main flex={{ grow: 1, shrink: 1 }}>
+      <Room />
+    </Main>
   )
 }
 

@@ -18,7 +18,6 @@ import session from "sessionstorage"
 import styled from "styled-components"
 
 import { SESSION_ID, SESSION_USERNAME } from "../constants"
-import { useUsers } from "../contexts/useUsers"
 
 const InputContainer = styled(Box)`
   > div {
@@ -31,7 +30,7 @@ const renderUserSuggestion = (
   search,
   highlightedDisplay,
   index,
-  focused
+  focused,
 ) => {
   return (
     <div className={`user ${focused ? "focused" : ""}`}>
@@ -60,7 +59,7 @@ const Input = ({
     value={form.values.content}
     autoFocus={autoFocus}
     autoComplete="off"
-    onChange={e => {
+    onChange={(e) => {
       if (e.target.value && e.target.value !== "") {
         handleKeyInput()
       }
@@ -107,7 +106,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     handleTypingStop()
   }, [])
 
-  const userSuggestions = users.map(x => ({
+  const userSuggestions = users.map((x) => ({
     id: x.userId,
     display: x.username,
   }))
@@ -175,7 +174,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     <Box>
       <Formik
         initialValues={{ content: "", username, userId }}
-        validate={values => {
+        validate={(values) => {
           const errors = {}
           if (!values.content) {
             errors.content = "Required"

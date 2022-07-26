@@ -1,8 +1,8 @@
-import { Machine, assign, send } from "xstate"
+import { assign, send, createMachine } from "xstate"
 import socketService from "../lib/socketService"
-import { isNil, sortBy, uniqBy, reject, find, get } from "lodash/fp"
+import { isNil, find } from "lodash/fp"
 
-export const reactionsMachine = Machine(
+export const reactionsMachine = createMachine(
   {
     id: "reactions",
     initial: "closed",
@@ -115,7 +115,7 @@ export const reactionsMachine = Machine(
         }),
         {
           to: "socket",
-        }
+        },
       ),
       removeReaction: send(
         (ctx, event) => ({
@@ -128,7 +128,7 @@ export const reactionsMachine = Machine(
         }),
         {
           to: "socket",
-        }
+        },
       ),
     },
     guards: {
@@ -136,10 +136,10 @@ export const reactionsMachine = Machine(
         return isNil(
           find(
             { user: ctx.currentUser.userId, emoji: event.data.colons },
-            ctx.reactions
-          )
+            ctx.reactions,
+          ),
         )
       },
     },
-  }
+  },
 )

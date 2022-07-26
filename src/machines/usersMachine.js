@@ -1,8 +1,8 @@
-import { Machine, assign } from "xstate"
+import { createMachine, assign } from "xstate"
 import socketService from "../lib/socketService"
 import { sortBy, uniqBy, reject, find, get } from "lodash/fp"
 
-export const usersMachine = Machine(
+export const usersMachine = createMachine(
   {
     id: "users",
     initial: "connected",
@@ -56,7 +56,7 @@ export const usersMachine = Machine(
       checkDj: (context, event) => {
         const isDj = get(
           "isDj",
-          find({ userId: context.currentUser.userId }, event.data.users)
+          find({ userId: context.currentUser.userId }, event.data.users),
         )
         if (!isDj) {
           // send("END_DJ_SESSION")
@@ -79,11 +79,11 @@ export const usersMachine = Machine(
         listeners: (context, event) => {
           return sortBy(
             "connectedAt",
-            uniqBy("userId", reject({ isDj: true }, event.data.users))
+            uniqBy("userId", reject({ isDj: true }, event.data.users)),
           )
         },
         dj: (context, event) => find({ isDj: true }, event.data.users),
       }),
     },
-  }
+  },
 )

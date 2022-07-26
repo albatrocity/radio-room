@@ -1,15 +1,16 @@
 import React, { useCallback, useContext, memo } from "react"
 import { Box, ResponsiveContext } from "grommet"
-import { useMachine, useService } from "@xstate/react"
-import { isEmpty, get, kebabCase } from "lodash/fp"
+import { useMachine, useSelector } from "@xstate/react"
+import { kebabCase } from "lodash/fp"
 
-import socket from "../lib/socket"
+import { GlobalStateContext } from "../contexts/global"
 import NowPlaying from "./NowPlaying"
 import RadioPlayer from "./RadioPlayer"
 import ReactionCounter from "./ReactionCounter"
 import { audioMachine } from "../machines/audioMachine"
-import { useReactions } from "../contexts/useReactions"
-import { useAuth } from "../contexts/useAuth"
+
+const isUnauthorizedSelector = (state) => state.matches("unauthorized")
+const allReactionsSelector = (state) => state.context.reactions
 
 const PlayerUi = ({
   onShowPlaylist,
@@ -18,10 +19,18 @@ const PlayerUi = ({
   onReactionClick,
 }) => {
   const size = useContext(ResponsiveContext)
-  const [reactionsState] = useReactions()
+  const globalServices = useContext(GlobalStateContext)
   const isMobile = size === "small"
   const [state, send] = useMachine(audioMachine)
-  const [authState] = useAuth()
+  const isUnauthorized = useSelector(
+    globalServices.authService,
+    isUnauthorizedSelector,
+  )
+  const allReactions = useSelector(
+    globalServices.allReactionsService,
+    allReactionsSelector,
+  )
+
   const playing = state.matches({ online: { progress: "playing" } })
   const muted = state.matches({ online: { volume: "muted" } })
   const ready = state.matches("online")
@@ -31,7 +40,7 @@ const PlayerUi = ({
   const trackId = kebabCase(`${track}-${artist}-${album}`)
 
   const onCover = useCallback(
-    hasCover => {
+    (hasCover) => {
       if (ready) {
         if (hasCover) {
           send("TRY_COVER")
@@ -40,13 +49,13 @@ const PlayerUi = ({
         }
       }
     },
-    [ready]
+    [ready],
   )
 
   return (
     <Box
       style={{
-        filter: authState.matches("unauthorized") ? "blur(0.5rem)" : "none",
+        filter: isUnauthorized ? "blur(0.5rem)" : "none",
       }}
     >
       <NowPlaying
@@ -63,7 +72,7 @@ const PlayerUi = ({
             <ReactionCounter
               onOpenPicker={onOpenReactionPicker}
               reactTo={{ type: "track", id: trackId }}
-              reactions={reactionsState.context.reactions["track"][trackId]}
+              reactions={allReactions["track"][trackId]}
               onReactionClick={onReactionClick}
               buttonColor="accent-4"
               iconColor="accent-4"
@@ -78,7 +87,7 @@ const PlayerUi = ({
           meta={meta}
           playing={playing}
           muted={muted}
-          onVolume={v => send("CHANGE_VOLUME", { volume: v })}
+          onVolume={(v) => send("CHANGE_VOLUME", { volume: v })}
           onPlayPause={() => send("TOGGLE")}
           onMute={() => send("TOGGLE_MUTE")}
           onShowPlaylist={onShowPlaylist}
@@ -87,7 +96,7 @@ const PlayerUi = ({
           trackId={trackId}
           onReactionClick={onReactionClick}
           onOpenPicker={onOpenReactionPicker}
-          reactions={reactionsState.context.reactions["track"][trackId]}
+          reactions={allReactions["track"][trackId]}
         />
       )}
     </Box>
