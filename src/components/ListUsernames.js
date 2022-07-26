@@ -2,12 +2,12 @@ import React, { useContext } from "react"
 import { Text } from "grommet"
 import { map, filter, compact, get } from "lodash/fp"
 import { useSelector } from "@xstate/react"
-import { GlobalServicesContext } from "../contexts/global"
+import { GlobalStateContext } from "../contexts/global"
 
 const usersSelector = (state) => state.context.users
 
 const ListUsernames = ({ ids }) => {
-  const globalServices = useContext(GlobalServicesContext)
+  const globalServices = useContext(GlobalStateContext)
   const users = useSelector(globalServices.usersService, usersSelector)
   const usernames = compact(
     map(

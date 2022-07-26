@@ -106,37 +106,6 @@ const Room = () => {
   const isMobile = size === "small"
 
   const listeners = useSelector(globalServices.usersService, listenersSelector)
-  const dj = useSelector(globalServices.usersService, djSelector)
-
-  // const [roomState, send] = useMachine(roomMachine, {
-  //   actions: {
-  //     setDj: (context, event) => {
-  //       if (event.type === "START_DJ_SESSION") {
-  //         socket.emit("set DJ", authState.context.currentUser.userId)
-  //       } else {
-  //         socket.emit("set DJ", null)
-  //       }
-  //     },
-  //     checkDj: (context, event) => {
-  //       const isDj = get(
-  //         "isDj",
-  //         find(
-  //           { userId: authState.context.currentUser.userId },
-  //           event.data.users
-  //         )
-  //       )
-  //       if (!isDj) {
-  //         send("END_DJ_SESSION")
-  //       }
-  //     },
-  //     adminActivated: (context, event) => {
-  //       authSend("ACTIVATE_ADMIN")
-  //     },
-  //     clearPlaylist: (context, event) => {
-  //       socket.emit("clear playlist")
-  //     },
-  //   },
-  // })
 
   useEffect(() => {
     if (isNewUser) {
