@@ -13,6 +13,7 @@ import Div100vh from "react-div-100vh"
 
 import theme from "./theme"
 import "./layout.css"
+import { GlobalStateProvider } from "../contexts/global"
 
 const Layout = ({ children }) => {
   const data = useStaticQuery(graphql`
@@ -27,7 +28,9 @@ const Layout = ({ children }) => {
 
   return (
     <Grommet theme={theme}>
-      <Div100vh>{children}</Div100vh>
+      <GlobalStateProvider>
+        <Div100vh>{children}</Div100vh>
+      </GlobalStateProvider>
     </Grommet>
   )
 }
