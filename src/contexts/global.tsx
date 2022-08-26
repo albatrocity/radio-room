@@ -31,6 +31,15 @@ export const GlobalStateProvider = (props) => {
 
   const currentUser = useSelector(authService, currentUserSelector)
 
+  const checkDj = (_, event) => {
+    const isDj = event.data.users.find((x) => x.userId === currentUser.userId)
+      ?.isDj
+    if (!isDj) {
+      console.log("NO DJ")
+      roomService.send("END_DJ_SESSION")
+    }
+  }
+
   const roomService = useInterpret(roomMachine, {
     actions: {
       setDj: (_, event) => {
@@ -41,23 +50,14 @@ export const GlobalStateProvider = (props) => {
         }
       },
       checkDj,
-      adminActivated: (context, event) => {
+      adminActivated: () => {
         authService.send("ACTIVATE_ADMIN")
       },
-      clearPlaylist: (context, event) => {
+      clearPlaylist: () => {
         socket.emit("clear playlist")
       },
     },
   })
-
-  const checkDj = (_, event) => {
-    const isDj = event.data.users.find((x) => x.userId === currentUser.userId)
-      ?.isDj
-    if (!isDj) {
-      console.log("NO DJ")
-      roomService.send("END_DJ_SESSION")
-    }
-  }
 
   const usersService = useInterpret(usersMachine)
   const allReactionsService = useInterpret(allReactionsMachine)
