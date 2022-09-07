@@ -1,21 +1,25 @@
 import React from "react"
 import { Formik } from "formik"
-import { Box, Button, Text, TextInput, Heading, Paragraph } from "grommet"
+import { Box, Button, Text, TextInput, Paragraph } from "grommet"
 
-const FormPassword = ({ onClose, onSubmit, error }) => {
+interface Props {
+  onClose: () => void
+  onSubmit: (password?: string) => void
+  error?: string
+}
+
+const FormPassword = ({ onSubmit, error }: Props) => {
   return (
     <Box pad="medium" gap="medium" width="medium">
       <Formik
         initialValues={{ password: "" }}
-        onSubmit={(values, { setSubmitting, resetForm }) => {
+        onSubmit={(values, { setSubmitting }) => {
           setSubmitting(false)
           onSubmit(values.password)
         }}
       >
         {({
           values,
-          errors,
-          touched,
           handleChange,
           handleBlur,
           handleSubmit,

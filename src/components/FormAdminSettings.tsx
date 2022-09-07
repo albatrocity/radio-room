@@ -14,17 +14,28 @@ import {
   TextInput,
   TextArea,
 } from "grommet"
-import { Validate, Currency } from "grommet-icons"
+import { Validate } from "grommet-icons"
 
 import { settingsMachine } from "../machines/settingsMachine"
 import socket from "../lib/socket"
 
-const FormAdminSettings = ({ onSubmit }) => {
+interface FormValues {
+  fetchMeta: boolean
+  donationURL: string
+  extraInfo?: string
+  password?: string
+}
+
+interface Props {
+  onSubmit: (values: FormValues) => void
+}
+
+const FormAdminSettings = ({ onSubmit }: Props) => {
   const [state, send] = useMachine(settingsMachine, {
     services: {
       fetchSettings: () => {
-        return new Promise((resolve, reject) => {
-          socket.on("event", message => {
+        return new Promise((resolve) => {
+          socket.on("event", (message) => {
             if (message.type === "SETTINGS") {
               resolve(message.data.settings)
             }
@@ -33,8 +44,8 @@ const FormAdminSettings = ({ onSubmit }) => {
         })
       },
       watchForUpdate: () => {
-        return new Promise((resolve, reject) => {
-          socket.on("event", message => {
+        return new Promise((resolve) => {
+          socket.on("event", (message) => {
             if (message.type === "SETTINGS") {
               resolve(message.data.settings)
             }
@@ -72,11 +83,11 @@ const FormAdminSettings = ({ onSubmit }) => {
             extraInfo: state.context.extraInfo,
             password: state.context.password || "",
           }}
-          validate={values => {
+          validate={() => {
             const errors = {}
             return errors
           }}
-          onSubmit={(values, { setSubmitting, resetForm }) => {
+          onSubmit={(values, { setSubmitting }) => {
             send("SUBMIT")
             setSubmitting(false)
             onSubmit(values)
@@ -84,13 +95,9 @@ const FormAdminSettings = ({ onSubmit }) => {
         >
           {({
             values,
-            errors,
-            touched,
             handleChange,
             handleBlur,
             handleSubmit,
-            isSubmitting,
-            isValid,
             setTouched,
             initialValues,
           }) => (
@@ -98,7 +105,7 @@ const FormAdminSettings = ({ onSubmit }) => {
               <Box gap="small">
                 <TextArea
                   checked={values.extraInfo}
-                  onChange={e => {
+                  onChange={(e) => {
                     handleChange(e)
                     if (e.target.value !== initialValues.extraInfo) {
                       setTouched({ extraInfo: true })
@@ -129,7 +136,7 @@ const FormAdminSettings = ({ onSubmit }) => {
                 >
                   <CheckBox
                     checked={values.fetchMeta}
-                    onChange={e => {
+                    onChange={(e) => {
                       handleChange(e)
                       if (e.target.checked !== initialValues.fetchMeta) {
                         setTouched({ fetchMeta: true })
@@ -156,7 +163,7 @@ const FormAdminSettings = ({ onSubmit }) => {
                   }
                 >
                   <TextInput
-                    onChange={e => {
+                    onChange={(e) => {
                       handleChange(e)
                     }}
                     onBlur={handleBlur}

@@ -1,14 +1,21 @@
 import React from "react"
 import { Formik } from "formik"
-import { Box, Button, Text, TextInput, Heading, Paragraph } from "grommet"
+import { Box, Button, Text, TextInput, Paragraph } from "grommet"
+import { User } from "../types/User"
 
-const FormUsername = ({ onClose, onSubmit, currentUser }) => {
+interface Props {
+  onClose: () => void
+  onSubmit: (username?: string) => void
+  currentUser: User
+}
+
+const FormUsername = ({ onClose, onSubmit, currentUser }: Props) => {
   const { username, userId } = currentUser
   return (
     <Box pad="medium" gap="medium" width="medium">
       <Formik
         initialValues={{ username: "", userId }}
-        onSubmit={(values, { setSubmitting, resetForm }) => {
+        onSubmit={(values, { setSubmitting }) => {
           if (!values.username || values.username === "") {
             return onClose()
           }
@@ -18,8 +25,6 @@ const FormUsername = ({ onClose, onSubmit, currentUser }) => {
       >
         {({
           values,
-          errors,
-          touched,
           handleChange,
           handleBlur,
           handleSubmit,

@@ -8,6 +8,7 @@ import { allReactionsMachine } from "../machines/allReactionsMachine"
 import { ActorRefFrom } from "xstate"
 
 import socket from "../lib/socket"
+import { User } from "../types/User"
 
 interface GlobalStateContextType {
   authService: ActorRefFrom<typeof authMachine>
@@ -25,15 +26,20 @@ export const GlobalStateContext = createContext(
 
 const currentUserSelector = (state) => state.context.currentUser
 
-export const GlobalStateProvider = (props) => {
+interface Props {
+  children: JSX.Element
+}
+
+export const GlobalStateProvider = (props: Props) => {
   const authService = useInterpret(authMachine)
   const chatService = useInterpret(chatMachine)
 
   const currentUser = useSelector(authService, currentUserSelector)
 
   const checkDj = (_, event) => {
-    const isDj = event.data.users.find((x) => x.userId === currentUser.userId)
-      ?.isDj
+    const isDj = event.data.users.find(
+      (x: User) => x.userId === currentUser.userId,
+    )?.isDj
     if (!isDj) {
       console.log("NO DJ")
       roomService.send("END_DJ_SESSION")
