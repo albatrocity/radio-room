@@ -1,8 +1,6 @@
-import React, { useContext } from "react"
-import "emoji-mart/css/emoji-mart.css"
-import data from "emoji-mart/data/apple.json"
-import { NimblePicker } from "emoji-mart/dist-modern/index.js"
-import { ThemeContext } from "grommet"
+import React from "react"
+import data from "@emoji-mart/data"
+import { Picker } from "emoji-mart"
 import { EmojiData } from "emoji-mart"
 
 interface ReactionPickerProps {
@@ -10,9 +8,8 @@ interface ReactionPickerProps {
 }
 
 const ReactionPicker = ({ onSelect }: ReactionPickerProps) => {
-  const theme = useContext(ThemeContext)
   return (
-    <NimblePicker
+    <Picker
       autoFocus={true}
       sheetSize={64}
       perLine={7}
@@ -20,7 +17,6 @@ const ReactionPicker = ({ onSelect }: ReactionPickerProps) => {
       data={data}
       set="apple"
       onSelect={onSelect}
-      color={theme.global.colors.brand}
     />
   )
 }

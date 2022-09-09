@@ -3,7 +3,6 @@ import { Box, Paragraph, Heading, Text, Image } from "grommet"
 import { format } from "date-fns"
 import { includes, filter, reduce, get, concat } from "lodash/fp"
 import getUrls from "../lib/getUrls"
-import isImageUrl from "is-image-url"
 
 import ReactionCounter from "./ReactionCounter"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
@@ -35,6 +34,9 @@ const ChatMessage = ({
   showUsername,
   anotherUserMessage,
 }: ChatMessageProps) => {
+  function isImageUrl(url: string) {
+    return url.match(/\.(jpeg|jpg|gif|png)$/) != null
+  }
   const [parsedImageUrls, setParsedImageUrls] = useState([])
   const [hovered, setHovered] = useState(false)
   const date = new Date(timestamp)
