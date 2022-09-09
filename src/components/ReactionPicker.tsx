@@ -1,7 +1,6 @@
 import React from "react"
+import Picker from "@emoji-mart/react"
 import data from "@emoji-mart/data"
-import { Picker } from "emoji-mart"
-import { EmojiData } from "emoji-mart"
 
 interface ReactionPickerProps {
   onSelect: (emoji: EmojiData) => void
@@ -9,15 +8,7 @@ interface ReactionPickerProps {
 
 const ReactionPicker = ({ onSelect }: ReactionPickerProps) => {
   return (
-    <Picker
-      autoFocus={true}
-      sheetSize={64}
-      perLine={7}
-      title={""}
-      data={data}
-      set="apple"
-      onSelect={onSelect}
-    />
+    <Picker autoFocus={true} perLine={7} onEmojiSelect={onSelect} data={data} />
   )
 }
 

@@ -11,12 +11,10 @@ import {
   Anchor,
   ResponsiveContext,
 } from "grommet"
-import { SettingsOption, List, HelpOption } from "grommet-icons"
 
 import FormAdminMeta from "./FormAdminMeta"
 import FormAdminArtwork from "./FormAdminArtwork"
 import FormAdminSettings from "./FormAdminSettings"
-import Listeners from "./Listeners"
 import PlayerUi from "./PlayerUi"
 import Playlist from "./Playlist"
 import FormUsername from "./FormUsername"
@@ -24,8 +22,9 @@ import FormPassword from "./FormPassword"
 import Chat from "./Chat"
 import UserList from "./UserList"
 import Modal from "./Modal"
-import { GlobalStateContext } from "../contexts/global"
+import Sidebar from "./Sidebar"
 import socket from "../lib/socket"
+import useGlobalContext from "./useGlobalContext"
 
 const isEditingSelector = (state) =>
   state.matches("connected.participating.editing")
@@ -42,8 +41,6 @@ const isEditingArtworkSelector = (state) =>
   state.matches("connected.participating.editing.artwork")
 const isEditingSettingsSelector = (state) =>
   state.matches("connected.participating.editing.settings")
-const isDjSelector = (state) => state.matches("djaying.isDj")
-const isNotDjSelector = (state) => state.matches("djaying.notDj")
 const playlistSelector = (state) => state.context.playlist
 const isAdminSelector = (state) => state.context.isAdmin
 const isNewUserSelector = (state) => state.context.isNewUser
@@ -51,11 +48,10 @@ const isUnauthorizedSelector = (state) => state.matches("unauthorized")
 const currentUserSelector = (state) => state.context.currentUser
 const passwordErrorSelector = (state) => state.context.passwordError
 const listenersSelector = (state) => state.context.listeners
-const djSelector = (state) => state.context.dj
 
 const Room = () => {
   const size = useContext(ResponsiveContext)
-  const globalServices = useContext(GlobalStateContext)
+  const globalServices = useGlobalContext()
   const isEditing = useSelector(globalServices.roomService, isEditingSelector)
   const playlistActive = useSelector(
     globalServices.roomService,
@@ -99,11 +95,8 @@ const Room = () => {
     globalServices.authService,
     passwordErrorSelector,
   )
-  const isDj = useSelector(globalServices.roomService, isDjSelector)
-  const isNotDj = useSelector(globalServices.roomService, isNotDjSelector)
-  const playlist = useSelector(globalServices.roomService, playlistSelector)
 
-  const isMobile = size === "small"
+  const playlist = useSelector(globalServices.roomService, playlistSelector)
 
   const listeners = useSelector(globalServices.usersService, listenersSelector)
 
@@ -335,118 +328,7 @@ const Room = () => {
           />
         </Box>
 
-        <Box
-          width={isMobile ? "auto" : "20vw"}
-          style={{ minWidth: "250px" }}
-          fill={isMobile ? "horizontal" : undefined}
-          flex={{ shrink: 0, grow: 0 }}
-          background="background-front"
-        >
-          <Box
-            direction={isMobile ? "row" : "column"}
-            fill
-            align="center"
-            style={{
-              filter: isUnauthorized ? "blur(0.5rem)" : "none",
-            }}
-          >
-            <Box flex={true} fill>
-              <Listeners
-                onEditSettings={() =>
-                  globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
-                }
-                onViewListeners={(view) =>
-                  view
-                    ? globalServices.roomService.send("VIEW_LISTENERS")
-                    : globalServices.roomService.send("CLOSE_VIEWING")
-                }
-                onEditUser={() =>
-                  globalServices.roomService.send("EDIT_USERNAME")
-                }
-              />
-            </Box>
-            {!isAdmin && (
-              <Box pad="small" align="center" flex={{ grow: 0, shrink: 0 }}>
-                <Button
-                  size="small"
-                  secondary
-                  hoverIndicator={{ color: "light-3" }}
-                  icon={<HelpOption size="medium" color="brand" />}
-                  onClick={() => globalServices.roomService.send("VIEW_HELP")}
-                />
-              </Box>
-            )}
-          </Box>
-          {isAdmin && (
-            <Box pad="medium" flex={{ shrink: 0 }}>
-              <Heading level={3} margin={{ bottom: "xsmall" }}>
-                Admin
-              </Heading>
-              <Box gap="small">
-                {isNotDj && (
-                  <Button
-                    label="I am the DJ"
-                    onClick={() =>
-                      globalServices.roomService.send("START_DJ_SESSION")
-                    }
-                    primary
-                  />
-                )}
-                {isDj && (
-                  <Button
-                    label="End DJ Session"
-                    onClick={() =>
-                      globalServices.roomService.send("END_DJ_SESSION")
-                    }
-                  />
-                )}
-                <Button
-                  label="Change Cover Art"
-                  onClick={() =>
-                    globalServices.roomService.send("ADMIN_EDIT_ARTWORK")
-                  }
-                />
-
-                <Box
-                  animation={
-                    isEditingSettings
-                      ? {
-                          type: "pulse",
-                          delay: 0,
-                          duration: 400,
-                          size: "medium",
-                        }
-                      : null
-                  }
-                >
-                  <Button
-                    label="Settings"
-                    primary={isEditingSettings ? true : false}
-                    icon={<SettingsOption size="small" />}
-                    onClick={() =>
-                      globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
-                    }
-                  />
-                </Box>
-                {isDj && (
-                  <Button
-                    label="Clear Playlist"
-                    primary
-                    icon={<List size="small" />}
-                    onClick={() => {
-                      const confirmation = window.confirm(
-                        "Are you sure you want to clear the playlist? This cannot be undone.",
-                      )
-                      if (confirmation) {
-                        globalServices.roomService.send("ADMIN_CLEAR_PLAYLIST")
-                      }
-                    }}
-                  />
-                )}
-              </Box>
-            </Box>
-          )}
-        </Box>
+        <Sidebar />
       </Box>
     </Box>
   )

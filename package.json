@@ -8,6 +8,7 @@
     "@chakra-ui/gatsby-plugin": "^3.0.6",
     "@chakra-ui/react": "^2.3.2",
     "@emoji-mart/data": "^1.0.6",
+    "@emoji-mart/react": "^1.0.1",
     "@emotion/react": "^11.10.4",
     "@emotion/styled": "^11.10.4",
     "@xstate/react": "^3.0.0",
@@ -48,6 +49,7 @@
     "sessionstorage": "^0.1.0",
     "socket.io-client": "^4.5.1",
     "styled-components": "^5.1.0",
+    "text-emoji-parser": "^1.0.8",
     "uuid": "^9.0.0",
     "xstate": "^4.33.6",
     "yarn": "^1.22.4"

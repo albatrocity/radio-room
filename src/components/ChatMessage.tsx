@@ -1,5 +1,14 @@
 import React, { memo, useEffect, useState, useMemo } from "react"
-import { Box, Paragraph, Heading, Text, Image } from "grommet"
+import {
+  Box,
+  Heading,
+  Text,
+  Image,
+  Flex,
+  Stack,
+  Wrap,
+  WrapItem,
+} from "@chakra-ui/react"
 import { format } from "date-fns"
 import { includes, filter, reduce, get, concat } from "lodash/fp"
 import getUrls from "../lib/getUrls"
@@ -34,6 +43,8 @@ const ChatMessage = ({
   showUsername,
   anotherUserMessage,
 }: ChatMessageProps) => {
+  console.log("content", content)
+
   function isImageUrl(url: string) {
     return url.match(/\.(jpeg|jpg|gif|png)$/) != null
   }
@@ -53,7 +64,7 @@ const ChatMessage = ({
   useEffect(() => {
     async function testUrls() {
       const responses = await Promise.all(
-        filter((x) => !isImageUrl(x), urls).map((x) => fetch(x)),
+        filter((x) => isImageUrl(x), urls).map((x) => fetch(x)),
       )
       const blobs = await Promise.all(responses.map((x) => x.blob()))
       const imageUrls = reduce(
@@ -75,74 +86,84 @@ const ChatMessage = ({
 
   return (
     <Box
-      pad={{ horizontal: "medium", vertical: "small" }}
-      border={anotherUserMessage ? null : { side: "bottom" }}
+      px={3}
+      py={1}
+      borderBottom={anotherUserMessage ? undefined : "2px solid gray"}
       background={isMention ? "accent-4" : "none"}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      position="relative"
     >
       {showUsername && (
-        <Box
-          direction="row-responsive"
+        <Stack
+          direction={["column", "row"]}
           align="center"
           gap="small"
           justify="between"
         >
-          <Heading level={4} margin={{ bottom: "xsmall", top: "xsmall" }}>
+          <Heading as="h4" margin={{ bottom: "xsmall", top: "xsmall" }}>
             {user.username}
           </Heading>
-          <Box flex={{ shrink: 0 }} direction="row" gap="xsmall">
+          <Stack flexShrink={0} direction="row" spacing="sm">
             <Text size="xsmall" color="dark-3">
               {time}
             </Text>
             <Text size="xsmall" color="dark-4">
               {dateString}
             </Text>
-          </Box>
-        </Box>
+          </Stack>
+        </Stack>
       )}
-      <Box direction="row" gap="xsmall" flex={true} wrap={true} align="center">
-        <Box flex={{ grow: 1 }}>
-          <Paragraph style={{ margin: 0, wordWrap: "break-word" }}>
-            <ParsedEmojiMessage content={parsedContent} />
-          </Paragraph>
-        </Box>
-        {!showUsername && hovered && (
-          <Box
-            flex={{ shrink: 0 }}
-            direction="row"
-            gap="xsmall"
-            justify="between"
-          >
-            <Text size="xsmall" color="dark-3">
-              {time}
-            </Text>
-            <Text size="xsmall" color="dark-4">
-              {dateString}
-            </Text>
-          </Box>
-        )}
-      </Box>
-      {images.length > 0 && (
-        <Box gap="small">
-          {images.map((x) => (
-            <div key={x}>
-              <Image style={{ maxWidth: "100%" }} fit="contain" src={x} />
-            </div>
-          ))}
-        </Box>
-      )}
-      <Box direction="row" gap="xsmall" align="center">
-        <ReactionCounter
-          onOpenPicker={onOpenReactionPicker}
-          reactTo={{ type: "message", id: timestamp }}
-          reactions={reactions}
-          onReactionClick={onReactionClick}
-          iconColor="dark-5"
-          iconHoverColor="brand"
-          showAddButton={hovered}
-        />
-      </Box>
+      <Wrap spacing="xs" align="center" w="100%">
+        <WrapItem w="100%">
+          <Stack direction="row" spacing={2} w="100%">
+            <Box flex={{ grow: 1 }}>
+              <Text as="p" m={0} wordBreak={"break-word"}>
+                <ParsedEmojiMessage content={parsedContent} />
+              </Text>
+              {images.length > 0 && (
+                <Stack direction="column" spacing={2}>
+                  {images.map((x) => (
+                    <Box key={x}>
+                      <Image
+                        w="100%"
+                        maxW="400px"
+                        objectFit="contain"
+                        src={x}
+                      />
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+            </Box>
+            {!showUsername && hovered && (
+              <Stack
+                flexShrink={0}
+                direction="row"
+                spacing={1}
+                justify="between"
+              >
+                <Text fontSize="xs" color="gray.500">
+                  {time}
+                </Text>
+                <Text fontSize="xs" color="gray.300">
+                  {dateString}
+                </Text>
+              </Stack>
+            )}
+          </Stack>
+        </WrapItem>
+      </Wrap>
+
+      <ReactionCounter
+        onOpenPicker={onOpenReactionPicker}
+        reactTo={{ type: "message", id: timestamp }}
+        reactions={reactions}
+        onReactionClick={onReactionClick}
+        iconColor="dark-5"
+        iconHoverColor="brand"
+        showAddButton={hovered}
+      />
     </Box>
   )
 }

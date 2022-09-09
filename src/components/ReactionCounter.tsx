@@ -1,15 +1,22 @@
-import React, {
-  useRef,
-  memo,
-  useContext,
-  useEffect,
-  useState,
-  RefObject,
-} from "react"
+import React, { useRef, memo, useContext, useEffect, useState } from "react"
 import { useMachine, useSelector } from "@xstate/react"
-import { Box, Button, Layer, ResponsiveContext, Drop } from "grommet"
 import { groupBy, map, keys } from "lodash/fp"
 import { FormAdd, Emoji as EmojiIcon } from "grommet-icons"
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverArrow,
+  PopoverBody,
+  PopoverHeader,
+  Portal,
+  Button,
+  IconButton,
+  Box,
+  Wrap,
+  WrapItem,
+  Hide,
+} from "@chakra-ui/react"
 
 import { reactionsMachine } from "../machines/reactionsMachine"
 import ReactionCounterItem from "./ReactionCounterItem"
@@ -19,59 +26,12 @@ import { AuthContext } from "../machines/authMachine"
 import { EmojiData } from "emoji-mart"
 
 interface ReactionAddButtonProps {
-  onOpenPicker: ({
-    ref,
-    reactTo,
-  }: {
-    ref: RefObject<HTMLButtonElement>
-    reactTo: {}
-  }) => void
+  onOpenPicker: ({ reactTo }: { reactTo: {} }) => void
   reactTo: {}
   iconColor: string
   iconHoverColor: string
   buttonColor: string
-  isMobile: boolean
   disabled: boolean
-}
-
-const ReactionAddButton = ({
-  onOpenPicker,
-  reactTo,
-  iconColor,
-  iconHoverColor,
-  buttonColor,
-  isMobile,
-  disabled = false,
-}: ReactionAddButtonProps) => {
-  const ref = useRef<HTMLButtonElement>()
-  const [hovered, setHovered] = useState(false)
-
-  return (
-    <Button
-      size="small"
-      plain
-      disabled={disabled}
-      ref={ref}
-      color={buttonColor}
-      onClick={() => onOpenPicker({ ref, reactTo })}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      icon={
-        <>
-          <EmojiIcon
-            color={hovered ? iconHoverColor : iconColor}
-            size="small"
-          />
-          {!isMobile && (
-            <FormAdd
-              color={hovered ? iconHoverColor : iconColor}
-              size="small"
-            />
-          )}
-        </>
-      }
-    />
-  )
 }
 
 const currentUserSelector = (state: { context: AuthContext }) =>
@@ -115,26 +75,12 @@ const ReactionCounter = ({
   }, [reactTo])
 
   const emoji = groupBy("emoji", state.context.reactions)
-  const size = useContext(ResponsiveContext)
-  const isMobile = size === "small"
 
   return (
-    <Box direction="row" wrap={false} gap="xsmall" align="center">
-      <Box
-        direction="row"
-        wrap={!isMobile}
-        flex={isMobile ? { grow: 1, shrink: 1 } : undefined}
-      >
-        <Box
-          overflow={
-            isMobile ? { horizontal: "auto", vertical: "hidden" } : "hidden"
-          }
-          gap="xsmall"
-          wrap={!isMobile}
-          align="center"
-          direction="row"
-        >
-          {keys(emoji).map((x) => (
+    <Box position="relative">
+      <Wrap py={1}>
+        {keys(emoji).map((x) => (
+          <WrapItem>
             <ReactionCounterItem
               key={x}
               count={emoji[x].length}
@@ -147,57 +93,52 @@ const ReactionCounter = ({
               emoji={x}
               color={buttonColor}
             />
-          ))}
-        </Box>
-      </Box>
-
-      <Box flex={{ shrink: 1, grow: 0 }}>
-        <ReactionAddButton
-          onOpenPicker={(options) => send("TOGGLE", { data: options })}
-          reactTo={reactTo}
-          buttonColor={buttonColor}
-          iconColor={showAddButton ? iconColor : "transparent"}
-          disabled={!showAddButton}
-          isMobile={isMobile}
-          iconHoverColor={iconHoverColor}
-        />
-      </Box>
-
-      {state.matches("open") && (
-        <>
-          {isMobile ? (
-            <Layer
-              responsive={false}
-              onClose={() => send("TOGGLE")}
-              onClickOutside={() => send("TOGGLE")}
-              style={{ backgroundColor: "transparent" }}
-            >
-              <Box>
-                <ReactionPicker
-                  onSelect={(emoji: EmojiData) =>
-                    send("SELECT_REACTION", { data: emoji })
-                  }
-                />
-              </Box>
-            </Layer>
-          ) : (
-            <Drop
-              target={state.context.dropRef.current}
-              plain
-              overflow="visible"
-              onClickOutside={() => send("TOGGLE")}
-              onEsc={() => send("TOGGLE")}
-              align={{ top: "top", right: "right" }}
-            >
-              <ReactionPicker
-                onSelect={(emoji: EmojiData) =>
-                  send("SELECT_REACTION", { data: emoji })
-                }
-              />
-            </Drop>
-          )}
-        </>
-      )}
+          </WrapItem>
+        ))}
+        <WrapItem></WrapItem>
+      </Wrap>
+      <Popover
+        // isLazy
+        isOpen={state.matches("open")}
+        onClose={() => send("TOGGLE")}
+        placement="top-start"
+      >
+        <PopoverTrigger>
+          <IconButton
+            p={1}
+            bg="transparent"
+            aria-label="Add reaction"
+            size="small"
+            disabled={!showAddButton}
+            color={buttonColor}
+            onClick={() => send("TOGGLE", { data: { reactTo } })}
+            icon={
+              <>
+                <EmojiIcon size="small" />
+                <Hide below="md">
+                  <FormAdd size="small" />
+                </Hide>
+              </>
+            }
+          />
+        </PopoverTrigger>
+        <PopoverContent>
+          <PopoverArrow />
+          <PopoverBody
+            sx={{
+              "em-emoji-picker": {
+                "--shadow": "0",
+              },
+            }}
+          >
+            <ReactionPicker
+              onSelect={(emoji: EmojiData) => {
+                send("SELECT_REACTION", { data: emoji })
+              }}
+            />
+          </PopoverBody>
+        </PopoverContent>
+      </Popover>
     </Box>
   )
 }

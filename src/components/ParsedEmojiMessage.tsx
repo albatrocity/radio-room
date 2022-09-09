@@ -1,45 +1,32 @@
-import React, { useContext } from "react"
+import React from "react"
 import Linkify from "react-linkify"
 import nl2br from "react-nl2br"
-import { Emoji, EmojiData } from "emoji-mart"
-import { ResponsiveContext, ThemeContext, Anchor } from "grommet"
+import { Link } from "@chakra-ui/react"
+import { MultiLineParser } from "text-emoji-parser"
 
-const colons = `:[a-zA-Z0-9-_+]+:`
-const skin = `:skin-tone-[2-6]:`
-const colonsRegex = new RegExp(`(${colons}${skin}|${colons})`, "g")
-
-const componentDecorator = (href, text, key) => (
-  <Anchor href={href} key={key} target="_blank" rel="noopener noreferrer">
+const componentDecorator = (href: string, text: string, key: any) => (
+  <Link href={href} key={key} target="_blank" rel="noopener noreferrer">
     {text}
-  </Anchor>
+  </Link>
 )
 
 const ParsedEmojiMessage = ({ content }: { content: string }) => {
-  const theme = useContext(ThemeContext)
-  const size = useContext(ResponsiveContext)
-  const emojiSize = parseInt(theme.paragraph[size].size.replace("px", "")) + 4
+  const ParsedNode = MultiLineParser(
+    content,
+    {
+      SplitLinesTag: "p",
+      Rule: /(?:\:[^\:]+\:(?:\:skin-tone-(?:\d)\:)?)/gi,
+    },
+    (Rule) => {
+      return <em-emoji shortcodes={Rule} />
+    },
+  )
 
   return (
     <>
-      {content.split(colonsRegex).map((emoji, idx) => {
-        return (
-          <Emoji
-            key={idx}
-            emoji={emoji}
-            size={emojiSize}
-            set="apple"
-            fallback={(emoji: EmojiData, props) => {
-              return emoji ? (
-                `:${emoji.short_names[0]}:`
-              ) : (
-                <Linkify componentDecorator={componentDecorator}>
-                  {nl2br(props.emoji)}
-                </Linkify>
-              )
-            }}
-          />
-        )
-      })}
+      <Linkify componentDecorator={componentDecorator}>
+        {nl2br(ParsedNode)}
+      </Linkify>
     </>
   )
 }

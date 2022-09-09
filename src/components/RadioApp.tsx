@@ -1,9 +1,12 @@
 import React, { useContext, useEffect } from "react"
+import data from "@emoji-mart/data"
+import { init } from "emoji-mart"
 import { Main } from "grommet"
 import { usePageVisibility } from "react-page-visibility"
 
 import { GlobalStateContext } from "../contexts/global"
 import Room from "./Room"
+init({ data })
 
 const RadioApp = () => {
   const isVisible = usePageVisibility()
