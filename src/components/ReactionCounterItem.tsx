@@ -10,7 +10,7 @@ interface ReactionCounterItemProps {
   count: number
   users: string[]
   emoji: string
-  onReactionClick: ({ colons }: { colons: EmojiData }) => void
+  onReactionClick: (emoji: EmojiData) => void
   currentUserId: string
   color: string
 }
@@ -39,7 +39,7 @@ const ReactionCounterItem = ({
         aria-label={`${emoji} reactions`}
         color={color}
         gap="small"
-        onClick={() => onReactionClick({ colons: emoji })}
+        onClick={() => onReactionClick({ short_names: emoji })}
         size="small"
         style={{ padding: "0.1rem 0.2rem" }}
         icon={

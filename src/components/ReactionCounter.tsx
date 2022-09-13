@@ -1,4 +1,4 @@
-import React, { useRef, memo, useContext, useEffect, useState } from "react"
+import React, { memo, useContext, useEffect } from "react"
 import { useMachine, useSelector } from "@xstate/react"
 import { groupBy, map, keys } from "lodash/fp"
 import { FormAdd, Emoji as EmojiIcon } from "grommet-icons"
@@ -8,9 +8,6 @@ import {
   PopoverContent,
   PopoverArrow,
   PopoverBody,
-  PopoverHeader,
-  Portal,
-  Button,
   IconButton,
   Box,
   Wrap,
@@ -24,14 +21,16 @@ import ReactionPicker from "./ReactionPicker"
 import { GlobalStateContext } from "../contexts/global"
 import { AuthContext } from "../machines/authMachine"
 import { EmojiData } from "emoji-mart"
+import { ReactionSubject } from "../types/ReactionSubject"
+import { Reaction } from "../types/Reaction"
 
 interface ReactionAddButtonProps {
   onOpenPicker: ({ reactTo }: { reactTo: {} }) => void
-  reactTo: {}
+  reactTo: ReactionSubject
   iconColor: string
-  iconHoverColor: string
-  buttonColor: string
-  disabled: boolean
+  iconHoverColor?: string
+  buttonColor?: string
+  disabled?: boolean
 }
 
 const currentUserSelector = (state: { context: AuthContext }) =>
@@ -40,13 +39,13 @@ const reactionsSelector = (state) => state.context.reactions
 
 interface ReactionCounterProps extends ReactionAddButtonProps {
   showAddButton: boolean
+  reactions: Reaction[]
+  onReactionClick: (emoji: EmojiData) => void
 }
 
 const ReactionCounter = ({
   reactTo,
   buttonColor,
-  iconColor,
-  iconHoverColor,
   showAddButton,
 }: ReactionCounterProps) => {
   const globalServices = useContext(GlobalStateContext)
@@ -80,16 +79,14 @@ const ReactionCounter = ({
     <Box position="relative">
       <Wrap py={1}>
         {keys(emoji).map((x) => (
-          <WrapItem>
+          <WrapItem key={x}>
             <ReactionCounterItem
-              key={x}
               count={emoji[x].length}
               users={map("user", emoji[x])}
               currentUserId={currentUser.userId}
-              onReactionClick={({ colons }: { colons: EmojiData }) => {
+              onReactionClick={({ colons }) => {
                 send("SELECT_REACTION", { data: colons })
               }}
-              reactTo={reactTo}
               emoji={x}
               color={buttonColor}
             />
@@ -98,7 +95,6 @@ const ReactionCounter = ({
         <WrapItem></WrapItem>
       </Wrap>
       <Popover
-        // isLazy
         isOpen={state.matches("open")}
         onClose={() => send("TOGGLE")}
         placement="top-start"

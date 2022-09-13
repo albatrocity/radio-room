@@ -1,16 +1,6 @@
 import React, { memo, useEffect, useState, useMemo } from "react"
-import {
-  Box,
-  Heading,
-  Text,
-  Image,
-  Flex,
-  Stack,
-  Wrap,
-  WrapItem,
-} from "@chakra-ui/react"
+import { Box, Text, Image, Stack, Wrap, WrapItem } from "@chakra-ui/react"
 import { format } from "date-fns"
-import { includes, filter, reduce, get, concat } from "lodash/fp"
 import getUrls from "../lib/getUrls"
 
 import ReactionCounter from "./ReactionCounter"
@@ -20,7 +10,7 @@ import { EmojiData } from "emoji-mart"
 
 export interface ChatMessageProps {
   content: string
-  mentions: []
+  mentions: string[]
   timestamp: string
   user: User
   currentUserId: string
@@ -43,40 +33,34 @@ const ChatMessage = ({
   showUsername,
   anotherUserMessage,
 }: ChatMessageProps) => {
-  console.log("content", content)
-
   function isImageUrl(url: string) {
     return url.match(/\.(jpeg|jpg|gif|png)$/) != null
   }
-  const [parsedImageUrls, setParsedImageUrls] = useState([])
+  const [parsedImageUrls, setParsedImageUrls] = useState<string[]>([])
   const [hovered, setHovered] = useState(false)
   const date = new Date(timestamp)
   const time = format(date, "p")
   const dateString = format(date, "M/d/y")
-  const isMention = includes(currentUserId, mentions)
+  const isMention = mentions.indexOf(currentUserId) > -1
   const urls = useMemo((): string[] => getUrls(content), [content])
-  const images = concat(
-    filter((x: string) => isImageUrl(x), urls),
-    parsedImageUrls,
-  )
-  const parsedContent = reduce((mem, x) => mem.replace(x, ""), content, images)
+  const images = [
+    ...parsedImageUrls,
+    ...urls.filter((x: string) => isImageUrl(x)),
+  ]
+  const parsedContent = images.reduce((mem, x) => mem.replace(x, ""), content)
 
   useEffect(() => {
     async function testUrls() {
       const responses = await Promise.all(
-        filter((x) => isImageUrl(x), urls).map((x) => fetch(x)),
+        urls.filter((x) => isImageUrl(x)).map((x) => fetch(x)),
       )
       const blobs = await Promise.all(responses.map((x) => x.blob()))
-      const imageUrls = reduce(
-        (mem, x) => {
-          if (get("type", x).indexOf("image") > -1) {
-            mem.push(urls[blobs.indexOf(x)])
-          }
-          return mem
-        },
-        [],
-        blobs,
-      )
+      const imageUrls = blobs.reduce<string[]>((mem, x) => {
+        if ((x?.type || "").indexOf("image") > -1) {
+          mem.push(urls[blobs.indexOf(x)])
+        }
+        return mem
+      }, [])
       if (imageUrls.length) {
         setParsedImageUrls(imageUrls)
       }
@@ -101,14 +85,14 @@ const ChatMessage = ({
           gap="small"
           justify="between"
         >
-          <Heading as="h4" margin={{ bottom: "xsmall", top: "xsmall" }}>
+          <Text my="sm" fontWeight={700}>
             {user.username}
-          </Heading>
+          </Text>
           <Stack flexShrink={0} direction="row" spacing="sm">
-            <Text size="xsmall" color="dark-3">
+            <Text fontSize="xs" color="dark-3">
               {time}
             </Text>
-            <Text size="xsmall" color="dark-4">
+            <Text fontSize="xs" color="dark-4">
               {dateString}
             </Text>
           </Stack>

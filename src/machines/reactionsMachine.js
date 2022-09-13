@@ -36,7 +36,7 @@ export const reactionsMachine = createMachine(
           SELECT_REACTION: [
             {
               target: "closed",
-              actions: ["addReaction"],
+              actions: ["addReaction", "log"],
               cond: "reactionIsNew",
             },
             {

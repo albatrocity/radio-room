@@ -1,5 +1,6 @@
 import React from "react"
 import Picker from "@emoji-mart/react"
+import { EmojiData } from "emoji-mart"
 import data from "@emoji-mart/data"
 
 interface ReactionPickerProps {
