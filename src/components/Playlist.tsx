@@ -1,5 +1,5 @@
 import React, { useContext } from "react"
-import { Box, Text, List, ResponsiveContext } from "grommet"
+import { Text, Stack, StackDivider } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { User } from "../types/User"
 
@@ -12,47 +12,41 @@ interface PlaylistItem {
 }
 
 const Playlist = ({ data = [] }: { data: PlaylistItem[] }) => {
-  const size = useContext(ResponsiveContext)
-  const isMobile = size === "small"
   return (
-    <List
-      data={data}
-      children={(item: PlaylistItem) => (
-        <Box
-          direction={"row-responsive"}
-          gap={isMobile ? "small" : "medium"}
-          justify="between"
-          align="center"
-        >
-          {(item.track || item.album) && (
-            <Box flex={true} direction="column">
-              <Text weight={700}>{item.track}</Text>
-              <Box>
-                <Text size={isMobile ? "xsmall" : "small"}>{item.album}</Text>
-              </Box>
-            </Box>
-          )}
-          {item.artist && (
-            <Box flex={{ grow: 0, shrink: 1 }} wrap={true}>
-              <Text size={isMobile ? "small" : "medium"}>{item.artist}</Text>
-            </Box>
-          )}
-          <Box
-            direction={isMobile ? "row" : "column"}
-            gap={isMobile ? "xsmall" : "none"}
-            justify={isMobile ? "start" : "around"}
+    <Stack direction="column" divider={<StackDivider borderColor="gray.200" />}>
+      {data.map((item) => {
+        return (
+          <Stack
+            key={item.timestamp.toString()}
+            direction={["column", "row"]}
+            justifyContent="space-between"
+            align="stretch"
+            width="100%"
           >
-            <Text size="xsmall">{format(item.timestamp, "p")}</Text>
-            {item.dj && (
-              <Text size="xsmall">
-                {" "}
-                {isMobile && <>•</>} {item.dj.username}
+            <Stack direction="column">
+              {(item.track || item.album) && (
+                <Text fontWeight={"bold"}>{item.track}</Text>
+              )}
+              {item.artist && <Text>{item.artist}</Text>}
+            </Stack>
+            <Stack
+              direction={["row", "column"]}
+              justifyContent={["space-between", "space-around"]}
+            >
+              <Text color="blackAlpha.500" fontSize="xs">
+                {format(item.timestamp, "p")}
               </Text>
-            )}
-          </Box>
-        </Box>
-      )}
-    />
+              {item.dj && (
+                <Text color="blackAlpha.500" fontSize="xs">
+                  {" "}
+                  {item.dj.username}
+                </Text>
+              )}
+            </Stack>
+          </Stack>
+        )
+      })}
+    </Stack>
   )
 }
 

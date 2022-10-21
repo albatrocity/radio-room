@@ -91,7 +91,7 @@ const ScrollInner = ({
         >
           <Button
             elevation="large"
-            onClick={scrollToBottom}
+            onClick={() => scrollToBottom()}
             primary
             icon={<LinkBottom size="small" />}
             label={`Scroll to bottom ${

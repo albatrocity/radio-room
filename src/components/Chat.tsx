@@ -1,6 +1,6 @@
 import React, { memo, useContext } from "react"
 import { useMachine, useSelector } from "@xstate/react"
-import { Box, Flex } from "@chakra-ui/react"
+import { Box, Flex, Grid, GridItem } from "@chakra-ui/react"
 
 import { GlobalStateContext } from "../contexts/global"
 import ChatMessages from "./ChatMessages"
@@ -42,27 +42,33 @@ const Chat = ({
   const currentUserId = currentUser.userId
 
   return (
-    <Flex
-      direction="column"
+    <Grid
       className="chat"
       height="100%"
-      justify="between"
-      grow={1}
-      shrink={1}
-      gap="small"
+      flexGrow={1}
+      flexShrink={1}
+      templateAreas={[
+        `"chat"
+      "input"
+    `,
+      ]}
+      gridTemplateRows={"auto 1fr"}
+      gridTemplateColumns={"1fr auto"}
       sx={{
         filter: isUnauthorized ? "blur(0.5rem)" : "none",
       }}
     >
-      <Box h="100%" w="100%" className="messages-container">
-        <ChatMessages
-          onOpenReactionPicker={onOpenReactionPicker}
-          onReactionClick={onReactionClick}
-          messages={chatState.context.messages}
-          currentUserId={currentUserId}
-        />
-      </Box>
-      <Box px={2} py={2}>
+      <GridItem height="100%" area={"chat"} minHeight={0}>
+        <Box h="100%" w="100%" className="messages-container">
+          <ChatMessages
+            onOpenReactionPicker={onOpenReactionPicker}
+            onReactionClick={onReactionClick}
+            messages={chatState.context.messages}
+            currentUserId={currentUserId}
+          />
+        </Box>
+      </GridItem>
+      <GridItem px={2} py={2} area={"input"}>
         <TypingIndicator currentUserId={currentUserId} />
         <ChatInput
           modalActive={modalActive}
@@ -72,8 +78,8 @@ const Chat = ({
             chatSend("SUBMIT_MESSAGE", { data: msg })
           }
         />
-      </Box>
-    </Flex>
+      </GridItem>
+    </Grid>
   )
 }
 

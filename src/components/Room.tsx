@@ -2,7 +2,7 @@ import React, { useCallback, useEffect } from "react"
 import { useSelector } from "@xstate/react"
 import Konami from "react-konami-code"
 
-import { Box, Grid, GridItem, Flex } from "@chakra-ui/react"
+import { Box, Grid, GridItem } from "@chakra-ui/react"
 
 import FormAdminMeta from "./FormAdminMeta"
 import FormAdminArtwork from "./FormAdminArtwork"
@@ -147,55 +147,68 @@ const Room = () => {
       ]}
       gridTemplateRows={"auto 1fr"}
       gridTemplateColumns={"1fr auto"}
-      height="100%"
-      width="100%"
     >
       <Konami
         action={() => globalServices.roomService.send("ACTIVATE_ADMIN")}
       />
 
+      <GridItem area="header">
+        <PlayerUi
+          onShowPlaylist={() =>
+            globalServices.roomService.send("TOGGLE_PLAYLIST")
+          }
+          hasPlaylist={playlist.length > 0}
+          onReactionClick={toggleReaction}
+          onOpenReactionPicker={onOpenReactionPicker}
+        />
+      </GridItem>
+
+      <GridItem area="chat" minHeight={0}>
+        <Chat
+          modalActive={isEditing}
+          onOpenReactionPicker={onOpenReactionPicker}
+          onReactionClick={toggleReaction}
+        />
+      </GridItem>
+      <GridItem area="sidebar" h="100%">
+        <Sidebar />
+      </GridItem>
+
       <Drawer
         isOpen={playlistActive}
         placement="left"
         heading="Playlist"
+        size={["full", "lg"]}
         onClose={() => globalServices.roomService.send("TOGGLE_PLAYLIST")}
       >
-        <Box>
-          <Playlist data={playlist} />
-        </Box>
+        <Playlist data={playlist} />
       </Drawer>
 
-      <Modal
+      <FormUsername
         isOpen={isEditingUsername}
         onClose={() => hideEditForm()}
-        heading="Your Name"
-      >
-        <FormUsername
-          currentUser={currentUser}
-          isNewUser={isNewUser}
-          onClose={hideEditForm}
-          onSubmit={(username) => {
-            globalServices.authService.send({
-              type: "UPDATE_USERNAME",
-              data: username,
-            })
-            hideEditForm()
-          }}
-        />
-      </Modal>
+        currentUser={currentUser}
+        isNewUser={isNewUser}
+        onClose={hideEditForm}
+        onSubmit={(username) => {
+          globalServices.authService.send({
+            type: "UPDATE_USERNAME",
+            data: username,
+          })
+          hideEditForm()
+        }}
+      />
 
-      <Modal isOpen={isUnauthorized} canClose={false} heading="Password">
-        <FormPassword
-          currentUser={currentUser}
-          error={passwordError}
-          onSubmit={(password) => {
-            globalServices.authService.send({
-              type: "SET_PASSWORD",
-              data: password,
-            })
-          }}
-        />
-      </Modal>
+      <FormPassword
+        isOpen={isUnauthorized}
+        error={passwordError}
+        onSubmit={(password) => {
+          globalServices.authService.send({
+            type: "SET_PASSWORD",
+            data: password,
+          })
+        }}
+      />
 
       <Modal
         isOpen={isModalViewingListeners}
@@ -225,11 +238,13 @@ const Room = () => {
         <AboutContent />
       </Modal>
 
-      {isEditingMeta && (
-        <Modal onClose={hideEditForm} heading="Set Station Info">
-          <FormAdminMeta onSubmit={(value) => socket.emit("fix meta", value)} />
-        </Modal>
-      )}
+      <Modal
+        isOpen={isEditingMeta}
+        onClose={hideEditForm}
+        heading="Set Station Info"
+      >
+        <FormAdminMeta onSubmit={(value) => socket.emit("fix meta", value)} />
+      </Modal>
 
       <Modal
         isOpen={isEditingArtwork}
@@ -241,41 +256,13 @@ const Room = () => {
         />
       </Modal>
 
-      <Modal
+      <FormAdminSettings
         isOpen={isEditingSettings}
         onClose={hideEditForm}
-        heading="Settings"
-      >
-        <FormAdminSettings
-          onSubmit={(value) => {
-            socket.emit("settings", value)
-          }}
-        />
-      </Modal>
-
-      <GridItem area="header">
-        <PlayerUi
-          onShowPlaylist={() =>
-            globalServices.roomService.send("TOGGLE_PLAYLIST")
-          }
-          hasPlaylist={playlist.length > 0}
-          onReactionClick={toggleReaction}
-          onOpenReactionPicker={onOpenReactionPicker}
-        />
-      </GridItem>
-
-      <GridItem area="chat" height="100%">
-        <Flex direction="row" height="100%" p="md">
-          <Chat
-            modalActive={isEditing}
-            onOpenReactionPicker={onOpenReactionPicker}
-            onReactionClick={toggleReaction}
-          />
-        </Flex>
-      </GridItem>
-      <GridItem area="sidebar" h="100%">
-        <Sidebar />
-      </GridItem>
+        onSubmit={(value) => {
+          socket.emit("settings", value)
+        }}
+      />
     </Grid>
   )
 }

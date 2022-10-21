@@ -57,7 +57,7 @@ const NowPlaying = ({
     }
   }, [coverUrl])
 
-  const artworkSize = [24, 60]
+  const artworkSize = [24, "120px", "220px"]
 
   return (
     <Box p={3} background="accent-1">

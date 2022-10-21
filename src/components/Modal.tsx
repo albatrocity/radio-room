@@ -6,17 +6,18 @@ import {
   ModalContent,
   ModalHeader,
   ModalBody,
+  ModalFooter,
   ModalCloseButton,
+  Button,
 } from "@chakra-ui/react"
 
 interface Props {
   children: JSX.Element
-  responsive?: boolean
   onClose?: () => void
   heading?: string
   canClose?: boolean
-  contentPad?: {} | string[]
   isOpen?: boolean
+  footer?: JSX.Element | null
 }
 
 const Modal = ({
@@ -24,18 +25,19 @@ const Modal = ({
   onClose = () => void 0,
   heading,
   canClose = true,
-  contentPad,
   isOpen = false,
+  footer = null,
 }: Props) => {
   return (
     <ChakraModal isOpen={isOpen} onClose={onClose}>
       <ModalOverlay />
 
       <ModalContent mx={2}>
-        {heading && <ModalHeader>{heading}</ModalHeader>}
+        <ModalHeader>{heading}</ModalHeader>
 
         {canClose && <ModalCloseButton />}
-        <ModalBody p={contentPad}>{children}</ModalBody>
+        <ModalBody>{children}</ModalBody>
+        <ModalFooter>{footer}</ModalFooter>
       </ModalContent>
     </ChakraModal>
   )

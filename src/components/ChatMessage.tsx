@@ -79,12 +79,7 @@ const ChatMessage = ({
       position="relative"
     >
       {showUsername && (
-        <Stack
-          direction={["column", "row"]}
-          align="center"
-          gap="small"
-          justify="between"
-        >
+        <Stack direction={["row"]} justifyContent="space-between">
           <Text my="sm" fontWeight={700}>
             {user.username}
           </Text>

@@ -1,5 +1,15 @@
 import React from "react"
-import { Box, Stack, Flex, Button, Heading, IconButton } from "@chakra-ui/react"
+import {
+  Box,
+  Stack,
+  Flex,
+  Button,
+  Heading,
+  IconButton,
+  Show,
+  Wrap,
+  WrapItem,
+} from "@chakra-ui/react"
 import { useSelector } from "@xstate/react"
 import { SettingsOption, List, HelpOption } from "grommet-icons"
 import Listeners from "./Listeners"
@@ -54,92 +64,101 @@ const Sidebar = (props: Props) => {
             onEditUser={() => globalServices.roomService.send("EDIT_USERNAME")}
           />
         </Flex>
-        {!isAdmin && (
-          <Flex p={3} align="center" grow={1} shrink={0}>
-            <IconButton
-              size="small"
-              aria-label="Help"
-              variant="outline"
-              icon={<HelpOption size="medium" color="brand" />}
-              onClick={() => globalServices.roomService.send("VIEW_HELP")}
-            />
-          </Flex>
+        <Show above="sm">
+          {!isAdmin && (
+            <Flex p={3} align="center" grow={1} shrink={0}>
+              <IconButton
+                size="small"
+                aria-label="Help"
+                variant="outline"
+                icon={<HelpOption size="medium" color="brand" />}
+                onClick={() => globalServices.roomService.send("VIEW_HELP")}
+              />
+            </Flex>
+          )}
+        </Show>
+        {isAdmin && (
+          <Show above="sm">
+            <Stack direction="column" p={3}>
+              <Heading as="h3" size="md" margin={{ bottom: "xsmall" }}>
+                Admin
+              </Heading>
+
+              <Wrap>
+                {isNotDj && (
+                  <WrapItem>
+                    <Button
+                      onClick={() =>
+                        globalServices.roomService.send("START_DJ_SESSION")
+                      }
+                      variant="solid"
+                    >
+                      I am the DJ
+                    </Button>
+                  </WrapItem>
+                )}
+                <WrapItem>
+                  <Button
+                    size="xs"
+                    onClick={() =>
+                      globalServices.roomService.send("ADMIN_EDIT_ARTWORK")
+                    }
+                  >
+                    Change Cover Art
+                  </Button>
+                </WrapItem>
+
+                <WrapItem>
+                  <Button
+                    size="xs"
+                    variant={isEditingSettings ? "primary" : "outline"}
+                    leftIcon={<SettingsOption size="small" />}
+                    onClick={() =>
+                      globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
+                    }
+                  >
+                    Settings
+                  </Button>
+                </WrapItem>
+                {isDj && (
+                  <>
+                    <WrapItem>
+                      <Button
+                        size="xs"
+                        variant="solid"
+                        colorScheme="red"
+                        leftIcon={<List size="small" color="white" />}
+                        onClick={() => {
+                          const confirmation = window.confirm(
+                            "Are you sure you want to clear the playlist? This cannot be undone.",
+                          )
+                          if (confirmation) {
+                            globalServices.roomService.send(
+                              "ADMIN_CLEAR_PLAYLIST",
+                            )
+                          }
+                        }}
+                      >
+                        Clear Playlist
+                      </Button>
+                    </WrapItem>
+                    <WrapItem>
+                      <Button
+                        size="xs"
+                        onClick={() =>
+                          globalServices.roomService.send("END_DJ_SESSION")
+                        }
+                      >
+                        End DJ Session
+                      </Button>
+                    </WrapItem>
+                  </>
+                )}
+              </Wrap>
+            </Stack>
+          </Show>
         )}
       </Stack>
-      {isAdmin && (
-        <Flex p="medium" shrink={0}>
-          <Heading as="h1" margin={{ bottom: "xsmall" }}>
-            Admin
-          </Heading>
-          <Box gap="small">
-            {isNotDj && (
-              <Button
-                onClick={() =>
-                  globalServices.roomService.send("START_DJ_SESSION")
-                }
-                variant="solid"
-              >
-                I am the DJ
-              </Button>
-            )}
-            {isDj && (
-              <Button
-                onClick={() =>
-                  globalServices.roomService.send("END_DJ_SESSION")
-                }
-              >
-                End DJ Session
-              </Button>
-            )}
-            <Button
-              onClick={() =>
-                globalServices.roomService.send("ADMIN_EDIT_ARTWORK")
-              }
-            >
-              Change Cover Art
-            </Button>
-
-            <Box
-            // animation={
-            //   isEditingSettings
-            //     ? {
-            //         type: "pulse",
-            //         delay: 0,
-            //         duration: 400,
-            //         size: "medium",
-            //       }
-            //     : null
-            // }
-            >
-              <Button
-                variant={isEditingSettings ? "primary" : "outline"}
-                leftIcon={<SettingsOption size="small" />}
-                onClick={() =>
-                  globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
-                }
-              >
-                Settings
-              </Button>
-            </Box>
-            {isDj && (
-              <Button
-                variant="solid"
-                leftIcon={<List size="small" />}
-                onClick={() => {
-                  const confirmation = window.confirm(
-                    "Are you sure you want to clear the playlist? This cannot be undone.",
-                  )
-                  if (confirmation) {
-                    globalServices.roomService.send("ADMIN_CLEAR_PLAYLIST")
-                  }
-                }}
-              >
-                Clear Playlist
-              </Button>
-            )}
-          </Box>
-        </Flex>
-      )}
     </Box>
   )
 }
