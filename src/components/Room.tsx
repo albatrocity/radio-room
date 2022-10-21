@@ -271,7 +271,7 @@ const Room = () => {
           />
         </Flex>
       </GridItem>
-      <GridItem area="sidebar">
+      <GridItem area="sidebar" h="100%">
         <Sidebar />
       </GridItem>
     </Grid>
