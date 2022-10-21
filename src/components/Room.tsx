@@ -133,6 +133,8 @@ const Room = () => {
 
   return (
     <Grid
+      flexGrow={1}
+      flexShrink={1}
       className="room"
       templateAreas={[
         `"header header"

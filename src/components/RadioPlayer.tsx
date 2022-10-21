@@ -1,5 +1,16 @@
 import React, { useRef, memo } from "react"
-import { Box, Button, Nav, RangeInput } from "grommet"
+import {
+  Box,
+  IconButton,
+  HStack,
+  Flex,
+  Show,
+  Hide,
+  Slider,
+  SliderTrack,
+  SliderFilledTrack,
+  SliderThumb,
+} from "@chakra-ui/react"
 import { Play, Pause, VolumeMute, Volume, List } from "grommet-icons"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
@@ -43,38 +54,33 @@ const RadioPlayer = ({
 
   return (
     <Box>
-      <Nav
+      <Flex
+        w="100%"
         direction="row"
         background="accent-4"
         justify="center"
         align="center"
         border={{ side: "bottom", color: "#adb871" }}
-        pad={{ horizontal: "large" }}
+        px="large"
       >
-        <Box
-          align="center"
-          animation={
-            !playing
-              ? {
-                  type: "pulse",
-                  delay: 0,
-                  duration: 400,
-                  size: "large",
-                }
-              : null
-          }
-        >
-          <Button
+        <HStack>
+          <IconButton
+            aria-label={playing ? "Pause" : "Play"}
+            background="transparent"
             icon={playing ? <Pause color="brand" /> : <Play color="brand" />}
             onClick={() => onPlayPause()}
           />
-        </Box>
-        <Button
-          icon={muted ? <VolumeMute color="brand" /> : <Volume color="brand" />}
-          onClick={() => onMute()}
-        />
-        <Box width="medium">
-          {isMobile ? (
+          <IconButton
+            aria-label={muted ? "Unmute" : "Mute"}
+            background="transparent"
+            icon={
+              muted ? <VolumeMute color="brand" /> : <Volume color="brand" />
+            }
+            onClick={() => onMute()}
+          />
+        </HStack>
+        <Flex shrink={0} grow={1} maxW="md">
+          <Hide above="sm">
             <ReactionCounter
               onOpenPicker={onOpenPicker}
               reactTo={{ type: "track", id: trackId }}
@@ -84,22 +90,37 @@ const RadioPlayer = ({
               iconColor="brand"
               showAddButton={true}
             />
-          ) : (
-            <RangeInput
-              value={muted ? 0 : volume}
+          </Hide>
+
+          <Show above="sm">
+            <Slider
+              aria-label="slider-ex-4"
+              value={muted ? 0 : parseFloat(volume)}
               max={1.0}
               min={0}
               step={0.1}
-              onChange={(event) => onVolume(event.target.value)}
-            />
-          )}
-        </Box>
+              onChange={(value) => onVolume(value)}
+            >
+              <SliderTrack bg="whiteAlpha.500">
+                <SliderFilledTrack bg="primary" />
+              </SliderTrack>
+              <SliderThumb boxSize={[6, 3]}>
+                <Box />
+              </SliderThumb>
+            </Slider>
+          </Show>
+        </Flex>
         {hasPlaylist && (
-          <Box flex={{ shrink: 0 }}>
-            <Button onClick={onShowPlaylist} icon={<List color="brand" />} />
-          </Box>
+          <Flex flex={{ shrink: 0 }}>
+            <IconButton
+              aria-label="Playlist"
+              background="transparent"
+              onClick={onShowPlaylist}
+              icon={<List color="brand" />}
+            />
+          </Flex>
         )}
-      </Nav>
+      </Flex>
       <ReactHowler
         src={[streamURL]}
         preload={false}

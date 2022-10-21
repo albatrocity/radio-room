@@ -81,7 +81,7 @@ const theme = {
   },
   heading: {
     level: {
-      "1": {
+      1: {
         small: {
           size: "23px",
           height: "27px",
@@ -103,7 +103,7 @@ const theme = {
           maxWidth: "1216px",
         },
       },
-      "2": {
+      2: {
         small: {
           size: "20px",
           height: "24px",
@@ -125,7 +125,7 @@ const theme = {
           maxWidth: "704px",
         },
       },
-      "3": {
+      3: {
         small: {
           size: "17px",
           height: "21px",
@@ -147,7 +147,7 @@ const theme = {
           maxWidth: "533px",
         },
       },
-      "4": {
+      4: {
         small: {
           size: "15px",
           height: "19px",
@@ -169,7 +169,7 @@ const theme = {
           maxWidth: "363px",
         },
       },
-      "5": {
+      5: {
         small: {
           size: "11px",
           height: "15px",
@@ -191,7 +191,7 @@ const theme = {
           maxWidth: "171px",
         },
       },
-      "6": {
+      6: {
         small: {
           size: "9px",
           height: "13px",

@@ -7,6 +7,7 @@ const theme = {
     "accent-2": "#e55215",
     "accent-3": "#39e7ef",
     "accent-4": "#dbe4a9",
+    "light-1": "#F8F8F8",
   },
   fontSizes: {
     xs: "0.75rem",
