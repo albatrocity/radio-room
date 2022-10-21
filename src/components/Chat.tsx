@@ -1,6 +1,6 @@
 import React, { memo, useContext } from "react"
 import { useMachine, useSelector } from "@xstate/react"
-import { Box } from "grommet"
+import { Box, Flex } from "@chakra-ui/react"
 
 import { GlobalStateContext } from "../contexts/global"
 import ChatMessages from "./ChatMessages"
@@ -42,17 +42,19 @@ const Chat = ({
   const currentUserId = currentUser.userId
 
   return (
-    <Box
+    <Flex
+      direction="column"
       className="chat"
       height="100%"
       justify="between"
-      flex={{ grow: 1, shrink: 1 }}
+      grow={1}
+      shrink={1}
       gap="small"
-      style={{
+      sx={{
         filter: isUnauthorized ? "blur(0.5rem)" : "none",
       }}
     >
-      <Box height="100%" className="messages-container">
+      <Box h="100%" w="100%" className="messages-container">
         <ChatMessages
           onOpenReactionPicker={onOpenReactionPicker}
           onReactionClick={onReactionClick}
@@ -60,7 +62,7 @@ const Chat = ({
           currentUserId={currentUserId}
         />
       </Box>
-      <Box>
+      <Box px={2} py={2}>
         <TypingIndicator currentUserId={currentUserId} />
         <ChatInput
           modalActive={modalActive}
@@ -71,7 +73,7 @@ const Chat = ({
           }
         />
       </Box>
-    </Box>
+    </Flex>
   )
 }
 

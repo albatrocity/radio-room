@@ -1,54 +1,43 @@
 import React from "react"
-import { Box, Heading, Button, Layer } from "grommet"
-import { Close } from "grommet-icons"
+
+import {
+  Modal as ChakraModal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+} from "@chakra-ui/react"
 
 interface Props {
   children: JSX.Element
-  responsive: boolean
-  onClose: () => void
-  heading: string
-  canClose: boolean
-  width: string
-  contentPad: {} | string
+  responsive?: boolean
+  onClose?: () => void
+  heading?: string
+  canClose?: boolean
+  contentPad?: {} | string[]
+  isOpen?: boolean
 }
 
 const Modal = ({
   children,
-  onClose,
+  onClose = () => void 0,
   heading,
   canClose = true,
-  width = "medium",
   contentPad,
-  responsive = false,
+  isOpen = false,
 }: Props) => {
   return (
-    <Layer>
-      <Box
-        fill="horizontal"
-        direction="row"
-        justify="end"
-        align="center"
-        pad={{ horizontal: "medium", vertical: "small" }}
-        border={{ side: "bottom" }}
-        flex={{ shrink: 0 }}
-      >
-        {heading && (
-          <Box flex={{ grow: 1, shrink: 1 }} pad="small">
-            <Heading margin="none" level={3}>
-              {heading}
-            </Heading>
-          </Box>
-        )}
-        {onClose && canClose && (
-          <Box>
-            <Button onClick={() => onClose()} plain icon={<Close />} />
-          </Box>
-        )}
-      </Box>
-      <Box width={width} pad={contentPad || "medium"} overflow="auto">
-        {children}
-      </Box>
-    </Layer>
+    <ChakraModal isOpen={isOpen} onClose={onClose}>
+      <ModalOverlay />
+
+      <ModalContent mx={2}>
+        {heading && <ModalHeader>{heading}</ModalHeader>}
+
+        {canClose && <ModalCloseButton />}
+        <ModalBody p={contentPad}>{children}</ModalBody>
+      </ModalContent>
+    </ChakraModal>
   )
 }
 

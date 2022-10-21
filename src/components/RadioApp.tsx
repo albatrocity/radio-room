@@ -1,7 +1,7 @@
 import React, { useContext, useEffect } from "react"
 import data from "@emoji-mart/data"
 import { init } from "emoji-mart"
-import { Main } from "grommet"
+import { Flex } from "@chakra-ui/react"
 import { usePageVisibility } from "react-page-visibility"
 
 import { GlobalStateContext } from "../contexts/global"
@@ -26,9 +26,9 @@ const RadioApp = () => {
   }, [isVisible])
 
   return (
-    <Main flex={{ grow: 1, shrink: 1 }}>
+    <Flex grow={1} shrink={1} w="100%" h="100vh">
       <Room />
-    </Main>
+    </Flex>
   )
 }
 
