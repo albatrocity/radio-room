@@ -4,7 +4,7 @@ import { Box, Flex } from "@chakra-ui/react"
 
 import { GlobalStateContext } from "../contexts/global"
 import ChatMessages from "./ChatMessages"
-import ChatInput from "./ChatInputNative"
+import ChatInput from "./ChatInput"
 import TypingIndicator from "./TypingIndicator"
 import { chatMachine } from "../machines/chatMachine"
 import { AuthContext } from "../machines/authMachine"
