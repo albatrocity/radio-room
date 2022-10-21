@@ -1,6 +1,15 @@
-import React, { useContext, useEffect, memo, useMemo } from "react"
-import { Box, Heading, Text, ResponsiveContext, Anchor } from "grommet"
+import React, { useEffect, memo, useMemo } from "react"
 import { Music, Unlink } from "grommet-icons"
+import {
+  Box,
+  Heading,
+  Flex,
+  Text,
+  HStack,
+  LinkBox,
+  LinkOverlay,
+  VStack,
+} from "@chakra-ui/react"
 
 import AlbumArtwork from "./AlbumArtwork"
 
@@ -20,7 +29,6 @@ const NowPlaying = ({
   meta,
   coverFound,
 }: NowPlayingProps) => {
-  const size = useContext(ResponsiveContext)
   const {
     album,
     artist,
@@ -30,7 +38,6 @@ const NowPlaying = ({
     title,
   } = meta || {}
   const { mbid, releaseDate } = release || {}
-  const artworkSize = size === "small" ? "xsmall" : "small"
   const releaseUrl = mbid && `https://musicbrainz.org/release/${mbid}`
   const coverUrl = useMemo(
     () =>
@@ -50,35 +57,22 @@ const NowPlaying = ({
     }
   }, [coverUrl])
 
-  const MetaWrapper = ({
-    releaseUrl,
-    children,
-  }: {
-    releaseUrl: string
-    children: JSX.Element
-  }) =>
-    releaseUrl ? (
-      <Anchor href={releaseUrl} target="_blank" color="white">
-        {children}
-      </Anchor>
-    ) : (
-      <>{children}</>
-    )
+  const artworkSize = [24, 60]
 
   return (
-    <Box pad="medium" align="center" background="accent-1">
+    <Box p={3} background="accent-1">
       {offline ? (
         <>
-          <Box direction="row" gap="small" align="center">
+          <Flex direction="row" gap="small" align="center">
             <Unlink color="white" />
-            <Heading margin="none" level={2} color="white">
+            <Heading margin="none" as="h2" size="lg" color="white">
               Offline :(
             </Heading>
-          </Box>
+          </Flex>
         </>
       ) : (
-        <MetaWrapper href={releaseUrl} target="_blank" color="white">
-          <Box direction="row" gap="medium" justify="center">
+        <LinkBox>
+          <HStack spacing={5} justify="center">
             {coverUrl && coverFound ? (
               <Box
                 width={artworkSize}
@@ -88,7 +82,7 @@ const NowPlaying = ({
                 <AlbumArtwork coverUrl={coverUrl} onCover={onCover} />
               </Box>
             ) : (
-              <Box
+              <Flex
                 background="accent-4"
                 width={artworkSize}
                 height={artworkSize}
@@ -96,33 +90,40 @@ const NowPlaying = ({
                 justify="center"
                 flex={{ shrink: 0, grow: 1 }}
               >
-                <Music size="large" color="accent-1" />
-              </Box>
+                <Music size="medium" color="accent-1" />
+              </Flex>
             )}
-            <Box justify="center">
+            <VStack align={"start"} spacing={0}>
               {(track || title) && (
-                <Heading color="accent-4" margin="none" level={3}>
-                  {track || title.replace(/\|/g, "")}
-                </Heading>
+                <LinkOverlay href={releaseUrl} target="_blank">
+                  <Heading
+                    color="accent-4"
+                    margin="none"
+                    as="h3"
+                    size={["md", "lg"]}
+                  >
+                    {track || title.replace(/\|/g, "")}
+                  </Heading>
+                </LinkOverlay>
               )}
               {artist && (
-                <Heading color="accent-4" margin="none" level={4}>
+                <Heading color="accent-4" margin="none" as="h4" size="sm">
                   {artist}
                 </Heading>
               )}
               {album && (
-                <Text color="accent-4" margin="none" size="small">
+                <Text as="span" color="accent-4" margin="none" fontSize="xs">
                   {album}
                 </Text>
               )}
               {releaseDate && (
-                <Text color="accent-4" size="xsmall">
+                <Text as="span" color="accent-4" fontSize="xs">
                   Released {safeDate(releaseDate)}
                 </Text>
               )}
-            </Box>
-          </Box>
-        </MetaWrapper>
+            </VStack>
+          </HStack>
+        </LinkBox>
       )}
     </Box>
   )

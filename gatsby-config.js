@@ -1,6 +1,6 @@
 module.exports = {
   siteMetadata: {
-    title: `🔉 Koney Live`,
+    title: `🔉 Radio`,
     description: `Listen to something`,
     author: `@albatrocity`,
   },
@@ -25,8 +25,8 @@ module.exports = {
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
-        name: `Koney Live`,
-        short_name: `Koney`,
+        name: `Radio`,
+        short_name: `Radio`,
         start_url: `/`,
         background_color: `#fff`,
         theme_color: `#f14561`,

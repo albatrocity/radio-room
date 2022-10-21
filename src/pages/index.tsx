@@ -8,7 +8,7 @@ import SEO from "../components/seo"
 const IndexPage = () => (
   <Layout>
     <>
-      <SEO title="Koney Live" />
+      <SEO title="Radio" />
       <Helmet>
         <meta
           name="viewport"

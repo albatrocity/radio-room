@@ -51,7 +51,7 @@ const Input = memo(
       style={inputStyle}
       value={value}
       autoFocus={autoFocus}
-      // autoComplete="off"
+      autoComplete="off"
       onKeyDown={(e) => {
         if (e.keyCode === 13 && !e.shiftKey) {
           handleSubmit(e)
@@ -80,12 +80,8 @@ const usersSelector = (state) => state.context.users
 
 const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
   const globalServices = useContext(GlobalStateContext)
-  const currentUser = useSelector(
-    globalServices.authService,
-    currentUserSelector,
-  )
+
   const users = useSelector(globalServices.usersService, usersSelector)
-  const { username, userId } = currentUser
 
   const theme = useContext(ThemeContext)
   const inputRef = useRef(null)

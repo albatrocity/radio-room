@@ -1,5 +1,5 @@
 import React, { memo } from "react"
-import { Image, Box } from "grommet"
+import { Image, Box } from "@chakra-ui/react"
 
 interface AlbumArtworkProps {
   coverUrl: string
@@ -7,7 +7,7 @@ interface AlbumArtworkProps {
 }
 
 const AlbumArtwork = ({ coverUrl, onCover }: AlbumArtworkProps) => (
-  <Box width="small" height="small">
+  <Box>
     <Image
       onError={() => {
         onCover(false)

@@ -2,7 +2,11 @@
 import { extendTheme } from "@chakra-ui/react"
 const theme = {
   colors: {
-    primary: "rebeccapurple",
+    primary: "#f14561",
+    "accent-1": "#6fab53",
+    "accent-2": "#e55215",
+    "accent-3": "#39e7ef",
+    "accent-4": "#dbe4a9",
   },
   fontSizes: {
     xs: "0.75rem",
