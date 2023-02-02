@@ -2,17 +2,17 @@ import React from "react"
 import { useMachine } from "@xstate/react"
 import { Formik } from "formik"
 import Spinner from "./Spinner"
-import { HStack, Button, Input } from "@chakra-ui/react"
 import {
-  Form,
+  HStack,
+  Button,
+  Input,
   Box,
-  CheckBox,
-  FormField,
-  Text,
-  Anchor,
-  Heading,
-  TextArea,
-} from "grommet"
+  FormControl,
+  FormLabel,
+  FormHelperText,
+  Textarea,
+} from "@chakra-ui/react"
+import { CheckBox, FormField, Text, Anchor, Heading, TextArea } from "grommet"
 import { Validate } from "grommet-icons"
 
 import { settingsMachine } from "../machines/settingsMachine"
@@ -20,6 +20,7 @@ import socket from "../lib/socket"
 
 import Modal from "./Modal"
 import { ModalProps } from "@chakra-ui/react"
+import { SystemMessage } from "../types/SystemMessage"
 
 interface FormValues {
   fetchMeta: boolean
@@ -37,7 +38,7 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
     services: {
       fetchSettings: () => {
         return new Promise((resolve) => {
-          socket.on("event", (message) => {
+          socket.on("event", (message: SystemMessage) => {
             if (message.type === "SETTINGS") {
               resolve(message.data.settings)
             }
@@ -47,7 +48,7 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
       },
       watchForUpdate: () => {
         return new Promise((resolve) => {
-          socket.on("event", (message) => {
+          socket.on("event", (message: SystemMessage) => {
             if (message.type === "SETTINGS") {
               resolve(message.data.settings)
             }
@@ -63,7 +64,7 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
   return (
     <>
       {state.matches("pending") && (
-        <Box fill>
+        <Box width="100%">
           <Spinner />
         </Box>
       )}
@@ -129,37 +130,38 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
                 }
               >
                 <Box gap="small">
-                  <TextArea
-                    onChange={(e) => {
-                      handleChange(e)
-                      if (e.target.value !== initialValues.extraInfo) {
-                        setTouched({ extraInfo: true })
-                      } else {
-                        setTouched({ extraInfo: false })
-                      }
-                    }}
-                    onBlur={handleBlur}
-                    value={values.extraInfo}
-                    placeholder="Any additional info/links"
-                    name="extraInfo"
-                  />
-                  <FormField
-                    disabled={state.matches("pending")}
-                    info={
-                      <Text size="small" color="text-xweak">
-                        Album Metadata (cover image, release date, info URL) is
-                        automatically fetched from{" "}
-                        <Anchor target="_blank" href="http://musicbrainz.org">
-                          MusicBrainz
-                        </Anchor>{" "}
-                        based on the Title/Artist/Album that your broadcast
-                        software sends to the Shoustcast server. If you're
-                        getting inaccurate data or want to manually set the
-                        cover artwork, disable this option.
-                      </Text>
-                    }
-                  >
+                  <FormControl>
+                    <FormLabel>Any additional info/links</FormLabel>
+                    <Textarea
+                      name="extraInfo"
+                      value={values.extraInfo}
+                      onBlur={handleBlur}
+                      onChange={(e) => {
+                        handleChange(e)
+                        if (e.target.value !== initialValues.extraInfo) {
+                          setTouched({ extraInfo: true })
+                        } else {
+                          setTouched({ extraInfo: false })
+                        }
+                      }}
+                    />
+                    <FormHelperText>Formatted with Markdown</FormHelperText>
+                  </FormControl>
+
+                  <FormControl>
+                    <FormHelperText>
+                      Album Metadata (cover image, release date, info URL) is
+                      automatically fetched from{" "}
+                      <Anchor target="_blank" href="http://musicbrainz.org">
+                        MusicBrainz
+                      </Anchor>{" "}
+                      based on the Title/Artist/Album that your broadcast
+                      software sends to the Shoustcast server. If you're getting
+                      inaccurate data or want to manually set the cover artwork,
+                      disable this option.
+                    </FormHelperText>
                     <CheckBox
+                      disabled={state.matches("pending")}
                       checked={values.fetchMeta}
                       onChange={(e) => {
                         handleChange(e)
@@ -174,7 +176,7 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
                       label="Fetch album metadata"
                       name="fetchMeta"
                     />
-                  </FormField>
+                  </FormControl>
 
                   <FormField
                     disabled={state.matches("pending")}

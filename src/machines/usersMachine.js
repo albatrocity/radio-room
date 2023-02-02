@@ -4,6 +4,7 @@ import { sortBy, uniqBy, reject, find, get } from "lodash/fp"
 
 export const usersMachine = createMachine(
   {
+    predictableActionArguments: true,
     id: "users",
     initial: "connected",
     context: {

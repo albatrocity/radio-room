@@ -4,6 +4,7 @@ import { isNil, find } from "lodash/fp"
 
 export const reactionsMachine = createMachine(
   {
+    predictableActionArguments: true,
     id: "reactions",
     initial: "closed",
     context: {

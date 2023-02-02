@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useState } from "react"
-import { Box, Button } from "grommet"
+import { Box, Button } from "@chakra-ui/react"
 import { LinkBottom } from "grommet-icons"
 import { get, sortBy, isEqual } from "lodash/fp"
 import styled from "styled-components"
@@ -84,20 +84,14 @@ const ScrollInner = ({
         )
       })}
       {!sticky && (
-        <Box
-          elevation="large"
-          style={{ position: "absolute", right: 0, bottom: "1em" }}
-          round="small"
-        >
+        <Box style={{ position: "absolute", right: 0, bottom: "1em" }}>
           <Button
-            elevation="large"
             onClick={() => scrollToBottom()}
-            primary
-            icon={<LinkBottom size="small" />}
-            label={`Scroll to bottom ${
-              messagesSinceLast > 0 ? `(${messagesSinceLast} new)` : ""
-            }`}
-          ></Button>
+            rightIcon={<LinkBottom size="small" />}
+          >
+            Scroll to bottom $
+            {messagesSinceLast > 0 ? `(${messagesSinceLast} new)` : ""}
+          </Button>
         </Box>
       )}
     </>

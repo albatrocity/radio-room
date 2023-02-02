@@ -3,6 +3,7 @@ import socketService from "../lib/socketService"
 
 export const roomMachine = createMachine(
   {
+    predictableActionArguments: true,
     id: "room",
     initial: "connected",
     context: {
@@ -99,7 +100,7 @@ export const roomMachine = createMachine(
             entry: ["setDj"],
             exit: ["setDj"],
             on: {
-              "": [
+              always: [
                 {
                   target: "notDj",
                   in: "#room.admin.notAdmin",
@@ -130,7 +131,7 @@ export const roomMachine = createMachine(
                   username: {},
                   meta: {
                     on: {
-                      "": [
+                      always: [
                         {
                           target: "none",
                           in: "#room.admin.notAdmin",
@@ -140,7 +141,7 @@ export const roomMachine = createMachine(
                   },
                   artwork: {
                     on: {
-                      "": [
+                      always: [
                         {
                           target: "none",
                           in: "#room.admin.notAdmin",
@@ -150,7 +151,7 @@ export const roomMachine = createMachine(
                   },
                   settings: {
                     on: {
-                      "": [
+                      always: [
                         {
                           target: "none",
                           in: "#room.admin.notAdmin",

@@ -3,7 +3,6 @@
 export interface Typegen0 {
   "@@xstate/typegen": true
   internalEvents: {
-    "": { type: "" }
     "done.invoke.getStoredPassword": {
       type: "done.invoke.getStoredPassword"
       data: unknown
@@ -39,9 +38,9 @@ export interface Typegen0 {
   invokeSrcNameMap: {}
   missingImplementations: {
     actions: never
-    services: never
-    guards: never
     delays: never
+    guards: never
+    services: "getStoredPassword" | "getStoredUser" | "setStoredUser" | "socket"
   }
   eventsCausingActions: {
     activateAdmin: "ACTIVATE_ADMIN"
@@ -71,16 +70,26 @@ export interface Typegen0 {
     unsetNew: "UPDATE_USERNAME"
     updateUsername: "UPDATE_USERNAME"
   }
-  eventsCausingServices: {}
+  eventsCausingDelays: {}
   eventsCausingGuards: {
     isAdmin: "KICK_USER"
     passwordAccepted: "SET_PASSWORD_ACCEPTED" | "SET_PASSWORD_REQUIREMENT"
     passwordRejected: "SET_PASSWORD_ACCEPTED"
     requiresPassword: "SET_PASSWORD_REQUIREMENT"
     shouldNotRetry: "USER_DISCONNECTED"
-    shouldRetry: ""
+    shouldRetry: "always"
   }
-  eventsCausingDelays: {}
+  eventsCausingServices: {
+    getStoredPassword: never
+    getStoredUser:
+      | "SETUP"
+      | "SET_PASSWORD_ACCEPTED"
+      | "SET_PASSWORD_REQUIREMENT"
+      | "always"
+      | "done.invoke.getStoredPassword"
+    setStoredUser: "UPDATE_USERNAME"
+    socket: "xstate.init"
+  }
   matchesStates:
     | "authenticated"
     | "authorizing"

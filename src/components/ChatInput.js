@@ -7,7 +7,6 @@ import React, {
   memo,
 } from "react"
 
-import { ThemeContext } from "grommet"
 import { Box, Button, Flex } from "@chakra-ui/react"
 import { Chat } from "grommet-icons"
 import { MentionsInput, Mention } from "react-mentions"
@@ -83,7 +82,6 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
 
   const users = useSelector(globalServices.usersService, usersSelector)
 
-  const theme = useContext(ThemeContext)
   const inputRef = useRef(null)
   const [isTyping, setTyping] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
@@ -117,7 +115,6 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
   }))
 
   const mentionStyle = {
-    backgroundColor: theme.global.colors["accent-4"],
     fontWeight: 700,
     height: "100%",
   }
@@ -125,8 +122,8 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
   const inputStyle = {
     control: {
       backgroundColor: "#fff",
-      padding: theme.global.edgeSize.xsmall,
-      fontSize: theme.text.medium.size,
+      // padding: theme.global.edgeSize.xsmall,
+      // fontSize: theme.text.medium.size,
       fontWeight: "normal",
     },
 
@@ -158,7 +155,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
         borderBottom: "1px solid rgba(0,0,0,0.15)",
 
         "&focused": {
-          backgroundColor: theme.global.colors["accent-4"],
+          // backgroundColor: theme.global.colors["accent-4"],
         },
       },
     },

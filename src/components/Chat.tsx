@@ -1,6 +1,6 @@
 import React, { memo, useContext } from "react"
 import { useMachine, useSelector } from "@xstate/react"
-import { Box, Flex, Grid, GridItem } from "@chakra-ui/react"
+import { Box, Grid, GridItem } from "@chakra-ui/react"
 
 import { GlobalStateContext } from "../contexts/global"
 import ChatMessages from "./ChatMessages"

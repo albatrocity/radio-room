@@ -5,6 +5,7 @@ import { isEmpty, isNil } from "lodash/fp"
 export const audioMachine = createMachine(
   {
     tsTypes: {} as import("./audioMachine.typegen").Typegen0,
+    predictableActionArguments: true,
     id: "audio",
     initial: "offline",
     context: {

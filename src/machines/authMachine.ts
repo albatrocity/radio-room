@@ -44,6 +44,7 @@ function getStoredPassword(ctx, event) {
 
 export const authMachine = createMachine(
   {
+    predictableActionArguments: true,
     tsTypes: {} as import("./authMachine.typegen").Typegen0,
     id: "auth",
     initial: "unauthenticated",
@@ -73,7 +74,7 @@ export const authMachine = createMachine(
       },
       disconnected: {
         on: {
-          "": {
+          always: {
             target: "initiated",
             cond: "shouldRetry",
           },

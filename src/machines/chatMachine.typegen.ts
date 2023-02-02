@@ -8,9 +8,9 @@ export interface Typegen0 {
   invokeSrcNameMap: {}
   missingImplementations: {
     actions: never
-    services: never
-    guards: never
     delays: never
+    guards: never
+    services: "socket"
   }
   eventsCausingActions: {
     addMessage: "NEW_MESSAGE"
@@ -21,9 +21,11 @@ export interface Typegen0 {
     startTyping: "START_TYPING"
     stopTyping: "INIT" | "START_TYPING" | "STOP_TYPING"
   }
-  eventsCausingServices: {}
-  eventsCausingGuards: {}
   eventsCausingDelays: {}
+  eventsCausingGuards: {}
+  eventsCausingServices: {
+    socket: "xstate.init"
+  }
   matchesStates:
     | "ready"
     | "ready.typing"
