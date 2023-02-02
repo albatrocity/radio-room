@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useState } from "react"
-import { Box, Button } from "@chakra-ui/react"
-import { LinkBottom } from "grommet-icons"
+import { Box, Button, Icon } from "@chakra-ui/react"
+import { GrLinkBottom } from "react-icons/gr"
 import { get, sortBy, isEqual } from "lodash/fp"
 import styled from "styled-components"
 import ScrollToBottom, {
@@ -87,10 +87,10 @@ const ScrollInner = ({
         <Box style={{ position: "absolute", right: 0, bottom: "1em" }}>
           <Button
             onClick={() => scrollToBottom()}
-            rightIcon={<LinkBottom size="small" />}
+            rightIcon={<Icon as={GrLinkBottom} boxSize={4} />}
           >
-            Scroll to bottom $
-            {messagesSinceLast > 0 ? `(${messagesSinceLast} new)` : ""}
+            Scroll to bottom
+            {messagesSinceLast > 0 ? ` (${messagesSinceLast} new)` : ""}
           </Button>
         </Box>
       )}
@@ -105,6 +105,7 @@ const ChatMessages = ({
   messages: ChatMessageType[]
 } & ScrollInnerProps) => {
   const sortedMessages = sortBy("timestamp", messages)
+  console.log(messages)
 
   return (
     <Container>

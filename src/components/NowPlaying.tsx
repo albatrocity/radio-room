@@ -1,5 +1,5 @@
 import React, { useEffect, memo, useMemo } from "react"
-import { Music, Unlink } from "grommet-icons"
+import { GrMusic, GrUnlink } from "react-icons/gr"
 import {
   Box,
   Heading,
@@ -9,6 +9,7 @@ import {
   LinkBox,
   LinkOverlay,
   VStack,
+  Icon,
 } from "@chakra-ui/react"
 
 import AlbumArtwork from "./AlbumArtwork"
@@ -64,7 +65,7 @@ const NowPlaying = ({
       {offline ? (
         <>
           <Flex direction="row" gap="small" align="center">
-            <Unlink color="white" />
+            <GrUnlink color="white" />
             <Heading margin="none" as="h2" size="lg" color="white">
               Offline :(
             </Heading>
@@ -90,7 +91,7 @@ const NowPlaying = ({
                 justify="center"
                 flex={{ shrink: 0, grow: 1 }}
               >
-                <Music size="medium" color="accent-1" />
+                <Icon as={GrMusic} boxSize={10} />
               </Flex>
             )}
             <VStack align={"start"} spacing={0}>

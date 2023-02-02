@@ -12,7 +12,7 @@ interface Props extends Pick<ModalProps, "isOpen"> {
 
 const FormPassword = ({ onSubmit, isOpen, error }: Props) => {
   return (
-    <Box p={2} gap={2} width="medium">
+    <Box p={2} gap={2}>
       <Formik
         initialValues={{ password: "" }}
         onSubmit={(values, { setSubmitting }) => {
@@ -47,7 +47,6 @@ const FormPassword = ({ onSubmit, isOpen, error }: Props) => {
                 Please enter the password for this party!
               </Text>
               <Input
-                size="medium"
                 onChange={handleChange}
                 onBlur={handleBlur}
                 value={values.password}

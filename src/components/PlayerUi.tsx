@@ -87,7 +87,7 @@ const PlayerUi = ({
           background="brand"
           alignItems="center"
         >
-          <Box width={{ max: "medium" }} h="100%" w="100%" flexGrow={1}>
+          <Box h="100%" w="100%" flexGrow={1}>
             <ReactionCounter
               onOpenPicker={onOpenReactionPicker}
               reactTo={{ type: "track", id: trackId }}

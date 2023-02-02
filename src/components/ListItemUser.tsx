@@ -1,9 +1,9 @@
 import React, { memo } from "react"
 import { get, isEqual } from "lodash/fp"
 
-import { Box, Text, HStack, IconButton } from "@chakra-ui/react"
+import { Box, Text, HStack, IconButton, Icon } from "@chakra-ui/react"
 import { EditIcon, SmallCloseIcon } from "@chakra-ui/icons"
-import { Edit, MoreVertical, Microphone } from "grommet-icons"
+import { GrMoreVertical, GrMicrophone } from "react-icons/gr"
 import { User } from "../types/User"
 
 interface ListItemUserProps {
@@ -28,7 +28,7 @@ const ListItemUser = ({
         justify="between"
         border={{ side: "bottom" }}
         gap="xsmall"
-        py={user.isDj ? "medium" : "small"}
+        py={user.isDj ? 4 : 2}
         background={user.isDj ? "accent-2" : "transparent"}
       >
         <Box
@@ -44,13 +44,9 @@ const ListItemUser = ({
           }
           style={{ opacity: userTyping ? 1 : 0 }}
         >
-          <MoreVertical color="accent-3" size="small" />
+          <Icon as={GrMoreVertical} color="accent-3" boxSize={3} />
         </Box>
-        {user.isDj && (
-          <Box>
-            <Microphone size="14px" />
-          </Box>
-        )}
+        {user.isDj && <Icon as={GrMicrophone} />}
         <Box alignItems="start" flex={{ grow: 1, shrink: 1 }}>
           <Text
             fontWeight={user.isDj ? 700 : 500}

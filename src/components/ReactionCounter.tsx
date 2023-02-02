@@ -1,7 +1,7 @@
 import React, { memo, useContext, useEffect } from "react"
 import { useMachine, useSelector } from "@xstate/react"
 import { groupBy, map, keys } from "lodash/fp"
-import { FormAdd, Emoji as EmojiIcon } from "grommet-icons"
+import { GrFormAdd, GrEmoji } from "react-icons/gr"
 import {
   Popover,
   PopoverTrigger,
@@ -9,6 +9,7 @@ import {
   PopoverArrow,
   PopoverBody,
   IconButton,
+  Icon,
   Box,
   Wrap,
   WrapItem,
@@ -110,9 +111,9 @@ const ReactionCounter = ({
             onClick={() => send("TOGGLE", { data: { reactTo } })}
             icon={
               <>
-                <EmojiIcon size="small" />
+                <Icon as={GrEmoji} size="small" />
                 <Hide below="md">
-                  <FormAdd size="small" />
+                  <Icon as={GrFormAdd} size="small" />
                 </Hide>
               </>
             }

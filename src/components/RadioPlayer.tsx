@@ -1,6 +1,7 @@
 import React, { useRef, memo, ReactNode } from "react"
 import {
   Box,
+  Icon,
   IconButton,
   HStack,
   Flex,
@@ -11,7 +12,13 @@ import {
   SliderFilledTrack,
   SliderThumb,
 } from "@chakra-ui/react"
-import { Play, Pause, VolumeMute, Volume, List } from "grommet-icons"
+import {
+  GrPlayFill,
+  GrPauseFill,
+  GrVolumeMute,
+  GrVolume,
+  GrList,
+} from "react-icons/gr"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
 import { EmojiData } from "emoji-mart"
@@ -72,14 +79,20 @@ const RadioPlayer = ({
           <IconButton
             aria-label={playing ? "Pause" : "Play"}
             background="transparent"
-            icon={playing ? <Pause color="brand" /> : <Play color="brand" />}
+            icon={
+              playing ? <Icon as={GrPauseFill} /> : <Icon as={GrPlayFill} />
+            }
             onClick={() => onPlayPause()}
           />
           <IconButton
             aria-label={muted ? "Unmute" : "Mute"}
             background="transparent"
             icon={
-              muted ? <VolumeMute color="brand" /> : <Volume color="brand" />
+              muted ? (
+                <Icon as={GrVolumeMute} color="brand" />
+              ) : (
+                <Icon as={GrVolume} color="brand" />
+              )
             }
             onClick={() => onMute()}
           />
@@ -121,7 +134,7 @@ const RadioPlayer = ({
               aria-label="Playlist"
               background="transparent"
               onClick={onShowPlaylist}
-              icon={<List color="brand" />}
+              icon={<Icon as={GrList} />}
             />
           </Flex>
         )}

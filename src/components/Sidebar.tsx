@@ -6,12 +6,13 @@ import {
   Button,
   Heading,
   IconButton,
+  Icon,
   Show,
   Wrap,
   WrapItem,
 } from "@chakra-ui/react"
 import { useSelector } from "@xstate/react"
-import { SettingsOption, List, HelpOption } from "grommet-icons"
+import { GrSettingsOption, GrList, GrHelpOption } from "react-icons/gr"
 import Listeners from "./Listeners"
 import useGlobalContext from "./useGlobalContext"
 
@@ -71,7 +72,7 @@ const Sidebar = (props: Props) => {
                 size="small"
                 aria-label="Help"
                 variant="outline"
-                icon={<HelpOption size="medium" color="brand" />}
+                icon={<Icon as={GrHelpOption} boxSize={2} />}
                 onClick={() => globalServices.roomService.send("VIEW_HELP")}
               />
             </Flex>
@@ -112,7 +113,7 @@ const Sidebar = (props: Props) => {
                   <Button
                     size="xs"
                     variant={isEditingSettings ? "primary" : "outline"}
-                    leftIcon={<SettingsOption size="small" />}
+                    leftIcon={<Icon as={GrSettingsOption} />}
                     onClick={() =>
                       globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
                     }
@@ -127,7 +128,9 @@ const Sidebar = (props: Props) => {
                         size="xs"
                         variant="solid"
                         colorScheme="red"
-                        leftIcon={<List size="small" color="white" />}
+                        leftIcon={
+                          <Icon as={GrList} size="small" color="white" />
+                        }
                         onClick={() => {
                           const confirmation = window.confirm(
                             "Are you sure you want to clear the playlist? This cannot be undone.",

@@ -58,7 +58,7 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
                 What are we gonna call you in here?
               </Text>
               <Input
-                size="medium"
+                size="md"
                 onChange={handleChange}
                 onBlur={handleBlur}
                 p={2}

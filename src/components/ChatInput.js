@@ -7,8 +7,8 @@ import React, {
   memo,
 } from "react"
 
-import { Box, Button, Flex } from "@chakra-ui/react"
-import { Chat } from "grommet-icons"
+import { Box, Button, Flex, Icon } from "@chakra-ui/react"
+import { GrChat } from "react-icons/gr"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
 
@@ -176,7 +176,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
       <form onSubmit={handleSubmit}>
         <Flex direction="row" w="100%" justify="center">
           <Flex align="center" shrink={0} justify="center" mr={3}>
-            <Chat size="16px" />
+            <Icon as={GrChat} size="16px" />
           </Flex>
           <Box
             grow={1}

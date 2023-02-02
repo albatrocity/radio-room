@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState, useMemo } from "react"
+import React, { memo, useEffect, useState, useMemo, useContext } from "react"
 import { Box, Text, Image, Stack, Wrap, WrapItem } from "@chakra-ui/react"
 import { format } from "date-fns"
 import getUrls from "../lib/getUrls"
@@ -7,6 +7,11 @@ import ReactionCounter from "./ReactionCounter"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { User } from "../types/User"
 import { EmojiData } from "emoji-mart"
+import { useSelector } from "@xstate/react"
+import { GlobalStateContext } from "../contexts/global"
+import { Reaction } from "../types/Reaction"
+import { allReactionsSelector } from "../selectors/allReactionsSelector"
+import { useAllReactions } from "../lib/useAllReactions"
 
 export interface ChatMessageProps {
   content: string
@@ -16,9 +21,12 @@ export interface ChatMessageProps {
   currentUserId: string
   onOpenReactionPicker: () => void
   onReactionClick: (emoji: EmojiData) => void
-  reactions: []
   showUsername: boolean
   anotherUserMessage: boolean
+}
+
+function isImageUrl(url: string) {
+  return url.match(/\.(jpeg|jpg|gif|png)$/) != null
 }
 
 const ChatMessage = ({
@@ -29,13 +37,12 @@ const ChatMessage = ({
   currentUserId,
   onOpenReactionPicker,
   onReactionClick,
-  reactions,
   showUsername,
   anotherUserMessage,
 }: ChatMessageProps) => {
-  function isImageUrl(url: string) {
-    return url.match(/\.(jpeg|jpg|gif|png)$/) != null
-  }
+  const allReactions = useAllReactions()
+  const reactions: Reaction[] = allReactions.message[timestamp]
+
   const [parsedImageUrls, setParsedImageUrls] = useState<string[]>([])
   const [hovered, setHovered] = useState(false)
   const date = new Date(timestamp)
