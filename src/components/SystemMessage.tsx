@@ -1,5 +1,5 @@
 import React, { memo } from "react"
-import { Box, Paragraph, Text } from "grommet"
+import { Box, HStack, Text } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { ChatMessage } from "../types/ChatMessage"
 
@@ -10,26 +10,27 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
   const { status } = meta
   return (
     <Box
-      pad="small"
+      p={1}
       border={{ side: "bottom" }}
       background={status === "critical" ? "status-critical" : "light-1"}
-      align="center"
+      alignItems="center"
     >
-      <Paragraph
+      <Text
+        as="p"
         style={{ maxWidth: "none" }}
         size="small"
         margin={{ bottom: "xsmall" }}
       >
         {content}
-      </Paragraph>
-      <Box direction="row" gap="xsmall">
+      </Text>
+      <HStack gap={1}>
         <Text size="xsmall" color="dark-3">
           {time}
         </Text>
         <Text size="xsmall" color="dark-4">
           {dateString}
         </Text>
-      </Box>
+      </HStack>
     </Box>
   )
 }

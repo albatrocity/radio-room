@@ -5,14 +5,14 @@ import { ModalProps } from "@chakra-ui/react"
 
 import Modal from "./Modal"
 
-interface Props extends Pick<ModalProps, "isOpen" | "onClose"> {
+interface Props extends Pick<ModalProps, "isOpen"> {
   onSubmit: (password?: string) => void
   error?: string
 }
 
-const FormPassword = ({ onSubmit, isOpen, onClose, error }: Props) => {
+const FormPassword = ({ onSubmit, isOpen, error }: Props) => {
   return (
-    <Box pad="medium" gap="medium" width="medium">
+    <Box p={2} gap={2} width="medium">
       <Formik
         initialValues={{ password: "" }}
         onSubmit={(values, { setSubmitting }) => {
@@ -29,7 +29,6 @@ const FormPassword = ({ onSubmit, isOpen, onClose, error }: Props) => {
           isValid,
         }) => (
           <Modal
-            onClose={onClose}
             isOpen={isOpen}
             canClose={false}
             heading="Password required"

@@ -1,6 +1,9 @@
 export interface SystemMessage {
-  type: "SETTINGS";
+  type: "SETTINGS"
   data?: {
-    settings?: JSON
+    settings?: {
+      fetchMeta?: boolean
+      password?: string
+    }
   }
 }

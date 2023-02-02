@@ -6,6 +6,7 @@
   "author": "Kyle Mathews <mathews.kyle@gmail.com>",
   "dependencies": {
     "@chakra-ui/gatsby-plugin": "^3.0.6",
+    "@chakra-ui/icons": "^2.0.17",
     "@chakra-ui/react": "^2.3.2",
     "@emoji-mart/data": "^1.0.6",
     "@emoji-mart/react": "^1.0.1",
@@ -29,7 +30,6 @@
     "gatsby-plugin-styled-components": "^5.22.0",
     "gatsby-source-filesystem": "^4.22.0",
     "gatsby-transformer-sharp": "^4.22.0",
-    "grommet": "^2.25.1",
     "grommet-icons": "^4.5.0",
     "howler": "^2.1.3",
     "normalize-url": "^7.1.0",

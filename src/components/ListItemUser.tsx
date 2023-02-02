@@ -1,8 +1,9 @@
 import React, { memo } from "react"
 import { get, isEqual } from "lodash/fp"
 
-import { Box, Text, Button } from "grommet"
-import { Edit, MoreVertical, Microphone, Close } from "grommet-icons"
+import { Box, Text, HStack, IconButton } from "@chakra-ui/react"
+import { EditIcon, SmallCloseIcon } from "@chakra-ui/icons"
+import { Edit, MoreVertical, Microphone } from "grommet-icons"
 import { User } from "../types/User"
 
 interface ListItemUserProps {
@@ -22,14 +23,12 @@ const ListItemUser = ({
 }: ListItemUserProps) => {
   return (
     <Box key={user.userId}>
-      <Box
-        direction="row"
+      <HStack
         align="center"
         justify="between"
         border={{ side: "bottom" }}
         gap="xsmall"
-        pad={{ vertical: user.isDj ? "medium" : "small" }}
-        elevation={user.isDj ? "small" : "none"}
+        py={user.isDj ? "medium" : "small"}
         background={user.isDj ? "accent-2" : "transparent"}
       >
         <Box
@@ -52,34 +51,36 @@ const ListItemUser = ({
             <Microphone size="14px" />
           </Box>
         )}
-        <Box align="start" flex={{ grow: 1, shrink: 1 }}>
+        <Box alignItems="start" flex={{ grow: 1, shrink: 1 }}>
           <Text
-            weight={user.isDj ? 700 : 500}
-            size={user.isDj ? "medium" : "small"}
+            fontWeight={user.isDj ? 700 : 500}
+            fontSize={user.isDj ? "md" : "sm"}
           >
             {user.username || "anonymous"}
           </Text>
         </Box>
         {user.userId === get("userId", currentUser) && (
-          <Box pad={{ horizontal: "medium" }}>
-            <Button
-              plain
-              onClick={() => onEditUser()}
-              icon={<Edit size="small" />}
-            />
-          </Box>
+          <IconButton
+            variant="link"
+            aria-label="Edit Username"
+            onClick={() => onEditUser()}
+            size="xs"
+            icon={<EditIcon />}
+          />
         )}
         {get("isAdmin", currentUser) &&
           !isEqual(get("userId", user), get("userId", currentUser)) && (
-            <Box pad={{ horizontal: "xsmall" }}>
-              <Button
-                plain
+            <Box px="xs">
+              <IconButton
+                variant="link"
+                aria-label="Kick User"
                 onClick={() => onKickUser(user.userId)}
-                icon={<Close size="small" />}
+                size="sm"
+                icon={<SmallCloseIcon />}
               />
             </Box>
           )}
-      </Box>
+      </HStack>
     </Box>
   )
 }

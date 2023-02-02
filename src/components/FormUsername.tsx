@@ -5,7 +5,7 @@ import { User } from "../types/User"
 import Modal from "./Modal"
 import { ModalProps } from "@chakra-ui/react"
 
-interface Props extends ModalProps {
+interface Props extends Pick<ModalProps, "isOpen"> {
   onClose: () => void
   onSubmit: (username?: string) => void
   currentUser: User

@@ -1,8 +1,7 @@
 import React, { memo, useContext } from "react"
 import { useMachine, useSelector } from "@xstate/react"
-import { Box, Text, Heading } from "grommet"
 import { get, isEqual, find, reverse, reject } from "lodash/fp"
-import { Edit } from "grommet-icons"
+import { Box, Text, Heading, HStack } from "@chakra-ui/react"
 
 import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
@@ -16,6 +15,7 @@ const listenersSelector = (state) => state.context.listeners
 const djSelector = (state) => state.context.dj
 
 import { User } from "../types/User"
+import { EditIcon } from "@chakra-ui/icons"
 
 interface UserListProps {
   onEditUser: (user: {}) => void
@@ -47,11 +47,11 @@ const UserList = ({
   const isTyping = (user: User) => find({ userId: get("userId", user) }, typing)
 
   return (
-    <Box gap="small">
+    <Box gap={1}>
       {dj && (
         <Box margin={{ bottom: "small" }}>
           {showHeading && (
-            <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
+            <Heading as="h3" mb={0.5} mt={0}>
               DJ
             </Heading>
           )}
@@ -63,37 +63,24 @@ const UserList = ({
           />
 
           {currentDj && !dj.extraInfo && !dj.donationURL && (
-            <Box
-              background="accent-4"
-              pad="medium"
-              elevation="medium"
-              border={{ side: "all" }}
-            >
-              <Box
+            <Box background="accent-4" p={2}>
+              <HStack
                 margin="xsmall"
-                pad="xsmall"
-                direction="row"
-                border={{ side: "all", style: "dashed" }}
-                align="center"
-                gap="xsmall"
+                p={0.5}
+                gap={0.5}
                 onClick={() => onEditSettings()}
               >
-                <Text size="small">
+                <Text fontSize="sm">
                   Add info here, like links to anything you're promoting and a
                   donation link.
                 </Text>
-                <Edit />
-              </Box>
+                <EditIcon />
+              </HStack>
             </Box>
           )}
 
           {dj.extraInfo && (
-            <Box
-              background="white"
-              pad="medium"
-              elevation="medium"
-              border={{ side: "all" }}
-            >
+            <Box background="white" p={2}>
               {dj.extraInfo !== "" && (
                 <Text>
                   <ParsedEmojiMessage content={dj.extraInfo} />
@@ -106,7 +93,7 @@ const UserList = ({
       <Box>
         {showHeading && (
           <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
-            Listeners <Text size="small">({listeners.length})</Text>
+            Listeners <Text fontSize="sm">({listeners.length})</Text>
           </Heading>
         )}
         {currentListener && (

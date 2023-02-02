@@ -1,14 +1,13 @@
-import React, { useContext, useRef, useState, memo } from "react"
-import { Box, Text, Drop, Button } from "grommet"
-import { IconButton } from "@chakra-ui/react"
-import { EmojiData, Emoji } from "emoji-mart"
-import { ThemeContext, ResponsiveContext } from "grommet"
+import React, { memo } from "react"
+import { IconButton, Box, Text, Tooltip } from "@chakra-ui/react"
+import { EmojiData } from "emoji-mart"
 
 import ListUsernames from "./ListUsernames"
+import { User } from "../types/User"
 
 interface ReactionCounterItemProps {
   count: number
-  users: string[]
+  users: User["userId"][]
   emoji: string
   onReactionClick: (emoji: EmojiData) => void
   currentUserId: string
@@ -23,18 +22,12 @@ const ReactionCounterItem = ({
   currentUserId,
   color = "light-2",
 }: ReactionCounterItemProps) => {
-  const theme = useContext(ThemeContext)
-  const size = useContext(ResponsiveContext)
-  const buttonRef = useRef()
-  const [hovered, setHovered] = useState(false)
-  const currentUserReaction = users.indexOf(currentUserId) > -1
-
   if (emoji === "undefined") {
     return null
   }
 
   return (
-    <>
+    <Tooltip hasArrow placement="top" label={<ListUsernames ids={users} />}>
       <IconButton
         aria-label={`${emoji} reactions`}
         color={color}
@@ -43,27 +36,16 @@ const ReactionCounterItem = ({
         size="small"
         style={{ padding: "0.1rem 0.2rem" }}
         icon={
-          <Box
-            height={`${
-              parseInt(theme.paragraph[size].size.replace("px", "")) + 4
-            }px`}
-          >
+          <Box height={"12px"}>
             <em-emoji shortnames={emoji} fallback={emoji} />
           </Box>
         }
       >
-        <Text size="small" weight={700} style={{ lineHeight: "auto" }}>
+        <Text fontSize="sm" as="b" sx={{ lineHeight: "auto" }}>
           {count}
         </Text>
       </IconButton>
-      {hovered && (
-        <Drop target={buttonRef.current} align={{ bottom: "top" }}>
-          <Box pad="small" width="small" align="center">
-            <ListUsernames ids={users} />
-          </Box>
-        </Drop>
-      )}
-    </>
+    </Tooltip>
   )
 }
 

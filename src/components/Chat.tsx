@@ -10,7 +10,6 @@ import { chatMachine } from "../machines/chatMachine"
 import { AuthContext } from "../machines/authMachine"
 import { ChatMessage } from "../types/ChatMessage"
 import { User } from "../types/User"
-import { EmojiData } from "emoji-mart"
 
 const currentUserSelector = (state: { context: AuthContext }): User =>
   state.context.currentUser
@@ -19,7 +18,7 @@ const isUnauthorizedSelector = (state) => state.matches("unauthorized")
 interface ChatProps {
   modalActive: boolean
   onOpenReactionPicker: () => void
-  onReactionClick: (emoji: EmojiData) => void
+  onReactionClick: (emoji: any) => void
 }
 
 const Chat = ({
@@ -49,11 +48,10 @@ const Chat = ({
       flexShrink={1}
       templateAreas={[
         `"chat"
-      "input"
+        "input"
     `,
       ]}
-      gridTemplateRows={"auto 1fr"}
-      gridTemplateColumns={"1fr auto"}
+      gridTemplateRows={"1fr auto"}
       sx={{
         filter: isUnauthorized ? "blur(0.5rem)" : "none",
       }}

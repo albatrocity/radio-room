@@ -1,4 +1,4 @@
-import React, { useRef, memo } from "react"
+import React, { useRef, memo, ReactNode } from "react"
 import {
   Box,
   IconButton,
@@ -15,9 +15,10 @@ import { Play, Pause, VolumeMute, Volume, List } from "grommet-icons"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
 import { EmojiData } from "emoji-mart"
+import { ChatMessage } from "../types/ChatMessage"
 
 interface RadioPlayerProps {
-  volume: string
+  volume: number
   meta?: {}
   playing: boolean
   muted: boolean
@@ -26,9 +27,14 @@ interface RadioPlayerProps {
   onMute: () => void
   onShowPlaylist: () => void
   hasPlaylist: boolean
-  isMobile: boolean
   onReactionClick: (emoji: EmojiData) => void
-  onOpenPicker: () => void
+  onOpenPicker: ({
+    ref,
+    reactTo,
+  }: {
+    ref: ReactNode
+    reactTo: ChatMessage
+  }) => void
   reactions: {}[]
   trackId: string
 }
@@ -44,7 +50,6 @@ const RadioPlayer = ({
   onMute,
   onShowPlaylist,
   hasPlaylist,
-  isMobile,
   onReactionClick,
   onOpenPicker,
   reactions,

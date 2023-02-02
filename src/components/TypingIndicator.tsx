@@ -1,7 +1,7 @@
 import React, { useMemo } from "react"
 import { useMachine } from "@xstate/react"
 import { take, map, get, reject, last } from "lodash/fp"
-import { Box, Text } from "grommet"
+import { Box, Text } from "@chakra-ui/react"
 
 import { User } from "../types/User"
 import { typingMachine } from "../machines/typingMachine"
@@ -36,10 +36,7 @@ const TypingIndicator = ({ currentUserId }: Props) => {
   }, [typingUsers])
 
   return (
-    <Box
-      style={{ opacity: typingUsers.length > 0 ? 1 : 0 }}
-      pad={{ left: "40px", bottom: "small" }}
-    >
+    <Box style={{ opacity: typingUsers.length > 0 ? 1 : 0 }} pl="40px" pb={1}>
       <Text size="xsmall">
         {formattedNames} {typingUsers.length === 1 ? "is" : "are"} typing...
       </Text>

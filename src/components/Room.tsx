@@ -186,9 +186,7 @@ const Room = () => {
 
       <FormUsername
         isOpen={isEditingUsername}
-        onClose={() => hideEditForm()}
         currentUser={currentUser}
-        isNewUser={isNewUser}
         onClose={hideEditForm}
         onSubmit={(username) => {
           globalServices.authService.send({

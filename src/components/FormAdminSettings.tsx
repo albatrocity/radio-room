@@ -1,7 +1,7 @@
 import React from "react"
 import { useMachine } from "@xstate/react"
 import { Formik } from "formik"
-import Spinner from "./Spinner"
+import { Spinner } from "@chakra-ui/react"
 import {
   HStack,
   Button,
@@ -11,9 +11,13 @@ import {
   FormLabel,
   FormHelperText,
   Textarea,
+  Checkbox,
+  Text,
+  VStack,
+  Link,
+  Heading,
 } from "@chakra-ui/react"
-import { CheckBox, FormField, Text, Anchor, Heading, TextArea } from "grommet"
-import { Validate } from "grommet-icons"
+import { CheckIcon, ExternalLinkIcon } from "@chakra-ui/icons"
 
 import { settingsMachine } from "../machines/settingsMachine"
 import socket from "../lib/socket"
@@ -40,7 +44,7 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
         return new Promise((resolve) => {
           socket.on("event", (message: SystemMessage) => {
             if (message.type === "SETTINGS") {
-              resolve(message.data.settings)
+              resolve(message.data?.settings)
             }
           })
           socket.emit("get settings")
@@ -50,7 +54,7 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
         return new Promise((resolve) => {
           socket.on("event", (message: SystemMessage) => {
             if (message.type === "SETTINGS") {
-              resolve(message.data.settings)
+              resolve(message.data?.settings)
             }
           })
         })
@@ -70,12 +74,8 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
       )}
       {state.matches("failed") && (
         <Box>
-          <Heading level={4} margin="none">
-            Oops
-          </Heading>
-          <Text color="status-error">
-            Sorry, this isn't working right now :/
-          </Text>
+          <Heading as="h4">Oops</Heading>
+          <Text color="red.700">Sorry, this isn't working right now :/</Text>
         </Box>
       )}
       {state.matches("fetched") && (
@@ -119,7 +119,7 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
                       disabled={!state.matches("fetched.untouched")}
                       rightIcon={
                         state.matches("fetched.successful") && (
-                          <Validate size="medium" color="status-ok" />
+                          <CheckIcon color="green.500" />
                         )
                       }
                       onClick={() => handleSubmit()}
@@ -129,7 +129,7 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
                   </HStack>
                 }
               >
-                <Box gap="small">
+                <VStack spacing={6}>
                   <FormControl>
                     <FormLabel>Any additional info/links</FormLabel>
                     <Textarea
@@ -149,18 +149,7 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
                   </FormControl>
 
                   <FormControl>
-                    <FormHelperText>
-                      Album Metadata (cover image, release date, info URL) is
-                      automatically fetched from{" "}
-                      <Anchor target="_blank" href="http://musicbrainz.org">
-                        MusicBrainz
-                      </Anchor>{" "}
-                      based on the Title/Artist/Album that your broadcast
-                      software sends to the Shoustcast server. If you're getting
-                      inaccurate data or want to manually set the cover artwork,
-                      disable this option.
-                    </FormHelperText>
-                    <CheckBox
+                    <Checkbox
                       disabled={state.matches("pending")}
                       checked={values.fetchMeta}
                       onChange={(e) => {
@@ -173,22 +162,29 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
                       }}
                       onBlur={handleBlur}
                       value={values.fetchMeta}
-                      label="Fetch album metadata"
                       name="fetchMeta"
-                    />
+                    >
+                      Fetch album metadata
+                    </Checkbox>
+                    <FormHelperText>
+                      Album Metadata (cover image, release date, info URL) is
+                      automatically fetched from{" "}
+                      <Link
+                        isExternal
+                        target="_blank"
+                        href="http://musicbrainz.org"
+                      >
+                        MusicBrainz
+                        <ExternalLinkIcon mx="2px" />
+                      </Link>{" "}
+                      based on the Title/Artist/Album that your broadcast
+                      software sends to the Shoustcast server. If you're getting
+                      inaccurate data or want to manually set the cover artwork,
+                      disable this option.
+                    </FormHelperText>
                   </FormControl>
 
-                  <FormField
-                    disabled={state.matches("pending")}
-                    info={
-                      <Text size="small" color="text-xweak">
-                        Setting a password will prevent people from using this
-                        interface to listen to the radio stream. It also
-                        prevents them from using or viewing the chat. Clearing
-                        this password will open the experience up to anyone.
-                      </Text>
-                    }
-                  >
+                  <FormControl gap={2}>
                     <Input
                       disabled={state.matches("pending")}
                       onChange={(e) => {
@@ -199,8 +195,14 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
                       name="password"
                       placeholder="Password"
                     />
-                  </FormField>
-                </Box>
+                    <FormHelperText>
+                      Setting a password will prevent people from using this
+                      interface to listen to the radio stream. It also prevents
+                      them from using or viewing the chat. Clearing this
+                      password will open the experience up to anyone.
+                    </FormHelperText>
+                  </FormControl>
+                </VStack>
               </Modal>
             </form>
           )}
