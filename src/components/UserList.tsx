@@ -1,7 +1,7 @@
 import React, { memo, useContext } from "react"
 import { useMachine, useSelector } from "@xstate/react"
 import { get, isEqual, find, reverse, reject } from "lodash/fp"
-import { Box, Text, Heading, HStack } from "@chakra-ui/react"
+import { Box, Text, Heading, HStack, List, VStack } from "@chakra-ui/react"
 
 import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
@@ -18,9 +18,9 @@ import { User } from "../types/User"
 import { EditIcon } from "@chakra-ui/icons"
 
 interface UserListProps {
-  onEditUser: (user: {}) => void
+  onEditUser: (user: User) => void
   onEditSettings: () => void
-  showHeading: boolean
+  showHeading?: boolean
 }
 
 const UserList = ({
@@ -90,39 +90,46 @@ const UserList = ({
           )}
         </Box>
       )}
-      <Box>
+      <VStack spacing={2} align="start">
         {showHeading && (
-          <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
-            Listeners <Text fontSize="sm">({listeners.length})</Text>
-          </Heading>
+          <HStack>
+            <Heading as="h3" size="md">
+              Listeners
+            </Heading>
+            <Text fontSize="xs">({listeners.length})</Text>
+          </HStack>
         )}
-        {currentListener && (
-          <ListItemUser
-            key={currentListener.userId}
-            user={currentListener}
-            userTyping={isTyping(currentUser.userId)}
-            currentUser={currentUser}
-            onEditUser={onEditUser}
-            onKickUser={(_user: User) =>
-              globalServices.authService.send("KICK_USER", currentListener)
-            }
-          />
-        )}
-        {reverse(reject({ userId: currentUser.userId }, listeners)).map((x) => {
-          return (
+        <List spacing={3}>
+          {currentListener && (
             <ListItemUser
-              key={x.userId}
-              user={x}
-              userTyping={isTyping(x)}
+              key={currentListener.userId}
+              user={currentListener}
+              userTyping={isTyping(currentUser.userId)}
               currentUser={currentUser}
               onEditUser={onEditUser}
               onKickUser={(_user: User) =>
-                globalServices.authService.send("KICK_USER", x)
+                globalServices.authService.send("KICK_USER", currentListener)
               }
             />
-          )
-        })}
-      </Box>
+          )}
+          {reverse(reject({ userId: currentUser.userId }, listeners)).map(
+            (x) => {
+              return (
+                <ListItemUser
+                  key={x.userId}
+                  user={x}
+                  userTyping={isTyping(x)}
+                  currentUser={currentUser}
+                  onEditUser={onEditUser}
+                  onKickUser={(_user: User) =>
+                    globalServices.authService.send("KICK_USER", x)
+                  }
+                />
+              )
+            },
+          )}
+        </List>
+      </VStack>
     </Box>
   )
 }
