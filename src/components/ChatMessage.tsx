@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState, useMemo, useContext } from "react"
+import React, { memo, useEffect, useState, useMemo } from "react"
 import { Box, Text, Image, Stack, Wrap, WrapItem } from "@chakra-ui/react"
 import { format } from "date-fns"
 import getUrls from "../lib/getUrls"
@@ -7,11 +7,6 @@ import ReactionCounter from "./ReactionCounter"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { User } from "../types/User"
 import { EmojiData } from "emoji-mart"
-import { useSelector } from "@xstate/react"
-import { GlobalStateContext } from "../contexts/global"
-import { Reaction } from "../types/Reaction"
-import { allReactionsSelector } from "../selectors/allReactionsSelector"
-import { useAllReactions } from "../lib/useAllReactions"
 
 export interface ChatMessageProps {
   content: string
@@ -40,9 +35,6 @@ const ChatMessage = ({
   showUsername,
   anotherUserMessage,
 }: ChatMessageProps) => {
-  const allReactions = useAllReactions()
-  const reactions: Reaction[] = allReactions.message[timestamp]
-
   const [parsedImageUrls, setParsedImageUrls] = useState<string[]>([])
   const [hovered, setHovered] = useState(false)
   const date = new Date(timestamp)
@@ -144,7 +136,6 @@ const ChatMessage = ({
       <ReactionCounter
         onOpenPicker={onOpenReactionPicker}
         reactTo={{ type: "message", id: timestamp }}
-        reactions={reactions}
         onReactionClick={onReactionClick}
         iconColor="dark-5"
         iconHoverColor="brand"

@@ -1,3 +1,3 @@
 export interface Emoji {
-  short_names: string[]
+  shortcodes: string[]
 }

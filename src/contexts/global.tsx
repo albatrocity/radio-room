@@ -41,7 +41,6 @@ export const GlobalStateProvider = (props: Props) => {
       (x: User) => x.userId === currentUser.userId,
     )?.isDj
     if (!isDj) {
-      console.log("NO DJ")
       roomService.send("END_DJ_SESSION")
     }
   }

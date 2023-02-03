@@ -105,7 +105,6 @@ const ChatMessages = ({
   messages: ChatMessageType[]
 } & ScrollInnerProps) => {
   const sortedMessages = sortBy("timestamp", messages)
-  console.log(messages)
 
   return (
     <Container>

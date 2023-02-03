@@ -25,7 +25,7 @@ interface PlayerUiProps {
     ref: HTMLButtonElement
     reactTo: string
   }) => void
-  onReactionClick: ({ colons }: { colons: EmojiData }) => void
+  onReactionClick: (emoji: EmojiData) => void
 }
 
 const PlayerUi = ({

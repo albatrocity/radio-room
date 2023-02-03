@@ -23,7 +23,7 @@ import { GlobalStateContext } from "../contexts/global"
 import { AuthContext } from "../machines/authMachine"
 import { EmojiData } from "emoji-mart"
 import { ReactionSubject } from "../types/ReactionSubject"
-import { Reaction } from "../types/Reaction"
+import { useAllReactions } from "../lib/useAllReactions"
 
 interface ReactionAddButtonProps {
   onOpenPicker: ({ reactTo }: { reactTo: {} }) => void
@@ -36,11 +36,9 @@ interface ReactionAddButtonProps {
 
 const currentUserSelector = (state: { context: AuthContext }) =>
   state.context.currentUser
-const reactionsSelector = (state) => state.context.reactions
 
 interface ReactionCounterProps extends ReactionAddButtonProps {
   showAddButton: boolean
-  reactions: Reaction[]
   onReactionClick: (emoji: EmojiData) => void
 }
 
@@ -54,10 +52,7 @@ const ReactionCounter = ({
     globalServices.authService,
     currentUserSelector,
   )
-  const allReactions = useSelector(
-    globalServices.allReactionsService,
-    reactionsSelector,
-  )
+  const allReactions = useAllReactions()
 
   const [state, send] = useMachine(reactionsMachine, {
     context: {
@@ -79,25 +74,27 @@ const ReactionCounter = ({
   return (
     <Box position="relative">
       <Wrap py={1}>
-        {keys(emoji).map((x) => (
-          <WrapItem key={x}>
-            <ReactionCounterItem
-              count={emoji[x].length}
-              users={map("user", emoji[x])}
-              currentUserId={currentUser.userId}
-              onReactionClick={({ colons }) => {
-                send("SELECT_REACTION", { data: colons })
-              }}
-              emoji={x}
-              color={buttonColor}
-            />
-          </WrapItem>
-        ))}
+        {keys(emoji)
+          .filter((x) => !!emoji[x].length)
+          .map((x) => (
+            <WrapItem key={x}>
+              <ReactionCounterItem
+                count={emoji[x].length}
+                users={map("user", emoji[x])}
+                currentUserId={currentUser.userId}
+                onReactionClick={(emoji) => {
+                  send("SELECT_REACTION", { data: emoji })
+                }}
+                emoji={x}
+                color={buttonColor}
+              />
+            </WrapItem>
+          ))}
         <WrapItem></WrapItem>
       </Wrap>
       <Popover
         isOpen={state.matches("open")}
-        onClose={() => send("TOGGLE")}
+        onClose={() => send("CLOSE")}
         placement="top-start"
       >
         <PopoverTrigger>

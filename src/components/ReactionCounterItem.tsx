@@ -1,5 +1,5 @@
 import React, { memo } from "react"
-import { IconButton, Box, Text, Tooltip } from "@chakra-ui/react"
+import { Button, HStack, Text, Tooltip } from "@chakra-ui/react"
 import { EmojiData } from "emoji-mart"
 
 import ListUsernames from "./ListUsernames"
@@ -19,8 +19,7 @@ const ReactionCounterItem = ({
   users,
   emoji,
   onReactionClick,
-  currentUserId,
-  color = "light-2",
+  color,
 }: ReactionCounterItemProps) => {
   if (emoji === "undefined") {
     return null
@@ -28,23 +27,19 @@ const ReactionCounterItem = ({
 
   return (
     <Tooltip hasArrow placement="top" label={<ListUsernames ids={users} />}>
-      <IconButton
+      <Button
         aria-label={`${emoji} reactions`}
-        color={color}
-        gap="small"
-        onClick={() => onReactionClick({ short_names: emoji })}
+        onClick={() => onReactionClick({ shortcodes: emoji })}
         size="small"
-        style={{ padding: "0.1rem 0.2rem" }}
-        icon={
-          <Box height={"12px"}>
-            <em-emoji shortnames={emoji} fallback={emoji} />
-          </Box>
-        }
+        py={0.5}
+        px={1}
+        background={color}
       >
-        <Text fontSize="sm" as="b" sx={{ lineHeight: "auto" }}>
-          {count}
-        </Text>
-      </IconButton>
+        <HStack spacing={1}>
+          {count > 1 && <Text fontSize="xs">{count}</Text>}
+          <em-emoji shortcodes={emoji}></em-emoji>
+        </HStack>
+      </Button>
     </Tooltip>
   )
 }
