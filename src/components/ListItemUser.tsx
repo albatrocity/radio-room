@@ -18,8 +18,8 @@ import { User } from "../types/User"
 interface ListItemUserProps {
   user: User
   currentUser: User
-  onEditUser: () => void
-  onKickUser: (userId: string) => void
+  onEditUser: (user: User) => void
+  onKickUser?: (userId: string) => void
   userTyping: boolean
 }
 
@@ -36,6 +36,7 @@ const ListItemUser = ({
       flexDirection="row"
       display="flex"
       alignItems="center"
+      background={user.isDj ? "accent-2" : "transparent"}
     >
       <motion.div
         animate={{
@@ -45,7 +46,7 @@ const ListItemUser = ({
         transition={{
           duration: 0.6,
           ease: "easeInOut",
-          repeat: Infinity,
+          repeat: userTyping ? Infinity : 0,
         }}
       >
         <ListIcon as={GrMoreVertical} color="gray.500" />
@@ -55,11 +56,10 @@ const ListItemUser = ({
         justify="between"
         border={{ side: "bottom" }}
         gap="xsmall"
-        py={user.isDj ? 4 : 0}
-        background={user.isDj ? "accent-2" : "transparent"}
+        py={user.isDj ? 2 : 0}
       >
         {user.isDj && <Icon as={GrMicrophone} />}
-        <Box alignItems="start" flex={{ grow: 1, shrink: 1 }}>
+        <Box>
           <Text
             fontWeight={user.isDj ? 700 : 500}
             fontSize={user.isDj ? "md" : "sm"}
@@ -76,18 +76,17 @@ const ListItemUser = ({
             icon={<EditIcon />}
           />
         )}
-        {get("isAdmin", currentUser) &&
-          !isEqual(get("userId", user), get("userId", currentUser)) && (
-            <Box px="xs">
-              <IconButton
-                variant="link"
-                aria-label="Kick User"
-                onClick={() => onKickUser(user.userId)}
-                size="sm"
-                icon={<SmallCloseIcon />}
-              />
-            </Box>
-          )}
+        {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
+          <Box px="xs">
+            <IconButton
+              variant="link"
+              aria-label="Kick User"
+              onClick={() => onKickUser(user.userId)}
+              size="sm"
+              icon={<SmallCloseIcon />}
+            />
+          </Box>
+        )}
       </HStack>
     </ListItem>
   )

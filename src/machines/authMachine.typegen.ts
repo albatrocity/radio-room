@@ -51,7 +51,7 @@ export interface Typegen0 {
       | "error.platform.setStoredUser"
       | "xstate.init"
     disableRetry: "KICKED"
-    disconnectUser: "KICKED" | "USER_DISCONNECTED" | "disconnect"
+    disconnectUser: "DISCONNECT_USER" | "KICKED" | "USER_DISCONNECTED"
     getStoredPassword:
       | "error.platform.getStoredPassword"
       | "error.platform.getStoredUser"

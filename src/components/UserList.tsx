@@ -1,7 +1,15 @@
 import React, { memo, useContext } from "react"
 import { useMachine, useSelector } from "@xstate/react"
 import { get, isEqual, find, reverse, reject } from "lodash/fp"
-import { Box, Text, Heading, HStack, List, VStack } from "@chakra-ui/react"
+import {
+  Box,
+  Text,
+  Heading,
+  HStack,
+  List,
+  VStack,
+  ListItem,
+} from "@chakra-ui/react"
 
 import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
@@ -49,18 +57,20 @@ const UserList = ({
   return (
     <Box gap={1}>
       {dj && (
-        <Box margin={{ bottom: "small" }}>
+        <Box mb={2}>
           {showHeading && (
-            <Heading as="h3" mb={0.5} mt={0}>
+            <Heading as="h3" size="md" mb={0.5} mt={0}>
               DJ
             </Heading>
           )}
-          <ListItemUser
-            user={dj}
-            currentUser={currentUser}
-            onEditUser={onEditUser}
-            userTyping={isTyping(dj)}
-          />
+          <List w="100%">
+            <ListItemUser
+              user={dj}
+              currentUser={currentUser}
+              onEditUser={onEditUser}
+              userTyping={isTyping(dj)}
+            />
+          </List>
 
           {currentDj && !dj.extraInfo && !dj.donationURL && (
             <Box background="accent-4" p={2}>

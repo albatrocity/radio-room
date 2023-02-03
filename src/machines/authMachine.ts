@@ -144,7 +144,7 @@ export const authMachine = createMachine(
             actions: ["kickUser"],
             cond: "isAdmin",
           },
-          disconnect: {
+          DISCONNECT_USER: {
             target: "disconnected",
             actions: ["disconnectUser"],
           },
@@ -244,7 +244,7 @@ export const authMachine = createMachine(
       }),
       disconnectUser: send(
         (ctx) => ({
-          type: "disconnect",
+          type: "DISCONNECT_USER",
           data: ctx.currentUser.userId,
         }),
         {

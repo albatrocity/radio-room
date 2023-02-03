@@ -11,7 +11,7 @@ interface ReactionCounterItemProps {
   emoji: string
   onReactionClick: (emoji: EmojiData) => void
   currentUserId: string
-  color: string
+  color?: string
 }
 
 const ReactionCounterItem = ({

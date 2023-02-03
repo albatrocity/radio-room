@@ -18,11 +18,12 @@ export function getCurrentUser(un: string) {
 
   const username = un || session.getItem(SESSION_USERNAME) || generateAnonName()
   const password = session.getItem(SESSION_PASSWORD)
+  console.log("isAdmin", isAdmin)
 
   session.setItem(SESSION_USERNAME, username)
   session.setItem(SESSION_ID, userId)
   return {
-    currentUser: { username, userId, password },
+    currentUser: { username, userId, password, isAdmin },
     isNewUser: isNewUser,
     isAdmin,
     password,
