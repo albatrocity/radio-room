@@ -21,7 +21,13 @@ export interface ChatMessageProps {
 }
 
 function isImageUrl(url: string) {
-  return url.match(/\.(jpeg|jpg|gif|png)$/) != null
+  return /\.(jpg|jpeg|png|webp|avif|gif)$/.test(url)
+}
+
+function isImgUrl(url: string) {
+  return fetch(url, { method: "HEAD" }).then((res) => {
+    return res?.headers?.get("Content-Type")?.startsWith("image")
+  })
 }
 
 const ChatMessage = ({
@@ -45,23 +51,28 @@ const ChatMessage = ({
   const images = Array.from(
     new Set([...parsedImageUrls, ...urls.filter((x: string) => isImageUrl(x))]),
   )
-
   const parsedContent = images.reduce((mem, x) => mem.replace(x, ""), content)
 
   useEffect(() => {
     async function testUrls() {
-      const responses = await Promise.all(
-        urls.filter((x) => isImageUrl(x)).map((x) => fetch(x)),
-      )
-      const blobs = await Promise.all(responses.map((x) => x.blob()))
-      const imageUrls = blobs.reduce<string[]>((mem, x) => {
-        if ((x?.type || "").indexOf("image") > -1) {
-          mem.push(urls[blobs.indexOf(x)])
+      try {
+        const responses = await Promise.all(urls.map((x) => isImgUrl(x)))
+
+        const testedImageUrls = responses
+          .map((res, i) => {
+            if (res) {
+              return urls[i]
+            } else {
+              return ""
+            }
+          })
+          .filter((x) => x !== "")
+
+        if (testedImageUrls.length) {
+          setParsedImageUrls(testedImageUrls)
         }
-        return mem
-      }, [])
-      if (imageUrls.length) {
-        setParsedImageUrls(imageUrls)
+      } catch (e) {
+        console.log(e)
       }
     }
     testUrls()
@@ -96,9 +107,7 @@ const ChatMessage = ({
         <WrapItem w="100%">
           <Stack direction="row" spacing={2} w="100%">
             <Box flex={{ grow: 1 }}>
-              <Text as="p" m={0} wordBreak={"break-word"}>
-                <ParsedEmojiMessage content={parsedContent} />
-              </Text>
+              <ParsedEmojiMessage content={parsedContent} />
               {images.length > 0 && (
                 <Stack direction="column" spacing={2}>
                   {images.map((x) => (

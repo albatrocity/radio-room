@@ -1,6 +1,6 @@
 import React, { memo, useContext, useEffect } from "react"
 import { useMachine, useSelector } from "@xstate/react"
-import { groupBy, map, keys } from "lodash/fp"
+import { groupBy } from "lodash/fp"
 import { GrFormAdd, GrEmoji } from "react-icons/gr"
 import {
   Popover,
@@ -73,25 +73,27 @@ const ReactionCounter = ({
 
   return (
     <Box position="relative">
-      <Wrap py={1}>
-        {keys(emoji)
-          .filter((x) => !!emoji[x].length)
-          .map((x) => (
-            <WrapItem key={x}>
-              <ReactionCounterItem
-                count={emoji[x].length}
-                users={map("user", emoji[x])}
-                currentUserId={currentUser.userId}
-                onReactionClick={(emoji) => {
-                  send("SELECT_REACTION", { data: emoji })
-                }}
-                emoji={x}
-                color={buttonColor}
-              />
-            </WrapItem>
-          ))}
-        <WrapItem></WrapItem>
-      </Wrap>
+      {Object.keys(emoji).length > 0 && (
+        <Wrap py={1}>
+          {Object.keys(emoji)
+            .filter((x) => !!emoji[x].length)
+            .map((x) => (
+              <WrapItem key={x}>
+                <ReactionCounterItem
+                  count={emoji[x].length}
+                  users={emoji[x].map(({ user }) => user)}
+                  currentUserId={currentUser.userId}
+                  onReactionClick={(emoji) => {
+                    send("SELECT_REACTION", { data: emoji })
+                  }}
+                  emoji={x}
+                  color={buttonColor}
+                />
+              </WrapItem>
+            ))}
+          <WrapItem></WrapItem>
+        </Wrap>
+      )}
       <Popover
         isOpen={state.matches("open")}
         onClose={() => send("CLOSE")}
