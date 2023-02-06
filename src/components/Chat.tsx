@@ -66,7 +66,13 @@ const Chat = ({
           />
         </Box>
       </GridItem>
-      <GridItem px={2} py={2} area={"input"}>
+      <GridItem
+        px={2}
+        py={2}
+        area={"input"}
+        borderTopColor="gray.100"
+        borderTopWidth={1}
+      >
         <TypingIndicator currentUserId={currentUserId} />
         <ChatInput
           modalActive={modalActive}

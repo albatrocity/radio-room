@@ -7,7 +7,7 @@ import React, {
   memo,
 } from "react"
 
-import { Box, Button, Flex, Icon } from "@chakra-ui/react"
+import { Box, Button, Flex, Icon, useToken } from "@chakra-ui/react"
 import { GrChat } from "react-icons/gr"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
@@ -84,12 +84,18 @@ const usersSelector = (state) => state.context.users
 const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
   const globalServices = useContext(GlobalStateContext)
 
+  const currentUser = useSelector(
+    globalServices.usersService,
+    currentUserSelector,
+  )
   const users = useSelector(globalServices.usersService, usersSelector)
 
   const inputRef = useRef(null)
   const [isTyping, setTyping] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
   const [content, setContent] = useState("")
+  const [gray] = useToken("colors", ["gray.300"])
+  const [space1] = useToken("space", [1.5])
 
   const handleTypingStop = useCallback(
     debounce(() => {
@@ -113,10 +119,12 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     handleTypingStop()
   }, [])
 
-  const userSuggestions = users.map((x) => ({
-    id: x.userId,
-    display: x.username,
-  }))
+  const userSuggestions = users
+    .filter(({ userId }) => userId !== currentUser.userId)
+    .map((x) => ({
+      id: x.userId,
+      display: x.username,
+    }))
 
   const mentionStyle = {
     fontWeight: 700,
@@ -125,7 +133,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
 
   const inputStyle = {
     control: {
-      backgroundColor: "#fff",
+      backgroundColor: "transparent",
       // padding: theme.global.edgeSize.xsmall,
       // fontSize: theme.text.medium.size,
       fontWeight: "normal",
@@ -141,25 +149,21 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     input: {
       margin: 0,
       width: "100%",
-      border: "1px solid rgba(0,0,0,0.15)",
+      border: `1px solid ${gray}`,
       borderRadius: "4px 0 0 4px",
-      padding: "0.2em",
+      padding: space1,
       fontSize: "1rem",
     },
 
     suggestions: {
       list: {
         backgroundColor: "white",
-        border: "1px solid rgba(0,0,0,0.15)",
+        border: `1px solid ${gray}`,
         fontSize: 14,
       },
 
       item: {
-        borderBottom: "1px solid rgba(0,0,0,0.15)",
-
-        "&focused": {
-          // backgroundColor: theme.global.colors["accent-4"],
-        },
+        borderBottom: `1px solid ${gray}`,
       },
     },
   }

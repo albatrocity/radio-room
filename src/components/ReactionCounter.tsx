@@ -74,7 +74,7 @@ const ReactionCounter = ({
   const emoji = groupBy("emoji", state.context.reactions)
 
   return (
-    <HStack w="100%">
+    <HStack w="100%" className="poo">
       <Wrap py={1}>
         {Object.keys(emoji)
           .filter((x) => !!emoji[x].length)
@@ -112,9 +112,8 @@ const ReactionCounter = ({
                 icon={
                   <>
                     <Icon as={GrEmoji} />
-                    <Hide below="md">
-                      <Icon as={GrFormAdd} />
-                    </Hide>
+
+                    <Icon boxSize={3} as={GrFormAdd} />
                   </>
                 }
               />

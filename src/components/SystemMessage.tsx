@@ -14,7 +14,7 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
       py={2}
       borderBottomColor="gray.300"
       borderBottomWidth={1}
-      background={status === "critical" ? "status-critical" : "light-1"}
+      background={status === "critical" ? "status-critical" : "gray.100"}
       alignContent="center"
       justifyItems="center"
       alignItems="center"
