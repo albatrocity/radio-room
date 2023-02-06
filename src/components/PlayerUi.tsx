@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, memo } from "react"
 import { useMachine, useSelector } from "@xstate/react"
-import { Box } from "@chakra-ui/react"
+import { Box, Container } from "@chakra-ui/react"
 import { kebabCase } from "lodash/fp"
 import { EmojiData } from "emoji-mart"
 
@@ -17,6 +17,7 @@ const allReactionsSelector = (state) => state.context.reactions
 
 interface PlayerUiProps {
   onShowPlaylist: () => void
+  onShowListeners: () => void
   hasPlaylist: boolean
   onOpenReactionPicker: ({
     ref,
@@ -26,13 +27,16 @@ interface PlayerUiProps {
     reactTo: string
   }) => void
   onReactionClick: (emoji: EmojiData) => void
+  listenerCount: number
 }
 
 const PlayerUi = ({
   onShowPlaylist,
+  onShowListeners,
   hasPlaylist,
   onOpenReactionPicker,
   onReactionClick,
+  listenerCount,
 }: PlayerUiProps) => {
   const globalServices = useContext(GlobalStateContext)
   const [state, send] = useMachine(audioMachine)
@@ -81,13 +85,8 @@ const PlayerUi = ({
         meta={meta}
       />
       {state.matches("online") && (
-        <Box
-          display={["none", "flex"]}
-          p={1}
-          background="brand"
-          alignItems="center"
-        >
-          <Box h="100%" w="100%" flexGrow={1}>
+        <Box display={["none", "flex"]} background="brand" alignItems="center">
+          <Container>
             <ReactionCounter
               onOpenPicker={onOpenReactionPicker}
               reactTo={{ type: "track", id: trackId }}
@@ -97,7 +96,7 @@ const PlayerUi = ({
               iconColor="accent-4"
               showAddButton={true}
             />
-          </Box>
+          </Container>
         </Box>
       )}
       {state.matches("online") && (
@@ -110,11 +109,13 @@ const PlayerUi = ({
           onPlayPause={() => send("TOGGLE")}
           onMute={() => send("TOGGLE_MUTE")}
           onShowPlaylist={onShowPlaylist}
+          onShowListeners={onShowListeners}
           hasPlaylist={hasPlaylist}
           trackId={trackId}
           onReactionClick={onReactionClick}
           onOpenPicker={onOpenReactionPicker}
           reactions={allReactions["track"][trackId]}
+          listenerCount={listenerCount}
         />
       )}
     </Box>

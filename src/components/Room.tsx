@@ -2,7 +2,7 @@ import React, { useCallback, useEffect } from "react"
 import { useSelector } from "@xstate/react"
 import Konami from "react-konami-code"
 
-import { Box, Grid, GridItem } from "@chakra-ui/react"
+import { Box, Grid, GridItem, Show } from "@chakra-ui/react"
 
 import FormAdminMeta from "./FormAdminMeta"
 import FormAdminArtwork from "./FormAdminArtwork"
@@ -159,9 +159,13 @@ const Room = () => {
             onShowPlaylist={() =>
               globalServices.roomService.send("TOGGLE_PLAYLIST")
             }
+            onShowListeners={() =>
+              globalServices.roomService.send("VIEW_LISTENERS")
+            }
             hasPlaylist={playlist.length > 0}
             onReactionClick={toggleReaction}
             onOpenReactionPicker={onOpenReactionPicker}
+            listenerCount={listeners.length}
           />
         </GridItem>
 
@@ -173,7 +177,9 @@ const Room = () => {
           />
         </GridItem>
         <GridItem area="sidebar" h="100%">
-          <Sidebar />
+          <Show above="sm">
+            <Sidebar />
+          </Show>
         </GridItem>
       </Grid>
 
@@ -185,6 +191,27 @@ const Room = () => {
         onClose={() => globalServices.roomService.send("TOGGLE_PLAYLIST")}
       >
         <Playlist data={playlist} />
+      </Drawer>
+
+      <Drawer
+        isOpen={isModalViewingListeners}
+        heading={`Listeners (${listeners.length})`}
+        size={["full", "lg"]}
+        onClose={() => hideListeners()}
+      >
+        <Box p="sm" overflow="auto" h="100%">
+          <div>
+            <UserList
+              showHeading={false}
+              onEditSettings={() =>
+                globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
+              }
+              onEditUser={() =>
+                globalServices.roomService.send("EDIT_USERNAME")
+              }
+            />
+          </div>
+        </Box>
       </Drawer>
 
       <FormUsername
@@ -210,26 +237,6 @@ const Room = () => {
           })
         }}
       />
-
-      <Modal
-        isOpen={isModalViewingListeners}
-        heading={`Listeners (${listeners.length})`}
-        onClose={() => hideListeners()}
-      >
-        <Box p="sm" overflow="auto">
-          <div>
-            <UserList
-              showHeading={false}
-              onEditSettings={() =>
-                globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
-              }
-              onEditUser={() =>
-                globalServices.roomService.send("EDIT_USERNAME")
-              }
-            />
-          </div>
-        </Box>
-      </Modal>
 
       <Modal
         isOpen={isModalViewingHelp}

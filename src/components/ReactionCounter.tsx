@@ -14,6 +14,7 @@ import {
   Wrap,
   WrapItem,
   Hide,
+  HStack,
 } from "@chakra-ui/react"
 
 import { reactionsMachine } from "../machines/reactionsMachine"
@@ -72,70 +73,71 @@ const ReactionCounter = ({
   const emoji = groupBy("emoji", state.context.reactions)
 
   return (
-    <Box position="relative">
-      {Object.keys(emoji).length > 0 && (
-        <Wrap py={1}>
-          {Object.keys(emoji)
-            .filter((x) => !!emoji[x].length)
-            .map((x) => (
-              <WrapItem key={x}>
-                <ReactionCounterItem
-                  count={emoji[x].length}
-                  users={emoji[x].map(({ user }) => user)}
-                  currentUserId={currentUser.userId}
-                  onReactionClick={(emoji) => {
+    <HStack w="100%">
+      <Wrap py={1}>
+        {Object.keys(emoji)
+          .filter((x) => !!emoji[x].length)
+          .map((x) => (
+            <WrapItem key={x} justifyContent="center" alignItems="center">
+              <ReactionCounterItem
+                count={emoji[x].length}
+                users={emoji[x].map(({ user }) => user)}
+                currentUserId={currentUser.userId}
+                onReactionClick={(emoji) => {
+                  send("SELECT_REACTION", { data: emoji })
+                }}
+                emoji={x}
+                color={buttonColor}
+              />
+            </WrapItem>
+          ))}
+        <WrapItem></WrapItem>
+        <WrapItem>
+          <Popover
+            isLazy
+            isOpen={state.matches("open")}
+            onClose={() => send("CLOSE")}
+            placement="top-start"
+          >
+            <PopoverTrigger>
+              <IconButton
+                p={1}
+                bg="transparent"
+                aria-label="Add reaction"
+                size="sm"
+                disabled={!showAddButton}
+                color={buttonColor}
+                onClick={() => send("TOGGLE", { data: { reactTo } })}
+                icon={
+                  <>
+                    <Icon as={GrEmoji} />
+                    <Hide below="md">
+                      <Icon as={GrFormAdd} />
+                    </Hide>
+                  </>
+                }
+              />
+            </PopoverTrigger>
+            <PopoverContent>
+              <PopoverArrow />
+              <PopoverBody
+                sx={{
+                  "em-emoji-picker": {
+                    "--shadow": "0",
+                  },
+                }}
+              >
+                <ReactionPicker
+                  onSelect={(emoji: EmojiData) => {
                     send("SELECT_REACTION", { data: emoji })
                   }}
-                  emoji={x}
-                  color={buttonColor}
                 />
-              </WrapItem>
-            ))}
-          <WrapItem></WrapItem>
-        </Wrap>
-      )}
-      <Popover
-        isOpen={state.matches("open")}
-        onClose={() => send("CLOSE")}
-        placement="top-start"
-      >
-        <PopoverTrigger>
-          <IconButton
-            p={1}
-            bg="transparent"
-            aria-label="Add reaction"
-            size="sm"
-            disabled={!showAddButton}
-            color={buttonColor}
-            onClick={() => send("TOGGLE", { data: { reactTo } })}
-            icon={
-              <>
-                <Icon as={GrEmoji} size={2} />
-                <Hide below="md">
-                  <Icon as={GrFormAdd} size={2} />
-                </Hide>
-              </>
-            }
-          />
-        </PopoverTrigger>
-        <PopoverContent>
-          <PopoverArrow />
-          <PopoverBody
-            sx={{
-              "em-emoji-picker": {
-                "--shadow": "0",
-              },
-            }}
-          >
-            <ReactionPicker
-              onSelect={(emoji: EmojiData) => {
-                send("SELECT_REACTION", { data: emoji })
-              }}
-            />
-          </PopoverBody>
-        </PopoverContent>
-      </Popover>
-    </Box>
+              </PopoverBody>
+            </PopoverContent>
+          </Popover>
+        </WrapItem>
+      </Wrap>
+    </HStack>
   )
 }
 

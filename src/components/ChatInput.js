@@ -23,9 +23,13 @@ const renderUserSuggestion = (
   focused,
 ) => {
   return (
-    <div className={`user ${focused ? "focused" : ""}`}>
+    <Box
+      backgroundColor={focused ? "blue.200" : "transparent"}
+      className={`user ${focused ? "focused" : ""}`}
+      px={2}
+    >
       {highlightedDisplay}
-    </div>
+    </Box>
   )
 }
 
@@ -151,7 +155,6 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
       },
 
       item: {
-        padding: "5px 15px",
         borderBottom: "1px solid rgba(0,0,0,0.15)",
 
         "&focused": {

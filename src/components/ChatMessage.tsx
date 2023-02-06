@@ -87,6 +87,7 @@ const ChatMessage = ({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       position="relative"
+      w="100%"
     >
       {showUsername && (
         <Stack direction={["row"]} justifyContent="space-between">
@@ -124,19 +125,28 @@ const ChatMessage = ({
               )}
             </Box>
             {!showUsername && hovered && (
-              <Stack
-                flexShrink={0}
-                direction="row"
-                spacing={1}
-                justify="between"
+              <Box
+                p={2}
+                background="whiteAlpha.900"
+                position="absolute"
+                top={0}
+                right={2}
+                borderRadius={4}
               >
-                <Text fontSize="xs" color="gray.500">
-                  {time}
-                </Text>
-                <Text fontSize="xs" color="gray.300">
-                  {dateString}
-                </Text>
-              </Stack>
+                <Stack
+                  flexShrink={0}
+                  direction="row"
+                  spacing={1}
+                  justify="between"
+                >
+                  <Text fontSize="xs" color="gray.500">
+                    {time}
+                  </Text>
+                  <Text fontSize="xs" color="gray.300">
+                    {dateString}
+                  </Text>
+                </Stack>
+              </Box>
             )}
           </Stack>
         </WrapItem>

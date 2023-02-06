@@ -1,5 +1,5 @@
 import React, { memo, useEffect, useState } from "react"
-import { Box, Button, Icon, VStack } from "@chakra-ui/react"
+import { Box, Button, Icon } from "@chakra-ui/react"
 import { GrLinkBottom } from "react-icons/gr"
 import { get, sortBy, isEqual } from "lodash/fp"
 import ScrollToBottom, {
@@ -76,9 +76,9 @@ const ScrollInner = ({
         )
       })}
       {!sticky && (
-        <Box style={{ position: "absolute", right: 0, bottom: "1em" }}>
+        <Box style={{ position: "absolute", right: "10px", bottom: "1em" }}>
           <Button
-            onClick={() => scrollToBottom()}
+            onClick={() => scrollToBottom({ behavior: "smooth" })}
             rightIcon={<Icon as={GrLinkBottom} boxSize={4} />}
           >
             Scroll to bottom
