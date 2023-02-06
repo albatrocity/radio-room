@@ -102,15 +102,15 @@ const ReactionCounter = ({
             p={1}
             bg="transparent"
             aria-label="Add reaction"
-            size="small"
+            size="sm"
             disabled={!showAddButton}
             color={buttonColor}
             onClick={() => send("TOGGLE", { data: { reactTo } })}
             icon={
               <>
-                <Icon as={GrEmoji} size="small" />
+                <Icon as={GrEmoji} size={2} />
                 <Hide below="md">
-                  <Icon as={GrFormAdd} size="small" />
+                  <Icon as={GrFormAdd} size={2} />
                 </Hide>
               </>
             }

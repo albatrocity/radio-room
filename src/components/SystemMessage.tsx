@@ -25,10 +25,10 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
       </Text>
       <HStack gap={1}>
         <Text fontSize="xs" color="gray.500">
-          {time}
+          {dateString}
         </Text>
         <Text fontSize="xs" color="gray.500">
-          {dateString}
+          {time}
         </Text>
       </HStack>
     </Flex>

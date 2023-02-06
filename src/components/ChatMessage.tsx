@@ -42,10 +42,10 @@ const ChatMessage = ({
   const dateString = format(date, "M/d/y")
   const isMention = mentions.indexOf(currentUserId) > -1
   const urls = useMemo((): string[] => getUrls(content), [content])
-  const images = [
-    ...parsedImageUrls,
-    ...urls.filter((x: string) => isImageUrl(x)),
-  ]
+  const images = Array.from(
+    new Set([...parsedImageUrls, ...urls.filter((x: string) => isImageUrl(x))]),
+  )
+
   const parsedContent = images.reduce((mem, x) => mem.replace(x, ""), content)
 
   useEffect(() => {
@@ -82,12 +82,12 @@ const ChatMessage = ({
           <Text my="sm" fontWeight={700}>
             {user.username}
           </Text>
-          <Stack flexShrink={0} direction="row" spacing="sm">
-            <Text fontSize="xs" color="dark-3">
-              {time}
-            </Text>
-            <Text fontSize="xs" color="dark-4">
+          <Stack flexShrink={0} direction="row" spacing={"1em"}>
+            <Text fontSize="xs" color="gray.500">
               {dateString}
+            </Text>
+            <Text fontSize="xs" color="gray.800">
+              {time}
             </Text>
           </Stack>
         </Stack>

@@ -40,7 +40,7 @@ const ListItemUser = ({
     >
       <motion.div
         animate={{
-          scale: [1, 1.1, 1.1, 1],
+          scale: [1, 1.2, 1.2, 1],
           opacity: userTyping ? [1, 0.9, 0.9, 1] : [0, 0, 0, 0],
         }}
         transition={{
@@ -58,7 +58,7 @@ const ListItemUser = ({
         gap="xsmall"
         py={user.isDj ? 2 : 0}
       >
-        {user.isDj && <Icon as={GrMicrophone} />}
+        {user.isDj && <Icon as={GrMicrophone} boxSize={3} />}
         <Box>
           <Text
             fontWeight={user.isDj ? 700 : 500}
@@ -73,7 +73,7 @@ const ListItemUser = ({
             aria-label="Edit Username"
             onClick={() => onEditUser()}
             size="xs"
-            icon={<EditIcon />}
+            icon={<EditIcon color="white" />}
           />
         )}
         {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (

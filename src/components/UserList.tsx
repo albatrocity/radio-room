@@ -55,7 +55,7 @@ const UserList = ({
   const isTyping = (user: User) => find({ userId: get("userId", user) }, typing)
 
   return (
-    <Box gap={1}>
+    <VStack spacing={2}>
       {dj && (
         <Box mb={2}>
           {showHeading && (
@@ -100,7 +100,7 @@ const UserList = ({
           )}
         </Box>
       )}
-      <VStack spacing={2} align="start">
+      <VStack spacing={2} align="start" w="100%">
         {showHeading && (
           <HStack>
             <Heading as="h3" size="md">
@@ -140,7 +140,7 @@ const UserList = ({
           )}
         </List>
       </VStack>
-    </Box>
+    </VStack>
   )
 }
 

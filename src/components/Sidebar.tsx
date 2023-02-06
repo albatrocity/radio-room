@@ -80,7 +80,7 @@ const Sidebar = (props: Props) => {
         </Show>
         {isAdmin && (
           <Show above="sm">
-            <Stack direction="column" p={3}>
+            <Stack direction="column" p={3} borderTopWidth={1}>
               <Heading as="h3" size="md" margin={{ bottom: "xsmall" }}>
                 Admin
               </Heading>
@@ -128,9 +128,7 @@ const Sidebar = (props: Props) => {
                         size="xs"
                         variant="solid"
                         colorScheme="red"
-                        leftIcon={
-                          <Icon as={GrList} size="small" color="white" />
-                        }
+                        leftIcon={<Icon as={GrList} />}
                         onClick={() => {
                           const confirmation = window.confirm(
                             "Are you sure you want to clear the playlist? This cannot be undone.",

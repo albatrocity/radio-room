@@ -1,5 +1,5 @@
 import React, { useEffect, memo, useMemo } from "react"
-import { GrMusic, GrUnlink } from "react-icons/gr"
+import { GrMusic } from "react-icons/gr"
 import {
   Box,
   Heading,
@@ -61,15 +61,24 @@ const NowPlaying = ({
   const artworkSize = [24, "120px", "220px"]
 
   return (
-    <Box p={3} background="accent-1">
+    <Box
+      p={3}
+      background="accent-1"
+      alignContent="center"
+      alignItems="center"
+      justifyContent="center"
+    >
       {offline ? (
         <>
-          <Flex direction="row" gap="small" align="center">
-            <GrUnlink color="white" />
-            <Heading margin="none" as="h2" size="lg" color="white">
-              Offline :(
-            </Heading>
-          </Flex>
+          <Heading
+            margin="none"
+            as="h2"
+            size="lg"
+            color="white"
+            textAlign="center"
+          >
+            Offline :(
+          </Heading>
         </>
       ) : (
         <LinkBox>

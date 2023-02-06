@@ -12,63 +12,61 @@ interface Props extends Pick<ModalProps, "isOpen"> {
 
 const FormPassword = ({ onSubmit, isOpen, error }: Props) => {
   return (
-    <Box p={2} gap={2}>
-      <Formik
-        initialValues={{ password: "" }}
-        onSubmit={(values, { setSubmitting }) => {
-          setSubmitting(false)
-          onSubmit(values.password)
-        }}
-      >
-        {({
-          values,
-          handleChange,
-          handleBlur,
-          handleSubmit,
-          isSubmitting,
-          isValid,
-        }) => (
-          <Modal
-            isOpen={isOpen}
-            canClose={false}
-            heading="Password required"
-            footer={
-              <Button
-                type="submit"
-                disabled={isSubmitting || !isValid}
-                onClick={() => handleSubmit()}
-              >
-                Submit
-              </Button>
-            }
-          >
-            <form onSubmit={handleSubmit}>
-              <Text as="label" mb={2}>
-                Please enter the password for this party!
+    <Formik
+      initialValues={{ password: "" }}
+      onSubmit={(values, { setSubmitting }) => {
+        setSubmitting(false)
+        onSubmit(values.password)
+      }}
+    >
+      {({
+        values,
+        handleChange,
+        handleBlur,
+        handleSubmit,
+        isSubmitting,
+        isValid,
+      }) => (
+        <Modal
+          isOpen={isOpen}
+          canClose={false}
+          heading="Password required"
+          footer={
+            <Button
+              type="submit"
+              disabled={isSubmitting || !isValid}
+              onClick={() => handleSubmit()}
+            >
+              Submit
+            </Button>
+          }
+        >
+          <form onSubmit={handleSubmit}>
+            <Text as="label" mb={2}>
+              Please enter the password for this party!
+            </Text>
+            <Input
+              onChange={handleChange}
+              onBlur={handleBlur}
+              value={values.password}
+              name="password"
+              type="password"
+              flex="grow"
+              autoFocus={true}
+              style={{
+                borderTopRightRadius: 0,
+                borderBottomRightRadius: 0,
+              }}
+            />
+            {error && (
+              <Text fontSize="sm" color="red">
+                {error}
               </Text>
-              <Input
-                onChange={handleChange}
-                onBlur={handleBlur}
-                value={values.password}
-                name="password"
-                type="password"
-                flex="grow"
-                autoFocus={true}
-                style={{
-                  borderTopRightRadius: 0,
-                  borderBottomRightRadius: 0,
-                }}
-              />
-              {error && (
-                <Text fontSize="sm" color="red">
-                  {error}
-                </Text>
-              )}
-            </form>
-          </Modal>
-        )}
-      </Formik>
-    </Box>
+            )}
+          </form>
+        </Modal>
+      )}
+    </Formik>
   )
 }
 

@@ -132,47 +132,50 @@ const Room = () => {
   )
 
   return (
-    <Grid
-      flexGrow={1}
-      flexShrink={1}
-      className="room"
-      templateAreas={[
-        `"header header"
+    <Box w="100%" h="100%">
+      <Grid
+        flexGrow={1}
+        flexShrink={1}
+        h="100%"
+        className="room"
+        templateAreas={[
+          `"header header"
       "chat chat"
       "sidebar sidebar"`,
-        `
+          `
     "header header"
     "chat sidebar"
     `,
-      ]}
-      gridTemplateRows={"auto 1fr"}
-      gridTemplateColumns={"1fr auto"}
-    >
-      <Konami
-        action={() => globalServices.roomService.send("ACTIVATE_ADMIN")}
-      />
-
-      <GridItem area="header">
-        <PlayerUi
-          onShowPlaylist={() =>
-            globalServices.roomService.send("TOGGLE_PLAYLIST")
-          }
-          hasPlaylist={playlist.length > 0}
-          onReactionClick={toggleReaction}
-          onOpenReactionPicker={onOpenReactionPicker}
+        ]}
+        gridTemplateRows={"auto 1fr"}
+        gridTemplateColumns={"1fr auto"}
+      >
+        <Konami
+          action={() => globalServices.roomService.send("ACTIVATE_ADMIN")}
         />
-      </GridItem>
 
-      <GridItem area="chat" minHeight={0}>
-        <Chat
-          modalActive={isEditing}
-          onOpenReactionPicker={onOpenReactionPicker}
-          onReactionClick={toggleReaction}
-        />
-      </GridItem>
-      <GridItem area="sidebar" h="100%">
-        <Sidebar />
-      </GridItem>
+        <GridItem area="header">
+          <PlayerUi
+            onShowPlaylist={() =>
+              globalServices.roomService.send("TOGGLE_PLAYLIST")
+            }
+            hasPlaylist={playlist.length > 0}
+            onReactionClick={toggleReaction}
+            onOpenReactionPicker={onOpenReactionPicker}
+          />
+        </GridItem>
+
+        <GridItem area="chat" minHeight={0}>
+          <Chat
+            modalActive={isEditing}
+            onOpenReactionPicker={onOpenReactionPicker}
+            onReactionClick={toggleReaction}
+          />
+        </GridItem>
+        <GridItem area="sidebar" h="100%">
+          <Sidebar />
+        </GridItem>
+      </Grid>
 
       <Drawer
         isOpen={playlistActive}
@@ -261,7 +264,7 @@ const Room = () => {
           socket.emit("settings", value)
         }}
       />
-    </Grid>
+    </Box>
   )
 }
 
