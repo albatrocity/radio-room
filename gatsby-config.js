@@ -5,7 +5,6 @@ module.exports = {
     author: `@albatrocity`,
   },
   plugins: [
-    `gatsby-plugin-react-helmet`,
     {
       resolve: `gatsby-source-filesystem`,
       options: {
@@ -40,9 +39,6 @@ module.exports = {
         fonts: [`nunito\:300,400,400i,700`],
         display: "swap",
       },
-    },
-    {
-      resolve: `gatsby-plugin-styled-components`,
     },
     // this (optional) plugin enables Progressive Web App + Offline functionality
     // To learn more, visit: https://gatsby.dev/offline
