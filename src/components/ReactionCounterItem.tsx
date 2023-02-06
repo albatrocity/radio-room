@@ -36,8 +36,8 @@ const ReactionCounterItem = ({
         background={color}
       >
         <HStack spacing={1}>
-          {count > 1 && <Text fontSize="xs">{count}</Text>}
           <em-emoji shortcodes={emoji}></em-emoji>
+          {count > 1 && <Text fontSize="xs">{count}</Text>}
         </HStack>
       </Button>
     </Tooltip>

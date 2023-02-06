@@ -15,6 +15,7 @@ import {
   WrapItem,
   Hide,
   HStack,
+  Portal,
 } from "@chakra-ui/react"
 
 import { reactionsMachine } from "../machines/reactionsMachine"
@@ -118,22 +119,24 @@ const ReactionCounter = ({
                 }
               />
             </PopoverTrigger>
-            <PopoverContent>
-              <PopoverArrow />
-              <PopoverBody
-                sx={{
-                  "em-emoji-picker": {
-                    "--shadow": "0",
-                  },
-                }}
-              >
-                <ReactionPicker
-                  onSelect={(emoji: EmojiData) => {
-                    send("SELECT_REACTION", { data: emoji })
+            <Portal>
+              <PopoverContent>
+                <PopoverArrow />
+                <PopoverBody
+                  sx={{
+                    "em-emoji-picker": {
+                      "--shadow": "0",
+                    },
                   }}
-                />
-              </PopoverBody>
-            </PopoverContent>
+                >
+                  <ReactionPicker
+                    onSelect={(emoji: EmojiData) => {
+                      send("SELECT_REACTION", { data: emoji })
+                    }}
+                  />
+                </PopoverBody>
+              </PopoverContent>
+            </Portal>
           </Popover>
         </WrapItem>
       </Wrap>
