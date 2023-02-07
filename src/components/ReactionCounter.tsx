@@ -1,4 +1,10 @@
-import React, { memo, useContext, useEffect } from "react"
+import React, {
+  memo,
+  MutableRefObject,
+  useContext,
+  useEffect,
+  useRef,
+} from "react"
 import { useMachine, useSelector } from "@xstate/react"
 import { groupBy } from "lodash/fp"
 import { GrFormAdd, GrEmoji } from "react-icons/gr"
@@ -49,6 +55,8 @@ const ReactionCounter = ({
   buttonColor,
   showAddButton,
 }: ReactionCounterProps) => {
+  const pickerRef: MutableRefObject<HTMLDivElement | null> =
+    useRef<HTMLDivElement | null>(null)
   const globalServices = useContext(GlobalStateContext)
   const currentUser = useSelector(
     globalServices.authService,
@@ -99,6 +107,9 @@ const ReactionCounter = ({
             isOpen={state.matches("open")}
             onClose={() => send("CLOSE")}
             placement="top-start"
+            variant="responsive"
+            autoFocus={true}
+            initialFocusRef={pickerRef}
           >
             <PopoverTrigger>
               <IconButton
@@ -132,6 +143,7 @@ const ReactionCounter = ({
                     onSelect={(emoji: EmojiData) => {
                       send("SELECT_REACTION", { data: emoji })
                     }}
+                    ref={pickerRef}
                   />
                 </PopoverBody>
               </PopoverContent>

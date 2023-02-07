@@ -24,6 +24,17 @@ const theme = {
     "8xl": "6rem",
     "9xl": "8rem",
   },
+  components: {
+    Popover: {
+      variants: {
+        responsive: {
+          body: {
+            padding: 0,
+          },
+        },
+      },
+    },
+  },
 }
 
 export default extendTheme(theme)

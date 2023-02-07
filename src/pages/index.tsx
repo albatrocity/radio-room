@@ -13,8 +13,6 @@ const IndexPage = () => (
 export default IndexPage
 
 export function Head({ data }: HeadProps) {
-  console.log(data)
-
   return (
     <>
       <title>{data.site.siteMetadata.title}</title>
