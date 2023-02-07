@@ -189,14 +189,16 @@ const Room = () => {
         heading="Playlist"
         size={["full", "lg"]}
         onClose={() => globalServices.roomService.send("TOGGLE_PLAYLIST")}
+        isFullHeight
       >
         <Playlist data={playlist} />
       </Drawer>
 
       <Drawer
         isOpen={isModalViewingListeners}
+        isFullHeight
         heading={`Listeners (${listeners.length})`}
-        size={["full", "lg"]}
+        size={["sm", "lg"]}
         onClose={() => hideListeners()}
       >
         <Box p="sm" overflow="auto" h="100%">

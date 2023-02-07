@@ -1,28 +1,80 @@
 // src/@chakra-ui/gatsby-plugin/theme.js
-import { extendTheme } from "@chakra-ui/react"
+import {
+  extendTheme,
+  withDefaultColorScheme,
+  ThemeConfig,
+} from "@chakra-ui/react"
+const config: ThemeConfig = {
+  initialColorMode: "system",
+  useSystemColorMode: true,
+}
+
 const theme = {
+  config,
   colors: {
-    primary: "#f14561",
-    "accent-1": "#6fab53",
-    "accent-2": "#e55215",
-    "accent-3": "#39e7ef",
-    "accent-4": "#dbe4a9",
-    "light-1": "#F8F8F8",
+    primary: {
+      "50": "#F1F7EE",
+      "100": "#dbe4a9",
+      "200": "#BDD9B0",
+      "300": "#A3CA91",
+      "400": "#89BB72",
+      "500": "#6FAC53",
+      "600": "#598943",
+      "700": "#436732",
+      "800": "#2D4521",
+      "900": "#162211",
+    },
+    action: {
+      "50": "#FDE7EB",
+      "100": "#FABDC7",
+      "200": "#F792A2",
+      "300": "#F4677E",
+      "400": "#F03D5A",
+      "500": "#f14561",
+      "600": "#BE0E2B",
+      "700": "#8E0B20",
+      "800": "#5F0715",
+      "900": "#2F040B",
+    },
   },
-  fontSizes: {
-    xs: "0.75rem",
-    sm: "0.875rem",
-    md: "1rem",
-    lg: "1.125rem",
-    xl: "1.25rem",
-    "2xl": "1.5rem",
-    "3xl": "1.875rem",
-    "4xl": "2.25rem",
-    "5xl": "3rem",
-    "6xl": "3.75rem",
-    "7xl": "4.5rem",
-    "8xl": "6rem",
-    "9xl": "8rem",
+  semanticTokens: {
+    colors: {
+      base: {
+        default: "primary.500",
+        _dark: "primary.800",
+      },
+      background: {},
+      baseBg: {
+        default: "primary.50",
+        _dark: "primary.900",
+      },
+      primaryBg: {
+        default: "primary.100",
+        _dark: "primary.400",
+      },
+      actionBg: {
+        default: "action.500",
+        _dark: "action.800",
+      },
+      action: {
+        default: "action.500",
+        _dark: "action.700",
+      },
+      critical: {
+        default: "action.500",
+      },
+      system: {
+        default: "primary.50",
+        _dark: "primary.900",
+      },
+    },
+  },
+  textStyles: {
+    body: {
+      "& p": {
+        marginBottom: 3,
+      },
+    },
   },
   components: {
     Popover: {
@@ -37,4 +89,9 @@ const theme = {
   },
 }
 
-export default extendTheme(theme)
+export default extendTheme(
+  withDefaultColorScheme({
+    colorScheme: "primary",
+  }),
+  theme,
+)

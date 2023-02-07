@@ -17,7 +17,6 @@ const allReactionsSelector = (state) => state.context.reactions
 
 interface PlayerUiProps {
   onShowPlaylist: () => void
-  onShowListeners: () => void
   hasPlaylist: boolean
   onOpenReactionPicker: ({
     ref,
@@ -32,7 +31,6 @@ interface PlayerUiProps {
 
 const PlayerUi = ({
   onShowPlaylist,
-  onShowListeners,
   hasPlaylist,
   onOpenReactionPicker,
   onReactionClick,
@@ -85,15 +83,19 @@ const PlayerUi = ({
         meta={meta}
       />
       {state.matches("online") && (
-        <Box display={["none", "flex"]} background="brand" alignItems="center">
+        <Box
+          display={["none", "flex"]}
+          background="actionBg"
+          alignItems="center"
+        >
           <Container>
             <ReactionCounter
               onOpenPicker={onOpenReactionPicker}
               reactTo={{ type: "track", id: trackId }}
               reactions={allReactions["track"][trackId]}
               onReactionClick={onReactionClick}
-              buttonColor="accent-4"
-              iconColor="accent-4"
+              buttonColor="primaryBg"
+              iconColor="primaryBg"
               showAddButton={true}
             />
           </Container>
@@ -109,13 +111,11 @@ const PlayerUi = ({
           onPlayPause={() => send("TOGGLE")}
           onMute={() => send("TOGGLE_MUTE")}
           onShowPlaylist={onShowPlaylist}
-          onShowListeners={onShowListeners}
           hasPlaylist={hasPlaylist}
           trackId={trackId}
           onReactionClick={onReactionClick}
           onOpenPicker={onOpenReactionPicker}
           reactions={allReactions["track"][trackId]}
-          listenerCount={listenerCount}
         />
       )}
     </Box>

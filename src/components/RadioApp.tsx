@@ -26,7 +26,7 @@ const RadioApp = () => {
   }, [isVisible])
 
   return (
-    <Flex grow={1} shrink={1} w="100%" h="100vh">
+    <Flex bg="baseBg" grow={1} shrink={1} w="100%" h="100vh">
       <Room />
     </Flex>
   )

@@ -8,7 +8,7 @@ import React, {
 } from "react"
 
 import { Box, Button, Flex, Icon, useToken } from "@chakra-ui/react"
-import { GrChat } from "react-icons/gr"
+import { FiMessageSquare } from "react-icons/fi"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
 
@@ -183,7 +183,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
       <form onSubmit={handleSubmit}>
         <Flex direction="row" w="100%" justify="center">
           <Flex align="center" shrink={0} justify="center" mr={3}>
-            <Icon as={GrChat} size="16px" />
+            <Icon as={FiMessageSquare} size="16px" />
           </Flex>
           <Box
             grow={1}
@@ -214,7 +214,6 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
           <Button
             type="submit"
             variant="solid"
-            colorScheme="blue"
             disabled={isSubmitting || !isValid}
             sx={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
           >

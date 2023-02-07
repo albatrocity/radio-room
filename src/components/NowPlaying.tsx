@@ -1,5 +1,5 @@
 import React, { useEffect, memo, useMemo } from "react"
-import { GrMusic } from "react-icons/gr"
+import { FiMusic } from "react-icons/fi"
 import {
   Box,
   Heading,
@@ -16,6 +16,7 @@ import AlbumArtwork from "./AlbumArtwork"
 
 import safeDate from "../lib/safeDate"
 import { TrackMeta } from "../types/Track"
+import ButtonListeners from "./ButtonListeners"
 
 interface NowPlayingProps {
   onCover: (showCover: boolean) => void
@@ -63,13 +64,13 @@ const NowPlaying = ({
   return (
     <Box
       p={3}
-      background="accent-1"
+      background="base"
       alignContent="center"
       alignItems="center"
       justifyContent="center"
     >
       {offline ? (
-        <>
+        <VStack>
           <Heading
             margin="none"
             as="h2"
@@ -79,7 +80,8 @@ const NowPlaying = ({
           >
             Offline :(
           </Heading>
-        </>
+          <ButtonListeners />
+        </VStack>
       ) : (
         <LinkBox>
           <HStack spacing={5} justify="center">
@@ -93,21 +95,21 @@ const NowPlaying = ({
               </Box>
             ) : (
               <Flex
-                background="accent-4"
+                background="primaryBg"
                 width={artworkSize}
                 height={artworkSize}
                 align="center"
                 justify="center"
                 flex={{ shrink: 0, grow: 1 }}
               >
-                <Icon as={GrMusic} boxSize={10} />
+                <Icon as={FiMusic} boxSize={20} color="primary.500" />
               </Flex>
             )}
             <VStack align={"start"} spacing={0}>
               {(track || title) && (
                 <LinkOverlay href={releaseUrl} target="_blank">
                   <Heading
-                    color="accent-4"
+                    color="primaryBg"
                     margin="none"
                     as="h3"
                     size={["md", "lg"]}
@@ -117,17 +119,17 @@ const NowPlaying = ({
                 </LinkOverlay>
               )}
               {artist && (
-                <Heading color="accent-4" margin="none" as="h4" size="sm">
+                <Heading color="primaryBg" margin="none" as="h4" size="sm">
                   {artist}
                 </Heading>
               )}
               {album && (
-                <Text as="span" color="accent-4" margin="none" fontSize="xs">
+                <Text as="span" color="primaryBg" margin="none" fontSize="xs">
                   {album}
                 </Text>
               )}
               {releaseDate && (
-                <Text as="span" color="accent-4" fontSize="xs">
+                <Text as="span" color="primaryBg" fontSize="xs">
                   Released {safeDate(releaseDate)}
                 </Text>
               )}

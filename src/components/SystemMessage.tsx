@@ -12,9 +12,9 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
     <Flex
       px={4}
       py={2}
-      borderBottomColor="gray.300"
+      borderBottomColor="primary"
       borderBottomWidth={1}
-      background={status === "critical" ? "status-critical" : "gray.100"}
+      background={status === "critical" ? "critical" : "system"}
       alignContent="center"
       justifyItems="center"
       alignItems="center"
@@ -24,12 +24,8 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
         {content}
       </Text>
       <HStack gap={1}>
-        <Text fontSize="xs" color="gray.500">
-          {dateString}
-        </Text>
-        <Text fontSize="xs" color="gray.500">
-          {time}
-        </Text>
+        <Text fontSize="xs">{dateString}</Text>
+        <Text fontSize="xs">{time}</Text>
       </HStack>
     </Flex>
   )

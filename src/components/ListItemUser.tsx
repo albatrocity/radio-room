@@ -12,7 +12,7 @@ import {
   ListIcon,
 } from "@chakra-ui/react"
 import { EditIcon, SmallCloseIcon } from "@chakra-ui/icons"
-import { GrMoreVertical, GrMicrophone } from "react-icons/gr"
+import { FiMoreVertical, FiMic } from "react-icons/fi"
 import { User } from "../types/User"
 
 interface ListItemUserProps {
@@ -36,11 +36,11 @@ const ListItemUser = ({
       flexDirection="row"
       display="flex"
       alignItems="center"
-      background={user.isDj ? "accent-2" : "transparent"}
+      background={user.isDj ? "primaryBg" : "transparent"}
     >
       <motion.div
         animate={{
-          scale: [1, 1.2, 1.2, 1],
+          scale: [1, 0.8, 0.8, 1],
           opacity: userTyping ? [1, 0.9, 0.9, 1] : [0, 0, 0, 0],
         }}
         transition={{
@@ -49,7 +49,7 @@ const ListItemUser = ({
           repeat: userTyping ? Infinity : 0,
         }}
       >
-        <ListIcon as={GrMoreVertical} color="gray.500" />
+        <ListIcon as={FiMoreVertical} color="action.300" />
       </motion.div>
       <HStack
         align="center"
@@ -57,13 +57,11 @@ const ListItemUser = ({
         border={{ side: "bottom" }}
         gap="xsmall"
         py={user.isDj ? 2 : 0}
+        width="100%"
       >
-        {user.isDj && <Icon as={GrMicrophone} boxSize={3} />}
+        {user.isDj && <Icon as={FiMic} boxSize={3} />}
         <Box>
-          <Text
-            fontWeight={user.isDj ? 700 : 500}
-            fontSize={user.isDj ? "md" : "sm"}
-          >
+          <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm">
             {user.username || "anonymous"}
           </Text>
         </Box>
@@ -73,7 +71,7 @@ const ListItemUser = ({
             aria-label="Edit Username"
             onClick={() => onEditUser()}
             size="xs"
-            icon={<EditIcon color="white" />}
+            icon={<EditIcon />}
           />
         )}
         {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
@@ -82,7 +80,6 @@ const ListItemUser = ({
               variant="link"
               aria-label="Kick User"
               onClick={() => onKickUser(user.userId)}
-              size="sm"
               icon={<SmallCloseIcon />}
             />
           </Box>

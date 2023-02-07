@@ -15,18 +15,13 @@ import {
   Text,
   Button,
 } from "@chakra-ui/react"
-import {
-  GrPlayFill,
-  GrPauseFill,
-  GrVolumeMute,
-  GrVolume,
-  GrList,
-  GrGroup,
-} from "react-icons/gr"
+
+import { FiPlay, FiPause, FiList, FiVolume, FiVolumeX } from "react-icons/fi"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
 import { EmojiData } from "emoji-mart"
 import { ChatMessage } from "../types/ChatMessage"
+import ButtonListeners from "./ButtonListeners"
 
 interface RadioPlayerProps {
   volume: number
@@ -37,7 +32,6 @@ interface RadioPlayerProps {
   onPlayPause: () => void
   onMute: () => void
   onShowPlaylist: () => void
-  onShowListeners: () => void
   hasPlaylist: boolean
   onReactionClick: (emoji: EmojiData) => void
   onOpenPicker: ({
@@ -49,7 +43,6 @@ interface RadioPlayerProps {
   }) => void
   reactions: {}[]
   trackId: string
-  listenerCount: number
 }
 
 const streamURL = process.env.GATSBY_STREAM_URL
@@ -62,18 +55,16 @@ const RadioPlayer = ({
   onPlayPause,
   onMute,
   onShowPlaylist,
-  onShowListeners,
   hasPlaylist,
   onReactionClick,
   onOpenPicker,
   reactions,
   trackId,
-  listenerCount,
 }: RadioPlayerProps) => {
   const player = useRef(null)
 
   return (
-    <Box background="accent-4" border={{ side: "bottom", color: "#adb871" }}>
+    <Box background="primaryBg" py={1}>
       <Container>
         <HStack
           w="100%"
@@ -84,31 +75,29 @@ const RadioPlayer = ({
         >
           {hasPlaylist && (
             <IconButton
+              size="sm"
               aria-label="Playlist"
               background="transparent"
+              color="action"
               onClick={onShowPlaylist}
-              icon={<Icon as={GrList} />}
+              icon={<Icon as={FiList} />}
             />
           )}
           <HStack>
             <IconButton
+              size="sm"
               aria-label={playing ? "Pause" : "Play"}
               background="transparent"
-              icon={
-                playing ? <Icon as={GrPauseFill} /> : <Icon as={GrPlayFill} />
-              }
+              color="action"
+              icon={playing ? <Icon as={FiPause} /> : <Icon as={FiPlay} />}
               onClick={() => onPlayPause()}
             />
             <IconButton
+              size="sm"
               aria-label={muted ? "Unmute" : "Mute"}
               background="transparent"
-              icon={
-                muted ? (
-                  <Icon as={GrVolumeMute} color="brand" />
-                ) : (
-                  <Icon as={GrVolume} color="brand" />
-                )
-              }
+              color="action"
+              icon={muted ? <Icon as={FiVolumeX} /> : <Icon as={FiVolume} />}
               onClick={() => onMute()}
             />
           </HStack>
@@ -135,7 +124,7 @@ const RadioPlayer = ({
                 onChange={(value) => onVolume(value)}
               >
                 <SliderTrack bg="whiteAlpha.500">
-                  <SliderFilledTrack bg="primary" />
+                  <SliderFilledTrack bg="action" />
                 </SliderTrack>
                 <SliderThumb boxSize={[6, 3]}>
                   <Box />
@@ -145,15 +134,7 @@ const RadioPlayer = ({
           </HStack>
           <Hide above="sm">
             <HStack>
-              <Button
-                onClick={onShowListeners}
-                aria-label="Listeners"
-                leftIcon={<Icon as={GrGroup} />}
-                background="transparent"
-                size="sm"
-              >
-                {listenerCount}
-              </Button>
+              <ButtonListeners />
             </HStack>
           </Hide>
         </HStack>

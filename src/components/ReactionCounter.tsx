@@ -7,7 +7,7 @@ import React, {
 } from "react"
 import { useMachine, useSelector } from "@xstate/react"
 import { groupBy } from "lodash/fp"
-import { GrFormAdd, GrEmoji } from "react-icons/gr"
+import { FiPlus, FiSmile } from "react-icons/fi"
 import {
   Popover,
   PopoverTrigger,
@@ -121,9 +121,9 @@ const ReactionCounter = ({
                 onClick={() => send("TOGGLE", { data: { reactTo } })}
                 icon={
                   <>
-                    <Icon as={GrEmoji} />
+                    <Icon as={FiSmile} />
 
-                    <Icon boxSize={3} as={GrFormAdd} />
+                    <Icon boxSize={3} as={FiPlus} />
                   </>
                 }
               />

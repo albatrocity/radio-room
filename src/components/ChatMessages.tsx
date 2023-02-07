@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useState } from "react"
 import { Box, Button, Icon } from "@chakra-ui/react"
-import { GrLinkBottom } from "react-icons/gr"
+import { FiArrowDown } from "react-icons/fi"
 import { get, sortBy, isEqual } from "lodash/fp"
 import ScrollToBottom, {
   useScrollToBottom,
@@ -79,7 +79,7 @@ const ScrollInner = ({
         <Box style={{ position: "absolute", right: "10px", bottom: "1em" }}>
           <Button
             onClick={() => scrollToBottom({ behavior: "smooth" })}
-            rightIcon={<Icon as={GrLinkBottom} boxSize={4} />}
+            rightIcon={<Icon as={FiArrowDown} boxSize={4} />}
           >
             Scroll to bottom
             {messagesSinceLast > 0 ? ` (${messagesSinceLast} new)` : ""}

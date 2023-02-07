@@ -5,7 +5,7 @@ type Props = {}
 
 function AboutContent({}: Props) {
   return (
-    <Box p="md" textStyle="spacedText">
+    <Box p="md" textStyle="body">
       <Text as="p">
         Thanks for being here! You are participating in a somewhat communal
         listening of an internet radio broadcast. Please note that there's a
@@ -40,12 +40,11 @@ function AboutContent({}: Props) {
         <Link target="_blank" href="http://gatsbyjs.com">
           Gatsby
         </Link>{" "}
-        web application (using the{" "}
-        <Link target="_blank" href="http://v2.grommet.io">
-          Grommet
+        web application (using{" "}
+        <Link target="_blank" href="https://chakra-ui.com/">
+          Chakra UI
         </Link>{" "}
-        component library) that communicates to a NodeJS web process to
-        facilitate{" "}
+        ) that communicates to a NodeJS web process to facilitate{" "}
         <Link target="_blank" href="http://socket.io">
           Socket.io
         </Link>{" "}

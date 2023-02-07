@@ -57,7 +57,7 @@ const UserList = ({
   return (
     <VStack spacing={2}>
       {dj && (
-        <Box mb={2}>
+        <Box mb={2} w="100%">
           {showHeading && (
             <Heading as="h3" size="md" mb={0.5} mt={0}>
               DJ
@@ -72,8 +72,8 @@ const UserList = ({
             />
           </List>
 
-          {currentDj && !dj.extraInfo && !dj.donationURL && (
-            <Box background="accent-4" p={2}>
+          {currentDj && !dj.extraInfo && (
+            <Box bg="primary.50" p={2}>
               <HStack
                 margin="xsmall"
                 p={0.5}
@@ -90,7 +90,7 @@ const UserList = ({
           )}
 
           {dj.extraInfo && (
-            <Box background="white" p={2}>
+            <Box bg="primary.50" p={2}>
               {dj.extraInfo !== "" && (
                 <Text>
                   <ParsedEmojiMessage content={dj.extraInfo} />
