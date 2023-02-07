@@ -100,7 +100,6 @@ const ReactionCounter = ({
               />
             </WrapItem>
           ))}
-        <WrapItem></WrapItem>
         <WrapItem>
           <Popover
             isLazy
