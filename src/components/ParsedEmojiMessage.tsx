@@ -1,33 +1,35 @@
 import React from "react"
-import Linkify from "react-linkify"
-import nl2br from "react-nl2br"
-import { Link } from "@chakra-ui/react"
-import { MultiLineParser } from "text-emoji-parser"
+import { Link, Text } from "@chakra-ui/react"
+import ChakraUIRenderer from "chakra-ui-markdown-renderer"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import remarkBreaks from "remark-breaks"
+import remarkGemoji from "remark-gemoji"
 
-const componentDecorator = (href: string, text: string, key: any) => (
-  <Link href={href} key={key} target="_blank" rel="noopener noreferrer">
-    {text}
-  </Link>
-)
+const markdownTheme = {
+  p: ({ children }) => {
+    return <Text>{children}</Text>
+  },
+  em: ({ children }) => {
+    return <Text as="em">{children}</Text>
+  },
+  a: ({ children, href }) => {
+    return (
+      <Link rel="noopener noreferrer" isExternal href={href}>
+        {children}
+      </Link>
+    )
+  },
+}
 
 const ParsedEmojiMessage = ({ content }: { content: string }) => {
-  const ParsedNode = MultiLineParser(
-    content,
-    {
-      SplitLinesTag: "p",
-      Rule: /(?:\:[^\:]+\:(?:\:skin-tone-(?:\d)\:)?)/gi,
-    },
-    (Rule) => {
-      return <em-emoji shortcodes={Rule} />
-    },
-  )
-
   return (
-    <>
-      <Linkify componentDecorator={componentDecorator}>
-        {nl2br(ParsedNode)}
-      </Linkify>
-    </>
+    <ReactMarkdown
+      remarkPlugins={[remarkGemoji, remarkBreaks, remarkGfm]}
+      components={ChakraUIRenderer(markdownTheme)}
+      children={content}
+      skipHtml
+    />
   )
 }
 
