@@ -117,7 +117,11 @@ const ReactionCounter = ({
                 aria-label="Add reaction"
                 size="sm"
                 disabled={!showAddButton}
-                color={buttonColor}
+                color={"action.500"}
+                _hover={{
+                  color: "baseBg",
+                  background: "action.500",
+                }}
                 onClick={() => send("TOGGLE", { data: { reactTo } })}
                 icon={
                   <>

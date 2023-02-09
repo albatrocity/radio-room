@@ -10,6 +10,7 @@ import {
   LinkOverlay,
   VStack,
   Icon,
+  Hide,
 } from "@chakra-ui/react"
 
 import AlbumArtwork from "./AlbumArtwork"
@@ -80,7 +81,9 @@ const NowPlaying = ({
           >
             Offline :(
           </Heading>
-          <ButtonListeners />
+          <Hide above="sm">
+            <ButtonListeners />
+          </Hide>
         </VStack>
       ) : (
         <LinkBox>

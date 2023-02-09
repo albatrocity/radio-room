@@ -55,7 +55,7 @@ const UserList = ({
   const isTyping = (user: User) => find({ userId: get("userId", user) }, typing)
 
   return (
-    <VStack spacing={2}>
+    <VStack>
       {dj && (
         <Box mb={2} w="100%">
           {showHeading && (
@@ -73,7 +73,7 @@ const UserList = ({
           </List>
 
           {currentDj && !dj.extraInfo && (
-            <Box bg="primary.50" p={2}>
+            <Box bg="appBg" p={2}>
               <HStack
                 margin="xsmall"
                 p={0.5}
@@ -90,7 +90,7 @@ const UserList = ({
           )}
 
           {dj.extraInfo && (
-            <Box bg="primary.50" p={2}>
+            <Box bg="appBg" p={2}>
               {dj.extraInfo !== "" && (
                 <Text>
                   <ParsedEmojiMessage content={dj.extraInfo} />

@@ -83,7 +83,7 @@ const ChatMessage = ({
       px={3}
       py={1}
       borderBottomWidth={anotherUserMessage ? 0 : 1}
-      borderBottomColor="gray.200"
+      borderBottomColor="baseBg"
       background={isMention ? "primaryBg" : "none"}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

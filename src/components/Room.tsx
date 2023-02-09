@@ -2,7 +2,7 @@ import React, { useCallback, useEffect } from "react"
 import { useSelector } from "@xstate/react"
 import Konami from "react-konami-code"
 
-import { Box, Grid, GridItem, Show } from "@chakra-ui/react"
+import { Box, Grid, GridItem, Hide, Show } from "@chakra-ui/react"
 
 import FormAdminMeta from "./FormAdminMeta"
 import FormAdminArtwork from "./FormAdminArtwork"
@@ -194,27 +194,29 @@ const Room = () => {
         <Playlist data={playlist} />
       </Drawer>
 
-      <Drawer
-        isOpen={isModalViewingListeners}
-        isFullHeight
-        heading={`Listeners (${listeners.length})`}
-        size={["sm", "lg"]}
-        onClose={() => hideListeners()}
-      >
-        <Box p="sm" overflow="auto" h="100%">
-          <div>
-            <UserList
-              showHeading={false}
-              onEditSettings={() =>
-                globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
-              }
-              onEditUser={() =>
-                globalServices.roomService.send("EDIT_USERNAME")
-              }
-            />
-          </div>
-        </Box>
-      </Drawer>
+      <Hide above="sm">
+        <Drawer
+          isOpen={isModalViewingListeners}
+          isFullHeight
+          heading={`Listeners (${listeners.length})`}
+          size={["sm", "lg"]}
+          onClose={() => hideListeners()}
+        >
+          <Box p="sm" overflow="auto" h="100%">
+            <div>
+              <UserList
+                showHeading={false}
+                onEditSettings={() =>
+                  globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
+                }
+                onEditUser={() =>
+                  globalServices.roomService.send("EDIT_USERNAME")
+                }
+              />
+            </div>
+          </Box>
+        </Drawer>
+      </Hide>
 
       <FormUsername
         isOpen={isEditingUsername}

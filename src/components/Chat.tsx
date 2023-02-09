@@ -70,7 +70,7 @@ const Chat = ({
         px={2}
         py={2}
         area={"input"}
-        borderTopColor="gray.100"
+        borderTopColor="primaryBg"
         borderTopWidth={1}
       >
         <TypingIndicator currentUserId={currentUserId} />

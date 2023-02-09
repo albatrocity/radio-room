@@ -22,12 +22,11 @@ const Sidebar = (props: Props) => {
   const isAdmin = useSelector(globalServices.authService, isAdminSelector)
 
   return (
-    <Box w={["100%", "20vw"]} minW={"250px"} h="100%" background="">
+    <Box w={["100%", "20vw"]} minW={"250px"} h="100%" background="baseBg">
       <Stack
         direction={["row", "column"]}
         w="100%"
         h="100%"
-        p="sm"
         align="center"
         style={{
           filter: isUnauthorized ? "blur(0.5rem)" : "none",

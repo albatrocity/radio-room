@@ -64,7 +64,7 @@ const RadioPlayer = ({
   const player = useRef(null)
 
   return (
-    <Box background="primaryBg" py={1}>
+    <Box background="secondaryBg" py={1}>
       <Container>
         <HStack
           w="100%"

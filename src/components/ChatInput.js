@@ -24,7 +24,7 @@ const renderUserSuggestion = (
 ) => {
   return (
     <Box
-      backgroundColor={focused ? "blue.200" : "transparent"}
+      backgroundColor={focused ? "actionBg" : "transparent"}
       className={`user ${focused ? "focused" : ""}`}
       px={2}
     >
@@ -94,7 +94,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
   const [isTyping, setTyping] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
   const [content, setContent] = useState("")
-  const [gray] = useToken("colors", ["gray.300"])
+  const [primaryBg] = useToken("colors", ["primaryBg"])
   const [space1] = useToken("space", [1.5])
 
   const handleTypingStop = useCallback(
@@ -149,7 +149,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     input: {
       margin: 0,
       width: "100%",
-      border: `1px solid ${gray}`,
+      border: `1px solid ${primaryBg}`,
       borderRadius: "4px 0 0 4px",
       padding: space1,
       fontSize: "1rem",
@@ -158,12 +158,12 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     suggestions: {
       list: {
         backgroundColor: "white",
-        border: `1px solid ${gray}`,
+        border: `1px solid ${primaryBg}`,
         fontSize: 14,
       },
 
       item: {
-        borderBottom: `1px solid ${gray}`,
+        borderBottom: `1px solid ${primaryBg}`,
       },
     },
   }

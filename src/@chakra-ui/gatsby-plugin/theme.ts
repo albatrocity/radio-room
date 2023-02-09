@@ -1,4 +1,6 @@
 // src/@chakra-ui/gatsby-plugin/theme.js
+import type { StyleFunctionProps } from "@chakra-ui/styled-system"
+import { mode } from "@chakra-ui/theme-tools"
 import {
   extendTheme,
   withDefaultColorScheme,
@@ -11,30 +13,49 @@ const config: ThemeConfig = {
 
 const theme = {
   config,
+  styles: {
+    global: (props: StyleFunctionProps) => ({
+      body: {
+        bg: mode("white", "primary.900")(props),
+      },
+    }),
+  },
   colors: {
     primary: {
-      "50": "#F1F7EE",
-      "100": "#dbe4a9",
-      "200": "#BDD9B0",
-      "300": "#A3CA91",
-      "400": "#89BB72",
-      "500": "#6FAC53",
-      "600": "#598943",
-      "700": "#436732",
-      "800": "#2D4521",
-      "900": "#162211",
+      "50": "#EAF1FA",
+      "100": "#C5D8F1",
+      "200": "#A0C0E8",
+      "300": "#7BA7E0",
+      "400": "#568ED7",
+      "500": "#3175CE",
+      "600": "#275EA5",
+      "700": "#1D467C",
+      "800": "#142F52",
+      "900": "#0A1729",
     },
     action: {
-      "50": "#FDE7EB",
-      "100": "#FABDC7",
-      "200": "#F792A2",
-      "300": "#F4677E",
-      "400": "#F03D5A",
-      "500": "#f14561",
-      "600": "#BE0E2B",
-      "700": "#8E0B20",
-      "800": "#5F0715",
-      "900": "#2F040B",
+      "50": "#FEE7EF",
+      "100": "#FBBCD2",
+      "200": "#F891B5",
+      "300": "#F56598",
+      "400": "#F33A7B",
+      "500": "#F00F5E",
+      "600": "#C00C4B",
+      "700": "#900938",
+      "800": "#600626",
+      "900": "#300313",
+    },
+    secondary: {
+      "50": "#FFF8E6",
+      "100": "#FFEAB8",
+      "200": "#FEDC8A",
+      "300": "#FECF5D",
+      "400": "#FEC12F",
+      "500": "#FEB401",
+      "600": "#CB9001",
+      "700": "#986C01",
+      "800": "#654801",
+      "900": "#332400",
     },
   },
   semanticTokens: {
@@ -43,14 +64,21 @@ const theme = {
         default: "primary.500",
         _dark: "primary.800",
       },
-      background: {},
       baseBg: {
         default: "primary.50",
+        _dark: "primary.800",
+      },
+      appBg: {
+        default: "white",
         _dark: "primary.900",
+      },
+      secondaryBg: {
+        default: "secondary.50",
+        _dark: "secondary.900",
       },
       primaryBg: {
         default: "primary.100",
-        _dark: "primary.400",
+        _dark: "primary.500",
       },
       actionBg: {
         default: "action.500",
@@ -64,8 +92,8 @@ const theme = {
         default: "action.500",
       },
       system: {
-        default: "primary.50",
-        _dark: "primary.900",
+        default: "primary.100",
+        _dark: "primary.700",
       },
     },
   },
@@ -91,7 +119,7 @@ const theme = {
 
 export default extendTheme(
   withDefaultColorScheme({
-    colorScheme: "primary",
+    colorScheme: "action",
   }),
   theme,
 )
