@@ -15,6 +15,7 @@ const ReactionPicker = React.forwardRef(
     const autoFocus = useBreakpointValue(
       {
         base: false,
+        sm: false,
         md: true,
       },
       {
