@@ -4,24 +4,12 @@ import { EmojiData } from "emoji-mart"
 import data from "@emoji-mart/data"
 import { Box } from "@chakra-ui/react"
 
-import { useBreakpointValue } from "@chakra-ui/react"
-
 interface ReactionPickerProps {
   onSelect: (emoji: EmojiData) => void
 }
 
 const ReactionPicker = React.forwardRef(
   ({ onSelect }: ReactionPickerProps, ref) => {
-    const autoFocus = useBreakpointValue(
-      {
-        base: false,
-        sm: false,
-        md: true,
-      },
-      {
-        fallback: "md",
-      },
-    )
     return (
       <Box
         ref={ref}
@@ -33,7 +21,7 @@ const ReactionPicker = React.forwardRef(
         }}
       >
         <Picker
-          autoFocus={autoFocus}
+          autoFocus={true}
           onEmojiSelect={onSelect}
           dynamicWidth={true}
           data={data}

@@ -21,6 +21,7 @@ import {
   HStack,
   Portal,
   ButtonProps,
+  useBreakpointValue,
 } from "@chakra-ui/react"
 import { motion } from "framer-motion"
 
@@ -65,6 +66,29 @@ const ReactionCounter = ({
     currentUserSelector,
   )
   const allReactions = useAllReactions()
+  const autoFocus = useBreakpointValue(
+    {
+      base: false,
+      sm: false,
+      md: true,
+    },
+    {
+      fallback: "md",
+    },
+  )
+  const responsivePickerRef = useBreakpointValue(
+    {
+      base: null,
+      sm: null,
+      md: pickerRef,
+    },
+    {
+      fallback: "md",
+    },
+  )
+
+  console.log("autoFocus", autoFocus)
+  console.log("responsivePickerRef", responsivePickerRef)
 
   const [state, send] = useMachine(reactionsMachine, {
     context: {
@@ -111,7 +135,7 @@ const ReactionCounter = ({
             placement="top-start"
             variant="responsive"
             autoFocus={true}
-            initialFocusRef={pickerRef}
+            initialFocusRef={responsivePickerRef}
           >
             <PopoverTrigger>
               <motion.div
@@ -152,6 +176,7 @@ const ReactionCounter = ({
                       send("SELECT_REACTION", { data: emoji })
                     }}
                     ref={pickerRef}
+                    autoFocus={autoFocus}
                   />
                 </PopoverBody>
               </PopoverContent>
