@@ -10,10 +10,16 @@ import {
   PopoverTrigger,
   Heading,
   VStack,
+  HStack,
   Text,
+  Spacer,
+  Flex,
+  Switch,
+  FormControl,
+  FormLabel,
   useColorMode,
 } from "@chakra-ui/react"
-import { FiSettings } from "react-icons/fi"
+import { FiSettings, FiMoon } from "react-icons/fi"
 
 import FormTheme from "./FormTheme"
 
@@ -33,15 +39,28 @@ const PopoverTheme = (props: Props) => {
       <PopoverContent>
         <PopoverHeader fontWeight="bold">Preferences</PopoverHeader>
         <PopoverArrow />
-        <VStack p={4} align="start" spacing={2}>
-          <Box>
-            <Heading size="xs" as="h4" fontWeight="semibold">
-              Theme
-            </Heading>
-            <Text fontSize="xs">Each theme has a dark version</Text>
-          </Box>
-          <FormTheme />
-        </VStack>
+        <Box p={4}>
+          <VStack align="start" spacing={2}>
+            <HStack justify="space-between" spacing={1} w="100%">
+              <Flex grow={1}>
+                <Heading size="xs" as="h4" fontWeight="semibold">
+                  Theme
+                </Heading>
+              </Flex>
+              <FormControl as={HStack} align="center" w="auto">
+                <FormLabel htmlFor="darkMode" m={0}>
+                  <Icon as={FiMoon} aria-label="Dark Mode" />
+                </FormLabel>
+                <Switch
+                  id="darkMode"
+                  onChange={toggleColorMode}
+                  isChecked={colorMode === "dark"}
+                />
+              </FormControl>
+            </HStack>
+            <FormTheme />
+          </VStack>
+        </Box>
       </PopoverContent>
     </Popover>
   )

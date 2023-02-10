@@ -18,17 +18,11 @@ type Props = {}
 
 const isDjSelector = (state) => state.matches("djaying.isDj")
 const isNotDjSelector = (state) => state.matches("djaying.notDj")
-const isEditingSettingsSelector = (state) =>
-  state.matches("connected.participating.editing.settings")
 
 function AdminPanel({}: Props) {
   const globalServices = useGlobalContext()
   const isDj = useSelector(globalServices.roomService, isDjSelector)
   const isNotDj = useSelector(globalServices.roomService, isNotDjSelector)
-  const isEditingSettings = useSelector(
-    globalServices.roomService,
-    isEditingSettingsSelector,
-  )
 
   return (
     <Show above="sm">
@@ -36,10 +30,16 @@ function AdminPanel({}: Props) {
         direction="column"
         p={3}
         borderTopWidth={1}
+        borderTopColor="secondaryBorder"
         background="actionBg"
         width="100%"
       >
-        <Heading as="h3" size="md" margin={{ bottom: "xsmall" }}>
+        <Heading
+          as="h3"
+          size="md"
+          color="whiteAlpha.700"
+          margin={{ bottom: "xsmall" }}
+        >
           Admin
         </Heading>
 
