@@ -261,7 +261,7 @@ const ChatInput = ({
               }}
             >
               <IconButton
-                aria-lablel="Send Message"
+                aria-label="Send Message"
                 type="submit"
                 variant="solid"
                 isDisabled={isSubmitting || !isValid}
