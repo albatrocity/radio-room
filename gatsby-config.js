@@ -28,6 +28,7 @@ module.exports = {
         short_name: `Radio`,
         start_url: `/`,
         display: `minimal-ui`,
+        icon: `src/images/icon.png`,
       },
     },
     {
