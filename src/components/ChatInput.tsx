@@ -256,12 +256,12 @@ const ChatInput = ({
             <motion.div
               layout
               animate={{
-                width: isValid ? "auto" : 0,
+                width: isValid ? "auto" : 5,
                 opacity: isValid ? 1 : 0,
               }}
             >
               <IconButton
-                aria-lablel="Send Message"
+                aria-label="Send Message"
                 type="submit"
                 variant="solid"
                 isDisabled={isSubmitting || !isValid}
