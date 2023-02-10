@@ -27,7 +27,6 @@ module.exports = {
         name: `Radio`,
         short_name: `Radio`,
         start_url: `/`,
-        background_color: `#fff`,
         display: `minimal-ui`,
         icon: `src/images/icon.jpg`,
       },
@@ -41,6 +40,6 @@ module.exports = {
     },
     // this (optional) plugin enables Progressive Web App + Offline functionality
     // To learn more, visit: https://gatsby.dev/offline
-    // `gatsby-plugin-offline`,
+    `gatsby-plugin-offline`,
   ],
 }
