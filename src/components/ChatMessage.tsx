@@ -1,20 +1,22 @@
 import React, { memo, useEffect, useState, useMemo } from "react"
 import {
   Box,
-  Text,
+  Flex,
   Image,
+  Spacer,
   Stack,
+  Text,
+  useBreakpointValue,
   Wrap,
   WrapItem,
-  useBreakpointValue,
 } from "@chakra-ui/react"
-import { format } from "date-fns"
 import getUrls from "../lib/getUrls"
 
 import ReactionCounter from "./ReactionCounter"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { User } from "../types/User"
 import { EmojiData } from "emoji-mart"
+import Timestamp from "./Timestamp"
 
 export interface ChatMessageProps {
   content: string
@@ -56,9 +58,6 @@ const ChatMessage = ({
     md: false,
   })
 
-  const date = new Date(timestamp)
-  const time = format(date, "p")
-  const dateString = format(date, "M/d/y")
   const isMention = mentions.indexOf(currentUserId) > -1
   const urls = useMemo((): string[] => getUrls(content), [content])
   const images = Array.from(
@@ -104,24 +103,24 @@ const ChatMessage = ({
       w="100%"
     >
       {showUsername && (
-        <Stack direction={["row"]} justifyContent="space-between">
+        <Flex
+          direction="row"
+          justify="between"
+          grow={1}
+          align="center"
+          w="100%"
+        >
           <Text my="sm" fontWeight={700}>
             {user.username}
           </Text>
-          <Stack flexShrink={0} direction="row" spacing={"1em"}>
-            <Text fontSize="xs" opacity={0.6} color="secondaryText">
-              {dateString}
-            </Text>
-            <Text fontSize="xs" color="secondaryText">
-              {time}
-            </Text>
-          </Stack>
-        </Stack>
+          <Spacer />
+          <Timestamp value={timestamp} />
+        </Flex>
       )}
       <Wrap spacing="xs" align="center" w="100%">
         <WrapItem w="100%">
           <Stack direction="row" spacing={2} w="100%">
-            <Box flex={{ grow: 1 }}>
+            <Box flex={{ grow: 1 }} textStyle="chatMessage">
               <ParsedEmojiMessage content={parsedContent} />
               {images.length > 0 && (
                 <Stack direction="column" spacing={2}>
@@ -139,27 +138,8 @@ const ChatMessage = ({
               )}
             </Box>
             {!showUsername && hovered && (
-              <Box
-                p={2}
-                background="whiteAlpha.900"
-                position="absolute"
-                top={0}
-                right={2}
-                borderRadius={4}
-              >
-                <Stack
-                  flexShrink={0}
-                  direction="row"
-                  spacing={1}
-                  justify="between"
-                >
-                  <Text fontSize="xs" color="secondaryText">
-                    {time}
-                  </Text>
-                  <Text fontSize="xs" color="secondaryText">
-                    {dateString}
-                  </Text>
-                </Stack>
+              <Box p={2} position="absolute" top={0} right={2} borderRadius={4}>
+                <Timestamp value={timestamp} />
               </Box>
             )}
           </Stack>

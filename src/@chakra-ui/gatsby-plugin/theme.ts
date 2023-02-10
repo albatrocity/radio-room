@@ -76,7 +76,7 @@ const theme = {
       },
       secondaryText: {
         default: "secondary.600",
-        _dark: "secondary.500",
+        _dark: "secondary.600",
       },
       secondaryBg: {
         default: "secondary.50",
@@ -120,6 +120,9 @@ const theme = {
       "& p": {
         marginBottom: 3,
       },
+    },
+    chatMessage: {
+      opacity: 0.9,
     },
   },
   components: {
