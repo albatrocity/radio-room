@@ -12,7 +12,7 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
     <Flex
       px={4}
       py={2}
-      borderBottomColor="primary"
+      borderBottomColor="whiteAlpha.100"
       borderBottomWidth={1}
       background={status === "critical" ? "critical" : "system"}
       alignContent="center"

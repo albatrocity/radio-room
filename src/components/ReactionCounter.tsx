@@ -16,13 +16,13 @@ import {
   PopoverBody,
   IconButton,
   Icon,
-  Box,
   Wrap,
   WrapItem,
-  Hide,
   HStack,
   Portal,
+  ButtonProps,
 } from "@chakra-ui/react"
+import { motion } from "framer-motion"
 
 import { reactionsMachine } from "../machines/reactionsMachine"
 import ReactionCounterItem from "./ReactionCounterItem"
@@ -36,10 +36,10 @@ import { useAllReactions } from "../lib/useAllReactions"
 interface ReactionAddButtonProps {
   onOpenPicker: ({ reactTo }: { reactTo: {} }) => void
   reactTo: ReactionSubject
-  iconColor: string
-  iconHoverColor?: string
-  buttonColor?: string
+  buttonVariant?: ButtonProps["variant"]
+  buttonColorScheme?: ButtonProps["colorScheme"]
   disabled?: boolean
+  showAddButton?: boolean
 }
 
 const currentUserSelector = (state: { context: AuthContext }) =>
@@ -48,12 +48,14 @@ const currentUserSelector = (state: { context: AuthContext }) =>
 interface ReactionCounterProps extends ReactionAddButtonProps {
   showAddButton: boolean
   onReactionClick: (emoji: EmojiData) => void
+  darkBg?: boolean
 }
 
 const ReactionCounter = ({
   reactTo,
-  buttonColor,
-  showAddButton,
+  buttonColorScheme,
+  showAddButton = true,
+  darkBg = false,
 }: ReactionCounterProps) => {
   const pickerRef: MutableRefObject<HTMLDivElement | null> =
     useRef<HTMLDivElement | null>(null)
@@ -82,7 +84,7 @@ const ReactionCounter = ({
   const emoji = groupBy("emoji", state.context.reactions)
 
   return (
-    <HStack w="100%" className="poo">
+    <HStack w="100%">
       <Wrap py={1}>
         {Object.keys(emoji)
           .filter((x) => !!emoji[x].length)
@@ -92,11 +94,12 @@ const ReactionCounter = ({
                 count={emoji[x].length}
                 users={emoji[x].map(({ user }) => user)}
                 currentUserId={currentUser.userId}
+                colorScheme={buttonColorScheme}
                 onReactionClick={(emoji) => {
                   send("SELECT_REACTION", { data: emoji })
                 }}
                 emoji={x}
-                color={buttonColor}
+                darkBg={darkBg}
               />
             </WrapItem>
           ))}
@@ -111,26 +114,28 @@ const ReactionCounter = ({
             initialFocusRef={pickerRef}
           >
             <PopoverTrigger>
-              <IconButton
-                p={1}
-                bg="transparent"
-                aria-label="Add reaction"
-                size="sm"
-                disabled={!showAddButton}
-                color={"action.500"}
-                _hover={{
-                  color: "baseBg",
-                  background: "action.500",
-                }}
-                onClick={() => send("TOGGLE", { data: { reactTo } })}
-                icon={
-                  <>
-                    <Icon as={FiSmile} />
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: showAddButton ? 1 : 0 }}
+                transition={{ duration: 0.1 }}
+              >
+                <IconButton
+                  p={1}
+                  aria-label="Add reaction"
+                  size="xs"
+                  variant={darkBg ? "darkGhost" : "ghost"}
+                  colorScheme={buttonColorScheme}
+                  disabled={!showAddButton}
+                  onClick={() => send("TOGGLE", { data: { reactTo } })}
+                  icon={
+                    <>
+                      <Icon as={FiSmile} />
 
-                    <Icon boxSize={3} as={FiPlus} />
-                  </>
-                }
-              />
+                      <Icon boxSize={3} as={FiPlus} />
+                    </>
+                  }
+                />
+              </motion.div>
             </PopoverTrigger>
             <Portal>
               <PopoverContent>

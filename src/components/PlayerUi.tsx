@@ -94,9 +94,7 @@ const PlayerUi = ({
               reactTo={{ type: "track", id: trackId }}
               reactions={allReactions["track"][trackId]}
               onReactionClick={onReactionClick}
-              buttonColor="primaryBg"
-              iconColor="primaryBg"
-              showAddButton={true}
+              darkBg={true}
             />
           </Container>
         </Box>

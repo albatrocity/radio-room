@@ -1,39 +1,47 @@
 import React, { memo } from "react"
-import { Button, HStack, Text, Tooltip } from "@chakra-ui/react"
+import { Button, HStack, Text, Tooltip, ButtonProps } from "@chakra-ui/react"
 import { EmojiData } from "emoji-mart"
 
 import ListUsernames from "./ListUsernames"
 import { User } from "../types/User"
 
-interface ReactionCounterItemProps {
+type ReactionCounterItemProps = {
   count: number
   users: User["userId"][]
   emoji: string
   onReactionClick: (emoji: EmojiData) => void
   currentUserId: string
-  color?: string
-}
+  darkBg?: boolean
+} & ButtonProps
 
 const ReactionCounterItem = ({
   count,
   users,
   emoji,
   onReactionClick,
-  color,
+  currentUserId,
+  darkBg = false,
+  ...buttonProps
 }: ReactionCounterItemProps) => {
   if (emoji === "undefined") {
     return null
   }
+
+  const isCurrentUserActive = users.includes(currentUserId)
 
   return (
     <Tooltip hasArrow placement="top" label={<ListUsernames ids={users} />}>
       <Button
         aria-label={`${emoji} reactions`}
         onClick={() => onReactionClick({ shortcodes: emoji })}
-        size="small"
+        size="xs"
         py={0.5}
         px={1}
-        background={color}
+        borderWidth={1}
+        variant={"reaction"}
+        data-active={isCurrentUserActive}
+        data-dark-bg={darkBg}
+        {...buttonProps}
       >
         <HStack spacing={1}>
           <em-emoji shortcodes={emoji}></em-emoji>

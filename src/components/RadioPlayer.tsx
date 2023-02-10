@@ -64,7 +64,7 @@ const RadioPlayer = ({
   const player = useRef(null)
 
   return (
-    <Box background="secondaryBg" py={1}>
+    <Box background="actionBgLite" py={1}>
       <Container>
         <HStack
           w="100%"
@@ -108,8 +108,6 @@ const RadioPlayer = ({
                 reactTo={{ type: "track", id: trackId }}
                 reactions={reactions}
                 onReactionClick={onReactionClick}
-                buttonColor="rgba(255,255,255,0.4)"
-                iconColor="brand"
                 showAddButton={true}
               />
             </Hide>

@@ -22,7 +22,15 @@ const Sidebar = (props: Props) => {
   const isAdmin = useSelector(globalServices.authService, isAdminSelector)
 
   return (
-    <Box w={["100%", "20vw"]} minW={"250px"} h="100%" background="baseBg">
+    <Box
+      w={["100%", "20vw"]}
+      minW={"250px"}
+      h="100%"
+      background="secondaryBg"
+      borderLeftWidth={1}
+      borderLeftColor="secondaryBorder"
+      borderLeftStyle="solid"
+    >
       <Stack
         direction={["row", "column"]}
         w="100%"

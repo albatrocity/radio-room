@@ -70,11 +70,12 @@ const Chat = ({
         px={2}
         py={2}
         area={"input"}
-        borderTopColor="primaryBg"
+        borderTopColor="secondaryBorder"
         borderTopWidth={1}
       >
         <TypingIndicator currentUserId={currentUserId} />
         <ChatInput
+          mt={-1}
           modalActive={modalActive}
           onTypingStart={() => chatSend("START_TYPING")}
           onTypingStop={() => chatSend("STOP_TYPING")}

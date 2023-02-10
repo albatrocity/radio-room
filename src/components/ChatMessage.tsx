@@ -1,5 +1,13 @@
 import React, { memo, useEffect, useState, useMemo } from "react"
-import { Box, Text, Image, Stack, Wrap, WrapItem } from "@chakra-ui/react"
+import {
+  Box,
+  Text,
+  Image,
+  Stack,
+  Wrap,
+  WrapItem,
+  useBreakpointValue,
+} from "@chakra-ui/react"
 import { format } from "date-fns"
 import getUrls from "../lib/getUrls"
 
@@ -43,6 +51,11 @@ const ChatMessage = ({
 }: ChatMessageProps) => {
   const [parsedImageUrls, setParsedImageUrls] = useState<string[]>([])
   const [hovered, setHovered] = useState(false)
+  const alwaysShowReactionPicker = useBreakpointValue({
+    base: true,
+    md: false,
+  })
+
   const date = new Date(timestamp)
   const time = format(date, "p")
   const dateString = format(date, "M/d/y")
@@ -83,7 +96,7 @@ const ChatMessage = ({
       px={3}
       py={1}
       borderBottomWidth={anotherUserMessage ? 0 : 1}
-      borderBottomColor="baseBg"
+      borderBottomColor="secondaryBorder"
       background={isMention ? "primaryBg" : "none"}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -157,9 +170,7 @@ const ChatMessage = ({
         onOpenPicker={onOpenReactionPicker}
         reactTo={{ type: "message", id: timestamp }}
         onReactionClick={onReactionClick}
-        iconColor="dark-5"
-        iconHoverColor="brand"
-        showAddButton={hovered}
+        showAddButton={alwaysShowReactionPicker || hovered}
       />
     </Box>
   )

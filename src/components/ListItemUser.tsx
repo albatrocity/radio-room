@@ -52,8 +52,7 @@ const ListItemUser = ({
         <ListIcon as={FiMoreVertical} color="action.300" />
       </motion.div>
       <HStack
-        align="center"
-        justify="between"
+        alignItems="center"
         border={{ side: "bottom" }}
         gap="xsmall"
         py={user.isDj ? 2 : 0}
@@ -74,16 +73,16 @@ const ListItemUser = ({
             icon={<EditIcon />}
           />
         )}
-        {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
-          <Box px="xs">
+        {currentUser?.isAdmin &&
+          !isEqual(user?.userId, currentUser?.userId) && (
             <IconButton
-              variant="link"
+              size="xs"
+              variant="ghost"
               aria-label="Kick User"
               onClick={() => onKickUser(user.userId)}
               icon={<SmallCloseIcon />}
             />
-          </Box>
-        )}
+          )}
       </HStack>
     </ListItem>
   )

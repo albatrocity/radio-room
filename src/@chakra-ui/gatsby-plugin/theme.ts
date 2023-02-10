@@ -1,6 +1,9 @@
 // src/@chakra-ui/gatsby-plugin/theme.js
 import type { StyleFunctionProps } from "@chakra-ui/styled-system"
-import { mode } from "@chakra-ui/theme-tools"
+import { defineStyle, defineStyleConfig } from "@chakra-ui/react"
+import { buttonTheme } from "./buttonTheme"
+
+import { mode, transparentize } from "@chakra-ui/theme-tools"
 import {
   extendTheme,
   withDefaultColorScheme,
@@ -11,61 +14,68 @@ const config: ThemeConfig = {
   useSystemColorMode: true,
 }
 
+const pal2 = ["#c9cba3", "#ffe1a8", "#e26d5c", "#723d46", "#472d30"]
+const pal3 = ["#053225", "#E34A6F", "#F7B2BD", "#B2A198", "#60A561"]
+
+const forest = {
+  action: {
+    50: "#e2ffef",
+    100: "#b9f8d7",
+    200: "#8ff2c2",
+    300: "#65eeaf",
+    400: "#41e99f",
+    500: "#2ed08b",
+    600: "#22a171",
+    700: "#167454",
+    800: "#074633",
+    900: "#00180f",
+  },
+  primary: {
+    50: "#ffe5f0",
+    100: "#fabbd0",
+    200: "#f090ad",
+    300: "#e86388",
+    400: "#e03861",
+    500: "#c71f52",
+    600: "#9c164a",
+    700: "#700e3b",
+    800: "#450528",
+    900: "#1e0012",
+  },
+  secondary: {
+    50: "#e0f7ff",
+    100: "#b5e5fc",
+    200: "#89d3f8",
+    300: "#5dc0f4",
+    400: "#3aaff1",
+    500: "#2a95d8",
+    600: "#1e75a8",
+    700: "#125379",
+    800: "#03324a",
+    900: "#00121c",
+  },
+}
+
 const theme = {
   config,
   styles: {
     global: (props: StyleFunctionProps) => ({
       body: {
-        bg: mode("white", "primary.900")(props),
+        bg: mode("white", "secondary.900")(props),
       },
     }),
   },
   colors: {
-    primary: {
-      "50": "#EAF1FA",
-      "100": "#C5D8F1",
-      "200": "#A0C0E8",
-      "300": "#7BA7E0",
-      "400": "#568ED7",
-      "500": "#3175CE",
-      "600": "#275EA5",
-      "700": "#1D467C",
-      "800": "#142F52",
-      "900": "#0A1729",
-    },
-    action: {
-      "50": "#FEE7EF",
-      "100": "#FBBCD2",
-      "200": "#F891B5",
-      "300": "#F56598",
-      "400": "#F33A7B",
-      "500": "#F00F5E",
-      "600": "#C00C4B",
-      "700": "#900938",
-      "800": "#600626",
-      "900": "#300313",
-    },
-    secondary: {
-      "50": "#FFF8E6",
-      "100": "#FFEAB8",
-      "200": "#FEDC8A",
-      "300": "#FECF5D",
-      "400": "#FEC12F",
-      "500": "#FEB401",
-      "600": "#CB9001",
-      "700": "#986C01",
-      "800": "#654801",
-      "900": "#332400",
-    },
+    ...forest,
   },
   semanticTokens: {
     colors: {
-      base: {
-        default: "primary.500",
+      baseBg: {
+        default: "primary.100",
         _dark: "primary.800",
       },
-      baseBg: {
-        default: "primary.50",
+      baseBorder: {
+        default: "primary.100",
         _dark: "primary.800",
       },
       appBg: {
@@ -74,26 +84,38 @@ const theme = {
       },
       secondaryBg: {
         default: "secondary.50",
-        _dark: "secondary.900",
+        _dark: "secondary.800",
+      },
+      secondaryBorder: {
+        default: "secondary.100",
+        _dark: "secondary.800",
+      },
+      primary: {
+        default: "primary.500",
+        _dark: "primary.800",
       },
       primaryBg: {
         default: "primary.100",
         _dark: "primary.500",
       },
       actionBg: {
-        default: "action.500",
+        default: "action.600",
+        _dark: "action.700",
+      },
+      actionBgLite: {
+        default: "action.100",
         _dark: "action.800",
       },
       action: {
-        default: "action.500",
+        default: "action.600",
         _dark: "action.700",
       },
       critical: {
         default: "action.500",
       },
       system: {
-        default: "primary.100",
-        _dark: "primary.700",
+        default: "secondary.50",
+        _dark: "blackAlpha.800",
       },
     },
   },
@@ -114,6 +136,7 @@ const theme = {
         },
       },
     },
+    Button: buttonTheme,
   },
 }
 

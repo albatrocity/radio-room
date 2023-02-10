@@ -36,7 +36,7 @@ function AdminPanel({}: Props) {
         direction="column"
         p={3}
         borderTopWidth={1}
-        background="primaryBg"
+        background="actionBg"
         width="100%"
       >
         <Heading as="h3" size="md" margin={{ bottom: "xsmall" }}>

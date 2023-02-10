@@ -65,7 +65,7 @@ const NowPlaying = ({
   return (
     <Box
       p={3}
-      background="base"
+      background="primary"
       alignContent="center"
       alignItems="center"
       justifyContent="center"

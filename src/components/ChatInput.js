@@ -94,7 +94,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
   const [isTyping, setTyping] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
   const [content, setContent] = useState("")
-  const [primaryBg] = useToken("colors", ["primaryBg"])
+  const [borderColor] = useToken("colors", ["secondaryBorder"])
   const [space1] = useToken("space", [1.5])
 
   const handleTypingStop = useCallback(
@@ -134,8 +134,6 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
   const inputStyle = {
     control: {
       backgroundColor: "transparent",
-      // padding: theme.global.edgeSize.xsmall,
-      // fontSize: theme.text.medium.size,
       fontWeight: "normal",
     },
 
@@ -149,7 +147,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     input: {
       margin: 0,
       width: "100%",
-      border: `1px solid ${primaryBg}`,
+      border: `1px solid ${borderColor}`,
       borderRadius: "4px 0 0 4px",
       padding: space1,
       fontSize: "1rem",
@@ -158,12 +156,12 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
     suggestions: {
       list: {
         backgroundColor: "white",
-        border: `1px solid ${primaryBg}`,
+        border: `1px solid ${borderColor}`,
         fontSize: 14,
       },
 
       item: {
-        borderBottom: `1px solid ${primaryBg}`,
+        borderBottom: `1px solid ${borderColor}`,
       },
     },
   }
