@@ -83,6 +83,7 @@ const Input = memo(
     <MentionsInput
       name="content"
       allowSuggestionsAboveCursor={true}
+      forceSuggestionsAboveCursor={true}
       inputRef={inputRef}
       style={inputStyle}
       value={value}
