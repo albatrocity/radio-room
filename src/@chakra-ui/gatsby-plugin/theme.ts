@@ -43,16 +43,16 @@ const forest = {
     900: "#1e0012",
   },
   secondary: {
-    50: "#e0f7ff",
-    100: "#b5e5fc",
-    200: "#89d3f8",
-    300: "#5dc0f4",
-    400: "#3aaff1",
-    500: "#2a95d8",
-    600: "#1e75a8",
-    700: "#125379",
-    800: "#03324a",
-    900: "#00121c",
+    50: "#d7ffff",
+    100: "#acf9ff",
+    200: "#7df5fc",
+    300: "#4cf0fb",
+    400: "#20ebf9",
+    500: "#06d2df",
+    600: "#00a3af",
+    700: "#00757d",
+    800: "#00474c",
+    900: "#00191d",
   },
 }
 
@@ -70,17 +70,13 @@ const theme = {
   },
   semanticTokens: {
     colors: {
-      baseBg: {
-        default: "primary.100",
-        _dark: "primary.800",
-      },
-      baseBorder: {
-        default: "primary.100",
-        _dark: "primary.800",
-      },
       appBg: {
         default: "white",
         _dark: "primary.900",
+      },
+      secondaryText: {
+        default: "secondary.600",
+        _dark: "secondary.500",
       },
       secondaryBg: {
         default: "secondary.50",

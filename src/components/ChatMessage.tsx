@@ -109,10 +109,10 @@ const ChatMessage = ({
             {user.username}
           </Text>
           <Stack flexShrink={0} direction="row" spacing={"1em"}>
-            <Text fontSize="xs" color="gray.500">
+            <Text fontSize="xs" opacity={0.6} color="secondaryText">
               {dateString}
             </Text>
-            <Text fontSize="xs" color="gray.800">
+            <Text fontSize="xs" color="secondaryText">
               {time}
             </Text>
           </Stack>
@@ -153,10 +153,10 @@ const ChatMessage = ({
                   spacing={1}
                   justify="between"
                 >
-                  <Text fontSize="xs" color="gray.500">
+                  <Text fontSize="xs" color="secondaryText">
                     {time}
                   </Text>
-                  <Text fontSize="xs" color="gray.300">
+                  <Text fontSize="xs" color="secondaryText">
                     {dateString}
                   </Text>
                 </Stack>

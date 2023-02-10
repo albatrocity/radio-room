@@ -20,12 +20,16 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
       alignItems="center"
       flexDirection="column"
     >
-      <Text as="p" fontSize="sm" textAlign="center">
+      <Text as="p" color="secondaryText" fontSize="sm" textAlign="center">
         {content}
       </Text>
       <HStack gap={1}>
-        <Text fontSize="xs">{dateString}</Text>
-        <Text fontSize="xs">{time}</Text>
+        <Text fontSize="xs" color="secondaryText" opacity={0.7}>
+          {dateString}
+        </Text>
+        <Text fontSize="xs" color="secondaryText" opacity={0.7}>
+          {time}
+        </Text>
       </HStack>
     </Flex>
   )
