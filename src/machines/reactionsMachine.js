@@ -50,6 +50,7 @@ export const reactionsMachine = createMachine(
         entry: "setTargets",
         on: {
           TOGGLE: "closed",
+          CLOSE: "closed",
           SELECT_REACTION: [
             {
               target: "closed",
@@ -74,10 +75,18 @@ export const reactionsMachine = createMachine(
       }),
       setTargets: assign({
         dropRef: (context, event) => {
-          return event.data.ref
+          if (event.data?.ref) {
+            return event.data.ref
+          } else {
+            return context.dropRef
+          }
         },
         reactTo: (context, event) => {
-          return event.data.reactTo
+          if (event.data?.reactTo) {
+            return event.data?.reactTo
+          } else {
+            return context.reactTo
+          }
         },
       }),
       setData: assign({
@@ -135,7 +144,7 @@ export const reactionsMachine = createMachine(
       reactionIsNew: (ctx, event) => {
         return isNil(
           find(
-            { user: ctx.currentUser.userId, emoji: event.data.colons },
+            { user: ctx.currentUser.userId, emoji: event.data.shortcodes },
             ctx.reactions,
           ),
         )

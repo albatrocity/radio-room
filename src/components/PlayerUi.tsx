@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, memo } from "react"
-import { Box, ResponsiveContext } from "grommet"
 import { useMachine, useSelector } from "@xstate/react"
+import { Box, Container } from "@chakra-ui/react"
 import { kebabCase } from "lodash/fp"
 import { EmojiData } from "emoji-mart"
 
@@ -25,7 +25,8 @@ interface PlayerUiProps {
     ref: HTMLButtonElement
     reactTo: string
   }) => void
-  onReactionClick: ({ colons }: { colons: EmojiData }) => void
+  onReactionClick: (emoji: EmojiData) => void
+  listenerCount: number
 }
 
 const PlayerUi = ({
@@ -33,10 +34,9 @@ const PlayerUi = ({
   hasPlaylist,
   onOpenReactionPicker,
   onReactionClick,
+  listenerCount,
 }: PlayerUiProps) => {
-  const size = useContext(ResponsiveContext)
   const globalServices = useContext(GlobalStateContext)
-  const isMobile = size === "small"
   const [state, send] = useMachine(audioMachine)
   const isUnauthorized = useSelector(
     globalServices.authService,
@@ -56,7 +56,7 @@ const PlayerUi = ({
   const trackId = kebabCase(`${track}-${artist}-${album}`)
 
   const onCover = useCallback(
-    (hasCover) => {
+    (hasCover: boolean) => {
       if (ready) {
         if (hasCover) {
           send("TRY_COVER")
@@ -70,7 +70,7 @@ const PlayerUi = ({
 
   return (
     <Box
-      style={{
+      sx={{
         filter: isUnauthorized ? "blur(0.5rem)" : "none",
       }}
     >
@@ -82,19 +82,21 @@ const PlayerUi = ({
         offline={state.matches("offline")}
         meta={meta}
       />
-      {state.matches("online") && !isMobile && (
-        <Box pad="small" background="brand" align="center">
-          <Box width={{ max: "medium" }} fill flex={{ grow: 1 }}>
+      {state.matches("online") && (
+        <Box
+          display={["none", "flex"]}
+          background="actionBg"
+          alignItems="center"
+        >
+          <Container>
             <ReactionCounter
               onOpenPicker={onOpenReactionPicker}
               reactTo={{ type: "track", id: trackId }}
               reactions={allReactions["track"][trackId]}
               onReactionClick={onReactionClick}
-              buttonColor="accent-4"
-              iconColor="accent-4"
-              showAddButton={true}
+              darkBg={true}
             />
-          </Box>
+          </Container>
         </Box>
       )}
       {state.matches("online") && (
@@ -108,7 +110,6 @@ const PlayerUi = ({
           onMute={() => send("TOGGLE_MUTE")}
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}
-          isMobile={isMobile}
           trackId={trackId}
           onReactionClick={onReactionClick}
           onOpenPicker={onOpenReactionPicker}

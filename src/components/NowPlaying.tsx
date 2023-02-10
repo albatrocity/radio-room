@@ -1,11 +1,23 @@
-import React, { useContext, useEffect, memo, useMemo } from "react"
-import { Box, Heading, Text, ResponsiveContext, Anchor } from "grommet"
-import { Music, Unlink } from "grommet-icons"
+import React, { useEffect, memo, useMemo } from "react"
+import { FiMusic } from "react-icons/fi"
+import {
+  Box,
+  Heading,
+  Flex,
+  Text,
+  HStack,
+  LinkBox,
+  LinkOverlay,
+  VStack,
+  Icon,
+  Hide,
+} from "@chakra-ui/react"
 
 import AlbumArtwork from "./AlbumArtwork"
 
 import safeDate from "../lib/safeDate"
 import { TrackMeta } from "../types/Track"
+import ButtonListeners from "./ButtonListeners"
 
 interface NowPlayingProps {
   onCover: (showCover: boolean) => void
@@ -20,7 +32,6 @@ const NowPlaying = ({
   meta,
   coverFound,
 }: NowPlayingProps) => {
-  const size = useContext(ResponsiveContext)
   const {
     album,
     artist,
@@ -30,7 +41,6 @@ const NowPlaying = ({
     title,
   } = meta || {}
   const { mbid, releaseDate } = release || {}
-  const artworkSize = size === "small" ? "xsmall" : "small"
   const releaseUrl = mbid && `https://musicbrainz.org/release/${mbid}`
   const coverUrl = useMemo(
     () =>
@@ -50,35 +60,34 @@ const NowPlaying = ({
     }
   }, [coverUrl])
 
-  const MetaWrapper = ({
-    releaseUrl,
-    children,
-  }: {
-    releaseUrl: string
-    children: JSX.Element
-  }) =>
-    releaseUrl ? (
-      <Anchor href={releaseUrl} target="_blank" color="white">
-        {children}
-      </Anchor>
-    ) : (
-      <>{children}</>
-    )
+  const artworkSize = [24, "120px", "220px"]
 
   return (
-    <Box pad="medium" align="center" background="accent-1">
+    <Box
+      p={3}
+      background="primary"
+      alignContent="center"
+      alignItems="center"
+      justifyContent="center"
+    >
       {offline ? (
-        <>
-          <Box direction="row" gap="small" align="center">
-            <Unlink color="white" />
-            <Heading margin="none" level={2} color="white">
-              Offline :(
-            </Heading>
-          </Box>
-        </>
+        <VStack>
+          <Heading
+            margin="none"
+            as="h2"
+            size="lg"
+            color="white"
+            textAlign="center"
+          >
+            Offline :(
+          </Heading>
+          <Hide above="sm">
+            <ButtonListeners />
+          </Hide>
+        </VStack>
       ) : (
-        <MetaWrapper href={releaseUrl} target="_blank" color="white">
-          <Box direction="row" gap="medium" justify="center">
+        <LinkBox>
+          <HStack spacing={5} justify="center">
             {coverUrl && coverFound ? (
               <Box
                 width={artworkSize}
@@ -88,41 +97,48 @@ const NowPlaying = ({
                 <AlbumArtwork coverUrl={coverUrl} onCover={onCover} />
               </Box>
             ) : (
-              <Box
-                background="accent-4"
+              <Flex
+                background="primaryBg"
                 width={artworkSize}
                 height={artworkSize}
                 align="center"
                 justify="center"
                 flex={{ shrink: 0, grow: 1 }}
               >
-                <Music size="large" color="accent-1" />
-              </Box>
+                <Icon as={FiMusic} boxSize={20} color="primary.500" />
+              </Flex>
             )}
-            <Box justify="center">
+            <VStack align={"start"} spacing={0}>
               {(track || title) && (
-                <Heading color="accent-4" margin="none" level={3}>
-                  {track || title.replace(/\|/g, "")}
-                </Heading>
+                <LinkOverlay href={releaseUrl} target="_blank">
+                  <Heading
+                    color="primaryBg"
+                    margin="none"
+                    as="h3"
+                    size={["md", "lg"]}
+                  >
+                    {track || title.replace(/\|/g, "")}
+                  </Heading>
+                </LinkOverlay>
               )}
               {artist && (
-                <Heading color="accent-4" margin="none" level={4}>
+                <Heading color="primaryBg" margin="none" as="h4" size="sm">
                   {artist}
                 </Heading>
               )}
               {album && (
-                <Text color="accent-4" margin="none" size="small">
+                <Text as="span" color="primaryBg" margin="none" fontSize="xs">
                   {album}
                 </Text>
               )}
               {releaseDate && (
-                <Text color="accent-4" size="xsmall">
+                <Text as="span" color="primaryBg" fontSize="xs">
                   Released {safeDate(releaseDate)}
                 </Text>
               )}
-            </Box>
-          </Box>
-        </MetaWrapper>
+            </VStack>
+          </HStack>
+        </LinkBox>
       )}
     </Box>
   )

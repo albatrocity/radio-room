@@ -3,6 +3,7 @@ import socketService from "../lib/socketService"
 
 export const roomMachine = createMachine(
   {
+    predictableActionArguments: true,
     id: "room",
     initial: "connected",
     context: {
@@ -99,7 +100,7 @@ export const roomMachine = createMachine(
             entry: ["setDj"],
             exit: ["setDj"],
             on: {
-              "": [
+              always: [
                 {
                   target: "notDj",
                   in: "#room.admin.notAdmin",
@@ -128,9 +129,10 @@ export const roomMachine = createMachine(
                 states: {
                   none: {},
                   username: {},
+                  preferences: {},
                   meta: {
                     on: {
-                      "": [
+                      always: [
                         {
                           target: "none",
                           in: "#room.admin.notAdmin",
@@ -140,7 +142,7 @@ export const roomMachine = createMachine(
                   },
                   artwork: {
                     on: {
-                      "": [
+                      always: [
                         {
                           target: "none",
                           in: "#room.admin.notAdmin",
@@ -150,7 +152,7 @@ export const roomMachine = createMachine(
                   },
                   settings: {
                     on: {
-                      "": [
+                      always: [
                         {
                           target: "none",
                           in: "#room.admin.notAdmin",
@@ -158,10 +160,12 @@ export const roomMachine = createMachine(
                       ],
                     },
                   },
+                  listenerSettings: {},
                 },
                 on: {
                   CLOSE_EDIT: ".none",
                   EDIT_USERNAME: ".username",
+                  EDIT_SETTINGS: ".preferences",
                   ADMIN_EDIT_META: {
                     target: ".meta",
                     in: "#room.admin.isAdmin",
@@ -215,11 +219,6 @@ export const roomMachine = createMachine(
       setPlaylist: assign({
         playlist: (context, event) => {
           return event.data
-        },
-      }),
-      setReactions: assign({
-        reactions: (context, event) => {
-          return event.data.reactions
         },
       }),
       setReaction: assign({

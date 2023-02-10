@@ -1,15 +1,25 @@
 import React, { memo } from "react"
 import { get, isEqual } from "lodash/fp"
+import { motion } from "framer-motion"
 
-import { Box, Text, Button } from "grommet"
-import { Edit, MoreVertical, Microphone, Close } from "grommet-icons"
+import {
+  Box,
+  Text,
+  HStack,
+  IconButton,
+  Icon,
+  ListItem,
+  ListIcon,
+} from "@chakra-ui/react"
+import { EditIcon, SmallCloseIcon } from "@chakra-ui/icons"
+import { FiMoreVertical, FiMic } from "react-icons/fi"
 import { User } from "../types/User"
 
 interface ListItemUserProps {
   user: User
   currentUser: User
-  onEditUser: () => void
-  onKickUser: (userId: string) => void
+  onEditUser: (user: User) => void
+  onKickUser?: (userId: string) => void
   userTyping: boolean
 }
 
@@ -21,66 +31,60 @@ const ListItemUser = ({
   userTyping,
 }: ListItemUserProps) => {
   return (
-    <Box key={user.userId}>
-      <Box
-        direction="row"
-        align="center"
-        justify="between"
+    <ListItem
+      key={user.userId}
+      flexDirection="row"
+      display="flex"
+      alignItems="center"
+      background={user.isDj ? "primaryBg" : "transparent"}
+    >
+      <motion.div
+        animate={{
+          scale: [1, 0.8, 0.8, 1],
+          opacity: userTyping ? [1, 0.9, 0.9, 1] : [0, 0, 0, 0],
+        }}
+        transition={{
+          duration: 0.6,
+          ease: "easeInOut",
+          repeat: userTyping ? Infinity : 0,
+        }}
+      >
+        <ListIcon as={FiMoreVertical} color="action.300" />
+      </motion.div>
+      <HStack
+        alignItems="center"
         border={{ side: "bottom" }}
         gap="xsmall"
-        pad={{ vertical: user.isDj ? "medium" : "small" }}
-        elevation={user.isDj ? "small" : "none"}
-        background={user.isDj ? "accent-2" : "transparent"}
+        py={user.isDj ? 2 : 0}
+        width="100%"
       >
-        <Box
-          animation={
-            userTyping
-              ? {
-                  type: "pulse",
-                  delay: 0,
-                  duration: 200,
-                  size: "large",
-                }
-              : undefined
-          }
-          style={{ opacity: userTyping ? 1 : 0 }}
-        >
-          <MoreVertical color="accent-3" size="small" />
-        </Box>
-        {user.isDj && (
-          <Box>
-            <Microphone size="14px" />
-          </Box>
-        )}
-        <Box align="start" flex={{ grow: 1, shrink: 1 }}>
-          <Text
-            weight={user.isDj ? 700 : 500}
-            size={user.isDj ? "medium" : "small"}
-          >
+        {user.isDj && <Icon as={FiMic} boxSize={3} />}
+        <Box>
+          <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm">
             {user.username || "anonymous"}
           </Text>
         </Box>
         {user.userId === get("userId", currentUser) && (
-          <Box pad={{ horizontal: "medium" }}>
-            <Button
-              plain
-              onClick={() => onEditUser()}
-              icon={<Edit size="small" />}
-            />
-          </Box>
+          <IconButton
+            variant="link"
+            aria-label="Edit Username"
+            onClick={() => onEditUser()}
+            size="xs"
+            icon={<EditIcon />}
+          />
         )}
-        {get("isAdmin", currentUser) &&
-          !isEqual(get("userId", user), get("userId", currentUser)) && (
-            <Box pad={{ horizontal: "xsmall" }}>
-              <Button
-                plain
-                onClick={() => onKickUser(user.userId)}
-                icon={<Close size="small" />}
-              />
-            </Box>
+        {currentUser?.isAdmin &&
+          !isEqual(user?.userId, currentUser?.userId) && (
+            <IconButton
+              size="xs"
+              variant="ghost"
+              aria-label="Kick User"
+              onClick={() => onKickUser(user.userId)}
+              icon={<SmallCloseIcon />}
+            />
           )}
-      </Box>
-    </Box>
+      </HStack>
+    </ListItem>
   )
 }
 

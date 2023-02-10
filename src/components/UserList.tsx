@@ -1,8 +1,15 @@
 import React, { memo, useContext } from "react"
 import { useMachine, useSelector } from "@xstate/react"
-import { Box, Text, Heading } from "grommet"
 import { get, isEqual, find, reverse, reject } from "lodash/fp"
-import { Edit } from "grommet-icons"
+import {
+  Box,
+  Text,
+  Heading,
+  HStack,
+  List,
+  VStack,
+  ListItem,
+} from "@chakra-ui/react"
 
 import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
@@ -16,11 +23,12 @@ const listenersSelector = (state) => state.context.listeners
 const djSelector = (state) => state.context.dj
 
 import { User } from "../types/User"
+import { EditIcon } from "@chakra-ui/icons"
 
 interface UserListProps {
-  onEditUser: (user: {}) => void
+  onEditUser: (user: User) => void
   onEditSettings: () => void
-  showHeading: boolean
+  showHeading?: boolean
 }
 
 const UserList = ({
@@ -47,53 +55,42 @@ const UserList = ({
   const isTyping = (user: User) => find({ userId: get("userId", user) }, typing)
 
   return (
-    <Box gap="small">
+    <VStack>
       {dj && (
-        <Box margin={{ bottom: "small" }}>
+        <Box mb={2} w="100%">
           {showHeading && (
-            <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
+            <Heading as="h3" size="md" mb={0.5} mt={0}>
               DJ
             </Heading>
           )}
-          <ListItemUser
-            user={dj}
-            currentUser={currentUser}
-            onEditUser={onEditUser}
-            userTyping={isTyping(dj)}
-          />
+          <List w="100%">
+            <ListItemUser
+              user={dj}
+              currentUser={currentUser}
+              onEditUser={onEditUser}
+              userTyping={isTyping(dj)}
+            />
+          </List>
 
-          {currentDj && !dj.extraInfo && !dj.donationURL && (
-            <Box
-              background="accent-4"
-              pad="medium"
-              elevation="medium"
-              border={{ side: "all" }}
-            >
-              <Box
+          {currentDj && !dj.extraInfo && (
+            <Box bg="appBg" p={2}>
+              <HStack
                 margin="xsmall"
-                pad="xsmall"
-                direction="row"
-                border={{ side: "all", style: "dashed" }}
-                align="center"
-                gap="xsmall"
+                p={0.5}
+                gap={0.5}
                 onClick={() => onEditSettings()}
               >
-                <Text size="small">
+                <Text fontSize="sm">
                   Add info here, like links to anything you're promoting and a
                   donation link.
                 </Text>
-                <Edit />
-              </Box>
+                <EditIcon />
+              </HStack>
             </Box>
           )}
 
           {dj.extraInfo && (
-            <Box
-              background="white"
-              pad="medium"
-              elevation="medium"
-              border={{ side: "all" }}
-            >
+            <Box bg="appBg" p={2}>
               {dj.extraInfo !== "" && (
                 <Text>
                   <ParsedEmojiMessage content={dj.extraInfo} />
@@ -103,40 +100,47 @@ const UserList = ({
           )}
         </Box>
       )}
-      <Box>
+      <VStack spacing={2} align="start" w="100%">
         {showHeading && (
-          <Heading level={3} margin={{ bottom: "xsmall", top: "none" }}>
-            Listeners <Text size="small">({listeners.length})</Text>
-          </Heading>
+          <HStack>
+            <Heading as="h3" size="md">
+              Listeners
+            </Heading>
+            <Text fontSize="xs">({listeners.length})</Text>
+          </HStack>
         )}
-        {currentListener && (
-          <ListItemUser
-            key={currentListener.userId}
-            user={currentListener}
-            userTyping={isTyping(currentUser.userId)}
-            currentUser={currentUser}
-            onEditUser={onEditUser}
-            onKickUser={(_user: User) =>
-              globalServices.authService.send("KICK_USER", currentListener)
-            }
-          />
-        )}
-        {reverse(reject({ userId: currentUser.userId }, listeners)).map((x) => {
-          return (
+        <List spacing={1}>
+          {currentListener && (
             <ListItemUser
-              key={x.userId}
-              user={x}
-              userTyping={isTyping(x)}
+              key={currentListener.userId}
+              user={currentListener}
+              userTyping={isTyping(currentUser.userId)}
               currentUser={currentUser}
               onEditUser={onEditUser}
               onKickUser={(_user: User) =>
-                globalServices.authService.send("KICK_USER", x)
+                globalServices.authService.send("KICK_USER", currentListener)
               }
             />
-          )
-        })}
-      </Box>
-    </Box>
+          )}
+          {reverse(reject({ userId: currentUser.userId }, listeners)).map(
+            (x) => {
+              return (
+                <ListItemUser
+                  key={x.userId}
+                  user={x}
+                  userTyping={isTyping(x)}
+                  currentUser={currentUser}
+                  onEditUser={onEditUser}
+                  onKickUser={(_user: User) =>
+                    globalServices.authService.send("KICK_USER", x)
+                  }
+                />
+              )
+            },
+          )}
+        </List>
+      </VStack>
+    </VStack>
   )
 }
 

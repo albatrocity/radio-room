@@ -1,11 +1,10 @@
 module.exports = {
   siteMetadata: {
-    title: `🔉 Koney Live`,
+    title: `🔉 Radio`,
     description: `Listen to something`,
     author: `@albatrocity`,
   },
   plugins: [
-    `gatsby-plugin-react-helmet`,
     {
       resolve: `gatsby-source-filesystem`,
       options: {
@@ -16,10 +15,17 @@ module.exports = {
     `gatsby-transformer-sharp`,
     `gatsby-plugin-sharp`,
     {
+      resolve: "@chakra-ui/gatsby-plugin",
+      options: {
+        resetCSS: true,
+        isUsingColorMode: true,
+      },
+    },
+    {
       resolve: `gatsby-plugin-manifest`,
       options: {
-        name: `Koney Live`,
-        short_name: `Koney`,
+        name: `Radio`,
+        short_name: `Radio`,
         start_url: `/`,
         background_color: `#fff`,
         theme_color: `#f14561`,
@@ -33,9 +39,6 @@ module.exports = {
         fonts: [`nunito\:300,400,400i,700`],
         display: "swap",
       },
-    },
-    {
-      resolve: `gatsby-plugin-styled-components`,
     },
     // this (optional) plugin enables Progressive Web App + Offline functionality
     // To learn more, visit: https://gatsby.dev/offline

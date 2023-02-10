@@ -15,6 +15,7 @@ type ChatEvent = {
 
 export const chatMachine = createMachine(
   {
+    predictableActionArguments: true,
     tsTypes: {} as import("./chatMachine.typegen").Typegen0,
     id: "chat",
     initial: "unauthenticated",

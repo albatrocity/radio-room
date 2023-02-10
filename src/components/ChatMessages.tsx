@@ -1,31 +1,23 @@
 import React, { memo, useEffect, useState } from "react"
-import { Box, Button } from "grommet"
-import { LinkBottom } from "grommet-icons"
+import { Box, Button, Icon } from "@chakra-ui/react"
+import { FiArrowDown } from "react-icons/fi"
 import { get, sortBy, isEqual } from "lodash/fp"
-import styled from "styled-components"
 import ScrollToBottom, {
   useScrollToBottom,
   useSticky,
 } from "react-scroll-to-bottom"
+import { EmojiData } from "emoji-mart"
+import styled from "@emotion/styled"
 
 import ChatMessage from "./ChatMessage"
 import { ChatMessage as ChatMessageType } from "../types/ChatMessage"
 import SystemMessage from "./SystemMessage"
-import { EmojiData } from "emoji-mart"
 
-const Container = styled(Box)`
+const StyledScrollToBottom = styled(ScrollToBottom)`
   height: 100%;
-  .scroll-to-bottom {
-    height: 100%;
-    position: relative;
-    .default-scroll-button {
-      display: none;
-    }
-  }
-  .scroll-view {
-    height: 100%;
-    overflow-y: auto;
-    width: 100%;
+
+  .default-scroll-button {
+    display: none;
   }
 `
 
@@ -59,7 +51,7 @@ const ScrollInner = ({
   const messagesSinceLast = messages.length - 1 - lastMessageIndex
 
   return (
-    <>
+    <Box>
       {messages.map((x, i) => {
         const sameUserAsLastMessage = isEqual(
           get("user.userId", x),
@@ -84,23 +76,17 @@ const ScrollInner = ({
         )
       })}
       {!sticky && (
-        <Box
-          elevation="large"
-          style={{ position: "absolute", right: 0, bottom: "1em" }}
-          round="small"
-        >
+        <Box style={{ position: "absolute", right: "10px", bottom: "1em" }}>
           <Button
-            elevation="large"
-            onClick={scrollToBottom}
-            primary
-            icon={<LinkBottom size="small" />}
-            label={`Scroll to bottom ${
-              messagesSinceLast > 0 ? `(${messagesSinceLast} new)` : ""
-            }`}
-          ></Button>
+            onClick={() => scrollToBottom({ behavior: "smooth" })}
+            rightIcon={<Icon as={FiArrowDown} boxSize={4} />}
+          >
+            Scroll to bottom
+            {messagesSinceLast > 0 ? ` (${messagesSinceLast} new)` : ""}
+          </Button>
         </Box>
       )}
-    </>
+    </Box>
   )
 }
 
@@ -113,15 +99,9 @@ const ChatMessages = ({
   const sortedMessages = sortBy("timestamp", messages)
 
   return (
-    <Container>
-      <ScrollToBottom
-        followButtonClassName="default-scroll-button"
-        scrollViewClassName="scroll-view"
-        className="scroll-to-bottom"
-      >
-        <ScrollInner messages={sortedMessages} {...rest} />
-      </ScrollToBottom>
-    </Container>
+    <StyledScrollToBottom followButtonClassName="default-scroll-button">
+      <ScrollInner messages={sortedMessages} {...rest} />
+    </StyledScrollToBottom>
   )
 }
 

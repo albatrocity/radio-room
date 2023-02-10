@@ -1,18 +1,18 @@
-import React, { useContext, useRef, useState, memo } from "react"
-import { Box, Text, Drop, Button } from "grommet"
-import { EmojiData, Emoji } from "emoji-mart"
-import { ThemeContext, ResponsiveContext } from "grommet"
+import React, { memo } from "react"
+import { Button, HStack, Text, Tooltip, ButtonProps } from "@chakra-ui/react"
+import { EmojiData } from "emoji-mart"
 
 import ListUsernames from "./ListUsernames"
+import { User } from "../types/User"
 
-interface ReactionCounterItemProps {
+type ReactionCounterItemProps = {
   count: number
-  users: string[]
-  emoji: EmojiData
-  onReactionClick: ({ colons }: { colons: EmojiData }) => void
+  users: User["userId"][]
+  emoji: string
+  onReactionClick: (emoji: EmojiData) => void
   currentUserId: string
-  color: string
-}
+  darkBg?: boolean
+} & ButtonProps
 
 const ReactionCounterItem = ({
   count,
@@ -20,57 +20,35 @@ const ReactionCounterItem = ({
   emoji,
   onReactionClick,
   currentUserId,
-  color = "light-2",
+  darkBg = false,
+  ...buttonProps
 }: ReactionCounterItemProps) => {
-  const theme = useContext(ThemeContext)
-  const size = useContext(ResponsiveContext)
-  const buttonRef = useRef()
-  const [hovered, setHovered] = useState(false)
-  const currentUserReaction = users.indexOf(currentUserId) > -1
+  if (emoji === "undefined") {
+    return null
+  }
+
+  const isCurrentUserActive = users.includes(currentUserId)
 
   return (
-    <>
+    <Tooltip hasArrow placement="top" label={<ListUsernames ids={users} />}>
       <Button
-        direction="row"
-        color={color}
-        primary={currentUserReaction}
-        gap="small"
-        round="xsmall"
-        align="center"
-        justify="center"
-        focusIndicator={false}
-        onClick={() => onReactionClick({ colons: emoji })}
-        ref={buttonRef}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        size="small"
-        style={{ padding: "0.1rem 0.2rem" }}
-        icon={
-          <Box
-            height={`${
-              parseInt(theme.paragraph[size].size.replace("px", "")) + 4
-            }px`}
-          >
-            <Emoji
-              size={parseInt(theme.paragraph[size].size.replace("px", "")) + 4}
-              emoji={emoji}
-            />
-          </Box>
-        }
-        label={
-          <Text size="small" weight={700} style={{ lineHeight: "auto" }}>
-            {count}
-          </Text>
-        }
-      />
-      {hovered && (
-        <Drop target={buttonRef.current} align={{ bottom: "top" }}>
-          <Box pad="small" width="small" align="center">
-            <ListUsernames ids={users} />
-          </Box>
-        </Drop>
-      )}
-    </>
+        aria-label={`${emoji} reactions`}
+        onClick={() => onReactionClick({ shortcodes: emoji })}
+        size="xs"
+        py={0.5}
+        px={1}
+        borderWidth={1}
+        variant={"reaction"}
+        data-active={isCurrentUserActive}
+        data-dark-bg={darkBg}
+        {...buttonProps}
+      >
+        <HStack spacing={1}>
+          <em-emoji shortcodes={emoji}></em-emoji>
+          {count > 1 && <Text fontSize="xs">{count}</Text>}
+        </HStack>
+      </Button>
+    </Tooltip>
   )
 }
 

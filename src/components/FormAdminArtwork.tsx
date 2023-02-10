@@ -1,6 +1,6 @@
 import React from "react"
 import { Formik } from "formik"
-import { Button, Paragraph, Box, TextInput } from "grommet"
+import { Button, Text, Box, Input } from "@chakra-ui/react"
 
 interface Props {
   onSubmit: (url: string) => void
@@ -23,18 +23,20 @@ const FormAdminArtwork = ({ onSubmit }: Props) => {
       {({ values, handleChange, handleBlur, handleSubmit }) => (
         <form onSubmit={handleSubmit}>
           <Box gap="small">
-            <Paragraph>
+            <Text as="p">
               If MusicBrainz didn't give you good cover art, you can provide an
               image URL to use for the currently playing track.
-            </Paragraph>
-            <TextInput
+            </Text>
+            <Input
               onChange={handleChange}
               onBlur={handleBlur}
               value={values.url}
               name="url"
               placeholder="image url"
             />
-            <Button type="submit" label="Submit" primary />
+            <Button type="submit" variant="solid">
+              Submit
+            </Button>
           </Box>
         </form>
       )}

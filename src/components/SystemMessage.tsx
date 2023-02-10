@@ -1,5 +1,5 @@
 import React, { memo } from "react"
-import { Box, Paragraph, Text } from "grommet"
+import { Flex, HStack, Text } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { ChatMessage } from "../types/ChatMessage"
 
@@ -9,28 +9,29 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
   const dateString = format(date, "M/d/y")
   const { status } = meta
   return (
-    <Box
-      pad="small"
-      border={{ side: "bottom" }}
-      background={status === "critical" ? "status-critical" : "light-1"}
-      align="center"
+    <Flex
+      px={4}
+      py={2}
+      borderBottomColor="whiteAlpha.100"
+      borderBottomWidth={1}
+      background={status === "critical" ? "critical" : "system"}
+      alignContent="center"
+      justifyItems="center"
+      alignItems="center"
+      flexDirection="column"
     >
-      <Paragraph
-        style={{ maxWidth: "none" }}
-        size="small"
-        margin={{ bottom: "xsmall" }}
-      >
+      <Text as="p" color="secondaryText" fontSize="sm" textAlign="center">
         {content}
-      </Paragraph>
-      <Box direction="row" gap="xsmall">
-        <Text size="xsmall" color="dark-3">
-          {time}
-        </Text>
-        <Text size="xsmall" color="dark-4">
+      </Text>
+      <HStack gap={1}>
+        <Text fontSize="xs" color="secondaryText" opacity={0.7}>
           {dateString}
         </Text>
-      </Box>
-    </Box>
+        <Text fontSize="xs" color="secondaryText" opacity={0.7}>
+          {time}
+        </Text>
+      </HStack>
+    </Flex>
   )
 }
 

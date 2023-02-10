@@ -1,26 +1,41 @@
-/**
- * Layout component that queries for data
- * with Gatsby's useStaticQuery component
- *
- * See: https://www.gatsbyjs.org/docs/use-static-query/
- */
-
 import React from "react"
+import { ChakraProvider, extendTheme } from "@chakra-ui/react"
+import { useSelector } from "@xstate/react"
 import PropTypes from "prop-types"
-import { Grommet } from "grommet"
 import Div100vh from "react-div-100vh"
 
-import theme from "./theme"
+import baseTheme from "../@chakra-ui/gatsby-plugin/theme"
+import useGlobalContext from "./useGlobalContext"
+
 import "./layout.css"
 import { GlobalStateProvider } from "../contexts/global"
+import themes from "../themes"
+
+const ThemedLayout = ({ children }: { children: JSX.Element }) => {
+  const selectedTheme = themes[0]
+  const globalServices = useGlobalContext()
+
+  const chosenThemeId = useSelector(
+    globalServices.themeService,
+    (state) => state.context.theme,
+  )
+
+  const chosenTheme = themes[chosenThemeId] ?? {}
+
+  const mergedTheme = extendTheme(baseTheme, { colors: chosenTheme.colors })
+
+  return (
+    <ChakraProvider theme={mergedTheme}>
+      <Div100vh>{children}</Div100vh>
+    </ChakraProvider>
+  )
+}
 
 const Layout = ({ children }: { children: JSX.Element }) => {
   return (
-    <Grommet theme={theme}>
-      <GlobalStateProvider>
-        <Div100vh>{children}</Div100vh>
-      </GlobalStateProvider>
-    </Grommet>
+    <GlobalStateProvider>
+      <ThemedLayout>{children}</ThemedLayout>
+    </GlobalStateProvider>
   )
 }
 

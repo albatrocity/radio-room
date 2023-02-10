@@ -22,7 +22,7 @@ export function getCurrentUser(un: string) {
   session.setItem(SESSION_USERNAME, username)
   session.setItem(SESSION_ID, userId)
   return {
-    currentUser: { username, userId, password },
+    currentUser: { username, userId, password, isAdmin },
     isNewUser: isNewUser,
     isAdmin,
     password,

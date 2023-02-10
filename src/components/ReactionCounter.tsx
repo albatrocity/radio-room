@@ -1,15 +1,28 @@
 import React, {
-  useRef,
   memo,
+  MutableRefObject,
   useContext,
   useEffect,
-  useState,
-  RefObject,
+  useRef,
 } from "react"
 import { useMachine, useSelector } from "@xstate/react"
-import { Box, Button, Layer, ResponsiveContext, Drop } from "grommet"
-import { groupBy, map, keys } from "lodash/fp"
-import { FormAdd, Emoji as EmojiIcon } from "grommet-icons"
+import { groupBy } from "lodash/fp"
+import { FiPlus, FiSmile } from "react-icons/fi"
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverArrow,
+  PopoverBody,
+  IconButton,
+  Icon,
+  Wrap,
+  WrapItem,
+  HStack,
+  Portal,
+  ButtonProps,
+} from "@chakra-ui/react"
+import { motion } from "framer-motion"
 
 import { reactionsMachine } from "../machines/reactionsMachine"
 import ReactionCounterItem from "./ReactionCounterItem"
@@ -17,87 +30,41 @@ import ReactionPicker from "./ReactionPicker"
 import { GlobalStateContext } from "../contexts/global"
 import { AuthContext } from "../machines/authMachine"
 import { EmojiData } from "emoji-mart"
+import { ReactionSubject } from "../types/ReactionSubject"
+import { useAllReactions } from "../lib/useAllReactions"
 
 interface ReactionAddButtonProps {
-  onOpenPicker: ({
-    ref,
-    reactTo,
-  }: {
-    ref: RefObject<HTMLButtonElement>
-    reactTo: {}
-  }) => void
-  reactTo: {}
-  iconColor: string
-  iconHoverColor: string
-  buttonColor: string
-  isMobile: boolean
-  disabled: boolean
-}
-
-const ReactionAddButton = ({
-  onOpenPicker,
-  reactTo,
-  iconColor,
-  iconHoverColor,
-  buttonColor,
-  isMobile,
-  disabled = false,
-}: ReactionAddButtonProps) => {
-  const ref = useRef<HTMLButtonElement>()
-  const [hovered, setHovered] = useState(false)
-
-  return (
-    <Button
-      size="small"
-      plain
-      disabled={disabled}
-      ref={ref}
-      color={buttonColor}
-      onClick={() => onOpenPicker({ ref, reactTo })}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      icon={
-        <>
-          <EmojiIcon
-            color={hovered ? iconHoverColor : iconColor}
-            size="small"
-          />
-          {!isMobile && (
-            <FormAdd
-              color={hovered ? iconHoverColor : iconColor}
-              size="small"
-            />
-          )}
-        </>
-      }
-    />
-  )
+  onOpenPicker: ({ reactTo }: { reactTo: {} }) => void
+  reactTo: ReactionSubject
+  buttonVariant?: ButtonProps["variant"]
+  buttonColorScheme?: ButtonProps["colorScheme"]
+  disabled?: boolean
+  showAddButton?: boolean
 }
 
 const currentUserSelector = (state: { context: AuthContext }) =>
   state.context.currentUser
-const reactionsSelector = (state) => state.context.reactions
 
 interface ReactionCounterProps extends ReactionAddButtonProps {
   showAddButton: boolean
+  onReactionClick: (emoji: EmojiData) => void
+  darkBg?: boolean
 }
 
 const ReactionCounter = ({
   reactTo,
-  buttonColor,
-  iconColor,
-  iconHoverColor,
-  showAddButton,
+  buttonColorScheme,
+  showAddButton = true,
+  darkBg = false,
 }: ReactionCounterProps) => {
+  const pickerRef: MutableRefObject<HTMLDivElement | null> =
+    useRef<HTMLDivElement | null>(null)
   const globalServices = useContext(GlobalStateContext)
   const currentUser = useSelector(
     globalServices.authService,
     currentUserSelector,
   )
-  const allReactions = useSelector(
-    globalServices.allReactionsService,
-    reactionsSelector,
-  )
+  const allReactions = useAllReactions()
 
   const [state, send] = useMachine(reactionsMachine, {
     context: {
@@ -115,90 +82,84 @@ const ReactionCounter = ({
   }, [reactTo])
 
   const emoji = groupBy("emoji", state.context.reactions)
-  const size = useContext(ResponsiveContext)
-  const isMobile = size === "small"
 
   return (
-    <Box direction="row" wrap={false} gap="xsmall" align="center">
-      <Box
-        direction="row"
-        wrap={!isMobile}
-        flex={isMobile ? { grow: 1, shrink: 1 } : undefined}
-      >
-        <Box
-          overflow={
-            isMobile ? { horizontal: "auto", vertical: "hidden" } : "hidden"
-          }
-          gap="xsmall"
-          wrap={!isMobile}
-          align="center"
-          direction="row"
-        >
-          {keys(emoji).map((x) => (
-            <ReactionCounterItem
-              key={x}
-              count={emoji[x].length}
-              users={map("user", emoji[x])}
-              currentUserId={currentUser.userId}
-              onReactionClick={({ colons }: { colons: EmojiData }) => {
-                send("SELECT_REACTION", { data: colons })
-              }}
-              reactTo={reactTo}
-              emoji={x}
-              color={buttonColor}
-            />
+    <HStack w="100%">
+      <Wrap py={1}>
+        {Object.keys(emoji)
+          .filter((x) => !!emoji[x].length)
+          .map((x) => (
+            <WrapItem key={x} justifyContent="center" alignItems="center">
+              <ReactionCounterItem
+                count={emoji[x].length}
+                users={emoji[x].map(({ user }) => user)}
+                currentUserId={currentUser.userId}
+                colorScheme={buttonColorScheme}
+                onReactionClick={(emoji) => {
+                  send("SELECT_REACTION", { data: emoji })
+                }}
+                emoji={x}
+                darkBg={darkBg}
+              />
+            </WrapItem>
           ))}
-        </Box>
-      </Box>
+        <WrapItem>
+          <Popover
+            isLazy
+            isOpen={state.matches("open")}
+            onClose={() => send("CLOSE")}
+            placement="top-start"
+            variant="responsive"
+            autoFocus={true}
+            initialFocusRef={pickerRef}
+          >
+            <PopoverTrigger>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: showAddButton ? 1 : 0 }}
+                transition={{ duration: 0.1 }}
+              >
+                <IconButton
+                  p={1}
+                  aria-label="Add reaction"
+                  size="xs"
+                  variant={darkBg ? "darkGhost" : "ghost"}
+                  colorScheme={buttonColorScheme}
+                  disabled={!showAddButton}
+                  onClick={() => send("TOGGLE", { data: { reactTo } })}
+                  icon={
+                    <>
+                      <Icon as={FiSmile} />
 
-      <Box flex={{ shrink: 1, grow: 0 }}>
-        <ReactionAddButton
-          onOpenPicker={(options) => send("TOGGLE", { data: options })}
-          reactTo={reactTo}
-          buttonColor={buttonColor}
-          iconColor={showAddButton ? iconColor : "transparent"}
-          disabled={!showAddButton}
-          isMobile={isMobile}
-          iconHoverColor={iconHoverColor}
-        />
-      </Box>
-
-      {state.matches("open") && (
-        <>
-          {isMobile ? (
-            <Layer
-              responsive={false}
-              onClose={() => send("TOGGLE")}
-              onClickOutside={() => send("TOGGLE")}
-              style={{ backgroundColor: "transparent" }}
-            >
-              <Box>
-                <ReactionPicker
-                  onSelect={(emoji: EmojiData) =>
-                    send("SELECT_REACTION", { data: emoji })
+                      <Icon boxSize={3} as={FiPlus} />
+                    </>
                   }
                 />
-              </Box>
-            </Layer>
-          ) : (
-            <Drop
-              target={state.context.dropRef.current}
-              plain
-              overflow="visible"
-              onClickOutside={() => send("TOGGLE")}
-              onEsc={() => send("TOGGLE")}
-              align={{ top: "top", right: "right" }}
-            >
-              <ReactionPicker
-                onSelect={(emoji: EmojiData) =>
-                  send("SELECT_REACTION", { data: emoji })
-                }
-              />
-            </Drop>
-          )}
-        </>
-      )}
-    </Box>
+              </motion.div>
+            </PopoverTrigger>
+            <Portal>
+              <PopoverContent>
+                <PopoverArrow />
+                <PopoverBody
+                  sx={{
+                    "em-emoji-picker": {
+                      "--shadow": "0",
+                    },
+                  }}
+                >
+                  <ReactionPicker
+                    onSelect={(emoji: EmojiData) => {
+                      send("SELECT_REACTION", { data: emoji })
+                    }}
+                    ref={pickerRef}
+                  />
+                </PopoverBody>
+              </PopoverContent>
+            </Portal>
+          </Popover>
+        </WrapItem>
+      </Wrap>
+    </HStack>
   )
 }
 

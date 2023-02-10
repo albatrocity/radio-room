@@ -1,12 +1,30 @@
-import React, { useRef, memo } from "react"
-import { Box, Button, Nav, RangeInput } from "grommet"
-import { Play, Pause, VolumeMute, Volume, List } from "grommet-icons"
+import React, { useRef, memo, ReactNode } from "react"
+import {
+  Box,
+  Icon,
+  IconButton,
+  HStack,
+  Flex,
+  Show,
+  Hide,
+  Slider,
+  SliderTrack,
+  SliderFilledTrack,
+  SliderThumb,
+  Container,
+  Text,
+  Button,
+} from "@chakra-ui/react"
+
+import { FiPlay, FiPause, FiList, FiVolume, FiVolumeX } from "react-icons/fi"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
 import { EmojiData } from "emoji-mart"
+import { ChatMessage } from "../types/ChatMessage"
+import ButtonListeners from "./ButtonListeners"
 
 interface RadioPlayerProps {
-  volume: string
+  volume: number
   meta?: {}
   playing: boolean
   muted: boolean
@@ -15,9 +33,14 @@ interface RadioPlayerProps {
   onMute: () => void
   onShowPlaylist: () => void
   hasPlaylist: boolean
-  isMobile: boolean
   onReactionClick: (emoji: EmojiData) => void
-  onOpenPicker: () => void
+  onOpenPicker: ({
+    ref,
+    reactTo,
+  }: {
+    ref: ReactNode
+    reactTo: ChatMessage
+  }) => void
   reactions: {}[]
   trackId: string
 }
@@ -33,7 +56,6 @@ const RadioPlayer = ({
   onMute,
   onShowPlaylist,
   hasPlaylist,
-  isMobile,
   onReactionClick,
   onOpenPicker,
   reactions,
@@ -42,64 +64,76 @@ const RadioPlayer = ({
   const player = useRef(null)
 
   return (
-    <Box>
-      <Nav
-        direction="row"
-        background="accent-4"
-        justify="center"
-        align="center"
-        border={{ side: "bottom", color: "#adb871" }}
-        pad={{ horizontal: "large" }}
-      >
-        <Box
+    <Box background="actionBgLite" py={1}>
+      <Container>
+        <HStack
+          w="100%"
+          direction="row"
+          justify="center"
           align="center"
-          animation={
-            !playing
-              ? {
-                  type: "pulse",
-                  delay: 0,
-                  duration: 400,
-                  size: "large",
-                }
-              : null
-          }
+          spacing={2}
         >
-          <Button
-            icon={playing ? <Pause color="brand" /> : <Play color="brand" />}
-            onClick={() => onPlayPause()}
-          />
-        </Box>
-        <Button
-          icon={muted ? <VolumeMute color="brand" /> : <Volume color="brand" />}
-          onClick={() => onMute()}
-        />
-        <Box width="medium">
-          {isMobile ? (
-            <ReactionCounter
-              onOpenPicker={onOpenPicker}
-              reactTo={{ type: "track", id: trackId }}
-              reactions={reactions}
-              onReactionClick={onReactionClick}
-              buttonColor="rgba(255,255,255,0.4)"
-              iconColor="brand"
-              showAddButton={true}
-            />
-          ) : (
-            <RangeInput
-              value={muted ? 0 : volume}
-              max={1.0}
-              min={0}
-              step={0.1}
-              onChange={(event) => onVolume(event.target.value)}
+          {hasPlaylist && (
+            <IconButton
+              size="sm"
+              aria-label="Playlist"
+              variant="ghost"
+              onClick={onShowPlaylist}
+              icon={<Icon as={FiList} />}
             />
           )}
-        </Box>
-        {hasPlaylist && (
-          <Box flex={{ shrink: 0 }}>
-            <Button onClick={onShowPlaylist} icon={<List color="brand" />} />
-          </Box>
-        )}
-      </Nav>
+          <HStack>
+            <IconButton
+              size="sm"
+              aria-label={playing ? "Pause" : "Play"}
+              variant="ghost"
+              icon={playing ? <Icon as={FiPause} /> : <Icon as={FiPlay} />}
+              onClick={() => onPlayPause()}
+            />
+            <IconButton
+              size="sm"
+              aria-label={muted ? "Unmute" : "Mute"}
+              variant="ghost"
+              icon={muted ? <Icon as={FiVolumeX} /> : <Icon as={FiVolume} />}
+              onClick={() => onMute()}
+            />
+          </HStack>
+          <HStack w="100%">
+            <Hide above="sm">
+              <ReactionCounter
+                onOpenPicker={onOpenPicker}
+                reactTo={{ type: "track", id: trackId }}
+                reactions={reactions}
+                onReactionClick={onReactionClick}
+                showAddButton={true}
+              />
+            </Hide>
+
+            <Show above="sm">
+              <Slider
+                aria-label="slider-ex-4"
+                value={muted ? 0 : parseFloat(volume)}
+                max={1.0}
+                min={0}
+                step={0.1}
+                onChange={(value) => onVolume(value)}
+              >
+                <SliderTrack bg="whiteAlpha.500">
+                  <SliderFilledTrack bg="action" />
+                </SliderTrack>
+                <SliderThumb boxSize={[6, 3]}>
+                  <Box />
+                </SliderThumb>
+              </Slider>
+            </Show>
+          </HStack>
+          <Hide above="sm">
+            <HStack>
+              <ButtonListeners variant="ghost" />
+            </HStack>
+          </Hide>
+        </HStack>
+      </Container>
       <ReactHowler
         src={[streamURL]}
         preload={false}

@@ -1,6 +1,6 @@
 import React from "react"
 import { Formik } from "formik"
-import { Button, Paragraph, Box, TextInput } from "grommet"
+import { Button, Text, Box, Input } from "@chakra-ui/react"
 
 interface Props {
   onSubmit: (metaString: string) => void
@@ -22,33 +22,35 @@ const FormAdminMeta = ({ onSubmit }: Props) => {
     >
       {({ values, handleChange, handleBlur, handleSubmit }) => (
         <form onSubmit={handleSubmit}>
-          <Box gap="small">
-            <Paragraph>
+          <Box gap={1}>
+            <Text as="p">
               Use this form to submit station meta and trigger a MusicBrainz
               lookup for release info/cover art.{" "}
-            </Paragraph>
-            <TextInput
+            </Text>
+            <Input
               onChange={handleChange}
               onBlur={handleBlur}
               value={values.track}
               name="track"
               placeholder="Track Title"
             />
-            <TextInput
+            <Input
               onChange={handleChange}
               onBlur={handleBlur}
               value={values.artist}
               name="artist"
               placeholder="Artist Name"
             />
-            <TextInput
+            <Input
               onChange={handleChange}
               onBlur={handleBlur}
               value={values.release}
               name="release"
               placeholder="Album/Release Name"
             />
-            <Button type="submit" label="Submit" primary />
+            <Button type="submit" variant="solid">
+              Submit
+            </Button>
           </Box>
         </form>
       )}

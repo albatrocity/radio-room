@@ -1,46 +1,35 @@
-import React, { useContext } from "react"
-import Linkify from "react-linkify"
-import nl2br from "react-nl2br"
-import { Emoji, EmojiData } from "emoji-mart"
-import { ResponsiveContext, ThemeContext, Anchor } from "grommet"
+import React from "react"
+import { Link, Text } from "@chakra-ui/react"
+import ChakraUIRenderer from "chakra-ui-markdown-renderer"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import remarkBreaks from "remark-breaks"
+import remarkGemoji from "remark-gemoji"
 
-const colons = `:[a-zA-Z0-9-_+]+:`
-const skin = `:skin-tone-[2-6]:`
-const colonsRegex = new RegExp(`(${colons}${skin}|${colons})`, "g")
-
-const componentDecorator = (href, text, key) => (
-  <Anchor href={href} key={key} target="_blank" rel="noopener noreferrer">
-    {text}
-  </Anchor>
-)
+const markdownTheme = {
+  p: ({ children }) => {
+    return <Text>{children}</Text>
+  },
+  em: ({ children }) => {
+    return <Text as="em">{children}</Text>
+  },
+  a: ({ children, href }) => {
+    return (
+      <Link rel="noopener noreferrer" isExternal href={href}>
+        {children}
+      </Link>
+    )
+  },
+}
 
 const ParsedEmojiMessage = ({ content }: { content: string }) => {
-  const theme = useContext(ThemeContext)
-  const size = useContext(ResponsiveContext)
-  const emojiSize = parseInt(theme.paragraph[size].size.replace("px", "")) + 4
-
   return (
-    <>
-      {content.split(colonsRegex).map((emoji, idx) => {
-        return (
-          <Emoji
-            key={idx}
-            emoji={emoji}
-            size={emojiSize}
-            set="apple"
-            fallback={(emoji: EmojiData, props) => {
-              return emoji ? (
-                `:${emoji.short_names[0]}:`
-              ) : (
-                <Linkify componentDecorator={componentDecorator}>
-                  {nl2br(props.emoji)}
-                </Linkify>
-              )
-            }}
-          />
-        )
-      })}
-    </>
+    <ReactMarkdown
+      remarkPlugins={[remarkGemoji, remarkBreaks, remarkGfm]}
+      components={ChakraUIRenderer(markdownTheme)}
+      children={content}
+      skipHtml
+    />
   )
 }
 

@@ -1,16 +1,25 @@
 import React from "react"
+import { HeadProps } from "gatsby"
 
 import Layout from "../components/layout"
-import SEO from "../components/seo"
+import { Box } from "@chakra-ui/react"
 
 const NotFoundPage = () => (
   <Layout>
-    <>
-      <SEO title="404: Not found" />
+    <Box>
       <h1>NOT FOUND</h1>
       <p>You just hit a route that doesn&#39;t exist... the sadness.</p>
-    </>
+    </Box>
   </Layout>
 )
 
 export default NotFoundPage
+
+export function Head({ data }: HeadProps) {
+  return (
+    <>
+      <title>404: Not found</title>
+      <meta name="description" content={data.site.siteMetadata.description} />
+    </>
+  )
+}
