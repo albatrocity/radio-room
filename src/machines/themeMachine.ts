@@ -4,7 +4,7 @@ export const themeMachine = Machine(
   {
     id: "theme",
     context: {
-      theme: "watermelon",
+      theme: "default",
     },
     on: {
       SET_THEME: {
