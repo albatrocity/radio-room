@@ -109,7 +109,7 @@ const UserList = ({
             <Text fontSize="xs">({listeners.length})</Text>
           </HStack>
         )}
-        <List spacing={3}>
+        <List spacing={1}>
           {currentListener && (
             <ListItemUser
               key={currentListener.userId}

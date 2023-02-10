@@ -37,27 +37,24 @@ const PopoverTheme = (props: Props) => {
         />
       </PopoverTrigger>
       <PopoverContent>
-        <PopoverHeader fontWeight="bold">Preferences</PopoverHeader>
+        <PopoverHeader fontWeight="bold">
+          <HStack justify="space-between" spacing={1} w="100%">
+            <Flex grow={1}>Theme</Flex>
+            <FormControl as={HStack} align="center" w="auto">
+              <FormLabel htmlFor="darkMode" m={0}>
+                <Icon as={FiMoon} aria-label="Dark Mode" />
+              </FormLabel>
+              <Switch
+                id="darkMode"
+                onChange={toggleColorMode}
+                isChecked={colorMode === "dark"}
+              />
+            </FormControl>
+          </HStack>
+        </PopoverHeader>
         <PopoverArrow />
         <Box p={4}>
           <VStack align="start" spacing={2}>
-            <HStack justify="space-between" spacing={1} w="100%">
-              <Flex grow={1}>
-                <Heading size="xs" as="h4" fontWeight="semibold">
-                  Theme
-                </Heading>
-              </Flex>
-              <FormControl as={HStack} align="center" w="auto">
-                <FormLabel htmlFor="darkMode" m={0}>
-                  <Icon as={FiMoon} aria-label="Dark Mode" />
-                </FormLabel>
-                <Switch
-                  id="darkMode"
-                  onChange={toggleColorMode}
-                  isChecked={colorMode === "dark"}
-                />
-              </FormControl>
-            </HStack>
             <FormTheme />
           </VStack>
         </Box>
