@@ -19,6 +19,7 @@ import Sidebar from "./Sidebar"
 import AboutContent from "./AboutContent"
 import socket from "../lib/socket"
 import useGlobalContext from "./useGlobalContext"
+import FormTheme from "./FormTheme"
 
 const isEditingSelector = (state) =>
   state.matches("connected.participating.editing")
@@ -35,6 +36,8 @@ const isEditingArtworkSelector = (state) =>
   state.matches("connected.participating.editing.artwork")
 const isEditingSettingsSelector = (state) =>
   state.matches("connected.participating.editing.settings")
+const isEditingPreferencesSelector = (state) =>
+  state.matches("connected.participating.editing.preferences")
 const playlistSelector = (state) => state.context.playlist
 const isAdminSelector = (state) => state.context.isAdmin
 const isNewUserSelector = (state) => state.context.isNewUser
@@ -73,6 +76,10 @@ const Room = () => {
   const isEditingSettings = useSelector(
     globalServices.roomService,
     isEditingSettingsSelector,
+  )
+  const isEditingPreferences = useSelector(
+    globalServices.roomService,
+    isEditingPreferencesSelector,
   )
   const isNewUser = useSelector(globalServices.authService, isNewUserSelector)
   const isAdmin = useSelector(globalServices.authService, isAdminSelector)
@@ -115,7 +122,7 @@ const Room = () => {
   )
 
   const onOpenReactionPicker = useCallback(
-    (dropRef, reactTo) => {
+    (dropRef: any, reactTo: any) => {
       globalServices.roomService.send("TOGGLE_REACTION_PICKER", {
         dropRef,
         reactTo,
@@ -248,6 +255,14 @@ const Room = () => {
         heading="???"
       >
         <AboutContent />
+      </Modal>
+
+      <Modal
+        isOpen={isEditingPreferences}
+        onClose={hideEditForm}
+        heading="Preferences"
+      >
+        <FormTheme />
       </Modal>
 
       <Modal

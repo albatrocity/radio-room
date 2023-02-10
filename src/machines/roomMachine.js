@@ -129,6 +129,7 @@ export const roomMachine = createMachine(
                 states: {
                   none: {},
                   username: {},
+                  preferences: {},
                   meta: {
                     on: {
                       always: [
@@ -159,10 +160,12 @@ export const roomMachine = createMachine(
                       ],
                     },
                   },
+                  listenerSettings: {},
                 },
                 on: {
                   CLOSE_EDIT: ".none",
                   EDIT_USERNAME: ".username",
+                  EDIT_SETTINGS: ".preferences",
                   ADMIN_EDIT_META: {
                     target: ".meta",
                     in: "#room.admin.isAdmin",
@@ -216,11 +219,6 @@ export const roomMachine = createMachine(
       setPlaylist: assign({
         playlist: (context, event) => {
           return event.data
-        },
-      }),
-      setReactions: assign({
-        reactions: (context, event) => {
-          return event.data.reactions
         },
       }),
       setReaction: assign({

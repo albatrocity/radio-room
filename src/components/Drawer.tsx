@@ -1,4 +1,4 @@
-import React from "react"
+import React, { ReactNode } from "react"
 import {
   Drawer as ChakraDrawer,
   DrawerBody,
@@ -11,6 +11,7 @@ import {
 
 interface Props extends DrawerProps {
   heading?: string
+  children: ReactNode
 }
 
 const Drawer = ({ heading, children, ...rest }: Props) => {

@@ -5,15 +5,29 @@ import React, {
   useState,
   useCallback,
   memo,
+  ReactNode,
+  MutableRefObject,
+  ReactPortal,
 } from "react"
 
-import { Box, Button, Flex, Icon, useToken } from "@chakra-ui/react"
-import { FiMessageSquare } from "react-icons/fi"
+import {
+  Box,
+  IconButton,
+  Flex,
+  HStack,
+  Icon,
+  Spacer,
+  useToken,
+} from "@chakra-ui/react"
+import { motion } from "framer-motion"
+import { FiArrowUpCircle } from "react-icons/fi"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
 
 import { GlobalStateContext } from "../contexts/global"
+import PopoverPreferences from "./PopoverPreferences"
 import { useSelector } from "@xstate/react"
+import { User } from "../types/User"
 
 const renderUserSuggestion = (
   suggestion,
@@ -33,6 +47,25 @@ const renderUserSuggestion = (
   )
 }
 
+interface InputProps {
+  inputRef: MutableRefObject<ReactPortal>
+  inputStyle: any
+  handleKeyInput: () => void
+  userSuggestions: User[]
+  mentionStyle: any
+  renderUserSuggestion: (
+    suggestion: any,
+    search: any,
+    highlightedDisplay: any,
+    index: any,
+    focused: any,
+  ) => ReactNode
+  autoFocus: boolean
+  value: string
+  onChange: (value: string) => void
+  handleSubmit: (e: React.SyntheticEvent) => void
+}
+
 const Input = memo(
   ({
     inputRef,
@@ -46,7 +79,7 @@ const Input = memo(
     onChange,
     handleSubmit,
     ...props
-  }) => (
+  }: InputProps) => (
     <MentionsInput
       name="content"
       allowSuggestionsAboveCursor={true}
@@ -81,7 +114,20 @@ const Input = memo(
 const currentUserSelector = (state) => state.context.currentUser
 const usersSelector = (state) => state.context.users
 
-const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
+interface Props {
+  onSettings: () => void
+  onTypingStart: () => void
+  onTypingStop: () => void
+  onSend: (value: string) => void
+  modalActive: boolean
+}
+
+const ChatInput = ({
+  onTypingStart,
+  onTypingStop,
+  onSend,
+  modalActive,
+}: Props) => {
   const globalServices = useContext(GlobalStateContext)
 
   const currentUser = useSelector(
@@ -90,7 +136,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
   )
   const users = useSelector(globalServices.usersService, usersSelector)
 
-  const inputRef = useRef(null)
+  const inputRef = useRef<ReactPortal>()
   const [isTyping, setTyping] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
   const [content, setContent] = useState("")
@@ -148,7 +194,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
       margin: 0,
       width: "100%",
       border: `1px solid ${borderColor}`,
-      borderRadius: "4px 0 0 4px",
+      borderRadius: "4px",
       padding: space1,
       fontSize: "1rem",
     },
@@ -173,53 +219,62 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, modalActive }) => {
       setContent("")
     }
     setSubmitting(false)
-    inputRef.current.focus()
   }
 
   return (
-    <Box>
-      <form onSubmit={handleSubmit}>
-        <Flex direction="row" w="100%" justify="center">
-          <Flex align="center" shrink={0} justify="center" mr={3}>
-            <Icon as={FiMessageSquare} size="16px" />
-          </Flex>
-          <Box
-            grow={1}
-            shrink={1}
-            w="100%"
-            sx={{
-              "& > div": {
-                height: "100%",
-              },
-            }}
-          >
-            <Input
-              name="content"
-              onChange={(value) => {
-                setContent(value)
+    <HStack overflowX="clip">
+      <PopoverPreferences />
+
+      <Flex grow={1}>
+        <form onSubmit={handleSubmit} style={{ width: "100%" }}>
+          <Flex direction="row" w="100%" grow={1} justify="center">
+            <Box
+              w="100%"
+              sx={{
+                "& > div": {
+                  height: "100%",
+                },
               }}
-              handleSubmit={handleSubmit}
-              value={content}
-              inputRef={inputRef}
-              inputStyle={inputStyle}
-              handleKeyInput={handleKeyInput}
-              userSuggestions={userSuggestions}
-              mentionStyle={mentionStyle}
-              renderUserSuggestion={renderUserSuggestion}
-              autoFocus={modalActive}
-            />
-          </Box>
-          <Button
-            type="submit"
-            variant="solid"
-            disabled={isSubmitting || !isValid}
-            sx={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
-          >
-            Submit
-          </Button>
-        </Flex>
-      </form>
-    </Box>
+            >
+              <Input
+                name="content"
+                onChange={(value: string) => {
+                  setContent(value)
+                }}
+                handleSubmit={handleSubmit}
+                value={content}
+                inputRef={inputRef}
+                inputStyle={inputStyle}
+                handleKeyInput={handleKeyInput}
+                userSuggestions={userSuggestions}
+                mentionStyle={mentionStyle}
+                renderUserSuggestion={renderUserSuggestion}
+                autoFocus={modalActive}
+              />
+            </Box>
+            <Spacer />
+            <motion.div
+              layout
+              animate={{
+                width: isValid ? "auto" : 0,
+                opacity: isValid ? 1 : 0,
+              }}
+            >
+              <IconButton
+                aria-lablel="Send Message"
+                type="submit"
+                variant="solid"
+                isDisabled={isSubmitting || !isValid}
+                sx={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
+                icon={<Icon as={FiArrowUpCircle} />}
+              >
+                Submit
+              </IconButton>
+            </motion.div>
+          </Flex>
+        </form>
+      </Flex>
+    </HStack>
   )
 }
 

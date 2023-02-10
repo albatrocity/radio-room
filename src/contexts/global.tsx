@@ -4,6 +4,7 @@ import { authMachine } from "../machines/authMachine"
 import { chatMachine } from "../machines/chatMachine"
 import { roomMachine } from "../machines/roomMachine"
 import { usersMachine } from "../machines/usersMachine"
+import { themeMachine } from "../machines/themeMachine"
 import { allReactionsMachine } from "../machines/allReactionsMachine"
 import { ActorRefFrom } from "xstate"
 
@@ -14,6 +15,7 @@ interface GlobalStateContextType {
   authService: ActorRefFrom<typeof authMachine>
   chatService: ActorRefFrom<typeof chatMachine>
   roomService: ActorRefFrom<typeof roomMachine>
+  themeService: ActorRefFrom<typeof themeMachine>
   usersService: ActorRefFrom<typeof usersMachine>
   allReactionsService: ActorRefFrom<typeof allReactionsMachine>
 }
@@ -33,6 +35,7 @@ interface Props {
 export const GlobalStateProvider = (props: Props) => {
   const authService = useInterpret(authMachine)
   const chatService = useInterpret(chatMachine)
+  const themeService = useInterpret(themeMachine)
 
   const currentUser = useSelector(authService, currentUserSelector)
 
@@ -74,6 +77,7 @@ export const GlobalStateProvider = (props: Props) => {
         roomService,
         usersService,
         chatService,
+        themeService,
         allReactionsService,
       }}
     >

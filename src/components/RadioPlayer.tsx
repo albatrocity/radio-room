@@ -77,8 +77,7 @@ const RadioPlayer = ({
             <IconButton
               size="sm"
               aria-label="Playlist"
-              background="transparent"
-              color="action"
+              variant="ghost"
               onClick={onShowPlaylist}
               icon={<Icon as={FiList} />}
             />
@@ -87,16 +86,14 @@ const RadioPlayer = ({
             <IconButton
               size="sm"
               aria-label={playing ? "Pause" : "Play"}
-              background="transparent"
-              color="action"
+              variant="ghost"
               icon={playing ? <Icon as={FiPause} /> : <Icon as={FiPlay} />}
               onClick={() => onPlayPause()}
             />
             <IconButton
               size="sm"
               aria-label={muted ? "Unmute" : "Mute"}
-              background="transparent"
-              color="action"
+              variant="ghost"
               icon={muted ? <Icon as={FiVolumeX} /> : <Icon as={FiVolume} />}
               onClick={() => onMute()}
             />
@@ -132,7 +129,7 @@ const RadioPlayer = ({
           </HStack>
           <Hide above="sm">
             <HStack>
-              <ButtonListeners />
+              <ButtonListeners variant="ghost" />
             </HStack>
           </Hide>
         </HStack>

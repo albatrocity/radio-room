@@ -59,7 +59,8 @@ function AdminPanel({}: Props) {
           <WrapItem>
             <Button
               size="xs"
-              variant="outline"
+              variant="ghost"
+              colorScheme="whiteAlpha"
               leftIcon={<Icon as={FiImage} />}
               onClick={() =>
                 globalServices.roomService.send("ADMIN_EDIT_ARTWORK")
@@ -72,7 +73,8 @@ function AdminPanel({}: Props) {
           <WrapItem>
             <Button
               size="xs"
-              variant="outline"
+              variant="ghost"
+              colorScheme="whiteAlpha"
               leftIcon={<Icon as={FiSettings} />}
               onClick={() =>
                 globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
