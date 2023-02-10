@@ -87,9 +87,6 @@ const ReactionCounter = ({
     },
   )
 
-  console.log("autoFocus", autoFocus)
-  console.log("responsivePickerRef", responsivePickerRef)
-
   const [state, send] = useMachine(reactionsMachine, {
     context: {
       dropRef: null,
