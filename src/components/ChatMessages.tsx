@@ -15,6 +15,7 @@ import SystemMessage from "./SystemMessage"
 
 const StyledScrollToBottom = styled(ScrollToBottom)`
   height: 100%;
+  overflow: auto;
 
   .default-scroll-button {
     display: none;
