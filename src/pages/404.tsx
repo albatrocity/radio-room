@@ -1,5 +1,5 @@
 import React from "react"
-import { HeadProps } from "gatsby"
+import { HeadProps, graphql } from "gatsby"
 
 import Layout from "../components/layout"
 import { Box } from "@chakra-ui/react"
@@ -14,6 +14,18 @@ const NotFoundPage = () => (
 )
 
 export default NotFoundPage
+
+export const query = graphql`
+  query {
+    site {
+      siteMetadata {
+        title
+        description
+        author
+      }
+    }
+  }
+`
 
 export function Head({ data }: HeadProps) {
   return (
