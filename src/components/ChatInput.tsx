@@ -105,6 +105,7 @@ const Input = memo(
         }
         onChange(e.target.value)
       }}
+      placeholder="Say something..."
     >
       <Mention
         trigger="@"
