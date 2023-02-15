@@ -106,7 +106,7 @@ const ReactionCounter = ({
 
   return (
     <HStack w="100%">
-      <Wrap py={1}>
+      <Wrap>
         {Object.keys(emoji)
           .filter((x) => !!emoji[x].length)
           .map((x) => (

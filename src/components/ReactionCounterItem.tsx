@@ -30,7 +30,16 @@ const ReactionCounterItem = ({
   const isCurrentUserActive = users.includes(currentUserId)
 
   return (
-    <Tooltip hasArrow placement="top" label={<ListUsernames ids={users} />}>
+    <Tooltip
+      hasArrow
+      placement="top"
+      label={
+        <HStack>
+          <em-emoji size="24px" shortcodes={emoji} />
+          <ListUsernames ids={users} />
+        </HStack>
+      }
+    >
       <Button
         aria-label={`${emoji} reactions`}
         onClick={() => onReactionClick({ shortcodes: emoji })}
