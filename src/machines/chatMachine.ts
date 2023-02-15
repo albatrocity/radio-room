@@ -30,6 +30,9 @@ export const chatMachine = createMachine(
       INIT: {
         actions: ["setData"],
       },
+      CLEAR_MESSAGES: {
+        actions: ["clearMessages"],
+      },
     },
     invoke: [
       {
@@ -51,6 +54,7 @@ export const chatMachine = createMachine(
         on: {
           SUBMIT_MESSAGE: { actions: ["sendMessage"] },
           NEW_MESSAGE: { actions: ["addMessage", "handleNotifications"] },
+          SET_MESSAGES: { actions: ["setData"] },
           SET_USERS: {
             actions: ["setCurrentUser"],
           },
@@ -97,6 +101,14 @@ export const chatMachine = createMachine(
       stopTyping: send(
         (_ctx, _event) => {
           return { type: "stop typing" }
+        },
+        {
+          to: "socket",
+        },
+      ),
+      clearMessages: send(
+        (_ctx, _event) => {
+          return { type: "clear messages" }
         },
         {
           to: "socket",

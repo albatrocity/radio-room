@@ -10,7 +10,7 @@ import {
   WrapItem,
 } from "@chakra-ui/react"
 
-import { FiSettings, FiList, FiImage } from "react-icons/fi"
+import { FiSettings, FiList, FiImage, FiMessageSquare } from "react-icons/fi"
 import { useSelector } from "@xstate/react"
 import useGlobalContext from "./useGlobalContext"
 
@@ -81,6 +81,24 @@ function AdminPanel({}: Props) {
               }
             >
               Settings
+            </Button>
+          </WrapItem>
+          <WrapItem>
+            <Button
+              size="xs"
+              variant="solid"
+              colorScheme="red"
+              leftIcon={<Icon as={FiMessageSquare} />}
+              onClick={() => {
+                const confirmation = window.confirm(
+                  "Are you sure you want to clear the chat? This cannot be undone.",
+                )
+                if (confirmation) {
+                  globalServices.chatService.send("CLEAR_MESSAGES")
+                }
+              }}
+            >
+              Clear Chat
             </Button>
           </WrapItem>
           {isDj && (

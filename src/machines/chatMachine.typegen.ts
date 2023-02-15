@@ -14,10 +14,11 @@ export interface Typegen0 {
   }
   eventsCausingActions: {
     addMessage: "NEW_MESSAGE"
+    clearMessages: "CLEAR_MESSAGES"
     handleNotifications: "NEW_MESSAGE"
     sendMessage: "SUBMIT_MESSAGE"
     setCurrentUser: "SET_USERS"
-    setData: "INIT" | "LOGIN"
+    setData: "INIT" | "LOGIN" | "SET_MESSAGES"
     startTyping: "START_TYPING"
     stopTyping: "INIT" | "START_TYPING" | "STOP_TYPING"
   }
