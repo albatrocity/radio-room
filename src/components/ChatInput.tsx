@@ -9,6 +9,7 @@ import React, {
   MutableRefObject,
   ReactPortal,
 } from "react"
+import { transparentize } from "@chakra-ui/theme-tools"
 
 import {
   Box,
@@ -17,6 +18,7 @@ import {
   HStack,
   Icon,
   Spacer,
+  Text,
   useToken,
 } from "@chakra-ui/react"
 import { motion } from "framer-motion"
@@ -28,6 +30,7 @@ import { GlobalStateContext } from "../contexts/global"
 import PopoverPreferences from "./PopoverPreferences"
 import { useSelector } from "@xstate/react"
 import { User } from "../types/User"
+import MentionSuggestionsContainer from "./MentionSuggestionsContainer"
 
 const renderUserSuggestion = (
   suggestion,
@@ -38,11 +41,12 @@ const renderUserSuggestion = (
 ) => {
   return (
     <Box
-      backgroundColor={focused ? "actionBg" : "transparent"}
+      backgroundColor={focused ? "actionBgLite" : "transparent"}
       className={`user ${focused ? "focused" : ""}`}
       px={2}
+      py={1}
     >
-      {highlightedDisplay}
+      <Text size="xs">{highlightedDisplay}</Text>
     </Box>
   )
 }
@@ -84,6 +88,7 @@ const Input = memo(
       name="content"
       allowSuggestionsAboveCursor={true}
       forceSuggestionsAboveCursor={true}
+      customSuggestionsContainer={MentionSuggestionsContainer}
       inputRef={inputRef}
       style={inputStyle}
       value={value}
@@ -142,6 +147,7 @@ const ChatInput = ({
   const [isSubmitting, setSubmitting] = useState(false)
   const [content, setContent] = useState("")
   const [borderColor] = useToken("colors", ["secondaryBorder"])
+  const [textColor] = useToken("colors", ["text"])
   const [space1] = useToken("space", [1.5])
 
   const handleTypingStop = useCallback(
@@ -201,15 +207,8 @@ const ChatInput = ({
     },
 
     suggestions: {
-      list: {
-        backgroundColor: "white",
-        border: `1px solid ${borderColor}`,
-        fontSize: 14,
-      },
-
-      item: {
-        borderBottom: `1px solid ${borderColor}`,
-      },
+      backgroundColor: "transparent",
+      boxShadow: `0 2px 2px rgba(0, 0, 0, 0.2)`,
     },
   }
 
