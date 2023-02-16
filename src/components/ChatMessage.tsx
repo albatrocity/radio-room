@@ -10,13 +10,16 @@ import {
   Wrap,
   WrapItem,
 } from "@chakra-ui/react"
-import getUrls from "../lib/getUrls"
+import { motion } from "framer-motion"
 
+import getUrls from "../lib/getUrls"
 import ReactionCounter from "./ReactionCounter"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { User } from "../types/User"
 import { EmojiData } from "emoji-mart"
 import Timestamp from "./Timestamp"
+
+const MotionBox = motion(Box)
 
 export interface ChatMessageProps {
   content: string
@@ -91,7 +94,7 @@ const ChatMessage = ({
   }, [urls])
 
   return (
-    <Box
+    <MotionBox
       px={3}
       py={1}
       borderBottomWidth={anotherUserMessage ? 0 : 1}
@@ -101,6 +104,16 @@ const ChatMessage = ({
       onMouseLeave={() => setHovered(false)}
       position="relative"
       w="100%"
+      initial={{
+        opacity: 0,
+      }}
+      animate={{
+        opacity: 1,
+      }}
+      transition={{
+        type: "tween",
+        duration: 0.4,
+      }}
     >
       {showUsername && (
         <Flex
@@ -152,7 +165,7 @@ const ChatMessage = ({
         onReactionClick={onReactionClick}
         showAddButton={alwaysShowReactionPicker || hovered}
       />
-    </Box>
+    </MotionBox>
   )
 }
 
