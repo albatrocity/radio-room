@@ -3,6 +3,7 @@ import socketService from "../lib/socketService"
 import { handleNotifications } from "../lib/handleNotifications"
 import { take, concat, uniqBy } from "lodash/fp"
 import { User } from "../types/User"
+import { ChatMessage } from "../types/ChatMessage"
 
 type ChatEvent = {
   data: {
@@ -54,6 +55,7 @@ export const chatMachine = createMachine(
         on: {
           SUBMIT_MESSAGE: { actions: ["sendMessage"] },
           NEW_MESSAGE: { actions: ["addMessage", "handleNotifications"] },
+          TOGGLE_MESSAGE: { actions: ["toggleMessage"] },
           SET_MESSAGES: { actions: ["setData"] },
           SET_USERS: {
             actions: ["setCurrentUser"],
@@ -116,6 +118,20 @@ export const chatMachine = createMachine(
       ),
       addMessage: assign({
         messages: (context, event) => {
+          return uniqBy(
+            "timestamp",
+            take(60, concat(event.data, context.messages)),
+          )
+        },
+      }),
+      toggleMessage: assign({
+        messages: (context, event) => {
+          const isPreset = context.messages.includes(event.data)
+          if (isPreset) {
+            return context.messages.filter(
+              (x: ChatMessage) => x.timestamp !== event.data.timestamp,
+            )
+          }
           return uniqBy(
             "timestamp",
             take(60, concat(event.data, context.messages)),

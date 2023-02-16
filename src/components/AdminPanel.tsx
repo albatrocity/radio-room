@@ -8,9 +8,16 @@ import {
   Show,
   Wrap,
   WrapItem,
+  Text,
 } from "@chakra-ui/react"
 
-import { FiSettings, FiList, FiImage, FiMessageSquare } from "react-icons/fi"
+import {
+  FiSettings,
+  FiList,
+  FiImage,
+  FiMessageSquare,
+  FiBookmark,
+} from "react-icons/fi"
 import { useSelector } from "@xstate/react"
 import useGlobalContext from "./useGlobalContext"
 
@@ -23,6 +30,10 @@ function AdminPanel({}: Props) {
   const globalServices = useGlobalContext()
   const isDj = useSelector(globalServices.roomService, isDjSelector)
   const isNotDj = useSelector(globalServices.roomService, isNotDjSelector)
+  const bookmarks = useSelector(
+    globalServices.bookmarkedChatService,
+    (state) => state.context.collection,
+  )
 
   return (
     <Show above="sm">
@@ -67,6 +78,18 @@ function AdminPanel({}: Props) {
               }
             >
               Change Cover Art
+            </Button>
+          </WrapItem>
+
+          <WrapItem>
+            <Button
+              size="xs"
+              variant="ghost"
+              colorScheme="whiteAlpha"
+              leftIcon={<Icon as={FiBookmark} />}
+              onClick={() => globalServices.roomService.send("ADMIN_BOOKMARKS")}
+            >
+              Bookmarks {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}
             </Button>
           </WrapItem>
 

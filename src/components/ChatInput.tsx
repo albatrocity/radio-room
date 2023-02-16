@@ -9,7 +9,6 @@ import React, {
   MutableRefObject,
   ReactPortal,
 } from "react"
-import { transparentize } from "@chakra-ui/theme-tools"
 
 import {
   Box,
@@ -31,6 +30,7 @@ import PopoverPreferences from "./PopoverPreferences"
 import { useSelector } from "@xstate/react"
 import { User } from "../types/User"
 import MentionSuggestionsContainer from "./MentionSuggestionsContainer"
+import { ChatMessage } from "../types/ChatMessage"
 
 const renderUserSuggestion = (
   suggestion,
@@ -122,10 +122,9 @@ const currentUserSelector = (state) => state.context.currentUser
 const usersSelector = (state) => state.context.users
 
 interface Props {
-  onSettings: () => void
   onTypingStart: () => void
   onTypingStop: () => void
-  onSend: (value: string) => void
+  onSend: (value: ChatMessage) => void
   modalActive: boolean
 }
 
@@ -148,7 +147,7 @@ const ChatInput = ({
   const [isSubmitting, setSubmitting] = useState(false)
   const [content, setContent] = useState("")
   const [borderColor] = useToken("colors", ["secondaryBorder"])
-  const [textColor] = useToken("colors", ["text"])
+  const [inputBackground] = useToken("colors", ["secondaryBg"])
   const [space1] = useToken("space", [1.5])
 
   const handleTypingStop = useCallback(
@@ -205,6 +204,7 @@ const ChatInput = ({
       borderRadius: "4px",
       padding: space1,
       fontSize: "1rem",
+      background: inputBackground
     },
 
     suggestions: {

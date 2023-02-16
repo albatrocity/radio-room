@@ -2,7 +2,7 @@ import React, { useCallback, useEffect } from "react"
 import { useSelector } from "@xstate/react"
 import Konami from "react-konami-code"
 
-import { Box, Grid, GridItem, Hide, Show } from "@chakra-ui/react"
+import { Box, Grid, GridItem, Hide, Show, Text } from "@chakra-ui/react"
 
 import FormAdminMeta from "./FormAdminMeta"
 import FormAdminArtwork from "./FormAdminArtwork"
@@ -20,6 +20,7 @@ import AboutContent from "./AboutContent"
 import socket from "../lib/socket"
 import useGlobalContext from "./useGlobalContext"
 import FormTheme from "./FormTheme"
+import BookmarkedMessages from "./BookmarkedMessages"
 
 const isEditingSelector = (state) =>
   state.matches("connected.participating.editing")
@@ -28,6 +29,8 @@ const isEditingUsernameSelector = (state) =>
   state.matches("connected.participating.editing.username")
 const isModalViewingListenersSelector = (state) =>
   state.matches("connected.participating.modalViewing.listeners")
+const isModalViewingBookmarksSelector = (state) =>
+  state.matches("connected.participating.editing.bookmarks")
 const isModalViewingHelpSelector = (state) =>
   state.matches("connected.participating.modalViewing.help")
 const isEditingMetaSelector = (state) =>
@@ -60,6 +63,10 @@ const Room = () => {
   const isModalViewingListeners = useSelector(
     globalServices.roomService,
     isModalViewingListenersSelector,
+  )
+  const isModalViewingBookmarks = useSelector(
+    globalServices.roomService,
+    isModalViewingBookmarksSelector,
   )
   const isModalViewingHelp = useSelector(
     globalServices.roomService,
@@ -114,6 +121,10 @@ const Room = () => {
 
   const hideListeners = useCallback(
     () => globalServices.roomService.send("CLOSE_VIEWING"),
+    [globalServices],
+  )
+  const hideBookmarks = useCallback(
+    () => globalServices.roomService.send("CLOSE_EDIT"),
     [globalServices],
   )
   const hideEditForm = useCallback(
@@ -224,6 +235,20 @@ const Room = () => {
           </Box>
         </Drawer>
       </Hide>
+
+      {isAdmin && (
+        <Drawer
+          isOpen={isModalViewingBookmarks}
+          isFullHeight
+          heading={`Bookmarks`}
+          size={["sm", "md"]}
+          onClose={() => hideBookmarks()}
+        >
+          <Box p="sm" overflow="auto" h="100%">
+            <BookmarkedMessages />
+          </Box>
+        </Drawer>
+      )}
 
       <FormUsername
         isOpen={isEditingUsername}

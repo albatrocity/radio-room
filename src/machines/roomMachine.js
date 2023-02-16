@@ -150,6 +150,16 @@ export const roomMachine = createMachine(
                       ],
                     },
                   },
+                  bookmarks: {
+                    on: {
+                      always: [
+                        {
+                          target: "none",
+                          in: "#room.admin.notAdmin",
+                        },
+                      ],
+                    },
+                  },
                   settings: {
                     on: {
                       always: [
@@ -176,6 +186,10 @@ export const roomMachine = createMachine(
                   },
                   ADMIN_EDIT_SETTINGS: {
                     target: ".settings",
+                    in: "#room.admin.isAdmin",
+                  },
+                  ADMIN_BOOKMARKS: {
+                    target: ".bookmarks",
                     in: "#room.admin.isAdmin",
                   },
                   ADMIN_CLEAR_PLAYLIST: {

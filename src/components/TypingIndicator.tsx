@@ -44,12 +44,15 @@ const TypingIndicator = ({ currentUserId }: Props) => {
     <MotionBox
       animate={{
         opacity: typingUsers.length > 0 ? 1 : 0,
-        scale: typingUsers.length > 0 ? 1 : 0.5,
+        y: typingUsers.length > 0 ? 0 : '100%'
+      }}
+      transition={{
+        duration: 0.1,
       }}
       pl="40px"
       pb={1}
     >
-      <Text size="xsmall">
+      <Text fontSize="xs">
         {formattedNames}{" "}
         {typingUsers.length === 1 || typingUsers.length === 0 ? "is" : "are"}{" "}
         typing...

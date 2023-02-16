@@ -1,8 +1,7 @@
-import React, { memo, useContext } from "react"
+import React, { memo } from "react"
 import { useMachine, useSelector } from "@xstate/react"
 import { Box, Grid, GridItem } from "@chakra-ui/react"
 
-import { GlobalStateContext } from "../contexts/global"
 import ChatMessages from "./ChatMessages"
 import ChatInput from "./ChatInput"
 import TypingIndicator from "./TypingIndicator"
@@ -10,6 +9,7 @@ import { chatMachine } from "../machines/chatMachine"
 import { AuthContext } from "../machines/authMachine"
 import { ChatMessage } from "../types/ChatMessage"
 import { User } from "../types/User"
+import useGlobalContext from "./useGlobalContext"
 
 const currentUserSelector = (state: { context: AuthContext }): User =>
   state.context.currentUser
@@ -26,7 +26,7 @@ const Chat = ({
   onOpenReactionPicker,
   onReactionClick,
 }: ChatProps) => {
-  const globalServices = useContext(GlobalStateContext)
+  const globalServices = useGlobalContext()
   const currentUser = useSelector(
     globalServices.authService,
     currentUserSelector,
@@ -70,19 +70,21 @@ const Chat = ({
         px={2}
         py={2}
         area={"input"}
-        borderTopColor="secondaryBorder"
-        borderTopWidth={1}
+        boxShadow='inner'
       >
-        <TypingIndicator currentUserId={currentUserId} />
-        <ChatInput
-          mt={-1}
-          modalActive={modalActive}
-          onTypingStart={() => chatSend("START_TYPING")}
-          onTypingStop={() => chatSend("STOP_TYPING")}
-          onSend={(msg: ChatMessage) =>
-            chatSend("SUBMIT_MESSAGE", { data: msg })
-          }
-        />
+        <Box px={2} zIndex={1}>
+          <TypingIndicator currentUserId={currentUserId} />
+        </Box>
+        <Box zIndex={2}>
+          <ChatInput
+            modalActive={modalActive}
+            onTypingStart={() => chatSend("START_TYPING")}
+            onTypingStop={() => chatSend("STOP_TYPING")}
+            onSend={(msg: ChatMessage) =>
+              chatSend("SUBMIT_MESSAGE", { data: msg })
+            }
+          />
+        </Box>
       </GridItem>
     </Grid>
   )

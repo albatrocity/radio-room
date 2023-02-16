@@ -2,6 +2,9 @@ import React, { memo, useEffect, useState, useMemo } from "react"
 import {
   Box,
   Flex,
+  HStack,
+  Icon,
+  IconButton,
   Image,
   Spacer,
   Stack,
@@ -11,6 +14,7 @@ import {
   WrapItem,
 } from "@chakra-ui/react"
 import { motion } from "framer-motion"
+import { FiBookmark } from "react-icons/fi"
 
 import getUrls from "../lib/getUrls"
 import ReactionCounter from "./ReactionCounter"
@@ -18,6 +22,8 @@ import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { User } from "../types/User"
 import { EmojiData } from "emoji-mart"
 import Timestamp from "./Timestamp"
+import useGlobalContext from "./useGlobalContext"
+import { useSelector } from "@xstate/react"
 
 const MotionBox = motion(Box)
 
@@ -27,10 +33,10 @@ export interface ChatMessageProps {
   timestamp: string
   user: User
   currentUserId: string
-  onOpenReactionPicker: () => void
-  onReactionClick: (emoji: EmojiData) => void
-  showUsername: boolean
-  anotherUserMessage: boolean
+  onOpenReactionPicker?: () => void
+  onReactionClick?: (emoji: EmojiData) => void
+  showUsername?: boolean
+  anotherUserMessage?: boolean
 }
 
 function isImageUrl(url: string) {
@@ -51,15 +57,27 @@ const ChatMessage = ({
   currentUserId,
   onOpenReactionPicker,
   onReactionClick,
-  showUsername,
-  anotherUserMessage,
+  showUsername = false,
+  anotherUserMessage = false,
 }: ChatMessageProps) => {
   const [parsedImageUrls, setParsedImageUrls] = useState<string[]>([])
+  const globalServices = useGlobalContext()
+  const currentIsAdmin = useSelector(
+    globalServices.authService,
+    (state) => state.context.isAdmin,
+  )
+  const isBookmarked = useSelector(
+    globalServices.bookmarkedChatService,
+    (state) => !!state.context.collection.find(({ id }) => id === timestamp),
+  )
+
   const [hovered, setHovered] = useState(false)
   const alwaysShowReactionPicker = useBreakpointValue({
     base: true,
     md: false,
   })
+  const showFloatingTimestamp =
+    (!showUsername && hovered) || (isBookmarked && !showUsername)
 
   const isMention = mentions.indexOf(currentUserId) > -1
   const urls = useMemo((): string[] => getUrls(content), [content])
@@ -67,6 +85,18 @@ const ChatMessage = ({
     new Set([...parsedImageUrls, ...urls.filter((x: string) => isImageUrl(x))]),
   )
   const parsedContent = images.reduce((mem, x) => mem.replace(x, ""), content)
+
+  const handleBookmark = () => {
+    globalServices.bookmarkedChatService.send("TOGGLE_MESSAGE", {
+      data: {
+        id: timestamp,
+        timestamp,
+        content,
+        user,
+        mentions,
+      },
+    })
+  }
 
   useEffect(() => {
     async function testUrls() {
@@ -127,7 +157,19 @@ const ChatMessage = ({
             {user.username}
           </Text>
           <Spacer />
-          <Timestamp value={timestamp} />
+          <HStack>
+            {currentIsAdmin && (
+              <IconButton
+                aria-label="Bookmark message"
+                colorScheme={"primary"}
+                variant={isBookmarked ? "solid" : "ghost"}
+                icon={<Icon as={FiBookmark} />}
+                size="xs"
+                onClick={handleBookmark}
+              />
+            )}
+            <Timestamp value={timestamp} />
+          </HStack>
         </Flex>
       )}
       <Wrap spacing="xs" align="center" w="100%">
@@ -150,21 +192,41 @@ const ChatMessage = ({
                 </Stack>
               )}
             </Box>
-            {!showUsername && hovered && (
-              <Box p={2} position="absolute" top={0} right={2} borderRadius={4}>
+            {showFloatingTimestamp && (
+              <HStack
+                p={2}
+                position="absolute"
+                top={0}
+                right={2}
+                borderRadius={4}
+                bg="appBg"
+              >
+                {currentIsAdmin && (
+                  <IconButton
+                    aria-label="Bookmark message"
+                    colorScheme="primary"
+                    variant="ghost"
+                    icon={<Icon as={FiBookmark} />}
+                    variant={isBookmarked ? "solid" : "ghost"}
+                    size="xs"
+                    onClick={handleBookmark}
+                  />
+                )}
                 <Timestamp value={timestamp} />
-              </Box>
+              </HStack>
             )}
           </Stack>
         </WrapItem>
       </Wrap>
 
-      <ReactionCounter
-        onOpenPicker={onOpenReactionPicker}
-        reactTo={{ type: "message", id: timestamp }}
-        onReactionClick={onReactionClick}
-        showAddButton={alwaysShowReactionPicker || hovered}
-      />
+      {onOpenReactionPicker && onReactionClick && (
+        <ReactionCounter
+          onOpenPicker={onOpenReactionPicker}
+          reactTo={{ type: "message", id: timestamp }}
+          onReactionClick={onReactionClick}
+          showAddButton={alwaysShowReactionPicker || hovered}
+        />
+      )}
     </MotionBox>
   )
 }
