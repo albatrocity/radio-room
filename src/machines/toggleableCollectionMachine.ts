@@ -13,10 +13,11 @@ export const toggleableCollectionMachine = createMachine(
     context: {
       collection: [],
       persistent: true,
-      name: 'bookmarks'
+      name: "bookmarks",
     },
     on: {
-      TOGGLE_MESSAGE: { actions: ["toggleMessage"] },
+      TOGGLE_ITEM: { actions: ["toggleItem"] },
+      CLEAR: { actions: ["clear"] },
     },
     invoke: [
       {
@@ -26,11 +27,11 @@ export const toggleableCollectionMachine = createMachine(
     ],
     states: {
       ready: {
-        entry: ['loadCollection'],
+        entry: ["loadCollection"],
         on: {
-          TOGGLE_MESSAGE: { actions: ["toggleMessage", "persist"] },
+          TOGGLE_MESSAGE: { actions: ["toggleItem", "persist"] },
           ENABLE_PERSISTENCE: { actions: ["enablePersistence"] },
-          SET_NAME: {actions: ["setName"]}
+          SET_NAME: { actions: ["setName"] },
         },
       },
     },
@@ -38,19 +39,20 @@ export const toggleableCollectionMachine = createMachine(
   {
     actions: {
       enablePersistence: assign({
-        persistent: () => true
+        persistent: () => true,
       }),
-      persist: (context) => {        
+      persist: (context) => {
         if (context.persistent) {
-          session.setItem(context.name, JSON.stringify(context.collection));
+          session.setItem(context.name, JSON.stringify(context.collection))
         }
       },
       loadCollection: assign({
-        collection: (context) => 
-          JSON.parse(sessionStorage.getItem(context.name) || "[]") || []
+        collection: (context) =>
+          JSON.parse(sessionStorage.getItem(context.name) || "[]") || [],
       }),
       setName: assign({ name: (context, event) => event.data }),
-      toggleMessage: assign({
+      clear: assign({ collection: [] }),
+      toggleItem: assign({
         collection: (context, event) => {
           const isPresent = context.collection
             .map(({ id }) => id)

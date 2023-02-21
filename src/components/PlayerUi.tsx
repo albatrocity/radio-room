@@ -87,6 +87,7 @@ const PlayerUi = ({
           display={["none", "flex"]}
           background="actionBg"
           alignItems="center"
+          py="1"
         >
           <Container>
             <ReactionCounter

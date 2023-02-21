@@ -13,7 +13,7 @@ export interface Typegen0 {
     services: "socket"
   }
   eventsCausingActions: {
-    toggleMessage: "TOGGLE_MESSAGE"
+    toggleItem: "TOGGLE_ITEM"
   }
   eventsCausingDelays: {}
   eventsCausingGuards: {}

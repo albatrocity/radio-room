@@ -9,6 +9,7 @@ import {
   Wrap,
   WrapItem,
   Text,
+  useDisclosure,
 } from "@chakra-ui/react"
 
 import {
@@ -20,6 +21,7 @@ import {
 } from "react-icons/fi"
 import { useSelector } from "@xstate/react"
 import useGlobalContext from "./useGlobalContext"
+import ConfirmationDialog from "./ConfirmationDialog"
 
 type Props = {}
 
@@ -34,9 +36,25 @@ function AdminPanel({}: Props) {
     globalServices.bookmarkedChatService,
     (state) => state.context.collection,
   )
+  const { isOpen, onOpen, onClose } = useDisclosure()
 
   return (
     <Show above="sm">
+      <ConfirmationDialog
+        body={
+          <Text>
+            Are you sure you want to clear the chat? This cannot be undone.
+          </Text>
+        }
+        isOpen={isOpen}
+        onClose={onClose}
+        onConfirm={() => {
+          globalServices.chatService.send("CLEAR_MESSAGES")
+          onClose()
+        }}
+        isDangerous={true}
+        confirmLabel="Clear Chat"
+      />
       <Stack
         direction="column"
         p={3}
@@ -112,14 +130,7 @@ function AdminPanel({}: Props) {
               variant="solid"
               colorScheme="red"
               leftIcon={<Icon as={FiMessageSquare} />}
-              onClick={() => {
-                const confirmation = window.confirm(
-                  "Are you sure you want to clear the chat? This cannot be undone.",
-                )
-                if (confirmation) {
-                  globalServices.chatService.send("CLEAR_MESSAGES")
-                }
-              }}
+              onClick={onOpen}
             >
               Clear Chat
             </Button>

@@ -7,14 +7,16 @@ import {
   DrawerContent,
   DrawerCloseButton,
   DrawerProps,
+  DrawerFooter,
 } from "@chakra-ui/react"
 
 interface Props extends DrawerProps {
   heading?: string
   children: ReactNode
+  footer?: ReactNode
 }
 
-const Drawer = ({ heading, children, ...rest }: Props) => {
+const Drawer = ({ heading, children, footer, ...rest }: Props) => {
   return (
     <ChakraDrawer {...rest}>
       <DrawerOverlay />
@@ -22,6 +24,7 @@ const Drawer = ({ heading, children, ...rest }: Props) => {
         {heading && <DrawerHeader>{heading}</DrawerHeader>}
         <DrawerCloseButton />
         <DrawerBody>{children}</DrawerBody>
+        {footer && <DrawerFooter borderTopWidth="1px">{footer}</DrawerFooter>}
       </DrawerContent>
     </ChakraDrawer>
   )
