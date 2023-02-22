@@ -15,7 +15,7 @@ const ReactionPicker = React.forwardRef(
         ref={ref}
         sx={{
           "em-emoji-picker": {
-            height: "50vh",
+            height: "40vh",
             width: "100%",
           },
         }}
