@@ -1,30 +1,35 @@
 import React from "react"
-import { Input } from "@chakra-ui/react"
+import { useMachine, useSelector } from "@xstate/react"
 
-import { debounceInputMachine } from "../machines/debouncedInputMachine"
-import { useMachine } from "@xstate/react"
-import useGlobalContext from "./useGlobalContext"
+import InputDebounced from "./InputDebounced"
+import { spotifySearchMachine } from "../machines/spotifySearchMachine"
+import { Box, List, ListItem, Text, UnorderedList } from "@chakra-ui/react"
 
 type Props = { onChange: (value: string) => void }
 
-function InputDebounced({}: Props) {
-  const globalServices = useGlobalContext()
-  const [state, send] = useMachine(debounceInputMachine, {
-    actions: {
-      onSearchChange: (context, event) => {
-        console.log("final value", event.value)
-        // globalServices.roomService.send()
-      },
-    },
-  })
+function SpotifySearch({}: Props) {
+  const [state, send] = useMachine(spotifySearchMachine)
+  const results = state.context.results
+
+  console.log(state.context)
 
   return (
-    <Input
-      onChange={(e) => {
-        send("SET_VALUE", { value: e.target.value })
-      }}
-    />
+    <Box>
+      {state.matches("failure") && (
+        <Text color="red">{state.context.error?.message}</Text>
+      )}
+      <InputDebounced
+        onChange={(value) => {
+          send("FETCH_RESULTS", { value })
+        }}
+      />
+      <UnorderedList>
+        {results.map(({ name, id }) => (
+          <ListItem key={id}>{name}</ListItem>
+        ))}
+      </UnorderedList>
+    </Box>
   )
 }
 
-export default InputDebounced
+export default SpotifySearch

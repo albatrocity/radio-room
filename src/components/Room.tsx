@@ -21,6 +21,7 @@ import socket from "../lib/socket"
 import useGlobalContext from "./useGlobalContext"
 import FormTheme from "./FormTheme"
 import DrawerBookmarks from "./DrawerBookmarks"
+import SpotifySearch from "./SpotifySearch"
 
 const isEditingSelector = (state) =>
   state.matches("connected.participating.editing")
@@ -176,6 +177,7 @@ const Room = () => {
             onOpenReactionPicker={onOpenReactionPicker}
             listenerCount={listeners.length}
           />
+          <SpotifySearch onChange={() => console.log("change")} />
         </GridItem>
 
         <GridItem area="chat" minHeight={0}>
