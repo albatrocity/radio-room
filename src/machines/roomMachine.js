@@ -1,4 +1,4 @@
-import { assign, createMachine } from "xstate"
+import { assign, send, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 
 export const roomMachine = createMachine(
@@ -81,6 +81,10 @@ export const roomMachine = createMachine(
           isAdmin: {
             on: {
               DEACTIVATE_ADMIN: "notAdmin",
+              DEPUTIZE_DJ: {
+                target: ".",
+                actions: ["deputizeDj"],
+              },
             },
           },
           notAdmin: {
@@ -112,6 +116,21 @@ export const roomMachine = createMachine(
           notDj: {
             on: {
               START_DJ_SESSION: { target: "isDj", in: "#room.admin.isAdmin" },
+            },
+          },
+        },
+      },
+      deputyDjaying: {
+        initial: "notDj",
+        states: {
+          isDj: {
+            on: {
+              END_DEPUTY_DJ_SESSION: "notDj",
+            },
+          },
+          notDj: {
+            on: {
+              START_DEPUTY_DJ_SESSION: "isDj",
             },
           },
         },
@@ -224,6 +243,17 @@ export const roomMachine = createMachine(
   },
   {
     actions: {
+      deputizeDj: send(
+        (_ctx, event) => {
+          return {
+            type: "dj deputize user",
+            data: event.userId,
+          }
+        },
+        {
+          to: "socket",
+        },
+      ),
       setData: assign({
         playlist: (context, event) => {
           return event.data.playlist

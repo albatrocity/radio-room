@@ -12,7 +12,7 @@ import {
   ListIcon,
 } from "@chakra-ui/react"
 import { EditIcon, SmallCloseIcon } from "@chakra-ui/icons"
-import { FiMoreVertical, FiMic } from "react-icons/fi"
+import { FiMoreVertical, FiMic, FiMusic } from "react-icons/fi"
 import { User } from "../types/User"
 
 interface ListItemUserProps {
@@ -20,6 +20,7 @@ interface ListItemUserProps {
   currentUser: User
   onEditUser: (user: User) => void
   onKickUser?: (userId: string) => void
+  onDeputizeDj?: (userId: string) => void
   userTyping: boolean
 }
 
@@ -28,6 +29,7 @@ const ListItemUser = ({
   currentUser,
   onEditUser,
   onKickUser,
+  onDeputizeDj,
   userTyping,
 }: ListItemUserProps) => {
   return (
@@ -77,9 +79,21 @@ const ListItemUser = ({
           !isEqual(user?.userId, currentUser?.userId) && (
             <IconButton
               size="xs"
+              variant={user.isDeputyDj ? "solid" : "ghost"}
+              aria-label="Deputize DJ"
+              onClick={() => {
+                onDeputizeDj?.(user.userId)
+              }}
+              icon={<Icon as={FiMusic} />}
+            />
+          )}
+        {currentUser?.isAdmin &&
+          !isEqual(user?.userId, currentUser?.userId) && (
+            <IconButton
+              size="xs"
               variant="ghost"
               aria-label="Kick User"
-              onClick={() => onKickUser(user.userId)}
+              onClick={() => onKickUser?.(user.userId)}
               icon={<SmallCloseIcon />}
             />
           )}
