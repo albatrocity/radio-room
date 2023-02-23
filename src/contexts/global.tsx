@@ -60,6 +60,13 @@ export const GlobalStateProvider = (props: Props) => {
           socket.emit("set DJ", null)
         }
       },
+      setDeputyDj: (_context, event) => {
+        if (event.type === "START_DEPUTY_DJ_SESSION") {
+          socket.emit("dj deputize user", event.userId)
+        } else {
+          socket.emit("dj undeputize user", event.userId)
+        }
+      },
       checkDj,
       adminActivated: () => {
         authService.send("ACTIVATE_ADMIN")

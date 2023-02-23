@@ -14,6 +14,7 @@
     "@emotion/styled": "^11.10.4",
     "@react-icons/all-files": "^4.1.0",
     "@xstate/react": "^3.1.2",
+    "chakra-react-select": "^4.5.0",
     "chakra-ui-markdown-renderer": "^4.1.0",
     "date-fns": "^2.16.1",
     "emoji-mart": "^5.2.2",

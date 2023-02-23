@@ -71,6 +71,15 @@ function AdminPanel({}: Props) {
         >
           Admin
         </Heading>
+        {isDj && (
+          <WrapItem>
+            <Button
+              onClick={() => globalServices.roomService.send("EDIT_QUEUE")}
+            >
+              Add to queue
+            </Button>
+          </WrapItem>
+        )}
 
         {isNotDj && (
           <WrapItem>
@@ -158,6 +167,8 @@ function AdminPanel({}: Props) {
               <WrapItem>
                 <Button
                   size="xs"
+                  variant="ghost"
+                  colorScheme="whiteAlpha"
                   onClick={() =>
                     globalServices.roomService.send("END_DJ_SESSION")
                   }

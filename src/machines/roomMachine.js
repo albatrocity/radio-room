@@ -1,4 +1,4 @@
-import { assign, createMachine } from "xstate"
+import { assign, send, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 
 export const roomMachine = createMachine(
@@ -81,6 +81,10 @@ export const roomMachine = createMachine(
           isAdmin: {
             on: {
               DEACTIVATE_ADMIN: "notAdmin",
+              DEPUTIZE_DJ: {
+                target: ".",
+                actions: ["deputizeDj"],
+              },
             },
           },
           notAdmin: {
@@ -116,6 +120,21 @@ export const roomMachine = createMachine(
           },
         },
       },
+      deputyDjaying: {
+        initial: "notDj",
+        states: {
+          isDj: {
+            on: {
+              END_DEPUTY_DJ_SESSION: "notDj",
+            },
+          },
+          notDj: {
+            on: {
+              START_DEPUTY_DJ_SESSION: "isDj",
+            },
+          },
+        },
+      },
       disconnected: {},
       unauthorized: {},
       connected: {
@@ -130,6 +149,7 @@ export const roomMachine = createMachine(
                   none: {},
                   username: {},
                   preferences: {},
+                  queue: {},
                   meta: {
                     on: {
                       always: [
@@ -176,6 +196,7 @@ export const roomMachine = createMachine(
                   CLOSE_EDIT: ".none",
                   EDIT_USERNAME: ".username",
                   EDIT_SETTINGS: ".preferences",
+                  EDIT_QUEUE: ".queue",
                   ADMIN_EDIT_META: {
                     target: ".meta",
                     in: "#room.admin.isAdmin",
@@ -222,6 +243,17 @@ export const roomMachine = createMachine(
   },
   {
     actions: {
+      deputizeDj: send(
+        (_ctx, event) => {
+          return {
+            type: "dj deputize user",
+            data: event.userId,
+          }
+        },
+        {
+          to: "socket",
+        },
+      ),
       setData: assign({
         playlist: (context, event) => {
           return event.data.playlist

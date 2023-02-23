@@ -1,15 +1,7 @@
 import React, { memo, useContext } from "react"
 import { useMachine, useSelector } from "@xstate/react"
 import { get, isEqual, find, reverse, reject } from "lodash/fp"
-import {
-  Box,
-  Text,
-  Heading,
-  HStack,
-  List,
-  VStack,
-  ListItem,
-} from "@chakra-ui/react"
+import { Box, Text, Heading, HStack, List, VStack } from "@chakra-ui/react"
 
 import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
@@ -134,6 +126,9 @@ const UserList = ({
                   onKickUser={(_user: User) =>
                     globalServices.authService.send("KICK_USER", x)
                   }
+                  onDeputizeDj={(userId: User["userId"]) => {
+                    globalServices.roomService.send("DEPUTIZE_DJ", { userId })
+                  }}
                 />
               )
             },

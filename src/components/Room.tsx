@@ -7,6 +7,7 @@ import { Box, Grid, GridItem, Hide, Show } from "@chakra-ui/react"
 import FormAdminMeta from "./FormAdminMeta"
 import FormAdminArtwork from "./FormAdminArtwork"
 import FormAdminSettings from "./FormAdminSettings"
+import FormAddToQueue from "./FormAddToQueue"
 import PlayerUi from "./PlayerUi"
 import Playlist from "./Playlist"
 import FormUsername from "./FormUsername"
@@ -39,6 +40,8 @@ const isEditingSettingsSelector = (state) =>
   state.matches("connected.participating.editing.settings")
 const isEditingPreferencesSelector = (state) =>
   state.matches("connected.participating.editing.preferences")
+const isAddingToQueueSelector = (state) =>
+  state.matches("connected.participating.editing.queue")
 const playlistSelector = (state) => state.context.playlist
 const isAdminSelector = (state) => state.context.isAdmin
 const isNewUserSelector = (state) => state.context.isNewUser
@@ -81,6 +84,11 @@ const Room = () => {
   const isEditingPreferences = useSelector(
     globalServices.roomService,
     isEditingPreferencesSelector,
+  )
+
+  const isAddingToQueue = useSelector(
+    globalServices.roomService,
+    isAddingToQueueSelector,
   )
   const isNewUser = useSelector(globalServices.authService, isNewUserSelector)
   const isAdmin = useSelector(globalServices.authService, isAdminSelector)
@@ -285,6 +293,14 @@ const Room = () => {
         <FormAdminArtwork
           onSubmit={(value) => socket.emit("set cover", value)}
         />
+      </Modal>
+
+      <Modal
+        isOpen={isAddingToQueue}
+        onClose={hideEditForm}
+        heading="Add to play queue"
+      >
+        <FormAddToQueue onSubmit={(value) => socket.emit("set cover", value)} />
       </Modal>
 
       <FormAdminSettings

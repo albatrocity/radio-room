@@ -12,8 +12,6 @@ import {
   SliderFilledTrack,
   SliderThumb,
   Container,
-  Text,
-  Button,
 } from "@chakra-ui/react"
 
 import { FiPlay, FiPause, FiList, FiVolume, FiVolumeX } from "react-icons/fi"

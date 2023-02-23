@@ -3,4 +3,5 @@ export interface User {
   username?: string
   isAdmin?: boolean
   isDj?: boolean
+  isDeputyDj?: boolean
 }
