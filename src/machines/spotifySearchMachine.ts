@@ -1,5 +1,6 @@
 import { assign, send, createMachine } from "xstate"
 import socketService from "../lib/socketService"
+import { SpotifyTrack } from "../types/SpotifyTrack"
 
 type RequestError = {
   message: string
@@ -7,7 +8,7 @@ type RequestError = {
 }
 
 interface Context {
-  results: {}[]
+  results: SpotifyTrack[]
   error: RequestError | null
   total: number
   offset: number
@@ -29,17 +30,6 @@ export const spotifySearchMachine = createMachine<Context>(
       nextUrl: undefined,
       prevUrl: undefined,
       limit: 20,
-    },
-    on: {
-      LOGIN: {
-        actions: ["setData"],
-      },
-      PLAYLIST: {
-        actions: ["setPlaylist"],
-      },
-      INIT: {
-        actions: ["setData"],
-      },
     },
     states: {
       idle: {

@@ -130,6 +130,7 @@ export const roomMachine = createMachine(
                   none: {},
                   username: {},
                   preferences: {},
+                  queue: {},
                   meta: {
                     on: {
                       always: [
@@ -176,6 +177,7 @@ export const roomMachine = createMachine(
                   CLOSE_EDIT: ".none",
                   EDIT_USERNAME: ".username",
                   EDIT_SETTINGS: ".preferences",
+                  EDIT_QUEUE: ".queue",
                   ADMIN_EDIT_META: {
                     target: ".meta",
                     in: "#room.admin.isAdmin",
