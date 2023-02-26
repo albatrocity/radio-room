@@ -32,6 +32,7 @@ const NowPlaying = ({
   meta,
   coverFound,
 }: NowPlayingProps) => {
+  console.log("META", meta)
   const {
     album,
     artist,
@@ -41,24 +42,18 @@ const NowPlaying = ({
     title,
   } = meta || {}
   const { mbid, releaseDate } = release || {}
-  const releaseUrl = mbid && `https://musicbrainz.org/release/${mbid}`
+  const releaseUrl = release?.url
+    ? release.url
+    : mbid && `https://musicbrainz.org/release/${mbid}`
   const coverUrl = useMemo(
     () =>
-      cover
-        ? cover
+      release.artwork
+        ? release.artwork
         : mbid
         ? `https://coverartarchive.org/release/${mbid}/front-500`
         : null,
     [mbid, cover],
   )
-
-  useEffect(() => {
-    if (coverUrl) {
-      onCover(true)
-    } else {
-      onCover(false)
-    }
-  }, [coverUrl])
 
   const artworkSize = [24, "120px", "220px"]
 
@@ -88,13 +83,13 @@ const NowPlaying = ({
       ) : (
         <LinkBox>
           <HStack spacing={5} justify="center">
-            {coverUrl && coverFound ? (
+            {coverUrl ? (
               <Box
                 width={artworkSize}
                 height={artworkSize}
                 flex={{ shrink: 0, grow: 1 }}
               >
-                <AlbumArtwork coverUrl={coverUrl} onCover={onCover} />
+                <AlbumArtwork coverUrl={coverUrl} />
               </Box>
             ) : (
               <Flex
