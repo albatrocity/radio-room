@@ -1,5 +1,5 @@
 import React, { useEffect, memo, useMemo } from "react"
-import { FiMusic } from "react-icons/fi"
+import { FiUser, FiMusic } from "react-icons/fi"
 import {
   Box,
   Heading,
@@ -18,6 +18,8 @@ import AlbumArtwork from "./AlbumArtwork"
 import safeDate from "../lib/safeDate"
 import { TrackMeta } from "../types/Track"
 import ButtonListeners from "./ButtonListeners"
+import useGlobalContext from "./useGlobalContext"
+import { useActor } from "@xstate/react"
 
 interface NowPlayingProps {
   onCover: (showCover: boolean) => void
@@ -26,21 +28,19 @@ interface NowPlayingProps {
   coverFound: boolean
 }
 
-const NowPlaying = ({
-  onCover,
-  offline,
-  meta,
-  coverFound,
-}: NowPlayingProps) => {
-  console.log("META", meta)
+const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
+  const globalServices = useGlobalContext()
+  const [state] = useActor(globalServices.usersService)
+  const users = state.context.users
   const {
     album,
     artist,
     track,
     release = { mbid: undefined, releaseDate: undefined },
-    cover,
     title,
+    dj,
   } = meta || {}
+  const djUsername = users.find(({ userId }) => userId === dj)?.username
   const { mbid, releaseDate } = release || {}
   const releaseUrl = release?.url
     ? release.url
@@ -52,7 +52,7 @@ const NowPlaying = ({
         : mbid
         ? `https://coverartarchive.org/release/${mbid}/front-500`
         : null,
-    [mbid, cover],
+    [mbid, release.artwork],
   )
 
   const artworkSize = [24, "120px", "220px"]
@@ -130,6 +130,14 @@ const NowPlaying = ({
                 <Text as="span" color="primaryBg" fontSize="xs">
                   Released {safeDate(releaseDate)}
                 </Text>
+              )}
+              {dj && (
+                <HStack mt={4} spacing={2}>
+                  <Icon color="primaryBg" boxSize={3} as={FiUser} />
+                  <Text as="i" color="primaryBg" fontSize="xs">
+                    Added by {djUsername}
+                  </Text>
+                </HStack>
               )}
             </VStack>
           </HStack>
