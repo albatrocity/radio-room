@@ -1,14 +1,6 @@
 import React from "react"
-import {
-  Box,
-  Stack,
-  Flex,
-  IconButton,
-  Icon,
-  Show,
-  Button,
-} from "@chakra-ui/react"
-import { useSelector, useActor } from "@xstate/react"
+import { Box, Stack, Flex, IconButton, Icon, Show } from "@chakra-ui/react"
+import { useSelector } from "@xstate/react"
 import { FiHelpCircle } from "react-icons/fi"
 import Listeners from "./Listeners"
 import useGlobalContext from "./useGlobalContext"
@@ -28,9 +20,6 @@ const Sidebar = (props: Props) => {
   )
 
   const isAdmin = useSelector(globalServices.authService, isAdminSelector)
-  const [state] = useActor(globalServices.roomService)
-
-  const isDeputyDj = state.matches("deputyDjaying.isDj")
 
   return (
     <Box
@@ -65,13 +54,6 @@ const Sidebar = (props: Props) => {
           />
         </Flex>
         <Show above="sm">
-          {isDeputyDj && (
-            <Button
-              onClick={() => globalServices.roomService.send("EDIT_QUEUE")}
-            >
-              Add to queue
-            </Button>
-          )}
           {!isAdmin && (
             <Flex p={3} align="center" grow={1} shrink={0}>
               <IconButton
