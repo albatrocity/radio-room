@@ -23,7 +23,7 @@ export const themeMachine = Machine(
         session.setItem("theme", context.theme)
       },
       loadTheme: assign({
-        theme: (context) => sessionStorage.getItem("theme") || "default",
+        theme: (context) => session.getItem("theme") || "default",
       }),
     },
   },
