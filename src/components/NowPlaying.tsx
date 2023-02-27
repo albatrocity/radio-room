@@ -15,6 +15,7 @@ import {
   Icon,
   Hide,
   Button,
+  Show,
 } from "@chakra-ui/react"
 
 import AlbumArtwork from "./AlbumArtwork"
@@ -24,6 +25,7 @@ import { TrackMeta } from "../types/Track"
 import ButtonListeners from "./ButtonListeners"
 import useGlobalContext from "./useGlobalContext"
 import { useActor } from "@xstate/react"
+import useCanDj from "./useCanDj"
 
 interface NowPlayingProps extends BoxProps {
   onCover: (showCover: boolean) => void
@@ -45,10 +47,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
     dj,
   } = meta || {}
   const djUsername = users.find(({ userId }) => userId === dj)?.username
-  const [roomState] = useActor(globalServices.roomService)
-  const isDeputyDj = roomState.matches("deputyDjaying.isDj")
-  const isDj = roomState.matches("djaying")
-  const canDj = isDeputyDj || isDj
+  const canDj = useCanDj()
 
   const { mbid, releaseDate } = release || {}
   const releaseUrl = release?.url
@@ -64,7 +63,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
     [mbid, release.artwork],
   )
 
-  const artworkSize = [24, "120px", "100%"]
+  const artworkSize = [24, "100%", "100%"]
 
   return (
     <Box
@@ -76,7 +75,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
       flexGrow={1}
       height="100%"
     >
-      <VStack spacing={2} justify="space-between" height="100%">
+      <VStack spacing={4} justify="space-between" height="100%">
         {offline ? (
           <VStack>
             <Heading
@@ -160,14 +159,16 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
             </Stack>
           </LinkBox>
         )}
-        {canDj && (
-          <Button
-            leftIcon={<Icon as={CgPlayListAdd} />}
-            onClick={() => globalServices.roomService.send("EDIT_QUEUE")}
-          >
-            Add to queue
-          </Button>
-        )}
+        <Show above="sm">
+          {canDj && (
+            <Button
+              leftIcon={<Icon as={CgPlayListAdd} />}
+              onClick={() => globalServices.roomService.send("EDIT_QUEUE")}
+            >
+              Add to queue
+            </Button>
+          )}
+        </Show>
       </VStack>
     </Box>
   )

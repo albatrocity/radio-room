@@ -11,9 +11,11 @@ import {
   SliderFilledTrack,
   SliderThumb,
   Container,
+  Button,
 } from "@chakra-ui/react"
 
 import { FiPlay, FiPause, FiList, FiVolume, FiVolumeX } from "react-icons/fi"
+import { CgPlayListAdd } from "react-icons/cg"
 import { CgPlayList } from "react-icons/cg"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
@@ -41,6 +43,8 @@ interface RadioPlayerProps {
   }) => void
   reactions: {}[]
   trackId: string
+  canDj?: boolean
+  onAddToQueue: () => void
 }
 
 const streamURL = process.env.GATSBY_STREAM_URL
@@ -58,6 +62,8 @@ const RadioPlayer = ({
   onOpenPicker,
   reactions,
   trackId,
+  canDj,
+  onAddToQueue,
 }: RadioPlayerProps) => {
   const player = useRef(null)
 
@@ -77,7 +83,7 @@ const RadioPlayer = ({
               aria-label="Playlist"
               variant="ghost"
               onClick={onShowPlaylist}
-              icon={<Icon boxSize={8} as={CgPlayList} />}
+              icon={<Icon boxSize={6} as={CgPlayList} />}
             />
           )}
           <HStack>
@@ -87,9 +93,9 @@ const RadioPlayer = ({
               variant="ghost"
               icon={
                 playing ? (
-                  <Icon as={FiPause} boxSize={6} />
+                  <Icon as={FiPause} boxSize={5} />
                 ) : (
-                  <Icon as={FiPlay} boxSize={6} />
+                  <Icon as={FiPlay} boxSize={5} />
                 )
               }
               onClick={() => onPlayPause()}
@@ -100,9 +106,9 @@ const RadioPlayer = ({
               variant="ghost"
               icon={
                 muted ? (
-                  <Icon as={FiVolumeX} boxSize={6} />
+                  <Icon as={FiVolumeX} boxSize={5} />
                 ) : (
-                  <Icon as={FiVolume} boxSize={6} />
+                  <Icon as={FiVolume} boxSize={5} />
                 )
               }
               onClick={() => onMute()}
@@ -139,6 +145,14 @@ const RadioPlayer = ({
           </HStack>
           <Hide above="sm">
             <HStack>
+              {canDj && (
+                <IconButton
+                  icon={<Icon as={CgPlayListAdd} />}
+                  aria-label="Add to Queue"
+                  variant="ghost"
+                  onClick={onAddToQueue}
+                />
+              )}
               <ButtonListeners variant="ghost" />
             </HStack>
           </Hide>

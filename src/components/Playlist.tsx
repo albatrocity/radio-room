@@ -1,4 +1,4 @@
-import React, { useContext } from "react"
+import React from "react"
 import { Text, Stack, StackDivider } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { User } from "../types/User"
@@ -15,7 +15,6 @@ const Playlist = ({ data = [] }: { data: PlaylistItem[] }) => {
   return (
     <Stack direction="column" divider={<StackDivider borderColor="gray.200" />}>
       {data.map((item) => {
-        console.log("item", item)
         return (
           <Stack
             key={item.timestamp.toString()}

@@ -11,6 +11,7 @@ import ReactionCounter from "./ReactionCounter"
 import { audioMachine } from "../machines/audioMachine"
 
 import { TrackMeta } from "../types/Track"
+import useCanDj from "./useCanDj"
 
 const isUnauthorizedSelector = (state) => state.matches("unauthorized")
 const allReactionsSelector = (state) => state.context.reactions
@@ -54,6 +55,7 @@ const PlayerUi = ({
   const { volume, meta }: { volume: number; meta: TrackMeta } = state.context
   const { bitrate, album, artist, track, release = {}, cover } = meta || {}
   const trackId = kebabCase(`${track}-${artist}-${album}`)
+  const canDj = useCanDj()
 
   const onCover = useCallback(
     (hasCover: boolean) => {
@@ -118,6 +120,8 @@ const PlayerUi = ({
           onReactionClick={onReactionClick}
           onOpenPicker={onOpenReactionPicker}
           reactions={allReactions["track"][trackId]}
+          canDj={canDj}
+          onAddToQueue={() => globalServices.roomService.send("EDIT_QUEUE")}
         />
       )}
     </Flex>
