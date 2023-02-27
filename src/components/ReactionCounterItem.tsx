@@ -35,7 +35,7 @@ const ReactionCounterItem = ({
       placement="top"
       label={
         <HStack>
-          <em-emoji size="24px" shortcodes={emoji} />
+          <em-emoji size="32px" shortcodes={emoji} />
           <ListUsernames ids={users} />
         </HStack>
       }
