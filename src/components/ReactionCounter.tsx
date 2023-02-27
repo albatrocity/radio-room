@@ -143,7 +143,7 @@ const ReactionCounter = ({
                 <IconButton
                   p={1}
                   aria-label="Add reaction"
-                  size="xs"
+                  size="sm"
                   variant={darkBg ? "darkGhost" : "ghost"}
                   colorScheme={buttonColorScheme}
                   disabled={!showAddButton}

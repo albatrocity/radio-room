@@ -43,7 +43,7 @@ const ReactionCounterItem = ({
       <Button
         aria-label={`${emoji} reactions`}
         onClick={() => onReactionClick({ shortcodes: emoji })}
-        size="xs"
+        size="sm"
         py={0.5}
         px={1}
         borderWidth={1}

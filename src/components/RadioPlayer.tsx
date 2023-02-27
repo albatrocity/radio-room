@@ -73,7 +73,7 @@ const RadioPlayer = ({
         >
           {hasPlaylist && (
             <IconButton
-              size="sm"
+              size="md"
               aria-label="Playlist"
               variant="ghost"
               onClick={onShowPlaylist}
@@ -82,14 +82,14 @@ const RadioPlayer = ({
           )}
           <HStack>
             <IconButton
-              size="sm"
+              size="md"
               aria-label={playing ? "Pause" : "Play"}
               variant="ghost"
               icon={playing ? <Icon as={FiPause} /> : <Icon as={FiPlay} />}
               onClick={() => onPlayPause()}
             />
             <IconButton
-              size="sm"
+              size="md"
               aria-label={muted ? "Unmute" : "Mute"}
               variant="ghost"
               icon={muted ? <Icon as={FiVolumeX} /> : <Icon as={FiVolume} />}
