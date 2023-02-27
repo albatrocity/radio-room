@@ -167,7 +167,7 @@ const Room = () => {
     `,
           `"header chat sidebar"`,
         ]}
-        gridTemplateRows={["auto 1fr", "auto 1fr auto", "1fr"]}
+        gridTemplateRows={["auto 1fr", "auto 1fr auto", "100vh"]}
         gridTemplateColumns={["1fr auto", "1fr auto", `${sizeXs} 1fr auto`]}
       >
         <Konami
