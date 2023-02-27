@@ -165,8 +165,8 @@ const Room = () => {
     `,
           `"header chat sidebar"`,
         ]}
-        gridTemplateRows={"auto 1fr"}
-        gridTemplateColumns={"1fr auto"}
+        gridTemplateRows={["auto 1fr", "1fr auto"]}
+        gridTemplateColumns={["1fr auto", "xs 1fr auto"]}
       >
         <Konami
           action={() => globalServices.roomService.send("ACTIVATE_ADMIN")}
@@ -176,6 +176,8 @@ const Room = () => {
           area="header"
           height={["auto", "100%"]}
           minWidth={["none", "xs"]}
+          flexGrow={0}
+          flexShrink={1}
         >
           <PlayerUi
             onShowPlaylist={() =>
