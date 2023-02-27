@@ -2,7 +2,7 @@ import React, { useCallback, useEffect } from "react"
 import { useSelector } from "@xstate/react"
 import Konami from "react-konami-code"
 
-import { Box, Grid, GridItem, Hide, Show } from "@chakra-ui/react"
+import { Box, Grid, GridItem, Hide, Show, useToken } from "@chakra-ui/react"
 
 import FormAdminMeta from "./FormAdminMeta"
 import FormAdminArtwork from "./FormAdminArtwork"
@@ -51,6 +51,8 @@ const passwordErrorSelector = (state) => state.context.passwordError
 const listenersSelector = (state) => state.context.listeners
 
 const Room = () => {
+  const [sizeXs] = useToken("sizes", ["xs"])
+
   const globalServices = useGlobalContext()
   const isEditing = useSelector(globalServices.roomService, isEditingSelector)
   const playlistActive = useSelector(
@@ -165,8 +167,8 @@ const Room = () => {
     `,
           `"header chat sidebar"`,
         ]}
-        gridTemplateRows={["auto 1fr", "1fr auto"]}
-        gridTemplateColumns={["1fr auto", "xs 1fr auto"]}
+        gridTemplateRows={["auto 1fr", "auto 1fr auto", "1fr"]}
+        gridTemplateColumns={["1fr auto", "1fr auto", `${sizeXs} 1fr auto`]}
       >
         <Konami
           action={() => globalServices.roomService.send("ACTIVATE_ADMIN")}
