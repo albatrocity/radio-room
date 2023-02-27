@@ -121,7 +121,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
               )}
               <VStack align={"start"} spacing={0}>
                 {(track || title) && (
-                  <LinkOverlay href={releaseUrl} target="_blank">
+                  <LinkOverlay href={releaseUrl} isExternal={true}>
                     <Heading
                       color="primaryBg"
                       margin="none"
