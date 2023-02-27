@@ -15,6 +15,7 @@ const Playlist = ({ data = [] }: { data: PlaylistItem[] }) => {
   return (
     <Stack direction="column" divider={<StackDivider borderColor="gray.200" />}>
       {data.map((item) => {
+        console.log("item", item)
         return (
           <Stack
             key={item.timestamp.toString()}

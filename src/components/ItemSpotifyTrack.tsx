@@ -6,7 +6,7 @@ const ItemSpotifyTrack = ({ name, album, artists }: SpotifyTrack) => {
   const smallImage = album.images.find(({ width }) => width < 500)
   return (
     <HStack spacing={2} cursor="pointer">
-      {smallImage && <Image w={100} src={smallImage.url} />}
+      {smallImage && <Image w={100} h={100} src={smallImage.url} />}
       <Box overflow="hidden">
         <Text fontWeight="bold">{name}</Text>
         <Text fontSize="sm">{artists.map(({ name }) => name).join(", ")}</Text>

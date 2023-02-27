@@ -4,7 +4,6 @@ import {
   Icon,
   IconButton,
   HStack,
-  Flex,
   Show,
   Hide,
   Slider,
@@ -15,6 +14,7 @@ import {
 } from "@chakra-ui/react"
 
 import { FiPlay, FiPause, FiList, FiVolume, FiVolumeX } from "react-icons/fi"
+import { CgPlayList } from "react-icons/cg"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
 import { EmojiData } from "emoji-mart"
@@ -77,7 +77,7 @@ const RadioPlayer = ({
               aria-label="Playlist"
               variant="ghost"
               onClick={onShowPlaylist}
-              icon={<Icon as={FiList} />}
+              icon={<Icon boxSize={8} as={CgPlayList} />}
             />
           )}
           <HStack>
@@ -85,14 +85,26 @@ const RadioPlayer = ({
               size="md"
               aria-label={playing ? "Pause" : "Play"}
               variant="ghost"
-              icon={playing ? <Icon as={FiPause} /> : <Icon as={FiPlay} />}
+              icon={
+                playing ? (
+                  <Icon as={FiPause} boxSize={6} />
+                ) : (
+                  <Icon as={FiPlay} boxSize={6} />
+                )
+              }
               onClick={() => onPlayPause()}
             />
             <IconButton
               size="md"
               aria-label={muted ? "Unmute" : "Mute"}
               variant="ghost"
-              icon={muted ? <Icon as={FiVolumeX} /> : <Icon as={FiVolume} />}
+              icon={
+                muted ? (
+                  <Icon as={FiVolumeX} boxSize={6} />
+                ) : (
+                  <Icon as={FiVolume} boxSize={6} />
+                )
+              }
               onClick={() => onMute()}
             />
           </HStack>

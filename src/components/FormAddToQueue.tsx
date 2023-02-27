@@ -1,5 +1,5 @@
 import React from "react"
-import { Box, useToast } from "@chakra-ui/react"
+import { Box, Text, useToast } from "@chakra-ui/react"
 import SpotifySearch from "./SpotifySearch"
 import { SingleValue } from "chakra-react-select"
 import { SpotifyTrack } from "../types/SpotifyTrack"
@@ -29,7 +29,11 @@ const FormAddToQueue = ({}: Props) => {
   }
 
   return (
-    <Box>
+    <Box textStyle="body">
+      <Text as="p" fontSize="sm">
+        Selecting a song will send it to the DJ's play queue, where they can
+        choose to leave it in, reorder it, or remove it completely.
+      </Text>
       <SpotifySearch
         onChoose={handleSelect}
         placeholder="Search for a track on Spotify"
