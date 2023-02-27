@@ -150,8 +150,8 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
 
                   <FormControl>
                     <Checkbox
-                      disabled={state.matches("pending")}
-                      checked={values.fetchMeta}
+                      isDisabled={state.matches("pending")}
+                      isChecked={values.fetchMeta}
                       onChange={(e) => {
                         handleChange(e)
                         if (e.target.checked !== initialValues.fetchMeta) {
@@ -168,19 +168,11 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
                     </Checkbox>
                     <FormHelperText>
                       Album Metadata (cover image, release date, info URL) is
-                      automatically fetched from{" "}
-                      <Link
-                        isExternal
-                        target="_blank"
-                        href="http://musicbrainz.org"
-                      >
-                        MusicBrainz
-                        <ExternalLinkIcon mx="2px" />
-                      </Link>{" "}
-                      based on the Title/Artist/Album that your broadcast
-                      software sends to the Shoustcast server. If you're getting
-                      inaccurate data or want to manually set the cover artwork,
-                      disable this option.
+                      automatically fetched from Spotify based on the
+                      Title/Artist/Album that your broadcast software sends to
+                      the Shoustcast server. If you're getting inaccurate data
+                      or want to manually set the cover artwork, disable this
+                      option.
                     </FormHelperText>
                   </FormControl>
 
