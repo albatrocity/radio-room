@@ -1,4 +1,4 @@
-import React, { useRef, memo, ReactNode } from "react"
+import React, { useRef, memo, ReactNode, useEffect } from "react"
 import {
   Box,
   Icon,
@@ -66,6 +66,12 @@ const RadioPlayer = ({
   onAddToQueue,
 }: RadioPlayerProps) => {
   const player = useRef(null)
+
+  useEffect(() => {
+    if (player.current && !playing) {
+      player.current.stop()
+    }
+  }, [playing, player])
 
   return (
     <Box background="actionBgLite" py={1}>
