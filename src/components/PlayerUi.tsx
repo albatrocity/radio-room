@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, memo } from "react"
 import { useMachine, useSelector } from "@xstate/react"
-import { Box, Container } from "@chakra-ui/react"
+import { Box, Container, Flex } from "@chakra-ui/react"
 import { kebabCase } from "lodash/fp"
 import { EmojiData } from "emoji-mart"
 
@@ -69,10 +69,12 @@ const PlayerUi = ({
   )
 
   return (
-    <Box
+    <Flex
       sx={{
         filter: isUnauthorized ? "blur(0.5rem)" : "none",
       }}
+      direction="column"
+      height="100%"
     >
       <NowPlaying
         playing={playing}
@@ -81,6 +83,7 @@ const PlayerUi = ({
         coverFound={coverFound}
         offline={state.matches("offline")}
         meta={meta}
+        flexGrow={1}
       />
       {state.matches("online") && (
         <Box
@@ -117,7 +120,7 @@ const PlayerUi = ({
           reactions={allReactions["track"][trackId]}
         />
       )}
-    </Box>
+    </Flex>
   )
 }
 

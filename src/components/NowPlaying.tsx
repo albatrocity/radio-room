@@ -1,6 +1,7 @@
-import React, { useEffect, memo, useMemo } from "react"
+import React, { memo, useMemo } from "react"
 import { FiUser, FiMusic } from "react-icons/fi"
 import {
+  BoxProps,
   Box,
   Heading,
   Flex,
@@ -9,6 +10,7 @@ import {
   LinkBox,
   LinkOverlay,
   VStack,
+  Stack,
   Icon,
   Hide,
 } from "@chakra-ui/react"
@@ -21,7 +23,7 @@ import ButtonListeners from "./ButtonListeners"
 import useGlobalContext from "./useGlobalContext"
 import { useActor } from "@xstate/react"
 
-interface NowPlayingProps {
+interface NowPlayingProps extends BoxProps {
   onCover: (showCover: boolean) => void
   offline: boolean
   meta: TrackMeta
@@ -55,7 +57,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
     [mbid, release.artwork],
   )
 
-  const artworkSize = [24, "120px", "220px"]
+  const artworkSize = [24, "120px", "100%"]
 
   return (
     <Box
@@ -64,6 +66,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
       alignContent="center"
       alignItems="center"
       justifyContent="center"
+      flexGrow={1}
     >
       {offline ? (
         <VStack>
@@ -82,7 +85,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
         </VStack>
       ) : (
         <LinkBox>
-          <HStack spacing={5} justify="center">
+          <Stack direction={["row", "column"]} spacing={5} justify="center">
             {coverUrl ? (
               <Box
                 width={artworkSize}
@@ -140,7 +143,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
                 </HStack>
               )}
             </VStack>
-          </HStack>
+          </Stack>
         </LinkBox>
       )}
     </Box>

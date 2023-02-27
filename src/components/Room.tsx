@@ -163,6 +163,7 @@ const Room = () => {
     "header header"
     "chat sidebar"
     `,
+          `"header chat sidebar"`,
         ]}
         gridTemplateRows={"auto 1fr"}
         gridTemplateColumns={"1fr auto"}
@@ -171,7 +172,11 @@ const Room = () => {
           action={() => globalServices.roomService.send("ACTIVATE_ADMIN")}
         />
 
-        <GridItem area="header">
+        <GridItem
+          area="header"
+          height={["auto", "100%"]}
+          minWidth={["none", "xs"]}
+        >
           <PlayerUi
             onShowPlaylist={() =>
               globalServices.roomService.send("TOGGLE_PLAYLIST")
