@@ -58,7 +58,7 @@ const Chat = ({
     >
       <GridItem height="100%" area={"chat"} minHeight={0}>
         <Box h="100%" w="100%" className="messages-container">
-          {chatState.context.messages.length > 0 && (
+          {(chatState.context?.messages || []).length > 0 && (
             <ChatMessages
               onOpenReactionPicker={onOpenReactionPicker}
               onReactionClick={onReactionClick}
