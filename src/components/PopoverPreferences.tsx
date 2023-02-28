@@ -25,10 +25,10 @@ import FormTheme from "./FormTheme"
 
 type Props = {}
 
-const PopoverTheme = (props: Props) => {
+const PopoverPreferences = (props: Props) => {
   const { colorMode, toggleColorMode } = useColorMode()
   return (
-    <Popover>
+    <Popover isLazy>
       <PopoverTrigger>
         <IconButton
           aria-label="Settings"
@@ -63,4 +63,4 @@ const PopoverTheme = (props: Props) => {
   )
 }
 
-export default memo(PopoverTheme)
+export default memo(PopoverPreferences)

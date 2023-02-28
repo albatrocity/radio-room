@@ -1,6 +1,6 @@
 import React, { memo } from "react"
 import { useMachine, useSelector } from "@xstate/react"
-import { Box, Grid, GridItem } from "@chakra-ui/react"
+import { Box, Grid, GridItem, HStack } from "@chakra-ui/react"
 
 import ChatMessages from "./ChatMessages"
 import ChatInput from "./ChatInput"
@@ -10,6 +10,7 @@ import { AuthContext } from "../machines/authMachine"
 import { ChatMessage } from "../types/ChatMessage"
 import { User } from "../types/User"
 import useGlobalContext from "./useGlobalContext"
+import PopoverPreferences from "./PopoverPreferences"
 
 const currentUserSelector = (state: { context: AuthContext }): User =>
   state.context.currentUser
@@ -72,16 +73,21 @@ const Chat = ({
         <Box px={2} zIndex={1}>
           <TypingIndicator currentUserId={currentUserId} />
         </Box>
-        <Box zIndex={2}>
-          <ChatInput
-            modalActive={modalActive}
-            onTypingStart={() => chatSend("START_TYPING")}
-            onTypingStop={() => chatSend("STOP_TYPING")}
-            onSend={(msg: ChatMessage) =>
-              chatSend("SUBMIT_MESSAGE", { data: msg })
-            }
-          />
-        </Box>
+        <HStack zIndex={2} w="100%">
+          <Box>
+            <PopoverPreferences />
+          </Box>
+          <Box w="100%">
+            <ChatInput
+              modalActive={modalActive}
+              onTypingStart={() => chatSend("START_TYPING")}
+              onTypingStop={() => chatSend("STOP_TYPING")}
+              onSend={(msg: ChatMessage) =>
+                chatSend("SUBMIT_MESSAGE", { data: msg })
+              }
+            />
+          </Box>
+        </HStack>
       </GridItem>
     </Grid>
   )

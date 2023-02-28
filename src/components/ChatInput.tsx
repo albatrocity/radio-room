@@ -27,7 +27,6 @@ import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
 
 import { GlobalStateContext } from "../contexts/global"
-import PopoverPreferences from "./PopoverPreferences"
 import { useSelector } from "@xstate/react"
 import { User } from "../types/User"
 import MentionSuggestionsContainer from "./MentionSuggestionsContainer"
@@ -229,8 +228,6 @@ const ChatInput = ({
 
   return (
     <HStack overflowX="clip">
-      <PopoverPreferences />
-
       <Flex grow={1}>
         <form onSubmit={handleSubmit} style={{ width: "100%" }}>
           <Flex direction="row" w="100%" grow={1} justify="center">
