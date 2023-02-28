@@ -1,4 +1,4 @@
-import { useActor } from "@xstate/react"
+import { useActor, useSelector } from "@xstate/react"
 import useGlobalContext from "./useGlobalContext"
 
 export default function useCanDj() {
@@ -6,5 +6,9 @@ export default function useCanDj() {
   const [roomState] = useActor(globalServices.roomService)
   const isDeputyDj = roomState.matches("deputyDjaying.isDj")
   const isDj = roomState.matches("djaying.isDj")
-  return isDeputyDj || isDj
+  const isAdmin = useSelector(
+    globalServices.authService,
+    (state) => state.context.isAdmin,
+  )
+  return isDeputyDj || isDj || isAdmin
 }
