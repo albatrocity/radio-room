@@ -5,6 +5,6 @@ export default function useCanDj() {
   const globalServices = useGlobalContext()
   const [roomState] = useActor(globalServices.roomService)
   const isDeputyDj = roomState.matches("deputyDjaying.isDj")
-  const isDj = roomState.matches("djaying")
+  const isDj = roomState.matches("djaying.isDj")
   return isDeputyDj || isDj
 }
