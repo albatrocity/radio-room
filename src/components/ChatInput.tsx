@@ -227,57 +227,53 @@ const ChatInput = ({
   }
 
   return (
-    <HStack overflowX="clip">
-      <Flex grow={1}>
-        <form onSubmit={handleSubmit} style={{ width: "100%" }}>
-          <Flex direction="row" w="100%" grow={1} justify="center">
-            <Box
-              w="100%"
-              sx={{
-                "& > div": {
-                  height: "100%",
-                },
-              }}
-            >
-              <Input
-                name="content"
-                onChange={(value: string) => {
-                  setContent(value)
-                }}
-                handleSubmit={handleSubmit}
-                value={content}
-                inputRef={inputRef}
-                inputStyle={inputStyle}
-                handleKeyInput={handleKeyInput}
-                userSuggestions={userSuggestions}
-                mentionStyle={mentionStyle}
-                renderUserSuggestion={renderUserSuggestion}
-                autoFocus={modalActive}
-              />
-            </Box>
-            <Spacer />
-            <motion.div
-              layout
-              animate={{
-                width: isValid ? "auto" : 5,
-                opacity: isValid ? 1 : 0,
-              }}
-            >
-              <IconButton
-                aria-label="Send Message"
-                type="submit"
-                variant="solid"
-                isDisabled={isSubmitting || !isValid}
-                sx={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
-                icon={<Icon as={FiArrowUpCircle} />}
-              >
-                Submit
-              </IconButton>
-            </motion.div>
-          </Flex>
-        </form>
+    <form onSubmit={handleSubmit} style={{ width: "100%" }}>
+      <Flex direction="row" w="100%" grow={1} justify="center">
+        <Box
+          w="100%"
+          sx={{
+            "& > div": {
+              height: "100%",
+            },
+          }}
+        >
+          <Input
+            name="content"
+            onChange={(value: string) => {
+              setContent(value)
+            }}
+            handleSubmit={handleSubmit}
+            value={content}
+            inputRef={inputRef}
+            inputStyle={inputStyle}
+            handleKeyInput={handleKeyInput}
+            userSuggestions={userSuggestions}
+            mentionStyle={mentionStyle}
+            renderUserSuggestion={renderUserSuggestion}
+            autoFocus={modalActive}
+          />
+        </Box>
+        <Spacer />
+        <motion.div
+          layout
+          animate={{
+            width: isValid ? "auto" : 5,
+            opacity: isValid ? 1 : 0,
+          }}
+        >
+          <IconButton
+            aria-label="Send Message"
+            type="submit"
+            variant="solid"
+            isDisabled={isSubmitting || !isValid}
+            sx={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
+            icon={<Icon as={FiArrowUpCircle} />}
+          >
+            Submit
+          </IconButton>
+        </motion.div>
       </Flex>
-    </HStack>
+    </form>
   )
 }
 

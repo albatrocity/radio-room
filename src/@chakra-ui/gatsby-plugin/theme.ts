@@ -8,6 +8,7 @@ import {
   extendTheme,
   withDefaultColorScheme,
   ThemeConfig,
+  extendBaseTheme,
 } from "@chakra-ui/react"
 
 const config: ThemeConfig = {
@@ -103,3 +104,5 @@ export default extendTheme(
   }),
   theme,
 )
+
+export const baseTheme = extendBaseTheme()
