@@ -1,6 +1,6 @@
 import React, { useMemo } from "react"
 import { format } from "date-fns"
-import { Stack, LinkBox, LinkOverlay, Text, Image } from "@chakra-ui/react"
+import { Stack, LinkBox, LinkOverlay, Text, Image, Box } from "@chakra-ui/react"
 
 import { PlaylistItem as PlaylistItemType } from "../types/PlaylistItem"
 
@@ -25,8 +25,10 @@ function PlaylistItem({ item }: Props) {
     >
       <LinkBox>
         <Stack direction="row">
-          {item.spotifyData?.artwork && (
-            <Image maxW={12} maxH={12} src={artThumb} />
+          {artThumb && (
+            <Box maxW={12} maxH={12}>
+              <Image src={artThumb} />
+            </Box>
           )}
           <Stack direction="column" spacing={0}>
             {(item.track || item.album) && (
