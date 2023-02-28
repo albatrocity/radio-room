@@ -58,20 +58,17 @@ const Chat = ({
     >
       <GridItem height="100%" area={"chat"} minHeight={0}>
         <Box h="100%" w="100%" className="messages-container">
-          <ChatMessages
-            onOpenReactionPicker={onOpenReactionPicker}
-            onReactionClick={onReactionClick}
-            messages={chatState.context.messages}
-            currentUserId={currentUserId}
-          />
+          {chatState.context.messages.length > 0 && (
+            <ChatMessages
+              onOpenReactionPicker={onOpenReactionPicker}
+              onReactionClick={onReactionClick}
+              messages={chatState.context.messages}
+              currentUserId={currentUserId}
+            />
+          )}
         </Box>
       </GridItem>
-      <GridItem
-        px={2}
-        py={2}
-        area={"input"}
-        boxShadow='inner'
-      >
+      <GridItem px={2} py={2} area={"input"} boxShadow="inner">
         <Box px={2} zIndex={1}>
           <TypingIndicator currentUserId={currentUserId} />
         </Box>

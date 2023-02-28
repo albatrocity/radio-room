@@ -14,10 +14,14 @@ type ChatEvent = {
   }
 }
 
-export const chatMachine = createMachine(
+interface Context {
+  messages: ChatMessage[]
+  currentUser: User | null
+}
+
+export const chatMachine = createMachine<Context>(
   {
     predictableActionArguments: true,
-    tsTypes: {} as import("./chatMachine.typegen").Typegen0,
     id: "chat",
     initial: "unauthenticated",
     context: {
