@@ -140,7 +140,26 @@ const Room = () => {
         reactTo,
       })
     },
-    [globalServices],
+    [globalServices.roomService],
+  )
+
+  const handleEditSettings = useCallback(
+    () => globalServices.roomService.send("ADMIN_EDIT_SETTINGS"),
+    [globalServices.roomService],
+  )
+
+  const handleEditUser = useCallback(
+    () => globalServices.roomService.send("EDIT_USERNAME"),
+    [globalServices.roomService],
+  )
+
+  const handleActivateAdmin = useCallback(
+    () => globalServices.roomService.send("ACTIVATE_ADMIN"),
+    [globalServices.roomService],
+  )
+  const handleTogglePlaylist = useCallback(
+    () => globalServices.roomService.send("TOGGLE_PLAYLIST"),
+    [globalServices.roomService],
   )
 
   const toggleReaction = useCallback(
@@ -170,9 +189,7 @@ const Room = () => {
         gridTemplateRows={["auto 1fr", "auto 1fr auto", "100vh"]}
         gridTemplateColumns={["1fr auto", "1fr auto", `${sizeXs} 1fr auto`]}
       >
-        <Konami
-          action={() => globalServices.roomService.send("ACTIVATE_ADMIN")}
-        />
+        <Konami action={handleActivateAdmin} />
 
         <GridItem
           area="header"
@@ -214,7 +231,7 @@ const Room = () => {
         placement="left"
         heading="Playlist"
         size={["full", "lg"]}
-        onClose={() => globalServices.roomService.send("TOGGLE_PLAYLIST")}
+        onClose={handleTogglePlaylist}
         isFullHeight
       >
         <Playlist data={playlist} />
@@ -232,12 +249,8 @@ const Room = () => {
             <div>
               <UserList
                 showHeading={false}
-                onEditSettings={() =>
-                  globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
-                }
-                onEditUser={() =>
-                  globalServices.roomService.send("EDIT_USERNAME")
-                }
+                onEditSettings={handleEditSettings}
+                onEditUser={handleEditUser}
               />
             </div>
           </Box>

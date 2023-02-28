@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState, useMemo } from "react"
+import React, { memo, useEffect, useState, useMemo, useCallback } from "react"
 import {
   Box,
   Flex,
@@ -86,7 +86,7 @@ const ChatMessage = ({
   )
   const parsedContent = images.reduce((mem, x) => mem.replace(x, ""), content)
 
-  const handleBookmark = () => {
+  const handleBookmark = useCallback(() => {
     globalServices.bookmarkedChatService.send("TOGGLE_MESSAGE", {
       data: {
         id: timestamp,
@@ -96,7 +96,7 @@ const ChatMessage = ({
         mentions,
       },
     })
-  }
+  }, [globalServices.bookmarkedChatService])
 
   useEffect(() => {
     async function testUrls() {

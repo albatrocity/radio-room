@@ -1,4 +1,4 @@
-import React from "react"
+import React, { memo } from "react"
 import Picker from "@emoji-mart/react"
 import { EmojiData } from "emoji-mart"
 import data from "@emoji-mart/data"
@@ -32,4 +32,4 @@ const ReactionPicker = React.forwardRef(
   },
 )
 
-export default ReactionPicker
+export default memo(ReactionPicker)

@@ -8,6 +8,7 @@ import React, {
   ReactNode,
   MutableRefObject,
   ReactPortal,
+  useMemo,
 } from "react"
 
 import {
@@ -172,12 +173,16 @@ const ChatInput = ({
     handleTypingStop()
   }, [])
 
-  const userSuggestions = users
-    .filter(({ userId }) => userId !== currentUser.userId)
-    .map((x) => ({
-      id: x.userId,
-      display: x.username,
-    }))
+  const userSuggestions = useMemo(
+    () =>
+      users
+        .filter(({ userId }) => userId !== currentUser.userId)
+        .map((x) => ({
+          id: x.userId,
+          display: x.username,
+        })),
+    [currentUser, users],
+  )
 
   const mentionStyle = {
     fontWeight: 700,
@@ -204,7 +209,7 @@ const ChatInput = ({
       borderRadius: "4px",
       padding: space1,
       fontSize: "1rem",
-      background: inputBackground
+      background: inputBackground,
     },
 
     suggestions: {

@@ -1,4 +1,4 @@
-import React from "react"
+import React, { memo } from "react"
 import {
   Box,
   Icon,
@@ -63,4 +63,4 @@ const PopoverTheme = (props: Props) => {
   )
 }
 
-export default PopoverTheme
+export default memo(PopoverTheme)
