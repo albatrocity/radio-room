@@ -1,13 +1,13 @@
 import { useSelector } from "@xstate/react"
-import { useContext } from "react"
+import { useContext, useMemo } from "react"
 import { GlobalStateContext } from "../contexts/global"
-import { allReactionsSelector } from "../selectors/allReactionsSelector"
+import { ReactionSubject } from "../types/ReactionSubject"
 
-export function useAllReactions() {
+export function useAllReactions(type: ReactionSubject["type"]) {
   const globalServices = useContext(GlobalStateContext)
-  const allReactions = useSelector(
-    globalServices.allReactionsService,
-    allReactionsSelector,
+  const selector = useMemo(
+    () => (state) => state.context.reactions[type],
+    [type],
   )
-  return allReactions
+  return useSelector(globalServices.allReactionsService, selector)
 }

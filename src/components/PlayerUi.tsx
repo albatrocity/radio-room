@@ -12,9 +12,9 @@ import { audioMachine } from "../machines/audioMachine"
 
 import { TrackMeta } from "../types/Track"
 import useCanDj from "./useCanDj"
+import { useAllReactions } from "../lib/useAllReactions"
 
 const isUnauthorizedSelector = (state) => state.matches("unauthorized")
-const allReactionsSelector = (state) => state.context.reactions
 
 interface PlayerUiProps {
   onShowPlaylist: () => void
@@ -43,10 +43,7 @@ const PlayerUi = ({
     globalServices.authService,
     isUnauthorizedSelector,
   )
-  const allReactions = useSelector(
-    globalServices.allReactionsService,
-    allReactionsSelector,
-  )
+  const allReactions = useAllReactions("track")
 
   const playing = state.matches({ online: { progress: "playing" } })
   const muted = state.matches({ online: { volume: "muted" } })
@@ -98,7 +95,7 @@ const PlayerUi = ({
             <ReactionCounter
               onOpenPicker={onOpenReactionPicker}
               reactTo={{ type: "track", id: trackId }}
-              reactions={allReactions["track"][trackId]}
+              reactions={allReactions[trackId]}
               onReactionClick={onReactionClick}
               darkBg={true}
             />
@@ -119,7 +116,7 @@ const PlayerUi = ({
           trackId={trackId}
           onReactionClick={onReactionClick}
           onOpenPicker={onOpenReactionPicker}
-          reactions={allReactions["track"][trackId]}
+          reactions={allReactions[trackId]}
           canDj={canDj}
           onAddToQueue={() => globalServices.roomService.send("EDIT_QUEUE")}
         />

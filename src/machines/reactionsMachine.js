@@ -100,9 +100,7 @@ export const reactionsMachine = createMachine(
         reactTo: (context, event) => event.data.reactTo,
         reactions: (context, event) => {
           return event.data.reactions
-            ? event.data.reactions[event.data.reactTo.type][
-                event.data.reactTo.id
-              ]
+            ? event.data.reactions[event.data.reactTo.id]
             : []
         },
       }),
