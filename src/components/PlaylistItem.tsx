@@ -44,11 +44,11 @@ function PlaylistItem({ item }: Props) {
         direction={["row", "column"]}
         justifyContent={["space-between", "space-around"]}
       >
-        <Text color="blackAlpha.500" fontSize="xs">
+        <Text color="secondaryText" fontSize="xs">
           {format(item.timestamp, "p")}
         </Text>
         {item.dj && (
-          <Text color="blackAlpha.500" fontSize="xs">
+          <Text color="secondaryText" fontSize="xs">
             {" "}
             {item.dj.username}
           </Text>

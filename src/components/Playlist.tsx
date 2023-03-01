@@ -5,7 +5,10 @@ import PlaylistItem from "./PlaylistItem"
 
 const Playlist = ({ data = [] }: { data: PlaylistItemType[] }) => {
   return (
-    <Stack direction="column" divider={<StackDivider borderColor="gray.200" />}>
+    <Stack
+      direction="column"
+      divider={<StackDivider borderColor="secondaryBorder" />}
+    >
       {data.map((item) => (
         <PlaylistItem key={item.timestamp.toString()} item={item} />
       ))}

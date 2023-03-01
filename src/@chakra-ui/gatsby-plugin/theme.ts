@@ -43,7 +43,7 @@ const theme = {
       },
       secondaryBorder: {
         default: "secondary.100",
-        _dark: "secondary.800",
+        _dark: "secondary.700",
       },
       primary: {
         default: "primary.500",
@@ -95,6 +95,13 @@ const theme = {
       },
     },
     Button: buttonTheme,
+    Drawer: {
+      baseStyle: {
+        dialog: {
+          background: "secondaryBg",
+        },
+      },
+    },
   },
 }
 

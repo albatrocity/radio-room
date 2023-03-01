@@ -10,6 +10,7 @@ import {
   WrapItem,
   Text,
   useDisclosure,
+  useColorModeValue,
 } from "@chakra-ui/react"
 
 import {
@@ -39,6 +40,7 @@ function AdminPanel({}: Props) {
     (state) => state.context.collection,
   )
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const buttonColorScheme = useColorModeValue("whiteAlpha", undefined)
 
   return (
     <Show above="sm">
@@ -96,7 +98,7 @@ function AdminPanel({}: Props) {
             <Button
               size="xs"
               variant="ghost"
-              colorScheme="whiteAlpha"
+              colorScheme={buttonColorScheme}
               leftIcon={<Icon as={FiImage} />}
               onClick={() =>
                 globalServices.roomService.send("ADMIN_EDIT_ARTWORK")
@@ -110,7 +112,7 @@ function AdminPanel({}: Props) {
             <Button
               size="xs"
               variant="ghost"
-              colorScheme="whiteAlpha"
+              colorScheme={buttonColorScheme}
               leftIcon={<Icon as={FiBookmark} />}
               onClick={() => globalServices.roomService.send("ADMIN_BOOKMARKS")}
             >
@@ -122,7 +124,7 @@ function AdminPanel({}: Props) {
             <Button
               size="xs"
               variant="ghost"
-              colorScheme="whiteAlpha"
+              colorScheme={buttonColorScheme}
               leftIcon={<Icon as={FiSettings} />}
               onClick={() =>
                 globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
@@ -166,7 +168,7 @@ function AdminPanel({}: Props) {
               <Button
                 size="xs"
                 variant="ghost"
-                colorScheme="whiteAlpha"
+                colorScheme={buttonColorScheme}
                 onClick={() =>
                   globalServices.roomService.send("END_DJ_SESSION")
                 }
