@@ -14,6 +14,7 @@ export const roomMachine = createMachine(
       },
       reactionPickerRef: null,
       reactTo: null,
+      isDeputyDj: false,
     },
     on: {
       LOGIN: {
@@ -25,6 +26,12 @@ export const roomMachine = createMachine(
       INIT: {
         actions: ["setData"],
       },
+      //   {
+      //     target: "deputyDjaying.isDj",
+      //     actions: ["always", "setData"],
+      //     cond: "isDeputyDj",
+      //   },
+      // ],
     },
     invoke: [
       {
@@ -122,6 +129,15 @@ export const roomMachine = createMachine(
       },
       deputyDjaying: {
         initial: "notDj",
+        on: {
+          INIT: [
+            {
+              target: "deputyDjaying.isDj",
+              actions: ["setData"],
+              cond: "isDeputyDj",
+            },
+          ],
+        },
         states: {
           isDj: {
             on: {
@@ -139,6 +155,12 @@ export const roomMachine = createMachine(
       unauthorized: {},
       connected: {
         initial: "participating",
+        on: {
+          always: {
+            target: "deputyDjaying.isDj",
+            actions: ["always"],
+          },
+        },
         states: {
           participating: {
             type: "parallel",
@@ -242,7 +264,15 @@ export const roomMachine = createMachine(
     },
   },
   {
+    guards: {
+      isDeputyDj: (ctx, event) => {
+        return ctx.isDeputyDj || event.data?.currentUser?.isDeputyDj
+      },
+    },
     actions: {
+      always: () => {
+        console.log("ALWAYS")
+      },
       deputizeDj: send(
         (_ctx, event) => {
           return {
@@ -260,6 +290,9 @@ export const roomMachine = createMachine(
         },
         reactions: (context, event) => {
           return event.data.reactions
+        },
+        isDeputyDj: (context, event) => {
+          return event.data.currentUser.isDeputyDj
         },
       }),
       setPlaylist: assign({
