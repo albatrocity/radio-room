@@ -19,6 +19,7 @@ import {
   FiMessageSquare,
   FiBookmark,
 } from "react-icons/fi"
+import { BiMessageRoundedMinus } from "react-icons/bi"
 import { useSelector } from "@xstate/react"
 import useGlobalContext from "./useGlobalContext"
 import ConfirmationDialog from "./ConfirmationDialog"
@@ -138,7 +139,7 @@ function AdminPanel({}: Props) {
               size="xs"
               variant="solid"
               colorScheme="red"
-              leftIcon={<Icon as={FiMessageSquare} />}
+              leftIcon={<Icon as={BiMessageRoundedMinus} />}
               onClick={onOpen}
             >
               Clear Chat

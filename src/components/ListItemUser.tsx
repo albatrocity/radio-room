@@ -12,7 +12,8 @@ import {
   ListIcon,
 } from "@chakra-ui/react"
 import { EditIcon, SmallCloseIcon } from "@chakra-ui/icons"
-import { FiMoreVertical, FiMic, FiMusic } from "react-icons/fi"
+import { FiMic, FiMusic } from "react-icons/fi"
+import { BiMessageRoundedDots } from "react-icons/bi"
 import { User } from "../types/User"
 
 interface ListItemUserProps {
@@ -41,17 +42,32 @@ const ListItemUser = ({
       background={user.isDj ? "primaryBg" : "transparent"}
     >
       <motion.div
+        initial={{ opacity: 0 }}
         animate={{
-          scale: [1, 0.8, 0.8, 1],
-          opacity: userTyping ? [1, 0.9, 0.9, 1] : [0, 0, 0, 0],
+          opacity: userTyping ? 1 : 0,
         }}
         transition={{
           duration: 0.6,
           ease: "easeInOut",
-          repeat: userTyping ? Infinity : 0,
         }}
       >
-        <ListIcon as={FiMoreVertical} color="action.300" />
+        <motion.div
+          initial={{ x: -4 }}
+          animate={{
+            scale: userTyping ? [1, 0.9, 0.9, 1] : 1,
+            scaleX: userTyping ? [-1, -0.9, -0.9, -1] : -1,
+            x: [-4, -4, -4, -4],
+          }}
+          transition={{
+            duration: 0.8,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        >
+          <Box left="-10px">
+            <ListIcon as={BiMessageRoundedDots} color="action.300" />
+          </Box>
+        </motion.div>
       </motion.div>
       <HStack
         alignItems="center"

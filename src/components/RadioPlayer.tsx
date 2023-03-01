@@ -16,7 +16,7 @@ import {
 
 import { FiPlay, FiPause, FiList, FiVolume, FiVolumeX } from "react-icons/fi"
 import { CgPlayListAdd } from "react-icons/cg"
-import { CgPlayList } from "react-icons/cg"
+import { RiPlayListFill } from "react-icons/ri"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
 import { EmojiData } from "emoji-mart"
@@ -89,7 +89,7 @@ const RadioPlayer = ({
               aria-label="Playlist"
               variant="ghost"
               onClick={onShowPlaylist}
-              icon={<Icon boxSize={6} as={CgPlayList} />}
+              icon={<Icon boxSize={5} as={RiPlayListFill} />}
             />
           )}
           <HStack>

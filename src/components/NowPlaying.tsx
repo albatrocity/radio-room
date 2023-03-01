@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from "react"
 import { FiUser, FiMusic } from "react-icons/fi"
-import { CgPlayListAdd } from "react-icons/cg"
+import { RiPlayListAddFill } from "react-icons/ri"
 import {
   BoxProps,
   Box,
@@ -162,7 +162,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
         <Show above="sm">
           {canDj && (
             <Button
-              leftIcon={<Icon as={CgPlayListAdd} />}
+              leftIcon={<Icon as={RiPlayListAddFill} />}
               onClick={() => globalServices.roomService.send("EDIT_QUEUE")}
             >
               Add to queue
