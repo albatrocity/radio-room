@@ -22,6 +22,7 @@ import ReactionCounter from "./ReactionCounter"
 import { EmojiData } from "emoji-mart"
 import { ChatMessage } from "../types/ChatMessage"
 import ButtonListeners from "./ButtonListeners"
+import ButtonAddToQueue from "./ButtonAddToQueue"
 
 interface RadioPlayerProps {
   volume: number
@@ -43,8 +44,6 @@ interface RadioPlayerProps {
   }) => void
   reactions: {}[]
   trackId: string
-  canDj?: boolean
-  onAddToQueue: () => void
 }
 
 const streamURL = process.env.GATSBY_STREAM_URL
@@ -62,8 +61,6 @@ const RadioPlayer = ({
   onOpenPicker,
   reactions,
   trackId,
-  canDj,
-  onAddToQueue,
 }: RadioPlayerProps) => {
   const player = useRef(null)
 
@@ -151,14 +148,8 @@ const RadioPlayer = ({
           </HStack>
           <Hide above="sm">
             <HStack>
-              {canDj && (
-                <IconButton
-                  icon={<Icon as={RiPlayListAddFill} boxSize={5} />}
-                  aria-label="Add to Queue"
-                  variant="ghost"
-                  onClick={onAddToQueue}
-                />
-              )}
+              <ButtonAddToQueue showText={false} />
+
               <ButtonListeners variant="ghost" />
             </HStack>
           </Hide>

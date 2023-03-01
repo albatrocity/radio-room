@@ -117,8 +117,6 @@ const PlayerUi = ({
           onReactionClick={onReactionClick}
           onOpenPicker={onOpenReactionPicker}
           reactions={allReactions[trackId]}
-          canDj={canDj}
-          onAddToQueue={() => globalServices.roomService.send("EDIT_QUEUE")}
         />
       )}
     </Flex>

@@ -26,6 +26,7 @@ import ButtonListeners from "./ButtonListeners"
 import useGlobalContext from "./useGlobalContext"
 import { useActor } from "@xstate/react"
 import useCanDj from "./useCanDj"
+import ButtonAddToQueue from "./ButtonAddToQueue"
 
 interface NowPlayingProps extends BoxProps {
   onCover: (showCover: boolean) => void
@@ -160,14 +161,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
           </LinkBox>
         )}
         <Show above="sm">
-          {canDj && (
-            <Button
-              leftIcon={<Icon as={RiPlayListAddFill} />}
-              onClick={() => globalServices.roomService.send("EDIT_QUEUE")}
-            >
-              Add to queue
-            </Button>
-          )}
+          <ButtonAddToQueue />
         </Show>
       </VStack>
     </Box>

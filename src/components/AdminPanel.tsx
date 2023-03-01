@@ -23,6 +23,7 @@ import { BiMessageRoundedMinus } from "react-icons/bi"
 import { useSelector } from "@xstate/react"
 import useGlobalContext from "./useGlobalContext"
 import ConfirmationDialog from "./ConfirmationDialog"
+import ButtonAddToQueue from "./ButtonAddToQueue"
 
 type Props = {}
 
@@ -74,11 +75,7 @@ function AdminPanel({}: Props) {
         </Heading>
         {isDj && (
           <WrapItem>
-            <Button
-              onClick={() => globalServices.roomService.send("EDIT_QUEUE")}
-            >
-              Add to queue
-            </Button>
+            <ButtonAddToQueue />
           </WrapItem>
         )}
 
