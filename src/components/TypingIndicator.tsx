@@ -42,9 +42,10 @@ const TypingIndicator = ({ currentUserId }: Props) => {
 
   return (
     <MotionBox
+      initiail={{ opacity: 0 }}
       animate={{
         opacity: typingUsers.length > 0 ? 1 : 0,
-        y: typingUsers.length > 0 ? 0 : '100%'
+        y: typingUsers.length > 0 ? 0 : "100%",
       }}
       transition={{
         duration: 0.1,
