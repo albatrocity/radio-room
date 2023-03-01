@@ -14,7 +14,7 @@ import {
   Button,
 } from "@chakra-ui/react"
 
-import { FiPlay, FiPause, FiList, FiVolume, FiVolumeX } from "react-icons/fi"
+import { FiPlay, FiSquare, FiVolume, FiVolumeX } from "react-icons/fi"
 import { CgPlayListAdd } from "react-icons/cg"
 import { RiPlayListFill } from "react-icons/ri"
 import ReactHowler from "react-howler"
@@ -95,11 +95,11 @@ const RadioPlayer = ({
           <HStack>
             <IconButton
               size="md"
-              aria-label={playing ? "Pause" : "Play"}
+              aria-label={playing ? "Stop" : "Play"}
               variant="ghost"
               icon={
                 playing ? (
-                  <Icon as={FiPause} boxSize={5} />
+                  <Icon as={FiSquare} boxSize={5} />
                 ) : (
                   <Icon as={FiPlay} boxSize={5} />
                 )
