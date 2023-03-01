@@ -15,7 +15,7 @@ const ButtonListeners = (props: ButtonProps) => {
     <Button
       onClick={onShowListeners}
       aria-label="Listeners"
-      leftIcon={<Icon as={FiUsers} />}
+      leftIcon={<Icon boxSize={5} as={FiUsers} />}
       background="transparent"
       size="sm"
       {...props}

@@ -15,7 +15,7 @@ import {
 } from "@chakra-ui/react"
 
 import { FiPlay, FiPause, FiVolume, FiVolumeX } from "react-icons/fi"
-import { CgPlayListAdd } from "react-icons/cg"
+import { RiPlayListAddFill } from "react-icons/ri"
 import { RiPlayListFill } from "react-icons/ri"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
@@ -153,7 +153,7 @@ const RadioPlayer = ({
             <HStack>
               {canDj && (
                 <IconButton
-                  icon={<Icon as={CgPlayListAdd} />}
+                  icon={<Icon as={RiPlayListAddFill} boxSize={5} />}
                   aria-label="Add to Queue"
                   variant="ghost"
                   onClick={onAddToQueue}
