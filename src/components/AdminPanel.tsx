@@ -144,39 +144,38 @@ function AdminPanel({}: Props) {
               Clear Chat
             </Button>
           </WrapItem>
+
+          <WrapItem>
+            <Button
+              size="xs"
+              variant="solid"
+              colorScheme="red"
+              leftIcon={<Icon as={FiList} />}
+              onClick={() => {
+                const confirmation = window.confirm(
+                  "Are you sure you want to clear the playlist? This cannot be undone.",
+                )
+                if (confirmation) {
+                  globalServices.roomService.send("ADMIN_CLEAR_PLAYLIST")
+                }
+              }}
+            >
+              Clear Playlist
+            </Button>
+          </WrapItem>
           {isDj && (
-            <>
-              <WrapItem>
-                <Button
-                  size="xs"
-                  variant="solid"
-                  colorScheme="red"
-                  leftIcon={<Icon as={FiList} />}
-                  onClick={() => {
-                    const confirmation = window.confirm(
-                      "Are you sure you want to clear the playlist? This cannot be undone.",
-                    )
-                    if (confirmation) {
-                      globalServices.roomService.send("ADMIN_CLEAR_PLAYLIST")
-                    }
-                  }}
-                >
-                  Clear Playlist
-                </Button>
-              </WrapItem>
-              <WrapItem>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  colorScheme="whiteAlpha"
-                  onClick={() =>
-                    globalServices.roomService.send("END_DJ_SESSION")
-                  }
-                >
-                  End DJ Session
-                </Button>
-              </WrapItem>
-            </>
+            <WrapItem>
+              <Button
+                size="xs"
+                variant="ghost"
+                colorScheme="whiteAlpha"
+                onClick={() =>
+                  globalServices.roomService.send("END_DJ_SESSION")
+                }
+              >
+                End DJ Session
+              </Button>
+            </WrapItem>
           )}
         </Wrap>
       </Stack>
