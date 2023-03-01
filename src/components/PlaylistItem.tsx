@@ -27,7 +27,7 @@ function PlaylistItem({ item }: Props) {
         <Stack direction="row">
           {artThumb && (
             <Box maxW={12} maxH={12}>
-              <Image src={artThumb} />
+              <Image loading="lazy" src={artThumb} />
             </Box>
           )}
           <Stack direction="column" spacing={0}>
