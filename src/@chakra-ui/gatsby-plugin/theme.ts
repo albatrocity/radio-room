@@ -34,7 +34,7 @@ const theme = {
         _dark: "primary.900",
       },
       secondaryText: {
-        default: "secondary.600",
+        default: "secondary.500",
         _dark: "secondary.600",
       },
       secondaryBg: {

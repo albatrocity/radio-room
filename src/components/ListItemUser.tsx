@@ -10,11 +10,46 @@ import {
   Icon,
   ListItem,
   ListIcon,
+  Tooltip,
 } from "@chakra-ui/react"
 import { EditIcon, SmallCloseIcon } from "@chakra-ui/icons"
-import { FiMic, FiMusic } from "react-icons/fi"
+import { FiMic, FiMusic, FiEye, FiHeadphones } from "react-icons/fi"
 import { BiMessageRoundedDots } from "react-icons/bi"
 import { User } from "../types/User"
+
+const statusIcon = (user: User) => {
+  if (user.isDj) {
+    return <Icon as={FiMic} boxSize={3} />
+  }
+  switch (user.status) {
+    case "participating":
+      return (
+        <Tooltip hasArrow label="Spectating" placement="top">
+          <Box>
+            <Icon
+              opacity={0.5}
+              _hover={{ opacity: 1 }}
+              as={FiEye}
+              boxSize={3}
+            />
+          </Box>
+        </Tooltip>
+      )
+    case "listening":
+      return (
+        <Tooltip hasArrow label="Listening" placement="top">
+          <Box>
+            <Icon
+              opacity={0.5}
+              _hover={{ opacity: 1 }}
+              as={FiHeadphones}
+              boxSize={3}
+            />
+          </Box>
+        </Tooltip>
+      )
+  }
+}
 
 interface ListItemUserProps {
   user: User
@@ -71,12 +106,14 @@ const ListItemUser = ({
       </motion.div>
       <HStack
         alignItems="center"
+        justify="center"
+        justifyContent="center"
         border={{ side: "bottom" }}
         gap="xsmall"
         py={user.isDj ? 2 : 0}
         width="100%"
       >
-        {user.isDj && <Icon as={FiMic} boxSize={3} />}
+        {statusIcon(user)}
         <Box>
           <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm">
             {user.username || "anonymous"}

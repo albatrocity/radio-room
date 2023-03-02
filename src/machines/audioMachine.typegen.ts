@@ -3,10 +3,7 @@
 export interface Typegen0 {
   "@@xstate/typegen": true
   internalEvents: {
-    "error.platform.audio:invocation[0]": {
-      type: "error.platform.audio:invocation[0]"
-      data: unknown
-    }
+    "error.platform.socket": { type: "error.platform.socket"; data: unknown }
     "xstate.after(2000)#audio.willRetry": {
       type: "xstate.after(2000)#audio.willRetry"
     }
@@ -17,11 +14,18 @@ export interface Typegen0 {
     actions: never
     delays: never
     guards: never
-    services: never
+    services: "socket"
   }
   eventsCausingActions: {
     setMeta: "INIT" | "META"
     setVolume: "CHANGE_VOLUME"
+    startListening: "META" | "TOGGLE"
+    stopListening:
+      | "INIT"
+      | "META"
+      | "ONLINE"
+      | "TOGGLE"
+      | "xstate.after(2000)#audio.willRetry"
   }
   eventsCausingDelays: {}
   eventsCausingGuards: {
@@ -29,7 +33,9 @@ export interface Typegen0 {
     volumeAboveZero: "CHANGE_VOLUME"
     volumeIsZero: "CHANGE_VOLUME"
   }
-  eventsCausingServices: {}
+  eventsCausingServices: {
+    socket: "error.platform.socket" | "xstate.init"
+  }
   matchesStates:
     | "offline"
     | "online"

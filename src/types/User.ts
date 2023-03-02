@@ -4,4 +4,5 @@ export interface User {
   isAdmin?: boolean
   isDj?: boolean
   isDeputyDj?: boolean
+  status?: "participating" | "listening"
 }

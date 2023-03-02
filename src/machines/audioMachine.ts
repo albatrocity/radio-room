@@ -1,4 +1,4 @@
-import { createMachine, assign } from "xstate"
+import { createMachine, assign, send } from "xstate"
 import socketService from "../lib/socketService"
 import { isEmpty, isNil } from "lodash/fp"
 
@@ -13,6 +13,7 @@ export const audioMachine = createMachine(
       meta: {},
     },
     invoke: {
+      id: "socket",
       src: () => socketService,
       onError: "willRetry",
     },
@@ -30,6 +31,7 @@ export const audioMachine = createMachine(
             initial: "stopped",
             states: {
               playing: {
+                entry: ["startListening"],
                 on: {
                   TOGGLE: "stopped",
                   META: [
@@ -43,6 +45,7 @@ export const audioMachine = createMachine(
                 },
               },
               stopped: {
+                entry: ["stopListening"],
                 on: {
                   TOGGLE: "playing",
                   META: [
@@ -135,6 +138,22 @@ export const audioMachine = createMachine(
       setMeta: assign((_context, event) => {
         return { meta: event.data.meta }
       }),
+      startListening: send(
+        (ctx) => ({
+          type: "start listening",
+        }),
+        {
+          to: "socket",
+        },
+      ),
+      stopListening: send(
+        (ctx) => ({
+          type: "stop listening",
+        }),
+        {
+          to: "socket",
+        },
+      ),
     },
     guards: {
       volumeAboveZero: (_context, event) => parseFloat(event.volume) > 0,
