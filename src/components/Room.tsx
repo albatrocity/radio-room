@@ -22,6 +22,7 @@ import socket from "../lib/socket"
 import useGlobalContext from "./useGlobalContext"
 import FormTheme from "./FormTheme"
 import DrawerBookmarks from "./DrawerBookmarks"
+import KeyboardShortcuts from "./KeyboardShortcuts"
 
 const isEditingSelector = (state) =>
   state.matches("connected.participating.editing")
@@ -190,6 +191,7 @@ const Room = () => {
         gridTemplateColumns={["1fr auto", "1fr auto", `${sizeXs} 1fr auto`]}
       >
         <Konami action={handleActivateAdmin} />
+        <KeyboardShortcuts />
 
         <GridItem
           area="header"

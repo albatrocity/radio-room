@@ -11,11 +11,9 @@ import {
   SliderFilledTrack,
   SliderThumb,
   Container,
-  Button,
 } from "@chakra-ui/react"
 
 import { FiPlay, FiPause, FiVolume, FiVolumeX } from "react-icons/fi"
-import { RiPlayListAddFill } from "react-icons/ri"
 import { RiPlayListFill } from "react-icons/ri"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
@@ -23,6 +21,7 @@ import { EmojiData } from "emoji-mart"
 import { ChatMessage } from "../types/ChatMessage"
 import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
+import { useHotkeys } from "react-hotkeys-hook"
 
 interface RadioPlayerProps {
   volume: number
@@ -63,6 +62,9 @@ const RadioPlayer = ({
   trackId,
 }: RadioPlayerProps) => {
   const player = useRef(null)
+  useHotkeys("space", () => {
+    onPlayPause()
+  })
 
   useEffect(() => {
     if (player.current && !playing) {
