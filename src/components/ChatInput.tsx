@@ -228,7 +228,7 @@ const ChatInput = ({
 
   return (
     <form onSubmit={handleSubmit} style={{ width: "100%" }}>
-      <Flex direction="row" w="100%" grow={1} justify="center">
+      <Flex direction="row" w="100%" grow={1} justify="center" overflowX="clip">
         <Box
           w="100%"
           sx={{
