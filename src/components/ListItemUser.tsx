@@ -106,8 +106,6 @@ const ListItemUser = ({
       </motion.div>
       <HStack
         alignItems="center"
-        justify="center"
-        justifyContent="center"
         border={{ side: "bottom" }}
         gap="xsmall"
         py={user.isDj ? 2 : 0}
