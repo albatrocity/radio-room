@@ -7,6 +7,8 @@ export type ChatMessage = {
   user: User
   reactions: []
   meta?: {
-    status?: string
+    status?: "error" | "success" | "warning" | "info"
+    type?: "alert" | null
+    title?: string | null
   }
 }

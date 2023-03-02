@@ -1,5 +1,13 @@
 import React, { memo } from "react"
-import { Flex, HStack, Text } from "@chakra-ui/react"
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+  Flex,
+  HStack,
+  Text,
+} from "@chakra-ui/react"
 import { format } from "date-fns"
 import { ChatMessage } from "../types/ChatMessage"
 
@@ -7,14 +15,19 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
   const date = new Date(timestamp)
   const time = format(date, "p")
   const dateString = format(date, "M/d/y")
-  const { status } = meta
-  return (
+  const { status, type, title } = meta
+  return type === "alert" ? (
+    <Alert status={status ?? "info"}>
+      <AlertIcon />
+      {title && <AlertTitle>{title}</AlertTitle>}
+      <AlertDescription>{content}</AlertDescription>
+    </Alert>
+  ) : (
     <Flex
       px={4}
       py={2}
       borderBottomColor="whiteAlpha.100"
       borderBottomWidth={1}
-      background={status === "critical" ? "critical" : "system"}
       alignContent="center"
       justifyItems="center"
       alignItems="center"
