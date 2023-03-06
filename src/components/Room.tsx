@@ -23,6 +23,7 @@ import useGlobalContext from "./useGlobalContext"
 import FormTheme from "./FormTheme"
 import DrawerBookmarks from "./DrawerBookmarks"
 import KeyboardShortcuts from "./KeyboardShortcuts"
+import DrawerPlaylist from "./DrawerPlaylist"
 
 const isEditingSelector = (state) =>
   state.matches("connected.participating.editing")
@@ -158,10 +159,6 @@ const Room = () => {
     () => globalServices.roomService.send("ACTIVATE_ADMIN"),
     [globalServices.roomService],
   )
-  const handleTogglePlaylist = useCallback(
-    () => globalServices.roomService.send("TOGGLE_PLAYLIST"),
-    [globalServices.roomService],
-  )
 
   const toggleReaction = useCallback(
     ({ reactTo, emoji }) => {
@@ -228,16 +225,7 @@ const Room = () => {
         </GridItem>
       </Grid>
 
-      <Drawer
-        isOpen={playlistActive}
-        placement="left"
-        heading="Playlist"
-        size={["full", "lg"]}
-        onClose={handleTogglePlaylist}
-        isFullHeight
-      >
-        <Playlist data={playlist} />
-      </Drawer>
+      <DrawerPlaylist isOpen={playlistActive} />
 
       <Hide above="sm">
         <Drawer

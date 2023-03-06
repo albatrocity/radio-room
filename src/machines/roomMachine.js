@@ -8,6 +8,8 @@ export const roomMachine = createMachine(
     initial: "connected",
     context: {
       playlist: [],
+      playlistMeta: {},
+      playlistError: null,
       reactions: {
         track: {},
         message: {},
@@ -72,6 +74,40 @@ export const roomMachine = createMachine(
           active: {
             on: {
               TOGGLE_PLAYLIST: "inactive",
+            },
+            initial: "idle",
+            states: {
+              idle: {
+                on: {
+                  ADMIN_SAVE_PLAYLIST: {
+                    target: "loading",
+                    actions: ["savePlaylist"],
+                    in: "#room.admin.isAdmin",
+                  },
+                },
+              },
+              loading: {
+                on: {
+                  PLAYLIST_SAVED: {
+                    target: "success",
+                    actions: ["setPlaylistMeta"],
+                  },
+                  SAVE_PLAYLIST_FAILED: {
+                    target: "error",
+                    actions: ["setPlaylistError"],
+                  },
+                },
+              },
+              success: {
+                after: {
+                  1000: "idle",
+                },
+              },
+              error: {
+                after: {
+                  1000: "idle",
+                },
+              },
             },
           },
           inactive: {
@@ -270,9 +306,6 @@ export const roomMachine = createMachine(
       },
     },
     actions: {
-      always: () => {
-        console.log("ALWAYS")
-      },
       deputizeDj: send(
         (_ctx, event) => {
           return {
@@ -300,6 +333,16 @@ export const roomMachine = createMachine(
           return event.data
         },
       }),
+      setPlaylistMeta: assign({
+        playlistMeta: (context, event) => {
+          return event.data
+        },
+      }),
+      setPlaylistError: assign({
+        playlistErroe: (context, event) => {
+          return event.error
+        },
+      }),
       setReaction: assign({
         reactionPickerRef: (ctx, event) => {
           return event.dropRef
@@ -310,6 +353,18 @@ export const roomMachine = createMachine(
         reactionPickerRef: null,
         reactTo: null,
       }),
+      savePlaylist: send(
+        (_ctx, event) => {
+          console.log(event)
+          return {
+            type: "save playlist",
+            data: { name: event.name, uris: event.uris },
+          }
+        },
+        {
+          to: "socket",
+        },
+      ),
     },
   },
 )

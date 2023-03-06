@@ -37,7 +37,13 @@ interface Props {
 export const GlobalStateProvider = (props: Props) => {
   const authService = useInterpret(authMachine)
   const chatService = useInterpret(chatMachine)
-  const bookmarkedChatService = useInterpret(toggleableCollectionMachine)
+  const bookmarkedChatService = useInterpret(toggleableCollectionMachine, {
+    context: {
+      name: "bookmarks",
+      idPath: "id",
+      persistent: true,
+    },
+  })
   const themeService = useInterpret(themeMachine)
 
   const currentUser = useSelector(authService, currentUserSelector)
@@ -52,6 +58,11 @@ export const GlobalStateProvider = (props: Props) => {
   }
 
   const roomService = useInterpret(roomMachine, {
+    guards: {
+      isAdmin: () => {
+        return currentUser.isAdmin
+      },
+    },
     actions: {
       setDj: (_, event) => {
         if (event.type === "START_DJ_SESSION") {

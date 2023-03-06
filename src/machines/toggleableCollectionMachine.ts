@@ -1,30 +1,30 @@
 import { createMachine, assign } from "xstate"
 import session from "sessionstorage"
-import socketService from "../lib/socketService"
-import { concat, uniqBy } from "lodash/fp"
+import { concat, uniqBy, get } from "lodash/fp"
 import { ChatMessage } from "../types/ChatMessage"
 
-export const toggleableCollectionMachine = createMachine(
+interface Context {
+  collection: any[]
+  persistent: boolean
+  name: string
+  idPath?: string
+}
+
+export const toggleableCollectionMachine = createMachine<Context>(
   {
     predictableActionArguments: true,
-    tsTypes: {} as import("./toggleableCollectionMachine.typegen").Typegen0,
     id: "toggleableCollection",
     initial: "ready",
     context: {
       collection: [],
       persistent: true,
       name: "bookmarks",
+      idPath: "id",
     },
     on: {
       TOGGLE_ITEM: { actions: ["toggleItem"] },
       CLEAR: { actions: ["clear"] },
     },
-    invoke: [
-      {
-        id: "socket",
-        src: (_ctx, _event) => socketService,
-      },
-    ],
     states: {
       ready: {
         entry: ["loadCollection"],
@@ -48,19 +48,23 @@ export const toggleableCollectionMachine = createMachine(
       },
       loadCollection: assign({
         collection: (context) =>
-          JSON.parse(sessionStorage.getItem(context.name) || "[]") || [],
+          context.persistent
+            ? JSON.parse(sessionStorage.getItem(context.name) || "[]") || []
+            : context.collection,
       }),
       setName: assign({ name: (context, event) => event.data }),
       clear: assign({ collection: [] }),
       toggleItem: assign({
         collection: (context, event) => {
           const isPresent = context.collection
-            .map(({ id }) => id)
-            .includes(event.data.id)
+            .map((record) => get(context.idPath || "id", record))
+            .includes(get(context.idPath || "id", event.data))
 
           if (isPresent) {
             return context.collection.filter(
-              (x: ChatMessage) => x.id !== event.data.id,
+              (x: ChatMessage) =>
+                get(context.idPath || "id", x) !==
+                get(context.idPath || "id", event.data),
             )
           }
           return uniqBy("id", concat(event.data, context.collection))

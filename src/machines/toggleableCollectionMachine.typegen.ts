@@ -10,7 +10,7 @@ export interface Typegen0 {
     actions: never
     delays: never
     guards: never
-    services: "socket"
+    services: never
   }
   eventsCausingActions: {
     clear: "CLEAR"
@@ -22,9 +22,7 @@ export interface Typegen0 {
   }
   eventsCausingDelays: {}
   eventsCausingGuards: {}
-  eventsCausingServices: {
-    socket: "xstate.init"
-  }
+  eventsCausingServices: {}
   matchesStates: "ready"
   tags: never
 }

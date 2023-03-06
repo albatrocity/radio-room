@@ -18,4 +18,5 @@ export interface PlaylistItem {
   artist: string
   dj: User
   spotifyData?: SpotifyData
+  id?: string
 }
