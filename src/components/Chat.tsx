@@ -45,6 +45,7 @@ const Chat = ({
     <Grid
       className="chat"
       height="100%"
+      w="100%"
       flexGrow={1}
       flexShrink={1}
       templateAreas={[
@@ -57,7 +58,13 @@ const Chat = ({
         filter: isUnauthorized ? "blur(0.5rem)" : "none",
       }}
     >
-      <GridItem height="100%" area={"chat"} minHeight={0}>
+      <GridItem
+        height="100%"
+        width="100%"
+        area={"chat"}
+        overflowX="auto"
+        minHeight={0}
+      >
         <Box h="100%" w="100%" className="messages-container">
           {(chatState.context?.messages || []).length > 0 && (
             <ChatMessages

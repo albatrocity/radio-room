@@ -168,7 +168,7 @@ const Room = () => {
   )
 
   return (
-    <Box w="100%" h="100%">
+    <Box w="100%" h="100%" maxW="100vw">
       <Grid
         flexGrow={1}
         flexShrink={1}
@@ -185,7 +185,11 @@ const Room = () => {
           `"header chat sidebar"`,
         ]}
         gridTemplateRows={["auto 1fr", "auto 1fr auto", "100vh"]}
-        gridTemplateColumns={["1fr auto", "1fr auto", `${sizeXs} 1fr auto`]}
+        gridTemplateColumns={[
+          "1fr auto",
+          "1fr auto",
+          `${sizeXs} minmax(0, 1fr) auto`,
+        ]}
       >
         <Konami action={handleActivateAdmin} />
         <KeyboardShortcuts />
@@ -211,7 +215,7 @@ const Room = () => {
           />
         </GridItem>
 
-        <GridItem area="chat" minHeight={0}>
+        <GridItem area="chat" minHeight={0} maxW="100%">
           <Chat
             modalActive={isEditing}
             onOpenReactionPicker={onOpenReactionPicker}
