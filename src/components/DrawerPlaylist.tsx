@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react"
+import React, { useCallback, useEffect, useRef, useState } from "react"
 import {
   Box,
   Button,
@@ -36,6 +36,13 @@ function Controls({
   onChange: (name: string) => void
   value: string | undefined
 }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing, inputRef.current])
   return (
     <form onSubmit={onSave}>
       <Box w="100%">
@@ -51,6 +58,7 @@ function Controls({
                 autoFocus
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
+                ref={inputRef}
               />
               <Button
                 onClick={onSave}
