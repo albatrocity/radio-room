@@ -8,6 +8,7 @@ import {
   useBoolean,
   useConst,
   useToast,
+  Input,
 } from "@chakra-ui/react"
 import { format } from "date-fns"
 
@@ -15,7 +16,8 @@ import Drawer from "./Drawer"
 import useGlobalContext from "./useGlobalContext"
 import SelectablePlaylist from "./SelectablePlaylist"
 import { PlaylistItem } from "../types/PlaylistItem"
-import { useActor } from "@xstate/react"
+import { savePlaylistMachine } from "../machines/savePlaylistMachine"
+import { useActor, useMachine } from "@xstate/react"
 
 type Props = { isOpen: boolean }
 
@@ -24,27 +26,51 @@ function Controls({
   onEdit,
   onSave,
   isLoading,
+  onChange,
+  value,
 }: {
   isEditing: boolean
   onEdit: () => void
   onSave: () => void
   isLoading: boolean
+  onChange: (name: string) => void
+  value: string | undefined
 }) {
   return (
-    <Box>
-      {isEditing ? (
-        <HStack>
-          <Button onClick={onEdit} variant="outline">
-            Cancel
-          </Button>
-          <Button onClick={onSave} isLoading={isLoading} isDisabled={isLoading}>
-            Save
-          </Button>
-        </HStack>
-      ) : (
-        <Button onClick={onEdit}>Save Playlist</Button>
-      )}
-    </Box>
+    <form onSubmit={onSave}>
+      <Box w="100%">
+        {isEditing ? (
+          <HStack justifyContent="space-between">
+            <Button onClick={onEdit} variant="ghost">
+              Cancel
+            </Button>
+            <HStack>
+              <Input
+                name="name"
+                placeholder="Playlist name"
+                autoFocus
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+              />
+              <Button
+                onClick={onSave}
+                isLoading={isLoading}
+                isDisabled={isLoading}
+                type="submit"
+              >
+                Save
+              </Button>
+            </HStack>
+          </HStack>
+        ) : (
+          <HStack justifyContent="end">
+            <Button variant="outline" onClick={onEdit}>
+              Save Playlist
+            </Button>
+          </HStack>
+        )}
+      </Box>
+    </form>
   )
 }
 
@@ -58,9 +84,10 @@ function DrawerPlaylist({ isOpen }: Props) {
   const [name, setName] = useState<string>(defaultPlaylistName)
   const globalServices = useGlobalContext()
   const [roomState] = useActor(globalServices.roomService)
+  const [state, send] = useMachine(savePlaylistMachine)
 
   const isAdmin = roomState.matches("admin.isAdmin")
-  const isLoading = roomState.matches("playlist.active.loading")
+  const isLoading = state.matches("loading")
 
   const handleSelectionChange = (collection: PlaylistItem[]) =>
     setSelected(collection)
@@ -70,7 +97,7 @@ function DrawerPlaylist({ isOpen }: Props) {
     [globalServices.roomService],
   )
   const handleSave = useCallback(() => {
-    globalServices.roomService.send("ADMIN_SAVE_PLAYLIST", {
+    send("ADMIN_SAVE_PLAYLIST", {
       name,
       uris: selected
         .map(({ spotifyData }) => spotifyData?.uri)
@@ -85,19 +112,17 @@ function DrawerPlaylist({ isOpen }: Props) {
   }, [isOpen])
 
   useEffect(() => {
-    if (roomState.matches("playlist.active.success")) {
-      console.log(roomState.context.playlistMeta)
-
+    if (state.matches("success")) {
       toast({
         title: "Playlist created",
         description: (
           <Text>
             <Link
-              href={roomState.context.playlistMeta?.external_urls?.spotify}
+              href={state.context.playlistMeta?.external_urls?.spotify}
               isExternal
               textDecoration={"underline"}
             >
-              {roomState.context.playlistMeta.name}
+              {state.context.playlistMeta?.name}
             </Link>{" "}
             was added to your Spotify Collection
           </Text>
@@ -107,18 +132,19 @@ function DrawerPlaylist({ isOpen }: Props) {
         isClosable: true,
         position: "top",
       })
+      off()
     }
-    if (roomState.matches("playlist.active.error")) {
+    if (state.matches("error")) {
       toast({
         title: "Playlist failed",
-        description: <Text>{String(roomState.context.playlistError)}</Text>,
+        description: <Text>{String(state.context.playlistError)}</Text>,
         status: "error",
         duration: 4000,
         isClosable: true,
         position: "top",
       })
     }
-  }, [roomState])
+  }, [state])
 
   return (
     <Drawer
@@ -135,6 +161,7 @@ function DrawerPlaylist({ isOpen }: Props) {
             onSave={handleSave}
             onChange={handleNameChange}
             isLoading={isLoading}
+            value={name}
           />
         )
       }
