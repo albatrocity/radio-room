@@ -45,7 +45,6 @@ const Chat = ({
     <Grid
       className="chat"
       height="100%"
-      w="100%"
       flexGrow={1}
       flexShrink={1}
       templateAreas={[
@@ -62,7 +61,7 @@ const Chat = ({
         height="100%"
         width="100%"
         area={"chat"}
-        overflowX="auto"
+        overflowX="hidden"
         minHeight={0}
       >
         <Box h="100%" w="100%" className="messages-container">
