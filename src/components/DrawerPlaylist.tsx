@@ -101,8 +101,8 @@ function DrawerPlaylist({ isOpen }: Props) {
     setSelected(collection)
   const handleNameChange = (name: string) => setName(name)
   const handleTogglePlaylist = useCallback(
-    () => globalServices.roomService.send("TOGGLE_PLAYLIST"),
-    [globalServices.roomService],
+    () => globalServices.playlistService.send("TOGGLE_PLAYLIST"),
+    [globalServices.playlistService],
   )
   const handleSave = useCallback(() => {
     send("ADMIN_SAVE_PLAYLIST", {

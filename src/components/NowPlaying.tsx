@@ -1,6 +1,5 @@
 import React, { memo, useMemo } from "react"
 import { FiUser, FiMusic } from "react-icons/fi"
-import { RiPlayListAddFill } from "react-icons/ri"
 import {
   BoxProps,
   Box,

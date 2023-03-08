@@ -27,7 +27,7 @@ import DrawerPlaylist from "./DrawerPlaylist"
 
 const isEditingSelector = (state) =>
   state.matches("connected.participating.editing")
-const playlistActiveSelector = (state) => state.matches("playlist.active")
+const playlistActiveSelector = (state) => state.matches("active")
 const isEditingUsernameSelector = (state) =>
   state.matches("connected.participating.editing.username")
 const isModalViewingListenersSelector = (state) =>
@@ -58,7 +58,7 @@ const Room = () => {
   const globalServices = useGlobalContext()
   const isEditing = useSelector(globalServices.roomService, isEditingSelector)
   const playlistActive = useSelector(
-    globalServices.roomService,
+    globalServices.playlistService,
     playlistActiveSelector,
   )
   const isEditingUsername = useSelector(
@@ -109,7 +109,7 @@ const Room = () => {
     passwordErrorSelector,
   )
 
-  const playlist = useSelector(globalServices.roomService, playlistSelector)
+  const playlist = useSelector(globalServices.playlistService, playlistSelector)
 
   const listeners = useSelector(globalServices.usersService, listenersSelector)
 
@@ -199,7 +199,7 @@ const Room = () => {
         >
           <PlayerUi
             onShowPlaylist={() =>
-              globalServices.roomService.send("TOGGLE_PLAYLIST")
+              globalServices.playlistService.send("TOGGLE_PLAYLIST")
             }
             onShowListeners={() =>
               globalServices.roomService.send("VIEW_LISTENERS")

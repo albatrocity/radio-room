@@ -5,6 +5,7 @@ import { chatMachine } from "../machines/chatMachine"
 import { roomMachine } from "../machines/roomMachine"
 import { usersMachine } from "../machines/usersMachine"
 import { themeMachine } from "../machines/themeMachine"
+import { playlistMachine } from "../machines/playlistMachine"
 import { toggleableCollectionMachine } from "../machines/toggleableCollectionMachine"
 import { allReactionsMachine } from "../machines/allReactionsMachine"
 import { ActorRefFrom } from "xstate"
@@ -13,13 +14,14 @@ import socket from "../lib/socket"
 import { User } from "../types/User"
 
 interface GlobalStateContextType {
+  allReactionsService: ActorRefFrom<typeof allReactionsMachine>
   authService: ActorRefFrom<typeof authMachine>
-  chatService: ActorRefFrom<typeof chatMachine>
   bookmarkedChatService: ActorRefFrom<typeof toggleableCollectionMachine>
+  chatService: ActorRefFrom<typeof chatMachine>
+  playlistService: ActorRefFrom<typeof playlistMachine>
   roomService: ActorRefFrom<typeof roomMachine>
   themeService: ActorRefFrom<typeof themeMachine>
   usersService: ActorRefFrom<typeof usersMachine>
-  allReactionsService: ActorRefFrom<typeof allReactionsMachine>
 }
 
 export const GlobalStateContext = createContext(
@@ -45,6 +47,7 @@ export const GlobalStateProvider = (props: Props) => {
     },
   })
   const themeService = useInterpret(themeMachine)
+  const playlistService = useInterpret(playlistMachine)
 
   const currentUser = useSelector(authService, currentUserSelector)
 
@@ -94,13 +97,14 @@ export const GlobalStateProvider = (props: Props) => {
   return (
     <GlobalStateContext.Provider
       value={{
-        authService,
-        roomService,
-        usersService,
-        chatService,
-        bookmarkedChatService,
-        themeService,
         allReactionsService,
+        authService,
+        bookmarkedChatService,
+        chatService,
+        playlistService,
+        roomService,
+        themeService,
+        usersService,
       }}
     >
       {props.children}

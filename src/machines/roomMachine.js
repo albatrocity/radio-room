@@ -7,7 +7,6 @@ export const roomMachine = createMachine(
     id: "room",
     initial: "connected",
     context: {
-      playlist: [],
       reactions: {
         track: {},
         message: {},
@@ -19,9 +18,6 @@ export const roomMachine = createMachine(
     on: {
       LOGIN: {
         actions: ["setData"],
-      },
-      PLAYLIST: {
-        actions: ["setPlaylist"],
       },
       INIT: {
         actions: ["setData"],
@@ -35,46 +31,6 @@ export const roomMachine = createMachine(
     ],
     type: "parallel",
     states: {
-      reactionPicker: {
-        id: "reactionPicker",
-        initial: "inactive",
-        on: {
-          SELECT_REACTION: {
-            target: ".inactive",
-            actions: ["toggleReaction"],
-          },
-        },
-        states: {
-          active: {
-            entry: ["setReaction"],
-            on: {
-              TOGGLE_REACTION_PICKER: "inactive",
-            },
-          },
-          inactive: {
-            entry: ["clearReaction"],
-            on: {
-              TOGGLE_REACTION_PICKER: "active",
-            },
-          },
-        },
-      },
-      playlist: {
-        id: "playlist",
-        initial: "inactive",
-        states: {
-          active: {
-            on: {
-              TOGGLE_PLAYLIST: "inactive",
-            },
-          },
-          inactive: {
-            on: {
-              TOGGLE_PLAYLIST: "active",
-            },
-          },
-        },
-      },
       admin: {
         id: "admin",
         initial: "notAdmin",
@@ -276,30 +232,12 @@ export const roomMachine = createMachine(
         },
       ),
       setData: assign({
-        playlist: (context, event) => {
-          return event.data.playlist
-        },
         reactions: (context, event) => {
           return event.data.reactions
         },
         isDeputyDj: (context, event) => {
           return event.data.currentUser.isDeputyDj
         },
-      }),
-      setPlaylist: assign({
-        playlist: (context, event) => {
-          return event.data
-        },
-      }),
-      setReaction: assign({
-        reactionPickerRef: (ctx, event) => {
-          return event.dropRef
-        },
-        reactTo: (ctx, event) => event.reactTo,
-      }),
-      clearReaction: assign({
-        reactionPickerRef: null,
-        reactTo: null,
       }),
     },
   },

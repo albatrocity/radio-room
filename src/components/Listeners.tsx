@@ -1,4 +1,4 @@
-import React, { useCallback } from "react"
+import React, { memo, useCallback } from "react"
 import { useMachine } from "@xstate/react"
 import { Box, Button, Show, Flex } from "@chakra-ui/react"
 
@@ -48,4 +48,4 @@ const Listeners = ({
   )
 }
 
-export default Listeners
+export default memo(Listeners)
