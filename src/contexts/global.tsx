@@ -11,7 +11,6 @@ import { allReactionsMachine } from "../machines/allReactionsMachine"
 import { ActorRefFrom } from "xstate"
 
 import socket from "../lib/socket"
-import { User } from "../types/User"
 
 interface GlobalStateContextType {
   allReactionsService: ActorRefFrom<typeof allReactionsMachine>
