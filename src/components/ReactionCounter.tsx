@@ -90,7 +90,6 @@ const ReactionCounter = ({
 
   const [state, send] = useMachine(reactionsMachine, {
     context: {
-      dropRef: null,
       reactTo,
       currentUser,
       reactions: allReactions[reactTo.id],

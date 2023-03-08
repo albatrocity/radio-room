@@ -1,7 +1,12 @@
-import { Machine, assign } from "xstate"
+import { createMachine, assign } from "xstate"
 import socketService from "../lib/socketService"
+import { User } from "../types/User"
 
-export const typingMachine = Machine(
+interface Context {
+  typing: User[]
+}
+
+export const typingMachine = createMachine<Context>(
   {
     id: "typing",
     initial: "connected",
@@ -11,7 +16,7 @@ export const typingMachine = Machine(
     invoke: [
       {
         id: "socket",
-        src: (ctx, event) => socketService,
+        src: () => socketService,
       },
     ],
     on: {
@@ -35,5 +40,5 @@ export const typingMachine = Machine(
         },
       }),
     },
-  }
+  },
 )

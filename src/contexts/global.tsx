@@ -37,7 +37,7 @@ interface Props {
 }
 
 export const GlobalStateProvider = (props: Props) => {
-  const authService = useInterpret(authMachine)
+  const authService = useInterpret(authMachine, {})
   const chatService = useInterpret(chatMachine)
   const bookmarkedChatService = useInterpret(toggleableCollectionMachine, {
     context: {
@@ -50,15 +50,6 @@ export const GlobalStateProvider = (props: Props) => {
   const playlistService = useInterpret(playlistMachine)
 
   const currentUser = useSelector(authService, currentUserSelector)
-
-  const checkDj = (_, event) => {
-    const isDj = event.data.users.find(
-      (x: User) => x.userId === currentUser.userId,
-    )?.isDj
-    if (!isDj) {
-      roomService.send("END_DJ_SESSION")
-    }
-  }
 
   const roomService = useInterpret(roomMachine, {
     guards: {
@@ -74,14 +65,6 @@ export const GlobalStateProvider = (props: Props) => {
           socket.emit("set DJ", null)
         }
       },
-      setDeputyDj: (_context, event) => {
-        if (event.type === "START_DEPUTY_DJ_SESSION") {
-          socket.emit("dj deputize user", event.userId)
-        } else {
-          socket.emit("dj undeputize user", event.userId)
-        }
-      },
-      checkDj,
       adminActivated: () => {
         authService.send("ACTIVATE_ADMIN")
       },

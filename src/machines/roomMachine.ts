@@ -1,4 +1,4 @@
-import { assign, send, createMachine } from "xstate"
+import { send, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 
 export const roomMachine = createMachine(
@@ -6,15 +6,6 @@ export const roomMachine = createMachine(
     predictableActionArguments: true,
     id: "room",
     initial: "connected",
-    context: {
-      reactions: {
-        track: {},
-        message: {},
-      },
-      reactionPickerRef: null,
-      reactTo: null,
-      isDeputyDj: false,
-    },
     on: {
       LOGIN: {
         actions: ["setData"],
@@ -26,7 +17,7 @@ export const roomMachine = createMachine(
     invoke: [
       {
         id: "socket",
-        src: (ctx, event) => socketService,
+        src: () => socketService,
       },
     ],
     type: "parallel",
@@ -215,8 +206,8 @@ export const roomMachine = createMachine(
   },
   {
     guards: {
-      isDeputyDj: (ctx, event) => {
-        return ctx.isDeputyDj || event.data?.currentUser?.isDeputyDj
+      isDeputyDj: (_ctx, event) => {
+        return event.data?.currentUser?.isDeputyDj
       },
     },
     actions: {
@@ -231,14 +222,6 @@ export const roomMachine = createMachine(
           to: "socket",
         },
       ),
-      setData: assign({
-        reactions: (context, event) => {
-          return event.data.reactions
-        },
-        isDeputyDj: (context, event) => {
-          return event.data.currentUser.isDeputyDj
-        },
-      }),
     },
   },
 )

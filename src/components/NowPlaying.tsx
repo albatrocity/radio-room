@@ -13,7 +13,6 @@ import {
   Stack,
   Icon,
   Hide,
-  Button,
   Show,
 } from "@chakra-ui/react"
 
@@ -24,7 +23,6 @@ import { TrackMeta } from "../types/Track"
 import ButtonListeners from "./ButtonListeners"
 import useGlobalContext from "./useGlobalContext"
 import { useActor } from "@xstate/react"
-import useCanDj from "./useCanDj"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 
 interface NowPlayingProps extends BoxProps {
@@ -47,7 +45,6 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
     dj,
   } = meta || {}
   const djUsername = users.find(({ userId }) => userId === dj)?.username
-  const canDj = useCanDj()
 
   const { mbid, releaseDate } = release || {}
   const releaseUrl = release?.url

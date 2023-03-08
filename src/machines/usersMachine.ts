@@ -1,8 +1,16 @@
 import { createMachine, assign } from "xstate"
 import socketService from "../lib/socketService"
-import { sortBy, uniqBy, reject, find, get } from "lodash/fp"
+import { sortBy, uniqBy, reject, find } from "lodash/fp"
+import { User } from "../types/User"
 
-export const usersMachine = createMachine(
+interface Context {
+  listeners: User[]
+  dj: User | null
+  users: User[]
+  currentUser: User | null
+}
+
+export const usersMachine = createMachine<Context>(
   {
     predictableActionArguments: true,
     id: "users",
@@ -11,17 +19,17 @@ export const usersMachine = createMachine(
       users: [],
       dj: null,
       listeners: [],
-      currentUser: {},
+      currentUser: null,
     },
     invoke: [
       {
         id: "socket",
-        src: (ctx, event) => socketService,
+        src: () => socketService,
       },
     ],
     on: {
       USER_JOINED: {
-        actions: ["setUsers", "checkDj"],
+        actions: ["setUsers"],
       },
       USER_LEFT: {
         actions: ["setUsers"],
@@ -51,20 +59,8 @@ export const usersMachine = createMachine(
   },
   {
     actions: {
-      kickUser: (context, event) => {
-        // send("kick user", { to: "socket" })
-      },
-      checkDj: (context, event) => {
-        const isDj = get(
-          "isDj",
-          find({ userId: context.currentUser.userId }, event.data.users),
-        )
-        if (!isDj) {
-          // send("END_DJ_SESSION")
-        }
-      },
       setCurrentUser: assign({
-        currentUser: (context, event) => {
+        currentUser: (_context, event) => {
           return event.data.currentUser
         },
       }),
@@ -74,16 +70,16 @@ export const usersMachine = createMachine(
             ? event.data.currentUser
             : context.currentUser
         },
-        users: (context, event) => {
+        users: (_context, event) => {
           return event.data.users
         },
-        listeners: (context, event) => {
+        listeners: (_context, event) => {
           return sortBy(
             "connectedAt",
             uniqBy("userId", reject({ isDj: true }, event.data.users)),
           )
         },
-        dj: (context, event) => find({ isDj: true }, event.data.users),
+        dj: (_context, event) => find({ isDj: true }, event.data.users),
       }),
     },
   },

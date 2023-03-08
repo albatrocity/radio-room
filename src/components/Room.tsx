@@ -9,7 +9,6 @@ import FormAdminArtwork from "./FormAdminArtwork"
 import FormAdminSettings from "./FormAdminSettings"
 import FormAddToQueue from "./FormAddToQueue"
 import PlayerUi from "./PlayerUi"
-import Playlist from "./Playlist"
 import FormUsername from "./FormUsername"
 import FormPassword from "./FormPassword"
 import Chat from "./Chat"
@@ -104,6 +103,7 @@ const Room = () => {
     globalServices.authService,
     currentUserSelector,
   )
+
   const passwordError = useSelector(
     globalServices.authService,
     passwordErrorSelector,
@@ -136,9 +136,8 @@ const Room = () => {
   )
 
   const onOpenReactionPicker = useCallback(
-    (dropRef: any, reactTo: any) => {
+    (reactTo: any) => {
       globalServices.roomService.send("TOGGLE_REACTION_PICKER", {
-        dropRef,
         reactTo,
       })
     },
