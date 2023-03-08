@@ -47,12 +47,6 @@ const UserList = ({
   const isTyping = (user: User) =>
     !!find({ userId: get("userId", user) }, typing)
 
-  const handleKickUser = useCallback(
-    (userId: User["id"]) =>
-      globalServices.authService.send("KICK_USER", currentListener),
-    [globalServices.authService, currentListener],
-  )
-
   return (
     <VStack>
       {dj && (

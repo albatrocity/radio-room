@@ -11,12 +11,14 @@ import { allReactionsMachine } from "../machines/allReactionsMachine"
 import { ActorRefFrom } from "xstate"
 
 import socket from "../lib/socket"
+import { disclosureMachine } from "../machines/disclosureMachine"
 
 interface GlobalStateContextType {
   allReactionsService: ActorRefFrom<typeof allReactionsMachine>
   authService: ActorRefFrom<typeof authMachine>
   bookmarkedChatService: ActorRefFrom<typeof toggleableCollectionMachine>
   chatService: ActorRefFrom<typeof chatMachine>
+  disclosureService: ActorRefFrom<typeof disclosureMachine>
   playlistService: ActorRefFrom<typeof playlistMachine>
   roomService: ActorRefFrom<typeof roomMachine>
   themeService: ActorRefFrom<typeof themeMachine>
@@ -75,6 +77,11 @@ export const GlobalStateProvider = (props: Props) => {
 
   const usersService = useInterpret(usersMachine)
   const allReactionsService = useInterpret(allReactionsMachine)
+  const disclosureService = useInterpret(disclosureMachine, {
+    context: {
+      currentUser,
+    },
+  })
 
   return (
     <GlobalStateContext.Provider
@@ -83,6 +90,7 @@ export const GlobalStateProvider = (props: Props) => {
         authService,
         bookmarkedChatService,
         chatService,
+        disclosureService,
         playlistService,
         roomService,
         themeService,
