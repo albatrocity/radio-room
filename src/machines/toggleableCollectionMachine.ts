@@ -49,7 +49,7 @@ export const toggleableCollectionMachine = createMachine<Context>(
       loadCollection: assign({
         collection: (context) =>
           context.persistent
-            ? JSON.parse(sessionStorage.getItem(context.name) || "[]") || []
+            ? JSON.parse(session.getItem(context.name) || "[]") || []
             : context.collection,
       }),
       setName: assign({ name: (context, event) => event.data }),
