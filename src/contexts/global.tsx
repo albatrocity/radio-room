@@ -3,7 +3,6 @@ import { useInterpret, useSelector } from "@xstate/react"
 import { audioMachine } from "../machines/audioMachine"
 import { authMachine } from "../machines/authMachine"
 import { chatMachine } from "../machines/chatMachine"
-import { disclosureMachine } from "../machines/disclosureMachine"
 import { roomMachine } from "../machines/roomMachine"
 import { usersMachine } from "../machines/usersMachine"
 import { themeMachine } from "../machines/themeMachine"
@@ -19,7 +18,6 @@ interface GlobalStateContextType {
   authService: ActorRefFrom<typeof authMachine>
   bookmarkedChatService: ActorRefFrom<typeof toggleableCollectionMachine>
   chatService: ActorRefFrom<typeof chatMachine>
-  disclosureService: ActorRefFrom<typeof disclosureMachine>
   playlistService: ActorRefFrom<typeof playlistMachine>
   roomService: ActorRefFrom<typeof roomMachine>
   themeService: ActorRefFrom<typeof themeMachine>
@@ -80,11 +78,6 @@ export const GlobalStateProvider = (props: Props) => {
   const usersService = useInterpret(usersMachine)
   const allReactionsService = useInterpret(allReactionsMachine)
   const audioService = useInterpret(audioMachine)
-  const disclosureService = useInterpret(disclosureMachine, {
-    context: {
-      currentUser,
-    },
-  })
 
   return (
     <GlobalStateContext.Provider
@@ -94,7 +87,6 @@ export const GlobalStateProvider = (props: Props) => {
         authService,
         bookmarkedChatService,
         chatService,
-        disclosureService,
         playlistService,
         roomService,
         themeService,
