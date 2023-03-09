@@ -1,11 +1,10 @@
-import React, { useCallback } from "react"
-import { useMachine } from "@xstate/react"
+import React, { memo, useCallback } from "react"
+import { useSelector } from "@xstate/react"
 import { Box, Button, Show, Flex } from "@chakra-ui/react"
-
-import { usersMachine } from "../machines/usersMachine"
 
 import UserList from "./UserList"
 import { User } from "../types/User"
+import useGlobalContext from "./useGlobalContext"
 
 interface ListenersProps {
   onViewListeners: (showListeners: boolean) => void
@@ -13,16 +12,18 @@ interface ListenersProps {
   onEditSettings: () => void
 }
 
+const listenerCountSelector = (state) => state.context.listeners.length
+
 const Listeners = ({
   onViewListeners,
   onEditUser,
   onEditSettings,
 }: ListenersProps) => {
-  const [state] = useMachine(usersMachine)
-
-  const {
-    context: { listeners },
-  } = state
+  const globalServices = useGlobalContext()
+  const listenerCount = useSelector(
+    globalServices.usersService,
+    listenerCountSelector,
+  )
 
   const handleListeners = useCallback(() => {
     onViewListeners(true)
@@ -32,9 +33,7 @@ const Listeners = ({
     <Box className="list-outer" h="100%" w="100%">
       <Show below="sm">
         <Box px={2} py={1}>
-          <Button onClick={handleListeners}>
-            Listeners ({listeners.length})
-          </Button>
+          <Button onClick={handleListeners}>Listeners ({listenerCount})</Button>
         </Box>
       </Show>
       <Show above="sm">
@@ -48,4 +47,4 @@ const Listeners = ({
   )
 }
 
-export default Listeners
+export default memo(Listeners)

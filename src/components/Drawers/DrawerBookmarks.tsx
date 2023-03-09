@@ -3,16 +3,19 @@ import { Button, Box, Icon, Text, useDisclosure } from "@chakra-ui/react"
 import { FiTrash2 } from "react-icons/fi"
 import { useSelector } from "@xstate/react"
 
-import BookmarkedMessages from "./BookmarkedMessages"
-import Drawer from "./Drawer"
-import useGlobalContext from "./useGlobalContext"
-import ConfirmationDialog from "./ConfirmationDialog"
+import BookmarkedMessages from "../BookmarkedMessages"
+import Drawer from "../Drawer"
+import useGlobalContext from "../useGlobalContext"
+import ConfirmationDialog from "../ConfirmationDialog"
+
+const isAdminSelector = (state) => state.context.isAdmin
+const isModalViewingBookmarksSelector = (state) =>
+  state.matches("connected.participating.editing.bookmarks")
 
 const DrawerBookmarks = () => {
   const globalServices = useGlobalContext()
+  const isAdmin = useSelector(globalServices.authService, isAdminSelector)
   const { isOpen, onOpen, onClose } = useDisclosure()
-  const isModalViewingBookmarksSelector = (state) =>
-    state.matches("connected.participating.editing.bookmarks")
   const isModalViewingBookmarks = useSelector(
     globalServices.roomService,
     isModalViewingBookmarksSelector,
@@ -30,6 +33,8 @@ const DrawerBookmarks = () => {
     () => globalServices.bookmarkedChatService.send("CLEAR"),
     [globalServices],
   )
+
+  if (!isAdmin) return null
 
   return (
     <>

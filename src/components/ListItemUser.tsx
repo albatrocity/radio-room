@@ -121,7 +121,9 @@ const ListItemUser = ({
           <IconButton
             variant="link"
             aria-label="Edit Username"
-            onClick={() => onEditUser()}
+            onClick={() => {
+              onEditUser(user)
+            }}
             size="xs"
             icon={<EditIcon />}
           />

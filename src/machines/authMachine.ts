@@ -12,6 +12,7 @@ export interface AuthContext {
   isAdmin: boolean
   shouldRetry: boolean
   password?: string
+  passwordError: string | undefined
 }
 
 interface DataEvent {
@@ -287,7 +288,7 @@ export const authMachine = createMachine(
       shouldRetry: (ctx) => ctx.shouldRetry,
       shouldNotRetry: (ctx) => !ctx.shouldRetry,
       isAdmin: (ctx) => {
-        return ctx.currentUser.isAdmin
+        return !!ctx.currentUser.isAdmin
       },
       requiresPassword: (_ctx, event) => {
         return event.data.passwordRequired

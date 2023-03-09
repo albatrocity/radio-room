@@ -18,15 +18,9 @@ const isUnauthorizedSelector = (state) => state.matches("unauthorized")
 
 interface ChatProps {
   modalActive: boolean
-  onOpenReactionPicker: () => void
-  onReactionClick: (emoji: any) => void
 }
 
-const Chat = ({
-  modalActive,
-  onOpenReactionPicker,
-  onReactionClick,
-}: ChatProps) => {
+const Chat = ({ modalActive }: ChatProps) => {
   const globalServices = useGlobalContext()
   const currentUser = useSelector(
     globalServices.authService,
@@ -67,8 +61,6 @@ const Chat = ({
         <Box h="100%" w="100%" className="messages-container">
           {(chatState.context?.messages || []).length > 0 && (
             <ChatMessages
-              onOpenReactionPicker={onOpenReactionPicker}
-              onReactionClick={onReactionClick}
               messages={chatState.context.messages}
               currentUserId={currentUserId}
             />

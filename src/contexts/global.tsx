@@ -1,25 +1,28 @@
 import React, { createContext } from "react"
 import { useInterpret, useSelector } from "@xstate/react"
+import { audioMachine } from "../machines/audioMachine"
 import { authMachine } from "../machines/authMachine"
 import { chatMachine } from "../machines/chatMachine"
 import { roomMachine } from "../machines/roomMachine"
 import { usersMachine } from "../machines/usersMachine"
 import { themeMachine } from "../machines/themeMachine"
+import { playlistMachine } from "../machines/playlistMachine"
 import { toggleableCollectionMachine } from "../machines/toggleableCollectionMachine"
 import { allReactionsMachine } from "../machines/allReactionsMachine"
 import { ActorRefFrom } from "xstate"
 
 import socket from "../lib/socket"
-import { User } from "../types/User"
 
 interface GlobalStateContextType {
+  allReactionsService: ActorRefFrom<typeof allReactionsMachine>
   authService: ActorRefFrom<typeof authMachine>
-  chatService: ActorRefFrom<typeof chatMachine>
   bookmarkedChatService: ActorRefFrom<typeof toggleableCollectionMachine>
+  chatService: ActorRefFrom<typeof chatMachine>
+  playlistService: ActorRefFrom<typeof playlistMachine>
   roomService: ActorRefFrom<typeof roomMachine>
   themeService: ActorRefFrom<typeof themeMachine>
   usersService: ActorRefFrom<typeof usersMachine>
-  allReactionsService: ActorRefFrom<typeof allReactionsMachine>
+  audioService: ActorRefFrom<typeof audioMachine>
 }
 
 export const GlobalStateContext = createContext(
@@ -35,7 +38,7 @@ interface Props {
 }
 
 export const GlobalStateProvider = (props: Props) => {
-  const authService = useInterpret(authMachine)
+  const authService = useInterpret(authMachine, {})
   const chatService = useInterpret(chatMachine)
   const bookmarkedChatService = useInterpret(toggleableCollectionMachine, {
     context: {
@@ -45,17 +48,9 @@ export const GlobalStateProvider = (props: Props) => {
     },
   })
   const themeService = useInterpret(themeMachine)
+  const playlistService = useInterpret(playlistMachine)
 
   const currentUser = useSelector(authService, currentUserSelector)
-
-  const checkDj = (_, event) => {
-    const isDj = event.data.users.find(
-      (x: User) => x.userId === currentUser.userId,
-    )?.isDj
-    if (!isDj) {
-      roomService.send("END_DJ_SESSION")
-    }
-  }
 
   const roomService = useInterpret(roomMachine, {
     guards: {
@@ -71,14 +66,6 @@ export const GlobalStateProvider = (props: Props) => {
           socket.emit("set DJ", null)
         }
       },
-      setDeputyDj: (_context, event) => {
-        if (event.type === "START_DEPUTY_DJ_SESSION") {
-          socket.emit("dj deputize user", event.userId)
-        } else {
-          socket.emit("dj undeputize user", event.userId)
-        }
-      },
-      checkDj,
       adminActivated: () => {
         authService.send("ACTIVATE_ADMIN")
       },
@@ -90,17 +77,20 @@ export const GlobalStateProvider = (props: Props) => {
 
   const usersService = useInterpret(usersMachine)
   const allReactionsService = useInterpret(allReactionsMachine)
+  const audioService = useInterpret(audioMachine)
 
   return (
     <GlobalStateContext.Provider
       value={{
-        authService,
-        roomService,
-        usersService,
-        chatService,
-        bookmarkedChatService,
-        themeService,
         allReactionsService,
+        audioService,
+        authService,
+        bookmarkedChatService,
+        chatService,
+        playlistService,
+        roomService,
+        themeService,
+        usersService,
       }}
     >
       {props.children}

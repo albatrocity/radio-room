@@ -1,6 +1,13 @@
-import { Machine, assign } from "xstate"
+import { createMachine, assign } from "xstate"
 
-export const settingsMachine = Machine(
+interface Context {
+  fetchMeta: boolean
+  extraInfo: string
+  donationURL: string
+  password: string
+}
+
+export const settingsMachine = createMachine<Context>(
   {
     id: "settings",
     initial: "pending",
@@ -49,7 +56,7 @@ export const settingsMachine = Machine(
   },
   {
     actions: {
-      setValues: assign((context, event) => {
+      setValues: assign((_context, event) => {
         return {
           fetchMeta: event.data.fetchMeta,
           extraInfo: event.data.extraInfo,
@@ -58,5 +65,5 @@ export const settingsMachine = Machine(
         }
       }),
     },
-  }
+  },
 )

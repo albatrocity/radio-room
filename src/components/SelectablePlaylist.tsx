@@ -14,7 +14,7 @@ type Props = {
 function SelectablePlaylist({ isSelectable, onChange }: Props) {
   const globalServices = useGlobalContext()
   const playlist: PlaylistItem[] = useSelector(
-    globalServices.roomService,
+    globalServices.playlistService,
     (state) => state.context.playlist,
   )
 

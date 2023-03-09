@@ -1,10 +1,15 @@
 import { createMachine, assign, send } from "xstate"
 import socketService from "../lib/socketService"
 import { isEmpty, isNil } from "lodash/fp"
+import { StationMeta } from "../types/StationMeta"
 
-export const audioMachine = createMachine(
+interface Context {
+  volume: number
+  meta?: StationMeta
+}
+
+export const audioMachine = createMachine<Context>(
   {
-    tsTypes: {} as import("./audioMachine.typegen").Typegen0,
     predictableActionArguments: true,
     id: "audio",
     initial: "offline",

@@ -1,4 +1,4 @@
-import React, { memo, useContext } from "react"
+import React, { memo, useCallback, useContext } from "react"
 import { useMachine, useSelector } from "@xstate/react"
 import { get, isEqual, find, reverse, reject } from "lodash/fp"
 import { Box, Text, Heading, HStack, List, VStack } from "@chakra-ui/react"
@@ -44,7 +44,8 @@ const UserList = ({
 
   const currentDj = isEqual(get("userId", currentUser), get("userId", dj))
   const currentListener = find({ userId: currentUser.userId }, listeners)
-  const isTyping = (user: User) => find({ userId: get("userId", user) }, typing)
+  const isTyping = (user: User) =>
+    !!find({ userId: get("userId", user) }, typing)
 
   return (
     <VStack>
@@ -106,12 +107,9 @@ const UserList = ({
             <ListItemUser
               key={currentListener.userId}
               user={currentListener}
-              userTyping={isTyping(currentUser.userId)}
+              userTyping={isTyping(currentUser)}
               currentUser={currentUser}
               onEditUser={onEditUser}
-              onKickUser={(_user: User) =>
-                globalServices.authService.send("KICK_USER", currentListener)
-              }
             />
           )}
           {reverse(reject({ userId: currentUser.userId }, listeners)).map(
@@ -123,8 +121,8 @@ const UserList = ({
                   userTyping={isTyping(x)}
                   currentUser={currentUser}
                   onEditUser={onEditUser}
-                  onKickUser={(_user: User) =>
-                    globalServices.authService.send("KICK_USER", x)
+                  onKickUser={(userId: User["userId"]) =>
+                    globalServices.authService.send("KICK_USER", { userId })
                   }
                   onDeputizeDj={(userId: User["userId"]) => {
                     globalServices.roomService.send("DEPUTIZE_DJ", { userId })

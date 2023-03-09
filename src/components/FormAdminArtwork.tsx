@@ -1,15 +1,34 @@
 import React from "react"
 import { Formik } from "formik"
-import { Button, Text, Box, Input } from "@chakra-ui/react"
+import {
+  Button,
+  Input,
+  HStack,
+  FormControl,
+  FormHelperText,
+  FormLabel,
+} from "@chakra-ui/react"
+import { useSelector } from "@xstate/react"
+
+import Modal from "./Modal"
+import useGlobalContext from "./useGlobalContext"
 
 interface Props {
   onSubmit: (url: string) => void
+  onClose: () => void
+  isOpen: boolean
 }
 
-const FormAdminArtwork = ({ onSubmit }: Props) => {
+const FormAdminArtwork = ({ onSubmit, onClose, isOpen }: Props) => {
+  const globalServices = useGlobalContext()
+  const url = useSelector(
+    globalServices.audioService,
+    (state) => state.context.meta.cover || "",
+  )
   return (
     <Formik
-      initialValues={{ url: "" }}
+      enableReinitialize
+      initialValues={{ url }}
       validate={() => {
         const errors = {}
         return errors
@@ -20,26 +39,42 @@ const FormAdminArtwork = ({ onSubmit }: Props) => {
         onSubmit(values.url)
       }}
     >
-      {({ values, handleChange, handleBlur, handleSubmit }) => (
-        <form onSubmit={handleSubmit}>
-          <Box gap="small">
-            <Text as="p">
-              If MusicBrainz didn't give you good cover art, you can provide an
-              image URL to use for the currently playing track.
-            </Text>
-            <Input
-              onChange={handleChange}
-              onBlur={handleBlur}
-              value={values.url}
-              name="url"
-              placeholder="image url"
-            />
-            <Button type="submit" variant="solid">
-              Submit
-            </Button>
-          </Box>
-        </form>
-      )}
+      {({ values, handleChange, handleBlur, handleSubmit }) => {
+        return (
+          <form onSubmit={handleSubmit}>
+            <Modal
+              isOpen={isOpen}
+              onClose={onClose}
+              heading="Set Cover Artwork"
+              footer={
+                <HStack spacing={2}>
+                  <Button variant="outline" onClick={onClose}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" onClick={() => handleSubmit()}>
+                    Submit
+                  </Button>
+                </HStack>
+              }
+            >
+              <FormControl>
+                <FormLabel>Image URL</FormLabel>
+                <Input
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  value={values.url}
+                  name="url"
+                />
+                <FormHelperText>
+                  If you want to override the cover artwork for the stream,
+                  enter an image URL here. To resume using artwork from Spotify,
+                  clear the image URL.
+                </FormHelperText>
+              </FormControl>
+            </Modal>
+          </form>
+        )
+      }}
     </Formik>
   )
 }

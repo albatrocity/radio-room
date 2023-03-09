@@ -1,4 +1,4 @@
-import { assign, send, createMachine } from "xstate"
+import { send, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 
 export const roomMachine = createMachine(
@@ -6,22 +6,9 @@ export const roomMachine = createMachine(
     predictableActionArguments: true,
     id: "room",
     initial: "connected",
-    context: {
-      playlist: [],
-      reactions: {
-        track: {},
-        message: {},
-      },
-      reactionPickerRef: null,
-      reactTo: null,
-      isDeputyDj: false,
-    },
     on: {
       LOGIN: {
         actions: ["setData"],
-      },
-      PLAYLIST: {
-        actions: ["setPlaylist"],
       },
       INIT: {
         actions: ["setData"],
@@ -30,51 +17,11 @@ export const roomMachine = createMachine(
     invoke: [
       {
         id: "socket",
-        src: (ctx, event) => socketService,
+        src: () => socketService,
       },
     ],
     type: "parallel",
     states: {
-      reactionPicker: {
-        id: "reactionPicker",
-        initial: "inactive",
-        on: {
-          SELECT_REACTION: {
-            target: ".inactive",
-            actions: ["toggleReaction"],
-          },
-        },
-        states: {
-          active: {
-            entry: ["setReaction"],
-            on: {
-              TOGGLE_REACTION_PICKER: "inactive",
-            },
-          },
-          inactive: {
-            entry: ["clearReaction"],
-            on: {
-              TOGGLE_REACTION_PICKER: "active",
-            },
-          },
-        },
-      },
-      playlist: {
-        id: "playlist",
-        initial: "inactive",
-        states: {
-          active: {
-            on: {
-              TOGGLE_PLAYLIST: "inactive",
-            },
-          },
-          inactive: {
-            on: {
-              TOGGLE_PLAYLIST: "active",
-            },
-          },
-        },
-      },
       admin: {
         id: "admin",
         initial: "notAdmin",
@@ -174,6 +121,9 @@ export const roomMachine = createMachine(
                           in: "#room.admin.notAdmin",
                         },
                       ],
+                      FIX_META: {
+                        actions: ["fixMeta"],
+                      },
                     },
                   },
                   artwork: {
@@ -184,6 +134,9 @@ export const roomMachine = createMachine(
                           in: "#room.admin.notAdmin",
                         },
                       ],
+                      SET_COVER: {
+                        actions: ["setArtwork"],
+                      },
                     },
                   },
                   bookmarks: {
@@ -204,6 +157,9 @@ export const roomMachine = createMachine(
                           in: "#room.admin.notAdmin",
                         },
                       ],
+                      SET_SETTINGS: {
+                        actions: ["setSettings"],
+                      },
                     },
                   },
                   listenerSettings: {},
@@ -259,8 +215,8 @@ export const roomMachine = createMachine(
   },
   {
     guards: {
-      isDeputyDj: (ctx, event) => {
-        return ctx.isDeputyDj || event.data?.currentUser?.isDeputyDj
+      isDeputyDj: (_ctx, event) => {
+        return event.data?.currentUser?.isDeputyDj
       },
     },
     actions: {
@@ -275,32 +231,41 @@ export const roomMachine = createMachine(
           to: "socket",
         },
       ),
-      setData: assign({
-        playlist: (context, event) => {
-          return event.data.playlist
+      fixMeta: send(
+        (_ctx, event) => {
+          return {
+            type: "fix meta",
+            data: event.data,
+          }
         },
-        reactions: (context, event) => {
-          return event.data.reactions
+        {
+          to: "socket",
         },
-        isDeputyDj: (context, event) => {
-          return event.data.currentUser.isDeputyDj
+      ),
+      setArtwork: send(
+        (_ctx, event) => {
+          console.log("set artwork", event.data)
+          return {
+            type: "set cover",
+            data: event.data,
+          }
         },
-      }),
-      setPlaylist: assign({
-        playlist: (context, event) => {
-          return event.data
+        {
+          to: "socket",
         },
-      }),
-      setReaction: assign({
-        reactionPickerRef: (ctx, event) => {
-          return event.dropRef
+      ),
+      setSettings: send(
+        (_ctx, event) => {
+          console.log("event!", event)
+          return {
+            type: "settings",
+            data: event.data,
+          }
         },
-        reactTo: (ctx, event) => event.reactTo,
-      }),
-      clearReaction: assign({
-        reactionPickerRef: null,
-        reactTo: null,
-      }),
+        {
+          to: "socket",
+        },
+      ),
     },
   },
 )

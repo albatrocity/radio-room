@@ -12,14 +12,12 @@ import {
 } from "@chakra-ui/react"
 import { format } from "date-fns"
 
-import Drawer from "./Drawer"
-import useGlobalContext from "./useGlobalContext"
-import SelectablePlaylist from "./SelectablePlaylist"
-import { PlaylistItem } from "../types/PlaylistItem"
-import { savePlaylistMachine } from "../machines/savePlaylistMachine"
-import { useActor, useMachine } from "@xstate/react"
-
-type Props = { isOpen: boolean }
+import Drawer from "../Drawer"
+import useGlobalContext from "../useGlobalContext"
+import SelectablePlaylist from "../SelectablePlaylist"
+import { PlaylistItem } from "../../types/PlaylistItem"
+import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
+import { useMachine, useSelector } from "@xstate/react"
 
 function Controls({
   isEditing,
@@ -82,7 +80,15 @@ function Controls({
   )
 }
 
-function DrawerPlaylist({ isOpen }: Props) {
+const playlistActiveSelector = (state) => state.matches("active")
+
+function DrawerPlaylist() {
+  const globalServices = useGlobalContext()
+
+  const isOpen = useSelector(
+    globalServices.playlistService,
+    playlistActiveSelector,
+  )
   const toast = useToast()
   const defaultPlaylistName = useConst(
     () => `Radio Playlist ${format(new Date(), "M/d/y")}`,
@@ -90,19 +96,19 @@ function DrawerPlaylist({ isOpen }: Props) {
   const [isEditing, { toggle, off }] = useBoolean(false)
   const [selected, setSelected] = useState<PlaylistItem[]>([])
   const [name, setName] = useState<string>(defaultPlaylistName)
-  const globalServices = useGlobalContext()
-  const [roomState] = useActor(globalServices.roomService)
   const [state, send] = useMachine(savePlaylistMachine)
 
-  const isAdmin = roomState.matches("admin.isAdmin")
+  const isAdmin = useSelector(globalServices.roomService, (state) =>
+    state.matches("admin.isAdmin"),
+  )
   const isLoading = state.matches("loading")
 
   const handleSelectionChange = (collection: PlaylistItem[]) =>
     setSelected(collection)
   const handleNameChange = (name: string) => setName(name)
   const handleTogglePlaylist = useCallback(
-    () => globalServices.roomService.send("TOGGLE_PLAYLIST"),
-    [globalServices.roomService],
+    () => globalServices.playlistService.send("TOGGLE_PLAYLIST"),
+    [globalServices.playlistService],
   )
   const handleSave = useCallback(() => {
     send("ADMIN_SAVE_PLAYLIST", {
@@ -111,7 +117,7 @@ function DrawerPlaylist({ isOpen }: Props) {
         .map(({ spotifyData }) => spotifyData?.uri)
         .filter((x) => !!x),
     })
-  }, [globalServices.roomService, selected, name])
+  }, [send, selected, name])
 
   useEffect(() => {
     if (!isOpen) {

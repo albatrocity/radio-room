@@ -35,7 +35,6 @@ import { ReactionSubject } from "../types/ReactionSubject"
 import { useAllReactions } from "../lib/useAllReactions"
 
 interface ReactionAddButtonProps {
-  onOpenPicker: ({ reactTo }: { reactTo: {} }) => void
   reactTo: ReactionSubject
   buttonVariant?: ButtonProps["variant"]
   buttonColorScheme?: ButtonProps["colorScheme"]
@@ -47,8 +46,7 @@ const currentUserSelector = (state: { context: AuthContext }) =>
   state.context.currentUser
 
 interface ReactionCounterProps extends ReactionAddButtonProps {
-  showAddButton: boolean
-  onReactionClick: (emoji: EmojiData) => void
+  showAddButton?: boolean
   darkBg?: boolean
 }
 
@@ -65,7 +63,7 @@ const ReactionCounter = ({
     globalServices.authService,
     currentUserSelector,
   )
-  const allReactions = useAllReactions(reactTo.type)
+  const allReactions = useAllReactions(reactTo.type, reactTo.id)
 
   const autoFocus = useBreakpointValue(
     {
@@ -90,10 +88,9 @@ const ReactionCounter = ({
 
   const [state, send] = useMachine(reactionsMachine, {
     context: {
-      dropRef: null,
       reactTo,
       currentUser,
-      reactions: allReactions[reactTo.id],
+      reactions: allReactions,
     },
   })
 

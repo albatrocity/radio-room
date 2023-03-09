@@ -1,21 +1,29 @@
 import { assign, send, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 import { isNil, find } from "lodash/fp"
+import { ReactionSubject } from "../types/ReactionSubject"
+import { Reaction } from "../types/Reaction"
+import { User } from "../types/User"
 
-export const reactionsMachine = createMachine(
+interface Context {
+  reactTo: ReactionSubject | null
+  reactions: Reaction[]
+  currentUser: User | null
+}
+
+export const reactionsMachine = createMachine<Context>(
   {
     id: "reactions",
     initial: "closed",
     context: {
-      dropRef: null,
       reactTo: null,
       reactions: [],
-      currentUser: {},
+      currentUser: null,
     },
     invoke: [
       {
         id: "socket",
-        src: (ctx, event) => socketService,
+        src: () => socketService,
       },
     ],
     on: {
@@ -68,19 +76,7 @@ export const reactionsMachine = createMachine(
   },
   {
     actions: {
-      setTyping: assign({
-        typing: (context, event) => {
-          return event.data.typing
-        },
-      }),
       setTargets: assign({
-        dropRef: (context, event) => {
-          if (event.data?.ref) {
-            return event.data.ref
-          } else {
-            return context.dropRef
-          }
-        },
         reactTo: (context, event) => {
           if (event.data?.reactTo) {
             return event.data?.reactTo
@@ -91,17 +87,18 @@ export const reactionsMachine = createMachine(
       }),
       setData: assign({
         reactions: (context, event) => {
-          return event.data.reactions
-            ? event.data.reactions[context.reactTo.type][context.reactTo.id]
-            : []
+          if (context.reactTo) {
+            return event.data.reactions
+              ? event.data.reactions[context.reactTo?.type][context.reactTo?.id]
+              : []
+          }
+          return []
         },
       }),
       setReactTo: assign({
-        reactTo: (context, event) => event.data.reactTo,
-        reactions: (context, event) => {
-          return event.data.reactions
-            ? event.data.reactions[event.data.reactTo.id]
-            : []
+        reactTo: (_context, event) => event.data.reactTo,
+        reactions: (_context, event) => {
+          return event.data.reactions ? event.data.reactions : []
         },
       }),
       setCurrentUser: assign({
@@ -142,7 +139,7 @@ export const reactionsMachine = createMachine(
       reactionIsNew: (ctx, event) => {
         return isNil(
           find(
-            { user: ctx.currentUser.userId, emoji: event.data.shortcodes },
+            { user: ctx.currentUser?.userId, emoji: event.data.shortcodes },
             ctx.reactions,
           ),
         )

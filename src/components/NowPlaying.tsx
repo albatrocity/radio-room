@@ -1,6 +1,5 @@
 import React, { memo, useMemo } from "react"
 import { FiUser, FiMusic } from "react-icons/fi"
-import { RiPlayListAddFill } from "react-icons/ri"
 import {
   BoxProps,
   Box,
@@ -14,9 +13,10 @@ import {
   Stack,
   Icon,
   Hide,
-  Button,
   Show,
 } from "@chakra-ui/react"
+import { useSelector } from "@xstate/react"
+import { ActorRefFrom } from "xstate"
 
 import AlbumArtwork from "./AlbumArtwork"
 
@@ -24,21 +24,34 @@ import safeDate from "../lib/safeDate"
 import { TrackMeta } from "../types/Track"
 import ButtonListeners from "./ButtonListeners"
 import useGlobalContext from "./useGlobalContext"
-import { useActor } from "@xstate/react"
-import useCanDj from "./useCanDj"
 import ButtonAddToQueue from "./ButtonAddToQueue"
+import { usersMachine } from "../machines/usersMachine"
+import { User } from "../types/User"
 
 interface NowPlayingProps extends BoxProps {
-  onCover: (showCover: boolean) => void
   offline: boolean
   meta: TrackMeta
-  coverFound: boolean
 }
+
+function getCoverUrl(release: any, meta: TrackMeta, mbid?: string) {
+  if (meta?.cover) {
+    return meta.cover
+  }
+  if (release.artwork) {
+    return release.artwork
+  }
+  if (mbid) {
+    return `https://coverartarchive.org/release/${mbid}/front-500`
+  }
+  return null
+}
+
+const usersSelector = (state: ActorRefFrom<typeof usersMachine>["state"]) =>
+  state.context.users
 
 const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
   const globalServices = useGlobalContext()
-  const [state] = useActor(globalServices.usersService)
-  const users = state.context.users
+  const users: User[] = useSelector(globalServices.usersService, usersSelector)
   const {
     album,
     artist,
@@ -47,22 +60,18 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
     title,
     dj,
   } = meta || {}
-  const djUsername = users.find(({ userId }) => userId === dj)?.username
-  const canDj = useCanDj()
+
+  const djUsername = useMemo(
+    () => users.find(({ userId }) => userId === dj)?.username,
+    [users, dj],
+  )
 
   const { mbid, releaseDate } = release || {}
   const releaseUrl = release?.url
     ? release.url
     : mbid && `https://musicbrainz.org/release/${mbid}`
-  const coverUrl = useMemo(
-    () =>
-      release.artwork
-        ? release.artwork
-        : mbid
-        ? `https://coverartarchive.org/release/${mbid}/front-500`
-        : null,
-    [mbid, release.artwork],
-  )
+
+  const coverUrl = getCoverUrl(release, meta, mbid)
 
   const artworkSize = [24, "100%", "100%"]
 
