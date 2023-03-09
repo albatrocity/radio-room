@@ -63,7 +63,7 @@ const ReactionCounter = ({
     globalServices.authService,
     currentUserSelector,
   )
-  const allReactions = useAllReactions(reactTo.type)
+  const allReactions = useAllReactions(reactTo.type, reactTo.id)
 
   const autoFocus = useBreakpointValue(
     {
@@ -90,7 +90,7 @@ const ReactionCounter = ({
     context: {
       reactTo,
       currentUser,
-      reactions: allReactions[reactTo.id],
+      reactions: allReactions,
     },
   })
 

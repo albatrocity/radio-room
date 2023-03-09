@@ -98,9 +98,7 @@ export const reactionsMachine = createMachine<Context>(
       setReactTo: assign({
         reactTo: (_context, event) => event.data.reactTo,
         reactions: (_context, event) => {
-          return event.data.reactions
-            ? event.data.reactions[event.data.reactTo.id]
-            : []
+          return event.data.reactions ? event.data.reactions : []
         },
       }),
       setCurrentUser: assign({
