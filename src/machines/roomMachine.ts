@@ -121,6 +121,9 @@ export const roomMachine = createMachine(
                           in: "#room.admin.notAdmin",
                         },
                       ],
+                      FIX_META: {
+                        actions: ["fixMeta"],
+                      },
                     },
                   },
                   artwork: {
@@ -131,6 +134,9 @@ export const roomMachine = createMachine(
                           in: "#room.admin.notAdmin",
                         },
                       ],
+                      SET_COVER: {
+                        actions: ["setArtwork"],
+                      },
                     },
                   },
                   bookmarks: {
@@ -151,6 +157,9 @@ export const roomMachine = createMachine(
                           in: "#room.admin.notAdmin",
                         },
                       ],
+                      SET_SETTINGS: {
+                        actions: ["setSettings"],
+                      },
                     },
                   },
                   listenerSettings: {},
@@ -216,6 +225,41 @@ export const roomMachine = createMachine(
           return {
             type: "dj deputize user",
             data: event.userId,
+          }
+        },
+        {
+          to: "socket",
+        },
+      ),
+      fixMeta: send(
+        (_ctx, event) => {
+          return {
+            type: "fix meta",
+            data: event.data,
+          }
+        },
+        {
+          to: "socket",
+        },
+      ),
+      setArtwork: send(
+        (_ctx, event) => {
+          console.log("set artwork", event.data)
+          return {
+            type: "set cover",
+            data: event.data,
+          }
+        },
+        {
+          to: "socket",
+        },
+      ),
+      setSettings: send(
+        (_ctx, event) => {
+          console.log("event!", event)
+          return {
+            type: "settings",
+            data: event.data,
           }
         },
         {

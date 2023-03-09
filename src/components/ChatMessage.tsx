@@ -20,7 +20,6 @@ import getUrls from "../lib/getUrls"
 import ReactionCounter from "./ReactionCounter"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { User } from "../types/User"
-import { EmojiData } from "emoji-mart"
 import Timestamp from "./Timestamp"
 import useGlobalContext from "./useGlobalContext"
 import { useSelector } from "@xstate/react"
@@ -33,8 +32,6 @@ export interface ChatMessageProps {
   timestamp: string
   user: User
   currentUserId: string
-  onOpenReactionPicker?: () => void
-  onReactionClick?: (emoji: EmojiData) => void
   showUsername?: boolean
   anotherUserMessage?: boolean
 }
@@ -55,8 +52,6 @@ const ChatMessage = ({
   timestamp,
   user,
   currentUserId,
-  onOpenReactionPicker,
-  onReactionClick,
   showUsername = false,
   anotherUserMessage = false,
 }: ChatMessageProps) => {
@@ -219,14 +214,10 @@ const ChatMessage = ({
         </WrapItem>
       </Wrap>
 
-      {onOpenReactionPicker && onReactionClick && (
-        <ReactionCounter
-          onOpenPicker={onOpenReactionPicker}
-          reactTo={{ type: "message", id: timestamp }}
-          onReactionClick={onReactionClick}
-          showAddButton={alwaysShowReactionPicker || hovered}
-        />
-      )}
+      <ReactionCounter
+        reactTo={{ type: "message", id: timestamp }}
+        showAddButton={alwaysShowReactionPicker || hovered}
+      />
     </MotionBox>
   )
 }

@@ -18,7 +18,6 @@ import { RiPlayListFill } from "react-icons/ri"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
 import { EmojiData } from "emoji-mart"
-import { ChatMessage } from "../types/ChatMessage"
 import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import { useHotkeys } from "react-hotkeys-hook"
@@ -34,13 +33,6 @@ interface RadioPlayerProps {
   onShowPlaylist: () => void
   hasPlaylist: boolean
   onReactionClick: (emoji: EmojiData) => void
-  onOpenPicker: ({
-    ref,
-    reactTo,
-  }: {
-    ref: ReactNode
-    reactTo: ChatMessage
-  }) => void
   reactions: {}[]
   trackId: string
 }
@@ -57,11 +49,11 @@ const RadioPlayer = ({
   onShowPlaylist,
   hasPlaylist,
   onReactionClick,
-  onOpenPicker,
   reactions,
   trackId,
 }: RadioPlayerProps) => {
   const player = useRef(null)
+
   useHotkeys("space", () => {
     onPlayPause()
   })
@@ -122,10 +114,7 @@ const RadioPlayer = ({
           <HStack w="100%">
             <Hide above="sm">
               <ReactionCounter
-                onOpenPicker={onOpenPicker}
                 reactTo={{ type: "track", id: trackId }}
-                reactions={reactions}
-                onReactionClick={onReactionClick}
                 showAddButton={true}
               />
             </Hide>

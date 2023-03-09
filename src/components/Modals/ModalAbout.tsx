@@ -1,14 +1,16 @@
-import { useSelector } from "@xstate/react"
 import React from "react"
+import { useSelector } from "@xstate/react"
+import { ActorRefFrom } from "xstate"
+import { roomMachine } from "../../machines/roomMachine"
 import AboutContent from "../AboutContent"
 import Modal from "../Modal"
 import useGlobalContext from "../useGlobalContext"
 
-type Props = {}
+const isModalViewingHelpSelector = (
+  state: ActorRefFrom<typeof roomMachine>["state"],
+) => state.matches("modalViewing.help")
 
-const isModalViewingHelpSelector = (state) => state.matches("modalViewing.help")
-
-function ModalAbout({}: Props) {
+function ModalAbout() {
   const globalServices = useGlobalContext()
   const isModalViewingHelp = useSelector(
     globalServices.roomService,

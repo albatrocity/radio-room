@@ -1,7 +1,9 @@
 import React, { createContext } from "react"
 import { useInterpret, useSelector } from "@xstate/react"
+import { audioMachine } from "../machines/audioMachine"
 import { authMachine } from "../machines/authMachine"
 import { chatMachine } from "../machines/chatMachine"
+import { disclosureMachine } from "../machines/disclosureMachine"
 import { roomMachine } from "../machines/roomMachine"
 import { usersMachine } from "../machines/usersMachine"
 import { themeMachine } from "../machines/themeMachine"
@@ -11,7 +13,6 @@ import { allReactionsMachine } from "../machines/allReactionsMachine"
 import { ActorRefFrom } from "xstate"
 
 import socket from "../lib/socket"
-import { disclosureMachine } from "../machines/disclosureMachine"
 
 interface GlobalStateContextType {
   allReactionsService: ActorRefFrom<typeof allReactionsMachine>
@@ -23,6 +24,7 @@ interface GlobalStateContextType {
   roomService: ActorRefFrom<typeof roomMachine>
   themeService: ActorRefFrom<typeof themeMachine>
   usersService: ActorRefFrom<typeof usersMachine>
+  audioService: ActorRefFrom<typeof audioMachine>
 }
 
 export const GlobalStateContext = createContext(
@@ -77,6 +79,7 @@ export const GlobalStateProvider = (props: Props) => {
 
   const usersService = useInterpret(usersMachine)
   const allReactionsService = useInterpret(allReactionsMachine)
+  const audioService = useInterpret(audioMachine)
   const disclosureService = useInterpret(disclosureMachine, {
     context: {
       currentUser,
@@ -87,6 +90,7 @@ export const GlobalStateProvider = (props: Props) => {
     <GlobalStateContext.Provider
       value={{
         allReactionsService,
+        audioService,
         authService,
         bookmarkedChatService,
         chatService,

@@ -2,34 +2,40 @@ import { useSelector } from "@xstate/react"
 import React, { useCallback } from "react"
 import { ActorRefFrom } from "xstate"
 import { roomMachine } from "../../machines/roomMachine"
-import FormAddToQueue from "../FormAddToQueue"
+
+import FormAdminMeta from "../FormAdminMeta"
 import Modal from "../Modal"
 import useGlobalContext from "../useGlobalContext"
 
-const isAddingToQueueSelector = (
+const isEditingMetaSelector = (
   state: ActorRefFrom<typeof roomMachine>["state"],
-) => state.matches("connected.participating.editing.queue")
+) => state.matches("connected.participating.editing.meta")
 
-function ModalAddToQueue() {
+function ModalAdminMeta() {
   const globalServices = useGlobalContext()
-  const isAddingToQueue = useSelector(
+  const isEditingMeta = useSelector(
     globalServices.roomService,
-    isAddingToQueueSelector,
+    isEditingMetaSelector,
   )
+
   const hideEditForm = useCallback(
     () => globalServices.roomService.send("CLOSE_EDIT"),
-    [globalServices.roomService],
+    [globalServices],
   )
 
   return (
     <Modal
-      isOpen={isAddingToQueue}
+      isOpen={isEditingMeta}
       onClose={hideEditForm}
-      heading="Add to play queue"
+      heading="Set Station Info"
     >
-      <FormAddToQueue />
+      <FormAdminMeta
+        onSubmit={(value) =>
+          globalServices.roomService.send("FIX_META", { data: value })
+        }
+      />
     </Modal>
   )
 }
 
-export default ModalAddToQueue
+export default ModalAdminMeta

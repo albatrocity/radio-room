@@ -2,10 +2,16 @@ import React, { useCallback } from "react"
 import { useSelector } from "@xstate/react"
 import FormUsername from "../FormUsername"
 import useGlobalContext from "../useGlobalContext"
+import { roomMachine } from "../../machines/roomMachine"
+import { ActorRefFrom } from "xstate"
+import { authMachine } from "../../machines/authMachine"
 
-const isEditingUsernameSelector = (state) =>
-  state.matches("connected.participating.editing.username")
-const currentUserSelector = (state) => state.context.currentUser
+const isEditingUsernameSelector = (
+  state: ActorRefFrom<typeof roomMachine>["state"],
+) => state.matches("connected.participating.editing.username")
+const currentUserSelector = (
+  state: ActorRefFrom<typeof authMachine>["state"],
+) => state.context.currentUser
 
 function ModalEditUsername() {
   const globalServices = useGlobalContext()
