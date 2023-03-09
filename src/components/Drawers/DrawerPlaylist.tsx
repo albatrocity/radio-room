@@ -17,7 +17,7 @@ import useGlobalContext from "../useGlobalContext"
 import SelectablePlaylist from "../SelectablePlaylist"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
-import { useActor, useMachine, useSelector } from "@xstate/react"
+import { useMachine, useSelector } from "@xstate/react"
 
 function Controls({
   isEditing,
@@ -96,10 +96,11 @@ function DrawerPlaylist() {
   const [isEditing, { toggle, off }] = useBoolean(false)
   const [selected, setSelected] = useState<PlaylistItem[]>([])
   const [name, setName] = useState<string>(defaultPlaylistName)
-  const [roomState] = useActor(globalServices.roomService)
   const [state, send] = useMachine(savePlaylistMachine)
 
-  const isAdmin = roomState.matches("admin.isAdmin")
+  const isAdmin = useSelector(globalServices.roomService, (state) =>
+    state.matches("admin.isAdmin"),
+  )
   const isLoading = state.matches("loading")
 
   const handleSelectionChange = (collection: PlaylistItem[]) =>

@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, memo } from "react"
-import { useActor, useSelector } from "@xstate/react"
+import { useSelector } from "@xstate/react"
 import { Box, Container, Flex } from "@chakra-ui/react"
 import { kebabCase } from "lodash/fp"
 import { EmojiData } from "emoji-mart"
@@ -10,8 +10,6 @@ import RadioPlayer from "./RadioPlayer"
 import ReactionCounter from "./ReactionCounter"
 
 import { TrackMeta } from "../types/Track"
-import useCanDj from "./useCanDj"
-import { useAllReactions } from "../lib/useAllReactions"
 import { ActorRefFrom } from "xstate"
 import { audioMachine } from "../machines/audioMachine"
 
@@ -20,14 +18,6 @@ const isUnauthorizedSelector = (state) => state.matches("unauthorized")
 interface PlayerUiProps {
   onShowPlaylist: () => void
   hasPlaylist: boolean
-  onOpenReactionPicker: ({
-    ref,
-    reactTo,
-  }: {
-    ref: HTMLButtonElement
-    reactTo: string
-  }) => void
-  onReactionClick: (emoji: EmojiData) => void
   listenerCount: number
 }
 
@@ -42,19 +32,12 @@ const volumeSelector = (state: ActorRefFrom<typeof audioMachine>) =>
 const metaSelector = (state: ActorRefFrom<typeof audioMachine>) =>
   state.context.meta
 
-const PlayerUi = ({
-  onShowPlaylist,
-  hasPlaylist,
-  onOpenReactionPicker,
-  onReactionClick,
-  listenerCount,
-}: PlayerUiProps) => {
+const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const globalServices = useContext(GlobalStateContext)
   const isUnauthorized = useSelector(
     globalServices.authService,
     isUnauthorizedSelector,
   )
-  const allReactions = useAllReactions("track")
 
   const isOnline = useSelector(globalServices.audioService, isOnlineSelector)
   const playing = useSelector(globalServices.audioService, isPlayingSelector)
@@ -91,11 +74,7 @@ const PlayerUi = ({
       direction="column"
       height="100%"
     >
-      <NowPlaying
-        offline={!isOnline}
-        // offline={false}
-        meta={meta}
-      />
+      <NowPlaying offline={!isOnline} meta={meta} />
       {isOnline && (
         <Box
           display={["none", "flex"]}
@@ -123,9 +102,6 @@ const PlayerUi = ({
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}
           trackId={trackId}
-          onReactionClick={onReactionClick}
-          onOpenPicker={onOpenReactionPicker}
-          reactions={allReactions[trackId]}
         />
       )}
     </Flex>

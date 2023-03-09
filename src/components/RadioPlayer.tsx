@@ -1,4 +1,4 @@
-import React, { useRef, memo, ReactNode, useEffect } from "react"
+import React, { useRef, memo, useEffect } from "react"
 import {
   Box,
   Icon,
@@ -17,7 +17,6 @@ import { FiPlay, FiPause, FiVolume, FiVolumeX } from "react-icons/fi"
 import { RiPlayListFill } from "react-icons/ri"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
-import { EmojiData } from "emoji-mart"
 import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import { useHotkeys } from "react-hotkeys-hook"
@@ -32,8 +31,6 @@ interface RadioPlayerProps {
   onMute: () => void
   onShowPlaylist: () => void
   hasPlaylist: boolean
-  onReactionClick: (emoji: EmojiData) => void
-  reactions: {}[]
   trackId: string
 }
 
@@ -48,8 +45,6 @@ const RadioPlayer = ({
   onMute,
   onShowPlaylist,
   hasPlaylist,
-  onReactionClick,
-  reactions,
   trackId,
 }: RadioPlayerProps) => {
   const player = useRef(null)

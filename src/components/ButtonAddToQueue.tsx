@@ -15,7 +15,7 @@ function ButtonAddToQueue({ showText = true }: Props) {
 
   const onAddToQueue = useCallback(() => {
     globalServices.roomService.send("EDIT_QUEUE")
-  }, [globalServices])
+  }, [globalServices.roomService])
 
   if (!canDj) {
     return null

@@ -8,7 +8,7 @@ import useGlobalContext from "../useGlobalContext"
 
 const isModalViewingHelpSelector = (
   state: ActorRefFrom<typeof roomMachine>["state"],
-) => state.matches("modalViewing.help")
+) => state.matches("connected.participating.modalViewing.help")
 
 function ModalAbout() {
   const globalServices = useGlobalContext()

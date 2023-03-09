@@ -13,7 +13,6 @@ import KeyboardShortcuts from "./KeyboardShortcuts"
 
 const isEditingSelector = (state) =>
   state.matches("connected.participating.editing")
-
 const isAdminSelector = (state) => state.context.isAdmin
 const isNewUserSelector = (state) => state.context.isNewUser
 const playlistSelector = (state) => state.context.playlist
@@ -24,12 +23,9 @@ const Room = () => {
 
   const globalServices = useGlobalContext()
   const isEditing = useSelector(globalServices.roomService, isEditingSelector)
-
   const isNewUser = useSelector(globalServices.authService, isNewUserSelector)
   const isAdmin = useSelector(globalServices.authService, isAdminSelector)
-
   const playlist = useSelector(globalServices.playlistService, playlistSelector)
-
   const listeners = useSelector(globalServices.usersService, listenersSelector)
 
   useEffect(() => {
@@ -44,25 +40,9 @@ const Room = () => {
     }
   }, [isAdmin])
 
-  const onOpenReactionPicker = useCallback(
-    (reactTo: any) => {
-      globalServices.roomService.send("TOGGLE_REACTION_PICKER", {
-        reactTo,
-      })
-    },
-    [globalServices.roomService],
-  )
-
   const handleActivateAdmin = useCallback(
     () => globalServices.roomService.send("ACTIVATE_ADMIN"),
     [globalServices.roomService],
-  )
-
-  const toggleReaction = useCallback(
-    ({ reactTo, emoji }) => {
-      globalServices.roomService.send("SELECT_REACTION", { reactTo, emoji })
-    },
-    [globalServices],
   )
 
   return (
@@ -99,22 +79,13 @@ const Room = () => {
             onShowPlaylist={() =>
               globalServices.playlistService.send("TOGGLE_PLAYLIST")
             }
-            onShowListeners={() =>
-              globalServices.roomService.send("VIEW_LISTENERS")
-            }
             hasPlaylist={playlist.length > 0}
-            onReactionClick={toggleReaction}
-            onOpenReactionPicker={onOpenReactionPicker}
             listenerCount={listeners.length}
           />
         </GridItem>
 
         <GridItem area="chat" minHeight={0}>
-          <Chat
-            modalActive={isEditing}
-            onOpenReactionPicker={onOpenReactionPicker}
-            onReactionClick={toggleReaction}
-          />
+          <Chat modalActive={isEditing} />
         </GridItem>
         <GridItem area="sidebar" h="100%">
           <Show above="sm">

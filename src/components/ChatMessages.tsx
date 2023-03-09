@@ -6,7 +6,6 @@ import ScrollToBottom, {
   useScrollToBottom,
   useSticky,
 } from "react-scroll-to-bottom"
-import { EmojiData } from "emoji-mart"
 import styled from "@emotion/styled"
 
 import ChatMessage from "./ChatMessage"
@@ -25,16 +24,9 @@ const StyledScrollToBottom = styled(ScrollToBottom)`
 interface ScrollInnerProps {
   messages: ChatMessageType[]
   currentUserId: string
-  onOpenReactionPicker: () => void
-  onReactionClick: (emoji: EmojiData) => void
 }
 
-const ScrollInner = ({
-  messages,
-  currentUserId,
-  onOpenReactionPicker,
-  onReactionClick,
-}: ScrollInnerProps) => {
+const ScrollInner = ({ messages, currentUserId }: ScrollInnerProps) => {
   const scrollToBottom = useScrollToBottom()
   const [sticky] = useSticky()
   const [lastMessage, setLastMessage] = useState<ChatMessageType | null>(null)
@@ -69,8 +61,6 @@ const ScrollInner = ({
             key={x.timestamp}
             {...x}
             currentUserId={currentUserId}
-            onOpenReactionPicker={onOpenReactionPicker}
-            onReactionClick={onReactionClick}
             showUsername={!sameUserAsLastMessage}
             anotherUserMessage={sameUserAsNextMessage}
           />
