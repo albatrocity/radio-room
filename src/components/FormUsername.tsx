@@ -1,6 +1,15 @@
 import React from "react"
 import { Formik } from "formik"
-import { Button, Text, Stack, Input, HStack } from "@chakra-ui/react"
+import {
+  Button,
+  Text,
+  Stack,
+  Input,
+  HStack,
+  FormControl,
+  FormLabel,
+  FormHelperText,
+} from "@chakra-ui/react"
 import { User } from "../types/User"
 import Modal from "./Modal"
 import { ModalProps } from "@chakra-ui/react"
@@ -54,29 +63,30 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
         >
           <Stack spacing={2}>
             <form onSubmit={handleSubmit}>
-              <Text as="label" mb={2}>
-                What are we gonna call you in here?
-              </Text>
-              <Input
-                size="md"
-                onChange={handleChange}
-                onBlur={handleBlur}
-                p={2}
-                value={values.username}
-                placeholder={username}
-                name="username"
-                flex="grow"
-                autoFocus={true}
-                style={{
-                  borderTopRightRadius: 0,
-                  borderBottomRightRadius: 0,
-                }}
-              />
+              <FormControl>
+                <FormLabel>What are we gonna call you in here?</FormLabel>
+                <Input
+                  size="md"
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  p={2}
+                  value={values.username}
+                  placeholder={username}
+                  name="username"
+                  flex="grow"
+                  autoFocus={true}
+                  style={{
+                    borderTopRightRadius: 0,
+                    borderBottomRightRadius: 0,
+                  }}
+                />
+                <FormHelperText>
+                  None of the data used in this app is permanently stored or
+                  shared with any other service. This is a fun-making operation
+                  only.
+                </FormHelperText>
+              </FormControl>
             </form>
-            <Text color="blackAlpha.400" fontSize="xs">
-              None of the data used in this app is permanently stored or shared
-              with any other service. This is a fun-making operation only.
-            </Text>
           </Stack>
         </Modal>
       )}
