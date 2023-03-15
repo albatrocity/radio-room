@@ -244,7 +244,6 @@ export const roomMachine = createMachine(
       ),
       setArtwork: send(
         (_ctx, event) => {
-          console.log("set artwork", event.data)
           return {
             type: "set cover",
             data: event.data,
@@ -256,7 +255,6 @@ export const roomMachine = createMachine(
       ),
       setSettings: send(
         (_ctx, event) => {
-          console.log("event!", event)
           return {
             type: "settings",
             data: event.data,

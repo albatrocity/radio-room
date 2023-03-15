@@ -109,7 +109,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
               justify="center"
               flexGrow={1}
             >
-              {coverUrl ? (
+              {coverUrl && (
                 <Box
                   width={artworkSize}
                   height={artworkSize}
@@ -117,30 +117,32 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
                 >
                   <AlbumArtwork coverUrl={coverUrl} />
                 </Box>
-              ) : (
-                <Flex
-                  background="primaryBg"
-                  width={artworkSize}
-                  height={artworkSize}
-                  align="center"
-                  justify="center"
-                  flex={{ shrink: 0, grow: 1 }}
-                >
-                  <Icon as={FiMusic} boxSize={20} color="primary.500" />
-                </Flex>
               )}
               <VStack align={"start"} spacing={0}>
                 {(track || title) && (
-                  <LinkOverlay href={releaseUrl} isExternal={true}>
-                    <Heading
-                      color="primaryBg"
-                      margin="none"
-                      as="h3"
-                      size={["md", "lg"]}
-                    >
-                      {track || title.replace(/\|/g, "")}
-                    </Heading>
-                  </LinkOverlay>
+                  <>
+                    {releaseUrl ? (
+                      <LinkOverlay href={releaseUrl} isExternal={true}>
+                        <Heading
+                          color="primaryBg"
+                          margin="none"
+                          as="h3"
+                          size={["md", "lg"]}
+                        >
+                          {track || title.replace(/\|/g, "")}
+                        </Heading>
+                      </LinkOverlay>
+                    ) : (
+                      <Heading
+                        color="primaryBg"
+                        margin="none"
+                        as="h3"
+                        size={["md", "lg"]}
+                      >
+                        {track || title.replace(/\|/g, "")}
+                      </Heading>
+                    )}
+                  </>
                 )}
                 {artist && (
                   <Heading color="primaryBg" margin="none" as="h4" size="sm">
