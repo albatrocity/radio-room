@@ -8,7 +8,7 @@ import useGlobalContext from "../useGlobalContext"
 
 const listenersSelector = (state) => state.context.listeners
 const isModalViewingListenersSelector = (state) =>
-  state.matches("modalViewing.listeners")
+  state.matches("connected.participating.modalViewing.listeners")
 
 function DrawerListeners() {
   const globalServices = useGlobalContext()
