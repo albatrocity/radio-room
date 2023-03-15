@@ -61,16 +61,18 @@ const RadioPlayer = ({
   })
 
   useEffect(() => {
-    if (player.current && !playing) {
-      player.current.stop()
+    if (!!player.current && !player.current?.howler?.playing() && !playing) {
+      if (player.current.howlerState() === "loaded") {
+        player.current.howler?.stop()
+      }
     }
-  }, [playing, player])
+  }, [playing, player.current])
 
   const handleError = useCallback(() => {
-    if (playing) {
-      onPlayPause()
+    if (playing && player.current) {
+      player.current.howler?.stop()
     }
-  }, [playing])
+  }, [playing, player.current])
 
   return (
     <Box background="actionBgLite" py={1}>
@@ -155,6 +157,7 @@ const RadioPlayer = ({
         mute={muted}
         html5={true}
         ref={player}
+        pool={1}
         volume={parseFloat(volume)}
         onPlayError={handleError}
         onLoadError={handleError}

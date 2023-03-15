@@ -51,7 +51,7 @@ export const audioMachine = createMachine<Context>(
                   TOGGLE: "stopped",
                   META: [
                     {
-                      target: "playing",
+                      target: "playing.loaded",
                       actions: ["setMeta"],
                       cond: "hasBitrate",
                     },
@@ -71,21 +71,6 @@ export const audioMachine = createMachine<Context>(
                     },
                     { target: "#audio.offline", actions: ["setMeta"] },
                   ],
-                },
-              },
-            },
-          },
-          cover: {
-            initial: "found",
-            states: {
-              none: {
-                on: {
-                  TRY_COVER: "found",
-                },
-              },
-              found: {
-                on: {
-                  COVER_NOT_FOUND: "none",
                 },
               },
             },
