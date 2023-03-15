@@ -1,4 +1,4 @@
-import React, { useRef, memo, useEffect } from "react"
+import React, { useRef, memo, useEffect, useCallback } from "react"
 import {
   Box,
   Icon,
@@ -13,13 +13,14 @@ import {
   Container,
 } from "@chakra-ui/react"
 
-import { FiPlay, FiPause, FiVolume, FiVolumeX } from "react-icons/fi"
+import { FiVolume, FiVolumeX } from "react-icons/fi"
 import { RiPlayListFill } from "react-icons/ri"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
 import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import { useHotkeys } from "react-hotkeys-hook"
+import PlayStateIcon from "./PlayStateIcon"
 
 interface RadioPlayerProps {
   volume: number
@@ -30,8 +31,11 @@ interface RadioPlayerProps {
   onPlayPause: () => void
   onMute: () => void
   onShowPlaylist: () => void
+  onLoad: () => void
+  onPlay: () => void
   hasPlaylist: boolean
   trackId: string
+  loading: boolean
 }
 
 const streamURL = process.env.GATSBY_STREAM_URL
@@ -42,10 +46,13 @@ const RadioPlayer = ({
   muted,
   onVolume,
   onPlayPause,
+  onLoad,
+  onPlay,
   onMute,
   onShowPlaylist,
   hasPlaylist,
   trackId,
+  loading,
 }: RadioPlayerProps) => {
   const player = useRef(null)
 
@@ -58,6 +65,12 @@ const RadioPlayer = ({
       player.current.stop()
     }
   }, [playing, player])
+
+  const handleError = useCallback(() => {
+    if (playing) {
+      onPlayPause()
+    }
+  }, [playing])
 
   return (
     <Box background="actionBgLite" py={1}>
@@ -83,13 +96,7 @@ const RadioPlayer = ({
               size="md"
               aria-label={playing ? "Stop" : "Play"}
               variant="ghost"
-              icon={
-                playing ? (
-                  <Icon as={FiPause} boxSize={5} />
-                ) : (
-                  <Icon as={FiPlay} boxSize={5} />
-                )
-              }
+              icon={<PlayStateIcon loading={loading} playing={playing} />}
               onClick={() => onPlayPause()}
             />
             <IconButton
@@ -149,6 +156,12 @@ const RadioPlayer = ({
         html5={true}
         ref={player}
         volume={parseFloat(volume)}
+        onPlayError={handleError}
+        onLoadError={handleError}
+        onStop={handleError}
+        onEnd={handleError}
+        onPlay={onPlay}
+        onLoad={onLoad}
       />
     </Box>
   )

@@ -31,6 +31,8 @@ const volumeSelector = (state: ActorRefFrom<typeof audioMachine>) =>
   state.context.volume
 const metaSelector = (state: ActorRefFrom<typeof audioMachine>) =>
   state.context.meta
+const loadingSelector = (state: ActorRefFrom<typeof audioMachine>) =>
+  state.matches("online.progress.playing.loading")
 
 const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const globalServices = useContext(GlobalStateContext)
@@ -66,6 +68,16 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
     [globalServices.audioService],
   )
 
+  const handleLoad = useCallback(() => {
+    return globalServices.audioService.send("LOADED")
+  }, [globalServices.audioService])
+
+  const handlePlay = useCallback(() => {
+    return globalServices.audioService.send("PLAY")
+  }, [globalServices.audioService])
+
+  const loading = useSelector(globalServices.audioService, loadingSelector)
+
   return (
     <Flex
       sx={{
@@ -98,10 +110,13 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
           muted={muted}
           onVolume={handleVolume}
           onPlayPause={handlePlayPause}
+          onLoad={handleLoad}
+          onPlay={handlePlay}
           onMute={handleMute}
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}
           trackId={trackId}
+          loading={loading}
         />
       )}
     </Flex>

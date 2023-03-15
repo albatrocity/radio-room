@@ -37,6 +37,16 @@ export const audioMachine = createMachine<Context>(
             states: {
               playing: {
                 entry: ["startListening"],
+                initial: "loading",
+                states: {
+                  loading: {
+                    on: {
+                      LOADED: "loaded",
+                      PLAY: "loaded",
+                    },
+                  },
+                  loaded: {},
+                },
                 on: {
                   TOGGLE: "stopped",
                   META: [
