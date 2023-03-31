@@ -58,6 +58,7 @@ export interface Typegen0 {
       | "error.platform.setStoredUser"
       | "xstate.init"
     kickUser: "KICK_USER"
+    log: "TEST"
     login:
       | "SETUP"
       | "done.invoke.getStoredUser"

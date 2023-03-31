@@ -1,5 +1,5 @@
 import React, { createContext } from "react"
-import { useInterpret, useSelector } from "@xstate/react"
+import { useActor, useInterpret, useSelector } from "@xstate/react"
 import { audioMachine } from "../machines/audioMachine"
 import { authMachine } from "../machines/authMachine"
 import { chatMachine } from "../machines/chatMachine"
@@ -74,6 +74,9 @@ export const GlobalStateProvider = (props: Props) => {
       },
     },
   })
+
+  const [state] = useActor(authService)
+  console.log(state)
 
   const usersService = useInterpret(usersMachine)
   const allReactionsService = useInterpret(allReactionsMachine)

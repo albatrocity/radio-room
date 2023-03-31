@@ -8,6 +8,7 @@ type Callback = ({ type: string, data: {} }) => void
 
 function socketService(callback: Callback, receive) {
   socket.on("event", async function (e: SocketEvent) {
+    console.log("EVENT", e)
     if (socket.disconnected) {
       await socket.connect()
     }

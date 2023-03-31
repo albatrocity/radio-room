@@ -66,6 +66,9 @@ export const authMachine = createMachine(
       unauthenticated: {
         entry: ["getStoredPassword", "checkPasswordRequirement"],
         on: {
+          TEST: {
+            actions: ["log"],
+          },
           SET_PASSWORD_REQUIREMENT: [
             { target: "initiated", cond: "passwordAccepted" },
             { target: "unauthorized", cond: "requiresPassword" },
@@ -186,6 +189,9 @@ export const authMachine = createMachine(
   },
   {
     actions: {
+      log: (ctx, event) => {
+        console.log("log", event)
+      },
       setCurrentUser: assign((ctx, event) => {
         return {
           currentUser: event.data.currentUser,
@@ -200,6 +206,7 @@ export const authMachine = createMachine(
       }),
       login: send(
         (ctx, event) => {
+          console.log("DO LOGIN")
           return {
             type: "login",
             data: { ...ctx.currentUser, password: ctx.password },
