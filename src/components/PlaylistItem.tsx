@@ -1,20 +1,39 @@
 import React, { useMemo } from "react"
 import { format } from "date-fns"
-import { Stack, LinkBox, LinkOverlay, Text, Image, Box } from "@chakra-ui/react"
+import {
+  Stack,
+  LinkBox,
+  LinkOverlay,
+  Text,
+  Icon,
+  Image,
+  Box,
+} from "@chakra-ui/react"
 
 import { PlaylistItem as PlaylistItemType } from "../types/PlaylistItem"
+import useGlobalContext from "./useGlobalContext"
+import { useSelector } from "@xstate/react"
+import { FiUser } from "react-icons/fi"
 
 type Props = {
   item: PlaylistItemType
 }
 
 function PlaylistItem({ item }: Props) {
+  const globalServices = useGlobalContext()
   const artThumb = useMemo(
     () =>
       (item.spotifyData?.artworkImages || []).find(({ width }) => width < 200)
         ?.url,
     [item.spotifyData],
   )
+  const djUsername = useSelector(
+    globalServices.usersService,
+    (state) =>
+      state.context.users.find((x) => x.userId === item.dj?.userId)?.username ||
+      item.dj?.username,
+  )
+
   return (
     <Stack
       key={item.timestamp.toString()}
@@ -43,15 +62,28 @@ function PlaylistItem({ item }: Props) {
       <Stack
         direction={["row", "column"]}
         justifyContent={["space-between", "space-around"]}
+        align="end"
       >
-        <Text color="secondaryText" fontSize="xs">
+        <Text color="secondaryText" fontSize="xs" textAlign="right">
           {format(item.timestamp, "p")}
         </Text>
         {item.dj && (
-          <Text color="secondaryText" fontSize="xs">
-            {" "}
-            {item.dj.username}
-          </Text>
+          <Stack
+            direction="row"
+            spacing={2}
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Icon boxSize={3} color="secondaryText" as={FiUser} />
+            <Text as="i" fontSize="xs" color="secondaryText">
+              Added by {djUsername}
+            </Text>
+          </Stack>
+          // <Text color="secondaryText" fontSize="xs">
+          //   {" "}
+          //   <Icon color="primaryBg" boxSize={3} as={FiUser} />
+          //   {djUsername || item.dj.username}
+          // </Text>
         )}
       </Stack>
     </Stack>
