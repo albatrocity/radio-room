@@ -22,6 +22,16 @@ const FormAddToQueue = ({}: Props) => {
           position: "top",
         })
       },
+      onQueueFailure: (_context, event) => {
+        toast({
+          title: `Track was not added`,
+          description: event.data?.message || "Something went wrong",
+          status: "error",
+          duration: 4000,
+          isClosable: true,
+          position: "top",
+        })
+      },
     },
   })
   const handleSelect = (track: SingleValue<SpotifyTrack>) => {

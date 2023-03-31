@@ -19,6 +19,7 @@ export const spotifyQueueMachine = createMachine<Context>(
         actions: ["setQueuedTrack", "sendToQueue"],
       },
       SONG_QUEUED: { actions: ["onQueued"] },
+      SONG_QUEUE_FAILURE: { actions: ["onQueueFailure"] },
     },
     invoke: [
       {
