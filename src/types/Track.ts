@@ -8,5 +8,5 @@ export interface TrackMeta {
   release: any
   cover: string
   title: string
-  dj: Pick<User, "userId" | "username">
+  dj: Pick<User, "userId" | "username"> | null
 }

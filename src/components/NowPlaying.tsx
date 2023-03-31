@@ -63,8 +63,10 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
 
   const djUsername = useMemo(
     () =>
-      users.find(({ userId }) => userId === dj.userId)?.username ??
-      dj?.username,
+      dj
+        ? users.find(({ userId }) => userId === dj.userId)?.username ??
+          dj?.username
+        : null,
     [users, dj],
   )
 

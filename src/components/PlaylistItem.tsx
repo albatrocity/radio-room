@@ -79,11 +79,6 @@ function PlaylistItem({ item }: Props) {
               Added by {djUsername}
             </Text>
           </Stack>
-          // <Text color="secondaryText" fontSize="xs">
-          //   {" "}
-          //   <Icon color="primaryBg" boxSize={3} as={FiUser} />
-          //   {djUsername || item.dj.username}
-          // </Text>
         )}
       </Stack>
     </Stack>
