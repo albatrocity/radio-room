@@ -3,6 +3,7 @@ import { Box, Button, Icon } from "@chakra-ui/react"
 import { FiArrowDown } from "react-icons/fi"
 import { get, sortBy, isEqual } from "lodash/fp"
 import ScrollToBottom, {
+  useScrollTo,
   useScrollToBottom,
   useSticky,
 } from "react-scroll-to-bottom"
@@ -28,6 +29,7 @@ interface ScrollInnerProps {
 
 const ScrollInner = ({ messages, currentUserId }: ScrollInnerProps) => {
   const scrollToBottom = useScrollToBottom()
+  const scrollTo = useScrollTo()
   const [sticky] = useSticky()
   const [lastMessage, setLastMessage] = useState<ChatMessageType | null>(null)
 
@@ -37,6 +39,9 @@ const ScrollInner = ({ messages, currentUserId }: ScrollInnerProps) => {
     }
     if (!sticky && !lastMessage) {
       setLastMessage(messages[messages.length - 1])
+    }
+    if (messages.length === 60 && sticky) {
+      scrollTo("100%")
     }
   }, [sticky, messages])
 
@@ -69,7 +74,7 @@ const ScrollInner = ({ messages, currentUserId }: ScrollInnerProps) => {
       {!sticky && (
         <Box style={{ position: "absolute", right: "10px", bottom: "1em" }}>
           <Button
-            onClick={() => scrollToBottom({ behavior: "smooth" })}
+            onClick={() => scrollToBottom("smooth")}
             rightIcon={<Icon as={FiArrowDown} boxSize={4} />}
           >
             Scroll to bottom
@@ -90,7 +95,10 @@ const ChatMessages = ({
   const sortedMessages = sortBy("timestamp", messages)
 
   return (
-    <StyledScrollToBottom followButtonClassName="default-scroll-button">
+    <StyledScrollToBottom
+      followButtonClassName="default-scroll-button"
+      initialScrollBehavior="auto"
+    >
       <ScrollInner messages={sortedMessages} {...rest} />
     </StyledScrollToBottom>
   )

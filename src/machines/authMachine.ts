@@ -206,7 +206,6 @@ export const authMachine = createMachine(
       }),
       login: send(
         (ctx, event) => {
-          console.log("DO LOGIN")
           return {
             type: "login",
             data: { ...ctx.currentUser, password: ctx.password },

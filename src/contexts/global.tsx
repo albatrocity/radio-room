@@ -76,7 +76,6 @@ export const GlobalStateProvider = (props: Props) => {
   })
 
   const [state] = useActor(authService)
-  console.log(state)
 
   const usersService = useInterpret(usersMachine)
   const allReactionsService = useInterpret(allReactionsMachine)

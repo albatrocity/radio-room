@@ -28,7 +28,6 @@ function DrawerListeners() {
   )
 
   const handleEditUser = useCallback(() => {
-    console.log("edit")
     return globalServices.roomService.send("EDIT_USERNAME")
   }, [globalServices.roomService])
 
