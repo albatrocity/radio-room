@@ -7,6 +7,7 @@ import grapefruit from "./grapefruit"
 import raspberry from "./raspberry"
 import banana from "./banana"
 import plum from "./plum"
+import strawberry from "./strawberry"
 
 const themes: Record<string, AppTheme> = {
   defaultTheme,
@@ -17,6 +18,7 @@ const themes: Record<string, AppTheme> = {
   raspberry,
   banana,
   plum,
+  strawberry,
 }
 
 export default themes
