@@ -1,4 +1,4 @@
-import { send, createMachine } from "xstate"
+import { sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 
 export const roomMachine = createMachine(
@@ -220,50 +220,30 @@ export const roomMachine = createMachine(
       },
     },
     actions: {
-      deputizeDj: send(
-        (_ctx, event) => {
-          return {
-            type: "dj deputize user",
-            data: event.userId,
-          }
-        },
-        {
-          to: "socket",
-        },
-      ),
-      fixMeta: send(
-        (_ctx, event) => {
-          return {
-            type: "fix meta",
-            data: event.data,
-          }
-        },
-        {
-          to: "socket",
-        },
-      ),
-      setArtwork: send(
-        (_ctx, event) => {
-          return {
-            type: "set cover",
-            data: event.data,
-          }
-        },
-        {
-          to: "socket",
-        },
-      ),
-      setSettings: send(
-        (_ctx, event) => {
-          return {
-            type: "settings",
-            data: event.data,
-          }
-        },
-        {
-          to: "socket",
-        },
-      ),
+      deputizeDj: sendTo("socket", (_ctx, event) => {
+        return {
+          type: "dj deputize user",
+          data: event.userId,
+        }
+      }),
+      fixMeta: sendTo("socket", (_ctx, event) => {
+        return {
+          type: "fix meta",
+          data: event.data,
+        }
+      }),
+      setArtwork: sendTo("socket", (_ctx, event) => {
+        return {
+          type: "set cover",
+          data: event.data,
+        }
+      }),
+      setSettings: sendTo("socket", (_ctx, event) => {
+        return {
+          type: "settings",
+          data: event.data,
+        }
+      }),
     },
   },
 )
