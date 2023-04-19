@@ -1,5 +1,4 @@
 import React, {
-  useContext,
   useEffect,
   useRef,
   useState,
@@ -15,7 +14,6 @@ import {
   Box,
   IconButton,
   Flex,
-  HStack,
   Icon,
   Spacer,
   Text,
@@ -26,11 +24,11 @@ import { FiArrowUpCircle } from "react-icons/fi"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
 
-import { GlobalStateContext } from "../contexts/global"
-import { useSelector } from "@xstate/react"
 import { User } from "../types/User"
 import MentionSuggestionsContainer from "./MentionSuggestionsContainer"
 import { ChatMessage } from "../types/ChatMessage"
+import { useCurrentUser } from "../state/authStore"
+import { useUsers } from "../state/usersStore"
 
 const renderUserSuggestion = (
   suggestion,
@@ -117,10 +115,6 @@ const Input = memo(
     </MentionsInput>
   ),
 )
-
-const currentUserSelector = (state) => state.context.currentUser
-const usersSelector = (state) => state.context.users
-
 interface Props {
   onTypingStart: () => void
   onTypingStop: () => void
@@ -134,13 +128,8 @@ const ChatInput = ({
   onSend,
   modalActive,
 }: Props) => {
-  const globalServices = useContext(GlobalStateContext)
-
-  const currentUser = useSelector(
-    globalServices.usersService,
-    currentUserSelector,
-  )
-  const users = useSelector(globalServices.usersService, usersSelector)
+  const currentUser = useCurrentUser()
+  const users = useUsers()
 
   const inputRef = useRef<ReactPortal>()
   const [isTyping, setTyping] = useState(false)

@@ -13,10 +13,10 @@ import KeyboardShortcuts from "./KeyboardShortcuts"
 
 import { useAuthStore } from "../state/authStore"
 import { useCurrentPlaylist, usePlaylistStore } from "../state/playlistStore"
+import { useListeners } from "../state/usersStore"
 
 const isEditingSelector = (state) =>
   state.matches("connected.participating.editing")
-const listenersSelector = (state) => state.context.listeners
 
 const Room = () => {
   const [sizeXs] = useToken("sizes", ["xs"])
@@ -29,7 +29,7 @@ const Room = () => {
   const isNewUser = authContext.isNewUser
   const isAdmin = authContext.isAdmin
   const playlist = useCurrentPlaylist()
-  const listeners = useSelector(globalServices.usersService, listenersSelector)
+  const listeners = useListeners()
 
   useEffect(() => {
     if (isNewUser) {

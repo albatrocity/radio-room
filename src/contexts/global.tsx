@@ -2,7 +2,6 @@ import React, { createContext } from "react"
 import { useInterpret } from "@xstate/react"
 import { audioMachine } from "../machines/audioMachine"
 import { roomMachine } from "../machines/roomMachine"
-import { usersMachine } from "../machines/usersMachine"
 import { toggleableCollectionMachine } from "../machines/toggleableCollectionMachine"
 import { ActorRefFrom } from "xstate"
 
@@ -13,7 +12,6 @@ import socket from "../lib/socket"
 interface GlobalStateContextType {
   bookmarkedChatService: ActorRefFrom<typeof toggleableCollectionMachine>
   roomService: ActorRefFrom<typeof roomMachine>
-  usersService: ActorRefFrom<typeof usersMachine>
   audioService: ActorRefFrom<typeof audioMachine>
 }
 
@@ -61,7 +59,6 @@ export const GlobalStateProvider = (props: Props) => {
     },
   })
 
-  const usersService = useInterpret(usersMachine)
   const audioService = useInterpret(audioMachine)
 
   return (
@@ -70,7 +67,6 @@ export const GlobalStateProvider = (props: Props) => {
         audioService,
         bookmarkedChatService,
         roomService,
-        usersService,
       }}
     >
       {props.children}

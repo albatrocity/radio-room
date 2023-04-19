@@ -11,27 +11,24 @@ import {
 } from "@chakra-ui/react"
 
 import { PlaylistItem as PlaylistItemType } from "../types/PlaylistItem"
-import useGlobalContext from "./useGlobalContext"
-import { useSelector } from "@xstate/react"
 import { FiUser } from "react-icons/fi"
+import { useUsersStore } from "../state/usersStore"
 
 type Props = {
   item: PlaylistItemType
 }
 
 function PlaylistItem({ item }: Props) {
-  const globalServices = useGlobalContext()
   const artThumb = useMemo(
     () =>
       (item.spotifyData?.artworkImages || []).find(({ width }) => width < 200)
         ?.url,
     [item.spotifyData],
   )
-  const djUsername = useSelector(
-    globalServices.usersService,
-    (state) =>
-      state.context.users.find((x) => x.userId === item.dj?.userId)?.username ||
-      item.dj?.username,
+  const djUsername = useUsersStore(
+    (s) =>
+      s.state.context.users.find((x) => x.userId === item.dj?.userId)
+        ?.username || item.dj?.username,
   )
 
   return (

@@ -1,10 +1,9 @@
 import React, { memo, useMemo } from "react"
-import { FiUser, FiMusic } from "react-icons/fi"
+import { FiUser } from "react-icons/fi"
 import {
   BoxProps,
   Box,
   Heading,
-  Flex,
   Text,
   HStack,
   LinkBox,
@@ -15,18 +14,15 @@ import {
   Hide,
   Show,
 } from "@chakra-ui/react"
-import { useSelector } from "@xstate/react"
-import { ActorRefFrom } from "xstate"
 
 import AlbumArtwork from "./AlbumArtwork"
 
 import safeDate from "../lib/safeDate"
 import { TrackMeta } from "../types/Track"
 import ButtonListeners from "./ButtonListeners"
-import useGlobalContext from "./useGlobalContext"
 import ButtonAddToQueue from "./ButtonAddToQueue"
-import { usersMachine } from "../machines/usersMachine"
 import { User } from "../types/User"
+import { useUsers } from "../state/usersStore"
 
 interface NowPlayingProps extends BoxProps {
   offline: boolean
@@ -46,12 +42,8 @@ function getCoverUrl(release: any, meta: TrackMeta, mbid?: string) {
   return null
 }
 
-const usersSelector = (state: ActorRefFrom<typeof usersMachine>["state"]) =>
-  state.context.users
-
 const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
-  const globalServices = useGlobalContext()
-  const users: User[] = useSelector(globalServices.usersService, usersSelector)
+  const users: User[] = useUsers()
   const {
     album,
     artist,

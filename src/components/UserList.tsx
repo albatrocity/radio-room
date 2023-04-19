@@ -1,20 +1,17 @@
-import React, { memo, useContext } from "react"
-import { useMachine, useSelector } from "@xstate/react"
+import React, { memo } from "react"
+import { useMachine } from "@xstate/react"
 import { get, isEqual, find, reverse, reject } from "lodash/fp"
 import { Box, Text, Heading, HStack, List, VStack } from "@chakra-ui/react"
 
 import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
-import { GlobalStateContext } from "../contexts/global"
 
 import { useCurrentUser, useAuthStore } from "../state/authStore"
 
-const listenersSelector = (state) => state.context.listeners
-const djSelector = (state) => state.context.dj
-
 import { User } from "../types/User"
 import { EditIcon } from "@chakra-ui/icons"
+import { useDj, useListeners } from "../state/usersStore"
 
 interface UserListProps {
   onEditUser: (user: User) => void
@@ -27,13 +24,12 @@ const UserList = ({
   onEditSettings,
   showHeading = true,
 }: UserListProps) => {
-  const globalServices = useContext(GlobalStateContext)
   const [typingState] = useMachine(typingMachine)
 
   const { send: authSend } = useAuthStore()
   const currentUser = useCurrentUser()
-  const listeners = useSelector(globalServices.usersService, listenersSelector)
-  const dj = useSelector(globalServices.usersService, djSelector)
+  const listeners = useListeners()
+  const dj = useDj()
 
   const {
     context: { typing },

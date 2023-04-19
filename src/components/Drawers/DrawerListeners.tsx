@@ -5,14 +5,14 @@ import { useSelector } from "@xstate/react"
 import UserList from "../UserList"
 import Drawer from "../Drawer"
 import useGlobalContext from "../useGlobalContext"
+import { useListeners } from "../../state/usersStore"
 
-const listenersSelector = (state) => state.context.listeners
 const isModalViewingListenersSelector = (state) =>
   state.matches("connected.participating.modalViewing.listeners")
 
 function DrawerListeners() {
   const globalServices = useGlobalContext()
-  const listeners = useSelector(globalServices.usersService, listenersSelector)
+  const listeners = useListeners()
   const isModalViewingListeners = useSelector(
     globalServices.roomService,
     isModalViewingListenersSelector,

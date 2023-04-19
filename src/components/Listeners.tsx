@@ -1,10 +1,9 @@
 import React, { memo, useCallback } from "react"
-import { useSelector } from "@xstate/react"
 import { Box, Button, Show, Flex } from "@chakra-ui/react"
 
 import UserList from "./UserList"
 import { User } from "../types/User"
-import useGlobalContext from "./useGlobalContext"
+import { useListeners } from "../state/usersStore"
 
 interface ListenersProps {
   onViewListeners: (showListeners: boolean) => void
@@ -12,18 +11,12 @@ interface ListenersProps {
   onEditSettings: () => void
 }
 
-const listenerCountSelector = (state) => state.context.listeners.length
-
 const Listeners = ({
   onViewListeners,
   onEditUser,
   onEditSettings,
 }: ListenersProps) => {
-  const globalServices = useGlobalContext()
-  const listenerCount = useSelector(
-    globalServices.usersService,
-    listenerCountSelector,
-  )
+  const listenerCount = useListeners().length
 
   const handleListeners = useCallback(() => {
     onViewListeners(true)
