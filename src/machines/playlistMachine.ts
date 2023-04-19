@@ -1,9 +1,9 @@
 import { assign, createMachine } from "xstate"
 import socketService from "../lib/socketService"
-import { TrackMeta } from "../types/Track"
+import { PlaylistItem } from "../types/PlaylistItem"
 
 interface Context {
-  playlist: TrackMeta[]
+  playlist: PlaylistItem[]
 }
 
 export const playlistMachine = createMachine<Context>(

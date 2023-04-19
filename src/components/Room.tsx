@@ -12,22 +12,23 @@ import useGlobalContext from "./useGlobalContext"
 import KeyboardShortcuts from "./KeyboardShortcuts"
 
 import { useAuthStore } from "../state/authStore"
+import { useCurrentPlaylist, usePlaylistStore } from "../state/playlistStore"
 
 const isEditingSelector = (state) =>
   state.matches("connected.participating.editing")
-const playlistSelector = (state) => state.context.playlist
 const listenersSelector = (state) => state.context.listeners
 
 const Room = () => {
   const [sizeXs] = useToken("sizes", ["xs"])
 
   const authContext = useAuthStore((s) => s.state.context)
+  const { send: playlistSend } = usePlaylistStore()
 
   const globalServices = useGlobalContext()
   const isEditing = useSelector(globalServices.roomService, isEditingSelector)
   const isNewUser = authContext.isNewUser
   const isAdmin = authContext.isAdmin
-  const playlist = useSelector(globalServices.playlistService, playlistSelector)
+  const playlist = useCurrentPlaylist()
   const listeners = useSelector(globalServices.usersService, listenersSelector)
 
   useEffect(() => {
@@ -78,9 +79,7 @@ const Room = () => {
           flexShrink={1}
         >
           <PlayerUi
-            onShowPlaylist={() =>
-              globalServices.playlistService.send("TOGGLE_PLAYLIST")
-            }
+            onShowPlaylist={() => playlistSend("TOGGLE_PLAYLIST")}
             hasPlaylist={playlist.length > 0}
             listenerCount={listeners.length}
           />

@@ -3,7 +3,6 @@ import { useInterpret } from "@xstate/react"
 import { audioMachine } from "../machines/audioMachine"
 import { roomMachine } from "../machines/roomMachine"
 import { usersMachine } from "../machines/usersMachine"
-import { playlistMachine } from "../machines/playlistMachine"
 import { toggleableCollectionMachine } from "../machines/toggleableCollectionMachine"
 import { ActorRefFrom } from "xstate"
 
@@ -13,7 +12,6 @@ import socket from "../lib/socket"
 
 interface GlobalStateContextType {
   bookmarkedChatService: ActorRefFrom<typeof toggleableCollectionMachine>
-  playlistService: ActorRefFrom<typeof playlistMachine>
   roomService: ActorRefFrom<typeof roomMachine>
   usersService: ActorRefFrom<typeof usersMachine>
   audioService: ActorRefFrom<typeof audioMachine>
@@ -39,7 +37,6 @@ export const GlobalStateProvider = (props: Props) => {
       persistent: true,
     },
   })
-  const playlistService = useInterpret(playlistMachine)
 
   const roomService = useInterpret(roomMachine, {
     guards: {
@@ -72,7 +69,6 @@ export const GlobalStateProvider = (props: Props) => {
       value={{
         audioService,
         bookmarkedChatService,
-        playlistService,
         roomService,
         usersService,
       }}

@@ -18,6 +18,7 @@ import SelectablePlaylist from "../SelectablePlaylist"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
 import { useMachine, useSelector } from "@xstate/react"
+import { usePlaylistStore } from "../../state/playlistStore"
 
 function Controls({
   isEditing,
@@ -80,15 +81,11 @@ function Controls({
   )
 }
 
-const playlistActiveSelector = (state) => state.matches("active")
-
 function DrawerPlaylist() {
   const globalServices = useGlobalContext()
 
-  const isOpen = useSelector(
-    globalServices.playlistService,
-    playlistActiveSelector,
-  )
+  const { send: playlistSend } = usePlaylistStore()
+  const isOpen = usePlaylistStore((s) => s.state.matches("active"))
   const toast = useToast()
   const defaultPlaylistName = useConst(
     () => `Radio Playlist ${format(new Date(), "M/d/y")}`,
@@ -107,8 +104,8 @@ function DrawerPlaylist() {
     setSelected(collection)
   const handleNameChange = (name: string) => setName(name)
   const handleTogglePlaylist = useCallback(
-    () => globalServices.playlistService.send("TOGGLE_PLAYLIST"),
-    [globalServices.playlistService],
+    () => playlistSend("TOGGLE_PLAYLIST"),
+    [playlistSend],
   )
   const handleSave = useCallback(() => {
     send("ADMIN_SAVE_PLAYLIST", {
