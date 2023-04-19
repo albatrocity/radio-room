@@ -11,7 +11,7 @@ import {
   SESSION_ADMIN,
 } from "../constants"
 
-export function getCurrentUser(un: string) {
+export function getCurrentUser(un?: string) {
   const isNewUser = !session.getItem(SESSION_ID)
   const userId = session.getItem(SESSION_ID) || uuidv4()
   const isAdmin = session.getItem(SESSION_ADMIN) === "true"

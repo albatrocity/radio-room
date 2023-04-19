@@ -14,8 +14,6 @@ import { useCurrentTheme, useThemeStore } from "../state/themeStore"
 const ThemedLayout = ({ children }: { children: JSX.Element }) => {
   const chosenThemeId = useCurrentTheme()
   const t = useThemeStore()
-  console.log(t)
-  console.log("chosenThemeId", chosenThemeId)
 
   const chosenTheme = themes[chosenThemeId] ?? {}
 
