@@ -12,8 +12,7 @@ import ReactionCounter from "./ReactionCounter"
 import { TrackMeta } from "../types/Track"
 import { ActorRefFrom } from "xstate"
 import { audioMachine } from "../machines/audioMachine"
-
-const isUnauthorizedSelector = (state) => state.matches("unauthorized")
+import { useAuthStore } from "../state/authStore"
 
 interface PlayerUiProps {
   onShowPlaylist: () => void
@@ -35,11 +34,9 @@ const loadingSelector = (state: ActorRefFrom<typeof audioMachine>) =>
   state.matches("online.progress.playing.loading")
 
 const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
+  const { state: authState } = useAuthStore()
   const globalServices = useContext(GlobalStateContext)
-  const isUnauthorized = useSelector(
-    globalServices.authService,
-    isUnauthorizedSelector,
-  )
+  const isUnauthorized = authState.matches("unauthorized")
 
   const isOnline = useSelector(globalServices.audioService, isOnlineSelector)
   const playing = useSelector(globalServices.audioService, isPlayingSelector)

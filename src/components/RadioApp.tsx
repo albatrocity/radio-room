@@ -1,27 +1,28 @@
-import React, { useContext, useEffect } from "react"
+import React, { useEffect } from "react"
 import data from "@emoji-mart/data"
 import { init } from "emoji-mart"
 import { Flex } from "@chakra-ui/react"
 import { usePageVisibility } from "react-page-visibility"
 
-import { GlobalStateContext } from "../contexts/global"
+import { useAuthStore } from "../state/authStore"
 import Room from "./Room"
 init({ data })
 
 const RadioApp = () => {
   const isVisible = usePageVisibility()
-  const globalServices = useContext(GlobalStateContext)
+
+  const { send } = useAuthStore()
 
   useEffect(() => {
-    globalServices.authService.send("SETUP")
+    send("SETUP")
     return () => {
-      globalServices.authService.send("USER_DISCONNECTED")
+      send("USER_DISCONNECTED")
     }
-  }, [globalServices.authService])
+  }, [send])
 
   useEffect(() => {
     if (isVisible) {
-      globalServices.authService.send("SETUP")
+      send("SETUP")
     }
   }, [isVisible])
 

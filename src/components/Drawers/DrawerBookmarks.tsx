@@ -8,13 +8,14 @@ import Drawer from "../Drawer"
 import useGlobalContext from "../useGlobalContext"
 import ConfirmationDialog from "../ConfirmationDialog"
 
-const isAdminSelector = (state) => state.context.isAdmin
+import { useAuthStore } from "../../state/authStore"
+
 const isModalViewingBookmarksSelector = (state) =>
   state.matches("connected.participating.editing.bookmarks")
 
 const DrawerBookmarks = () => {
   const globalServices = useGlobalContext()
-  const isAdmin = useSelector(globalServices.authService, isAdminSelector)
+  const isAdmin = useAuthStore((s) => s.state.context.isAdmin)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const isModalViewingBookmarks = useSelector(
     globalServices.roomService,

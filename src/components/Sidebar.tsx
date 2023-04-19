@@ -1,25 +1,16 @@
 import React from "react"
 import { Box, Stack, Flex, IconButton, Icon, Show } from "@chakra-ui/react"
-import { useSelector } from "@xstate/react"
 import { FiHelpCircle } from "react-icons/fi"
 import Listeners from "./Listeners"
 import useGlobalContext from "./useGlobalContext"
 import AdminPanel from "./AdminPanel"
 
-type Props = {}
+import { useAuthStore } from "../state/authStore"
 
-const isUnauthorizedSelector = (state) => state.matches("unauthorized")
-const isAdminSelector = (state) => state.context.isAdmin
-
-const Sidebar = (props: Props) => {
+const Sidebar = () => {
   const globalServices = useGlobalContext()
-
-  const isUnauthorized = useSelector(
-    globalServices.authService,
-    isUnauthorizedSelector,
-  )
-
-  const isAdmin = useSelector(globalServices.authService, isAdminSelector)
+  const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
+  const isAdmin = useAuthStore((s) => s.state.context.isAdmin)
 
   return (
     <Box

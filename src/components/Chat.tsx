@@ -1,35 +1,23 @@
 import React, { memo } from "react"
-import { useMachine, useSelector } from "@xstate/react"
+import { useMachine } from "@xstate/react"
 import { Box, Grid, GridItem, HStack } from "@chakra-ui/react"
 
 import ChatMessages from "./ChatMessages"
 import ChatInput from "./ChatInput"
 import TypingIndicator from "./TypingIndicator"
 import { chatMachine } from "../machines/chatMachine"
-import { AuthContext } from "../machines/authMachine"
 import { ChatMessage } from "../types/ChatMessage"
-import { User } from "../types/User"
-import useGlobalContext from "./useGlobalContext"
 import PopoverPreferences from "./PopoverPreferences"
 
-const currentUserSelector = (state: { context: AuthContext }): User =>
-  state.context.currentUser
-const isUnauthorizedSelector = (state) => state.matches("unauthorized")
+import { useAuthStore, useCurrentUser } from "../state/authStore"
 
 interface ChatProps {
   modalActive: boolean
 }
 
 const Chat = ({ modalActive }: ChatProps) => {
-  const globalServices = useGlobalContext()
-  const currentUser = useSelector(
-    globalServices.authService,
-    currentUserSelector,
-  )
-  const isUnauthorized = useSelector(
-    globalServices.authService,
-    isUnauthorizedSelector,
-  )
+  const currentUser = useCurrentUser()
+  const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
   const [chatState, chatSend] = useMachine(chatMachine, {
     context: { currentUser },
   })

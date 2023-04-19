@@ -1,7 +1,6 @@
 import React, { createContext } from "react"
-import { useActor, useInterpret, useSelector } from "@xstate/react"
+import { useInterpret } from "@xstate/react"
 import { audioMachine } from "../machines/audioMachine"
-import { authMachine } from "../machines/authMachine"
 import { chatMachine } from "../machines/chatMachine"
 import { roomMachine } from "../machines/roomMachine"
 import { usersMachine } from "../machines/usersMachine"
@@ -11,11 +10,12 @@ import { toggleableCollectionMachine } from "../machines/toggleableCollectionMac
 import { allReactionsMachine } from "../machines/allReactionsMachine"
 import { ActorRefFrom } from "xstate"
 
+import { useCurrentUser, useAuthStore } from "../state/authStore"
+
 import socket from "../lib/socket"
 
 interface GlobalStateContextType {
   allReactionsService: ActorRefFrom<typeof allReactionsMachine>
-  authService: ActorRefFrom<typeof authMachine>
   bookmarkedChatService: ActorRefFrom<typeof toggleableCollectionMachine>
   chatService: ActorRefFrom<typeof chatMachine>
   playlistService: ActorRefFrom<typeof playlistMachine>
@@ -31,14 +31,13 @@ export const GlobalStateContext = createContext(
   {} as GlobalStateContextType,
 )
 
-const currentUserSelector = (state) => state.context.currentUser
-
 interface Props {
   children: JSX.Element
 }
 
 export const GlobalStateProvider = (props: Props) => {
-  const authService = useInterpret(authMachine, {})
+  const { send: authSend } = useAuthStore()
+  const currentUser = useCurrentUser()
   const chatService = useInterpret(chatMachine)
   const bookmarkedChatService = useInterpret(toggleableCollectionMachine, {
     context: {
@@ -50,12 +49,10 @@ export const GlobalStateProvider = (props: Props) => {
   const themeService = useInterpret(themeMachine)
   const playlistService = useInterpret(playlistMachine)
 
-  const currentUser = useSelector(authService, currentUserSelector)
-
   const roomService = useInterpret(roomMachine, {
     guards: {
       isAdmin: () => {
-        return currentUser.isAdmin
+        return !!currentUser.isAdmin
       },
     },
     actions: {
@@ -67,15 +64,13 @@ export const GlobalStateProvider = (props: Props) => {
         }
       },
       adminActivated: () => {
-        authService.send("ACTIVATE_ADMIN")
+        authSend("ACTIVATE_ADMIN")
       },
       clearPlaylist: () => {
         socket.emit("clear playlist")
       },
     },
   })
-
-  const [state] = useActor(authService)
 
   const usersService = useInterpret(usersMachine)
   const allReactionsService = useInterpret(allReactionsMachine)
@@ -86,7 +81,6 @@ export const GlobalStateProvider = (props: Props) => {
       value={{
         allReactionsService,
         audioService,
-        authService,
         bookmarkedChatService,
         chatService,
         playlistService,

@@ -24,6 +24,8 @@ import Timestamp from "./Timestamp"
 import useGlobalContext from "./useGlobalContext"
 import { useSelector } from "@xstate/react"
 
+import { useAuthStore } from "../state/authStore"
+
 const MotionBox = motion(Box)
 
 export interface ChatMessageProps {
@@ -57,10 +59,8 @@ const ChatMessage = ({
 }: ChatMessageProps) => {
   const [parsedImageUrls, setParsedImageUrls] = useState<string[]>([])
   const globalServices = useGlobalContext()
-  const currentIsAdmin = useSelector(
-    globalServices.authService,
-    (state) => state.context.isAdmin,
-  )
+  const currentIsAdmin = useAuthStore((s) => s.state.context.isAdmin)
+
   const isBookmarked = useSelector(
     globalServices.bookmarkedChatService,
     (state) => !!state.context.collection.find(({ id }) => id === timestamp),

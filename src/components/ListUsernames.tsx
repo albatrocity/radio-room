@@ -5,16 +5,14 @@ import { useSelector } from "@xstate/react"
 import { GlobalStateContext } from "../contexts/global"
 import { User } from "../types/User"
 
+import { useCurrentUser } from "../state/authStore"
+
 const usersSelector = (state) => state.context.users
-const currentUserSelector = (state) => state.context.currentUser
 
 const ListUsernames = ({ ids }: { ids: User["userId"][] }) => {
   const globalServices = useContext(GlobalStateContext)
   const users: User[] = useSelector(globalServices.usersService, usersSelector)
-  const currentUser = useSelector(
-    globalServices.authService,
-    currentUserSelector,
-  )
+  const currentUser = useCurrentUser()
   const usernames = compact(
     users
       .filter((x: User) => ids.indexOf(x.userId) > -1)

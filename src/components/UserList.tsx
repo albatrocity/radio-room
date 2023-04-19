@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useContext } from "react"
+import React, { memo, useContext } from "react"
 import { useMachine, useSelector } from "@xstate/react"
 import { get, isEqual, find, reverse, reject } from "lodash/fp"
 import { Box, Text, Heading, HStack, List, VStack } from "@chakra-ui/react"
@@ -7,10 +7,9 @@ import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { GlobalStateContext } from "../contexts/global"
-import { AuthContext } from "../machines/authMachine"
 
-const currentUserSelector = (state: { context: AuthContext }) =>
-  state.context.currentUser
+import { useCurrentUser, useAuthStore } from "../state/authStore"
+
 const listenersSelector = (state) => state.context.listeners
 const djSelector = (state) => state.context.dj
 
@@ -31,10 +30,8 @@ const UserList = ({
   const globalServices = useContext(GlobalStateContext)
   const [typingState] = useMachine(typingMachine)
 
-  const currentUser = useSelector(
-    globalServices.authService,
-    currentUserSelector,
-  )
+  const { send: authSend } = useAuthStore()
+  const currentUser = useCurrentUser()
   const listeners = useSelector(globalServices.usersService, listenersSelector)
   const dj = useSelector(globalServices.usersService, djSelector)
 
@@ -122,10 +119,10 @@ const UserList = ({
                   currentUser={currentUser}
                   onEditUser={onEditUser}
                   onKickUser={(userId: User["userId"]) =>
-                    globalServices.authService.send("KICK_USER", { userId })
+                    authSend("KICK_USER", { userId })
                   }
                   onDeputizeDj={(userId: User["userId"]) => {
-                    globalServices.roomService.send("DEPUTIZE_DJ", { userId })
+                    authSend("DEPUTIZE_DJ", { userId })
                   }}
                 />
               )

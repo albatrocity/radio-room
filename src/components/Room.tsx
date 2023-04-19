@@ -11,20 +11,22 @@ import Overlays from "./Overlays"
 import useGlobalContext from "./useGlobalContext"
 import KeyboardShortcuts from "./KeyboardShortcuts"
 
+import { useAuthStore } from "../state/authStore"
+
 const isEditingSelector = (state) =>
   state.matches("connected.participating.editing")
-const isAdminSelector = (state) => state.context.isAdmin
-const isNewUserSelector = (state) => state.context.isNewUser
 const playlistSelector = (state) => state.context.playlist
 const listenersSelector = (state) => state.context.listeners
 
 const Room = () => {
   const [sizeXs] = useToken("sizes", ["xs"])
 
+  const authContext = useAuthStore((s) => s.state.context)
+
   const globalServices = useGlobalContext()
   const isEditing = useSelector(globalServices.roomService, isEditingSelector)
-  const isNewUser = useSelector(globalServices.authService, isNewUserSelector)
-  const isAdmin = useSelector(globalServices.authService, isAdminSelector)
+  const isNewUser = authContext.isNewUser
+  const isAdmin = authContext.isAdmin
   const playlist = useSelector(globalServices.playlistService, playlistSelector)
   const listeners = useSelector(globalServices.usersService, listenersSelector)
 

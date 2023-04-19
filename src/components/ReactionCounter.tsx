@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useRef,
 } from "react"
-import { useMachine, useSelector } from "@xstate/react"
+import { useMachine } from "@xstate/react"
 import { groupBy } from "lodash/fp"
 import { FiPlus, FiSmile } from "react-icons/fi"
 import {
@@ -34,6 +34,8 @@ import { EmojiData } from "emoji-mart"
 import { ReactionSubject } from "../types/ReactionSubject"
 import { useAllReactions } from "../lib/useAllReactions"
 
+import { useCurrentUser } from "../state/authStore"
+
 interface ReactionAddButtonProps {
   reactTo: ReactionSubject
   buttonVariant?: ButtonProps["variant"]
@@ -41,9 +43,6 @@ interface ReactionAddButtonProps {
   disabled?: boolean
   showAddButton?: boolean
 }
-
-const currentUserSelector = (state: { context: AuthContext }) =>
-  state.context.currentUser
 
 interface ReactionCounterProps extends ReactionAddButtonProps {
   showAddButton?: boolean
@@ -59,10 +58,7 @@ const ReactionCounter = ({
   const pickerRef: MutableRefObject<HTMLDivElement | null> =
     useRef<HTMLDivElement | null>(null)
   const globalServices = useContext(GlobalStateContext)
-  const currentUser = useSelector(
-    globalServices.authService,
-    currentUserSelector,
-  )
+  const currentUser = useCurrentUser()
   const allReactions = useAllReactions(reactTo.type, reactTo.id)
 
   const autoFocus = useBreakpointValue(
