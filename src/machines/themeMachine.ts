@@ -1,7 +1,12 @@
-import { Machine, assign } from "xstate"
+import { createMachine, assign } from "xstate"
 import session from "sessionstorage"
+import { AppTheme } from "../types/AppTheme"
 
-export const themeMachine = Machine(
+interface Context {
+  theme: AppTheme["id"]
+}
+
+export const themeMachine = createMachine<Context>(
   {
     id: "theme",
     context: {
@@ -17,13 +22,13 @@ export const themeMachine = Machine(
   {
     actions: {
       setTheme: assign({
-        theme: (context, event) => event.theme,
+        theme: (_context, event) => event.theme,
       }),
       persistTheme: (context) => {
         session.setItem("theme", context.theme)
       },
       loadTheme: assign({
-        theme: (context) => session.getItem("theme") || "default",
+        theme: () => session.getItem("theme") || "default",
       }),
     },
   },

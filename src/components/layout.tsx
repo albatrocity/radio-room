@@ -1,24 +1,21 @@
 import React from "react"
 import { ChakraProvider, extendTheme } from "@chakra-ui/react"
-import { useSelector } from "@xstate/react"
 import PropTypes from "prop-types"
 import Div100vh from "react-div-100vh"
 
 import baseTheme from "../@chakra-ui/gatsby-plugin/theme"
-import useGlobalContext from "./useGlobalContext"
 
 import "./layout.css"
 import { GlobalStateProvider } from "../contexts/global"
 import themes from "../themes"
 
-const ThemedLayout = ({ children }: { children: JSX.Element }) => {
-  const selectedTheme = themes[0]
-  const globalServices = useGlobalContext()
+import { useCurrentTheme, useThemeStore } from "../state/themeStore"
 
-  const chosenThemeId = useSelector(
-    globalServices.themeService,
-    (state) => state.context.theme,
-  )
+const ThemedLayout = ({ children }: { children: JSX.Element }) => {
+  const chosenThemeId = useCurrentTheme()
+  const t = useThemeStore()
+  console.log(t)
+  console.log("chosenThemeId", chosenThemeId)
 
   const chosenTheme = themes[chosenThemeId] ?? {}
 
