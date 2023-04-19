@@ -1,7 +1,6 @@
 import React, { createContext } from "react"
 import { useInterpret } from "@xstate/react"
 import { audioMachine } from "../machines/audioMachine"
-import { chatMachine } from "../machines/chatMachine"
 import { roomMachine } from "../machines/roomMachine"
 import { usersMachine } from "../machines/usersMachine"
 import { themeMachine } from "../machines/themeMachine"
@@ -17,7 +16,6 @@ import socket from "../lib/socket"
 interface GlobalStateContextType {
   allReactionsService: ActorRefFrom<typeof allReactionsMachine>
   bookmarkedChatService: ActorRefFrom<typeof toggleableCollectionMachine>
-  chatService: ActorRefFrom<typeof chatMachine>
   playlistService: ActorRefFrom<typeof playlistMachine>
   roomService: ActorRefFrom<typeof roomMachine>
   themeService: ActorRefFrom<typeof themeMachine>
@@ -38,7 +36,6 @@ interface Props {
 export const GlobalStateProvider = (props: Props) => {
   const { send: authSend } = useAuthStore()
   const currentUser = useCurrentUser()
-  const chatService = useInterpret(chatMachine)
   const bookmarkedChatService = useInterpret(toggleableCollectionMachine, {
     context: {
       name: "bookmarks",
@@ -82,7 +79,6 @@ export const GlobalStateProvider = (props: Props) => {
         allReactionsService,
         audioService,
         bookmarkedChatService,
-        chatService,
         playlistService,
         roomService,
         themeService,
