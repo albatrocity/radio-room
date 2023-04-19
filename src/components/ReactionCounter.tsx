@@ -1,10 +1,4 @@
-import React, {
-  memo,
-  MutableRefObject,
-  useContext,
-  useEffect,
-  useRef,
-} from "react"
+import React, { memo, MutableRefObject, useEffect, useRef } from "react"
 import { useMachine } from "@xstate/react"
 import { groupBy } from "lodash/fp"
 import { FiPlus, FiSmile } from "react-icons/fi"
@@ -28,11 +22,9 @@ import { motion } from "framer-motion"
 import { reactionsMachine } from "../machines/reactionsMachine"
 import ReactionCounterItem from "./ReactionCounterItem"
 import ReactionPicker from "./ReactionPicker"
-import { GlobalStateContext } from "../contexts/global"
-import { AuthContext } from "../machines/authMachine"
 import { EmojiData } from "emoji-mart"
 import { ReactionSubject } from "../types/ReactionSubject"
-import { useAllReactions } from "../lib/useAllReactions"
+import { useAllReactionsOf } from "../state/reactionsStore"
 
 import { useCurrentUser } from "../state/authStore"
 
@@ -57,9 +49,9 @@ const ReactionCounter = ({
 }: ReactionCounterProps) => {
   const pickerRef: MutableRefObject<HTMLDivElement | null> =
     useRef<HTMLDivElement | null>(null)
-  const globalServices = useContext(GlobalStateContext)
+
   const currentUser = useCurrentUser()
-  const allReactions = useAllReactions(reactTo.type, reactTo.id)
+  const allReactions = useAllReactionsOf(reactTo.type, reactTo.id)
 
   const autoFocus = useBreakpointValue(
     {

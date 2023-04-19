@@ -6,7 +6,6 @@ import { usersMachine } from "../machines/usersMachine"
 import { themeMachine } from "../machines/themeMachine"
 import { playlistMachine } from "../machines/playlistMachine"
 import { toggleableCollectionMachine } from "../machines/toggleableCollectionMachine"
-import { allReactionsMachine } from "../machines/allReactionsMachine"
 import { ActorRefFrom } from "xstate"
 
 import { useCurrentUser, useAuthStore } from "../state/authStore"
@@ -14,7 +13,6 @@ import { useCurrentUser, useAuthStore } from "../state/authStore"
 import socket from "../lib/socket"
 
 interface GlobalStateContextType {
-  allReactionsService: ActorRefFrom<typeof allReactionsMachine>
   bookmarkedChatService: ActorRefFrom<typeof toggleableCollectionMachine>
   playlistService: ActorRefFrom<typeof playlistMachine>
   roomService: ActorRefFrom<typeof roomMachine>
@@ -70,13 +68,11 @@ export const GlobalStateProvider = (props: Props) => {
   })
 
   const usersService = useInterpret(usersMachine)
-  const allReactionsService = useInterpret(allReactionsMachine)
   const audioService = useInterpret(audioMachine)
 
   return (
     <GlobalStateContext.Provider
       value={{
-        allReactionsService,
         audioService,
         bookmarkedChatService,
         playlistService,
