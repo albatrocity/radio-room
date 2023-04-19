@@ -1,6 +1,5 @@
 import React, { createContext } from "react"
 import { useInterpret } from "@xstate/react"
-import { audioMachine } from "../machines/audioMachine"
 import { roomMachine } from "../machines/roomMachine"
 import { ActorRefFrom } from "xstate"
 
@@ -10,7 +9,6 @@ import socket from "../lib/socket"
 
 interface GlobalStateContextType {
   roomService: ActorRefFrom<typeof roomMachine>
-  audioService: ActorRefFrom<typeof audioMachine>
 }
 
 export const GlobalStateContext = createContext(
@@ -50,12 +48,9 @@ export const GlobalStateProvider = (props: Props) => {
     },
   })
 
-  const audioService = useInterpret(audioMachine)
-
   return (
     <GlobalStateContext.Provider
       value={{
-        audioService,
         roomService,
       }}
     >
