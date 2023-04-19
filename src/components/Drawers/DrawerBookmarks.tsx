@@ -9,6 +9,10 @@ import useGlobalContext from "../useGlobalContext"
 import ConfirmationDialog from "../ConfirmationDialog"
 
 import { useAuthStore } from "../../state/authStore"
+import {
+  useBookmarkedChatStore,
+  useBookmarks,
+} from "../../state/bookmarkedChatStore"
 
 const isModalViewingBookmarksSelector = (state) =>
   state.matches("connected.participating.editing.bookmarks")
@@ -21,18 +25,16 @@ const DrawerBookmarks = () => {
     globalServices.roomService,
     isModalViewingBookmarksSelector,
   )
-  const messages = useSelector(
-    globalServices.bookmarkedChatService,
-    (state) => state.context.collection,
-  )
+  const { send: bookmarkSend } = useBookmarkedChatStore()
+  const messages = useBookmarks()
 
   const hideBookmarks = useCallback(
     () => globalServices.roomService.send("CLOSE_EDIT"),
     [globalServices],
   )
   const clearBookmarks = useCallback(
-    () => globalServices.bookmarkedChatService.send("CLEAR"),
-    [globalServices],
+    () => bookmarkSend("CLEAR"),
+    [bookmarkSend],
   )
 
   if (!isAdmin) return null

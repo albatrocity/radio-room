@@ -2,7 +2,6 @@ import React, { createContext } from "react"
 import { useInterpret } from "@xstate/react"
 import { audioMachine } from "../machines/audioMachine"
 import { roomMachine } from "../machines/roomMachine"
-import { toggleableCollectionMachine } from "../machines/toggleableCollectionMachine"
 import { ActorRefFrom } from "xstate"
 
 import { useCurrentUser, useAuthStore } from "../state/authStore"
@@ -10,7 +9,6 @@ import { useCurrentUser, useAuthStore } from "../state/authStore"
 import socket from "../lib/socket"
 
 interface GlobalStateContextType {
-  bookmarkedChatService: ActorRefFrom<typeof toggleableCollectionMachine>
   roomService: ActorRefFrom<typeof roomMachine>
   audioService: ActorRefFrom<typeof audioMachine>
 }
@@ -28,13 +26,6 @@ interface Props {
 export const GlobalStateProvider = (props: Props) => {
   const { send: authSend } = useAuthStore()
   const currentUser = useCurrentUser()
-  const bookmarkedChatService = useInterpret(toggleableCollectionMachine, {
-    context: {
-      name: "bookmarks",
-      idPath: "id",
-      persistent: true,
-    },
-  })
 
   const roomService = useInterpret(roomMachine, {
     guards: {
@@ -65,7 +56,6 @@ export const GlobalStateProvider = (props: Props) => {
     <GlobalStateContext.Provider
       value={{
         audioService,
-        bookmarkedChatService,
         roomService,
       }}
     >

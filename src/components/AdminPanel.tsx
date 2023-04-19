@@ -13,13 +13,7 @@ import {
   useColorModeValue,
 } from "@chakra-ui/react"
 
-import {
-  FiSettings,
-  FiList,
-  FiImage,
-  FiMessageSquare,
-  FiBookmark,
-} from "react-icons/fi"
+import { FiSettings, FiList, FiImage, FiBookmark } from "react-icons/fi"
 import { BiMessageRoundedMinus } from "react-icons/bi"
 import { useSelector } from "@xstate/react"
 import useGlobalContext from "./useGlobalContext"
@@ -27,6 +21,7 @@ import ConfirmationDialog from "./ConfirmationDialog"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 
 import { useChatStore } from "../state/chatStore"
+import { useBookmarks } from "../state/bookmarkedChatStore"
 
 type Props = {}
 
@@ -38,10 +33,7 @@ function AdminPanel({}: Props) {
   const globalServices = useGlobalContext()
   const isDj = useSelector(globalServices.roomService, isDjSelector)
   const isNotDj = useSelector(globalServices.roomService, isNotDjSelector)
-  const bookmarks = useSelector(
-    globalServices.bookmarkedChatService,
-    (state) => state.context.collection,
-  )
+  const bookmarks = useBookmarks()
   const { isOpen, onOpen, onClose } = useDisclosure()
   const buttonColorScheme = useColorModeValue("whiteAlpha", undefined)
 

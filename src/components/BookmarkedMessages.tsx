@@ -1,20 +1,14 @@
 import React from "react"
 import { Box } from "@chakra-ui/react"
-import { useSelector } from "@xstate/react"
 import { ChatMessage as ChatMessageType } from "../types/ChatMessage"
 import ChatMessage from "./ChatMessage"
-import useGlobalContext from "./useGlobalContext"
 
 import { useCurrentUser } from "../state/authStore"
+import { useBookmarks } from "../state/bookmarkedChatStore"
 
 const BookmarkedMessages = () => {
-  const globalServices = useGlobalContext()
   const currentUser = useCurrentUser()
-
-  const messages = useSelector(
-    globalServices.bookmarkedChatService,
-    (state) => state.context.collection,
-  )
+  const messages = useBookmarks()
 
   return (
     <Box>

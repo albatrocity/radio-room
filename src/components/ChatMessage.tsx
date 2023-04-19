@@ -21,10 +21,12 @@ import ReactionCounter from "./ReactionCounter"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { User } from "../types/User"
 import Timestamp from "./Timestamp"
-import useGlobalContext from "./useGlobalContext"
-import { useSelector } from "@xstate/react"
 
 import { useAuthStore } from "../state/authStore"
+import {
+  useBookmarkedChatStore,
+  useBookmarks,
+} from "../state/bookmarkedChatStore"
 
 const MotionBox = motion(Box)
 
@@ -58,13 +60,9 @@ const ChatMessage = ({
   anotherUserMessage = false,
 }: ChatMessageProps) => {
   const [parsedImageUrls, setParsedImageUrls] = useState<string[]>([])
-  const globalServices = useGlobalContext()
   const currentIsAdmin = useAuthStore((s) => s.state.context.isAdmin)
-
-  const isBookmarked = useSelector(
-    globalServices.bookmarkedChatService,
-    (state) => !!state.context.collection.find(({ id }) => id === timestamp),
-  )
+  const { send: bookmarkSend } = useBookmarkedChatStore()
+  const isBookmarked = useBookmarks().find(({ id }) => id === timestamp)
 
   const [hovered, setHovered] = useState(false)
   const alwaysShowReactionPicker = useBreakpointValue({
@@ -82,7 +80,7 @@ const ChatMessage = ({
   const parsedContent = images.reduce((mem, x) => mem.replace(x, ""), content)
 
   const handleBookmark = useCallback(() => {
-    globalServices.bookmarkedChatService.send("TOGGLE_MESSAGE", {
+    bookmarkSend("TOGGLE_MESSAGE", {
       data: {
         id: timestamp,
         timestamp,
@@ -91,7 +89,7 @@ const ChatMessage = ({
         mentions,
       },
     })
-  }, [globalServices.bookmarkedChatService])
+  }, [bookmarkSend])
 
   useEffect(() => {
     async function testUrls() {
@@ -200,7 +198,6 @@ const ChatMessage = ({
                   <IconButton
                     aria-label="Bookmark message"
                     colorScheme="primary"
-                    variant="ghost"
                     icon={<Icon as={FiBookmark} />}
                     variant={isBookmarked ? "solid" : "ghost"}
                     size="xs"
