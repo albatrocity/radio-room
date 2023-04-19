@@ -26,12 +26,15 @@ import useGlobalContext from "./useGlobalContext"
 import ConfirmationDialog from "./ConfirmationDialog"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 
+import { useChatStore } from "../state/chatStore"
+
 type Props = {}
 
 const isDjSelector = (state) => state.matches("djaying.isDj")
 const isNotDjSelector = (state) => state.matches("djaying.notDj")
 
 function AdminPanel({}: Props) {
+  const { send: chatSend } = useChatStore()
   const globalServices = useGlobalContext()
   const isDj = useSelector(globalServices.roomService, isDjSelector)
   const isNotDj = useSelector(globalServices.roomService, isNotDjSelector)
@@ -53,7 +56,7 @@ function AdminPanel({}: Props) {
         isOpen={isOpen}
         onClose={onClose}
         onConfirm={() => {
-          globalServices.chatService.send("CLEAR_MESSAGES")
+          chatSend("CLEAR_MESSAGES")
           onClose()
         }}
         isDangerous={true}

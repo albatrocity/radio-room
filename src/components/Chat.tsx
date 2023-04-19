@@ -1,15 +1,14 @@
-import React, { memo } from "react"
-import { useMachine } from "@xstate/react"
+import React, { memo, useEffect } from "react"
 import { Box, Grid, GridItem, HStack } from "@chakra-ui/react"
 
 import ChatMessages from "./ChatMessages"
 import ChatInput from "./ChatInput"
 import TypingIndicator from "./TypingIndicator"
-import { chatMachine } from "../machines/chatMachine"
 import { ChatMessage } from "../types/ChatMessage"
 import PopoverPreferences from "./PopoverPreferences"
 
 import { useAuthStore, useCurrentUser } from "../state/authStore"
+import { useChatStore } from "../state/chatStore"
 
 interface ChatProps {
   modalActive: boolean
@@ -18,9 +17,11 @@ interface ChatProps {
 const Chat = ({ modalActive }: ChatProps) => {
   const currentUser = useCurrentUser()
   const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
-  const [chatState, chatSend] = useMachine(chatMachine, {
-    context: { currentUser },
-  })
+  const { send: chatSend } = useChatStore()
+  const messages = useChatStore((s) => s.state.context.messages)
+  useEffect(() => {
+    chatSend("SET_CURRENT_USER", { data: currentUser })
+  }, [currentUser])
   const currentUserId = currentUser.userId
 
   return (
@@ -47,11 +48,8 @@ const Chat = ({ modalActive }: ChatProps) => {
         minHeight={0}
       >
         <Box h="100%" w="100%" className="messages-container">
-          {(chatState.context?.messages || []).length > 0 && (
-            <ChatMessages
-              messages={chatState.context.messages}
-              currentUserId={currentUserId}
-            />
+          {messages.length > 0 && (
+            <ChatMessages messages={messages} currentUserId={currentUserId} />
           )}
         </Box>
       </GridItem>

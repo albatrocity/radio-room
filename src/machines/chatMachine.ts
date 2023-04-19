@@ -38,6 +38,9 @@ export const chatMachine = createMachine<Context>(
       CLEAR_MESSAGES: {
         actions: ["clearMessages"],
       },
+      SET_CURRENT_USER: {
+        actions: ["setCurrentUser"],
+      },
     },
     invoke: [
       {
