@@ -9,6 +9,7 @@ interface Context {
 
 export const settingsMachine = createMachine<Context>(
   {
+    predictableActionArguments: true,
     id: "settings",
     initial: "pending",
     context: {

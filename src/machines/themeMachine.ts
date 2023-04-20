@@ -8,6 +8,7 @@ interface Context {
 
 export const themeMachine = createMachine<Context>(
   {
+    predictableActionArguments: true,
     id: "theme",
     context: {
       theme: "default",

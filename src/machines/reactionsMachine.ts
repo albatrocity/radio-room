@@ -13,6 +13,7 @@ interface Context {
 
 export const reactionsMachine = createMachine<Context>(
   {
+    predictableActionArguments: true,
     id: "reactions",
     initial: "closed",
     context: {
