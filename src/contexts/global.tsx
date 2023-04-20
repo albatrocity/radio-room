@@ -3,7 +3,7 @@ import { useInterpret } from "@xstate/react"
 import { roomMachine } from "../machines/roomMachine"
 import { ActorRefFrom } from "xstate"
 
-import { useCurrentUser, useAuthStore } from "../state/authStore"
+import { useCurrentUser } from "../state/authStore"
 
 import socket from "../lib/socket"
 
@@ -22,7 +22,6 @@ interface Props {
 }
 
 export const GlobalStateProvider = (props: Props) => {
-  const { send: authSend } = useAuthStore()
   const currentUser = useCurrentUser()
 
   const roomService = useInterpret(roomMachine, {
@@ -38,12 +37,6 @@ export const GlobalStateProvider = (props: Props) => {
         } else {
           socket.emit("set DJ", null)
         }
-      },
-      adminActivated: () => {
-        authSend("ACTIVATE_ADMIN")
-      },
-      clearPlaylist: () => {
-        socket.emit("clear playlist")
       },
     },
   })

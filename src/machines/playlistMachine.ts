@@ -13,6 +13,12 @@ export const playlistMachine = createMachine<Context>(
     context: {
       playlist: [],
     },
+    invoke: [
+      {
+        id: "socket",
+        src: () => socketService,
+      },
+    ],
     on: {
       INIT: {
         actions: ["setData"],
@@ -21,12 +27,6 @@ export const playlistMachine = createMachine<Context>(
         actions: ["setPlaylist"],
       },
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
     initial: "inactive",
     states: {
       active: {

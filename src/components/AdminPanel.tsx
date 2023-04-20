@@ -23,6 +23,7 @@ import ButtonAddToQueue from "./ButtonAddToQueue"
 import { useChatStore } from "../state/chatStore"
 import { useBookmarks } from "../state/bookmarkedChatStore"
 import { useModalsStore } from "../state/modalsState"
+import { useAdminStore } from "../state/adminStore"
 
 type Props = {}
 
@@ -31,6 +32,7 @@ const isNotDjSelector = (state) => state.matches("djaying.notDj")
 
 function AdminPanel({}: Props) {
   const { send: chatSend } = useChatStore()
+  const { send: adminSend } = useAdminStore()
   const globalServices = useGlobalContext()
   const isDj = useSelector(globalServices.roomService, isDjSelector)
   const isNotDj = useSelector(globalServices.roomService, isNotDjSelector)
@@ -149,7 +151,7 @@ function AdminPanel({}: Props) {
                   "Are you sure you want to clear the playlist? This cannot be undone.",
                 )
                 if (confirmation) {
-                  globalServices.roomService.send("ADMIN_CLEAR_PLAYLIST")
+                  adminSend("CLEAR_PLAYLIST")
                 }
               }}
             >

@@ -29,6 +29,7 @@ import MentionSuggestionsContainer from "./MentionSuggestionsContainer"
 import { ChatMessage } from "../types/ChatMessage"
 import { useCurrentUser } from "../state/authStore"
 import { useUsers } from "../state/usersStore"
+import { useModalsStore } from "../state/modalsState"
 
 const renderUserSuggestion = (
   suggestion,
@@ -119,15 +120,9 @@ interface Props {
   onTypingStart: () => void
   onTypingStop: () => void
   onSend: (value: ChatMessage) => void
-  modalActive: boolean
 }
 
-const ChatInput = ({
-  onTypingStart,
-  onTypingStop,
-  onSend,
-  modalActive,
-}: Props) => {
+const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
   const currentUser = useCurrentUser()
   const users = useUsers()
 
@@ -138,6 +133,7 @@ const ChatInput = ({
   const [borderColor] = useToken("colors", ["secondaryBorder"])
   const [inputBackground] = useToken("colors", ["secondaryBg"])
   const [space1] = useToken("space", [1.5])
+  const modalActive = useModalsStore((s) => !s.state.matches("closed"))
 
   const handleTypingStop = useCallback(
     debounce(() => {

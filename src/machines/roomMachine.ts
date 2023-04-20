@@ -6,14 +6,6 @@ export const roomMachine = createMachine(
     predictableActionArguments: true,
     id: "room",
     initial: "connected",
-    on: {
-      LOGIN: {
-        actions: ["setData"],
-      },
-      INIT: {
-        actions: ["setData"],
-      },
-    },
     invoke: [
       {
         id: "socket",
@@ -28,21 +20,13 @@ export const roomMachine = createMachine(
         states: {
           isAdmin: {
             on: {
-              DEACTIVATE_ADMIN: "notAdmin",
               DEPUTIZE_DJ: {
                 target: ".",
                 actions: ["deputizeDj"],
               },
             },
           },
-          notAdmin: {
-            on: {
-              ACTIVATE_ADMIN: {
-                target: "isAdmin",
-                actions: ["adminActivated"],
-              },
-            },
-          },
+          notAdmin: {},
         },
       },
       djaying: {
@@ -121,9 +105,9 @@ export const roomMachine = createMachine(
                           in: "#room.admin.notAdmin",
                         },
                       ],
-                      FIX_META: {
-                        actions: ["fixMeta"],
-                      },
+                      // FIX_META: {
+                      //   actions: ["fixMeta"],
+                      // },
                     },
                   },
                   artwork: {
@@ -134,9 +118,6 @@ export const roomMachine = createMachine(
                           in: "#room.admin.notAdmin",
                         },
                       ],
-                      SET_COVER: {
-                        actions: ["setArtwork"],
-                      },
                     },
                   },
                   bookmarks: {
@@ -157,9 +138,9 @@ export const roomMachine = createMachine(
                           in: "#room.admin.notAdmin",
                         },
                       ],
-                      SET_SETTINGS: {
-                        actions: ["setSettings"],
-                      },
+                      // SET_SETTINGS: {
+                      //   actions: ["setSettings"],
+                      // },
                     },
                   },
                   listenerSettings: {},

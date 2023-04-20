@@ -1,12 +1,12 @@
 import React from "react"
 
 import FormAdminSettings from "../FormAdminSettings"
-import useGlobalContext from "../useGlobalContext"
 import { useModalsStore } from "../../state/modalsState"
+import { useAdminStore } from "../../state/adminStore"
 
 function ModalAdminSettings() {
-  const globalServices = useGlobalContext()
   const { send } = useModalsStore()
+  const { send: adminSend } = useAdminStore()
   const isEditingSettings = useModalsStore((s) => s.state.matches("settings"))
 
   const hideEditForm = () => send("CLOSE")
@@ -16,7 +16,7 @@ function ModalAdminSettings() {
       isOpen={isEditingSettings}
       onClose={hideEditForm}
       onSubmit={(value) => {
-        globalServices.roomService.send("SET_SETTINGS", { data: value })
+        adminSend("SET_SETTINGS", { data: value })
       }}
     />
   )

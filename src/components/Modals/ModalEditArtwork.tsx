@@ -1,12 +1,12 @@
 import React from "react"
 
 import FormAdminArtwork from "../FormAdminArtwork"
-import useGlobalContext from "../useGlobalContext"
 import { useModalsStore } from "../../state/modalsState"
+import { useAdminStore } from "../../state/adminStore"
 
 function ModalEditArtwork() {
-  const globalServices = useGlobalContext()
   const { send } = useModalsStore()
+  const { send: adminSend } = useAdminStore()
   const isEditingArtwork = useModalsStore((s) => s.state.matches("artwork"))
 
   const hideEditForm = () => send("CLOSE")
@@ -14,9 +14,7 @@ function ModalEditArtwork() {
   return (
     <FormAdminArtwork
       isOpen={isEditingArtwork}
-      onSubmit={(value) =>
-        globalServices.roomService.send("SET_COVER", { data: value })
-      }
+      onSubmit={(value) => adminSend("SET_COVER", { data: value })}
       onClose={hideEditForm}
     />
   )
