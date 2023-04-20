@@ -1,9 +1,11 @@
 import addNotification from "react-push-notification"
 import { get, isEqual, includes } from "lodash/fp"
+import { ChatMessage } from "../types/ChatMessage"
+import { User } from "../types/User"
 
 export const handleNotifications = async (
-  payload: { content: string },
-  currentUser: User,
+  payload: ChatMessage,
+  currentUser?: User | null,
 ) => {
   const hidden = typeof document.hidden !== "undefined" ? "hidden" : undefined
 
@@ -19,7 +21,7 @@ export const handleNotifications = async (
   if (hidden && mentioned && !authorIsMe && document[hidden]) {
     addNotification({
       title: "@Mention in Radio Room",
-      message: payload.content,
+      message: payload?.content,
       native: true,
     })
   }

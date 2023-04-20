@@ -3,8 +3,13 @@ import socketService from "../lib/socketService"
 import { Reaction } from "../types/Reaction"
 import { ReactionSubject } from "../types/ReactionSubject"
 
+export type ReactionsContext = Record<
+  ReactionSubject["type"],
+  Record<string, Reaction[]>
+>
+
 interface Context {
-  reactions: Record<ReactionSubject["type"], Record<string, Reaction[]>>
+  reactions: ReactionsContext
 }
 
 export const allReactionsMachine = createMachine<Context>(

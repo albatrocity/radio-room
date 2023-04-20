@@ -2,7 +2,6 @@ import React from "react"
 import { Formik } from "formik"
 import {
   Button,
-  Text,
   Stack,
   Input,
   HStack,
@@ -21,10 +20,9 @@ interface Props extends Pick<ModalProps, "isOpen"> {
 }
 
 const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
-  const { username, userId } = currentUser
   return (
     <Formik
-      initialValues={{ username: "", userId }}
+      initialValues={{ username: "", userId: currentUser?.userId }}
       onSubmit={(values, { setSubmitting }) => {
         if (!values.username || values.username === "") {
           return onClose()
@@ -71,7 +69,7 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
                   onBlur={handleBlur}
                   p={2}
                   value={values.username}
-                  placeholder={username}
+                  placeholder={currentUser?.username}
                   name="username"
                   flex="grow"
                   autoFocus={true}

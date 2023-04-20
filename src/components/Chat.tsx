@@ -22,7 +22,7 @@ const Chat = ({ modalActive }: ChatProps) => {
   useEffect(() => {
     chatSend("SET_CURRENT_USER", { data: currentUser })
   }, [currentUser])
-  const currentUserId = currentUser.userId
+  const currentUserId = currentUser?.userId
 
   return (
     <Grid
