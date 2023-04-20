@@ -40,7 +40,7 @@ function getStoredPassword() {
 }
 
 interface Context {
-  currentUser: User | {}
+  currentUser: User
   isNewUser: boolean
   isAdmin: boolean
   shouldRetry: boolean

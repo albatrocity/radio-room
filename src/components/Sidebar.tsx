@@ -2,14 +2,12 @@ import React from "react"
 import { Box, Stack, Flex, IconButton, Icon, Show } from "@chakra-ui/react"
 import { FiHelpCircle } from "react-icons/fi"
 import Listeners from "./Listeners"
-import useGlobalContext from "./useGlobalContext"
 import AdminPanel from "./AdminPanel"
 
 import { useAuthStore, useIsAdmin } from "../state/authStore"
 import { useModalsStore } from "../state/modalsState"
 
 const Sidebar = () => {
-  const globalServices = useGlobalContext()
   const { send: modalSend } = useModalsStore()
   const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
   const isAdmin = useIsAdmin()
@@ -35,9 +33,7 @@ const Sidebar = () => {
       >
         <Flex h="100%" w="100%" direction="column">
           <Listeners
-            onEditSettings={() =>
-              globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
-            }
+            onEditSettings={() => modalSend("EDIT_SETTINGS")}
             onViewListeners={(view) =>
               view ? modalSend("VIEW_LISTENERS") : modalSend("CLOSE")
             }

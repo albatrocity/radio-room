@@ -6,14 +6,12 @@ import Div100vh from "react-div-100vh"
 import baseTheme from "../@chakra-ui/gatsby-plugin/theme"
 
 import "./layout.css"
-import { GlobalStateProvider } from "../contexts/global"
 import themes from "../themes"
 
-import { useCurrentTheme, useThemeStore } from "../state/themeStore"
+import { useCurrentTheme } from "../state/themeStore"
 
 const ThemedLayout = ({ children }: { children: JSX.Element }) => {
   const chosenThemeId = useCurrentTheme()
-  const t = useThemeStore()
 
   const chosenTheme = themes[chosenThemeId] ?? {}
 
@@ -27,11 +25,7 @@ const ThemedLayout = ({ children }: { children: JSX.Element }) => {
 }
 
 const Layout = ({ children }: { children: JSX.Element }) => {
-  return (
-    <GlobalStateProvider>
-      <ThemedLayout>{children}</ThemedLayout>
-    </GlobalStateProvider>
-  )
+  return <ThemedLayout>{children}</ThemedLayout>
 }
 
 Layout.propTypes = {

@@ -12,6 +12,7 @@ import { useCurrentUser, useAuthStore } from "../state/authStore"
 import { User } from "../types/User"
 import { EditIcon } from "@chakra-ui/icons"
 import { useDj, useListeners } from "../state/usersStore"
+import { useAdminStore } from "../state/adminStore"
 
 interface UserListProps {
   onEditUser: (user: User) => void
@@ -27,6 +28,7 @@ const UserList = ({
   const [typingState] = useMachine(typingMachine)
 
   const { send: authSend } = useAuthStore()
+  const { send: adminSend } = useAdminStore()
   const currentUser = useCurrentUser()
   const listeners = useListeners()
   const dj = useDj()
@@ -118,7 +120,7 @@ const UserList = ({
                     authSend("KICK_USER", { userId })
                   }
                   onDeputizeDj={(userId: User["userId"]) => {
-                    authSend("DEPUTIZE_DJ", { userId })
+                    adminSend("DEPUTIZE_DJ", { userId })
                   }}
                 />
               )

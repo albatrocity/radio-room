@@ -1,6 +1,7 @@
 import { createMachine } from "xstate"
 
 import { useAuthStore } from "../state/authStore"
+import { useDjStore } from "../state/djStore"
 
 export const modalsMachine = createMachine(
   {
@@ -54,8 +55,10 @@ export const modalsMachine = createMachine(
       },
       canAddToQueue: () => {
         const isAdmin = useAuthStore.getState().state.context.isAdmin
-        // TOOD: Implement
-        return isAdmin || true
+        const isDj = useDjStore.getState().state.matches("deputyDjaying")
+        const isDeputyDj = useDjStore.getState().state.matches("djaying")
+
+        return isAdmin || isDj || isDeputyDj
       },
     },
     actions: {},

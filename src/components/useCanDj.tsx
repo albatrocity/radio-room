@@ -1,16 +1,10 @@
-import { useSelector } from "@xstate/react"
-import useGlobalContext from "./useGlobalContext"
-
 import { useAuthStore } from "../state/authStore"
+import { useDjStore } from "../state/djStore"
 
 export default function useCanDj() {
-  const globalServices = useGlobalContext()
-  const isDeputyDj = useSelector(globalServices.roomService, (state) =>
-    state.matches("deputyDjaying.isDj"),
-  )
-  const isDj = useSelector(globalServices.roomService, (state) =>
-    state.matches("djaying.isDj"),
-  )
+  const isDeputyDj = useDjStore((s) => s.state.matches("deputyDjaying"))
+  const isDj = useDjStore((s) => s.state.matches("djaying"))
   const isAdmin = useAuthStore((s) => s.state.context.isAdmin)
+
   return isDeputyDj || isDj || isAdmin
 }

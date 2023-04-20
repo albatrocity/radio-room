@@ -13,12 +13,12 @@ import {
 import { format } from "date-fns"
 
 import Drawer from "../Drawer"
-import useGlobalContext from "../useGlobalContext"
 import SelectablePlaylist from "../SelectablePlaylist"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
-import { useMachine, useSelector } from "@xstate/react"
+import { useMachine } from "@xstate/react"
 import { usePlaylistStore } from "../../state/playlistStore"
+import { useIsAdmin } from "../../state/authStore"
 
 function Controls({
   isEditing,
@@ -82,8 +82,6 @@ function Controls({
 }
 
 function DrawerPlaylist() {
-  const globalServices = useGlobalContext()
-
   const { send: playlistSend } = usePlaylistStore()
   const isOpen = usePlaylistStore((s) => s.state.matches("active"))
   const toast = useToast()
@@ -95,9 +93,7 @@ function DrawerPlaylist() {
   const [name, setName] = useState<string>(defaultPlaylistName)
   const [state, send] = useMachine(savePlaylistMachine)
 
-  const isAdmin = useSelector(globalServices.roomService, (state) =>
-    state.matches("admin.isAdmin"),
-  )
+  const isAdmin = useIsAdmin()
   const isLoading = state.matches("loading")
 
   const handleSelectionChange = (collection: PlaylistItem[]) =>

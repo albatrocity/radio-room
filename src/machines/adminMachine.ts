@@ -17,6 +17,7 @@ export const adminMachine = createMachine(
       SET_COVER: { actions: ["setCover"], cond: "isAdmin" },
       SET_SETTINGS: { actions: ["setSettings"], cond: "isAdmin" },
       CLEAR_PLAYLIST: { actions: ["clearPlaylist"], cond: "isAdmin" },
+      DEPUTIZE_DJ: { actions: ["deputizeDj"], cond: "isAdmin" },
     },
   },
   {
@@ -26,10 +27,10 @@ export const adminMachine = createMachine(
       },
     },
     actions: {
-      fixMeta: sendTo("socket", (_ctx, event) => {
+      deputizeDj: sendTo("socket", (_ctx, event) => {
         return {
-          type: "fix meta",
-          data: event.data,
+          type: "dj deputize user",
+          data: event.userId,
         }
       }),
       setCover: sendTo("socket", (_ctx, event) => {
