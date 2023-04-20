@@ -10,7 +10,6 @@ import ModalPassword from "./Modals/ModalPassword"
 import ModalAbout from "./Modals/ModalAbout"
 import ModalAddToQueue from "./Modals/ModalAddToQueue"
 import ModalPreferences from "./Modals/ModalPreferences"
-import ModalAdminMeta from "./Modals/ModalAdminMeta"
 import ModalEditArtwork from "./Modals/ModalEditArtwork"
 import ModalAdminSettings from "./Modals/ModalAdminSettings"
 
@@ -25,7 +24,6 @@ function Overlays() {
 
       <ModalAbout />
       <ModalAddToQueue />
-      <ModalAdminMeta />
       <ModalAdminSettings />
       <ModalEditArtwork />
       <ModalEditUsername />

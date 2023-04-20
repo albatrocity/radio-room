@@ -22,6 +22,7 @@ import ButtonAddToQueue from "./ButtonAddToQueue"
 
 import { useChatStore } from "../state/chatStore"
 import { useBookmarks } from "../state/bookmarkedChatStore"
+import { useModalsStore } from "../state/modalsState"
 
 type Props = {}
 
@@ -33,6 +34,7 @@ function AdminPanel({}: Props) {
   const globalServices = useGlobalContext()
   const isDj = useSelector(globalServices.roomService, isDjSelector)
   const isNotDj = useSelector(globalServices.roomService, isNotDjSelector)
+  const { send: modalSend } = useModalsStore()
   const bookmarks = useBookmarks()
   const { isOpen, onOpen, onClose } = useDisclosure()
   const buttonColorScheme = useColorModeValue("whiteAlpha", undefined)
@@ -95,9 +97,7 @@ function AdminPanel({}: Props) {
               variant="ghost"
               colorScheme={buttonColorScheme}
               leftIcon={<Icon as={FiImage} />}
-              onClick={() =>
-                globalServices.roomService.send("ADMIN_EDIT_ARTWORK")
-              }
+              onClick={() => modalSend("EDIT_ARTWORK")}
             >
               Change Cover Art
             </Button>
@@ -109,7 +109,7 @@ function AdminPanel({}: Props) {
               variant="ghost"
               colorScheme={buttonColorScheme}
               leftIcon={<Icon as={FiBookmark} />}
-              onClick={() => globalServices.roomService.send("ADMIN_BOOKMARKS")}
+              onClick={() => modalSend("VIEW_BOOKMARKS")}
             >
               Bookmarks {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}
             </Button>
@@ -121,9 +121,7 @@ function AdminPanel({}: Props) {
               variant="ghost"
               colorScheme={buttonColorScheme}
               leftIcon={<Icon as={FiSettings} />}
-              onClick={() =>
-                globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
-              }
+              onClick={() => modalSend("EDIT_SETTINGS")}
             >
               Settings
             </Button>

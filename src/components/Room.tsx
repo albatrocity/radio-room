@@ -14,6 +14,7 @@ import KeyboardShortcuts from "./KeyboardShortcuts"
 import { useAuthStore } from "../state/authStore"
 import { useCurrentPlaylist, usePlaylistStore } from "../state/playlistStore"
 import { useListeners } from "../state/usersStore"
+import { useModalsStore } from "../state/modalsState"
 
 const isEditingSelector = (state) =>
   state.matches("connected.participating.editing")
@@ -28,12 +29,13 @@ const Room = () => {
   const isEditing = useSelector(globalServices.roomService, isEditingSelector)
   const isNewUser = authContext.isNewUser
   const isAdmin = authContext.isAdmin
+  const { send: modalSend } = useModalsStore()
   const playlist = useCurrentPlaylist()
   const listeners = useListeners()
 
   useEffect(() => {
     if (isNewUser) {
-      globalServices.roomService.send("EDIT_USERNAME")
+      modalSend("EDIT_USERNAME")
     }
   }, [isNewUser])
 

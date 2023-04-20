@@ -1,26 +1,16 @@
 import React from "react"
-import { useSelector } from "@xstate/react"
-import { ActorRefFrom } from "xstate"
-import { roomMachine } from "../../machines/roomMachine"
 import AboutContent from "../AboutContent"
 import Modal from "../Modal"
-import useGlobalContext from "../useGlobalContext"
-
-const isModalViewingHelpSelector = (
-  state: ActorRefFrom<typeof roomMachine>["state"],
-) => state.matches("connected.participating.modalViewing.help")
+import { useModalsStore } from "../../state/modalsState"
 
 function ModalAbout() {
-  const globalServices = useGlobalContext()
-  const isModalViewingHelp = useSelector(
-    globalServices.roomService,
-    isModalViewingHelpSelector,
-  )
+  const { send } = useModalsStore()
+  const isModalViewingHelp = useModalsStore((s) => s.state.matches("help"))
 
   return (
     <Modal
       isOpen={isModalViewingHelp}
-      onClose={() => globalServices.roomService.send("CLOSE_VIEWING")}
+      onClose={() => send("CLOSE")}
       heading="???"
     >
       <AboutContent />

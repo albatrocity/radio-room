@@ -1,28 +1,15 @@
-import React, { useCallback } from "react"
-import { useSelector } from "@xstate/react"
+import React from "react"
 
 import FormAdminSettings from "../FormAdminSettings"
 import useGlobalContext from "../useGlobalContext"
-import { ActorRefFrom } from "xstate"
-import { roomMachine } from "../../machines/roomMachine"
-
-const isEditingSettingsSelector = (
-  state: ActorRefFrom<typeof roomMachine>["state"],
-) => {
-  return state.matches("connected.participating.editing.settings")
-}
+import { useModalsStore } from "../../state/modalsState"
 
 function ModalAdminSettings() {
   const globalServices = useGlobalContext()
-  const isEditingSettings = useSelector(
-    globalServices.roomService,
-    isEditingSettingsSelector,
-  )
+  const { send } = useModalsStore()
+  const isEditingSettings = useModalsStore((s) => s.state.matches("settings"))
 
-  const hideEditForm = useCallback(
-    () => globalServices.roomService.send("CLOSE_EDIT"),
-    [globalServices],
-  )
+  const hideEditForm = () => send("CLOSE")
 
   return (
     <FormAdminSettings

@@ -1,25 +1,12 @@
-import { useSelector } from "@xstate/react"
-import React, { useCallback } from "react"
-import { ActorRefFrom } from "xstate"
-import { roomMachine } from "../../machines/roomMachine"
+import React from "react"
 import FormAddToQueue from "../FormAddToQueue"
 import Modal from "../Modal"
-import useGlobalContext from "../useGlobalContext"
-
-const isAddingToQueueSelector = (
-  state: ActorRefFrom<typeof roomMachine>["state"],
-) => state.matches("connected.participating.editing.queue")
+import { useModalsStore } from "../../state/modalsState"
 
 function ModalAddToQueue() {
-  const globalServices = useGlobalContext()
-  const isAddingToQueue = useSelector(
-    globalServices.roomService,
-    isAddingToQueueSelector,
-  )
-  const hideEditForm = useCallback(
-    () => globalServices.roomService.send("CLOSE_EDIT"),
-    [globalServices.roomService],
-  )
+  const { send } = useModalsStore()
+  const isAddingToQueue = useModalsStore((s) => s.state.matches("queue"))
+  const hideEditForm = () => send("CLOSE")
 
   return (
     <Modal

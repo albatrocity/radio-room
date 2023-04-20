@@ -1,24 +1,21 @@
 import React, { useCallback } from "react"
 import { Box } from "@chakra-ui/react"
-import { useSelector } from "@xstate/react"
 
 import UserList from "../UserList"
 import Drawer from "../Drawer"
 import useGlobalContext from "../useGlobalContext"
 import { useListeners } from "../../state/usersStore"
-
-const isModalViewingListenersSelector = (state) =>
-  state.matches("connected.participating.modalViewing.listeners")
+import { useModalsStore } from "../../state/modalsState"
 
 function DrawerListeners() {
   const globalServices = useGlobalContext()
   const listeners = useListeners()
-  const isModalViewingListeners = useSelector(
-    globalServices.roomService,
-    isModalViewingListenersSelector,
+  const { send } = useModalsStore()
+  const isModalViewingListeners = useModalsStore((s) =>
+    s.state.matches("listeners"),
   )
   const hideListeners = useCallback(
-    () => globalServices.roomService.send("CLOSE_VIEWING"),
+    () => send("CLOSE"),
     [globalServices.roomService],
   )
 
@@ -28,7 +25,7 @@ function DrawerListeners() {
   )
 
   const handleEditUser = useCallback(() => {
-    return globalServices.roomService.send("EDIT_USERNAME")
+    return send("EDIT_USERNAME")
   }, [globalServices.roomService])
 
   return (

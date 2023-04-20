@@ -5,12 +5,14 @@ import Listeners from "./Listeners"
 import useGlobalContext from "./useGlobalContext"
 import AdminPanel from "./AdminPanel"
 
-import { useAuthStore } from "../state/authStore"
+import { useAuthStore, useIsAdmin } from "../state/authStore"
+import { useModalsStore } from "../state/modalsState"
 
 const Sidebar = () => {
   const globalServices = useGlobalContext()
+  const { send: modalSend } = useModalsStore()
   const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
-  const isAdmin = useAuthStore((s) => s.state.context.isAdmin)
+  const isAdmin = useIsAdmin()
 
   return (
     <Box
@@ -37,11 +39,9 @@ const Sidebar = () => {
               globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
             }
             onViewListeners={(view) =>
-              view
-                ? globalServices.roomService.send("VIEW_LISTENERS")
-                : globalServices.roomService.send("CLOSE_VIEWING")
+              view ? modalSend("VIEW_LISTENERS") : modalSend("CLOSE")
             }
-            onEditUser={() => globalServices.roomService.send("EDIT_USERNAME")}
+            onEditUser={() => modalSend("EDIT_USERNAME")}
           />
         </Flex>
         <Show above="sm">
@@ -52,7 +52,7 @@ const Sidebar = () => {
                 aria-label="Help"
                 variant="ghost"
                 icon={<Icon as={FiHelpCircle} />}
-                onClick={() => globalServices.roomService.send("VIEW_HELP")}
+                onClick={() => modalSend("VIEW_HELP")}
               />
             </Flex>
           )}

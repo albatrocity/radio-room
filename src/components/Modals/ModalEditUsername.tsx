@@ -1,28 +1,15 @@
 import React, { useCallback } from "react"
-import { useSelector } from "@xstate/react"
 import FormUsername from "../FormUsername"
-import useGlobalContext from "../useGlobalContext"
-import { roomMachine } from "../../machines/roomMachine"
-import { ActorRefFrom } from "xstate"
 
 import { useCurrentUser, useAuthStore } from "../../state/authStore"
-
-const isEditingUsernameSelector = (
-  state: ActorRefFrom<typeof roomMachine>["state"],
-) => state.matches("connected.participating.editing.username")
+import { useModalsStore } from "../../state/modalsState"
 
 function ModalEditUsername() {
   const { send: authSend } = useAuthStore()
-  const globalServices = useGlobalContext()
-  const isEditingUsername = useSelector(
-    globalServices.roomService,
-    isEditingUsernameSelector,
-  )
+  const { send } = useModalsStore()
+  const isEditingUsername = useModalsStore((s) => s.state.matches("username"))
   const currentUser = useCurrentUser()
-  const hideEditForm = useCallback(
-    () => globalServices.roomService.send("CLOSE_EDIT"),
-    [globalServices],
-  )
+  const hideEditForm = useCallback(() => send("CLOSE"), [send])
 
   return (
     <FormUsername

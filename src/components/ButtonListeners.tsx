@@ -1,14 +1,13 @@
 import React from "react"
 import { Button, ButtonProps, Icon } from "@chakra-ui/react"
 import { FiUsers } from "react-icons/fi"
-import useGlobalContext from "./useGlobalContext"
 import { useListeners } from "../state/usersStore"
+import { useModalsStore } from "../state/modalsState"
 
 const ButtonListeners = (props: ButtonProps) => {
-  const globalServices = useGlobalContext()
+  const { send } = useModalsStore()
   const listeners = useListeners()
-  const onShowListeners = () =>
-    globalServices.roomService.send("VIEW_LISTENERS")
+  const onShowListeners = () => send("VIEW_LISTENERS")
   return (
     <Button
       onClick={onShowListeners}

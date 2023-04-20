@@ -165,29 +165,6 @@ export const roomMachine = createMachine(
                   listenerSettings: {},
                 },
                 on: {
-                  CLOSE_EDIT: ".none",
-                  EDIT_USERNAME: ".username",
-                  EDIT_SETTINGS: ".preferences",
-                  EDIT_QUEUE: ".queue",
-                  ADMIN_EDIT_META: {
-                    target: ".meta",
-                    in: "#room.admin.isAdmin",
-                  },
-                  ADMIN_EDIT_ARTWORK: {
-                    target: ".artwork",
-                    in: "#room.admin.isAdmin",
-                  },
-                  ADMIN_EDIT_SETTINGS: {
-                    target: ".settings",
-                    in: "#room.admin.isAdmin",
-                  },
-                  ADMIN_BOOKMARKS: {
-                    target: ".bookmarks",
-                    in: "#room.admin.isAdmin",
-                  },
-                  ADMIN_CLEAR_PLAYLIST: {
-                    actions: ["clearPlaylist"],
-                  },
                   DISCONNECT: {
                     target: "#room.disconnected",
                     actions: ["setRetry"],
