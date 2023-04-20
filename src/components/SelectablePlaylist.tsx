@@ -1,10 +1,10 @@
-import { useMachine, useSelector } from "@xstate/react"
+import { useMachine } from "@xstate/react"
 import React, { useCallback, useEffect } from "react"
 
 import { toggleableCollectionMachine } from "../machines/toggleableCollectionMachine"
 import { PlaylistItem } from "../types/PlaylistItem"
 import Playlist from "./Playlist"
-import useGlobalContext from "./useGlobalContext"
+import { useCurrentPlaylist } from "../state/playlistStore"
 
 type Props = {
   isSelectable: boolean
@@ -12,11 +12,7 @@ type Props = {
 }
 
 function SelectablePlaylist({ isSelectable, onChange }: Props) {
-  const globalServices = useGlobalContext()
-  const playlist: PlaylistItem[] = useSelector(
-    globalServices.playlistService,
-    (state) => state.context.playlist,
-  )
+  const playlist = useCurrentPlaylist()
 
   const [state, send] = useMachine(toggleableCollectionMachine, {
     context: {

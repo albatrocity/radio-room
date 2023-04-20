@@ -1,11 +1,10 @@
-import { assign, send, createMachine } from "xstate"
+import { assign, sendTo, createMachine, AnyEventObject } from "xstate"
 import { get } from "lodash/fp"
 import socketService from "../lib/socketService"
 import { getCurrentUser, saveCurrentUser } from "../lib/getCurrentUser"
 import { getPassword, savePassword } from "../lib/passwordOperations"
 
 import { User } from "../types/User"
-
 export interface AuthContext {
   currentUser: User
   isNewUser: boolean
@@ -15,51 +14,52 @@ export interface AuthContext {
   passwordError: string | undefined
 }
 
-interface DataEvent {
-  data: {}
-}
-
-function getStoredUser(ctx, event) {
-  return new Promise((resolve, reject) => {
+function getStoredUser(_ctx: AuthContext, event: AnyEventObject) {
+  return new Promise((resolve) => {
     const { currentUser, isNewUser, isAdmin } = getCurrentUser(
       get("data.username", event),
-      ctx.password,
     )
     resolve({ currentUser, isNewUser, isAdmin })
   })
 }
-function setStoredUser(ctx, event) {
-  return new Promise((resolve, reject) => {
+function setStoredUser(_ctx: AuthContext, event: AnyEventObject) {
+  return new Promise((resolve) => {
+    const user = getCurrentUser()
     const { currentUser, isNewUser } = saveCurrentUser({
-      currentUser: { username: event.data },
+      currentUser: {
+        username: event.data,
+        userId: user.currentUser.userId,
+      },
     })
     resolve({ currentUser, isNewUser })
   })
 }
-function getStoredPassword(ctx, event) {
-  return new Promise((resolve, reject) => {
-    const password = getPassword(event.data)
+function getStoredPassword() {
+  return new Promise((resolve) => {
+    const password = getPassword()
     resolve({ password })
   })
 }
 
-export const authMachine = createMachine(
+export const authMachine = createMachine<AuthContext>(
   {
     predictableActionArguments: true,
-    tsTypes: {} as import("./authMachine.typegen").Typegen0,
     id: "auth",
     initial: "unauthenticated",
     context: {
-      currentUser: {},
+      currentUser: {
+        userId: "",
+      },
       isNewUser: false,
       isAdmin: false,
       shouldRetry: true,
       password: undefined,
-    } as AuthContext,
+      passwordError: undefined,
+    },
     invoke: [
       {
         id: "socket",
-        src: (ctx, event) => socketService,
+        src: () => socketService,
       },
     ],
     states: {
@@ -189,104 +189,75 @@ export const authMachine = createMachine(
   },
   {
     actions: {
-      log: (ctx, event) => {
-        console.log("log", event)
-      },
-      setCurrentUser: assign((ctx, event) => {
+      setCurrentUser: assign((_ctx, event) => {
         return {
           currentUser: event.data.currentUser,
           isNewUser: event.data.isNewUser,
           isAdmin: event.data.isAdmin,
         }
       }),
-      unsetNew: assign((ctx, event) => {
+      unsetNew: assign(() => {
         return {
           isNewUser: false,
         }
       }),
-      login: send(
-        (ctx, event) => {
-          return {
-            type: "login",
-            data: { ...ctx.currentUser, password: ctx.password },
-          }
-        },
-        {
-          to: "socket",
-        },
-      ),
-      activateAdmin: assign((ctx, event) => {
+      login: sendTo("socket", (ctx) => {
         return {
-          isAdmin: true,
-          currentUser: { ...ctx.currentUser, isAdmin: true },
+          type: "login",
+          data: { ...ctx.currentUser, password: ctx.password },
         }
       }),
-      disableRetry: assign({
-        shouldRetry: (context, event) => false,
+      activateAdmin: assign({
+        isAdmin: true,
+        currentUser: (ctx) =>
+          ctx.currentUser
+            ? { ...ctx.currentUser, isAdmin: true }
+            : { userId: "" },
       }),
-      changeUsername: send(
-        (ctx, event) => ({
-          type: "change username",
-          data: {
-            userId: ctx.currentUser.userId,
-            username: ctx.currentUser.username,
-          },
-        }),
-        {
-          to: "socket",
-        },
-      ),
+      disableRetry: assign({
+        shouldRetry: () => false,
+      }),
+      changeUsername: sendTo("socket", (ctx) => ({
+        type: "change username",
+        data: ctx.currentUser
+          ? {
+              userId: ctx.currentUser.userId,
+              username: ctx.currentUser.username,
+            }
+          : null,
+      })),
       updateUsername: assign({
-        currentUser: (ctx, event) => ({
-          ...ctx.currentUser,
-          username: event.data,
-        }),
+        currentUser: (ctx, event) =>
+          ctx.currentUser && {
+            ...ctx.currentUser,
+            username: event.data,
+          },
       }),
       setPasswordError: assign({
         passwordError: (_ctx, event) =>
-          event.data.passwordAccepted ? null : "Password incorrect",
+          event.data.passwordAccepted ? undefined : "Password incorrect",
       }),
       getStoredPassword: assign({
         password: (_ctx, _event) => getPassword(),
       }),
-      disconnectUser: send(
-        (ctx) => ({
-          type: "DISCONNECT_USER",
-          data: ctx.currentUser.userId,
-        }),
-        {
-          to: "socket",
+      disconnectUser: sendTo("socket", (ctx) => ({
+        type: "DISCONNECT_USER",
+        data: ctx.currentUser?.userId,
+      })),
+      kickUser: sendTo("socket", (_ctx, event) => ({
+        type: "kick user",
+        data: {
+          userId: event.userId,
         },
-      ),
-      kickUser: send(
-        (_ctx, event) => ({
-          type: "kick user",
-          data: {
-            userId: event.userId,
-          },
-        }),
-        {
-          to: "socket",
-        },
-      ),
-      checkPasswordRequirement: send(
-        (ctx) => ({
-          type: "check password",
-          data: ctx.password,
-        }),
-        {
-          to: "socket",
-        },
-      ),
-      submitPassword: send(
-        (_ctx, event) => ({
-          type: "submit password",
-          data: event.data,
-        }),
-        {
-          to: "socket",
-        },
-      ),
+      })),
+      checkPasswordRequirement: sendTo("socket", (ctx) => ({
+        type: "check password",
+        data: ctx.password,
+      })),
+      submitPassword: sendTo("socket", (_ctx, event) => ({
+        type: "submit password",
+        data: event.data,
+      })),
       savePassword: savePassword,
       saveUser: saveCurrentUser,
     },
@@ -294,7 +265,7 @@ export const authMachine = createMachine(
       shouldRetry: (ctx) => ctx.shouldRetry,
       shouldNotRetry: (ctx) => !ctx.shouldRetry,
       isAdmin: (ctx) => {
-        return !!ctx.currentUser.isAdmin
+        return !!ctx.currentUser?.isAdmin
       },
       requiresPassword: (_ctx, event) => {
         return event.data.passwordRequired

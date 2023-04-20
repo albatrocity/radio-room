@@ -1,9 +1,9 @@
-import React, { useCallback } from "react"
+import React from "react"
 import useCanDj from "./useCanDj"
 
 import { IconButton, Icon, Button } from "@chakra-ui/react"
 import { RiPlayListAddFill } from "react-icons/ri"
-import useGlobalContext from "./useGlobalContext"
+import { useModalsStore } from "../state/modalsState"
 
 type Props = {
   showText?: boolean
@@ -11,11 +11,9 @@ type Props = {
 
 function ButtonAddToQueue({ showText = true }: Props) {
   const canDj = useCanDj()
-  const globalServices = useGlobalContext()
+  const { send: modalSend } = useModalsStore()
 
-  const onAddToQueue = useCallback(() => {
-    globalServices.roomService.send("EDIT_QUEUE")
-  }, [globalServices.roomService])
+  const onAddToQueue = () => modalSend("EDIT_QUEUE")
 
   if (!canDj) {
     return null

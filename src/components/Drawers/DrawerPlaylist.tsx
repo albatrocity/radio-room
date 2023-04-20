@@ -13,11 +13,12 @@ import {
 import { format } from "date-fns"
 
 import Drawer from "../Drawer"
-import useGlobalContext from "../useGlobalContext"
 import SelectablePlaylist from "../SelectablePlaylist"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
-import { useMachine, useSelector } from "@xstate/react"
+import { useMachine } from "@xstate/react"
+import { usePlaylistStore } from "../../state/playlistStore"
+import { useIsAdmin } from "../../state/authStore"
 
 function Controls({
   isEditing,
@@ -80,15 +81,9 @@ function Controls({
   )
 }
 
-const playlistActiveSelector = (state) => state.matches("active")
-
 function DrawerPlaylist() {
-  const globalServices = useGlobalContext()
-
-  const isOpen = useSelector(
-    globalServices.playlistService,
-    playlistActiveSelector,
-  )
+  const { send: playlistSend } = usePlaylistStore()
+  const isOpen = usePlaylistStore((s) => s.state.matches("active"))
   const toast = useToast()
   const defaultPlaylistName = useConst(
     () => `Radio Playlist ${format(new Date(), "M/d/y")}`,
@@ -98,17 +93,15 @@ function DrawerPlaylist() {
   const [name, setName] = useState<string>(defaultPlaylistName)
   const [state, send] = useMachine(savePlaylistMachine)
 
-  const isAdmin = useSelector(globalServices.roomService, (state) =>
-    state.matches("admin.isAdmin"),
-  )
+  const isAdmin = useIsAdmin()
   const isLoading = state.matches("loading")
 
   const handleSelectionChange = (collection: PlaylistItem[]) =>
     setSelected(collection)
   const handleNameChange = (name: string) => setName(name)
   const handleTogglePlaylist = useCallback(
-    () => globalServices.playlistService.send("TOGGLE_PLAYLIST"),
-    [globalServices.playlistService],
+    () => playlistSend("TOGGLE_PLAYLIST"),
+    [playlistSend],
   )
   const handleSave = useCallback(() => {
     send("ADMIN_SAVE_PLAYLIST", {

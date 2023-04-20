@@ -1,34 +1,18 @@
 import React from "react"
-import { useSelector } from "@xstate/react"
 import FormPassword from "../FormPassword"
-import useGlobalContext from "../useGlobalContext"
-import { authMachine } from "../../machines/authMachine"
-import { ActorRefFrom } from "xstate"
-
-const isUnauthorizedSelector = (
-  state: ActorRefFrom<typeof authMachine>["state"],
-) => state.matches("unauthorized")
-const passwordErrorSelector = (
-  state: ActorRefFrom<typeof authMachine>["state"],
-) => state.context.passwordError
+import { useAuthStore } from "../../state/authStore"
 
 function ModalPassword() {
-  const globalServices = useGlobalContext()
-  const isUnauthorized = useSelector(
-    globalServices.authService,
-    isUnauthorizedSelector,
-  )
-  const passwordError = useSelector(
-    globalServices.authService,
-    passwordErrorSelector,
-  )
+  const { send: authSend } = useAuthStore()
+  const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
+  const passwordError = useAuthStore((s) => s.state.context.passwordError)
 
   return (
     <FormPassword
       isOpen={isUnauthorized}
       error={passwordError}
       onSubmit={(password) => {
-        globalServices.authService.send({
+        authSend({
           type: "SET_PASSWORD",
           data: password,
         })

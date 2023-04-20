@@ -1,24 +1,17 @@
 import React from "react"
 import { ChakraProvider, extendTheme } from "@chakra-ui/react"
-import { useSelector } from "@xstate/react"
 import PropTypes from "prop-types"
 import Div100vh from "react-div-100vh"
 
 import baseTheme from "../@chakra-ui/gatsby-plugin/theme"
-import useGlobalContext from "./useGlobalContext"
 
 import "./layout.css"
-import { GlobalStateProvider } from "../contexts/global"
 import themes from "../themes"
 
-const ThemedLayout = ({ children }: { children: JSX.Element }) => {
-  const selectedTheme = themes[0]
-  const globalServices = useGlobalContext()
+import { useCurrentTheme } from "../state/themeStore"
 
-  const chosenThemeId = useSelector(
-    globalServices.themeService,
-    (state) => state.context.theme,
-  )
+const ThemedLayout = ({ children }: { children: JSX.Element }) => {
+  const chosenThemeId = useCurrentTheme()
 
   const chosenTheme = themes[chosenThemeId] ?? {}
 
@@ -32,11 +25,7 @@ const ThemedLayout = ({ children }: { children: JSX.Element }) => {
 }
 
 const Layout = ({ children }: { children: JSX.Element }) => {
-  return (
-    <GlobalStateProvider>
-      <ThemedLayout>{children}</ThemedLayout>
-    </GlobalStateProvider>
-  )
+  return <ThemedLayout>{children}</ThemedLayout>
 }
 
 Layout.propTypes = {

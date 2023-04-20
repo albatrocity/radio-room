@@ -1,9 +1,9 @@
 import { assign, createMachine } from "xstate"
 import socketService from "../lib/socketService"
-import { TrackMeta } from "../types/Track"
+import { PlaylistItem } from "../types/PlaylistItem"
 
 interface Context {
-  playlist: TrackMeta[]
+  playlist: PlaylistItem[]
 }
 
 export const playlistMachine = createMachine<Context>(
@@ -13,6 +13,12 @@ export const playlistMachine = createMachine<Context>(
     context: {
       playlist: [],
     },
+    invoke: [
+      {
+        id: "socket",
+        src: () => socketService,
+      },
+    ],
     on: {
       INIT: {
         actions: ["setData"],
@@ -21,12 +27,6 @@ export const playlistMachine = createMachine<Context>(
         actions: ["setPlaylist"],
       },
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
     initial: "inactive",
     states: {
       active: {
@@ -44,12 +44,12 @@ export const playlistMachine = createMachine<Context>(
   {
     actions: {
       setData: assign({
-        playlist: (context, event) => {
+        playlist: (_ctx, event) => {
           return event.data.playlist
         },
       }),
       setPlaylist: assign({
-        playlist: (context, event) => {
+        playlist: (_ctx, event) => {
           return event.data
         },
       }),

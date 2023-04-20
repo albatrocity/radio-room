@@ -1,11 +1,5 @@
-import React, {
-  memo,
-  MutableRefObject,
-  useContext,
-  useEffect,
-  useRef,
-} from "react"
-import { useMachine, useSelector } from "@xstate/react"
+import React, { memo, MutableRefObject, useEffect, useRef } from "react"
+import { useMachine } from "@xstate/react"
 import { groupBy } from "lodash/fp"
 import { FiPlus, FiSmile } from "react-icons/fi"
 import {
@@ -28,11 +22,11 @@ import { motion } from "framer-motion"
 import { reactionsMachine } from "../machines/reactionsMachine"
 import ReactionCounterItem from "./ReactionCounterItem"
 import ReactionPicker from "./ReactionPicker"
-import { GlobalStateContext } from "../contexts/global"
-import { AuthContext } from "../machines/authMachine"
 import { EmojiData } from "emoji-mart"
 import { ReactionSubject } from "../types/ReactionSubject"
-import { useAllReactions } from "../lib/useAllReactions"
+import { useAllReactionsOf } from "../state/reactionsStore"
+
+import { useCurrentUser } from "../state/authStore"
 
 interface ReactionAddButtonProps {
   reactTo: ReactionSubject
@@ -41,9 +35,6 @@ interface ReactionAddButtonProps {
   disabled?: boolean
   showAddButton?: boolean
 }
-
-const currentUserSelector = (state: { context: AuthContext }) =>
-  state.context.currentUser
 
 interface ReactionCounterProps extends ReactionAddButtonProps {
   showAddButton?: boolean
@@ -58,12 +49,9 @@ const ReactionCounter = ({
 }: ReactionCounterProps) => {
   const pickerRef: MutableRefObject<HTMLDivElement | null> =
     useRef<HTMLDivElement | null>(null)
-  const globalServices = useContext(GlobalStateContext)
-  const currentUser = useSelector(
-    globalServices.authService,
-    currentUserSelector,
-  )
-  const allReactions = useAllReactions(reactTo.type, reactTo.id)
+
+  const currentUser = useCurrentUser()
+  const allReactions = useAllReactionsOf(reactTo.type, reactTo.id)
 
   const autoFocus = useBreakpointValue(
     {

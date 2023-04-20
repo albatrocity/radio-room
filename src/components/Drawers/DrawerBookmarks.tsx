@@ -1,38 +1,30 @@
-import React, { useCallback } from "react"
+import React from "react"
 import { Button, Box, Icon, Text, useDisclosure } from "@chakra-ui/react"
 import { FiTrash2 } from "react-icons/fi"
-import { useSelector } from "@xstate/react"
 
 import BookmarkedMessages from "../BookmarkedMessages"
 import Drawer from "../Drawer"
-import useGlobalContext from "../useGlobalContext"
 import ConfirmationDialog from "../ConfirmationDialog"
 
-const isAdminSelector = (state) => state.context.isAdmin
-const isModalViewingBookmarksSelector = (state) =>
-  state.matches("connected.participating.editing.bookmarks")
+import { useAuthStore } from "../../state/authStore"
+import {
+  useBookmarkedChatStore,
+  useBookmarks,
+} from "../../state/bookmarkedChatStore"
+import { useModalsStore } from "../../state/modalsState"
 
 const DrawerBookmarks = () => {
-  const globalServices = useGlobalContext()
-  const isAdmin = useSelector(globalServices.authService, isAdminSelector)
+  const isAdmin = useAuthStore((s) => s.state.context.isAdmin)
   const { isOpen, onOpen, onClose } = useDisclosure()
-  const isModalViewingBookmarks = useSelector(
-    globalServices.roomService,
-    isModalViewingBookmarksSelector,
+  const { send } = useModalsStore()
+  const isModalViewingBookmarks = useModalsStore((s) =>
+    s.state.matches("bookmarks"),
   )
-  const messages = useSelector(
-    globalServices.bookmarkedChatService,
-    (state) => state.context.collection,
-  )
+  const { send: bookmarkSend } = useBookmarkedChatStore()
+  const messages = useBookmarks()
 
-  const hideBookmarks = useCallback(
-    () => globalServices.roomService.send("CLOSE_EDIT"),
-    [globalServices],
-  )
-  const clearBookmarks = useCallback(
-    () => globalServices.bookmarkedChatService.send("CLEAR"),
-    [globalServices],
-  )
+  const hideBookmarks = () => send("CLOSE")
+  const clearBookmarks = () => bookmarkSend("CLEAR")
 
   if (!isAdmin) return null
 

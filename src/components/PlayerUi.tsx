@@ -1,19 +1,21 @@
-import React, { useCallback, useContext, memo } from "react"
-import { useSelector } from "@xstate/react"
+import React, { useCallback, memo } from "react"
 import { Box, Container, Flex } from "@chakra-ui/react"
 import { kebabCase } from "lodash/fp"
-import { EmojiData } from "emoji-mart"
 
-import { GlobalStateContext } from "../contexts/global"
 import NowPlaying from "./NowPlaying"
 import RadioPlayer from "./RadioPlayer"
 import ReactionCounter from "./ReactionCounter"
 
-import { TrackMeta } from "../types/Track"
-import { ActorRefFrom } from "xstate"
-import { audioMachine } from "../machines/audioMachine"
-
-const isUnauthorizedSelector = (state) => state.matches("unauthorized")
+import { useAuthStore } from "../state/authStore"
+import {
+  useAudioStore,
+  useIsBuffering,
+  useIsMuted,
+  useIsPlaying,
+  useIsStationOnline,
+  useStationMeta,
+  useVolume,
+} from "../state/audioStore"
 
 interface PlayerUiProps {
   onShowPlaylist: () => void
@@ -21,62 +23,36 @@ interface PlayerUiProps {
   listenerCount: number
 }
 
-const isOnlineSelector = (state: ActorRefFrom<typeof audioMachine>) =>
-  state.matches("online")
-const isPlayingSelector = (state: ActorRefFrom<typeof audioMachine>) =>
-  state.matches("online.progress.playing")
-const isMutedSelector = (state: ActorRefFrom<typeof audioMachine>) =>
-  state.matches("online.volume.muted")
-const volumeSelector = (state: ActorRefFrom<typeof audioMachine>) =>
-  state.context.volume
-const metaSelector = (state: ActorRefFrom<typeof audioMachine>) =>
-  state.context.meta
-const loadingSelector = (state: ActorRefFrom<typeof audioMachine>) =>
-  state.matches("online.progress.playing.loading")
-
 const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
-  const globalServices = useContext(GlobalStateContext)
-  const isUnauthorized = useSelector(
-    globalServices.authService,
-    isUnauthorizedSelector,
-  )
+  const { state: authState } = useAuthStore()
+  const isUnauthorized = authState.matches("unauthorized")
 
-  const isOnline = useSelector(globalServices.audioService, isOnlineSelector)
-  const playing = useSelector(globalServices.audioService, isPlayingSelector)
-  const muted = useSelector(globalServices.audioService, isMutedSelector)
-  const volume: number = useSelector(
-    globalServices.audioService,
-    volumeSelector,
-  )
-  const meta: TrackMeta = useSelector(globalServices.audioService, metaSelector)
+  const { send: audioSend } = useAudioStore()
+  const isOnline = useIsStationOnline()
+  const playing = useIsPlaying()
+  const muted = useIsMuted()
+  const volume = useVolume()
+  const meta = useStationMeta()
+  const loading = useIsBuffering()
   const { album, artist, track } = meta || {}
   const trackId = kebabCase(`${track}-${artist}-${album}`)
 
   const handleVolume = useCallback(
-    (v: number) =>
-      globalServices.audioService.send("CHANGE_VOLUME", { volume: v }),
-    [globalServices.audioService],
+    (v: number) => audioSend("CHANGE_VOLUME", { volume: v }),
+    [audioSend],
   )
 
-  const handlePlayPause = useCallback(
-    () => globalServices.audioService.send("TOGGLE"),
-    [globalServices.audioService],
-  )
+  const handlePlayPause = useCallback(() => audioSend("TOGGLE"), [audioSend])
 
-  const handleMute = useCallback(
-    () => globalServices.audioService.send("TOGGLE_MUTE"),
-    [globalServices.audioService],
-  )
+  const handleMute = useCallback(() => audioSend("TOGGLE_MUTE"), [audioSend])
 
   const handleLoad = useCallback(() => {
-    return globalServices.audioService.send("LOADED")
-  }, [globalServices.audioService])
+    return audioSend("LOADED")
+  }, [audioSend])
 
   const handlePlay = useCallback(() => {
-    return globalServices.audioService.send("PLAY")
-  }, [globalServices.audioService])
-
-  const loading = useSelector(globalServices.audioService, loadingSelector)
+    return audioSend("PLAY")
+  }, [audioSend])
 
   return (
     <Flex

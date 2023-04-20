@@ -1,4 +1,4 @@
-import { assign, send, createMachine } from "xstate"
+import { assign, sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 import { SpotifyTrack } from "../types/SpotifyTrack"
 
@@ -56,23 +56,18 @@ export const spotifySearchMachine = createMachine<Context>(
     invoke: [
       {
         id: "socket",
-        src: (ctx, event) => socketService,
+        src: () => socketService,
       },
     ],
   },
   {
     actions: {
-      sendQuery: send(
-        (_ctx, event) => {
-          return {
-            type: "search spotify track",
-            data: { query: event.value, options: {} },
-          }
-        },
-        {
-          to: "socket",
-        },
-      ),
+      sendQuery: sendTo("socket", (_ctx, event) => {
+        return {
+          type: "search spotify track",
+          data: { query: event.value, options: {} },
+        }
+      }),
       setResults: assign((_context, event) => {
         return {
           results: event.data.items || [],

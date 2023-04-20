@@ -1,4 +1,4 @@
-import { assign, send, createMachine } from "xstate"
+import { assign, sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 import { SpotifyPlaylist } from "../types/SpotifyPlaylist"
 
@@ -57,24 +57,19 @@ export const savePlaylistMachine = createMachine<Context>(
   },
   {
     actions: {
-      savePlaylist: send(
-        (_ctx, event) => {
-          return {
-            type: "save playlist",
-            data: { name: event.name, uris: event.uris },
-          }
-        },
-        {
-          to: "socket",
-        },
-      ),
+      savePlaylist: sendTo("socket", (_ctx, event) => {
+        return {
+          type: "save playlist",
+          data: { name: event.name, uris: event.uris },
+        }
+      }),
       setPlaylistMeta: assign({
-        playlistMeta: (context, event) => {
+        playlistMeta: (_ctx, event) => {
           return event.data
         },
       }),
       setPlaylistError: assign({
-        playlistError: (context, event) => {
+        playlistError: (_ctx, event) => {
           return event.error
         },
       }),

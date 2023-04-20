@@ -1,33 +1,20 @@
-import React, { useCallback } from "react"
+import React from "react"
 
 import FormAdminArtwork from "../FormAdminArtwork"
-import useGlobalContext from "../useGlobalContext"
-import { useSelector } from "@xstate/react"
-import { roomMachine } from "../../machines/roomMachine"
-import { ActorRefFrom } from "xstate"
-
-const isEditingArtworkSelector = (
-  state: ActorRefFrom<typeof roomMachine>["state"],
-) => state.matches("connected.participating.editing.artwork")
+import { useModalsStore } from "../../state/modalsState"
+import { useAdminStore } from "../../state/adminStore"
 
 function ModalEditArtwork() {
-  const globalServices = useGlobalContext()
-  const isEditingArtwork = useSelector(
-    globalServices.roomService,
-    isEditingArtworkSelector,
-  )
+  const { send } = useModalsStore()
+  const { send: adminSend } = useAdminStore()
+  const isEditingArtwork = useModalsStore((s) => s.state.matches("artwork"))
 
-  const hideEditForm = useCallback(
-    () => globalServices.roomService.send("CLOSE_EDIT"),
-    [globalServices],
-  )
+  const hideEditForm = () => send("CLOSE")
 
   return (
     <FormAdminArtwork
       isOpen={isEditingArtwork}
-      onSubmit={(value) =>
-        globalServices.roomService.send("SET_COVER", { data: value })
-      }
+      onSubmit={(value) => adminSend("SET_COVER", { data: value })}
       onClose={hideEditForm}
     />
   )

@@ -8,10 +8,9 @@ import {
   FormHelperText,
   FormLabel,
 } from "@chakra-ui/react"
-import { useSelector } from "@xstate/react"
 
 import Modal from "./Modal"
-import useGlobalContext from "./useGlobalContext"
+import { useCover } from "../state/audioStore"
 
 interface Props {
   onSubmit: (url: string) => void
@@ -20,11 +19,7 @@ interface Props {
 }
 
 const FormAdminArtwork = ({ onSubmit, onClose, isOpen }: Props) => {
-  const globalServices = useGlobalContext()
-  const url = useSelector(
-    globalServices.audioService,
-    (state) => state.context.meta.cover || "",
-  )
+  const url = useCover() || ""
   return (
     <Formik
       enableReinitialize

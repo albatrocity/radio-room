@@ -1,20 +1,14 @@
-import React, { useContext } from "react"
+import React from "react"
 import { Text } from "@chakra-ui/react"
 import { compact } from "lodash/fp"
-import { useSelector } from "@xstate/react"
-import { GlobalStateContext } from "../contexts/global"
 import { User } from "../types/User"
 
-const usersSelector = (state) => state.context.users
-const currentUserSelector = (state) => state.context.currentUser
+import { useCurrentUser } from "../state/authStore"
+import { useUsers } from "../state/usersStore"
 
 const ListUsernames = ({ ids }: { ids: User["userId"][] }) => {
-  const globalServices = useContext(GlobalStateContext)
-  const users: User[] = useSelector(globalServices.usersService, usersSelector)
-  const currentUser = useSelector(
-    globalServices.authService,
-    currentUserSelector,
-  )
+  const users: User[] = useUsers()
+  const currentUser = useCurrentUser()
   const usernames = compact(
     users
       .filter((x: User) => ids.indexOf(x.userId) > -1)

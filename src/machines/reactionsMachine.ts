@@ -1,4 +1,4 @@
-import { assign, send, createMachine } from "xstate"
+import { assign, sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 import { isNil, find } from "lodash/fp"
 import { ReactionSubject } from "../types/ReactionSubject"
@@ -13,6 +13,7 @@ interface Context {
 
 export const reactionsMachine = createMachine<Context>(
   {
+    predictableActionArguments: true,
     id: "reactions",
     initial: "closed",
     context: {
@@ -108,32 +109,22 @@ export const reactionsMachine = createMachine<Context>(
             : context.currentUser
         },
       }),
-      addReaction: send(
-        (ctx, event) => ({
-          type: "add reaction",
-          data: {
-            emoji: event.data,
-            reactTo: ctx.reactTo,
-            user: ctx.currentUser,
-          },
-        }),
-        {
-          to: "socket",
+      addReaction: sendTo("socket", (ctx, event) => ({
+        type: "add reaction",
+        data: {
+          emoji: event.data,
+          reactTo: ctx.reactTo,
+          user: ctx.currentUser,
         },
-      ),
-      removeReaction: send(
-        (ctx, event) => ({
-          type: "remove reaction",
-          data: {
-            emoji: event.data,
-            reactTo: ctx.reactTo,
-            user: ctx.currentUser,
-          },
-        }),
-        {
-          to: "socket",
+      })),
+      removeReaction: sendTo("socket", (ctx, event) => ({
+        type: "remove reaction",
+        data: {
+          emoji: event.data,
+          reactTo: ctx.reactTo,
+          user: ctx.currentUser,
         },
-      ),
+      })),
     },
     guards: {
       reactionIsNew: (ctx, event) => {

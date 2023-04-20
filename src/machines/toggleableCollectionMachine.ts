@@ -1,4 +1,4 @@
-import { createMachine, assign } from "xstate"
+import { createMachine, assign, InternalMachineOptions } from "xstate"
 import session from "sessionstorage"
 import { concat, uniqBy, get } from "lodash/fp"
 import { ChatMessage } from "../types/ChatMessage"
@@ -10,66 +10,74 @@ interface Context {
   idPath?: string
 }
 
-export const toggleableCollectionMachine = createMachine<Context>(
-  {
-    predictableActionArguments: true,
-    id: "toggleableCollection",
-    initial: "ready",
-    context: {
-      collection: [],
-      persistent: true,
-      name: "bookmarks",
-      idPath: "id",
-    },
-    on: {
-      TOGGLE_ITEM: { actions: ["toggleItem"] },
-      CLEAR: { actions: ["clear"] },
-    },
-    states: {
-      ready: {
-        entry: ["loadCollection"],
-        on: {
-          TOGGLE_MESSAGE: { actions: ["toggleItem", "persist"] },
-          ENABLE_PERSISTENCE: { actions: ["enablePersistence"] },
-          SET_NAME: { actions: ["setName"] },
-        },
+const config = {
+  predictableActionArguments: true,
+  id: "toggleableCollection",
+  initial: "ready",
+  context: {
+    collection: [],
+    persistent: true,
+    name: "bookmarks",
+    idPath: "id",
+  },
+  on: {
+    TOGGLE_ITEM: { actions: ["toggleItem"] },
+    CLEAR: { actions: ["clear"] },
+  },
+  states: {
+    ready: {
+      entry: ["loadCollection"],
+      on: {
+        TOGGLE_MESSAGE: { actions: ["toggleItem", "persist"] },
+        ENABLE_PERSISTENCE: { actions: ["enablePersistence"] },
+        SET_NAME: { actions: ["setName"] },
       },
     },
   },
-  {
-    actions: {
-      enablePersistence: assign({
-        persistent: () => true,
-      }),
-      persist: (context) => {
-        if (context.persistent) {
-          session.setItem(context.name, JSON.stringify(context.collection))
-        }
-      },
-      loadCollection: assign({
-        collection: (context) =>
-          context.persistent
-            ? JSON.parse(session.getItem(context.name) || "[]") || []
-            : context.collection,
-      }),
-      setName: assign({ name: (context, event) => event.data }),
-      clear: assign({ collection: [] }),
-      toggleItem: assign({
-        collection: (context, event) => {
-          const isPresent = context.collection
-            .map((record) => get(context.idPath || "id", record))
-            .includes(get(context.idPath || "id", event.data))
+}
 
-          if (isPresent) {
-            return context.collection.filter(
-              (x: ChatMessage) =>
-                get(context.idPath || "id", x) !==
-                get(context.idPath || "id", event.data),
-            )
-          }
-          return uniqBy("id", concat(event.data, context.collection))
-        },
-      }),
+const options: InternalMachineOptions<Context, any, any> = {
+  actions: {
+    enablePersistence: assign({
+      persistent: () => true,
+    }),
+    persist: (context) => {
+      if (context.persistent) {
+        session.setItem(context.name, JSON.stringify(context.collection))
+      }
     },
+    loadCollection: assign({
+      collection: (context) =>
+        context.persistent
+          ? JSON.parse(session.getItem(context.name) || "[]") || []
+          : context.collection,
+    }),
+    setName: assign({ name: (_ctx, event) => event.data }),
+    clear: assign({ collection: [] }),
+    toggleItem: assign({
+      collection: (context, event) => {
+        const isPresent = context.collection
+          .map((record) => get(context.idPath || "id", record))
+          .includes(get(context.idPath || "id", event.data))
+
+        if (isPresent) {
+          return context.collection.filter(
+            (x: ChatMessage) =>
+              get(context.idPath || "id", x) !==
+              get(context.idPath || "id", event.data),
+          )
+        }
+        return uniqBy("id", concat(event.data, context.collection))
+      },
+    }),
   },
+}
+
+export const toggleableCollectionMachine = createMachine<Context>(
+  config,
+  options,
 )
+
+export function createToggleableCollectionMachine(context: Context) {
+  return createMachine<Context>({ ...config, context }, options)
+}

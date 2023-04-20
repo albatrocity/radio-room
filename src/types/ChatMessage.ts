@@ -1,11 +1,12 @@
+import { Reaction } from "./Reaction"
 import { User } from "./User"
 
 export type ChatMessage = {
   content: string
-  mentions: []
+  mentions?: string[]
   timestamp: string
   user: User
-  reactions: []
+  reactions?: Reaction["type"][]
   meta?: {
     status?: "error" | "success" | "warning" | "info"
     type?: "alert" | null

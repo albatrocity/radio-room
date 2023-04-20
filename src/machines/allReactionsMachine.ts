@@ -1,16 +1,20 @@
-import { Machine, assign } from "xstate"
+import { createMachine, assign } from "xstate"
 import socketService from "../lib/socketService"
+import { Reaction } from "../types/Reaction"
+import { ReactionSubject } from "../types/ReactionSubject"
 
-type ReactionEvent = {
-  data: {
-    reactions: {}
-    message: {}
-    track: {}
-  }
+export type ReactionsContext = Record<
+  ReactionSubject["type"],
+  Record<string, Reaction[]>
+>
+
+interface Context {
+  reactions: ReactionsContext
 }
 
-export const allReactionsMachine = Machine(
+export const allReactionsMachine = createMachine<Context>(
   {
+    predictableActionArguments: true,
     id: "allReactions",
     initial: "connected",
     context: {
@@ -40,7 +44,7 @@ export const allReactionsMachine = Machine(
   {
     actions: {
       setData: assign({
-        reactions: (_context: {}, event: ReactionEvent) => event.data.reactions,
+        reactions: (_context: {}, event) => event.data.reactions,
       }),
     },
   },

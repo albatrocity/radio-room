@@ -8,6 +8,7 @@ interface Context {
 
 export const typingMachine = createMachine<Context>(
   {
+    predictableActionArguments: true,
     id: "typing",
     initial: "connected",
     context: {

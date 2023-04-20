@@ -1,25 +1,16 @@
 import React from "react"
 import { Box, Stack, Flex, IconButton, Icon, Show } from "@chakra-ui/react"
-import { useSelector } from "@xstate/react"
 import { FiHelpCircle } from "react-icons/fi"
 import Listeners from "./Listeners"
-import useGlobalContext from "./useGlobalContext"
 import AdminPanel from "./AdminPanel"
 
-type Props = {}
+import { useAuthStore, useIsAdmin } from "../state/authStore"
+import { useModalsStore } from "../state/modalsState"
 
-const isUnauthorizedSelector = (state) => state.matches("unauthorized")
-const isAdminSelector = (state) => state.context.isAdmin
-
-const Sidebar = (props: Props) => {
-  const globalServices = useGlobalContext()
-
-  const isUnauthorized = useSelector(
-    globalServices.authService,
-    isUnauthorizedSelector,
-  )
-
-  const isAdmin = useSelector(globalServices.authService, isAdminSelector)
+const Sidebar = () => {
+  const { send: modalSend } = useModalsStore()
+  const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
+  const isAdmin = useIsAdmin()
 
   return (
     <Box
@@ -42,15 +33,11 @@ const Sidebar = (props: Props) => {
       >
         <Flex h="100%" w="100%" direction="column">
           <Listeners
-            onEditSettings={() =>
-              globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
-            }
+            onEditSettings={() => modalSend("EDIT_SETTINGS")}
             onViewListeners={(view) =>
-              view
-                ? globalServices.roomService.send("VIEW_LISTENERS")
-                : globalServices.roomService.send("CLOSE_VIEWING")
+              view ? modalSend("VIEW_LISTENERS") : modalSend("CLOSE")
             }
-            onEditUser={() => globalServices.roomService.send("EDIT_USERNAME")}
+            onEditUser={() => modalSend("EDIT_USERNAME")}
           />
         </Flex>
         <Show above="sm">
@@ -61,7 +48,7 @@ const Sidebar = (props: Props) => {
                 aria-label="Help"
                 variant="ghost"
                 icon={<Icon as={FiHelpCircle} />}
-                onClick={() => globalServices.roomService.send("VIEW_HELP")}
+                onClick={() => modalSend("VIEW_HELP")}
               />
             </Flex>
           )}

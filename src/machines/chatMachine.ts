@@ -1,25 +1,66 @@
-import { createMachine, send, assign } from "xstate"
+import { createMachine, sendTo, assign } from "xstate"
 import socketService from "../lib/socketService"
 import { handleNotifications } from "../lib/handleNotifications"
 import { take, concat, uniqBy } from "lodash/fp"
 import { User } from "../types/User"
 import { ChatMessage } from "../types/ChatMessage"
+import { PlaylistItem } from "../types/PlaylistItem"
+import { ReactionsContext } from "./allReactionsMachine"
 
-type ChatEvent = {
+type NewMessageEvent = {
+  type: "NEW_MESSAGE"
+  data: ChatMessage
+}
+
+type ResetEvent = {
+  type: "CLEAR_MESSAGES"
+}
+
+type TypingEvent = {
+  type: "START_TYPING" | "STOP_TYPING"
+}
+
+type SubmitMessageAction = {
+  type: "SUBMIT_MESSAGE"
+  data: ChatMessage["content"]
+}
+
+type SetDataEvent = {
+  type: "INIT" | "LOGIN" | "SET_MESSAGES"
   data: {
-    messages?: {
-      content?: string
-    }[]
-    currentUser?: User
+    currentUser: User
+    messages: ChatMessage[]
+    meta: {}
+    playlist: PlaylistItem[]
+    reactions: ReactionsContext
+    users: User[]
   }
 }
+
+type SetCurrentUserEvent = {
+  type: "SET_CURRENT_USER"
+  data: {
+    username: User["username"]
+    userId: User["userId"]
+    password: string
+    isAdmin: boolean
+  }
+}
+
+type MachineEvent =
+  | NewMessageEvent
+  | SetCurrentUserEvent
+  | SetDataEvent
+  | ResetEvent
+  | TypingEvent
+  | SubmitMessageAction
 
 interface Context {
   messages: ChatMessage[]
   currentUser: User | null
 }
 
-export const chatMachine = createMachine<Context>(
+export const chatMachine = createMachine<Context, MachineEvent>(
   {
     predictableActionArguments: true,
     id: "chat",
@@ -37,6 +78,9 @@ export const chatMachine = createMachine<Context>(
       },
       CLEAR_MESSAGES: {
         actions: ["clearMessages"],
+      },
+      SET_CURRENT_USER: {
+        actions: ["setCurrentUser"],
       },
     },
     invoke: [
@@ -59,11 +103,7 @@ export const chatMachine = createMachine<Context>(
         on: {
           SUBMIT_MESSAGE: { actions: ["sendMessage"] },
           NEW_MESSAGE: { actions: ["addMessage", "handleNotifications"] },
-          TOGGLE_MESSAGE: { actions: ["toggleMessage"] },
           SET_MESSAGES: { actions: ["setData"] },
-          SET_USERS: {
-            actions: ["setCurrentUser"],
-          },
         },
         states: {
           typing: {
@@ -88,74 +128,58 @@ export const chatMachine = createMachine<Context>(
   },
   {
     actions: {
-      sendMessage: send(
-        (_ctx, event) => {
+      sendMessage: sendTo("socket", (_ctx, event) => {
+        if (event.type === "NEW_MESSAGE") {
           return { type: "new message", data: event.data }
-        },
-        {
-          to: "socket",
-        },
-      ),
-      startTyping: send(
-        (_ctx, _event) => {
-          return { type: "typing" }
-        },
-        {
-          to: "socket",
-        },
-      ),
-      stopTyping: send(
-        (_ctx, _event) => {
-          return { type: "stop typing" }
-        },
-        {
-          to: "socket",
-        },
-      ),
-      clearMessages: send(
-        (_ctx, _event) => {
-          return { type: "clear messages" }
-        },
-        {
-          to: "socket",
-        },
-      ),
+        }
+      }),
+      startTyping: sendTo("socket", (_ctx, _event) => {
+        return { type: "typing" }
+      }),
+      stopTyping: sendTo("socket", (_ctx, _event) => {
+        return { type: "stop typing" }
+      }),
+      clearMessages: sendTo("socket", (_ctx, _event) => {
+        return { type: "clear messages" }
+      }),
       addMessage: assign({
         messages: (context, event) => {
-          return uniqBy(
-            "timestamp",
-            take(60, concat(event.data, context.messages)),
-          )
-        },
-      }),
-      toggleMessage: assign({
-        messages: (context, event) => {
-          const isPreset = context.messages.includes(event.data)
-          if (isPreset) {
-            return context.messages.filter(
-              (x: ChatMessage) => x.timestamp !== event.data.timestamp,
+          if (event.type === "NEW_MESSAGE") {
+            return uniqBy(
+              "timestamp",
+              take(60, concat(event.data, context.messages)),
             )
           }
-          return uniqBy(
-            "timestamp",
-            take(60, concat(event.data, context.messages)),
-          )
+          return context.messages
         },
       }),
-      handleNotifications: (ctx, event: ChatEvent) => {
-        handleNotifications(event.data, ctx.currentUser)
+      handleNotifications: (ctx, event) => {
+        console.log("handle notifications event.data", event)
+        if (event.type === "NEW_MESSAGE") {
+          handleNotifications(event.data, ctx.currentUser)
+        }
       },
       setData: assign({
-        messages: (_context, event: ChatEvent) => {
-          return event.data.messages
+        messages: (ctx, event) => {
+          if (event.type === "INIT") {
+            return event.data.messages || []
+          }
+          return ctx.messages
         },
-        currentUser: (_context, event) => event.data.currentUser,
+        currentUser: (ctx, event) => {
+          if (event.type === "INIT") {
+            event.data.currentUser || null
+          }
+          return ctx.currentUser
+        },
       }),
       setCurrentUser: assign({
         currentUser: (context, event) => {
-          return event.data.currentUser
-            ? event.data.currentUser
-            : context.currentUser
+          if (event.type === "SET_CURRENT_USER") {
+            return event.data ? event.data : context.currentUser
+          } else {
+            return context.currentUser
+          }
         },
       }),
     },

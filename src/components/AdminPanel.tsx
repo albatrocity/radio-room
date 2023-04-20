@@ -13,33 +13,28 @@ import {
   useColorModeValue,
 } from "@chakra-ui/react"
 
-import {
-  FiSettings,
-  FiList,
-  FiImage,
-  FiMessageSquare,
-  FiBookmark,
-} from "react-icons/fi"
+import { FiSettings, FiList, FiImage, FiBookmark } from "react-icons/fi"
 import { BiMessageRoundedMinus } from "react-icons/bi"
-import { useSelector } from "@xstate/react"
-import useGlobalContext from "./useGlobalContext"
 import ConfirmationDialog from "./ConfirmationDialog"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 
+import { useChatStore } from "../state/chatStore"
+import { useBookmarks } from "../state/bookmarkedChatStore"
+import { useModalsStore } from "../state/modalsState"
+import { useAdminStore } from "../state/adminStore"
+import { useDjStore } from "../state/djStore"
+
 type Props = {}
 
-const isDjSelector = (state) => state.matches("djaying.isDj")
-const isNotDjSelector = (state) => state.matches("djaying.notDj")
-
 function AdminPanel({}: Props) {
-  const globalServices = useGlobalContext()
-  const isDj = useSelector(globalServices.roomService, isDjSelector)
-  const isNotDj = useSelector(globalServices.roomService, isNotDjSelector)
-  const bookmarks = useSelector(
-    globalServices.bookmarkedChatService,
-    (state) => state.context.collection,
-  )
+  const { send: chatSend } = useChatStore()
+  const { send: adminSend } = useAdminStore()
+  const { send: djSend } = useDjStore()
+  const { send: modalSend } = useModalsStore()
   const { isOpen, onOpen, onClose } = useDisclosure()
+
+  const isDj = useDjStore((s) => s.state.matches("djaying"))
+  const bookmarks = useBookmarks()
   const buttonColorScheme = useColorModeValue("whiteAlpha", undefined)
 
   return (
@@ -53,7 +48,7 @@ function AdminPanel({}: Props) {
         isOpen={isOpen}
         onClose={onClose}
         onConfirm={() => {
-          globalServices.chatService.send("CLEAR_MESSAGES")
+          chatSend("CLEAR_MESSAGES")
           onClose()
         }}
         isDangerous={true}
@@ -75,20 +70,14 @@ function AdminPanel({}: Props) {
         >
           Admin
         </Heading>
-        {isDj && (
-          <WrapItem>
-            <ButtonAddToQueue />
-          </WrapItem>
-        )}
 
-        {isNotDj && (
+        <WrapItem>
+          <ButtonAddToQueue />
+        </WrapItem>
+
+        {!isDj && (
           <WrapItem>
-            <Button
-              onClick={() =>
-                globalServices.roomService.send("START_DJ_SESSION")
-              }
-              variant="solid"
-            >
+            <Button onClick={() => djSend("START_DJ_SESSION")} variant="solid">
               I am the DJ
             </Button>
           </WrapItem>
@@ -100,9 +89,7 @@ function AdminPanel({}: Props) {
               variant="ghost"
               colorScheme={buttonColorScheme}
               leftIcon={<Icon as={FiImage} />}
-              onClick={() =>
-                globalServices.roomService.send("ADMIN_EDIT_ARTWORK")
-              }
+              onClick={() => modalSend("EDIT_ARTWORK")}
             >
               Change Cover Art
             </Button>
@@ -114,7 +101,7 @@ function AdminPanel({}: Props) {
               variant="ghost"
               colorScheme={buttonColorScheme}
               leftIcon={<Icon as={FiBookmark} />}
-              onClick={() => globalServices.roomService.send("ADMIN_BOOKMARKS")}
+              onClick={() => modalSend("VIEW_BOOKMARKS")}
             >
               Bookmarks {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}
             </Button>
@@ -126,9 +113,7 @@ function AdminPanel({}: Props) {
               variant="ghost"
               colorScheme={buttonColorScheme}
               leftIcon={<Icon as={FiSettings} />}
-              onClick={() =>
-                globalServices.roomService.send("ADMIN_EDIT_SETTINGS")
-              }
+              onClick={() => modalSend("EDIT_SETTINGS")}
             >
               Settings
             </Button>
@@ -156,7 +141,7 @@ function AdminPanel({}: Props) {
                   "Are you sure you want to clear the playlist? This cannot be undone.",
                 )
                 if (confirmation) {
-                  globalServices.roomService.send("ADMIN_CLEAR_PLAYLIST")
+                  adminSend("CLEAR_PLAYLIST")
                 }
               }}
             >
@@ -169,9 +154,7 @@ function AdminPanel({}: Props) {
                 size="xs"
                 variant="ghost"
                 colorScheme={buttonColorScheme}
-                onClick={() =>
-                  globalServices.roomService.send("END_DJ_SESSION")
-                }
+                onClick={() => djSend("END_DJ_SESSION")}
               >
                 End DJ Session
               </Button>
