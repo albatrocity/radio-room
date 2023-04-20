@@ -44,12 +44,12 @@ export const playlistMachine = createMachine<Context>(
   {
     actions: {
       setData: assign({
-        playlist: (context, event) => {
+        playlist: (_ctx, event) => {
           return event.data.playlist
         },
       }),
       setPlaylist: assign({
-        playlist: (context, event) => {
+        playlist: (_ctx, event) => {
           return event.data
         },
       }),

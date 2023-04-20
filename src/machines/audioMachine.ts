@@ -139,7 +139,7 @@ export const audioMachine = createMachine<Context>(
         return { meta: event.data.meta }
       }),
       startListening: send(
-        (ctx) => ({
+        () => ({
           type: "start listening",
         }),
         {
@@ -147,7 +147,7 @@ export const audioMachine = createMachine<Context>(
         },
       ),
       stopListening: send(
-        (ctx) => ({
+        () => ({
           type: "stop listening",
         }),
         {

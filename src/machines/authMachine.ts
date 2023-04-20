@@ -207,13 +207,12 @@ export const authMachine = createMachine<AuthContext>(
           data: { ...ctx.currentUser, password: ctx.password },
         }
       }),
-      activateAdmin: assign((ctx) => {
-        return {
-          isAdmin: true,
-          currentUser: ctx.currentUser
+      activateAdmin: assign({
+        isAdmin: true,
+        currentUser: (ctx) =>
+          ctx.currentUser
             ? { ...ctx.currentUser, isAdmin: true }
-            : null,
-        }
+            : { userId: "" },
       }),
       disableRetry: assign({
         shouldRetry: () => false,

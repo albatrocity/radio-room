@@ -10,11 +10,7 @@ import PopoverPreferences from "./PopoverPreferences"
 import { useAuthStore, useCurrentUser } from "../state/authStore"
 import { useChatStore } from "../state/chatStore"
 
-interface ChatProps {
-  modalActive: boolean
-}
-
-const Chat = ({ modalActive }: ChatProps) => {
+const Chat = () => {
   const currentUser = useCurrentUser()
   const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
   const { send: chatSend } = useChatStore()
@@ -63,7 +59,6 @@ const Chat = ({ modalActive }: ChatProps) => {
           </Box>
           <Box w="100%">
             <ChatInput
-              modalActive={modalActive}
               onTypingStart={() => chatSend("START_TYPING")}
               onTypingStop={() => chatSend("STOP_TYPING")}
               onSend={(msg: ChatMessage) =>

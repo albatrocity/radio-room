@@ -3,7 +3,13 @@ import socketService from "../lib/socketService"
 
 import { useAuthStore } from "../state/authStore"
 
-export const adminMachine = createMachine(
+type AdminEvent = {
+  type: string
+  data?: any
+  userId?: string
+}
+
+export const adminMachine = createMachine<any, AdminEvent>(
   {
     predictableActionArguments: true,
     id: "admin",

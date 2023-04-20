@@ -52,7 +52,7 @@ const options: InternalMachineOptions<Context, any, any> = {
           ? JSON.parse(session.getItem(context.name) || "[]") || []
           : context.collection,
     }),
-    setName: assign({ name: (context, event) => event.data }),
+    setName: assign({ name: (_ctx, event) => event.data }),
     clear: assign({ collection: [] }),
     toggleItem: assign({
       collection: (context, event) => {

@@ -1,4 +1,4 @@
-import { assign, send, createMachine } from "xstate"
+import { assign, sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 import { SpotifyTrack } from "../types/SpotifyTrack"
 import { useDjStore } from "../state/djStore"
@@ -47,17 +47,12 @@ export const spotifyQueueMachine = createMachine<Context>(
       setQueuedTrack: assign((_context, event) => ({
         queuedTrack: event.track,
       })),
-      sendToQueue: send(
-        (_ctx, event) => {
-          return {
-            type: "queue song",
-            data: event.track.uri,
-          }
-        },
-        {
-          to: "socket",
-        },
-      ),
+      sendToQueue: sendTo("socket", (_ctx, event) => {
+        return {
+          type: "queue song",
+          data: event.track.uri,
+        }
+      }),
     },
   },
 )

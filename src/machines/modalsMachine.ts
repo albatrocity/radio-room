@@ -29,10 +29,6 @@ export const modalsMachine = createMachine(
       VIEW_LISTENERS: {
         target: "listeners",
       },
-      // CONFIRM_CLEAR_PLAYLIST: {
-      //   actions: ["clearPlaylist"],
-      //   cond: "isAdmin",
-      // },
       CLOSE: {
         target: "closed",
       },
