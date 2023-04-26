@@ -81,7 +81,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
       flexGrow={1}
       height="100%"
     >
-      <VStack spacing={4} justify="space-between" height="100%">
+      <VStack spacing={4} justify="space-between" height="100%" width="100%">
         {offline ? (
           <VStack>
             <Heading
@@ -98,7 +98,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
             </Hide>
           </VStack>
         ) : (
-          <LinkBox>
+          <LinkBox width="100%">
             <Stack
               direction={["row", "column"]}
               spacing={5}

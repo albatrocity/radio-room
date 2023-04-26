@@ -71,10 +71,6 @@ function AdminPanel({}: Props) {
           Admin
         </Heading>
 
-        <WrapItem>
-          <ButtonAddToQueue />
-        </WrapItem>
-
         {!isDj && (
           <WrapItem>
             <Button onClick={() => djSend("START_DJ_SESSION")} variant="solid">
