@@ -16,7 +16,6 @@ import {
 import { FiSettings, FiList, FiImage, FiBookmark } from "react-icons/fi"
 import { BiMessageRoundedMinus } from "react-icons/bi"
 import ConfirmationDialog from "./ConfirmationDialog"
-import ButtonAddToQueue from "./ButtonAddToQueue"
 
 import { useChatStore } from "../state/chatStore"
 import { useBookmarks } from "../state/bookmarkedChatStore"
