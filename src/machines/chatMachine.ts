@@ -129,9 +129,7 @@ export const chatMachine = createMachine<Context, MachineEvent>(
   {
     actions: {
       sendMessage: sendTo("socket", (_ctx, event) => {
-        if (event.type === "NEW_MESSAGE") {
-          return { type: "new message", data: event.data }
-        }
+        return { type: "new message", data: event.data }
       }),
       startTyping: sendTo("socket", (_ctx, _event) => {
         return { type: "typing" }
@@ -154,7 +152,6 @@ export const chatMachine = createMachine<Context, MachineEvent>(
         },
       }),
       handleNotifications: (ctx, event) => {
-        console.log("handle notifications event.data", event)
         if (event.type === "NEW_MESSAGE") {
           handleNotifications(event.data, ctx.currentUser)
         }
