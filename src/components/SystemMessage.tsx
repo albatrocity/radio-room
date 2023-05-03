@@ -10,6 +10,7 @@ import {
 } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { ChatMessage } from "../types/ChatMessage"
+import ParsedEmojiMessage from "./ParsedEmojiMessage"
 
 const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
   const date = new Date(timestamp)
@@ -34,7 +35,7 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
       flexDirection="column"
     >
       <Text as="p" color="secondaryText" fontSize="sm" textAlign="center">
-        {content}
+        <ParsedEmojiMessage content={content} />
       </Text>
       <HStack gap={1}>
         <Text fontSize="xs" color="secondaryText" opacity={0.7}>
