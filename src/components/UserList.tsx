@@ -1,30 +1,22 @@
 import React, { memo } from "react"
 import { useMachine } from "@xstate/react"
-import { get, isEqual, find, reverse, reject } from "lodash/fp"
+import { get, find, reverse, reject } from "lodash/fp"
 import { Box, Text, Heading, HStack, List, VStack } from "@chakra-ui/react"
 
 import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
-import ParsedEmojiMessage from "./ParsedEmojiMessage"
-
 import { useCurrentUser, useAuthStore } from "../state/authStore"
 
 import { User } from "../types/User"
-import { EditIcon } from "@chakra-ui/icons"
 import { useDj, useListeners } from "../state/usersStore"
 import { useAdminStore } from "../state/adminStore"
 
 interface UserListProps {
   onEditUser: (user: User) => void
-  onEditSettings: () => void
   showHeading?: boolean
 }
 
-const UserList = ({
-  onEditUser,
-  onEditSettings,
-  showHeading = true,
-}: UserListProps) => {
+const UserList = ({ onEditUser, showHeading = true }: UserListProps) => {
   const [typingState] = useMachine(typingMachine)
 
   const { send: authSend } = useAuthStore()
@@ -37,7 +29,6 @@ const UserList = ({
     context: { typing },
   } = typingState
 
-  const currentDj = isEqual(get("userId", currentUser), get("userId", dj))
   const currentListener = find({ userId: currentUser.userId }, listeners)
   const isTyping = (user: User) =>
     !!find({ userId: get("userId", user) }, typing)
@@ -59,33 +50,6 @@ const UserList = ({
               userTyping={isTyping(dj)}
             />
           </List>
-
-          {currentDj && !dj.extraInfo && (
-            <Box bg="appBg" p={2}>
-              <HStack
-                margin="xsmall"
-                p={0.5}
-                gap={0.5}
-                onClick={() => onEditSettings()}
-              >
-                <Text fontSize="sm">
-                  Add info here, like links to anything you're promoting and a
-                  donation link.
-                </Text>
-                <EditIcon />
-              </HStack>
-            </Box>
-          )}
-
-          {dj.extraInfo && (
-            <Box bg="appBg" p={2}>
-              {dj.extraInfo !== "" && (
-                <Text>
-                  <ParsedEmojiMessage content={dj.extraInfo} />
-                </Text>
-              )}
-            </Box>
-          )}
         </Box>
       )}
       <VStack spacing={2} align="start" w="100%">

@@ -6,6 +6,7 @@ import AdminPanel from "./AdminPanel"
 
 import { useAuthStore, useIsAdmin } from "../state/authStore"
 import { useModalsStore } from "../state/modalsState"
+import Banner from "./Banner"
 
 const Sidebar = () => {
   const { send: modalSend } = useModalsStore()
@@ -31,9 +32,9 @@ const Sidebar = () => {
           filter: isUnauthorized ? "blur(0.5rem)" : "none",
         }}
       >
+        <Banner />
         <Flex h="100%" w="100%" direction="column">
           <Listeners
-            onEditSettings={() => modalSend("EDIT_SETTINGS")}
             onViewListeners={(view) =>
               view ? modalSend("VIEW_LISTENERS") : modalSend("CLOSE")
             }

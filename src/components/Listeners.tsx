@@ -8,14 +8,9 @@ import { useListeners } from "../state/usersStore"
 interface ListenersProps {
   onViewListeners: (showListeners: boolean) => void
   onEditUser: (user: User) => void
-  onEditSettings: () => void
 }
 
-const Listeners = ({
-  onViewListeners,
-  onEditUser,
-  onEditSettings,
-}: ListenersProps) => {
+const Listeners = ({ onViewListeners, onEditUser }: ListenersProps) => {
   const listenerCount = useListeners().length
 
   const handleListeners = useCallback(() => {
@@ -32,7 +27,7 @@ const Listeners = ({
       <Show above="sm">
         <Flex overflow="auto" className="list-overflow" p={3} grow={1} h="100%">
           <Box overflow={"auto"} h="100%" w="100%">
-            <UserList onEditSettings={onEditSettings} onEditUser={onEditUser} />
+            <UserList onEditUser={onEditUser} />
           </Box>
         </Flex>
       </Show>
