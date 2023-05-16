@@ -51,8 +51,14 @@ function ModalAdminSettings() {
     send("BACK")
   }
 
+  const isTriggersView = state.matches("settings.reaction_triggers")
+
   return (
-    <Modal isOpen={isEditingSettings} onClose={hideEditForm}>
+    <Modal
+      isOpen={isEditingSettings}
+      onClose={hideEditForm}
+      size={isTriggersView ? "2xl" : "md"}
+    >
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>

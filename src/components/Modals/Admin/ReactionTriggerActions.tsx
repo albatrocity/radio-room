@@ -1,6 +1,6 @@
 import React from "react"
 import { useMachine } from "@xstate/react"
-import { Formik } from "formik"
+import { FieldArray, Formik } from "formik"
 
 import {
   FormControl,
@@ -15,6 +15,7 @@ import FormActions from "./FormActions"
 import { useAdminStore } from "../../../state/adminStore"
 import { useModalsStore } from "../../../state/modalsState"
 import { triggerEventsMachine } from "../../../machines/triggerEventsMachine"
+import FieldTriggerAction from "../../Fields/Triggers/FieldTriggerAction"
 
 type Props = {}
 
@@ -27,7 +28,9 @@ const ReactionTriggerActions = (props: Props) => {
 
   return (
     <Formik
-      initialValues={{}}
+      initialValues={{
+        triggers,
+      }}
       enableReinitialize
       validate={() => {
         const errors = {}
@@ -43,6 +46,20 @@ const ReactionTriggerActions = (props: Props) => {
           <ModalBody>
             <VStack spacing={6}>
               <FormControl gap={2}>
+                <FieldArray name="friends">
+                  {(actions) => (
+                    <VStack spacing={12}>
+                      {values.triggers.map((trigger, index) => (
+                        <FieldTriggerAction
+                          key={index}
+                          index={index}
+                          value={trigger}
+                          actions={actions}
+                        />
+                      ))}
+                    </VStack>
+                  )}
+                </FieldArray>
                 <FormHelperText></FormHelperText>
               </FormControl>
             </VStack>
