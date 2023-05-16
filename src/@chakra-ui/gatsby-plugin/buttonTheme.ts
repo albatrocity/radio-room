@@ -75,6 +75,17 @@ const darkGhost = defineStyle((props) => {
   }
 })
 
+const settingsCategory = defineStyle((props) => {
+  return {
+    bg: "secondaryBg",
+    borderRadius: "lg",
+    width: "100%",
+    textAlign: "left",
+    fontWeight: "400",
+    justifyContent: "space-between",
+  }
+})
+
 export const buttonTheme = defineStyleConfig({
-  variants: { reaction, darkGhost },
+  variants: { reaction, darkGhost, settingsCategory },
 })

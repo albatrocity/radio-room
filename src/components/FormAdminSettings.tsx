@@ -14,16 +14,13 @@ import {
   Checkbox,
   Text,
   VStack,
-  Link,
   Heading,
 } from "@chakra-ui/react"
-import { CheckIcon, ExternalLinkIcon } from "@chakra-ui/icons"
+import { CheckIcon } from "@chakra-ui/icons"
 
 import { settingsMachine } from "../machines/settingsMachine"
 import socket from "../lib/socket"
 
-import Modal from "./Modal"
-import { ModalProps } from "@chakra-ui/react"
 import { SystemMessage } from "../types/SystemMessage"
 
 interface FormValues {
@@ -33,11 +30,12 @@ interface FormValues {
   password?: string
 }
 
-interface Props extends Pick<ModalProps, "isOpen" | "onClose"> {
+interface Props {
   onSubmit: (values: FormValues) => void
+  onBack: () => void
 }
 
-const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
+const FormAdminSettings = ({ onSubmit, onBack }: Props) => {
   const [state, send] = useMachine(settingsMachine, {
     services: {
       fetchSettings: () => {
@@ -64,7 +62,6 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
       flashSuccess: () => {},
     },
   })
-
   return (
     <>
       {state.matches("pending") && (
@@ -105,97 +102,71 @@ const FormAdminSettings = ({ onSubmit, isOpen, onClose }: Props) => {
             initialValues,
           }) => (
             <form onSubmit={handleSubmit}>
-              <Modal
-                isOpen={isOpen}
-                onClose={onClose}
-                heading="Settings"
-                footer={
-                  <HStack spacing={2}>
-                    <Button variant="outline" onClick={onClose}>
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={!state.matches("fetched.untouched")}
-                      rightIcon={
-                        state.matches("fetched.successful") && (
-                          <CheckIcon color="green.500" />
-                        )
+              <VStack spacing={6}>
+                <FormControl>
+                  <FormLabel>Any additional info/links</FormLabel>
+                  <Textarea
+                    name="extraInfo"
+                    value={values.extraInfo}
+                    onBlur={handleBlur}
+                    onChange={(e) => {
+                      handleChange(e)
+                      if (e.target.value !== initialValues.extraInfo) {
+                        setTouched({ extraInfo: true })
+                      } else {
+                        setTouched({ extraInfo: false })
                       }
-                      onClick={() => handleSubmit()}
-                    >
-                      Submit
-                    </Button>
-                  </HStack>
-                }
-              >
-                <VStack spacing={6}>
-                  <FormControl>
-                    <FormLabel>Any additional info/links</FormLabel>
-                    <Textarea
-                      name="extraInfo"
-                      value={values.extraInfo}
-                      onBlur={handleBlur}
-                      onChange={(e) => {
-                        handleChange(e)
-                        if (e.target.value !== initialValues.extraInfo) {
-                          setTouched({ extraInfo: true })
-                        } else {
-                          setTouched({ extraInfo: false })
-                        }
-                      }}
-                    />
-                    <FormHelperText>Formatted with Markdown</FormHelperText>
-                  </FormControl>
+                    }}
+                  />
+                  <FormHelperText>Formatted with Markdown</FormHelperText>
+                </FormControl>
 
-                  <FormControl>
-                    <Checkbox
-                      isDisabled={state.matches("pending")}
-                      isChecked={values.fetchMeta}
-                      onChange={(e) => {
-                        handleChange(e)
-                        if (e.target.checked !== initialValues.fetchMeta) {
-                          setTouched({ fetchMeta: true })
-                        } else {
-                          setTouched({ fetchMeta: false })
-                        }
-                      }}
-                      onBlur={handleBlur}
-                      value={values.fetchMeta}
-                      name="fetchMeta"
-                    >
-                      Fetch album metadata
-                    </Checkbox>
-                    <FormHelperText>
-                      Album Metadata (cover image, release date, info URL) is
-                      automatically fetched from Spotify based on the
-                      Title/Artist/Album that your broadcast software sends to
-                      the Shoustcast server. If you're getting inaccurate data
-                      or want to manually set the cover artwork, disable this
-                      option.
-                    </FormHelperText>
-                  </FormControl>
+                <FormControl>
+                  <Checkbox
+                    isDisabled={state.matches("pending")}
+                    isChecked={values.fetchMeta}
+                    onChange={(e) => {
+                      handleChange(e)
+                      if (e.target.checked !== initialValues.fetchMeta) {
+                        setTouched({ fetchMeta: true })
+                      } else {
+                        setTouched({ fetchMeta: false })
+                      }
+                    }}
+                    onBlur={handleBlur}
+                    value={values.fetchMeta}
+                    name="fetchMeta"
+                  >
+                    Fetch album metadata
+                  </Checkbox>
+                  <FormHelperText>
+                    Album Metadata (cover image, release date, info URL) is
+                    automatically fetched from Spotify based on the
+                    Title/Artist/Album that your broadcast software sends to the
+                    Shoustcast server. If you're getting inaccurate data or want
+                    to manually set the cover artwork, disable this option.
+                  </FormHelperText>
+                </FormControl>
 
-                  <FormControl gap={2}>
-                    <Input
-                      disabled={state.matches("pending")}
-                      onChange={(e) => {
-                        handleChange(e)
-                      }}
-                      onBlur={handleBlur}
-                      value={values.password}
-                      name="password"
-                      placeholder="Password"
-                    />
-                    <FormHelperText>
-                      Setting a password will prevent people from using this
-                      interface to listen to the radio stream. It also prevents
-                      them from using or viewing the chat. Clearing this
-                      password will open the experience up to anyone.
-                    </FormHelperText>
-                  </FormControl>
-                </VStack>
-              </Modal>
+                <FormControl gap={2}>
+                  <Input
+                    disabled={state.matches("pending")}
+                    onChange={(e) => {
+                      handleChange(e)
+                    }}
+                    onBlur={handleBlur}
+                    value={values.password}
+                    name="password"
+                    placeholder="Password"
+                  />
+                  <FormHelperText>
+                    Setting a password will prevent people from using this
+                    interface to listen to the radio stream. It also prevents
+                    them from using or viewing the chat. Clearing this password
+                    will open the experience up to anyone.
+                  </FormHelperText>
+                </FormControl>
+              </VStack>
             </form>
           )}
         </Formik>

@@ -30,6 +30,9 @@ export const audioMachine = createMachine<Context>(
             actions: ["setMeta"],
           },
           OFFLINE: "offline",
+          META: {
+            actions: ["setMeta"],
+          },
         },
         states: {
           progress: {

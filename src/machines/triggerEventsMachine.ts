@@ -2,15 +2,17 @@ import { createMachine, assign, sendTo } from "xstate"
 import socketService from "../lib/socketService"
 
 interface Context {
-  banner?: string
+  reactions: any[]
+  messages: any[]
 }
 
-export const globalSettingsMachine = createMachine<Context>(
+export const triggerEventsMachine = createMachine<Context>(
   {
     predictableActionArguments: true,
-    id: "globalSettings",
+    id: "triggerEvents",
     context: {
-      banner: undefined,
+      reactions: [],
+      messages: [],
     },
     invoke: [
       {
@@ -19,25 +21,26 @@ export const globalSettingsMachine = createMachine<Context>(
       },
     ],
     on: {
-      SETTINGS: {
+      TRIGGER_EVENTS: {
         actions: ["setValues"],
       },
     },
     initial: "active",
     states: {
       active: {
-        entry: ["fetchSettings"],
+        entry: ["fetchTriggerEvents"],
       },
     },
   },
   {
     actions: {
       setValues: assign((_context, event) => {
-        return {
-          banner: event.data.extraInfo,
-        }
+        console.log(event)
+        return event.data
       }),
-      fetchSettings: sendTo("socket", () => ({ type: "get settings" })),
+      fetchTriggerEvents: sendTo("socket", () => ({
+        type: "get trigger events",
+      })),
     },
   },
 )

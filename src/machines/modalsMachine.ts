@@ -40,7 +40,39 @@ export const modalsMachine = createMachine(
       listeners: {},
       help: {},
       artwork: {},
-      settings: {},
+      settings: {
+        initial: "overview",
+        states: {
+          overview: {
+            on: {
+              EDIT_CONTENT: "content",
+              EDIT_PASSWORD: "password",
+              EDIT_REACTION_TRIGGERS: "reaction_triggers",
+              EDIT_MESSAGE_TRIGGERS: "message_triggers",
+            },
+          },
+          content: {
+            on: {
+              BACK: "overview",
+            },
+          },
+          password: {
+            on: {
+              BACK: "overview",
+            },
+          },
+          reaction_triggers: {
+            on: {
+              BACK: "overview",
+            },
+          },
+          message_triggers: {
+            on: {
+              BACK: "overview",
+            },
+          },
+        },
+      },
       bookmarks: {},
     },
   },

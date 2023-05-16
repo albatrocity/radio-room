@@ -1,10 +1,12 @@
-import { createMachine, assign } from "xstate"
+import { createMachine, assign, sendTo } from "xstate"
+import socketService from "../lib/socketService"
 
 interface Context {
   fetchMeta: boolean
   extraInfo: string
   donationURL: string
   password: string
+  artwork?: string
 }
 
 export const settingsMachine = createMachine<Context>(
@@ -17,13 +19,26 @@ export const settingsMachine = createMachine<Context>(
       extraInfo: "",
       donationURL: "",
       password: "",
+      artwork: undefined,
+    },
+    invoke: [
+      {
+        id: "socket",
+        src: () => socketService,
+      },
+    ],
+    on: {
+      SETTINGS: {
+        actions: "setValues",
+      },
     },
     states: {
       pending: {
+        entry: ["fetchSettings"],
         invoke: {
-          src: "fetchSettings",
-          onDone: { target: "fetched", actions: ["setValues"] },
-          onError: { target: "failed" },
+          src: "watchForUpdate",
+          onDone: { target: "fetched.successful" },
+          onError: { target: "fetched.failed" },
         },
         after: {
           5000: "failed",
@@ -57,12 +72,17 @@ export const settingsMachine = createMachine<Context>(
   },
   {
     actions: {
+      fetchSettings: sendTo("socket", () => ({ type: "get settings" })),
       setValues: assign((_context, event) => {
-        return {
-          fetchMeta: event.data.fetchMeta,
-          extraInfo: event.data.extraInfo,
-          donationURL: event.data.donationURL,
-          password: event.data.password,
+        console.log("set values!", event.data)
+        if (event.type === "SETTINGS") {
+          return {
+            fetchMeta: event.data.fetchMeta,
+            extraInfo: event.data.extraInfo,
+            donationURL: event.data.donationURL,
+            password: event.data.password,
+            artwork: event.data.artwork,
+          }
         }
       }),
     },
