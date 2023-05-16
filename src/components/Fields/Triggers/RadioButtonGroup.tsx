@@ -6,6 +6,7 @@ import {
   useRadio,
   useRadioGroup,
   useId,
+  ThemingProps,
 } from "@chakra-ui/react"
 import { useField } from "formik"
 import React from "react"
@@ -31,6 +32,7 @@ function RadioButton(props: any) {
         cursor="pointer"
         aria-label={props.label}
         size="sm"
+        colorScheme={props.colorScheme}
         as="label"
         htmlFor={input.id}
         variant={props.isChecked ? "solid" : "outline"}
@@ -46,9 +48,10 @@ function RadioButton(props: any) {
 type Props = {
   name: string
   options: Option[]
+  colorScheme: string
 }
 
-function RadioButtonGroup({ name, options }: Props) {
+function RadioButtonGroup({ name, options, colorScheme }: Props) {
   const [field, , { setValue }] = useField(name)
   const { getRootProps, getRadioProps } = useRadioGroup({
     name,
@@ -61,7 +64,12 @@ function RadioButtonGroup({ name, options }: Props) {
       {options.map(({ value, label }) => {
         const radio = getRadioProps({ value })
         return (
-          <RadioButton key={value} label={label} {...radio}>
+          <RadioButton
+            colorScheme={colorScheme}
+            key={value}
+            label={label}
+            {...radio}
+          >
             {label}
           </RadioButton>
         )

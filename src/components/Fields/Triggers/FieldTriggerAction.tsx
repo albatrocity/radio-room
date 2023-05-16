@@ -108,6 +108,7 @@ function FieldTriggerAction({ value, actions, index }: Props) {
               </WrapItem>
               <WrapItem>
                 <RadioButtonGroup
+                  colorScheme="secondary"
                   name={`triggers.${index}.conditions.thresholdType`}
                   options={[
                     { value: "percent", label: "%" },
