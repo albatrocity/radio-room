@@ -1,6 +1,7 @@
 import { ChevronRightIcon } from "@chakra-ui/icons"
 import { useMachine } from "@xstate/react"
 import {
+  Badge,
   Box,
   Button,
   HStack,
@@ -13,12 +14,15 @@ import React from "react"
 import { useModalsStore } from "../../../state/modalsState"
 import { settingsMachine } from "../../../machines/settingsMachine"
 import ActiveIndicator from "../../ActiveIndicator"
+import { triggerEventsMachine } from "../../../machines/triggerEventsMachine"
 
 function Overview() {
   const { send } = useModalsStore()
   const [settingsState] = useMachine(settingsMachine)
+  const [triggerssState] = useMachine(triggerEventsMachine)
   const hasPassword = !!settingsState.context.password
-
+  const hasSettings =
+    !!settingsState.context.extraInfo || !!settingsState.context.artwork
   return (
     <Box>
       <ModalBody>
@@ -29,7 +33,12 @@ function Overview() {
             </Heading>
             <VStack w="100%" align="left" spacing="1px">
               <Button
-                rightIcon={<ChevronRightIcon />}
+                rightIcon={
+                  <HStack>
+                    {hasSettings && <ActiveIndicator />}
+                    <ChevronRightIcon />
+                  </HStack>
+                }
                 variant="settingsCategory"
                 borderBottomRadius="none"
                 onClick={() => send("EDIT_CONTENT")}
@@ -57,7 +66,16 @@ function Overview() {
             </Heading>
             <VStack w="100%" align="left" spacing="1px">
               <Button
-                rightIcon={<ChevronRightIcon />}
+                rightIcon={
+                  <HStack>
+                    {triggerssState.context.reactions.length && (
+                      <Badge colorScheme="primary">
+                        {triggerssState.context.reactions.length}
+                      </Badge>
+                    )}
+                    <ChevronRightIcon />
+                  </HStack>
+                }
                 variant="settingsCategory"
                 borderBottomRadius="none"
                 onClick={() => send("EDIT_REACTION_TRIGGERS")}
@@ -65,7 +83,16 @@ function Overview() {
                 Reaction-triggered actions
               </Button>
               <Button
-                rightIcon={<ChevronRightIcon />}
+                rightIcon={
+                  <HStack>
+                    {triggerssState.context.messages.length && (
+                      <Badge colorScheme="primary">
+                        {triggerssState.context.messages.length}
+                      </Badge>
+                    )}
+                    <ChevronRightIcon />
+                  </HStack>
+                }
                 variant="settingsCategory"
                 borderTopRadius="none"
                 onClick={() => send("EDIT_MESSAGE_TRIGGERS")}

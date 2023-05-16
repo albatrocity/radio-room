@@ -35,7 +35,6 @@ export const triggerEventsMachine = createMachine<Context>(
   {
     actions: {
       setValues: assign((_context, event) => {
-        console.log(event)
         return event.data
       }),
       fetchTriggerEvents: sendTo("socket", () => ({

@@ -16,6 +16,7 @@ import { ArrowBackIcon } from "@chakra-ui/icons"
 import Overview from "./Overview"
 import Content from "./Content"
 import Password from "./Password"
+import ReactionTriggerActions from "./ReactionTriggerActions"
 
 const Header = ({
   showBack,
@@ -70,6 +71,9 @@ function ModalAdminSettings() {
         </Collapse>
         <Collapse in={state.matches("settings.password")}>
           <Password />
+        </Collapse>
+        <Collapse in={state.matches("settings.reaction_triggers")}>
+          <ReactionTriggerActions />
         </Collapse>
       </ModalContent>
     </Modal>

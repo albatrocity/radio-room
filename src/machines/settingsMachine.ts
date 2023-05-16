@@ -4,7 +4,6 @@ import socketService from "../lib/socketService"
 interface Context {
   fetchMeta: boolean
   extraInfo: string
-  donationURL: string
   password: string
   artwork?: string
 }
@@ -17,7 +16,6 @@ export const settingsMachine = createMachine<Context>(
     context: {
       fetchMeta: true,
       extraInfo: "",
-      donationURL: "",
       password: "",
       artwork: undefined,
     },
@@ -35,14 +33,6 @@ export const settingsMachine = createMachine<Context>(
     states: {
       pending: {
         entry: ["fetchSettings"],
-        invoke: {
-          src: "watchForUpdate",
-          onDone: { target: "fetched.successful" },
-          onError: { target: "fetched.failed" },
-        },
-        after: {
-          5000: "failed",
-        },
       },
       failed: {},
       fetched: {
@@ -53,13 +43,7 @@ export const settingsMachine = createMachine<Context>(
               SUBMIT: { target: "pending" },
             },
           },
-          pending: {
-            invoke: {
-              src: "watchForUpdate",
-              onDone: "successful",
-              onError: { target: "#settings.failed" },
-            },
-          },
+          pending: {},
           successful: {
             after: {
               2000: "untouched",
@@ -78,7 +62,6 @@ export const settingsMachine = createMachine<Context>(
           return {
             fetchMeta: event.data.fetchMeta,
             extraInfo: event.data.extraInfo,
-            donationURL: event.data.donationURL,
             password: event.data.password,
             artwork: event.data.artwork,
           }
