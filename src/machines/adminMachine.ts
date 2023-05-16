@@ -39,7 +39,6 @@ export const adminMachine = createMachine<any, AdminEvent>(
         }
       }),
       setSettings: sendTo("socket", (_ctx, event) => {
-        console.log("event", event)
         return {
           type: "settings",
           data: event.data,

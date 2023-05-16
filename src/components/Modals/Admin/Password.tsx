@@ -26,6 +26,7 @@ function Password() {
       initialValues={{
         password: state.context.password || "",
       }}
+      enableReinitialize
       validate={() => {
         const errors = {}
         return errors

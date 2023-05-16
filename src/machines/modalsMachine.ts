@@ -11,10 +11,6 @@ export const modalsMachine = createMachine(
     on: {
       EDIT_USERNAME: "username",
       EDIT_QUEUE: { target: "queue", cond: "canAddToQueue" },
-      EDIT_ARTWORK: {
-        target: "artwork",
-        cond: "isAdmin",
-      },
       EDIT_SETTINGS: {
         target: "settings",
         cond: "isAdmin",
@@ -39,7 +35,6 @@ export const modalsMachine = createMachine(
       queue: {},
       listeners: {},
       help: {},
-      artwork: {},
       settings: {
         initial: "overview",
         states: {

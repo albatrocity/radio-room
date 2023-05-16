@@ -1,7 +1,9 @@
 import { ChevronRightIcon } from "@chakra-ui/icons"
+import { useMachine } from "@xstate/react"
 import {
   Box,
   Button,
+  HStack,
   Heading,
   ModalBody,
   ModalFooter,
@@ -9,9 +11,14 @@ import {
 } from "@chakra-ui/react"
 import React from "react"
 import { useModalsStore } from "../../../state/modalsState"
+import { settingsMachine } from "../../../machines/settingsMachine"
+import ActiveIndicator from "../../ActiveIndicator"
 
 function Overview() {
   const { send } = useModalsStore()
+  const [settingsState] = useMachine(settingsMachine)
+  const hasPassword = !!settingsState.context.password
+
   return (
     <Box>
       <ModalBody>
@@ -30,7 +37,12 @@ function Overview() {
                 Content
               </Button>
               <Button
-                rightIcon={<ChevronRightIcon />}
+                rightIcon={
+                  <HStack>
+                    {hasPassword && <ActiveIndicator />}
+                    <ChevronRightIcon />
+                  </HStack>
+                }
                 variant="settingsCategory"
                 borderTopRadius="none"
                 onClick={() => send("EDIT_PASSWORD")}

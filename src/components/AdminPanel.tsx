@@ -13,7 +13,7 @@ import {
   useColorModeValue,
 } from "@chakra-ui/react"
 
-import { FiSettings, FiList, FiImage, FiBookmark } from "react-icons/fi"
+import { FiSettings, FiList, FiBookmark } from "react-icons/fi"
 import { BiMessageRoundedMinus } from "react-icons/bi"
 import ConfirmationDialog from "./ConfirmationDialog"
 
@@ -78,18 +78,6 @@ function AdminPanel({}: Props) {
           </WrapItem>
         )}
         <Wrap>
-          <WrapItem>
-            <Button
-              size="xs"
-              variant="ghost"
-              colorScheme={buttonColorScheme}
-              leftIcon={<Icon as={FiImage} />}
-              onClick={() => modalSend("EDIT_ARTWORK")}
-            >
-              Change Cover Art
-            </Button>
-          </WrapItem>
-
           <WrapItem>
             <Button
               size="xs"

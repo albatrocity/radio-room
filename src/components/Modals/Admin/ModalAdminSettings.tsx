@@ -1,22 +1,18 @@
 import React from "react"
 
 import { useModalsStore } from "../../../state/modalsState"
-import { useAdminStore } from "../../../state/adminStore"
 import {
-  Box,
-  Button,
   Collapse,
   HStack,
   Heading,
   IconButton,
   Modal,
-  ModalBody,
   ModalCloseButton,
   ModalContent,
   ModalHeader,
   ModalOverlay,
 } from "@chakra-ui/react"
-import { CheckIcon, ArrowBackIcon } from "@chakra-ui/icons"
+import { ArrowBackIcon } from "@chakra-ui/icons"
 import Overview from "./Overview"
 import Content from "./Content"
 import Password from "./Password"
@@ -76,8 +72,6 @@ function ModalAdminSettings() {
           <Password />
         </Collapse>
       </ModalContent>
-
-      {/* <FormAdminSettings onBack={onBack} onSubmit={onSubmit} /> */}
     </Modal>
   )
 }

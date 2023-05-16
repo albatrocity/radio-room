@@ -74,7 +74,6 @@ export const settingsMachine = createMachine<Context>(
     actions: {
       fetchSettings: sendTo("socket", () => ({ type: "get settings" })),
       setValues: assign((_context, event) => {
-        console.log("set values!", event.data)
         if (event.type === "SETTINGS") {
           return {
             fetchMeta: event.data.fetchMeta,
