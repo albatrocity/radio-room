@@ -34,7 +34,7 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
       alignItems="center"
       flexDirection="column"
     >
-      <Text as="p" color="secondaryText" fontSize="sm" textAlign="center">
+      <Text as="span" color="secondaryText" fontSize="sm" textAlign="center">
         <ParsedEmojiMessage content={content} />
       </Text>
       <HStack gap={1}>
