@@ -4,7 +4,6 @@ import { useAdminStore } from "../../../state/adminStore"
 import {
   FormControl,
   FormHelperText,
-  Input,
   ModalBody,
   ModalFooter,
   VStack,
@@ -13,6 +12,7 @@ import { settingsMachine } from "../../../machines/settingsMachine"
 import { useMachine } from "@xstate/react"
 import FormActions from "./FormActions"
 import { useModalsStore } from "../../../state/modalsState"
+import FieldText from "../../Fields/Triggers/FieldText"
 
 function Password() {
   const [state] = useMachine(settingsMachine)
@@ -36,18 +36,13 @@ function Password() {
         setSubmitting(false)
       }}
     >
-      {({ values, handleChange, handleBlur, handleSubmit }) => (
+      {({ handleBlur, handleSubmit }) => (
         <form onSubmit={handleSubmit}>
           <ModalBody>
             <VStack spacing={6}>
               <FormControl gap={2}>
-                <Input
-                  disabled={state.matches("pending")}
-                  onChange={(e) => {
-                    handleChange(e)
-                  }}
+                <FieldText
                   onBlur={handleBlur}
-                  value={values.password}
                   name="password"
                   placeholder="Password"
                 />

@@ -93,7 +93,6 @@ function Content() {
 
               <FormControl>
                 <Checkbox
-                  isDisabled={state.matches("pending")}
                   isChecked={values.fetchMeta}
                   onChange={(e) => {
                     handleChange(e)

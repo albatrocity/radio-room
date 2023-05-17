@@ -82,7 +82,7 @@ function Overview() {
               >
                 Reaction-triggered actions
               </Button>
-              <Button
+              {/* <Button
                 rightIcon={
                   <HStack>
                     {triggerssState.context.messages?.length && (
@@ -98,7 +98,7 @@ function Overview() {
                 onClick={() => send("EDIT_MESSAGE_TRIGGERS")}
               >
                 Message-triggered actions
-              </Button>
+              </Button> */}
             </VStack>
           </VStack>
         </VStack>
