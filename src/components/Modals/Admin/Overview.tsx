@@ -68,9 +68,9 @@ function Overview() {
               <Button
                 rightIcon={
                   <HStack>
-                    {triggerssState.context.reactions.length && (
+                    {triggerssState.context.reactions?.length && (
                       <Badge colorScheme="primary">
-                        {triggerssState.context.reactions.length}
+                        {triggerssState.context.reactions?.length}
                       </Badge>
                     )}
                     <ChevronRightIcon />
@@ -85,9 +85,9 @@ function Overview() {
               <Button
                 rightIcon={
                   <HStack>
-                    {triggerssState.context.messages.length && (
+                    {triggerssState.context.messages?.length && (
                       <Badge colorScheme="primary">
-                        {triggerssState.context.messages.length}
+                        {triggerssState.context.messages?.length}
                       </Badge>
                     )}
                     <ChevronRightIcon />

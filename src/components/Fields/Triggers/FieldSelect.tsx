@@ -9,8 +9,14 @@ type Props = {
 
 function FieldSelect({ name, children, ...rest }: Props) {
   const [field, , { setValue }] = useField(name)
+
   return (
-    <Select name={name} onChange={setValue} value={field.value} {...rest}>
+    <Select
+      name={name}
+      onChange={(e) => setValue(e.target.value)}
+      value={field.value}
+      {...rest}
+    >
       {children}
     </Select>
   )

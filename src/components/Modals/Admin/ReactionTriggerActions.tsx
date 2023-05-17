@@ -1,64 +1,90 @@
 import React from "react"
 import { useMachine } from "@xstate/react"
 import { FieldArray, Formik } from "formik"
+import mergician from "mergician"
 
 import {
+  Button,
   FormControl,
   FormHelperText,
-  Input,
   ModalBody,
   ModalFooter,
   VStack,
 } from "@chakra-ui/react"
 import FormActions from "./FormActions"
 
-import { useAdminStore } from "../../../state/adminStore"
 import { useModalsStore } from "../../../state/modalsState"
 import { triggerEventsMachine } from "../../../machines/triggerEventsMachine"
 import FieldTriggerAction from "../../Fields/Triggers/FieldTriggerAction"
+import { AddIcon } from "@chakra-ui/icons"
 
 type Props = {}
+const defaultAction = {
+  subject: {
+    id: "latest",
+    type: "track",
+  },
+  target: {
+    id: "latest",
+    type: "track",
+  },
+  action: "likeTrack",
+  meta: {
+    messageTemplate: "",
+  },
+}
 
 const ReactionTriggerActions = (props: Props) => {
-  const [state] = useMachine(triggerEventsMachine)
+  const [state, send] = useMachine(triggerEventsMachine)
   const { send: modalSend } = useModalsStore()
-  const { send } = useAdminStore()
   const triggers = state.context.reactions
   const onCancel = () => modalSend("CLOSE")
 
   return (
     <Formik
       initialValues={{
-        triggers,
+        triggers: triggers.map((t) => mergician(defaultAction, t)),
       }}
       enableReinitialize
       validate={() => {
         const errors = {}
         return errors
       }}
-      onSubmit={(values, { setSubmitting }) => {
-        send("SET_SETTINGS", { data: values })
-        setSubmitting(false)
+      onSubmit={(values) => {
+        send("SET_REACTION_TRIGGER_EVENTS", { data: values.triggers })
       }}
     >
-      {({ values, handleChange, handleBlur, handleSubmit }) => (
+      {({ values, handleSubmit }) => (
         <form onSubmit={handleSubmit}>
           <ModalBody>
             <VStack spacing={6}>
               <FormControl gap={2}>
-                <FieldArray name="friends">
-                  {(actions) => (
-                    <VStack spacing={12}>
-                      {values.triggers.map((trigger, index) => (
-                        <FieldTriggerAction
-                          key={index}
-                          index={index}
-                          value={trigger}
-                          actions={actions}
-                        />
-                      ))}
-                    </VStack>
-                  )}
+                <FieldArray name="triggers">
+                  {(actions) => {
+                    const addAction = () => {
+                      actions.push({ ...defaultAction })
+                    }
+                    return (
+                      <VStack spacing={12}>
+                        {values.triggers.map((trigger, index) => (
+                          <FieldTriggerAction
+                            key={index}
+                            index={index}
+                            value={trigger}
+                            actions={actions}
+                          />
+                        ))}
+                        <Button
+                          onClick={addAction}
+                          colorScheme="secondary"
+                          size="sm"
+                          rightIcon={<AddIcon boxSize="0.6rem" />}
+                        >
+                          Add Action
+                        </Button>
+                      </VStack>
+                    )
+                  }}
                 </FieldArray>
                 <FormHelperText></FormHelperText>
               </FormControl>

@@ -8,7 +8,14 @@ type Props = {
 
 function FieldText({ name, ...rest }: Props) {
   const [field, , { setValue }] = useField(name)
-  return <Input name={name} onChange={setValue} value={field.value} {...rest} />
+  return (
+    <Input
+      name={name}
+      onChange={(e) => setValue(e.target.value)}
+      value={field.value}
+      {...rest}
+    />
+  )
 }
 
 export default FieldText

@@ -24,6 +24,9 @@ export const triggerEventsMachine = createMachine<Context>(
       TRIGGER_EVENTS: {
         actions: ["setValues"],
       },
+      SET_REACTION_TRIGGER_EVENTS: {
+        actions: ["submitReactionEvents"],
+      },
     },
     initial: "active",
     states: {
@@ -40,6 +43,12 @@ export const triggerEventsMachine = createMachine<Context>(
       fetchTriggerEvents: sendTo("socket", () => ({
         type: "get trigger events",
       })),
+      submitReactionEvents: sendTo("socket", (_ctx, event) => {
+        return {
+          type: "set reaction trigger events",
+          data: event.data,
+        }
+      }),
     },
   },
 )
