@@ -158,7 +158,7 @@ export const chatMachine = createMachine<Context, MachineEvent>(
       },
       setData: assign({
         messages: (ctx, event) => {
-          if (event.type === "INIT") {
+          if (event.type === "INIT" || event.type === "SET_MESSAGES") {
             return event.data.messages || []
           }
           return ctx.messages

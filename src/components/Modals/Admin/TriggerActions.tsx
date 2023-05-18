@@ -19,8 +19,6 @@ import { AddIcon } from "@chakra-ui/icons"
 import FieldTriggerAction from "../../Fields/Triggers/FieldTriggerAction"
 
 import { TriggerEvent, TriggerEventString } from "../../../types/Triggers"
-import { Reaction } from "../../../types/Reaction"
-import { ChatMessage } from "../../../types/ChatMessage"
 
 type FormValues<T> = {
   triggers: TriggerEvent<T>[]
@@ -30,26 +28,13 @@ type Props<T> = {
   type: TriggerEventString
   initialValues: FormValues<T>
   defaultTriggerEvents: TriggerEvent<T>[]
+  defaultAction: TriggerEvent<T>
   onSubmit: (values: FormValues<T>) => void
 }
 
-const defaultAction = {
-  subject: {
-    id: "latest",
-    type: "track",
-  },
-  target: {
-    id: "latest",
-    type: "track",
-  },
-  action: "likeTrack",
-  meta: {
-    messageTemplate: "",
-  },
-}
-
 const TriggerActions = <T extends object>(props: Props<T>) => {
-  const { type, initialValues, defaultTriggerEvents, onSubmit } = props
+  const { type, initialValues, defaultTriggerEvents, defaultAction, onSubmit } =
+    props
   const { send: modalSend } = useModalsStore()
   const onCancel = () => modalSend("CLOSE")
 

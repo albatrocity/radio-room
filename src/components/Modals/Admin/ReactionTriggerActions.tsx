@@ -9,15 +9,16 @@ import { Reaction } from "../../../types/Reaction"
 import TriggerActions from "./TriggerActions"
 
 const defaultAction = {
+  on: "reaction" as const,
   subject: {
     id: "latest",
-    type: "track",
+    type: "track" as const,
   },
   target: {
     id: "latest",
-    type: "track",
+    type: "track" as const,
   },
-  action: "likeTrack",
+  action: "likeTrack" as const,
   meta: {
     messageTemplate: "",
   },
@@ -42,6 +43,7 @@ const ReactionTriggerActions = () => {
     <TriggerActions<Reaction>
       type="reaction"
       initialValues={initialValues}
+      defaultAction={defaultAction}
       defaultTriggerEvents={defaultTriggerEvents}
       onSubmit={(values) => {
         send(`SET_REACTION_TRIGGER_EVENTS`, {

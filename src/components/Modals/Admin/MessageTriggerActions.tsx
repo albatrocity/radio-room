@@ -9,15 +9,16 @@ import TriggerActions from "./TriggerActions"
 import { ChatMessage } from "../../../types/ChatMessage"
 
 const defaultAction = {
+  on: "message" as const,
   subject: {
     id: "latest",
-    type: "track",
+    type: "message" as const,
   },
   target: {
     id: "latest",
-    type: "track",
+    type: "message" as const,
   },
-  action: "likeTrack",
+  action: "sendMessage" as const,
   meta: {
     messageTemplate: "",
   },
@@ -43,6 +44,7 @@ const MessageTriggerActions = () => {
       type="message"
       initialValues={initialValues}
       defaultTriggerEvents={defaultTriggerEvents}
+      defaultAction={defaultAction}
       onSubmit={(values) => {
         send(`SET_MESSAGE_TRIGGER_EVENTS`, {
           data: values.triggers,
