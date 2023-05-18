@@ -1,7 +1,7 @@
 import React from "react"
 import { useMachine } from "@xstate/react"
 import { FieldArray, Formik } from "formik"
-import mergician from "mergician"
+import merge from "ts-deepmerge"
 
 import {
   Button,
@@ -18,9 +18,20 @@ import { useModalsStore } from "../../../state/modalsState"
 import { triggerEventsMachine } from "../../../machines/triggerEventsMachine"
 import { AddIcon } from "@chakra-ui/icons"
 import FieldTriggerAction from "../../Fields/Triggers/FieldTriggerAction"
-import { defaultReactionTriggerEvents } from "../../../lib/defaultTriggerActions"
+import {
+  defaultMessageTriggerEvents,
+  defaultReactionTriggerEvents,
+} from "../../../lib/defaultTriggerActions"
+import {
+  MessageTriggerEvent,
+  ReactionTriggerEvent,
+  TriggerEventString,
+} from "../../../types/Triggers"
 
-type Props = {}
+type Props = {
+  type: TriggerEventString
+}
+
 const defaultAction = {
   subject: {
     id: "latest",
@@ -36,16 +47,36 @@ const defaultAction = {
   },
 }
 
-const ReactionTriggerActions = (props: Props) => {
+function getContextKey(type: TriggerEventString): "reactions" | "messages" {
+  switch (type) {
+    case "reaction":
+      return "reactions"
+    case "message":
+      return "messages"
+  }
+}
+function getDefaultTriggerEvents(
+  type: TriggerEventString,
+): ReactionTriggerEvent[] | MessageTriggerEvent[] {
+  switch (type) {
+    case "reaction":
+      return defaultReactionTriggerEvents
+    case "message":
+      return defaultMessageTriggerEvents
+  }
+}
+
+const TriggerActions = ({ type }: Props) => {
   const [state, send] = useMachine(triggerEventsMachine)
   const { send: modalSend } = useModalsStore()
-  const triggers = state.context.reactions
+  const triggers = state.context[getContextKey(type)]
+  const defaultTriggerEvents = getDefaultTriggerEvents(type)
   const onCancel = () => modalSend("CLOSE")
 
   return (
     <Formik
       initialValues={{
-        triggers: triggers.map((t) => mergician(defaultAction, t)),
+        triggers: triggers.map((t) => merge(defaultAction, t)),
       }}
       enableReinitialize
       validate={() => {
@@ -53,7 +84,9 @@ const ReactionTriggerActions = (props: Props) => {
         return errors
       }}
       onSubmit={(values) => {
-        send("SET_REACTION_TRIGGER_EVENTS", { data: values.triggers })
+        send(`SET_${type.toUpperCase()}_TRIGGER_EVENTS`, {
+          data: values.triggers,
+        })
       }}
     >
       {({ values, handleSubmit }) => (
@@ -67,18 +100,17 @@ const ReactionTriggerActions = (props: Props) => {
                       actions.push({ ...defaultAction })
                     }
                     const addDefaultActions = () => {
-                      defaultReactionTriggerEvents.forEach((a) =>
-                        actions.push(a),
-                      )
+                      defaultTriggerEvents.forEach((a) => actions.push(a))
                     }
                     return (
                       <VStack spacing={12}>
-                        {values.triggers.map((trigger, index) => (
+                        {values.triggers.map((trigger, index: number) => (
                           <FieldTriggerAction
                             key={index}
                             index={index}
                             value={trigger}
                             actions={actions}
+                            eventType={type}
                           />
                         ))}
                         <ButtonGroup>
@@ -90,15 +122,17 @@ const ReactionTriggerActions = (props: Props) => {
                           >
                             Add Action
                           </Button>
-                          <Button
-                            onClick={addDefaultActions}
-                            colorScheme="secondary"
-                            size="sm"
-                            variant="outline"
-                            rightIcon={<AddIcon boxSize="0.6rem" />}
-                          >
-                            Add Default Actions
-                          </Button>
+                          {defaultTriggerEvents.length > 0 && (
+                            <Button
+                              onClick={addDefaultActions}
+                              colorScheme="secondary"
+                              size="sm"
+                              variant="outline"
+                              rightIcon={<AddIcon boxSize="0.6rem" />}
+                            >
+                              Add Default Actions
+                            </Button>
+                          )}
                         </ButtonGroup>
                       </VStack>
                     )
@@ -117,4 +151,4 @@ const ReactionTriggerActions = (props: Props) => {
   )
 }
 
-export default ReactionTriggerActions
+export default TriggerActions

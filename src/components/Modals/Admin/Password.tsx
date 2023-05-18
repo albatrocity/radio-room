@@ -12,7 +12,7 @@ import { settingsMachine } from "../../../machines/settingsMachine"
 import { useMachine } from "@xstate/react"
 import FormActions from "./FormActions"
 import { useModalsStore } from "../../../state/modalsState"
-import FieldText from "../../Fields/Triggers/FieldText"
+import FieldText from "../../Fields/FieldText"
 
 function Password() {
   const [state] = useMachine(settingsMachine)

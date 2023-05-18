@@ -19,7 +19,7 @@ import { triggerEventsMachine } from "../../../machines/triggerEventsMachine"
 function Overview() {
   const { send } = useModalsStore()
   const [settingsState] = useMachine(settingsMachine)
-  const [triggerssState] = useMachine(triggerEventsMachine)
+  const [triggersState] = useMachine(triggerEventsMachine)
   const hasPassword = !!settingsState.context.password
   const hasSettings =
     !!settingsState.context.extraInfo || !!settingsState.context.artwork
@@ -66,11 +66,12 @@ function Overview() {
             </Heading>
             <VStack w="100%" align="left" spacing="1px">
               <Button
+                borderBottomRadius="none"
                 rightIcon={
                   <HStack>
-                    {triggerssState.context.reactions?.length && (
+                    {triggersState.context.reactions?.length && (
                       <Badge colorScheme="primary">
-                        {triggerssState.context.reactions?.length}
+                        {triggersState.context.reactions?.length}
                       </Badge>
                     )}
                     <ChevronRightIcon />
@@ -80,6 +81,23 @@ function Overview() {
                 onClick={() => send("EDIT_REACTION_TRIGGERS")}
               >
                 Reaction-triggered actions
+              </Button>
+              <Button
+                borderTopRadius="none"
+                rightIcon={
+                  <HStack>
+                    {triggersState.context.messages?.length && (
+                      <Badge colorScheme="primary">
+                        {triggersState.context.messages?.length}
+                      </Badge>
+                    )}
+                    <ChevronRightIcon />
+                  </HStack>
+                }
+                variant="settingsCategory"
+                onClick={() => send("EDIT_MESSAGE_TRIGGERS")}
+              >
+                Message-triggered actions
               </Button>
             </VStack>
           </VStack>

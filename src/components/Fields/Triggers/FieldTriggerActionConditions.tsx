@@ -1,23 +1,25 @@
 import { ArrowForwardIcon } from "@chakra-ui/icons"
 import { Box, Stack, Wrap, WrapItem, Text } from "@chakra-ui/react"
 import React from "react"
-import FieldText from "./FieldText"
-import FieldSelect from "./FieldSelect"
-import FieldNumber from "./FieldNumber"
-import RadioButtonGroup from "./RadioButtonGroup"
+import FieldText from "../FieldText"
+import FieldSelect from "../FieldSelect"
+import FieldNumber from "../FieldNumber"
+import RadioButtonGroup from "../RadioButtonGroup"
 import { useField } from "formik"
+import { TriggerEventString } from "../../../types/Triggers"
 
 type Props = {
   index: number
+  eventType: TriggerEventString
 }
 
-const FieldTriggerActionConditions = ({ index }: Props) => {
+const FieldTriggerActionConditions = ({ index, eventType }: Props) => {
   const [thresholdTypeField] = useField(
     `triggers.${index}.conditions.thresholdType`,
   )
   return (
     <>
-      <Stack direction="row" align="center" pl={4}>
+      <Stack direction="row" align="center" pl={4} w="100%">
         <ArrowForwardIcon />
         <Stack direction="column" spacing={2}>
           <Wrap>
@@ -26,7 +28,7 @@ const FieldTriggerActionConditions = ({ index }: Props) => {
                 size="sm"
                 name={`triggers.${index}.conditions.qualifier.sourceAttribute`}
                 w="8rem"
-                placeholder="reaction attribute"
+                placeholder={`${eventType} attribute`}
               />
             </WrapItem>
             <WrapItem>

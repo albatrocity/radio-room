@@ -1,9 +1,12 @@
 import { createMachine, assign, sendTo } from "xstate"
 import socketService from "../lib/socketService"
+import { ChatMessage } from "../types/ChatMessage"
+import { Reaction } from "../types/Reaction"
+import { TriggerEvent } from "../types/Triggers"
 
 interface Context {
-  reactions: any[]
-  messages: any[]
+  reactions: TriggerEvent<Reaction>[]
+  messages: TriggerEvent<ChatMessage>[]
 }
 
 export const triggerEventsMachine = createMachine<Context>(
@@ -27,6 +30,9 @@ export const triggerEventsMachine = createMachine<Context>(
       SET_REACTION_TRIGGER_EVENTS: {
         actions: ["submitReactionEvents"],
       },
+      SET_MESSAGE_TRIGGER_EVENTS: {
+        actions: ["submitMessageEvents"],
+      },
     },
     initial: "active",
     states: {
@@ -46,6 +52,12 @@ export const triggerEventsMachine = createMachine<Context>(
       submitReactionEvents: sendTo("socket", (_ctx, event) => {
         return {
           type: "set reaction trigger events",
+          data: event.data,
+        }
+      }),
+      submitMessageEvents: sendTo("socket", (_ctx, event) => {
+        return {
+          type: "set message trigger events",
           data: event.data,
         }
       }),

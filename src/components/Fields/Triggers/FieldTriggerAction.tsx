@@ -1,21 +1,22 @@
 import { Stack, Wrap, WrapItem, Text, Collapse, Button } from "@chakra-ui/react"
 import { FieldArrayRenderProps } from "formik"
 import React from "react"
-import { TriggerEvent } from "../../../types/Triggers"
+import { TriggerEvent, TriggerEventString } from "../../../types/Triggers"
 import { Reaction } from "../../../types/Reaction"
-import FieldSelect from "./FieldSelect"
+import FieldSelect from "../FieldSelect"
 import { AddIcon, ArrowDownIcon, DeleteIcon } from "@chakra-ui/icons"
-import FieldNumber from "./FieldNumber"
-import FieldText from "./FieldText"
+import FieldNumber from "../FieldNumber"
+import FieldText from "../FieldText"
 import FieldTriggerActionConditions from "./FieldTriggerActionConditions"
 
 type Props = {
   index: number
   value: TriggerEvent<Reaction>
   actions: FieldArrayRenderProps
+  eventType: TriggerEventString
 }
 
-function FieldTriggerAction({ value, actions, index }: Props) {
+function FieldTriggerAction({ value, actions, index, eventType }: Props) {
   const hasConditions = !!value.conditions
   const removeConditions = () => {
     actions.form.setFieldValue(`triggers.${index}.conditions`, undefined)
@@ -47,26 +48,36 @@ function FieldTriggerAction({ value, actions, index }: Props) {
       bg="secondaryBg"
       w="100%"
     >
-      <Stack direction="column" spacing={2}>
+      <Stack direction="column" spacing={2} w="100%">
         <Wrap spacing={2} align="center">
           <WrapItem>
-            <Text fontWeight="bold">On a Reaction to </Text>
+            <Text fontWeight="bold">
+              On a {eventType} {eventType === "reaction" && "to"}{" "}
+            </Text>
           </WrapItem>
-          <WrapItem>
-            <FieldSelect size="sm" name={`triggers.${index}.target.id`}>
-              <option value="latest">latest</option>
-            </FieldSelect>
-          </WrapItem>
-          <WrapItem>
-            <FieldSelect size="sm" name={`triggers.${index}.target.type`}>
-              <option value="track">Track</option>
-              <option value="message">Message</option>
-            </FieldSelect>
-            {hasConditions && <Text>,</Text>}
-          </WrapItem>
+          {eventType === "reaction" && (
+            <>
+              <WrapItem>
+                <FieldSelect size="sm" name={`triggers.${index}.target.id`}>
+                  <option value="latest">latest</option>
+                </FieldSelect>
+              </WrapItem>
+              <WrapItem>
+                <FieldSelect size="sm" name={`triggers.${index}.target.type`}>
+                  <option value="track">Track</option>
+                  <option value="message">Message</option>
+                </FieldSelect>
+                {hasConditions && <Text>,</Text>}
+              </WrapItem>
+            </>
+          )}
           <WrapItem>
             {hasConditions ? (
-              <Text fontSize="sm">if the number of its Reactions where</Text>
+              <Text fontSize="sm">
+                if{" "}
+                {eventType === "reaction" &&
+                  "the number of its reactions where"}
+              </Text>
             ) : (
               <Button
                 onClick={setupConditions}
@@ -82,8 +93,8 @@ function FieldTriggerAction({ value, actions, index }: Props) {
         </Wrap>
 
         <Collapse in={hasConditions}>
-          <Stack direction="column" spacing={2}>
-            <FieldTriggerActionConditions index={index} />
+          <Stack direction="column" spacing={2} w="100%">
+            <FieldTriggerActionConditions eventType={eventType} index={index} />
             <Button
               size="xs"
               colorScheme="red"
