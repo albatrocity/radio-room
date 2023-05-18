@@ -5,6 +5,7 @@ import mergician from "mergician"
 
 import {
   Button,
+  ButtonGroup,
   FormControl,
   FormHelperText,
   ModalBody,
@@ -15,8 +16,9 @@ import FormActions from "./FormActions"
 
 import { useModalsStore } from "../../../state/modalsState"
 import { triggerEventsMachine } from "../../../machines/triggerEventsMachine"
-import FieldTriggerAction from "../../Fields/Triggers/FieldTriggerAction"
 import { AddIcon } from "@chakra-ui/icons"
+import FieldTriggerAction from "../../Fields/Triggers/FieldTriggerAction"
+import { defaultReactionTriggerEvents } from "../../../lib/defaultTriggerActions"
 
 type Props = {}
 const defaultAction = {
@@ -64,6 +66,11 @@ const ReactionTriggerActions = (props: Props) => {
                     const addAction = () => {
                       actions.push({ ...defaultAction })
                     }
+                    const addDefaultActions = () => {
+                      defaultReactionTriggerEvents.forEach((a) =>
+                        actions.push(a),
+                      )
+                    }
                     return (
                       <VStack spacing={12}>
                         {values.triggers.map((trigger, index) => (
@@ -74,14 +81,25 @@ const ReactionTriggerActions = (props: Props) => {
                             actions={actions}
                           />
                         ))}
-                        <Button
-                          onClick={addAction}
-                          colorScheme="secondary"
-                          size="sm"
-                          rightIcon={<AddIcon boxSize="0.6rem" />}
-                        >
-                          Add Action
-                        </Button>
+                        <ButtonGroup>
+                          <Button
+                            onClick={addAction}
+                            colorScheme="secondary"
+                            size="sm"
+                            rightIcon={<AddIcon boxSize="0.6rem" />}
+                          >
+                            Add Action
+                          </Button>
+                          <Button
+                            onClick={addDefaultActions}
+                            colorScheme="secondary"
+                            size="sm"
+                            variant="outline"
+                            rightIcon={<AddIcon boxSize="0.6rem" />}
+                          >
+                            Add Default Actions
+                          </Button>
+                        </ButtonGroup>
                       </VStack>
                     )
                   }}

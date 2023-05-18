@@ -77,28 +77,10 @@ function Overview() {
                   </HStack>
                 }
                 variant="settingsCategory"
-                borderBottomRadius="none"
                 onClick={() => send("EDIT_REACTION_TRIGGERS")}
               >
                 Reaction-triggered actions
               </Button>
-              {/* <Button
-                rightIcon={
-                  <HStack>
-                    {triggerssState.context.messages?.length && (
-                      <Badge colorScheme="primary">
-                        {triggerssState.context.messages?.length}
-                      </Badge>
-                    )}
-                    <ChevronRightIcon />
-                  </HStack>
-                }
-                variant="settingsCategory"
-                borderTopRadius="none"
-                onClick={() => send("EDIT_MESSAGE_TRIGGERS")}
-              >
-                Message-triggered actions
-              </Button> */}
             </VStack>
           </VStack>
         </VStack>
