@@ -33,15 +33,16 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
       justifyItems="center"
       alignItems="center"
       flexDirection="column"
+      role="group"
     >
-      <Text as="p" color="secondaryText" fontSize="sm" textAlign="center">
+      <Text as="span" color="secondaryText" fontSize="sm" textAlign="center">
         <ParsedEmojiMessage content={content} />
       </Text>
-      <HStack gap={1}>
-        <Text fontSize="xs" color="secondaryText" opacity={0.7}>
+      <HStack gap={1} opacity={0} _groupHover={{ opacity: 1 }}>
+        <Text fontSize="2xs" color="secondaryText" opacity={0.7}>
           {dateString}
         </Text>
-        <Text fontSize="xs" color="secondaryText" opacity={0.7}>
+        <Text fontSize="2xs" color="secondaryText" opacity={0.7}>
           {time}
         </Text>
       </HStack>

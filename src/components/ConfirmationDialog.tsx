@@ -13,6 +13,7 @@ import {
 type Props = {
   onConfirm: () => void
   onClose: () => void
+  title?: string
   body: JSX.Element
   isDangerous?: boolean
   confirmLabel?: string
@@ -21,6 +22,7 @@ type Props = {
 }
 
 function ConfirmationDialog({
+  title = "Are you sure?",
   body,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
@@ -39,7 +41,7 @@ function ConfirmationDialog({
       <AlertDialogOverlay>
         <AlertDialogContent>
           <AlertDialogHeader fontSize="lg" fontWeight="bold">
-            Delete Customer
+            {title}
           </AlertDialogHeader>
 
           <AlertDialogBody>{body}</AlertDialogBody>

@@ -33,7 +33,6 @@ export const globalSettingsMachine = createMachine<Context>(
   {
     actions: {
       setValues: assign((_context, event) => {
-        console.log(event)
         return {
           banner: event.data.extraInfo,
         }

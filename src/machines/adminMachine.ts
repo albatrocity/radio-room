@@ -20,7 +20,6 @@ export const adminMachine = createMachine<any, AdminEvent>(
       },
     ],
     on: {
-      SET_COVER: { actions: ["setCover"], cond: "isAdmin" },
       SET_SETTINGS: { actions: ["setSettings"], cond: "isAdmin" },
       CLEAR_PLAYLIST: { actions: ["clearPlaylist"], cond: "isAdmin" },
       DEPUTIZE_DJ: { actions: ["deputizeDj"], cond: "isAdmin" },
@@ -37,12 +36,6 @@ export const adminMachine = createMachine<any, AdminEvent>(
         return {
           type: "dj deputize user",
           data: event.userId,
-        }
-      }),
-      setCover: sendTo("socket", (_ctx, event) => {
-        return {
-          type: "set cover",
-          data: event.data,
         }
       }),
       setSettings: sendTo("socket", (_ctx, event) => {

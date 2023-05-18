@@ -1,10 +1,11 @@
-import { createMachine, assign } from "xstate"
+import { createMachine, assign, sendTo } from "xstate"
+import socketService from "../lib/socketService"
 
 interface Context {
   fetchMeta: boolean
   extraInfo: string
-  donationURL: string
   password: string
+  artwork?: string
 }
 
 export const settingsMachine = createMachine<Context>(
@@ -15,19 +16,23 @@ export const settingsMachine = createMachine<Context>(
     context: {
       fetchMeta: true,
       extraInfo: "",
-      donationURL: "",
       password: "",
+      artwork: undefined,
+    },
+    invoke: [
+      {
+        id: "socket",
+        src: () => socketService,
+      },
+    ],
+    on: {
+      SETTINGS: {
+        actions: "setValues",
+      },
     },
     states: {
       pending: {
-        invoke: {
-          src: "fetchSettings",
-          onDone: { target: "fetched", actions: ["setValues"] },
-          onError: { target: "failed" },
-        },
-        after: {
-          5000: "failed",
-        },
+        entry: ["fetchSettings"],
       },
       failed: {},
       fetched: {
@@ -38,13 +43,7 @@ export const settingsMachine = createMachine<Context>(
               SUBMIT: { target: "pending" },
             },
           },
-          pending: {
-            invoke: {
-              src: "watchForUpdate",
-              onDone: "successful",
-              onError: { target: "#settings.failed" },
-            },
-          },
+          pending: {},
           successful: {
             after: {
               2000: "untouched",
@@ -57,12 +56,15 @@ export const settingsMachine = createMachine<Context>(
   },
   {
     actions: {
+      fetchSettings: sendTo("socket", () => ({ type: "get settings" })),
       setValues: assign((_context, event) => {
-        return {
-          fetchMeta: event.data.fetchMeta,
-          extraInfo: event.data.extraInfo,
-          donationURL: event.data.donationURL,
-          password: event.data.password,
+        if (event.type === "SETTINGS") {
+          return {
+            fetchMeta: event.data.fetchMeta,
+            extraInfo: event.data.extraInfo,
+            password: event.data.password,
+            artwork: event.data.artwork,
+          }
         }
       }),
     },

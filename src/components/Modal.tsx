@@ -1,4 +1,4 @@
-import React from "react"
+import React, { ReactNode } from "react"
 
 import {
   Modal as ChakraModal,
@@ -13,10 +13,11 @@ import {
 interface Props {
   children: JSX.Element
   onClose?: () => void
-  heading?: string
+  heading?: string | ReactNode
   canClose?: boolean
   isOpen?: boolean
   footer?: JSX.Element | null
+  showFooter?: boolean
 }
 
 const Modal = ({
@@ -26,6 +27,7 @@ const Modal = ({
   canClose = true,
   isOpen = false,
   footer = null,
+  showFooter = true,
 }: Props) => {
   return (
     <ChakraModal isOpen={isOpen} onClose={onClose}>
@@ -36,7 +38,7 @@ const Modal = ({
 
         {canClose && <ModalCloseButton />}
         <ModalBody>{children}</ModalBody>
-        <ModalFooter>{footer}</ModalFooter>
+        {showFooter && <ModalFooter>{footer}</ModalFooter>}
       </ModalContent>
     </ChakraModal>
   )

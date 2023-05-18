@@ -9,8 +9,7 @@ import ModalEditUsername from "./Modals/ModalEditUsername"
 import ModalPassword from "./Modals/ModalPassword"
 import ModalAbout from "./Modals/ModalAbout"
 import ModalAddToQueue from "./Modals/ModalAddToQueue"
-import ModalEditArtwork from "./Modals/ModalEditArtwork"
-import ModalAdminSettings from "./Modals/ModalAdminSettings"
+import ModalAdminSettings from "./Modals/Admin/ModalAdminSettings"
 
 function Overlays() {
   return (
@@ -24,7 +23,6 @@ function Overlays() {
       <ModalAbout />
       <ModalAddToQueue />
       <ModalAdminSettings />
-      <ModalEditArtwork />
       <ModalEditUsername />
       <ModalPassword />
     </div>

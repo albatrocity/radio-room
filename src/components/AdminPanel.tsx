@@ -13,7 +13,7 @@ import {
   useColorModeValue,
 } from "@chakra-ui/react"
 
-import { FiSettings, FiList, FiImage, FiBookmark } from "react-icons/fi"
+import { FiSettings, FiList, FiBookmark } from "react-icons/fi"
 import { BiMessageRoundedMinus } from "react-icons/bi"
 import ConfirmationDialog from "./ConfirmationDialog"
 
@@ -30,7 +30,14 @@ function AdminPanel({}: Props) {
   const { send: adminSend } = useAdminStore()
   const { send: djSend } = useDjStore()
   const { send: modalSend } = useModalsStore()
-  const { isOpen, onOpen, onClose } = useDisclosure()
+  const { onClose, isOpen, getButtonProps, getDisclosureProps } =
+    useDisclosure()
+  const {
+    onClose: onClosePlaylist,
+    isOpen: isPlaylistOpen,
+    getButtonProps: getButtonPropsPlaylist,
+    getDisclosureProps: getDisclosurePropsPlaylist,
+  } = useDisclosure()
 
   const isDj = useDjStore((s) => s.state.matches("djaying"))
   const bookmarks = useBookmarks()
@@ -39,19 +46,40 @@ function AdminPanel({}: Props) {
   return (
     <Show above="sm">
       <ConfirmationDialog
+        title="Clear Chat Messages?"
         body={
           <Text>
             Are you sure you want to clear the chat? This cannot be undone.
+            Triggers based on messages will be reset.
           </Text>
         }
-        isOpen={isOpen}
         onClose={onClose}
+        isOpen={isOpen}
         onConfirm={() => {
           chatSend("CLEAR_MESSAGES")
           onClose()
         }}
         isDangerous={true}
         confirmLabel="Clear Chat"
+        {...getDisclosureProps()}
+      />
+      <ConfirmationDialog
+        title="Clear Playlist?"
+        body={
+          <Text>
+            Are you sure you want to clear the playlist? This cannot be undone.
+            Triggers based on tracks will be reset.
+          </Text>
+        }
+        isOpen={isPlaylistOpen}
+        onClose={onClosePlaylist}
+        onConfirm={() => {
+          adminSend("CLEAR_PLAYLIST")
+          onClose()
+        }}
+        isDangerous={true}
+        confirmLabel="Clear Playlist"
+        {...getDisclosurePropsPlaylist()}
       />
       <Stack
         direction="column"
@@ -83,18 +111,6 @@ function AdminPanel({}: Props) {
               size="xs"
               variant="ghost"
               colorScheme={buttonColorScheme}
-              leftIcon={<Icon as={FiImage} />}
-              onClick={() => modalSend("EDIT_ARTWORK")}
-            >
-              Change Cover Art
-            </Button>
-          </WrapItem>
-
-          <WrapItem>
-            <Button
-              size="xs"
-              variant="ghost"
-              colorScheme={buttonColorScheme}
               leftIcon={<Icon as={FiBookmark} />}
               onClick={() => modalSend("VIEW_BOOKMARKS")}
             >
@@ -119,7 +135,7 @@ function AdminPanel({}: Props) {
               variant="solid"
               colorScheme="red"
               leftIcon={<Icon as={BiMessageRoundedMinus} />}
-              onClick={onOpen}
+              {...getButtonProps()}
             >
               Clear Chat
             </Button>
@@ -131,14 +147,7 @@ function AdminPanel({}: Props) {
               variant="solid"
               colorScheme="red"
               leftIcon={<Icon as={FiList} />}
-              onClick={() => {
-                const confirmation = window.confirm(
-                  "Are you sure you want to clear the playlist? This cannot be undone.",
-                )
-                if (confirmation) {
-                  adminSend("CLEAR_PLAYLIST")
-                }
-              }}
+              {...getButtonPropsPlaylist()}
             >
               Clear Playlist
             </Button>

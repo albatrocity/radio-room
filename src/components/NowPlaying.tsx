@@ -30,8 +30,8 @@ interface NowPlayingProps extends BoxProps {
 }
 
 function getCoverUrl(release: any, meta: TrackMeta, mbid?: string) {
-  if (meta?.cover) {
-    return meta.cover
+  if (meta?.artwork) {
+    return meta.artwork
   }
   if (release.artwork) {
     return release.artwork

@@ -4,7 +4,7 @@ export interface StationMeta {
   album?: string
   artist?: string
   bitrate?: string
-  cover?: string
+  artwork?: string
   fetchsource?: string
   listeners?: string
   release?: SpotifyTrack
