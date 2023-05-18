@@ -2,21 +2,25 @@ import { Stack, Wrap, WrapItem, Text, Collapse, Button } from "@chakra-ui/react"
 import { FieldArrayRenderProps } from "formik"
 import React from "react"
 import { TriggerEvent, TriggerEventString } from "../../../types/Triggers"
-import { Reaction } from "../../../types/Reaction"
 import FieldSelect from "../FieldSelect"
 import { AddIcon, ArrowDownIcon, DeleteIcon } from "@chakra-ui/icons"
 import FieldNumber from "../FieldNumber"
 import FieldText from "../FieldText"
 import FieldTriggerActionConditions from "./FieldTriggerActionConditions"
 
-type Props = {
+type Props<T> = {
   index: number
-  value: TriggerEvent<Reaction>
+  value: TriggerEvent<T>
   actions: FieldArrayRenderProps
   eventType: TriggerEventString
 }
 
-function FieldTriggerAction({ value, actions, index, eventType }: Props) {
+function FieldTriggerAction<T extends object>({
+  value,
+  actions,
+  index,
+  eventType,
+}: Props<T>) {
   const hasConditions = !!value.conditions
   const removeConditions = () => {
     actions.form.setFieldValue(`triggers.${index}.conditions`, undefined)

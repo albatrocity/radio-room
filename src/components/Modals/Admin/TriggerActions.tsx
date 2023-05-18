@@ -15,21 +15,22 @@ import {
 import FormActions from "./FormActions"
 
 import { useModalsStore } from "../../../state/modalsState"
-import { triggerEventsMachine } from "../../../machines/triggerEventsMachine"
 import { AddIcon } from "@chakra-ui/icons"
 import FieldTriggerAction from "../../Fields/Triggers/FieldTriggerAction"
-import {
-  defaultMessageTriggerEvents,
-  defaultReactionTriggerEvents,
-} from "../../../lib/defaultTriggerActions"
-import {
-  MessageTriggerEvent,
-  ReactionTriggerEvent,
-  TriggerEventString,
-} from "../../../types/Triggers"
 
-type Props = {
+import { TriggerEvent, TriggerEventString } from "../../../types/Triggers"
+import { Reaction } from "../../../types/Reaction"
+import { ChatMessage } from "../../../types/ChatMessage"
+
+type FormValues<T> = {
+  triggers: TriggerEvent<T>[]
+}
+
+type Props<T> = {
   type: TriggerEventString
+  initialValues: FormValues<T>
+  defaultTriggerEvents: TriggerEvent<T>[]
+  onSubmit: (values: FormValues<T>) => void
 }
 
 const defaultAction = {
@@ -47,46 +48,21 @@ const defaultAction = {
   },
 }
 
-function getContextKey(type: TriggerEventString): "reactions" | "messages" {
-  switch (type) {
-    case "reaction":
-      return "reactions"
-    case "message":
-      return "messages"
-  }
-}
-function getDefaultTriggerEvents(
-  type: TriggerEventString,
-): ReactionTriggerEvent[] | MessageTriggerEvent[] {
-  switch (type) {
-    case "reaction":
-      return defaultReactionTriggerEvents
-    case "message":
-      return defaultMessageTriggerEvents
-  }
-}
-
-const TriggerActions = ({ type }: Props) => {
-  const [state, send] = useMachine(triggerEventsMachine)
+const TriggerActions = <T extends object>(props: Props<T>) => {
+  const { type, initialValues, defaultTriggerEvents, onSubmit } = props
   const { send: modalSend } = useModalsStore()
-  const triggers = state.context[getContextKey(type)]
-  const defaultTriggerEvents = getDefaultTriggerEvents(type)
   const onCancel = () => modalSend("CLOSE")
 
   return (
     <Formik
-      initialValues={{
-        triggers: triggers.map((t) => merge(defaultAction, t)),
-      }}
+      initialValues={initialValues}
       enableReinitialize
       validate={() => {
         const errors = {}
         return errors
       }}
       onSubmit={(values) => {
-        send(`SET_${type.toUpperCase()}_TRIGGER_EVENTS`, {
-          data: values.triggers,
-        })
+        onSubmit(values)
       }}
     >
       {({ values, handleSubmit }) => (
