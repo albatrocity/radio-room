@@ -34,6 +34,7 @@ interface ReactionAddButtonProps {
   buttonColorScheme?: ButtonProps["colorScheme"]
   disabled?: boolean
   showAddButton?: boolean
+  scrollHorizontal?: boolean
 }
 
 interface ReactionCounterProps extends ReactionAddButtonProps {
@@ -46,6 +47,7 @@ const ReactionCounter = ({
   buttonColorScheme,
   showAddButton = true,
   darkBg = false,
+  scrollHorizontal = false,
 }: ReactionCounterProps) => {
   const pickerRef: MutableRefObject<HTMLDivElement | null> =
     useRef<HTMLDivElement | null>(null)
@@ -92,7 +94,7 @@ const ReactionCounter = ({
 
   return (
     <HStack w="100%">
-      <Wrap>
+      <Wrap flexShrink={scrollHorizontal ? 0 : 1}>
         {Object.keys(emoji)
           .filter((x) => !!emoji[x].length)
           .map((x) => (
@@ -110,7 +112,14 @@ const ReactionCounter = ({
               />
             </WrapItem>
           ))}
-        <WrapItem>
+        <WrapItem
+          _last={{
+            _after: {
+              content: '""',
+              paddingRight: 2,
+            },
+          }}
+        >
           <Popover
             isLazy
             isOpen={state.matches("open")}

@@ -54,7 +54,7 @@ const RadioPlayer = ({
   trackId,
   loading,
 }: RadioPlayerProps) => {
-  const player = useRef(null)
+  const player = useRef<ReactHowler>(null)
 
   useHotkeys("space", () => {
     onPlayPause()
@@ -75,97 +75,106 @@ const RadioPlayer = ({
   }, [playing, player.current])
 
   return (
-    <Box background="actionBgLite" py={1}>
-      <Container>
-        <HStack
-          w="100%"
-          direction="row"
-          justify="center"
-          align="center"
-          spacing={2}
-        >
-          {hasPlaylist && (
-            <IconButton
-              size="md"
-              aria-label="Playlist"
-              variant="ghost"
-              onClick={onShowPlaylist}
-              icon={<Icon boxSize={5} as={RiPlayListFill} />}
-            />
-          )}
-          <HStack>
-            <IconButton
-              size="md"
-              aria-label={playing ? "Stop" : "Play"}
-              variant="ghost"
-              icon={<PlayStateIcon loading={loading} playing={playing} />}
-              onClick={() => onPlayPause()}
-            />
-            <IconButton
-              size="md"
-              aria-label={muted ? "Unmute" : "Mute"}
-              variant="ghost"
-              icon={
-                muted ? (
-                  <Icon as={FiVolumeX} boxSize={5} />
-                ) : (
-                  <Icon as={FiVolume} boxSize={5} />
-                )
-              }
-              onClick={() => onMute()}
-            />
-          </HStack>
-          <HStack w="100%">
-            <Hide above="sm">
+    <Box>
+      <Hide above="sm">
+        <Box background="actionBg">
+          <Box py={1} h={10} overflowX="auto">
+            <Box px={4} flexDir="row">
               <ReactionCounter
                 reactTo={{ type: "track", id: trackId }}
                 showAddButton={true}
+                darkBg={true}
+                scrollHorizontal
               />
-            </Hide>
-
-            <Show above="sm">
-              <Slider
-                aria-label="slider-ex-4"
-                value={muted ? 0 : parseFloat(volume)}
-                max={1.0}
-                min={0}
-                step={0.1}
-                onChange={(value) => onVolume(value)}
-              >
-                <SliderTrack bg="whiteAlpha.500">
-                  <SliderFilledTrack bg="action" />
-                </SliderTrack>
-                <SliderThumb boxSize={[6, 3]}>
-                  <Box />
-                </SliderThumb>
-              </Slider>
-            </Show>
-          </HStack>
-          <Hide above="sm">
+            </Box>
+          </Box>
+        </Box>
+      </Hide>
+      <Box background="actionBgLite" py={1}>
+        <Container>
+          <HStack
+            w="100%"
+            direction="row"
+            justify="center"
+            align="center"
+            spacing={2}
+          >
+            {hasPlaylist && (
+              <IconButton
+                size="md"
+                aria-label="Playlist"
+                variant="ghost"
+                onClick={onShowPlaylist}
+                icon={<Icon boxSize={5} as={RiPlayListFill} />}
+              />
+            )}
             <HStack>
-              <ButtonAddToQueue showText={false} />
-
-              <ButtonListeners variant="ghost" />
+              <IconButton
+                size="md"
+                aria-label={playing ? "Stop" : "Play"}
+                variant="ghost"
+                icon={<PlayStateIcon loading={loading} playing={playing} />}
+                onClick={() => onPlayPause()}
+              />
+              <IconButton
+                size="md"
+                aria-label={muted ? "Unmute" : "Mute"}
+                variant="ghost"
+                icon={
+                  muted ? (
+                    <Icon as={FiVolumeX} boxSize={5} />
+                  ) : (
+                    <Icon as={FiVolume} boxSize={5} />
+                  )
+                }
+                onClick={() => onMute()}
+              />
             </HStack>
-          </Hide>
-        </HStack>
-      </Container>
-      <ReactHowler
-        src={[streamURL]}
-        preload={false}
-        playing={playing}
-        mute={muted}
-        html5={true}
-        ref={player}
-        pool={1}
-        volume={parseFloat(volume)}
-        onPlayError={handleError}
-        onLoadError={handleError}
-        onStop={handleError}
-        onEnd={handleError}
-        onPlay={onPlay}
-        onLoad={onLoad}
-      />
+            <HStack w="100%">
+              <Show above="sm">
+                <Slider
+                  aria-label="slider-ex-4"
+                  value={muted ? 0 : parseFloat(volume)}
+                  max={1.0}
+                  min={0}
+                  step={0.1}
+                  onChange={(value) => onVolume(value)}
+                >
+                  <SliderTrack bg="whiteAlpha.500">
+                    <SliderFilledTrack bg="action" />
+                  </SliderTrack>
+                  <SliderThumb boxSize={[6, 3]}>
+                    <Box />
+                  </SliderThumb>
+                </Slider>
+              </Show>
+            </HStack>
+            <Hide above="sm">
+              <HStack>
+                <ButtonAddToQueue showText={false} />
+
+                <ButtonListeners variant="ghost" />
+              </HStack>
+            </Hide>
+          </HStack>
+        </Container>
+        <ReactHowler
+          src={[streamURL]}
+          preload={false}
+          playing={playing}
+          mute={muted}
+          html5={true}
+          ref={player}
+          pool={1}
+          volume={parseFloat(volume)}
+          onPlayError={handleError}
+          onLoadError={handleError}
+          onStop={handleError}
+          onEnd={handleError}
+          onPlay={onPlay}
+          onLoad={onLoad}
+        />
+      </Box>
     </Box>
   )
 }
