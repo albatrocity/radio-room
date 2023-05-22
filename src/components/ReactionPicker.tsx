@@ -6,10 +6,11 @@ import { Box } from "@chakra-ui/react"
 
 interface ReactionPickerProps {
   onSelect: (emoji: EmojiData) => void
+  autoFocus?: boolean
 }
 
 const ReactionPicker = React.forwardRef(
-  ({ onSelect }: ReactionPickerProps, ref) => {
+  ({ onSelect, autoFocus }: ReactionPickerProps, ref) => {
     return (
       <Box
         ref={ref}
@@ -21,7 +22,7 @@ const ReactionPicker = React.forwardRef(
         }}
       >
         <Picker
-          autoFocus={true}
+          autoFocus={autoFocus}
           onEmojiSelect={onSelect}
           dynamicWidth={true}
           data={data}

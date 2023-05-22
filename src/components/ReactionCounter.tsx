@@ -67,8 +67,8 @@ const ReactionCounter = ({
   )
   const responsivePickerRef = useBreakpointValue(
     {
-      base: null,
-      sm: null,
+      base: undefined,
+      sm: undefined,
       md: pickerRef,
     },
     {
@@ -126,7 +126,7 @@ const ReactionCounter = ({
             onClose={() => send("CLOSE")}
             placement="top-start"
             variant="responsive"
-            autoFocus={true}
+            autoFocus={autoFocus}
             initialFocusRef={responsivePickerRef}
           >
             <PopoverTrigger>
