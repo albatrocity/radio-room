@@ -48,6 +48,19 @@ function Overview() {
               <Button
                 rightIcon={
                   <HStack>
+                    {hasSettings && <ActiveIndicator />}
+                    <ChevronRightIcon />
+                  </HStack>
+                }
+                variant="settingsCategory"
+                borderRadius="none"
+                onClick={() => send("EDIT_DJ")}
+              >
+                DJ Features
+              </Button>
+              <Button
+                rightIcon={
+                  <HStack>
                     {hasPassword && <ActiveIndicator />}
                     <ChevronRightIcon />
                   </HStack>

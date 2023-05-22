@@ -6,6 +6,7 @@ interface Context {
   extraInfo: string
   password: string
   artwork?: string
+  deputizeOnJoin: boolean
 }
 
 export const settingsMachine = createMachine<Context>(
@@ -18,6 +19,7 @@ export const settingsMachine = createMachine<Context>(
       extraInfo: "",
       password: "",
       artwork: undefined,
+      deputizeOnJoin: false,
     },
     invoke: [
       {
@@ -64,6 +66,7 @@ export const settingsMachine = createMachine<Context>(
             extraInfo: event.data.extraInfo,
             password: event.data.password,
             artwork: event.data.artwork,
+            deputizeOnJoin: event.data.deputizeOnJoin,
           }
         }
       }),

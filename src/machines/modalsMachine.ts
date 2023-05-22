@@ -41,12 +41,18 @@ export const modalsMachine = createMachine(
           overview: {
             on: {
               EDIT_CONTENT: "content",
+              EDIT_DJ: "dj",
               EDIT_PASSWORD: "password",
               EDIT_REACTION_TRIGGERS: "reaction_triggers",
               EDIT_MESSAGE_TRIGGERS: "message_triggers",
             },
           },
           content: {
+            on: {
+              BACK: "overview",
+            },
+          },
+          dj: {
             on: {
               BACK: "overview",
             },

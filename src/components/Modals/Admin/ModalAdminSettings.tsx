@@ -18,6 +18,7 @@ import Content from "./Content"
 import Password from "./Password"
 import ReactionTriggerActions from "./ReactionTriggerActions"
 import MessageTriggerActions from "./MessageTriggerActions"
+import DjFeatures from "./DjFeatures"
 
 const Header = ({
   showBack,
@@ -74,6 +75,9 @@ function ModalAdminSettings() {
 
         <Collapse in={state.matches("settings.overview")}>
           <Overview />
+        </Collapse>
+        <Collapse in={state.matches("settings.dj")}>
+          <DjFeatures />
         </Collapse>
         <Collapse in={state.matches("settings.content")}>
           <Content />
