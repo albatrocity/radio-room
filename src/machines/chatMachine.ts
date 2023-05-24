@@ -1,7 +1,7 @@
 import { createMachine, sendTo, assign } from "xstate"
 import socketService from "../lib/socketService"
 import { handleNotifications } from "../lib/handleNotifications"
-import { take, concat, uniqBy } from "lodash/fp"
+import { uniqBy } from "lodash/fp"
 import { User } from "../types/User"
 import { ChatMessage } from "../types/ChatMessage"
 import { PlaylistItem } from "../types/PlaylistItem"
@@ -143,10 +143,7 @@ export const chatMachine = createMachine<Context, MachineEvent>(
       addMessage: assign({
         messages: (context, event) => {
           if (event.type === "NEW_MESSAGE") {
-            return uniqBy(
-              "timestamp",
-              take(60, concat(event.data, context.messages)),
-            )
+            return uniqBy("timestamp", [...context.messages, event.data])
           }
           return context.messages
         },

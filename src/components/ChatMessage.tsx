@@ -13,7 +13,6 @@ import {
   Wrap,
   WrapItem,
 } from "@chakra-ui/react"
-import { motion } from "framer-motion"
 import { FiBookmark } from "react-icons/fi"
 
 import getUrls from "../lib/getUrls"
@@ -28,11 +27,9 @@ import {
   useBookmarks,
 } from "../state/bookmarkedChatStore"
 
-const MotionBox = motion(Box)
-
 export interface ChatMessageProps {
   content: string
-  mentions: string[]
+  mentions?: string[]
   timestamp: string
   user: User
   currentUserId: string
@@ -117,7 +114,7 @@ const ChatMessage = ({
   }, [urls])
 
   return (
-    <MotionBox
+    <Box
       px={3}
       py={1}
       borderBottomWidth={anotherUserMessage ? 0 : 1}
@@ -127,16 +124,6 @@ const ChatMessage = ({
       onMouseLeave={() => setHovered(false)}
       position="relative"
       w="100%"
-      initial={{
-        opacity: 0,
-      }}
-      animate={{
-        opacity: 1,
-      }}
-      transition={{
-        type: "tween",
-        duration: 0.4,
-      }}
     >
       {showUsername && (
         <Flex
@@ -215,7 +202,7 @@ const ChatMessage = ({
         reactTo={{ type: "message", id: timestamp }}
         showAddButton={alwaysShowReactionPicker || hovered}
       />
-    </MotionBox>
+    </Box>
   )
 }
 
