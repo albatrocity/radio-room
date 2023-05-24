@@ -1,7 +1,6 @@
 import React, { memo, useEffect } from "react"
 import { Box, Grid, GridItem, HStack } from "@chakra-ui/react"
 
-import ChatMessages from "./ChatMessages"
 import ChatInput from "./ChatInput"
 import TypingIndicator from "./TypingIndicator"
 import { ChatMessage } from "../types/ChatMessage"
@@ -9,6 +8,7 @@ import PopoverPreferences from "./PopoverPreferences"
 
 import { useAuthStore, useCurrentUser } from "../state/authStore"
 import { useChatStore } from "../state/chatStore"
+import ChatWindow from "./ChatWindow"
 
 const Chat = () => {
   const currentUser = useCurrentUser()
@@ -44,9 +44,7 @@ const Chat = () => {
         minHeight={0}
       >
         <Box h="100%" w="100%" className="messages-container">
-          {messages.length > 0 && (
-            <ChatMessages messages={messages} currentUserId={currentUserId} />
-          )}
+          {messages.length > 0 && <ChatWindow />}
         </Box>
       </GridItem>
       <GridItem px={2} py={2} area={"input"} boxShadow="inner">
