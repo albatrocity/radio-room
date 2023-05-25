@@ -84,6 +84,8 @@ function ChatWindow() {
         ref={virtuosoRef}
         followOutput={"smooth"}
         atBottomStateChange={(atBottom) => send(atBottom ? "ATTACH" : "DETACH")}
+        alignToBottom
+        initialTopMostItemIndex={messages.length - 1}
       />
       <MotionButton
         position="absolute"

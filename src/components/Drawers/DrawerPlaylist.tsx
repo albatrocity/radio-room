@@ -28,6 +28,7 @@ import { Dictionary } from "../../types/Dictionary"
 import { Reaction } from "../../types/Reaction"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { Emoji } from "../../types/Emoji"
+import PlaylistWindow from "../PlaylistWindow"
 
 function DrawerPlaylist() {
   const { send: playlistSend } = usePlaylistStore()
@@ -199,16 +200,16 @@ function DrawerPlaylist() {
             </Button>
           </HStack>
         )}
-        <Box overflow="auto" w="100%" h="100%">
-          {isOpen && (
-            <Playlist
-              data={filteredPlaylistItems}
-              onSelect={handleSelectionChange}
-              selectable={isEditing}
+        {isOpen && (
+          <Box w="100%" h="100%">
+            <PlaylistWindow
               selected={selectedPlaylistState.context.collection}
+              isSelectable={isEditing}
+              onSelect={handleSelectionChange}
+              playlist={filteredPlaylistItems}
             />
-          )}
-        </Box>
+          </Box>
+        )}
       </VStack>
     </Drawer>
   )

@@ -1,16 +1,16 @@
 import React from "react"
-import { Checkbox, HStack, Stack, StackDivider } from "@chakra-ui/react"
+import { Stack, StackDivider } from "@chakra-ui/react"
 import { PlaylistItem as PlaylistItemType } from "../types/PlaylistItem"
-import PlaylistItem from "./PlaylistItem"
+import SelectablePlaylistItem from "./SelectablePlaylistItem"
 
 const Playlist = ({
   data = [],
-  selectable,
+  isSelectable,
   selected,
   onSelect,
 }: {
   data: PlaylistItemType[]
-  selectable?: boolean
+  isSelectable?: boolean
   selected?: PlaylistItemType[]
   onSelect?: (item: PlaylistItemType, isChecked: boolean) => void
 }) => {
@@ -20,19 +20,12 @@ const Playlist = ({
       divider={<StackDivider borderColor="secondaryBorder" />}
     >
       {data.map((item) => (
-        <HStack key={item.timestamp.toString()}>
-          {selectable && (
-            <Checkbox
-              isChecked={selected
-                ?.map(({ spotifyData }) => spotifyData?.uri)
-                .includes(item.spotifyData?.uri)}
-              onChange={
-                onSelect ? (e) => onSelect(item, e.target.checked) : undefined
-              }
-            />
-          )}
-          <PlaylistItem item={item} />
-        </HStack>
+        <SelectablePlaylistItem
+          item={item}
+          isSelectable={isSelectable}
+          selected={selected}
+          onSelect={onSelect}
+        />
       ))}
     </Stack>
   )
