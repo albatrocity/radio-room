@@ -16,6 +16,7 @@ import {
   useStationMeta,
   useVolume,
 } from "../state/audioStore"
+import createTrackId from "../lib/createTrackId"
 
 interface PlayerUiProps {
   onShowPlaylist: () => void
@@ -35,7 +36,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const meta = useStationMeta()
   const loading = useIsBuffering()
   const { album, artist, track } = meta || {}
-  const trackId = kebabCase(`${track}-${artist}-${album}`)
+  const trackId = createTrackId({ track, artist, album })
 
   const handleVolume = useCallback(
     (v: number) => audioSend("CHANGE_VOLUME", { volume: v }),

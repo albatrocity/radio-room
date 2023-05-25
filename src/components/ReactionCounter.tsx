@@ -1,80 +1,22 @@
-import React, { memo, MutableRefObject, useEffect, useRef } from "react"
+import React, { memo, useEffect } from "react"
 import { useMachine } from "@xstate/react"
 import { groupBy } from "lodash/fp"
-import { FiPlus, FiSmile } from "react-icons/fi"
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverArrow,
-  PopoverBody,
-  IconButton,
-  Icon,
-  Wrap,
-  WrapItem,
-  HStack,
-  Portal,
-  ButtonProps,
-  useBreakpointValue,
-} from "@chakra-ui/react"
-import { motion } from "framer-motion"
-
 import { reactionsMachine } from "../machines/reactionsMachine"
-import ReactionCounterItem from "./ReactionCounterItem"
-import ReactionPicker from "./ReactionPicker"
-import { EmojiData } from "emoji-mart"
-import { ReactionSubject } from "../types/ReactionSubject"
 import { useAllReactionsOf } from "../state/reactionsStore"
 
 import { useCurrentUser } from "../state/authStore"
+import ReactionSelection, { ReactionSelectionProps } from "./ReactionSelection"
 
-interface ReactionAddButtonProps {
+import { ReactionSubject } from "../types/ReactionSubject"
+import { Emoji } from "../types/Emoji"
+
+type ReactionCounterProps = {
   reactTo: ReactionSubject
-  buttonVariant?: ButtonProps["variant"]
-  buttonColorScheme?: ButtonProps["colorScheme"]
-  disabled?: boolean
-  showAddButton?: boolean
-  scrollHorizontal?: boolean
-}
+} & ReactionSelectionProps
 
-interface ReactionCounterProps extends ReactionAddButtonProps {
-  showAddButton?: boolean
-  darkBg?: boolean
-}
-
-const ReactionCounter = ({
-  reactTo,
-  buttonColorScheme,
-  showAddButton = true,
-  darkBg = false,
-  scrollHorizontal = false,
-}: ReactionCounterProps) => {
-  const pickerRef: MutableRefObject<HTMLDivElement | null> =
-    useRef<HTMLDivElement | null>(null)
-
+const ReactionCounter = ({ reactTo, ...rest }: ReactionCounterProps) => {
   const currentUser = useCurrentUser()
   const allReactions = useAllReactionsOf(reactTo.type, reactTo.id)
-
-  const autoFocus = useBreakpointValue(
-    {
-      base: false,
-      sm: false,
-      md: true,
-    },
-    {
-      fallback: "md",
-    },
-  )
-  const responsivePickerRef = useBreakpointValue(
-    {
-      base: undefined,
-      sm: undefined,
-      md: pickerRef,
-    },
-    {
-      fallback: "md",
-    },
-  )
 
   const [state, send] = useMachine(reactionsMachine, {
     context: {
@@ -92,91 +34,24 @@ const ReactionCounter = ({
 
   const emoji = groupBy("emoji", state.context.reactions)
 
-  return (
-    <HStack w="100%">
-      <Wrap flexShrink={scrollHorizontal ? 0 : 1}>
-        {Object.keys(emoji)
-          .filter((x) => !!emoji[x].length)
-          .map((x) => (
-            <WrapItem key={x} justifyContent="center" alignItems="center">
-              <ReactionCounterItem
-                count={emoji[x].length}
-                users={emoji[x].map(({ user }) => user)}
-                currentUserId={currentUser.userId}
-                colorScheme={buttonColorScheme}
-                onReactionClick={(emoji) => {
-                  send("SELECT_REACTION", { data: emoji })
-                }}
-                emoji={x}
-                darkBg={darkBg}
-              />
-            </WrapItem>
-          ))}
-        <WrapItem
-          _last={{
-            _after: {
-              content: '""',
-              paddingRight: 2,
-            },
-          }}
-        >
-          <Popover
-            isLazy
-            isOpen={state.matches("open")}
-            onClose={() => send("CLOSE")}
-            placement="top-start"
-            variant="responsive"
-            autoFocus={autoFocus}
-            initialFocusRef={responsivePickerRef}
-          >
-            <PopoverTrigger>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: showAddButton ? 1 : 0 }}
-                transition={{ duration: 0.1 }}
-              >
-                <IconButton
-                  p={1}
-                  aria-label="Add reaction"
-                  size="sm"
-                  variant={darkBg ? "darkGhost" : "ghost"}
-                  colorScheme={buttonColorScheme}
-                  disabled={!showAddButton}
-                  onClick={() => send("TOGGLE", { data: { reactTo } })}
-                  icon={
-                    <>
-                      <Icon as={FiSmile} />
+  const handleSelection = (emoji: Emoji) => {
+    send("SELECT_REACTION", { data: emoji })
+  }
+  const handleClose = () => send("CLOSE")
 
-                      <Icon boxSize={3} as={FiPlus} />
-                    </>
-                  }
-                />
-              </motion.div>
-            </PopoverTrigger>
-            <Portal>
-              <PopoverContent>
-                <PopoverArrow />
-                <PopoverBody
-                  sx={{
-                    "em-emoji-picker": {
-                      "--shadow": "0",
-                    },
-                  }}
-                >
-                  <ReactionPicker
-                    onSelect={(emoji: EmojiData) => {
-                      send("SELECT_REACTION", { data: emoji })
-                    }}
-                    ref={pickerRef}
-                    autoFocus={autoFocus}
-                  />
-                </PopoverBody>
-              </PopoverContent>
-            </Portal>
-          </Popover>
-        </WrapItem>
-      </Wrap>
-    </HStack>
+  const handleToggle = () => send("TOGGLE", { data: { reactTo } })
+
+  return (
+    <ReactionSelection
+      {...rest}
+      onSelect={handleSelection}
+      onClose={handleClose}
+      reactions={emoji}
+      user={currentUser}
+      isOpen={state.matches("open")}
+      onToggle={handleToggle}
+      showAddButton={true}
+    />
   )
 }
 
