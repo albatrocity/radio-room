@@ -118,6 +118,8 @@ function FieldTriggerAction<T extends object>({
         <option value="likeTrack">Like Track</option>
         <option value="skipTrack">Skip Track</option>
         <option value="sendMessage">Send Message</option>
+        <option value="pause">Pause playback</option>
+        <option value="resume">Resume playback</option>
       </FieldSelect>
       {hasConditions && (
         <Stack direction="row" align="center" justify="center" w="100%">

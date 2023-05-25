@@ -18,7 +18,12 @@ export type CompareTo = {
 }
 
 export type ResourceIdentifier = string | `latest`
-export type TriggerActionType = `skipTrack` | `likeTrack` | `sendMessage`
+export type TriggerActionType =
+  | `skipTrack`
+  | `likeTrack`
+  | `sendMessage`
+  | `pause`
+  | `resume`
 
 export type TriggerEvent<T> = {
   action: TriggerActionType
