@@ -50,7 +50,6 @@ const ReactionCounter = ({ reactTo, ...rest }: ReactionCounterProps) => {
       user={currentUser}
       isOpen={state.matches("open")}
       onToggle={handleToggle}
-      showAddButton={true}
     />
   )
 }

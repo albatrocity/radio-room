@@ -75,6 +75,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
             <ReactionCounter
               reactTo={{ type: "track", id: trackId }}
               darkBg={true}
+              showAddButton={true}
             />
           </Container>
         </Box>
