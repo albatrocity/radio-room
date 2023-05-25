@@ -23,3 +23,8 @@ export function useAllReactionsOf(
 ) {
   return useAllReactionsStore((s) => s.state.context.reactions[type][id])
 }
+
+export function useGetAllReactionsOf(type: ReactionSubject["type"]) {
+  const reactions = useAllReactionsStore((s) => s.state.context.reactions[type])
+  return (id: ReactionSubject["id"]) => reactions[id] || []
+}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import React, { useCallback, useEffect, useState } from "react"
 import {
   Box,
   Button,
@@ -8,97 +8,86 @@ import {
   useBoolean,
   useConst,
   useToast,
-  Input,
+  VStack,
 } from "@chakra-ui/react"
 import { format } from "date-fns"
+import { useMachine } from "@xstate/react"
 
 import Drawer from "../Drawer"
-import SelectablePlaylist from "../SelectablePlaylist"
-import { PlaylistItem } from "../../types/PlaylistItem"
+import Playlist from "../Playlist"
+import DrawerPlaylistFooter from "./DrawerPlaylistFooter"
+import PlaylistFilters from "../PlaylistFilters"
+import usePlaylistFilter from "../usePlaylistFilter"
+
 import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
-import { useMachine } from "@xstate/react"
-import { usePlaylistStore } from "../../state/playlistStore"
+import { toggleableCollectionMachine } from "../../machines/toggleableCollectionMachine"
+import { useCurrentPlaylist, usePlaylistStore } from "../../state/playlistStore"
 import { useIsAdmin } from "../../state/authStore"
 
-function Controls({
-  isEditing,
-  onEdit,
-  onSave,
-  isLoading,
-  onChange,
-  value,
-}: {
-  isEditing: boolean
-  onEdit: () => void
-  onSave: () => void
-  isLoading: boolean
-  onChange: (name: string) => void
-  value: string | undefined
-}) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
-    }
-  }, [isEditing, inputRef.current])
-  return (
-    <form onSubmit={onSave}>
-      <Box w="100%">
-        {isEditing ? (
-          <HStack justifyContent="space-between">
-            <Button onClick={onEdit} variant="ghost">
-              Cancel
-            </Button>
-            <HStack>
-              <Input
-                name="name"
-                placeholder="Playlist name"
-                autoFocus
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                ref={inputRef}
-              />
-              <Button
-                onClick={onSave}
-                isLoading={isLoading}
-                isDisabled={isLoading}
-                type="submit"
-              >
-                Save
-              </Button>
-            </HStack>
-          </HStack>
-        ) : (
-          <HStack justifyContent="end">
-            <Button variant="outline" onClick={onEdit}>
-              Save Playlist
-            </Button>
-          </HStack>
-        )}
-      </Box>
-    </form>
-  )
-}
+import { Dictionary } from "../../types/Dictionary"
+import { Reaction } from "../../types/Reaction"
+import { PlaylistItem } from "../../types/PlaylistItem"
+import { Emoji } from "../../types/Emoji"
 
 function DrawerPlaylist() {
   const { send: playlistSend } = usePlaylistStore()
+  const currentPlaylist = useCurrentPlaylist()
   const isOpen = usePlaylistStore((s) => s.state.matches("active"))
   const toast = useToast()
   const defaultPlaylistName = useConst(
     () => `Radio Playlist ${format(new Date(), "M/d/y")}`,
   )
+
   const [isEditing, { toggle, off }] = useBoolean(false)
-  const [selected, setSelected] = useState<PlaylistItem[]>([])
   const [name, setName] = useState<string>(defaultPlaylistName)
   const [state, send] = useMachine(savePlaylistMachine)
+  const [filterState, filterSend] = useMachine(toggleableCollectionMachine, {
+    context: {
+      idPath: "shortcodes",
+      name: "playlistFilters",
+      persistent: false,
+    },
+  })
+  const emojis = filterState.context.collection.reduce((mem, emoji) => {
+    mem[emoji.shortcodes] = [
+      {
+        emoji: emoji.shortcodes,
+        type: "track",
+        id: emoji.shortcodes,
+      },
+    ]
+    return mem
+  }, {} as Dictionary<Reaction[]>)
+  const filterPlaylist = usePlaylistFilter(currentPlaylist)
+
+  const filteredPlaylistItems = filterState.context.collection.length
+    ? filterPlaylist(emojis)
+    : currentPlaylist
+
+  const [selectedPlaylistState, selectedPlaylistSend] = useMachine(
+    toggleableCollectionMachine,
+    {
+      context: {
+        collection: currentPlaylist,
+        persistent: false,
+        name: "playlist-selected",
+        idPath: "spotifyData.uri",
+      },
+    },
+  )
 
   const isAdmin = useIsAdmin()
   const isLoading = state.matches("loading")
 
-  const handleSelectionChange = (collection: PlaylistItem[]) =>
-    setSelected(collection)
+  const handleSelectionChange = (item: PlaylistItem) => {
+    selectedPlaylistSend("TOGGLE_ITEM", {
+      data: { ...item, id: item.spotifyData?.uri },
+    })
+  }
   const handleNameChange = (name: string) => setName(name)
+  const handleFilterChange = (emoji: Emoji) => {
+    filterSend("TOGGLE_ITEM", { data: emoji })
+  }
   const handleTogglePlaylist = useCallback(
     () => playlistSend("TOGGLE_PLAYLIST"),
     [playlistSend],
@@ -106,11 +95,19 @@ function DrawerPlaylist() {
   const handleSave = useCallback(() => {
     send("ADMIN_SAVE_PLAYLIST", {
       name,
-      uris: selected
+      uris: selectedPlaylistState.context.collection
         .map(({ spotifyData }) => spotifyData?.uri)
         .filter((x) => !!x),
     })
-  }, [send, selected, name])
+  }, [send, selectedPlaylistState.context.collection, name])
+  const handleSelect = (selection: "all" | "none") => {
+    switch (selection) {
+      case "all":
+        return selectedPlaylistSend("SET_ITEMS", { data: currentPlaylist })
+      case "none":
+        return selectedPlaylistSend("CLEAR")
+    }
+  }
 
   useEffect(() => {
     if (!isOpen) {
@@ -151,7 +148,7 @@ function DrawerPlaylist() {
         position: "top",
       })
     }
-  }, [state])
+  }, [state.value])
 
   return (
     <Drawer
@@ -162,22 +159,57 @@ function DrawerPlaylist() {
       onClose={handleTogglePlaylist}
       footer={
         isAdmin && (
-          <Controls
+          <DrawerPlaylistFooter
             isEditing={isEditing}
             onEdit={() => toggle()}
             onSave={handleSave}
             onChange={handleNameChange}
             isLoading={isLoading}
             value={name}
+            trackCount={selectedPlaylistState.context.collection.length}
           />
         )
       }
       isFullHeight
     >
-      <SelectablePlaylist
-        isSelectable={isEditing}
-        onChange={handleSelectionChange}
-      />
+      <VStack w="100%" h="100%" spacing={4}>
+        <Box w="100%" bg="primaryBg" px={4} py={2} borderRadius={4}>
+          <PlaylistFilters onChange={handleFilterChange} emojis={emojis} />
+        </Box>
+        {isEditing && (
+          <HStack w="100%" justify="flex-end">
+            <Button
+              onClick={() => handleSelect("all")}
+              size="sm"
+              variant="ghost"
+              isDisabled={
+                currentPlaylist.length ===
+                selectedPlaylistState.context.collection.length
+              }
+            >
+              Select All {currentPlaylist.length}
+            </Button>
+            <Button
+              onClick={() => handleSelect("none")}
+              size="sm"
+              variant="ghost"
+              isDisabled={selectedPlaylistState.context.collection.length === 0}
+            >
+              Deselect All
+            </Button>
+          </HStack>
+        )}
+        <Box overflow="auto" w="100%" h="100%">
+          {isOpen && (
+            <Playlist
+              data={filteredPlaylistItems}
+              onSelect={handleSelectionChange}
+              selectable={isEditing}
+              selected={selectedPlaylistState.context.collection}
+            />
+          )}
+        </Box>
+      </VStack>
     </Drawer>
   )
 }

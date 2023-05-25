@@ -18,7 +18,7 @@ const ThemedLayout = ({ children }: { children: JSX.Element }) => {
   const mergedTheme = extendTheme(baseTheme, { colors: chosenTheme.colors })
 
   return (
-    <ChakraProvider theme={mergedTheme}>
+    <ChakraProvider portalZIndex={10} theme={mergedTheme}>
       <Div100vh>{children}</Div100vh>
     </ChakraProvider>
   )

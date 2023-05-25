@@ -1,45 +1,31 @@
-import { useMachine } from "@xstate/react"
-import React, { useCallback, useEffect } from "react"
+import React from "react"
 
-import { toggleableCollectionMachine } from "../machines/toggleableCollectionMachine"
 import { PlaylistItem } from "../types/PlaylistItem"
 import Playlist from "./Playlist"
-import { useCurrentPlaylist } from "../state/playlistStore"
 
 type Props = {
   isSelectable: boolean
-  onChange: (collection: PlaylistItem[]) => void
+  onToggle: (collection: PlaylistItem) => void
+  playlistItems: PlaylistItem[]
+  selected: PlaylistItem[]
 }
 
-function SelectablePlaylist({ isSelectable, onChange }: Props) {
-  const playlist = useCurrentPlaylist()
-
-  const [state, send] = useMachine(toggleableCollectionMachine, {
-    context: {
-      collection: playlist,
-      persistent: false,
-      name: "playlist-selected",
-      idPath: "spotifyData.uri",
-    },
-  })
-
-  const handleSelectItem = useCallback(
-    (item: PlaylistItem) => {
-      send("TOGGLE_ITEM", { data: { ...item, id: item.spotifyData?.uri } })
-    },
-    [send],
-  )
-
-  useEffect(() => {
-    onChange(state.context.collection)
-  }, [state.context.collection])
+function SelectablePlaylist({
+  isSelectable,
+  onToggle,
+  playlistItems,
+  selected,
+}: Props) {
+  const handleSelectItem = (item: PlaylistItem) => {
+    onToggle(item)
+  }
 
   return (
     <Playlist
-      data={playlist}
+      data={playlistItems}
       onSelect={handleSelectItem}
       selectable={isSelectable}
-      selected={state.context.collection}
+      selected={selected}
     />
   )
 }

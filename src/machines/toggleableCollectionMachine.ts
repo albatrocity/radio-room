@@ -22,6 +22,7 @@ const config = {
   },
   on: {
     TOGGLE_ITEM: { actions: ["toggleItem"] },
+    SET_ITEMS: { actions: ["setItems"] },
     CLEAR: { actions: ["clear"] },
   },
   states: {
@@ -53,6 +54,7 @@ const options: InternalMachineOptions<Context, any, any> = {
           : context.collection,
     }),
     setName: assign({ name: (_ctx, event) => event.data }),
+    setItems: assign({ collection: (_ctx, event) => event.data }),
     clear: assign({ collection: [] }),
     toggleItem: assign({
       collection: (context, event) => {
