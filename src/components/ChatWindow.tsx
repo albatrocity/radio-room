@@ -8,7 +8,7 @@ import { Virtuoso, VirtuosoHandle } from "react-virtuoso"
 import { sortByTimestamp } from "../lib/sortByTimestamp"
 import { scrollFollowMachine } from "../machines/scrollFollowMachine"
 import { useCurrentUser } from "../state/authStore"
-import { useChatStore } from "../state/chatStore"
+import { useChatStore, useSortedChatMessages } from "../state/chatStore"
 import { ChatMessage as Message } from "../types/ChatMessage"
 import { User } from "../types/User"
 import ChatMessage from "./ChatMessage"
@@ -45,9 +45,7 @@ const InnerItem = React.memo(
 function ChatWindow() {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const [state, send] = useMachine(scrollFollowMachine)
-  const messages = [...useChatStore((s) => s.state.context.messages)].sort(
-    sortByTimestamp,
-  )
+  const messages = useSortedChatMessages()
   const currentUser = useCurrentUser()
   const handleBottomClick = () => {
     virtuosoRef.current?.scrollToIndex({
