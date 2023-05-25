@@ -101,12 +101,16 @@ function DrawerPlaylist() {
         .filter((x) => !!x),
     })
   }, [send, selectedPlaylistState.context.collection, name])
-  const handleSelect = (selection: "all" | "none") => {
+  const handleSelect = (selection: "all" | "none" | "filtered") => {
     switch (selection) {
       case "all":
         return selectedPlaylistSend("SET_ITEMS", { data: currentPlaylist })
       case "none":
         return selectedPlaylistSend("CLEAR")
+      case "filtered":
+        return selectedPlaylistSend("ADD_ITEMS", {
+          data: filteredPlaylistItems,
+        })
     }
   }
 
@@ -179,6 +183,19 @@ function DrawerPlaylist() {
         </Box>
         {isEditing && (
           <HStack w="100%" justify="flex-end">
+            {filterState.context.collection.length > 0 && (
+              <Button
+                onClick={() => handleSelect("filtered")}
+                size="sm"
+                variant="ghost"
+                isDisabled={
+                  currentPlaylist.length ===
+                  selectedPlaylistState.context.collection.length
+                }
+              >
+                Add {filteredPlaylistItems.length} Filtered
+              </Button>
+            )}
             <Button
               onClick={() => handleSelect("all")}
               size="sm"

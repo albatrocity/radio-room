@@ -23,6 +23,7 @@ const config = {
   on: {
     TOGGLE_ITEM: { actions: ["toggleItem"] },
     SET_ITEMS: { actions: ["setItems"] },
+    ADD_ITEMS: { actions: ["addItems"] },
     CLEAR: { actions: ["clear"] },
   },
   states: {
@@ -55,6 +56,14 @@ const options: InternalMachineOptions<Context, any, any> = {
     }),
     setName: assign({ name: (_ctx, event) => event.data }),
     setItems: assign({ collection: (_ctx, event) => event.data }),
+    addItems: assign({
+      collection: (context, event) => {
+        return uniqBy(context.idPath || "id", [
+          ...event.data,
+          ...context.collection,
+        ])
+      },
+    }),
     clear: assign({ collection: [] }),
     toggleItem: assign({
       collection: (context, event) => {
