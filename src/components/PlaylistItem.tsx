@@ -42,7 +42,7 @@ function PlaylistItem({ item }: Props) {
       <LinkBox>
         <Stack direction="row">
           {artThumb && (
-            <Box maxW={12} maxH={12}>
+            <Box w={12} h={12}>
               <Image loading="lazy" src={artThumb} />
             </Box>
           )}

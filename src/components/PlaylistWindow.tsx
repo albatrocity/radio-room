@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react"
-import { Stack, StackDivider } from "@chakra-ui/react"
+import React, { useRef } from "react"
+import { Divider, VStack } from "@chakra-ui/react"
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso"
 import { PlaylistItem } from "../types/PlaylistItem"
 import SelectablePlaylistItem from "./SelectablePlaylistItem"
@@ -11,18 +11,6 @@ type Props = {
   onSelect?: (item: PlaylistItem, isChecked: boolean) => void
 }
 
-const List = React.forwardRef(({ style, ...props }: { style: any }, ref) => {
-  return (
-    <Stack
-      direction="column"
-      divider={<StackDivider borderColor="secondaryBorder" />}
-      style={{ ...style }}
-      ref={ref}
-      {...props}
-    />
-  )
-})
-
 const PlaylistWindow = ({
   playlist,
   isSelectable,
@@ -33,12 +21,15 @@ const PlaylistWindow = ({
 
   const renderComponent = (index: number) => {
     return (
-      <SelectablePlaylistItem
-        item={playlist[index]}
-        isSelectable={isSelectable}
-        selected={selected}
-        onSelect={onSelect}
-      />
+      <VStack pb={2} spacing={2} w="100%" align="stretch">
+        <SelectablePlaylistItem
+          item={playlist[index]}
+          isSelectable={isSelectable}
+          selected={selected}
+          onSelect={onSelect}
+        />
+        <Divider borderColor="secondaryBorder" w="100%" />
+      </VStack>
     )
   }
 
@@ -48,7 +39,6 @@ const PlaylistWindow = ({
       totalCount={playlist.length}
       itemContent={renderComponent}
       ref={virtuosoRef}
-      components={{ List }}
       initialTopMostItemIndex={playlist.length - 1}
     />
   )
