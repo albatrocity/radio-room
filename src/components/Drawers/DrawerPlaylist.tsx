@@ -14,7 +14,6 @@ import { format } from "date-fns"
 import { useMachine } from "@xstate/react"
 
 import Drawer from "../Drawer"
-import Playlist from "../Playlist"
 import DrawerPlaylistFooter from "./DrawerPlaylistFooter"
 import PlaylistFilters from "../PlaylistFilters"
 import usePlaylistFilter from "../usePlaylistFilter"
@@ -22,7 +21,6 @@ import usePlaylistFilter from "../usePlaylistFilter"
 import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
 import { toggleableCollectionMachine } from "../../machines/toggleableCollectionMachine"
 import { useCurrentPlaylist, usePlaylistStore } from "../../state/playlistStore"
-import { useIsAdmin } from "../../state/authStore"
 
 import { Dictionary } from "../../types/Dictionary"
 import { Reaction } from "../../types/Reaction"
@@ -33,13 +31,10 @@ import PlaylistWindow from "../PlaylistWindow"
 function DrawerPlaylist() {
   const { send: playlistSend } = usePlaylistStore()
   const currentPlaylist = useCurrentPlaylist()
-  const isOpen = usePlaylistStore((s) => s.state.matches("active"))
-  const toast = useToast()
+  const [isEditing, { toggle, off }] = useBoolean(false)
   const defaultPlaylistName = useConst(
     () => `Radio Playlist ${format(new Date(), "M/d/y")}`,
   )
-
-  const [isEditing, { toggle, off }] = useBoolean(false)
   const [name, setName] = useState<string>(defaultPlaylistName)
   const [state, send] = useMachine(savePlaylistMachine)
   const [filterState, filterSend] = useMachine(toggleableCollectionMachine, {
@@ -49,6 +44,10 @@ function DrawerPlaylist() {
       persistent: false,
     },
   })
+  const isOpen = usePlaylistStore((s) => s.state.matches("active"))
+  const toast = useToast()
+  const isLoading = state.matches("loading")
+
   const emojis = filterState.context.collection.reduce((mem, emoji) => {
     mem[emoji.shortcodes] = [
       {
@@ -76,9 +75,6 @@ function DrawerPlaylist() {
       },
     },
   )
-
-  const isAdmin = useIsAdmin()
-  const isLoading = state.matches("loading")
 
   const handleSelectionChange = (item: PlaylistItem) => {
     selectedPlaylistSend("TOGGLE_ITEM", {
@@ -163,17 +159,15 @@ function DrawerPlaylist() {
       size={["full", "lg"]}
       onClose={handleTogglePlaylist}
       footer={
-        isAdmin && (
-          <DrawerPlaylistFooter
-            isEditing={isEditing}
-            onEdit={() => toggle()}
-            onSave={handleSave}
-            onChange={handleNameChange}
-            isLoading={isLoading}
-            value={name}
-            trackCount={selectedPlaylistState.context.collection.length}
-          />
-        )
+        <DrawerPlaylistFooter
+          isEditing={isEditing}
+          onEdit={() => toggle()}
+          onSave={handleSave}
+          onChange={handleNameChange}
+          isLoading={isLoading}
+          value={name}
+          trackCount={selectedPlaylistState.context.collection.length}
+        />
       }
       isFullHeight
     >

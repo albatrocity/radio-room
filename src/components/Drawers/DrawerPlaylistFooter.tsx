@@ -1,5 +1,9 @@
 import React, { useEffect, useRef } from "react"
 import { Box, Button, HStack, Text, Input } from "@chakra-ui/react"
+import { useMachine } from "@xstate/react"
+
+import { spotifyAuthMachine } from "../../machines/spotifyAuthMachine"
+import { useIsAdmin } from "../../state/authStore"
 
 interface Props {
   isEditing: boolean
@@ -20,14 +24,19 @@ const DrawerPlaylistFooter = ({
   value,
   trackCount,
 }: Props) => {
+  const [state] = useMachine(spotifyAuthMachine)
+  const isAdmin = useIsAdmin()
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const canSavePlaylist = state.matches("authenticated") || isAdmin
+
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus()
       inputRef.current.select()
     }
   }, [isEditing, inputRef.current])
-  return (
+  return canSavePlaylist ? (
     <Box as="form" onSubmit={onSave} w="100%">
       <Box w="100%">
         {isEditing ? (
@@ -66,7 +75,7 @@ const DrawerPlaylistFooter = ({
         )}
       </Box>
     </Box>
-  )
+  ) : null
 }
 
 export default DrawerPlaylistFooter
