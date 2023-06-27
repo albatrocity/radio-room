@@ -18,10 +18,12 @@ import {
   FormControl,
   FormLabel,
   useColorMode,
+  Divider,
 } from "@chakra-ui/react"
 import { FiSettings, FiMoon } from "react-icons/fi"
 
 import FormTheme from "./FormTheme"
+import ButtonAuthSpotify from "./ButtonAuthSpotify"
 
 type Props = {}
 
@@ -57,6 +59,10 @@ const PopoverPreferences = (props: Props) => {
           <VStack align="start" spacing={2}>
             <FormTheme />
           </VStack>
+        </Box>
+        <Divider />
+        <Box p={4}>
+          <ButtonAuthSpotify />
         </Box>
       </PopoverContent>
     </Popover>

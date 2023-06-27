@@ -12,6 +12,7 @@ import {
 import { User } from "../types/User"
 import Modal from "./Modal"
 import { ModalProps } from "@chakra-ui/react"
+import ButtonAuthSpotify from "./ButtonAuthSpotify"
 
 interface Props extends Pick<ModalProps, "isOpen"> {
   onClose: () => void
@@ -50,7 +51,6 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
               </Button>
               <Button
                 type="submit"
-                // colorScheme="primary"
                 disabled={isSubmitting || !isValid}
                 onClick={() => handleSubmit()}
               >
@@ -59,8 +59,8 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
             </HStack>
           }
         >
-          <Stack spacing={2}>
-            <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit}>
+            <Stack spacing={10}>
               <FormControl>
                 <FormLabel>What are we gonna call you in here?</FormLabel>
                 <Input
@@ -84,8 +84,16 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
                   only.
                 </FormHelperText>
               </FormControl>
-            </form>
-          </Stack>
+              <FormControl>
+                <ButtonAuthSpotify />
+
+                <FormHelperText>
+                  Authorizing this app with your Spotify account will allow you
+                  to create playlists from the track history.
+                </FormHelperText>
+              </FormControl>
+            </Stack>
+          </form>
         </Modal>
       )}
     </Formik>
