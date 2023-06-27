@@ -6,6 +6,7 @@ import {
   HStack,
   Heading,
   IconButton,
+  Box,
   Modal,
   ModalCloseButton,
   ModalContent,
@@ -19,6 +20,7 @@ import Password from "./Password"
 import ReactionTriggerActions from "./ReactionTriggerActions"
 import MessageTriggerActions from "./MessageTriggerActions"
 import DjFeatures from "./DjFeatures"
+import ButtonAuthSpotify from "../../ButtonAuthSpotify"
 
 const Header = ({
   showBack,
@@ -91,6 +93,12 @@ function ModalAdminSettings() {
         <Collapse in={state.matches("settings.message_triggers")}>
           <MessageTriggerActions />
         </Collapse>
+
+        {state.matches("settings.overview") && (
+          <Box px={6} py={4}>
+            <ButtonAuthSpotify userId="app" />
+          </Box>
+        )}
       </ModalContent>
     </Modal>
   )

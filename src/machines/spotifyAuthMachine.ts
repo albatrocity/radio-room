@@ -2,7 +2,9 @@
 import { sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 
-interface Context {}
+interface Context {
+  userId?: string
+}
 
 export const spotifyAuthMachine = createMachine<Context>(
   {
@@ -43,9 +45,12 @@ export const spotifyAuthMachine = createMachine<Context>(
   },
   {
     actions: {
-      fetchAuthenticationStatus: sendTo("socket", () => {
+      fetchAuthenticationStatus: sendTo("socket", (ctx) => {
         return {
           type: "get user spotify authentication status",
+          data: {
+            userId: ctx.userId,
+          },
         }
       }),
     },
