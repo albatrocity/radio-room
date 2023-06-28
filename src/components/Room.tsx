@@ -13,6 +13,7 @@ import { useAuthStore } from "../state/authStore"
 import { useCurrentPlaylist, usePlaylistStore } from "../state/playlistStore"
 import { useListeners } from "../state/usersStore"
 import { useModalsStore } from "../state/modalsState"
+import SpotifyLoginButton from "./SpotifyLoginButton"
 
 const Room = () => {
   const [sizeXs] = useToken("sizes", ["xs"])
@@ -76,6 +77,7 @@ const Room = () => {
             hasPlaylist={playlist.length > 0}
             listenerCount={listeners.length}
           />
+          <SpotifyLoginButton />
         </GridItem>
 
         <GridItem area="chat" minHeight={0}>

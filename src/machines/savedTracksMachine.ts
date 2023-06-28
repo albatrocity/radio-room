@@ -25,8 +25,8 @@ type SavedTracksResponse = {
 }
 
 export type SavedTracksEvent =
-  | { type: "SAVED_TRACKS_RESULTS"; data: SavedTracksResponse; error: null }
-  | { type: "SAVED_TRACKS_RESULTS_FAILURE"; data: null; error: string }
+  | { type: "SAVED_TRACKS_RESULTS"; data: SavedTracksResponse; error?: null }
+  | { type: "SAVED_TRACKS_RESULTS_FAILURE"; data: {}; error?: string }
 
 export const savedTracksMachine = createMachine<
   SavedTracksContext,
@@ -77,7 +77,6 @@ export const savedTracksMachine = createMachine<
         }
       }),
       setSavedTracks: assign((ctx, event) => {
-        console.log(event)
         if (event.type === "SAVED_TRACKS_RESULTS_FAILURE") return ctx
         return {
           savedTracks: event.data.items.map((item) => item.track),
