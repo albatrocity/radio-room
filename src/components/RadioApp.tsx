@@ -3,7 +3,7 @@ import data from "@emoji-mart/data"
 import { init } from "emoji-mart"
 import { Flex, useToast } from "@chakra-ui/react"
 import { usePageVisibility } from "react-page-visibility"
-import { useLocation } from "@reach/router"
+import { useLocation, navigate } from "@reach/router"
 
 import { useAuthStore } from "../state/authStore"
 import Room from "./Room"
@@ -29,6 +29,7 @@ const RadioApp = () => {
         isClosable: true,
         position: "top",
       })
+      navigate(location.pathname, { replace: true })
     }
 
     return () => {
