@@ -14,7 +14,7 @@ type Props = {
   onChoose: (item: SingleValue<SpotifyTrack>) => void
 } & InputProps
 
-function SpotifySearch({ onChoose, ...rest }: Props) {
+function SpotifySearch({ onChoose, onFocus, onBlur }: Props) {
   const [state, send] = useMachine(spotifySearchMachine)
   const [inputState, inputSend] = useMachine(debounceInputMachine, {
     actions: {
@@ -61,6 +61,8 @@ function SpotifySearch({ onChoose, ...rest }: Props) {
         onChange={(value) => {
           onChoose(value)
         }}
+        onBlur={onBlur}
+        onFocus={onFocus}
       />
     </Box>
   )

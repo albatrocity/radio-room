@@ -1,41 +1,20 @@
 import React from "react"
-import { Box, Text, useToast } from "@chakra-ui/react"
+import { Box, Text } from "@chakra-ui/react"
 import SpotifySearch from "./SpotifySearch"
 import { SingleValue } from "chakra-react-select"
 import { SpotifyTrack } from "../types/SpotifyTrack"
-import { spotifyQueueMachine } from "../machines/spotifyQueueMachine"
-import { useMachine } from "@xstate/react"
 
-type Props = {}
+type Props = {
+  onAddToQueue: (track: SpotifyTrack) => void
+  isDisabled?: boolean
+  onFocusChange: (isFocused: boolean) => void
+}
 
-const FormAddToQueue = ({}: Props) => {
-  const toast = useToast()
-  const [state, send] = useMachine(spotifyQueueMachine, {
-    actions: {
-      onQueued: () => {
-        toast({
-          title: `Added to Queue`,
-          description: `${state.context.queuedTrack?.name} will play sometime soon`,
-          status: "success",
-          duration: 4000,
-          isClosable: true,
-          position: "top",
-        })
-      },
-      onQueueFailure: (_context, event) => {
-        toast({
-          title: `Track was not added`,
-          description: event.data?.message || "Something went wrong",
-          status: "error",
-          duration: 4000,
-          isClosable: true,
-          position: "top",
-        })
-      },
-    },
-  })
+const FormAddToQueue = ({ onAddToQueue, isDisabled, onFocusChange }: Props) => {
   const handleSelect = (track: SingleValue<SpotifyTrack>) => {
-    send("SEND_TO_QUEUE", { track })
+    if (track) {
+      onAddToQueue(track)
+    }
   }
 
   return (
@@ -47,7 +26,10 @@ const FormAddToQueue = ({}: Props) => {
       <SpotifySearch
         onChoose={handleSelect}
         placeholder="Search for a track on Spotify"
+        isDisabled={isDisabled}
         autoFocus
+        onFocus={() => onFocusChange(true)}
+        onBlur={() => onFocusChange(false)}
       />
     </Box>
   )

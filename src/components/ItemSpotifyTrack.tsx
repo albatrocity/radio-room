@@ -5,7 +5,7 @@ import { SpotifyTrack } from "../types/SpotifyTrack"
 const ItemSpotifyTrack = ({ name, album, artists }: SpotifyTrack) => {
   const smallImage = album.images.find(({ width }) => width < 500)
   return (
-    <HStack spacing={2} cursor="pointer">
+    <HStack spacing={2}>
       {smallImage && (
         <Image w={100} h={100} src={smallImage.url} loading="lazy" />
       )}

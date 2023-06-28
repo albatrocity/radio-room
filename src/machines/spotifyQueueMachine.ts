@@ -12,17 +12,26 @@ export const spotifyQueueMachine = createMachine<Context>(
   {
     predictableActionArguments: true,
     id: "spotify-queue",
+    initial: "idle",
     context: {
       queuedTrack: null,
     },
-    on: {
-      SEND_TO_QUEUE: {
-        target: ".",
-        actions: ["setQueuedTrack", "sendToQueue"],
-        cond: "canQueue",
+    states: {
+      idle: {
+        on: {
+          SEND_TO_QUEUE: {
+            target: "loading",
+            actions: ["setQueuedTrack", "sendToQueue"],
+            cond: "canQueue",
+          },
+        },
       },
-      SONG_QUEUED: { actions: ["onQueued"] },
-      SONG_QUEUE_FAILURE: { actions: ["onQueueFailure"] },
+      loading: {
+        on: {
+          SONG_QUEUED: { target: "idle", actions: ["onQueued"] },
+          SONG_QUEUE_FAILURE: { target: "idle", actions: ["onQueueFailure"] },
+        },
+      },
     },
     invoke: [
       {
