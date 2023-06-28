@@ -12,9 +12,10 @@ import { debounceInputMachine } from "../machines/debouncedInputMachine"
 
 type Props = {
   onChoose: (item: SingleValue<SpotifyTrack>) => void
+  onDropdownOpenChange?: (isOpen: boolean) => void
 } & InputProps
 
-function SpotifySearch({ onChoose, onFocus, onBlur }: Props) {
+function SpotifySearch({ onChoose, onDropdownOpenChange }: Props) {
   const [state, send] = useMachine(spotifySearchMachine)
   const [inputState, inputSend] = useMachine(debounceInputMachine, {
     actions: {
@@ -43,6 +44,7 @@ function SpotifySearch({ onChoose, onFocus, onBlur }: Props) {
         filterOption={() => true}
         isLoading={state.matches("loading")}
         autoFocus={true}
+        closeMenuOnSelect={true}
         components={{
           DropdownIndicator: null,
           Option: ({ data, innerRef, innerProps, isFocused }) => (
@@ -61,8 +63,10 @@ function SpotifySearch({ onChoose, onFocus, onBlur }: Props) {
         onChange={(value) => {
           onChoose(value)
         }}
-        onBlur={onBlur}
-        onFocus={onFocus}
+        onMenuOpen={() => onDropdownOpenChange?.(true)}
+        onMenuClose={() => onDropdownOpenChange?.(false)}
+        openMenuOnFocus={false}
+        openMenuOnClick={false}
       />
     </Box>
   )

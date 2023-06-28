@@ -7,10 +7,14 @@ import { SpotifyTrack } from "../types/SpotifyTrack"
 type Props = {
   onAddToQueue: (track: SpotifyTrack) => void
   isDisabled?: boolean
-  onFocusChange: (isFocused: boolean) => void
+  onDropdownOpenChange: (isOpen: boolean) => void
 }
 
-const FormAddToQueue = ({ onAddToQueue, isDisabled, onFocusChange }: Props) => {
+const FormAddToQueue = ({
+  onAddToQueue,
+  isDisabled,
+  onDropdownOpenChange,
+}: Props) => {
   const handleSelect = (track: SingleValue<SpotifyTrack>) => {
     if (track) {
       onAddToQueue(track)
@@ -27,9 +31,8 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onFocusChange }: Props) => {
         onChoose={handleSelect}
         placeholder="Search for a track on Spotify"
         isDisabled={isDisabled}
+        onDropdownOpenChange={onDropdownOpenChange}
         autoFocus
-        onFocus={() => onFocusChange(true)}
-        onBlur={() => onFocusChange(false)}
       />
     </Box>
   )

@@ -7,7 +7,7 @@ import ItemSpotifyTrack from "./ItemSpotifyTrack"
 import { SpotifyTrack } from "../types/SpotifyTrack"
 
 interface Props {
-  onClick: (track: SpotifyTrack) => void
+  onClick?: (track: SpotifyTrack) => void
   isDisabled?: boolean
   loadingItem?: SpotifyTrack | null
 }
@@ -26,7 +26,7 @@ export default function SpotifySavedTracks({
         <Box
           key={track.id}
           cursor={isDisabled ? "default" : "pointer"}
-          onClick={() => (isDisabled ? null : onClick(track))}
+          onClick={() => (isDisabled ? null : onClick?.(track))}
           position="relative"
           w="100%"
         >

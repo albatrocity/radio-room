@@ -12,7 +12,7 @@ const MotionBox = motion(Box)
 
 function ModalAddToQueue() {
   const { send } = useModalsStore()
-  const [focused, setFocused] = useBoolean(false)
+  const [open, setOpen] = useBoolean(false)
   const { addToQueue, state } = useAddToSpotifyQueue()
   const isAddingToQueue = useModalsStore((s) => s.state.matches("queue"))
   const hideEditForm = () => send("CLOSE")
@@ -20,11 +20,11 @@ function ModalAddToQueue() {
   const isLoading = state.matches("loading")
   const loadingItem = isLoading ? state.context.queuedTrack : undefined
 
-  function handleFocus(isFocused: boolean) {
-    if (isFocused) {
-      setFocused.on()
+  function handleOpenDropdown(isOpen: boolean) {
+    if (isOpen) {
+      setOpen.on()
     } else {
-      setFocused.off()
+      setOpen.off()
     }
   }
 
@@ -38,21 +38,32 @@ function ModalAddToQueue() {
         <FormAddToQueue
           onAddToQueue={addToQueue}
           isDisabled={isLoading}
-          onFocusChange={handleFocus}
+          onDropdownOpenChange={handleOpenDropdown}
         />
         <Box>
-          <Heading as="h4" size="sm" mb={2}>
-            Your recently liked tracks
-          </Heading>
+          <MotionBox
+            position="absolute"
+            top={0}
+            left={0}
+            zIndex={1}
+            h="100%"
+            w="100%"
+            animate={{
+              pointerEvents: open ? "auto" : "none",
+            }}
+          />
           <MotionBox
             animate={{
-              opacity: isLoading || focused ? 0.5 : 1,
+              opacity: open ? 0.1 : isLoading ? 0.5 : 1,
             }}
           >
+            <Heading as="h4" size="sm" mb={2}>
+              Your recently liked tracks
+            </Heading>
             <SpotifySavedTracks
-              onClick={addToQueue}
-              isDisabled={isLoading}
+              isDisabled={isLoading || open}
               loadingItem={loadingItem}
+              onClick={open ? undefined : addToQueue}
             />
           </MotionBox>
         </Box>
