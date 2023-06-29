@@ -55,7 +55,6 @@ async function getStoredTokens() {
   const accessToken = await sessionStorage.getItem(SPOTIFY_ACCESS_TOKEN)
   const refreshToken = await sessionStorage.getItem(SPOTIFY_REFRESH_TOKEN)
   const refreshedAt = await sessionStorage.getItem(SPOTIFY_CODE_REFRESHED_AT)
-  console.log("GET STORED TOKENS!", accessToken, refreshToken)
   if (!accessToken) throw new Error("No access token found")
   if (!refreshToken) throw new Error("No refresh token found")
   return { accessToken, refreshToken, refreshedAt }
@@ -63,7 +62,6 @@ async function getStoredTokens() {
 
 async function getStoredCodeVerifier() {
   const verifier = await sessionStorage.getItem(SPOTIFY_CODE_VERIFIER)
-  console.log("GET STORED CODE VERIFIER!", verifier)
   if (!verifier) throw new Error("No code verifier found")
   return verifier
 }
