@@ -21,6 +21,22 @@ export type SpotifyApiTracksResponse = {
   }
 }
 
+export type SpotifyApiPlaylistResult = {
+  collaborative: boolean
+  description: string
+  external_urls: {
+    spotify: string
+  }
+  href: string
+  id: string
+  name: string
+  uri: string
+}
+
+export type SpotifyApiMeResults = {
+  id: string
+}
+
 export async function search({
   query,
   accessToken,
@@ -59,6 +75,54 @@ export async function savedTracks({ accessToken }: { accessToken: string }) {
       })
       .json()
     return results
+  } catch (e: HTTPError | any) {
+    if (e.name === "HTTPError") {
+      const errorJson = await e.response.json()
+      throw new Error(errorJson.message)
+    }
+  }
+}
+
+export async function createAndPopulatePlaylist({
+  accessToken,
+  name,
+  uris,
+}: {
+  accessToken: string
+  name: string
+  uris: string[]
+}) {
+  try {
+    const me: SpotifyApiMeResults = await ky
+      .get(meEndpoint, {
+        headers: generateHeaders(accessToken),
+      })
+      .json()
+
+    if (!me.id) {
+      throw new Error("No user ID found")
+    }
+
+    const playlist: SpotifyApiPlaylistResult = await ky(
+      `${baseEndpoint}/users/${me.id}/playlists`,
+      {
+        method: "POST",
+        headers: generateHeaders(accessToken),
+        json: {
+          name,
+        },
+      },
+    ).json()
+
+    await ky(`${baseEndpoint}/playlists/${playlist.id}/tracks`, {
+      method: "POST",
+      headers: generateHeaders(accessToken),
+      json: {
+        uris,
+      },
+    }).json()
+
+    return playlist
   } catch (e: HTTPError | any) {
     if (e.name === "HTTPError") {
       const errorJson = await e.response.json()

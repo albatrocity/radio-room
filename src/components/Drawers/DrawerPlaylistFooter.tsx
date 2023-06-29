@@ -1,12 +1,10 @@
-import React, { useEffect, useRef } from "react"
+import React, { FormEvent, useEffect, useRef } from "react"
 import { Box, Button, HStack, Text, Input } from "@chakra-ui/react"
-
-import { useIsAdmin } from "../../state/authStore"
 
 interface Props {
   isEditing: boolean
   onEdit: () => void
-  onSave: () => void
+  onSave: (event: FormEvent) => void
   isLoading: boolean
   onChange: (name: string) => void
   value: string | undefined

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react"
+import React, { FormEvent, useCallback, useEffect, useState } from "react"
 import {
   Box,
   Button,
@@ -27,20 +27,28 @@ import { Reaction } from "../../types/Reaction"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { Emoji } from "../../types/Emoji"
 import PlaylistWindow from "../PlaylistWindow"
-import { useIsSpotifyAuthenticated } from "../../state/spotifyAuthStore"
+import {
+  useIsSpotifyAuthenticated,
+  useSpotifyAccessToken,
+} from "../../state/spotifyAuthStore"
 import { useIsAdmin } from "../../state/authStore"
 
 function DrawerPlaylist() {
   const { send: playlistSend } = usePlaylistStore()
   const currentPlaylist = useCurrentPlaylist()
   const isLoggedIn = useIsSpotifyAuthenticated()
+  const accessToken = useSpotifyAccessToken()
   const isAdmin = useIsAdmin()
   const [isEditing, { toggle, off }] = useBoolean(false)
   const defaultPlaylistName = useConst(
     () => `Radio Playlist ${format(new Date(), "M/d/y")}`,
   )
   const [name, setName] = useState<string>(defaultPlaylistName)
-  const [state, send] = useMachine(savePlaylistMachine)
+  const [state, send] = useMachine(savePlaylistMachine, {
+    context: {
+      accessToken,
+    },
+  })
   const [filterState, filterSend] = useMachine(toggleableCollectionMachine, {
     context: {
       idPath: "shortcodes",
@@ -94,14 +102,21 @@ function DrawerPlaylist() {
     () => playlistSend("TOGGLE_PLAYLIST"),
     [playlistSend],
   )
-  const handleSave = useCallback(() => {
-    send("ADMIN_SAVE_PLAYLIST", {
-      name,
-      uris: selectedPlaylistState.context.collection
-        .map(({ spotifyData }) => spotifyData?.uri)
-        .filter((x) => !!x),
-    })
-  }, [send, selectedPlaylistState.context.collection, name])
+  const handleSave = useCallback(
+    (e: FormEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const event = isAdmin ? "ADMIN_SAVE_PLAYLIST" : "SAVE_PLAYLIST"
+      send(event, {
+        name,
+        uris: selectedPlaylistState.context.collection
+          .map(({ spotifyData }) => spotifyData?.uri)
+          .filter((x) => !!x),
+      })
+      return void 0
+    },
+    [send, selectedPlaylistState.context.collection, name],
+  )
   const handleSelect = (selection: "all" | "none" | "filtered") => {
     switch (selection) {
       case "all":
