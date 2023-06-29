@@ -9,6 +9,7 @@ import { Select, SingleValue } from "chakra-react-select"
 import { SpotifyTrack } from "../types/SpotifyTrack"
 import ItemSpotifyTrack from "./ItemSpotifyTrack"
 import { debounceInputMachine } from "../machines/debouncedInputMachine"
+import { useSpotifyAccessToken } from "../state/spotifyAuthStore"
 
 type Props = {
   onChoose: (item: SingleValue<SpotifyTrack>) => void
@@ -16,7 +17,13 @@ type Props = {
 } & InputProps
 
 function SpotifySearch({ onChoose, onDropdownOpenChange }: Props) {
-  const [state, send] = useMachine(spotifySearchMachine)
+  const accessToken = useSpotifyAccessToken()
+  console.log("accessToken", accessToken)
+  const [state, send] = useMachine(spotifySearchMachine, {
+    context: {
+      accessToken,
+    },
+  })
   const [inputState, inputSend] = useMachine(debounceInputMachine, {
     actions: {
       onSearchChange: (_context, event) => {

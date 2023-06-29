@@ -8,7 +8,7 @@ import {
   generateLoginUrl,
   requestToken,
   refreshAccessToken,
-} from "../lib/spotifyPKCE"
+} from "../lib/spotify/spotifyPKCE"
 
 const SPOTIFY_ACCESS_TOKEN = "spotifyAccessToken"
 const SPOTIFY_REFRESH_TOKEN = "spotifyRefreshToken"
