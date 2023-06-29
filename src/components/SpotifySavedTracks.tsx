@@ -5,6 +5,7 @@ import { useMachine } from "@xstate/react"
 import { savedTracksMachine } from "../machines/savedTracksMachine"
 import ItemSpotifyTrack from "./ItemSpotifyTrack"
 import { SpotifyTrack } from "../types/SpotifyTrack"
+import { useSpotifyAccessToken } from "../state/spotifyAuthStore"
 
 interface Props {
   onClick?: (track: SpotifyTrack) => void
@@ -17,7 +18,12 @@ export default function SpotifySavedTracks({
   isDisabled,
   loadingItem,
 }: Props) {
-  const [state] = useMachine(savedTracksMachine)
+  const accessToken = useSpotifyAccessToken()
+  const [state] = useMachine(savedTracksMachine, {
+    context: {
+      accessToken,
+    },
+  })
   const isLoading = state.matches("loading")
   return (
     <VStack align="flex-start" spacing={2} overflow="hidden" w="100%">

@@ -18,7 +18,6 @@ type Props = {
 
 function SpotifySearch({ onChoose, onDropdownOpenChange }: Props) {
   const accessToken = useSpotifyAccessToken()
-  console.log("accessToken", accessToken)
   const [state, send] = useMachine(spotifySearchMachine, {
     context: {
       accessToken,

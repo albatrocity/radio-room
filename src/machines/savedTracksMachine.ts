@@ -1,12 +1,12 @@
 // state machine for fetching saved tracks
 
 import { assign, createMachine } from "xstate"
-import { sendTo } from "xstate/lib/actions"
-import socketService from "../lib/socketService"
+import { savedTracks } from "../lib/spotify/spotifyApi"
 import { SpotifyTrack } from "../types/SpotifyTrack"
 
 export interface SavedTracksContext {
   savedTracks: SpotifyTrack[]
+  accessToken?: string
   error: string
 }
 
@@ -24,8 +24,20 @@ type SavedTracksResponse = {
   total: number
 }
 
+async function fetchSavedTracks(ctx: SavedTracksContext) {
+  if (ctx.accessToken) {
+    const results = await savedTracks({ accessToken: ctx.accessToken })
+    return results
+  }
+  throw new Error("No access token found")
+}
+
 export type SavedTracksEvent =
-  | { type: "SAVED_TRACKS_RESULTS"; data: SavedTracksResponse; error?: null }
+  | {
+      type: "done.invoke.fetchSavedTracks"
+      data: SavedTracksResponse
+      error?: null
+    }
   | { type: "SAVED_TRACKS_RESULTS_FAILURE"; data: {}; error?: string }
 
 export const savedTracksMachine = createMachine<
@@ -34,26 +46,25 @@ export const savedTracksMachine = createMachine<
 >(
   {
     id: "savedTracks",
-    initial: "loading",
+    initial: "initial",
     context: {
+      accessToken: undefined,
       savedTracks: [],
       error: "",
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
     states: {
+      initial: {
+        always: [{ target: "loading", cond: "hasAccessToken" }],
+      },
       loading: {
-        entry: ["fetchSavedTracks"],
-        on: {
-          SAVED_TRACKS_RESULTS: {
+        invoke: {
+          id: "fetchSavedTracks",
+          src: fetchSavedTracks,
+          onDone: {
             target: "success",
             actions: ["setSavedTracks"],
           },
-          SAVED_TRACKS_RESULTS_FAILURE: {
+          onError: {
             target: "error",
             actions: ["setError"],
           },
@@ -65,23 +76,23 @@ export const savedTracksMachine = createMachine<
   },
   {
     actions: {
-      fetchSavedTracks: sendTo("socket", () => {
-        return {
-          type: "get spotify saved tracks",
-        }
-      }),
       setError: assign((ctx, event) => {
-        if (event.type === "SAVED_TRACKS_RESULTS") return ctx
+        if (event.type === "done.invoke.fetchSavedTracks") return ctx
         return {
           error: event.error,
         }
       }),
       setSavedTracks: assign((ctx, event) => {
-        if (event.type === "SAVED_TRACKS_RESULTS_FAILURE") return ctx
+        if (event.type !== "done.invoke.fetchSavedTracks") return ctx
         return {
           savedTracks: event.data.items.map((item) => item.track),
         }
       }),
+    },
+    guards: {
+      hasAccessToken: (ctx) => {
+        return !!ctx.accessToken
+      },
     },
   },
 )

@@ -7,6 +7,7 @@ import Modal from "../Modal"
 import { useModalsStore } from "../../state/modalsState"
 import SpotifySavedTracks from "../SpotifySavedTracks"
 import useAddToSpotifyQueue from "../useAddToSpotifyQueue"
+import { useIsSpotifyAuthenticated } from "../../state/spotifyAuthStore"
 
 const MotionBox = motion(Box)
 
@@ -15,6 +16,7 @@ function ModalAddToQueue() {
   const [open, setOpen] = useBoolean(false)
   const { addToQueue, state } = useAddToSpotifyQueue()
   const isAddingToQueue = useModalsStore((s) => s.state.matches("queue"))
+  const isAuthenticated = useIsSpotifyAuthenticated()
   const hideEditForm = () => send("CLOSE")
 
   const isLoading = state.matches("loading")
@@ -40,33 +42,35 @@ function ModalAddToQueue() {
           isDisabled={isLoading}
           onDropdownOpenChange={handleOpenDropdown}
         />
-        <Box>
-          <MotionBox
-            position="absolute"
-            top={0}
-            left={0}
-            zIndex={1}
-            h="100%"
-            w="100%"
-            animate={{
-              pointerEvents: open ? "auto" : "none",
-            }}
-          />
-          <MotionBox
-            animate={{
-              opacity: open ? 0.1 : isLoading ? 0.5 : 1,
-            }}
-          >
-            <Heading as="h4" size="sm" mb={2}>
-              Your recently liked tracks
-            </Heading>
-            <SpotifySavedTracks
-              isDisabled={isLoading || open}
-              loadingItem={loadingItem}
-              onClick={open ? undefined : addToQueue}
+        {isAuthenticated && (
+          <Box>
+            <MotionBox
+              position="absolute"
+              top={0}
+              left={0}
+              zIndex={1}
+              h="100%"
+              w="100%"
+              animate={{
+                pointerEvents: open ? "auto" : "none",
+              }}
             />
-          </MotionBox>
-        </Box>
+            <MotionBox
+              animate={{
+                opacity: open ? 0.1 : isLoading ? 0.5 : 1,
+              }}
+            >
+              <Heading as="h4" size="sm" mb={2}>
+                Your recently liked tracks
+              </Heading>
+              <SpotifySavedTracks
+                isDisabled={isLoading || open}
+                loadingItem={loadingItem}
+                onClick={open ? undefined : addToQueue}
+              />
+            </MotionBox>
+          </Box>
+        )}
       </Stack>
     </Modal>
   )
