@@ -9,7 +9,7 @@ interface Context {
 export const spotifyAuthMachine = createMachine<Context>(
   {
     predictableActionArguments: true,
-    id: "spotify-search",
+    id: "spotify-auth",
     initial: "loading",
     context: {},
     on: {

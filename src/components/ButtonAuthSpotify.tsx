@@ -2,27 +2,38 @@
 import React from "react"
 import { Link, Box, Button, Icon, Text, HStack } from "@chakra-ui/react"
 import { CheckCircleIcon } from "@chakra-ui/icons"
-import { useMachine } from "@xstate/react"
 import { FaSpotify } from "react-icons/fa"
 
-import { spotifyAuthMachine } from "../machines/spotifyAuthMachine"
 import { useCurrentUser } from "../state/authStore"
+import { useSpotifyAuthStore } from "../state/spotifyAuthStore"
 
 export default function ButtonAuthSpotify({ userId }: { userId?: string }) {
   const currentUser = useCurrentUser()
-  const [state] = useMachine(spotifyAuthMachine, {
-    context: {
-      userId: userId ?? currentUser.userId,
-    },
-  })
+  const { state, send } = useSpotifyAuthStore()
+  const isApp = userId === "app"
+  console.log(state.value)
+
   return (
     <Box>
-      {(state.matches("unauthenticated") || state.matches("loading")) && (
+      {!state.matches("authenticated") && (
         <Button
-          as={Link}
-          href={`${process.env.GATSBY_API_URL}/login?userId=${
-            userId ?? currentUser.userId
-          }`}
+          as={isApp ? Link : undefined}
+          href={
+            isApp
+              ? `${process.env.GATSBY_API_URL}/login?userId=${
+                  userId ?? currentUser.userId
+                }`
+              : undefined
+          }
+          onClick={
+            isApp
+              ? undefined
+              : (e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  send("GENERATE_LOGIN_URL")
+                }
+          }
           leftIcon={<Icon as={FaSpotify} />}
           isLoading={state.matches("loading")}
           isDisabled={state.matches("loading")}
