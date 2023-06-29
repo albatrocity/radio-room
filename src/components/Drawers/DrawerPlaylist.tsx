@@ -27,10 +27,14 @@ import { Reaction } from "../../types/Reaction"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { Emoji } from "../../types/Emoji"
 import PlaylistWindow from "../PlaylistWindow"
+import { useIsSpotifyAuthenticated } from "../../state/spotifyAuthStore"
+import { useIsAdmin } from "../../state/authStore"
 
 function DrawerPlaylist() {
   const { send: playlistSend } = usePlaylistStore()
   const currentPlaylist = useCurrentPlaylist()
+  const isLoggedIn = useIsSpotifyAuthenticated()
+  const isAdmin = useIsAdmin()
   const [isEditing, { toggle, off }] = useBoolean(false)
   const defaultPlaylistName = useConst(
     () => `Radio Playlist ${format(new Date(), "M/d/y")}`,
@@ -47,6 +51,7 @@ function DrawerPlaylist() {
   const isOpen = usePlaylistStore((s) => s.state.matches("active"))
   const toast = useToast()
   const isLoading = state.matches("loading")
+  const canSave = isLoggedIn || isAdmin
 
   const emojis = filterState.context.collection.reduce((mem, emoji) => {
     mem[emoji.shortcodes] = [
@@ -159,15 +164,17 @@ function DrawerPlaylist() {
       size={["full", "lg"]}
       onClose={handleTogglePlaylist}
       footer={
-        <DrawerPlaylistFooter
-          isEditing={isEditing}
-          onEdit={() => toggle()}
-          onSave={handleSave}
-          onChange={handleNameChange}
-          isLoading={isLoading}
-          value={name}
-          trackCount={selectedPlaylistState.context.collection.length}
-        />
+        canSave && (
+          <DrawerPlaylistFooter
+            isEditing={isEditing}
+            onEdit={() => toggle()}
+            onSave={handleSave}
+            onChange={handleNameChange}
+            isLoading={isLoading}
+            value={name}
+            trackCount={selectedPlaylistState.context.collection.length}
+          />
+        )
       }
       isFullHeight
     >

@@ -35,8 +35,8 @@ export default function ButtonAuthSpotify({ userId }: { userId?: string }) {
                 }
           }
           leftIcon={<Icon as={FaSpotify} />}
-          isLoading={state.matches("loading")}
-          isDisabled={state.matches("loading")}
+          isLoading={state.matches("working")}
+          isDisabled={state.matches("working")}
         >
           Link Spotify
         </Button>

@@ -1,10 +1,7 @@
 import React from "react"
-import { HeadProps, graphql } from "gatsby"
+import { graphql } from "gatsby"
 
 import Layout from "../components/layout"
-
-import { useIsStationOnline, useStationMeta } from "../state/audioStore"
-import { StationMeta } from "../types/StationMeta"
 import SpotifyAuthorization from "../components/SpotifyAuthorization"
 
 const CallbackPage = () => (
@@ -15,21 +12,10 @@ const CallbackPage = () => (
 
 export default CallbackPage
 
-function buildTitle(meta?: StationMeta) {
-  return `${meta?.track || meta?.title}${
-    meta?.artist ? ` | ${meta.artist} ` : ""
-  }`
-}
-
-export function Head({ data }: HeadProps) {
-  const isOnline = useIsStationOnline()
-  const meta = useStationMeta()
+export function Head() {
   return (
     <>
-      <title>
-        {isOnline ? `${buildTitle(meta)} | ` : ""}
-        {data.site.siteMetadata.title}
-      </title>
+      <title>Linking account...</title>
       <meta
         name="viewport"
         content="width=device-width, initial-scale=1, maximum-scale=1"
