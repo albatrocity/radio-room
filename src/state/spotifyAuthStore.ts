@@ -12,8 +12,20 @@ export const useSpotifyAuthStore = create(
             navigate(ctx.loginUrl)
           }
         },
-        onFinish: (ctx) => {
-          navigate("/", { replace: true })
+        onFinish: () => {
+          navigate("/", {
+            replace: true,
+            state: {
+              toast: {
+                title: "Spotify Connected",
+                description: "Your Spotify account is now linked",
+                status: "success",
+                duration: 5000,
+                isClosable: true,
+                position: "top",
+              },
+            },
+          })
         },
       },
     }),
@@ -21,7 +33,9 @@ export const useSpotifyAuthStore = create(
 )
 
 export const useIsSpotifyAuthenticated = () => {
-  return useSpotifyAuthStore((s) => !!s.state.context.accessToken)
+  return useSpotifyAuthStore(
+    (s) => !!s.state.context.accessToken && !!s.state.context.refreshToken,
+  )
 }
 
 export const useSpotifyAccessToken = () => {

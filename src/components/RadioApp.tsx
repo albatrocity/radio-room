@@ -1,16 +1,20 @@
 import React, { useEffect } from "react"
 import data from "@emoji-mart/data"
 import { init } from "emoji-mart"
-import { Flex, useToast } from "@chakra-ui/react"
+import { Flex, useToast, UseToastOptions } from "@chakra-ui/react"
 import { usePageVisibility } from "react-page-visibility"
-import { useLocation, navigate } from "@reach/router"
+import { navigate, useLocation, WindowLocation } from "@reach/router"
 
 import { useAuthStore } from "../state/authStore"
 import Room from "./Room"
 init({ data })
 
+type LocationState = {
+  toast?: UseToastOptions
+}
+
 const RadioApp = () => {
-  const location = useLocation()
+  const location = useLocation() as WindowLocation<LocationState>
   const toast = useToast()
   const isVisible = usePageVisibility()
 
@@ -18,18 +22,19 @@ const RadioApp = () => {
 
   useEffect(() => {
     send("SETUP")
-
-    const p = new URLSearchParams(location.search)
-    if (p.get("spotifyAuth") === "true") {
+    if (location.state?.toast) {
       toast({
-        title: "Spotify Connected",
-        description: "Your Spotify account is now linked",
-        status: "success",
+        title: location.state.toast.title,
+        description: location.state.toast.description,
+        status: location.state.toast.status,
         duration: 5000,
         isClosable: true,
         position: "top",
       })
-      navigate(location.pathname, { replace: true })
+      navigate(location.pathname, {
+        replace: true,
+        state: { ...location.state, toast: undefined },
+      })
     }
 
     return () => {

@@ -1,19 +1,24 @@
 // state machine for Spotify PKCE authentication flow
 import { createMachine, assign } from "xstate"
 
+import timerMachine from "./TimerMachine"
+
 import {
   generateCodeVerifier,
   generateLoginUrl,
   requestToken,
+  refreshAccessToken,
 } from "../lib/spotifyPKCE"
 
 const SPOTIFY_ACCESS_TOKEN = "spotifyAccessToken"
 const SPOTIFY_REFRESH_TOKEN = "spotifyRefreshToken"
+const SPOTIFY_CODE_REFRESHED_AT = "spotifyCodeRefreshedAt"
 const SPOTIFY_CODE_VERIFIER = "spotifyCodeVerifier"
 
 export interface SpotifyUserAuthContext {
   accessToken?: string
   refreshToken?: string
+  refreshedAt?: number
   expiresIn?: number
   codeVerifier?: string
   loginUrl?: string
@@ -49,10 +54,11 @@ type TokenEvent = {
 async function getStoredTokens() {
   const accessToken = await sessionStorage.getItem(SPOTIFY_ACCESS_TOKEN)
   const refreshToken = await sessionStorage.getItem(SPOTIFY_REFRESH_TOKEN)
+  const refreshedAt = await sessionStorage.getItem(SPOTIFY_CODE_REFRESHED_AT)
   console.log("GET STORED TOKENS!", accessToken, refreshToken)
   if (!accessToken) throw new Error("No access token found")
   if (!refreshToken) throw new Error("No refresh token found")
-  return { accessToken, refreshToken }
+  return { accessToken, refreshToken, refreshedAt }
 }
 
 async function getStoredCodeVerifier() {
@@ -60,6 +66,14 @@ async function getStoredCodeVerifier() {
   console.log("GET STORED CODE VERIFIER!", verifier)
   if (!verifier) throw new Error("No code verifier found")
   return verifier
+}
+
+function getTimeToRefresh(ctx: SpotifyUserAuthContext) {
+  return (
+    (ctx.refreshedAt || Date.now()) +
+    (ctx.expiresIn || 3600) * 1000 -
+    Date.now()
+  )
 }
 
 export const spotifyAuthMachine = createMachine<
@@ -74,6 +88,7 @@ export const spotifyAuthMachine = createMachine<
       accessToken: undefined,
       refreshToken: undefined,
       expiresIn: undefined,
+      refreshedAt: undefined,
       codeVerifier: undefined,
       loginUrl: undefined,
       error: undefined,
@@ -92,12 +107,14 @@ export const spotifyAuthMachine = createMachine<
               return {
                 accessToken: event.data.accessToken,
                 refreshToken: event.data.refreshToken,
+                refreshedAt: event.data.refreshedAt,
               }
             }),
           },
         },
       },
       unauthenticated: {
+        id: "unauthenticated",
         on: {
           GENERATE_LOGIN_URL: "working.generatingVerifier",
           REQUEST_TOKEN: {
@@ -108,6 +125,59 @@ export const spotifyAuthMachine = createMachine<
       },
       authenticated: {
         id: "authenticated",
+        initial: "active",
+        states: {
+          active: {
+            invoke: {
+              id: "timer",
+              src: timerMachine,
+              data: {
+                duration: (ctx: SpotifyUserAuthContext) =>
+                  getTimeToRefresh(ctx),
+              },
+              onDone: {
+                target: "refreshing",
+              },
+            },
+          },
+          refreshing: {
+            invoke: {
+              id: "refreshToken",
+              src: refreshAccessToken,
+              onDone: {
+                target: "active",
+                actions: [
+                  // set token data and save token data
+                  // done inline to avoid type errors on event data
+                  assign((_ctx, event: TokenEvent) => {
+                    return {
+                      accessToken: event.data.access_token,
+                      refreshToken: event.data.refresh_token,
+                      expiresIn: event.data.expires_in,
+                    }
+                  }),
+                  (_ctx, event: TokenEvent) => {
+                    if (event.data) {
+                      sessionStorage.setItem(
+                        SPOTIFY_ACCESS_TOKEN,
+                        event.data.access_token,
+                      )
+                      sessionStorage.setItem(
+                        SPOTIFY_REFRESH_TOKEN,
+                        event.data.refresh_token,
+                      )
+                    }
+                  },
+                  "setRefreshedAt",
+                  "storeRefreshedAt",
+                ],
+              },
+              onError: {
+                target: "#unauthenticated",
+              },
+            },
+          },
+        },
       },
       working: {
         states: {
@@ -151,8 +221,9 @@ export const spotifyAuthMachine = createMachine<
               onDone: {
                 target: "#authenticated",
                 actions: [
+                  // set token data and save token data
+                  // done inline to avoid type errors on event data
                   assign((_ctx, event: TokenEvent) => {
-                    console.log(event.data)
                     return {
                       accessToken: event.data.access_token,
                       refreshToken: event.data.refresh_token,
@@ -171,6 +242,8 @@ export const spotifyAuthMachine = createMachine<
                       )
                     }
                   },
+                  "setRefreshedAt",
+                  "storeRefreshedAt",
                   "onFinish",
                 ],
               },
@@ -203,13 +276,11 @@ export const spotifyAuthMachine = createMachine<
       setError: assign({
         error: (ctx, event) => event.data ?? ctx.error,
       }),
-    },
-    guards: {
-      isAuthenticated: (ctx) => {
-        return !!ctx.accessToken
-      },
-      isUnauthenticated: (ctx) => {
-        return !ctx.accessToken
+      setRefreshedAt: assign({
+        refreshedAt: () => Date.now(),
+      }),
+      storeRefreshedAt: () => {
+        sessionStorage.setItem(SPOTIFY_CODE_REFRESHED_AT, String(Date.now()))
       },
     },
   },

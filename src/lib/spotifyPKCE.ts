@@ -99,3 +99,35 @@ export async function requestToken(ctx: SpotifyUserAuthContext) {
     }
   }
 }
+
+export async function refreshAccessToken(ctx: SpotifyUserAuthContext) {
+  if (!clientId) {
+    throw new Error("No client ID found")
+  }
+  if (!ctx.refreshToken) {
+    throw new Error("No refresh token found")
+  }
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: ctx.refreshToken,
+    client_id: clientId,
+  })
+
+  try {
+    const res = await ky
+      .post("https://accounts.spotify.com/api/token", {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: body,
+      })
+      .json()
+    return res
+  } catch (e: HTTPError | any) {
+    if (e.name === "HTTPError") {
+      const errorJson = await e.response.json()
+      throw new Error(errorJson)
+    }
+  }
+}
