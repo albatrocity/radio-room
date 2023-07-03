@@ -7,7 +7,6 @@ import {
   Link,
   useBoolean,
   useConst,
-  useToast,
   VStack,
 } from "@chakra-ui/react"
 import { format } from "date-fns"
@@ -21,6 +20,7 @@ import usePlaylistFilter from "../usePlaylistFilter"
 import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
 import { toggleableCollectionMachine } from "../../machines/toggleableCollectionMachine"
 import { useCurrentPlaylist, usePlaylistStore } from "../../state/playlistStore"
+import { toast } from "../../lib/toasts"
 
 import { Dictionary } from "../../types/Dictionary"
 import { Reaction } from "../../types/Reaction"
@@ -48,6 +48,28 @@ function DrawerPlaylist() {
     context: {
       accessToken,
     },
+    actions: {
+      notifyPlaylistCreated: (context) => {
+        off()
+        toast({
+          title: "Playlist created",
+          description: (
+            <Text>
+              <Link
+                href={context.playlistMeta?.external_urls?.spotify}
+                isExternal
+                textDecoration={"underline"}
+              >
+                {context.playlistMeta?.name}
+              </Link>{" "}
+              was added to your Spotify Collection
+            </Text>
+          ),
+          status: "success",
+          duration: 4000,
+        })
+      },
+    },
   })
   const [filterState, filterSend] = useMachine(toggleableCollectionMachine, {
     context: {
@@ -57,7 +79,6 @@ function DrawerPlaylist() {
     },
   })
   const isOpen = usePlaylistStore((s) => s.state.matches("active"))
-  const toast = useToast()
   const isLoading = state.matches("loading")
   const canSave = isLoggedIn || isAdmin
 
@@ -135,41 +156,6 @@ function DrawerPlaylist() {
       off()
     }
   }, [isOpen])
-
-  useEffect(() => {
-    if (state.matches("success")) {
-      toast({
-        title: "Playlist created",
-        description: (
-          <Text>
-            <Link
-              href={state.context.playlistMeta?.external_urls?.spotify}
-              isExternal
-              textDecoration={"underline"}
-            >
-              {state.context.playlistMeta?.name}
-            </Link>{" "}
-            was added to your Spotify Collection
-          </Text>
-        ),
-        status: "success",
-        duration: 4000,
-        isClosable: true,
-        position: "top",
-      })
-      off()
-    }
-    if (state.matches("error")) {
-      toast({
-        title: "Playlist failed",
-        description: <Text>{String(state.context.playlistError)}</Text>,
-        status: "error",
-        duration: 4000,
-        isClosable: true,
-        position: "top",
-      })
-    }
-  }, [state.value])
 
   return (
     <Drawer

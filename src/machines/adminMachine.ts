@@ -1,6 +1,7 @@
 import { createMachine, sendTo } from "xstate"
-import socketService from "../lib/socketService"
 
+import socketService from "../lib/socketService"
+import { toast } from "../lib/toasts"
 import { useAuthStore } from "../state/authStore"
 
 type AdminEvent = {
@@ -20,7 +21,7 @@ export const adminMachine = createMachine<any, AdminEvent>(
       },
     ],
     on: {
-      SET_SETTINGS: { actions: ["setSettings"], cond: "isAdmin" },
+      SET_SETTINGS: { actions: ["setSettings", "notify"], cond: "isAdmin" },
       CLEAR_PLAYLIST: { actions: ["clearPlaylist"], cond: "isAdmin" },
       DEPUTIZE_DJ: { actions: ["deputizeDj"], cond: "isAdmin" },
     },
@@ -47,6 +48,14 @@ export const adminMachine = createMachine<any, AdminEvent>(
       clearPlaylist: sendTo("socket", () => {
         return { type: "clear playlist", data: {} }
       }),
+      notify: () => {
+        toast({
+          title: "Settings updated",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        })
+      },
     },
   },
 )

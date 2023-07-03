@@ -1,6 +1,7 @@
 import { assign, sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 import { createAndPopulatePlaylist } from "../lib/spotify/spotifyApi"
+import { toast } from "../lib/toasts"
 import { SpotifyPlaylist } from "../types/SpotifyPlaylist"
 
 interface Context {
@@ -31,6 +32,10 @@ type SavePlaylistEvent =
   | {
       type: "done.invoke.savePlaylist"
       data: SpotifyPlaylist
+    }
+  | {
+      type: "error.invoke.savePlaylist"
+      error: any
     }
 
 async function savePlaylist(ctx: Context, event: SavePlaylistEvent) {
@@ -89,11 +94,11 @@ export const savePlaylistMachine = createMachine<Context, SavePlaylistEvent>(
             on: {
               PLAYLIST_SAVED: {
                 target: "#success",
-                actions: ["setPlaylistMeta"],
+                actions: ["setPlaylistMeta", "notifyPlaylistCreated"],
               },
               SAVE_PLAYLIST_FAILED: {
                 target: "#error",
-                actions: ["setPlaylistError"],
+                actions: ["setPlaylistError", "notifyPlaylistCreateFailed"],
               },
             },
           },
@@ -143,9 +148,22 @@ export const savePlaylistMachine = createMachine<Context, SavePlaylistEvent>(
       }),
       setPlaylistError: assign({
         playlistError: (_ctx, event) => {
-          return event.error
+          if (
+            event.type === "SAVE_PLAYLIST_FAILED" ||
+            event.type === "error.invoke.savePlaylist"
+          ) {
+            return event.error
+          }
         },
       }),
+      notifyPlaylistCreateFailed: (context) => {
+        toast({
+          title: "Playlist failed",
+          description: String(context.playlistError),
+          status: "error",
+          duration: 4000,
+        })
+      },
     },
   },
 )
