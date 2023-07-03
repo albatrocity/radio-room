@@ -1,4 +1,4 @@
-import React from "react"
+import React, { memo } from "react"
 import { Formik } from "formik"
 import {
   Button,
@@ -13,6 +13,7 @@ import { User } from "../types/User"
 import Modal from "./Modal"
 import { ModalProps } from "@chakra-ui/react"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
+import { useGlobalSettings } from "../state/globalSettingsStore"
 
 interface Props extends Pick<ModalProps, "isOpen"> {
   onClose: () => void
@@ -21,6 +22,7 @@ interface Props extends Pick<ModalProps, "isOpen"> {
 }
 
 const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
+  const settings = useGlobalSettings()
   return (
     <Formik
       initialValues={{ username: "", userId: currentUser?.userId }}
@@ -84,14 +86,16 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
                   only.
                 </FormHelperText>
               </FormControl>
-              <FormControl>
-                <ButtonAuthSpotify />
+              {settings?.enableSpotifyLogin && (
+                <FormControl>
+                  <ButtonAuthSpotify />
 
-                <FormHelperText>
-                  Authorizing this app with your Spotify account will allow you
-                  to create playlists from the track history.
-                </FormHelperText>
-              </FormControl>
+                  <FormHelperText>
+                    Authorizing this app with your Spotify account will allow
+                    you to create playlists from the track history.
+                  </FormHelperText>
+                </FormControl>
+              )}
             </Stack>
           </form>
         </Modal>
@@ -100,4 +104,4 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
   )
 }
 
-export default FormUsername
+export default memo(FormUsername)

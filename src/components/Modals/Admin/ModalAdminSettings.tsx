@@ -21,6 +21,7 @@ import ReactionTriggerActions from "./ReactionTriggerActions"
 import MessageTriggerActions from "./MessageTriggerActions"
 import DjFeatures from "./DjFeatures"
 import ButtonAuthSpotify from "../../ButtonAuthSpotify"
+import SpotifyFeatures from "./SpotifyFeatures"
 
 const Header = ({
   showBack,
@@ -83,6 +84,9 @@ function ModalAdminSettings() {
         </Collapse>
         <Collapse in={state.matches("settings.content")}>
           <Content />
+        </Collapse>
+        <Collapse in={state.matches("settings.spotify")}>
+          <SpotifyFeatures />
         </Collapse>
         <Collapse in={state.matches("settings.password")}>
           <Password />

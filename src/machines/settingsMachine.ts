@@ -7,6 +7,7 @@ interface Context {
   password: string
   artwork?: string
   deputizeOnJoin: boolean
+  enableSpotifyLogin: boolean
 }
 
 export const settingsMachine = createMachine<Context>(
@@ -20,6 +21,7 @@ export const settingsMachine = createMachine<Context>(
       password: "",
       artwork: undefined,
       deputizeOnJoin: false,
+      enableSpotifyLogin: false,
     },
     invoke: [
       {
@@ -31,6 +33,7 @@ export const settingsMachine = createMachine<Context>(
       SETTINGS: {
         actions: "setValues",
       },
+      FETCH: "pending",
     },
     states: {
       pending: {
@@ -67,6 +70,7 @@ export const settingsMachine = createMachine<Context>(
             password: event.data.password,
             artwork: event.data.artwork,
             deputizeOnJoin: event.data.deputizeOnJoin,
+            enableSpotifyLogin: event.data.enableSpotifyLogin,
           }
         }
       }),

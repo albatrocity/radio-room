@@ -3,6 +3,7 @@ import socketService from "../lib/socketService"
 
 interface Context {
   banner?: string
+  enableSpotifyLogin?: boolean
 }
 
 export const globalSettingsMachine = createMachine<Context>(
@@ -11,6 +12,7 @@ export const globalSettingsMachine = createMachine<Context>(
     id: "globalSettings",
     context: {
       banner: undefined,
+      enableSpotifyLogin: false,
     },
     invoke: [
       {
@@ -22,9 +24,13 @@ export const globalSettingsMachine = createMachine<Context>(
       SETTINGS: {
         actions: ["setValues"],
       },
+      FETCH: "loading",
     },
     initial: "active",
     states: {
+      loading: {
+        entry: ["fetchSettings"],
+      },
       active: {
         entry: ["fetchSettings"],
       },
@@ -35,6 +41,7 @@ export const globalSettingsMachine = createMachine<Context>(
       setValues: assign((_context, event) => {
         return {
           banner: event.data.extraInfo,
+          enableSpotifyLogin: event.data.enableSpotifyLogin,
         }
       }),
       fetchSettings: sendTo("socket", () => ({ type: "get settings" })),

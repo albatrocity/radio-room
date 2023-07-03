@@ -7,6 +7,7 @@ import { navigate, useLocation, WindowLocation } from "@reach/router"
 
 import { useAuthStore } from "../state/authStore"
 import Room from "./Room"
+import { fetchSettings } from "../state/globalSettingsStore"
 init({ data })
 
 type LocationState = {
@@ -21,6 +22,7 @@ const RadioApp = () => {
   const { send } = useAuthStore()
 
   useEffect(() => {
+    fetchSettings()
     send("SETUP")
     if (location.state?.toast) {
       toast({
@@ -40,7 +42,7 @@ const RadioApp = () => {
     return () => {
       send("USER_DISCONNECTED")
     }
-  }, [send])
+  }, [send, fetchSettings, location.state?.toast, toast])
 
   useEffect(() => {
     if (isVisible) {

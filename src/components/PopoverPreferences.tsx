@@ -8,11 +8,8 @@ import {
   PopoverContent,
   PopoverHeader,
   PopoverTrigger,
-  Heading,
   VStack,
   HStack,
-  Text,
-  Spacer,
   Flex,
   Switch,
   FormControl,
@@ -24,11 +21,13 @@ import { FiSettings, FiMoon } from "react-icons/fi"
 
 import FormTheme from "./FormTheme"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
+import { useGlobalSettings } from "../state/globalSettingsStore"
 
 type Props = {}
 
 const PopoverPreferences = (props: Props) => {
   const { colorMode, toggleColorMode } = useColorMode()
+  const settings = useGlobalSettings()
   return (
     <Popover isLazy>
       <PopoverTrigger>
@@ -60,10 +59,14 @@ const PopoverPreferences = (props: Props) => {
             <FormTheme />
           </VStack>
         </Box>
-        <Divider />
-        <Box p={4}>
-          <ButtonAuthSpotify />
-        </Box>
+        {settings.enableSpotifyLogin && (
+          <>
+            <Divider />
+            <Box p={4}>
+              <ButtonAuthSpotify />
+            </Box>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   )

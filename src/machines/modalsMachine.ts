@@ -42,6 +42,7 @@ export const modalsMachine = createMachine(
             on: {
               EDIT_CONTENT: "content",
               EDIT_DJ: "dj",
+              EDIT_SPOTIFY: "spotify",
               EDIT_PASSWORD: "password",
               EDIT_REACTION_TRIGGERS: "reaction_triggers",
               EDIT_MESSAGE_TRIGGERS: "message_triggers",
@@ -53,6 +54,11 @@ export const modalsMachine = createMachine(
             },
           },
           dj: {
+            on: {
+              BACK: "overview",
+            },
+          },
+          spotify: {
             on: {
               BACK: "overview",
             },
