@@ -2,7 +2,9 @@ import ky, { HTTPError } from "ky"
 import { SpotifyUserAuthContext } from "../../machines/spotifyUserAuthMachine"
 
 const clientId = process.env.GATSBY_SPOTIFY_CLIENT_ID
-export const redirectUri = "http://localhost:8000/callback"
+export const redirectUri =
+  process.env.GATSBY_SPOTIFY_AUTH_REDIRECT_URI ??
+  "http://localhost:8000/callback"
 
 function generateRandomString(length: number) {
   let text = ""
