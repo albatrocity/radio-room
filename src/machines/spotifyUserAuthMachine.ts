@@ -9,6 +9,7 @@ import {
   requestToken,
   refreshAccessToken,
 } from "../lib/spotify/spotifyPKCE"
+import { toast } from "../lib/toasts"
 
 const SPOTIFY_ACCESS_TOKEN = "spotifyAccessToken"
 const SPOTIFY_REFRESH_TOKEN = "spotifyRefreshToken"
@@ -132,6 +133,7 @@ export const spotifyAuthMachine = createMachine<
             target: "unauthenticated",
             actions: [
               "logout",
+              "notifyLogout",
               (_ctx) => {
                 sessionStorage.removeItem(SPOTIFY_ACCESS_TOKEN)
                 sessionStorage.removeItem(SPOTIFY_REFRESH_TOKEN)
@@ -301,6 +303,13 @@ export const spotifyAuthMachine = createMachine<
         refreshedAt: undefined,
         expiresIn: undefined,
       }),
+      notifyLogout: () => {
+        toast({
+          title: "Spotify Disconnected",
+          description: "Your Spotify account is now unlinked",
+          status: "success",
+        })
+      },
     },
   },
 )

@@ -1,6 +1,7 @@
 // state machine for fetching the current user's spotify authentication status
 import { sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
+import { toast } from "../lib/toasts"
 
 interface Context {
   userId?: string
@@ -23,7 +24,7 @@ export const spotifyAuthMachine = createMachine<Context>(
         on: {
           LOGOUT: {
             target: "unauthenticated",
-            actions: ["logout"],
+            actions: ["logout", "notifyLogout"],
           },
         },
       },
@@ -61,6 +62,13 @@ export const spotifyAuthMachine = createMachine<Context>(
         }
       }),
       logout: sendTo("socket", "logout spotify"),
+      notifyLogout: () => {
+        toast({
+          title: "Spotify Disconnected",
+          description: "Your Spotify account is now unlinked",
+          status: "success",
+        })
+      },
     },
     guards: {
       isAuthenticated: (_context, event) => {
