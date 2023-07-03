@@ -1,10 +1,10 @@
-import React, { useEffect, useRef } from "react"
+import React, { FormEvent, useEffect, useRef } from "react"
 import { Box, Button, HStack, Text, Input } from "@chakra-ui/react"
 
 interface Props {
   isEditing: boolean
   onEdit: () => void
-  onSave: () => void
+  onSave: (event: FormEvent) => void
   isLoading: boolean
   onChange: (name: string) => void
   value: string | undefined
@@ -21,6 +21,7 @@ const DrawerPlaylistFooter = ({
   trackCount,
 }: Props) => {
   const inputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus()

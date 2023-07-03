@@ -1,4 +1,4 @@
-import React from "react"
+import React, { memo } from "react"
 import { Formik } from "formik"
 import {
   Button,
@@ -12,6 +12,8 @@ import {
 import { User } from "../types/User"
 import Modal from "./Modal"
 import { ModalProps } from "@chakra-ui/react"
+import ButtonAuthSpotify from "./ButtonAuthSpotify"
+import { useGlobalSettings } from "../state/globalSettingsStore"
 
 interface Props extends Pick<ModalProps, "isOpen"> {
   onClose: () => void
@@ -20,6 +22,7 @@ interface Props extends Pick<ModalProps, "isOpen"> {
 }
 
 const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
+  const settings = useGlobalSettings()
   return (
     <Formik
       initialValues={{ username: "", userId: currentUser?.userId }}
@@ -50,7 +53,6 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
               </Button>
               <Button
                 type="submit"
-                // colorScheme="primary"
                 disabled={isSubmitting || !isValid}
                 onClick={() => handleSubmit()}
               >
@@ -59,8 +61,8 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
             </HStack>
           }
         >
-          <Stack spacing={2}>
-            <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit}>
+            <Stack spacing={10}>
               <FormControl>
                 <FormLabel>What are we gonna call you in here?</FormLabel>
                 <Input
@@ -84,12 +86,22 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
                   only.
                 </FormHelperText>
               </FormControl>
-            </form>
-          </Stack>
+              {settings?.enableSpotifyLogin && (
+                <FormControl>
+                  <ButtonAuthSpotify />
+
+                  <FormHelperText>
+                    Authorizing this app with your Spotify account will allow
+                    you to create playlists from the track history.
+                  </FormHelperText>
+                </FormControl>
+              )}
+            </Stack>
+          </form>
         </Modal>
       )}
     </Formik>
   )
 }
 
-export default FormUsername
+export default memo(FormUsername)

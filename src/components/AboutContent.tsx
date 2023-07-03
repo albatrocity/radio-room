@@ -68,23 +68,7 @@ function AboutContent({}: Props) {
           Socket.io
         </Link>{" "}
         connections and poll a Shoutcast server that's actually streaming the
-        audio. Cover art and release information is fetched from Spotify and the{" "}
-        <Link
-          textDecoration={"underline"}
-          target="_blank"
-          href="https://musicbrainz.org"
-        >
-          MusicBrainz
-        </Link>{" "}
-        API. Typically, broadcasting is done using some excellent software from{" "}
-        <Link
-          textDecoration={"underline"}
-          target="_blank"
-          href="http://rogueamoeba.com"
-        >
-          Rogue Amoeba
-        </Link>
-        .
+        audio. Cover art and release information is fetched from Spotify.
       </Text>
     </Box>
   )
