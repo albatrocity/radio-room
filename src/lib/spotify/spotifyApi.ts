@@ -37,6 +37,8 @@ export type SpotifyApiMeResults = {
   id: string
 }
 
+export type CheckedSavedTracksResponse = boolean[]
+
 export async function search({
   query,
   accessToken,
@@ -70,6 +72,81 @@ export async function savedTracks({ accessToken }: { accessToken: string }) {
       .get(`${meEndpoint}/tracks`, {
         searchParams: {
           limit: 20,
+        },
+        headers: generateHeaders(accessToken),
+      })
+      .json()
+    return results
+  } catch (e: HTTPError | any) {
+    if (e.name === "HTTPError") {
+      const errorJson = await e.response.json()
+      throw new Error(errorJson.message)
+    }
+  }
+}
+
+export async function checkSavedTracks({
+  ids,
+  accessToken,
+}: {
+  accessToken: string
+  ids: string[]
+}) {
+  try {
+    const results: SpotifyApiTracksResponse = await ky
+      .get(`${meEndpoint}/tracks/contains`, {
+        searchParams: {
+          ids: ids.join(","),
+        },
+        headers: generateHeaders(accessToken),
+      })
+      .json()
+    return results
+  } catch (e: HTTPError | any) {
+    if (e.name === "HTTPError") {
+      const errorJson = await e.response.json()
+      throw new Error(errorJson.message)
+    }
+  }
+}
+
+export async function addSavedTracks({
+  ids,
+  accessToken,
+}: {
+  accessToken: string
+  ids: string[]
+}) {
+  try {
+    const results: null = await ky
+      .put(`${meEndpoint}/tracks`, {
+        json: {
+          ids: ids,
+        },
+        headers: generateHeaders(accessToken),
+      })
+      .json()
+    return results
+  } catch (e: HTTPError | any) {
+    if (e.name === "HTTPError") {
+      const errorJson = await e.response.json()
+      throw new Error(errorJson.message)
+    }
+  }
+}
+
+export async function removeSavedTracks({
+  ids,
+  accessToken,
+}: {
+  accessToken: string
+  ids: string[]
+}) {
+  try {
+    const results: null = await ky
+      .delete(`${meEndpoint}/tracks`, {
+        json: {
+          ids: ids,
         },
         headers: generateHeaders(accessToken),
       })

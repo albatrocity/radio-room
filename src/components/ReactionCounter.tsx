@@ -12,7 +12,7 @@ import { Emoji } from "../types/Emoji"
 
 type ReactionCounterProps = {
   reactTo: ReactionSubject
-} & ReactionSelectionProps
+} & Partial<ReactionSelectionProps>
 
 const ReactionCounter = ({ reactTo, ...rest }: ReactionCounterProps) => {
   const currentUser = useCurrentUser()

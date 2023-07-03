@@ -37,11 +37,13 @@ function ModalAddToQueue() {
       heading="Add to play queue"
     >
       <Stack direction="column" spacing={8}>
-        <FormAddToQueue
-          onAddToQueue={addToQueue}
-          isDisabled={isLoading}
-          onDropdownOpenChange={handleOpenDropdown}
-        />
+        <Box zIndex={2}>
+          <FormAddToQueue
+            onAddToQueue={addToQueue}
+            isDisabled={isLoading}
+            onDropdownOpenChange={handleOpenDropdown}
+          />
+        </Box>
         {isAuthenticated && (
           <Box>
             <MotionBox

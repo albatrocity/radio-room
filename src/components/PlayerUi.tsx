@@ -1,10 +1,10 @@
 import React, { useCallback, memo } from "react"
-import { Box, Container, Flex } from "@chakra-ui/react"
-import { kebabCase } from "lodash/fp"
+import { Box, Container, Flex, HStack } from "@chakra-ui/react"
 
 import NowPlaying from "./NowPlaying"
 import RadioPlayer from "./RadioPlayer"
 import ReactionCounter from "./ReactionCounter"
+import ButtonAddToLibrary from "./ButtonAddToLibrary"
 
 import { useAuthStore } from "../state/authStore"
 import {
@@ -63,7 +63,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
       direction="column"
       height="100%"
     >
-      <NowPlaying offline={!isOnline} meta={meta} />
+      {meta && <NowPlaying offline={!isOnline} meta={meta} />}
       {isOnline && (
         <Box
           display={["none", "flex"]}
@@ -72,11 +72,14 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
           py="1"
         >
           <Container>
-            <ReactionCounter
-              reactTo={{ type: "track", id: trackId }}
-              darkBg={true}
-              showAddButton={true}
-            />
+            <HStack>
+              <ButtonAddToLibrary id={meta?.release?.id} />
+              <ReactionCounter
+                reactTo={{ type: "track", id: trackId }}
+                darkBg={true}
+                showAddButton={true}
+              />
+            </HStack>
           </Container>
         </Box>
       )}
