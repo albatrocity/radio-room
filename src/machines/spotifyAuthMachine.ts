@@ -19,7 +19,14 @@ export const spotifyAuthMachine = createMachine<Context>(
     },
     states: {
       unauthenticated: {},
-      authenticated: {},
+      authenticated: {
+        on: {
+          LOGOUT: {
+            target: "unauthenticated",
+            actions: ["logout"],
+          },
+        },
+      },
       loading: {
         entry: ["fetchAuthenticationStatus"],
         on: {
@@ -53,6 +60,7 @@ export const spotifyAuthMachine = createMachine<Context>(
           },
         }
       }),
+      logout: sendTo("socket", "logout spotify"),
     },
     guards: {
       isAuthenticated: (_context, event) => {

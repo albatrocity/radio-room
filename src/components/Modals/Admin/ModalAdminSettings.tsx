@@ -20,7 +20,7 @@ import Password from "./Password"
 import ReactionTriggerActions from "./ReactionTriggerActions"
 import MessageTriggerActions from "./MessageTriggerActions"
 import DjFeatures from "./DjFeatures"
-import ButtonAuthSpotify from "../../ButtonAuthSpotify"
+import ButtonAppAuthSpotify from "../../ButtonAppAuthSpotify"
 import SpotifyFeatures from "./SpotifyFeatures"
 
 const Header = ({
@@ -100,7 +100,7 @@ function ModalAdminSettings() {
 
         {state.matches("settings.overview") && (
           <Box px={6} py={4}>
-            <ButtonAuthSpotify userId="app" />
+            <ButtonAppAuthSpotify />
           </Box>
         )}
       </ModalContent>

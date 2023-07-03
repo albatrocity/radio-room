@@ -35,7 +35,6 @@ async function generateCodeChallenge(codeVerifier: string) {
 }
 
 export async function generateLoginUrl(ctx: SpotifyUserAuthContext) {
-  console.log("CTX!", ctx)
   if (!clientId) {
     throw new Error("No client ID found")
   }
@@ -62,7 +61,6 @@ export async function generateLoginUrl(ctx: SpotifyUserAuthContext) {
 }
 
 export async function requestToken(ctx: SpotifyUserAuthContext) {
-  console.log("REQUEST TOKEN CTX", ctx)
   if (!clientId) {
     throw new Error("No client ID found")
   }
@@ -90,7 +88,6 @@ export async function requestToken(ctx: SpotifyUserAuthContext) {
         body: body,
       })
       .json()
-    console.log(res)
     return res
   } catch (e: HTTPError | any) {
     if (e.name === "HTTPError") {

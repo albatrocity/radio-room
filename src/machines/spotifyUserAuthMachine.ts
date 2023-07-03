@@ -36,6 +36,9 @@ export type UserAuthEvent =
       data: string
     }
   | {
+      type: "LOGOUT"
+    }
+  | {
       type: "done.invoke.generateCodeVerifier"
       data: string
     }
@@ -124,6 +127,18 @@ export const spotifyAuthMachine = createMachine<
       authenticated: {
         id: "authenticated",
         initial: "active",
+        on: {
+          LOGOUT: {
+            target: "unauthenticated",
+            actions: [
+              "logout",
+              (_ctx) => {
+                sessionStorage.removeItem(SPOTIFY_ACCESS_TOKEN)
+                sessionStorage.removeItem(SPOTIFY_REFRESH_TOKEN)
+              },
+            ],
+          },
+        },
         states: {
           active: {
             invoke: {
@@ -280,6 +295,12 @@ export const spotifyAuthMachine = createMachine<
       storeRefreshedAt: () => {
         sessionStorage.setItem(SPOTIFY_CODE_REFRESHED_AT, String(Date.now()))
       },
+      logout: assign({
+        accessToken: undefined,
+        refreshToken: undefined,
+        refreshedAt: undefined,
+        expiresIn: undefined,
+      }),
     },
   },
 )
