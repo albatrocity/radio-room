@@ -1,5 +1,6 @@
-import { assign, sendTo, createMachine } from "xstate"
+import { assign, sendTo, createMachine, AnyEventObject } from "xstate"
 import socketService from "../lib/socketService"
+import { search } from "../lib/spotify/spotifyApi"
 import { SpotifyTrack } from "../types/SpotifyTrack"
 
 type RequestError = {
@@ -15,6 +16,29 @@ interface Context {
   nextUrl: string | undefined
   prevUrl: string | undefined
   limit: number
+  accessToken?: string
+}
+
+type SpotifySearchEvent =
+  | {
+      type: "FETCH_RESULTS"
+      value: string
+    }
+  | AnyEventObject
+
+async function searchSpotify(ctx: Context, event: SpotifySearchEvent) {
+  if (!ctx.accessToken) {
+    throw new Error("No access token found")
+  }
+
+  const results = await search({
+    query: event.value,
+    accessToken: ctx.accessToken,
+  })
+  if (results) {
+    return results.tracks
+  }
+  return {}
 }
 
 export const spotifySearchMachine = createMachine<Context>(
@@ -30,25 +54,58 @@ export const spotifySearchMachine = createMachine<Context>(
       nextUrl: undefined,
       prevUrl: undefined,
       limit: 20,
+      accessToken: undefined,
     },
     states: {
       idle: {
+        id: "idle",
         on: {
-          FETCH_RESULTS: "loading",
+          FETCH_RESULTS: [
+            {
+              target: "loading.server",
+              cond: "isUnauthenticated",
+            },
+            {
+              target: "loading.client",
+              cond: "isAuthenticated",
+            },
+          ],
         },
       },
       failure: {
+        id: "failure",
         on: {
           FETCH_RESULTS: "loading",
         },
       },
       loading: {
-        entry: ["sendQuery"],
-        on: {
-          TRACK_SEARCH_RESULTS: { target: "idle", actions: ["setResults"] },
-          TRACK_SEARCH_RESULTS_FAILURE: {
-            target: "failure",
-            actions: ["setError"],
+        states: {
+          client: {
+            invoke: {
+              id: "search",
+              src: searchSpotify,
+              onDone: {
+                target: "#idle",
+                actions: ["setResults"],
+              },
+              onError: {
+                target: "#failure",
+                actions: ["setError"],
+              },
+            },
+          },
+          server: {
+            entry: ["sendQuery"],
+            on: {
+              TRACK_SEARCH_RESULTS: {
+                target: "#idle",
+                actions: ["setResults"],
+              },
+              TRACK_SEARCH_RESULTS_FAILURE: {
+                target: "#failure",
+                actions: ["setError"],
+              },
+            },
           },
         },
       },
@@ -81,6 +138,14 @@ export const spotifySearchMachine = createMachine<Context>(
       setError: assign((_context, event) => ({
         error: event.data,
       })),
+    },
+    guards: {
+      isAuthenticated: (ctx) => {
+        return !!ctx.accessToken
+      },
+      isUnauthenticated: (ctx) => {
+        return !ctx.accessToken
+      },
     },
   },
 )

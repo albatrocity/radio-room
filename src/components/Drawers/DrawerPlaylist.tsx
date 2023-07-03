@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react"
+import React, { FormEvent, useCallback, useEffect, useState } from "react"
 import {
   Box,
   Button,
@@ -7,14 +7,12 @@ import {
   Link,
   useBoolean,
   useConst,
-  useToast,
   VStack,
 } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { useMachine } from "@xstate/react"
 
 import Drawer from "../Drawer"
-import Playlist from "../Playlist"
 import DrawerPlaylistFooter from "./DrawerPlaylistFooter"
 import PlaylistFilters from "../PlaylistFilters"
 import usePlaylistFilter from "../usePlaylistFilter"
@@ -22,26 +20,57 @@ import usePlaylistFilter from "../usePlaylistFilter"
 import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
 import { toggleableCollectionMachine } from "../../machines/toggleableCollectionMachine"
 import { useCurrentPlaylist, usePlaylistStore } from "../../state/playlistStore"
-import { useIsAdmin } from "../../state/authStore"
+import { toast } from "../../lib/toasts"
 
 import { Dictionary } from "../../types/Dictionary"
 import { Reaction } from "../../types/Reaction"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { Emoji } from "../../types/Emoji"
 import PlaylistWindow from "../PlaylistWindow"
+import {
+  useIsSpotifyAuthenticated,
+  useSpotifyAccessToken,
+} from "../../state/spotifyAuthStore"
+import { useIsAdmin } from "../../state/authStore"
 
 function DrawerPlaylist() {
   const { send: playlistSend } = usePlaylistStore()
   const currentPlaylist = useCurrentPlaylist()
-  const isOpen = usePlaylistStore((s) => s.state.matches("active"))
-  const toast = useToast()
+  const isLoggedIn = useIsSpotifyAuthenticated()
+  const accessToken = useSpotifyAccessToken()
+  const isAdmin = useIsAdmin()
+  const [isEditing, { toggle, off }] = useBoolean(false)
   const defaultPlaylistName = useConst(
     () => `Radio Playlist ${format(new Date(), "M/d/y")}`,
   )
-
-  const [isEditing, { toggle, off }] = useBoolean(false)
   const [name, setName] = useState<string>(defaultPlaylistName)
-  const [state, send] = useMachine(savePlaylistMachine)
+  const [state, send] = useMachine(savePlaylistMachine, {
+    context: {
+      accessToken,
+    },
+    actions: {
+      notifyPlaylistCreated: (context) => {
+        off()
+        toast({
+          title: "Playlist created",
+          description: (
+            <Text>
+              <Link
+                href={context.playlistMeta?.external_urls?.spotify}
+                isExternal
+                textDecoration={"underline"}
+              >
+                {context.playlistMeta?.name}
+              </Link>{" "}
+              was added to your Spotify Collection
+            </Text>
+          ),
+          status: "success",
+          duration: 4000,
+        })
+      },
+    },
+  })
   const [filterState, filterSend] = useMachine(toggleableCollectionMachine, {
     context: {
       idPath: "shortcodes",
@@ -49,6 +78,10 @@ function DrawerPlaylist() {
       persistent: false,
     },
   })
+  const isOpen = usePlaylistStore((s) => s.state.matches("active"))
+  const isLoading = state.matches("loading")
+  const canSave = isLoggedIn || isAdmin
+
   const emojis = filterState.context.collection.reduce((mem, emoji) => {
     mem[emoji.shortcodes] = [
       {
@@ -77,9 +110,6 @@ function DrawerPlaylist() {
     },
   )
 
-  const isAdmin = useIsAdmin()
-  const isLoading = state.matches("loading")
-
   const handleSelectionChange = (item: PlaylistItem) => {
     selectedPlaylistSend("TOGGLE_ITEM", {
       data: { ...item, id: item.spotifyData?.uri },
@@ -93,14 +123,21 @@ function DrawerPlaylist() {
     () => playlistSend("TOGGLE_PLAYLIST"),
     [playlistSend],
   )
-  const handleSave = useCallback(() => {
-    send("ADMIN_SAVE_PLAYLIST", {
-      name,
-      uris: selectedPlaylistState.context.collection
-        .map(({ spotifyData }) => spotifyData?.uri)
-        .filter((x) => !!x),
-    })
-  }, [send, selectedPlaylistState.context.collection, name])
+  const handleSave = useCallback(
+    (e: FormEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const event = isAdmin ? "ADMIN_SAVE_PLAYLIST" : "SAVE_PLAYLIST"
+      send(event, {
+        name,
+        uris: selectedPlaylistState.context.collection
+          .map(({ spotifyData }) => spotifyData?.uri)
+          .filter((x) => !!x),
+      })
+      return void 0
+    },
+    [send, selectedPlaylistState.context.collection, name],
+  )
   const handleSelect = (selection: "all" | "none" | "filtered") => {
     switch (selection) {
       case "all":
@@ -120,41 +157,6 @@ function DrawerPlaylist() {
     }
   }, [isOpen])
 
-  useEffect(() => {
-    if (state.matches("success")) {
-      toast({
-        title: "Playlist created",
-        description: (
-          <Text>
-            <Link
-              href={state.context.playlistMeta?.external_urls?.spotify}
-              isExternal
-              textDecoration={"underline"}
-            >
-              {state.context.playlistMeta?.name}
-            </Link>{" "}
-            was added to your Spotify Collection
-          </Text>
-        ),
-        status: "success",
-        duration: 4000,
-        isClosable: true,
-        position: "top",
-      })
-      off()
-    }
-    if (state.matches("error")) {
-      toast({
-        title: "Playlist failed",
-        description: <Text>{String(state.context.playlistError)}</Text>,
-        status: "error",
-        duration: 4000,
-        isClosable: true,
-        position: "top",
-      })
-    }
-  }, [state.value])
-
   return (
     <Drawer
       isOpen={isOpen}
@@ -163,7 +165,7 @@ function DrawerPlaylist() {
       size={["full", "lg"]}
       onClose={handleTogglePlaylist}
       footer={
-        isAdmin && (
+        canSave && (
           <DrawerPlaylistFooter
             isEditing={isEditing}
             onEdit={() => toggle()}

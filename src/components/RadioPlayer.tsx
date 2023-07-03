@@ -21,10 +21,12 @@ import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import { useHotkeys } from "react-hotkeys-hook"
 import PlayStateIcon from "./PlayStateIcon"
+import ButtonAddToLibrary from "./ButtonAddToLibrary"
+import { TrackMeta } from "../types/Track"
 
 interface RadioPlayerProps {
   volume: number
-  meta?: {}
+  meta?: TrackMeta
   playing: boolean
   muted: boolean
   onVolume: (volume: number) => void
@@ -38,12 +40,13 @@ interface RadioPlayerProps {
   loading: boolean
 }
 
-const streamURL = process.env.GATSBY_STREAM_URL
+const streamURL = String(process.env.GATSBY_STREAM_URL)
 
 const RadioPlayer = ({
   volume,
   playing,
   muted,
+  meta,
   onVolume,
   onPlayPause,
   onLoad,
@@ -80,12 +83,15 @@ const RadioPlayer = ({
         <Box background="actionBg">
           <Box py={1} h={10} overflowX="auto">
             <Box px={4} flexDir="row">
-              <ReactionCounter
-                reactTo={{ type: "track", id: trackId }}
-                showAddButton={true}
-                darkBg={true}
-                scrollHorizontal
-              />
+              <HStack alignItems="flex-start">
+                <ButtonAddToLibrary id={meta?.release?.id} />
+                <ReactionCounter
+                  reactTo={{ type: "track", id: trackId }}
+                  showAddButton={true}
+                  darkBg={true}
+                  scrollHorizontal
+                />
+              </HStack>
             </Box>
           </Box>
         </Box>
@@ -134,7 +140,7 @@ const RadioPlayer = ({
               <Show above="sm">
                 <Slider
                   aria-label="slider-ex-4"
-                  value={muted ? 0 : parseFloat(volume)}
+                  value={muted ? 0 : volume}
                   max={1.0}
                   min={0}
                   step={0.1}
@@ -159,14 +165,13 @@ const RadioPlayer = ({
           </HStack>
         </Container>
         <ReactHowler
-          src={[streamURL]}
+          src={streamURL}
           preload={false}
           playing={playing}
           mute={muted}
           html5={true}
           ref={player}
-          pool={1}
-          volume={parseFloat(volume)}
+          volume={volume}
           onPlayError={handleError}
           onLoadError={handleError}
           onStop={handleError}

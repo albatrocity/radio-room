@@ -9,13 +9,20 @@ import { Select, SingleValue } from "chakra-react-select"
 import { SpotifyTrack } from "../types/SpotifyTrack"
 import ItemSpotifyTrack from "./ItemSpotifyTrack"
 import { debounceInputMachine } from "../machines/debouncedInputMachine"
+import { useSpotifyAccessToken } from "../state/spotifyAuthStore"
 
 type Props = {
   onChoose: (item: SingleValue<SpotifyTrack>) => void
+  onDropdownOpenChange?: (isOpen: boolean) => void
 } & InputProps
 
-function SpotifySearch({ onChoose, ...rest }: Props) {
-  const [state, send] = useMachine(spotifySearchMachine)
+function SpotifySearch({ onChoose, onDropdownOpenChange }: Props) {
+  const accessToken = useSpotifyAccessToken()
+  const [state, send] = useMachine(spotifySearchMachine, {
+    context: {
+      accessToken,
+    },
+  })
   const [inputState, inputSend] = useMachine(debounceInputMachine, {
     actions: {
       onSearchChange: (_context, event) => {
@@ -43,6 +50,7 @@ function SpotifySearch({ onChoose, ...rest }: Props) {
         filterOption={() => true}
         isLoading={state.matches("loading")}
         autoFocus={true}
+        closeMenuOnSelect={true}
         components={{
           DropdownIndicator: null,
           Option: ({ data, innerRef, innerProps, isFocused }) => (
@@ -61,6 +69,10 @@ function SpotifySearch({ onChoose, ...rest }: Props) {
         onChange={(value) => {
           onChoose(value)
         }}
+        onMenuOpen={() => onDropdownOpenChange?.(true)}
+        onMenuClose={() => onDropdownOpenChange?.(false)}
+        openMenuOnFocus={false}
+        openMenuOnClick={false}
       />
     </Box>
   )

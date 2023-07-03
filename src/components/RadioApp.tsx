@@ -4,8 +4,11 @@ import { init } from "emoji-mart"
 import { Flex } from "@chakra-ui/react"
 import { usePageVisibility } from "react-page-visibility"
 
-import { useAuthStore } from "../state/authStore"
 import Room from "./Room"
+import AppToasts from "./AppToasts"
+import { useAuthStore } from "../state/authStore"
+import { fetchSettings } from "../state/globalSettingsStore"
+
 init({ data })
 
 const RadioApp = () => {
@@ -14,11 +17,12 @@ const RadioApp = () => {
   const { send } = useAuthStore()
 
   useEffect(() => {
+    fetchSettings()
     send("SETUP")
     return () => {
       send("USER_DISCONNECTED")
     }
-  }, [send])
+  }, [send, fetchSettings])
 
   useEffect(() => {
     if (isVisible) {
@@ -28,6 +32,7 @@ const RadioApp = () => {
 
   return (
     <Flex grow={1} shrink={1} w="100%" h="100%">
+      <AppToasts />
       <Room />
     </Flex>
   )
