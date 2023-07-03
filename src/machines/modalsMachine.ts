@@ -28,6 +28,7 @@ export const modalsMachine = createMachine(
       CLOSE: {
         target: "closed",
       },
+      CREATE_ROOM: "createRoom",
     },
     states: {
       closed: {},
@@ -35,6 +36,7 @@ export const modalsMachine = createMachine(
       queue: {},
       listeners: {},
       help: {},
+      createRoom: {},
       settings: {
         initial: "overview",
         states: {

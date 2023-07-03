@@ -1,15 +1,15 @@
 import React from "react"
 import { HeadProps, graphql } from "gatsby"
 
-import Layout from "../components/layout"
-import RadioApp from "../components/RadioApp"
+import PageLayout from "../components/PageLayout"
+import Lobby from "../components/Lobby/Lobby"
 import { useIsStationOnline, useStationMeta } from "../state/audioStore"
 import { StationMeta } from "../types/StationMeta"
 
 const IndexPage = () => (
-  <Layout>
-    <RadioApp />
-  </Layout>
+  <PageLayout>
+    <Lobby />
+  </PageLayout>
 )
 
 export default IndexPage
