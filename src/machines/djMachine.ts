@@ -1,8 +1,18 @@
 import { sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 import { useAuthStore } from "../state/authStore"
+import { InitPayload } from "../types/InitPayload"
 
-export const djMachine = createMachine(
+interface Context {}
+
+type Event =
+  | { type: "INIT"; data: InitPayload }
+  | { type: "END_DJ_SESSION" }
+  | { type: "START_DJ_SESSION" }
+  | { type: "START_DEPUTY_DJ_SESSION" }
+  | { type: "END_DEPUTY_DJ_SESSION" }
+
+export const djMachine = createMachine<Context, Event>(
   {
     predictableActionArguments: true,
     id: "dj",
@@ -13,6 +23,12 @@ export const djMachine = createMachine(
         src: () => socketService,
       },
     ],
+    on: {
+      INIT: {
+        target: "deputyDjaying",
+        cond: "isDeputyDj",
+      },
+    },
     states: {
       djaying: {
         on: {
@@ -44,6 +60,10 @@ export const djMachine = createMachine(
     guards: {
       isAdmin: () => {
         return useAuthStore.getState().state.context.isAdmin
+      },
+      isDeputyDj: (_ctx, event) => {
+        if (event.type !== "INIT") return false
+        return !!event.data.currentUser?.isDeputyDj
       },
     },
     actions: {
