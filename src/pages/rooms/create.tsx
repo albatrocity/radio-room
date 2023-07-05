@@ -5,6 +5,7 @@ import { navigate } from "gatsby"
 import Div100vh from "react-div-100vh"
 import { useMachine } from "@xstate/react"
 import { roomSetupMachine } from "../../machines/roomSetupMachine"
+import { useAuthStore } from "../../state/authStore"
 
 type Props = {}
 
@@ -13,6 +14,7 @@ export default function CreateRoomPage({}: Props) {
   const urlParams = new URLSearchParams(location.search)
   const challenge = urlParams.get("challenge")
   const userId = urlParams.get("userId")
+  const { state, send: authSend } = useAuthStore()
 
   const [_state, send] = useMachine(roomSetupMachine, {
     context: {
@@ -35,6 +37,15 @@ export default function CreateRoomPage({}: Props) {
       })
       return
     }
+    authSend("SET_CURRENT_USER", {
+      data: {
+        currentUser: {
+          userId,
+        },
+        isNewUser: true,
+        isAdmin: true,
+      },
+    })
     send("SET_REQUIREMENTS", { data: { challenge, userId } })
   }, [challenge, userId, send])
 

@@ -1,6 +1,14 @@
 import React from "react"
 import { useMachine } from "@xstate/react"
-import { Box, Button, HStack, VStack, Text } from "@chakra-ui/react"
+import {
+  Box,
+  Button,
+  HStack,
+  VStack,
+  Text,
+  Spinner,
+  Center,
+} from "@chakra-ui/react"
 import { ArrowBackIcon } from "@chakra-ui/icons"
 
 import { useModalsStore } from "../../state/modalsState"
@@ -17,6 +25,7 @@ export default function ModalCreateRoom({}: Props) {
   const { state, send } = useModalsStore()
   const [formState, formSend] = useMachine(createRoomFormMachine)
   const nextLabel = formState.matches("settings") ? "Login & Create" : "Next"
+  const loading = formState.matches("creating")
   return (
     <Modal
       isOpen={state.matches("createRoom")}
@@ -29,20 +38,35 @@ export default function ModalCreateRoom({}: Props) {
               leftIcon={<ArrowBackIcon />}
               variant="ghost"
               onClick={() => formSend("BACK")}
+              isDisabled={loading}
             >
               Back
             </Button>
           )}
           <HStack justifyContent="flex-end" flexGrow={1}>
-            <Button variant="ghost" onClick={() => send("CLOSE")}>
+            <Button
+              isDisabled={loading}
+              variant="ghost"
+              onClick={() => send("CLOSE")}
+            >
               Cancel
             </Button>
-            <Button onClick={() => formSend("NEXT")}>{nextLabel}</Button>
+            <Button isDisabled={loading} onClick={() => formSend("NEXT")}>
+              {nextLabel}
+            </Button>
           </HStack>
         </HStack>
       }
     >
       <Box>
+        {loading && (
+          <Center>
+            <VStack spacing={4}>
+              <Text as="p">Redirecting you to Spotify</Text>
+              <Spinner />
+            </VStack>
+          </Center>
+        )}
         {formState.matches("selectType") && (
           <VStack alignItems="flex-start" spacing={4}>
             <Text as="p">

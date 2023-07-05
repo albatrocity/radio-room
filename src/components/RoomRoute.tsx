@@ -14,13 +14,12 @@ import { navigate } from "gatsby"
 init({ data })
 
 const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
+  const { send } = useAuthStore()
   if (!roomId) {
     navigate("/")
   }
 
   const isVisible = usePageVisibility()
-
-  const { send } = useAuthStore()
 
   useEffect(() => {
     fetchSettings()

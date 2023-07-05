@@ -1,4 +1,3 @@
-import session from "sessionstorage"
 import { v4 as uuidv4 } from "uuid"
 
 import generateAnonName from "./generateAnonName"
@@ -11,15 +10,16 @@ import {
 import { AuthContext } from "../machines/authMachine"
 
 export function getCurrentUser(un?: string) {
-  const isNewUser = !session.getItem(SESSION_ID)
-  const userId = session.getItem(SESSION_ID) || uuidv4()
-  const isAdmin = session.getItem(SESSION_ADMIN) === "true"
+  const isNewUser = !sessionStorage.getItem(SESSION_ID)
+  const userId = sessionStorage.getItem(SESSION_ID) || uuidv4()
+  const isAdmin = sessionStorage.getItem(SESSION_ADMIN) === "true"
 
-  const username = un || session.getItem(SESSION_USERNAME) || generateAnonName()
-  const password = session.getItem(SESSION_PASSWORD)
+  const username =
+    un || sessionStorage.getItem(SESSION_USERNAME) || generateAnonName()
+  const password = sessionStorage.getItem(SESSION_PASSWORD)
 
-  session.setItem(SESSION_USERNAME, username)
-  session.setItem(SESSION_ID, userId)
+  sessionStorage.setItem(SESSION_USERNAME, username)
+  sessionStorage.setItem(SESSION_ID, userId)
   return {
     currentUser: { username, userId, password, isAdmin },
     isNewUser: isNewUser,
@@ -31,10 +31,11 @@ export function getCurrentUser(un?: string) {
 export function saveCurrentUser({
   currentUser,
 }: Pick<AuthContext, "currentUser">) {
-  const userId = session.getItem(SESSION_ID)
-  session.setItem(SESSION_USERNAME, currentUser?.username)
+  const userId = currentUser.userId ?? sessionStorage.getItem(SESSION_ID)
+  sessionStorage.setItem(SESSION_USERNAME, currentUser?.username || "")
   if (currentUser?.isAdmin) {
-    session.setItem(SESSION_ADMIN, true)
+    sessionStorage.setItem(SESSION_ADMIN, "true")
+    sessionStorage.setItem(SESSION_ID, userId)
   }
 
   return {

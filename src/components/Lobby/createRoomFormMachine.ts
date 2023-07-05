@@ -15,11 +15,7 @@ export const createRoomFormMachine = createMachine<RoomSetupShared, Event>(
     initial: "selectType",
     context: {
       type: "jukebox",
-      enableSpotifyLogin: false,
-      deputizeOnJoin: false,
-      fetchMeta: true,
       title: "My Room",
-      password: null,
     },
     states: {
       selectType: {

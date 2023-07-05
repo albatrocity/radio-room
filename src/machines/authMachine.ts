@@ -45,7 +45,7 @@ export const authMachine = createMachine<AuthContext>(
   {
     predictableActionArguments: true,
     id: "auth",
-    initial: "unauthenticated",
+    initial: "idle",
     context: {
       currentUser: {
         userId: "",
@@ -62,13 +62,20 @@ export const authMachine = createMachine<AuthContext>(
         src: () => socketService,
       },
     ],
+    on: {
+      SET_CURRENT_USER: {
+        actions: ["saveUser", "setCurrentUser"],
+      },
+    },
     states: {
+      idle: {
+        on: {
+          SETUP: "unauthenticated",
+        },
+      },
       unauthenticated: {
         entry: ["getStoredPassword", "checkPasswordRequirement"],
         on: {
-          TEST: {
-            actions: ["log"],
-          },
           SET_PASSWORD_REQUIREMENT: [
             { target: "initiated", cond: "passwordAccepted" },
             { target: "unauthorized", cond: "requiresPassword" },
@@ -190,6 +197,8 @@ export const authMachine = createMachine<AuthContext>(
   {
     actions: {
       setCurrentUser: assign((_ctx, event) => {
+        console.log("event.type", event.type)
+        console.log(event.data)
         return {
           currentUser: event.data.currentUser,
           isNewUser: event.data.isNewUser,
