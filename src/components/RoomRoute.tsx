@@ -8,10 +8,16 @@ import Room from "./Room"
 import AppToasts from "./AppToasts"
 import { useAuthStore } from "../state/authStore"
 import { fetchSettings } from "../state/globalSettingsStore"
+import Layout from "./layout"
+import { navigate } from "gatsby"
 
 init({ data })
 
-const RadioApp = () => {
+const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
+  if (!roomId) {
+    navigate("/")
+  }
+
   const isVisible = usePageVisibility()
 
   const { send } = useAuthStore()
@@ -30,12 +36,14 @@ const RadioApp = () => {
     }
   }, [isVisible])
 
-  return (
-    <Flex grow={1} shrink={1} w="100%" h="100%">
-      <AppToasts />
-      <Room />
-    </Flex>
-  )
+  return roomId ? (
+    <Layout>
+      <Flex grow={1} shrink={1} w="100%" h="100%">
+        <AppToasts />
+        <Room id={roomId} />
+      </Flex>
+    </Layout>
+  ) : null
 }
 
-export default RadioApp
+export default RoomRoute

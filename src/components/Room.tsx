@@ -14,7 +14,7 @@ import { useCurrentPlaylist, usePlaylistStore } from "../state/playlistStore"
 import { useListeners } from "../state/usersStore"
 import { useModalsStore } from "../state/modalsState"
 
-const Room = () => {
+const Room = ({ id }: { id: string }) => {
   const [sizeXs] = useToken("sizes", ["xs"])
 
   const authContext = useAuthStore((s) => s.state.context)

@@ -5,9 +5,11 @@ import PageLayout from "../components/PageLayout"
 import Lobby from "../components/Lobby/Lobby"
 import { useIsStationOnline, useStationMeta } from "../state/audioStore"
 import { StationMeta } from "../types/StationMeta"
+import AppToasts from "../components/AppToasts"
 
 const IndexPage = () => (
   <PageLayout>
+    <AppToasts />
     <Lobby />
   </PageLayout>
 )

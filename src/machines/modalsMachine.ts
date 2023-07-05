@@ -3,7 +3,59 @@ import { createMachine } from "xstate"
 import { useAuthStore } from "../state/authStore"
 import { useDjStore } from "../state/djStore"
 
-export const modalsMachine = createMachine(
+type Context = {}
+
+export type Event =
+  | {
+      type: "EDIT_USERNAME"
+    }
+  | {
+      type: "EDIT_QUEUE"
+    }
+  | {
+      type: "EDIT_SETTINGS"
+    }
+  | {
+      type: "VIEW_HELP"
+    }
+  | {
+      type: "VIEW_BOOKMARKS"
+    }
+  | {
+      type: "VIEW_LISTENERS"
+    }
+  | {
+      type: "CLOSE"
+    }
+  | {
+      type: "CREATE_ROOM"
+    }
+  | {
+      type: "BACK"
+    }
+  | {
+      type: "EDIT_CONTENT"
+    }
+  | {
+      type: "EDIT_DJ"
+    }
+  | {
+      type: "EDIT_SPOTIFY"
+    }
+  | {
+      type: "EDIT_PASSWORD"
+    }
+  | {
+      type: "EDIT_REACTION_TRIGGERS"
+    }
+  | {
+      type: "EDIT_MESSAGE_TRIGGERS"
+    }
+  | {
+      type: "NEXT"
+    }
+
+export const modalsMachine = createMachine<Context, Event>(
   {
     predictableActionArguments: true,
     id: "modals",

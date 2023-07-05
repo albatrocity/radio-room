@@ -12,7 +12,7 @@ import { CheckIcon } from "@chakra-ui/icons"
 import { Room } from "../../types/Room"
 
 type Props = {
-  onSelect: (type: Room["type"]) => void
+  onSelect: (type: Partial<Room["type"]>) => void
 }
 
 type RadioTypeCardProps = {
