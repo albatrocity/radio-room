@@ -17,7 +17,6 @@ interface RoomSetupContext {
 }
 
 async function createRoom(ctx: RoomSetupContext) {
-  console.log("ctx", ctx)
   const res = await apiCreateRoom({
     room: {
       type: ctx.room?.type ?? "jukebox",

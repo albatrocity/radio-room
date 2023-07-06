@@ -12,6 +12,7 @@ export interface AuthContext {
   shouldRetry: boolean
   password?: string
   passwordError: string | undefined
+  roomId?: string
 }
 
 function getStoredUser(_ctx: AuthContext, event: AnyEventObject) {
@@ -55,6 +56,7 @@ export const authMachine = createMachine<AuthContext>(
       shouldRetry: true,
       password: undefined,
       passwordError: undefined,
+      roomId: undefined,
     },
     invoke: [
       {
@@ -70,7 +72,10 @@ export const authMachine = createMachine<AuthContext>(
     states: {
       idle: {
         on: {
-          SETUP: "unauthenticated",
+          SETUP: {
+            target: "initiated",
+            actions: ["setRoomId"],
+          },
         },
       },
       unauthenticated: {
@@ -91,6 +96,7 @@ export const authMachine = createMachine<AuthContext>(
           },
           SETUP: {
             target: "initiated",
+            actions: ["setRoomId"],
           },
         },
       },
@@ -138,6 +144,7 @@ export const authMachine = createMachine<AuthContext>(
         on: {
           SETUP: {
             target: "connecting",
+            actions: ["setRoomId"],
           },
           USER_DISCONNECTED: {
             target: "disconnected",
@@ -197,8 +204,6 @@ export const authMachine = createMachine<AuthContext>(
   {
     actions: {
       setCurrentUser: assign((_ctx, event) => {
-        console.log("event.type", event.type)
-        console.log(event.data)
         return {
           currentUser: event.data.currentUser,
           isNewUser: event.data.isNewUser,
@@ -213,7 +218,11 @@ export const authMachine = createMachine<AuthContext>(
       login: sendTo("socket", (ctx) => {
         return {
           type: "login",
-          data: { ...ctx.currentUser, password: ctx.password },
+          data: {
+            ...ctx.currentUser,
+            password: ctx.password,
+            roomId: ctx.roomId,
+          },
         }
       }),
       activateAdmin: assign({
@@ -267,6 +276,12 @@ export const authMachine = createMachine<AuthContext>(
         type: "submit password",
         data: event.data,
       })),
+      setRoomId: assign({
+        roomId: (ctx, event) => {
+          if (event.type !== "SETUP") return ctx.roomId
+          return event.data.roomId
+        },
+      }),
       savePassword: savePassword,
       saveUser: saveCurrentUser,
     },

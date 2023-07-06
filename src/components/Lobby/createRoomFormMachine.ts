@@ -33,6 +33,9 @@ export const createRoomFormMachine = createMachine<RoomSetupShared, Event>(
             actions: ["redirectToLogin"],
             target: "creating",
           },
+          SET_SETTINGS: {
+            actions: ["assignSettings"],
+          },
         },
       },
       creating: {
@@ -51,8 +54,16 @@ export const createRoomFormMachine = createMachine<RoomSetupShared, Event>(
           return ctx.type
         },
       }),
+      assignSettings: assign((ctx, event) => {
+        if (event.type === "SET_SETTINGS") {
+          return {
+            ...ctx,
+            ...event.data?.settings,
+          }
+        }
+        return ctx
+      }),
       redirectToLogin: (ctx, event) => {
-        console.log("event", event)
         if (event.type === "NEXT") {
           navigate(
             `${process.env.GATSBY_API_URL}/login?roomType=${ctx.type}&roomTitle=${ctx.title}&redirect=/rooms/create`,

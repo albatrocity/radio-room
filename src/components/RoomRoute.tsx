@@ -10,11 +10,14 @@ import { useAuthStore } from "../state/authStore"
 import { fetchSettings } from "../state/globalSettingsStore"
 import Layout from "./layout"
 import { navigate } from "gatsby"
+import { useRoomStore } from "../state/roomStore"
 
 init({ data })
 
 const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
   const { send } = useAuthStore()
+  const { state: roomState, send: roomSend } = useRoomStore()
+
   if (!roomId) {
     navigate("/")
   }
@@ -23,17 +26,20 @@ const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
 
   useEffect(() => {
     fetchSettings()
-    send("SETUP")
+    roomSend("FETCH", { data: { id: roomId } })
+  }, [send, fetchSettings, roomSend, roomId])
+
+  useEffect(() => {
     return () => {
       send("USER_DISCONNECTED")
     }
-  }, [send, fetchSettings])
+  })
 
   useEffect(() => {
-    if (isVisible) {
-      send("SETUP")
+    if (isVisible && !!roomState.context.room?.id) {
+      send("SETUP", { data: { roomId } })
     }
-  }, [isVisible])
+  }, [isVisible, roomState.context.room])
 
   return roomId ? (
     <Layout>
