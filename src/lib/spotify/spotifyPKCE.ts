@@ -45,7 +45,7 @@ export async function generateLoginUrl(ctx: SpotifyUserAuthContext) {
   const codeChallenge = await generateCodeChallenge(ctx.codeVerifier)
 
   const state = generateRandomString(16)
-  const scope = "playlist-modify-private user-library-read"
+  const scope = "playlist-modify-private user-library-read user-library-modify"
 
   const args = new URLSearchParams({
     response_type: "code",
