@@ -45,3 +45,7 @@ export const useRoomStore = create(
 export const useCurrentRoom = () => {
   return useRoomStore((s) => s.state.context.room)
 }
+
+export const useCurrentRoomHasAudio = () => {
+  return useRoomStore((s) => s.state.context.room?.type === "radio")
+}

@@ -17,6 +17,7 @@ import {
   useVolume,
 } from "../state/audioStore"
 import createTrackId from "../lib/createTrackId"
+import { useCurrentRoomHasAudio } from "../state/roomStore"
 
 interface PlayerUiProps {
   onShowPlaylist: () => void
@@ -26,6 +27,7 @@ interface PlayerUiProps {
 
 const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const { state: authState } = useAuthStore()
+  const hasAudio = useCurrentRoomHasAudio()
   const isUnauthorized = authState.matches("unauthorized")
 
   const { send: audioSend } = useAudioStore()
@@ -83,7 +85,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
           </Container>
         </Box>
       )}
-      {isOnline && (
+      {isOnline && hasAudio && (
         <RadioPlayer
           volume={volume}
           meta={meta}
