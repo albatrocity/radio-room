@@ -85,7 +85,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
               color="white"
               textAlign="center"
             >
-              Offline :(
+              Nothing is playing
             </Heading>
             <Hide above="sm">
               <ButtonListeners />

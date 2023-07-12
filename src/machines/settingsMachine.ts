@@ -10,7 +10,12 @@ interface Context {
   enableSpotifyLogin: boolean
 }
 
-export const settingsMachine = createMachine<Context>(
+type Event =
+  | { type: "FETCH" }
+  | { type: "SETTINGS"; data: Context }
+  | { type: "SUBMIT"; target: "pending" }
+
+export const settingsMachine = createMachine<Context, Event>(
   {
     predictableActionArguments: true,
     id: "settings",
@@ -61,8 +66,8 @@ export const settingsMachine = createMachine<Context>(
   },
   {
     actions: {
-      fetchSettings: sendTo("socket", () => ({ type: "get settings" })),
-      setValues: assign((_context, event) => {
+      fetchSettings: sendTo("socket", () => ({ type: "get room settings" })),
+      setValues: assign((ctx, event) => {
         if (event.type === "SETTINGS") {
           return {
             fetchMeta: event.data.fetchMeta,
@@ -73,6 +78,7 @@ export const settingsMachine = createMachine<Context>(
             enableSpotifyLogin: event.data.enableSpotifyLogin,
           }
         }
+        return ctx
       }),
     },
   },

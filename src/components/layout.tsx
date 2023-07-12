@@ -9,6 +9,7 @@ import "./layout.css"
 import themes from "../themes"
 
 import { useCurrentTheme } from "../state/themeStore"
+import { useErrorsStore } from "../state/errorsStore"
 
 const ThemedLayout = ({
   children,
@@ -18,8 +19,8 @@ const ThemedLayout = ({
   fill?: boolean
 }) => {
   const chosenThemeId = useCurrentTheme()
-
   const chosenTheme = themes[chosenThemeId] ?? {}
+  useErrorsStore()
 
   const mergedTheme = extendTheme(baseTheme, { colors: chosenTheme.colors })
   const Component = fill ? Div100vh : React.Fragment

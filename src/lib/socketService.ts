@@ -2,9 +2,9 @@ import socket from "./socket"
 
 interface SocketEvent {
   type: string
-  data: {}
+  data: any
 }
-type Callback = ({ type: string, data: {} }) => void
+type Callback = ({ type, data }: { type: "string"; data: any }) => void
 
 function socketService(callback: Callback, receive) {
   socket.on("event", async function (e: SocketEvent) {

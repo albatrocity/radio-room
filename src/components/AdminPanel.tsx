@@ -98,26 +98,7 @@ function AdminPanel({}: Props) {
           Admin
         </Heading>
 
-        {!isDj && (
-          <WrapItem>
-            <Button onClick={() => djSend("START_DJ_SESSION")} variant="solid">
-              I am the DJ
-            </Button>
-          </WrapItem>
-        )}
         <Wrap>
-          <WrapItem>
-            <Button
-              size="xs"
-              variant="ghost"
-              colorScheme={buttonColorScheme}
-              leftIcon={<Icon as={FiBookmark} />}
-              onClick={() => modalSend("VIEW_BOOKMARKS")}
-            >
-              Bookmarks {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}
-            </Button>
-          </WrapItem>
-
           <WrapItem>
             <Button
               size="xs"
@@ -129,6 +110,19 @@ function AdminPanel({}: Props) {
               Settings
             </Button>
           </WrapItem>
+          <WrapItem>
+            <Button
+              size="xs"
+              variant="ghost"
+              colorScheme={buttonColorScheme}
+              leftIcon={<Icon as={FiBookmark} />}
+              onClick={() => modalSend("VIEW_BOOKMARKS")}
+            >
+              Bookmarks {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}
+            </Button>
+          </WrapItem>
+        </Wrap>
+        <Wrap>
           <WrapItem>
             <Button
               size="xs"

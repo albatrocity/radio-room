@@ -129,9 +129,16 @@ export const authMachine = createMachine<AuthContext>(
       connecting: {
         entry: "login",
         on: {
-          INIT: {
-            target: "authenticated",
-          },
+          INIT: [
+            {
+              target: "authenticated",
+              actions: ["activateAdmin"],
+              cond: "isRoomAdmin",
+            },
+            {
+              target: "authenticated",
+            },
+          ],
           UNAUTHORIZED: {
             target: "unauthorized",
           },
@@ -144,7 +151,7 @@ export const authMachine = createMachine<AuthContext>(
         on: {
           SETUP: {
             target: "connecting",
-            actions: ["setRoomId"],
+            actions: ["setRoomId", "setCurrentUser"],
           },
           USER_DISCONNECTED: {
             target: "disconnected",
@@ -207,7 +214,6 @@ export const authMachine = createMachine<AuthContext>(
         return {
           currentUser: event.data.currentUser,
           isNewUser: event.data.isNewUser,
-          isAdmin: event.data.isAdmin,
         }
       }),
       unsetNew: assign(() => {
@@ -288,6 +294,9 @@ export const authMachine = createMachine<AuthContext>(
     guards: {
       shouldRetry: (ctx) => ctx.shouldRetry,
       shouldNotRetry: (ctx) => !ctx.shouldRetry,
+      isRoomAdmin: (_ctx, event) => {
+        return event.type === "INIT" && !!event.data.currentUser?.isAdmin
+      },
       isAdmin: (ctx) => {
         return !!ctx.currentUser?.isAdmin
       },

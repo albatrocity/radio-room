@@ -32,11 +32,8 @@ export function saveCurrentUser({
   currentUser,
 }: Pick<AuthContext, "currentUser">) {
   const userId = currentUser.userId ?? sessionStorage.getItem(SESSION_ID)
-  sessionStorage.setItem(SESSION_USERNAME, currentUser?.username || "")
-  if (currentUser?.isAdmin) {
-    sessionStorage.setItem(SESSION_ADMIN, "true")
-    sessionStorage.setItem(SESSION_ID, userId)
-  }
+  sessionStorage.setItem(SESSION_USERNAME, currentUser?.username ?? "")
+  sessionStorage.setItem(SESSION_ID, userId)
 
   return {
     currentUser: { username: currentUser?.username, userId },
