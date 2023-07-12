@@ -1,5 +1,5 @@
 // component for the button to authenticate with Spotify
-import React from "react"
+import React, { useEffect } from "react"
 import {
   Link,
   Box,
@@ -7,10 +7,10 @@ import {
   Icon,
   Text,
   HStack,
-  IconButton,
   VStack,
+  Spinner,
 } from "@chakra-ui/react"
-import { CheckCircleIcon, DeleteIcon } from "@chakra-ui/icons"
+import { CheckCircleIcon } from "@chakra-ui/icons"
 import { FaSpotify } from "react-icons/fa"
 
 import { useAppSpotifyAuthStore } from "../state/appSpotifyAuthStore"
@@ -18,9 +18,14 @@ import { useAppSpotifyAuthStore } from "../state/appSpotifyAuthStore"
 export default function ButtonAuthSpotify() {
   const { state, send } = useAppSpotifyAuthStore()
 
+  useEffect(() => {
+    send("FETCH_STATUS")
+  }, [])
+
   return (
     <Box>
-      {!state.matches("authenticated") && (
+      {state.matches("loading") && <Spinner size="sm" />}
+      {state.matches("unauthenticated") && (
         <VStack align="flex-start">
           <Button
             as={Link}
@@ -38,23 +43,11 @@ export default function ButtonAuthSpotify() {
         </VStack>
       )}
       {state.matches("authenticated") && (
-        <HStack spacing={2} w="100%" justify="space-between">
-          <HStack spacing={2}>
-            <CheckCircleIcon color="primary" />
-            <Text fontSize="sm">
-              Your Spotify account is linked to the application.
-            </Text>
-          </HStack>
-          <IconButton
-            icon={<DeleteIcon />}
-            variant="outline"
-            color="red.500"
-            size="xs"
-            onClick={() => send("LOGOUT")}
-            aria-label="log out of Spotify"
-          >
-            Log out
-          </IconButton>
+        <HStack spacing={2}>
+          <CheckCircleIcon color="primary" />
+          <Text fontSize="sm">
+            Your Spotify account is linked to this room.
+          </Text>
         </HStack>
       )}
     </Box>

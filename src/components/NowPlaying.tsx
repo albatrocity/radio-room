@@ -13,6 +13,8 @@ import {
   Icon,
   Hide,
   Show,
+  Spinner,
+  Center,
 } from "@chakra-ui/react"
 
 import AlbumArtwork from "./AlbumArtwork"
@@ -24,7 +26,7 @@ import { User } from "../types/User"
 import { useUsers } from "../state/usersStore"
 import { Room, RoomMeta } from "../types/Room"
 import { SpotifyTrack } from "../types/SpotifyTrack"
-import { useCurrentRoom } from "../state/roomStore"
+import { useCurrentRoom, useRoomStore } from "../state/roomStore"
 
 interface NowPlayingProps extends BoxProps {
   offline: boolean
@@ -48,9 +50,10 @@ function getCoverUrl({
   return null
 }
 
-const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
+const NowPlaying = ({ meta, offline }: NowPlayingProps) => {
   const users: User[] = useUsers()
   const room = useCurrentRoom()
+  const { state } = useRoomStore()
   const { album, artist, track, release, title, dj } = meta || {}
   const coverUrl = getCoverUrl({ release, room })
   const artworkSize = [24, "100%", "100%"]
@@ -76,7 +79,12 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
       height="100%"
     >
       <VStack spacing={4} justify="space-between" height="100%" width="100%">
-        {offline ? (
+        {state.matches("loading") && (
+          <Center h="100%" w="100%">
+            <Spinner />
+          </Center>
+        )}
+        {!state.matches("loading") && offline ? (
           <VStack>
             <Heading
               margin="none"

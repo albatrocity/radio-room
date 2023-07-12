@@ -210,7 +210,10 @@ export const authMachine = createMachine<AuthContext>(
   },
   {
     actions: {
-      setCurrentUser: assign((_ctx, event) => {
+      setCurrentUser: assign((ctx, event) => {
+        if (event.type !== "done.invoke.getStoredUser") {
+          return ctx
+        }
         return {
           currentUser: event.data.currentUser,
           isNewUser: event.data.isNewUser,

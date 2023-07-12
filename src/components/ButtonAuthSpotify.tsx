@@ -12,28 +12,28 @@ import {
 import { CheckCircleIcon, DeleteIcon } from "@chakra-ui/icons"
 import { FaSpotify } from "react-icons/fa"
 
-import { useCurrentUser } from "../state/authStore"
+import { useCurrentUser, useIsAdmin } from "../state/authStore"
 import { useSpotifyAuthStore } from "../state/spotifyAuthStore"
 
 export default function ButtonAuthSpotify({ userId }: { userId?: string }) {
   const currentUser = useCurrentUser()
-  const isApp = userId === "app"
+  const isAdmin = useIsAdmin()
   const { state, send } = useSpotifyAuthStore()
 
   return (
     <Box>
       {!state.matches("authenticated") && (
         <Button
-          as={isApp ? Link : undefined}
+          as={isAdmin ? Link : undefined}
           href={
-            isApp
+            isAdmin
               ? `${process.env.GATSBY_API_URL}/login?userId=${
                   userId ?? currentUser.userId
                 }`
               : undefined
           }
           onClick={
-            isApp
+            isAdmin
               ? undefined
               : (e) => {
                   e.preventDefault()

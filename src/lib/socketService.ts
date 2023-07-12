@@ -1,12 +1,12 @@
 import socket from "./socket"
 
 interface SocketEvent {
-  type: string
+  type: any
   data: any
 }
-type Callback = ({ type, data }: { type: "string"; data: any }) => void
+type Callback = ({ type, data }: { type: string; data: any }) => void
 
-function socketService(callback: Callback, receive) {
+function socketService(callback: Callback, receive: any) {
   socket.on("event", async function (e: SocketEvent) {
     if (socket.disconnected) {
       await socket.connect()
@@ -14,7 +14,7 @@ function socketService(callback: Callback, receive) {
     callback({ type: e.type, data: e.data })
   })
 
-  receive((event) => {
+  receive((event: SocketEvent) => {
     socket.emit(event.type, event.data)
   })
 }
