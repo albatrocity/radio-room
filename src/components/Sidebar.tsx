@@ -1,8 +1,16 @@
 import React from "react"
-import { Box, Stack, Flex, IconButton, Icon, Show } from "@chakra-ui/react"
+import {
+  Box,
+  Stack,
+  Flex,
+  IconButton,
+  Icon,
+  Show,
+  useColorModeValue,
+} from "@chakra-ui/react"
 import { FiHelpCircle } from "react-icons/fi"
 import Listeners from "./Listeners"
-import AdminPanel from "./AdminPanel"
+import AdminControls from "./AdminControls"
 
 import { useAuthStore, useIsAdmin } from "../state/authStore"
 import { useModalsStore } from "../state/modalsState"
@@ -12,6 +20,7 @@ const Sidebar = () => {
   const { send: modalSend } = useModalsStore()
   const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
   const isAdmin = useIsAdmin()
+  const adminButtonColorScheme = useColorModeValue("whiteAlpha", undefined)
 
   return (
     <Box
@@ -54,7 +63,18 @@ const Sidebar = () => {
             </Flex>
           )}
         </Show>
-        {isAdmin && <AdminPanel />}
+        {isAdmin && (
+          <Show above="sm">
+            <AdminControls
+              p={3}
+              borderTopWidth={1}
+              borderTopColor="secondaryBorder"
+              background="actionBg"
+              width="100%"
+              buttonColorScheme={adminButtonColorScheme}
+            />
+          </Show>
+        )}
       </Stack>
     </Box>
   )

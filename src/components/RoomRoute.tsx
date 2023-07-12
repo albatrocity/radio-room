@@ -40,7 +40,7 @@ const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
   }, [isVisible, roomState.context.room])
 
   return roomId ? (
-    <Layout>
+    <Layout fill>
       <Flex grow={1} shrink={1} w="100%" h="100%">
         <AppToasts />
         <Room id={roomId} />

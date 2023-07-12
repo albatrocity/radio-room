@@ -9,12 +9,15 @@ import {
   ModalBody,
   ModalFooter,
   VStack,
+  Divider,
 } from "@chakra-ui/react"
 import React from "react"
 import { useModalsStore } from "../../../state/modalsState"
 import { settingsMachine } from "../../../machines/settingsMachine"
 import ActiveIndicator from "../../ActiveIndicator"
 import { triggerEventsMachine } from "../../../machines/triggerEventsMachine"
+import DestructiveActions from "./DestructiveActions"
+import ButtonAppAuthSpotify from "../../ButtonAppAuthSpotify"
 
 function Overview() {
   const { send } = useModalsStore()
@@ -87,7 +90,7 @@ function Overview() {
               </Button>
             </VStack>
           </VStack>
-          <VStack align="left" spacing={2}>
+          {/* <VStack align="left" spacing={2}>
             <Heading as="h4" size="sm" textAlign="left">
               Triggers & Actions
             </Heading>
@@ -127,7 +130,21 @@ function Overview() {
                 Message-triggered actions
               </Button>
             </VStack>
+          </VStack> */}
+
+          <VStack w="100%" align="left" spacing={2}>
+            <Heading as="h4" size="sm" textAlign="left">
+              Authentication
+            </Heading>
+            <ButtonAppAuthSpotify />
           </VStack>
+        </VStack>
+        <Divider my={6} />
+        <VStack w="100%" align="left" spacing={2}>
+          <Heading as="h4" size="sm" textAlign="left" color="red">
+            Danger Zone
+          </Heading>
+          <DestructiveActions />
         </VStack>
       </ModalBody>
       <ModalFooter />

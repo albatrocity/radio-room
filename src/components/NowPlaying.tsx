@@ -170,7 +170,7 @@ const NowPlaying = ({ meta, offline }: NowPlayingProps) => {
           </LinkBox>
         )}
         <Show above="sm">
-          <ButtonAddToQueue />
+          <ButtonAddToQueue variant="solid" />
         </Show>
       </VStack>
     </Box>
