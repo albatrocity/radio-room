@@ -4,6 +4,7 @@ import { Box, Button, Show, Flex } from "@chakra-ui/react"
 import UserList from "./UserList"
 import { User } from "../types/User"
 import { useListeners } from "../state/usersStore"
+import { useCurrentRoomHasAudio } from "../state/roomStore"
 
 interface ListenersProps {
   onViewListeners: (showListeners: boolean) => void
@@ -12,6 +13,7 @@ interface ListenersProps {
 
 const Listeners = ({ onViewListeners, onEditUser }: ListenersProps) => {
   const listenerCount = useListeners().length
+  const hasAudio = useCurrentRoomHasAudio()
 
   const handleListeners = useCallback(() => {
     onViewListeners(true)
@@ -27,7 +29,7 @@ const Listeners = ({ onViewListeners, onEditUser }: ListenersProps) => {
       <Show above="sm">
         <Flex overflow="auto" className="list-overflow" p={3} grow={1} h="100%">
           <Box overflow={"auto"} h="100%" w="100%">
-            <UserList onEditUser={onEditUser} />
+            <UserList onEditUser={onEditUser} showStatus={hasAudio} />
           </Box>
         </Flex>
       </Show>

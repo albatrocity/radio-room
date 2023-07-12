@@ -57,6 +57,7 @@ interface ListItemUserProps {
   onEditUser: (user: User) => void
   onKickUser?: (userId: string) => void
   onDeputizeDj?: (userId: string) => void
+  showStatus?: boolean
   userTyping: boolean
 }
 
@@ -67,6 +68,7 @@ const ListItemUser = ({
   onKickUser,
   onDeputizeDj,
   userTyping,
+  showStatus = true,
 }: ListItemUserProps) => {
   return (
     <ListItem
@@ -111,7 +113,7 @@ const ListItemUser = ({
         py={user.isDj ? 2 : 0}
         width="100%"
       >
-        {statusIcon(user)}
+        {showStatus && statusIcon(user)}
         <Box>
           <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm">
             {user.username || "anonymous"}

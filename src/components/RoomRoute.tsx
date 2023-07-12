@@ -7,7 +7,6 @@ import { usePageVisibility } from "react-page-visibility"
 import Room from "./Room"
 import AppToasts from "./AppToasts"
 import { useAuthStore } from "../state/authStore"
-import { fetchSettings } from "../state/globalSettingsStore"
 import Layout from "./layout"
 import { navigate } from "gatsby"
 import { useRoomStore } from "../state/roomStore"
@@ -25,9 +24,8 @@ const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
   const isVisible = usePageVisibility()
 
   useEffect(() => {
-    fetchSettings()
     roomSend("FETCH", { data: { id: roomId } })
-  }, [send, fetchSettings, roomSend, roomId])
+  }, [send, roomSend, roomId])
 
   useEffect(() => {
     return () => {

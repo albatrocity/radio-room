@@ -49,3 +49,7 @@ export const useCurrentRoom = () => {
 export const useCurrentRoomHasAudio = () => {
   return useRoomStore((s) => s.state.context.room?.type === "radio")
 }
+
+export const useRoomBanner = () => {
+  return useRoomStore((s) => s.state.context.room?.extraInfo)
+}

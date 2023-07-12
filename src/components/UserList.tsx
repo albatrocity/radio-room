@@ -14,9 +14,14 @@ import { useAdminStore } from "../state/adminStore"
 interface UserListProps {
   onEditUser: (user: User) => void
   showHeading?: boolean
+  showStatus?: boolean
 }
 
-const UserList = ({ onEditUser, showHeading = true }: UserListProps) => {
+const UserList = ({
+  onEditUser,
+  showHeading = true,
+  showStatus = true,
+}: UserListProps) => {
   const [typingState] = useMachine(typingMachine)
 
   const { send: authSend } = useAuthStore()
@@ -69,6 +74,7 @@ const UserList = ({ onEditUser, showHeading = true }: UserListProps) => {
               userTyping={isTyping(currentUser)}
               currentUser={currentUser}
               onEditUser={onEditUser}
+              showStatus={showStatus}
             />
           )}
           {reverse(reject({ userId: currentUser.userId }, listeners)).map(
@@ -77,6 +83,7 @@ const UserList = ({ onEditUser, showHeading = true }: UserListProps) => {
                 <ListItemUser
                   key={x.userId}
                   user={x}
+                  showStatus={showStatus}
                   userTyping={isTyping(x)}
                   currentUser={currentUser}
                   onEditUser={onEditUser}

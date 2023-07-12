@@ -13,7 +13,7 @@ import { User } from "../types/User"
 import Modal from "./Modal"
 import { ModalProps } from "@chakra-ui/react"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
-import { useGlobalSettings } from "../state/globalSettingsStore"
+import { useCurrentRoom } from "../state/roomStore"
 
 interface Props extends Pick<ModalProps, "isOpen"> {
   onClose: () => void
@@ -22,7 +22,7 @@ interface Props extends Pick<ModalProps, "isOpen"> {
 }
 
 const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
-  const settings = useGlobalSettings()
+  const room = useCurrentRoom()
   return (
     <Formik
       initialValues={{ username: "", userId: currentUser?.userId }}
@@ -86,7 +86,7 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
                   only.
                 </FormHelperText>
               </FormControl>
-              {settings?.enableSpotifyLogin && (
+              {room?.enableSpotifyLogin && (
                 <FormControl>
                   <ButtonAuthSpotify />
 
