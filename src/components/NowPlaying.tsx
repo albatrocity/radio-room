@@ -119,8 +119,11 @@ const NowPlaying = ({ meta, offline }: NowPlayingProps) => {
               <VStack align={"start"} spacing={0}>
                 {(track || title) && (
                   <>
-                    {release?.href ? (
-                      <LinkOverlay href={release.href} isExternal={true}>
+                    {release?.external_urls?.spotify ? (
+                      <LinkOverlay
+                        href={release.external_urls.spotify}
+                        isExternal={true}
+                      >
                         <Heading
                           color="primaryBg"
                           margin="none"
@@ -137,7 +140,7 @@ const NowPlaying = ({ meta, offline }: NowPlayingProps) => {
                         as="h3"
                         size={["md", "lg"]}
                       >
-                        {track || title?.replace(/\|/g, "")}
+                        {track ?? title?.replace(/\|/g, "")}
                       </Heading>
                     )}
                   </>
