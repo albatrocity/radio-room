@@ -53,3 +53,7 @@ export const useCurrentRoomHasAudio = () => {
 export const useRoomBanner = () => {
   return useRoomStore((s) => s.state.context.room?.extraInfo)
 }
+
+export const useRoomCreator = () => {
+  return useRoomStore((s) => s.state.context.room?.creator)
+}

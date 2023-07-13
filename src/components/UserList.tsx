@@ -10,6 +10,7 @@ import { useCurrentUser, useAuthStore } from "../state/authStore"
 import { User } from "../types/User"
 import { useDj, useListeners } from "../state/usersStore"
 import { useAdminStore } from "../state/adminStore"
+import { useRoomCreator } from "../state/roomStore"
 
 interface UserListProps {
   onEditUser: (user: User) => void
@@ -28,6 +29,7 @@ const UserList = ({
   const { send: adminSend } = useAdminStore()
   const currentUser = useCurrentUser()
   const listeners = useListeners()
+  const creator = useRoomCreator()
   const dj = useDj()
 
   const {
@@ -71,6 +73,7 @@ const UserList = ({
             <ListItemUser
               key={currentListener.userId}
               user={currentListener}
+              isAdmin={currentListener.userId === creator}
               userTyping={isTyping(currentUser)}
               currentUser={currentUser}
               onEditUser={onEditUser}
@@ -83,6 +86,7 @@ const UserList = ({
                 <ListItemUser
                   key={x.userId}
                   user={x}
+                  isAdmin={x.userId === creator}
                   showStatus={showStatus}
                   userTyping={isTyping(x)}
                   currentUser={currentUser}

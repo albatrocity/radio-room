@@ -14,7 +14,7 @@ import {
 } from "@chakra-ui/react"
 import { EditIcon, SmallCloseIcon } from "@chakra-ui/icons"
 import { FiMic, FiMusic, FiEye, FiHeadphones } from "react-icons/fi"
-import { BiMessageRoundedDots } from "react-icons/bi"
+import { BiMessageRoundedDots, BiCrown } from "react-icons/bi"
 import { User } from "../types/User"
 
 const statusIcon = (user: User) => {
@@ -59,6 +59,7 @@ interface ListItemUserProps {
   onDeputizeDj?: (userId: string) => void
   showStatus?: boolean
   userTyping: boolean
+  isAdmin?: boolean
 }
 
 const ListItemUser = ({
@@ -69,6 +70,7 @@ const ListItemUser = ({
   onDeputizeDj,
   userTyping,
   showStatus = true,
+  isAdmin = false,
 }: ListItemUserProps) => {
   return (
     <ListItem
@@ -114,6 +116,7 @@ const ListItemUser = ({
         width="100%"
       >
         {showStatus && statusIcon(user)}
+        {isAdmin && <Icon as={BiCrown} boxSize={3} />}
         <Box>
           <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm">
             {user.username || "anonymous"}
