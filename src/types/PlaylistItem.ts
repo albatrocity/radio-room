@@ -1,3 +1,4 @@
+import { SpotifyAlbum } from "./SpotifyAlbum"
 import { SpotifyImage } from "./SpotifyImage"
 import { User } from "./User"
 
@@ -7,6 +8,7 @@ interface SpotifyData {
   name: string
   artwork: string
   artworkImages: SpotifyImage[]
+  album: SpotifyAlbum
   url: string
   uri: string
 }

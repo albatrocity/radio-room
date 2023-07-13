@@ -21,14 +21,14 @@ type Props = {
 function PlaylistItem({ item }: Props) {
   const artThumb = useMemo(
     () =>
-      (item.spotifyData?.artworkImages || []).find(({ width }) => width < 200)
+      (item.spotifyData?.album?.images || []).find(({ width }) => width < 200)
         ?.url,
     [item.spotifyData],
   )
   const djUsername = useUsersStore(
     (s) =>
       s.state.context.users.find((x) => x.userId === item.dj?.userId)
-        ?.username || item.dj?.username,
+        ?.username ?? item.dj?.username,
   )
 
   return (
