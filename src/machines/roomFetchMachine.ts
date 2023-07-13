@@ -3,7 +3,7 @@
 import { assign, createMachine } from "xstate"
 import { findRoom, RoomFindResponse } from "../lib/serverApi"
 import socketService from "../lib/socketService"
-import { Room } from "../types/Room"
+import { Room, RoomError } from "../types/Room"
 
 export interface RoomFetchContext {
   fetchOnInit: boolean
@@ -25,6 +25,11 @@ export type RoomFetchEvent =
       type: "done.invoke.fetchRoom"
       data: RoomFindResponse
       error?: null
+    }
+  | {
+      type: "error.invoke.fetchRoom"
+      data: null
+      error?: RoomError
     }
   | { type: "FETCH"; data: { id: Room["id"] }; error?: string }
   | { type: "SETTINGS"; data: Room }
@@ -73,9 +78,6 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
       success: {
         entry: ["onSuccess"],
         on: {
-          SETTINGS: {
-            actions: [() => console.log("settings event")],
-          },
           ROOM_SETTINGS: {
             actions: ["setRoom"],
           },
@@ -89,7 +91,7 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
   {
     actions: {
       setError: assign((ctx, event) => {
-        if (event.type === "done.invoke.fetchRoom") return ctx
+        if (event.type !== "error.invoke.fetchRoom") return ctx
         return {
           error: event.error,
         }

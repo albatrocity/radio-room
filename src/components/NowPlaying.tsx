@@ -58,6 +58,7 @@ const NowPlaying = ({ meta, offline }: NowPlayingProps) => {
   const coverUrl = getCoverUrl({ release, room })
   const artworkSize = [24, "100%", "100%"]
   const releaseDate = release?.album?.release_date
+  const lastUpdate = state.context.room?.lastUpdated
 
   const djUsername = useMemo(
     () =>
@@ -86,15 +87,24 @@ const NowPlaying = ({ meta, offline }: NowPlayingProps) => {
         )}
         {!state.matches("loading") && offline ? (
           <VStack>
-            <Heading
-              margin="none"
-              as="h2"
-              size="lg"
-              color="white"
-              textAlign="center"
-            >
-              Nothing is playing
-            </Heading>
+            {lastUpdate ? (
+              <Heading
+                margin="none"
+                as="h2"
+                size="lg"
+                color="white"
+                textAlign="center"
+              >
+                Nothing is playing
+              </Heading>
+            ) : (
+              <Center h="100%" w="100%">
+                <VStack spacing={4}>
+                  <Spinner />
+                  <Text>Getting your Spotify data...</Text>
+                </VStack>
+              </Center>
+            )}
             <Hide above="sm">
               <ButtonListeners />
             </Hide>

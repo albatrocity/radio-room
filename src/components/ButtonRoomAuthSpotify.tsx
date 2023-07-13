@@ -1,5 +1,6 @@
 // component for the button to authenticate with Spotify
 import React, { useEffect } from "react"
+import { useLocation } from "@reach/router"
 import {
   Link,
   Box,
@@ -14,11 +15,19 @@ import { CheckCircleIcon } from "@chakra-ui/icons"
 import { FaSpotify } from "react-icons/fa"
 
 import { useAppSpotifyAuthStore } from "../state/appSpotifyAuthStore"
+import { useCurrentUser } from "../state/authStore"
 
-export default function ButtonAuthSpotify() {
+export default function ButtonRoomAuthSpotify({
+  hideText = false,
+}: {
+  hideText?: boolean
+}) {
+  const currentUser = useCurrentUser()
+  const location = useLocation()
   const { state, send } = useAppSpotifyAuthStore()
 
   useEffect(() => {
+    sessionStorage.setItem("postSpotifyAuthRedirect", location.pathname)
     send("FETCH_STATUS")
   }, [])
 
@@ -29,17 +38,19 @@ export default function ButtonAuthSpotify() {
         <VStack align="flex-start">
           <Button
             as={Link}
-            href={`${process.env.GATSBY_API_URL}/login?userId=app`}
+            href={`${process.env.GATSBY_API_URL}/login?userId=${currentUser.userId}&redirect=/callback`}
             leftIcon={<Icon as={FaSpotify} />}
             isLoading={state.matches("working")}
             isDisabled={state.matches("working")}
           >
             Link Spotify
           </Button>
-          <Text fontSize="sm" mt={2} color="blackAlpha.700">
-            Link your Spotify account to pull artwork and release info from
-            Spotify
-          </Text>
+          {!hideText && (
+            <Text fontSize="sm" mt={2} color="blackAlpha.700">
+              Link your Spotify account to pull artwork and release info from
+              Spotify
+            </Text>
+          )}
         </VStack>
       )}
       {state.matches("authenticated") && (

@@ -13,7 +13,8 @@ export const useSpotifyAuthStore = create(
           }
         },
         onFinish: () => {
-          navigate("/", {
+          const path = sessionStorage.getItem("postSpotifyAuthRedirect") ?? "/"
+          navigate(path, {
             replace: true,
             state: {
               toast: {

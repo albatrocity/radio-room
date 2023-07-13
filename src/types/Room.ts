@@ -1,6 +1,11 @@
 import { SpotifyTrack } from "./SpotifyTrack"
 import { User } from "./User"
 
+export type RoomError = {
+  status: number
+  message: string
+}
+
 export type Room = {
   id: string
   type: "jukebox" | "radio"
@@ -14,6 +19,8 @@ export type Room = {
   radioUrl?: string
   createdAt?: string
   creator?: string
+  spotifyError?: RoomError
+  lastUpdated?: string
 }
 
 export type RoomSetupShared = Pick<Room, "type" | "title">

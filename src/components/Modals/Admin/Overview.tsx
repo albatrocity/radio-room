@@ -17,7 +17,7 @@ import { settingsMachine } from "../../../machines/settingsMachine"
 import ActiveIndicator from "../../ActiveIndicator"
 import { triggerEventsMachine } from "../../../machines/triggerEventsMachine"
 import DestructiveActions from "./DestructiveActions"
-import ButtonAppAuthSpotify from "../../ButtonAppAuthSpotify"
+import ButtonRoomAuthSpotify from "../../ButtonRoomAuthSpotify"
 
 function Overview() {
   const { send } = useModalsStore()
@@ -136,7 +136,7 @@ function Overview() {
             <Heading as="h4" size="sm" textAlign="left">
               Authentication
             </Heading>
-            <ButtonAppAuthSpotify />
+            <ButtonRoomAuthSpotify />
           </VStack>
         </VStack>
         <Divider my={6} />

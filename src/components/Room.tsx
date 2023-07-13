@@ -13,6 +13,7 @@ import { useAuthStore } from "../state/authStore"
 import { useCurrentPlaylist, usePlaylistStore } from "../state/playlistStore"
 import { useListeners } from "../state/usersStore"
 import { useModalsStore } from "../state/modalsState"
+import RoomError from "./RoomError"
 
 const Room = ({ id }: { id: string }) => {
   const [xs, sm, md, lg, xl] = useToken("sizes", ["xs", "sm", "md", "lg", "xl"])
@@ -49,16 +50,20 @@ const Room = ({ id }: { id: string }) => {
         h="100%"
         className="room"
         templateAreas={[
-          `"header header"
+          `"alert alert"
+          "header header"
       "chat chat"
       "sidebar sidebar"`,
           `
+    "alert alert"
     "header header"
     "chat sidebar"
     `,
-          `"header chat sidebar"`,
+          `
+          "alert alert alert"
+          "header chat sidebar"`,
         ]}
-        gridTemplateRows={["auto 1fr", "auto 1fr auto", "100vh"]}
+        gridTemplateRows={["auto auto 1fr", "auto auto 1fr auto", "auto 1fr"]}
         gridTemplateColumns={[
           "1fr auto",
           "1fr auto",
@@ -69,7 +74,9 @@ const Room = ({ id }: { id: string }) => {
       >
         <Konami action={handleActivateAdmin} />
         <KeyboardShortcuts />
-
+        <GridItem area="alert">
+          <RoomError />
+        </GridItem>
         <GridItem
           area="header"
           height={["auto", "100%"]}

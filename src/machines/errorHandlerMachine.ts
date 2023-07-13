@@ -10,6 +10,8 @@ type ErrorEvent = {
     status: number
     error: string
     message: string
+    duration?: number
+    id?: string
   }
 }
 
@@ -41,13 +43,19 @@ export const errorHandlerMachine = createMachine<Context, ErrorEvent>(
   },
   {
     actions: {
-      notify: (_ctx, event) => {
+      notify: (ctx, event) => {
+        if (
+          ctx.errors.filter((x) => !!x).find((e) => e?.id === event.data?.id)
+        ) {
+          return
+        }
         toast({
           title: event.data?.error,
           description: event.data?.message,
           status: "error",
-          duration: 3000,
+          duration: event.data?.duration === null ? null : 3000,
           isClosable: true,
+          id: event.data?.id,
           onCloseComplete: () => {
             raise({ type: "CLEAR_ERROR" })
           },
