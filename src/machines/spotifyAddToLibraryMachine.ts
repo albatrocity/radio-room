@@ -16,6 +16,7 @@ interface Context {
 type Event =
   | { type: "ADD"; data?: string[] }
   | { type: "REMOVE"; data?: string[] }
+  | { type: "SET_IDS"; data?: string[] }
   | { type: "CHECK" }
   | { type: "done.invoke.checking"; data: CheckedSavedTracksResponse }
 
@@ -108,7 +109,12 @@ const spotifyAddToLibraryMachine = createMachine<Context, Event>(
       },
       error: {
         id: "error",
-        type: "final",
+        on: {
+          SET_IDS: {
+            actions: ["setIds"],
+            target: "loading.checking",
+          },
+        },
       },
     },
   },
@@ -118,7 +124,8 @@ const spotifyAddToLibraryMachine = createMachine<Context, Event>(
         if (
           event.type === "CHECK" ||
           event.type === "ADD" ||
-          event.type === "REMOVE"
+          event.type === "REMOVE" ||
+          event.type === "SET_IDS"
         ) {
           return ctx
         }
@@ -131,6 +138,14 @@ const spotifyAddToLibraryMachine = createMachine<Context, Event>(
             { ...ctx.tracks },
           ),
         }
+      }),
+      setIds: assign((ctx, event) => {
+        if (event.type === "SET_IDS") {
+          return {
+            ids: event.data ?? ctx.ids,
+          }
+        }
+        return ctx
       }),
       notifyAction: (ctx, event) => {
         const label = ctx.ids.length > 1 ? "tracks" : "track"

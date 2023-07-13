@@ -82,11 +82,11 @@ export const savePlaylistMachine = createMachine<Context, SavePlaylistEvent>(
               src: savePlaylist,
               onDone: {
                 target: "#success",
-                actions: ["setPlaylistMeta"],
+                actions: ["setPlaylistMeta", "notifyPlaylistCreated"],
               },
               onError: {
                 target: "#error",
-                actions: ["setPlaylistError"],
+                actions: ["setPlaylistError", "notifyPlaylistCreateFailed"],
               },
             },
           },

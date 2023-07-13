@@ -14,11 +14,22 @@ import { FaSpotify } from "react-icons/fa"
 
 import { useCurrentUser, useIsAdmin } from "../state/authStore"
 import { useSpotifyAuthStore } from "../state/spotifyAuthStore"
+import { useLocation } from "@reach/router"
 
 export default function ButtonAuthSpotify({ userId }: { userId?: string }) {
   const currentUser = useCurrentUser()
   const isAdmin = useIsAdmin()
   const { state, send } = useSpotifyAuthStore()
+  const location = useLocation()
+
+  function handleLogin(e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!isAdmin) {
+      sessionStorage.setItem("postSpotifyAuthRedirect", location.pathname)
+      send("GENERATE_LOGIN_URL")
+    }
+  }
 
   return (
     <Box>
@@ -32,15 +43,7 @@ export default function ButtonAuthSpotify({ userId }: { userId?: string }) {
                 }`
               : undefined
           }
-          onClick={
-            isAdmin
-              ? undefined
-              : (e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  send("GENERATE_LOGIN_URL")
-                }
-          }
+          onClick={handleLogin}
           leftIcon={<Icon as={FaSpotify} />}
           isLoading={state.matches("working")}
           isDisabled={state.matches("working")}
