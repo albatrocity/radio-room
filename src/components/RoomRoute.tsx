@@ -33,11 +33,11 @@ const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
     }
   })
 
-  useEffect(() => {
-    if (isVisible && !!roomState.context.room?.id) {
-      send("SETUP", { data: { roomId } })
-    }
-  }, [isVisible, roomState.context.room])
+  // useEffect(() => {
+  //   if (isVisible && !!roomState.context.room?.id) {
+  //     send("SETUP", { data: { roomId } })
+  //   }
+  // }, [isVisible, roomState.context.room])
 
   return roomId ? (
     <Layout fill>

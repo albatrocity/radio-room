@@ -8,14 +8,15 @@ import ButtonRoomAuthSpotify from "./ButtonRoomAuthSpotify"
 export default function RoomError() {
   const room = useCurrentRoom()
   const isAdmin = useIsAdmin()
+
   if (!room?.spotifyError) {
     return null
   }
   return (
-    <Box bg="red.500" p={2}>
+    <Box bg={isAdmin ? "critical" : "secondaryBg"} p={2}>
       <Center>
         <HStack>
-          <Text>{getErrorMessage(room.spotifyError)}</Text>
+          <Text>{getErrorMessage(room.spotifyError, isAdmin)}</Text>
           {room.spotifyError?.status === 401 && isAdmin && (
             <ButtonRoomAuthSpotify hideText />
           )}

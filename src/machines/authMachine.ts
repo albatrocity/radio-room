@@ -35,12 +35,6 @@ function setStoredUser(_ctx: AuthContext, event: AnyEventObject) {
     resolve({ currentUser, isNewUser })
   })
 }
-function getStoredPassword() {
-  return new Promise((resolve) => {
-    const password = getPassword()
-    resolve({ password })
-  })
-}
 
 export const authMachine = createMachine<AuthContext>(
   {
@@ -78,6 +72,19 @@ export const authMachine = createMachine<AuthContext>(
           },
         },
       },
+      initiated: {
+        invoke: {
+          id: "getStoredUser",
+          src: getStoredUser,
+          onError: {
+            target: "unauthenticated",
+          },
+          onDone: {
+            target: "connecting",
+            actions: ["setCurrentUser"],
+          },
+        },
+      },
       unauthenticated: {
         entry: ["getStoredPassword", "checkPasswordRequirement"],
         on: {
@@ -97,19 +104,6 @@ export const authMachine = createMachine<AuthContext>(
           SETUP: {
             target: "initiated",
             actions: ["setRoomId"],
-          },
-        },
-      },
-      initiated: {
-        invoke: {
-          id: "getStoredUser",
-          src: getStoredUser,
-          onError: {
-            target: "unauthenticated",
-          },
-          onDone: {
-            target: "connecting",
-            actions: ["setCurrentUser"],
           },
         },
       },
@@ -179,18 +173,6 @@ export const authMachine = createMachine<AuthContext>(
           },
         },
       },
-      authorizing: {
-        invoke: {
-          id: "getStoredPassword",
-          src: getStoredPassword,
-          onError: {
-            target: "unauthenticated",
-          },
-          onDone: {
-            target: "initiated",
-          },
-        },
-      },
       unauthorized: {
         on: {
           SET_PASSWORD: {
@@ -199,7 +181,7 @@ export const authMachine = createMachine<AuthContext>(
           SET_PASSWORD_ACCEPTED: [
             { actions: ["setPasswordError"], cond: "passwordRejected" },
             {
-              actions: ["setPasswordError"],
+              actions: ["setPasswordError", "setNew"],
               target: "initiated",
               cond: "passwordAccepted",
             },
@@ -210,6 +192,10 @@ export const authMachine = createMachine<AuthContext>(
   },
   {
     actions: {
+      log: (ctx, event) => {
+        console.log("ctx", ctx)
+        console.log("event", event)
+      },
       setCurrentUser: assign((ctx, event) => {
         if (event.type !== "done.invoke.getStoredUser") {
           return ctx
@@ -224,12 +210,18 @@ export const authMachine = createMachine<AuthContext>(
           isNewUser: false,
         }
       }),
-      login: sendTo("socket", (ctx) => {
+      setNew: assign(() => {
+        return {
+          isNewUser: true,
+        }
+      }),
+      login: sendTo("socket", (ctx, event) => {
+        const password = ctx.password ?? event?.data?.currentUser?.password
         return {
           type: "login",
           data: {
             ...ctx.currentUser,
-            password: ctx.password,
+            password: password,
             roomId: ctx.roomId,
           },
         }

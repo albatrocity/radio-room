@@ -1,5 +1,4 @@
 import React, { useEffect } from "react"
-import Konami from "react-konami-code"
 
 import { Box, Grid, GridItem, Show, useToken } from "@chakra-ui/react"
 
@@ -18,29 +17,20 @@ import RoomError from "./RoomError"
 const Room = ({ id }: { id: string }) => {
   const [xs, sm, md, lg, xl] = useToken("sizes", ["xs", "sm", "md", "lg", "xl"])
 
+  const authStore = useAuthStore()
   const authContext = useAuthStore((s) => s.state.context)
   const { send: playlistSend } = usePlaylistStore()
 
   const isNewUser = authContext.isNewUser
-  const isAdmin = authContext.isAdmin
   const { send: modalSend } = useModalsStore()
-  const { send: authSend } = useAuthStore()
   const playlist = useCurrentPlaylist()
   const listeners = useListeners()
 
   useEffect(() => {
-    if (isNewUser) {
+    if (isNewUser && authStore.state.matches("authenticated")) {
       modalSend("EDIT_USERNAME")
     }
-  }, [isNewUser])
-
-  useEffect(() => {
-    if (isAdmin) {
-      authSend("ACTIVATE_ADMIN")
-    }
-  }, [isAdmin])
-
-  const handleActivateAdmin = () => authSend("ACTIVATE_ADMIN")
+  }, [isNewUser, authStore.state])
 
   return (
     <Box w="100%" h="100%">
@@ -72,7 +62,6 @@ const Room = ({ id }: { id: string }) => {
           `${xl} 1fr auto`,
         ]}
       >
-        <Konami action={handleActivateAdmin} />
         <KeyboardShortcuts />
         <GridItem area="alert">
           <RoomError />

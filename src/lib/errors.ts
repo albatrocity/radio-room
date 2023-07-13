@@ -1,9 +1,11 @@
 import { RoomError } from "../types/Room"
 
-export function getErrorMessage({ status }: RoomError) {
+export function getErrorMessage({ status }: RoomError, isAdmin?: boolean) {
   switch (status) {
     case 401:
-      return "Your Spotify account has been disconnected. Please log back into Spotify."
+      return isAdmin
+        ? "Your Spotify account has been disconnected. Please log back into Spotify."
+        : "The Spotify account connected to this room has been disconnected. The Now Playing information may be incorrect."
     case 403:
       return "You are not authorized to perform this action."
     case 404:

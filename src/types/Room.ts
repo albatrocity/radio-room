@@ -13,6 +13,7 @@ export type Room = {
   fetchMeta: boolean
   extraInfo: string | undefined
   password: string | null
+  passwordRequired?: boolean
   artwork?: string
   enableSpotifyLogin: boolean
   deputizeOnJoin: boolean

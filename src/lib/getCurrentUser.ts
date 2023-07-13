@@ -18,8 +18,6 @@ export function getCurrentUser(un?: string) {
     un || sessionStorage.getItem(SESSION_USERNAME) || generateAnonName()
   const password = sessionStorage.getItem(SESSION_PASSWORD)
 
-  sessionStorage.setItem(SESSION_USERNAME, username)
-  sessionStorage.setItem(SESSION_ID, userId)
   return {
     currentUser: { username, userId, password, isAdmin },
     isNewUser: isNewUser,

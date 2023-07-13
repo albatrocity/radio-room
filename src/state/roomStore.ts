@@ -32,6 +32,10 @@ export const useRoomStore = create(
               },
             })
           } else {
+            const authState = useAuthStore.getState()
+            authState.send("SET_PASSWORD_REQUIREMENT", {
+              passwordRequired: ctx.room.passwordRequired,
+            })
             useAuthStore
               .getState()
               .send("SETUP", { data: { roomId: ctx.room.id } })
