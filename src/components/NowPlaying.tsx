@@ -38,7 +38,7 @@ function getCoverUrl({
   room,
 }: {
   release?: SpotifyTrack
-  room?: Room | null
+  room?: Partial<Room> | null
 }) {
   if (room?.artwork) {
     return room.artwork
@@ -130,7 +130,7 @@ const NowPlaying = ({ meta, offline }: NowPlayingProps) => {
                           as="h3"
                           size={["md", "lg"]}
                         >
-                          {track || title?.replace(/\|/g, "")}
+                          {track ?? title?.replace(/\|/g, "")}
                         </Heading>
                       </LinkOverlay>
                     ) : (

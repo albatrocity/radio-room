@@ -15,7 +15,7 @@ import { useListeners } from "../state/usersStore"
 import { useModalsStore } from "../state/modalsState"
 
 const Room = ({ id }: { id: string }) => {
-  const [sizeXs] = useToken("sizes", ["xs"])
+  const [xs, sm, md, lg, xl] = useToken("sizes", ["xs", "sm", "md", "lg", "xl"])
 
   const authContext = useAuthStore((s) => s.state.context)
   const { send: playlistSend } = usePlaylistStore()
@@ -59,7 +59,13 @@ const Room = ({ id }: { id: string }) => {
           `"header chat sidebar"`,
         ]}
         gridTemplateRows={["auto 1fr", "auto 1fr auto", "100vh"]}
-        gridTemplateColumns={["1fr auto", "1fr auto", `${sizeXs} 1fr auto`]}
+        gridTemplateColumns={[
+          "1fr auto",
+          "1fr auto",
+          `${xs} 1fr auto`,
+          `${md} 1fr auto`,
+          `${xl} 1fr auto`,
+        ]}
       >
         <Konami action={handleActivateAdmin} />
         <KeyboardShortcuts />

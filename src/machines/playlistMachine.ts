@@ -26,6 +26,9 @@ export const playlistMachine = createMachine<Context>(
       PLAYLIST: {
         actions: ["setPlaylist"],
       },
+      PLAYLIST_TRACK_ADDED: {
+        actions: ["addToPlaylist"],
+      },
     },
     initial: "inactive",
     states: {
@@ -51,6 +54,14 @@ export const playlistMachine = createMachine<Context>(
       setPlaylist: assign({
         playlist: (_ctx, event) => {
           return event.data
+        },
+      }),
+      addToPlaylist: assign({
+        playlist: (ctx, event) => {
+          if (event.type !== "PLAYLIST_TRACK_ADDED") {
+            return ctx.playlist
+          }
+          return [...ctx.playlist, event.data.track]
         },
       }),
     },

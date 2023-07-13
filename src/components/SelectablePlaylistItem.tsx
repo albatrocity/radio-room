@@ -1,4 +1,4 @@
-import { BoxProps, Checkbox, HStack } from "@chakra-ui/react"
+import { Checkbox, HStack } from "@chakra-ui/react"
 import React from "react"
 import { PlaylistItem as Item } from "../types/PlaylistItem"
 import PlaylistItem from "./PlaylistItem"
@@ -17,7 +17,7 @@ const SelectablePlaylistItem = ({
   onSelect,
 }: Props) => {
   return (
-    <HStack key={item.timestamp.toString()}>
+    <HStack key={item.timestamp?.toString()}>
       {isSelectable && (
         <Checkbox
           isChecked={selected
