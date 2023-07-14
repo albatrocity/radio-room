@@ -13,11 +13,13 @@ import {
   Hide,
   BoxProps,
 } from "@chakra-ui/react"
+import { ArrowBackIcon } from "@chakra-ui/icons"
 
 import { FiSettings, FiBookmark } from "react-icons/fi"
 
 import { useBookmarks } from "../state/bookmarkedChatStore"
 import { useModalsStore } from "../state/modalsState"
+import { Link } from "gatsby"
 
 type Props = {
   buttonColorScheme?: string
@@ -87,6 +89,35 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
                 aria-label="Bookmarks"
                 onClick={() => modalSend("VIEW_BOOKMARKS")}
               />
+            </Hide>
+          </WrapItem>
+        </Wrap>
+        <Wrap>
+          <WrapItem>
+            <Show above="sm">
+              <Button
+                as={Link}
+                size="xs"
+                variant="ghost"
+                colorScheme={buttonColorScheme}
+                leftIcon={<ArrowBackIcon />}
+                to="/"
+              >
+                Back to Rooms
+              </Button>
+            </Show>
+            <Hide above="sm">
+              <IconButton
+                as={Link}
+                size="xs"
+                variant="ghost"
+                colorScheme={buttonColorScheme}
+                icon={<ArrowBackIcon />}
+                aria-label="Back to Rooms"
+                to="/"
+              >
+                Back to Rooms
+              </IconButton>
             </Hide>
           </WrapItem>
         </Wrap>

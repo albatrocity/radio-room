@@ -14,12 +14,18 @@ export default function CreateRoomPage({}: Props) {
   const urlParams = new URLSearchParams(location.search)
   const challenge = urlParams.get("challenge")
   const userId = urlParams.get("userId")
+  const roomType = sessionStorage.getItem("createRoomType") ?? "jukebox"
+  const roomTitle = sessionStorage.getItem("createRoomTitle")
   const { state, send: authSend } = useAuthStore()
 
   const [_state, send] = useMachine(roomSetupMachine, {
     context: {
       challenge,
       userId,
+      room: {
+        type: roomType === "jukebox" ? "jukebox" : "radio",
+        title: roomTitle ?? "My Room",
+      },
     },
   })
 

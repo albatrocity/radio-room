@@ -58,13 +58,18 @@ export const authMachine = createMachine<AuthContext>(
         src: () => socketService,
       },
     ],
-    on: {
-      SET_CURRENT_USER: {
-        actions: ["saveUser", "setCurrentUser"],
-      },
-    },
     states: {
       idle: {
+        invoke: {
+          id: "getStoredUser",
+          src: getStoredUser,
+          onError: {
+            target: "unauthenticated",
+          },
+          onDone: {
+            actions: ["setCurrentUser"],
+          },
+        },
         on: {
           SETUP: {
             target: "initiated",

@@ -30,7 +30,7 @@ export const createRoomFormMachine = createMachine<RoomSetupShared, Event>(
         on: {
           BACK: "selectType",
           NEXT: {
-            actions: ["redirectToLogin"],
+            actions: ["storeRoomSettings", "redirectToLogin"],
             target: "creating",
           },
           SET_SETTINGS: {
@@ -63,6 +63,10 @@ export const createRoomFormMachine = createMachine<RoomSetupShared, Event>(
         }
         return ctx
       }),
+      storeRoomSettings(ctx) {
+        sessionStorage.setItem("createRoomTitle", ctx.title)
+        sessionStorage.setItem("createRoomType", ctx.type)
+      },
       redirectToLogin: (ctx, event) => {
         if (event.type === "NEXT") {
           navigate(
