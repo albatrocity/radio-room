@@ -1,25 +1,12 @@
 import React, { useEffect } from "react"
-import {
-  Box,
-  Button,
-  Card,
-  CardHeader,
-  CardBody,
-  Grid,
-  Heading,
-  HStack,
-  GridItem,
-  Divider,
-  VStack,
-} from "@chakra-ui/react"
+import { Box, Button, Grid, Heading, HStack, GridItem } from "@chakra-ui/react"
 import { useModalsStore } from "../../state/modalsState"
 import LobbyOverlays from "./LobbyOverlays"
 import { useCurrentUser } from "../../state/authStore"
 import { useMachine } from "@xstate/react"
 import { createdRoomsFetchMachine } from "../../machines/createdRoomsFetchMachine"
-import { Link } from "gatsby"
-import ParsedEmojiMessage from "../ParsedEmojiMessage"
 import { AddIcon } from "@chakra-ui/icons"
+import CardRoom from "../CardRoom"
 
 export default function Lobby() {
   const { send } = useModalsStore()
@@ -30,6 +17,10 @@ export default function Lobby() {
       userId: user.userId,
     },
   })
+
+  async function handleRoomDelete(roomId: string) {
+    return fetchSend("DELETE_ROOM", { data: { roomId } })
+  }
 
   useEffect(() => {
     fetchSend("FETCH")
@@ -55,19 +46,7 @@ export default function Lobby() {
       >
         {state.context.rooms.map((room) => (
           <GridItem key={room.id}>
-            <Card>
-              <CardHeader>
-                <Heading size="md">{room.title}</Heading>
-              </CardHeader>
-              <CardBody>
-                <VStack spacing={2} align="stretch">
-                  <ParsedEmojiMessage content={room.extraInfo} />
-                  <Button as={Link} to={`/rooms/${room.id}`}>
-                    Join
-                  </Button>
-                </VStack>
-              </CardBody>
-            </Card>
+            <CardRoom {...room} onDelete={(id) => handleRoomDelete(id)} />
           </GridItem>
         ))}
       </Grid>

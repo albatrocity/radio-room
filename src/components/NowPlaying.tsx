@@ -85,18 +85,23 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
             <Spinner />
           </Center>
         )}
-        {state.matches("success") && !meta.release && (
+        {state.matches("success") && !meta.release?.uri && (
           <VStack>
             {lastUpdate ? (
-              <Heading
-                margin="none"
-                as="h2"
-                size="lg"
-                color="white"
-                textAlign="center"
-              >
-                Nothing is playing
-              </Heading>
+              <VStack spacing={2} px={4} alignContent="flex-start">
+                <Heading
+                  w="100%"
+                  as="h2"
+                  size="lg"
+                  color="whiteAlpha.900"
+                  textAlign="left"
+                >
+                  Nothing is playing
+                </Heading>
+                <Text color="whiteAlpha.900">
+                  Play something on your Spotify account to get started.
+                </Text>
+              </VStack>
             ) : (
               <Center h="100%" w="100%">
                 <VStack spacing={4}>

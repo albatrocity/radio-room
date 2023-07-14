@@ -35,3 +35,8 @@ export async function findUserCreatedRooms(userId: User["userId"]) {
     .json()
   return res
 }
+
+export async function deleteRoom(id: Room["id"]) {
+  const res: RoomFindResponse = await ky.delete(`${API_URL}/rooms/${id}`).json()
+  return res
+}

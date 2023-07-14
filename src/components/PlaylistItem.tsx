@@ -31,8 +31,6 @@ function PlaylistItem({ item }: Props) {
         ?.username ?? item.dj?.username,
   )
 
-  console.log(item.spotifyData)
-
   return (
     <Stack
       key={item.timestamp.toString()}
