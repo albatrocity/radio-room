@@ -31,6 +31,8 @@ function PlaylistItem({ item }: Props) {
         ?.username ?? item.dj?.username,
   )
 
+  console.log(item.spotifyData)
+
   return (
     <Stack
       key={item.timestamp.toString()}
@@ -48,7 +50,11 @@ function PlaylistItem({ item }: Props) {
           )}
           <Stack direction="column" spacing={0}>
             {(item.track || item.album) && (
-              <LinkOverlay isExternal href={item.spotifyData?.url} m={0}>
+              <LinkOverlay
+                isExternal
+                href={item.spotifyData?.external_urls?.spotify}
+                m={0}
+              >
                 <Text fontWeight={"bold"}>{item.track}</Text>
               </LinkOverlay>
             )}
