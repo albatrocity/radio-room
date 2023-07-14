@@ -21,7 +21,7 @@ export type Room = {
   createdAt?: string
   creator?: string
   spotifyError?: RoomError
-  lastUpdated?: string
+  lastUpdatedAt?: string
 }
 
 export type RoomSetupShared = Pick<Room, "type" | "title">

@@ -58,7 +58,7 @@ const NowPlaying = ({ meta, offline }: NowPlayingProps) => {
   const coverUrl = getCoverUrl({ release, room })
   const artworkSize = [24, "100%", "100%"]
   const releaseDate = release?.album?.release_date
-  const lastUpdate = state.context.room?.lastUpdated
+  const lastUpdate = state.context.room?.lastUpdatedAt
 
   const djUsername = useMemo(
     () =>
