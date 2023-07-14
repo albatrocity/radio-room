@@ -50,7 +50,7 @@ function getCoverUrl({
   return null
 }
 
-const NowPlaying = ({ meta, offline }: NowPlayingProps) => {
+const NowPlaying = ({ meta }: NowPlayingProps) => {
   const users: User[] = useUsers()
   const room = useCurrentRoom()
   const { state } = useRoomStore()
@@ -58,7 +58,7 @@ const NowPlaying = ({ meta, offline }: NowPlayingProps) => {
   const coverUrl = getCoverUrl({ release, room })
   const artworkSize = [24, "100%", "100%"]
   const releaseDate = release?.album?.release_date
-  const lastUpdate = state.context.room?.lastUpdatedAt
+  const lastUpdate = meta?.lastUpdatedAt
 
   const djUsername = useMemo(
     () =>
@@ -85,7 +85,7 @@ const NowPlaying = ({ meta, offline }: NowPlayingProps) => {
             <Spinner />
           </Center>
         )}
-        {!state.matches("loading") && offline ? (
+        {state.matches("success") && !meta.release && (
           <VStack>
             {lastUpdate ? (
               <Heading
@@ -109,7 +109,8 @@ const NowPlaying = ({ meta, offline }: NowPlayingProps) => {
               <ButtonListeners />
             </Hide>
           </VStack>
-        ) : (
+        )}
+        {state.matches("success") && meta.release && (
           <LinkBox width="100%">
             <Stack
               direction={["row", "column"]}

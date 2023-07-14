@@ -39,4 +39,5 @@ export type RoomMeta = {
   title?: string
   bitrate?: number
   dj?: User
+  lastUpdatedAt?: string
 }

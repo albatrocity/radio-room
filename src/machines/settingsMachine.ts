@@ -4,6 +4,7 @@ import { Room } from "../types/Room"
 
 type Context = Pick<
   Room,
+  | "title"
   | "fetchMeta"
   | "extraInfo"
   | "password"
@@ -23,6 +24,7 @@ export const settingsMachine = createMachine<Context, Event>(
     id: "settings",
     initial: "pending",
     context: {
+      title: "",
       fetchMeta: true,
       extraInfo: "",
       password: "",
@@ -72,6 +74,7 @@ export const settingsMachine = createMachine<Context, Event>(
       setValues: assign((ctx, event) => {
         if (event.type === "ROOM_SETTINGS") {
           return {
+            title: event.data.room.title,
             fetchMeta: event.data.room.fetchMeta,
             extraInfo: event.data.room.extraInfo,
             password: event.data.room.password,

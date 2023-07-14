@@ -25,9 +25,10 @@ function Content() {
   return (
     <Formik
       initialValues={{
+        title: state.context.title ?? "",
         fetchMeta: state.context.fetchMeta,
-        extraInfo: state.context.extraInfo || "",
-        artwork: state.context.artwork || "",
+        extraInfo: state.context.extraInfo ?? "",
+        artwork: state.context.artwork ?? "",
       }}
       enableReinitialize
       validate={() => {
@@ -50,6 +51,23 @@ function Content() {
         <form onSubmit={handleSubmit}>
           <ModalBody>
             <VStack spacing={6}>
+              <FormControl>
+                <FormLabel>Banner Content</FormLabel>
+                <Input
+                  name="title"
+                  value={values.title}
+                  onBlur={handleBlur}
+                  onChange={(e) => {
+                    handleChange(e)
+                    if (e.target.value !== initialValues.title) {
+                      setTouched({ title: true })
+                    } else {
+                      setTouched({ title: false })
+                    }
+                  }}
+                />
+              </FormControl>
+
               <FormControl>
                 <FormLabel>Banner Content</FormLabel>
                 <Textarea
