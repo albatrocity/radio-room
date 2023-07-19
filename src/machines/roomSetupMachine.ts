@@ -82,12 +82,13 @@ export const roomSetupMachine = createMachine<RoomSetupContext, RoomSetupEvent>(
         }
       }),
       setRoom: (ctx, event) => {
+        console.log("event", event)
         if (event.type !== "done.invoke.createRoomRequest") {
           return
         }
         saveCurrentUser({
           currentUser: {
-            userId: event.data.room.creator ?? ctx.userId ?? "",
+            userId: event.data.room?.creator ?? ctx.userId ?? "",
             isAdmin: true,
           },
         })

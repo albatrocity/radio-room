@@ -6,6 +6,7 @@ import { User } from "../types/User"
 import { ChatMessage } from "../types/ChatMessage"
 import { PlaylistItem } from "../types/PlaylistItem"
 import { ReactionsContext } from "./allReactionsMachine"
+import { Room } from "../types/Room"
 
 type NewMessageEvent = {
   type: "NEW_MESSAGE"
@@ -25,17 +26,26 @@ type SubmitMessageAction = {
   data: ChatMessage["content"]
 }
 
-type SetDataEvent = {
-  type: "INIT" | "LOGIN" | "SET_MESSAGES"
-  data: {
-    currentUser: User
-    messages: ChatMessage[]
-    meta: {}
-    playlist: PlaylistItem[]
-    reactions: ReactionsContext
-    users: User[]
-  }
-}
+type SetDataEvent =
+  | {
+      type: "INIT" | "LOGIN" | "SET_MESSAGES"
+      data: {
+        currentUser: User
+        messages: ChatMessage[]
+        meta: {}
+        playlist: PlaylistItem[]
+        reactions: ReactionsContext
+        users: User[]
+      }
+    }
+  | {
+      type: "ROOM_DATA"
+      data: {
+        messages: ChatMessage[]
+        room: Room
+        playlist: PlaylistItem[]
+      }
+    }
 
 type SetCurrentUserEvent = {
   type: "SET_CURRENT_USER"
@@ -75,6 +85,9 @@ export const chatMachine = createMachine<Context, MachineEvent>(
       },
       INIT: {
         actions: ["setData"],
+      },
+      ROOM_DATA: {
+        actions: ["addMessages"],
       },
       CLEAR_MESSAGES: {
         actions: ["clearMessages"],
@@ -129,7 +142,10 @@ export const chatMachine = createMachine<Context, MachineEvent>(
   {
     actions: {
       sendMessage: sendTo("socket", (_ctx, event) => {
-        return { type: "new message", data: event.data }
+        if (event.type === "SUBMIT_MESSAGE") {
+          return { type: "new message", data: event.data }
+        }
+        return null
       }),
       startTyping: sendTo("socket", (_ctx, _event) => {
         return { type: "typing" }
@@ -144,6 +160,18 @@ export const chatMachine = createMachine<Context, MachineEvent>(
         messages: (context, event) => {
           if (event.type === "NEW_MESSAGE") {
             return uniqBy("timestamp", [...context.messages, event.data])
+          }
+          return context.messages
+        },
+      }),
+      addMessages: assign({
+        messages: (context, event) => {
+          console.log("ADD MESSAGES", event)
+          if (event.type === "ROOM_DATA") {
+            return uniqBy("timestamp", [
+              ...context.messages,
+              ...event.data.messages,
+            ])
           }
           return context.messages
         },

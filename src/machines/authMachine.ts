@@ -155,7 +155,6 @@ export const authMachine = createMachine<AuthContext>(
           USER_DISCONNECTED: {
             target: "disconnected",
             actions: ["disconnectUser"],
-            cond: "shouldNotRetry",
           },
           UPDATE_USERNAME: {
             actions: ["unsetNew", "updateUsername", "changeUsername"],
@@ -167,10 +166,6 @@ export const authMachine = createMachine<AuthContext>(
           KICK_USER: {
             actions: ["kickUser"],
             cond: "isAdmin",
-          },
-          DISCONNECT_USER: {
-            target: "disconnected",
-            actions: ["disconnectUser"],
           },
           KICKED: {
             target: "disconnected",
@@ -265,8 +260,11 @@ export const authMachine = createMachine<AuthContext>(
         password: (_ctx, _event) => getPassword(),
       }),
       disconnectUser: sendTo("socket", (ctx) => ({
-        type: "DISCONNECT_USER",
-        data: ctx.currentUser?.userId,
+        type: "user left",
+        data: {
+          userId: ctx.currentUser?.userId,
+          roomId: ctx.roomId,
+        },
       })),
       kickUser: sendTo("socket", (_ctx, event) => ({
         type: "kick user",

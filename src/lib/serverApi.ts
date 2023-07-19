@@ -1,8 +1,16 @@
 import ky from "ky"
 import { Room } from "../types/Room"
-import { User } from "../types/User"
-
 const API_URL = process.env.GATSBY_API_URL
+
+const api = ky.create({
+  prefixUrl: API_URL,
+  credentials: "include",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  timeout: 10000,
+  retry: 2,
+})
 
 export type RoomCreationResponse = { room: Room }
 export type RoomFindResponse = { room: Room | null }
@@ -18,25 +26,24 @@ export async function createRoom({
   challenge,
   userId,
 }: CreateRoomParams) {
-  const res = await ky
-    .post(`${API_URL}/rooms`, { json: { ...room, userId, challenge } })
+  const res = await api
+    .post(`rooms`, { json: { ...room, userId, challenge } })
     .json()
   return res
 }
 
 export async function findRoom(id: Room["id"]) {
-  const res: RoomFindResponse = await ky.get(`${API_URL}/rooms/${id}`).json()
+  const res: RoomFindResponse = await api.get(`rooms/${id}`).json()
   return res
 }
 
-export async function findUserCreatedRooms(userId: User["userId"]) {
-  const res: RoomFindResponse = await ky
-    .get(`${API_URL}/rooms?creator=${userId}`)
-    .json()
+export async function findUserCreatedRooms() {
+  console.log("findUserCreatedRooms")
+  const res: RoomFindResponse = await api.get(`rooms`).json()
   return res
 }
 
 export async function deleteRoom(id: Room["id"]) {
-  const res: RoomFindResponse = await ky.delete(`${API_URL}/rooms/${id}`).json()
+  const res: RoomFindResponse = await api.delete(`rooms/${id}`).json()
   return res
 }

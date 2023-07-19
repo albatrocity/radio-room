@@ -14,6 +14,7 @@ import { useRoomStore } from "../state/roomStore"
 init({ data })
 
 const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
+  const isVisible = usePageVisibility()
   const { send } = useAuthStore()
   const { state: roomState, send: roomSend } = useRoomStore()
 
@@ -21,23 +22,22 @@ const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
     navigate("/")
   }
 
-  const isVisible = usePageVisibility()
-
   useEffect(() => {
     roomSend("FETCH", { data: { id: roomId } })
   }, [send, roomSend, roomId])
 
   useEffect(() => {
+    send("SETUP", { data: { roomId } })
     return () => {
       send("USER_DISCONNECTED")
     }
-  })
+  }, [])
 
-  // useEffect(() => {
-  //   if (isVisible && !!roomState.context.room?.id) {
-  //     send("SETUP", { data: { roomId } })
-  //   }
-  // }, [isVisible, roomState.context.room])
+  useEffect(() => {
+    if (isVisible && !!roomState.context.room?.id) {
+      roomSend("GET_LATEST_ROOM_DATA")
+    }
+  }, [isVisible, roomState.context.room])
 
   return roomId ? (
     <Layout fill>

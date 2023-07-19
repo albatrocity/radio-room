@@ -1,8 +1,11 @@
 // state machine for fetching saved tracks
 
-import { assign, createMachine } from "xstate"
+import { assign, createMachine, sendTo } from "xstate"
+
 import { findRoom, RoomFindResponse } from "../lib/serverApi"
 import socketService from "../lib/socketService"
+import { useChatStore } from "../state/chatStore"
+import { usePlaylistStore } from "../state/playlistStore"
 import { Room, RoomError } from "../types/Room"
 
 export interface RoomFetchContext {
@@ -34,6 +37,7 @@ export type RoomFetchEvent =
   | { type: "FETCH"; data: { id: Room["id"] }; error?: string }
   | { type: "SETTINGS"; data: Room }
   | { type: "ROOM_SETTINGS"; data: { room: Omit<Room, "password"> } }
+  | { type: "GET_LATEST_ROOM_DATA" }
 
 export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
   {
@@ -81,6 +85,9 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
           ROOM_SETTINGS: {
             actions: ["setRoom"],
           },
+          GET_LATEST_ROOM_DATA: {
+            actions: ["getLatestData"],
+          },
         },
       },
       error: {
@@ -111,6 +118,21 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
         }
         return {
           room: event.data.room,
+        }
+      }),
+      getLatestData: sendTo("socket", (ctx) => {
+        const messages = useChatStore.getState().state.context.messages
+        const lastMessageTime = messages[messages.length - 1]?.timestamp
+        const playlist = usePlaylistStore.getState().state.context.playlist
+        const lastPlaylistItemTime = playlist[playlist.length - 1]?.timestamp
+
+        return {
+          type: "get latest room data",
+          data: {
+            id: ctx.id,
+            lastMessageTime,
+            lastPlaylistItemTime,
+          },
         }
       }),
     },

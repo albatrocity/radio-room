@@ -3,7 +3,6 @@
 import { assign, createMachine } from "xstate"
 import {
   findUserCreatedRooms,
-  RoomFindResponse,
   RoomsResponse,
   deleteRoom as deleteRoomData,
 } from "../lib/serverApi"
@@ -17,11 +16,9 @@ export interface RoomFetchContext {
   error: RoomError | null
 }
 
-async function fetchUserRooms(
-  ctx: RoomFetchContext,
-): Promise<RoomFindResponse> {
+async function fetchUserRooms(ctx: RoomFetchContext) {
   if (ctx.userId) {
-    const results = await findUserCreatedRooms(ctx.userId)
+    const results = await findUserCreatedRooms()
     return results
   }
   throw new Error("No userId provided")
