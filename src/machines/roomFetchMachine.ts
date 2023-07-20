@@ -35,6 +35,7 @@ export type RoomFetchEvent =
       error?: RoomError
     }
   | { type: "FETCH"; data: { id: Room["id"] }; error?: string }
+  | { type: "RESET" }
   | { type: "SETTINGS"; data: Room }
   | { type: "ROOM_SETTINGS"; data: { room: Omit<Room, "password"> } }
   | { type: "GET_LATEST_ROOM_DATA" }
@@ -56,15 +57,18 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
         src: () => socketService,
       },
     ],
-    states: {
-      initial: {
-        on: {
-          FETCH: {
-            target: "loading",
-            actions: ["setId"],
-          },
-        },
+    on: {
+      FETCH: {
+        target: "loading",
+        actions: ["setId"],
       },
+      RESET: {
+        actions: ["reset"],
+        target: "initial",
+      },
+    },
+    states: {
+      initial: {},
       loading: {
         invoke: {
           id: "fetchRoom",
@@ -117,6 +121,13 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
         }
         return {
           room: event.data.room,
+        }
+      }),
+      reset: assign(() => {
+        return {
+          id: null,
+          room: null,
+          error: "",
         }
       }),
       getLatestData: sendTo("socket", (ctx) => {

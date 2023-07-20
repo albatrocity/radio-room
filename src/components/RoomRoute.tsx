@@ -24,6 +24,9 @@ const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
 
   useEffect(() => {
     roomSend("FETCH", { data: { id: roomId } })
+    return () => {
+      roomSend("RESET")
+    }
   }, [send, roomSend, roomId])
 
   useEffect(() => {
