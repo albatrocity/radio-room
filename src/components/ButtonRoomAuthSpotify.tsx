@@ -14,7 +14,7 @@ import {
 import { CheckCircleIcon } from "@chakra-ui/icons"
 import { FaSpotify } from "react-icons/fa"
 
-import { useAppSpotifyAuthStore } from "../state/appSpotifyAuthStore"
+import { useRoomSpotifyAuthStore } from "../state/roomSpotifyAuthStore"
 import { useCurrentUser } from "../state/authStore"
 
 export default function ButtonRoomAuthSpotify({
@@ -24,7 +24,7 @@ export default function ButtonRoomAuthSpotify({
 }) {
   const currentUser = useCurrentUser()
   const location = useLocation()
-  const { state, send } = useAppSpotifyAuthStore()
+  const { state, send } = useRoomSpotifyAuthStore()
 
   useEffect(() => {
     sessionStorage.setItem("postSpotifyAuthRedirect", location.pathname)

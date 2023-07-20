@@ -80,7 +80,6 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
         },
       },
       success: {
-        entry: ["onSuccess"],
         on: {
           ROOM_SETTINGS: {
             actions: ["setRoom"],

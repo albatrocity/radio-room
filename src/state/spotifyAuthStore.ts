@@ -34,9 +34,7 @@ export const useSpotifyAuthStore = create(
 )
 
 export const useIsSpotifyAuthenticated = () => {
-  return useSpotifyAuthStore(
-    (s) => !!s.state.context.accessToken && !!s.state.context.refreshToken,
-  )
+  return useSpotifyAuthStore((s) => !!s.state.context.accessToken)
 }
 
 export const useSpotifyAccessToken = () => {

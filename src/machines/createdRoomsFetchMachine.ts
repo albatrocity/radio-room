@@ -25,7 +25,6 @@ async function fetchUserRooms(ctx: RoomFetchContext) {
 }
 
 async function deleteRoom(_ctx: RoomFetchContext, event: RoomFetchEvent) {
-  console.log(event)
   if (event.type === "DELETE_ROOM") {
     await deleteRoomData(event.data.roomId)
   }
@@ -63,7 +62,6 @@ export const createdRoomsFetchMachine = createMachine<
         on: {
           FETCH: {
             target: "loading",
-            actions: ["setId"],
           },
         },
       },
@@ -104,7 +102,6 @@ export const createdRoomsFetchMachine = createMachine<
         },
       },
       success: {
-        entry: ["onSuccess"],
         on: {
           DELETE_ROOM: {
             target: "deleting",

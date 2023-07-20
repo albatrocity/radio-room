@@ -38,7 +38,6 @@ export async function findRoom(id: Room["id"]) {
 }
 
 export async function findUserCreatedRooms() {
-  console.log("findUserCreatedRooms")
   const res: RoomFindResponse = await api.get(`rooms`).json()
   return res
 }

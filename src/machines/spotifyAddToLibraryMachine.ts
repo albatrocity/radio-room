@@ -1,4 +1,5 @@
 import { createMachine, assign } from "xstate"
+import socketService from "../lib/socketService"
 import {
   CheckedSavedTracksResponse,
   checkSavedTracks as apiCheck,
@@ -17,8 +18,17 @@ type Event =
   | { type: "ADD"; data?: string[] }
   | { type: "REMOVE"; data?: string[] }
   | { type: "SET_IDS"; data?: string[] }
+  | { type: "SET_ACCESS_TOKEN"; data?: string }
+  | {
+      type: "SPOTIFY_AUTHENTICATION_STATUS"
+      data?: {
+        isAuthenticated: boolean
+      }
+    }
   | { type: "CHECK" }
   | { type: "done.invoke.checking"; data: CheckedSavedTracksResponse }
+  | { type: "INIT"; data: { accessToken?: string } }
+  | { type: "SPOTIFY_ACCESS_TOKEN_REFRESHED"; data: { accessToken?: string } }
 
 async function checkSavedTracks(ctx: Context) {
   if (!ctx.accessToken) {
@@ -64,6 +74,24 @@ const spotifyAddToLibraryMachine = createMachine<Context, Event>(
       ids: [],
       tracks: {},
       accessToken: undefined,
+    },
+    invoke: [
+      {
+        id: "socket",
+        src: () => socketService,
+      },
+    ],
+    on: {
+      INIT: {
+        actions: ["assignAccessToken"],
+        target: "initial",
+        cond: "hasAccessToken",
+      },
+      SPOTIFY_ACCESS_TOKEN_REFRESHED: {
+        actions: ["assignAccessToken"],
+        target: "initial",
+        cond: "hasAccessToken",
+      },
     },
     states: {
       initial: {
@@ -125,7 +153,8 @@ const spotifyAddToLibraryMachine = createMachine<Context, Event>(
           event.type === "CHECK" ||
           event.type === "ADD" ||
           event.type === "REMOVE" ||
-          event.type === "SET_IDS"
+          event.type === "SET_IDS" ||
+          event.type === "SPOTIFY_AUTHENTICATION_STATUS"
         ) {
           return ctx
         }
@@ -147,6 +176,17 @@ const spotifyAddToLibraryMachine = createMachine<Context, Event>(
         }
         return ctx
       }),
+      assignAccessToken: assign({
+        accessToken: (ctx, event) => {
+          if (
+            event.type === "SPOTIFY_ACCESS_TOKEN_REFRESHED" ||
+            event.type === "INIT"
+          ) {
+            return event.data.accessToken ?? ctx.accessToken
+          }
+          return ctx.accessToken
+        },
+      }),
       notifyAction: (ctx, event) => {
         const label = ctx.ids.length > 1 ? "tracks" : "track"
         const action = event.type.includes("adding") ? "Added" : "Removed"
@@ -161,17 +201,20 @@ const spotifyAddToLibraryMachine = createMachine<Context, Event>(
       },
     },
     guards: {
-      canFetch: (ctx) => {
+      canFetch: (ctx, e) => {
         return !!ctx.accessToken && ctx.ids && ctx.ids.length > 0
       },
       cannotFetch: (ctx) => {
         return !ctx.accessToken || !ctx.ids || ctx.ids.length === 0
       },
-      isAuthenticated: (ctx) => {
+      hasAccessToken: (ctx, event) => {
+        if (
+          event.type === "INIT" ||
+          event.type === "SPOTIFY_ACCESS_TOKEN_REFRESHED"
+        ) {
+          return !!event.data.accessToken
+        }
         return !!ctx.accessToken
-      },
-      isUnauthenticated: (ctx) => {
-        return !ctx.accessToken
       },
     },
   },

@@ -5,6 +5,7 @@ import { toast } from "../lib/toasts"
 
 interface Context {
   userId?: string
+  accessToken?: string
 }
 
 export const spotifyAuthMachine = createMachine<Context>(
@@ -16,6 +17,13 @@ export const spotifyAuthMachine = createMachine<Context>(
     on: {
       FETCH_STATUS: {
         target: "loading",
+      },
+      INIT: {
+        actions: ["assignUserId"],
+      },
+      SPOTIFY_ACCESS_TOKEN_REFRESHED: {
+        target: "authenticated",
+        cond: "hasAccessToken",
       },
     },
     states: {
@@ -53,6 +61,9 @@ export const spotifyAuthMachine = createMachine<Context>(
   },
   {
     actions: {
+      assignUserId: (ctx, event) => {
+        ctx.userId = event.data.currentUser.userId ?? ctx.userId
+      },
       fetchAuthenticationStatus: sendTo("socket", (ctx) => {
         return {
           type: "get user spotify authentication status",
@@ -76,6 +87,9 @@ export const spotifyAuthMachine = createMachine<Context>(
       },
       isUnauthenticated: (_context, event) => {
         return !event.data.isAuthenticated
+      },
+      hasAccessToken: (_context, event) => {
+        return !!event.data.accessToken
       },
     },
   },
