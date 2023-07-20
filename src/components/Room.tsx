@@ -59,6 +59,7 @@ const Room = ({ id }: { id: string }) => {
           "1fr auto",
           `${xs} 1fr auto`,
           `${md} 1fr auto`,
+          `${md} 1fr auto`,
           `${xl} 1fr auto`,
         ]}
       >

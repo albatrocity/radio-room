@@ -166,7 +166,6 @@ export const chatMachine = createMachine<Context, MachineEvent>(
       }),
       addMessages: assign({
         messages: (context, event) => {
-          console.log("ADD MESSAGES", event)
           if (event.type === "ROOM_DATA") {
             return uniqBy("timestamp", [
               ...context.messages,
