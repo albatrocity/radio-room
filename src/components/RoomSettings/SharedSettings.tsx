@@ -1,5 +1,11 @@
 import React from "react"
-import { FormControl, VStack, Input, FormLabel } from "@chakra-ui/react"
+import {
+  FormControl,
+  VStack,
+  Input,
+  FormLabel,
+  FormHelperText,
+} from "@chakra-ui/react"
 
 import { RoomSetupShared } from "../../types/Room"
 
@@ -21,6 +27,7 @@ export default function SharedSettings({ onChange, settings }: Props) {
             onChange({ title: e.target.value })
           }}
         />
+        <FormHelperText>You can change this later</FormHelperText>
       </FormControl>
     </VStack>
   )

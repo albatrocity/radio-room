@@ -9,3 +9,7 @@ export const useCurrentUser = () => {
 }
 
 export const useIsAdmin = () => useAuthStore((s) => s.state.context.isAdmin)
+
+export const useIsAuthenticated = () => {
+  return useAuthStore((s) => s.state.matches("authenticated"))
+}

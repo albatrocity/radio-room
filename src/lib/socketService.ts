@@ -14,6 +14,24 @@ function socketService(callback: Callback, receive: any) {
     callback({ type: e.type, data: e.data })
   })
 
+  socket.io.on("error", (error) => {
+    callback({ type: "SOCKET_ERROR", data: error })
+  })
+  socket.io.on("error", (error) => {
+    callback({
+      type: "ERROR",
+      data: {
+        message:
+          "There was an error connecting to the server. Please try again later.",
+        error: error.message,
+        status: 500,
+      },
+    })
+  })
+  socket.io.on("reconnect", () => {
+    callback({ type: "SOCKET_RECONNECTED", data: {} })
+  })
+
   receive((event: SocketEvent) => {
     socket.emit(event.type, event.data)
   })

@@ -1,5 +1,5 @@
 import React from "react"
-import { VStack } from "@chakra-ui/react"
+import { Alert, AlertIcon, Text, VStack } from "@chakra-ui/react"
 
 import { Room, RoomSetupShared } from "../../types/Room"
 import FormJukeboxSettings from "./FormJukeboxSettings"
@@ -18,6 +18,11 @@ export default function RoomSettings({ roomType, settings, onChange }: Props) {
       <SharedSettings onChange={onChange} settings={settings} />
       {roomType === "jukebox" && <FormJukeboxSettings onChange={onChange} />}
       {roomType === "radio" && <FormRadioSettings onChange={onChange} />}
+      <Alert status="warning" fontSize="sm" color="blackAlpha.700">
+        <AlertIcon />
+        Your room and all of its data will expire 24 hours after the last time
+        you leave it. It will not expire if you are in it.
+      </Alert>
     </VStack>
   )
 }

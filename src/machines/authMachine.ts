@@ -58,6 +58,12 @@ export const authMachine = createMachine<AuthContext>(
         src: () => socketService,
       },
     ],
+    on: {
+      SOCKET_RECONNECTED: {
+        target: "initiated",
+        cond: "shouldRetry",
+      },
+    },
     states: {
       idle: {
         invoke: {
@@ -170,6 +176,12 @@ export const authMachine = createMachine<AuthContext>(
           KICKED: {
             target: "disconnected",
             actions: ["disableRetry", "disconnectUser"],
+          },
+          SOCKET_ERROR: {
+            target: "disconnected",
+          },
+          SOCKET_RECONNECTED: {
+            target: "idle",
           },
         },
       },

@@ -1,4 +1,4 @@
-import { Box, Center, HStack, Text } from "@chakra-ui/react"
+import { Alert, AlertIcon, Box, HStack, Text } from "@chakra-ui/react"
 import React from "react"
 import { getErrorMessage } from "../lib/errors"
 import { useIsAdmin } from "../state/authStore"
@@ -14,14 +14,15 @@ export default function RoomError() {
   }
   return (
     <Box bg={isAdmin ? "critical" : "secondaryBg"} p={2}>
-      <Center>
+      <Alert status="error">
+        <AlertIcon />
         <HStack>
           <Text>{getErrorMessage(room.spotifyError, isAdmin)}</Text>
           {room.spotifyError?.status === 401 && isAdmin && (
             <ButtonRoomAuthSpotify hideText />
           )}
         </HStack>
-      </Center>
+      </Alert>
     </Box>
   )
 }

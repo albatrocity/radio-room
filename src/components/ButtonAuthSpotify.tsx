@@ -12,12 +12,17 @@ import {
 import { CheckCircleIcon, DeleteIcon } from "@chakra-ui/icons"
 import { FaSpotify } from "react-icons/fa"
 
-import { useCurrentUser, useIsAdmin } from "../state/authStore"
+import {
+  useCurrentUser,
+  useIsAdmin,
+  useIsAuthenticated,
+} from "../state/authStore"
 import { useSpotifyAuthStore } from "../state/spotifyAuthStore"
 import { useLocation } from "@reach/router"
 
 export default function ButtonAuthSpotify({ userId }: { userId?: string }) {
   const currentUser = useCurrentUser()
+  const isAuthenticated = useIsAuthenticated()
   const isAdmin = useIsAdmin()
   const { state, send } = useSpotifyAuthStore()
   const location = useLocation()
@@ -30,6 +35,8 @@ export default function ButtonAuthSpotify({ userId }: { userId?: string }) {
       send("GENERATE_LOGIN_URL")
     }
   }
+
+  if (!isAuthenticated) return null
 
   return (
     <Box>

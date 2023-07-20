@@ -18,6 +18,7 @@ import {
   Spacer,
   Text,
   useToken,
+  InputElementProps,
 } from "@chakra-ui/react"
 import { motion } from "framer-motion"
 import { FiArrowUpCircle } from "react-icons/fi"
@@ -27,7 +28,7 @@ import { debounce } from "lodash"
 import { User } from "../types/User"
 import MentionSuggestionsContainer from "./MentionSuggestionsContainer"
 import { ChatMessage } from "../types/ChatMessage"
-import { useCurrentUser } from "../state/authStore"
+import { useCurrentUser, useIsAuthenticated } from "../state/authStore"
 import { useUsers } from "../state/usersStore"
 import { useModalsStore } from "../state/modalsState"
 
@@ -50,7 +51,7 @@ const renderUserSuggestion = (
   )
 }
 
-interface InputProps {
+type InputProps = {
   inputRef: MutableRefObject<ReactPortal>
   inputStyle: any
   handleKeyInput: () => void
@@ -67,7 +68,8 @@ interface InputProps {
   value: string
   onChange: (value: string) => void
   handleSubmit: (e: React.SyntheticEvent) => void
-}
+  isDisabled: boolean
+} & InputElementProps
 
 const Input = memo(
   ({
@@ -81,7 +83,7 @@ const Input = memo(
     value,
     onChange,
     handleSubmit,
-    ...props
+    isDisabled = false,
   }: InputProps) => (
     <MentionsInput
       name="content"
@@ -104,7 +106,8 @@ const Input = memo(
         }
         onChange(e.target.value)
       }}
-      placeholder="Say something..."
+      placeholder={isDisabled ? "" : "Say something..."}
+      disabled={isDisabled}
     >
       <Mention
         trigger="@"
@@ -125,6 +128,7 @@ interface Props {
 const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
   const currentUser = useCurrentUser()
   const users = useUsers()
+  const isAuthenticated = useIsAuthenticated()
 
   const inputRef = useRef<ReactPortal>()
   const [isTyping, setTyping] = useState(false)
@@ -216,6 +220,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
       <Flex direction="row" w="100%" grow={1} justify="center" overflowX="clip">
         <Box
           w="100%"
+          opacity={isAuthenticated ? 1 : 0}
           sx={{
             "& > div": {
               height: "100%",
@@ -236,6 +241,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
             mentionStyle={mentionStyle}
             renderUserSuggestion={renderUserSuggestion}
             autoFocus={modalActive}
+            isDisabled={!isAuthenticated}
           />
         </Box>
         <Spacer />
