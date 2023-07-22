@@ -17,19 +17,19 @@ export default function RoomPage({}: Props) {
 }
 
 function buildTitle(meta?: StationMeta) {
-  return `${meta?.track || meta?.title}${
-    meta?.artist ? ` | ${meta.artist} ` : ""
-  }`
+  return meta?.track
+    ? `${meta?.track ?? meta?.title}${meta?.artist ? ` | ${meta.artist} ` : ""}`
+    : null
 }
 
 export function Head({}: HeadProps) {
   const room = useCurrentRoom()
   const meta = useStationMeta()
-
+  const prefix = buildTitle(meta)
   return (
     <>
       <title>
-        {!!meta?.bitrate && `${buildTitle(meta)} | `}
+        {!!meta?.bitrate && `${prefix ? `${prefix} | ` : ""}`}
         {room?.title}
       </title>
       <meta

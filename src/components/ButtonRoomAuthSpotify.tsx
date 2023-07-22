@@ -55,7 +55,7 @@ export default function ButtonRoomAuthSpotify({
       )}
       {state.matches("authenticated") && (
         <HStack spacing={2}>
-          <CheckCircleIcon color="primary" />
+          <CheckCircleIcon color="primary" _dark={{ color: "secondaryText" }} />
           <Text fontSize="sm">
             Your Spotify account is linked to this room.
           </Text>
