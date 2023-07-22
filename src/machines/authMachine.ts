@@ -137,7 +137,7 @@ export const authMachine = createMachine<AuthContext>(
           INIT: [
             {
               target: "authenticated",
-              actions: ["activateAdmin"],
+              actions: ["activateAdmin", "setCurrentUser", "saveUser"],
               cond: "isRoomAdmin",
             },
             {
@@ -153,6 +153,7 @@ export const authMachine = createMachine<AuthContext>(
         },
       },
       authenticated: {
+        entry: ["saveUser"],
         on: {
           SETUP: {
             target: "connecting",
@@ -209,13 +210,16 @@ export const authMachine = createMachine<AuthContext>(
         console.log("event", event)
       },
       setCurrentUser: assign((ctx, event) => {
-        if (event.type !== "done.invoke.getStoredUser") {
-          return ctx
+        if (
+          event.type === "done.invoke.getStoredUser" ||
+          event.type === "INIT"
+        ) {
+          return {
+            currentUser: event.data.currentUser,
+            isNewUser: event.data.isNewUser,
+          }
         }
-        return {
-          currentUser: event.data.currentUser,
-          isNewUser: event.data.isNewUser,
-        }
+        return ctx
       }),
       unsetNew: assign(() => {
         return {
