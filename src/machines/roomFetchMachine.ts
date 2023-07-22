@@ -1,6 +1,8 @@
 // state machine for fetching saved tracks
 
+import { HTTPError } from "ky"
 import { assign, createMachine, sendTo } from "xstate"
+import { getErrorMessage } from "../lib/errors"
 
 import { findRoom, RoomFindResponse } from "../lib/serverApi"
 import socketService from "../lib/socketService"
@@ -12,7 +14,7 @@ export interface RoomFetchContext {
   fetchOnInit: boolean
   id: Room["id"] | null
   room: Omit<Room, "password"> | null
-  error: string
+  error?: RoomError | null
 }
 
 async function fetchRoom(ctx: RoomFetchContext): Promise<RoomFindResponse> {
@@ -34,11 +36,17 @@ export type RoomFetchEvent =
       data: null
       error?: RoomError
     }
+  | {
+      type: "error.platform.fetchRoom"
+      data?: HTTPError
+      error: null
+    }
   | { type: "FETCH"; data: { id: Room["id"] }; error?: string }
   | { type: "RESET" }
   | { type: "SETTINGS"; data: Room }
   | { type: "ROOM_SETTINGS"; data: { room: Omit<Room, "password"> } }
   | { type: "GET_LATEST_ROOM_DATA" }
+  | { type: "ROOM_DELETED" }
 
 export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
   {
@@ -49,7 +57,6 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
       fetchOnInit: true,
       id: null,
       room: null,
-      error: "",
     },
     invoke: [
       {
@@ -65,6 +72,9 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
       RESET: {
         actions: ["reset"],
         target: "initial",
+      },
+      ROOM_DELETED: {
+        actions: ["assignRoomDeleted"],
       },
     },
     states: {
@@ -101,9 +111,25 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
   {
     actions: {
       setError: assign((ctx, event) => {
-        if (event.type !== "error.invoke.fetchRoom") return ctx
+        if (
+          event.type !== "error.invoke.fetchRoom" &&
+          event.type !== "error.platform.fetchRoom"
+        ) {
+          return ctx
+        }
+
+        const errorStatus = event.data?.response?.status ?? event.error?.status
+        const errorMessage = getErrorMessage(
+          { status: errorStatus },
+          false,
+          "room",
+        )
+
         return {
-          error: event.error,
+          error: {
+            message: errorMessage,
+            status: errorStatus ?? 500,
+          },
         }
       }),
       setId: assign((ctx, event) => {
@@ -127,7 +153,7 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
         return {
           id: null,
           room: null,
-          error: "",
+          error: null,
         }
       }),
       getLatestData: sendTo("socket", (ctx) => {
@@ -142,6 +168,15 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
             id: ctx.id,
             lastMessageTime,
             lastPlaylistItemTime,
+          },
+        }
+      }),
+      assignRoomDeleted: assign(() => {
+        return {
+          error: {
+            message:
+              "This room has expired and its data has been permanently deleted.",
+            status: 404,
           },
         }
       }),

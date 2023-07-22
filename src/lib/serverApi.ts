@@ -46,3 +46,8 @@ export async function deleteRoom(id: Room["id"]) {
   const res: RoomFindResponse = await api.delete(`rooms/${id}`).json()
   return res
 }
+
+export async function logout() {
+  const res = await api.post(`logout`).json()
+  return res
+}

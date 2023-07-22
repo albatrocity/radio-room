@@ -1,12 +1,17 @@
 import { assign, sendTo, createMachine, AnyEventObject } from "xstate"
 import { get } from "lodash/fp"
 import socketService from "../lib/socketService"
-import { getCurrentUser, saveCurrentUser } from "../lib/getCurrentUser"
+import {
+  getCurrentUser,
+  saveCurrentUser,
+  clearCurrentUser,
+} from "../lib/getCurrentUser"
+import { logout } from "../lib/serverApi"
 import { getPassword, savePassword } from "../lib/passwordOperations"
 
 import { User } from "../types/User"
 export interface AuthContext {
-  currentUser: User
+  currentUser?: User
   isNewUser: boolean
   isAdmin: boolean
   shouldRetry: boolean
@@ -42,9 +47,6 @@ export const authMachine = createMachine<AuthContext>(
     id: "auth",
     initial: "idle",
     context: {
-      currentUser: {
-        userId: "",
-      },
       isNewUser: false,
       isAdmin: false,
       shouldRetry: true,
@@ -63,26 +65,17 @@ export const authMachine = createMachine<AuthContext>(
         target: "initiated",
         cond: "shouldRetry",
       },
+      LOGOUT: {
+        target: "unauthenticated",
+        actions: ["logout", "clearSession"],
+      },
+      SETUP: {
+        target: "initiated",
+        actions: ["setRoomId"],
+      },
     },
     states: {
-      idle: {
-        invoke: {
-          id: "getStoredUser",
-          src: getStoredUser,
-          onError: {
-            target: "unauthenticated",
-          },
-          onDone: {
-            actions: ["setCurrentUser"],
-          },
-        },
-        on: {
-          SETUP: {
-            target: "initiated",
-            actions: ["setRoomId"],
-          },
-        },
-      },
+      idle: {},
       initiated: {
         invoke: {
           id: "getStoredUser",
@@ -201,6 +194,22 @@ export const authMachine = createMachine<AuthContext>(
           ],
         },
       },
+      loggingOut: {
+        invoke: {
+          id: "logout",
+          src: logout,
+          onDone: {
+            target: "idle",
+            actions: [
+              "clearSession",
+              () => {
+                console.log("LOGGED OUT")
+                window.location.reload()
+              },
+            ],
+          },
+        },
+      },
     },
   },
   {
@@ -282,6 +291,16 @@ export const authMachine = createMachine<AuthContext>(
           roomId: ctx.roomId,
         },
       })),
+      clearSession: assign(() => {
+        clearCurrentUser()
+        return {
+          currentUser: undefined,
+          isNewUser: true,
+          isAdmin: false,
+          shouldRetry: true,
+          roomId: undefined,
+        }
+      }),
       kickUser: sendTo("socket", (_ctx, event) => ({
         type: "kick user",
         data: {

@@ -92,6 +92,10 @@ const spotifyAddToLibraryMachine = createMachine<Context, Event>(
         target: "initial",
         cond: "hasAccessToken",
       },
+      SET_IDS: {
+        actions: ["setIds"],
+        target: "loading.checking",
+      },
     },
     states: {
       initial: {
@@ -137,12 +141,6 @@ const spotifyAddToLibraryMachine = createMachine<Context, Event>(
       },
       error: {
         id: "error",
-        on: {
-          SET_IDS: {
-            actions: ["setIds"],
-            target: "loading.checking",
-          },
-        },
       },
     },
   },

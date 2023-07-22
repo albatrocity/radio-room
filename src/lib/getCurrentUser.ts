@@ -29,13 +29,20 @@ export function getCurrentUser(un?: string) {
 export function saveCurrentUser({
   currentUser,
 }: Pick<AuthContext, "currentUser">) {
-  const userId = currentUser.userId ?? sessionStorage.getItem(SESSION_ID)
-  sessionStorage.setItem(SESSION_USERNAME, currentUser?.username ?? "")
-  sessionStorage.setItem(SESSION_ID, userId)
+  const userId = currentUser?.userId ?? sessionStorage.getItem(SESSION_ID)
+  if (userId) {
+    sessionStorage.setItem(SESSION_USERNAME, currentUser?.username ?? "")
+    sessionStorage.setItem(SESSION_ID, userId)
+  }
 
   return {
     currentUser: { username: currentUser?.username, userId },
     isAdmin: currentUser?.isAdmin,
     isNewUser: false,
   }
+}
+
+export function clearCurrentUser() {
+  sessionStorage.removeItem(SESSION_USERNAME)
+  sessionStorage.removeItem(SESSION_ID)
 }

@@ -1,6 +1,10 @@
 import { RoomError } from "../types/Room"
 
-export function getErrorMessage({ status }: RoomError, isAdmin?: boolean) {
+export function getErrorMessage(
+  { status }: Partial<RoomError>,
+  isAdmin?: boolean,
+  resourceType?: "room",
+) {
   switch (status) {
     case 401:
       return isAdmin
@@ -9,7 +13,9 @@ export function getErrorMessage({ status }: RoomError, isAdmin?: boolean) {
     case 403:
       return "You are not authorized to perform this action."
     case 404:
-      return "The requested resource could not be found."
+      return `${
+        resourceType === "room" ? "Room" : "The requested resource was"
+      } not found.`
     default:
       return "An error occurred with Spotify. Please try again later."
   }

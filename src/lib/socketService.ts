@@ -16,8 +16,6 @@ function socketService(callback: Callback, receive: any) {
 
   socket.io.on("error", (error) => {
     callback({ type: "SOCKET_ERROR", data: error })
-  })
-  socket.io.on("error", (error) => {
     callback({
       type: "ERROR",
       data: {

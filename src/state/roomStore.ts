@@ -9,12 +9,14 @@ export const useRoomStore = create(
     roomFetchMachine.withConfig({
       actions: {
         onError: (ctx) => {
+          console.log("ERROR", ctx)
           navigate("/", {
             state: {
               toast: {
-                title: "Oops!",
+                title: ctx.error?.title ?? "Oops!",
                 description:
-                  ctx.error ?? "An error occured trying to access that room.",
+                  ctx.error?.message ??
+                  "An error occured trying to access that room.",
                 status: "error",
               },
             },
@@ -56,6 +58,10 @@ export const useCurrentRoomHasAudio = () => {
 
 export const useRoomBanner = () => {
   return useRoomStore((s) => s.state.context.room?.extraInfo)
+}
+
+export const useRoomError = () => {
+  return useRoomStore((s) => s.state.context.error)
 }
 
 export const useRoomCreator = () => {
