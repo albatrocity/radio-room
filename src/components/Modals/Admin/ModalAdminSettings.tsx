@@ -65,7 +65,7 @@ function ModalAdminSettings() {
       size={isTriggersView ? "2xl" : "md"}
     >
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent bg="appBg">
         <ModalHeader>
           <Header
             showBack={!state.matches("settings.overview")}

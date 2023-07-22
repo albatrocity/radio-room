@@ -49,6 +49,12 @@ function RoomTypeCard(props: RadioTypeCardProps) {
         _focus={{
           boxShadow: "outline",
         }}
+        _dark={{
+          _checked: {
+            bg: "primary.600",
+            borderColor: "primary.500",
+          },
+        }}
         px={5}
         py={3}
       >
@@ -56,7 +62,9 @@ function RoomTypeCard(props: RadioTypeCardProps) {
           <Text fontSize="lg" fontWeight={700}>
             {title}
           </Text>
-          {input.checked && <CheckIcon color="secondary.500" />}
+          {input.checked && (
+            <CheckIcon color="secondary.500" _dark={{ color: "primary.200" }} />
+          )}
         </HStack>
         <Text as="p" fontSize="sm">
           {description}
