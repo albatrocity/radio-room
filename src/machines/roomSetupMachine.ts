@@ -39,7 +39,7 @@ export type RoomSetupEvent =
   | { type: "SAVED_TRACKS_RESULTS_FAILURE"; data: {}; error?: string }
   | {
       type: "SET_REQUIREMENTS"
-      data: Pick<RoomSetupContext, "challenge" | "userId">
+      data: Pick<RoomSetupContext, "challenge" | "userId"> & { room: RoomSetup }
     }
 
 export const roomSetupMachine = createMachine<RoomSetupContext, RoomSetupEvent>(
@@ -100,6 +100,7 @@ export const roomSetupMachine = createMachine<RoomSetupContext, RoomSetupEvent>(
         return {
           userId: event.data.userId,
           challenge: event.data.challenge,
+          room: event.data.room,
         }
       }),
     },

@@ -15,23 +15,11 @@ export default function CreateRoomPage({}: Props) {
   const urlParams = new URLSearchParams(location.search)
   const challenge = urlParams.get("challenge")
   const userId = urlParams.get("userId")
-  const roomType = sessionStorage.getItem("createRoomType") ?? "jukebox"
-  const roomTitle = sessionStorage.getItem("createRoomTitle")
-  const roomRadioUrl = sessionStorage.getItem("createRoomRadioUrl") ?? undefined
-  const roomRadioProtocol =
-    (sessionStorage.getItem("createRoomRadioProtocol") as StationProtocol) ??
-    "shoutcastv2"
 
   const [_state, send] = useMachine(roomSetupMachine, {
     context: {
       challenge,
       userId,
-      room: {
-        type: roomType === "jukebox" ? "jukebox" : "radio",
-        title: roomTitle ?? "My Room",
-        radioUrl: roomRadioUrl,
-        radioProtocol: roomRadioProtocol,
-      },
     },
   })
 
@@ -49,7 +37,21 @@ export default function CreateRoomPage({}: Props) {
       })
       return
     }
-    send("SET_REQUIREMENTS", { data: { challenge, userId } })
+    send("SET_REQUIREMENTS", {
+      data: {
+        challenge,
+        userId,
+        room: {
+          type: sessionStorage.getItem("createRoomType") ?? "jukebox",
+          title: sessionStorage.getItem("createRoomTitle") ?? "My Room",
+          radioUrl: sessionStorage.getItem("createRoomRadioUrl") ?? undefined,
+          radioProtocol:
+            (sessionStorage.getItem(
+              "createRoomRadioProtocol",
+            ) as StationProtocol) ?? "shoutcastv2",
+        },
+      },
+    })
   }, [challenge, userId, send])
 
   return (
