@@ -1,5 +1,5 @@
 import React, { useEffect } from "react"
-import { Box, Button, Heading, HStack } from "@chakra-ui/react"
+import { Box, Button, Heading, HStack, Show } from "@chakra-ui/react"
 
 import Layout from "./layout"
 import { AddIcon } from "@chakra-ui/icons"
@@ -25,7 +25,9 @@ export default function PageLayout({ children }: Props) {
     <Layout>
       <Box>
         <HStack p={4} bg="secondaryBg" w="100%" justifyContent="space-between">
-          <Heading>Rooms</Heading>
+          <Show above="sm">
+            <Heading>Rooms</Heading>
+          </Show>
           <HStack>
             {currentUser ? (
               <Button onClick={() => authSend("LOGOUT")} variant="ghost">
