@@ -2,17 +2,17 @@ import React from "react"
 import { Box, Hide, HStack, IconButton, Icon } from "@chakra-ui/react"
 import { RiPlayListFill } from "react-icons/ri"
 
-import { StationMeta } from "../types/StationMeta"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import ButtonListeners from "./ButtonListeners"
 import ReactionCounter from "./ReactionCounter"
 import AdminControls from "./AdminControls"
 import { useIsAdmin } from "../state/authStore"
+import { RoomMeta } from "../types/Room"
 
 type Props = {
   trackId: string
-  meta?: StationMeta
+  meta?: RoomMeta
   hasPlaylist: boolean
   onShowPlaylist: () => void
 }

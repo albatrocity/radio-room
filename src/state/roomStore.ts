@@ -9,11 +9,10 @@ export const useRoomStore = create(
     roomFetchMachine.withConfig({
       actions: {
         onError: (ctx) => {
-          console.log("ERROR", ctx)
           navigate("/", {
             state: {
               toast: {
-                title: ctx.error?.title ?? "Oops!",
+                title: "Something went wrong",
                 description:
                   ctx.error?.message ??
                   "An error occured trying to access that room.",

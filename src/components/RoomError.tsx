@@ -11,13 +11,14 @@ export default function RoomError() {
   const roomError = useRoomError()
   const isAdmin = useIsAdmin()
 
-  if (!room?.spotifyError && !roomError) {
+  if (!room?.spotifyError && !roomError && !room?.radioError) {
     return null
   }
-  const error = room?.spotifyError ?? roomError
+  const error = room?.spotifyError ?? roomError ?? room?.radioError
+
   const errorMessage = room?.spotifyError
     ? getErrorMessage(room.spotifyError, isAdmin)
-    : roomError?.message
+    : error?.message
 
   return (
     <Box bg={isAdmin ? "critical" : "secondaryBg"} p={2}>

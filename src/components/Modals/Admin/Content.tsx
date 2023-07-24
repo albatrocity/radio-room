@@ -17,6 +17,7 @@ import { useMachine } from "@xstate/react"
 import FormActions from "./FormActions"
 import { useModalsStore } from "../../../state/modalsState"
 import { useCurrentRoomHasAudio } from "../../../state/roomStore"
+import RadioProtocolSelect from "../../RadioProtocolSelect"
 
 function Content() {
   const hasAudio = useCurrentRoomHasAudio()
@@ -31,6 +32,8 @@ function Content() {
         fetchMeta: state.context.fetchMeta,
         extraInfo: state.context.extraInfo ?? "",
         artwork: state.context.artwork ?? "",
+        radioUrl: state.context.radioUrl ?? "",
+        radioProtocol: state.context.radioProtocol ?? "shoutcastv2",
       }}
       enableReinitialize
       validate={() => {
@@ -54,7 +57,7 @@ function Content() {
           <ModalBody>
             <VStack spacing={6}>
               <FormControl>
-                <FormLabel>Banner Content</FormLabel>
+                <FormLabel>Room Name</FormLabel>
                 <Input
                   name="title"
                   value={values.title}
@@ -69,6 +72,37 @@ function Content() {
                   }}
                 />
               </FormControl>
+
+              {state.context.type === "radio" && (
+                <>
+                  <FormControl>
+                    <FormLabel>Radio URL</FormLabel>
+                    <Input
+                      name="radioUrl"
+                      value={values.radioUrl}
+                      onBlur={handleBlur}
+                      onChange={(e) => {
+                        handleChange(e)
+                        if (e.target.value !== initialValues.radioUrl) {
+                          setTouched({ title: true })
+                        } else {
+                          setTouched({ title: false })
+                        }
+                      }}
+                    />
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Radio Protocol</FormLabel>
+                    <RadioProtocolSelect value={values.radioProtocol} />
+                    <FormHelperText>
+                      The streaming protocol that the internet radio station is
+                      using, which is required for accurate parsing of "now
+                      playing" data. If you get errors when setting up the room,
+                      try changing the protocol.
+                    </FormHelperText>
+                  </FormControl>
+                </>
+              )}
 
               <FormControl>
                 <FormLabel>Banner Content</FormLabel>
@@ -131,10 +165,10 @@ function Content() {
                   </Checkbox>
                   <FormHelperText>
                     Album Metadata (album artwork, release date, info URL) is
-                    automatically fetched from Spotify based on the metadata
-                    from the Shoustcast server. If you're getting inaccurate
-                    data or want to manually set the cover artwork, disable this
-                    option.
+                    automatically fetched from Spotify based on the data from
+                    the online radio server. If you're getting inaccurate data
+                    or want to display the meta directly from the online radio
+                    station, disable this option.
                   </FormHelperText>
                 </FormControl>
               )}

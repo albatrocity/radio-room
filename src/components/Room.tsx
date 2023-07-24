@@ -22,8 +22,6 @@ const Room = ({ id }: { id: string }) => {
   const currentUser = useCurrentUser()
   const { send: playlistSend } = usePlaylistStore()
 
-  console.log("currentUser", currentUser)
-
   const isNewUser = authContext.isNewUser
   const { send: modalSend } = useModalsStore()
   const playlist = useCurrentPlaylist()

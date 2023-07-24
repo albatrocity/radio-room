@@ -1,6 +1,6 @@
 import React from "react"
 import { Box, Container, HStack } from "@chakra-ui/react"
-import { StationMeta } from "../types/StationMeta"
+
 import ReactionCounter from "./ReactionCounter"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import RadioPlayer from "./RadioPlayer"
@@ -11,12 +11,14 @@ import {
   useIsPlaying,
   useVolume,
 } from "../state/audioStore"
+import { RoomMeta } from "../types/Room"
 
 type Props = {
-  meta?: StationMeta
+  meta?: RoomMeta
   trackId: string
   onShowPlaylist: () => void
   hasPlaylist: boolean
+  streamUrl?: string
 }
 
 export default function RadioControls({
@@ -24,6 +26,7 @@ export default function RadioControls({
   trackId,
   onShowPlaylist,
   hasPlaylist,
+  streamUrl,
 }: Props) {
   const { send: audioSend } = useAudioStore()
   const playing = useIsPlaying()
@@ -56,21 +59,24 @@ export default function RadioControls({
           </HStack>
         </Container>
       </Box>
-      <RadioPlayer
-        volume={volume}
-        meta={meta}
-        playing={playing}
-        muted={muted}
-        onVolume={handleVolume}
-        onPlayPause={handlePlayPause}
-        onLoad={handleLoad}
-        onPlay={handlePlay}
-        onMute={handleMute}
-        onShowPlaylist={onShowPlaylist}
-        hasPlaylist={hasPlaylist}
-        trackId={trackId}
-        loading={loading}
-      />
+      {streamUrl && (
+        <RadioPlayer
+          volume={volume}
+          meta={meta}
+          playing={playing}
+          muted={muted}
+          onVolume={handleVolume}
+          onPlayPause={handlePlayPause}
+          onLoad={handleLoad}
+          onPlay={handlePlay}
+          onMute={handleMute}
+          onShowPlaylist={onShowPlaylist}
+          hasPlaylist={hasPlaylist}
+          trackId={trackId}
+          loading={loading}
+          streamUrl={streamUrl}
+        />
+      )}
     </Box>
   )
 }

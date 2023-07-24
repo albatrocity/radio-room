@@ -1,4 +1,6 @@
 import { SpotifyTrack } from "./SpotifyTrack"
+import { StationMeta } from "./StationMeta"
+import { StationProtocol } from "./StationProtocol"
 import { User } from "./User"
 
 export type RoomError = {
@@ -18,18 +20,18 @@ export type Room = {
   enableSpotifyLogin: boolean
   deputizeOnJoin: boolean
   radioUrl?: string
+  radioProtocol?: StationProtocol
   createdAt?: string
   creator?: string
   spotifyError?: RoomError
+  radioError?: RoomError
   lastUpdatedAt?: string
 }
 
-export type RoomSetupShared = Pick<Room, "type" | "title">
-
-export type RoomSetupRadio = RoomSetupShared & {
-  type: "radio"
-  radioUrl: Room["radioUrl"]
-}
+export type RoomSetup = Pick<
+  Room,
+  "type" | "title" | "radioUrl" | "radioProtocol"
+>
 
 export type RoomMeta = {
   release?: SpotifyTrack
@@ -38,6 +40,7 @@ export type RoomMeta = {
   album?: string
   title?: string
   bitrate?: number
+  stationMeta: StationMeta
   dj?: User
   lastUpdatedAt?: string
 }

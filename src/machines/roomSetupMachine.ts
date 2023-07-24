@@ -7,13 +7,13 @@ import {
   createRoom as apiCreateRoom,
   RoomCreationResponse,
 } from "../lib/serverApi"
-import { RoomSetupShared } from "../types/Room"
+import { RoomSetup } from "../types/Room"
 
 interface RoomSetupContext {
   userId: string | null
   challenge: string | null
   error: string | null
-  room: RoomSetupShared | null
+  room: RoomSetup | null
 }
 
 async function createRoom(ctx: RoomSetupContext) {
@@ -21,6 +21,8 @@ async function createRoom(ctx: RoomSetupContext) {
     room: {
       type: ctx.room?.type ?? "jukebox",
       title: ctx.room?.title ?? "My Room",
+      radioUrl: ctx.room?.radioUrl ?? undefined,
+      radioProtocol: ctx.room?.radioProtocol ?? undefined,
     },
     challenge: ctx.challenge ?? "",
     userId: ctx.userId ?? "",
@@ -82,7 +84,6 @@ export const roomSetupMachine = createMachine<RoomSetupContext, RoomSetupEvent>(
         }
       }),
       setRoom: (ctx, event) => {
-        console.log("event", event)
         if (event.type !== "done.invoke.createRoomRequest") {
           return
         }

@@ -1,11 +1,11 @@
 import { createMachine, assign, sendTo } from "xstate"
 import socketService from "../lib/socketService"
 import { isEmpty, isNil } from "lodash/fp"
-import { StationMeta } from "../types/StationMeta"
+import { RoomMeta } from "../types/Room"
 
 interface Context {
   volume: number
-  meta?: StationMeta
+  meta?: RoomMeta
   participationStatus: "listening" | "participating"
 }
 
@@ -16,7 +16,7 @@ export const audioMachine = createMachine<Context>(
     initial: "offline",
     context: {
       volume: 1.0,
-      meta: {},
+      meta: undefined,
       participationStatus: "participating",
     },
     invoke: {

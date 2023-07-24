@@ -7,11 +7,11 @@ import {
   FormHelperText,
 } from "@chakra-ui/react"
 
-import { RoomSetupShared } from "../../types/Room"
+import { RoomSetup } from "../../types/Room"
 
 type Props = {
-  onChange: (settings: Partial<RoomSetupShared>) => void
-  settings: RoomSetupShared
+  onChange: (settings: Partial<RoomSetup>) => void
+  settings: RoomSetup
 }
 
 export default function SharedSettings({ onChange, settings }: Props) {

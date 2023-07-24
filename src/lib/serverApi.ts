@@ -1,5 +1,5 @@
 import ky from "ky"
-import { Room } from "../types/Room"
+import { Room, RoomSetup } from "../types/Room"
 const API_URL = process.env.GATSBY_API_URL
 
 const api = ky.create({
@@ -16,7 +16,7 @@ export type RoomCreationResponse = { room: Room }
 export type RoomFindResponse = { room: Room | null }
 export type RoomsResponse = { rooms: Room[] }
 export type CreateRoomParams = {
-  room: Pick<Room, "title" | "type">
+  room: RoomSetup
   challenge: string
   userId: string
 }

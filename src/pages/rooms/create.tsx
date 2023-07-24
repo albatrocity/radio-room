@@ -6,6 +6,7 @@ import Div100vh from "react-div-100vh"
 import { useMachine } from "@xstate/react"
 import { roomSetupMachine } from "../../machines/roomSetupMachine"
 import { useAuthStore } from "../../state/authStore"
+import { StationProtocol } from "../../types/StationProtocol"
 
 type Props = {}
 
@@ -16,7 +17,10 @@ export default function CreateRoomPage({}: Props) {
   const userId = urlParams.get("userId")
   const roomType = sessionStorage.getItem("createRoomType") ?? "jukebox"
   const roomTitle = sessionStorage.getItem("createRoomTitle")
-  const { state, send: authSend } = useAuthStore()
+  const roomRadioUrl = sessionStorage.getItem("createRoomRadioUrl") ?? undefined
+  const roomRadioProtocol =
+    (sessionStorage.getItem("createRoomRadioProtocol") as StationProtocol) ??
+    "shoutcastv2"
 
   const [_state, send] = useMachine(roomSetupMachine, {
     context: {
@@ -25,6 +29,8 @@ export default function CreateRoomPage({}: Props) {
       room: {
         type: roomType === "jukebox" ? "jukebox" : "radio",
         title: roomTitle ?? "My Room",
+        radioUrl: roomRadioUrl,
+        radioProtocol: roomRadioProtocol,
       },
     },
   })
@@ -43,15 +49,6 @@ export default function CreateRoomPage({}: Props) {
       })
       return
     }
-    authSend("SET_CURRENT_USER", {
-      data: {
-        currentUser: {
-          userId,
-        },
-        isNewUser: true,
-        isAdmin: true,
-      },
-    })
     send("SET_REQUIREMENTS", { data: { challenge, userId } })
   }, [challenge, userId, send])
 

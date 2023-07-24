@@ -21,7 +21,11 @@ export default function Lobby() {
 
   useEffect(() => {
     if (user?.userId) {
-      fetchSend("FETCH")
+      fetchSend("FETCH", {
+        data: {
+          userId: user?.userId,
+        },
+      })
     }
   }, [user?.userId])
 

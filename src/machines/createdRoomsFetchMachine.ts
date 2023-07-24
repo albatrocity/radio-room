@@ -57,14 +57,14 @@ export const createdRoomsFetchMachine = createMachine<
       rooms: [],
       error: null,
     },
-    states: {
-      initial: {
-        on: {
-          FETCH: {
-            target: "loading",
-          },
-        },
+    on: {
+      FETCH: {
+        target: "loading",
+        actions: ["setUserId"],
       },
+    },
+    states: {
+      initial: {},
       loading: {
         invoke: {
           id: "fetchUserRooms",

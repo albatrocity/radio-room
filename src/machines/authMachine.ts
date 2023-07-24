@@ -122,19 +122,6 @@ type AuthEvent =
       type: "SOCKET_RECONNECTING"
     }
   | {
-      type: "SOCKET_RECONNECT_FAILED"
-    }
-  | {
-      type: "SOCKET_RECONNECT_ATTEMPT"
-    }
-  | {
-      type: "SOCKET_RECONNECT_ERROR"
-      data: string
-    }
-  | {
-      type: "SOCKET_RECONNECTED"
-    }
-  | {
       type: "done.invoke.getSessionUser"
       data: {
         user: User
@@ -405,7 +392,9 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           )
         },
       }),
-      saveUser: setStoredUser,
+      saveUser: (ctx, event) => {
+        setStoredUser(ctx, event)
+      },
       setPasswordError: assign({
         passwordError: (_ctx, event) => {
           if (event.type !== "SET_PASSWORD_ACCEPTED") return undefined

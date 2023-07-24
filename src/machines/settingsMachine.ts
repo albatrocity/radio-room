@@ -11,6 +11,9 @@ type Context = Pick<
   | "artwork"
   | "deputizeOnJoin"
   | "enableSpotifyLogin"
+  | "type"
+  | "radioUrl"
+  | "radioProtocol"
 >
 
 type Event =
@@ -31,6 +34,8 @@ export const settingsMachine = createMachine<Context, Event>(
       artwork: undefined,
       deputizeOnJoin: false,
       enableSpotifyLogin: false,
+      type: "jukebox",
+      radioUrl: "",
     },
     invoke: [
       {
@@ -81,6 +86,9 @@ export const settingsMachine = createMachine<Context, Event>(
             artwork: event.data.room.artwork,
             deputizeOnJoin: event.data.room.deputizeOnJoin,
             enableSpotifyLogin: event.data.room.enableSpotifyLogin,
+            type: event.data.room.type,
+            radioUrl: event.data.room.radioUrl,
+            radioProtocol: event.data.room.radioProtocol,
           }
         }
         return ctx

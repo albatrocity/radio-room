@@ -6,7 +6,7 @@ import NowPlaying from "./NowPlaying"
 import { useAuthStore } from "../state/authStore"
 import { useIsStationOnline, useStationMeta } from "../state/audioStore"
 import createTrackId from "../lib/createTrackId"
-import { useCurrentRoomHasAudio } from "../state/roomStore"
+import { useCurrentRoom, useCurrentRoomHasAudio } from "../state/roomStore"
 import JukeboxControls from "./JukeboxControls"
 import RadioControls from "./RadioControls"
 
@@ -19,6 +19,7 @@ interface PlayerUiProps {
 const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const { state: authState } = useAuthStore()
   const hasAudio = useCurrentRoomHasAudio()
+  const room = useCurrentRoom()
   const isUnauthorized = authState.matches("unauthorized")
 
   const isOnline = useIsStationOnline()
@@ -46,12 +47,13 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
         />
       )}
 
-      {isOnline && hasAudio && (
+      {isOnline && hasAudio && room && (
         <RadioControls
           meta={meta}
           trackId={trackId}
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}
+          streamUrl={room.radioUrl}
         />
       )}
     </Flex>

@@ -90,9 +90,7 @@ async function getStoredTokens() {
 }
 
 async function getStoredCodeVerifier() {
-  console.log("GET STORED CODE VERIFIER")
   const verifier = await sessionStorage.getItem(SPOTIFY_CODE_VERIFIER)
-  console.log("verifier", verifier)
   if (!verifier) throw new Error("No code verifier found")
   return verifier
 }
@@ -282,7 +280,6 @@ export const spotifyAuthMachine = createMachine<
                   // set token data and save token data
                   // done inline to avoid type errors on event data
                   assign((_ctx, event: TokenEvent) => {
-                    console.log("ACTION", event.data)
                     return {
                       accessToken: event.data.access_token,
                       refreshToken: event.data.refresh_token,
@@ -320,7 +317,6 @@ export const spotifyAuthMachine = createMachine<
     actions: {
       setCodeVerifier: assign({
         codeVerifier: (ctx, event) => {
-          console.log("set code verifier", event)
           if (
             event.type !== "done.invoke.generateCodeVerifier" &&
             event.type !== "done.invoke.getStoredCodeVerifier"

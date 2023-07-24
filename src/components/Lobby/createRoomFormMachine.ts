@@ -1,14 +1,14 @@
 import { assign, createMachine } from "xstate"
-import { RoomSetupShared } from "../../types/Room"
+import { RoomSetup } from "../../types/Room"
 import { navigate } from "gatsby"
 
 export type Event =
-  | { type: "SELECT_TYPE"; data: { type: RoomSetupShared["type"] } }
-  | { type: "SET_SETTINGS"; data: { settings: Partial<RoomSetupShared> } }
+  | { type: "SELECT_TYPE"; data: { type: RoomSetup["type"] } }
+  | { type: "SET_SETTINGS"; data: { settings: Partial<RoomSetup> } }
   | { type: "NEXT"; data: null }
   | { type: "BACK"; data: null }
 
-export const createRoomFormMachine = createMachine<RoomSetupShared, Event>(
+export const createRoomFormMachine = createMachine<RoomSetup, Event>(
   {
     predictableActionArguments: true,
     id: "createRoomForm",
@@ -16,6 +16,8 @@ export const createRoomFormMachine = createMachine<RoomSetupShared, Event>(
     context: {
       type: "jukebox",
       title: "My Room",
+      radioUrl: undefined,
+      radioProtocol: undefined,
     },
     states: {
       selectType: {
@@ -66,6 +68,13 @@ export const createRoomFormMachine = createMachine<RoomSetupShared, Event>(
       storeRoomSettings(ctx) {
         sessionStorage.setItem("createRoomTitle", ctx.title)
         sessionStorage.setItem("createRoomType", ctx.type)
+        if (ctx.type === "radio" && !!ctx.radioUrl) {
+          sessionStorage.setItem("createRoomRadioUrl", ctx.radioUrl)
+          sessionStorage.setItem(
+            "createRoomRadioProtocol",
+            ctx.radioProtocol ?? "shoutcastv2",
+          )
+        }
       },
       redirectToLogin: (ctx, event) => {
         if (event.type === "NEXT") {

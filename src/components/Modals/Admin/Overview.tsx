@@ -23,7 +23,9 @@ function Overview() {
   const hasPassword = !!settingsState.context.password
   const spotifyLoginEnabled = settingsState.context.enableSpotifyLogin
   const hasSettings =
-    !!settingsState.context.extraInfo || !!settingsState.context.artwork
+    !!settingsState.context.extraInfo ||
+    !!settingsState.context.artwork ||
+    !!settingsState.context.radioUrl
   const hasDjSettings = settingsState.context.deputizeOnJoin
   return (
     <Box>
