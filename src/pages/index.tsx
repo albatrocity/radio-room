@@ -3,8 +3,6 @@ import { HeadProps, graphql } from "gatsby"
 
 import PageLayout from "../components/PageLayout"
 import Lobby from "../components/Lobby/Lobby"
-import { useIsStationOnline, useStationMeta } from "../state/audioStore"
-import { StationMeta } from "../types/StationMeta"
 import AppToasts from "../components/AppToasts"
 
 const IndexPage = () => (
@@ -16,21 +14,10 @@ const IndexPage = () => (
 
 export default IndexPage
 
-function buildTitle(meta?: StationMeta) {
-  return `${meta?.track || meta?.title}${
-    meta?.artist ? ` | ${meta.artist} ` : ""
-  }`
-}
-
 export function Head({ data }: HeadProps) {
-  const isOnline = useIsStationOnline()
-  const meta = useStationMeta()
   return (
     <>
-      <title>
-        {isOnline ? `${buildTitle(meta)} | ` : ""}
-        {data.site.siteMetadata.title}
-      </title>
+      <title>{data.site.siteMetadata.title}</title>
       <meta
         name="viewport"
         content="width=device-width, initial-scale=1, maximum-scale=1"
