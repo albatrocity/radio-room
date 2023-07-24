@@ -106,19 +106,6 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
                 Back to Rooms
               </Button>
             </Show>
-            <Hide above="sm">
-              <IconButton
-                as={Link}
-                size="xs"
-                variant="ghost"
-                colorScheme={buttonColorScheme}
-                icon={<ArrowBackIcon />}
-                aria-label="Back to Rooms"
-                to="/"
-              >
-                Back to Rooms
-              </IconButton>
-            </Hide>
           </WrapItem>
         </Wrap>
       </Stack>
