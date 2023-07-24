@@ -14,7 +14,7 @@ import {
 } from "@chakra-ui/react"
 import { EditIcon, SmallCloseIcon } from "@chakra-ui/icons"
 import { FiMic, FiMusic, FiEye, FiHeadphones } from "react-icons/fi"
-import { BiMessageRoundedDots } from "react-icons/bi"
+import { BiMessageRoundedDots, BiCrown } from "react-icons/bi"
 import { User } from "../types/User"
 
 const statusIcon = (user: User) => {
@@ -57,7 +57,9 @@ interface ListItemUserProps {
   onEditUser: (user: User) => void
   onKickUser?: (userId: string) => void
   onDeputizeDj?: (userId: string) => void
+  showStatus?: boolean
   userTyping: boolean
+  isAdmin?: boolean
 }
 
 const ListItemUser = ({
@@ -67,6 +69,8 @@ const ListItemUser = ({
   onKickUser,
   onDeputizeDj,
   userTyping,
+  showStatus = true,
+  isAdmin = false,
 }: ListItemUserProps) => {
   return (
     <ListItem
@@ -111,7 +115,8 @@ const ListItemUser = ({
         py={user.isDj ? 2 : 0}
         width="100%"
       >
-        {statusIcon(user)}
+        {showStatus && statusIcon(user)}
+        {isAdmin && <Icon as={BiCrown} boxSize={3} />}
         <Box>
           <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm">
             {user.username || "anonymous"}
@@ -130,15 +135,21 @@ const ListItemUser = ({
         )}
         {currentUser?.isAdmin &&
           !isEqual(user?.userId, currentUser?.userId) && (
-            <IconButton
-              size="xs"
-              variant={user.isDeputyDj ? "solid" : "ghost"}
-              aria-label="Deputize DJ"
-              onClick={() => {
-                onDeputizeDj?.(user.userId)
-              }}
-              icon={<Icon as={FiMusic} />}
-            />
+            <Tooltip
+              hasArrow
+              placement="top"
+              label={user.isDeputyDj ? "Remove DJ privileges" : "Deputize DJ"}
+            >
+              <IconButton
+                size="xs"
+                variant={user.isDeputyDj ? "solid" : "ghost"}
+                aria-label="Deputize DJ"
+                onClick={() => {
+                  onDeputizeDj?.(user.userId)
+                }}
+                icon={<Icon as={FiMusic} />}
+              />
+            </Tooltip>
           )}
         {currentUser?.isAdmin &&
           !isEqual(user?.userId, currentUser?.userId) && (

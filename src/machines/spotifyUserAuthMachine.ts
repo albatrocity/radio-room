@@ -10,6 +10,7 @@ import {
   refreshAccessToken,
 } from "../lib/spotify/spotifyPKCE"
 import { toast } from "../lib/toasts"
+import socketService from "../lib/socketService"
 
 const SPOTIFY_ACCESS_TOKEN = "spotifyAccessToken"
 const SPOTIFY_REFRESH_TOKEN = "spotifyRefreshToken"
@@ -43,6 +44,30 @@ export type UserAuthEvent =
       type: "done.invoke.generateCodeVerifier"
       data: string
     }
+  | {
+      type: "done.invoke.getStoredCodeVerifier"
+      data: string
+    }
+  | {
+      type: "done.invoke.generateLoginUrl"
+      data: string
+    }
+  | {
+      type: "error.invoke.requestToken"
+      data: string
+    }
+  | {
+      type: "INIT"
+      data: {
+        accessToken?: string
+      }
+    }
+  | {
+      type: "SPOTIFY_ACCESS_TOKEN_REFRESHED"
+      data: {
+        accessToken?: string
+      }
+    }
 
 type TokenEvent = {
   type: "done.invoke.requestToken"
@@ -72,8 +97,8 @@ async function getStoredCodeVerifier() {
 
 function getTimeToRefresh(ctx: SpotifyUserAuthContext) {
   return (
-    (ctx.refreshedAt || Date.now()) +
-    (ctx.expiresIn || 3600) * 1000 -
+    (ctx.refreshedAt ?? Date.now()) +
+    (ctx.expiresIn ?? 3600) * 1000 -
     Date.now()
   )
 }
@@ -95,6 +120,12 @@ export const spotifyAuthMachine = createMachine<
       loginUrl: undefined,
       error: undefined,
     },
+    invoke: [
+      {
+        id: "socket",
+        src: () => socketService,
+      },
+    ],
     states: {
       initial: {
         invoke: {
@@ -122,6 +153,16 @@ export const spotifyAuthMachine = createMachine<
           REQUEST_TOKEN: {
             target: "working.handlingCallback",
             actions: ["setCode"],
+          },
+          INIT: {
+            actions: ["assignAccessToken"],
+            target: "authenticated",
+            cond: "hasAccessToken",
+          },
+          SPOTIFY_ACCESS_TOKEN_REFRESHED: {
+            actions: ["assignAccessToken"],
+            target: "authenticated",
+            cond: "hasAccessToken",
           },
         },
       },
@@ -275,21 +316,47 @@ export const spotifyAuthMachine = createMachine<
   {
     actions: {
       setCodeVerifier: assign({
-        codeVerifier: (ctx, event) => event.data ?? ctx.codeVerifier,
+        codeVerifier: (ctx, event) => {
+          if (
+            event.type !== "done.invoke.generateCodeVerifier" &&
+            event.type !== "done.invoke.getStoredCodeVerifier"
+          ) {
+            return ctx.codeVerifier
+          }
+          return event.data
+        },
       }),
       storeCodeVerifier: (_ctx, event) => {
+        if (event.type !== "done.invoke.generateCodeVerifier") {
+          return // only store code verifier on success
+        }
         if (event.data) {
           sessionStorage.setItem(SPOTIFY_CODE_VERIFIER, event.data)
         }
       },
       setLoginUrl: assign({
-        loginUrl: (ctx, event) => event.data ?? ctx.loginUrl,
+        loginUrl: (ctx, event) => {
+          if (event.type !== "done.invoke.generateLoginUrl") {
+            return ctx.loginUrl // keep existing login url on error
+          }
+          return event.data
+        },
       }),
       setCode: assign({
-        code: (ctx, event) => event.data ?? ctx.code,
+        code: (ctx, event) => {
+          if (event.type !== "REQUEST_TOKEN") {
+            return ctx.code
+          }
+          return event.data
+        },
       }),
       setError: assign({
-        error: (ctx, event) => event.data ?? ctx.error,
+        error: (ctx, event) => {
+          if (event.type !== "error.invoke.requestToken") {
+            return ctx.error
+          }
+          return event.data
+        },
       }),
       setRefreshedAt: assign({
         refreshedAt: () => Date.now(),
@@ -309,6 +376,22 @@ export const spotifyAuthMachine = createMachine<
           description: "Your Spotify account is now unlinked",
           status: "success",
         })
+      },
+      assignAccessToken: assign({
+        accessToken: (ctx, event) => {
+          if (event.type !== "INIT") {
+            return ctx.accessToken
+          }
+          return event.data.accessToken ?? ctx.accessToken
+        },
+      }),
+    },
+    guards: {
+      hasAccessToken: (ctx, event) => {
+        if (event.type !== "INIT") {
+          return !!ctx.accessToken
+        }
+        return !!event.data.accessToken
       },
     },
   },

@@ -1,10 +1,10 @@
 import React from "react"
-import { useBanner } from "../state/globalSettingsStore"
+import { useRoomBanner } from "../state/roomStore"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { Box } from "@chakra-ui/react"
 
 function Banner() {
-  const banner = useBanner()
+  const banner = useRoomBanner()
   if (!banner) {
     return null
   }

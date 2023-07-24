@@ -67,9 +67,7 @@ const DrawerBookmarks = () => {
             <BookmarkedMessages />
           ) : (
             <Text fontSize="sm">
-              Click the bookmark icon on a message to save it here. While the
-              chat gets periodically dumped, bookmarked messages will persist to
-              your browser session.
+              Click the bookmark icon on a message to save it here.
             </Text>
           )}
         </Box>

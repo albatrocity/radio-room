@@ -12,35 +12,45 @@ import {
 import { CheckCircleIcon, DeleteIcon } from "@chakra-ui/icons"
 import { FaSpotify } from "react-icons/fa"
 
-import { useCurrentUser } from "../state/authStore"
+import {
+  useCurrentUser,
+  useIsAdmin,
+  useIsAuthenticated,
+} from "../state/authStore"
 import { useSpotifyAuthStore } from "../state/spotifyAuthStore"
+import { useLocation } from "@reach/router"
 
 export default function ButtonAuthSpotify({ userId }: { userId?: string }) {
   const currentUser = useCurrentUser()
-  const isApp = userId === "app"
+  const isAuthenticated = useIsAuthenticated()
+  const isAdmin = useIsAdmin()
   const { state, send } = useSpotifyAuthStore()
+  const location = useLocation()
+
+  function handleLogin(e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!isAdmin) {
+      sessionStorage.setItem("postSpotifyAuthRedirect", location.pathname)
+      send("GENERATE_LOGIN_URL")
+    }
+  }
+
+  if (!isAuthenticated) return null
 
   return (
     <Box>
       {!state.matches("authenticated") && (
         <Button
-          as={isApp ? Link : undefined}
+          as={isAdmin ? Link : undefined}
           href={
-            isApp
+            isAdmin
               ? `${process.env.GATSBY_API_URL}/login?userId=${
                   userId ?? currentUser.userId
                 }`
               : undefined
           }
-          onClick={
-            isApp
-              ? undefined
-              : (e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  send("GENERATE_LOGIN_URL")
-                }
-          }
+          onClick={handleLogin}
           leftIcon={<Icon as={FaSpotify} />}
           isLoading={state.matches("working")}
           isDisabled={state.matches("working")}

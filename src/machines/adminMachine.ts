@@ -41,7 +41,7 @@ export const adminMachine = createMachine<any, AdminEvent>(
       }),
       setSettings: sendTo("socket", (_ctx, event) => {
         return {
-          type: "settings",
+          type: "set room settings",
           data: event.data,
         }
       }),

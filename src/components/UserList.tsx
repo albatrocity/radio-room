@@ -10,19 +10,26 @@ import { useCurrentUser, useAuthStore } from "../state/authStore"
 import { User } from "../types/User"
 import { useDj, useListeners } from "../state/usersStore"
 import { useAdminStore } from "../state/adminStore"
+import { useRoomCreator } from "../state/roomStore"
 
 interface UserListProps {
   onEditUser: (user: User) => void
   showHeading?: boolean
+  showStatus?: boolean
 }
 
-const UserList = ({ onEditUser, showHeading = true }: UserListProps) => {
+const UserList = ({
+  onEditUser,
+  showHeading = true,
+  showStatus = true,
+}: UserListProps) => {
   const [typingState] = useMachine(typingMachine)
 
   const { send: authSend } = useAuthStore()
   const { send: adminSend } = useAdminStore()
   const currentUser = useCurrentUser()
   const listeners = useListeners()
+  const creator = useRoomCreator()
   const dj = useDj()
 
   const {
@@ -66,9 +73,11 @@ const UserList = ({ onEditUser, showHeading = true }: UserListProps) => {
             <ListItemUser
               key={currentListener.userId}
               user={currentListener}
+              isAdmin={currentListener.userId === creator}
               userTyping={isTyping(currentUser)}
               currentUser={currentUser}
               onEditUser={onEditUser}
+              showStatus={showStatus}
             />
           )}
           {reverse(reject({ userId: currentUser.userId }, listeners)).map(
@@ -77,6 +86,8 @@ const UserList = ({ onEditUser, showHeading = true }: UserListProps) => {
                 <ListItemUser
                   key={x.userId}
                   user={x}
+                  isAdmin={x.userId === creator}
+                  showStatus={showStatus}
                   userTyping={isTyping(x)}
                   currentUser={currentUser}
                   onEditUser={onEditUser}

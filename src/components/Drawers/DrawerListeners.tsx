@@ -5,15 +5,16 @@ import UserList from "../UserList"
 import Drawer from "../Drawer"
 import { useListeners } from "../../state/usersStore"
 import { useModalsStore } from "../../state/modalsState"
+import { useCurrentRoomHasAudio } from "../../state/roomStore"
 
 function DrawerListeners() {
   const listeners = useListeners()
   const { send } = useModalsStore()
+  const hasAudio = useCurrentRoomHasAudio()
   const isModalViewingListeners = useModalsStore((s) =>
     s.state.matches("listeners"),
   )
   const hideListeners = () => send("CLOSE")
-  const handleEditSettings = () => send("EDIT_SETTINGS")
   const handleEditUser = () => send("EDIT_USERNAME")
 
   return (
@@ -28,7 +29,7 @@ function DrawerListeners() {
         <div>
           <UserList
             showHeading={false}
-            onEditSettings={handleEditSettings}
+            showStatus={hasAudio}
             onEditUser={handleEditUser}
           />
         </div>

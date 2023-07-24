@@ -13,45 +13,55 @@ import {
   Icon,
   Hide,
   Show,
+  Spinner,
+  Center,
+  Divider,
 } from "@chakra-ui/react"
 
 import AlbumArtwork from "./AlbumArtwork"
 
 import safeDate from "../lib/safeDate"
-import { TrackMeta } from "../types/Track"
 import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import { User } from "../types/User"
 import { useUsers } from "../state/usersStore"
+import { Room, RoomMeta } from "../types/Room"
+import { SpotifyTrack } from "../types/SpotifyTrack"
+import { useCurrentRoom, useRoomStore } from "../state/roomStore"
+import { InfoIcon } from "@chakra-ui/icons"
 
 interface NowPlayingProps extends BoxProps {
   offline: boolean
-  meta: TrackMeta
+  meta: RoomMeta
 }
 
-function getCoverUrl(release: any, meta: TrackMeta, mbid?: string) {
-  if (meta?.artwork) {
-    return meta.artwork
+function getCoverUrl({
+  release,
+  room,
+}: {
+  release?: SpotifyTrack
+  room?: Partial<Room> | null
+}) {
+  if (room?.artwork) {
+    return room.artwork
   }
-  if (release.artwork) {
-    return release.artwork
+  if (release?.album?.images.length) {
+    return release?.album.images[0]?.url
   }
-  if (mbid) {
-    return `https://coverartarchive.org/release/${mbid}/front-500`
-  }
+
   return null
 }
 
-const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
+const NowPlaying = ({ meta }: NowPlayingProps) => {
   const users: User[] = useUsers()
-  const {
-    album,
-    artist,
-    track,
-    release = { mbid: undefined, releaseDate: undefined },
-    title,
-    dj,
-  } = meta || {}
+  const room = useCurrentRoom()
+  const { state } = useRoomStore()
+  const { album, artist, track, release, title, dj, stationMeta } = meta || {}
+
+  const coverUrl = getCoverUrl({ release, room })
+  const artworkSize = [24, "100%", "100%"]
+  const releaseDate = release?.album?.release_date
+  const lastUpdate = meta?.lastUpdatedAt
 
   const djUsername = useMemo(
     () =>
@@ -61,15 +71,6 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
         : null,
     [users, dj],
   )
-
-  const { mbid, releaseDate } = release || {}
-  const releaseUrl = release?.url
-    ? release.url
-    : mbid && `https://musicbrainz.org/release/${mbid}`
-
-  const coverUrl = getCoverUrl(release, meta, mbid)
-
-  const artworkSize = [24, "100%", "100%"]
 
   return (
     <Box
@@ -82,93 +83,134 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
       height="100%"
     >
       <VStack spacing={4} justify="space-between" height="100%" width="100%">
-        {offline ? (
+        {state.matches("loading") && (
+          <Center h="100%" w="100%">
+            <Spinner />
+          </Center>
+        )}
+        {state.matches("success") && !meta.release?.uri && (
           <VStack>
-            <Heading
-              margin="none"
-              as="h2"
-              size="lg"
-              color="white"
-              textAlign="center"
-            >
-              Offline :(
-            </Heading>
+            {lastUpdate ? (
+              <VStack spacing={2} px={4} alignContent="flex-start">
+                <Heading
+                  w="100%"
+                  as="h2"
+                  size="lg"
+                  color="whiteAlpha.900"
+                  textAlign="left"
+                >
+                  Nothing is playing
+                </Heading>
+                <Text color="whiteAlpha.900">
+                  Play something on your Spotify account to get started.
+                </Text>
+              </VStack>
+            ) : (
+              <Center h="100%" w="100%">
+                <VStack spacing={4}>
+                  <Spinner />
+                  <Text>Getting your Spotify data...</Text>
+                </VStack>
+              </Center>
+            )}
             <Hide above="sm">
               <ButtonListeners />
             </Hide>
           </VStack>
-        ) : (
-          <LinkBox width="100%">
-            <Stack
-              direction={["row", "column"]}
-              spacing={5}
-              justify="center"
-              flexGrow={1}
-            >
-              {coverUrl && (
-                <Box
-                  width={artworkSize}
-                  height={artworkSize}
-                  flex={{ shrink: 0, grow: 1 }}
-                >
-                  <AlbumArtwork coverUrl={coverUrl} />
-                </Box>
-              )}
-              <VStack align={"start"} spacing={0}>
-                {(track || title) && (
-                  <>
-                    {releaseUrl ? (
-                      <LinkOverlay href={releaseUrl} isExternal={true}>
+        )}
+        {state.matches("success") && meta.release && (
+          <VStack align="start" spacing={4}>
+            <LinkBox width="100%">
+              <Stack
+                direction={["row", "column"]}
+                spacing={5}
+                justify="center"
+                flexGrow={1}
+              >
+                {coverUrl && (
+                  <Box
+                    width={artworkSize}
+                    height={artworkSize}
+                    flex={{ shrink: 0, grow: 1 }}
+                  >
+                    <AlbumArtwork coverUrl={coverUrl} />
+                  </Box>
+                )}
+                <VStack align={"start"} spacing={0}>
+                  {(track || title) && (
+                    <>
+                      {release?.external_urls?.spotify ? (
+                        <LinkOverlay
+                          href={release.external_urls.spotify}
+                          isExternal={true}
+                        >
+                          <Heading
+                            color="primaryBg"
+                            margin="none"
+                            as="h3"
+                            size={["md", "lg"]}
+                          >
+                            {track ?? title?.replace(/\|/g, "")}
+                          </Heading>
+                        </LinkOverlay>
+                      ) : (
                         <Heading
                           color="primaryBg"
                           margin="none"
                           as="h3"
                           size={["md", "lg"]}
                         >
-                          {track || title.replace(/\|/g, "")}
+                          {track ?? title?.replace(/\|/g, "")}
                         </Heading>
-                      </LinkOverlay>
-                    ) : (
-                      <Heading
-                        color="primaryBg"
-                        margin="none"
-                        as="h3"
-                        size={["md", "lg"]}
-                      >
-                        {track || title.replace(/\|/g, "")}
-                      </Heading>
-                    )}
-                  </>
-                )}
-                {artist && (
-                  <Heading color="primaryBg" margin="none" as="h4" size="sm">
-                    {artist}
-                  </Heading>
-                )}
-                {album && (
-                  <Text as="span" color="primaryBg" margin="none" fontSize="xs">
-                    {album}
-                  </Text>
-                )}
-                {releaseDate && (
-                  <Text as="span" color="primaryBg" fontSize="xs">
-                    Released {safeDate(releaseDate)}
-                  </Text>
-                )}
-                {dj && (
-                  <HStack mt={4} spacing={2}>
-                    <Icon color="primaryBg" boxSize={3} as={FiUser} />
-                    <Text as="i" color="primaryBg" fontSize="xs">
-                      Added by {djUsername}
+                      )}
+                    </>
+                  )}
+                  {artist && (
+                    <Heading color="primaryBg" margin="none" as="h4" size="sm">
+                      {artist}
+                    </Heading>
+                  )}
+                  {album && (
+                    <Text
+                      as="span"
+                      color="primaryBg"
+                      margin="none"
+                      fontSize="xs"
+                    >
+                      {album}
                     </Text>
-                  </HStack>
-                )}
-              </VStack>
-            </Stack>
-          </LinkBox>
+                  )}
+                  {releaseDate && (
+                    <Text as="span" color="primaryBg" fontSize="xs">
+                      Released {safeDate(releaseDate)}
+                    </Text>
+                  )}
+                  {dj && (
+                    <HStack mt={4} spacing={2}>
+                      <Icon color="primaryBg" boxSize={3} as={FiUser} />
+                      <Text as="i" color="primaryBg" fontSize="xs">
+                        Added by {djUsername}
+                      </Text>
+                    </HStack>
+                  )}
+                </VStack>
+              </Stack>
+            </LinkBox>
+            {stationMeta?.title && (
+              <HStack spacing={2}>
+                <InfoIcon color="primaryBg" boxSize={3} />
+                <Text color="primaryBg" fontSize="xs" lineHeight={1}>
+                  Based on a Spotify search for{" "}
+                  <Text as="span" fontWeight={500} fontStyle="italic">
+                    {stationMeta.title}
+                  </Text>
+                </Text>
+              </HStack>
+            )}
+          </VStack>
         )}
         <Show above="sm">
-          <ButtonAddToQueue />
+          <ButtonAddToQueue variant="solid" />
         </Show>
       </VStack>
     </Box>

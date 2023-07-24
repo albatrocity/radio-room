@@ -1,11 +1,12 @@
-import { createMachine, assign, send } from "xstate"
+import { createMachine, assign, sendTo } from "xstate"
 import socketService from "../lib/socketService"
 import { isEmpty, isNil } from "lodash/fp"
-import { StationMeta } from "../types/StationMeta"
+import { RoomMeta } from "../types/Room"
 
 interface Context {
   volume: number
-  meta?: StationMeta
+  meta?: RoomMeta
+  participationStatus: "listening" | "participating"
 }
 
 export const audioMachine = createMachine<Context>(
@@ -15,7 +16,8 @@ export const audioMachine = createMachine<Context>(
     initial: "offline",
     context: {
       volume: 1.0,
-      meta: {},
+      meta: undefined,
+      participationStatus: "participating",
     },
     invoke: {
       id: "socket",
@@ -39,7 +41,6 @@ export const audioMachine = createMachine<Context>(
             initial: "stopped",
             states: {
               playing: {
-                entry: ["startListening"],
                 initial: "loading",
                 states: {
                   loading: {
@@ -51,21 +52,29 @@ export const audioMachine = createMachine<Context>(
                   loaded: {},
                 },
                 on: {
-                  TOGGLE: "stopped",
+                  TOGGLE: {
+                    target: "stopped",
+                    actions: ["stopListening", "participate"],
+                  },
                   META: [
                     {
                       target: "playing.loaded",
                       actions: ["setMeta"],
                       cond: "hasBitrate",
                     },
-                    { target: "#audio.offline", actions: ["setMeta"] },
+                    {
+                      target: "#audio.offline",
+                      actions: ["setMeta", "participate", "stopListening"],
+                    },
                   ],
                 },
               },
               stopped: {
-                entry: ["stopListening"],
                 on: {
-                  TOGGLE: "playing",
+                  TOGGLE: {
+                    target: "playing",
+                    actions: ["listen", "startListening"],
+                  },
                   META: [
                     {
                       target: "stopped",
@@ -141,22 +150,18 @@ export const audioMachine = createMachine<Context>(
       setMeta: assign((_context, event) => {
         return { meta: event.data.meta }
       }),
-      startListening: send(
-        () => ({
-          type: "start listening",
-        }),
-        {
-          to: "socket",
-        },
-      ),
-      stopListening: send(
-        () => ({
-          type: "stop listening",
-        }),
-        {
-          to: "socket",
-        },
-      ),
+      startListening: sendTo("socket", () => ({
+        type: "start listening",
+      })),
+      listen: assign({
+        participationStatus: "listening",
+      }),
+      participate: assign({
+        participationStatus: "participating",
+      }),
+      stopListening: sendTo("socket", () => ({
+        type: "stop listening",
+      })),
     },
     guards: {
       volumeAboveZero: (_context, event) => parseFloat(event.volume) > 0,

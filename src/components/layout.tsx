@@ -9,23 +9,37 @@ import "./layout.css"
 import themes from "../themes"
 
 import { useCurrentTheme } from "../state/themeStore"
+import { useErrorsStore } from "../state/errorsStore"
 
-const ThemedLayout = ({ children }: { children: JSX.Element }) => {
+const ThemedLayout = ({
+  children,
+  fill,
+}: {
+  children: JSX.Element
+  fill?: boolean
+}) => {
   const chosenThemeId = useCurrentTheme()
-
   const chosenTheme = themes[chosenThemeId] ?? {}
+  useErrorsStore()
 
   const mergedTheme = extendTheme(baseTheme, { colors: chosenTheme.colors })
+  const Component = fill ? Div100vh : React.Fragment
 
   return (
     <ChakraProvider portalZIndex={10} theme={mergedTheme}>
-      <Div100vh>{children}</Div100vh>
+      <Component>{children}</Component>
     </ChakraProvider>
   )
 }
 
-const Layout = ({ children }: { children: JSX.Element }) => {
-  return <ThemedLayout>{children}</ThemedLayout>
+const Layout = ({
+  children,
+  fill = false,
+}: {
+  children: JSX.Element
+  fill?: boolean
+}) => {
+  return <ThemedLayout fill={fill}>{children}</ThemedLayout>
 }
 
 Layout.propTypes = {

@@ -1,4 +1,5 @@
 import { assign, createMachine } from "xstate"
+import { uniqBy } from "lodash/fp"
 import socketService from "../lib/socketService"
 import { PlaylistItem } from "../types/PlaylistItem"
 
@@ -26,6 +27,12 @@ export const playlistMachine = createMachine<Context>(
       PLAYLIST: {
         actions: ["setPlaylist"],
       },
+      PLAYLIST_TRACK_ADDED: {
+        actions: ["addToPlaylist"],
+      },
+      ROOM_DATA: {
+        actions: ["addTracksToPlaylist"],
+      },
     },
     initial: "inactive",
     states: {
@@ -51,6 +58,22 @@ export const playlistMachine = createMachine<Context>(
       setPlaylist: assign({
         playlist: (_ctx, event) => {
           return event.data
+        },
+      }),
+      addTracksToPlaylist: assign({
+        playlist: (ctx, event) => {
+          if (event.type !== "ROOM_DATA") {
+            return ctx.playlist
+          }
+          return uniqBy("timestamp", [...ctx.playlist, ...event.data.playlist])
+        },
+      }),
+      addToPlaylist: assign({
+        playlist: (ctx, event) => {
+          if (event.type !== "PLAYLIST_TRACK_ADDED") {
+            return ctx.playlist
+          }
+          return [...ctx.playlist, event.data.track]
         },
       }),
     },

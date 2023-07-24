@@ -4,7 +4,8 @@ import { audioMachine } from "../machines/audioMachine"
 
 export const useAudioStore = create(xstate(audioMachine))
 
-export const useCover = () => useAudioStore((s) => s.state.context.meta?.cover)
+export const useCover = () =>
+  useAudioStore((s) => s.state.context.meta?.artwork)
 export const useIsStationOnline = () =>
   useAudioStore((s) => s.state.matches("online"))
 

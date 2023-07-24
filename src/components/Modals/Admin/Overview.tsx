@@ -1,7 +1,6 @@
 import { ChevronRightIcon } from "@chakra-ui/icons"
 import { useMachine } from "@xstate/react"
 import {
-  Badge,
   Box,
   Button,
   HStack,
@@ -9,21 +8,25 @@ import {
   ModalBody,
   ModalFooter,
   VStack,
+  Divider,
 } from "@chakra-ui/react"
 import React from "react"
 import { useModalsStore } from "../../../state/modalsState"
 import { settingsMachine } from "../../../machines/settingsMachine"
 import ActiveIndicator from "../../ActiveIndicator"
-import { triggerEventsMachine } from "../../../machines/triggerEventsMachine"
+import DestructiveActions from "./DestructiveActions"
+import ButtonRoomAuthSpotify from "../../ButtonRoomAuthSpotify"
 
 function Overview() {
   const { send } = useModalsStore()
   const [settingsState] = useMachine(settingsMachine)
-  const [triggersState] = useMachine(triggerEventsMachine)
   const hasPassword = !!settingsState.context.password
   const spotifyLoginEnabled = settingsState.context.enableSpotifyLogin
   const hasSettings =
-    !!settingsState.context.extraInfo || !!settingsState.context.artwork
+    !!settingsState.context.extraInfo ||
+    !!settingsState.context.artwork ||
+    !!settingsState.context.radioUrl
+  const hasDjSettings = settingsState.context.deputizeOnJoin
   return (
     <Box>
       <ModalBody>
@@ -49,7 +52,7 @@ function Overview() {
               <Button
                 rightIcon={
                   <HStack>
-                    {hasSettings && <ActiveIndicator />}
+                    {hasDjSettings && <ActiveIndicator />}
                     <ChevronRightIcon />
                   </HStack>
                 }
@@ -87,47 +90,20 @@ function Overview() {
               </Button>
             </VStack>
           </VStack>
-          <VStack align="left" spacing={2}>
+
+          <VStack w="100%" align="left" spacing={2}>
             <Heading as="h4" size="sm" textAlign="left">
-              Triggers & Actions
+              Authentication
             </Heading>
-            <VStack w="100%" align="left" spacing="1px">
-              <Button
-                borderBottomRadius="none"
-                rightIcon={
-                  <HStack>
-                    {triggersState.context.reactions?.length && (
-                      <Badge colorScheme="primary">
-                        {triggersState.context.reactions?.length}
-                      </Badge>
-                    )}
-                    <ChevronRightIcon />
-                  </HStack>
-                }
-                variant="settingsCategory"
-                onClick={() => send("EDIT_REACTION_TRIGGERS")}
-              >
-                Reaction-triggered actions
-              </Button>
-              <Button
-                borderTopRadius="none"
-                rightIcon={
-                  <HStack>
-                    {triggersState.context.messages?.length && (
-                      <Badge colorScheme="primary">
-                        {triggersState.context.messages?.length}
-                      </Badge>
-                    )}
-                    <ChevronRightIcon />
-                  </HStack>
-                }
-                variant="settingsCategory"
-                onClick={() => send("EDIT_MESSAGE_TRIGGERS")}
-              >
-                Message-triggered actions
-              </Button>
-            </VStack>
+            <ButtonRoomAuthSpotify />
           </VStack>
+        </VStack>
+        <Divider my={6} />
+        <VStack w="100%" align="left" spacing={2}>
+          <Heading as="h4" size="sm" textAlign="left" color="red">
+            Danger Zone
+          </Heading>
+          <DestructiveActions />
         </VStack>
       </ModalBody>
       <ModalFooter />

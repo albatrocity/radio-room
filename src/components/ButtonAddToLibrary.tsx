@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect } from "react"
 import { useMachine } from "@xstate/react"
 import { IconButton } from "@chakra-ui/react"
 import { FaRegHeart, FaHeart } from "react-icons/fa"
@@ -16,17 +16,31 @@ interface Props {
 export default function ButtonAddToLibrary({ id }: Props) {
   const isAuthed = useIsSpotifyAuthenticated()
   const accessToken = useSpotifyAccessToken()
+
   const [state, send] = useMachine(spotifyAddToLibraryMachine, {
     context: {
       ids: id ? [id] : undefined,
       accessToken,
     },
   })
+
+  const isAdded = id ? state.context.tracks[id] : false
+
+  useEffect(() => {
+    if (id) {
+      send("SET_IDS", { data: [id] })
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (accessToken) {
+      send("SET_ACCESS_TOKEN", { data: accessToken })
+    }
+  }, [accessToken])
+
   if (!isAuthed || !id) {
     return null
   }
-
-  const isAdded = state.context.tracks[id]
 
   return (
     <IconButton

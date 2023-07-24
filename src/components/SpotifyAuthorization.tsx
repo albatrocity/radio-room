@@ -17,7 +17,10 @@ export default function SpotifyAuthorization() {
     if (code) {
       send("REQUEST_TOKEN", { data: code })
     } else {
-      navigate("/", { replace: true })
+      const redirectPath =
+        sessionStorage.getItem("postSpotifyAuthRedirect") ?? "/"
+      sessionStorage.removeItem("postSpotifyAuthRedirect")
+      navigate(redirectPath, { replace: true })
     }
   }, [code])
 

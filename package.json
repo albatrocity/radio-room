@@ -37,7 +37,6 @@
     "react-hotkeys-hook": "^4.3.7",
     "react-howler": "^5.2.0",
     "react-icons": "^4.7.1",
-    "react-konami-code": "^2.3.0",
     "react-markdown": "^8.0.5",
     "react-mentions": "^4.4.7",
     "react-page-visibility": "^7.0.0",
@@ -72,6 +71,7 @@
   "scripts": {
     "build": "gatsby build",
     "develop": "gatsby develop",
+    "develop:remote": "gatsby develop -H 0.0.0.0 -p 8000",
     "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
     "start": "npm run develop",
     "serve": "gatsby serve",

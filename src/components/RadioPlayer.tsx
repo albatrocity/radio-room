@@ -22,11 +22,11 @@ import ButtonAddToQueue from "./ButtonAddToQueue"
 import { useHotkeys } from "react-hotkeys-hook"
 import PlayStateIcon from "./PlayStateIcon"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
-import { TrackMeta } from "../types/Track"
+import { RoomMeta } from "../types/Room"
 
 interface RadioPlayerProps {
   volume: number
-  meta?: TrackMeta
+  meta?: RoomMeta
   playing: boolean
   muted: boolean
   onVolume: (volume: number) => void
@@ -38,9 +38,8 @@ interface RadioPlayerProps {
   hasPlaylist: boolean
   trackId: string
   loading: boolean
+  streamUrl: string
 }
-
-const streamURL = String(process.env.GATSBY_STREAM_URL)
 
 const RadioPlayer = ({
   volume,
@@ -56,6 +55,7 @@ const RadioPlayer = ({
   hasPlaylist,
   trackId,
   loading,
+  streamUrl,
 }: RadioPlayerProps) => {
   const player = useRef<ReactHowler>(null)
 
@@ -165,7 +165,7 @@ const RadioPlayer = ({
           </HStack>
         </Container>
         <ReactHowler
-          src={streamURL}
+          src={streamUrl}
           preload={false}
           playing={playing}
           mute={muted}

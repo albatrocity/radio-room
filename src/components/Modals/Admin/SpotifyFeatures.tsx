@@ -63,10 +63,10 @@ export default function SpotifyFeatures() {
                   Enable Guest Spotify Login
                 </Checkbox>
                 <FormHelperText>
-                  When enabled, users will be able to link log into their
-                  Spotify account, allowing them to see search results relevant
-                  to their account and create their own playlists from the
-                  listening history.
+                  When enabled, users will be able to link their Spotify
+                  account, allowing them to see search results relevant to their
+                  account and create their own playlists from the listening
+                  history.
                 </FormHelperText>
               </FormControl>
             </VStack>

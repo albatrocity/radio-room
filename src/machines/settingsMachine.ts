@@ -1,27 +1,41 @@
 import { createMachine, assign, sendTo } from "xstate"
 import socketService from "../lib/socketService"
+import { Room } from "../types/Room"
 
-interface Context {
-  fetchMeta: boolean
-  extraInfo: string
-  password: string
-  artwork?: string
-  deputizeOnJoin: boolean
-  enableSpotifyLogin: boolean
-}
+type Context = Pick<
+  Room,
+  | "title"
+  | "fetchMeta"
+  | "extraInfo"
+  | "password"
+  | "artwork"
+  | "deputizeOnJoin"
+  | "enableSpotifyLogin"
+  | "type"
+  | "radioUrl"
+  | "radioProtocol"
+>
 
-export const settingsMachine = createMachine<Context>(
+type Event =
+  | { type: "FETCH" }
+  | { type: "ROOM_SETTINGS"; data: { room: Room } }
+  | { type: "SUBMIT"; target: "pending" }
+
+export const settingsMachine = createMachine<Context, Event>(
   {
     predictableActionArguments: true,
     id: "settings",
     initial: "pending",
     context: {
+      title: "",
       fetchMeta: true,
       extraInfo: "",
       password: "",
       artwork: undefined,
       deputizeOnJoin: false,
       enableSpotifyLogin: false,
+      type: "jukebox",
+      radioUrl: "",
     },
     invoke: [
       {
@@ -30,7 +44,7 @@ export const settingsMachine = createMachine<Context>(
       },
     ],
     on: {
-      SETTINGS: {
+      ROOM_SETTINGS: {
         actions: "setValues",
       },
       FETCH: "pending",
@@ -61,18 +75,23 @@ export const settingsMachine = createMachine<Context>(
   },
   {
     actions: {
-      fetchSettings: sendTo("socket", () => ({ type: "get settings" })),
-      setValues: assign((_context, event) => {
-        if (event.type === "SETTINGS") {
+      fetchSettings: sendTo("socket", () => ({ type: "get room settings" })),
+      setValues: assign((ctx, event) => {
+        if (event.type === "ROOM_SETTINGS") {
           return {
-            fetchMeta: event.data.fetchMeta,
-            extraInfo: event.data.extraInfo,
-            password: event.data.password,
-            artwork: event.data.artwork,
-            deputizeOnJoin: event.data.deputizeOnJoin,
-            enableSpotifyLogin: event.data.enableSpotifyLogin,
+            title: event.data.room.title,
+            fetchMeta: event.data.room.fetchMeta,
+            extraInfo: event.data.room.extraInfo,
+            password: event.data.room.password,
+            artwork: event.data.room.artwork,
+            deputizeOnJoin: event.data.room.deputizeOnJoin,
+            enableSpotifyLogin: event.data.room.enableSpotifyLogin,
+            type: event.data.room.type,
+            radioUrl: event.data.room.radioUrl,
+            radioProtocol: event.data.room.radioProtocol,
           }
         }
+        return ctx
       }),
     },
   },

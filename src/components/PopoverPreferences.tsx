@@ -21,13 +21,13 @@ import { FiSettings, FiMoon } from "react-icons/fi"
 
 import FormTheme from "./FormTheme"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
-import { useGlobalSettings } from "../state/globalSettingsStore"
+import { useCurrentRoom } from "../state/roomStore"
 
 type Props = {}
 
 const PopoverPreferences = (props: Props) => {
   const { colorMode, toggleColorMode } = useColorMode()
-  const settings = useGlobalSettings()
+  const room = useCurrentRoom()
   return (
     <Popover isLazy>
       <PopoverTrigger>
@@ -59,7 +59,7 @@ const PopoverPreferences = (props: Props) => {
             <FormTheme />
           </VStack>
         </Box>
-        {settings.enableSpotifyLogin && (
+        {room?.enableSpotifyLogin && (
           <>
             <Divider />
             <Box p={4}>
