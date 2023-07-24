@@ -51,3 +51,8 @@ export async function logout() {
   const res = await api.post(`logout`).json()
   return res
 }
+
+export async function getSessionUser() {
+  const res = await api.get(`me`).json()
+  return res
+}

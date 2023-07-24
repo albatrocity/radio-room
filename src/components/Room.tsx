@@ -8,7 +8,7 @@ import Sidebar from "./Sidebar"
 import Overlays from "./Overlays"
 import KeyboardShortcuts from "./KeyboardShortcuts"
 
-import { useAuthStore } from "../state/authStore"
+import { useAuthStore, useCurrentUser } from "../state/authStore"
 import { useCurrentPlaylist, usePlaylistStore } from "../state/playlistStore"
 import { useListeners } from "../state/usersStore"
 import { useModalsStore } from "../state/modalsState"
@@ -19,7 +19,10 @@ const Room = ({ id }: { id: string }) => {
 
   const authStore = useAuthStore()
   const authContext = useAuthStore((s) => s.state.context)
+  const currentUser = useCurrentUser()
   const { send: playlistSend } = usePlaylistStore()
+
+  console.log("currentUser", currentUser)
 
   const isNewUser = authContext.isNewUser
   const { send: modalSend } = useModalsStore()
@@ -82,12 +85,14 @@ const Room = ({ id }: { id: string }) => {
         </GridItem>
 
         <GridItem area="chat" minHeight={0}>
-          <Chat />
+          {currentUser && <Chat />}
         </GridItem>
         <GridItem area="sidebar" h="100%">
-          <Show above="sm">
-            <Sidebar />
-          </Show>
+          {currentUser && (
+            <Show above="sm">
+              <Sidebar />
+            </Show>
+          )}
         </GridItem>
       </Grid>
 

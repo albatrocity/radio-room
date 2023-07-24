@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect } from "react"
 import { Box, Button, Heading, HStack } from "@chakra-ui/react"
 
 import Layout from "./layout"
@@ -16,7 +16,11 @@ export default function PageLayout({ children }: Props) {
   const { send } = useModalsStore()
   const { send: authSend } = useAuthStore()
   const currentUser = useCurrentUser()
-  console.log(currentUser)
+
+  useEffect(() => {
+    authSend("GET_SESSION_USER")
+  }, [])
+
   return (
     <Layout>
       <Box>

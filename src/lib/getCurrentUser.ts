@@ -1,6 +1,3 @@
-import { v4 as uuidv4 } from "uuid"
-
-import generateAnonName from "./generateAnonName"
 import {
   SESSION_ID,
   SESSION_USERNAME,
@@ -11,11 +8,10 @@ import { AuthContext } from "../machines/authMachine"
 
 export function getCurrentUser(un?: string) {
   const isNewUser = !sessionStorage.getItem(SESSION_ID)
-  const userId = sessionStorage.getItem(SESSION_ID) || uuidv4()
+  const userId = sessionStorage.getItem(SESSION_ID)
   const isAdmin = sessionStorage.getItem(SESSION_ADMIN) === "true"
 
-  const username =
-    un || sessionStorage.getItem(SESSION_USERNAME) || generateAnonName()
+  const username = un ?? sessionStorage.getItem(SESSION_USERNAME)
   const password = sessionStorage.getItem(SESSION_PASSWORD)
 
   return {

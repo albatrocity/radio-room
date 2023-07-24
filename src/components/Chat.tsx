@@ -20,6 +20,10 @@ const Chat = () => {
   }, [currentUser])
   const currentUserId = currentUser?.userId
 
+  if (!currentUserId) {
+    return null
+  }
+
   return (
     <Grid
       className="chat"

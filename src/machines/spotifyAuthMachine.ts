@@ -1,5 +1,5 @@
 // state machine for fetching the current user's spotify authentication status
-import { sendTo, createMachine } from "xstate"
+import { sendTo, createMachine, assign } from "xstate"
 import socketService from "../lib/socketService"
 import { toast } from "../lib/toasts"
 
@@ -61,9 +61,11 @@ export const spotifyAuthMachine = createMachine<Context>(
   },
   {
     actions: {
-      assignUserId: (ctx, event) => {
-        ctx.userId = event.data.currentUser.userId ?? ctx.userId
-      },
+      assignUserId: assign({
+        userId: (ctx, event) => {
+          return event.data.user.userId ?? ctx.userId
+        },
+      }),
       fetchAuthenticationStatus: sendTo("socket", (ctx) => {
         return {
           type: "get user spotify authentication status",
