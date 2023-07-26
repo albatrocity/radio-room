@@ -1,10 +1,11 @@
 import React from "react"
 import { Router } from "@reach/router"
-import RoomRoute from "../../components/RoomRoute"
 import { HeadProps } from "gatsby"
-import { useCurrentRoom } from "../../state/roomStore"
-import { StationMeta } from "../../types/StationMeta"
-import { useStationMeta } from "../../state/audioStore"
+
+import RoomRoute from "../../../components/RoomRoute"
+import { useCurrentRoom } from "../../../state/roomStore"
+import { useStationMeta } from "../../../state/audioStore"
+import { RoomMeta } from "../../../types/Room"
 
 type Props = {}
 
@@ -16,7 +17,7 @@ export default function RoomPage({}: Props) {
   )
 }
 
-function buildTitle(meta?: StationMeta) {
+function buildTitle(meta?: RoomMeta) {
   return meta?.track
     ? `${meta?.track ?? meta?.title}${meta?.artist ? ` | ${meta.artist} ` : ""}`
     : null
@@ -26,6 +27,7 @@ export function Head({}: HeadProps) {
   const room = useCurrentRoom()
   const meta = useStationMeta()
   const prefix = buildTitle(meta)
+
   return (
     <>
       <title>
