@@ -11,7 +11,7 @@ import { useAuthStore } from "../state/authStore"
 import Layout from "./layout"
 import { navigate } from "gatsby"
 import { useCurrentRoom, useRoomStore } from "../state/roomStore"
-import makeRoomTitle from "../lib/makeToomTitle"
+import makeRoomTitle from "../lib/makeRoomTitle"
 import { useStationMeta } from "../state/audioStore"
 
 init({ data })

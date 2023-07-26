@@ -1,6 +1,6 @@
 import { navigate } from "gatsby"
 import React, { useEffect } from "react"
-import makeRoomTitle from "../lib/makeToomTitle"
+import makeRoomTitle from "../lib/makeRoomTitle"
 import { useStationMeta } from "../state/audioStore"
 import { useCurrentRoom } from "../state/roomStore"
 
