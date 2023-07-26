@@ -97,7 +97,7 @@ export const roomSetupMachine = createMachine<RoomSetupContext, RoomSetupEvent>(
         sessionStorage.removeItem("createRoomType")
         sessionStorage.removeItem("createRoomRadioUrl")
         sessionStorage.removeItem("createRoomRadioProtocol")
-        navigate(`/rooms/${event.data.room.id}`)
+        navigate(`/rooms/${event.data.room.id}`, { replace: true })
       },
       setRequirements: assign((ctx, event) => {
         if (event.type !== "SET_REQUIREMENTS") return ctx

@@ -31,7 +31,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
   const bookmarks = useBookmarks()
 
   return (
-    <Box w={width}>
+    <Box w={width} py={1}>
       <Stack direction="column" {...rest}>
         <Show above="sm">
           <Heading
@@ -91,10 +91,24 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
               />
             </Hide>
           </WrapItem>
+          <Hide above="sm">
+            <WrapItem>
+              <IconButton
+                aria-label="Back to Rooms"
+                as={Link}
+                variant="ghost"
+                colorScheme={buttonColorScheme}
+                icon={<ArrowBackIcon />}
+                to="/"
+              >
+                Back to Rooms
+              </IconButton>
+            </WrapItem>
+          </Hide>
         </Wrap>
-        <Wrap>
-          <WrapItem>
-            <Show above="sm">
+        <Show above="sm">
+          <Wrap>
+            <WrapItem>
               <Button
                 as={Link}
                 size="xs"
@@ -105,9 +119,9 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
               >
                 Back to Rooms
               </Button>
-            </Show>
-          </WrapItem>
-        </Wrap>
+            </WrapItem>
+          </Wrap>
+        </Show>
       </Stack>
     </Box>
   )
