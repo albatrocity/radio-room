@@ -1,5 +1,6 @@
 import { assign, sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
+import socket from "../lib/socket"
 import {
   saveCurrentUser,
   clearCurrentUser,
@@ -13,6 +14,7 @@ import { Reaction } from "../types/Reaction"
 import { PlaylistItem } from "../types/PlaylistItem"
 import { ChatMessage } from "../types/ChatMessage"
 import { RoomMeta } from "../types/Room"
+import { SocketCallback } from "../types/SocketCallback"
 export interface AuthContext {
   currentUser?: User
   isNewUser: boolean
@@ -21,6 +23,7 @@ export interface AuthContext {
   password?: string
   passwordError: string | undefined
   roomId?: string
+  initialized: boolean
 }
 
 type AuthEvent =
@@ -149,6 +152,15 @@ function getStoredUser() {
   })
 }
 
+function socketEventService(callback: SocketCallback) {
+  socket.io.on("reconnect", () => {
+    callback({ type: "SOCKET_RECONNECTED", data: {} })
+  })
+  socket.io.on("error", () => {
+    callback({ type: "SOCKET_ERROR", data: {} })
+  })
+}
+
 export const authMachine = createMachine<AuthContext, AuthEvent>(
   {
     predictableActionArguments: true,
@@ -161,19 +173,20 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
       password: undefined,
       passwordError: undefined,
       roomId: undefined,
+      initialized: false,
     },
     invoke: [
       {
         id: "socket",
         src: () => socketService,
       },
+      {
+        id: "socketEventService",
+        src: () => socketEventService,
+      },
     ],
     on: {
       GET_SESSION_USER: "fetching",
-      SOCKET_RECONNECTED: {
-        target: "connecting",
-        cond: "shouldRetry",
-      },
       LOGOUT: {
         target: "loggingOut",
         actions: ["clearSession"],
@@ -209,13 +222,12 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
       },
       disconnected: {
         on: {
-          // always: {
-          //   target: "connecting",
-          //   cond: "shouldRetry",
-          // },
           SETUP: {
             target: "retrieving",
             actions: ["setRoomId"],
+          },
+          SOCKET_RECONNECTED: {
+            target: "retrieving",
           },
         },
       },
@@ -237,12 +249,12 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           INIT: [
             {
               target: "authenticated",
-              actions: ["activateAdmin", "setCurrentUser"],
+              actions: ["activateAdmin", "setCurrentUser", "assignInitialized"],
               cond: "isRoomAdmin",
             },
             {
               target: "authenticated",
-              actions: ["setCurrentUser", "saveUser"],
+              actions: ["setCurrentUser", "saveUser", "assignInitialized"],
             },
           ],
           UNAUTHORIZED: {
@@ -289,9 +301,6 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           SOCKET_ERROR: {
             target: "disconnected",
           },
-          SOCKET_RECONNECTED: {
-            target: "idle",
-          },
         },
       },
       unauthorized: {
@@ -332,6 +341,9 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         console.log("ctx", ctx)
         console.log("event", event)
       },
+      assignInitialized: assign({
+        initialized: () => true,
+      }),
       setCurrentUser: assign((ctx, event) => {
         if (
           event.type === "done.invoke.getSessionUser" ||
@@ -363,6 +375,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         return {
           type: "login",
           data: {
+            fetchAllData: !ctx.initialized,
             userId: event.data.currentUser.userId,
             username: event.data.currentUser.username,
             password: password,

@@ -2,13 +2,15 @@
 
 import { HTTPError } from "ky"
 import { assign, createMachine, sendTo } from "xstate"
-import { getErrorMessage } from "../lib/errors"
 
+import socket from "../lib/socket"
+import { getErrorMessage } from "../lib/errors"
 import { findRoom, RoomFindResponse } from "../lib/serverApi"
 import socketService from "../lib/socketService"
 import { useChatStore } from "../state/chatStore"
 import { usePlaylistStore } from "../state/playlistStore"
 import { Room, RoomError } from "../types/Room"
+import { SocketCallback } from "../types/SocketCallback"
 
 export interface RoomFetchContext {
   fetchOnInit: boolean
@@ -23,6 +25,22 @@ async function fetchRoom(ctx: RoomFetchContext): Promise<RoomFindResponse> {
     return results
   }
   throw new Error("No room id provided")
+}
+
+function socketEventService(callback: SocketCallback) {
+  socket.io.on("reconnect", () => {
+    callback({ type: "RECONNECTED", data: {} })
+  })
+  socket.io.on("error", (e) => {
+    callback({
+      type: "SOCKET_ERROR",
+      data: {
+        error: {
+          message: e,
+        },
+      },
+    })
+  })
 }
 
 export type RoomFetchEvent =
@@ -42,11 +60,13 @@ export type RoomFetchEvent =
       error: null
     }
   | { type: "FETCH"; data: { id: Room["id"] }; error?: string }
+  | { type: "SOCKET_ERROR"; data: { error?: RoomError } }
   | { type: "RESET" }
   | { type: "SETTINGS"; data: Room }
   | { type: "ROOM_SETTINGS"; data: { room: Omit<Room, "password"> } }
   | { type: "GET_LATEST_ROOM_DATA" }
   | { type: "ROOM_DELETED" }
+  | { type: "RECONNECTED" }
 
 export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
   {
@@ -63,6 +83,10 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
         id: "socket",
         src: () => socketService,
       },
+      {
+        id: "socketEventService",
+        src: () => socketEventService,
+      },
     ],
     on: {
       FETCH: {
@@ -75,6 +99,12 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
       },
       ROOM_DELETED: {
         actions: ["assignRoomDeleted"],
+      },
+      SOCKET_ERROR: {
+        actions: ["setSocketError"],
+      },
+      RECONNECTED: {
+        actions: ["getLatestData", "clearError"],
       },
     },
     states: {
@@ -110,10 +140,26 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
   },
   {
     actions: {
+      setSocketError: assign((ctx, event) => {
+        if (event.type !== "SOCKET_ERROR") return ctx
+        return {
+          error: {
+            message:
+              "You've been disconnected from the server, attempting to reconnect...",
+            status: 400,
+          },
+        }
+      }),
+      clearError: assign((ctx) => {
+        return {
+          error: null,
+        }
+      }),
       setError: assign((ctx, event) => {
         if (
           event.type !== "error.invoke.fetchRoom" &&
-          event.type !== "error.platform.fetchRoom"
+          event.type !== "error.platform.fetchRoom" &&
+          event.type !== "SOCKET_ERROR"
         ) {
           return ctx
         }
