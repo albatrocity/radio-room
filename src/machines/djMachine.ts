@@ -63,7 +63,7 @@ export const djMachine = createMachine<Context, Event>(
       },
       isDeputyDj: (_ctx, event) => {
         if (event.type !== "INIT") return false
-        return !!event.data.currentUser?.isDeputyDj
+        return !!event.data.user?.isDeputyDj
       },
     },
     actions: {

@@ -5,7 +5,7 @@ import { StationMeta } from "./StationMeta"
 import { User } from "./User"
 
 export type InitPayload = {
-  currentUser: User | null
+  user: User | null
   messages: ChatMessage[]
   meta: StationMeta
   playlist: PlaylistItem[]
