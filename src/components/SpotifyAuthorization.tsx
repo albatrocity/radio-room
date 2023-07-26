@@ -25,7 +25,7 @@ export default function SpotifyAuthorization() {
   }, [code])
 
   return (
-    <Center h="100%" w="100%">
+    <Center h="100vh" w="100%">
       <VStack spacing={4}>
         <Spinner size="lg" />
         <Text>Linking your account...</Text>
