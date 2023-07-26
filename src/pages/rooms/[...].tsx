@@ -31,7 +31,7 @@ export function Head({}: HeadProps) {
   return (
     <>
       <title>
-        {!!meta?.bitrate && `${prefix ? `${prefix} | ` : ""}`}
+        {`${prefix ? `${prefix} | ` : ""}`}
         {room?.title}
       </title>
       <meta
