@@ -5,6 +5,7 @@ module.exports = {
     author: `@albatrocity`,
   },
   plugins: [
+    `gatsby-plugin-netlify`,
     {
       resolve: `gatsby-source-filesystem`,
       options: {
