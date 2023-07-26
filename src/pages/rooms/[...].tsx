@@ -2,10 +2,10 @@ import React from "react"
 import { Router } from "@reach/router"
 import { HeadProps } from "gatsby"
 
-import RoomRoute from "../../../components/RoomRoute"
-import { useCurrentRoom } from "../../../state/roomStore"
-import { useStationMeta } from "../../../state/audioStore"
-import { RoomMeta } from "../../../types/Room"
+import RoomRoute from "../../components/RoomRoute"
+import { useCurrentRoom } from "../../state/roomStore"
+import { useStationMeta } from "../../state/audioStore"
+import { RoomMeta } from "../../types/Room"
 
 type Props = {}
 
