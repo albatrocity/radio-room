@@ -5,7 +5,6 @@ import { navigate } from "gatsby"
 import Div100vh from "react-div-100vh"
 import { useMachine } from "@xstate/react"
 import { roomSetupMachine } from "../../machines/roomSetupMachine"
-import { useAuthStore } from "../../state/authStore"
 import { StationProtocol } from "../../types/StationProtocol"
 
 type Props = {}

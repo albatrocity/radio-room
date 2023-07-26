@@ -93,6 +93,10 @@ export const roomSetupMachine = createMachine<RoomSetupContext, RoomSetupEvent>(
             isAdmin: true,
           },
         })
+        sessionStorage.removeItem("createRoomTitle")
+        sessionStorage.removeItem("createRoomType")
+        sessionStorage.removeItem("createRoomRadioUrl")
+        sessionStorage.removeItem("createRoomRadioProtocol")
         navigate(`/rooms/${event.data.room.id}`)
       },
       setRequirements: assign((ctx, event) => {

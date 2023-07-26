@@ -264,7 +264,16 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
             actions: ["disconnectUser"],
           },
           UPDATE_USERNAME: {
-            actions: ["unsetNew", "updateUsername", "changeUsername"],
+            actions: [
+              "unsetNew",
+              "updateUsername",
+              "changeUsername",
+              (ctx, event) => {
+                saveCurrentUser({
+                  currentUser: { ...ctx.currentUser, username: event.data },
+                })
+              },
+            ],
           },
           ACTIVATE_ADMIN: {
             actions: ["activateAdmin"],
