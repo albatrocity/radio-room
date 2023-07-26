@@ -1,5 +1,4 @@
 import React, { useEffect } from "react"
-import { Helmet } from "react-helmet"
 import data from "@emoji-mart/data"
 import { init } from "emoji-mart"
 import { Flex } from "@chakra-ui/react"
@@ -10,16 +9,12 @@ import AppToasts from "./AppToasts"
 import { useAuthStore } from "../state/authStore"
 import Layout from "./layout"
 import { navigate } from "gatsby"
-import { useCurrentRoom, useRoomStore } from "../state/roomStore"
-import makeRoomTitle from "../lib/makeRoomTitle"
-import { useStationMeta } from "../state/audioStore"
+import { useRoomStore } from "../state/roomStore"
 
 init({ data })
 
 const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
   const isVisible = usePageVisibility()
-  const room = useCurrentRoom()
-  const meta = useStationMeta()
 
   const { send } = useAuthStore()
   const { state: roomState, send: roomSend } = useRoomStore()

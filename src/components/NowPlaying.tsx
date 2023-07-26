@@ -15,7 +15,6 @@ import {
   Show,
   Spinner,
   Center,
-  Divider,
 } from "@chakra-ui/react"
 
 import AlbumArtwork from "./AlbumArtwork"
