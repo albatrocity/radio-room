@@ -37,6 +37,9 @@ export type Event =
       type: "EDIT_CONTENT"
     }
   | {
+      type: "EDIT_CHAT"
+    }
+  | {
       type: "EDIT_DJ"
     }
   | {
@@ -95,6 +98,7 @@ export const modalsMachine = createMachine<Context, Event>(
           overview: {
             on: {
               EDIT_CONTENT: "content",
+              EDIT_CHAT: "chat",
               EDIT_DJ: "dj",
               EDIT_SPOTIFY: "spotify",
               EDIT_PASSWORD: "password",
@@ -103,6 +107,11 @@ export const modalsMachine = createMachine<Context, Event>(
             },
           },
           content: {
+            on: {
+              BACK: "overview",
+            },
+          },
+          chat: {
             on: {
               BACK: "overview",
             },

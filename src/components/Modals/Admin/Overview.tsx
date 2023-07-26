@@ -26,6 +26,9 @@ function Overview() {
     !!settingsState.context.extraInfo ||
     !!settingsState.context.artwork ||
     !!settingsState.context.radioUrl
+  const hasChatSettings =
+    settingsState.context.announceNowPlaying ??
+    settingsState.context.announceUsernameChanges
   const hasDjSettings = settingsState.context.deputizeOnJoin
   return (
     <Box>
@@ -48,6 +51,19 @@ function Overview() {
                 onClick={() => send("EDIT_CONTENT")}
               >
                 Content
+              </Button>
+              <Button
+                rightIcon={
+                  <HStack>
+                    {hasChatSettings && <ActiveIndicator />}
+                    <ChevronRightIcon />
+                  </HStack>
+                }
+                variant="settingsCategory"
+                borderRadius="none"
+                onClick={() => send("EDIT_CHAT")}
+              >
+                Chat
               </Button>
               <Button
                 rightIcon={

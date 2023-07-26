@@ -15,6 +15,7 @@ import {
 import { ArrowBackIcon } from "@chakra-ui/icons"
 import Overview from "./Overview"
 import Content from "./Content"
+import Chat from "./Chat"
 import Password from "./Password"
 import ReactionTriggerActions from "./ReactionTriggerActions"
 import MessageTriggerActions from "./MessageTriggerActions"
@@ -82,6 +83,9 @@ function ModalAdminSettings() {
         </Collapse>
         <Collapse in={state.matches("settings.content")}>
           <Content />
+        </Collapse>
+        <Collapse in={state.matches("settings.chat")}>
+          <Chat />
         </Collapse>
         <Collapse in={state.matches("settings.spotify")}>
           <SpotifyFeatures />

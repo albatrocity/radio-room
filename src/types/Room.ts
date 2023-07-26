@@ -26,6 +26,8 @@ export type Room = {
   spotifyError?: RoomError
   radioError?: RoomError
   lastUpdatedAt?: string
+  announceUsernameChanges?: boolean
+  announceNowPlaying?: boolean
 }
 
 export type RoomSetup = Pick<

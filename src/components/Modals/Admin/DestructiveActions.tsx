@@ -47,7 +47,6 @@ export default function DestructiveActions() {
             popoverBody={
               <Text>
                 Are you sure you want to clear the chat? This cannot be undone.
-                Triggers based on messages will be reset.
               </Text>
             }
           />
@@ -63,7 +62,7 @@ export default function DestructiveActions() {
             popoverBody={
               <Text>
                 Are you sure you want to clear the playlist? This cannot be
-                undone. Triggers based on tracks will be reset.
+                undone.
               </Text>
             }
           />

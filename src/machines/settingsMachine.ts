@@ -14,6 +14,8 @@ type Context = Pick<
   | "type"
   | "radioUrl"
   | "radioProtocol"
+  | "announceUsernameChanges"
+  | "announceNowPlaying"
 >
 
 type Event =
@@ -27,6 +29,8 @@ export const settingsMachine = createMachine<Context, Event>(
     id: "settings",
     initial: "pending",
     context: {
+      announceUsernameChanges: true,
+      announceNowPlaying: true,
       title: "",
       fetchMeta: true,
       extraInfo: "",
@@ -89,6 +93,8 @@ export const settingsMachine = createMachine<Context, Event>(
             type: event.data.room.type,
             radioUrl: event.data.room.radioUrl,
             radioProtocol: event.data.room.radioProtocol,
+            announceNowPlaying: event.data.room.announceNowPlaying,
+            announceUsernameChanges: event.data.room.announceUsernameChanges,
           }
         }
         return ctx
