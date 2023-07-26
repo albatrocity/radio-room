@@ -7,6 +7,7 @@ import { ChatMessage } from "../types/ChatMessage"
 import { PlaylistItem } from "../types/PlaylistItem"
 import { ReactionsContext } from "./allReactionsMachine"
 import { Room } from "../types/Room"
+import { getCurrentUser } from "../state/authStore"
 
 type NewMessageEvent = {
   type: "NEW_MESSAGE"
@@ -28,7 +29,7 @@ type SubmitMessageAction = {
 
 type SetDataEvent =
   | {
-      type: "INIT" | "LOGIN" | "SET_MESSAGES"
+      type: "INIT" | "SET_MESSAGES"
       data: {
         currentUser: User
         messages: ChatMessage[]
@@ -47,19 +48,8 @@ type SetDataEvent =
       }
     }
 
-type SetCurrentUserEvent = {
-  type: "SET_CURRENT_USER"
-  data: {
-    username: User["username"]
-    userId: User["userId"]
-    password: string
-    isAdmin: boolean
-  }
-}
-
 type MachineEvent =
   | NewMessageEvent
-  | SetCurrentUserEvent
   | SetDataEvent
   | ResetEvent
   | TypingEvent
@@ -67,7 +57,6 @@ type MachineEvent =
 
 interface Context {
   messages: ChatMessage[]
-  currentUser: User | null
 }
 
 export const chatMachine = createMachine<Context, MachineEvent>(
@@ -77,12 +66,8 @@ export const chatMachine = createMachine<Context, MachineEvent>(
     initial: "unauthenticated",
     context: {
       messages: [],
-      currentUser: null,
     },
     on: {
-      LOGIN: {
-        actions: ["setData"],
-      },
       INIT: {
         actions: ["setData"],
       },
@@ -91,9 +76,6 @@ export const chatMachine = createMachine<Context, MachineEvent>(
       },
       CLEAR_MESSAGES: {
         actions: ["clearMessages"],
-      },
-      SET_CURRENT_USER: {
-        actions: ["setCurrentUser"],
       },
     },
     invoke: [
@@ -175,9 +157,9 @@ export const chatMachine = createMachine<Context, MachineEvent>(
           return context.messages
         },
       }),
-      handleNotifications: (ctx, event) => {
+      handleNotifications: (_ctx, event) => {
         if (event.type === "NEW_MESSAGE") {
-          handleNotifications(event.data, ctx.currentUser)
+          handleNotifications(event.data, getCurrentUser())
         }
       },
       setData: assign({
@@ -186,21 +168,6 @@ export const chatMachine = createMachine<Context, MachineEvent>(
             return event.data.messages || []
           }
           return ctx.messages
-        },
-        currentUser: (ctx, event) => {
-          if (event.type === "INIT") {
-            event.data.currentUser || null
-          }
-          return ctx.currentUser
-        },
-      }),
-      setCurrentUser: assign({
-        currentUser: (context, event) => {
-          if (event.type === "SET_CURRENT_USER") {
-            return event.data ? event.data : context.currentUser
-          } else {
-            return context.currentUser
-          }
         },
       }),
     },

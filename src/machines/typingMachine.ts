@@ -36,7 +36,7 @@ export const typingMachine = createMachine<Context>(
   {
     actions: {
       setTyping: assign({
-        typing: (context, event) => {
+        typing: (_context, event) => {
           return event.data.typing
         },
       }),

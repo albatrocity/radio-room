@@ -7,7 +7,6 @@ interface Context {
   listeners: User[]
   dj: User | null
   users: User[]
-  currentUser: User | null
 }
 
 export const usersMachine = createMachine<Context>(
@@ -19,7 +18,6 @@ export const usersMachine = createMachine<Context>(
       users: [],
       dj: null,
       listeners: [],
-      currentUser: null,
     },
     invoke: [
       {
@@ -33,12 +31,6 @@ export const usersMachine = createMachine<Context>(
       },
       USER_LEFT: {
         actions: ["setUsers"],
-      },
-      SET_CURRENT_USER: {
-        actions: ["setCurrentUser"],
-      },
-      LOGIN: {
-        actions: ["setUsers", "setCurrentUser"],
       },
       KICK_USER: {
         actions: ["kickUser"],
@@ -59,17 +51,7 @@ export const usersMachine = createMachine<Context>(
   },
   {
     actions: {
-      setCurrentUser: assign({
-        currentUser: (_context, event) => {
-          return event.data.currentUser
-        },
-      }),
       setUsers: assign({
-        currentUser: (context, event) => {
-          return event.data.currentUser
-            ? event.data.currentUser
-            : context.currentUser
-        },
         users: (_context, event) => {
           return event.data.users
         },

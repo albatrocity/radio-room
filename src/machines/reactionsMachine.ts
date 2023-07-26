@@ -3,12 +3,11 @@ import socketService from "../lib/socketService"
 import { isNil, find } from "lodash/fp"
 import { ReactionSubject } from "../types/ReactionSubject"
 import { Reaction } from "../types/Reaction"
-import { User } from "../types/User"
+import { getCurrentUser } from "../state/authStore"
 
 interface Context {
   reactTo: ReactionSubject | null
   reactions: Reaction[]
-  currentUser: User | null
 }
 
 export const reactionsMachine = createMachine<Context>(
@@ -19,7 +18,6 @@ export const reactionsMachine = createMachine<Context>(
     context: {
       reactTo: null,
       reactions: [],
-      currentUser: null,
     },
     invoke: [
       {
@@ -30,9 +28,6 @@ export const reactionsMachine = createMachine<Context>(
     on: {
       REACTIONS: {
         actions: ["setData"],
-      },
-      SET_USERS: {
-        actions: ["setCurrentUser"],
       },
       SET_REACT_TO: {
         actions: ["setReactTo"],
@@ -102,35 +97,35 @@ export const reactionsMachine = createMachine<Context>(
           return event.data.reactions ? event.data.reactions : []
         },
       }),
-      setCurrentUser: assign({
-        currentUser: (context, event) => {
-          return event.data.currentUser
-            ? event.data.currentUser
-            : context.currentUser
-        },
+      addReaction: sendTo("socket", (ctx, event) => {
+        const currentUser = getCurrentUser()
+        return {
+          type: "add reaction",
+          data: {
+            emoji: event.data,
+            reactTo: ctx.reactTo,
+            user: currentUser,
+          },
+        }
       }),
-      addReaction: sendTo("socket", (ctx, event) => ({
-        type: "add reaction",
-        data: {
-          emoji: event.data,
-          reactTo: ctx.reactTo,
-          user: ctx.currentUser,
-        },
-      })),
-      removeReaction: sendTo("socket", (ctx, event) => ({
-        type: "remove reaction",
-        data: {
-          emoji: event.data,
-          reactTo: ctx.reactTo,
-          user: ctx.currentUser,
-        },
-      })),
+      removeReaction: sendTo("socket", (ctx, event) => {
+        const currentUser = getCurrentUser()
+        return {
+          type: "remove reaction",
+          data: {
+            emoji: event.data,
+            reactTo: ctx.reactTo,
+            user: currentUser,
+          },
+        }
+      }),
     },
     guards: {
       reactionIsNew: (ctx, event) => {
+        const currentUser = getCurrentUser()
         return isNil(
           find(
-            { user: ctx.currentUser?.userId, emoji: event.data.shortcodes },
+            { user: currentUser?.userId, emoji: event.data.shortcodes },
             ctx.reactions,
           ),
         )
