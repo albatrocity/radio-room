@@ -28,6 +28,7 @@ import { Room, RoomMeta } from "../types/Room"
 import { SpotifyTrack } from "../types/SpotifyTrack"
 import { useCurrentRoom, useRoomStore } from "../state/roomStore"
 import { InfoIcon } from "@chakra-ui/icons"
+import { useIsAdmin } from "../state/authStore"
 
 interface NowPlayingProps extends BoxProps {
   offline: boolean
@@ -54,6 +55,7 @@ function getCoverUrl({
 const NowPlaying = ({ meta }: NowPlayingProps) => {
   const users: User[] = useUsers()
   const room = useCurrentRoom()
+  const isAdmin = useIsAdmin()
   const { state } = useRoomStore()
   const { album, artist, track, release, title, dj, stationMeta } = meta || {}
 
@@ -100,9 +102,17 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
                 >
                   Nothing is playing
                 </Heading>
-                <Text color="whiteAlpha.900">
-                  Play something on your Spotify account to get started.
-                </Text>
+                {isAdmin ? (
+                  <Text color="whiteAlpha.900">
+                    There's no active device playing Spotify. Pick something to
+                    play from your Spotify app and check back here.
+                  </Text>
+                ) : (
+                  <Text color="white">
+                    The host isn't currently playing anything on their Spotify
+                    account.
+                  </Text>
+                )}
               </VStack>
             ) : (
               <Center h="100%" w="100%">
