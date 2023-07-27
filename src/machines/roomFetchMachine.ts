@@ -67,6 +67,7 @@ export type RoomFetchEvent =
   | { type: "GET_LATEST_ROOM_DATA" }
   | { type: "ROOM_DELETED" }
   | { type: "RECONNECTED" }
+  | { type: "SESSION_ENDED" }
 
 export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
   {
@@ -105,6 +106,10 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
       },
       RECONNECTED: {
         actions: ["getLatestData", "clearError"],
+      },
+      SESSION_ENDED: {
+        actions: ["reset"],
+        target: "initial",
       },
     },
     states: {

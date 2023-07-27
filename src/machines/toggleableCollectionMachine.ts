@@ -21,7 +21,7 @@ const config = {
     idPath: "id",
   },
   on: {
-    TOGGLE_ITEM: { actions: ["toggleItem"] },
+    TOGGLE_ITEM: { actions: ["toggleItem", "persist"] },
     SET_ITEMS: { actions: ["setItems"] },
     ADD_ITEMS: { actions: ["addItems"] },
     CLEAR: { actions: ["clear"] },

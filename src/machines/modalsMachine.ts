@@ -57,6 +57,9 @@ export type Event =
   | {
       type: "NEXT"
     }
+  | {
+      type: "NUKE_USER"
+    }
 
 export const modalsMachine = createMachine<Context, Event>(
   {
@@ -84,6 +87,7 @@ export const modalsMachine = createMachine<Context, Event>(
         target: "closed",
       },
       CREATE_ROOM: "createRoom",
+      NUKE_USER: "nukeUser",
     },
     states: {
       closed: {},
@@ -144,6 +148,7 @@ export const modalsMachine = createMachine<Context, Event>(
         },
       },
       bookmarks: {},
+      nukeUser: {},
     },
   },
   {

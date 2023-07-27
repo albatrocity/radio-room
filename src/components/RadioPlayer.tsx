@@ -69,6 +69,9 @@ const RadioPlayer = ({
         player.current.howler?.stop()
       }
     }
+    return () => {
+      player.current?.howler?.unload()
+    }
   }, [playing, player.current])
 
   const handleError = useCallback(() => {
@@ -178,6 +181,7 @@ const RadioPlayer = ({
           onEnd={handleError}
           onPlay={onPlay}
           onLoad={onLoad}
+          autoSuspend={false}
         />
       </Box>
     </Box>

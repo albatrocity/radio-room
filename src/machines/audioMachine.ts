@@ -52,6 +52,10 @@ export const audioMachine = createMachine<Context>(
                   loaded: {},
                 },
                 on: {
+                  STOP: {
+                    target: "stopped",
+                    actions: ["stopListening", "participate"],
+                  },
                   TOGGLE: {
                     target: "stopped",
                     actions: ["stopListening", "participate"],

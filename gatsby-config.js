@@ -1,7 +1,7 @@
 module.exports = {
   siteMetadata: {
-    title: `Radio`,
-    description: `Listen to something`,
+    title: `Listening Rooms`,
+    description: `Listen to something together`,
     author: `@albatrocity`,
   },
   plugins: [
@@ -18,8 +18,8 @@ module.exports = {
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
-        name: `Radio`,
-        short_name: `Radio`,
+        name: `Listening Rooms`,
+        short_name: `Listening Rooms`,
         start_url: `/`,
         display: `minimal-ui`,
         icon: `src/images/icon.png`,

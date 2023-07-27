@@ -94,7 +94,7 @@ export default function RoomTypeSelect({ onSelect }: Props) {
     >
       <RoomTypeCard
         title="Jukebox"
-        description="People can see what you're currently playing, chat, and add songs to your Spotify queue. Great for offices, parties, and other social gatherings where a single Spotify account is playing music."
+        description="People can see what you're currently playing, chat, and add songs to your Spotify queue. Great for parties and other social gatherings where a single Spotify account is playing music."
         key="jukebox"
         {...getRadioProps({ value: "jukebox" })}
       />

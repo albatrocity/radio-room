@@ -43,6 +43,12 @@ type AuthEvent =
       type: "LOGOUT"
     }
   | {
+      type: "SESSION_ENDED"
+    }
+  | {
+      type: "NUKE_USER"
+    }
+  | {
       type: "ACTIVATE_ADMIN"
     }
   | {
@@ -301,6 +307,14 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           SOCKET_ERROR: {
             target: "disconnected",
           },
+          NUKE_USER: {
+            target: "loggingOut",
+            actions: ["clearSession", "nukeUser"],
+          },
+          SESSION_ENDED: {
+            target: "loggingOut",
+            actions: ["clearSession"],
+          },
         },
       },
       unauthorized: {
@@ -443,6 +457,9 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           shouldRetry: true,
           roomId: undefined,
         }
+      }),
+      nukeUser: sendTo("socket", () => {
+        return { type: "nuke user" }
       }),
       kickUser: sendTo("socket", (_ctx, event) => {
         if (event.type !== "KICK_USER") return

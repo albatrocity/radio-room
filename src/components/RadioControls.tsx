@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect } from "react"
 import { Box, Container, HStack } from "@chakra-ui/react"
 
 import ReactionCounter from "./ReactionCounter"
@@ -39,6 +39,12 @@ export default function RadioControls({
   const handleMute = () => audioSend("TOGGLE_MUTE")
   const handleLoad = () => audioSend("LOADED")
   const handlePlay = () => audioSend("PLAY")
+
+  useEffect(() => {
+    return () => {
+      audioSend("STOP")
+    }
+  }, [])
 
   return (
     <Box>

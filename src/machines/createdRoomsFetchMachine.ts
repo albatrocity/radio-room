@@ -43,6 +43,7 @@ export type RoomFetchEvent =
     }
   | { type: "FETCH"; data: { userId: User["userId"] }; error?: string }
   | { type: "DELETE_ROOM"; data: { roomId: string } }
+  | { type: "SESSION_ENDED" }
 
 export const createdRoomsFetchMachine = createMachine<
   RoomFetchContext,
@@ -61,6 +62,10 @@ export const createdRoomsFetchMachine = createMachine<
       FETCH: {
         target: "loading",
         actions: ["setUserId"],
+      },
+      SESSION_ENDED: {
+        target: "initial",
+        actions: ["reset"],
       },
     },
     states: {
@@ -133,6 +138,13 @@ export const createdRoomsFetchMachine = createMachine<
         }
         return {
           rooms: event.data.rooms,
+        }
+      }),
+      reset: assign((ctx) => {
+        return {
+          userId: undefined,
+          rooms: [],
+          error: null,
         }
       }),
     },
