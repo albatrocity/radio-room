@@ -21,8 +21,10 @@ import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import { useHotkeys } from "react-hotkeys-hook"
 import PlayStateIcon from "./PlayStateIcon"
+import AdminControls from "./AdminControls"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import { RoomMeta } from "../types/Room"
+import { useIsAdmin } from "../state/authStore"
 
 interface RadioPlayerProps {
   volume: number
@@ -58,6 +60,7 @@ const RadioPlayer = ({
   streamUrl,
 }: RadioPlayerProps) => {
   const player = useRef<ReactHowler>(null)
+  const isAdmin = useIsAdmin()
 
   useHotkeys("space", () => {
     onPlayPause()
@@ -100,24 +103,23 @@ const RadioPlayer = ({
         </Box>
       </Hide>
       <Box background="actionBgLite" py={1}>
-        <Container>
+        <Container px={3}>
           <HStack
             w="100%"
             direction="row"
-            justify="center"
+            justify="space-between"
             align="center"
-            spacing={2}
           >
-            {hasPlaylist && (
-              <IconButton
-                size="md"
-                aria-label="Playlist"
-                variant="ghost"
-                onClick={onShowPlaylist}
-                icon={<Icon boxSize={5} as={RiPlayListFill} />}
-              />
-            )}
             <HStack>
+              {hasPlaylist && (
+                <IconButton
+                  size="md"
+                  aria-label="Playlist"
+                  variant="ghost"
+                  onClick={onShowPlaylist}
+                  icon={<Icon boxSize={5} as={RiPlayListFill} />}
+                />
+              )}
               <IconButton
                 size="md"
                 aria-label={playing ? "Stop" : "Play"}
@@ -125,22 +127,24 @@ const RadioPlayer = ({
                 icon={<PlayStateIcon loading={loading} playing={playing} />}
                 onClick={() => onPlayPause()}
               />
-              <IconButton
-                size="md"
-                aria-label={muted ? "Unmute" : "Mute"}
-                variant="ghost"
-                icon={
-                  muted ? (
-                    <Icon as={FiVolumeX} boxSize={5} />
-                  ) : (
-                    <Icon as={FiVolume} boxSize={5} />
-                  )
-                }
-                onClick={() => onMute()}
-              />
+              {!isAdmin && (
+                <IconButton
+                  size="md"
+                  aria-label={muted ? "Unmute" : "Mute"}
+                  variant="ghost"
+                  icon={
+                    muted ? (
+                      <Icon as={FiVolumeX} boxSize={5} />
+                    ) : (
+                      <Icon as={FiVolume} boxSize={5} />
+                    )
+                  }
+                  onClick={() => onMute()}
+                />
+              )}
             </HStack>
-            <HStack w="100%">
-              <Show above="sm">
+            <Show above="sm">
+              <HStack w="100%" pr={3}>
                 <Slider
                   aria-label="slider-ex-4"
                   value={muted ? 0 : volume}
@@ -156,12 +160,12 @@ const RadioPlayer = ({
                     <Box />
                   </SliderThumb>
                 </Slider>
-              </Show>
-            </HStack>
+              </HStack>
+            </Show>
             <Hide above="sm">
               <HStack>
+                {isAdmin && <AdminControls />}
                 <ButtonAddToQueue showText={false} />
-
                 <ButtonListeners variant="ghost" />
               </HStack>
             </Hide>

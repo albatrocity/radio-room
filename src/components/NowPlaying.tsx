@@ -64,6 +64,13 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
   const releaseDate = release?.album?.release_date
   const lastUpdate = meta?.lastUpdatedAt
 
+  const fetchedWithNoData =
+    state.matches("success") &&
+    lastUpdate &&
+    !meta.release?.uri &&
+    room?.fetchMeta
+  const fetchedWithNoUpdate = state.matches("success") && !lastUpdate
+
   const djUsername = useMemo(
     () =>
       dj
@@ -83,45 +90,57 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
       flexGrow={1}
       height="100%"
     >
-      <VStack spacing={4} justify="space-between" height="100%" width="100%">
+      <VStack
+        spacing={4}
+        justify="space-between"
+        height="100%"
+        width="100%"
+        className="outer"
+      >
         {state.matches("loading") && (
           <Center h="100%" w="100%">
             <Spinner />
           </Center>
         )}
-        {state.matches("success") && !meta.release?.uri && (
-          <VStack>
-            {lastUpdate ? (
-              <VStack spacing={2} px={4} alignContent="flex-start">
-                <Heading
-                  w="100%"
-                  as="h2"
-                  size="lg"
-                  color="whiteAlpha.900"
-                  textAlign="left"
-                >
-                  Nothing is playing
-                </Heading>
-                {isAdmin ? (
-                  <Text color="whiteAlpha.900">
-                    There's no active device playing Spotify. Pick something to
-                    play from your Spotify app and check back here.
-                  </Text>
-                ) : (
-                  <Text color="white">
-                    The host isn't currently playing anything on their Spotify
-                    account.
-                  </Text>
-                )}
+        {fetchedWithNoUpdate && (
+          <VStack className="getting">
+            <Center h="100%" w="100%">
+              <VStack spacing={4}>
+                <Spinner />
+                <Text>Getting Now Playing data...</Text>
               </VStack>
-            ) : (
-              <Center h="100%" w="100%">
-                <VStack spacing={4}>
-                  <Spinner />
-                  <Text>Getting your Spotify data...</Text>
-                </VStack>
-              </Center>
-            )}
+            </Center>
+          </VStack>
+        )}
+        {fetchedWithNoData && (
+          <VStack className="lastupdate">
+            <VStack
+              spacing={2}
+              px={4}
+              alignContent="flex-start"
+              className="empty"
+            >
+              <Heading
+                w="100%"
+                as="h2"
+                size="lg"
+                color="whiteAlpha.900"
+                textAlign="left"
+              >
+                Nothing is playing
+              </Heading>
+              {isAdmin ? (
+                <Text color="whiteAlpha.900">
+                  There's no active device playing Spotify. Pick something to
+                  play from your Spotify app and check back here.
+                </Text>
+              ) : (
+                <Text color="white">
+                  The host isn't currently playing anything on their Spotify
+                  account.
+                </Text>
+              )}
+            </VStack>
             <Hide above="sm">
               <ButtonListeners />
             </Hide>
@@ -205,7 +224,7 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
                 </VStack>
               </Stack>
             </LinkBox>
-            {stationMeta?.title && (
+            {stationMeta?.title && meta.release?.uri && (
               <HStack spacing={2}>
                 <InfoIcon color="primaryBg" boxSize={3} />
                 <Text color="primaryBg" fontSize="xs" lineHeight={1}>

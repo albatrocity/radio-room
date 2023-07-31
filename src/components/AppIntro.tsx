@@ -52,8 +52,14 @@ export default function AppIntro({}: Props) {
                   same physical space. Creating a room links your Spotify
                   Premium account to it, displaying what's currently playing.
                   The data collected and stored is pretty ephemeral and won't be
-                  used for anything nepharious. Check out the{" "}
-                  <Link color="primary" as={GatsbyLink} to="/privacy-policy">
+                  used for anything nefarious. Check out the{" "}
+                  <Link
+                    color="primary"
+                    textDecoration="underline"
+                    _dark={{ color: "white" }}
+                    as={GatsbyLink}
+                    to="/privacy-policy"
+                  >
                     Privacy Policy
                   </Link>{" "}
                   for more details.
