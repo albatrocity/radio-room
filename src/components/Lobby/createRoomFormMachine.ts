@@ -18,7 +18,7 @@ export const createRoomFormMachine = createMachine<RoomSetup, Event>(
       title: "My Room",
       radioUrl: undefined,
       radioProtocol: undefined,
-      deputizeOnJoin: false,
+      deputizeOnJoin: true,
     },
     states: {
       selectType: {
