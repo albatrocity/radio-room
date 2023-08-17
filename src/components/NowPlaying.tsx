@@ -27,6 +27,7 @@ import { SpotifyTrack } from "../types/SpotifyTrack"
 import { useCurrentRoom, useRoomStore } from "../state/roomStore"
 import { InfoIcon } from "@chakra-ui/icons"
 import { useIsAdmin } from "../state/authStore"
+import { FaSpotify } from "react-icons/fa"
 
 interface NowPlayingProps extends BoxProps {
   offline: boolean
@@ -217,9 +218,17 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
                     </HStack>
                   )}
                   {room?.type === "jukebox" && (
-                    <Text as="span" color="primary.200" fontSize="2xs">
-                      Track and Artist data provided by Spotify
-                    </Text>
+                    <HStack spacing={1}>
+                      <Text as="span" color="primary.200" fontSize="2xs">
+                        Track data provided by
+                      </Text>
+                      <HStack spacing={1}>
+                        <Icon as={FaSpotify} color="primary.200" boxSize={3} />
+                        <Text color="primary.200" fontSize="2xs" as="span">
+                          Spotify
+                        </Text>
+                      </HStack>
+                    </HStack>
                   )}
                 </VStack>
               </Stack>
