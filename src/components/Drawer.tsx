@@ -19,7 +19,7 @@ interface Props extends DrawerProps {
 const Drawer = ({ heading, children, footer, ...rest }: Props) => {
   return (
     <ChakraDrawer {...rest}>
-      <DrawerOverlay />
+      <DrawerOverlay width="full" height="full" />
       <DrawerContent>
         {heading && <DrawerHeader>{heading}</DrawerHeader>}
         <DrawerCloseButton />
