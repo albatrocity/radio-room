@@ -15,7 +15,7 @@ export default function Privacy({}: Props) {
             About
           </Heading>
           <Text>
-            Listening Room is a hobby project created by me,{" "}
+            Listening Room is a project created by me,{" "}
             <Link href="https://github.com/albatrocity" isExternal>
               Ross Brown
             </Link>
