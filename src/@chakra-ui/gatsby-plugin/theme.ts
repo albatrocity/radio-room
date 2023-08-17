@@ -79,6 +79,9 @@ const theme = {
       "& p": {
         marginBottom: 3,
       },
+      "& a": {
+        textDecoration: "underline",
+      },
       "& h1, & h2, & h3": {
         marginBottom: 3,
       },

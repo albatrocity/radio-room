@@ -8,11 +8,7 @@ function ModalAbout() {
   const isModalViewingHelp = useModalsStore((s) => s.state.matches("help"))
 
   return (
-    <Modal
-      isOpen={isModalViewingHelp}
-      onClose={() => send("CLOSE")}
-      heading="???"
-    >
+    <Modal isOpen={isModalViewingHelp} onClose={() => send("CLOSE")}>
       <AboutContent />
     </Modal>
   )

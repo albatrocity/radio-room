@@ -124,10 +124,19 @@ export default function PageLayout({ children }: Props) {
                 </ChakraLink>
               </WrapItem>
               <WrapItem>
-                <Link to="mailto:albatrocity@gmail.com?subject=Listening%20Rooms">
-                  Contact
-                </Link>
+                <ChakraLink as={Link} to="/about">
+                  About
+                </ChakraLink>
               </WrapItem>
+              {process.env.GATSBY_CONTACT_EMAIL && (
+                <WrapItem>
+                  <Link
+                    to={`mailto:${process.env.GATSBY_CONTACT_EMAIL}?subject=Listening%20Room`}
+                  >
+                    Contact
+                  </Link>
+                </WrapItem>
+              )}
             </Wrap>
           </GridItem>
         </Grid>
