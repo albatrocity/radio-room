@@ -187,6 +187,7 @@ export async function createAndPopulatePlaylist({
         headers: generateHeaders(accessToken),
         json: {
           name,
+          public: true,
         },
       },
     ).json()
