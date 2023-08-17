@@ -32,6 +32,7 @@ import {
   useSpotifyAccessToken,
 } from "../../state/spotifyAuthStore"
 import { useIsAdmin } from "../../state/authStore"
+import { useCurrentRoom } from "../../state/roomStore"
 
 function DrawerPlaylist() {
   const { send: playlistSend } = usePlaylistStore()
@@ -40,8 +41,9 @@ function DrawerPlaylist() {
   const accessToken = useSpotifyAccessToken()
   const isAdmin = useIsAdmin()
   const [isEditing, { toggle, off }] = useBoolean(false)
+  const room = useCurrentRoom()
   const defaultPlaylistName = useConst(
-    () => `Radio Playlist ${format(new Date(), "M/d/y")}`,
+    () => `${room?.title} ${format(new Date(), "M/d/y")}`,
   )
   const [name, setName] = useState<string>(defaultPlaylistName)
   const [state, send] = useMachine(savePlaylistMachine, {

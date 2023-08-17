@@ -1,4 +1,4 @@
-# Radio Room
+# Listening Room
 
 Front-end for [https://listeningroom.club](https://listeningroom.club). A [Gatsby](http://gatsbyjs.com)/[Chakra](https://chakra-ui.com)/[XState](http://xstate.js.org)/[Zustand](https://github.com/pmndrs/zustand) app that communicates to a chat server and plays music streaming from a Shoutcast server.
 
