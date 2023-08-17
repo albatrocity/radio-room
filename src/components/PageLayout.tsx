@@ -63,10 +63,10 @@ export default function PageLayout({ children }: Props) {
               <Show above="sm">
                 <Heading as="h2" size="lg">
                   {isHome ? (
-                    "Listening Rooms"
+                    "Listening Room"
                   ) : (
                     <ChakraLink to="/" as={Link}>
-                      Listening Rooms
+                      Listening Room
                     </ChakraLink>
                   )}
                 </Heading>
