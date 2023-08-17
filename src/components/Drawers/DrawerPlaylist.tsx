@@ -42,9 +42,8 @@ function DrawerPlaylist() {
   const isAdmin = useIsAdmin()
   const [isEditing, { toggle, off }] = useBoolean(false)
   const room = useCurrentRoom()
-  const defaultPlaylistName = useConst(
-    () => `${room?.title} ${format(new Date(), "M/d/y")}`,
-  )
+  const today = useConst(() => format(new Date(), "M/d/y"))
+  const defaultPlaylistName = `${room?.title} ${today}`
   const [name, setName] = useState<string>(defaultPlaylistName)
   const [state, send] = useMachine(savePlaylistMachine, {
     context: {
