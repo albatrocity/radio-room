@@ -32,7 +32,7 @@ export type Room = {
 
 export type RoomSetup = Pick<
   Room,
-  "type" | "title" | "radioUrl" | "radioProtocol"
+  "type" | "title" | "radioUrl" | "radioProtocol" | "deputizeOnJoin"
 >
 
 export type RoomMeta = {

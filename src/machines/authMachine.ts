@@ -15,6 +15,7 @@ import { PlaylistItem } from "../types/PlaylistItem"
 import { ChatMessage } from "../types/ChatMessage"
 import { RoomMeta } from "../types/Room"
 import { SocketCallback } from "../types/SocketCallback"
+import { toast } from "../lib/toasts"
 export interface AuthContext {
   currentUser?: User
   isNewUser: boolean
@@ -309,7 +310,18 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           },
           NUKE_USER: {
             target: "loggingOut",
-            actions: ["clearSession", "nukeUser"],
+            actions: [
+              "clearSession",
+              "nukeUser",
+              () => {
+                toast({
+                  status: "success",
+                  title: "Spotify Disconnected",
+                  description:
+                    "Your Spotify account details and room data have been permanently deleted from our servers. Thanks for playing!",
+                })
+              },
+            ],
           },
           SESSION_ENDED: {
             target: "loggingOut",

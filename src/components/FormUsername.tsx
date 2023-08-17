@@ -81,9 +81,8 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
                   }}
                 />
                 <FormHelperText>
-                  None of the data used in this app is permanently stored or
-                  shared with any other service. This is a fun-making operation
-                  only.
+                  You can change this later by clicking the edit icon next to
+                  your name in the listeners list.
                 </FormHelperText>
               </FormControl>
               {room?.enableSpotifyLogin && (

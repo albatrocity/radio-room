@@ -45,12 +45,14 @@ function Password() {
                   onBlur={handleBlur}
                   name="password"
                   placeholder="Password"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
                 />
                 <FormHelperText>
-                  Setting a password will prevent people from using this
-                  interface to listen to the radio stream. It also prevents them
-                  from using or viewing the chat. Clearing this password will
-                  open the experience up to anyone.
+                  Setting a password will require guests to enter it before
+                  joining the room. Clearing this password will open the
+                  experience up to anyone with the room URL.
                 </FormHelperText>
               </FormControl>
             </VStack>

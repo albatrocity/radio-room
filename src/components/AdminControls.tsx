@@ -31,7 +31,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
   const bookmarks = useBookmarks()
 
   return (
-    <Box w={width} py={1}>
+    <Box w={width}>
       <Stack direction="column" {...rest}>
         <Show above="sm">
           <Heading

@@ -12,12 +12,13 @@ export const createRoomFormMachine = createMachine<RoomSetup, Event>(
   {
     predictableActionArguments: true,
     id: "createRoomForm",
-    initial: "selectType",
+    initial: "settings",
     context: {
       type: "jukebox",
       title: "My Room",
       radioUrl: undefined,
       radioProtocol: undefined,
+      deputizeOnJoin: false,
     },
     states: {
       selectType: {
@@ -68,6 +69,10 @@ export const createRoomFormMachine = createMachine<RoomSetup, Event>(
       storeRoomSettings(ctx) {
         sessionStorage.setItem("createRoomTitle", ctx.title)
         sessionStorage.setItem("createRoomType", ctx.type)
+        sessionStorage.setItem(
+          "createRoomDeputizeOnJoin",
+          ctx.deputizeOnJoin.toString(),
+        )
         if (ctx.type === "radio" && !!ctx.radioUrl) {
           sessionStorage.setItem("createRoomRadioUrl", ctx.radioUrl)
           sessionStorage.setItem(
@@ -79,7 +84,7 @@ export const createRoomFormMachine = createMachine<RoomSetup, Event>(
       redirectToLogin: (ctx, event) => {
         if (event.type === "NEXT") {
           navigate(
-            `${process.env.GATSBY_API_URL}/login?roomType=${ctx.type}&roomTitle=${ctx.title}&redirect=/rooms/create`,
+            `${process.env.GATSBY_API_URL}/login?roomType=${ctx.type}&roomTitle=${ctx.title}&deputizeOnJoin=${ctx.deputizeOnJoin}&redirect=/rooms/create`,
           )
         }
       },

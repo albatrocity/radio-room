@@ -43,6 +43,7 @@ export async function findUserCreatedRooms() {
 }
 
 export async function deleteRoom(id: Room["id"]) {
+  console.log("id", id)
   const res: RoomFindResponse = await api.delete(`rooms/${id}`).json()
   return res
 }

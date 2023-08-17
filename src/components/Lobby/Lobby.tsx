@@ -66,7 +66,6 @@ export default function Lobby() {
           </GridItem>
         )}
       </Grid>
-      <LobbyOverlays />
     </Box>
   )
 }
