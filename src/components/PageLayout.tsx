@@ -2,11 +2,17 @@ import React, { useEffect } from "react"
 import {
   Box,
   Button,
+  Grid,
+  GridItem,
   Heading,
+  Hide,
   HStack,
+  IconButton,
+  Link as ChakraLink,
   Show,
   Text,
-  useDisclosure,
+  Wrap,
+  WrapItem,
 } from "@chakra-ui/react"
 import { Link } from "gatsby"
 
@@ -16,6 +22,8 @@ import { useModalsStore } from "../state/modalsState"
 import { FaSpotify } from "react-icons/fa"
 import { useAuthStore, useCurrentUser } from "../state/authStore"
 import ConfirmationDialog from "./ConfirmationDialog"
+import LobbyOverlays from "./Lobby/LobbyOverlays"
+import { useLocation } from "@reach/router"
 
 type Props = {
   children: React.ReactNode
@@ -25,13 +33,15 @@ export default function PageLayout({ children }: Props) {
   const { send, state } = useModalsStore()
   const { send: authSend } = useAuthStore()
   const currentUser = useCurrentUser()
+  const location = useLocation()
+  const isHome = location.pathname === "/"
 
   useEffect(() => {
     authSend("GET_SESSION_USER")
   }, [])
 
   return (
-    <Layout>
+    <Layout fill>
       <>
         <ConfirmationDialog
           title="Disconnect Spotify?"
@@ -47,48 +57,90 @@ export default function PageLayout({ children }: Props) {
           isDangerous={true}
           confirmLabel="Disconnect Spotify"
         />
-        <Box>
-          <HStack
-            p={4}
-            bg="secondaryBg"
-            w="100%"
-            justifyContent="space-between"
-          >
-            <Show above="sm">
-              <Heading>Listening Rooms</Heading>
-            </Show>
-            <HStack>
-              {currentUser ? (
-                <HStack>
-                  <Button onClick={() => send("NUKE_USER")} variant="ghost">
-                    Disconnect Spotify
+        <Grid templateRows="auto 1fr auto" h="100%">
+          <GridItem>
+            <HStack p={4} bg="secondaryBg" justifyContent="space-between">
+              <Show above="sm">
+                <Heading as="h2" size="lg">
+                  {isHome ? (
+                    "Listening Room"
+                  ) : (
+                    <ChakraLink to="/" as={Link}>
+                      Listening Room
+                    </ChakraLink>
+                  )}
+                </Heading>
+              </Show>
+              <HStack justifyContent="flex-end">
+                {currentUser ? (
+                  <HStack>
+                    <Button onClick={() => send("NUKE_USER")} variant="ghost">
+                      Disconnect Spotify
+                    </Button>
+                    <Button onClick={() => authSend("LOGOUT")} variant="ghost">
+                      Logout
+                    </Button>
+                  </HStack>
+                ) : (
+                  <Button
+                    as={Link}
+                    to="/login"
+                    variant="outline"
+                    leftIcon={<FaSpotify />}
+                  >
+                    Login
                   </Button>
-                  <Button onClick={() => authSend("LOGOUT")} variant="ghost">
-                    Logout
-                  </Button>
-                </HStack>
-              ) : (
-                <Button
-                  as={Link}
-                  to="/login"
-                  variant="outline"
-                  leftIcon={<FaSpotify />}
-                >
-                  Login
-                </Button>
-              )}
-              <Button
-                leftIcon={<AddIcon />}
-                onClick={() => send("CREATE_ROOM")}
-              >
-                Create a Room
-              </Button>
+                )}
+                <Box>
+                  <Show above="sm">
+                    <Button
+                      leftIcon={<AddIcon />}
+                      onClick={() => send("CREATE_ROOM")}
+                    >
+                      Create a Room
+                    </Button>
+                  </Show>
+                  <Hide above="sm">
+                    <IconButton
+                      icon={<AddIcon />}
+                      onClick={() => send("CREATE_ROOM")}
+                      aria-label="Create a Room"
+                    />
+                  </Hide>
+                </Box>
+              </HStack>
             </HStack>
-          </HStack>
-          <Box as="main" p={4}>
-            {children}
-          </Box>
-        </Box>
+          </GridItem>
+          <GridItem>
+            <Box as="main" p={4}>
+              {children}
+            </Box>
+          </GridItem>
+          <GridItem as="footer" textStyle="footer">
+            <Wrap p={4} bg="secondaryBg" spacing={4}>
+              <WrapItem>
+                <ChakraLink as={Link} to="/privacy">
+                  Privacy Policy
+                </ChakraLink>
+              </WrapItem>
+              <WrapItem>
+                <ChakraLink as={Link} to="/about">
+                  About
+                </ChakraLink>
+              </WrapItem>
+              {process.env.GATSBY_CONTACT_EMAIL && (
+                <WrapItem>
+                  <Link
+                    to={`mailto:${process.env.GATSBY_CONTACT_EMAIL}?subject=Listening%20Room`}
+                  >
+                    Contact
+                  </Link>
+                </WrapItem>
+              )}
+            </Wrap>
+          </GridItem>
+        </Grid>
+        <LobbyOverlays />
       </>
     </Layout>
   )

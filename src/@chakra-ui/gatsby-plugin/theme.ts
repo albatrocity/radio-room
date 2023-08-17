@@ -79,9 +79,29 @@ const theme = {
       "& p": {
         marginBottom: 3,
       },
+      "& a": {
+        textDecoration: "underline",
+      },
+      "& h1, & h2, & h3": {
+        marginBottom: 3,
+      },
+      "& ul": {
+        marginBottom: 3,
+        marginLeft: 4,
+        listStyleType: "disc",
+      },
+      "& ol": {
+        marginBottom: 3,
+      },
+      "& li": {
+        marginBottom: 2,
+      },
     },
     chatMessage: {
       opacity: 0.9,
+    },
+    footer: {
+      fontSize: "xs",
     },
   },
   components: {

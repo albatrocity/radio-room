@@ -1,5 +1,5 @@
-import React, { memo } from "react"
-import { Flex } from "@chakra-ui/react"
+import React, { memo, lazy, Suspense } from "react"
+import { Box, Center, Flex, Spinner } from "@chakra-ui/react"
 
 import NowPlaying from "./NowPlaying"
 
@@ -8,7 +8,7 @@ import { useIsStationOnline, useStationMeta } from "../state/audioStore"
 import createTrackId from "../lib/createTrackId"
 import { useCurrentRoom, useCurrentRoomHasAudio } from "../state/roomStore"
 import JukeboxControls from "./JukeboxControls"
-import RadioControls from "./RadioControls"
+const RadioControls = lazy(() => import("./RadioControls"))
 
 interface PlayerUiProps {
   onShowPlaylist: () => void
@@ -48,13 +48,23 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
       )}
 
       {isOnline && hasAudio && room && (
-        <RadioControls
-          meta={meta}
-          trackId={trackId}
-          onShowPlaylist={onShowPlaylist}
-          hasPlaylist={hasPlaylist}
-          streamUrl={room.radioUrl}
-        />
+        <Suspense
+          fallback={
+            <Box p={4} bg="secondaryBg">
+              <Center>
+                <Spinner />
+              </Center>
+            </Box>
+          }
+        >
+          <RadioControls
+            meta={meta}
+            trackId={trackId}
+            onShowPlaylist={onShowPlaylist}
+            hasPlaylist={hasPlaylist}
+            streamUrl={room.radioUrl}
+          />
+        </Suspense>
       )}
     </Flex>
   )

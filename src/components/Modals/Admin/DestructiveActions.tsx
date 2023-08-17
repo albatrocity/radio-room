@@ -5,31 +5,23 @@ import {
   Button,
   Icon,
   Text,
-  useDisclosure,
   useColorModeValue,
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverHeader,
-  PopoverBody,
-  PopoverFooter,
-  PopoverArrow,
-  PopoverCloseButton,
-  PopoverAnchor,
 } from "@chakra-ui/react"
 
-import ConfirmationDialog from "../../ConfirmationDialog"
 import { useChatStore } from "../../../state/chatStore"
 import { useAdminStore } from "../../../state/adminStore"
 import { useDjStore } from "../../../state/djStore"
 import { BiMessageRoundedMinus } from "react-icons/bi"
 import { FiList } from "react-icons/fi"
 import ConfirmationPopover from "../../ConfirmationPopover"
+import { DeleteIcon } from "@chakra-ui/icons"
+import { useCurrentRoom } from "../../../state/roomStore"
 
 export default function DestructiveActions() {
   const { send: chatSend } = useChatStore()
   const { send: adminSend } = useAdminStore()
   const { send: djSend } = useDjStore()
+  const room = useCurrentRoom()
   const buttonColorScheme = useColorModeValue("whiteAlpha", undefined)
 
   const isDj = useDjStore((s) => s.state.matches("djaying"))
@@ -67,6 +59,27 @@ export default function DestructiveActions() {
             }
           />
         </WrapItem>
+
+        {room && (
+          <WrapItem>
+            <ConfirmationPopover
+              triggerColorScheme="red"
+              triggerText="Delete Room"
+              triggerIcon={<DeleteIcon />}
+              triggerVariant="outline"
+              onConfirm={() =>
+                adminSend("DELETE_ROOM", { data: { id: room.id } })
+              }
+              confirmText="Delete Room"
+              popoverBody={
+                <Text>
+                  Are you sure you want to delete this room and all of its data?
+                  This cannot be undone.
+                </Text>
+              }
+            />
+          </WrapItem>
+        )}
         {isDj && (
           <WrapItem>
             <Button

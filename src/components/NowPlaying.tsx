@@ -11,7 +11,6 @@ import {
   VStack,
   Stack,
   Icon,
-  Hide,
   Show,
   Spinner,
   Center,
@@ -20,7 +19,6 @@ import {
 import AlbumArtwork from "./AlbumArtwork"
 
 import safeDate from "../lib/safeDate"
-import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import { User } from "../types/User"
 import { useUsers } from "../state/usersStore"
@@ -131,8 +129,8 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
               </Heading>
               {isAdmin ? (
                 <Text color="whiteAlpha.900">
-                  There's no active device playing Spotify. Pick something to
-                  play from your Spotify app and check back here.
+                  There's no active device playing Spotify. Play something on
+                  your Spotify app and check back here.
                 </Text>
               ) : (
                 <Text color="white">
@@ -141,9 +139,6 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
                 </Text>
               )}
             </VStack>
-            <Hide above="sm">
-              <ButtonListeners />
-            </Hide>
           </VStack>
         )}
         {state.matches("success") && meta.release && (
@@ -220,6 +215,11 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
                         Added by {djUsername}
                       </Text>
                     </HStack>
+                  )}
+                  {room?.type === "jukebox" && (
+                    <Text as="span" color="primary.200" fontSize="2xs">
+                      Track and Artist data provided by Spotify
+                    </Text>
                   )}
                 </VStack>
               </Stack>

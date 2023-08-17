@@ -5,6 +5,7 @@ import {
   Input,
   FormLabel,
   FormHelperText,
+  Checkbox,
 } from "@chakra-ui/react"
 
 import { RoomSetup } from "../../types/Room"
@@ -28,6 +29,23 @@ export default function SharedSettings({ onChange, settings }: Props) {
           }}
         />
         <FormHelperText>You can change this later</FormHelperText>
+      </FormControl>
+      <FormControl>
+        <Checkbox
+          isChecked={settings.deputizeOnJoin}
+          onChange={(e) => {
+            onChange({ deputizeOnJoin: e.target.checked })
+          }}
+          checked={settings.deputizeOnJoin}
+          name="deputizeOnJoin"
+        >
+          Auto-deputize guests as DJs
+        </Checkbox>
+        <FormHelperText>
+          When enabled, anyone who joins the room will be deputized as a DJ,
+          allowing them to add to your queue. When disabled, you can explicitly
+          grant this permission to individuals.
+        </FormHelperText>
       </FormControl>
     </VStack>
   )
