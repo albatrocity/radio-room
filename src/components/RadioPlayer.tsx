@@ -186,10 +186,6 @@ const RadioPlayer = ({
           onPlay={onPlay}
           onLoad={onLoad}
           autoSuspend={false}
-          // xhr={{
-          //   withCredentials: false,
-          //   referrerPolicy: "strict-origin-when-cross-origin",
-          // }}
         />
       </Box>
     </Box>

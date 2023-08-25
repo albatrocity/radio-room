@@ -19,13 +19,13 @@ import {
 import AlbumArtwork from "./AlbumArtwork"
 
 import safeDate from "../lib/safeDate"
+import nullifyEmptyString from "../lib/nullifyEmptyString"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import { User } from "../types/User"
 import { useUsers } from "../state/usersStore"
 import { Room, RoomMeta } from "../types/Room"
 import { SpotifyTrack } from "../types/SpotifyTrack"
 import { useCurrentRoom, useRoomStore } from "../state/roomStore"
-import { InfoIcon } from "@chakra-ui/icons"
 import { useIsAdmin } from "../state/authStore"
 import { FaSpotify } from "react-icons/fa"
 
@@ -44,7 +44,7 @@ function getCoverUrl({
   if (room?.artwork) {
     return room.artwork
   }
-  if (release?.album?.images.length) {
+  if (release?.album?.images?.length) {
     return release?.album.images[0]?.url
   }
 
@@ -78,6 +78,12 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
         : null,
     [users, dj],
   )
+
+  const titleDisplay =
+    nullifyEmptyString(track) ??
+    nullifyEmptyString(title?.replace(/\|/g, "")) ??
+    nullifyEmptyString(room?.title) ??
+    null
 
   return (
     <Box
@@ -143,7 +149,7 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
           </VStack>
         )}
         {state.matches("success") && meta.release && (
-          <VStack align="start" spacing={4}>
+          <VStack align="start" spacing={4} w="100%">
             <LinkBox width="100%">
               <Stack
                 direction={["row", "column"]}
@@ -161,34 +167,33 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
                   </Box>
                 )}
                 <VStack align={"start"} spacing={0}>
-                  {(track || title) && (
-                    <>
-                      {release?.external_urls?.spotify ? (
-                        <LinkOverlay
-                          href={release.external_urls.spotify}
-                          isExternal={true}
-                        >
-                          <Heading
-                            color="primaryBg"
-                            margin="none"
-                            as="h3"
-                            size={["md", "lg"]}
-                          >
-                            {track ?? title?.replace(/\|/g, "")}
-                          </Heading>
-                        </LinkOverlay>
-                      ) : (
+                  <>
+                    {release?.external_urls?.spotify ? (
+                      <LinkOverlay
+                        href={release.external_urls.spotify}
+                        isExternal={true}
+                      >
                         <Heading
                           color="primaryBg"
                           margin="none"
                           as="h3"
                           size={["md", "lg"]}
                         >
-                          {track ?? title?.replace(/\|/g, "")}
+                          {titleDisplay}
                         </Heading>
-                      )}
-                    </>
-                  )}
+                      </LinkOverlay>
+                    ) : (
+                      <Heading
+                        color="primaryBg"
+                        margin="none"
+                        as="h3"
+                        size={["md", "lg"]}
+                      >
+                        {titleDisplay}
+                      </Heading>
+                    )}
+                  </>
+
                   {artist && (
                     <Heading color="primaryBg" margin="none" as="h4" size="sm">
                       {artist}
@@ -233,17 +238,6 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
                 </VStack>
               </Stack>
             </LinkBox>
-            {stationMeta?.title && meta.release?.uri && (
-              <HStack spacing={2}>
-                <InfoIcon color="primaryBg" boxSize={3} />
-                <Text color="primaryBg" fontSize="xs" lineHeight={1}>
-                  Based on a Spotify search for{" "}
-                  <Text as="span" fontWeight={500} fontStyle="italic">
-                    {stationMeta.title}
-                  </Text>
-                </Text>
-              </HStack>
-            )}
           </VStack>
         )}
         <Show above="sm">
