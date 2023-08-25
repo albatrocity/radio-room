@@ -25,7 +25,7 @@ function Overview() {
   const hasSettings =
     !!settingsState.context.extraInfo ||
     !!settingsState.context.artwork ||
-    !!settingsState.context.radioUrl
+    !!settingsState.context.radioMetaUrl
   const hasChatSettings =
     settingsState.context.announceNowPlaying ??
     settingsState.context.announceUsernameChanges

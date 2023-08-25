@@ -62,7 +62,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
             trackId={trackId}
             onShowPlaylist={onShowPlaylist}
             hasPlaylist={hasPlaylist}
-            streamUrl={room.radioUrl}
+            streamUrl={room.radioListenUrl}
           />
         </Suspense>
       )}

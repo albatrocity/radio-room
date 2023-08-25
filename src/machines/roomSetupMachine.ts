@@ -21,7 +21,7 @@ async function createRoom(ctx: RoomSetupContext) {
     room: {
       type: ctx.room?.type ?? "jukebox",
       title: ctx.room?.title ?? "My Room",
-      radioUrl: ctx.room?.radioUrl ?? undefined,
+      radioMetaUrl: ctx.room?.radioMetaUrl ?? undefined,
       radioProtocol: ctx.room?.radioProtocol ?? undefined,
       deputizeOnJoin: ctx.room?.deputizeOnJoin ?? false,
     },
@@ -97,7 +97,7 @@ export const roomSetupMachine = createMachine<RoomSetupContext, RoomSetupEvent>(
         sessionStorage.removeItem("createRoomTitle")
         sessionStorage.removeItem("createRoomType")
         sessionStorage.removeItem("createRoomDeputizeOnJoin")
-        sessionStorage.removeItem("createRoomRadioUrl")
+        sessionStorage.removeItem("createRoomradioMetaUrl")
         sessionStorage.removeItem("createRoomRadioProtocol")
         navigate(`/rooms/${event.data.room.id}`, { replace: true })
       },

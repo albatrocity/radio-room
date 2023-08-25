@@ -19,7 +19,8 @@ export type Room = {
   artwork?: string
   enableSpotifyLogin: boolean
   deputizeOnJoin: boolean
-  radioUrl?: string
+  radioMetaUrl?: string
+  radioListenUrl?: string
   radioProtocol?: StationProtocol
   createdAt?: string
   creator?: string
@@ -32,7 +33,7 @@ export type Room = {
 
 export type RoomSetup = Pick<
   Room,
-  "type" | "title" | "radioUrl" | "radioProtocol" | "deputizeOnJoin"
+  "type" | "title" | "radioMetaUrl" | "radioProtocol" | "deputizeOnJoin"
 >
 
 export type RoomMeta = {

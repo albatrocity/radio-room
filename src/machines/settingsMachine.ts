@@ -12,7 +12,8 @@ type Context = Pick<
   | "deputizeOnJoin"
   | "enableSpotifyLogin"
   | "type"
-  | "radioUrl"
+  | "radioMetaUrl"
+  | "radioListenUrl"
   | "radioProtocol"
   | "announceUsernameChanges"
   | "announceNowPlaying"
@@ -39,7 +40,8 @@ export const settingsMachine = createMachine<Context, Event>(
       deputizeOnJoin: false,
       enableSpotifyLogin: false,
       type: "jukebox",
-      radioUrl: "",
+      radioMetaUrl: "",
+      radioListenUrl: "",
     },
     invoke: [
       {
@@ -91,7 +93,8 @@ export const settingsMachine = createMachine<Context, Event>(
             deputizeOnJoin: event.data.room.deputizeOnJoin,
             enableSpotifyLogin: event.data.room.enableSpotifyLogin,
             type: event.data.room.type,
-            radioUrl: event.data.room.radioUrl,
+            radioMetaUrl: event.data.room.radioMetaUrl,
+            radioListenUrl: event.data.room.radioListenUrl,
             radioProtocol: event.data.room.radioProtocol,
             announceNowPlaying: event.data.room.announceNowPlaying,
             announceUsernameChanges: event.data.room.announceUsernameChanges,

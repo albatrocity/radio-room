@@ -19,12 +19,12 @@ export default function FormRadioSettings({ onChange }: Props) {
   return (
     <VStack spacing={4} w="100%">
       <FormControl>
-        <FormLabel htmlFor="radioUrl">Radio URL</FormLabel>
+        <FormLabel htmlFor="radioMetaUrl">Radio URL</FormLabel>
         <Input
-          name="radioUrl"
+          name="radioMetaUrl"
           placeholder="Radio URL"
           onChange={(e) => {
-            onChange({ radioUrl: e.target.value })
+            onChange({ radioMetaUrl: e.target.value })
           }}
         />
         <FormHelperText>

@@ -32,7 +32,8 @@ function Content() {
         fetchMeta: state.context.fetchMeta,
         extraInfo: state.context.extraInfo ?? "",
         artwork: state.context.artwork ?? "",
-        radioUrl: state.context.radioUrl ?? "",
+        radioMetaUrl: state.context.radioMetaUrl ?? "",
+        radioListenUrl: state.context.radioListenUrl ?? "",
         radioProtocol: state.context.radioProtocol ?? "shoutcastv2",
       }}
       enableReinitialize
@@ -76,20 +77,43 @@ function Content() {
               {state.context.type === "radio" && (
                 <>
                   <FormControl>
-                    <FormLabel>Radio URL</FormLabel>
+                    <FormLabel>Radio Metadata URL</FormLabel>
                     <Input
-                      name="radioUrl"
-                      value={values.radioUrl}
+                      name="radioMetaUrl"
+                      value={values.radioMetaUrl}
                       onBlur={handleBlur}
                       onChange={(e) => {
                         handleChange(e)
-                        if (e.target.value !== initialValues.radioUrl) {
-                          setTouched({ title: true })
+                        if (e.target.value !== initialValues.radioMetaUrl) {
+                          setTouched({ radioMetaUrl: true })
                         } else {
-                          setTouched({ title: false })
+                          setTouched({ radioMetaUrl: false })
                         }
                       }}
                     />
+                    <FormHelperText>
+                      The URL of the internet radio station's metadata endpoint.
+                    </FormHelperText>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Radio Streaming URL</FormLabel>
+                    <Input
+                      name="radioListenUrl"
+                      value={values.radioListenUrl}
+                      onBlur={handleBlur}
+                      onChange={(e) => {
+                        handleChange(e)
+                        if (e.target.value !== initialValues.radioListenUrl) {
+                          setTouched({ radioListenUrl: true })
+                        } else {
+                          setTouched({ radioListenUrl: false })
+                        }
+                      }}
+                    />
+                    <FormHelperText>
+                      The URL of the internet radio station's streaming audio
+                      feed.
+                    </FormHelperText>
                   </FormControl>
                   <FormControl>
                     <FormLabel>Radio Protocol</FormLabel>

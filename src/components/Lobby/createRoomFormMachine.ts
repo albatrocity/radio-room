@@ -16,7 +16,7 @@ export const createRoomFormMachine = createMachine<RoomSetup, Event>(
     context: {
       type: "jukebox",
       title: "My Room",
-      radioUrl: undefined,
+      radioMetaUrl: undefined,
       radioProtocol: undefined,
       deputizeOnJoin: true,
     },
@@ -73,8 +73,8 @@ export const createRoomFormMachine = createMachine<RoomSetup, Event>(
           "createRoomDeputizeOnJoin",
           ctx.deputizeOnJoin.toString(),
         )
-        if (ctx.type === "radio" && !!ctx.radioUrl) {
-          sessionStorage.setItem("createRoomRadioUrl", ctx.radioUrl)
+        if (ctx.type === "radio" && !!ctx.radioMetaUrl) {
+          sessionStorage.setItem("createRoomradioMetaUrl", ctx.radioMetaUrl)
           sessionStorage.setItem(
             "createRoomRadioProtocol",
             ctx.radioProtocol ?? "shoutcastv2",
