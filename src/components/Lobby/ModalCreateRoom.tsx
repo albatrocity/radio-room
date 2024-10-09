@@ -16,6 +16,8 @@ import { createRoomFormMachine } from "./createRoomFormMachine"
 import Modal from "../Modal"
 import { Room } from "../../types/Room"
 import RoomSettings from "../RoomSettings/RoomSettings"
+import RoomTypeSelect from "./RoomTypeSelect"
+import { ArrowBackIcon } from "@chakra-ui/icons"
 
 type Props = {}
 
@@ -32,6 +34,16 @@ export default function ModalCreateRoom({}: Props) {
         onClose={() => send("CLOSE")}
         footer={
           <HStack justify="space-between" w="100%">
+            {formState.matches("settings") && (
+              <Button
+                leftIcon={<ArrowBackIcon />}
+                variant="ghost"
+                onClick={() => formSend("BACK")}
+                isDisabled={loading}
+              >
+                Back
+              </Button>
+            )}
             <HStack justifyContent="flex-end" flexGrow={1}>
               <Button
                 isDisabled={loading}
@@ -59,6 +71,19 @@ export default function ModalCreateRoom({}: Props) {
                 <Spinner />
               </VStack>
             </Center>
+          )}
+          {formState.matches("selectType") && (
+            <VStack alignItems="flex-start" spacing={4}>
+              <Text as="p">
+                Creating a room requires a Spotify Premium account to grab meta
+                data and control a queue.
+              </Text>
+              <RoomTypeSelect
+                onSelect={(type) => {
+                  formSend("SELECT_TYPE", { data: { type } })
+                }}
+              />
+            </VStack>
           )}
           {formState.matches("settings") && (
             <RoomSettings

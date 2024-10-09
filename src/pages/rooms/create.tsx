@@ -45,6 +45,7 @@ export default function CreateRoomPage({}: Props) {
           title: sessionStorage.getItem("createRoomTitle") ?? "My Room",
           radioMetaUrl:
             sessionStorage.getItem("createRoomradioMetaUrl") ?? undefined,
+          radioListenUrl: sessionStorage.getItem("createRoomRadioListenUrl"),
           deputizeOnJoin:
             sessionStorage.getItem("createRoomDeputizeOnJoin") === "true",
           radioProtocol:

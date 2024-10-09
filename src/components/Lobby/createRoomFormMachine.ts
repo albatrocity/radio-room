@@ -12,11 +12,12 @@ export const createRoomFormMachine = createMachine<RoomSetup, Event>(
   {
     predictableActionArguments: true,
     id: "createRoomForm",
-    initial: "settings",
+    initial: "selectType",
     context: {
       type: "jukebox",
       title: "My Room",
       radioMetaUrl: undefined,
+      radioListenUrl: undefined,
       radioProtocol: undefined,
       deputizeOnJoin: true,
     },
@@ -73,12 +74,20 @@ export const createRoomFormMachine = createMachine<RoomSetup, Event>(
           "createRoomDeputizeOnJoin",
           ctx.deputizeOnJoin.toString(),
         )
-        if (ctx.type === "radio" && !!ctx.radioMetaUrl) {
-          sessionStorage.setItem("createRoomradioMetaUrl", ctx.radioMetaUrl)
+        if (ctx.type === "radio") {
           sessionStorage.setItem(
             "createRoomRadioProtocol",
             ctx.radioProtocol ?? "shoutcastv2",
           )
+          if (ctx.radioMetaUrl) {
+            sessionStorage.setItem("createRoomradioMetaUrl", ctx.radioMetaUrl)
+          }
+          if (ctx.radioListenUrl) {
+            sessionStorage.setItem(
+              "createRoomRadioListenUrl",
+              ctx.radioListenUrl,
+            )
+          }
         }
       },
       redirectToLogin: (ctx, event) => {

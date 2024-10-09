@@ -12,6 +12,7 @@ import {
 import { Room, RoomSetup } from "../../types/Room"
 import FormJukeboxSettings from "./FormJukeboxSettings"
 import SharedSettings from "./SharedSettings"
+import FormRadioSettings from "./FormRadioSettings"
 
 type Props = {
   roomType: Room["type"]
@@ -19,11 +20,12 @@ type Props = {
   onChange: (settings: Partial<RoomSetup>) => void
 }
 
-export default function RoomSettings({ settings, onChange }: Props) {
+export default function RoomSettings({ settings, onChange, roomType }: Props) {
   return (
     <VStack spacing={8} w="100%">
       <SharedSettings onChange={onChange} settings={settings} />
-      <FormJukeboxSettings onChange={onChange} />
+      {roomType === "jukebox" && <FormJukeboxSettings onChange={onChange} />}
+      {roomType === "radio" && <FormRadioSettings onChange={onChange} />}
       <Alert
         status="warning"
         fontSize="sm"
