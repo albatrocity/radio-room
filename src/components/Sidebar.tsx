@@ -15,8 +15,11 @@ import AdminControls from "./AdminControls"
 import { useAuthStore, useIsAdmin } from "../state/authStore"
 import { useModalsStore } from "../state/modalsState"
 import Banner from "./Banner"
+import { QRCode } from "./QRCode"
+import { useLocation } from "@reach/router"
 
 const Sidebar = () => {
+  const location = useLocation()
   const { send: modalSend } = useModalsStore()
   const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
   const isAdmin = useIsAdmin()
@@ -43,6 +46,7 @@ const Sidebar = () => {
       >
         <Banner />
         <Flex h="100%" w="100%" direction="column">
+          <QRCode url={location.href} />
           <Listeners
             onViewListeners={(view) =>
               view ? modalSend("VIEW_LISTENERS") : modalSend("CLOSE")
