@@ -105,10 +105,11 @@ function ReactionSelection({
             isLazy
             isOpen={isOpen}
             onClose={onClose}
-            placement="top-start"
             variant="responsive"
             autoFocus={autoFocus}
             initialFocusRef={responsivePickerRef}
+            closeOnBlur={true}
+            closeOnEsc={true}
           >
             <PopoverTrigger>
               <motion.div

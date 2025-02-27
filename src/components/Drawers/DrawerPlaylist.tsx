@@ -221,7 +221,7 @@ function DrawerPlaylist() {
           </HStack>
         )}
         {isOpen && (
-          <Box w="100%" h="100%">
+          <Box w="100%" h={["calc(100% - 22vh)", "100%"]}>
             <PlaylistWindow
               selected={selectedPlaylistState.context.collection}
               isSelectable={isEditing}
