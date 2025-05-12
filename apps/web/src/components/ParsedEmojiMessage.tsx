@@ -1,6 +1,6 @@
 import React from "react"
 import { Link, Text } from "@chakra-ui/react"
-import ChakraUIRenderer from "chakra-ui-markdown-renderer"
+// import ChakraUIRenderer from "chakra-ui-markdown-renderer"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkBreaks from "remark-breaks"
@@ -31,7 +31,8 @@ const ParsedEmojiMessage = ({ content }: { content: string }) => {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGemoji, remarkBreaks, remarkGfm]}
-      components={ChakraUIRenderer(markdownTheme)}
+      // TODO: replace with https://github.com/mustaphaturhan/chakra-ui-markdown-renderer/blob/master/src/index.tsx
+      // components={ChakraUIRenderer(markdownTheme)}
       children={content}
       skipHtml
     />

@@ -1,5 +1,5 @@
 import React from "react"
-import { Text, Wrap, WrapItem } from "@chakra-ui/layout"
+import { Text, Wrap, WrapItem } from "@chakra-ui/react"
 import { useDisclosure } from "@chakra-ui/hooks"
 
 import { useCurrentUser } from "../state/authStore"

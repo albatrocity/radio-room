@@ -1,4 +1,4 @@
-import addNotification from "react-push-notification"
+// import addNotification from "react-push-notification"
 import { get, isEqual, includes } from "lodash/fp"
 import { ChatMessage } from "../types/ChatMessage"
 import { User } from "../types/User"
@@ -19,10 +19,11 @@ export const handleNotifications = async (
   )
 
   if (hidden && mentioned && !authorIsMe && document[hidden]) {
-    addNotification({
-      title: "@Mention in Radio Room",
-      message: payload?.content,
-      native: true,
-    })
+    // TODO: Find replacement
+    // addNotification({
+    //   title: "@Mention in Radio Room",
+    //   message: payload?.content,
+    //   native: true,
+    // })
   }
 }
