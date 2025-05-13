@@ -1,0 +1,66 @@
+version: "3"
+
+services:
+  web:
+    container_name: web
+    build:
+      context: .
+      dockerfile: ./apps/web/Dockerfile
+      target: dev
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+    volumes:
+      # Mount source code for hot reloading
+      - ./apps/web/src:/app/apps/web/src
+      - ./apps/web/public:/app/apps/web/public
+      - ./apps/web/gatsby-browser.js:/app/apps/web/gatsby-browser.js
+      - ./apps/web/gatsby-config.js:/app/apps/web/gatsby-config.js
+      - ./apps/web/gatsby-node.js:/app/apps/web/gatsby-node.js
+      - ./apps/web/gatsby-ssr.js:/app/apps/web/gatsby-ssr.js
+    environment:
+      - NODE_ENV=development
+      - GATSBY_WEBPACK_PUBLICPATH=/
+      - PARCEL_WORKERS=0
+      - GATSBY_CPU_COUNT=1
+      - GATSBY_EXPERIMENTAL_PARALLEL_QUERY_RUNNING=false
+      - GATSBY_SKIP_COMPATIBILITY_CHECK=1
+    restart: unless-stopped
+    networks:
+      - app_network
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile
+      target: dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reloading
+      - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/dist:/app/apps/api/dist
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - app_network
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app_network
+
+volumes:
+  redis-data:
+
+networks:
+  app_network:
