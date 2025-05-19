@@ -1,15 +1,5 @@
+import { AdapterAuthentication } from "./Adapter"
 import type { MetadataSourceTrack } from "./MetadataSource"
-
-export type PlaybackControllerAuthentication =
-  | { type: "none" }
-  | {
-      type: "token"
-      clientId: string
-      getStoredTokens: () => Promise<{
-        accessToken: string
-        refreshToken: string
-      }>
-    }
 
 export type PlaybackControllerAuthenticationResponse = {
   accessToken: string
@@ -23,7 +13,7 @@ export type PlaybackControllerQueueItem = MetadataSourceTrack
 
 export interface PlaybackController {
   name: string
-  authentication: PlaybackControllerAuthentication
+  authentication: AdapterAuthentication
   api: PlaybackControllerApi
 }
 
@@ -38,19 +28,14 @@ export interface PlaybackControllerApi {
   skipToNextTrack: () => Promise<PlaybackControllerQueueItem[]>
   skipToPreviousTrack: () => Promise<PlaybackControllerQueueItem[]>
   getQueue: () => Promise<PlaybackControllerQueueItem[]>
-  addToQueue: (
-    mediaId: string,
-    position?: number,
-  ) => Promise<PlaybackControllerQueueItem[]>
+  addToQueue: (mediaId: string, position?: number) => Promise<PlaybackControllerQueueItem[]>
   removeFromQueue?: (mediaId: string) => Promise<PlaybackControllerQueueItem[]>
   clearQueue?: () => Promise<PlaybackControllerQueueItem[]>
 }
 
 export type PlaybackControllerLifecycleCallbacks = {
   onRegistered: (params: { api: PlaybackControllerApi; name: string }) => void
-  onAuthenticationCompleted: (
-    response?: PlaybackControllerAuthenticationResponse,
-  ) => void
+  onAuthenticationCompleted: (response?: PlaybackControllerAuthenticationResponse) => void
   onAuthenticationFailed: (error: Error) => void
   onAuthorizationCompleted: () => void
   onAuthorizationFailed: (error: Error) => void
@@ -63,14 +48,11 @@ export type PlaybackControllerLifecycleCallbacks = {
   onPlaybackPositionChange: (position: number) => void
 }
 
-export interface PlaybackControllerAdapterConfig
-  extends PlaybackControllerLifecycleCallbacks {
+export interface PlaybackControllerAdapterConfig extends PlaybackControllerLifecycleCallbacks {
   name: string
-  authentication: PlaybackControllerAuthentication
+  authentication: AdapterAuthentication
 }
 
 export interface PlaybackControllerAdapter {
-  register: (
-    config: PlaybackControllerAdapterConfig,
-  ) => Promise<PlaybackController>
+  register: (config: PlaybackControllerAdapterConfig) => Promise<PlaybackController>
 }

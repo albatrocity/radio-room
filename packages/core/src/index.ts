@@ -4,9 +4,10 @@ import {
   PlaybackControllerAuthentication,
   PlaybackControllerAdapter,
   PlaybackControllerLifecycleCallbacks,
+  RadioRoomServer,
 } from "@repo/types"
 
-export async function createServer(config: CreateServerConfig) {
+export async function createServer(config: CreateServerConfig): Promise<RadioRoomServer> {
   const { playbackControllers } = config
 
   const controllers = await Promise.all(
@@ -19,6 +20,39 @@ export async function createServer(config: CreateServerConfig) {
       })
     }),
   )
+
+  return {
+    playbackControllers: controllers,
+    mediaSources: [],
+    jobs: [],
+    cache: {
+      get: async (key) => {},
+      registerPlaybackController: async ({ adapter, config }) => {
+        return adapter.register({
+          authentication: config.authentication,
+          name: config.name,
+          ...lifecycleCallbacks,
+        })
+      },
+      registerMediaSource: async (config) => {
+        // Implement your media source registration logic here
+        return {
+          name: config.name,
+          authentication: config.authentication,
+        }
+      },
+      registerJob: async (job) => {
+        // Implement your job registration logic here
+        return job
+      },
+      start: async () => {
+        // Implement your server start logic here
+      },
+      stop: async () => {
+        // Implement your server stop logic here
+      },
+    },
+  }
 }
 
 export async function createPlaybackController({
@@ -38,13 +72,7 @@ export async function createPlaybackController({
 }
 
 const lifecycleCallbacks: PlaybackControllerLifecycleCallbacks = {
-  onRegistered: async ({
-    api,
-    name,
-  }: {
-    api: PlaybackController["api"]
-    name: string
-  }) => {
+  onRegistered: async ({ api, name }: { api: PlaybackController["api"]; name: string }) => {
     console.log(`Registered ${name} with API`, api)
   },
   onAuthenticationCompleted: async (response) => {

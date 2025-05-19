@@ -1,5 +1,5 @@
 {
-  "name": "@repo/playback-controller-spotify",
+  "name": "@repo/utils",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -19,7 +19,6 @@
     "vitest": "^1.3.0"
   },
   "dependencies": {
-    "@spotify/web-api-ts-sdk": "^1.2.0",
     "zod": "^3.24.4"
   }
 }

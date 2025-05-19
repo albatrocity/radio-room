@@ -6,60 +6,29 @@ import {
 import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk"
 import { trackItemSchema } from "./schemas"
 
-export async function getSpotifyApi(config: PlaybackControllerAdapterConfig) {
-  const { type } = config.authentication
-  if (type !== "token") {
-    throw new Error("Invalid authentication type")
-  }
-
-  const { getStoredTokens, clientId } = config.authentication
-
-  try {
-    const { accessToken, refreshToken } = await getStoredTokens()
-    if (!accessToken) {
-      throw new Error("No access token provided for Spotify")
-    }
-
-    const spotifyApi = await makeApi({
-      accessToken: {
-        access_token: accessToken,
-        token_type: "Bearer",
-        refresh_token: refreshToken,
-        expires_in: 3600,
-      },
-      clientId,
-      config,
-    })
-
-    return spotifyApi
-  } catch (error) {
-    throw new Error("Failed to get stored tokens for Spotify")
-  }
-}
-
 export async function makeApi({
-  accessToken,
+  token,
   clientId,
   config,
 }: {
-  accessToken: AccessToken
+  token: AccessToken
   clientId: string
   config: PlaybackControllerAdapterConfig
 }) {
-  const spotifyApi = SpotifyApi.withAccessToken(clientId, accessToken)
+  const spotifyApi = SpotifyApi.withAccessToken(clientId, token)
 
-  const token = await spotifyApi.getAccessToken()
+  const accessToken = await spotifyApi.getAccessToken()
 
-  if (!token) {
+  if (!accessToken) {
     const error = new Error("Failed to get access token")
     await config.onAuthenticationFailed(error)
     throw error
   }
 
   config.onAuthenticationCompleted({
-    accessToken: token.access_token,
-    refreshToken: token.refresh_token,
-    expiresIn: token.expires_in,
+    accessToken: accessToken.access_token,
+    refreshToken: accessToken.refresh_token,
+    expiresIn: accessToken.expires_in,
   })
 
   const api: PlaybackControllerApi = {

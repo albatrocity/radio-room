@@ -1,10 +1,10 @@
-import { Cache } from "./Cache"
+import { SimpleCache } from "./SimpleCache"
 
 export type JobRegistration = {
   name: string
   description: string
   cron: string
-  handler: ({ cache }: { cache: Cache }) => Promise<void>
+  handler: ({ cache }: { cache: SimpleCache }) => Promise<void>
   enabled: boolean
   runAt: number
 }

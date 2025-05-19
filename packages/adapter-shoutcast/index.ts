@@ -1,8 +1,9 @@
 import { MediaSourceAdapter } from "@repo/types"
+import { parseJsonString } from "@repo/utils/json"
 import getStation from "./lib/shoutcast"
-import { parseJsonString, stationSchema } from "./lib/schemas"
+import { stationSchema } from "./lib/schemas"
 
-export const adapter: MediaSourceAdapter = {
+export const mediaSource: MediaSourceAdapter = {
   register: async (config) => {
     const { authentication, name, url, onRegistered, onError, registerJob } = config
     try {
