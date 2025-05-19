@@ -20,7 +20,7 @@ export async function getSpotifyApi(config: PlaybackControllerAdapterConfig) {
       throw new Error("No access token provided for Spotify")
     }
 
-    const spotifyApi = makeApi({
+    const spotifyApi = await makeApi({
       accessToken: {
         access_token: accessToken,
         token_type: "Bearer",
@@ -37,7 +37,7 @@ export async function getSpotifyApi(config: PlaybackControllerAdapterConfig) {
   }
 }
 
-export function makeApi({
+export async function makeApi({
   accessToken,
   clientId,
   config,
@@ -47,6 +47,20 @@ export function makeApi({
   config: PlaybackControllerAdapterConfig
 }) {
   const spotifyApi = SpotifyApi.withAccessToken(clientId, accessToken)
+
+  const token = await spotifyApi.getAccessToken()
+
+  if (!token) {
+    const error = new Error("Failed to get access token")
+    await config.onAuthenticationFailed(error)
+    throw error
+  }
+
+  config.onAuthenticationCompleted({
+    accessToken: token.access_token,
+    refreshToken: token.refresh_token,
+    expiresIn: token.expires_in,
+  })
 
   const api: PlaybackControllerApi = {
     async play() {
@@ -124,9 +138,7 @@ async function getNowPlayingDevice(spotifyApi: SpotifyApi) {
   }
 }
 
-async function getQueue(
-  spotifyApi: SpotifyApi,
-): Promise<PlaybackControllerQueueItem[]> {
+async function getQueue(spotifyApi: SpotifyApi): Promise<PlaybackControllerQueueItem[]> {
   const { queue } = await spotifyApi.player.getUsersQueue()
 
   return queue.map((item) => trackItemSchema.parse(item))

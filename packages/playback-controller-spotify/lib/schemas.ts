@@ -101,10 +101,7 @@ export const trackItemSchema = z
           ],
         })),
         releaseDate: track.album.release_date,
-        releaseDatePrecision: track.album.release_date_precision as
-          | "day"
-          | "month"
-          | "year",
+        releaseDatePrecision: track.album.release_date_precision as "day" | "month" | "year",
         totalTracks: track.album.total_tracks,
         label: "",
         images: track.album.images.map((image) => ({

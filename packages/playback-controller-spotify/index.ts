@@ -15,7 +15,7 @@ export const adapter: PlaybackControllerAdapter = {
       }
     } catch (error) {
       console.error("Error getting Spotify API:", error)
-      await onError(error)
+      await onError(new Error(String(error)))
       throw error
     }
   },

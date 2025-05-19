@@ -11,6 +11,12 @@ export type PlaybackControllerAuthentication =
       }>
     }
 
+export type PlaybackControllerAuthenticationResponse = {
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+}
+
 export type PlaybackState = "playing" | "paused" | "stopped"
 
 export type PlaybackControllerQueueItem = MetadataSourceTrack
@@ -42,7 +48,9 @@ export interface PlaybackControllerApi {
 
 export type PlaybackControllerLifecycleCallbacks = {
   onRegistered: (params: { api: PlaybackControllerApi; name: string }) => void
-  onAuthenticatedCompleted: () => void
+  onAuthenticationCompleted: (
+    response?: PlaybackControllerAuthenticationResponse,
+  ) => void
   onAuthenticationFailed: (error: Error) => void
   onAuthorizationCompleted: () => void
   onAuthorizationFailed: (error: Error) => void

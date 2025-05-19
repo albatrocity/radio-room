@@ -1,17 +1,20 @@
-import js from "@eslint/js"
+import eslintJs from "@eslint/js"
 import eslintConfigPrettier from "eslint-config-prettier"
 import turboPlugin from "eslint-plugin-turbo"
-import tseslint from "typescript-eslint"
+import * as tseslint from "typescript-eslint"
 
 /**
  * A shared ESLint configuration for the repository.
  *
- * @type {import("eslint").Linter.Config}
+ * @type {import("eslint").Linter.FlatConfig[]}
  * */
-export const config = [
-  js.configs.recommended,
+const config = [
+  // Use eslint.configs if available, otherwise fall back
+  (eslintJs?.configs?.recommended) || { linterOptions: { reportUnusedDisableDirectives: true } },
+  // Spread typescript-eslint configs cautiously
+  ...(tseslint?.configs?.recommended ? [tseslint.configs.recommended] : []),
+  // Include the prettier config
   eslintConfigPrettier,
-  ...tseslint.configs.recommended,
   {
     plugins: {
       turbo: turboPlugin,
@@ -24,6 +27,8 @@ export const config = [
     plugins: {},
   },
   {
-    ignores: ["dist/**"],
+    ignores: ["dist/**", "node_modules/**", ".turbo/**", "build/**"],
   },
 ]
+
+export default config
