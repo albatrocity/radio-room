@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Front-end for [https://listeningroom.club](https://listeningroom.club). A [Gatsby](http://gatsbyjs.com)/[Chakra](https://chakra-ui.com)/[XState](http://xstate.js.org)/[Zustand](https://github.com/pmndrs/zustand) app that communicates to a chat server and plays music streaming from a Shoutcast server.",
   "main": "index.js",
-  "dependencies": {
+  "devDependencies": {
+    "prettier-plugin-svelte": "^3.4.0"
   },
-  "devDependencies": {},
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",

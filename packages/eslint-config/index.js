@@ -1,28 +1,29 @@
-module.exports = {
-  env: {
-    node: true,
+import js from "@eslint/js"
+import eslintConfigPrettier from "eslint-config-prettier"
+import turboPlugin from "eslint-plugin-turbo"
+import tseslint from "typescript-eslint"
+
+/**
+ * A shared ESLint configuration for the repository.
+ *
+ * @type {import("eslint").Linter.Config}
+ * */
+export const config = [
+  js.configs.recommended,
+  eslintConfigPrettier,
+  ...tseslint.configs.recommended,
+  {
+    plugins: {
+      turbo: turboPlugin,
+    },
+    rules: {
+      "turbo/no-undeclared-env-vars": "warn",
+    },
   },
-  extends: ["crema"],
-  rules: {
-    "@typescript-eslint/no-non-null-assertion": "off",
-    "@typescript-eslint/no-explicit-any": "off",
-    "import/order": [
-      "error",
-      {
-        alphabetize: { caseInsensitive: true, order: "asc" },
-        groups: [
-          "builtin",
-          "external",
-          "internal",
-          "parent",
-          "sibling",
-          "index",
-          "object",
-          "unknown",
-        ],
-        "newlines-between": "always",
-      },
-    ],
+  {
+    plugins: {},
   },
-  parser: "@typescript-eslint/parser",
-}
+  {
+    ignores: ["dist/**"],
+  },
+]
