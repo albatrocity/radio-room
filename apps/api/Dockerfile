@@ -1,4 +1,4 @@
-FROM node:18.18-alpine AS pruner
+FROM node:22.16-alpine AS pruner
 WORKDIR /app
 
 # Copy only the files needed for turbo prune
@@ -6,7 +6,7 @@ COPY . .
 RUN npx turbo prune api --docker
 
 # Base stage for installing dependencies
-FROM node:18.18-alpine AS base
+FROM node:22.16-alpine AS base
 WORKDIR /app
 
 # Copy pruned package.json files and install
@@ -33,7 +33,7 @@ EXPOSE 3000
 CMD ["npm", "run", "dev", "--workspace=api"]
 
 # Production stage (when you're ready for it)
-FROM node:18.18-alpine AS production
+FROM node:22.16-alpine AS production
 WORKDIR /app
 
 COPY --from=builder /app/apps/api/dist /app/dist

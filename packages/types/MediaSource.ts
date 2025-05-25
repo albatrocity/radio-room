@@ -34,3 +34,9 @@ export interface MediaSourceAdapterConfig extends MediaSourceLifecycleCallbacks 
 export interface MediaSourceAdapter {
   register: (config: MediaSourceAdapterConfig) => Promise<MediaSource>
 }
+
+export interface MediaSourceError {
+  status: number
+  message: string
+  reason?: string
+}

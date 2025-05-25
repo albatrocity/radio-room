@@ -13,7 +13,7 @@
   },
   "engines": {
     "npm": ">=9.0.0 <10.0.0",
-    "node": ">=18.18.0"
+    "node": ">=22.16.0"
   },
   "author": "Ross Brown <albatrocity@gmail.com>",
   "license": "ISC",

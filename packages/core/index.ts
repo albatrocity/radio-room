@@ -1,10 +1,11 @@
 import {
   CreateServerConfig,
   PlaybackController,
-  PlaybackControllerAuthentication,
+  AdapterAuthentication,
   PlaybackControllerAdapter,
   PlaybackControllerLifecycleCallbacks,
   RadioRoomServer,
+  JobRegistration,
 } from "@repo/types"
 
 export async function createServer(config: CreateServerConfig): Promise<RadioRoomServer> {
@@ -21,36 +22,31 @@ export async function createServer(config: CreateServerConfig): Promise<RadioRoo
     }),
   )
 
+  //  mock implementation
+  const jobQueue = {
+    jobs: [] as JobRegistration[],
+    addJob: (job: JobRegistration) => {
+      jobQueue.jobs.push(job)
+    },
+    removeJob: (job: JobRegistration) => {
+      jobQueue.jobs = jobQueue.jobs.filter((j) => j !== job)
+    },
+  }
+
   return {
     playbackControllers: controllers,
     mediaSources: [],
     jobs: [],
-    cache: {
-      get: async (key) => {},
-      registerPlaybackController: async ({ adapter, config }) => {
-        return adapter.register({
-          authentication: config.authentication,
-          name: config.name,
-          ...lifecycleCallbacks,
-        })
-      },
-      registerMediaSource: async (config) => {
-        // Implement your media source registration logic here
-        return {
-          name: config.name,
-          authentication: config.authentication,
-        }
-      },
-      registerJob: async (job) => {
-        // Implement your job registration logic here
-        return job
-      },
-      start: async () => {
-        // Implement your server start logic here
-      },
-      stop: async () => {
-        // Implement your server stop logic here
-      },
+    cache: config.cacheImplementation,
+    async registerPlaybackController({ adapter, config }) {
+      return adapter.register(config)
+    },
+    async registerMediaSource({ config }) {
+      // return adapter.register(config)
+    },
+    async registerJob(job) {
+      jobQueue.addJob(job)
+      return job
     },
   }
 }
@@ -61,7 +57,7 @@ export async function createPlaybackController({
   name,
 }: {
   adapter: PlaybackControllerAdapter
-  authentication: PlaybackControllerAuthentication
+  authentication: AdapterAuthentication
   name: string
 }): Promise<PlaybackController> {
   return await adapter.register({

@@ -67,4 +67,19 @@ export interface MetadataSourceApi {
   search: (query: string) => Promise<MetadataSourceTrack[]>
   searchByParams: (params: MetadataSourceSearchParameters) => Promise<MetadataSourceTrack[]>
   findById: (id: string) => Promise<MetadataSourceTrack | null>
+  createPlaylist?: (params: {
+    title: string
+    trackIds: MetadataSourceTrack["id"][]
+    userId: string
+  }) => Promise<{
+    title: string
+    trackIds: MetadataSourceTrack["id"][]
+    id: string
+  }>
+}
+
+export interface MetadataSourceError {
+  status: number
+  message: string
+  reason?: string
 }

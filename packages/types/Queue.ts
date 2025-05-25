@@ -1,9 +1,10 @@
 import { MetadataSourceTrack } from "./MetadataSource"
+import { User } from "./User"
 
-interface QueueItem {
+export interface QueueItem {
   track: MetadataSourceTrack
   addedAt: number
-  addedBy: string | undefined
+  addedBy: User | undefined
   addedDuring: string | undefined
   playedAt: number | undefined
 }
