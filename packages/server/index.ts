@@ -8,7 +8,14 @@ import express from "express"
 import { createServer as createHttpServer } from "http"
 import { Server as SocketIoServer } from "socket.io"
 import { createClient } from "redis"
-import { CreateServerConfig, User } from "@repo/types"
+import {
+  CreateServerConfig,
+  PlaybackController,
+  PlaybackControllerAdapter,
+  PlaybackControllerAdapterConfig,
+  PlaybackControllerLifecycleCallbacks,
+  User,
+} from "@repo/types"
 
 import { bindPubSubHandlers } from "./pubSub/handlers"
 // import { callback, login } from "./controllers/spotifyAuthController"
@@ -155,6 +162,7 @@ class RadioRoomServer {
 
     // Register and authorize adapters
     this.playbackControllers?.forEach((controller) => {
+      this.registerPlaybackController(controller)
       if (controller.authentication) {
         console.log(`Registering playback controller: ${controller.name}`)
       }
@@ -203,6 +211,66 @@ class RadioRoomServer {
     )
 
     this._onStart()
+  }
+
+  async registerPlaybackController(playbackController: PlaybackControllerAdapterConfig) {
+    playbackController.adapter.register({
+      onPlay: this.onPlay.bind(this),
+      onPause: this.onPause.bind(this),
+      onPlaybackQueueChange: this.onPlaybackQueueChange.bind(this),
+      onChangeTrack: this.onChangeTrack.bind(this),
+      onPlaybackPositionChange: this.onPlaybackPositionChange.bind(this),
+      onPlaybackStateChange: this.onPlaybackStateChange.bind(this),
+      onError: (error) => {
+        console.error(`Error in playback controller ${playbackController}`, error)
+      },
+      onAuthenticationCompleted: (response) => {
+        console.log(`Authentication completed for ${playbackController.name}`, response)
+      },
+      onAuthenticationFailed: (error) => {
+        console.error(`Authentication failed for ${playbackController.name}`, error)
+      },
+      onAuthorizationCompleted: () => {
+        console.log(`Authorization completed for ${playbackController.name}`)
+      },
+      onAuthorizationFailed: (error) => {
+        console.error(`Authorization failed for ${playbackController.name}`, error)
+      },
+      onRegistered: (params) => {
+        console.log(`Playback controller registered: ${params.name}`)
+        this.io.emit("playback:registered", {
+          name: params.name,
+          api: params.api,
+        })
+      },
+    })
+    // this.onPlayEvents.push(
+    //   (params: PlaybackControllerLifecycleCallbacks["onPlay"]) => {
+    //     this.io.emit("playback:play", params)
+    //   }
+    // )
+  }
+
+  // Lifecycle methods for playback controllers
+  async onPlay() {
+    console.log("Playback started")
+    // TODO: Emit event to clients
+  }
+  async onPause() {
+    console.log("Playback paused")
+    // TODO: Emit event to clients
+  }
+  async onPlaybackQueueChange() {
+    console.log("Playback queue changed")
+  }
+  async onChangeTrack(track: any) {
+    console.log("Track changed", track)
+  }
+  async onPlaybackPositionChange(position: number) {
+    console.log("Playback position changed", position)
+  }
+  async onPlaybackStateChange(state: string) {
+    console.log("Playback state changed", state)
   }
 }
 

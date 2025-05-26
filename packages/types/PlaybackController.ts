@@ -48,11 +48,12 @@ export type PlaybackControllerLifecycleCallbacks = {
   onPlaybackPositionChange: (position: number) => void
 }
 
-export interface PlaybackControllerAdapterConfig extends PlaybackControllerLifecycleCallbacks {
+export interface PlaybackControllerAdapterConfig {
   name: string
   authentication: AdapterAuthentication
+  adapter: PlaybackControllerAdapter
 }
 
 export interface PlaybackControllerAdapter {
-  register: (config: PlaybackControllerAdapterConfig) => Promise<PlaybackController>
+  register: (config: PlaybackControllerLifecycleCallbacks) => Promise<PlaybackController>
 }

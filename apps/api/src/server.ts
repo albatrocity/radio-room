@@ -1,8 +1,11 @@
 import { createServer } from "@repo/server"
 import { playbackController } from "@repo/adapter-spotify"
+import { PlaybackControllerAdapterConfig } from "@repo/types"
 
 async function main() {
-  const spotifyPlayback = await playbackController.register({
+  const spotifyPlayback: PlaybackControllerAdapterConfig = {
+    adapter: playbackController,
+    name: "Spotify",
     authentication: {
       type: "oauth",
       clientId: process.env.SPOTIFY_CLIENT_ID ?? "",
@@ -17,8 +20,7 @@ async function main() {
         }
       },
     },
-    name: "Spotify",
-  })
+  }
 
   const server = createServer({
     PORT: Number(process.env.PORT ?? 3000),
