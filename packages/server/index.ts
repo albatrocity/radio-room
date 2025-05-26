@@ -5,10 +5,11 @@ import session from "express-session"
 import { RedisStore } from "connect-redis"
 import cors from "cors"
 import express from "express"
-import { Server } from "socket.io"
-import { User } from "@repo/types"
+import { createServer as createHttpServer } from "http"
+import { Server as SocketIoServer } from "socket.io"
+import { createClient } from "redis"
+import { CreateServerConfig, User } from "@repo/types"
 
-import { pubClient, subClient } from "./lib/redisClients"
 import { bindPubSubHandlers } from "./pubSub/handlers"
 // import { callback, login } from "./controllers/spotifyAuthController"
 import roomsController, {
@@ -34,99 +35,178 @@ declare module "express-session" {
 
 const PORT = Number(process.env.PORT ?? 3000)
 
-const redisStore = new RedisStore({ client: pubClient, prefix: "s:" })
+class RadioRoomServer {
+  private io: SocketIoServer
+  sessionStore: RedisStore
+  private app: express.Express
+  private sessionMiddleware: express.RequestHandler
+  private pubClient: ReturnType<typeof createClient>
+  private subClient: ReturnType<typeof createClient>
+  private httpServer: ReturnType<typeof createHttpServer>
+  private _onStart: () => void
+  private playbackControllers: CreateServerConfig["playbackControllers"]
+  private cacheImplementation: CreateServerConfig["cacheImplementation"]
 
-const sessionMiddleware = session({
-  store: redisStore,
-  resave: true, // required: force lightweight session keep alive (touch)
-  saveUninitialized: false, // recommended: only save session when data exists
-  proxy: true,
-  cookie: {
-    maxAge: 1000 * 60 * 60 * 24 * 365, // 1 year
-    secure: process.env.NODE_ENV === "production",
-    httpOnly: false,
-    domain: process.env.NODE_ENV === "production" ? ".listeningroom.club" : "localhost",
-    path: "/",
-  },
-  secret: process.env.SESSION_SECRET ?? "secret",
-})
+  constructor(
+    config: CreateServerConfig = {
+      cacheImplementation: undefined,
+      playbackControllers: [],
+      REDIS_URL: process.env.REDIS_URL ?? "redis://localhost:6379",
+      ENVIRONMENT: process.env.ENVIRONMENT as "production" | "development",
+      DOMAIN: "localhost",
+    },
+  ) {
+    this.playbackControllers = config.playbackControllers ?? []
+    this.cacheImplementation = config.cacheImplementation ?? {
+      get: async () => "null",
+      set: async () => undefined,
+      clear: async () => undefined,
+      delete: async () => undefined,
+    }
 
-const httpServer = express()
-  .set("trust proxy", 1)
-  .use(express.static(__dirname + "/public"))
-  .use(
-    cors({
-      origin: [
-        "http://localhost:8000",
-        "https://listen.show",
-        "https://www.listen.show",
-        "https://listeningroom.club",
-        "https://www.listeningroom.club",
-      ],
-      preflightContinue: true,
-      credentials: true,
-    }),
-  )
-  .use(express.json())
-  .use(cookieParser())
-  .use(sessionMiddleware)
-  .get("/me", me)
-  .get("/rooms/", findRooms)
-  .get("/rooms/:id", findRoom)
-  .post("/rooms", create)
-  .delete("/rooms/:id", deleteRoom)
-  // .get("/login", login)
-  .post("/logout", logout)
-  // .get("/callback", callback)
-  .listen(PORT, "0.0.0.0", () => console.log(`Listening on ${PORT}`))
+    // Create Redis clients for pub/sub and session store
+    this.pubClient = createClient({
+      url: config.REDIS_URL,
+      socket:
+        config.ENVIRONMENT === "production"
+          ? {
+              tls: true,
+              rejectUnauthorized: false,
+            }
+          : undefined,
+    })
+    this.subClient = this.pubClient.duplicate()
+    this._onStart = config.onStart ?? (() => {})
 
-const io = new Server(httpServer, {
-  connectTimeout: 45000,
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  allowEIO3: false,
-})
+    this.sessionStore = new RedisStore({ client: this.pubClient, prefix: "s:" })
 
-pubClient.connect()
-subClient.connect()
+    this.sessionMiddleware = session({
+      store: this.sessionStore,
+      resave: true, // required: force lightweight session keep alive (touch)
+      saveUninitialized: false, // recommended: only save session when data exists
+      proxy: true,
+      cookie: {
+        maxAge: 1000 * 60 * 60 * 24 * 365, // 1 year
+        secure: config.ENVIRONMENT === "production",
+        httpOnly: false,
+        domain: config.DOMAIN ?? "localhost",
+        path: "/",
+      },
+      secret: process.env.SESSION_SECRET ?? "secret",
+    })
 
-io.adapter(createAdapter(pubClient, subClient))
-io.use((socket, next) => {
-  /** @ts-ignore */
-  sessionMiddleware(socket.request, socket.request.res || {}, next)
-  // sessionMiddleware(socket.request, socket.request.res, next); will not work with websocket-only
-  // connections, as 'socket.request.res' will be undefined in that case
-})
+    this.app = express()
+      .set("trust proxy", 1)
+      .use(express.static(__dirname + "/public"))
+      .use(
+        cors({
+          origin: [
+            "http://localhost:8000",
+            "https://listen.show",
+            "https://www.listen.show",
+            "https://listeningroom.club",
+            "https://www.listeningroom.club",
+          ],
+          preflightContinue: true,
+          credentials: true,
+        }),
+      )
+      .use(express.json())
+      .use(cookieParser())
+      .use(this.sessionMiddleware)
+      .get("/me", me)
+      .get("/rooms/", findRooms)
+      .get("/rooms/:id", findRoom)
+      .post("/rooms", create)
+      .delete("/rooms/:id", deleteRoom)
+      // .get("/login", login)
+      .post("/logout", logout)
+    // .get("/callback", callback)
 
-io.on("connection", (socket) => {
-  authController(socket, io)
-  messageController(socket, io)
-  activityController(socket, io)
-  djController(socket, io)
-  adminController(socket, io)
-  roomsController(socket, io)
-})
+    // Create HTTP server from Express app, but don't start listening yet
+    this.httpServer = createHttpServer(this.app)
 
-// pubsub events
-bindPubSubHandlers(io)
+    // Initialize Socket.IO with the HTTP server
+    this.io = new SocketIoServer(this.httpServer, {
+      connectTimeout: 45000,
+      pingTimeout: 60000,
+      pingInterval: 25000,
+      allowEIO3: false,
+    })
+  }
 
-async function startJobs() {
-  try {
-    // @ts-ignore
-    await execa("node", ["dist/jobs/processor.js"]).pipeStdout(process.stdout)
-  } catch (e) {
-    console.error(e)
+  getIO() {
+    return this.io
+  }
+
+  getHttpServer(): any {
+    return this.httpServer
+  }
+
+  async start() {
+    await this.pubClient.connect()
+    await this.subClient.connect()
+    this.io.adapter(createAdapter(this.pubClient, this.subClient))
+    this.io.use((socket, next) => {
+      // Handle session for socket connections
+      /** @ts-ignore */
+      this.sessionMiddleware(socket.request, socket.request.res || {}, next)
+    })
+
+    // Register and authorize adapters
+    this.playbackControllers?.forEach((controller) => {
+      if (controller.authentication) {
+        console.log(`Registering playback controller: ${controller.name}`)
+      }
+    })
+
+    this.io.on("connection", (socket) => {
+      authController(socket, this.io)
+      messageController(socket, this.io)
+      activityController(socket, this.io)
+      djController(socket, this.io)
+      adminController(socket, this.io)
+      roomsController(socket, this.io)
+    })
+
+    // Start the HTTP server listening
+    this.httpServer.listen(PORT, "0.0.0.0", () => console.log(`Listening on ${PORT}`))
+    bindPubSubHandlers(this.io)
+
+    await this.startJobs()
+
+    this.onStart()
+  }
+  async stop() {
+    await this.pubClient.quit()
+    await this.subClient.quit()
+    this.io.close()
+
+    // Close the HTTP server
+    this.httpServer.close()
+  }
+
+  async startJobs() {
+    try {
+      // @ts-ignore
+      await execa("node", ["dist/jobs/processor.js"]).pipeStdout(process.stdout)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+  async onStart() {
+    const roomIds = await this.pubClient.sMembers("rooms")
+    await Promise.all(
+      roomIds.map(async (id) => {
+        return clearRoomOnlineUsers(id)
+      }),
+    )
+
+    this._onStart()
   }
 }
-async function boot() {
-  const roomIds = await pubClient.sMembers("rooms")
-  await Promise.all(
-    roomIds.map(async (id) => {
-      return clearRoomOnlineUsers(id)
-    }),
-  )
+
+export function createServer(config: CreateServerConfig) {
+  const radioRoomServer = new RadioRoomServer(config)
+  return radioRoomServer
 }
-
-startJobs()
-
-boot()

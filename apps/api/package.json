@@ -39,8 +39,10 @@
     "xstate": "^4.37.2"
   },
   "devDependencies": {
+    "@repo/server": "*",
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
+    "@repo/adapter-spotify": "*",
     "@emoji-mart/data": "^1.1.2",
     "@tsconfig/node18": "^2.0.1",
     "@types/cookie-parser": "^1.4.3",
