@@ -1,18 +1,20 @@
 import { Server } from "socket.io"
 import { PUBSUB_SPOTIFY_AUTH_ERROR, PUBSUB_RADIO_ERROR } from "../../lib/constants"
-import { pubClient, subClient } from "../../lib/redisClients"
-import { getUser } from "../../operations/data"
+import { AppContext } from "../../lib/context"
+import { createOperations } from "../../operations"
 import { PubSubHandlerArgs } from "@repo/types/PubSub"
 import { MetadataSourceError } from "@repo/types/MetadataSource"
 import getRoomPath from "../../lib/getRoomPath"
 import { pubRoomSettingsUpdated } from "../../operations/room/handleRoomNowPlayingData"
 
-export default async function bindHandlers(io: Server) {
-  subClient.pSubscribe(PUBSUB_SPOTIFY_AUTH_ERROR, (message, channel) =>
-    handleMetadataSourceError({ io, message, channel }),
+type ContextPubSubHandlerArgs = PubSubHandlerArgs & { context: AppContext }
+
+export default async function bindHandlers(io: Server, context: AppContext) {
+  context.redis.subClient.pSubscribe(PUBSUB_SPOTIFY_AUTH_ERROR, (message, channel) =>
+    handleMetadataSourceError({ io, message, channel, context }),
   )
-  subClient.pSubscribe(PUBSUB_RADIO_ERROR, (message, channel) =>
-    handleRadioError({ io, message, channel }),
+  context.redis.subClient.pSubscribe(PUBSUB_RADIO_ERROR, (message, channel) =>
+    handleRadioError({ io, message, channel, context }),
   )
 }
 
@@ -29,11 +31,12 @@ function getErrorMessage(status: number) {
   }
 }
 
-async function handleMetadataSourceError({ io, message }: PubSubHandlerArgs) {
+async function handleMetadataSourceError({ io, message, context }: ContextPubSubHandlerArgs) {
   const { userId, roomId, error }: { userId: string; roomId?: string; error: MetadataSourceError } =
     JSON.parse(message)
 
-  const user = await getUser(userId)
+  const operations = createOperations(context)
+  const user = await operations.users.getUser({ userId, context })
   if (user?.id) {
     io.to(user.id).emit("event", {
       type: "ERROR",
@@ -48,11 +51,15 @@ async function handleMetadataSourceError({ io, message }: PubSubHandlerArgs) {
   }
 
   if (roomId) {
-    await pubClient.hSet(`room:${roomId}:details`, "spotifyError", JSON.stringify(error))
+    await context.redis.pubClient.hSet(
+      `room:${roomId}:details`,
+      "spotifyError",
+      JSON.stringify(error),
+    )
   }
 }
 
-async function handleRadioError({ io, message }: PubSubHandlerArgs) {
+async function handleRadioError({ io, message, context }: ContextPubSubHandlerArgs) {
   const { roomId, error }: { userId: string; roomId?: string; error: Error } = JSON.parse(message)
   if (roomId) {
     io.to(getRoomPath(roomId)).emit("event", {
@@ -66,12 +73,12 @@ async function handleRadioError({ io, message }: PubSubHandlerArgs) {
       },
     })
 
-    await pubClient.hSet(
+    await context.redis.pubClient.hSet(
       `room:${roomId}:details`,
       "radioError",
       JSON.stringify({ message: String(error.message), status: 500 }),
     )
 
-    await pubRoomSettingsUpdated(roomId)
+    await pubRoomSettingsUpdated({ context, roomId })
   }
 }

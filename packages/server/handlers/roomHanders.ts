@@ -3,48 +3,55 @@ import {
   getMessagesSince,
   getRoomPlaylistSince,
   removeSensitiveRoomAttributes,
-} from "../operations/data";
-import { HandlerConnections } from "../types/HandlerConnections";
-import { RoomSnapshot } from "../types/Room";
+} from "../operations/data"
+import { HandlerConnections } from "@repo/types/HandlerConnections"
+import { RoomSnapshot } from "@repo/types/Room"
 
 export async function getRoomSettings({ io, socket }: HandlerConnections) {
+  const { context } = socket
   if (!socket.data.roomId) {
-    return null;
+    return null
   }
-  const room = await findRoom(socket.data.roomId);
+  const room = await findRoom({ context, roomId: socket.data.roomId })
   if (!room) {
-    return;
+    return
   }
 
-  const isAdmin = socket.data.userId === room?.creator;
+  const isAdmin = socket.data.userId === room?.creator
 
   io.to(socket.id).emit("event", {
     type: "ROOM_SETTINGS",
     data: {
       room: isAdmin ? room : removeSensitiveRoomAttributes(room),
     },
-  });
+  })
 }
 
 export async function getLatestRoomData(
   { io, socket }: HandlerConnections,
-  snapshot: RoomSnapshot
+  snapshot: RoomSnapshot,
 ) {
+  const { context } = socket
   if (!socket.data.roomId) {
-    return null;
+    return null
   }
-  const room = await findRoom(socket.data.roomId);
+  const room = await findRoom({ context, roomId: socket.data.roomId })
   if (!room) {
-    return;
+    return
   }
 
-  const isAdmin = socket.data.userId === room?.creator;
+  const isAdmin = socket.data.userId === room?.creator
 
-  const messages = await getMessagesSince(room.id, snapshot.lastMessageTime);
-  const playlist = await getRoomPlaylistSince(
-    room.id,
-    snapshot.lastPlaylistItemTime
-  );
+  const messages = await getMessagesSince({
+    context,
+    roomId: room.id,
+    since: snapshot.lastMessageTime,
+  })
+  const playlist = await getRoomPlaylistSince({
+    context,
+    roomId: room.id,
+    since: snapshot.lastPlaylistItemTime,
+  })
 
   io.to(socket.id).emit("event", {
     type: "ROOM_DATA",
@@ -53,5 +60,5 @@ export async function getLatestRoomData(
       messages,
       playlist,
     },
-  });
+  })
 }

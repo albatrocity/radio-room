@@ -1,29 +1,37 @@
 import { objectKeys } from "../../lib/tsExtras"
-import { isNullish } from "remeda"
+import { isNullish, isEmpty } from "remeda"
 
-import { pubClient } from "../../lib/redisClients"
 import { Reaction } from "@repo/types/Reaction"
 import { Room, StoredRoomMeta } from "@repo/types/Room"
 import { StoredUser, User } from "@repo/types/User"
 import { ChatMessage } from "@repo/types/ChatMessage"
 import { filter, isTruthy } from "remeda"
+import { AppContext } from "../../lib/context"
 
 type HSetOptions = {
   PX?: number
 }
 
-export async function writeJsonToHset(
-  setKey: string,
-  attributes: Partial<User | Room | ChatMessage | Reaction | StoredRoomMeta>,
-  options: HSetOptions = {},
-) {
+type WriteJsonToHsetParams = {
+  context: AppContext
+  setKey: string
+  attributes: Partial<User | Room | ChatMessage | Reaction | StoredRoomMeta>
+  options?: HSetOptions
+}
+
+export async function writeJsonToHset({
+  context,
+  setKey,
+  attributes,
+  options = {},
+}: WriteJsonToHsetParams) {
   const writes = objectKeys(attributes).map((key) => {
     if (!isNullish(attributes[key])) {
-      return pubClient.hSet(setKey, key, String(attributes[key]))
+      return context.redis.pubClient.hSet(setKey, key, String(attributes[key]))
     }
   })
   if (options.PX) {
-    pubClient.pExpire(setKey, options.PX)
+    context.redis.pubClient.pExpire(setKey, options.PX)
   }
   return Promise.all(writes)
 }
@@ -40,56 +48,114 @@ export function hSetToObject(hset: HSet) {
   return hset
 }
 
-// Gets keys from Redis that are indexed in a set
-export async function getMembersFromSet<T>(
-  setKey: string,
-  recordPrefix: string,
-  recordSuffix?: string,
-) {
-  const members = await pubClient.sMembers(setKey)
-
-  const reads = members.map(async (key) => {
-    const memberKey = `${recordPrefix}:${key}${recordSuffix ? `:${recordSuffix}` : ""}`
-
-    const member = await pubClient.get(memberKey)
-    if (!member) {
-      return null
-    }
-    return JSON.parse(member) as T
-  })
-  const results = await Promise.all(reads)
-  return filter(results, isTruthy)
+type GetMembersFromSetParams<T> = {
+  context: AppContext
+  setKey: string
+  recordPrefix: string
+  recordSuffix?: string
 }
 
 // Gets keys from Redis that are indexed in a set
-export async function getHMembersFromSet<T>(
-  setKey: string,
-  recordPrefix: string,
-  recordSuffix?: string,
-) {
-  const members = await pubClient.sMembers(setKey)
+export async function getMembersFromSet<T>({
+  context,
+  setKey,
+  recordPrefix,
+  recordSuffix,
+}: GetMembersFromSetParams<T>) {
+  const members = await context.redis.pubClient.sMembers(setKey)
 
   const reads = members.map(async (key) => {
-    const memberKey = `${recordPrefix}:${key}${recordSuffix ? `:${recordSuffix}` : ""}`
-
-    const member = await pubClient.hGetAll(memberKey)
-    const memberExists = await pubClient.exists(memberKey)
-
-    if (!member || memberExists === 0) {
-      await pubClient.sRem(setKey, memberKey)
-      return null
+    try {
+      const record = `${recordPrefix}:${key}${recordSuffix ? `:${recordSuffix}` : ""}`
+      const attributes = await context.redis.pubClient.hGetAll(record)
+      if (isEmpty(attributes)) {
+        // If record is empty, remove key from set
+        context.redis.pubClient.sRem(setKey, key)
+        return null
+      } else {
+        const typed = JSON.parse(JSON.stringify(attributes)) as T
+        return { id: key, ...typed } as T
+      }
+    } catch (e) {
+      console.error("ERROR FROM data/utils/getMembersFromSet", e)
     }
-    return member as T
   })
-  const results = await Promise.all(reads)
-  return filter(results, isTruthy)
+
+  try {
+    const docs = await Promise.all(reads)
+    return filter(docs, isTruthy)
+  } catch (e) {
+    console.error("ERROR FROM data/utils/getMembersFromSet", e)
+    return []
+  }
+}
+
+type GetHMembersFromSetParams<T> = {
+  context: AppContext
+  setKey: string
+  recordPrefix: string
+  recordSuffix?: string
+}
+
+// Gets keys from Redis that are indexed in a hset
+export async function getHMembersFromSet<T>({
+  context,
+  setKey,
+  recordPrefix,
+  recordSuffix,
+}: GetHMembersFromSetParams<T>) {
+  const members = await context.redis.pubClient.sMembers(setKey)
+
+  const reads = members.map(async (key) => {
+    try {
+      const record = `${recordPrefix}:${key}${recordSuffix ? `:${recordSuffix}` : ""}`
+      const attributes = await context.redis.pubClient.hGetAll(record)
+      const parsedAttributes = objectKeys(attributes).reduce(
+        (acc, key) => {
+          try {
+            if (attributes[key]) {
+              // @ts-ignore
+              acc[key] = JSON.parse(attributes[key])
+            }
+          } catch (e) {
+            console.error("ERROR FROM data/utils/getHMembersFromSet", attributes[key])
+            // @ts-ignore
+            acc[key] = attributes[key]
+          }
+          return acc
+        },
+        {} as Record<string, any>,
+      )
+      return parsedAttributes as T
+    } catch (e) {
+      console.error("ERROR FROM data/utils/getHMembersFromSet", e)
+    }
+  })
+
+  try {
+    const docs = await Promise.all(reads)
+    return filter(docs, isTruthy)
+  } catch (e) {
+    console.error("ERROR FROM data/utils/getHMembersFromSet", e)
+    return []
+  }
+}
+
+type DeleteMembersFromSetParams = {
+  context: AppContext
+  setKey: string
+  recordPrefix: string
 }
 
 // Deletes keys from Redis that are indexed in a set elsewhere
-export async function deleteMembersFromSet(setKey: string, recordPrefix: string) {
-  const members = await pubClient.sMembers(setKey)
+export async function deleteMembersFromSet({
+  context,
+  setKey,
+  recordPrefix,
+}: DeleteMembersFromSetParams) {
+  const members = await context.redis.pubClient.sMembers(setKey)
   const dels = members.map(async (key) => {
-    return pubClient.unlink(`${recordPrefix}:${key}`)
+    return context.redis.pubClient.unlink(`${recordPrefix}:${key}`)
   })
   await dels
   return null
@@ -104,6 +170,11 @@ export function mapUserBooleans(user: StoredUser) {
   }
 }
 
-export function getTtl(key: string) {
-  return pubClient.ttl(key)
+type GetTtlParams = {
+  context: AppContext
+  key: string
+}
+
+export function getTtl({ context, key }: GetTtlParams) {
+  return context.redis.pubClient.ttl(key)
 }

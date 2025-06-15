@@ -1,36 +1,55 @@
 import { filter, isTruthy } from "remeda"
-import { pubClient } from "../../lib/redisClients"
+import { AppContext } from "../../lib/context"
 import { StoredUser, User } from "@repo/types/User"
 import { mapUserBooleans, writeJsonToHset } from "./utils"
 // import { PUBSUB_USER_SPOTIFY_AUTHENTICATION_STATUS } from "../../lib/constants"
 
-export async function addTypingUser(roomId: string, userId: string) {
+type AddTypingUserParams = {
+  context: AppContext
+  roomId: string
+  userId: string
+}
+
+export async function addTypingUser({ context, roomId, userId }: AddTypingUserParams) {
   try {
     if (!roomId || !userId) {
       return null
     }
-    return await pubClient.sAdd(`room:${roomId}:typing_users`, userId)
+    return await context.redis.pubClient.sAdd(`room:${roomId}:typing_users`, userId)
   } catch (e) {
     console.error(e)
     return null
   }
 }
-export async function removeTypingUser(roomId: string, userId: string) {
+
+type RemoveTypingUserParams = {
+  context: AppContext
+  roomId: string
+  userId: string
+}
+
+export async function removeTypingUser({ context, roomId, userId }: RemoveTypingUserParams) {
   try {
     if (!roomId || !userId) {
       return null
     }
-    return await pubClient.sRem(`room:${roomId}:typing_users`, userId)
+    return await context.redis.pubClient.sRem(`room:${roomId}:typing_users`, userId)
   } catch (e) {
     console.error(e)
     return null
   }
 }
-export async function getTypingUsers(roomId: string) {
+
+type GetTypingUsersParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function getTypingUsers({ context, roomId }: GetTypingUsersParams) {
   try {
-    const users = await pubClient.sMembers(`room:${roomId}:typing_users`)
+    const users = await context.redis.pubClient.sMembers(`room:${roomId}:typing_users`)
     const reads = users.map(async (userId) => {
-      const userData = await getUser(userId)
+      const userData = await getUser({ context, userId })
       if (!userData) {
         return null
       }
@@ -44,19 +63,32 @@ export async function getTypingUsers(roomId: string) {
   }
 }
 
-export async function addOnlineUser(roomId: string, userId: string) {
+type AddOnlineUserParams = {
+  context: AppContext
+  roomId: string
+  userId: string
+}
+
+export async function addOnlineUser({ context, roomId, userId }: AddOnlineUserParams) {
   try {
-    return await pubClient.sAdd(`room:${roomId}:online_users`, userId)
+    return await context.redis.pubClient.sAdd(`room:${roomId}:online_users`, userId)
   } catch (e) {
     console.log("ERROR FROM data/users/addOnlineUser", roomId, userId)
     console.error(e)
     return null
   }
 }
-export async function removeOnlineUser(roomId: string, userId: string) {
+
+type RemoveOnlineUserParams = {
+  context: AppContext
+  roomId: string
+  userId: string
+}
+
+export async function removeOnlineUser({ context, roomId, userId }: RemoveOnlineUserParams) {
   try {
     if (userId) {
-      return await pubClient.sRem(`room:${roomId}:online_users`, userId)
+      return await context.redis.pubClient.sRem(`room:${roomId}:online_users`, userId)
     }
     return null
   } catch (e) {
@@ -66,18 +98,29 @@ export async function removeOnlineUser(roomId: string, userId: string) {
   }
 }
 
-export async function incrementRoomUsers(roomId: string) {
+type IncrementRoomUsersParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function incrementRoomUsers({ context, roomId }: IncrementRoomUsersParams) {
   try {
-    return await pubClient.incr(`room:${roomId}:users`)
+    return await context.redis.pubClient.incr(`room:${roomId}:users`)
   } catch (e) {
     console.log("ERROR FROM data/users/incrementRoomUsers", roomId)
     console.error(e)
     return null
   }
 }
-export async function decrementRoomUsers(roomId: string) {
+
+type DecrementRoomUsersParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function decrementRoomUsers({ context, roomId }: DecrementRoomUsersParams) {
   try {
-    return await pubClient.decr(`room:${roomId}:users`)
+    return await context.redis.pubClient.decr(`room:${roomId}:users`)
   } catch (e) {
     console.log("ERROR FROM data/users/decrementRoomUsers", roomId)
     console.error(e)
@@ -85,11 +128,16 @@ export async function decrementRoomUsers(roomId: string) {
   }
 }
 
-export async function getRoomUsers(roomId: string) {
+type GetRoomUsersParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function getRoomUsers({ context, roomId }: GetRoomUsersParams) {
   try {
-    const users = await pubClient.sMembers(`room:${roomId}:online_users`)
+    const users = await context.redis.pubClient.sMembers(`room:${roomId}:online_users`)
     const reads = users.map(async (userId) => {
-      const userData = await getUser(userId)
+      const userData = await getUser({ context, userId })
       if (!userData) {
         return null
       }
@@ -104,9 +152,14 @@ export async function getRoomUsers(roomId: string) {
   }
 }
 
-export async function getRoomUsersCount(roomId: string) {
+type GetRoomUsersCountParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function getRoomUsersCount({ context, roomId }: GetRoomUsersCountParams) {
   try {
-    const users = await pubClient.sMembers(`room:${roomId}:online_users`)
+    const users = await context.redis.pubClient.sMembers(`room:${roomId}:online_users`)
     return users.length
   } catch (e) {
     console.log("ERROR FROM data/users/getRoomUsersCount", roomId)
@@ -115,9 +168,15 @@ export async function getRoomUsersCount(roomId: string) {
   }
 }
 
-export async function saveUser(userId: string, attributes: Partial<User>) {
+type SaveUserParams = {
+  context: AppContext
+  userId: string
+  attributes: Partial<User>
+}
+
+export async function saveUser({ context, userId, attributes }: SaveUserParams) {
   try {
-    return await writeJsonToHset(`user:${userId}`, attributes)
+    return await writeJsonToHset(`user:${userId}`, attributes, context)
   } catch (e) {
     console.log("ERROR FROM data/users/persistUser", userId, attributes)
     console.error(e)
@@ -125,9 +184,14 @@ export async function saveUser(userId: string, attributes: Partial<User>) {
   }
 }
 
-export async function getUser(userId: string) {
+type GetUserParams = {
+  context: AppContext
+  userId: string
+}
+
+export async function getUser({ context, userId }: GetUserParams) {
   try {
-    const userAttributes = await pubClient.hGetAll(`user:${userId}`)
+    const userAttributes = await context.redis.pubClient.hGetAll(`user:${userId}`)
     if (!userAttributes) {
       return null
     }
@@ -139,9 +203,14 @@ export async function getUser(userId: string) {
   }
 }
 
-export async function deleteUser(userId: string) {
+type DeleteUserParams = {
+  context: AppContext
+  userId: string
+}
+
+export async function deleteUser({ context, userId }: DeleteUserParams) {
   try {
-    return await pubClient.unlink(`user:${userId}`)
+    return await context.redis.pubClient.unlink(`user:${userId}`)
   } catch (e) {
     console.log("ERROR FROM data/users/deleteUser", userId)
     console.error(e)
@@ -149,20 +218,28 @@ export async function deleteUser(userId: string) {
   }
 }
 
-export async function updateUserAttributes(
-  userId: string,
-  attributes: Partial<User>,
-  roomId?: string,
-) {
+type UpdateUserAttributesParams = {
+  context: AppContext
+  userId: string
+  attributes: Partial<User>
+  roomId?: string
+}
+
+export async function updateUserAttributes({
+  context,
+  userId,
+  attributes,
+  roomId,
+}: UpdateUserAttributesParams) {
   try {
-    await saveUser(userId, attributes)
-    const users = roomId ? await getRoomUsers(roomId) : []
+    await saveUser({ context, userId, attributes })
+    const users = roomId ? await getRoomUsers({ context, roomId }) : []
     const user = users.find((u) => u?.userId === userId)
     return { user, users }
   } catch (e) {
     console.log("ERROR FROM data/users/updateUserAttributes", userId, attributes, roomId)
     console.error(e)
-    return null
+    return { user: null, users: [] }
   }
 }
 
@@ -176,12 +253,23 @@ export async function updateUserAttributes(
 //   )
 // }
 
-export async function expireUserIn(userId: string, ms: number) {
-  await pubClient.pExpire(`user:${userId}`, ms)
-  await pubClient.pExpire(`user:${userId}:rooms`, ms)
+type ExpireUserInParams = {
+  context: AppContext
+  userId: string
+  ms: number
 }
 
-export async function persistUser(userId: string) {
-  await pubClient.persist(`user:${userId}`)
-  await pubClient.persist(`user:${userId}:rooms`)
+export async function expireUserIn({ context, userId, ms }: ExpireUserInParams) {
+  await context.redis.pubClient.pExpire(`user:${userId}`, ms)
+  await context.redis.pubClient.pExpire(`user:${userId}:rooms`, ms)
+}
+
+type PersistUserParams = {
+  context: AppContext
+  userId: string
+}
+
+export async function persistUser({ context, userId }: PersistUserParams) {
+  await context.redis.pubClient.persist(`user:${userId}`)
+  await context.redis.pubClient.persist(`user:${userId}:rooms`)
 }

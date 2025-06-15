@@ -20,26 +20,32 @@ import { QueueItem } from "@repo/types/Queue"
 import { MetadataSource, MetadataSourceTrack } from "@repo/types"
 
 export async function djDeputizeUser({ io, socket }: HandlerConnections, userId: User["userId"]) {
-  const storedUser = await getUser(userId)
+  const { context } = socket
+  const storedUser = await getUser({ context, userId })
   const socketId = storedUser?.id
 
   let eventType, message, isDeputyDj
 
-  const userIsDj = await isDj(socket.data.roomId, userId)
+  const userIsDj = await isDj({ context, roomId: socket.data.roomId, userId })
 
   if (userIsDj) {
     eventType = "END_DEPUTY_DJ_SESSION"
     message = "You are no longer a deputy DJ"
     isDeputyDj = false
-    await removeDj(socket.data.roomId, userId)
+    await removeDj({ context, roomId: socket.data.roomId, userId })
   } else {
     eventType = "START_DEPUTY_DJ_SESSION"
     message = "You've been promoted to a deputy DJ. You may now add songs to the DJ's queue."
     isDeputyDj = true
-    await addDj(socket.data.roomId, userId)
+    await addDj({ context, roomId: socket.data.roomId, userId })
   }
 
-  const { user, users } = await updateUserAttributes(userId, { isDeputyDj }, socket.data.roomId)
+  const { user, users } = await updateUserAttributes({
+    context,
+    userId,
+    attributes: { isDeputyDj },
+    roomId: socket.data.roomId,
+  })
 
   if (socketId) {
     io.to(socketId).emit(
@@ -54,11 +60,14 @@ export async function djDeputizeUser({ io, socket }: HandlerConnections, userId:
     io.to(socketId).emit("event", { type: eventType })
   }
 
-  pubUserJoined({ io }, socket.data.roomId, { user, users })
+  if (user) {
+    pubUserJoined({ io, roomId: socket.data.roomId, data: { user, users }, context })
+  }
 }
 
 export async function queueSong({ socket, io }: HandlerConnections, id: QueueItem["track"]["id"]) {
   try {
+    const { context } = socket
     const currentUser = await getUser(socket.data.userId)
 
     // TODO: Sync queue with MediaSource
@@ -69,7 +78,8 @@ export async function queueSong({ socket, io }: HandlerConnections, id: QueueIte
     const inQueue = queue.find((x) => x.track.id === id)
 
     if (inQueue) {
-      const djUsername = (await getUser(inQueue.addedBy?.userId!))?.username ?? "Someone"
+      const djUsername =
+        (await getUser({ context, userId: inQueue.addedBy?.userId! }))?.username ?? "Someone"
 
       socket.emit("event", {
         type: "SONG_QUEUE_FAILURE",
@@ -100,7 +110,7 @@ export async function queueSong({ socket, io }: HandlerConnections, id: QueueIte
       playedAt: undefined,
     }
 
-    await addToQueue(socket.data.roomId, queuedItem)
+    await addToQueue({ context, roomId: socket.data.roomId, item: queuedItem })
 
     socket.emit("event", {
       type: "SONG_QUEUED",

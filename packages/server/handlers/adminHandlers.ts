@@ -53,16 +53,18 @@ export async function getRoomSettings({ io, socket }: HandlerConnections) {
   })
 }
 
-export async function setPassword(connections: HandlerConnections, value: string) {
-  const room = await findRoom(connections.socket.data.roomId)
+export async function setPassword({ socket }: HandlerConnections, value: string) {
+  const { context } = socket
+  const room = await findRoom({ context, roomId: socket.data.roomId })
   if (room) {
-    await saveRoom({ ...room, password: value })
+    await saveRoom({ context, room: { ...room, password: value } })
   }
 }
 
 export async function kickUser({ io, socket }: HandlerConnections, user: User) {
+  const { context } = socket
   const { userId } = user
-  const storedUser = await getUser(userId)
+  const storedUser = await getUser({ context, userId })
   const socketId = storedUser?.id
 
   const newMessage = systemMessage(`You have been kicked. I hope you deserved it.`, {
@@ -82,6 +84,7 @@ export async function kickUser({ io, socket }: HandlerConnections, user: User) {
 }
 
 export async function setRoomSettings({ socket, io }: HandlerConnections, values: Partial<Room>) {
+  const { context } = socket
   const { room } = await getAuthedRoom(socket)
 
   if (!room) {
@@ -96,13 +99,19 @@ export async function setRoomSettings({ socket, io }: HandlerConnections, values
   const turningOnFetch = newSettings.fetchMeta && !room.fetchMeta
 
   if (turningOffFetch || turningOnFetch) {
-    const current = await clearRoomCurrent(room.id)
+    const current = await clearRoomCurrent({ context, roomId: room.id })
     const nowPlaying = await makeNowPlayingFromStationMeta(current?.stationMeta)
-    await handleRoomNowPlayingData(room.id, nowPlaying, current?.stationMeta, true)
+    await handleRoomNowPlayingData({
+      context,
+      roomId: room.id,
+      nowPlaying,
+      stationMeta: current?.stationMeta,
+      forcePublish: true,
+    })
   }
 
-  await saveRoom(newSettings)
-  const updatedRoom = await findRoom(socket.data.roomId)
+  await saveRoom({ context, room: newSettings })
+  const updatedRoom = await findRoom({ context, roomId: socket.data.roomId })
 
   io.to(getRoomPath(socket.data.roomId)).emit("event", {
     type: "ROOM_SETTINGS",
@@ -111,13 +120,14 @@ export async function setRoomSettings({ socket, io }: HandlerConnections, values
 }
 
 export async function clearPlaylist({ socket, io }: HandlerConnections) {
+  const { context } = socket
   const { room } = await getAuthedRoom(socket)
   if (!room) {
     return
   }
 
-  await clearRoomPlaylist(socket.data.roomId)
-  await clearQueue(socket.data.roomId)
+  await clearRoomPlaylist({ context, roomId: socket.data.roomId })
+  await clearQueue({ context, roomId: socket.data.roomId })
 
   io.to(getRoomPath(socket.data.roomId)).emit("event", {
     type: "PLAYLIST",

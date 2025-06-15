@@ -89,9 +89,10 @@ export async function login(
     roomId: string
   },
 ) {
+  const { context } = socket
   const assignedUserId: string | undefined = incomingUserId
   const session = socket.request.session
-  const room = await findRoom(roomId)
+  const room = await findRoom({ context, roomId })
 
   // Throw an error if the room doesn't exist
   if (!room) {
@@ -109,7 +110,7 @@ export async function login(
   const existingUserId = assignedUserId ?? session?.user?.userId
   const isNew = !assignedUserId && !existingUserId && !session?.user?.username
   const userId = existingUserId ?? generateId()
-  const existingUser = await getUser(userId)
+  const existingUser = await getUser({ context, userId })
   const username =
     existingUser?.username ?? session.user?.username ?? incomingUsername ?? generateAnonName()
 
@@ -142,8 +143,8 @@ export async function login(
   }
 
   // Get room-specific user properties
-  const users = await getRoomUsers(roomId)
-  const isDeputyDj = room?.deputizeOnJoin ?? (await isDj(roomId, userId))
+  const users = await getRoomUsers({ context, roomId })
+  const isDeputyDj = room?.deputizeOnJoin ?? (await isDj({ context, roomId, userId }))
   const isAdmin = room?.creator === socket.data.userId
 
   // Create a new user object
@@ -160,28 +161,33 @@ export async function login(
   const newUsers = uniqueBy([...users, newUser], (u) => u.userId)
 
   // save data to redis
-  await addOnlineUser(roomId, userId)
-  await saveUser(userId, newUser)
+  await addOnlineUser({ context, roomId, userId })
+  await saveUser({ context, userId, attributes: newUser })
   if (room.deputizeOnJoin) {
-    await addDj(roomId, userId)
+    await addDj({ context, roomId, userId })
   }
 
   // If the admin has logged in, remove expiration of room keys
   if (isAdmin) {
-    await persistRoom(roomId)
+    await persistRoom({ context, roomId })
   }
 
   // remove expiration of user keys
   await persistUser(userId)
 
   // Emit events
-  pubUserJoined({ io }, socket.data.roomId, { user: newUser, users: newUsers })
+  pubUserJoined({
+    context,
+    io,
+    roomId: socket.data.roomId,
+    data: { user: newUser, users: newUsers },
+  })
 
   // Get initial data payload for user
-  const messages = await getMessages(roomId, 0, 100)
-  const playlist = await getRoomPlaylist(roomId)
-  const meta = await getRoomCurrent(roomId)
-  const allReactions = await getAllRoomReactions(roomId)
+  const messages = await getMessages({ context, roomId, offset: 0, size: 100 })
+  const playlist = await getRoomPlaylist({ context, roomId })
+  const meta = await getRoomCurrent({ context, roomId })
+  const allReactions = await getAllRoomReactions({ context, roomId })
   const { accessToken } = await getStoredUserSpotifyTokens(userId)
 
   socket.emit("event", {
@@ -210,23 +216,34 @@ export async function changeUsername(
   { socket, io }: HandlerConnections,
   { userId, username }: { userId: User["userId"]; username: User["username"] },
 ) {
-  const user = await getUser(userId)
+  const { context } = socket
+  const user = await getUser({ context, userId })
   const room = await findRoom(socket.data.roomId)
   const oldUsername = user?.username
 
   if (user) {
-    const { users: newUsers, user: newUser } = await updateUserAttributes(
+    const { users: newUsers, user: newUser } = await updateUserAttributes({
+      context,
       userId,
-      { username },
-      socket.data.roomId,
-    )
+      attributes: { username },
+      roomId: socket.data.roomId,
+    })
 
     socket.request.session.user = newUser
     socket.request.session.save()
 
-    pubUserJoined({ io }, socket.data.roomId, {
-      users: newUsers,
-      user: newUser,
+    if (!newUser) {
+      return
+    }
+
+    pubUserJoined({
+      io,
+      roomId: socket.data.roomId,
+      data: {
+        users: newUsers,
+        user: newUser,
+      },
+      context,
     })
 
     // send system message of username change if setting is enabled
@@ -245,14 +262,16 @@ export async function changeUsername(
 }
 
 export async function disconnect({ socket, io }: HandlerConnections) {
-  await removeOnlineUser(socket.data.roomId, socket.data.userId)
+  c
+  const { context } = socket
+  await removeOnlineUser({ context, roomId: socket.data.roomId, userId: socket.data.userId })
   socket.leave(getRoomPath(socket.data.roomId))
 
-  const users = await getRoomUsers(socket.data.roomId)
-  const createdRooms = await getUserRooms(socket.data.userId)
+  const users = await getRoomUsers({ context, roomId: socket.data.roomId })
+  const createdRooms = await getUserRooms({ context, userId: socket.data.userId })
 
   if (createdRooms.length === 0) {
-    expireUserIn(socket.data.userId, THREE_HOURS)
+    expireUserIn({ context, userId: socket.data.userId, ms: THREE_HOURS })
   }
 
   socket.broadcast.to(getRoomPath(socket.data.roomId)).emit("event", {
@@ -268,6 +287,7 @@ export async function getUserSpotifyAuth(
   { socket, io }: HandlerConnections,
   { userId }: { userId?: string },
 ) {
+  const { context } = socket
   // get user's spotify access token from redis
   const { accessToken } = await getStoredUserSpotifyTokens(userId ?? socket.data.userId)
   io.to(socket.id).emit("event", {
@@ -287,10 +307,11 @@ export async function logoutSpotifyAuth(
 }
 
 export async function nukeUser({ socket, io }: HandlerConnections) {
+  const { context } = socket
   const userId = socket.data.userId ?? socket.request.session.user?.userId
   socket.emit("SESSION_ENDED")
   // await disconnectFromSpotify(userId)
-  await nukeUserRooms(userId)
-  await deleteUser(userId)
+  await nukeUserRooms({ context, userId })
+  await deleteUser({ context, userId })
   socket.request.session.destroy((err) => {})
 }

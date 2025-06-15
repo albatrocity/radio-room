@@ -9,8 +9,9 @@ import {
 } from "../handlers/activityHandlers"
 import { ReactionSubject } from "@repo/types/ReactionSubject"
 import { User } from "@repo/types/User"
+import { SocketWithContext } from "../lib/socketWithContext"
 
-export default function activityController(socket: Socket, io: Server) {
+export default function activityController(socket: SocketWithContext, io: Server) {
   socket.on("start listening", () => {
     console.log("START LISTENING SOCKET EVENT")
     startListening({ socket, io })

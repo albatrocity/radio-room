@@ -12,7 +12,7 @@
     "test": "jest --watch"
   },
   "engines": {
-    "npm": ">=9.0.0 <10.0.0",
+    "npm": ">=10.0.0 <11.0.0",
     "node": ">=22.16.0"
   },
   "author": "Ross Brown <albatrocity@gmail.com>",
@@ -61,5 +61,5 @@
     "nodemon": "^2.0.22",
     "ts-jest": "^29.1.0"
   },
-  "packageManager": "npm@8.19.2"
+  "packageManager": "npm@10.9.2"
 }

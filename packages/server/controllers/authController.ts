@@ -13,8 +13,9 @@ import {
 } from "../handlers/authHandlers"
 import { Request, Response } from "express"
 import { getUser } from "../operations/data"
+import { SocketWithContext } from "../lib/socketWithContext"
 
-export default function authController(socket: Socket, io: Server) {
+export default function authController(socket: SocketWithContext, io: Server) {
   socket.on("check password", (submittedPassword: string) =>
     checkPassword({ socket, io }, submittedPassword),
   )

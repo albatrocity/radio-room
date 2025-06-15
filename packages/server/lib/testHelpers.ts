@@ -1,27 +1,30 @@
-import { Server, Socket } from "socket.io";
+import { Server, Socket } from "socket.io"
+import { vi } from "vitest"
 
 type Options = {
-  roomId?: string;
-  id?: string;
-  userId?: string;
-  username?: string;
-};
+  roomId?: string
+  id?: string
+  userId?: string
+  username?: string
+}
 
 export function makeSocket({ roomId = "room123", id, ...rest }: Options = {}) {
-  const saveSession = jest.fn();
-  const destroySession = jest.fn();
-  const emit = jest.fn();
-  const toEmit = jest.fn();
-  const broadcastEmit = jest.fn();
-  const toBroadcast = jest.fn(() => ({
+  const saveSession = vi.fn()
+  const destroySession = vi.fn()
+  const emit = vi.fn()
+  const toEmit = vi.fn()
+  const broadcastEmit = vi.fn()
+  const toBroadcast = vi.fn(() => ({
     emit: broadcastEmit,
-  }));
-  const to = jest.fn(() => ({
+  }))
+  const to = vi.fn(() => ({
     emit: toEmit,
-  }));
-  const join = jest.fn();
-  const leave = jest.fn();
-  const makeSocket = jest.fn(() => ({
+  }))
+  const join = vi.fn()
+  const leave = vi.fn()
+  ;(Server.prototype as any).to = to
+
+  const makeSocket = vi.fn(() => ({
     id,
     data: {
       roomId,
@@ -40,30 +43,41 @@ export function makeSocket({ roomId = "room123", id, ...rest }: Options = {}) {
         destroy: destroySession,
       },
     },
-  }));
+  }))
 
-  const makeIo = jest.fn(() => ({
+  const makeIo = vi.fn(() => ({
     data: {
       roomId: "room123",
     },
     broadcast: {
       emit: broadcastEmit,
     },
-    to,
+    to, // ensure the mock instance also has the correct to
     sockets: {
       sockets: {
-        get: jest.fn(),
+        get: vi.fn(),
       },
     },
     emit,
-  }));
-  const socket = makeSocket() as unknown as Socket;
-  const io = makeIo() as unknown as Server;
+  }))
+  const socket = makeSocket() as unknown as Socket
+  const io = makeIo() as unknown as Server
+
+  // Proxy to ensure all io.to() calls return { emit: toEmit }
+  const ioProxy = new Proxy(io, {
+    get(target, prop) {
+      if (prop === "to") {
+        return () => ({ emit: toEmit })
+      }
+      return Reflect.get(target, prop)
+    },
+  })
+
   return {
     emit,
     broadcastEmit,
     socket,
-    io,
+    io: ioProxy,
     toEmit,
     toBroadcast,
     to,
@@ -71,5 +85,5 @@ export function makeSocket({ roomId = "room123", id, ...rest }: Options = {}) {
     leave,
     saveSession,
     destroySession,
-  };
+  }
 }

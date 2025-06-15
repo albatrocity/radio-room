@@ -1,3 +1,4 @@
-import { Server, Socket } from "socket.io";
+import { Server } from "socket.io"
+import { SocketWithContext } from "../server/lib/socketWithContext"
 
-export type HandlerConnections = { socket: Socket; io: Server };
+export type HandlerConnections = { socket: SocketWithContext; io: Server }

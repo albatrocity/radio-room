@@ -16,34 +16,49 @@ import getRoomPath from "../lib/getRoomPath"
 import { pubUserJoined } from "../operations/sockets/users"
 
 export async function startListening({ socket, io }: HandlerConnections) {
-  const { user, users } = await updateUserAttributes(
-    socket.data.userId,
-    {
+  const { context } = socket
+  const { user, users } = await updateUserAttributes({
+    context,
+    userId: socket.data.userId,
+    attributes: {
       status: "listening",
     },
-    socket.data.roomId,
-  )
-  pubUserJoined({ io }, socket.data.roomId, { user, users })
+    roomId: socket.data.roomId,
+  })
+
+  if (!user) {
+    return
+  }
+
+  pubUserJoined({ io, roomId: socket.data.roomId, data: { user, users }, context })
 }
 
 export async function stopListening({ socket, io }: HandlerConnections) {
-  const { user, users } = await updateUserAttributes(
-    socket.data.userId,
-    {
-      status: "participating",
-    },
-    socket.data.roomId,
-  )
-  pubUserJoined({ io }, socket.data.roomId, { user, users })
+  const { context } = socket
+  const { user, users } = await updateUserAttributes({
+    context,
+    userId: socket.data.userId,
+    attributes: { status: "participating" },
+    roomId: socket.data.roomId,
+  })
+
+  if (!user) {
+    return
+  }
+
+  pubUserJoined({ io, roomId: socket.data.roomId, data: { user, users }, context })
 }
 
 export async function addReaction({ io, socket }: HandlerConnections, reaction: ReactionPayload) {
+  const { context } = socket
   const { reactTo } = reaction
   if (REACTIONABLE_TYPES.indexOf(reactTo.type) === -1) {
     return
   }
-  await addReactionData(socket.data.roomId, reaction, reactTo)
-  const reactions = await getAllRoomReactions(socket.data.roomId)
+  await addReactionData({ context, roomId: socket.data.roomId, reaction, reactTo })
+
+  const reactions = await getAllRoomReactions({ context, roomId: socket.data.roomId })
+
   io.to(getRoomPath(socket.data.roomId)).emit("event", {
     type: "REACTIONS",
     data: { reactions },
@@ -62,12 +77,13 @@ export async function removeReaction(
     user: User
   },
 ) {
+  const { context } = socket
   if (REACTIONABLE_TYPES.indexOf(reactTo.type) === -1) {
     return
   }
   const roomId = socket.data.roomId
-  await removeReactionData(roomId, { emoji, reactTo, user }, reactTo)
-  const reactions = await getAllRoomReactions(roomId)
+  await removeReactionData({ context, roomId, reaction: { emoji, reactTo, user }, reactTo })
+  const reactions = await getAllRoomReactions({ context, roomId })
 
   io.to(getRoomPath(socket.data.roomId)).emit("event", {
     type: "REACTIONS",

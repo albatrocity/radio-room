@@ -7,7 +7,6 @@ import cors from "cors"
 import express from "express"
 import { createServer as createHttpServer } from "http"
 import { Server as SocketIoServer } from "socket.io"
-import { createClient } from "redis"
 import {
   CreateServerConfig,
   PlaybackController,
@@ -16,6 +15,8 @@ import {
   PlaybackControllerLifecycleCallbacks,
   User,
 } from "@repo/types"
+import { AppContext, RedisContext, createRedisContext, initializeRedisContext } from "./lib/context"
+import { createContextMiddleware } from "./lib/contextMiddleware"
 
 import { bindPubSubHandlers } from "./pubSub/handlers"
 // import { callback, login } from "./controllers/spotifyAuthController"
@@ -32,6 +33,7 @@ import authController, { me, logout } from "./controllers/authController"
 import djController from "./controllers/djController"
 import messageController from "./controllers/messageController"
 import { clearRoomOnlineUsers } from "./operations/data"
+import { SocketWithContext } from "./lib/socketWithContext"
 
 declare module "express-session" {
   interface Session {
@@ -47,12 +49,11 @@ class RadioRoomServer {
   sessionStore: RedisStore
   private app: express.Express
   private sessionMiddleware: express.RequestHandler
-  private pubClient: ReturnType<typeof createClient>
-  private subClient: ReturnType<typeof createClient>
   private httpServer: ReturnType<typeof createHttpServer>
-  private _onStart: () => void
+  private _onStart: () => void = () => {}
   private playbackControllers: CreateServerConfig["playbackControllers"]
   private cacheImplementation: CreateServerConfig["cacheImplementation"]
+  private context: AppContext
 
   constructor(
     config: CreateServerConfig = {
@@ -71,21 +72,13 @@ class RadioRoomServer {
       delete: async () => undefined,
     }
 
-    // Create Redis clients for pub/sub and session store
-    this.pubClient = createClient({
-      url: config.REDIS_URL,
-      socket:
-        config.ENVIRONMENT === "production"
-          ? {
-              tls: true,
-              rejectUnauthorized: false,
-            }
-          : undefined,
-    })
-    this.subClient = this.pubClient.duplicate()
-    this._onStart = config.onStart ?? (() => {})
+    // Create Redis context
+    const redisContext = createRedisContext(config.REDIS_URL ?? "redis://localhost:6379")
+    this.context = {
+      redis: redisContext,
+    }
 
-    this.sessionStore = new RedisStore({ client: this.pubClient, prefix: "s:" })
+    this.sessionStore = new RedisStore({ client: redisContext.pubClient, prefix: "s:" })
 
     this.sessionMiddleware = session({
       store: this.sessionStore,
@@ -121,6 +114,7 @@ class RadioRoomServer {
       .use(express.json())
       .use(cookieParser())
       .use(this.sessionMiddleware)
+      .use(createContextMiddleware(this.context))
       .get("/me", me)
       .get("/rooms/", findRooms)
       .get("/rooms/:id", findRoom)
@@ -150,10 +144,13 @@ class RadioRoomServer {
     return this.httpServer
   }
 
+  getContext(): AppContext {
+    return this.context
+  }
+
   async start() {
-    await this.pubClient.connect()
-    await this.subClient.connect()
-    this.io.adapter(createAdapter(this.pubClient, this.subClient))
+    await initializeRedisContext(this.context.redis)
+    this.io.adapter(createAdapter(this.context.redis.pubClient, this.context.redis.subClient))
     this.io.use((socket, next) => {
       // Handle session for socket connections
       /** @ts-ignore */
@@ -169,25 +166,28 @@ class RadioRoomServer {
     })
 
     this.io.on("connection", (socket) => {
-      authController(socket, this.io)
-      messageController(socket, this.io)
-      activityController(socket, this.io)
-      djController(socket, this.io)
-      adminController(socket, this.io)
-      roomsController(socket, this.io)
+      // Pass context to controllers
+      const socketWithContext: SocketWithContext = Object.assign(socket, { context: this.context })
+      authController(socketWithContext, this.io)
+      messageController(socketWithContext, this.io)
+      activityController(socketWithContext, this.io)
+      djController(socketWithContext, this.io)
+      adminController(socketWithContext, this.io)
+      roomsController(socketWithContext, this.io)
     })
 
     // Start the HTTP server listening
     this.httpServer.listen(PORT, "0.0.0.0", () => console.log(`Listening on ${PORT}`))
-    bindPubSubHandlers(this.io)
+    bindPubSubHandlers(this.io, this.context)
 
     await this.startJobs()
 
     this.onStart()
   }
+
   async stop() {
-    await this.pubClient.quit()
-    await this.subClient.quit()
+    await this.context.redis.pubClient.quit()
+    await this.context.redis.subClient.quit()
     this.io.close()
 
     // Close the HTTP server
@@ -202,11 +202,12 @@ class RadioRoomServer {
       console.error(e)
     }
   }
+
   async onStart() {
-    const roomIds = await this.pubClient.sMembers("rooms")
+    const roomIds = await this.context.redis.pubClient.sMembers("rooms")
     await Promise.all(
       roomIds.map(async (id) => {
-        return clearRoomOnlineUsers(id)
+        return clearRoomOnlineUsers({ roomId: id, context: this.context })
       }),
     )
 

@@ -1,45 +1,97 @@
 import { difference, isEmpty, isNullish } from "remeda"
 
-import { pubClient } from "../../lib/redisClients"
 import { Room, RoomMeta, StoredRoom } from "@repo/types/Room"
 import { writeJsonToHset, getHMembersFromSet } from "./utils"
 import { getQueue } from "./djs"
 import { User } from "@repo/types/User"
 import { PUBSUB_ROOM_DELETED } from "../../lib/constants"
 import { QueueItem } from "@repo/types/Queue"
+import { AppContext, RedisContext } from "../../lib/context"
 
-async function addRoomToRoomList(roomId: Room["id"]) {
-  await pubClient.sAdd("rooms", roomId)
-}
-export async function removeRoomFromRoomList(roomId: Room["id"]) {
-  await pubClient.sRem("rooms", roomId)
-}
-
-async function addRoomToUserRoomList(room: Room) {
-  await pubClient.sAdd(`user:${room.creator}:rooms`, room.id)
-}
-async function removeRoomFromUserRoomList(room: Room) {
-  await pubClient.sRem(`user:${room.creator}:rooms`, room.id)
-}
-export async function getUserRooms(userId: User["userId"]) {
-  return getHMembersFromSet<StoredRoom>(`user:${userId}:rooms`, "room", "details")
+type AddRoomToRoomListParams = {
+  context: AppContext
+  roomId: Room["id"]
 }
 
-export async function saveRoom(room: Room) {
+async function addRoomToRoomList({ context, roomId }: AddRoomToRoomListParams) {
+  await context.redis.pubClient.sAdd("rooms", roomId)
+}
+
+type RemoveRoomFromRoomListParams = {
+  context: AppContext
+  roomId: Room["id"]
+}
+
+export async function removeRoomFromRoomList({ context, roomId }: RemoveRoomFromRoomListParams) {
+  await context.redis.pubClient.sRem("rooms", roomId)
+}
+
+type AddRoomToUserRoomListParams = {
+  context: AppContext
+  room: Room
+}
+
+async function addRoomToUserRoomList({ context, room }: AddRoomToUserRoomListParams) {
+  await context.redis.pubClient.sAdd(`user:${room.creator}:rooms`, room.id)
+}
+
+type RemoveRoomFromUserRoomListParams = {
+  context: AppContext
+  room: Room
+}
+
+async function removeRoomFromUserRoomList({ context, room }: RemoveRoomFromUserRoomListParams) {
+  await context.redis.pubClient.sRem(`user:${room.creator}:rooms`, room.id)
+}
+
+type GetUserRoomsParams = {
+  context: AppContext
+  userId: User["userId"]
+}
+
+export async function getUserRooms({ context, userId }: GetUserRoomsParams) {
+  return getHMembersFromSet<StoredRoom>({
+    context,
+    setKey: `user:${userId}:rooms`,
+    recordPrefix: "room",
+    recordSuffix: "details",
+  })
+}
+
+type SaveRoomParams = {
+  context: AppContext
+  room: Room
+}
+
+export async function saveRoom({ context, room }: SaveRoomParams) {
   try {
-    await addRoomToRoomList(room.id)
-    await addRoomToUserRoomList(room)
-    return writeJsonToHset(`room:${room.id}:details`, room)
+    await addRoomToRoomList({ context, roomId: room.id })
+    await addRoomToUserRoomList({ context, room })
+    return writeJsonToHset({
+      context,
+      setKey: `room:${room.id}:details`,
+      attributes: room,
+    })
   } catch (e) {
     console.log("ERROR FROM data/rooms/persistRoom", room)
     console.error(e)
   }
 }
 
-export async function updateRoom(roomId: string, room: Partial<Room>) {
+type UpdateRoomParams = {
+  context: AppContext
+  roomId: string
+  room: Partial<Room>
+}
+
+export async function updateRoom({ context, roomId, room }: UpdateRoomParams) {
   try {
-    await writeJsonToHset(`room:${roomId}:details`, room)
-    const updated = await findRoom(roomId)
+    await writeJsonToHset({
+      context,
+      setKey: `room:${roomId}:details`,
+      attributes: room,
+    })
+    const updated = await findRoom({ context, roomId })
     return updated
   } catch (e) {
     console.log("ERROR FROM data/rooms/updateRoom", room)
@@ -48,19 +100,31 @@ export async function updateRoom(roomId: string, room: Partial<Room>) {
   }
 }
 
-export async function delRoomKey(roomId: string, namespace: string, key: keyof Room) {
+type DelRoomKeyParams = {
+  context: AppContext
+  roomId: string
+  namespace: string
+  key: keyof Room
+}
+
+export async function delRoomKey({ context, roomId, namespace, key }: DelRoomKeyParams) {
   try {
-    await pubClient.unlink(`room:${roomId}:${namespace}${key}`)
+    await context.redis.pubClient.unlink(`room:${roomId}:${namespace}${key}`)
   } catch (e) {
     console.log("ERROR FROM data/rooms/delRoomKey", roomId, namespace, key)
     console.error(e)
   }
 }
 
-export async function findRoom(roomId: string) {
+type FindRoomParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function findRoom({ context, roomId }: FindRoomParams) {
   const roomKey = `room:${roomId}:details`
   try {
-    const results = await pubClient.hGetAll(roomKey)
+    const results = await context.redis.pubClient.hGetAll(roomKey)
 
     if (isEmpty(results)) {
       return null
@@ -74,18 +138,29 @@ export async function findRoom(roomId: string) {
   }
 }
 
-export async function setRoomFetching(roomId: string, value: boolean) {
+type SetRoomFetchingParams = {
+  context: AppContext
+  roomId: string
+  value: boolean
+}
+
+export async function setRoomFetching({ context, roomId, value }: SetRoomFetchingParams) {
   try {
-    await pubClient.set(`room:${roomId}:fetching`, value ? "1" : "0")
+    await context.redis.pubClient.set(`room:${roomId}:fetching`, value ? "1" : "0")
   } catch (e) {
     console.log("ERROR FROM data/rooms/setRoomFetching", roomId, value)
     console.error(e)
   }
 }
 
-export async function getRoomFetching(roomId: string) {
+type GetRoomFetchingParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function getRoomFetching({ context, roomId }: GetRoomFetchingParams) {
   try {
-    const result = await pubClient.get(`room:${roomId}:fetching`)
+    const result = await context.redis.pubClient.get(`room:${roomId}:fetching`)
     return result === "1"
   } catch (e) {
     console.log("ERROR FROM data/rooms/getRoomFetching", roomId)
@@ -93,24 +168,39 @@ export async function getRoomFetching(roomId: string) {
   }
 }
 
-export async function setRoomCurrent(roomId: string, meta: RoomMeta) {
+type SetRoomCurrentParams = {
+  context: AppContext
+  roomId: string
+  meta: RoomMeta
+}
+
+export async function setRoomCurrent({ context, roomId, meta }: SetRoomCurrentParams) {
   const roomCurrentKey = `room:${roomId}:current`
-  const payload = await makeJukeboxCurrentPayload(roomId, meta.nowPlaying, meta)
+  const payload = await makeJukeboxCurrentPayload({
+    context,
+    roomId,
+    nowPlaying: meta.nowPlaying,
+    meta,
+  })
   if (!payload) {
     return null
   }
 
   const parsedMeta = payload.data.meta
   try {
-    await pubClient.hDel(roomCurrentKey, ["dj", "release", "artwork"])
+    await context.redis.pubClient.hDel(roomCurrentKey, ["dj", "release", "artwork"])
 
-    await writeJsonToHset(roomCurrentKey, {
-      ...parsedMeta,
-      lastUpdatedAt: String(Date.now()),
-      release: JSON.stringify(parsedMeta.release),
-      dj: parsedMeta.dj ? JSON.stringify(parsedMeta.dj) : undefined,
+    await writeJsonToHset({
+      context,
+      setKey: roomCurrentKey,
+      attributes: {
+        ...parsedMeta,
+        lastUpdatedAt: String(Date.now()),
+        release: JSON.stringify(parsedMeta.release),
+        dj: parsedMeta.dj ? JSON.stringify(parsedMeta.dj) : undefined,
+      },
     })
-    const current = await getRoomCurrent(roomId)
+    const current = await getRoomCurrent({ context, roomId })
     return current
   } catch (e) {
     console.error(e)
@@ -119,10 +209,16 @@ export async function setRoomCurrent(roomId: string, meta: RoomMeta) {
   }
 }
 
-export async function clearRoomCurrent(roomId: string, omitKeys?: (keyof RoomMeta)[]) {
+type ClearRoomCurrentParams = {
+  context: AppContext
+  roomId: string
+  omitKeys?: (keyof RoomMeta)[]
+}
+
+export async function clearRoomCurrent({ context, roomId, omitKeys }: ClearRoomCurrentParams) {
   const roomCurrentKey = `room:${roomId}:current`
   try {
-    await pubClient.hDel(
+    await context.redis.pubClient.hDel(
       roomCurrentKey,
       difference(
         [
@@ -140,7 +236,7 @@ export async function clearRoomCurrent(roomId: string, omitKeys?: (keyof RoomMet
       ),
     )
 
-    const current = await getRoomCurrent(roomId)
+    const current = await getRoomCurrent({ context, roomId })
     return current
   } catch (e) {
     console.error(e)
@@ -149,9 +245,14 @@ export async function clearRoomCurrent(roomId: string, omitKeys?: (keyof RoomMet
   }
 }
 
-export async function getRoomCurrent(roomId: string) {
+type GetRoomCurrentParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function getRoomCurrent({ context, roomId }: GetRoomCurrentParams) {
   const roomCurrentKey = `room:${roomId}:current`
-  const result = await pubClient.hGetAll(roomCurrentKey)
+  const result = await context.redis.pubClient.hGetAll(roomCurrentKey)
   return {
     ...result,
     ...(result.release
@@ -173,23 +274,31 @@ export async function getRoomCurrent(roomId: string) {
   } as RoomMeta
 }
 
-export async function makeJukeboxCurrentPayload(
-  roomId: string,
-  nowPlaying: QueueItem | undefined,
-  meta: RoomMeta = {
+type MakeJukeboxCurrentPayloadParams = {
+  context: AppContext
+  roomId: string
+  nowPlaying: QueueItem | undefined
+  meta?: RoomMeta
+}
+
+export async function makeJukeboxCurrentPayload({
+  context,
+  roomId,
+  nowPlaying,
+  meta = {
     nowPlaying: undefined,
     dj: undefined,
     bitrate: undefined,
     lastUpdatedAt: undefined,
     stationMeta: undefined,
   },
-) {
+}: MakeJukeboxCurrentPayloadParams) {
   try {
-    const currentlyPlaying = await getRoomCurrent(roomId)
+    const currentlyPlaying = await getRoomCurrent({ context, roomId })
     const trackIsCurrent = currentlyPlaying?.nowPlaying?.track.id === nowPlaying?.track.id
-    const room = await findRoom(roomId)
+    const room = await findRoom({ context, roomId })
     const artwork = room?.artwork ?? nowPlaying?.track.album?.images?.[0]?.url
-    const queue = await getQueue(roomId)
+    const queue = await getQueue({ context, roomId })
     const queuedTrack = queue.find((x) => x.track.id === nowPlaying?.track.id)
     const trackDj = trackIsCurrent ? currentlyPlaying?.dj : queuedTrack ? queuedTrack.addedBy : null
 
@@ -216,12 +325,20 @@ export async function makeJukeboxCurrentPayload(
   }
 }
 
-export async function removeUserRoomsSpotifyError(userId: string) {
-  const userCreatedRooms = await pubClient.sMembers(`user:${userId}:rooms`)
+type RemoveUserRoomsSpotifyErrorParams = {
+  context: AppContext
+  userId: string
+}
+
+export async function removeUserRoomsSpotifyError({
+  context,
+  userId,
+}: RemoveUserRoomsSpotifyErrorParams) {
+  const userCreatedRooms = await context.redis.pubClient.sMembers(`user:${userId}:rooms`)
 
   await Promise.all(
     userCreatedRooms.map((roomId) => {
-      return pubClient.hDel(`room:${roomId}:details`, "spotifyError")
+      return context.redis.pubClient.hDel(`room:${roomId}:details`, "spotifyError")
     }),
   )
 }
@@ -249,9 +366,14 @@ export function removeSensitiveRoomAttributes(room: Room) {
   }
 }
 
-async function getAllRoomDataKeys(roomId: string) {
+type GetAllRoomDataKeysParams = {
+  context: AppContext
+  roomId: string
+}
+
+async function getAllRoomDataKeys({ context, roomId }: GetAllRoomDataKeysParams) {
   const keys = []
-  for await (const key of pubClient.scanIterator({
+  for await (const key of context.redis.pubClient.scanIterator({
     MATCH: `room:${roomId}:*`,
   })) {
     keys.push(key)
@@ -259,53 +381,96 @@ async function getAllRoomDataKeys(roomId: string) {
   return keys
 }
 
-export async function deleteRoom(roomId: string) {
-  const room = await findRoom(roomId)
+type DeleteRoomParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function deleteRoom({ context, roomId }: DeleteRoomParams) {
+  const room = await findRoom({ context, roomId })
   if (!room) {
     return
   }
   // Get all keys relating to room
-  const keys = await getAllRoomDataKeys(roomId)
+  const keys = await getAllRoomDataKeys({ context, roomId })
   // delete them
-  await Promise.all(keys.map((k) => pubClient.unlink(k)))
+  await Promise.all(keys.map((k) => context.redis.pubClient.unlink(k)))
   // remove room from room list and user's room list
-  await removeRoomFromRoomList(room.id)
-  await removeRoomFromUserRoomList(room)
-  await pubClient.publish(PUBSUB_ROOM_DELETED, roomId)
+  await removeRoomFromRoomList({ context, roomId: room.id })
+  await removeRoomFromUserRoomList({ context, room })
+  await context.redis.pubClient.publish(PUBSUB_ROOM_DELETED, roomId)
 }
 
-export async function expireRoomIn(roomId: string, ms: number) {
-  const room = await findRoom(roomId)
+type ExpireRoomInParams = {
+  context: AppContext
+  roomId: string
+  ms: number
+}
+
+export async function expireRoomIn({ context, roomId, ms }: ExpireRoomInParams) {
+  const room = await findRoom({ context, roomId })
   if (!room) {
     return
   }
-  const keys = await getAllRoomDataKeys(roomId)
-  await Promise.all(keys.map((k) => pubClient.pExpire(k, ms)))
+  const keys = await getAllRoomDataKeys({ context, roomId })
+  await Promise.all(keys.map((k) => context.redis.pubClient.pExpire(k, ms)))
 }
 
-export async function persistRoom(roomId: string) {
-  const room = await findRoom(roomId)
+type PersistRoomParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function persistRoom({ context, roomId }: PersistRoomParams) {
+  const room = await findRoom({ context, roomId })
   if (!room) {
     return
   }
-  const keys = await getAllRoomDataKeys(roomId)
-  await Promise.all(keys.map((k) => pubClient.persist(k)))
+  const keys = await getAllRoomDataKeys({ context, roomId })
+  await Promise.all(keys.map((k) => context.redis.pubClient.persist(k)))
 }
 
-export async function getRoomOnlineUserIds(roomId: string) {
-  const ids = pubClient.sMembers(`room:${roomId}:online_users`)
+type GetRoomOnlineUserIdsParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function getRoomOnlineUserIds({ context, roomId }: GetRoomOnlineUserIdsParams) {
+  const ids = context.redis.pubClient.sMembers(`room:${roomId}:online_users`)
   return ids
 }
-export async function getRoomOnlineUsers(roomId: string) {
-  const users = await getHMembersFromSet<User>(`room:${roomId}:online_users`, "user")
-  return users
-}
-export async function clearRoomOnlineUsers(roomId: string) {
-  await pubClient.unlink(`room:${roomId}:online_users`)
+
+type GetRoomOnlineUsersParams = {
+  context: AppContext
+  roomId: string
 }
 
-export async function nukeUserRooms(userId: string) {
-  const rooms = await getUserRooms(userId)
-  await pubClient.unlink(`user:${userId}:rooms`)
-  await Promise.all(rooms.map((room) => deleteRoom(room.id)))
+export async function getRoomOnlineUsers({ context, roomId }: GetRoomOnlineUsersParams) {
+  const users = await getHMembersFromSet<User>({
+    context,
+    setKey: `room:${roomId}:online_users`,
+    recordPrefix: "user",
+    recordSuffix: undefined,
+  })
+  return users
+}
+
+type ClearRoomOnlineUsersParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function clearRoomOnlineUsers({ context, roomId }: ClearRoomOnlineUsersParams) {
+  await context.redis.pubClient.unlink(`room:${roomId}:online_users`)
+}
+
+type NukeUserRoomsParams = {
+  context: AppContext
+  userId: string
+}
+
+export async function nukeUserRooms({ context, userId }: NukeUserRoomsParams) {
+  const rooms = await getUserRooms({ context, userId })
+  await context.redis.pubClient.unlink(`user:${userId}:rooms`)
+  await Promise.all(rooms.map((room) => deleteRoom({ context, roomId: room.id })))
 }

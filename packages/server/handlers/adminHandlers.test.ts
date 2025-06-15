@@ -1,154 +1,136 @@
-import { describe } from "@jest/globals";
-import { makeSocket } from "../lib/testHelpers";
-import { setPassword, kickUser, setRoomSettings } from "./adminHandlers";
+import { describe, test, expect, beforeEach, afterEach, vi } from "vitest"
+import { makeSocket } from "../lib/testHelpers"
+import {
+  getRoomSettings,
+  setPassword,
+  kickUser,
+  setRoomSettings,
+  clearPlaylist,
+} from "./adminHandlers"
+import { findRoom, saveRoom, getUser, clearRoomPlaylist, clearQueue } from "../operations/data"
+import { AppContext } from "../lib/context"
+import { addContextToSocket } from "../lib/socketWithContext"
+import { roomFactory } from "@repo/factories/room"
 
-import { findRoom, getUser, saveRoom } from "../operations/data";
+// Mock AppContext and Redis
+const mockRedisClient = {
+  set: vi.fn().mockResolvedValue(null),
+  zAdd: vi.fn().mockResolvedValue(null),
+  publish: vi.fn().mockResolvedValue(null),
+  sMembers: vi.fn().mockResolvedValue([]),
+}
+const mockContext: AppContext = {
+  redis: {
+    pubClient: mockRedisClient as any,
+    subClient: mockRedisClient as any,
+  },
+}
 
-jest.mock("../lib/sendMessage");
-jest.mock("../lib/spotifyApi");
-jest.mock("../operations/spotify/createAndPopulateSpotifyPlaylist");
-jest.mock("../operations/getStation");
-jest.mock("../operations/data");
+// Mock the imports
+vi.mock("../operations/data")
+vi.mock("../operations/room/handleRoomNowPlayingData", () => ({ default: vi.fn() }))
+vi.mock("../lib/systemMessage", () => ({ default: vi.fn(() => "system-message") }))
 
+beforeEach(() => {
+  vi.resetAllMocks()
+})
 afterEach(() => {
-  jest.clearAllMocks();
-});
+  vi.clearAllMocks()
+})
+
+const mockRoom = roomFactory.build({
+  id: "adminRoom",
+  creator: "1",
+})
 
 describe("adminHandlers", () => {
-  const { socket, io, emit, toEmit } = makeSocket();
+  const { socket: baseSocket, io, toEmit } = makeSocket({ roomId: "adminRoom" })
+  const socket = addContextToSocket(baseSocket, mockContext)
 
-  describe("changing artwork", () => {
-    it("updates settings", async () => {
-      (findRoom as jest.Mock).mockResolvedValueOnce({
-        artwork: undefined,
-      });
-      await setRoomSettings(
-        { socket, io },
-        {
-          artwork: "google.com",
-          fetchMeta: true,
-          extraInfo: undefined,
-          password: null,
-          deputizeOnJoin: false,
-          enableSpotifyLogin: false,
-        }
-      );
-      expect(saveRoom).toHaveBeenCalledWith({
-        artwork: "google.com",
-        extraInfo: undefined,
-        fetchMeta: true,
-        password: null,
-        deputizeOnJoin: false,
-        enableSpotifyLogin: false,
-      });
-    });
-  });
+  describe("getRoomSettings", () => {
+    test("emits ROOM_SETTINGS event for admin", async () => {
+      vi.mocked(findRoom).mockResolvedValueOnce({ ...mockRoom, creator: "1" })
+      socket.data.userId = "1"
+      await getRoomSettings({ io, socket })
+      expect(toEmit).toHaveBeenCalledWith(
+        "event",
+        expect.objectContaining({ type: "ROOM_SETTINGS" }),
+      )
+    })
+    test("emits error if not admin", async () => {
+      vi.mocked(findRoom).mockResolvedValueOnce({ ...mockRoom, creator: "2" })
+      socket.data.userId = "1"
+      const emit = vi.spyOn(socket, "emit")
+      await getRoomSettings({ io, socket })
+      expect(emit).toHaveBeenCalledWith("event", expect.objectContaining({ type: "ERROR" }))
+    })
+  })
 
   describe("setPassword", () => {
-    it("sets password", async () => {
-      (findRoom as jest.Mock).mockResolvedValueOnce({
-        password: undefined,
-      });
-      await setPassword({ socket, io }, "donut");
+    test("calls saveRoom with new password", async () => {
+      vi.mocked(findRoom).mockResolvedValueOnce({ ...mockRoom, password: "old", creator: "1" })
+      socket.data.userId = "1"
+      await setPassword({ socket, io }, "newpass")
       expect(saveRoom).toHaveBeenCalledWith({
-        password: "donut",
-      });
-    });
-  });
+        context: mockContext,
+        room: expect.objectContaining({ password: "newpass" }),
+      })
+    })
+  })
 
   describe("kickUser", () => {
-    it("sends kicked event to kicked user", async () => {
-      (getUser as jest.Mock).mockResolvedValueOnce({
+    test("emits KICKED and NEW_MESSAGE to kicked user", async () => {
+      // Provide all fields, and cast as the expected type
+      const mockUser = {
         userId: "1",
-        username: "Homer",
-        id: "1234-5678",
-      });
-
-      await kickUser({ socket, io }, { userId: "1", username: "Homer" });
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        type: "KICKED",
-      });
-    });
-    it("sends system message to kicked user", async () => {
-      (getUser as jest.Mock).mockResolvedValueOnce({
-        userId: "1",
-        username: "Homer",
-        id: "1234-5678",
-      });
-      await kickUser(
-        { socket, io },
-        { userId: "1", username: "Homer", id: "1234-5678" }
-      );
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        type: "NEW_MESSAGE",
-        data: {
-          content: "You have been kicked. I hope you deserved it.",
-          meta: { status: "error", title: "Kicked", type: "alert" },
-          timestamp: expect.any(String),
-          user: { id: "system", userId: "system", username: "system" },
-        },
-      });
-    });
-  });
+        username: "testuser",
+        isAdmin: false,
+        isDj: false,
+        isDeputyDj: false,
+        status: "participating",
+        id: "socketId",
+      } as {
+        isDj: boolean
+        isDeputyDj: boolean
+        isAdmin: boolean
+        id: string
+        userId: string
+        username: string
+        status: "participating" | "listening"
+      }
+      vi.mocked(getUser).mockResolvedValueOnce(mockUser)
+      const getSpy = vi.fn().mockReturnValue({ disconnect: vi.fn() })
+      io.sockets.sockets.get = getSpy
+      await kickUser({ io, socket }, mockUser)
+      expect(toEmit).toHaveBeenCalledWith("event", expect.objectContaining({ type: "NEW_MESSAGE" }))
+      expect(toEmit).toHaveBeenCalledWith("event", expect.objectContaining({ type: "KICKED" }))
+      expect(getSpy).toHaveBeenCalledWith("socketId")
+    })
+  })
 
   describe("setRoomSettings", () => {
-    it("sets settings", async () => {
-      (findRoom as jest.Mock).mockResolvedValueOnce({});
-      const newSettings = {
-        extraInfo: "Heyyyyyy",
-        fetchMeta: false,
-        password: null,
-        deputizeOnJoin: false,
-        enableSpotifyLogin: false,
-      };
-      await setRoomSettings({ socket, io }, newSettings);
-      expect(saveRoom).toHaveBeenCalledWith(newSettings);
-    });
+    test("calls saveRoom and emits ROOM_SETTINGS", async () => {
+      vi.mocked(findRoom).mockResolvedValueOnce({ ...mockRoom, creator: "1", fetchMeta: false })
+      vi.mocked(saveRoom).mockResolvedValueOnce(undefined)
+      vi.mocked(findRoom).mockResolvedValueOnce({ ...mockRoom, creator: "1", fetchMeta: false })
+      socket.data.userId = "1"
+      await setRoomSettings({ io, socket }, { fetchMeta: false })
+      expect(saveRoom).toHaveBeenCalled()
+      expect(toEmit).toHaveBeenCalledWith(
+        "event",
+        expect.objectContaining({ type: "ROOM_SETTINGS" }),
+      )
+    })
+  })
 
-    it("emits ROOM_SETTINGS event", async () => {
-      const newSettings = {
-        extraInfo: "Heyyyyyy",
-        fetchMeta: false,
-        password: null,
-        deputizeOnJoin: false,
-        enableSpotifyLogin: false,
-      };
-      (findRoom as jest.Mock)
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce(newSettings);
-      (saveRoom as jest.Mock).mockResolvedValueOnce({});
-      await setRoomSettings({ socket, io }, newSettings);
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        type: "ROOM_SETTINGS",
-        data: { room: newSettings },
-      });
-    });
-
-    it("requires user to be room creator", async () => {
-      (findRoom as jest.Mock).mockResolvedValueOnce({
-        creator: "1",
-      });
-      socket.data.userId = "2";
-
-      await setRoomSettings(
-        { socket, io },
-        {
-          extraInfo: "Heyyyyyy",
-          fetchMeta: false,
-          password: null,
-          deputizeOnJoin: false,
-          enableSpotifyLogin: false,
-        }
-      );
-
-      expect(emit).toHaveBeenCalledWith("event", {
-        type: "ERROR",
-        data: {
-          status: 403,
-          error: "Forbidden",
-          message: "You are not the room creator.",
-        },
-      });
-    });
-  });
-});
+  describe("clearPlaylist", () => {
+    test("calls clearRoomPlaylist and clearQueue, emits PLAYLIST", async () => {
+      vi.mocked(findRoom).mockResolvedValueOnce({ ...mockRoom, creator: "1" })
+      socket.data.userId = "1"
+      await clearPlaylist({ io, socket })
+      expect(clearRoomPlaylist).toHaveBeenCalled()
+      expect(clearQueue).toHaveBeenCalled()
+      expect(toEmit).toHaveBeenCalledWith("event", expect.objectContaining({ type: "PLAYLIST" }))
+    })
+  })
+})

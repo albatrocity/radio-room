@@ -1,5 +1,5 @@
 import { filter, isTruthy } from "remeda"
-import { pubClient } from "../../lib/redisClients"
+import { AppContext } from "../../lib/context"
 import { Reaction, ReactionPayload, ReactionStore } from "@repo/types/Reaction"
 import { ReactionSubject } from "@repo/types/ReactionSubject"
 
@@ -15,37 +15,43 @@ function makeReactionSubjectKey(roomId: string, reactTo: ReactionSubject) {
   return `${makeReactionTypeKey(roomId, reactTo)}:${reactTo.id}`
 }
 
-export async function addReaction(
-  roomId: string,
-  reaction: ReactionPayload,
-  reactTo: ReactionSubject,
-) {
+type AddReactionParams = {
+  context: AppContext
+  roomId: string
+  reaction: ReactionPayload
+  reactTo: ReactionSubject
+}
+
+export async function addReaction({ context, roomId, reaction, reactTo }: AddReactionParams) {
   try {
     const reactionString = JSON.stringify(reaction)
     const key = makeReactionKey(roomId, reaction)
     const reactionTypeKey = makeReactionTypeKey(roomId, reaction.reactTo)
     const reactionSubjectKey = makeReactionSubjectKey(roomId, reaction.reactTo)
-    await pubClient.zAdd(reactionTypeKey, { score: Date.now(), value: key })
-    await pubClient.zAdd(reactionSubjectKey, { score: Date.now(), value: key })
-    return pubClient.set(key, reactionString)
+    await context.redis.pubClient.zAdd(reactionTypeKey, { score: Date.now(), value: key })
+    await context.redis.pubClient.zAdd(reactionSubjectKey, { score: Date.now(), value: key })
+    return context.redis.pubClient.set(key, reactionString)
   } catch (e) {
     console.log("ERROR FROM data/reactions/addReaction", roomId, reaction, reactTo)
     console.error(e)
   }
 }
 
-export async function removeReaction(
-  roomId: string,
-  reaction: ReactionPayload,
-  reactTo: ReactionSubject,
-) {
+type RemoveReactionParams = {
+  context: AppContext
+  roomId: string
+  reaction: ReactionPayload
+  reactTo: ReactionSubject
+}
+
+export async function removeReaction({ context, roomId, reaction, reactTo }: RemoveReactionParams) {
   try {
     const key = makeReactionKey(roomId, reaction)
     const reactionTypeKey = makeReactionTypeKey(roomId, reaction.reactTo)
     const reactionSubjectKey = makeReactionSubjectKey(roomId, reaction.reactTo)
-    await pubClient.zRem(reactionTypeKey, key)
-    await pubClient.zRem(reactionSubjectKey, key)
-    return pubClient.unlink(key)
+    await context.redis.pubClient.zRem(reactionTypeKey, key)
+    await context.redis.pubClient.zRem(reactionSubjectKey, key)
+    return context.redis.pubClient.unlink(key)
   } catch (e) {
     console.log("ERROR FROM data/reactions/removeReaction", roomId, reaction, reactTo)
     console.error(e)
@@ -62,14 +68,19 @@ function reduceReactionType(acc: ReactionStore["message"], cur: ReactionPayload)
   return acc
 }
 
-export async function getAllRoomReactions(roomId: string) {
+type GetAllRoomReactionsParams = {
+  context: AppContext
+  roomId: string
+}
+
+export async function getAllRoomReactions({ context, roomId }: GetAllRoomReactionsParams) {
   try {
-    const messageKeys = await pubClient.zRange(
+    const messageKeys = await context.redis.pubClient.zRange(
       makeReactionTypeKey(roomId, { type: "message", id: "" }),
       0,
       -1,
     )
-    const trackKeys = await pubClient.zRange(
+    const trackKeys = await context.redis.pubClient.zRange(
       makeReactionTypeKey(roomId, { type: "track", id: "" }),
       0,
       -1,
@@ -77,12 +88,12 @@ export async function getAllRoomReactions(roomId: string) {
 
     const messageStrings = await Promise.all(
       messageKeys.map(async (key) => {
-        return await pubClient.get(key)
+        return await context.redis.pubClient.get(key)
       }),
     )
     const trackStrings = await Promise.all(
       trackKeys.map(async (key) => {
-        return await pubClient.get(key)
+        return await context.redis.pubClient.get(key)
       }),
     )
 
@@ -100,13 +111,27 @@ export async function getAllRoomReactions(roomId: string) {
   }
 }
 
-export async function getReactionsForSubject(roomId: string, reactTo: ReactionSubject) {
+type GetReactionsForSubjectParams = {
+  context: AppContext
+  roomId: string
+  reactTo: ReactionSubject
+}
+
+export async function getReactionsForSubject({
+  context,
+  roomId,
+  reactTo,
+}: GetReactionsForSubjectParams) {
   try {
-    const reactionKeys = await pubClient.zRange(makeReactionSubjectKey(roomId, reactTo), 0, -1)
+    const reactionKeys = await context.redis.pubClient.zRange(
+      makeReactionSubjectKey(roomId, reactTo),
+      0,
+      -1,
+    )
 
     const reactionStrings = await Promise.all(
       reactionKeys.map(async (key) => {
-        return await pubClient.get(key)
+        return await context.redis.pubClient.get(key)
       }),
     )
 

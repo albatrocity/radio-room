@@ -1,4 +1,4 @@
-import { Server, Socket } from "socket.io"
+import { Server } from "socket.io"
 
 import {
   clearPlaylist,
@@ -12,8 +12,9 @@ import {
 
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
+import { SocketWithContext } from "../lib/socketWithContext"
 
-export default function adminController(socket: Socket, io: Server) {
+export default function adminController(socket: SocketWithContext, io: Server) {
   socket.on("set password", (value: string) => setPassword({ socket, io }, value))
   socket.on("kick user", (user: User) => kickUser({ socket, io }, user))
   socket.on("set room settings", (s: Partial<Room>) => setRoomSettings({ socket, io }, s))
