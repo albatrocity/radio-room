@@ -8,7 +8,7 @@ import {
   clearPlaylist,
 } from "./adminHandlers"
 import { findRoom, saveRoom, getUser, clearRoomPlaylist, clearQueue } from "../operations/data"
-import { AppContext } from "../lib/context"
+import { AppContext } from "@repo/types"
 import { addContextToSocket } from "../lib/socketWithContext"
 import { roomFactory } from "@repo/factories/room"
 

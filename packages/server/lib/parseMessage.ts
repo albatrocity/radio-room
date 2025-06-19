@@ -1,6 +1,6 @@
 import mustache from "mustache"
 import getMessageVariables from "./getMessageVariables"
-import { AppContext } from "./context"
+import { AppContext } from "@repo/types"
 
 export function parseMessage({
   context,

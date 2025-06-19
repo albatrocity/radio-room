@@ -1,5 +1,5 @@
 import { getQueue, getRoomPlaylist, getRoomUsers } from "../operations/data"
-import { AppContext } from "./context"
+import { AppContext } from "@repo/types"
 
 export default async function getMessageVariables({
   context,

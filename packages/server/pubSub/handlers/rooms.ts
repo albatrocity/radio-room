@@ -5,10 +5,10 @@ import {
   PUBSUB_SPOTIFY_PLAYBACK_STATE_CHANGED,
 } from "../../lib/constants"
 import { PubSubHandlerArgs } from "@repo/types/PubSub"
-import getRoomPath from "../../lib/getRoomPath"
+import { getRoomPath } from "../../lib/getRoomPath"
 import systemMessage from "../../lib/systemMessage"
 import sendMessage from "../../lib/sendMessage"
-import { AppContext } from "../../lib/context"
+import { AppContext } from "@repo/types"
 import { createOperations } from "../../operations"
 
 type ContextPubSubHandlerArgs = PubSubHandlerArgs & { context: AppContext }

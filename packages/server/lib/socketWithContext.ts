@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io"
-import { AppContext } from "./context"
+import { AppContext } from "@repo/types"
 
 // Extend the Socket type to include context
 export interface SocketWithContext extends Socket {

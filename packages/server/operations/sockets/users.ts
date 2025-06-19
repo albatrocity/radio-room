@@ -1,9 +1,6 @@
 import { PUBSUB_USER_JOINED } from "../../lib/constants"
-import getRoomPath from "../../lib/getRoomPath"
-import { HandlerConnections } from "@repo/types/HandlerConnections"
-import { Room } from "@repo/types/Room"
-import { User } from "@repo/types/User"
-import { AppContext } from "../../lib/context"
+import { getRoomPath } from "../../lib/getRoomPath"
+import { Room, User, AppContext } from "@repo/types"
 import { Server } from "socket.io"
 
 type UsersData = {

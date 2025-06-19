@@ -1,4 +1,4 @@
-import { AppContext } from "../lib/context"
+import { AppContext } from "@repo/types"
 import * as roomsOperations from "./data/rooms"
 import * as usersOperations from "./data/users"
 import * as djsOperations from "./data/djs"

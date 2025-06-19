@@ -5,8 +5,7 @@ import { writeJsonToHset, getHMembersFromSet } from "./utils"
 import { getQueue } from "./djs"
 import { User } from "@repo/types/User"
 import { PUBSUB_ROOM_DELETED } from "../../lib/constants"
-import { QueueItem } from "@repo/types/Queue"
-import { AppContext, RedisContext } from "../../lib/context"
+import { QueueItem, AppContext } from "@repo/types"
 
 type AddRoomToRoomListParams = {
   context: AppContext

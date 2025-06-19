@@ -1,5 +1,5 @@
 import { ChatMessage } from "@repo/types/ChatMessage"
-import { AppContext } from "../../lib/context"
+import { AppContext } from "@repo/types"
 
 export async function persistMessage({
   roomId,

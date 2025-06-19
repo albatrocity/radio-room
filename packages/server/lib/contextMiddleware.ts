@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express"
-import { AppContext } from "./context"
+import { AppContext } from "@repo/types"
 
 // Extend the Express Request type to include our context
 declare global {

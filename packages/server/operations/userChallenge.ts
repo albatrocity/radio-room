@@ -1,5 +1,5 @@
 import { FIVE_MINUTES } from "../lib/constants"
-import { AppContext } from "../lib/context"
+import { AppContext } from "@repo/types"
 
 export async function checkUserChallenge({
   challenge,

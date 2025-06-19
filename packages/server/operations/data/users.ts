@@ -1,6 +1,5 @@
 import { filter, isTruthy } from "remeda"
-import { AppContext } from "../../lib/context"
-import { StoredUser, User } from "@repo/types/User"
+import { AppContext, StoredUser, User } from "@repo/types"
 import { mapUserBooleans, writeJsonToHset } from "./utils"
 // import { PUBSUB_USER_SPOTIFY_AUTHENTICATION_STATUS } from "../../lib/constants"
 
@@ -136,7 +135,7 @@ type GetRoomUsersParams = {
 export async function getRoomUsers({ context, roomId }: GetRoomUsersParams) {
   try {
     const users = await context.redis.pubClient.sMembers(`room:${roomId}:online_users`)
-    const reads: Promise<User>[] = users.map(async (userId: string) => {
+    const reads: Promise<User | null>[] = users.map(async (userId: string) => {
       const userData = await getUser({ context, userId })
       if (!userData) {
         return null
@@ -176,7 +175,7 @@ type SaveUserParams = {
 
 export async function saveUser({ context, userId, attributes }: SaveUserParams) {
   try {
-    return await writeJsonToHset(`user:${userId}`, attributes, context)
+    return await writeJsonToHset({ setKey: `user:${userId}`, attributes, context })
   } catch (e) {
     console.log("ERROR FROM data/users/persistUser", userId, attributes)
     console.error(e)

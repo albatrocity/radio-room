@@ -1,6 +1,6 @@
 import { QueueItem } from "@repo/types/Queue"
 import { deleteMembersFromSet, getMembersFromSet } from "./utils"
-import { AppContext } from "../../lib/context"
+import { AppContext } from "@repo/types"
 
 export async function addDj({
   roomId,
@@ -172,7 +172,11 @@ export async function setQueue({
 
 export async function clearQueue({ roomId, context }: { roomId: string; context: AppContext }) {
   try {
-    await deleteMembersFromSet(`room:${roomId}:queue`, `room:${roomId}:queued_track`)
+    await deleteMembersFromSet({
+      context,
+      setKey: `room:${roomId}:queue`,
+      recordPrefix: `room:${roomId}:queued_track`,
+    })
     await context.redis.pubClient.unlink(`room:${roomId}:queue`)
     return []
   } catch (e) {

@@ -9,7 +9,7 @@ import {
   getAllRoomReactions,
 } from "../operations/data"
 import { pubUserJoined } from "../operations/sockets/users"
-import { AppContext } from "../lib/context"
+import { AppContext } from "@repo/types"
 import { addContextToSocket } from "../lib/socketWithContext"
 
 // Mock Redis client

@@ -1,12 +1,12 @@
 import { Server } from "socket.io"
 import { PUBSUB_ROOM_NOW_PLAYING_FETCHED, PUBSUB_PLAYLIST_ADDED } from "../../lib/constants"
-import getRoomPath from "../../lib/getRoomPath"
+import { getRoomPath } from "../../lib/getRoomPath"
 import { QueueItem } from "@repo/types/Queue"
 import { PubSubHandlerArgs } from "@repo/types/PubSub"
 import { RoomMeta } from "@repo/types/Room"
 import systemMessage from "../../lib/systemMessage"
 import sendMessage from "../../lib/sendMessage"
-import { AppContext } from "../../lib/context"
+import { AppContext } from "@repo/types"
 import { createOperations } from "../../operations"
 
 export default async function bindHandlers(io: Server, context: AppContext) {

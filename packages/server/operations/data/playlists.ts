@@ -1,5 +1,4 @@
-import { AppContext } from "../../lib/context"
-import { QueueItem } from "@repo/types/Queue"
+import { AppContext, QueueItem } from "@repo/types"
 
 type AddTrackToRoomPlaylistParams = {
   context: AppContext
