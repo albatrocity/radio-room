@@ -1,5 +1,5 @@
 import { Server } from "socket.io"
-import { ChatMessage } from "@repo/types/ChatMessage"
+import { ChatMessage } from "@repo/types"
 import getRoomPath from "./getRoomPath"
 import { persistMessage } from "../operations/data"
 

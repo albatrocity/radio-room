@@ -136,7 +136,7 @@ type GetRoomUsersParams = {
 export async function getRoomUsers({ context, roomId }: GetRoomUsersParams) {
   try {
     const users = await context.redis.pubClient.sMembers(`room:${roomId}:online_users`)
-    const reads = users.map(async (userId) => {
+    const reads: Promise<User>[] = users.map(async (userId: string) => {
       const userData = await getUser({ context, userId })
       if (!userData) {
         return null
@@ -189,7 +189,7 @@ type GetUserParams = {
   userId: string
 }
 
-export async function getUser({ context, userId }: GetUserParams) {
+export async function getUser({ context, userId }: GetUserParams): Promise<User | null> {
   try {
     const userAttributes = await context.redis.pubClient.hGetAll(`user:${userId}`)
     if (!userAttributes) {

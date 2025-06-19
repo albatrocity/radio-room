@@ -102,10 +102,11 @@ export async function removeFromQueue({
 
 export async function getQueue({ roomId, context }: { roomId: string; context: AppContext }) {
   try {
-    const results = await getMembersFromSet<QueueItem>(
-      `room:${roomId}:queue`,
-      `room:${roomId}:queued_track`,
-    )
+    const results = await getMembersFromSet<QueueItem>({
+      context,
+      setKey: `room:${roomId}:queue`,
+      recordPrefix: `room:${roomId}:queued_track`,
+    })
     return results
   } catch (e) {
     console.log("ERROR FROM data/djs/removeFromQueue", roomId)
