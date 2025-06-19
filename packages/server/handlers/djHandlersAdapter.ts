@@ -65,7 +65,9 @@ export class DJHandlers {
         data: result.queuedItem,
       })
 
-      sendMessage(io, roomId, result.systemMessage)
+      if (result.systemMessage) {
+        sendMessage(io, roomId, result.systemMessage)
+      }
     } catch (e) {
       socket.emit("event", {
         type: "SONG_QUEUE_FAILURE",
@@ -134,7 +136,7 @@ export class DJHandlers {
   ) => {
     const result = await this.djService.handleUserJoined(socket.data.roomId, user)
 
-    if (result.shouldDeputize) {
+    if (result.shouldDeputize && result.userId) {
       this.djDeputizeUser({ io, socket }, result.userId)
     }
   }

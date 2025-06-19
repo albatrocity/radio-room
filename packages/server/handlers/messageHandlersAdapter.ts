@@ -1,7 +1,7 @@
 import { HandlerConnections } from "@repo/types/HandlerConnections"
 import { MessageService } from "../services/MessageService"
 import sendMessage from "../lib/sendMessage"
-import { AppContext } from "../lib/context"
+import { AppContext } from "@repo/types"
 
 /**
  * Socket.io adapter for the MessageService

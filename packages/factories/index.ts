@@ -1,4 +1,5 @@
 export * from "./appContext"
+export * from "./chatMessage"
 export * from "./queueItem"
 export * from "./room"
 export * from "./user"

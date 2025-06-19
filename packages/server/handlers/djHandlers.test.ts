@@ -28,7 +28,6 @@ import {
   savePlaylist,
   handleUserJoined,
 } from "./djHandlers"
-import { createDJHandlers } from "./djHandlersAdapter"
 
 describe("djHandlers", () => {
   let mockSocket: any, mockIo: any, mockContext: any

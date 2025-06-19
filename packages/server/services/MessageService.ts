@@ -1,4 +1,4 @@
-import { AppContext } from "../lib/context"
+import { AppContext } from "@repo/types"
 import { parseMessage } from "../lib/parseMessage"
 import { getRoomPath } from "../lib/getRoomPath"
 import {

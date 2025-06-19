@@ -362,7 +362,7 @@ export function parseRoom(room: StoredRoom): Room {
 export function removeSensitiveRoomAttributes(room: Room) {
   return {
     ...room,
-    password: undefined,
+    password: null,
   }
 }
 
