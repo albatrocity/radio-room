@@ -8,7 +8,25 @@ export interface SocketWithContext extends Socket {
 
 // Helper function to add context to socket
 export function addContextToSocket(socket: Socket, context: AppContext): SocketWithContext {
-  return Object.assign(socket, { context })
+  // Create a proxy that preserves all the original socket properties and methods
+  // but also adds the context property
+  const socketWithContext = new Proxy(socket, {
+    get(target, prop, receiver) {
+      if (prop === "context") {
+        return context
+      }
+      return Reflect.get(target, prop, receiver)
+    },
+    set(target, prop, value, receiver) {
+      if (prop === "context") {
+        // Context is read-only after initialization
+        return true
+      }
+      return Reflect.set(target, prop, value, receiver)
+    },
+  }) as SocketWithContext
+
+  return socketWithContext
 }
 
 // Helper function for controller handlers that need context

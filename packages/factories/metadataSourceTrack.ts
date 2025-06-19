@@ -1,5 +1,8 @@
-// Minimal valid MetadataSourceTrack for tests
-export const mockTrack = {
+import { Factory } from "fishery"
+
+import { MetadataSourceTrack } from "@repo/types"
+
+export const metadataSourceTrackFactory = Factory.define<MetadataSourceTrack>(({ sequence }) => ({
   id: "track-id",
   title: "Track Title",
   urls: [],
@@ -21,4 +24,4 @@ export const mockTrack = {
   discNumber: 1,
   popularity: 0,
   images: [],
-} as const
+}))
