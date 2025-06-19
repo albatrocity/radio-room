@@ -1,6 +1,7 @@
 export * from "./appContext"
 export * from "./chatMessage"
 export * from "./queueItem"
+export * from "./reaction"
 export * from "./room"
 export * from "./user"
 export * from "./metadataSourceTrack"

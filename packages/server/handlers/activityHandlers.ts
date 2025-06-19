@@ -1,70 +1,40 @@
-import { REACTIONABLE_TYPES } from "../lib/constants"
-
-import {
-  addReaction as addReactionData,
-  getAllRoomReactions,
-  removeReaction as removeReactionData,
-  updateUserAttributes,
-} from "../operations/data"
-
 import { HandlerConnections } from "@repo/types/HandlerConnections"
 import { ReactionSubject } from "@repo/types/ReactionSubject"
 import { User } from "@repo/types/User"
 import { ReactionPayload } from "@repo/types/Reaction"
 import { Emoji } from "@repo/types/Emoji"
-import getRoomPath from "../lib/getRoomPath"
-import { pubUserJoined } from "../operations/sockets/users"
+import { createActivityHandlers } from "./activityHandlersAdapter"
 
+/**
+ * Update user status to listening
+ */
 export async function startListening({ socket, io }: HandlerConnections) {
   const { context } = socket
-  const { user, users } = await updateUserAttributes({
-    context,
-    userId: socket.data.userId,
-    attributes: {
-      status: "listening",
-    },
-    roomId: socket.data.roomId,
-  })
-
-  if (!user) {
-    return
-  }
-
-  pubUserJoined({ io, roomId: socket.data.roomId, data: { user, users }, context })
+  const activityHandlers = createActivityHandlers(context)
+  return activityHandlers.startListening({ socket, io })
 }
 
+/**
+ * Update user status to participating
+ */
 export async function stopListening({ socket, io }: HandlerConnections) {
   const { context } = socket
-  const { user, users } = await updateUserAttributes({
-    context,
-    userId: socket.data.userId,
-    attributes: { status: "participating" },
-    roomId: socket.data.roomId,
-  })
-
-  if (!user) {
-    return
-  }
-
-  pubUserJoined({ io, roomId: socket.data.roomId, data: { user, users }, context })
+  const activityHandlers = createActivityHandlers(context)
+  return activityHandlers.stopListening({ socket, io })
 }
 
+/**
+ * Add a reaction to a reactionable item
+ */
 export async function addReaction({ io, socket }: HandlerConnections, reaction: ReactionPayload) {
   const { context } = socket
-  const { reactTo } = reaction
-  if (REACTIONABLE_TYPES.indexOf(reactTo.type) === -1) {
-    return
-  }
-  await addReactionData({ context, roomId: socket.data.roomId, reaction, reactTo })
-
-  const reactions = await getAllRoomReactions({ context, roomId: socket.data.roomId })
-
-  io.to(getRoomPath(socket.data.roomId)).emit("event", {
-    type: "REACTIONS",
-    data: { reactions },
-  })
+  const activityHandlers = createActivityHandlers(context)
+  return activityHandlers.addReaction({ socket, io }, reaction)
 }
 
+/**
+ * Remove a reaction from a reactionable item
+ */
 export async function removeReaction(
   { io, socket }: HandlerConnections,
   {
@@ -78,15 +48,6 @@ export async function removeReaction(
   },
 ) {
   const { context } = socket
-  if (REACTIONABLE_TYPES.indexOf(reactTo.type) === -1) {
-    return
-  }
-  const roomId = socket.data.roomId
-  await removeReactionData({ context, roomId, reaction: { emoji, reactTo, user }, reactTo })
-  const reactions = await getAllRoomReactions({ context, roomId })
-
-  io.to(getRoomPath(socket.data.roomId)).emit("event", {
-    type: "REACTIONS",
-    data: { reactions },
-  })
+  const activityHandlers = createActivityHandlers(context)
+  return activityHandlers.removeReaction({ socket, io }, { emoji, reactTo, user })
 }

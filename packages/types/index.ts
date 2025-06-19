@@ -1,6 +1,7 @@
 export * from "./Adapter"
 export * from "./AppContext"
 export * from "./ChatMessage"
+export * from "./Emoji"
 export * from "./HandlerConnections"
 export * from "./JobRegistration"
 export * from "./MediaSource"
