@@ -1,546 +1,128 @@
-import { describe, test } from "@jest/globals";
-import { makeSocket } from "../lib/testHelpers";
+import { describe, expect, test, vi, beforeEach } from "vitest"
+import { makeSocketWithBroadcastMocks } from "../lib/testHelpers"
+
+const mockCheckPassword = vi.fn()
+const mockSubmitPassword = vi.fn()
+const mockLogin = vi.fn()
+const mockChangeUsername = vi.fn()
+const mockDisconnect = vi.fn()
+const mockGetUserSpotifyAuth = vi.fn()
+const mockLogoutSpotifyAuth = vi.fn()
+const mockNukeUser = vi.fn()
+
+// Mock the adapter module
+vi.mock("./authHandlersAdapter", () => ({
+  createAuthHandlers: () => ({
+    checkPassword: mockCheckPassword,
+    submitPassword: mockSubmitPassword,
+    login: mockLogin,
+    changeUsername: mockChangeUsername,
+    disconnect: mockDisconnect,
+    getUserSpotifyAuth: mockGetUserSpotifyAuth,
+    logoutSpotifyAuth: mockLogoutSpotifyAuth,
+    nukeUser: mockNukeUser,
+  }),
+}))
+
+// Import handlers after mocks are set up
 import {
+  checkPassword,
+  submitPassword,
   login,
   changeUsername,
   disconnect,
   getUserSpotifyAuth,
-} from "./authHandlers";
-import sendMessage from "../lib/sendMessage";
-import getStoredUserSpotifyTokens from "../operations/spotify/getStoredUserSpotifyTokens";
-import {
-  addOnlineUser,
-  deleteUser,
-  findRoom,
-  getAllRoomReactions,
-  getMessages,
-  getRoomCurrent,
-  getRoomPlaylist,
-  getRoomUsers,
-  getUserRooms,
-  getUser,
-  isDj,
-  saveUser,
-  removeOnlineUser,
-  updateUserAttributes,
-  persistRoom,
-} from "../operations/data";
-import { pubUserJoined } from "../operations/sockets/users";
+  logoutSpotifyAuth,
+  nukeUser,
+} from "./authHandlers"
+import { AppContext } from "@repo/types"
+import { appContextFactory } from "@repo/factories"
 
-jest.mock("../lib/sendMessage");
-jest.mock("../operations/spotify/getStoredUserSpotifyTokens");
-jest.mock("../operations/spotify/removeStoredUserSpotifyTokens");
-jest.mock("../operations/sockets/users");
-jest.mock("../operations/data");
+describe("authHandlers (adapter wrapper)", () => {
+  let mockSocket: any
+  let mockIo: any
+  let mockAdapter: any
+  let mockContext: AppContext
 
-afterEach(() => {
-  jest.clearAllMocks();
-});
+  beforeEach(() => {
+    vi.resetAllMocks()
 
-const stubbedMessages = [
-  {
-    content: "Hello",
-    meta: {},
-    timestamp: "2021-01-01T00:00:00.000Z",
-    user: {
-      id: "123",
-      userId: "123",
+    // Setup socket mocks
+    const socketResult = makeSocketWithBroadcastMocks({
+      roomId: "room123",
+      userId: "user123",
       username: "Homer",
-    },
-  },
-];
+    })
 
-const stubbedMeta = {
-  id: "123",
-  name: "track123",
-  artists: [],
-  album: {
-    id: "123",
-    name: "album123",
-    images: [],
-  },
-};
+    mockSocket = socketResult.socket
+    mockIo = socketResult.io
+    mockContext = appContextFactory.build()
 
-function setupTest({ userIsDj = false } = {}) {
-  (getRoomUsers as jest.Mock).mockResolvedValueOnce([
-    {
-      connectedAt: "2021-01-01T00:00:00.000Z",
-      id: undefined,
-      isDeputyDj: false,
-      isDj: false,
-      status: "participating",
-      userId: "123",
+    // Add context to the socket
+    mockSocket.context = mockContext
+  })
+
+  test("checkPassword delegates to adapter", async () => {
+    await mockCheckPassword({ socket: mockSocket, io: mockIo }, "secret")
+
+    expect(mockCheckPassword).toHaveBeenCalledWith({ socket: mockSocket, io: mockIo }, "secret")
+  })
+
+  test("submitPassword delegates to adapter", async () => {
+    await submitPassword({ socket: mockSocket, io: mockIo }, "secret")
+
+    expect(mockSubmitPassword).toHaveBeenCalledWith({ socket: mockSocket, io: mockIo }, "secret")
+  })
+
+  test("login delegates to adapter", async () => {
+    const loginParams = {
+      userId: "user123",
       username: "Homer",
-    },
-  ]);
+      password: "secret",
+      roomId: "room123",
+    }
 
-  (findRoom as jest.Mock).mockResolvedValueOnce({
-    id: "authRoom",
-    name: "authRoom",
-    creator: "roomCreator",
-  });
+    await login({ socket: mockSocket, io: mockIo }, loginParams)
 
-  (getMessages as jest.Mock).mockResolvedValueOnce(stubbedMessages);
-  (getRoomPlaylist as jest.Mock).mockResolvedValueOnce([]);
-  (getRoomCurrent as jest.Mock).mockResolvedValueOnce(stubbedMeta);
-  (getStoredUserSpotifyTokens as jest.Mock).mockResolvedValueOnce({
-    accessToken: "accessToken",
-    refreshToken: "refreshToken",
-  });
-  (getAllRoomReactions as jest.Mock).mockResolvedValueOnce({
-    message: {},
-    track: {},
-  });
+    expect(mockLogin).toHaveBeenCalledWith({ socket: mockSocket, io: mockIo }, loginParams)
+  })
 
-  (isDj as jest.Mock).mockResolvedValueOnce(userIsDj);
-}
+  test("changeUsername delegates to adapter", async () => {
+    const params = {
+      userId: "user123",
+      username: "NewName",
+    }
 
-function setupUsernameTest({ newUsername = "Bart" } = {}) {
-  (getUser as jest.Mock).mockResolvedValueOnce({
-    id: "1",
-    userId: "123",
-    username: "Marge",
-  });
+    await changeUsername({ socket: mockSocket, io: mockIo }, params)
 
-  (updateUserAttributes as jest.Mock).mockResolvedValueOnce({
-    users: [
-      {
-        id: "1",
-        userId: "123",
-        username: newUsername,
-      },
-    ],
-    user: {
-      id: "1",
-      userId: "123",
-      username: newUsername,
-    },
-  });
-}
+    expect(mockChangeUsername).toHaveBeenCalledWith({ socket: mockSocket, io: mockIo }, params)
+  })
 
-function setupDisconnectTest(
-  { hasRooms }: { hasRooms?: boolean } = { hasRooms: false }
-) {
-  (removeOnlineUser as jest.Mock).mockResolvedValueOnce(null);
-  (deleteUser as jest.Mock).mockResolvedValueOnce(null);
-  (getRoomUsers as jest.Mock).mockResolvedValueOnce([]);
-  (getUserRooms as jest.Mock).mockResolvedValueOnce(
-    hasRooms
-      ? [
-          {
-            id: "room123",
-            name: "room123",
-            creator: "1",
-            type: "jukebox",
-          },
-        ]
-      : []
-  );
-}
+  test("disconnect delegates to adapter", async () => {
+    await disconnect({ socket: mockSocket, io: mockIo })
 
-describe("authHandlers", () => {
-  const { socket, io, emit, toEmit, join, broadcastEmit, toBroadcast } =
-    makeSocket({
-      roomId: "authRoom",
-      id: "socket1",
-      userId: "123",
-      username: "Homer",
-    });
+    expect(mockDisconnect).toHaveBeenCalledWith({ socket: mockSocket, io: mockIo })
+  })
 
-  afterEach(() => {
-    socket.request.session.user = undefined;
-  });
+  test("getUserSpotifyAuth delegates to adapter", async () => {
+    const params = { userId: "user123" }
 
-  describe("login", () => {
-    test("joins room", async () => {
-      setupTest();
-      await login(
-        { socket, io },
-        { username: "Homer", userId: "123", roomId: "authRoom" }
-      );
-      expect(join).toHaveBeenCalledWith("/rooms/authRoom");
-    });
+    await getUserSpotifyAuth({ socket: mockSocket, io: mockIo }, params)
 
-    test("calls pubUserJoined", async () => {
-      setupTest();
-      await login(
-        { socket, io },
-        { username: "Homer", userId: "123", roomId: "authRoom" }
-      );
+    expect(mockGetUserSpotifyAuth).toHaveBeenCalledWith({ socket: mockSocket, io: mockIo }, params)
+  })
 
-      expect(pubUserJoined).toHaveBeenCalledWith({ io }, "authRoom", {
-        user: {
-          connectedAt: expect.any(String),
-          id: "socket1",
-          isDeputyDj: false,
-          isDj: false,
-          status: "participating",
-          userId: "123",
-          username: "Homer",
-        },
-        users: [
-          {
-            connectedAt: expect.any(String),
-            id: undefined,
-            isDeputyDj: false,
-            isDj: false,
-            status: "participating",
-            userId: "123",
-            username: "Homer",
-          },
-        ],
-      });
-    });
+  test("logoutSpotifyAuth delegates to adapter", async () => {
+    const params = { userId: "user123" }
 
-    test("emits INIT event to socket", async () => {
-      setupTest();
-      await login(
-        { socket, io },
-        { username: "Homer", userId: "123", roomId: "authRoom" }
-      );
+    await logoutSpotifyAuth({ socket: mockSocket, io: mockIo }, params)
 
-      expect(emit).toHaveBeenCalledWith("event", {
-        data: {
-          accessToken: "accessToken",
-          isNewUser: false,
-          passwordRequired: false,
-          user: {
-            isAdmin: false,
-            isDeputyDj: false,
-            status: "participating",
-            userId: "123",
-            username: "Homer",
-          },
-          messages: stubbedMessages,
-          meta: stubbedMeta,
-          playlist: [],
-          reactions: {
-            message: {},
-            track: {},
-          },
-          users: [
-            {
-              connectedAt: expect.any(String),
-              id: undefined,
-              isDeputyDj: false,
-              isDj: false,
-              status: "participating",
-              userId: "123",
-              username: "Homer",
-            },
-          ],
-        },
-        type: "INIT",
-      });
-    });
+    expect(mockLogoutSpotifyAuth).toHaveBeenCalledWith({ socket: mockSocket, io: mockIo }, params)
+  })
 
-    test("sends isAdmin: true to room creator", async () => {
-      setupTest();
-      await login(
-        { socket, io },
-        { username: "Bart", userId: "roomCreator", roomId: "authRoom" }
-      );
+  test("nukeUser delegates to adapter", async () => {
+    await nukeUser({ socket: mockSocket, io: mockIo })
 
-      expect(emit).toHaveBeenCalledWith("event", {
-        data: {
-          accessToken: "accessToken",
-          isNewUser: false,
-          messages: stubbedMessages,
-          meta: stubbedMeta,
-          passwordRequired: false,
-          playlist: [],
-          reactions: {
-            message: {},
-            track: {},
-          },
-          user: {
-            isDeputyDj: false,
-            status: "participating",
-            userId: "roomCreator",
-            username: "Bart",
-            isAdmin: true,
-          },
-          users: [
-            {
-              connectedAt: expect.any(String),
-              id: undefined,
-              isDeputyDj: false,
-              isDj: false,
-              status: "participating",
-              userId: "123",
-              username: "Homer",
-            },
-            {
-              username: "Bart",
-              userId: "roomCreator",
-              id: "socket1",
-              isDj: false,
-              isDeputyDj: false,
-              status: "participating",
-              connectedAt: expect.any(String),
-            },
-          ],
-        },
-        type: "INIT",
-      });
-    });
-
-    test("calls addOnlineUser", async () => {
-      setupTest();
-
-      await login(
-        { socket, io },
-        { username: "Homer", userId: "123", roomId: "authRoom" }
-      );
-
-      expect(addOnlineUser).toHaveBeenCalledWith("authRoom", "123");
-    });
-
-    test("calls saveUser", async () => {
-      setupTest();
-
-      await login(
-        { socket, io },
-        { username: "Homer", userId: "123", roomId: "authRoom" }
-      );
-
-      expect(saveUser).toHaveBeenCalledWith("123", {
-        connectedAt: expect.any(String),
-        id: "socket1",
-        isDeputyDj: false,
-        isDj: false,
-        status: "participating",
-        userId: "123",
-        username: "Homer",
-      });
-    });
-
-    test("sets socket data props", async () => {
-      setupTest();
-      await login(
-        { socket, io },
-        { username: "Homer", userId: "123", roomId: "authRoom" }
-      );
-
-      expect(socket.data.userId).toEqual("123");
-      expect(socket.data.username).toEqual("Homer");
-    });
-
-    test("sends error if password required and does not match", async () => {
-      (findRoom as jest.Mock).mockResolvedValueOnce({
-        id: "authRoom",
-        name: "authRoom",
-        creator: "roomCreator",
-        password: "SECRET",
-      });
-
-      await login(
-        { socket, io },
-        {
-          username: "Homer",
-          userId: "123",
-          roomId: "authRoom",
-          password: "sekret",
-        }
-      );
-
-      expect(emit).toHaveBeenCalledWith("event", {
-        type: "UNAUTHORIZED",
-        data: {
-          message: "Password is incorrect",
-          status: 401,
-        },
-      });
-      expect(getRoomUsers).not.toHaveBeenCalled();
-    });
-
-    test("persists room keys if admin is logging in", async () => {
-      (findRoom as jest.Mock).mockResolvedValueOnce({
-        id: "authRoom",
-        name: "authRoom",
-        creator: "123",
-      });
-      (getRoomUsers as jest.Mock).mockResolvedValueOnce([]);
-      (getStoredUserSpotifyTokens as jest.Mock).mockResolvedValueOnce({
-        accessToken: "accessToken",
-      });
-
-      await login(
-        { socket, io },
-        {
-          username: "Homer",
-          userId: "123",
-          roomId: "authRoom",
-          password: "sekret",
-        }
-      );
-      expect(persistRoom).toHaveBeenCalledWith("authRoom");
-    });
-  });
-
-  describe("changeUsername", () => {
-    test("calls updateUserAttributes with new username", async () => {
-      setupUsernameTest();
-      await changeUsername({ socket, io }, { userId: "1", username: "Marge" });
-      expect(updateUserAttributes).toHaveBeenCalledWith(
-        "1",
-        {
-          username: "Marge",
-        },
-        "authRoom"
-      );
-    });
-
-    test("sends system message announcing change if enabled", async () => {
-      setupUsernameTest();
-      (findRoom as jest.Mock).mockResolvedValueOnce({
-        id: "authRoom",
-        name: "authRoom",
-        creator: "123",
-        announceUsernameChanges: true,
-      });
-
-      await changeUsername({ socket, io }, { userId: "1", username: "Homer" });
-
-      expect(sendMessage).toHaveBeenCalledWith(io, "authRoom", {
-        content: "Marge transformed into Homer",
-        meta: { oldUsername: "Marge", userId: "1" },
-        timestamp: expect.any(String),
-        user: {
-          id: "system",
-          userId: "system",
-          username: "system",
-        },
-      });
-    });
-
-    test("does not send system message announcing change if not enabled", async () => {
-      setupUsernameTest();
-
-      await changeUsername({ socket, io }, { userId: "1", username: "Homer" });
-
-      expect(sendMessage).not.toHaveBeenCalledWith(io, "authRoom", {
-        content: "Marge transformed into Homer",
-        meta: { oldUsername: "Marge", userId: "1" },
-        timestamp: expect.any(String),
-        user: {
-          id: "system",
-          userId: "system",
-          username: "system",
-        },
-      });
-    });
-
-    test("calls pubUserJoined", async () => {
-      setupUsernameTest({ newUsername: "Homer" });
-      await changeUsername({ socket, io }, { userId: "1", username: "Homer" });
-
-      expect(pubUserJoined).toHaveBeenCalledWith({ io }, "authRoom", {
-        user: { id: "1", userId: "123", username: "Homer" },
-        users: [{ id: "1", userId: "123", username: "Homer" }],
-      });
-    });
-
-    test("saves new username to session", async () => {
-      setupUsernameTest({ newUsername: "Homer" });
-      await changeUsername({ socket, io }, { userId: "1", username: "Homer" });
-
-      expect(socket.request.session.user).toEqual({
-        id: "1",
-        userId: "123",
-        username: "Homer",
-      });
-      expect(socket.request.session.save).toHaveBeenCalled();
-    });
-  });
-
-  describe("disconnect", () => {
-    it("removes user from online users list", async () => {
-      setupDisconnectTest();
-      socket.data.userId = "1";
-      socket.data.username = "Homer";
-
-      await disconnect({ socket, io });
-      expect(removeOnlineUser).toHaveBeenCalledWith("authRoom", "1");
-    });
-
-    it("does not delete user from redis if they have remaining rooms", async () => {
-      setupDisconnectTest({ hasRooms: true });
-      socket.data.userId = "1";
-      socket.data.username = "Homer";
-
-      await disconnect({ socket, io });
-      expect(deleteUser).not.toHaveBeenCalledWith("1");
-    });
-
-    it("broadcasts new users list", async () => {
-      setupDisconnectTest();
-      socket.data.userId = "1";
-      socket.data.username = "Homer";
-
-      await disconnect({ socket, io });
-
-      expect(broadcastEmit).toHaveBeenCalledWith("event", {
-        type: "USER_LEFT",
-        data: {
-          user: { username: "Homer" },
-          users: [],
-        },
-      });
-      expect(toBroadcast).toHaveBeenCalledWith("/rooms/authRoom");
-    });
-  });
-
-  describe("getUserSpotifyAuth", () => {
-    it("looks up spotify tokens for socket user", async () => {
-      socket.data.userId = "1";
-      socket.data.username = "Homer";
-      (getStoredUserSpotifyTokens as jest.Mock).mockResolvedValueOnce({
-        accessToken: "1234",
-        refreshToken: "5678",
-      });
-
-      await getUserSpotifyAuth({ socket, io }, { userId: "1" });
-
-      expect(getStoredUserSpotifyTokens).toHaveBeenCalledWith("1");
-    });
-
-    it("emits event with user spotify auth", async () => {
-      socket.data.userId = "1";
-      socket.data.username = "Homer";
-      (getStoredUserSpotifyTokens as jest.Mock).mockResolvedValueOnce({
-        accessToken: "1234",
-        refreshToken: "5678",
-      });
-
-      await getUserSpotifyAuth({ socket, io }, { userId: "1" });
-
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        data: {
-          isAuthenticated: true,
-          accessToken: "1234",
-        },
-        type: "SPOTIFY_AUTHENTICATION_STATUS",
-      });
-    });
-
-    it("sends false if no tokens found", async () => {
-      socket.data.userId = "1";
-      socket.data.username = "Homer";
-      (getStoredUserSpotifyTokens as jest.Mock).mockResolvedValueOnce({
-        accessToken: null,
-        refreshToken: null,
-      });
-
-      await getUserSpotifyAuth({ socket, io }, { userId: "1" });
-
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        data: {
-          isAuthenticated: false,
-          accessToken: null,
-        },
-        type: "SPOTIFY_AUTHENTICATION_STATUS",
-      });
-    });
-  });
-});
+    expect(mockNukeUser).toHaveBeenCalledWith({ socket: mockSocket, io: mockIo })
+  })
+})

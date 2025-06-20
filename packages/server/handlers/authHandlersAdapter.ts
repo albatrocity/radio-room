@@ -1,0 +1,229 @@
+import { AuthService } from "../services/AuthService"
+import { HandlerConnections, AppContext } from "@repo/types"
+import { User } from "@repo/types/User"
+import { getRoomPath } from "../lib/getRoomPath"
+import sendMessage from "../lib/sendMessage"
+
+/**
+ * Socket.io adapter for the AuthService
+ * This layer is thin and just connects Socket.io events to our business logic service
+ */
+export class AuthHandlers {
+  constructor(private authService: AuthService) {}
+
+  /**
+   * Check if a password is required for a room and if the submitted password matches
+   */
+  checkPassword = async ({ socket, io }: HandlerConnections, submittedPassword: string) => {
+    const result = await this.authService.checkPassword(socket.data.roomId, submittedPassword)
+
+    socket.emit("event", {
+      type: "SET_PASSWORD_REQUIREMENT",
+      data: {
+        passwordRequired: result.passwordRequired,
+        passwordAccepted: result.passwordAccepted,
+      },
+    })
+  }
+
+  /**
+   * Submit a password for a room
+   */
+  submitPassword = async ({ socket, io }: HandlerConnections, submittedPassword: string) => {
+    const result = await this.authService.submitPassword(
+      socket.data.roomId,
+      submittedPassword,
+      socket.data.userId,
+    )
+
+    if (result.error) {
+      socket.emit("event", {
+        type: "ERROR",
+        data: result.error,
+      })
+      return
+    }
+
+    socket.emit("event", {
+      type: "SET_PASSWORD_ACCEPTED",
+      data: {
+        passwordAccepted: result.passwordAccepted,
+      },
+    })
+  }
+
+  /**
+   * Login a user to a room
+   */
+  login = async (
+    { socket, io }: HandlerConnections,
+    {
+      userId: incomingUserId,
+      username: incomingUsername,
+      password,
+      roomId,
+    }: {
+      userId?: string
+      username?: string
+      password?: string
+      roomId: string
+    },
+  ) => {
+    const session = socket.request.session
+
+    const result = await this.authService.login({
+      incomingUserId,
+      incomingUsername,
+      password,
+      roomId,
+      socketId: socket.id,
+      sessionUser: session.user,
+    })
+
+    if (result.error) {
+      socket.emit("event", {
+        type: "ERROR",
+        data: result.error,
+      })
+      return
+    }
+
+    // Stuff some important data into the socket
+    socket.data.username = result.userData.username
+    socket.data.userId = result.userData.userId
+    socket.data.roomId = roomId
+
+    // Save some user details to the session
+    session.user = {
+      userId: result.userData.userId,
+      username: result.userData.username,
+      id: socket.id,
+    }
+    session.save()
+
+    // Join the room
+    socket.join(getRoomPath(roomId))
+
+    // Emit join event
+    io.to(getRoomPath(roomId)).emit("event", {
+      type: "USER_JOINED",
+      data: {
+        user: result.newUser,
+        users: result.newUsers,
+      },
+    })
+
+    // Send init data to user
+    socket.emit("event", {
+      type: "INIT",
+      data: result.initData,
+    })
+  }
+
+  /**
+   * Change a user's username
+   */
+  changeUsername = async (
+    { socket, io }: HandlerConnections,
+    { userId, username }: { userId: User["userId"]; username: User["username"] },
+  ) => {
+    if (!username) {
+      socket.emit("event", {
+        type: "ERROR",
+        data: "Username cannot be empty",
+      })
+      return
+    }
+
+    const result = await this.authService.changeUsername(userId, username, socket.data.roomId)
+
+    if (!result.success) {
+      return
+    }
+
+    socket.request.session.user = result.newUser
+    socket.request.session.save()
+
+    io.to(getRoomPath(socket.data.roomId)).emit("event", {
+      type: "USER_JOINED",
+      data: {
+        users: result.newUsers,
+        user: result.newUser,
+      },
+    })
+
+    // send system message of username change if provided
+    if (result.systemMessage) {
+      sendMessage(io, socket.data.roomId, result.systemMessage)
+    }
+  }
+
+  /**
+   * Handle user disconnection
+   */
+  disconnect = async ({ socket, io }: HandlerConnections) => {
+    const result = await this.authService.disconnect(
+      socket.data.roomId,
+      socket.data.userId,
+      socket.data.username,
+    )
+
+    socket.leave(getRoomPath(socket.data.roomId))
+
+    socket.broadcast.to(getRoomPath(socket.data.roomId)).emit("event", {
+      type: "USER_LEFT",
+      data: {
+        user: { username: result.username },
+        users: result.users,
+      },
+    })
+  }
+
+  /**
+   * Get user's Spotify authentication status
+   */
+  getUserSpotifyAuth = async (
+    { socket, io }: HandlerConnections,
+    { userId }: { userId?: string },
+  ) => {
+    const result = await this.authService.getUserSpotifyAuth(userId ?? socket.data.userId)
+
+    io.to(socket.id).emit("event", {
+      type: "SPOTIFY_AUTHENTICATION_STATUS",
+      data: {
+        isAuthenticated: result.isAuthenticated,
+        accessToken: result.accessToken,
+      },
+    })
+  }
+
+  /**
+   * Logout from Spotify auth
+   */
+  logoutSpotifyAuth = async (
+    { socket, io }: HandlerConnections,
+    { userId }: { userId?: string } = {},
+  ) => {
+    await this.authService.logoutSpotifyAuth(userId ?? socket.data.userId)
+  }
+
+  /**
+   * Completely nuke a user's data
+   */
+  nukeUser = async ({ socket, io }: HandlerConnections) => {
+    const userId = socket.data.userId ?? socket.request.session.user?.userId
+
+    await this.authService.nukeUser(userId)
+
+    socket.emit("SESSION_ENDED")
+    socket.request.session.destroy((err) => {})
+  }
+}
+
+/**
+ * Factory function to create Auth handlers
+ */
+export function createAuthHandlers(context: AppContext) {
+  const authService = new AuthService(context)
+  return new AuthHandlers(authService)
+}

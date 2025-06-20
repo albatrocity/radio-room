@@ -1,10 +1,6 @@
-import { ChatMessage } from "../types/ChatMessage";
+import { ChatMessage } from "@repo/types"
 
-const systemMessage = (
-  content: string,
-  meta?: {},
-  mentions?: ChatMessage["mentions"]
-) => {
+const systemMessage = (content: string, meta?: {}, mentions?: ChatMessage["mentions"]) => {
   const newMessage = {
     user: {
       username: "system",
@@ -15,8 +11,8 @@ const systemMessage = (
     meta,
     timestamp: new Date().toISOString(),
     mentions,
-  };
-  return newMessage;
-};
+  }
+  return newMessage
+}
 
-export default systemMessage;
+export default systemMessage

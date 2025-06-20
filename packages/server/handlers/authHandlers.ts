@@ -1,85 +1,27 @@
-import sendMessage from "../lib/sendMessage"
-import systemMessage from "../lib/systemMessage"
-import { isNullish, uniqueBy } from "remeda"
 import { HandlerConnections } from "@repo/types/HandlerConnections"
 import { User } from "@repo/types/User"
-import getStoredUserSpotifyTokens from "../operations/spotify/getStoredUserSpotifyTokens"
-import getRoomPath from "../lib/getRoomPath"
-import {
-  addOnlineUser,
-  findRoom,
-  getAllRoomReactions,
-  getMessages,
-  getRoomUsers,
-  getUser,
-  isDj,
-  saveUser,
-  removeOnlineUser,
-  getRoomPlaylist,
-  getRoomCurrent,
-  updateUserAttributes,
-  persistRoom,
-  addDj,
-  getUserRooms,
-  expireUserIn,
-  persistUser,
-  deleteUser,
-  nukeUserRooms,
-} from "../operations/data"
-import { pubUserJoined } from "../operations/sockets/users"
-import { Room } from "@repo/types/Room"
-import generateId from "../lib/generateId"
-import generateAnonName from "../lib/generateAnonName"
-import { THREE_HOURS } from "../lib/constants"
-
-function passwordMatched(room: Room | null, password?: string, userId?: string) {
-  if (userId === room?.creator) {
-    return true
-  }
-  return !room?.password || room?.password === password
-}
+import { createAuthHandlers } from "./authHandlersAdapter"
 
 export async function checkPassword({ socket, io }: HandlerConnections, submittedPassword: string) {
-  const room = await findRoom(socket.data.roomId)
-
-  socket.emit("event", {
-    type: "SET_PASSWORD_REQUIREMENT",
-    data: {
-      passwordRequired: !isNullish(room?.password),
-      passwordAccepted: room?.password ? submittedPassword === room?.password : true,
-    },
-  })
+  const { context } = socket
+  const authHandlers = createAuthHandlers(context)
+  return authHandlers.checkPassword({ socket, io }, submittedPassword)
 }
 
 export async function submitPassword(
   { socket, io }: HandlerConnections,
   submittedPassword: string,
 ) {
-  const room = await findRoom(socket.data.roomId)
-  if (!room) {
-    socket.emit("event", {
-      type: "ERROR",
-      data: {
-        message: "Room not found",
-        status: 404,
-      },
-    })
-    return
-  }
-
-  socket.emit("event", {
-    type: "SET_PASSWORD_ACCEPTED",
-    data: {
-      passwordAccepted: passwordMatched(room, submittedPassword, socket.data.userId),
-    },
-  })
+  const { context } = socket
+  const authHandlers = createAuthHandlers(context)
+  return authHandlers.submitPassword({ socket, io }, submittedPassword)
 }
 
 export async function login(
   { socket, io }: HandlerConnections,
   {
-    userId: incomingUserId,
-    username: incomingUsername,
+    userId,
+    username,
     password,
     roomId,
   }: {
@@ -90,126 +32,8 @@ export async function login(
   },
 ) {
   const { context } = socket
-  const assignedUserId: string | undefined = incomingUserId
-  const session = socket.request.session
-  const room = await findRoom({ context, roomId })
-
-  // Throw an error if the room doesn't exist
-  if (!room) {
-    socket.emit("event", {
-      type: "ERROR",
-      data: {
-        message: "Room not found",
-        status: 404,
-      },
-    })
-    return
-  }
-
-  // Retrieve or setup new user
-  const existingUserId = assignedUserId ?? session?.user?.userId
-  const isNew = !assignedUserId && !existingUserId && !session?.user?.username
-  const userId = existingUserId ?? generateId()
-  const existingUser = await getUser({ context, userId })
-  const username =
-    existingUser?.username ?? session.user?.username ?? incomingUsername ?? generateAnonName()
-
-  // Stuff some important data into the socket
-  socket.data.username = username
-  socket.data.userId = userId
-  socket.data.roomId = roomId
-
-  // Save some user details to the session
-  session.user = {
-    userId,
-    username,
-    id: socket.id,
-  }
-  session.save()
-
-  // Join the room
-  socket.join(getRoomPath(roomId))
-
-  // Throw an error if the room is password protected and the password is incorrect
-  if (!passwordMatched(room, password, userId)) {
-    socket.emit("event", {
-      type: "UNAUTHORIZED",
-      data: {
-        message: "Password is incorrect",
-        status: 401,
-      },
-    })
-    return
-  }
-
-  // Get room-specific user properties
-  const users = await getRoomUsers({ context, roomId })
-  const isDeputyDj = room?.deputizeOnJoin ?? (await isDj({ context, roomId, userId }))
-  const isAdmin = room?.creator === socket.data.userId
-
-  // Create a new user object
-  const newUser = {
-    username,
-    userId,
-    id: socket.id,
-    isDj: false,
-    isDeputyDj,
-    status: "participating" as const,
-    connectedAt: new Date().toISOString(),
-  }
-
-  const newUsers = uniqueBy([...users, newUser], (u) => u.userId)
-
-  // save data to redis
-  await addOnlineUser({ context, roomId, userId })
-  await saveUser({ context, userId, attributes: newUser })
-  if (room.deputizeOnJoin) {
-    await addDj({ context, roomId, userId })
-  }
-
-  // If the admin has logged in, remove expiration of room keys
-  if (isAdmin) {
-    await persistRoom({ context, roomId })
-  }
-
-  // remove expiration of user keys
-  await persistUser(userId)
-
-  // Emit events
-  pubUserJoined({
-    context,
-    io,
-    roomId: socket.data.roomId,
-    data: { user: newUser, users: newUsers },
-  })
-
-  // Get initial data payload for user
-  const messages = await getMessages({ context, roomId, offset: 0, size: 100 })
-  const playlist = await getRoomPlaylist({ context, roomId })
-  const meta = await getRoomCurrent({ context, roomId })
-  const allReactions = await getAllRoomReactions({ context, roomId })
-  const { accessToken } = await getStoredUserSpotifyTokens(userId)
-
-  socket.emit("event", {
-    type: "INIT",
-    data: {
-      users: newUsers,
-      messages,
-      meta,
-      passwordRequired: !isNullish(room?.password),
-      playlist: playlist,
-      reactions: allReactions,
-      user: {
-        userId: socket.data.userId,
-        username: socket.data.username,
-        status: "participating",
-        isDeputyDj,
-        isAdmin,
-      },
-      accessToken,
-      isNewUser: isNew,
-    },
-  })
+  const authHandlers = createAuthHandlers(context)
+  return authHandlers.login({ socket, io }, { userId, username, password, roomId })
 }
 
 export async function changeUsername(
@@ -217,70 +41,14 @@ export async function changeUsername(
   { userId, username }: { userId: User["userId"]; username: User["username"] },
 ) {
   const { context } = socket
-  const user = await getUser({ context, userId })
-  const room = await findRoom(socket.data.roomId)
-  const oldUsername = user?.username
-
-  if (user) {
-    const { users: newUsers, user: newUser } = await updateUserAttributes({
-      context,
-      userId,
-      attributes: { username },
-      roomId: socket.data.roomId,
-    })
-
-    socket.request.session.user = newUser
-    socket.request.session.save()
-
-    if (!newUser) {
-      return
-    }
-
-    pubUserJoined({
-      io,
-      roomId: socket.data.roomId,
-      data: {
-        users: newUsers,
-        user: newUser,
-      },
-      context,
-    })
-
-    // send system message of username change if setting is enabled
-    if (room?.announceUsernameChanges) {
-      const content = `${oldUsername} transformed into ${username}`
-      sendMessage(
-        io,
-        socket.data.roomId,
-        systemMessage(content, {
-          oldUsername,
-          userId,
-        }),
-      )
-    }
-  }
+  const authHandlers = createAuthHandlers(context)
+  return authHandlers.changeUsername({ socket, io }, { userId, username })
 }
 
 export async function disconnect({ socket, io }: HandlerConnections) {
-  c
   const { context } = socket
-  await removeOnlineUser({ context, roomId: socket.data.roomId, userId: socket.data.userId })
-  socket.leave(getRoomPath(socket.data.roomId))
-
-  const users = await getRoomUsers({ context, roomId: socket.data.roomId })
-  const createdRooms = await getUserRooms({ context, userId: socket.data.userId })
-
-  if (createdRooms.length === 0) {
-    expireUserIn({ context, userId: socket.data.userId, ms: THREE_HOURS })
-  }
-
-  socket.broadcast.to(getRoomPath(socket.data.roomId)).emit("event", {
-    type: "USER_LEFT",
-    data: {
-      user: { username: socket.data.username },
-      users,
-    },
-  })
+  const authHandlers = createAuthHandlers(context)
+  return authHandlers.disconnect({ socket, io })
 }
 
 export async function getUserSpotifyAuth(
@@ -288,30 +56,21 @@ export async function getUserSpotifyAuth(
   { userId }: { userId?: string },
 ) {
   const { context } = socket
-  // get user's spotify access token from redis
-  const { accessToken } = await getStoredUserSpotifyTokens(userId ?? socket.data.userId)
-  io.to(socket.id).emit("event", {
-    type: "SPOTIFY_AUTHENTICATION_STATUS",
-    data: {
-      isAuthenticated: !!accessToken,
-      accessToken,
-    },
-  })
+  const authHandlers = createAuthHandlers(context)
+  return authHandlers.getUserSpotifyAuth({ socket, io }, { userId })
 }
 
 export async function logoutSpotifyAuth(
   { socket, io }: HandlerConnections,
   { userId }: { userId?: string } = {},
 ) {
-  // disconnectFromSpotify(userId ?? socket.data.userId)
+  const { context } = socket
+  const authHandlers = createAuthHandlers(context)
+  return authHandlers.logoutSpotifyAuth({ socket, io }, { userId })
 }
 
 export async function nukeUser({ socket, io }: HandlerConnections) {
   const { context } = socket
-  const userId = socket.data.userId ?? socket.request.session.user?.userId
-  socket.emit("SESSION_ENDED")
-  // await disconnectFromSpotify(userId)
-  await nukeUserRooms({ context, userId })
-  await deleteUser({ context, userId })
-  socket.request.session.destroy((err) => {})
+  const authHandlers = createAuthHandlers(context)
+  return authHandlers.nukeUser({ socket, io })
 }
