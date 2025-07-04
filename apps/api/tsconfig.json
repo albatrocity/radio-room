@@ -1,8 +1,0 @@
-{
-  "extends": "@tsconfig/node18/tsconfig.json",
-  "compilerOptions": {
-    "lib": ["ESNext"],
-    "outDir": "dist"
-  },
-  "include": ["src", "index.d.ts"]
-}

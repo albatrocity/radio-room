@@ -33,15 +33,13 @@ services:
 
   api:
     build:
-      context: .
-      dockerfile: ./apps/api/Dockerfile
-      target: dev
+      context: ./apps/api
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     volumes:
-      # Mount source code for hot reloading
-      - ./apps/api/src:/app/apps/api/src
-      - ./apps/api/dist:/app/apps/api/dist
+      - ./apps/api/src:/app/src
+      - ./apps/api/package.json:/app/package.json
     environment:
       - NODE_ENV=development
     depends_on:
