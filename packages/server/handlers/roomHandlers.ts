@@ -13,6 +13,7 @@ export async function getRoomSettings({ io, socket }: HandlerConnections) {
     return null
   }
   const room = await findRoom({ context, roomId: socket.data.roomId })
+
   if (!room) {
     return
   }

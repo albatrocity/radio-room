@@ -11,7 +11,7 @@ import {
 } from "../operations/data"
 import { checkUserChallenge } from "../operations/userChallenge"
 import { Server } from "socket.io"
-import { getLatestRoomData, getRoomSettings } from "../handlers/roomHanders"
+import { getLatestRoomData, getRoomSettings } from "../handlers/roomHandlers"
 import { RoomSnapshot } from "@repo/types/Room"
 import { SocketWithContext } from "../lib/socketWithContext"
 
@@ -49,6 +49,7 @@ export async function create(req: Request, res: Response) {
     await saveRoom({ context, room })
     res.send({ room })
   } catch (e) {
+    console.log("Error creating room:", e)
     res.statusCode = e === "Unauthorized" ? 401 : 400
     res.send({ error: e, status: e === "Unauthorized" ? 401 : 400 })
   }

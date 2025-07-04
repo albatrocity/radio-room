@@ -5,6 +5,7 @@ import session from "express-session"
 import { RedisStore } from "connect-redis"
 import cors from "cors"
 import express from "express"
+import { AppContext } from "@repo/types"
 import { createServer as createHttpServer } from "http"
 import { Server as SocketIoServer } from "socket.io"
 import {
@@ -15,7 +16,7 @@ import {
   PlaybackControllerLifecycleCallbacks,
   User,
 } from "@repo/types"
-import { AppContext, RedisContext, createRedisContext, initializeRedisContext } from "./lib/context"
+import { createRedisContext, initializeRedisContext } from "./lib/context"
 import { createContextMiddleware } from "./lib/contextMiddleware"
 
 import { bindPubSubHandlers } from "./pubSub/handlers"

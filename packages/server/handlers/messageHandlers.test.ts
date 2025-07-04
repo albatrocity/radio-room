@@ -1,5 +1,4 @@
 import { describe, test, expect, vi, beforeEach } from "vitest"
-import * as messageHandlers from "./messageHandlers"
 import { makeSocketWithBroadcastMocks } from "../lib/testHelpers"
 
 // Create mock handler methods
@@ -10,45 +9,55 @@ const mockStopTyping = vi.fn()
 
 // Mock the adapter factory
 vi.mock("./messageHandlersAdapter", () => ({
-  createMessageHandlers: vi.fn(() => ({
+  createMessageHandlers: () => ({
     newMessage: mockNewMessage,
     clearMessages: mockClearMessages,
     startTyping: mockStartTyping,
     stopTyping: mockStopTyping,
-  })),
+  }),
 }))
 
+import { newMessage, clearMessages, startTyping, stopTyping } from "./messageHandlers"
+
 describe("messageHandlers (adapter wrapper)", () => {
-  let socket: any, io: any
+  let socket: any, io: any, mockContext: any
 
   beforeEach(() => {
-    vi.clearAllMocks()
-    const mocks = makeSocketWithBroadcastMocks({
+    vi.resetAllMocks()
+
+    // Setup socket mocks with context
+    const socketResult = makeSocketWithBroadcastMocks({
       roomId: "room1",
-      userId: "1",
+      userId: "user123",
       username: "Homer",
     })
-    socket = mocks.socket
-    io = mocks.io
+
+    socket = socketResult.socket
+    io = socketResult.io
+    mockContext = { redis: {}, db: {} }
+
+    // Add context to the socket
+    socket.context = mockContext
   })
 
   test("newMessage delegates to adapter", async () => {
-    await messageHandlers.newMessage({ socket, io }, "msg")
+    // console.log("newMessage:", newMessage())
+    await newMessage({ socket, io }, "msg")
     expect(mockNewMessage).toHaveBeenCalledWith({ socket, io }, "msg")
   })
 
   test("clearMessages delegates to adapter", async () => {
-    await messageHandlers.clearMessages({ socket, io })
+    await clearMessages({ socket, io })
     expect(mockClearMessages).toHaveBeenCalledWith({ socket, io })
   })
 
   test("startTyping delegates to adapter", async () => {
-    await messageHandlers.startTyping({ socket, io })
+    await startTyping({ socket, io })
     expect(mockStartTyping).toHaveBeenCalledWith({ socket, io })
   })
 
   test("stopTyping delegates to adapter", async () => {
-    await messageHandlers.stopTyping({ socket, io })
+    await stopTyping({ socket, io })
     expect(mockStopTyping).toHaveBeenCalledWith({ socket, io })
   })
 })

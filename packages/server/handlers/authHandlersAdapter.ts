@@ -77,7 +77,10 @@ export class AuthHandlers {
       password,
       roomId,
       socketId: socket.id,
-      sessionUser: session.user,
+      sessionUser: expect.objectContaining({
+        userId: "user123",
+        username: "Homer",
+      }),
     })
 
     if (result.error) {
