@@ -7,5 +7,11 @@ export const appContextFactory = Factory.define<AppContext>(({ sequence }) => {
 
   return {
     redis: redisContext,
+    adapters: {
+      playbackControllers: new Map(),
+      metadataSources: new Map(),
+      mediaSources: new Map(),
+    },
+    jobs: [],
   }
 })

@@ -1,12 +1,20 @@
-import { MetadataSourceAdapter, PlaybackControllerAdapter } from "@repo/types"
+import {
+  MetadataSourceAdapter,
+  PlaybackControllerAdapter,
+  PlaybackControllerLifecycleCallbacks,
+  MetadataSourceAdapterConfig,
+} from "@repo/types"
 import { getSpotifyApi } from "./lib/spotifyApi"
 import { makeApi as makePlaybackControllerApi } from "./lib/playbackControllerApi"
+import { makeApi as makeMetadataSourceApi } from "./lib/metadataSourceApi"
+
+export { createSpotifyAuthRoutes } from "./lib/authRoutes"
 
 export const playbackController: PlaybackControllerAdapter = {
-  register: async (config) => {
+  register: async (config: PlaybackControllerLifecycleCallbacks) => {
     const { authentication, name, onRegistered, onError } = config
     try {
-      if (config.authentication.type !== "oauth") {
+      if (authentication.type !== "oauth") {
         throw new Error("Invalid authentication type")
       }
 
@@ -32,26 +40,32 @@ export const playbackController: PlaybackControllerAdapter = {
   },
 }
 
-// export const metadataSource: MetadataSourceAdapter = {
-//   register: async (config) => {
-//     const { authentication, name, onRegistered, onError } = config
-//     try {
-//       if (config.authentication.type !== "token") {
-//         throw new Error("Invalid authentication type")
-//       }
+export const metadataSource: MetadataSourceAdapter = {
+  register: async (config: MetadataSourceAdapterConfig) => {
+    const { authentication, name, onRegistered, onError } = config
+    try {
+      if (authentication.type !== "token" && authentication.type !== "oauth") {
+        throw new Error("Invalid authentication type")
+      }
 
-//       const api = await getSpotifyApi(config)
-//       await onRegistered({ api, name })
+      const spotifyApi = await getSpotifyApi(config)
+      const api = await makeMetadataSourceApi({
+        token: spotifyApi.token,
+        clientId: spotifyApi.clientId,
+        config,
+      })
 
-//       return {
-//         name,
-//         authentication,
-//         api,
-//       }
-//     } catch (error) {
-//       console.error("Error getting Spotify API:", error)
-//       await onError(new Error(String(error)))
-//       throw error
-//     }
-//   },
-// }
+      await onRegistered({ name })
+
+      return {
+        name,
+        authentication,
+        api,
+      }
+    } catch (error) {
+      console.error("Error getting Spotify MetadataSource API:", error)
+      await onError(new Error(String(error)))
+      throw error
+    }
+  },
+}

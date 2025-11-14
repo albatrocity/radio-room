@@ -2,20 +2,25 @@
   "name": "api",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
   },
   "author": "Ross Brown <albatrocity@gmail.com>",
   "license": "ISC",
   "dependencies": {
     "@repo/server": "*",
-    "@repo/adapter-spotify": "*"
+    "@repo/adapter-spotify": "*",
+    "@repo/media-source-shoutcast": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
-    "@repo/types": "*"
+    "@repo/types": "*",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
   },
   "packageManager": "npm@10.9.2"
 }

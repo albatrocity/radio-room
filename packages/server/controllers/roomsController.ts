@@ -25,6 +25,10 @@ export async function create(req: Request, res: Response) {
     userId,
     radioProtocol,
     deputizeOnJoin,
+    playbackControllerId,
+    metadataSourceId,
+    mediaSourceId,
+    mediaSourceConfig,
   } = req.body
   const createdAt = Date.now().toString()
   console.log("radioListenUrl", radioListenUrl)
@@ -45,6 +49,10 @@ export async function create(req: Request, res: Response) {
       createdAt,
       deputizeOnJoin,
       lastRefreshedAt: createdAt,
+      playbackControllerId,
+      metadataSourceId,
+      mediaSourceId,
+      mediaSourceConfig,
     })
     await saveRoom({ context, room })
     res.send({ room })

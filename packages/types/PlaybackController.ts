@@ -34,6 +34,8 @@ export interface PlaybackControllerApi {
 }
 
 export type PlaybackControllerLifecycleCallbacks = {
+  name: string
+  authentication: AdapterAuthentication
   onRegistered: (params: { api: PlaybackControllerApi; name: string }) => void
   onAuthenticationCompleted: (response?: PlaybackControllerAuthenticationResponse) => void
   onAuthenticationFailed: (error: Error) => void

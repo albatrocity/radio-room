@@ -1,8 +1,17 @@
-import { AdapterConfig } from "@repo/types"
+import {
+  AdapterConfig,
+  PlaybackControllerLifecycleCallbacks,
+  MetadataSourceAdapterConfig,
+} from "@repo/types"
 
-export async function getSpotifyApi(config: AdapterConfig) {
+type SpotifyApiConfig =
+  | PlaybackControllerLifecycleCallbacks
+  | MetadataSourceAdapterConfig
+  | AdapterConfig
+
+export async function getSpotifyApi(config: SpotifyApiConfig) {
   const { type } = config.authentication
-  if (type !== "token") {
+  if (type !== "token" && type !== "oauth") {
     throw new Error("Invalid authentication type")
   }
 

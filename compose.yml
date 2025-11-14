@@ -25,6 +25,7 @@ services:
       - GATSBY_CPU_COUNT=1
       - GATSBY_EXPERIMENTAL_PARALLEL_QUERY_RUNNING=false
       - GATSBY_SKIP_COMPATIBILITY_CHECK=1
+      - GATSBY_API_URL=${GATSBY_API_URL:-http://localhost:3000}
     restart: unless-stopped
     networks:
       - app_network
@@ -33,20 +34,32 @@ services:
 
   api:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./apps/api/Dockerfile
+      target: installer
     ports:
       - "3000:3000"
     volumes:
-      - ./apps/api/src:/app/src
-      - ./apps/api/package.json:/app/package.json
+      # Mount source code for hot reloading
+      - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/tsconfig.json:/app/apps/api/tsconfig.json
+      - ./packages:/app/packages
     environment:
       - NODE_ENV=development
+      - REDIS_URL=redis://redis:6379
+      - PORT=3000
+      - SESSION_SECRET=dev-secret-change-in-production
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI:-http://localhost:3000/auth/spotify/callback}
+      - APP_URL=${APP_URL:-http://localhost:8000}
+      - ENVIRONMENT=development
     depends_on:
       - redis
     restart: unless-stopped
     networks:
       - app_network
+    command: ["npx", "tsx", "watch", "apps/api/src/server.ts"]
 
   redis:
     image: redis:alpine

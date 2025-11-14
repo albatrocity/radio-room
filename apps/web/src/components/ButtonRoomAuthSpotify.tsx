@@ -38,7 +38,7 @@ export default function ButtonRoomAuthSpotify({
         <VStack align="flex-start">
           <Button
             as={Link}
-            href={`${process.env.GATSBY_API_URL}/login?userId=${currentUser.userId}&redirect=/callback`}
+            href={`${process.env.GATSBY_API_URL}/auth/spotify/login?userId=${currentUser.userId}&redirect=/callback`}
             leftIcon={<Icon as={FaSpotify} />}
             isLoading={state.matches("working")}
             isDisabled={state.matches("working")}

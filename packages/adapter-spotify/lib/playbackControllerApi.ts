@@ -1,5 +1,5 @@
 import {
-  PlaybackControllerAdapterConfig,
+  PlaybackControllerLifecycleCallbacks,
   PlaybackControllerApi,
   PlaybackControllerQueueItem,
 } from "@repo/types"
@@ -13,7 +13,7 @@ export async function makeApi({
 }: {
   token: AccessToken
   clientId: string
-  config: PlaybackControllerAdapterConfig
+  config: PlaybackControllerLifecycleCallbacks
 }) {
   const spotifyApi = SpotifyApi.withAccessToken(clientId, token)
 

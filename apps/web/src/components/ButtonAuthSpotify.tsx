@@ -1,22 +1,10 @@
 // component for the button to authenticate with Spotify
 import React from "react"
-import {
-  Link,
-  Box,
-  Button,
-  IconButton,
-  Icon,
-  Text,
-  HStack,
-} from "@chakra-ui/react"
+import { Link, Box, Button, IconButton, Icon, Text, HStack } from "@chakra-ui/react"
 import { CheckCircleIcon, DeleteIcon } from "@chakra-ui/icons"
 import { FaSpotify } from "react-icons/fa"
 
-import {
-  useCurrentUser,
-  useIsAdmin,
-  useIsAuthenticated,
-} from "../state/authStore"
+import { useCurrentUser, useIsAdmin, useIsAuthenticated } from "../state/authStore"
 import { useSpotifyAuthStore } from "../state/spotifyAuthStore"
 import { useLocation } from "@reach/router"
 
@@ -27,7 +15,7 @@ export default function ButtonAuthSpotify({ userId }: { userId?: string }) {
   const { state, send } = useSpotifyAuthStore()
   const location = useLocation()
 
-  function handleLogin(e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) {
+  function handleLogin(e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement, MouseEvent>) {
     e.preventDefault()
     e.stopPropagation()
     if (!isAdmin) {
@@ -45,7 +33,7 @@ export default function ButtonAuthSpotify({ userId }: { userId?: string }) {
           as={isAdmin ? Link : undefined}
           href={
             isAdmin
-              ? `${process.env.GATSBY_API_URL}/login?userId=${
+              ? `${process.env.GATSBY_API_URL}/auth/spotify/login?userId=${
                   userId ?? currentUser.userId
                 }`
               : undefined

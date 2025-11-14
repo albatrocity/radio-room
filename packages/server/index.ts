@@ -16,8 +16,9 @@ import {
   PlaybackControllerLifecycleCallbacks,
   User,
 } from "@repo/types"
-import { createRedisContext, initializeRedisContext } from "./lib/context"
+import { createAppContext, initializeRedisContext } from "./lib/context"
 import { createContextMiddleware } from "./lib/contextMiddleware"
+import { JobService } from "./services/JobService"
 
 import { bindPubSubHandlers } from "./pubSub/handlers"
 // import { callback, login } from "./controllers/spotifyAuthController"
@@ -55,6 +56,7 @@ class RadioRoomServer {
   private playbackControllers: CreateServerConfig["playbackControllers"]
   private cacheImplementation: CreateServerConfig["cacheImplementation"]
   private context: AppContext
+  private jobService: JobService
 
   constructor(
     config: CreateServerConfig = {
@@ -73,13 +75,13 @@ class RadioRoomServer {
       delete: async () => undefined,
     }
 
-    // Create Redis context
-    const redisContext = createRedisContext(config.REDIS_URL ?? "redis://localhost:6379")
-    this.context = {
-      redis: redisContext,
-    }
+    // Create context with adapters and jobs
+    this.context = createAppContext(config.REDIS_URL ?? "redis://localhost:6379")
+    
+    // Initialize JobService
+    this.jobService = new JobService(this.context, this.cacheImplementation)
 
-    this.sessionStore = new RedisStore({ client: redisContext.pubClient, prefix: "s:" })
+    this.sessionStore = new RedisStore({ client: this.context.redis.pubClient, prefix: "s:" })
 
     this.sessionMiddleware = session({
       store: this.sessionStore,
@@ -149,6 +151,10 @@ class RadioRoomServer {
     return this.context
   }
 
+  mountRoutes(path: string, router: any) {
+    this.app.use(path, router)
+  }
+
   async start() {
     await initializeRedisContext(this.context.redis)
     this.io.adapter(createAdapter(this.context.redis.pubClient, this.context.redis.subClient))
@@ -156,14 +162,6 @@ class RadioRoomServer {
       // Handle session for socket connections
       /** @ts-ignore */
       this.sessionMiddleware(socket.request, socket.request.res || {}, next)
-    })
-
-    // Register and authorize adapters
-    this.playbackControllers?.forEach((controller) => {
-      this.registerPlaybackController(controller)
-      if (controller.authentication) {
-        console.log(`Registering playback controller: ${controller.name}`)
-      }
     })
 
     this.io.on("connection", (socket) => {
@@ -181,12 +179,14 @@ class RadioRoomServer {
     this.httpServer.listen(PORT, "0.0.0.0", () => console.log(`Listening on ${PORT}`))
     bindPubSubHandlers(this.io, this.context)
 
-    await this.startJobs()
+    // Start job service
+    await this.jobService.start()
 
     this.onStart()
   }
 
   async stop() {
+    await this.jobService.stop()
     await this.context.redis.pubClient.quit()
     await this.context.redis.subClient.quit()
     this.io.close()
@@ -195,13 +195,9 @@ class RadioRoomServer {
     this.httpServer.close()
   }
 
-  async startJobs() {
-    try {
-      // @ts-ignore
-      await execa("node", ["dist/jobs/processor.js"]).pipeStdout(process.stdout)
-    } catch (e) {
-      console.error(e)
-    }
+  registerJob(job: any) {
+    this.context.jobs.push(job)
+    return Promise.resolve(job)
   }
 
   async onStart() {
@@ -217,6 +213,8 @@ class RadioRoomServer {
 
   async registerPlaybackController(playbackController: PlaybackControllerAdapterConfig) {
     playbackController.adapter.register({
+      name: playbackController.name,
+      authentication: playbackController.authentication,
       onPlay: this.onPlay.bind(this),
       onPause: this.onPause.bind(this),
       onPlaybackQueueChange: this.onPlaybackQueueChange.bind(this),

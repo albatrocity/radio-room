@@ -4,13 +4,19 @@ import { HeadProps, graphql } from "gatsby"
 import PageLayout from "../components/PageLayout"
 import Lobby from "../components/Lobby/Lobby"
 import AppToasts from "../components/AppToasts"
+import { useOAuthCallback } from "../hooks/useOAuthCallback"
 
-const IndexPage = () => (
-  <PageLayout>
-    <AppToasts />
-    <Lobby />
-  </PageLayout>
-)
+const IndexPage = () => {
+  // Handle OAuth callback redirects
+  useOAuthCallback()
+  
+  return (
+    <PageLayout>
+      <AppToasts />
+      <Lobby />
+    </PageLayout>
+  )
+}
 
 export default IndexPage
 

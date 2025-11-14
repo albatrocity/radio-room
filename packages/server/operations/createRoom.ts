@@ -25,6 +25,10 @@ export function withDefaults(
     | "radioListenUrl"
     | "radioProtocol"
     | "deputizeOnJoin"
+    | "playbackControllerId"
+    | "metadataSourceId"
+    | "mediaSourceId"
+    | "mediaSourceConfig"
   >,
 ): Room {
   return {

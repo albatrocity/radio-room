@@ -1,4 +1,4 @@
-import { RedisContext } from "@repo/types"
+import { AppContext, RedisContext } from "@repo/types"
 import { createClient } from "redis"
 
 export function createRedisContext(redisUrl: string): RedisContext {
@@ -18,6 +18,18 @@ export function createRedisContext(redisUrl: string): RedisContext {
   return {
     pubClient,
     subClient,
+  }
+}
+
+export function createAppContext(redisUrl: string): AppContext {
+  return {
+    redis: createRedisContext(redisUrl),
+    adapters: {
+      playbackControllers: new Map(),
+      metadataSources: new Map(),
+      mediaSources: new Map(),
+    },
+    jobs: [],
   }
 }
 

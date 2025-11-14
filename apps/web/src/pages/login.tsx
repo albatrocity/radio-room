@@ -6,7 +6,10 @@ import { Center, Heading } from "@chakra-ui/react"
 
 const CallbackPage = () => {
   useEffect(() => {
-    navigate(`${process.env.GATSBY_API_URL}/login?&redirect=/callback`)
+    const apiUrl = process.env.GATSBY_API_URL || "http://localhost:3000"
+    console.log("Redirecting to Spotify login, API URL:", apiUrl)
+    // Use window.location.href for external redirect (not Gatsby navigate)
+    window.location.href = `${apiUrl}/auth/spotify/login?redirect=/callback`
   }, [])
 
   return (
@@ -24,10 +27,7 @@ export function Head() {
   return (
     <>
       <title>Linking account...</title>
-      <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1"
-      />
+      <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
       <meta name="robots" content="noindex" />
     </>
   )

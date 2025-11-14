@@ -20,9 +20,15 @@ export type Room = {
   artwork?: string
   enableSpotifyLogin: boolean
   deputizeOnJoin: boolean
+  // Legacy fields - keep for backward compatibility
   radioMetaUrl?: string
   radioListenUrl?: string
   radioProtocol?: StationProtocol
+  // New adapter-based configuration
+  playbackControllerId?: string
+  metadataSourceId?: string
+  mediaSourceId?: string
+  mediaSourceConfig?: { url: string }
   createdAt: string
   spotifyError?: RoomError
   radioError?: RoomError
@@ -44,6 +50,7 @@ export interface StoredRoom
     | "announceNowPlaying"
     | "announceUsernameChanges"
     | "persistent"
+    | "mediaSourceConfig"
   > {
   fetchMeta: Bool
   enableSpotifyLogin: Bool
@@ -53,6 +60,7 @@ export interface StoredRoom
   persistent?: Bool
   spotifyError?: string
   radioError?: string
+  mediaSourceConfig?: string
 }
 
 export type RoomMeta = {

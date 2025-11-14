@@ -2,8 +2,7 @@
   "name": "@repo/media-source-shoutcast",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
-  "type": "module",
+  "main": "index.ts",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",

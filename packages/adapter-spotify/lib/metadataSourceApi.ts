@@ -1,4 +1,4 @@
-import { MetadataSourceApi, PlaybackControllerAdapterConfig } from "@repo/types"
+import { MetadataSourceApi, MetadataSourceLifecycleCallbacks } from "@repo/types"
 import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk"
 import { trackItemSchema } from "./schemas"
 
@@ -9,7 +9,7 @@ export async function makeApi({
 }: {
   token: AccessToken
   clientId: string
-  config: PlaybackControllerAdapterConfig
+  config: MetadataSourceLifecycleCallbacks
 }) {
   const spotifyApi = SpotifyApi.withAccessToken(clientId, token)
 
@@ -21,11 +21,7 @@ export async function makeApi({
     throw error
   }
 
-  config.onAuthenticationCompleted({
-    accessToken: accessToken.access_token,
-    refreshToken: accessToken.refresh_token,
-    expiresIn: accessToken.expires_in,
-  })
+  config.onAuthenticationCompleted()
 
   const api: MetadataSourceApi = {
     async search(query) {
