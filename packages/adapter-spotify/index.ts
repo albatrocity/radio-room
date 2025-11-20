@@ -9,6 +9,7 @@ import { makeApi as makePlaybackControllerApi } from "./lib/playbackControllerAp
 import { makeApi as makeMetadataSourceApi } from "./lib/metadataSourceApi"
 
 export { createSpotifyAuthRoutes } from "./lib/authRoutes"
+export { createSpotifyServiceAuthAdapter } from "./lib/serviceAuth"
 
 export const playbackController: PlaybackControllerAdapter = {
   register: async (config: PlaybackControllerLifecycleCallbacks) => {

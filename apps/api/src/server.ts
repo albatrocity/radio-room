@@ -1,5 +1,10 @@
 import { createServer } from "@repo/server"
-import { playbackController, metadataSource, createSpotifyAuthRoutes } from "@repo/adapter-spotify"
+import {
+  playbackController,
+  metadataSource,
+  createSpotifyAuthRoutes,
+  createSpotifyServiceAuthAdapter,
+} from "@repo/adapter-spotify"
 import { mediaSource } from "@repo/media-source-shoutcast"
 import { getUserServiceAuth } from "@repo/server/operations/data"
 
@@ -15,6 +20,11 @@ async function main() {
   })
 
   const context = server.getContext()
+
+  // Register Spotify Service Authentication Adapter
+  const spotifyServiceAuth = createSpotifyServiceAuthAdapter(context)
+  context.adapters.serviceAuth.set("spotify", spotifyServiceAuth)
+  console.log("Registered Spotify service authentication adapter")
 
   // Register Spotify PlaybackController
   // Note: This registers the adapter type, but actual instances will be created

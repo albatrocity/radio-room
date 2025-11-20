@@ -11,6 +11,7 @@ export const appContextFactory = Factory.define<AppContext>(({ sequence }) => {
       playbackControllers: new Map(),
       metadataSources: new Map(),
       mediaSources: new Map(),
+      serviceAuth: new Map(),
     },
     jobs: [],
   }

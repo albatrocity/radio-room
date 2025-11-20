@@ -28,6 +28,7 @@ export function createAppContext(redisUrl: string): AppContext {
       playbackControllers: new Map(),
       metadataSources: new Map(),
       mediaSources: new Map(),
+      serviceAuth: new Map(),
     },
     jobs: [],
   }

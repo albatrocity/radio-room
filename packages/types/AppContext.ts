@@ -3,6 +3,7 @@ import type { PlaybackController } from "./PlaybackController"
 import type { MetadataSource } from "./MetadataSource"
 import type { MediaSource } from "./MediaSource"
 import type { JobRegistration } from "./JobRegistration"
+import type { ServiceAuthenticationAdapter } from "./ServiceAuthentication"
 
 export type { RedisClientType } from "redis"
 
@@ -18,6 +19,7 @@ export interface AdapterRegistry {
   playbackControllers: Map<string, PlaybackController>
   metadataSources: Map<string, MetadataSource>
   mediaSources: Map<string, MediaSource>
+  serviceAuth: Map<string, ServiceAuthenticationAdapter>
 }
 
 export interface RedisContext {

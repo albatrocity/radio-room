@@ -261,24 +261,53 @@ export class AuthService {
   }
 
   /**
-   * Get user's Spotify authentication status
+   * Get user's authentication status for a specific service
    */
-  async getUserSpotifyAuth(userId: string) {
-    // TODO: Implement real Spotify auth checking
-    const accessToken = "dummy-access-token"
+  async getUserServiceAuth(userId: string, serviceName: string) {
+    const serviceAuthAdapter = this.context.adapters.serviceAuth.get(serviceName)
 
-    return {
-      isAuthenticated: !!accessToken,
-      accessToken,
+    if (!serviceAuthAdapter) {
+      return {
+        isAuthenticated: false,
+        serviceName,
+        error: `Service "${serviceName}" not found`,
+      }
     }
+
+    return await serviceAuthAdapter.getAuthStatus(userId)
   }
 
   /**
-   * Logout from Spotify auth
+   * Logout from a specific service
+   */
+  async logoutServiceAuth(userId: string, serviceName: string) {
+    const serviceAuthAdapter = this.context.adapters.serviceAuth.get(serviceName)
+
+    if (!serviceAuthAdapter) {
+      return {
+        success: false,
+        error: `Service "${serviceName}" not found`,
+      }
+    }
+
+    await serviceAuthAdapter.logout(userId)
+    return { success: true }
+  }
+
+  /**
+   * Get user's Spotify authentication status (deprecated - use getUserServiceAuth)
+   * @deprecated Use getUserServiceAuth(userId, "spotify") instead
+   */
+  async getUserSpotifyAuth(userId: string) {
+    return this.getUserServiceAuth(userId, "spotify")
+  }
+
+  /**
+   * Logout from Spotify auth (deprecated - use logoutServiceAuth)
+   * @deprecated Use logoutServiceAuth(userId, "spotify") instead
    */
   async logoutSpotifyAuth(userId: string) {
-    // TODO: Implement real Spotify logout
-    return { success: true }
+    return this.logoutServiceAuth(userId, "spotify")
   }
 
   /**

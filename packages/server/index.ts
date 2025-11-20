@@ -21,7 +21,6 @@ import { createContextMiddleware } from "./lib/contextMiddleware"
 import { JobService } from "./services/JobService"
 
 import { bindPubSubHandlers } from "./pubSub/handlers"
-// import { callback, login } from "./controllers/spotifyAuthController"
 import roomsController, {
   create,
   deleteRoom,
@@ -123,9 +122,7 @@ class RadioRoomServer {
       .get("/rooms/:id", findRoom)
       .post("/rooms", create)
       .delete("/rooms/:id", deleteRoom)
-      // .get("/login", login)
       .post("/logout", logout)
-    // .get("/callback", callback)
 
     // Create HTTP server from Express app, but don't start listening yet
     this.httpServer = createHttpServer(this.app)

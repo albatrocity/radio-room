@@ -183,7 +183,55 @@ export class AuthHandlers {
   }
 
   /**
-   * Get user's Spotify authentication status
+   * Get user's authentication status for a specific service (generic)
+   */
+  getUserServiceAuth = async (
+    { socket, io }: HandlerConnections,
+    { userId, serviceName }: { userId?: string; serviceName: string },
+  ) => {
+    const result = await this.authService.getUserServiceAuth(
+      userId ?? socket.data.userId,
+      serviceName,
+    )
+
+    io.to(socket.id).emit("event", {
+      type: "SERVICE_AUTHENTICATION_STATUS",
+      data: {
+        isAuthenticated: result.isAuthenticated,
+        accessToken: result.accessToken,
+        serviceName: result.serviceName,
+      },
+    })
+  }
+
+  /**
+   * Logout from a specific service (generic)
+   */
+  logoutServiceAuth = async (
+    { socket, io }: HandlerConnections,
+    { userId, serviceName }: { userId?: string; serviceName: string },
+  ) => {
+    const result = await this.authService.logoutServiceAuth(
+      userId ?? socket.data.userId,
+      serviceName,
+    )
+
+    if (result.success) {
+      io.to(socket.id).emit("event", {
+        type: "SERVICE_LOGOUT_SUCCESS",
+        data: { serviceName },
+      })
+    } else {
+      io.to(socket.id).emit("event", {
+        type: "SERVICE_LOGOUT_FAILURE",
+        data: { serviceName, error: result.error },
+      })
+    }
+  }
+
+  /**
+   * Get user's Spotify authentication status (deprecated - for backward compatibility)
+   * @deprecated Use getUserServiceAuth with serviceName="spotify"
    */
   getUserSpotifyAuth = async (
     { socket, io }: HandlerConnections,
@@ -201,7 +249,8 @@ export class AuthHandlers {
   }
 
   /**
-   * Logout from Spotify auth
+   * Logout from Spotify auth (deprecated - for backward compatibility)
+   * @deprecated Use logoutServiceAuth with serviceName="spotify"
    */
   logoutSpotifyAuth = async (
     { socket, io }: HandlerConnections,

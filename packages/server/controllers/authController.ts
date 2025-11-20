@@ -7,8 +7,10 @@ import {
   disconnect,
   login,
   getUserSpotifyAuth,
+  getUserServiceAuth,
   submitPassword,
   logoutSpotifyAuth,
+  logoutServiceAuth,
   nukeUser,
 } from "../handlers/authHandlers"
 import { Request, Response } from "express"
@@ -47,6 +49,22 @@ export default function authController(socket: SocketWithContext, io: Server) {
       changeUsername({ socket, io }, { username, userId }),
   )
 
+  // Generic service authentication events
+  socket.on(
+    "get user service authentication status",
+    ({ userId, serviceName }: { userId?: string; serviceName: string }) => {
+      getUserServiceAuth({ socket, io }, { userId, serviceName })
+    },
+  )
+
+  socket.on(
+    "logout service",
+    ({ userId, serviceName }: { userId?: string; serviceName: string }) => {
+      logoutServiceAuth({ socket, io }, { userId, serviceName })
+    },
+  )
+
+  // Deprecated: Keep for backward compatibility with old clients
   socket.on("get user spotify authentication status", ({ userId }) => {
     getUserSpotifyAuth({ socket, io }, { userId })
   })
@@ -54,6 +72,7 @@ export default function authController(socket: SocketWithContext, io: Server) {
     const options = args ? { userId: args.userId } : { userId: "app" }
     logoutSpotifyAuth({ socket, io }, options)
   })
+
   socket.on("nuke user", (args: { userId?: string } = {}) => {
     nukeUser({ socket, io })
   })

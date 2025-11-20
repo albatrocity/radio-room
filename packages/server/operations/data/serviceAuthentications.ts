@@ -68,6 +68,11 @@ export async function removeUserServiceAuth({
   await context.redis.pubClient.del(key)
 }
 
+/**
+ * Alias for removeUserServiceAuth (for backward compatibility)
+ */
+export const deleteUserServiceAuth = removeUserServiceAuth
+
 type GetUserServicesParams = {
   context: AppContext
   userId: string
