@@ -1,14 +1,22 @@
 import { DJService } from "../services/DJService"
-import { QueueItem, HandlerConnections, AppContext, MetadataSource, User } from "@repo/types"
+import { QueueItem, HandlerConnections, AppContext, User } from "@repo/types"
 import sendMessage from "../lib/sendMessage"
 import { pubUserJoined } from "../operations/sockets/users"
+import { AdapterService } from "../services/AdapterService"
 
 /**
  * Socket.io adapter for the DJService
  * This layer is thin and just connects Socket.io events to our business logic service
  */
 export class DJHandlers {
-  constructor(private djService: DJService) {}
+  private adapterService: AdapterService
+
+  constructor(
+    private djService: DJService,
+    private context: AppContext,
+  ) {
+    this.adapterService = new AdapterService(context)
+  }
 
   /**
    * Deputize or undeputize a user as a DJ
@@ -80,13 +88,24 @@ export class DJHandlers {
   }
 
   /**
-   * Search for tracks using a metadata source
+   * Search for tracks using the room's metadata source
    */
-  searchForTrack = async (
-    { socket }: HandlerConnections,
-    metadataSource: MetadataSource,
-    { query }: { query: string },
-  ) => {
+  searchForTrack = async ({ socket }: HandlerConnections, { query }: { query: string }) => {
+    const { roomId } = socket.data
+
+    // Get the room's metadata source
+    const metadataSource = await this.adapterService.getRoomMetadataSource(roomId)
+
+    if (!metadataSource) {
+      socket.emit("event", {
+        type: "TRACK_SEARCH_RESULTS_FAILURE",
+        data: {
+          message: "No metadata source configured for this room",
+        },
+      })
+      return
+    }
+
     const result = await this.djService.searchForTrack(metadataSource, query)
 
     if (result.success) {
@@ -106,19 +125,26 @@ export class DJHandlers {
   }
 
   /**
-   * Save a playlist to a metadata source
+   * Save a playlist to the room's metadata source
    */
   savePlaylist = async (
     { socket }: HandlerConnections,
-    metadataSource: MetadataSource,
     { name, trackIds }: { name: string; trackIds: QueueItem["track"]["id"][] },
   ) => {
-    const result = await this.djService.savePlaylist(
-      metadataSource,
-      socket.data.userId,
-      name,
-      trackIds,
-    )
+    const { roomId, userId } = socket.data
+
+    // Get the room's metadata source
+    const metadataSource = await this.adapterService.getRoomMetadataSource(roomId)
+
+    if (!metadataSource) {
+      socket.emit("event", {
+        type: "SAVE_PLAYLIST_FAILED",
+        error: new Error("No metadata source configured for this room"),
+      })
+      return
+    }
+
+    const result = await this.djService.savePlaylist(metadataSource, userId, name, trackIds)
 
     if (result.success) {
       socket.emit("event", { type: "PLAYLIST_SAVED", data: result.data })
@@ -147,5 +173,5 @@ export class DJHandlers {
  */
 export function createDJHandlers(context: AppContext) {
   const djService = new DJService(context)
-  return new DJHandlers(djService)
+  return new DJHandlers(djService, context)
 }

@@ -15,12 +15,17 @@ import {
 } from "../operations/data"
 import systemMessage from "../lib/systemMessage"
 import { queueItemFactory } from "@repo/factories"
+import { AdapterService } from "./AdapterService"
 
 /**
  * A service that handles DJ-related operations without Socket.io dependencies
  */
 export class DJService {
-  constructor(private context: AppContext) {}
+  private adapterService: AdapterService
+
+  constructor(private context: AppContext) {
+    this.adapterService = new AdapterService(context)
+  }
 
   /**
    * Deputize or undeputize a user as a DJ
@@ -64,7 +69,7 @@ export class DJService {
   }
 
   /**
-   * Add a song to the queue
+   * Add a song to the queue using the room's PlaybackController adapter
    */
   async queueSong(
     roomId: string,
@@ -92,10 +97,54 @@ export class DJService {
       }
     }
 
-    // TODO: This would need to be properly implemented to fetch the track
-    // For now, using an empty object to match the original implementation
-    const track = {} as MetadataSourceTrack
+    // Get the room's playback controller and metadata source
+    const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
+    const metadataSource = await this.adapterService.getRoomMetadataSource(roomId)
 
+    if (!playbackController) {
+      return {
+        success: false,
+        message: "No playback controller configured for this room",
+      }
+    }
+
+    if (!metadataSource) {
+      return {
+        success: false,
+        message: "No metadata source configured for this room",
+      }
+    }
+
+    // Fetch track metadata
+    let track: MetadataSourceTrack | null
+    try {
+      track = await metadataSource.api.findById(trackId)
+      if (!track) {
+        return {
+          success: false,
+          message: "Track not found",
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: "Failed to fetch track information",
+        error,
+      }
+    }
+
+    // Add to the playback controller's queue
+    try {
+      await playbackController.api.addToQueue(trackId)
+    } catch (error) {
+      return {
+        success: false,
+        message: "Failed to add track to playback queue",
+        error,
+      }
+    }
+
+    // Store in our internal queue
     const queuedItem = queueItemFactory.build({
       track,
       addedBy: {

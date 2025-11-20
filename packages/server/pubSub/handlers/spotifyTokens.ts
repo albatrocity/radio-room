@@ -5,21 +5,26 @@ import {
   PUBSUB_USER_SPOTIFY_AUTHENTICATION_STATUS,
 } from "../../lib/constants"
 import { getUser } from "../../operations/data"
-import { subClient } from "../../lib/redisClients"
 import { PubSubHandlerArgs } from "@repo/types/PubSub"
+import { AppContext } from "@repo/types"
 
-export default async function bindHandlers(io: Server) {
-  subClient.pSubscribe(PUBSUB_USER_SPOTIFY_ACCESS_TOKEN_REFRESHED, (message, channel) =>
-    handleUserSpotifyTokenRefreshed({ io, message, channel }),
+export default async function bindHandlers(io: Server, context: AppContext) {
+  context.redis.subClient.pSubscribe(
+    PUBSUB_USER_SPOTIFY_ACCESS_TOKEN_REFRESHED,
+    (message, channel) => handleUserSpotifyTokenRefreshed({ io, message, channel }, context),
   )
-  subClient.pSubscribe(PUBSUB_USER_SPOTIFY_AUTHENTICATION_STATUS, (message, channel) =>
-    handleSpotifyAuthenticationStatus({ io, message, channel }),
+  context.redis.subClient.pSubscribe(
+    PUBSUB_USER_SPOTIFY_AUTHENTICATION_STATUS,
+    (message, channel) => handleSpotifyAuthenticationStatus({ io, message, channel }, context),
   )
 }
 
-async function handleUserSpotifyTokenRefreshed({ io, message, channel }: PubSubHandlerArgs) {
+async function handleUserSpotifyTokenRefreshed(
+  { io, message, channel }: PubSubHandlerArgs,
+  context: AppContext,
+) {
   const { userId, accessToken }: { userId: string; accessToken: string } = JSON.parse(message)
-  const user = await getUser(userId)
+  const user = await getUser({ context, userId })
   if (!user?.id) {
     return
   }
@@ -30,10 +35,13 @@ async function handleUserSpotifyTokenRefreshed({ io, message, channel }: PubSubH
   })
 }
 
-async function handleSpotifyAuthenticationStatus({ io, message }: PubSubHandlerArgs) {
+async function handleSpotifyAuthenticationStatus(
+  { io, message }: PubSubHandlerArgs,
+  context: AppContext,
+) {
   const { userId, isAuthenticated }: { userId: string; isAuthenticated: boolean } =
     JSON.parse(message)
-  const user = await getUser(userId)
+  const user = await getUser({ context, userId })
   if (!user?.id) {
     return
   }

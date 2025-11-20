@@ -1,14 +1,14 @@
 import { refreshSpotifyTokens } from "./refreshSpotifyTokens";
-import { pubClient } from "../../lib/redisClients";
 import { cleanupRoom } from "./cleanupRooms";
+import { AppContext } from "@repo/types";
 
-export default async function () {
+export default async function ({ context }: { context: AppContext; cache: any }) {
   try {
-    const roomIds = await pubClient.sMembers("rooms");
+    const roomIds = await context.redis.pubClient.sMembers("rooms");
     await Promise.all(
       roomIds.map(async (id) => {
-        await refreshSpotifyTokens(id);
-        return cleanupRoom(id);
+        await refreshSpotifyTokens(context, id);
+        return cleanupRoom(context, id);
       })
     );
   } catch (e) {

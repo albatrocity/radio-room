@@ -40,7 +40,7 @@ export class JobService {
       const task = cron.schedule(job.cron, async () => {
         try {
           console.log(`Running job: ${job.name}`)
-          await job.handler({ cache: this.cache })
+          await job.handler({ cache: this.cache, context: this.context })
         } catch (error) {
           console.error(`Error running job ${job.name}:`, error)
         }
@@ -53,7 +53,7 @@ export class JobService {
       // If the job has a runAt time in the past or near future, run it immediately
       if (job.runAt && job.runAt <= Date.now() + 5000) {
         console.log(`Running job ${job.name} immediately`)
-        job.handler({ cache: this.cache }).catch((error) => {
+        job.handler({ cache: this.cache, context: this.context }).catch((error) => {
           console.error(`Error running job ${job.name} on startup:`, error)
         })
       }

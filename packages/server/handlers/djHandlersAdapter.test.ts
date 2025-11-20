@@ -1,12 +1,14 @@
 import { describe, expect, test, vi, beforeEach } from "vitest"
 import { DJHandlers } from "./djHandlersAdapter"
 import { DJService } from "../services/DJService"
+import { AdapterService } from "../services/AdapterService"
 import { makeSocketWithBroadcastMocks } from "../lib/testHelpers"
-import { User, QueueItem, MetadataSource } from "@repo/types"
-import { queueItemFactory } from "@repo/factories"
+import { User, QueueItem, MetadataSource, AppContext } from "@repo/types"
+import { queueItemFactory, appContextFactory } from "@repo/factories"
 
 // Mock dependencies
 vi.mock("../services/DJService")
+vi.mock("../services/AdapterService")
 vi.mock("../operations/sockets/users", () => ({
   pubUserJoined: vi.fn(),
 }))
@@ -22,7 +24,9 @@ describe("DJHandlers", () => {
   let mockSocket: any
   let mockIo: any
   let djService: any
+  let adapterService: any
   let djHandlers: DJHandlers
+  let mockContext: AppContext
   let toEmit: any
   let broadcastEmit: any
   let toBroadcast: any
@@ -34,6 +38,11 @@ describe("DJHandlers", () => {
   const mockSystemMessage = { content: "Test system message", type: "system" }
   const mockRoomPath = "/rooms/room1"
   const mockQueueItem = queueItemFactory.build()
+  const mockMetadataSource = {
+    name: "spotify",
+    authentication: { type: "oauth" },
+    api: { search: vi.fn(), findById: vi.fn(), createPlaylist: vi.fn() },
+  } as unknown as MetadataSource
 
   beforeEach(() => {
     vi.resetAllMocks()
@@ -51,6 +60,9 @@ describe("DJHandlers", () => {
     broadcastEmit = socketResult.broadcastEmit
     toBroadcast = socketResult.toBroadcast
     roomSpy = socketResult.roomSpy
+
+    // Create mock context
+    mockContext = appContextFactory.build()
 
     // Mock the DJService
     djService = {
@@ -80,7 +92,17 @@ describe("DJHandlers", () => {
       }),
     }
 
-    djHandlers = new DJHandlers(djService)
+    // Mock the AdapterService
+    adapterService = {
+      getRoomMetadataSource: vi.fn().mockResolvedValue(mockMetadataSource),
+      getRoomPlaybackController: vi.fn().mockResolvedValue({}),
+      getRoomMediaSource: vi.fn().mockResolvedValue({}),
+    }
+
+    // Mock AdapterService constructor
+    vi.mocked(AdapterService).mockImplementation(() => adapterService)
+
+    djHandlers = new DJHandlers(djService, mockContext)
   })
 
   test("should be defined", () => {
@@ -119,7 +141,7 @@ describe("DJHandlers", () => {
         io: mockIo,
         roomId: "room1",
         data: { user: mockUser, users: mockUsers },
-        context: undefined,
+        context: mockSocket.context,
       })
     })
   })
@@ -178,17 +200,16 @@ describe("DJHandlers", () => {
   })
 
   describe("searchForTrack", () => {
-    test("calls searchForTrack with correct parameters", async () => {
-      const metadataSource = { api: { search: vi.fn() } } as unknown as MetadataSource
+    test("gets room metadata source and calls searchForTrack with correct parameters", async () => {
       const query = "test query"
 
-      await djHandlers.searchForTrack({ socket: mockSocket, io: mockIo }, metadataSource, { query })
+      await djHandlers.searchForTrack({ socket: mockSocket, io: mockIo }, { query })
 
-      expect(djService.searchForTrack).toHaveBeenCalledWith(metadataSource, query)
+      expect(adapterService.getRoomMetadataSource).toHaveBeenCalledWith("room1")
+      expect(djService.searchForTrack).toHaveBeenCalledWith(mockMetadataSource, query)
     })
 
     test("emits TRACK_SEARCH_RESULTS event on success", async () => {
-      const metadataSource = { api: { search: vi.fn() } } as unknown as MetadataSource
       const mockResults = { tracks: [{ id: "track123", name: "Test Track" }] }
 
       // Override mock to return specific data
@@ -197,9 +218,12 @@ describe("DJHandlers", () => {
         data: mockResults,
       })
 
-      await djHandlers.searchForTrack({ socket: mockSocket, io: mockIo }, metadataSource, {
-        query: "test",
-      })
+      await djHandlers.searchForTrack(
+        { socket: mockSocket, io: mockIo },
+        {
+          query: "test",
+        },
+      )
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
         type: "TRACK_SEARCH_RESULTS",
@@ -207,8 +231,28 @@ describe("DJHandlers", () => {
       })
     })
 
+    test("emits TRACK_SEARCH_RESULTS_FAILURE event when metadata source is not configured", async () => {
+      // Override mock to return null (no metadata source configured)
+      adapterService.getRoomMetadataSource.mockResolvedValueOnce(null)
+
+      await djHandlers.searchForTrack(
+        { socket: mockSocket, io: mockIo },
+        {
+          query: "test",
+        },
+      )
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "TRACK_SEARCH_RESULTS_FAILURE",
+        data: {
+          message: "No metadata source configured for this room",
+        },
+      })
+
+      expect(djService.searchForTrack).not.toHaveBeenCalled()
+    })
+
     test("emits TRACK_SEARCH_RESULTS_FAILURE event on failure", async () => {
-      const metadataSource = { api: { search: vi.fn() } } as unknown as MetadataSource
       const mockError = new Error("Search failed")
 
       // Override mock to simulate failure
@@ -218,9 +262,12 @@ describe("DJHandlers", () => {
         error: mockError,
       })
 
-      await djHandlers.searchForTrack({ socket: mockSocket, io: mockIo }, metadataSource, {
-        query: "test",
-      })
+      await djHandlers.searchForTrack(
+        { socket: mockSocket, io: mockIo },
+        {
+          query: "test",
+        },
+      )
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
         type: "TRACK_SEARCH_RESULTS_FAILURE",
@@ -233,21 +280,23 @@ describe("DJHandlers", () => {
   })
 
   describe("savePlaylist", () => {
-    test("calls savePlaylist with correct parameters", async () => {
-      const metadataSource = { api: { createPlaylist: vi.fn() } } as unknown as MetadataSource
+    test("gets room metadata source and calls savePlaylist with correct parameters", async () => {
       const name = "My Playlist"
       const trackIds = ["track1", "track2"] as QueueItem["track"]["id"][]
 
-      await djHandlers.savePlaylist({ socket: mockSocket, io: mockIo }, metadataSource, {
-        name,
-        trackIds,
-      })
+      await djHandlers.savePlaylist(
+        { socket: mockSocket, io: mockIo },
+        {
+          name,
+          trackIds,
+        },
+      )
 
-      expect(djService.savePlaylist).toHaveBeenCalledWith(metadataSource, "1", name, trackIds)
+      expect(adapterService.getRoomMetadataSource).toHaveBeenCalledWith("room1")
+      expect(djService.savePlaylist).toHaveBeenCalledWith(mockMetadataSource, "1", name, trackIds)
     })
 
     test("emits PLAYLIST_SAVED event on success", async () => {
-      const metadataSource = { api: { createPlaylist: vi.fn() } } as unknown as MetadataSource
       const mockPlaylist = { id: "playlist123", name: "My Playlist" }
 
       // Override mock to return specific data
@@ -256,10 +305,13 @@ describe("DJHandlers", () => {
         data: mockPlaylist,
       })
 
-      await djHandlers.savePlaylist({ socket: mockSocket, io: mockIo }, metadataSource, {
-        name: "My Playlist",
-        trackIds: ["track1"],
-      })
+      await djHandlers.savePlaylist(
+        { socket: mockSocket, io: mockIo },
+        {
+          name: "My Playlist",
+          trackIds: ["track1"],
+        },
+      )
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
         type: "PLAYLIST_SAVED",
@@ -267,8 +319,27 @@ describe("DJHandlers", () => {
       })
     })
 
+    test("emits SAVE_PLAYLIST_FAILED event when metadata source is not configured", async () => {
+      // Override mock to return null (no metadata source configured)
+      adapterService.getRoomMetadataSource.mockResolvedValueOnce(null)
+
+      await djHandlers.savePlaylist(
+        { socket: mockSocket, io: mockIo },
+        {
+          name: "My Playlist",
+          trackIds: ["track1"],
+        },
+      )
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "SAVE_PLAYLIST_FAILED",
+        error: expect.any(Error),
+      })
+
+      expect(djService.savePlaylist).not.toHaveBeenCalled()
+    })
+
     test("emits SAVE_PLAYLIST_FAILED event on failure", async () => {
-      const metadataSource = { api: { createPlaylist: vi.fn() } } as unknown as MetadataSource
       const mockError = new Error("Save failed")
 
       // Override mock to simulate failure
@@ -277,10 +348,13 @@ describe("DJHandlers", () => {
         error: mockError,
       })
 
-      await djHandlers.savePlaylist({ socket: mockSocket, io: mockIo }, metadataSource, {
-        name: "My Playlist",
-        trackIds: ["track1"],
-      })
+      await djHandlers.savePlaylist(
+        { socket: mockSocket, io: mockIo },
+        {
+          name: "My Playlist",
+          trackIds: ["track1"],
+        },
+      )
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
         type: "SAVE_PLAYLIST_FAILED",
