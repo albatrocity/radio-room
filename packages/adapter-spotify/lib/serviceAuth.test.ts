@@ -3,6 +3,7 @@ import { createSpotifyServiceAuthAdapter } from "./serviceAuth"
 import { AppContext } from "@repo/types"
 import { appContextFactory } from "@repo/factories"
 import * as serviceAuthOperations from "@repo/server/operations/data/serviceAuthentications"
+import * as refreshOp from "./operations/refreshSpotifyAccessToken"
 
 // Mock the service authentication operations
 vi.mock("@repo/server/operations/data/serviceAuthentications", () => ({
@@ -11,12 +12,29 @@ vi.mock("@repo/server/operations/data/serviceAuthentications", () => ({
   storeUserServiceAuth: vi.fn(),
 }))
 
+// Mock the Spotify token refresh operation
+vi.mock("./operations/refreshSpotifyAccessToken", () => ({
+  refreshSpotifyAccessToken: vi.fn(),
+}))
+
 describe("createSpotifyServiceAuthAdapter", () => {
   let mockContext: AppContext
   let spotifyAuthAdapter: ReturnType<typeof createSpotifyServiceAuthAdapter>
 
   beforeEach(() => {
     vi.clearAllMocks()
+    
+    // Set up environment variables for tests
+    process.env.SPOTIFY_CLIENT_ID = "test-client-id"
+    process.env.SPOTIFY_CLIENT_SECRET = "test-client-secret"
+    
+    // Mock refreshSpotifyAccessToken to return test data
+    vi.mocked(refreshOp.refreshSpotifyAccessToken).mockResolvedValue({
+      accessToken: "new-access-token",
+      refreshToken: "new-refresh-token",
+      expiresIn: 3600,
+    })
+    
     mockContext = appContextFactory.build()
     spotifyAuthAdapter = createSpotifyServiceAuthAdapter(mockContext)
   })
@@ -163,7 +181,7 @@ describe("createSpotifyServiceAuthAdapter", () => {
   })
 
   describe("refreshAuth", () => {
-    test("should return existing tokens when refresh token is available", async () => {
+    test("should refresh tokens and store them when refresh token is available", async () => {
       const mockAuth = {
         accessToken: "current-access-token",
         refreshToken: "current-refresh-token",
@@ -171,15 +189,33 @@ describe("createSpotifyServiceAuthAdapter", () => {
       }
 
       vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(mockAuth)
+      vi.mocked(serviceAuthOperations.storeUserServiceAuth).mockResolvedValue()
 
       const result = await spotifyAuthAdapter.refreshAuth("user123")
 
-      expect(result).toEqual(mockAuth)
-      expect(serviceAuthOperations.getUserServiceAuth).toHaveBeenCalledWith({
+      // Should call Spotify API to refresh
+      expect(refreshOp.refreshSpotifyAccessToken).toHaveBeenCalledWith(
+        "current-refresh-token",
+        "test-client-id",
+        "test-client-secret",
+      )
+
+      // Should store the new tokens
+      expect(serviceAuthOperations.storeUserServiceAuth).toHaveBeenCalledWith({
         context: mockContext,
         userId: "user123",
         serviceName: "spotify",
+        tokens: {
+          accessToken: "new-access-token",
+          refreshToken: "new-refresh-token",
+          expiresAt: expect.any(Number),
+        },
       })
+
+      // Should return the new tokens
+      expect(result.accessToken).toBe("new-access-token")
+      expect(result.refreshToken).toBe("new-refresh-token")
+      expect(result.expiresAt).toBeGreaterThan(Date.now())
     })
 
     test("should throw error when no refresh token is available", async () => {
@@ -247,16 +283,20 @@ describe("createSpotifyServiceAuthAdapter", () => {
       }
 
       vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(expiredAuth)
+      vi.mocked(serviceAuthOperations.storeUserServiceAuth).mockResolvedValue()
 
-      // Refresh should return the current tokens (TODO: actual refresh logic)
+      // Refresh should call Spotify API and return new tokens
       const refreshedTokens = await spotifyAuthAdapter.refreshAuth("user123")
 
-      expect(refreshedTokens.refreshToken).toBe("valid-refresh-token")
-      expect(serviceAuthOperations.getUserServiceAuth).toHaveBeenCalledWith({
-        context: mockContext,
-        userId: "user123",
-        serviceName: "spotify",
-      })
+      expect(refreshOp.refreshSpotifyAccessToken).toHaveBeenCalledWith(
+        "valid-refresh-token",
+        "test-client-id",
+        "test-client-secret",
+      )
+
+      expect(refreshedTokens.accessToken).toBe("new-access-token")
+      expect(refreshedTokens.refreshToken).toBe("new-refresh-token")
+      expect(refreshedTokens.expiresAt).toBeGreaterThan(Date.now())
     })
   })
 

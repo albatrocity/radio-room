@@ -2,7 +2,9 @@ import { AppContext, ServiceAuthenticationAdapter } from "@repo/types"
 import {
   getUserServiceAuth,
   deleteUserServiceAuth,
+  storeUserServiceAuth,
 } from "@repo/server/operations/data/serviceAuthentications"
+import { refreshSpotifyAccessToken } from "./operations/refreshSpotifyAccessToken"
 
 /**
  * Spotify Service Authentication Adapter
@@ -42,7 +44,6 @@ export function createSpotifyServiceAuthAdapter(context: AppContext): ServiceAut
     },
 
     async refreshAuth(userId: string) {
-      // TODO: Implement token refresh using Spotify API
       const auth = await getUserServiceAuth({
         context,
         userId,
@@ -53,9 +54,35 @@ export function createSpotifyServiceAuthAdapter(context: AppContext): ServiceAut
         throw new Error("No refresh token available")
       }
 
-      // This would call Spotify's token refresh endpoint
-      // For now, return the existing tokens
-      return auth
+      const clientId = process.env.SPOTIFY_CLIENT_ID
+      const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
+
+      if (!clientId || !clientSecret) {
+        throw new Error("Spotify client credentials not configured")
+      }
+
+      // Call Spotify's token refresh endpoint
+      const refreshed = await refreshSpotifyAccessToken(
+        auth.refreshToken,
+        clientId,
+        clientSecret,
+      )
+
+      // Store the new tokens
+      const newTokens = {
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken,
+        expiresAt: Date.now() + refreshed.expiresIn * 1000,
+      }
+
+      await storeUserServiceAuth({
+        context,
+        userId,
+        serviceName: "spotify",
+        tokens: newTokens,
+      })
+
+      return newTokens
     },
   }
 }
