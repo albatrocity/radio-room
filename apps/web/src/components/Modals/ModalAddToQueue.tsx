@@ -5,8 +5,8 @@ import { Box, Heading, Stack, useBoolean } from "@chakra-ui/react"
 import FormAddToQueue from "../FormAddToQueue"
 import Modal from "../Modal"
 import { useModalsStore } from "../../state/modalsState"
-import SpotifySavedTracks from "../SpotifySavedTracks"
-import useAddToSpotifyQueue from "../useAddToSpotifyQueue"
+import SavedTracks from "../SavedTracks"
+import useAddToQueue from "../useAddToQueue"
 import { useIsSpotifyAuthenticated } from "../../state/spotifyAuthStore"
 
 const MotionBox = motion(Box)
@@ -14,8 +14,8 @@ const MotionBox = motion(Box)
 function ModalAddToQueue() {
   const { send } = useModalsStore()
   const [open, setOpen] = useBoolean(false)
-  const { addToQueue, state } = useAddToSpotifyQueue()
-  const isAddingToQueue = useModalsStore((s) => s.state.matches("queue"))
+  const { addToQueue, state } = useAddToQueue()
+  const isAddingToQueue = useModalsStore((s: any) => s.state.matches("queue"))
   const isAuthenticated = useIsSpotifyAuthenticated()
   const hideEditForm = () => send("CLOSE")
 
@@ -61,7 +61,7 @@ function ModalAddToQueue() {
               <Heading as="h4" size="sm" mb={2}>
                 Your recently liked tracks
               </Heading>
-              <SpotifySavedTracks
+              <SavedTracks
                 isDisabled={isLoading || open}
                 loadingItem={loadingItem}
                 onClick={open ? undefined : addToQueue}

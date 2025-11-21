@@ -77,6 +77,7 @@ export interface MetadataSourceApi {
     id: string
   }>
   // Library management methods (optional)
+  getSavedTracks?: () => Promise<MetadataSourceTrack[]>
   checkSavedTracks?: (trackIds: string[]) => Promise<boolean[]>
   addToLibrary?: (trackIds: string[]) => Promise<void>
   removeFromLibrary?: (trackIds: string[]) => Promise<void>

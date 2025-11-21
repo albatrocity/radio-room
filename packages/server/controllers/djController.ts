@@ -75,6 +75,10 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
   socket.on("remove from library", async (trackIds: string[]) => {
     await handlers.removeFromLibrary(connections, trackIds)
   })
+
+  socket.on("get saved tracks", async () => {
+    await handlers.getSavedTracks(connections)
+  })
 }
 
 /**

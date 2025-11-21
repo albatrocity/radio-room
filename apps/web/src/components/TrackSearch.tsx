@@ -1,7 +1,7 @@
 import React from "react"
 import { useMachine } from "@xstate/react"
 
-import { trackSearchMachine, TrackSearchContext } from "../machines/trackSearchMachine"
+import { trackSearchMachine } from "../machines/trackSearchMachine"
 import { Box, InputProps, Text } from "@chakra-ui/react"
 
 import { Select, SingleValue } from "chakra-react-select"
@@ -9,7 +9,6 @@ import { Select, SingleValue } from "chakra-react-select"
 import { MetadataSourceTrack } from "@repo/types"
 import TrackItem from "./TrackItem"
 import { debounceInputMachine } from "../machines/debouncedInputMachine"
-import { useSpotifyAccessToken } from "../state/spotifyAuthStore"
 
 type Props = {
   onChoose: (item: SingleValue<MetadataSourceTrack>) => void
@@ -17,12 +16,7 @@ type Props = {
 } & InputProps
 
 function TrackSearch({ onChoose, onDropdownOpenChange }: Props) {
-  const accessToken = useSpotifyAccessToken()
-  const [state, send] = useMachine(trackSearchMachine, {
-    context: {
-      accessToken,
-    },
-  })
+  const [state, send] = useMachine(trackSearchMachine)
   const [inputState, inputSend] = useMachine(debounceInputMachine, {
     actions: {
       onSearchChange: (_context, event) => {
@@ -30,7 +24,7 @@ function TrackSearch({ onChoose, onDropdownOpenChange }: Props) {
       },
     },
   })
-  const results: TrackSearchContext["results"] = state.context.results
+  const results = state.context.results
   const isMenuOpen =
     state.matches("idle") && results.length > 0 && inputState.context.searchValue !== ""
 
@@ -70,4 +64,3 @@ function TrackSearch({ onChoose, onDropdownOpenChange }: Props) {
 }
 
 export default TrackSearch
-

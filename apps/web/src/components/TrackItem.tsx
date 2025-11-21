@@ -3,6 +3,8 @@ import React from "react"
 import { MetadataSourceTrack } from "@repo/types"
 
 const TrackItem = ({ title, album, artists }: MetadataSourceTrack) => {
+  console.log("title", title)
+  console.log("album in track item", album)
   // Find an image from the album images array
   const image = album.images.find((img) => img.type === "image")
 

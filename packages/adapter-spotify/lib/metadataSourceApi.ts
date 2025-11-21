@@ -44,6 +44,11 @@ export async function makeApi({
       return this.search(query)
     },
     // Library management methods
+    async getSavedTracks() {
+      const savedTracks = await spotifyApi.currentUser.tracks.savedTracks()
+      // Transform Spotify tracks to MetadataSourceTrack format
+      return (savedTracks.items ?? []).map((item) => trackItemSchema.parse(item.track))
+    },
     async checkSavedTracks(trackIds: string[]) {
       return await spotifyApi.currentUser.tracks.hasSavedTracks(trackIds)
     },

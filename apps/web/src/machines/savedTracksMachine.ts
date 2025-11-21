@@ -1,98 +1,82 @@
-// state machine for fetching saved tracks
+import { assign, createMachine, sendTo } from "xstate"
+import { MetadataSourceTrack } from "@repo/types"
+import socketService from "../lib/socketService"
 
-import { assign, createMachine } from "xstate"
-import { savedTracks } from "../lib/spotify/spotifyApi"
-import { SpotifyTrack } from "../types/SpotifyTrack"
+type RequestError = {
+  message: string
+  error?: any
+}
 
 export interface SavedTracksContext {
-  savedTracks: SpotifyTrack[]
-  accessToken?: string
+  savedTracks: MetadataSourceTrack[]
   error: string
-}
-
-type SavedTracksItem = {
-  added_at: string
-  track: SpotifyTrack
-}
-
-type SavedTracksResponse = {
-  items: SavedTracksItem[]
-  limit: number
-  next: string
-  offset: number
-  previous: string
-  total: number
-}
-
-async function fetchSavedTracks(ctx: SavedTracksContext) {
-  if (ctx.accessToken) {
-    const results = await savedTracks({ accessToken: ctx.accessToken })
-    return results
-  }
-  throw new Error("No access token found")
 }
 
 export type SavedTracksEvent =
   | {
-      type: "done.invoke.fetchSavedTracks"
-      data: SavedTracksResponse
-      error?: null
+      type: "SAVED_TRACKS_RESULTS"
+      data: MetadataSourceTrack[]
     }
-  | { type: "SAVED_TRACKS_RESULTS_FAILURE"; data: {}; error?: string }
+  | {
+      type: "SAVED_TRACKS_RESULTS_FAILURE"
+      error?: string
+    }
 
-export const savedTracksMachine = createMachine<
-  SavedTracksContext,
-  SavedTracksEvent
->(
+export const savedTracksMachine = createMachine<SavedTracksContext, SavedTracksEvent>(
   {
-    id: "savedTracks",
-    initial: "initial",
+    predictableActionArguments: true,
+    id: "saved-tracks",
+    initial: "loading",
     context: {
-      accessToken: undefined,
       savedTracks: [],
       error: "",
     },
     states: {
-      initial: {
-        always: [{ target: "loading", cond: "hasAccessToken" }],
-      },
       loading: {
-        invoke: {
-          id: "fetchSavedTracks",
-          src: fetchSavedTracks,
-          onDone: {
+        entry: ["fetchSavedTracks"],
+        on: {
+          SAVED_TRACKS_RESULTS: {
             target: "success",
-            actions: ["setSavedTracks"],
+            actions: ["setResults"],
           },
-          onError: {
-            target: "error",
+          SAVED_TRACKS_RESULTS_FAILURE: {
+            target: "failure",
             actions: ["setError"],
           },
         },
       },
-      success: {},
-      error: {},
+      success: {
+        id: "success",
+      },
+      failure: {
+        id: "failure",
+      },
     },
+    invoke: [
+      {
+        id: "socket",
+        src: (() => socketService) as any,
+      },
+    ],
   },
   {
     actions: {
-      setError: assign((ctx, event) => {
-        if (event.type === "done.invoke.fetchSavedTracks") return ctx
+      fetchSavedTracks: sendTo("socket", () => ({
+        type: "get saved tracks",
+      })),
+      setResults: assign((_context, event) => {
+        if (event.type !== "SAVED_TRACKS_RESULTS") return {}
+        // Server returns already-transformed MetadataSourceTrack[]
         return {
-          error: event.error,
+          savedTracks: event.data || [],
         }
       }),
-      setSavedTracks: assign((ctx, event) => {
-        if (event.type !== "done.invoke.fetchSavedTracks") return ctx
+      setError: assign((_ctx, event) => {
+        if (event.type !== "SAVED_TRACKS_RESULTS_FAILURE") return {}
         return {
-          savedTracks: event.data.items.map((item) => item.track),
+          error: event.error || "Failed to fetch saved tracks",
         }
       }),
-    },
-    guards: {
-      hasAccessToken: (ctx) => {
-        return !!ctx.accessToken
-      },
     },
   },
 )

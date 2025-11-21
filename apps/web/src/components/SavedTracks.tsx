@@ -2,29 +2,19 @@ import React from "react"
 import { Box, Center, Spinner, VStack } from "@chakra-ui/react"
 import { useMachine } from "@xstate/react"
 
-import { savedTracksMachine } from "../machines/savedTracksMachine"
+import { savedTracksMachine, SavedTracksContext } from "../machines/savedTracksMachine"
 import TrackItem from "./TrackItem"
-import { MetadataSourceTrack } from "@repo/types"
-import { useSpotifyAccessToken } from "../state/spotifyAuthStore"
 
 interface Props {
-  onClick?: (track: MetadataSourceTrack) => void
-  isDisabled?: boolean
-  loadingItem?: MetadataSourceTrack | null
+  readonly onClick?: (track: SavedTracksContext["savedTracks"][number]) => void
+  readonly isDisabled?: boolean
+  readonly loadingItem?: SavedTracksContext["savedTracks"][number] | null
 }
 
-export default function SpotifySavedTracks({
-  onClick,
-  isDisabled,
-  loadingItem,
-}: Props) {
-  const accessToken = useSpotifyAccessToken()
-  const [state] = useMachine(savedTracksMachine, {
-    context: {
-      accessToken,
-    },
-  })
+export default function SavedTracks({ onClick, isDisabled, loadingItem }: Readonly<Props>) {
+  const [state] = useMachine(savedTracksMachine)
   const isLoading = state.matches("loading")
+
   return (
     <VStack align="flex-start" spacing={2} overflow="hidden" w="100%">
       {isLoading && <Spinner />}
@@ -38,14 +28,7 @@ export default function SpotifySavedTracks({
         >
           <TrackItem {...track} />
           {loadingItem?.id === track.id && (
-            <Box
-              position="absolute"
-              left={0}
-              top={0}
-              bg="whiteAlpha.700"
-              w="100%"
-              h="100%"
-            >
+            <Box position="absolute" left={0} top={0} bg="whiteAlpha.700" w="100%" h="100%">
               <Center w="100%" h="100%">
                 <Spinner />
               </Center>

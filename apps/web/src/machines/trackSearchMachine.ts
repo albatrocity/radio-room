@@ -1,6 +1,5 @@
 import { assign, sendTo, createMachine, AnyEventObject } from "xstate"
 import socketService from "../lib/socketService"
-import { search } from "../lib/spotify/spotifyApi"
 import { MetadataSourceTrack } from "@repo/types"
 
 type RequestError = {
@@ -16,7 +15,6 @@ export interface TrackSearchContext {
   nextUrl: string | undefined
   prevUrl: string | undefined
   limit: number
-  accessToken?: string
 }
 
 type TrackSearchEvent =
@@ -25,21 +23,6 @@ type TrackSearchEvent =
       value: string
     }
   | AnyEventObject
-
-async function searchTracks(ctx: TrackSearchContext, event: TrackSearchEvent) {
-  if (!ctx.accessToken) {
-    throw new Error("No access token found")
-  }
-
-  const results = await search({
-    query: event.value,
-    accessToken: ctx.accessToken,
-  })
-  if (results) {
-    return results.tracks
-  }
-  return {}
-}
 
 export const trackSearchMachine = createMachine<TrackSearchContext>(
   {
@@ -54,22 +37,14 @@ export const trackSearchMachine = createMachine<TrackSearchContext>(
       nextUrl: undefined,
       prevUrl: undefined,
       limit: 20,
-      accessToken: undefined,
     },
     states: {
       idle: {
         id: "idle",
         on: {
-          FETCH_RESULTS: [
-            {
-              target: "loading.server",
-              cond: "isUnauthenticated",
-            },
-            {
-              target: "loading.client",
-              cond: "isAuthenticated",
-            },
-          ],
+          FETCH_RESULTS: {
+            target: "loading",
+          },
         },
       },
       failure: {
@@ -79,33 +54,15 @@ export const trackSearchMachine = createMachine<TrackSearchContext>(
         },
       },
       loading: {
-        states: {
-          client: {
-            invoke: {
-              id: "search",
-              src: searchTracks,
-              onDone: {
-                target: "#idle",
-                actions: ["setResults"],
-              },
-              onError: {
-                target: "#failure",
-                actions: ["setError"],
-              },
-            },
+        entry: ["sendQuery"],
+        on: {
+          TRACK_SEARCH_RESULTS: {
+            target: "idle",
+            actions: ["setResults"],
           },
-          server: {
-            entry: ["sendQuery"],
-            on: {
-              TRACK_SEARCH_RESULTS: {
-                target: "#idle",
-                actions: ["setResults"],
-              },
-              TRACK_SEARCH_RESULTS_FAILURE: {
-                target: "#failure",
-                actions: ["setError"],
-              },
-            },
+          TRACK_SEARCH_RESULTS_FAILURE: {
+            target: "failure",
+            actions: ["setError"],
           },
         },
       },
@@ -113,7 +70,7 @@ export const trackSearchMachine = createMachine<TrackSearchContext>(
     invoke: [
       {
         id: "socket",
-        src: () => socketService,
+        src: (() => socketService) as any,
       },
     ],
   },
@@ -121,7 +78,7 @@ export const trackSearchMachine = createMachine<TrackSearchContext>(
     actions: {
       sendQuery: sendTo("socket", (_ctx, event) => {
         return {
-          type: "search spotify track",
+          type: "search track",
           data: { query: event.value, options: {} },
         }
       }),
@@ -139,14 +96,5 @@ export const trackSearchMachine = createMachine<TrackSearchContext>(
         error: event.data,
       })),
     },
-    guards: {
-      isAuthenticated: (ctx) => {
-        return !!ctx.accessToken
-      },
-      isUnauthenticated: (ctx) => {
-        return !ctx.accessToken
-      },
-    },
   },
 )
-

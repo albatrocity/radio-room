@@ -9,11 +9,11 @@ import { AdapterService } from "../services/AdapterService"
  * This layer is thin and just connects Socket.io events to our business logic service
  */
 export class DJHandlers {
-  private adapterService: AdapterService
+  private readonly adapterService: AdapterService
 
   constructor(
-    private djService: DJService,
-    private context: AppContext,
+    private readonly djService: DJService,
+    private readonly context: AppContext,
   ) {
     this.adapterService = new AdapterService(context)
   }
@@ -297,6 +297,39 @@ export class DJHandlers {
 
     if (result.shouldDeputize && result.userId) {
       this.djDeputizeUser({ io, socket }, result.userId)
+    }
+  }
+
+  /**
+   * Get saved tracks for the current user
+   */
+  getSavedTracks = async ({ socket }: HandlerConnections) => {
+    try {
+      const { roomId, userId } = socket.data
+
+      const metadataSource = await this.adapterService.getUserMetadataSource(roomId, userId)
+
+      if (!metadataSource?.api?.getSavedTracks) {
+        // Silently return empty array if not supported
+        socket.emit("event", {
+          type: "SAVED_TRACKS_RESULTS",
+          data: [],
+        })
+        return
+      }
+
+      const savedTracks = await metadataSource.api.getSavedTracks()
+
+      socket.emit("event", {
+        type: "SAVED_TRACKS_RESULTS",
+        data: savedTracks,
+      })
+    } catch (error: any) {
+      console.error("Error fetching saved tracks:", error)
+      socket.emit("event", {
+        type: "SAVED_TRACKS_RESULTS_FAILURE",
+        error: error?.message || "Failed to fetch saved tracks",
+      })
     }
   }
 }

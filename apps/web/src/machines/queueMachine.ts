@@ -1,18 +1,18 @@
 import { assign, sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 import { toast } from "../lib/toasts"
-import { SpotifyTrack } from "../types/SpotifyTrack"
+import { MetadataSourceTrack } from "@repo/types"
 import { useDjStore } from "../state/djStore"
 import { useAuthStore } from "../state/authStore"
 
-interface Context {
-  queuedTrack: SpotifyTrack | null | undefined
+export interface QueueContext {
+  queuedTrack: MetadataSourceTrack | null | undefined
 }
 
-export const spotifyQueueMachine = createMachine<Context>(
+export const queueMachine = createMachine<QueueContext>(
   {
     predictableActionArguments: true,
-    id: "spotify-queue",
+    id: "queue",
     initial: "idle",
     context: {
       queuedTrack: null,
@@ -63,13 +63,13 @@ export const spotifyQueueMachine = createMachine<Context>(
       sendToQueue: sendTo("socket", (_ctx, event) => {
         return {
           type: "queue song",
-          data: event.track.id, // Use plain ID, not URI
+          data: event.track.id, // Use plain ID
         }
       }),
       notifyQueued: (context) => {
         toast({
           title: `Added to Queue`,
-          description: `${context.queuedTrack?.name} will play sometime soon`,
+          description: `${context.queuedTrack?.title} will play sometime soon`,
           status: "success",
           duration: 4000,
           isClosable: true,
@@ -89,3 +89,4 @@ export const spotifyQueueMachine = createMachine<Context>(
     },
   },
 )
+

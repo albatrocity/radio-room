@@ -97,6 +97,16 @@ export class DJService {
       }
     }
 
+    // Get the room to find the creator
+    const room = await findRoom({ context: this.context, roomId })
+
+    if (!room) {
+      return {
+        success: false,
+        message: "Room not found",
+      }
+    }
+
     // Get the room's playback controller
     const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
 
@@ -107,9 +117,8 @@ export class DJService {
       }
     }
 
-    // Get a user-specific metadata source with fresh tokens
-    // This is needed for authenticated API calls like fetching track info
-    const metadataSource = await this.adapterService.getUserMetadataSource(roomId, userId)
+    // Get metadata source with room creator's tokens (so guests can queue songs)
+    const metadataSource = await this.adapterService.getUserMetadataSource(roomId, room.creator)
 
     if (!metadataSource) {
       return {
