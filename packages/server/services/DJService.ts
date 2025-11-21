@@ -219,27 +219,35 @@ export class DJService {
     trackIds: QueueItem["track"]["id"][],
   ) {
     try {
+      console.log("[DJService.savePlaylist] Starting:", { userId, name, trackCount: trackIds.length })
+      
       if (metadataSource.api.createPlaylist === undefined) {
+        console.log("[DJService.savePlaylist] createPlaylist not supported")
         return {
           success: false,
           message: "Playlist creation is not supported by this source",
+          error: { message: "Playlist creation is not supported by this source" },
         }
       }
 
+      console.log("[DJService.savePlaylist] Calling createPlaylist API")
       const data = await metadataSource.api.createPlaylist({
         title: name,
         trackIds,
         userId,
       })
 
+      console.log("[DJService.savePlaylist] Success:", data)
       return {
         success: true,
         data,
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("[DJService.savePlaylist] Error:", error)
       return {
         success: false,
-        error,
+        message: error?.message || "Failed to save playlist",
+        error: { message: error?.message || String(error) },
       }
     }
   }

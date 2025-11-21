@@ -43,6 +43,30 @@ export async function makeApi({
       const query = `track:${title} artist:${artists.join(" OR ")} album:${album} id:${id}`
       return this.search(query)
     },
+    // Playlist creation
+    async createPlaylist(params) {
+      const { title, trackIds, userId } = params
+      
+      // Create the playlist
+      const playlist = await spotifyApi.playlists.createPlaylist(userId, {
+        name: title,
+        description: `Created by Radio Room on ${new Date().toLocaleDateString()}`,
+        public: false,
+      })
+
+      // Add tracks to playlist (Spotify URIs format: spotify:track:id)
+      const uris = trackIds.map((id) => `spotify:track:${id}`)
+      if (uris.length > 0) {
+        await spotifyApi.playlists.addItemsToPlaylist(playlist.id, uris)
+      }
+
+      return {
+        id: playlist.id,
+        title: playlist.name,
+        trackIds,
+        url: playlist.external_urls?.spotify,
+      }
+    },
     // Library management methods
     async getSavedTracks() {
       const savedTracks = await spotifyApi.currentUser.tracks.savedTracks()

@@ -1,57 +1,32 @@
 import { assign, sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
-import { createAndPopulatePlaylist } from "../lib/spotify/spotifyApi"
 import { toast } from "../lib/toasts"
-import { SpotifyPlaylist } from "../types/SpotifyPlaylist"
+
+interface PlaylistMetadata {
+  id: string
+  title: string
+  url?: string
+}
 
 interface Context {
-  playlistMeta: SpotifyPlaylist | null
+  playlistMeta: PlaylistMetadata | null
   playlistError: any
-  accessToken?: string
 }
 
 type SavePlaylistEvent =
   | {
       type: "SAVE_PLAYLIST"
       name: string
-      uris: string[]
-    }
-  | {
-      type: "ADMIN_SAVE_PLAYLIST"
-      name: string
-      uris: string[]
+      trackIds: string[]
     }
   | {
       type: "PLAYLIST_SAVED"
-      data: SpotifyPlaylist
+      data: PlaylistMetadata
     }
   | {
       type: "SAVE_PLAYLIST_FAILED"
       error: any
     }
-  | {
-      type: "done.invoke.savePlaylist"
-      data: SpotifyPlaylist
-    }
-  | {
-      type: "error.invoke.savePlaylist"
-      error: any
-    }
-
-async function savePlaylist(ctx: Context, event: SavePlaylistEvent) {
-  if (!ctx.accessToken) {
-    throw new Error("No access token found")
-  }
-  if (event.type !== "SAVE_PLAYLIST") {
-    throw new Error("Cannot save playlist from client")
-  }
-  const res = await createAndPopulatePlaylist({
-    name: event.name,
-    uris: event.uris,
-    accessToken: ctx.accessToken,
-  })
-  return res
-}
 
 export const savePlaylistMachine = createMachine<Context, SavePlaylistEvent>(
   {
@@ -65,42 +40,21 @@ export const savePlaylistMachine = createMachine<Context, SavePlaylistEvent>(
     states: {
       idle: {
         on: {
-          ADMIN_SAVE_PLAYLIST: {
-            target: "loading.server",
-            actions: ["savePlaylist"],
-          },
           SAVE_PLAYLIST: {
-            target: "loading.client",
+            target: "loading",
+            actions: ["savePlaylist"],
           },
         },
       },
       loading: {
-        states: {
-          client: {
-            invoke: {
-              id: "savePlaylist",
-              src: savePlaylist,
-              onDone: {
-                target: "#success",
-                actions: ["setPlaylistMeta", "notifyPlaylistCreated"],
-              },
-              onError: {
-                target: "#error",
-                actions: ["setPlaylistError", "notifyPlaylistCreateFailed"],
-              },
-            },
+        on: {
+          PLAYLIST_SAVED: {
+            target: "success",
+            actions: ["setPlaylistMeta", "notifyPlaylistCreated"],
           },
-          server: {
-            on: {
-              PLAYLIST_SAVED: {
-                target: "#success",
-                actions: ["setPlaylistMeta", "notifyPlaylistCreated"],
-              },
-              SAVE_PLAYLIST_FAILED: {
-                target: "#error",
-                actions: ["setPlaylistError", "notifyPlaylistCreateFailed"],
-              },
-            },
+          SAVE_PLAYLIST_FAILED: {
+            target: "error",
+            actions: ["setPlaylistError", "notifyPlaylistCreateFailed"],
           },
         },
       },
@@ -120,46 +74,46 @@ export const savePlaylistMachine = createMachine<Context, SavePlaylistEvent>(
     invoke: [
       {
         id: "socket",
-        src: () => socketService,
-        cond: ["hasNoAccessToken"],
+        src: (() => socketService) as any,
       },
     ],
   },
   {
     actions: {
       savePlaylist: sendTo("socket", (_ctx, event) => {
-        if (event.type == "ADMIN_SAVE_PLAYLIST") {
-          return {
+        if (event.type === "SAVE_PLAYLIST") {
+          const socketEvent = {
             type: "save playlist",
-            data: { name: event.name, uris: event.uris },
+            data: { name: event.name, trackIds: event.trackIds },
           }
+          console.log("[savePlaylistMachine] Sending to socket:", socketEvent)
+          return socketEvent
         }
       }),
       setPlaylistMeta: assign({
-        playlistMeta: (ctx, event) => {
-          const matchingEvent =
-            event.type === "PLAYLIST_SAVED" ||
-            event.type === "done.invoke.savePlaylist"
-          if (!matchingEvent) {
-            return ctx.playlistMeta
+        playlistMeta: (_ctx, event) => {
+          if (event.type === "PLAYLIST_SAVED") {
+            return event.data
           }
-          return event.data ? event.data : ctx.playlistMeta
+          return null
         },
       }),
       setPlaylistError: assign({
         playlistError: (_ctx, event) => {
-          if (
-            event.type === "SAVE_PLAYLIST_FAILED" ||
-            event.type === "error.invoke.savePlaylist"
-          ) {
+          if (event.type === "SAVE_PLAYLIST_FAILED") {
             return event.error
           }
+          return null
         },
       }),
       notifyPlaylistCreateFailed: (context) => {
+        console.error("[savePlaylistMachine] Error:", context.playlistError)
+        const errorMessage = context.playlistError?.message || 
+                            (typeof context.playlistError === 'string' ? context.playlistError : null) ||
+                            "Failed to save playlist"
         toast({
           title: "Playlist failed",
-          description: String(context.playlistError),
+          description: errorMessage,
           status: "error",
           duration: 4000,
         })

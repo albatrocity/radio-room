@@ -18,42 +18,33 @@ import { Reaction } from "../../types/Reaction"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { Emoji } from "../../types/Emoji"
 import PlaylistWindow from "../PlaylistWindow"
-import { useIsSpotifyAuthenticated, useSpotifyAccessToken } from "../../state/spotifyAuthStore"
 import { useIsAdmin } from "../../state/authStore"
 import { useCurrentRoom } from "../../state/roomStore"
 
 function DrawerPlaylist() {
   const { send: playlistSend } = usePlaylistStore()
   const currentPlaylist = useCurrentPlaylist()
-  const isLoggedIn = useIsSpotifyAuthenticated()
-  const accessToken = useSpotifyAccessToken()
   const isAdmin = useIsAdmin()
   const [isEditing, { toggle, off }] = useBoolean(false)
   const room = useCurrentRoom()
   const today = useConst(() => format(new Date(), "M/d/y"))
-  const defaultPlaylistName = `${room?.title} ${today}`
-  console.log("currentPlaylist", currentPlaylist)
+  const defaultPlaylistName = `${room?.title || "Radio Room"} ${today}`
   const [name, setName] = useState<string>(defaultPlaylistName)
   const [state, send] = useMachine(savePlaylistMachine, {
-    context: {
-      accessToken,
-    },
     actions: {
       notifyPlaylistCreated: (context) => {
         off()
         toast({
           title: "Playlist created",
-          description: (
+          description: context.playlistMeta?.url ? (
             <Text>
-              <Link
-                href={context.playlistMeta?.external_urls?.spotify}
-                isExternal
-                textDecoration={"underline"}
-              >
-                {context.playlistMeta?.name}
+              <Link href={context.playlistMeta.url} isExternal textDecoration={"underline"}>
+                {context.playlistMeta.title}
               </Link>{" "}
-              was added to your Spotify Collection
+              was added to your collection
             </Text>
+          ) : (
+            <Text>{context.playlistMeta?.title} was created</Text>
           ),
           status: "success",
           duration: 4000,
@@ -70,7 +61,7 @@ function DrawerPlaylist() {
   })
   const isOpen = usePlaylistStore((s) => s.state.matches("active"))
   const isLoading = state.matches("loading")
-  const canSave = isLoggedIn || isAdmin
+  const canSave = isAdmin // Only room creator can save playlists
 
   const emojis = filterState.context.collection.reduce((mem, emoji) => {
     mem[emoji.shortcodes] = [
@@ -90,12 +81,19 @@ function DrawerPlaylist() {
 
   const [selectedPlaylistState, selectedPlaylistSend] = useMachine(toggleableCollectionMachine, {
     context: {
-      collection: currentPlaylist,
+      collection: currentPlaylist, // Start with all tracks selected by default
       persistent: false,
       name: "playlist-selected",
       idPath: "track.id", // Use track.id from QueueItem
     },
   })
+
+  // Update selected playlist when currentPlaylist changes
+  useEffect(() => {
+    if (currentPlaylist.length > 0 && selectedPlaylistState.context.collection.length === 0) {
+      selectedPlaylistSend("SET_ITEMS", { data: currentPlaylist })
+    }
+  }, [currentPlaylist, selectedPlaylistState.context.collection.length, selectedPlaylistSend])
 
   const handleSelectionChange = (item: PlaylistItem) => {
     selectedPlaylistSend("TOGGLE_ITEM", {
@@ -111,16 +109,15 @@ function DrawerPlaylist() {
     (e: FormEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      const event = isAdmin ? "ADMIN_SAVE_PLAYLIST" : "SAVE_PLAYLIST"
-      send(event, {
+      const trackIds = selectedPlaylistState.context.collection.map((item) => item.track.id)
+
+      send("SAVE_PLAYLIST", {
         name,
-        uris: selectedPlaylistState.context.collection
-          .map(({ spotifyData }) => spotifyData?.uri)
-          .filter((x) => !!x),
+        trackIds,
       })
       return void 0
     },
-    [send, selectedPlaylistState.context.collection, name],
+    [send, selectedPlaylistState.context.collection, name, isAdmin],
   )
   const handleSelect = (selection: "all" | "none" | "filtered") => {
     switch (selection) {

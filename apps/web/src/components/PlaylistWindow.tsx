@@ -13,7 +13,6 @@ type Props = {
 
 const PlaylistWindow = ({ playlist, isSelectable, selected, onSelect }: Props) => {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
-  console.log("playlist", playlist)
 
   const renderComponent = (index: number) => {
     return (

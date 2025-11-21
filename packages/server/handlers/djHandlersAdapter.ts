@@ -264,25 +264,43 @@ export class DJHandlers {
     { socket }: HandlerConnections,
     { name, trackIds }: { name: string; trackIds: QueueItem["track"]["id"][] },
   ) => {
-    const { roomId, userId } = socket.data
+    try {
+      const { roomId, userId } = socket.data
 
-    // Get the room's metadata source
-    const metadataSource = await this.adapterService.getRoomMetadataSource(roomId)
+      console.log("[savePlaylist] Received request:", { roomId, userId, name, trackIds })
 
-    if (!metadataSource) {
+      // Get the user's metadata source with fresh tokens
+      // This is required for authenticated operations like creating playlists
+      const metadataSource = await this.adapterService.getUserMetadataSource(roomId, userId)
+
+      if (!metadataSource) {
+        console.log("[savePlaylist] No metadata source found")
+        socket.emit("event", {
+          type: "SAVE_PLAYLIST_FAILED",
+          error: { message: "No metadata source configured for this room" },
+        })
+        return
+      }
+
+      console.log("[savePlaylist] Calling DJService.savePlaylist")
+      const result = await this.djService.savePlaylist(metadataSource, userId, name, trackIds)
+
+      console.log("[savePlaylist] Result:", result)
+
+      if (result.success) {
+        socket.emit("event", { type: "PLAYLIST_SAVED", data: result.data })
+      } else {
+        socket.emit("event", { 
+          type: "SAVE_PLAYLIST_FAILED", 
+          error: { message: result.error?.message || String(result.error) }
+        })
+      }
+    } catch (error: any) {
+      console.error("[savePlaylist] Error:", error)
       socket.emit("event", {
         type: "SAVE_PLAYLIST_FAILED",
-        error: new Error("No metadata source configured for this room"),
+        error: { message: error?.message || "Failed to save playlist" },
       })
-      return
-    }
-
-    const result = await this.djService.savePlaylist(metadataSource, userId, name, trackIds)
-
-    if (result.success) {
-      socket.emit("event", { type: "PLAYLIST_SAVED", data: result.data })
-    } else {
-      socket.emit("event", { type: "SAVE_PLAYLIST_FAILED", error: result.error })
     }
   }
 

@@ -75,6 +75,7 @@ export interface MetadataSourceApi {
     title: string
     trackIds: MetadataSourceTrack["id"][]
     id: string
+    url?: string
   }>
   // Library management methods (optional)
   getSavedTracks?: () => Promise<MetadataSourceTrack[]>
