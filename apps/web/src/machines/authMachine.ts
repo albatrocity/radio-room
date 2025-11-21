@@ -219,11 +219,12 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         },
       },
       unauthenticated: {
-        entry: ["getStoredPassword", "checkPasswordRequirement"],
+        entry: ["getStoredPassword"],
         on: {
           SET_PASSWORD_REQUIREMENT: [
-            { target: "connecting", cond: "passwordAccepted" },
+            { target: "connecting", cond: "hasStoredPasswordAndPasswordAccepted" },
             { target: "unauthorized", cond: "requiresPassword" },
+            { target: "connecting" },
           ],
         },
       },
@@ -239,6 +240,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         },
       },
       retrieving: {
+        entry: ["getStoredPassword"],
         invoke: {
           id: "getStoredUser",
           src: getStoredUser,
@@ -332,7 +334,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
       unauthorized: {
         on: {
           SET_PASSWORD: {
-            actions: ["savePassword", "submitPassword"],
+            actions: ["setPasswordInContext", "savePassword", "submitPassword"],
           },
           SET_PASSWORD_ACCEPTED: [
             { actions: ["setPasswordError"], cond: "passwordRejected" },
@@ -393,8 +395,17 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         }
       }),
       login: sendTo("socket", (ctx, event) => {
-        if (event.type !== "done.invoke.getStoredUser") {
-          return {}
+        // Get user data from stored user or current user
+        let userId: string | undefined
+        let username: string | undefined
+        
+        if (event.type === "done.invoke.getStoredUser") {
+          userId = event.data.currentUser?.userId
+          username = event.data.currentUser?.username
+        } else {
+          // When coming from password acceptance, use current user data
+          userId = ctx.currentUser?.userId
+          username = ctx.currentUser?.username
         }
 
         const password = ctx.password
@@ -402,8 +413,8 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           type: "login",
           data: {
             fetchAllData: !ctx.initialized,
-            userId: event.data.currentUser.userId,
-            username: event.data.currentUser.username,
+            userId,
+            username,
             password: password,
             roomId: ctx.roomId,
           },
@@ -450,6 +461,12 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           return "Password incorrect"
         },
       }),
+      setPasswordInContext: assign({
+        password: (_ctx, event) => {
+          if (event.type !== "SET_PASSWORD") return _ctx.password
+          return event.data
+        },
+      }),
       getStoredPassword: assign({
         password: (_ctx, _event) => getPassword(),
       }),
@@ -483,15 +500,24 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           },
         }
       }),
-      checkPasswordRequirement: sendTo("socket", (ctx) => ({
-        type: "check password",
-        data: ctx.password,
-      })),
-      submitPassword: sendTo("socket", (_ctx, event) => {
+      checkPasswordRequirement: sendTo("socket", (ctx) => {
+        // Only check password if one exists in context
+        if (!ctx.password) {
+          return { type: "noop" }
+        }
+        return {
+          type: "check password",
+          data: ctx.password,
+        }
+      }),
+      submitPassword: sendTo("socket", (ctx, event) => {
         if (event.type !== "SET_PASSWORD") return
         return {
           type: "submit password",
-          data: event.data,
+          data: {
+            password: event.data,
+            roomId: ctx.roomId,
+          },
         }
       }),
       setRoomId: assign({
@@ -514,6 +540,16 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
       requiresPassword: (_ctx, event) => {
         if (event.type !== "SET_PASSWORD_REQUIREMENT") return false
         return event.data.passwordRequired
+      },
+      hasStoredPasswordAndPasswordAccepted: (ctx, event) => {
+        if (event.type !== "SET_PASSWORD_REQUIREMENT") return false
+        // Only bypass password prompt if:
+        // 1. Room doesn't require a password, OR
+        // 2. Room requires password AND we have a stored password AND it's accepted
+        return !event.data.passwordRequired || 
+               (event.data.passwordRequired && 
+                !!ctx.password && 
+                event.data.passwordAccepted === true)
       },
       passwordAccepted: (_ctx, event) => {
         if (event.type !== "SET_PASSWORD_ACCEPTED") return false

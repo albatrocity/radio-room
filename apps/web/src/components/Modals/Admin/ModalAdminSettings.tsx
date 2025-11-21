@@ -68,9 +68,6 @@ function ModalAdminSettings() {
         <Collapse in={state.matches("settings.chat")}>
           <Chat />
         </Collapse>
-        <Collapse in={state.matches("settings.spotify")}>
-          <SpotifyFeatures />
-        </Collapse>
         <Collapse in={state.matches("settings.password")}>
           <Password />
         </Collapse>

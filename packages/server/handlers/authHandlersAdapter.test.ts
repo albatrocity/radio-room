@@ -154,13 +154,13 @@ describe("AuthHandlers", () => {
 
   describe("submitPassword", () => {
     test("calls submitPassword with correct parameters", async () => {
-      await authHandlers.submitPassword({ socket: mockSocket, io: mockIo }, "secret")
+      await authHandlers.submitPassword({ socket: mockSocket, io: mockIo }, "secret", "room123")
 
       expect(authService.submitPassword).toHaveBeenCalledWith("room123", "secret", "user123")
     })
 
     test("emits SET_PASSWORD_ACCEPTED event with correct data", async () => {
-      await authHandlers.submitPassword({ socket: mockSocket, io: mockIo }, "secret")
+      await authHandlers.submitPassword({ socket: mockSocket, io: mockIo }, "secret", "room123")
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
         type: "SET_PASSWORD_ACCEPTED",
@@ -179,7 +179,7 @@ describe("AuthHandlers", () => {
         passwordAccepted: false,
       })
 
-      await authHandlers.submitPassword({ socket: mockSocket, io: mockIo }, "secret")
+      await authHandlers.submitPassword({ socket: mockSocket, io: mockIo }, "secret", "room123")
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
         type: "ERROR",
@@ -316,6 +316,29 @@ describe("AuthHandlers", () => {
           message: "Room not found",
           status: 404,
         },
+      })
+    })
+
+    test("emits UNAUTHORIZED event when login fails due to incorrect password", async () => {
+      authService.login.mockResolvedValueOnce({
+        error: {
+          message: "Password is incorrect",
+          status: 401,
+        },
+      })
+
+      await authHandlers.login(
+        { socket: mockSocket, io: mockIo },
+        {
+          userId: "user123",
+          username: "Homer",
+          password: "wrong-password",
+          roomId: "room123",
+        },
+      )
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "UNAUTHORIZED",
       })
     })
   })

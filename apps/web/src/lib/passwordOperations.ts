@@ -9,8 +9,10 @@ export const getPassword = () => {
 }
 
 export const savePassword = (_ctx: AuthContext, event: AnyEventObject) => {
-  const password = event.data || session.setItem(SESSION_PASSWORD)
+  const password = event.data
 
-  session.setItem(SESSION_PASSWORD, password)
+  if (password) {
+    session.setItem(SESSION_PASSWORD, password)
+  }
   return password
 }

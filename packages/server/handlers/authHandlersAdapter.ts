@@ -29,9 +29,13 @@ export class AuthHandlers {
   /**
    * Submit a password for a room
    */
-  submitPassword = async ({ socket, io }: HandlerConnections, submittedPassword: string) => {
+  submitPassword = async (
+    { socket, io }: HandlerConnections,
+    submittedPassword: string,
+    roomId: string,
+  ) => {
     const result = await this.authService.submitPassword(
-      socket.data.roomId,
+      roomId,
       submittedPassword,
       socket.data.userId,
     )
@@ -81,6 +85,15 @@ export class AuthHandlers {
     })
 
     if (result.error) {
+      // If login failed due to incorrect password, send UNAUTHORIZED instead of ERROR
+      // so the frontend can show the password prompt instead of an error toast
+      if (result.error.status === 401) {
+        socket.emit("event", {
+          type: "UNAUTHORIZED",
+        })
+        return
+      }
+      
       socket.emit("event", {
         type: "ERROR",
         data: result.error,

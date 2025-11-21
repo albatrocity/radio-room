@@ -28,8 +28,8 @@ export function createAuthController(socket: SocketWithContext, io: Server): voi
   /**
    * Submit password to join password-protected room
    */
-  socket.on("submit password", async (submittedPassword: string) => {
-    await handlers.submitPassword(connections, submittedPassword)
+  socket.on("submit password", async (data: { password: string; roomId: string }) => {
+    await handlers.submitPassword(connections, data.password, data.roomId)
   })
 
   /**

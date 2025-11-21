@@ -21,14 +21,12 @@ function Overview() {
   const { send } = useModalsStore()
   const [settingsState] = useMachine(settingsMachine)
   const hasPassword = !!settingsState.context.password
-  const spotifyLoginEnabled = settingsState.context.enableSpotifyLogin
   const hasSettings =
     !!settingsState.context.extraInfo ||
     !!settingsState.context.artwork ||
     !!settingsState.context.radioMetaUrl
   const hasChatSettings =
-    settingsState.context.announceNowPlaying ??
-    settingsState.context.announceUsernameChanges
+    settingsState.context.announceNowPlaying ?? settingsState.context.announceUsernameChanges
   const hasDjSettings = settingsState.context.deputizeOnJoin
   return (
     <Box>
@@ -77,19 +75,6 @@ function Overview() {
                 onClick={() => send("EDIT_DJ")}
               >
                 DJ Features
-              </Button>
-              <Button
-                rightIcon={
-                  <HStack>
-                    {spotifyLoginEnabled && <ActiveIndicator />}
-                    <ChevronRightIcon />
-                  </HStack>
-                }
-                variant="settingsCategory"
-                borderRadius="none"
-                onClick={() => send("EDIT_SPOTIFY")}
-              >
-                Spotify Features
               </Button>
               <Button
                 rightIcon={
