@@ -99,7 +99,22 @@ export async function makeApi({
       const api = await getSpotifyApi()
       // mediaId should be the Spotify URI (spotify:track:xxx or spotify:episode:xxx)
       // provided by the track metadata
-      await api.player.addItemToPlaybackQueue(mediaId)
+
+      try {
+        await api.player.addItemToPlaybackQueue(mediaId)
+      } catch (error: any) {
+        // Spotify returns 204 No Content on success, which the SDK tries to parse as JSON
+        // This causes a JSON parse error even though the operation succeeded
+        if (error.message?.includes("JSON") || error.message?.includes("Unexpected")) {
+          // Treat JSON parse errors as success since Spotify returns empty body on 204
+          console.log(
+            "Track successfully added to queue (ignored JSON parse error from 204 response)",
+          )
+        } else {
+          // Re-throw actual errors
+          throw error
+        }
+      }
 
       const queue = await getQueue(api)
       await config.onPlaybackQueueChange(queue)

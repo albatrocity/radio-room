@@ -151,6 +151,7 @@ export class DJService {
     try {
       await playbackController.api.addToQueue(resourceUrl)
     } catch (error) {
+      console.error("Failed to add to playback queue:", error)
       return {
         success: false,
         message: "Failed to add track to playback queue",

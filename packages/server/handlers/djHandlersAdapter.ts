@@ -77,6 +77,7 @@ export class DJHandlers {
         sendMessage(io, roomId, result.systemMessage, this.context)
       }
     } catch (e) {
+      console.error("Error queueing song:", e)
       socket.emit("event", {
         type: "SONG_QUEUE_FAILURE",
         data: {
