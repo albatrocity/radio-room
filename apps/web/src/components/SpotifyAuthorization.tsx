@@ -15,6 +15,7 @@ export default function SpotifyAuthorization() {
   const urlParams = new URLSearchParams(location.search)
   const code = urlParams.get("code")
   const userId = urlParams.get("userId")
+  const challenge = urlParams.get("challenge")
   const toastMessage = urlParams.get("toast")
 
   useEffect(() => {
@@ -29,9 +30,14 @@ export default function SpotifyAuthorization() {
       const redirectPath = sessionStorage.getItem("postSpotifyAuthRedirect") ?? "/"
       sessionStorage.removeItem("postSpotifyAuthRedirect")
       
+      // Preserve userId and challenge params if present (needed for room creation)
+      const redirectUrl = new URL(redirectPath, window.location.origin)
+      if (userId) redirectUrl.searchParams.set("userId", userId)
+      if (challenge) redirectUrl.searchParams.set("challenge", challenge)
+      
       // Clean URL and navigate
       setTimeout(() => {
-        navigate(redirectPath, { replace: true })
+        navigate(`${redirectUrl.pathname}${redirectUrl.search}`, { replace: true })
       }, 500)
     }
     // Handle client-side PKCE OAuth callback (legacy flow)

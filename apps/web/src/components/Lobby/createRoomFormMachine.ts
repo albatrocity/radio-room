@@ -92,9 +92,11 @@ export const createRoomFormMachine = createMachine<RoomSetup, Event>(
       },
       redirectToLogin: (ctx, event) => {
         if (event.type === "NEXT") {
-          navigate(
-            `${process.env.GATSBY_API_URL}/login?roomType=${ctx.type}&roomTitle=${ctx.title}&deputizeOnJoin=${ctx.deputizeOnJoin}&redirect=/rooms/create`,
-          )
+          // Store redirect path for after OAuth completes
+          sessionStorage.setItem("postSpotifyAuthRedirect", "/rooms/create")
+          
+          // Redirect to Spotify OAuth flow
+          window.location.href = `${process.env.GATSBY_API_URL}/auth/spotify/login?redirect=/callback`
         }
       },
     },

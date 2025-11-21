@@ -1,12 +1,5 @@
 import React from "react"
-import {
-  VStack,
-  Box,
-  useRadio,
-  useRadioGroup,
-  Text,
-  HStack,
-} from "@chakra-ui/react"
+import { VStack, Box, useRadio, useRadioGroup, Text, HStack } from "@chakra-ui/react"
 import { CheckIcon } from "@chakra-ui/icons"
 
 import { Room } from "../../types/Room"
@@ -27,11 +20,11 @@ type RadioTypeCardProps = {
   } & React.RefAttributes<any>
 
 function RoomTypeCard(props: RadioTypeCardProps) {
-  const { getInputProps, getCheckboxProps } = useRadio(props)
+  const { getInputProps, getRadioProps } = useRadio(props)
   const { title, description } = props
 
   const input = getInputProps()
-  const checkbox = getCheckboxProps()
+  const checkbox = getRadioProps()
 
   return (
     <Box as="label" w="100%">
@@ -62,9 +55,7 @@ function RoomTypeCard(props: RadioTypeCardProps) {
           <Text fontSize="lg" fontWeight={700}>
             {title}
           </Text>
-          {input.checked && (
-            <CheckIcon color="secondary.500" _dark={{ color: "primary.200" }} />
-          )}
+          {input.checked && <CheckIcon color="secondary.500" _dark={{ color: "primary.200" }} />}
         </HStack>
         <Text as="p" fontSize="sm">
           {description}

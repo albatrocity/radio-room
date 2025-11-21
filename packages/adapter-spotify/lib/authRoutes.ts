@@ -4,6 +4,7 @@ import { AppContext } from "@repo/types"
 import { SpotifyApi } from "@spotify/web-api-ts-sdk"
 import generateRandomString from "./generateRandomString"
 import { storeUserServiceAuth } from "@repo/server/operations/data/serviceAuthentications"
+import { storeUserChallenge } from "@repo/server/operations/userChallenge"
 
 const stateKey = "spotify_auth_state"
 const redirectKey = "after_spotify_auth_redirect"
@@ -124,15 +125,20 @@ export function createSpotifyAuthRoutes(context: AppContext) {
         isAdmin: "true",
       })
 
+      // Generate and store challenge for room creation auth
+      const challenge = generateRandomString(32)
+      await storeUserChallenge({ userId, challenge }, context)
+
       if (process.env.APP_URL) {
         const params = {
           toast: "Spotify authentication successful",
           userId,
+          challenge,
         }
 
         res.redirect(`${process.env.APP_URL}${redirect ?? ""}?${querystring.stringify(params)}`)
       } else {
-        res.send({ access_token, userId })
+        res.send({ access_token, userId, challenge })
       }
     } catch (e) {
       console.error("Spotify auth error:", e)
