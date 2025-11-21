@@ -28,15 +28,20 @@ async function fetchRoom(ctx: RoomFetchContext): Promise<RoomFindResponse> {
 }
 
 function socketEventService(callback: SocketCallback) {
+  // Note: Most socket lifecycle events are now handled in socketService.ts
+  // This monitors reconnection to trigger data refetch
   socket.io.on("reconnect", () => {
+    console.log("[RoomFetch] Socket reconnected, will refetch room data")
     callback({ type: "RECONNECTED", data: {} })
   })
-  socket.io.on("error", (e) => {
+  
+  socket.io.on("disconnect", (reason) => {
+    console.log("[RoomFetch] Socket disconnected:", reason)
     callback({
       type: "SOCKET_ERROR",
       data: {
         error: {
-          message: e,
+          message: "Connection lost",
         },
       },
     })

@@ -114,9 +114,11 @@ type AuthEvent =
     }
   | {
       type: "SOCKET_RECONNECTED"
+      data: { attemptNumber: number }
     }
   | {
       type: "SOCKET_DISCONNECTED"
+      data: { reason?: string }
     }
   | {
       type: "SOCKET_CONNECTED"
@@ -126,10 +128,14 @@ type AuthEvent =
     }
   | {
       type: "SOCKET_ERROR"
-      data: string
+      data: { error?: string }
     }
   | {
       type: "SOCKET_RECONNECTING"
+      data: { attemptNumber: number }
+    }
+  | {
+      type: "SOCKET_RECONNECT_FAILED"
     }
   | {
       type: "done.invoke.getSessionUser"
@@ -160,12 +166,31 @@ function getStoredUser() {
 }
 
 function socketEventService(callback: SocketCallback) {
-  socket.io.on("reconnect", () => {
-    callback({ type: "SOCKET_RECONNECTED", data: {} })
-  })
-  socket.io.on("error", () => {
-    callback({ type: "SOCKET_ERROR", data: {} })
-  })
+  // Note: Most socket lifecycle events are now handled in socketService.ts
+  // This is just for any additional auth-specific socket monitoring if needed
+  
+  // Listen for visibility changes to detect tab backgrounding
+  if (typeof document !== "undefined") {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log("[Auth] Tab hidden")
+      } else {
+        console.log("[Auth] Tab visible, checking connection...")
+        // Check if socket is still connected when returning to tab
+        if (!socket.connected) {
+          console.log("[Auth] Socket disconnected, triggering reconnection")
+          callback({ type: "SOCKET_DISCONNECTED", data: { reason: "visibility_change" } })
+        }
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    // Cleanup
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  }
 }
 
 export const authMachine = createMachine<AuthContext, AuthEvent>(
@@ -229,6 +254,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         },
       },
       disconnected: {
+        entry: ["showDisconnectedToast"],
         on: {
           SETUP: {
             target: "retrieving",
@@ -236,6 +262,13 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           },
           SOCKET_RECONNECTED: {
             target: "retrieving",
+            actions: ["showReconnectedToast"],
+          },
+          SOCKET_RECONNECTING: {
+            actions: ["showReconnectingToast"],
+          },
+          SOCKET_RECONNECT_FAILED: {
+            actions: ["showReconnectFailedToast"],
           },
         },
       },
@@ -283,6 +316,10 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           USER_DISCONNECTED: {
             target: "disconnected",
             actions: ["disconnectUser"],
+          },
+          SOCKET_DISCONNECTED: {
+            target: "disconnected",
+            actions: ["logDisconnect"],
           },
           UPDATE_USERNAME: {
             actions: [
@@ -527,6 +564,53 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         },
       }),
       savePassword: savePassword,
+      logDisconnect: (_ctx, event) => {
+        if (event.type === "SOCKET_DISCONNECTED") {
+          console.log("[Auth] Socket disconnected, reason:", event.data.reason)
+        }
+      },
+      showDisconnectedToast: () => {
+        toast({
+          title: "Connection lost",
+          description: "Attempting to reconnect...",
+          status: "warning",
+          duration: null,
+          isClosable: false,
+          id: "connection-status",
+        })
+      },
+      showReconnectingToast: (_ctx, event) => {
+        if (event.type === "SOCKET_RECONNECTING") {
+          toast({
+            title: "Reconnecting...",
+            description: `Attempt ${event.data.attemptNumber}`,
+            status: "info",
+            duration: 2000,
+            isClosable: false,
+            id: "connection-status",
+          })
+        }
+      },
+      showReconnectedToast: () => {
+        toast({
+          title: "Reconnected!",
+          description: "Connection restored",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+          id: "connection-status",
+        })
+      },
+      showReconnectFailedToast: () => {
+        toast({
+          title: "Connection failed",
+          description: "Unable to reconnect. Please refresh the page.",
+          status: "error",
+          duration: null,
+          isClosable: true,
+          id: "connection-status",
+        })
+      },
     },
     guards: {
       shouldRetry: (ctx) => ctx.shouldRetry,
