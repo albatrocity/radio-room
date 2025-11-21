@@ -129,7 +129,7 @@ export class AuthService {
     // Get room-specific user properties
     const users = await getRoomUsers({ context: this.context, roomId })
     const isDeputyDj =
-      room?.deputizeOnJoin ?? (await isDj({ context: this.context, roomId, userId }))
+      room?.deputizeOnJoin || (await isDj({ context: this.context, roomId, userId }))
     const isAdmin = room?.creator === userId
 
     // Create a new user object
@@ -150,7 +150,8 @@ export class AuthService {
     // save data to redis
     await addOnlineUser({ context: this.context, roomId, userId })
     await saveUser({ context: this.context, userId, attributes: newUser })
-    if (room.deputizeOnJoin) {
+    // Add user as DJ if auto-deputize is enabled OR if they were previously manually deputized
+    if (isDeputyDj) {
       await addDj({ context: this.context, roomId, userId })
     }
 

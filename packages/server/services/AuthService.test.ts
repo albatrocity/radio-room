@@ -12,6 +12,8 @@ import {
   deleteUser,
   expireUserIn,
   getRoomUsers,
+  isDj,
+  addDj,
 } from "../operations/data"
 import systemMessage from "../lib/systemMessage"
 
@@ -230,6 +232,100 @@ describe("AuthService", () => {
       expect(result.newUser).toBeDefined()
       expect(result.newUsers).toBeDefined()
       expect(result.initData).toBeDefined()
+    })
+
+    test("auto-deputizes user when deputizeOnJoin is true", async () => {
+      const roomWithAutoDeputize = roomFactory.build({
+        ...mockRoom,
+        deputizeOnJoin: true,
+      })
+      vi.mocked(findRoom).mockResolvedValueOnce(roomWithAutoDeputize)
+      vi.mocked(getUser).mockResolvedValueOnce(
+        userFactory.build({
+          userId: "user123",
+          username: "Homer",
+        }),
+      )
+      vi.mocked(isDj).mockResolvedValueOnce(false)
+
+      const result = await authService.login({
+        incomingUserId: "user123",
+        incomingUsername: "Homer",
+        password: "secret",
+        roomId: "room123",
+        socketId: "socket123",
+        sessionUser: undefined,
+      })
+
+      expect(result.error).toBeNull()
+      expect(result.newUser?.isDeputyDj).toBe(true)
+      expect(addDj).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        userId: "user123",
+      })
+    })
+
+    test("preserves manually deputized status when deputizeOnJoin is false", async () => {
+      const roomWithoutAutoDeputize = roomFactory.build({
+        ...mockRoom,
+        deputizeOnJoin: false,
+      })
+      vi.mocked(findRoom).mockResolvedValueOnce(roomWithoutAutoDeputize)
+      vi.mocked(getUser).mockResolvedValueOnce(
+        userFactory.build({
+          userId: "user123",
+          username: "Homer",
+        }),
+      )
+      // User was previously manually deputized
+      vi.mocked(isDj).mockResolvedValueOnce(true)
+
+      const result = await authService.login({
+        incomingUserId: "user123",
+        incomingUsername: "Homer",
+        password: "secret",
+        roomId: "room123",
+        socketId: "socket123",
+        sessionUser: undefined,
+      })
+
+      expect(result.error).toBeNull()
+      expect(result.newUser?.isDeputyDj).toBe(true)
+      expect(addDj).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        userId: "user123",
+      })
+    })
+
+    test("does not deputize user when deputizeOnJoin is false and user was not manually deputized", async () => {
+      const roomWithoutAutoDeputize = roomFactory.build({
+        ...mockRoom,
+        deputizeOnJoin: false,
+      })
+      vi.mocked(findRoom).mockResolvedValueOnce(roomWithoutAutoDeputize)
+      vi.mocked(getUser).mockResolvedValueOnce(
+        userFactory.build({
+          userId: "user123",
+          username: "Homer",
+        }),
+      )
+      // User was not manually deputized
+      vi.mocked(isDj).mockResolvedValueOnce(false)
+
+      const result = await authService.login({
+        incomingUserId: "user123",
+        incomingUsername: "Homer",
+        password: "secret",
+        roomId: "room123",
+        socketId: "socket123",
+        sessionUser: undefined,
+      })
+
+      expect(result.error).toBeNull()
+      expect(result.newUser?.isDeputyDj).toBe(false)
+      expect(addDj).not.toHaveBeenCalled()
     })
   })
 
