@@ -62,11 +62,7 @@ export function createSpotifyServiceAuthAdapter(context: AppContext): ServiceAut
       }
 
       // Call Spotify's token refresh endpoint
-      const refreshed = await refreshSpotifyAccessToken(
-        auth.refreshToken,
-        clientId,
-        clientSecret,
-      )
+      const refreshed = await refreshSpotifyAccessToken(auth.refreshToken, clientId, clientSecret)
 
       // Store the new tokens
       const newTokens = {
