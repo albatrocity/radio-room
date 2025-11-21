@@ -102,14 +102,31 @@ export async function removeFromQueue({
 
 export async function getQueue({ roomId, context }: { roomId: string; context: AppContext }) {
   try {
-    const results = await getMembersFromSet<QueueItem>({
-      context,
-      setKey: `room:${roomId}:queue`,
-      recordPrefix: `room:${roomId}:queued_track`,
-    })
-    return results
+    // Get track IDs from the set
+    const trackIds = await context.redis.pubClient.sMembers(`room:${roomId}:queue`)
+    
+    // Fetch each queued track
+    const queueItems = await Promise.all(
+      trackIds.map(async (trackId) => {
+        try {
+          const value = await context.redis.pubClient.get(`room:${roomId}:queued_track:${trackId}`)
+          if (!value) {
+            // Clean up orphaned set member
+            await context.redis.pubClient.sRem(`room:${roomId}:queue`, trackId)
+            return null
+          }
+          return JSON.parse(value) as QueueItem
+        } catch (e) {
+          console.error(`Error fetching queued track ${trackId}:`, e)
+          return null
+        }
+      })
+    )
+    
+    // Filter out nulls
+    return queueItems.filter((item): item is QueueItem => item !== null)
   } catch (e) {
-    console.log("ERROR FROM data/djs/removeFromQueue", roomId)
+    console.log("ERROR FROM data/djs/getQueue", roomId)
     console.error(e)
     return []
   }

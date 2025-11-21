@@ -53,23 +53,36 @@ export const playbackController: PlaybackControllerAdapter = {
     // Import and create the jukebox polling job
     const { createJukeboxPollingJob } = await import("./lib/jukeboxJob")
     const handleRoomNowPlayingData = (await import("@repo/server/operations/room/handleRoomNowPlayingData")).default
+    const { getQueue } = await import("@repo/server/operations/data")
 
     const job = createJukeboxPollingJob({
       context,
       roomId,
       userId,
-      onTrackChange: (track) => {
+      onTrackChange: async (track) => {
         console.log(`Track changed in room ${roomId}:`, track.title)
+
+        // Check if this track is in the queue to preserve its addedAt timestamp
+        const queue = await getQueue({ context, roomId })
+        const queuedTrack = queue.find((item) => item.track.id === track.id)
 
         // Transform track to QueueItem format
         const nowPlaying = {
           title: track.title,
           track,
-          addedAt: Date.now(),
-          addedBy: undefined,
+          addedAt: queuedTrack?.addedAt ?? Date.now(), // Preserve queue timestamp if available
+          addedBy: queuedTrack?.addedBy ?? undefined,
           addedDuring: "nowPlaying" as const,
           playedAt: Date.now(),
         }
+
+        console.log(`[Spotify polling] Track timestamps:`, {
+          trackId: track.id,
+          wasInQueue: !!queuedTrack,
+          addedAt: nowPlaying.addedAt,
+          playedAt: nowPlaying.playedAt,
+          queuedAddedAt: queuedTrack?.addedAt,
+        })
 
         // Update room's now playing data - fire and forget
         handleRoomNowPlayingData({

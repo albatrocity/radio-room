@@ -40,16 +40,11 @@ export default async function handleRoomNowPlayingData({
     ? current?.nowPlaying?.track?.id === nowPlaying?.track?.id
     : current?.stationMeta?.title === stationMeta?.title
 
-  console.log(`[handleRoomNowPlayingData] Room ${roomId}:`, {
-    currentTrack: current?.nowPlaying?.track?.id,
-    newTrack: nowPlaying?.track?.id,
-    isSameTrack,
-    forcePublish,
-  })
-
   // If the currently playing track is the same as the one we just fetched, return early without publishing
   if (!forcePublish && isSameTrack && nowPlaying) {
-    console.log(`[handleRoomNowPlayingData] Same track detected, skipping publish for room ${roomId}`)
+    console.log(
+      `[handleRoomNowPlayingData] Same track detected, skipping ALL processing for room ${roomId}`,
+    )
     return null
   }
 
@@ -62,6 +57,7 @@ export default async function handleRoomNowPlayingData({
       nowPlaying,
       meta: {
         nowPlaying: {
+          title: stationMeta?.title ?? "Unknown",
           track: {
             title: stationMeta?.title ?? "Unknown",
             artists: [],
@@ -122,10 +118,21 @@ export default async function handleRoomNowPlayingData({
 
   // Add the track to the room playlist
   const queue = await getQueue({ context, roomId })
+
   const inQueue = nowPlaying && (queue ?? []).find((item) => item.track.id === nowPlaying.track.id)
 
-  await addTrackToRoomPlaylist({ context, roomId, item: nowPlaying })
-  await pubPlaylistTrackAdded({ context, roomId, item: nowPlaying })
+  // If this track was in the queue, preserve its original addedAt timestamp
+  // This ensures the playlist shows when it was originally queued, not when it started playing
+  const playlistItem = inQueue
+    ? {
+        ...nowPlaying,
+        addedAt: inQueue.addedAt, // Preserve original queue timestamp
+        playedAt: Date.now(), // Mark when it actually started playing
+      }
+    : nowPlaying
+
+  await addTrackToRoomPlaylist({ context, roomId, item: playlistItem })
+  await pubPlaylistTrackAdded({ context, roomId, item: playlistItem })
   if (inQueue) {
     await removeFromQueue({ context, roomId, trackId: inQueue.track.id })
   }

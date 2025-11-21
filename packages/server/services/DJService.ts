@@ -166,9 +166,20 @@ export class DJService {
         userId,
         username,
       },
+      addedAt: Date.now(), // When the song was added to queue
+      addedDuring: undefined, // Not playing during another track
+      playedAt: undefined, // Hasn't played yet
     })
 
     await addToQueue({ context: this.context, roomId, item: queuedItem })
+
+    console.log("[DJService.queueSong] Successfully queued track:", {
+      trackId: track.id,
+      trackTitle: track.title,
+      addedAt: queuedItem.addedAt,
+      playedAt: queuedItem.playedAt,
+      roomId,
+    })
 
     return {
       success: true,
