@@ -31,12 +31,11 @@ function Password() {
         const errors = {}
         return errors
       }}
-      onSubmit={(values, { setSubmitting }) => {
-        send("SET_SETTINGS", { data: values })
-        setSubmitting(false)
+      onSubmit={(values) => {
+        send({ type: "SET_SETTINGS", data: values } as any)
       }}
     >
-      {({ handleBlur, handleSubmit }) => (
+      {({ handleBlur, handleSubmit, dirty }) => (
         <form onSubmit={handleSubmit}>
           <ModalBody>
             <VStack spacing={6}>
@@ -58,7 +57,7 @@ function Password() {
             </VStack>
           </ModalBody>
           <ModalFooter>
-            <FormActions onCancel={onCancel} onSubmit={handleSubmit} />
+            <FormActions onCancel={onCancel} onSubmit={handleSubmit} dirty={dirty} />
           </ModalFooter>
         </form>
       )}

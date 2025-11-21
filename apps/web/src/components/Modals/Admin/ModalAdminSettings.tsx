@@ -22,22 +22,11 @@ import MessageTriggerActions from "./MessageTriggerActions"
 import DjFeatures from "./DjFeatures"
 import SpotifyFeatures from "./SpotifyFeatures"
 
-const Header = ({
-  showBack,
-  onBack,
-}: {
-  showBack: boolean
-  onBack: () => void
-}) => {
+const Header = ({ showBack, onBack }: { showBack: boolean; onBack: () => void }) => {
   return (
     <HStack>
       {showBack && (
-        <IconButton
-          onClick={onBack}
-          icon={<ArrowBackIcon />}
-          aria-label="back"
-          variant="ghost"
-        >
+        <IconButton onClick={onBack} icon={<ArrowBackIcon />} aria-label="back" variant="ghost">
           Back
         </IconButton>
       )}
@@ -48,7 +37,7 @@ const Header = ({
 
 function ModalAdminSettings() {
   const { state, send } = useModalsStore()
-  const isEditingSettings = useModalsStore((s) => s.state.matches("settings"))
+  const isEditingSettings = useModalsStore((s: any) => s.state.matches("settings"))
 
   const hideEditForm = () => send("CLOSE")
   const onBack = () => {
@@ -56,22 +45,14 @@ function ModalAdminSettings() {
   }
 
   const isTriggersView =
-    state.matches("settings.reaction_triggers") ||
-    state.matches("settings.message_triggers")
+    state.matches("settings.reaction_triggers") || state.matches("settings.message_triggers")
 
   return (
-    <Modal
-      isOpen={isEditingSettings}
-      onClose={hideEditForm}
-      size={isTriggersView ? "2xl" : "md"}
-    >
+    <Modal isOpen={isEditingSettings} onClose={hideEditForm} size={isTriggersView ? "2xl" : "md"}>
       <ModalOverlay />
       <ModalContent bg="appBg">
         <ModalHeader>
-          <Header
-            showBack={!state.matches("settings.overview")}
-            onBack={onBack}
-          />
+          <Header showBack={!state.matches("settings.overview")} onBack={onBack} />
         </ModalHeader>
         <ModalCloseButton />
 

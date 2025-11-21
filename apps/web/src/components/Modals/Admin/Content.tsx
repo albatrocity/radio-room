@@ -41,19 +41,11 @@ function Content() {
         const errors = {}
         return errors
       }}
-      onSubmit={(values, { setSubmitting }) => {
-        send("SET_SETTINGS", { data: values })
-        setSubmitting(false)
+      onSubmit={(values) => {
+        send({ type: "SET_SETTINGS", data: values } as any)
       }}
     >
-      {({
-        values,
-        handleChange,
-        handleBlur,
-        handleSubmit,
-        setTouched,
-        initialValues,
-      }) => (
+      {({ values, handleChange, handleBlur, handleSubmit, setTouched, initialValues, dirty }) => (
         <form onSubmit={handleSubmit}>
           <ModalBody>
             <VStack spacing={6}>
@@ -111,18 +103,16 @@ function Content() {
                       }}
                     />
                     <FormHelperText>
-                      The URL of the internet radio station's streaming audio
-                      feed.
+                      The URL of the internet radio station's streaming audio feed.
                     </FormHelperText>
                   </FormControl>
                   <FormControl>
                     <FormLabel>Radio Protocol</FormLabel>
                     <RadioProtocolSelect value={values.radioProtocol} />
                     <FormHelperText>
-                      The streaming protocol that the internet radio station is
-                      using, which is required for accurate parsing of "now
-                      playing" data. If you get errors when setting up the room,
-                      try changing the protocol.
+                      The streaming protocol that the internet radio station is using, which is
+                      required for accurate parsing of "now playing" data. If you get errors when
+                      setting up the room, try changing the protocol.
                     </FormHelperText>
                   </FormControl>
                 </>
@@ -163,9 +153,8 @@ function Content() {
                   }}
                 />
                 <FormHelperText>
-                  URL of an image to display in the Now Playing area. Overrides
-                  any album artwork from Spotify. Leave blank to use album
-                  artwork.
+                  URL of an image to display in the Now Playing area. Overrides any album artwork
+                  from Spotify. Leave blank to use album artwork.
                 </FormHelperText>
               </FormControl>
 
@@ -182,16 +171,15 @@ function Content() {
                       }
                     }}
                     onBlur={handleBlur}
-                    value={values.fetchMeta}
+                    value={values.fetchMeta ? 1 : 0}
                     name="fetchMeta"
                   >
                     Fetch album metadata
                   </Checkbox>
                   <FormHelperText>
-                    Album Metadata (album artwork, release date, info URL) is
-                    automatically fetched from Spotify based on the data from
-                    the online radio server. If you're getting inaccurate data
-                    or want to display the meta directly from the online radio
+                    Album Metadata (album artwork, release date, info URL) is automatically fetched
+                    from Spotify based on the data from the online radio server. If you're getting
+                    inaccurate data or want to display the meta directly from the online radio
                     station, disable this option.
                   </FormHelperText>
                 </FormControl>
@@ -202,6 +190,7 @@ function Content() {
             <FormActions
               onCancel={() => modalSend("CLOSE")}
               onSubmit={handleSubmit}
+              dirty={dirty}
             />
           </ModalFooter>
         </form>

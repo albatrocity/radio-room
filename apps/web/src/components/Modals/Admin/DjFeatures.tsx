@@ -29,9 +29,8 @@ function DjFeatures() {
         const errors = {}
         return errors
       }}
-      onSubmit={(values, { setSubmitting }) => {
-        send("SET_SETTINGS", { data: values })
-        setSubmitting(false)
+      onSubmit={(values) => {
+        send({ type: "SET_SETTINGS", data: values } as any)
       }}
     >
       {({
@@ -41,6 +40,7 @@ function DjFeatures() {
         handleSubmit,
         setTouched,
         initialValues,
+        dirty,
       }) => (
         <form onSubmit={handleSubmit}>
           <ModalBody>
@@ -73,6 +73,7 @@ function DjFeatures() {
             <FormActions
               onCancel={() => modalSend("CLOSE")}
               onSubmit={handleSubmit}
+              dirty={dirty}
             />
           </ModalFooter>
         </form>

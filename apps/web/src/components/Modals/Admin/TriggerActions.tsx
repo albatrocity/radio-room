@@ -50,7 +50,7 @@ const TriggerActions = <T extends object>(props: Props<T>) => {
         onSubmit(values)
       }}
     >
-      {({ values, handleSubmit }) => (
+      {({ values, handleSubmit, dirty }) => (
         <form onSubmit={handleSubmit}>
           <ModalBody>
             <VStack spacing={6}>
@@ -104,7 +104,7 @@ const TriggerActions = <T extends object>(props: Props<T>) => {
             </VStack>
           </ModalBody>
           <ModalFooter>
-            <FormActions onCancel={onCancel} onSubmit={handleSubmit} />
+            <FormActions onCancel={onCancel} onSubmit={handleSubmit} dirty={dirty} />
           </ModalFooter>
         </form>
       )}

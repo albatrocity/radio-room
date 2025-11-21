@@ -30,9 +30,8 @@ export default function Chat() {
         const errors = {}
         return errors
       }}
-      onSubmit={(values, { setSubmitting }) => {
-        send("SET_SETTINGS", { data: values })
-        setSubmitting(false)
+      onSubmit={(values) => {
+        send({ type: "SET_SETTINGS", data: values } as any)
       }}
     >
       {({
@@ -42,6 +41,7 @@ export default function Chat() {
         handleSubmit,
         setTouched,
         initialValues,
+        dirty,
       }) => (
         <form onSubmit={handleSubmit}>
           <ModalBody>
@@ -98,6 +98,7 @@ export default function Chat() {
             <FormActions
               onCancel={() => modalSend("CLOSE")}
               onSubmit={handleSubmit}
+              dirty={dirty}
             />
           </ModalFooter>
         </form>

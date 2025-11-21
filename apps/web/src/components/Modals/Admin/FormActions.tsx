@@ -1,4 +1,3 @@
-import { CheckIcon } from "@chakra-ui/icons"
 import { Button, HStack } from "@chakra-ui/react"
 import React from "react"
 import { useAdminStore } from "../../../state/adminStore"
@@ -6,23 +5,22 @@ import { useAdminStore } from "../../../state/adminStore"
 type Props = {
   onCancel: () => void
   onSubmit: () => void
+  dirty?: boolean
 }
 
-const FormActions = ({ onSubmit, onCancel }: Props) => {
+const FormActions = ({ onSubmit, onCancel, dirty = false }: Props) => {
   const { state: adminState } = useAdminStore()
+  const isDeleting = adminState.matches("deleting")
+
   return (
     <HStack spacing={2}>
-      <Button variant="outline" onClick={onCancel}>
+      <Button variant="outline" onClick={onCancel} isDisabled={isDeleting}>
         Cancel
       </Button>
       <Button
         type="submit"
-        disabled={!adminState.matches("fetched.untouched")}
-        rightIcon={
-          adminState.matches("fetched.successful") ? (
-            <CheckIcon color="green.500" />
-          ) : undefined
-        }
+        isDisabled={!dirty || isDeleting}
+        isLoading={isDeleting}
         onClick={onSubmit}
       >
         Submit
