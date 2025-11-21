@@ -1,28 +1,5 @@
-import { MetadataSourceTrack } from "./Queue"
-import { SpotifyAlbum } from "./SpotifyAlbum"
-import { SpotifyExternalUrls } from "./SpotifyExternalUrls"
-import { SpotifyImage } from "./SpotifyImage"
-import { User } from "./User"
+import { QueueItem } from "./Queue"
 
-interface SpotifyData {
-  mbid: string
-  releaseDate: string
-  name: string
-  artwork: string
-  artworkImages: SpotifyImage[]
-  external_urls: SpotifyExternalUrls
-  album: SpotifyAlbum
-  url: string
-  uri: string
-}
-
-export interface PlaylistItem {
-  track: MetadataSourceTrack
-  album: string
-  playedAt: number | Date
-  addedAt: number | Date
-  artist: string
-  dj: User
-  spotifyData?: SpotifyData
-  id?: string
-}
+// Re-export QueueItem as PlaylistItem for backward compatibility
+// The server now sends QueueItem format, so we use it directly
+export type PlaylistItem = QueueItem

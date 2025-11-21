@@ -11,19 +11,29 @@ type Props = {
 }
 
 function PlaylistItem({ item }: Props) {
-  const artThumb = useMemo(
-    () => (item.spotifyData?.album?.images || []).find(({ width }) => width < 200)?.url,
-    [item.spotifyData],
-  )
+  // Get album art from track images (QueueItem format)
+  const artThumb = useMemo(() => {
+    const imageUrl = item.track.album?.images?.find(
+      (img) => img.type === "image" && img.url,
+    )?.url
+    return imageUrl
+  }, [item.track.album?.images])
+
   const djUsername = useUsersStore(
     (s) =>
-      s.state.context.users.find((x) => x.userId === item.dj?.userId)?.username ??
-      item.dj?.username,
+      s.state.context.users.find((x) => x.userId === item.addedBy?.userId)?.username ??
+      item.addedBy?.username,
+  )
+
+  // Get external URL from track.urls
+  const externalUrl = useMemo(
+    () => item.track.urls?.find((url) => url.type === "resource")?.url,
+    [item.track.urls],
   )
 
   return (
     <Stack
-      key={item.playedAt.toString()}
+      key={item.playedAt?.toString() || item.addedAt.toString()}
       direction={["column", "row"]}
       justifyContent="space-between"
       align="stretch"
@@ -37,8 +47,8 @@ function PlaylistItem({ item }: Props) {
             </Box>
           )}
           <Stack direction="column" spacing={0}>
-            {(item.track || item.album) && (
-              <LinkOverlay isExternal href={item.spotifyData?.external_urls?.spotify} m={0}>
+            {item.track && (
+              <LinkOverlay isExternal href={externalUrl} m={0}>
                 <Text fontWeight={"bold"}>{item.track.title}</Text>
               </LinkOverlay>
             )}
@@ -54,9 +64,9 @@ function PlaylistItem({ item }: Props) {
         align="end"
       >
         <Text color="secondaryText" fontSize="xs" textAlign="right">
-          {format(item.playedAt, "p")}
+          {item.playedAt ? format(item.playedAt, "p") : format(item.addedAt, "p")}
         </Text>
-        {!!item.dj && (
+        {!!item.addedBy && (
           <Stack direction="row" spacing={2} justifyContent="center" alignItems="center">
             <Icon boxSize={3} color="secondaryText" as={FiUser} />
             <Text as="i" fontSize="xs" color="secondaryText">

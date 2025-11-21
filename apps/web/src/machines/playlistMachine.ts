@@ -1,10 +1,10 @@
 import { assign, createMachine } from "xstate"
 import { uniqBy } from "lodash/fp"
 import socketService from "../lib/socketService"
-import { PlaylistItem } from "../types/PlaylistItem"
+import { QueueItem } from "../types/Queue"
 
 interface Context {
-  playlist: PlaylistItem[]
+  playlist: QueueItem[]
 }
 
 export const playlistMachine = createMachine<Context>(
@@ -65,7 +65,11 @@ export const playlistMachine = createMachine<Context>(
           if (event.type !== "ROOM_DATA") {
             return ctx.playlist
           }
-          return uniqBy("timestamp", [...ctx.playlist, ...event.data.playlist])
+          // Use track.id as unique key since QueueItem doesn't have timestamp
+          return uniqBy(
+            (item: QueueItem) => item.track.id,
+            [...ctx.playlist, ...event.data.playlist],
+          )
         },
       }),
       addToPlaylist: assign({

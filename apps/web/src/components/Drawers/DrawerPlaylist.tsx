@@ -1,14 +1,5 @@
 import React, { FormEvent, useCallback, useEffect, useState } from "react"
-import {
-  Box,
-  Button,
-  HStack,
-  Text,
-  Link,
-  useBoolean,
-  useConst,
-  VStack,
-} from "@chakra-ui/react"
+import { Box, Button, HStack, Text, Link, useBoolean, useConst, VStack } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { useMachine } from "@xstate/react"
 
@@ -27,10 +18,7 @@ import { Reaction } from "../../types/Reaction"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { Emoji } from "../../types/Emoji"
 import PlaylistWindow from "../PlaylistWindow"
-import {
-  useIsSpotifyAuthenticated,
-  useSpotifyAccessToken,
-} from "../../state/spotifyAuthStore"
+import { useIsSpotifyAuthenticated, useSpotifyAccessToken } from "../../state/spotifyAuthStore"
 import { useIsAdmin } from "../../state/authStore"
 import { useCurrentRoom } from "../../state/roomStore"
 
@@ -44,6 +32,7 @@ function DrawerPlaylist() {
   const room = useCurrentRoom()
   const today = useConst(() => format(new Date(), "M/d/y"))
   const defaultPlaylistName = `${room?.title} ${today}`
+  console.log("currentPlaylist", currentPlaylist)
   const [name, setName] = useState<string>(defaultPlaylistName)
   const [state, send] = useMachine(savePlaylistMachine, {
     context: {
@@ -99,31 +88,25 @@ function DrawerPlaylist() {
     ? filterPlaylist(emojis)
     : currentPlaylist
 
-  const [selectedPlaylistState, selectedPlaylistSend] = useMachine(
-    toggleableCollectionMachine,
-    {
-      context: {
-        collection: currentPlaylist,
-        persistent: false,
-        name: "playlist-selected",
-        idPath: "spotifyData.uri",
-      },
+  const [selectedPlaylistState, selectedPlaylistSend] = useMachine(toggleableCollectionMachine, {
+    context: {
+      collection: currentPlaylist,
+      persistent: false,
+      name: "playlist-selected",
+      idPath: "track.id", // Use track.id from QueueItem
     },
-  )
+  })
 
   const handleSelectionChange = (item: PlaylistItem) => {
     selectedPlaylistSend("TOGGLE_ITEM", {
-      data: { ...item, id: item.spotifyData?.uri },
+      data: { ...item, id: item.track.id },
     })
   }
   const handleNameChange = (name: string) => setName(name)
   const handleFilterChange = (emoji: Emoji) => {
     filterSend("TOGGLE_ITEM", { data: emoji })
   }
-  const handleTogglePlaylist = useCallback(
-    () => playlistSend("TOGGLE_PLAYLIST"),
-    [playlistSend],
-  )
+  const handleTogglePlaylist = useCallback(() => playlistSend("TOGGLE_PLAYLIST"), [playlistSend])
   const handleSave = useCallback(
     (e: FormEvent) => {
       e.preventDefault()
@@ -192,8 +175,7 @@ function DrawerPlaylist() {
                 size="sm"
                 variant="ghost"
                 isDisabled={
-                  currentPlaylist.length ===
-                  selectedPlaylistState.context.collection.length
+                  currentPlaylist.length === selectedPlaylistState.context.collection.length
                 }
               >
                 Add {filteredPlaylistItems.length} Filtered
@@ -204,8 +186,7 @@ function DrawerPlaylist() {
               size="sm"
               variant="ghost"
               isDisabled={
-                currentPlaylist.length ===
-                selectedPlaylistState.context.collection.length
+                currentPlaylist.length === selectedPlaylistState.context.collection.length
               }
             >
               Select All {currentPlaylist.length}
