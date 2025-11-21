@@ -1,15 +1,15 @@
 import { assign, sendTo, createMachine, AnyEventObject } from "xstate"
 import socketService from "../lib/socketService"
 import { search } from "../lib/spotify/spotifyApi"
-import { SpotifyTrack } from "../types/SpotifyTrack"
+import { MetadataSourceTrack } from "@repo/types"
 
 type RequestError = {
   message: string
   error?: any
 }
 
-interface Context {
-  results: SpotifyTrack[]
+export interface TrackSearchContext {
+  results: MetadataSourceTrack[]
   error: RequestError | null
   total: number
   offset: number
@@ -19,14 +19,14 @@ interface Context {
   accessToken?: string
 }
 
-type SpotifySearchEvent =
+type TrackSearchEvent =
   | {
       type: "FETCH_RESULTS"
       value: string
     }
   | AnyEventObject
 
-async function searchSpotify(ctx: Context, event: SpotifySearchEvent) {
+async function searchTracks(ctx: TrackSearchContext, event: TrackSearchEvent) {
   if (!ctx.accessToken) {
     throw new Error("No access token found")
   }
@@ -41,10 +41,10 @@ async function searchSpotify(ctx: Context, event: SpotifySearchEvent) {
   return {}
 }
 
-export const spotifySearchMachine = createMachine<Context>(
+export const trackSearchMachine = createMachine<TrackSearchContext>(
   {
     predictableActionArguments: true,
-    id: "spotify-search",
+    id: "track-search",
     initial: "idle",
     context: {
       results: [],
@@ -83,7 +83,7 @@ export const spotifySearchMachine = createMachine<Context>(
           client: {
             invoke: {
               id: "search",
-              src: searchSpotify,
+              src: searchTracks,
               onDone: {
                 target: "#idle",
                 actions: ["setResults"],
@@ -149,3 +149,4 @@ export const spotifySearchMachine = createMachine<Context>(
     },
   },
 )
+

@@ -200,13 +200,28 @@ export class DJHandlers {
   }
 
   /**
-   * Search for tracks using the room's metadata source
+   * Search for tracks using the room creator's metadata source
+   * This allows guests without Spotify auth to search using the room's credentials
    */
   searchForTrack = async ({ socket }: HandlerConnections, { query }: { query: string }) => {
     const { roomId } = socket.data
 
-    // Get the room's metadata source
-    const metadataSource = await this.adapterService.getRoomMetadataSource(roomId)
+    // Get the room to find the creator
+    const { findRoom } = await import("../operations/data")
+    const room = await findRoom({ context: this.context, roomId })
+
+    if (!room) {
+      socket.emit("event", {
+        type: "TRACK_SEARCH_RESULTS_FAILURE",
+        data: {
+          message: "Room not found",
+        },
+      })
+      return
+    }
+
+    // Use the room creator's metadata source so guests can search
+    const metadataSource = await this.adapterService.getUserMetadataSource(roomId, room.creator)
 
     if (!metadataSource) {
       socket.emit("event", {
@@ -221,9 +236,15 @@ export class DJHandlers {
     const result = await this.djService.searchForTrack(metadataSource, query)
 
     if (result.success) {
+      // Wrap the results in the format the frontend expects
       socket.emit("event", {
         type: "TRACK_SEARCH_RESULTS",
-        data: result.data,
+        data: {
+          items: result.data || [], // Frontend expects { items: [...] }
+          total: result.data?.length || 0,
+          offset: 0,
+          limit: 20,
+        },
       })
     } else {
       socket.emit("event", {

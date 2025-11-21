@@ -1,24 +1,24 @@
 import React from "react"
 import { useMachine } from "@xstate/react"
 
-import { spotifySearchMachine } from "../machines/spotifySearchMachine"
+import { trackSearchMachine, TrackSearchContext } from "../machines/trackSearchMachine"
 import { Box, InputProps, Text } from "@chakra-ui/react"
 
 import { Select, SingleValue } from "chakra-react-select"
 
-import { SpotifyTrack } from "../types/SpotifyTrack"
-import ItemSpotifyTrack from "./ItemSpotifyTrack"
+import { MetadataSourceTrack } from "@repo/types"
+import TrackItem from "./TrackItem"
 import { debounceInputMachine } from "../machines/debouncedInputMachine"
 import { useSpotifyAccessToken } from "../state/spotifyAuthStore"
 
 type Props = {
-  onChoose: (item: SingleValue<SpotifyTrack>) => void
+  onChoose: (item: SingleValue<MetadataSourceTrack>) => void
   onDropdownOpenChange?: (isOpen: boolean) => void
 } & InputProps
 
-function SpotifySearch({ onChoose, onDropdownOpenChange }: Props) {
+function TrackSearch({ onChoose, onDropdownOpenChange }: Props) {
   const accessToken = useSpotifyAccessToken()
-  const [state, send] = useMachine(spotifySearchMachine, {
+  const [state, send] = useMachine(trackSearchMachine, {
     context: {
       accessToken,
     },
@@ -30,7 +30,7 @@ function SpotifySearch({ onChoose, onDropdownOpenChange }: Props) {
       },
     },
   })
-  const results: SpotifyTrack[] = state.context.results
+  const results: TrackSearchContext["results"] = state.context.results
   const isMenuOpen =
     state.matches("idle") && results.length > 0 && inputState.context.searchValue !== ""
 
@@ -39,7 +39,7 @@ function SpotifySearch({ onChoose, onDropdownOpenChange }: Props) {
       {state.matches("failure") && <Text color="red">{state.context.error?.message}</Text>}
 
       <Select
-        placeholder={"Search for a track on Spotify"}
+        placeholder={"Search for a track"}
         options={results}
         menuIsOpen={isMenuOpen}
         filterOption={() => true}
@@ -50,7 +50,7 @@ function SpotifySearch({ onChoose, onDropdownOpenChange }: Props) {
           DropdownIndicator: null,
           Option: ({ data, innerRef, innerProps, isFocused }) => (
             <Box ref={innerRef} {...innerProps} bg={isFocused ? "actionBgLite" : "transparent"}>
-              <ItemSpotifyTrack {...data} />
+              <TrackItem {...data} />
             </Box>
           ),
         }}
@@ -69,4 +69,5 @@ function SpotifySearch({ onChoose, onDropdownOpenChange }: Props) {
   )
 }
 
-export default SpotifySearch
+export default TrackSearch
+

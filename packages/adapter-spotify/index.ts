@@ -60,8 +60,6 @@ export const playbackController: PlaybackControllerAdapter = {
       roomId,
       userId,
       onTrackChange: async (track) => {
-        console.log(`Track changed in room ${roomId}:`, track.title)
-
         // Check if this track is in the queue to preserve its addedAt timestamp
         const queue = await getQueue({ context, roomId })
         const queuedTrack = queue.find((item) => item.track.id === track.id)
@@ -75,14 +73,6 @@ export const playbackController: PlaybackControllerAdapter = {
           addedDuring: "nowPlaying" as const,
           playedAt: Date.now(),
         }
-
-        console.log(`[Spotify polling] Track timestamps:`, {
-          trackId: track.id,
-          wasInQueue: !!queuedTrack,
-          addedAt: nowPlaying.addedAt,
-          playedAt: nowPlaying.playedAt,
-          queuedAddedAt: queuedTrack?.addedAt,
-        })
 
         // Update room's now playing data - fire and forget
         handleRoomNowPlayingData({

@@ -3,14 +3,14 @@ import { Box, Center, Spinner, VStack } from "@chakra-ui/react"
 import { useMachine } from "@xstate/react"
 
 import { savedTracksMachine } from "../machines/savedTracksMachine"
-import ItemSpotifyTrack from "./ItemSpotifyTrack"
-import { SpotifyTrack } from "../types/SpotifyTrack"
+import TrackItem from "./TrackItem"
+import { MetadataSourceTrack } from "@repo/types"
 import { useSpotifyAccessToken } from "../state/spotifyAuthStore"
 
 interface Props {
-  onClick?: (track: SpotifyTrack) => void
+  onClick?: (track: MetadataSourceTrack) => void
   isDisabled?: boolean
-  loadingItem?: SpotifyTrack | null
+  loadingItem?: MetadataSourceTrack | null
 }
 
 export default function SpotifySavedTracks({
@@ -36,7 +36,7 @@ export default function SpotifySavedTracks({
           position="relative"
           w="100%"
         >
-          <ItemSpotifyTrack {...track} />
+          <TrackItem {...track} />
           {loadingItem?.id === track.id && (
             <Box
               position="absolute"

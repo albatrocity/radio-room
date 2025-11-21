@@ -1,11 +1,11 @@
 import React from "react"
 import { Box, Text } from "@chakra-ui/react"
-import SpotifySearch from "./SpotifySearch"
+import TrackSearch from "./TrackSearch"
 import { SingleValue } from "chakra-react-select"
-import { SpotifyTrack } from "../types/SpotifyTrack"
+import { MetadataSourceTrack } from "@repo/types"
 
 type Props = {
-  onAddToQueue: (track: SpotifyTrack) => void
+  onAddToQueue: (track: MetadataSourceTrack) => void
   isDisabled?: boolean
   onDropdownOpenChange: (isOpen: boolean) => void
 }
@@ -15,7 +15,7 @@ const FormAddToQueue = ({
   isDisabled,
   onDropdownOpenChange,
 }: Props) => {
-  const handleSelect = (track: SingleValue<SpotifyTrack>) => {
+  const handleSelect = (track: SingleValue<MetadataSourceTrack>) => {
     if (track) {
       onAddToQueue(track)
     }
@@ -27,9 +27,9 @@ const FormAddToQueue = ({
         Selecting a song will send it to the DJ's play queue, where they can
         choose to leave it in, reorder it, or remove it completely.
       </Text>
-      <SpotifySearch
+      <TrackSearch
         onChoose={handleSelect}
-        placeholder="Search for a track on Spotify"
+        placeholder="Search for a track"
         isDisabled={isDisabled}
         onDropdownOpenChange={onDropdownOpenChange}
         autoFocus

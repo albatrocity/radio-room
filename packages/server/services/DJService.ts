@@ -173,14 +173,6 @@ export class DJService {
 
     await addToQueue({ context: this.context, roomId, item: queuedItem })
 
-    console.log("[DJService.queueSong] Successfully queued track:", {
-      trackId: track.id,
-      trackTitle: track.title,
-      addedAt: queuedItem.addedAt,
-      playedAt: queuedItem.playedAt,
-      roomId,
-    })
-
     return {
       success: true,
       queuedItem,
