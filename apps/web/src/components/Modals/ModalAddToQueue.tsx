@@ -31,11 +31,7 @@ function ModalAddToQueue() {
   }
 
   return (
-    <Modal
-      isOpen={isAddingToQueue}
-      onClose={hideEditForm}
-      heading="Add to play queue"
-    >
+    <Modal isOpen={isAddingToQueue} onClose={hideEditForm} heading="Add to play queue">
       <Stack direction="column" spacing={8}>
         <Box zIndex={2}>
           <FormAddToQueue

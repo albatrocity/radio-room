@@ -37,6 +37,19 @@ export async function makeApi({
       const query = `track:${title} artist:${artists.join(" OR ")} album:${album} id:${id}`
       return this.search(query)
     },
+    // Library management methods
+    async checkSavedTracks(trackIds: string[]) {
+      return await spotifyApi.currentUser.tracks.hasSavedTracks(trackIds)
+    },
+    async addToLibrary(trackIds: string[]) {
+      // The Spotify API PUT /v1/me/tracks expects body: { ids: [...] }
+      // but the SDK's saveTracks sends the array directly, so we need to use makeRequest
+      await spotifyApi.makeRequest("PUT", "me/tracks", { ids: trackIds })
+    },
+    async removeFromLibrary(trackIds: string[]) {
+      // The Spotify API DELETE /v1/me/tracks expects body: { ids: [...] }
+      await spotifyApi.makeRequest("DELETE", "me/tracks", { ids: trackIds })
+    },
   }
 
   return api

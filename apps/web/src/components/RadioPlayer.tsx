@@ -90,7 +90,7 @@ const RadioPlayer = ({
           <Box py={1} h={10} overflowX="auto">
             <Box px={4} flexDir="row">
               <HStack alignItems="flex-start">
-                <ButtonAddToLibrary id={meta?.release?.id} />
+                <ButtonAddToLibrary id={meta?.release?.track?.id} />
                 <ReactionCounter
                   reactTo={{ type: "track", id: trackId }}
                   showAddButton={true}
@@ -104,12 +104,7 @@ const RadioPlayer = ({
       </Hide>
       <Box background="actionBgLite" py={1}>
         <Container px={3}>
-          <HStack
-            w="100%"
-            direction="row"
-            justify="space-between"
-            align="center"
-          >
+          <HStack w="100%" direction="row" justify="space-between" align="center">
             <HStack>
               {hasPlaylist && (
                 <IconButton
@@ -133,11 +128,7 @@ const RadioPlayer = ({
                   aria-label={muted ? "Unmute" : "Mute"}
                   variant="ghost"
                   icon={
-                    muted ? (
-                      <Icon as={FiVolumeX} boxSize={5} />
-                    ) : (
-                      <Icon as={FiVolume} boxSize={5} />
-                    )
+                    muted ? <Icon as={FiVolumeX} boxSize={5} /> : <Icon as={FiVolume} boxSize={5} />
                   }
                   onClick={() => onMute()}
                 />

@@ -1,16 +1,9 @@
-import { createMachine, assign } from "xstate"
+import { createMachine, assign, sendTo } from "xstate"
 import socketService from "../lib/socketService"
-import {
-  CheckedSavedTracksResponse,
-  checkSavedTracks as apiCheck,
-  addSavedTracks as apiAdd,
-  removeSavedTracks as apiRemove,
-} from "../lib/spotify/spotifyApi"
 import { toast } from "../lib/toasts"
 
 interface Context {
   ids: string[]
-  accessToken?: string
   tracks: Record<string, boolean>
 }
 
@@ -18,121 +11,88 @@ type Event =
   | { type: "ADD"; data?: string[] }
   | { type: "REMOVE"; data?: string[] }
   | { type: "SET_IDS"; data?: string[] }
-  | { type: "SET_ACCESS_TOKEN"; data?: string }
-  | {
-      type: "SPOTIFY_AUTHENTICATION_STATUS"
-      data?: {
-        isAuthenticated: boolean
-      }
-    }
   | { type: "CHECK" }
-  | { type: "done.invoke.checking"; data: CheckedSavedTracksResponse }
-  | { type: "INIT"; data: { accessToken?: string } }
-  | { type: "SPOTIFY_ACCESS_TOKEN_REFRESHED"; data: { accessToken?: string } }
+  | { type: "CHECK_SAVED_TRACKS_RESULTS"; data: { results: boolean[]; trackIds: string[] } }
+  | { type: "CHECK_SAVED_TRACKS_FAILURE"; data: { message: string } }
+  | { type: "ADD_TO_LIBRARY_SUCCESS"; data: { trackIds: string[] } }
+  | { type: "ADD_TO_LIBRARY_FAILURE"; data: { message: string } }
+  | { type: "REMOVE_FROM_LIBRARY_SUCCESS"; data: { trackIds: string[] } }
+  | { type: "REMOVE_FROM_LIBRARY_FAILURE"; data: { message: string } }
 
-async function checkSavedTracks(ctx: Context) {
-  if (!ctx.accessToken) {
-    throw new Error("No access token found")
-  }
-  const res = await apiCheck({ accessToken: ctx.accessToken, ids: ctx.ids })
-  return res
-}
-
-async function addSavedTracks(ctx: Context, event: Event) {
-  if (!ctx.accessToken) {
-    throw new Error("No access token found")
-  }
-  if (event.type == "ADD") {
-    await apiAdd({
-      accessToken: ctx.accessToken,
-      ids: event.data ?? ctx.ids,
-    })
-    return ctx.ids
-  }
-  return ctx.ids
-}
-
-async function removeSavedTracks(ctx: Context, event: Event) {
-  if (!ctx.accessToken) {
-    throw new Error("No access token found")
-  }
-  if (event.type == "REMOVE") {
-    await apiRemove({
-      accessToken: ctx.accessToken,
-      ids: event.data ?? ctx.ids,
-    })
-    return ctx.ids
-  }
-  return ctx.ids
-}
-
-const spotifyAddToLibraryMachine = createMachine<Context, Event>(
+const addToLibraryMachine = createMachine<Context, Event>(
   {
-    id: "spotifyAddToLibrary",
+    id: "addToLibrary",
     initial: "initial",
     context: {
       ids: [],
       tracks: {},
-      accessToken: undefined,
     },
     invoke: [
       {
         id: "socket",
-        src: () => socketService,
+        src: () => socketService as any,
       },
     ],
     on: {
-      INIT: {
-        actions: ["assignAccessToken"],
-        target: "initial",
-        cond: "hasAccessToken",
-      },
-      SPOTIFY_ACCESS_TOKEN_REFRESHED: {
-        actions: ["assignAccessToken"],
-        target: "initial",
-        cond: "hasAccessToken",
-      },
       SET_IDS: {
         actions: ["setIds"],
         target: "loading.checking",
+      },
+      CHECK_SAVED_TRACKS_RESULTS: {
+        target: "checked",
+        actions: ["setCheckedTracks"],
+      },
+      CHECK_SAVED_TRACKS_FAILURE: {
+        target: "error",
+        actions: ["showError"],
+      },
+      ADD_TO_LIBRARY_SUCCESS: {
+        target: "loading.checking",
+        actions: ["showAddSuccess"],
+      },
+      ADD_TO_LIBRARY_FAILURE: {
+        target: "error",
+        actions: ["showError"],
+      },
+      REMOVE_FROM_LIBRARY_SUCCESS: {
+        target: "loading.checking",
+        actions: ["showRemoveSuccess"],
+      },
+      REMOVE_FROM_LIBRARY_FAILURE: {
+        target: "error",
+        actions: ["showError"],
       },
     },
     states: {
       initial: {
         always: [
           { target: "loading.checking", cond: "canFetch" },
-          { target: "error", cond: "cannotFetch" },
+          { target: "idle", cond: "cannotFetch" },
         ],
+      },
+      idle: {
+        on: {
+          SET_IDS: {
+            actions: ["setIds"],
+            target: "loading.checking",
+          },
+        },
       },
       loading: {
         states: {
           checking: {
-            entry: ["notifyAction"],
-            invoke: {
-              src: checkSavedTracks,
-              onDone: "#checked",
-              onError: "#error",
-            },
+            entry: ["sendCheckRequest"],
           },
           adding: {
-            invoke: {
-              src: addSavedTracks,
-              onDone: "checking",
-              onError: "#error",
-            },
+            entry: ["sendAddRequest"],
           },
           removing: {
-            invoke: {
-              src: removeSavedTracks,
-              onDone: "checking",
-              onError: "#error",
-            },
+            entry: ["sendRemoveRequest"],
           },
         },
       },
       checked: {
         id: "checked",
-        entry: ["setCheckedTracks"],
         on: {
           CHECK: "loading.checking",
           ADD: "loading.adding",
@@ -141,30 +101,43 @@ const spotifyAddToLibraryMachine = createMachine<Context, Event>(
       },
       error: {
         id: "error",
+        on: {
+          CHECK: "loading.checking",
+          SET_IDS: {
+            actions: ["setIds"],
+            target: "loading.checking",
+          },
+        },
       },
     },
   },
   {
     actions: {
+      sendCheckRequest: sendTo("socket", (ctx) => ({
+        type: "check saved tracks",
+        data: ctx.ids, // socketService will emit this array directly
+      })),
+      sendAddRequest: sendTo("socket", (ctx, event) => ({
+        type: "add to library",
+        data: event.type === "ADD" ? event.data ?? ctx.ids : ctx.ids, // Array sent directly
+      })),
+      sendRemoveRequest: sendTo("socket", (ctx, event) => ({
+        type: "remove from library",
+        data: event.type === "REMOVE" ? event.data ?? ctx.ids : ctx.ids, // Array sent directly
+      })),
       setCheckedTracks: assign((ctx, event) => {
-        if (
-          event.type === "CHECK" ||
-          event.type === "ADD" ||
-          event.type === "REMOVE" ||
-          event.type === "SET_IDS" ||
-          event.type === "SPOTIFY_AUTHENTICATION_STATUS"
-        ) {
-          return ctx
+        if (event.type === "CHECK_SAVED_TRACKS_RESULTS") {
+          return {
+            tracks: event.data.trackIds.reduce(
+              (acc, id, index) => {
+                acc[id] = event.data.results[index]
+                return acc
+              },
+              { ...ctx.tracks },
+            ),
+          }
         }
-        return {
-          tracks: ctx.ids.reduce(
-            (acc, id, index) => {
-              acc[id] = event.data[index]
-              return acc
-            },
-            { ...ctx.tracks },
-          ),
-        }
+        return ctx
       }),
       setIds: assign((ctx, event) => {
         if (event.type === "SET_IDS") {
@@ -174,48 +147,41 @@ const spotifyAddToLibraryMachine = createMachine<Context, Event>(
         }
         return ctx
       }),
-      assignAccessToken: assign({
-        accessToken: (ctx, event) => {
-          if (
-            event.type === "SPOTIFY_ACCESS_TOKEN_REFRESHED" ||
-            event.type === "INIT"
-          ) {
-            return event.data.accessToken ?? ctx.accessToken
-          }
-          return ctx.accessToken
-        },
-      }),
-      notifyAction: (ctx, event) => {
-        const label = ctx.ids.length > 1 ? "tracks" : "track"
-        const action = event.type.includes("adding") ? "Added" : "Removed"
-        const conjunction = event.type.includes("adding") ? "to" : "from"
-
-        if (event.type.includes("removing") || event.type.includes("adding")) {
+      showAddSuccess: () => {
+        toast({
+          title: "Added to your library",
+          status: "success",
+        })
+      },
+      showRemoveSuccess: () => {
+        toast({
+          title: "Removed from your library",
+          status: "success",
+        })
+      },
+      showError: (ctx, event) => {
+        if (
+          event.type === "CHECK_SAVED_TRACKS_FAILURE" ||
+          event.type === "ADD_TO_LIBRARY_FAILURE" ||
+          event.type === "REMOVE_FROM_LIBRARY_FAILURE"
+        ) {
           toast({
-            title: `${action} ${label} ${conjunction} your Spotify library`,
-            status: "success",
+            title: "Error",
+            description: event.data.message,
+            status: "error",
           })
         }
       },
     },
     guards: {
-      canFetch: (ctx, e) => {
-        return !!ctx.accessToken && ctx.ids && ctx.ids.length > 0
+      canFetch: (ctx) => {
+        return ctx.ids && ctx.ids.length > 0
       },
       cannotFetch: (ctx) => {
-        return !ctx.accessToken || !ctx.ids || ctx.ids.length === 0
-      },
-      hasAccessToken: (ctx, event) => {
-        if (
-          event.type === "INIT" ||
-          event.type === "SPOTIFY_ACCESS_TOKEN_REFRESHED"
-        ) {
-          return !!event.data.accessToken
-        }
-        return !!ctx.accessToken
+        return !ctx.ids || ctx.ids.length === 0
       },
     },
   },
 )
 
-export default spotifyAddToLibraryMachine
+export default addToLibraryMachine

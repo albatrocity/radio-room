@@ -26,22 +26,17 @@ function SpotifySearch({ onChoose, onDropdownOpenChange }: Props) {
   const [inputState, inputSend] = useMachine(debounceInputMachine, {
     actions: {
       onSearchChange: (_context, event) => {
-        if (event.value && event.value !== "")
-          send("FETCH_RESULTS", { value: event.value })
+        if (event.value && event.value !== "") send("FETCH_RESULTS", { value: event.value })
       },
     },
   })
   const results: SpotifyTrack[] = state.context.results
   const isMenuOpen =
-    state.matches("idle") &&
-    results.length > 0 &&
-    inputState.context.searchValue !== ""
+    state.matches("idle") && results.length > 0 && inputState.context.searchValue !== ""
 
   return (
     <Box>
-      {state.matches("failure") && (
-        <Text color="red">{state.context.error?.message}</Text>
-      )}
+      {state.matches("failure") && <Text color="red">{state.context.error?.message}</Text>}
 
       <Select
         placeholder={"Search for a track on Spotify"}
@@ -54,11 +49,7 @@ function SpotifySearch({ onChoose, onDropdownOpenChange }: Props) {
         components={{
           DropdownIndicator: null,
           Option: ({ data, innerRef, innerProps, isFocused }) => (
-            <Box
-              ref={innerRef}
-              {...innerProps}
-              bg={isFocused ? "actionBgLite" : "transparent"}
-            >
+            <Box ref={innerRef} {...innerProps} bg={isFocused ? "actionBgLite" : "transparent"}>
               <ItemSpotifyTrack {...data} />
             </Box>
           ),

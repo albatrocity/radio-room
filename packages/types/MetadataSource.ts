@@ -76,6 +76,10 @@ export interface MetadataSourceApi {
     trackIds: MetadataSourceTrack["id"][]
     id: string
   }>
+  // Library management methods (optional)
+  checkSavedTracks?: (trackIds: string[]) => Promise<boolean[]>
+  addToLibrary?: (trackIds: string[]) => Promise<void>
+  removeFromLibrary?: (trackIds: string[]) => Promise<void>
 }
 
 export interface MetadataSourceError {

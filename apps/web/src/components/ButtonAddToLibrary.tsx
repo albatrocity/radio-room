@@ -3,24 +3,19 @@ import { useMachine } from "@xstate/react"
 import { IconButton } from "@chakra-ui/react"
 import { FaRegHeart, FaHeart } from "react-icons/fa"
 
-import {
-  useIsSpotifyAuthenticated,
-  useSpotifyAccessToken,
-} from "../state/spotifyAuthStore"
-import spotifyAddToLibraryMachine from "../machines/spotifyAddToLibraryMachine"
+import { useIsAdmin } from "../state/authStore"
+import addToLibraryMachine from "../machines/spotifyAddToLibraryMachine"
 
 interface Props {
   id?: string
 }
 
 export default function ButtonAddToLibrary({ id }: Props) {
-  const isAuthed = useIsSpotifyAuthenticated()
-  const accessToken = useSpotifyAccessToken()
+  const isAdmin = useIsAdmin()
 
-  const [state, send] = useMachine(spotifyAddToLibraryMachine, {
+  const [state, send] = useMachine(addToLibraryMachine, {
     context: {
       ids: id ? [id] : undefined,
-      accessToken,
     },
   })
 
@@ -32,22 +27,15 @@ export default function ButtonAddToLibrary({ id }: Props) {
     }
   }, [id])
 
-  useEffect(() => {
-    if (accessToken) {
-      send("SET_ACCESS_TOKEN", { data: accessToken })
-    }
-  }, [accessToken])
-
-  if (!isAuthed || !id) {
+  // Only show button to room creators (admin)
+  if (!isAdmin || !id) {
     return null
   }
 
   return (
     <IconButton
       icon={isAdded ? <FaHeart /> : <FaRegHeart />}
-      aria-label={
-        isAdded ? "Remove from Spotify Library" : "Add to Spotify library"
-      }
+      aria-label={isAdded ? "Remove from library" : "Add to library"}
       size="sm"
       variant="darkGhost"
       isLoading={state.matches("loading")}

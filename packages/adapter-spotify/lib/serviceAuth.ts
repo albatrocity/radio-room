@@ -85,6 +85,12 @@ export function createSpotifyServiceAuthAdapter(context: AppContext): ServiceAut
         tokens: newTokens,
       })
 
+      // Publish token refresh to notify connected clients
+      context.redis.pubClient.publish(
+        "SPOTIFY:USER_ACCESS_TOKEN_REFRESHED",
+        JSON.stringify({ userId, accessToken: refreshed.accessToken }),
+      )
+
       return newTokens
     },
   }

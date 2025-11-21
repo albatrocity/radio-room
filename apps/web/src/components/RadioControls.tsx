@@ -48,15 +48,10 @@ export default function RadioControls({
 
   return (
     <Box>
-      <Box
-        display={["none", "flex"]}
-        background="actionBg"
-        alignItems="center"
-        py="1"
-      >
+      <Box display={["none", "flex"]} background="actionBg" alignItems="center" py="1">
         <Container>
           <HStack>
-            <ButtonAddToLibrary id={meta?.release?.id} />
+            <ButtonAddToLibrary id={meta?.release?.track?.id} />
             <ReactionCounter
               reactTo={{ type: "track", id: trackId }}
               darkBg={true}

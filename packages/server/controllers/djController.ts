@@ -54,6 +54,27 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
       await handlers.savePlaylist(connections, { name, trackIds })
     },
   )
+
+  /**
+   * Check if tracks are saved in user's library
+   */
+  socket.on("check saved tracks", async (trackIds: string[]) => {
+    await handlers.checkSavedTracks(connections, trackIds)
+  })
+
+  /**
+   * Add tracks to user's library
+   */
+  socket.on("add to library", async (trackIds: string[]) => {
+    await handlers.addToLibrary(connections, trackIds)
+  })
+
+  /**
+   * Remove tracks from user's library
+   */
+  socket.on("remove from library", async (trackIds: string[]) => {
+    await handlers.removeFromLibrary(connections, trackIds)
+  })
 }
 
 /**

@@ -17,12 +17,7 @@ type Props = {
   onShowPlaylist: () => void
 }
 
-export default function JukeboxControls({
-  trackId,
-  meta,
-  hasPlaylist,
-  onShowPlaylist,
-}: Props) {
+export default function JukeboxControls({ trackId, meta, hasPlaylist, onShowPlaylist }: Props) {
   const isAdmin = useIsAdmin()
   return (
     <Box>
@@ -30,7 +25,7 @@ export default function JukeboxControls({
         <Box py={1} h={10} overflowX="auto">
           <Box px={4} flexDir="row">
             <HStack alignItems="flex-start">
-              <ButtonAddToLibrary id={meta?.release?.id} />
+              <ButtonAddToLibrary id={meta?.release?.track?.id} />
               <ReactionCounter
                 reactTo={{ type: "track", id: trackId }}
                 showAddButton={true}
@@ -43,10 +38,7 @@ export default function JukeboxControls({
       </Box>
       <Box background="actionBgLite">
         <Box>
-          <HStack
-            px={2}
-            justifyContent={hasPlaylist ? "space-between" : "flex-end"}
-          >
+          <HStack px={2} justifyContent={hasPlaylist ? "space-between" : "flex-end"}>
             {hasPlaylist && (
               <IconButton
                 size="md"

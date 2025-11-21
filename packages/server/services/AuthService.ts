@@ -168,8 +168,20 @@ export class AuthService {
     const meta = await getRoomCurrent({ context: this.context, roomId })
     const allReactions = await getAllRoomReactions({ context: this.context, roomId })
 
-    // TODO: Get a stored access token for the correct service
-    const accessToken = "dummy-access-token"
+    // Get access token for room creator to enable authenticated features (search, liked tracks, etc.)
+    let accessToken: string | undefined = undefined
+    if (isAdmin && room.metadataSourceId && this.context.data?.getUserServiceAuth) {
+      try {
+        const auth = await this.context.data.getUserServiceAuth({
+          userId,
+          serviceName: room.metadataSourceId,
+        })
+        accessToken = auth?.accessToken
+        console.log(`Retrieved ${room.metadataSourceId} access token for room creator ${userId}`)
+      } catch (error) {
+        console.error(`Failed to retrieve access token for room creator ${userId}:`, error)
+      }
+    }
 
     return {
       initData: {
@@ -186,7 +198,7 @@ export class AuthService {
           isDeputyDj,
           isAdmin,
         },
-        accessToken,
+        accessToken, // Only set for room creator with metadata source
         isNewUser: isNew,
       },
       userData: {

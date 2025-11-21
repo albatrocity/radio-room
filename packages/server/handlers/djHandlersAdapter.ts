@@ -88,6 +88,145 @@ export class DJHandlers {
   }
 
   /**
+   * Check if tracks are saved in user's library
+   */
+  checkSavedTracks = async ({ socket }: HandlerConnections, trackIds: string[]) => {
+    try {
+      const { roomId, userId } = socket.data
+      
+      if (!trackIds || !Array.isArray(trackIds) || trackIds.length === 0) {
+        socket.emit("event", {
+          type: "CHECK_SAVED_TRACKS_FAILURE",
+          data: { message: "No track IDs provided" },
+        })
+        return
+      }
+      
+      const metadataSource = await this.adapterService.getRoomMetadataSource(roomId, userId)
+
+      if (!metadataSource?.api?.checkSavedTracks) {
+        socket.emit("event", {
+          type: "CHECK_SAVED_TRACKS_FAILURE",
+          data: { message: "Library management not supported for this service" },
+        })
+        return
+      }
+
+      // Clean track IDs - remove any spotify: prefix if present
+      const cleanedTrackIds = trackIds.map(id => 
+        id.replace(/^spotify:track:/, '').replace(/^spotify:/, '')
+      )
+
+      const results = await metadataSource.api.checkSavedTracks(cleanedTrackIds)
+
+      socket.emit("event", {
+        type: "CHECK_SAVED_TRACKS_RESULTS",
+        data: { results, trackIds: cleanedTrackIds },
+      })
+    } catch (error: any) {
+      console.error("Error checking saved tracks:", error)
+      socket.emit("event", {
+        type: "CHECK_SAVED_TRACKS_FAILURE",
+        data: { message: error?.message || "Failed to check saved tracks" },
+      })
+    }
+  }
+
+  /**
+   * Add tracks to user's library
+   */
+  addToLibrary = async ({ socket }: HandlerConnections, trackIds: string[]) => {
+    try {
+      const { roomId, userId } = socket.data
+      
+      console.log("[addToLibrary] Received trackIds:", trackIds)
+      
+      if (!trackIds || !Array.isArray(trackIds) || trackIds.length === 0) {
+        socket.emit("event", {
+          type: "ADD_TO_LIBRARY_FAILURE",
+          data: { message: "No track IDs provided" },
+        })
+        return
+      }
+      
+      const metadataSource = await this.adapterService.getRoomMetadataSource(roomId, userId)
+
+      if (!metadataSource?.api?.addToLibrary) {
+        socket.emit("event", {
+          type: "ADD_TO_LIBRARY_FAILURE",
+          data: { message: "Library management not supported for this service" },
+        })
+        return
+      }
+
+      // Clean track IDs - remove any spotify: prefix if present
+      const cleanedTrackIds = trackIds.map(id => 
+        id.replace(/^spotify:track:/, '').replace(/^spotify:/, '')
+      )
+      
+      console.log("[addToLibrary] Cleaned trackIds:", cleanedTrackIds)
+
+      await metadataSource.api.addToLibrary(cleanedTrackIds)
+
+      socket.emit("event", {
+        type: "ADD_TO_LIBRARY_SUCCESS",
+        data: { trackIds: cleanedTrackIds },
+      })
+    } catch (error: any) {
+      console.error("Error adding to library:", error)
+      socket.emit("event", {
+        type: "ADD_TO_LIBRARY_FAILURE",
+        data: { message: error?.message || "Failed to add to library" },
+      })
+    }
+  }
+
+  /**
+   * Remove tracks from user's library
+   */
+  removeFromLibrary = async ({ socket }: HandlerConnections, trackIds: string[]) => {
+    try {
+      const { roomId, userId } = socket.data
+      
+      if (!trackIds || !Array.isArray(trackIds) || trackIds.length === 0) {
+        socket.emit("event", {
+          type: "REMOVE_FROM_LIBRARY_FAILURE",
+          data: { message: "No track IDs provided" },
+        })
+        return
+      }
+      
+      const metadataSource = await this.adapterService.getRoomMetadataSource(roomId, userId)
+
+      if (!metadataSource?.api?.removeFromLibrary) {
+        socket.emit("event", {
+          type: "REMOVE_FROM_LIBRARY_FAILURE",
+          data: { message: "Library management not supported for this service" },
+        })
+        return
+      }
+
+      // Clean track IDs - remove any spotify: prefix if present
+      const cleanedTrackIds = trackIds.map(id => 
+        id.replace(/^spotify:track:/, '').replace(/^spotify:/, '')
+      )
+
+      await metadataSource.api.removeFromLibrary(cleanedTrackIds)
+
+      socket.emit("event", {
+        type: "REMOVE_FROM_LIBRARY_SUCCESS",
+        data: { trackIds: cleanedTrackIds },
+      })
+    } catch (error: any) {
+      console.error("Error removing from library:", error)
+      socket.emit("event", {
+        type: "REMOVE_FROM_LIBRARY_FAILURE",
+        data: { message: error?.message || "Failed to remove from library" },
+      })
+    }
+  }
+
+  /**
    * Search for tracks using the room's metadata source
    */
   searchForTrack = async ({ socket }: HandlerConnections, { query }: { query: string }) => {

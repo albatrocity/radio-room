@@ -78,7 +78,7 @@ describe("AuthHandlers", () => {
             isDeputyDj: false,
             isAdmin: false,
           },
-          accessToken: "dummy-access-token",
+          accessToken: undefined, // Only room creators receive tokens
           isNewUser: false,
         },
         error: null,
@@ -438,7 +438,7 @@ describe("AuthHandlers", () => {
         type: "SPOTIFY_AUTHENTICATION_STATUS",
         data: {
           isAuthenticated: true,
-          accessToken: "dummy-access-token",
+          accessToken: undefined, // Only room creators receive tokens
         },
       })
     })
