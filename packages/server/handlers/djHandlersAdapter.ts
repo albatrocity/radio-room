@@ -93,28 +93,31 @@ export class DJHandlers {
   checkSavedTracks = async ({ socket }: HandlerConnections, trackIds: string[]) => {
     try {
       const { roomId, userId } = socket.data
-      
+
       if (!trackIds || !Array.isArray(trackIds) || trackIds.length === 0) {
+        // Return empty results for invalid input
         socket.emit("event", {
-          type: "CHECK_SAVED_TRACKS_FAILURE",
-          data: { message: "No track IDs provided" },
+          type: "CHECK_SAVED_TRACKS_RESULTS",
+          data: { results: [], trackIds: [] },
         })
         return
       }
-      
+
       const metadataSource = await this.adapterService.getRoomMetadataSource(roomId, userId)
 
       if (!metadataSource?.api?.checkSavedTracks) {
+        // Service doesn't support library - return all false gracefully
+        const results = trackIds.map(() => false)
         socket.emit("event", {
-          type: "CHECK_SAVED_TRACKS_FAILURE",
-          data: { message: "Library management not supported for this service" },
+          type: "CHECK_SAVED_TRACKS_RESULTS",
+          data: { results, trackIds },
         })
         return
       }
 
       // Clean track IDs - remove any spotify: prefix if present
-      const cleanedTrackIds = trackIds.map(id => 
-        id.replace(/^spotify:track:/, '').replace(/^spotify:/, '')
+      const cleanedTrackIds = trackIds.map((id) =>
+        id.replace(/^spotify:track:/, "").replace(/^spotify:/, ""),
       )
 
       const results = await metadataSource.api.checkSavedTracks(cleanedTrackIds)
@@ -138,33 +141,23 @@ export class DJHandlers {
   addToLibrary = async ({ socket }: HandlerConnections, trackIds: string[]) => {
     try {
       const { roomId, userId } = socket.data
-      
-      console.log("[addToLibrary] Received trackIds:", trackIds)
-      
+
       if (!trackIds || !Array.isArray(trackIds) || trackIds.length === 0) {
-        socket.emit("event", {
-          type: "ADD_TO_LIBRARY_FAILURE",
-          data: { message: "No track IDs provided" },
-        })
+        // Silently ignore - no tracks to add
         return
       }
-      
+
       const metadataSource = await this.adapterService.getRoomMetadataSource(roomId, userId)
 
       if (!metadataSource?.api?.addToLibrary) {
-        socket.emit("event", {
-          type: "ADD_TO_LIBRARY_FAILURE",
-          data: { message: "Library management not supported for this service" },
-        })
+        // Service doesn't support library - silently ignore
         return
       }
 
       // Clean track IDs - remove any spotify: prefix if present
-      const cleanedTrackIds = trackIds.map(id => 
-        id.replace(/^spotify:track:/, '').replace(/^spotify:/, '')
+      const cleanedTrackIds = trackIds.map((id) =>
+        id.replace(/^spotify:track:/, "").replace(/^spotify:/, ""),
       )
-      
-      console.log("[addToLibrary] Cleaned trackIds:", cleanedTrackIds)
 
       await metadataSource.api.addToLibrary(cleanedTrackIds)
 
@@ -187,28 +180,22 @@ export class DJHandlers {
   removeFromLibrary = async ({ socket }: HandlerConnections, trackIds: string[]) => {
     try {
       const { roomId, userId } = socket.data
-      
+
       if (!trackIds || !Array.isArray(trackIds) || trackIds.length === 0) {
-        socket.emit("event", {
-          type: "REMOVE_FROM_LIBRARY_FAILURE",
-          data: { message: "No track IDs provided" },
-        })
+        // Silently ignore - no tracks to remove
         return
       }
-      
+
       const metadataSource = await this.adapterService.getRoomMetadataSource(roomId, userId)
 
       if (!metadataSource?.api?.removeFromLibrary) {
-        socket.emit("event", {
-          type: "REMOVE_FROM_LIBRARY_FAILURE",
-          data: { message: "Library management not supported for this service" },
-        })
+        // Service doesn't support library - silently ignore
         return
       }
 
       // Clean track IDs - remove any spotify: prefix if present
-      const cleanedTrackIds = trackIds.map(id => 
-        id.replace(/^spotify:track:/, '').replace(/^spotify:/, '')
+      const cleanedTrackIds = trackIds.map((id) =>
+        id.replace(/^spotify:track:/, "").replace(/^spotify:/, ""),
       )
 
       await metadataSource.api.removeFromLibrary(cleanedTrackIds)
