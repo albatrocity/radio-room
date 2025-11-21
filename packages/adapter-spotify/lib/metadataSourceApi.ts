@@ -29,8 +29,14 @@ export async function makeApi({
       return (searchResults.tracks?.items ?? []).map((item) => trackItemSchema.parse(item))
     },
     async findById(id) {
-      const item = await spotifyApi.tracks.get(id)
-      return trackItemSchema.parse(item)
+      try {
+        const item = await spotifyApi.tracks.get(id)
+
+        return trackItemSchema.parse(item)
+      } catch (error) {
+        console.error("Error fetching track from Spotify:", error)
+        return null
+      }
     },
     async searchByParams(params) {
       const { title, artists, album, id } = params

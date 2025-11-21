@@ -103,7 +103,7 @@ export class DJHandlers {
         return
       }
 
-      const metadataSource = await this.adapterService.getRoomMetadataSource(roomId, userId)
+      const metadataSource = await this.adapterService.getUserMetadataSource(roomId, userId)
 
       if (!metadataSource?.api?.checkSavedTracks) {
         // Service doesn't support library - return all false gracefully
@@ -115,16 +115,11 @@ export class DJHandlers {
         return
       }
 
-      // Clean track IDs - remove any spotify: prefix if present
-      const cleanedTrackIds = trackIds.map((id) =>
-        id.replace(/^spotify:track:/, "").replace(/^spotify:/, ""),
-      )
-
-      const results = await metadataSource.api.checkSavedTracks(cleanedTrackIds)
+      const results = await metadataSource.api.checkSavedTracks(trackIds)
 
       socket.emit("event", {
         type: "CHECK_SAVED_TRACKS_RESULTS",
-        data: { results, trackIds: cleanedTrackIds },
+        data: { results, trackIds },
       })
     } catch (error: any) {
       console.error("Error checking saved tracks:", error)
@@ -147,23 +142,18 @@ export class DJHandlers {
         return
       }
 
-      const metadataSource = await this.adapterService.getRoomMetadataSource(roomId, userId)
+      const metadataSource = await this.adapterService.getUserMetadataSource(roomId, userId)
 
       if (!metadataSource?.api?.addToLibrary) {
         // Service doesn't support library - silently ignore
         return
       }
 
-      // Clean track IDs - remove any spotify: prefix if present
-      const cleanedTrackIds = trackIds.map((id) =>
-        id.replace(/^spotify:track:/, "").replace(/^spotify:/, ""),
-      )
-
-      await metadataSource.api.addToLibrary(cleanedTrackIds)
+      await metadataSource.api.addToLibrary(trackIds)
 
       socket.emit("event", {
         type: "ADD_TO_LIBRARY_SUCCESS",
-        data: { trackIds: cleanedTrackIds },
+        data: { trackIds },
       })
     } catch (error: any) {
       console.error("Error adding to library:", error)
@@ -186,23 +176,18 @@ export class DJHandlers {
         return
       }
 
-      const metadataSource = await this.adapterService.getRoomMetadataSource(roomId, userId)
+      const metadataSource = await this.adapterService.getUserMetadataSource(roomId, userId)
 
       if (!metadataSource?.api?.removeFromLibrary) {
         // Service doesn't support library - silently ignore
         return
       }
 
-      // Clean track IDs - remove any spotify: prefix if present
-      const cleanedTrackIds = trackIds.map((id) =>
-        id.replace(/^spotify:track:/, "").replace(/^spotify:/, ""),
-      )
-
-      await metadataSource.api.removeFromLibrary(cleanedTrackIds)
+      await metadataSource.api.removeFromLibrary(trackIds)
 
       socket.emit("event", {
         type: "REMOVE_FROM_LIBRARY_SUCCESS",
-        data: { trackIds: cleanedTrackIds },
+        data: { trackIds },
       })
     } catch (error: any) {
       console.error("Error removing from library:", error)

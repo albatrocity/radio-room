@@ -97,9 +97,8 @@ export class DJService {
       }
     }
 
-    // Get the room's playback controller and metadata source
+    // Get the room's playback controller
     const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
-    const metadataSource = await this.adapterService.getRoomMetadataSource(roomId)
 
     if (!playbackController) {
       return {
@@ -107,6 +106,10 @@ export class DJService {
         message: "No playback controller configured for this room",
       }
     }
+
+    // Get a user-specific metadata source with fresh tokens
+    // This is needed for authenticated API calls like fetching track info
+    const metadataSource = await this.adapterService.getUserMetadataSource(roomId, userId)
 
     if (!metadataSource) {
       return {
@@ -117,6 +120,7 @@ export class DJService {
 
     // Fetch track metadata
     let track: MetadataSourceTrack | null
+
     try {
       track = await metadataSource.api.findById(trackId)
       if (!track) {
@@ -134,8 +138,18 @@ export class DJService {
     }
 
     // Add to the playback controller's queue
+    // Use the resource URL (e.g., Spotify URI) from the track metadata
+    // This ensures we use the adapter's native format
+    const resourceUrl = track.urls.find((url) => url.type === "resource")?.url
+    if (!resourceUrl) {
+      return {
+        success: false,
+        message: "Track resource URL not found",
+      }
+    }
+
     try {
-      await playbackController.api.addToQueue(trackId)
+      await playbackController.api.addToQueue(resourceUrl)
     } catch (error) {
       return {
         success: false,

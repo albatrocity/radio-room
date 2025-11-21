@@ -63,7 +63,7 @@ export const spotifyQueueMachine = createMachine<Context>(
       sendToQueue: sendTo("socket", (_ctx, event) => {
         return {
           type: "queue song",
-          data: event.track.uri,
+          data: event.track.id, // Use plain ID, not URI
         }
       }),
       notifyQueued: (context) => {

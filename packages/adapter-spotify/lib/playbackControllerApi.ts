@@ -15,8 +15,24 @@ export async function makeApi({
   clientId: string
   config: PlaybackControllerLifecycleCallbacks
 }) {
-  const spotifyApi = SpotifyApi.withAccessToken(clientId, token)
+  // Helper function to get fresh SpotifyApi instance with current tokens
+  const getSpotifyApi = async (): Promise<SpotifyApi> => {
+    // Fetch fresh tokens from storage
+    if (config.authentication.type !== "oauth") {
+      throw new Error("OAuth authentication required")
+    }
+    const tokens = await config.authentication.getStoredTokens()
+    const freshToken: AccessToken = {
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      token_type: "Bearer",
+      expires_in: 3600,
+    }
+    return SpotifyApi.withAccessToken(clientId, freshToken)
+  }
 
+  // Initial validation
+  const spotifyApi = await getSpotifyApi()
   const accessToken = await spotifyApi.getAccessToken()
 
   if (!accessToken) {
@@ -33,55 +49,65 @@ export async function makeApi({
 
   const api: PlaybackControllerApi = {
     async play() {
-      const device = await getNowPlayingDevice(spotifyApi)
+      const api = await getSpotifyApi()
+      const device = await getNowPlayingDevice(api)
 
-      await spotifyApi.player.startResumePlayback(device.id)
+      await api.player.startResumePlayback(device.id)
       await config.onPlay()
       await config.onPlaybackStateChange("playing")
     },
     async pause() {
-      const device = await getNowPlayingDevice(spotifyApi)
+      const api = await getSpotifyApi()
+      const device = await getNowPlayingDevice(api)
 
-      await spotifyApi.player.pausePlayback(device.id)
+      await api.player.pausePlayback(device.id)
       await config.onPause()
       await config.onPlaybackStateChange("paused")
     },
     async seekTo(position) {
-      await spotifyApi.player.seekToPosition(position)
+      const api = await getSpotifyApi()
+      await api.player.seekToPosition(position)
       await config.onPlaybackPositionChange(position)
     },
     async skipToNextTrack() {
-      const device = await getNowPlayingDevice(spotifyApi)
+      const api = await getSpotifyApi()
+      const device = await getNowPlayingDevice(api)
 
-      await spotifyApi.player.skipToNext(device.id)
+      await api.player.skipToNext(device.id)
 
-      const nowPlaying = await spotifyApi.player.getCurrentlyPlayingTrack()
+      const nowPlaying = await api.player.getCurrentlyPlayingTrack()
       await config.onChangeTrack(trackItemSchema.parse(nowPlaying.item))
 
-      return await getQueue(spotifyApi)
+      return await getQueue(api)
     },
     async skipToPreviousTrack() {
-      const device = await getNowPlayingDevice(spotifyApi)
+      const api = await getSpotifyApi()
+      const device = await getNowPlayingDevice(api)
 
-      await spotifyApi.player.skipToPrevious(device.id)
+      await api.player.skipToPrevious(device.id)
 
-      const nowPlaying = await spotifyApi.player.getCurrentlyPlayingTrack()
+      const nowPlaying = await api.player.getCurrentlyPlayingTrack()
       await config.onChangeTrack(trackItemSchema.parse(nowPlaying.item))
 
-      return await getQueue(spotifyApi)
+      return await getQueue(api)
     },
     async getQueue() {
-      return await getQueue(spotifyApi)
+      const api = await getSpotifyApi()
+      return await getQueue(api)
     },
     async addToQueue(mediaId, position) {
-      await spotifyApi.player.addItemToPlaybackQueue(mediaId)
+      const api = await getSpotifyApi()
+      // mediaId should be the Spotify URI (spotify:track:xxx or spotify:episode:xxx)
+      // provided by the track metadata
+      await api.player.addItemToPlaybackQueue(mediaId)
 
-      const queue = await getQueue(spotifyApi)
+      const queue = await getQueue(api)
       await config.onPlaybackQueueChange(queue)
       return queue
     },
     async getPlayback() {
-      const { is_playing, item } = await spotifyApi.player.getPlaybackState()
+      const api = await getSpotifyApi()
+      const { is_playing, item } = await api.player.getPlaybackState()
 
       return {
         state: is_playing ? "playing" : "paused",

@@ -3,6 +3,8 @@ import { findRoom } from "../operations/data"
 
 export class AdapterService {
   private context: AppContext
+  private roomPlaybackControllers: Map<string, PlaybackController> = new Map()
+  private roomMetadataSources: Map<string, MetadataSource> = new Map()
 
   constructor(context: AppContext) {
     this.context = context
@@ -10,24 +12,111 @@ export class AdapterService {
 
   /**
    * Get the PlaybackController for a room (uses room creator's credentials)
+   * Creates and caches a room-specific instance with dynamic token fetching
    */
   async getRoomPlaybackController(roomId: string): Promise<PlaybackController | null> {
+    // Check cache first
+    if (this.roomPlaybackControllers.has(roomId)) {
+      return this.roomPlaybackControllers.get(roomId)!
+    }
+
     const room = await findRoom({ context: this.context, roomId })
     
     if (!room || !room.playbackControllerId) {
       return null
     }
 
-    const controller = this.context.adapters.playbackControllers.get(room.playbackControllerId)
-    return controller ?? null
+    const serviceName = room.playbackControllerId
+    const adapterModule = this.context.adapters.playbackControllerModules.get(serviceName)
+    
+    if (!adapterModule) {
+      console.error(`No adapter module found for playback controller: ${serviceName}`)
+      return null
+    }
+
+    const clientId = process.env.SPOTIFY_CLIENT_ID
+
+    if (!clientId) {
+      console.error("SPOTIFY_CLIENT_ID is not defined")
+      return null
+    }
+
+    // Create a room-specific adapter instance with dynamic token fetching
+    const playbackController = await adapterModule.register({
+      name: serviceName,
+      url: "",
+      authentication: {
+        type: "oauth",
+        clientId,
+        token: {
+          accessToken: "", // Not used
+          refreshToken: "",
+        },
+        getStoredTokens: async () => {
+          // This function is called on each API operation to get fresh tokens
+          // for the room creator
+          if (!this.context.data?.getUserServiceAuth) {
+            throw new Error("getUserServiceAuth not available in context")
+          }
+
+          const auth = await this.context.data.getUserServiceAuth({
+            userId: room.creator,
+            serviceName,
+          })
+
+          if (!auth || !auth.accessToken) {
+            throw new Error(`No auth tokens found for room creator ${room.creator}`)
+          }
+
+          return {
+            accessToken: auth.accessToken,
+            refreshToken: auth.refreshToken,
+          }
+        },
+      },
+      registerJob: this.context.jobService?.scheduleJob.bind(this.context.jobService),
+      onRegistered: () => {},
+      onAuthenticationCompleted: () => {},
+      onAuthenticationFailed: (error) => console.error("Playback controller authentication failed:", error),
+      onPlay: () => {},
+      onPause: () => {},
+      onChangeTrack: () => {},
+      onPlaybackStateChange: () => {},
+      onPlaybackQueueChange: () => {},
+      onPlaybackPositionChange: () => {},
+      onError: (error) => console.error("Playback controller error:", error),
+    })
+
+    // Cache the instance
+    this.roomPlaybackControllers.set(roomId, playbackController)
+
+    return playbackController
   }
 
   /**
-   * Get the MetadataSource for a room
+   * Get the cached MetadataSource for a room (for search, lookup, etc.)
+   * This returns the room-wide metadata source that was registered at startup
+   * @param roomId - The room ID
+   */
+  async getRoomMetadataSource(roomId: string): Promise<MetadataSource | null> {
+    const room = await findRoom({ context: this.context, roomId })
+    
+    if (!room || !room.metadataSourceId) {
+      return null
+    }
+
+    // Return the cached room-wide metadata source
+    const source = this.context.adapters.metadataSources.get(room.metadataSourceId)
+    return source ?? null
+  }
+
+  /**
+   * Get a user-specific MetadataSource for a room (for library operations)
+   * This creates a fresh instance with the user's current credentials
    * @param roomId - The room ID
    * @param userId - Optional user ID for user-specific credentials (defaults to room creator)
    */
-  async getRoomMetadataSource(roomId: string, userId?: string): Promise<MetadataSource | null> {
+  async getUserMetadataSource(roomId: string, userId?: string): Promise<MetadataSource | null> {
     const room = await findRoom({ context: this.context, roomId })
     
     if (!room || !room.metadataSourceId) {
