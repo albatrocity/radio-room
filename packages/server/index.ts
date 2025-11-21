@@ -73,6 +73,9 @@ class RadioRoomServer {
     // Initialize JobService
     this.jobService = new JobService(this.context, this.cacheImplementation)
 
+    // Add jobService to context so it's accessible everywhere
+    this.context.jobService = this.jobService
+
     this.sessionStore = new RedisStore({ client: this.context.redis.pubClient, prefix: "s:" })
 
     this.sessionMiddleware = session({
@@ -116,6 +119,13 @@ class RadioRoomServer {
       .post("/rooms", create)
       .delete("/rooms/:id", deleteRoom)
       .post("/logout", logout)
+      .get("/debug/jobs", (req, res) => {
+        const status = this.jobService.getJobStatus()
+        res.json({
+          totalJobs: status.length,
+          jobs: status,
+        })
+      })
 
     // Create HTTP server from Express app, but don't start listening yet
     this.httpServer = createHttpServer(this.app)
@@ -171,10 +181,83 @@ class RadioRoomServer {
     this.httpServer.listen(PORT, "0.0.0.0", () => console.log(`Listening on ${PORT}`))
     bindPubSubHandlers(this.io, this.context)
 
+    // Register initial system jobs
+    await this.registerSystemJobs()
+
+    // Restore adapter jobs for existing rooms
+    await this.restoreAdapterJobs()
+
     // Start job service
     await this.jobService.start()
 
     this.onStart()
+  }
+
+  async registerSystemJobs() {
+    // Register rooms cleanup job
+    const roomsJobHandler = (await import("./jobs/rooms/index")).default
+    const roomsJob = {
+      name: "rooms",
+      description: "Maintains rooms - cleanup and token refresh",
+      cron: "0 * * * * *", // Every minute
+      enabled: true,
+      runAt: Date.now(),
+      handler: roomsJobHandler,
+    }
+    this.context.jobs.push(roomsJob)
+    console.log("Registered system job: rooms")
+  }
+
+  /**
+   * Restore adapter jobs for existing rooms after server restart
+   * This ensures jukebox polling and other adapter-specific jobs continue running
+   */
+  async restoreAdapterJobs() {
+    try {
+      console.log("Restoring adapter jobs for existing rooms...")
+      const { findRoom } = await import("./operations/data")
+
+      // Get all room IDs from Redis
+      const roomIds = await this.context.redis.pubClient.sMembers("rooms")
+      console.log(`Found ${roomIds.length} existing rooms`)
+
+      // Restore jobs for each room
+      for (const roomId of roomIds) {
+        try {
+          const room = await findRoom({ context: this.context, roomId })
+
+          if (!room) {
+            console.log(`Room ${roomId} not found, skipping`)
+            continue
+          }
+
+          // If room has a playback controller, call its onRoomCreated hook
+          if (room.playbackControllerId) {
+            const adapter = this.context.adapters.playbackControllerModules.get(
+              room.playbackControllerId,
+            )
+
+            if (adapter?.onRoomCreated) {
+              console.log(
+                `Restoring ${room.playbackControllerId} jobs for room ${roomId} (${room.type})`,
+              )
+              await adapter.onRoomCreated({
+                roomId,
+                userId: room.creator,
+                roomType: room.type,
+                context: this.context,
+              })
+            }
+          }
+        } catch (error) {
+          console.error(`Error restoring jobs for room ${roomId}:`, error)
+        }
+      }
+
+      console.log("Adapter jobs restoration complete")
+    } catch (error) {
+      console.error("Error restoring adapter jobs:", error)
+    }
   }
 
   async stop() {

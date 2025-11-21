@@ -39,10 +39,16 @@ export type RoomSetup = Pick<
   | "radioListenUrl"
   | "radioProtocol"
   | "deputizeOnJoin"
->
+> & {
+  playbackControllerId?: string
+  metadataSourceId?: string
+  mediaSourceId?: string
+}
+
+import { QueueItem } from "./Queue"
 
 export type RoomMeta = {
-  release?: SpotifyTrack
+  nowPlaying?: QueueItem
   track?: string
   artist?: string
   album?: string

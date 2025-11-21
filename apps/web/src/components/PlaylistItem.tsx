@@ -1,14 +1,6 @@
 import React, { useMemo } from "react"
 import { format } from "date-fns"
-import {
-  Stack,
-  LinkBox,
-  LinkOverlay,
-  Text,
-  Icon,
-  Image,
-  Box,
-} from "@chakra-ui/react"
+import { Stack, LinkBox, LinkOverlay, Text, Icon, Image, Box } from "@chakra-ui/react"
 
 import { PlaylistItem as PlaylistItemType } from "../types/PlaylistItem"
 import { FiUser } from "react-icons/fi"
@@ -20,20 +12,18 @@ type Props = {
 
 function PlaylistItem({ item }: Props) {
   const artThumb = useMemo(
-    () =>
-      (item.spotifyData?.album?.images || []).find(({ width }) => width < 200)
-        ?.url,
+    () => (item.spotifyData?.album?.images || []).find(({ width }) => width < 200)?.url,
     [item.spotifyData],
   )
   const djUsername = useUsersStore(
     (s) =>
-      s.state.context.users.find((x) => x.userId === item.dj?.userId)
-        ?.username ?? item.dj?.username,
+      s.state.context.users.find((x) => x.userId === item.dj?.userId)?.username ??
+      item.dj?.username,
   )
 
   return (
     <Stack
-      key={item.timestamp.toString()}
+      key={item.playedAt.toString()}
       direction={["column", "row"]}
       justifyContent="space-between"
       align="stretch"
@@ -48,15 +38,13 @@ function PlaylistItem({ item }: Props) {
           )}
           <Stack direction="column" spacing={0}>
             {(item.track || item.album) && (
-              <LinkOverlay
-                isExternal
-                href={item.spotifyData?.external_urls?.spotify}
-                m={0}
-              >
-                <Text fontWeight={"bold"}>{item.track}</Text>
+              <LinkOverlay isExternal href={item.spotifyData?.external_urls?.spotify} m={0}>
+                <Text fontWeight={"bold"}>{item.track.title}</Text>
               </LinkOverlay>
             )}
-            {item.artist && <Text>{item.artist}</Text>}
+            {item.track.artists.map((a) => (
+              <Text key={a.id}>{a.title}</Text>
+            ))}
           </Stack>
         </Stack>
       </LinkBox>
@@ -66,15 +54,10 @@ function PlaylistItem({ item }: Props) {
         align="end"
       >
         <Text color="secondaryText" fontSize="xs" textAlign="right">
-          {format(item.timestamp, "p")}
+          {format(item.playedAt, "p")}
         </Text>
-        {item.dj && (
-          <Stack
-            direction="row"
-            spacing={2}
-            justifyContent="center"
-            alignItems="center"
-          >
+        {!!item.dj && (
+          <Stack direction="row" spacing={2} justifyContent="center" alignItems="center">
             <Icon boxSize={3} color="secondaryText" as={FiUser} />
             <Text as="i" fontSize="xs" color="secondaryText">
               Added by {djUsername}

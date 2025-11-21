@@ -17,14 +17,26 @@ interface RoomSetupContext {
 }
 
 async function createRoom(ctx: RoomSetupContext) {
+  const roomType = ctx.room?.type ?? "jukebox"
+  
+  // Set adapter IDs based on room type
+  // For jukebox rooms, use Spotify for both playback and metadata
+  // For radio rooms, use Shoutcast for media source
+  const playbackControllerId = roomType === "jukebox" ? "spotify" : undefined
+  const metadataSourceId = roomType === "jukebox" ? "spotify" : undefined
+  const mediaSourceId = roomType === "radio" ? "shoutcast" : undefined
+  
   const res = await apiCreateRoom({
     room: {
-      type: ctx.room?.type ?? "jukebox",
+      type: roomType,
       title: ctx.room?.title ?? "My Room",
       radioListenUrl: ctx.room?.radioListenUrl ?? undefined,
       radioMetaUrl: ctx.room?.radioMetaUrl ?? undefined,
       radioProtocol: ctx.room?.radioProtocol ?? undefined,
       deputizeOnJoin: ctx.room?.deputizeOnJoin ?? false,
+      playbackControllerId,
+      metadataSourceId,
+      mediaSourceId,
     },
     challenge: ctx.challenge ?? "",
     userId: ctx.userId ?? "",

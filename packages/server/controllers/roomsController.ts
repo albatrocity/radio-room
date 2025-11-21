@@ -54,6 +54,21 @@ export async function create(req: Request, res: Response) {
       mediaSourceConfig,
     })
     await saveRoom({ context, room })
+
+    // Notify the playback controller adapter that a room was created
+    // This allows the adapter to register any necessary jobs (e.g., polling)
+    if (playbackControllerId) {
+      const adapter = context.adapters.playbackControllerModules.get(playbackControllerId)
+      if (adapter?.onRoomCreated) {
+        await adapter.onRoomCreated({
+          roomId: id,
+          userId,
+          roomType: type,
+          context,
+        })
+      }
+    }
+
     res.send({ room })
   } catch (e) {
     console.log("Error creating room:", e)

@@ -74,7 +74,7 @@ export class DJHandlers {
       })
 
       if (result.systemMessage) {
-        sendMessage(io, roomId, result.systemMessage)
+        sendMessage(io, roomId, result.systemMessage, this.context)
       }
     } catch (e) {
       socket.emit("event", {

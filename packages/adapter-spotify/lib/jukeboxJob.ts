@@ -1,6 +1,5 @@
 import { AppContext, JobRegistration, SimpleCache } from "@repo/types"
 import { SpotifyApi } from "@spotify/web-api-ts-sdk"
-import { getUserServiceAuth } from "../../../server/operations/data/serviceAuthentications"
 import { trackItemSchema } from "./schemas"
 
 export function createJukeboxPollingJob(params: {
@@ -20,8 +19,12 @@ export function createJukeboxPollingJob(params: {
     handler: async ({ cache }: { cache: SimpleCache }) => {
       try {
         // Get user's Spotify credentials
-        const auth = await getUserServiceAuth({
-          context,
+        if (!context.data?.getUserServiceAuth) {
+          console.error("getUserServiceAuth not available in context")
+          return
+        }
+
+        const auth = await context.data.getUserServiceAuth({
           userId,
           serviceName: "spotify",
         })
@@ -47,7 +50,7 @@ export function createJukeboxPollingJob(params: {
         // Get currently playing track
         const nowPlaying = await spotifyApi.player.getCurrentlyPlayingTrack()
 
-        if (nowPlaying && nowPlaying.item && "id" in nowPlaying.item) {
+        if (nowPlaying?.item && "id" in nowPlaying.item) {
           const currentTrackId = nowPlaying.item.id
 
           // Get last known track from cache
@@ -73,4 +76,3 @@ export function createJukeboxPollingJob(params: {
     },
   }
 }
-

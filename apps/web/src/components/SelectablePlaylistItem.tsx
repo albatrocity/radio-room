@@ -10,22 +10,16 @@ type Props = {
   onSelect?: (item: Item, isChecked: boolean) => void
 }
 
-const SelectablePlaylistItem = ({
-  item,
-  isSelectable = false,
-  selected = [],
-  onSelect,
-}: Props) => {
+const SelectablePlaylistItem = ({ item, isSelectable = false, selected = [], onSelect }: Props) => {
+  console.log("item", item)
   return (
-    <HStack key={item.timestamp?.toString()}>
+    <HStack key={item.playedAt.toString()}>
       {isSelectable && (
         <Checkbox
           isChecked={selected
             .map(({ spotifyData }) => spotifyData?.uri)
             .includes(item.spotifyData?.uri)}
-          onChange={
-            onSelect ? (e) => onSelect(item, e.target.checked) : undefined
-          }
+          onChange={onSelect ? (e) => onSelect(item, e.target.checked) : undefined}
         />
       )}
       <PlaylistItem item={item} />

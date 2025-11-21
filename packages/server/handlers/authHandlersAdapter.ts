@@ -154,7 +154,7 @@ export class AuthHandlers {
 
     // send system message of username change if provided
     if (result.systemMessage) {
-      sendMessage(io, socket.data.roomId, result.systemMessage)
+      sendMessage(io, socket.data.roomId, result.systemMessage, socket.context)
     }
   }
 

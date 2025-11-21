@@ -25,7 +25,7 @@ export class MessageHandlers {
     })
 
     // Send the message
-    await sendMessage(io, roomId, result.message)
+    await sendMessage(io, roomId, result.message, socket.context)
   }
 
   /**

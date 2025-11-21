@@ -40,9 +40,9 @@ async function handleNowPlaying({ io, message, context }: ContextPubSubHandlerAr
       `Now playing: ${nowPlaying.track.title} ${
         nowPlaying.track.artists?.[0]?.title ? `by ${nowPlaying.track.artists[0].title}` : ""
       }`,
-      "success",
+      { type: "success" },
     )
-    sendMessage(io, roomId, msg)
+    sendMessage(io, roomId, msg, context)
   }
 }
 

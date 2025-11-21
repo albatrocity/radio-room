@@ -29,7 +29,7 @@ export async function refreshServiceTokens(context: AppContext, roomId: string) 
   }
 
   // Update room refresh timestamp
-  await updateRoom({ context, roomId, data: { lastRefreshedAt: Date.now().toString() } })
+  await updateRoom({ context, roomId, room: { lastRefreshedAt: Date.now().toString() } })
 }
 
 /**

@@ -68,7 +68,8 @@ async function main() {
     onError: (error) => console.error("Playback controller error:", error),
   })
 
-  // Store the registered playback controller in context
+  // Store both the adapter module and the registered instance in context
+  context.adapters.playbackControllerModules.set("spotify", playbackController)
   context.adapters.playbackControllers.set("spotify", spotifyPlaybackController)
 
   // Register Spotify MetadataSource
@@ -108,7 +109,8 @@ async function main() {
     },
   })
 
-  // Store the registered metadata source in context
+  // Store both the adapter module and the registered instance in context
+  context.adapters.metadataSourceModules.set("spotify", metadataSource)
   context.adapters.metadataSources.set("spotify", spotifyMetadataSource)
 
   // Register Shoutcast MediaSource (example - would be configured per room)

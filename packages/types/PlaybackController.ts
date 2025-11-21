@@ -1,5 +1,6 @@
 import { AdapterAuthentication } from "./Adapter"
 import type { MetadataSourceTrack } from "./MetadataSource"
+import type { AppContext } from "./AppContext"
 
 export type PlaybackControllerAuthenticationResponse = {
   accessToken: string
@@ -58,4 +59,14 @@ export interface PlaybackControllerAdapterConfig {
 
 export interface PlaybackControllerAdapter {
   register: (config: PlaybackControllerLifecycleCallbacks) => Promise<PlaybackController>
+  onRoomCreated?: (params: {
+    roomId: string
+    userId: string
+    roomType: "jukebox" | "radio"
+    context: AppContext
+  }) => Promise<void>
+  onRoomDeleted?: (params: {
+    roomId: string
+    context: AppContext
+  }) => Promise<void>
 }

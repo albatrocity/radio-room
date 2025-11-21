@@ -1,9 +1,4 @@
 import { AppContext, ServiceAuthenticationAdapter } from "@repo/types"
-import {
-  getUserServiceAuth,
-  deleteUserServiceAuth,
-  storeUserServiceAuth,
-} from "@repo/server/operations/data/serviceAuthentications"
 import { refreshSpotifyAccessToken } from "./operations/refreshSpotifyAccessToken"
 
 /**
@@ -16,8 +11,15 @@ export function createSpotifyServiceAuthAdapter(context: AppContext): ServiceAut
 
     async getAuthStatus(userId: string) {
       try {
-        const auth = await getUserServiceAuth({
-          context,
+        if (!context.data?.getUserServiceAuth) {
+          return {
+            isAuthenticated: false,
+            serviceName: "spotify",
+            error: "getUserServiceAuth not available in context",
+          }
+        }
+
+        const auth = await context.data.getUserServiceAuth({
           userId,
           serviceName: "spotify",
         })
@@ -28,6 +30,7 @@ export function createSpotifyServiceAuthAdapter(context: AppContext): ServiceAut
           serviceName: "spotify",
         }
       } catch (error) {
+        console.error("Error checking Spotify auth status:", error)
         return {
           isAuthenticated: false,
           serviceName: "spotify",
@@ -36,16 +39,21 @@ export function createSpotifyServiceAuthAdapter(context: AppContext): ServiceAut
     },
 
     async logout(userId: string) {
-      await deleteUserServiceAuth({
-        context,
+      if (!context.data?.deleteUserServiceAuth) {
+        throw new Error("deleteUserServiceAuth not available in context")
+      }
+      await context.data.deleteUserServiceAuth({
         userId,
         serviceName: "spotify",
       })
     },
 
     async refreshAuth(userId: string) {
-      const auth = await getUserServiceAuth({
-        context,
+      if (!context.data?.getUserServiceAuth || !context.data?.storeUserServiceAuth) {
+        throw new Error("Data operations not available in context")
+      }
+
+      const auth = await context.data.getUserServiceAuth({
         userId,
         serviceName: "spotify",
       })
@@ -71,8 +79,7 @@ export function createSpotifyServiceAuthAdapter(context: AppContext): ServiceAut
         expiresAt: Date.now() + refreshed.expiresIn * 1000,
       }
 
-      await storeUserServiceAuth({
-        context,
+      await context.data.storeUserServiceAuth({
         userId,
         serviceName: "spotify",
         tokens: newTokens,

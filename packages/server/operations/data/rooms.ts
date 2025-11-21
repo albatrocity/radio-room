@@ -252,11 +252,17 @@ type GetRoomCurrentParams = {
 export async function getRoomCurrent({ context, roomId }: GetRoomCurrentParams) {
   const roomCurrentKey = `room:${roomId}:current`
   const result = await context.redis.pubClient.hGetAll(roomCurrentKey)
+  
+  // Parse the release (which is actually the full nowPlaying QueueItem)
+  const parsedRelease = result.release ? JSON.parse(result.release) : null
+  
   return {
     ...result,
-    ...(result.release
+    // Store both for backward compatibility
+    ...(parsedRelease
       ? {
-          release: JSON.parse(result.release),
+          release: parsedRelease,
+          nowPlaying: parsedRelease, // The new format expects nowPlaying
         }
       : {}),
     ...(result.dj
@@ -294,11 +300,11 @@ export async function makeJukeboxCurrentPayload({
 }: MakeJukeboxCurrentPayloadParams) {
   try {
     const currentlyPlaying = await getRoomCurrent({ context, roomId })
-    const trackIsCurrent = currentlyPlaying?.nowPlaying?.track.id === nowPlaying?.track.id
+    const trackIsCurrent = currentlyPlaying?.nowPlaying?.track?.id === nowPlaying?.track?.id
     const room = await findRoom({ context, roomId })
-    const artwork = room?.artwork ?? nowPlaying?.track.album?.images?.[0]?.url
+    const artwork = room?.artwork ?? nowPlaying?.track?.album?.images?.[0]?.url
     const queue = await getQueue({ context, roomId })
-    const queuedTrack = queue.find((x) => x.track.id === nowPlaying?.track.id)
+    const queuedTrack = queue.find((x) => x.track?.id === nowPlaying?.track?.id)
     const trackDj = trackIsCurrent ? currentlyPlaying?.dj : queuedTrack ? queuedTrack.addedBy : null
 
     return {
@@ -313,7 +319,8 @@ export async function makeJukeboxCurrentPayload({
             meta.nowPlaying?.track.artists?.map((x) => x.title).join(", "),
           album: nowPlaying?.track.album?.title ?? meta.nowPlaying?.track.album.title,
           track: nowPlaying?.track.title ?? meta.nowPlaying?.track.title,
-          release: nowPlaying ?? meta,
+          nowPlaying: nowPlaying ?? meta.nowPlaying, // Use nowPlaying (new format)
+          release: nowPlaying ?? meta.nowPlaying, // Keep release for backward compatibility
           artwork,
           dj: trackDj,
         },
@@ -390,6 +397,20 @@ export async function deleteRoom({ context, roomId }: DeleteRoomParams) {
   if (!room) {
     return
   }
+
+  // Notify the playback controller adapter that the room is being deleted
+  // This allows the adapter to clean up any jobs or resources (e.g., stop polling)
+  if (room.playbackControllerId) {
+    const adapter = context.adapters.playbackControllerModules.get(room.playbackControllerId)
+    if (adapter?.onRoomDeleted) {
+      try {
+        await adapter.onRoomDeleted({ roomId, context })
+      } catch (error) {
+        console.error(`Error calling onRoomDeleted for adapter ${room.playbackControllerId}:`, error)
+      }
+    }
+  }
+
   // Get all keys relating to room
   const keys = await getAllRoomDataKeys({ context, roomId })
   // delete them

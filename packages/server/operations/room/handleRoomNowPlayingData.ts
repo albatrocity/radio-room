@@ -37,8 +37,21 @@ export default async function handleRoomNowPlayingData({
   const current = await getRoomCurrent({ context, roomId })
 
   const isSameTrack = room?.fetchMeta
-    ? current?.nowPlaying?.track.id === nowPlaying?.track.id
-    : current.stationMeta?.title === stationMeta?.title
+    ? current?.nowPlaying?.track?.id === nowPlaying?.track?.id
+    : current?.stationMeta?.title === stationMeta?.title
+
+  console.log(`[handleRoomNowPlayingData] Room ${roomId}:`, {
+    currentTrack: current?.nowPlaying?.track?.id,
+    newTrack: nowPlaying?.track?.id,
+    isSameTrack,
+    forcePublish,
+  })
+
+  // If the currently playing track is the same as the one we just fetched, return early without publishing
+  if (!forcePublish && isSameTrack && nowPlaying) {
+    console.log(`[handleRoomNowPlayingData] Same track detected, skipping publish for room ${roomId}`)
+    return null
+  }
 
   // If there is no currently playing track and the room is set to fetch data from Spotify, clear the current hash and publish
   if (!nowPlaying && room?.fetchMeta) {
@@ -94,6 +107,7 @@ export default async function handleRoomNowPlayingData({
     },
   })
 
+  // Only update and publish if this is a new track or forced
   await setRoomCurrent({
     context,
     roomId,
@@ -104,12 +118,6 @@ export default async function handleRoomNowPlayingData({
   })
 
   const updatedCurrent = await getRoomCurrent({ context, roomId })
-
-  // If the currently playing track is the same as the one we just fetched, return early
-  if (!forcePublish && isSameTrack) {
-    return null
-  }
-
   await pubSubNowPlaying({ context, roomId, nowPlaying, meta: updatedCurrent })
 
   // Add the track to the room playlist

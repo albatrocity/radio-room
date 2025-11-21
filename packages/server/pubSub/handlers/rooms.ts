@@ -37,7 +37,7 @@ async function handleRoomDeleted({ io, message, channel }: ContextPubSubHandlerA
   })
 }
 
-async function handlePlaybackStateChange({ io, message }: ContextPubSubHandlerArgs) {
+async function handlePlaybackStateChange({ io, message, context }: ContextPubSubHandlerArgs) {
   const { isPlaying, roomId } = JSON.parse(message)
   const newMessage = systemMessage(
     `Spotify playback has been ${isPlaying ? "resumed" : "paused"}`,
@@ -45,7 +45,7 @@ async function handlePlaybackStateChange({ io, message }: ContextPubSubHandlerAr
       type: "alert",
     },
   )
-  sendMessage(io, roomId, newMessage)
+  sendMessage(io, roomId, newMessage, context)
 }
 
 async function handleRoomSettingsUpdated({ io, message, context }: ContextPubSubHandlerArgs) {

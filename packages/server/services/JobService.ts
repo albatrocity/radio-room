@@ -27,12 +27,18 @@ export class JobService {
   /**
    * Schedule a single job
    */
-  private scheduleJob(job: JobRegistration) {
+  async scheduleJob(job: JobRegistration) {
     try {
       // Validate cron expression
       if (!cron.validate(job.cron)) {
         console.error(`Invalid cron expression for job ${job.name}: ${job.cron}`)
         return
+      }
+
+      // Add job to context.jobs array if not already present
+      const existingJob = this.context.jobs.find((j) => j.name === job.name)
+      if (!existingJob) {
+        this.context.jobs.push(job)
       }
 
       console.log(`Scheduling job: ${job.name} (${job.description}) with cron: ${job.cron}`)

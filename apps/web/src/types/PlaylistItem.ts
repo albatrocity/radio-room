@@ -1,3 +1,4 @@
+import { MetadataSourceTrack } from "./Queue"
 import { SpotifyAlbum } from "./SpotifyAlbum"
 import { SpotifyExternalUrls } from "./SpotifyExternalUrls"
 import { SpotifyImage } from "./SpotifyImage"
@@ -16,9 +17,10 @@ interface SpotifyData {
 }
 
 export interface PlaylistItem {
-  track: string
+  track: MetadataSourceTrack
   album: string
-  timestamp: number | Date
+  playedAt: number | Date
+  addedAt: number | Date
   artist: string
   dj: User
   spotifyData?: SpotifyData

@@ -1,5 +1,10 @@
 import { AppContext, RedisContext } from "@repo/types"
 import { createClient } from "redis"
+import {
+  getUserServiceAuth,
+  storeUserServiceAuth,
+  deleteUserServiceAuth,
+} from "../operations/data/serviceAuthentications"
 
 export function createRedisContext(redisUrl: string): RedisContext {
   const pubClient = createClient({
@@ -22,16 +27,31 @@ export function createRedisContext(redisUrl: string): RedisContext {
 }
 
 export function createAppContext(redisUrl: string): AppContext {
-  return {
+  const context: AppContext = {
     redis: createRedisContext(redisUrl),
     adapters: {
       playbackControllers: new Map(),
       metadataSources: new Map(),
       mediaSources: new Map(),
       serviceAuth: new Map(),
+      playbackControllerModules: new Map(),
+      metadataSourceModules: new Map(),
+      mediaSourceModules: new Map(),
     },
     jobs: [],
+    data: {
+      getUserServiceAuth: async ({ userId, serviceName }) => {
+        return getUserServiceAuth({ context, userId, serviceName })
+      },
+      storeUserServiceAuth: async ({ userId, serviceName, tokens }) => {
+        return storeUserServiceAuth({ context, userId, serviceName, tokens })
+      },
+      deleteUserServiceAuth: async ({ userId, serviceName }) => {
+        return deleteUserServiceAuth({ context, userId, serviceName })
+      },
+    },
   }
+  return context
 }
 
 export async function initializeRedisContext(context: RedisContext): Promise<void> {
