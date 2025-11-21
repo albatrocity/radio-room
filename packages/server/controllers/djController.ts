@@ -1,25 +1,63 @@
-import { Server, Socket } from "socket.io"
+import { Server } from "socket.io"
+import { SocketWithContext } from "../lib/socketWithContext"
+import { createDJHandlers } from "../handlers/djHandlersAdapter"
+import { User, QueueItem } from "@repo/types"
 
-import { djDeputizeUser, queueSong, searchForTrack, savePlaylist } from "../handlers/djHandlers"
-import { User } from "@repo/types/User"
-import { QueueItem } from "@repo/types/Queue"
+/**
+ * DJ Controller - Manages DJ-related socket events
+ *
+ * Improved pattern: Uses closure to avoid repetitive { socket, io } passing
+ * Calls handler adapters directly, eliminating the intermediate handler layer
+ */
+export function createDJController(socket: SocketWithContext, io: Server): void {
+  // Create handler instance once - it's reused for all events on this socket
+  const handlers = createDJHandlers(socket.context)
 
-export default function djController(socket: Socket, io: Server) {
-  socket.on("dj deputize user", (userId: User["userId"]) => djDeputizeUser({ socket, io }, userId))
+  // Create connections object once in closure - no need to pass repeatedly
+  const connections = { socket, io }
 
-  socket.on("queue song", (trackId: QueueItem["track"]["id"]) => queueSong({ socket, io }, trackId))
+  /**
+   * Deputize or undeputize a user as a DJ
+   */
+  socket.on("dj deputize user", async (userId: User["userId"]) => {
+    await handlers.djDeputizeUser(connections, userId)
+  })
 
-  // Generic track search - uses room's configured metadata source
-  socket.on("search track", (query: { query: string }) => searchForTrack({ socket, io }, query))
+  /**
+   * Add a song to the playback queue
+   */
+  socket.on("queue song", async (trackId: QueueItem["track"]["id"]) => {
+    await handlers.queueSong(connections, trackId)
+  })
 
-  // Keep backward compatibility with old event name
-  socket.on("search spotify track", (query: { query: string }) =>
-    searchForTrack({ socket, io }, query),
-  )
+  /**
+   * Search for tracks using the room's configured metadata source
+   */
+  socket.on("search track", async (query: { query: string }) => {
+    await handlers.searchForTrack(connections, query)
+  })
 
+  /**
+   * Legacy event name for backward compatibility
+   * @deprecated Use "search track" instead
+   */
+  socket.on("search spotify track", async (query: { query: string }) => {
+    await handlers.searchForTrack(connections, query)
+  })
+
+  /**
+   * Save a playlist to the room's configured metadata source
+   */
   socket.on(
     "save playlist",
-    ({ name, trackIds }: { name: string; trackIds: QueueItem["track"]["id"][] }) =>
-      savePlaylist({ socket, io }, { name, trackIds }),
+    async ({ name, trackIds }: { name: string; trackIds: QueueItem["track"]["id"][] }) => {
+      await handlers.savePlaylist(connections, { name, trackIds })
+    },
   )
 }
+
+/**
+ * Legacy export for backward compatibility
+ * @deprecated Use createDJController instead
+ */
+export default createDJController

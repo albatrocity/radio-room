@@ -1,34 +1,43 @@
-import { Server, Socket } from "socket.io"
+import { Server } from "socket.io"
 import { User } from "@repo/types/User"
-
-import {
-  changeUsername,
-  checkPassword,
-  disconnect,
-  login,
-  getUserSpotifyAuth,
-  getUserServiceAuth,
-  submitPassword,
-  logoutSpotifyAuth,
-  logoutServiceAuth,
-  nukeUser,
-} from "../handlers/authHandlers"
 import { Request, Response } from "express"
 import { getUser } from "../operations/data"
 import { SocketWithContext } from "../lib/socketWithContext"
+import { createAuthHandlers } from "../handlers/authHandlersAdapter"
 
-export default function authController(socket: SocketWithContext, io: Server) {
-  socket.on("check password", (submittedPassword: string) =>
-    checkPassword({ socket, io }, submittedPassword),
-  )
+/**
+ * Auth Controller - Manages authentication and user events
+ *
+ * Improved pattern: Uses closure to avoid repetitive { socket, io } passing
+ * Calls handler adapters directly, eliminating the intermediate handler layer
+ */
+export function createAuthController(socket: SocketWithContext, io: Server): void {
+  // Create handler instance once - it's reused for all events on this socket
+  const handlers = createAuthHandlers(socket.context)
 
-  socket.on("submit password", (submittedPassword: string) =>
-    submitPassword({ socket, io }, submittedPassword),
-  )
+  // Create connections object once in closure - no need to pass repeatedly
+  const connections = { socket, io }
 
+  /**
+   * Check if submitted password is correct
+   */
+  socket.on("check password", async (submittedPassword: string) => {
+    await handlers.checkPassword(connections, submittedPassword)
+  })
+
+  /**
+   * Submit password to join password-protected room
+   */
+  socket.on("submit password", async (submittedPassword: string) => {
+    await handlers.submitPassword(connections, submittedPassword)
+  })
+
+  /**
+   * User login event
+   */
   socket.on(
     "login",
-    ({
+    async ({
       username,
       userId,
       password,
@@ -39,50 +48,88 @@ export default function authController(socket: SocketWithContext, io: Server) {
       password?: string
       roomId: string
     }) => {
-      login({ socket, io }, { username, userId, password, roomId })
+      await handlers.login(connections, { username, userId, password, roomId })
     },
   )
 
+  /**
+   * Change username
+   */
   socket.on(
     "change username",
-    ({ username, userId }: { username: User["username"]; userId: User["userId"] }) =>
-      changeUsername({ socket, io }, { username, userId }),
+    async ({ username, userId }: { username: User["username"]; userId: User["userId"] }) => {
+      await handlers.changeUsername(connections, { username, userId })
+    },
   )
 
-  // Generic service authentication events
+  /**
+   * Get service authentication status (generic)
+   */
   socket.on(
     "get user service authentication status",
-    ({ userId, serviceName }: { userId?: string; serviceName: string }) => {
-      getUserServiceAuth({ socket, io }, { userId, serviceName })
+    async ({ userId, serviceName }: { userId?: string; serviceName: string }) => {
+      await handlers.getUserServiceAuth(connections, { userId, serviceName })
     },
   )
 
+  /**
+   * Logout from a service (generic)
+   */
   socket.on(
     "logout service",
-    ({ userId, serviceName }: { userId?: string; serviceName: string }) => {
-      logoutServiceAuth({ socket, io }, { userId, serviceName })
+    async ({ userId, serviceName }: { userId?: string; serviceName: string }) => {
+      await handlers.logoutServiceAuth(connections, { userId, serviceName })
     },
   )
 
-  // Deprecated: Keep for backward compatibility with old clients
-  socket.on("get user spotify authentication status", ({ userId }) => {
-    getUserSpotifyAuth({ socket, io }, { userId })
+  /**
+   * Get Spotify authentication status
+   * @deprecated Use "get user service authentication status" with serviceName: "spotify"
+   */
+  socket.on("get user spotify authentication status", async ({ userId }) => {
+    await handlers.getUserSpotifyAuth(connections, { userId })
   })
-  socket.on("logout spotify", (args: { userId?: string } = {}) => {
+
+  /**
+   * Logout from Spotify
+   * @deprecated Use "logout service" with serviceName: "spotify"
+   */
+  socket.on("logout spotify", async (args: { userId?: string } = {}) => {
     const options = args ? { userId: args.userId } : { userId: "app" }
-    logoutSpotifyAuth({ socket, io }, options)
+    await handlers.logoutSpotifyAuth(connections, options)
   })
 
-  socket.on("nuke user", (args: { userId?: string } = {}) => {
-    nukeUser({ socket, io })
+  /**
+   * Delete all user data
+   */
+  socket.on("nuke user", async (args: { userId?: string } = {}) => {
+    await handlers.nukeUser(connections)
   })
 
-  socket.on("disconnect", () => disconnect({ socket, io }))
-  socket.on("user left", () => {
-    disconnect({ socket, io })
+  /**
+   * Handle user disconnect
+   */
+  socket.on("disconnect", async () => {
+    await handlers.disconnect(connections)
+  })
+
+  /**
+   * Handle user leaving
+   */
+  socket.on("user left", async () => {
+    await handlers.disconnect(connections)
   })
 }
 
+/**
+ * Legacy export for backward compatibility
+ * @deprecated Use createAuthController instead
+ */
+export default createAuthController
+
+/**
+ * HTTP handler: Logout user from session
+ */
 export async function logout(req: Request, res: Response) {
   if (req.session.user?.userId) {
     // await disconnectFromSpotify(req.session.user.userId)
@@ -98,10 +145,13 @@ export async function logout(req: Request, res: Response) {
   }
 }
 
+/**
+ * HTTP handler: Get current user session
+ */
 export async function me(req: Request, res: Response) {
   const { user } = req.session
   if (user) {
-    const u = await getUser(user.userId)
+    const u = await getUser({ context: (req as any).context, userId: user.userId })
     res.status(200).send({
       user: u,
       isNewUser: !user.userId,

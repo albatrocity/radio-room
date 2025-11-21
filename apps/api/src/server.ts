@@ -5,8 +5,6 @@ import {
   createSpotifyAuthRoutes,
   createSpotifyServiceAuthAdapter,
 } from "@repo/adapter-spotify"
-import { mediaSource } from "@repo/media-source-shoutcast"
-import { getUserServiceAuth } from "@repo/server/operations/data"
 
 async function main() {
   const server = createServer({
@@ -14,7 +12,7 @@ async function main() {
     REDIS_URL: process.env.REDIS_URL ?? "redis://localhost:6379",
     ENVIRONMENT: (process.env.ENVIRONMENT as "production" | "development") || "development",
     DOMAIN: process.env.ENVIRONMENT === "production" ? ".listeningroom.club" : "localhost",
-    onStart: async () => {
+    onStart: () => {
       console.log("Server started successfully")
     },
   })
@@ -24,7 +22,6 @@ async function main() {
   // Register Spotify Service Authentication Adapter
   const spotifyServiceAuth = createSpotifyServiceAuthAdapter(context)
   context.adapters.serviceAuth.set("spotify", spotifyServiceAuth)
-  console.log("Registered Spotify service authentication adapter")
 
   // Register Spotify PlaybackController
   // Note: This registers the adapter type, but actual instances will be created
@@ -49,21 +46,6 @@ async function main() {
     },
     onRegistered: (params) => {
       console.log(`Playback controller registered: ${params.name}`)
-      context.adapters.playbackControllers.set("spotify", {
-        name: "spotify",
-        authentication: {
-          type: "oauth",
-          clientId: process.env.SPOTIFY_CLIENT_ID ?? "",
-          token: {
-            accessToken: "",
-            refreshToken: "",
-          },
-          async getStoredTokens() {
-            return { accessToken: "", refreshToken: "" }
-          },
-        },
-        api: params.api,
-      })
     },
     onAuthenticationCompleted: (response) => {
       console.log("Spotify authentication completed:", response)
@@ -85,6 +67,9 @@ async function main() {
     onPlaybackPositionChange: (position) => console.log("Playback position changed:", position),
     onError: (error) => console.error("Playback controller error:", error),
   })
+
+  // Store the registered playback controller in context
+  context.adapters.playbackControllers.set("spotify", spotifyPlaybackController)
 
   // Register Spotify MetadataSource
   // Note: This registers the adapter type, but actual instances will be created

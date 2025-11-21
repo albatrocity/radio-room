@@ -1,8 +1,9 @@
 import { create } from "../controllers/roomsController"
-import httpMocks from "node-mocks-http"
 import { checkUserChallenge } from "../operations/userChallenge"
 import { saveRoom } from "../operations/data"
-import { vi } from "vitest"
+import { vi, describe, it, expect, beforeEach } from "vitest"
+import { appContextFactory } from "@repo/factories"
+import { Request, Response } from "express"
 
 const mockCheckUserChallenge = vi.hoisted(() => vi.fn())
 
@@ -20,64 +21,74 @@ vi.mock("../operations/createRoom", async (importOriginal) => {
 vi.mock("../operations/data")
 
 describe("create", () => {
+  let mockContext: any
+  let mockRequest: Partial<Request>
+  let mockResponse: Partial<Response>
+
+  beforeEach(() => {
+    mockContext = appContextFactory.build()
+    vi.clearAllMocks()
+
+    // Create mock request
+    mockRequest = {
+      body: {},
+      context: mockContext,
+    } as any
+
+    // Create mock response
+    mockResponse = {
+      statusCode: 200,
+      send: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+    } as any
+  })
+
   it("should check user challenge", async () => {
-    const request = httpMocks.createRequest({
-      method: "POST",
-      url: "/rooms",
-      body: {
-        challenge: "challenge",
-        userId: "userId",
-        title: "Green Room",
-        type: "jukebox",
-      },
-    })
+    mockRequest.body = {
+      challenge: "challenge",
+      userId: "userId",
+      title: "Green Room",
+      type: "jukebox",
+    }
 
-    const response = httpMocks.createResponse()
-
-    await create(request, response)
+    await create(mockRequest as Request, mockResponse as Response)
+    
     expect(checkUserChallenge).toHaveBeenCalledWith({
       challenge: "challenge",
       userId: "userId",
+      context: mockContext,
     })
   })
 
   it("return 401 if challenge doesn't match", async () => {
-    const request = httpMocks.createRequest({
-      method: "POST",
-      url: "/rooms",
-      body: {
-        challenge: "challenge",
-        userId: "userId",
-        title: "Green Room",
-        type: "jukebox",
-      },
-    })
+    mockRequest.body = {
+      challenge: "challenge",
+      userId: "userId",
+      title: "Green Room",
+      type: "jukebox",
+    }
 
-    const response = httpMocks.createResponse()
     mockCheckUserChallenge.mockRejectedValue("Unauthorized")
 
-    await create(request, response)
-    expect(response.statusCode).toBe(401)
+    await create(mockRequest as Request, mockResponse as Response)
+    
+    expect(mockResponse.statusCode).toBe(401)
   })
 
   it("writes to redis", async () => {
-    const request = httpMocks.createRequest({
-      method: "POST",
-      url: "/rooms",
-      body: {
-        challenge: "challenge",
-        userId: "userId",
-        title: "Green Room",
-        type: "jukebox",
-      },
-    })
+    mockRequest.body = {
+      challenge: "challenge",
+      userId: "userId",
+      title: "Green Room",
+      type: "jukebox",
+    }
 
-    const response = httpMocks.createResponse()
     mockCheckUserChallenge.mockResolvedValue(1)
 
-    await create(request, response)
+    await create(mockRequest as Request, mockResponse as Response)
+    
     expect(saveRoom).toHaveBeenCalledWith({
-      context: undefined,
+      context: mockContext,
       room: expect.objectContaining({
         title: "Green Room",
         creator: "userId",

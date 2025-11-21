@@ -1,4 +1,3 @@
-import { execa } from "execa"
 import { createAdapter } from "@socket.io/redis-adapter"
 import cookieParser from "cookie-parser"
 import session from "express-session"
@@ -8,31 +7,25 @@ import express from "express"
 import { AppContext } from "@repo/types"
 import { createServer as createHttpServer } from "http"
 import { Server as SocketIoServer } from "socket.io"
-import {
-  CreateServerConfig,
-  PlaybackController,
-  PlaybackControllerAdapter,
-  PlaybackControllerAdapterConfig,
-  PlaybackControllerLifecycleCallbacks,
-  User,
-} from "@repo/types"
+import { CreateServerConfig, PlaybackControllerAdapterConfig, User } from "@repo/types"
 import { createAppContext, initializeRedisContext } from "./lib/context"
 import { createContextMiddleware } from "./lib/contextMiddleware"
 import { JobService } from "./services/JobService"
 
 import { bindPubSubHandlers } from "./pubSub/handlers"
-import roomsController, {
+import {
+  createRoomsController,
   create,
   deleteRoom,
   findRoom,
   findRooms,
 } from "./controllers/roomsController"
 
-import activityController from "./controllers/activityController"
-import adminController from "./controllers/adminController"
-import authController, { me, logout } from "./controllers/authController"
-import djController from "./controllers/djController"
-import messageController from "./controllers/messageController"
+import { createActivityController } from "./controllers/activityController"
+import { createAdminController } from "./controllers/adminController"
+import { createAuthController, me, logout } from "./controllers/authController"
+import { createDJController } from "./controllers/djController"
+import { createMessageController } from "./controllers/messageController"
 import { clearRoomOnlineUsers } from "./operations/data"
 import { SocketWithContext } from "./lib/socketWithContext"
 
@@ -76,7 +69,7 @@ class RadioRoomServer {
 
     // Create context with adapters and jobs
     this.context = createAppContext(config.REDIS_URL ?? "redis://localhost:6379")
-    
+
     // Initialize JobService
     this.jobService = new JobService(this.context, this.cacheImplementation)
 
@@ -164,12 +157,14 @@ class RadioRoomServer {
     this.io.on("connection", (socket) => {
       // Pass context to controllers
       const socketWithContext: SocketWithContext = Object.assign(socket, { context: this.context })
-      authController(socketWithContext, this.io)
-      messageController(socketWithContext, this.io)
-      activityController(socketWithContext, this.io)
-      djController(socketWithContext, this.io)
-      adminController(socketWithContext, this.io)
-      roomsController(socketWithContext, this.io)
+
+      // All controllers now use the improved HOF pattern with closure
+      createAuthController(socketWithContext, this.io)
+      createMessageController(socketWithContext, this.io)
+      createActivityController(socketWithContext, this.io)
+      createDJController(socketWithContext, this.io)
+      createAdminController(socketWithContext, this.io)
+      createRoomsController(socketWithContext, this.io)
     })
 
     // Start the HTTP server listening
@@ -241,11 +236,6 @@ class RadioRoomServer {
         })
       },
     })
-    // this.onPlayEvents.push(
-    //   (params: PlaybackControllerLifecycleCallbacks["onPlay"]) => {
-    //     this.io.emit("playback:play", params)
-    //   }
-    // )
   }
 
   // Lifecycle methods for playback controllers

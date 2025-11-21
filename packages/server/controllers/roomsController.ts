@@ -1,5 +1,5 @@
 import { Request, Response } from "express"
-
+import { Server } from "socket.io"
 import { createRoomId, withDefaults } from "../operations/createRoom"
 import {
   findRoom as findRoomData,
@@ -10,10 +10,9 @@ import {
   getUserRooms,
 } from "../operations/data"
 import { checkUserChallenge } from "../operations/userChallenge"
-import { Server } from "socket.io"
-import { getLatestRoomData, getRoomSettings } from "../handlers/roomHandlers"
 import { RoomSnapshot } from "@repo/types/Room"
 import { SocketWithContext } from "../lib/socketWithContext"
+import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
 
 export async function create(req: Request, res: Response) {
   const {
@@ -117,9 +116,36 @@ export async function deleteRoom(req: Request, res: Response) {
   })
 }
 
-export default function socketHandlers(socket: SocketWithContext, io: Server) {
-  socket.on("get room settings", (url: string) => getRoomSettings({ socket, io }))
-  socket.on("get latest room data", (snapshot: RoomSnapshot) =>
-    getLatestRoomData({ socket, io }, snapshot),
-  )
+/**
+ * Rooms Controller - Manages room-related socket events
+ *
+ * Improved pattern: Uses closure to avoid repetitive { socket, io } passing
+ * Calls handler adapters directly, eliminating the intermediate handler layer
+ */
+export function createRoomsController(socket: SocketWithContext, io: Server): void {
+  // Create handler instance once - it's reused for all events on this socket
+  const handlers = createRoomHandlers(socket.context)
+
+  // Create connections object once in closure - no need to pass repeatedly
+  const connections = { socket, io }
+
+  /**
+   * Get room settings
+   */
+  socket.on("get room settings", async (url: string) => {
+    await handlers.getRoomSettings(connections)
+  })
+
+  /**
+   * Get latest room data based on snapshot
+   */
+  socket.on("get latest room data", async (snapshot: RoomSnapshot) => {
+    await handlers.getLatestRoomData(connections, snapshot)
+  })
 }
+
+/**
+ * Legacy export for backward compatibility
+ * @deprecated Use createRoomsController instead
+ */
+export default createRoomsController
