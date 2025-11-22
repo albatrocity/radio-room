@@ -46,7 +46,7 @@ export async function makeApi({
     // Playlist creation
     async createPlaylist(params) {
       const { title, trackIds, userId } = params
-      
+
       // Create the playlist
       const playlist = await spotifyApi.playlists.createPlaylist(userId, {
         name: title,
@@ -74,7 +74,25 @@ export async function makeApi({
       return (savedTracks.items ?? []).map((item) => trackItemSchema.parse(item.track))
     },
     async checkSavedTracks(trackIds: string[]) {
-      return await spotifyApi.currentUser.tracks.hasSavedTracks(trackIds)
+      if (!trackIds || trackIds.length === 0) {
+        return []
+      }
+
+      // Filter to only valid Spotify track IDs using centralized validation
+      const { filterSpotifyTrackIds } = await import("@repo/utils/trackId")
+      const validTrackIds = filterSpotifyTrackIds(trackIds)
+
+      if (validTrackIds.length === 0) {
+        return []
+      }
+
+      const result = await spotifyApi.currentUser.tracks.hasSavedTracks(validTrackIds)
+
+      // Map results back to original trackIds array, marking non-Spotify IDs as false
+      return trackIds.map((id) => {
+        const validIndex = validTrackIds.indexOf(id)
+        return validIndex >= 0 ? result[validIndex] : false
+      })
     },
     async addToLibrary(trackIds: string[]) {
       // The Spotify API PUT /v1/me/tracks expects body: { ids: [...] }

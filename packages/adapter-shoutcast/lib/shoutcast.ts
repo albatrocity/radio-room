@@ -1,3 +1,4 @@
+// @ts-ignore - no type definitions available for node-internet-radio
 import internetradio from "node-internet-radio"
 import { Station, StationProtocol } from "./schemas"
 import { ERROR_STATION_FETCH_FAILED } from "./constants"

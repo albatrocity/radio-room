@@ -76,11 +76,12 @@ async function refreshServiceTokensForUser(
         
         // Clear any error flags if refresh was successful
         if (roomId) {
-          await delRoomKey({
+          await updateRoom({
             context,
             roomId,
-            key: "details",
-            field: `${serviceName}Error`,
+            room: {
+              [`${serviceName}Error`]: undefined,
+            } as any,
           })
         }
         

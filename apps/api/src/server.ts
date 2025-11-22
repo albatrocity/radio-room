@@ -2,9 +2,11 @@ import { createServer } from "@repo/server"
 import {
   playbackController,
   metadataSource,
+  mediaSource as spotifyMediaSource,
   createSpotifyAuthRoutes,
   createSpotifyServiceAuthAdapter,
 } from "@repo/adapter-spotify"
+import { mediaSource as shoutcastMediaSource } from "@repo/media-source-shoutcast"
 
 async function main() {
   const server = createServer({
@@ -113,9 +115,75 @@ async function main() {
   context.adapters.metadataSourceModules.set("spotify", metadataSource)
   context.adapters.metadataSources.set("spotify", spotifyMetadataSource)
 
-  // Register Shoutcast MediaSource (example - would be configured per room)
-  // This is a placeholder - actual media sources will be registered when rooms are created
-  console.log("Shoutcast media source adapter available")
+  // Register Spotify MediaSource
+  const registeredSpotifyMediaSource = await spotifyMediaSource.register({
+    name: "spotify",
+    url: "", // Not used for Spotify MediaSource
+    authentication: {
+      type: "none",
+    },
+    registerJob: server.registerJob.bind(server),
+    onRegistered: (params: { name: string }) => {
+      console.log(`Spotify MediaSource registered: ${params.name}`)
+    },
+    onAuthenticationCompleted: () => {
+      console.log("Spotify MediaSource authentication completed")
+    },
+    onAuthenticationFailed: (error: Error) => {
+      console.error("Spotify MediaSource authentication failed:", error)
+    },
+    onOnline: () => {
+      console.log("Spotify MediaSource online")
+    },
+    onOffline: () => {
+      console.log("Spotify MediaSource offline")
+    },
+    onMediaData: (data: any) => {
+      console.log("Spotify MediaSource data:", data)
+    },
+    onError: (error: Error) => {
+      console.error("Spotify MediaSource error:", error)
+    },
+  })
+
+  // Store both the adapter module and the registered instance in context
+  context.adapters.mediaSourceModules.set("spotify", spotifyMediaSource)
+  context.adapters.mediaSources.set("spotify", registeredSpotifyMediaSource)
+
+  // Register Shoutcast MediaSource
+  const registeredShoutcastMediaSource = await shoutcastMediaSource.register({
+    name: "shoutcast",
+    url: "", // Will be configured per-room via mediaSourceConfig
+    authentication: {
+      type: "none",
+    },
+    registerJob: server.registerJob.bind(server),
+    onRegistered: (params: { name: string }) => {
+      console.log(`Shoutcast MediaSource registered: ${params.name}`)
+    },
+    onAuthenticationCompleted: () => {
+      console.log("Shoutcast MediaSource authentication completed")
+    },
+    onAuthenticationFailed: (error: Error) => {
+      console.error("Shoutcast MediaSource authentication failed:", error)
+    },
+    onOnline: () => {
+      console.log("Shoutcast MediaSource online")
+    },
+    onOffline: () => {
+      console.log("Shoutcast MediaSource offline")
+    },
+    onMediaData: (data: any) => {
+      console.log("Shoutcast MediaSource data:", data)
+    },
+    onError: (error: Error) => {
+      console.error("Shoutcast MediaSource error:", error)
+    },
+  })
+
+  // Store both the adapter module and the registered instance in context
+  context.adapters.mediaSourceModules.set("shoutcast", shoutcastMediaSource)
+  context.adapters.mediaSources.set("shoutcast", registeredShoutcastMediaSource)
 
   // Mount Spotify auth routes
   const spotifyAuthRouter = createSpotifyAuthRoutes(context)

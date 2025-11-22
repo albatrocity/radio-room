@@ -66,10 +66,19 @@ export async function saveRoom({ context, room }: SaveRoomParams) {
   try {
     await addRoomToRoomList({ context, roomId: room.id })
     await addRoomToUserRoomList({ context, room })
+
+    // Ensure mediaSourceConfig is JSON-stringified before saving
+    const roomToSave = {
+      ...room,
+      ...(room.mediaSourceConfig
+        ? { mediaSourceConfig: JSON.stringify(room.mediaSourceConfig) }
+        : {}),
+    }
+
     return writeJsonToHset({
       context,
       setKey: `room:${room.id}:details`,
-      attributes: room,
+      attributes: roomToSave,
     })
   } catch (e) {
     console.log("ERROR FROM data/rooms/persistRoom", room)
@@ -252,10 +261,10 @@ type GetRoomCurrentParams = {
 export async function getRoomCurrent({ context, roomId }: GetRoomCurrentParams) {
   const roomCurrentKey = `room:${roomId}:current`
   const result = await context.redis.pubClient.hGetAll(roomCurrentKey)
-  
+
   // Parse the release (which is actually the full nowPlaying QueueItem)
   const parsedRelease = result.release ? JSON.parse(result.release) : null
-  
+
   return {
     ...result,
     // Store both for backward compatibility
@@ -350,6 +359,18 @@ export async function removeUserRoomsSpotifyError({
 }
 
 export function parseRoom(room: StoredRoom): Room {
+  // Helper to safely parse JSON or return the value if already an object
+  const safeParse = (value: any) => {
+    if (!value) return undefined
+    if (typeof value === "object") return value
+    try {
+      return JSON.parse(value)
+    } catch (e) {
+      console.error("Failed to parse JSON:", value, e)
+      return undefined
+    }
+  }
+
   return {
     ...room,
     fetchMeta: room.fetchMeta === "true",
@@ -360,8 +381,9 @@ export function parseRoom(room: StoredRoom): Room {
     announceUsernameChanges: room.announceUsernameChanges === "true",
     passwordRequired: !isNullish(room.password),
     ...(room.artwork === "undefined" ? {} : { artwork: room.artwork }),
-    ...(room.spotifyError ? { spotifyError: JSON.parse(room.spotifyError) } : {}),
-    ...(room.radioError ? { radioError: JSON.parse(room.radioError) } : {}),
+    ...(room.spotifyError ? { spotifyError: safeParse(room.spotifyError) } : {}),
+    ...(room.radioError ? { radioError: safeParse(room.radioError) } : {}),
+    ...(room.mediaSourceConfig ? { mediaSourceConfig: safeParse(room.mediaSourceConfig) } : {}),
   }
 }
 
@@ -406,7 +428,26 @@ export async function deleteRoom({ context, roomId }: DeleteRoomParams) {
       try {
         await adapter.onRoomDeleted({ roomId, context })
       } catch (error) {
-        console.error(`Error calling onRoomDeleted for adapter ${room.playbackControllerId}:`, error)
+        console.error(
+          `Error calling onRoomDeleted for adapter ${room.playbackControllerId}:`,
+          error,
+        )
+      }
+    }
+  }
+
+  // Notify the media source adapter that the room is being deleted
+  // This allows the adapter to clean up any jobs or resources (e.g., stop polling)
+  if (room.mediaSourceId) {
+    const adapter = context.adapters.mediaSourceModules.get(room.mediaSourceId)
+    if (adapter?.onRoomDeleted) {
+      try {
+        await adapter.onRoomDeleted({ roomId, context })
+      } catch (error) {
+        console.error(
+          `Error calling onRoomDeleted for MediaSource adapter ${room.mediaSourceId}:`,
+          error,
+        )
       }
     }
   }

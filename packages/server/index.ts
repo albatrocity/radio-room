@@ -239,7 +239,24 @@ class RadioRoomServer {
 
             if (adapter?.onRoomCreated) {
               console.log(
-                `Restoring ${room.playbackControllerId} jobs for room ${roomId} (${room.type})`,
+                `Restoring ${room.playbackControllerId} PlaybackController jobs for room ${roomId} (${room.type})`,
+              )
+              await adapter.onRoomCreated({
+                roomId,
+                userId: room.creator,
+                roomType: room.type,
+                context: this.context,
+              })
+            }
+          }
+
+          // If room has a media source, call its onRoomCreated hook
+          if (room.mediaSourceId) {
+            const adapter = this.context.adapters.mediaSourceModules.get(room.mediaSourceId)
+
+            if (adapter?.onRoomCreated) {
+              console.log(
+                `Restoring ${room.mediaSourceId} MediaSource jobs for room ${roomId} (${room.type})`,
               )
               await adapter.onRoomCreated({
                 roomId,

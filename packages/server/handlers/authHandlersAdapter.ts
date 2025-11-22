@@ -208,7 +208,7 @@ export class AuthHandlers {
       type: "SERVICE_AUTHENTICATION_STATUS",
       data: {
         isAuthenticated: result.isAuthenticated,
-        accessToken: result.accessToken,
+        accessToken: 'accessToken' in result ? result.accessToken : undefined,
         serviceName: result.serviceName,
       },
     })
@@ -253,7 +253,7 @@ export class AuthHandlers {
       type: "SPOTIFY_AUTHENTICATION_STATUS",
       data: {
         isAuthenticated: result.isAuthenticated,
-        accessToken: result.accessToken,
+        accessToken: 'accessToken' in result ? result.accessToken : undefined,
       },
     })
   }

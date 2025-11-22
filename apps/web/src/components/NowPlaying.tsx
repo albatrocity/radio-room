@@ -28,6 +28,8 @@ import { SpotifyTrack } from "../types/SpotifyTrack"
 import { useCurrentRoom, useRoomStore } from "../state/roomStore"
 import { useIsAdmin } from "../state/authStore"
 import { FaSpotify } from "react-icons/fa"
+import Timestamp from "./Timestamp"
+import { format } from "date-fns"
 
 interface NowPlayingProps extends BoxProps {
   offline: boolean
@@ -67,6 +69,8 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
   const { state } = useRoomStore()
   const { album, artist, track, nowPlaying, title, dj, stationMeta } = meta || {}
 
+  console.log("meta ", meta)
+
   // Extract release from nowPlaying for backward compatibility
   const release = nowPlaying?.track
 
@@ -76,11 +80,13 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
   const releaseDate = (release?.album as any)?.release_date || release?.album?.releaseDate
   const lastUpdate = meta?.lastUpdatedAt
 
+  // Determine if we have actual playback data
+  // For jukebox rooms: check if there's no nowPlaying data at all
+  // For radio rooms: we almost always have data (station broadcast), so check if track exists
+  const hasNoPlaybackData = !meta.nowPlaying?.track
+
   const fetchedWithNoData =
-    state.matches("success") &&
-    lastUpdate &&
-    !meta.nowPlaying?.track?.urls?.length &&
-    room?.fetchMeta
+    state.matches("success") && lastUpdate && hasNoPlaybackData && room?.fetchMeta
   const fetchedWithNoUpdate = state.matches("success") && !lastUpdate
 
   const djUsername = useMemo(
@@ -93,6 +99,8 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
     nullifyEmptyString(title?.replace(/\|/g, "")) ??
     nullifyEmptyString(room?.title) ??
     null
+
+  const addedAt = new Date(meta.nowPlaying?.addedAt ?? 0).toString()
 
   return (
     <Box
@@ -126,7 +134,13 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
               <Heading w="100%" as="h2" size="lg" color="whiteAlpha.900" textAlign="left">
                 Nothing is playing
               </Heading>
-              {isAdmin ? (
+              {room?.type === "radio" ? (
+                <Text color="whiteAlpha.900">
+                  {isAdmin
+                    ? "The radio station appears to be offline. Check your station URL in settings."
+                    : "The radio station appears to be offline."}
+                </Text>
+              ) : isAdmin ? (
                 <Text color="whiteAlpha.900">
                   There's no active device playing Spotify. Play something on your Spotify app and
                   check back here.
@@ -190,7 +204,7 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
                     <HStack mt={4} spacing={2}>
                       <Icon color="primaryBg" boxSize={3} as={FiUser} />
                       <Text as="i" color="primaryBg" fontSize="xs">
-                        Added by {djUsername}
+                        Added by {djUsername} at {format(new Date(addedAt), "p")}
                       </Text>
                     </HStack>
                   )}

@@ -33,6 +33,16 @@ export interface MediaSourceAdapterConfig extends MediaSourceLifecycleCallbacks 
 
 export interface MediaSourceAdapter {
   register: (config: MediaSourceAdapterConfig) => Promise<MediaSource>
+  onRoomCreated?: (params: {
+    roomId: string
+    userId: string
+    roomType: "jukebox" | "radio"
+    context: import("./AppContext").AppContext
+  }) => Promise<void>
+  onRoomDeleted?: (params: {
+    roomId: string
+    context: import("./AppContext").AppContext
+  }) => Promise<void>
 }
 
 export interface MediaSourceError {

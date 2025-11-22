@@ -13,10 +13,10 @@ export async function checkUserChallenge({
   try {
     const solution = await context.redis.pubClient.get(`challenge:${userId}`)
     if (solution && solution !== challenge) {
-      throw new Error("Unauthorized", { cause: "invalid challenge" })
+      throw new Error("Unauthorized: invalid challenge")
     }
   } catch (e) {
-    throw new Error("Unauthorized", { cause: "invalid challenge" })
+    throw new Error("Unauthorized: invalid challenge")
   }
 }
 

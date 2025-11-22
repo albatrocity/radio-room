@@ -35,6 +35,12 @@ export class JobService {
         return
       }
 
+      // Check if job is already scheduled - if so, skip
+      if (this.scheduledJobs.has(job.name)) {
+        console.log(`Job ${job.name} is already scheduled, skipping duplicate registration`)
+        return
+      }
+
       // Add job to context.jobs array if not already present
       const existingJob = this.context.jobs.find((j) => j.name === job.name)
       if (!existingJob) {

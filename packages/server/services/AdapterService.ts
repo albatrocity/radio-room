@@ -44,6 +44,89 @@ export class AdapterService {
     // Create a room-specific adapter instance with dynamic token fetching
     const playbackController = await adapterModule.register({
       name: serviceName,
+      authentication: {
+        type: "oauth",
+        clientId,
+        token: {
+          accessToken: "", // Not used
+          refreshToken: "",
+        },
+        getStoredTokens: async () => {
+          // This function is called on each API operation to get fresh tokens
+          // for the room creator
+          if (!this.context.data?.getUserServiceAuth) {
+            throw new Error("getUserServiceAuth not available in context")
+          }
+
+          const auth = await this.context.data.getUserServiceAuth({
+            userId: room.creator,
+            serviceName,
+          })
+
+          if (!auth || !auth.accessToken) {
+            throw new Error(`No auth tokens found for room creator ${room.creator}`)
+          }
+
+          return {
+            accessToken: auth.accessToken,
+            refreshToken: auth.refreshToken,
+          }
+        },
+      },
+      onRegistered: () => {},
+      onAuthenticationCompleted: () => {},
+      onAuthenticationFailed: (error) => console.error("Playback controller authentication failed:", error),
+      onAuthorizationCompleted: () => {},
+      onAuthorizationFailed: (error) => console.error("Playback controller authorization failed:", error),
+      onPlay: () => {},
+      onPause: () => {},
+      onChangeTrack: () => {},
+      onPlaybackStateChange: () => {},
+      onPlaybackQueueChange: () => {},
+      onPlaybackPositionChange: () => {},
+      onError: (error) => console.error("Playback controller error:", error),
+    })
+
+    // Cache the instance
+    this.roomPlaybackControllers.set(roomId, playbackController)
+
+    return playbackController
+  }
+
+  /**
+   * Get the MetadataSource for a room (uses room creator's credentials)
+   * Creates and caches a room-specific instance with dynamic token fetching
+   */
+  async getRoomMetadataSource(roomId: string): Promise<MetadataSource | null> {
+    // Check cache first
+    if (this.roomMetadataSources.has(roomId)) {
+      return this.roomMetadataSources.get(roomId)!
+    }
+
+    const room = await findRoom({ context: this.context, roomId })
+    
+    if (!room || !room.metadataSourceId) {
+      return null
+    }
+
+    const serviceName = room.metadataSourceId
+    const adapterModule = this.context.adapters.metadataSourceModules.get(serviceName)
+    
+    if (!adapterModule) {
+      console.error(`No adapter module found for metadata source: ${serviceName}`)
+      return null
+    }
+
+    const clientId = process.env.SPOTIFY_CLIENT_ID
+
+    if (!clientId) {
+      console.error("SPOTIFY_CLIENT_ID is not defined")
+      return null
+    }
+
+    // Create a room-specific metadata source instance with dynamic token fetching
+    const metadataSource = await adapterModule.register({
+      name: serviceName,
       url: "",
       authentication: {
         type: "oauth",
@@ -74,40 +157,23 @@ export class AdapterService {
           }
         },
       },
-      registerJob: this.context.jobService?.scheduleJob.bind(this.context.jobService),
+      registerJob: async (job) => {
+        if (this.context.jobService) {
+          await this.context.jobService.scheduleJob(job)
+        }
+        return job
+      },
       onRegistered: () => {},
       onAuthenticationCompleted: () => {},
-      onAuthenticationFailed: (error) => console.error("Playback controller authentication failed:", error),
-      onPlay: () => {},
-      onPause: () => {},
-      onChangeTrack: () => {},
-      onPlaybackStateChange: () => {},
-      onPlaybackQueueChange: () => {},
-      onPlaybackPositionChange: () => {},
-      onError: (error) => console.error("Playback controller error:", error),
+      onAuthenticationFailed: (error) => console.error("Metadata source authentication failed:", error),
+      onSearchResults: () => {},
+      onError: (error) => console.error("Metadata source error:", error),
     })
 
     // Cache the instance
-    this.roomPlaybackControllers.set(roomId, playbackController)
+    this.roomMetadataSources.set(roomId, metadataSource)
 
-    return playbackController
-  }
-
-  /**
-   * Get the cached MetadataSource for a room (for search, lookup, etc.)
-   * This returns the room-wide metadata source that was registered at startup
-   * @param roomId - The room ID
-   */
-  async getRoomMetadataSource(roomId: string): Promise<MetadataSource | null> {
-    const room = await findRoom({ context: this.context, roomId })
-    
-    if (!room || !room.metadataSourceId) {
-      return null
-    }
-
-    // Return the cached room-wide metadata source
-    const source = this.context.adapters.metadataSources.get(room.metadataSourceId)
-    return source ?? null
+    return metadataSource
   }
 
   /**

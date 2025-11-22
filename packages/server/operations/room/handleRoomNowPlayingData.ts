@@ -36,14 +36,39 @@ export default async function handleRoomNowPlayingData({
   const room = await findRoom({ context, roomId })
   const current = await getRoomCurrent({ context, roomId })
 
-  const isSameTrack = room?.fetchMeta
-    ? current?.nowPlaying?.track?.id === nowPlaying?.track?.id
-    : current?.stationMeta?.title === stationMeta?.title
+  // Smart track comparison: prioritize enriched IDs when available, fall back to source data
+  let isSameTrack = false
+
+  // Use centralized ID validation to check if IDs are real service IDs vs synthetic ones
+  const { parseTrackId } = await import("@repo/utils/trackId")
+
+  const currentHasRealId =
+    current?.nowPlaying?.track?.id && parseTrackId(current.nowPlaying.track.id).isServiceId
+  const newHasRealId = nowPlaying?.track?.id && parseTrackId(nowPlaying.track.id).isServiceId
+
+  if (currentHasRealId && newHasRealId) {
+    // Both have real Spotify IDs (successful enrichment) - compare by ID
+    isSameTrack = current?.nowPlaying?.track?.id === nowPlaying.track.id
+
+    // For radio rooms, also verify station title (handles same track playing multiple times)
+    if (room?.type === "radio" && stationMeta?.title && current?.stationMeta?.title) {
+      isSameTrack = isSameTrack && current.stationMeta.title === stationMeta.title
+    }
+  } else if (room?.type === "radio" && stationMeta?.title) {
+    // Radio room without enrichment (or with placeholder IDs) - compare raw station titles
+    isSameTrack = current?.stationMeta?.title === stationMeta?.title
+  } else if (newHasRealId) {
+    // Has real track ID but no previous - definitely new track
+    isSameTrack = false
+  } else {
+    // Fallback: compare station metadata
+    isSameTrack = current?.stationMeta?.title === stationMeta?.title
+  }
 
   // If the currently playing track is the same as the one we just fetched, return early without publishing
   if (!forcePublish && isSameTrack && nowPlaying) {
     console.log(
-      `[handleRoomNowPlayingData] Same track detected, skipping ALL processing for room ${roomId}`,
+      `[handleRoomNowPlayingData] Same track detected (enriched: ${newHasRealId}), skipping ALL processing for room ${roomId}`,
     )
     return null
   }
