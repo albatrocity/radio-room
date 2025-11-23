@@ -20,8 +20,7 @@ RUN npm install
 
 # Build the project and its dependencies
 COPY --from=builder /app/out/full/ .
-# Skip build for development - we'll use ts-node-dev instead
-# RUN npx turbo build --filter=api
+RUN npx turbo build --filter=api
 
 FROM base AS runner
 WORKDIR /app

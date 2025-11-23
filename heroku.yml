@@ -1,0 +1,4 @@
+build:
+  docker:
+    web: apps/api/Dockerfile
+

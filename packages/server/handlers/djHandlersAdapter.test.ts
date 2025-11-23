@@ -77,7 +77,7 @@ describe("DJHandlers", () => {
 
     // Create mock context
     mockContext = appContextFactory.build()
-    
+
     // Spy on findRoom to return mock room data
     vi.spyOn(dataOps, "findRoom").mockResolvedValue({
       id: "room1",
@@ -185,7 +185,12 @@ describe("DJHandlers", () => {
         data: mockQueueItem,
       })
 
-      expect(sendMessage).toHaveBeenCalledWith(mockIo, "room1", mockSystemMessage, expect.any(Object))
+      expect(sendMessage).toHaveBeenCalledWith(
+        mockIo,
+        "room1",
+        mockSystemMessage,
+        expect.any(Object),
+      )
     })
 
     test("emits SONG_QUEUE_FAILURE event on failure", async () => {
@@ -235,7 +240,7 @@ describe("DJHandlers", () => {
 
     test("emits TRACK_SEARCH_RESULTS event on success", async () => {
       const mockTracks = [{ id: "track123", name: "Test Track" }]
-      
+
       // DJService returns raw data that the handler will wrap
       const mockServiceData = { tracks: mockTracks }
 
