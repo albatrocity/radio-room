@@ -2,16 +2,7 @@ import React, { memo } from "react"
 import { get, isEqual } from "lodash/fp"
 import { motion } from "framer-motion"
 
-import {
-  Box,
-  Text,
-  HStack,
-  IconButton,
-  Icon,
-  ListItem,
-  ListIcon,
-  Tooltip,
-} from "@chakra-ui/react"
+import { Box, Text, HStack, IconButton, Icon, ListItem, ListIcon, Tooltip } from "@chakra-ui/react"
 import { EditIcon, SmallCloseIcon } from "@chakra-ui/icons"
 import { FiMic, FiMusic, FiEye, FiHeadphones } from "react-icons/fi"
 import { BiMessageRoundedDots, BiCrown } from "react-icons/bi"
@@ -26,12 +17,7 @@ const statusIcon = (user: User) => {
       return (
         <Tooltip hasArrow label="Spectating" placement="top">
           <Box>
-            <Icon
-              opacity={0.5}
-              _hover={{ opacity: 1 }}
-              as={FiEye}
-              boxSize={3}
-            />
+            <Icon opacity={0.5} _hover={{ opacity: 1 }} as={FiEye} boxSize={3} />
           </Box>
         </Tooltip>
       )
@@ -39,12 +25,7 @@ const statusIcon = (user: User) => {
       return (
         <Tooltip hasArrow label="Listening" placement="top">
           <Box>
-            <Icon
-              opacity={0.5}
-              _hover={{ opacity: 1 }}
-              as={FiHeadphones}
-              boxSize={3}
-            />
+            <Icon opacity={0.5} _hover={{ opacity: 1 }} as={FiHeadphones} boxSize={3} />
           </Box>
         </Tooltip>
       )
@@ -111,7 +92,7 @@ const ListItemUser = ({
       <HStack
         alignItems="center"
         border={{ side: "bottom" }}
-        gap="xsmall"
+        gap="0.4rem"
         py={user.isDj ? 2 : 0}
         width="100%"
       >
@@ -133,34 +114,32 @@ const ListItemUser = ({
             icon={<EditIcon />}
           />
         )}
-        {currentUser?.isAdmin &&
-          !isEqual(user?.userId, currentUser?.userId) && (
-            <Tooltip
-              hasArrow
-              placement="top"
-              label={user.isDeputyDj ? "Remove DJ privileges" : "Deputize DJ"}
-            >
-              <IconButton
-                size="xs"
-                variant={user.isDeputyDj ? "solid" : "ghost"}
-                aria-label="Deputize DJ"
-                onClick={() => {
-                  onDeputizeDj?.(user.userId)
-                }}
-                icon={<Icon as={FiMusic} />}
-              />
-            </Tooltip>
-          )}
-        {currentUser?.isAdmin &&
-          !isEqual(user?.userId, currentUser?.userId) && (
+        {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
+          <Tooltip
+            hasArrow
+            placement="top"
+            label={user.isDeputyDj ? "Remove DJ privileges" : "Deputize DJ"}
+          >
             <IconButton
               size="xs"
-              variant="ghost"
-              aria-label="Kick User"
-              onClick={() => onKickUser?.(user.userId)}
-              icon={<SmallCloseIcon />}
+              variant={user.isDeputyDj ? "solid" : "ghost"}
+              aria-label="Deputize DJ"
+              onClick={() => {
+                onDeputizeDj?.(user.userId)
+              }}
+              icon={<Icon as={FiMusic} />}
             />
-          )}
+          </Tooltip>
+        )}
+        {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
+          <IconButton
+            size="xs"
+            variant="ghost"
+            aria-label="Kick User"
+            onClick={() => onKickUser?.(user.userId)}
+            icon={<SmallCloseIcon />}
+          />
+        )}
       </HStack>
     </ListItem>
   )
