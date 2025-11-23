@@ -1,5 +1,5 @@
 import { Server } from "socket.io"
-import { PUBSUB_SPOTIFY_AUTH_ERROR, PUBSUB_RADIO_ERROR } from "../../lib/constants"
+import { PUBSUB_METADATA_SOURCE_AUTH_ERROR, PUBSUB_RADIO_ERROR } from "../../lib/constants"
 import {} from "../../lib/context"
 import { createOperations } from "../../operations"
 import { MetadataSourceError, AppContext, PubSubHandlerArgs } from "@repo/types"
@@ -9,7 +9,7 @@ import { pubRoomSettingsUpdated } from "../../operations/room/handleRoomNowPlayi
 type ContextPubSubHandlerArgs = PubSubHandlerArgs & { context: AppContext }
 
 export default async function bindHandlers(io: Server, context: AppContext) {
-  context.redis.subClient.pSubscribe(PUBSUB_SPOTIFY_AUTH_ERROR, (message, channel) =>
+  context.redis.subClient.pSubscribe(PUBSUB_METADATA_SOURCE_AUTH_ERROR, (message, channel) =>
     handleMetadataSourceError({ io, message, channel, context }),
   )
   context.redis.subClient.pSubscribe(PUBSUB_RADIO_ERROR, (message, channel) =>
@@ -20,13 +20,13 @@ export default async function bindHandlers(io: Server, context: AppContext) {
 function getErrorMessage(status: number) {
   switch (status) {
     case 401:
-      return "Your Spotify account has been disconnected. Please log back into Spotify."
+      return "Your music service account has been disconnected. Please log back in."
     case 403:
       return "You are not authorized to perform this action."
     case 404:
       return "The requested resource could not be found."
     default:
-      return "An error occurred with Spotify. Please try again later."
+      return "An error occurred with the music service. Please try again later."
   }
 }
 

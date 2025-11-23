@@ -2,7 +2,7 @@ import { Server } from "socket.io"
 import {
   PUBSUB_ROOM_DELETED,
   PUBSUB_ROOM_SETTINGS_UPDATED,
-  PUBSUB_SPOTIFY_PLAYBACK_STATE_CHANGED,
+  PUBSUB_PLAYBACK_STATE_CHANGED,
 } from "../../lib/constants"
 import { PubSubHandlerArgs } from "@repo/types/PubSub"
 import { getRoomPath } from "../../lib/getRoomPath"
@@ -18,7 +18,7 @@ export default async function bindHandlers(io: Server, context: AppContext) {
     handleRoomDeleted({ io, message, channel, context }),
   )
 
-  context.redis.subClient.pSubscribe(PUBSUB_SPOTIFY_PLAYBACK_STATE_CHANGED, (message, channel) => {
+  context.redis.subClient.pSubscribe(PUBSUB_PLAYBACK_STATE_CHANGED, (message, channel) => {
     handlePlaybackStateChange({ io, message, channel, context })
   })
 
@@ -40,7 +40,7 @@ async function handleRoomDeleted({ io, message, channel }: ContextPubSubHandlerA
 async function handlePlaybackStateChange({ io, message, context }: ContextPubSubHandlerArgs) {
   const { isPlaying, roomId } = JSON.parse(message)
   const newMessage = systemMessage(
-    `Spotify playback has been ${isPlaying ? "resumed" : "paused"}`,
+    `Playback has been ${isPlaying ? "resumed" : "paused"}`,
     {
       type: "alert",
     },

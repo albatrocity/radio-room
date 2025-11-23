@@ -2,8 +2,8 @@ import {
   PUBSUB_PLAYLIST_ADDED,
   PUBSUB_ROOM_NOW_PLAYING_FETCHED,
   PUBSUB_ROOM_SETTINGS_UPDATED,
-  PUBSUB_SPOTIFY_AUTH_ERROR,
-  PUBSUB_SPOTIFY_RATE_LIMIT_ERROR,
+  PUBSUB_METADATA_SOURCE_AUTH_ERROR,
+  PUBSUB_METADATA_SOURCE_RATE_LIMIT_ERROR,
 } from "../../lib/constants"
 import { MetadataSourceError, AppContext, RoomMeta, QueueItem, Station } from "@repo/types"
 import {
@@ -150,38 +150,55 @@ async function pubPlaylistTrackAdded({ context, roomId, item }: PubPlaylistTrack
   context.redis.pubClient.publish(PUBSUB_PLAYLIST_ADDED, JSON.stringify({ roomId, track: item }))
 }
 
-type PubSpotifyErrorParams = {
+type PubMetadataSourceErrorParams = {
   context: AppContext
   userId: string
   roomId: string
   error: MetadataSourceError
 }
 
-export async function pubSpotifyError({ context, userId, roomId, error }: PubSpotifyErrorParams) {
+/**
+ * Publish metadata source authentication error
+ */
+export async function pubMetadataSourceError({ 
+  context, 
+  userId, 
+  roomId, 
+  error 
+}: PubMetadataSourceErrorParams) {
   context.redis.pubClient.publish(
-    PUBSUB_SPOTIFY_AUTH_ERROR,
+    PUBSUB_METADATA_SOURCE_AUTH_ERROR,
     JSON.stringify({ userId, roomId, error }),
   )
 }
 
-type PubRateLimitErrorParams = {
+type PubMetadataSourceRateLimitErrorParams = {
   context: AppContext
   userId: string
   roomId: string
   error: MetadataSourceError
 }
 
-export async function pubRateLimitError({
+/**
+ * Publish metadata source rate limit error
+ */
+export async function pubMetadataSourceRateLimitError({
   context,
   userId,
   roomId,
   error,
-}: PubRateLimitErrorParams) {
+}: PubMetadataSourceRateLimitErrorParams) {
   context.redis.pubClient.publish(
-    PUBSUB_SPOTIFY_RATE_LIMIT_ERROR,
+    PUBSUB_METADATA_SOURCE_RATE_LIMIT_ERROR,
     JSON.stringify({ userId, roomId, error }),
   )
 }
+
+// Deprecated aliases for backward compatibility
+/** @deprecated Use pubMetadataSourceError */
+export const pubSpotifyError = pubMetadataSourceError;
+/** @deprecated Use pubMetadataSourceRateLimitError */
+export const pubRateLimitError = pubMetadataSourceRateLimitError;
 
 type PubRoomSettingsUpdatedParams = {
   context: AppContext

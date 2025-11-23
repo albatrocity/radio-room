@@ -1,6 +1,38 @@
 import { AppContext, PlaybackController, MetadataSource, MediaSource } from "@repo/types"
 import { findRoom } from "../operations/data"
 
+/**
+ * Service configuration registry
+ * Maps service names to their OAuth client IDs
+ */
+const SERVICE_CONFIGS: Record<string, { clientId: string }> = {
+  spotify: {
+    clientId: process.env.SPOTIFY_CLIENT_ID ?? "",
+  },
+  tidal: {
+    clientId: process.env.TIDAL_CLIENT_ID ?? "",
+  },
+  applemusic: {
+    clientId: process.env.APPLE_MUSIC_CLIENT_ID ?? "",
+  },
+}
+
+/**
+ * Extract service name from adapter ID
+ * Examples: "spotify-playback" -> "spotify", "spotify-metadata" -> "spotify"
+ */
+function getServiceName(adapterId: string): string {
+  return adapterId.split("-")[0]
+}
+
+/**
+ * Get service configuration by adapter ID
+ */
+function getServiceConfig(adapterId: string): { clientId: string } {
+  const serviceName = getServiceName(adapterId)
+  return SERVICE_CONFIGS[serviceName] || { clientId: "" }
+}
+
 export class AdapterService {
   private context: AppContext
   private roomPlaybackControllers: Map<string, PlaybackController> = new Map()
@@ -34,10 +66,9 @@ export class AdapterService {
       return null
     }
 
-    const clientId = process.env.SPOTIFY_CLIENT_ID
-
-    if (!clientId) {
-      console.error("SPOTIFY_CLIENT_ID is not defined")
+    const serviceConfig = getServiceConfig(serviceName)
+    if (!serviceConfig.clientId) {
+      console.error(`No client ID configured for service: ${getServiceName(serviceName)}`)
       return null
     }
 
@@ -46,7 +77,7 @@ export class AdapterService {
       name: serviceName,
       authentication: {
         type: "oauth",
-        clientId,
+        clientId: serviceConfig.clientId,
         token: {
           accessToken: "", // Not used
           refreshToken: "",
@@ -216,10 +247,12 @@ export class AdapterService {
       return null
     }
 
-    // Get service-specific config (e.g., Spotify client ID)
-    const clientId = room.metadataSourceId === "spotify" 
-      ? process.env.SPOTIFY_CLIENT_ID ?? ""
-      : ""
+    // Get service-specific config
+    const serviceConfig = getServiceConfig(room.metadataSourceId)
+    if (!serviceConfig.clientId) {
+      console.error(`No client ID configured for service: ${getServiceName(room.metadataSourceId)}`)
+      return null
+    }
 
     // Create a user-specific metadata source with fresh credentials
     try {
@@ -228,7 +261,7 @@ export class AdapterService {
         url: "",
         authentication: {
           type: "oauth",
-          clientId,
+          clientId: serviceConfig.clientId,
           token: {
             accessToken: auth.accessToken,
             refreshToken: auth.refreshToken,
