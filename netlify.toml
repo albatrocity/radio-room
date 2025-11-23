@@ -6,7 +6,7 @@
   
   # Build command - install from root, then build the web app
   # Using npm ci for clean install (uses package-lock.json)
-  command = "cd ../.. && npm ci && npm run rebuild-native && npm run build --workspace=web"
+  command = "cd ../.. && npm ci && npm run build --workspace=web"
   
   # Directory to publish (relative to base)
   publish = "public"
