@@ -1,25 +1,20 @@
 import React from "react"
 import { useEffect } from "react"
 import { useLocation } from "@reach/router"
-import { useSpotifyAuthStore } from "../state/spotifyAuthStore"
 import { useAuthStore } from "../state/authStore"
 import { Center, Spinner, VStack, Text } from "@chakra-ui/react"
 import { navigate } from "gatsby"
 
 export default function SpotifyAuthorization() {
   const location = useLocation()
-
-  const { send: sendSpotifyAuth } = useSpotifyAuthStore()
   const { send: sendAuth } = useAuthStore()
 
   const urlParams = new URLSearchParams(location.search)
-  const code = urlParams.get("code")
   const userId = urlParams.get("userId")
   const challenge = urlParams.get("challenge")
-  const toastMessage = urlParams.get("toast")
 
   useEffect(() => {
-    // Handle server-side OAuth callback (new flow)
+    // Handle server-side OAuth callback
     if (userId) {
       console.log("Server-side OAuth callback detected for user:", userId)
       
@@ -40,18 +35,13 @@ export default function SpotifyAuthorization() {
         navigate(`${redirectUrl.pathname}${redirectUrl.search}`, { replace: true })
       }, 500)
     }
-    // Handle client-side PKCE OAuth callback (legacy flow)
-    else if (code) {
-      console.log("Client-side PKCE OAuth callback detected, code:", code)
-      sendSpotifyAuth("REQUEST_TOKEN", { data: code })
-    } 
     // No OAuth parameters, just redirect
     else {
       const redirectPath = sessionStorage.getItem("postSpotifyAuthRedirect") ?? "/"
       sessionStorage.removeItem("postSpotifyAuthRedirect")
       navigate(redirectPath, { replace: true })
     }
-  }, [code, userId])
+  }, [userId])
 
   return (
     <Center h="100vh" w="100%">

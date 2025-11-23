@@ -4,28 +4,15 @@ import { IconButton } from "@chakra-ui/react"
 import { FaRegHeart, FaHeart } from "react-icons/fa"
 
 import { useIsAdmin } from "../state/authStore"
-import addToLibraryMachine from "../machines/spotifyAddToLibraryMachine"
+import addToLibraryMachine from "../machines/addToLibraryMachine"
 
 interface Props {
-  id?: string
-  // NEW: Optional metadata source type to enable/disable features based on service
-  metadataSourceType?: "spotify" | "tidal" | "applemusic"
+  readonly id?: string
 }
 
-export default function ButtonAddToLibrary({ id, metadataSourceType }: Props) {
-  // Only enable for Spotify (other services TBD)
-  const isSupported = !metadataSourceType || metadataSourceType === "spotify"
-  
-  if (!isSupported || !id) {
-    return null
-  }
+export default function ButtonAddToLibrary({ id }: Props) {
   const isAdmin = useIsAdmin()
-
-  const [state, send] = useMachine(addToLibraryMachine, {
-    context: {
-      ids: id ? [id] : undefined,
-    },
-  })
+  const [state, send] = useMachine(addToLibraryMachine)
 
   const isAdded = id ? state.context.tracks[id] : false
 
@@ -36,6 +23,7 @@ export default function ButtonAddToLibrary({ id, metadataSourceType }: Props) {
   }, [id])
 
   // Only show button to room creators (admin)
+  // Server will handle routing to correct metadata source based on room config
   if (!isAdmin || !id) {
     return null
   }

@@ -4,24 +4,20 @@ import { Link, Box, Button, IconButton, Icon, Text, HStack } from "@chakra-ui/re
 import { CheckCircleIcon, DeleteIcon } from "@chakra-ui/icons"
 import { FaSpotify } from "react-icons/fa"
 
-import { useCurrentUser, useIsAdmin, useIsAuthenticated } from "../state/authStore"
-import { useSpotifyAuthStore } from "../state/spotifyAuthStore"
+import { useCurrentUser, useIsAuthenticated } from "../state/authStore"
+import { useRoomSpotifyAuthStore } from "../state/roomSpotifyAuthStore"
 import { useLocation } from "@reach/router"
 
 export default function ButtonAuthSpotify({ userId }: { userId?: string }) {
   const currentUser = useCurrentUser()
   const isAuthenticated = useIsAuthenticated()
-  const isAdmin = useIsAdmin()
-  const { state, send } = useSpotifyAuthStore()
+  const { state, send } = useRoomSpotifyAuthStore()
   const location = useLocation()
 
   function handleLogin(e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement, MouseEvent>) {
     e.preventDefault()
     e.stopPropagation()
-    if (!isAdmin) {
-      sessionStorage.setItem("postSpotifyAuthRedirect", location.pathname)
-      send("GENERATE_LOGIN_URL")
-    }
+    sessionStorage.setItem("postSpotifyAuthRedirect", location.pathname)
   }
 
   if (!isAuthenticated) return null
@@ -30,18 +26,14 @@ export default function ButtonAuthSpotify({ userId }: { userId?: string }) {
     <Box>
       {!state.matches("authenticated") && (
         <Button
-          as={isAdmin ? Link : undefined}
-          href={
-            isAdmin
-              ? `${process.env.GATSBY_API_URL}/auth/spotify/login?userId=${
-                  userId ?? currentUser.userId
-                }`
-              : undefined
-          }
+          as={Link}
+          href={`${process.env.GATSBY_API_URL}/auth/spotify/login?userId=${
+            userId ?? currentUser.userId
+          }`}
           onClick={handleLogin}
           leftIcon={<Icon as={FaSpotify} />}
-          isLoading={state.matches("working")}
-          isDisabled={state.matches("working")}
+          isLoading={state.matches("loading")}
+          isDisabled={state.matches("loading")}
         >
           Link Spotify
         </Button>

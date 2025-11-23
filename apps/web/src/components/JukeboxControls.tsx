@@ -25,10 +25,7 @@ export default function JukeboxControls({ trackId, meta, hasPlaylist, onShowPlay
         <Box py={1} h={10} overflowX="auto">
           <Box px={4} flexDir="row">
             <HStack alignItems="flex-start">
-              <ButtonAddToLibrary 
-                id={meta?.nowPlaying?.metadataSource?.trackId || meta?.release?.track?.id}
-                metadataSourceType={meta?.nowPlaying?.metadataSource?.type}
-              />
+              <ButtonAddToLibrary id={meta?.nowPlaying?.metadataSource?.trackId} />
               <ReactionCounter
                 reactTo={{ type: "track", id: trackId }}
                 showAddButton={true}

@@ -52,8 +52,7 @@ export default function RadioControls({
         <Container>
           <HStack>
             <ButtonAddToLibrary 
-              id={meta?.nowPlaying?.metadataSource?.trackId || meta?.release?.track?.id}
-              metadataSourceType={meta?.nowPlaying?.metadataSource?.type}
+              id={meta?.nowPlaying?.metadataSource?.trackId}
             />
             <ReactionCounter
               reactTo={{ type: "track", id: trackId }}

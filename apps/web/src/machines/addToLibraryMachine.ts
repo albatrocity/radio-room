@@ -116,15 +116,15 @@ const addToLibraryMachine = createMachine<Context, Event>(
     actions: {
       sendCheckRequest: sendTo("socket", (ctx) => ({
         type: "check saved tracks",
-        data: ctx.ids, // socketService will emit this array directly
+        data: ctx.ids, // Server infers metadata source from room context
       })),
       sendAddRequest: sendTo("socket", (ctx, event) => ({
         type: "add to library",
-        data: event.type === "ADD" ? event.data ?? ctx.ids : ctx.ids, // Array sent directly
+        data: event.type === "ADD" ? event.data ?? ctx.ids : ctx.ids, // Server infers metadata source from room context
       })),
       sendRemoveRequest: sendTo("socket", (ctx, event) => ({
         type: "remove from library",
-        data: event.type === "REMOVE" ? event.data ?? ctx.ids : ctx.ids, // Array sent directly
+        data: event.type === "REMOVE" ? event.data ?? ctx.ids : ctx.ids, // Server infers metadata source from room context
       })),
       setCheckedTracks: assign((ctx, event) => {
         if (event.type === "CHECK_SAVED_TRACKS_RESULTS") {
@@ -186,3 +186,4 @@ const addToLibraryMachine = createMachine<Context, Event>(
 )
 
 export default addToLibraryMachine
+

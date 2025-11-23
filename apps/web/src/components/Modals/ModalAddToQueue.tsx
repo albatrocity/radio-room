@@ -7,7 +7,8 @@ import Modal from "../Modal"
 import { useModalsStore } from "../../state/modalsState"
 import SavedTracks from "../SavedTracks"
 import useAddToQueue from "../useAddToQueue"
-import { useIsSpotifyAuthenticated } from "../../state/spotifyAuthStore"
+import { useIsRoomSpotifyAuthenticated } from "../../state/roomSpotifyAuthStore"
+import { useIsAdmin } from "../../state/authStore"
 
 const MotionBox = motion(Box)
 
@@ -16,7 +17,9 @@ function ModalAddToQueue() {
   const [open, setOpen] = useBoolean(false)
   const { addToQueue, state } = useAddToQueue()
   const isAddingToQueue = useModalsStore((s: any) => s.state.matches("queue"))
-  const isAuthenticated = useIsSpotifyAuthenticated()
+  const isRoomSpotifyAuthenticated = useIsRoomSpotifyAuthenticated()
+  const isAdmin = useIsAdmin()
+  const canViewSavedTracks = isAdmin && isRoomSpotifyAuthenticated
   const hideEditForm = () => send("CLOSE")
 
   const isLoading = state.matches("loading")
@@ -40,7 +43,7 @@ function ModalAddToQueue() {
             onDropdownOpenChange={handleOpenDropdown}
           />
         </Box>
-        {isAuthenticated && (
+        {canViewSavedTracks && (
           <Box>
             <MotionBox
               position="absolute"
