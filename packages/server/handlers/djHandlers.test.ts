@@ -67,28 +67,24 @@ describe("djHandlers", () => {
   })
 
   test("searchForTrack delegates to adapter", async () => {
-    const metadataSource = { api: { search: vi.fn() } } as unknown as MetadataSource
     const query = "search term"
 
-    await searchForTrack({ socket: mockSocket, io: mockIo }, metadataSource, { query })
+    await searchForTrack({ socket: mockSocket, io: mockIo }, { query })
 
     expect(mockSearchForTrack).toHaveBeenCalledWith(
       { socket: mockSocket, io: mockIo },
-      metadataSource,
       { query },
     )
   })
 
   test("savePlaylist delegates to adapter", async () => {
-    const metadataSource = { api: { createPlaylist: vi.fn() } } as unknown as MetadataSource
     const name = "My Playlist"
     const trackIds = ["track1", "track2"] as QueueItem["track"]["id"][]
 
-    await savePlaylist({ socket: mockSocket, io: mockIo }, metadataSource, { name, trackIds })
+    await savePlaylist({ socket: mockSocket, io: mockIo }, { name, trackIds })
 
     expect(mockSavePlaylist).toHaveBeenCalledWith(
       { socket: mockSocket, io: mockIo },
-      metadataSource,
       { name, trackIds },
     )
   })

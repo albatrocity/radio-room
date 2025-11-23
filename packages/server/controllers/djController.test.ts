@@ -53,7 +53,7 @@ describe("DJController", () => {
     test("should register exactly 5 socket events", () => {
       createDJController(mockSocket, mockIo)
 
-      expect(mockSocket.on).toHaveBeenCalledTimes(5)
+      expect(mockSocket.on).toHaveBeenCalledTimes(9)
     })
   })
 
@@ -103,7 +103,7 @@ describe("DJController", () => {
       createDJController(mockSocket, mockIo)
 
       // Verify that handlers were registered - if they were, the closure is working
-      expect(socketEventHandlers.size).toBe(5)
+      expect(socketEventHandlers.size).toBe(9)
     })
   })
 
@@ -115,8 +115,8 @@ describe("DJController", () => {
 
       createDJController(mockSocket, mockIo)
 
-      // The fact that we have 5 registered handlers proves the pattern works
-      expect(mockSocket.on).toHaveBeenCalledTimes(5)
+      // The fact that we have 9 registered handlers proves the pattern works
+      expect(mockSocket.on).toHaveBeenCalledTimes(9)
     })
 
     test("shows handler reuse through closure", () => {
@@ -125,8 +125,8 @@ describe("DJController", () => {
 
       createDJController(mockSocket, mockIo)
 
-      // All 5 events are registered using the same handler instance
-      expect(socketEventHandlers.size).toBe(5)
+      // All 9 events are registered using the same handler instance
+      expect(socketEventHandlers.size).toBe(9)
     })
   })
 })

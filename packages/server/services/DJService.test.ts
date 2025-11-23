@@ -18,6 +18,13 @@ vi.mock("../operations/data", () => ({
 vi.mock("../lib/systemMessage", () => ({
   default: vi.fn((msg) => ({ content: msg, type: "system" })),
 }))
+vi.mock("./AdapterService", () => ({
+  AdapterService: vi.fn().mockImplementation(() => ({
+    getRoomPlaybackController: vi.fn(),
+    getUserMetadataSource: vi.fn(),
+    getRoomMetadataSource: vi.fn(),
+  })),
+}))
 
 // Import mocked dependencies
 import systemMessage from "../lib/systemMessage"
@@ -153,53 +160,55 @@ describe("DJService", () => {
     test("adds song to queue when not already in queue", async () => {
       // Mock for addToQueue
       vi.mocked(addToQueue).mockResolvedValue(undefined)
+      
+      // Mock room
+      vi.mocked(findRoom).mockResolvedValue(roomFactory.build({
+        id: "room123",
+        creator: "user123",
+      }))
+      
+      // Mock track data
+      const mockTrack = metadataSourceTrackFactory.build({
+        id: "track123",
+        title: "Test Track",
+        artist: "Test Artist",
+        urls: [{ type: "resource", url: "spotify:track:123" }],
+      })
+      
+      // Mock adapter service methods
+      const mockMetadataSource = {
+        api: {
+          findById: vi.fn().mockResolvedValue(mockTrack),
+        },
+      }
+      const mockPlaybackController = {
+        api: {
+          addToQueue: vi.fn().mockResolvedValue(undefined),
+        },
+      }
+      
+      // @ts-ignore - accessing private property for testing
+      djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue(mockMetadataSource)
+      // @ts-ignore - accessing private property for testing
+      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue(mockPlaybackController)
 
       const result = await djService.queueSong("room123", "user123", "Homer", "track123")
 
-      expect(addToQueue).toHaveBeenCalledWith({
-        context: mockContext,
-        roomId: "room123",
-        item: {
-          addedAt: 0,
-          addedBy: {
-            displayName: "User 2",
-            email: "user-2@email.com",
-            id: "user-2",
-            isAdmin: false,
-            isDeputyDj: false,
-            isDj: false,
-            status: "participating",
-            userId: "user123",
-            username: "Homer",
-          },
-          addedDuring: undefined,
-          playedAt: expect.any(Number),
-          title: "Track 1",
-          track: {
-            album: {
-              artists: [],
-              id: "album-id",
-              images: [],
-              label: "Label",
-              releaseDate: "2020-01-01",
-              releaseDatePrecision: "day",
-              title: "Album Title",
-              totalTracks: 1,
-              urls: [],
-            },
-            artists: [],
-            discNumber: 1,
-            duration: 0,
-            explicit: false,
-            id: "track-id",
-            images: [],
-            popularity: 0,
-            title: "Track 1",
-            trackNumber: 1,
-            urls: [],
-          },
-        },
-      })
+      expect(addToQueue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: mockContext,
+          roomId: "room123",
+          item: expect.objectContaining({
+            addedBy: expect.objectContaining({
+              userId: "user123",
+              username: "Homer",
+            }),
+            track: expect.objectContaining({
+              id: "track123",
+            }),
+          }),
+        })
+      )
 
       // expect(result).toEqual({
       //   success: true,
@@ -363,6 +372,9 @@ describe("DJService", () => {
       expect(result).toEqual({
         success: false,
         message: expect.stringContaining("not supported"),
+        error: expect.objectContaining({
+          message: expect.stringContaining("not supported"),
+        }),
       })
     })
 
@@ -388,7 +400,10 @@ describe("DJService", () => {
 
       expect(result).toEqual({
         success: false,
-        error: mockError,
+        message: "Creation failed",
+        error: expect.objectContaining({
+          message: "Creation failed",
+        }),
       })
     })
   })

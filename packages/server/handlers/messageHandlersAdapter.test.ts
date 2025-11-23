@@ -34,6 +34,10 @@ describe("MessageHandlers", () => {
       userId: "1",
       username: "Homer",
     }))
+    
+    // Add context to socket
+    mockSocket.context = { redis: {}, db: {}, adapters: {}, jobs: [] }
+    
     // Mock the MessageService methods
     messageService = {
       processNewMessage: vi.fn().mockResolvedValue({
@@ -100,7 +104,7 @@ describe("MessageHandlers", () => {
         content: "Hello world",
         mentions: [],
         timestamp: "2023-01-01T00:00:00.000Z",
-      })
+      }, expect.any(Object))
     })
   })
 

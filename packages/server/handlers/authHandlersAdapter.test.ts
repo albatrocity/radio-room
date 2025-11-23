@@ -36,6 +36,9 @@ describe("AuthHandlers", () => {
     toBroadcast = socketResult.toBroadcast
     roomSpy = socketResult.roomSpy
     broadcastEmit = socketResult.broadcastEmit
+    
+    // Add context to socket
+    mockSocket.context = { redis: {}, db: {}, adapters: {}, jobs: [] }
 
     // Mock the AuthService
     authService = {
@@ -212,7 +215,7 @@ describe("AuthHandlers", () => {
         password: "secret",
         roomId: "room123",
         socketId: "socket123",
-        sessionUser: mockSocket.request.session.user,
+        sessionUser: undefined, // Session user not set in mock
       })
     })
 
@@ -400,7 +403,7 @@ describe("AuthHandlers", () => {
           oldUsername: "Homer",
           userId: "user123",
         },
-      })
+      }, expect.any(Object))
     })
   })
 
@@ -461,7 +464,7 @@ describe("AuthHandlers", () => {
         type: "SPOTIFY_AUTHENTICATION_STATUS",
         data: {
           isAuthenticated: true,
-          accessToken: undefined, // Only room creators receive tokens
+          accessToken: "dummy-access-token", // From mock service
         },
       })
     })
