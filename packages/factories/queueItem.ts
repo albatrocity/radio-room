@@ -9,7 +9,15 @@ export const queueItemFactory = Factory.define<QueueItem>(({ sequence }) => {
 
   return {
     title: track.title,
-    track: track,
+    track,
+    mediaSource: {
+      type: "spotify",
+      trackId: track.id,
+    },
+    metadataSource: {
+      type: "spotify",
+      trackId: track.id,
+    },
     addedAt: 0,
     addedBy: userFactory.build(),
     addedDuring: undefined,

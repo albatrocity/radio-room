@@ -102,11 +102,22 @@ export const mediaSource: MediaSourceAdapter = {
                   console.log(`Shoutcast: - URLs: ${enrichedTrack.urls?.length || 0}`, enrichedTrack.urls)
                   console.log(`Shoutcast: - Images: ${enrichedTrack.images?.length || 0}`, enrichedTrack.images)
                   console.log(`Shoutcast: - Album images: ${enrichedTrack.album?.images?.length || 0}`, enrichedTrack.album?.images)
-                  console.log(`Shoutcast: - Full enriched track:`, JSON.stringify(enrichedTrack, null, 2))
 
+                  // Import makeStableTrackId for source tracking
+                  const { makeStableTrackId } = await import("@repo/server/lib/makeNowPlayingFromStationMeta")
+                  
                   const nowPlaying = {
                     title: enrichedTrack.title,
                     track: enrichedTrack,
+                    // NEW: Populate both mediaSource (Shoutcast) and metadataSource (Spotify)
+                    mediaSource: {
+                      type: "shoutcast" as const,
+                      trackId: makeStableTrackId(station),
+                    },
+                    metadataSource: {
+                      type: "spotify" as const,
+                      trackId: enrichedTrack.id,
+                    },
                     addedAt: Date.now(),
                     addedBy: undefined,
                     addedDuring: "nowPlaying" as const,

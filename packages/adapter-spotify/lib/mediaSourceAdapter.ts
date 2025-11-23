@@ -49,6 +49,15 @@ export const mediaSource: MediaSourceAdapter = {
         const nowPlaying = {
           title: track.title,
           track,
+          // NEW: For Spotify jukebox, both mediaSource and metadataSource are Spotify
+          mediaSource: {
+            type: "spotify" as const,
+            trackId: track.id,
+          },
+          metadataSource: {
+            type: "spotify" as const,
+            trackId: track.id,
+          },
           addedAt: queuedTrack?.addedAt ?? Date.now(), // Preserve queue timestamp if available
           addedBy: queuedTrack?.addedBy ?? undefined,
           addedDuring: "nowPlaying" as const,

@@ -20,7 +20,7 @@ import { writeJsonToHset } from "../data/utils"
 type HandleRoomNowPlayingDataParams = {
   context: AppContext
   roomId: string
-  nowPlaying?: QueueItem
+  nowPlaying?: QueueItem  // Optional at function level (might not have data)
   stationMeta?: Station
   forcePublish?: boolean
 }
@@ -36,39 +36,26 @@ export default async function handleRoomNowPlayingData({
   const room = await findRoom({ context, roomId })
   const current = await getRoomCurrent({ context, roomId })
 
-  // Smart track comparison: prioritize enriched IDs when available, fall back to source data
+  // Compare using mediaSource (stable, always present when nowPlaying exists)
+  // Handle case where current track doesn't exist yet or has old data structure
   let isSameTrack = false
-
-  // Use centralized ID validation to check if IDs are real service IDs vs synthetic ones
-  const { parseTrackId } = await import("@repo/utils/trackId")
-
-  const currentHasRealId =
-    current?.nowPlaying?.track?.id && parseTrackId(current.nowPlaying.track.id).isServiceId
-  const newHasRealId = nowPlaying?.track?.id && parseTrackId(nowPlaying.track.id).isServiceId
-
-  if (currentHasRealId && newHasRealId) {
-    // Both have real Spotify IDs (successful enrichment) - compare by ID
-    isSameTrack = current?.nowPlaying?.track?.id === nowPlaying.track.id
+  
+  if (current?.nowPlaying?.mediaSource && nowPlaying?.mediaSource) {
+    isSameTrack =
+      current.nowPlaying.mediaSource.type === nowPlaying.mediaSource.type &&
+      current.nowPlaying.mediaSource.trackId === nowPlaying.mediaSource.trackId
 
     // For radio rooms, also verify station title (handles same track playing multiple times)
     if (room?.type === "radio" && stationMeta?.title && current?.stationMeta?.title) {
       isSameTrack = isSameTrack && current.stationMeta.title === stationMeta.title
     }
-  } else if (room?.type === "radio" && stationMeta?.title) {
-    // Radio room without enrichment (or with placeholder IDs) - compare raw station titles
-    isSameTrack = current?.stationMeta?.title === stationMeta?.title
-  } else if (newHasRealId) {
-    // Has real track ID but no previous - definitely new track
-    isSameTrack = false
-  } else {
-    // Fallback: compare station metadata
-    isSameTrack = current?.stationMeta?.title === stationMeta?.title
   }
 
   // If the currently playing track is the same as the one we just fetched, return early without publishing
   if (!forcePublish && isSameTrack && nowPlaying) {
+    const hasEnrichment = nowPlaying.metadataSource !== undefined
     console.log(
-      `[handleRoomNowPlayingData] Same track detected (enriched: ${newHasRealId}), skipping ALL processing for room ${roomId}`,
+      `[handleRoomNowPlayingData] Same track detected (enriched: ${hasEnrichment}), skipping ALL processing for room ${roomId}`,
     )
     return null
   }
@@ -76,44 +63,7 @@ export default async function handleRoomNowPlayingData({
   // If there is no currently playing track and the room is set to fetch data from Spotify, clear the current hash and publish
   if (!nowPlaying && room?.fetchMeta) {
     await clearRoomCurrent({ context, roomId })
-    await pubSubNowPlaying({
-      context,
-      roomId,
-      nowPlaying,
-      meta: {
-        nowPlaying: {
-          title: stationMeta?.title ?? "Unknown",
-          track: {
-            title: stationMeta?.title ?? "Unknown",
-            artists: [],
-            album: {
-              title: stationMeta?.title ?? "Unknown",
-              artists: [],
-              images: [],
-              urls: [],
-              id: `album-${Date.now()}`,
-              label: "Unknown",
-              releaseDate: "Unknown",
-              releaseDatePrecision: "day",
-              totalTracks: 0,
-            },
-            duration: 0,
-            id: `track-${Date.now()}`,
-            discNumber: 0,
-            explicit: false,
-            images: [],
-            popularity: 0,
-            trackNumber: 0,
-            urls: [],
-          },
-          addedAt: Date.now(),
-          addedBy: undefined,
-          addedDuring: "nowPlaying",
-          playedAt: Date.now(),
-        },
-        lastUpdatedAt: Date.now().toString(),
-      },
-    })
+    await pubSubNowPlaying({ context, roomId, nowPlaying: undefined, meta: undefined })
     return null
   }
   if (!nowPlaying) {
@@ -144,7 +94,14 @@ export default async function handleRoomNowPlayingData({
   // Add the track to the room playlist
   const queue = await getQueue({ context, roomId })
 
-  const inQueue = nowPlaying && (queue ?? []).find((item) => item.track.id === nowPlaying.track.id)
+  // Find track in queue using mediaSource
+  const inQueue =
+    nowPlaying &&
+    (queue ?? []).find(
+      (item) =>
+        item.mediaSource.type === nowPlaying.mediaSource.type &&
+        item.mediaSource.trackId === nowPlaying.mediaSource.trackId,
+    )
 
   // If this track was in the queue, preserve its original addedAt timestamp
   // This ensures the playlist shows when it was originally queued, not when it started playing
@@ -159,7 +116,9 @@ export default async function handleRoomNowPlayingData({
   await addTrackToRoomPlaylist({ context, roomId, item: playlistItem })
   await pubPlaylistTrackAdded({ context, roomId, item: playlistItem })
   if (inQueue) {
-    await removeFromQueue({ context, roomId, trackId: inQueue.track.id })
+    // Use mediaSource for removal key
+    const trackKey = `${inQueue.mediaSource.type}:${inQueue.mediaSource.trackId}`
+    await removeFromQueue({ context, roomId, trackId: trackKey })
   }
 }
 
@@ -167,10 +126,14 @@ type PubSubNowPlayingParams = {
   context: AppContext
   roomId: string
   nowPlaying: QueueItem | undefined
-  meta: RoomMeta
+  meta: RoomMeta | undefined  // Allow undefined for clearing case
 }
 
 async function pubSubNowPlaying({ context, roomId, nowPlaying, meta }: PubSubNowPlayingParams) {
+  // Skip publish if no meta available
+  if (!meta) {
+    return
+  }
   context.redis.pubClient.publish(
     PUBSUB_ROOM_NOW_PLAYING_FETCHED,
     JSON.stringify({ roomId, nowPlaying, meta }),

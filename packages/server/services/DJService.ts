@@ -171,6 +171,14 @@ export class DJService {
     // Store in our internal queue
     const queuedItem = queueItemFactory.build({
       track,
+      mediaSource: {
+        type: "spotify",
+        trackId: track.id,
+      },
+      metadataSource: {
+        type: "spotify",
+        trackId: track.id,
+      },
       addedBy: {
         userId,
         username,

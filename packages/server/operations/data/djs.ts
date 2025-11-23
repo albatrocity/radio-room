@@ -77,8 +77,10 @@ export async function addToQueue({
 }) {
   try {
     const value = JSON.stringify(item)
-    await context.redis.pubClient.sAdd(`room:${roomId}:queue`, item.track.id)
-    await context.redis.pubClient.set(`room:${roomId}:queued_track:${item.track.id}`, value)
+    // Use mediaSource for Redis key (always present)
+    const trackKey = `${item.mediaSource.type}:${item.mediaSource.trackId}`
+    await context.redis.pubClient.sAdd(`room:${roomId}:queue`, trackKey)
+    await context.redis.pubClient.set(`room:${roomId}:queued_track:${trackKey}`, value)
   } catch (e) {
     console.log("ERROR FROM data/djs/addToQueue", roomId, item)
     console.error(e)

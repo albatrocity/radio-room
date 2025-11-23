@@ -208,16 +208,25 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
                       </Text>
                     </HStack>
                   )}
-                  {room?.type === "jukebox" && (
+                  {meta.nowPlaying?.metadataSource && (
                     <HStack spacing={1}>
                       <Text as="span" color="primary.200" fontSize="2xs">
                         Track data provided by
                       </Text>
                       <HStack spacing={1}>
-                        <Icon as={FaSpotify} color="primary.200" boxSize={3} />
-                        <Text color="primary.200" fontSize="2xs" as="span">
-                          Spotify
-                        </Text>
+                        {meta.nowPlaying.metadataSource.type === "spotify" && (
+                          <>
+                            <Icon as={FaSpotify} color="primary.200" boxSize={3} />
+                            <Text color="primary.200" fontSize="2xs" as="span">
+                              Spotify
+                            </Text>
+                          </>
+                        )}
+                        {meta.nowPlaying.metadataSource.type !== "spotify" && (
+                          <Text color="primary.200" fontSize="2xs" as="span">
+                            {meta.nowPlaying.metadataSource.type}
+                          </Text>
+                        )}
                       </HStack>
                     </HStack>
                   )}

@@ -8,9 +8,17 @@ import addToLibraryMachine from "../machines/spotifyAddToLibraryMachine"
 
 interface Props {
   id?: string
+  // NEW: Optional metadata source type to enable/disable features based on service
+  metadataSourceType?: "spotify" | "tidal" | "applemusic"
 }
 
-export default function ButtonAddToLibrary({ id }: Props) {
+export default function ButtonAddToLibrary({ id, metadataSourceType }: Props) {
+  // Only enable for Spotify (other services TBD)
+  const isSupported = !metadataSourceType || metadataSourceType === "spotify"
+  
+  if (!isSupported || !id) {
+    return null
+  }
   const isAdmin = useIsAdmin()
 
   const [state, send] = useMachine(addToLibraryMachine, {

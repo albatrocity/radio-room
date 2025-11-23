@@ -44,7 +44,8 @@ const addToLibraryMachine = createMachine<Context, Event>(
       },
       CHECK_SAVED_TRACKS_FAILURE: {
         target: "error",
-        actions: ["showError"],
+        // NOTE: Don't show error toast for unsupported services (graceful handling)
+        // actions: ["showError"],
       },
       ADD_TO_LIBRARY_SUCCESS: {
         target: "loading.checking",
