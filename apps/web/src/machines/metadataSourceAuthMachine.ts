@@ -1,17 +1,18 @@
-// state machine for fetching the current user's spotify authentication status
+// Service-agnostic state machine for checking if the room's metadata source is authenticated
 import { sendTo, createMachine, assign } from "xstate"
 import socketService from "../lib/socketService"
 import { toast } from "../lib/toasts"
 
 interface Context {
   userId?: string
+  serviceName?: string
   accessToken?: string
 }
 
-export const spotifyAuthMachine = createMachine<Context>(
+export const metadataSourceAuthMachine = createMachine<Context>(
   {
     predictableActionArguments: true,
-    id: "spotify-auth",
+    id: "metadata-source-auth",
     initial: "loading",
     context: {},
     on: {
@@ -19,9 +20,9 @@ export const spotifyAuthMachine = createMachine<Context>(
         target: "loading",
       },
       INIT: {
-        actions: ["assignUserId"],
+        actions: ["assignContext"],
       },
-      SPOTIFY_ACCESS_TOKEN_REFRESHED: {
+      SERVICE_ACCESS_TOKEN_REFRESHED: {
         target: "authenticated",
         cond: "hasAccessToken",
       },
@@ -39,7 +40,7 @@ export const spotifyAuthMachine = createMachine<Context>(
       loading: {
         entry: ["fetchAuthenticationStatus"],
         on: {
-          SPOTIFY_AUTHENTICATION_STATUS: [
+          SERVICE_AUTHENTICATION_STATUS: [
             {
               target: "authenticated",
               cond: "isAuthenticated",
@@ -61,24 +62,34 @@ export const spotifyAuthMachine = createMachine<Context>(
   },
   {
     actions: {
-      assignUserId: assign({
+      assignContext: assign({
         userId: (ctx, event) => {
-          return event.data.user.userId ?? ctx.userId
+          return event.data?.userId ?? ctx.userId
+        },
+        serviceName: (ctx, event) => {
+          return event.data?.serviceName ?? ctx.serviceName
         },
       }),
       fetchAuthenticationStatus: sendTo("socket", (ctx) => {
         return {
-          type: "get user spotify authentication status",
+          type: "get user service authentication status",
           data: {
             userId: ctx.userId,
+            serviceName: ctx.serviceName || "spotify", // Default to spotify for backward compat
           },
         }
       }),
-      logout: sendTo("socket", "logout spotify"),
-      notifyLogout: () => {
+      logout: sendTo("socket", (ctx) => ({
+        type: "logout service",
+        data: {
+          serviceName: ctx.serviceName || "spotify",
+        },
+      })),
+      notifyLogout: (ctx) => {
+        const serviceName = ctx.serviceName || "service"
         toast({
-          title: "Spotify Disconnected",
-          description: "Your Spotify account is now unlinked",
+          title: `${serviceName.charAt(0).toUpperCase() + serviceName.slice(1)} Disconnected`,
+          description: `Your ${serviceName} account is now unlinked`,
           status: "success",
         })
       },
@@ -96,3 +107,4 @@ export const spotifyAuthMachine = createMachine<Context>(
     },
   },
 )
+

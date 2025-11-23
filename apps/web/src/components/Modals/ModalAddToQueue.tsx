@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect } from "react"
 import { motion } from "framer-motion"
 import { Box, Heading, Stack, useBoolean } from "@chakra-ui/react"
 
@@ -7,8 +7,12 @@ import Modal from "../Modal"
 import { useModalsStore } from "../../state/modalsState"
 import SavedTracks from "../SavedTracks"
 import useAddToQueue from "../useAddToQueue"
-import { useIsRoomSpotifyAuthenticated } from "../../state/roomSpotifyAuthStore"
-import { useIsAdmin } from "../../state/authStore"
+import {
+  useIsMetadataSourceAuthenticated,
+  useMetadataSourceAuthStore,
+} from "../../state/metadataSourceAuthStore"
+import { useIsAdmin, useCurrentUser } from "../../state/authStore"
+import { useCurrentRoom } from "../../state/roomStore"
 
 const MotionBox = motion(Box)
 
@@ -17,10 +21,30 @@ function ModalAddToQueue() {
   const [open, setOpen] = useBoolean(false)
   const { addToQueue, state } = useAddToQueue()
   const isAddingToQueue = useModalsStore((s: any) => s.state.matches("queue"))
-  const isRoomSpotifyAuthenticated = useIsRoomSpotifyAuthenticated()
+  const isMetadataSourceAuthenticated = useIsMetadataSourceAuthenticated()
+  const { send: sendAuth } = useMetadataSourceAuthStore()
   const isAdmin = useIsAdmin()
-  const canViewSavedTracks = isAdmin && isRoomSpotifyAuthenticated
+  const currentUser = useCurrentUser()
+  const room = useCurrentRoom()
   const hideEditForm = () => send("CLOSE")
+
+  // Initialize auth check when modal opens
+  useEffect(() => {
+    if (isAddingToQueue && isAdmin && room?.metadataSourceId && currentUser?.userId) {
+      // Determine service name from metadata source ID
+      // Format: "spotify-metadata" -> "spotify"
+      const serviceName = room.metadataSourceId.split("-")[0]
+      sendAuth("INIT", {
+        data: {
+          userId: currentUser.userId,
+          serviceName,
+        },
+      })
+      sendAuth("FETCH_STATUS")
+    }
+  }, [isAddingToQueue, isAdmin, room?.metadataSourceId, currentUser?.userId, sendAuth])
+
+  const canViewSavedTracks = isAdmin && isMetadataSourceAuthenticated
 
   const isLoading = state.matches("loading")
   const loadingItem = isLoading ? state.context.queuedTrack : undefined
