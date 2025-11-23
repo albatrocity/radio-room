@@ -53,14 +53,14 @@ export class AdapterService {
     }
 
     const room = await findRoom({ context: this.context, roomId })
-    
+
     if (!room || !room.playbackControllerId) {
       return null
     }
 
     const serviceName = room.playbackControllerId
     const adapterModule = this.context.adapters.playbackControllerModules.get(serviceName)
-    
+
     if (!adapterModule) {
       console.error(`No adapter module found for playback controller: ${serviceName}`)
       return null
@@ -106,9 +106,11 @@ export class AdapterService {
       },
       onRegistered: () => {},
       onAuthenticationCompleted: () => {},
-      onAuthenticationFailed: (error) => console.error("Playback controller authentication failed:", error),
+      onAuthenticationFailed: (error) =>
+        console.error("Playback controller authentication failed:", error),
       onAuthorizationCompleted: () => {},
-      onAuthorizationFailed: (error) => console.error("Playback controller authorization failed:", error),
+      onAuthorizationFailed: (error) =>
+        console.error("Playback controller authorization failed:", error),
       onPlay: () => {},
       onPause: () => {},
       onChangeTrack: () => {},
@@ -135,14 +137,14 @@ export class AdapterService {
     }
 
     const room = await findRoom({ context: this.context, roomId })
-    
+
     if (!room || !room.metadataSourceId) {
       return null
     }
 
     const serviceName = room.metadataSourceId
     const adapterModule = this.context.adapters.metadataSourceModules.get(serviceName)
-    
+
     if (!adapterModule) {
       console.error(`No adapter module found for metadata source: ${serviceName}`)
       return null
@@ -196,7 +198,8 @@ export class AdapterService {
       },
       onRegistered: () => {},
       onAuthenticationCompleted: () => {},
-      onAuthenticationFailed: (error) => console.error("Metadata source authentication failed:", error),
+      onAuthenticationFailed: (error) =>
+        console.error("Metadata source authentication failed:", error),
       onSearchResults: () => {},
       onError: (error) => console.error("Metadata source error:", error),
     })
@@ -215,7 +218,7 @@ export class AdapterService {
    */
   async getUserMetadataSource(roomId: string, userId?: string): Promise<MetadataSource | null> {
     const room = await findRoom({ context: this.context, roomId })
-    
+
     if (!room || !room.metadataSourceId) {
       return null
     }
@@ -225,7 +228,7 @@ export class AdapterService {
 
     // Get the adapter module
     const adapterModule = this.context.adapters.metadataSourceModules.get(room.metadataSourceId)
-    
+
     if (!adapterModule) {
       console.error(`No adapter module found for metadata source: ${room.metadataSourceId}`)
       return null
@@ -243,7 +246,9 @@ export class AdapterService {
     })
 
     if (!auth || !auth.accessToken) {
-      console.error(`No auth tokens found for user ${targetUserId} on service ${room.metadataSourceId}`)
+      console.error(
+        `No auth tokens found for user ${targetUserId} on service ${room.metadataSourceId}`,
+      )
       return null
     }
 
@@ -293,7 +298,7 @@ export class AdapterService {
    */
   async getRoomMediaSource(roomId: string): Promise<MediaSource | null> {
     const room = await findRoom({ context: this.context, roomId })
-    
+
     if (!room || !room.mediaSourceId) {
       return null
     }
@@ -305,23 +310,25 @@ export class AdapterService {
   /**
    * Check if a room has a specific adapter type configured
    */
-  async hasAdapter(roomId: string, adapterType: 'playback' | 'metadata' | 'media'): Promise<boolean> {
+  async hasAdapter(
+    roomId: string,
+    adapterType: "playback" | "metadata" | "media",
+  ): Promise<boolean> {
     const room = await findRoom({ context: this.context, roomId })
-    
+
     if (!room) {
       return false
     }
 
     switch (adapterType) {
-      case 'playback':
+      case "playback":
         return !!room.playbackControllerId
-      case 'metadata':
+      case "metadata":
         return !!room.metadataSourceId
-      case 'media':
+      case "media":
         return !!room.mediaSourceId
       default:
         return false
     }
   }
 }
-

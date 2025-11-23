@@ -1,4 +1,4 @@
-import React, { FormEvent, useCallback, useEffect, useState } from "react"
+import React, { FormEvent, useCallback, useEffect, useRef, useState } from "react"
 import { Box, Button, HStack, Text, Link, useBoolean, useConst, VStack } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { useMachine } from "@xstate/react"
@@ -30,6 +30,7 @@ function DrawerPlaylist() {
   const today = useConst(() => format(new Date(), "M/d/y"))
   const defaultPlaylistName = `${room?.title || "Radio Room"} ${today}`
   const [name, setName] = useState<string>(defaultPlaylistName)
+  const hasInitialized = useRef(false)
   const [state, send] = useMachine(savePlaylistMachine, {
     actions: {
       notifyPlaylistCreated: (context) => {
@@ -88,12 +89,20 @@ function DrawerPlaylist() {
     },
   })
 
-  // Update selected playlist when currentPlaylist changes
+  // Initialize selected playlist when drawer first opens or playlist loads
   useEffect(() => {
-    if (currentPlaylist.length > 0 && selectedPlaylistState.context.collection.length === 0) {
+    if (isOpen && currentPlaylist.length > 0 && !hasInitialized.current) {
       selectedPlaylistSend("SET_ITEMS", { data: currentPlaylist })
+      hasInitialized.current = true
     }
-  }, [currentPlaylist, selectedPlaylistState.context.collection.length, selectedPlaylistSend])
+  }, [isOpen, currentPlaylist, selectedPlaylistSend])
+
+  // Reset initialization flag when drawer closes
+  useEffect(() => {
+    if (!isOpen) {
+      hasInitialized.current = false
+    }
+  }, [isOpen])
 
   const handleSelectionChange = (item: PlaylistItem) => {
     selectedPlaylistSend("TOGGLE_ITEM", {
