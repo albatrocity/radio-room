@@ -1,18 +1,16 @@
-import session from "sessionstorage"
-
 import { SESSION_PASSWORD } from "../constants"
 import { AuthContext } from "../machines/authMachine"
 import { AnyEventObject } from "xstate"
 
 export const getPassword = () => {
-  return session.getItem(SESSION_PASSWORD)
+  return sessionStorage.getItem(SESSION_PASSWORD)
 }
 
 export const savePassword = (_ctx: AuthContext, event: AnyEventObject) => {
   const password = event.data
 
   if (password) {
-    session.setItem(SESSION_PASSWORD, password)
+    sessionStorage.setItem(SESSION_PASSWORD, password)
   }
   return password
 }

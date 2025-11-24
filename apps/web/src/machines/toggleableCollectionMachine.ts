@@ -1,5 +1,4 @@
 import { createMachine, assign, InternalMachineOptions } from "xstate"
-import session from "sessionstorage"
 import { concat, uniqBy, get } from "lodash/fp"
 import { ChatMessage } from "../types/ChatMessage"
 
@@ -45,23 +44,20 @@ const options: InternalMachineOptions<Context, any, any> = {
     }),
     persist: (context) => {
       if (context.persistent) {
-        session.setItem(context.name, JSON.stringify(context.collection))
+        sessionStorage.setItem(context.name, JSON.stringify(context.collection))
       }
     },
     loadCollection: assign({
       collection: (context) =>
         context.persistent
-          ? JSON.parse(session.getItem(context.name) || "[]") || []
+          ? JSON.parse(sessionStorage.getItem(context.name) || "[]") || []
           : context.collection,
     }),
     setName: assign({ name: (_ctx, event) => event.data }),
     setItems: assign({ collection: (_ctx, event) => event.data }),
     addItems: assign({
       collection: (context, event) => {
-        return uniqBy(context.idPath || "id", [
-          ...event.data,
-          ...context.collection,
-        ])
+        return uniqBy(context.idPath || "id", [...event.data, ...context.collection])
       },
     }),
     clear: assign({ collection: [] }),
@@ -74,8 +70,7 @@ const options: InternalMachineOptions<Context, any, any> = {
         if (isPresent) {
           return context.collection.filter(
             (x: ChatMessage) =>
-              get(context.idPath || "id", x) !==
-              get(context.idPath || "id", event.data),
+              get(context.idPath || "id", x) !== get(context.idPath || "id", event.data),
           )
         }
         return uniqBy("id", concat(event.data, context.collection))
@@ -84,10 +79,7 @@ const options: InternalMachineOptions<Context, any, any> = {
   },
 }
 
-export const toggleableCollectionMachine = createMachine<Context>(
-  config,
-  options,
-)
+export const toggleableCollectionMachine = createMachine<Context>(config, options)
 
 export function createToggleableCollectionMachine(context: Context) {
   return createMachine<Context>({ ...config, context }, options)

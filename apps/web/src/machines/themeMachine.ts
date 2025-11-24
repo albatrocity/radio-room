@@ -1,5 +1,4 @@
 import { createMachine, assign } from "xstate"
-import session from "sessionstorage"
 import { AppTheme } from "../types/AppTheme"
 
 interface Context {
