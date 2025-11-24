@@ -5,20 +5,22 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js"
+    "build": "node esbuild.config.js",
+    "start": "node dist/server.js",
+    "clean": "rm -rf dist"
   },
   "author": "Ross Brown <albatrocity@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "@repo/server": "*",
     "@repo/adapter-spotify": "*",
-    "@repo/media-source-shoutcast": "*"
+    "@repo/media-source-shoutcast": "*",
+    "@repo/server": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
-    "@repo/typescript-config": "*",
     "@repo/types": "*",
+    "@repo/typescript-config": "*",
+    "esbuild": "^0.24.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   },
