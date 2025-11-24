@@ -25,10 +25,10 @@ export const themeMachine = createMachine<Context>(
         theme: (_context, event) => event.theme,
       }),
       persistTheme: (context) => {
-        session.setItem("theme", context.theme)
+        sessionStorage.setItem("theme", context.theme)
       },
       loadTheme: assign({
-        theme: () => session.getItem("theme") || "default",
+        theme: () => sessionStorage.getItem("theme") || "default",
       }),
     },
   },
