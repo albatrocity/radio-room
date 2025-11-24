@@ -79,7 +79,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       }
     }
 
-    if (reaction.emoji.shortcodes !== config?.reactionType) {
+    if (reaction.emoji.shortcodes !== `:${config?.reactionType}:`) {
       return {
         isVote: false,
         trackId: nowPlaying.mediaSource.trackId,

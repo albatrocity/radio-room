@@ -218,7 +218,7 @@ export default function PlaylistDemocracySettings() {
                     </FormHelperText>
                   </FormControl>
 
-                  <Box bg="blue.50" p={3} borderRadius="md">
+                  <Box p={3} borderRadius="md">
                     <Text fontSize="sm">
                       <strong>Example:</strong> With {values.thresholdValue}
                       {values.thresholdType === "percentage" ? "%" : ""} threshold and{" "}
