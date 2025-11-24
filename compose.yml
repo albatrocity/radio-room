@@ -1,0 +1,66 @@
+services:
+  web:
+    container_name: web
+    build:
+      context: .
+      dockerfile: ./apps/web/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source code for hot reloading
+      - ./apps/web/src:/app/apps/web/src
+      - ./apps/web/public:/app/apps/web/public
+      - ./apps/web/index.html:/app/apps/web/index.html
+      - ./apps/web/vite.config.ts:/app/apps/web/vite.config.ts
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:3000}
+    restart: unless-stopped
+    networks:
+      - app_network
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile
+      target: installer
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reloading
+      - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/tsconfig.json:/app/apps/api/tsconfig.json
+      - ./packages:/app/packages
+    environment:
+      - NODE_ENV=development
+      - REDIS_URL=redis://redis:6379
+      - PORT=3000
+      - SESSION_SECRET=dev-secret-change-in-production
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI:-http://localhost:3000/auth/spotify/callback}
+      - APP_URL=${APP_URL:-http://localhost:8000}
+      - ENVIRONMENT=development
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - app_network
+    command: ["npx", "tsx", "watch", "apps/api/src/server.ts"]
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app_network
+
+volumes:
+  redis-data:
+
+networks:
+  app_network:

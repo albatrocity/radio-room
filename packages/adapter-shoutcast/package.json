@@ -1,0 +1,27 @@
+{
+  "name": "@repo/media-source-shoutcast",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/types": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.0.13"
+  },
+  "dependencies": {
+    "@repo/utils": "*",
+    "@spotify/web-api-ts-sdk": "^1.2.0",
+    "node-internet-radio": "^0.2.1",
+    "react-mentions": "3.0.2",
+    "zod": "^3.24.4"
+  }
+}
