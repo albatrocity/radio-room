@@ -15,7 +15,7 @@ import {
   useDisclosure,
   VStack,
 } from "@chakra-ui/react"
-import { Link } from "gatsby"
+import { Link } from "@tanstack/react-router"
 import React from "react"
 import { FiMoreHorizontal } from "react-icons/fi"
 import { Room } from "../types/Room"

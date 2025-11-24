@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { useLocation, navigate, WindowLocation } from "@reach/router"
+import { useLocation, useNavigate } from "@tanstack/react-router"
 import { UseToastOptions } from "@chakra-ui/react"
 import { toast } from "../lib/toasts"
 
@@ -23,7 +23,8 @@ function getStatus(status: string | null) {
 }
 
 export default function AppToasts() {
-  const location = useLocation() as WindowLocation<LocationState>
+  const navigate = useNavigate()
+  const location = useLocation()
   const params = new URLSearchParams(location.search)
 
   useEffect(() => {
@@ -37,7 +38,8 @@ export default function AppToasts() {
       params.delete("toast")
       params.delete("toastType")
       params.delete("toastDescription")
-      navigate(location.pathname, {
+      navigate({
+        to: location.pathname,
         replace: true,
       })
     }
@@ -49,7 +51,8 @@ export default function AppToasts() {
         status: location.state.toast.status,
         duration: 5000,
       })
-      navigate(location.pathname, {
+      navigate({
+        to: location.pathname,
         replace: true,
         state: { ...location.state, toast: undefined },
       })

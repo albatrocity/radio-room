@@ -1,7 +1,7 @@
-// src/@chakra-ui/gatsby-plugin/theme.js
+// Chakra UI theme configuration
 import type { StyleFunctionProps } from "@chakra-ui/styled-system"
 import { buttonTheme } from "./buttonTheme"
-import defaultTheme from "../../themes/default"
+import defaultTheme from "../themes/default"
 
 import { mode } from "@chakra-ui/theme-tools"
 import {
@@ -133,3 +133,4 @@ export default extendTheme(
 )
 
 export const baseTheme = extendBaseTheme()
+

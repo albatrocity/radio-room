@@ -1,14 +1,15 @@
 import { Box, Container, Heading, List, ListItem, Text } from "@chakra-ui/react"
-import { graphql, HeadProps } from "gatsby"
 import React from "react"
+import { createFileRoute } from '@tanstack/react-router'
 import ConfirmationPopover from "../components/ConfirmationPopover"
 import PageLayout from "../components/PageLayout"
 import { useAuthStore, useCurrentUser } from "../state/authStore"
-import { SiteMetadata } from "../types/SiteMetadata"
 
-type Props = {}
+export const Route = createFileRoute('/privacy')({
+  component: PrivacyPage,
+})
 
-export default function Privacy({}: Props) {
+function PrivacyPage() {
   const { send: authSend } = useAuthStore()
   const currentUser = useCurrentUser()
 
@@ -105,33 +106,3 @@ export default function Privacy({}: Props) {
   )
 }
 
-export function Head({ data }: HeadProps<SiteMetadata>) {
-  return (
-    <>
-      <title>Privacy Policy | {data.site.siteMetadata.title}</title>
-      <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1"
-      />
-      <meta name="description" content={data.site.siteMetadata.description} />
-      <meta
-        name="og:description"
-        content={data.site.siteMetadata.description}
-      />
-      <meta name="og:title" content={data.site.siteMetadata.title} />
-      <meta name="og:type" content="website" />
-    </>
-  )
-}
-
-export const query = graphql`
-  query {
-    site {
-      siteMetadata {
-        title
-        description
-        author
-      }
-    }
-  }
-`

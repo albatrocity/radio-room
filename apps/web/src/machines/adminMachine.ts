@@ -4,7 +4,6 @@ import socketService from "../lib/socketService"
 import { toast } from "../lib/toasts"
 import { useAuthStore } from "../state/authStore"
 import { deleteRoom as deleteRoomData } from "../lib/serverApi"
-import { navigate } from "gatsby"
 
 type DeleteRoomEvent = {
   type: "DELETE_ROOM"
@@ -59,7 +58,7 @@ export const adminMachine = createMachine<any, AdminEvent>(
                 })
               },
               () => {
-                navigate("/")
+                window.location.href = "/"
               },
             ],
           },

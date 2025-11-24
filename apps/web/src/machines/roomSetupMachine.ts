@@ -1,6 +1,5 @@
 // state machine for fetching saved tracks
 
-import { navigate } from "gatsby"
 import { assign, createMachine } from "xstate"
 import { saveCurrentUser } from "../lib/getCurrentUser"
 import {
@@ -113,7 +112,7 @@ export const roomSetupMachine = createMachine<RoomSetupContext, RoomSetupEvent>(
         sessionStorage.removeItem("createRoomradioMetaUrl")
         sessionStorage.removeItem("createRoomRadioListenUrl")
         sessionStorage.removeItem("createRoomRadioProtocol")
-        navigate(`/rooms/${event.data.room.id}`, { replace: true })
+        window.location.href = `/rooms/${event.data.room.id}`
       },
       setRequirements: assign((ctx, event) => {
         if (event.type !== "SET_REQUIREMENTS") return ctx

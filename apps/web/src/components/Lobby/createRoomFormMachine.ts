@@ -1,6 +1,5 @@
 import { assign, createMachine } from "xstate"
 import { RoomSetup } from "../../types/Room"
-import { navigate } from "gatsby"
 
 export type Event =
   | { type: "SELECT_TYPE"; data: { type: RoomSetup["type"] } }
@@ -96,7 +95,7 @@ export const createRoomFormMachine = createMachine<RoomSetup, Event>(
           sessionStorage.setItem("postSpotifyAuthRedirect", "/rooms/create")
           
           // Redirect to Spotify OAuth flow
-          window.location.href = `${process.env.GATSBY_API_URL}/auth/spotify/login?redirect=/callback`
+          window.location.href = `${import.meta.env.VITE_API_URL}/auth/spotify/login?redirect=/callback`
         }
       },
     },

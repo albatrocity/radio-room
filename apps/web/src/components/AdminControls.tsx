@@ -19,7 +19,7 @@ import { FiSettings, FiBookmark } from "react-icons/fi"
 
 import { useBookmarks } from "../state/bookmarkedChatStore"
 import { useModalsStore } from "../state/modalsState"
-import { Link } from "gatsby"
+import { Link } from "@tanstack/react-router"
 
 type Props = {
   buttonColorScheme?: string
@@ -34,12 +34,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
     <Box w={width}>
       <Stack direction="column" {...rest}>
         <Show above="sm">
-          <Heading
-            as="h3"
-            size="md"
-            color="whiteAlpha.700"
-            margin={{ bottom: "xsmall" }}
-          >
+          <Heading as="h3" size="md" color="whiteAlpha.700" margin={{ bottom: "xsmall" }}>
             Admin
           </Heading>
         </Show>

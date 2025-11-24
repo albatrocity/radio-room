@@ -1,17 +1,16 @@
 import React from "react"
 import { useEffect } from "react"
-import { useLocation } from "@reach/router"
 import { useAuthStore } from "../state/authStore"
 import { Center, Spinner, VStack, Text } from "@chakra-ui/react"
-import { navigate } from "gatsby"
+import { useNavigate, useSearch } from "@tanstack/react-router"
 
 export default function SpotifyAuthorization() {
-  const location = useLocation()
+  const navigate = useNavigate()
+  const searchParams = useSearch({ strict: false })
   const { send: sendAuth } = useAuthStore()
 
-  const urlParams = new URLSearchParams(location.search)
-  const userId = urlParams.get("userId")
-  const challenge = urlParams.get("challenge")
+  const userId = (searchParams as any).userId
+  const challenge = (searchParams as any).challenge
 
   useEffect(() => {
     // Handle server-side OAuth callback
@@ -32,15 +31,19 @@ export default function SpotifyAuthorization() {
       
       // Clean URL and navigate
       setTimeout(() => {
-        navigate(`${redirectUrl.pathname}${redirectUrl.search}`, { replace: true })
+        navigate({
+          to: redirectUrl.pathname as any,
+          search: Object.fromEntries(redirectUrl.searchParams),
+          replace: true,
+        })
       }, 500)
     }
     // No OAuth parameters, just redirect
-    else {
-      const redirectPath = sessionStorage.getItem("postSpotifyAuthRedirect") ?? "/"
-      sessionStorage.removeItem("postSpotifyAuthRedirect")
-      navigate(redirectPath, { replace: true })
-    }
+        else {
+          const redirectPath = sessionStorage.getItem("postSpotifyAuthRedirect") ?? "/"
+          sessionStorage.removeItem("postSpotifyAuthRedirect")
+          navigate({ to: redirectPath as any, replace: true })
+        }
   }, [userId])
 
   return (

@@ -1,4 +1,3 @@
-import { navigate } from "gatsby"
 import React, { useEffect } from "react"
 import makeRoomTitle from "../lib/makeRoomTitle"
 import { useStationMeta } from "../state/audioStore"
@@ -12,20 +11,9 @@ export default function RoomHead({}: Props) {
   const title = makeRoomTitle(room, meta)
 
   useEffect(() => {
-    navigate(window.location.pathname, { replace: true })
+    // Update document title
+    document.title = title
   }, [title])
 
-  return (
-    <>
-      <title>{title}</title>
-      <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1"
-      />
-      <meta name="description" content={room?.extraInfo} />
-      <meta name="og:description" content={room?.extraInfo} />
-      <meta name="og:title" content={room?.title} />
-      <meta name="og:type" content="website" />
-    </>
-  )
+  return null // TanStack Router handles head management differently
 }

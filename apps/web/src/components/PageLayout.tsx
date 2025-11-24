@@ -14,7 +14,7 @@ import {
   Wrap,
   WrapItem,
 } from "@chakra-ui/react"
-import { Link } from "gatsby"
+import { Link } from "@tanstack/react-router"
 
 import Layout from "./layout"
 import { AddIcon } from "@chakra-ui/icons"
@@ -23,7 +23,6 @@ import { FaSpotify } from "react-icons/fa"
 import { useAuthStore, useCurrentUser } from "../state/authStore"
 import ConfirmationDialog from "./ConfirmationDialog"
 import LobbyOverlays from "./Lobby/LobbyOverlays"
-import { useLocation } from "@reach/router"
 
 type Props = {
   children: React.ReactNode
@@ -33,12 +32,11 @@ export default function PageLayout({ children }: Props) {
   const { send, state } = useModalsStore()
   const { send: authSend } = useAuthStore()
   const currentUser = useCurrentUser()
-  const location = useLocation()
-  const isHome = location.pathname === "/"
+  const isHome = window.location.pathname === "/"
 
   useEffect(() => {
     authSend("GET_SESSION_USER")
-  }, [])
+  }, [authSend])
 
   return (
     <Layout fill>
@@ -128,13 +126,13 @@ export default function PageLayout({ children }: Props) {
                   About
                 </ChakraLink>
               </WrapItem>
-              {process.env.GATSBY_CONTACT_EMAIL && (
+              {import.meta.env.VITE_CONTACT_EMAIL && (
                 <WrapItem>
-                  <Link
-                    to={`mailto:${process.env.GATSBY_CONTACT_EMAIL}?subject=Listening%20Room`}
+                  <ChakraLink
+                    href={`mailto:${import.meta.env.VITE_CONTACT_EMAIL}?subject=Listening%20Room`}
                   >
                     Contact
-                  </Link>
+                  </ChakraLink>
                 </WrapItem>
               )}
             </Wrap>

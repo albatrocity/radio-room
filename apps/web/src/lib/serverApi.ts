@@ -1,6 +1,6 @@
 import ky from "ky"
 import { Room, RoomSetup } from "../types/Room"
-const API_URL = process.env.GATSBY_API_URL
+const API_URL = import.meta.env.VITE_API_URL
 
 const api = ky.create({
   prefixUrl: API_URL,

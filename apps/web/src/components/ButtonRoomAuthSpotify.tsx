@@ -1,16 +1,7 @@
 // component for the button to authenticate with Spotify (or other metadata sources)
 import React, { useEffect } from "react"
-import { useLocation } from "@reach/router"
-import {
-  Link,
-  Box,
-  Button,
-  Icon,
-  Text,
-  HStack,
-  VStack,
-  Spinner,
-} from "@chakra-ui/react"
+import { useLocation } from "@tanstack/react-router"
+import { Link, Box, Button, Icon, Text, HStack, VStack, Spinner } from "@chakra-ui/react"
 import { CheckCircleIcon } from "@chakra-ui/icons"
 import { FaSpotify } from "react-icons/fa"
 
@@ -50,7 +41,9 @@ export default function ButtonRoomAuthSpotify({
         <VStack align="flex-start">
           <Button
             as={Link}
-            href={`${process.env.GATSBY_API_URL}/auth/${serviceName}/login?userId=${currentUser.userId}&redirect=/callback`}
+            href={`${import.meta.env.VITE_API_URL}/auth/${serviceName}/login?userId=${
+              currentUser.userId
+            }&redirect=/callback`}
             leftIcon={serviceName === "spotify" ? <Icon as={FaSpotify} /> : undefined}
             isLoading={state.matches("working")}
             isDisabled={state.matches("working")}
@@ -67,9 +60,7 @@ export default function ButtonRoomAuthSpotify({
       {state.matches("authenticated") && (
         <HStack spacing={2}>
           <CheckCircleIcon color="primary" _dark={{ color: "secondaryText" }} />
-          <Text fontSize="sm">
-            Your {serviceDisplayName} account is linked to this room.
-          </Text>
+          <Text fontSize="sm">Your {serviceDisplayName} account is linked to this room.</Text>
         </HStack>
       )}
     </Box>

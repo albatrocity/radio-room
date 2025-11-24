@@ -89,3 +89,4 @@ const settingsCategory = defineStyle((props) => {
 export const buttonTheme = defineStyleConfig({
   variants: { reaction, darkGhost, settingsCategory },
 })
+

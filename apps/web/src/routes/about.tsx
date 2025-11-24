@@ -1,12 +1,13 @@
 import { Box, Container, Heading, Link, Text } from "@chakra-ui/react"
-import { graphql, HeadProps } from "gatsby"
 import React from "react"
+import { createFileRoute } from '@tanstack/react-router'
 import PageLayout from "../components/PageLayout"
-import { SiteMetadata } from "../types/SiteMetadata"
 
-type Props = {}
+export const Route = createFileRoute('/about')({
+  component: AboutPage,
+})
 
-export default function Privacy({}: Props) {
+function AboutPage() {
   return (
     <PageLayout>
       <Container margin={0}>
@@ -27,11 +28,11 @@ export default function Privacy({}: Props) {
             . It's not indexed by search engines, but feel free to share it with
             your friends. It's a labor of love and learning.
           </Text>
-          {process.env.GATSBY_CONTACT_EMAIL && (
+          {import.meta.env.VITE_CONTACT_EMAIL && (
             <Text>
               If you'd like to get in touch you can{" "}
               <Link
-                href={`mailto:${process.env.GATSBY_CONTACT_EMAIL}?subject=Listening%20Room`}
+                href={`mailto:${import.meta.env.VITE_CONTACT_EMAIL}?subject=Listening%20Room`}
               >
                 send me an email
               </Link>
@@ -62,33 +63,3 @@ export default function Privacy({}: Props) {
   )
 }
 
-export function Head({ data }: HeadProps<SiteMetadata>) {
-  return (
-    <>
-      <title>About {data.site.siteMetadata.title}</title>
-      <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1, maximum-scale=1"
-      />
-      <meta name="description" content={data.site.siteMetadata.description} />
-      <meta
-        name="og:description"
-        content={data.site.siteMetadata.description}
-      />
-      <meta name="og:title" content={data.site.siteMetadata.title} />
-      <meta name="og:type" content="website" />
-    </>
-  )
-}
-
-export const query = graphql`
-  query {
-    site {
-      siteMetadata {
-        title
-        description
-        author
-      }
-    }
-  }
-`

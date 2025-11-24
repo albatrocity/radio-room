@@ -1,31 +1,20 @@
-version: "3"
-
 services:
   web:
     container_name: web
     build:
       context: .
       dockerfile: ./apps/web/Dockerfile
-      target: dev
     ports:
       - "8000:8000"
-      - "9000:9000"
     volumes:
       # Mount source code for hot reloading
       - ./apps/web/src:/app/apps/web/src
       - ./apps/web/public:/app/apps/web/public
-      - ./apps/web/gatsby-browser.js:/app/apps/web/gatsby-browser.js
-      - ./apps/web/gatsby-config.js:/app/apps/web/gatsby-config.js
-      - ./apps/web/gatsby-node.js:/app/apps/web/gatsby-node.js
-      - ./apps/web/gatsby-ssr.js:/app/apps/web/gatsby-ssr.js
+      - ./apps/web/index.html:/app/apps/web/index.html
+      - ./apps/web/vite.config.ts:/app/apps/web/vite.config.ts
     environment:
       - NODE_ENV=development
-      - GATSBY_WEBPACK_PUBLICPATH=/
-      - PARCEL_WORKERS=0
-      - GATSBY_CPU_COUNT=1
-      - GATSBY_EXPERIMENTAL_PARALLEL_QUERY_RUNNING=false
-      - GATSBY_SKIP_COMPATIBILITY_CHECK=1
-      - GATSBY_API_URL=${GATSBY_API_URL:-http://localhost:3000}
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:3000}
     restart: unless-stopped
     networks:
       - app_network

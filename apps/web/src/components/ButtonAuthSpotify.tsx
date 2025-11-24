@@ -6,12 +6,12 @@ import { FaSpotify } from "react-icons/fa"
 
 import { useCurrentUser, useIsAuthenticated } from "../state/authStore"
 import { useMetadataSourceAuthStore } from "../state/metadataSourceAuthStore"
-import { useLocation } from "@reach/router"
+import { useLocation } from "@tanstack/react-router"
 
-export default function ButtonAuthSpotify({ 
+export default function ButtonAuthSpotify({
   userId,
-  serviceName = "spotify"
-}: { 
+  serviceName = "spotify",
+}: {
   userId?: string
   serviceName?: string
 }) {
@@ -19,7 +19,7 @@ export default function ButtonAuthSpotify({
   const isAuthenticated = useIsAuthenticated()
   const { state, send } = useMetadataSourceAuthStore()
   const location = useLocation()
-  
+
   useEffect(() => {
     if (currentUser?.userId || userId) {
       send("INIT", {
@@ -47,7 +47,7 @@ export default function ButtonAuthSpotify({
       {!state.matches("authenticated") && (
         <Button
           as={Link}
-          href={`${process.env.GATSBY_API_URL}/auth/${serviceName}/login?userId=${
+          href={`${import.meta.env.VITE_API_URL}/auth/${serviceName}/login?userId=${
             userId ?? currentUser.userId
           }`}
           onClick={handleLogin}

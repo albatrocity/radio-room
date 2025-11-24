@@ -3,7 +3,7 @@ import { ChakraProvider, extendTheme } from "@chakra-ui/react"
 import PropTypes from "prop-types"
 import Div100vh from "react-div-100vh"
 
-import baseTheme from "../@chakra-ui/gatsby-plugin/theme"
+import baseTheme from "../theme/chakraTheme"
 
 import "./layout.css"
 import themes from "../themes"
