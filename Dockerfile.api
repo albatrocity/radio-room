@@ -44,12 +44,9 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nodejs
 USER nodejs
 
-# Copy built application
-COPY --from=installer --chown=nodejs:nodejs /app/apps/api/dist ./apps/api/dist
+# Copy built application (TypeScript outputs to dist/ with full directory structure)
+COPY --from=installer --chown=nodejs:nodejs /app/apps/api/dist ./dist
 COPY --from=installer --chown=nodejs:nodejs /app/apps/api/package.json ./apps/api/package.json
-
-# Copy built packages
-COPY --from=installer --chown=nodejs:nodejs /app/packages ./packages
 
 # Copy node_modules and root package.json for workspace resolution
 COPY --from=installer --chown=nodejs:nodejs /app/node_modules ./node_modules
@@ -58,6 +55,6 @@ COPY --from=installer --chown=nodejs:nodejs /app/package.json ./package.json
 # Expose port (Heroku will set PORT env var)
 EXPOSE 3000
 
-# Start the application
-CMD ["node", "apps/api/dist/server.js"]
+# Start the application (TypeScript preserves directory structure in dist/)
+CMD ["node", "dist/apps/api/src/server.js"]
 
