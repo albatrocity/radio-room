@@ -5,8 +5,8 @@
   base = "apps/web"
   
   # Build command - install from root, then build the web app
-  # Using npm ci for clean install (uses package-lock.json)
-  command = "cd ../.. && npm ci && npm run build --workspace=web"
+  # Using npm install instead of npm ci to properly handle optional dependencies in monorepo
+  command = "cd ../.. && npm install --include=optional && npm run build --workspace=web"
   
   # Directory to publish (Vite outputs to dist/)
   publish = "dist"
@@ -21,6 +21,9 @@
   # Tell build tools this is a CI build
   CI = "true"
   NODE_ENV = "production"
+  
+  # Ensure optional dependencies are installed (for Rollup platform-specific binaries)
+  NPM_FLAGS = "--include=optional"
 
 # SPA redirect - send all routes to index.html for client-side routing
 [[redirects]]
