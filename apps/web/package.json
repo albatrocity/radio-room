@@ -72,13 +72,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/gatsbyjs/gatsby-starter-default"
+    "url": "http://github.com/albatrocity/radio-room"
   },
   "engines": {
     "node": ">=22.16.0",
     "npm": ">= 10.9.2"
   },
   "bugs": {
-    "url": "https://github.com/gatsbyjs/gatsby/issues"
+    "url": "http://github.com/albatrocity/radio-room/issues"
   }
 }

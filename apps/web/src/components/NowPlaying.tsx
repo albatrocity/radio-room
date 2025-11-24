@@ -69,8 +69,6 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
   const { state } = useRoomStore()
   const { album, artist, track, nowPlaying, title, dj, stationMeta } = meta || {}
 
-  console.log("meta ", meta)
-
   // Extract release from nowPlaying for backward compatibility
   const release = nowPlaying?.track
 

@@ -8,19 +8,20 @@ import Room from "./Room"
 import AppToasts from "./AppToasts"
 import { useAuthStore } from "../state/authStore"
 import Layout from "./layout"
-import { navigate } from "gatsby"
+import { useNavigate } from "@tanstack/react-router"
 import { useRoomStore } from "../state/roomStore"
 
 init({ data })
 
 const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
   const isVisible = usePageVisibility()
+  const navigate = useNavigate()
 
   const { send } = useAuthStore()
   const { state: roomState, send: roomSend } = useRoomStore()
 
   if (!roomId) {
-    navigate("/")
+    navigate({ to: "/", replace: true })
   }
 
   useEffect(() => {

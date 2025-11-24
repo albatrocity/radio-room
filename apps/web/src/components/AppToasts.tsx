@@ -54,7 +54,7 @@ export default function AppToasts() {
       navigate({
         to: location.pathname,
         replace: true,
-        state: { ...location.state, toast: undefined },
+        state: (s) => ({ ...s, toast: undefined }),
       })
     }
   }, [])

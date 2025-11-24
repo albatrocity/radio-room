@@ -1,18 +1,18 @@
 import React, { useEffect } from "react"
 import { Center, Heading, Spinner, VStack } from "@chakra-ui/react"
-import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import Div100vh from "react-div-100vh"
 import { useMachine } from "@xstate/react"
 import { roomSetupMachine } from "../../machines/roomSetupMachine"
 import { StationProtocol } from "../../types/StationProtocol"
 
-export const Route = createFileRoute('/rooms/create')({
+export const Route = createFileRoute("/rooms/create")({
   component: CreateRoomPage,
 })
 
 function CreateRoomPage() {
   const navigate = useNavigate()
-  const searchParams = useSearch({ from: '/rooms/create' })
+  const searchParams = useSearch({ from: "/rooms/create" })
   const challenge = (searchParams as any).challenge
   const userId = (searchParams as any).userId
 
@@ -28,8 +28,7 @@ function CreateRoomPage() {
       navigate({
         to: "/",
         replace: true,
-        // Note: TanStack Router doesn't support navigation state like Gatsby
-        // You'll need to handle toasts differently
+        state: (s) => ({ ...s, toast: "Missing challenge or userId" }),
       })
       return
     }
@@ -40,15 +39,11 @@ function CreateRoomPage() {
         room: {
           type: sessionStorage.getItem("createRoomType") ?? "jukebox",
           title: sessionStorage.getItem("createRoomTitle") ?? "My Room",
-          radioMetaUrl:
-            sessionStorage.getItem("createRoomradioMetaUrl") ?? undefined,
+          radioMetaUrl: sessionStorage.getItem("createRoomradioMetaUrl") ?? undefined,
           radioListenUrl: sessionStorage.getItem("createRoomRadioListenUrl"),
-          deputizeOnJoin:
-            sessionStorage.getItem("createRoomDeputizeOnJoin") === "true",
+          deputizeOnJoin: sessionStorage.getItem("createRoomDeputizeOnJoin") === "true",
           radioProtocol:
-            (sessionStorage.getItem(
-              "createRoomRadioProtocol",
-            ) as StationProtocol) ?? "shoutcastv2",
+            (sessionStorage.getItem("createRoomRadioProtocol") as StationProtocol) ?? "shoutcastv2",
         },
       },
     })
@@ -65,4 +60,3 @@ function CreateRoomPage() {
     </Div100vh>
   )
 }
-
