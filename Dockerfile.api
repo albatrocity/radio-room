@@ -44,17 +44,15 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nodejs
 USER nodejs
 
-# Copy built application (TypeScript outputs to dist/ with full directory structure)
-COPY --from=installer --chown=nodejs:nodejs /app/apps/api/dist ./dist
-COPY --from=installer --chown=nodejs:nodejs /app/apps/api/package.json ./apps/api/package.json
-
-# Copy node_modules and root package.json for workspace resolution
-COPY --from=installer --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=installer --chown=nodejs:nodejs /app/package.json ./package.json
+# Copy the entire workspace structure for proper module resolution
+COPY --from=installer --chown=nodejs:nodejs /app ./
 
 # Expose port (Heroku will set PORT env var)
 EXPOSE 3000
 
-# Start the application (TypeScript preserves directory structure in dist/)
-CMD ["node", "dist/apps/api/src/server.js"]
+# Start the application using tsx
+# Note: tsx is used because workspace packages are TypeScript source files.
+# While tsx is often used for development, it's appropriate here for a TypeScript
+# monorepo where packages reference each other as source files.
+CMD ["npx", "tsx", "apps/api/src/server.ts"]
 
