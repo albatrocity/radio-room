@@ -16,6 +16,7 @@ export interface AppContext {
     disableJob: (jobName: string) => void
     stop: () => Promise<void>
   }
+  pluginRegistry?: any // Will be typed as PluginRegistry in server code
   data?: {
     getUserServiceAuth: (params: {
       userId: string

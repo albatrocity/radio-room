@@ -28,6 +28,7 @@ import { createDJController } from "./controllers/djController"
 import { createMessageController } from "./controllers/messageController"
 import { clearRoomOnlineUsers } from "./operations/data"
 import { SocketWithContext } from "./lib/socketWithContext"
+import { PluginRegistry } from "./lib/plugins"
 
 declare module "express-session" {
   interface Session {
@@ -49,6 +50,7 @@ class RadioRoomServer {
   private cacheImplementation: CreateServerConfig["cacheImplementation"]
   private context: AppContext
   private jobService: JobService
+  private pluginRegistry: PluginRegistry
 
   constructor(
     config: CreateServerConfig = {
@@ -75,6 +77,8 @@ class RadioRoomServer {
 
     // Add jobService to context so it's accessible everywhere
     this.context.jobService = this.jobService
+
+    // PluginRegistry will be initialized in start() after io is created
 
     this.sessionStore = new RedisStore({ client: this.context.redis.pubClient, prefix: "s:" })
 
@@ -164,6 +168,11 @@ class RadioRoomServer {
       this.sessionMiddleware(socket.request, socket.request.res || {}, next)
     })
 
+    // Initialize PluginRegistry now that io is available
+    this.pluginRegistry = new PluginRegistry(this.context, this.io)
+    this.context.pluginRegistry = this.pluginRegistry
+    console.log("PluginRegistry initialized")
+
     this.io.on("connection", (socket) => {
       // Pass context to controllers
       const socketWithContext: SocketWithContext = Object.assign(socket, { context: this.context })
@@ -181,16 +190,39 @@ class RadioRoomServer {
     this.httpServer.listen(PORT, "0.0.0.0", () => console.log(`Listening on ${PORT}`))
     bindPubSubHandlers(this.io, this.context)
 
+    // Initialize plugins (register them with the registry)
+    this.initializePlugins()
+
     // Register initial system jobs
     await this.registerSystemJobs()
 
     // Restore adapter jobs for existing rooms
     await this.restoreAdapterJobs()
 
+    // Restore plugin state for existing rooms
+    await this.restorePluginState()
+
     // Start job service
     await this.jobService.start()
 
     this.onStart()
+  }
+
+  initializePlugins() {
+    try {
+      // Register Playlist Democracy plugin
+      const createPlaylistDemocracyPlugin = require("@repo/plugin-playlist-democracy").default
+      const playlistDemocracyPlugin = createPlaylistDemocracyPlugin()
+      this.pluginRegistry.registerPlugin(playlistDemocracyPlugin)
+      
+      console.log("Plugins initialized")
+    } catch (error) {
+      console.error("Failed to initialize plugins:", error)
+    }
+  }
+
+  getPluginRegistry() {
+    return this.pluginRegistry
   }
 
   async registerSystemJobs() {
@@ -277,7 +309,47 @@ class RadioRoomServer {
     }
   }
 
+  /**
+   * Restore plugin state for existing rooms after server restart
+   */
+  async restorePluginState() {
+    try {
+      console.log("Restoring plugin state for existing rooms...")
+      const { findRoom } = await import("./operations/data")
+
+      // Get all room IDs from Redis
+      const roomIds = await this.context.redis.pubClient.sMembers("rooms")
+      console.log(`Found ${roomIds.length} existing rooms`)
+
+      // Sync plugins for each room
+      for (const roomId of roomIds) {
+        try {
+          const room = await findRoom({ context: this.context, roomId })
+
+          if (!room) {
+            console.log(`Room ${roomId} not found, skipping`)
+            continue
+          }
+
+          await this.pluginRegistry.syncRoomPlugins(roomId, room)
+        } catch (error) {
+          console.error(`Error restoring plugins for room ${roomId}:`, error)
+        }
+      }
+
+      console.log("Plugin state restoration complete")
+    } catch (error) {
+      console.error("Error restoring plugin state:", error)
+    }
+  }
+
   async stop() {
+    // Cleanup all plugins for all rooms
+    const roomIds = await this.context.redis.pubClient.sMembers("rooms")
+    for (const roomId of roomIds) {
+      await this.pluginRegistry.cleanupRoom(roomId)
+    }
+
     await this.jobService.stop()
     await this.context.redis.pubClient.quit()
     await this.context.redis.subClient.quit()

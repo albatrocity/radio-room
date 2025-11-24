@@ -420,6 +420,20 @@ export async function deleteRoom({ context, roomId }: DeleteRoomParams) {
     return
   }
 
+  // Emit roomDeleted event to plugins
+  if (context.pluginRegistry) {
+    try {
+      await context.pluginRegistry.emit(roomId, "roomDeleted", { roomId })
+      await context.pluginRegistry.cleanupRoom(roomId)
+    } catch (error) {
+      console.error("[Plugins] Error handling room deletion:", error)
+    }
+  }
+
+  // Delete all plugin configurations
+  const { deleteAllPluginConfigs } = await import("./pluginConfigs")
+  await deleteAllPluginConfigs({ context, roomId })
+
   // Notify the playback controller adapter that the room is being deleted
   // This allows the adapter to clean up any jobs or resources (e.g., stop polling)
   if (room.playbackControllerId) {

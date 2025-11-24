@@ -5,3 +5,4 @@ export * from "./rooms";
 export * from "./djs";
 export * from "./playlists";
 export * from "./serviceAuthentications";
+export * from "./pluginConfigs";

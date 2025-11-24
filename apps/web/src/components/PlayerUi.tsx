@@ -5,7 +5,6 @@ import NowPlaying from "./NowPlaying"
 
 import { useAuthStore } from "../state/authStore"
 import { useIsStationOnline, useStationMeta } from "../state/audioStore"
-import createTrackId from "../lib/createTrackId"
 import { useCurrentRoom, useCurrentRoomHasAudio } from "../state/roomStore"
 import JukeboxControls from "./JukeboxControls"
 const RadioControls = lazy(() => import("./RadioControls"))
@@ -25,8 +24,9 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const isOnline = useIsStationOnline()
 
   const meta = useStationMeta()
-  const { album, artist, track } = meta ?? {}
-  const trackId = createTrackId({ track, artist, album })
+  // Use the actual mediaSource trackId for reactions (e.g., Spotify track ID)
+  // This ensures reactions match what the backend plugin expects
+  const trackId = meta?.nowPlaying?.mediaSource?.trackId || ""
   const isJukebox = !hasAudio
 
   return (

@@ -1,0 +1,25 @@
+{
+  "name": "@repo/plugin-base",
+  "version": "1.0.0",
+  "description": "Base class for Radio Room plugins with automatic cleanup",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write .",
+    "test": "vitest"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*"
+  },
+  "dependencies": {
+    "@repo/types": "*"
+  }
+}
+

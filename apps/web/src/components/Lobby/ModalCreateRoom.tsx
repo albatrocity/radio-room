@@ -26,8 +26,13 @@ export default function ModalCreateRoom({}: Props) {
   const [formState, formSend] = useMachine(createRoomFormMachine)
   const nextLabel = formState.matches("settings") ? "Login & Create" : "Next"
   const loading = formState.matches("creating")
+  
+  const handleNext = () => {
+    formSend("NEXT")
+  }
+  
   return (
-    <form onSubmit={() => formSend("NEXT")}>
+    <form onSubmit={(e) => e.preventDefault()}>
       <Modal
         isOpen={state.matches("createRoom")}
         heading="Create a Room"
@@ -53,9 +58,8 @@ export default function ModalCreateRoom({}: Props) {
                 Cancel
               </Button>
               <Button
-                type="submit"
                 isDisabled={loading}
-                onClick={() => formSend("NEXT")}
+                onClick={handleNext}
               >
                 {nextLabel}
               </Button>

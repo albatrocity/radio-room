@@ -1,6 +1,7 @@
 import { createMachine, assign, sendTo } from "xstate"
 import socketService from "../lib/socketService"
 import { Room } from "../types/Room"
+import type { PlaylistDemocracyConfig } from "@repo/plugin-playlist-democracy"
 
 type Context = Pick<
   Room,
@@ -17,12 +18,22 @@ type Context = Pick<
   | "radioProtocol"
   | "announceUsernameChanges"
   | "announceNowPlaying"
->
+> & {
+  playlistDemocracy: PlaylistDemocracyConfig
+}
 
 type Event =
   | { type: "FETCH" }
-  | { type: "ROOM_SETTINGS"; data: { room: Room } }
+  | { type: "ROOM_SETTINGS"; data: { room: Room; playlistDemocracy?: PlaylistDemocracyConfig } }
   | { type: "SUBMIT"; target: "pending" }
+
+export const defaultConfig: PlaylistDemocracyConfig = {
+  enabled: false,
+  reactionType: "+1",
+  timeLimit: 60000,
+  thresholdType: "percentage",
+  thresholdValue: 50,
+}
 
 export const settingsMachine = createMachine<Context, Event>(
   {
@@ -42,16 +53,18 @@ export const settingsMachine = createMachine<Context, Event>(
       type: "jukebox",
       radioMetaUrl: "",
       radioListenUrl: "",
+      playlistDemocracy: defaultConfig,
     },
     invoke: [
       {
         id: "socket",
-        src: () => socketService,
+        src: () => socketService as any,
       },
     ],
     on: {
       ROOM_SETTINGS: {
         actions: "setValues",
+        target: "fetched",
       },
       FETCH: "pending",
     },
@@ -84,7 +97,7 @@ export const settingsMachine = createMachine<Context, Event>(
       fetchSettings: sendTo("socket", () => ({ type: "get room settings" })),
       setValues: assign((ctx, event) => {
         if (event.type === "ROOM_SETTINGS") {
-          return {
+          const newContext = {
             title: event.data.room.title,
             fetchMeta: event.data.room.fetchMeta,
             extraInfo: event.data.room.extraInfo,
@@ -98,7 +111,9 @@ export const settingsMachine = createMachine<Context, Event>(
             radioProtocol: event.data.room.radioProtocol,
             announceNowPlaying: event.data.room.announceNowPlaying,
             announceUsernameChanges: event.data.room.announceUsernameChanges,
+            playlistDemocracy: event.data.playlistDemocracy || defaultConfig,
           }
+          return newContext
         }
         return ctx
       }),

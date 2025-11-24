@@ -12,6 +12,7 @@
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/factories": "*",
+    "@repo/plugin-playlist-democracy": "*",
     "@repo/types": "*",
     "@repo/typescript-config": "*",
     "@types/cookie-parser": "^1.4.7",

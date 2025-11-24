@@ -29,10 +29,21 @@ export class AdminHandlers {
       return
     }
 
+    // Fetch plugin configs
+    const { getPluginConfig } = await import("../operations/data/pluginConfigs")
+    const playlistDemocracy = await getPluginConfig({
+      context: socket.context,
+      roomId: socket.data.roomId,
+      pluginName: "playlist-democracy",
+    })
+
+    console.log("[AdminHandler] Sending ROOM_SETTINGS with playlistDemocracy:", playlistDemocracy)
+
     io.to(socket.id).emit("event", {
       type: "ROOM_SETTINGS",
       data: {
         room: result.room,
+        playlistDemocracy,
       },
     })
   }
@@ -64,6 +75,40 @@ export class AdminHandlers {
    * Update room settings
    */
   setRoomSettings = async ({ socket, io }: HandlerConnections, values: Partial<Room>) => {
+    // Get current room state for plugin sync (before any updates)
+    const { findRoom } = await import("../operations/data")
+    const previousRoom = await findRoom({ context: socket.context, roomId: socket.data.roomId })
+
+    // Capture previous plugin configs before updating
+    const previousPluginConfigs: Record<string, any> = {}
+    const pluginConfigs = (values as any).pluginConfigs
+
+    if (pluginConfigs) {
+      const { getPluginConfig, setPluginConfig } = await import("../operations/data/pluginConfigs")
+
+      // First, fetch all previous configs
+      for (const pluginName of Object.keys(pluginConfigs)) {
+        previousPluginConfigs[pluginName] = await getPluginConfig({
+          context: socket.context,
+          roomId: socket.data.roomId,
+          pluginName,
+        })
+      }
+
+      // Then update them
+      for (const [pluginName, config] of Object.entries(pluginConfigs)) {
+        await setPluginConfig({
+          context: socket.context,
+          roomId: socket.data.roomId,
+          pluginName,
+          config,
+        })
+      }
+
+      // Remove pluginConfigs from values so it doesn't get saved to room
+      delete (values as any).pluginConfigs
+    }
+
     const result = await this.adminService.setRoomSettings(
       socket.data.roomId,
       socket.data.userId,
@@ -82,10 +127,86 @@ export class AdminHandlers {
       return
     }
 
+    // Fetch updated plugin configs to send back to client
+    const { getPluginConfig } = await import("../operations/data/pluginConfigs")
+    const updatedPlaylistDemocracy = await getPluginConfig({
+      context: socket.context,
+      roomId: socket.data.roomId,
+      pluginName: "playlist-democracy",
+    })
+
     io.to(getRoomPath(socket.data.roomId)).emit("event", {
       type: "ROOM_SETTINGS",
-      data: { room: result.room },
+      data: {
+        room: result.room,
+        playlistDemocracy: updatedPlaylistDemocracy,
+      },
     })
+
+    // Emit configChanged events for updated plugin configs
+    if (socket.context.pluginRegistry && result.room && pluginConfigs) {
+      try {
+        console.log("[AdminHandler] Processing plugin config updates:", {
+          roomId: socket.data.roomId,
+          pluginNames: Object.keys(pluginConfigs),
+          hasRegistry: !!socket.context.pluginRegistry,
+        })
+
+        // First, sync plugins (this will initialize any newly enabled plugins)
+        console.log("[AdminHandler] Calling syncRoomPlugins...")
+        await socket.context.pluginRegistry.syncRoomPlugins(
+          socket.data.roomId,
+          result.room,
+          previousRoom || undefined,
+        )
+        console.log("[AdminHandler] syncRoomPlugins completed")
+
+        // Now emit configChanged events after plugins are initialized
+        for (const [pluginName, newConfig] of Object.entries(pluginConfigs)) {
+          const previousConfig = previousPluginConfigs[pluginName]
+
+          console.log(`[AdminHandler] Emitting configChanged for ${pluginName}:`, {
+            previous: previousConfig,
+            current: newConfig,
+            changed: JSON.stringify(newConfig) !== JSON.stringify(previousConfig),
+          })
+
+          // Only emit if config actually changed
+          if (JSON.stringify(newConfig) !== JSON.stringify(previousConfig)) {
+            await socket.context.pluginRegistry.emit(socket.data.roomId, "configChanged", {
+              roomId: socket.data.roomId,
+              config: newConfig,
+              previousConfig,
+            })
+          }
+        }
+
+        // Emit roomSettingsUpdated event
+        await socket.context.pluginRegistry.emit(socket.data.roomId, "roomSettingsUpdated", {
+          roomId: socket.data.roomId,
+          room: result.room,
+        })
+      } catch (error) {
+        console.error("[Plugins] Error syncing plugins after settings update:", error)
+      }
+    } else if (socket.context.pluginRegistry && result.room) {
+      // No plugin configs updated, just sync normally
+      try {
+        await socket.context.pluginRegistry.syncRoomPlugins(
+          socket.data.roomId,
+          result.room,
+          previousRoom || undefined,
+        )
+
+        // Emit roomSettingsUpdated event
+        await socket.context.pluginRegistry.emit(socket.data.roomId, "roomSettingsUpdated", {
+          roomId: socket.data.roomId,
+          room: result.room,
+        })
+      } catch (error) {
+        console.error("[Plugins] Error syncing plugins after settings update:", error)
+      }
+    }
   }
 
   /**

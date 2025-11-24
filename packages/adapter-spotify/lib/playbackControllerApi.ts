@@ -73,7 +73,19 @@ export async function makeApi({
       const api = await getSpotifyApi()
       const device = await getNowPlayingDevice(api)
 
-      await api.player.skipToNext(device.id)
+      try {
+        await api.player.skipToNext(device.id)
+      } catch (error: any) {
+        // Spotify returns 204 No Content on success, which the SDK tries to parse as JSON
+        // This causes a JSON parse error even though the operation succeeded
+        if (error.message?.includes("JSON") || error.message?.includes("Unexpected")) {
+          // Treat JSON parse errors as success since Spotify returns empty body on 204
+          console.log("Track successfully skipped (ignored JSON parse error from 204 response)")
+        } else {
+          // Re-throw actual errors
+          throw error
+        }
+      }
 
       const nowPlaying = await api.player.getCurrentlyPlayingTrack()
       await config.onChangeTrack(trackItemSchema.parse(nowPlaying.item))

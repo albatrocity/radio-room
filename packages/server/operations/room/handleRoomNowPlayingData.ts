@@ -91,6 +91,18 @@ export default async function handleRoomNowPlayingData({
   const updatedCurrent = await getRoomCurrent({ context, roomId })
   await pubSubNowPlaying({ context, roomId, nowPlaying, meta: updatedCurrent })
 
+  // Emit trackChanged event to plugins
+  if (context.pluginRegistry && nowPlaying) {
+    try {
+      await context.pluginRegistry.emit(roomId, "trackChanged", {
+        roomId,
+        track: nowPlaying,
+      })
+    } catch (error) {
+      console.error("[Plugins] Error emitting trackChanged event:", error)
+    }
+  }
+
   // Add the track to the room playlist
   const queue = await getQueue({ context, roomId })
 

@@ -64,6 +64,18 @@ export class ActivityHandlers {
       type: "REACTIONS",
       data: { reactions: result.reactions },
     })
+
+    // Emit reactionAdded event to plugins
+    if (socket.context.pluginRegistry) {
+      try {
+        await socket.context.pluginRegistry.emit(socket.data.roomId, "reactionAdded", {
+          roomId: socket.data.roomId,
+          reaction,
+        })
+      } catch (error) {
+        console.error("[Plugins] Error emitting reactionAdded event:", error)
+      }
+    }
   }
 
   /**
@@ -96,6 +108,24 @@ export class ActivityHandlers {
       type: "REACTIONS",
       data: { reactions: result.reactions },
     })
+
+    // Emit reactionRemoved event to plugins
+    if (socket.context.pluginRegistry) {
+      try {
+        // Construct a reaction payload for the event
+        const reactionPayload = {
+          emoji,
+          reactTo,
+          user,
+        }
+        await socket.context.pluginRegistry.emit(socket.data.roomId, "reactionRemoved", {
+          roomId: socket.data.roomId,
+          reaction: reactionPayload as any,
+        })
+      } catch (error) {
+        console.error("[Plugins] Error emitting reactionRemoved event:", error)
+      }
+    }
   }
 }
 
