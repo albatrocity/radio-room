@@ -3,6 +3,8 @@ import { HandlerConnections, AppContext } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import { getRoomPath } from "../lib/getRoomPath"
+import { findRoom } from "../operations/data"
+import { pubUserKicked, pubRoomSettingsUpdated } from "../operations/sockets/room"
 
 /**
  * Socket.io adapter for the AdminService
@@ -173,19 +175,17 @@ export class AdminHandlers {
 
           // Only emit if config actually changed
           if (JSON.stringify(newConfig) !== JSON.stringify(previousConfig)) {
-            await socket.context.pluginRegistry.emit(socket.data.roomId, "configChanged", {
-              roomId: socket.data.roomId,
-              config: newConfig,
-              previousConfig,
-            })
+            if (socket.context.systemEvents) {
+              await socket.context.systemEvents.emit(socket.data.roomId, "configChanged", {
+                roomId: socket.data.roomId,
+                config: newConfig,
+                previousConfig,
+              })
+            }
           }
         }
 
-        // Emit roomSettingsUpdated event
-        await socket.context.pluginRegistry.emit(socket.data.roomId, "roomSettingsUpdated", {
-          roomId: socket.data.roomId,
-          room: result.room,
-        })
+        // roomSettingsUpdated is emitted by pubRoomSettingsUpdated() below
       } catch (error) {
         console.error("[Plugins] Error syncing plugins after settings update:", error)
       }
@@ -198,11 +198,7 @@ export class AdminHandlers {
           previousRoom || undefined,
         )
 
-        // Emit roomSettingsUpdated event
-        await socket.context.pluginRegistry.emit(socket.data.roomId, "roomSettingsUpdated", {
-          roomId: socket.data.roomId,
-          room: result.room,
-        })
+        // roomSettingsUpdated is emitted by pubRoomSettingsUpdated() below
       } catch (error) {
         console.error("[Plugins] Error syncing plugins after settings update:", error)
       }

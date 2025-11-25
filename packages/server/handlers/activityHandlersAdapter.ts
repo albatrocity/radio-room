@@ -6,6 +6,7 @@ import { User } from "@repo/types/User"
 import { Emoji } from "@repo/types/Emoji"
 import { getRoomPath } from "../lib/getRoomPath"
 import { pubUserJoined } from "../operations/sockets/users"
+import { addReaction as addReactionOp, removeReaction as removeReactionOp } from "../operations/reactions"
 
 /**
  * Socket.io adapter for the ActivityService
@@ -54,28 +55,22 @@ export class ActivityHandlers {
    * Add a reaction to a reactionable item
    */
   addReaction = async ({ io, socket }: HandlerConnections, reaction: ReactionPayload) => {
-    const result = await this.activityService.addReaction(socket.data.roomId, reaction)
+    // Call operation (which handles plugin event emission)
+    const result = await addReactionOp({
+      context: socket.context,
+      roomId: socket.data.roomId,
+      reaction,
+    })
 
     if (!result) {
       return
     }
 
+    // Emit to Socket.IO clients
     io.to(getRoomPath(socket.data.roomId)).emit("event", {
       type: "REACTIONS",
       data: { reactions: result.reactions },
     })
-
-    // Emit reactionAdded event to plugins
-    if (socket.context.pluginRegistry) {
-      try {
-        await socket.context.pluginRegistry.emit(socket.data.roomId, "reactionAdded", {
-          roomId: socket.data.roomId,
-          reaction,
-        })
-      } catch (error) {
-        console.error("[Plugins] Error emitting reactionAdded event:", error)
-      }
-    }
   }
 
   /**
@@ -93,39 +88,24 @@ export class ActivityHandlers {
       user: User
     },
   ) => {
-    const result = await this.activityService.removeReaction(
-      socket.data.roomId,
+    // Call operation (which handles plugin event emission)
+    const result = await removeReactionOp({
+      context: socket.context,
+      roomId: socket.data.roomId,
       emoji,
       reactTo,
       user,
-    )
+    })
 
     if (!result) {
       return
     }
 
+    // Emit to Socket.IO clients
     io.to(getRoomPath(socket.data.roomId)).emit("event", {
       type: "REACTIONS",
       data: { reactions: result.reactions },
     })
-
-    // Emit reactionRemoved event to plugins
-    if (socket.context.pluginRegistry) {
-      try {
-        // Construct a reaction payload for the event
-        const reactionPayload = {
-          emoji,
-          reactTo,
-          user,
-        }
-        await socket.context.pluginRegistry.emit(socket.data.roomId, "reactionRemoved", {
-          roomId: socket.data.roomId,
-          reaction: reactionPayload as any,
-        })
-      } catch (error) {
-        console.error("[Plugins] Error emitting reactionRemoved event:", error)
-      }
-    }
   }
 }
 

@@ -3,7 +3,11 @@ import type { PlaybackController, PlaybackControllerAdapter } from "./PlaybackCo
 import type { MetadataSource, MetadataSourceAdapter } from "./MetadataSource"
 import type { MediaSource, MediaSourceAdapter } from "./MediaSource"
 import type { JobRegistration } from "./JobRegistration"
-import type { ServiceAuthenticationAdapter, ServiceAuthenticationTokens } from "./ServiceAuthentication"
+import type {
+  ServiceAuthenticationAdapter,
+  ServiceAuthenticationTokens,
+} from "./ServiceAuthentication"
+import type { SystemEvents } from "./SystemEvents"
 
 export type { RedisClientType } from "redis"
 
@@ -17,6 +21,7 @@ export interface AppContext {
     stop: () => Promise<void>
   }
   pluginRegistry?: any // Will be typed as PluginRegistry in server code
+  systemEvents?: SystemEvents
   data?: {
     getUserServiceAuth: (params: {
       userId: string
@@ -27,10 +32,7 @@ export interface AppContext {
       serviceName: string
       tokens: ServiceAuthenticationTokens
     }) => Promise<void>
-    deleteUserServiceAuth: (params: {
-      userId: string
-      serviceName: string
-    }) => Promise<void>
+    deleteUserServiceAuth: (params: { userId: string; serviceName: string }) => Promise<void>
   }
   // You can add other context dependencies here in the future
   // e.g., logger, metrics, config, etc.
@@ -42,7 +44,7 @@ export interface AdapterRegistry {
   metadataSources: Map<string, MetadataSource>
   mediaSources: Map<string, MediaSource>
   serviceAuth: Map<string, ServiceAuthenticationAdapter>
-  
+
   // Adapter modules themselves (needed for lifecycle hooks like onRoomCreated)
   playbackControllerModules: Map<string, PlaybackControllerAdapter>
   metadataSourceModules: Map<string, MetadataSourceAdapter>

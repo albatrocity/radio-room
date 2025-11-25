@@ -1,11 +1,9 @@
 import {
   PUBSUB_PLAYLIST_ADDED,
-  PUBSUB_ROOM_NOW_PLAYING_FETCHED,
-  PUBSUB_ROOM_SETTINGS_UPDATED,
   PUBSUB_METADATA_SOURCE_AUTH_ERROR,
   PUBSUB_METADATA_SOURCE_RATE_LIMIT_ERROR,
 } from "../../lib/constants"
-import { MetadataSourceError, AppContext, RoomMeta, QueueItem, Station } from "@repo/types"
+import { MetadataSourceError, AppContext, QueueItem, Station, Room } from "@repo/types"
 import {
   addTrackToRoomPlaylist,
   clearRoomCurrent,
@@ -20,7 +18,7 @@ import { writeJsonToHset } from "../data/utils"
 type HandleRoomNowPlayingDataParams = {
   context: AppContext
   roomId: string
-  nowPlaying?: QueueItem  // Optional at function level (might not have data)
+  nowPlaying?: QueueItem // Optional at function level (might not have data)
   stationMeta?: Station
   forcePublish?: boolean
 }
@@ -39,7 +37,7 @@ export default async function handleRoomNowPlayingData({
   // Compare using mediaSource (stable, always present when nowPlaying exists)
   // Handle case where current track doesn't exist yet or has old data structure
   let isSameTrack = false
-  
+
   if (current?.nowPlaying?.mediaSource && nowPlaying?.mediaSource) {
     isSameTrack =
       current.nowPlaying.mediaSource.type === nowPlaying.mediaSource.type &&
@@ -60,10 +58,10 @@ export default async function handleRoomNowPlayingData({
     return null
   }
 
-  // If there is no currently playing track and the room is set to fetch data from Spotify, clear the current hash and publish
+  // If there is no currently playing track and the room is set to fetch data from Spotify, clear the current hash
   if (!nowPlaying && room?.fetchMeta) {
     await clearRoomCurrent({ context, roomId })
-    await pubSubNowPlaying({ context, roomId, nowPlaying: undefined, meta: undefined })
+    // Note: No event emission needed when clearing
     return null
   }
   if (!nowPlaying) {
@@ -89,18 +87,14 @@ export default async function handleRoomNowPlayingData({
   })
 
   const updatedCurrent = await getRoomCurrent({ context, roomId })
-  await pubSubNowPlaying({ context, roomId, nowPlaying, meta: updatedCurrent })
 
-  // Emit trackChanged event to plugins
-  if (context.pluginRegistry && nowPlaying) {
-    try {
-      await context.pluginRegistry.emit(roomId, "trackChanged", {
-        roomId,
-        track: nowPlaying,
-      })
-    } catch (error) {
-      console.error("[Plugins] Error emitting trackChanged event:", error)
-    }
+  // Emit trackChanged event via SystemEvents (broadcasts to PubSub + Plugins)
+  if (nowPlaying && context.systemEvents) {
+    await context.systemEvents.emit(roomId, "trackChanged", {
+      roomId,
+      track: nowPlaying,
+      roomMeta: updatedCurrent,
+    })
   }
 
   // Add the track to the room playlist
@@ -134,23 +128,7 @@ export default async function handleRoomNowPlayingData({
   }
 }
 
-type PubSubNowPlayingParams = {
-  context: AppContext
-  roomId: string
-  nowPlaying: QueueItem | undefined
-  meta: RoomMeta | undefined  // Allow undefined for clearing case
-}
-
-async function pubSubNowPlaying({ context, roomId, nowPlaying, meta }: PubSubNowPlayingParams) {
-  // Skip publish if no meta available
-  if (!meta) {
-    return
-  }
-  context.redis.pubClient.publish(
-    PUBSUB_ROOM_NOW_PLAYING_FETCHED,
-    JSON.stringify({ roomId, nowPlaying, meta }),
-  )
-}
+// pubSubNowPlaying removed - now using SystemEvents.emit("trackChanged")
 
 type PubPlaylistTrackAddedParams = {
   context: AppContext
@@ -172,11 +150,11 @@ type PubMetadataSourceErrorParams = {
 /**
  * Publish metadata source authentication error
  */
-export async function pubMetadataSourceError({ 
-  context, 
-  userId, 
-  roomId, 
-  error 
+export async function pubMetadataSourceError({
+  context,
+  userId,
+  roomId,
+  error,
 }: PubMetadataSourceErrorParams) {
   context.redis.pubClient.publish(
     PUBSUB_METADATA_SOURCE_AUTH_ERROR,
@@ -208,15 +186,33 @@ export async function pubMetadataSourceRateLimitError({
 
 // Deprecated aliases for backward compatibility
 /** @deprecated Use pubMetadataSourceError */
-export const pubSpotifyError = pubMetadataSourceError;
+export const pubSpotifyError = pubMetadataSourceError
 /** @deprecated Use pubMetadataSourceRateLimitError */
-export const pubRateLimitError = pubMetadataSourceRateLimitError;
+export const pubRateLimitError = pubMetadataSourceRateLimitError
 
 type PubRoomSettingsUpdatedParams = {
   context: AppContext
   roomId: string
+  room?: Room // Optional - will fetch if not provided
 }
 
-export async function pubRoomSettingsUpdated({ context, roomId }: PubRoomSettingsUpdatedParams) {
-  context.redis.pubClient.publish(PUBSUB_ROOM_SETTINGS_UPDATED, roomId)
+export async function pubRoomSettingsUpdated({
+  context,
+  roomId,
+  room,
+}: PubRoomSettingsUpdatedParams) {
+  // Fetch room if not provided
+  let roomData: Room | null | undefined = room
+  if (!roomData) {
+    const { findRoom } = await import("../data/rooms")
+    roomData = await findRoom({ context, roomId })
+  }
+
+  // Emit via SystemEvents if we have room data
+  if (roomData && context.systemEvents) {
+    await context.systemEvents.emit(roomId, "roomSettingsUpdated", {
+      roomId,
+      room: roomData,
+    })
+  }
 }

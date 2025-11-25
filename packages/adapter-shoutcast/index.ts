@@ -8,7 +8,7 @@ export const mediaSource: MediaSourceAdapter = {
     const { authentication, name, onRegistered, onError } = config
     try {
       // No global job registration - jobs are created per-room in onRoomCreated
-      await onRegistered({ name })
+      onRegistered?.({ name })
 
       return {
         name,
@@ -16,7 +16,7 @@ export const mediaSource: MediaSourceAdapter = {
       }
     } catch (error) {
       console.error("Error registering Shoutcast Media Source:", error)
-      await onError(new Error(String(error)))
+      onError?.(new Error(String(error)))
       throw error
     }
   },

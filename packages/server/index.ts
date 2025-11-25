@@ -173,6 +173,11 @@ class RadioRoomServer {
     this.context.pluginRegistry = this.pluginRegistry
     console.log("PluginRegistry initialized")
 
+    // Initialize SystemEvents (unified event emission layer)
+    const { SystemEvents } = await import("./lib/SystemEvents")
+    this.context.systemEvents = new SystemEvents(this.context.redis, this.pluginRegistry)
+    console.log("SystemEvents initialized")
+
     this.io.on("connection", (socket) => {
       // Pass context to controllers
       const socketWithContext: SocketWithContext = Object.assign(socket, { context: this.context })

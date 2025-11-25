@@ -15,13 +15,13 @@ export type MediaSourceData = {
 }
 
 export type MediaSourceLifecycleCallbacks = {
-  onRegistered: (params: { name: string }) => void
-  onAuthenticationCompleted: () => void
-  onAuthenticationFailed: (error: Error) => void
-  onOnline: () => void
-  onOffline: () => void
-  onError: (error: Error) => void
-  onMediaData: (data: MediaSourceData) => void
+  onRegistered?: (params: { name: string }) => void
+  onAuthenticationCompleted?: () => void
+  onAuthenticationFailed?: (error: Error) => void
+  onOnline?: () => void
+  onOffline?: () => void
+  onError?: (error: Error) => void
+  onMediaData?: (data: MediaSourceData) => void
 }
 
 export interface MediaSourceAdapterConfig extends MediaSourceLifecycleCallbacks {

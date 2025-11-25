@@ -34,11 +34,11 @@ export interface MetadataSourceTrack extends MetadataSourceExternalResource {
 }
 
 export type MetadataSourceLifecycleCallbacks = {
-  onRegistered: (params: { name: string }) => void
-  onAuthenticationCompleted: () => void
-  onAuthenticationFailed: (error: Error) => void
-  onSearchResults: (data: MetadataSourceTrack) => void
-  onError: (error: Error) => void
+  onRegistered?: (params: { name: string }) => void
+  onAuthenticationCompleted?: () => void
+  onAuthenticationFailed?: (error: Error) => void
+  onSearchResults?: (data: MetadataSourceTrack) => void
+  onError?: (error: Error) => void
 }
 
 export type MetadataSourceAdapterConfig = MetadataSourceLifecycleCallbacks &

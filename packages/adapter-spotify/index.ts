@@ -32,7 +32,7 @@ export const playbackController: PlaybackControllerAdapter = {
         config,
       })
 
-      await onRegistered({ api, name })
+      await onRegistered?.({ api, name })
 
       return {
         name,
@@ -41,7 +41,7 @@ export const playbackController: PlaybackControllerAdapter = {
       }
     } catch (error) {
       console.error("Error getting Spotify API:", error)
-      await onError(new Error(String(error)))
+      await onError?.(new Error(String(error)))
       throw error
     }
   },
@@ -62,7 +62,7 @@ export const metadataSource: MetadataSourceAdapter = {
         config,
       })
 
-      onRegistered({ name })
+      await onRegistered?.({ name })
 
       return {
         name,
@@ -71,7 +71,7 @@ export const metadataSource: MetadataSourceAdapter = {
       }
     } catch (error) {
       console.error("Error getting Spotify MetadataSource API:", error)
-      onError(new Error(String(error)))
+      await onError?.(new Error(String(error)))
       throw error
     }
   },

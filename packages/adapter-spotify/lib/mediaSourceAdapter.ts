@@ -1,8 +1,4 @@
-import {
-  MediaSourceAdapter,
-  MediaSourceAdapterConfig,
-  AppContext,
-} from "@repo/types"
+import { MediaSourceAdapter, MediaSourceAdapterConfig } from "@repo/types"
 
 export const mediaSource: MediaSourceAdapter = {
   register: async (config: MediaSourceAdapterConfig) => {
@@ -10,7 +6,7 @@ export const mediaSource: MediaSourceAdapter = {
     try {
       // MediaSource for Spotify doesn't need authentication
       // Authentication is handled by the PlaybackController
-      await onRegistered({ name })
+      onRegistered?.({ name })
 
       return {
         name,
@@ -18,7 +14,7 @@ export const mediaSource: MediaSourceAdapter = {
       }
     } catch (error) {
       console.error("Error registering Spotify MediaSource:", error)
-      await onError(new Error(String(error)))
+      onError?.(new Error(String(error)))
       throw error
     }
   },
@@ -33,7 +29,9 @@ export const mediaSource: MediaSourceAdapter = {
 
     // Import and create the jukebox polling job
     const { createJukeboxPollingJob } = await import("./jukeboxJob")
-    const handleRoomNowPlayingData = (await import("@repo/server/operations/room/handleRoomNowPlayingData")).default
+    const handleRoomNowPlayingData = (
+      await import("@repo/server/operations/room/handleRoomNowPlayingData")
+    ).default
     const { getQueue } = await import("@repo/server/operations/data")
 
     const job = createJukeboxPollingJob({
@@ -83,7 +81,7 @@ export const mediaSource: MediaSourceAdapter = {
         console.log(`Spotify jukebox polling job for room ${roomId} already registered, skipping`)
         return
       }
-      
+
       await context.jobService.scheduleJob(job)
       console.log(`Registered Spotify jukebox polling job for room ${roomId}`)
     }
@@ -100,4 +98,3 @@ export const mediaSource: MediaSourceAdapter = {
     }
   },
 }
-

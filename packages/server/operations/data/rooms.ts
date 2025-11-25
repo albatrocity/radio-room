@@ -4,7 +4,6 @@ import { Room, RoomMeta, StoredRoom } from "@repo/types/Room"
 import { writeJsonToHset, getHMembersFromSet } from "./utils"
 import { getQueue } from "./djs"
 import { User } from "@repo/types/User"
-import { PUBSUB_ROOM_DELETED } from "../../lib/constants"
 import { QueueItem, AppContext } from "@repo/types"
 
 type AddRoomToRoomListParams = {
@@ -420,13 +419,17 @@ export async function deleteRoom({ context, roomId }: DeleteRoomParams) {
     return
   }
 
-  // Emit roomDeleted event to plugins
+  // Emit roomDeleted event via SystemEvents
+  if (context.systemEvents) {
+    await context.systemEvents.emit(roomId, "roomDeleted", { roomId })
+  }
+
+  // Cleanup plugin room state
   if (context.pluginRegistry) {
     try {
-      await context.pluginRegistry.emit(roomId, "roomDeleted", { roomId })
       await context.pluginRegistry.cleanupRoom(roomId)
     } catch (error) {
-      console.error("[Plugins] Error handling room deletion:", error)
+      console.error("[Plugins] Error cleaning up room:", error)
     }
   }
 
@@ -473,7 +476,6 @@ export async function deleteRoom({ context, roomId }: DeleteRoomParams) {
   // remove room from room list and user's room list
   await removeRoomFromRoomList({ context, roomId: room.id })
   await removeRoomFromUserRoomList({ context, room })
-  await context.redis.pubClient.publish(PUBSUB_ROOM_DELETED, roomId)
 }
 
 type ExpireRoomInParams = {

@@ -1,5 +1,5 @@
 import type { AppContext } from "./AppContext"
-import type { Room } from "./Room"
+import type { Room, RoomMeta } from "./Room"
 import type { QueueItem } from "./Queue"
 import type { Reaction, ReactionPayload } from "./Reaction"
 import type { User } from "./User"
@@ -37,9 +37,12 @@ export interface PluginAPI {
 
 /**
  * Lifecycle events that plugins can listen to
+ * 
+ * These event payloads are aligned with the Redis PubSub system events
+ * to enable unified event emission through the SystemEvents layer.
  */
 export type PluginLifecycleEvents = {
-  trackChanged: (data: { roomId: string; track: QueueItem }) => Promise<void> | void
+  trackChanged: (data: { roomId: string; track: QueueItem; roomMeta?: RoomMeta }) => Promise<void> | void
   reactionAdded: (data: { roomId: string; reaction: ReactionPayload }) => Promise<void> | void
   reactionRemoved: (data: { roomId: string; reaction: ReactionPayload }) => Promise<void> | void
   userJoined: (data: { roomId: string; user: User }) => Promise<void> | void

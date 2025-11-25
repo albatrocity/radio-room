@@ -37,11 +37,11 @@ export async function makeApi({
 
   if (!accessToken) {
     const error = new Error("Failed to get access token")
-    await config.onAuthenticationFailed(error)
+    await config.onAuthenticationFailed?.(error)
     throw error
   }
 
-  config.onAuthenticationCompleted({
+  config.onAuthenticationCompleted?.({
     accessToken: accessToken.access_token,
     refreshToken: accessToken.refresh_token,
     expiresIn: accessToken.expires_in,
@@ -53,21 +53,21 @@ export async function makeApi({
       const device = await getNowPlayingDevice(api)
 
       await api.player.startResumePlayback(device.id)
-      await config.onPlay()
-      await config.onPlaybackStateChange("playing")
+      await config.onPlay?.()
+      await config.onPlaybackStateChange?.("playing")
     },
     async pause() {
       const api = await getSpotifyApi()
       const device = await getNowPlayingDevice(api)
 
       await api.player.pausePlayback(device.id)
-      await config.onPause()
-      await config.onPlaybackStateChange("paused")
+      await config.onPause?.()
+      await config.onPlaybackStateChange?.("paused")
     },
     async seekTo(position) {
       const api = await getSpotifyApi()
       await api.player.seekToPosition(position)
-      await config.onPlaybackPositionChange(position)
+      await config.onPlaybackPositionChange?.(position)
     },
     async skipToNextTrack() {
       const api = await getSpotifyApi()
@@ -88,7 +88,7 @@ export async function makeApi({
       }
 
       const nowPlaying = await api.player.getCurrentlyPlayingTrack()
-      await config.onChangeTrack(trackItemSchema.parse(nowPlaying.item))
+      await config.onChangeTrack?.(trackItemSchema.parse(nowPlaying.item))
 
       return await getQueue(api)
     },
@@ -99,7 +99,7 @@ export async function makeApi({
       await api.player.skipToPrevious(device.id)
 
       const nowPlaying = await api.player.getCurrentlyPlayingTrack()
-      await config.onChangeTrack(trackItemSchema.parse(nowPlaying.item))
+      await config.onChangeTrack?.(trackItemSchema.parse(nowPlaying.item))
 
       return await getQueue(api)
     },
@@ -129,7 +129,7 @@ export async function makeApi({
       }
 
       const queue = await getQueue(api)
-      await config.onPlaybackQueueChange(queue)
+      await config.onPlaybackQueueChange?.(queue)
       return queue
     },
     async getPlayback() {

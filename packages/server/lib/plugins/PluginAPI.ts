@@ -29,7 +29,6 @@ export class PluginAPIImpl implements PluginAPI {
       reactTo: params.reactTo,
     })
 
-    console.log("REACTIONS", reactions)
     if (params.filterEmoji) {
       // Note: reactions are actually ReactionPayload objects with Emoji type
       return reactions.filter((r: any) => r.emoji?.shortcodes === params.filterEmoji)

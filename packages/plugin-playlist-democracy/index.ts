@@ -97,7 +97,6 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     config: any
     previousConfig: any
   }): Promise<void> {
-    console.log("onConfigChanged", data)
     if (!this.context) return
 
     const { config, previousConfig } = data

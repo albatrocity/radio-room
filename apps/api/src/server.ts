@@ -46,28 +46,6 @@ async function main() {
         }
       },
     },
-    onRegistered: (params) => {
-      console.log(`Playback controller registered: ${params.name}`)
-    },
-    onAuthenticationCompleted: (response) => {
-      console.log("Spotify authentication completed:", response)
-    },
-    onAuthenticationFailed: (error) => {
-      console.error("Spotify authentication failed:", error)
-    },
-    onAuthorizationCompleted: () => {
-      console.log("Spotify authorization completed")
-    },
-    onAuthorizationFailed: (error) => {
-      console.error("Spotify authorization failed:", error)
-    },
-    onPlay: () => console.log("Playback started"),
-    onPause: () => console.log("Playback paused"),
-    onChangeTrack: (track) => console.log("Track changed:", track),
-    onPlaybackStateChange: (state) => console.log("Playback state changed:", state),
-    onPlaybackQueueChange: (queue) => console.log("Playback queue changed"),
-    onPlaybackPositionChange: (position) => console.log("Playback position changed:", position),
-    onError: (error) => console.error("Playback controller error:", error),
   })
 
   // Store both the adapter module and the registered instance in context
@@ -93,22 +71,6 @@ async function main() {
       },
     },
     registerJob: server.registerJob.bind(server),
-    onRegistered: (params) => {
-      console.log(`Metadata source registered: ${params.name}`)
-      // Will be set after registration completes
-    },
-    onAuthenticationCompleted: () => {
-      console.log("Spotify metadata source authentication completed")
-    },
-    onAuthenticationFailed: (error) => {
-      console.error("Spotify metadata source authentication failed:", error)
-    },
-    onSearchResults: (data) => {
-      console.log("Spotify search results:", data)
-    },
-    onError: (error) => {
-      console.error("Spotify metadata source error:", error)
-    },
   })
 
   // Store both the adapter module and the registered instance in context
@@ -123,27 +85,6 @@ async function main() {
       type: "none",
     },
     registerJob: server.registerJob.bind(server),
-    onRegistered: (params: { name: string }) => {
-      console.log(`Spotify MediaSource registered: ${params.name}`)
-    },
-    onAuthenticationCompleted: () => {
-      console.log("Spotify MediaSource authentication completed")
-    },
-    onAuthenticationFailed: (error: Error) => {
-      console.error("Spotify MediaSource authentication failed:", error)
-    },
-    onOnline: () => {
-      console.log("Spotify MediaSource online")
-    },
-    onOffline: () => {
-      console.log("Spotify MediaSource offline")
-    },
-    onMediaData: (data: any) => {
-      console.log("Spotify MediaSource data:", data)
-    },
-    onError: (error: Error) => {
-      console.error("Spotify MediaSource error:", error)
-    },
   })
 
   // Store both the adapter module and the registered instance in context
@@ -158,27 +99,6 @@ async function main() {
       type: "none",
     },
     registerJob: server.registerJob.bind(server),
-    onRegistered: (params: { name: string }) => {
-      console.log(`Shoutcast MediaSource registered: ${params.name}`)
-    },
-    onAuthenticationCompleted: () => {
-      console.log("Shoutcast MediaSource authentication completed")
-    },
-    onAuthenticationFailed: (error: Error) => {
-      console.error("Shoutcast MediaSource authentication failed:", error)
-    },
-    onOnline: () => {
-      console.log("Shoutcast MediaSource online")
-    },
-    onOffline: () => {
-      console.log("Shoutcast MediaSource offline")
-    },
-    onMediaData: (data: any) => {
-      console.log("Shoutcast MediaSource data:", data)
-    },
-    onError: (error: Error) => {
-      console.error("Shoutcast MediaSource error:", error)
-    },
   })
 
   // Store both the adapter module and the registered instance in context

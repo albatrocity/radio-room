@@ -17,11 +17,11 @@ export async function makeApi({
 
   if (!accessToken) {
     const error = new Error("Failed to get access token")
-    await config.onAuthenticationFailed(error)
+    await config.onAuthenticationFailed?.(error)
     throw error
   }
 
-  config.onAuthenticationCompleted()
+  config.onAuthenticationCompleted?.()
 
   const api: MetadataSourceApi = {
     async search(query) {
