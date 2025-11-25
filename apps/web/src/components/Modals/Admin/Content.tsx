@@ -18,8 +18,6 @@ import FormActions from "./FormActions"
 import { useModalsStore } from "../../../state/modalsState"
 import { useCurrentRoomHasAudio } from "../../../state/roomStore"
 import RadioProtocolSelect from "../../RadioProtocolSelect"
-import PlaylistDemocracySettings from "./PlaylistDemocracySettings"
-import { PlaylistDemocracyConfig } from "../../../types/Room"
 
 function Content() {
   const hasAudio = useCurrentRoomHasAudio()

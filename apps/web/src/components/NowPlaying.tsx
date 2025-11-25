@@ -30,6 +30,10 @@ import { useIsAdmin } from "../state/authStore"
 import { FaSpotify } from "react-icons/fa"
 import Timestamp from "./Timestamp"
 import { format } from "date-fns"
+import { settingsMachine } from "../machines/settingsMachine"
+import { useMachine } from "@xstate/react"
+import { CountdownTimer, CountdownTimerProvider } from "./CountdownTimer"
+import { NowPlayingVoteCountdown } from "./NowPlayingVoteCountdown"
 
 interface NowPlayingProps extends BoxProps {
   offline: boolean
@@ -67,7 +71,9 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
   const room = useCurrentRoom()
   const isAdmin = useIsAdmin()
   const { state } = useRoomStore()
-  const { album, artist, track, nowPlaying, title, dj, stationMeta } = meta || {}
+  const [settingsState] = useMachine(settingsMachine)
+  const { album, artist, track, nowPlaying, title, dj } = meta || {}
+  const playedAt = meta?.nowPlaying?.playedAt
 
   // Extract release from nowPlaying for backward compatibility
   const release = nowPlaying?.track
@@ -77,6 +83,7 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
   // Handle both old format (release_date) and new format (releaseDate)
   const releaseDate = (release?.album as any)?.release_date || release?.album?.releaseDate
   const lastUpdate = meta?.lastUpdatedAt
+  const timerEnabled = settingsState.context.playlistDemocracy.enabled
 
   // Determine if we have actual playback data
   // For jukebox rooms: check if there's no nowPlaying data at all
@@ -231,6 +238,19 @@ const NowPlaying = ({ meta }: NowPlayingProps) => {
                 </VStack>
               </Stack>
             </LinkBox>
+            {timerEnabled && playedAt && (
+              <HStack spacing={1}>
+                <CountdownTimerProvider
+                  key={release.id}
+                  start={playedAt}
+                  duration={settingsState.context.playlistDemocracy.timeLimit}
+                >
+                  <NowPlayingVoteCountdown
+                    reactionType={settingsState.context.playlistDemocracy.reactionType}
+                  />
+                </CountdownTimerProvider>
+              </HStack>
+            )}
           </VStack>
         )}
         <Show above="sm">
