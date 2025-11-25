@@ -138,8 +138,28 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       )
     } else if (wasEnabled && isEnabled) {
       // Plugin remains enabled but config may have changed
-      // Could send a message about updated thresholds if desired
       console.log(`[${this.name}] Config updated while enabled`)
+
+      // Check if any rules changed
+      const rulesChanged =
+        config.reactionType !== previousConfig.reactionType ||
+        config.timeLimit !== previousConfig.timeLimit ||
+        config.thresholdType !== previousConfig.thresholdType ||
+        config.thresholdValue !== previousConfig.thresholdValue
+
+      if (rulesChanged) {
+        // Send system message with updated rules
+        const timeSeconds = Math.floor(config.timeLimit / 1000)
+        const thresholdText =
+          config.thresholdType === "percentage"
+            ? `${config.thresholdValue}%`
+            : `${config.thresholdValue}`
+
+        await this.context.api.sendSystemMessage(
+          this.context.roomId,
+          `🗳️ Playlist Democracy rules updated: Tracks need ${thresholdText} :${config.reactionType}: reactions within ${timeSeconds} seconds`,
+        )
+      }
     }
   }
 
@@ -223,9 +243,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       console.log(`[${this.name}] Checking threshold for track ${trackId}`)
 
       // Get listening users
-      const listeningUsers = await this.context.api.getUsers(this.context.roomId, {
-        status: "listening",
-      })
+      const listeningUsers = await this.context.api.getUsers(this.context.roomId)
       const totalListeners = listeningUsers.length
 
       console.log(`[${this.name}] Total listening users: ${totalListeners}`)
@@ -266,12 +284,23 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
         )
 
         // Send system message
-        const thresholdText =
-          config.thresholdType === "percentage" ? `${config.thresholdValue}%` : `${requiredCount}`
+        let voteText: string
+        let thresholdText: string
+
+        if (config.thresholdType === "percentage") {
+          // Calculate percentage of votes received
+          const votePercentage =
+            totalListeners > 0 ? Math.floor((voteCount / totalListeners) * 100) : 0
+          voteText = `${votePercentage}%`
+          thresholdText = `${config.thresholdValue}%`
+        } else {
+          voteText = `${voteCount}`
+          thresholdText = `${requiredCount}`
+        }
 
         await this.context.api.sendSystemMessage(
           this.context.roomId,
-          `⏭️ Track skipped: "${trackTitle}" didn't receive enough :${config.reactionType}: reactions (${voteCount} / ${thresholdText})`,
+          `⏭️ Track skipped: "${trackTitle}" didn't receive enough :${config.reactionType}: reactions (${voteText} / ${thresholdText})`,
         )
       } else {
         console.log(`[${this.name}] Threshold met, track will continue playing`)

@@ -15,10 +15,7 @@ import {
 // Mock factories
 function createMockQueueItem(trackId: string, title: string = "Test Track"): QueueItem {
   return {
-    id: `queue-${trackId}`,
     title,
-    artist: "Test Artist",
-    album: "Test Album",
     mediaSource: {
       type: "spotify",
       trackId,
@@ -28,6 +25,10 @@ function createMockQueueItem(trackId: string, title: string = "Test Track"): Que
       artists: [{ title: "Test Artist" }],
       album: { title: "Test Album" },
     },
+    addedAt: Date.now(),
+    addedBy: undefined,
+    addedDuring: undefined,
+    playedAt: undefined,
   } as QueueItem
 }
 
@@ -38,8 +39,18 @@ function createMockReactionPayload(
 ): ReactionPayload {
   return {
     reactTo: { type: "track", id: trackId },
-    emoji: { shortcodes: emoji, native: "👍" },
-    user: userId,
+    emoji: {
+      id: emoji,
+      name: emoji,
+      keywords: [emoji],
+      shortcodes: emoji,
+      native: "👍",
+    },
+    user: {
+      userId,
+      username: `User ${userId}`,
+      status: "listening",
+    },
   }
 }
 
@@ -54,8 +65,8 @@ function createMockUser(userId: string, status: string = "listening"): User {
 function createMockReaction(userId: string, emoji: string = "thumbsup"): Reaction {
   return {
     user: userId,
-    emoji: { shortcodes: emoji, native: "👍" },
-  } as Reaction
+    emoji: emoji,
+  }
 }
 
 // Mock context factory
@@ -203,6 +214,52 @@ describe("PlaylistDemocracyPlugin", () => {
         expect.stringContaining("60 seconds"),
       )
     })
+
+    test("should send system message when rules change while enabled", async () => {
+      const handlers = (mockContext as any)._lifecycleHandlers.get("configChanged")
+      const configChangedHandler = handlers[0]
+
+      const updatedConfig = {
+        ...mockConfig,
+        thresholdValue: 75, // Changed from 50% to 75%
+        timeLimit: 90000, // Changed from 60 to 90 seconds
+      }
+
+      await configChangedHandler({
+        roomId: "test-room",
+        config: updatedConfig,
+        previousConfig: mockConfig,
+      })
+
+      expect(mockContext.api.sendSystemMessage).toHaveBeenCalledWith(
+        "test-room",
+        expect.stringContaining("rules updated"),
+      )
+      expect(mockContext.api.sendSystemMessage).toHaveBeenCalledWith(
+        "test-room",
+        expect.stringContaining("75%"),
+      )
+      expect(mockContext.api.sendSystemMessage).toHaveBeenCalledWith(
+        "test-room",
+        expect.stringContaining("90 seconds"),
+      )
+    })
+
+    test("should not send message when rules unchanged", async () => {
+      const handlers = (mockContext as any)._lifecycleHandlers.get("configChanged")
+      const configChangedHandler = handlers[0]
+
+      vi.mocked(mockContext.api.sendSystemMessage).mockClear()
+
+      // Same config, no changes
+      await configChangedHandler({
+        roomId: "test-room",
+        config: mockConfig,
+        previousConfig: mockConfig,
+      })
+
+      expect(mockContext.api.sendSystemMessage).not.toHaveBeenCalled()
+    })
   })
 
   describe("trackChanged", () => {
@@ -321,6 +378,11 @@ describe("PlaylistDemocracyPlugin", () => {
         "test-room",
         expect.stringContaining("didn't receive enough"),
       )
+      // Should show percentage in message (1 vote out of 4 users = 25%)
+      expect(mockContext.api.sendSystemMessage).toHaveBeenCalledWith(
+        "test-room",
+        expect.stringContaining("(25% / 50%)"),
+      )
     })
 
     test("should not skip track when percentage threshold is met", async () => {
@@ -370,6 +432,11 @@ describe("PlaylistDemocracyPlugin", () => {
       await vi.runAllTimersAsync()
 
       expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
+      // Should show raw count in message for static threshold (not percentage)
+      expect(mockContext.api.sendSystemMessage).toHaveBeenCalledWith(
+        "test-room",
+        expect.stringContaining("(2 / 3)"),
+      )
     })
 
     test("should store skip info in plugin storage", async () => {
@@ -454,11 +521,9 @@ describe("PlaylistDemocracyPlugin", () => {
       const reactionAddedHandler = handlers[0]
 
       const reaction = createMockReactionPayload("track1", "thumbsup", "user1")
-      
+
       // Should not throw
-      await expect(
-        reactionAddedHandler({ roomId: "test-room", reaction }),
-      ).resolves.not.toThrow()
+      await expect(reactionAddedHandler({ roomId: "test-room", reaction })).resolves.not.toThrow()
     })
 
     test("should ignore reactions when plugin is disabled", async () => {
@@ -516,7 +581,7 @@ describe("PlaylistDemocracyPlugin", () => {
     test("should call storage cleanup", async () => {
       await plugin.cleanup()
 
-      expect(mockContext.storage.cleanup).toHaveBeenCalled()
+      expect((mockContext.storage as any).cleanup).toHaveBeenCalled()
     })
 
     test("should handle roomDeleted event", async () => {
@@ -525,8 +590,7 @@ describe("PlaylistDemocracyPlugin", () => {
 
       await roomDeletedHandler({ roomId: "test-room" })
 
-      expect(mockContext.storage.cleanup).toHaveBeenCalled()
+      expect((mockContext.storage as any).cleanup).toHaveBeenCalled()
     })
   })
 })
-

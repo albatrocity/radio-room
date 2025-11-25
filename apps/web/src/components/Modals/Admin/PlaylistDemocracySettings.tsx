@@ -2,11 +2,12 @@ import { Formik } from "formik"
 import React from "react"
 import {
   Box,
+  Button,
   Checkbox,
   FormControl,
   FormHelperText,
   FormLabel,
-  Input,
+  HStack,
   ModalBody,
   ModalFooter,
   NumberDecrementStepper,
@@ -14,12 +15,21 @@ import {
   NumberInput,
   NumberInputField,
   NumberInputStepper,
+  Popover,
+  PopoverArrow,
+  PopoverBody,
+  PopoverContent,
+  PopoverTrigger,
+  Portal,
   Radio,
   RadioGroup,
   Stack,
   Text,
   VStack,
+  useDisclosure,
 } from "@chakra-ui/react"
+import Picker from "@emoji-mart/react"
+import data from "@emoji-mart/data"
 import { settingsMachine } from "../../../machines/settingsMachine"
 import { useMachine } from "@xstate/react"
 import { useAdminStore } from "../../../state/adminStore"
@@ -30,6 +40,7 @@ export default function PlaylistDemocracySettings() {
   const [state] = useMachine(settingsMachine)
   const { send: modalSend } = useModalsStore()
   const { send } = useAdminStore()
+  const { isOpen, onOpen, onClose } = useDisclosure()
 
   const initialConfig = state.context.playlistDemocracy
 
@@ -115,22 +126,59 @@ export default function PlaylistDemocracySettings() {
                 <>
                   <FormControl>
                     <FormLabel>Reaction Type</FormLabel>
-                    <Input
-                      name="reactionType"
-                      value={values.reactionType}
-                      onChange={(e) => {
-                        handleChange(e)
-                        if (e.target.value !== initialValues.reactionType) {
-                          setTouched({ reactionType: true })
-                        } else {
-                          setTouched({ reactionType: false })
-                        }
-                      }}
-                      onBlur={handleBlur}
-                      placeholder="thumbsdown"
-                    />
+                    <Popover
+                      isLazy
+                      isOpen={isOpen}
+                      onClose={onClose}
+                      variant="responsive"
+                      autoFocus={true}
+                    >
+                      <PopoverTrigger>
+                        <Button
+                          onClick={onOpen}
+                          variant="outline"
+                          justifyContent="flex-start"
+                          width="full"
+                        >
+                          <HStack>
+                            <Box fontSize="2xl">
+                              {/* @ts-ignore - em-emoji is a custom element */}
+                              <em-emoji shortcodes={`:${values.reactionType}:`} />
+                            </Box>
+                            <Text>:{values.reactionType}:</Text>
+                          </HStack>
+                        </Button>
+                      </PopoverTrigger>
+
+                      <PopoverContent width="full">
+                        <PopoverArrow />
+                        <PopoverBody
+                          sx={{
+                            "em-emoji-picker": {
+                              "--shadow": "0",
+                            },
+                            overflow: "hidden",
+                          }}
+                        >
+                          <Picker
+                            data={data}
+                            height="200px"
+                            onEmojiSelect={(emoji: any) => {
+                              setFieldValue("reactionType", emoji.id)
+                              if (emoji.id !== initialValues.reactionType) {
+                                setTouched({ reactionType: true })
+                              } else {
+                                setTouched({ reactionType: false })
+                              }
+                              onClose()
+                            }}
+                            previewPosition="none"
+                          />
+                        </PopoverBody>
+                      </PopoverContent>
+                    </Popover>
                     <FormHelperText>
-                      Emoji shortcode to count (e.g., "+1", "-1", "fire")
+                      Click to choose which emoji reaction to count for voting
                     </FormHelperText>
                   </FormControl>
 
@@ -227,7 +275,9 @@ export default function PlaylistDemocracySettings() {
                       {values.thresholdType === "percentage"
                         ? `${values.thresholdValue}% of listeners to`
                         : `at least ${values.thresholdValue}`}{" "}
-                      react with :{values.reactionType}: within {values.timeLimit / 1000} seconds.
+                      {/* @ts-ignore - em-emoji is a custom element */}
+                      react with <em-emoji shortcodes={`:${values.reactionType}:`} /> within{" "}
+                      {values.timeLimit / 1000} seconds.
                     </Text>
                   </Box>
                 </>
