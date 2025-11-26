@@ -1,4 +1,4 @@
-import { AppContext, PluginLifecycleEvents } from "@repo/types"
+import { AppContext, SystemEventPayload, SystemEventName } from "@repo/types"
 import type { SystemEvents as ISystemEvents } from "@repo/types"
 import type { Server } from "socket.io"
 import { PluginRegistry } from "./plugins/PluginRegistry"
@@ -48,10 +48,10 @@ export class SystemEvents implements ISystemEvents {
    * @param event - Event name (must match PluginLifecycleEvents)
    * @param data - Event payload (must match event signature)
    */
-  async emit<K extends keyof PluginLifecycleEvents>(
+  async emit<K extends SystemEventName>(
     roomId: string,
     event: K,
-    data: Parameters<PluginLifecycleEvents[K]>[0],
+    data: SystemEventPayload<K>,
   ): Promise<void> {
     try {
       // 1. Emit to Redis PubSub for cross-server communication
@@ -72,9 +72,9 @@ export class SystemEvents implements ISystemEvents {
    * Emit event to Redis PubSub
    * Channel format: SYSTEM:{EVENT}
    */
-  private async emitToPubSub<K extends keyof PluginLifecycleEvents>(
+  private async emitToPubSub<K extends SystemEventName>(
     event: K,
-    data: Parameters<PluginLifecycleEvents[K]>[0],
+    data: SystemEventPayload<K>,
   ): Promise<void> {
     const channel = this.getChannelName(event)
     await this.redis.pubClient.publish(channel, JSON.stringify(data))
@@ -83,10 +83,10 @@ export class SystemEvents implements ISystemEvents {
   /**
    * Emit event to Plugin System
    */
-  private async emitToPlugins<K extends keyof PluginLifecycleEvents>(
+  private async emitToPlugins<K extends SystemEventName>(
     roomId: string,
     event: K,
-    data: Parameters<PluginLifecycleEvents[K]>[0],
+    data: SystemEventPayload<K>,
   ): Promise<void> {
     if (!this.pluginRegistry) {
       return
@@ -103,10 +103,10 @@ export class SystemEvents implements ISystemEvents {
    * Emit event to Socket.IO
    * Broadcasts standardized event to frontend clients in the room
    */
-  private emitToSocketIO<K extends keyof PluginLifecycleEvents>(
+  private emitToSocketIO<K extends SystemEventName>(
     roomId: string,
     event: K,
-    data: Parameters<PluginLifecycleEvents[K]>[0],
+    data: SystemEventPayload<K>,
   ): void {
     if (!this.io) {
       return
@@ -130,14 +130,14 @@ export class SystemEvents implements ISystemEvents {
    * - TRACK_CHANGED -> SYSTEM:TRACK_CHANGED
    * - USER_JOINED -> SYSTEM:USER_JOINED
    */
-  private getChannelName(event: keyof PluginLifecycleEvents): string {
+  private getChannelName(event: SystemEventName): string {
     return SystemEvents.getChannelName(event)
   }
 
   /**
    * Get the channel name for a given event (exposed for testing/debugging)
    */
-  public static getChannelName(event: keyof PluginLifecycleEvents): string {
+  public static getChannelName(event: SystemEventName): string {
     // Events are already in SCREAMING_SNAKE_CASE, just prepend SYSTEM:
     return `SYSTEM:${event as string}`
   }
