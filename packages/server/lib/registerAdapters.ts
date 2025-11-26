@@ -1,4 +1,4 @@
-import { AppContext } from "@repo/types"
+import { AppContext, Plugin } from "@repo/types"
 import type { RadioRoomServer } from "../index"
 
 /**
@@ -24,7 +24,7 @@ export const noAuth = { type: "none" as const }
 export interface AdapterRegistrationConfig {
   serviceAuth?: {
     name: string
-    create: (context: AppContext) => any
+    factory: (context: AppContext) => any
   }[]
 
   playbackControllers?: {
@@ -49,8 +49,11 @@ export interface AdapterRegistrationConfig {
 
   authRoutes?: {
     path: string
-    create: (context: AppContext) => any
+    handler: (context: AppContext) => any
   }[]
+
+  /** Plugin factory functions - each returns a Plugin instance */
+  plugins?: (() => Plugin)[]
 }
 
 /**
@@ -68,8 +71,8 @@ export async function registerAdapters(
   const registerJob = server.registerJob.bind(server)
 
   // Register service auth adapters
-  for (const { name, create } of config.serviceAuth ?? []) {
-    const adapter = create(context)
+  for (const { name, factory } of config.serviceAuth ?? []) {
+    const adapter = factory(context)
     context.adapters.serviceAuth.set(name, adapter)
     console.log(`Registered service auth: ${name}`)
   }
@@ -99,10 +102,15 @@ export async function registerAdapters(
   }
 
   // Mount auth routes
-  for (const { path, create } of config.authRoutes ?? []) {
-    const router = create(context)
+  for (const { path, handler } of config.authRoutes ?? []) {
+    const router = handler(context)
     server.mountRoutes(path, router)
     console.log(`Mounted auth routes: ${path}`)
   }
-}
 
+  // Store plugins to be registered after server.start() initializes the PluginRegistry
+  if (config.plugins?.length) {
+    server.setPendingPlugins(config.plugins)
+    console.log(`Queued ${config.plugins.length} plugin(s) for registration`)
+  }
+}

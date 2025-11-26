@@ -7,6 +7,7 @@ import {
   createSpotifyServiceAuthAdapter,
 } from "@repo/adapter-spotify"
 import { mediaSource as shoutcastMediaSource } from "@repo/media-source-shoutcast"
+import createPlaylistDemocracyPlugin from "@repo/plugin-playlist-democracy"
 
 async function main() {
   const server = createServer({
@@ -21,9 +22,9 @@ async function main() {
 
   const spotifyOAuth = createOAuthPlaceholder(process.env.SPOTIFY_CLIENT_ID ?? "")
 
-  // Register all adapters declaratively
+  // Register all adapters and plugins declaratively
   await registerAdapters(server, {
-    serviceAuth: [{ name: "spotify", create: createSpotifyServiceAuthAdapter }],
+    serviceAuth: [{ name: "spotify", factory: createSpotifyServiceAuthAdapter }],
 
     playbackControllers: [
       { name: "spotify", module: playbackController, authentication: spotifyOAuth },
@@ -36,7 +37,9 @@ async function main() {
       { name: "shoutcast", module: shoutcastMediaSource },
     ],
 
-    authRoutes: [{ path: "/auth/spotify", create: createSpotifyAuthRoutes }],
+    authRoutes: [{ path: "/auth/spotify", handler: createSpotifyAuthRoutes }],
+
+    plugins: [createPlaylistDemocracyPlugin],
   })
 
   await server.start()

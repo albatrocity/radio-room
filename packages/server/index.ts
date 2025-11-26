@@ -4,10 +4,15 @@ import session from "express-session"
 import { RedisStore } from "connect-redis"
 import cors from "cors"
 import express from "express"
-import { AppContext } from "@repo/types"
 import { createServer as createHttpServer } from "http"
 import { Server as SocketIoServer } from "socket.io"
-import { CreateServerConfig, PlaybackControllerAdapterConfig, User } from "@repo/types"
+import {
+  AppContext,
+  CreateServerConfig,
+  PlaybackControllerAdapterConfig,
+  User,
+  Plugin,
+} from "@repo/types"
 import { createAppContext, initializeRedisContext } from "./lib/context"
 import { createContextMiddleware } from "./lib/contextMiddleware"
 import { JobService } from "./services/JobService"
@@ -39,18 +44,19 @@ declare module "express-session" {
 
 const PORT = Number(process.env.PORT ?? 3000)
 
-class RadioRoomServer {
-  private io: SocketIoServer
+export class RadioRoomServer {
+  private readonly io: SocketIoServer
   sessionStore: RedisStore
-  private app: express.Express
-  private sessionMiddleware: express.RequestHandler
-  private httpServer: ReturnType<typeof createHttpServer>
-  private _onStart: () => void = () => {}
-  private playbackControllers: CreateServerConfig["playbackControllers"]
-  private cacheImplementation: CreateServerConfig["cacheImplementation"]
-  private context: AppContext
-  private jobService: JobService
+  private readonly app: express.Express
+  private readonly sessionMiddleware: express.RequestHandler
+  private readonly httpServer: ReturnType<typeof createHttpServer>
+  private readonly _onStart: () => void = () => {}
+  private readonly playbackControllers: CreateServerConfig["playbackControllers"]
+  private readonly cacheImplementation: CreateServerConfig["cacheImplementation"]
+  private readonly context: AppContext
+  private readonly jobService: JobService
   private pluginRegistry: PluginRegistry
+  private pendingPlugins: (() => Plugin)[] = []
 
   constructor(
     config: CreateServerConfig = {
@@ -173,6 +179,14 @@ class RadioRoomServer {
     this.context.pluginRegistry = this.pluginRegistry
     console.log("PluginRegistry initialized")
 
+    // Register any plugins that were queued via registerAdapters()
+    for (const createPlugin of this.pendingPlugins) {
+      const plugin = createPlugin()
+      this.pluginRegistry.registerPlugin(plugin)
+      console.log(`Registered plugin: ${plugin.name}`)
+    }
+    this.pendingPlugins = [] // Clear after registration
+
     // Initialize SystemEvents (unified event emission layer)
     // Broadcasts to: Redis PubSub, Socket.IO, and Plugin System
     const { SystemEvents } = await import("./lib/SystemEvents")
@@ -196,8 +210,7 @@ class RadioRoomServer {
     this.httpServer.listen(PORT, "0.0.0.0", () => console.log(`Listening on ${PORT}`))
     bindPubSubHandlers(this.io, this.context)
 
-    // Initialize plugins (register them with the registry)
-    this.initializePlugins()
+    // Note: Plugins are now registered via registerAdapters() in the API entry point
 
     // Register initial system jobs
     await this.registerSystemJobs()
@@ -214,21 +227,23 @@ class RadioRoomServer {
     this.onStart()
   }
 
+  /**
+   * @deprecated Plugins should now be registered via registerAdapters() in the API entry point
+   */
   initializePlugins() {
-    try {
-      // Register Playlist Democracy plugin
-      const createPlaylistDemocracyPlugin = require("@repo/plugin-playlist-democracy").default
-      const playlistDemocracyPlugin = createPlaylistDemocracyPlugin()
-      this.pluginRegistry.registerPlugin(playlistDemocracyPlugin)
-      
-      console.log("Plugins initialized")
-    } catch (error) {
-      console.error("Failed to initialize plugins:", error)
-    }
+    // No-op: plugins are now registered via registerAdapters()
+    console.log("initializePlugins() is deprecated - use registerAdapters({ plugins: [...] })")
   }
 
   getPluginRegistry() {
     return this.pluginRegistry
+  }
+
+  /**
+   * Queue plugins to be registered after start() initializes the PluginRegistry
+   */
+  setPendingPlugins(plugins: (() => Plugin)[]) {
+    this.pendingPlugins = plugins
   }
 
   async registerSystemJobs() {
@@ -414,28 +429,6 @@ class RadioRoomServer {
         })
       },
     })
-  }
-
-  // Lifecycle methods for playback controllers
-  async onPlay() {
-    console.log("Playback started")
-    // TODO: Emit event to clients
-  }
-  async onPause() {
-    console.log("Playback paused")
-    // TODO: Emit event to clients
-  }
-  async onPlaybackQueueChange() {
-    console.log("Playback queue changed")
-  }
-  async onChangeTrack(track: any) {
-    console.log("Track changed", track)
-  }
-  async onPlaybackPositionChange(position: number) {
-    console.log("Playback position changed", position)
-  }
-  async onPlaybackStateChange(state: string) {
-    console.log("Playback state changed", state)
   }
 }
 
