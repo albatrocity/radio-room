@@ -1,7 +1,7 @@
 import type { AppContext } from "./AppContext"
 import type { Room, RoomMeta } from "./Room"
 import type { QueueItem } from "./Queue"
-import type { Reaction, ReactionPayload } from "./Reaction"
+import type { Reaction, ReactionPayload, ReactionStore } from "./Reaction"
 import type { User } from "./User"
 import type { ReactionSubject } from "./ReactionSubject"
 
@@ -37,15 +37,44 @@ export interface PluginAPI {
 
 /**
  * Lifecycle events that plugins can listen to
- * 
+ *
  * These event payloads are aligned with the Redis PubSub system events
  * to enable unified event emission through the SystemEvents layer.
+ *
+ * Socket.IO Event Mapping (for frontend):
+ * - trackChanged → NOW_PLAYING
+ * - reactionAdded → REACTIONS
+ * - reactionRemoved → REACTIONS
+ * - userJoined → USER_JOINED
+ * - userLeft → USER_LEFT
+ * - userStatusChanged → USER_STATUS_CHANGED
+ * - roomDeleted → ROOM_DELETED
+ * - roomSettingsUpdated → ROOM_SETTINGS
+ * - configChanged → CONFIG_CHANGED
+ * - messageReceived → NEW_MESSAGE
+ * - messagesCleared → SET_MESSAGES
+ * - typingChanged → TYPING
+ * - playlistTrackAdded → PLAYLIST_TRACK_ADDED
+ * - userKicked → KICKED
+ * - errorOccurred → ERROR
  */
 export type PluginLifecycleEvents = {
-  trackChanged: (data: { roomId: string; track: QueueItem; roomMeta?: RoomMeta }) => Promise<void> | void
-  reactionAdded: (data: { roomId: string; reaction: ReactionPayload }) => Promise<void> | void
-  reactionRemoved: (data: { roomId: string; reaction: ReactionPayload }) => Promise<void> | void
-  userJoined: (data: { roomId: string; user: User }) => Promise<void> | void
+  trackChanged: (data: {
+    roomId: string
+    track: QueueItem
+    roomMeta?: RoomMeta
+  }) => Promise<void> | void
+  reactionAdded: (data: {
+    roomId: string
+    reaction: ReactionPayload
+    reactions?: ReactionStore
+  }) => Promise<void> | void
+  reactionRemoved: (data: {
+    roomId: string
+    reaction: ReactionPayload
+    reactions?: ReactionStore
+  }) => Promise<void> | void
+  userJoined: (data: { roomId: string; user: User; users?: User[] }) => Promise<void> | void
   userLeft: (data: { roomId: string; user: User }) => Promise<void> | void
   userStatusChanged: (data: {
     roomId: string
@@ -58,6 +87,17 @@ export type PluginLifecycleEvents = {
     roomId: string
     config: any
     previousConfig: any
+  }) => Promise<void> | void
+  messageReceived: (data: { roomId: string; message: any }) => Promise<void> | void
+  messagesCleared: (data: { roomId: string }) => Promise<void> | void
+  typingChanged: (data: { roomId: string; typing: string[] }) => Promise<void> | void
+  playlistTrackAdded: (data: { roomId: string; track: QueueItem }) => Promise<void> | void
+  userKicked: (data: { roomId: string; userId: string; message?: any }) => Promise<void> | void
+  errorOccurred: (data: {
+    roomId: string
+    error: any
+    status?: number
+    message?: string
   }) => Promise<void> | void
 }
 

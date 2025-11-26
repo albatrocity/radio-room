@@ -174,8 +174,9 @@ class RadioRoomServer {
     console.log("PluginRegistry initialized")
 
     // Initialize SystemEvents (unified event emission layer)
+    // Broadcasts to: Redis PubSub, Socket.IO, and Plugin System
     const { SystemEvents } = await import("./lib/SystemEvents")
-    this.context.systemEvents = new SystemEvents(this.context.redis, this.pluginRegistry)
+    this.context.systemEvents = new SystemEvents(this.context.redis, this.io, this.pluginRegistry)
     console.log("SystemEvents initialized")
 
     this.io.on("connection", (socket) => {

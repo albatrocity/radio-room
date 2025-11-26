@@ -1,4 +1,3 @@
-import { getRoomPath } from "../../lib/getRoomPath"
 import { Room, User, AppContext } from "@repo/types"
 import { Server } from "socket.io"
 
@@ -18,17 +17,12 @@ export async function pubUserJoined({
   data: UsersData
   context: AppContext
 }) {
-  // Emit to Socket.IO clients
-  io.to(getRoomPath(roomId)).emit("event", {
-    type: "USER_JOINED",
-    data: data,
-  })
-
-  // Emit userJoined event via SystemEvents
+  // Emit via SystemEvents (broadcasts to Redis PubSub, Socket.IO, and Plugins)
   if (data.user && context.systemEvents) {
     await context.systemEvents.emit(roomId, "userJoined", {
       roomId,
       user: data.user,
+      users: data.users,
     })
   }
 }

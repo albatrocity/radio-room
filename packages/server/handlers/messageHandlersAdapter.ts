@@ -18,13 +18,15 @@ export class MessageHandlers {
 
     const result = await this.messageService.processNewMessage(roomId, userId, username, message)
 
-    // Emit typing status update
-    io.to(result.roomPath).emit("event", {
-      type: "TYPING",
-      data: { typing: result.typing },
-    })
+    // Emit typing status update via SystemEvents
+    if (socket.context.systemEvents) {
+      await socket.context.systemEvents.emit(roomId, "typingChanged", {
+        roomId,
+        typing: result.typing,
+      })
+    }
 
-    // Send the message
+    // Send the message (broadcasts via SystemEvents)
     await sendMessage(io, roomId, result.message, socket.context)
   }
 
@@ -33,12 +35,14 @@ export class MessageHandlers {
    */
   clearMessages = async ({ socket, io }: HandlerConnections) => {
     const { roomId } = socket.data
-    const result = await this.messageService.clearAllMessages(roomId)
+    await this.messageService.clearAllMessages(roomId)
 
-    io.to(result.roomPath).emit("event", {
-      type: "SET_MESSAGES",
-      data: { messages: [] },
-    })
+    // Emit via SystemEvents (broadcasts to Redis PubSub, Socket.IO, and Plugins)
+    if (socket.context.systemEvents) {
+      await socket.context.systemEvents.emit(roomId, "messagesCleared", {
+        roomId,
+      })
+    }
   }
 
   /**
@@ -48,10 +52,13 @@ export class MessageHandlers {
     const { roomId, userId } = socket.data
     const result = await this.messageService.addUserToTyping(roomId, userId)
 
-    socket.broadcast.to(result.roomPath).emit("event", {
-      type: "TYPING",
-      data: { typing: result.typing },
-    })
+    // Emit via SystemEvents (broadcasts to Redis PubSub, Socket.IO, and Plugins)
+    if (socket.context.systemEvents) {
+      await socket.context.systemEvents.emit(roomId, "typingChanged", {
+        roomId,
+        typing: result.typing,
+      })
+    }
   }
 
   /**
@@ -61,10 +68,13 @@ export class MessageHandlers {
     const { roomId, userId } = socket.data
     const result = await this.messageService.removeUserFromTyping(roomId, userId)
 
-    socket.broadcast.to(result.roomPath).emit("event", {
-      type: "TYPING",
-      data: { typing: result.typing },
-    })
+    // Emit via SystemEvents (broadcasts to Redis PubSub, Socket.IO, and Plugins)
+    if (socket.context.systemEvents) {
+      await socket.context.systemEvents.emit(roomId, "typingChanged", {
+        roomId,
+        typing: result.typing,
+      })
+    }
   }
 }
 
