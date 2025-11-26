@@ -25,11 +25,6 @@ export default async function bindHandlers(io: Server, context: AppContext) {
     SystemEvents.getChannelName("PLAYLIST_TRACK_ADDED"),
     (message, channel) => handlePlaylistAdded({ io, message, channel, context }),
   )
-
-  // Legacy channel - keep for backward compatibility during migration
-  context.redis.subClient.pSubscribe(PUBSUB_PLAYLIST_ADDED, (message, channel) =>
-    handlePlaylistAdded({ io, message, channel, context }),
-  )
 }
 
 type ContextPubSubHandlerArgs = PubSubHandlerArgs & { context: AppContext }

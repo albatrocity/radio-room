@@ -443,3 +443,6 @@ export function createServer(config: CreateServerConfig) {
   const radioRoomServer = new RadioRoomServer(config)
   return radioRoomServer
 }
+
+export { registerAdapters, createOAuthPlaceholder, noAuth } from "./lib/registerAdapters"
+export type { AdapterRegistrationConfig } from "./lib/registerAdapters"
