@@ -279,6 +279,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           src: getStoredUser,
           onDone: {
             target: "connecting",
+            actions: ["setStoredUser"],
           },
           onError: {
             target: "connecting",
@@ -421,6 +422,23 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         }
         return ctx
       }),
+      setStoredUser: assign((ctx, event) => {
+        if (event.type === "done.invoke.getStoredUser" && event.data.currentUser) {
+          const storedUser = event.data.currentUser
+          // Only set if we have a valid userId (not null or undefined)
+          if (storedUser.userId) {
+            return {
+              currentUser: {
+                userId: storedUser.userId,
+                username: storedUser.username || undefined,
+                isAdmin: storedUser.isAdmin,
+              },
+              isNewUser: false,
+            }
+          }
+        }
+        return ctx
+      }),
       unsetNew: assign(() => {
         return {
           isNewUser: false,
@@ -432,17 +450,15 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         }
       }),
       login: sendTo("socket", (ctx, event) => {
-        // Get user data from stored user or current user
-        let userId: string | undefined
-        let username: string | undefined
+        // Get user data from context (set by setStoredUser action) or from event
+        let userId: string | undefined = ctx.currentUser?.userId
+        let username: string | undefined = ctx.currentUser?.username
         
-        if (event.type === "done.invoke.getStoredUser") {
-          userId = event.data.currentUser?.userId
-          username = event.data.currentUser?.username
-        } else {
-          // When coming from password acceptance, use current user data
-          userId = ctx.currentUser?.userId
-          username = ctx.currentUser?.username
+        // Fallback to event data if context doesn't have user data
+        if (!userId && event.type === "done.invoke.getStoredUser") {
+          // Convert null to undefined to ensure proper handling on server
+          userId = event.data.currentUser?.userId || undefined
+          username = event.data.currentUser?.username || undefined
         }
 
         const password = ctx.password
