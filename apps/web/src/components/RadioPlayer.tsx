@@ -1,4 +1,4 @@
-import React, { useRef, memo, useEffect, useCallback } from "react"
+import { useRef, memo, useEffect, useCallback } from "react"
 import {
   Box,
   Icon,
@@ -23,12 +23,10 @@ import { useHotkeys } from "react-hotkeys-hook"
 import PlayStateIcon from "./PlayStateIcon"
 import AdminControls from "./AdminControls"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
-import { RoomMeta } from "../types/Room"
 import { useIsAdmin } from "../state/authStore"
 
 interface RadioPlayerProps {
   volume: number
-  meta?: RoomMeta
   playing: boolean
   muted: boolean
   onVolume: (volume: number) => void
@@ -47,7 +45,6 @@ const RadioPlayer = ({
   volume,
   playing,
   muted,
-  meta,
   onVolume,
   onPlayPause,
   onLoad,
@@ -90,9 +87,7 @@ const RadioPlayer = ({
           <Box py={1} h={10} overflowX="auto">
             <Box px={4} flexDir="row">
               <HStack alignItems="flex-start">
-                <ButtonAddToLibrary 
-                  id={meta?.nowPlaying?.metadataSource?.trackId}
-                />
+                <ButtonAddToLibrary id={trackId} />
                 <ReactionCounter
                   reactTo={{ type: "track", id: trackId }}
                   showAddButton={true}

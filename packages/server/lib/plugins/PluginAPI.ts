@@ -1,4 +1,12 @@
-import { AppContext, PluginAPI, QueueItem, Reaction, User, ReactionSubject } from "@repo/types"
+import {
+  AppContext,
+  PluginAPI,
+  QueueItem,
+  Reaction,
+  User,
+  ReactionSubject,
+  ChatMessage,
+} from "@repo/types"
 import { Server } from "socket.io"
 
 /**
@@ -72,11 +80,15 @@ export class PluginAPIImpl implements PluginAPI {
     await playbackController.api.skipToNextTrack()
   }
 
-  async sendSystemMessage(roomId: string, message: string): Promise<void> {
+  async sendSystemMessage(
+    roomId: string,
+    message: string,
+    meta?: ChatMessage["meta"],
+  ): Promise<void> {
     const { default: sendMessage } = await import("../../lib/sendMessage")
     const { default: systemMessage } = await import("../../lib/systemMessage")
 
-    const msg = systemMessage(message)
+    const msg = systemMessage(message, meta)
 
     await sendMessage(this.io, roomId, msg, this.context)
   }

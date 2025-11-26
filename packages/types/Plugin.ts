@@ -4,6 +4,7 @@ import type { QueueItem } from "./Queue"
 import type { Reaction, ReactionPayload, ReactionStore } from "./Reaction"
 import type { User } from "./User"
 import type { ReactionSubject } from "./ReactionSubject"
+import type { ChatMessage } from "./ChatMessage"
 
 /**
  * Plugin storage API - provides sandboxed Redis access
@@ -30,7 +31,7 @@ export interface PluginAPI {
   }): Promise<Reaction[]>
   getUsers(roomId: string, params?: { status?: "listening" | "participating" }): Promise<User[]>
   skipTrack(roomId: string, trackId: string): Promise<void>
-  sendSystemMessage(roomId: string, message: string): Promise<void>
+  sendSystemMessage(roomId: string, message: string, meta?: ChatMessage["meta"]): Promise<void>
   getPluginConfig(roomId: string, pluginName: string): Promise<any | null>
   setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>
 }
@@ -39,65 +40,59 @@ export interface PluginAPI {
  * Lifecycle events that plugins can listen to
  *
  * These event payloads are aligned with the Redis PubSub system events
- * to enable unified event emission through the SystemEvents layer.
+ * and Socket.IO frontend events through the SystemEvents layer.
  *
- * Socket.IO Event Mapping (for frontend):
- * - trackChanged → NOW_PLAYING
- * - reactionAdded → REACTIONS
- * - reactionRemoved → REACTIONS
- * - userJoined → USER_JOINED
- * - userLeft → USER_LEFT
- * - userStatusChanged → USER_STATUS_CHANGED
- * - roomDeleted → ROOM_DELETED
- * - roomSettingsUpdated → ROOM_SETTINGS
- * - configChanged → CONFIG_CHANGED
- * - messageReceived → NEW_MESSAGE
- * - messagesCleared → SET_MESSAGES
- * - typingChanged → TYPING
- * - playlistTrackAdded → PLAYLIST_TRACK_ADDED
- * - userKicked → KICKED
- * - errorOccurred → ERROR
+ * Event naming convention:
+ * - All events use SCREAMING_SNAKE_CASE across all layers
+ * - Redis PubSub channels: SYSTEM:SCREAMING_SNAKE_CASE
  */
 export type PluginLifecycleEvents = {
-  trackChanged: (data: {
+  TRACK_CHANGED: (data: {
     roomId: string
     track: QueueItem
-    roomMeta?: RoomMeta
+    meta?: RoomMeta
   }) => Promise<void> | void
-  reactionAdded: (data: {
+  REACTION_ADDED: (data: {
     roomId: string
     reaction: ReactionPayload
     reactions?: ReactionStore
   }) => Promise<void> | void
-  reactionRemoved: (data: {
+  REACTION_REMOVED: (data: {
     roomId: string
     reaction: ReactionPayload
     reactions?: ReactionStore
   }) => Promise<void> | void
-  userJoined: (data: { roomId: string; user: User; users?: User[] }) => Promise<void> | void
-  userLeft: (data: { roomId: string; user: User }) => Promise<void> | void
-  userStatusChanged: (data: {
+  USER_JOINED: (data: { roomId: string; user: User; users?: User[] }) => Promise<void> | void
+  USER_LEFT: (data: { roomId: string; user: User }) => Promise<void> | void
+  USER_STATUS_CHANGED: (data: {
     roomId: string
     user: User
     oldStatus?: string
   }) => Promise<void> | void
-  roomDeleted: (data: { roomId: string }) => Promise<void> | void
-  roomSettingsUpdated: (data: { roomId: string; room: Room }) => Promise<void> | void
-  configChanged: (data: {
+  ROOM_DELETED: (data: { roomId: string }) => Promise<void> | void
+  ROOM_SETTINGS_UPDATED: (data: { roomId: string; room: Room }) => Promise<void> | void
+  CONFIG_CHANGED: (data: {
     roomId: string
-    config: any
-    previousConfig: any
+    config: Record<string, unknown>
+    previousConfig: Record<string, unknown>
   }) => Promise<void> | void
-  messageReceived: (data: { roomId: string; message: any }) => Promise<void> | void
-  messagesCleared: (data: { roomId: string }) => Promise<void> | void
-  typingChanged: (data: { roomId: string; typing: string[] }) => Promise<void> | void
-  playlistTrackAdded: (data: { roomId: string; track: QueueItem }) => Promise<void> | void
-  userKicked: (data: { roomId: string; userId: string; message?: any }) => Promise<void> | void
-  errorOccurred: (data: {
+  MESSAGE_RECEIVED: (data: { roomId: string; message: ChatMessage }) => Promise<void> | void
+  MESSAGES_CLEARED: (data: { roomId: string }) => Promise<void> | void
+  TYPING_CHANGED: (data: { roomId: string; typing: User[] }) => Promise<void> | void
+  PLAYLIST_TRACK_ADDED: (data: { roomId: string; track: QueueItem }) => Promise<void> | void
+  USER_KICKED: (data: { roomId: string; user: User; reason?: string }) => Promise<void> | void
+  ERROR_OCCURRED: (data: {
     roomId: string
-    error: any
+    error: Error | string
     status?: number
     message?: string
+  }) => Promise<void> | void
+  MEDIA_SOURCE_STATUS_CHANGED: (data: {
+    roomId: string
+    status: "online" | "offline" | "connecting" | "error"
+    sourceType?: "jukebox" | "radio"
+    bitrate?: number // Radio-specific: stream bitrate
+    error?: string
   }) => Promise<void> | void
 }
 

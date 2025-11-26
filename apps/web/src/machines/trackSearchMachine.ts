@@ -78,7 +78,7 @@ export const trackSearchMachine = createMachine<TrackSearchContext>(
     actions: {
       sendQuery: sendTo("socket", (_ctx, event) => {
         return {
-          type: "search track",
+          type: "SEARCH_TRACK",
           data: { query: event.value, options: {} },
         }
       }),

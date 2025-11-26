@@ -19,29 +19,29 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
   /**
    * Deputize or undeputize a user as a DJ
    */
-  socket.on("dj deputize user", async (userId: User["userId"]) => {
+  socket.on("DEPUTIZE_DJ", async (userId: User["userId"]) => {
     await handlers.djDeputizeUser(connections, userId)
   })
 
   /**
    * Add a song to the playback queue
    */
-  socket.on("queue song", async (trackId: QueueItem["track"]["id"]) => {
+  socket.on("QUEUE_SONG", async (trackId: QueueItem["track"]["id"]) => {
     await handlers.queueSong(connections, trackId)
   })
 
   /**
    * Search for tracks using the room's configured metadata source
    */
-  socket.on("search track", async (query: { query: string }) => {
+  socket.on("SEARCH_TRACK", async (query: { query: string }) => {
     await handlers.searchForTrack(connections, query)
   })
 
   /**
    * Legacy event name for backward compatibility
-   * @deprecated Use "search track" instead
+   * @deprecated Use "SEARCH_TRACK" instead
    */
-  socket.on("search spotify track", async (query: { query: string }) => {
+  socket.on("SEARCH_SPOTIFY_TRACK", async (query: { query: string }) => {
     await handlers.searchForTrack(connections, query)
   })
 
@@ -49,7 +49,7 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
    * Save a playlist to the room's configured metadata source
    */
   socket.on(
-    "save playlist",
+    "SAVE_PLAYLIST",
     async ({ name, trackIds }: { name: string; trackIds: QueueItem["track"]["id"][] }) => {
       await handlers.savePlaylist(connections, { name, trackIds })
     },
@@ -58,25 +58,25 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
   /**
    * Check if tracks are saved in user's library
    */
-  socket.on("check saved tracks", async (trackIds: string[]) => {
+  socket.on("CHECK_SAVED_TRACKS", async (trackIds: string[]) => {
     await handlers.checkSavedTracks(connections, trackIds)
   })
 
   /**
    * Add tracks to user's library
    */
-  socket.on("add to library", async (trackIds: string[]) => {
+  socket.on("ADD_TO_LIBRARY", async (trackIds: string[]) => {
     await handlers.addToLibrary(connections, trackIds)
   })
 
   /**
    * Remove tracks from user's library
    */
-  socket.on("remove from library", async (trackIds: string[]) => {
+  socket.on("REMOVE_FROM_LIBRARY", async (trackIds: string[]) => {
     await handlers.removeFromLibrary(connections, trackIds)
   })
 
-  socket.on("get saved tracks", async () => {
+  socket.on("GET_SAVED_TRACKS", async () => {
     await handlers.getSavedTracks(connections)
   })
 }

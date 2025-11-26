@@ -9,7 +9,7 @@ import { AppContext, PluginLifecycleEvents } from "@repo/types"
  * @example
  * ```typescript
  * // In an operation file (e.g., operations/reactions/addReaction.ts)
- * await emitPluginEvent(context, roomId, "reactionAdded", { roomId, reaction })
+ * await emitPluginEvent(context, roomId, "REACTION_ADDED", { roomId, reaction })
  * ```
  *
  * @param context - Application context containing the plugin registry

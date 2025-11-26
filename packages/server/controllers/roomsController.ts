@@ -215,14 +215,14 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
   /**
    * Get room settings
    */
-  socket.on("get room settings", async (url: string) => {
+  socket.on("GET_ROOM_SETTINGS", async (url: string) => {
     await handlers.getRoomSettings(connections)
   })
 
   /**
    * Get latest room data based on snapshot
    */
-  socket.on("get latest room data", async (snapshot: RoomSnapshot) => {
+  socket.on("GET_LATEST_ROOM_DATA", async (snapshot: RoomSnapshot) => {
     await handlers.getLatestRoomData(connections, snapshot)
   })
 }

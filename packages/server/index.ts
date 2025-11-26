@@ -73,7 +73,7 @@ class RadioRoomServer {
     this.context = createAppContext(config.REDIS_URL ?? "redis://localhost:6379")
 
     // Initialize JobService
-    this.jobService = new JobService(this.context, this.cacheImplementation)
+    this.jobService = new JobService(this.context)
 
     // Add jobService to context so it's accessible everywhere
     this.context.jobService = this.jobService

@@ -3,15 +3,13 @@ import { HandlerConnections, AppContext } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import { getRoomPath } from "../lib/getRoomPath"
-import { findRoom } from "../operations/data"
-import { pubUserKicked, pubRoomSettingsUpdated } from "../operations/sockets/room"
 
 /**
  * Socket.io adapter for the AdminService
  * This layer is thin and just connects Socket.io events to our business logic service
  */
 export class AdminHandlers {
-  constructor(private adminService: AdminService) {}
+  constructor(private readonly adminService: AdminService) {}
 
   /**
    * Get room settings for an admin
@@ -21,7 +19,7 @@ export class AdminHandlers {
 
     if (result.error) {
       socket.emit("event", {
-        type: "ERROR",
+        type: "ERROR_OCCURRED",
         data: result.error,
       })
       return
@@ -64,8 +62,23 @@ export class AdminHandlers {
     const result = await this.adminService.kickUser(user)
 
     if (result.socketId) {
-      io.to(result.socketId).emit("event", { type: "NEW_MESSAGE", data: result.message })
-      io.to(result.socketId).emit("event", { type: "KICKED" })
+      // Send message notification to the kicked user (direct message to specific socket)
+      io.to(result.socketId).emit("event", {
+        type: "MESSAGE_RECEIVED",
+        data: {
+          roomId: socket.data.roomId,
+          message: result.message,
+        },
+      })
+
+      // Emit kicked event via SystemEvents with standardized payload
+      if (socket.context.systemEvents) {
+        await socket.context.systemEvents.emit(socket.data.roomId, "USER_KICKED", {
+          roomId: socket.data.roomId,
+          user,
+          reason: result.message?.content || "Kicked from room",
+        })
+      }
 
       if (io.sockets.sockets.get(result.socketId)) {
         io.sockets.sockets.get(result.socketId)?.disconnect()
@@ -119,7 +132,7 @@ export class AdminHandlers {
 
     if (result.error) {
       socket.emit("event", {
-        type: "ERROR",
+        type: "ERROR_OCCURRED",
         data: result.error,
       })
       return
@@ -138,8 +151,9 @@ export class AdminHandlers {
     })
 
     io.to(getRoomPath(socket.data.roomId)).emit("event", {
-      type: "ROOM_SETTINGS",
+      type: "ROOM_SETTINGS_UPDATED",
       data: {
+        roomId: socket.data.roomId,
         room: result.room,
         playlistDemocracy: updatedPlaylistDemocracy,
       },
@@ -176,10 +190,10 @@ export class AdminHandlers {
           // Only emit if config actually changed
           if (JSON.stringify(newConfig) !== JSON.stringify(previousConfig)) {
             if (socket.context.systemEvents) {
-              await socket.context.systemEvents.emit(socket.data.roomId, "configChanged", {
+              await socket.context.systemEvents.emit(socket.data.roomId, "CONFIG_CHANGED", {
                 roomId: socket.data.roomId,
-                config: newConfig,
-                previousConfig,
+                config: newConfig as Record<string, unknown>,
+                previousConfig: previousConfig as Record<string, unknown>,
               })
             }
           }
@@ -213,7 +227,7 @@ export class AdminHandlers {
 
     if (result.error) {
       socket.emit("event", {
-        type: "ERROR",
+        type: "ERROR_OCCURRED",
         data: result.error,
       })
       return

@@ -5,7 +5,7 @@ import { persistMessage } from "../operations/data"
 async function sendMessage(io: Server, roomId: string = "/", message: ChatMessage, context?: AppContext) {
   // Emit via SystemEvents (broadcasts to Redis PubSub, Socket.IO, and Plugins)
   if (context?.systemEvents && message) {
-    await context.systemEvents.emit(roomId, "messageReceived", {
+    await context.systemEvents.emit(roomId, "MESSAGE_RECEIVED", {
       roomId,
       message,
     })

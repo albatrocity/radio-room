@@ -45,7 +45,7 @@ export async function removeReaction({
   }
 
   if (context.systemEvents) {
-    await context.systemEvents.emit(roomId, "reactionRemoved", {
+    await context.systemEvents.emit(roomId, "REACTION_REMOVED", {
       roomId,
       reaction: reactionPayload as any,
       reactions,

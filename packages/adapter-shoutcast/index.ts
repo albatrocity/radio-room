@@ -1,7 +1,5 @@
-import { MediaSourceAdapter } from "@repo/types"
-import { parseJsonString } from "@repo/utils/json"
+import { MediaSourceAdapter, JobApi, AppContext, JobRegistration } from "@repo/types"
 import getStation from "./lib/shoutcast"
-import { stationSchema } from "./lib/schemas"
 
 export const mediaSource: MediaSourceAdapter = {
   register: async (config) => {
@@ -41,52 +39,42 @@ export const mediaSource: MediaSourceAdapter = {
     const streamUrl = room.mediaSourceConfig.url
     const streamProtocol = room.radioProtocol || "shoutcastv2"
 
-    // Import required functions
-    const handleRoomNowPlayingData = (await import("@repo/server/operations/room/handleRoomNowPlayingData")).default
-    const makeNowPlayingFromStationMeta = (await import("@repo/server/lib/makeNowPlayingFromStationMeta")).default
-
     // Create the polling job
-    const job = {
+    const job: JobRegistration = {
       name: `shoutcast-${roomId}`,
       description: `Polls Shoutcast station metadata for room ${roomId}`,
       cron: "*/10 * * * * *", // Every 10 seconds
       enabled: true,
       runAt: Date.now(),
-      handler: async ({ cache }: { cache: any }) => {
+      handler: async ({ api }: { api: JobApi; context: AppContext }) => {
         try {
-          const cacheKey = `room:${roomId}:shoutcast:lastTitle`
-          const cachedTitle = await cache.get(cacheKey)
-
           // Fetch station metadata
           const station = await getStation(streamUrl, streamProtocol)
 
-          // Check if the title has changed
-          if (!station.title || station.title === cachedTitle) {
+          if (!station.title) {
+            // No title - media source is offline
+            await api.submitMediaData({ roomId })
             return
           }
 
-          console.log(`Shoutcast: New track detected for room ${roomId}: ${station.title}`)
-
-          // Update cache
-          await cache.set(cacheKey, station.title)
-
           // If fetchMeta is enabled, try to enrich with metadata from MetadataSource
-          // Uses the room creator's Spotify auth token (configured per-room)
           if (room.fetchMeta && room.metadataSourceId) {
             try {
               const { AdapterService } = await import("@repo/server/services/AdapterService")
               const adapterService = new AdapterService(context)
-              
+
               // Get room-specific metadata source (uses creator's credentials)
               const metadataSource = await adapterService.getRoomMetadataSource(room.id)
 
               if (metadataSource?.api?.search) {
                 // Parse station title (format: "Track | Artist | Album")
-                const parts = station.title.split(/\|/).map(p => p.trim())
-                const trackTitle = parts[0] || station.title  // Track is FIRST
-                const artistName = parts[1] || ""              // Artist is SECOND
+                const parts = station.title.split(/\|/).map((p) => p.trim())
+                const trackTitle = parts[0] || station.title // Track is FIRST
+                const artistName = parts[1] || "" // Artist is SECOND
 
-                console.log(`Shoutcast: Searching metadata for: track="${trackTitle}", artist="${artistName}"`)
+                console.log(
+                  `Shoutcast: Searching metadata for: track="${trackTitle}", artist="${artistName}"`,
+                )
 
                 // Search for the track
                 const query = `${artistName} ${trackTitle}`.trim()
@@ -96,51 +84,44 @@ export const mediaSource: MediaSourceAdapter = {
                   // Use the first search result (enriched track data)
                   const enrichedTrack = searchResults[0]
                   console.log(`Shoutcast: ✓ Found enriched metadata for "${station.title}"`)
-                  console.log(`Shoutcast: - Track: ${enrichedTrack.title}`)
-                  console.log(`Shoutcast: - Artist: ${enrichedTrack.artists?.[0]?.title || 'Unknown'}`)
-                  console.log(`Shoutcast: - Spotify ID: ${enrichedTrack.id}`)
-                  console.log(`Shoutcast: - URLs: ${enrichedTrack.urls?.length || 0}`, enrichedTrack.urls)
-                  console.log(`Shoutcast: - Images: ${enrichedTrack.images?.length || 0}`, enrichedTrack.images)
-                  console.log(`Shoutcast: - Album images: ${enrichedTrack.album?.images?.length || 0}`, enrichedTrack.album?.images)
 
                   // Import makeStableTrackId for source tracking
-                  const { makeStableTrackId } = await import("@repo/server/lib/makeNowPlayingFromStationMeta")
-                  
-                  const nowPlaying = {
-                    title: enrichedTrack.title,
-                    track: enrichedTrack,
-                    // NEW: Populate both mediaSource (Shoutcast) and metadataSource (Spotify)
-                    mediaSource: {
-                      type: "shoutcast" as const,
-                      trackId: makeStableTrackId(station),
-                    },
-                    metadataSource: {
-                      type: "spotify" as const,
-                      trackId: enrichedTrack.id,
-                    },
-                    addedAt: Date.now(),
-                    addedBy: undefined,
-                    addedDuring: "nowPlaying" as const,
-                    playedAt: Date.now(),
-                  }
+                  const { makeStableTrackId } = await import(
+                    "@repo/server/lib/makeNowPlayingFromStationMeta"
+                  )
 
-                  await handleRoomNowPlayingData({
-                    context,
+                  // Submit enriched track data via JobApi
+                  await api.submitMediaData({
                     roomId,
-                    nowPlaying,
-                    stationMeta: station,
-                    forcePublish: false,
+                    data: {
+                      track: enrichedTrack,
+                      mediaSource: {
+                        type: "shoutcast",
+                        trackId: makeStableTrackId(station),
+                      },
+                      metadataSource: {
+                        type: "spotify",
+                        trackId: enrichedTrack.id,
+                      },
+                      stationMeta: station,
+                    },
                   })
                   return
                 }
 
-                console.log(`Shoutcast: ✗ No metadata found for "${station.title}", using raw station data`)
+                console.log(
+                  `Shoutcast: ✗ No metadata found for "${station.title}", using raw station data`,
+                )
               }
             } catch (enrichError: any) {
               // Token errors are expected for rooms where the creator hasn't authenticated
-              // Just log a warning and fall back to raw station data
-              if (enrichError?.message?.includes('token') || enrichError?.message?.includes('auth')) {
-                console.log(`Shoutcast: Metadata enrichment unavailable for room ${roomId} (auth required), using raw station data`)
+              if (
+                enrichError?.message?.includes("token") ||
+                enrichError?.message?.includes("auth")
+              ) {
+                console.log(
+                  `Shoutcast: Metadata enrichment unavailable for room ${roomId} (auth required), using raw station data`,
+                )
               } else {
                 console.error(`Shoutcast: Error enriching metadata for room ${roomId}:`, enrichError)
               }
@@ -149,16 +130,33 @@ export const mediaSource: MediaSourceAdapter = {
           }
 
           // Use raw station metadata (no enrichment or enrichment failed)
-          const nowPlaying = await makeNowPlayingFromStationMeta(station)
-          await handleRoomNowPlayingData({
-            context,
+          const makeTrackFromStationMeta = (
+            await import("@repo/server/lib/makeNowPlayingFromStationMeta")
+          ).default
+          const { makeStableTrackId } = await import(
+            "@repo/server/lib/makeNowPlayingFromStationMeta"
+          )
+
+          const track = makeTrackFromStationMeta(station)
+
+          await api.submitMediaData({
             roomId,
-            nowPlaying,
-            stationMeta: station,
-            forcePublish: false,
+            data: {
+              track,
+              mediaSource: {
+                type: "shoutcast",
+                trackId: makeStableTrackId(station),
+              },
+              stationMeta: station,
+            },
           })
-        } catch (error) {
+        } catch (error: any) {
           console.error(`Shoutcast: Error polling station for room ${roomId}:`, error)
+          // Notify server of error state
+          await api.submitMediaData({
+            roomId,
+            error: error?.message || "Failed to fetch station data",
+          })
         }
       },
     }
@@ -170,7 +168,7 @@ export const mediaSource: MediaSourceAdapter = {
         console.log(`Shoutcast polling job for room ${roomId} already registered, skipping`)
         return
       }
-      
+
       await context.jobService.scheduleJob(job)
       console.log(`Registered Shoutcast polling job for room ${roomId}`)
     }

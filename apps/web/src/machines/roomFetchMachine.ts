@@ -68,7 +68,7 @@ export type RoomFetchEvent =
   | { type: "SOCKET_ERROR"; data: { error?: RoomError } }
   | { type: "RESET" }
   | { type: "SETTINGS"; data: Room }
-  | { type: "ROOM_SETTINGS"; data: { room: Omit<Room, "password"> } }
+  | { type: "ROOM_SETTINGS_UPDATED"; data: { roomId: string; room: Omit<Room, "password"> } }
   | { type: "GET_LATEST_ROOM_DATA" }
   | { type: "ROOM_DELETED" }
   | { type: "RECONNECTED" }
@@ -135,7 +135,7 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
       },
       success: {
         on: {
-          ROOM_SETTINGS: {
+          ROOM_SETTINGS_UPDATED: {
             actions: ["setRoom"],
           },
           GET_LATEST_ROOM_DATA: {
@@ -197,7 +197,8 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
       setRoom: assign((ctx, event) => {
         if (
           event.type !== "done.invoke.fetchRoom" &&
-          event.type !== "ROOM_SETTINGS"
+          event.type !== "ROOM_SETTINGS" &&
+          event.type !== "ROOM_SETTINGS_UPDATED"
         ) {
           return ctx
         }
@@ -219,7 +220,7 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
         const lastPlaylistItemTime = playlist[playlist.length - 1]?.timestamp
 
         return {
-          type: "get latest room data",
+          type: "GET_LATEST_ROOM_DATA",
           data: {
             id: ctx.id,
             lastMessageTime,

@@ -138,11 +138,11 @@ describe("PlaylistDemocracyPlugin", () => {
     test("should subscribe to lifecycle events", async () => {
       await plugin.register(mockContext)
 
-      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("trackChanged", expect.any(Function))
-      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("roomDeleted", expect.any(Function))
-      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("configChanged", expect.any(Function))
-      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("reactionAdded", expect.any(Function))
-      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("reactionRemoved", expect.any(Function))
+      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("TRACK_CHANGED", expect.any(Function))
+      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("ROOM_DELETED", expect.any(Function))
+      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("CONFIG_CHANGED", expect.any(Function))
+      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("REACTION_ADDED", expect.any(Function))
+      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("REACTION_REMOVED", expect.any(Function))
     })
   })
 
@@ -160,7 +160,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should send system message when plugin is enabled", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("configChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
       const configChangedHandler = handlers[0]
 
       await configChangedHandler({
@@ -176,7 +176,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should send system message when plugin is disabled", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("configChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
       const configChangedHandler = handlers[0]
 
       await configChangedHandler({
@@ -192,7 +192,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should include threshold details in enable message", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("configChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
       const configChangedHandler = handlers[0]
 
       await configChangedHandler({
@@ -216,7 +216,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should send system message when rules change while enabled", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("configChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
       const configChangedHandler = handlers[0]
 
       const updatedConfig = {
@@ -246,7 +246,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should not send message when rules unchanged", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("configChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
       const configChangedHandler = handlers[0]
 
       vi.mocked(mockContext.api.sendSystemMessage).mockClear()
@@ -282,7 +282,7 @@ describe("PlaylistDemocracyPlugin", () => {
         enabled: false,
       })
 
-      const handlers = (mockContext as any)._lifecycleHandlers.get("trackChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")
       const trackChangedHandler = handlers[0]
 
       const track = createMockQueueItem("track1", "Test Song")
@@ -296,7 +296,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should start timer when track changes and plugin is enabled", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("trackChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")
       const trackChangedHandler = handlers[0]
 
       const track = createMockQueueItem("track1", "Test Song")
@@ -318,7 +318,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should handle multiple track changes", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("trackChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")
       const trackChangedHandler = handlers[0]
 
       vi.mocked(mockContext.storage.get).mockResolvedValue("0")
@@ -354,7 +354,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should skip track when percentage threshold is not met", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("trackChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")
       const trackChangedHandler = handlers[0]
 
       const track = createMockQueueItem("track1", "Test Song")
@@ -386,7 +386,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should not skip track when percentage threshold is met", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("trackChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")
       const trackChangedHandler = handlers[0]
 
       const track = createMockQueueItem("track1", "Test Song")
@@ -415,7 +415,7 @@ describe("PlaylistDemocracyPlugin", () => {
         thresholdValue: 3,
       })
 
-      const handlers = (mockContext as any)._lifecycleHandlers.get("trackChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")
       const trackChangedHandler = handlers[0]
 
       const track = createMockQueueItem("track1", "Test Song")
@@ -440,7 +440,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should store skip info in plugin storage", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("trackChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")
       const trackChangedHandler = handlers[0]
 
       const track = createMockQueueItem("track1", "Test Song")
@@ -460,7 +460,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should handle vote count from storage", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("trackChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")
       const trackChangedHandler = handlers[0]
 
       const track = createMockQueueItem("track1", "Test Song")
@@ -482,7 +482,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should handle errors gracefully", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("trackChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")
       const trackChangedHandler = handlers[0]
 
       const track = createMockQueueItem("track1", "Test Song")
@@ -517,7 +517,7 @@ describe("PlaylistDemocracyPlugin", () => {
       const nowPlaying = createMockQueueItem("track1", "Test Song")
       vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(nowPlaying)
 
-      const handlers = (mockContext as any)._lifecycleHandlers.get("reactionAdded")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("REACTION_ADDED")
       const reactionAddedHandler = handlers[0]
 
       const reaction = createMockReactionPayload("track1", "thumbsup", "user1")
@@ -535,7 +535,7 @@ describe("PlaylistDemocracyPlugin", () => {
       const nowPlaying = createMockQueueItem("track1", "Test Song")
       vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(nowPlaying)
 
-      const handlers = (mockContext as any)._lifecycleHandlers.get("reactionAdded")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("REACTION_ADDED")
       const reactionAddedHandler = handlers[0]
 
       const reaction = createMockReactionPayload("track1", "thumbsup", "user1")
@@ -561,7 +561,7 @@ describe("PlaylistDemocracyPlugin", () => {
       }
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(mockConfig)
 
-      const handlers = (mockContext as any)._lifecycleHandlers.get("trackChanged")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")
       const trackChangedHandler = handlers[0]
 
       // Start a timer
@@ -585,7 +585,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should handle roomDeleted event", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("roomDeleted")
+      const handlers = (mockContext as any)._lifecycleHandlers.get("ROOM_DELETED")
       const roomDeletedHandler = handlers[0]
 
       await roomDeletedHandler({ roomId: "test-room" })

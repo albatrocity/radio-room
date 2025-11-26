@@ -26,11 +26,11 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     this.context = context
 
     // Register for lifecycle events
-    context.lifecycle.on("trackChanged", this.onTrackChanged.bind(this))
-    context.lifecycle.on("roomDeleted", this.onRoomDeleted.bind(this))
-    context.lifecycle.on("configChanged", this.onConfigChanged.bind(this))
-    context.lifecycle.on("reactionAdded", this.onReactionAdded.bind(this))
-    context.lifecycle.on("reactionRemoved", this.onReactionRemoved.bind(this))
+    context.lifecycle.on("TRACK_CHANGED", this.onTrackChanged.bind(this))
+    context.lifecycle.on("ROOM_DELETED", this.onRoomDeleted.bind(this))
+    context.lifecycle.on("CONFIG_CHANGED", this.onConfigChanged.bind(this))
+    context.lifecycle.on("REACTION_ADDED", this.onReactionAdded.bind(this))
+    context.lifecycle.on("REACTION_REMOVED", this.onReactionRemoved.bind(this))
 
     console.log(`[${this.name}] Registered for room ${context.roomId}`)
   }
@@ -119,6 +119,10 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       await this.context.api.sendSystemMessage(
         this.context.roomId,
         `🗳️ Playlist Democracy enabled: Tracks need ${thresholdText} :${config.reactionType}: reactions within ${timeSeconds} seconds`,
+        {
+          type: "alert",
+          status: "info",
+        },
       )
     } else if (wasEnabled && !isEnabled) {
       // Plugin was just disabled
@@ -134,6 +138,10 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       await this.context.api.sendSystemMessage(
         this.context.roomId,
         `🗳️ Playlist Democracy disabled`,
+        {
+          type: "alert",
+          status: "info",
+        },
       )
     } else if (wasEnabled && isEnabled) {
       // Plugin remains enabled but config may have changed
@@ -157,6 +165,10 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
         await this.context.api.sendSystemMessage(
           this.context.roomId,
           `🗳️ Playlist Democracy rules updated: Tracks need ${thresholdText} :${config.reactionType}: reactions within ${timeSeconds} seconds`,
+          {
+            type: "alert",
+            status: "info",
+          },
         )
       }
     }

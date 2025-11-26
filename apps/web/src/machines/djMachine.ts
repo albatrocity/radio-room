@@ -69,12 +69,12 @@ export const djMachine = createMachine<Context, Event>(
     actions: {
       startDjSession: sendTo("socket", () => {
         return {
-          type: "set DJ",
+          type: "SET_DJ",
           data: useAuthStore.getState().state.context.currentUser?.userId,
         }
       }),
       endDjSession: sendTo("socket", () => {
-        return { type: "set DJ", data: null }
+        return { type: "SET_DJ", data: null }
       }),
     },
   },

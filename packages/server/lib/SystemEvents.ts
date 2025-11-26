@@ -22,7 +22,7 @@ import { getRoomPath } from "./getRoomPath"
  *
  * @example
  * ```typescript
- * await context.systemEvents.emit(roomId, "trackChanged", {
+ * await context.systemEvents.emit(roomId, "TRACK_CHANGED", {
  *   roomId,
  *   track: nowPlaying,
  *   roomMeta: updatedCurrent
@@ -101,7 +101,7 @@ export class SystemEvents implements ISystemEvents {
 
   /**
    * Emit event to Socket.IO
-   * Converts event name to Socket.IO format and broadcasts to room
+   * Broadcasts standardized event to frontend clients in the room
    */
   private emitToSocketIO<K extends keyof PluginLifecycleEvents>(
     roomId: string,
@@ -113,12 +113,9 @@ export class SystemEvents implements ISystemEvents {
     }
 
     try {
-      const socketEvent = this.getSocketIOEventName(event)
-      const socketData = this.transformDataForSocketIO(event, data)
-
       this.io.to(getRoomPath(roomId)).emit("event", {
-        type: socketEvent,
-        data: socketData,
+        type: event as string,
+        data,
       })
     } catch (error) {
       console.error(`[SystemEvents] Socket.IO emission failed for ${event}:`, error)
@@ -126,121 +123,12 @@ export class SystemEvents implements ISystemEvents {
   }
 
   /**
-   * Transform event data for Socket.IO format
-   * Some events need special handling to match expected frontend format
-   */
-  private transformDataForSocketIO<K extends keyof PluginLifecycleEvents>(
-    event: K,
-    data: Parameters<PluginLifecycleEvents[K]>[0],
-  ): any {
-    // Handle special cases where Socket.IO expects different format
-    switch (event) {
-      case "trackChanged":
-        // Frontend expects { track, meta } for NOW_PLAYING
-        return {
-          track: (data as any).track,
-          meta: (data as any).roomMeta,
-        }
-
-      case "reactionAdded":
-      case "reactionRemoved":
-        // Frontend expects { reactions: ReactionStore } for REACTIONS
-        // ReactionStore format: { message: {...}, track: {...} }
-        return {
-          reactions: (data as any).reactions || { message: {}, track: {} },
-        }
-
-      case "messageReceived":
-        // Frontend expects just the message object for NEW_MESSAGE
-        return (data as any).message
-
-      case "userJoined":
-        // Frontend expects { user, users } for USER_JOINED
-        return {
-          user: (data as any).user,
-          users: (data as any).users,
-        }
-
-      case "messagesCleared":
-        // Frontend expects { messages: [] } for SET_MESSAGES
-        return { messages: [] }
-
-      case "typingChanged":
-        // Frontend expects { typing: [...] } for TYPING
-        return { typing: (data as any).typing }
-
-      case "roomSettingsUpdated":
-        // Frontend expects { room } for ROOM_SETTINGS
-        return { room: (data as any).room }
-
-      case "playlistTrackAdded":
-        // Frontend expects { track } for PLAYLIST_TRACK_ADDED
-        return { track: (data as any).track }
-
-      case "userKicked":
-        // Frontend expects message and user info for KICKED
-        return {
-          userId: (data as any).userId,
-          message: (data as any).message,
-        }
-
-      case "errorOccurred":
-        // Frontend expects { status, message, error } for ERROR
-        return {
-          status: (data as any).status || 500,
-          message: (data as any).message,
-          error: (data as any).error,
-        }
-
-      default:
-        // For most events, pass data as-is
-        return data
-    }
-  }
-
-  /**
-   * Get Socket.IO event name from PluginLifecycleEvent name
-   * Converts camelCase to SCREAMING_SNAKE_CASE
-   */
-  private getSocketIOEventName(event: keyof PluginLifecycleEvents): string {
-    return SystemEvents.getSocketIOEventName(event)
-  }
-
-  /**
-   * Get the Socket.IO event name for a given lifecycle event (exposed for testing/debugging)
-   */
-  public static getSocketIOEventName(event: keyof PluginLifecycleEvents): string {
-    // Special mappings for events with custom names
-    const specialMappings: Partial<Record<keyof PluginLifecycleEvents, string>> = {
-      trackChanged: "NOW_PLAYING",
-      reactionAdded: "REACTIONS",
-      reactionRemoved: "REACTIONS",
-      messageReceived: "NEW_MESSAGE",
-      messagesCleared: "SET_MESSAGES",
-      typingChanged: "TYPING",
-      playlistTrackAdded: "PLAYLIST_TRACK_ADDED",
-      userKicked: "KICKED",
-      errorOccurred: "ERROR",
-    }
-
-    if (event in specialMappings) {
-      return specialMappings[event as keyof typeof specialMappings]!
-    }
-
-    // Default: convert camelCase to SCREAMING_SNAKE_CASE
-    const snakeCase = String(event)
-      .replace(/([A-Z])/g, "_$1")
-      .toUpperCase()
-    return snakeCase.startsWith("_") ? snakeCase.substring(1) : snakeCase
-  }
-
-  /**
    * Get PubSub channel name for an event
-   * Format: SYSTEM:{EVENT_NAME_UPPERCASE}
+   * Format: SYSTEM:{EVENT_NAME}
    *
    * Examples:
-   * - trackChanged -> SYSTEM:TRACK_CHANGED
-   * - userJoined -> SYSTEM:USER_JOINED
+   * - TRACK_CHANGED -> SYSTEM:TRACK_CHANGED
+   * - USER_JOINED -> SYSTEM:USER_JOINED
    */
   private getChannelName(event: keyof PluginLifecycleEvents): string {
     return SystemEvents.getChannelName(event)
@@ -250,10 +138,7 @@ export class SystemEvents implements ISystemEvents {
    * Get the channel name for a given event (exposed for testing/debugging)
    */
   public static getChannelName(event: keyof PluginLifecycleEvents): string {
-    // Convert camelCase to UPPER_SNAKE_CASE
-    const snakeCase = String(event)
-      .replace(/([A-Z])/g, "_$1")
-      .toUpperCase()
-    return `SYSTEM:${snakeCase}`
+    // Events are already in SCREAMING_SNAKE_CASE, just prepend SYSTEM:
+    return `SYSTEM:${event as string}`
   }
 }

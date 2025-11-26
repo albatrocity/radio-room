@@ -20,7 +20,7 @@ export class MessageHandlers {
 
     // Emit typing status update via SystemEvents
     if (socket.context.systemEvents) {
-      await socket.context.systemEvents.emit(roomId, "typingChanged", {
+      await socket.context.systemEvents.emit(roomId, "TYPING_CHANGED", {
         roomId,
         typing: result.typing,
       })
@@ -39,7 +39,7 @@ export class MessageHandlers {
 
     // Emit via SystemEvents (broadcasts to Redis PubSub, Socket.IO, and Plugins)
     if (socket.context.systemEvents) {
-      await socket.context.systemEvents.emit(roomId, "messagesCleared", {
+      await socket.context.systemEvents.emit(roomId, "MESSAGES_CLEARED", {
         roomId,
       })
     }
@@ -54,7 +54,7 @@ export class MessageHandlers {
 
     // Emit via SystemEvents (broadcasts to Redis PubSub, Socket.IO, and Plugins)
     if (socket.context.systemEvents) {
-      await socket.context.systemEvents.emit(roomId, "typingChanged", {
+      await socket.context.systemEvents.emit(roomId, "TYPING_CHANGED", {
         roomId,
         typing: result.typing,
       })
@@ -70,7 +70,7 @@ export class MessageHandlers {
 
     // Emit via SystemEvents (broadcasts to Redis PubSub, Socket.IO, and Plugins)
     if (socket.context.systemEvents) {
-      await socket.context.systemEvents.emit(roomId, "typingChanged", {
+      await socket.context.systemEvents.emit(roomId, "TYPING_CHANGED", {
         roomId,
         typing: result.typing,
       })

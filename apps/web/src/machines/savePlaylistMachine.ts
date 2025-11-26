@@ -83,7 +83,7 @@ export const savePlaylistMachine = createMachine<Context, SavePlaylistEvent>(
       savePlaylist: sendTo("socket", (_ctx, event) => {
         if (event.type === "SAVE_PLAYLIST") {
           const socketEvent = {
-            type: "save playlist",
+            type: "SAVE_PLAYLIST",
             data: { name: event.name, trackIds: event.trackIds },
           }
           console.log("[savePlaylistMachine] Sending to socket:", socketEvent)

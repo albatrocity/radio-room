@@ -1,14 +1,15 @@
-import { AppContext, JobRegistration, SimpleCache } from "@repo/types"
+import { AppContext, JobRegistration, JobApi } from "@repo/types"
 import * as cron from "node-cron"
+import { createJobApi } from "../lib/createJobApi"
 
 export class JobService {
   private scheduledJobs: Map<string, ReturnType<typeof cron.schedule>> = new Map()
   private context: AppContext
-  private cache: SimpleCache
+  private api: JobApi
 
-  constructor(context: AppContext, cache: SimpleCache) {
+  constructor(context: AppContext) {
     this.context = context
-    this.cache = cache
+    this.api = createJobApi(context)
   }
 
   /**
@@ -52,7 +53,7 @@ export class JobService {
       const task = cron.schedule(job.cron, async () => {
         try {
           console.log(`Running job: ${job.name}`)
-          await job.handler({ cache: this.cache, context: this.context })
+          await job.handler({ api: this.api, context: this.context })
         } catch (error) {
           console.error(`Error running job ${job.name}:`, error)
         }
@@ -65,7 +66,7 @@ export class JobService {
       // If the job has a runAt time in the past or near future, run it immediately
       if (job.runAt && job.runAt <= Date.now() + 5000) {
         console.log(`Running job ${job.name} immediately`)
-        job.handler({ cache: this.cache, context: this.context }).catch((error) => {
+        job.handler({ api: this.api, context: this.context }).catch((error) => {
           console.error(`Error running job ${job.name} on startup:`, error)
         })
       }
@@ -127,4 +128,3 @@ export class JobService {
     }))
   }
 }
-

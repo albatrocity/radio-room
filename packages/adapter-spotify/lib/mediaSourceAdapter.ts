@@ -1,11 +1,24 @@
 import { MediaSourceAdapter, MediaSourceAdapterConfig } from "@repo/types"
 
+/**
+ * Spotify MediaSource Adapter
+ *
+ * This adapter:
+ * - Registers a polling job for jukebox rooms
+ * - The polling job fetches currently playing track from Spotify
+ * - Server operations handle persistence, playlist, and event emission
+ *
+ * The MediaSource is purely a gateway to Spotify - it does NOT:
+ * - Read/write Redis
+ * - Emit system events
+ * - Manage playlists or queues
+ */
 export const mediaSource: MediaSourceAdapter = {
   register: async (config: MediaSourceAdapterConfig) => {
     const { authentication, name, onRegistered, onError } = config
     try {
-      // MediaSource for Spotify doesn't need authentication
-      // Authentication is handled by the PlaybackController
+      // MediaSource for Spotify doesn't need global authentication
+      // Authentication is handled per-user via PlaybackController
       onRegistered?.({ name })
 
       return {
@@ -27,63 +40,25 @@ export const mediaSource: MediaSourceAdapter = {
 
     console.log(`Spotify MediaSource: Setting up polling for jukebox room ${roomId}`)
 
-    // Import and create the jukebox polling job
-    const { createJukeboxPollingJob } = await import("./jukeboxJob")
-    const handleRoomNowPlayingData = (
-      await import("@repo/server/operations/room/handleRoomNowPlayingData")
-    ).default
-    const { getQueue } = await import("@repo/server/operations/data")
+    // Import and create the player query job
+    const { createPlayerQueryJob } = await import("./playerQueryJob")
 
-    const job = createJukeboxPollingJob({
+    const job = createPlayerQueryJob({
       context,
       roomId,
       userId,
-      onTrackChange: async (track) => {
-        // Check if this track is in the queue to preserve its addedAt timestamp
-        const queue = await getQueue({ context, roomId })
-        const queuedTrack = queue.find((item) => item.track.id === track.id)
-
-        // Transform track to QueueItem format
-        const nowPlaying = {
-          title: track.title,
-          track,
-          // NEW: For Spotify jukebox, both mediaSource and metadataSource are Spotify
-          mediaSource: {
-            type: "spotify" as const,
-            trackId: track.id,
-          },
-          metadataSource: {
-            type: "spotify" as const,
-            trackId: track.id,
-          },
-          addedAt: queuedTrack?.addedAt ?? Date.now(), // Preserve queue timestamp if available
-          addedBy: queuedTrack?.addedBy ?? undefined,
-          addedDuring: "nowPlaying" as const,
-          playedAt: Date.now(),
-        }
-
-        // Update room's now playing data - fire and forget
-        handleRoomNowPlayingData({
-          context,
-          roomId,
-          nowPlaying,
-          forcePublish: false,
-        }).catch((err) => {
-          console.error(`Error updating now playing data for room ${roomId}:`, err)
-        })
-      },
     })
 
     // Register the job with the JobService (check if not already registered)
     if (context.jobService) {
       const existingJob = context.jobs.find((j) => j.name === job.name)
       if (existingJob) {
-        console.log(`Spotify jukebox polling job for room ${roomId} already registered, skipping`)
+        console.log(`Spotify player polling job for room ${roomId} already registered, skipping`)
         return
       }
 
       await context.jobService.scheduleJob(job)
-      console.log(`Registered Spotify jukebox polling job for room ${roomId}`)
+      console.log(`Registered Spotify player polling job for room ${roomId}`)
     }
   },
 
@@ -91,10 +66,10 @@ export const mediaSource: MediaSourceAdapter = {
     console.log(`Spotify MediaSource: Cleaning up polling for room ${roomId}`)
 
     // Stop the polling job for this room
-    const jobName = `spotify-jukebox-${roomId}`
+    const jobName = `spotify-player-${roomId}`
     if (context.jobService) {
       context.jobService.disableJob(jobName)
-      console.log(`Stopped Spotify jukebox polling job for room ${roomId}`)
+      console.log(`Stopped Spotify player polling job for room ${roomId}`)
     }
   },
 }

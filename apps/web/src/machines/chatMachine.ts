@@ -10,8 +10,11 @@ import { Room } from "../types/Room"
 import { getCurrentUser } from "../state/authStore"
 
 type NewMessageEvent = {
-  type: "NEW_MESSAGE"
-  data: ChatMessage
+  type: "MESSAGE_RECEIVED"
+  data: {
+    roomId: string
+    message: ChatMessage
+  }
 }
 
 type ResetEvent = {
@@ -29,7 +32,7 @@ type SubmitMessageAction = {
 
 type SetDataEvent =
   | {
-      type: "INIT" | "SET_MESSAGES"
+      type: "INIT"
       data: {
         currentUser: User
         messages: ChatMessage[]
@@ -37,6 +40,12 @@ type SetDataEvent =
         playlist: PlaylistItem[]
         reactions: ReactionsContext
         users: User[]
+      }
+    }
+  | {
+      type: "MESSAGES_CLEARED"
+      data: {
+        roomId: string
       }
     }
   | {
@@ -97,8 +106,8 @@ export const chatMachine = createMachine<Context, MachineEvent>(
         type: "parallel",
         on: {
           SUBMIT_MESSAGE: { actions: ["sendMessage"] },
-          NEW_MESSAGE: { actions: ["addMessage", "handleNotifications"] },
-          SET_MESSAGES: { actions: ["setData"] },
+          MESSAGE_RECEIVED: { actions: ["addMessage", "handleNotifications"] },
+          MESSAGES_CLEARED: { actions: ["setData"] },
         },
         states: {
           typing: {
@@ -125,23 +134,23 @@ export const chatMachine = createMachine<Context, MachineEvent>(
     actions: {
       sendMessage: sendTo("socket", (_ctx, event) => {
         if (event.type === "SUBMIT_MESSAGE") {
-          return { type: "new message", data: event.data }
+          return { type: "SEND_MESSAGE", data: event.data }
         }
         return null
       }),
       startTyping: sendTo("socket", (_ctx, _event) => {
-        return { type: "typing" }
+        return { type: "START_TYPING" }
       }),
       stopTyping: sendTo("socket", (_ctx, _event) => {
-        return { type: "stop typing" }
+        return { type: "STOP_TYPING" }
       }),
       clearMessages: sendTo("socket", (_ctx, _event) => {
-        return { type: "clear messages" }
+        return { type: "CLEAR_MESSAGES" }
       }),
       addMessage: assign({
         messages: (context, event) => {
-          if (event.type === "NEW_MESSAGE") {
-            return uniqBy("timestamp", [...context.messages, event.data])
+          if (event.type === "MESSAGE_RECEIVED") {
+            return uniqBy("timestamp", [...context.messages, event.data.message])
           }
           return context.messages
         },
@@ -158,14 +167,17 @@ export const chatMachine = createMachine<Context, MachineEvent>(
         },
       }),
       handleNotifications: (_ctx, event) => {
-        if (event.type === "NEW_MESSAGE") {
-          handleNotifications(event.data, getCurrentUser())
+        if (event.type === "MESSAGE_RECEIVED") {
+          handleNotifications(event.data.message, getCurrentUser())
         }
       },
       setData: assign({
         messages: (ctx, event) => {
-          if (event.type === "INIT" || event.type === "SET_MESSAGES") {
+          if (event.type === "INIT") {
             return event.data.messages || []
+          }
+          if (event.type === "MESSAGES_CLEARED") {
+            return []
           }
           return ctx.messages
         },

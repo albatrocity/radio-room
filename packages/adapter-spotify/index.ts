@@ -12,7 +12,7 @@ import { mediaSource as spotifyMediaSource } from "./lib/mediaSourceAdapter"
 
 export { createSpotifyAuthRoutes } from "./lib/authRoutes"
 export { createSpotifyServiceAuthAdapter } from "./lib/serviceAuth"
-export { createJukeboxPollingJob } from "./lib/jukeboxJob"
+export { createPlayerQueryJob } from "./lib/playerQueryJob"
 
 // Export the MediaSource adapter
 export const mediaSource: MediaSourceAdapter = spotifyMediaSource

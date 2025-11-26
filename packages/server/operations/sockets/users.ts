@@ -19,7 +19,7 @@ export async function pubUserJoined({
 }) {
   // Emit via SystemEvents (broadcasts to Redis PubSub, Socket.IO, and Plugins)
   if (data.user && context.systemEvents) {
-    await context.systemEvents.emit(roomId, "userJoined", {
+    await context.systemEvents.emit(roomId, "USER_JOINED", {
       roomId,
       user: data.user,
       users: data.users,

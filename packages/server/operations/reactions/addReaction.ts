@@ -34,7 +34,7 @@ export async function addReaction({
 
   // Emit event via SystemEvents (broadcasts to Redis PubSub, Socket.IO, and Plugins)
   if (context.systemEvents) {
-    await context.systemEvents.emit(roomId, "reactionAdded", {
+    await context.systemEvents.emit(roomId, "REACTION_ADDED", {
       roomId,
       reaction,
       reactions,

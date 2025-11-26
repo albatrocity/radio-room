@@ -421,7 +421,7 @@ export async function deleteRoom({ context, roomId }: DeleteRoomParams) {
 
   // Emit roomDeleted event via SystemEvents
   if (context.systemEvents) {
-    await context.systemEvents.emit(roomId, "roomDeleted", { roomId })
+    await context.systemEvents.emit(roomId, "ROOM_DELETED", { roomId })
   }
 
   // Cleanup plugin room state

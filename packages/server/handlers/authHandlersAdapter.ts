@@ -41,10 +41,10 @@ export class AuthHandlers {
     )
 
     if (result.error) {
-      socket.emit("event", {
-        type: "ERROR",
-        data: result.error,
-      })
+    socket.emit("event", {
+      type: "ERROR_OCCURRED",
+      data: result.error,
+    })
       return
     }
 
@@ -85,7 +85,7 @@ export class AuthHandlers {
     })
 
     if (result.error) {
-      // If login failed due to incorrect password, send UNAUTHORIZED instead of ERROR
+      // If login failed due to incorrect password, send unauthorized instead of errorOccurred
       // so the frontend can show the password prompt instead of an error toast
       if (result.error.status === 401) {
         socket.emit("event", {
@@ -94,10 +94,10 @@ export class AuthHandlers {
         return
       }
       
-      socket.emit("event", {
-        type: "ERROR",
-        data: result.error,
-      })
+    socket.emit("event", {
+      type: "ERROR_OCCURRED",
+      data: result.error,
+    })
       return
     }
 
@@ -121,6 +121,7 @@ export class AuthHandlers {
     io.to(getRoomPath(roomId)).emit("event", {
       type: "USER_JOINED",
       data: {
+        roomId,
         user: result.newUser,
         users: result.newUsers,
       },
@@ -142,7 +143,7 @@ export class AuthHandlers {
   ) => {
     if (!username) {
       socket.emit("event", {
-        type: "ERROR",
+        type: "ERROR_OCCURRED",
         data: "Username cannot be empty",
       })
       return
@@ -160,6 +161,7 @@ export class AuthHandlers {
     io.to(getRoomPath(socket.data.roomId)).emit("event", {
       type: "USER_JOINED",
       data: {
+        roomId: socket.data.roomId,
         users: result.newUsers,
         user: result.newUser,
       },

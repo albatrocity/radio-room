@@ -62,7 +62,7 @@ export const queueMachine = createMachine<QueueContext>(
       })),
       sendToQueue: sendTo("socket", (_ctx, event) => {
         return {
-          type: "queue song",
+          type: "QUEUE_SONG",
           data: event.track.id, // Use plain ID
         }
       }),

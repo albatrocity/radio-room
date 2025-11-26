@@ -115,15 +115,15 @@ const addToLibraryMachine = createMachine<Context, Event>(
   {
     actions: {
       sendCheckRequest: sendTo("socket", (ctx) => ({
-        type: "check saved tracks",
+        type: "CHECK_SAVED_TRACKS",
         data: ctx.ids, // Server infers metadata source from room context
       })),
       sendAddRequest: sendTo("socket", (ctx, event) => ({
-        type: "add to library",
+        type: "ADD_TO_LIBRARY",
         data: event.type === "ADD" ? event.data ?? ctx.ids : ctx.ids, // Server infers metadata source from room context
       })),
       sendRemoveRequest: sendTo("socket", (ctx, event) => ({
-        type: "remove from library",
+        type: "REMOVE_FROM_LIBRARY",
         data: event.type === "REMOVE" ? event.data ?? ctx.ids : ctx.ids, // Server infers metadata source from room context
       })),
       setCheckedTracks: assign((ctx, event) => {

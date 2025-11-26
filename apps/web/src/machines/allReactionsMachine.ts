@@ -30,7 +30,10 @@ export const allReactionsMachine = createMachine<Context>(
       },
     ],
     on: {
-      REACTIONS: {
+      REACTION_ADDED: {
+        actions: ["setData"],
+      },
+      REACTION_REMOVED: {
         actions: ["setData"],
       },
       INIT: {

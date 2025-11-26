@@ -60,7 +60,7 @@ type AuthEvent =
       userId: string
     }
   | {
-      type: "KICKED"
+      type: "USER_KICKED"
     }
   | {
       type: "SET_PASSWORD"
@@ -340,7 +340,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
             actions: ["kickUser"],
             cond: "isAdmin",
           },
-          KICKED: {
+          USER_KICKED: {
             target: "disconnected",
             actions: ["disableRetry", "disconnectUser"],
           },
@@ -447,7 +447,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
 
         const password = ctx.password
         return {
-          type: "login",
+          type: "LOGIN",
           data: {
             fetchAllData: !ctx.initialized,
             userId,
@@ -468,7 +468,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         shouldRetry: () => false,
       }),
       changeUsername: sendTo("socket", (ctx) => ({
-        type: "change username",
+        type: "CHANGE_USERNAME",
         data: ctx.currentUser
           ? {
               userId: ctx.currentUser.userId,
@@ -508,7 +508,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         password: (_ctx, _event) => getPassword(),
       }),
       disconnectUser: sendTo("socket", (ctx) => ({
-        type: "user left",
+        type: "USER_LEFT",
         data: {
           userId: ctx.currentUser?.userId,
           roomId: ctx.roomId,
@@ -525,13 +525,13 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         }
       }),
       nukeUser: sendTo("socket", () => {
-        return { type: "nuke user" }
+        return { type: "NUKE_USER" }
       }),
       kickUser: sendTo("socket", (_ctx, event) => {
         if (event.type !== "KICK_USER") return
 
         return {
-          type: "kick user",
+          type: "KICK_USER",
           data: {
             userId: event.userId,
           },
@@ -543,14 +543,14 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           return { type: "noop" }
         }
         return {
-          type: "check password",
+          type: "CHECK_PASSWORD",
           data: ctx.password,
         }
       }),
       submitPassword: sendTo("socket", (ctx, event) => {
         if (event.type !== "SET_PASSWORD") return
         return {
-          type: "submit password",
+          type: "SUBMIT_PASSWORD",
           data: {
             password: event.data,
             roomId: ctx.roomId,

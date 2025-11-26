@@ -25,6 +25,7 @@ type Context = Pick<
 type Event =
   | { type: "FETCH" }
   | { type: "ROOM_SETTINGS"; data: { room: Room; playlistDemocracy?: PlaylistDemocracyConfig } }
+  | { type: "ROOM_SETTINGS_UPDATED"; data: { roomId: string; room: Room; playlistDemocracy?: PlaylistDemocracyConfig } }
   | { type: "SUBMIT"; target: "pending" }
 
 export const defaultConfig: PlaylistDemocracyConfig = {
@@ -66,6 +67,9 @@ export const settingsMachine = createMachine<Context, Event>(
         actions: "setValues",
         target: "fetched",
       },
+      ROOM_SETTINGS_UPDATED: {
+        actions: "setValues",
+      },
       FETCH: "pending",
     },
     states: {
@@ -94,9 +98,9 @@ export const settingsMachine = createMachine<Context, Event>(
   },
   {
     actions: {
-      fetchSettings: sendTo("socket", () => ({ type: "get room settings" })),
+      fetchSettings: sendTo("socket", () => ({ type: "GET_ROOM_SETTINGS" })),
       setValues: assign((ctx, event) => {
-        if (event.type === "ROOM_SETTINGS") {
+        if (event.type === "ROOM_SETTINGS" || event.type === "ROOM_SETTINGS_UPDATED") {
           const newContext = {
             title: event.data.room.title,
             fetchMeta: event.data.room.fetchMeta,

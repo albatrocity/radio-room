@@ -47,17 +47,17 @@ export const triggerEventsMachine = createMachine<Context>(
         return event.data
       }),
       fetchTriggerEvents: sendTo("socket", () => ({
-        type: "get trigger events",
+        type: "GET_TRIGGER_EVENTS",
       })),
       submitReactionEvents: sendTo("socket", (_ctx, event) => {
         return {
-          type: "set reaction trigger events",
+          type: "SET_REACTION_TRIGGER_EVENTS",
           data: event.data,
         }
       }),
       submitMessageEvents: sendTo("socket", (_ctx, event) => {
         return {
-          type: "set message trigger events",
+          type: "SET_MESSAGE_TRIGGER_EVENTS",
           data: event.data,
         }
       }),

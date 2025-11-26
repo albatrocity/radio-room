@@ -65,10 +65,24 @@ export interface StoredRoom
 
 export type RoomMeta = {
   nowPlaying?: QueueItem
-  bitrate?: number
   dj?: User
+  title?: string
+  artist?: string
+  album?: string
+  track?: string
+  artwork?: string
   lastUpdatedAt?: string
   stationMeta?: Station
+  // Legacy field for backward compatibility
+  release?: any
+}
+
+export type MediaSourceStatus = {
+  status: "online" | "offline" | "connecting" | "error"
+  sourceType?: "jukebox" | "radio"
+  bitrate?: number  // Radio-specific metadata
+  error?: string
+  lastUpdatedAt?: string
 }
 export interface StoredRoomMeta extends Omit<RoomMeta, "stationMeta" | "release" | "dj"> {
   stationMeta: string

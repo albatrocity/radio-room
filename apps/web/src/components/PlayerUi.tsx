@@ -1,10 +1,15 @@
-import React, { memo, lazy, Suspense } from "react"
+import { memo, lazy, Suspense } from "react"
 import { Box, Center, Flex, Spinner } from "@chakra-ui/react"
 
 import NowPlaying from "./NowPlaying"
 
 import { useAuthStore } from "../state/authStore"
-import { useIsStationOnline, useStationMeta } from "../state/audioStore"
+import {
+  useIsStationOnline,
+  useStationMeta,
+  useCurrentTrackId,
+  useMediaSourceStatus,
+} from "../state/audioStore"
 import { useCurrentRoom, useCurrentRoomHasAudio } from "../state/roomStore"
 import JukeboxControls from "./JukeboxControls"
 const RadioControls = lazy(() => import("./RadioControls"))
@@ -21,12 +26,12 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const room = useCurrentRoom()
   const isUnauthorized = authState.matches("unauthorized")
 
+  // Clean state from audio store
   const isOnline = useIsStationOnline()
-
   const meta = useStationMeta()
-  // Use the actual mediaSource trackId for reactions (e.g., Spotify track ID)
-  // This ensures reactions match what the backend plugin expects
-  const trackId = meta?.nowPlaying?.mediaSource?.trackId || ""
+  const trackId = useCurrentTrackId()
+  const mediaSourceStatus = useMediaSourceStatus()
+
   const isJukebox = !hasAudio
 
   return (
@@ -37,10 +42,9 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
       direction="column"
       height="100%"
     >
-      {meta && <NowPlaying offline={!isOnline} meta={meta} />}
+      <NowPlaying offline={mediaSourceStatus === "offline"} meta={meta} />
       {isJukebox && (
         <JukeboxControls
-          meta={meta}
           trackId={trackId}
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}
@@ -58,7 +62,6 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
           }
         >
           <RadioControls
-            meta={meta}
             trackId={trackId}
             onShowPlaylist={onShowPlaylist}
             hasPlaylist={hasPlaylist}
