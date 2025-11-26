@@ -13,6 +13,7 @@ const socket = socketIOClient(socketEndPoint, {
 
 // Add connection status logging for debugging
 if (typeof window !== "undefined") {
+  // Socket-level events
   socket.on("connect", () => {
     console.log("[Socket] Connected:", socket.id)
   })
@@ -21,19 +22,20 @@ if (typeof window !== "undefined") {
     console.log("[Socket] Disconnected:", reason)
   })
 
-  socket.on("reconnect_attempt", (attemptNumber) => {
+  // Manager-level reconnection events (Socket.io v4)
+  socket.io.on("reconnect_attempt", (attemptNumber) => {
     console.log("[Socket] Reconnect attempt:", attemptNumber)
   })
 
-  socket.on("reconnect", (attemptNumber) => {
+  socket.io.on("reconnect", (attemptNumber) => {
     console.log("[Socket] Reconnected after", attemptNumber, "attempts")
   })
 
-  socket.on("reconnect_error", (error) => {
+  socket.io.on("reconnect_error", (error) => {
     console.error("[Socket] Reconnect error:", error.message)
   })
 
-  socket.on("reconnect_failed", () => {
+  socket.io.on("reconnect_failed", () => {
     console.error("[Socket] Reconnection failed after all attempts")
   })
 }
