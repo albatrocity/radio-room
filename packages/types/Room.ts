@@ -1,12 +1,22 @@
-import { User } from "./User"
-import { Station } from "./Station"
+import { z } from "zod"
+import { userSchema } from "./User"
+import { stationSchema } from "./Station"
 import { StationProtocol } from "./StationProtocol"
-import { QueueItem } from "./Queue"
+import { queueItemSchema } from "./Queue"
 
-export type RoomError = {
-  status: number
-  message: string
-}
+// =============================================================================
+// RoomError Schema & Type
+// =============================================================================
+
+export const roomErrorSchema = z.object({
+  status: z.number(),
+  message: z.string(),
+})
+export type RoomError = z.infer<typeof roomErrorSchema>
+
+// =============================================================================
+// Room Type (complex, not fully schema-based due to optional configs)
+// =============================================================================
 
 export type Room = {
   id: string
@@ -38,7 +48,12 @@ export type Room = {
   persistent?: boolean
 }
 
+// =============================================================================
+// StoredRoom (Redis storage format)
+// =============================================================================
+
 type Bool = "true" | "false"
+
 export interface StoredRoom
   extends Omit<
     Room,
@@ -63,32 +78,56 @@ export interface StoredRoom
   mediaSourceConfig?: string
 }
 
-export type RoomMeta = {
-  nowPlaying?: QueueItem
-  dj?: User
-  title?: string
-  artist?: string
-  album?: string
-  track?: string
-  artwork?: string
-  lastUpdatedAt?: string
-  stationMeta?: Station
-  // Legacy field for backward compatibility
-  release?: any
-}
+// =============================================================================
+// RoomMeta Schema & Type
+// =============================================================================
 
-export type MediaSourceStatus = {
-  status: "online" | "offline" | "connecting" | "error"
-  sourceType?: "jukebox" | "radio"
-  bitrate?: number  // Radio-specific metadata
-  error?: string
-  lastUpdatedAt?: string
-}
-export interface StoredRoomMeta extends Omit<RoomMeta, "stationMeta" | "release" | "dj"> {
-  stationMeta: string
+export const roomMetaSchema = z.object({
+  nowPlaying: queueItemSchema.nullish(),
+  dj: userSchema.nullish(),
+  title: z.string().nullish(),
+  artist: z.string().nullish(),
+  album: z.string().nullish(),
+  track: z.string().nullish(),
+  artwork: z.string().nullish(),
+  lastUpdatedAt: z.string().nullish(),
+  stationMeta: stationSchema.nullish(),
+  // Legacy field for backward compatibility
+  release: queueItemSchema.nullish(),
+  bitrate: z.number().nullish(),
+})
+
+export type RoomMeta = z.infer<typeof roomMetaSchema>
+
+// =============================================================================
+// MediaSourceStatus Schema & Type
+// =============================================================================
+
+export const mediaSourceStatusSchema = z.object({
+  status: z.enum(["online", "offline", "connecting", "error"]),
+  sourceType: z.enum(["jukebox", "radio"]).optional(),
+  bitrate: z.number().optional(),
+  error: z.string().optional(),
+  lastUpdatedAt: z.string().optional(),
+})
+
+export type MediaSourceStatus = z.infer<typeof mediaSourceStatusSchema>
+
+// =============================================================================
+// StoredRoomMeta (Redis storage format)
+// =============================================================================
+
+export interface StoredRoomMeta
+  extends Omit<RoomMeta, "stationMeta" | "release" | "dj" | "nowPlaying"> {
+  stationMeta?: string
   dj?: string
   release?: string
+  nowPlaying?: string
 }
+
+// =============================================================================
+// RoomSnapshot Type
+// =============================================================================
 
 export type RoomSnapshot = {
   id: string

@@ -1,37 +1,62 @@
+import { z } from "zod"
 import { AdapterAuthentication, AdapterConfig } from "./Adapter"
 import { JobRegistration } from "./JobRegistration"
 
-export type MetadataSourceUrl = {
-  type: "resource" | "image"
-  url: string
-  id: string
-}
+// =============================================================================
+// MetadataSource URL Schema & Type
+// =============================================================================
 
-export type MetadataSourceExternalResource = {
-  id: string
-  title: string
-  urls: MetadataSourceUrl[]
-}
+export const metadataSourceUrlSchema = z.object({
+  type: z.enum(["resource", "image"]),
+  url: z.string(),
+  id: z.string(),
+})
+export type MetadataSourceUrl = z.infer<typeof metadataSourceUrlSchema>
 
-export interface MetadataSourceAlbum extends MetadataSourceExternalResource {
-  artists: MetadataSourceExternalResource[]
-  releaseDate: string
-  releaseDatePrecision: "day" | "month" | "year"
-  totalTracks: number
-  label: string
-  images: MetadataSourceUrl[]
-}
+// =============================================================================
+// MetadataSource External Resource Schema & Type
+// =============================================================================
 
-export interface MetadataSourceTrack extends MetadataSourceExternalResource {
-  artists: MetadataSourceExternalResource[]
-  album: MetadataSourceAlbum
-  duration: number
-  explicit: boolean
-  trackNumber: number
-  discNumber: number
-  popularity: number
-  images: MetadataSourceUrl[]
-}
+export const metadataSourceExternalResourceSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  urls: z.array(metadataSourceUrlSchema),
+})
+export type MetadataSourceExternalResource = z.infer<typeof metadataSourceExternalResourceSchema>
+
+// =============================================================================
+// MetadataSource Album Schema & Type
+// =============================================================================
+
+export const metadataSourceAlbumSchema = metadataSourceExternalResourceSchema.extend({
+  artists: z.array(metadataSourceExternalResourceSchema),
+  releaseDate: z.string(),
+  releaseDatePrecision: z.enum(["day", "month", "year"]),
+  totalTracks: z.number(),
+  label: z.string(),
+  images: z.array(metadataSourceUrlSchema),
+})
+export type MetadataSourceAlbum = z.infer<typeof metadataSourceAlbumSchema>
+
+// =============================================================================
+// MetadataSource Track Schema & Type
+// =============================================================================
+
+export const metadataSourceTrackSchema = metadataSourceExternalResourceSchema.extend({
+  artists: z.array(metadataSourceExternalResourceSchema),
+  album: metadataSourceAlbumSchema,
+  duration: z.number(),
+  explicit: z.boolean(),
+  trackNumber: z.number(),
+  discNumber: z.number(),
+  popularity: z.number(),
+  images: z.array(metadataSourceUrlSchema),
+})
+export type MetadataSourceTrack = z.infer<typeof metadataSourceTrackSchema>
+
+// =============================================================================
+// MetadataSource Lifecycle Callbacks (not schema-based)
+// =============================================================================
 
 export type MetadataSourceLifecycleCallbacks = {
   onRegistered?: (params: { name: string }) => void
@@ -77,7 +102,6 @@ export interface MetadataSourceApi {
     id: string
     url?: string
   }>
-  // Library management methods (optional)
   getSavedTracks?: () => Promise<MetadataSourceTrack[]>
   checkSavedTracks?: (trackIds: string[]) => Promise<boolean[]>
   addToLibrary?: (trackIds: string[]) => Promise<void>
