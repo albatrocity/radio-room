@@ -1,4 +1,11 @@
-import { Plugin, PluginContext, PluginAugmentationData, QueueItem } from "@repo/types"
+import {
+  Plugin,
+  PluginContext,
+  PluginAugmentationData,
+  PluginLifecycleEvents,
+  QueueItem,
+  SystemEventPayload,
+} from "@repo/types"
 
 /**
  * Base class for plugins that provides automatic storage cleanup,
@@ -28,17 +35,24 @@ import { Plugin, PluginContext, PluginAugmentationData, QueueItem } from "@repo/
  *   async register(context: PluginContext) {
  *     await super.register(context)
  *
- *     // Register event handlers - they can use this.context directly
- *     context.lifecycle.on("TRACK_CHANGED", this.onTrackChanged.bind(this))
- *   }
+ *     // Use this.on() for type-safe event handlers
+ *     // The `data` parameter type is automatically inferred!
+ *     this.on("TRACK_CHANGED", async (data) => {
+ *       const config = await this.getConfig()
+ *       if (!config?.enabled) return
  *
- *   private async onTrackChanged(data: { roomId: string; track: QueueItem }) {
- *     // No need to look up context by roomId - this instance is for ONE room
- *     const config = await this.getConfig()
- *     if (!config?.enabled) return
+ *       // TypeScript knows data.track is a QueueItem
+ *       console.log(`Track changed to: ${data.track.title}`)
+ *       await this.context!.api.sendSystemMessage(
+ *         this.context!.roomId,
+ *         "Track changed!"
+ *       )
+ *     })
  *
- *     // Use this.context.api, this.context.storage, etc.
- *     await this.context!.api.sendSystemMessage(this.context!.roomId, "Track changed!")
+ *     this.on("MESSAGE_RECEIVED", async (data) => {
+ *       // TypeScript knows data.message is a ChatMessage
+ *       console.log(`Message from ${data.message.user.username}`)
+ *     })
  *   }
  * }
  *
@@ -65,6 +79,84 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
   async register(context: PluginContext): Promise<void> {
     this.context = context
     console.log(`[${this.name}] Registered for room ${context.roomId}`)
+  }
+
+  /**
+   * Register an event handler with automatic type inference.
+   *
+   * This is a convenience method that provides full type safety for event payloads.
+   * The handler is automatically bound to `this`.
+   *
+   * @example
+   * ```typescript
+   * async register(context: PluginContext) {
+   *   await super.register(context)
+   *
+   *   // Type of 'data' is automatically inferred!
+   *   this.on("TRACK_CHANGED", async (data) => {
+   *     console.log(data.track.title) // ✓ typed correctly
+   *   })
+   *
+   *   this.on("MESSAGE_RECEIVED", async (data) => {
+   *     console.log(data.message.content) // ✓ typed correctly
+   *   })
+   * }
+   * ```
+   */
+  protected on<K extends keyof PluginLifecycleEvents>(
+    event: K,
+    handler: (data: SystemEventPayload<K>) => Promise<void> | void,
+  ): void {
+    if (!this.context) {
+      console.warn(`[${this.name}] Cannot register handler for ${event}: context not initialized`)
+      return
+    }
+    // Cast is needed because the handler signature doesn't include `this` binding
+    this.context.lifecycle.on(event, handler.bind(this) as PluginLifecycleEvents[K])
+  }
+
+  /**
+   * Unregister an event handler.
+   */
+  protected off<K extends keyof PluginLifecycleEvents>(
+    event: K,
+    handler: (data: SystemEventPayload<K>) => Promise<void> | void,
+  ): void {
+    if (!this.context) return
+    this.context.lifecycle.off(event, handler.bind(this) as PluginLifecycleEvents[K])
+  }
+
+  /**
+   * Emit a custom plugin event to the frontend.
+   *
+   * Events are automatically namespaced as `PLUGIN:{pluginName}:{eventName}`
+   * and broadcast to all clients in the room via Socket.IO.
+   *
+   * @example
+   * ```typescript
+   * // Define your event types for type safety
+   * interface MyPluginEvents {
+   *   WORD_DETECTED: { word: string; userId: string }
+   * }
+   *
+   * // Emit with full type safety
+   * await this.emit<MyPluginEvents["WORD_DETECTED"]>("WORD_DETECTED", {
+   *   word: "hello",
+   *   userId: "user123",
+   * })
+   *
+   * // Frontend receives: PLUGIN:my-plugin:WORD_DETECTED
+   * ```
+   */
+  protected async emit<T extends Record<string, unknown>>(
+    eventName: string,
+    data: T,
+  ): Promise<void> {
+    if (!this.context) {
+      console.warn(`[${this.name}] Cannot emit event: context not initialized`)
+      return
+    }
+    await this.context.api.emit(eventName, data)
   }
 
   /**

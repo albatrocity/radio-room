@@ -76,9 +76,12 @@ export class PluginRegistry {
     const lifecycle = new PluginLifecycleImpl()
     const storage = new PluginStorageImpl(this.context, pluginName, roomId)
 
+    // Create a scoped API that knows the plugin name and roomId for event namespacing
+    const scopedApi = this.api.forPlugin(pluginName, roomId)
+
     const pluginContext: PluginContext = {
       roomId,
-      api: this.api,
+      api: scopedApi,
       storage,
       lifecycle,
       getRoom: async () => {

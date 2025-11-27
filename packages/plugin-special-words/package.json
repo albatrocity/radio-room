@@ -1,0 +1,29 @@
+{
+  "name": "@repo/plugin-playlist-democracy",
+  "version": "1.0.0",
+  "description": "Special Words plugin for Radio Room - detect special words in messages",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.0.13"
+  },
+  "dependencies": {
+    "@repo/plugin-base": "*",
+    "@repo/types": "*"
+  }
+}
+

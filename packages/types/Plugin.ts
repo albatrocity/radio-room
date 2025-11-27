@@ -23,6 +23,15 @@ export interface PluginStorage {
 }
 
 /**
+ * Base payload for all plugin events.
+ * All plugin events automatically include roomId.
+ */
+export interface PluginEventPayload {
+  roomId: string
+  [key: string]: unknown
+}
+
+/**
  * Plugin API - provides safe methods for plugins to interact with the system
  */
 export interface PluginAPI {
@@ -39,6 +48,32 @@ export interface PluginAPI {
   setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>
   /** Emit an update for a playlist track (e.g., when pluginData changes) */
   updatePlaylistTrack(roomId: string, track: QueueItem): Promise<void>
+
+  /**
+   * Emit a custom plugin event.
+   *
+   * Events are automatically namespaced as `PLUGIN:{pluginName}:{eventName}`
+   * and broadcast to all clients in the room via Socket.IO.
+   *
+   * @param eventName - The event name (will be namespaced with plugin name)
+   * @param data - Event payload (roomId is added automatically)
+   *
+   * @example
+   * ```typescript
+   * // In your plugin:
+   * await this.context.api.emit("SPECIAL_WORD_DETECTED", {
+   *   word: "hello",
+   *   userId: message.user.userId,
+   * })
+   *
+   * // Frontend receives: PLUGIN:my-plugin:SPECIAL_WORD_DETECTED
+   * // with data: { roomId, word, userId }
+   * ```
+   */
+  emit<T extends Record<string, unknown>>(
+    eventName: string,
+    data: T,
+  ): Promise<void>
 }
 
 /**
