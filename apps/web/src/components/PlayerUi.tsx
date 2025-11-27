@@ -9,7 +9,6 @@ import {
   useStationMeta,
   useCurrentTrackId,
   useMetadataSourceTrackId,
-  useMediaSourceStatus,
 } from "../state/audioStore"
 import { useCurrentRoom, useCurrentRoomHasAudio } from "../state/roomStore"
 import JukeboxControls from "./JukeboxControls"
@@ -32,7 +31,6 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const meta = useStationMeta()
   const trackId = useCurrentTrackId() // For reactions (stable ID)
   const libraryTrackId = useMetadataSourceTrackId() // For library operations (Spotify ID)
-  const mediaSourceStatus = useMediaSourceStatus()
 
   const isJukebox = !hasAudio
 
@@ -44,7 +42,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
       direction="column"
       height="100%"
     >
-      <NowPlaying offline={mediaSourceStatus === "offline"} meta={meta} />
+      <NowPlaying meta={meta} />
       {isJukebox && (
         <JukeboxControls
           trackId={trackId}

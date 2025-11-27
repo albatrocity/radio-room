@@ -2,10 +2,7 @@
 
 import { assign, createMachine } from "xstate"
 import { saveCurrentUser } from "../lib/getCurrentUser"
-import {
-  createRoom as apiCreateRoom,
-  RoomCreationResponse,
-} from "../lib/serverApi"
+import { createRoom as apiCreateRoom, RoomCreationResponse } from "../lib/serverApi"
 import { RoomSetup } from "../types/Room"
 
 interface RoomSetupContext {
@@ -17,14 +14,14 @@ interface RoomSetupContext {
 
 async function createRoom(ctx: RoomSetupContext) {
   const roomType = ctx.room?.type ?? "jukebox"
-  
+
   // Set adapter IDs based on room type
   // For jukebox rooms, use Spotify for both playback and metadata
   // For radio rooms, use Shoutcast for media source
   const playbackControllerId = roomType === "jukebox" ? "spotify" : undefined
   const metadataSourceId = roomType === "jukebox" ? "spotify" : undefined
   const mediaSourceId = roomType === "radio" ? "shoutcast" : undefined
-  
+
   const res = await apiCreateRoom({
     room: {
       type: roomType,
