@@ -149,14 +149,20 @@ export async function logout(req: Request, res: Response) {
  * HTTP handler: Get current user session
  */
 export async function me(req: Request, res: Response) {
+  console.log("[/me] Session ID:", req.sessionID)
+  console.log("[/me] Session user:", req.session.user)
+  console.log("[/me] Cookies received:", Object.keys(req.cookies || {}))
+  
   const { user } = req.session
   if (user) {
     const u = await getUser({ context: (req as any).context, userId: user.userId })
+    console.log("[/me] Found user in Redis:", u)
     res.status(200).send({
       user: u,
       isNewUser: !user.userId,
     })
   } else {
+    console.log("[/me] No user in session")
     res.status(401).send({ message: "Not logged in" })
   }
 }

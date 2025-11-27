@@ -97,8 +97,11 @@ export class RadioRoomServer {
         maxAge: 1000 * 60 * 60 * 24 * 365, // 1 year
         secure: config.ENVIRONMENT === "production",
         httpOnly: false,
-        domain: config.DOMAIN ?? "localhost",
+        // Don't set domain for loopback addresses (127.0.0.1) - let browser handle it
+        domain: config.ENVIRONMENT === "production" ? config.DOMAIN : undefined,
         path: "/",
+        // SameSite=Lax allows cookies on top-level navigations (like OAuth redirects)
+        sameSite: "lax",
       },
       secret: process.env.SESSION_SECRET ?? "secret",
     })
@@ -110,6 +113,7 @@ export class RadioRoomServer {
         cors({
           origin: [
             "http://localhost:8000",
+            "http://127.0.0.1:8000", // Loopback address for local dev (Spotify requirement)
             "https://listen.show",
             "https://www.listen.show",
             "https://listeningroom.club",

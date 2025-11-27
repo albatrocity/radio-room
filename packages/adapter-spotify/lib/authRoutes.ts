@@ -30,12 +30,36 @@ export function createSpotifyAuthRoutes(context: AppContext) {
   router.get("/login", async (req: Request<any, any, any, ReqQuery>, res: Response) => {
     const state = generateRandomString(16)
 
-    res.cookie(stateKey, state)
-    res.cookie(redirectKey, req.query.redirect)
-    res.cookie(userIdKey, req.query.userId)
+    // Cookie options for cross-subdomain OAuth flow
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.ENVIRONMENT === "production",
+      sameSite: "lax" as const,
+      maxAge: 10 * 60 * 1000, // 10 minutes - enough for OAuth flow
+    }
+
+    // Validate userId - reject undefined/null/empty strings
+    const requestUserId = req.query.userId
+    const validUserId =
+      requestUserId && requestUserId !== "undefined" && requestUserId !== "null"
+        ? requestUserId
+        : null
+
+    console.log("[Spotify Auth] Setting OAuth cookies with options:", cookieOptions)
+    console.log("[Spotify Auth] userId from request:", requestUserId, "-> valid:", validUserId)
+
+    res.cookie(stateKey, state, cookieOptions)
+    res.cookie(redirectKey, req.query.redirect || "/", cookieOptions)
+    // Only set userId cookie if we have a valid one
+    if (validUserId) {
+      res.cookie(userIdKey, validUserId, cookieOptions)
+    }
 
     const scope =
       "user-read-private user-read-email playlist-modify-public playlist-modify-private user-read-playback-state user-modify-playback-state user-read-currently-playing user-library-read user-library-modify"
+
+    console.log("[Spotify Auth] Redirect URI being used:", redirectUri)
+    console.log("[Spotify Auth] Client ID:", clientId?.substring(0, 8) + "...")
 
     res.redirect(
       "https://accounts.spotify.com/authorize?" +
@@ -55,9 +79,27 @@ export function createSpotifyAuthRoutes(context: AppContext) {
 
     const storedState = req.cookies ? req.cookies[stateKey] : null
     const redirect = req.cookies ? req.cookies[redirectKey] : null
-    const originalUserId = req.cookies ? req.cookies[userIdKey] : null
+    const rawOriginalUserId = req.cookies ? req.cookies[userIdKey] : null
+
+    // Validate originalUserId - treat "undefined" and "null" strings as null
+    const originalUserId =
+      rawOriginalUserId && rawOriginalUserId !== "undefined" && rawOriginalUserId !== "null"
+        ? rawOriginalUserId
+        : null
+
+    console.log("[Spotify Auth] Callback received")
+    console.log("[Spotify Auth] Cookies received:", Object.keys(req.cookies || {}))
+    console.log(
+      "[Spotify Auth] rawOriginalUserId from cookie:",
+      rawOriginalUserId,
+      "-> validated:",
+      originalUserId,
+    )
+    console.log("[Spotify Auth] redirect from cookie:", redirect)
+    console.log("[Spotify Auth] state match:", state === storedState)
 
     if (state === null || state !== storedState || !code) {
+      console.log("[Spotify Auth] State mismatch or missing code")
       res.redirect(
         "/#" +
           querystring.stringify({
@@ -109,11 +151,30 @@ export function createSpotifyAuthRoutes(context: AppContext) {
       const userId = originalUserId || spotifyUserId
       const username = req.session.user?.username ?? me.display_name
 
+      console.log("[Spotify Auth] Spotify user ID:", spotifyUserId)
+      console.log("[Spotify Auth] Original Radio Room user ID:", originalUserId)
+      console.log("[Spotify Auth] Final userId for session:", userId)
+      console.log("[Spotify Auth] Username:", username)
+
       // Clear the userId cookie
       res.clearCookie(userIdKey)
 
       // Update session
       req.session.user = { userId, username }
+      console.log("[Spotify Auth] Session updated:", req.session.user)
+
+      // Explicitly save session before any redirects
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error("[Spotify Auth] Session save error:", err)
+            reject(err)
+          } else {
+            console.log("[Spotify Auth] Session saved successfully")
+            resolve()
+          }
+        })
+      })
 
       // Store tokens in authentication store (under Radio Room user ID)
       await storeUserServiceAuth({
@@ -160,4 +221,3 @@ export function createSpotifyAuthRoutes(context: AppContext) {
 
   return router
 }
-
