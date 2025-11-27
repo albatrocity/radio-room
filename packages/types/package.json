@@ -8,6 +8,9 @@
   },
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "zod": "^4.1.13"
+  },
   "devDependencies": {
     "@types/node": "^22.15.21",
     "socket.io": "^4.8.1"

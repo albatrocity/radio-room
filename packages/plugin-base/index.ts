@@ -1,15 +1,17 @@
+import type { z } from "zod"
 import {
   Plugin,
   PluginContext,
   PluginAugmentationData,
   PluginLifecycleEvents,
+  PluginConfigSchema,
   QueueItem,
   SystemEventPayload,
 } from "@repo/types"
 
 /**
  * Base class for plugins that provides automatic storage cleanup,
- * typed config access, and a hook for custom cleanup logic.
+ * typed config access, schema support, and a hook for custom cleanup logic.
  *
  * ARCHITECTURE: Each plugin instance handles exactly ONE room.
  * The PluginRegistry creates a new instance from the factory for each room.
@@ -17,60 +19,101 @@ import {
  *
  * Plugins can extend this class to get:
  * - Protected `context` property (set automatically by register())
- * - Typed `getConfig()` helper method
+ * - Typed `getConfig()` helper method with default config merging
  * - Automatic storage cleanup when cleanup() is called
  * - Optional `onCleanup()` hook for custom cleanup
+ * - Schema support for dynamic form generation
  *
  * @example
  * ```typescript
- * interface MyPluginConfig {
- *   enabled: boolean
- *   setting: string
- * }
+ * import { z } from "zod"
+ *
+ * const myConfigSchema = z.object({
+ *   enabled: z.boolean(),
+ *   setting: z.string(),
+ * })
+ *
+ * type MyPluginConfig = z.infer<typeof myConfigSchema>
  *
  * class MyPlugin extends BasePlugin<MyPluginConfig> {
  *   name = "my-plugin"
  *   version = "1.0.0"
+ *   description = "A sample plugin"
+ *
+ *   // Define the Zod schema for validation
+ *   static configSchema = myConfigSchema
+ *
+ *   // Define default configuration values
+ *   static defaultConfig: MyPluginConfig = {
+ *     enabled: false,
+ *     setting: "default",
+ *   }
+ *
+ *   // Optional: Define UI schema for form generation
+ *   getConfigSchema(): PluginConfigSchema {
+ *     return {
+ *       jsonSchema: z.toJSONSchema(myConfigSchema),
+ *       layout: ["enabled", "setting"],
+ *       fieldMeta: {
+ *         enabled: { type: "boolean", label: "Enable Plugin" },
+ *         setting: { type: "string", label: "Setting Value" },
+ *       },
+ *     }
+ *   }
  *
  *   async register(context: PluginContext) {
  *     await super.register(context)
  *
- *     // Use this.on() for type-safe event handlers
- *     // The `data` parameter type is automatically inferred!
  *     this.on("TRACK_CHANGED", async (data) => {
  *       const config = await this.getConfig()
  *       if (!config?.enabled) return
- *
- *       // TypeScript knows data.track is a QueueItem
  *       console.log(`Track changed to: ${data.track.title}`)
- *       await this.context!.api.sendSystemMessage(
- *         this.context!.roomId,
- *         "Track changed!"
- *       )
- *     })
- *
- *     this.on("MESSAGE_RECEIVED", async (data) => {
- *       // TypeScript knows data.message is a ChatMessage
- *       console.log(`Message from ${data.message.user.username}`)
  *     })
  *   }
  * }
  *
- * // Export a factory function (not an instance)
- * export function createMyPlugin(): Plugin {
- *   return new MyPlugin()
+ * // Export a factory function that accepts optional config overrides
+ * export function createMyPlugin(configOverrides?: Partial<MyPluginConfig>): Plugin {
+ *   return new MyPlugin(configOverrides)
  * }
  * ```
  */
 export abstract class BasePlugin<TConfig = any> implements Plugin {
   abstract name: string
   abstract version: string
+  description?: string
+
+  /**
+   * Zod schema for config validation.
+   * Override in subclass as a static property.
+   */
+  static readonly configSchema?: z.ZodType<any>
+
+  /**
+   * Default configuration values.
+   * Override in subclass as a static property.
+   */
+  static readonly defaultConfig?: Record<string, unknown>
+
+  /**
+   * Config overrides passed to the factory function.
+   * These are merged with defaults when getDefaultConfig() is called.
+   */
+  protected configOverrides?: Partial<TConfig>
 
   /**
    * The plugin context for this room.
    * Set automatically when register() is called.
    */
   protected context: PluginContext | null = null
+
+  /**
+   * Create a new plugin instance with optional config overrides.
+   * @param configOverrides - Partial config to merge with defaults
+   */
+  constructor(configOverrides?: Partial<TConfig>) {
+    this.configOverrides = configOverrides
+  }
 
   /**
    * Register the plugin for a room.
@@ -160,12 +203,44 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
   }
 
   /**
+   * Get the merged default config (static defaults + factory overrides).
+   * Override this if you need custom default config logic.
+   */
+  getDefaultConfig(): Record<string, unknown> | undefined {
+    const ctor = this.constructor as typeof BasePlugin
+    if (!ctor.defaultConfig) return undefined
+    return { ...ctor.defaultConfig, ...this.configOverrides } as Record<string, unknown>
+  }
+
+  /**
+   * Get the UI schema for form generation.
+   * Override in subclass to enable dynamic form rendering.
+   * Returns undefined by default (no dynamic form).
+   */
+  getConfigSchema?(): PluginConfigSchema
+
+  /**
    * Get the plugin's configuration for the current room.
-   * Returns null if no context or no config found.
+   * Merges stored config with defaults: stored values take precedence.
+   * Returns null if no context, or defaults if no stored config.
    */
   protected async getConfig(): Promise<TConfig | null> {
     if (!this.context) return null
-    return await this.context.api.getPluginConfig(this.context.roomId, this.name)
+
+    const stored = await this.context.api.getPluginConfig(this.context.roomId, this.name)
+    const defaults = this.getDefaultConfig() as TConfig | undefined
+
+    // If no stored config and no defaults, return null
+    if (!stored && !defaults) return null
+
+    // If no stored config, return defaults
+    if (!stored) return defaults ?? null
+
+    // If no defaults, return stored
+    if (!defaults) return stored as TConfig
+
+    // Merge: stored config takes precedence over defaults
+    return { ...defaults, ...stored } as TConfig
   }
 
   /**

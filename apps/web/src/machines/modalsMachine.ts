@@ -52,6 +52,9 @@ export type Event =
       type: "EDIT_PLAYLIST_DEMOCRACY"
     }
   | {
+      type: "EDIT_SPECIAL_WORDS"
+    }
+  | {
       type: "NEXT"
     }
   | {
@@ -104,9 +107,15 @@ export const modalsMachine = createMachine<Context, Event>(
               EDIT_SPOTIFY: "spotify",
               EDIT_PASSWORD: "password",
               EDIT_PLAYLIST_DEMOCRACY: "playlist_democracy",
+              EDIT_SPECIAL_WORDS: "special_words",
             },
           },
           playlist_democracy: {
+            on: {
+              BACK: "overview",
+            },
+          },
+          special_words: {
             on: {
               BACK: "overview",
             },

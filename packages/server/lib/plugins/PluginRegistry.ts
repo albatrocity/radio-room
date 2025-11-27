@@ -1,4 +1,12 @@
-import { AppContext, Plugin, PluginContext, PluginLifecycleEvents, Room, QueueItem } from "@repo/types"
+import {
+  AppContext,
+  Plugin,
+  PluginContext,
+  PluginLifecycleEvents,
+  PluginSchemaInfo,
+  Room,
+  QueueItem,
+} from "@repo/types"
 import { Server } from "socket.io"
 import { PluginAPIImpl } from "./PluginAPI"
 import { PluginStorageImpl } from "./PluginStorage"
@@ -306,5 +314,46 @@ export class PluginRegistry {
     }
 
     return info
+  }
+
+  /**
+   * Get schema information for all registered plugins.
+   * Used by the API endpoint to expose plugin schemas to the frontend.
+   */
+  getPluginSchemas(): PluginSchemaInfo[] {
+    const schemas: PluginSchemaInfo[] = []
+
+    for (const [, factory] of this.pluginFactories) {
+      // Create a temporary instance to get schema info
+      const tempInstance = factory()
+      schemas.push({
+        name: tempInstance.name,
+        version: tempInstance.version,
+        description: tempInstance.description,
+        defaultConfig: tempInstance.getDefaultConfig?.(),
+        configSchema: tempInstance.getConfigSchema?.(),
+      })
+    }
+
+    return schemas
+  }
+
+  /**
+   * Get schema information for a specific plugin.
+   * Returns null if the plugin is not registered.
+   */
+  getPluginSchema(pluginName: string): PluginSchemaInfo | null {
+    const factory = this.pluginFactories.get(pluginName)
+    if (!factory) return null
+
+    // Create a temporary instance to get schema info
+    const tempInstance = factory()
+    return {
+      name: tempInstance.name,
+      version: tempInstance.version,
+      description: tempInstance.description,
+      defaultConfig: tempInstance.getDefaultConfig?.(),
+      configSchema: tempInstance.getConfigSchema?.(),
+    }
   }
 }

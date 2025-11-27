@@ -19,7 +19,8 @@
     "@repo/typescript-config": "*"
   },
   "dependencies": {
-    "@repo/types": "*"
+    "@repo/types": "*",
+    "zod": "^4.1.13"
   }
 }
 

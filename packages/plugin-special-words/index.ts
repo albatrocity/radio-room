@@ -1,9 +1,22 @@
-import type { Plugin, PluginContext, SystemEventPayload, ChatMessage } from "@repo/types"
+import { z } from "zod"
+import type {
+  Plugin,
+  PluginContext,
+  PluginConfigSchema,
+  SystemEventPayload,
+  ChatMessage,
+} from "@repo/types"
 import { BasePlugin } from "@repo/plugin-base"
 import packageJson from "./package.json"
 
-import type { SpecialWordsConfig } from "./types"
+import {
+  specialWordsConfigSchema,
+  defaultSpecialWordsConfig,
+  type SpecialWordsConfig,
+} from "./types"
+
 export type { SpecialWordsConfig } from "./types"
+export { specialWordsConfigSchema, defaultSpecialWordsConfig } from "./types"
 
 /**
  * Plugin event payloads for special-words plugin.
@@ -21,7 +34,44 @@ export interface SpecialWordsEvents {
 export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
   name = "special-words"
   version = packageJson.version
-  description = "A plugin detects special words in chat messages"
+  description = "Detect special words in chat messages and emit events when they are found."
+
+  // Static schema and defaults for BasePlugin
+  static readonly configSchema = specialWordsConfigSchema
+  static readonly defaultConfig = defaultSpecialWordsConfig
+
+  /**
+   * Get the UI schema for dynamic form generation
+   */
+  getConfigSchema(): PluginConfigSchema {
+    return {
+      jsonSchema: z.toJSONSchema(specialWordsConfigSchema),
+      layout: [
+        { type: "heading", content: "Special Words" },
+        {
+          type: "text-block",
+          content:
+            "Detect special words in chat messages and send alerts when they are found.",
+          variant: "info",
+        },
+        "enabled",
+        "words",
+      ],
+      fieldMeta: {
+        enabled: {
+          type: "boolean",
+          label: "Enable Special Words Detection",
+          description: "When enabled, the plugin will monitor chat for special words",
+        },
+        words: {
+          type: "string-array",
+          label: "Words to Detect",
+          description: "List of words to watch for in chat messages (case-insensitive)",
+          placeholder: "Enter a word and press Enter",
+        },
+      },
+    }
+  }
 
   async register(context: PluginContext): Promise<void> {
     await super.register(context)
@@ -75,9 +125,12 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
 /**
  * Factory function to create the plugin.
  * A new instance is created for each room.
+ * @param configOverrides - Optional partial config to override defaults
  */
-export function createSpecialWordsPlugin(): Plugin {
-  return new SpecialWordsPlugin()
+export function createSpecialWordsPlugin(
+  configOverrides?: Partial<SpecialWordsConfig>,
+): Plugin {
+  return new SpecialWordsPlugin(configOverrides)
 }
 
 export default createSpecialWordsPlugin

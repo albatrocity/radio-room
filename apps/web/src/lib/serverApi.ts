@@ -1,5 +1,7 @@
 import ky from "ky"
 import { Room, RoomSetup } from "../types/Room"
+import type { PluginSchemasResponse, PluginSchemaInfo } from "../types/PluginSchema"
+
 const API_URL = import.meta.env.VITE_API_URL
 
 const api = ky.create({
@@ -55,5 +57,21 @@ export async function logout() {
 
 export async function getSessionUser() {
   const res = await api.get(`me`).json()
+  return res
+}
+
+/**
+ * Get all registered plugin schemas
+ */
+export async function getPluginSchemas(): Promise<PluginSchemasResponse> {
+  const res = await api.get(`api/plugins`).json<PluginSchemasResponse>()
+  return res
+}
+
+/**
+ * Get schema for a specific plugin
+ */
+export async function getPluginSchema(pluginName: string): Promise<PluginSchemaInfo> {
+  const res = await api.get(`api/plugins/${pluginName}/schema`).json<PluginSchemaInfo>()
   return res
 }

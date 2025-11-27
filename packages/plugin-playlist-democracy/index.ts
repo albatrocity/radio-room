@@ -1,15 +1,23 @@
+import { z } from "zod"
 import type {
   Plugin,
   PluginContext,
+  PluginConfigSchema,
+  PluginSchemaElement,
   QueueItem,
   ReactionPayload,
   PluginAugmentationData,
 } from "@repo/types"
 import { BasePlugin } from "@repo/plugin-base"
 import packageJson from "./package.json"
-import type { PlaylistDemocracyConfig } from "./types"
+import {
+  playlistDemocracyConfigSchema,
+  defaultPlaylistDemocracyConfig,
+  type PlaylistDemocracyConfig,
+} from "./types"
 
 export type { PlaylistDemocracyConfig } from "./types"
+export { playlistDemocracyConfigSchema, defaultPlaylistDemocracyConfig } from "./types"
 
 /**
  * Playlist Democracy Plugin
@@ -24,9 +32,121 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
   name = "playlist-democracy"
   version = packageJson.version
   description =
-    "A plugin that monitors track reactions and automatically skips tracks that don't meet a configurable threshold within a time limit."
+    "Automatically skip tracks that don't receive enough reactions from listeners within a time limit."
+
+  // Static schema and defaults for BasePlugin
+  static readonly configSchema = playlistDemocracyConfigSchema
+  static readonly defaultConfig = defaultPlaylistDemocracyConfig
 
   private activeTimers: Map<string, NodeJS.Timeout> = new Map()
+
+  /**
+   * Get the UI schema for dynamic form generation
+   */
+  getConfigSchema(): PluginConfigSchema {
+    const percentExampleBlock: PluginSchemaElement = {
+      type: "text-block",
+      content:
+        "Track will be skipped if it doesn't get {{thresholdValue}}% of listeners to react with <em-emoji shortcodes=':{{reactionType}}:' /> within {{timeLimit:duration}}.",
+      variant: "example",
+      showWhen: [
+        {
+          field: "thresholdType",
+          value: "percentage",
+        },
+        {
+          field: "enabled",
+          value: true,
+        },
+      ],
+    }
+    const staticExampleBlock: PluginSchemaElement = {
+      type: "text-block",
+      content:
+        "Track will be skipped if it doesn't get {{thresholdValue}} listeners to react with <em-emoji shortcodes=':{{reactionType}}:' /> within {{timeLimit:duration}}.",
+      variant: "example",
+      showWhen: [
+        {
+          field: "thresholdType",
+          value: "static",
+        },
+        {
+          field: "enabled",
+          value: true,
+        },
+      ],
+    }
+
+    return {
+      jsonSchema: z.toJSONSchema(playlistDemocracyConfigSchema),
+      layout: [
+        { type: "heading", content: "Playlist Democracy" },
+        {
+          type: "text-block",
+          content:
+            "Automatically skip tracks that don't receive enough reactions from listeners within a time limit.",
+          variant: "info",
+        },
+        "enabled",
+        "reactionType",
+        "timeLimit",
+        "thresholdType",
+        "thresholdValue",
+        percentExampleBlock,
+        staticExampleBlock,
+      ],
+      fieldMeta: {
+        enabled: {
+          type: "boolean",
+          label: "Enable Playlist Democracy",
+          description:
+            "When enabled, tracks will be automatically skipped if they don't meet the reaction threshold",
+        },
+        reactionType: {
+          type: "emoji",
+          label: "Reaction Type",
+          description: "Click to choose which emoji reaction to count for voting",
+          showWhen: {
+            field: "enabled",
+            value: true,
+          },
+        },
+        timeLimit: {
+          type: "duration",
+          label: "Time Limit",
+          description: "How long to wait before checking the threshold (10-300 seconds)",
+          displayUnit: "seconds",
+          storageUnit: "milliseconds",
+          showWhen: {
+            field: "enabled",
+            value: true,
+          },
+        },
+        thresholdType: {
+          type: "enum",
+          label: "Threshold Type",
+          description: "Choose between percentage of listeners or fixed count",
+          enumLabels: {
+            percentage: "Percentage of listeners",
+            static: "Fixed number",
+          },
+          showWhen: {
+            field: "enabled",
+            value: true,
+          },
+        },
+        thresholdValue: {
+          type: "number",
+          label: "Threshold Value",
+          description: "Percentage of listeners (1-100%) or number of reactions needed",
+          showWhen: {
+            field: "enabled",
+            value: true,
+          },
+        },
+      },
+    }
+  }
 
   async register(context: PluginContext): Promise<void> {
     await super.register(context)
@@ -343,9 +463,12 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 /**
  * Factory function to create the plugin.
  * A new instance is created for each room.
+ * @param configOverrides - Optional partial config to override defaults
  */
-export function createPlaylistDemocracyPlugin(): Plugin {
-  return new PlaylistDemocracyPlugin()
+export function createPlaylistDemocracyPlugin(
+  configOverrides?: Partial<PlaylistDemocracyConfig>,
+): Plugin {
+  return new PlaylistDemocracyPlugin(configOverrides)
 }
 
 export default createPlaylistDemocracyPlugin

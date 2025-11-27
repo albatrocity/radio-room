@@ -1,5 +1,5 @@
 {
-  "name": "@repo/plugin-playlist-democracy",
+  "name": "@repo/plugin-special-words",
   "version": "1.0.0",
   "description": "Special Words plugin for Radio Room - detect special words in messages",
   "main": "index.ts",
@@ -23,7 +23,8 @@
   },
   "dependencies": {
     "@repo/plugin-base": "*",
-    "@repo/types": "*"
+    "@repo/types": "*",
+    "zod": "^4.1.13"
   }
 }
 
