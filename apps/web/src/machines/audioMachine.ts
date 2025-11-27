@@ -40,6 +40,10 @@ export const audioMachine = createMachine<Context>(
           MEDIA_SOURCE_STATUS_CHANGED: {
             actions: ["setMediaSourceStatus"],
           },
+          PLAYLIST_TRACK_UPDATED: {
+            actions: ["updateNowPlaying"],
+            cond: "isCurrentTrack",
+          },
         },
         states: {
           progress: {
@@ -170,6 +174,12 @@ export const audioMachine = createMachine<Context>(
       setMeta: assign((_context, event) => {
         return { meta: event.data.meta }
       }),
+      updateNowPlaying: assign((context, event) => ({
+        meta: {
+          ...context.meta,
+          nowPlaying: event.data.track,
+        },
+      })),
       setMediaSourceStatus: assign((_context, event) => {
         if (event.type === "MEDIA_SOURCE_STATUS_CHANGED") {
           return { mediaSourceStatus: event.data.status }
@@ -208,10 +218,21 @@ export const audioMachine = createMachine<Context>(
       },
       eventHasTrack: (_context, event) => {
         // Check if TRACK_CHANGED event has track data
-        return event.type === "TRACK_CHANGED" && !isEmpty(event.data.meta) && !isNil(event.data.meta.nowPlaying)
+        return (
+          event.type === "TRACK_CHANGED" &&
+          !isEmpty(event.data.meta) &&
+          !isNil(event.data.meta.nowPlaying)
+        )
       },
       statusIsOnline: (_context, event) => {
         return event.type === "MEDIA_SOURCE_STATUS_CHANGED" && event.data.status === "online"
+      },
+      isCurrentTrack: (context, event) => {
+        return (
+          event.type === "PLAYLIST_TRACK_UPDATED" &&
+          !!context.meta?.nowPlaying &&
+          context.meta.nowPlaying.mediaSource.trackId === event.data.track.mediaSource.trackId
+        )
       },
     },
   },

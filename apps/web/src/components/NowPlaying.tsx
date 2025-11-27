@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react"
-import { FiUser } from "react-icons/fi"
+import { FiUser, FiSkipForward } from "react-icons/fi"
 import {
   BoxProps,
   Box,
@@ -14,6 +14,8 @@ import {
   Show,
   Spinner,
   Center,
+  Tooltip,
+  Badge,
 } from "@chakra-ui/react"
 
 import AlbumArtwork from "./AlbumArtwork"
@@ -77,8 +79,6 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
   const release = nowPlaying?.track
   const lastUpdate = meta?.lastUpdatedAt
 
-  console.log("NowPlaying", nowPlaying)
-
   const coverUrl = getCoverUrl({ release, room })
   const artworkSize = [24, "100%", "100%"]
 
@@ -92,6 +92,10 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
   const hasFetched = roomState.matches("success") && !!lastUpdate
   const isWaitingForData = roomState.matches("success") && !lastUpdate
   const isOfflineWithFetchEnabled = hasFetched && !hasTrackData && room?.fetchMeta
+
+  // Check if track was skipped by playlist-democracy plugin
+  const isSkipped = nowPlaying?.pluginData?.["playlist-democracy"]?.skipped === true
+  const skipData = nowPlaying?.pluginData?.["playlist-democracy"]?.skipData
 
   const djUsername = useMemo(
     () => (dj ? users.find(({ userId }) => userId === dj.userId)?.username ?? dj?.username : null),
@@ -180,14 +184,46 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
                       }
                       isExternal={true}
                     >
-                      <Heading color="primaryBg" margin="none" as="h3" size={["md", "lg"]}>
+                      <Heading
+                        color="primaryBg"
+                        margin="none"
+                        as="h3"
+                        size={["md", "lg"]}
+                        textDecoration={isSkipped ? "line-through" : "none"}
+                        opacity={isSkipped ? 0.7 : 1}
+                      >
                         {titleDisplay}
                       </Heading>
                     </LinkOverlay>
                   ) : (
-                    <Heading color="primaryBg" margin="none" as="h3" size={["md", "lg"]}>
+                    <Heading
+                      color="primaryBg"
+                      margin="none"
+                      as="h3"
+                      size={["md", "lg"]}
+                      textDecoration={isSkipped ? "line-through" : "none"}
+                      opacity={isSkipped ? 0.7 : 1}
+                    >
                       {titleDisplay}
                     </Heading>
+                  )}
+
+                  {/* Skipped indicator */}
+                  {isSkipped && (
+                    <Tooltip
+                      label={
+                        skipData
+                          ? `Skipped: ${skipData.voteCount}/${skipData.requiredCount} votes`
+                          : "Skipped by Playlist Democracy"
+                      }
+                    >
+                      <Badge colorScheme="orange" variant="subtle" mt={1}>
+                        <HStack spacing={1}>
+                          <Icon as={FiSkipForward} boxSize={3} />
+                          <Text>Skipped</Text>
+                        </HStack>
+                      </Badge>
+                    </Tooltip>
                   )}
 
                   {artist && (
