@@ -8,6 +8,7 @@ import { storeUserChallenge } from "@repo/server/operations/userChallenge"
 
 const stateKey = "spotify_auth_state"
 const redirectKey = "after_spotify_auth_redirect"
+const userIdKey = "spotify_auth_user_id"
 
 type ReqQuery = {
   userId?: string
@@ -31,6 +32,7 @@ export function createSpotifyAuthRoutes(context: AppContext) {
 
     res.cookie(stateKey, state)
     res.cookie(redirectKey, req.query.redirect)
+    res.cookie(userIdKey, req.query.userId)
 
     const scope =
       "user-read-private user-read-email playlist-modify-public playlist-modify-private user-read-playback-state user-modify-playback-state user-read-currently-playing user-library-read user-library-modify"
@@ -53,6 +55,7 @@ export function createSpotifyAuthRoutes(context: AppContext) {
 
     const storedState = req.cookies ? req.cookies[stateKey] : null
     const redirect = req.cookies ? req.cookies[redirectKey] : null
+    const originalUserId = req.cookies ? req.cookies[userIdKey] : null
 
     if (state === null || state !== storedState || !code) {
       res.redirect(
@@ -90,7 +93,7 @@ export function createSpotifyAuthRoutes(context: AppContext) {
       }
       const { access_token, refresh_token, expires_in } = tokenData
 
-      // Get user info
+      // Get user info from Spotify
       const spotifyApi = SpotifyApi.withAccessToken(clientId, {
         access_token,
         refresh_token,
@@ -99,13 +102,20 @@ export function createSpotifyAuthRoutes(context: AppContext) {
       })
 
       const me = await spotifyApi.currentUser.profile()
-      const userId = me.id
+      const spotifyUserId = me.id
+
+      // Use the original Radio Room user ID if provided, otherwise use Spotify ID
+      // This ensures tokens are stored under the correct user identity
+      const userId = originalUserId || spotifyUserId
       const username = req.session.user?.username ?? me.display_name
+
+      // Clear the userId cookie
+      res.clearCookie(userIdKey)
 
       // Update session
       req.session.user = { userId, username }
 
-      // Store tokens in new authentication store
+      // Store tokens in authentication store (under Radio Room user ID)
       await storeUserServiceAuth({
         context,
         userId,
