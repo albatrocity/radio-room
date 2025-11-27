@@ -4,9 +4,13 @@ import { HStack, Text } from "@chakra-ui/react"
 
 type NowPlayingVoteCountdownProps = {
   reactionType: string
+  isSkipped: boolean
 }
 
-export const NowPlayingVoteCountdown = ({ reactionType }: NowPlayingVoteCountdownProps) => {
+export const NowPlayingVoteCountdown = ({
+  reactionType,
+  isSkipped,
+}: NowPlayingVoteCountdownProps) => {
   const timer = useContext(CountdownTimerContext)
   if (!timer) {
     return null
@@ -15,11 +19,15 @@ export const NowPlayingVoteCountdown = ({ reactionType }: NowPlayingVoteCountdow
   const { remaining, isExpired } = timer
 
   if (isExpired) {
-    return (
-      <Text color="primary.200" fontSize="sm">
-        Voting time has expired
-      </Text>
-    )
+    if (isSkipped) {
+      return (
+        <Text color="primary.200" fontSize="sm">
+          Track was skipped
+        </Text>
+      )
+    }
+
+    return null
   }
 
   return (

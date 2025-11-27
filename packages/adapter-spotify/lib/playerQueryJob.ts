@@ -76,15 +76,17 @@ export function createPlayerQueryJob(params: {
           // Parse track data using our schema
           const track = trackItemSchema.parse(nowPlaying.item)
 
-          // Submit to server - server handles deduplication and all side effects
+          // Submit to server - Spotify provides enriched data (it's both MediaSource and MetadataSource)
           await api.submitMediaData({
             roomId,
-            data: {
-              track,
-              mediaSource: {
-                type: "spotify",
-                trackId: track.id,
-              },
+            submission: {
+              trackId: track.id,
+              sourceType: "spotify",
+              title: track.title,
+              artist: track.artists?.map((a) => a.title).join(", "),
+              album: track.album?.title,
+              // Pre-enriched track data - no server-side enrichment needed
+              enrichedTrack: track,
               metadataSource: {
                 type: "spotify",
                 trackId: track.id,
@@ -111,4 +113,3 @@ export function createPlayerQueryJob(params: {
     },
   }
 }
-

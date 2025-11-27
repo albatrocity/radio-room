@@ -282,6 +282,7 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
                   duration={settingsState.context.playlistDemocracy.timeLimit}
                 >
                   <NowPlayingVoteCountdown
+                    isSkipped={isSkipped}
                     reactionType={settingsState.context.playlistDemocracy.reactionType}
                   />
                 </CountdownTimerProvider>

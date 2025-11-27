@@ -2,7 +2,15 @@ import {
   PUBSUB_METADATA_SOURCE_AUTH_ERROR,
   PUBSUB_METADATA_SOURCE_RATE_LIMIT_ERROR,
 } from "../../lib/constants"
-import { MetadataSourceError, AppContext, QueueItem, Station, Room, MediaData } from "@repo/types"
+import {
+  MetadataSourceError,
+  AppContext,
+  QueueItem,
+  Station,
+  Room,
+  MediaSourceSubmission,
+  MetadataSourceTrack,
+} from "@repo/types"
 import {
   addTrackToRoomPlaylist,
   clearRoomCurrent,
@@ -13,13 +21,13 @@ import {
   setRoomCurrent,
 } from "../data"
 import { writeJsonToHset } from "../data/utils"
+import { AdapterService } from "../../services/AdapterService"
 
 type HandleRoomNowPlayingDataParams = {
   context: AppContext
   roomId: string
-  data?: MediaData // Track data from MediaSource
-  stationMeta?: Station // Legacy support for radio rooms
-  error?: string // Optional error message (for error status emission)
+  submission?: MediaSourceSubmission
+  error?: string
 }
 
 /**
@@ -27,35 +35,30 @@ type HandleRoomNowPlayingDataParams = {
  *
  * This function:
  * 1. Checks if the track is new (using Redis as source of truth)
- * 2. Constructs a QueueItem from MediaData
- * 3. Enriches with queue data (addedBy, addedAt)
- * 4. Persists to Redis
- * 5. Updates playlist/queue
- * 6. Emits events via SystemEvents
+ * 2. Enriches with MetadataSource if needed (based on room config)
+ * 3. Constructs a QueueItem
+ * 4. Enriches with queue data (addedBy, addedAt)
+ * 5. Persists to Redis
+ * 6. Updates playlist/queue
+ * 7. Emits events via SystemEvents
  */
 export default async function handleRoomNowPlayingData({
   context,
   roomId,
-  data,
-  stationMeta,
+  submission,
   error,
 }: HandleRoomNowPlayingDataParams) {
   const room = await findRoom({ context, roomId })
 
-  // Use stationMeta from data if not provided directly (for new API)
-  const effectiveStationMeta = stationMeta ?? data?.stationMeta
-
   // Determine source type for status events
   const sourceType = room?.type === "radio" ? ("radio" as const) : ("jukebox" as const)
 
-  // Handle no track playing (offline or error state)
-  if (!data) {
-    // Only clear current if room is configured to fetch metadata
+  // Handle no submission (offline or error state)
+  if (!submission) {
     if (room?.fetchMeta) {
       await clearRoomCurrent({ context, roomId })
     }
 
-    // Emit appropriate status based on whether there's an error
     if (context.systemEvents) {
       const status = error ? ("error" as const) : ("offline" as const)
       await context.systemEvents.emit(roomId, "MEDIA_SOURCE_STATUS_CHANGED", {
@@ -68,11 +71,9 @@ export default async function handleRoomNowPlayingData({
     return null
   }
 
-  // Check if this is the same track as currently playing (using Redis as source of truth)
+  // Check if this is the same track as currently playing
   const current = await getRoomCurrent({ context, roomId })
-  const isSameTrack = checkSameTrack(current, data, room, effectiveStationMeta)
-
-  if (isSameTrack) {
+  if (isSameTrack(current, submission, room)) {
     console.log(
       `[handleRoomNowPlayingData] Same track detected, skipping processing for room ${roomId}`,
     )
@@ -80,64 +81,62 @@ export default async function handleRoomNowPlayingData({
   }
 
   // Store station meta if provided
-  if (effectiveStationMeta) {
+  if (submission.stationMeta) {
     await writeJsonToHset({
       context,
       setKey: `room:${roomId}:current`,
       attributes: {
-        stationMeta: JSON.stringify(effectiveStationMeta),
+        stationMeta: JSON.stringify(submission.stationMeta),
       },
     })
   }
+
+  // Determine the track data to use (enriched or raw)
+  const { track, metadataSource } = await resolveTrackData(context, room, submission)
 
   // Get queue to determine DJ (who added the track)
   const queue = await getQueue({ context, roomId })
   const queuedTrack = queue?.find(
     (item) =>
-      item.mediaSource.type === data.mediaSource.type &&
-      item.mediaSource.trackId === data.mediaSource.trackId,
+      item.mediaSource.type === submission.sourceType &&
+      item.mediaSource.trackId === submission.trackId,
   )
-
-  // Preserve DJ from current if this is the same track (being re-processed)
-  // Otherwise, use the DJ from the queue if the track was queued
   const trackDj = queuedTrack?.addedBy
 
-  // Construct QueueItem from MediaData
+  // Construct QueueItem
   const nowPlaying: QueueItem = {
-    title: data.track.title,
-    track: data.track,
-    mediaSource: data.mediaSource,
-    metadataSource: data.metadataSource,
+    title: track.title,
+    track,
+    mediaSource: {
+      type: submission.sourceType,
+      trackId: submission.trackId,
+    },
+    metadataSource,
     addedAt: queuedTrack?.addedAt ?? Date.now(),
     addedBy: trackDj,
     addedDuring: queuedTrack ? "queue" : "nowPlaying",
     playedAt: Date.now(),
   }
 
-  // Build complete RoomMeta with all display fields
+  // Build complete RoomMeta
   const completeMeta = {
     nowPlaying,
     dj: trackDj,
-    title: data.track.title,
-    artist: data.track.artists?.map((a) => a.title).join(", "),
-    album: data.track.album?.title,
-    track: data.track.title,
-    artwork: room?.artwork || data.track.album?.images?.[0]?.url,
+    title: track.title,
+    artist: track.artists?.map((a) => a.title).join(", "),
+    album: track.album?.title,
+    track: track.title,
+    artwork: room?.artwork || track.album?.images?.[0]?.url,
     lastUpdatedAt: Date.now().toString(),
-    stationMeta: effectiveStationMeta,
-    release: nowPlaying, // backward compatibility
+    stationMeta: submission.stationMeta,
+    release: nowPlaying,
   }
 
-  // Save complete meta to Redis
-  await setRoomCurrent({
-    context,
-    roomId,
-    meta: completeMeta,
-  })
-
+  // Save to Redis
+  await setRoomCurrent({ context, roomId, meta: completeMeta })
   const updatedCurrent = await getRoomCurrent({ context, roomId })
 
-  // Emit trackChanged event via SystemEvents (broadcasts to PubSub + Plugins + Socket.IO)
+  // Emit events
   if (context.systemEvents) {
     await context.systemEvents.emit(roomId, "TRACK_CHANGED", {
       roomId,
@@ -145,31 +144,24 @@ export default async function handleRoomNowPlayingData({
       meta: updatedCurrent,
     })
 
-    // Emit media source status - if we got track data, the media source is online
     await context.systemEvents.emit(roomId, "MEDIA_SOURCE_STATUS_CHANGED", {
       roomId,
       status: "online" as const,
       sourceType,
       bitrate:
-        room?.type === "radio" && effectiveStationMeta?.bitrate
-          ? Number(effectiveStationMeta.bitrate)
+        room?.type === "radio" && submission.stationMeta?.bitrate
+          ? Number(submission.stationMeta.bitrate)
           : undefined,
     })
   }
 
-  // Add the track to the room playlist
+  // Add to playlist
   const playlistItem: QueueItem = queuedTrack
-    ? {
-        ...nowPlaying,
-        addedAt: queuedTrack.addedAt, // Preserve original queue timestamp
-        playedAt: Date.now(), // Mark when it actually started playing
-      }
+    ? { ...nowPlaying, addedAt: queuedTrack.addedAt, playedAt: Date.now() }
     : nowPlaying
 
   await addTrackToRoomPlaylist({ context, roomId, item: playlistItem })
 
-  // Emit PLAYLIST_TRACK_ADDED via SystemEvents (broadcasts to Socket.IO)
-  // Augment the track with plugin metadata for consistency
   if (context.systemEvents) {
     let trackToEmit = playlistItem
     if (context.pluginRegistry) {
@@ -189,29 +181,134 @@ export default async function handleRoomNowPlayingData({
 }
 
 /**
- * Check if the incoming track is the same as the currently playing track.
- * Uses mediaSource for stable identity comparison.
+ * Check if the incoming submission is the same as currently playing.
  */
-function checkSameTrack(
+function isSameTrack(
   current: Awaited<ReturnType<typeof getRoomCurrent>>,
-  data: MediaData,
+  submission: MediaSourceSubmission,
   room: Room | null | undefined,
-  stationMeta?: Station,
 ): boolean {
   if (!current?.nowPlaying?.mediaSource) {
     return false
   }
 
   const sameMediaSource =
-    current.nowPlaying.mediaSource.type === data.mediaSource.type &&
-    current.nowPlaying.mediaSource.trackId === data.mediaSource.trackId
+    current.nowPlaying.mediaSource.type === submission.sourceType &&
+    current.nowPlaying.mediaSource.trackId === submission.trackId
 
-  // For radio rooms, also verify station title (handles same track playing multiple times)
-  if (room?.type === "radio" && stationMeta?.title && current?.stationMeta?.title) {
-    return sameMediaSource && current.stationMeta.title === stationMeta.title
+  // For radio rooms, also verify station title
+  if (room?.type === "radio" && submission.stationMeta?.title && current?.stationMeta?.title) {
+    return sameMediaSource && current.stationMeta.title === submission.stationMeta.title
   }
 
   return sameMediaSource
+}
+
+/**
+ * Resolve track data - use enrichedTrack if provided, otherwise enrich via MetadataSource,
+ * or fall back to constructing from raw data.
+ */
+async function resolveTrackData(
+  context: AppContext,
+  room: Room | null | undefined,
+  submission: MediaSourceSubmission,
+): Promise<{ track: MetadataSourceTrack; metadataSource?: { type: any; trackId: string } }> {
+  // If enrichedTrack is provided, use it (MediaSource already has rich data)
+  if (submission.enrichedTrack) {
+    return {
+      track: submission.enrichedTrack,
+      metadataSource: submission.metadataSource,
+    }
+  }
+
+  // Try to enrich via room's MetadataSource if configured
+  if (room?.fetchMeta && room?.metadataSourceId) {
+    try {
+      const adapterService = new AdapterService(context)
+      const metadataSource = await adapterService.getRoomMetadataSource(room.id)
+
+      if (metadataSource?.api?.search) {
+        const query = submission.artist
+          ? `${submission.artist} ${submission.title}`.trim()
+          : submission.title
+
+        console.log(`[handleRoomNowPlayingData] Enriching track via MetadataSource: "${query}"`)
+        const searchResults = await metadataSource.api.search(query)
+
+        if (searchResults && searchResults.length > 0) {
+          const enrichedTrack = searchResults[0]
+          console.log(`[handleRoomNowPlayingData] ✓ Enriched track: "${enrichedTrack.title}"`)
+          return {
+            track: enrichedTrack,
+            metadataSource: {
+              type: room.metadataSourceId as any,
+              trackId: enrichedTrack.id,
+            },
+          }
+        }
+
+        console.log(`[handleRoomNowPlayingData] ✗ No metadata found for "${query}"`)
+      }
+    } catch (error: any) {
+      // Token/auth errors are expected for rooms where creator hasn't authenticated
+      if (error?.message?.includes("token") || error?.message?.includes("auth")) {
+        console.log(
+          `[handleRoomNowPlayingData] MetadataSource auth required for room ${room.id}, using raw data`,
+        )
+      } else {
+        console.error(`[handleRoomNowPlayingData] Error enriching track:`, error)
+      }
+    }
+  }
+
+  // Fall back to constructing from raw submission data
+  return {
+    track: createRawTrack(submission),
+    metadataSource: undefined,
+  }
+}
+
+/**
+ * Create a minimal MetadataSourceTrack from raw submission data.
+ */
+function createRawTrack(submission: MediaSourceSubmission): MetadataSourceTrack {
+  return {
+    id: submission.trackId,
+    title: submission.title,
+    urls: [],
+    artists: submission.artist
+      ? [{ id: "unknown", title: submission.artist, urls: [] }]
+      : [],
+    album: submission.album
+      ? {
+          id: "unknown",
+          title: submission.album,
+          urls: [],
+          artists: [],
+          releaseDate: "",
+          releaseDatePrecision: "year",
+          totalTracks: 0,
+          label: "",
+          images: [],
+        }
+      : {
+          id: "unknown",
+          title: "",
+          urls: [],
+          artists: [],
+          releaseDate: "",
+          releaseDatePrecision: "year",
+          totalTracks: 0,
+          label: "",
+          images: [],
+        },
+    duration: 0,
+    explicit: false,
+    trackNumber: 0,
+    discNumber: 0,
+    popularity: 0,
+    images: [],
+  }
 }
 
 // ============================================================================

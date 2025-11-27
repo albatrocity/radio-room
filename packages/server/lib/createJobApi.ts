@@ -1,5 +1,6 @@
 import { AppContext, JobApi } from "@repo/types"
 import handleRoomNowPlayingData from "../operations/room/handleRoomNowPlayingData"
+import { getRoomCurrent } from "../operations/data"
 
 /**
  * Creates a limited API for job handlers.
@@ -7,13 +8,18 @@ import handleRoomNowPlayingData from "../operations/room/handleRoomNowPlayingDat
  */
 export function createJobApi(context: AppContext): JobApi {
   return {
-    submitMediaData: async ({ roomId, data, error }) => {
+    submitMediaData: async ({ roomId, submission, error }) => {
       await handleRoomNowPlayingData({
         context,
         roomId,
-        data,
+        submission,
         error,
       })
+    },
+
+    getCurrentTrackId: async (roomId: string) => {
+      const current = await getRoomCurrent({ context, roomId })
+      return current?.nowPlaying?.mediaSource?.trackId ?? null
     },
   }
 }

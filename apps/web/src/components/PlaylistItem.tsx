@@ -1,16 +1,6 @@
 import React, { useMemo } from "react"
 import { format } from "date-fns"
-import {
-  Stack,
-  LinkBox,
-  LinkOverlay,
-  Text,
-  Icon,
-  Image,
-  Box,
-  HStack,
-  Tooltip,
-} from "@chakra-ui/react"
+import { Stack, LinkBox, LinkOverlay, Text, Icon, Image, Box, HStack } from "@chakra-ui/react"
 
 import { PlaylistItem as PlaylistItemType } from "../types/PlaylistItem"
 import { FiUser, FiSkipForward } from "react-icons/fi"
@@ -71,19 +61,7 @@ function PlaylistItem({ item }: Props) {
                     {item.track.title}
                   </Text>
                 </LinkOverlay>
-                {isSkipped && (
-                  <Tooltip
-                    label={
-                      skipData
-                        ? `Skipped: ${skipData.voteCount}/${skipData.requiredCount} votes`
-                        : "Skipped by Playlist Democracy"
-                    }
-                  >
-                    <span>
-                      <Icon as={FiSkipForward} color="orange.400" boxSize={3} />
-                    </span>
-                  </Tooltip>
-                )}
+                {isSkipped && <Icon as={FiSkipForward} color="orange.400" boxSize={3} />}
               </HStack>
             )}
             {item.track.artists.map((a) => (
@@ -98,6 +76,7 @@ function PlaylistItem({ item }: Props) {
           </Stack>
         </Stack>
       </LinkBox>
+
       <Stack
         direction={["row", "column"]}
         justifyContent={["space-between", "space-around"]}
@@ -106,6 +85,7 @@ function PlaylistItem({ item }: Props) {
         <Text color="secondaryText" fontSize="xs" textAlign="right">
           {item.playedAt ? format(item.playedAt, "p") : format(item.addedAt, "p")}
         </Text>
+
         {!!item.addedBy && (
           <Stack direction="row" spacing={2} justifyContent="center" alignItems="center">
             <Icon boxSize={3} color="secondaryText" as={FiUser} />
@@ -113,6 +93,13 @@ function PlaylistItem({ item }: Props) {
               Added by {djUsername}
             </Text>
           </Stack>
+        )}
+        {isSkipped && (
+          <Text fontSize="2xs">
+            {skipData
+              ? `Skipped: ${skipData.voteCount}/${skipData.requiredCount} votes`
+              : undefined}
+          </Text>
         )}
       </Stack>
     </Stack>
