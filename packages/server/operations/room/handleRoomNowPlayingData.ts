@@ -1,5 +1,4 @@
 import {
-  PUBSUB_PLAYLIST_ADDED,
   PUBSUB_METADATA_SOURCE_AUTH_ERROR,
   PUBSUB_METADATA_SOURCE_RATE_LIMIT_ERROR,
 } from "../../lib/constants"
@@ -159,7 +158,7 @@ export default async function handleRoomNowPlayingData({
   }
 
   // Add the track to the room playlist
-  const playlistItem = queuedTrack
+  const playlistItem: QueueItem = queuedTrack
     ? {
         ...nowPlaying,
         addedAt: queuedTrack.addedAt, // Preserve original queue timestamp
@@ -168,7 +167,14 @@ export default async function handleRoomNowPlayingData({
     : nowPlaying
 
   await addTrackToRoomPlaylist({ context, roomId, item: playlistItem })
-  await pubPlaylistTrackAdded({ context, roomId, item: playlistItem })
+
+  // Emit PLAYLIST_TRACK_ADDED via SystemEvents (broadcasts to Socket.IO)
+  if (context.systemEvents) {
+    await context.systemEvents.emit(roomId, "PLAYLIST_TRACK_ADDED", {
+      roomId,
+      track: playlistItem,
+    })
+  }
 
   // Remove from queue if it was queued
   if (queuedTrack) {
@@ -206,16 +212,6 @@ function checkSameTrack(
 // ============================================================================
 // PubSub helpers
 // ============================================================================
-
-type PubPlaylistTrackAddedParams = {
-  context: AppContext
-  roomId: string
-  item: Partial<QueueItem>
-}
-
-async function pubPlaylistTrackAdded({ context, roomId, item }: PubPlaylistTrackAddedParams) {
-  context.redis.pubClient.publish(PUBSUB_PLAYLIST_ADDED, JSON.stringify({ roomId, track: item }))
-}
 
 type PubMetadataSourceErrorParams = {
   context: AppContext

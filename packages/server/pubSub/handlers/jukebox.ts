@@ -1,6 +1,4 @@
 import { Server } from "socket.io"
-import { PUBSUB_PLAYLIST_ADDED } from "../../lib/constants"
-import { getRoomPath } from "../../lib/getRoomPath"
 import { QueueItem } from "@repo/types/Queue"
 import { PubSubHandlerArgs } from "@repo/types/PubSub"
 import systemMessage from "../../lib/systemMessage"
@@ -10,20 +8,13 @@ import { createOperations } from "../../operations"
 import { SystemEvents } from "../../lib/SystemEvents"
 
 export default async function bindHandlers(io: Server, context: AppContext) {
-  // Listen to new SystemEvents channels
+  // NOTE: TRACK_CHANGED, MEDIA_SOURCE_STATUS_CHANGED, and PLAYLIST_TRACK_ADDED
+  // are emitted directly to Socket.IO by SystemEvents.
+  // This handler only listens for TRACK_CHANGED to handle the "announce now playing" side effect.
+
   context.redis.subClient.pSubscribe(
     SystemEvents.getChannelName("TRACK_CHANGED"),
     (message, channel) => handleNowPlaying({ io, message, channel, context }),
-  )
-
-  context.redis.subClient.pSubscribe(
-    SystemEvents.getChannelName("MEDIA_SOURCE_STATUS_CHANGED"),
-    (message, channel) => handleMediaSourceStatus({ io, message, channel, context }),
-  )
-
-  context.redis.subClient.pSubscribe(
-    SystemEvents.getChannelName("PLAYLIST_TRACK_ADDED"),
-    (message, channel) => handlePlaylistAdded({ io, message, channel, context }),
   )
 }
 
@@ -33,12 +24,9 @@ async function handleNowPlaying({ io, message, context }: ContextPubSubHandlerAr
   const { roomId, track }: { track: QueueItem; roomId: string } = JSON.parse(message)
 
   const operations = createOperations(context)
-
-  // NOTE: Socket.IO emission is handled by SystemEvents directly.
-  // This handler only handles additional side effects like announcements.
-
   const room = await operations.rooms.findRoom({ context, roomId })
 
+  // Only send "Now playing" announcement if the room has it enabled
   if (room?.announceNowPlaying && track) {
     const msg = systemMessage(
       `Now playing: ${track.track.title} ${
@@ -48,28 +36,4 @@ async function handleNowPlaying({ io, message, context }: ContextPubSubHandlerAr
     )
     sendMessage(io, roomId, msg, context)
   }
-}
-
-async function handleMediaSourceStatus({ io, message }: ContextPubSubHandlerArgs) {
-  const data: {
-    roomId: string
-    status: "online" | "offline" | "connecting" | "error"
-    sourceType?: "jukebox" | "radio"
-    bitrate?: number
-    error?: string
-  } = JSON.parse(message)
-
-  // Forward media source status to frontend
-  io.to(getRoomPath(data.roomId)).emit("event", {
-    type: "MEDIA_SOURCE_STATUS_CHANGED",
-    data,
-  })
-}
-
-async function handlePlaylistAdded({ io, message }: ContextPubSubHandlerArgs) {
-  const { roomId, track }: { track: QueueItem; roomId: string } = JSON.parse(message)
-  io.to(getRoomPath(roomId)).emit("event", {
-    type: "PLAYLIST_TRACK_ADDED",
-    data: { roomId, track },
-  })
 }
