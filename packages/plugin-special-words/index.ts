@@ -50,8 +50,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
         { type: "heading", content: "Special Words" },
         {
           type: "text-block",
-          content:
-            "Detect special words in chat messages and send alerts when they are found.",
+          content: "Detect special words in chat messages and send alerts when they are found.",
           variant: "info",
         },
         "enabled",
@@ -94,6 +93,8 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     if (!config?.enabled) return
 
     const { message } = data
+    if (message.user.userId === "system") return
+
     const words = message.content.toLowerCase().split(/\s+/)
     const configWords = new Set(config.words.map((w) => w.toLowerCase()))
 
@@ -127,9 +128,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
  * A new instance is created for each room.
  * @param configOverrides - Optional partial config to override defaults
  */
-export function createSpecialWordsPlugin(
-  configOverrides?: Partial<SpecialWordsConfig>,
-): Plugin {
+export function createSpecialWordsPlugin(configOverrides?: Partial<SpecialWordsConfig>): Plugin {
   return new SpecialWordsPlugin(configOverrides)
 }
 

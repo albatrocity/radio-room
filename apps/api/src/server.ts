@@ -8,6 +8,7 @@ import {
 } from "@repo/adapter-spotify"
 import { mediaSource as shoutcastMediaSource } from "@repo/media-source-shoutcast"
 import createPlaylistDemocracyPlugin from "@repo/plugin-playlist-democracy"
+import createSpecialWordsPlugin from "@repo/plugin-special-words"
 
 async function main() {
   const server = createServer({
@@ -39,7 +40,7 @@ async function main() {
 
     authRoutes: [{ path: "/auth/spotify", handler: createSpotifyAuthRoutes }],
 
-    plugins: [createPlaylistDemocracyPlugin],
+    plugins: [createPlaylistDemocracyPlugin, createSpecialWordsPlugin],
   })
 
   await server.start()
