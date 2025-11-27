@@ -1,10 +1,12 @@
 import { refreshServiceTokens } from "./refreshServiceTokens"
 import { cleanupRoom } from "./cleanupRooms"
-import { AppContext } from "@repo/types"
+import { AppContext, JobApi } from "@repo/types"
 
-export default async function ({ context }: { context: AppContext; cache: any }) {
+export default async function roomsJobHandler({ context }: { api: JobApi; context: AppContext }) {
   try {
     const roomIds = await context.redis.pubClient.sMembers("rooms")
+    console.log(`[Rooms Job] Processing ${roomIds.length} rooms for cleanup/token refresh`)
+
     await Promise.all(
       roomIds.map(async (id) => {
         await refreshServiceTokens(context, id)
@@ -12,6 +14,6 @@ export default async function ({ context }: { context: AppContext; cache: any })
       }),
     )
   } catch (e) {
-    console.error(e)
+    console.error("[Rooms Job] Error:", e)
   }
 }

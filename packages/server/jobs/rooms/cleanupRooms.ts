@@ -26,7 +26,10 @@ export async function cleanupRoom(context: AppContext, roomId: string) {
   if (!onlineIds.includes(room.creator) && !room.persistent) {
     const ttl = await getTtl({ context, key: `room:${roomId}:details` })
     if (ttl === -1) {
-      await expireRoomIn({ context, roomId, ms: ROOM_EXPIRE_TIME * 1000 })
+      console.log(
+        `[cleanupRoom] Setting TTL for room ${roomId} to ${ROOM_EXPIRE_TIME}ms (24 hours)`,
+      )
+      await expireRoomIn({ context, roomId, ms: ROOM_EXPIRE_TIME })
     }
   }
 }
