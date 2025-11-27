@@ -169,10 +169,15 @@ export default async function handleRoomNowPlayingData({
   await addTrackToRoomPlaylist({ context, roomId, item: playlistItem })
 
   // Emit PLAYLIST_TRACK_ADDED via SystemEvents (broadcasts to Socket.IO)
+  // Augment the track with plugin metadata for consistency
   if (context.systemEvents) {
+    let trackToEmit = playlistItem
+    if (context.pluginRegistry) {
+      trackToEmit = await context.pluginRegistry.augmentPlaylistItem(roomId, playlistItem)
+    }
     await context.systemEvents.emit(roomId, "PLAYLIST_TRACK_ADDED", {
       roomId,
-      track: playlistItem,
+      track: trackToEmit,
     })
   }
 

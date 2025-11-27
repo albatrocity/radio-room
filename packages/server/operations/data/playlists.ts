@@ -42,7 +42,14 @@ export async function getRoomPlaylist({
       return []
     } else {
       const results = await context.redis.pubClient.zRange(roomKey, offset, count)
-      return results.map((m) => JSON.parse(m) as QueueItem) || []
+      const items = results.map((m) => JSON.parse(m) as QueueItem) || []
+
+      // Augment playlist items with plugin metadata
+      if (context.pluginRegistry && items.length > 0) {
+        return await context.pluginRegistry.augmentPlaylistItems(roomId, items)
+      }
+
+      return items
     }
   } catch (e) {
     console.log("ERROR FROM data/playlists/getRoomPlaylist", roomId, offset, count)
@@ -69,7 +76,14 @@ export async function getRoomPlaylistSince({
       return []
     } else {
       const results = await context.redis.pubClient.zRangeByScore(roomKey, since, "+inf")
-      return results.map((m) => JSON.parse(m) as QueueItem) || []
+      const items = results.map((m) => JSON.parse(m) as QueueItem) || []
+
+      // Augment playlist items with plugin metadata
+      if (context.pluginRegistry && items.length > 0) {
+        return await context.pluginRegistry.augmentPlaylistItems(roomId, items)
+      }
+
+      return items
     }
   } catch (e) {
     console.log("ERROR FROM data/playlists/getRoomPlaylist", roomId, since)

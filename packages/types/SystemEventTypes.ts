@@ -41,6 +41,8 @@ export type SystemEventHandlers = {
 
   PLAYLIST_TRACK_ADDED: (data: { roomId: string; track: QueueItem }) => Promise<void> | void
 
+  PLAYLIST_TRACK_UPDATED: (data: { roomId: string; track: QueueItem }) => Promise<void> | void
+
   // Reaction events
   REACTION_ADDED: (data: {
     roomId: string

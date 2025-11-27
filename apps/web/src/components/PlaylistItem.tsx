@@ -1,9 +1,19 @@
 import React, { useMemo } from "react"
 import { format } from "date-fns"
-import { Stack, LinkBox, LinkOverlay, Text, Icon, Image, Box } from "@chakra-ui/react"
+import {
+  Stack,
+  LinkBox,
+  LinkOverlay,
+  Text,
+  Icon,
+  Image,
+  Box,
+  HStack,
+  Tooltip,
+} from "@chakra-ui/react"
 
 import { PlaylistItem as PlaylistItemType } from "../types/PlaylistItem"
-import { FiUser } from "react-icons/fi"
+import { FiUser, FiSkipForward } from "react-icons/fi"
 import { useUsersStore } from "../state/usersStore"
 
 type Props = {
@@ -13,9 +23,7 @@ type Props = {
 function PlaylistItem({ item }: Props) {
   // Get album art from track images (QueueItem format)
   const artThumb = useMemo(() => {
-    const imageUrl = item.track.album?.images?.find(
-      (img) => img.type === "image" && img.url,
-    )?.url
+    const imageUrl = item.track.album?.images?.find((img) => img.type === "image" && img.url)?.url
     return imageUrl
   }, [item.track.album?.images])
 
@@ -31,6 +39,10 @@ function PlaylistItem({ item }: Props) {
     [item.track.urls],
   )
 
+  // Check if track was skipped by playlist-democracy plugin
+  const isSkipped = item.pluginData?.["playlist-democracy"]?.skipped === true
+  const skipData = item.pluginData?.["playlist-democracy"]?.skipData
+
   return (
     <Stack
       key={item.playedAt?.toString() || item.addedAt.toString()}
@@ -38,6 +50,7 @@ function PlaylistItem({ item }: Props) {
       justifyContent="space-between"
       align="stretch"
       width="100%"
+      opacity={isSkipped ? 0.6 : 1}
     >
       <LinkBox>
         <Stack direction="row">
@@ -48,12 +61,39 @@ function PlaylistItem({ item }: Props) {
           )}
           <Stack direction="column" spacing={0}>
             {item.track && (
-              <LinkOverlay isExternal href={externalUrl} m={0}>
-                <Text fontWeight={"bold"}>{item.track.title}</Text>
-              </LinkOverlay>
+              <HStack spacing={1}>
+                <LinkOverlay isExternal href={externalUrl} m={0}>
+                  <Text
+                    fontWeight={"bold"}
+                    textDecoration={isSkipped ? "line-through" : "none"}
+                    color={isSkipped ? "secondaryText" : "inherit"}
+                  >
+                    {item.track.title}
+                  </Text>
+                </LinkOverlay>
+                {isSkipped && (
+                  <Tooltip
+                    label={
+                      skipData
+                        ? `Skipped: ${skipData.voteCount}/${skipData.requiredCount} votes`
+                        : "Skipped by Playlist Democracy"
+                    }
+                  >
+                    <span>
+                      <Icon as={FiSkipForward} color="orange.400" boxSize={3} />
+                    </span>
+                  </Tooltip>
+                )}
+              </HStack>
             )}
             {item.track.artists.map((a) => (
-              <Text key={a.id}>{a.title}</Text>
+              <Text
+                key={a.id}
+                textDecoration={isSkipped ? "line-through" : "none"}
+                color={isSkipped ? "secondaryText" : "inherit"}
+              >
+                {a.title}
+              </Text>
             ))}
           </Stack>
         </Stack>

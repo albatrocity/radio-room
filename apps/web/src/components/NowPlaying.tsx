@@ -77,6 +77,8 @@ const NowPlaying = ({ offline, meta }: NowPlayingProps) => {
   const release = nowPlaying?.track
   const lastUpdate = meta?.lastUpdatedAt
 
+  console.log("NowPlaying", nowPlaying)
+
   const coverUrl = getCoverUrl({ release, room })
   const artworkSize = [24, "100%", "100%"]
 

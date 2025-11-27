@@ -16,6 +16,7 @@ export const queueItemSchema = z.object({
   addedBy: userSchema.nullish(), // Can be null or undefined
   addedDuring: z.string().nullish(),
   playedAt: z.number().nullish(),
+  pluginData: z.record(z.string(), z.any()).nullish(), // Plugin-augmented metadata
 })
 
 export type QueueItem = z.infer<typeof queueItemSchema>

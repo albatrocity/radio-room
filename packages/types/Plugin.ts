@@ -18,6 +18,8 @@ export interface PluginStorage {
   dec(key: string, by?: number): Promise<number>
   del(key: string): Promise<void>
   exists(key: string): Promise<boolean>
+  /** Batch get multiple keys efficiently */
+  mget(keys: string[]): Promise<(string | null)[]>
 }
 
 /**
@@ -35,6 +37,8 @@ export interface PluginAPI {
   sendSystemMessage(roomId: string, message: string, meta?: ChatMessage["meta"]): Promise<void>
   getPluginConfig(roomId: string, pluginName: string): Promise<any | null>
   setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>
+  /** Emit an update for a playlist track (e.g., when pluginData changes) */
+  updatePlaylistTrack(roomId: string, track: QueueItem): Promise<void>
 }
 
 /**
@@ -66,6 +70,12 @@ export interface PluginContext {
 }
 
 /**
+ * Plugin data returned from augmentPlaylistBatch
+ * Maps trackId to plugin-specific metadata
+ */
+export type PluginAugmentationData = Record<string, any>
+
+/**
  * Base plugin interface
  */
 export interface Plugin {
@@ -73,6 +83,23 @@ export interface Plugin {
   version: string
   register(context: PluginContext): Promise<void>
   cleanup(): Promise<void>
+
+  /**
+   * Optional method to augment playlist items with plugin-specific metadata.
+   * Called at read-time when fetching playlists.
+   *
+   * @param items - Array of playlist items to augment
+   * @returns Array of augmentation data objects, one per item (in same order)
+   *
+   * @example
+   * // Returns [{ skipped: true }, {}, { skipped: true }] for items where 1st and 3rd were skipped
+   * async augmentPlaylistBatch(items: QueueItem[]): Promise<PluginAugmentationData[]> {
+   *   const trackIds = items.map(item => item.mediaSource.trackId)
+   *   const skipData = await this.storage.mget(trackIds.map(id => `skipped:${id}`))
+   *   return skipData.map(data => data ? { skipped: true } : {})
+   * }
+   */
+  augmentPlaylistBatch?(items: QueueItem[]): Promise<PluginAugmentationData[]>
 }
 
 /**

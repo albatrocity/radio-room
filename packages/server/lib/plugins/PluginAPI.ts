@@ -102,4 +102,16 @@ export class PluginAPIImpl implements PluginAPI {
     const { setPluginConfig } = await import("../../operations/data/pluginConfigs")
     await setPluginConfig({ context: this.context, roomId, pluginName, config })
   }
+
+  async updatePlaylistTrack(roomId: string, track: QueueItem): Promise<void> {
+    if (!this.context.systemEvents) {
+      console.warn("[PluginAPI] systemEvents not available, cannot update playlist track")
+      return
+    }
+
+    await this.context.systemEvents.emit(roomId, "PLAYLIST_TRACK_UPDATED", {
+      roomId,
+      track,
+    })
+  }
 }

@@ -77,6 +77,23 @@ export class PluginStorageImpl implements PluginStorage {
   }
 
   /**
+   * Batch get multiple keys efficiently using Redis MGET
+   */
+  async mget(keys: string[]): Promise<(string | null)[]> {
+    if (keys.length === 0) {
+      return []
+    }
+
+    try {
+      const namespacedKeys = keys.map((key) => this.makeKey(key))
+      return await this.context.redis.pubClient.mGet(namespacedKeys)
+    } catch (error) {
+      console.error(`[PluginStorage] Error batch getting keys:`, error)
+      return keys.map(() => null)
+    }
+  }
+
+  /**
    * Cleanup all keys for this plugin in this room
    */
   async cleanup(): Promise<void> {

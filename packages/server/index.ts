@@ -180,10 +180,9 @@ export class RadioRoomServer {
     console.log("PluginRegistry initialized")
 
     // Register any plugins that were queued via registerAdapters()
-    for (const createPlugin of this.pendingPlugins) {
-      const plugin = createPlugin()
-      this.pluginRegistry.registerPlugin(plugin)
-      console.log(`Registered plugin: ${plugin.name}`)
+    // We pass the factory function so PluginRegistry can create new instances per room
+    for (const pluginFactory of this.pendingPlugins) {
+      this.pluginRegistry.registerPlugin(pluginFactory)
     }
     this.pendingPlugins = [] // Clear after registration
 
