@@ -21,14 +21,14 @@ export function createAuthController(socket: SocketWithContext, io: Server): voi
   /**
    * Check if submitted password is correct
    */
-  socket.on("check password", async (submittedPassword: string) => {
+  socket.on("CHECK_PASSWORD", async (submittedPassword: string) => {
     await handlers.checkPassword(connections, submittedPassword)
   })
 
   /**
    * Submit password to join password-protected room
    */
-  socket.on("submit password", async (data: { password: string; roomId: string }) => {
+  socket.on("SUBMIT_PASSWORD", async (data: { password: string; roomId: string }) => {
     await handlers.submitPassword(connections, data.password, data.roomId)
   })
 
@@ -36,7 +36,7 @@ export function createAuthController(socket: SocketWithContext, io: Server): voi
    * User login event
    */
   socket.on(
-    "login",
+    "LOGIN",
     async ({
       username,
       userId,
@@ -56,7 +56,7 @@ export function createAuthController(socket: SocketWithContext, io: Server): voi
    * Change username
    */
   socket.on(
-    "change username",
+    "CHANGE_USERNAME",
     async ({ username, userId }: { username: User["username"]; userId: User["userId"] }) => {
       await handlers.changeUsername(connections, { username, userId })
     },
@@ -66,7 +66,7 @@ export function createAuthController(socket: SocketWithContext, io: Server): voi
    * Get service authentication status (generic)
    */
   socket.on(
-    "get user service authentication status",
+    "GET_USER_SERVICE_AUTHENTICATION_STATUS",
     async ({ userId, serviceName }: { userId?: string; serviceName: string }) => {
       await handlers.getUserServiceAuth(connections, { userId, serviceName })
     },
@@ -76,7 +76,7 @@ export function createAuthController(socket: SocketWithContext, io: Server): voi
    * Logout from a service (generic)
    */
   socket.on(
-    "logout service",
+    "LOGOUT_SERVICE",
     async ({ userId, serviceName }: { userId?: string; serviceName: string }) => {
       await handlers.logoutServiceAuth(connections, { userId, serviceName })
     },
@@ -84,17 +84,17 @@ export function createAuthController(socket: SocketWithContext, io: Server): voi
 
   /**
    * Get Spotify authentication status
-   * @deprecated Use "get user service authentication status" with serviceName: "spotify"
+   * @deprecated Use "GET_USER_SERVICE_AUTHENTICATION_STATUS" with serviceName: "spotify"
    */
-  socket.on("get user spotify authentication status", async ({ userId }) => {
+  socket.on("GET_USER_SPOTIFY_AUTHENTICATION_STATUS", async ({ userId }) => {
     await handlers.getUserSpotifyAuth(connections, { userId })
   })
 
   /**
    * Logout from Spotify
-   * @deprecated Use "logout service" with serviceName: "spotify"
+   * @deprecated Use "LOGOUT_SERVICE" with serviceName: "spotify"
    */
-  socket.on("logout spotify", async (args: { userId?: string } = {}) => {
+  socket.on("LOGOUT_SPOTIFY", async (args: { userId?: string } = {}) => {
     const options = args ? { userId: args.userId } : { userId: "app" }
     await handlers.logoutSpotifyAuth(connections, options)
   })
@@ -102,7 +102,7 @@ export function createAuthController(socket: SocketWithContext, io: Server): voi
   /**
    * Delete all user data
    */
-  socket.on("nuke user", async (args: { userId?: string } = {}) => {
+  socket.on("NUKE_USER", async (args: { userId?: string } = {}) => {
     await handlers.nukeUser(connections)
   })
 
@@ -116,7 +116,7 @@ export function createAuthController(socket: SocketWithContext, io: Server): voi
   /**
    * Handle user leaving
    */
-  socket.on("user left", async () => {
+  socket.on("USER_LEFT", async () => {
     await handlers.disconnect(connections)
   })
 }

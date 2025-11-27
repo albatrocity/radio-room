@@ -1,4 +1,3 @@
-import React from "react"
 import { Box, Hide, HStack, IconButton, Icon } from "@chakra-ui/react"
 import { RiPlayListFill } from "react-icons/ri"
 
@@ -8,16 +7,20 @@ import ButtonListeners from "./ButtonListeners"
 import ReactionCounter from "./ReactionCounter"
 import AdminControls from "./AdminControls"
 import { useIsAdmin } from "../state/authStore"
-import { RoomMeta } from "../types/Room"
 
 type Props = {
-  trackId: string
-  meta?: RoomMeta
+  trackId: string // For reactions (stable ID)
+  libraryTrackId: string // For library operations (MetadataSource ID)
   hasPlaylist: boolean
   onShowPlaylist: () => void
 }
 
-export default function JukeboxControls({ trackId, meta, hasPlaylist, onShowPlaylist }: Props) {
+export default function JukeboxControls({
+  trackId,
+  libraryTrackId,
+  hasPlaylist,
+  onShowPlaylist,
+}: Props) {
   const isAdmin = useIsAdmin()
   return (
     <Box>
@@ -25,7 +28,7 @@ export default function JukeboxControls({ trackId, meta, hasPlaylist, onShowPlay
         <Box py={1} h={10} overflowX="auto">
           <Box px={4} flexDir="row">
             <HStack alignItems="flex-start">
-              <ButtonAddToLibrary id={meta?.nowPlaying?.metadataSource?.trackId} />
+              <ButtonAddToLibrary id={libraryTrackId} />
               <ReactionCounter
                 reactTo={{ type: "track", id: trackId }}
                 showAddButton={true}

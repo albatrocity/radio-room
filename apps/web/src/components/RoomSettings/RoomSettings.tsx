@@ -1,17 +1,11 @@
 import React from "react"
-import {
-  Alert,
-  AlertIcon,
-  Box,
-  Text,
-  VStack,
-  Link as ChakraLink,
-} from "@chakra-ui/react"
+import { Alert, AlertIcon, Box, Text, VStack, Link as ChakraLink } from "@chakra-ui/react"
 
 import { Room, RoomSetup } from "../../types/Room"
 import FormJukeboxSettings from "./FormJukeboxSettings"
 import SharedSettings from "./SharedSettings"
 import FormRadioSettings from "./FormRadioSettings"
+import PlaylistDemocracySettings from "../Modals/Admin/PlaylistDemocracySettings"
 
 type Props = {
   roomType: Room["type"]
@@ -25,20 +19,14 @@ export default function RoomSettings({ settings, onChange, roomType }: Props) {
       <SharedSettings onChange={onChange} settings={settings} />
       {roomType === "jukebox" && <FormJukeboxSettings onChange={onChange} />}
       {roomType === "radio" && <FormRadioSettings onChange={onChange} />}
-      <Alert
-        status="warning"
-        fontSize="sm"
-        color="blackAlpha.700"
-        alignItems="flex-start"
-      >
+
+      <Alert status="warning" fontSize="sm" color="blackAlpha.700" alignItems="flex-start">
         <AlertIcon />
         <Box textStyle="body">
           <Text>
-            <Text as="strong">
-              Creating a room requires a Spotify Premium account.
-            </Text>{" "}
-            You will be redirected to Spotify to login and authorize this app,
-            then redirected back here to finish creating your room.
+            <Text as="strong">Creating a room requires a Spotify Premium account.</Text> You will be
+            redirected to Spotify to login and authorize this app, then redirected back here to
+            finish creating your room.
           </Text>
           <Text>
             By creating a room, you agree to understanding the{" "}
@@ -47,8 +35,8 @@ export default function RoomSettings({ settings, onChange, roomType }: Props) {
             </ChakraLink>
           </Text>
           <Text>
-            Your room and all of its data will expire 24 hours after the last
-            time you leave it. It will not expire if you are in it.
+            Your room and all of its data will expire 24 hours after the last time you leave it. It
+            will not expire if you are in it.
           </Text>
         </Box>
       </Alert>

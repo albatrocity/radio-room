@@ -33,7 +33,7 @@ export const errorHandlerMachine = createMachine<Context, ErrorEvent>(
       },
     ],
     on: {
-      ERROR: {
+      ERROR_OCCURRED: {
         actions: ["notify", "addError"],
       },
       CLEAR_ERROR: {

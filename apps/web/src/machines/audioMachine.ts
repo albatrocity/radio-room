@@ -6,6 +6,7 @@ import { RoomMeta } from "../types/Room"
 interface Context {
   volume: number
   meta?: RoomMeta
+  mediaSourceStatus: "online" | "offline" | "connecting" | "unknown"
   participationStatus: "listening" | "participating"
 }
 
@@ -17,6 +18,7 @@ export const audioMachine = createMachine<Context>(
     context: {
       volume: 1.0,
       meta: undefined,
+      mediaSourceStatus: "unknown",
       participationStatus: "participating",
     },
     invoke: {
@@ -29,11 +31,18 @@ export const audioMachine = createMachine<Context>(
         type: "parallel",
         on: {
           INIT: {
-            actions: ["setMeta"],
+            actions: ["setMeta", "setStatusFromMeta"],
           },
           OFFLINE: "offline",
-          META: {
+          TRACK_CHANGED: {
             actions: ["setMeta"],
+          },
+          MEDIA_SOURCE_STATUS_CHANGED: {
+            actions: ["setMediaSourceStatus"],
+          },
+          PLAYLIST_TRACK_UPDATED: {
+            actions: ["updateNowPlaying"],
+            cond: "isCurrentTrack",
           },
         },
         states: {
@@ -54,21 +63,24 @@ export const audioMachine = createMachine<Context>(
                 on: {
                   STOP: {
                     target: "stopped",
-                    actions: ["stopListening", "participate"],
+                    actions: ["STOP_LISTENING", "participate"],
                   },
                   TOGGLE: {
                     target: "stopped",
-                    actions: ["stopListening", "participate"],
+                    actions: ["STOP_LISTENING", "participate"],
                   },
-                  META: [
+                  TRACK_CHANGED: {
+                    actions: ["setMeta"],
+                  },
+                  MEDIA_SOURCE_STATUS_CHANGED: [
                     {
                       target: "playing.loaded",
-                      actions: ["setMeta"],
-                      cond: "hasBitrate",
+                      actions: ["setMediaSourceStatus"],
+                      cond: "statusIsOnline",
                     },
                     {
                       target: "#audio.offline",
-                      actions: ["setMeta", "participate", "stopListening"],
+                      actions: ["setMediaSourceStatus", "participate", "STOP_LISTENING"],
                     },
                   ],
                 },
@@ -77,15 +89,18 @@ export const audioMachine = createMachine<Context>(
                 on: {
                   TOGGLE: {
                     target: "playing",
-                    actions: ["listen", "startListening"],
+                    actions: ["listen", "START_LISTENING"],
                   },
-                  META: [
+                  TRACK_CHANGED: {
+                    actions: ["setMeta"],
+                  },
+                  MEDIA_SOURCE_STATUS_CHANGED: [
                     {
                       target: "stopped",
-                      actions: ["setMeta"],
-                      cond: "hasBitrate",
+                      actions: ["setMediaSourceStatus"],
+                      cond: "statusIsOnline",
                     },
-                    { target: "#audio.offline", actions: ["setMeta"] },
+                    { target: "#audio.offline", actions: ["setMediaSourceStatus"] },
                   ],
                 },
               },
@@ -132,12 +147,17 @@ export const audioMachine = createMachine<Context>(
         on: {
           ONLINE: "online",
           INIT: [
-            { target: "online", actions: ["setMeta"], cond: "hasBitrate" },
-            { target: "offline", actions: ["setMeta"] },
+            { target: "online", actions: ["setMeta", "setStatusFromMeta"], cond: "hasTrack" },
+            { target: "offline", actions: ["setMeta", "setStatusFromMeta"] },
           ],
-          META: [
-            { target: "online", actions: ["setMeta"], cond: "hasBitrate" },
-            { target: "offline", actions: ["setMeta"] },
+          TRACK_CHANGED: [
+            // If we receive track data while offline, go online
+            { target: "online", actions: ["setMeta", "setStatusOnline"], cond: "eventHasTrack" },
+            { actions: ["setMeta"] },
+          ],
+          MEDIA_SOURCE_STATUS_CHANGED: [
+            { target: "online", actions: ["setMediaSourceStatus"], cond: "statusIsOnline" },
+            { target: "offline", actions: ["setMediaSourceStatus"] },
           ],
         },
       },
@@ -154,8 +174,30 @@ export const audioMachine = createMachine<Context>(
       setMeta: assign((_context, event) => {
         return { meta: event.data.meta }
       }),
+      updateNowPlaying: assign((context, event) => ({
+        meta: {
+          ...context.meta,
+          nowPlaying: event.data.track,
+        },
+      })),
+      setMediaSourceStatus: assign((_context, event) => {
+        if (event.type === "MEDIA_SOURCE_STATUS_CHANGED") {
+          return { mediaSourceStatus: event.data.status }
+        }
+        return {}
+      }),
+      setStatusFromMeta: assign((_context, event) => {
+        // For INIT event, infer status from whether we have track data
+        if (event.data.meta?.nowPlaying) {
+          return { mediaSourceStatus: "online" as const }
+        }
+        return { mediaSourceStatus: "offline" as const }
+      }),
+      setStatusOnline: assign({
+        mediaSourceStatus: "online" as const,
+      }),
       startListening: sendTo("socket", () => ({
-        type: "start listening",
+        type: "START_LISTENING",
       })),
       listen: assign({
         participationStatus: "listening",
@@ -164,14 +206,33 @@ export const audioMachine = createMachine<Context>(
         participationStatus: "participating",
       }),
       stopListening: sendTo("socket", () => ({
-        type: "stop listening",
+        type: "STOP_LISTENING",
       })),
     },
     guards: {
       volumeAboveZero: (_context, event) => parseFloat(event.volume) > 0,
       volumeIsZero: (_context, event) => parseFloat(event.volume) === 0,
-      hasBitrate: (_context, event) => {
-        return !isEmpty(event.data.meta) && !isNil(event.data.meta.bitrate)
+      hasTrack: (_context, event) => {
+        // Check if we have actual playback data (works for both jukebox and radio)
+        return !isEmpty(event.data.meta) && !isNil(event.data.meta.nowPlaying)
+      },
+      eventHasTrack: (_context, event) => {
+        // Check if TRACK_CHANGED event has track data
+        return (
+          event.type === "TRACK_CHANGED" &&
+          !isEmpty(event.data.meta) &&
+          !isNil(event.data.meta.nowPlaying)
+        )
+      },
+      statusIsOnline: (_context, event) => {
+        return event.type === "MEDIA_SOURCE_STATUS_CHANGED" && event.data.status === "online"
+      },
+      isCurrentTrack: (context, event) => {
+        return (
+          event.type === "PLAYLIST_TRACK_UPDATED" &&
+          !!context.meta?.nowPlaying &&
+          context.meta.nowPlaying.mediaSource.trackId === event.data.track.mediaSource.trackId
+        )
       },
     },
   },

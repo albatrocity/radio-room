@@ -1,11 +1,16 @@
-import React, { memo, lazy, Suspense } from "react"
+import { memo, lazy, Suspense } from "react"
 import { Box, Center, Flex, Spinner } from "@chakra-ui/react"
 
 import NowPlaying from "./NowPlaying"
 
 import { useAuthStore } from "../state/authStore"
-import { useIsStationOnline, useStationMeta } from "../state/audioStore"
-import createTrackId from "../lib/createTrackId"
+import {
+  useIsStationOnline,
+  useStationMeta,
+  useCurrentTrackId,
+  useMetadataSourceTrackId,
+  useMediaSourceStatus,
+} from "../state/audioStore"
 import { useCurrentRoom, useCurrentRoomHasAudio } from "../state/roomStore"
 import JukeboxControls from "./JukeboxControls"
 const RadioControls = lazy(() => import("./RadioControls"))
@@ -22,11 +27,13 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const room = useCurrentRoom()
   const isUnauthorized = authState.matches("unauthorized")
 
+  // Clean state from audio store
   const isOnline = useIsStationOnline()
-
   const meta = useStationMeta()
-  const { album, artist, track } = meta ?? {}
-  const trackId = createTrackId({ track, artist, album })
+  const trackId = useCurrentTrackId() // For reactions (stable ID)
+  const libraryTrackId = useMetadataSourceTrackId() // For library operations (Spotify ID)
+  const mediaSourceStatus = useMediaSourceStatus()
+
   const isJukebox = !hasAudio
 
   return (
@@ -37,11 +44,11 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
       direction="column"
       height="100%"
     >
-      {meta && <NowPlaying offline={!isOnline} meta={meta} />}
+      <NowPlaying offline={mediaSourceStatus === "offline"} meta={meta} />
       {isJukebox && (
         <JukeboxControls
-          meta={meta}
           trackId={trackId}
+          libraryTrackId={libraryTrackId}
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}
         />
@@ -58,8 +65,8 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
           }
         >
           <RadioControls
-            meta={meta}
             trackId={trackId}
+            libraryTrackId={libraryTrackId}
             onShowPlaylist={onShowPlaylist}
             hasPlaylist={hasPlaylist}
             streamUrl={room.radioListenUrl ?? room.radioMetaUrl}

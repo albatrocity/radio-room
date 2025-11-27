@@ -7,12 +7,16 @@ import {
 import { AuthContext } from "../machines/authMachine"
 
 export function getCurrentUser(un?: string) {
-  const isNewUser = !sessionStorage.getItem(SESSION_ID)
-  const userId = sessionStorage.getItem(SESSION_ID)
+  const storedId = sessionStorage.getItem(SESSION_ID)
+  const isNewUser = !storedId
+  // Convert null to undefined for consistency
+  const userId = storedId || undefined
   const isAdmin = sessionStorage.getItem(SESSION_ADMIN) === "true"
 
-  const username = un ?? sessionStorage.getItem(SESSION_USERNAME)
-  const password = sessionStorage.getItem(SESSION_PASSWORD)
+  const storedUsername = sessionStorage.getItem(SESSION_USERNAME)
+  const username = un ?? (storedUsername || undefined)
+  const storedPassword = sessionStorage.getItem(SESSION_PASSWORD)
+  const password = storedPassword || undefined
 
   return {
     currentUser: { username, userId, password, isAdmin },

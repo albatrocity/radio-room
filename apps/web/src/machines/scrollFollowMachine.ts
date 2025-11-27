@@ -27,7 +27,7 @@ export const scrollFollowMachine = createMachine<Context>(
       detached: {
         on: {
           ATTACH: { target: "attached", actions: ["clearMessages"] },
-          NEW_MESSAGE: { actions: ["incrementMessages"] },
+          MESSAGE_RECEIVED: { actions: ["incrementMessages"] },
         },
       },
     },

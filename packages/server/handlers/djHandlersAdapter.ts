@@ -30,8 +30,11 @@ export class DJHandlers {
       io.to(result.socketId).emit(
         "event",
         {
-          type: "NEW_MESSAGE",
-          data: result.systemMessage,
+          type: "MESSAGE_RECEIVED",
+          data: {
+            roomId: socket.data.roomId,
+            message: result.systemMessage,
+          },
         },
         { status: "info" },
       )

@@ -21,7 +21,7 @@ export const typingMachine = createMachine<Context>(
       },
     ],
     on: {
-      TYPING: {
+      TYPING_CHANGED: {
         actions: ["setTyping"],
       },
       INIT: {
@@ -37,7 +37,7 @@ export const typingMachine = createMachine<Context>(
     actions: {
       setTyping: assign({
         typing: (_context, event) => {
-          return event.data.typing
+          return event.data.typing || []
         },
       }),
     },

@@ -1,5 +1,3 @@
-import { PUBSUB_USER_JOINED } from "../../lib/constants"
-import { getRoomPath } from "../../lib/getRoomPath"
 import { Room, User, AppContext } from "@repo/types"
 import { Server } from "socket.io"
 
@@ -19,9 +17,12 @@ export async function pubUserJoined({
   data: UsersData
   context: AppContext
 }) {
-  io.to(getRoomPath(roomId)).emit("event", {
-    type: "USER_JOINED",
-    data: data,
-  })
-  context.redis.pubClient.publish(PUBSUB_USER_JOINED, JSON.stringify({ roomId, data: data }))
+  // Emit via SystemEvents (broadcasts to Redis PubSub, Socket.IO, and Plugins)
+  if (data.user && context.systemEvents) {
+    await context.systemEvents.emit(roomId, "USER_JOINED", {
+      roomId,
+      user: data.user,
+      users: data.users,
+    })
+  }
 }

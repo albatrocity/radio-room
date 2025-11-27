@@ -85,18 +85,18 @@ export const adminMachine = createMachine<any, AdminEvent>(
       deputizeDj: sendTo("socket", (_ctx, event) => {
         if (event.type !== "DEPUTIZE_DJ") return
         return {
-          type: "dj deputize user",
+          type: "DEPUTIZE_DJ",
           data: event.userId,
         }
       }),
       setSettings: sendTo("socket", (_ctx, event) => {
         return {
-          type: "set room settings",
+          type: "SET_ROOM_SETTINGS",
           data: event.data,
         }
       }),
       clearPlaylist: sendTo("socket", () => {
-        return { type: "clear playlist", data: {} }
+        return { type: "CLEAR_PLAYLIST", data: {} }
       }),
       notify: () => {
         toast({

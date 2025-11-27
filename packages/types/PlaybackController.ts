@@ -37,18 +37,18 @@ export interface PlaybackControllerApi {
 export type PlaybackControllerLifecycleCallbacks = {
   name: string
   authentication: AdapterAuthentication
-  onRegistered: (params: { api: PlaybackControllerApi; name: string }) => void
-  onAuthenticationCompleted: (response?: PlaybackControllerAuthenticationResponse) => void
-  onAuthenticationFailed: (error: Error) => void
-  onAuthorizationCompleted: () => void
-  onAuthorizationFailed: (error: Error) => void
-  onPlay: () => void
-  onPause: () => void
-  onChangeTrack: (track: PlaybackControllerQueueItem) => void
-  onError: (error: Error) => void
-  onPlaybackStateChange: (state: PlaybackState) => void
-  onPlaybackQueueChange: (queue: PlaybackControllerQueueItem[]) => void
-  onPlaybackPositionChange: (position: number) => void
+  onRegistered?: (params: { api: PlaybackControllerApi; name: string }) => void
+  onAuthenticationCompleted?: (response?: PlaybackControllerAuthenticationResponse) => void
+  onAuthenticationFailed?: (error: Error) => void
+  onAuthorizationCompleted?: () => void
+  onAuthorizationFailed?: (error: Error) => void
+  onPlay?: () => void
+  onPause?: () => void
+  onChangeTrack?: (track: PlaybackControllerQueueItem) => void
+  onError?: (error: Error) => void
+  onPlaybackStateChange?: (state: PlaybackState) => void
+  onPlaybackQueueChange?: (queue: PlaybackControllerQueueItem[]) => void
+  onPlaybackPositionChange?: (position: number) => void
 }
 
 export interface PlaybackControllerAdapterConfig {
@@ -65,8 +65,5 @@ export interface PlaybackControllerAdapter {
     roomType: "jukebox" | "radio"
     context: AppContext
   }) => Promise<void>
-  onRoomDeleted?: (params: {
-    roomId: string
-    context: AppContext
-  }) => Promise<void>
+  onRoomDeleted?: (params: { roomId: string; context: AppContext }) => Promise<void>
 }

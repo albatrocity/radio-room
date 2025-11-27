@@ -21,6 +21,7 @@ import ReactionTriggerActions from "./ReactionTriggerActions"
 import MessageTriggerActions from "./MessageTriggerActions"
 import DjFeatures from "./DjFeatures"
 import SpotifyFeatures from "./SpotifyFeatures"
+import PlaylistDemocracySettings from "./PlaylistDemocracySettings"
 
 const Header = ({ showBack, onBack }: { showBack: boolean; onBack: () => void }) => {
   return (
@@ -71,11 +72,8 @@ function ModalAdminSettings() {
         <Collapse in={state.matches("settings.password")}>
           <Password />
         </Collapse>
-        <Collapse in={state.matches("settings.reaction_triggers")}>
-          <ReactionTriggerActions />
-        </Collapse>
-        <Collapse in={state.matches("settings.message_triggers")}>
-          <MessageTriggerActions />
+        <Collapse in={state.matches("settings.playlist_democracy")}>
+          <PlaylistDemocracySettings />
         </Collapse>
       </ModalContent>
     </Modal>

@@ -1,11 +1,7 @@
 import { assign, sendTo, createMachine } from "xstate"
 import socketService from "../lib/socketService"
 import socket from "../lib/socket"
-import {
-  saveCurrentUser,
-  clearCurrentUser,
-  getCurrentUser,
-} from "../lib/getCurrentUser"
+import { saveCurrentUser, clearCurrentUser, getCurrentUser } from "../lib/getCurrentUser"
 import { getSessionUser, logout } from "../lib/serverApi"
 import { getPassword, savePassword } from "../lib/passwordOperations"
 
@@ -60,7 +56,7 @@ type AuthEvent =
       userId: string
     }
   | {
-      type: "KICKED"
+      type: "USER_KICKED"
     }
   | {
       type: "SET_PASSWORD"
@@ -168,7 +164,7 @@ function getStoredUser() {
 function socketEventService(callback: SocketCallback) {
   // Note: Most socket lifecycle events are now handled in socketService.ts
   // This is just for any additional auth-specific socket monitoring if needed
-  
+
   // Listen for visibility changes to detect tab backgrounding
   if (typeof document !== "undefined") {
     const handleVisibilityChange = () => {
@@ -254,13 +250,18 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         },
       },
       disconnected: {
-        entry: ["showDisconnectedToast"],
+        entry: ["showDisconnectedToast", "resetInitialized"],
         on: {
           SETUP: {
             target: "retrieving",
             actions: ["setRoomId"],
           },
+          // Handle both reconnect and fresh connect events
           SOCKET_RECONNECTED: {
+            target: "retrieving",
+            actions: ["showReconnectedToast"],
+          },
+          SOCKET_CONNECTED: {
             target: "retrieving",
             actions: ["showReconnectedToast"],
           },
@@ -279,6 +280,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           src: getStoredUser,
           onDone: {
             target: "connecting",
+            actions: ["setStoredUser"],
           },
           onError: {
             target: "connecting",
@@ -340,7 +342,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
             actions: ["kickUser"],
             cond: "isAdmin",
           },
-          KICKED: {
+          USER_KICKED: {
             target: "disconnected",
             actions: ["disableRetry", "disconnectUser"],
           },
@@ -409,14 +411,31 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
       assignInitialized: assign({
         initialized: () => true,
       }),
+      resetInitialized: assign({
+        initialized: () => false,
+      }),
       setCurrentUser: assign((ctx, event) => {
-        if (
-          event.type === "done.invoke.getSessionUser" ||
-          event.type === "INIT"
-        ) {
+        if (event.type === "done.invoke.getSessionUser" || event.type === "INIT") {
           return {
             currentUser: event.data.user,
             isNewUser: event.data.isNewUser,
+          }
+        }
+        return ctx
+      }),
+      setStoredUser: assign((ctx, event) => {
+        if (event.type === "done.invoke.getStoredUser" && event.data.currentUser) {
+          const storedUser = event.data.currentUser
+          // Only set if we have a valid userId (not null or undefined)
+          if (storedUser.userId) {
+            return {
+              currentUser: {
+                userId: storedUser.userId,
+                username: storedUser.username || undefined,
+                isAdmin: storedUser.isAdmin,
+              },
+              isNewUser: false,
+            }
           }
         }
         return ctx
@@ -432,22 +451,20 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         }
       }),
       login: sendTo("socket", (ctx, event) => {
-        // Get user data from stored user or current user
-        let userId: string | undefined
-        let username: string | undefined
-        
-        if (event.type === "done.invoke.getStoredUser") {
-          userId = event.data.currentUser?.userId
-          username = event.data.currentUser?.username
-        } else {
-          // When coming from password acceptance, use current user data
-          userId = ctx.currentUser?.userId
-          username = ctx.currentUser?.username
+        // Get user data from context (set by setStoredUser action) or from event
+        let userId: string | undefined = ctx.currentUser?.userId
+        let username: string | undefined = ctx.currentUser?.username
+
+        // Fallback to event data if context doesn't have user data
+        if (!userId && event.type === "done.invoke.getStoredUser") {
+          // Convert null to undefined to ensure proper handling on server
+          userId = event.data.currentUser?.userId || undefined
+          username = event.data.currentUser?.username || undefined
         }
 
         const password = ctx.password
         return {
-          type: "login",
+          type: "LOGIN",
           data: {
             fetchAllData: !ctx.initialized,
             userId,
@@ -460,15 +477,13 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
       activateAdmin: assign({
         isAdmin: true,
         currentUser: (ctx) =>
-          ctx.currentUser
-            ? { ...ctx.currentUser, isAdmin: true }
-            : { userId: "" },
+          ctx.currentUser ? { ...ctx.currentUser, isAdmin: true } : { userId: "" },
       }),
       disableRetry: assign({
         shouldRetry: () => false,
       }),
       changeUsername: sendTo("socket", (ctx) => ({
-        type: "change username",
+        type: "CHANGE_USERNAME",
         data: ctx.currentUser
           ? {
               userId: ctx.currentUser.userId,
@@ -508,7 +523,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         password: (_ctx, _event) => getPassword(),
       }),
       disconnectUser: sendTo("socket", (ctx) => ({
-        type: "user left",
+        type: "USER_LEFT",
         data: {
           userId: ctx.currentUser?.userId,
           roomId: ctx.roomId,
@@ -525,13 +540,13 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         }
       }),
       nukeUser: sendTo("socket", () => {
-        return { type: "nuke user" }
+        return { type: "NUKE_USER" }
       }),
       kickUser: sendTo("socket", (_ctx, event) => {
         if (event.type !== "KICK_USER") return
 
         return {
-          type: "kick user",
+          type: "KICK_USER",
           data: {
             userId: event.userId,
           },
@@ -543,14 +558,14 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           return { type: "noop" }
         }
         return {
-          type: "check password",
+          type: "CHECK_PASSWORD",
           data: ctx.password,
         }
       }),
       submitPassword: sendTo("socket", (ctx, event) => {
         if (event.type !== "SET_PASSWORD") return
         return {
-          type: "submit password",
+          type: "SUBMIT_PASSWORD",
           data: {
             password: event.data,
             roomId: ctx.roomId,
@@ -630,10 +645,10 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         // Only bypass password prompt if:
         // 1. Room doesn't require a password, OR
         // 2. Room requires password AND we have a stored password AND it's accepted
-        return !event.data.passwordRequired || 
-               (event.data.passwordRequired && 
-                !!ctx.password && 
-                event.data.passwordAccepted === true)
+        return (
+          !event.data.passwordRequired ||
+          (event.data.passwordRequired && !!ctx.password && event.data.passwordAccepted === true)
+        )
       },
       passwordAccepted: (_ctx, event) => {
         if (event.type !== "SET_PASSWORD_ACCEPTED") return false

@@ -72,7 +72,7 @@ export const metadataSourceAuthMachine = createMachine<Context>(
       }),
       fetchAuthenticationStatus: sendTo("socket", (ctx) => {
         return {
-          type: "get user service authentication status",
+          type: "GET_USER_SERVICE_AUTHENTICATION_STATUS",
           data: {
             userId: ctx.userId,
             serviceName: ctx.serviceName || "spotify", // Default to spotify for backward compat
@@ -80,7 +80,7 @@ export const metadataSourceAuthMachine = createMachine<Context>(
         }
       }),
       logout: sendTo("socket", (ctx) => ({
-        type: "logout service",
+        type: "LOGOUT_SERVICE",
         data: {
           serviceName: ctx.serviceName || "spotify",
         },

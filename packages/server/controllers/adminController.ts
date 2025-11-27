@@ -20,39 +20,39 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
   /**
    * Set or update room password
    */
-  socket.on("set password", async (value: string) => {
+  socket.on("SET_PASSWORD", async (value: string) => {
     await handlers.setPassword(connections, value)
   })
 
   /**
    * Kick a user from the room
    */
-  socket.on("kick user", async (user: User) => {
+  socket.on("KICK_USER", async (user: User) => {
     await handlers.kickUser(connections, user)
   })
 
   /**
    * Update room settings
    */
-  socket.on("set room settings", async (settings: Partial<Room>) => {
+  socket.on("SET_ROOM_SETTINGS", async (settings: Partial<Room>) => {
     await handlers.setRoomSettings(connections, settings)
   })
 
   /**
    * Clear the room's playlist
    */
-  socket.on("clear playlist", async () => {
+  socket.on("CLEAR_PLAYLIST", async () => {
     await handlers.clearPlaylist(connections)
   })
 
   // TODO: Implement trigger events
-  // socket.on("get trigger events", async () => {
+  // socket.on("GET_TRIGGER_EVENTS", async () => {
   //   await handlers.getTriggerEvents(connections)
   // })
-  // socket.on("set reaction trigger events", async (data) => {
+  // socket.on("SET_REACTION_TRIGGER_EVENTS", async (data) => {
   //   await handlers.setReactionTriggerEvents(connections, data)
   // })
-  // socket.on("set message trigger events", async (data) => {
+  // socket.on("SET_MESSAGE_TRIGGER_EVENTS", async (data) => {
   //   await handlers.setMessageTriggerEvents(connections, data)
   // })
 }

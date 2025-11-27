@@ -4,8 +4,8 @@ import { ReactionPayload } from "@repo/types/Reaction"
 import { ReactionSubject } from "@repo/types/ReactionSubject"
 import { User } from "@repo/types/User"
 import { Emoji } from "@repo/types/Emoji"
-import { getRoomPath } from "../lib/getRoomPath"
 import { pubUserJoined } from "../operations/sockets/users"
+import { addReaction as addReactionOp, removeReaction as removeReactionOp } from "../operations/reactions"
 
 /**
  * Socket.io adapter for the ActivityService
@@ -54,15 +54,11 @@ export class ActivityHandlers {
    * Add a reaction to a reactionable item
    */
   addReaction = async ({ io, socket }: HandlerConnections, reaction: ReactionPayload) => {
-    const result = await this.activityService.addReaction(socket.data.roomId, reaction)
-
-    if (!result) {
-      return
-    }
-
-    io.to(getRoomPath(socket.data.roomId)).emit("event", {
-      type: "REACTIONS",
-      data: { reactions: result.reactions },
+    // Call operation (which broadcasts via SystemEvents to Redis PubSub, Socket.IO, and Plugins)
+    await addReactionOp({
+      context: socket.context,
+      roomId: socket.data.roomId,
+      reaction,
     })
   }
 
@@ -81,20 +77,13 @@ export class ActivityHandlers {
       user: User
     },
   ) => {
-    const result = await this.activityService.removeReaction(
-      socket.data.roomId,
+    // Call operation (which broadcasts via SystemEvents to Redis PubSub, Socket.IO, and Plugins)
+    await removeReactionOp({
+      context: socket.context,
+      roomId: socket.data.roomId,
       emoji,
       reactTo,
       user,
-    )
-
-    if (!result) {
-      return
-    }
-
-    io.to(getRoomPath(socket.data.roomId)).emit("event", {
-      type: "REACTIONS",
-      data: { reactions: result.reactions },
     })
   }
 }

@@ -109,6 +109,12 @@ export async function create(req: Request, res: Response) {
     })
     await saveRoom({ context, room })
 
+    // Initialize plugins for the new room FIRST
+    // This must happen before media source jobs start to ensure plugins receive events
+    if (context.pluginRegistry) {
+      await context.pluginRegistry.syncRoomPlugins(id, room)
+    }
+
     // Notify the playback controller adapter that a room was created
     // This allows the adapter to register any necessary jobs (e.g., polling)
     if (playbackControllerId) {
@@ -215,14 +221,14 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
   /**
    * Get room settings
    */
-  socket.on("get room settings", async (url: string) => {
+  socket.on("GET_ROOM_SETTINGS", async (url: string) => {
     await handlers.getRoomSettings(connections)
   })
 
   /**
    * Get latest room data based on snapshot
    */
-  socket.on("get latest room data", async (snapshot: RoomSnapshot) => {
+  socket.on("GET_LATEST_ROOM_DATA", async (snapshot: RoomSnapshot) => {
     await handlers.getLatestRoomData(connections, snapshot)
   })
 }

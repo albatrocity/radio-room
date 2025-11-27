@@ -18,28 +18,28 @@ export function createMessageController(socket: SocketWithContext, io: Server): 
   /**
    * Handle new chat message
    */
-  socket.on("new message", async (message: string) => {
+  socket.on("SEND_MESSAGE", async (message: string) => {
     await handlers.newMessage(connections, message)
   })
 
   /**
    * Clear all messages in the room
    */
-  socket.on("clear messages", async () => {
+  socket.on("CLEAR_MESSAGES", async () => {
     await handlers.clearMessages(connections)
   })
 
   /**
    * Indicate user is typing
    */
-  socket.on("typing", async () => {
+  socket.on("START_TYPING", async () => {
     await handlers.startTyping(connections)
   })
 
   /**
    * Indicate user stopped typing
    */
-  socket.on("stop typing", async () => {
+  socket.on("STOP_TYPING", async () => {
     await handlers.stopTyping(connections)
   })
 }

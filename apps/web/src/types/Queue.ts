@@ -59,5 +59,8 @@ export interface QueueItem {
   addedBy: User | undefined
   addedDuring: string | undefined
   playedAt: number | undefined
+  
+  // Plugin-augmented metadata (e.g., skip data from playlist-democracy plugin)
+  pluginData?: Record<string, any>
 }
 

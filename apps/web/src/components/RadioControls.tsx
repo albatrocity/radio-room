@@ -11,19 +11,18 @@ import {
   useIsPlaying,
   useVolume,
 } from "../state/audioStore"
-import { RoomMeta } from "../types/Room"
 
 type Props = {
-  meta?: RoomMeta
-  trackId: string
+  trackId: string // For reactions (stable ID)
+  libraryTrackId: string // For library operations (MetadataSource ID)
   onShowPlaylist: () => void
   hasPlaylist: boolean
   streamUrl?: string
 }
 
 export default function RadioControls({
-  meta,
   trackId,
+  libraryTrackId,
   onShowPlaylist,
   hasPlaylist,
   streamUrl,
@@ -51,9 +50,7 @@ export default function RadioControls({
       <Box display={["none", "flex"]} background="actionBg" alignItems="center" py="1">
         <Container>
           <HStack>
-            <ButtonAddToLibrary 
-              id={meta?.nowPlaying?.metadataSource?.trackId}
-            />
+            <ButtonAddToLibrary id={libraryTrackId} />
             <ReactionCounter
               reactTo={{ type: "track", id: trackId }}
               darkBg={true}
@@ -65,7 +62,6 @@ export default function RadioControls({
       {streamUrl && (
         <RadioPlayer
           volume={volume}
-          meta={meta}
           playing={playing}
           muted={muted}
           onVolume={handleVolume}
@@ -76,6 +72,7 @@ export default function RadioControls({
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}
           trackId={trackId}
+          libraryTrackId={libraryTrackId}
           loading={loading}
           streamUrl={streamUrl}
         />

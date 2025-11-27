@@ -4,8 +4,7 @@ import { Room, RoomMeta, StoredRoom } from "@repo/types/Room"
 import { writeJsonToHset, getHMembersFromSet } from "./utils"
 import { getQueue } from "./djs"
 import { User } from "@repo/types/User"
-import { PUBSUB_ROOM_DELETED } from "../../lib/constants"
-import { QueueItem, AppContext } from "@repo/types"
+import { QueueItem, AppContext, roomMetaToRedisSchema, redisToRoomMetaSchema } from "@repo/types"
 
 type AddRoomToRoomListParams = {
   context: AppContext
@@ -187,7 +186,7 @@ export async function setRoomCurrent({ context, roomId, meta }: SetRoomCurrentPa
   const payload = await makeJukeboxCurrentPayload({
     context,
     roomId,
-    nowPlaying: meta.nowPlaying,
+    nowPlaying: meta.nowPlaying ?? undefined,
     meta,
   })
   if (!payload) {
@@ -196,17 +195,21 @@ export async function setRoomCurrent({ context, roomId, meta }: SetRoomCurrentPa
 
   const parsedMeta = payload.data.meta
   try {
-    await context.redis.pubClient.hDel(roomCurrentKey, ["dj", "release", "artwork"])
+    await context.redis.pubClient.hDel(roomCurrentKey, [
+      "dj",
+      "release",
+      "artwork",
+      "stationMeta",
+      "nowPlaying",
+    ])
+
+    // Transform RoomMeta to Redis-storable strings using Zod schema
+    const attributes = roomMetaToRedisSchema.parse(parsedMeta)
 
     await writeJsonToHset({
       context,
       setKey: roomCurrentKey,
-      attributes: {
-        ...parsedMeta,
-        lastUpdatedAt: String(Date.now()),
-        release: JSON.stringify(parsedMeta.release),
-        dj: parsedMeta.dj ? JSON.stringify(parsedMeta.dj) : undefined,
-      },
+      attributes,
     })
     const current = await getRoomCurrent({ context, roomId })
     return current
@@ -262,30 +265,23 @@ export async function getRoomCurrent({ context, roomId }: GetRoomCurrentParams) 
   const roomCurrentKey = `room:${roomId}:current`
   const result = await context.redis.pubClient.hGetAll(roomCurrentKey)
 
-  // Parse the release (which is actually the full nowPlaying QueueItem)
-  const parsedRelease = result.release ? JSON.parse(result.release) : null
+  // Transform Redis strings to RoomMeta using Zod schema (handles corrupt data gracefully)
+  const parsed = redisToRoomMetaSchema.safeParse(result)
 
-  return {
-    ...result,
-    // Store both for backward compatibility
-    ...(parsedRelease
-      ? {
-          release: parsedRelease,
-          nowPlaying: parsedRelease, // The new format expects nowPlaying
-        }
-      : {}),
-    ...(result.dj
-      ? {
-          dj: result.dj && JSON.parse(result.dj),
-        }
-      : {}),
-    ...(result.spotifyError
-      ? {
-          dj: result.spotifyError && JSON.parse(result.spotifyError),
-        }
-      : {}),
-    ...(result.stationMeta ? { stationMeta: JSON.parse(result.stationMeta) } : {}),
-  } as RoomMeta
+  if (!parsed.success) {
+    console.warn(`[getRoomCurrent] Parse error for room ${roomId}:`, parsed.error.flatten())
+    // Return minimal valid data
+    return {
+      title: result.title,
+      artist: result.artist,
+      album: result.album,
+      track: result.track,
+      artwork: result.artwork,
+      lastUpdatedAt: result.lastUpdatedAt,
+    } as RoomMeta
+  }
+
+  return parsed.data as RoomMeta
 }
 
 type MakeJukeboxCurrentPayloadParams = {
@@ -420,6 +416,24 @@ export async function deleteRoom({ context, roomId }: DeleteRoomParams) {
     return
   }
 
+  // Emit roomDeleted event via SystemEvents
+  if (context.systemEvents) {
+    await context.systemEvents.emit(roomId, "ROOM_DELETED", { roomId })
+  }
+
+  // Cleanup plugin room state
+  if (context.pluginRegistry) {
+    try {
+      await context.pluginRegistry.cleanupRoom(roomId)
+    } catch (error) {
+      console.error("[Plugins] Error cleaning up room:", error)
+    }
+  }
+
+  // Delete all plugin configurations
+  const { deleteAllPluginConfigs } = await import("./pluginConfigs")
+  await deleteAllPluginConfigs({ context, roomId })
+
   // Notify the playback controller adapter that the room is being deleted
   // This allows the adapter to clean up any jobs or resources (e.g., stop polling)
   if (room.playbackControllerId) {
@@ -459,7 +473,6 @@ export async function deleteRoom({ context, roomId }: DeleteRoomParams) {
   // remove room from room list and user's room list
   await removeRoomFromRoomList({ context, roomId: room.id })
   await removeRoomFromUserRoomList({ context, room })
-  await context.redis.pubClient.publish(PUBSUB_ROOM_DELETED, roomId)
 }
 
 type ExpireRoomInParams = {

@@ -21,7 +21,7 @@ export function createActivityController(socket: SocketWithContext, io: Server):
   /**
    * Update user status to listening
    */
-  socket.on("start listening", async () => {
+  socket.on("START_LISTENING", async () => {
     console.log("START LISTENING SOCKET EVENT")
     await handlers.startListening(connections)
   })
@@ -29,7 +29,7 @@ export function createActivityController(socket: SocketWithContext, io: Server):
   /**
    * Update user status to participating
    */
-  socket.on("stop listening", async () => {
+  socket.on("STOP_LISTENING", async () => {
     console.log("STOP LISTENING SOCKET EVENT")
     await handlers.stopListening(connections)
   })
@@ -38,7 +38,7 @@ export function createActivityController(socket: SocketWithContext, io: Server):
    * Add a reaction to a reactionable item
    */
   socket.on(
-    "add reaction",
+    "ADD_REACTION",
     async ({ emoji, reactTo, user }: { emoji: Emoji; reactTo: ReactionSubject; user: User }) => {
       await handlers.addReaction(connections, { emoji, reactTo, user })
     },
@@ -48,7 +48,7 @@ export function createActivityController(socket: SocketWithContext, io: Server):
    * Remove a reaction from a reactionable item
    */
   socket.on(
-    "remove reaction",
+    "REMOVE_REACTION",
     async ({ emoji, reactTo, user }: { emoji: Emoji; reactTo: ReactionSubject; user: User }) => {
       await handlers.removeReaction(connections, { emoji, reactTo, user })
     },

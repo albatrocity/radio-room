@@ -30,6 +30,9 @@ export const playlistMachine = createMachine<Context>(
       PLAYLIST_TRACK_ADDED: {
         actions: ["addToPlaylist"],
       },
+      PLAYLIST_TRACK_UPDATED: {
+        actions: ["updateTrackInPlaylist"],
+      },
       ROOM_DATA: {
         actions: ["addTracksToPlaylist"],
       },
@@ -78,6 +81,18 @@ export const playlistMachine = createMachine<Context>(
             return ctx.playlist
           }
           return [...ctx.playlist, event.data.track]
+        },
+      }),
+      updateTrackInPlaylist: assign({
+        playlist: (ctx, event) => {
+          if (event.type !== "PLAYLIST_TRACK_UPDATED") {
+            return ctx.playlist
+          }
+          const updatedTrack = event.data.track
+          // Find and update the track by mediaSource.trackId
+          return ctx.playlist.map((item) =>
+            item.mediaSource.trackId === updatedTrack.mediaSource.trackId ? updatedTrack : item,
+          )
         },
       }),
     },

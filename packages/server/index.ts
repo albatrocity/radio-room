@@ -4,10 +4,15 @@ import session from "express-session"
 import { RedisStore } from "connect-redis"
 import cors from "cors"
 import express from "express"
-import { AppContext } from "@repo/types"
 import { createServer as createHttpServer } from "http"
 import { Server as SocketIoServer } from "socket.io"
-import { CreateServerConfig, PlaybackControllerAdapterConfig, User } from "@repo/types"
+import {
+  AppContext,
+  CreateServerConfig,
+  PlaybackControllerAdapterConfig,
+  User,
+  Plugin,
+} from "@repo/types"
 import { createAppContext, initializeRedisContext } from "./lib/context"
 import { createContextMiddleware } from "./lib/contextMiddleware"
 import { JobService } from "./services/JobService"
@@ -28,6 +33,7 @@ import { createDJController } from "./controllers/djController"
 import { createMessageController } from "./controllers/messageController"
 import { clearRoomOnlineUsers } from "./operations/data"
 import { SocketWithContext } from "./lib/socketWithContext"
+import { PluginRegistry } from "./lib/plugins"
 
 declare module "express-session" {
   interface Session {
@@ -38,17 +44,19 @@ declare module "express-session" {
 
 const PORT = Number(process.env.PORT ?? 3000)
 
-class RadioRoomServer {
-  private io: SocketIoServer
+export class RadioRoomServer {
+  private readonly io: SocketIoServer
   sessionStore: RedisStore
-  private app: express.Express
-  private sessionMiddleware: express.RequestHandler
-  private httpServer: ReturnType<typeof createHttpServer>
-  private _onStart: () => void = () => {}
-  private playbackControllers: CreateServerConfig["playbackControllers"]
-  private cacheImplementation: CreateServerConfig["cacheImplementation"]
-  private context: AppContext
-  private jobService: JobService
+  private readonly app: express.Express
+  private readonly sessionMiddleware: express.RequestHandler
+  private readonly httpServer: ReturnType<typeof createHttpServer>
+  private readonly _onStart: () => void = () => {}
+  private readonly playbackControllers: CreateServerConfig["playbackControllers"]
+  private readonly cacheImplementation: CreateServerConfig["cacheImplementation"]
+  private readonly context: AppContext
+  private readonly jobService: JobService
+  private pluginRegistry: PluginRegistry
+  private pendingPlugins: (() => Plugin)[] = []
 
   constructor(
     config: CreateServerConfig = {
@@ -71,10 +79,12 @@ class RadioRoomServer {
     this.context = createAppContext(config.REDIS_URL ?? "redis://localhost:6379")
 
     // Initialize JobService
-    this.jobService = new JobService(this.context, this.cacheImplementation)
+    this.jobService = new JobService(this.context)
 
     // Add jobService to context so it's accessible everywhere
     this.context.jobService = this.jobService
+
+    // PluginRegistry will be initialized in start() after io is created
 
     this.sessionStore = new RedisStore({ client: this.context.redis.pubClient, prefix: "s:" })
 
@@ -164,6 +174,24 @@ class RadioRoomServer {
       this.sessionMiddleware(socket.request, socket.request.res || {}, next)
     })
 
+    // Initialize PluginRegistry now that io is available
+    this.pluginRegistry = new PluginRegistry(this.context, this.io)
+    this.context.pluginRegistry = this.pluginRegistry
+    console.log("PluginRegistry initialized")
+
+    // Register any plugins that were queued via registerAdapters()
+    // We pass the factory function so PluginRegistry can create new instances per room
+    for (const pluginFactory of this.pendingPlugins) {
+      this.pluginRegistry.registerPlugin(pluginFactory)
+    }
+    this.pendingPlugins = [] // Clear after registration
+
+    // Initialize SystemEvents (unified event emission layer)
+    // Broadcasts to: Redis PubSub, Socket.IO, and Plugin System
+    const { SystemEvents } = await import("./lib/SystemEvents")
+    this.context.systemEvents = new SystemEvents(this.context.redis, this.io, this.pluginRegistry)
+    console.log("SystemEvents initialized")
+
     this.io.on("connection", (socket) => {
       // Pass context to controllers
       const socketWithContext: SocketWithContext = Object.assign(socket, { context: this.context })
@@ -181,16 +209,40 @@ class RadioRoomServer {
     this.httpServer.listen(PORT, "0.0.0.0", () => console.log(`Listening on ${PORT}`))
     bindPubSubHandlers(this.io, this.context)
 
+    // Note: Plugins are now registered via registerAdapters() in the API entry point
+
     // Register initial system jobs
     await this.registerSystemJobs()
 
     // Restore adapter jobs for existing rooms
     await this.restoreAdapterJobs()
 
+    // Restore plugin state for existing rooms
+    await this.restorePluginState()
+
     // Start job service
     await this.jobService.start()
 
     this.onStart()
+  }
+
+  /**
+   * @deprecated Plugins should now be registered via registerAdapters() in the API entry point
+   */
+  initializePlugins() {
+    // No-op: plugins are now registered via registerAdapters()
+    console.log("initializePlugins() is deprecated - use registerAdapters({ plugins: [...] })")
+  }
+
+  getPluginRegistry() {
+    return this.pluginRegistry
+  }
+
+  /**
+   * Queue plugins to be registered after start() initializes the PluginRegistry
+   */
+  setPendingPlugins(plugins: (() => Plugin)[]) {
+    this.pendingPlugins = plugins
   }
 
   async registerSystemJobs() {
@@ -277,7 +329,47 @@ class RadioRoomServer {
     }
   }
 
+  /**
+   * Restore plugin state for existing rooms after server restart
+   */
+  async restorePluginState() {
+    try {
+      console.log("Restoring plugin state for existing rooms...")
+      const { findRoom } = await import("./operations/data")
+
+      // Get all room IDs from Redis
+      const roomIds = await this.context.redis.pubClient.sMembers("rooms")
+      console.log(`Found ${roomIds.length} existing rooms`)
+
+      // Sync plugins for each room
+      for (const roomId of roomIds) {
+        try {
+          const room = await findRoom({ context: this.context, roomId })
+
+          if (!room) {
+            console.log(`Room ${roomId} not found, skipping`)
+            continue
+          }
+
+          await this.pluginRegistry.syncRoomPlugins(roomId, room)
+        } catch (error) {
+          console.error(`Error restoring plugins for room ${roomId}:`, error)
+        }
+      }
+
+      console.log("Plugin state restoration complete")
+    } catch (error) {
+      console.error("Error restoring plugin state:", error)
+    }
+  }
+
   async stop() {
+    // Cleanup all plugins for all rooms
+    const roomIds = await this.context.redis.pubClient.sMembers("rooms")
+    for (const roomId of roomIds) {
+      await this.pluginRegistry.cleanupRoom(roomId)
+    }
+
     await this.jobService.stop()
     await this.context.redis.pubClient.quit()
     await this.context.redis.subClient.quit()
@@ -337,31 +429,12 @@ class RadioRoomServer {
       },
     })
   }
-
-  // Lifecycle methods for playback controllers
-  async onPlay() {
-    console.log("Playback started")
-    // TODO: Emit event to clients
-  }
-  async onPause() {
-    console.log("Playback paused")
-    // TODO: Emit event to clients
-  }
-  async onPlaybackQueueChange() {
-    console.log("Playback queue changed")
-  }
-  async onChangeTrack(track: any) {
-    console.log("Track changed", track)
-  }
-  async onPlaybackPositionChange(position: number) {
-    console.log("Playback position changed", position)
-  }
-  async onPlaybackStateChange(state: string) {
-    console.log("Playback state changed", state)
-  }
 }
 
 export function createServer(config: CreateServerConfig) {
   const radioRoomServer = new RadioRoomServer(config)
   return radioRoomServer
 }
+
+export { registerAdapters, createOAuthPlaceholder, noAuth } from "./lib/registerAdapters"
+export type { AdapterRegistrationConfig } from "./lib/registerAdapters"

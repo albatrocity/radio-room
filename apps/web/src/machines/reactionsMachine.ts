@@ -26,7 +26,10 @@ export const reactionsMachine = createMachine<Context>(
       },
     ],
     on: {
-      REACTIONS: {
+      REACTION_ADDED: {
+        actions: ["setData"],
+      },
+      REACTION_REMOVED: {
         actions: ["setData"],
       },
       SET_REACT_TO: {
@@ -83,10 +86,9 @@ export const reactionsMachine = createMachine<Context>(
       }),
       setData: assign({
         reactions: (context, event) => {
-          if (context.reactTo) {
-            return event.data.reactions
-              ? event.data.reactions[context.reactTo?.type][context.reactTo?.id]
-              : []
+          if (context.reactTo && event.data.reactions) {
+            const typeReactions = event.data.reactions[context.reactTo?.type]
+            return typeReactions?.[context.reactTo?.id] || []
           }
           return []
         },
@@ -100,7 +102,7 @@ export const reactionsMachine = createMachine<Context>(
       addReaction: sendTo("socket", (ctx, event) => {
         const currentUser = getCurrentUser()
         return {
-          type: "add reaction",
+          type: "ADD_REACTION",
           data: {
             emoji: event.data,
             reactTo: ctx.reactTo,
@@ -111,7 +113,7 @@ export const reactionsMachine = createMachine<Context>(
       removeReaction: sendTo("socket", (ctx, event) => {
         const currentUser = getCurrentUser()
         return {
-          type: "remove reaction",
+          type: "REMOVE_REACTION",
           data: {
             emoji: event.data,
             reactTo: ctx.reactTo,

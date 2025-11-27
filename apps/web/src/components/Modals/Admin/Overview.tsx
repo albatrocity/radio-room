@@ -10,7 +10,6 @@ import {
   VStack,
   Divider,
 } from "@chakra-ui/react"
-import React from "react"
 import { useModalsStore } from "../../../state/modalsState"
 import { settingsMachine } from "../../../machines/settingsMachine"
 import ActiveIndicator from "../../ActiveIndicator"
@@ -28,6 +27,8 @@ function Overview() {
   const hasChatSettings =
     settingsState.context.announceNowPlaying ?? settingsState.context.announceUsernameChanges
   const hasDjSettings = settingsState.context.deputizeOnJoin
+  const playlistDemocracyActive = settingsState.context.playlistDemocracy.enabled
+
   return (
     <Box>
       <ModalBody>
@@ -88,6 +89,26 @@ function Overview() {
                 onClick={() => send("EDIT_PASSWORD")}
               >
                 Password Protection
+              </Button>
+            </VStack>
+          </VStack>
+
+          <VStack align="left" spacing={2}>
+            <Heading as="h4" size="sm" textAlign="left">
+              Plugins
+            </Heading>
+            <VStack w="100%" align="left" spacing="1px">
+              <Button
+                rightIcon={
+                  <HStack>
+                    {playlistDemocracyActive && <ActiveIndicator />}
+                    <ChevronRightIcon />
+                  </HStack>
+                }
+                variant="settingsCategory"
+                onClick={() => send("EDIT_PLAYLIST_DEMOCRACY")}
+              >
+                Playlist Democracy
               </Button>
             </VStack>
           </VStack>

@@ -62,7 +62,7 @@ export const savedTracksMachine = createMachine<SavedTracksContext, SavedTracksE
   {
     actions: {
       fetchSavedTracks: sendTo("socket", () => ({
-        type: "get saved tracks",
+        type: "GET_SAVED_TRACKS",
       })),
       setResults: assign((_context, event) => {
         if (event.type !== "SAVED_TRACKS_RESULTS") return {}
