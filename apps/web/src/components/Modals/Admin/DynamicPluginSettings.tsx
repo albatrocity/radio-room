@@ -29,19 +29,14 @@ export default function DynamicPluginSettings({ pluginName }: DynamicPluginSetti
   }, [schemas, pluginName])
 
   // Get current config from settings state
-  // The settingsMachine stores plugin configs keyed by plugin name (camelCase)
+  // The settingsMachine stores plugin configs in pluginConfigs keyed by plugin name
   const currentConfig = useMemo(() => {
-    // Fall back to playlistDemocracy for backwards compatibility
-    if (pluginName === "playlist-democracy") {
-      return state.context.playlistDemocracy
-    }
+    // Get from pluginConfigs using the plugin name
+    const pluginConfig = state.context.pluginConfigs?.[pluginName]
 
-    // Try to get from settings context using the plugin name (camelCase)
-    const camelCaseKey = pluginName.split("-").join("")
-    const pluginConfig = (state.context as Record<string, unknown>)[camelCaseKey]
-
+    // Fall back to defaults if no config stored
     return pluginConfig || pluginSchema?.defaultConfig
-  }, [state.context, pluginName, pluginSchema])
+  }, [state.context.pluginConfigs, pluginName, pluginSchema])
 
   // Show loading state
   if (isLoading) {

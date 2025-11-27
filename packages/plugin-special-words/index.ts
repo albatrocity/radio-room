@@ -78,7 +78,8 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     // Register for lifecycle events using this.on() for type-safe payloads
     this.on("MESSAGE_RECEIVED", this.onMessageReceived.bind(this))
 
-    this.on("CONFIG_CHANGED", async (data) => {
+    // Use filtered config change handler (only receives changes for THIS plugin)
+    this.onConfigChange(async (data) => {
       const wasEnabled = data.previousConfig?.enabled === true
       const isEnabled = data.config?.enabled === true
 

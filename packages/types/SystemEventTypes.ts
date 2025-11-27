@@ -84,6 +84,8 @@ export type SystemEventHandlers = {
   // Plugin/Config events
   CONFIG_CHANGED: (data: {
     roomId: string
+    /** The name of the plugin whose config changed */
+    pluginName: string
     config: Record<string, unknown>
     previousConfig: Record<string, unknown>
   }) => Promise<void> | void

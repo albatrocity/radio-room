@@ -53,13 +53,8 @@ function Overview() {
 
   // Check if a plugin is active based on its 'enabled' config
   const isPluginActive = (pluginName: string): boolean => {
-    // For playlist-democracy, check the context directly
-    if (pluginName === "playlist-democracy") {
-      return settingsState.context.playlistDemocracy?.enabled === true
-    }
-    // For other plugins, we would need to check their stored config
-    // This could be extended to read from a general plugin configs context
-    return false
+    const pluginConfig = settingsState.context.pluginConfigs?.[pluginName]
+    return pluginConfig?.enabled === true
   }
 
   // Filter plugins that have a configSchema

@@ -170,6 +170,37 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
   }
 
   /**
+   * Register a handler for when THIS plugin's config changes.
+   * Automatically filters CONFIG_CHANGED events to only this plugin's changes.
+   *
+   * @example
+   * ```typescript
+   * this.onConfigChange(async (data) => {
+   *   const wasEnabled = data.previousConfig?.enabled === true
+   *   const isEnabled = data.config?.enabled === true
+   *   if (!wasEnabled && isEnabled) {
+   *     console.log("Plugin was just enabled!")
+   *   }
+   * })
+   * ```
+   */
+  protected onConfigChange(
+    handler: (data: {
+      roomId: string
+      pluginName: string
+      config: Record<string, unknown>
+      previousConfig: Record<string, unknown>
+    }) => Promise<void> | void,
+  ): void {
+    this.on("CONFIG_CHANGED", async (data) => {
+      // Only handle config changes for this plugin
+      if (data.pluginName === this.name) {
+        await handler(data)
+      }
+    })
+  }
+
+  /**
    * Emit a custom plugin event to the frontend.
    *
    * Events are automatically namespaced as `PLUGIN:{pluginName}:{eventName}`

@@ -152,12 +152,14 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     await super.register(context)
 
     // Register for lifecycle events
-    context.lifecycle.on("TRACK_CHANGED", this.onTrackChanged.bind(this))
-    context.lifecycle.on("ROOM_DELETED", this.onRoomDeleted.bind(this))
-    context.lifecycle.on("CONFIG_CHANGED", this.onConfigChanged.bind(this))
-    context.lifecycle.on("REACTION_ADDED", this.onReactionAdded.bind(this))
-    context.lifecycle.on("REACTION_REMOVED", this.onReactionRemoved.bind(this))
-    context.lifecycle.on("USER_LEFT", this.onUserLeave.bind(this))
+    this.on("TRACK_CHANGED", this.onTrackChanged.bind(this))
+    this.on("ROOM_DELETED", this.onRoomDeleted.bind(this))
+    this.on("REACTION_ADDED", this.onReactionAdded.bind(this))
+    this.on("REACTION_REMOVED", this.onReactionRemoved.bind(this))
+    this.on("USER_LEFT", this.onUserLeave.bind(this))
+
+    // Use filtered config change handler (only receives changes for THIS plugin)
+    this.onConfigChange(this.onConfigChanged.bind(this))
   }
 
   /**

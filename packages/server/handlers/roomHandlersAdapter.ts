@@ -20,21 +20,18 @@ export class RoomHandlers {
       return
     }
 
-    // Fetch plugin configs
-    const { getPluginConfig } = await import("../operations/data/pluginConfigs")
-    const playlistDemocracy = await getPluginConfig({
+    // Fetch all plugin configs
+    const { getAllPluginConfigs } = await import("../operations/data/pluginConfigs")
+    const pluginConfigs = await getAllPluginConfigs({
       context: socket.context,
       roomId: socket.data.roomId,
-      pluginName: "playlist-democracy",
     })
-
-    console.log("[RoomHandlers] Sending ROOM_SETTINGS with playlistDemocracy:", playlistDemocracy)
 
     io.to(socket.id).emit("event", {
       type: "ROOM_SETTINGS",
       data: {
         ...result,
-        playlistDemocracy,
+        pluginConfigs,
       },
     })
   }

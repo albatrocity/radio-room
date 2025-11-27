@@ -19,13 +19,22 @@ type Context = Pick<
   | "announceUsernameChanges"
   | "announceNowPlaying"
 > & {
+  /** Generic plugin configs keyed by plugin name */
+  pluginConfigs: Record<string, Record<string, unknown>>
+  /** @deprecated Use pluginConfigs["playlist-democracy"] instead */
   playlistDemocracy: PlaylistDemocracyConfig
 }
 
 type Event =
   | { type: "FETCH" }
-  | { type: "ROOM_SETTINGS"; data: { room: Room; playlistDemocracy?: PlaylistDemocracyConfig } }
-  | { type: "ROOM_SETTINGS_UPDATED"; data: { roomId: string; room: Room; playlistDemocracy?: PlaylistDemocracyConfig } }
+  | {
+      type: "ROOM_SETTINGS"
+      data: { room: Room; pluginConfigs?: Record<string, Record<string, unknown>> }
+    }
+  | {
+      type: "ROOM_SETTINGS_UPDATED"
+      data: { roomId: string; room: Room; pluginConfigs?: Record<string, Record<string, unknown>> }
+    }
   | { type: "SUBMIT"; target: "pending" }
 
 export const defaultConfig: PlaylistDemocracyConfig = {
@@ -54,6 +63,7 @@ export const settingsMachine = createMachine<Context, Event>(
       type: "jukebox",
       radioMetaUrl: "",
       radioListenUrl: "",
+      pluginConfigs: {},
       playlistDemocracy: defaultConfig,
     },
     invoke: [
@@ -101,6 +111,9 @@ export const settingsMachine = createMachine<Context, Event>(
       fetchSettings: sendTo("socket", () => ({ type: "GET_ROOM_SETTINGS" })),
       setValues: assign((ctx, event) => {
         if (event.type === "ROOM_SETTINGS" || event.type === "ROOM_SETTINGS_UPDATED") {
+          // Get plugin configs from the event
+          const pluginConfigs = event.data.pluginConfigs || {}
+
           const newContext = {
             title: event.data.room.title,
             fetchMeta: event.data.room.fetchMeta,
@@ -115,7 +128,10 @@ export const settingsMachine = createMachine<Context, Event>(
             radioProtocol: event.data.room.radioProtocol,
             announceNowPlaying: event.data.room.announceNowPlaying,
             announceUsernameChanges: event.data.room.announceUsernameChanges,
-            playlistDemocracy: event.data.playlistDemocracy || defaultConfig,
+            pluginConfigs,
+            // Keep playlistDemocracy for backwards compatibility
+            playlistDemocracy:
+              (pluginConfigs["playlist-democracy"] as PlaylistDemocracyConfig) || defaultConfig,
           }
           return newContext
         }

@@ -29,21 +29,18 @@ export class AdminHandlers {
       return
     }
 
-    // Fetch plugin configs
-    const { getPluginConfig } = await import("../operations/data/pluginConfigs")
-    const playlistDemocracy = await getPluginConfig({
+    // Fetch all plugin configs
+    const { getAllPluginConfigs } = await import("../operations/data/pluginConfigs")
+    const pluginConfigs = await getAllPluginConfigs({
       context: socket.context,
       roomId: socket.data.roomId,
-      pluginName: "playlist-democracy",
     })
-
-    console.log("[AdminHandler] Sending ROOM_SETTINGS with playlistDemocracy:", playlistDemocracy)
 
     io.to(socket.id).emit("event", {
       type: "ROOM_SETTINGS",
       data: {
         room: result.room,
-        playlistDemocracy,
+        pluginConfigs,
       },
     })
   }
@@ -143,11 +140,10 @@ export class AdminHandlers {
     }
 
     // Fetch updated plugin configs to send back to client
-    const { getPluginConfig } = await import("../operations/data/pluginConfigs")
-    const updatedPlaylistDemocracy = await getPluginConfig({
+    const { getAllPluginConfigs } = await import("../operations/data/pluginConfigs")
+    const updatedPluginConfigs = await getAllPluginConfigs({
       context: socket.context,
       roomId: socket.data.roomId,
-      pluginName: "playlist-democracy",
     })
 
     io.to(getRoomPath(socket.data.roomId)).emit("event", {
@@ -155,7 +151,7 @@ export class AdminHandlers {
       data: {
         roomId: socket.data.roomId,
         room: result.room,
-        playlistDemocracy: updatedPlaylistDemocracy,
+        pluginConfigs: updatedPluginConfigs,
       },
     })
 
@@ -181,17 +177,14 @@ export class AdminHandlers {
         for (const [pluginName, newConfig] of Object.entries(pluginConfigs)) {
           const previousConfig = previousPluginConfigs[pluginName]
 
-          console.log(`[AdminHandler] Emitting configChanged for ${pluginName}:`, {
-            previous: previousConfig,
-            current: newConfig,
-            changed: JSON.stringify(newConfig) !== JSON.stringify(previousConfig),
-          })
-
           // Only emit if config actually changed
           if (JSON.stringify(newConfig) !== JSON.stringify(previousConfig)) {
+            console.log(`[AdminHandler] Emitting CONFIG_CHANGED for ${pluginName}`)
+
             if (socket.context.systemEvents) {
               await socket.context.systemEvents.emit(socket.data.roomId, "CONFIG_CHANGED", {
                 roomId: socket.data.roomId,
+                pluginName,
                 config: newConfig as Record<string, unknown>,
                 previousConfig: previousConfig as Record<string, unknown>,
               })
