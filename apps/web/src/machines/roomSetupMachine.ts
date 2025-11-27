@@ -92,6 +92,8 @@ export const roomSetupMachine = createMachine<RoomSetupContext, RoomSetupEvent>(
     actions: {
       setError: assign((ctx, event) => {
         if (event.type !== "done.invoke.createRoomRequest") return ctx
+        // Clear the creation flag on error so user can retry
+        sessionStorage.removeItem("roomCreationInProgress")
         return {
           error: event.error,
         }
@@ -106,12 +108,14 @@ export const roomSetupMachine = createMachine<RoomSetupContext, RoomSetupEvent>(
             isAdmin: true,
           },
         })
+        // Clear all room creation state from sessionStorage
         sessionStorage.removeItem("createRoomTitle")
         sessionStorage.removeItem("createRoomType")
         sessionStorage.removeItem("createRoomDeputizeOnJoin")
         sessionStorage.removeItem("createRoomradioMetaUrl")
         sessionStorage.removeItem("createRoomRadioListenUrl")
         sessionStorage.removeItem("createRoomRadioProtocol")
+        sessionStorage.removeItem("roomCreationInProgress")
         window.location.href = `/rooms/${event.data.room.id}`
       },
       setRequirements: assign((ctx, event) => {

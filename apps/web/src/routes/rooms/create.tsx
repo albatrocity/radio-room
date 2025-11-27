@@ -1,4 +1,4 @@
-import React, { useEffect } from "react"
+import React, { useEffect, useRef } from "react"
 import { Center, Heading, Spinner, VStack } from "@chakra-ui/react"
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import Div100vh from "react-div-100vh"
@@ -16,6 +16,9 @@ function CreateRoomPage() {
   const challenge = (searchParams as any).challenge
   const userId = (searchParams as any).userId
 
+  // Prevent double room creation (React StrictMode runs effects twice)
+  const hasStartedCreation = useRef(false)
+
   const [_state, send] = useMachine(roomSetupMachine, {
     context: {
       challenge,
@@ -24,6 +27,19 @@ function CreateRoomPage() {
   })
 
   useEffect(() => {
+    // Guard against double execution (React StrictMode + potential remounts)
+    if (hasStartedCreation.current) {
+      console.log("[CreateRoom] Already started creation (ref), skipping")
+      return
+    }
+
+    // Also check sessionStorage for cross-mount protection
+    const creationInProgress = sessionStorage.getItem("roomCreationInProgress")
+    if (creationInProgress === challenge) {
+      console.log("[CreateRoom] Already started creation (sessionStorage), skipping")
+      return
+    }
+
     if (!challenge || !userId) {
       navigate({
         to: "/",
@@ -32,6 +48,12 @@ function CreateRoomPage() {
       })
       return
     }
+
+    // Mark creation as started before sending
+    hasStartedCreation.current = true
+    sessionStorage.setItem("roomCreationInProgress", challenge)
+    console.log("[CreateRoom] Starting room creation for user:", userId)
+
     send("SET_REQUIREMENTS", {
       data: {
         challenge,
