@@ -37,6 +37,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     context.lifecycle.on("CONFIG_CHANGED", this.onConfigChanged.bind(this))
     context.lifecycle.on("REACTION_ADDED", this.onReactionAdded.bind(this))
     context.lifecycle.on("REACTION_REMOVED", this.onReactionRemoved.bind(this))
+    context.lifecycle.on("USER_LEFT", this.onUserLeave.bind(this))
   }
 
   /**
@@ -282,6 +283,33 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       }
     } catch (error) {
       console.error(`[${this.name}] Error checking threshold:`, error)
+    }
+  }
+
+  private async onUserLeave(): Promise<void> {
+    console.log("USER LEFT")
+    if (!this.context) return
+
+    const config = await this.getConfig()
+    if (!config?.enabled) return
+
+    const users = await this.context.api.getUsers(this.context.roomId)
+
+    // If no more admins, disable the plugin and cleanup
+    if (users.filter((u) => u.isAdmin).length === 0) {
+      await this.context.api.sendSystemMessage(
+        this.context.roomId,
+        `No more admins left in the room, stopping playlist democracy`,
+        { type: "alert", status: "info" },
+      )
+
+      const currentConfig = await this.getConfig()
+      await this.context.api.setPluginConfig(this.context.roomId, this.name, {
+        ...currentConfig,
+        enabled: false,
+      })
+
+      await this.cleanup()
     }
   }
 

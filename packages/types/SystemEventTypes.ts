@@ -59,7 +59,7 @@ export type SystemEventHandlers = {
   // User events
   USER_JOINED: (data: { roomId: string; user: User; users?: User[] }) => Promise<void> | void
 
-  USER_LEFT: (data: { roomId: string; user: User }) => Promise<void> | void
+  USER_LEFT: (data: { roomId: string; user: User; users?: User[] }) => Promise<void> | void
 
   USER_STATUS_CHANGED: (data: {
     roomId: string

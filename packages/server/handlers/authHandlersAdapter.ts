@@ -41,10 +41,10 @@ export class AuthHandlers {
     )
 
     if (result.error) {
-    socket.emit("event", {
-      type: "ERROR_OCCURRED",
-      data: result.error,
-    })
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
       return
     }
 
@@ -93,11 +93,11 @@ export class AuthHandlers {
         })
         return
       }
-      
-    socket.emit("event", {
-      type: "ERROR_OCCURRED",
-      data: result.error,
-    })
+
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
       return
     }
 
@@ -185,13 +185,14 @@ export class AuthHandlers {
 
     socket.leave(getRoomPath(socket.data.roomId))
 
-    socket.broadcast.to(getRoomPath(socket.data.roomId)).emit("event", {
-      type: "USER_LEFT",
-      data: {
-        user: { username: result.username },
+    // Emit via SystemEvents so plugins receive USER_LEFT
+    if (socket.context.systemEvents) {
+      await socket.context.systemEvents.emit(socket.data.roomId, "USER_LEFT", {
+        roomId: socket.data.roomId,
+        user: { userId: socket.data.userId, username: result.username },
         users: result.users,
-      },
-    })
+      })
+    }
   }
 
   /**
@@ -210,7 +211,7 @@ export class AuthHandlers {
       type: "SERVICE_AUTHENTICATION_STATUS",
       data: {
         isAuthenticated: result.isAuthenticated,
-        accessToken: 'accessToken' in result ? result.accessToken : undefined,
+        accessToken: "accessToken" in result ? result.accessToken : undefined,
         serviceName: result.serviceName,
       },
     })
@@ -255,7 +256,7 @@ export class AuthHandlers {
       type: "SPOTIFY_AUTHENTICATION_STATUS",
       data: {
         isAuthenticated: result.isAuthenticated,
-        accessToken: 'accessToken' in result ? result.accessToken : undefined,
+        accessToken: "accessToken" in result ? result.accessToken : undefined,
       },
     })
   }
