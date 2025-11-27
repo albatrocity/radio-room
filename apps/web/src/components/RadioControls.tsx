@@ -13,13 +13,20 @@ import {
 } from "../state/audioStore"
 
 type Props = {
-  trackId: string
+  trackId: string // For reactions (stable ID)
+  libraryTrackId: string // For library operations (MetadataSource ID)
   onShowPlaylist: () => void
   hasPlaylist: boolean
   streamUrl?: string
 }
 
-export default function RadioControls({ trackId, onShowPlaylist, hasPlaylist, streamUrl }: Props) {
+export default function RadioControls({
+  trackId,
+  libraryTrackId,
+  onShowPlaylist,
+  hasPlaylist,
+  streamUrl,
+}: Props) {
   const { send: audioSend } = useAudioStore()
   const playing = useIsPlaying()
   const muted = useIsMuted()
@@ -43,7 +50,7 @@ export default function RadioControls({ trackId, onShowPlaylist, hasPlaylist, st
       <Box display={["none", "flex"]} background="actionBg" alignItems="center" py="1">
         <Container>
           <HStack>
-            <ButtonAddToLibrary id={trackId} />
+            <ButtonAddToLibrary id={libraryTrackId} />
             <ReactionCounter
               reactTo={{ type: "track", id: trackId }}
               darkBg={true}
@@ -65,6 +72,7 @@ export default function RadioControls({ trackId, onShowPlaylist, hasPlaylist, st
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}
           trackId={trackId}
+          libraryTrackId={libraryTrackId}
           loading={loading}
           streamUrl={streamUrl}
         />

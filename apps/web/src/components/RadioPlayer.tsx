@@ -36,7 +36,8 @@ interface RadioPlayerProps {
   onLoad: () => void
   onPlay: () => void
   hasPlaylist: boolean
-  trackId: string
+  trackId: string // For reactions (stable ID)
+  libraryTrackId: string // For library operations (MetadataSource ID)
   loading: boolean
   streamUrl: string
 }
@@ -53,6 +54,7 @@ const RadioPlayer = ({
   onShowPlaylist,
   hasPlaylist,
   trackId,
+  libraryTrackId,
   loading,
   streamUrl,
 }: RadioPlayerProps) => {
@@ -87,7 +89,7 @@ const RadioPlayer = ({
           <Box py={1} h={10} overflowX="auto">
             <Box px={4} flexDir="row">
               <HStack alignItems="flex-start">
-                <ButtonAddToLibrary id={trackId} />
+                <ButtonAddToLibrary id={libraryTrackId} />
                 <ReactionCounter
                   reactTo={{ type: "track", id: trackId }}
                   showAddButton={true}

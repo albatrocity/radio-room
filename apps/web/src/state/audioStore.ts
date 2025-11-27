@@ -17,6 +17,16 @@ export const useIsStationOnline = () =>
 export const useCurrentTrackId = () =>
   useAudioStore((s) => s.state.context.meta?.nowPlaying?.mediaSource?.trackId || "")
 
+// MetadataSource track ID (for library operations like Add to Library)
+// Falls back to mediaSource.trackId when metadataSource is not available
+export const useMetadataSourceTrackId = () =>
+  useAudioStore(
+    (s) =>
+      s.state.context.meta?.nowPlaying?.metadataSource?.trackId ||
+      s.state.context.meta?.nowPlaying?.mediaSource?.trackId ||
+      "",
+  )
+
 // Whether we have track data (regardless of fetch status)
 export const useHasTrackData = () =>
   useAudioStore((s) => !!s.state.context.meta?.nowPlaying?.track)

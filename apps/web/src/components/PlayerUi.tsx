@@ -8,6 +8,7 @@ import {
   useIsStationOnline,
   useStationMeta,
   useCurrentTrackId,
+  useMetadataSourceTrackId,
   useMediaSourceStatus,
 } from "../state/audioStore"
 import { useCurrentRoom, useCurrentRoomHasAudio } from "../state/roomStore"
@@ -29,7 +30,8 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   // Clean state from audio store
   const isOnline = useIsStationOnline()
   const meta = useStationMeta()
-  const trackId = useCurrentTrackId()
+  const trackId = useCurrentTrackId() // For reactions (stable ID)
+  const libraryTrackId = useMetadataSourceTrackId() // For library operations (Spotify ID)
   const mediaSourceStatus = useMediaSourceStatus()
 
   const isJukebox = !hasAudio
@@ -46,6 +48,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
       {isJukebox && (
         <JukeboxControls
           trackId={trackId}
+          libraryTrackId={libraryTrackId}
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}
         />
@@ -63,6 +66,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
         >
           <RadioControls
             trackId={trackId}
+            libraryTrackId={libraryTrackId}
             onShowPlaylist={onShowPlaylist}
             hasPlaylist={hasPlaylist}
             streamUrl={room.radioListenUrl ?? room.radioMetaUrl}
