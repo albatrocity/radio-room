@@ -69,6 +69,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
         },
         "enabled",
         "words",
+        "sendMessageOnDetection",
         "messageTemplate",
       ],
       fieldMeta: {
@@ -87,16 +88,32 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
             value: true,
           },
         },
+        sendMessageOnDetection: {
+          type: "boolean",
+          label: "Send Message on Detection",
+          description:
+            "When enabled, the plugin will send a message when a special word is detected",
+          showWhen: {
+            field: "enabled",
+            value: true,
+          },
+        },
         messageTemplate: {
           type: "string",
           description:
             "Available variables: {{word}}, {{user}}, {{message}}, {{userRank}}, {{userAllWordsCount}}, {{userThisWordCount}}, {{totalWordsUsed}}, {{thisWordCount}}, {{thisWordRank}}",
 
           label: "Message Template",
-          showWhen: {
-            field: "enabled",
-            value: true,
-          },
+          showWhen: [
+            {
+              field: "enabled",
+              value: true,
+            },
+            {
+              field: "sendMessageOnDetection",
+              value: true,
+            },
+          ],
         },
       },
     }
@@ -140,8 +157,10 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     if (!this.context) return
     const { user } = message
     const { userId, username } = user
+    const config = await this.getConfig()
 
     if (!userId) return
+    if (!config?.enabled) return
 
     // Increment uses of any special word by this user
     await this.context.storage.zincrby(USER_WORD_COUNT_KEY, 1, userId)
@@ -173,20 +192,23 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     const thisWordRank =
       (await this.context.storage.zrevrank(WORD_RANK_KEY, this.normalizeWord(word))) ?? -1
 
-    await this.context.api.sendSystemMessage(
-      this.context?.roomId,
-      await this.makeSystemMessage({
-        word,
-        user,
-        message,
-        userRank,
-        userAllWordsCount,
-        userThisWordCount,
-        totalWordsUsed,
-        thisWordCount,
-        thisWordRank,
-      }),
-    )
+    if (config.sendMessageOnDetection) {
+      await this.context.api.sendSystemMessage(
+        this.context?.roomId,
+        await this.makeSystemMessage({
+          word,
+          user,
+          message,
+          userRank,
+          userAllWordsCount,
+          userThisWordCount,
+          totalWordsUsed,
+          thisWordCount,
+          thisWordRank,
+        }),
+      )
+    }
+
     // Emit custom plugin event to frontend
     // Frontend receives: PLUGIN:special-words:SPECIAL_WORD_DETECTED
     await this.emit<SpecialWordsEvents["SPECIAL_WORD_DETECTED"]>("SPECIAL_WORD_DETECTED", {
