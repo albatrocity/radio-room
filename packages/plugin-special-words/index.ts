@@ -5,6 +5,7 @@ import type {
   PluginConfigSchema,
   SystemEventPayload,
   ChatMessage,
+  User,
 } from "@repo/types"
 import { BasePlugin } from "@repo/plugin-base"
 import packageJson from "./package.json"
@@ -14,9 +15,14 @@ import {
   defaultSpecialWordsConfig,
   type SpecialWordsConfig,
 } from "./types"
+import { interpolateTemplate } from "@repo/utils"
 
 export type { SpecialWordsConfig } from "./types"
 export { specialWordsConfigSchema, defaultSpecialWordsConfig } from "./types"
+
+const USER_WORD_COUNT_KEY = "user-word-count"
+const WORDS_PER_USER_KEY = "words-per-user"
+const WORD_RANK_KEY = "word-rank"
 
 /**
  * Plugin event payloads for special-words plugin.
@@ -55,6 +61,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
         },
         "enabled",
         "words",
+        "messageTemplate",
       ],
       fieldMeta: {
         enabled: {
@@ -67,6 +74,21 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
           label: "Words to Detect",
           description: "List of words to watch for in chat messages (case-insensitive)",
           placeholder: "Enter a word and press Enter",
+          showWhen: {
+            field: "enabled",
+            value: true,
+          },
+        },
+        messageTemplate: {
+          type: "string",
+          description:
+            "Available variables: {{word}}, {{user}}, {{message}}, {{userRank}}, {{userAllWordsCount}}, {{userThisWordCount}}, {{totalWordsUsed}}, {{thisWordCount}}, {{thisWordRank}}",
+
+          label: "Message Template",
+          showWhen: {
+            field: "enabled",
+            value: true,
+          },
         },
       },
     }
@@ -97,7 +119,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     if (message.user.userId === "system") return
 
     const words = message.content.toLowerCase().split(/\s+/)
-    const configWords = new Set(config.words.map((w) => w.toLowerCase()))
+    const configWords = new Set(config.words.map((w) => this.normalizeWord(w)))
 
     for (const word of words) {
       if (configWords.has(word)) {
@@ -108,19 +130,109 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
 
   private async handleSpecialWord(word: string, message: ChatMessage): Promise<void> {
     if (!this.context) return
+    const { user } = message
+    const { userId, username } = user
 
-    this.context.api.sendSystemMessage(this.context?.roomId, `Special word detected: ${word}`, {
-      status: "info",
-      type: "alert",
-    })
+    if (!userId) return
+
+    // Increment uses of any special word by this user
+    await this.context.storage.zincrby(USER_WORD_COUNT_KEY, 1, userId)
+    // Increment rank of this word
+    await this.context.storage.zincrby(WORD_RANK_KEY, 1, this.normalizeWord(word))
+
+    // Incrememnt how many times this word has been used by this user
+    await this.context.storage.zincrby(
+      `${WORDS_PER_USER_KEY}:${userId}`,
+      1,
+      this.normalizeWord(word),
+    )
+
+    // Fetch data for message
+    const userAllWordsCount =
+      (await this.context?.storage.zscore(USER_WORD_COUNT_KEY, user.userId)) ?? 0
+    const userRank = (await this.context.storage.zrevrank(USER_WORD_COUNT_KEY, user.userId)) ?? -1
+
+    const userThisWordCount =
+      (await this.context?.storage.zscore(`${WORDS_PER_USER_KEY}:${user.userId}`, word)) ?? 0
+
+    const allWordsWithScores = await this.context.storage.zrangeWithScores(
+      USER_WORD_COUNT_KEY,
+      0,
+      -1,
+    )
+
+    const thisWordCount =
+      (await this.context.storage.zscore(WORD_RANK_KEY, this.normalizeWord(word))) ?? -1
+    const totalWordsUsed = allWordsWithScores.reduce((acc, curr) => acc + curr.score, 0)
+    const thisWordRank =
+      (await this.context.storage.zrevrank(WORD_RANK_KEY, this.normalizeWord(word))) ?? -1
+
+    await this.context.api.sendSystemMessage(
+      this.context?.roomId,
+      await this.makeSystemMessage({
+        word,
+        user,
+        message,
+        userRank,
+        userAllWordsCount,
+        userThisWordCount,
+        totalWordsUsed,
+        thisWordCount,
+        thisWordRank,
+      }),
+    )
     // Emit custom plugin event to frontend
     // Frontend receives: PLUGIN:special-words:SPECIAL_WORD_DETECTED
     await this.emit<SpecialWordsEvents["SPECIAL_WORD_DETECTED"]>("SPECIAL_WORD_DETECTED", {
       word,
-      userId: message.user.userId,
-      username: message.user.username ?? undefined,
+      userId: userId,
+      username: username ?? undefined,
       messageTimestamp: message.timestamp,
     })
+  }
+
+  private normalizeWord(word: string): string {
+    return word.toLowerCase().trim()
+  }
+
+  private async makeSystemMessage(data: {
+    word: string
+    user: User
+    message: ChatMessage
+    userRank: number
+    userAllWordsCount: number
+    userThisWordCount: number
+    totalWordsUsed: number
+    thisWordCount: number
+    thisWordRank: number
+  }): Promise<string> {
+    if (!this.context) throw new Error("Context not found")
+    const {
+      word,
+      user,
+      userRank,
+      userAllWordsCount,
+      totalWordsUsed,
+      thisWordCount,
+      thisWordRank,
+      userThisWordCount,
+    } = data
+    const { username, userId } = user
+
+    const config = await this.getConfig()
+    const message = interpolateTemplate(config?.messageTemplate ?? "", {
+      word,
+      username,
+      userId,
+      userRank: userRank + 1,
+      userAllWordsCount,
+      totalWordsUsed,
+      thisWordCount,
+      thisWordRank: thisWordRank + 1,
+      userThisWordCount,
+    })
+
+    return message
   }
 }
 

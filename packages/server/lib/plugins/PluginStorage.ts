@@ -31,7 +31,7 @@ export class PluginStorageImpl implements PluginStorage {
     try {
       const namespacedKey = this.makeKey(key)
       await this.context.redis.pubClient.set(namespacedKey, value)
-      
+
       if (ttl) {
         await this.context.redis.pubClient.expire(namespacedKey, ttl)
       }
@@ -93,6 +93,96 @@ export class PluginStorageImpl implements PluginStorage {
     }
   }
 
+  async zadd(key: string, score: number, value: string): Promise<void> {
+    try {
+      await this.context.redis.pubClient.zAdd(this.makeKey(key), [{ score, value }])
+    } catch (error) {
+      console.error(`[PluginStorage] Error adding to zset ${key}:`, error)
+    }
+  }
+
+  async zrem(key: string, value: string): Promise<void> {
+    try {
+      await this.context.redis.pubClient.zRem(this.makeKey(key), value)
+    } catch (error) {
+      console.error(`[PluginStorage] Error removing from zset ${key}:`, error)
+    }
+  }
+
+  async zrank(key: string, value: string): Promise<number | null> {
+    try {
+      return await this.context.redis.pubClient.zRank(this.makeKey(key), value)
+    } catch (error) {
+      console.error(`[PluginStorage] Error getting zrank ${key}:`, error)
+      return null
+    }
+  }
+
+  async zrange(key: string, start: number, stop: number): Promise<string[]> {
+    try {
+      return await this.context.redis.pubClient.zRange(this.makeKey(key), start, stop)
+    } catch (error) {
+      console.error(`[PluginStorage] Error getting zrange ${key}:`, error)
+      return []
+    }
+  }
+
+  async zrangeWithScores(
+    key: string,
+    start: number,
+    stop: number,
+  ): Promise<{ score: number; value: string }[]> {
+    try {
+      return await this.context.redis.pubClient.zRangeWithScores(this.makeKey(key), start, stop)
+    } catch (error) {
+      console.error(`[PluginStorage] Error getting zrangeWithScores ${key}:`, error)
+      return []
+    }
+  }
+
+  async zrevrank(key: string, value: string): Promise<number | null> {
+    try {
+      return await this.context.redis.pubClient.zRevRank(this.makeKey(key), value)
+    } catch (error) {
+      console.error(`[PluginStorage] Error getting zrevrank ${key}:`, error)
+      return null
+    }
+  }
+
+  async zincrby(key: string, increment: number, value: string): Promise<number> {
+    try {
+      return await this.context.redis.pubClient.zIncrBy(this.makeKey(key), increment, value)
+    } catch (error) {
+      console.error(`[PluginStorage] Error incrementing zset ${key}:`, error)
+      return 0
+    }
+  }
+
+  async zscore(key: string, value: string): Promise<number | null> {
+    try {
+      return await this.context.redis.pubClient.zScore(this.makeKey(key), value)
+    } catch (error) {
+      console.error(`[PluginStorage] Error getting zscore ${key}:`, error)
+      return null
+    }
+  }
+  async zrangebyscore(key: string, min: number, max: number): Promise<string[]> {
+    try {
+      return await this.context.redis.pubClient.zRangeByScore(this.makeKey(key), min, max)
+    } catch (error) {
+      console.error(`[PluginStorage] Error getting zrangebyscore ${key}:`, error)
+      return []
+    }
+  }
+
+  async zremrangebyscore(key: string, min: number, max: number): Promise<void> {
+    try {
+      await this.context.redis.pubClient.zRemRangeByScore(this.makeKey(key), min, max)
+    } catch (error) {
+      console.error(`[PluginStorage] Error removing from zset ${key}:`, error)
+    }
+  }
+
   /**
    * Cleanup all keys for this plugin in this room
    */
@@ -100,7 +190,7 @@ export class PluginStorageImpl implements PluginStorage {
     try {
       const pattern = this.makeKey("*")
       const keys = await this.context.redis.pubClient.keys(pattern)
-      
+
       if (keys.length > 0) {
         await this.context.redis.pubClient.del(keys)
         console.log(`[PluginStorage] Cleaned up ${keys.length} keys for plugin ${this.pluginName}`)
@@ -110,4 +200,3 @@ export class PluginStorageImpl implements PluginStorage {
     }
   }
 }
-

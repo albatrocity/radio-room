@@ -24,6 +24,7 @@
   "dependencies": {
     "@repo/plugin-base": "*",
     "@repo/types": "*",
+    "@repo/utils": "*",
     "zod": "^4.1.13"
   }
 }

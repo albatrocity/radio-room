@@ -115,6 +115,21 @@ export interface PluginStorage {
   exists(key: string): Promise<boolean>
   /** Batch get multiple keys efficiently */
   mget(keys: string[]): Promise<(string | null)[]>
+  /** Sorted Sets */
+  zadd(key: string, score: number, value: string): Promise<void>
+  zrem(key: string, value: string): Promise<void>
+  zrank(key: string, value: string): Promise<number | null>
+  zrevrank(key: string, value: string): Promise<number | null>
+  zrange(key: string, start: number, stop: number): Promise<string[]>
+  zrangeWithScores(
+    key: string,
+    start: number,
+    stop: number,
+  ): Promise<{ score: number; value: string }[]>
+  zrangebyscore(key: string, min: number, max: number): Promise<string[]>
+  zremrangebyscore(key: string, min: number, max: number): Promise<void>
+  zscore(key: string, value: string): Promise<number | null>
+  zincrby(key: string, increment: number, value: string): Promise<number>
 }
 
 /**

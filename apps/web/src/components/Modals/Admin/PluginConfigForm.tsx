@@ -33,6 +33,7 @@ import {
 } from "@chakra-ui/react"
 import Picker from "@emoji-mart/react"
 import data from "@emoji-mart/data"
+import { interpolateTemplate } from "@repo/utils"
 import type {
   PluginConfigSchema,
   PluginFieldMeta,
@@ -65,55 +66,6 @@ function shouldShow(
 
   // Handle single condition
   return allValues[showWhen.field] === showWhen.value
-}
-
-/**
- * Format a value using a formatter name
- */
-function formatValue(value: unknown, formatter: string): string {
-  switch (formatter) {
-    case "duration":
-      // Assume value is in milliseconds, convert to human-readable
-      if (typeof value === "number") {
-        const seconds = value / 1000
-        if (seconds >= 60) {
-          const minutes = Math.floor(seconds / 60)
-          const remainingSeconds = seconds % 60
-          if (remainingSeconds === 0) {
-            return `${minutes} minute${minutes !== 1 ? "s" : ""}`
-          }
-          return `${minutes}m ${remainingSeconds}s`
-        }
-        return `${seconds} second${seconds !== 1 ? "s" : ""}`
-      }
-      return String(value)
-    case "percentage":
-      return `${value}%`
-    default:
-      return String(value)
-  }
-}
-
-/**
- * Interpolate template placeholders in content string.
- * Supports {{fieldName}} and {{fieldName:formatter}} syntax.
- *
- * Examples:
- * - "Threshold is {{thresholdValue}}" → "Threshold is 50"
- * - "Time limit: {{timeLimit:duration}}" → "Time limit: 60 seconds"
- * - "At {{thresholdValue:percentage}}" → "At 50%"
- */
-function interpolateContent(content: string, values: Record<string, unknown>): string {
-  return content.replace(/\{\{(\w+)(?::(\w+))?\}\}/g, (match, fieldName, formatter) => {
-    const value = values[fieldName]
-    if (value === undefined || value === null) {
-      return match // Keep placeholder if value not found
-    }
-    if (formatter) {
-      return formatValue(value, formatter)
-    }
-    return String(value)
-  })
 }
 
 /**
@@ -380,7 +332,7 @@ function renderSchemaElement(
   }
 
   // Interpolate template placeholders in content
-  const content = interpolateContent(element.content, allValues)
+  const content = interpolateTemplate(element.content, allValues)
 
   if (element.type === "heading") {
     return (
