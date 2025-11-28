@@ -34,6 +34,14 @@ export interface SpecialWordsEvents {
     userId: string
     username?: string
     messageTimestamp: string
+    userRank: number
+    userAllWordsCount: number
+    userThisWordCount: number
+    totalWordsUsed: number
+    thisWordCount: number
+    thisWordRank: number
+    usersLeaderboard: { score: number; value: string }[]
+    allWordsLeaderboard: { score: number; value: string }[]
   }
 }
 
@@ -155,15 +163,13 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     const userThisWordCount =
       (await this.context?.storage.zscore(`${WORDS_PER_USER_KEY}:${user.userId}`, word)) ?? 0
 
-    const allWordsWithScores = await this.context.storage.zrangeWithScores(
-      USER_WORD_COUNT_KEY,
-      0,
-      -1,
-    )
+    const usersLeaderboard = await this.context.storage.zrangeWithScores(USER_WORD_COUNT_KEY, 0, -1)
+
+    const allWordsLeaderboard = await this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1)
 
     const thisWordCount =
       (await this.context.storage.zscore(WORD_RANK_KEY, this.normalizeWord(word))) ?? -1
-    const totalWordsUsed = allWordsWithScores.reduce((acc, curr) => acc + curr.score, 0)
+    const totalWordsUsed = usersLeaderboard.reduce((acc, curr) => acc + curr.score, 0)
     const thisWordRank =
       (await this.context.storage.zrevrank(WORD_RANK_KEY, this.normalizeWord(word))) ?? -1
 
@@ -188,6 +194,14 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       userId: userId,
       username: username ?? undefined,
       messageTimestamp: message.timestamp,
+      userRank,
+      userAllWordsCount,
+      userThisWordCount,
+      totalWordsUsed,
+      thisWordCount,
+      thisWordRank,
+      usersLeaderboard,
+      allWordsLeaderboard,
     })
   }
 
