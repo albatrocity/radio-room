@@ -1,8 +1,13 @@
 {
-  "name": "@repo/media-source-shoutcast",
+  "name": "@repo/plugin-special-words",
   "version": "1.0.0",
-  "description": "",
+  "description": "Special Words plugin for Radio Room - detect special words in messages",
   "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types.ts"
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
@@ -13,15 +18,14 @@
   "license": "ISC",
   "devDependencies": {
     "@repo/eslint-config": "*",
-    "@repo/types": "*",
     "@repo/typescript-config": "*",
     "vitest": "^4.0.13"
   },
   "dependencies": {
+    "@repo/plugin-base": "*",
+    "@repo/types": "*",
     "@repo/utils": "*",
-    "@spotify/web-api-ts-sdk": "^1.2.0",
-    "node-internet-radio": "^0.2.1",
-    "react-mentions": "3.0.2",
     "zod": "^4.1.13"
   }
 }
+

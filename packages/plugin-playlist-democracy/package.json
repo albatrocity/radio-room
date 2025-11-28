@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@repo/plugin-base": "*",
-    "@repo/types": "*"
+    "@repo/types": "*",
+    "zod": "^4.1.13"
   }
 }
-

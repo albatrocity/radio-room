@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "author": "Ross Brown <albatrocity@gmail.com>",
   "dependencies": {
+    "@repo/utils": "*",
     "@chakra-ui/icons": "^2.0.17",
     "@chakra-ui/react": "^2.5.1",
     "@emoji-mart/data": "^1.0.6",

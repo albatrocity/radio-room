@@ -142,7 +142,10 @@ describe("PlaylistDemocracyPlugin", () => {
       expect(mockContext.lifecycle.on).toHaveBeenCalledWith("ROOM_DELETED", expect.any(Function))
       expect(mockContext.lifecycle.on).toHaveBeenCalledWith("CONFIG_CHANGED", expect.any(Function))
       expect(mockContext.lifecycle.on).toHaveBeenCalledWith("REACTION_ADDED", expect.any(Function))
-      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("REACTION_REMOVED", expect.any(Function))
+      expect(mockContext.lifecycle.on).toHaveBeenCalledWith(
+        "REACTION_REMOVED",
+        expect.any(Function),
+      )
     })
   })
 

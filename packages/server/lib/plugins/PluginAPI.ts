@@ -8,16 +8,39 @@ import {
   ChatMessage,
 } from "@repo/types"
 import { Server } from "socket.io"
+import { getRoomPath } from "../getRoomPath"
 
 /**
  * Implementation of the Plugin API
  * Provides safe, high-level methods for plugins to interact with the system
  */
 export class PluginAPIImpl implements PluginAPI {
+  private pluginName: string | null = null
+  private roomId: string | null = null
+
   constructor(
-    private context: AppContext,
-    private io: Server,
+    private readonly context: AppContext,
+    private readonly io: Server,
   ) {}
+
+  /**
+   * Set the plugin context for namespacing events.
+   * Called by PluginRegistry when creating the context for a plugin.
+   */
+  setPluginContext(pluginName: string, roomId: string): void {
+    this.pluginName = pluginName
+    this.roomId = roomId
+  }
+
+  /**
+   * Create a scoped API instance for a specific plugin and room.
+   * This ensures emit() has the correct namespace.
+   */
+  forPlugin(pluginName: string, roomId: string): PluginAPI {
+    const scoped = new PluginAPIImpl(this.context, this.io)
+    scoped.setPluginContext(pluginName, roomId)
+    return scoped
+  }
 
   async getNowPlaying(roomId: string): Promise<QueueItem | null> {
     const { getRoomCurrent } = await import("../../operations/data")
@@ -112,6 +135,34 @@ export class PluginAPIImpl implements PluginAPI {
     await this.context.systemEvents.emit(roomId, "PLAYLIST_TRACK_UPDATED", {
       roomId,
       track,
+    })
+  }
+
+  /**
+   * Emit a custom plugin event.
+   * Events are namespaced as PLUGIN:{pluginName}:{eventName}
+   */
+  async emit<T extends Record<string, unknown>>(eventName: string, data: T): Promise<void> {
+    if (!this.pluginName || !this.roomId) {
+      console.warn("[PluginAPI] Cannot emit event: plugin context not set")
+      return
+    }
+
+    // Create namespaced event name: PLUGIN:{pluginName}:{eventName}
+    const namespacedEvent = `PLUGIN:${this.pluginName}:${eventName}`
+
+    // Add roomId to payload
+    const payload = {
+      roomId: this.roomId,
+      ...data,
+    }
+
+    console.log(`[PluginAPI] Emitting ${namespacedEvent}`, payload)
+
+    // Broadcast to room via Socket.IO
+    this.io.to(getRoomPath(this.roomId)).emit("event", {
+      type: namespacedEvent,
+      data: payload,
     })
   }
 }

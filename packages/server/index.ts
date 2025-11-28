@@ -31,6 +31,7 @@ import { createAdminController } from "./controllers/adminController"
 import { createAuthController, me, logout } from "./controllers/authController"
 import { createDJController } from "./controllers/djController"
 import { createMessageController } from "./controllers/messageController"
+import { getPluginSchemas, getPluginSchema } from "./controllers/pluginsController"
 import { clearRoomOnlineUsers } from "./operations/data"
 import { SocketWithContext } from "./lib/socketWithContext"
 import { PluginRegistry } from "./lib/plugins"
@@ -140,6 +141,9 @@ export class RadioRoomServer {
           jobs: status,
         })
       })
+      // Plugin schema endpoints
+      .get("/api/plugins", getPluginSchemas)
+      .get("/api/plugins/:pluginName/schema", getPluginSchema)
 
     // Create HTTP server from Express app, but don't start listening yet
     this.httpServer = createHttpServer(this.app)

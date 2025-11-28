@@ -9,16 +9,39 @@ import {
   ModalFooter,
   VStack,
   Divider,
+  Spinner,
 } from "@chakra-ui/react"
 import { useModalsStore } from "../../../state/modalsState"
 import { settingsMachine } from "../../../machines/settingsMachine"
+import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 import ActiveIndicator from "../../ActiveIndicator"
 import DestructiveActions from "./DestructiveActions"
 import ButtonRoomAuthSpotify from "../../ButtonRoomAuthSpotify"
 
+/**
+ * Convert plugin name to a display-friendly title
+ * e.g., "playlist-democracy" -> "Playlist Democracy"
+ */
+function toDisplayName(name: string): string {
+  return name
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+}
+
+/**
+ * Convert plugin name to event name for modal state machine
+ * e.g., "playlist-democracy" -> "EDIT_PLAYLIST_DEMOCRACY"
+ */
+function toEventName(name: string): string {
+  return `EDIT_${name.replace(/-/g, "_").toUpperCase()}`
+}
+
 function Overview() {
   const { send } = useModalsStore()
   const [settingsState] = useMachine(settingsMachine)
+  const { schemas, isLoading } = usePluginSchemas()
+
   const hasPassword = !!settingsState.context.password
   const hasSettings =
     !!settingsState.context.extraInfo ||
@@ -27,7 +50,15 @@ function Overview() {
   const hasChatSettings =
     settingsState.context.announceNowPlaying ?? settingsState.context.announceUsernameChanges
   const hasDjSettings = settingsState.context.deputizeOnJoin
-  const playlistDemocracyActive = settingsState.context.playlistDemocracy.enabled
+
+  // Check if a plugin is active based on its 'enabled' config
+  const isPluginActive = (pluginName: string): boolean => {
+    const pluginConfig = settingsState.context.pluginConfigs?.[pluginName]
+    return pluginConfig?.enabled === true
+  }
+
+  // Filter plugins that have a configSchema
+  const configurablePlugins = schemas.filter((p) => p.configSchema)
 
   return (
     <Box>
@@ -98,18 +129,35 @@ function Overview() {
               Plugins
             </Heading>
             <VStack w="100%" align="left" spacing="1px">
-              <Button
-                rightIcon={
-                  <HStack>
-                    {playlistDemocracyActive && <ActiveIndicator />}
-                    <ChevronRightIcon />
-                  </HStack>
-                }
-                variant="settingsCategory"
-                onClick={() => send("EDIT_PLAYLIST_DEMOCRACY")}
-              >
-                Playlist Democracy
-              </Button>
+              {isLoading ? (
+                <HStack py={2} px={4}>
+                  <Spinner size="sm" />
+                </HStack>
+              ) : configurablePlugins.length === 0 ? (
+                <Box py={2} px={4} color="gray.500" fontSize="sm">
+                  No configurable plugins available
+                </Box>
+              ) : (
+                configurablePlugins.map((plugin, index) => (
+                  <Button
+                    key={plugin.name}
+                    rightIcon={
+                      <HStack>
+                        {isPluginActive(plugin.name) && <ActiveIndicator />}
+                        <ChevronRightIcon />
+                      </HStack>
+                    }
+                    variant="settingsCategory"
+                    borderTopRadius={index === 0 ? undefined : "none"}
+                    borderBottomRadius={
+                      index === configurablePlugins.length - 1 ? undefined : "none"
+                    }
+                    onClick={() => send(toEventName(plugin.name) as any)}
+                  >
+                    {toDisplayName(plugin.name)}
+                  </Button>
+                ))
+              )}
             </VStack>
           </VStack>
 

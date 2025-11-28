@@ -21,7 +21,8 @@ import ReactionTriggerActions from "./ReactionTriggerActions"
 import MessageTriggerActions from "./MessageTriggerActions"
 import DjFeatures from "./DjFeatures"
 import SpotifyFeatures from "./SpotifyFeatures"
-import PlaylistDemocracySettings from "./PlaylistDemocracySettings"
+import DynamicPluginSettings from "./DynamicPluginSettings"
+import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 
 const Header = ({ showBack, onBack }: { showBack: boolean; onBack: () => void }) => {
   return (
@@ -39,6 +40,7 @@ const Header = ({ showBack, onBack }: { showBack: boolean; onBack: () => void })
 function ModalAdminSettings() {
   const { state, send } = useModalsStore()
   const isEditingSettings = useModalsStore((s: any) => s.state.matches("settings"))
+  const { schemas } = usePluginSchemas()
 
   const hideEditForm = () => send("CLOSE")
   const onBack = () => {
@@ -47,6 +49,9 @@ function ModalAdminSettings() {
 
   const isTriggersView =
     state.matches("settings.reaction_triggers") || state.matches("settings.message_triggers")
+
+  // Convert plugin name to state key (e.g., "playlist-democracy" -> "playlist_democracy")
+  const toStateKey = (name: string) => name.split("-").join("_")
 
   return (
     <Modal isOpen={isEditingSettings} onClose={hideEditForm} size={isTriggersView ? "2xl" : "md"}>
@@ -72,9 +77,15 @@ function ModalAdminSettings() {
         <Collapse in={state.matches("settings.password")}>
           <Password />
         </Collapse>
-        <Collapse in={state.matches("settings.playlist_democracy")}>
-          <PlaylistDemocracySettings />
-        </Collapse>
+
+        {/* Dynamic plugin settings */}
+        {schemas
+          .filter((plugin) => plugin.configSchema)
+          .map((plugin) => (
+            <Collapse key={plugin.name} in={state.matches(`settings.${toStateKey(plugin.name)}`)}>
+              <DynamicPluginSettings pluginName={plugin.name} />
+            </Collapse>
+          ))}
       </ModalContent>
     </Modal>
   )
