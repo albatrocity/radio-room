@@ -3,6 +3,8 @@ import type {
   Plugin,
   PluginContext,
   PluginConfigSchema,
+  PluginComponentSchema,
+  PluginComponentState,
   SystemEventPayload,
   ChatMessage,
   User,
@@ -116,6 +118,75 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
           ],
         },
       },
+    }
+  }
+
+  /**
+   * Get the UI component schema for frontend rendering
+   */
+  getComponentSchema(): PluginComponentSchema {
+    return {
+      components: [
+        // Button to open the leaderboard modal
+        {
+          id: "leaderboard-button",
+          type: "button",
+          area: "userList",
+          label: "Word Leaderboard",
+          icon: "trophy",
+          opensModal: "leaderboard-modal",
+          enabledWhen: "enabled",
+          variant: "ghost",
+          size: "sm",
+        },
+        // Modal containing leaderboards
+        {
+          id: "leaderboard-modal",
+          type: "modal",
+          area: "userList",
+          title: "Special Words Leaderboard",
+          size: "md",
+          children: [
+            {
+              id: "users-leaderboard",
+              type: "leaderboard",
+              area: "userList",
+              dataKey: "usersLeaderboard",
+              title: "Top Word Users",
+              rowTemplate: "{{value}}: {{score}} words",
+              maxItems: 10,
+              showRank: true,
+            },
+            {
+              id: "words-leaderboard",
+              type: "leaderboard",
+              area: "userList",
+              dataKey: "allWordsLeaderboard",
+              title: "Most Used Words",
+              rowTemplate: '"{{value}}" - {{score}} uses',
+              maxItems: 10,
+              showRank: true,
+            },
+          ],
+        },
+      ],
+      // Store keys that get updated from plugin events
+      storeKeys: ["usersLeaderboard", "allWordsLeaderboard"],
+    }
+  }
+
+  /**
+   * Get the current component state for hydration on room join
+   */
+  async getComponentState(): Promise<PluginComponentState> {
+    if (!this.context) return {}
+
+    const usersLeaderboard = await this.context.storage.zrangeWithScores(USER_WORD_COUNT_KEY, 0, -1)
+    const allWordsLeaderboard = await this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1)
+
+    return {
+      usersLeaderboard,
+      allWordsLeaderboard,
     }
   }
 

@@ -82,6 +82,8 @@ export interface PluginConfigSchema {
   fieldMeta: Record<string, PluginFieldMeta>
 }
 
+import type { PluginComponentSchema } from "./PluginComponent"
+
 /**
  * Response structure for plugin schema API endpoint
  */
@@ -91,6 +93,7 @@ export interface PluginSchemaInfo {
   description?: string
   defaultConfig?: Record<string, unknown>
   configSchema?: PluginConfigSchema
+  componentSchema?: PluginComponentSchema
 }
 
 /**

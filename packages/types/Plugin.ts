@@ -7,6 +7,7 @@ import type { User } from "./User"
 import type { ReactionSubject } from "./ReactionSubject"
 import type { ChatMessage } from "./ChatMessage"
 import type { SystemEventHandlers } from "./SystemEventTypes"
+import type { PluginComponentSchema, PluginComponentState } from "./PluginComponent"
 
 // ============================================================================
 // Plugin Configuration Schema Types
@@ -100,6 +101,7 @@ export interface PluginSchemaInfo {
   description?: string
   defaultConfig?: Record<string, unknown>
   configSchema?: PluginConfigSchema
+  componentSchema?: PluginComponentSchema
 }
 
 /**
@@ -247,6 +249,18 @@ export interface Plugin {
    * Get the merged default config (defaults + factory overrides).
    */
   getDefaultConfig?(): Record<string, unknown> | undefined
+
+  /**
+   * Get the UI component schema for this plugin.
+   * Defines declarative components that the frontend can render.
+   */
+  getComponentSchema?(): PluginComponentSchema
+
+  /**
+   * Get the current component state for hydration.
+   * Called when a user joins a room to populate component stores.
+   */
+  getComponentState?(): Promise<PluginComponentState>
 
   register(context: PluginContext): Promise<void>
   cleanup(): Promise<void>

@@ -6,6 +6,7 @@ import { Box, Text, Heading, HStack, List, VStack } from "@chakra-ui/react"
 import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
 import { useCurrentUser, useAuthStore } from "../state/authStore"
+import { PluginArea } from "./PluginComponents"
 
 import { User } from "../types/User"
 import { useDj, useListeners } from "../state/usersStore"
@@ -68,6 +69,8 @@ const UserList = ({
             <Text fontSize="xs">({listeners.length})</Text>
           </HStack>
         )}
+        {/* Plugin components for user list area */}
+        <PluginArea area="userList" direction="row" />
         <List spacing={1}>
           {currentListener && (
             <ListItemUser

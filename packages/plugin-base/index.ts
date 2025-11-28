@@ -5,6 +5,8 @@ import {
   PluginAugmentationData,
   PluginLifecycleEvents,
   PluginConfigSchema,
+  PluginComponentSchema,
+  PluginComponentState,
   QueueItem,
   SystemEventPayload,
 } from "@repo/types"
@@ -249,6 +251,58 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    * Returns undefined by default (no dynamic form).
    */
   getConfigSchema?(): PluginConfigSchema
+
+  /**
+   * Get the component schema for UI rendering.
+   * Override in subclass to define declarative UI components.
+   * Returns undefined by default (no components).
+   *
+   * @example
+   * ```typescript
+   * getComponentSchema(): PluginComponentSchema {
+   *   return {
+   *     components: [
+   *       {
+   *         id: "leaderboard-button",
+   *         type: "button",
+   *         area: "userList",
+   *         label: "Leaderboard",
+   *         opensModal: "leaderboard-modal"
+   *       },
+   *       {
+   *         id: "leaderboard-modal",
+   *         type: "modal",
+   *         area: "userList",
+   *         title: "Word Leaderboard",
+   *         children: [...]
+   *       }
+   *     ],
+   *     storeKeys: ["usersLeaderboard"]
+   *   }
+   * }
+   * ```
+   */
+  getComponentSchema?(): PluginComponentSchema
+
+  /**
+   * Get the current component state for hydration.
+   * Called when a user joins a room to populate component stores.
+   * Override in subclass if your plugin has UI components.
+   *
+   * @example
+   * ```typescript
+   * async getComponentState(): Promise<PluginComponentState> {
+   *   if (!this.context) return {}
+   *   return {
+   *     usersLeaderboard: await this.context.storage.zrangeWithScores("leaderboard", 0, -1),
+   *     totalCount: await this.context.storage.get("total-count")
+   *   }
+   * }
+   * ```
+   */
+  async getComponentState(): Promise<PluginComponentState> {
+    return {}
+  }
 
   /**
    * Get the plugin's configuration for the current room.
