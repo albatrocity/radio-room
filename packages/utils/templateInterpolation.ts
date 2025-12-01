@@ -1,7 +1,9 @@
 /**
  * Template interpolation utilities for plugin configuration.
- * Used to render dynamic content in plugin schema text blocks.
+ * Used to render dynamic content in plugin schema text blocks and component templates.
  */
+
+import type { CompositeTemplate } from "@repo/types"
 
 /**
  * Format a value using a formatter name.
@@ -65,10 +67,7 @@ export function formatValue(value: unknown, formatter: string): string {
  * @param values - Object containing values to interpolate
  * @returns The interpolated string
  */
-export function interpolateTemplate(
-  content: string,
-  values: Record<string, unknown>,
-): string {
+export function interpolateTemplate(content: string, values: Record<string, unknown>): string {
   return content.replace(/\{\{(\w+)(?::(\w+))?\}\}/g, (match, fieldName, formatter) => {
     const value = values[fieldName]
     if (value === undefined || value === null) {
@@ -81,3 +80,54 @@ export function interpolateTemplate(
   })
 }
 
+/**
+ * Interpolate variables in a composite template's props and content.
+ * Returns a new template with all {{placeholder}} values resolved.
+ *
+ * @example
+ * ```typescript
+ * const template: CompositeTemplate = [
+ *   { type: "component", name: "username", props: { userId: "{{value}}" } },
+ *   { type: "text", content: ": {{score}} words" }
+ * ]
+ *
+ * const interpolated = interpolateCompositeTemplate(template, {
+ *   value: "user-123",
+ *   score: 42
+ * })
+ * // Returns:
+ * // [
+ * //   { type: "component", name: "username", props: { userId: "user-123" } },
+ * //   { type: "text", content: ": 42 words" }
+ * // ]
+ * ```
+ *
+ * @param template - The composite template with placeholders
+ * @param values - Object containing values to interpolate
+ * @returns A new template with interpolated values
+ */
+export function interpolateCompositeTemplate(
+  template: CompositeTemplate,
+  values: Record<string, unknown>,
+): CompositeTemplate {
+  return template.map((part) => {
+    if (part.type === "text") {
+      return {
+        type: "text",
+        content: interpolateTemplate(part.content, values),
+      }
+    } else if (part.type === "component") {
+      // Interpolate each prop value
+      const interpolatedProps: Record<string, string> = {}
+      for (const [key, value] of Object.entries(part.props)) {
+        interpolatedProps[key] = interpolateTemplate(value, values)
+      }
+      return {
+        type: "component",
+        name: part.name,
+        props: interpolatedProps,
+      }
+    }
+    return part
+  })
+}

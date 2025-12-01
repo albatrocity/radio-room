@@ -15,20 +15,26 @@ import {
   HStack,
 } from "@chakra-ui/react"
 import { FaTrophy, FaStar, FaMedal, FaAward, FaHeart } from "react-icons/fa"
-import { interpolateTemplate } from "@repo/utils"
+import { interpolateTemplate, interpolateCompositeTemplate } from "@repo/utils"
 import { pluginComponentMachine } from "../../machines/pluginComponentMachine"
 import { getPluginComponentState } from "../../lib/serverApi"
 import { useRoomStore } from "../../state/roomStore"
+import { useListeners } from "../../state/usersStore"
+import type { User } from "../../types/User"
 import type {
+  TemplateComponentName,
+  TemplateComponentPropsMap,
+  UsernameComponentProps,
+  TextComponentProps,
+  EmojiComponentProps,
+  IconComponentProps,
+  ButtonComponentProps,
+  LeaderboardComponentProps,
   PluginComponentDefinition,
-  PluginTextComponent,
-  PluginEmojiComponent,
-  PluginIconComponent,
-  PluginButtonComponent,
-  PluginLeaderboardComponent,
-  PluginModalComponent,
   PluginComponentState,
+  PluginModalComponent,
   LeaderboardEntry,
+  CompositeTemplate,
 } from "../../types/PluginComponent"
 
 // ============================================================================
@@ -69,76 +75,113 @@ function getIcon(iconName: string): React.ComponentType | undefined {
 }
 
 // ============================================================================
-// Component Renderers
+// Built-in Template Components
 // ============================================================================
 
-function PluginTextRenderer({ component }: { component: PluginTextComponent }) {
+/**
+ * Username component - displays username for a given userId.
+ * Looks up the username from the user list store.
+ */
+function UsernameTemplateComponent({ userId }: UsernameComponentProps) {
+  const listeners = useListeners()
+  const user = listeners.find((u: User) => u.userId === userId)
+
+  return <Text as="span">{user?.username || userId}</Text>
+}
+
+/**
+ * Text component - renders text with optional styling.
+ */
+function TextTemplateComponent({ content, variant = "default" }: TextComponentProps) {
   const { store } = usePluginComponentContext()
+  const interpolatedContent = interpolateTemplate(content, store)
 
-  const content = interpolateTemplate(component.content, store)
-
-  const fontWeight = component.variant === "bold" ? "bold" : "normal"
-  const fontSize = component.variant === "small" ? "xs" : "sm"
-  const color = component.variant === "muted" ? "gray.500" : undefined
+  const fontWeight = variant === "bold" ? "bold" : "normal"
+  const fontSize = variant === "small" ? "xs" : "sm"
+  const color = variant === "muted" ? "gray.500" : undefined
 
   return (
-    <Text fontSize={fontSize} fontWeight={fontWeight} color={color}>
-      {content}
+    <Text as="span" fontSize={fontSize} fontWeight={fontWeight} color={color}>
+      {interpolatedContent}
     </Text>
   )
 }
 
-function PluginEmojiRenderer({ component }: { component: PluginEmojiComponent }) {
+/**
+ * Emoji component - renders an emoji with optional size.
+ */
+function EmojiTemplateComponent({ emoji, size = "md" }: EmojiComponentProps) {
   const sizeMap = { sm: "16px", md: "24px", lg: "32px" }
-  const size = sizeMap[component.size || "md"]
+  const fontSize = sizeMap[size]
 
   return (
-    <Box fontSize={size}>
+    <Box as="span" fontSize={fontSize}>
       {/* @ts-ignore - em-emoji is a custom element from emoji-mart */}
-      <em-emoji shortcodes={`:${component.emoji}:`} />
+      <em-emoji shortcodes={`:${emoji}:`} />
     </Box>
   )
 }
 
-function PluginIconRenderer({ component }: { component: PluginIconComponent }) {
-  const IconComponent = getIcon(component.icon)
+/**
+ * Icon component - renders an icon with optional styling.
+ */
+function IconTemplateComponent({ icon, size = "md", color }: IconComponentProps) {
+  const IconComponent = getIcon(icon)
   if (!IconComponent) {
-    console.warn(`[PluginComponent] Unknown icon: ${component.icon}`)
+    console.warn(`[TemplateComponent] Unknown icon: ${icon}`)
     return null
   }
 
   const sizeMap = { sm: 3, md: 4, lg: 5 }
-  const boxSize = sizeMap[component.size || "md"]
+  const boxSize = sizeMap[size]
 
-  return <Icon as={IconComponent} boxSize={boxSize} color={component.color} />
+  return <Icon as={IconComponent} boxSize={boxSize} color={color} />
 }
 
-function PluginButtonRenderer({ component }: { component: PluginButtonComponent }) {
+/**
+ * Button component - renders a button that can open modals.
+ */
+function ButtonTemplateComponent({
+  label,
+  icon,
+  opensModal,
+  variant = "ghost",
+  size = "sm",
+}: ButtonComponentProps) {
   const { openModal } = usePluginComponentContext()
-  const IconComponent = component.icon ? getIcon(component.icon) : undefined
+  const IconComponent = icon ? getIcon(icon) : undefined
 
   const handleClick = () => {
-    if (component.opensModal) {
-      openModal(component.opensModal)
+    if (opensModal) {
+      openModal(opensModal)
     }
   }
 
   return (
     <Button
-      size={component.size || "sm"}
-      variant={component.variant || "ghost"}
+      size={size}
+      variant={variant}
       leftIcon={IconComponent ? <Icon as={IconComponent} /> : undefined}
       onClick={handleClick}
     >
-      {component.label}
+      {label}
     </Button>
   )
 }
 
-function PluginLeaderboardRenderer({ component }: { component: PluginLeaderboardComponent }) {
+/**
+ * Leaderboard component - renders a sorted list with scores.
+ */
+function LeaderboardTemplateComponent({
+  dataKey,
+  title,
+  rowTemplate = "{{value}}: {{score}}",
+  maxItems = 10,
+  showRank = true,
+}: LeaderboardComponentProps) {
   const { store } = usePluginComponentContext()
 
-  const data = store[component.dataKey] as LeaderboardEntry[] | undefined
+  const data = store[dataKey] as LeaderboardEntry[] | undefined
   if (!data || !Array.isArray(data)) {
     return (
       <Box>
@@ -150,33 +193,38 @@ function PluginLeaderboardRenderer({ component }: { component: PluginLeaderboard
   }
 
   // Sort by score descending and limit items
-  const sortedData = [...data].sort((a, b) => b.score - a.score).slice(0, component.maxItems || 10)
-
-  const rowTemplate = component.rowTemplate || "{{value}}: {{score}}"
+  const sortedData = [...data].sort((a, b) => b.score - a.score).slice(0, maxItems)
 
   return (
     <VStack align="stretch" spacing={2}>
-      {component.title && (
+      {title && (
         <Text fontSize="md" fontWeight="bold">
-          {component.title}
+          {title}
         </Text>
       )}
       {sortedData.map((entry, index) => {
         const rank = index + 1
-        const content = interpolateTemplate(rowTemplate, {
+        const values = {
           value: entry.value,
           score: entry.score,
           rank,
-        })
+        }
+
+        // Render template content
+        const templateContent = Array.isArray(rowTemplate) ? (
+          <CompositeTemplateRenderer template={rowTemplate} values={values} />
+        ) : (
+          interpolateTemplate(rowTemplate, values)
+        )
 
         return (
           <HStack key={entry.value} spacing={2}>
-            {component.showRank !== false && (
+            {showRank && (
               <Text fontSize="sm" color="gray.500" minW="24px">
                 {rank}.
               </Text>
             )}
-            <Text fontSize="sm">{content}</Text>
+            <Text fontSize="sm">{templateContent}</Text>
           </HStack>
         )
       })}
@@ -189,9 +237,100 @@ function PluginLeaderboardRenderer({ component }: { component: PluginLeaderboard
   )
 }
 
-function PluginModalRenderer({ component }: { component: PluginModalComponent }) {
-  // Modal is rendered by PluginModalManager, not inline
-  return null
+/**
+ * Strongly-typed map of built-in template component names to React components.
+ * All frontends must implement these components for composite templates to work.
+ */
+const TEMPLATE_COMPONENT_MAP: {
+  [K in TemplateComponentName]: React.ComponentType<TemplateComponentPropsMap[K]>
+} = {
+  username: UsernameTemplateComponent,
+  text: TextTemplateComponent,
+  emoji: EmojiTemplateComponent,
+  icon: IconTemplateComponent,
+  button: ButtonTemplateComponent,
+  leaderboard: LeaderboardTemplateComponent,
+}
+
+/**
+ * Renders a single template component part with type-safe props.
+ */
+function renderTemplateComponent(
+  name: TemplateComponentName,
+  props: Record<string, string>,
+  key: string,
+) {
+  const Component = TEMPLATE_COMPONENT_MAP[name] as React.ComponentType<any>
+  if (!Component) {
+    console.warn(`[CompositeTemplate] Unknown component: ${name}`)
+    return (
+      <Text as="span" key={key}>
+        [Unknown: {name}]
+      </Text>
+    )
+  }
+  return <Component key={key} {...props} />
+}
+
+/**
+ * Renders a composite template (mix of text and components).
+ */
+function CompositeTemplateRenderer({
+  template,
+  values,
+}: {
+  template: CompositeTemplate
+  values: Record<string, unknown>
+}) {
+  // Interpolate all variables in the template
+  const interpolated = interpolateCompositeTemplate(template, values)
+
+  return (
+    <>
+      {interpolated.map((part, index) => {
+        // Generate a unique key based on part content
+        const key =
+          part.type === "text"
+            ? `text-${index}-${part.content.substring(0, 20)}`
+            : `component-${index}-${part.name}`
+
+        if (part.type === "text") {
+          return <React.Fragment key={key}>{part.content}</React.Fragment>
+        } else if (part.type === "component") {
+          return renderTemplateComponent(part.name, part.props, key)
+        }
+        return null
+      })}
+    </>
+  )
+}
+
+// ============================================================================
+// Component Renderer
+// ============================================================================
+
+/**
+ * Renders a single plugin component by delegating to its template component.
+ * Plugin components are just template components + placement metadata.
+ */
+function renderPluginComponent(component: PluginComponentDefinition) {
+  // Special case: modals are rendered by the provider, not inline
+  if (component.type === "modal") {
+    return null
+  }
+
+  // Look up the template component and render with the component's props
+  const TemplateComponent = TEMPLATE_COMPONENT_MAP[component.type] as React.ComponentType<any>
+
+  if (!TemplateComponent) {
+    console.warn(`[PluginComponent] Unknown component type: ${component.type}`)
+    return null
+  }
+
+  // Extract only the template component props (exclude metadata)
+  const { id, area, enabledWhen, subscribeTo, type, ...templateProps } = component
+
+  return <TemplateComponent {...templateProps} />
 }
 
 // ============================================================================
@@ -203,7 +342,9 @@ interface PluginComponentRendererProps {
 }
 
 /**
- * Renders a single plugin component based on its type.
+ * Renders a single plugin component.
+ * Plugin components are template components + placement metadata.
+ * This function checks enabledWhen conditions and delegates to the appropriate template component.
  */
 export function PluginComponentRenderer({ component }: PluginComponentRendererProps) {
   const { config } = usePluginComponentContext()
@@ -216,23 +357,8 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
     }
   }
 
-  switch (component.type) {
-    case "text":
-      return <PluginTextRenderer component={component} />
-    case "emoji":
-      return <PluginEmojiRenderer component={component} />
-    case "icon":
-      return <PluginIconRenderer component={component} />
-    case "button":
-      return <PluginButtonRenderer component={component} />
-    case "leaderboard":
-      return <PluginLeaderboardRenderer component={component} />
-    case "modal":
-      return <PluginModalRenderer component={component} />
-    default:
-      console.warn(`[PluginComponent] Unknown component type: ${(component as any).type}`)
-      return null
-  }
+  // Delegate to template component
+  return renderPluginComponent(component)
 }
 
 // ============================================================================

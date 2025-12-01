@@ -2,11 +2,22 @@ import React, { memo } from "react"
 import { get, isEqual } from "lodash/fp"
 import { motion } from "framer-motion"
 
-import { Box, Text, HStack, IconButton, Icon, ListItem, ListIcon, Tooltip } from "@chakra-ui/react"
+import {
+  Box,
+  Text,
+  HStack,
+  IconButton,
+  Icon,
+  ListItem,
+  ListIcon,
+  Tooltip,
+  VStack,
+} from "@chakra-ui/react"
 import { EditIcon, SmallCloseIcon } from "@chakra-ui/icons"
 import { FiMic, FiMusic, FiEye, FiHeadphones } from "react-icons/fi"
 import { BiMessageRoundedDots, BiCrown } from "react-icons/bi"
 import { User } from "../types/User"
+import { PluginArea } from "./PluginComponents"
 
 const statusIcon = (user: User) => {
   if (user.isDj) {
@@ -89,58 +100,61 @@ const ListItemUser = ({
           </Box>
         </motion.div>
       </motion.div>
-      <HStack
-        alignItems="center"
-        border={{ side: "bottom" }}
-        gap="0.4rem"
-        py={user.isDj ? 2 : 0}
-        width="100%"
-      >
-        {showStatus && statusIcon(user)}
-        {isAdmin && <Icon as={BiCrown} boxSize={3} />}
-        <Box>
-          <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm">
-            {user.username || "anonymous"}
-          </Text>
-        </Box>
-        {user.userId === get("userId", currentUser) && (
-          <IconButton
-            variant="link"
-            aria-label="Edit Username"
-            onClick={() => {
-              onEditUser(user)
-            }}
-            size="xs"
-            icon={<EditIcon />}
-          />
-        )}
-        {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
-          <Tooltip
-            hasArrow
-            placement="top"
-            label={user.isDeputyDj ? "Remove DJ privileges" : "Deputize DJ"}
-          >
+      <VStack gap={1} align="start">
+        <HStack
+          alignItems="center"
+          border={{ side: "bottom" }}
+          gap="0.4rem"
+          py={user.isDj ? 2 : 0}
+          width="100%"
+        >
+          {showStatus && statusIcon(user)}
+          {isAdmin && <Icon as={BiCrown} boxSize={3} />}
+          <Box>
+            <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm">
+              {user.username || "anonymous"}
+            </Text>
+          </Box>
+          {user.userId === get("userId", currentUser) && (
+            <IconButton
+              variant="link"
+              aria-label="Edit Username"
+              onClick={() => {
+                onEditUser(user)
+              }}
+              size="xs"
+              icon={<EditIcon />}
+            />
+          )}
+          {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
+            <Tooltip
+              hasArrow
+              placement="top"
+              label={user.isDeputyDj ? "Remove DJ privileges" : "Deputize DJ"}
+            >
+              <IconButton
+                size="xs"
+                variant={user.isDeputyDj ? "solid" : "ghost"}
+                aria-label="Deputize DJ"
+                onClick={() => {
+                  onDeputizeDj?.(user.userId)
+                }}
+                icon={<Icon as={FiMusic} />}
+              />
+            </Tooltip>
+          )}
+          {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
             <IconButton
               size="xs"
-              variant={user.isDeputyDj ? "solid" : "ghost"}
-              aria-label="Deputize DJ"
-              onClick={() => {
-                onDeputizeDj?.(user.userId)
-              }}
-              icon={<Icon as={FiMusic} />}
+              variant="ghost"
+              aria-label="Kick User"
+              onClick={() => onKickUser?.(user.userId)}
+              icon={<SmallCloseIcon />}
             />
-          </Tooltip>
-        )}
-        {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
-          <IconButton
-            size="xs"
-            variant="ghost"
-            aria-label="Kick User"
-            onClick={() => onKickUser?.(user.userId)}
-            icon={<SmallCloseIcon />}
-          />
-        )}
-      </HStack>
+          )}
+        </HStack>
+        <PluginArea area="userListItem" />
+      </VStack>
     </ListItem>
   )
 }

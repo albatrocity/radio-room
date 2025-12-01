@@ -23,6 +23,7 @@ import { User } from "../../types/User"
 import { Room, RoomMeta } from "../../types/Room"
 import { CountdownTimerProvider } from "../CountdownTimer"
 import { NowPlayingVoteCountdown } from "../NowPlayingVoteCountdown"
+import { PluginArea } from "../PluginComponents"
 
 interface NowPlayingTrackProps {
   meta: RoomMeta
@@ -39,7 +40,7 @@ function getCoverUrl(release: any, room: Partial<Room> | null): string | null {
   if (room?.artwork) {
     return room.artwork
   }
-  
+
   if (release?.album?.images?.length) {
     const firstImage = release.album.images[0]
     // New adapter format has { type, url, id }
@@ -103,16 +104,20 @@ export function NowPlayingTrack({
       <LinkBox width="100%">
         <Stack direction={["row", "column"]} spacing={5} justify="center" flexGrow={1}>
           {coverUrl && (
-            <Box width={artworkSize} height={artworkSize} flex={{ shrink: 0, grow: 1 }}>
+            <Box
+              position="relative"
+              width={artworkSize}
+              height={artworkSize}
+              flex={{ shrink: 0, grow: 1 }}
+            >
+              <Box position="absolute">
+                <PluginArea area="nowPlayingArt" />
+              </Box>
               <AlbumArtwork coverUrl={coverUrl} />
             </Box>
           )}
           <VStack align="start" spacing={0}>
-            <TrackTitle
-              title={titleDisplay}
-              externalUrl={externalUrl}
-              isSkipped={isSkipped}
-            />
+            <TrackTitle title={titleDisplay} externalUrl={externalUrl} isSkipped={isSkipped} />
 
             <SkippedBadge isSkipped={isSkipped} skipData={skipData} />
 
@@ -121,21 +126,23 @@ export function NowPlayingTrack({
                 {artist}
               </Heading>
             )}
-            
+
             {album && (
               <Text as="span" color="primaryBg" margin="none" fontSize="xs">
                 {album}
               </Text>
             )}
-            
+
             {releaseDate && (
               <Text as="span" color="primaryBg" fontSize="xs">
                 Released {safeDate(releaseDate)}
               </Text>
             )}
-            
+
             <AddedByInfo dj={dj} djUsername={djUsername} addedAt={addedAt} />
-            
+
+            <PluginArea area="nowPlayingInfo" />
+
             <MetadataSourceInfo metadataSource={nowPlaying?.metadataSource} />
           </VStack>
         </Stack>
@@ -262,4 +269,3 @@ function MetadataSourceInfo({ metadataSource }: MetadataSourceInfoProps) {
     </HStack>
   )
 }
-

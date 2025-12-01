@@ -13,6 +13,7 @@ import { NowPlayingLoading } from "./NowPlayingLoading"
 import { NowPlayingEmpty } from "./NowPlayingEmpty"
 import { NowPlayingTrack } from "./NowPlayingTrack"
 import ButtonAddToQueue from "../ButtonAddToQueue"
+import { PluginArea } from "../PluginComponents"
 
 interface NowPlayingProps {
   meta?: RoomMeta
@@ -72,15 +73,10 @@ function NowPlaying({ meta }: NowPlayingProps) {
       <VStack spacing={4} justify="space-between" height="100%" width="100%">
         {displayState === "loading" && <NowPlayingLoading />}
 
-        {displayState === "waiting" && (
-          <NowPlayingLoading message="Getting Now Playing data..." />
-        )}
+        {displayState === "waiting" && <NowPlayingLoading message="Getting Now Playing data..." />}
 
         {displayState === "empty" && (
-          <NowPlayingEmpty
-            roomType={room?.type ?? "jukebox"}
-            isAdmin={isAdmin}
-          />
+          <NowPlayingEmpty roomType={room?.type ?? "jukebox"} isAdmin={isAdmin} />
         )}
 
         {displayState === "playing" && meta && (
@@ -93,6 +89,8 @@ function NowPlaying({ meta }: NowPlayingProps) {
           />
         )}
 
+        <PluginArea area="nowPlaying" />
+
         <Show above="sm">
           <ButtonAddToQueue variant="solid" />
         </Show>
@@ -102,4 +100,3 @@ function NowPlaying({ meta }: NowPlayingProps) {
 }
 
 export default memo(NowPlaying)
-

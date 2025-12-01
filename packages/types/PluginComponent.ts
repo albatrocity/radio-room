@@ -3,6 +3,11 @@
  *
  * Allows plugins to define declarative UI components that the frontend
  * can interpret and render without plugin-specific React code.
+ *
+ * Architecture:
+ * - Template components define the actual rendering (username, text, emoji, etc.)
+ * - Plugin components are template components + placement metadata (area, enabledWhen)
+ * - Frontends implement template components; plugins reference them by name
  */
 
 // ============================================================================
@@ -22,13 +27,130 @@ export type PluginComponentArea =
   | "userList" // Top/bottom of the user list
 
 // ============================================================================
-// Base Component Definition
+// Template Component System
 // ============================================================================
 
 /**
- * Base properties shared by all component types.
+ * Built-in template component names that all frontends must implement.
+ * These can be referenced in composite templates and plugin components.
  */
-interface PluginComponentBase {
+export type TemplateComponentName =
+  | "username"
+  | "text"
+  | "emoji"
+  | "icon"
+  | "button"
+  | "leaderboard"
+
+/**
+ * Props for the username template component.
+ */
+export interface UsernameComponentProps {
+  userId: string
+}
+
+/**
+ * Props for the text template component.
+ */
+export interface TextComponentProps {
+  content: string
+  variant?: "default" | "muted" | "bold" | "small"
+}
+
+/**
+ * Props for the emoji template component.
+ */
+export interface EmojiComponentProps {
+  emoji: string
+  size?: "sm" | "md" | "lg"
+}
+
+/**
+ * Props for the icon template component.
+ */
+export interface IconComponentProps {
+  icon: string
+  size?: "sm" | "md" | "lg"
+  color?: string
+}
+
+/**
+ * Props for the button template component.
+ */
+export interface ButtonComponentProps {
+  label: string
+  icon?: string
+  opensModal?: string
+  variant?: "solid" | "ghost" | "outline" | "link"
+  size?: "sm" | "md" | "lg"
+}
+
+/**
+ * Leaderboard entry format.
+ */
+export interface LeaderboardEntry {
+  value: string
+  score: number
+}
+
+// Forward declare CompositeTemplate (defined below)
+export type CompositeTemplate = (TemplateTextPart | TemplateComponentPart)[]
+
+/**
+ * Props for the leaderboard template component.
+ */
+export interface LeaderboardComponentProps {
+  dataKey: string
+  title?: string
+  rowTemplate?: string | CompositeTemplate
+  maxItems?: number
+  showRank?: boolean
+}
+
+/**
+ * Type-safe mapping of component names to their props.
+ */
+export interface TemplateComponentPropsMap {
+  username: UsernameComponentProps
+  text: TextComponentProps
+  emoji: EmojiComponentProps
+  icon: IconComponentProps
+  button: ButtonComponentProps
+  leaderboard: LeaderboardComponentProps
+}
+
+// ============================================================================
+// Composite Template System
+// ============================================================================
+
+/**
+ * Text part - renders plain text with variable interpolation.
+ */
+export interface TemplateTextPart {
+  type: "text"
+  /** Text content with {{variable}} placeholders */
+  content: string
+}
+
+/**
+ * Component part - renders a frontend component with dynamic props.
+ */
+export interface TemplateComponentPart {
+  type: "component"
+  /** Component name - must be a registered template component */
+  name: TemplateComponentName
+  /** Props passed to component - values can use {{variable}} syntax */
+  props: Record<string, string>
+}
+
+// ============================================================================
+// Plugin Component System
+// ============================================================================
+
+/**
+ * Metadata that plugins add to template components for placement and behavior.
+ */
+export interface PluginComponentMetadata {
   /** Unique identifier for this component within the plugin */
   id: string
   /** Where the component should be rendered */
@@ -45,198 +167,64 @@ interface PluginComponentBase {
   subscribeTo?: string[]
 }
 
-// ============================================================================
-// Component Types
-// ============================================================================
-
 /**
- * Text component - renders interpolated text using template syntax.
- *
- * @example
- * ```typescript
- * {
- *   id: "word-count",
- *   type: "text",
- *   area: "userListItem",
- *   content: "{{wordCount}} words",
- *   variant: "muted"
- * }
- * ```
- */
-export interface PluginTextComponent extends PluginComponentBase {
-  type: "text"
-  /**
-   * Template string with {{field}} placeholders.
-   * Supports formatters: {{field:duration}}, {{field:percentage}}
-   */
-  content: string
-  variant?: "default" | "muted" | "bold" | "small"
-}
-
-/**
- * Emoji component - renders an emoji with optional animation.
- */
-export interface PluginEmojiComponent extends PluginComponentBase {
-  type: "emoji"
-  /** Emoji shortcode (e.g., "trophy", "star") */
-  emoji: string
-  /** Size variant */
-  size?: "sm" | "md" | "lg"
-}
-
-/**
- * Icon component - renders an icon from a predefined set.
- */
-export interface PluginIconComponent extends PluginComponentBase {
-  type: "icon"
-  /** Icon name from the icon library */
-  icon: string
-  /** Size variant */
-  size?: "sm" | "md" | "lg"
-  /** Color (theme color name or hex) */
-  color?: string
-}
-
-/**
- * Button component - triggers actions like opening modals.
- *
- * @example
- * ```typescript
- * {
- *   id: "open-leaderboard",
- *   type: "button",
- *   area: "userList",
- *   label: "Leaderboard",
- *   icon: "trophy",
- *   opensModal: "leaderboard-modal"
- * }
- * ```
- */
-export interface PluginButtonComponent extends PluginComponentBase {
-  type: "button"
-  /** Button label */
-  label: string
-  /** Optional icon (displayed before label) */
-  icon?: string
-  /** ID of modal to open when clicked */
-  opensModal?: string
-  /** Visual variant */
-  variant?: "solid" | "ghost" | "outline" | "link"
-  /** Size variant */
-  size?: "sm" | "md" | "lg"
-}
-
-/**
- * Leaderboard component - renders a sorted list with scores.
- *
- * @example
- * ```typescript
- * {
- *   id: "users-leaderboard",
- *   type: "leaderboard",
- *   area: "userList",
- *   dataKey: "usersLeaderboard",
- *   title: "Top Word Users",
- *   rowTemplate: "{{value}}: {{score}} words",
- *   maxItems: 10
- * }
- * ```
- */
-export interface PluginLeaderboardComponent extends PluginComponentBase {
-  type: "leaderboard"
-  /**
-   * Store key containing array of { value, score } objects.
-   * Data should be sorted by score (highest first).
-   */
-  dataKey: string
-  /** Optional title displayed above the list */
-  title?: string
-  /**
-   * Template for each row.
-   * Available placeholders: {{value}}, {{score}}, {{rank}}
-   */
-  rowTemplate?: string
-  /** Maximum number of items to display */
-  maxItems?: number
-  /** Show rank numbers (1, 2, 3, etc.) */
-  showRank?: boolean
-}
-
-/**
- * Modal component - container that can hold other components.
- * Requires a button with `opensModal` pointing to this modal's ID.
- *
- * @example
- * ```typescript
- * {
- *   id: "leaderboard-modal",
- *   type: "modal",
- *   area: "userList",
- *   title: "Special Words Leaderboard",
- *   children: [
- *     { id: "users-lb", type: "leaderboard", ... }
- *   ]
- * }
- * ```
- */
-export interface PluginModalComponent extends PluginComponentBase {
-  type: "modal"
-  /** Modal title */
-  title: string
-  /** Size of the modal */
-  size?: "sm" | "md" | "lg" | "xl"
-  /**
-   * Child components rendered inside the modal.
-   * Note: Children should not include other modals.
-   */
-  children: PluginComponentDefinition[]
-}
-
-// ============================================================================
-// Union Type
-// ============================================================================
-
-/**
- * Union of all possible component definitions.
+ * Plugin component definition - combines template component props with placement metadata.
+ * This is a discriminated union of all template components + metadata.
  */
 export type PluginComponentDefinition =
-  | PluginTextComponent
-  | PluginEmojiComponent
-  | PluginIconComponent
-  | PluginButtonComponent
-  | PluginLeaderboardComponent
-  | PluginModalComponent
+  | (PluginComponentMetadata & { type: "username" } & UsernameComponentProps)
+  | (PluginComponentMetadata & { type: "text" } & TextComponentProps)
+  | (PluginComponentMetadata & { type: "emoji" } & EmojiComponentProps)
+  | (PluginComponentMetadata & { type: "icon" } & IconComponentProps)
+  | (PluginComponentMetadata & { type: "button" } & ButtonComponentProps)
+  | (PluginComponentMetadata & { type: "leaderboard" } & LeaderboardComponentProps)
+  | PluginModalComponent // Modal is special - it contains children
+
+/**
+ * Type aliases for convenience when working with specific component types.
+ */
+export type PluginTextComponent = PluginComponentMetadata & { type: "text" } & TextComponentProps
+export type PluginEmojiComponent = PluginComponentMetadata & { type: "emoji" } & EmojiComponentProps
+export type PluginIconComponent = PluginComponentMetadata & { type: "icon" } & IconComponentProps
+export type PluginButtonComponent = PluginComponentMetadata & { type: "button" } & ButtonComponentProps
+export type PluginLeaderboardComponent = PluginComponentMetadata & { type: "leaderboard" } & LeaderboardComponentProps
+export type PluginUsernameComponent = PluginComponentMetadata & { type: "username" } & UsernameComponentProps
+
+/**
+ * Modal component - special container that can hold other components.
+ * Requires a button with `opensModal` pointing to this modal's ID.
+ */
+export interface PluginModalComponent extends PluginComponentMetadata {
+  type: "modal"
+  title: string
+  size?: "sm" | "md" | "lg" | "xl"
+  children: PluginComponentDefinition[]
+}
 
 // ============================================================================
 // Schema Types
 // ============================================================================
 
 /**
- * Schema returned by plugin.getComponentSchema().
- * Defines all UI components a plugin wants to render.
+ * Plugin component schema returned by getComponentSchema().
+ * Defines all UI components and their data requirements.
  */
 export interface PluginComponentSchema {
-  /** All component definitions */
   components: PluginComponentDefinition[]
   /**
-   * Keys in the component store that can be updated by events.
-   * When a subscribed event's payload contains a matching key,
-   * the store value is updated.
+   * List of keys in the plugin's internal store that should be updated
+   * when a plugin event with a matching key in its payload is received.
    */
   storeKeys?: string[]
 }
 
 /**
- * State returned by plugin.getComponentState().
- * Used to hydrate component stores when a user joins a room.
+ * Plugin component state - key-value store for component data.
  */
 export type PluginComponentState = Record<string, unknown>
 
 /**
- * Leaderboard entry format used in component stores.
+ * Combined store for all plugin component states.
+ * Structure: { [pluginName]: { [storeKey]: value } }
  */
-export interface LeaderboardEntry {
-  value: string
-  score: number
-}
-
+export type PluginComponentStores = Record<string, PluginComponentState>

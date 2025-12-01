@@ -1,4 +1,4 @@
-import React, { memo } from "react"
+import { memo } from "react"
 import { useMachine } from "@xstate/react"
 import { get, find, reverse, reject } from "lodash/fp"
 import { Box, Text, Heading, HStack, List, VStack } from "@chakra-ui/react"
@@ -19,11 +19,7 @@ interface UserListProps {
   showStatus?: boolean
 }
 
-const UserList = ({
-  onEditUser,
-  showHeading = true,
-  showStatus = true,
-}: UserListProps) => {
+const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserListProps) => {
   const [typingState] = useMachine(typingMachine)
 
   const { send: authSend } = useAuthStore()
@@ -38,8 +34,7 @@ const UserList = ({
   } = typingState
 
   const currentListener = find({ userId: currentUser.userId }, listeners)
-  const isTyping = (user: User) =>
-    !!find({ userId: get("userId", user) }, typing)
+  const isTyping = (user: User) => !!find({ userId: get("userId", user) }, typing)
 
   return (
     <VStack>
@@ -70,7 +65,7 @@ const UserList = ({
           </HStack>
         )}
         {/* Plugin components for user list area */}
-        <PluginArea area="userList" direction="row" />
+        <PluginArea area="userList" />
         <List spacing={1}>
           {currentListener && (
             <ListItemUser
@@ -83,27 +78,23 @@ const UserList = ({
               showStatus={showStatus}
             />
           )}
-          {reverse(reject({ userId: currentUser.userId }, listeners)).map(
-            (x) => {
-              return (
-                <ListItemUser
-                  key={x.userId}
-                  user={x}
-                  isAdmin={x.userId === creator}
-                  showStatus={showStatus}
-                  userTyping={isTyping(x)}
-                  currentUser={currentUser}
-                  onEditUser={onEditUser}
-                  onKickUser={(userId: User["userId"]) =>
-                    authSend("KICK_USER", { userId })
-                  }
-                  onDeputizeDj={(userId: User["userId"]) => {
-                    adminSend("DEPUTIZE_DJ", { userId })
-                  }}
-                />
-              )
-            },
-          )}
+          {reverse(reject({ userId: currentUser.userId }, listeners)).map((x) => {
+            return (
+              <ListItemUser
+                key={x.userId}
+                user={x}
+                isAdmin={x.userId === creator}
+                showStatus={showStatus}
+                userTyping={isTyping(x)}
+                currentUser={currentUser}
+                onEditUser={onEditUser}
+                onKickUser={(userId: User["userId"]) => authSend("KICK_USER", { userId })}
+                onDeputizeDj={(userId: User["userId"]) => {
+                  adminSend("DEPUTIZE_DJ", { userId })
+                }}
+              />
+            )
+          })}
         </List>
       </VStack>
     </VStack>
