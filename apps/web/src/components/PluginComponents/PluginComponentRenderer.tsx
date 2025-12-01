@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from "react"
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react"
+import { useMachine } from "@xstate/react"
 import {
   Box,
   Button,
@@ -12,9 +13,12 @@ import {
   Text,
   VStack,
   HStack,
-  useDisclosure,
 } from "@chakra-ui/react"
 import { FaTrophy, FaStar, FaMedal, FaAward, FaHeart } from "react-icons/fa"
+import { interpolateTemplate } from "@repo/utils"
+import { pluginComponentMachine } from "../../machines/pluginComponentMachine"
+import { getPluginComponentState } from "../../lib/serverApi"
+import { useRoomStore } from "../../state/roomStore"
 import type {
   PluginComponentDefinition,
   PluginTextComponent,
@@ -26,7 +30,6 @@ import type {
   PluginComponentState,
   LeaderboardEntry,
 } from "../../types/PluginComponent"
-import { interpolateTemplate } from "@repo/utils"
 
 // ============================================================================
 // Context
@@ -147,9 +150,7 @@ function PluginLeaderboardRenderer({ component }: { component: PluginLeaderboard
   }
 
   // Sort by score descending and limit items
-  const sortedData = [...data]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, component.maxItems || 10)
+  const sortedData = [...data].sort((a, b) => b.score - a.score).slice(0, component.maxItems || 10)
 
   const rowTemplate = component.rowTemplate || "{{value}}: {{score}}"
 
@@ -240,21 +241,57 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
 
 interface PluginComponentProviderProps {
   children: React.ReactNode
-  store: PluginComponentState
+  pluginName: string
+  storeKeys: string[]
   config: Record<string, unknown>
   components: PluginComponentDefinition[]
 }
 
 /**
  * Provides context for plugin components and manages modals.
+ * Owns an XState machine instance for managing component state.
  */
 export function PluginComponentProvider({
   children,
-  store,
+  pluginName,
+  storeKeys,
   config,
   components,
 }: PluginComponentProviderProps) {
+  const { state: roomState } = useRoomStore()
+  const roomId = roomState.context.room?.id
   const [openModals, setOpenModals] = useState<Set<string>>(new Set())
+
+  // Create machine instance for this plugin
+  const [state, send] = useMachine(
+    pluginComponentMachine.withConfig({
+      services: {
+        fetchComponentState: async (context) => {
+          if (!context.roomId) {
+            throw new Error("Room ID is required")
+          }
+          const response = await getPluginComponentState(context.roomId, context.pluginName)
+          return response.state
+        },
+      },
+    }),
+    {
+      context: {
+        pluginName,
+        roomId: null,
+        storeKeys,
+        store: {},
+        error: null,
+      },
+    },
+  )
+
+  // Update machine context when roomId changes - machine will auto-fetch via 'always' guard
+  // Machine also handles socket subscriptions in the 'ready' state
+  useEffect(() => {
+    if (!roomId) return
+    send({ type: "SET_ROOM_ID", roomId })
+  }, [roomId, send])
 
   const openModal = (modalId: string) => {
     setOpenModals((prev) => new Set([...prev, modalId]))
@@ -269,12 +306,19 @@ export function PluginComponentProvider({
   }
 
   // Find all modal components
-  const modalComponents = components.filter(
-    (c): c is PluginModalComponent => c.type === "modal",
+  const modalComponents = components.filter((c): c is PluginModalComponent => c.type === "modal")
+
+  // Use store from machine state
+  const store = state.context.store
+
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(
+    () => ({ store, config, openModal, closeModal }),
+    [store, config, openModal, closeModal],
   )
 
   return (
-    <PluginComponentContext.Provider value={{ store, config, openModal, closeModal }}>
+    <PluginComponentContext.Provider value={contextValue}>
       {children}
 
       {/* Render modal components */}
@@ -302,45 +346,3 @@ export function PluginComponentProvider({
     </PluginComponentContext.Provider>
   )
 }
-
-// ============================================================================
-// Area Renderer
-// ============================================================================
-
-interface PluginComponentAreaRendererProps {
-  area: string
-  components: PluginComponentDefinition[]
-  store: PluginComponentState
-  config: Record<string, unknown>
-  /** For item-level areas (playlistItem, userListItem) */
-  itemId?: string
-}
-
-/**
- * Renders all plugin components for a specific area.
- */
-export function PluginComponentAreaRenderer({
-  area,
-  components,
-  store,
-  config,
-  itemId,
-}: PluginComponentAreaRendererProps) {
-  // Filter components for this area
-  const areaComponents = components.filter((c) => c.area === area && c.type !== "modal")
-
-  if (areaComponents.length === 0) {
-    return null
-  }
-
-  return (
-    <PluginComponentProvider store={store} config={config} components={components}>
-      <HStack spacing={2}>
-        {areaComponents.map((component) => (
-          <PluginComponentRenderer key={component.id} component={component} />
-        ))}
-      </HStack>
-    </PluginComponentProvider>
-  )
-}
-

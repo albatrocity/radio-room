@@ -1,8 +1,10 @@
-import React from "react"
-import { Box, HStack, VStack } from "@chakra-ui/react"
-import { usePluginComponents, PluginComponentWithMeta } from "./PluginComponentsContext"
+import React, { useMemo } from "react"
+import { useMachine } from "@xstate/react"
+import { Stack } from "@chakra-ui/react"
 import { PluginComponentProvider, PluginComponentRenderer } from "./PluginComponentRenderer"
-import type { PluginComponentArea } from "../../types/PluginComponent"
+import { usePluginSchemas } from "../../hooks/usePluginSchemas"
+import { settingsMachine } from "../../machines/settingsMachine"
+import type { PluginComponentArea, PluginComponentDefinition } from "../../types/PluginComponent"
 
 interface PluginAreaProps {
   /** The area to render components for */
@@ -15,8 +17,16 @@ interface PluginAreaProps {
   spacing?: number
 }
 
+interface PluginComponents {
+  pluginName: string
+  config: Record<string, unknown>
+  storeKeys: string[]
+  components: PluginComponentDefinition[]
+}
+
 /**
  * Renders all plugin components for a specific area.
+ * Each plugin gets its own PluginComponentProvider with an independent XState machine.
  *
  * @example
  * ```tsx
@@ -27,57 +37,60 @@ interface PluginAreaProps {
  * <PluginArea area="playlistItem" itemId={track.id} />
  * ```
  */
-export function PluginArea({
-  area,
-  direction = "row",
-  itemId,
-  spacing = 2,
-}: PluginAreaProps) {
-  const { getComponentsForArea, isLoading } = usePluginComponents()
+export function PluginArea({ area, direction = "row", itemId, spacing = 2 }: PluginAreaProps) {
+  const { schemas, isLoading } = usePluginSchemas()
+  const [settingsState] = useMachine(settingsMachine)
+  const pluginConfigs = settingsState.context.pluginConfigs || {}
 
-  if (isLoading) {
+  // Build list of plugins with components for this area
+  const pluginsForArea = useMemo(() => {
+    const result: PluginComponents[] = []
+
+    for (const schema of schemas) {
+      if (!schema.componentSchema?.components) continue
+
+      // Filter to components for this area
+      const componentsInArea = schema.componentSchema.components.filter(
+        (comp) => comp.area === area,
+      )
+
+      if (componentsInArea.length === 0) continue
+
+      const config = pluginConfigs[schema.name] || schema.defaultConfig || {}
+      const storeKeys = schema.componentSchema.storeKeys || []
+
+      result.push({
+        pluginName: schema.name,
+        config,
+        storeKeys,
+        components: componentsInArea,
+      })
+    }
+
+    return result
+  }, [schemas, area, pluginConfigs])
+
+  if (isLoading || pluginsForArea.length === 0) {
     return null
   }
-
-  const components = getComponentsForArea(area)
-
-  if (components.length === 0) {
-    return null
-  }
-
-  // Group components by plugin for proper context provision
-  const componentsByPlugin = new Map<string, PluginComponentWithMeta[]>()
-  for (const comp of components) {
-    const existing = componentsByPlugin.get(comp.pluginName) || []
-    existing.push(comp)
-    componentsByPlugin.set(comp.pluginName, existing)
-  }
-
-  const Container = direction === "row" ? HStack : VStack
 
   return (
-    <Container spacing={spacing}>
-      {Array.from(componentsByPlugin.entries()).map(([pluginName, pluginComponents]) => {
-        // Get first component to access store/config (they're the same for all components of a plugin)
-        const first = pluginComponents[0]
-        const allPluginDefs = pluginComponents.map((c) => c.component)
-
-        return (
-          <PluginComponentProvider
-            key={pluginName}
-            store={first.store}
-            config={first.config}
-            components={allPluginDefs}
-          >
-            {pluginComponents
-              .filter((c) => c.component.type !== "modal")
-              .map((comp) => (
-                <PluginComponentRenderer key={comp.component.id} component={comp.component} />
-              ))}
-          </PluginComponentProvider>
-        )
-      })}
-    </Container>
+    <Stack direction={direction} spacing={spacing}>
+      {pluginsForArea.map(({ pluginName, config, storeKeys, components }) => (
+        <PluginComponentProvider
+          key={pluginName}
+          pluginName={pluginName}
+          storeKeys={storeKeys}
+          config={config}
+          components={components}
+        >
+          {components
+            .filter((c) => c.type !== "modal")
+            .map((comp) => (
+              <PluginComponentRenderer key={comp.id} component={comp} />
+            ))}
+        </PluginComponentProvider>
+      ))}
+    </Stack>
   )
 }
-
