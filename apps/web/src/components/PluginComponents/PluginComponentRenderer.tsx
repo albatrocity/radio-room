@@ -310,10 +310,47 @@ function CompositeTemplateRenderer({
 // ============================================================================
 
 /**
+ * Interpolates config values in a component's props.
+ * Replaces {{config.fieldName}} with actual config values.
+ */
+function interpolateConfigInProps(
+  props: Record<string, any>,
+  config: Record<string, unknown>,
+): Record<string, any> {
+  const interpolated: Record<string, any> = {}
+
+  for (const [key, value] of Object.entries(props)) {
+    if (typeof value === "string") {
+      // Create a context object with config nested under "config" key
+      interpolated[key] = interpolateTemplate(value, { config })
+    } else if (Array.isArray(value)) {
+      // Handle composite templates
+      interpolated[key] = value.map((item) => {
+        if (typeof item === "object" && item !== null) {
+          return interpolateConfigInProps(item, config)
+        }
+        return item
+      })
+    } else if (typeof value === "object" && value !== null) {
+      // Recursively interpolate nested objects
+      interpolated[key] = interpolateConfigInProps(value, config)
+    } else {
+      interpolated[key] = value
+    }
+  }
+
+  return interpolated
+}
+
+/**
  * Renders a single plugin component by delegating to its template component.
  * Plugin components are just template components + placement metadata.
+ * Interpolates {{config.fieldName}} values at render time.
  */
-function renderPluginComponent(component: PluginComponentDefinition) {
+function renderPluginComponent(
+  component: PluginComponentDefinition,
+  config: Record<string, unknown>,
+) {
   // Special case: modals are rendered by the provider, not inline
   if (component.type === "modal") {
     return null
@@ -330,7 +367,10 @@ function renderPluginComponent(component: PluginComponentDefinition) {
   // Extract only the template component props (exclude metadata)
   const { id, area, enabledWhen, subscribeTo, type, ...templateProps } = component
 
-  return <TemplateComponent {...templateProps} />
+  // Interpolate config values in props
+  const interpolatedProps = interpolateConfigInProps(templateProps, config)
+
+  return <TemplateComponent {...interpolatedProps} />
 }
 
 // ============================================================================
@@ -357,8 +397,8 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
     }
   }
 
-  // Delegate to template component
-  return renderPluginComponent(component)
+  // Delegate to template component with config for interpolation
+  return renderPluginComponent(component, config)
 }
 
 // ============================================================================
@@ -448,27 +488,32 @@ export function PluginComponentProvider({
       {children}
 
       {/* Render modal components */}
-      {modalComponents.map((modal) => (
-        <Modal
-          key={modal.id}
-          isOpen={openModals.has(modal.id)}
-          onClose={() => closeModal(modal.id)}
-          size={modal.size || "md"}
-        >
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>{modal.title}</ModalHeader>
-            <ModalCloseButton />
-            <ModalBody pb={6}>
-              <VStack align="stretch" spacing={4}>
-                {modal.children.map((child) => (
-                  <PluginComponentRenderer key={child.id} component={child} />
-                ))}
-              </VStack>
-            </ModalBody>
-          </ModalContent>
-        </Modal>
-      ))}
+      {modalComponents.map((modal) => {
+        // Interpolate config values in modal title
+        const interpolatedTitle = interpolateTemplate(modal.title, { config })
+
+        return (
+          <Modal
+            key={modal.id}
+            isOpen={openModals.has(modal.id)}
+            onClose={() => closeModal(modal.id)}
+            size={modal.size || "md"}
+          >
+            <ModalOverlay />
+            <ModalContent>
+              <ModalHeader>{interpolatedTitle}</ModalHeader>
+              <ModalCloseButton />
+              <ModalBody pb={6}>
+                <VStack align="stretch" spacing={4}>
+                  {modal.children.map((child) => (
+                    <PluginComponentRenderer key={child.id} component={child} />
+                  ))}
+                </VStack>
+              </ModalBody>
+            </ModalContent>
+          </Modal>
+        )
+      })}
     </PluginComponentContext.Provider>
   )
 }
