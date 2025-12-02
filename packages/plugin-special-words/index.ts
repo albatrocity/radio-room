@@ -1,4 +1,3 @@
-import { z } from "zod"
 import type {
   Plugin,
   PluginContext,
@@ -10,21 +9,29 @@ import type {
   User,
 } from "@repo/types"
 import { BasePlugin } from "@repo/plugin-base"
+import { interpolateTemplate } from "@repo/utils"
 import packageJson from "./package.json"
-
 import {
   specialWordsConfigSchema,
   defaultSpecialWordsConfig,
   type SpecialWordsConfig,
 } from "./types"
-import { interpolateTemplate } from "@repo/utils"
+import { getComponentSchema, getConfigSchema } from "./schema"
 
 export type { SpecialWordsConfig } from "./types"
 export { specialWordsConfigSchema, defaultSpecialWordsConfig } from "./types"
 
+// ============================================================================
+// Constants
+// ============================================================================
+
 const USER_WORD_COUNT_KEY = "user-word-count"
 const WORDS_PER_USER_KEY = "words-per-user"
 const WORD_RANK_KEY = "word-rank"
+
+// ============================================================================
+// Event Types
+// ============================================================================
 
 /**
  * Plugin event payloads for special-words plugin.
@@ -47,176 +54,50 @@ export interface SpecialWordsEvents {
   }
 }
 
+// ============================================================================
+// Plugin Implementation
+// ============================================================================
+
+/**
+ * Special Words Plugin
+ *
+ * Detects special words in chat messages and emits events when they are found.
+ * Tracks word usage statistics and maintains leaderboards.
+ *
+ * ARCHITECTURE: Each instance handles exactly ONE room.
+ * The PluginRegistry creates a new instance for each room.
+ */
 export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
   name = "special-words"
   version = packageJson.version
   description = "Detect special words in chat messages and emit events when they are found."
 
-  // Static schema and defaults for BasePlugin
   static readonly configSchema = specialWordsConfigSchema
   static readonly defaultConfig = defaultSpecialWordsConfig
 
-  /**
-   * Get the UI schema for dynamic form generation
-   */
-  getConfigSchema(): PluginConfigSchema {
-    return {
-      jsonSchema: z.toJSONSchema(specialWordsConfigSchema),
-      layout: [
-        { type: "heading", content: "Special Words" },
-        {
-          type: "text-block",
-          content: "Detect special words in chat messages and send alerts when they are found.",
-          variant: "info",
-        },
-        "enabled",
-        "words",
-        "wordLabel",
-        "sendMessageOnDetection",
-        "messageTemplate",
-        "showLeaderboard",
-      ],
-      fieldMeta: {
-        enabled: {
-          type: "boolean",
-          label: "Enable Special Words Detection",
-          description: "When enabled, the plugin will monitor chat for special words",
-        },
-        words: {
-          type: "string-array",
-          label: "Words to Detect",
-          description: "List of words to watch for in chat messages (case-insensitive)",
-          placeholder: "Enter a word and press Enter",
-          showWhen: {
-            field: "enabled",
-            value: true,
-          },
-        },
-        wordLabel: {
-          type: "string",
-          label: "Word Label",
-          description: "The label to use for 'word' for this plugin",
-          placeholder: "Word",
-          showWhen: {
-            field: "enabled",
-            value: true,
-          },
-        },
-        sendMessageOnDetection: {
-          type: "boolean",
-          label: "Send Message on Detection",
-          description:
-            "When enabled, the plugin will send a message when a special word is detected",
-          showWhen: {
-            field: "enabled",
-            value: true,
-          },
-        },
-        messageTemplate: {
-          type: "string",
-          description:
-            "Available variables: {{word}}, {{user}}, {{message}}, {{userRank}}, {{userAllWordsCount}}, {{userThisWordCount}}, {{totalWordsUsed}}, {{thisWordCount}}, {{thisWordRank}}",
+  // ============================================================================
+  // Schema Methods
+  // ============================================================================
 
-          label: "Message Template",
-          showWhen: [
-            {
-              field: "enabled",
-              value: true,
-            },
-            {
-              field: "sendMessageOnDetection",
-              value: true,
-            },
-          ],
-        },
-        showLeaderboard: {
-          type: "boolean",
-          label: "Show Leaderboard",
-          description: "Shows a button to open the leaderboard in a modal",
-          showWhen: { field: "enabled", value: true },
-        },
-      },
-    }
-  }
-
-  /**
-   * Get the UI component schema for frontend rendering
-   */
   getComponentSchema(): PluginComponentSchema {
-    return {
-      components: [
-        // Button to open the leaderboard modal
-        {
-          id: "leaderboard-button",
-          type: "button",
-          area: "userList",
-          label: "{{config.wordLabel}} Leaderboard",
-          icon: "trophy",
-          opensModal: "leaderboard-modal",
-          showWhen: [
-            { field: "enabled", value: true },
-            {
-              field: "showLeaderboard",
-              value: true,
-            },
-          ],
-          variant: "ghost",
-          size: "sm",
-        },
-        // Modal containing leaderboards
-        {
-          id: "leaderboard-modal",
-          type: "modal",
-          area: "userList",
-          title: "{{config.wordLabel}} Leaderboard",
-          size: "md",
-          showWhen: [
-            { field: "enabled", value: true },
-            {
-              field: "showLeaderboard",
-              value: true,
-            },
-          ],
-          children: [
-            {
-              id: "users-leaderboard",
-              type: "leaderboard",
-              area: "userList",
-              dataKey: "usersLeaderboard",
-              title: "Top {{config.wordLabel:pluralize:2}} Users",
-              rowTemplate: [
-                { type: "component", name: "username", props: { userId: "{{value}}" } },
-                { type: "text", content: ": {{score}} {{config.wordLabel:pluralize:score}}" },
-              ],
-              maxItems: 10,
-              showRank: true,
-            },
-            {
-              id: "words-leaderboard",
-              type: "leaderboard",
-              area: "userList",
-              dataKey: "allWordsLeaderboard",
-              title: "Most Used {{config.wordLabel:pluralize:2}}",
-              rowTemplate: '"{{value}}" - {{score}} uses',
-              maxItems: 10,
-              showRank: true,
-            },
-          ],
-        },
-      ],
-      // Store keys that get updated from plugin events
-      storeKeys: ["usersLeaderboard", "allWordsLeaderboard"],
-    }
+    return getComponentSchema()
   }
 
-  /**
-   * Get the current component state for hydration on room join
-   */
+  getConfigSchema(): PluginConfigSchema {
+    return getConfigSchema()
+  }
+
+  // ============================================================================
+  // Component State
+  // ============================================================================
+
   async getComponentState(): Promise<PluginComponentState> {
     if (!this.context) return {}
 
-    const usersLeaderboard = await this.context.storage.zrangeWithScores(USER_WORD_COUNT_KEY, 0, -1)
-    const allWordsLeaderboard = await this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1)
+    const [usersLeaderboard, allWordsLeaderboard] = await Promise.all([
+      this.context.storage.zrangeWithScores(USER_WORD_COUNT_KEY, 0, -1),
+      this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1),
+    ])
 
     return {
       usersLeaderboard,
@@ -224,162 +105,247 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     }
   }
 
+  // ============================================================================
+  // Lifecycle
+  // ============================================================================
+
   async register(context: PluginContext): Promise<void> {
     await super.register(context)
 
-    // Register for lifecycle events using this.on() for type-safe payloads
     this.on("MESSAGE_RECEIVED", this.onMessageReceived.bind(this))
-
-    // Use filtered config change handler (only receives changes for THIS plugin)
-    this.onConfigChange(async (data) => {
-      const wasEnabled = data.previousConfig?.enabled === true
-      const isEnabled = data.config?.enabled === true
-
-      if (wasEnabled !== isEnabled) {
-        console.log(`[${this.name}] Enabled changed: ${wasEnabled} -> ${isEnabled}`)
-      }
-    })
+    this.onConfigChange(this.handleConfigChange.bind(this))
   }
+
+  // ============================================================================
+  // Event Handlers
+  // ============================================================================
 
   private async onMessageReceived(data: SystemEventPayload<"MESSAGE_RECEIVED">): Promise<void> {
     const config = await this.getConfig()
     if (!config?.enabled) return
 
     const { message } = data
-    if (message.user.userId === "system") return
+    if (this.isSystemMessage(message)) return
 
-    const words = message.content.toLowerCase().split(/\s+/)
-    const configWords = new Set(config.words.map((w) => this.normalizeWord(w)))
-
-    for (const word of words) {
-      if (configWords.has(word)) {
-        await this.handleSpecialWord(word, message)
-      }
+    const detectedWords = this.detectSpecialWords(message.content, config.words)
+    for (const word of detectedWords) {
+      await this.handleSpecialWord(word, message, config)
     }
   }
 
-  private async handleSpecialWord(word: string, message: ChatMessage): Promise<void> {
+  private async handleConfigChange(data: {
+    roomId: string
+    pluginName: string
+    config: Record<string, unknown>
+    previousConfig: Record<string, unknown>
+  }): Promise<void> {
+    const wasEnabled = data.previousConfig?.enabled === true
+    const isEnabled = data.config?.enabled === true
+
+    if (wasEnabled !== isEnabled) {
+      console.log(`[${this.name}] Enabled changed: ${wasEnabled} -> ${isEnabled}`)
+    }
+  }
+
+  // ============================================================================
+  // Word Detection & Processing
+  // ============================================================================
+
+  private async handleSpecialWord(
+    word: string,
+    message: ChatMessage,
+    config: SpecialWordsConfig,
+  ): Promise<void> {
     if (!this.context) return
+
     const { user } = message
     const { userId, username } = user
-    const config = await this.getConfig()
-
     if (!userId) return
-    if (!config?.enabled) return
 
-    // Increment uses of any special word by this user
-    await this.context.storage.zincrby(USER_WORD_COUNT_KEY, 1, userId)
-    // Increment rank of this word
-    await this.context.storage.zincrby(WORD_RANK_KEY, 1, this.normalizeWord(word))
+    // Update statistics
+    await this.updateWordStatistics(userId, word)
 
-    // Incrememnt how many times this word has been used by this user
-    await this.context.storage.zincrby(
-      `${WORDS_PER_USER_KEY}:${userId}`,
-      1,
-      this.normalizeWord(word),
-    )
+    // Fetch data for message and event
+    const stats = await this.fetchWordStatistics(userId, word)
 
-    // Fetch data for message
-    const userAllWordsCount =
-      (await this.context?.storage.zscore(USER_WORD_COUNT_KEY, user.userId)) ?? 0
-    const userRank = (await this.context.storage.zrevrank(USER_WORD_COUNT_KEY, user.userId)) ?? -1
-
-    const userThisWordCount =
-      (await this.context?.storage.zscore(`${WORDS_PER_USER_KEY}:${user.userId}`, word)) ?? 0
-
-    const usersLeaderboard = await this.context.storage.zrangeWithScores(USER_WORD_COUNT_KEY, 0, -1)
-
-    const allWordsLeaderboard = await this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1)
-
-    const thisWordCount =
-      (await this.context.storage.zscore(WORD_RANK_KEY, this.normalizeWord(word))) ?? -1
-    const totalWordsUsed = usersLeaderboard.reduce((acc, curr) => acc + curr.score, 0)
-    const thisWordRank =
-      (await this.context.storage.zrevrank(WORD_RANK_KEY, this.normalizeWord(word))) ?? -1
-
+    // Send system message if enabled
     if (config.sendMessageOnDetection) {
-      await this.context.api.sendSystemMessage(
-        this.context?.roomId,
-        await this.makeSystemMessage({
-          word,
-          user,
-          message,
-          userRank,
-          userAllWordsCount,
-          userThisWordCount,
-          totalWordsUsed,
-          thisWordCount,
-          thisWordRank,
-        }),
-      )
+      await this.sendDetectionMessage(word, user, stats, config)
     }
 
-    // Emit custom plugin event to frontend
-    // Frontend receives: PLUGIN:special-words:SPECIAL_WORD_DETECTED
-    await this.emit<SpecialWordsEvents["SPECIAL_WORD_DETECTED"]>("SPECIAL_WORD_DETECTED", {
-      word,
-      userId: userId,
-      username: username ?? undefined,
-      messageTimestamp: message.timestamp,
-      userRank,
+    // Emit plugin event to frontend
+    await this.emitWordDetected(word, userId, username, message.timestamp, stats)
+  }
+
+  private detectSpecialWords(content: string, configWords: string[]): string[] {
+    const words = content.toLowerCase().split(/\s+/)
+    const configWordsSet = new Set(configWords.map((w) => this.normalizeWord(w)))
+
+    return words.filter((word) => configWordsSet.has(word))
+  }
+
+  // ============================================================================
+  // Statistics Management
+  // ============================================================================
+
+  private async updateWordStatistics(userId: string, word: string): Promise<void> {
+    if (!this.context) return
+
+    const normalizedWord = this.normalizeWord(word)
+
+    await Promise.all([
+      // Increment uses of any special word by this user
+      this.context.storage.zincrby(USER_WORD_COUNT_KEY, 1, userId),
+      // Increment rank of this word
+      this.context.storage.zincrby(WORD_RANK_KEY, 1, normalizedWord),
+      // Increment how many times this word has been used by this user
+      this.context.storage.zincrby(`${WORDS_PER_USER_KEY}:${userId}`, 1, normalizedWord),
+    ])
+  }
+
+  private async fetchWordStatistics(
+    userId: string,
+    word: string,
+  ): Promise<{
+    userAllWordsCount: number
+    userRank: number
+    userThisWordCount: number
+    usersLeaderboard: { score: number; value: string }[]
+    allWordsLeaderboard: { score: number; value: string }[]
+    thisWordCount: number
+    totalWordsUsed: number
+    thisWordRank: number
+  }> {
+    if (!this.context) {
+      return {
+        userAllWordsCount: 0,
+        userRank: -1,
+        userThisWordCount: 0,
+        usersLeaderboard: [],
+        allWordsLeaderboard: [],
+        thisWordCount: 0,
+        totalWordsUsed: 0,
+        thisWordRank: -1,
+      }
+    }
+
+    const normalizedWord = this.normalizeWord(word)
+
+    const [
       userAllWordsCount,
+      userRank,
       userThisWordCount,
-      totalWordsUsed,
-      thisWordCount,
-      thisWordRank,
       usersLeaderboard,
       allWordsLeaderboard,
+      thisWordCount,
+      thisWordRank,
+    ] = await Promise.all([
+      this.context.storage.zscore(USER_WORD_COUNT_KEY, userId),
+      this.context.storage.zrevrank(USER_WORD_COUNT_KEY, userId),
+      this.context.storage.zscore(`${WORDS_PER_USER_KEY}:${userId}`, normalizedWord),
+      this.context.storage.zrangeWithScores(USER_WORD_COUNT_KEY, 0, -1),
+      this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1),
+      this.context.storage.zscore(WORD_RANK_KEY, normalizedWord),
+      this.context.storage.zrevrank(WORD_RANK_KEY, normalizedWord),
+    ])
+
+    const totalWordsUsed = usersLeaderboard.reduce((acc, curr) => acc + curr.score, 0)
+
+    return {
+      userAllWordsCount: userAllWordsCount ?? 0,
+      userRank: userRank ?? -1,
+      userThisWordCount: userThisWordCount ?? 0,
+      usersLeaderboard,
+      allWordsLeaderboard,
+      thisWordCount: thisWordCount ?? 0,
+      totalWordsUsed,
+      thisWordRank: thisWordRank ?? -1,
+    }
+  }
+
+  // ============================================================================
+  // Messaging
+  // ============================================================================
+
+  private async sendDetectionMessage(
+    word: string,
+    user: User,
+    stats: Awaited<ReturnType<typeof this.fetchWordStatistics>>,
+    config: SpecialWordsConfig,
+  ): Promise<void> {
+    if (!this.context) return
+
+    const message = this.interpolateMessage(word, user, stats, config)
+    await this.context.api.sendSystemMessage(this.context.roomId, message)
+  }
+
+  private interpolateMessage(
+    word: string,
+    user: User,
+    stats: Awaited<ReturnType<typeof this.fetchWordStatistics>>,
+    config: SpecialWordsConfig,
+  ): string {
+    return interpolateTemplate(config.messageTemplate ?? "", {
+      word,
+      username: user.username,
+      userId: user.userId,
+      userRank: stats.userRank + 1,
+      userAllWordsCount: stats.userAllWordsCount,
+      totalWordsUsed: stats.totalWordsUsed,
+      thisWordCount: stats.thisWordCount,
+      thisWordRank: stats.thisWordRank + 1,
+      userThisWordCount: stats.userThisWordCount,
     })
   }
+
+  // ============================================================================
+  // Event Emission
+  // ============================================================================
+
+  private async emitWordDetected(
+    word: string,
+    userId: string,
+    username: string | undefined,
+    messageTimestamp: string,
+    stats: Awaited<ReturnType<typeof this.fetchWordStatistics>>,
+  ): Promise<void> {
+    await this.emit<SpecialWordsEvents["SPECIAL_WORD_DETECTED"]>("SPECIAL_WORD_DETECTED", {
+      word,
+      userId,
+      username: username ?? undefined,
+      messageTimestamp,
+      userRank: stats.userRank,
+      userAllWordsCount: stats.userAllWordsCount,
+      userThisWordCount: stats.userThisWordCount,
+      totalWordsUsed: stats.totalWordsUsed,
+      thisWordCount: stats.thisWordCount,
+      thisWordRank: stats.thisWordRank,
+      usersLeaderboard: stats.usersLeaderboard,
+      allWordsLeaderboard: stats.allWordsLeaderboard,
+    })
+  }
+
+  // ============================================================================
+  // Helpers
+  // ============================================================================
 
   private normalizeWord(word: string): string {
     return word.toLowerCase().trim()
   }
 
-  private async makeSystemMessage(data: {
-    word: string
-    user: User
-    message: ChatMessage
-    userRank: number
-    userAllWordsCount: number
-    userThisWordCount: number
-    totalWordsUsed: number
-    thisWordCount: number
-    thisWordRank: number
-  }): Promise<string> {
-    if (!this.context) throw new Error("Context not found")
-    const {
-      word,
-      user,
-      userRank,
-      userAllWordsCount,
-      totalWordsUsed,
-      thisWordCount,
-      thisWordRank,
-      userThisWordCount,
-    } = data
-    const { username, userId } = user
-
-    const config = await this.getConfig()
-    const message = interpolateTemplate(config?.messageTemplate ?? "", {
-      word,
-      username,
-      userId,
-      userRank: userRank + 1,
-      userAllWordsCount,
-      totalWordsUsed,
-      thisWordCount,
-      thisWordRank: thisWordRank + 1,
-      userThisWordCount,
-    })
-
-    return message
+  private isSystemMessage(message: ChatMessage): boolean {
+    return message.user.userId === "system"
   }
 }
+
+// ============================================================================
+// Factory
+// ============================================================================
 
 /**
  * Factory function to create the plugin.
  * A new instance is created for each room.
+ *
  * @param configOverrides - Optional partial config to override defaults
  */
 export function createSpecialWordsPlugin(configOverrides?: Partial<SpecialWordsConfig>): Plugin {
