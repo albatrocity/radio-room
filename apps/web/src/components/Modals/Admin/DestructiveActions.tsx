@@ -1,11 +1,9 @@
 import React from "react"
 import {
   Wrap,
-  WrapItem,
   Button,
   Icon,
   Text,
-  useColorModeValue,
 } from "@chakra-ui/react"
 
 import { useChatStore } from "../../../state/chatStore"
@@ -13,9 +11,10 @@ import { useAdminStore } from "../../../state/adminStore"
 import { useDjStore } from "../../../state/djStore"
 import { BiMessageRoundedMinus } from "react-icons/bi"
 import { FiList } from "react-icons/fi"
+import { LuTrash2 } from "react-icons/lu"
 import ConfirmationPopover from "../../ConfirmationPopover"
-import { DeleteIcon } from "@chakra-ui/icons"
 import { useCurrentRoom } from "../../../state/roomStore"
+import { useColorModeValue } from "../../ui/color-mode"
 
 export default function DestructiveActions() {
   const { send: chatSend } = useChatStore()
@@ -29,68 +28,60 @@ export default function DestructiveActions() {
   return (
     <>
       <Wrap>
-        <WrapItem>
-          <ConfirmationPopover
-            triggerText="Clear Chat"
-            triggerIcon={<Icon as={BiMessageRoundedMinus} />}
-            triggerVariant="outline"
-            onConfirm={() => chatSend("CLEAR_MESSAGES")}
-            confirmText="Clear Chat"
-            popoverBody={
-              <Text>
-                Are you sure you want to clear the chat? This cannot be undone.
-              </Text>
-            }
-          />
-        </WrapItem>
+        <ConfirmationPopover
+          triggerText="Clear Chat"
+          triggerIcon={<Icon as={BiMessageRoundedMinus} />}
+          triggerVariant="outline"
+          onConfirm={() => chatSend("CLEAR_MESSAGES")}
+          confirmText="Clear Chat"
+          popoverBody={
+            <Text>
+              Are you sure you want to clear the chat? This cannot be undone.
+            </Text>
+          }
+        />
 
-        <WrapItem>
-          <ConfirmationPopover
-            triggerText="Clear Playlist"
-            triggerIcon={<Icon as={FiList} />}
-            triggerVariant="outline"
-            onConfirm={() => adminSend("CLEAR_PLAYLIST")}
-            confirmText="Clear Playlist"
-            popoverBody={
-              <Text>
-                Are you sure you want to clear the playlist? This cannot be
-                undone.
-              </Text>
-            }
-          />
-        </WrapItem>
+        <ConfirmationPopover
+          triggerText="Clear Playlist"
+          triggerIcon={<Icon as={FiList} />}
+          triggerVariant="outline"
+          onConfirm={() => adminSend("CLEAR_PLAYLIST")}
+          confirmText="Clear Playlist"
+          popoverBody={
+            <Text>
+              Are you sure you want to clear the playlist? This cannot be
+              undone.
+            </Text>
+          }
+        />
 
         {room && (
-          <WrapItem>
-            <ConfirmationPopover
-              triggerColorScheme="red"
-              triggerText="Delete Room"
-              triggerIcon={<DeleteIcon />}
-              triggerVariant="outline"
-              onConfirm={() =>
-                adminSend("DELETE_ROOM", { data: { id: room.id } })
-              }
-              confirmText="Delete Room"
-              popoverBody={
-                <Text>
-                  Are you sure you want to delete this room and all of its data?
-                  This cannot be undone.
-                </Text>
-              }
-            />
-          </WrapItem>
+          <ConfirmationPopover
+            triggerColorScheme="red"
+            triggerText="Delete Room"
+            triggerIcon={<LuTrash2 />}
+            triggerVariant="outline"
+            onConfirm={() =>
+              adminSend("DELETE_ROOM", { data: { id: room.id } })
+            }
+            confirmText="Delete Room"
+            popoverBody={
+              <Text>
+                Are you sure you want to delete this room and all of its data?
+                This cannot be undone.
+              </Text>
+            }
+          />
         )}
         {isDj && (
-          <WrapItem>
-            <Button
-              size="xs"
-              variant="ghost"
-              colorScheme={buttonColorScheme}
-              onClick={() => djSend("END_DJ_SESSION")}
-            >
-              End DJ Session
-            </Button>
-          </WrapItem>
+          <Button
+            size="xs"
+            variant="ghost"
+            colorPalette={buttonColorScheme}
+            onClick={() => djSend("END_DJ_SESSION")}
+          >
+            End DJ Session
+          </Button>
         )}
       </Wrap>
     </>

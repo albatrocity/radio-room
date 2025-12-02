@@ -1,6 +1,5 @@
-import React, { useEffect } from "react"
-import { motion } from "framer-motion"
-import { Box, Heading, Stack, useBoolean } from "@chakra-ui/react"
+import React, { useEffect, useState } from "react"
+import { Box, Heading, Stack } from "@chakra-ui/react"
 
 import FormAddToQueue from "../FormAddToQueue"
 import Modal from "../Modal"
@@ -14,11 +13,9 @@ import {
 import { useIsAdmin, useCurrentUser } from "../../state/authStore"
 import { useCurrentRoom } from "../../state/roomStore"
 
-const MotionBox = motion(Box)
-
 function ModalAddToQueue() {
   const { send } = useModalsStore()
-  const [open, setOpen] = useBoolean(false)
+  const [open, setOpen] = useState(false)
   const { addToQueue, state } = useAddToQueue()
   const isAddingToQueue = useModalsStore((s: any) => s.state.matches("queue"))
   const isMetadataSourceAuthenticated = useIsMetadataSourceAuthenticated()
@@ -50,16 +47,12 @@ function ModalAddToQueue() {
   const loadingItem = isLoading ? state.context.queuedTrack : undefined
 
   function handleOpenDropdown(isOpen: boolean) {
-    if (isOpen) {
-      setOpen.on()
-    } else {
-      setOpen.off()
-    }
+    setOpen(isOpen)
   }
 
   return (
-    <Modal isOpen={isAddingToQueue} onClose={hideEditForm} heading="Add to play queue">
-      <Stack direction="column" spacing={8}>
+    <Modal open={isAddingToQueue} onClose={hideEditForm} heading="Add to play queue">
+      <Stack direction="column" gap={8}>
         <Box zIndex={2}>
           <FormAddToQueue
             onAddToQueue={addToQueue}
@@ -69,21 +62,18 @@ function ModalAddToQueue() {
         </Box>
         {canViewSavedTracks && (
           <Box>
-            <MotionBox
+            <Box
               position="absolute"
               top={0}
               left={0}
               zIndex={1}
               h="100%"
               w="100%"
-              animate={{
-                pointerEvents: open ? "auto" : "none",
-              }}
+              pointerEvents={open ? "auto" : "none"}
             />
-            <MotionBox
-              animate={{
-                opacity: open ? 0.1 : isLoading ? 0.5 : 1,
-              }}
+            <Box
+              opacity={open ? 0.1 : isLoading ? 0.5 : 1}
+              transition="opacity 0.2s"
             >
               <Heading as="h4" size="sm" mb={2}>
                 Your recently liked tracks
@@ -93,7 +83,7 @@ function ModalAddToQueue() {
                 loadingItem={loadingItem}
                 onClick={open ? undefined : addToQueue}
               />
-            </MotionBox>
+            </Box>
           </Box>
         )}
       </Stack>

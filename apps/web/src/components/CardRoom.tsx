@@ -1,23 +1,19 @@
-import { DeleteIcon } from "@chakra-ui/icons"
+import { LuTrash2, LuMoreHorizontal } from "react-icons/lu"
 import {
   Button,
   Card,
-  CardBody,
-  CardHeader,
   Heading,
   HStack,
   IconButton,
-  Menu,
-  MenuButton,
+  MenuRoot,
+  MenuTrigger,
+  MenuContent,
   MenuItem,
-  MenuList,
   Text,
-  useDisclosure,
   VStack,
 } from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
-import React from "react"
-import { FiMoreHorizontal } from "react-icons/fi"
+import React, { useState } from "react"
 import { Room } from "../types/Room"
 import ConfirmationDialog from "./ConfirmationDialog"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
@@ -27,15 +23,16 @@ type Props = Omit<Room, "password"> & {
 }
 
 export default function CardRoom({ title, extraInfo, id, onDelete }: Props) {
-  const { onClose, isOpen, getButtonProps } = useDisclosure()
+  const [isOpen, setIsOpen] = useState(false)
+  
   return (
     <>
       <ConfirmationDialog
         isDangerous
-        isOpen={isOpen}
+        open={isOpen}
         confirmLabel="Delete Room"
         onConfirm={() => onDelete(id)}
-        onClose={() => onClose()}
+        onClose={() => setIsOpen(false)}
         title={`Delete ${title}`}
         body={
           <Text>
@@ -44,36 +41,43 @@ export default function CardRoom({ title, extraInfo, id, onDelete }: Props) {
           </Text>
         }
       />
-      <Card>
-        <CardHeader>
-          <HStack justifyContent="space-between" spacing={2}>
+      <Card.Root>
+        <Card.Header>
+          <HStack justifyContent="space-between" gap={2}>
             <Heading size="md">{title}</Heading>
-            <Menu>
-              <MenuButton
-                icon={<FiMoreHorizontal />}
-                as={IconButton}
-                variant="ghost"
-                size="sm"
-              />
-              <MenuList>
-                <MenuItem {...getButtonProps()}>
-                  <HStack spacing={2} color="red.500">
-                    <DeleteIcon /> <Text>Delete</Text>
+            <MenuRoot>
+              <MenuTrigger asChild>
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Options"
+                >
+                  <LuMoreHorizontal />
+                </IconButton>
+              </MenuTrigger>
+              <MenuContent>
+                <MenuItem
+                  value="delete"
+                  onClick={() => setIsOpen(true)}
+                  color="red.500"
+                >
+                  <HStack gap={2}>
+                    <LuTrash2 /> <Text>Delete</Text>
                   </HStack>
                 </MenuItem>
-              </MenuList>
-            </Menu>
+              </MenuContent>
+            </MenuRoot>
           </HStack>
-        </CardHeader>
-        <CardBody>
-          <VStack spacing={2} align="stretch">
+        </Card.Header>
+        <Card.Body>
+          <VStack gap={2} align="stretch">
             {extraInfo && <ParsedEmojiMessage content={extraInfo} />}
-            <Button as={Link} to={`/rooms/${id}`}>
-              Join
+            <Button asChild>
+              <Link to={`/rooms/${id}`}>Join</Link>
             </Button>
           </VStack>
-        </CardBody>
-      </Card>
+        </Card.Body>
+      </Card.Root>
     </>
   )
 }

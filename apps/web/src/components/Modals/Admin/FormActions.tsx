@@ -13,14 +13,14 @@ const FormActions = ({ onSubmit, onCancel, dirty = false }: Props) => {
   const isDeleting = adminState.matches("deleting")
 
   return (
-    <HStack spacing={2}>
-      <Button variant="outline" onClick={onCancel} isDisabled={isDeleting}>
+    <HStack gap={2}>
+      <Button variant="outline" onClick={onCancel} disabled={isDeleting}>
         Cancel
       </Button>
       <Button
         type="submit"
-        isDisabled={!dirty || isDeleting}
-        isLoading={isDeleting}
+        disabled={!dirty || isDeleting}
+        loading={isDeleting}
         onClick={onSubmit}
       >
         Submit

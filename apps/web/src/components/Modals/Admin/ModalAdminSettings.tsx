@@ -2,17 +2,19 @@ import React from "react"
 
 import { useModalsStore } from "../../../state/modalsState"
 import {
-  Collapse,
+  Collapsible,
   HStack,
   Heading,
   IconButton,
-  Modal,
-  ModalCloseButton,
-  ModalContent,
-  ModalHeader,
-  ModalOverlay,
+  DialogRoot,
+  DialogBackdrop,
+  DialogPositioner,
+  DialogContent,
+  DialogHeader,
+  DialogCloseTrigger,
+  CloseButton,
 } from "@chakra-ui/react"
-import { ArrowBackIcon } from "@chakra-ui/icons"
+import { LuArrowLeft } from "react-icons/lu"
 import Overview from "./Overview"
 import Content from "./Content"
 import Chat from "./Chat"
@@ -28,8 +30,8 @@ const Header = ({ showBack, onBack }: { showBack: boolean; onBack: () => void })
   return (
     <HStack>
       {showBack && (
-        <IconButton onClick={onBack} icon={<ArrowBackIcon />} aria-label="back" variant="ghost">
-          Back
+        <IconButton onClick={onBack} aria-label="back" variant="ghost">
+          <LuArrowLeft />
         </IconButton>
       )}
       <Heading size="lg">Settings</Heading>
@@ -54,40 +56,61 @@ function ModalAdminSettings() {
   const toStateKey = (name: string) => name.split("-").join("_")
 
   return (
-    <Modal isOpen={isEditingSettings} onClose={hideEditForm} size={isTriggersView ? "2xl" : "md"}>
-      <ModalOverlay />
-      <ModalContent bg="appBg">
-        <ModalHeader>
-          <Header showBack={!state.matches("settings.overview")} onBack={onBack} />
-        </ModalHeader>
-        <ModalCloseButton />
+    <DialogRoot
+      open={isEditingSettings}
+      onOpenChange={(e) => !e.open && hideEditForm()}
+      size={isTriggersView ? "xl" : "md"}
+      placement="center"
+    >
+      <DialogBackdrop />
+      <DialogPositioner>
+        <DialogContent bg="appBg">
+          <DialogHeader>
+            <Header showBack={!state.matches("settings.overview")} onBack={onBack} />
+          </DialogHeader>
+          <DialogCloseTrigger asChild position="absolute" top="2" right="2">
+            <CloseButton size="sm" />
+          </DialogCloseTrigger>
 
-        <Collapse in={state.matches("settings.overview")}>
-          <Overview />
-        </Collapse>
-        <Collapse in={state.matches("settings.dj")}>
-          <DjFeatures />
-        </Collapse>
-        <Collapse in={state.matches("settings.content")}>
-          <Content />
-        </Collapse>
-        <Collapse in={state.matches("settings.chat")}>
-          <Chat />
-        </Collapse>
-        <Collapse in={state.matches("settings.password")}>
-          <Password />
-        </Collapse>
+          <Collapsible.Root open={state.matches("settings.overview")}>
+            <Collapsible.Content>
+              <Overview />
+            </Collapsible.Content>
+          </Collapsible.Root>
+          <Collapsible.Root open={state.matches("settings.dj")}>
+            <Collapsible.Content>
+              <DjFeatures />
+            </Collapsible.Content>
+          </Collapsible.Root>
+          <Collapsible.Root open={state.matches("settings.content")}>
+            <Collapsible.Content>
+              <Content />
+            </Collapsible.Content>
+          </Collapsible.Root>
+          <Collapsible.Root open={state.matches("settings.chat")}>
+            <Collapsible.Content>
+              <Chat />
+            </Collapsible.Content>
+          </Collapsible.Root>
+          <Collapsible.Root open={state.matches("settings.password")}>
+            <Collapsible.Content>
+              <Password />
+            </Collapsible.Content>
+          </Collapsible.Root>
 
-        {/* Dynamic plugin settings */}
-        {schemas
-          .filter((plugin) => plugin.configSchema)
-          .map((plugin) => (
-            <Collapse key={plugin.name} in={state.matches(`settings.${toStateKey(plugin.name)}`)}>
-              <DynamicPluginSettings pluginName={plugin.name} />
-            </Collapse>
-          ))}
-      </ModalContent>
-    </Modal>
+          {/* Dynamic plugin settings */}
+          {schemas
+            .filter((plugin) => plugin.configSchema)
+            .map((plugin) => (
+              <Collapsible.Root key={plugin.name} open={state.matches(`settings.${toStateKey(plugin.name)}`)}>
+                <Collapsible.Content>
+                  <DynamicPluginSettings pluginName={plugin.name} />
+                </Collapsible.Content>
+              </Collapsible.Root>
+            ))}
+        </DialogContent>
+      </DialogPositioner>
+    </DialogRoot>
   )
 }
 

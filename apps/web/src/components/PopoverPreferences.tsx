@@ -3,25 +3,23 @@ import {
   Box,
   Icon,
   IconButton,
-  Popover,
-  PopoverArrow,
+  PopoverRoot,
   PopoverContent,
   PopoverHeader,
   PopoverTrigger,
+  PopoverArrow,
   VStack,
   HStack,
   Flex,
   Switch,
-  FormControl,
-  FormLabel,
-  useColorMode,
-  Divider,
+  Separator,
 } from "@chakra-ui/react"
 import { FiSettings, FiMoon } from "react-icons/fi"
 
 import FormTheme from "./FormTheme"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
 import { useCurrentRoom } from "../state/roomStore"
+import { useColorMode } from "./ui/color-mode"
 
 type Props = {}
 
@@ -29,46 +27,50 @@ const PopoverPreferences = (props: Props) => {
   const { colorMode, toggleColorMode } = useColorMode()
   const room = useCurrentRoom()
   return (
-    <Popover isLazy>
-      <PopoverTrigger>
+    <PopoverRoot lazyMount>
+      <PopoverTrigger asChild>
         <IconButton
           aria-label="Settings"
           variant="ghost"
-          icon={<Icon as={FiSettings} />}
-        />
+        >
+          <Icon as={FiSettings} />
+        </IconButton>
       </PopoverTrigger>
       <PopoverContent>
         <PopoverHeader fontWeight="bold">
-          <HStack justify="space-between" spacing={1} w="100%">
+          <HStack justify="space-between" gap={1} w="100%">
             <Flex grow={1}>Theme</Flex>
-            <FormControl as={HStack} align="center" w="auto">
-              <FormLabel htmlFor="darkMode" m={0}>
-                <Icon as={FiMoon} aria-label="Dark Mode" />
-              </FormLabel>
-              <Switch
+            <HStack align="center">
+              <Icon as={FiMoon} aria-label="Dark Mode" />
+              <Switch.Root
                 id="darkMode"
-                onChange={toggleColorMode}
-                isChecked={colorMode === "dark"}
-              />
-            </FormControl>
+                onCheckedChange={toggleColorMode}
+                checked={colorMode === "dark"}
+              >
+                <Switch.HiddenInput />
+                <Switch.Control>
+                  <Switch.Thumb />
+                </Switch.Control>
+              </Switch.Root>
+            </HStack>
           </HStack>
         </PopoverHeader>
         <PopoverArrow />
         <Box p={4}>
-          <VStack align="start" spacing={2}>
+          <VStack align="start" gap={2}>
             <FormTheme />
           </VStack>
         </Box>
         {room?.enableSpotifyLogin && (
           <>
-            <Divider />
+            <Separator />
             <Box p={4}>
               <ButtonAuthSpotify />
             </Box>
           </>
         )}
       </PopoverContent>
-    </Popover>
+    </PopoverRoot>
   )
 }
 

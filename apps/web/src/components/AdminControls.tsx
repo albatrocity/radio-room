@@ -8,14 +8,9 @@ import {
   IconButton,
   Box,
   Wrap,
-  WrapItem,
-  Show,
-  Hide,
   BoxProps,
 } from "@chakra-ui/react"
-import { ArrowBackIcon } from "@chakra-ui/icons"
-
-import { FiSettings, FiBookmark } from "react-icons/fi"
+import { LuArrowLeft, LuSettings, LuBookmark } from "react-icons/lu"
 
 import { useBookmarks } from "../state/bookmarkedChatStore"
 import { useModalsStore } from "../state/modalsState"
@@ -33,90 +28,86 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
   return (
     <Box w={width}>
       <Stack direction="column" {...rest}>
-        <Show above="sm">
-          <Heading as="h3" size="md" color="whiteAlpha.700" margin={{ bottom: "xsmall" }}>
+        <Box hideBelow="sm">
+          <Heading as="h3" size="md" color="whiteAlpha.700" mb={2}>
             Admin
           </Heading>
-        </Show>
+        </Box>
 
         <Wrap>
-          <WrapItem>
-            <Show above="sm">
-              <Button
-                size="xs"
-                variant="ghost"
-                colorScheme={buttonColorScheme}
-                leftIcon={<Icon as={FiSettings} />}
-                onClick={() => modalSend("EDIT_SETTINGS")}
-              >
-                Settings
-              </Button>
-            </Show>
-            <Hide above="sm">
-              <IconButton
-                size="md"
-                variant="ghost"
-                colorScheme={buttonColorScheme}
-                icon={<Icon as={FiSettings} />}
-                onClick={() => modalSend("EDIT_SETTINGS")}
-                aria-label="Settings"
-              />
-            </Hide>
-          </WrapItem>
-          <WrapItem>
-            <Show above="sm">
-              <Button
-                size="xs"
-                variant="ghost"
-                colorScheme={buttonColorScheme}
-                leftIcon={<Icon as={FiBookmark} />}
-                onClick={() => modalSend("VIEW_BOOKMARKS")}
-              >
-                Bookmarks {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}
-              </Button>
-            </Show>
-            <Hide above="sm">
-              <IconButton
-                size="md"
-                variant="ghost"
-                colorScheme={buttonColorScheme}
-                icon={<Icon as={FiBookmark} />}
-                aria-label="Bookmarks"
-                onClick={() => modalSend("VIEW_BOOKMARKS")}
-              />
-            </Hide>
-          </WrapItem>
-          <Hide above="sm">
-            <WrapItem>
-              <IconButton
-                aria-label="Back to Rooms"
-                as={Link}
-                variant="ghost"
-                colorScheme={buttonColorScheme}
-                icon={<ArrowBackIcon />}
-                to="/"
-              >
+          <Box hideBelow="sm">
+            <Button
+              size="xs"
+              variant="ghost"
+              colorPalette={buttonColorScheme}
+              onClick={() => modalSend("EDIT_SETTINGS")}
+            >
+              <Icon as={LuSettings} />
+              Settings
+            </Button>
+          </Box>
+          <Box hideFrom="sm">
+            <IconButton
+              size="md"
+              variant="ghost"
+              colorPalette={buttonColorScheme}
+              onClick={() => modalSend("EDIT_SETTINGS")}
+              aria-label="Settings"
+            >
+              <Icon as={LuSettings} />
+            </IconButton>
+          </Box>
+          <Box hideBelow="sm">
+            <Button
+              size="xs"
+              variant="ghost"
+              colorPalette={buttonColorScheme}
+              onClick={() => modalSend("VIEW_BOOKMARKS")}
+            >
+              <Icon as={LuBookmark} />
+              Bookmarks {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}
+            </Button>
+          </Box>
+          <Box hideFrom="sm">
+            <IconButton
+              size="md"
+              variant="ghost"
+              colorPalette={buttonColorScheme}
+              aria-label="Bookmarks"
+              onClick={() => modalSend("VIEW_BOOKMARKS")}
+            >
+              <Icon as={LuBookmark} />
+            </IconButton>
+          </Box>
+          <Box hideFrom="sm">
+            <IconButton
+              aria-label="Back to Rooms"
+              asChild
+              variant="ghost"
+              colorPalette={buttonColorScheme}
+            >
+              <Link to="/">
+                <LuArrowLeft />
                 Back to Rooms
-              </IconButton>
-            </WrapItem>
-          </Hide>
+              </Link>
+            </IconButton>
+          </Box>
         </Wrap>
-        <Show above="sm">
+        <Box hideBelow="sm">
           <Wrap>
-            <WrapItem>
-              <Button
-                as={Link}
-                size="xs"
-                variant="ghost"
-                colorScheme={buttonColorScheme}
-                leftIcon={<ArrowBackIcon />}
-                to="/"
-              >
+            <Button
+              asChild
+              size="xs"
+              variant="ghost"
+              colorPalette={buttonColorScheme}
+            >
+              <Link to="/">
+                <LuArrowLeft />
                 Back to Rooms
-              </Button>
-            </WrapItem>
+              </Link>
+            </Button>
           </Wrap>
-        </Show>
+        </Box>
       </Stack>
     </Box>
   )

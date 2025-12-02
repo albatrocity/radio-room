@@ -1,12 +1,13 @@
 import React, { useRef } from "react"
 import {
   Button,
-  AlertDialog,
-  AlertDialogOverlay,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogBody,
-  AlertDialogFooter,
+  DialogRoot,
+  DialogBackdrop,
+  DialogPositioner,
+  DialogContent,
+  DialogHeader,
+  DialogBody,
+  DialogFooter,
   HStack,
 } from "@chakra-ui/react"
 
@@ -18,6 +19,8 @@ type Props = {
   isDangerous?: boolean
   confirmLabel?: string
   cancelLabel?: string
+  open?: boolean
+  // Legacy prop support
   isOpen?: boolean
 }
 
@@ -29,25 +32,32 @@ function ConfirmationDialog({
   onClose,
   onConfirm,
   isDangerous = false,
-  isOpen = false,
+  open,
+  isOpen,
 }: Props) {
   const cancelRef = useRef(null)
+  // Support both legacy isOpen and new open prop
+  const isDialogOpen = open ?? isOpen ?? false
+
   return (
-    <AlertDialog
-      leastDestructiveRef={cancelRef}
-      isOpen={isOpen}
-      onClose={onClose}
+    <DialogRoot
+      role="alertdialog"
+      open={isDialogOpen}
+      onOpenChange={(e) => !e.open && onClose()}
+      initialFocusEl={() => cancelRef.current}
+      placement="center"
     >
-      <AlertDialogOverlay>
-        <AlertDialogContent>
-          <AlertDialogHeader fontSize="lg" fontWeight="bold">
+      <DialogBackdrop />
+      <DialogPositioner>
+        <DialogContent>
+          <DialogHeader fontSize="lg" fontWeight="bold">
             {title}
-          </AlertDialogHeader>
+          </DialogHeader>
 
-          <AlertDialogBody>{body}</AlertDialogBody>
+          <DialogBody>{body}</DialogBody>
 
-          <AlertDialogFooter>
-            <HStack spacing={2}>
+          <DialogFooter>
+            <HStack gap={2}>
               <Button ref={cancelRef} variant="ghost" onClick={onClose}>
                 {cancelLabel}
               </Button>
@@ -56,15 +66,15 @@ function ConfirmationDialog({
                   onConfirm()
                   onClose()
                 }}
-                colorScheme={isDangerous ? "red" : undefined}
+                colorPalette={isDangerous ? "red" : undefined}
               >
                 {confirmLabel}
               </Button>
             </HStack>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialogOverlay>
-    </AlertDialog>
+          </DialogFooter>
+        </DialogContent>
+      </DialogPositioner>
+    </DialogRoot>
   )
 }
 

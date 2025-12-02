@@ -5,24 +5,26 @@ import {
   Stack,
   Input,
   HStack,
-  FormControl,
-  FormLabel,
-  FormHelperText,
+  Field,
 } from "@chakra-ui/react"
 import { User } from "../types/User"
 import Modal from "./Modal"
-import { ModalProps } from "@chakra-ui/react"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
 import { useCurrentRoom } from "../state/roomStore"
 
-interface Props extends Pick<ModalProps, "isOpen"> {
+interface Props {
   onClose: () => void
   onSubmit: (username?: string) => void
   currentUser: User
+  open?: boolean
+  isOpen?: boolean
 }
 
-const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
+const FormUsername = ({ onClose, onSubmit, currentUser, open, isOpen }: Props) => {
   const room = useCurrentRoom()
+  // Support both legacy isOpen and new open prop
+  const isDialogOpen = open ?? isOpen ?? false
+
   return (
     <Formik
       initialValues={{ username: "", userId: currentUser?.userId }}
@@ -43,11 +45,11 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
         isValid,
       }) => (
         <Modal
-          isOpen={isOpen}
+          open={isDialogOpen}
           onClose={onClose}
           heading="Your Name"
           footer={
-            <HStack spacing={2}>
+            <HStack gap={2}>
               <Button variant="outline" onClick={() => onClose()}>
                 Cancel
               </Button>
@@ -62,9 +64,9 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
           }
         >
           <form onSubmit={handleSubmit}>
-            <Stack spacing={10}>
-              <FormControl>
-                <FormLabel>What are we gonna call you in here?</FormLabel>
+            <Stack gap={10}>
+              <Field.Root>
+                <Field.Label>What are we gonna call you in here?</Field.Label>
                 <Input
                   size="md"
                   onChange={handleChange}
@@ -80,20 +82,20 @@ const FormUsername = ({ onClose, onSubmit, currentUser, isOpen }: Props) => {
                     borderBottomRightRadius: 0,
                   }}
                 />
-                <FormHelperText>
+                <Field.HelperText>
                   You can change this later by clicking the edit icon next to
                   your name in the listeners list.
-                </FormHelperText>
-              </FormControl>
+                </Field.HelperText>
+              </Field.Root>
               {room?.enableSpotifyLogin && (
-                <FormControl>
+                <Field.Root>
                   <ButtonAuthSpotify />
 
-                  <FormHelperText>
+                  <Field.HelperText>
                     Authorizing this app with your Spotify account will allow
                     you to create playlists from the track history.
-                  </FormHelperText>
-                </FormControl>
+                  </Field.HelperText>
+                </Field.Root>
               )}
             </Stack>
           </form>

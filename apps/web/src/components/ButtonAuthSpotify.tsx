@@ -1,7 +1,7 @@
 // component for the button to authenticate with a music service
 import React, { useEffect } from "react"
 import { Link, Box, Button, IconButton, Icon, Text, HStack } from "@chakra-ui/react"
-import { CheckCircleIcon, DeleteIcon } from "@chakra-ui/icons"
+import { LuCheckCircle, LuTrash2 } from "react-icons/lu"
 import { FaSpotify } from "react-icons/fa"
 
 import { useCurrentUser, useIsAuthenticated } from "../state/authStore"
@@ -46,33 +46,35 @@ export default function ButtonAuthSpotify({
     <Box>
       {!state.matches("authenticated") && (
         <Button
-          as={Link}
-          href={`${import.meta.env.VITE_API_URL}/auth/${serviceName}/login?userId=${
-            userId ?? currentUser.userId
-          }`}
+          asChild
           onClick={handleLogin}
-          leftIcon={serviceName === "spotify" ? <Icon as={FaSpotify} /> : undefined}
-          isLoading={state.matches("loading")}
-          isDisabled={state.matches("loading")}
+          loading={state.matches("loading")}
+          disabled={state.matches("loading")}
         >
-          Link {serviceDisplayName}
+          <Link
+            href={`${import.meta.env.VITE_API_URL}/auth/${serviceName}/login?userId=${
+              userId ?? currentUser.userId
+            }`}
+          >
+            {serviceName === "spotify" && <Icon as={FaSpotify} />}
+            Link {serviceDisplayName}
+          </Link>
         </Button>
       )}
       {state.matches("authenticated") && (
-        <HStack spacing={2} w="100%" justify="space-between">
-          <HStack spacing={2}>
-            <CheckCircleIcon color="primary" />
+        <HStack gap={2} w="100%" justify="space-between">
+          <HStack gap={2}>
+            <Icon as={LuCheckCircle} color="primary" />
             <Text fontSize="sm">Your {serviceDisplayName} account is linked.</Text>
           </HStack>
           <IconButton
-            icon={<DeleteIcon />}
             variant="outline"
             color="red.500"
             size="xs"
             onClick={() => send("LOGOUT")}
             aria-label={`log out of ${serviceDisplayName}`}
           >
-            Log out
+            <LuTrash2 />
           </IconButton>
         </HStack>
       )}

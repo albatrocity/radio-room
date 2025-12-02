@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { useMachine } from "@xstate/react"
 import {
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalHeader,
-  ModalOverlay,
+  DialogRoot,
+  DialogBackdrop,
+  DialogPositioner,
+  DialogContent,
+  DialogHeader,
+  DialogBody,
+  DialogCloseTrigger,
+  CloseButton,
   VStack,
 } from "@chakra-ui/react"
 import {
@@ -176,25 +178,30 @@ export function PluginComponentProvider({
         const interpolatedTitle = interpolateTemplate(modal.title, { config })
 
         return (
-          <Modal
+          <DialogRoot
             key={modal.id}
-            isOpen={openModals.has(modal.id)}
-            onClose={() => closeModal(modal.id)}
+            open={openModals.has(modal.id)}
+            onOpenChange={(e) => !e.open && closeModal(modal.id)}
             size={modal.size || "md"}
+            placement="center"
           >
-            <ModalOverlay />
-            <ModalContent>
-              <ModalHeader>{interpolatedTitle}</ModalHeader>
-              <ModalCloseButton />
-              <ModalBody pb={6}>
-                <VStack align="stretch" spacing={4}>
-                  {modal.children.map((child) => (
-                    <PluginComponentRenderer key={child.id} component={child} />
-                  ))}
-                </VStack>
-              </ModalBody>
-            </ModalContent>
-          </Modal>
+            <DialogBackdrop />
+            <DialogPositioner>
+              <DialogContent>
+                <DialogHeader>{interpolatedTitle}</DialogHeader>
+                <DialogCloseTrigger asChild position="absolute" top="2" right="2">
+                  <CloseButton size="sm" />
+                </DialogCloseTrigger>
+                <DialogBody pb={6}>
+                  <VStack align="stretch" gap={4}>
+                    {modal.children.map((child) => (
+                      <PluginComponentRenderer key={child.id} component={child} />
+                    ))}
+                  </VStack>
+                </DialogBody>
+              </DialogContent>
+            </DialogPositioner>
+          </DialogRoot>
         )
       })}
     </PluginComponentContext.Provider>

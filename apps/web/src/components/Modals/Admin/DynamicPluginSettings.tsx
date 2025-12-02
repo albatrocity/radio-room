@@ -1,6 +1,6 @@
 import React, { useMemo } from "react"
 import { Formik } from "formik"
-import { ModalBody, ModalFooter, Text, Spinner, Center, VStack } from "@chakra-ui/react"
+import { DialogBody, DialogFooter, Text, Spinner, Center, VStack } from "@chakra-ui/react"
 import { useSettingsStore } from "../../../state/settingsStore"
 import { useAdminStore } from "../../../state/adminStore"
 import { useModalsStore } from "../../../state/modalsState"
@@ -40,41 +40,41 @@ export default function DynamicPluginSettings({ pluginName }: DynamicPluginSetti
   // Show loading state
   if (isLoading) {
     return (
-      <ModalBody>
+      <DialogBody>
         <Center py={8}>
-          <VStack spacing={4}>
+          <VStack gap={4}>
             <Spinner />
             <Text>Loading plugin settings...</Text>
           </VStack>
         </Center>
-      </ModalBody>
+      </DialogBody>
     )
   }
 
   // Show error state
   if (error) {
     return (
-      <ModalBody>
+      <DialogBody>
         <Text color="red.500">Error loading plugin settings: {error.message}</Text>
-      </ModalBody>
+      </DialogBody>
     )
   }
 
   // Show not found state
   if (!pluginSchema) {
     return (
-      <ModalBody>
+      <DialogBody>
         <Text>Plugin "{pluginName}" not found.</Text>
-      </ModalBody>
+      </DialogBody>
     )
   }
 
   // Show no schema state
   if (!pluginSchema.configSchema) {
     return (
-      <ModalBody>
+      <DialogBody>
         <Text>This plugin does not have a configuration schema.</Text>
-      </ModalBody>
+      </DialogBody>
     )
   }
 
@@ -101,20 +101,20 @@ export default function DynamicPluginSettings({ pluginName }: DynamicPluginSetti
     >
       {({ values, setFieldValue, handleSubmit, dirty }) => (
         <form onSubmit={handleSubmit}>
-          <ModalBody>
+          <DialogBody>
             <PluginConfigForm
               schema={pluginSchema.configSchema!}
               values={values}
               onChange={(field, value) => setFieldValue(field, value)}
             />
-          </ModalBody>
-          <ModalFooter>
+          </DialogBody>
+          <DialogFooter>
             <FormActions
               onCancel={() => modalSend("CLOSE")}
               onSubmit={handleSubmit}
               dirty={dirty}
             />
-          </ModalFooter>
+          </DialogFooter>
         </form>
       )}
     </Formik>

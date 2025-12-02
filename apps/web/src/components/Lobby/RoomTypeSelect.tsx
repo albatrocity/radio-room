@@ -1,6 +1,6 @@
 import React from "react"
-import { VStack, Box, useRadio, useRadioGroup, Text, HStack } from "@chakra-ui/react"
-import { CheckIcon } from "@chakra-ui/icons"
+import { VStack, Box, Text, HStack, RadioGroup } from "@chakra-ui/react"
+import { LuCheck } from "react-icons/lu"
 
 import { Room } from "../../types/Room"
 
@@ -11,90 +11,82 @@ type Props = {
 type RadioTypeCardProps = {
   title: string
   description: string
-} & React.AriaAttributes &
-  React.DOMAttributes<HTMLInputElement> & {
-    id?: string | undefined
-    role?: React.AriaRole | undefined
-    tabIndex?: number | undefined
-    style?: React.CSSProperties | undefined
-  } & React.RefAttributes<any>
+  value: string
+  checked?: boolean
+}
 
-function RoomTypeCard(props: RadioTypeCardProps) {
-  const { getInputProps, getRadioProps } = useRadio(props)
-  const { title, description } = props
-
-  const input = getInputProps()
-  const checkbox = getRadioProps()
-
+function RoomTypeCard({ title, description, value, checked }: RadioTypeCardProps) {
   return (
-    <Box as="label" w="100%">
-      <input {...input} />
+    <RadioGroup.Item value={value} w="100%">
+      <RadioGroup.ItemHiddenInput />
       <Box
-        {...checkbox}
+        as="label"
+        w="100%"
         cursor="pointer"
         borderWidth="1px"
         borderRadius="md"
         boxShadow="sm"
-        _checked={{
-          bg: "primary.50",
-          borderColor: "primary.600",
-        }}
+        px={5}
+        py={3}
+        bg={checked ? "primary.50" : undefined}
+        borderColor={checked ? "primary.600" : undefined}
         _focus={{
           boxShadow: "outline",
         }}
         _dark={{
-          _checked: {
-            bg: "primary.600",
-            borderColor: "primary.500",
-          },
+          bg: checked ? "primary.600" : undefined,
+          borderColor: checked ? "primary.500" : undefined,
         }}
-        px={5}
-        py={3}
       >
+        <RadioGroup.ItemControl />
         <HStack>
           <Text fontSize="lg" fontWeight={700}>
             {title}
           </Text>
-          {input.checked && <CheckIcon color="secondary.500" _dark={{ color: "primary.200" }} />}
+          {checked && <LuCheck color="var(--chakra-colors-secondary-500)" />}
         </HStack>
         <Text as="p" fontSize="sm">
           {description}
         </Text>
       </Box>
-    </Box>
+    </RadioGroup.Item>
   )
 }
 
 export default function RoomTypeSelect({ onSelect }: Props) {
-  const { getRootProps, getRadioProps } = useRadioGroup({
-    name: "roomType",
-    defaultValue: "jukebox",
-    onChange: onSelect,
-  })
+  const [value, setValue] = React.useState("jukebox")
 
-  const group = getRootProps()
+  const handleChange = (details: { value: string }) => {
+    setValue(details.value)
+    onSelect(details.value as Room["type"])
+  }
 
   return (
-    <VStack
-      {...group}
-      alignContent="flex-start"
-      justifyItems="flex-start"
-      alignItems="flex-start"
-      w="100%"
-      spacing={4}
+    <RadioGroup.Root
+      name="roomType"
+      value={value}
+      onValueChange={handleChange}
     >
-      <RoomTypeCard
-        title="Jukebox"
-        description="People can see what you're currently playing, chat, and add songs to your Spotify queue. Great for parties and other social gatherings where a single Spotify account is playing music."
-        key="jukebox"
-        {...getRadioProps({ value: "jukebox" })}
-      />
-      <RoomTypeCard
-        title="Radio"
-        description="Listen to a ShoutCast or IceCast radio station with your friends. See Spotify search results for what's currently playing. Great for listening to radio stations that don't have a web player."
-        key="radio"
-        {...getRadioProps({ value: "radio" })}
-      />
-    </VStack>
+      <VStack
+        alignContent="flex-start"
+        justifyItems="flex-start"
+        alignItems="flex-start"
+        w="100%"
+        gap={4}
+      >
+        <RoomTypeCard
+          title="Jukebox"
+          description="People can see what you're currently playing, chat, and add songs to your Spotify queue. Great for parties and other social gatherings where a single Spotify account is playing music."
+          value="jukebox"
+          checked={value === "jukebox"}
+        />
+        <RoomTypeCard
+          title="Radio"
+          description="Listen to a ShoutCast or IceCast radio station with your friends. See Spotify search results for what's currently playing. Great for listening to radio stations that don't have a web player."
+          value="radio"
+          checked={value === "radio"}
+        />
+      </VStack>
+    </RadioGroup.Root>
   )
 }

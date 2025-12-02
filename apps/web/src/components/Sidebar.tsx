@@ -5,8 +5,6 @@ import {
   Flex,
   IconButton,
   Icon,
-  Show,
-  useColorModeValue,
 } from "@chakra-ui/react"
 import { FiHelpCircle } from "react-icons/fi"
 import Listeners from "./Listeners"
@@ -15,6 +13,7 @@ import AdminControls from "./AdminControls"
 import { useAuthStore, useIsAdmin } from "../state/authStore"
 import { useModalsStore } from "../state/modalsState"
 import Banner from "./Banner"
+import { useColorModeValue } from "./ui/color-mode"
 
 const Sidebar = () => {
   const { send: modalSend } = useModalsStore()
@@ -55,21 +54,22 @@ const Sidebar = () => {
         <Flex h="100%" w="100%" direction="column">
           <Listeners onViewListeners={handleViewListeners} onEditUser={handleEditUser} />
         </Flex>
-        <Show above="sm">
+        <Box hideBelow="sm">
           {!isAdmin && (
             <Flex p={3} align="center" grow={1} shrink={0}>
               <IconButton
                 size="sm"
                 aria-label="Help"
                 variant="ghost"
-                icon={<Icon as={FiHelpCircle} />}
                 onClick={handleViewHelp}
-              />
+              >
+                <Icon as={FiHelpCircle} />
+              </IconButton>
             </Flex>
           )}
-        </Show>
+        </Box>
         {isAdmin && (
-          <Show above="sm">
+          <Box hideBelow="sm">
             <AdminControls
               p={3}
               borderTopWidth={1}
@@ -78,7 +78,7 @@ const Sidebar = () => {
               width="100%"
               buttonColorScheme={adminButtonColorScheme}
             />
-          </Show>
+          </Box>
         )}
       </Stack>
     </Box>

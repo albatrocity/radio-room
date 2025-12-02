@@ -11,7 +11,6 @@ import {
   Text,
   useBreakpointValue,
   Wrap,
-  WrapItem,
 } from "@chakra-ui/react"
 import { FiBookmark } from "react-icons/fi"
 
@@ -149,24 +148,25 @@ const ChatMessage = ({
             {currentIsAdmin && (
               <IconButton
                 aria-label="Bookmark message"
-                colorScheme={"primary"}
+                colorPalette="primary"
                 variant={isBookmarked ? "solid" : "ghost"}
-                icon={<Icon as={FiBookmark} />}
                 size="xs"
                 onClick={handleBookmark}
-              />
+              >
+                <Icon as={FiBookmark} />
+              </IconButton>
             )}
             <Timestamp value={timestamp} />
           </HStack>
         </Flex>
       )}
-      <Wrap spacing="xs" align="center" w="100%">
-        <WrapItem w="100%">
-          <Stack direction="row" spacing={2} w="100%">
+      <Wrap gap="1" align="center" w="100%">
+        <Box w="100%">
+          <Stack direction="row" gap={2} w="100%">
             <Box flex={{ grow: 1 }} textStyle="chatMessage">
               <ParsedEmojiMessage content={parsedContent} />
               {images.length > 0 && (
-                <Stack direction="column" spacing={2}>
+                <Stack direction="column" gap={2}>
                   {images.map((x) => (
                     <Box key={x}>
                       <Image
@@ -192,18 +192,19 @@ const ChatMessage = ({
                 {currentIsAdmin && (
                   <IconButton
                     aria-label="Bookmark message"
-                    colorScheme="primary"
-                    icon={<Icon as={FiBookmark} />}
+                    colorPalette="primary"
                     variant={isBookmarked ? "solid" : "ghost"}
                     size="xs"
                     onClick={handleBookmark}
-                  />
+                  >
+                    <Icon as={FiBookmark} />
+                  </IconButton>
                 )}
                 <Timestamp value={timestamp} />
               </HStack>
             )}
           </Stack>
-        </WrapItem>
+        </Box>
       </Wrap>
 
       <ReactionCounter

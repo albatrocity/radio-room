@@ -1,13 +1,15 @@
 import React, { ReactNode } from "react"
 
 import {
-  Modal as ChakraModal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
+  DialogRoot,
+  DialogBackdrop,
+  DialogPositioner,
+  DialogContent,
+  DialogHeader,
+  DialogBody,
+  DialogFooter,
+  DialogCloseTrigger,
+  CloseButton,
 } from "@chakra-ui/react"
 
 interface Props {
@@ -15,9 +17,11 @@ interface Props {
   onClose?: () => void
   heading?: string | ReactNode
   canClose?: boolean
-  isOpen?: boolean
+  open?: boolean
   footer?: JSX.Element | null
   showFooter?: boolean
+  // Legacy prop support
+  isOpen?: boolean
 }
 
 const Modal = ({
@@ -25,22 +29,35 @@ const Modal = ({
   onClose = () => void 0,
   heading,
   canClose = true,
-  isOpen = false,
+  open,
+  isOpen,
   footer = null,
   showFooter = true,
 }: Props) => {
+  // Support both legacy isOpen and new open prop
+  const isDialogOpen = open ?? isOpen ?? false
+
   return (
-    <ChakraModal isOpen={isOpen} onClose={onClose}>
-      <ModalOverlay />
+    <DialogRoot
+      open={isDialogOpen}
+      onOpenChange={(e) => !e.open && onClose()}
+      placement="center"
+    >
+      <DialogBackdrop />
+      <DialogPositioner>
+        <DialogContent mx={2}>
+          <DialogHeader>{heading}</DialogHeader>
 
-      <ModalContent mx={2}>
-        <ModalHeader>{heading}</ModalHeader>
-
-        {canClose && <ModalCloseButton />}
-        <ModalBody>{children}</ModalBody>
-        {showFooter && <ModalFooter>{footer}</ModalFooter>}
-      </ModalContent>
-    </ChakraModal>
+          {canClose && (
+            <DialogCloseTrigger asChild position="absolute" top="2" right="2">
+              <CloseButton size="sm" />
+            </DialogCloseTrigger>
+          )}
+          <DialogBody>{children}</DialogBody>
+          {showFooter && <DialogFooter>{footer}</DialogFooter>}
+        </DialogContent>
+      </DialogPositioner>
+    </DialogRoot>
   )
 }
 

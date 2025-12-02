@@ -1,136 +1,94 @@
-// Chakra UI theme configuration
-import type { StyleFunctionProps } from "@chakra-ui/styled-system"
-import { buttonTheme } from "./buttonTheme"
+// Chakra UI v3 theme configuration
+import { createSystem, defaultConfig, defineConfig } from "@chakra-ui/react"
 import defaultTheme from "../themes/default"
 
-import { mode } from "@chakra-ui/theme-tools"
-import {
-  extendTheme,
-  withDefaultColorScheme,
-  ThemeConfig,
-  extendBaseTheme,
-} from "@chakra-ui/react"
-
-const config: ThemeConfig = {
-  initialColorMode: "system",
-  useSystemColorMode: true,
-}
 const colors = defaultTheme.colors
 
-const theme = {
-  config,
-  colors,
-  styles: {
-    global: (props: StyleFunctionProps) => ({
-      body: {
-        bg: mode("white", "secondary.900")(props),
+const config = defineConfig({
+  theme: {
+    tokens: {
+      colors: {
+        primary: {
+          50: { value: colors.primary[50] },
+          100: { value: colors.primary[100] },
+          200: { value: colors.primary[200] },
+          300: { value: colors.primary[300] },
+          400: { value: colors.primary[400] },
+          500: { value: colors.primary[500] },
+          600: { value: colors.primary[600] },
+          700: { value: colors.primary[700] },
+          800: { value: colors.primary[800] },
+          900: { value: colors.primary[900] },
+        },
+        action: {
+          50: { value: colors.action[50] },
+          100: { value: colors.action[100] },
+          200: { value: colors.action[200] },
+          300: { value: colors.action[300] },
+          400: { value: colors.action[400] },
+          500: { value: colors.action[500] },
+          600: { value: colors.action[600] },
+          700: { value: colors.action[700] },
+          800: { value: colors.action[800] },
+          900: { value: colors.action[900] },
+        },
+        secondary: {
+          50: { value: colors.secondary[50] },
+          100: { value: colors.secondary[100] },
+          200: { value: colors.secondary[200] },
+          300: { value: colors.secondary[300] },
+          400: { value: colors.secondary[400] },
+          500: { value: colors.secondary[500] },
+          600: { value: colors.secondary[600] },
+          700: { value: colors.secondary[700] },
+          800: { value: colors.secondary[800] },
+          900: { value: colors.secondary[900] },
+        },
       },
-    }),
-  },
-  semanticTokens: {
-    colors: {
-      appBg: {
-        default: "white",
-        _dark: "primary.900",
-      },
-      secondaryText: {
-        default: "secondary.500",
-        _dark: "secondary.600",
-      },
-      secondaryBg: {
-        default: "secondary.50",
-        _dark: "secondary.800",
-      },
-      secondaryBorder: {
-        default: "secondary.100",
-        _dark: "secondary.700",
-      },
-      primary: {
-        default: "primary.500",
-        _dark: "primary.800",
-      },
-      primaryBg: {
-        default: "primary.100",
-        _dark: "primary.500",
-      },
-      actionBg: {
-        default: "action.600",
-        _dark: "action.700",
-      },
-      actionBgLite: {
-        default: "action.100",
-        _dark: "action.800",
-      },
-      action: {
-        default: "action.600",
-        _dark: "action.700",
-      },
-      critical: {
-        default: "action.500",
-      },
-      system: {
-        default: "secondary.50",
-        _dark: "blackAlpha.800",
+    },
+    semanticTokens: {
+      colors: {
+        appBg: {
+          value: { base: "{colors.white}", _dark: "{colors.primary.900}" },
+        },
+        secondaryText: {
+          value: { base: "{colors.secondary.500}", _dark: "{colors.secondary.600}" },
+        },
+        secondaryBg: {
+          value: { base: "{colors.secondary.50}", _dark: "{colors.secondary.800}" },
+        },
+        secondaryBorder: {
+          value: { base: "{colors.secondary.100}", _dark: "{colors.secondary.700}" },
+        },
+        primary: {
+          value: { base: "{colors.primary.500}", _dark: "{colors.primary.800}" },
+        },
+        primaryBg: {
+          value: { base: "{colors.primary.100}", _dark: "{colors.primary.500}" },
+        },
+        actionBg: {
+          value: { base: "{colors.action.600}", _dark: "{colors.action.700}" },
+        },
+        actionBgLite: {
+          value: { base: "{colors.action.100}", _dark: "{colors.action.800}" },
+        },
+        action: {
+          value: { base: "{colors.action.600}", _dark: "{colors.action.700}" },
+        },
+        critical: {
+          value: { base: "{colors.action.500}", _dark: "{colors.action.500}" },
+        },
+        system: {
+          value: { base: "{colors.secondary.50}", _dark: "rgba(0, 0, 0, 0.8)" },
+        },
       },
     },
   },
-  textStyles: {
+  globalCss: {
     body: {
-      "& p": {
-        marginBottom: 3,
-      },
-      "& a": {
-        textDecoration: "underline",
-      },
-      "& h1, & h2, & h3": {
-        marginBottom: 3,
-      },
-      "& ul": {
-        marginBottom: 3,
-        marginLeft: 4,
-        listStyleType: "disc",
-      },
-      "& ol": {
-        marginBottom: 3,
-      },
-      "& li": {
-        marginBottom: 2,
-      },
-    },
-    chatMessage: {
-      opacity: 0.9,
-    },
-    footer: {
-      fontSize: "xs",
+      bg: { base: "white", _dark: "secondary.900" },
     },
   },
-  components: {
-    Popover: {
-      variants: {
-        responsive: {
-          body: {
-            padding: 0,
-          },
-        },
-      },
-    },
-    Button: buttonTheme,
-    Drawer: {
-      baseStyle: {
-        dialog: {
-          background: "secondaryBg",
-        },
-      },
-    },
-  },
-}
+})
 
-export default extendTheme(
-  withDefaultColorScheme({
-    colorScheme: "action",
-  }),
-  theme,
-)
-
-export const baseTheme = extendBaseTheme()
-
+export const system = createSystem(defaultConfig, config)

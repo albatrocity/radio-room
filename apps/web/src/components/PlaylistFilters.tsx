@@ -1,6 +1,5 @@
 import React from "react"
-import { Text, Wrap, WrapItem } from "@chakra-ui/react"
-import { useDisclosure } from "@chakra-ui/hooks"
+import { Text, Wrap, useDisclosure } from "@chakra-ui/react"
 
 import { useCurrentUser } from "../state/authStore"
 import ReactionSelection from "./ReactionSelection"
@@ -15,24 +14,20 @@ type Props = {
 
 function PlaylistFilters({ onChange, emojis }: Props) {
   const currentUser = useCurrentUser()
-  const { isOpen, onToggle, onClose } = useDisclosure()
+  const { open, onToggle, onClose } = useDisclosure()
 
   return (
     <Wrap align="center">
-      <WrapItem>
-        <Text>Filter by</Text>
-      </WrapItem>
-      <WrapItem>
-        <ReactionSelection
-          user={currentUser}
-          reactions={emojis}
-          isOpen={isOpen}
-          onSelect={onChange}
-          onClose={onClose}
-          onToggle={onToggle}
-          showAddButton={true}
-        />
-      </WrapItem>
+      <Text>Filter by</Text>
+      <ReactionSelection
+        user={currentUser}
+        reactions={emojis}
+        isOpen={open}
+        onSelect={onChange}
+        onClose={onClose}
+        onToggle={onToggle}
+        showAddButton={true}
+      />
     </Wrap>
   )
 }

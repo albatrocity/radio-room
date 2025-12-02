@@ -1,32 +1,67 @@
 import React, { ReactNode } from "react"
 import {
-  Drawer as ChakraDrawer,
-  DrawerBody,
-  DrawerHeader,
-  DrawerOverlay,
+  DrawerRoot,
+  DrawerBackdrop,
+  DrawerPositioner,
   DrawerContent,
-  DrawerCloseButton,
-  DrawerProps,
+  DrawerHeader,
+  DrawerBody,
   DrawerFooter,
+  DrawerCloseTrigger,
+  CloseButton,
 } from "@chakra-ui/react"
 
-interface Props extends DrawerProps {
+interface Props {
   heading?: string
   children: ReactNode
   footer?: ReactNode
+  open?: boolean
+  onOpenChange?: (details: { open: boolean }) => void
+  placement?: "start" | "end" | "top" | "bottom"
+  // Legacy prop support
+  isOpen?: boolean
+  onClose?: () => void
 }
 
-const Drawer = ({ heading, children, footer, ...rest }: Props) => {
+const Drawer = ({
+  heading,
+  children,
+  footer,
+  open,
+  isOpen,
+  onOpenChange,
+  onClose,
+  placement = "end",
+}: Props) => {
+  // Support both legacy isOpen and new open prop
+  const isDrawerOpen = open ?? isOpen ?? false
+
+  const handleOpenChange = (details: { open: boolean }) => {
+    if (onOpenChange) {
+      onOpenChange(details)
+    } else if (onClose && !details.open) {
+      onClose()
+    }
+  }
+
   return (
-    <ChakraDrawer {...rest}>
-      <DrawerOverlay width="full" height="full" />
-      <DrawerContent>
-        {heading && <DrawerHeader>{heading}</DrawerHeader>}
-        <DrawerCloseButton />
-        <DrawerBody>{children}</DrawerBody>
-        {footer && <DrawerFooter borderTopWidth="1px">{footer}</DrawerFooter>}
-      </DrawerContent>
-    </ChakraDrawer>
+    <DrawerRoot
+      open={isDrawerOpen}
+      onOpenChange={handleOpenChange}
+      placement={placement}
+    >
+      <DrawerBackdrop />
+      <DrawerPositioner>
+        <DrawerContent>
+          {heading && <DrawerHeader>{heading}</DrawerHeader>}
+          <DrawerCloseTrigger asChild position="absolute" top="2" right="2">
+            <CloseButton size="sm" />
+          </DrawerCloseTrigger>
+          <DrawerBody>{children}</DrawerBody>
+          {footer && <DrawerFooter borderTopWidth="1px">{footer}</DrawerFooter>}
+        </DrawerContent>
+      </DrawerPositioner>
+    </DrawerRoot>
   )
 }
 

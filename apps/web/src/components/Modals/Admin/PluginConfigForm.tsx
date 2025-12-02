@@ -3,32 +3,23 @@ import {
   Box,
   Button,
   Checkbox,
-  FormControl,
-  FormHelperText,
-  FormLabel,
+  Field,
   Heading,
   HStack,
   Input,
-  NumberDecrementStepper,
-  NumberIncrementStepper,
-  NumberInput,
+  NumberInputRoot,
   NumberInputField,
-  NumberInputStepper,
-  Popover,
+  PopoverRoot,
   PopoverArrow,
   PopoverBody,
   PopoverContent,
   PopoverTrigger,
-  Radio,
   RadioGroup,
   Stack,
   Tag,
-  TagCloseButton,
-  TagLabel,
   Text,
   VStack,
   Wrap,
-  WrapItem,
   useDisclosure,
 } from "@chakra-ui/react"
 import Picker from "@emoji-mart/react"
@@ -124,16 +115,20 @@ interface FieldProps {
 
 function BooleanField({ meta, value, onChange }: FieldProps) {
   return (
-    <Checkbox isChecked={value as boolean} onChange={(e) => onChange(e.target.checked)}>
-      {meta.label}
-    </Checkbox>
+    <Checkbox.Root checked={value as boolean} onCheckedChange={(e) => onChange(e.checked)}>
+      <Checkbox.HiddenInput />
+      <Checkbox.Control>
+        <Checkbox.Indicator />
+      </Checkbox.Control>
+      <Checkbox.Label>{meta.label}</Checkbox.Label>
+    </Checkbox.Root>
   )
 }
 
 function StringField({ meta, value, onChange }: FieldProps) {
   return (
     <>
-      <FormLabel>{meta.label}</FormLabel>
+      <Field.Label>{meta.label}</Field.Label>
       <Input
         value={(value as string) || ""}
         onChange={(e) => onChange(e.target.value)}
@@ -153,23 +148,19 @@ function NumberField({ meta, value, onChange }: FieldProps) {
 
   return (
     <>
-      <FormLabel>
+      <Field.Label>
         {label}
         {suffix && ` (${suffix})`}
-      </FormLabel>
-      <NumberInput
-        value={displayValue as number}
-        onChange={(_, num) => {
-          const storageVal = toStorageValue(num, meta)
+      </Field.Label>
+      <NumberInputRoot
+        value={String(displayValue as number)}
+        onValueChange={(details) => {
+          const storageVal = toStorageValue(details.valueAsNumber, meta)
           onChange(storageVal)
         }}
       >
         <NumberInputField />
-        <NumberInputStepper>
-          <NumberIncrementStepper />
-          <NumberDecrementStepper />
-        </NumberInputStepper>
-      </NumberInput>
+      </NumberInputRoot>
     </>
   )
 }
@@ -179,28 +170,30 @@ function EnumField({ fieldName, meta, value, onChange, jsonSchema }: FieldProps)
 
   return (
     <>
-      <FormLabel>{meta.label}</FormLabel>
-      <RadioGroup value={value as string} onChange={onChange}>
-        <Stack direction="column" spacing={2}>
+      <Field.Label>{meta.label}</Field.Label>
+      <RadioGroup.Root value={value as string} onValueChange={(e) => onChange(e.value)}>
+        <Stack direction="column" gap={2}>
           {options.map((option) => (
-            <Radio key={option} value={option}>
-              {meta.enumLabels?.[option] || option}
-            </Radio>
+            <RadioGroup.Item key={option} value={option}>
+              <RadioGroup.ItemHiddenInput />
+              <RadioGroup.ItemControl />
+              <RadioGroup.ItemText>{meta.enumLabels?.[option] || option}</RadioGroup.ItemText>
+            </RadioGroup.Item>
           ))}
         </Stack>
-      </RadioGroup>
+      </RadioGroup.Root>
     </>
   )
 }
 
 function EmojiField({ meta, value, onChange }: FieldProps) {
-  const { isOpen, onOpen, onClose } = useDisclosure()
+  const { open, onOpen, onClose } = useDisclosure()
 
   return (
     <>
-      <FormLabel>{meta.label}</FormLabel>
-      <Popover isLazy isOpen={isOpen} onClose={onClose} autoFocus={true}>
-        <PopoverTrigger>
+      <Field.Label>{meta.label}</Field.Label>
+      <PopoverRoot lazyMount open={open} onOpenChange={(e) => !e.open && onClose()} autoFocus>
+        <PopoverTrigger asChild>
           <Button onClick={onOpen} variant="outline" justifyContent="flex-start" width="full">
             <HStack>
               <Box fontSize="2xl">
@@ -214,8 +207,8 @@ function EmojiField({ meta, value, onChange }: FieldProps) {
         <PopoverContent width="full">
           <PopoverArrow />
           <PopoverBody
-            sx={{
-              "em-emoji-picker": { "--shadow": "0" },
+            css={{
+              "& em-emoji-picker": { "--shadow": "0" },
               overflow: "hidden",
             }}
           >
@@ -230,7 +223,7 @@ function EmojiField({ meta, value, onChange }: FieldProps) {
             />
           </PopoverBody>
         </PopoverContent>
-      </Popover>
+      </PopoverRoot>
     </>
   )
 }
@@ -252,7 +245,7 @@ function StringArrayField({ meta, value, onChange }: FieldProps) {
 
   return (
     <>
-      <FormLabel>{meta.label}</FormLabel>
+      <Field.Label>{meta.label}</Field.Label>
       <HStack>
         <Input
           value={inputValue}
@@ -272,12 +265,10 @@ function StringArrayField({ meta, value, onChange }: FieldProps) {
       {items.length > 0 && (
         <Wrap mt={2}>
           {items.map((item) => (
-            <WrapItem key={item}>
-              <Tag size="md" colorScheme="blue">
-                <TagLabel>{item}</TagLabel>
-                <TagCloseButton onClick={() => removeItem(item)} />
-              </Tag>
-            </WrapItem>
+            <Tag.Root key={item} size="md" colorPalette="blue">
+              <Tag.Label>{item}</Tag.Label>
+              <Tag.CloseTrigger onClick={() => removeItem(item)} />
+            </Tag.Root>
           ))}
         </Wrap>
       )}
@@ -336,7 +327,7 @@ function renderConfigFormTemplateComponent(
       </Box>
     )
   }
-  
+
   // Fallback for unknown components
   return (
     <Text as="span" key={key} color="red.500">
@@ -431,7 +422,7 @@ export default function PluginConfigForm({
   const effectiveValues = allValues || values
 
   return (
-    <VStack spacing={6} align="stretch">
+    <VStack gap={6} align="stretch">
       {schema.layout.map((item, index) => {
         // Handle string items (field names)
         if (typeof item === "string") {
@@ -447,7 +438,7 @@ export default function PluginConfigForm({
           }
 
           return (
-            <FormControl key={item}>
+            <Field.Root key={item}>
               {renderField(
                 item,
                 meta,
@@ -455,8 +446,8 @@ export default function PluginConfigForm({
                 (value) => onChange(item, value),
                 schema.jsonSchema,
               )}
-              {meta.description && <FormHelperText>{meta.description}</FormHelperText>}
-            </FormControl>
+              {meta.description && <Field.HelperText>{meta.description}</Field.HelperText>}
+            </Field.Root>
           )
         }
 
