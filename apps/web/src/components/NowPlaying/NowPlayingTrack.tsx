@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { FiUser, FiSkipForward } from "react-icons/fi"
+import { FiUser } from "react-icons/fi"
 import { FaSpotify } from "react-icons/fa"
 import {
   Heading,
@@ -11,8 +11,6 @@ import {
   Stack,
   Icon,
   Box,
-  Tooltip,
-  Badge,
 } from "@chakra-ui/react"
 import { format } from "date-fns"
 
@@ -22,6 +20,7 @@ import nullifyEmptyString from "../../lib/nullifyEmptyString"
 import { User } from "../../types/User"
 import { Room, RoomMeta } from "../../types/Room"
 import { PluginArea } from "../PluginComponents"
+import { usePluginStyles } from "../../hooks/usePluginStyles"
 
 interface NowPlayingTrackProps {
   meta: RoomMeta
@@ -68,9 +67,8 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   // Handle both old format (release_date) and new format (releaseDate)
   const releaseDate = (release?.album as any)?.release_date || release?.album?.releaseDate
 
-  // Check if track was skipped by playlist-democracy plugin
-  const isSkipped = nowPlaying?.pluginData?.["playlist-democracy"]?.skipped === true
-  const skipData = nowPlaying?.pluginData?.["playlist-democracy"]?.skipData
+  // Get plugin-provided styles for the title
+  const titleStyles = usePluginStyles(nowPlaying?.pluginData, "title")
 
   const djUsername = useMemo(
     () =>
@@ -106,9 +104,9 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
             </Box>
           )}
           <VStack align="start" spacing={0}>
-            <TrackTitle title={titleDisplay} externalUrl={externalUrl} isSkipped={isSkipped} />
+            <TrackTitle title={titleDisplay} externalUrl={externalUrl} pluginStyles={titleStyles} />
 
-            <SkippedBadge isSkipped={isSkipped} skipData={skipData} />
+            <PluginArea area="nowPlayingBadge" />
 
             {artist && (
               <Heading color="primaryBg" margin="none" as="h4" size="sm">
@@ -145,53 +143,31 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
 interface TrackTitleProps {
   title: string | null
   externalUrl: string | null
-  isSkipped: boolean
+  pluginStyles: React.CSSProperties
 }
 
-function TrackTitle({ title, externalUrl, isSkipped }: TrackTitleProps) {
+function TrackTitle({ title, externalUrl, pluginStyles }: TrackTitleProps) {
   const headingStyles = {
     color: "primaryBg",
     margin: "none",
     as: "h3" as const,
     size: ["md", "lg"] as any,
-    textDecoration: isSkipped ? "line-through" : "none",
-    opacity: isSkipped ? 0.7 : 1,
   }
 
   if (externalUrl) {
     return (
       <LinkOverlay href={externalUrl} isExternal>
-        <Heading {...headingStyles}>{title}</Heading>
+        <Heading {...headingStyles} style={pluginStyles}>
+          {title}
+        </Heading>
       </LinkOverlay>
     )
   }
 
-  return <Heading {...headingStyles}>{title}</Heading>
-}
-
-interface SkippedBadgeProps {
-  isSkipped: boolean
-  skipData?: { voteCount: number; requiredCount: number }
-}
-
-function SkippedBadge({ isSkipped, skipData }: SkippedBadgeProps) {
-  if (!isSkipped) return null
-
   return (
-    <Tooltip
-      label={
-        skipData
-          ? `Skipped: ${skipData.voteCount}/${skipData.requiredCount} votes`
-          : "Skipped by Playlist Democracy"
-      }
-    >
-      <Badge colorScheme="orange" variant="subtle" mt={1}>
-        <HStack spacing={1}>
-          <Icon as={FiSkipForward} boxSize={3} />
-          <Text>Skipped</Text>
-        </HStack>
-      </Badge>
-    </Tooltip>
+    <Heading {...headingStyles} style={pluginStyles}>
+      {title}
+    </Heading>
   )
 }
 

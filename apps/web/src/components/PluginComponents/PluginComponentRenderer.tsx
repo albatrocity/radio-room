@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from "react"
 import { useMachine } from "@xstate/react"
 import {
+  Badge,
   Box,
   Button,
   Icon,
@@ -11,10 +12,12 @@ import {
   ModalHeader,
   ModalOverlay,
   Text,
+  Tooltip,
   VStack,
   HStack,
 } from "@chakra-ui/react"
 import { FaTrophy, FaStar, FaMedal, FaAward, FaHeart } from "react-icons/fa"
+import { FiSkipForward } from "react-icons/fi"
 import { interpolateTemplate, interpolateCompositeTemplate } from "@repo/utils"
 import { pluginComponentMachine } from "../../machines/pluginComponentMachine"
 import { createTimerMachine } from "../../machines/TimerMachine"
@@ -30,6 +33,7 @@ import type {
   EmojiComponentProps,
   IconComponentProps,
   ButtonComponentProps,
+  BadgeComponentProps,
   LeaderboardComponentProps,
   CountdownComponentProps,
   PluginComponentDefinition,
@@ -70,6 +74,7 @@ const ICON_MAP: Record<string, React.ComponentType> = {
   medal: FaMedal,
   award: FaAward,
   heart: FaHeart,
+  "skip-forward": FiSkipForward,
 }
 
 function getIcon(iconName: string): React.ComponentType | undefined {
@@ -169,6 +174,66 @@ function ButtonTemplateComponent({
       {label}
     </Button>
   )
+}
+
+/**
+ * Badge component - renders a badge with optional icon and tooltip.
+ */
+function BadgeTemplateComponent({ label, variant = "info", icon, tooltip }: BadgeComponentProps) {
+  const { config } = usePluginComponentContext()
+  const IconComponent = icon ? getIcon(icon) : undefined
+
+  // Map variant to Chakra colorScheme
+  const colorSchemeMap = {
+    success: "green",
+    warning: "orange",
+    error: "red",
+    info: "blue",
+  }
+  const colorScheme = colorSchemeMap[variant]
+
+  // Render label content (string or CompositeTemplate)
+  const renderLabel = () => {
+    if (typeof label === "string") {
+      return interpolateTemplate(label, { config })
+    }
+
+    // CompositeTemplate
+    const interpolated = interpolateCompositeTemplate(label, { config })
+    return (
+      <>
+        {interpolated.map((part, index) => {
+          const key =
+            part.type === "text"
+              ? `text-${index}-${part.content.substring(0, 20)}`
+              : `component-${index}-${part.name}`
+
+          if (part.type === "text") {
+            return <React.Fragment key={key}>{part.content}</React.Fragment>
+          } else if (part.type === "component") {
+            return renderTemplateComponent(part.name, part.props, key)
+          }
+          return null
+        })}
+      </>
+    )
+  }
+
+  const badge = (
+    <Badge colorScheme={colorScheme} variant="subtle" mt={1}>
+      <HStack spacing={1}>
+        {IconComponent && <Icon as={IconComponent} boxSize={3} />}
+        <Text>{renderLabel()}</Text>
+      </HStack>
+    </Badge>
+  )
+
+  if (tooltip) {
+    const tooltipText = interpolateTemplate(tooltip, { config })
+    return <Tooltip label={tooltipText}>{badge}</Tooltip>
+  }
+
+  return badge
 }
 
 /**
@@ -364,6 +429,7 @@ const TEMPLATE_COMPONENT_MAP: {
   emoji: EmojiTemplateComponent,
   icon: IconTemplateComponent,
   button: ButtonTemplateComponent,
+  badge: BadgeTemplateComponent,
   leaderboard: LeaderboardTemplateComponent,
   countdown: CountdownTemplateComponent,
 }
@@ -503,13 +569,18 @@ interface PluginComponentRendererProps {
  * This function checks enabledWhen conditions and delegates to the appropriate template component.
  */
 export function PluginComponentRenderer({ component }: PluginComponentRendererProps) {
-  const { config } = usePluginComponentContext()
+  const { config, store } = usePluginComponentContext()
 
-  // Check enabledWhen condition
+  // Check enabledWhen condition (checks both config and store)
   if (component.enabledWhen) {
+    // First check config
     const configValue = config[component.enabledWhen]
-    if (!configValue) {
-      return null
+    if (configValue !== undefined) {
+      if (!configValue) return null
+    } else {
+      // If not in config, check store
+      const storeValue = store[component.enabledWhen]
+      if (!storeValue) return null
     }
   }
 

@@ -281,7 +281,18 @@ export async function getRoomCurrent({ context, roomId }: GetRoomCurrentParams) 
     } as RoomMeta
   }
 
-  return parsed.data as RoomMeta
+  const roomMeta = parsed.data as RoomMeta
+
+  // Augment now playing data with plugin metadata
+  if (roomMeta.nowPlaying) {
+    const augmentedNowPlaying = await context.pluginRegistry.augmentNowPlaying(roomId, roomMeta.nowPlaying)
+    return {
+      ...roomMeta,
+      nowPlaying: augmentedNowPlaying,
+    }
+  }
+
+  return roomMeta
 }
 
 type MakeJukeboxCurrentPayloadParams = {

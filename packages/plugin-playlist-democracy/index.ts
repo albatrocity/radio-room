@@ -40,7 +40,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
   static readonly configSchema = playlistDemocracyConfigSchema
   static readonly defaultConfig = defaultPlaylistDemocracyConfig
 
-  private activeTimers: Map<string, NodeJS.Timeout> = new Map()
+  private readonly activeTimers: Map<string, NodeJS.Timeout> = new Map()
 
   /**
    * Get the UI component schema for frontend rendering
@@ -67,8 +67,19 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
           ],
           subscribeTo: ["TRACK_CHANGED"],
         },
+        // Skipped badge in now playing badge area
+        {
+          id: "now-playing-skipped-badge",
+          type: "badge",
+          area: "nowPlayingBadge",
+          enabledWhen: "isSkipped", // Only show when track is actually skipped
+          label: "Skipped",
+          variant: "warning",
+          icon: "skip-forward",
+          tooltip: "{{voteCount}}/{{requiredCount}} votes",
+        },
       ],
-      storeKeys: ["trackStartTime"],
+      storeKeys: ["trackStartTime", "isSkipped", "voteCount", "requiredCount"],
     }
   }
 
@@ -86,11 +97,45 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     if (!nowPlaying?.playedAt) {
       return {
         trackStartTime: null,
+        isSkipped: false,
+        voteCount: 0,
+        requiredCount: 0,
       }
+    }
+
+    // Use pipeline to fetch skip data and vote count in a single round trip
+    const trackId = nowPlaying.mediaSource.trackId
+    const [skipDataStr, voteCountStr] = (await this.context.storage.pipeline([
+      { op: "get", key: `skipped:${trackId}` },
+      { op: "get", key: this.makeVoteKey(trackId) },
+    ])) as [string | null, string | null]
+
+    let isSkipped = false
+    let voteCount = 0
+    let requiredCount = 0
+
+    if (skipDataStr) {
+      try {
+        const skipData = JSON.parse(skipDataStr)
+        isSkipped = true
+        voteCount = skipData.voteCount
+        requiredCount = skipData.requiredCount
+      } catch {
+        // Ignore parse errors
+      }
+    } else {
+      // Track not skipped, use vote count from pipeline
+      voteCount = Number(voteCountStr || 0)
+      // Calculate required votes
+      const listeningUsers = await this.context.api.getUsers(this.context.roomId)
+      requiredCount = this.calculateRequiredVotes(listeningUsers.length, config)
     }
 
     return {
       trackStartTime: new Date(nowPlaying.playedAt).getTime(),
+      isSkipped,
+      voteCount,
+      requiredCount,
     }
   }
 
@@ -380,11 +425,22 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
     console.log(`[${this.name}] Track changed: ${track.title} (${trackId})`)
 
-    // Emit plugin event to update component store with track start time
+    // Calculate vote threshold
+    const listeningUsers = await this.context.api.getUsers(this.context.roomId)
+    const totalListeners = listeningUsers.length
+    const requiredCount =
+      config.thresholdType === "percentage"
+        ? Math.ceil((totalListeners * config.thresholdValue) / 100)
+        : config.thresholdValue
+
+    // Emit plugin event to update component store with track start time and initial vote data
     // This transforms the system TRACK_CHANGED event into component-friendly data
     if (track.playedAt) {
       await this.emit("TRACK_STARTED", {
         trackStartTime: track.playedAt,
+        isSkipped: false, // Track starts not skipped
+        voteCount: 0, // No votes yet
+        requiredCount, // Required votes to keep playing
       })
     }
 
@@ -502,6 +558,13 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
           await this.context.api.updatePlaylistTrack(this.context.roomId, updatedTrack)
         }
 
+        // Emit component state update to show badge
+        await this.emit("TRACK_SKIPPED", {
+          isSkipped: true,
+          voteCount,
+          requiredCount,
+        })
+
         // Send system message
         const voteText =
           config.thresholdType === "percentage"
@@ -551,6 +614,37 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
   private makeVoteKey(trackId: string): string {
     return `track:${trackId}:votes`
+  }
+
+  /**
+   * Augment now playing track with skip information and style hints
+   */
+  async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
+    if (!this.context) return {}
+
+    const config = await this.getConfig()
+    if (!config?.enabled) return {}
+
+    const trackId = item.mediaSource.trackId
+    const skipDataStr = await this.context.storage.get(`skipped:${trackId}`)
+
+    if (!skipDataStr) return {}
+
+    try {
+      const skipData = JSON.parse(skipDataStr)
+      return {
+        skipped: true,
+        skipData,
+        styles: {
+          title: {
+            textDecoration: "line-through",
+            opacity: 0.7,
+          },
+        },
+      }
+    } catch {
+      return {}
+    }
   }
 
   /**

@@ -373,4 +373,28 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    * ```
    */
   async augmentPlaylistBatch?(items: QueueItem[]): Promise<PluginAugmentationData[]>
+
+  /**
+   * Optional method to augment now playing track with plugin-specific metadata and style hints.
+   * Override this method to add custom data and style modifications to the now playing track.
+   *
+   * @param item - The currently playing track
+   * @returns Augmentation data including optional style hints
+   *
+   * @example
+   * ```typescript
+   * async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
+   *   const skipData = await this.context?.storage.get(`skipped:${item.mediaSource.trackId}`)
+   *   if (skipData) {
+   *     return {
+   *       skipped: true,
+   *       skipData: JSON.parse(skipData),
+   *       styles: { title: { textDecoration: 'line-through', opacity: 0.7 } }
+   *     }
+   *   }
+   *   return {}
+   * }
+   * ```
+   */
+  async augmentNowPlaying?(item: QueueItem): Promise<PluginAugmentationData>
 }

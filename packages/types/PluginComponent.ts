@@ -22,6 +22,7 @@ export type PluginComponentArea =
   | "playlistItem" // Near timestamp/added-by info for each track
   | "nowPlayingInfo" // Below the now playing release info
   | "nowPlayingArt" // Overlay on the release artwork
+  | "nowPlayingBadge" // Badges/indicators next to the now playing title
   | "nowPlaying" // General now playing area
   | "userListItem" // Next to each user in the user list
   | "userList" // Top/bottom of the user list
@@ -40,6 +41,7 @@ export type TemplateComponentName =
   | "emoji"
   | "icon"
   | "button"
+  | "badge"
   | "leaderboard"
   | "countdown"
 
@@ -126,6 +128,20 @@ export interface CountdownComponentProps {
 }
 
 /**
+ * Props for the badge template component.
+ */
+export interface BadgeComponentProps {
+  /** Badge label text (supports template interpolation) */
+  label: string | CompositeTemplate
+  /** Visual variant */
+  variant?: "success" | "warning" | "error" | "info"
+  /** Icon name (e.g., "skip-forward", "heart", "star") */
+  icon?: string
+  /** Tooltip text on hover (supports template interpolation) */
+  tooltip?: string
+}
+
+/**
  * Type-safe mapping of component names to their props.
  */
 export interface TemplateComponentPropsMap {
@@ -134,6 +150,7 @@ export interface TemplateComponentPropsMap {
   emoji: EmojiComponentProps
   icon: IconComponentProps
   button: ButtonComponentProps
+  badge: BadgeComponentProps
   leaderboard: LeaderboardComponentProps
   countdown: CountdownComponentProps
 }
@@ -196,6 +213,7 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "emoji" } & EmojiComponentProps)
   | (PluginComponentMetadata & { type: "icon" } & IconComponentProps)
   | (PluginComponentMetadata & { type: "button" } & ButtonComponentProps)
+  | (PluginComponentMetadata & { type: "badge" } & BadgeComponentProps)
   | (PluginComponentMetadata & { type: "leaderboard" } & LeaderboardComponentProps)
   | (PluginComponentMetadata & { type: "countdown" } & CountdownComponentProps)
   | PluginModalComponent // Modal is special - it contains children
@@ -207,6 +225,7 @@ export type PluginTextComponent = PluginComponentMetadata & { type: "text" } & T
 export type PluginEmojiComponent = PluginComponentMetadata & { type: "emoji" } & EmojiComponentProps
 export type PluginIconComponent = PluginComponentMetadata & { type: "icon" } & IconComponentProps
 export type PluginButtonComponent = PluginComponentMetadata & { type: "button" } & ButtonComponentProps
+export type PluginBadgeComponent = PluginComponentMetadata & { type: "badge" } & BadgeComponentProps
 export type PluginLeaderboardComponent = PluginComponentMetadata & { type: "leaderboard" } & LeaderboardComponentProps
 export type PluginUsernameComponent = PluginComponentMetadata & { type: "username" } & UsernameComponentProps
 export type PluginCountdownComponent = PluginComponentMetadata & { type: "countdown" } & CountdownComponentProps

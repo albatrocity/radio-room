@@ -118,6 +118,24 @@ export interface PluginStorage {
   exists(key: string): Promise<boolean>
   /** Batch get multiple keys efficiently */
   mget(keys: string[]): Promise<(string | null)[]>
+  /**
+   * Execute multiple Redis commands in a pipeline for optimal performance.
+   * Reduces multiple round trips to a single network call.
+   *
+   * @example
+   * const results = await storage.pipeline([
+   *   { op: 'get', key: 'config' },
+   *   { op: 'get', key: 'votes:track1' },
+   *   { op: 'exists', key: 'skipped:track1' }
+   * ])
+   */
+  pipeline(
+    commands: Array<
+      | { op: "get"; key: string }
+      | { op: "exists"; key: string }
+      | { op: "mget"; keys: string[] }
+    >,
+  ): Promise<Array<string | null | boolean | (string | null)[]>>
   /** Sorted Sets */
   zadd(key: string, score: number, value: string): Promise<void>
   zrem(key: string, value: string): Promise<void>
@@ -215,10 +233,30 @@ export interface PluginContext {
 }
 
 /**
- * Plugin data returned from augmentPlaylistBatch
- * Maps trackId to plugin-specific metadata
+ * Style hints that plugins can provide to modify UI elements
  */
-export type PluginAugmentationData = Record<string, any>
+export interface PluginStyleHints {
+  /** Styles for the track title */
+  title?: React.CSSProperties
+  /** Styles for subtitles or secondary text */
+  subtitle?: React.CSSProperties
+  /** Badge configuration */
+  badge?: {
+    variant?: "success" | "warning" | "error" | "info"
+    label?: string
+  }
+}
+
+/**
+ * Plugin data returned from augmentation methods.
+ * Can include style hints and any plugin-specific metadata.
+ */
+export interface PluginAugmentationData {
+  /** Optional style modifications for UI elements */
+  styles?: PluginStyleHints
+  /** Any other plugin-specific data */
+  [key: string]: any
+}
 
 /**
  * Base plugin interface
@@ -282,6 +320,28 @@ export interface Plugin {
    * }
    */
   augmentPlaylistBatch?(items: QueueItem[]): Promise<PluginAugmentationData[]>
+
+  /**
+   * Augment the now playing track with plugin-specific data and style hints.
+   * Called when now playing data is fetched.
+   *
+   * @param item - The currently playing track
+   * @returns Augmentation data including optional style hints
+   *
+   * @example
+   * async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
+   *   const skipData = await this.storage.get(`skipped:${item.mediaSource.trackId}`)
+   *   if (skipData) {
+   *     return {
+   *       skipped: true,
+   *       skipData: JSON.parse(skipData),
+   *       styles: { title: { textDecoration: 'line-through', opacity: 0.7 } }
+   *     }
+   *   }
+   *   return {}
+   * }
+   */
+  augmentNowPlaying?(item: QueueItem): Promise<PluginAugmentationData>
 }
 
 /**

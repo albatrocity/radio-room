@@ -285,6 +285,65 @@ export class PluginRegistry {
   }
 
   /**
+   * Augment the now playing track with plugin metadata
+   * Calls augmentNowPlaying on all plugins that implement it
+   *
+   * @param roomId - The room to augment now playing for
+   * @param item - The currently playing track
+   * @returns Item with merged pluginData from all plugins
+   */
+  async augmentNowPlaying(roomId: string, item: QueueItem | null): Promise<QueueItem | null> {
+    if (!item) {
+      return null
+    }
+
+    const roomPluginMap = this.roomPlugins.get(roomId)
+    if (!roomPluginMap) {
+      return item
+    }
+
+    // Get plugins for this room that have augmentation
+    const pluginsWithAugmentation = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.augmentNowPlaying === "function",
+    )
+
+    if (pluginsWithAugmentation.length === 0) {
+      return item
+    }
+
+    // Call all augmentation methods in parallel
+    const augmentationResults = await Promise.all(
+      pluginsWithAugmentation.map(async ([pluginName, { plugin }]) => {
+        try {
+          const augmentation = await plugin.augmentNowPlaying!(item)
+          return { pluginName, augmentation }
+        } catch (error) {
+          console.error(
+            `[PluginRegistry] Error in augmentNowPlaying for plugin ${pluginName}:`,
+            error,
+          )
+          return { pluginName, augmentation: {} }
+        }
+      }),
+    )
+
+    // Merge augmentation data
+    const pluginData: Record<string, any> = { ...(item.pluginData || {}) }
+
+    for (const { pluginName, augmentation } of augmentationResults) {
+      if (augmentation && Object.keys(augmentation).length > 0) {
+        pluginData[pluginName] = augmentation
+      }
+    }
+
+    // Only add pluginData if there's data to add
+    if (Object.keys(pluginData).length > 0) {
+      return { ...item, pluginData }
+    }
+    return item
+  }
+
+  /**
    * Augment a single playlist item with plugin metadata
    * Convenience method for single-item augmentation (e.g., PLAYLIST_TRACK_ADDED)
    */
