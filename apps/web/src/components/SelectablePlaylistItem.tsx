@@ -1,27 +1,34 @@
 import { Checkbox, HStack } from "@chakra-ui/react"
-import React from "react"
+import React, { memo, useCallback } from "react"
 import { PlaylistItem as Item } from "../types/PlaylistItem"
 import PlaylistItem from "./PlaylistItem"
 
-type Props = {
+interface Props {
   item: Item
   isSelectable?: boolean
-  selected?: Item[]
+  isSelected?: boolean
   onSelect?: (item: Item, isChecked: boolean) => void
 }
 
-const SelectablePlaylistItem = ({ item, isSelectable = false, selected = [], onSelect }: Props) => {
+const SelectablePlaylistItem = memo(function SelectablePlaylistItem({
+  item,
+  isSelectable = false,
+  isSelected = false,
+  onSelect,
+}: Props) {
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      onSelect?.(item, e.target.checked)
+    },
+    [onSelect, item],
+  )
+
   return (
-    <HStack key={item.playedAt?.toString() || item.addedAt.toString()}>
-      {isSelectable && (
-        <Checkbox
-          isChecked={selected.map((item) => item.track.id).includes(item.track.id)}
-          onChange={onSelect ? (e) => onSelect(item, e.target.checked) : undefined}
-        />
-      )}
+    <HStack>
+      {isSelectable && <Checkbox isChecked={isSelected} onChange={handleChange} />}
       <PlaylistItem item={item} />
     </HStack>
   )
-}
+})
 
 export default SelectablePlaylistItem

@@ -1,4 +1,4 @@
-import React, { memo, useEffect } from "react"
+import React, { memo, useEffect, useCallback, useMemo } from "react"
 import { useMachine } from "@xstate/react"
 import { groupBy } from "lodash/fp"
 import { reactionsMachine } from "../machines/reactionsMachine"
@@ -30,16 +30,20 @@ const ReactionCounter = ({ reactTo, ...rest }: ReactionCounterProps) => {
     send("SET_REACT_TO", {
       data: { reactTo, reactions: allReactions },
     })
-  }, [reactTo])
+  }, [reactTo, allReactions, send])
 
-  const emoji = groupBy("emoji", state.context.reactions)
+  const emoji = useMemo(() => groupBy("emoji", state.context.reactions), [state.context.reactions])
 
-  const handleSelection = (emoji: Emoji) => {
-    send("SELECT_REACTION", { data: emoji })
-  }
-  const handleClose = () => send("CLOSE")
+  const handleSelection = useCallback(
+    (emoji: Emoji) => {
+      send("SELECT_REACTION", { data: emoji })
+    },
+    [send],
+  )
 
-  const handleToggle = () => send("TOGGLE", { data: { reactTo } })
+  const handleClose = useCallback(() => send("CLOSE"), [send])
+
+  const handleToggle = useCallback(() => send("TOGGLE", { data: { reactTo } }), [send, reactTo])
 
   return (
     <ReactionSelection

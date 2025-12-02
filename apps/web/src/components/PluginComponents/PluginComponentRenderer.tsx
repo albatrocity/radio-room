@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react"
+import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { useMachine } from "@xstate/react"
 import {
   Modal,
@@ -139,25 +139,29 @@ export function PluginComponentProvider({
     send({ type: "SET_ROOM_ID", roomId })
   }, [roomId, send])
 
-  const openModal = (modalId: string) => {
+  // Memoize callbacks to prevent context value changes
+  const openModal = useCallback((modalId: string) => {
     setOpenModals((prev) => new Set([...prev, modalId]))
-  }
+  }, [])
 
-  const closeModal = (modalId: string) => {
+  const closeModal = useCallback((modalId: string) => {
     setOpenModals((prev) => {
       const next = new Set(prev)
       next.delete(modalId)
       return next
     })
-  }
+  }, [])
 
   // Find all modal components
-  const modalComponents = components.filter((c): c is PluginModalComponent => c.type === "modal")
+  const modalComponents = useMemo(
+    () => components.filter((c): c is PluginModalComponent => c.type === "modal"),
+    [components],
+  )
 
   // Use store from machine state
   const store = state.context.store
 
-  // Memoize context value
+  // Memoize context value - callbacks are now stable
   const contextValue = useMemo(
     () => ({ store, config, openModal, closeModal }),
     [store, config, openModal, closeModal],

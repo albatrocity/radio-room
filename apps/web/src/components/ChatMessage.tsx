@@ -71,10 +71,18 @@ const ChatMessage = ({
 
   const isMention = mentions.indexOf(currentUserId) > -1
   const urls = useMemo((): string[] => getUrls(content), [content])
-  const images = Array.from(
-    new Set([...parsedImageUrls, ...urls.filter((x: string) => isImageUrl(x))]),
+
+  // Memoize images to prevent recalculation on every render
+  const images = useMemo(
+    () => Array.from(new Set([...parsedImageUrls, ...urls.filter((x: string) => isImageUrl(x))])),
+    [parsedImageUrls, urls],
   )
-  const parsedContent = images.reduce((mem, x) => mem.replace(x, ""), content)
+
+  // Memoize parsed content
+  const parsedContent = useMemo(
+    () => images.reduce((mem, x) => mem.replace(x, ""), content),
+    [images, content],
+  )
 
   const handleBookmark = useCallback(() => {
     bookmarkSend("TOGGLE_MESSAGE", {
@@ -86,7 +94,7 @@ const ChatMessage = ({
         mentions,
       },
     })
-  }, [bookmarkSend])
+  }, [bookmarkSend, timestamp, content, user, mentions])
 
   useEffect(() => {
     async function testUrls() {

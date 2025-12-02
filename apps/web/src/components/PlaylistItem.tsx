@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, memo } from "react"
 import { format } from "date-fns"
 import { Stack, LinkBox, LinkOverlay, Text, Icon, Image, Box, HStack } from "@chakra-ui/react"
 
@@ -11,7 +11,7 @@ type Props = {
   item: PlaylistItemType
 }
 
-function PlaylistItem({ item }: Props) {
+const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
   // Get album art from track images (QueueItem format)
   const artThumb = useMemo(() => {
     const imageUrl = item.track.album?.images?.find((img) => img.type === "image" && img.url)?.url
@@ -106,6 +106,6 @@ function PlaylistItem({ item }: Props) {
       </Stack>
     </Stack>
   )
-}
+})
 
 export default PlaylistItem

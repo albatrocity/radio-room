@@ -1,4 +1,4 @@
-import { memo } from "react"
+import { memo, useCallback, useMemo } from "react"
 import { useMachine } from "@xstate/react"
 import { get, find, reverse, reject } from "lodash/fp"
 import { Box, Text, Heading, HStack, List, VStack } from "@chakra-ui/react"
@@ -34,7 +34,27 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
   } = typingState
 
   const currentListener = find({ userId: currentUser.userId }, listeners)
-  const isTyping = (user: User) => !!find({ userId: get("userId", user) }, typing)
+  const isTyping = useCallback(
+    (user: User) => !!find({ userId: get("userId", user) }, typing),
+    [typing],
+  )
+
+  // Memoize stable callbacks
+  const handleKickUser = useCallback(
+    (userId: User["userId"]) => authSend("KICK_USER", { userId }),
+    [authSend],
+  )
+
+  const handleDeputizeDj = useCallback(
+    (userId: User["userId"]) => adminSend("DEPUTIZE_DJ", { userId }),
+    [adminSend],
+  )
+
+  // Memoize the filtered listeners list
+  const otherListeners = useMemo(
+    () => reverse(reject({ userId: currentUser.userId }, listeners)),
+    [listeners, currentUser.userId],
+  )
 
   return (
     <VStack>
@@ -78,23 +98,19 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
               showStatus={showStatus}
             />
           )}
-          {reverse(reject({ userId: currentUser.userId }, listeners)).map((x) => {
-            return (
-              <ListItemUser
-                key={x.userId}
-                user={x}
-                isAdmin={x.userId === creator}
-                showStatus={showStatus}
-                userTyping={isTyping(x)}
-                currentUser={currentUser}
-                onEditUser={onEditUser}
-                onKickUser={(userId: User["userId"]) => authSend("KICK_USER", { userId })}
-                onDeputizeDj={(userId: User["userId"]) => {
-                  adminSend("DEPUTIZE_DJ", { userId })
-                }}
-              />
-            )
-          })}
+          {otherListeners.map((x) => (
+            <ListItemUser
+              key={x.userId}
+              user={x}
+              isAdmin={x.userId === creator}
+              showStatus={showStatus}
+              userTyping={isTyping(x)}
+              currentUser={currentUser}
+              onEditUser={onEditUser}
+              onKickUser={handleKickUser}
+              onDeputizeDj={handleDeputizeDj}
+            />
+          ))}
         </List>
       </VStack>
     </VStack>
