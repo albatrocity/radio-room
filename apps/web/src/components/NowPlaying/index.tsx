@@ -1,12 +1,10 @@
 import { memo } from "react"
 import { Box, VStack, Show } from "@chakra-ui/react"
-import { useMachine } from "@xstate/react"
 
 import { useUsers } from "../../state/usersStore"
 import { useCurrentRoom, useRoomStore } from "../../state/roomStore"
 import { useIsAdmin } from "../../state/authStore"
 import { useMediaSourceStatus, useHasTrackData } from "../../state/audioStore"
-import { settingsMachine } from "../../machines/settingsMachine"
 import { RoomMeta } from "../../types/Room"
 
 import { NowPlayingLoading } from "./NowPlayingLoading"
@@ -51,14 +49,8 @@ function NowPlaying({ meta }: NowPlayingProps) {
   const users = useUsers()
   const room = useCurrentRoom()
   const isAdmin = useIsAdmin()
-  const [settingsState] = useMachine(settingsMachine)
 
   const displayState = useDisplayState(meta)
-  const timerEnabled = settingsState.context.playlistDemocracy.enabled
-  const timerSettings = {
-    timeLimit: settingsState.context.playlistDemocracy.timeLimit,
-    reactionType: settingsState.context.playlistDemocracy.reactionType,
-  }
 
   return (
     <Box
@@ -80,13 +72,7 @@ function NowPlaying({ meta }: NowPlayingProps) {
         )}
 
         {displayState === "playing" && meta && (
-          <NowPlayingTrack
-            meta={meta}
-            room={room}
-            users={users}
-            timerEnabled={timerEnabled}
-            timerSettings={timerSettings}
-          />
+          <NowPlayingTrack meta={meta} room={room} users={users} />
         )}
 
         <PluginArea area="nowPlaying" />

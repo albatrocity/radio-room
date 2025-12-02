@@ -16,6 +16,7 @@ export type {
   IconComponentProps,
   ButtonComponentProps,
   LeaderboardComponentProps,
+  CountdownComponentProps,
   LeaderboardEntry,
   TemplateComponentPropsMap,
   
@@ -33,6 +34,7 @@ export type {
   PluginButtonComponent,
   PluginLeaderboardComponent,
   PluginUsernameComponent,
+  PluginCountdownComponent,
   PluginModalComponent,
   
   // Schema

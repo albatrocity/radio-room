@@ -34,6 +34,16 @@ export type PluginComponentEvent =
 /**
  * Creates a socket service that filters events for a specific plugin.
  * Only forwards PLUGIN:{pluginName}:* events to the machine.
+ *
+ * Design Note: This service intentionally ONLY listens to plugin events, not system events.
+ * This keeps the machine simple and gives plugins full control over data transformation.
+ *
+ * Event Flow:
+ *   System Event → Plugin Handler → Plugin transforms data → Plugin emits → Machine receives
+ *
+ * Example:
+ *   TRACK_CHANGED → onTrackChanged() → extract playedAt → emit("TRACK_STARTED", {trackStartTime})
+ *   → Machine receives PLUGIN:playlist-democracy:TRACK_STARTED
  */
 function createPluginSocketService(pluginName: string, storeKeys: string[]) {
   return (callback: (event: PluginComponentEvent) => void) => {
@@ -94,8 +104,11 @@ function createPluginSocketService(pluginName: string, storeKeys: string[]) {
  *
  * The machine automatically:
  * - Fetches initial state when roomId becomes available
- * - Subscribes to socket events filtered for this plugin
+ * - Subscribes to PLUGIN:{pluginName}:* events (NOT system events)
  * - Updates store when matching plugin events arrive
+ *
+ * Architecture: Plugins are responsible for transforming system events into plugin events.
+ * This keeps the machine simple and gives plugins full control over data transformation.
  *
  * This machine should be instantiated with a services implementation
  * for fetchComponentState via withConfig().

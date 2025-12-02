@@ -41,6 +41,7 @@ export type TemplateComponentName =
   | "icon"
   | "button"
   | "leaderboard"
+  | "countdown"
 
 /**
  * Props for the username template component.
@@ -108,6 +109,23 @@ export interface LeaderboardComponentProps {
 }
 
 /**
+ * Props for the countdown template component.
+ */
+export interface CountdownComponentProps {
+  /** Store key containing the start timestamp (ISO string or unix ms) */
+  startKey: string
+  /** Duration in milliseconds, or config key like "config.timeLimit" */
+  duration: number | string
+  /**
+   * Optional text/instructions to display with the countdown.
+   * Can be:
+   * - A string with template placeholders like {{config.fieldName}}
+   * - A CompositeTemplate array (text mixed with components like emoji)
+   */
+  text?: string | CompositeTemplate
+}
+
+/**
  * Type-safe mapping of component names to their props.
  */
 export interface TemplateComponentPropsMap {
@@ -117,6 +135,7 @@ export interface TemplateComponentPropsMap {
   icon: IconComponentProps
   button: ButtonComponentProps
   leaderboard: LeaderboardComponentProps
+  countdown: CountdownComponentProps
 }
 
 // ============================================================================
@@ -178,6 +197,7 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "icon" } & IconComponentProps)
   | (PluginComponentMetadata & { type: "button" } & ButtonComponentProps)
   | (PluginComponentMetadata & { type: "leaderboard" } & LeaderboardComponentProps)
+  | (PluginComponentMetadata & { type: "countdown" } & CountdownComponentProps)
   | PluginModalComponent // Modal is special - it contains children
 
 /**
@@ -189,6 +209,7 @@ export type PluginIconComponent = PluginComponentMetadata & { type: "icon" } & I
 export type PluginButtonComponent = PluginComponentMetadata & { type: "button" } & ButtonComponentProps
 export type PluginLeaderboardComponent = PluginComponentMetadata & { type: "leaderboard" } & LeaderboardComponentProps
 export type PluginUsernameComponent = PluginComponentMetadata & { type: "username" } & UsernameComponentProps
+export type PluginCountdownComponent = PluginComponentMetadata & { type: "countdown" } & CountdownComponentProps
 
 /**
  * Modal component - special container that can hold other components.

@@ -17,6 +17,7 @@ import {
 import { FaTrophy, FaStar, FaMedal, FaAward, FaHeart } from "react-icons/fa"
 import { interpolateTemplate, interpolateCompositeTemplate } from "@repo/utils"
 import { pluginComponentMachine } from "../../machines/pluginComponentMachine"
+import { createTimerMachine } from "../../machines/TimerMachine"
 import { getPluginComponentState } from "../../lib/serverApi"
 import { useRoomStore } from "../../state/roomStore"
 import { useListeners } from "../../state/usersStore"
@@ -30,6 +31,7 @@ import type {
   IconComponentProps,
   ButtonComponentProps,
   LeaderboardComponentProps,
+  CountdownComponentProps,
   PluginComponentDefinition,
   PluginComponentState,
   PluginModalComponent,
@@ -238,6 +240,119 @@ function LeaderboardTemplateComponent({
 }
 
 /**
+ * Countdown component - shows a countdown timer with optional emoji.
+ * Pulls start time from plugin store and manages timer state.
+ */
+/**
+ * Countdown timer component.
+ * Uses a key prop to force remount when start time changes, ensuring the timer restarts.
+ */
+function CountdownTemplateComponent({ startKey, duration, text }: CountdownComponentProps) {
+  const { store, config } = usePluginComponentContext()
+
+  // Get start timestamp from store
+  const startValue = store[startKey]
+
+  // Don't render if no valid start time
+  if (startValue === null || startValue === undefined) {
+    return null
+  }
+
+  const start =
+    typeof startValue === "number"
+      ? startValue
+      : typeof startValue === "string"
+      ? new Date(startValue).getTime()
+      : Date.now()
+
+  // Resolve duration - can be a number or a config path like "config.timeLimit"
+  let resolvedDuration = typeof duration === "number" ? duration : 0
+  if (typeof duration === "string" && duration.startsWith("config.")) {
+    const configKey = duration.substring(7) // Remove "config." prefix
+    const configValue = config[configKey]
+    resolvedDuration = typeof configValue === "number" ? configValue : 0
+  }
+
+  // Use start time as key to force remount when track changes
+  // This ensures the timer machine restarts with the new start time
+  return (
+    <CountdownTimerDisplay
+      key={start}
+      start={start}
+      duration={resolvedDuration}
+      text={text}
+      config={config}
+    />
+  )
+}
+
+/**
+ * Internal component that renders the actual countdown.
+ * Separated so we can key it by start time for proper remounting.
+ */
+function CountdownTimerDisplay({
+  start,
+  duration,
+  text,
+  config,
+}: {
+  start: number
+  duration: number
+  text?: string | CompositeTemplate
+  config: Record<string, unknown>
+}) {
+  const [state] = useMachine(createTimerMachine({ start, duration }))
+
+  const isExpired = state.matches("expired")
+  const remaining = Math.round(state.context.remaining / 1000)
+
+  // Render text content (string or CompositeTemplate)
+  const renderTextContent = () => {
+    if (!text) return null
+
+    // If text is a string, use simple template interpolation
+    if (typeof text === "string") {
+      return (
+        <Text fontSize="xs" color="primaryBg">
+          {interpolateTemplate(text, { config })}
+        </Text>
+      )
+    }
+
+    // If text is a CompositeTemplate, render components
+    const interpolated = interpolateCompositeTemplate(text, { config })
+    return (
+      <Text fontSize="xs" color="primaryBg">
+        {interpolated.map((part, index) => {
+          const key =
+            part.type === "text"
+              ? `text-${index}-${part.content.substring(0, 20)}`
+              : `component-${index}-${part.name}`
+
+          if (part.type === "text") {
+            return <React.Fragment key={key}>{part.content}</React.Fragment>
+          } else if (part.type === "component") {
+            return renderTemplateComponent(part.name, part.props, key)
+          }
+          return null
+        })}
+      </Text>
+    )
+  }
+
+  return (
+    <VStack spacing={1} align="start">
+      {renderTextContent()}
+      <HStack spacing={1}>
+        <Text fontSize="sm" fontWeight="bold">
+          {isExpired ? 0 : remaining}s
+        </Text>
+      </HStack>
+    </VStack>
+  )
+}
+
+/**
  * Strongly-typed map of built-in template component names to React components.
  * All frontends must implement these components for composite templates to work.
  */
@@ -250,6 +365,7 @@ const TEMPLATE_COMPONENT_MAP: {
   icon: IconTemplateComponent,
   button: ButtonTemplateComponent,
   leaderboard: LeaderboardTemplateComponent,
+  countdown: CountdownTemplateComponent,
 }
 
 /**

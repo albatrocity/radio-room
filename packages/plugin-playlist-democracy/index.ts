@@ -3,6 +3,8 @@ import type {
   Plugin,
   PluginContext,
   PluginConfigSchema,
+  PluginComponentSchema,
+  PluginComponentState,
   PluginSchemaElement,
   QueueItem,
   ReactionPayload,
@@ -41,13 +43,81 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
   private activeTimers: Map<string, NodeJS.Timeout> = new Map()
 
   /**
+   * Get the UI component schema for frontend rendering
+   */
+  getComponentSchema(): PluginComponentSchema {
+    return {
+      components: [
+        // Countdown timer in now playing area
+        {
+          id: "now-playing-countdown",
+          type: "countdown",
+          area: "nowPlaying",
+          enabledWhen: "enabled",
+          startKey: "trackStartTime",
+          duration: "config.timeLimit", // Reference to config value
+          text: [
+            { type: "text", content: "React with " },
+            {
+              type: "component",
+              name: "emoji",
+              props: { shortcodes: ":{{config.reactionType}}:" },
+            },
+            { type: "text", content: " to keep this track playing" },
+          ],
+          subscribeTo: ["TRACK_CHANGED"],
+        },
+      ],
+      storeKeys: ["trackStartTime"],
+    }
+  }
+
+  /**
+   * Get the current component state for the room.
+   * Provides data for UI components like countdown timers.
+   */
+  async getComponentState(): Promise<PluginComponentState> {
+    if (!this.context) return {}
+
+    const config = await this.getConfig()
+    if (!config?.enabled) return {}
+
+    const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
+    if (!nowPlaying?.playedAt) {
+      return {
+        trackStartTime: null,
+      }
+    }
+
+    return {
+      trackStartTime: new Date(nowPlaying.playedAt).getTime(),
+    }
+  }
+
+  /**
+   * Helper: Calculate the number of votes required based on config and listener count.
+   */
+  private calculateRequiredVotes(listenerCount: number, config: PlaylistDemocracyConfig): number {
+    return config.thresholdType === "percentage"
+      ? Math.ceil((listenerCount * config.thresholdValue) / 100)
+      : config.thresholdValue
+  }
+
+  /**
    * Get the UI schema for dynamic form generation
    */
   getConfigSchema(): PluginConfigSchema {
     const percentExampleBlock: PluginSchemaElement = {
       type: "text-block",
-      content:
-        "Track will be skipped if it doesn't get {{thresholdValue}}% of listeners to react with <em-emoji shortcodes=':{{reactionType}}:' /> within {{timeLimit:duration}}.",
+      content: [
+        {
+          type: "text",
+          content:
+            "Track will be skipped if it doesn't get {{thresholdValue}}% of listeners to react with ",
+        },
+        { type: "component", name: "emoji", props: { shortcodes: ":{{reactionType}}:" } },
+        { type: "text", content: " within {{timeLimit:duration}}." },
+      ],
       variant: "example",
       showWhen: [
         {
@@ -62,8 +132,15 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     }
     const staticExampleBlock: PluginSchemaElement = {
       type: "text-block",
-      content:
-        "Track will be skipped if it doesn't get {{thresholdValue}} listeners to react with <em-emoji shortcodes=':{{reactionType}}:' /> within {{timeLimit:duration}}.",
+      content: [
+        {
+          type: "text",
+          content:
+            "Track will be skipped if it doesn't get {{thresholdValue}} listeners to react with ",
+        },
+        { type: "component", name: "emoji", props: { shortcodes: ":{{reactionType}}:" } },
+        { type: "text", content: " within {{timeLimit:duration}}." },
+      ],
       variant: "example",
       showWhen: [
         {
@@ -159,7 +236,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     this.on("USER_LEFT", this.onUserLeave.bind(this))
 
     // Use filtered config change handler (only receives changes for THIS plugin)
-    this.onConfigChange(this.onConfigChanged.bind(this))
+    this.onConfigChange(this.handleConfigChange.bind(this))
   }
 
   /**
@@ -167,7 +244,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
    * Storage cleanup is handled automatically by BasePlugin
    */
   protected async onCleanup(): Promise<void> {
-    for (const [trackId, timeout] of this.activeTimers.entries()) {
+    for (const [trackId, timeout] of Array.from(this.activeTimers.entries())) {
       clearTimeout(timeout)
       console.log(`[${this.name}] Cleared timer for track ${trackId}`)
     }
@@ -200,7 +277,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     return { isVote: true, trackId: nowPlaying.mediaSource.trackId }
   }
 
-  private async onConfigChanged(data: {
+  private async handleConfigChange(data: {
     roomId: string
     config: any
     previousConfig: any
@@ -223,12 +300,41 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
       await this.context.api.sendSystemMessage(
         this.context.roomId,
-        `🗳️ Playlist Democracy enabled: Tracks need ${thresholdText} :${config.reactionType}: reactions within ${timeSeconds} seconds`,
+        `🗳️ Playlist Democracy enabled: Tracks need ${thresholdText} <em-emoji shortcodes=':${config.reactionType}:' /> reactions within ${timeSeconds} seconds`,
         { type: "alert", status: "info" },
       )
+
+      // Start monitoring current track if one is playing
+      const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
+      if (nowPlaying?.playedAt) {
+        const trackId = nowPlaying.mediaSource.trackId
+        const playedAt = new Date(nowPlaying.playedAt).getTime()
+        const elapsed = Date.now() - playedAt
+        const remaining = config.timeLimit - elapsed
+
+        if (remaining > 0) {
+          // Track is still within the time window, start monitoring
+          console.log(
+            `[${this.name}] Starting monitoring for current track ${trackId} with ${remaining}ms remaining`,
+          )
+
+          // Emit plugin event to initialize component state
+          await this.emit("TRACK_STARTED", {
+            trackStartTime: playedAt,
+          })
+
+          // Start timer for remaining time
+          const timeout = setTimeout(async () => {
+            await this.checkThresholdAndSkip(trackId, nowPlaying.title, config)
+            this.activeTimers.delete(trackId)
+          }, remaining)
+
+          this.activeTimers.set(trackId, timeout)
+        }
+      }
     } else if (wasEnabled && !isEnabled) {
       // Plugin was just disabled - clear timers
-      for (const [trackId, timeout] of this.activeTimers.entries()) {
+      for (const [trackId, timeout] of Array.from(this.activeTimers.entries())) {
         clearTimeout(timeout)
         console.log(`[${this.name}] Cleared timer for track ${trackId}`)
       }
@@ -256,7 +362,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
         await this.context.api.sendSystemMessage(
           this.context.roomId,
-          `🗳️ Playlist Democracy rules updated: Tracks need ${thresholdText} :${config.reactionType}: reactions within ${timeSeconds} seconds`,
+          `🗳️ Playlist Democracy rules updated: Tracks need ${thresholdText} <em-emoji shortcodes=':${config.reactionType}:' /> reactions within ${timeSeconds} seconds`,
           { type: "alert", status: "info" },
         )
       }
@@ -273,6 +379,14 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     const trackId = track.mediaSource.trackId
 
     console.log(`[${this.name}] Track changed: ${track.title} (${trackId})`)
+
+    // Emit plugin event to update component store with track start time
+    // This transforms the system TRACK_CHANGED event into component-friendly data
+    if (track.playedAt) {
+      await this.emit("TRACK_STARTED", {
+        trackStartTime: track.playedAt,
+      })
+    }
 
     // Clear any existing timer for this track
     this.clearTimer(trackId)
@@ -296,8 +410,8 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     const config = await this.getConfig()
     if (!config?.enabled || !data.reaction) return
 
-    const { isVote } = await this.parseReaction(data.reaction)
-    if (!isVote) return
+    const { isVote, trackId } = await this.parseReaction(data.reaction)
+    if (!isVote || !trackId) return
 
     await this.context.storage.inc(this.makeVoteKey(data.reaction.reactTo.id))
   }
@@ -311,8 +425,8 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     const config = await this.getConfig()
     if (!config?.enabled || !data.reaction) return
 
-    const { isVote } = await this.parseReaction(data.reaction)
-    if (!isVote) return
+    const { isVote, trackId } = await this.parseReaction(data.reaction)
+    if (!isVote || !trackId) return
 
     await this.context.storage.dec(this.makeVoteKey(data.reaction.reactTo.id))
   }

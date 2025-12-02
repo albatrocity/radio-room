@@ -150,36 +150,6 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
           variant: "ghost",
           size: "sm",
         },
-        {
-          id: "now-playing",
-          type: "text",
-          area: "nowPlaying",
-          content: "Now Playing!",
-        },
-        {
-          id: "now-playing-info",
-          type: "text",
-          area: "nowPlayingInfo",
-          content: "Now Playing Info!",
-        },
-        {
-          id: "now-playing-art",
-          area: "nowPlayingArt",
-          type: "text",
-          content: "Now Playing Art!",
-        },
-        {
-          id: "playlist-item",
-          area: "playlistItem",
-          type: "text",
-          content: "Playlist Item",
-        },
-        {
-          id: "userListItem",
-          area: "userListItem",
-          type: "text",
-          content: "User List Item",
-        },
         // Modal containing leaderboards
         {
           id: "leaderboard-modal",

@@ -21,19 +21,12 @@ import safeDate from "../../lib/safeDate"
 import nullifyEmptyString from "../../lib/nullifyEmptyString"
 import { User } from "../../types/User"
 import { Room, RoomMeta } from "../../types/Room"
-import { CountdownTimerProvider } from "../CountdownTimer"
-import { NowPlayingVoteCountdown } from "../NowPlayingVoteCountdown"
 import { PluginArea } from "../PluginComponents"
 
 interface NowPlayingTrackProps {
   meta: RoomMeta
   room: Partial<Room> | null
   users: User[]
-  timerEnabled: boolean
-  timerSettings: {
-    timeLimit: number
-    reactionType: string
-  }
 }
 
 function getCoverUrl(release: any, room: Partial<Room> | null): string | null {
@@ -64,15 +57,8 @@ function getExternalUrl(release: any): string | null {
   )
 }
 
-export function NowPlayingTrack({
-  meta,
-  room,
-  users,
-  timerEnabled,
-  timerSettings,
-}: NowPlayingTrackProps) {
+export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   const { album, artist, track, nowPlaying, title, dj } = meta
-  const playedAt = nowPlaying?.playedAt
   const release = nowPlaying?.track
 
   const coverUrl = getCoverUrl(release, room)
@@ -87,7 +73,10 @@ export function NowPlayingTrack({
   const skipData = nowPlaying?.pluginData?.["playlist-democracy"]?.skipData
 
   const djUsername = useMemo(
-    () => (dj ? users.find(({ userId }) => userId === dj.userId)?.username ?? dj?.username : null),
+    () =>
+      dj
+        ? users.find(({ userId }) => userId === dj.userId)?.username ?? dj?.username ?? null
+        : null,
     [users, dj],
   )
 
@@ -147,21 +136,6 @@ export function NowPlayingTrack({
           </VStack>
         </Stack>
       </LinkBox>
-
-      {timerEnabled && playedAt && (
-        <HStack spacing={1}>
-          <CountdownTimerProvider
-            key={release?.id}
-            start={playedAt}
-            duration={timerSettings.timeLimit}
-          >
-            <NowPlayingVoteCountdown
-              isSkipped={isSkipped}
-              reactionType={timerSettings.reactionType}
-            />
-          </CountdownTimerProvider>
-        </HStack>
-      )}
     </VStack>
   )
 }

@@ -41,15 +41,16 @@ export interface ShowWhenCondition {
 export interface PluginSchemaElement {
   type: "text-block" | "heading"
   /**
-   * Content to display. Can include template placeholders like {{fieldName}}
-   * which will be replaced with the current form values.
+   * Content to display. Can be:
+   * - A string with template placeholders like {{fieldName}} (simple text)
+   * - A CompositeTemplate array (text mixed with components like emoji, username, etc.)
    *
-   * Supports formatters: {{fieldName:formatter}}
+   * String format supports formatters: {{fieldName:formatter}}
    * Available formatters:
    * - duration: converts milliseconds to human-readable (e.g., "60 seconds")
    * - percentage: adds % suffix
    */
-  content: string
+  content: string | import("./PluginComponent").CompositeTemplate
   variant?: "info" | "warning" | "example"
   /**
    * Element is only shown when condition(s) are met.

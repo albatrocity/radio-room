@@ -33,13 +33,14 @@ import {
 } from "@chakra-ui/react"
 import Picker from "@emoji-mart/react"
 import data from "@emoji-mart/data"
-import { interpolateTemplate } from "@repo/utils"
+import { interpolateTemplate, interpolateCompositeTemplate } from "@repo/utils"
 import type {
   PluginConfigSchema,
   PluginFieldMeta,
   PluginSchemaElement,
   PluginFieldType,
 } from "../../../types/PluginSchema"
+import type { CompositeTemplate } from "../../../types/PluginComponent"
 
 interface PluginConfigFormProps {
   schema: PluginConfigSchema
@@ -319,6 +320,66 @@ function renderField(
 }
 
 /**
+ * Renders a simple composite template component (for config forms).
+ * Only supports basic components like emoji - no complex plugin components.
+ */
+function renderConfigFormTemplateComponent(
+  name: string,
+  props: Record<string, string>,
+  key: string,
+): React.ReactNode {
+  if (name === "emoji") {
+    return (
+      <Box as="span" key={key} display="inline-block" verticalAlign="middle">
+        {/* @ts-ignore - em-emoji is a custom element from emoji-mart */}
+        <em-emoji shortcodes={props.shortcodes || props.id} />
+      </Box>
+    )
+  }
+  
+  // Fallback for unknown components
+  return (
+    <Text as="span" key={key} color="red.500">
+      [Unknown: {name}]
+    </Text>
+  )
+}
+
+/**
+ * Renders content that can be either a string or CompositeTemplate
+ */
+function renderContent(
+  content: string | CompositeTemplate,
+  allValues: Record<string, unknown>,
+): React.ReactNode {
+  // If it's a string, use simple template interpolation
+  if (typeof content === "string") {
+    return <span dangerouslySetInnerHTML={{ __html: interpolateTemplate(content, allValues) }} />
+  }
+
+  // If it's a CompositeTemplate, interpolate and render components
+  const interpolated = interpolateCompositeTemplate(content, allValues)
+
+  return (
+    <>
+      {interpolated.map((part, index) => {
+        const key =
+          part.type === "text"
+            ? `text-${index}-${part.content.substring(0, 20)}`
+            : `component-${index}-${part.name}`
+
+        if (part.type === "text") {
+          return <React.Fragment key={key}>{part.content}</React.Fragment>
+        } else if (part.type === "component") {
+          return renderConfigFormTemplateComponent(part.name, part.props, key)
+        }
+        return null
+      })}
+    </>
+  )
+}
+
+/**
  * Render a schema element (text block or heading)
  */
 function renderSchemaElement(
@@ -331,13 +392,10 @@ function renderSchemaElement(
     return null
   }
 
-  // Interpolate template placeholders in content
-  const content = interpolateTemplate(element.content, allValues)
-
   if (element.type === "heading") {
     return (
       <Heading key={`heading-${index}`} as="h3" size="md" mb={2}>
-        {content}
+        {renderContent(element.content, allValues)}
       </Heading>
     )
   }
@@ -352,7 +410,7 @@ function renderSchemaElement(
 
     return (
       <Box key={`text-${index}`} p={3} borderRadius="md" bg={bgColor}>
-        <Text fontSize="sm" dangerouslySetInnerHTML={{ __html: content }} />
+        <Text fontSize="sm">{renderContent(element.content, allValues)}</Text>
       </Box>
     )
   }
