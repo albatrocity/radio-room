@@ -93,6 +93,68 @@ export class PluginStorageImpl implements PluginStorage {
     }
   }
 
+  /**
+   * Execute multiple Redis commands in a pipeline for optimal performance.
+   * Reduces multiple round trips to a single network call.
+   */
+  async pipeline(
+    commands: Array<
+      | { op: "get"; key: string }
+      | { op: "exists"; key: string }
+      | { op: "mget"; keys: string[] }
+    >,
+  ): Promise<Array<string | null | boolean | (string | null)[]>> {
+    if (commands.length === 0) {
+      return []
+    }
+
+    try {
+      const pipeline = this.context.redis.pubClient.multi()
+
+      // Add all commands to the pipeline
+      for (const cmd of commands) {
+        switch (cmd.op) {
+          case "get":
+            pipeline.get(this.makeKey(cmd.key))
+            break
+          case "exists":
+            pipeline.exists(this.makeKey(cmd.key))
+            break
+          case "mget":
+            const namespacedKeys = cmd.keys.map((key) => this.makeKey(key))
+            pipeline.mGet(namespacedKeys)
+            break
+        }
+      }
+
+      // Execute pipeline and extract results
+      const results = await pipeline.exec()
+
+      if (!results) {
+        console.error(`[PluginStorage] Pipeline returned null`)
+        return commands.map(() => null)
+      }
+
+      // Transform results: [error, result] tuples to just results
+      return results.map(([error, result], index) => {
+        if (error) {
+          console.error(`[PluginStorage] Pipeline command ${index} error:`, error)
+          return null
+        }
+
+        // Handle exists command (returns number, convert to boolean)
+        if (commands[index].op === "exists") {
+          return (result as number) > 0
+        }
+
+        return result as string | null | (string | null)[]
+      })
+    } catch (error) {
+      console.error(`[PluginStorage] Error executing pipeline:`, error)
+      return commands.map(() => null)
+    }
+  }
+
   async zadd(key: string, score: number, value: string): Promise<void> {
     try {
       await this.context.redis.pubClient.zAdd(this.makeKey(key), [{ score, value }])

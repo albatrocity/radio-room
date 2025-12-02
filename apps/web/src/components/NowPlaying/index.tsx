@@ -1,18 +1,17 @@
 import { memo } from "react"
 import { Box, VStack, Show } from "@chakra-ui/react"
-import { useMachine } from "@xstate/react"
 
 import { useUsers } from "../../state/usersStore"
 import { useCurrentRoom, useRoomStore } from "../../state/roomStore"
 import { useIsAdmin } from "../../state/authStore"
 import { useMediaSourceStatus, useHasTrackData } from "../../state/audioStore"
-import { settingsMachine } from "../../machines/settingsMachine"
 import { RoomMeta } from "../../types/Room"
 
 import { NowPlayingLoading } from "./NowPlayingLoading"
 import { NowPlayingEmpty } from "./NowPlayingEmpty"
 import { NowPlayingTrack } from "./NowPlayingTrack"
 import ButtonAddToQueue from "../ButtonAddToQueue"
+import { PluginArea } from "../PluginComponents"
 
 interface NowPlayingProps {
   meta?: RoomMeta
@@ -50,14 +49,8 @@ function NowPlaying({ meta }: NowPlayingProps) {
   const users = useUsers()
   const room = useCurrentRoom()
   const isAdmin = useIsAdmin()
-  const [settingsState] = useMachine(settingsMachine)
 
   const displayState = useDisplayState(meta)
-  const timerEnabled = settingsState.context.playlistDemocracy.enabled
-  const timerSettings = {
-    timeLimit: settingsState.context.playlistDemocracy.timeLimit,
-    reactionType: settingsState.context.playlistDemocracy.reactionType,
-  }
 
   return (
     <Box
@@ -72,26 +65,17 @@ function NowPlaying({ meta }: NowPlayingProps) {
       <VStack spacing={4} justify="space-between" height="100%" width="100%">
         {displayState === "loading" && <NowPlayingLoading />}
 
-        {displayState === "waiting" && (
-          <NowPlayingLoading message="Getting Now Playing data..." />
-        )}
+        {displayState === "waiting" && <NowPlayingLoading message="Getting Now Playing data..." />}
 
         {displayState === "empty" && (
-          <NowPlayingEmpty
-            roomType={room?.type ?? "jukebox"}
-            isAdmin={isAdmin}
-          />
+          <NowPlayingEmpty roomType={room?.type ?? "jukebox"} isAdmin={isAdmin} />
         )}
 
         {displayState === "playing" && meta && (
-          <NowPlayingTrack
-            meta={meta}
-            room={room}
-            users={users}
-            timerEnabled={timerEnabled}
-            timerSettings={timerSettings}
-          />
+          <NowPlayingTrack meta={meta} room={room} users={users} />
         )}
+
+        <PluginArea area="nowPlaying" />
 
         <Show above="sm">
           <ButtonAddToQueue variant="solid" />
@@ -102,4 +86,3 @@ function NowPlaying({ meta }: NowPlayingProps) {
 }
 
 export default memo(NowPlaying)
-

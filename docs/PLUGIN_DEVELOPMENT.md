@@ -1,615 +1,940 @@
 # Plugin Development Guide
 
-This guide explains how to create plugins for the Radio Room server. Plugins are self-contained modules that extend the functionality of rooms through an event-driven architecture.
+This guide explains how to create plugins for Radio Room. Plugins extend room functionality through an event-driven architecture with support for custom UI components, configuration forms, and data augmentation.
 
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
-- [Getting Started](#getting-started)
-- [Plugin API Reference](#plugin-api-reference)
-- [Lifecycle Events](#lifecycle-events)
+- [Quick Start](#quick-start)
+- [BasePlugin Reference](#baseplugin-reference)
+- [Event System](#event-system)
+- [Configuration Schema](#configuration-schema)
+- [Plugin Components](#plugin-components)
+- [Data Augmentation](#data-augmentation)
 - [Storage API](#storage-api)
 - [Best Practices](#best-practices)
-- [Example Plugin](#example-plugin)
+- [Complete Example](#complete-example)
 
 ## Architecture Overview
 
-Plugins are isolated modules that interact with the Radio Room system through a well-defined API:
-
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                     Plugin Registry                         │
+│              (Creates instance per room)                    │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ├─ Creates PluginContext
+                            │   ├─ api: PluginAPI
+                            │   ├─ storage: PluginStorage
+                            │   ├─ lifecycle: Event handlers
+                            │   └─ roomId: string
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Your Plugin                             │
+│               extends BasePlugin<TConfig>                   │
+│                                                             │
+│  ┌─────────────┐  ┌──────────────┐  ┌───────────────────┐  │
+│  │ Config      │  │ Components   │  │ Event Handlers    │  │
+│  │ Schema      │  │ Schema       │  │ & Business Logic  │  │
+│  └─────────────┘  └──────────────┘  └───────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Frontend                               │
+│  ┌─────────────┐  ┌──────────────┐  ┌───────────────────┐  │
+│  │ Dynamic     │  │ Plugin       │  │ Socket Event      │  │
+│  │ Settings    │  │ Components   │  │ Updates           │  │
+│  │ Forms       │  │ (Declarative)│  │                   │  │
+│  └─────────────┘  └──────────────┘  └───────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
 ```
-┌─────────────────────────────────────────┐
-│         Plugin Registry                 │
-│  (Manages plugin lifecycle per room)   │
-└─────────────────────────────────────────┘
-                  │
-                  ├─ Provides PluginContext
-                  │  ├─ PluginAPI (safe methods)
-                  │  ├─ PluginStorage (namespaced Redis)
-                  │  ├─ PluginLifecycle (event system)
-                  │  └─ AppContext (core services)
-                  │
-                  ▼
-┌─────────────────────────────────────────┐
-│            Your Plugin                  │
-│  (Extends BasePlugin<TConfig>)          │
-└─────────────────────────────────────────┘
-```
 
-### Key Principles
+### Key Concepts
 
-1. **Event-Driven**: Plugins react to system events (track changes, reactions, etc.)
-2. **Sandboxed**: Each plugin has isolated storage namespaced by room ID
-3. **Type-Safe**: Full TypeScript support with generic config types
-4. **Self-Contained**: All plugin logic lives within the plugin package
-5. **Lifecycle-Managed**: Automatic cleanup when rooms are deleted
+1. **One Instance Per Room**: Each room gets its own plugin instance with isolated state
+2. **Event-Driven**: Plugins react to system events (TRACK_CHANGED, REACTION_ADDED, etc.)
+3. **Declarative UI**: Define UI components via JSON schema - no React code in plugins
+4. **Type-Safe**: Full TypeScript support with Zod schema validation
+5. **Sandboxed Storage**: Redis storage namespaced by plugin and room
 
-## Getting Started
+## Quick Start
 
-### 1. Create a Plugin Package
+### 1. Create Plugin Package
 
 ```bash
-# In packages/
-mkdir plugin-my-feature
-cd plugin-my-feature
-npm init -y
+mkdir packages/plugin-my-feature
+cd packages/plugin-my-feature
 ```
 
-### 2. Install Dependencies
+### 2. Package Configuration
 
 ```json
 {
   "name": "@repo/plugin-my-feature",
   "version": "1.0.0",
+  "main": "index.ts",
   "dependencies": {
     "@repo/types": "*",
-    "@repo/plugin-base": "*"
+    "@repo/plugin-base": "*",
+    "zod": "^4.0.0"
   }
 }
 ```
 
-### 3. Define Your Plugin Config Type
+### 3. Define Types
 
 ```typescript
 // types.ts
-export type MyFeatureConfig = {
-  enabled: boolean
-  threshold: number
-  notificationMessage: string
+import { z } from "zod"
+
+export const myFeatureConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  threshold: z.number().min(1).max(100).default(50),
+  message: z.string().default("Hello!"),
+})
+
+export type MyFeatureConfig = z.infer<typeof myFeatureConfigSchema>
+
+export const defaultMyFeatureConfig: MyFeatureConfig = {
+  enabled: false,
+  threshold: 50,
+  message: "Hello!",
 }
 ```
 
-### 4. Implement Your Plugin
+### 4. Implement Plugin
 
 ```typescript
 // index.ts
+import { z } from "zod"
 import { BasePlugin } from "@repo/plugin-base"
-import { PluginContext } from "@repo/types"
+import type { Plugin, PluginContext, PluginConfigSchema, QueueItem } from "@repo/types"
 import packageJson from "./package.json"
-import type { MyFeatureConfig } from "./types"
+import { myFeatureConfigSchema, defaultMyFeatureConfig, type MyFeatureConfig } from "./types"
 
 export class MyFeaturePlugin extends BasePlugin<MyFeatureConfig> {
   name = "my-feature"
   version = packageJson.version
+  description = "A sample plugin"
+
+  // Static schema and defaults
+  static readonly configSchema = myFeatureConfigSchema
+  static readonly defaultConfig = defaultMyFeatureConfig
 
   async register(context: PluginContext): Promise<void> {
-    this.context = context
+    await super.register(context)
 
-    // Subscribe to events
-    context.lifecycle.on("trackChanged", this.onTrackChanged.bind(this))
-    context.lifecycle.on("configChanged", this.onConfigChanged.bind(this))
+    // Register event handlers using typed helper
+    this.on("TRACK_CHANGED", this.onTrackChanged.bind(this))
+    this.on("REACTION_ADDED", this.onReactionAdded.bind(this))
 
-    console.log(`[${this.name}] Registered for room ${context.roomId}`)
+    // Register filtered config change handler
+    this.onConfigChange(this.handleConfigChange.bind(this))
   }
 
   private async onTrackChanged(data: { roomId: string; track: QueueItem }): Promise<void> {
     const config = await this.getConfig()
     if (!config?.enabled) return
 
-    // Your logic here
-    console.log(`Track changed: ${data.track.title}`)
+    console.log(`[${this.name}] Track changed: ${data.track.title}`)
   }
 
-  private async onConfigChanged(data: { roomId: string; config: any }): Promise<void> {
-    console.log(`Config updated:`, data.config)
+  private async onReactionAdded(data: { roomId: string; reaction: any }): Promise<void> {
+    // Handle reaction
+  }
+
+  private async handleConfigChange(data: {
+    roomId: string
+    config: Record<string, unknown>
+    previousConfig: Record<string, unknown>
+  }): Promise<void> {
+    const config = data.config as MyFeatureConfig
+    const previousConfig = data.previousConfig as MyFeatureConfig | null
+
+    if (!previousConfig?.enabled && config?.enabled) {
+      await this.context!.api.sendSystemMessage(this.context!.roomId, "✨ My Feature enabled!")
+    }
+  }
+
+  // Optional: Define admin settings form
+  getConfigSchema(): PluginConfigSchema {
+    return {
+      jsonSchema: z.toJSONSchema(myFeatureConfigSchema),
+      layout: ["enabled", "threshold", "message"],
+      fieldMeta: {
+        enabled: {
+          type: "boolean",
+          label: "Enable Feature",
+        },
+        threshold: {
+          type: "number",
+          label: "Threshold",
+          description: "Value between 1-100",
+        },
+        message: {
+          type: "string",
+          label: "Custom Message",
+        },
+      },
+    }
   }
 }
 
-// Export factory function
-export function createMyFeaturePlugin() {
-  return new MyFeaturePlugin()
+// Factory function
+export function createMyFeaturePlugin(configOverrides?: Partial<MyFeatureConfig>): Plugin {
+  return new MyFeaturePlugin(configOverrides)
 }
 
 export default createMyFeaturePlugin
 ```
 
-### 5. Register Your Plugin
+### 5. Register Plugin
 
-In `packages/server/index.ts`:
+In `apps/api/src/server.ts`:
 
 ```typescript
 import { createMyFeaturePlugin } from "@repo/plugin-my-feature"
 
-// In the initializePlugins() method:
-private initializePlugins() {
-  this.pluginRegistry.registerPlugin("my-feature", createMyFeaturePlugin())
+// In registerAdapters():
+await registerAdapters(context, {
+  plugins: [
+    createPlaylistDemocracyPlugin,
+    createSpecialWordsPlugin,
+    createMyFeaturePlugin, // Add your plugin
+  ],
+})
+```
+
+## BasePlugin Reference
+
+### Properties
+
+| Property      | Type                    | Description                         |
+| ------------- | ----------------------- | ----------------------------------- |
+| `name`        | `string`                | Unique plugin identifier (required) |
+| `version`     | `string`                | Plugin version (required)           |
+| `description` | `string`                | Human-readable description          |
+| `context`     | `PluginContext \| null` | Set after `register()` is called    |
+
+### Static Properties
+
+```typescript
+class MyPlugin extends BasePlugin<MyConfig> {
+  // Zod schema for validation
+  static readonly configSchema = myConfigSchema
+
+  // Default configuration values
+  static readonly defaultConfig = {
+    enabled: false,
+    // ...
+  }
 }
-```
-
-## Plugin API Reference
-
-### BasePlugin<TConfig>
-
-The base class all plugins should extend. Provides automatic storage cleanup and typed config access.
-
-#### Properties
-
-- `name: string` (required) - Unique plugin identifier
-- `version: string` (required) - Plugin version (usually from package.json)
-- `context: PluginContext | null` (protected) - The plugin's context
-
-#### Methods
-
-##### `register(context: PluginContext): Promise<void>`
-
-Called when the plugin is initialized for a room. Store the context and subscribe to events here.
-
-##### `getConfig(): Promise<TConfig | null>`
-
-Returns the plugin's configuration for the current room, typed to your config interface.
-
-##### `cleanup(): Promise<void>`
-
-Called when a room is deleted. Automatically cleans up storage and calls `onCleanup()`.
-
-##### `onCleanup(): Promise<void>` (optional)
-
-Override this to perform custom cleanup (e.g., clearing timers, canceling jobs).
-
-```typescript
-protected async onCleanup(): Promise<void> {
-  // Clear any timers
-  this.timers.forEach(timer => clearTimeout(timer))
-  this.timers.clear()
-}
-```
-
-### PluginContext
-
-The context object provided to your plugin during registration.
-
-#### Properties
-
-- `roomId: string` - The current room ID
-- `api: PluginAPI` - Safe methods to interact with the system
-- `storage: PluginStorage` - Sandboxed Redis storage
-- `lifecycle: PluginLifecycle` - Event subscription system
-- `appContext: AppContext` - Access to core services (Redis, Socket.IO, etc.)
-- `getRoom(): Promise<Room | null>` - Fetch current room data
-
-### PluginAPI
-
-Safe, high-level methods for plugins to interact with the system.
-
-#### Methods
-
-##### `getNowPlaying(roomId: string): Promise<QueueItem | null>`
-
-Get the currently playing track for a room.
-
-```typescript
-const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
-if (nowPlaying) {
-  console.log(`Now playing: ${nowPlaying.title}`)
-}
-```
-
-##### `getReactions(params): Promise<Reaction[]>`
-
-Get reactions for a specific subject (track or message).
-
-```typescript
-const reactions = await this.context.api.getReactions({
-  roomId: this.context.roomId,
-  reactTo: { type: "track", id: trackId },
-  filterEmoji: "thumbsup", // optional
-})
-```
-
-##### `getUsers(roomId: string, params?): Promise<User[]>`
-
-Get users in a room, optionally filtered by status.
-
-```typescript
-// Get all listening users
-const listeners = await this.context.api.getUsers(this.context.roomId, {
-  status: "listening",
-})
-
-// Get all participating users (listening + online)
-const participants = await this.context.api.getUsers(this.context.roomId, {
-  status: "participating",
-})
-
-// Get all users
-const allUsers = await this.context.api.getUsers(this.context.roomId)
-```
-
-##### `skipTrack(roomId: string, trackId: string): Promise<void>`
-
-Skip the current track.
-
-```typescript
-await this.context.api.skipTrack(this.context.roomId, trackId)
-```
-
-##### `sendSystemMessage(roomId: string, message: string): Promise<void>`
-
-Send a system message to the room's chat.
-
-```typescript
-await this.context.api.sendSystemMessage(this.context.roomId, "🎵 Plugin event triggered!")
-```
-
-##### `getPluginConfig(roomId: string, pluginName: string): Promise<any | null>`
-
-Get configuration for any plugin (usually you'd use `this.getConfig()` for your own).
-
-##### `setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>`
-
-Update plugin configuration (usually done from the admin UI).
-
-## Lifecycle Events
-
-Plugins subscribe to events via `context.lifecycle.on(eventName, handler)`.
-
-### Available Events
-
-#### `trackChanged`
-
-Fired when the currently playing track changes.
-
-```typescript
-context.lifecycle.on("trackChanged", async (data: { roomId: string; track: QueueItem }) => {
-  console.log(`Track changed in room ${data.roomId}: ${data.track.title}`)
-})
-```
-
-#### `reactionAdded`
-
-Fired when a user adds a reaction to a track or message.
-
-```typescript
-context.lifecycle.on(
-  "reactionAdded",
-  async (data: { roomId: string; reaction: ReactionPayload }) => {
-    if (data.reaction.reactTo.type === "track") {
-      console.log(`User reacted to track with ${data.reaction.emoji.shortcodes}`)
-    }
-  },
-)
-```
-
-#### `reactionRemoved`
-
-Fired when a user removes a reaction.
-
-```typescript
-context.lifecycle.on(
-  "reactionRemoved",
-  async (data: { roomId: string; reaction: ReactionPayload }) => {
-    // Handle reaction removal
-  },
-)
-```
-
-#### `configChanged`
-
-Fired when the plugin's configuration is updated.
-
-```typescript
-context.lifecycle.on(
-  "configChanged",
-  async (data: { roomId: string; config: any; previousConfig: any }) => {
-    const wasEnabled = data.previousConfig?.enabled
-    const isEnabled = data.config?.enabled
-
-    if (!wasEnabled && isEnabled) {
-      console.log("Plugin was just enabled!")
-    }
-  },
-)
-```
-
-#### `roomDeleted`
-
-Fired when the room is deleted. Use this to trigger cleanup.
-
-```typescript
-context.lifecycle.on("roomDeleted", async (data: { roomId: string }) => {
-  await this.cleanup()
-})
-```
-
-#### `roomSettingsUpdated`
-
-Fired when room settings change.
-
-```typescript
-context.lifecycle.on("roomSettingsUpdated", async (data: { roomId: string; room: Room }) => {
-  // React to room settings changes
-})
-```
-
-#### `userJoined`, `userLeft`, `userStatusChanged`
-
-Track user activity in the room.
-
-```typescript
-context.lifecycle.on("userJoined", async (data: { roomId: string; user: User }) => {
-  await this.context.api.sendSystemMessage(data.roomId, `👋 ${data.user.username} joined!`)
-})
-```
-
-## Storage API
-
-Each plugin gets sandboxed Redis storage automatically namespaced as:
-
-```
-plugin:{pluginName}:room:{roomId}:{key}
 ```
 
 ### Methods
 
-#### `get(key: string): Promise<string | null>`
+#### `register(context: PluginContext): Promise<void>`
 
-Get a value from storage.
-
-```typescript
-const value = await this.context.storage.get("myKey")
-```
-
-#### `set(key: string, value: string, ttl?: number): Promise<void>`
-
-Store a value, optionally with a TTL (in seconds).
+Called when plugin is initialized for a room. Always call `super.register(context)` first.
 
 ```typescript
-await this.context.storage.set("myKey", "myValue")
-await this.context.storage.set("tempKey", "value", 3600) // Expires in 1 hour
-```
-
-#### `inc(key: string, by?: number): Promise<number>`
-
-Increment a numeric value.
-
-```typescript
-const newCount = await this.context.storage.inc("voteCount")
-const newCount2 = await this.context.storage.inc("voteCount", 5) // Increment by 5
-```
-
-#### `dec(key: string, by?: number): Promise<number>`
-
-Decrement a numeric value.
-
-```typescript
-const newCount = await this.context.storage.dec("countdown")
-```
-
-#### `del(key: string): Promise<void>`
-
-Delete a key.
-
-```typescript
-await this.context.storage.del("oldKey")
-```
-
-#### `exists(key: string): Promise<boolean>`
-
-Check if a key exists.
-
-```typescript
-if (await this.context.storage.exists("myKey")) {
-  // Key exists
+async register(context: PluginContext): Promise<void> {
+  await super.register(context)
+  // Register event handlers here
 }
 ```
 
-### Automatic Cleanup
+#### `on<K>(event: K, handler): void`
 
-When a room is deleted, all storage keys for your plugin in that room are automatically cleaned up by `BasePlugin.cleanup()`.
-
-## Best Practices
-
-### 1. Always Check if Config is Enabled
+Type-safe event handler registration. Automatically binds `this`.
 
 ```typescript
-private async onSomeEvent() {
-  const config = await this.getConfig()
-  if (!config?.enabled) return
-
-  // Your logic here
-}
+this.on("TRACK_CHANGED", async (data) => {
+  // data is typed as { roomId: string; track: QueueItem }
+  console.log(data.track.title)
+})
 ```
 
-### 2. Bind Event Handlers
+#### `onConfigChange(handler): void`
 
-Always bind `this` when registering event handlers:
+Register a handler for THIS plugin's config changes only. Automatically filters `CONFIG_CHANGED` events.
 
 ```typescript
-context.lifecycle.on("trackChanged", this.onTrackChanged.bind(this))
+this.onConfigChange(async (data) => {
+  const wasEnabled = data.previousConfig?.enabled === true
+  const isEnabled = data.config?.enabled === true
+
+  if (!wasEnabled && isEnabled) {
+    console.log("Plugin was just enabled!")
+  }
+})
 ```
 
-### 3. Clean Up Resources
+#### `emit<T>(eventName: string, data: T): Promise<void>`
 
-Override `onCleanup()` to clear timers, intervals, or other resources:
+Emit a custom plugin event to the frontend. Events are namespaced as `PLUGIN:{pluginName}:{eventName}`.
+
+```typescript
+await this.emit("WORD_DETECTED", {
+  word: "hello",
+  userId: "user123",
+  count: 5,
+})
+// Frontend receives: PLUGIN:my-plugin:WORD_DETECTED
+```
+
+#### `getConfig(): Promise<TConfig | null>`
+
+Get the plugin's typed configuration for the current room.
+
+```typescript
+const config = await this.getConfig()
+if (!config?.enabled) return
+```
+
+#### `getDefaultConfig(): Record<string, unknown> | undefined`
+
+Returns merged default config (static defaults + factory overrides).
+
+#### `cleanup(): Promise<void>`
+
+Called when room is deleted. Cleans up storage and calls `onCleanup()`.
+
+#### `onCleanup(): Promise<void>` (optional override)
+
+Custom cleanup logic (clear timers, etc.).
 
 ```typescript
 protected async onCleanup(): Promise<void> {
-  this.timers.forEach(timer => clearTimeout(timer))
-  this.timers.clear()
-
-  if (this.interval) {
-    clearInterval(this.interval)
-  }
+  this.activeTimers.forEach(timer => clearTimeout(timer))
+  this.activeTimers.clear()
 }
 ```
 
-### 4. Handle Errors Gracefully
+## Event System
+
+Plugins subscribe to system events using SCREAMING_SNAKE_CASE names.
+
+### Available Events
+
+| Event                   | Payload                                          | Description           |
+| ----------------------- | ------------------------------------------------ | --------------------- |
+| `TRACK_CHANGED`         | `{ roomId, track: QueueItem }`                   | Now playing changed   |
+| `REACTION_ADDED`        | `{ roomId, reaction: ReactionPayload }`          | User added reaction   |
+| `REACTION_REMOVED`      | `{ roomId, reaction: ReactionPayload }`          | User removed reaction |
+| `MESSAGE_RECEIVED`      | `{ roomId, message: ChatMessage }`               | Chat message sent     |
+| `USER_JOINED`           | `{ roomId, user: User }`                         | User joined room      |
+| `USER_LEFT`             | `{ roomId, user: User }`                         | User left room        |
+| `CONFIG_CHANGED`        | `{ roomId, pluginName, config, previousConfig }` | Plugin config updated |
+| `ROOM_SETTINGS_UPDATED` | `{ roomId, room: Room }`                         | Room settings changed |
+| `ROOM_DELETED`          | `{ roomId }`                                     | Room was deleted      |
+
+### Example Event Handlers
 
 ```typescript
-private async onTrackChanged(data: { roomId: string; track: QueueItem }): Promise<void> {
-  try {
-    // Your logic
-  } catch (error) {
-    console.error(`[${this.name}] Error in onTrackChanged:`, error)
-  }
-}
-```
+async register(context: PluginContext): Promise<void> {
+  await super.register(context)
 
-### 5. Use Typed Configs
-
-Always define a TypeScript interface for your config:
-
-```typescript
-export type MyPluginConfig = {
-  enabled: boolean
-  setting1: string
-  setting2: number
-}
-
-export class MyPlugin extends BasePlugin<MyPluginConfig> {
-  // config is now typed!
-}
-```
-
-### 6. Store Plugin Version in package.json
-
-```typescript
-import packageJson from "./package.json"
-
-export class MyPlugin extends BasePlugin<MyPluginConfig> {
-  name = "my-plugin"
-  version = packageJson.version // DRY!
-}
-```
-
-### 7. Export Config Types
-
-Export your config types so the frontend can use them:
-
-```typescript
-// types.ts
-export type MyPluginConfig = {
-  enabled: boolean
-  // ...
-}
-
-// index.ts
-export type { MyPluginConfig } from "./types"
-```
-
-## Example Plugin
-
-Here's a complete example: a "Track Announcer" plugin that sends a system message when a new track starts.
-
-### types.ts
-
-```typescript
-export type TrackAnnouncerConfig = {
-  enabled: boolean
-  includeArtist: boolean
-  customPrefix: string
-}
-```
-
-### index.ts
-
-```typescript
-import { BasePlugin } from "@repo/plugin-base"
-import { PluginContext, QueueItem } from "@repo/types"
-import packageJson from "./package.json"
-import type { TrackAnnouncerConfig } from "./types"
-
-export type { TrackAnnouncerConfig } from "./types"
-
-export class TrackAnnouncerPlugin extends BasePlugin<TrackAnnouncerConfig> {
-  name = "track-announcer"
-  version = packageJson.version
-
-  async register(context: PluginContext): Promise<void> {
-    this.context = context
-
-    // Subscribe to track changes
-    context.lifecycle.on("trackChanged", this.onTrackChanged.bind(this))
-    context.lifecycle.on("configChanged", this.onConfigChanged.bind(this))
-
-    console.log(`[${this.name}] Registered for room ${context.roomId}`)
-  }
-
-  private async onTrackChanged(data: { roomId: string; track: QueueItem }): Promise<void> {
-    if (!this.context) return
-
+  this.on("TRACK_CHANGED", async (data) => {
     const config = await this.getConfig()
     if (!config?.enabled) return
 
-    try {
-      const { track } = data
-      let message = config.customPrefix || "🎵 Now playing:"
+    await this.context!.api.sendSystemMessage(
+      data.roomId,
+      `🎵 Now playing: ${data.track.title}`
+    )
+  })
 
-      if (config.includeArtist && track.artist) {
-        message += ` ${track.title} by ${track.artist}`
-      } else {
-        message += ` ${track.title}`
-      }
-
-      await this.context.api.sendSystemMessage(this.context.roomId, message)
-    } catch (error) {
-      console.error(`[${this.name}] Error announcing track:`, error)
+  this.on("REACTION_ADDED", async (data) => {
+    if (data.reaction.reactTo.type === "track") {
+      const emoji = data.reaction.emoji.shortcodes
+      console.log(`User reacted with ${emoji}`)
     }
-  }
+  })
 
-  private async onConfigChanged(data: {
-    roomId: string
-    config: TrackAnnouncerConfig | null
-    previousConfig: TrackAnnouncerConfig | null
-  }): Promise<void> {
-    const wasEnabled = data.previousConfig?.enabled
-    const isEnabled = data.config?.enabled
-
-    if (!wasEnabled && isEnabled) {
-      await this.context?.api.sendSystemMessage(
-        this.context.roomId,
-        "📢 Track announcements enabled",
-      )
-    } else if (wasEnabled && !isEnabled) {
-      await this.context?.api.sendSystemMessage(
-        this.context.roomId,
-        "📢 Track announcements disabled",
-      )
+  this.on("USER_LEFT", async (data) => {
+    // Check if any admins remain
+    const users = await this.context!.api.getUsers(data.roomId)
+    if (!users.some(u => u.isAdmin)) {
+      // Disable plugin if no admins
     }
-  }
+  })
 }
-
-export function createTrackAnnouncerPlugin() {
-  return new TrackAnnouncerPlugin()
-}
-
-export default createTrackAnnouncerPlugin
 ```
 
-## Testing Your Plugin
+## Configuration Schema
 
-See the tests in `packages/plugin-playlist-democracy/__tests__` for examples of how to test plugins.
+Define a schema to generate dynamic admin settings forms.
 
-Key things to test:
+### Basic Schema
+
+```typescript
+getConfigSchema(): PluginConfigSchema {
+  return {
+    // JSON Schema from Zod
+    jsonSchema: z.toJSONSchema(myConfigSchema),
+
+    // Field order and layout elements
+    layout: [
+      { type: "heading", content: "My Plugin Settings" },
+      {
+        type: "text-block",
+        content: "Configure your plugin settings below.",
+        variant: "info",
+      },
+      "enabled",
+      "threshold",
+      "message",
+    ],
+
+    // Field-specific metadata
+    fieldMeta: {
+      enabled: {
+        type: "boolean",
+        label: "Enable Plugin",
+        description: "Turn the plugin on or off",
+      },
+      threshold: {
+        type: "number",
+        label: "Threshold Value",
+        showWhen: { field: "enabled", value: true },
+      },
+    },
+  }
+}
+```
+
+### Field Types
+
+| Type         | Description      | Options                          |
+| ------------ | ---------------- | -------------------------------- |
+| `boolean`    | Toggle switch    | -                                |
+| `string`     | Text input       | -                                |
+| `number`     | Numeric input    | -                                |
+| `enum`       | Dropdown select  | `enumLabels: { value: "Label" }` |
+| `emoji`      | Emoji picker     | -                                |
+| `duration`   | Time duration    | `displayUnit`, `storageUnit`     |
+| `percentage` | Percentage input | -                                |
+
+### Conditional Fields
+
+Show/hide fields based on other values:
+
+```typescript
+fieldMeta: {
+  threshold: {
+    type: "number",
+    label: "Threshold",
+    showWhen: { field: "enabled", value: true },
+  },
+  // Multiple conditions (AND logic)
+  advancedSetting: {
+    type: "string",
+    showWhen: [
+      { field: "enabled", value: true },
+      { field: "advancedMode", value: true },
+    ],
+  },
+}
+```
+
+### Layout Elements
+
+```typescript
+layout: [
+  // Heading
+  { type: "heading", content: "Section Title" },
+
+  // Text block with variant
+  {
+    type: "text-block",
+    content: "Informational text here.",
+    variant: "info", // "info" | "warning" | "example"
+    showWhen: { field: "enabled", value: true },
+  },
+
+  // Text with template interpolation
+  {
+    type: "text-block",
+    content: "Threshold is set to {{threshold:percentage}}.",
+    variant: "example",
+  },
+
+  // Rich content with embedded components
+  {
+    type: "text-block",
+    content: [
+      { type: "text", content: "React with " },
+      { type: "component", name: "emoji", props: { shortcodes: ":{{reactionType}}:" } },
+      { type: "text", content: " to vote!" },
+    ],
+  },
+
+  // Field reference (string = field name)
+  "myFieldName",
+]
+```
+
+### Duration Fields
+
+```typescript
+fieldMeta: {
+  timeLimit: {
+    type: "duration",
+    label: "Time Limit",
+    description: "How long to wait (10-300 seconds)",
+    displayUnit: "seconds",   // Show as seconds in UI
+    storageUnit: "milliseconds", // Store as milliseconds
+    showWhen: { field: "enabled", value: true },
+  },
+}
+```
+
+## Plugin Components
+
+Define declarative UI components that render in the frontend without React code in your plugin.
+
+### Component Schema
+
+```typescript
+import type { PluginComponentSchema, PluginComponentState } from "@repo/types"
+
+getComponentSchema(): PluginComponentSchema {
+  return {
+    components: [
+      // Text with countdown timer
+      {
+        id: "countdown-text",
+        type: "text-block",
+        area: "nowPlaying",
+        showWhen: { field: "showCountdown", value: true },
+        content: [
+          { type: "text", content: "React with " },
+          { type: "component", name: "emoji", props: { emoji: "{{config.reactionType}}" } },
+          { type: "text", content: " to keep playing" },
+        ],
+      },
+
+      // Countdown timer
+      {
+        id: "countdown-timer",
+        type: "countdown",
+        area: "nowPlaying",
+        showWhen: { field: "showCountdown", value: true },
+        startKey: "trackStartTime",      // Read from store
+        duration: "config.timeLimit",     // Read from config
+      },
+
+      // Badge
+      {
+        id: "skipped-badge",
+        type: "badge",
+        area: "nowPlayingBadge",
+        showWhen: { field: "isSkipped", value: true },
+        label: "Skipped",
+        variant: "warning",
+        icon: "skip-forward",
+        tooltip: "{{voteCount}}/{{requiredCount}} votes",
+      },
+
+      // Button that opens modal
+      {
+        id: "leaderboard-button",
+        type: "button",
+        area: "userList",
+        showWhen: { field: "enabled", value: true },
+        label: "{{config.wordLabel:pluralize:2}} Leaderboard",
+        icon: "trophy",
+        opensModal: "leaderboard-modal",
+      },
+
+      // Modal with nested components
+      {
+        id: "leaderboard-modal",
+        type: "modal",
+        area: "userList",
+        title: "{{config.wordLabel:pluralize:2}} Leaderboard",
+        size: "lg",
+        children: [
+          {
+            id: "users-leaderboard",
+            type: "leaderboard",
+            area: "userList",
+            dataKey: "usersLeaderboard",
+            title: "Top Users",
+            rowTemplate: [
+              { type: "component", name: "username", props: { userId: "{{value}}" } },
+              { type: "text", content: ": {{score}} {{config.wordLabel:pluralize:score}}" },
+            ],
+            maxItems: 10,
+            showRank: true,
+          },
+        ],
+      },
+    ],
+
+    // Keys that trigger component updates from plugin events
+    storeKeys: ["showCountdown", "trackStartTime", "isSkipped", "voteCount", "requiredCount"],
+  }
+}
+```
+
+### Component Areas
+
+| Area              | Location                        |
+| ----------------- | ------------------------------- |
+| `nowPlaying`      | Below now playing info          |
+| `nowPlayingInfo`  | Inline with now playing details |
+| `nowPlayingBadge` | Badge area near title           |
+| `nowPlayingArt`   | Overlay on album art            |
+| `playlistItem`    | Per-track in playlist           |
+| `userList`        | User list section               |
+| `userListItem`    | Per-user in list                |
+
+### Component Types
+
+| Type          | Description      | Key Props                                     |
+| ------------- | ---------------- | --------------------------------------------- |
+| `text`        | Inline text      | `content`, `variant`                          |
+| `text-block`  | Block text       | `content`, `variant`                          |
+| `heading`     | Section heading  | `content`, `level`                            |
+| `emoji`       | Emoji display    | `emoji`, `size`                               |
+| `icon`        | Icon display     | `icon`, `size`, `color`                       |
+| `button`      | Clickable button | `label`, `icon`, `opensModal`                 |
+| `badge`       | Status badge     | `label`, `variant`, `icon`, `tooltip`         |
+| `leaderboard` | Ranked list      | `dataKey`, `title`, `rowTemplate`, `maxItems` |
+| `countdown`   | Timer display    | `startKey`, `duration`, `text`                |
+| `modal`       | Dialog container | `title`, `size`, `children`                   |
+
+### Component State
+
+Provide initial state for components:
+
+```typescript
+async getComponentState(): Promise<PluginComponentState> {
+  if (!this.context) return {}
+
+  const config = await this.getConfig()
+  if (!config?.enabled) {
+    return { showCountdown: false }
+  }
+
+  const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
+
+  return {
+    showCountdown: true,
+    trackStartTime: nowPlaying?.playedAt
+      ? new Date(nowPlaying.playedAt).getTime()
+      : null,
+    isSkipped: false,
+    voteCount: 0,
+    requiredCount: 5,
+  }
+}
+```
+
+### Updating Component State
+
+Emit plugin events to update component state. The frontend automatically updates `storeKeys` from event payloads:
+
+```typescript
+// When track starts
+await this.emit("TRACK_STARTED", {
+  showCountdown: true,
+  trackStartTime: Date.now(),
+})
+
+// When track is skipped
+await this.emit("TRACK_SKIPPED", {
+  isSkipped: true,
+  voteCount: 3,
+  requiredCount: 5,
+})
+
+// When plugin is disabled
+await this.emit("PLUGIN_DISABLED", {
+  showCountdown: false,
+})
+```
+
+### Template Interpolation
+
+Use `{{field}}` syntax in component props:
+
+| Syntax                      | Description              |
+| --------------------------- | ------------------------ |
+| `{{field}}`                 | Simple value             |
+| `{{field:duration}}`        | Format as duration       |
+| `{{field:percentage}}`      | Format as percentage     |
+| `{{field:pluralize:count}}` | Pluralize based on count |
+| `{{config.fieldName}}`      | Value from plugin config |
+
+### Composite Templates
+
+Mix text and components:
+
+```typescript
+content: [
+  { type: "text", content: "User " },
+  { type: "component", name: "username", props: { userId: "{{value}}" } },
+  { type: "text", content: " scored {{score}} points" },
+]
+```
+
+## Data Augmentation
+
+Add plugin-specific metadata to playlist items and now playing tracks.
+
+### Playlist Augmentation
+
+```typescript
+async augmentPlaylistBatch(items: QueueItem[]): Promise<PluginAugmentationData[]> {
+  if (!this.context || items.length === 0) {
+    return items.map(() => ({}))
+  }
+
+  // Batch fetch for efficiency
+  const trackIds = items.map(item => item.mediaSource.trackId)
+  const skipKeys = trackIds.map(id => `skipped:${id}`)
+  const skipDataStrings = await this.context.storage.mget(skipKeys)
+
+  return skipDataStrings.map(dataStr => {
+    if (!dataStr) return {}
+    try {
+      const skipData = JSON.parse(dataStr)
+      return { skipped: true, skipData }
+    } catch {
+      return {}
+    }
+  })
+}
+```
+
+### Now Playing Augmentation
+
+```typescript
+async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
+  if (!this.context) return {}
+
+  const config = await this.getConfig()
+  if (!config?.enabled) return {}
+
+  const skipData = await this.context.storage.get(`skipped:${item.mediaSource.trackId}`)
+  if (!skipData) return {}
+
+  return {
+    skipped: true,
+    skipData: JSON.parse(skipData),
+    // Style hints for the now playing UI
+    styles: {
+      title: {
+        textDecoration: "line-through",
+        opacity: 0.7,
+      },
+    },
+  }
+}
+```
+
+## Storage API
+
+Sandboxed Redis storage namespaced as `plugin:{pluginName}:room:{roomId}:{key}`.
+
+### Basic Operations
+
+```typescript
+// Get/Set
+const value = await this.context.storage.get("myKey")
+await this.context.storage.set("myKey", "myValue")
+await this.context.storage.set("tempKey", "value", 3600) // TTL in seconds
+
+// Increment/Decrement
+const count = await this.context.storage.inc("counter")
+const count2 = await this.context.storage.dec("counter")
+
+// Delete
+await this.context.storage.del("myKey")
+
+// Check existence
+if (await this.context.storage.exists("myKey")) {
+  // ...
+}
+```
+
+### Batch Operations
+
+```typescript
+// Get multiple keys at once
+const keys = ["key1", "key2", "key3"]
+const values = await this.context.storage.mget(keys)
+// Returns: [string | null, string | null, string | null]
+```
+
+### Redis Pipelining
+
+For high-performance batch operations:
+
+```typescript
+// Pipeline multiple commands in one round trip
+const results = (await this.context.storage.pipeline([
+  { op: "get", key: "key1" },
+  { op: "get", key: "key2" },
+  { op: "inc", key: "counter" },
+])) as [string | null, string | null, number]
+```
+
+### Sorted Sets (Leaderboards)
+
+```typescript
+// Add to sorted set
+await this.context.storage.zadd("leaderboard", score, memberId)
+
+// Get range with scores
+const entries = await this.context.storage.zrangeWithScores("leaderboard", 0, 9)
+// Returns: [{ value: string, score: number }, ...]
+
+// Increment score
+await this.context.storage.zincrby("leaderboard", 1, memberId)
+```
+
+## Best Practices
+
+### 1. Always Check Config
+
+```typescript
+private async onTrackChanged(data: { roomId: string; track: QueueItem }): Promise<void> {
+  const config = await this.getConfig()
+  if (!config?.enabled) return
+  // ...
+}
+```
+
+### 2. Use Typed Event Handlers
+
+```typescript
+// Good - fully typed
+this.on("TRACK_CHANGED", async (data) => {
+  console.log(data.track.title) // TypeScript knows this exists
+})
+
+// Avoid - loses type safety
+context.lifecycle.on("TRACK_CHANGED", handler as any)
+```
+
+### 3. Handle Config Changes Properly
+
+```typescript
+this.onConfigChange(async (data) => {
+  const config = data.config as MyConfig
+  const prev = data.previousConfig as MyConfig | null
+
+  // Handle enable/disable transitions
+  if (!prev?.enabled && config?.enabled) {
+    await this.startMonitoring()
+  } else if (prev?.enabled && !config?.enabled) {
+    this.stopMonitoring()
+  }
+})
+```
+
+### 4. Clean Up Resources
+
+```typescript
+private readonly activeTimers = new Map<string, NodeJS.Timeout>()
+
+protected async onCleanup(): Promise<void> {
+  this.activeTimers.forEach(timer => clearTimeout(timer))
+  this.activeTimers.clear()
+}
+```
+
+### 5. Don't Call cleanup() When Disabling
+
+```typescript
+// Wrong - destroys plugin context
+private async disablePlugin() {
+  await this.cleanup()  // ❌ Can't re-enable later!
+}
+
+// Right - just clear state
+private async disablePlugin() {
+  this.clearAllTimers()  // ✓ Can re-enable
+}
+```
+
+### 6. Use Redis Pipelining for Performance
+
+```typescript
+// Instead of multiple round trips
+const a = await this.context.storage.get("key1")
+const b = await this.context.storage.get("key2")
+
+// Use pipeline for single round trip
+const [a, b] = (await this.context.storage.pipeline([
+  { op: "get", key: "key1" },
+  { op: "get", key: "key2" },
+])) as [string | null, string | null]
+```
+
+### 7. Emit Events for UI Updates
+
+```typescript
+// Keep frontend in sync
+await this.emit("STATE_CHANGED", {
+  showCountdown: true,
+  trackStartTime: Date.now(),
+})
+```
+
+## Complete Example
+
+See the [Playlist Democracy Plugin](../packages/plugin-playlist-democracy) for a complete reference implementation featuring:
+
+- Zod schema with validation
+- Dynamic admin settings form
+- UI components (countdown, badges)
+- Event handling (track changes, reactions)
+- Storage (vote tracking, skip data)
+- Timer management
+- Config change handling
+- Playlist augmentation
+
+## Plugin API Reference
+
+### PluginAPI Methods
+
+| Method                                         | Description                     |
+| ---------------------------------------------- | ------------------------------- |
+| `getNowPlaying(roomId)`                        | Get current track               |
+| `getUsers(roomId)`                             | Get users in room               |
+| `getReactions(params)`                         | Get reactions for track/message |
+| `skipTrack(roomId, trackId)`                   | Skip current track              |
+| `sendSystemMessage(roomId, message, options?)` | Send system chat message        |
+| `getPluginConfig(roomId, pluginName)`          | Get plugin config               |
+| `setPluginConfig(roomId, pluginName, config)`  | Update plugin config            |
+| `updatePlaylistTrack(roomId, track)`           | Update track with pluginData    |
+| `emit(eventName, data)`                        | Emit plugin event to frontend   |
+
+### System Message Options
+
+```typescript
+await this.context.api.sendSystemMessage(roomId, "Message text", {
+  type: "alert", // "info" | "alert"
+  status: "info", // "info" | "success" | "warning" | "error"
+})
+```
+
+## Testing
+
+See `packages/plugin-playlist-democracy/__tests__` for testing examples.
+
+Key areas to test:
 
 1. Plugin registration
-2. Event handler subscriptions
+2. Event handler responses
 3. Config changes (enable/disable)
 4. Storage operations
-5. API interactions (mock the PluginAPI)
-6. Cleanup (timers, storage, etc.)
-
-## Next Steps
-
-- Review the [Playlist Democracy Plugin](../packages/plugin-playlist-democracy) as a reference implementation
-- Check out the [BasePlugin source](../packages/plugin-base) for additional details
-- See [PluginAPI implementation](../packages/server/lib/plugins/PluginAPI.ts) for full API details
+5. Timer cleanup
+6. Component state

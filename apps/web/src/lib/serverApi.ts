@@ -1,6 +1,7 @@
 import ky from "ky"
 import { Room, RoomSetup } from "../types/Room"
 import type { PluginSchemasResponse, PluginSchemaInfo } from "../types/PluginSchema"
+import type { PluginComponentStores, PluginComponentState } from "../types/PluginComponent"
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -73,5 +74,31 @@ export async function getPluginSchemas(): Promise<PluginSchemasResponse> {
  */
 export async function getPluginSchema(pluginName: string): Promise<PluginSchemaInfo> {
   const res = await api.get(`api/plugins/${pluginName}/schema`).json<PluginSchemaInfo>()
+  return res
+}
+
+/**
+ * Get component states for all plugins in a room.
+ * Used to hydrate component stores when joining a room.
+ */
+export async function getPluginComponentStates(
+  roomId: string,
+): Promise<{ states: PluginComponentStores }> {
+  const res = await api
+    .get(`api/rooms/${roomId}/plugins/components`)
+    .json<{ states: PluginComponentStores }>()
+  return res
+}
+
+/**
+ * Get component state for a specific plugin in a room.
+ */
+export async function getPluginComponentState(
+  roomId: string,
+  pluginName: string,
+): Promise<{ state: PluginComponentState }> {
+  const res = await api
+    .get(`api/rooms/${roomId}/plugins/${pluginName}/components`)
+    .json<{ state: PluginComponentState }>()
   return res
 }

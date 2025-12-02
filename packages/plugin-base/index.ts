@@ -5,6 +5,8 @@ import {
   PluginAugmentationData,
   PluginLifecycleEvents,
   PluginConfigSchema,
+  PluginComponentSchema,
+  PluginComponentState,
   QueueItem,
   SystemEventPayload,
 } from "@repo/types"
@@ -251,6 +253,58 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
   getConfigSchema?(): PluginConfigSchema
 
   /**
+   * Get the component schema for UI rendering.
+   * Override in subclass to define declarative UI components.
+   * Returns undefined by default (no components).
+   *
+   * @example
+   * ```typescript
+   * getComponentSchema(): PluginComponentSchema {
+   *   return {
+   *     components: [
+   *       {
+   *         id: "leaderboard-button",
+   *         type: "button",
+   *         area: "userList",
+   *         label: "Leaderboard",
+   *         opensModal: "leaderboard-modal"
+   *       },
+   *       {
+   *         id: "leaderboard-modal",
+   *         type: "modal",
+   *         area: "userList",
+   *         title: "Word Leaderboard",
+   *         children: [...]
+   *       }
+   *     ],
+   *     storeKeys: ["usersLeaderboard"]
+   *   }
+   * }
+   * ```
+   */
+  getComponentSchema?(): PluginComponentSchema
+
+  /**
+   * Get the current component state for hydration.
+   * Called when a user joins a room to populate component stores.
+   * Override in subclass if your plugin has UI components.
+   *
+   * @example
+   * ```typescript
+   * async getComponentState(): Promise<PluginComponentState> {
+   *   if (!this.context) return {}
+   *   return {
+   *     usersLeaderboard: await this.context.storage.zrangeWithScores("leaderboard", 0, -1),
+   *     totalCount: await this.context.storage.get("total-count")
+   *   }
+   * }
+   * ```
+   */
+  async getComponentState(): Promise<PluginComponentState> {
+    return {}
+  }
+
+  /**
    * Get the plugin's configuration for the current room.
    * Merges stored config with defaults: stored values take precedence.
    * Returns null if no context, or defaults if no stored config.
@@ -319,4 +373,28 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    * ```
    */
   async augmentPlaylistBatch?(items: QueueItem[]): Promise<PluginAugmentationData[]>
+
+  /**
+   * Optional method to augment now playing track with plugin-specific metadata and style hints.
+   * Override this method to add custom data and style modifications to the now playing track.
+   *
+   * @param item - The currently playing track
+   * @returns Augmentation data including optional style hints
+   *
+   * @example
+   * ```typescript
+   * async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
+   *   const skipData = await this.context?.storage.get(`skipped:${item.mediaSource.trackId}`)
+   *   if (skipData) {
+   *     return {
+   *       skipped: true,
+   *       skipData: JSON.parse(skipData),
+   *       styles: { title: { textDecoration: 'line-through', opacity: 0.7 } }
+   *     }
+   *   }
+   *   return {}
+   * }
+   * ```
+   */
+  async augmentNowPlaying?(item: QueueItem): Promise<PluginAugmentationData>
 }

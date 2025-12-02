@@ -4,7 +4,7 @@ import {} from "../../lib/context"
 import { createOperations } from "../../operations"
 import { MetadataSourceError, AppContext, PubSubHandlerArgs } from "@repo/types"
 import { getRoomPath } from "../../lib/getRoomPath"
-import { pubRoomSettingsUpdated } from "../../operations/room/handleRoomNowPlayingData"
+import { emitRoomSettingsUpdated } from "../../operations/data/rooms"
 
 type ContextPubSubHandlerArgs = PubSubHandlerArgs & { context: AppContext }
 
@@ -78,6 +78,6 @@ async function handleRadioError({ io, message, context }: ContextPubSubHandlerAr
       JSON.stringify({ message: String(error.message), status: 500 }),
     )
 
-    await pubRoomSettingsUpdated({ context, roomId })
+    await emitRoomSettingsUpdated({ context, roomId })
   }
 }

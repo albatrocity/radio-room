@@ -1,5 +1,5 @@
 import { ChevronRightIcon } from "@chakra-ui/icons"
-import { useMachine } from "@xstate/react"
+import { useSettingsStore } from "../../../state/settingsStore"
 import {
   Box,
   Button,
@@ -12,7 +12,6 @@ import {
   Spinner,
 } from "@chakra-ui/react"
 import { useModalsStore } from "../../../state/modalsState"
-import { settingsMachine } from "../../../machines/settingsMachine"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 import ActiveIndicator from "../../ActiveIndicator"
 import DestructiveActions from "./DestructiveActions"
@@ -39,7 +38,7 @@ function toEventName(name: string): string {
 
 function Overview() {
   const { send } = useModalsStore()
-  const [settingsState] = useMachine(settingsMachine)
+  const { state: settingsState } = useSettingsStore()
   const { schemas, isLoading } = usePluginSchemas()
 
   const hasPassword = !!settingsState.context.password

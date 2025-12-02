@@ -1,7 +1,6 @@
 import { createMachine, assign, sendTo } from "xstate"
 import socketService from "../lib/socketService"
 import { Room } from "../types/Room"
-import type { PlaylistDemocracyConfig } from "@repo/plugin-playlist-democracy"
 
 type Context = Pick<
   Room,
@@ -21,8 +20,6 @@ type Context = Pick<
 > & {
   /** Generic plugin configs keyed by plugin name */
   pluginConfigs: Record<string, Record<string, unknown>>
-  /** @deprecated Use pluginConfigs["playlist-democracy"] instead */
-  playlistDemocracy: PlaylistDemocracyConfig
 }
 
 type Event =
@@ -36,14 +33,6 @@ type Event =
       data: { roomId: string; room: Room; pluginConfigs?: Record<string, Record<string, unknown>> }
     }
   | { type: "SUBMIT"; target: "pending" }
-
-export const defaultConfig: PlaylistDemocracyConfig = {
-  enabled: false,
-  reactionType: "+1",
-  timeLimit: 60000,
-  thresholdType: "percentage",
-  thresholdValue: 50,
-}
 
 export const settingsMachine = createMachine<Context, Event>(
   {
@@ -64,7 +53,6 @@ export const settingsMachine = createMachine<Context, Event>(
       radioMetaUrl: "",
       radioListenUrl: "",
       pluginConfigs: {},
-      playlistDemocracy: defaultConfig,
     },
     invoke: [
       {
@@ -111,8 +99,8 @@ export const settingsMachine = createMachine<Context, Event>(
       fetchSettings: sendTo("socket", () => ({ type: "GET_ROOM_SETTINGS" })),
       setValues: assign((ctx, event) => {
         if (event.type === "ROOM_SETTINGS" || event.type === "ROOM_SETTINGS_UPDATED") {
-          // Get plugin configs from the event
-          const pluginConfigs = event.data.pluginConfigs || {}
+          // Get plugin configs from the event, preserving existing if not provided
+          const pluginConfigs = event.data.pluginConfigs ?? ctx.pluginConfigs
 
           const newContext = {
             title: event.data.room.title,
@@ -129,9 +117,6 @@ export const settingsMachine = createMachine<Context, Event>(
             announceNowPlaying: event.data.room.announceNowPlaying,
             announceUsernameChanges: event.data.room.announceUsernameChanges,
             pluginConfigs,
-            // Keep playlistDemocracy for backwards compatibility
-            playlistDemocracy:
-              (pluginConfigs["playlist-democracy"] as PlaylistDemocracyConfig) || defaultConfig,
           }
           return newContext
         }

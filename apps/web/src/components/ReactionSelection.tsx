@@ -1,4 +1,4 @@
-import React, { MutableRefObject, useRef } from "react"
+import React, { MutableRefObject, useRef, memo, useMemo } from "react"
 import {
   HStack,
   Wrap,
@@ -40,7 +40,7 @@ export type ReactionSelectionProps = {
   darkBg?: boolean
 }
 
-function ReactionSelection({
+const ReactionSelection = memo(function ReactionSelection({
   onSelect,
   scrollHorizontal,
   reactions,
@@ -75,12 +75,16 @@ function ReactionSelection({
     },
   )
 
+  // Memoize filtered reaction keys
+  const reactionKeys = useMemo(
+    () => Object.keys(reactions).filter((x) => !!reactions[x].length),
+    [reactions],
+  )
+
   return (
     <HStack w="100%">
       <Wrap flexShrink={scrollHorizontal ? 0 : 1}>
-        {Object.keys(reactions)
-          .filter((x) => !!reactions[x].length)
-          .map((x) => (
+        {reactionKeys.map((x) => (
             <WrapItem key={x} justifyContent="center" alignItems="center">
               <ReactionCounterItem
                 count={reactions[x].length}
@@ -157,6 +161,6 @@ function ReactionSelection({
       </Wrap>
     </HStack>
   )
-}
+})
 
 export default ReactionSelection

@@ -1,4 +1,4 @@
-import React, { memo, useEffect } from "react"
+import React, { memo, useEffect, useCallback } from "react"
 import { Box, Grid, GridItem, HStack } from "@chakra-ui/react"
 
 import ChatInput from "./ChatInput"
@@ -15,10 +15,20 @@ const Chat = () => {
   const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
   const { send: chatSend } = useChatStore()
   const messages = useChatStore((s) => s.state.context.messages)
+
   useEffect(() => {
     chatSend("SET_CURRENT_USER", { data: currentUser })
-  }, [currentUser])
+  }, [currentUser, chatSend])
+
   const currentUserId = currentUser?.userId
+
+  // Memoize callbacks to prevent ChatInput re-renders
+  const handleTypingStart = useCallback(() => chatSend("START_TYPING"), [chatSend])
+  const handleTypingStop = useCallback(() => chatSend("STOP_TYPING"), [chatSend])
+  const handleSend = useCallback(
+    (msg: ChatMessage) => chatSend("SUBMIT_MESSAGE", { data: msg }),
+    [chatSend],
+  )
 
   if (!currentUserId) {
     return null
@@ -61,11 +71,9 @@ const Chat = () => {
           </Box>
           <Box w="100%">
             <ChatInput
-              onTypingStart={() => chatSend("START_TYPING")}
-              onTypingStop={() => chatSend("STOP_TYPING")}
-              onSend={(msg: ChatMessage) =>
-                chatSend("SUBMIT_MESSAGE", { data: msg })
-              }
+              onTypingStart={handleTypingStart}
+              onTypingStop={handleTypingStop}
+              onSend={handleSend}
             />
           </Box>
         </HStack>

@@ -1,0 +1,24 @@
+import { createContext, useContext } from "react"
+import type { PluginComponentState } from "../../types/PluginComponent"
+
+// ============================================================================
+// Context
+// ============================================================================
+
+export interface PluginComponentContextValue {
+  store: PluginComponentState
+  config: Record<string, unknown>
+  openModal: (modalId: string) => void
+  closeModal: (modalId: string) => void
+}
+
+export const PluginComponentContext = createContext<PluginComponentContextValue | null>(null)
+
+export function usePluginComponentContext() {
+  const ctx = useContext(PluginComponentContext)
+  if (!ctx) {
+    throw new Error("PluginComponent must be rendered within PluginComponentProvider")
+  }
+  return ctx
+}
+

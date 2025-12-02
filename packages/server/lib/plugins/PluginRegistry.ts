@@ -285,6 +285,65 @@ export class PluginRegistry {
   }
 
   /**
+   * Augment the now playing track with plugin metadata
+   * Calls augmentNowPlaying on all plugins that implement it
+   *
+   * @param roomId - The room to augment now playing for
+   * @param item - The currently playing track
+   * @returns Item with merged pluginData from all plugins
+   */
+  async augmentNowPlaying(roomId: string, item: QueueItem | null): Promise<QueueItem | null> {
+    if (!item) {
+      return null
+    }
+
+    const roomPluginMap = this.roomPlugins.get(roomId)
+    if (!roomPluginMap) {
+      return item
+    }
+
+    // Get plugins for this room that have augmentation
+    const pluginsWithAugmentation = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.augmentNowPlaying === "function",
+    )
+
+    if (pluginsWithAugmentation.length === 0) {
+      return item
+    }
+
+    // Call all augmentation methods in parallel
+    const augmentationResults = await Promise.all(
+      pluginsWithAugmentation.map(async ([pluginName, { plugin }]) => {
+        try {
+          const augmentation = await plugin.augmentNowPlaying!(item)
+          return { pluginName, augmentation }
+        } catch (error) {
+          console.error(
+            `[PluginRegistry] Error in augmentNowPlaying for plugin ${pluginName}:`,
+            error,
+          )
+          return { pluginName, augmentation: {} }
+        }
+      }),
+    )
+
+    // Merge augmentation data
+    const pluginData: Record<string, any> = { ...(item.pluginData || {}) }
+
+    for (const { pluginName, augmentation } of augmentationResults) {
+      if (augmentation && Object.keys(augmentation).length > 0) {
+        pluginData[pluginName] = augmentation
+      }
+    }
+
+    // Only add pluginData if there's data to add
+    if (Object.keys(pluginData).length > 0) {
+      return { ...item, pluginData }
+    }
+    return item
+  }
+
+  /**
    * Augment a single playlist item with plugin metadata
    * Convenience method for single-item augmentation (e.g., PLAYLIST_TRACK_ADDED)
    */
@@ -332,6 +391,7 @@ export class PluginRegistry {
         description: tempInstance.description,
         defaultConfig: tempInstance.getDefaultConfig?.(),
         configSchema: tempInstance.getConfigSchema?.(),
+        componentSchema: tempInstance.getComponentSchema?.(),
       })
     }
 
@@ -354,6 +414,46 @@ export class PluginRegistry {
       description: tempInstance.description,
       defaultConfig: tempInstance.getDefaultConfig?.(),
       configSchema: tempInstance.getConfigSchema?.(),
+      componentSchema: tempInstance.getComponentSchema?.(),
     }
+  }
+
+  /**
+   * Get component state for a plugin in a specific room.
+   * Used to hydrate component stores when users join.
+   */
+  async getPluginComponentState(
+    roomId: string,
+    pluginName: string,
+  ): Promise<Record<string, unknown> | null> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return null
+
+    const pluginInstance = roomPlugins.get(pluginName)
+    if (!pluginInstance) return null
+
+    return pluginInstance.plugin.getComponentState?.() ?? null
+  }
+
+  /**
+   * Get component states for all plugins in a room.
+   * Returns a map of pluginName -> componentState.
+   */
+  async getAllPluginComponentStates(
+    roomId: string,
+  ): Promise<Record<string, Record<string, unknown>>> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return {}
+
+    const states: Record<string, Record<string, unknown>> = {}
+
+    for (const [pluginName, pluginInstance] of roomPlugins) {
+      const state = await pluginInstance.plugin.getComponentState?.()
+      if (state) {
+        states[pluginName] = state
+      }
+    }
+
+    return states
   }
 }

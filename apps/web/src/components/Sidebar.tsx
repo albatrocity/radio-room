@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useCallback, memo } from "react"
 import {
   Box,
   Stack,
@@ -22,6 +22,16 @@ const Sidebar = () => {
   const isAdmin = useIsAdmin()
   const adminButtonColorScheme = useColorModeValue("whiteAlpha", undefined)
 
+  // Memoize callbacks
+  const handleViewListeners = useCallback(
+    (view: boolean) => (view ? modalSend("VIEW_LISTENERS") : modalSend("CLOSE")),
+    [modalSend],
+  )
+
+  const handleEditUser = useCallback(() => modalSend("EDIT_USERNAME"), [modalSend])
+
+  const handleViewHelp = useCallback(() => modalSend("VIEW_HELP"), [modalSend])
+
   return (
     <Box
       w={["100%", "20vw"]}
@@ -43,12 +53,7 @@ const Sidebar = () => {
       >
         <Banner />
         <Flex h="100%" w="100%" direction="column">
-          <Listeners
-            onViewListeners={(view) =>
-              view ? modalSend("VIEW_LISTENERS") : modalSend("CLOSE")
-            }
-            onEditUser={() => modalSend("EDIT_USERNAME")}
-          />
+          <Listeners onViewListeners={handleViewListeners} onEditUser={handleEditUser} />
         </Flex>
         <Show above="sm">
           {!isAdmin && (
@@ -58,7 +63,7 @@ const Sidebar = () => {
                 aria-label="Help"
                 variant="ghost"
                 icon={<Icon as={FiHelpCircle} />}
-                onClick={() => modalSend("VIEW_HELP")}
+                onClick={handleViewHelp}
               />
             </Flex>
           )}
@@ -80,4 +85,4 @@ const Sidebar = () => {
   )
 }
 
-export default Sidebar
+export default memo(Sidebar)
