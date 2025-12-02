@@ -101,6 +101,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     config: PlaylistDemocracyConfig,
   ): Promise<PluginComponentState> {
     const trackId = nowPlaying.mediaSource.trackId
+    const trackStartTime = new Date(nowPlaying.playedAt!).getTime()
 
     // Fetch skip data and vote count in parallel
     const [skipDataStr, voteCountStr] = (await this.context!.storage.pipeline([
@@ -112,7 +113,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     if (skipData) {
       return {
         showCountdown: false,
-        trackStartTime: new Date(nowPlaying.playedAt!).getTime(),
+        trackStartTime,
         isSkipped: true,
         voteCount: skipData.voteCount,
         requiredCount: skipData.requiredCount,
@@ -121,9 +122,13 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
     const listeningUsers = await this.context!.api.getUsers(this.context!.roomId)
 
+    // Check if timer has already expired (track passed the threshold without being skipped)
+    const elapsed = Date.now() - trackStartTime
+    const timerExpired = elapsed >= config.timeLimit
+
     return {
-      showCountdown: true,
-      trackStartTime: new Date(nowPlaying.playedAt!).getTime(),
+      showCountdown: !timerExpired,
+      trackStartTime,
       isSkipped: false,
       voteCount: Number(voteCountStr || 0),
       requiredCount: this.calculateRequiredVotes(listeningUsers.length, config),
