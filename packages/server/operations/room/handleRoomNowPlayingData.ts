@@ -6,7 +6,6 @@ import {
   MetadataSourceError,
   AppContext,
   QueueItem,
-  Station,
   Room,
   MediaSourceSubmission,
   MetadataSourceTrack,
@@ -276,9 +275,7 @@ function createRawTrack(submission: MediaSourceSubmission): MetadataSourceTrack 
     id: submission.trackId,
     title: submission.title,
     urls: [],
-    artists: submission.artist
-      ? [{ id: "unknown", title: submission.artist, urls: [] }]
-      : [],
+    artists: submission.artist ? [{ id: "unknown", title: submission.artist, urls: [] }] : [],
     album: submission.album
       ? {
           id: "unknown",
@@ -364,30 +361,3 @@ export async function pubMetadataSourceRateLimitError({
 export const pubSpotifyError = pubMetadataSourceError
 /** @deprecated Use pubMetadataSourceRateLimitError */
 export const pubRateLimitError = pubMetadataSourceRateLimitError
-
-type PubRoomSettingsUpdatedParams = {
-  context: AppContext
-  roomId: string
-  room?: Room // Optional - will fetch if not provided
-}
-
-export async function pubRoomSettingsUpdated({
-  context,
-  roomId,
-  room,
-}: PubRoomSettingsUpdatedParams) {
-  // Fetch room if not provided
-  let roomData: Room | null | undefined = room
-  if (!roomData) {
-    const { findRoom } = await import("../data/rooms")
-    roomData = await findRoom({ context, roomId })
-  }
-
-  // Emit via SystemEvents if we have room data
-  if (roomData && context.systemEvents) {
-    await context.systemEvents.emit(roomId, "ROOM_SETTINGS_UPDATED", {
-      roomId,
-      room: roomData,
-    })
-  }
-}

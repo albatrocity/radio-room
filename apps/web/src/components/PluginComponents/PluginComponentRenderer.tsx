@@ -100,16 +100,92 @@ function UsernameTemplateComponent({ userId }: UsernameComponentProps) {
  * Text component - renders text with optional styling.
  */
 function TextTemplateComponent({ content, variant = "default" }: TextComponentProps) {
-  const { store } = usePluginComponentContext()
-  const interpolatedContent = interpolateTemplate(content, store)
+  const { store, config } = usePluginComponentContext()
 
+  // Handle string or CompositeTemplate content
+  if (typeof content === "string") {
+    const interpolatedContent = interpolateTemplate(content, { ...store, config })
+    const fontWeight = variant === "bold" ? "bold" : "normal"
+    const fontSize = variant === "small" ? "xs" : "sm"
+    const color = variant === "muted" ? "gray.500" : undefined
+
+    return (
+      <Text as="span" fontSize={fontSize} fontWeight={fontWeight} color={color}>
+        {interpolatedContent}
+      </Text>
+    )
+  }
+
+  // CompositeTemplate
   const fontWeight = variant === "bold" ? "bold" : "normal"
   const fontSize = variant === "small" ? "xs" : "sm"
   const color = variant === "muted" ? "gray.500" : undefined
 
   return (
     <Text as="span" fontSize={fontSize} fontWeight={fontWeight} color={color}>
-      {interpolatedContent}
+      <CompositeTemplateRenderer template={content} values={{ ...store, config }} />
+    </Text>
+  )
+}
+
+/**
+ * Text block component - renders styled text content (matches PluginSchemaElement text-block).
+ */
+function TextBlockTemplateComponent({
+  content,
+  variant = "info",
+}: {
+  content: string | CompositeTemplate
+  variant?: "info" | "warning" | "example"
+}) {
+  const { store, config } = usePluginComponentContext()
+
+  const bgColorMap = {
+    info: "blue.50",
+    warning: "orange.50",
+    example: "gray.50",
+  }
+  const bgColor = bgColorMap[variant]
+
+  const renderContent = () => {
+    if (typeof content === "string") {
+      return interpolateTemplate(content, { ...store, config })
+    }
+    return <CompositeTemplateRenderer template={content} values={{ ...store, config }} />
+  }
+
+  return (
+    <Box p={3} borderRadius="md" bg={bgColor}>
+      <Text fontSize="sm">{renderContent()}</Text>
+    </Box>
+  )
+}
+
+/**
+ * Heading component - renders a heading (matches PluginSchemaElement heading).
+ */
+function HeadingTemplateComponent({
+  content,
+  level = 3,
+}: {
+  content: string | CompositeTemplate
+  level?: 1 | 2 | 3 | 4
+}) {
+  const { store, config } = usePluginComponentContext()
+
+  const sizeMap = { 1: "xl", 2: "lg", 3: "md", 4: "sm" } as const
+  const size = sizeMap[level]
+
+  const renderContent = () => {
+    if (typeof content === "string") {
+      return interpolateTemplate(content, { ...store, config })
+    }
+    return <CompositeTemplateRenderer template={content} values={{ ...store, config }} />
+  }
+
+  return (
+    <Text as={`h${level}`} fontSize={size} fontWeight="bold" mb={2}>
+      {renderContent()}
     </Text>
   )
 }
@@ -426,6 +502,8 @@ const TEMPLATE_COMPONENT_MAP: {
 } = {
   username: UsernameTemplateComponent,
   text: TextTemplateComponent,
+  "text-block": TextBlockTemplateComponent,
+  heading: HeadingTemplateComponent,
   emoji: EmojiTemplateComponent,
   icon: IconTemplateComponent,
   button: ButtonTemplateComponent,
@@ -547,7 +625,7 @@ function renderPluginComponent(
   }
 
   // Extract only the template component props (exclude metadata)
-  const { id, area, enabledWhen, subscribeTo, type, ...templateProps } = component
+  const { id, area, showWhen, subscribeTo, type, ...templateProps } = component
 
   // Interpolate config values in props
   const interpolatedProps = interpolateConfigInProps(templateProps, config)
@@ -564,23 +642,37 @@ interface PluginComponentRendererProps {
 }
 
 /**
+ * Check if a single showWhen condition is met
+ */
+function checkShowWhenCondition(
+  condition: { field: string; value: unknown },
+  config: Record<string, unknown>,
+  store: Record<string, unknown>,
+): boolean {
+  // Check config first, then store
+  const actualValue = config[condition.field] ?? store[condition.field]
+  return actualValue === condition.value
+}
+
+/**
  * Renders a single plugin component.
  * Plugin components are template components + placement metadata.
- * This function checks enabledWhen conditions and delegates to the appropriate template component.
+ * This function checks showWhen conditions and delegates to the appropriate template component.
  */
 export function PluginComponentRenderer({ component }: PluginComponentRendererProps) {
   const { config, store } = usePluginComponentContext()
 
-  // Check enabledWhen condition (checks both config and store)
-  if (component.enabledWhen) {
-    // First check config
-    const configValue = config[component.enabledWhen]
-    if (configValue !== undefined) {
-      if (!configValue) return null
-    } else {
-      // If not in config, check store
-      const storeValue = store[component.enabledWhen]
-      if (!storeValue) return null
+  // Check showWhen condition (consistent with PluginSchemaElement pattern)
+  if (component.showWhen) {
+    const conditions = Array.isArray(component.showWhen) ? component.showWhen : [component.showWhen]
+
+    // All conditions must be true (AND logic)
+    const allConditionsMet = conditions.every((condition) =>
+      checkShowWhenCondition(condition, config, store),
+    )
+
+    if (!allConditionsMet) {
+      return null
     }
   }
 

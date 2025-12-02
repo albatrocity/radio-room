@@ -525,6 +525,44 @@ export async function getRoomOnlineUserIds({ context, roomId }: GetRoomOnlineUse
   return ids
 }
 
+type EmitRoomSettingsUpdatedParams = {
+  context: AppContext
+  roomId: string
+  room?: Room // Optional - will fetch if not provided
+}
+
+/**
+ * Emit a ROOM_SETTINGS_UPDATED event via SystemEvents.
+ * Includes all plugin configs in the event payload.
+ */
+export async function emitRoomSettingsUpdated({
+  context,
+  roomId,
+  room,
+}: EmitRoomSettingsUpdatedParams) {
+  // Fetch room if not provided
+  let roomData: Room | null | undefined = room
+  if (!roomData) {
+    roomData = await findRoom({ context, roomId })
+  }
+
+  // Emit via SystemEvents if we have room data
+  if (roomData && context.systemEvents) {
+    // Fetch plugin configs to include in the event
+    const { getAllPluginConfigs } = await import("./pluginConfigs")
+    const pluginConfigs = await getAllPluginConfigs({ context, roomId })
+
+    await context.systemEvents.emit(roomId, "ROOM_SETTINGS_UPDATED", {
+      roomId,
+      room: roomData,
+      pluginConfigs,
+    })
+  }
+}
+
+/** @deprecated Use emitRoomSettingsUpdated instead */
+export const pubRoomSettingsUpdated = emitRoomSettingsUpdated
+
 type GetRoomOnlineUsersParams = {
   context: AppContext
   roomId: string

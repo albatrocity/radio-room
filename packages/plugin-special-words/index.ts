@@ -146,7 +146,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
           label: "{{config.wordLabel}} Leaderboard",
           icon: "trophy",
           opensModal: "leaderboard-modal",
-          enabledWhen: "enabled",
+          showWhen: { field: "enabled", value: true },
           variant: "ghost",
           size: "sm",
         },

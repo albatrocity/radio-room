@@ -21,7 +21,9 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
     <Alert status={status ?? "info"}>
       <AlertIcon />
       {title && <AlertTitle>{title}</AlertTitle>}
-      <AlertDescription>{content}</AlertDescription>
+      <AlertDescription>
+        <ParsedEmojiMessage content={content} />
+      </AlertDescription>
     </Alert>
   ) : (
     <Flex

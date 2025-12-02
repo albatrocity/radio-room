@@ -6,7 +6,7 @@
  *
  * Architecture:
  * - Template components define the actual rendering (username, text, emoji, etc.)
- * - Plugin components are template components + placement metadata (area, enabledWhen)
+ * - Plugin components are template components + placement metadata (area, showWhen)
  * - Frontends implement template components; plugins reference them by name
  */
 
@@ -38,6 +38,8 @@ export type PluginComponentArea =
 export type TemplateComponentName =
   | "username"
   | "text"
+  | "text-block"
+  | "heading"
   | "emoji"
   | "icon"
   | "button"
@@ -56,8 +58,30 @@ export interface UsernameComponentProps {
  * Props for the text template component.
  */
 export interface TextComponentProps {
-  content: string
+  /** Text content - can be a string or CompositeTemplate for embedded components */
+  content: string | CompositeTemplate
   variant?: "default" | "muted" | "bold" | "small"
+}
+
+/**
+ * Props for text-block component (matches PluginSchemaElement text-block).
+ * Renders styled text content with optional visual variants.
+ */
+export interface TextBlockComponentProps {
+  /** Content to display - string with {{placeholders}} or CompositeTemplate */
+  content: string | CompositeTemplate
+  /** Visual variant for the text block */
+  variant?: "info" | "warning" | "example"
+}
+
+/**
+ * Props for heading component (matches PluginSchemaElement heading).
+ */
+export interface HeadingComponentProps {
+  /** Heading text content */
+  content: string | CompositeTemplate
+  /** Heading level (visual size) */
+  level?: 1 | 2 | 3 | 4
 }
 
 /**
@@ -147,6 +171,8 @@ export interface BadgeComponentProps {
 export interface TemplateComponentPropsMap {
   username: UsernameComponentProps
   text: TextComponentProps
+  "text-block": TextBlockComponentProps
+  heading: HeadingComponentProps
   emoji: EmojiComponentProps
   icon: IconComponentProps
   button: ButtonComponentProps
@@ -192,10 +218,24 @@ export interface PluginComponentMetadata {
   /** Where the component should be rendered */
   area: PluginComponentArea
   /**
-   * Config field that controls visibility.
-   * If specified, component only shows when this config field is truthy.
+   * Component is only shown when condition(s) are met.
+   * Checks both config and store values.
+   * If an array is provided, ALL conditions must be true (AND logic).
+   * 
+   * @example
+   * // Simple truthy check on config field
+   * showWhen: { field: "enabled", value: true }
+   * 
+   * // Check store value
+   * showWhen: { field: "isSkipped", value: true }
+   * 
+   * // Multiple conditions (AND)
+   * showWhen: [
+   *   { field: "enabled", value: true },
+   *   { field: "showCountdown", value: true }
+   * ]
    */
-  enabledWhen?: string
+  showWhen?: import("./Plugin").ShowWhenCondition | import("./Plugin").ShowWhenCondition[]
   /**
    * Plugin events this component subscribes to.
    * Store updates when event payloads contain matching keys.
@@ -210,6 +250,8 @@ export interface PluginComponentMetadata {
 export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "username" } & UsernameComponentProps)
   | (PluginComponentMetadata & { type: "text" } & TextComponentProps)
+  | (PluginComponentMetadata & { type: "text-block" } & TextBlockComponentProps)
+  | (PluginComponentMetadata & { type: "heading" } & HeadingComponentProps)
   | (PluginComponentMetadata & { type: "emoji" } & EmojiComponentProps)
   | (PluginComponentMetadata & { type: "icon" } & IconComponentProps)
   | (PluginComponentMetadata & { type: "button" } & ButtonComponentProps)
@@ -222,6 +264,8 @@ export type PluginComponentDefinition =
  * Type aliases for convenience when working with specific component types.
  */
 export type PluginTextComponent = PluginComponentMetadata & { type: "text" } & TextComponentProps
+export type PluginTextBlockComponent = PluginComponentMetadata & { type: "text-block" } & TextBlockComponentProps
+export type PluginHeadingComponent = PluginComponentMetadata & { type: "heading" } & HeadingComponentProps
 export type PluginEmojiComponent = PluginComponentMetadata & { type: "emoji" } & EmojiComponentProps
 export type PluginIconComponent = PluginComponentMetadata & { type: "icon" } & IconComponentProps
 export type PluginButtonComponent = PluginComponentMetadata & { type: "button" } & ButtonComponentProps

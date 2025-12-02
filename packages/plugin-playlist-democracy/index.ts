@@ -48,38 +48,46 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
   getComponentSchema(): PluginComponentSchema {
     return {
       components: [
-        // Countdown timer in now playing area
+        // Countdown text in now playing area
         {
-          id: "now-playing-countdown",
-          type: "countdown",
+          id: "now-playing-countdown-text",
+          type: "text-block",
           area: "nowPlaying",
-          enabledWhen: "enabled",
-          startKey: "trackStartTime",
-          duration: "config.timeLimit", // Reference to config value
-          text: [
+          showWhen: { field: "showCountdown", value: true },
+          content: [
             { type: "text", content: "React with " },
             {
               type: "component",
               name: "emoji",
-              props: { shortcodes: ":{{config.reactionType}}:" },
+              props: { emoji: "{{config.reactionType}}" },
             },
             { type: "text", content: " to keep this track playing" },
           ],
-          subscribeTo: ["TRACK_CHANGED"],
+          subscribeTo: ["TRACK_STARTED", "PLUGIN_DISABLED"],
+        },
+        // Countdown timer
+        {
+          id: "now-playing-countdown",
+          type: "countdown",
+          area: "nowPlaying",
+          showWhen: { field: "showCountdown", value: true },
+          startKey: "trackStartTime",
+          duration: "config.timeLimit", // Reference to config value
+          subscribeTo: ["TRACK_STARTED", "PLUGIN_DISABLED"],
         },
         // Skipped badge in now playing badge area
         {
           id: "now-playing-skipped-badge",
           type: "badge",
           area: "nowPlayingBadge",
-          enabledWhen: "isSkipped", // Only show when track is actually skipped
+          showWhen: { field: "isSkipped", value: true },
           label: "Skipped",
           variant: "warning",
           icon: "skip-forward",
           tooltip: "{{voteCount}}/{{requiredCount}} votes",
         },
       ],
-      storeKeys: ["trackStartTime", "isSkipped", "voteCount", "requiredCount"],
+      storeKeys: ["showCountdown", "trackStartTime", "isSkipped", "voteCount", "requiredCount"],
     }
   }
 
@@ -91,11 +99,20 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     if (!this.context) return {}
 
     const config = await this.getConfig()
-    if (!config?.enabled) return {}
+    if (!config?.enabled) {
+      return {
+        showCountdown: false,
+        trackStartTime: null,
+        isSkipped: false,
+        voteCount: 0,
+        requiredCount: 0,
+      }
+    }
 
     const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
     if (!nowPlaying?.playedAt) {
       return {
+        showCountdown: true,
         trackStartTime: null,
         isSkipped: false,
         voteCount: 0,
@@ -113,6 +130,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     let isSkipped = false
     let voteCount = 0
     let requiredCount = 0
+    let showCountdown = true
 
     if (skipDataStr) {
       try {
@@ -120,6 +138,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
         isSkipped = true
         voteCount = skipData.voteCount
         requiredCount = skipData.requiredCount
+        showCountdown = true
       } catch {
         // Ignore parse errors
       }
@@ -132,6 +151,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     }
 
     return {
+      showCountdown,
       trackStartTime: new Date(nowPlaying.playedAt).getTime(),
       isSkipped,
       voteCount,
@@ -345,7 +365,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
       await this.context.api.sendSystemMessage(
         this.context.roomId,
-        `🗳️ Playlist Democracy enabled: Tracks need ${thresholdText} <em-emoji shortcodes=':${config.reactionType}:' /> reactions within ${timeSeconds} seconds`,
+        `🗳️ Playlist Democracy enabled: Tracks need ${thresholdText} :${config.reactionType}: reactions within ${timeSeconds} seconds`,
         { type: "alert", status: "info" },
       )
 
@@ -364,7 +384,9 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
           )
 
           // Emit plugin event to initialize component state
+          // Include showCountdown so the UI shows the countdown timer
           await this.emit("TRACK_STARTED", {
+            showCountdown: true,
             trackStartTime: playedAt,
           })
 
@@ -378,12 +400,18 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
         }
       }
     } else if (wasEnabled && !isEnabled) {
-      // Plugin was just disabled - clear timers
+      // Plugin was just disabled - clear timers and hide countdown
       for (const [trackId, timeout] of Array.from(this.activeTimers.entries())) {
         clearTimeout(timeout)
         console.log(`[${this.name}] Cleared timer for track ${trackId}`)
       }
       this.activeTimers.clear()
+
+      // Emit event to hide the countdown timer
+      await this.emit("PLUGIN_DISABLED", {
+        showCountdown: false,
+        trackStartTime: null,
+      })
 
       await this.context.api.sendSystemMessage(
         this.context.roomId,
@@ -407,7 +435,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
         await this.context.api.sendSystemMessage(
           this.context.roomId,
-          `🗳️ Playlist Democracy rules updated: Tracks need ${thresholdText} <em-emoji shortcodes=':${config.reactionType}:' /> reactions within ${timeSeconds} seconds`,
+          `🗳️ Playlist Democracy rules updated: Tracks need ${thresholdText} :${config.reactionType}: reactions within ${timeSeconds} seconds`,
           { type: "alert", status: "info" },
         )
       }
@@ -437,6 +465,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     // This transforms the system TRACK_CHANGED event into component-friendly data
     if (track.playedAt) {
       await this.emit("TRACK_STARTED", {
+        showCountdown: true, // Show the countdown timer
         trackStartTime: track.playedAt,
         isSkipped: false, // Track starts not skipped
         voteCount: 0, // No votes yet
