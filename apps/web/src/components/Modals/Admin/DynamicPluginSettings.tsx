@@ -1,8 +1,7 @@
 import React, { useMemo } from "react"
 import { Formik } from "formik"
 import { ModalBody, ModalFooter, Text, Spinner, Center, VStack } from "@chakra-ui/react"
-import { useMachine } from "@xstate/react"
-import { settingsMachine } from "../../../machines/settingsMachine"
+import { useSettingsStore } from "../../../state/settingsStore"
 import { useAdminStore } from "../../../state/adminStore"
 import { useModalsStore } from "../../../state/modalsState"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
@@ -18,7 +17,7 @@ interface DynamicPluginSettingsProps {
  * Fetches the schema from the server and uses PluginConfigForm to render.
  */
 export default function DynamicPluginSettings({ pluginName }: DynamicPluginSettingsProps) {
-  const [state] = useMachine(settingsMachine)
+  const { state } = useSettingsStore()
   const { send: modalSend } = useModalsStore()
   const { send } = useAdminStore()
   const { schemas, isLoading, error } = usePluginSchemas()

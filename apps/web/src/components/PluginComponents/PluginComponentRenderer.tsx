@@ -42,7 +42,7 @@ function renderPluginComponent(
   }
 
   // Extract only the template component props (exclude metadata)
-  const { id, area, showWhen, subscribeTo, type, ...templateProps } = component
+  const { id, area, showWhen, type, ...templateProps } = component
 
   // Interpolate config values in props using shared utility
   const interpolatedProps = interpolatePropsRecursively(templateProps, config)

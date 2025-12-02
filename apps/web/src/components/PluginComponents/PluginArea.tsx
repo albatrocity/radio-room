@@ -1,9 +1,8 @@
 import React, { useMemo } from "react"
-import { useMachine } from "@xstate/react"
 import { Stack } from "@chakra-ui/react"
 import { PluginComponentProvider, PluginComponentRenderer } from "./PluginComponentRenderer"
 import { usePluginSchemas } from "../../hooks/usePluginSchemas"
-import { settingsMachine } from "../../machines/settingsMachine"
+import { useSettingsStore } from "../../state/settingsStore"
 import type { PluginComponentArea, PluginComponentDefinition } from "../../types/PluginComponent"
 
 interface PluginAreaProps {
@@ -39,7 +38,7 @@ interface PluginComponents {
  */
 export function PluginArea({ area, direction = "row", itemId, spacing = 2 }: PluginAreaProps) {
   const { schemas, isLoading } = usePluginSchemas()
-  const [settingsState] = useMachine(settingsMachine)
+  const { state: settingsState } = useSettingsStore()
   const pluginConfigs = settingsState.context.pluginConfigs || {}
 
   // Build list of plugins with components for this area

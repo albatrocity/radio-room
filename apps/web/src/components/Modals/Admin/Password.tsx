@@ -8,14 +8,13 @@ import {
   ModalFooter,
   VStack,
 } from "@chakra-ui/react"
-import { settingsMachine } from "../../../machines/settingsMachine"
-import { useMachine } from "@xstate/react"
+import { useSettingsStore } from "../../../state/settingsStore"
 import FormActions from "./FormActions"
 import { useModalsStore } from "../../../state/modalsState"
 import FieldText from "../../Fields/FieldText"
 
 function Password() {
-  const [state] = useMachine(settingsMachine)
+  const { state } = useSettingsStore()
   const { send: modalSend } = useModalsStore()
   const { send } = useAdminStore()
 

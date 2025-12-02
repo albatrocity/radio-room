@@ -74,6 +74,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
         "wordLabel",
         "sendMessageOnDetection",
         "messageTemplate",
+        "showLeaderboard",
       ],
       fieldMeta: {
         enabled: {
@@ -128,6 +129,12 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
             },
           ],
         },
+        showLeaderboard: {
+          type: "boolean",
+          label: "Show Leaderboard",
+          description: "Shows a button to open the leaderboard in a modal",
+          showWhen: { field: "enabled", value: true },
+        },
       },
     }
   }
@@ -146,7 +153,13 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
           label: "{{config.wordLabel}} Leaderboard",
           icon: "trophy",
           opensModal: "leaderboard-modal",
-          showWhen: { field: "enabled", value: true },
+          showWhen: [
+            { field: "enabled", value: true },
+            {
+              field: "showLeaderboard",
+              value: true,
+            },
+          ],
           variant: "ghost",
           size: "sm",
         },
@@ -157,6 +170,13 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
           area: "userList",
           title: "{{config.wordLabel}} Leaderboard",
           size: "md",
+          showWhen: [
+            { field: "enabled", value: true },
+            {
+              field: "showLeaderboard",
+              value: true,
+            },
+          ],
           children: [
             {
               id: "users-leaderboard",

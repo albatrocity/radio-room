@@ -32,7 +32,6 @@ export function getComponentSchema(): PluginComponentSchema {
             },
           },
         ],
-        subscribeTo: ["TRACK_STARTED", "PLUGIN_DISABLED", "THRESHOLD_MET"],
       },
       // Skipped badge in now playing badge area
       {

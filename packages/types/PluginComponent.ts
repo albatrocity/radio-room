@@ -236,11 +236,6 @@ export interface PluginComponentMetadata {
    * ]
    */
   showWhen?: import("./Plugin").ShowWhenCondition | import("./Plugin").ShowWhenCondition[]
-  /**
-   * Plugin events this component subscribes to.
-   * Store updates when event payloads contain matching keys.
-   */
-  subscribeTo?: string[]
 }
 
 /**
