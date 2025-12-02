@@ -1,11 +1,9 @@
-import { z } from "zod"
 import type {
   Plugin,
   PluginContext,
   PluginConfigSchema,
   PluginComponentSchema,
   PluginComponentState,
-  PluginSchemaElement,
   QueueItem,
   ReactionPayload,
   PluginAugmentationData,
@@ -17,9 +15,14 @@ import {
   defaultPlaylistDemocracyConfig,
   type PlaylistDemocracyConfig,
 } from "./types"
+import { getComponentSchema, getConfigSchema } from "./schema"
 
 export type { PlaylistDemocracyConfig } from "./types"
 export { playlistDemocracyConfigSchema, defaultPlaylistDemocracyConfig } from "./types"
+
+// ============================================================================
+// Plugin Implementation
+// ============================================================================
 
 /**
  * Playlist Democracy Plugin
@@ -36,411 +39,119 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
   description =
     "Automatically skip tracks that don't receive enough reactions from listeners within a time limit."
 
-  // Static schema and defaults for BasePlugin
   static readonly configSchema = playlistDemocracyConfigSchema
   static readonly defaultConfig = defaultPlaylistDemocracyConfig
 
-  private readonly activeTimers: Map<string, NodeJS.Timeout> = new Map()
+  private readonly activeTimers = new Map<string, NodeJS.Timeout>()
 
-  /**
-   * Get the UI component schema for frontend rendering
-   */
+  // ============================================================================
+  // Schema Methods
+  // ============================================================================
+
   getComponentSchema(): PluginComponentSchema {
-    return {
-      components: [
-        // Countdown text in now playing area
-        {
-          id: "now-playing-countdown-text",
-          type: "text-block",
-          area: "nowPlaying",
-          showWhen: { field: "showCountdown", value: true },
-          content: [
-            { type: "text", content: "React with " },
-            {
-              type: "component",
-              name: "emoji",
-              props: { emoji: "{{config.reactionType}}" },
-            },
-            { type: "text", content: " to keep this track playing" },
-          ],
-          subscribeTo: ["TRACK_STARTED", "PLUGIN_DISABLED"],
-        },
-        // Countdown timer
-        {
-          id: "now-playing-countdown",
-          type: "countdown",
-          area: "nowPlaying",
-          showWhen: { field: "showCountdown", value: true },
-          startKey: "trackStartTime",
-          duration: "config.timeLimit", // Reference to config value
-          subscribeTo: ["TRACK_STARTED", "PLUGIN_DISABLED"],
-        },
-        // Skipped badge in now playing badge area
-        {
-          id: "now-playing-skipped-badge",
-          type: "badge",
-          area: "nowPlayingBadge",
-          showWhen: { field: "isSkipped", value: true },
-          label: "Skipped",
-          variant: "warning",
-          icon: "skip-forward",
-          tooltip: "{{voteCount}}/{{requiredCount}} votes",
-        },
-      ],
-      storeKeys: ["showCountdown", "trackStartTime", "isSkipped", "voteCount", "requiredCount"],
-    }
+    return getComponentSchema()
   }
 
-  /**
-   * Get the current component state for the room.
-   * Provides data for UI components like countdown timers.
-   */
+  getConfigSchema(): PluginConfigSchema {
+    return getConfigSchema()
+  }
+
+  // ============================================================================
+  // Component State
+  // ============================================================================
+
   async getComponentState(): Promise<PluginComponentState> {
     if (!this.context) return {}
 
     const config = await this.getConfig()
     if (!config?.enabled) {
-      return {
-        showCountdown: false,
-        trackStartTime: null,
-        isSkipped: false,
-        voteCount: 0,
-        requiredCount: 0,
-      }
+      return this.createDisabledState()
     }
 
     const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
     if (!nowPlaying?.playedAt) {
-      return {
-        showCountdown: true,
-        trackStartTime: null,
-        isSkipped: false,
-        voteCount: 0,
-        requiredCount: 0,
-      }
+      return this.createWaitingState()
     }
 
-    // Use pipeline to fetch skip data and vote count in a single round trip
+    return this.createActiveState(nowPlaying, config)
+  }
+
+  private createDisabledState(): PluginComponentState {
+    return {
+      showCountdown: false,
+      trackStartTime: null,
+      isSkipped: false,
+      voteCount: 0,
+      requiredCount: 0,
+    }
+  }
+
+  private createWaitingState(): PluginComponentState {
+    return {
+      showCountdown: true,
+      trackStartTime: null,
+      isSkipped: false,
+      voteCount: 0,
+      requiredCount: 0,
+    }
+  }
+
+  private async createActiveState(
+    nowPlaying: QueueItem,
+    config: PlaylistDemocracyConfig,
+  ): Promise<PluginComponentState> {
     const trackId = nowPlaying.mediaSource.trackId
-    const [skipDataStr, voteCountStr] = (await this.context.storage.pipeline([
+
+    // Fetch skip data and vote count in parallel
+    const [skipDataStr, voteCountStr] = (await this.context!.storage.pipeline([
       { op: "get", key: `skipped:${trackId}` },
       { op: "get", key: this.makeVoteKey(trackId) },
     ])) as [string | null, string | null]
 
-    let isSkipped = false
-    let voteCount = 0
-    let requiredCount = 0
-    let showCountdown = true
-
-    if (skipDataStr) {
-      try {
-        const skipData = JSON.parse(skipDataStr)
-        isSkipped = true
-        voteCount = skipData.voteCount
-        requiredCount = skipData.requiredCount
-        showCountdown = true
-      } catch {
-        // Ignore parse errors
+    const skipData = this.parseSkipData(skipDataStr)
+    if (skipData) {
+      return {
+        showCountdown: false,
+        trackStartTime: new Date(nowPlaying.playedAt!).getTime(),
+        isSkipped: true,
+        voteCount: skipData.voteCount,
+        requiredCount: skipData.requiredCount,
       }
-    } else {
-      // Track not skipped, use vote count from pipeline
-      voteCount = Number(voteCountStr || 0)
-      // Calculate required votes
-      const listeningUsers = await this.context.api.getUsers(this.context.roomId)
-      requiredCount = this.calculateRequiredVotes(listeningUsers.length, config)
     }
+
+    const listeningUsers = await this.context!.api.getUsers(this.context!.roomId)
 
     return {
-      showCountdown,
-      trackStartTime: new Date(nowPlaying.playedAt).getTime(),
-      isSkipped,
-      voteCount,
-      requiredCount,
+      showCountdown: true,
+      trackStartTime: new Date(nowPlaying.playedAt!).getTime(),
+      isSkipped: false,
+      voteCount: Number(voteCountStr || 0),
+      requiredCount: this.calculateRequiredVotes(listeningUsers.length, config),
     }
   }
 
-  /**
-   * Helper: Calculate the number of votes required based on config and listener count.
-   */
-  private calculateRequiredVotes(listenerCount: number, config: PlaylistDemocracyConfig): number {
-    return config.thresholdType === "percentage"
-      ? Math.ceil((listenerCount * config.thresholdValue) / 100)
-      : config.thresholdValue
-  }
-
-  /**
-   * Get the UI schema for dynamic form generation
-   */
-  getConfigSchema(): PluginConfigSchema {
-    const percentExampleBlock: PluginSchemaElement = {
-      type: "text-block",
-      content: [
-        {
-          type: "text",
-          content:
-            "Track will be skipped if it doesn't get {{thresholdValue}}% of listeners to react with ",
-        },
-        { type: "component", name: "emoji", props: { shortcodes: ":{{reactionType}}:" } },
-        { type: "text", content: " within {{timeLimit:duration}}." },
-      ],
-      variant: "example",
-      showWhen: [
-        {
-          field: "thresholdType",
-          value: "percentage",
-        },
-        {
-          field: "enabled",
-          value: true,
-        },
-      ],
-    }
-    const staticExampleBlock: PluginSchemaElement = {
-      type: "text-block",
-      content: [
-        {
-          type: "text",
-          content:
-            "Track will be skipped if it doesn't get {{thresholdValue}} listeners to react with ",
-        },
-        { type: "component", name: "emoji", props: { shortcodes: ":{{reactionType}}:" } },
-        { type: "text", content: " within {{timeLimit:duration}}." },
-      ],
-      variant: "example",
-      showWhen: [
-        {
-          field: "thresholdType",
-          value: "static",
-        },
-        {
-          field: "enabled",
-          value: true,
-        },
-      ],
-    }
-
-    return {
-      jsonSchema: z.toJSONSchema(playlistDemocracyConfigSchema),
-      layout: [
-        { type: "heading", content: "Playlist Democracy" },
-        {
-          type: "text-block",
-          content:
-            "Automatically skip tracks that don't receive enough reactions from listeners within a time limit.",
-          variant: "info",
-        },
-        "enabled",
-        "reactionType",
-        "timeLimit",
-        "thresholdType",
-        "thresholdValue",
-        percentExampleBlock,
-        staticExampleBlock,
-      ],
-      fieldMeta: {
-        enabled: {
-          type: "boolean",
-          label: "Enable Playlist Democracy",
-          description:
-            "When enabled, tracks will be automatically skipped if they don't meet the reaction threshold",
-        },
-        reactionType: {
-          type: "emoji",
-          label: "Reaction Type",
-          description: "Click to choose which emoji reaction to count for voting",
-          showWhen: {
-            field: "enabled",
-            value: true,
-          },
-        },
-        timeLimit: {
-          type: "duration",
-          label: "Time Limit",
-          description: "How long to wait before checking the threshold (10-300 seconds)",
-          displayUnit: "seconds",
-          storageUnit: "milliseconds",
-          showWhen: {
-            field: "enabled",
-            value: true,
-          },
-        },
-        thresholdType: {
-          type: "enum",
-          label: "Threshold Type",
-          description: "Choose between percentage of listeners or fixed count",
-          enumLabels: {
-            percentage: "Percentage of listeners",
-            static: "Fixed number",
-          },
-          showWhen: {
-            field: "enabled",
-            value: true,
-          },
-        },
-        thresholdValue: {
-          type: "number",
-          label: "Threshold Value",
-          description: "Percentage of listeners (1-100%) or number of reactions needed",
-          showWhen: {
-            field: "enabled",
-            value: true,
-          },
-        },
-      },
-    }
-  }
+  // ============================================================================
+  // Lifecycle
+  // ============================================================================
 
   async register(context: PluginContext): Promise<void> {
     await super.register(context)
 
-    // Register for lifecycle events
     this.on("TRACK_CHANGED", this.onTrackChanged.bind(this))
     this.on("ROOM_DELETED", this.onRoomDeleted.bind(this))
     this.on("REACTION_ADDED", this.onReactionAdded.bind(this))
     this.on("REACTION_REMOVED", this.onReactionRemoved.bind(this))
     this.on("USER_LEFT", this.onUserLeave.bind(this))
-
-    // Use filtered config change handler (only receives changes for THIS plugin)
     this.onConfigChange(this.handleConfigChange.bind(this))
   }
 
-  /**
-   * Custom cleanup - clear all active timers
-   * Storage cleanup is handled automatically by BasePlugin
-   */
   protected async onCleanup(): Promise<void> {
-    for (const [trackId, timeout] of Array.from(this.activeTimers.entries())) {
-      clearTimeout(timeout)
-      console.log(`[${this.name}] Cleared timer for track ${trackId}`)
-    }
-    this.activeTimers.clear()
+    this.clearAllTimers()
   }
 
-  private async parseReaction(
-    reaction: ReactionPayload,
-  ): Promise<{ isVote: boolean; trackId: string | null }> {
-    if (!this.context) return { isVote: false, trackId: null }
-
-    const config = await this.getConfig()
-    const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
-
-    if (!nowPlaying) {
-      return { isVote: false, trackId: null }
-    }
-
-    if (
-      reaction.reactTo.type !== "track" ||
-      reaction.reactTo.id !== nowPlaying.mediaSource.trackId
-    ) {
-      return { isVote: false, trackId: nowPlaying.mediaSource.trackId }
-    }
-
-    if (reaction.emoji.shortcodes !== `:${config?.reactionType}:`) {
-      return { isVote: false, trackId: nowPlaying.mediaSource.trackId }
-    }
-
-    return { isVote: true, trackId: nowPlaying.mediaSource.trackId }
-  }
-
-  private async handleConfigChange(data: {
-    roomId: string
-    config: any
-    previousConfig: any
-  }): Promise<void> {
-    if (!this.context) return
-
-    const { config, previousConfig } = data
-    const wasEnabled = previousConfig?.enabled === true
-    const isEnabled = config?.enabled === true
-
-    console.log(`[${this.name}] Config changed:`, { wasEnabled, isEnabled, config })
-
-    if (!wasEnabled && isEnabled) {
-      // Plugin was just enabled
-      const timeSeconds = Math.floor(config.timeLimit / 1000)
-      const thresholdText =
-        config.thresholdType === "percentage"
-          ? `${config.thresholdValue}%`
-          : `${config.thresholdValue}`
-
-      await this.context.api.sendSystemMessage(
-        this.context.roomId,
-        `🗳️ Playlist Democracy enabled: Tracks need ${thresholdText} :${config.reactionType}: reactions within ${timeSeconds} seconds`,
-        { type: "alert", status: "info" },
-      )
-
-      // Start monitoring current track if one is playing
-      const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
-      if (nowPlaying?.playedAt) {
-        const trackId = nowPlaying.mediaSource.trackId
-        const playedAt = new Date(nowPlaying.playedAt).getTime()
-        const elapsed = Date.now() - playedAt
-        const remaining = config.timeLimit - elapsed
-
-        if (remaining > 0) {
-          // Track is still within the time window, start monitoring
-          console.log(
-            `[${this.name}] Starting monitoring for current track ${trackId} with ${remaining}ms remaining`,
-          )
-
-          // Emit plugin event to initialize component state
-          // Include showCountdown so the UI shows the countdown timer
-          await this.emit("TRACK_STARTED", {
-            showCountdown: true,
-            trackStartTime: playedAt,
-          })
-
-          // Start timer for remaining time
-          const timeout = setTimeout(async () => {
-            await this.checkThresholdAndSkip(trackId, nowPlaying.title, config)
-            this.activeTimers.delete(trackId)
-          }, remaining)
-
-          this.activeTimers.set(trackId, timeout)
-        }
-      }
-    } else if (wasEnabled && !isEnabled) {
-      // Plugin was just disabled - clear timers and hide countdown
-      for (const [trackId, timeout] of Array.from(this.activeTimers.entries())) {
-        clearTimeout(timeout)
-        console.log(`[${this.name}] Cleared timer for track ${trackId}`)
-      }
-      this.activeTimers.clear()
-
-      // Emit event to hide the countdown timer
-      await this.emit("PLUGIN_DISABLED", {
-        showCountdown: false,
-        trackStartTime: null,
-      })
-
-      await this.context.api.sendSystemMessage(
-        this.context.roomId,
-        `🗳️ Playlist Democracy disabled`,
-        { type: "alert", status: "info" },
-      )
-    } else if (wasEnabled && isEnabled) {
-      // Config updated while enabled
-      const rulesChanged =
-        config.reactionType !== previousConfig.reactionType ||
-        config.timeLimit !== previousConfig.timeLimit ||
-        config.thresholdType !== previousConfig.thresholdType ||
-        config.thresholdValue !== previousConfig.thresholdValue
-
-      if (rulesChanged) {
-        const timeSeconds = Math.floor(config.timeLimit / 1000)
-        const thresholdText =
-          config.thresholdType === "percentage"
-            ? `${config.thresholdValue}%`
-            : `${config.thresholdValue}`
-
-        await this.context.api.sendSystemMessage(
-          this.context.roomId,
-          `🗳️ Playlist Democracy rules updated: Tracks need ${thresholdText} :${config.reactionType}: reactions within ${timeSeconds} seconds`,
-          { type: "alert", status: "info" },
-        )
-      }
-    }
-  }
+  // ============================================================================
+  // Event Handlers
+  // ============================================================================
 
   private async onTrackChanged(data: { roomId: string; track: QueueItem }): Promise<void> {
     if (!this.context) return
@@ -453,37 +164,8 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
     console.log(`[${this.name}] Track changed: ${track.title} (${trackId})`)
 
-    // Calculate vote threshold
-    const listeningUsers = await this.context.api.getUsers(this.context.roomId)
-    const totalListeners = listeningUsers.length
-    const requiredCount =
-      config.thresholdType === "percentage"
-        ? Math.ceil((totalListeners * config.thresholdValue) / 100)
-        : config.thresholdValue
-
-    // Emit plugin event to update component store with track start time and initial vote data
-    // This transforms the system TRACK_CHANGED event into component-friendly data
-    if (track.playedAt) {
-      await this.emit("TRACK_STARTED", {
-        showCountdown: true, // Show the countdown timer
-        trackStartTime: track.playedAt,
-        isSkipped: false, // Track starts not skipped
-        voteCount: 0, // No votes yet
-        requiredCount, // Required votes to keep playing
-      })
-    }
-
-    // Clear any existing timer for this track
-    this.clearTimer(trackId)
-
-    // Start monitoring timer
-    const timeout = setTimeout(async () => {
-      await this.checkThresholdAndSkip(trackId, track.title, config)
-      this.activeTimers.delete(trackId)
-    }, config.timeLimit)
-
-    this.activeTimers.set(trackId, timeout)
-    console.log(`[${this.name}] Started monitoring track ${trackId} for ${config.timeLimit}ms`)
+    await this.emitTrackStarted(track, config)
+    this.startTrackTimer(trackId, track.title, config)
   }
 
   private async onReactionAdded(data: {
@@ -495,8 +177,8 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     const config = await this.getConfig()
     if (!config?.enabled || !data.reaction) return
 
-    const { isVote, trackId } = await this.parseReaction(data.reaction)
-    if (!isVote || !trackId) return
+    const { isVote } = await this.parseReaction(data.reaction, config)
+    if (!isVote) return
 
     await this.context.storage.inc(this.makeVoteKey(data.reaction.reactTo.id))
   }
@@ -510,8 +192,8 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     const config = await this.getConfig()
     if (!config?.enabled || !data.reaction) return
 
-    const { isVote, trackId } = await this.parseReaction(data.reaction)
-    if (!isVote || !trackId) return
+    const { isVote } = await this.parseReaction(data.reaction, config)
+    if (!isVote) return
 
     await this.context.storage.dec(this.makeVoteKey(data.reaction.reactTo.id))
   }
@@ -521,13 +203,140 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     await this.cleanup()
   }
 
+  private async onUserLeave(): Promise<void> {
+    if (!this.context) return
+
+    const config = await this.getConfig()
+    if (!config?.enabled) return
+
+    const users = await this.context.api.getUsers(this.context.roomId)
+    const hasAdmins = users.some((u) => u.isAdmin)
+
+    if (!hasAdmins) {
+      await this.disablePluginNoAdmins()
+    }
+  }
+
+  // ============================================================================
+  // Config Change Handling
+  // ============================================================================
+
+  private async handleConfigChange(data: {
+    roomId: string
+    pluginName: string
+    config: Record<string, unknown>
+    previousConfig: Record<string, unknown>
+  }): Promise<void> {
+    if (!this.context) return
+
+    const config = data.config as PlaylistDemocracyConfig
+    const previousConfig = data.previousConfig as PlaylistDemocracyConfig | null
+    const wasEnabled = previousConfig?.enabled === true
+    const isEnabled = config?.enabled === true
+
+    console.log(`[${this.name}] Config changed:`, { wasEnabled, isEnabled })
+
+    if (!wasEnabled && isEnabled) {
+      await this.onPluginEnabled(config)
+    } else if (wasEnabled && !isEnabled) {
+      await this.onPluginDisabled()
+    } else if (wasEnabled && isEnabled && previousConfig) {
+      await this.onPluginConfigUpdated(config, previousConfig)
+    }
+  }
+
+  private async onPluginEnabled(config: PlaylistDemocracyConfig): Promise<void> {
+    await this.sendRulesMessage(config, "enabled")
+
+    const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
+    if (!nowPlaying?.playedAt) return
+
+    const trackId = nowPlaying.mediaSource.trackId
+    const playedAt = new Date(nowPlaying.playedAt).getTime()
+    const remaining = config.timeLimit - (Date.now() - playedAt)
+
+    if (remaining > 0) {
+      console.log(
+        `[${this.name}] Starting monitoring for current track ${trackId} with ${remaining}ms remaining`,
+      )
+
+      await this.emit("TRACK_STARTED", { showCountdown: true, trackStartTime: playedAt })
+      this.startTimerWithDuration(trackId, nowPlaying.title, config, remaining)
+    }
+  }
+
+  private async onPluginDisabled(): Promise<void> {
+    this.clearAllTimers()
+    await this.emit("PLUGIN_DISABLED", { showCountdown: false, trackStartTime: null })
+    await this.context!.api.sendSystemMessage(
+      this.context!.roomId,
+      `🗳️ Playlist Democracy disabled`,
+      { type: "alert", status: "info" },
+    )
+  }
+
+  private async onPluginConfigUpdated(
+    config: PlaylistDemocracyConfig,
+    previousConfig: PlaylistDemocracyConfig,
+  ): Promise<void> {
+    const rulesChanged =
+      config.reactionType !== previousConfig.reactionType ||
+      config.timeLimit !== previousConfig.timeLimit ||
+      config.thresholdType !== previousConfig.thresholdType ||
+      config.thresholdValue !== previousConfig.thresholdValue
+
+    if (rulesChanged) {
+      await this.sendRulesMessage(config, "updated")
+    }
+  }
+
+  // ============================================================================
+  // Timer Management
+  // ============================================================================
+
+  private startTrackTimer(
+    trackId: string,
+    trackTitle: string,
+    config: PlaylistDemocracyConfig,
+  ): void {
+    this.clearTimer(trackId)
+    this.startTimerWithDuration(trackId, trackTitle, config, config.timeLimit)
+    console.log(`[${this.name}] Started monitoring track ${trackId} for ${config.timeLimit}ms`)
+  }
+
+  private startTimerWithDuration(
+    trackId: string,
+    trackTitle: string,
+    config: PlaylistDemocracyConfig,
+    duration: number,
+  ): void {
+    const timeout = setTimeout(async () => {
+      await this.checkThresholdAndSkip(trackId, trackTitle, config)
+      this.activeTimers.delete(trackId)
+    }, duration)
+
+    this.activeTimers.set(trackId, timeout)
+  }
+
   private clearTimer(trackId: string): void {
-    const existingTimer = this.activeTimers.get(trackId)
-    if (existingTimer) {
-      clearTimeout(existingTimer)
+    const timer = this.activeTimers.get(trackId)
+    if (timer) {
+      clearTimeout(timer)
       this.activeTimers.delete(trackId)
     }
   }
+
+  private clearAllTimers(): void {
+    this.activeTimers.forEach((timeout, trackId) => {
+      clearTimeout(timeout)
+      console.log(`[${this.name}] Cleared timer for track ${trackId}`)
+    })
+    this.activeTimers.clear()
+  }
+
+  // ============================================================================
+  // Threshold Logic
+  // ============================================================================
 
   private async checkThresholdAndSkip(
     trackId: string,
@@ -541,103 +350,133 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
       const listeningUsers = await this.context.api.getUsers(this.context.roomId)
       const totalListeners = listeningUsers.length
-      console.log(`[${this.name}] Total listening users: ${totalListeners}`)
-
       const voteCount = Number((await this.context.storage.get(this.makeVoteKey(trackId))) || 0)
-
-      // Calculate required count
-      const requiredCount =
-        config.thresholdType === "percentage"
-          ? Math.ceil((totalListeners * config.thresholdValue) / 100)
-          : config.thresholdValue
-
+      const requiredCount = this.calculateRequiredVotes(totalListeners, config)
       const thresholdMet = voteCount >= requiredCount
+
       console.log(
         `[${this.name}] Threshold check: ${voteCount}/${requiredCount} (met: ${thresholdMet})`,
       )
 
-      if (!thresholdMet) {
-        console.log(`[${this.name}] Skipping track ${trackId}`)
-
-        // Get the full track before skipping (we need it for the update event)
-        const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
-
-        await this.context.api.skipTrack(this.context.roomId, trackId)
-
-        // Store skip info
-        const skipData = {
-          trackId,
-          trackTitle,
-          timestamp: Date.now(),
-          voteCount,
-          requiredCount,
-          totalListeners,
-        }
-        await this.context.storage.set(`skipped:${trackId}`, JSON.stringify(skipData))
-
-        // Emit playlist track update with pluginData so frontend updates immediately
-        if (nowPlaying) {
-          const updatedTrack = {
-            ...nowPlaying,
-            pluginData: {
-              ...(nowPlaying.pluginData || {}),
-              [this.name]: { skipped: true, skipData },
-            },
-          }
-          await this.context.api.updatePlaylistTrack(this.context.roomId, updatedTrack)
-        }
-
-        // Emit component state update to show badge
-        await this.emit("TRACK_SKIPPED", {
-          isSkipped: true,
+      if (thresholdMet) {
+        console.log(`[${this.name}] Threshold met, track will continue playing`)
+        // Hide countdown - track passed the vote
+        await this.emit("THRESHOLD_MET", {
+          showCountdown: false,
           voteCount,
           requiredCount,
         })
-
-        // Send system message
-        const voteText =
-          config.thresholdType === "percentage"
-            ? `${totalListeners > 0 ? Math.floor((voteCount / totalListeners) * 100) : 0}%`
-            : `${voteCount}`
-        const thresholdText =
-          config.thresholdType === "percentage" ? `${config.thresholdValue}%` : `${requiredCount}`
-
-        await this.context.api.sendSystemMessage(
-          this.context.roomId,
-          `⏭️ Track skipped: "${trackTitle}" didn't receive enough :${config.reactionType}: reactions (${voteText} / ${thresholdText})`,
-        )
       } else {
-        console.log(`[${this.name}] Threshold met, track will continue playing`)
+        await this.skipTrack(trackId, trackTitle, config, voteCount, requiredCount, totalListeners)
       }
     } catch (error) {
       console.error(`[${this.name}] Error checking threshold:`, error)
     }
   }
 
-  private async onUserLeave(): Promise<void> {
-    console.log("USER LEFT")
-    if (!this.context) return
+  private async skipTrack(
+    trackId: string,
+    trackTitle: string,
+    config: PlaylistDemocracyConfig,
+    voteCount: number,
+    requiredCount: number,
+    totalListeners: number,
+  ): Promise<void> {
+    console.log(`[${this.name}] Skipping track ${trackId}`)
+
+    const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
+    await this.context!.api.skipTrack(this.context!.roomId, trackId)
+
+    const skipData = {
+      trackId,
+      trackTitle,
+      timestamp: Date.now(),
+      voteCount,
+      requiredCount,
+      totalListeners,
+    }
+    await this.context!.storage.set(`skipped:${trackId}`, JSON.stringify(skipData))
+
+    if (nowPlaying) {
+      const existingPluginData = nowPlaying.pluginData ?? {}
+      await this.context!.api.updatePlaylistTrack(this.context!.roomId, {
+        ...nowPlaying,
+        pluginData: { ...existingPluginData, [this.name]: { skipped: true, skipData } },
+      })
+    }
+
+    await this.emit("TRACK_SKIPPED", { isSkipped: true, voteCount, requiredCount })
+    await this.sendSkipMessage(trackTitle, config, voteCount, requiredCount, totalListeners)
+  }
+
+  private calculateRequiredVotes(listenerCount: number, config: PlaylistDemocracyConfig): number {
+    return config.thresholdType === "percentage"
+      ? Math.ceil((listenerCount * config.thresholdValue) / 100)
+      : config.thresholdValue
+  }
+
+  // ============================================================================
+  // Augmentation
+  // ============================================================================
+
+  async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
+    if (!this.context) return {}
 
     const config = await this.getConfig()
-    if (!config?.enabled) return
+    if (!config?.enabled) return {}
 
-    const users = await this.context.api.getUsers(this.context.roomId)
+    const skipData = this.parseSkipData(
+      await this.context.storage.get(`skipped:${item.mediaSource.trackId}`),
+    )
+    if (!skipData) return {}
 
-    // If no more admins, disable the plugin and cleanup
-    if (users.filter((u) => u.isAdmin).length === 0) {
-      await this.context.api.sendSystemMessage(
-        this.context.roomId,
-        `No more admins left in the room, stopping playlist democracy`,
-        { type: "alert", status: "info" },
-      )
+    return {
+      skipped: true,
+      skipData,
+      styles: { title: { textDecoration: "line-through", opacity: 0.7 } },
+    }
+  }
 
-      const currentConfig = await this.getConfig()
-      await this.context.api.setPluginConfig(this.context.roomId, this.name, {
-        ...currentConfig,
-        enabled: false,
-      })
+  async augmentPlaylistBatch(items: QueueItem[]): Promise<PluginAugmentationData[]> {
+    if (!this.context || items.length === 0) {
+      return items.map(() => ({}))
+    }
 
-      await this.cleanup()
+    const skipKeys = items.map((item) => `skipped:${item.mediaSource.trackId}`)
+    const skipDataStrings = await this.context.storage.mget(skipKeys)
+
+    return skipDataStrings.map((dataStr) => {
+      const skipData = this.parseSkipData(dataStr)
+      return skipData ? { skipped: true, skipData } : {}
+    })
+  }
+
+  // ============================================================================
+  // Helpers
+  // ============================================================================
+
+  private async parseReaction(
+    reaction: ReactionPayload,
+    config: PlaylistDemocracyConfig,
+  ): Promise<{ isVote: boolean; trackId: string | null }> {
+    const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
+    if (!nowPlaying) return { isVote: false, trackId: null }
+
+    const trackId = nowPlaying.mediaSource.trackId
+    const isCurrentTrack = reaction.reactTo.type === "track" && reaction.reactTo.id === trackId
+    const isCorrectEmoji = reaction.emoji.shortcodes === `:${config.reactionType}:`
+
+    return { isVote: isCurrentTrack && isCorrectEmoji, trackId }
+  }
+
+  private parseSkipData(
+    dataStr: string | null,
+  ): { voteCount: number; requiredCount: number } | null {
+    if (!dataStr) return null
+    try {
+      return JSON.parse(dataStr)
+    } catch {
+      return null
     }
   }
 
@@ -645,64 +484,88 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     return `track:${trackId}:votes`
   }
 
-  /**
-   * Augment now playing track with skip information and style hints
-   */
-  async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
-    if (!this.context) return {}
+  private async emitTrackStarted(track: QueueItem, config: PlaylistDemocracyConfig): Promise<void> {
+    const listeningUsers = await this.context!.api.getUsers(this.context!.roomId)
+    const requiredCount = this.calculateRequiredVotes(listeningUsers.length, config)
 
-    const config = await this.getConfig()
-    if (!config?.enabled) return {}
-
-    const trackId = item.mediaSource.trackId
-    const skipDataStr = await this.context.storage.get(`skipped:${trackId}`)
-
-    if (!skipDataStr) return {}
-
-    try {
-      const skipData = JSON.parse(skipDataStr)
-      return {
-        skipped: true,
-        skipData,
-        styles: {
-          title: {
-            textDecoration: "line-through",
-            opacity: 0.7,
-          },
-        },
-      }
-    } catch {
-      return {}
+    if (track.playedAt) {
+      await this.emit("TRACK_STARTED", {
+        showCountdown: true,
+        trackStartTime: track.playedAt,
+        isSkipped: false,
+        voteCount: 0,
+        requiredCount,
+      })
     }
   }
 
-  /**
-   * Augment playlist items with skip information
-   */
-  async augmentPlaylistBatch(items: QueueItem[]): Promise<PluginAugmentationData[]> {
-    if (!this.context || items.length === 0) {
-      return items.map(() => ({}))
+  private async sendRulesMessage(
+    config: PlaylistDemocracyConfig,
+    action: "enabled" | "updated",
+  ): Promise<void> {
+    const timeSeconds = Math.floor(config.timeLimit / 1000)
+    const thresholdText =
+      config.thresholdType === "percentage"
+        ? `${config.thresholdValue}%`
+        : `${config.thresholdValue}`
+
+    await this.context!.api.sendSystemMessage(
+      this.context!.roomId,
+      `🗳️ Playlist Democracy ${action}: Tracks need ${thresholdText} :${config.reactionType}: reactions within ${timeSeconds} seconds`,
+      { type: "alert", status: "info" },
+    )
+  }
+
+  private async sendSkipMessage(
+    trackTitle: string,
+    config: PlaylistDemocracyConfig,
+    voteCount: number,
+    requiredCount: number,
+    totalListeners: number,
+  ): Promise<void> {
+    let voteText: string
+    if (config.thresholdType === "percentage") {
+      const percentage = totalListeners > 0 ? Math.floor((voteCount / totalListeners) * 100) : 0
+      voteText = `${percentage}%`
+    } else {
+      voteText = `${voteCount}`
     }
 
-    const trackIds = items.map((item) => item.mediaSource.trackId)
-    const skipKeys = trackIds.map((id) => `skipped:${id}`)
-    const skipDataStrings = await this.context.storage.mget(skipKeys)
+    const thresholdText =
+      config.thresholdType === "percentage" ? `${config.thresholdValue}%` : `${requiredCount}`
 
-    return skipDataStrings.map((dataStr) => {
-      if (!dataStr) return {}
-      try {
-        return { skipped: true, skipData: JSON.parse(dataStr) }
-      } catch {
-        return {}
-      }
+    await this.context!.api.sendSystemMessage(
+      this.context!.roomId,
+      `⏭️ Track skipped: "${trackTitle}" didn't receive enough :${config.reactionType}: reactions (${voteText} / ${thresholdText})`,
+    )
+  }
+
+  private async disablePluginNoAdmins(): Promise<void> {
+    await this.context!.api.sendSystemMessage(
+      this.context!.roomId,
+      `No more admins left in the room, stopping playlist democracy`,
+      { type: "alert", status: "info" },
+    )
+
+    const currentConfig = await this.getConfig()
+    await this.context!.api.setPluginConfig(this.context!.roomId, this.name, {
+      ...currentConfig,
+      enabled: false,
     })
+
+    // Note: Don't call cleanup() here - that destroys the plugin context.
+    // Just clear timers; the config change handler will emit PLUGIN_DISABLED.
+    this.clearAllTimers()
   }
 }
+
+// ============================================================================
+// Factory
+// ============================================================================
 
 /**
  * Factory function to create the plugin.
  * A new instance is created for each room.
- * @param configOverrides - Optional partial config to override defaults
  */
 export function createPlaylistDemocracyPlugin(
   configOverrides?: Partial<PlaylistDemocracyConfig>,
