@@ -42,8 +42,7 @@ export default function PageLayout({ children }: Props) {
           title="Disconnect Spotify?"
           body={
             <Text>
-              Are you sure you want to delete all of your rooms and disconnect
-              your Spotify account?
+              Are you sure you want to delete all of your rooms and disconnect your Spotify account?
             </Text>
           }
           open={state.matches("nukeUser")}
@@ -77,10 +76,7 @@ export default function PageLayout({ children }: Props) {
                     </Button>
                   </HStack>
                 ) : (
-                  <Button
-                    asChild
-                    variant="outline"
-                  >
+                  <Button asChild variant="outline">
                     <Link to="/login">
                       <FaSpotify />
                       Login
@@ -89,18 +85,13 @@ export default function PageLayout({ children }: Props) {
                 )}
                 <Box>
                   <Box hideBelow="sm">
-                    <Button
-                      onClick={() => send("CREATE_ROOM")}
-                    >
+                    <Button onClick={() => send("CREATE_ROOM")}>
                       <LuPlus />
                       Create a Room
                     </Button>
                   </Box>
                   <Box hideFrom="sm">
-                    <IconButton
-                      onClick={() => send("CREATE_ROOM")}
-                      aria-label="Create a Room"
-                    >
+                    <IconButton onClick={() => send("CREATE_ROOM")} aria-label="Create a Room">
                       <LuPlus />
                     </IconButton>
                   </Box>

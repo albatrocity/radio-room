@@ -50,9 +50,9 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
               <Image loading="lazy" src={artThumb} />
             </Box>
           )}
-          <Stack direction="column" spacing={0}>
+          <Stack direction="column" gap={0}>
             {item.track && (
-              <HStack spacing={1}>
+              <HStack gap={1}>
                 <LinkOverlay isExternal href={externalUrl} m={0}>
                   <Text
                     fontWeight={"bold"}
@@ -88,7 +88,7 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
         </Text>
 
         {!!item.addedBy && (
-          <Stack direction="row" spacing={2} justifyContent="center" alignItems="center">
+          <Stack direction="row" gap={2} justifyContent="center" alignItems="center">
             <Icon boxSize={3} color="secondaryText" as={FiUser} />
             <Text as="i" fontSize="xs" color="secondaryText">
               Added by {djUsername}

@@ -7,7 +7,7 @@ const TrackItem = ({ title, album, artists }: MetadataSourceTrack) => {
   const image = album.images.find((img) => img.type === "image")
 
   return (
-    <HStack spacing={2}>
+    <HStack gap={2}>
       {image && <Image w={100} h={100} src={image.url} loading="lazy" />}
       <Box overflow="hidden">
         <Text fontWeight="bold">{title}</Text>

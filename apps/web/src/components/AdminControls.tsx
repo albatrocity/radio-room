@@ -1,15 +1,4 @@
-import React from "react"
-
-import {
-  Stack,
-  Button,
-  Heading,
-  Icon,
-  IconButton,
-  Box,
-  Wrap,
-  BoxProps,
-} from "@chakra-ui/react"
+import { Stack, Button, Heading, Icon, IconButton, Box, Wrap, BoxProps } from "@chakra-ui/react"
 import { LuArrowLeft, LuSettings, LuBookmark } from "react-icons/lu"
 
 import { useBookmarks } from "../state/bookmarkedChatStore"
@@ -38,7 +27,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
           <Box hideBelow="sm">
             <Button
               size="xs"
-              variant="ghost"
+              variant="bright"
               colorPalette={buttonColorScheme}
               onClick={() => modalSend("EDIT_SETTINGS")}
             >
@@ -49,7 +38,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
           <Box hideFrom="sm">
             <IconButton
               size="md"
-              variant="ghost"
+              variant="bright"
               colorPalette={buttonColorScheme}
               onClick={() => modalSend("EDIT_SETTINGS")}
               aria-label="Settings"
@@ -60,7 +49,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
           <Box hideBelow="sm">
             <Button
               size="xs"
-              variant="ghost"
+              variant="bright"
               colorPalette={buttonColorScheme}
               onClick={() => modalSend("VIEW_BOOKMARKS")}
             >
@@ -71,7 +60,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
           <Box hideFrom="sm">
             <IconButton
               size="md"
-              variant="ghost"
+              variant="bright"
               colorPalette={buttonColorScheme}
               aria-label="Bookmarks"
               onClick={() => modalSend("VIEW_BOOKMARKS")}
@@ -83,7 +72,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
             <IconButton
               aria-label="Back to Rooms"
               asChild
-              variant="ghost"
+              variant="bright"
               colorPalette={buttonColorScheme}
             >
               <Link to="/">
@@ -95,12 +84,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
         </Wrap>
         <Box hideBelow="sm">
           <Wrap>
-            <Button
-              asChild
-              size="xs"
-              variant="ghost"
-              colorPalette={buttonColorScheme}
-            >
+            <Button asChild size="xs" variant="bright" colorPalette={buttonColorScheme}>
               <Link to="/">
                 <LuArrowLeft />
                 Back to Rooms

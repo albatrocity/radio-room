@@ -62,7 +62,7 @@ function NowPlaying({ meta }: NowPlayingProps) {
       flexGrow={1}
       height="100%"
     >
-      <VStack spacing={4} justify="space-between" height="100%" width="100%">
+      <VStack gap={4} justify="space-between" height="100%" width="100%">
         {displayState === "loading" && <NowPlayingLoading />}
 
         {displayState === "waiting" && <NowPlayingLoading message="Getting Now Playing data..." />}

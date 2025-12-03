@@ -31,7 +31,7 @@ export function LeaderboardTemplateComponent({
   const sortedData = [...data].sort((a, b) => b.score - a.score).slice(0, maxItems)
 
   return (
-    <VStack align="stretch" spacing={2}>
+    <VStack align="stretch" gap={2}>
       {title && (
         <Text fontSize="md" fontWeight="bold">
           {title}
@@ -53,7 +53,7 @@ export function LeaderboardTemplateComponent({
         )
 
         return (
-          <HStack key={entry.value} spacing={2}>
+          <HStack key={entry.value} gap={2}>
             {showRank && (
               <Text fontSize="sm" color="gray.500" minW="24px">
                 {rank}.
@@ -71,4 +71,3 @@ export function LeaderboardTemplateComponent({
     </VStack>
   )
 }
-

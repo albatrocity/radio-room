@@ -87,23 +87,18 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   const addedAt = new Date(nowPlaying?.addedAt ?? 0).toString()
 
   return (
-    <VStack align="start" spacing={4} w="100%">
+    <VStack align="start" gap={4} w="100%">
       <LinkBox width="100%">
-        <Stack direction={["row", "column"]} spacing={5} justify="center" flexGrow={1}>
+        <Stack direction={["row", "column"]} gap={5} justify="center" flexGrow={1}>
           {coverUrl && (
-            <Box
-              position="relative"
-              width={artworkSize}
-              height={artworkSize}
-              flex={{ shrink: 0, grow: 1 }}
-            >
+            <Box position="relative" width={artworkSize} height={artworkSize}>
               <Box position="absolute">
                 <PluginArea area="nowPlayingArt" />
               </Box>
               <AlbumArtwork coverUrl={coverUrl} />
             </Box>
           )}
-          <VStack align="start" spacing={0}>
+          <VStack align="start" gap={0}>
             <TrackTitle title={titleDisplay} externalUrl={externalUrl} pluginStyles={titleStyles} />
 
             <PluginArea area="nowPlayingBadge" />
@@ -181,7 +176,7 @@ function AddedByInfo({ dj, djUsername, addedAt }: AddedByInfoProps) {
   if (!dj) return null
 
   return (
-    <HStack mt={4} spacing={2}>
+    <HStack mt={4} gap={2}>
       <Icon color="primaryBg" boxSize={3} as={FiUser} />
       <Text as="i" color="primaryBg" fontSize="xs">
         Added by {djUsername} at {format(new Date(addedAt), "p")}
@@ -198,11 +193,11 @@ function MetadataSourceInfo({ metadataSource }: MetadataSourceInfoProps) {
   if (!metadataSource) return null
 
   return (
-    <HStack spacing={1}>
+    <HStack gap={1}>
       <Text as="span" color="primary.200" fontSize="2xs">
         Track data provided by
       </Text>
-      <HStack spacing={1}>
+      <HStack gap={1}>
         {metadataSource.type === "spotify" ? (
           <>
             <Icon as={FaSpotify} color="primary.200" boxSize={3} />

@@ -74,7 +74,7 @@ export function PluginArea({ area, direction = "row", itemId, spacing = 2 }: Plu
   }
 
   return (
-    <Stack direction={direction} spacing={spacing}>
+    <Stack direction={direction} gap={spacing}>
       {pluginsForArea.map(({ pluginName, config, storeKeys, components }) => (
         <PluginComponentProvider
           key={pluginName}

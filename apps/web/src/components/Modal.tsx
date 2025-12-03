@@ -38,14 +38,10 @@ const Modal = ({
   const isDialogOpen = open ?? isOpen ?? false
 
   return (
-    <DialogRoot
-      open={isDialogOpen}
-      onOpenChange={(e) => !e.open && onClose()}
-      placement="center"
-    >
+    <DialogRoot open={isDialogOpen} onOpenChange={(e) => !e.open && onClose()} placement="center">
       <DialogBackdrop />
       <DialogPositioner>
-        <DialogContent mx={2}>
+        <DialogContent mx={2} bg="appBg">
           <DialogHeader>{heading}</DialogHeader>
 
           {canClose && (

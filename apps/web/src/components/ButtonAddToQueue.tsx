@@ -21,20 +21,14 @@ function ButtonAddToQueue({ showText = true, variant = "ghost" }: Props) {
   }
 
   return showText ? (
-    <Button
-      variant={variant}
-      leftIcon={<Icon as={RiPlayListAddFill} />}
-      onClick={onAddToQueue}
-    >
+    <Button variant={variant} onClick={onAddToQueue} colorPalette="action">
+      <Icon as={RiPlayListAddFill} />
       Add to queue
     </Button>
   ) : (
-    <IconButton
-      icon={<Icon as={RiPlayListAddFill} boxSize={5} />}
-      aria-label="Add to Queue"
-      variant={variant}
-      onClick={onAddToQueue}
-    />
+    <IconButton aria-label="Add to Queue" variant={variant} onClick={onAddToQueue}>
+      <Icon as={RiPlayListAddFill} boxSize={5} />
+    </IconButton>
   )
 }
 

@@ -40,6 +40,7 @@ const ReactionCounterItem = ({
           px={1}
           borderWidth={1}
           variant={"reaction"}
+          colorPalette="action"
           data-active={isCurrentUserActive}
           data-dark-bg={darkBg}
           {...buttonProps}

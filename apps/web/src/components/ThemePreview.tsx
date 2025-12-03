@@ -8,13 +8,13 @@ type Props = {
 
 function ThemePreview({ theme }: Props) {
   return (
-    <HStack spacing={4}>
-      <HStack spacing={0}>
+    <HStack gap={4}>
+      <HStack gap={0}>
         <Box h={5} w={2} bg={theme.colors.primary[500]}></Box>
         <Box h={5} w={2} bg={theme.colors.secondary[50]}></Box>
         <Box h={5} w={2} bg={theme.colors.action[500]}></Box>
       </HStack>
-      <HStack spacing={0}>
+      <HStack gap={0}>
         <Box h={5} w={2} bg={theme.colors.primary[800]}></Box>
         <Box h={5} w={2} bg={theme.colors.secondary[800]}></Box>
         <Box h={5} w={2} bg={theme.colors.action[700]}></Box>

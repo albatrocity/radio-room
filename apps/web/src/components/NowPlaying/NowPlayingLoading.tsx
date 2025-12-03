@@ -7,11 +7,10 @@ interface NowPlayingLoadingProps {
 export function NowPlayingLoading({ message }: NowPlayingLoadingProps) {
   return (
     <Center h="100%" w="100%">
-      <VStack spacing={4}>
+      <VStack gap={4}>
         <Spinner />
         {message && <Text>{message}</Text>}
       </VStack>
     </Center>
   )
 }
-

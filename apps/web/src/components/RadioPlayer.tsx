@@ -1,12 +1,5 @@
 import { useRef, memo, useEffect, useCallback } from "react"
-import {
-  Box,
-  Icon,
-  IconButton,
-  HStack,
-  Slider,
-  Container,
-} from "@chakra-ui/react"
+import { Box, Icon, IconButton, HStack, Slider, Container } from "@chakra-ui/react"
 
 import { LuVolume2, LuVolumeX } from "react-icons/lu"
 import { RiPlayListFill } from "react-icons/ri"
@@ -123,7 +116,11 @@ const RadioPlayer = ({
                   variant="ghost"
                   onClick={() => onMute()}
                 >
-                  {muted ? <Icon as={LuVolumeX} boxSize={5} /> : <Icon as={LuVolume2} boxSize={5} />}
+                  {muted ? (
+                    <Icon as={LuVolumeX} boxSize={5} />
+                  ) : (
+                    <Icon as={LuVolume2} boxSize={5} />
+                  )}
                 </IconButton>
               )}
             </HStack>
@@ -150,7 +147,7 @@ const RadioPlayer = ({
             </Box>
             <Box hideFrom="sm">
               <HStack>
-                {isAdmin && <AdminControls />}
+                {isAdmin && <AdminControls buttonColorScheme="action" />}
                 <ButtonAddToQueue showText={false} />
                 <ButtonListeners variant="ghost" />
               </HStack>

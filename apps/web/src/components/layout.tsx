@@ -1,38 +1,27 @@
-import React, { useEffect } from "react"
+import React, { useEffect, ReactNode } from "react"
 import PropTypes from "prop-types"
 import Div100vh from "react-div-100vh"
 
 import "./layout.css"
-import themes from "../themes"
 
 import { useCurrentTheme } from "../state/themeStore"
 import { useErrorsStore } from "../state/errorsStore"
 
-const ThemedLayout = ({ children, fill }: { children: JSX.Element; fill?: boolean }) => {
+const ThemedLayout = ({ children, fill }: { children: ReactNode; fill?: boolean }) => {
   const chosenThemeId = useCurrentTheme()
-  const chosenTheme = themes[chosenThemeId] ?? {}
   useErrorsStore()
 
-  // Apply theme colors as CSS variables for dynamic theming
+  // Set data-theme attribute for conditional semantic tokens
   useEffect(() => {
-    if (chosenTheme.colors) {
-      const root = document.documentElement
-      Object.entries(chosenTheme.colors).forEach(([colorName, shades]) => {
-        if (typeof shades === "object") {
-          Object.entries(shades as Record<string, string>).forEach(([shade, value]) => {
-            root.style.setProperty(`--chakra-colors-${colorName}-${shade}`, value)
-          })
-        }
-      })
-    }
-  }, [chosenTheme])
+    document.documentElement.dataset.theme = chosenThemeId
+  }, [chosenThemeId])
 
   const Component = fill ? Div100vh : React.Fragment
 
   return <Component>{children}</Component>
 }
 
-const Layout = ({ children, fill = false }: { children: JSX.Element; fill?: boolean }) => {
+const Layout = ({ children, fill = false }: { children: ReactNode; fill?: boolean }) => {
   return <ThemedLayout fill={fill}>{children}</ThemedLayout>
 }
 

@@ -1,4 +1,4 @@
-import React, { memo } from "react"
+import { memo } from "react"
 import {
   Box,
   Icon,
@@ -25,15 +25,12 @@ const PopoverPreferences = (props: Props) => {
   return (
     <Popover.Root lazyMount>
       <Popover.Trigger asChild>
-        <IconButton
-          aria-label="Settings"
-          variant="ghost"
-        >
+        <IconButton aria-label="Settings" variant="bright" colorPalette="action">
           <Icon as={FiSettings} />
         </IconButton>
       </Popover.Trigger>
       <Popover.Positioner>
-        <Popover.Content>
+        <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }}>
           <Popover.Header fontWeight="bold">
             <HStack justify="space-between" gap={1} w="100%">
               <Flex grow={1}>Theme</Flex>

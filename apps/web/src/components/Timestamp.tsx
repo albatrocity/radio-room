@@ -23,7 +23,7 @@ function Timestamp({ value, color = "secondaryText" }: Props) {
 
   return (
     <HStack justifyContent="space-between">
-      <HStack spacing={"1em"}>
+      <HStack gap={"1em"}>
         <Text fontSize="xs" opacity={0.6} color={color}>
           {dateString}
         </Text>

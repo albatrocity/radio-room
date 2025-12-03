@@ -36,11 +36,12 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
 
   return (
     <Flex
-      sx={{
+      css={{
         filter: isUnauthorized ? "blur(0.5rem)" : "none",
       }}
       direction="column"
       height="100%"
+      bg="primary.solid"
     >
       <NowPlaying meta={meta} />
       {isJukebox && (

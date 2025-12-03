@@ -10,7 +10,12 @@ import type { BadgeComponentProps } from "../../../types/PluginComponent"
 /**
  * Badge component - renders a badge with optional icon and tooltip.
  */
-export function BadgeTemplateComponent({ label, variant = "info", icon, tooltip }: BadgeComponentProps) {
+export function BadgeTemplateComponent({
+  label,
+  variant = "info",
+  icon,
+  tooltip,
+}: BadgeComponentProps) {
   const { config } = usePluginComponentContext()
   const IconComponent = icon ? getIcon(icon) : undefined
 
@@ -52,7 +57,7 @@ export function BadgeTemplateComponent({ label, variant = "info", icon, tooltip 
 
   const badge = (
     <Badge colorScheme={colorScheme} variant="subtle" mt={1}>
-      <HStack spacing={1}>
+      <HStack gap={1}>
         {IconComponent && <Icon as={IconComponent} boxSize={3} />}
         <Text>{renderLabel()}</Text>
       </HStack>
@@ -66,4 +71,3 @@ export function BadgeTemplateComponent({ label, variant = "info", icon, tooltip 
 
   return badge
 }
-

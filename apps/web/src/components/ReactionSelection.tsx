@@ -1,4 +1,4 @@
-import React, { MutableRefObject, useRef, memo, useMemo } from "react"
+import { useRef, memo, useMemo, RefObject } from "react"
 import {
   HStack,
   Wrap,
@@ -40,13 +40,14 @@ const ReactionSelection = memo(function ReactionSelection({
   reactions,
   user,
   buttonColorScheme,
+  buttonVariant,
   darkBg,
   isOpen = false,
   onClose,
   onToggle,
   showAddButton,
 }: ReactionSelectionProps) {
-  const pickerRef: MutableRefObject<HTMLDivElement | null> = useRef<HTMLDivElement | null>(null)
+  const pickerRef: RefObject<HTMLDivElement | null> = useRef<HTMLDivElement | null>(null)
   const autoFocus = useBreakpointValue(
     {
       base: false,
@@ -110,10 +111,10 @@ const ReactionSelection = memo(function ReactionSelection({
             <Popover.Trigger asChild>
               <Box opacity={showAddButton ? 1 : 0} transition="opacity 0.1s">
                 <IconButton
-                  p={1}
                   aria-label="Add reaction"
-                  size="sm"
-                  variant={darkBg ? "ghost" : "ghost"}
+                  size="xs"
+                  width="2.6rem"
+                  variant={buttonVariant}
                   colorPalette={buttonColorScheme}
                   disabled={!showAddButton}
                   onClick={() => onToggle()}
@@ -125,7 +126,7 @@ const ReactionSelection = memo(function ReactionSelection({
             </Popover.Trigger>
             <Portal>
               <Popover.Positioner>
-                <Popover.Content>
+                <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }}>
                   <Popover.Arrow />
                   <Popover.Body
                     css={{

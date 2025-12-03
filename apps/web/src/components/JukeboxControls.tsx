@@ -33,6 +33,8 @@ export default function JukeboxControls({
                 reactTo={{ type: "track", id: trackId }}
                 showAddButton={true}
                 darkBg={true}
+                buttonColorScheme="action"
+                buttonVariant="bright"
                 scrollHorizontal
               />
             </HStack>
@@ -46,7 +48,8 @@ export default function JukeboxControls({
               <IconButton
                 size="md"
                 aria-label="Playlist"
-                variant="ghost"
+                colorPalette="action"
+                variant="bright"
                 onClick={onShowPlaylist}
               >
                 <Icon boxSize={5} as={RiPlayListFill} />
@@ -54,7 +57,7 @@ export default function JukeboxControls({
             )}
             <Box hideFrom="sm">
               <HStack>
-                {isAdmin && <AdminControls />}
+                {isAdmin && <AdminControls buttonColorScheme="action" />}
                 <ButtonAddToQueue showText={!isAdmin} />
                 <ButtonListeners variant="ghost" />
               </HStack>

@@ -10,14 +10,7 @@ import React, {
   useMemo,
 } from "react"
 
-import {
-  Box,
-  IconButton,
-  Flex,
-  Icon,
-  Spacer,
-  Text,
-} from "@chakra-ui/react"
+import { Box, IconButton, Flex, Icon, Spacer, Text } from "@chakra-ui/react"
 import { FiArrowUpCircle } from "react-icons/fi"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
@@ -255,8 +248,9 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
           <IconButton
             aria-label="Send Message"
             type="submit"
-            variant="solid"
+            variant="bright"
             disabled={isSubmitting || !isValid}
+            colorPalette="action"
             css={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
           >
             <Icon as={FiArrowUpCircle} />
