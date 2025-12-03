@@ -190,9 +190,7 @@ function DrawerPlaylist() {
               onClick={() => handleSelect("all")}
               size="sm"
               variant="ghost"
-              disabled={
-                currentPlaylist.length === selectedPlaylistState.context.collection.length
-              }
+              disabled={currentPlaylist.length === selectedPlaylistState.context.collection.length}
             >
               Select All {currentPlaylist.length}
             </Button>

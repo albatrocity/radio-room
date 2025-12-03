@@ -129,8 +129,12 @@ const ReactionSelection = memo(function ReactionSelection({
                   <Popover.Arrow />
                   <Popover.Body
                     css={{
+                      paddingRight: 3,
+                      paddingLeft: 0,
                       "& em-emoji-picker": {
                         "--shadow": "0",
+                        "--rgb-background": "transparent",
+                        "--background": "transparent",
                       },
                     }}
                   >
