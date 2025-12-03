@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from "react"
-import { Stack, StackDivider } from "@chakra-ui/react"
+import { Stack, Separator } from "@chakra-ui/react"
 import { PlaylistItem as PlaylistItemType } from "../types/PlaylistItem"
 import SelectablePlaylistItem from "./SelectablePlaylistItem"
 
@@ -25,7 +25,7 @@ const Playlist = memo(function Playlist({
   return (
     <Stack
       direction="column"
-      divider={<StackDivider borderColor="secondaryBorder" />}
+      separator={<Separator borderColor="secondaryBorder" />}
     >
       {data.map((item) => (
         <SelectablePlaylistItem

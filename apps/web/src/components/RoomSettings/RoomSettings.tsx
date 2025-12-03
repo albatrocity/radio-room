@@ -1,11 +1,10 @@
 import React from "react"
-import { Alert, AlertIcon, Box, Text, VStack, Link as ChakraLink } from "@chakra-ui/react"
+import { Alert, Box, Text, VStack, Link as ChakraLink } from "@chakra-ui/react"
 
 import { Room, RoomSetup } from "../../types/Room"
 import FormJukeboxSettings from "./FormJukeboxSettings"
 import SharedSettings from "./SharedSettings"
 import FormRadioSettings from "./FormRadioSettings"
-import PlaylistDemocracySettings from "../Modals/Admin/PlaylistDemocracySettings"
 
 type Props = {
   roomType: Room["type"]
@@ -15,13 +14,13 @@ type Props = {
 
 export default function RoomSettings({ settings, onChange, roomType }: Props) {
   return (
-    <VStack spacing={8} w="100%">
+    <VStack gap={8} w="100%">
       <SharedSettings onChange={onChange} settings={settings} />
       {roomType === "jukebox" && <FormJukeboxSettings onChange={onChange} />}
       {roomType === "radio" && <FormRadioSettings onChange={onChange} />}
 
-      <Alert status="warning" fontSize="sm" color="blackAlpha.700" alignItems="flex-start">
-        <AlertIcon />
+      <Alert.Root status="warning" fontSize="sm" color="blackAlpha.700" alignItems="flex-start">
+        <Alert.Indicator />
         <Box textStyle="body">
           <Text>
             <Text as="strong">Creating a room requires a Spotify Premium account.</Text> You will be
@@ -30,7 +29,7 @@ export default function RoomSettings({ settings, onChange, roomType }: Props) {
           </Text>
           <Text>
             By creating a room, you agree to understanding the{" "}
-            <ChakraLink href="/privacy" textDecoration="underline" isExternal>
+            <ChakraLink href="/privacy" textDecoration="underline" target="_blank">
               Privacy Policy
             </ChakraLink>
           </Text>
@@ -39,7 +38,7 @@ export default function RoomSettings({ settings, onChange, roomType }: Props) {
             will not expire if you are in it.
           </Text>
         </Box>
-      </Alert>
+      </Alert.Root>
     </VStack>
   )
 }

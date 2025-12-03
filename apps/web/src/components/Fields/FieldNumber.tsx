@@ -1,28 +1,26 @@
 import React from "react"
-import {
-  NumberInputProps,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
-  NumberIncrementStepper,
-  NumberDecrementStepper,
-} from "@chakra-ui/react"
+import { NumberInput } from "@chakra-ui/react"
 import { useField } from "formik"
 
 type Props = {
   name: string
-} & NumberInputProps
+} & Omit<NumberInput.RootProps, 'onChange'>
 
 function FieldNumber({ name, ...rest }: Props) {
   const [field, , { setValue }] = useField(name)
   return (
-    <NumberInput name={name} onChange={setValue} value={field.value} {...rest}>
-      <NumberInputField />
-      <NumberInputStepper>
-        <NumberIncrementStepper />
-        <NumberDecrementStepper />
-      </NumberInputStepper>
-    </NumberInput>
+    <NumberInput.Root
+      name={name}
+      onValueChange={(details) => setValue(details.value)}
+      value={field.value}
+      {...rest}
+    >
+      <NumberInput.Input />
+      <NumberInput.Control>
+        <NumberInput.IncrementTrigger />
+        <NumberInput.DecrementTrigger />
+      </NumberInput.Control>
+    </NumberInput.Root>
   )
 }
 

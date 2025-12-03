@@ -1,4 +1,4 @@
-import { Alert, AlertIcon, Box, HStack, Link, Text } from "@chakra-ui/react"
+import { Alert, Box, HStack, Link, Text } from "@chakra-ui/react"
 import { Link as TanStackLink } from "@tanstack/react-router"
 import React from "react"
 import { getErrorMessage } from "../lib/errors"
@@ -22,26 +22,24 @@ export default function RoomError() {
 
   return (
     <Box bg={isAdmin ? "critical" : "secondaryBg"} p={2}>
-      <Alert status="error">
-        <AlertIcon />
+      <Alert.Root status="error">
+        <Alert.Indicator />
         {error && (
           <HStack>
             <Text>{errorMessage}</Text>
-            {error?.status === 401 && isAdmin && (
-              <ButtonRoomAuthSpotify hideText />
-            )}
+            {error?.status === 401 && isAdmin && <ButtonRoomAuthSpotify hideText />}
             {error?.status === 404 && (
               <Text>
                 Try{" "}
-                <Link textDecoration="underline" as={TanStackLink} to="/">
-                  creating a room of your own
+                <Link asChild textDecoration="underline">
+                  <TanStackLink to="/">creating a room of your own</TanStackLink>
                 </Link>
                 .
               </Text>
             )}
           </HStack>
         )}
-      </Alert>
+      </Alert.Root>
     </Box>
   )
 }

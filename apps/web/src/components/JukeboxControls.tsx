@@ -1,4 +1,4 @@
-import { Box, Hide, HStack, IconButton, Icon } from "@chakra-ui/react"
+import { Box, HStack, IconButton, Icon } from "@chakra-ui/react"
 import { RiPlayListFill } from "react-icons/ri"
 
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
@@ -48,16 +48,17 @@ export default function JukeboxControls({
                 aria-label="Playlist"
                 variant="ghost"
                 onClick={onShowPlaylist}
-                icon={<Icon boxSize={5} as={RiPlayListFill} />}
-              />
+              >
+                <Icon boxSize={5} as={RiPlayListFill} />
+              </IconButton>
             )}
-            <Hide above="sm">
+            <Box hideFrom="sm">
               <HStack>
                 {isAdmin && <AdminControls />}
                 <ButtonAddToQueue showText={!isAdmin} />
                 <ButtonListeners variant="ghost" />
               </HStack>
-            </Hide>
+            </Box>
           </HStack>
         </Box>
       </Box>

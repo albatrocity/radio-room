@@ -1,5 +1,5 @@
 import React from "react"
-import { Box, RadioGroup, Stack, Radio, Text } from "@chakra-ui/react"
+import { Box, RadioGroup, Stack, Text } from "@chakra-ui/react"
 
 import ThemePreview from "./ThemePreview"
 import themes from "../themes"
@@ -10,24 +10,28 @@ function FormTheme() {
   const themeList = Object.keys(themes).map((key) => themes[key])
   const { send } = useThemeStore()
   const currentTheme = useThemeStore((s) => s.state.context.theme)
-  const handleChange = (theme: AppTheme["id"]) => {
-    send("SET_THEME", { theme })
+  const handleChange = (details: { value: string }) => {
+    send("SET_THEME", { theme: details.value as AppTheme["id"] })
   }
 
   return (
     <Box>
-      <RadioGroup value={currentTheme} name="theme" onChange={handleChange}>
+      <RadioGroup.Root value={currentTheme} name="theme" onValueChange={handleChange}>
         <Stack>
           {themeList.map((theme) => (
-            <Radio key={theme.id} value={theme.id}>
-              <Stack direction="row">
-                <ThemePreview theme={theme} />{" "}
-                <Text fontSize="sm">{theme.name}</Text>
-              </Stack>
-            </Radio>
+            <RadioGroup.Item key={theme.id} value={theme.id}>
+              <RadioGroup.ItemHiddenInput />
+              <RadioGroup.ItemControl />
+              <RadioGroup.ItemText>
+                <Stack direction="row">
+                  <ThemePreview theme={theme} />{" "}
+                  <Text fontSize="sm">{theme.name}</Text>
+                </Stack>
+              </RadioGroup.ItemText>
+            </RadioGroup.Item>
           ))}
         </Stack>
-      </RadioGroup>
+      </RadioGroup.Root>
     </Box>
   )
 }

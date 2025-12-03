@@ -7,8 +7,7 @@ import {
   Heading,
   HStack,
   Input,
-  NumberInputRoot,
-  NumberInputField,
+  NumberInput,
   PopoverRoot,
   PopoverArrow,
   PopoverBody,
@@ -152,15 +151,15 @@ function NumberField({ meta, value, onChange }: FieldProps) {
         {label}
         {suffix && ` (${suffix})`}
       </Field.Label>
-      <NumberInputRoot
+      <NumberInput.Root
         value={String(displayValue as number)}
         onValueChange={(details) => {
           const storageVal = toStorageValue(details.valueAsNumber, meta)
           onChange(storageVal)
         }}
       >
-        <NumberInputField />
-      </NumberInputRoot>
+        <NumberInput.Input />
+      </NumberInput.Root>
     </>
   )
 }

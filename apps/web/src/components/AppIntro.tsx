@@ -1,7 +1,5 @@
 import {
   Card,
-  CardBody,
-  CardHeader,
   Heading,
   HStack,
   Text,
@@ -28,10 +26,10 @@ export default function AppIntro({}: Props) {
   return (
     <>
       {!state.context.collection.find((item) => item.id === "welcome") && (
-        <GridItem colSpan={[1, 3, 3, 2]}>
-          <Card>
-            <CardHeader>
-              <HStack justifyContent="space-between" spacing={2}>
+        <GridItem key="welcome-card" colSpan={[1, 3, 3, 2]}>
+          <Card.Root>
+            <Card.Header>
+              <HStack justifyContent="space-between" gap={2}>
                 <Heading size="lg">Welcome!</Heading>
                 <CloseButton
                   onClick={() =>
@@ -39,9 +37,9 @@ export default function AppIntro({}: Props) {
                   }
                 />
               </HStack>
-            </CardHeader>
-            <CardBody>
-              <VStack spacing={2} align="stretch">
+            </Card.Header>
+            <Card.Body>
+              <VStack gap={2} align="stretch">
                 <Text as="p">
                   This app lets you create virtual rooms for your friends to
                   join so that you can queue up music and listen together in the
@@ -51,8 +49,8 @@ export default function AppIntro({}: Props) {
                   Spotify queue.
                 </Text>
               </VStack>
-            </CardBody>
-          </Card>
+            </Card.Body>
+          </Card.Root>
         </GridItem>
       )}
     </>

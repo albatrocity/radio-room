@@ -1,6 +1,6 @@
 import React, { useEffect } from "react"
 
-import { Box, Grid, GridItem, Show, useToken } from "@chakra-ui/react"
+import { Box, Grid, GridItem, useToken } from "@chakra-ui/react"
 
 import PlayerUi from "./PlayerUi"
 import Chat from "./Chat"
@@ -87,9 +87,9 @@ const Room = ({ id }: { id: string }) => {
         </GridItem>
         <GridItem area="sidebar" h="100%">
           {currentUser && (
-            <Show above="sm">
+            <Box hideBelow="sm" h="100%">
               <Sidebar />
-            </Show>
+            </Box>
           )}
         </GridItem>
       </Grid>
