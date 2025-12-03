@@ -8,11 +8,7 @@ import {
   HStack,
   Input,
   NumberInput,
-  PopoverRoot,
-  PopoverArrow,
-  PopoverBody,
-  PopoverContent,
-  PopoverTrigger,
+  Popover,
   RadioGroup,
   Stack,
   Tag,
@@ -191,8 +187,8 @@ function EmojiField({ meta, value, onChange }: FieldProps) {
   return (
     <>
       <Field.Label>{meta.label}</Field.Label>
-      <PopoverRoot lazyMount open={open} onOpenChange={(e) => !e.open && onClose()} autoFocus>
-        <PopoverTrigger asChild>
+      <Popover.Root lazyMount open={open} onOpenChange={(e) => !e.open && onClose()} autoFocus>
+        <Popover.Trigger asChild>
           <Button onClick={onOpen} variant="outline" justifyContent="flex-start" width="full">
             <HStack>
               <Box fontSize="2xl">
@@ -202,27 +198,29 @@ function EmojiField({ meta, value, onChange }: FieldProps) {
               <Text>:{value as string}:</Text>
             </HStack>
           </Button>
-        </PopoverTrigger>
-        <PopoverContent width="full">
-          <PopoverArrow />
-          <PopoverBody
-            css={{
-              "& em-emoji-picker": { "--shadow": "0" },
-              overflow: "hidden",
-            }}
-          >
-            <Picker
-              data={data}
-              height="200px"
-              onEmojiSelect={(emoji: any) => {
-                onChange(emoji.id)
-                onClose()
+        </Popover.Trigger>
+        <Popover.Positioner>
+          <Popover.Content width="full">
+            <Popover.Arrow />
+            <Popover.Body
+              css={{
+                "& em-emoji-picker": { "--shadow": "0" },
+                overflow: "hidden",
               }}
-              previewPosition="none"
-            />
-          </PopoverBody>
-        </PopoverContent>
-      </PopoverRoot>
+            >
+              <Picker
+                data={data}
+                height="200px"
+                onEmojiSelect={(emoji: any) => {
+                  onChange(emoji.id)
+                  onClose()
+                }}
+                previewPosition="none"
+              />
+            </Popover.Body>
+          </Popover.Content>
+        </Popover.Positioner>
+      </Popover.Root>
     </>
   )
 }

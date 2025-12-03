@@ -1,14 +1,7 @@
 import React, { ReactNode } from "react"
 import {
   Button,
-  PopoverRoot,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverHeader,
-  PopoverBody,
-  PopoverFooter,
-  PopoverArrow,
-  PopoverCloseTrigger,
+  Popover,
   CloseButton,
 } from "@chakra-ui/react"
 
@@ -34,8 +27,8 @@ export default function ConfirmationPopover({
   confirmText = "Confirm",
 }: Props) {
   return (
-    <PopoverRoot>
-      <PopoverTrigger asChild>
+    <Popover.Root>
+      <Popover.Trigger asChild>
         <Button
           variant={triggerVariant as any}
           colorPalette={triggerColorScheme}
@@ -43,20 +36,22 @@ export default function ConfirmationPopover({
           {triggerIcon}
           {triggerText}
         </Button>
-      </PopoverTrigger>
-      <PopoverContent>
-        <PopoverArrow />
-        <PopoverCloseTrigger asChild position="absolute" top="1" right="1">
-          <CloseButton size="sm" />
-        </PopoverCloseTrigger>
-        {!!popoverHeader && <PopoverHeader>{popoverHeader}</PopoverHeader>}
-        {!!popoverBody && <PopoverBody>{popoverBody}</PopoverBody>}
-        <PopoverFooter justifyContent="flex-end" display="flex">
-          <Button colorPalette="red" onClick={onConfirm}>
-            {confirmText}
-          </Button>
-        </PopoverFooter>
-      </PopoverContent>
-    </PopoverRoot>
+      </Popover.Trigger>
+      <Popover.Positioner>
+        <Popover.Content>
+          <Popover.Arrow />
+          <Popover.CloseTrigger asChild position="absolute" top="1" right="1">
+            <CloseButton size="sm" />
+          </Popover.CloseTrigger>
+          {!!popoverHeader && <Popover.Header>{popoverHeader}</Popover.Header>}
+          {!!popoverBody && <Popover.Body>{popoverBody}</Popover.Body>}
+          <Popover.Footer justifyContent="flex-end" display="flex">
+            <Button colorPalette="red" onClick={onConfirm}>
+              {confirmText}
+            </Button>
+          </Popover.Footer>
+        </Popover.Content>
+      </Popover.Positioner>
+    </Popover.Root>
   )
 }

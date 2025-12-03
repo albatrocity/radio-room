@@ -2,11 +2,7 @@ import React, { MutableRefObject, useRef, memo, useMemo } from "react"
 import {
   HStack,
   Wrap,
-  PopoverRoot,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverArrow,
-  PopoverBody,
+  Popover,
   Portal,
   IconButton,
   Icon,
@@ -50,8 +46,7 @@ const ReactionSelection = memo(function ReactionSelection({
   onToggle,
   showAddButton,
 }: ReactionSelectionProps) {
-  const pickerRef: MutableRefObject<HTMLDivElement | null> =
-    useRef<HTMLDivElement | null>(null)
+  const pickerRef: MutableRefObject<HTMLDivElement | null> = useRef<HTMLDivElement | null>(null)
   const autoFocus = useBreakpointValue(
     {
       base: false,
@@ -103,7 +98,7 @@ const ReactionSelection = memo(function ReactionSelection({
             },
           }}
         >
-          <PopoverRoot
+          <Popover.Root
             lazyMount
             open={isOpen}
             onOpenChange={(e) => !e.open && onClose()}
@@ -112,11 +107,8 @@ const ReactionSelection = memo(function ReactionSelection({
             closeOnInteractOutside
             closeOnEscape
           >
-            <PopoverTrigger asChild>
-              <Box
-                opacity={showAddButton ? 1 : 0}
-                transition="opacity 0.1s"
-              >
+            <Popover.Trigger asChild>
+              <Box opacity={showAddButton ? 1 : 0} transition="opacity 0.1s">
                 <IconButton
                   p={1}
                   aria-label="Add reaction"
@@ -130,26 +122,24 @@ const ReactionSelection = memo(function ReactionSelection({
                   <Icon boxSize={3} as={FiPlus} />
                 </IconButton>
               </Box>
-            </PopoverTrigger>
+            </Popover.Trigger>
             <Portal>
-              <PopoverContent>
-                <PopoverArrow />
-                <PopoverBody
-                  css={{
-                    "& em-emoji-picker": {
-                      "--shadow": "0",
-                    },
-                  }}
-                >
-                  <ReactionPicker
-                    onSelect={onSelect}
-                    ref={pickerRef}
-                    autoFocus={autoFocus}
-                  />
-                </PopoverBody>
-              </PopoverContent>
+              <Popover.Positioner>
+                <Popover.Content>
+                  <Popover.Arrow />
+                  <Popover.Body
+                    css={{
+                      "& em-emoji-picker": {
+                        "--shadow": "0",
+                      },
+                    }}
+                  >
+                    <ReactionPicker onSelect={onSelect} ref={pickerRef} autoFocus={autoFocus} />
+                  </Popover.Body>
+                </Popover.Content>
+              </Popover.Positioner>
             </Portal>
-          </PopoverRoot>
+          </Popover.Root>
         </Box>
       </Wrap>
     </HStack>
