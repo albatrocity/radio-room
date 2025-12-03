@@ -1,11 +1,5 @@
 import React, { useCallback, memo } from "react"
-import {
-  Box,
-  Stack,
-  Flex,
-  IconButton,
-  Icon,
-} from "@chakra-ui/react"
+import { Box, Stack, Flex, IconButton, Icon } from "@chakra-ui/react"
 import { FiHelpCircle } from "react-icons/fi"
 import Listeners from "./Listeners"
 import AdminControls from "./AdminControls"
@@ -45,24 +39,18 @@ const Sidebar = () => {
         direction={["row", "column"]}
         w="100%"
         h="100%"
-        align="center"
         style={{
           filter: isUnauthorized ? "blur(0.5rem)" : "none",
         }}
       >
         <Banner />
-        <Flex h="100%" w="100%" direction="column">
+        <Flex h="100%" direction="column">
           <Listeners onViewListeners={handleViewListeners} onEditUser={handleEditUser} />
         </Flex>
         <Box hideBelow="sm">
           {!isAdmin && (
-            <Flex p={3} align="center" grow={1} shrink={0}>
-              <IconButton
-                size="sm"
-                aria-label="Help"
-                variant="ghost"
-                onClick={handleViewHelp}
-              >
+            <Flex p={3} align="center" grow={1} shrink={0} width="100%">
+              <IconButton size="sm" aria-label="Help" variant="ghost" onClick={handleViewHelp}>
                 <Icon as={FiHelpCircle} />
               </IconButton>
             </Flex>

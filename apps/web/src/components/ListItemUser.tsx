@@ -7,7 +7,7 @@ import {
   HStack,
   IconButton,
   Icon,
-  ListItem,
+  List,
   VStack,
 } from "@chakra-ui/react"
 import { Tooltip } from "./ui/tooltip"
@@ -63,7 +63,7 @@ const ListItemUser = ({
   isAdmin = false,
 }: ListItemUserProps) => {
   return (
-    <ListItem
+    <List.Item
       key={user.userId}
       flexDirection="row"
       display="flex"
@@ -139,7 +139,7 @@ const ListItemUser = ({
         </HStack>
         <PluginArea area="userListItem" />
       </VStack>
-    </ListItem>
+    </List.Item>
   )
 }
 

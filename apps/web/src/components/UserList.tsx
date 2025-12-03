@@ -65,17 +65,17 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
               DJ
             </Heading>
           )}
-          <List w="100%">
+          <List.Root w="100%">
             <ListItemUser
               user={dj}
               currentUser={currentUser}
               onEditUser={onEditUser}
               userTyping={isTyping(dj)}
             />
-          </List>
+          </List.Root>
         </Box>
       )}
-      <VStack spacing={2} align="start" w="100%">
+      <VStack gap={2} align="start" w="100%">
         {showHeading && (
           <HStack>
             <Heading as="h3" size="md">
@@ -86,7 +86,7 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
         )}
         {/* Plugin components for user list area */}
         <PluginArea area="userList" />
-        <List spacing={1}>
+        <List.Root gap={1}>
           {currentListener && (
             <ListItemUser
               key={currentListener.userId}
@@ -111,7 +111,7 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
               onDeputizeDj={handleDeputizeDj}
             />
           ))}
-        </List>
+        </List.Root>
       </VStack>
     </VStack>
   )

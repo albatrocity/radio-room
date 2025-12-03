@@ -153,6 +153,7 @@ function DrawerPlaylist() {
       open={isOpen}
       placement="start"
       heading="Playlist"
+      size={["full", "lg"]}
       onClose={handleTogglePlaylist}
       footer={
         canSave && (

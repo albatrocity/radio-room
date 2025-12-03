@@ -1,15 +1,5 @@
 import React, { ReactNode } from "react"
-import {
-  DrawerRoot,
-  DrawerBackdrop,
-  DrawerPositioner,
-  DrawerContent,
-  DrawerHeader,
-  DrawerBody,
-  DrawerFooter,
-  DrawerCloseTrigger,
-  CloseButton,
-} from "@chakra-ui/react"
+import { Drawer as ChakraDrawer, CloseButton, DrawerRootProps } from "@chakra-ui/react"
 
 interface Props {
   heading?: string
@@ -21,6 +11,7 @@ interface Props {
   // Legacy prop support
   isOpen?: boolean
   onClose?: () => void
+  size?: DrawerRootProps["size"]
 }
 
 const Drawer = ({
@@ -32,6 +23,7 @@ const Drawer = ({
   onOpenChange,
   onClose,
   placement = "end",
+  size = "md",
 }: Props) => {
   // Support both legacy isOpen and new open prop
   const isDrawerOpen = open ?? isOpen ?? false
@@ -45,23 +37,28 @@ const Drawer = ({
   }
 
   return (
-    <DrawerRoot
+    <ChakraDrawer.Root
+      size={size}
       open={isDrawerOpen}
       onOpenChange={handleOpenChange}
       placement={placement}
     >
-      <DrawerBackdrop />
-      <DrawerPositioner>
-        <DrawerContent>
-          {heading && <DrawerHeader>{heading}</DrawerHeader>}
-          <DrawerCloseTrigger asChild position="absolute" top="2" right="2">
+      <ChakraDrawer.Backdrop />
+      <ChakraDrawer.Positioner>
+        <ChakraDrawer.Content>
+          {heading && (
+            <ChakraDrawer.Header>
+              <ChakraDrawer.Title>{heading}</ChakraDrawer.Title>
+            </ChakraDrawer.Header>
+          )}
+          <ChakraDrawer.CloseTrigger asChild position="absolute" top="2" right="2">
             <CloseButton size="sm" />
-          </DrawerCloseTrigger>
-          <DrawerBody>{children}</DrawerBody>
-          {footer && <DrawerFooter borderTopWidth="1px">{footer}</DrawerFooter>}
-        </DrawerContent>
-      </DrawerPositioner>
-    </DrawerRoot>
+          </ChakraDrawer.CloseTrigger>
+          <ChakraDrawer.Body>{children}</ChakraDrawer.Body>
+          {footer && <ChakraDrawer.Footer borderTopWidth="1px">{footer}</ChakraDrawer.Footer>}
+        </ChakraDrawer.Content>
+      </ChakraDrawer.Positioner>
+    </ChakraDrawer.Root>
   )
 }
 
