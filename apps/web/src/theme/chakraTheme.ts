@@ -127,6 +127,24 @@ const buttonRecipe = defineRecipe({
           borderColor: "colorPalette.contrast/60",
         },
       },
+      reactionBright: {
+        borderRadius: 6,
+        bg: "colorPalette.200/40",
+        color: "colorPalette.contrast",
+        padding: 0,
+        height: "32px",
+        minWidth: "32px",
+        borderColor: "colorPalette.solid/20",
+        borderWidth: 1,
+        _hover: {
+          bg: "colorPalette.200/60",
+        },
+        _dark: {
+          bg: "colorPalette.800/30",
+          color: "colorPalette.contrast",
+          borderColor: "colorPalette.subtle/30",
+        },
+      },
     },
   },
 })

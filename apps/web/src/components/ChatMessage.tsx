@@ -188,8 +188,9 @@ const ChatMessage = ({
       <ReactionCounter
         reactTo={{ type: "message", id: timestamp }}
         showAddButton={alwaysShowReactionPicker || hovered}
-        buttonColorScheme="action"
+        buttonColorScheme="primary"
         buttonVariant="ghost"
+        reactionVariant="reactionBright"
       />
     </Box>
   )

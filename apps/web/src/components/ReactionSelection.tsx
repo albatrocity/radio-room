@@ -8,6 +8,8 @@ import {
   Icon,
   useBreakpointValue,
   Box,
+  ColorPalette,
+  RecipeProps,
 } from "@chakra-ui/react"
 import { FiPlus, FiSmile } from "react-icons/fi"
 
@@ -19,13 +21,16 @@ import { Emoji } from "../types/Emoji"
 import { Reaction } from "../types/Reaction"
 import { Dictionary } from "../types/Dictionary"
 
+type ButtonVariant = RecipeProps<"button">["variant"]
+
 export type ReactionSelectionProps = {
   reactions: Dictionary<Reaction[]>
   onSelect: (emoji: Emoji) => void
   onClose: () => void
   onToggle: () => void
-  buttonVariant?: string
-  buttonColorScheme?: string
+  buttonColorScheme?: ColorPalette
+  buttonVariant?: ButtonVariant
+  reactionVariant?: ButtonVariant
   disabled?: boolean
   showAddButton?: boolean
   scrollHorizontal?: boolean
@@ -41,12 +46,14 @@ const ReactionSelection = memo(function ReactionSelection({
   user,
   buttonColorScheme,
   buttonVariant,
+  reactionVariant,
   darkBg,
   isOpen = false,
   onClose,
   onToggle,
   showAddButton,
 }: ReactionSelectionProps) {
+  console.log("buttonColorScheme", buttonColorScheme)
   const pickerRef: RefObject<HTMLDivElement | null> = useRef<HTMLDivElement | null>(null)
   const autoFocus = useBreakpointValue(
     {
@@ -86,6 +93,7 @@ const ReactionSelection = memo(function ReactionSelection({
               currentUserId={user.userId}
               colorScheme={buttonColorScheme}
               onReactionClick={onSelect}
+              variant={reactionVariant}
               emoji={x}
               darkBg={darkBg}
             />

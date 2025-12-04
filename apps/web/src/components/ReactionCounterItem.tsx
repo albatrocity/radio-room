@@ -1,5 +1,5 @@
-import React, { memo } from "react"
-import { Button, HStack, Text, Tooltip, ButtonProps } from "@chakra-ui/react"
+import { memo } from "react"
+import { Button, HStack, Text, Tooltip, ButtonProps, ColorPalette } from "@chakra-ui/react"
 import { EmojiData } from "emoji-mart"
 
 import ListUsernames from "./ListUsernames"
@@ -12,6 +12,7 @@ type ReactionCounterItemProps = {
   onReactionClick: (emoji: EmojiData) => void
   currentUserId: string
   darkBg?: boolean
+  buttonColorScheme: ColorPalette
 } & ButtonProps
 
 const ReactionCounterItem = ({
@@ -21,6 +22,8 @@ const ReactionCounterItem = ({
   onReactionClick,
   currentUserId,
   darkBg = false,
+  variant = "reaction",
+  buttonColorScheme = "action",
   ...buttonProps
 }: ReactionCounterItemProps) => {
   if (emoji === "undefined") {
@@ -39,8 +42,8 @@ const ReactionCounterItem = ({
           py={0.5}
           px={1}
           borderWidth={1}
-          variant={"reaction"}
-          colorPalette="action"
+          variant={variant}
+          colorPalette={buttonColorScheme}
           data-active={isCurrentUserActive}
           data-dark-bg={darkBg}
           {...buttonProps}
