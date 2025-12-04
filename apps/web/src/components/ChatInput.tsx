@@ -5,9 +5,9 @@ import React, {
   useCallback,
   memo,
   ReactNode,
-  MutableRefObject,
   ReactPortal,
   useMemo,
+  RefObject,
 } from "react"
 
 import { Box, IconButton, Flex, Icon, Spacer, Text } from "@chakra-ui/react"
@@ -15,7 +15,6 @@ import { FiArrowUpCircle } from "react-icons/fi"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
 
-import { User } from "../types/User"
 import MentionSuggestionsContainer from "./MentionSuggestionsContainer"
 import { ChatMessage } from "../types/ChatMessage"
 import { useCurrentUser, useIsAuthenticated } from "../state/authStore"
@@ -42,7 +41,7 @@ const renderUserSuggestion = (
 }
 
 type InputProps = {
-  inputRef: MutableRefObject<ReactPortal | undefined>
+  inputRef: RefObject<ReactPortal | undefined>
   inputStyle: any
   handleKeyInput: () => void
   userSuggestions: { id: string; display: string }[]
@@ -120,7 +119,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
   const users = useUsers()
   const isAuthenticated = useIsAuthenticated()
 
-  const inputRef = useRef<ReactPortal>()
+  const inputRef = useRef<ReactPortal>(null)
   const [isTyping, setTyping] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
   const [content, setContent] = useState("")
