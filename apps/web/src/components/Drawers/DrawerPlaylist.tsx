@@ -1,5 +1,5 @@
 import React, { FormEvent, useCallback, useEffect, useRef, useState } from "react"
-import { Box, Button, HStack, Text, Link, useBoolean, useConst, VStack } from "@chakra-ui/react"
+import { Box, Button, HStack, Text, Link, VStack } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { useMachine } from "@xstate/react"
 
@@ -25,21 +25,22 @@ function DrawerPlaylist() {
   const { send: playlistSend } = usePlaylistStore()
   const currentPlaylist = useCurrentPlaylist()
   const isAdmin = useIsAdmin()
-  const [isEditing, { toggle, off }] = useBoolean(false)
+  const [isEditing, setIsEditing] = useState(false)
   const room = useCurrentRoom()
-  const today = useConst(() => format(new Date(), "M/d/y"))
+  const todayRef = useRef(format(new Date(), "M/d/y"))
+  const today = todayRef.current
   const defaultPlaylistName = `${room?.title || "Radio Room"} ${today}`
   const [name, setName] = useState<string>(defaultPlaylistName)
   const hasInitialized = useRef(false)
   const [state, send] = useMachine(savePlaylistMachine, {
     actions: {
       notifyPlaylistCreated: (context) => {
-        off()
+        setIsEditing(false)
         toast({
           title: "Playlist created",
           description: context.playlistMeta?.url ? (
             <Text>
-              <Link href={context.playlistMeta.url} isExternal textDecoration={"underline"}>
+              <Link href={context.playlistMeta.url} target="_blank" textDecoration={"underline"}>
                 {context.playlistMeta.title}
               </Link>{" "}
               was added to your collection
@@ -47,7 +48,7 @@ function DrawerPlaylist() {
           ) : (
             <Text>{context.playlistMeta?.title} was created</Text>
           ),
-          status: "success",
+          type: "success",
           duration: 4000,
         })
       },
@@ -143,14 +144,14 @@ function DrawerPlaylist() {
 
   useEffect(() => {
     if (!isOpen) {
-      off()
+      setIsEditing(false)
     }
   }, [isOpen])
 
   return (
     <Drawer
-      isOpen={isOpen}
-      placement="left"
+      open={isOpen}
+      placement="start"
       heading="Playlist"
       size={["full", "lg"]}
       onClose={handleTogglePlaylist}
@@ -158,7 +159,7 @@ function DrawerPlaylist() {
         canSave && (
           <DrawerPlaylistFooter
             isEditing={isEditing}
-            onEdit={() => toggle()}
+            onEdit={() => setIsEditing(!isEditing)}
             onSave={handleSave}
             onChange={handleNameChange}
             isLoading={isLoading}
@@ -167,9 +168,8 @@ function DrawerPlaylist() {
           />
         )
       }
-      isFullHeight
     >
-      <VStack w="100%" h="100%" spacing={4}>
+      <VStack w="100%" h="100%" gap={4}>
         <Box w="100%" bg="primaryBg" px={4} py={2} borderRadius={4}>
           <PlaylistFilters onChange={handleFilterChange} emojis={emojis} />
         </Box>
@@ -180,7 +180,7 @@ function DrawerPlaylist() {
                 onClick={() => handleSelect("filtered")}
                 size="sm"
                 variant="ghost"
-                isDisabled={
+                disabled={
                   currentPlaylist.length === selectedPlaylistState.context.collection.length
                 }
               >
@@ -191,9 +191,7 @@ function DrawerPlaylist() {
               onClick={() => handleSelect("all")}
               size="sm"
               variant="ghost"
-              isDisabled={
-                currentPlaylist.length === selectedPlaylistState.context.collection.length
-              }
+              disabled={currentPlaylist.length === selectedPlaylistState.context.collection.length}
             >
               Select All {currentPlaylist.length}
             </Button>
@@ -201,7 +199,7 @@ function DrawerPlaylist() {
               onClick={() => handleSelect("none")}
               size="sm"
               variant="ghost"
-              isDisabled={selectedPlaylistState.context.collection.length === 0}
+              disabled={selectedPlaylistState.context.collection.length === 0}
             >
               Deselect All
             </Button>

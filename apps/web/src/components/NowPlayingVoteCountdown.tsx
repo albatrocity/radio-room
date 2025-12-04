@@ -31,7 +31,7 @@ export const NowPlayingVoteCountdown = ({
   }
 
   return (
-    <HStack spacing={1}>
+    <HStack gap={1}>
       <Text color="primary.200" fontSize="sm">
         {Math.ceil(remaining / 1000)}
       </Text>

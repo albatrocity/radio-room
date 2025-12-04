@@ -74,7 +74,7 @@ function CreateRoomPage() {
   return (
     <Div100vh>
       <Center h="100%">
-        <VStack spacing={4}>
+        <VStack gap={4}>
           <Heading>Setting up your room...</Heading>
           <Spinner size="lg" />
         </VStack>

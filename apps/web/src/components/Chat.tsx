@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useCallback } from "react"
+import { memo, useEffect, useCallback } from "react"
 import { Box, Grid, GridItem, HStack } from "@chakra-ui/react"
 
 import ChatInput from "./ChatInput"
@@ -46,17 +46,11 @@ const Chat = () => {
     `,
       ]}
       gridTemplateRows={"1fr auto"}
-      sx={{
+      css={{
         filter: isUnauthorized ? "blur(0.5rem)" : "none",
       }}
     >
-      <GridItem
-        height="100%"
-        width="100%"
-        area={"chat"}
-        overflowX="hidden"
-        minHeight={0}
-      >
+      <GridItem height="100%" width="100%" area={"chat"} overflowX="hidden" minHeight={0}>
         <Box h="100%" w="100%" className="messages-container">
           {messages.length > 0 && <ChatWindow />}
         </Box>

@@ -1,21 +1,18 @@
 import React from "react"
-import { useMachine } from "@xstate/react"
 import { FieldArray, Formik } from "formik"
-import merge from "ts-deepmerge"
 
 import {
   Button,
-  ButtonGroup,
-  FormControl,
-  FormHelperText,
-  ModalBody,
-  ModalFooter,
+  Group,
+  Field,
+  DialogBody,
+  DialogFooter,
   VStack,
 } from "@chakra-ui/react"
 import FormActions from "./FormActions"
 
 import { useModalsStore } from "../../../state/modalsState"
-import { AddIcon } from "@chakra-ui/icons"
+import { LuPlus } from "react-icons/lu"
 import FieldTriggerAction from "../../Fields/Triggers/FieldTriggerAction"
 
 import { TriggerEvent, TriggerEventString } from "../../../types/Triggers"
@@ -52,9 +49,9 @@ const TriggerActions = <T extends object>(props: Props<T>) => {
     >
       {({ values, handleSubmit, dirty }) => (
         <form onSubmit={handleSubmit}>
-          <ModalBody>
-            <VStack spacing={6}>
-              <FormControl gap={2}>
+          <DialogBody>
+            <VStack gap={6}>
+              <Field.Root gap={2}>
                 <FieldArray name="triggers">
                   {(actions) => {
                     const addAction = () => {
@@ -64,7 +61,7 @@ const TriggerActions = <T extends object>(props: Props<T>) => {
                       defaultTriggerEvents.forEach((a) => actions.push(a))
                     }
                     return (
-                      <VStack spacing={12}>
+                      <VStack gap={12}>
                         {values.triggers.map((trigger, index: number) => (
                           <FieldTriggerAction
                             key={index}
@@ -74,38 +71,37 @@ const TriggerActions = <T extends object>(props: Props<T>) => {
                             eventType={type}
                           />
                         ))}
-                        <ButtonGroup>
+                        <Group>
                           <Button
                             onClick={addAction}
-                            colorScheme="secondary"
+                            colorPalette="secondary"
                             size="sm"
-                            rightIcon={<AddIcon boxSize="0.6rem" />}
                           >
                             Add Action
+                            <LuPlus size="0.6rem" />
                           </Button>
                           {defaultTriggerEvents.length > 0 && (
                             <Button
                               onClick={addDefaultActions}
-                              colorScheme="secondary"
+                              colorPalette="secondary"
                               size="sm"
                               variant="outline"
-                              rightIcon={<AddIcon boxSize="0.6rem" />}
                             >
                               Add Default Actions
+                              <LuPlus size="0.6rem" />
                             </Button>
                           )}
-                        </ButtonGroup>
+                        </Group>
                       </VStack>
                     )
                   }}
                 </FieldArray>
-                <FormHelperText></FormHelperText>
-              </FormControl>
+              </Field.Root>
             </VStack>
-          </ModalBody>
-          <ModalFooter>
+          </DialogBody>
+          <DialogFooter>
             <FormActions onCancel={onCancel} onSubmit={handleSubmit} dirty={dirty} />
-          </ModalFooter>
+          </DialogFooter>
         </form>
       )}
     </Formik>

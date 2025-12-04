@@ -1,10 +1,8 @@
 import React from "react"
 import {
-  FormControl,
+  Field,
   VStack,
   Input,
-  FormLabel,
-  FormHelperText,
   Checkbox,
 } from "@chakra-ui/react"
 
@@ -17,9 +15,9 @@ type Props = {
 
 export default function SharedSettings({ onChange, settings }: Props) {
   return (
-    <VStack spacing={4} w="100%">
-      <FormControl>
-        <FormLabel htmlFor="title">Title</FormLabel>
+    <VStack gap={4} w="100%">
+      <Field.Root>
+        <Field.Label htmlFor="title">Title</Field.Label>
         <Input
           value={settings.title}
           placeholder="Room Title"
@@ -28,25 +26,28 @@ export default function SharedSettings({ onChange, settings }: Props) {
             onChange({ title: e.target.value })
           }}
         />
-        <FormHelperText>You can change this later</FormHelperText>
-      </FormControl>
-      <FormControl>
-        <Checkbox
-          isChecked={settings.deputizeOnJoin}
-          onChange={(e) => {
-            onChange({ deputizeOnJoin: e.target.checked })
-          }}
+        <Field.HelperText>You can change this later</Field.HelperText>
+      </Field.Root>
+      <Field.Root>
+        <Checkbox.Root
           checked={settings.deputizeOnJoin}
+          onCheckedChange={(details) => {
+            onChange({ deputizeOnJoin: !!details.checked })
+          }}
           name="deputizeOnJoin"
         >
-          Auto-deputize guests as DJs
-        </Checkbox>
-        <FormHelperText>
+          <Checkbox.HiddenInput />
+          <Checkbox.Control>
+            <Checkbox.Indicator />
+          </Checkbox.Control>
+          <Checkbox.Label>Auto-deputize guests as DJs</Checkbox.Label>
+        </Checkbox.Root>
+        <Field.HelperText>
           When enabled, anyone who joins the room will be deputized as a DJ,
           allowing them to add to your queue. When disabled, you can explicitly
           grant this permission to individuals.
-        </FormHelperText>
-      </FormControl>
+        </Field.HelperText>
+      </Field.Root>
     </VStack>
   )
 }

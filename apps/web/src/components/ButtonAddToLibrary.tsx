@@ -1,4 +1,4 @@
-import React, { useEffect } from "react"
+import { useEffect } from "react"
 import { useMachine } from "@xstate/react"
 import { IconButton } from "@chakra-ui/react"
 import { FaRegHeart, FaHeart } from "react-icons/fa"
@@ -30,15 +30,17 @@ export default function ButtonAddToLibrary({ id }: Props) {
 
   return (
     <IconButton
-      icon={isAdded ? <FaHeart /> : <FaRegHeart />}
       aria-label={isAdded ? "Remove from library" : "Add to library"}
-      size="sm"
-      variant="darkGhost"
-      isLoading={state.matches("loading")}
-      isDisabled={state.matches("loading")}
+      size="xs"
+      variant="bright"
+      colorPalette="action"
+      loading={state.matches("loading")}
+      disabled={state.matches("loading")}
       onClick={() => {
         isAdded ? send("REMOVE", { data: [id] }) : send("ADD", { data: [id] })
       }}
-    />
+    >
+      {isAdded ? <FaHeart /> : <FaRegHeart />}
+    </IconButton>
   )
 }

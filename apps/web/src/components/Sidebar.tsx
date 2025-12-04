@@ -1,13 +1,5 @@
-import React, { useCallback, memo } from "react"
-import {
-  Box,
-  Stack,
-  Flex,
-  IconButton,
-  Icon,
-  Show,
-  useColorModeValue,
-} from "@chakra-ui/react"
+import { useCallback, memo } from "react"
+import { Box, Stack, Flex, IconButton, Icon } from "@chakra-ui/react"
 import { FiHelpCircle } from "react-icons/fi"
 import Listeners from "./Listeners"
 import AdminControls from "./AdminControls"
@@ -20,7 +12,6 @@ const Sidebar = () => {
   const { send: modalSend } = useModalsStore()
   const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
   const isAdmin = useIsAdmin()
-  const adminButtonColorScheme = useColorModeValue("whiteAlpha", undefined)
 
   // Memoize callbacks
   const handleViewListeners = useCallback(
@@ -46,39 +37,34 @@ const Sidebar = () => {
         direction={["row", "column"]}
         w="100%"
         h="100%"
-        align="center"
         style={{
           filter: isUnauthorized ? "blur(0.5rem)" : "none",
         }}
       >
         <Banner />
-        <Flex h="100%" w="100%" direction="column">
+        <Flex h="100%" direction="column">
           <Listeners onViewListeners={handleViewListeners} onEditUser={handleEditUser} />
         </Flex>
-        <Show above="sm">
+        <Box hideBelow="sm">
           {!isAdmin && (
-            <Flex p={3} align="center" grow={1} shrink={0}>
-              <IconButton
-                size="sm"
-                aria-label="Help"
-                variant="ghost"
-                icon={<Icon as={FiHelpCircle} />}
-                onClick={handleViewHelp}
-              />
+            <Flex p={3} align="center" grow={1} shrink={0} width="100%">
+              <IconButton size="sm" aria-label="Help" variant="ghost" onClick={handleViewHelp}>
+                <Icon as={FiHelpCircle} />
+              </IconButton>
             </Flex>
           )}
-        </Show>
+        </Box>
         {isAdmin && (
-          <Show above="sm">
+          <Box hideBelow="sm">
             <AdminControls
               p={3}
               borderTopWidth={1}
               borderTopColor="secondaryBorder"
               background="actionBg"
               width="100%"
-              buttonColorScheme={adminButtonColorScheme}
+              buttonColorScheme="action"
             />
-          </Show>
+          </Box>
         )}
       </Stack>
     </Box>

@@ -2,7 +2,6 @@ import React, { useMemo } from "react"
 import { useMachine } from "@xstate/react"
 import { take, map, get, reject, last } from "lodash/fp"
 import { Box, Text } from "@chakra-ui/react"
-import { motion } from "framer-motion"
 
 import { User } from "../types/User"
 import { typingMachine } from "../machines/typingMachine"
@@ -10,8 +9,6 @@ import { typingMachine } from "../machines/typingMachine"
 interface Props {
   currentUserId: User["userId"]
 }
-
-const MotionBox = motion(Box)
 
 const TypingIndicator = ({ currentUserId }: Props) => {
   const [state] = useMachine(typingMachine)
@@ -41,15 +38,10 @@ const TypingIndicator = ({ currentUserId }: Props) => {
   }, [typingUsers])
 
   return (
-    <MotionBox
-      initial={{ opacity: 0 }}
-      animate={{
-        opacity: typingUsers.length > 0 ? 1 : 0,
-        y: typingUsers.length > 0 ? 0 : "100%",
-      }}
-      transition={{
-        duration: 0.1,
-      }}
+    <Box
+      opacity={typingUsers.length > 0 ? 1 : 0}
+      transform={typingUsers.length > 0 ? "translateY(0)" : "translateY(100%)"}
+      transition="opacity 0.1s, transform 0.1s"
       pl="40px"
       pb={1}
     >
@@ -58,7 +50,7 @@ const TypingIndicator = ({ currentUserId }: Props) => {
         {typingUsers.length === 1 || typingUsers.length === 0 ? "is" : "are"}{" "}
         typing...
       </Text>
-    </MotionBox>
+    </Box>
   )
 }
 

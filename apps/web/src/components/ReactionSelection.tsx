@@ -1,20 +1,16 @@
-import React, { MutableRefObject, useRef, memo, useMemo } from "react"
+import { useRef, memo, useMemo, RefObject } from "react"
 import {
   HStack,
   Wrap,
-  WrapItem,
   Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverArrow,
-  PopoverBody,
   Portal,
   IconButton,
   Icon,
   useBreakpointValue,
-  ButtonProps,
+  Box,
+  ColorPalette,
+  RecipeProps,
 } from "@chakra-ui/react"
-import { motion } from "framer-motion"
 import { FiPlus, FiSmile } from "react-icons/fi"
 
 import ReactionPicker from "./ReactionPicker"
@@ -25,13 +21,16 @@ import { Emoji } from "../types/Emoji"
 import { Reaction } from "../types/Reaction"
 import { Dictionary } from "../types/Dictionary"
 
+type ButtonVariant = RecipeProps<"button">["variant"]
+
 export type ReactionSelectionProps = {
   reactions: Dictionary<Reaction[]>
   onSelect: (emoji: Emoji) => void
   onClose: () => void
   onToggle: () => void
-  buttonVariant?: ButtonProps["variant"]
-  buttonColorScheme?: ButtonProps["colorScheme"]
+  buttonColorScheme?: ColorPalette
+  buttonVariant?: ButtonVariant
+  reactionVariant?: ButtonVariant
   disabled?: boolean
   showAddButton?: boolean
   scrollHorizontal?: boolean
@@ -46,14 +45,16 @@ const ReactionSelection = memo(function ReactionSelection({
   reactions,
   user,
   buttonColorScheme,
+  buttonVariant,
+  reactionVariant,
   darkBg,
   isOpen = false,
   onClose,
   onToggle,
   showAddButton,
 }: ReactionSelectionProps) {
-  const pickerRef: MutableRefObject<HTMLDivElement | null> =
-    useRef<HTMLDivElement | null>(null)
+  console.log("buttonColorScheme", buttonColorScheme)
+  const pickerRef: RefObject<HTMLDivElement | null> = useRef<HTMLDivElement | null>(null)
   const autoFocus = useBreakpointValue(
     {
       base: false,
@@ -85,79 +86,73 @@ const ReactionSelection = memo(function ReactionSelection({
     <HStack w="100%">
       <Wrap flexShrink={scrollHorizontal ? 0 : 1}>
         {reactionKeys.map((x) => (
-            <WrapItem key={x} justifyContent="center" alignItems="center">
-              <ReactionCounterItem
-                count={reactions[x].length}
-                users={reactions[x].map(({ user }: Reaction) => user)}
-                currentUserId={user.userId}
-                colorScheme={buttonColorScheme}
-                onReactionClick={onSelect}
-                emoji={x}
-                darkBg={darkBg}
-              />
-            </WrapItem>
-          ))}
-        <WrapItem
-          _last={{
-            _after: {
-              content: '""',
-              paddingRight: 2,
-            },
-          }}
-        >
-          <Popover
-            isLazy
-            isOpen={isOpen}
-            onClose={onClose}
-            variant="responsive"
+          <Box key={x} justifyContent="center" alignItems="center">
+            <ReactionCounterItem
+              count={reactions[x].length}
+              users={reactions[x].map(({ user }: Reaction) => user)}
+              currentUserId={user.userId}
+              colorScheme={buttonColorScheme}
+              onReactionClick={onSelect}
+              variant={reactionVariant}
+              emoji={x}
+              darkBg={darkBg}
+            />
+          </Box>
+        ))}
+        <Box>
+          <Popover.Root
+            lazyMount
+            open={isOpen}
+            onOpenChange={(e) => !e.open && onClose()}
             autoFocus={autoFocus}
-            initialFocusRef={responsivePickerRef}
-            closeOnBlur={true}
-            closeOnEsc={true}
+            initialFocusEl={() => responsivePickerRef?.current}
+            closeOnInteractOutside
+            closeOnEscape
           >
-            <PopoverTrigger>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: showAddButton ? 1 : 0 }}
-                transition={{ duration: 0.1 }}
-              >
+            <Popover.Trigger asChild>
+              <Box opacity={showAddButton ? 1 : 0} transition="opacity 0.1s">
                 <IconButton
-                  p={1}
                   aria-label="Add reaction"
-                  size="sm"
-                  variant={darkBg ? "darkGhost" : "ghost"}
-                  colorScheme={buttonColorScheme}
+                  size="xs"
+                  width="2.6rem"
+                  variant={buttonVariant}
+                  colorPalette={buttonColorScheme}
                   disabled={!showAddButton}
                   onClick={() => onToggle()}
-                  icon={
-                    <>
-                      <Icon as={FiSmile} />
-                      <Icon boxSize={3} as={FiPlus} />
-                    </>
-                  }
-                />
-              </motion.div>
-            </PopoverTrigger>
-            <Portal>
-              <PopoverContent>
-                <PopoverArrow />
-                <PopoverBody
-                  sx={{
-                    "em-emoji-picker": {
-                      "--shadow": "0",
-                    },
-                  }}
                 >
-                  <ReactionPicker
-                    onSelect={onSelect}
-                    ref={pickerRef}
-                    autoFocus={autoFocus}
-                  />
-                </PopoverBody>
-              </PopoverContent>
+                  <Icon as={FiSmile} />
+                  <Icon boxSize={3} as={FiPlus} />
+                </IconButton>
+              </Box>
+            </Popover.Trigger>
+            <Portal>
+              <Popover.Positioner>
+                <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }}>
+                  <Popover.Arrow />
+                  <Popover.Body
+                    css={{
+                      paddingRight: 3,
+                      paddingLeft: 0,
+                      "& em-emoji-picker": {
+                        "--shadow": "0",
+                        "--rgb-background": "transparent",
+                        "--background": "transparent",
+                      },
+                      _dark: {
+                        "& em-emoji-picker": {
+                          "--rgb-color": "255, 255, 255",
+                          "--rgb-input": "0 0 0",
+                        },
+                      },
+                    }}
+                  >
+                    <ReactionPicker onSelect={onSelect} ref={pickerRef} autoFocus={autoFocus} />
+                  </Popover.Body>
+                </Popover.Content>
+              </Popover.Positioner>
             </Portal>
-          </Popover>
-        </WrapItem>
+          </Popover.Root>
+        </Box>
       </Wrap>
     </HStack>
   )

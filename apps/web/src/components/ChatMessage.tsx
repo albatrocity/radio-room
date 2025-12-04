@@ -11,7 +11,6 @@ import {
   Text,
   useBreakpointValue,
   Wrap,
-  WrapItem,
 } from "@chakra-ui/react"
 import { FiBookmark } from "react-icons/fi"
 
@@ -22,10 +21,7 @@ import { User } from "../types/User"
 import Timestamp from "./Timestamp"
 
 import { useAuthStore } from "../state/authStore"
-import {
-  useBookmarkedChatStore,
-  useBookmarks,
-} from "../state/bookmarkedChatStore"
+import { useBookmarkedChatStore, useBookmarks } from "../state/bookmarkedChatStore"
 
 export interface ChatMessageProps {
   content: string
@@ -66,8 +62,7 @@ const ChatMessage = ({
     base: true,
     md: false,
   })
-  const showFloatingTimestamp =
-    (!showUsername && hovered) || (isBookmarked && !showUsername)
+  const showFloatingTimestamp = (!showUsername && hovered) || (isBookmarked && !showUsername)
 
   const isMention = mentions.indexOf(currentUserId) > -1
   const urls = useMemo((): string[] => getUrls(content), [content])
@@ -134,13 +129,7 @@ const ChatMessage = ({
       w="100%"
     >
       {showUsername && (
-        <Flex
-          direction="row"
-          justify="between"
-          grow={1}
-          align="center"
-          w="100%"
-        >
+        <Flex direction="row" justify="between" grow={1} align="center" w="100%">
           <Text my="sm" fontWeight={700}>
             {user.username}
           </Text>
@@ -149,66 +138,59 @@ const ChatMessage = ({
             {currentIsAdmin && (
               <IconButton
                 aria-label="Bookmark message"
-                colorScheme={"primary"}
+                colorPalette="primary"
                 variant={isBookmarked ? "solid" : "ghost"}
-                icon={<Icon as={FiBookmark} />}
                 size="xs"
                 onClick={handleBookmark}
-              />
+              >
+                <Icon as={FiBookmark} />
+              </IconButton>
             )}
             <Timestamp value={timestamp} />
           </HStack>
         </Flex>
       )}
-      <Wrap spacing="xs" align="center" w="100%">
-        <WrapItem w="100%">
-          <Stack direction="row" spacing={2} w="100%">
+      <Wrap gap="1" align="center" w="100%">
+        <Box w="100%">
+          <Stack direction="row" gap={2} w="100%">
             <Box flex={{ grow: 1 }} textStyle="chatMessage">
               <ParsedEmojiMessage content={parsedContent} />
               {images.length > 0 && (
-                <Stack direction="column" spacing={2}>
+                <Stack direction="column" gap={2}>
                   {images.map((x) => (
                     <Box key={x}>
-                      <Image
-                        w="100%"
-                        maxW="400px"
-                        objectFit="contain"
-                        src={x}
-                      />
+                      <Image w="100%" maxW="400px" objectFit="contain" src={x} />
                     </Box>
                   ))}
                 </Stack>
               )}
             </Box>
             {showFloatingTimestamp && (
-              <HStack
-                p={2}
-                position="absolute"
-                top={0}
-                right={2}
-                borderRadius={4}
-                bg="appBg"
-              >
+              <HStack p={2} position="absolute" top={0} right={2} borderRadius={4} bg="appBg">
                 {currentIsAdmin && (
                   <IconButton
                     aria-label="Bookmark message"
-                    colorScheme="primary"
-                    icon={<Icon as={FiBookmark} />}
+                    colorPalette="primary"
                     variant={isBookmarked ? "solid" : "ghost"}
                     size="xs"
                     onClick={handleBookmark}
-                  />
+                  >
+                    <Icon as={FiBookmark} />
+                  </IconButton>
                 )}
                 <Timestamp value={timestamp} />
               </HStack>
             )}
           </Stack>
-        </WrapItem>
+        </Box>
       </Wrap>
 
       <ReactionCounter
         reactTo={{ type: "message", id: timestamp }}
         showAddButton={alwaysShowReactionPicker || hovered}
+        buttonColorScheme="primary"
+        buttonVariant="ghost"
+        reactionVariant="reactionBright"
       />
     </Box>
   )

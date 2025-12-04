@@ -17,7 +17,7 @@ import Modal from "../Modal"
 import { Room } from "../../types/Room"
 import RoomSettings from "../RoomSettings/RoomSettings"
 import RoomTypeSelect from "./RoomTypeSelect"
-import { ArrowBackIcon } from "@chakra-ui/icons"
+import { LuArrowLeft } from "react-icons/lu"
 
 type Props = {}
 
@@ -34,31 +34,31 @@ export default function ModalCreateRoom({}: Props) {
   return (
     <form onSubmit={(e) => e.preventDefault()}>
       <Modal
-        isOpen={state.matches("createRoom")}
+        open={state.matches("createRoom")}
         heading="Create a Room"
         onClose={() => send("CLOSE")}
         footer={
           <HStack justify="space-between" w="100%">
             {formState.matches("settings") && (
               <Button
-                leftIcon={<ArrowBackIcon />}
                 variant="ghost"
                 onClick={() => formSend("BACK")}
-                isDisabled={loading}
+                disabled={loading}
               >
+                <LuArrowLeft />
                 Back
               </Button>
             )}
             <HStack justifyContent="flex-end" flexGrow={1}>
               <Button
-                isDisabled={loading}
+                disabled={loading}
                 variant="ghost"
                 onClick={() => send("CLOSE")}
               >
                 Cancel
               </Button>
               <Button
-                isDisabled={loading}
+                disabled={loading}
                 onClick={handleNext}
               >
                 {nextLabel}
@@ -70,14 +70,14 @@ export default function ModalCreateRoom({}: Props) {
         <Box>
           {loading && (
             <Center>
-              <VStack spacing={4}>
+              <VStack gap={4}>
                 <Text as="p">Redirecting you to Spotify</Text>
                 <Spinner />
               </VStack>
             </Center>
           )}
           {formState.matches("selectType") && (
-            <VStack alignItems="flex-start" spacing={4}>
+            <VStack alignItems="flex-start" gap={4}>
               <Text as="p">
                 Creating a room requires a Spotify Premium account to grab meta
                 data and control a queue.

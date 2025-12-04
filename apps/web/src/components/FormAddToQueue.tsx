@@ -30,7 +30,7 @@ const FormAddToQueue = ({
       <TrackSearch
         onChoose={handleSelect}
         placeholder="Search for a track"
-        isDisabled={isDisabled}
+        disabled={isDisabled}
         onDropdownOpenChange={onDropdownOpenChange}
         autoFocus
       />

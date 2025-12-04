@@ -6,7 +6,7 @@ import { useMachine } from "@xstate/react"
 import { createdRoomsFetchMachine } from "../../machines/createdRoomsFetchMachine"
 import CardRoom from "../CardRoom"
 import CardsAppInfo from "../AppIntro"
-import { AddIcon } from "@chakra-ui/icons"
+import { LuPlus } from "react-icons/lu"
 import { useModalsStore } from "../../state/modalsState"
 
 export default function Lobby() {
@@ -57,9 +57,9 @@ export default function Lobby() {
           <GridItem>
             <Box>
               <Button
-                leftIcon={<AddIcon />}
                 onClick={() => modalSend("CREATE_ROOM")}
               >
+                <LuPlus />
                 Create a Room
               </Button>
             </Box>

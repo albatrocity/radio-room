@@ -1,14 +1,14 @@
-import { ChevronRightIcon } from "@chakra-ui/icons"
+import { LuChevronRight } from "react-icons/lu"
 import { useSettingsStore } from "../../../state/settingsStore"
 import {
   Box,
   Button,
   HStack,
   Heading,
-  ModalBody,
-  ModalFooter,
+  DialogBody,
+  DialogFooter,
   VStack,
-  Divider,
+  Separator,
   Spinner,
 } from "@chakra-ui/react"
 import { useModalsStore } from "../../../state/modalsState"
@@ -61,73 +61,87 @@ function Overview() {
 
   return (
     <Box>
-      <ModalBody>
-        <VStack align="left" spacing={6}>
-          <VStack align="left" spacing={2}>
+      <DialogBody>
+        <VStack align="left" gap={6}>
+          <VStack align="left" gap={2}>
             <Heading as="h4" size="sm" textAlign="left">
               Content & Auth
             </Heading>
-            <VStack w="100%" align="left" spacing="1px">
+            <VStack w="100%" align="left" gap="1px">
               <Button
-                rightIcon={
-                  <HStack>
-                    {hasSettings && <ActiveIndicator />}
-                    <ChevronRightIcon />
-                  </HStack>
-                }
-                variant="settingsCategory"
+                variant="ghost"
+                bg="secondaryBg"
+                borderRadius="lg"
                 borderBottomRadius="none"
+                w="100%"
+                textAlign="left"
+                fontWeight="400"
+                justifyContent="space-between"
                 onClick={() => send("EDIT_CONTENT")}
               >
                 Content
+                <HStack>
+                  {hasSettings && <ActiveIndicator />}
+                  <LuChevronRight />
+                </HStack>
               </Button>
               <Button
-                rightIcon={
-                  <HStack>
-                    {hasChatSettings && <ActiveIndicator />}
-                    <ChevronRightIcon />
-                  </HStack>
-                }
-                variant="settingsCategory"
+                variant="ghost"
+                bg="secondaryBg"
                 borderRadius="none"
+                w="100%"
+                textAlign="left"
+                fontWeight="400"
+                justifyContent="space-between"
                 onClick={() => send("EDIT_CHAT")}
               >
                 Chat
+                <HStack>
+                  {hasChatSettings && <ActiveIndicator />}
+                  <LuChevronRight />
+                </HStack>
               </Button>
               <Button
-                rightIcon={
-                  <HStack>
-                    {hasDjSettings && <ActiveIndicator />}
-                    <ChevronRightIcon />
-                  </HStack>
-                }
-                variant="settingsCategory"
+                variant="ghost"
+                bg="secondaryBg"
                 borderRadius="none"
+                w="100%"
+                textAlign="left"
+                fontWeight="400"
+                justifyContent="space-between"
                 onClick={() => send("EDIT_DJ")}
               >
                 DJ Features
+                <HStack>
+                  {hasDjSettings && <ActiveIndicator />}
+                  <LuChevronRight />
+                </HStack>
               </Button>
               <Button
-                rightIcon={
-                  <HStack>
-                    {hasPassword && <ActiveIndicator />}
-                    <ChevronRightIcon />
-                  </HStack>
-                }
-                variant="settingsCategory"
+                variant="ghost"
+                bg="secondaryBg"
+                borderRadius="lg"
                 borderTopRadius="none"
+                w="100%"
+                textAlign="left"
+                fontWeight="400"
+                justifyContent="space-between"
                 onClick={() => send("EDIT_PASSWORD")}
               >
                 Password Protection
+                <HStack>
+                  {hasPassword && <ActiveIndicator />}
+                  <LuChevronRight />
+                </HStack>
               </Button>
             </VStack>
           </VStack>
 
-          <VStack align="left" spacing={2}>
+          <VStack align="left" gap={2}>
             <Heading as="h4" size="sm" textAlign="left">
               Plugins
             </Heading>
-            <VStack w="100%" align="left" spacing="1px">
+            <VStack w="100%" align="left" gap="1px">
               {isLoading ? (
                 <HStack py={2} px={4}>
                   <Spinner size="sm" />
@@ -140,13 +154,19 @@ function Overview() {
                 configurablePlugins.map((plugin, index) => (
                   <Button
                     key={plugin.name}
-                    rightIcon={
-                      <HStack>
-                        {isPluginActive(plugin.name) && <ActiveIndicator />}
-                        <ChevronRightIcon />
-                      </HStack>
+                    variant="ghost"
+                    bg="secondaryBg"
+                    w="100%"
+                    textAlign="left"
+                    fontWeight="400"
+                    justifyContent="space-between"
+                    borderRadius={
+                      index === 0
+                        ? "lg"
+                        : index === configurablePlugins.length - 1
+                        ? "lg"
+                        : "none"
                     }
-                    variant="settingsCategory"
                     borderTopRadius={index === 0 ? undefined : "none"}
                     borderBottomRadius={
                       index === configurablePlugins.length - 1 ? undefined : "none"
@@ -154,28 +174,32 @@ function Overview() {
                     onClick={() => send(toEventName(plugin.name) as any)}
                   >
                     {toDisplayName(plugin.name)}
+                    <HStack>
+                      {isPluginActive(plugin.name) && <ActiveIndicator />}
+                      <LuChevronRight />
+                    </HStack>
                   </Button>
                 ))
               )}
             </VStack>
           </VStack>
 
-          <VStack w="100%" align="left" spacing={2}>
+          <VStack w="100%" align="left" gap={2}>
             <Heading as="h4" size="sm" textAlign="left">
               Authentication
             </Heading>
             <ButtonRoomAuthSpotify />
           </VStack>
         </VStack>
-        <Divider my={6} />
-        <VStack w="100%" align="left" spacing={2}>
+        <Separator my={6} />
+        <VStack w="100%" align="left" gap={2}>
           <Heading as="h4" size="sm" textAlign="left" color="red">
             Danger Zone
           </Heading>
           <DestructiveActions />
         </VStack>
-      </ModalBody>
-      <ModalFooter />
+      </DialogBody>
+      <DialogFooter />
     </Box>
   )
 }

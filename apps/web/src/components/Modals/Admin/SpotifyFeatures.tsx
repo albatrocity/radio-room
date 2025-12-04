@@ -3,10 +3,9 @@ import React from "react"
 import { useAdminStore } from "../../../state/adminStore"
 import {
   Checkbox,
-  FormControl,
-  FormHelperText,
-  ModalBody,
-  ModalFooter,
+  Field,
+  DialogBody,
+  DialogFooter,
   VStack,
 } from "@chakra-ui/react"
 import { useSettingsStore } from "../../../state/settingsStore"
@@ -42,41 +41,51 @@ export default function SpotifyFeatures() {
         dirty,
       }) => (
         <form onSubmit={handleSubmit}>
-          <ModalBody>
-            <VStack spacing={6}>
-              <FormControl>
-                <Checkbox
-                  isChecked={values.enableSpotifyLogin}
-                  onChange={(e) => {
-                    handleChange(e)
-                    if (e.target.checked !== initialValues.enableSpotifyLogin) {
+          <DialogBody>
+            <VStack gap={6}>
+              <Field.Root>
+                <Checkbox.Root
+                  checked={values.enableSpotifyLogin}
+                  onCheckedChange={(details) => {
+                    const syntheticEvent = {
+                      target: {
+                        name: "enableSpotifyLogin",
+                        value: details.checked,
+                        type: "checkbox",
+                        checked: details.checked,
+                      },
+                    }
+                    handleChange(syntheticEvent as any)
+                    if (details.checked !== initialValues.enableSpotifyLogin) {
                       setTouched({ enableSpotifyLogin: true })
                     } else {
                       setTouched({ enableSpotifyLogin: false })
                     }
                   }}
-                  onBlur={handleBlur}
-                  value={values.enableSpotifyLogin ? 1 : 0}
                   name="enableSpotifyLogin"
                 >
-                  Enable Guest Spotify Login
-                </Checkbox>
-                <FormHelperText>
+                  <Checkbox.HiddenInput onBlur={handleBlur} />
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <Checkbox.Label>Enable Guest Spotify Login</Checkbox.Label>
+                </Checkbox.Root>
+                <Field.HelperText>
                   When enabled, users will be able to link their Spotify
                   account, allowing them to see search results relevant to their
                   account and create their own playlists from the listening
                   history.
-                </FormHelperText>
-              </FormControl>
+                </Field.HelperText>
+              </Field.Root>
             </VStack>
-          </ModalBody>
-          <ModalFooter>
+          </DialogBody>
+          <DialogFooter>
             <FormActions
               onCancel={() => modalSend("CLOSE")}
               onSubmit={handleSubmit}
               dirty={dirty}
             />
-          </ModalFooter>
+          </DialogFooter>
         </form>
       )}
     </Formik>

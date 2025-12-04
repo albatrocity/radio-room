@@ -1,6 +1,5 @@
 import React, { memo } from "react"
 import { get, isEqual } from "lodash/fp"
-import { motion } from "framer-motion"
 
 import {
   Box,
@@ -8,12 +7,11 @@ import {
   HStack,
   IconButton,
   Icon,
-  ListItem,
-  ListIcon,
-  Tooltip,
+  List,
   VStack,
 } from "@chakra-ui/react"
-import { EditIcon, SmallCloseIcon } from "@chakra-ui/icons"
+import { Tooltip } from "./ui/tooltip"
+import { LuPencil, LuX } from "react-icons/lu"
 import { FiMic, FiMusic, FiEye, FiHeadphones } from "react-icons/fi"
 import { BiMessageRoundedDots, BiCrown } from "react-icons/bi"
 import { User } from "../types/User"
@@ -26,7 +24,7 @@ const statusIcon = (user: User) => {
   switch (user.status) {
     case "participating":
       return (
-        <Tooltip hasArrow label="Spectating" placement="top">
+        <Tooltip content="Spectating" positioning={{ placement: "top" }}>
           <Box>
             <Icon opacity={0.5} _hover={{ opacity: 1 }} as={FiEye} boxSize={3} />
           </Box>
@@ -34,7 +32,7 @@ const statusIcon = (user: User) => {
       )
     case "listening":
       return (
-        <Tooltip hasArrow label="Listening" placement="top">
+        <Tooltip content="Listening" positioning={{ placement: "top" }}>
           <Box>
             <Icon opacity={0.5} _hover={{ opacity: 1 }} as={FiHeadphones} boxSize={3} />
           </Box>
@@ -65,41 +63,25 @@ const ListItemUser = ({
   isAdmin = false,
 }: ListItemUserProps) => {
   return (
-    <ListItem
+    <List.Item
       key={user.userId}
       flexDirection="row"
       display="flex"
       alignItems="center"
       background={user.isDj ? "primaryBg" : "transparent"}
     >
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{
-          opacity: userTyping ? 1 : 0,
-        }}
-        transition={{
-          duration: 0.6,
-          ease: "easeInOut",
-        }}
+      <Box
+        opacity={userTyping ? 1 : 0}
+        transition="opacity 0.6s ease-in-out"
       >
-        <motion.div
-          initial={{ x: -4 }}
-          animate={{
-            scale: userTyping ? [1, 0.9, 0.9, 1] : 1,
-            scaleX: userTyping ? [-1, -0.9, -0.9, -1] : -1,
-            x: [-4, -4, -4, -4],
-          }}
-          transition={{
-            duration: 0.8,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+        <Box
+          animation={userTyping ? "pulse 0.8s infinite ease-in-out" : undefined}
+          transform="scaleX(-1)"
+          left="-10px"
         >
-          <Box left="-10px">
-            <ListIcon as={BiMessageRoundedDots} color="action.300" />
-          </Box>
-        </motion.div>
-      </motion.div>
+          <Icon as={BiMessageRoundedDots} color="action.300" mr={1} />
+        </Box>
+      </Box>
       <VStack gap={1} align="start">
         <HStack
           alignItems="center"
@@ -117,20 +99,20 @@ const ListItemUser = ({
           </Box>
           {user.userId === get("userId", currentUser) && (
             <IconButton
-              variant="link"
+              variant="plain"
               aria-label="Edit Username"
               onClick={() => {
                 onEditUser(user)
               }}
               size="xs"
-              icon={<EditIcon />}
-            />
+            >
+              <LuPencil />
+            </IconButton>
           )}
           {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
             <Tooltip
-              hasArrow
-              placement="top"
-              label={user.isDeputyDj ? "Remove DJ privileges" : "Deputize DJ"}
+              positioning={{ placement: "top" }}
+              content={user.isDeputyDj ? "Remove DJ privileges" : "Deputize DJ"}
             >
               <IconButton
                 size="xs"
@@ -139,8 +121,9 @@ const ListItemUser = ({
                 onClick={() => {
                   onDeputizeDj?.(user.userId)
                 }}
-                icon={<Icon as={FiMusic} />}
-              />
+              >
+                <Icon as={FiMusic} />
+              </IconButton>
             </Tooltip>
           )}
           {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
@@ -149,13 +132,14 @@ const ListItemUser = ({
               variant="ghost"
               aria-label="Kick User"
               onClick={() => onKickUser?.(user.userId)}
-              icon={<SmallCloseIcon />}
-            />
+            >
+              <LuX />
+            </IconButton>
           )}
         </HStack>
         <PluginArea area="userListItem" />
       </VStack>
-    </ListItem>
+    </List.Item>
   )
 }
 

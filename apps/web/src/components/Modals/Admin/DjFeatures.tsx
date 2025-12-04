@@ -3,10 +3,9 @@ import React from "react"
 import { useAdminStore } from "../../../state/adminStore"
 import {
   Checkbox,
-  FormControl,
-  FormHelperText,
-  ModalBody,
-  ModalFooter,
+  Field,
+  DialogBody,
+  DialogFooter,
   VStack,
 } from "@chakra-ui/react"
 import { useSettingsStore } from "../../../state/settingsStore"
@@ -42,39 +41,49 @@ function DjFeatures() {
         dirty,
       }) => (
         <form onSubmit={handleSubmit}>
-          <ModalBody>
-            <VStack spacing={6}>
-              <FormControl>
-                <Checkbox
-                  isChecked={values.deputizeOnJoin}
-                  onChange={(e) => {
-                    handleChange(e)
-                    if (e.target.checked !== initialValues.deputizeOnJoin) {
+          <DialogBody>
+            <VStack gap={6}>
+              <Field.Root>
+                <Checkbox.Root
+                  checked={values.deputizeOnJoin}
+                  onCheckedChange={(details) => {
+                    const syntheticEvent = {
+                      target: {
+                        name: "deputizeOnJoin",
+                        value: details.checked,
+                        type: "checkbox",
+                        checked: details.checked,
+                      },
+                    }
+                    handleChange(syntheticEvent as any)
+                    if (details.checked !== initialValues.deputizeOnJoin) {
                       setTouched({ deputizeOnJoin: true })
                     } else {
                       setTouched({ deputizeOnJoin: false })
                     }
                   }}
-                  onBlur={handleBlur}
-                  value={values.deputizeOnJoin ? 1 : 0}
                   name="deputizeOnJoin"
                 >
-                  Auto-deputize users
-                </Checkbox>
-                <FormHelperText>
+                  <Checkbox.HiddenInput onBlur={handleBlur} />
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <Checkbox.Label>Auto-deputize users</Checkbox.Label>
+                </Checkbox.Root>
+                <Field.HelperText>
                   When enabled, users will be automatically deputized as DJs
                   when they join. You can still revoke DJ access as normal.
-                </FormHelperText>
-              </FormControl>
+                </Field.HelperText>
+              </Field.Root>
             </VStack>
-          </ModalBody>
-          <ModalFooter>
+          </DialogBody>
+          <DialogFooter>
             <FormActions
               onCancel={() => modalSend("CLOSE")}
               onSubmit={handleSubmit}
               dirty={dirty}
             />
-          </ModalFooter>
+          </DialogFooter>
         </form>
       )}
     </Formik>

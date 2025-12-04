@@ -1,5 +1,5 @@
 import React from "react"
-import { Hide } from "@chakra-ui/react"
+import { Box } from "@chakra-ui/react"
 
 import DrawerBookmarks from "./Drawers/DrawerBookmarks"
 import DrawerPlaylist from "./Drawers/DrawerPlaylist"
@@ -16,9 +16,9 @@ function Overlays() {
     <div>
       <DrawerBookmarks />
       <DrawerPlaylist />
-      <Hide above="sm">
+      <Box hideFrom="sm">
         <DrawerListeners />
-      </Hide>
+      </Box>
 
       <ModalAbout />
       <ModalAddToQueue />

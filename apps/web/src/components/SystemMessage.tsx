@@ -1,9 +1,6 @@
 import React, { memo } from "react"
 import {
   Alert,
-  AlertDescription,
-  AlertIcon,
-  AlertTitle,
   Flex,
   HStack,
   Text,
@@ -18,13 +15,13 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
   const dateString = format(date, "M/d/y")
   const { status, type, title } = meta
   return type === "alert" ? (
-    <Alert status={status ?? "info"}>
-      <AlertIcon />
-      {title && <AlertTitle>{title}</AlertTitle>}
-      <AlertDescription>
+    <Alert.Root status={status ?? "info"}>
+      <Alert.Indicator />
+      {title && <Alert.Title>{title}</Alert.Title>}
+      <Alert.Description>
         <ParsedEmojiMessage content={content} />
-      </AlertDescription>
-    </Alert>
+      </Alert.Description>
+    </Alert.Root>
   ) : (
     <Flex
       px={4}

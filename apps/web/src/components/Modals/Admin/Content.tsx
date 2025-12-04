@@ -3,12 +3,10 @@ import React from "react"
 import { useAdminStore } from "../../../state/adminStore"
 import {
   Checkbox,
-  FormControl,
-  FormHelperText,
-  FormLabel,
+  Field,
   Input,
-  ModalBody,
-  ModalFooter,
+  DialogBody,
+  DialogFooter,
   Textarea,
   VStack,
 } from "@chakra-ui/react"
@@ -46,10 +44,10 @@ function Content() {
     >
       {({ values, handleChange, handleBlur, handleSubmit, setTouched, initialValues, dirty }) => (
         <form onSubmit={handleSubmit}>
-          <ModalBody>
-            <VStack spacing={6}>
-              <FormControl>
-                <FormLabel>Room Name</FormLabel>
+          <DialogBody>
+            <VStack gap={6}>
+              <Field.Root>
+                <Field.Label>Room Name</Field.Label>
                 <Input
                   name="title"
                   value={values.title}
@@ -63,12 +61,12 @@ function Content() {
                     }
                   }}
                 />
-              </FormControl>
+              </Field.Root>
 
               {state.context.type === "radio" && (
                 <>
-                  <FormControl>
-                    <FormLabel>Radio Metadata URL</FormLabel>
+                  <Field.Root>
+                    <Field.Label>Radio Metadata URL</Field.Label>
                     <Input
                       name="radioMetaUrl"
                       value={values.radioMetaUrl}
@@ -82,12 +80,12 @@ function Content() {
                         }
                       }}
                     />
-                    <FormHelperText>
+                    <Field.HelperText>
                       The URL of the internet radio station's metadata endpoint.
-                    </FormHelperText>
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel>Radio Streaming URL</FormLabel>
+                    </Field.HelperText>
+                  </Field.Root>
+                  <Field.Root>
+                    <Field.Label>Radio Streaming URL</Field.Label>
                     <Input
                       name="radioListenUrl"
                       value={values.radioListenUrl}
@@ -101,24 +99,24 @@ function Content() {
                         }
                       }}
                     />
-                    <FormHelperText>
+                    <Field.HelperText>
                       The URL of the internet radio station's streaming audio feed.
-                    </FormHelperText>
-                  </FormControl>
-                  <FormControl>
-                    <FormLabel>Radio Protocol</FormLabel>
+                    </Field.HelperText>
+                  </Field.Root>
+                  <Field.Root>
+                    <Field.Label>Radio Protocol</Field.Label>
                     <RadioProtocolSelect value={values.radioProtocol} />
-                    <FormHelperText>
+                    <Field.HelperText>
                       The streaming protocol that the internet radio station is using, which is
                       required for accurate parsing of "now playing" data. If you get errors when
                       setting up the room, try changing the protocol.
-                    </FormHelperText>
-                  </FormControl>
+                    </Field.HelperText>
+                  </Field.Root>
                 </>
               )}
 
-              <FormControl>
-                <FormLabel>Banner Content</FormLabel>
+              <Field.Root>
+                <Field.Label>Banner Content</Field.Label>
                 <Textarea
                   name="extraInfo"
                   value={values.extraInfo}
@@ -132,11 +130,11 @@ function Content() {
                     }
                   }}
                 />
-                <FormHelperText>Formatted with Markdown</FormHelperText>
-              </FormControl>
+                <Field.HelperText>Formatted with Markdown</Field.HelperText>
+              </Field.Root>
 
-              <FormControl>
-                <FormLabel>Artwork</FormLabel>
+              <Field.Root>
+                <Field.Label>Artwork</Field.Label>
                 <Input
                   name="artwork"
                   value={values.artwork}
@@ -151,47 +149,57 @@ function Content() {
                     }
                   }}
                 />
-                <FormHelperText>
+                <Field.HelperText>
                   URL of an image to display in the Now Playing area. Overrides any album artwork
                   from Spotify. Leave blank to use album artwork.
-                </FormHelperText>
-              </FormControl>
+                </Field.HelperText>
+              </Field.Root>
 
               {hasAudio && (
-                <FormControl>
-                  <Checkbox
-                    isChecked={values.fetchMeta}
-                    onChange={(e) => {
-                      handleChange(e)
-                      if (e.target.checked !== initialValues.fetchMeta) {
+                <Field.Root>
+                  <Checkbox.Root
+                    checked={values.fetchMeta}
+                    onCheckedChange={(details) => {
+                      const syntheticEvent = {
+                        target: {
+                          name: "fetchMeta",
+                          value: details.checked,
+                          type: "checkbox",
+                          checked: details.checked,
+                        },
+                      }
+                      handleChange(syntheticEvent as any)
+                      if (details.checked !== initialValues.fetchMeta) {
                         setTouched({ fetchMeta: true })
                       } else {
                         setTouched({ fetchMeta: false })
                       }
                     }}
-                    onBlur={handleBlur}
-                    value={values.fetchMeta ? 1 : 0}
                     name="fetchMeta"
                   >
-                    Fetch album metadata
-                  </Checkbox>
-                  <FormHelperText>
+                    <Checkbox.HiddenInput onBlur={handleBlur} />
+                    <Checkbox.Control>
+                      <Checkbox.Indicator />
+                    </Checkbox.Control>
+                    <Checkbox.Label>Fetch album metadata</Checkbox.Label>
+                  </Checkbox.Root>
+                  <Field.HelperText>
                     Album Metadata (album artwork, release date, info URL) is automatically fetched
                     from Spotify based on the data from the online radio server. If you're getting
                     inaccurate data or want to display the meta directly from the online radio
                     station, disable this option.
-                  </FormHelperText>
-                </FormControl>
+                  </Field.HelperText>
+                </Field.Root>
               )}
             </VStack>
-          </ModalBody>
-          <ModalFooter>
+          </DialogBody>
+          <DialogFooter>
             <FormActions
               onCancel={() => modalSend("CLOSE")}
               onSubmit={handleSubmit}
               dirty={dirty}
             />
-          </ModalFooter>
+          </DialogFooter>
         </form>
       )}
     </Formik>

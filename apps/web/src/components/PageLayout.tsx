@@ -5,19 +5,16 @@ import {
   Grid,
   GridItem,
   Heading,
-  Hide,
   HStack,
   IconButton,
   Link as ChakraLink,
-  Show,
   Text,
   Wrap,
-  WrapItem,
 } from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
 
 import Layout from "./layout"
-import { AddIcon } from "@chakra-ui/icons"
+import { LuPlus } from "react-icons/lu"
 import { useModalsStore } from "../state/modalsState"
 import { FaSpotify } from "react-icons/fa"
 import { useAuthStore, useCurrentUser } from "../state/authStore"
@@ -45,11 +42,10 @@ export default function PageLayout({ children }: Props) {
           title="Disconnect Spotify?"
           body={
             <Text>
-              Are you sure you want to delete all of your rooms and disconnect
-              your Spotify account?
+              Are you sure you want to delete all of your rooms and disconnect your Spotify account?
             </Text>
           }
-          isOpen={state.matches("nukeUser")}
+          open={state.matches("nukeUser")}
           onClose={() => send("CLOSE")}
           onConfirm={() => authSend("NUKE_USER")}
           isDangerous={true}
@@ -58,17 +54,17 @@ export default function PageLayout({ children }: Props) {
         <Grid templateRows="auto 1fr auto" h="100%">
           <GridItem>
             <HStack p={4} bg="secondaryBg" justifyContent="space-between">
-              <Show above="sm">
+              <Box hideBelow="sm">
                 <Heading as="h2" size="lg">
                   {isHome ? (
                     "Listening Room"
                   ) : (
-                    <ChakraLink to="/" as={Link}>
-                      Listening Room
+                    <ChakraLink asChild>
+                      <Link to="/">Listening Room</Link>
                     </ChakraLink>
                   )}
                 </Heading>
-              </Show>
+              </Box>
               <HStack justifyContent="flex-end">
                 {currentUser ? (
                   <HStack>
@@ -80,31 +76,25 @@ export default function PageLayout({ children }: Props) {
                     </Button>
                   </HStack>
                 ) : (
-                  <Button
-                    as={Link}
-                    to="/login"
-                    variant="outline"
-                    leftIcon={<FaSpotify />}
-                  >
-                    Login
+                  <Button asChild variant="outline">
+                    <Link to="/login">
+                      <FaSpotify />
+                      Login
+                    </Link>
                   </Button>
                 )}
                 <Box>
-                  <Show above="sm">
-                    <Button
-                      leftIcon={<AddIcon />}
-                      onClick={() => send("CREATE_ROOM")}
-                    >
+                  <Box hideBelow="sm">
+                    <Button onClick={() => send("CREATE_ROOM")}>
+                      <LuPlus />
                       Create a Room
                     </Button>
-                  </Show>
-                  <Hide above="sm">
-                    <IconButton
-                      icon={<AddIcon />}
-                      onClick={() => send("CREATE_ROOM")}
-                      aria-label="Create a Room"
-                    />
-                  </Hide>
+                  </Box>
+                  <Box hideFrom="sm">
+                    <IconButton onClick={() => send("CREATE_ROOM")} aria-label="Create a Room">
+                      <LuPlus />
+                    </IconButton>
+                  </Box>
                 </Box>
               </HStack>
             </HStack>
@@ -115,25 +105,19 @@ export default function PageLayout({ children }: Props) {
             </Box>
           </GridItem>
           <GridItem as="footer" textStyle="footer">
-            <Wrap p={4} bg="secondaryBg" spacing={4}>
-              <WrapItem>
-                <ChakraLink as={Link} to="/privacy">
-                  Privacy Policy
-                </ChakraLink>
-              </WrapItem>
-              <WrapItem>
-                <ChakraLink as={Link} to="/about">
-                  About
-                </ChakraLink>
-              </WrapItem>
+            <Wrap p={4} bg="secondaryBg" gap={4}>
+              <ChakraLink asChild>
+                <Link to="/privacy">Privacy Policy</Link>
+              </ChakraLink>
+              <ChakraLink asChild>
+                <Link to="/about">About</Link>
+              </ChakraLink>
               {import.meta.env.VITE_CONTACT_EMAIL && (
-                <WrapItem>
-                  <ChakraLink
-                    href={`mailto:${import.meta.env.VITE_CONTACT_EMAIL}?subject=Listening%20Room`}
-                  >
-                    Contact
-                  </ChakraLink>
-                </WrapItem>
+                <ChakraLink
+                  href={`mailto:${import.meta.env.VITE_CONTACT_EMAIL}?subject=Listening%20Room`}
+                >
+                  Contact
+                </ChakraLink>
               )}
             </Wrap>
           </GridItem>

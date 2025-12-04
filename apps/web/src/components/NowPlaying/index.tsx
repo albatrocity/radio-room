@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { Box, VStack, Show } from "@chakra-ui/react"
+import { Box, VStack } from "@chakra-ui/react"
 
 import { useUsers } from "../../state/usersStore"
 import { useCurrentRoom, useRoomStore } from "../../state/roomStore"
@@ -62,7 +62,7 @@ function NowPlaying({ meta }: NowPlayingProps) {
       flexGrow={1}
       height="100%"
     >
-      <VStack spacing={4} justify="space-between" height="100%" width="100%">
+      <VStack gap={4} justify="space-between" height="100%" width="100%">
         {displayState === "loading" && <NowPlayingLoading />}
 
         {displayState === "waiting" && <NowPlayingLoading message="Getting Now Playing data..." />}
@@ -77,9 +77,9 @@ function NowPlaying({ meta }: NowPlayingProps) {
 
         <PluginArea area="nowPlaying" />
 
-        <Show above="sm">
+        <Box hideBelow="sm">
           <ButtonAddToQueue variant="solid" />
-        </Show>
+        </Box>
       </VStack>
     </Box>
   )

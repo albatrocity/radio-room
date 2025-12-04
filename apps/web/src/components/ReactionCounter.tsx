@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useCallback, useMemo } from "react"
+import { memo, useEffect, useCallback, useMemo } from "react"
 import { useMachine } from "@xstate/react"
 import { groupBy } from "lodash/fp"
 import { reactionsMachine } from "../machines/reactionsMachine"

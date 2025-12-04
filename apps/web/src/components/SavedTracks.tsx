@@ -16,7 +16,7 @@ export default function SavedTracks({ onClick, isDisabled, loadingItem }: Readon
   const isLoading = state.matches("loading")
 
   return (
-    <VStack align="flex-start" spacing={2} overflow="hidden" w="100%">
+    <VStack align="flex-start" gap={2} overflow="hidden" w="100%">
       {isLoading && <Spinner />}
       {state.context.savedTracks.map((track) => (
         <Box

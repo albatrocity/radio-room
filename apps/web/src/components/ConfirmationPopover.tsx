@@ -2,21 +2,14 @@ import React, { ReactNode } from "react"
 import {
   Button,
   Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverHeader,
-  PopoverBody,
-  PopoverFooter,
-  PopoverArrow,
-  PopoverCloseButton,
-  ButtonProps,
+  CloseButton,
 } from "@chakra-ui/react"
 
 type Props = {
-  triggerIcon?: ButtonProps["leftIcon"]
+  triggerIcon?: React.ReactNode
   triggerText: string
   triggerColorScheme?: string
-  triggerVariant?: ButtonProps["variant"]
+  triggerVariant?: string
   popoverHeader?: string
   popoverBody?: ReactNode | string
   confirmText?: string
@@ -34,26 +27,31 @@ export default function ConfirmationPopover({
   confirmText = "Confirm",
 }: Props) {
   return (
-    <Popover>
-      <PopoverTrigger>
+    <Popover.Root>
+      <Popover.Trigger asChild>
         <Button
-          variant={triggerVariant}
-          colorScheme={triggerColorScheme}
-          leftIcon={triggerIcon}
+          variant={triggerVariant as any}
+          colorPalette={triggerColorScheme}
         >
+          {triggerIcon}
           {triggerText}
         </Button>
-      </PopoverTrigger>
-      <PopoverContent>
-        <PopoverArrow />
-        {!!popoverHeader && <PopoverHeader>{popoverHeader}</PopoverHeader>}
-        {!!popoverBody && <PopoverBody>{popoverBody}</PopoverBody>}
-        <PopoverFooter justifyContent="flex-end" display="flex">
-          <Button colorScheme="red" onClick={onConfirm}>
-            {confirmText}
-          </Button>
-        </PopoverFooter>
-      </PopoverContent>
-    </Popover>
+      </Popover.Trigger>
+      <Popover.Positioner>
+        <Popover.Content>
+          <Popover.Arrow />
+          <Popover.CloseTrigger asChild position="absolute" top="1" right="1">
+            <CloseButton size="sm" />
+          </Popover.CloseTrigger>
+          {!!popoverHeader && <Popover.Header>{popoverHeader}</Popover.Header>}
+          {!!popoverBody && <Popover.Body>{popoverBody}</Popover.Body>}
+          <Popover.Footer justifyContent="flex-end" display="flex">
+            <Button colorPalette="red" onClick={onConfirm}>
+              {confirmText}
+            </Button>
+          </Popover.Footer>
+        </Popover.Content>
+      </Popover.Positioner>
+    </Popover.Root>
   )
 }

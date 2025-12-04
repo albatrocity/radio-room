@@ -1,9 +1,9 @@
-import { Stack, Wrap, WrapItem, Text, Collapse, Button } from "@chakra-ui/react"
+import { Stack, Wrap, Text, Collapsible, Button } from "@chakra-ui/react"
 import { FieldArrayRenderProps } from "formik"
 import React from "react"
 import { TriggerEvent, TriggerEventString } from "../../../types/Triggers"
 import FieldSelect from "../FieldSelect"
-import { AddIcon, ArrowDownIcon, DeleteIcon } from "@chakra-ui/icons"
+import { LuPlus, LuArrowDown, LuTrash2 } from "react-icons/lu"
 import FieldNumber from "../FieldNumber"
 import FieldText from "../FieldText"
 import FieldTriggerActionConditions from "./FieldTriggerActionConditions"
@@ -43,7 +43,7 @@ function FieldTriggerAction<T extends object>({
   return (
     <Stack
       direction="column"
-      spacing={4}
+      gap={4}
       align="flex-start"
       borderWidth={1}
       borderStyle="solid"
@@ -52,67 +52,61 @@ function FieldTriggerAction<T extends object>({
       bg="secondaryBg"
       w="100%"
     >
-      <Stack direction="column" spacing={2} w="100%">
-        <Wrap spacing={2} align="center">
-          <WrapItem>
-            <Text fontWeight="bold">
-              On a {eventType} {eventType === "reaction" && "to"}{" "}
-            </Text>
-          </WrapItem>
+      <Stack direction="column" gap={2} w="100%">
+        <Wrap gap={2} align="center">
+          <Text fontWeight="bold">
+            On a {eventType} {eventType === "reaction" && "to"}{" "}
+          </Text>
           {eventType === "reaction" && (
             <>
-              <WrapItem>
-                <FieldSelect size="sm" name={`triggers.${index}.target.id`}>
-                  <option value="latest">latest</option>
-                </FieldSelect>
-              </WrapItem>
-              <WrapItem>
-                <FieldSelect size="sm" name={`triggers.${index}.target.type`}>
-                  <option value="track">Track</option>
-                  <option value="message">Message</option>
-                </FieldSelect>
-                {hasConditions && <Text>,</Text>}
-              </WrapItem>
+              <FieldSelect size="sm" name={`triggers.${index}.target.id`}>
+                <option value="latest">latest</option>
+              </FieldSelect>
+              <FieldSelect size="sm" name={`triggers.${index}.target.type`}>
+                <option value="track">Track</option>
+                <option value="message">Message</option>
+              </FieldSelect>
+              {hasConditions && <Text>,</Text>}
             </>
           )}
-          <WrapItem>
-            {hasConditions ? (
-              <Text fontSize="sm">
-                if{" "}
-                {eventType === "reaction" &&
-                  "the number of its reactions where"}
-              </Text>
-            ) : (
-              <Button
-                onClick={setupConditions}
-                size="sm"
-                colorScheme="secondary"
-                variant="ghost"
-                rightIcon={<AddIcon boxSize="0.5rem" />}
-              >
-                Add conditions
-              </Button>
-            )}
-          </WrapItem>
+          {hasConditions ? (
+            <Text fontSize="sm">
+              if{" "}
+              {eventType === "reaction" &&
+                "the number of its reactions where"}
+            </Text>
+          ) : (
+            <Button
+              onClick={setupConditions}
+              size="sm"
+              colorPalette="secondary"
+              variant="ghost"
+            >
+              Add conditions
+              <LuPlus size="0.5rem" />
+            </Button>
+          )}
         </Wrap>
 
-        <Collapse in={hasConditions}>
-          <Stack direction="column" spacing={2} w="100%">
-            <FieldTriggerActionConditions eventType={eventType} index={index} />
-            <Button
-              size="xs"
-              colorScheme="red"
-              variant="ghost"
-              onClick={removeConditions}
-            >
-              Clear conditions
-            </Button>
-            <Stack direction="row" align="center" justify="center">
-              <ArrowDownIcon />
-              <Text fontSize="sm">then</Text>
+        <Collapsible.Root open={hasConditions}>
+          <Collapsible.Content>
+            <Stack direction="column" gap={2} w="100%">
+              <FieldTriggerActionConditions eventType={eventType} index={index} />
+              <Button
+                size="xs"
+                colorPalette="red"
+                variant="ghost"
+                onClick={removeConditions}
+              >
+                Clear conditions
+              </Button>
+              <Stack direction="row" align="center" justify="center">
+                <LuArrowDown />
+                <Text fontSize="sm">then</Text>
+              </Stack>
             </Stack>
-          </Stack>
-        </Collapse>
+          </Collapsible.Content>
+        </Collapsible.Root>
       </Stack>
       <FieldSelect size="lg" name={`triggers.${index}.action`}>
         <option value="likeTrack">Like Track</option>
@@ -124,24 +118,18 @@ function FieldTriggerAction<T extends object>({
       {hasConditions && (
         <Stack direction="row" align="center" justify="center" w="100%">
           <Wrap align="center">
-            <WrapItem>
-              <Text fontSize="sm">a maximum of</Text>
-            </WrapItem>
-            <WrapItem>
-              <FieldNumber
-                size="sm"
-                w="4rem"
-                name={`triggers.${index}.conditions.maxTimes`}
-              />
-            </WrapItem>
-            <WrapItem>
-              <Text fontSize="sm">times</Text>
-            </WrapItem>
+            <Text fontSize="sm">a maximum of</Text>
+            <FieldNumber
+              size="sm"
+              w="4rem"
+              name={`triggers.${index}.conditions.maxTimes`}
+            />
+            <Text fontSize="sm">times</Text>
           </Wrap>
         </Stack>
       )}
       <Stack direction="row" align="center" justify="center" w="100%">
-        <ArrowDownIcon />
+        <LuArrowDown />
         <Text fontSize="sm">with</Text>
       </Stack>
       <FieldText
@@ -150,12 +138,12 @@ function FieldTriggerAction<T extends object>({
         fontFamily={"'MonoLisa Trial', mono"}
       />
       <Button
-        leftIcon={<DeleteIcon />}
         size="xs"
         variant="outline"
-        colorScheme="red"
+        colorPalette="red"
         onClick={() => actions.remove(index)}
       >
+        <LuTrash2 />
         Remove Action
       </Button>
     </Stack>

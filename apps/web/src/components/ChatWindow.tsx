@@ -1,6 +1,5 @@
 import { Box, Button, Icon } from "@chakra-ui/react"
 import { useMachine } from "@xstate/react"
-import { motion } from "framer-motion"
 import React, { useRef } from "react"
 import { FiArrowDown } from "react-icons/fi"
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso"
@@ -12,8 +11,6 @@ import { ChatMessage as Message } from "../types/ChatMessage"
 import { User } from "../types/User"
 import ChatMessage from "./ChatMessage"
 import SystemMessage from "./SystemMessage"
-
-const MotionButton = motion(Button)
 
 const InnerItem = React.memo(
   ({
@@ -72,6 +69,8 @@ function ChatWindow() {
     )
   }
 
+  const isDetached = state.matches("detached")
+
   return (
     <Box position="relative" height="100%">
       <Virtuoso
@@ -84,25 +83,21 @@ function ChatWindow() {
         alignToBottom
         initialTopMostItemIndex={messages.length - 1}
       />
-      <MotionButton
+      <Button
         position="absolute"
         bottom={2}
         right={2}
         zIndex={2}
-        rightIcon={<Icon as={FiArrowDown} boxSize={4} />}
-        initial={{ opacity: 0, pointerEvents: "none" }}
-        animate={{
-          opacity: state.matches("detached") ? 1 : 0,
-          pointerEvents: state.matches("detached") ? "auto" : "none",
-        }}
-        transition={{
-          delay: state.matches("detached") ? 1 : 0,
-        }}
+        opacity={isDetached ? 1 : 0}
+        pointerEvents={isDetached ? "auto" : "none"}
+        transition="opacity 0.2s"
+        transitionDelay={isDetached ? "1s" : "0s"}
         onClick={handleBottomClick}
       >
         Scroll to bottom
         {state.context.newMessages > 0 && `(${state.context.newMessages} new)`}
-      </MotionButton>
+        <Icon as={FiArrowDown} boxSize={4} ml={2} />
+      </Button>
     </Box>
   )
 }

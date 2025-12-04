@@ -9,28 +9,26 @@ interface ReactionPickerProps {
   autoFocus?: boolean
 }
 
-const ReactionPicker = React.forwardRef(
-  ({ onSelect, autoFocus }: ReactionPickerProps, ref) => {
-    return (
-      <Box
-        ref={ref}
-        sx={{
-          "em-emoji-picker": {
-            height: "40vh",
-            width: "100%",
-          },
-        }}
-      >
-        <Picker
-          autoFocus={autoFocus}
-          onEmojiSelect={onSelect}
-          dynamicWidth={true}
-          data={data}
-          previewPosition="none"
-        />
-      </Box>
-    )
-  },
-)
+const ReactionPicker = React.forwardRef(({ onSelect, autoFocus }: ReactionPickerProps, ref) => {
+  return (
+    <Box
+      ref={ref}
+      css={{
+        "& em-emoji-picker": {
+          height: "40vh",
+          width: "100%",
+        },
+      }}
+    >
+      <Picker
+        autoFocus={autoFocus}
+        onEmojiSelect={onSelect}
+        dynamicWidth={true}
+        data={data}
+        previewPosition="none"
+      />
+    </Box>
+  )
+})
 
 export default memo(ReactionPicker)

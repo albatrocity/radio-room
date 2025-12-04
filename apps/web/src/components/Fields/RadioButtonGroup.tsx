@@ -1,12 +1,8 @@
 import {
   Box,
   Button,
-  ButtonGroup,
-  Radio,
-  useRadio,
-  useRadioGroup,
-  useId,
-  ThemingProps,
+  Group,
+  RadioGroup,
 } from "@chakra-ui/react"
 import { useField } from "formik"
 import React from "react"
@@ -16,65 +12,39 @@ interface Option {
   label: string
 }
 
-function RadioButton(props: any) {
-  const id = useId(props.id, `transformControlsModeIcons`)
-  const { getInputProps, getCheckboxProps } = useRadio({
-    id,
-    ...props,
-  })
-
-  const input = getInputProps()
-  const checkbox = getCheckboxProps()
-
-  return (
-    <>
-      <Button
-        cursor="pointer"
-        aria-label={props.label}
-        size="sm"
-        colorScheme={props.colorScheme}
-        as="label"
-        htmlFor={input.id}
-        variant={props.isChecked ? "solid" : "outline"}
-        {...checkbox}
-      >
-        {props.label}
-      </Button>
-      <input {...input} />
-    </>
-  )
-}
-
 type Props = {
   name: string
   options: Option[]
-  colorScheme: string
+  colorPalette?: string
 }
 
-function RadioButtonGroup({ name, options, colorScheme }: Props) {
+function RadioButtonGroup({ name, options, colorPalette }: Props) {
   const [field, , { setValue }] = useField(name)
-  const { getRootProps, getRadioProps } = useRadioGroup({
-    name,
-    value: field.value,
-    onChange: setValue,
-  })
-  const group = getRootProps()
+
   return (
-    <ButtonGroup {...group} isAttached>
-      {options.map(({ value, label }) => {
-        const radio = getRadioProps({ value })
-        return (
-          <RadioButton
-            colorScheme={colorScheme}
-            key={value}
-            label={label}
-            {...radio}
-          >
-            {label}
-          </RadioButton>
-        )
-      })}
-    </ButtonGroup>
+    <RadioGroup.Root
+      name={name}
+      value={field.value}
+      onValueChange={(details) => setValue(details.value)}
+    >
+      <Group attached>
+        {options.map(({ value, label }) => (
+          <RadioGroup.Item key={value} value={value}>
+            <RadioGroup.ItemHiddenInput />
+            <Button
+              asChild
+              cursor="pointer"
+              aria-label={label}
+              size="sm"
+              colorPalette={colorPalette}
+              variant={field.value === value ? "solid" : "outline"}
+            >
+              <label>{label}</label>
+            </Button>
+          </RadioGroup.Item>
+        ))}
+      </Group>
+    </RadioGroup.Root>
   )
 }
 

@@ -1,5 +1,5 @@
 import React, { useRef } from "react"
-import { Divider, VStack } from "@chakra-ui/react"
+import { Separator, VStack } from "@chakra-ui/react"
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso"
 import { PlaylistItem } from "../types/PlaylistItem"
 import SelectablePlaylistItem from "./SelectablePlaylistItem"
@@ -16,14 +16,14 @@ const PlaylistWindow = ({ playlist, isSelectable, selected, onSelect }: Props) =
 
   const renderComponent = (index: number) => {
     return (
-      <VStack pb={2} spacing={2} w="100%" align="stretch">
+      <VStack pb={2} gap={2} w="100%" align="stretch">
         <SelectablePlaylistItem
           item={playlist[index]}
           isSelectable={isSelectable}
           selected={selected}
           onSelect={onSelect}
         />
-        <Divider borderColor="secondaryBorder" w="100%" />
+        <Separator borderColor="secondaryBorder" w="100%" />
       </VStack>
     )
   }

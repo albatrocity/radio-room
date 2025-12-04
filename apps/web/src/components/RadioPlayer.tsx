@@ -1,19 +1,7 @@
 import { useRef, memo, useEffect, useCallback } from "react"
-import {
-  Box,
-  Icon,
-  IconButton,
-  HStack,
-  Show,
-  Hide,
-  Slider,
-  SliderTrack,
-  SliderFilledTrack,
-  SliderThumb,
-  Container,
-} from "@chakra-ui/react"
+import { Box, Icon, IconButton, HStack, Slider, Container } from "@chakra-ui/react"
 
-import { FiVolume, FiVolumeX } from "react-icons/fi"
+import { LuVolume2, LuVolumeX } from "react-icons/lu"
 import { RiPlayListFill } from "react-icons/ri"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
@@ -84,23 +72,21 @@ const RadioPlayer = ({
 
   return (
     <Box>
-      <Hide above="sm">
-        <Box background="actionBg">
-          <Box py={1} h={10} overflowX="auto">
-            <Box px={4} flexDir="row">
-              <HStack alignItems="flex-start">
-                <ButtonAddToLibrary id={libraryTrackId} />
-                <ReactionCounter
-                  reactTo={{ type: "track", id: trackId }}
-                  showAddButton={true}
-                  darkBg={true}
-                  scrollHorizontal
-                />
-              </HStack>
-            </Box>
+      <Box hideFrom="sm" background="actionBg">
+        <Box py={1} h={10} overflowX="auto">
+          <Box px={4} flexDir="row">
+            <HStack alignItems="flex-start">
+              <ButtonAddToLibrary id={libraryTrackId} />
+              <ReactionCounter
+                reactTo={{ type: "track", id: trackId }}
+                showAddButton={true}
+                darkBg={true}
+                scrollHorizontal
+              />
+            </HStack>
           </Box>
         </Box>
-      </Hide>
+      </Box>
       <Box background="actionBgLite" py={1}>
         <Container px={3}>
           <HStack w="100%" direction="row" justify="space-between" align="center">
@@ -111,54 +97,61 @@ const RadioPlayer = ({
                   aria-label="Playlist"
                   variant="ghost"
                   onClick={onShowPlaylist}
-                  icon={<Icon boxSize={5} as={RiPlayListFill} />}
-                />
+                >
+                  <Icon boxSize={5} as={RiPlayListFill} />
+                </IconButton>
               )}
               <IconButton
                 size="md"
                 aria-label={playing ? "Stop" : "Play"}
                 variant="ghost"
-                icon={<PlayStateIcon loading={loading} playing={playing} />}
                 onClick={() => onPlayPause()}
-              />
+              >
+                <PlayStateIcon loading={loading} playing={playing} />
+              </IconButton>
               {!isAdmin && (
                 <IconButton
                   size="md"
                   aria-label={muted ? "Unmute" : "Mute"}
                   variant="ghost"
-                  icon={
-                    muted ? <Icon as={FiVolumeX} boxSize={5} /> : <Icon as={FiVolume} boxSize={5} />
-                  }
                   onClick={() => onMute()}
-                />
+                >
+                  {muted ? (
+                    <Icon as={LuVolumeX} boxSize={5} />
+                  ) : (
+                    <Icon as={LuVolume2} boxSize={5} />
+                  )}
+                </IconButton>
               )}
             </HStack>
-            <Show above="sm">
-              <HStack w="100%" pr={3}>
-                <Slider
-                  aria-label="slider-ex-4"
-                  value={muted ? 0 : volume}
+            <Box hideBelow="sm" w="100%" pr={3}>
+              <HStack>
+                <Slider.Root
+                  aria-label="Volume"
+                  value={[muted ? 0 : volume]}
                   max={1.0}
                   min={0}
                   step={0.1}
-                  onChange={(value) => onVolume(value)}
+                  onValueChange={(details) => onVolume(details.value[0])}
                 >
-                  <SliderTrack bg="whiteAlpha.500">
-                    <SliderFilledTrack bg="action" />
-                  </SliderTrack>
-                  <SliderThumb boxSize={[6, 3]}>
-                    <Box />
-                  </SliderThumb>
-                </Slider>
+                  <Slider.Control>
+                    <Slider.Track bg="whiteAlpha.500">
+                      <Slider.Range bg="action" />
+                    </Slider.Track>
+                    <Slider.Thumb index={0} boxSize={[6, 3]}>
+                      <Box />
+                    </Slider.Thumb>
+                  </Slider.Control>
+                </Slider.Root>
               </HStack>
-            </Show>
-            <Hide above="sm">
+            </Box>
+            <Box hideFrom="sm">
               <HStack>
-                {isAdmin && <AdminControls />}
+                {isAdmin && <AdminControls buttonColorScheme="action" />}
                 <ButtonAddToQueue showText={false} />
                 <ButtonListeners variant="ghost" />
               </HStack>
-            </Hide>
+            </Box>
           </HStack>
         </Container>
         <ReactHowler

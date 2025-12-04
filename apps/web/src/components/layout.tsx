@@ -1,44 +1,27 @@
-import React from "react"
-import { ChakraProvider, extendTheme } from "@chakra-ui/react"
+import React, { useEffect, ReactNode } from "react"
 import PropTypes from "prop-types"
 import Div100vh from "react-div-100vh"
 
-import baseTheme from "../theme/chakraTheme"
-
 import "./layout.css"
-import themes from "../themes"
 
 import { useCurrentTheme } from "../state/themeStore"
 import { useErrorsStore } from "../state/errorsStore"
 
-const ThemedLayout = ({
-  children,
-  fill,
-}: {
-  children: JSX.Element
-  fill?: boolean
-}) => {
+const ThemedLayout = ({ children, fill }: { children: ReactNode; fill?: boolean }) => {
   const chosenThemeId = useCurrentTheme()
-  const chosenTheme = themes[chosenThemeId] ?? {}
   useErrorsStore()
 
-  const mergedTheme = extendTheme(baseTheme, { colors: chosenTheme.colors })
+  // Set data-theme attribute for conditional semantic tokens
+  useEffect(() => {
+    document.documentElement.dataset.theme = chosenThemeId
+  }, [chosenThemeId])
+
   const Component = fill ? Div100vh : React.Fragment
 
-  return (
-    <ChakraProvider portalZIndex={10} theme={mergedTheme}>
-      <Component>{children}</Component>
-    </ChakraProvider>
-  )
+  return <Component>{children}</Component>
 }
 
-const Layout = ({
-  children,
-  fill = false,
-}: {
-  children: JSX.Element
-  fill?: boolean
-}) => {
+const Layout = ({ children, fill = false }: { children: ReactNode; fill?: boolean }) => {
   return <ThemedLayout fill={fill}>{children}</ThemedLayout>
 }
 

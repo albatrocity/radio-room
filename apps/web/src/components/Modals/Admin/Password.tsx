@@ -2,10 +2,9 @@ import { Formik } from "formik"
 import React from "react"
 import { useAdminStore } from "../../../state/adminStore"
 import {
-  FormControl,
-  FormHelperText,
-  ModalBody,
-  ModalFooter,
+  Field,
+  DialogBody,
+  DialogFooter,
   VStack,
 } from "@chakra-ui/react"
 import { useSettingsStore } from "../../../state/settingsStore"
@@ -36,9 +35,9 @@ function Password() {
     >
       {({ handleBlur, handleSubmit, dirty }) => (
         <form onSubmit={handleSubmit}>
-          <ModalBody>
-            <VStack spacing={6}>
-              <FormControl gap={2}>
+          <DialogBody>
+            <VStack gap={6}>
+              <Field.Root gap={2}>
                 <FieldText
                   onBlur={handleBlur}
                   name="password"
@@ -47,17 +46,17 @@ function Password() {
                   autoCorrect="off"
                   autoCapitalize="off"
                 />
-                <FormHelperText>
+                <Field.HelperText>
                   Setting a password will require guests to enter it before
                   joining the room. Clearing this password will open the
                   experience up to anyone with the room URL.
-                </FormHelperText>
-              </FormControl>
+                </Field.HelperText>
+              </Field.Root>
             </VStack>
-          </ModalBody>
-          <ModalFooter>
+          </DialogBody>
+          <DialogFooter>
             <FormActions onCancel={onCancel} onSubmit={handleSubmit} dirty={dirty} />
-          </ModalFooter>
+          </DialogFooter>
         </form>
       )}
     </Formik>

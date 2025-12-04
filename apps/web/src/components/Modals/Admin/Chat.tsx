@@ -3,10 +3,9 @@ import React from "react"
 import { useAdminStore } from "../../../state/adminStore"
 import {
   Checkbox,
-  FormControl,
-  FormHelperText,
-  ModalBody,
-  ModalFooter,
+  Field,
+  DialogBody,
+  DialogFooter,
   VStack,
 } from "@chakra-ui/react"
 import { useSettingsStore } from "../../../state/settingsStore"
@@ -43,63 +42,81 @@ export default function Chat() {
         dirty,
       }) => (
         <form onSubmit={handleSubmit}>
-          <ModalBody>
-            <VStack spacing={6}>
-              <FormControl>
-                <Checkbox
-                  isChecked={values.announceNowPlaying}
-                  onChange={(e) => {
-                    handleChange(e)
-                    if (e.target.checked !== initialValues.announceNowPlaying) {
+          <DialogBody>
+            <VStack gap={6}>
+              <Field.Root>
+                <Checkbox.Root
+                  checked={values.announceNowPlaying}
+                  onCheckedChange={(details) => {
+                    const syntheticEvent = {
+                      target: {
+                        name: "announceNowPlaying",
+                        value: details.checked,
+                        type: "checkbox",
+                        checked: details.checked,
+                      },
+                    }
+                    handleChange(syntheticEvent as any)
+                    if (details.checked !== initialValues.announceNowPlaying) {
                       setTouched({ announceNowPlaying: true })
                     } else {
                       setTouched({ announceNowPlaying: false })
                     }
                   }}
-                  onBlur={handleBlur}
-                  value={values.announceNowPlaying ? 1 : 0}
                   name="announceNowPlaying"
                 >
-                  Announce Now Playing
-                </Checkbox>
-                <FormHelperText>
+                  <Checkbox.HiddenInput onBlur={handleBlur} />
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <Checkbox.Label>Announce Now Playing</Checkbox.Label>
+                </Checkbox.Root>
+                <Field.HelperText>
                   If enabled, a system message will be sent to the chat when the
                   now playing track changes.
-                </FormHelperText>
-              </FormControl>
-              <FormControl>
-                <Checkbox
-                  isChecked={values.announceUsernameChanges}
-                  onChange={(e) => {
-                    handleChange(e)
-                    if (
-                      e.target.checked !== initialValues.announceUsernameChanges
-                    ) {
+                </Field.HelperText>
+              </Field.Root>
+              <Field.Root>
+                <Checkbox.Root
+                  checked={values.announceUsernameChanges}
+                  onCheckedChange={(details) => {
+                    const syntheticEvent = {
+                      target: {
+                        name: "announceUsernameChanges",
+                        value: details.checked,
+                        type: "checkbox",
+                        checked: details.checked,
+                      },
+                    }
+                    handleChange(syntheticEvent as any)
+                    if (details.checked !== initialValues.announceUsernameChanges) {
                       setTouched({ announceUsernameChanges: true })
                     } else {
                       setTouched({ announceUsernameChanges: false })
                     }
                   }}
-                  onBlur={handleBlur}
-                  value={values.announceUsernameChanges ? 1 : 0}
                   name="announceUsernameChanges"
                 >
-                  Announce Username Changes
-                </Checkbox>
-                <FormHelperText>
+                  <Checkbox.HiddenInput onBlur={handleBlur} />
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <Checkbox.Label>Announce Username Changes</Checkbox.Label>
+                </Checkbox.Root>
+                <Field.HelperText>
                   If enabled, a system message will be sent to the chat when
                   someone changes their username.
-                </FormHelperText>
-              </FormControl>
+                </Field.HelperText>
+              </Field.Root>
             </VStack>
-          </ModalBody>
-          <ModalFooter>
+          </DialogBody>
+          <DialogFooter>
             <FormActions
               onCancel={() => modalSend("CLOSE")}
               onSubmit={handleSubmit}
               dirty={dirty}
             />
-          </ModalFooter>
+          </DialogFooter>
         </form>
       )}
     </Formik>
