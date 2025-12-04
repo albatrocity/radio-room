@@ -91,14 +91,7 @@ const ReactionSelection = memo(function ReactionSelection({
             />
           </Box>
         ))}
-        <Box
-          css={{
-            "&:last-child::after": {
-              content: '""',
-              paddingRight: 2,
-            },
-          }}
-        >
+        <Box>
           <Popover.Root
             lazyMount
             open={isOpen}
@@ -136,6 +129,12 @@ const ReactionSelection = memo(function ReactionSelection({
                         "--shadow": "0",
                         "--rgb-background": "transparent",
                         "--background": "transparent",
+                      },
+                      _dark: {
+                        "& em-emoji-picker": {
+                          "--rgb-color": "255, 255, 255",
+                          "--rgb-input": "0 0 0",
+                        },
                       },
                     }}
                   >

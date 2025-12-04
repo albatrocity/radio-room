@@ -25,7 +25,7 @@ const PopoverPreferences = (props: Props) => {
   return (
     <Popover.Root lazyMount>
       <Popover.Trigger asChild>
-        <IconButton aria-label="Settings" variant="bright" colorPalette="action">
+        <IconButton aria-label="Settings" variant="ghost" colorPalette="action">
           <Icon as={FiSettings} />
         </IconButton>
       </Popover.Trigger>

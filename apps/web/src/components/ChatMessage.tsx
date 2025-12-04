@@ -21,10 +21,7 @@ import { User } from "../types/User"
 import Timestamp from "./Timestamp"
 
 import { useAuthStore } from "../state/authStore"
-import {
-  useBookmarkedChatStore,
-  useBookmarks,
-} from "../state/bookmarkedChatStore"
+import { useBookmarkedChatStore, useBookmarks } from "../state/bookmarkedChatStore"
 
 export interface ChatMessageProps {
   content: string
@@ -65,8 +62,7 @@ const ChatMessage = ({
     base: true,
     md: false,
   })
-  const showFloatingTimestamp =
-    (!showUsername && hovered) || (isBookmarked && !showUsername)
+  const showFloatingTimestamp = (!showUsername && hovered) || (isBookmarked && !showUsername)
 
   const isMention = mentions.indexOf(currentUserId) > -1
   const urls = useMemo((): string[] => getUrls(content), [content])
@@ -133,13 +129,7 @@ const ChatMessage = ({
       w="100%"
     >
       {showUsername && (
-        <Flex
-          direction="row"
-          justify="between"
-          grow={1}
-          align="center"
-          w="100%"
-        >
+        <Flex direction="row" justify="between" grow={1} align="center" w="100%">
           <Text my="sm" fontWeight={700}>
             {user.username}
           </Text>
@@ -169,26 +159,14 @@ const ChatMessage = ({
                 <Stack direction="column" gap={2}>
                   {images.map((x) => (
                     <Box key={x}>
-                      <Image
-                        w="100%"
-                        maxW="400px"
-                        objectFit="contain"
-                        src={x}
-                      />
+                      <Image w="100%" maxW="400px" objectFit="contain" src={x} />
                     </Box>
                   ))}
                 </Stack>
               )}
             </Box>
             {showFloatingTimestamp && (
-              <HStack
-                p={2}
-                position="absolute"
-                top={0}
-                right={2}
-                borderRadius={4}
-                bg="appBg"
-              >
+              <HStack p={2} position="absolute" top={0} right={2} borderRadius={4} bg="appBg">
                 {currentIsAdmin && (
                   <IconButton
                     aria-label="Bookmark message"
@@ -210,6 +188,8 @@ const ChatMessage = ({
       <ReactionCounter
         reactTo={{ type: "message", id: timestamp }}
         showAddButton={alwaysShowReactionPicker || hovered}
+        buttonColorScheme="action"
+        buttonVariant="ghost"
       />
     </Box>
   )

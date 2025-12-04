@@ -41,7 +41,7 @@ export default function JukeboxControls({
           </Box>
         </Box>
       </Box>
-      <Box background="actionBgLite">
+      <Box background="actionBgDark">
         <Box>
           <HStack px={2} justifyContent={hasPlaylist ? "space-between" : "flex-end"}>
             {hasPlaylist && (

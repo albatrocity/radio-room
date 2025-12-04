@@ -248,7 +248,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
           <IconButton
             aria-label="Send Message"
             type="submit"
-            variant="bright"
+            variant="ghost"
             disabled={isSubmitting || !isValid}
             colorPalette="action"
             css={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}

@@ -13,9 +13,9 @@ const COLOR_CATEGORIES = ["primary", "secondary", "action"] as const
 // These enable colorPalette prop on components like Button
 const PALETTE_TOKENS = {
   solid: { light: 500, dark: 800 },
-  contrast: { light: 900, dark: 200 },
-  fg: { light: 400, dark: 700 },
-  muted: { light: 100, dark: 800 },
+  contrast: { light: 50, dark: 200 },
+  fg: { light: 600, dark: 700 },
+  muted: { light: 200, dark: 900 },
   subtle: { light: 100, dark: 500 },
   emphasized: { light: 200, dark: 800 },
   focusRing: { light: 500, dark: 500 },
@@ -111,7 +111,7 @@ const buttonRecipe = defineRecipe({
       },
       reaction: {
         borderRadius: 6,
-        bg: "colorPalette.900/70",
+        bg: "colorPalette.800/60",
         color: "colorPalette.contrast",
         padding: 0,
         height: "32px",
@@ -120,6 +120,11 @@ const buttonRecipe = defineRecipe({
         borderWidth: 1,
         _hover: {
           bg: "colorPalette.solid/50",
+        },
+        _dark: {
+          bg: "colorPalette.800",
+          color: "colorPalette.contrast",
+          borderColor: "colorPalette.contrast/60",
         },
       },
     },
@@ -158,6 +163,9 @@ const config = defineConfig({
         },
         actionBgLite: {
           value: { base: "{colors.action.subtle}", _dark: "{colors.action.800}" },
+        },
+        actionBgDark: {
+          value: { base: "{colors.action.800}", _dark: "{colors.action.800}" },
         },
         critical: {
           value: "{colors.action.solid}",

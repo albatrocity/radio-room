@@ -77,7 +77,6 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
             >
               <Link to="/">
                 <LuArrowLeft />
-                Back to Rooms
               </Link>
             </IconButton>
           </Box>
