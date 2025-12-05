@@ -68,9 +68,20 @@ export class AdminHandlers {
         },
       })
 
-      // Emit kicked event via SystemEvents with standardized payload
-      if (socket.context.systemEvents) {
-        await socket.context.systemEvents.emit(socket.data.roomId, "USER_KICKED", {
+      // Send USER_KICKED directly to the kicked user's socket (NOT broadcast to room)
+      // This prevents other users (including admin) from receiving the kick event
+      io.to(result.socketId).emit("event", {
+        type: "USER_KICKED",
+        data: {
+          roomId: socket.data.roomId,
+          user,
+          reason: result.message?.content || "Kicked from room",
+        },
+      })
+
+      // Emit to plugins only (not Socket.IO broadcast) so plugins can handle USER_KICKED
+      if (socket.context.pluginRegistry) {
+        await socket.context.pluginRegistry.emit(socket.data.roomId, "USER_KICKED", {
           roomId: socket.data.roomId,
           user,
           reason: result.message?.content || "Kicked from room",
