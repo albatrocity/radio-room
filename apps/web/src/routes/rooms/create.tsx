@@ -54,7 +54,8 @@ function CreateRoomPage() {
     sessionStorage.setItem("roomCreationInProgress", challenge)
     console.log("[CreateRoom] Starting room creation for user:", userId)
 
-    send("SET_REQUIREMENTS", {
+    send({
+      type: "SET_REQUIREMENTS",
       data: {
         challenge,
         userId,

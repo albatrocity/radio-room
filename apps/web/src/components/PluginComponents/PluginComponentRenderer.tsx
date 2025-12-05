@@ -17,7 +17,6 @@ import {
   checkShowWhenCondition,
 } from "@repo/utils"
 import { pluginComponentMachine } from "../../machines/pluginComponentMachine"
-import { getPluginComponentState } from "../../lib/serverApi"
 import { useCurrentRoom } from "../../hooks/useActors"
 import { PluginComponentContext } from "./context"
 import { TEMPLATE_COMPONENT_MAP } from "./templates"
@@ -115,28 +114,12 @@ export function PluginComponentProvider({
   const [openModals, setOpenModals] = useState<Set<string>>(new Set())
 
   // Create machine instance for this plugin
-  const [state, send] = useMachine(
-    pluginComponentMachine.withConfig({
-      services: {
-        fetchComponentState: async (context) => {
-          if (!context.roomId) {
-            throw new Error("Room ID is required")
-          }
-          const response = await getPluginComponentState(context.roomId, context.pluginName)
-          return response.state
-        },
-      },
-    }),
-    {
-      context: {
-        pluginName,
-        roomId: null,
-        storeKeys,
-        store: {},
-        error: null,
-      },
+  const [state, send] = useMachine(pluginComponentMachine, {
+    input: {
+      pluginName,
+      storeKeys,
     },
-  )
+  })
 
   // Update machine context when roomId changes
   useEffect(() => {

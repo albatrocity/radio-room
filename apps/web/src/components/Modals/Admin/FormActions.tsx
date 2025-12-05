@@ -1,6 +1,6 @@
 import { Button, HStack } from "@chakra-ui/react"
 import React from "react"
-import { useAdminStore } from "../../../state/adminStore"
+import { useIsDeleting } from "../../../hooks/useActors"
 
 type Props = {
   onCancel: () => void
@@ -9,8 +9,7 @@ type Props = {
 }
 
 const FormActions = ({ onSubmit, onCancel, dirty = false }: Props) => {
-  const { state: adminState } = useAdminStore()
-  const isDeleting = adminState.matches("deleting")
+  const isDeleting = useIsDeleting()
 
   return (
     <HStack gap={2}>

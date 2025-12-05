@@ -5,14 +5,14 @@
  * Always active, controls which modal is currently open.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { modalsMachine, Event as ModalsEvent } from "../machines/modalsMachine"
 
 // ============================================================================
 // Actor Instance
 // ============================================================================
 
-export const modalsActor = interpret(modalsMachine).start()
+export const modalsActor = createActor(modalsMachine).start()
 
 // ============================================================================
 // Public API

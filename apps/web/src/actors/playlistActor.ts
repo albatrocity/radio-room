@@ -5,7 +5,7 @@
  * Active in room, subscribes to socket events for playlist updates.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { playlistMachine } from "../machines/playlistMachine"
 import { subscribeActor, unsubscribeActor } from "./socketActor"
 import { QueueItem } from "../types/Queue"
@@ -14,7 +14,7 @@ import { QueueItem } from "../types/Queue"
 // Actor Instance
 // ============================================================================
 
-export const playlistActor = interpret(playlistMachine).start()
+export const playlistActor = createActor(playlistMachine).start()
 
 // ============================================================================
 // Lifecycle

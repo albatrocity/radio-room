@@ -1,4 +1,4 @@
-import { createMachine, assign } from "xstate"
+import { setup, assign } from "xstate"
 import { Reaction } from "../types/Reaction"
 import { ReactionSubject } from "../types/ReactionSubject"
 
@@ -11,37 +11,42 @@ export interface AllReactionsContext {
   reactions: ReactionsContext
 }
 
-export const allReactionsMachine = createMachine<AllReactionsContext>(
-  {
-    predictableActionArguments: true,
-    id: "allReactions",
-    initial: "connected",
-    context: {
-      reactions: {
-        message: {},
-        track: {},
-      },
-    },
-    on: {
-      REACTION_ADDED: {
-        actions: ["setData"],
-      },
-      REACTION_REMOVED: {
-        actions: ["setData"],
-      },
-      INIT: {
-        actions: ["setData"],
-      },
-    },
-    states: {
-      connected: {},
+type AllReactionsEvent =
+  | { type: "REACTION_ADDED"; data: { reactions: ReactionsContext } }
+  | { type: "REACTION_REMOVED"; data: { reactions: ReactionsContext } }
+  | { type: "INIT"; data: { reactions: ReactionsContext } }
+
+export const allReactionsMachine = setup({
+  types: {
+    context: {} as AllReactionsContext,
+    events: {} as AllReactionsEvent,
+  },
+  actions: {
+    setData: assign({
+      reactions: ({ event }) => event.data.reactions,
+    }),
+  },
+}).createMachine({
+  id: "allReactions",
+  initial: "connected",
+  context: {
+    reactions: {
+      message: {},
+      track: {},
     },
   },
-  {
-    actions: {
-      setData: assign({
-        reactions: (_context: {}, event) => event.data.reactions,
-      }),
+  on: {
+    REACTION_ADDED: {
+      actions: ["setData"],
+    },
+    REACTION_REMOVED: {
+      actions: ["setData"],
+    },
+    INIT: {
+      actions: ["setData"],
     },
   },
-)
+  states: {
+    connected: {},
+  },
+})

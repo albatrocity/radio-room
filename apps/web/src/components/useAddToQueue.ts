@@ -6,7 +6,7 @@ export default function useAddToQueue() {
   const [state, send] = useSocketMachine(queueMachine)
 
   function addToQueue(track: MetadataSourceTrack) {
-    send("SEND_TO_QUEUE", { track })
+    send({ type: "SEND_TO_QUEUE", track })
   }
 
   return { state, send, addToQueue }

@@ -1,6 +1,5 @@
 import { Formik } from "formik"
 import React from "react"
-import { useAdminStore } from "../../../state/adminStore"
 import {
   Checkbox,
   Field,
@@ -9,12 +8,12 @@ import {
   VStack,
 } from "@chakra-ui/react"
 import FormActions from "./FormActions"
-import { useModalsSend, useSettings } from "../../../hooks/useActors"
+import { useModalsSend, useSettings, useAdminSend } from "../../../hooks/useActors"
 
 export default function SpotifyFeatures() {
   const settings = useSettings()
   const modalSend = useModalsSend()
-  const { send } = useAdminStore()
+  const send = useAdminSend()
 
   return (
     <Formik
@@ -80,7 +79,7 @@ export default function SpotifyFeatures() {
           </DialogBody>
           <DialogFooter>
             <FormActions
-              onCancel={() => modalSend("CLOSE")}
+              onCancel={() => modalSend({ type: "CLOSE" })}
               onSubmit={handleSubmit}
               dirty={dirty}
             />

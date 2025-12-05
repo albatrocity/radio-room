@@ -25,7 +25,8 @@ const ReactionCounter = ({ reactTo, ...rest }: ReactionCounterProps) => {
   })
 
   useEffect(() => {
-    send("SET_REACT_TO", {
+    send({
+      type: "SET_REACT_TO",
       data: { reactTo, reactions: allReactions },
     })
   }, [reactTo, allReactions, send])
@@ -34,14 +35,14 @@ const ReactionCounter = ({ reactTo, ...rest }: ReactionCounterProps) => {
 
   const handleSelection = useCallback(
     (emoji: Emoji) => {
-      send("SELECT_REACTION", { data: emoji })
+      send({ type: "SELECT_REACTION", data: emoji })
     },
     [send],
   )
 
-  const handleClose = useCallback(() => send("CLOSE"), [send])
+  const handleClose = useCallback(() => send({ type: "CLOSE" }), [send])
 
-  const handleToggle = useCallback(() => send("TOGGLE", { data: { reactTo } }), [send, reactTo])
+  const handleToggle = useCallback(() => send({ type: "TOGGLE", data: { reactTo } }), [send, reactTo])
 
   return (
     <ReactionSelection

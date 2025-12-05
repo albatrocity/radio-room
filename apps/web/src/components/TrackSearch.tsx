@@ -21,7 +21,7 @@ function TrackSearch({ onChoose, onDropdownOpenChange }: Props) {
   const [inputState, inputSend] = useMachine(debounceInputMachine, {
     actions: {
       onSearchChange: (_context, event) => {
-        if (event.value && event.value !== "") send("FETCH_RESULTS", { value: event.value })
+        if (event.value && event.value !== "") send({ type: "FETCH_RESULTS", value: event.value })
       },
     },
   })
@@ -50,7 +50,7 @@ function TrackSearch({ onChoose, onDropdownOpenChange }: Props) {
           ),
         }}
         onInputChange={(value) => {
-          inputSend("SET_VALUE", { value })
+          inputSend({ type: "SET_VALUE", value })
         }}
         onChange={(value) => {
           onChoose(value)

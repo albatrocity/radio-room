@@ -7,7 +7,7 @@ import {
   GridItem,
   CloseButton,
 } from "@chakra-ui/react"
-import React from "react"
+import React, { useMemo } from "react"
 
 import { createToggleableCollectionMachine } from "../machines/toggleableCollectionMachine"
 import { useMachine } from "@xstate/react"
@@ -15,13 +15,17 @@ import { useMachine } from "@xstate/react"
 type Props = {}
 
 export default function AppIntro({}: Props) {
-  const [state, send] = useMachine(
-    createToggleableCollectionMachine({
-      name: "appIntroDismissals",
-      persistent: true,
-      collection: [{ id: "roomTypes" }, { id: "welcome" }],
-    }),
+  const machine = useMemo(
+    () =>
+      createToggleableCollectionMachine({
+        name: "appIntroDismissals",
+        persistent: true,
+        collection: [{ id: "roomTypes" }, { id: "welcome" }],
+      }),
+    [],
   )
+
+  const [state, send] = useMachine(machine)
 
   return (
     <>
@@ -33,7 +37,7 @@ export default function AppIntro({}: Props) {
                 <Heading size="lg">Welcome!</Heading>
                 <CloseButton
                   onClick={() =>
-                    send("TOGGLE_ITEM", { data: { id: "welcome" } })
+                    send({ type: "TOGGLE_ITEM", data: { id: "welcome" } })
                   }
                 />
               </HStack>

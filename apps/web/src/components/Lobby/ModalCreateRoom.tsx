@@ -20,7 +20,7 @@ export default function ModalCreateRoom({}: Props) {
   const loading = formState.matches("creating")
 
   const handleNext = () => {
-    formSend("NEXT")
+    formSend({ type: "NEXT" })
   }
 
   return (
@@ -32,7 +32,7 @@ export default function ModalCreateRoom({}: Props) {
         footer={
           <HStack justify="space-between" w="100%">
             {formState.matches("settings") && (
-              <Button variant="ghost" onClick={() => formSend("BACK")} disabled={loading}>
+              <Button variant="ghost" onClick={() => formSend({ type: "BACK" })} disabled={loading}>
                 <LuArrowLeft />
                 Back
               </Button>
@@ -69,7 +69,7 @@ export default function ModalCreateRoom({}: Props) {
               </Text>
               <RoomTypeSelect
                 onSelect={(type) => {
-                  formSend("SELECT_TYPE", { data: { type } })
+                  formSend({ type: "SELECT_TYPE", data: { type } })
                 }}
               />
             </VStack>
@@ -79,7 +79,7 @@ export default function ModalCreateRoom({}: Props) {
               roomType={formState.context.type}
               settings={formState.context}
               onChange={(settings: Partial<Room>) => {
-                formSend("SET_SETTINGS", { data: { settings } })
+                formSend({ type: "SET_SETTINGS", data: { settings } })
               }}
             />
           )}

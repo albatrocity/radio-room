@@ -5,7 +5,7 @@
  * Active in room, subscribes to socket events for user updates.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { usersMachine } from "../machines/usersMachine"
 import { subscribeActor, unsubscribeActor } from "./socketActor"
 import { User } from "../types/User"
@@ -14,7 +14,7 @@ import { User } from "../types/User"
 // Actor Instance
 // ============================================================================
 
-export const usersActor = interpret(usersMachine).start()
+export const usersActor = createActor(usersMachine).start()
 
 // ============================================================================
 // Lifecycle

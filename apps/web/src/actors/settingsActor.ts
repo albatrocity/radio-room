@@ -5,7 +5,7 @@
  * Active in room, subscribes to socket events for settings updates.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { settingsMachine } from "../machines/settingsMachine"
 import { subscribeActor, unsubscribeActor } from "./socketActor"
 import { Room } from "../types/Room"
@@ -14,7 +14,7 @@ import { Room } from "../types/Room"
 // Actor Instance
 // ============================================================================
 
-export const settingsActor = interpret(settingsMachine).start()
+export const settingsActor = createActor(settingsMachine).start()
 
 // ============================================================================
 // Lifecycle

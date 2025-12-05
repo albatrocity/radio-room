@@ -98,7 +98,7 @@ function DrawerPlaylist() {
   // Initialize selected playlist when drawer first opens or playlist loads
   useEffect(() => {
     if (isOpen && currentPlaylist.length > 0 && !hasInitialized.current) {
-      selectedPlaylistSend("SET_ITEMS", { data: currentPlaylist })
+      selectedPlaylistSend({ type: "SET_ITEMS", data: currentPlaylist })
       hasInitialized.current = true
     }
   }, [isOpen, currentPlaylist, selectedPlaylistSend])
@@ -111,13 +111,14 @@ function DrawerPlaylist() {
   }, [isOpen])
 
   const handleSelectionChange = (item: PlaylistItem) => {
-    selectedPlaylistSend("TOGGLE_ITEM", {
+    selectedPlaylistSend({
+      type: "TOGGLE_ITEM",
       data: { ...item, id: item.track.id },
     })
   }
   const handleNameChange = (name: string) => setName(name)
   const handleFilterChange = (emoji: Emoji) => {
-    filterSend("TOGGLE_ITEM", { data: emoji })
+    filterSend({ type: "TOGGLE_ITEM", data: emoji })
   }
   const handleTogglePlaylist = useCallback(
     () => playlistSend({ type: "TOGGLE_PLAYLIST" }),
@@ -129,7 +130,8 @@ function DrawerPlaylist() {
       e.stopPropagation()
       const trackIds = selectedPlaylistState.context.collection.map((item) => item.track.id)
 
-      send("SAVE_PLAYLIST", {
+      send({
+        type: "SAVE_PLAYLIST",
         name,
         trackIds,
       })
@@ -140,11 +142,12 @@ function DrawerPlaylist() {
   const handleSelect = (selection: "all" | "none" | "filtered") => {
     switch (selection) {
       case "all":
-        return selectedPlaylistSend("SET_ITEMS", { data: currentPlaylist })
+        return selectedPlaylistSend({ type: "SET_ITEMS", data: currentPlaylist })
       case "none":
-        return selectedPlaylistSend("CLEAR")
+        return selectedPlaylistSend({ type: "CLEAR" })
       case "filtered":
-        return selectedPlaylistSend("ADD_ITEMS", {
+        return selectedPlaylistSend({
+          type: "ADD_ITEMS",
           data: filteredPlaylistItems,
         })
     }

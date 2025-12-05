@@ -5,7 +5,7 @@
  * Active in jukebox rooms, subscribes to socket events.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { djMachine } from "../machines/djMachine"
 import { subscribeActor, unsubscribeActor } from "./socketActor"
 
@@ -13,7 +13,7 @@ import { subscribeActor, unsubscribeActor } from "./socketActor"
 // Actor Instance
 // ============================================================================
 
-export const djActor = interpret(djMachine).start()
+export const djActor = createActor(djMachine).start()
 
 // ============================================================================
 // Lifecycle

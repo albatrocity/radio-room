@@ -5,7 +5,7 @@
  * Active when user is admin, subscribes to socket events.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { adminMachine } from "../machines/adminMachine"
 import { subscribeActor, unsubscribeActor } from "./socketActor"
 
@@ -13,7 +13,7 @@ import { subscribeActor, unsubscribeActor } from "./socketActor"
 // Actor Instance
 // ============================================================================
 
-export const adminActor = interpret(adminMachine).start()
+export const adminActor = createActor(adminMachine).start()
 
 // ============================================================================
 // Lifecycle

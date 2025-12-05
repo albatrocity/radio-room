@@ -1,11 +1,6 @@
-import { assign, createMachine } from "xstate"
+import { assign, setup } from "xstate"
 import { MetadataSourceTrack } from "@repo/types"
 import { emitToSocket } from "../actors/socketActor"
-
-type RequestError = {
-  message: string
-  error?: any
-}
 
 export interface SavedTracksContext {
   savedTracks: MetadataSourceTrack[]
@@ -23,55 +18,54 @@ export type SavedTracksEvent =
     }
 
 // NOTE: This machine requires socket events. Use with useSocketMachine hook.
-export const savedTracksMachine = createMachine<SavedTracksContext, SavedTracksEvent>(
-  {
-    predictableActionArguments: true,
-    id: "saved-tracks",
-    initial: "loading",
-    context: {
-      savedTracks: [],
-      error: "",
+export const savedTracksMachine = setup({
+  types: {
+    context: {} as SavedTracksContext,
+    events: {} as SavedTracksEvent,
+  },
+  actions: {
+    fetchSavedTracks: () => {
+      emitToSocket("GET_SAVED_TRACKS", {})
     },
-    states: {
-      loading: {
-        entry: ["fetchSavedTracks"],
-        on: {
-          SAVED_TRACKS_RESULTS: {
-            target: "success",
-            actions: ["setResults"],
-          },
-          SAVED_TRACKS_RESULTS_FAILURE: {
-            target: "failure",
-            actions: ["setError"],
-          },
+    setResults: assign(({ event }) => {
+      if (event.type !== "SAVED_TRACKS_RESULTS") return {}
+      return {
+        savedTracks: event.data || [],
+      }
+    }),
+    setError: assign(({ event }) => {
+      if (event.type !== "SAVED_TRACKS_RESULTS_FAILURE") return {}
+      return {
+        error: event.error || "Failed to fetch saved tracks",
+      }
+    }),
+  },
+}).createMachine({
+  id: "saved-tracks",
+  initial: "loading",
+  context: {
+    savedTracks: [],
+    error: "",
+  },
+  states: {
+    loading: {
+      entry: ["fetchSavedTracks"],
+      on: {
+        SAVED_TRACKS_RESULTS: {
+          target: "success",
+          actions: ["setResults"],
+        },
+        SAVED_TRACKS_RESULTS_FAILURE: {
+          target: "failure",
+          actions: ["setError"],
         },
       },
-      success: {
-        id: "success",
-      },
-      failure: {
-        id: "failure",
-      },
+    },
+    success: {
+      id: "success",
+    },
+    failure: {
+      id: "failure",
     },
   },
-  {
-    actions: {
-      fetchSavedTracks: () => {
-        emitToSocket("GET_SAVED_TRACKS", {})
-      },
-      setResults: assign((_context, event) => {
-        if (event.type !== "SAVED_TRACKS_RESULTS") return {}
-        // Server returns already-transformed MetadataSourceTrack[]
-        return {
-          savedTracks: event.data || [],
-        }
-      }),
-      setError: assign((_ctx, event) => {
-        if (event.type !== "SAVED_TRACKS_RESULTS_FAILURE") return {}
-        return {
-          error: event.error || "Failed to fetch saved tracks",
-        }
-      }),
-    },
-  },
-)
+})

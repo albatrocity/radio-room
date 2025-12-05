@@ -5,7 +5,7 @@
  * Subscribes to socket events for server-side errors.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { errorHandlerMachine } from "../machines/errorHandlerMachine"
 import { subscribeActor } from "./socketActor"
 
@@ -13,7 +13,7 @@ import { subscribeActor } from "./socketActor"
 // Actor Instance
 // ============================================================================
 
-export const errorsActor = interpret(errorHandlerMachine).start()
+export const errorsActor = createActor(errorHandlerMachine).start()
 
 // Subscribe to socket events for error notifications
 subscribeActor(errorsActor)

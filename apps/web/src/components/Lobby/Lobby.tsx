@@ -19,18 +19,19 @@ export default function Lobby() {
   })
 
   async function handleRoomDelete(roomId: string) {
-    return fetchSend("DELETE_ROOM", { data: { roomId } })
+    return fetchSend({ type: "DELETE_ROOM", data: { roomId } })
   }
 
   useEffect(() => {
     if (user?.userId) {
-      fetchSend("FETCH", {
+      fetchSend({
+        type: "FETCH",
         data: {
           userId: user?.userId,
         },
       })
     } else {
-      fetchSend("SESSION_ENDED")
+      fetchSend({ type: "SESSION_ENDED" })
     }
   }, [user?.userId])
 

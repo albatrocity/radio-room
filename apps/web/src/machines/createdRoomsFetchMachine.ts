@@ -1,6 +1,6 @@
 // state machine for fetching saved tracks
 
-import { assign, createMachine } from "xstate"
+import { assign, setup, fromPromise } from "xstate"
 import {
   findUserCreatedRooms,
   RoomsResponse,
@@ -16,137 +16,134 @@ export interface RoomFetchContext {
   error: RoomError | null
 }
 
-async function fetchUserRooms(ctx: RoomFetchContext) {
-  if (ctx.userId) {
+export type RoomFetchEvent =
+  | { type: "xstate.done.actor.fetchUserRooms"; output: RoomsResponse }
+  | { type: "xstate.error.actor.fetchUserRooms"; error: RoomError }
+  | { type: "xstate.done.actor.deleteRoom"; output: void }
+  | { type: "xstate.error.actor.deleteRoom"; error: RoomError }
+  | { type: "FETCH"; data: { userId: User["userId"] } }
+  | { type: "DELETE_ROOM"; data: { roomId: string } }
+  | { type: "SESSION_ENDED" }
+
+const fetchUserRoomsLogic = fromPromise<RoomsResponse, { userId?: string }>(async ({ input }) => {
+  if (input.userId) {
     const results = await findUserCreatedRooms()
     return results
   }
   throw new Error("No userId provided")
-}
+})
 
-async function deleteRoom(_ctx: RoomFetchContext, event: RoomFetchEvent) {
-  if (event.type === "DELETE_ROOM") {
-    await deleteRoomData(event.data.roomId)
-  }
-}
+const deleteRoomLogic = fromPromise<void, { roomId: string }>(async ({ input }) => {
+  await deleteRoomData(input.roomId)
+})
 
-export type RoomFetchEvent =
-  | {
-      type: "done.invoke.fetchUserRooms"
-      data: RoomsResponse
-      error?: null
-    }
-  | {
-      type: "error.invoke.fetchUserRooms"
-      data: RoomsResponse
-      error: RoomError
-    }
-  | { type: "FETCH"; data: { userId: User["userId"] }; error?: string }
-  | { type: "DELETE_ROOM"; data: { roomId: string } }
-  | { type: "SESSION_ENDED" }
-
-export const createdRoomsFetchMachine = createMachine<
-  RoomFetchContext,
-  RoomFetchEvent
->(
-  {
-    id: "createdRoomsFetch",
-    predictableActionArguments: true,
-    initial: "initial",
-    context: {
-      userId: undefined,
-      rooms: [],
-      error: null,
-    },
-    on: {
-      FETCH: {
-        target: "loading",
-        actions: ["setUserId"],
-      },
-      SESSION_ENDED: {
-        target: "initial",
-        actions: ["reset"],
-      },
-    },
-    states: {
-      initial: {},
-      loading: {
-        invoke: {
-          id: "fetchUserRooms",
-          src: fetchUserRooms,
-          onDone: {
-            target: "success",
-            actions: ["setRooms"],
-          },
-          onError: {
-            target: "error",
-            actions: ["setError"],
-          },
-        },
-      },
-      deleting: {
-        invoke: {
-          id: "deleteRoom",
-          src: deleteRoom,
-          onDone: {
-            target: "loading",
-            actions: [
-              () => {
-                toast({
-                  title: "Room deleted",
-                  description: "Your room has been deleted",
-                  status: "success",
-                })
-              },
-            ],
-          },
-          onError: {
-            target: "error",
-            actions: ["setError"],
-          },
-        },
-      },
-      success: {
-        on: {
-          DELETE_ROOM: {
-            target: "deleting",
-          },
-        },
-      },
-      error: {
-        entry: ["onError"],
-      },
+export const createdRoomsFetchMachine = setup({
+  types: {
+    context: {} as RoomFetchContext,
+    events: {} as RoomFetchEvent,
+  },
+  actors: {
+    fetchUserRooms: fetchUserRoomsLogic,
+    deleteRoom: deleteRoomLogic,
+  },
+  actions: {
+    setError: assign(({ context, event }) => {
+      if (event.type !== "xstate.error.actor.fetchUserRooms") return context
+      return {
+        error: event.error,
+      }
+    }),
+    setUserId: assign(({ context, event }) => {
+      if (event.type !== "FETCH") return context
+      return {
+        userId: event.data.userId,
+      }
+    }),
+    setRooms: assign(({ context, event }) => {
+      if (event.type !== "xstate.done.actor.fetchUserRooms") {
+        return context
+      }
+      return {
+        rooms: event.output.rooms,
+      }
+    }),
+    reset: assign(() => {
+      return {
+        userId: undefined,
+        rooms: [],
+        error: null,
+      }
+    }),
+    notifyRoomDeleted: () => {
+      toast({
+        title: "Room deleted",
+        description: "Your room has been deleted",
+        status: "success",
+      })
     },
   },
-  {
-    actions: {
-      setError: assign((ctx, event) => {
-        if (event.type !== "error.invoke.fetchUserRooms") return ctx
-        return {
-          error: event.error,
-        }
-      }),
-      setUserId: assign((ctx, event) => {
-        if (event.type !== "FETCH") return ctx
-        return {
-          userId: event.data.userId,
-        }
-      }),
-      setRooms: assign((ctx, event) => {
-        if (event.type !== "done.invoke.fetchUserRooms") {
-          return ctx
-        }
-        return {
-          rooms: event.data.rooms,
-        }
-      }),
-      reset: assign((ctx) => {
-        return {
-          userId: undefined,
-          rooms: [],
-          error: null,
-        }
-      }),
+}).createMachine({
+  id: "createdRoomsFetch",
+  initial: "initial",
+  context: {
+    userId: undefined,
+    rooms: [],
+    error: null,
+  },
+  on: {
+    FETCH: {
+      target: ".loading",
+      actions: ["setUserId"],
+    },
+    SESSION_ENDED: {
+      target: ".initial",
+      actions: ["reset"],
     },
   },
-)
+  states: {
+    initial: {},
+    loading: {
+      invoke: {
+        id: "fetchUserRooms",
+        src: "fetchUserRooms",
+        input: ({ context }) => ({ userId: context.userId }),
+        onDone: {
+          target: "success",
+          actions: ["setRooms"],
+        },
+        onError: {
+          target: "error",
+          actions: ["setError"],
+        },
+      },
+    },
+    deleting: {
+      invoke: {
+        id: "deleteRoom",
+        src: "deleteRoom",
+        input: ({ event }) => {
+          if (event.type === "DELETE_ROOM") {
+            return { roomId: event.data.roomId }
+          }
+          return { roomId: "" }
+        },
+        onDone: {
+          target: "loading",
+          actions: ["notifyRoomDeleted"],
+        },
+        onError: {
+          target: "error",
+          actions: ["setError"],
+        },
+      },
+    },
+    success: {
+      on: {
+        DELETE_ROOM: {
+          target: "deleting",
+        },
+      },
+    },
+    error: {},
+  },
+})

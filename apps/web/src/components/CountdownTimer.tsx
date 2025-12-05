@@ -13,7 +13,8 @@ export function CountdownTimer({
   duration = 60000,
   ...props
 }: Readonly<CountdownTimerProps>) {
-  const [state] = useMachine(createTimerMachine({ start, duration }))
+  const machine = useMemo(() => createTimerMachine({ start, duration }), [start, duration])
+  const [state] = useMachine(machine)
 
   return (
     <Text {...props}>
@@ -41,7 +42,8 @@ export const CountdownTimerProvider = ({
   start: number
   duration: number
 }) => {
-  const [state] = useMachine(createTimerMachine({ start, duration }))
+  const machine = useMemo(() => createTimerMachine({ start, duration }), [start, duration])
+  const [state] = useMachine(machine)
 
   const value = useMemo(() => {
     return {

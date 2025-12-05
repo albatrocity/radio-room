@@ -5,7 +5,7 @@
  * Always active, subscribes to socket events for auth-related messages.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { authMachine, AuthContext } from "../machines/authMachine"
 import { subscribeActor } from "./socketActor"
 
@@ -13,7 +13,7 @@ import { subscribeActor } from "./socketActor"
 // Actor Instance
 // ============================================================================
 
-export const authActor = interpret(authMachine).start()
+export const authActor = createActor(authMachine).start()
 
 // Subscribe to socket events
 subscribeActor(authActor)

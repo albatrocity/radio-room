@@ -1,6 +1,5 @@
 import { Formik } from "formik"
 import React from "react"
-import { useAdminStore } from "../../../state/adminStore"
 import {
   Field,
   DialogBody,
@@ -8,15 +7,15 @@ import {
   VStack,
 } from "@chakra-ui/react"
 import FormActions from "./FormActions"
-import { useModalsSend, useSettings } from "../../../hooks/useActors"
+import { useModalsSend, useSettings, useAdminSend } from "../../../hooks/useActors"
 import FieldText from "../../Fields/FieldText"
 
 function Password() {
   const settings = useSettings()
   const modalSend = useModalsSend()
-  const { send } = useAdminStore()
+  const send = useAdminSend()
 
-  const onCancel = () => modalSend("CLOSE")
+  const onCancel = () => modalSend({ type: "CLOSE" })
 
   return (
     <Formik

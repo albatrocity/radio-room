@@ -1,6 +1,5 @@
 import { Formik } from "formik"
 import React from "react"
-import { useAdminStore } from "../../../state/adminStore"
 import {
   Checkbox,
   Field,
@@ -11,14 +10,14 @@ import {
   VStack,
 } from "@chakra-ui/react"
 import FormActions from "./FormActions"
-import { useModalsSend, useCurrentRoomHasAudio, useSettings } from "../../../hooks/useActors"
+import { useModalsSend, useCurrentRoomHasAudio, useSettings, useAdminSend } from "../../../hooks/useActors"
 import RadioProtocolSelect from "../../RadioProtocolSelect"
 
 function Content() {
   const hasAudio = useCurrentRoomHasAudio()
   const settings = useSettings()
   const modalSend = useModalsSend()
-  const { send } = useAdminStore()
+  const send = useAdminSend()
 
   return (
     <Formik
@@ -193,7 +192,7 @@ function Content() {
           </DialogBody>
           <DialogFooter>
             <FormActions
-              onCancel={() => modalSend("CLOSE")}
+              onCancel={() => modalSend({ type: "CLOSE" })}
               onSubmit={handleSubmit}
               dirty={dirty}
             />

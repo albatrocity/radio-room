@@ -5,7 +5,7 @@
  * Always active, persists to session storage.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { createToggleableCollectionMachine } from "../machines/toggleableCollectionMachine"
 import { ChatMessage } from "../types/ChatMessage"
 
@@ -20,7 +20,7 @@ const bookmarksMachine = createToggleableCollectionMachine({
   collection: [],
 })
 
-export const bookmarkedChatActor = interpret(bookmarksMachine).start()
+export const bookmarkedChatActor = createActor(bookmarksMachine).start()
 
 // ============================================================================
 // Public API

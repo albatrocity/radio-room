@@ -45,9 +45,9 @@ function ModalAdminSettings() {
   const isEditingSettings = state.matches("settings")
   const { schemas } = usePluginSchemas()
 
-  const hideEditForm = () => send("CLOSE")
+  const hideEditForm = () => send({ type: "CLOSE" })
   const onBack = () => {
-    send("BACK")
+    send({ type: "BACK" })
   }
 
   const isTriggersView =

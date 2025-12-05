@@ -1,6 +1,7 @@
-import { createMachine, assign, interpret } from "xstate"
+import { setup, assign, fromCallback, fromPromise } from "xstate"
 import type { PluginComponentState } from "../types/PluginComponent"
 import { subscribeById, unsubscribeById } from "../actors/socketActor"
+import { getPluginComponentState } from "../lib/serverApi"
 
 // ============================================================================
 // Context & Events
@@ -26,17 +27,19 @@ export type PluginComponentEvent =
   | { type: "SOCKET_RECONNECTING"; data: Record<string, unknown> }
   | { type: "SOCKET_RECONNECTED"; data: Record<string, unknown> }
   | { type: "SOCKET_RECONNECT_FAILED"; data: Record<string, unknown> }
+  | { type: "xstate.done.actor.fetchComponentState"; output: PluginComponentState }
+  | { type: "xstate.error.actor.fetchComponentState"; error: Error }
   | { type: string; data?: any } // For plugin-specific events
 
 // ============================================================================
-// Services
+// Actors
 // ============================================================================
 
 /**
- * Creates a socket subscription service that filters events for a specific plugin.
+ * Socket subscription actor that filters events for a specific plugin.
  * Only forwards PLUGIN:{pluginName}:* events to the machine.
  *
- * Design Note: This service intentionally ONLY listens to plugin events, not system events.
+ * Design Note: This actor intentionally ONLY listens to plugin events, not system events.
  * This keeps the machine simple and gives plugins full control over data transformation.
  *
  * Event Flow:
@@ -46,11 +49,12 @@ export type PluginComponentEvent =
  *   TRACK_CHANGED → onTrackChanged() → extract playedAt → emit("TRACK_STARTED", {trackStartTime})
  *   → Machine receives PLUGIN:playlist-democracy:TRACK_STARTED
  */
-function createPluginSocketService(pluginName: string, storeKeys: string[]) {
-  // Generate a unique subscription ID for this plugin instance
-  const subscriptionId = `plugin:${pluginName}:${Date.now()}`
+const pluginSocketActor = fromCallback<PluginComponentEvent, { pluginName: string; storeKeys: string[] }>(
+  ({ sendBack, input }) => {
+    const { pluginName, storeKeys } = input
+    // Generate a unique subscription ID for this plugin instance
+    const subscriptionId = `plugin:${pluginName}:${Date.now()}`
 
-  return (callback: (event: PluginComponentEvent) => void) => {
     // Create a subscriber that receives events from socketActor and filters them
     const subscriber = {
       send: (event: { type: string; data?: any }) => {
@@ -63,7 +67,7 @@ function createPluginSocketService(pluginName: string, storeKeys: string[]) {
           event.type === "SOCKET_RECONNECTED" ||
           event.type === "SOCKET_RECONNECT_FAILED"
         ) {
-          callback({ type: event.type, data: event.data || {} })
+          sendBack({ type: event.type, data: event.data || {} })
           return
         }
 
@@ -82,7 +86,7 @@ function createPluginSocketService(pluginName: string, storeKeys: string[]) {
         if (!hasRelevantData) return
 
         // Forward as PLUGIN_EVENT
-        callback({
+        sendBack({
           type: "PLUGIN_EVENT",
           data: event.data as Record<string, unknown>,
         })
@@ -96,8 +100,8 @@ function createPluginSocketService(pluginName: string, storeKeys: string[]) {
     return () => {
       unsubscribeById(subscriptionId)
     }
-  }
-}
+  },
+)
 
 // ============================================================================
 // Machine Definition
@@ -121,30 +125,114 @@ function createPluginSocketService(pluginName: string, storeKeys: string[]) {
  * This keeps the machine simple and gives plugins full control over data transformation.
  *
  * This machine should be instantiated with a services implementation
- * for fetchComponentState via withConfig().
+ * for fetchComponentState via .provide().
  */
-export const pluginComponentMachine = createMachine<PluginComponentContext, PluginComponentEvent>({
+interface PluginComponentInput {
+  pluginName: string
+  storeKeys: string[]
+}
+
+export const pluginComponentMachine = setup({
+  types: {
+    context: {} as PluginComponentContext,
+    events: {} as PluginComponentEvent,
+    input: {} as PluginComponentInput,
+  },
+  guards: {
+    hasRoomId: ({ context }) => context.roomId !== null,
+  },
+  actors: {
+    fetchComponentState: fromPromise(
+      async ({ input }: { input: { roomId: string; pluginName: string } }) => {
+        const response = await getPluginComponentState(input.roomId, input.pluginName)
+        return response.state
+      },
+    ),
+    pluginSocket: pluginSocketActor,
+  },
+  actions: {
+    setRoomId: assign({
+      roomId: ({ event }) => {
+        if (event.type === "SET_ROOM_ID") {
+          return event.roomId
+        }
+        return null
+      },
+    }),
+    setStore: assign({
+      store: ({ event }) => {
+        if (event.type === "xstate.done.actor.fetchComponentState") {
+          return event.output
+        }
+        return {}
+      },
+      error: null,
+    }),
+    setError: assign({
+      error: ({ event }) => {
+        if (event.type === "xstate.error.actor.fetchComponentState") {
+          return event.error instanceof Error
+            ? event.error
+            : new Error("Failed to fetch plugin component state")
+        }
+        return null
+      },
+    }),
+    updateStoreFromPluginEvent: assign({
+      store: ({ context, event }) => {
+        if (event.type !== "PLUGIN_EVENT") return context.store
+
+        // Event data already contains the relevant updates (filtered by service)
+        const updates: Record<string, unknown> = {}
+        for (const key of context.storeKeys) {
+          if (key in event.data) {
+            updates[key] = event.data[key]
+          }
+        }
+
+        // Only update if there are matching keys
+        if (Object.keys(updates).length === 0) return context.store
+
+        return {
+          ...context.store,
+          ...updates,
+        }
+      },
+    }),
+    updateStore: assign({
+      store: ({ context, event }) => {
+        if (event.type === "UPDATE_STORE") {
+          return { ...context.store, ...event.updates }
+        }
+        return context.store
+      },
+    }),
+    resetContext: assign({
+      roomId: null,
+      store: {},
+      error: null,
+    }),
+  },
+}).createMachine({
   id: "pluginComponent",
   initial: "idle",
-  context: {
-    pluginName: "",
+  context: ({ input }) => ({
+    pluginName: input.pluginName,
     roomId: null,
-    storeKeys: [],
+    storeKeys: input.storeKeys,
     store: {},
     error: null,
-  },
+  }),
   states: {
     idle: {
       // Automatically transition to fetching when roomId becomes available
       always: {
         target: "fetching",
-        cond: (context) => context.roomId !== null,
+        guard: "hasRoomId",
       },
       on: {
         SET_ROOM_ID: {
-          actions: assign({
-            roomId: (_, event) => event.roomId,
-          }),
+          actions: "setRoomId",
         },
       },
     },
@@ -152,76 +240,45 @@ export const pluginComponentMachine = createMachine<PluginComponentContext, Plug
       invoke: {
         id: "fetchComponentState",
         src: "fetchComponentState",
+        input: ({ context }) => ({
+          roomId: context.roomId!,
+          pluginName: context.pluginName,
+        }),
         onDone: {
           target: "ready",
-          actions: assign({
-            store: (_, event) => event.data as PluginComponentState,
-            error: null,
-          }),
+          actions: "setStore",
         },
         onError: {
           target: "error",
-          actions: assign({
-            error: (_, event) =>
-              event.data instanceof Error
-                ? event.data
-                : new Error("Failed to fetch plugin component state"),
-          }),
+          actions: "setError",
         },
       },
     },
     ready: {
-      // Invoke socket service to listen for plugin events
+      // Invoke socket actor to listen for plugin events
       invoke: {
         id: "pluginSocket",
-        src: (context) => createPluginSocketService(context.pluginName, context.storeKeys),
+        src: "pluginSocket",
+        input: ({ context }) => ({
+          pluginName: context.pluginName,
+          storeKeys: context.storeKeys,
+        }),
       },
       on: {
         PLUGIN_EVENT: {
-          actions: assign({
-            store: (context, event) => {
-              if (event.type !== "PLUGIN_EVENT") return context.store
-
-              // Event data already contains the relevant updates (filtered by service)
-              const updates: Record<string, unknown> = {}
-              for (const key of context.storeKeys) {
-                if (key in event.data) {
-                  updates[key] = event.data[key]
-                }
-              }
-
-              // Only update if there are matching keys
-              if (Object.keys(updates).length === 0) return context.store
-
-              return {
-                ...context.store,
-                ...updates,
-              }
-            },
-          }),
+          actions: "updateStoreFromPluginEvent",
         },
         UPDATE_STORE: {
-          actions: assign({
-            store: (context, event) =>
-              event.type === "UPDATE_STORE"
-                ? { ...context.store, ...event.updates }
-                : context.store,
-          }),
+          actions: "updateStore",
         },
         SET_ROOM_ID: {
           // If roomId changes, refetch
           target: "fetching",
-          actions: assign({
-            roomId: (_, event) => event.roomId,
-          }),
+          actions: "setRoomId",
         },
         RESET: {
           target: "idle",
-          actions: assign({
-            roomId: null,
-            store: {},
-            error: null,
-          }),
+          actions: "resetContext",
         },
       },
     },
@@ -230,11 +287,7 @@ export const pluginComponentMachine = createMachine<PluginComponentContext, Plug
         RETRY: "fetching",
         RESET: {
           target: "idle",
-          actions: assign({
-            roomId: null,
-            store: {},
-            error: null,
-          }),
+          actions: "resetContext",
         },
       },
     },

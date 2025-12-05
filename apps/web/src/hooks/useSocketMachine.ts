@@ -19,7 +19,7 @@
 
 import { useEffect } from "react"
 import { useMachine } from "@xstate/react"
-import { AnyStateMachine, InterpreterFrom } from "xstate"
+import { AnyStateMachine } from "xstate"
 import { subscribeActor, unsubscribeActor } from "../actors/socketActor"
 
 /**
@@ -36,17 +36,17 @@ export function useSocketMachine<TMachine extends AnyStateMachine>(
   options?: Parameters<typeof useMachine<TMachine>>[1],
 ): ReturnType<typeof useMachine<TMachine>> {
   const result = useMachine(machine, options)
-  const service = result[2] as InterpreterFrom<TMachine>
+  // In XState v5, useMachine returns [state, send, actorRef]
+  const actorRef = result[2]
 
   useEffect(() => {
-    // Subscribe the machine's service (interpreter) to socket events
-    subscribeActor(service)
+    // Subscribe the machine's actorRef to socket events
+    subscribeActor(actorRef)
 
     return () => {
-      unsubscribeActor(service)
+      unsubscribeActor(actorRef)
     }
-  }, [service])
+  }, [actorRef])
 
   return result
 }
-

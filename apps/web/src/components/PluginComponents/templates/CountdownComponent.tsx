@@ -1,5 +1,6 @@
 import { Text } from "@chakra-ui/react"
 import { useMachine } from "@xstate/react"
+import { useMemo } from "react"
 import { createTimerMachine } from "../../../machines/TimerMachine"
 import { usePluginComponentContext } from "../context"
 import type { CountdownComponentProps } from "../../../types/PluginComponent"
@@ -58,7 +59,8 @@ function CountdownTimerDisplay({
   duration: number
   textColor?: string
 }) {
-  const [state] = useMachine(createTimerMachine({ start, duration }))
+  const machine = useMemo(() => createTimerMachine({ start, duration }), [start, duration])
+  const [state] = useMachine(machine)
 
   const isExpired = state.matches("expired")
   const remaining = Math.round(state.context.remaining / 1000)

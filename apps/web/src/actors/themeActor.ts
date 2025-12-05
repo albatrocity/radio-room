@@ -5,7 +5,7 @@
  * Always active, persists theme selection to session storage.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { themeMachine } from "../machines/themeMachine"
 import { AppTheme } from "../types/AppTheme"
 
@@ -13,7 +13,7 @@ import { AppTheme } from "../types/AppTheme"
 // Actor Instance
 // ============================================================================
 
-export const themeActor = interpret(themeMachine).start()
+export const themeActor = createActor(themeMachine).start()
 
 // ============================================================================
 // Public API

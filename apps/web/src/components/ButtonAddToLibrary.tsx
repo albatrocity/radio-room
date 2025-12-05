@@ -18,7 +18,7 @@ export default function ButtonAddToLibrary({ id }: Props) {
 
   useEffect(() => {
     if (id) {
-      send("SET_IDS", { data: [id] })
+      send({ type: "SET_IDS", data: [id] })
     }
   }, [id])
 
@@ -37,7 +37,7 @@ export default function ButtonAddToLibrary({ id }: Props) {
       loading={state.matches("loading")}
       disabled={state.matches("loading")}
       onClick={() => {
-        isAdded ? send("REMOVE", { data: [id] }) : send("ADD", { data: [id] })
+        isAdded ? send({ type: "REMOVE", data: [id] }) : send({ type: "ADD", data: [id] })
       }}
     >
       {isAdded ? <FaHeart /> : <FaRegHeart />}

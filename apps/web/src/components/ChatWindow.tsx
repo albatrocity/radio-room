@@ -78,7 +78,7 @@ function ChatWindow() {
         itemContent={renderComponent}
         ref={virtuosoRef}
         followOutput={"smooth"}
-        atBottomStateChange={(atBottom) => send(atBottom ? "ATTACH" : "DETACH")}
+        atBottomStateChange={(atBottom) => send({ type: atBottom ? "ATTACH" : "DETACH" })}
         alignToBottom
         initialTopMostItemIndex={messages.length - 1}
       />

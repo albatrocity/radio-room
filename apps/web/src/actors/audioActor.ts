@@ -5,7 +5,7 @@
  * Active in rooms with audio (radio type), subscribes to socket events.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { audioMachine } from "../machines/audioMachine"
 import { subscribeActor, unsubscribeActor } from "./socketActor"
 import { RoomMeta } from "../types/Room"
@@ -14,7 +14,7 @@ import { RoomMeta } from "../types/Room"
 // Actor Instance
 // ============================================================================
 
-export const audioActor = interpret(audioMachine).start()
+export const audioActor = createActor(audioMachine).start()
 
 // ============================================================================
 // Lifecycle

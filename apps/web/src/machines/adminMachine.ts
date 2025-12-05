@@ -1,4 +1,4 @@
-import { createMachine } from "xstate"
+import { setup, fromPromise } from "xstate"
 
 import { toast } from "../lib/toasts"
 import { getIsAdmin } from "../actors/authActor"
@@ -12,88 +12,104 @@ type DeleteRoomEvent = {
 
 type AdminEvent =
   | {
-      type: string
-      data?: any
-      userId?: string
+      type: "SET_SETTINGS"
+      data: any
+    }
+  | {
+      type: "CLEAR_PLAYLIST"
+    }
+  | {
+      type: "DEPUTIZE_DJ"
+      userId: string
     }
   | DeleteRoomEvent
 
-async function deleteRoom(_ctx: any, event: AdminEvent) {
-  console.log("delete the room", event)
-  if (event.type === "DELETE_ROOM") {
-    await deleteRoomData(event.data.id)
-  }
-}
+interface AdminContext {}
 
-export const adminMachine = createMachine<any, AdminEvent>(
-  {
-    predictableActionArguments: true,
-    id: "admin",
-    initial: "idle",
-    on: {
-      SET_SETTINGS: { actions: ["setSettings", "notify"], cond: "isAdmin" },
-      CLEAR_PLAYLIST: { actions: ["clearPlaylist"], cond: "isAdmin" },
-      DELETE_ROOM: { target: "deleting", cond: "isAdmin" },
-      DEPUTIZE_DJ: { actions: ["deputizeDj"], cond: "isAdmin" },
+const deleteRoomLogic = fromPromise<void, { id: string }>(async ({ input }) => {
+  await deleteRoomData(input.id)
+})
+
+export const adminMachine = setup({
+  types: {
+    context: {} as AdminContext,
+    events: {} as AdminEvent,
+  },
+  actors: {
+    deleteRoom: deleteRoomLogic,
+  },
+  guards: {
+    isAdmin: () => {
+      return getIsAdmin()
     },
-    states: {
-      idle: {},
-      deleting: {
-        invoke: {
-          id: "deleteRoom",
-          src: deleteRoom,
-          onDone: {
-            actions: [
-              () => {
-                toast({
-                  title: "Room deleted",
-                  description: "Your room has been deleted",
-                  status: "success",
-                })
-              },
-              () => {
-                window.location.href = "/"
-              },
-            ],
-          },
-          onError: {
-            actions: () => {
-              toast({
-                title: "Error deleting room",
-                description: "There was an error deleting your room",
-                status: "error",
-              })
-            },
-          },
+  },
+  actions: {
+    deputizeDj: ({ event }) => {
+      if (event.type !== "DEPUTIZE_DJ") return
+      emitToSocket("DEPUTIZE_DJ", event.userId)
+    },
+    setSettings: ({ event }) => {
+      if (event.type !== "SET_SETTINGS") return
+      emitToSocket("SET_ROOM_SETTINGS", event.data)
+    },
+    clearPlaylist: () => {
+      emitToSocket("CLEAR_PLAYLIST", {})
+    },
+    notify: () => {
+      toast({
+        title: "Settings updated",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      })
+    },
+    onDeleteSuccess: () => {
+      toast({
+        title: "Room deleted",
+        description: "Your room has been deleted",
+        status: "success",
+      })
+      window.location.href = "/"
+    },
+    onDeleteError: () => {
+      toast({
+        title: "Error deleting room",
+        description: "There was an error deleting your room",
+        status: "error",
+      })
+    },
+  },
+}).createMachine({
+  id: "admin",
+  initial: "idle",
+  context: {},
+  on: {
+    SET_SETTINGS: { actions: ["setSettings", "notify"], guard: "isAdmin" },
+    CLEAR_PLAYLIST: { actions: ["clearPlaylist"], guard: "isAdmin" },
+    DELETE_ROOM: { target: ".deleting", guard: "isAdmin" },
+    DEPUTIZE_DJ: { actions: ["deputizeDj"], guard: "isAdmin" },
+  },
+  states: {
+    idle: {},
+    deleting: {
+      invoke: {
+        id: "deleteRoom",
+        src: "deleteRoom",
+        input: ({ event }) => {
+          if (event.type === "DELETE_ROOM") {
+            return { id: event.data.id }
+          }
+          return { id: "" }
+        },
+        onDone: {
+          target: "idle",
+          actions: ["onDeleteSuccess"],
+        },
+        onError: {
+          target: "idle",
+          actions: ["onDeleteError"],
         },
       },
     },
   },
-  {
-    guards: {
-      isAdmin: () => {
-        return getIsAdmin()
-      },
-    },
-    actions: {
-      deputizeDj: (_ctx, event) => {
-        if (event.type !== "DEPUTIZE_DJ") return
-        emitToSocket("DEPUTIZE_DJ", event.userId)
-      },
-      setSettings: (_ctx, event) => {
-        emitToSocket("SET_ROOM_SETTINGS", event.data)
-      },
-      clearPlaylist: () => {
-        emitToSocket("CLEAR_PLAYLIST", {})
-      },
-      notify: () => {
-        toast({
-          title: "Settings updated",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        })
-      },
-    },
-  },
-)
+})

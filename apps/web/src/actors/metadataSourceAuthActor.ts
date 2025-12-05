@@ -5,7 +5,7 @@
  * Active when DJ features are used, subscribes to socket events.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { metadataSourceAuthMachine } from "../machines/metadataSourceAuthMachine"
 import { subscribeActor, unsubscribeActor } from "./socketActor"
 
@@ -13,7 +13,7 @@ import { subscribeActor, unsubscribeActor } from "./socketActor"
 // Actor Instance
 // ============================================================================
 
-export const metadataSourceAuthActor = interpret(metadataSourceAuthMachine).start()
+export const metadataSourceAuthActor = createActor(metadataSourceAuthMachine).start()
 
 // ============================================================================
 // Lifecycle

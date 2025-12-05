@@ -1,38 +1,42 @@
-import { createMachine, assign } from "xstate"
+import { setup, assign } from "xstate"
 import { User } from "../types/User"
 
 interface Context {
   typing: User[]
 }
 
-export const typingMachine = createMachine<Context>(
-  {
-    predictableActionArguments: true,
-    id: "typing",
-    initial: "connected",
-    context: {
-      typing: [],
-    },
-    on: {
-      TYPING_CHANGED: {
-        actions: ["setTyping"],
+type TypingEvent =
+  | { type: "TYPING_CHANGED"; data: { typing: User[] } }
+  | { type: "INIT"; data: { typing?: User[] } }
+
+export const typingMachine = setup({
+  types: {
+    context: {} as Context,
+    events: {} as TypingEvent,
+  },
+  actions: {
+    setTyping: assign({
+      typing: ({ event }) => {
+        return event.data.typing || []
       },
-      INIT: {
-        actions: ["setTyping"],
-      },
+    }),
+  },
+}).createMachine({
+  id: "typing",
+  initial: "connected",
+  context: {
+    typing: [],
+  },
+  on: {
+    TYPING_CHANGED: {
+      actions: ["setTyping"],
     },
-    states: {
-      disconnected: {},
-      connected: {},
+    INIT: {
+      actions: ["setTyping"],
     },
   },
-  {
-    actions: {
-      setTyping: assign({
-        typing: (_context, event) => {
-          return event.data.typing || []
-        },
-      }),
-    },
+  states: {
+    disconnected: {},
+    connected: {},
   },
-)
+})

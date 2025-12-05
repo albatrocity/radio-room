@@ -1,8 +1,7 @@
 import React, { useMemo } from "react"
 import { Formik } from "formik"
 import { DialogBody, DialogFooter, Text, Spinner, Center, VStack } from "@chakra-ui/react"
-import { useAdminStore } from "../../../state/adminStore"
-import { useModalsSend, useSettings } from "../../../hooks/useActors"
+import { useModalsSend, useSettings, useAdminSend } from "../../../hooks/useActors"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 import PluginConfigForm from "./PluginConfigForm"
 import FormActions from "./FormActions"
@@ -18,7 +17,7 @@ interface DynamicPluginSettingsProps {
 export default function DynamicPluginSettings({ pluginName }: DynamicPluginSettingsProps) {
   const settings = useSettings()
   const modalSend = useModalsSend()
-  const { send } = useAdminStore()
+  const send = useAdminSend()
   const { schemas, isLoading, error } = usePluginSchemas()
 
   // Find the schema for this plugin
@@ -109,7 +108,7 @@ export default function DynamicPluginSettings({ pluginName }: DynamicPluginSetti
           </DialogBody>
           <DialogFooter>
             <FormActions
-              onCancel={() => modalSend("CLOSE")}
+              onCancel={() => modalSend({ type: "CLOSE" })}
               onSubmit={handleSubmit}
               dirty={dirty}
             />

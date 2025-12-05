@@ -1,4 +1,4 @@
-import { createMachine, assign } from "xstate"
+import { setup, assign } from "xstate"
 import { Room } from "../types/Room"
 import { emitToSocket } from "../actors/socketActor"
 
@@ -38,99 +38,99 @@ type Event =
     }
   | { type: "SUBMIT"; target: "pending" }
 
-export const settingsMachine = createMachine<Context, Event>(
-  {
-    predictableActionArguments: true,
-    id: "settings",
-    initial: "pending",
-    context: {
-      announceUsernameChanges: true,
-      announceNowPlaying: true,
-      title: "",
-      fetchMeta: true,
-      extraInfo: "",
-      password: "",
-      artwork: undefined,
-      deputizeOnJoin: false,
-      enableSpotifyLogin: false,
-      type: "jukebox",
-      radioMetaUrl: "",
-      radioListenUrl: "",
-      pluginConfigs: {},
-    },
-    on: {
-      INIT: {
-        actions: "setPluginConfigs",
-      },
-      ROOM_SETTINGS: {
-        actions: "setValues",
-        target: "fetched",
-      },
-      ROOM_SETTINGS_UPDATED: {
-        actions: "setValues",
-      },
-      FETCH: "pending",
-    },
-    states: {
-      pending: {
-        entry: ["fetchSettings"],
-      },
-      failed: {},
-      fetched: {
-        initial: "untouched",
-        states: {
-          untouched: {
-            on: {
-              SUBMIT: { target: "pending" },
-            },
-          },
-          pending: {},
-          successful: {
-            after: {
-              2000: "untouched",
-            },
-          },
-          failed: {},
-        },
-      },
-    },
+export const settingsMachine = setup({
+  types: {
+    context: {} as Context,
+    events: {} as Event,
   },
-  {
-    actions: {
-      fetchSettings: () => {
-        emitToSocket("GET_ROOM_SETTINGS", {})
-      },
-      setPluginConfigs: assign((ctx, event) => {
-        if (event.type === "INIT" && event.data.pluginConfigs) {
-          return { pluginConfigs: event.data.pluginConfigs }
-        }
-        return ctx
-      }),
-      setValues: assign((ctx, event) => {
-        if (event.type === "ROOM_SETTINGS" || event.type === "ROOM_SETTINGS_UPDATED") {
-          // Get plugin configs from the event, preserving existing if not provided
-          const pluginConfigs = event.data.pluginConfigs ?? ctx.pluginConfigs
+  actions: {
+    fetchSettings: () => {
+      emitToSocket("GET_ROOM_SETTINGS", {})
+    },
+    setPluginConfigs: assign(({ context, event }) => {
+      if (event.type === "INIT" && event.data.pluginConfigs) {
+        return { pluginConfigs: event.data.pluginConfigs }
+      }
+      return context
+    }),
+    setValues: assign(({ context, event }) => {
+      if (event.type === "ROOM_SETTINGS" || event.type === "ROOM_SETTINGS_UPDATED") {
+        // Get plugin configs from the event, preserving existing if not provided
+        const pluginConfigs = event.data.pluginConfigs ?? context.pluginConfigs
 
-          const newContext = {
-            title: event.data.room.title,
-            fetchMeta: event.data.room.fetchMeta,
-            extraInfo: event.data.room.extraInfo,
-            password: event.data.room.password,
-            artwork: event.data.room.artwork,
-            deputizeOnJoin: event.data.room.deputizeOnJoin,
-            enableSpotifyLogin: event.data.room.enableSpotifyLogin,
-            type: event.data.room.type,
-            radioMetaUrl: event.data.room.radioMetaUrl,
-            radioListenUrl: event.data.room.radioListenUrl,
-            radioProtocol: event.data.room.radioProtocol,
-            announceNowPlaying: event.data.room.announceNowPlaying,
-            announceUsernameChanges: event.data.room.announceUsernameChanges,
-            pluginConfigs,
-          }
-          return newContext
+        const newContext = {
+          title: event.data.room.title,
+          fetchMeta: event.data.room.fetchMeta,
+          extraInfo: event.data.room.extraInfo,
+          password: event.data.room.password,
+          artwork: event.data.room.artwork,
+          deputizeOnJoin: event.data.room.deputizeOnJoin,
+          enableSpotifyLogin: event.data.room.enableSpotifyLogin,
+          type: event.data.room.type,
+          radioMetaUrl: event.data.room.radioMetaUrl,
+          radioListenUrl: event.data.room.radioListenUrl,
+          radioProtocol: event.data.room.radioProtocol,
+          announceNowPlaying: event.data.room.announceNowPlaying,
+          announceUsernameChanges: event.data.room.announceUsernameChanges,
+          pluginConfigs,
         }
-        return ctx
-      }),
+        return newContext
+      }
+      return context
+    }),
+  },
+}).createMachine({
+  id: "settings",
+  initial: "pending",
+  context: {
+    announceUsernameChanges: true,
+    announceNowPlaying: true,
+    title: "",
+    fetchMeta: true,
+    extraInfo: "",
+    password: "",
+    artwork: undefined,
+    deputizeOnJoin: false,
+    enableSpotifyLogin: false,
+    type: "jukebox",
+    radioMetaUrl: "",
+    radioListenUrl: "",
+    pluginConfigs: {},
+  },
+  on: {
+    INIT: {
+      actions: "setPluginConfigs",
+    },
+    ROOM_SETTINGS: {
+      actions: "setValues",
+      target: ".fetched",
+    },
+    ROOM_SETTINGS_UPDATED: {
+      actions: "setValues",
+    },
+    FETCH: ".pending",
+  },
+  states: {
+    pending: {
+      entry: ["fetchSettings"],
+    },
+    failed: {},
+    fetched: {
+      initial: "untouched",
+      states: {
+        untouched: {
+          on: {
+            SUBMIT: { target: "pending" },
+          },
+        },
+        pending: {},
+        successful: {
+          after: {
+            2000: "untouched",
+          },
+        },
+        failed: {},
+      },
     },
   },
-)
+})

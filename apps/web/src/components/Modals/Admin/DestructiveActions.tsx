@@ -1,29 +1,27 @@
 import React from "react"
-import {
-  Wrap,
-  Button,
-  Icon,
-  Text,
-} from "@chakra-ui/react"
+import { Wrap, Button, Icon, Text } from "@chakra-ui/react"
 
-import { useChatStore } from "../../../state/chatStore"
-import { useAdminStore } from "../../../state/adminStore"
-import { useDjStore } from "../../../state/djStore"
 import { BiMessageRoundedMinus } from "react-icons/bi"
 import { FiList } from "react-icons/fi"
 import { LuTrash2 } from "react-icons/lu"
 import ConfirmationPopover from "../../ConfirmationPopover"
-import { useCurrentRoom } from "../../../state/roomStore"
 import { useColorModeValue } from "../../ui/color-mode"
+import {
+  useChatSend,
+  useAdminSend,
+  useDjSend,
+  useIsDjaying,
+  useCurrentRoom,
+} from "../../../hooks/useActors"
 
 export default function DestructiveActions() {
-  const { send: chatSend } = useChatStore()
-  const { send: adminSend } = useAdminStore()
-  const { send: djSend } = useDjStore()
+  const chatSend = useChatSend()
+  const adminSend = useAdminSend()
+  const djSend = useDjSend()
   const room = useCurrentRoom()
   const buttonColorScheme = useColorModeValue("whiteAlpha", undefined)
 
-  const isDj = useDjStore((s) => s.state.matches("djaying"))
+  const isDj = useIsDjaying()
 
   return (
     <>
@@ -32,7 +30,7 @@ export default function DestructiveActions() {
           triggerText="Clear Chat"
           triggerIcon={<Icon as={BiMessageRoundedMinus} />}
           triggerVariant="outline"
-          onConfirm={() => chatSend("CLEAR_MESSAGES")}
+          onConfirm={() => chatSend({ type: "CLEAR_MESSAGES" })}
           confirmText="Clear Chat"
           popoverBody={
             <Text>
@@ -45,7 +43,7 @@ export default function DestructiveActions() {
           triggerText="Clear Playlist"
           triggerIcon={<Icon as={FiList} />}
           triggerVariant="outline"
-          onConfirm={() => adminSend("CLEAR_PLAYLIST")}
+          onConfirm={() => adminSend({ type: "CLEAR_PLAYLIST" })}
           confirmText="Clear Playlist"
           popoverBody={
             <Text>
@@ -62,7 +60,7 @@ export default function DestructiveActions() {
             triggerIcon={<LuTrash2 />}
             triggerVariant="outline"
             onConfirm={() =>
-              adminSend("DELETE_ROOM", { data: { id: room.id } })
+              adminSend({ type: "DELETE_ROOM", data: { id: room.id } })
             }
             confirmText="Delete Room"
             popoverBody={
@@ -78,7 +76,7 @@ export default function DestructiveActions() {
             size="xs"
             variant="ghost"
             colorPalette={buttonColorScheme}
-            onClick={() => djSend("END_DJ_SESSION")}
+            onClick={() => djSend({ type: "END_DJ_SESSION" })}
           >
             End DJ Session
           </Button>

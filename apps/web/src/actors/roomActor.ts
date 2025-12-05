@@ -5,7 +5,7 @@
  * Active in room route, subscribes to socket events for room updates.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { roomFetchMachine, RoomFetchContext } from "../machines/roomFetchMachine"
 import { subscribeActor, unsubscribeActor } from "./socketActor"
 import { Room } from "../types/Room"
@@ -14,7 +14,7 @@ import { Room } from "../types/Room"
 // Actor Instance
 // ============================================================================
 
-export const roomActor = interpret(roomFetchMachine).start()
+export const roomActor = createActor(roomFetchMachine).start()
 
 // ============================================================================
 // Lifecycle

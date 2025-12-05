@@ -19,7 +19,7 @@ function InputDebounced({ onChange, ...rest }: Props) {
     <Input
       {...rest}
       onChange={(e) => {
-        send("SET_VALUE", { value: e.target.value })
+        send({ type: "SET_VALUE", value: e.target.value })
       }}
     />
   )

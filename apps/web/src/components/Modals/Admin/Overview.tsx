@@ -72,7 +72,7 @@ function Overview() {
                 textAlign="left"
                 fontWeight="400"
                 justifyContent="space-between"
-                onClick={() => send("EDIT_CONTENT")}
+                onClick={() => send({ type: "EDIT_CONTENT" })}
               >
                 Content
                 <HStack>
@@ -88,7 +88,7 @@ function Overview() {
                 textAlign="left"
                 fontWeight="400"
                 justifyContent="space-between"
-                onClick={() => send("EDIT_CHAT")}
+                onClick={() => send({ type: "EDIT_CHAT" })}
               >
                 Chat
                 <HStack>
@@ -104,7 +104,7 @@ function Overview() {
                 textAlign="left"
                 fontWeight="400"
                 justifyContent="space-between"
-                onClick={() => send("EDIT_DJ")}
+                onClick={() => send({ type: "EDIT_DJ" })}
               >
                 DJ Features
                 <HStack>
@@ -121,7 +121,7 @@ function Overview() {
                 textAlign="left"
                 fontWeight="400"
                 justifyContent="space-between"
-                onClick={() => send("EDIT_PASSWORD")}
+                onClick={() => send({ type: "EDIT_PASSWORD" })}
               >
                 Password Protection
                 <HStack>
@@ -162,7 +162,7 @@ function Overview() {
                     borderBottomRadius={
                       index === configurablePlugins.length - 1 ? undefined : "none"
                     }
-                    onClick={() => send(toEventName(plugin.name) as any)}
+                    onClick={() => send({ type: toEventName(plugin.name) } as any)}
                   >
                     {toDisplayName(plugin.name)}
                     <HStack>

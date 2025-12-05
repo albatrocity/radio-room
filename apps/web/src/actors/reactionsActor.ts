@@ -5,7 +5,7 @@
  * Active in room, subscribes to socket events for reaction updates.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { allReactionsMachine, ReactionsContext } from "../machines/allReactionsMachine"
 import { subscribeActor, unsubscribeActor } from "./socketActor"
 import { Reaction } from "../types/Reaction"
@@ -15,7 +15,7 @@ import { ReactionSubject } from "../types/ReactionSubject"
 // Actor Instance
 // ============================================================================
 
-export const reactionsActor = interpret(allReactionsMachine).start()
+export const reactionsActor = createActor(allReactionsMachine).start()
 
 // ============================================================================
 // Lifecycle

@@ -5,7 +5,7 @@
  * Active in room, subscribes to socket events for message updates.
  */
 
-import { interpret } from "xstate"
+import { createActor } from "xstate"
 import { chatMachine } from "../machines/chatMachine"
 import { subscribeActor, unsubscribeActor } from "./socketActor"
 import { ChatMessage } from "../types/ChatMessage"
@@ -14,7 +14,7 @@ import { ChatMessage } from "../types/ChatMessage"
 // Actor Instance
 // ============================================================================
 
-export const chatActor = interpret(chatMachine).start()
+export const chatActor = createActor(chatMachine).start()
 
 // ============================================================================
 // Lifecycle
@@ -44,9 +44,10 @@ export function unsubscribeChatActor(): void {
 
 /**
  * Reset chat state. Called when leaving a room.
+ * Uses RESET (local only) instead of CLEAR_MESSAGES (emits to server).
  */
 export function resetChat(): void {
-  chatActor.send({ type: "CLEAR_MESSAGES" })
+  chatActor.send({ type: "RESET" })
 }
 
 // ============================================================================

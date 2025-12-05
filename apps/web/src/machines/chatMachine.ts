@@ -1,4 +1,4 @@
-import { createMachine, assign } from "xstate"
+import { setup, assign } from "xstate"
 import { handleNotifications } from "../lib/handleNotifications"
 import { uniqBy } from "lodash/fp"
 import { User } from "../types/User"
@@ -18,7 +18,7 @@ type NewMessageEvent = {
 }
 
 type ResetEvent = {
-  type: "CLEAR_MESSAGES"
+  type: "CLEAR_MESSAGES" | "RESET"
 }
 
 type TypingEvent = {
@@ -63,110 +63,116 @@ interface Context {
   messages: ChatMessage[]
 }
 
-export const chatMachine = createMachine<Context, MachineEvent>(
-  {
-    predictableActionArguments: true,
-    id: "chat",
-    initial: "unauthenticated",
-    context: {
-      messages: [],
-    },
-    on: {
-      INIT: {
-        actions: ["setData"],
-      },
-      ROOM_DATA: {
-        actions: ["addMessages"],
-      },
-      CLEAR_MESSAGES: {
-        actions: ["clearMessages"],
-      },
-    },
-    states: {
-      unauthenticated: {
-        on: {
-          INIT: {
-            target: "ready",
-            actions: ["setData"],
-          },
-        },
-      },
-      ready: {
-        type: "parallel",
-        on: {
-          SUBMIT_MESSAGE: { actions: ["sendMessage"] },
-          MESSAGE_RECEIVED: { actions: ["addMessage", "handleNotifications"] },
-          MESSAGES_CLEARED: { actions: ["setData"] },
-        },
-        states: {
-          typing: {
-            initial: "inactive",
-            id: "typing",
-            on: {
-              START_TYPING: "typing.active",
-              STOP_TYPING: "typing.inactive",
-            },
-            states: {
-              active: {
-                entry: ["startTyping"],
-              },
-              inactive: {
-                entry: ["stopTyping"],
-              },
-            },
-          },
-        },
-      },
-    },
+export const chatMachine = setup({
+  types: {
+    context: {} as Context,
+    events: {} as MachineEvent,
   },
-  {
-    actions: {
-      sendMessage: (_ctx, event) => {
-        if (event.type === "SUBMIT_MESSAGE") {
-          emitToSocket("SEND_MESSAGE", event.data)
-        }
-      },
-      startTyping: () => {
-        emitToSocket("START_TYPING", {})
-      },
-      stopTyping: () => {
-        emitToSocket("STOP_TYPING", {})
-      },
-      clearMessages: () => {
-        emitToSocket("CLEAR_MESSAGES", {})
-      },
-      addMessage: assign({
-        messages: (context, event) => {
-          if (event.type === "MESSAGE_RECEIVED") {
-            return uniqBy("timestamp", [...context.messages, event.data.message])
-          }
-          return context.messages
-        },
-      }),
-      addMessages: assign({
-        messages: (context, event) => {
-          if (event.type === "ROOM_DATA") {
-            return uniqBy("timestamp", [...context.messages, ...event.data.messages])
-          }
-          return context.messages
-        },
-      }),
-      handleNotifications: (_ctx, event) => {
+  actions: {
+    sendMessage: ({ event }) => {
+      if (event.type === "SUBMIT_MESSAGE") {
+        emitToSocket("SEND_MESSAGE", event.data)
+      }
+    },
+    startTyping: () => {
+      emitToSocket("START_TYPING", {})
+    },
+    stopTyping: () => {
+      emitToSocket("STOP_TYPING", {})
+    },
+    clearMessagesAndEmit: () => {
+      emitToSocket("CLEAR_MESSAGES", {})
+    },
+    resetMessages: assign({
+      messages: () => [],
+    }),
+    addMessage: assign({
+      messages: ({ context, event }) => {
         if (event.type === "MESSAGE_RECEIVED") {
-          handleNotifications(event.data.message, getCurrentUser())
+          return uniqBy("timestamp", [...context.messages, event.data.message])
         }
+        return context.messages
       },
-      setData: assign({
-        messages: (ctx, event) => {
-          if (event.type === "INIT") {
-            return event.data.messages || []
-          }
-          if (event.type === "MESSAGES_CLEARED") {
-            return []
-          }
-          return ctx.messages
-        },
-      }),
+    }),
+    addMessages: assign({
+      messages: ({ context, event }) => {
+        if (event.type === "ROOM_DATA") {
+          return uniqBy("timestamp", [...context.messages, ...event.data.messages])
+        }
+        return context.messages
+      },
+    }),
+    handleNotifications: ({ event }) => {
+      if (event.type === "MESSAGE_RECEIVED") {
+        handleNotifications(event.data.message, getCurrentUser())
+      }
+    },
+    setData: assign({
+      messages: ({ context, event }) => {
+        if (event.type === "INIT") {
+          return event.data.messages || []
+        }
+        if (event.type === "MESSAGES_CLEARED") {
+          return []
+        }
+        return context.messages
+      },
+    }),
+  },
+}).createMachine({
+  id: "chat",
+  initial: "unauthenticated",
+  context: {
+    messages: [],
+  },
+  on: {
+    INIT: {
+      actions: ["setData"],
+    },
+    ROOM_DATA: {
+      actions: ["addMessages"],
+    },
+    CLEAR_MESSAGES: {
+      actions: ["clearMessagesAndEmit"],
+    },
+    RESET: {
+      actions: ["resetMessages"],
     },
   },
-)
+  states: {
+    unauthenticated: {
+      on: {
+        INIT: {
+          target: "ready",
+          actions: ["setData"],
+        },
+      },
+    },
+    ready: {
+      type: "parallel",
+      on: {
+        SUBMIT_MESSAGE: { actions: ["sendMessage"] },
+        MESSAGE_RECEIVED: { actions: ["addMessage", "handleNotifications"] },
+        MESSAGES_CLEARED: { actions: ["setData"] },
+      },
+      states: {
+        typing: {
+          initial: "inactive",
+          id: "typing",
+          on: {
+            START_TYPING: ".active",
+            STOP_TYPING: ".inactive",
+          },
+          states: {
+            active: {
+              entry: ["startTyping"],
+            },
+            inactive: {
+              entry: ["stopTyping"],
+            },
+          },
+        },
+      },
+    },
+  },
+})
