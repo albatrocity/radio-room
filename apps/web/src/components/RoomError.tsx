@@ -2,8 +2,7 @@ import { Alert, Box, HStack, Link, Text } from "@chakra-ui/react"
 import { Link as TanStackLink } from "@tanstack/react-router"
 import React from "react"
 import { getErrorMessage } from "../lib/errors"
-import { useIsAdmin } from "../state/authStore"
-import { useCurrentRoom, useRoomError } from "../state/roomStore"
+import { useIsAdmin, useCurrentRoom, useRoomError } from "../hooks/useActors"
 import ButtonRoomAuthSpotify from "./ButtonRoomAuthSpotify"
 
 export default function RoomError() {

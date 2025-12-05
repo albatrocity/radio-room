@@ -1,6 +1,6 @@
-import { assign, createMachine, sendTo } from "xstate"
+import { assign, createMachine } from "xstate"
 import { MetadataSourceTrack } from "@repo/types"
-import socketService from "../lib/socketService"
+import { emitToSocket } from "../actors/socketActor"
 
 type RequestError = {
   message: string
@@ -22,6 +22,7 @@ export type SavedTracksEvent =
       error?: string
     }
 
+// NOTE: This machine requires socket events. Use with useSocketMachine hook.
 export const savedTracksMachine = createMachine<SavedTracksContext, SavedTracksEvent>(
   {
     predictableActionArguments: true,
@@ -52,18 +53,12 @@ export const savedTracksMachine = createMachine<SavedTracksContext, SavedTracksE
         id: "failure",
       },
     },
-    invoke: [
-      {
-        id: "socket",
-        src: (() => socketService) as any,
-      },
-    ],
   },
   {
     actions: {
-      fetchSavedTracks: sendTo("socket", () => ({
-        type: "GET_SAVED_TRACKS",
-      })),
+      fetchSavedTracks: () => {
+        emitToSocket("GET_SAVED_TRACKS", {})
+      },
       setResults: assign((_context, event) => {
         if (event.type !== "SAVED_TRACKS_RESULTS") return {}
         // Server returns already-transformed MetadataSourceTrack[]

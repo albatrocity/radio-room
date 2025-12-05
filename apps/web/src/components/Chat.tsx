@@ -1,32 +1,28 @@
-import { memo, useEffect, useCallback } from "react"
+import { memo, useCallback } from "react"
 import { Box, Grid, GridItem, HStack } from "@chakra-ui/react"
 
 import ChatInput from "./ChatInput"
 import TypingIndicator from "./TypingIndicator"
 import { ChatMessage } from "../types/ChatMessage"
 import PopoverPreferences from "./PopoverPreferences"
-
-import { useAuthStore, useCurrentUser } from "../state/authStore"
-import { useChatStore } from "../state/chatStore"
 import ChatWindow from "./ChatWindow"
+
+import { useCurrentUser, useChatMessages, useAuthState, useChatSend } from "../hooks/useActors"
 
 const Chat = () => {
   const currentUser = useCurrentUser()
-  const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
-  const { send: chatSend } = useChatStore()
-  const messages = useChatStore((s) => s.state.context.messages)
-
-  useEffect(() => {
-    chatSend("SET_CURRENT_USER", { data: currentUser })
-  }, [currentUser, chatSend])
+  const authState = useAuthState()
+  const isUnauthorized = authState === "unauthorized"
+  const chatSend = useChatSend()
+  const messages = useChatMessages()
 
   const currentUserId = currentUser?.userId
 
   // Memoize callbacks to prevent ChatInput re-renders
-  const handleTypingStart = useCallback(() => chatSend("START_TYPING"), [chatSend])
-  const handleTypingStop = useCallback(() => chatSend("STOP_TYPING"), [chatSend])
+  const handleTypingStart = useCallback(() => chatSend({ type: "START_TYPING" }), [chatSend])
+  const handleTypingStop = useCallback(() => chatSend({ type: "STOP_TYPING" }), [chatSend])
   const handleSend = useCallback(
-    (msg: ChatMessage) => chatSend("SUBMIT_MESSAGE", { data: msg }),
+    (msg: ChatMessage) => chatSend({ type: "SUBMIT_MESSAGE", data: msg }),
     [chatSend],
   )
 

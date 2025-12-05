@@ -1,17 +1,15 @@
 import { Stack, Button, Heading, Icon, IconButton, Box, Wrap, BoxProps } from "@chakra-ui/react"
 import { LuArrowLeft, LuSettings, LuBookmark } from "react-icons/lu"
-
-import { useBookmarks } from "../state/bookmarkedChatStore"
-import { useModalsStore } from "../state/modalsState"
 import { Link } from "@tanstack/react-router"
+
+import { useBookmarks, useModalsSend } from "../hooks/useActors"
 
 type Props = {
   buttonColorScheme?: string
 } & BoxProps
 
 function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
-  const { send: modalSend } = useModalsStore()
-
+  const modalSend = useModalsSend()
   const bookmarks = useBookmarks()
 
   return (
@@ -29,7 +27,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
               size="xs"
               variant="bright"
               colorPalette={buttonColorScheme}
-              onClick={() => modalSend("EDIT_SETTINGS")}
+              onClick={() => modalSend({ type: "EDIT_SETTINGS" })}
             >
               <Icon as={LuSettings} />
               Settings
@@ -40,7 +38,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
               size="md"
               variant="bright"
               colorPalette={buttonColorScheme}
-              onClick={() => modalSend("EDIT_SETTINGS")}
+              onClick={() => modalSend({ type: "EDIT_SETTINGS" })}
               aria-label="Settings"
             >
               <Icon as={LuSettings} />
@@ -51,7 +49,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
               size="xs"
               variant="bright"
               colorPalette={buttonColorScheme}
-              onClick={() => modalSend("VIEW_BOOKMARKS")}
+              onClick={() => modalSend({ type: "VIEW_BOOKMARKS" })}
             >
               <Icon as={LuBookmark} />
               Bookmarks {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}
@@ -63,7 +61,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
               variant="bright"
               colorPalette={buttonColorScheme}
               aria-label="Bookmarks"
-              onClick={() => modalSend("VIEW_BOOKMARKS")}
+              onClick={() => modalSend({ type: "VIEW_BOOKMARKS" })}
             >
               <Icon as={LuBookmark} />
             </IconButton>

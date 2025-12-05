@@ -1,5 +1,4 @@
 import { createMachine, assign } from "xstate"
-import socketService from "../lib/socketService"
 import { sortBy, uniqBy, reject, find } from "lodash/fp"
 import { User } from "../types/User"
 
@@ -19,12 +18,6 @@ export const usersMachine = createMachine<Context>(
       dj: null,
       listeners: [],
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
     on: {
       USER_JOINED: {
         actions: ["setUsers"],

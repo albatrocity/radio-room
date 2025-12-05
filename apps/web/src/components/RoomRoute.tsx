@@ -3,46 +3,41 @@ import data from "@emoji-mart/data"
 import { init } from "emoji-mart"
 import { Flex } from "@chakra-ui/react"
 import { usePageVisibility } from "react-page-visibility"
+import { useNavigate } from "@tanstack/react-router"
 
 import Room from "./Room"
 import AppToasts from "./AppToasts"
-import { useAuthStore } from "../state/authStore"
 import Layout from "./layout"
-import { useNavigate } from "@tanstack/react-router"
-import { useRoomStore } from "../state/roomStore"
+import { useCurrentRoom } from "../hooks/useActors"
+import { initializeRoom, teardownRoom, handleVisibilityChange } from "../actors/roomLifecycle"
 
 init({ data })
 
 const RoomRoute = ({ roomId }: { roomId?: string; path: string }) => {
   const isVisible = usePageVisibility()
   const navigate = useNavigate()
-
-  const { send } = useAuthStore()
-  const { state: roomState, send: roomSend } = useRoomStore()
+  const room = useCurrentRoom()
 
   if (!roomId) {
     navigate({ to: "/", replace: true })
   }
 
+  // Initialize room on mount, teardown on unmount
   useEffect(() => {
-    roomSend("FETCH", { data: { id: roomId } })
+    if (roomId) {
+      initializeRoom(roomId)
+    }
     return () => {
-      roomSend("RESET")
+      teardownRoom()
     }
-  }, [send, roomSend, roomId])
+  }, [roomId])
 
+  // Handle visibility changes
   useEffect(() => {
-    send("SETUP", { data: { roomId } })
-    return () => {
-      send("USER_DISCONNECTED")
+    if (room?.id) {
+      handleVisibilityChange(isVisible)
     }
-  }, [])
-
-  useEffect(() => {
-    if (isVisible && !!roomState.context.room?.id) {
-      roomSend("GET_LATEST_ROOM_DATA")
-    }
-  }, [isVisible, roomState.context.room])
+  }, [isVisible, room?.id])
 
   return roomId ? (
     <Layout fill>

@@ -1,9 +1,9 @@
-import { useMachine } from "@xstate/react"
-import { queueMachine, QueueContext } from "../machines/queueMachine"
+import { useSocketMachine } from "../hooks/useSocketMachine"
+import { queueMachine } from "../machines/queueMachine"
 import { MetadataSourceTrack } from "@repo/types"
 
 export default function useAddToQueue() {
-  const [state, send] = useMachine(queueMachine)
+  const [state, send] = useSocketMachine(queueMachine)
 
   function addToQueue(track: MetadataSourceTrack) {
     send("SEND_TO_QUEUE", { track })
@@ -11,4 +11,3 @@ export default function useAddToQueue() {
 
   return { state, send, addToQueue }
 }
-

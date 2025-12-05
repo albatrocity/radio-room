@@ -1,14 +1,18 @@
 import { isNil } from "lodash/fp"
-import { useStationMeta } from "../state/audioStore"
-import { useAuthStore, useIsAuthenticated } from "../state/authStore"
-import { useDjStore } from "../state/djStore"
+import {
+  useStationMeta,
+  useIsAuthenticated,
+  useIsAdmin,
+  useIsDjaying,
+  useIsDeputyDjaying,
+} from "../hooks/useActors"
 
 export default function useCanDj() {
   const meta = useStationMeta()
   const accountIsPlaying = !isNil(meta?.title ?? meta?.track)
-  const isDeputyDj = useDjStore((s) => s.state.matches("deputyDjaying"))
-  const isDj = useDjStore((s) => s.state.matches("djaying"))
-  const isAdmin = useAuthStore((s) => s.state.context.isAdmin)
+  const isDeputyDj = useIsDeputyDjaying()
+  const isDj = useIsDjaying()
+  const isAdmin = useIsAdmin()
   const isAuthenticated = useIsAuthenticated()
 
   return accountIsPlaying && isAuthenticated && (isDeputyDj || isDj || isAdmin)

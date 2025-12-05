@@ -1,17 +1,16 @@
 import React, { useEffect } from "react"
 import { Box, Button, Grid, GridItem } from "@chakra-ui/react"
 import LobbyOverlays from "./LobbyOverlays"
-import { useCurrentUser } from "../../state/authStore"
+import { useCurrentUser, useModalsSend } from "../../hooks/useActors"
 import { useMachine } from "@xstate/react"
 import { createdRoomsFetchMachine } from "../../machines/createdRoomsFetchMachine"
 import CardRoom from "../CardRoom"
 import CardsAppInfo from "../AppIntro"
 import { LuPlus } from "react-icons/lu"
-import { useModalsStore } from "../../state/modalsState"
 
 export default function Lobby() {
   const user = useCurrentUser()
-  const { send: modalSend } = useModalsStore()
+  const modalSend = useModalsSend()
 
   const [state, fetchSend] = useMachine(createdRoomsFetchMachine, {
     context: {
@@ -57,7 +56,7 @@ export default function Lobby() {
           <GridItem>
             <Box>
               <Button
-                onClick={() => modalSend("CREATE_ROOM")}
+                onClick={() => modalSend({ type: "CREATE_ROOM" })}
               >
                 <LuPlus />
                 Create a Room

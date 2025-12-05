@@ -12,14 +12,13 @@ import {
 } from "@chakra-ui/react"
 import { useSettingsStore } from "../../../state/settingsStore"
 import FormActions from "./FormActions"
-import { useModalsStore } from "../../../state/modalsState"
-import { useCurrentRoomHasAudio } from "../../../state/roomStore"
+import { useModalsSend, useCurrentRoomHasAudio } from "../../../hooks/useActors"
 import RadioProtocolSelect from "../../RadioProtocolSelect"
 
 function Content() {
   const hasAudio = useCurrentRoomHasAudio()
   const { state } = useSettingsStore()
-  const { send: modalSend } = useModalsStore()
+  const modalSend = useModalsSend()
   const { send } = useAdminStore()
 
   return (

@@ -1,7 +1,6 @@
 import React, { useEffect } from "react"
 import makeRoomTitle from "../lib/makeRoomTitle"
-import { useStationMeta } from "../state/audioStore"
-import { useCurrentRoom } from "../state/roomStore"
+import { useStationMeta, useCurrentRoom } from "../hooks/useActors"
 
 type Props = {}
 

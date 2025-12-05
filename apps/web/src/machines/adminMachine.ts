@@ -1,8 +1,8 @@
-import { createMachine, sendTo } from "xstate"
+import { createMachine } from "xstate"
 
-import socketService from "../lib/socketService"
 import { toast } from "../lib/toasts"
-import { useAuthStore } from "../state/authStore"
+import { getIsAdmin } from "../actors/authActor"
+import { emitToSocket } from "../actors/socketActor"
 import { deleteRoom as deleteRoomData } from "../lib/serverApi"
 
 type DeleteRoomEvent = {
@@ -30,12 +30,6 @@ export const adminMachine = createMachine<any, AdminEvent>(
     predictableActionArguments: true,
     id: "admin",
     initial: "idle",
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
     on: {
       SET_SETTINGS: { actions: ["setSettings", "notify"], cond: "isAdmin" },
       CLEAR_PLAYLIST: { actions: ["clearPlaylist"], cond: "isAdmin" },
@@ -78,26 +72,20 @@ export const adminMachine = createMachine<any, AdminEvent>(
   {
     guards: {
       isAdmin: () => {
-        return useAuthStore.getState().state.context.isAdmin
+        return getIsAdmin()
       },
     },
     actions: {
-      deputizeDj: sendTo("socket", (_ctx, event) => {
+      deputizeDj: (_ctx, event) => {
         if (event.type !== "DEPUTIZE_DJ") return
-        return {
-          type: "DEPUTIZE_DJ",
-          data: event.userId,
-        }
-      }),
-      setSettings: sendTo("socket", (_ctx, event) => {
-        return {
-          type: "SET_ROOM_SETTINGS",
-          data: event.data,
-        }
-      }),
-      clearPlaylist: sendTo("socket", () => {
-        return { type: "CLEAR_PLAYLIST", data: {} }
-      }),
+        emitToSocket("DEPUTIZE_DJ", event.userId)
+      },
+      setSettings: (_ctx, event) => {
+        emitToSocket("SET_ROOM_SETTINGS", event.data)
+      },
+      clearPlaylist: () => {
+        emitToSocket("CLEAR_PLAYLIST", {})
+      },
       notify: () => {
         toast({
           title: "Settings updated",

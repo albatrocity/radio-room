@@ -10,11 +10,11 @@ import {
 } from "@chakra-ui/react"
 import { useSettingsStore } from "../../../state/settingsStore"
 import FormActions from "./FormActions"
-import { useModalsStore } from "../../../state/modalsState"
+import { useModalsSend } from "../../../hooks/useActors"
 
 export default function SpotifyFeatures() {
   const { state } = useSettingsStore()
-  const { send: modalSend } = useModalsStore()
+  const modalSend = useModalsSend()
   const { send } = useAdminStore()
 
   return (

@@ -1,7 +1,7 @@
-import { sendTo, createMachine } from "xstate"
-import socketService from "../lib/socketService"
-import { useAuthStore } from "../state/authStore"
+import { createMachine } from "xstate"
 import { InitPayload } from "../types/InitPayload"
+import { getIsAdmin, getCurrentUser } from "../actors/authActor"
+import { emitToSocket } from "../actors/socketActor"
 
 interface Context {}
 
@@ -17,12 +17,6 @@ export const djMachine = createMachine<Context, Event>(
     predictableActionArguments: true,
     id: "dj",
     initial: "inactive",
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
     on: {
       INIT: {
         target: "deputyDjaying",
@@ -59,7 +53,7 @@ export const djMachine = createMachine<Context, Event>(
   {
     guards: {
       isAdmin: () => {
-        return useAuthStore.getState().state.context.isAdmin
+        return getIsAdmin()
       },
       isDeputyDj: (_ctx, event) => {
         if (event.type !== "INIT") return false
@@ -67,15 +61,13 @@ export const djMachine = createMachine<Context, Event>(
       },
     },
     actions: {
-      startDjSession: sendTo("socket", () => {
-        return {
-          type: "SET_DJ",
-          data: useAuthStore.getState().state.context.currentUser?.userId,
-        }
-      }),
-      endDjSession: sendTo("socket", () => {
-        return { type: "SET_DJ", data: null }
-      }),
+      startDjSession: () => {
+        const currentUser = getCurrentUser()
+        emitToSocket("SET_DJ", currentUser?.userId)
+      },
+      endDjSession: () => {
+        emitToSocket("SET_DJ", null)
+      },
     },
   },
 )

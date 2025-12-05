@@ -1,6 +1,6 @@
-import { createMachine, assign, sendTo } from "xstate"
-import socketService from "../lib/socketService"
+import { createMachine, assign } from "xstate"
 import { toast } from "../lib/toasts"
+import { emitToSocket } from "../actors/socketActor"
 
 interface Context {
   ids: string[]
@@ -19,6 +19,7 @@ type Event =
   | { type: "REMOVE_FROM_LIBRARY_SUCCESS"; data: { trackIds: string[] } }
   | { type: "REMOVE_FROM_LIBRARY_FAILURE"; data: { message: string } }
 
+// NOTE: This machine requires socket events. Use with useSocketMachine hook.
 const addToLibraryMachine = createMachine<Context, Event>(
   {
     id: "addToLibrary",
@@ -27,12 +28,6 @@ const addToLibraryMachine = createMachine<Context, Event>(
       ids: [],
       tracks: {},
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService as any,
-      },
-    ],
     on: {
       SET_IDS: {
         actions: ["setIds"],
@@ -114,18 +109,17 @@ const addToLibraryMachine = createMachine<Context, Event>(
   },
   {
     actions: {
-      sendCheckRequest: sendTo("socket", (ctx) => ({
-        type: "CHECK_SAVED_TRACKS",
-        data: ctx.ids, // Server infers metadata source from room context
-      })),
-      sendAddRequest: sendTo("socket", (ctx, event) => ({
-        type: "ADD_TO_LIBRARY",
-        data: event.type === "ADD" ? event.data ?? ctx.ids : ctx.ids, // Server infers metadata source from room context
-      })),
-      sendRemoveRequest: sendTo("socket", (ctx, event) => ({
-        type: "REMOVE_FROM_LIBRARY",
-        data: event.type === "REMOVE" ? event.data ?? ctx.ids : ctx.ids, // Server infers metadata source from room context
-      })),
+      sendCheckRequest: (ctx) => {
+        emitToSocket("CHECK_SAVED_TRACKS", ctx.ids)
+      },
+      sendAddRequest: (ctx, event) => {
+        const data = event.type === "ADD" ? event.data ?? ctx.ids : ctx.ids
+        emitToSocket("ADD_TO_LIBRARY", data)
+      },
+      sendRemoveRequest: (ctx, event) => {
+        const data = event.type === "REMOVE" ? event.data ?? ctx.ids : ctx.ids
+        emitToSocket("REMOVE_FROM_LIBRARY", data)
+      },
       setCheckedTracks: assign((ctx, event) => {
         if (event.type === "CHECK_SAVED_TRACKS_RESULTS") {
           return {

@@ -5,13 +5,17 @@ import { Box, Text, Heading, HStack, List, VStack } from "@chakra-ui/react"
 
 import { typingMachine } from "../machines/typingMachine"
 import ListItemUser from "./ListItemUser"
-import { useCurrentUser, useAuthStore } from "../state/authStore"
+import {
+  useCurrentUser,
+  useAuthSend,
+  useDj,
+  useListeners,
+  useAdminSend,
+  useRoomCreator,
+} from "../hooks/useActors"
 import { PluginArea } from "./PluginComponents"
 
 import { User } from "../types/User"
-import { useDj, useListeners } from "../state/usersStore"
-import { useAdminStore } from "../state/adminStore"
-import { useRoomCreator } from "../state/roomStore"
 
 interface UserListProps {
   onEditUser: (user: User) => void
@@ -22,8 +26,8 @@ interface UserListProps {
 const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserListProps) => {
   const [typingState] = useMachine(typingMachine)
 
-  const { send: authSend } = useAuthStore()
-  const { send: adminSend } = useAdminStore()
+  const authSend = useAuthSend()
+  const adminSend = useAdminSend()
   const currentUser = useCurrentUser()
   const listeners = useListeners()
   const creator = useRoomCreator()
@@ -41,12 +45,12 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
 
   // Memoize stable callbacks
   const handleKickUser = useCallback(
-    (userId: User["userId"]) => authSend("KICK_USER", { userId }),
+    (userId: User["userId"]) => authSend({ type: "KICK_USER", userId }),
     [authSend],
   )
 
   const handleDeputizeDj = useCallback(
-    (userId: User["userId"]) => adminSend("DEPUTIZE_DJ", { userId }),
+    (userId: User["userId"]) => adminSend({ type: "DEPUTIZE_DJ", userId }),
     [adminSend],
   )
 

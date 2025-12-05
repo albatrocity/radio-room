@@ -1,14 +1,14 @@
-// state machine for fetching saved tracks
+// state machine for fetching room data
 
 import { HTTPError } from "ky"
-import { assign, createMachine, sendTo } from "xstate"
+import { assign, createMachine } from "xstate"
 
 import socket from "../lib/socket"
 import { getErrorMessage } from "../lib/errors"
 import { findRoom, RoomFindResponse } from "../lib/serverApi"
-import socketService from "../lib/socketService"
-import { useChatStore } from "../state/chatStore"
-import { usePlaylistStore } from "../state/playlistStore"
+import { emitToSocket } from "../actors/socketActor"
+import { chatActor } from "../actors/chatActor"
+import { playlistActor } from "../actors/playlistActor"
 import { Room, RoomError } from "../types/Room"
 import { SocketCallback } from "../types/SocketCallback"
 
@@ -34,7 +34,7 @@ function socketEventService(callback: SocketCallback) {
     console.log("[RoomFetch] Socket reconnected, will refetch room data")
     callback({ type: "RECONNECTED", data: {} })
   })
-  
+
   socket.io.on("disconnect", (reason) => {
     console.log("[RoomFetch] Socket disconnected:", reason)
     callback({
@@ -85,10 +85,6 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
       room: null,
     },
     invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
       {
         id: "socketEventService",
         src: () => socketEventService,
@@ -154,8 +150,7 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
         if (event.type !== "SOCKET_ERROR") return ctx
         return {
           error: {
-            message:
-              "You've been disconnected from the server, attempting to reconnect...",
+            message: "You've been disconnected from the server, attempting to reconnect...",
             status: 400,
           },
         }
@@ -175,11 +170,7 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
         }
 
         const errorStatus = event.data?.response?.status ?? event.error?.status
-        const errorMessage = getErrorMessage(
-          { status: errorStatus },
-          false,
-          "room",
-        )
+        const errorMessage = getErrorMessage({ status: errorStatus }, false, "room")
 
         return {
           error: {
@@ -213,26 +204,22 @@ export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
           error: null,
         }
       }),
-      getLatestData: sendTo("socket", (ctx) => {
-        const messages = useChatStore.getState().state.context.messages
+      getLatestData: (ctx) => {
+        const messages = chatActor.getSnapshot().context.messages
         const lastMessageTime = messages[messages.length - 1]?.timestamp
-        const playlist = usePlaylistStore.getState().state.context.playlist
+        const playlist = playlistActor.getSnapshot().context.playlist
         const lastPlaylistItemTime = playlist[playlist.length - 1]?.timestamp
 
-        return {
-          type: "GET_LATEST_ROOM_DATA",
-          data: {
-            id: ctx.id,
-            lastMessageTime,
-            lastPlaylistItemTime,
-          },
-        }
-      }),
+        emitToSocket("GET_LATEST_ROOM_DATA", {
+          id: ctx.id,
+          lastMessageTime,
+          lastPlaylistItemTime,
+        })
+      },
       assignRoomDeleted: assign(() => {
         return {
           error: {
-            message:
-              "This room has expired and its data has been permanently deleted.",
+            message: "This room has expired and its data has been permanently deleted.",
             status: 404,
           },
         }

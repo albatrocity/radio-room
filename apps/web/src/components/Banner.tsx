@@ -1,5 +1,5 @@
 import React from "react"
-import { useRoomBanner } from "../state/roomStore"
+import { useRoomBanner } from "../hooks/useActors"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { Box } from "@chakra-ui/react"
 

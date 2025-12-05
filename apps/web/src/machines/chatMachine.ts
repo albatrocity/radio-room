@@ -1,5 +1,4 @@
-import { createMachine, sendTo, assign } from "xstate"
-import socketService from "../lib/socketService"
+import { createMachine, assign } from "xstate"
 import { handleNotifications } from "../lib/handleNotifications"
 import { uniqBy } from "lodash/fp"
 import { User } from "../types/User"
@@ -7,7 +6,8 @@ import { ChatMessage } from "../types/ChatMessage"
 import { PlaylistItem } from "../types/PlaylistItem"
 import { ReactionsContext } from "./allReactionsMachine"
 import { Room } from "../types/Room"
-import { getCurrentUser } from "../state/authStore"
+import { getCurrentUser } from "../actors/authActor"
+import { emitToSocket } from "../actors/socketActor"
 
 type NewMessageEvent = {
   type: "MESSAGE_RECEIVED"
@@ -57,12 +57,7 @@ type SetDataEvent =
       }
     }
 
-type MachineEvent =
-  | NewMessageEvent
-  | SetDataEvent
-  | ResetEvent
-  | TypingEvent
-  | SubmitMessageAction
+type MachineEvent = NewMessageEvent | SetDataEvent | ResetEvent | TypingEvent | SubmitMessageAction
 
 interface Context {
   messages: ChatMessage[]
@@ -87,12 +82,6 @@ export const chatMachine = createMachine<Context, MachineEvent>(
         actions: ["clearMessages"],
       },
     },
-    invoke: [
-      {
-        id: "socket",
-        src: (_ctx, _event) => socketService,
-      },
-    ],
     states: {
       unauthenticated: {
         on: {
@@ -132,21 +121,20 @@ export const chatMachine = createMachine<Context, MachineEvent>(
   },
   {
     actions: {
-      sendMessage: sendTo("socket", (_ctx, event) => {
+      sendMessage: (_ctx, event) => {
         if (event.type === "SUBMIT_MESSAGE") {
-          return { type: "SEND_MESSAGE", data: event.data }
+          emitToSocket("SEND_MESSAGE", event.data)
         }
-        return null
-      }),
-      startTyping: sendTo("socket", (_ctx, _event) => {
-        return { type: "START_TYPING" }
-      }),
-      stopTyping: sendTo("socket", (_ctx, _event) => {
-        return { type: "STOP_TYPING" }
-      }),
-      clearMessages: sendTo("socket", (_ctx, _event) => {
-        return { type: "CLEAR_MESSAGES" }
-      }),
+      },
+      startTyping: () => {
+        emitToSocket("START_TYPING", {})
+      },
+      stopTyping: () => {
+        emitToSocket("STOP_TYPING", {})
+      },
+      clearMessages: () => {
+        emitToSocket("CLEAR_MESSAGES", {})
+      },
       addMessage: assign({
         messages: (context, event) => {
           if (event.type === "MESSAGE_RECEIVED") {
@@ -158,10 +146,7 @@ export const chatMachine = createMachine<Context, MachineEvent>(
       addMessages: assign({
         messages: (context, event) => {
           if (event.type === "ROOM_DATA") {
-            return uniqBy("timestamp", [
-              ...context.messages,
-              ...event.data.messages,
-            ])
+            return uniqBy("timestamp", [...context.messages, ...event.data.messages])
           }
           return context.messages
         },

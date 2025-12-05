@@ -1,6 +1,6 @@
-import { assign, sendTo, createMachine } from "xstate"
-import socketService from "../lib/socketService"
+import { assign, createMachine } from "xstate"
 import { toast } from "../lib/toasts"
+import { emitToSocket } from "../actors/socketActor"
 
 interface PlaylistMetadata {
   id: string
@@ -28,6 +28,7 @@ type SavePlaylistEvent =
       error: any
     }
 
+// NOTE: This machine requires socket events. Use with useSocketMachine hook.
 export const savePlaylistMachine = createMachine<Context, SavePlaylistEvent>(
   {
     predictableActionArguments: true,
@@ -71,25 +72,18 @@ export const savePlaylistMachine = createMachine<Context, SavePlaylistEvent>(
         },
       },
     },
-    invoke: [
-      {
-        id: "socket",
-        src: (() => socketService) as any,
-      },
-    ],
   },
   {
     actions: {
-      savePlaylist: sendTo("socket", (_ctx, event) => {
+      savePlaylist: (_ctx, event) => {
         if (event.type === "SAVE_PLAYLIST") {
-          const socketEvent = {
-            type: "SAVE_PLAYLIST",
-            data: { name: event.name, trackIds: event.trackIds },
-          }
-          console.log("[savePlaylistMachine] Sending to socket:", socketEvent)
-          return socketEvent
+          console.log("[savePlaylistMachine] Sending to socket:", {
+            name: event.name,
+            trackIds: event.trackIds,
+          })
+          emitToSocket("SAVE_PLAYLIST", { name: event.name, trackIds: event.trackIds })
         }
-      }),
+      },
       setPlaylistMeta: assign({
         playlistMeta: (_ctx, event) => {
           if (event.type === "PLAYLIST_SAVED") {
@@ -108,9 +102,10 @@ export const savePlaylistMachine = createMachine<Context, SavePlaylistEvent>(
       }),
       notifyPlaylistCreateFailed: (context) => {
         console.error("[savePlaylistMachine] Error:", context.playlistError)
-        const errorMessage = context.playlistError?.message || 
-                            (typeof context.playlistError === 'string' ? context.playlistError : null) ||
-                            "Failed to save playlist"
+        const errorMessage =
+          context.playlistError?.message ||
+          (typeof context.playlistError === "string" ? context.playlistError : null) ||
+          "Failed to save playlist"
         toast({
           title: "Playlist failed",
           description: errorMessage,

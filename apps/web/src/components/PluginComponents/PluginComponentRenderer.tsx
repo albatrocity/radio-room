@@ -18,7 +18,7 @@ import {
 } from "@repo/utils"
 import { pluginComponentMachine } from "../../machines/pluginComponentMachine"
 import { getPluginComponentState } from "../../lib/serverApi"
-import { useRoomStore } from "../../state/roomStore"
+import { useCurrentRoom } from "../../hooks/useActors"
 import { PluginComponentContext } from "./context"
 import { TEMPLATE_COMPONENT_MAP } from "./templates"
 import type { PluginComponentDefinition, PluginModalComponent } from "../../types/PluginComponent"
@@ -107,8 +107,8 @@ export function PluginComponentProvider({
   config,
   components,
 }: PluginComponentProviderProps) {
-  const { state: roomState } = useRoomStore()
-  const roomId = roomState.context.room?.id
+  const room = useCurrentRoom()
+  const roomId = room?.id
   const [openModals, setOpenModals] = useState<Set<string>>(new Set())
 
   // Create machine instance for this plugin

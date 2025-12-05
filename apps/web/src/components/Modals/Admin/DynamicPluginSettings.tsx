@@ -3,7 +3,7 @@ import { Formik } from "formik"
 import { DialogBody, DialogFooter, Text, Spinner, Center, VStack } from "@chakra-ui/react"
 import { useSettingsStore } from "../../../state/settingsStore"
 import { useAdminStore } from "../../../state/adminStore"
-import { useModalsStore } from "../../../state/modalsState"
+import { useModalsSend } from "../../../hooks/useActors"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 import PluginConfigForm from "./PluginConfigForm"
 import FormActions from "./FormActions"
@@ -18,7 +18,7 @@ interface DynamicPluginSettingsProps {
  */
 export default function DynamicPluginSettings({ pluginName }: DynamicPluginSettingsProps) {
   const { state } = useSettingsStore()
-  const { send: modalSend } = useModalsStore()
+  const modalSend = useModalsSend()
   const { send } = useAdminStore()
   const { schemas, isLoading, error } = usePluginSchemas()
 

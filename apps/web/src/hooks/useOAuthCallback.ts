@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 import { useLocation } from "@tanstack/react-router"
-import { useAuthStore } from "../state/authStore"
+import { useAuthSend } from "./useActors"
 
 /**
  * Hook to handle OAuth callback redirects
@@ -9,7 +9,7 @@ import { useAuthStore } from "../state/authStore"
  */
 export function useOAuthCallback() {
   const location = useLocation()
-  const { send } = useAuthStore()
+  const authSend = useAuthSend()
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
@@ -20,7 +20,7 @@ export function useOAuthCallback() {
       console.log("OAuth callback detected, rechecking session for user:", userId)
 
       // Force auth machine to recheck session by calling /me endpoint
-      send("GET_SESSION_USER")
+      authSend({ type: "GET_SESSION_USER" })
 
       // Clean up URL parameters after a short delay
       setTimeout(() => {
@@ -28,5 +28,5 @@ export function useOAuthCallback() {
         window.history.replaceState({}, document.title, cleanUrl)
       }, 1000)
     }
-  }, [location.search, send])
+  }, [location.search, authSend])
 }

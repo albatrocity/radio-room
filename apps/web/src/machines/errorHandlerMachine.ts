@@ -1,8 +1,7 @@
 // machine that catches error events and throws toasts
-import { assign, raise, createMachine } from "xstate"
+import { assign, createMachine } from "xstate"
 
 import { toast } from "../lib/toasts"
-import socketService from "../lib/socketService"
 
 type ErrorEvent = {
   type: string
@@ -26,12 +25,6 @@ export const errorHandlerMachine = createMachine<Context, ErrorEvent>(
     context: {
       errors: [],
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
     on: {
       ERROR_OCCURRED: {
         actions: ["notify", "addError"],
@@ -57,7 +50,7 @@ export const errorHandlerMachine = createMachine<Context, ErrorEvent>(
           isClosable: true,
           id: event.data?.id,
           onCloseComplete: () => {
-            raise({ type: "CLEAR_ERROR" })
+            // Note: This will be handled via direct send to errorActor when needed
           },
         })
       },

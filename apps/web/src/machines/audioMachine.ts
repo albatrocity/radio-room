@@ -1,7 +1,7 @@
-import { createMachine, assign, sendTo } from "xstate"
-import socketService from "../lib/socketService"
+import { createMachine, assign } from "xstate"
 import { isEmpty, isNil } from "lodash/fp"
 import { RoomMeta } from "../types/Room"
+import { emitToSocket } from "../actors/socketActor"
 
 interface Context {
   volume: number
@@ -20,11 +20,6 @@ export const audioMachine = createMachine<Context>(
       meta: undefined,
       mediaSourceStatus: "unknown",
       participationStatus: "participating",
-    },
-    invoke: {
-      id: "socket",
-      src: () => socketService,
-      onError: "willRetry",
     },
     states: {
       online: {
@@ -196,18 +191,18 @@ export const audioMachine = createMachine<Context>(
       setStatusOnline: assign({
         mediaSourceStatus: "online" as const,
       }),
-      startListening: sendTo("socket", () => ({
-        type: "START_LISTENING",
-      })),
+      startListening: () => {
+        emitToSocket("START_LISTENING", {})
+      },
       listen: assign({
         participationStatus: "listening",
       }),
       participate: assign({
         participationStatus: "participating",
       }),
-      stopListening: sendTo("socket", () => ({
-        type: "STOP_LISTENING",
-      })),
+      stopListening: () => {
+        emitToSocket("STOP_LISTENING", {})
+      },
     },
     guards: {
       volumeAboveZero: (_context, event) => parseFloat(event.volume) > 0,

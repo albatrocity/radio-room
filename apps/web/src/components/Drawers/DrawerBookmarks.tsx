@@ -6,25 +6,24 @@ import BookmarkedMessages from "../BookmarkedMessages"
 import Drawer from "../Drawer"
 import ConfirmationDialog from "../ConfirmationDialog"
 
-import { useAuthStore } from "../../state/authStore"
 import {
-  useBookmarkedChatStore,
+  useIsAdmin,
   useBookmarks,
-} from "../../state/bookmarkedChatStore"
-import { useModalsStore } from "../../state/modalsState"
+  useBookmarksSend,
+  useModalsSend,
+  useIsModalOpen,
+} from "../../hooks/useActors"
 
 const DrawerBookmarks = () => {
-  const isAdmin = useAuthStore((s) => s.state.context.isAdmin)
+  const isAdmin = useIsAdmin()
   const { isOpen, onOpen, onClose } = useDisclosure()
-  const { send } = useModalsStore()
-  const isModalViewingBookmarks = useModalsStore((s) =>
-    s.state.matches("bookmarks"),
-  )
-  const { send: bookmarkSend } = useBookmarkedChatStore()
+  const modalSend = useModalsSend()
+  const isModalViewingBookmarks = useIsModalOpen("bookmarks")
+  const bookmarkSend = useBookmarksSend()
   const messages = useBookmarks()
 
-  const hideBookmarks = () => send("CLOSE")
-  const clearBookmarks = () => bookmarkSend("CLEAR")
+  const hideBookmarks = () => modalSend({ type: "CLOSE" })
+  const clearBookmarks = () => bookmarkSend({ type: "CLEAR" })
 
   if (!isAdmin) return null
 

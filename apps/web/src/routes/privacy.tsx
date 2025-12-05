@@ -3,14 +3,14 @@ import React from "react"
 import { createFileRoute } from '@tanstack/react-router'
 import ConfirmationPopover from "../components/ConfirmationPopover"
 import PageLayout from "../components/PageLayout"
-import { useAuthStore, useCurrentUser } from "../state/authStore"
+import { useAuthSend, useCurrentUser } from "../hooks/useActors"
 
 export const Route = createFileRoute('/privacy')({
   component: PrivacyPage,
 })
 
 function PrivacyPage() {
-  const { send: authSend } = useAuthStore()
+  const authSend = useAuthSend()
   const currentUser = useCurrentUser()
 
   return (
@@ -85,7 +85,7 @@ function PrivacyPage() {
               <ConfirmationPopover
                 triggerText="disconnect your Spotify account"
                 triggerVariant="link"
-                onConfirm={() => authSend("NUKE_USER")}
+                onConfirm={() => authSend({ type: "NUKE_USER" })}
                 confirmText="Disconnect Spotify"
                 popoverBody={
                   <Text>

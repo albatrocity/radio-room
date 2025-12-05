@@ -1,4 +1,4 @@
-import { useGetAllReactionsOf } from "../state/reactionsStore"
+import { useGetAllReactionsOf } from "../hooks/useActors"
 
 import { Emoji } from "../types/Emoji"
 import { PlaylistItem } from "../types/PlaylistItem"

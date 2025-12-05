@@ -8,9 +8,9 @@ import DrawerPlaylistFooter from "./DrawerPlaylistFooter"
 import PlaylistFilters from "../PlaylistFilters"
 import usePlaylistFilter from "../usePlaylistFilter"
 
+import { useSocketMachine } from "../../hooks/useSocketMachine"
 import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
 import { toggleableCollectionMachine } from "../../machines/toggleableCollectionMachine"
-import { useCurrentPlaylist, usePlaylistStore } from "../../state/playlistStore"
 import { toast } from "../../lib/toasts"
 
 import { Dictionary } from "../../types/Dictionary"
@@ -18,11 +18,16 @@ import { Reaction } from "../../types/Reaction"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { Emoji } from "../../types/Emoji"
 import PlaylistWindow from "../PlaylistWindow"
-import { useIsAdmin } from "../../state/authStore"
-import { useCurrentRoom } from "../../state/roomStore"
+import {
+  useCurrentPlaylist,
+  usePlaylistSend,
+  usePlaylistActive,
+  useIsAdmin,
+  useCurrentRoom,
+} from "../../hooks/useActors"
 
 function DrawerPlaylist() {
-  const { send: playlistSend } = usePlaylistStore()
+  const playlistSend = usePlaylistSend()
   const currentPlaylist = useCurrentPlaylist()
   const isAdmin = useIsAdmin()
   const [isEditing, setIsEditing] = useState(false)
@@ -32,7 +37,7 @@ function DrawerPlaylist() {
   const defaultPlaylistName = `${room?.title || "Radio Room"} ${today}`
   const [name, setName] = useState<string>(defaultPlaylistName)
   const hasInitialized = useRef(false)
-  const [state, send] = useMachine(savePlaylistMachine, {
+  const [state, send] = useSocketMachine(savePlaylistMachine, {
     actions: {
       notifyPlaylistCreated: (context) => {
         setIsEditing(false)
@@ -61,7 +66,7 @@ function DrawerPlaylist() {
       persistent: false,
     },
   })
-  const isOpen = usePlaylistStore((s) => s.state.matches("active"))
+  const isOpen = usePlaylistActive()
   const isLoading = state.matches("loading")
   const canSave = isAdmin // Only room creator can save playlists
 
@@ -114,7 +119,10 @@ function DrawerPlaylist() {
   const handleFilterChange = (emoji: Emoji) => {
     filterSend("TOGGLE_ITEM", { data: emoji })
   }
-  const handleTogglePlaylist = useCallback(() => playlistSend("TOGGLE_PLAYLIST"), [playlistSend])
+  const handleTogglePlaylist = useCallback(
+    () => playlistSend({ type: "TOGGLE_PLAYLIST" }),
+    [playlistSend],
+  )
   const handleSave = useCallback(
     (e: FormEvent) => {
       e.preventDefault()

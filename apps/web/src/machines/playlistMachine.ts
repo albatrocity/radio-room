@@ -1,6 +1,5 @@
 import { assign, createMachine } from "xstate"
 import { uniqBy } from "lodash/fp"
-import socketService from "../lib/socketService"
 import { QueueItem } from "../types/Queue"
 
 interface Context {
@@ -14,12 +13,6 @@ export const playlistMachine = createMachine<Context>(
     context: {
       playlist: [],
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
     on: {
       INIT: {
         actions: ["setData"],

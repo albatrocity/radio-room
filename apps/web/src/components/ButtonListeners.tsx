@@ -1,13 +1,12 @@
 import React from "react"
 import { Button, ButtonProps, Icon } from "@chakra-ui/react"
 import { FiUsers } from "react-icons/fi"
-import { useListeners } from "../state/usersStore"
-import { useModalsStore } from "../state/modalsState"
+import { useListeners, useModalsSend } from "../hooks/useActors"
 
 const ButtonListeners = (props: ButtonProps) => {
-  const { send } = useModalsStore()
+  const modalSend = useModalsSend()
   const listeners = useListeners()
-  const onShowListeners = () => send("VIEW_LISTENERS")
+  const onShowListeners = () => modalSend({ type: "VIEW_LISTENERS" })
   return (
     <Button
       onClick={onShowListeners}

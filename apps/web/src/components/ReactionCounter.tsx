@@ -2,9 +2,7 @@ import { memo, useEffect, useCallback, useMemo } from "react"
 import { useMachine } from "@xstate/react"
 import { groupBy } from "lodash/fp"
 import { reactionsMachine } from "../machines/reactionsMachine"
-import { useAllReactionsOf } from "../state/reactionsStore"
-
-import { useCurrentUser } from "../state/authStore"
+import { useAllReactionsOf, useCurrentUser } from "../hooks/useActors"
 import ReactionSelection, { ReactionSelectionProps } from "./ReactionSelection"
 
 import { ReactionSubject } from "../types/ReactionSubject"

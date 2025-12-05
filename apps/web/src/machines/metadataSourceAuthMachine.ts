@@ -1,7 +1,7 @@
 // Service-agnostic state machine for checking if the room's metadata source is authenticated
-import { sendTo, createMachine, assign } from "xstate"
-import socketService from "../lib/socketService"
+import { createMachine, assign } from "xstate"
 import { toast } from "../lib/toasts"
+import { emitToSocket } from "../actors/socketActor"
 
 interface Context {
   userId?: string
@@ -53,12 +53,6 @@ export const metadataSourceAuthMachine = createMachine<Context>(
         },
       },
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
   },
   {
     actions: {
@@ -70,21 +64,17 @@ export const metadataSourceAuthMachine = createMachine<Context>(
           return event.data?.serviceName ?? ctx.serviceName
         },
       }),
-      fetchAuthenticationStatus: sendTo("socket", (ctx) => {
-        return {
-          type: "GET_USER_SERVICE_AUTHENTICATION_STATUS",
-          data: {
-            userId: ctx.userId,
-            serviceName: ctx.serviceName || "spotify", // Default to spotify for backward compat
-          },
-        }
-      }),
-      logout: sendTo("socket", (ctx) => ({
-        type: "LOGOUT_SERVICE",
-        data: {
+      fetchAuthenticationStatus: (ctx) => {
+        emitToSocket("GET_USER_SERVICE_AUTHENTICATION_STATUS", {
+          userId: ctx.userId,
+          serviceName: ctx.serviceName || "spotify", // Default to spotify for backward compat
+        })
+      },
+      logout: (ctx) => {
+        emitToSocket("LOGOUT_SERVICE", {
           serviceName: ctx.serviceName || "spotify",
-        },
-      })),
+        })
+      },
       notifyLogout: (ctx) => {
         const serviceName = ctx.serviceName || "service"
         toast({
@@ -107,4 +97,3 @@ export const metadataSourceAuthMachine = createMachine<Context>(
     },
   },
 )
-

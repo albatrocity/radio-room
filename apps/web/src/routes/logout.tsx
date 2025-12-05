@@ -3,18 +3,18 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import Layout from "../components/layout"
 import { Center, Heading } from "@chakra-ui/react"
-import { useAuthStore } from "../state/authStore"
+import { useAuthSend } from "../hooks/useActors"
 
 export const Route = createFileRoute('/logout')({
   component: LogoutPage,
 })
 
 function LogoutPage() {
-  const { send } = useAuthStore()
+  const authSend = useAuthSend()
   
   useEffect(() => {
-    send("LOGOUT")
-  }, [send])
+    authSend({ type: "LOGOUT" })
+  }, [authSend])
 
   return (
     <Layout>

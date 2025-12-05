@@ -1,6 +1,6 @@
-import { createMachine, assign, sendTo } from "xstate"
-import socketService from "../lib/socketService"
+import { createMachine, assign } from "xstate"
 import { Room } from "../types/Room"
+import { emitToSocket } from "../actors/socketActor"
 
 type Context = Pick<
   Room,
@@ -54,12 +54,6 @@ export const settingsMachine = createMachine<Context, Event>(
       radioListenUrl: "",
       pluginConfigs: {},
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService as any,
-      },
-    ],
     on: {
       ROOM_SETTINGS: {
         actions: "setValues",
@@ -96,7 +90,9 @@ export const settingsMachine = createMachine<Context, Event>(
   },
   {
     actions: {
-      fetchSettings: sendTo("socket", () => ({ type: "GET_ROOM_SETTINGS" })),
+      fetchSettings: () => {
+        emitToSocket("GET_ROOM_SETTINGS", {})
+      },
       setValues: assign((ctx, event) => {
         if (event.type === "ROOM_SETTINGS" || event.type === "ROOM_SETTINGS_UPDATED") {
           // Get plugin configs from the event, preserving existing if not provided

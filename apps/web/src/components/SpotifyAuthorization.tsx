@@ -1,13 +1,13 @@
 import React from "react"
 import { useEffect } from "react"
-import { useAuthStore } from "../state/authStore"
+import { useAuthSend } from "../hooks/useActors"
 import { Center, Spinner, VStack, Text } from "@chakra-ui/react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 
 export default function SpotifyAuthorization() {
   const navigate = useNavigate()
   const searchParams = useSearch({ strict: false })
-  const { send: sendAuth } = useAuthStore()
+  const sendAuth = useAuthSend()
 
   const userId = (searchParams as any).userId
   const challenge = (searchParams as any).challenge
@@ -18,7 +18,7 @@ export default function SpotifyAuthorization() {
       console.log("Server-side OAuth callback detected for user:", userId)
 
       // Trigger auth machine to check session
-      sendAuth("GET_SESSION_USER")
+      sendAuth({ type: "GET_SESSION_USER" })
 
       // Get redirect path and navigate
       const redirectPath = sessionStorage.getItem("postSpotifyAuthRedirect") ?? "/"

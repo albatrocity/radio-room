@@ -4,7 +4,7 @@ import { Stack, LinkBox, LinkOverlay, Text, Icon, Image, Box, HStack } from "@ch
 
 import { PlaylistItem as PlaylistItemType } from "../types/PlaylistItem"
 import { FiUser, FiSkipForward } from "react-icons/fi"
-import { useUsersStore } from "../state/usersStore"
+import { useUsers } from "../hooks/useActors"
 import { PluginArea } from "./PluginComponents"
 
 type Props = {
@@ -18,10 +18,10 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
     return imageUrl
   }, [item.track.album?.images])
 
-  const djUsername = useUsersStore(
-    (s) =>
-      s.state.context.users.find((x) => x.userId === item.addedBy?.userId)?.username ??
-      item.addedBy?.username,
+  const users = useUsers()
+  const djUsername = useMemo(
+    () => users.find((x) => x.userId === item.addedBy?.userId)?.username ?? item.addedBy?.username,
+    [users, item.addedBy],
   )
 
   // Get external URL from track.urls

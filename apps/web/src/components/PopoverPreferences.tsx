@@ -14,7 +14,7 @@ import { FiSettings, FiMoon } from "react-icons/fi"
 
 import FormTheme from "./FormTheme"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
-import { useCurrentRoom } from "../state/roomStore"
+import { useCurrentRoom } from "../hooks/useActors"
 import { useColorMode } from "./ui/color-mode"
 
 type Props = {}

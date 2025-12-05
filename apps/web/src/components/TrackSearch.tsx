@@ -1,6 +1,7 @@
 import React from "react"
 import { useMachine } from "@xstate/react"
 
+import { useSocketMachine } from "../hooks/useSocketMachine"
 import { trackSearchMachine } from "../machines/trackSearchMachine"
 import { Box, InputProps, Text } from "@chakra-ui/react"
 
@@ -16,7 +17,7 @@ type Props = {
 } & InputProps
 
 function TrackSearch({ onChoose, onDropdownOpenChange }: Props) {
-  const [state, send] = useMachine(trackSearchMachine)
+  const [state, send] = useSocketMachine(trackSearchMachine)
   const [inputState, inputSend] = useMachine(debounceInputMachine, {
     actions: {
       onSearchChange: (_context, event) => {

@@ -1,9 +1,9 @@
-import { assign, sendTo, createMachine } from "xstate"
-import socketService from "../lib/socketService"
+import { assign, createMachine } from "xstate"
 import { isNil, find } from "lodash/fp"
 import { ReactionSubject } from "../types/ReactionSubject"
 import { Reaction } from "../types/Reaction"
-import { getCurrentUser } from "../state/authStore"
+import { getCurrentUser } from "../actors/authActor"
+import { emitToSocket } from "../actors/socketActor"
 
 interface Context {
   reactTo: ReactionSubject | null
@@ -19,12 +19,6 @@ export const reactionsMachine = createMachine<Context>(
       reactTo: null,
       reactions: [],
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
     on: {
       REACTION_ADDED: {
         actions: ["setData"],
@@ -99,28 +93,22 @@ export const reactionsMachine = createMachine<Context>(
           return event.data.reactions ? event.data.reactions : []
         },
       }),
-      addReaction: sendTo("socket", (ctx, event) => {
+      addReaction: (ctx, event) => {
         const currentUser = getCurrentUser()
-        return {
-          type: "ADD_REACTION",
-          data: {
-            emoji: event.data,
-            reactTo: ctx.reactTo,
-            user: currentUser,
-          },
-        }
-      }),
-      removeReaction: sendTo("socket", (ctx, event) => {
+        emitToSocket("ADD_REACTION", {
+          emoji: event.data,
+          reactTo: ctx.reactTo,
+          user: currentUser,
+        })
+      },
+      removeReaction: (ctx, event) => {
         const currentUser = getCurrentUser()
-        return {
-          type: "REMOVE_REACTION",
-          data: {
-            emoji: event.data,
-            reactTo: ctx.reactTo,
-            user: currentUser,
-          },
-        }
-      }),
+        emitToSocket("REMOVE_REACTION", {
+          emoji: event.data,
+          reactTo: ctx.reactTo,
+          user: currentUser,
+        })
+      },
     },
     guards: {
       reactionIsNew: (ctx, event) => {

@@ -11,7 +11,7 @@ import {
   Separator,
   Spinner,
 } from "@chakra-ui/react"
-import { useModalsStore } from "../../../state/modalsState"
+import { useModalsSend } from "../../../hooks/useActors"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 import ActiveIndicator from "../../ActiveIndicator"
 import DestructiveActions from "./DestructiveActions"
@@ -37,7 +37,7 @@ function toEventName(name: string): string {
 }
 
 function Overview() {
-  const { send } = useModalsStore()
+  const send = useModalsSend()
   const { state: settingsState } = useSettingsStore()
   const { schemas, isLoading } = usePluginSchemas()
 

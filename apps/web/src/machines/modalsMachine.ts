@@ -1,8 +1,8 @@
-import { createMachine, sendTo } from "xstate"
+import { createMachine } from "xstate"
 
-import { useAuthStore } from "../state/authStore"
-import { useDjStore } from "../state/djStore"
-import socketService from "../lib/socketService"
+import { getIsAdmin } from "../actors/authActor"
+import { emitToSocket } from "../actors/socketActor"
+import { canAddToQueue as canDjAddToQueue } from "../actors/djActor"
 
 type Context = {}
 
@@ -67,12 +67,6 @@ export const modalsMachine = createMachine<Context, Event>(
     predictableActionArguments: true,
     id: "modals",
     initial: "closed",
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
     on: {
       EDIT_USERNAME: "username",
       EDIT_QUEUE: { target: "queue", cond: "canAddToQueue" },
@@ -172,18 +166,18 @@ export const modalsMachine = createMachine<Context, Event>(
   {
     guards: {
       isAdmin: () => {
-        return useAuthStore.getState().state.context.isAdmin
+        return getIsAdmin()
       },
       canAddToQueue: () => {
-        const isAdmin = useAuthStore.getState().state.context.isAdmin
-        const isDj = useDjStore.getState().state.matches("deputyDjaying")
-        const isDeputyDj = useDjStore.getState().state.matches("djaying")
-
-        return isAdmin || isDj || isDeputyDj
+        const isAdmin = getIsAdmin()
+        const isDjOrDeputy = canDjAddToQueue()
+        return isAdmin || isDjOrDeputy
       },
     },
     actions: {
-      fetchSettings: sendTo("socket", () => ({ type: "GET_ROOM_SETTINGS" })),
+      fetchSettings: () => {
+        emitToSocket("GET_ROOM_SETTINGS", {})
+      },
     },
   },
 )

@@ -1,5 +1,4 @@
 import { createMachine, assign } from "xstate"
-import socketService from "../lib/socketService"
 import { Reaction } from "../types/Reaction"
 import { ReactionSubject } from "../types/ReactionSubject"
 
@@ -8,11 +7,11 @@ export type ReactionsContext = Record<
   Record<string, Reaction[]>
 >
 
-interface Context {
+export interface AllReactionsContext {
   reactions: ReactionsContext
 }
 
-export const allReactionsMachine = createMachine<Context>(
+export const allReactionsMachine = createMachine<AllReactionsContext>(
   {
     predictableActionArguments: true,
     id: "allReactions",
@@ -23,12 +22,6 @@ export const allReactionsMachine = createMachine<Context>(
         track: {},
       },
     },
-    invoke: [
-      {
-        id: "socket",
-        src: (_ctx, _event) => socketService,
-      },
-    ],
     on: {
       REACTION_ADDED: {
         actions: ["setData"],

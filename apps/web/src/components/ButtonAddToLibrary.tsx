@@ -1,9 +1,9 @@
 import { useEffect } from "react"
-import { useMachine } from "@xstate/react"
 import { IconButton } from "@chakra-ui/react"
 import { FaRegHeart, FaHeart } from "react-icons/fa"
 
-import { useIsAdmin } from "../state/authStore"
+import { useIsAdmin } from "../hooks/useActors"
+import { useSocketMachine } from "../hooks/useSocketMachine"
 import addToLibraryMachine from "../machines/addToLibraryMachine"
 
 interface Props {
@@ -12,7 +12,7 @@ interface Props {
 
 export default function ButtonAddToLibrary({ id }: Props) {
   const isAdmin = useIsAdmin()
-  const [state, send] = useMachine(addToLibraryMachine)
+  const [state, send] = useSocketMachine(addToLibraryMachine)
 
   const isAdded = id ? state.context.tracks[id] : false
 

@@ -1,5 +1,4 @@
 import { createMachine, assign } from "xstate"
-import socketService from "../lib/socketService"
 import { User } from "../types/User"
 
 interface Context {
@@ -14,12 +13,6 @@ export const typingMachine = createMachine<Context>(
     context: {
       typing: [],
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
     on: {
       TYPING_CHANGED: {
         actions: ["setTyping"],

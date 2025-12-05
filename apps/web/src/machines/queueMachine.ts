@@ -1,14 +1,15 @@
-import { assign, sendTo, createMachine } from "xstate"
-import socketService from "../lib/socketService"
+import { assign, createMachine } from "xstate"
 import { toast } from "../lib/toasts"
 import { MetadataSourceTrack } from "@repo/types"
-import { useDjStore } from "../state/djStore"
-import { useAuthStore } from "../state/authStore"
+import { getIsAdmin } from "../actors/authActor"
+import { canAddToQueue } from "../actors/djActor"
+import { emitToSocket } from "../actors/socketActor"
 
 export interface QueueContext {
   queuedTrack: MetadataSourceTrack | null | undefined
 }
 
+// NOTE: This machine requires socket events. Use with useSocketMachine hook.
 export const queueMachine = createMachine<QueueContext>(
   {
     predictableActionArguments: true,
@@ -37,35 +38,22 @@ export const queueMachine = createMachine<QueueContext>(
         },
       },
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-    ],
   },
   {
     guards: {
       canQueue: () => {
-        const djState = useDjStore.getState().state
-        const isAdmin = useAuthStore.getState().state.context.isAdmin
-        return (
-          isAdmin ||
-          djState.matches("djaying") ||
-          djState.matches("deputyDjaying")
-        )
+        const isAdmin = getIsAdmin()
+        const canDj = canAddToQueue()
+        return isAdmin || canDj
       },
     },
     actions: {
       setQueuedTrack: assign((_context, event) => ({
         queuedTrack: event.track,
       })),
-      sendToQueue: sendTo("socket", (_ctx, event) => {
-        return {
-          type: "QUEUE_SONG",
-          data: event.track.id, // Use plain ID
-        }
-      }),
+      sendToQueue: (_ctx, event) => {
+        emitToSocket("QUEUE_SONG", event.track.id)
+      },
       notifyQueued: (context) => {
         toast({
           title: `Added to Queue`,

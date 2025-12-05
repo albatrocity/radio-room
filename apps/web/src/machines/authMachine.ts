@@ -1,9 +1,9 @@
-import { assign, sendTo, createMachine } from "xstate"
-import socketService from "../lib/socketService"
+import { assign, createMachine } from "xstate"
 import socket from "../lib/socket"
 import { saveCurrentUser, clearCurrentUser, getCurrentUser } from "../lib/getCurrentUser"
 import { getSessionUser, logout } from "../lib/serverApi"
 import { getPassword, savePassword } from "../lib/passwordOperations"
+import { emitToSocket } from "../actors/socketActor"
 
 import { User } from "../types/User"
 import { Reaction } from "../types/Reaction"
@@ -161,10 +161,7 @@ function getStoredUser() {
   })
 }
 
-function socketEventService(callback: SocketCallback) {
-  // Note: Most socket lifecycle events are now handled in socketService.ts
-  // This is just for any additional auth-specific socket monitoring if needed
-
+function visibilityService(callback: SocketCallback) {
   // Listen for visibility changes to detect tab backgrounding
   if (typeof document !== "undefined") {
     const handleVisibilityChange = () => {
@@ -205,12 +202,8 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
     },
     invoke: [
       {
-        id: "socket",
-        src: () => socketService,
-      },
-      {
-        id: "socketEventService",
-        src: () => socketEventService,
+        id: "visibilityService",
+        src: () => visibilityService,
       },
     ],
     on: {
@@ -450,7 +443,7 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           isNewUser: true,
         }
       }),
-      login: sendTo("socket", (ctx, event) => {
+      login: (ctx, event) => {
         // Get user data from context (set by setStoredUser action) or from event
         let userId: string | undefined = ctx.currentUser?.userId
         let username: string | undefined = ctx.currentUser?.username
@@ -463,17 +456,14 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
         }
 
         const password = ctx.password
-        return {
-          type: "LOGIN",
-          data: {
-            fetchAllData: !ctx.initialized,
-            userId,
-            username,
-            password: password,
-            roomId: ctx.roomId,
-          },
-        }
-      }),
+        emitToSocket("LOGIN", {
+          fetchAllData: !ctx.initialized,
+          userId,
+          username,
+          password: password,
+          roomId: ctx.roomId,
+        })
+      },
       activateAdmin: assign({
         isAdmin: true,
         currentUser: (ctx) =>
@@ -482,15 +472,14 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
       disableRetry: assign({
         shouldRetry: () => false,
       }),
-      changeUsername: sendTo("socket", (ctx) => ({
-        type: "CHANGE_USERNAME",
-        data: ctx.currentUser
-          ? {
-              userId: ctx.currentUser.userId,
-              username: ctx.currentUser.username,
-            }
-          : null,
-      })),
+      changeUsername: (ctx) => {
+        if (ctx.currentUser) {
+          emitToSocket("CHANGE_USERNAME", {
+            userId: ctx.currentUser.userId,
+            username: ctx.currentUser.username,
+          })
+        }
+      },
       updateUsername: assign({
         currentUser: (ctx, event) => {
           if (event.type !== "UPDATE_USERNAME") return ctx.currentUser
@@ -522,13 +511,12 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
       getStoredPassword: assign({
         password: (_ctx, _event) => getPassword(),
       }),
-      disconnectUser: sendTo("socket", (ctx) => ({
-        type: "USER_LEFT",
-        data: {
+      disconnectUser: (ctx) => {
+        emitToSocket("USER_LEFT", {
           userId: ctx.currentUser?.userId,
           roomId: ctx.roomId,
-        },
-      })),
+        })
+      },
       clearSession: assign(() => {
         clearCurrentUser()
         return {
@@ -539,39 +527,27 @@ export const authMachine = createMachine<AuthContext, AuthEvent>(
           roomId: undefined,
         }
       }),
-      nukeUser: sendTo("socket", () => {
-        return { type: "NUKE_USER" }
-      }),
-      kickUser: sendTo("socket", (_ctx, event) => {
+      nukeUser: () => {
+        emitToSocket("NUKE_USER", {})
+      },
+      kickUser: (_ctx, event) => {
         if (event.type !== "KICK_USER") return
-
-        return {
-          type: "KICK_USER",
-          data: {
-            userId: event.userId,
-          },
-        }
-      }),
-      checkPasswordRequirement: sendTo("socket", (ctx) => {
+        emitToSocket("KICK_USER", {
+          userId: event.userId,
+        })
+      },
+      checkPasswordRequirement: (ctx) => {
         // Only check password if one exists in context
-        if (!ctx.password) {
-          return { type: "noop" }
-        }
-        return {
-          type: "CHECK_PASSWORD",
-          data: ctx.password,
-        }
-      }),
-      submitPassword: sendTo("socket", (ctx, event) => {
+        if (!ctx.password) return
+        emitToSocket("CHECK_PASSWORD", ctx.password)
+      },
+      submitPassword: (ctx, event) => {
         if (event.type !== "SET_PASSWORD") return
-        return {
-          type: "SUBMIT_PASSWORD",
-          data: {
-            password: event.data,
-            roomId: ctx.roomId,
-          },
-        }
-      }),
+        emitToSocket("SUBMIT_PASSWORD", {
+          password: event.data,
+          roomId: ctx.roomId,
+        })
+      },
       setRoomId: assign({
         roomId: (ctx, event) => {
           if (event.type !== "SETUP") return ctx.roomId

@@ -17,9 +17,7 @@ import { debounce } from "lodash"
 
 import MentionSuggestionsContainer from "./MentionSuggestionsContainer"
 import { ChatMessage } from "../types/ChatMessage"
-import { useCurrentUser, useIsAuthenticated } from "../state/authStore"
-import { useUsers } from "../state/usersStore"
-import { useModalsStore } from "../state/modalsState"
+import { useCurrentUser, useIsAuthenticated, useUsers, useIsAnyModalOpen } from "../hooks/useActors"
 
 const renderUserSuggestion = (
   suggestion: any,
@@ -118,12 +116,12 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
   const currentUser = useCurrentUser()
   const users = useUsers()
   const isAuthenticated = useIsAuthenticated()
+  const modalActive = useIsAnyModalOpen()
 
   const inputRef = useRef<ReactPortal>(null)
   const [isTyping, setTyping] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
   const [content, setContent] = useState("")
-  const modalActive = useModalsStore((s) => !s.state.matches("closed"))
 
   // Use CSS variables for colors
   const borderColor = "var(--chakra-colors-secondary-border, #ccc)"

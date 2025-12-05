@@ -11,7 +11,7 @@ import { useHotkeys } from "react-hotkeys-hook"
 import PlayStateIcon from "./PlayStateIcon"
 import AdminControls from "./AdminControls"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
-import { useIsAdmin } from "../state/authStore"
+import { useIsAdmin } from "../hooks/useActors"
 
 interface RadioPlayerProps {
   volume: number

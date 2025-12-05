@@ -4,14 +4,14 @@ import { Box, RadioGroup, Stack, Text } from "@chakra-ui/react"
 import ThemePreview from "./ThemePreview"
 import themes from "../themes"
 import { AppTheme } from "../types/AppTheme"
-import { useThemeStore } from "../state/themeStore"
+import { useCurrentTheme, useThemeSend } from "../hooks/useActors"
 
 function FormTheme() {
   const themeList = Object.keys(themes).map((key) => themes[key])
-  const { send } = useThemeStore()
-  const currentTheme = useThemeStore((s) => s.state.context.theme)
+  const themeSend = useThemeSend()
+  const currentTheme = useCurrentTheme()
   const handleChange = (details: { value: string }) => {
-    send("SET_THEME", { theme: details.value as AppTheme["id"] })
+    themeSend({ type: "SET_THEME", theme: details.value as AppTheme["id"] })
   }
 
   return (

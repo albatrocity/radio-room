@@ -1,6 +1,6 @@
-import { assign, sendTo, createMachine, AnyEventObject } from "xstate"
-import socketService from "../lib/socketService"
+import { assign, createMachine, AnyEventObject } from "xstate"
 import { MetadataSourceTrack } from "@repo/types"
+import { emitToSocket } from "../actors/socketActor"
 
 type RequestError = {
   message: string
@@ -24,6 +24,7 @@ type TrackSearchEvent =
     }
   | AnyEventObject
 
+// NOTE: This machine requires socket events. Use with useSocketMachine hook.
 export const trackSearchMachine = createMachine<TrackSearchContext>(
   {
     predictableActionArguments: true,
@@ -67,21 +68,12 @@ export const trackSearchMachine = createMachine<TrackSearchContext>(
         },
       },
     },
-    invoke: [
-      {
-        id: "socket",
-        src: (() => socketService) as any,
-      },
-    ],
   },
   {
     actions: {
-      sendQuery: sendTo("socket", (_ctx, event) => {
-        return {
-          type: "SEARCH_TRACK",
-          data: { query: event.value, options: {} },
-        }
-      }),
+      sendQuery: (_ctx, event) => {
+        emitToSocket("SEARCH_TRACK", { query: event.value, options: {} })
+      },
       setResults: assign((_context, event) => {
         return {
           results: event.data.items || [],

@@ -3,27 +3,29 @@ import { Box, Heading, Stack } from "@chakra-ui/react"
 
 import FormAddToQueue from "../FormAddToQueue"
 import Modal from "../Modal"
-import { useModalsStore } from "../../state/modalsState"
 import SavedTracks from "../SavedTracks"
 import useAddToQueue from "../useAddToQueue"
 import {
+  useModalsSend,
+  useIsModalOpen,
   useIsMetadataSourceAuthenticated,
-  useMetadataSourceAuthStore,
-} from "../../state/metadataSourceAuthStore"
-import { useIsAdmin, useCurrentUser } from "../../state/authStore"
-import { useCurrentRoom } from "../../state/roomStore"
+  useMetadataSourceAuthSend,
+  useIsAdmin,
+  useCurrentUser,
+  useCurrentRoom,
+} from "../../hooks/useActors"
 
 function ModalAddToQueue() {
-  const { send } = useModalsStore()
+  const modalSend = useModalsSend()
   const [open, setOpen] = useState(false)
   const { addToQueue, state } = useAddToQueue()
-  const isAddingToQueue = useModalsStore((s: any) => s.state.matches("queue"))
+  const isAddingToQueue = useIsModalOpen("queue")
   const isMetadataSourceAuthenticated = useIsMetadataSourceAuthenticated()
-  const { send: sendAuth } = useMetadataSourceAuthStore()
+  const metadataAuthSend = useMetadataSourceAuthSend()
   const isAdmin = useIsAdmin()
   const currentUser = useCurrentUser()
   const room = useCurrentRoom()
-  const hideEditForm = () => send("CLOSE")
+  const hideEditForm = () => modalSend({ type: "CLOSE" })
 
   // Initialize auth check when modal opens
   useEffect(() => {
@@ -31,15 +33,16 @@ function ModalAddToQueue() {
       // Determine service name from metadata source ID
       // Format: "spotify-metadata" -> "spotify"
       const serviceName = room.metadataSourceId.split("-")[0]
-      sendAuth("INIT", {
+      metadataAuthSend({
+        type: "INIT",
         data: {
           userId: currentUser.userId,
           serviceName,
         },
       })
-      sendAuth("FETCH_STATUS")
+      metadataAuthSend({ type: "FETCH_STATUS" })
     }
-  }, [isAddingToQueue, isAdmin, room?.metadataSourceId, currentUser?.userId, sendAuth])
+  }, [isAddingToQueue, isAdmin, room?.metadataSourceId, currentUser?.userId, metadataAuthSend])
 
   const canViewSavedTracks = isAdmin && isMetadataSourceAuthenticated
 

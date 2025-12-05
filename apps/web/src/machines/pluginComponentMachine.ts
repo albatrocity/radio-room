@@ -1,6 +1,6 @@
-import { createMachine, assign } from "xstate"
-import socketService from "../lib/socketService"
+import { createMachine, assign, interpret } from "xstate"
 import type { PluginComponentState } from "../types/PluginComponent"
+import { subscribeById, unsubscribeById } from "../actors/socketActor"
 
 // ============================================================================
 // Context & Events
@@ -26,13 +26,14 @@ export type PluginComponentEvent =
   | { type: "SOCKET_RECONNECTING"; data: Record<string, unknown> }
   | { type: "SOCKET_RECONNECTED"; data: Record<string, unknown> }
   | { type: "SOCKET_RECONNECT_FAILED"; data: Record<string, unknown> }
+  | { type: string; data?: any } // For plugin-specific events
 
 // ============================================================================
 // Services
 // ============================================================================
 
 /**
- * Creates a socket service that filters events for a specific plugin.
+ * Creates a socket subscription service that filters events for a specific plugin.
  * Only forwards PLUGIN:{pluginName}:* events to the machine.
  *
  * Design Note: This service intentionally ONLY listens to plugin events, not system events.
@@ -46,9 +47,13 @@ export type PluginComponentEvent =
  *   → Machine receives PLUGIN:playlist-democracy:TRACK_STARTED
  */
 function createPluginSocketService(pluginName: string, storeKeys: string[]) {
+  // Generate a unique subscription ID for this plugin instance
+  const subscriptionId = `plugin:${pluginName}:${Date.now()}`
+
   return (callback: (event: PluginComponentEvent) => void) => {
-    socketService(
-      (event) => {
+    // Create a subscriber that receives events from socketActor and filters them
+    const subscriber = {
+      send: (event: { type: string; data?: any }) => {
         // Forward all socket lifecycle events
         if (
           event.type === "SOCKET_CONNECTED" ||
@@ -82,10 +87,15 @@ function createPluginSocketService(pluginName: string, storeKeys: string[]) {
           data: event.data as Record<string, unknown>,
         })
       },
-      () => {
-        // No outgoing events needed for plugin components
-      },
-    )
+    }
+
+    // Subscribe to socket actor using ID-based subscription
+    subscribeById(subscriptionId, subscriber)
+
+    // Return cleanup function
+    return () => {
+      unsubscribeById(subscriptionId)
+    }
   }
 }
 

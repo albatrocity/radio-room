@@ -1,7 +1,6 @@
 import React from "react"
 import { Box, Text, Link, Icon } from "@chakra-ui/react"
-import { useRoomCreator } from "../state/roomStore"
-import { useListeners } from "../state/usersStore"
+import { useRoomCreator, useListeners } from "../hooks/useActors"
 import { BiCrown } from "react-icons/bi"
 
 type Props = {}
