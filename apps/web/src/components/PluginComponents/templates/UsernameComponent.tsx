@@ -1,5 +1,5 @@
 import { Text } from "@chakra-ui/react"
-import { useListeners } from "../../../state/usersStore"
+import { useListeners } from "../../../hooks/useActors"
 import type { User } from "../../../types/User"
 import type { UsernameComponentProps } from "../../../types/PluginComponent"
 
@@ -13,4 +13,3 @@ export function UsernameTemplateComponent({ userId }: UsernameComponentProps) {
 
   return <Text as="span">{user?.username || userId}</Text>
 }
-
