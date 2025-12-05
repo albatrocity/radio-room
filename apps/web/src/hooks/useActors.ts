@@ -264,7 +264,8 @@ export const useIsStationOnline = useIsAudioOnline
 export const useStationMeta = useAudioMeta
 
 export const useCurrentTrackId = () => {
-  return useSelector(audioActor, (s) => s.context.meta?.nowPlaying?.track?.id ?? "")
+  // Use mediaSource.trackId - the stable identity from the streaming source
+  return useSelector(audioActor, (s) => s.context.meta?.nowPlaying?.mediaSource?.trackId ?? "")
 }
 
 export const useMetadataSourceTrackId = () => {

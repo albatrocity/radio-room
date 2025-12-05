@@ -25,6 +25,10 @@ type Context = Pick<
 type Event =
   | { type: "FETCH" }
   | {
+      type: "INIT"
+      data: { pluginConfigs?: Record<string, Record<string, unknown>> }
+    }
+  | {
       type: "ROOM_SETTINGS"
       data: { room: Room; pluginConfigs?: Record<string, Record<string, unknown>> }
     }
@@ -55,6 +59,9 @@ export const settingsMachine = createMachine<Context, Event>(
       pluginConfigs: {},
     },
     on: {
+      INIT: {
+        actions: "setPluginConfigs",
+      },
       ROOM_SETTINGS: {
         actions: "setValues",
         target: "fetched",
@@ -93,6 +100,12 @@ export const settingsMachine = createMachine<Context, Event>(
       fetchSettings: () => {
         emitToSocket("GET_ROOM_SETTINGS", {})
       },
+      setPluginConfigs: assign((ctx, event) => {
+        if (event.type === "INIT" && event.data.pluginConfigs) {
+          return { pluginConfigs: event.data.pluginConfigs }
+        }
+        return ctx
+      }),
       setValues: assign((ctx, event) => {
         if (event.type === "ROOM_SETTINGS" || event.type === "ROOM_SETTINGS_UPDATED") {
           // Get plugin configs from the event, preserving existing if not provided
