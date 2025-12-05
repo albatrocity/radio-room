@@ -1,9 +1,8 @@
 import React, { useMemo } from "react"
 import { Formik } from "formik"
 import { DialogBody, DialogFooter, Text, Spinner, Center, VStack } from "@chakra-ui/react"
-import { useSettingsStore } from "../../../state/settingsStore"
 import { useAdminStore } from "../../../state/adminStore"
-import { useModalsSend } from "../../../hooks/useActors"
+import { useModalsSend, useSettings } from "../../../hooks/useActors"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 import PluginConfigForm from "./PluginConfigForm"
 import FormActions from "./FormActions"
@@ -17,7 +16,7 @@ interface DynamicPluginSettingsProps {
  * Fetches the schema from the server and uses PluginConfigForm to render.
  */
 export default function DynamicPluginSettings({ pluginName }: DynamicPluginSettingsProps) {
-  const { state } = useSettingsStore()
+  const settings = useSettings()
   const modalSend = useModalsSend()
   const { send } = useAdminStore()
   const { schemas, isLoading, error } = usePluginSchemas()
@@ -31,11 +30,11 @@ export default function DynamicPluginSettings({ pluginName }: DynamicPluginSetti
   // The settingsMachine stores plugin configs in pluginConfigs keyed by plugin name
   const currentConfig = useMemo(() => {
     // Get from pluginConfigs using the plugin name
-    const pluginConfig = state.context.pluginConfigs?.[pluginName]
+    const pluginConfig = settings.pluginConfigs?.[pluginName]
 
     // Fall back to defaults if no config stored
     return pluginConfig || pluginSchema?.defaultConfig
-  }, [state.context.pluginConfigs, pluginName, pluginSchema])
+  }, [settings.pluginConfigs, pluginName, pluginSchema])
 
   // Show loading state
   if (isLoading) {

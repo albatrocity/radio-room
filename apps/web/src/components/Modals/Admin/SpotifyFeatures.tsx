@@ -8,19 +8,18 @@ import {
   DialogFooter,
   VStack,
 } from "@chakra-ui/react"
-import { useSettingsStore } from "../../../state/settingsStore"
 import FormActions from "./FormActions"
-import { useModalsSend } from "../../../hooks/useActors"
+import { useModalsSend, useSettings } from "../../../hooks/useActors"
 
 export default function SpotifyFeatures() {
-  const { state } = useSettingsStore()
+  const settings = useSettings()
   const modalSend = useModalsSend()
   const { send } = useAdminStore()
 
   return (
     <Formik
       initialValues={{
-        enableSpotifyLogin: state.context.enableSpotifyLogin,
+        enableSpotifyLogin: settings.enableSpotifyLogin,
       }}
       enableReinitialize
       validate={() => {

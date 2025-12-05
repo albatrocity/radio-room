@@ -1,9 +1,9 @@
 import { memo, useCallback, useMemo } from "react"
-import { useMachine } from "@xstate/react"
 import { get, find, reverse, reject } from "lodash/fp"
 import { Box, Text, Heading, HStack, List, VStack } from "@chakra-ui/react"
 
 import { typingMachine } from "../machines/typingMachine"
+import { useSocketMachine } from "../hooks/useSocketMachine"
 import ListItemUser from "./ListItemUser"
 import {
   useCurrentUser,
@@ -24,7 +24,7 @@ interface UserListProps {
 }
 
 const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserListProps) => {
-  const [typingState] = useMachine(typingMachine)
+  const [typingState] = useSocketMachine(typingMachine)
 
   const authSend = useAuthSend()
   const adminSend = useAdminSend()
@@ -56,8 +56,8 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
 
   // Memoize the filtered listeners list
   const otherListeners = useMemo(
-    () => reverse(reject({ userId: currentUser.userId }, listeners)),
-    [listeners, currentUser.userId],
+    () => reverse(reject({ userId: currentUser?.userId }, listeners)),
+    [listeners, currentUser?.userId],
   )
 
   return (
@@ -90,7 +90,7 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
         )}
         {/* Plugin components for user list area */}
         <PluginArea area="userList" />
-        <List.Root gap={1}>
+        <List.Root gap={1} w="100%">
           {currentListener && (
             <ListItemUser
               key={currentListener.userId}

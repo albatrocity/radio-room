@@ -7,13 +7,12 @@ import {
   DialogFooter,
   VStack,
 } from "@chakra-ui/react"
-import { useSettingsStore } from "../../../state/settingsStore"
 import FormActions from "./FormActions"
-import { useModalsSend } from "../../../hooks/useActors"
+import { useModalsSend, useSettings } from "../../../hooks/useActors"
 import FieldText from "../../Fields/FieldText"
 
 function Password() {
-  const { state } = useSettingsStore()
+  const settings = useSettings()
   const modalSend = useModalsSend()
   const { send } = useAdminStore()
 
@@ -22,7 +21,7 @@ function Password() {
   return (
     <Formik
       initialValues={{
-        password: state.context.password || "",
+        password: settings.password || "",
       }}
       enableReinitialize
       validate={() => {

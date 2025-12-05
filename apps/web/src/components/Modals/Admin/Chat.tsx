@@ -8,20 +8,19 @@ import {
   DialogFooter,
   VStack,
 } from "@chakra-ui/react"
-import { useSettingsStore } from "../../../state/settingsStore"
 import FormActions from "./FormActions"
-import { useModalsSend } from "../../../hooks/useActors"
+import { useModalsSend, useSettings } from "../../../hooks/useActors"
 
 export default function Chat() {
-  const { state } = useSettingsStore()
+  const settings = useSettings()
   const modalSend = useModalsSend()
   const { send } = useAdminStore()
 
   return (
     <Formik
       initialValues={{
-        announceNowPlaying: state.context.announceNowPlaying,
-        announceUsernameChanges: state.context.announceUsernameChanges,
+        announceNowPlaying: settings.announceNowPlaying,
+        announceUsernameChanges: settings.announceUsernameChanges,
       }}
       enableReinitialize
       validate={() => {

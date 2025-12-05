@@ -1,5 +1,5 @@
 import { LuChevronRight } from "react-icons/lu"
-import { useSettingsStore } from "../../../state/settingsStore"
+import { useSettings, useModalsSend } from "../../../hooks/useActors"
 import {
   Box,
   Button,
@@ -11,7 +11,6 @@ import {
   Separator,
   Spinner,
 } from "@chakra-ui/react"
-import { useModalsSend } from "../../../hooks/useActors"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 import ActiveIndicator from "../../ActiveIndicator"
 import DestructiveActions from "./DestructiveActions"
@@ -38,21 +37,21 @@ function toEventName(name: string): string {
 
 function Overview() {
   const send = useModalsSend()
-  const { state: settingsState } = useSettingsStore()
+  const settings = useSettings()
   const { schemas, isLoading } = usePluginSchemas()
 
-  const hasPassword = !!settingsState.context.password
+  const hasPassword = !!settings.password
   const hasSettings =
-    !!settingsState.context.extraInfo ||
-    !!settingsState.context.artwork ||
-    !!settingsState.context.radioMetaUrl
+    !!settings.extraInfo ||
+    !!settings.artwork ||
+    !!settings.radioMetaUrl
   const hasChatSettings =
-    settingsState.context.announceNowPlaying ?? settingsState.context.announceUsernameChanges
-  const hasDjSettings = settingsState.context.deputizeOnJoin
+    settings.announceNowPlaying ?? settings.announceUsernameChanges
+  const hasDjSettings = settings.deputizeOnJoin
 
   // Check if a plugin is active based on its 'enabled' config
   const isPluginActive = (pluginName: string): boolean => {
-    const pluginConfig = settingsState.context.pluginConfigs?.[pluginName]
+    const pluginConfig = settings.pluginConfigs?.[pluginName]
     return pluginConfig?.enabled === true
   }
 

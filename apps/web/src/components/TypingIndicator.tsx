@@ -1,26 +1,23 @@
 import React, { useMemo } from "react"
-import { useMachine } from "@xstate/react"
 import { take, map, get, reject, last } from "lodash/fp"
 import { Box, Text } from "@chakra-ui/react"
 
 import { User } from "../types/User"
 import { typingMachine } from "../machines/typingMachine"
+import { useSocketMachine } from "../hooks/useSocketMachine"
 
 interface Props {
   currentUserId: User["userId"]
 }
 
 const TypingIndicator = ({ currentUserId }: Props) => {
-  const [state] = useMachine(typingMachine)
+  const [state] = useSocketMachine(typingMachine)
 
   const {
     context: { typing },
   } = state
 
-  const typingUsers = map(
-    (u) => get("username", u),
-    reject({ userId: currentUserId }, typing),
-  )
+  const typingUsers = map((u) => get("username", u), reject({ userId: currentUserId }, typing))
 
   const formattedNames = useMemo(() => {
     const lastUser = last(typingUsers)
@@ -31,9 +28,7 @@ const TypingIndicator = ({ currentUserId }: Props) => {
     } else if (typingUsers.length === 0) {
       return "nobody"
     } else {
-      return `${take(typingUsers.length - 1, typingUsers).join(
-        ", ",
-      )} and ${lastUser}`
+      return `${take(typingUsers.length - 1, typingUsers).join(", ")} and ${lastUser}`
     }
   }, [typingUsers])
 
@@ -46,8 +41,7 @@ const TypingIndicator = ({ currentUserId }: Props) => {
       pb={1}
     >
       <Text fontSize="xs">
-        {formattedNames}{" "}
-        {typingUsers.length === 1 || typingUsers.length === 0 ? "is" : "are"}{" "}
+        {formattedNames} {typingUsers.length === 1 || typingUsers.length === 0 ? "is" : "are"}{" "}
         typing...
       </Text>
     </Box>

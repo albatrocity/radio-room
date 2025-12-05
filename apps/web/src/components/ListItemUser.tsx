@@ -1,15 +1,7 @@
 import React, { memo } from "react"
 import { get, isEqual } from "lodash/fp"
 
-import {
-  Box,
-  Text,
-  HStack,
-  IconButton,
-  Icon,
-  List,
-  VStack,
-} from "@chakra-ui/react"
+import { Box, Text, HStack, IconButton, Icon, List, VStack, Stack } from "@chakra-ui/react"
 import { Tooltip } from "./ui/tooltip"
 import { LuPencil, LuX } from "react-icons/lu"
 import { FiMic, FiMusic, FiEye, FiHeadphones } from "react-icons/fi"
@@ -43,7 +35,7 @@ const statusIcon = (user: User) => {
 
 interface ListItemUserProps {
   user: User
-  currentUser: User
+  currentUser?: User
   onEditUser: (user: User) => void
   onKickUser?: (userId: string) => void
   onDeputizeDj?: (userId: string) => void
@@ -70,10 +62,7 @@ const ListItemUser = ({
       alignItems="center"
       background={user.isDj ? "primaryBg" : "transparent"}
     >
-      <Box
-        opacity={userTyping ? 1 : 0}
-        transition="opacity 0.6s ease-in-out"
-      >
+      <Box opacity={userTyping ? 1 : 0} transition="opacity 0.6s ease-in-out">
         <Box
           animation={userTyping ? "pulse 0.8s infinite ease-in-out" : undefined}
           transform="scaleX(-1)"
@@ -82,60 +71,65 @@ const ListItemUser = ({
           <Icon as={BiMessageRoundedDots} color="action.300" mr={1} />
         </Box>
       </Box>
-      <VStack gap={1} align="start">
+      <VStack gap={1} align="start" w="100%">
         <HStack
           alignItems="center"
-          border={{ side: "bottom" }}
+          borderBottomWidth="1px"
           gap="0.4rem"
           py={user.isDj ? 2 : 0}
           width="100%"
+          justifyContent="space-between"
         >
-          {showStatus && statusIcon(user)}
-          {isAdmin && <Icon as={BiCrown} boxSize={3} />}
-          <Box>
-            <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm">
-              {user.username || "anonymous"}
-            </Text>
-          </Box>
-          {user.userId === get("userId", currentUser) && (
-            <IconButton
-              variant="plain"
-              aria-label="Edit Username"
-              onClick={() => {
-                onEditUser(user)
-              }}
-              size="xs"
-            >
-              <LuPencil />
-            </IconButton>
-          )}
-          {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
-            <Tooltip
-              positioning={{ placement: "top" }}
-              content={user.isDeputyDj ? "Remove DJ privileges" : "Deputize DJ"}
-            >
+          <HStack gap="0.4rem" justifyContent="flex-start">
+            {showStatus && statusIcon(user)}
+            {isAdmin && <Icon as={BiCrown} boxSize={3} />}
+            <Box>
+              <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm">
+                {user.username || "anonymous"}
+              </Text>
+            </Box>
+          </HStack>
+          <HStack gap="0.4rem">
+            {user.userId === get("userId", currentUser) && (
+              <IconButton
+                variant="plain"
+                aria-label="Edit Username"
+                onClick={() => {
+                  onEditUser(user)
+                }}
+                size="xs"
+              >
+                <LuPencil />
+              </IconButton>
+            )}
+            {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
+              <Tooltip
+                positioning={{ placement: "top" }}
+                content={user.isDeputyDj ? "Remove DJ privileges" : "Deputize DJ"}
+              >
+                <IconButton
+                  size="xs"
+                  variant={user.isDeputyDj ? "subtle" : "ghost"}
+                  aria-label="Deputize DJ"
+                  onClick={() => {
+                    onDeputizeDj?.(user.userId)
+                  }}
+                >
+                  <Icon as={FiMusic} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
               <IconButton
                 size="xs"
-                variant={user.isDeputyDj ? "solid" : "ghost"}
-                aria-label="Deputize DJ"
-                onClick={() => {
-                  onDeputizeDj?.(user.userId)
-                }}
+                variant="ghost"
+                aria-label="Kick User"
+                onClick={() => onKickUser?.(user.userId)}
               >
-                <Icon as={FiMusic} />
+                <LuX />
               </IconButton>
-            </Tooltip>
-          )}
-          {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
-            <IconButton
-              size="xs"
-              variant="ghost"
-              aria-label="Kick User"
-              onClick={() => onKickUser?.(user.userId)}
-            >
-              <LuX />
-            </IconButton>
-          )}
+            )}
+          </HStack>
         </HStack>
         <PluginArea area="userListItem" />
       </VStack>
