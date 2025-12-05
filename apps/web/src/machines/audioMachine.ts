@@ -58,11 +58,11 @@ export const audioMachine = createMachine<Context>(
                 on: {
                   STOP: {
                     target: "stopped",
-                    actions: ["STOP_LISTENING", "participate"],
+                    actions: ["stopListening", "participate"],
                   },
                   TOGGLE: {
                     target: "stopped",
-                    actions: ["STOP_LISTENING", "participate"],
+                    actions: ["stopListening", "participate"],
                   },
                   TRACK_CHANGED: {
                     actions: ["setMeta"],
@@ -75,7 +75,7 @@ export const audioMachine = createMachine<Context>(
                     },
                     {
                       target: "#audio.offline",
-                      actions: ["setMediaSourceStatus", "participate", "STOP_LISTENING"],
+                      actions: ["setMediaSourceStatus", "participate", "stopListening"],
                     },
                   ],
                 },
@@ -84,7 +84,7 @@ export const audioMachine = createMachine<Context>(
                 on: {
                   TOGGLE: {
                     target: "playing",
-                    actions: ["listen", "START_LISTENING"],
+                    actions: ["listen", "startListening"],
                   },
                   TRACK_CHANGED: {
                     actions: ["setMeta"],

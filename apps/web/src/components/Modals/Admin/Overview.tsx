@@ -41,12 +41,8 @@ function Overview() {
   const { schemas, isLoading } = usePluginSchemas()
 
   const hasPassword = !!settings.password
-  const hasSettings =
-    !!settings.extraInfo ||
-    !!settings.artwork ||
-    !!settings.radioMetaUrl
-  const hasChatSettings =
-    settings.announceNowPlaying ?? settings.announceUsernameChanges
+  const hasSettings = !!settings.extraInfo || !!settings.artwork || !!settings.radioMetaUrl
+  const hasChatSettings = settings.announceNowPlaying ?? settings.announceUsernameChanges
   const hasDjSettings = settings.deputizeOnJoin
 
   // Check if a plugin is active based on its 'enabled' config
@@ -69,7 +65,7 @@ function Overview() {
             <VStack w="100%" align="left" gap="1px">
               <Button
                 colorPalette="action"
-                variant="solid"
+                variant="subtle"
                 borderRadius="lg"
                 borderBottomRadius="none"
                 w="100%"
@@ -86,7 +82,7 @@ function Overview() {
               </Button>
               <Button
                 colorPalette="action"
-                variant="solid"
+                variant="subtle"
                 borderRadius="none"
                 w="100%"
                 textAlign="left"
@@ -102,7 +98,7 @@ function Overview() {
               </Button>
               <Button
                 colorPalette="action"
-                variant="solid"
+                variant="subtle"
                 borderRadius="none"
                 w="100%"
                 textAlign="left"
@@ -118,7 +114,7 @@ function Overview() {
               </Button>
               <Button
                 colorPalette="action"
-                variant="solid"
+                variant="subtle"
                 borderRadius="lg"
                 borderTopRadius="none"
                 w="100%"
@@ -154,7 +150,7 @@ function Overview() {
                   <Button
                     key={plugin.name}
                     colorPalette="action"
-                    variant="solid"
+                    variant="subtle"
                     w="100%"
                     textAlign="left"
                     fontWeight="400"

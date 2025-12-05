@@ -125,25 +125,23 @@ const RadioPlayer = ({
               )}
             </HStack>
             <Box hideBelow="sm" w="100%" pr={3}>
-              <HStack>
-                <Slider.Root
-                  aria-label="Volume"
-                  value={[muted ? 0 : volume]}
-                  max={1.0}
-                  min={0}
-                  step={0.1}
-                  onValueChange={(details) => onVolume(details.value[0])}
-                >
-                  <Slider.Control>
-                    <Slider.Track bg="whiteAlpha.500">
-                      <Slider.Range bg="action" />
-                    </Slider.Track>
-                    <Slider.Thumb index={0} boxSize={[6, 3]}>
-                      <Box />
-                    </Slider.Thumb>
-                  </Slider.Control>
-                </Slider.Root>
-              </HStack>
+              <Slider.Root
+                aria-label={["Volume"]}
+                value={[muted ? 0 : volume]}
+                max={1.0}
+                min={0}
+                step={0.1}
+                onValueChange={(details) => onVolume(details.value[0])}
+                variant="solid"
+                colorPalette="primary"
+              >
+                <Slider.Control>
+                  <Slider.Track bg="whiteAlpha.500">
+                    <Slider.Range bg="action.500" />
+                  </Slider.Track>
+                  <Slider.Thumbs boxSize={3.5} />
+                </Slider.Control>
+              </Slider.Root>
             </Box>
             <Box hideFrom="sm">
               <HStack>

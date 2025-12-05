@@ -1,24 +1,25 @@
 import React, { ReactNode } from "react"
-import { Select, SelectProps } from "@chakra-ui/react"
+import { NativeSelect } from "@chakra-ui/react"
 import { useField } from "formik"
 
 type Props = {
   name: string
   children: ReactNode
-} & SelectProps
+} & NativeSelect.RootProps
 
 function FieldSelect({ name, children, ...rest }: Props) {
   const [field, , { setValue }] = useField(name)
 
   return (
-    <Select
-      name={name}
-      onChange={(e) => setValue(e.target.value)}
-      value={field.value}
-      {...rest}
-    >
-      {children}
-    </Select>
+    <NativeSelect.Root {...rest}>
+      <NativeSelect.Field
+        name={name}
+        onChange={(e) => setValue(e.target.value)}
+        value={field.value}
+      >
+        {children}
+      </NativeSelect.Field>
+    </NativeSelect.Root>
   )
 }
 

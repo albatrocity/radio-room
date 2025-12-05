@@ -1,4 +1,3 @@
-import React from "react"
 import { useMachine } from "@xstate/react"
 import { Box, Button, HStack, VStack, Text, Spinner, Center } from "@chakra-ui/react"
 
