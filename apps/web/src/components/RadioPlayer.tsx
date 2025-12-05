@@ -145,9 +145,9 @@ const RadioPlayer = ({
             </Box>
             <Box hideFrom="sm">
               <HStack>
-                {isAdmin && <AdminControls buttonColorScheme="action" />}
+                {isAdmin && <AdminControls buttonColorScheme="action" buttonVariant="subtle" />}
                 <ButtonAddToQueue showText={false} />
-                <ButtonListeners variant="ghost" />
+                <ButtonListeners variant="ghost" padding={0} />
               </HStack>
             </Box>
           </HStack>

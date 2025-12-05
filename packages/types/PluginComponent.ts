@@ -61,6 +61,8 @@ export interface TextComponentProps {
   /** Text content - can be a string or CompositeTemplate for embedded components */
   content: string | CompositeTemplate
   variant?: "default" | "muted" | "bold" | "small"
+  /** Font size - overrides variant-based sizing */
+  size?: "xs" | "sm" | "md" | "lg"
 }
 
 /**
@@ -72,6 +74,8 @@ export interface TextBlockComponentProps {
   content: string | CompositeTemplate
   /** Visual variant for the text block */
   variant?: "info" | "warning" | "example"
+  /** Font size */
+  size?: "xs" | "sm" | "md" | "lg"
 }
 
 /**
@@ -89,7 +93,7 @@ export interface HeadingComponentProps {
  */
 export interface EmojiComponentProps {
   emoji: string
-  size?: "sm" | "md" | "lg"
+  size?: "xs" | "sm" | "md" | "lg"
 }
 
 /**
@@ -221,14 +225,14 @@ export interface PluginComponentMetadata {
    * Component is only shown when condition(s) are met.
    * Checks both config and store values.
    * If an array is provided, ALL conditions must be true (AND logic).
-   * 
+   *
    * @example
    * // Simple truthy check on config field
    * showWhen: { field: "enabled", value: true }
-   * 
+   *
    * // Check store value
    * showWhen: { field: "isSkipped", value: true }
-   * 
+   *
    * // Multiple conditions (AND)
    * showWhen: [
    *   { field: "enabled", value: true },
@@ -259,15 +263,27 @@ export type PluginComponentDefinition =
  * Type aliases for convenience when working with specific component types.
  */
 export type PluginTextComponent = PluginComponentMetadata & { type: "text" } & TextComponentProps
-export type PluginTextBlockComponent = PluginComponentMetadata & { type: "text-block" } & TextBlockComponentProps
-export type PluginHeadingComponent = PluginComponentMetadata & { type: "heading" } & HeadingComponentProps
+export type PluginTextBlockComponent = PluginComponentMetadata & {
+  type: "text-block"
+} & TextBlockComponentProps
+export type PluginHeadingComponent = PluginComponentMetadata & {
+  type: "heading"
+} & HeadingComponentProps
 export type PluginEmojiComponent = PluginComponentMetadata & { type: "emoji" } & EmojiComponentProps
 export type PluginIconComponent = PluginComponentMetadata & { type: "icon" } & IconComponentProps
-export type PluginButtonComponent = PluginComponentMetadata & { type: "button" } & ButtonComponentProps
+export type PluginButtonComponent = PluginComponentMetadata & {
+  type: "button"
+} & ButtonComponentProps
 export type PluginBadgeComponent = PluginComponentMetadata & { type: "badge" } & BadgeComponentProps
-export type PluginLeaderboardComponent = PluginComponentMetadata & { type: "leaderboard" } & LeaderboardComponentProps
-export type PluginUsernameComponent = PluginComponentMetadata & { type: "username" } & UsernameComponentProps
-export type PluginCountdownComponent = PluginComponentMetadata & { type: "countdown" } & CountdownComponentProps
+export type PluginLeaderboardComponent = PluginComponentMetadata & {
+  type: "leaderboard"
+} & LeaderboardComponentProps
+export type PluginUsernameComponent = PluginComponentMetadata & {
+  type: "username"
+} & UsernameComponentProps
+export type PluginCountdownComponent = PluginComponentMetadata & {
+  type: "countdown"
+} & CountdownComponentProps
 
 /**
  * Modal component - special container that can hold other components.

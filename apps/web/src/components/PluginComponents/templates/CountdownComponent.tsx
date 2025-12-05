@@ -1,18 +1,15 @@
-import React from "react"
-import { HStack, Text, VStack } from "@chakra-ui/react"
+import { Text } from "@chakra-ui/react"
 import { useMachine } from "@xstate/react"
-import { interpolateTemplate, interpolateCompositeTemplate } from "@repo/utils"
 import { createTimerMachine } from "../../../machines/TimerMachine"
 import { usePluginComponentContext } from "../context"
-import { renderTemplateComponent } from "./componentMap"
-import type { CountdownComponentProps, CompositeTemplate } from "../../../types/PluginComponent"
+import type { CountdownComponentProps } from "../../../types/PluginComponent"
 
 /**
  * Countdown component - shows a countdown timer with optional text.
  * Pulls start time from plugin store and manages timer state.
  */
 export function CountdownTemplateComponent({ startKey, duration }: CountdownComponentProps) {
-  const { store, config } = usePluginComponentContext()
+  const { store, config, textColor } = usePluginComponentContext()
 
   // Get start timestamp from store
   const startValue = store[startKey]
@@ -39,7 +36,12 @@ export function CountdownTemplateComponent({ startKey, duration }: CountdownComp
 
   // Use start time as key to force remount when track changes
   return (
-    <CountdownTimerDisplay key={start} start={start} duration={resolvedDuration} config={config} />
+    <CountdownTimerDisplay
+      key={start}
+      start={start}
+      duration={resolvedDuration}
+      textColor={textColor}
+    />
   )
 }
 
@@ -50,10 +52,11 @@ export function CountdownTemplateComponent({ startKey, duration }: CountdownComp
 function CountdownTimerDisplay({
   start,
   duration,
+  textColor,
 }: {
   start: number
   duration: number
-  config: Record<string, unknown>
+  textColor?: string
 }) {
   const [state] = useMachine(createTimerMachine({ start, duration }))
 
@@ -61,7 +64,7 @@ function CountdownTimerDisplay({
   const remaining = Math.round(state.context.remaining / 1000)
 
   return (
-    <Text as="span" fontSize="sm" fontWeight="bold">
+    <Text as="span" fontSize="sm" fontWeight="bold" color={textColor}>
       {isExpired ? 0 : remaining}
     </Text>
   )

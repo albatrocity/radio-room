@@ -10,6 +10,8 @@ export interface PluginComponentContextValue {
   config: Record<string, unknown>
   openModal: (modalId: string) => void
   closeModal: (modalId: string) => void
+  /** Text color for components in this area */
+  textColor?: string
 }
 
 export const PluginComponentContext = createContext<PluginComponentContextValue | null>(null)

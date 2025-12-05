@@ -20,9 +20,8 @@ export function getComponentSchema(): PluginComponentSchema {
           {
             type: "component",
             name: "emoji",
-            props: { emoji: "{{config.reactionType}}" },
+            props: { emoji: "{{config.reactionType}}", size: "xs" },
           },
-          { type: "text", content: " to keep this track playing" },
           {
             type: "component",
             name: "countdown",

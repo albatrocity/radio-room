@@ -14,6 +14,8 @@ interface PluginAreaProps {
   itemId?: string
   /** Spacing between components */
   spacing?: number
+  /** Text color for components in this area */
+  color?: string
 }
 
 interface PluginComponents {
@@ -36,7 +38,13 @@ interface PluginComponents {
  * <PluginArea area="playlistItem" itemId={track.id} />
  * ```
  */
-export function PluginArea({ area, direction = "row", itemId, spacing = 2 }: PluginAreaProps) {
+export function PluginArea({
+  area,
+  direction = "row",
+  itemId,
+  spacing = 2,
+  color,
+}: PluginAreaProps) {
   const { schemas, isLoading } = usePluginSchemas()
   const pluginConfigs = usePluginConfigs() || {}
 
@@ -73,7 +81,7 @@ export function PluginArea({ area, direction = "row", itemId, spacing = 2 }: Plu
   }
 
   return (
-    <Stack direction={direction} gap={spacing}>
+    <Stack direction={direction} gap={spacing} color={color}>
       {pluginsForArea.map(({ pluginName, config, storeKeys, components }) => (
         <PluginComponentProvider
           key={pluginName}
@@ -81,6 +89,7 @@ export function PluginArea({ area, direction = "row", itemId, spacing = 2 }: Plu
           storeKeys={storeKeys}
           config={config}
           components={components}
+          textColor={color}
         >
           {components
             .filter((c) => c.type !== "modal")

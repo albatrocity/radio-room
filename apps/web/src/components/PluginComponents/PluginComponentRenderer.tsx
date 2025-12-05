@@ -94,6 +94,8 @@ interface PluginComponentProviderProps {
   storeKeys: string[]
   config: Record<string, unknown>
   components: PluginComponentDefinition[]
+  /** Text color for components */
+  textColor?: string
 }
 
 /**
@@ -106,6 +108,7 @@ export function PluginComponentProvider({
   storeKeys,
   config,
   components,
+  textColor,
 }: PluginComponentProviderProps) {
   const room = useCurrentRoom()
   const roomId = room?.id
@@ -165,8 +168,8 @@ export function PluginComponentProvider({
 
   // Memoize context value - callbacks are now stable
   const contextValue = useMemo(
-    () => ({ store, config, openModal, closeModal }),
-    [store, config, openModal, closeModal],
+    () => ({ store, config, openModal, closeModal, textColor }),
+    [store, config, openModal, closeModal, textColor],
   )
 
   return (
