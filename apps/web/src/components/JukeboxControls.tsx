@@ -58,8 +58,8 @@ export default function JukeboxControls({
             <Box hideFrom="sm">
               <HStack>
                 {isAdmin && <AdminControls buttonColorScheme="action" />}
-                <ButtonAddToQueue showText={!isAdmin} />
-                <ButtonListeners variant="ghost" />
+                <ButtonAddToQueue variant="bright" showText={!isAdmin} />
+                <ButtonListeners variant="bright" />
               </HStack>
             </Box>
           </HStack>

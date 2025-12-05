@@ -53,7 +53,6 @@ const ReactionSelection = memo(function ReactionSelection({
   onToggle,
   showAddButton,
 }: ReactionSelectionProps) {
-  console.log("buttonColorScheme", buttonColorScheme)
   const pickerRef: RefObject<HTMLDivElement | null> = useRef<HTMLDivElement | null>(null)
   const autoFocus = useBreakpointValue(
     {
@@ -137,10 +136,12 @@ const ReactionSelection = memo(function ReactionSelection({
                         "--shadow": "0",
                         "--rgb-background": "transparent",
                         "--background": "transparent",
+                        "--rgb-color": "0 0 0",
+                        "--rgb-input": "255 255 255",
                       },
                       _dark: {
                         "& em-emoji-picker": {
-                          "--rgb-color": "255, 255, 255",
+                          "--rgb-color": "255 255 255",
                           "--rgb-input": "0 0 0",
                         },
                       },

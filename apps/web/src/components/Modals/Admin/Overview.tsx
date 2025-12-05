@@ -69,8 +69,8 @@ function Overview() {
             </Heading>
             <VStack w="100%" align="left" gap="1px">
               <Button
-                variant="ghost"
-                bg="secondaryBg"
+                colorPalette="action"
+                variant="solid"
                 borderRadius="lg"
                 borderBottomRadius="none"
                 w="100%"
@@ -86,8 +86,8 @@ function Overview() {
                 </HStack>
               </Button>
               <Button
-                variant="ghost"
-                bg="secondaryBg"
+                colorPalette="action"
+                variant="solid"
                 borderRadius="none"
                 w="100%"
                 textAlign="left"
@@ -102,8 +102,8 @@ function Overview() {
                 </HStack>
               </Button>
               <Button
-                variant="ghost"
-                bg="secondaryBg"
+                colorPalette="action"
+                variant="solid"
                 borderRadius="none"
                 w="100%"
                 textAlign="left"
@@ -118,8 +118,8 @@ function Overview() {
                 </HStack>
               </Button>
               <Button
-                variant="ghost"
-                bg="secondaryBg"
+                colorPalette="action"
+                variant="solid"
                 borderRadius="lg"
                 borderTopRadius="none"
                 w="100%"
@@ -154,18 +154,14 @@ function Overview() {
                 configurablePlugins.map((plugin, index) => (
                   <Button
                     key={plugin.name}
-                    variant="ghost"
-                    bg="secondaryBg"
+                    colorPalette="action"
+                    variant="solid"
                     w="100%"
                     textAlign="left"
                     fontWeight="400"
                     justifyContent="space-between"
                     borderRadius={
-                      index === 0
-                        ? "lg"
-                        : index === configurablePlugins.length - 1
-                        ? "lg"
-                        : "none"
+                      index === 0 ? "lg" : index === configurablePlugins.length - 1 ? "lg" : "none"
                     }
                     borderTopRadius={index === 0 ? undefined : "none"}
                     borderBottomRadius={

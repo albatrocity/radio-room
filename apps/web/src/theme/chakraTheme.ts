@@ -201,6 +201,9 @@ const config = defineConfig({
     body: {
       bg: { base: "white", _dark: "secondary.900" },
     },
+    button: {
+      colorPalette: "action",
+    },
   },
 })
 
