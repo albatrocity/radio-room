@@ -1,7 +1,8 @@
-import { createMachine } from "xstate"
+import { createMachine, sendTo } from "xstate"
 
 import { useAuthStore } from "../state/authStore"
 import { useDjStore } from "../state/djStore"
+import socketService from "../lib/socketService"
 
 type Context = {}
 
@@ -66,6 +67,12 @@ export const modalsMachine = createMachine<Context, Event>(
     predictableActionArguments: true,
     id: "modals",
     initial: "closed",
+    invoke: [
+      {
+        id: "socket",
+        src: () => socketService,
+      },
+    ],
     on: {
       EDIT_USERNAME: "username",
       EDIT_QUEUE: { target: "queue", cond: "canAddToQueue" },
@@ -97,6 +104,7 @@ export const modalsMachine = createMachine<Context, Event>(
       help: {},
       createRoom: {},
       settings: {
+        entry: ["fetchSettings"],
         initial: "overview",
         states: {
           overview: {
@@ -174,6 +182,8 @@ export const modalsMachine = createMachine<Context, Event>(
         return isAdmin || isDj || isDeputyDj
       },
     },
-    actions: {},
+    actions: {
+      fetchSettings: sendTo("socket", () => ({ type: "GET_ROOM_SETTINGS" })),
+    },
   },
 )
