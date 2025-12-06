@@ -1,27 +1,54 @@
 // Service-agnostic state machine for checking if the room's metadata source is authenticated
 import { setup, assign } from "xstate"
 import { toast } from "../lib/toasts"
-import { emitToSocket } from "../actors/socketActor"
+import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 
-interface Context {
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface MetadataSourceAuthContext {
   userId?: string
   serviceName?: string
   accessToken?: string
+  subscriptionId: string | null
 }
 
 type MetadataSourceAuthEvent =
+  | { type: "ACTIVATE" }
+  | { type: "DEACTIVATE" }
   | { type: "FETCH_STATUS" }
   | { type: "INIT"; data: { userId?: string; serviceName?: string } }
   | { type: "SERVICE_ACCESS_TOKEN_REFRESHED"; data: { accessToken?: string } }
   | { type: "SERVICE_AUTHENTICATION_STATUS"; data: { isAuthenticated: boolean; accessToken?: string } }
   | { type: "LOGOUT" }
 
+// ============================================================================
+// Machine
+// ============================================================================
+
+let subscriptionCounter = 0
+
+const defaultContext: MetadataSourceAuthContext = {
+  subscriptionId: null,
+}
+
 export const metadataSourceAuthMachine = setup({
   types: {
-    context: {} as Context,
+    context: {} as MetadataSourceAuthContext,
     events: {} as MetadataSourceAuthEvent,
   },
   actions: {
+    subscribe: assign(({ self }) => {
+      const id = `metadataSourceAuth-${self.id}-${++subscriptionCounter}`
+      subscribeById(id, { send: (event) => self.send(event) })
+      return { subscriptionId: id }
+    }),
+    unsubscribe: ({ context }) => {
+      if (context.subscriptionId) {
+        unsubscribeById(context.subscriptionId)
+      }
+    },
     assignContext: assign(({ context, event }) => {
       if (event.type !== "INIT") return context
       return {
@@ -48,6 +75,7 @@ export const metadataSourceAuthMachine = setup({
         status: "success",
       })
     },
+    resetContext: assign(() => defaultContext),
   },
   guards: {
     isAuthenticated: ({ event }) => {
@@ -71,43 +99,61 @@ export const metadataSourceAuthMachine = setup({
   },
 }).createMachine({
   id: "metadata-source-auth",
-  initial: "loading",
-  context: {},
-  on: {
-    FETCH_STATUS: {
-      target: ".loading",
-    },
-    INIT: {
-      actions: ["assignContext"],
-    },
-    SERVICE_ACCESS_TOKEN_REFRESHED: {
-      target: ".authenticated",
-      guard: "hasAccessToken",
-    },
-  },
+  initial: "idle",
+  context: defaultContext,
   states: {
-    unauthenticated: {},
-    authenticated: {
+    // Idle state - not subscribed to socket events
+    idle: {
       on: {
-        LOGOUT: {
-          target: "unauthenticated",
-          actions: ["logout", "notifyLogout"],
-        },
+        ACTIVATE: "active",
       },
     },
-    loading: {
-      entry: ["fetchAuthenticationStatus"],
+    // Active state - subscribed to socket events
+    active: {
+      entry: ["subscribe"],
+      exit: ["unsubscribe"],
       on: {
-        SERVICE_AUTHENTICATION_STATUS: [
-          {
-            target: "authenticated",
-            guard: "isAuthenticated",
+        DEACTIVATE: {
+          target: "idle",
+          actions: ["resetContext"],
+        },
+        FETCH_STATUS: {
+          target: ".loading",
+        },
+        INIT: {
+          actions: ["assignContext"],
+        },
+        SERVICE_ACCESS_TOKEN_REFRESHED: {
+          target: ".authenticated",
+          guard: "hasAccessToken",
+        },
+      },
+      initial: "loading",
+      states: {
+        unauthenticated: {},
+        authenticated: {
+          on: {
+            LOGOUT: {
+              target: "unauthenticated",
+              actions: ["logout", "notifyLogout"],
+            },
           },
-          {
-            target: "unauthenticated",
-            guard: "isUnauthenticated",
+        },
+        loading: {
+          entry: ["fetchAuthenticationStatus"],
+          on: {
+            SERVICE_AUTHENTICATION_STATUS: [
+              {
+                target: "authenticated",
+                guard: "isAuthenticated",
+              },
+              {
+                target: "unauthenticated",
+                guard: "isUnauthenticated",
+              },
+            ],
           },
-        ],
+        },
       },
     },
   },

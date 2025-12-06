@@ -1,4 +1,4 @@
-import React, { FormEvent, useCallback, useEffect, useRef, useState } from "react"
+import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Box, Button, HStack, Text, Link, VStack } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { useMachine } from "@xstate/react"
@@ -10,7 +10,7 @@ import usePlaylistFilter from "../usePlaylistFilter"
 
 import { useSocketMachine } from "../../hooks/useSocketMachine"
 import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
-import { toggleableCollectionMachine } from "../../machines/toggleableCollectionMachine"
+import { createToggleableCollectionMachine } from "../../machines/toggleableCollectionMachine"
 import { toast } from "../../lib/toasts"
 
 import { Dictionary } from "../../types/Dictionary"
@@ -37,35 +37,52 @@ function DrawerPlaylist() {
   const defaultPlaylistName = `${room?.title || "Radio Room"} ${today}`
   const [name, setName] = useState<string>(defaultPlaylistName)
   const hasInitialized = useRef(false)
-  const [state, send] = useSocketMachine(savePlaylistMachine, {
-    actions: {
-      notifyPlaylistCreated: (context) => {
-        setIsEditing(false)
-        toast({
-          title: "Playlist created",
-          description: context.playlistMeta?.url ? (
-            <Text>
-              <Link href={context.playlistMeta.url} target="_blank" textDecoration={"underline"}>
-                {context.playlistMeta.title}
-              </Link>{" "}
-              was added to your collection
-            </Text>
-          ) : (
-            <Text>{context.playlistMeta?.title} was created</Text>
-          ),
-          type: "success",
-          duration: 4000,
-        })
-      },
-    },
-  })
-  const [filterState, filterSend] = useMachine(toggleableCollectionMachine, {
-    context: {
-      idPath: "shortcodes",
-      name: "playlistFilters",
-      persistent: false,
-    },
-  })
+
+  // Create save playlist machine with custom notification action
+  const customSavePlaylistMachine = useMemo(
+    () =>
+      savePlaylistMachine.provide({
+        actions: {
+          notifyPlaylistCreated: ({ context }) => {
+            setIsEditing(false)
+            toast({
+              title: "Playlist created",
+              description: context.playlistMeta?.url ? (
+                <Text>
+                  <Link
+                    href={context.playlistMeta.url}
+                    target="_blank"
+                    textDecoration={"underline"}
+                  >
+                    {context.playlistMeta.title}
+                  </Link>{" "}
+                  was added to your collection
+                </Text>
+              ) : (
+                <Text>{context.playlistMeta?.title} was created</Text>
+              ),
+              type: "success",
+              duration: 4000,
+            })
+          },
+        },
+      }),
+    [],
+  )
+  const [state, send] = useSocketMachine(customSavePlaylistMachine)
+
+  // Create filter machine with custom context
+  const filterMachine = useMemo(
+    () =>
+      createToggleableCollectionMachine({
+        collection: [],
+        idPath: "shortcodes",
+        name: "playlistFilters",
+        persistent: false,
+      }),
+    [],
+  )
+  const [filterState, filterSend] = useMachine(filterMachine)
   const isOpen = usePlaylistActive()
   const isLoading = state.matches("loading")
   const canSave = isAdmin // Only room creator can save playlists
@@ -86,14 +103,18 @@ function DrawerPlaylist() {
     ? filterPlaylist(emojis)
     : currentPlaylist
 
-  const [selectedPlaylistState, selectedPlaylistSend] = useMachine(toggleableCollectionMachine, {
-    context: {
-      collection: currentPlaylist, // Start with all tracks selected by default
-      persistent: false,
-      name: "playlist-selected",
-      idPath: "track.id", // Use track.id from QueueItem
-    },
-  })
+  // Create selected playlist machine with custom context
+  const selectedPlaylistMachine = useMemo(
+    () =>
+      createToggleableCollectionMachine({
+        collection: [], // Will be populated via SET_ITEMS when drawer opens
+        persistent: false,
+        name: "playlist-selected",
+        idPath: "track.id", // Use track.id from QueueItem
+      }),
+    [],
+  )
+  const [selectedPlaylistState, selectedPlaylistSend] = useMachine(selectedPlaylistMachine)
 
   // Initialize selected playlist when drawer first opens or playlist loads
   useEffect(() => {

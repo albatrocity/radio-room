@@ -1,12 +1,20 @@
 import { assign, setup } from "xstate"
 import { uniqBy } from "lodash/fp"
 import { QueueItem } from "../types/Queue"
+import { subscribeById, unsubscribeById } from "../actors/socketActor"
 
-interface Context {
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface PlaylistContext {
   playlist: QueueItem[]
+  subscriptionId: string | null
 }
 
 type PlaylistEvent =
+  | { type: "ACTIVATE" }
+  | { type: "DEACTIVATE" }
   | { type: "INIT"; data: { playlist: QueueItem[] } }
   | { type: "PLAYLIST"; data: QueueItem[] }
   | { type: "PLAYLIST_TRACK_ADDED"; data: { track: QueueItem } }
@@ -14,16 +22,32 @@ type PlaylistEvent =
   | { type: "ROOM_DATA"; data: { playlist: QueueItem[] } }
   | { type: "TOGGLE_PLAYLIST" }
 
+// ============================================================================
+// Machine
+// ============================================================================
+
+let subscriptionCounter = 0
+
 export const playlistMachine = setup({
   types: {
-    context: {} as Context,
+    context: {} as PlaylistContext,
     events: {} as PlaylistEvent,
   },
   actions: {
+    subscribe: assign(({ context, self }) => {
+      const id = `playlist-${self.id}-${++subscriptionCounter}`
+      subscribeById(id, { send: (event) => self.send(event as PlaylistEvent) })
+      return { subscriptionId: id }
+    }),
+    unsubscribe: ({ context }) => {
+      if (context.subscriptionId) {
+        unsubscribeById(context.subscriptionId)
+      }
+    },
     setData: assign({
       playlist: ({ event }) => {
         if (event.type === "INIT") {
-          return event.data.playlist
+          return event.data.playlist || []
         }
         return []
       },
@@ -36,6 +60,10 @@ export const playlistMachine = setup({
         return []
       },
     }),
+    resetPlaylist: assign({
+      playlist: () => [],
+      subscriptionId: () => null,
+    }),
     addTracksToPlaylist: assign({
       playlist: ({ context, event }) => {
         if (event.type !== "ROOM_DATA") {
@@ -44,7 +72,7 @@ export const playlistMachine = setup({
         // Use track.id as unique key since QueueItem doesn't have timestamp
         return uniqBy(
           (item: QueueItem) => item.track.id,
-          [...context.playlist, ...event.data.playlist],
+          [...context.playlist, ...(event.data.playlist || [])],
         )
       },
     }),
@@ -71,36 +99,55 @@ export const playlistMachine = setup({
   },
 }).createMachine({
   id: "playlist",
+  initial: "idle",
   context: {
     playlist: [],
+    subscriptionId: null,
   },
-  on: {
-    INIT: {
-      actions: ["setData"],
-    },
-    PLAYLIST: {
-      actions: ["setPlaylist"],
-    },
-    PLAYLIST_TRACK_ADDED: {
-      actions: ["addToPlaylist"],
-    },
-    PLAYLIST_TRACK_UPDATED: {
-      actions: ["updateTrackInPlaylist"],
-    },
-    ROOM_DATA: {
-      actions: ["addTracksToPlaylist"],
-    },
-  },
-  initial: "inactive",
   states: {
-    active: {
+    // Idle state - not subscribed to socket events
+    idle: {
       on: {
-        TOGGLE_PLAYLIST: "inactive",
+        ACTIVATE: "active",
       },
     },
-    inactive: {
+    // Active state - subscribed to socket events
+    active: {
+      entry: ["subscribe"],
+      exit: ["unsubscribe"],
       on: {
-        TOGGLE_PLAYLIST: "active",
+        DEACTIVATE: {
+          target: "idle",
+          actions: ["resetPlaylist"],
+        },
+        INIT: {
+          actions: ["setData"],
+        },
+        PLAYLIST: {
+          actions: ["setPlaylist"],
+        },
+        PLAYLIST_TRACK_ADDED: {
+          actions: ["addToPlaylist"],
+        },
+        PLAYLIST_TRACK_UPDATED: {
+          actions: ["updateTrackInPlaylist"],
+        },
+        ROOM_DATA: {
+          actions: ["addTracksToPlaylist"],
+        },
+      },
+      initial: "collapsed",
+      states: {
+        expanded: {
+          on: {
+            TOGGLE_PLAYLIST: "collapsed",
+          },
+        },
+        collapsed: {
+          on: {
+            TOGGLE_PLAYLIST: "expanded",
+          },
+        },
       },
     },
   },

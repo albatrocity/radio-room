@@ -1,19 +1,22 @@
-import React from "react"
+import React, { useMemo, useCallback } from "react"
 import { Input, InputProps } from "@chakra-ui/react"
 
-import { debounceInputMachine } from "../machines/debouncedInputMachine"
+import { createDebouncedInputMachine } from "../machines/debouncedInputMachine"
 import { useMachine } from "@xstate/react"
 
 type Props = { onChange: (value: string) => void } & InputProps
 
 function InputDebounced({ onChange, ...rest }: Props) {
-  const [_state, send] = useMachine(debounceInputMachine, {
-    actions: {
-      onSearchChange: (_context, event) => {
-        onChange(event.value)
-      },
-    },
-  })
+  const handleChange = useCallback((value: string) => {
+    onChange(value)
+  }, [onChange])
+  
+  const debounceMachine = useMemo(
+    () => createDebouncedInputMachine(handleChange),
+    [handleChange]
+  )
+  
+  const [_state, send] = useMachine(debounceMachine)
 
   return (
     <Input

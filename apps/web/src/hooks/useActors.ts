@@ -93,7 +93,7 @@ export const useSortedChatMessages = () => {
 }
 
 export const useChatReady = () => {
-  return useSelector(chatActor, (s) => s.matches("ready"))
+  return useSelector(chatActor, (s) => s.matches({ active: "ready" }))
 }
 
 export const useChatSend = () => chatActor.send
@@ -107,7 +107,7 @@ export const useCurrentPlaylist = () => {
 }
 
 export const usePlaylistActive = () => {
-  return useSelector(playlistActor, (s) => s.matches("active"))
+  return useSelector(playlistActor, (s) => s.matches({ active: "expanded" }))
 }
 
 export const usePlaylistSend = () => playlistActor.send
@@ -238,19 +238,21 @@ export const useMediaSourceStatus = () => {
 }
 
 export const useIsPlaying = () => {
-  return useSelector(audioActor, (s) => s.matches({ online: { progress: "playing" } }))
+  return useSelector(audioActor, (s) => s.matches({ active: { online: { progress: "playing" } } }))
 }
 
 export const useIsMuted = () => {
-  return useSelector(audioActor, (s) => s.matches({ online: { volume: "muted" } }))
+  return useSelector(audioActor, (s) => s.matches({ active: { online: { volume: "muted" } } }))
 }
 
 export const useIsAudioOnline = () => {
-  return useSelector(audioActor, (s) => s.matches("online"))
+  return useSelector(audioActor, (s) => s.matches({ active: "online" }))
 }
 
 export const useIsAudioLoading = () => {
-  return useSelector(audioActor, (s) => s.matches({ online: { progress: { playing: "loading" } } }))
+  return useSelector(audioActor, (s) =>
+    s.matches({ active: { online: { progress: { playing: "loading" } } } }),
+  )
 }
 
 export const useParticipationStatus = () => {
@@ -281,15 +283,18 @@ export const useHasTrackData = () => {
 // ============================================================================
 
 export const useIsDjaying = () => {
-  return useSelector(djActor, (s) => s.matches("djaying"))
+  return useSelector(djActor, (s) => s.matches({ active: "djaying" }))
 }
 
 export const useIsDeputyDjaying = () => {
-  return useSelector(djActor, (s) => s.matches("deputyDjaying"))
+  return useSelector(djActor, (s) => s.matches({ active: "deputyDjaying" }))
 }
 
 export const useCanAddToQueue = () => {
-  return useSelector(djActor, (s) => s.matches("djaying") || s.matches("deputyDjaying"))
+  return useSelector(
+    djActor,
+    (s) => s.matches({ active: "djaying" }) || s.matches({ active: "deputyDjaying" }),
+  )
 }
 
 export const useDjState = () => {
@@ -307,7 +312,7 @@ export const useAdminState = () => {
 }
 
 export const useIsDeleting = () => {
-  return useSelector(adminActor, (s) => s.matches("deleting"))
+  return useSelector(adminActor, (s) => s.matches({ active: "deleting" }))
 }
 
 export const useAdminSend = () => adminActor.send
@@ -368,11 +373,11 @@ export const useErrorsSend = () => errorsActor.send
 // ============================================================================
 
 export const useIsMetadataSourceAuthenticated = () => {
-  return useSelector(metadataSourceAuthActor, (s) => s.matches("authenticated"))
+  return useSelector(metadataSourceAuthActor, (s) => s.matches({ active: "authenticated" }))
 }
 
 export const useIsMetadataSourceLoading = () => {
-  return useSelector(metadataSourceAuthActor, (s) => s.matches("loading"))
+  return useSelector(metadataSourceAuthActor, (s) => s.matches({ active: "loading" }))
 }
 
 export const useMetadataSourceServiceName = () => {
@@ -389,9 +394,9 @@ export const useBookmarks = () => {
   return useSelector(bookmarkedChatActor, (s) => s.context.collection)
 }
 
-export const useIsBookmarked = (messageId: string) => {
+export const useIsBookmarked = (messageTimestamp: string) => {
   return useSelector(bookmarkedChatActor, (s) =>
-    s.context.collection.some((msg: ChatMessage) => msg.id === messageId),
+    s.context.collection.some((msg: ChatMessage) => msg.timestamp === messageTimestamp),
   )
 }
 

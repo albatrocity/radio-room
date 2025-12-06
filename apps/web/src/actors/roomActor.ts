@@ -2,12 +2,12 @@
  * Room Actor
  *
  * Singleton actor that manages room fetch/data state.
- * Active in room route, subscribes to socket events for room updates.
+ * Socket subscription is managed internally via the machine's invoke pattern.
+ * Send ACTIVATE when entering a room, DEACTIVATE when leaving.
  */
 
 import { createActor } from "xstate"
 import { roomFetchMachine, RoomFetchContext } from "../machines/roomFetchMachine"
-import { subscribeActor, unsubscribeActor } from "./socketActor"
 import { Room } from "../types/Room"
 
 // ============================================================================
@@ -15,39 +15,6 @@ import { Room } from "../types/Room"
 // ============================================================================
 
 export const roomActor = createActor(roomFetchMachine).start()
-
-// ============================================================================
-// Lifecycle
-// ============================================================================
-
-let isSubscribed = false
-
-/**
- * Subscribe to socket events. Called when entering a room.
- */
-export function subscribeRoomActor(): void {
-  if (!isSubscribed) {
-    subscribeActor(roomActor)
-    isSubscribed = true
-  }
-}
-
-/**
- * Unsubscribe from socket events. Called when leaving a room.
- */
-export function unsubscribeRoomActor(): void {
-  if (isSubscribed) {
-    unsubscribeActor(roomActor)
-    isSubscribed = false
-  }
-}
-
-/**
- * Reset room state. Called when leaving a room.
- */
-export function resetRoom(): void {
-  roomActor.send({ type: "RESET" })
-}
 
 // ============================================================================
 // Public API

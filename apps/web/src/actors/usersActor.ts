@@ -2,12 +2,12 @@
  * Users Actor
  *
  * Singleton actor that manages users/listeners state.
- * Active in room, subscribes to socket events for user updates.
+ * Socket subscription is managed internally via the machine's invoke pattern.
+ * Send ACTIVATE when entering a room, DEACTIVATE when leaving.
  */
 
 import { createActor } from "xstate"
 import { usersMachine } from "../machines/usersMachine"
-import { subscribeActor, unsubscribeActor } from "./socketActor"
 import { User } from "../types/User"
 
 // ============================================================================
@@ -15,39 +15,6 @@ import { User } from "../types/User"
 // ============================================================================
 
 export const usersActor = createActor(usersMachine).start()
-
-// ============================================================================
-// Lifecycle
-// ============================================================================
-
-let isSubscribed = false
-
-/**
- * Subscribe to socket events. Called when entering a room.
- */
-export function subscribeUsersActor(): void {
-  if (!isSubscribed) {
-    subscribeActor(usersActor)
-    isSubscribed = true
-  }
-}
-
-/**
- * Unsubscribe from socket events. Called when leaving a room.
- */
-export function unsubscribeUsersActor(): void {
-  if (isSubscribed) {
-    unsubscribeActor(usersActor)
-    isSubscribed = false
-  }
-}
-
-/**
- * Reset users state. Called when leaving a room.
- */
-export function resetUsers(): void {
-  usersActor.send({ type: "SET_USERS", data: { users: [] } })
-}
 
 // ============================================================================
 // Public API
@@ -80,4 +47,3 @@ export function getDj(): User | null {
 export function getUserById(userId: string): User | undefined {
   return usersActor.getSnapshot().context.users.find((u) => u.userId === userId)
 }
-

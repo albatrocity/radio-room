@@ -1,21 +1,35 @@
-import { setup } from "xstate"
+import { setup, assign } from "xstate"
 import { InitPayload } from "../types/InitPayload"
 import { getIsAdmin, getCurrentUser } from "../actors/authActor"
-import { emitToSocket } from "../actors/socketActor"
+import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 
-interface Context {}
+// ============================================================================
+// Types
+// ============================================================================
 
-type Event =
+interface DjContext {
+  subscriptionId: string | null
+}
+
+type DjEvent =
+  | { type: "ACTIVATE" }
+  | { type: "DEACTIVATE" }
   | { type: "INIT"; data: InitPayload }
   | { type: "END_DJ_SESSION" }
   | { type: "START_DJ_SESSION" }
   | { type: "START_DEPUTY_DJ_SESSION" }
   | { type: "END_DEPUTY_DJ_SESSION" }
 
+// ============================================================================
+// Machine
+// ============================================================================
+
+let subscriptionCounter = 0
+
 export const djMachine = setup({
   types: {
-    context: {} as Context,
-    events: {} as Event,
+    context: {} as DjContext,
+    events: {} as DjEvent,
   },
   guards: {
     isAdmin: () => {
@@ -27,6 +41,16 @@ export const djMachine = setup({
     },
   },
   actions: {
+    subscribe: assign(({ self }) => {
+      const id = `dj-${self.id}-${++subscriptionCounter}`
+      subscribeById(id, { send: (event) => self.send(event) })
+      return { subscriptionId: id }
+    }),
+    unsubscribe: ({ context }) => {
+      if (context.subscriptionId) {
+        unsubscribeById(context.subscriptionId)
+      }
+    },
     startDjSession: () => {
       const currentUser = getCurrentUser()
       emitToSocket("SET_DJ", currentUser?.userId)
@@ -34,40 +58,63 @@ export const djMachine = setup({
     endDjSession: () => {
       emitToSocket("SET_DJ", null)
     },
+    reset: assign({
+      subscriptionId: () => null,
+    }),
   },
 }).createMachine({
   id: "dj",
-  initial: "inactive",
-  context: {},
-  on: {
-    INIT: {
-      target: ".deputyDjaying",
-      guard: "isDeputyDj",
-    },
+  initial: "idle",
+  context: {
+    subscriptionId: null,
   },
   states: {
-    djaying: {
+    // Idle state - not subscribed to socket events
+    idle: {
       on: {
-        END_DJ_SESSION: {
-          target: "inactive",
-          actions: ["endDjSession"],
-          guard: "isAdmin",
-        },
+        ACTIVATE: "active",
       },
     },
-    deputyDjaying: {
+    // Active state - subscribed to socket events
+    active: {
+      entry: ["subscribe"],
+      exit: ["unsubscribe"],
       on: {
-        END_DEPUTY_DJ_SESSION: "inactive",
-      },
-    },
-    inactive: {
-      on: {
-        START_DJ_SESSION: {
-          target: "djaying",
-          actions: ["startDjSession"],
-          guard: "isAdmin",
+        DEACTIVATE: {
+          target: "idle",
+          actions: ["reset"],
         },
-        START_DEPUTY_DJ_SESSION: "deputyDjaying",
+        INIT: {
+          target: ".deputyDjaying",
+          guard: "isDeputyDj",
+        },
+      },
+      initial: "inactive",
+      states: {
+        djaying: {
+          on: {
+            END_DJ_SESSION: {
+              target: "inactive",
+              actions: ["endDjSession"],
+              guard: "isAdmin",
+            },
+          },
+        },
+        deputyDjaying: {
+          on: {
+            END_DEPUTY_DJ_SESSION: "inactive",
+          },
+        },
+        inactive: {
+          on: {
+            START_DJ_SESSION: {
+              target: "djaying",
+              actions: ["startDjSession"],
+              guard: "isAdmin",
+            },
+            START_DEPUTY_DJ_SESSION: "deputyDjaying",
+          },
+        },
       },
     },
   },

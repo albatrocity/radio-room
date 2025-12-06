@@ -2,12 +2,12 @@
  * Chat Actor
  *
  * Singleton actor that manages chat messages state.
- * Active in room, subscribes to socket events for message updates.
+ * Socket subscription is managed internally via the machine's invoke pattern.
+ * Send ACTIVATE when entering a room, DEACTIVATE when leaving.
  */
 
 import { createActor } from "xstate"
 import { chatMachine } from "../machines/chatMachine"
-import { subscribeActor, unsubscribeActor } from "./socketActor"
 import { ChatMessage } from "../types/ChatMessage"
 
 // ============================================================================
@@ -15,40 +15,6 @@ import { ChatMessage } from "../types/ChatMessage"
 // ============================================================================
 
 export const chatActor = createActor(chatMachine).start()
-
-// ============================================================================
-// Lifecycle
-// ============================================================================
-
-let isSubscribed = false
-
-/**
- * Subscribe to socket events. Called when entering a room.
- */
-export function subscribeChatActor(): void {
-  if (!isSubscribed) {
-    subscribeActor(chatActor)
-    isSubscribed = true
-  }
-}
-
-/**
- * Unsubscribe from socket events. Called when leaving a room.
- */
-export function unsubscribeChatActor(): void {
-  if (isSubscribed) {
-    unsubscribeActor(chatActor)
-    isSubscribed = false
-  }
-}
-
-/**
- * Reset chat state. Called when leaving a room.
- * Uses RESET (local only) instead of CLEAR_MESSAGES (emits to server).
- */
-export function resetChat(): void {
-  chatActor.send({ type: "RESET" })
-}
 
 // ============================================================================
 // Public API
@@ -93,4 +59,3 @@ export function startTyping(): void {
 export function stopTyping(): void {
   chatActor.send({ type: "STOP_TYPING" })
 }
-

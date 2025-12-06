@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useMemo, useCallback } from "react"
 import { useMachine } from "@xstate/react"
 
 import { useSocketMachine } from "../hooks/useSocketMachine"
@@ -9,7 +9,7 @@ import { Select, SingleValue } from "chakra-react-select"
 
 import { MetadataSourceTrack } from "@repo/types"
 import TrackItem from "./TrackItem"
-import { debounceInputMachine } from "../machines/debouncedInputMachine"
+import { createDebouncedInputMachine } from "../machines/debouncedInputMachine"
 
 type Props = {
   onChoose: (item: SingleValue<MetadataSourceTrack>) => void
@@ -18,13 +18,19 @@ type Props = {
 
 function TrackSearch({ onChoose, onDropdownOpenChange }: Props) {
   const [state, send] = useSocketMachine(trackSearchMachine)
-  const [inputState, inputSend] = useMachine(debounceInputMachine, {
-    actions: {
-      onSearchChange: (_context, event) => {
-        if (event.value && event.value !== "") send({ type: "FETCH_RESULTS", value: event.value })
-      },
-    },
-  })
+  
+  const handleSearchChange = useCallback((value: string) => {
+    if (value && value !== "") {
+      send({ type: "FETCH_RESULTS", value })
+    }
+  }, [send])
+  
+  const debounceMachine = useMemo(
+    () => createDebouncedInputMachine(handleSearchChange),
+    [handleSearchChange]
+  )
+  
+  const [inputState, inputSend] = useMachine(debounceMachine)
   const results = state.context.results
   const isMenuOpen =
     state.matches("idle") && results.length > 0 && inputState.context.searchValue !== ""

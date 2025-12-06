@@ -16,6 +16,11 @@ function PlaylistFilters({ onChange, emojis }: Props) {
   const currentUser = useCurrentUser()
   const { open, onToggle, onClose } = useDisclosure()
 
+  // Don't render until user is authenticated
+  if (!currentUser) {
+    return null
+  }
+
   return (
     <Wrap align="center">
       <Text>Filter by</Text>

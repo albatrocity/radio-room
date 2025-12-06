@@ -15,12 +15,15 @@ const PlaylistWindow = ({ playlist, isSelectable, selected, onSelect }: Props) =
   const virtuosoRef = useRef<VirtuosoHandle>(null)
 
   const renderComponent = (index: number) => {
+    const item = playlist[index]
+    const isSelected = selected?.some((s) => s.track.id === item.track.id) ?? false
+    
     return (
       <VStack pb={2} gap={2} w="100%" align="stretch">
         <SelectablePlaylistItem
-          item={playlist[index]}
+          item={item}
           isSelectable={isSelectable}
-          selected={selected}
+          isSelected={isSelected}
           onSelect={onSelect}
         />
         <Separator borderColor="secondaryBorder" w="100%" />

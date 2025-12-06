@@ -12,11 +12,7 @@ export default function Lobby() {
   const user = useCurrentUser()
   const modalSend = useModalsSend()
 
-  const [state, fetchSend] = useMachine(createdRoomsFetchMachine, {
-    context: {
-      userId: user?.userId,
-    },
-  })
+  const [state, fetchSend] = useMachine(createdRoomsFetchMachine)
 
   async function handleRoomDelete(roomId: string) {
     return fetchSend({ type: "DELETE_ROOM", data: { roomId } })

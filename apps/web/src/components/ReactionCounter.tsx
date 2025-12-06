@@ -16,13 +16,7 @@ const ReactionCounter = ({ reactTo, ...rest }: ReactionCounterProps) => {
   const currentUser = useCurrentUser()
   const allReactions = useAllReactionsOf(reactTo.type, reactTo.id)
 
-  const [state, send] = useMachine(reactionsMachine, {
-    context: {
-      reactTo,
-      currentUser,
-      reactions: allReactions,
-    },
-  })
+  const [state, send] = useMachine(reactionsMachine)
 
   useEffect(() => {
     send({
@@ -43,6 +37,11 @@ const ReactionCounter = ({ reactTo, ...rest }: ReactionCounterProps) => {
   const handleClose = useCallback(() => send({ type: "CLOSE" }), [send])
 
   const handleToggle = useCallback(() => send({ type: "TOGGLE", data: { reactTo } }), [send, reactTo])
+
+  // Don't render until user is authenticated
+  if (!currentUser) {
+    return null
+  }
 
   return (
     <ReactionSelection

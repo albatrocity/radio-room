@@ -2,44 +2,18 @@
  * DJ Actor
  *
  * Singleton actor that manages DJ state.
- * Active in jukebox rooms, subscribes to socket events.
+ * Socket subscription is managed internally via the machine's invoke pattern.
+ * Send ACTIVATE when entering a jukebox room, DEACTIVATE when leaving.
  */
 
 import { createActor } from "xstate"
 import { djMachine } from "../machines/djMachine"
-import { subscribeActor, unsubscribeActor } from "./socketActor"
 
 // ============================================================================
 // Actor Instance
 // ============================================================================
 
 export const djActor = createActor(djMachine).start()
-
-// ============================================================================
-// Lifecycle
-// ============================================================================
-
-let isSubscribed = false
-
-/**
- * Subscribe to socket events. Called when entering a jukebox room.
- */
-export function subscribeDjActor(): void {
-  if (!isSubscribed) {
-    subscribeActor(djActor)
-    isSubscribed = true
-  }
-}
-
-/**
- * Unsubscribe from socket events. Called when leaving a room.
- */
-export function unsubscribeDjActor(): void {
-  if (isSubscribed) {
-    unsubscribeActor(djActor)
-    isSubscribed = false
-  }
-}
 
 // ============================================================================
 // Public API
@@ -49,14 +23,14 @@ export function unsubscribeDjActor(): void {
  * Check if currently DJing.
  */
 export function isDjaying(): boolean {
-  return djActor.getSnapshot().matches("djaying")
+  return djActor.getSnapshot().matches({ active: "djaying" })
 }
 
 /**
  * Check if currently a deputy DJ.
  */
 export function isDeputyDjaying(): boolean {
-  return djActor.getSnapshot().matches("deputyDjaying")
+  return djActor.getSnapshot().matches({ active: "deputyDjaying" })
 }
 
 /**
@@ -64,7 +38,7 @@ export function isDeputyDjaying(): boolean {
  */
 export function canAddToQueue(): boolean {
   const state = djActor.getSnapshot()
-  return state.matches("djaying") || state.matches("deputyDjaying")
+  return state.matches({ active: "djaying" }) || state.matches({ active: "deputyDjaying" })
 }
 
 /**
@@ -94,4 +68,3 @@ export function startDeputyDjSession(): void {
 export function endDeputyDjSession(): void {
   djActor.send({ type: "END_DEPUTY_DJ_SESSION" })
 }
-

@@ -2,12 +2,12 @@
  * Settings Actor
  *
  * Singleton actor that manages room settings state.
- * Active in room, subscribes to socket events for settings updates.
+ * Socket subscription is managed internally via the machine's invoke pattern.
+ * Send ACTIVATE when entering a room, DEACTIVATE when leaving.
  */
 
 import { createActor } from "xstate"
-import { settingsMachine } from "../machines/settingsMachine"
-import { subscribeActor, unsubscribeActor } from "./socketActor"
+import { settingsMachine, SettingsContext } from "../machines/settingsMachine"
 import { Room } from "../types/Room"
 
 // ============================================================================
@@ -17,43 +17,8 @@ import { Room } from "../types/Room"
 export const settingsActor = createActor(settingsMachine).start()
 
 // ============================================================================
-// Lifecycle
-// ============================================================================
-
-let isSubscribed = false
-
-/**
- * Subscribe to socket events. Called when entering a room.
- */
-export function subscribeSettingsActor(): void {
-  if (!isSubscribed) {
-    subscribeActor(settingsActor)
-    isSubscribed = true
-  }
-}
-
-/**
- * Unsubscribe from socket events. Called when leaving a room.
- */
-export function unsubscribeSettingsActor(): void {
-  if (isSubscribed) {
-    unsubscribeActor(settingsActor)
-    isSubscribed = false
-  }
-}
-
-/**
- * Reset settings state.
- */
-export function resetSettings(): void {
-  settingsActor.send({ type: "FETCH" })
-}
-
-// ============================================================================
 // Public API
 // ============================================================================
-
-type SettingsContext = ReturnType<typeof settingsActor.getSnapshot>["context"]
 
 /**
  * Get room settings.
@@ -96,4 +61,3 @@ export function getPluginConfigs(): Record<string, Record<string, unknown>> {
 export function fetchSettings(): void {
   settingsActor.send({ type: "FETCH" })
 }
-

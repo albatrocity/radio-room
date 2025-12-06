@@ -2,12 +2,12 @@
  * Reactions Actor
  *
  * Singleton actor that manages all reactions state (for messages and tracks).
- * Active in room, subscribes to socket events for reaction updates.
+ * Socket subscription is managed internally via the machine's invoke pattern.
+ * Send ACTIVATE when entering a room, DEACTIVATE when leaving.
  */
 
 import { createActor } from "xstate"
 import { allReactionsMachine, ReactionsContext } from "../machines/allReactionsMachine"
-import { subscribeActor, unsubscribeActor } from "./socketActor"
 import { Reaction } from "../types/Reaction"
 import { ReactionSubject } from "../types/ReactionSubject"
 
@@ -16,42 +16,6 @@ import { ReactionSubject } from "../types/ReactionSubject"
 // ============================================================================
 
 export const reactionsActor = createActor(allReactionsMachine).start()
-
-// ============================================================================
-// Lifecycle
-// ============================================================================
-
-let isSubscribed = false
-
-/**
- * Subscribe to socket events. Called when entering a room.
- */
-export function subscribeReactionsActor(): void {
-  if (!isSubscribed) {
-    subscribeActor(reactionsActor)
-    isSubscribed = true
-  }
-}
-
-/**
- * Unsubscribe from socket events. Called when leaving a room.
- */
-export function unsubscribeReactionsActor(): void {
-  if (isSubscribed) {
-    unsubscribeActor(reactionsActor)
-    isSubscribed = false
-  }
-}
-
-/**
- * Reset reactions state. Called when leaving a room.
- */
-export function resetReactions(): void {
-  reactionsActor.send({
-    type: "INIT",
-    data: { reactions: { message: {}, track: {} } },
-  })
-}
 
 // ============================================================================
 // Public API

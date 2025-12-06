@@ -6,19 +6,26 @@ import { assign, setup, fromCallback, fromPromise } from "xstate"
 import socket from "../lib/socket"
 import { getErrorMessage } from "../lib/errors"
 import { findRoom, RoomFindResponse } from "../lib/serverApi"
-import { emitToSocket } from "../actors/socketActor"
+import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 import { chatActor } from "../actors/chatActor"
 import { playlistActor } from "../actors/playlistActor"
 import { Room, RoomError } from "../types/Room"
+
+// ============================================================================
+// Types
+// ============================================================================
 
 export interface RoomFetchContext {
   fetchOnInit: boolean
   id: Room["id"] | null
   room: Omit<Room, "password"> | null
   error?: RoomError | null
+  subscriptionId: string | null
 }
 
 export type RoomFetchEvent =
+  | { type: "ACTIVATE" }
+  | { type: "DEACTIVATE" }
   | {
       type: "xstate.done.actor.fetchRoom"
       output: RoomFindResponse
@@ -37,8 +44,12 @@ export type RoomFetchEvent =
   | { type: "RECONNECTED" }
   | { type: "SESSION_ENDED" }
 
-// Socket event callback actor
-const socketEventLogic = fromCallback<RoomFetchEvent>(({ sendBack }) => {
+// ============================================================================
+// Actors
+// ============================================================================
+
+// Socket.io connection event listener (for reconnect/disconnect)
+const socketConnectionLogic = fromCallback<RoomFetchEvent>(({ sendBack }) => {
   const handleReconnect = () => {
     console.log("[RoomFetch] Socket reconnected, will refetch room data")
     sendBack({ type: "RECONNECTED" } as RoomFetchEvent)
@@ -57,11 +68,11 @@ const socketEventLogic = fromCallback<RoomFetchEvent>(({ sendBack }) => {
   }
 
   socket.io.on("reconnect", handleReconnect)
-  socket.io.on("disconnect", handleDisconnect)
+  socket.on("disconnect", handleDisconnect)
 
   return () => {
     socket.io.off("reconnect", handleReconnect)
-    socket.io.off("disconnect", handleDisconnect)
+    socket.off("disconnect", handleDisconnect)
   }
 })
 
@@ -76,16 +87,32 @@ const fetchRoomLogic = fromPromise<RoomFindResponse, { id: Room["id"] | null }>(
   },
 )
 
+// ============================================================================
+// Machine
+// ============================================================================
+
+let subscriptionCounter = 0
+
 export const roomFetchMachine = setup({
   types: {
     context: {} as RoomFetchContext,
     events: {} as RoomFetchEvent,
   },
   actors: {
-    socketEventService: socketEventLogic,
+    socketConnection: socketConnectionLogic,
     fetchRoom: fetchRoomLogic,
   },
   actions: {
+    subscribe: assign(({ self }) => {
+      const id = `room-${self.id}-${++subscriptionCounter}`
+      subscribeById(id, { send: (event) => self.send(event as RoomFetchEvent) })
+      return { subscriptionId: id }
+    }),
+    unsubscribe: ({ context }) => {
+      if (context.subscriptionId) {
+        unsubscribeById(context.subscriptionId)
+      }
+    },
     setSocketError: assign(({ context, event }) => {
       if (event.type !== "SOCKET_ERROR") return context
       return {
@@ -142,13 +169,14 @@ export const roomFetchMachine = setup({
         id: null,
         room: null,
         error: null,
+        subscriptionId: null,
       }
     }),
     getLatestData: ({ context }) => {
       const messages = chatActor.getSnapshot().context.messages
       const lastMessageTime = messages[messages.length - 1]?.timestamp
       const playlist = playlistActor.getSnapshot().context.playlist
-      const lastPlaylistItemTime = playlist[playlist.length - 1]?.timestamp
+      const lastPlaylistItemTime = playlist[playlist.length - 1]?.addedAt
 
       emitToSocket("GET_LATEST_ROOM_DATA", {
         id: context.id,
@@ -167,68 +195,85 @@ export const roomFetchMachine = setup({
   },
 }).createMachine({
   id: "roomFetch",
-  initial: "initial",
+  initial: "idle",
   context: {
     fetchOnInit: true,
     id: null,
     room: null,
-  },
-  invoke: [
-    {
-      id: "socketEventService",
-      src: "socketEventService",
-    },
-  ],
-  on: {
-    FETCH: {
-      target: ".loading",
-      actions: ["setId"],
-    },
-    RESET: {
-      actions: ["reset"],
-      target: ".initial",
-    },
-    ROOM_DELETED: {
-      actions: ["assignRoomDeleted"],
-    },
-    SOCKET_ERROR: {
-      actions: ["setSocketError"],
-    },
-    RECONNECTED: {
-      actions: ["getLatestData", "clearError"],
-    },
-    SESSION_ENDED: {
-      actions: ["reset"],
-      target: ".initial",
-    },
+    subscriptionId: null,
   },
   states: {
-    initial: {},
-    loading: {
-      invoke: {
-        id: "fetchRoom",
-        src: "fetchRoom",
-        input: ({ context }) => ({ id: context.id }),
-        onDone: {
-          target: "success",
-          actions: ["setRoom"],
-        },
-        onError: {
-          target: "error",
-          actions: ["setError"],
-        },
-      },
-    },
-    success: {
+    // Idle state - not subscribed to socket events
+    idle: {
       on: {
-        ROOM_SETTINGS_UPDATED: {
-          actions: ["setRoom"],
-        },
-        GET_LATEST_ROOM_DATA: {
-          actions: ["getLatestData"],
-        },
+        ACTIVATE: "active",
       },
     },
-    error: {},
+    // Active state - subscribed to socket events
+    active: {
+      entry: ["subscribe"],
+      exit: ["unsubscribe"],
+      invoke: {
+        id: "socketConnection",
+        src: "socketConnection",
+      },
+      on: {
+        DEACTIVATE: {
+          target: "idle",
+          actions: ["reset"],
+        },
+        FETCH: {
+          target: ".loading",
+          actions: ["setId"],
+        },
+        RESET: {
+          actions: ["reset"],
+          target: ".initial",
+        },
+        ROOM_DELETED: {
+          actions: ["assignRoomDeleted"],
+        },
+        SOCKET_ERROR: {
+          actions: ["setSocketError"],
+        },
+        RECONNECTED: {
+          actions: ["getLatestData", "clearError"],
+        },
+        SESSION_ENDED: {
+          actions: ["reset"],
+          target: ".initial",
+        },
+      },
+      initial: "initial",
+      states: {
+        initial: {},
+        loading: {
+          invoke: {
+            id: "fetchRoom",
+            src: "fetchRoom",
+            input: ({ context }) => ({ id: context.id }),
+            onDone: {
+              target: "success",
+              actions: ["setRoom"],
+            },
+            onError: {
+              target: "error",
+              actions: ["setError"],
+            },
+          },
+        },
+        success: {
+          on: {
+            ROOM_SETTINGS_UPDATED: {
+              actions: ["setRoom"],
+            },
+            GET_LATEST_ROOM_DATA: {
+              actions: ["getLatestData"],
+            },
+          },
+        },
+        error: {},
+      },
+    },
   },
 })

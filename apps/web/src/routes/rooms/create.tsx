@@ -19,12 +19,7 @@ function CreateRoomPage() {
   // Prevent double room creation (React StrictMode runs effects twice)
   const hasStartedCreation = useRef(false)
 
-  const [_state, send] = useMachine(roomSetupMachine, {
-    context: {
-      challenge,
-      userId,
-    },
-  })
+  const [_state, send] = useMachine(roomSetupMachine)
 
   useEffect(() => {
     // Guard against double execution (React StrictMode + potential remounts)

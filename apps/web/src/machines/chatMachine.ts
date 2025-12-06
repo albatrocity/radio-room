@@ -7,7 +7,11 @@ import { PlaylistItem } from "../types/PlaylistItem"
 import { ReactionsContext } from "./allReactionsMachine"
 import { Room } from "../types/Room"
 import { getCurrentUser } from "../actors/authActor"
-import { emitToSocket } from "../actors/socketActor"
+import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
+
+// ============================================================================
+// Types
+// ============================================================================
 
 type NewMessageEvent = {
   type: "MESSAGE_RECEIVED"
@@ -28,6 +32,10 @@ type TypingEvent = {
 type SubmitMessageAction = {
   type: "SUBMIT_MESSAGE"
   data: ChatMessage["content"]
+}
+
+type LifecycleEvent = {
+  type: "ACTIVATE" | "DEACTIVATE"
 }
 
 type SetDataEvent =
@@ -57,18 +65,41 @@ type SetDataEvent =
       }
     }
 
-type MachineEvent = NewMessageEvent | SetDataEvent | ResetEvent | TypingEvent | SubmitMessageAction
+type MachineEvent =
+  | NewMessageEvent
+  | SetDataEvent
+  | ResetEvent
+  | TypingEvent
+  | SubmitMessageAction
+  | LifecycleEvent
 
-interface Context {
+export interface ChatContext {
   messages: ChatMessage[]
+  subscriptionId: string | null
 }
+
+// ============================================================================
+// Machine
+// ============================================================================
+
+let subscriptionCounter = 0
 
 export const chatMachine = setup({
   types: {
-    context: {} as Context,
+    context: {} as ChatContext,
     events: {} as MachineEvent,
   },
   actions: {
+    subscribe: assign(({ self }) => {
+      const id = `chat-${self.id}-${++subscriptionCounter}`
+      subscribeById(id, { send: (event) => self.send(event as MachineEvent) })
+      return { subscriptionId: id }
+    }),
+    unsubscribe: ({ context }) => {
+      if (context.subscriptionId) {
+        unsubscribeById(context.subscriptionId)
+      }
+    },
     sendMessage: ({ event }) => {
       if (event.type === "SUBMIT_MESSAGE") {
         emitToSocket("SEND_MESSAGE", event.data)
@@ -85,6 +116,7 @@ export const chatMachine = setup({
     },
     resetMessages: assign({
       messages: () => [],
+      subscriptionId: () => null,
     }),
     addMessage: assign({
       messages: ({ context, event }) => {
@@ -121,54 +153,73 @@ export const chatMachine = setup({
   },
 }).createMachine({
   id: "chat",
-  initial: "unauthenticated",
+  initial: "idle",
   context: {
     messages: [],
-  },
-  on: {
-    INIT: {
-      actions: ["setData"],
-    },
-    ROOM_DATA: {
-      actions: ["addMessages"],
-    },
-    CLEAR_MESSAGES: {
-      actions: ["clearMessagesAndEmit"],
-    },
-    RESET: {
-      actions: ["resetMessages"],
-    },
+    subscriptionId: null,
   },
   states: {
-    unauthenticated: {
+    // Idle state - not subscribed to socket events
+    idle: {
       on: {
-        INIT: {
-          target: "ready",
-          actions: ["setData"],
-        },
+        ACTIVATE: "active",
       },
     },
-    ready: {
-      type: "parallel",
+    // Active state - subscribed to socket events
+    active: {
+      entry: ["subscribe"],
+      exit: ["unsubscribe"],
       on: {
-        SUBMIT_MESSAGE: { actions: ["sendMessage"] },
-        MESSAGE_RECEIVED: { actions: ["addMessage", "handleNotifications"] },
-        MESSAGES_CLEARED: { actions: ["setData"] },
+        DEACTIVATE: {
+          target: "idle",
+          actions: ["resetMessages"],
+        },
+        CLEAR_MESSAGES: {
+          actions: ["clearMessagesAndEmit"],
+        },
+        RESET: {
+          actions: ["resetMessages"],
+        },
       },
+      initial: "unauthenticated",
       states: {
-        typing: {
-          initial: "inactive",
-          id: "typing",
+        unauthenticated: {
           on: {
-            START_TYPING: ".active",
-            STOP_TYPING: ".inactive",
+            INIT: {
+              target: "ready",
+              actions: ["setData"],
+            },
+          },
+        },
+        ready: {
+          type: "parallel",
+          on: {
+            INIT: {
+              actions: ["setData"],
+            },
+            ROOM_DATA: {
+              actions: ["addMessages"],
+            },
+            SUBMIT_MESSAGE: { actions: ["sendMessage"] },
+            MESSAGE_RECEIVED: { actions: ["addMessage", "handleNotifications"] },
+            MESSAGES_CLEARED: { actions: ["setData"] },
           },
           states: {
-            active: {
-              entry: ["startTyping"],
-            },
-            inactive: {
-              entry: ["stopTyping"],
+            typing: {
+              initial: "inactive",
+              id: "typing",
+              on: {
+                START_TYPING: ".active",
+                STOP_TYPING: ".inactive",
+              },
+              states: {
+                active: {
+                  entry: ["startTyping"],
+                },
+                inactive: {
+                  entry: ["stopTyping"],
+                },
+              },
             },
           },
         },

@@ -2,44 +2,18 @@
  * Admin Actor
  *
  * Singleton actor that manages admin actions.
- * Active when user is admin, subscribes to socket events.
+ * Socket subscription is managed internally via the machine's invoke pattern.
+ * Send ACTIVATE when user becomes admin, DEACTIVATE when leaving.
  */
 
 import { createActor } from "xstate"
 import { adminMachine } from "../machines/adminMachine"
-import { subscribeActor, unsubscribeActor } from "./socketActor"
 
 // ============================================================================
 // Actor Instance
 // ============================================================================
 
 export const adminActor = createActor(adminMachine).start()
-
-// ============================================================================
-// Lifecycle
-// ============================================================================
-
-let isSubscribed = false
-
-/**
- * Subscribe to socket events. Called when user becomes admin.
- */
-export function subscribeAdminActor(): void {
-  if (!isSubscribed) {
-    subscribeActor(adminActor)
-    isSubscribed = true
-  }
-}
-
-/**
- * Unsubscribe from socket events. Called when leaving a room.
- */
-export function unsubscribeAdminActor(): void {
-  if (isSubscribed) {
-    unsubscribeActor(adminActor)
-    isSubscribed = false
-  }
-}
 
 // ============================================================================
 // Public API
@@ -72,4 +46,3 @@ export function deleteRoom(id: string): void {
 export function deputizeDj(userId: string): void {
   adminActor.send({ type: "DEPUTIZE_DJ", userId })
 }
-

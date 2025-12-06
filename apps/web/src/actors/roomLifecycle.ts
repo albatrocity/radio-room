@@ -1,21 +1,22 @@
 /**
  * Room Lifecycle Management
  *
- * Coordinates actor subscriptions, state persistence, and cleanup
- * when entering and leaving rooms.
+ * Coordinates actor lifecycle and state persistence when entering and leaving rooms.
+ * Uses ACTIVATE/DEACTIVATE events - each actor manages its own socket subscription
+ * internally via XState's invoke pattern.
  */
 
 import { authActor } from "./authActor"
-import { subscribeChatActor, unsubscribeChatActor, resetChat } from "./chatActor"
-import { subscribePlaylistActor, unsubscribePlaylistActor, resetPlaylist } from "./playlistActor"
-import { subscribeUsersActor, unsubscribeUsersActor, resetUsers } from "./usersActor"
-import { subscribeReactionsActor, unsubscribeReactionsActor, resetReactions } from "./reactionsActor"
-import { subscribeSettingsActor, unsubscribeSettingsActor } from "./settingsActor"
-import { subscribeRoomActor, unsubscribeRoomActor, resetRoom, fetchRoom } from "./roomActor"
-import { subscribeAudioActor, unsubscribeAudioActor } from "./audioActor"
-import { subscribeDjActor, unsubscribeDjActor } from "./djActor"
-import { subscribeAdminActor, unsubscribeAdminActor } from "./adminActor"
-import { subscribeMetadataSourceAuthActor, unsubscribeMetadataSourceAuthActor } from "./metadataSourceAuthActor"
+import { chatActor } from "./chatActor"
+import { playlistActor } from "./playlistActor"
+import { usersActor } from "./usersActor"
+import { reactionsActor } from "./reactionsActor"
+import { settingsActor } from "./settingsActor"
+import { roomActor, fetchRoom } from "./roomActor"
+import { audioActor } from "./audioActor"
+import { djActor } from "./djActor"
+import { adminActor } from "./adminActor"
+import { metadataSourceAuthActor } from "./metadataSourceAuthActor"
 
 import {
   getPersistedRoomState,
@@ -58,17 +59,17 @@ export function initializeRoom(roomId: string): void {
     applyPersistedRoomState(persisted)
   }
 
-  // Subscribe all room actors to socket
-  subscribeRoomActor()
-  subscribeChatActor()
-  subscribePlaylistActor()
-  subscribeUsersActor()
-  subscribeReactionsActor()
-  subscribeSettingsActor()
-  subscribeAudioActor()
-  subscribeDjActor()
-  subscribeAdminActor()
-  subscribeMetadataSourceAuthActor()
+  // Activate all room actors (they manage their own socket subscriptions)
+  roomActor.send({ type: "ACTIVATE" })
+  chatActor.send({ type: "ACTIVATE" })
+  playlistActor.send({ type: "ACTIVATE" })
+  usersActor.send({ type: "ACTIVATE" })
+  reactionsActor.send({ type: "ACTIVATE" })
+  settingsActor.send({ type: "ACTIVATE" })
+  audioActor.send({ type: "ACTIVATE" })
+  djActor.send({ type: "ACTIVATE" })
+  adminActor.send({ type: "ACTIVATE" })
+  metadataSourceAuthActor.send({ type: "ACTIVATE" })
 
   // Start fetching room data
   fetchRoom(roomId)
@@ -102,24 +103,17 @@ export function teardownRoom(): void {
   // Notify auth of disconnect
   authActor.send({ type: "USER_DISCONNECTED" })
 
-  // Unsubscribe all room actors from socket
-  unsubscribeRoomActor()
-  unsubscribeChatActor()
-  unsubscribePlaylistActor()
-  unsubscribeUsersActor()
-  unsubscribeReactionsActor()
-  unsubscribeSettingsActor()
-  unsubscribeAudioActor()
-  unsubscribeDjActor()
-  unsubscribeAdminActor()
-  unsubscribeMetadataSourceAuthActor()
-
-  // Reset room actor states
-  resetRoom()
-  resetChat()
-  resetPlaylist()
-  resetUsers()
-  resetReactions()
+  // Deactivate all room actors (they clean up their own subscriptions and reset state)
+  roomActor.send({ type: "DEACTIVATE" })
+  chatActor.send({ type: "DEACTIVATE" })
+  playlistActor.send({ type: "DEACTIVATE" })
+  usersActor.send({ type: "DEACTIVATE" })
+  reactionsActor.send({ type: "DEACTIVATE" })
+  settingsActor.send({ type: "DEACTIVATE" })
+  audioActor.send({ type: "DEACTIVATE" })
+  djActor.send({ type: "DEACTIVATE" })
+  adminActor.send({ type: "DEACTIVATE" })
+  metadataSourceAuthActor.send({ type: "DEACTIVATE" })
 
   currentRoomId = null
   isInitialized = false
@@ -185,4 +179,3 @@ export function handleVisibilityChange(isVisible: boolean): void {
     fetchRoom(currentRoomId)
   }
 }
-

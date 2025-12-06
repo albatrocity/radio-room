@@ -1,17 +1,24 @@
 import { setup, assign } from "xstate"
 import { isEmpty, isNil } from "lodash/fp"
 import { RoomMeta } from "../types/Room"
-import { emitToSocket } from "../actors/socketActor"
+import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 import { QueueItem } from "../types/Queue"
 
-interface Context {
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface AudioContext {
   volume: number
   meta?: RoomMeta
   mediaSourceStatus: "online" | "offline" | "connecting" | "unknown"
   participationStatus: "listening" | "participating"
+  subscriptionId: string | null
 }
 
 type AudioEvent =
+  | { type: "ACTIVATE" }
+  | { type: "DEACTIVATE" }
   | { type: "INIT"; data: { meta: RoomMeta } }
   | { type: "OFFLINE" }
   | { type: "ONLINE" }
@@ -25,12 +32,36 @@ type AudioEvent =
   | { type: "TOGGLE_MUTE" }
   | { type: "CHANGE_VOLUME"; volume: number }
 
+// ============================================================================
+// Machine
+// ============================================================================
+
+let subscriptionCounter = 0
+
+const defaultContext: AudioContext = {
+  volume: 1.0,
+  meta: undefined,
+  mediaSourceStatus: "unknown",
+  participationStatus: "participating",
+  subscriptionId: null,
+}
+
 export const audioMachine = setup({
   types: {
-    context: {} as Context,
+    context: {} as AudioContext,
     events: {} as AudioEvent,
   },
   actions: {
+    subscribe: assign(({ self }) => {
+      const id = `audio-${self.id}-${++subscriptionCounter}`
+      subscribeById(id, { send: (event) => self.send(event) })
+      return { subscriptionId: id }
+    }),
+    unsubscribe: ({ context }) => {
+      if (context.subscriptionId) {
+        unsubscribeById(context.subscriptionId)
+      }
+    },
     setVolume: assign(({ event }) => ({
       volume: (event as { volume: number }).volume,
     })),
@@ -79,6 +110,7 @@ export const audioMachine = setup({
     stopListening: () => {
       emitToSocket("STOP_LISTENING", {})
     },
+    resetAudio: assign(() => defaultContext),
   },
   guards: {
     volumeAboveZero: ({ event }) => {
@@ -119,150 +151,165 @@ export const audioMachine = setup({
   },
 }).createMachine({
   id: "audio",
-  initial: "offline",
-  context: {
-    volume: 1.0,
-    meta: undefined,
-    mediaSourceStatus: "unknown",
-    participationStatus: "participating",
-  },
+  initial: "idle",
+  context: defaultContext,
   states: {
-    online: {
-      type: "parallel",
+    // Idle state - not subscribed to socket events
+    idle: {
       on: {
-        INIT: {
-          actions: ["setMeta", "setStatusFromMeta"],
-        },
-        OFFLINE: "offline",
-        TRACK_CHANGED: {
-          actions: ["setMeta"],
-        },
-        MEDIA_SOURCE_STATUS_CHANGED: {
-          actions: ["setMediaSourceStatus"],
-        },
-        PLAYLIST_TRACK_UPDATED: {
-          actions: ["updateNowPlaying"],
-          guard: "isCurrentTrack",
+        ACTIVATE: "active",
+      },
+    },
+    // Active state - subscribed to socket events
+    active: {
+      entry: ["subscribe"],
+      exit: ["unsubscribe"],
+      on: {
+        DEACTIVATE: {
+          target: "idle",
+          actions: ["resetAudio"],
         },
       },
+      initial: "offline",
       states: {
-        progress: {
-          initial: "stopped",
+        online: {
+          type: "parallel",
+          on: {
+            INIT: {
+              actions: ["setMeta", "setStatusFromMeta"],
+            },
+            OFFLINE: "offline",
+            TRACK_CHANGED: {
+              actions: ["setMeta"],
+            },
+            MEDIA_SOURCE_STATUS_CHANGED: {
+              actions: ["setMediaSourceStatus"],
+            },
+            PLAYLIST_TRACK_UPDATED: {
+              actions: ["updateNowPlaying"],
+              guard: "isCurrentTrack",
+            },
+          },
           states: {
-            playing: {
-              initial: "loading",
+            progress: {
+              initial: "stopped",
               states: {
-                loading: {
+                playing: {
+                  initial: "loading",
+                  states: {
+                    loading: {
+                      on: {
+                        LOADED: "loaded",
+                        PLAY: "loaded",
+                      },
+                    },
+                    loaded: {},
+                  },
                   on: {
-                    LOADED: "loaded",
-                    PLAY: "loaded",
+                    STOP: {
+                      target: "stopped",
+                      actions: ["stopListening", "participate"],
+                    },
+                    TOGGLE: {
+                      target: "stopped",
+                      actions: ["stopListening", "participate"],
+                    },
+                    TRACK_CHANGED: {
+                      actions: ["setMeta"],
+                    },
+                    MEDIA_SOURCE_STATUS_CHANGED: [
+                      {
+                        target: "playing.loaded",
+                        actions: ["setMediaSourceStatus"],
+                        guard: "statusIsOnline",
+                      },
+                      {
+                        target: "#audio.active.offline",
+                        actions: ["setMediaSourceStatus", "participate", "stopListening"],
+                      },
+                    ],
                   },
                 },
-                loaded: {},
-              },
-              on: {
-                STOP: {
-                  target: "stopped",
-                  actions: ["stopListening", "participate"],
-                },
-                TOGGLE: {
-                  target: "stopped",
-                  actions: ["stopListening", "participate"],
-                },
-                TRACK_CHANGED: {
-                  actions: ["setMeta"],
-                },
-                MEDIA_SOURCE_STATUS_CHANGED: [
-                  {
-                    target: "playing.loaded",
-                    actions: ["setMediaSourceStatus"],
-                    guard: "statusIsOnline",
+                stopped: {
+                  on: {
+                    TOGGLE: {
+                      target: "playing",
+                      actions: ["listen", "startListening"],
+                    },
+                    TRACK_CHANGED: {
+                      actions: ["setMeta"],
+                    },
+                    MEDIA_SOURCE_STATUS_CHANGED: [
+                      {
+                        target: "stopped",
+                        actions: ["setMediaSourceStatus"],
+                        guard: "statusIsOnline",
+                      },
+                      { target: "#audio.active.offline", actions: ["setMediaSourceStatus"] },
+                    ],
                   },
-                  {
-                    target: "#audio.offline",
-                    actions: ["setMediaSourceStatus", "participate", "stopListening"],
-                  },
-                ],
-              },
-            },
-            stopped: {
-              on: {
-                TOGGLE: {
-                  target: "playing",
-                  actions: ["listen", "startListening"],
                 },
-                TRACK_CHANGED: {
-                  actions: ["setMeta"],
-                },
-                MEDIA_SOURCE_STATUS_CHANGED: [
-                  {
-                    target: "stopped",
-                    actions: ["setMediaSourceStatus"],
-                    guard: "statusIsOnline",
-                  },
-                  { target: "#audio.offline", actions: ["setMediaSourceStatus"] },
-                ],
               },
             },
-          },
-        },
-        volume: {
-          initial: "unmuted",
-          states: {
-            muted: {
-              on: {
-                TOGGLE_MUTE: "unmuted",
-                CHANGE_VOLUME: [
-                  {
-                    actions: ["setVolume"],
-                    target: "unmuted",
-                    guard: "volumeAboveZero",
+            volume: {
+              initial: "unmuted",
+              states: {
+                muted: {
+                  on: {
+                    TOGGLE_MUTE: "unmuted",
+                    CHANGE_VOLUME: [
+                      {
+                        actions: ["setVolume"],
+                        target: "unmuted",
+                        guard: "volumeAboveZero",
+                      },
+                      {
+                        actions: ["setVolume"],
+                      },
+                    ],
                   },
-                  {
-                    actions: ["setVolume"],
+                },
+                unmuted: {
+                  on: {
+                    TOGGLE_MUTE: "muted",
+                    CHANGE_VOLUME: [
+                      {
+                        actions: ["setVolume"],
+                        target: "muted",
+                        guard: "volumeIsZero",
+                      },
+                      {
+                        actions: ["setVolume"],
+                      },
+                    ],
                   },
-                ],
-              },
-            },
-            unmuted: {
-              on: {
-                TOGGLE_MUTE: "muted",
-                CHANGE_VOLUME: [
-                  {
-                    actions: ["setVolume"],
-                    target: "muted",
-                    guard: "volumeIsZero",
-                  },
-                  {
-                    actions: ["setVolume"],
-                  },
-                ],
+                },
               },
             },
           },
         },
+        offline: {
+          on: {
+            ONLINE: "online",
+            INIT: [
+              { target: "online", actions: ["setMeta", "setStatusFromMeta"], guard: "hasTrack" },
+              { target: "offline", actions: ["setMeta", "setStatusFromMeta"] },
+            ],
+            TRACK_CHANGED: [
+              // If we receive track data while offline, go online
+              { target: "online", actions: ["setMeta", "setStatusOnline"], guard: "eventHasTrack" },
+              { actions: ["setMeta"] },
+            ],
+            MEDIA_SOURCE_STATUS_CHANGED: [
+              { target: "online", actions: ["setMediaSourceStatus"], guard: "statusIsOnline" },
+              { target: "offline", actions: ["setMediaSourceStatus"] },
+            ],
+          },
+        },
+        willRetry: {
+          after: { 2000: "online" },
+        },
       },
-    },
-    offline: {
-      on: {
-        ONLINE: "online",
-        INIT: [
-          { target: "online", actions: ["setMeta", "setStatusFromMeta"], guard: "hasTrack" },
-          { target: "offline", actions: ["setMeta", "setStatusFromMeta"] },
-        ],
-        TRACK_CHANGED: [
-          // If we receive track data while offline, go online
-          { target: "online", actions: ["setMeta", "setStatusOnline"], guard: "eventHasTrack" },
-          { actions: ["setMeta"] },
-        ],
-        MEDIA_SOURCE_STATUS_CHANGED: [
-          { target: "online", actions: ["setMediaSourceStatus"], guard: "statusIsOnline" },
-          { target: "offline", actions: ["setMediaSourceStatus"] },
-        ],
-      },
-    },
-    willRetry: {
-      after: { 2000: "online" },
     },
   },
 })

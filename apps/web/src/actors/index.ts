@@ -2,6 +2,8 @@
  * Actor Exports
  *
  * Central export point for all actor instances and their utilities.
+ * Note: Subscribe/unsubscribe functions have been removed - actors now manage
+ * their own socket subscriptions internally via ACTIVATE/DEACTIVATE events.
  */
 
 // Socket Actor (Event Hub)
@@ -9,6 +11,8 @@ export {
   socketActor,
   subscribeActor,
   unsubscribeActor,
+  subscribeById,
+  unsubscribeById,
   emitToSocket,
   getConnectionStatus,
   isConnected,
@@ -43,9 +47,6 @@ export { errorsActor, reportError, clearError, getErrors } from "./errorsActor"
 // Chat Actor
 export {
   chatActor,
-  subscribeChatActor,
-  unsubscribeChatActor,
-  resetChat,
   getChatMessages,
   getSortedChatMessages,
   submitMessage,
@@ -56,20 +57,14 @@ export {
 // Playlist Actor
 export {
   playlistActor,
-  subscribePlaylistActor,
-  unsubscribePlaylistActor,
-  resetPlaylist,
   getPlaylist,
-  isPlaylistActive,
+  isPlaylistExpanded,
   togglePlaylist,
 } from "./playlistActor"
 
 // Users Actor
 export {
   usersActor,
-  subscribeUsersActor,
-  unsubscribeUsersActor,
-  resetUsers,
   getUsers,
   getListeners,
   getDj,
@@ -79,9 +74,6 @@ export {
 // Reactions Actor
 export {
   reactionsActor,
-  subscribeReactionsActor,
-  unsubscribeReactionsActor,
-  resetReactions,
   getAllReactions,
   getReactionsByType,
   getReactionsFor,
@@ -90,9 +82,6 @@ export {
 // Settings Actor
 export {
   settingsActor,
-  subscribeSettingsActor,
-  unsubscribeSettingsActor,
-  resetSettings,
   getSettings,
   getRoomTitle,
   getRoomType,
@@ -104,9 +93,6 @@ export {
 // Room Actor
 export {
   roomActor,
-  subscribeRoomActor,
-  unsubscribeRoomActor,
-  resetRoom,
   getCurrentRoom,
   getRoomError,
   roomHasAudio,
@@ -119,8 +105,6 @@ export {
 // Audio Actor
 export {
   audioActor,
-  subscribeAudioActor,
-  unsubscribeAudioActor,
   getVolume,
   getAudioMeta,
   getMediaSourceStatus,
@@ -135,8 +119,6 @@ export {
 // DJ Actor
 export {
   djActor,
-  subscribeDjActor,
-  unsubscribeDjActor,
   isDjaying,
   isDeputyDjaying,
   canAddToQueue,
@@ -149,8 +131,6 @@ export {
 // Admin Actor
 export {
   adminActor,
-  subscribeAdminActor,
-  unsubscribeAdminActor,
   setSettings,
   clearPlaylist,
   deleteRoom,
@@ -160,8 +140,6 @@ export {
 // Metadata Source Auth Actor
 export {
   metadataSourceAuthActor,
-  subscribeMetadataSourceAuthActor,
-  unsubscribeMetadataSourceAuthActor,
   isMetadataSourceAuthenticated,
   isMetadataSourceLoading,
   fetchMetadataSourceAuthStatus,
@@ -189,4 +167,3 @@ export {
   forceCleanup,
   handleVisibilityChange,
 } from "./roomLifecycle"
-

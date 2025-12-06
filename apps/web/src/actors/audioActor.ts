@@ -2,12 +2,12 @@
  * Audio Actor
  *
  * Singleton actor that manages audio playback state.
- * Active in rooms with audio (radio type), subscribes to socket events.
+ * Socket subscription is managed internally via the machine's invoke pattern.
+ * Send ACTIVATE when entering a room with audio, DEACTIVATE when leaving.
  */
 
 import { createActor } from "xstate"
 import { audioMachine } from "../machines/audioMachine"
-import { subscribeActor, unsubscribeActor } from "./socketActor"
 import { RoomMeta } from "../types/Room"
 
 // ============================================================================
@@ -15,32 +15,6 @@ import { RoomMeta } from "../types/Room"
 // ============================================================================
 
 export const audioActor = createActor(audioMachine).start()
-
-// ============================================================================
-// Lifecycle
-// ============================================================================
-
-let isSubscribed = false
-
-/**
- * Subscribe to socket events. Called when entering a room with audio.
- */
-export function subscribeAudioActor(): void {
-  if (!isSubscribed) {
-    subscribeActor(audioActor)
-    isSubscribed = true
-  }
-}
-
-/**
- * Unsubscribe from socket events. Called when leaving a room.
- */
-export function unsubscribeAudioActor(): void {
-  if (isSubscribed) {
-    unsubscribeActor(audioActor)
-    isSubscribed = false
-  }
-}
 
 // ============================================================================
 // Public API
@@ -71,21 +45,21 @@ export function getMediaSourceStatus(): "online" | "offline" | "connecting" | "u
  * Check if audio is currently playing.
  */
 export function isPlaying(): boolean {
-  return audioActor.getSnapshot().matches({ online: { progress: "playing" } })
+  return audioActor.getSnapshot().matches({ active: { online: { progress: "playing" } } })
 }
 
 /**
  * Check if audio is muted.
  */
 export function isMuted(): boolean {
-  return audioActor.getSnapshot().matches({ online: { volume: "muted" } })
+  return audioActor.getSnapshot().matches({ active: { online: { volume: "muted" } } })
 }
 
 /**
  * Check if audio is online.
  */
 export function isOnline(): boolean {
-  return audioActor.getSnapshot().matches("online")
+  return audioActor.getSnapshot().matches({ active: "online" })
 }
 
 /**
@@ -108,4 +82,3 @@ export function changeVolume(volume: number): void {
 export function toggleMute(): void {
   audioActor.send({ type: "TOGGLE_MUTE" })
 }
-
