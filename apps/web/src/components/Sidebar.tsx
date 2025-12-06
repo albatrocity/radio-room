@@ -3,25 +3,26 @@ import { Box, Stack, Flex, IconButton, Icon } from "@chakra-ui/react"
 import { FiHelpCircle } from "react-icons/fi"
 import Listeners from "./Listeners"
 import AdminControls from "./AdminControls"
-
-import { useAuthStore, useIsAdmin } from "../state/authStore"
-import { useModalsStore } from "../state/modalsState"
 import Banner from "./Banner"
 
+import { useIsAdmin, useAuthState, useModalsSend } from "../hooks/useActors"
+
 const Sidebar = () => {
-  const { send: modalSend } = useModalsStore()
-  const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
+  const modalSend = useModalsSend()
+  const authState = useAuthState()
+  const isUnauthorized = authState === "unauthorized"
   const isAdmin = useIsAdmin()
 
   // Memoize callbacks
   const handleViewListeners = useCallback(
-    (view: boolean) => (view ? modalSend("VIEW_LISTENERS") : modalSend("CLOSE")),
+    (view: boolean) =>
+      view ? modalSend({ type: "VIEW_LISTENERS" }) : modalSend({ type: "CLOSE" }),
     [modalSend],
   )
 
-  const handleEditUser = useCallback(() => modalSend("EDIT_USERNAME"), [modalSend])
+  const handleEditUser = useCallback(() => modalSend({ type: "EDIT_USERNAME" }), [modalSend])
 
-  const handleViewHelp = useCallback(() => modalSend("VIEW_HELP"), [modalSend])
+  const handleViewHelp = useCallback(() => modalSend({ type: "VIEW_HELP" }), [modalSend])
 
   return (
     <Box

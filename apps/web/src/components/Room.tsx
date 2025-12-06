@@ -7,31 +7,34 @@ import Chat from "./Chat"
 import Sidebar from "./Sidebar"
 import Overlays from "./Overlays"
 import KeyboardShortcuts from "./KeyboardShortcuts"
-
-import { useAuthStore, useCurrentUser } from "../state/authStore"
-import { useCurrentPlaylist, usePlaylistStore } from "../state/playlistStore"
-import { useListeners } from "../state/usersStore"
-import { useModalsStore } from "../state/modalsState"
 import RoomError from "./RoomError"
+
+import {
+  useCurrentUser,
+  useIsNewUser,
+  useIsAuthenticated,
+  useCurrentPlaylist,
+  usePlaylistSend,
+  useListeners,
+  useModalsSend,
+} from "../hooks/useActors"
 
 const Room = ({ id }: { id: string }) => {
   const [xs, sm, md, lg, xl] = useToken("sizes", ["xs", "sm", "md", "lg", "xl"])
 
-  const authStore = useAuthStore()
-  const authContext = useAuthStore((s) => s.state.context)
   const currentUser = useCurrentUser()
-  const { send: playlistSend } = usePlaylistStore()
-
-  const isNewUser = authContext.isNewUser
-  const { send: modalSend } = useModalsStore()
+  const isNewUser = useIsNewUser()
+  const isAuthenticated = useIsAuthenticated()
   const playlist = useCurrentPlaylist()
   const listeners = useListeners()
+  const playlistSend = usePlaylistSend()
+  const modalSend = useModalsSend()
 
   useEffect(() => {
-    if (isNewUser && authStore.state.matches("authenticated")) {
-      modalSend("EDIT_USERNAME")
+    if (isNewUser && isAuthenticated) {
+      modalSend({ type: "EDIT_USERNAME" })
     }
-  }, [isNewUser, authStore.state])
+  }, [isNewUser, isAuthenticated, modalSend])
 
   return (
     <Box w="100%" h="100%">
@@ -76,7 +79,7 @@ const Room = ({ id }: { id: string }) => {
           flexShrink={1}
         >
           <PlayerUi
-            onShowPlaylist={() => playlistSend("TOGGLE_PLAYLIST")}
+            onShowPlaylist={() => playlistSend({ type: "TOGGLE_PLAYLIST" })}
             hasPlaylist={playlist.length > 0}
             listenerCount={listeners.length}
           />

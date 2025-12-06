@@ -1,6 +1,7 @@
-import React from "react"
+import React, { useMemo, useCallback } from "react"
 import { useMachine } from "@xstate/react"
 
+import { useSocketMachine } from "../hooks/useSocketMachine"
 import { trackSearchMachine } from "../machines/trackSearchMachine"
 import { Box, InputProps, Text } from "@chakra-ui/react"
 
@@ -8,7 +9,7 @@ import { Select, SingleValue } from "chakra-react-select"
 
 import { MetadataSourceTrack } from "@repo/types"
 import TrackItem from "./TrackItem"
-import { debounceInputMachine } from "../machines/debouncedInputMachine"
+import { createDebouncedInputMachine } from "../machines/debouncedInputMachine"
 
 type Props = {
   onChoose: (item: SingleValue<MetadataSourceTrack>) => void
@@ -16,14 +17,20 @@ type Props = {
 } & InputProps
 
 function TrackSearch({ onChoose, onDropdownOpenChange }: Props) {
-  const [state, send] = useMachine(trackSearchMachine)
-  const [inputState, inputSend] = useMachine(debounceInputMachine, {
-    actions: {
-      onSearchChange: (_context, event) => {
-        if (event.value && event.value !== "") send("FETCH_RESULTS", { value: event.value })
-      },
-    },
-  })
+  const [state, send] = useSocketMachine(trackSearchMachine)
+  
+  const handleSearchChange = useCallback((value: string) => {
+    if (value && value !== "") {
+      send({ type: "FETCH_RESULTS", value })
+    }
+  }, [send])
+  
+  const debounceMachine = useMemo(
+    () => createDebouncedInputMachine(handleSearchChange),
+    [handleSearchChange]
+  )
+  
+  const [inputState, inputSend] = useMachine(debounceMachine)
   const results = state.context.results
   const isMenuOpen =
     state.matches("idle") && results.length > 0 && inputState.context.searchValue !== ""
@@ -49,7 +56,7 @@ function TrackSearch({ onChoose, onDropdownOpenChange }: Props) {
           ),
         }}
         onInputChange={(value) => {
-          inputSend("SET_VALUE", { value })
+          inputSend({ type: "SET_VALUE", value })
         }}
         onChange={(value) => {
           onChoose(value)

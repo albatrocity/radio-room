@@ -1,15 +1,15 @@
 import { useHotkeys } from "react-hotkeys-hook"
 import useCanDj from "./useCanDj"
-import { useModalsStore } from "../state/modalsState"
+import { useModalsSend } from "../hooks/useActors"
 
 type Props = {}
 
 function KeyboardShortcuts({}: Props) {
-  const { send } = useModalsStore()
+  const modalSend = useModalsSend()
   const canDj = useCanDj()
   useHotkeys("ctrl+a", () => {
     if (canDj) {
-      send("EDIT_QUEUE")
+      modalSend({ type: "EDIT_QUEUE" })
     }
   })
 

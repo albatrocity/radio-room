@@ -17,8 +17,7 @@ import {
   checkShowWhenCondition,
 } from "@repo/utils"
 import { pluginComponentMachine } from "../../machines/pluginComponentMachine"
-import { getPluginComponentState } from "../../lib/serverApi"
-import { useRoomStore } from "../../state/roomStore"
+import { useCurrentRoom } from "../../hooks/useActors"
 import { PluginComponentContext } from "./context"
 import { TEMPLATE_COMPONENT_MAP } from "./templates"
 import type { PluginComponentDefinition, PluginModalComponent } from "../../types/PluginComponent"
@@ -94,6 +93,8 @@ interface PluginComponentProviderProps {
   storeKeys: string[]
   config: Record<string, unknown>
   components: PluginComponentDefinition[]
+  /** Text color for components */
+  textColor?: string
 }
 
 /**
@@ -106,34 +107,19 @@ export function PluginComponentProvider({
   storeKeys,
   config,
   components,
+  textColor,
 }: PluginComponentProviderProps) {
-  const { state: roomState } = useRoomStore()
-  const roomId = roomState.context.room?.id
+  const room = useCurrentRoom()
+  const roomId = room?.id
   const [openModals, setOpenModals] = useState<Set<string>>(new Set())
 
   // Create machine instance for this plugin
-  const [state, send] = useMachine(
-    pluginComponentMachine.withConfig({
-      services: {
-        fetchComponentState: async (context) => {
-          if (!context.roomId) {
-            throw new Error("Room ID is required")
-          }
-          const response = await getPluginComponentState(context.roomId, context.pluginName)
-          return response.state
-        },
-      },
-    }),
-    {
-      context: {
-        pluginName,
-        roomId: null,
-        storeKeys,
-        store: {},
-        error: null,
-      },
+  const [state, send] = useMachine(pluginComponentMachine, {
+    input: {
+      pluginName,
+      storeKeys,
     },
-  )
+  })
 
   // Update machine context when roomId changes
   useEffect(() => {
@@ -165,8 +151,8 @@ export function PluginComponentProvider({
 
   // Memoize context value - callbacks are now stable
   const contextValue = useMemo(
-    () => ({ store, config, openModal, closeModal }),
-    [store, config, openModal, closeModal],
+    () => ({ store, config, openModal, closeModal, textColor }),
+    [store, config, openModal, closeModal, textColor],
   )
 
   return (

@@ -2,7 +2,7 @@ import React, { useMemo } from "react"
 import { Stack } from "@chakra-ui/react"
 import { PluginComponentProvider, PluginComponentRenderer } from "./PluginComponentRenderer"
 import { usePluginSchemas } from "../../hooks/usePluginSchemas"
-import { useSettingsStore } from "../../state/settingsStore"
+import { usePluginConfigs } from "../../hooks/useActors"
 import type { PluginComponentArea, PluginComponentDefinition } from "../../types/PluginComponent"
 
 interface PluginAreaProps {
@@ -14,6 +14,8 @@ interface PluginAreaProps {
   itemId?: string
   /** Spacing between components */
   spacing?: number
+  /** Text color for components in this area */
+  color?: string
 }
 
 interface PluginComponents {
@@ -36,10 +38,15 @@ interface PluginComponents {
  * <PluginArea area="playlistItem" itemId={track.id} />
  * ```
  */
-export function PluginArea({ area, direction = "row", itemId, spacing = 2 }: PluginAreaProps) {
+export function PluginArea({
+  area,
+  direction = "row",
+  itemId,
+  spacing = 2,
+  color,
+}: PluginAreaProps) {
   const { schemas, isLoading } = usePluginSchemas()
-  const { state: settingsState } = useSettingsStore()
-  const pluginConfigs = settingsState.context.pluginConfigs || {}
+  const pluginConfigs = usePluginConfigs() || {}
 
   // Build list of plugins with components for this area
   const pluginsForArea = useMemo(() => {
@@ -74,7 +81,7 @@ export function PluginArea({ area, direction = "row", itemId, spacing = 2 }: Plu
   }
 
   return (
-    <Stack direction={direction} gap={spacing}>
+    <Stack direction={direction} gap={spacing} color={color}>
       {pluginsForArea.map(({ pluginName, config, storeKeys, components }) => (
         <PluginComponentProvider
           key={pluginName}
@@ -82,6 +89,7 @@ export function PluginArea({ area, direction = "row", itemId, spacing = 2 }: Plu
           storeKeys={storeKeys}
           config={config}
           components={components}
+          textColor={color}
         >
           {components
             .filter((c) => c.type !== "modal")

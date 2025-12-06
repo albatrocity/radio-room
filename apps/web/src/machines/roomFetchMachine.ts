@@ -1,70 +1,40 @@
-// state machine for fetching saved tracks
+// state machine for fetching room data
 
 import { HTTPError } from "ky"
-import { assign, createMachine, sendTo } from "xstate"
+import { assign, setup, fromCallback, fromPromise } from "xstate"
 
 import socket from "../lib/socket"
 import { getErrorMessage } from "../lib/errors"
 import { findRoom, RoomFindResponse } from "../lib/serverApi"
-import socketService from "../lib/socketService"
-import { useChatStore } from "../state/chatStore"
-import { usePlaylistStore } from "../state/playlistStore"
+import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
+import { chatActor } from "../actors/chatActor"
+import { playlistActor } from "../actors/playlistActor"
 import { Room, RoomError } from "../types/Room"
-import { SocketCallback } from "../types/SocketCallback"
+
+// ============================================================================
+// Types
+// ============================================================================
 
 export interface RoomFetchContext {
   fetchOnInit: boolean
   id: Room["id"] | null
   room: Omit<Room, "password"> | null
   error?: RoomError | null
-}
-
-async function fetchRoom(ctx: RoomFetchContext): Promise<RoomFindResponse> {
-  if (ctx.id) {
-    const results = await findRoom(ctx.id)
-    return results
-  }
-  throw new Error("No room id provided")
-}
-
-function socketEventService(callback: SocketCallback) {
-  // Note: Most socket lifecycle events are now handled in socketService.ts
-  // This monitors reconnection to trigger data refetch
-  socket.io.on("reconnect", () => {
-    console.log("[RoomFetch] Socket reconnected, will refetch room data")
-    callback({ type: "RECONNECTED", data: {} })
-  })
-  
-  socket.io.on("disconnect", (reason) => {
-    console.log("[RoomFetch] Socket disconnected:", reason)
-    callback({
-      type: "SOCKET_ERROR",
-      data: {
-        error: {
-          message: "Connection lost",
-        },
-      },
-    })
-  })
+  subscriptionId: string | null
 }
 
 export type RoomFetchEvent =
+  | { type: "ACTIVATE" }
+  | { type: "DEACTIVATE" }
   | {
-      type: "done.invoke.fetchRoom"
-      data: RoomFindResponse
-      error?: null
+      type: "xstate.done.actor.fetchRoom"
+      output: RoomFindResponse
     }
   | {
-      type: "error.invoke.fetchRoom"
-      data: null
-      error?: RoomError
+      type: "xstate.error.actor.fetchRoom"
+      error: HTTPError
     }
-  | {
-      type: "error.platform.fetchRoom"
-      data?: HTTPError
-      error: null
-    }
-  | { type: "FETCH"; data: { id: Room["id"] }; error?: string }
+  | { type: "FETCH"; data: { id: Room["id"] } }
   | { type: "SOCKET_ERROR"; data: { error?: RoomError } }
   | { type: "RESET" }
   | { type: "SETTINGS"; data: Room }
@@ -74,169 +44,236 @@ export type RoomFetchEvent =
   | { type: "RECONNECTED" }
   | { type: "SESSION_ENDED" }
 
-export const roomFetchMachine = createMachine<RoomFetchContext, RoomFetchEvent>(
-  {
-    id: "roomFetch",
-    predictableActionArguments: true,
-    initial: "initial",
-    context: {
-      fetchOnInit: true,
-      id: null,
-      room: null,
-    },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService,
-      },
-      {
-        id: "socketEventService",
-        src: () => socketEventService,
-      },
-    ],
-    on: {
-      FETCH: {
-        target: "loading",
-        actions: ["setId"],
-      },
-      RESET: {
-        actions: ["reset"],
-        target: "initial",
-      },
-      ROOM_DELETED: {
-        actions: ["assignRoomDeleted"],
-      },
-      SOCKET_ERROR: {
-        actions: ["setSocketError"],
-      },
-      RECONNECTED: {
-        actions: ["getLatestData", "clearError"],
-      },
-      SESSION_ENDED: {
-        actions: ["reset"],
-        target: "initial",
-      },
-    },
-    states: {
-      initial: {},
-      loading: {
-        invoke: {
-          id: "fetchRoom",
-          src: fetchRoom,
-          onDone: {
-            target: "success",
-            actions: ["setRoom"],
-          },
-          onError: {
-            target: "error",
-            actions: ["setError"],
-          },
+// ============================================================================
+// Actors
+// ============================================================================
+
+// Socket.io connection event listener (for reconnect/disconnect)
+const socketConnectionLogic = fromCallback<RoomFetchEvent>(({ sendBack }) => {
+  const handleReconnect = () => {
+    console.log("[RoomFetch] Socket reconnected, will refetch room data")
+    sendBack({ type: "RECONNECTED" } as RoomFetchEvent)
+  }
+
+  const handleDisconnect = (reason: string) => {
+    console.log("[RoomFetch] Socket disconnected:", reason)
+    sendBack({
+      type: "SOCKET_ERROR",
+      data: {
+        error: {
+          message: "Connection lost",
         },
       },
-      success: {
-        on: {
-          ROOM_SETTINGS_UPDATED: {
-            actions: ["setRoom"],
-          },
-          GET_LATEST_ROOM_DATA: {
-            actions: ["getLatestData"],
-          },
-        },
-      },
-      error: {
-        entry: ["onError"],
-      },
-    },
+    } as RoomFetchEvent)
+  }
+
+  socket.io.on("reconnect", handleReconnect)
+  socket.on("disconnect", handleDisconnect)
+
+  return () => {
+    socket.io.off("reconnect", handleReconnect)
+    socket.off("disconnect", handleDisconnect)
+  }
+})
+
+// Fetch room promise actor
+const fetchRoomLogic = fromPromise<RoomFindResponse, { id: Room["id"] | null }>(
+  async ({ input }) => {
+    if (input.id) {
+      const results = await findRoom(input.id)
+      return results
+    }
+    throw new Error("No room id provided")
   },
-  {
-    actions: {
-      setSocketError: assign((ctx, event) => {
-        if (event.type !== "SOCKET_ERROR") return ctx
-        return {
-          error: {
-            message:
-              "You've been disconnected from the server, attempting to reconnect...",
-            status: 400,
-          },
-        }
-      }),
-      clearError: assign((ctx) => {
-        return {
-          error: null,
-        }
-      }),
-      setError: assign((ctx, event) => {
-        if (
-          event.type !== "error.invoke.fetchRoom" &&
-          event.type !== "error.platform.fetchRoom" &&
-          event.type !== "SOCKET_ERROR"
-        ) {
-          return ctx
-        }
+)
 
-        const errorStatus = event.data?.response?.status ?? event.error?.status
-        const errorMessage = getErrorMessage(
-          { status: errorStatus },
-          false,
-          "room",
-        )
+// ============================================================================
+// Machine
+// ============================================================================
 
+let subscriptionCounter = 0
+
+export const roomFetchMachine = setup({
+  types: {
+    context: {} as RoomFetchContext,
+    events: {} as RoomFetchEvent,
+  },
+  actors: {
+    socketConnection: socketConnectionLogic,
+    fetchRoom: fetchRoomLogic,
+  },
+  actions: {
+    subscribe: assign(({ self }) => {
+      const id = `room-${self.id}-${++subscriptionCounter}`
+      subscribeById(id, { send: (event) => self.send(event as RoomFetchEvent) })
+      return { subscriptionId: id }
+    }),
+    unsubscribe: ({ context }) => {
+      if (context.subscriptionId) {
+        unsubscribeById(context.subscriptionId)
+      }
+    },
+    setSocketError: assign(({ context, event }) => {
+      if (event.type !== "SOCKET_ERROR") return context
+      return {
+        error: {
+          message: "You've been disconnected from the server, attempting to reconnect...",
+          status: 400,
+        },
+      }
+    }),
+    clearError: assign(() => {
+      return {
+        error: null,
+      }
+    }),
+    setError: assign(({ context, event }) => {
+      if (event.type !== "xstate.error.actor.fetchRoom" && event.type !== "SOCKET_ERROR") {
+        return context
+      }
+
+      const errorStatus =
+        event.type === "xstate.error.actor.fetchRoom"
+          ? (event.error as any)?.response?.status
+          : (event as any).data?.error?.status
+      const errorMessage = getErrorMessage({ status: errorStatus }, false, "room")
+
+      return {
+        error: {
+          message: errorMessage,
+          status: errorStatus ?? 500,
+        },
+      }
+    }),
+    setId: assign(({ context, event }) => {
+      if (event.type !== "FETCH") return context
+      return {
+        id: event.data.id,
+      }
+    }),
+    setRoom: assign(({ context, event }) => {
+      if (event.type === "xstate.done.actor.fetchRoom") {
         return {
-          error: {
-            message: errorMessage,
-            status: errorStatus ?? 500,
-          },
+          room: event.output.room,
         }
-      }),
-      setId: assign((ctx, event) => {
-        if (event.type !== "FETCH") return ctx
-        return {
-          id: event.data.id,
-        }
-      }),
-      setRoom: assign((ctx, event) => {
-        if (
-          event.type !== "done.invoke.fetchRoom" &&
-          event.type !== "ROOM_SETTINGS" &&
-          event.type !== "ROOM_SETTINGS_UPDATED"
-        ) {
-          return ctx
-        }
+      }
+      if (event.type === "ROOM_SETTINGS_UPDATED") {
         return {
           room: event.data.room,
         }
-      }),
-      reset: assign(() => {
-        return {
-          id: null,
-          room: null,
-          error: null,
-        }
-      }),
-      getLatestData: sendTo("socket", (ctx) => {
-        const messages = useChatStore.getState().state.context.messages
-        const lastMessageTime = messages[messages.length - 1]?.timestamp
-        const playlist = usePlaylistStore.getState().state.context.playlist
-        const lastPlaylistItemTime = playlist[playlist.length - 1]?.timestamp
+      }
+      return context
+    }),
+    reset: assign(() => {
+      return {
+        id: null,
+        room: null,
+        error: null,
+        subscriptionId: null,
+      }
+    }),
+    getLatestData: ({ context }) => {
+      const messages = chatActor.getSnapshot().context.messages
+      const lastMessageTime = messages[messages.length - 1]?.timestamp
+      const playlist = playlistActor.getSnapshot().context.playlist
+      const lastPlaylistItemTime = playlist[playlist.length - 1]?.addedAt
 
-        return {
-          type: "GET_LATEST_ROOM_DATA",
-          data: {
-            id: ctx.id,
-            lastMessageTime,
-            lastPlaylistItemTime,
+      emitToSocket("GET_LATEST_ROOM_DATA", {
+        id: context.id,
+        lastMessageTime,
+        lastPlaylistItemTime,
+      })
+    },
+    assignRoomDeleted: assign(() => {
+      return {
+        error: {
+          message: "This room has expired and its data has been permanently deleted.",
+          status: 404,
+        },
+      }
+    }),
+  },
+}).createMachine({
+  id: "roomFetch",
+  initial: "idle",
+  context: {
+    fetchOnInit: true,
+    id: null,
+    room: null,
+    subscriptionId: null,
+  },
+  states: {
+    // Idle state - not subscribed to socket events
+    idle: {
+      on: {
+        ACTIVATE: "active",
+      },
+    },
+    // Active state - subscribed to socket events
+    active: {
+      entry: ["subscribe"],
+      exit: ["unsubscribe"],
+      invoke: {
+        id: "socketConnection",
+        src: "socketConnection",
+      },
+      on: {
+        DEACTIVATE: {
+          target: "idle",
+          actions: ["reset"],
+        },
+        FETCH: {
+          target: ".loading",
+          actions: ["setId"],
+        },
+        RESET: {
+          actions: ["reset"],
+          target: ".initial",
+        },
+        ROOM_DELETED: {
+          actions: ["assignRoomDeleted"],
+        },
+        SOCKET_ERROR: {
+          actions: ["setSocketError"],
+        },
+        RECONNECTED: {
+          actions: ["getLatestData", "clearError"],
+        },
+        SESSION_ENDED: {
+          actions: ["reset"],
+          target: ".initial",
+        },
+      },
+      initial: "initial",
+      states: {
+        initial: {},
+        loading: {
+          invoke: {
+            id: "fetchRoom",
+            src: "fetchRoom",
+            input: ({ context }) => ({ id: context.id }),
+            onDone: {
+              target: "success",
+              actions: ["setRoom"],
+            },
+            onError: {
+              target: "error",
+              actions: ["setError"],
+            },
           },
-        }
-      }),
-      assignRoomDeleted: assign(() => {
-        return {
-          error: {
-            message:
-              "This room has expired and its data has been permanently deleted.",
-            status: 404,
+        },
+        success: {
+          on: {
+            ROOM_SETTINGS_UPDATED: {
+              actions: ["setRoom"],
+            },
+            GET_LATEST_ROOM_DATA: {
+              actions: ["getLatestData"],
+            },
           },
-        }
-      }),
+        },
+        error: {},
+      },
     },
   },
-)
+})

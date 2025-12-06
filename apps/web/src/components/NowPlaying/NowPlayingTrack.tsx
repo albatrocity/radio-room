@@ -93,7 +93,7 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
           {coverUrl && (
             <Box position="relative" width={artworkSize} height={artworkSize}>
               <Box position="absolute">
-                <PluginArea area="nowPlayingArt" />
+                <PluginArea area="nowPlayingArt" color="primaryBg" />
               </Box>
               <AlbumArtwork coverUrl={coverUrl} />
             </Box>
@@ -123,7 +123,7 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
 
             <AddedByInfo dj={dj} djUsername={djUsername} addedAt={addedAt} />
 
-            <PluginArea area="nowPlayingInfo" />
+            <PluginArea area="nowPlayingInfo" color="primaryBg" />
 
             <MetadataSourceInfo metadataSource={nowPlaying?.metadataSource} />
           </VStack>

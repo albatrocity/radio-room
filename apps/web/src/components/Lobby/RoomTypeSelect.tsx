@@ -1,5 +1,5 @@
 import React from "react"
-import { VStack, Box, Text, HStack, RadioGroup } from "@chakra-ui/react"
+import { VStack, Text, HStack, RadioGroup } from "@chakra-ui/react"
 import { LuCheck } from "react-icons/lu"
 
 import { Room } from "../../types/Room"
@@ -17,38 +17,38 @@ type RadioTypeCardProps = {
 
 function RoomTypeCard({ title, description, value, checked }: RadioTypeCardProps) {
   return (
-    <RadioGroup.Item value={value} w="100%">
+    <RadioGroup.Item
+      value={value}
+      w="100%"
+      cursor="pointer"
+      borderWidth="1px"
+      borderRadius="md"
+      boxShadow="sm"
+      px={5}
+      py={3}
+      bg={checked ? "primary.50" : undefined}
+      borderColor={checked ? "primary.600" : undefined}
+      _focus={{
+        boxShadow: "outline",
+      }}
+      _dark={{
+        bg: checked ? "primary.600" : undefined,
+        borderColor: checked ? "primary.500" : undefined,
+      }}
+    >
       <RadioGroup.ItemHiddenInput />
-      <Box
-        as="label"
-        w="100%"
-        cursor="pointer"
-        borderWidth="1px"
-        borderRadius="md"
-        boxShadow="sm"
-        px={5}
-        py={3}
-        bg={checked ? "primary.50" : undefined}
-        borderColor={checked ? "primary.600" : undefined}
-        _focus={{
-          boxShadow: "outline",
-        }}
-        _dark={{
-          bg: checked ? "primary.600" : undefined,
-          borderColor: checked ? "primary.500" : undefined,
-        }}
-      >
-        <RadioGroup.ItemControl />
+      <RadioGroup.ItemControl />
+      <VStack align="start" gap={0}>
         <HStack>
-          <Text fontSize="lg" fontWeight={700}>
+          <RadioGroup.ItemText fontSize="lg" fontWeight={700}>
             {title}
-          </Text>
+          </RadioGroup.ItemText>
           {checked && <LuCheck color="var(--chakra-colors-secondary-500)" />}
         </HStack>
         <Text as="p" fontSize="sm">
           {description}
         </Text>
-      </Box>
+      </VStack>
     </RadioGroup.Item>
   )
 }

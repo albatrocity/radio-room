@@ -15,9 +15,8 @@ import { Link } from "@tanstack/react-router"
 
 import Layout from "./layout"
 import { LuPlus } from "react-icons/lu"
-import { useModalsStore } from "../state/modalsState"
 import { FaSpotify } from "react-icons/fa"
-import { useAuthStore, useCurrentUser } from "../state/authStore"
+import { useModalsSend, useIsModalOpen, useAuthSend, useCurrentUser } from "../hooks/useActors"
 import ConfirmationDialog from "./ConfirmationDialog"
 import LobbyOverlays from "./Lobby/LobbyOverlays"
 
@@ -26,13 +25,14 @@ type Props = {
 }
 
 export default function PageLayout({ children }: Props) {
-  const { send, state } = useModalsStore()
-  const { send: authSend } = useAuthStore()
+  const modalSend = useModalsSend()
+  const isNukeUserModalOpen = useIsModalOpen("nukeUser")
+  const authSend = useAuthSend()
   const currentUser = useCurrentUser()
   const isHome = window.location.pathname === "/"
 
   useEffect(() => {
-    authSend("GET_SESSION_USER")
+    authSend({ type: "GET_SESSION_USER" })
   }, [authSend])
 
   return (
@@ -45,9 +45,9 @@ export default function PageLayout({ children }: Props) {
               Are you sure you want to delete all of your rooms and disconnect your Spotify account?
             </Text>
           }
-          open={state.matches("nukeUser")}
-          onClose={() => send("CLOSE")}
-          onConfirm={() => authSend("NUKE_USER")}
+          open={isNukeUserModalOpen}
+          onClose={() => modalSend({ type: "CLOSE" })}
+          onConfirm={() => authSend({ type: "NUKE_USER" })}
           isDangerous={true}
           confirmLabel="Disconnect Spotify"
         />
@@ -68,10 +68,10 @@ export default function PageLayout({ children }: Props) {
               <HStack justifyContent="flex-end">
                 {currentUser ? (
                   <HStack>
-                    <Button onClick={() => send("NUKE_USER")} variant="ghost">
+                    <Button onClick={() => modalSend({ type: "NUKE_USER" })} variant="ghost">
                       Disconnect Spotify
                     </Button>
-                    <Button onClick={() => authSend("LOGOUT")} variant="ghost">
+                    <Button onClick={() => authSend({ type: "LOGOUT" })} variant="ghost">
                       Logout
                     </Button>
                   </HStack>
@@ -85,13 +85,13 @@ export default function PageLayout({ children }: Props) {
                 )}
                 <Box>
                   <Box hideBelow="sm">
-                    <Button onClick={() => send("CREATE_ROOM")}>
+                    <Button onClick={() => modalSend({ type: "CREATE_ROOM" })}>
                       <LuPlus />
                       Create a Room
                     </Button>
                   </Box>
                   <Box hideFrom="sm">
-                    <IconButton onClick={() => send("CREATE_ROOM")} aria-label="Create a Room">
+                    <IconButton onClick={() => modalSend({ type: "CREATE_ROOM" })} aria-label="Create a Room">
                       <LuPlus />
                     </IconButton>
                   </Box>

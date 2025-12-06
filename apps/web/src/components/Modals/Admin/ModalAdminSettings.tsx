@@ -1,6 +1,6 @@
 import React from "react"
 
-import { useModalsStore } from "../../../state/modalsState"
+import { useModalsSnapshot, useModalsSend } from "../../../hooks/useActors"
 import {
   Collapsible,
   HStack,
@@ -40,13 +40,14 @@ const Header = ({ showBack, onBack }: { showBack: boolean; onBack: () => void })
 }
 
 function ModalAdminSettings() {
-  const { state, send } = useModalsStore()
-  const isEditingSettings = useModalsStore((s: any) => s.state.matches("settings"))
+  const state = useModalsSnapshot()
+  const send = useModalsSend()
+  const isEditingSettings = state.matches("settings")
   const { schemas } = usePluginSchemas()
 
-  const hideEditForm = () => send("CLOSE")
+  const hideEditForm = () => send({ type: "CLOSE" })
   const onBack = () => {
-    send("BACK")
+    send({ type: "BACK" })
   }
 
   const isTriggersView =
@@ -102,7 +103,10 @@ function ModalAdminSettings() {
           {schemas
             .filter((plugin) => plugin.configSchema)
             .map((plugin) => (
-              <Collapsible.Root key={plugin.name} open={state.matches(`settings.${toStateKey(plugin.name)}`)}>
+              <Collapsible.Root
+                key={plugin.name}
+                open={state.matches(`settings.${toStateKey(plugin.name)}`)}
+              >
                 <Collapsible.Content>
                   <DynamicPluginSettings pluginName={plugin.name} />
                 </Collapsible.Content>

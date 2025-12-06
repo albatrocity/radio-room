@@ -101,6 +101,18 @@ const semanticColorTokens = generateSemanticColorTokens(themes)
 
 const buttonRecipe = defineRecipe({
   variants: {
+    size: {
+      xs: {
+        h: "8",
+        minW: "8",
+        px: "1",
+        fontSize: "xs",
+        "& svg": {
+          width: "4",
+          height: "4",
+        },
+      },
+    },
     variant: {
       bright: {
         bg: "transparent",
@@ -203,6 +215,7 @@ const config = defineConfig({
     },
     button: {
       colorPalette: "action",
+      minWidth: "10px",
     },
   },
 })

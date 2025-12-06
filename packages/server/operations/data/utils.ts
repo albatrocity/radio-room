@@ -122,7 +122,7 @@ export async function getHMembersFromSet<T>({
               acc[key] = JSON.parse(attributes[key])
             }
           } catch (e) {
-            console.error("ERROR FROM data/utils/getHMembersFromSet", attributes[key])
+            // Not an error - just a plain string value that doesn't need JSON parsing
             // @ts-ignore
             acc[key] = attributes[key]
           }

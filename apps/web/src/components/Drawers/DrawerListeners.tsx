@@ -3,19 +3,20 @@ import { Box } from "@chakra-ui/react"
 
 import UserList from "../UserList"
 import Drawer from "../Drawer"
-import { useListeners } from "../../state/usersStore"
-import { useModalsStore } from "../../state/modalsState"
-import { useCurrentRoomHasAudio } from "../../state/roomStore"
+import {
+  useListeners,
+  useModalsSend,
+  useIsModalOpen,
+  useCurrentRoomHasAudio,
+} from "../../hooks/useActors"
 
 function DrawerListeners() {
   const listeners = useListeners()
-  const { send } = useModalsStore()
+  const modalSend = useModalsSend()
   const hasAudio = useCurrentRoomHasAudio()
-  const isModalViewingListeners = useModalsStore((s) =>
-    s.state.matches("listeners"),
-  )
-  const hideListeners = () => send("CLOSE")
-  const handleEditUser = () => send("EDIT_USERNAME")
+  const isModalViewingListeners = useIsModalOpen("listeners")
+  const hideListeners = () => modalSend({ type: "CLOSE" })
+  const handleEditUser = () => modalSend({ type: "EDIT_USERNAME" })
 
   return (
     <Drawer

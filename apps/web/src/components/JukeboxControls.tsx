@@ -6,7 +6,7 @@ import ButtonAddToQueue from "./ButtonAddToQueue"
 import ButtonListeners from "./ButtonListeners"
 import ReactionCounter from "./ReactionCounter"
 import AdminControls from "./AdminControls"
-import { useIsAdmin } from "../state/authStore"
+import { useIsAdmin } from "../hooks/useActors"
 
 type Props = {
   trackId: string // For reactions (stable ID)

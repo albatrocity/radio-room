@@ -1,53 +1,52 @@
-import React, { useEffect } from "react"
+import React, { useEffect, useRef } from "react"
 import data from "@emoji-mart/data"
 import { init } from "emoji-mart"
 import { Flex } from "@chakra-ui/react"
 import { usePageVisibility } from "react-page-visibility"
-import { createFileRoute, useParams, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useParams, useNavigate } from "@tanstack/react-router"
 
 import Room from "../../components/Room"
 import AppToasts from "../../components/AppToasts"
-import { useAuthStore } from "../../state/authStore"
 import Layout from "../../components/layout"
-import { useRoomStore } from "../../state/roomStore"
+import { useCurrentRoom } from "../../hooks/useActors"
+import { initializeRoom, teardownRoom, handleVisibilityChange } from "../../actors/roomLifecycle"
 
 init({ data })
 
-export const Route = createFileRoute('/rooms/$roomId')({
+export const Route = createFileRoute("/rooms/$roomId")({
   component: RoomRoute,
 })
 
 function RoomRoute() {
-  const { roomId } = useParams({ from: '/rooms/$roomId' })
+  const { roomId } = useParams({ from: "/rooms/$roomId" })
   const navigate = useNavigate()
   const isVisible = usePageVisibility()
 
-  const { send } = useAuthStore()
-  const { state: roomState, send: roomSend } = useRoomStore()
+  const room = useCurrentRoom()
 
   if (!roomId) {
     navigate({ to: "/" })
   }
 
+  // Initialize room lifecycle
   useEffect(() => {
-    roomSend("FETCH", { data: { id: roomId } })
+    if (roomId) {
+      initializeRoom(roomId)
+    }
     return () => {
-      roomSend("RESET")
+      teardownRoom()
     }
-  }, [send, roomSend, roomId])
+  }, [roomId])
 
+  // Handle visibility changes - only when tab becomes visible again
+  const wasVisible = useRef(true)
   useEffect(() => {
-    send("SETUP", { data: { roomId } })
-    return () => {
-      send("USER_DISCONNECTED")
+    // Only fetch when transitioning from hidden to visible
+    if (isVisible && !wasVisible.current && room?.id) {
+      handleVisibilityChange(true)
     }
-  }, [send, roomId])
-
-  useEffect(() => {
-    if (isVisible && !!roomState.context.room?.id) {
-      roomSend("GET_LATEST_ROOM_DATA")
-    }
-  }, [isVisible, roomState.context.room, roomSend])
+    wasVisible.current = isVisible
+  }, [isVisible, room?.id])
 
   return roomId ? (
     <Layout fill>
@@ -58,4 +57,3 @@ function RoomRoute() {
     </Layout>
   ) : null
 }
-

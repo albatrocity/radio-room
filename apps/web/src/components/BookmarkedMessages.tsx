@@ -3,8 +3,7 @@ import { Box } from "@chakra-ui/react"
 import { ChatMessage as ChatMessageType } from "../types/ChatMessage"
 import ChatMessage from "./ChatMessage"
 
-import { useCurrentUser } from "../state/authStore"
-import { useBookmarks } from "../state/bookmarkedChatStore"
+import { useCurrentUser, useBookmarks } from "../hooks/useActors"
 
 const BookmarkedMessages = () => {
   const currentUser = useCurrentUser()

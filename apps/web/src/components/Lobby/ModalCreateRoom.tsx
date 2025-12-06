@@ -1,16 +1,7 @@
-import React from "react"
 import { useMachine } from "@xstate/react"
-import {
-  Box,
-  Button,
-  HStack,
-  VStack,
-  Text,
-  Spinner,
-  Center,
-} from "@chakra-ui/react"
+import { Box, Button, HStack, VStack, Text, Spinner, Center } from "@chakra-ui/react"
 
-import { useModalsStore } from "../../state/modalsState"
+import { useModalsSend, useIsModalOpen } from "../../hooks/useActors"
 import { createRoomFormMachine } from "./createRoomFormMachine"
 
 import Modal from "../Modal"
@@ -22,29 +13,26 @@ import { LuArrowLeft } from "react-icons/lu"
 type Props = {}
 
 export default function ModalCreateRoom({}: Props) {
-  const { state, send } = useModalsStore()
+  const modalSend = useModalsSend()
+  const isCreateRoomModalOpen = useIsModalOpen("createRoom")
   const [formState, formSend] = useMachine(createRoomFormMachine)
   const nextLabel = formState.matches("settings") ? "Login & Create" : "Next"
   const loading = formState.matches("creating")
-  
+
   const handleNext = () => {
-    formSend("NEXT")
+    formSend({ type: "NEXT" })
   }
-  
+
   return (
     <form onSubmit={(e) => e.preventDefault()}>
       <Modal
-        open={state.matches("createRoom")}
+        open={isCreateRoomModalOpen}
         heading="Create a Room"
-        onClose={() => send("CLOSE")}
+        onClose={() => modalSend({ type: "CLOSE" })}
         footer={
           <HStack justify="space-between" w="100%">
             {formState.matches("settings") && (
-              <Button
-                variant="ghost"
-                onClick={() => formSend("BACK")}
-                disabled={loading}
-              >
+              <Button variant="ghost" onClick={() => formSend({ type: "BACK" })} disabled={loading}>
                 <LuArrowLeft />
                 Back
               </Button>
@@ -53,14 +41,11 @@ export default function ModalCreateRoom({}: Props) {
               <Button
                 disabled={loading}
                 variant="ghost"
-                onClick={() => send("CLOSE")}
+                onClick={() => modalSend({ type: "CLOSE" })}
               >
                 Cancel
               </Button>
-              <Button
-                disabled={loading}
-                onClick={handleNext}
-              >
+              <Button disabled={loading} onClick={handleNext}>
                 {nextLabel}
               </Button>
             </HStack>
@@ -79,12 +64,12 @@ export default function ModalCreateRoom({}: Props) {
           {formState.matches("selectType") && (
             <VStack alignItems="flex-start" gap={4}>
               <Text as="p">
-                Creating a room requires a Spotify Premium account to grab meta
-                data and control a queue.
+                Creating a room requires a Spotify Premium account to grab meta data and control a
+                queue.
               </Text>
               <RoomTypeSelect
                 onSelect={(type) => {
-                  formSend("SELECT_TYPE", { data: { type } })
+                  formSend({ type: "SELECT_TYPE", data: { type } })
                 }}
               />
             </VStack>
@@ -94,7 +79,7 @@ export default function ModalCreateRoom({}: Props) {
               roomType={formState.context.type}
               settings={formState.context}
               onChange={(settings: Partial<Room>) => {
-                formSend("SET_SETTINGS", { data: { settings } })
+                formSend({ type: "SET_SETTINGS", data: { settings } })
               }}
             />
           )}

@@ -1,6 +1,6 @@
-import { createMachine, assign, sendTo } from "xstate"
-import socketService from "../lib/socketService"
+import { setup, assign } from "xstate"
 import { toast } from "../lib/toasts"
+import { emitToSocket } from "../actors/socketActor"
 
 interface Context {
   ids: string[]
@@ -19,171 +19,166 @@ type Event =
   | { type: "REMOVE_FROM_LIBRARY_SUCCESS"; data: { trackIds: string[] } }
   | { type: "REMOVE_FROM_LIBRARY_FAILURE"; data: { message: string } }
 
-const addToLibraryMachine = createMachine<Context, Event>(
-  {
-    id: "addToLibrary",
-    initial: "initial",
-    context: {
-      ids: [],
-      tracks: {},
+// NOTE: This machine requires socket events. Use with useSocketMachine hook.
+const addToLibraryMachine = setup({
+  types: {
+    context: {} as Context,
+    events: {} as Event,
+  },
+  actions: {
+    sendCheckRequest: ({ context }) => {
+      emitToSocket("CHECK_SAVED_TRACKS", context.ids)
     },
-    invoke: [
-      {
-        id: "socket",
-        src: () => socketService as any,
-      },
-    ],
-    on: {
-      SET_IDS: {
-        actions: ["setIds"],
-        target: "loading.checking",
-      },
-      CHECK_SAVED_TRACKS_RESULTS: {
-        target: "checked",
-        actions: ["setCheckedTracks"],
-      },
-      CHECK_SAVED_TRACKS_FAILURE: {
-        target: "error",
-        // NOTE: Don't show error toast for unsupported services (graceful handling)
-        // actions: ["showError"],
-      },
-      ADD_TO_LIBRARY_SUCCESS: {
-        target: "loading.checking",
-        actions: ["showAddSuccess"],
-      },
-      ADD_TO_LIBRARY_FAILURE: {
-        target: "error",
-        actions: ["showError"],
-      },
-      REMOVE_FROM_LIBRARY_SUCCESS: {
-        target: "loading.checking",
-        actions: ["showRemoveSuccess"],
-      },
-      REMOVE_FROM_LIBRARY_FAILURE: {
-        target: "error",
-        actions: ["showError"],
+    sendAddRequest: ({ context, event }) => {
+      const data = event.type === "ADD" ? event.data ?? context.ids : context.ids
+      emitToSocket("ADD_TO_LIBRARY", data)
+    },
+    sendRemoveRequest: ({ context, event }) => {
+      const data = event.type === "REMOVE" ? event.data ?? context.ids : context.ids
+      emitToSocket("REMOVE_FROM_LIBRARY", data)
+    },
+    setCheckedTracks: assign(({ context, event }) => {
+      if (event.type === "CHECK_SAVED_TRACKS_RESULTS") {
+        return {
+          tracks: event.data.trackIds.reduce(
+            (acc, id, index) => {
+              acc[id] = event.data.results[index]
+              return acc
+            },
+            { ...context.tracks },
+          ),
+        }
+      }
+      return {}
+    }),
+    setIds: assign(({ context, event }) => {
+      if (event.type === "SET_IDS") {
+        return {
+          ids: event.data ?? context.ids,
+        }
+      }
+      return {}
+    }),
+    showAddSuccess: () => {
+      toast({
+        title: "Added to your library",
+        status: "success",
+      })
+    },
+    showRemoveSuccess: () => {
+      toast({
+        title: "Removed from your library",
+        status: "success",
+      })
+    },
+    showError: ({ event }) => {
+      if (
+        event.type === "CHECK_SAVED_TRACKS_FAILURE" ||
+        event.type === "ADD_TO_LIBRARY_FAILURE" ||
+        event.type === "REMOVE_FROM_LIBRARY_FAILURE"
+      ) {
+        toast({
+          title: "Error",
+          description: event.data.message,
+          status: "error",
+        })
+      }
+    },
+  },
+  guards: {
+    canFetch: ({ context }) => {
+      return context.ids && context.ids.length > 0
+    },
+    cannotFetch: ({ context }) => {
+      return !context.ids || context.ids.length === 0
+    },
+  },
+}).createMachine({
+  id: "addToLibrary",
+  initial: "initial",
+  context: {
+    ids: [],
+    tracks: {},
+  },
+  on: {
+    SET_IDS: {
+      actions: ["setIds"],
+      target: ".loading.checking",
+    },
+    CHECK_SAVED_TRACKS_RESULTS: {
+      target: ".checked",
+      actions: ["setCheckedTracks"],
+    },
+    CHECK_SAVED_TRACKS_FAILURE: {
+      target: ".error",
+      // NOTE: Don't show error toast for unsupported services (graceful handling)
+      // actions: ["showError"],
+    },
+    ADD_TO_LIBRARY_SUCCESS: {
+      target: ".loading.checking",
+      actions: ["showAddSuccess"],
+    },
+    ADD_TO_LIBRARY_FAILURE: {
+      target: ".error",
+      actions: ["showError"],
+    },
+    REMOVE_FROM_LIBRARY_SUCCESS: {
+      target: ".loading.checking",
+      actions: ["showRemoveSuccess"],
+    },
+    REMOVE_FROM_LIBRARY_FAILURE: {
+      target: ".error",
+      actions: ["showError"],
+    },
+  },
+  states: {
+    initial: {
+      always: [
+        { target: "loading.checking", guard: "canFetch" },
+        { target: "idle", guard: "cannotFetch" },
+      ],
+    },
+    idle: {
+      on: {
+        SET_IDS: {
+          actions: ["setIds"],
+          target: "loading.checking",
+        },
       },
     },
-    states: {
-      initial: {
-        always: [
-          { target: "loading.checking", cond: "canFetch" },
-          { target: "idle", cond: "cannotFetch" },
-        ],
-      },
-      idle: {
-        on: {
-          SET_IDS: {
-            actions: ["setIds"],
-            target: "loading.checking",
-          },
+    loading: {
+      initial: "checking",
+      states: {
+        checking: {
+          entry: ["sendCheckRequest"],
+        },
+        adding: {
+          entry: ["sendAddRequest"],
+        },
+        removing: {
+          entry: ["sendRemoveRequest"],
         },
       },
-      loading: {
-        states: {
-          checking: {
-            entry: ["sendCheckRequest"],
-          },
-          adding: {
-            entry: ["sendAddRequest"],
-          },
-          removing: {
-            entry: ["sendRemoveRequest"],
-          },
-        },
+    },
+    checked: {
+      id: "checked",
+      on: {
+        CHECK: "loading.checking",
+        ADD: "loading.adding",
+        REMOVE: "loading.removing",
       },
-      checked: {
-        id: "checked",
-        on: {
-          CHECK: "loading.checking",
-          ADD: "loading.adding",
-          REMOVE: "loading.removing",
-        },
-      },
-      error: {
-        id: "error",
-        on: {
-          CHECK: "loading.checking",
-          SET_IDS: {
-            actions: ["setIds"],
-            target: "loading.checking",
-          },
+    },
+    error: {
+      id: "error",
+      on: {
+        CHECK: "loading.checking",
+        SET_IDS: {
+          actions: ["setIds"],
+          target: "loading.checking",
         },
       },
     },
   },
-  {
-    actions: {
-      sendCheckRequest: sendTo("socket", (ctx) => ({
-        type: "CHECK_SAVED_TRACKS",
-        data: ctx.ids, // Server infers metadata source from room context
-      })),
-      sendAddRequest: sendTo("socket", (ctx, event) => ({
-        type: "ADD_TO_LIBRARY",
-        data: event.type === "ADD" ? event.data ?? ctx.ids : ctx.ids, // Server infers metadata source from room context
-      })),
-      sendRemoveRequest: sendTo("socket", (ctx, event) => ({
-        type: "REMOVE_FROM_LIBRARY",
-        data: event.type === "REMOVE" ? event.data ?? ctx.ids : ctx.ids, // Server infers metadata source from room context
-      })),
-      setCheckedTracks: assign((ctx, event) => {
-        if (event.type === "CHECK_SAVED_TRACKS_RESULTS") {
-          return {
-            tracks: event.data.trackIds.reduce(
-              (acc, id, index) => {
-                acc[id] = event.data.results[index]
-                return acc
-              },
-              { ...ctx.tracks },
-            ),
-          }
-        }
-        return ctx
-      }),
-      setIds: assign((ctx, event) => {
-        if (event.type === "SET_IDS") {
-          return {
-            ids: event.data ?? ctx.ids,
-          }
-        }
-        return ctx
-      }),
-      showAddSuccess: () => {
-        toast({
-          title: "Added to your library",
-          status: "success",
-        })
-      },
-      showRemoveSuccess: () => {
-        toast({
-          title: "Removed from your library",
-          status: "success",
-        })
-      },
-      showError: (ctx, event) => {
-        if (
-          event.type === "CHECK_SAVED_TRACKS_FAILURE" ||
-          event.type === "ADD_TO_LIBRARY_FAILURE" ||
-          event.type === "REMOVE_FROM_LIBRARY_FAILURE"
-        ) {
-          toast({
-            title: "Error",
-            description: event.data.message,
-            status: "error",
-          })
-        }
-      },
-    },
-    guards: {
-      canFetch: (ctx) => {
-        return ctx.ids && ctx.ids.length > 0
-      },
-      cannotFetch: (ctx) => {
-        return !ctx.ids || ctx.ids.length === 0
-      },
-    },
-  },
-)
+})
 
 export default addToLibraryMachine
-

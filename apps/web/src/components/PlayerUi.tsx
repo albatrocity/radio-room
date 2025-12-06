@@ -3,14 +3,15 @@ import { Box, Center, Flex, Spinner } from "@chakra-ui/react"
 
 import NowPlaying from "./NowPlaying"
 
-import { useAuthStore } from "../state/authStore"
 import {
+  useAuthState,
   useIsStationOnline,
   useStationMeta,
   useCurrentTrackId,
   useMetadataSourceTrackId,
-} from "../state/audioStore"
-import { useCurrentRoom, useCurrentRoomHasAudio } from "../state/roomStore"
+  useCurrentRoom,
+  useCurrentRoomHasAudio,
+} from "../hooks/useActors"
 import JukeboxControls from "./JukeboxControls"
 const RadioControls = lazy(() => import("./RadioControls"))
 
@@ -21,10 +22,10 @@ interface PlayerUiProps {
 }
 
 const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
-  const { state: authState } = useAuthStore()
+  const authState = useAuthState()
   const hasAudio = useCurrentRoomHasAudio()
   const room = useCurrentRoom()
-  const isUnauthorized = authState.matches("unauthorized")
+  const isUnauthorized = authState === "unauthorized"
 
   // Clean state from audio store
   const isOnline = useIsStationOnline()

@@ -7,12 +7,14 @@ import type { TextComponentProps } from "../../../types/PluginComponent"
 /**
  * Text component - renders text with optional styling.
  */
-export function TextTemplateComponent({ content, variant = "default" }: TextComponentProps) {
-  const { store, config } = usePluginComponentContext()
+export function TextTemplateComponent({ content, variant = "default", size }: TextComponentProps) {
+  const { store, config, textColor } = usePluginComponentContext()
 
   const fontWeight = variant === "bold" ? "bold" : "normal"
-  const fontSize = variant === "small" ? "xs" : "sm"
-  const color = variant === "muted" ? "gray.500" : undefined
+  // Use explicit size if provided, otherwise derive from variant
+  const fontSize = size ?? (variant === "small" ? "xs" : "sm")
+  // Use variant-specific color, or fall back to area textColor
+  const color = variant === "muted" ? "secondary.subtle" : textColor
 
   // Handle string content
   if (typeof content === "string") {
@@ -31,4 +33,3 @@ export function TextTemplateComponent({ content, variant = "default" }: TextComp
     </Text>
   )
 }
-

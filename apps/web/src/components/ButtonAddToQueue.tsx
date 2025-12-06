@@ -3,7 +3,7 @@ import useCanDj from "./useCanDj"
 
 import { IconButton, Icon, Button, ButtonProps } from "@chakra-ui/react"
 import { RiPlayListAddFill } from "react-icons/ri"
-import { useModalsStore } from "../state/modalsState"
+import { useModalsSend } from "../hooks/useActors"
 
 type Props = {
   showText?: boolean
@@ -12,9 +12,9 @@ type Props = {
 
 function ButtonAddToQueue({ showText = true, variant = "ghost" }: Props) {
   const canDj = useCanDj()
-  const { send: modalSend } = useModalsStore()
+  const modalSend = useModalsSend()
 
-  const onAddToQueue = () => modalSend("EDIT_QUEUE")
+  const onAddToQueue = () => modalSend({ type: "EDIT_QUEUE" })
 
   if (!canDj) {
     return null

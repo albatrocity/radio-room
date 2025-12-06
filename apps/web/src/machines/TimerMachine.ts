@@ -1,4 +1,4 @@
-import { createMachine, assign } from "xstate"
+import { setup, assign, fromCallback } from "xstate"
 
 type ToggleEvent = { type: "TOGGLE" } | { type: "RESET" } | { type: "TICK" }
 
@@ -15,8 +15,36 @@ interface CreateTimerMachineProps {
   duration: number
 }
 
-export const createTimerMachine = ({ duration, start }: CreateTimerMachineProps) =>
-  createMachine<ToggleContext, ToggleEvent>({
+export const createTimerMachine = ({ duration, start }: CreateTimerMachineProps) => {
+  const tickerLogic = fromCallback<ToggleEvent, { interval: number }>(({ sendBack, input }) => {
+    const interval = setInterval(() => {
+      sendBack({ type: "TICK" })
+    }, input.interval * 1000)
+    return () => {
+      clearInterval(interval)
+    }
+  })
+
+  return setup({
+    types: {
+      context: {} as ToggleContext,
+      events: {} as ToggleEvent,
+    },
+    actors: {
+      ticker: tickerLogic,
+    },
+    actions: {
+      setElapsed: assign({
+        elapsed: ({ context }) => Date.now() - context.start,
+      }),
+      setRemaining: assign({
+        remaining: ({ context }) => Math.max(0, context.start + context.duration - Date.now()),
+      }),
+    },
+    guards: {
+      timerExpired: ({ context }) => Math.ceil(context.remaining / 1000) <= 0,
+    },
+  }).createMachine({
     id: "timer",
     initial: "idle",
     context: {
@@ -37,14 +65,14 @@ export const createTimerMachine = ({ duration, start }: CreateTimerMachineProps)
           {
             id: "ticker",
             src: "ticker",
+            input: ({ context }) => ({ interval: context.interval }),
           },
         ],
         initial: "normal",
         states: {
           normal: {
-            always: [{ target: "#timer.expired", cond: "timerExpired" }],
+            always: [{ target: "#timer.expired", guard: "timerExpired" }],
             on: {
-              RESET: undefined,
               TICK: {
                 actions: ["setElapsed", "setRemaining"],
               },
@@ -55,11 +83,7 @@ export const createTimerMachine = ({ duration, start }: CreateTimerMachineProps)
           TOGGLE: "paused",
         },
       },
-      expired: {
-        on: {
-          TOGGLE: undefined,
-        },
-      },
+      expired: {},
       paused: {
         on: { TOGGLE: "running" },
       },
@@ -69,26 +93,5 @@ export const createTimerMachine = ({ duration, start }: CreateTimerMachineProps)
         target: ".idle",
       },
     },
-  }).withConfig({
-    actions: {
-      setElapsed: assign({
-        elapsed: (ctx) => Date.now() - ctx.start,
-      }),
-      setRemaining: assign({
-        remaining: (ctx) => Math.max(0, ctx.start + ctx.duration - Date.now()),
-      }),
-    },
-    guards: {
-      timerExpired: (ctx) => Math.ceil(ctx.remaining / 1000) <= 0,
-    },
-    services: {
-      ticker: (ctx) => (cb) => {
-        const interval = setInterval(() => {
-          cb("TICK")
-        }, ctx.interval * 1000)
-        return () => {
-          clearInterval(interval)
-        }
-      },
-    },
   })
+}

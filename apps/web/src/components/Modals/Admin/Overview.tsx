@@ -1,5 +1,5 @@
 import { LuChevronRight } from "react-icons/lu"
-import { useSettingsStore } from "../../../state/settingsStore"
+import { useSettings, useModalsSend } from "../../../hooks/useActors"
 import {
   Box,
   Button,
@@ -11,7 +11,6 @@ import {
   Separator,
   Spinner,
 } from "@chakra-ui/react"
-import { useModalsStore } from "../../../state/modalsState"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 import ActiveIndicator from "../../ActiveIndicator"
 import DestructiveActions from "./DestructiveActions"
@@ -37,22 +36,18 @@ function toEventName(name: string): string {
 }
 
 function Overview() {
-  const { send } = useModalsStore()
-  const { state: settingsState } = useSettingsStore()
+  const send = useModalsSend()
+  const settings = useSettings()
   const { schemas, isLoading } = usePluginSchemas()
 
-  const hasPassword = !!settingsState.context.password
-  const hasSettings =
-    !!settingsState.context.extraInfo ||
-    !!settingsState.context.artwork ||
-    !!settingsState.context.radioMetaUrl
-  const hasChatSettings =
-    settingsState.context.announceNowPlaying ?? settingsState.context.announceUsernameChanges
-  const hasDjSettings = settingsState.context.deputizeOnJoin
+  const hasPassword = !!settings.password
+  const hasSettings = !!settings.extraInfo || !!settings.artwork || !!settings.radioMetaUrl
+  const hasChatSettings = settings.announceNowPlaying ?? settings.announceUsernameChanges
+  const hasDjSettings = settings.deputizeOnJoin
 
   // Check if a plugin is active based on its 'enabled' config
   const isPluginActive = (pluginName: string): boolean => {
-    const pluginConfig = settingsState.context.pluginConfigs?.[pluginName]
+    const pluginConfig = settings.pluginConfigs?.[pluginName]
     return pluginConfig?.enabled === true
   }
 
@@ -70,14 +65,14 @@ function Overview() {
             <VStack w="100%" align="left" gap="1px">
               <Button
                 colorPalette="action"
-                variant="solid"
+                variant="subtle"
                 borderRadius="lg"
                 borderBottomRadius="none"
                 w="100%"
                 textAlign="left"
                 fontWeight="400"
                 justifyContent="space-between"
-                onClick={() => send("EDIT_CONTENT")}
+                onClick={() => send({ type: "EDIT_CONTENT" })}
               >
                 Content
                 <HStack>
@@ -87,13 +82,13 @@ function Overview() {
               </Button>
               <Button
                 colorPalette="action"
-                variant="solid"
+                variant="subtle"
                 borderRadius="none"
                 w="100%"
                 textAlign="left"
                 fontWeight="400"
                 justifyContent="space-between"
-                onClick={() => send("EDIT_CHAT")}
+                onClick={() => send({ type: "EDIT_CHAT" })}
               >
                 Chat
                 <HStack>
@@ -103,13 +98,13 @@ function Overview() {
               </Button>
               <Button
                 colorPalette="action"
-                variant="solid"
+                variant="subtle"
                 borderRadius="none"
                 w="100%"
                 textAlign="left"
                 fontWeight="400"
                 justifyContent="space-between"
-                onClick={() => send("EDIT_DJ")}
+                onClick={() => send({ type: "EDIT_DJ" })}
               >
                 DJ Features
                 <HStack>
@@ -119,14 +114,14 @@ function Overview() {
               </Button>
               <Button
                 colorPalette="action"
-                variant="solid"
+                variant="subtle"
                 borderRadius="lg"
                 borderTopRadius="none"
                 w="100%"
                 textAlign="left"
                 fontWeight="400"
                 justifyContent="space-between"
-                onClick={() => send("EDIT_PASSWORD")}
+                onClick={() => send({ type: "EDIT_PASSWORD" })}
               >
                 Password Protection
                 <HStack>
@@ -155,7 +150,7 @@ function Overview() {
                   <Button
                     key={plugin.name}
                     colorPalette="action"
-                    variant="solid"
+                    variant="subtle"
                     w="100%"
                     textAlign="left"
                     fontWeight="400"
@@ -167,7 +162,7 @@ function Overview() {
                     borderBottomRadius={
                       index === configurablePlugins.length - 1 ? undefined : "none"
                     }
-                    onClick={() => send(toEventName(plugin.name) as any)}
+                    onClick={() => send({ type: toEventName(plugin.name) } as any)}
                   >
                     {toDisplayName(plugin.name)}
                     <HStack>

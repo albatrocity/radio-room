@@ -1,7 +1,7 @@
 import React from "react"
 import { Box, Center, Spinner, VStack } from "@chakra-ui/react"
-import { useMachine } from "@xstate/react"
 
+import { useSocketMachine } from "../hooks/useSocketMachine"
 import { savedTracksMachine, SavedTracksContext } from "../machines/savedTracksMachine"
 import TrackItem from "./TrackItem"
 
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function SavedTracks({ onClick, isDisabled, loadingItem }: Readonly<Props>) {
-  const [state] = useMachine(savedTracksMachine)
+  const [state] = useSocketMachine(savedTracksMachine)
   const isLoading = state.matches("loading")
 
   return (

@@ -4,12 +4,10 @@ import Div100vh from "react-div-100vh"
 
 import "./layout.css"
 
-import { useCurrentTheme } from "../state/themeStore"
-import { useErrorsStore } from "../state/errorsStore"
+import { useCurrentTheme } from "../hooks/useActors"
 
 const ThemedLayout = ({ children, fill }: { children: ReactNode; fill?: boolean }) => {
   const chosenThemeId = useCurrentTheme()
-  useErrorsStore()
 
   // Set data-theme attribute for conditional semantic tokens
   useEffect(() => {

@@ -1,6 +1,5 @@
 import { Formik } from "formik"
 import React from "react"
-import { useAdminStore } from "../../../state/adminStore"
 import {
   Checkbox,
   Field,
@@ -10,28 +9,26 @@ import {
   Textarea,
   VStack,
 } from "@chakra-ui/react"
-import { useSettingsStore } from "../../../state/settingsStore"
 import FormActions from "./FormActions"
-import { useModalsStore } from "../../../state/modalsState"
-import { useCurrentRoomHasAudio } from "../../../state/roomStore"
+import { useModalsSend, useCurrentRoomHasAudio, useSettings, useAdminSend } from "../../../hooks/useActors"
 import RadioProtocolSelect from "../../RadioProtocolSelect"
 
 function Content() {
   const hasAudio = useCurrentRoomHasAudio()
-  const { state } = useSettingsStore()
-  const { send: modalSend } = useModalsStore()
-  const { send } = useAdminStore()
+  const settings = useSettings()
+  const modalSend = useModalsSend()
+  const send = useAdminSend()
 
   return (
     <Formik
       initialValues={{
-        title: state.context.title ?? "",
-        fetchMeta: state.context.fetchMeta,
-        extraInfo: state.context.extraInfo ?? "",
-        artwork: state.context.artwork ?? "",
-        radioMetaUrl: state.context.radioMetaUrl ?? "",
-        radioListenUrl: state.context.radioListenUrl ?? "",
-        radioProtocol: state.context.radioProtocol ?? "shoutcastv2",
+        title: settings.title ?? "",
+        fetchMeta: settings.fetchMeta,
+        extraInfo: settings.extraInfo ?? "",
+        artwork: settings.artwork ?? "",
+        radioMetaUrl: settings.radioMetaUrl ?? "",
+        radioListenUrl: settings.radioListenUrl ?? "",
+        radioProtocol: settings.radioProtocol ?? "shoutcastv2",
       }}
       enableReinitialize
       validate={() => {
@@ -63,7 +60,7 @@ function Content() {
                 />
               </Field.Root>
 
-              {state.context.type === "radio" && (
+              {settings.type === "radio" && (
                 <>
                   <Field.Root>
                     <Field.Label>Radio Metadata URL</Field.Label>
@@ -195,7 +192,7 @@ function Content() {
           </DialogBody>
           <DialogFooter>
             <FormActions
-              onCancel={() => modalSend("CLOSE")}
+              onCancel={() => modalSend({ type: "CLOSE" })}
               onSubmit={handleSubmit}
               dirty={dirty}
             />

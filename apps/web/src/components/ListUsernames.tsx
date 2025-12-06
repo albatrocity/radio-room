@@ -3,8 +3,7 @@ import { Text } from "@chakra-ui/react"
 import { compact } from "lodash/fp"
 import { User } from "../types/User"
 
-import { useCurrentUser } from "../state/authStore"
-import { useUsers } from "../state/usersStore"
+import { useCurrentUser, useUsers } from "../hooks/useActors"
 
 const ListUsernames = ({ ids }: { ids: User["userId"][] }) => {
   const users: User[] = useUsers()

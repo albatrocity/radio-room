@@ -1,4 +1,4 @@
-import { Checkbox, HStack } from "@chakra-ui/react"
+import { Checkbox as ChakraCheckbox, HStack } from "@chakra-ui/react"
 import React, { memo, useCallback } from "react"
 import { PlaylistItem as Item } from "../types/PlaylistItem"
 import PlaylistItem from "./PlaylistItem"
@@ -17,15 +17,20 @@ const SelectablePlaylistItem = memo(function SelectablePlaylistItem({
   onSelect,
 }: Props) {
   const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      onSelect?.(item, e.target.checked)
+    (details: { checked: boolean }) => {
+      onSelect?.(item, details.checked)
     },
     [onSelect, item],
   )
 
   return (
     <HStack>
-      {isSelectable && <Checkbox isChecked={isSelected} onChange={handleChange} />}
+      {isSelectable && (
+        <ChakraCheckbox.Root checked={isSelected} onCheckedChange={handleChange}>
+          <ChakraCheckbox.HiddenInput />
+          <ChakraCheckbox.Control />
+        </ChakraCheckbox.Root>
+      )}
       <PlaylistItem item={item} />
     </HStack>
   )

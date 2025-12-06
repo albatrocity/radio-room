@@ -1,11 +1,12 @@
 import React from "react"
 import FormPassword from "../FormPassword"
-import { useAuthStore } from "../../state/authStore"
+import { useAuthSend, useAuthState, usePasswordError } from "../../hooks/useActors"
 
 function ModalPassword() {
-  const { send: authSend } = useAuthStore()
-  const isUnauthorized = useAuthStore((s) => s.state.matches("unauthorized"))
-  const passwordError = useAuthStore((s) => s.state.context.passwordError)
+  const authSend = useAuthSend()
+  const authState = useAuthState()
+  const isUnauthorized = authState === "unauthorized"
+  const passwordError = usePasswordError()
 
   return (
     <FormPassword

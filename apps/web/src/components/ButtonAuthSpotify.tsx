@@ -4,8 +4,13 @@ import { Link, Box, Button, IconButton, Icon, Text, HStack } from "@chakra-ui/re
 import { LuCheckCircle, LuTrash2 } from "react-icons/lu"
 import { FaSpotify } from "react-icons/fa"
 
-import { useCurrentUser, useIsAuthenticated } from "../state/authStore"
-import { useMetadataSourceAuthStore } from "../state/metadataSourceAuthStore"
+import {
+  useCurrentUser,
+  useIsAuthenticated,
+  useIsMetadataSourceAuthenticated,
+  useIsMetadataSourceLoading,
+  useMetadataSourceAuthSend,
+} from "../hooks/useActors"
 import { useLocation } from "@tanstack/react-router"
 
 export default function ButtonAuthSpotify({
@@ -17,20 +22,23 @@ export default function ButtonAuthSpotify({
 }) {
   const currentUser = useCurrentUser()
   const isAuthenticated = useIsAuthenticated()
-  const { state, send } = useMetadataSourceAuthStore()
+  const isMetadataAuthenticated = useIsMetadataSourceAuthenticated()
+  const isMetadataLoading = useIsMetadataSourceLoading()
+  const metadataSend = useMetadataSourceAuthSend()
   const location = useLocation()
 
   useEffect(() => {
     if (currentUser?.userId || userId) {
-      send("INIT", {
+      metadataSend({
+        type: "INIT",
         data: {
           userId: userId ?? currentUser.userId,
           serviceName,
         },
       })
-      send("FETCH_STATUS")
+      metadataSend({ type: "FETCH_STATUS" })
     }
-  }, [userId, currentUser?.userId, serviceName, send])
+  }, [userId, currentUser?.userId, serviceName, metadataSend])
 
   function handleLogin(e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement, MouseEvent>) {
     e.preventDefault()
@@ -44,12 +52,12 @@ export default function ButtonAuthSpotify({
 
   return (
     <Box>
-      {!state.matches("authenticated") && (
+      {!isMetadataAuthenticated && (
         <Button
           asChild
           onClick={handleLogin}
-          loading={state.matches("loading")}
-          disabled={state.matches("loading")}
+          loading={isMetadataLoading}
+          disabled={isMetadataLoading}
         >
           <Link
             href={`${import.meta.env.VITE_API_URL}/auth/${serviceName}/login?userId=${
@@ -61,7 +69,7 @@ export default function ButtonAuthSpotify({
           </Link>
         </Button>
       )}
-      {state.matches("authenticated") && (
+      {isMetadataAuthenticated && (
         <HStack gap={2} w="100%" justify="space-between">
           <HStack gap={2}>
             <Icon as={LuCheckCircle} color="primary" />
@@ -71,7 +79,7 @@ export default function ButtonAuthSpotify({
             variant="outline"
             color="red.500"
             size="xs"
-            onClick={() => send("LOGOUT")}
+            onClick={() => metadataSend({ type: "LOGOUT" })}
             aria-label={`log out of ${serviceDisplayName}`}
           >
             <LuTrash2 />

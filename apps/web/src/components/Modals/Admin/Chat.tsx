@@ -1,6 +1,5 @@
 import { Formik } from "formik"
 import React from "react"
-import { useAdminStore } from "../../../state/adminStore"
 import {
   Checkbox,
   Field,
@@ -8,20 +7,19 @@ import {
   DialogFooter,
   VStack,
 } from "@chakra-ui/react"
-import { useSettingsStore } from "../../../state/settingsStore"
 import FormActions from "./FormActions"
-import { useModalsStore } from "../../../state/modalsState"
+import { useModalsSend, useSettings, useAdminSend } from "../../../hooks/useActors"
 
 export default function Chat() {
-  const { state } = useSettingsStore()
-  const { send: modalSend } = useModalsStore()
-  const { send } = useAdminStore()
+  const settings = useSettings()
+  const modalSend = useModalsSend()
+  const send = useAdminSend()
 
   return (
     <Formik
       initialValues={{
-        announceNowPlaying: state.context.announceNowPlaying,
-        announceUsernameChanges: state.context.announceUsernameChanges,
+        announceNowPlaying: settings.announceNowPlaying,
+        announceUsernameChanges: settings.announceUsernameChanges,
       }}
       enableReinitialize
       validate={() => {
@@ -112,7 +110,7 @@ export default function Chat() {
           </DialogBody>
           <DialogFooter>
             <FormActions
-              onCancel={() => modalSend("CLOSE")}
+              onCancel={() => modalSend({ type: "CLOSE" })}
               onSubmit={handleSubmit}
               dirty={dirty}
             />

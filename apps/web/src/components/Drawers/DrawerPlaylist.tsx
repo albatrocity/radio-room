@@ -1,4 +1,4 @@
-import React, { FormEvent, useCallback, useEffect, useRef, useState } from "react"
+import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Box, Button, HStack, Text, Link, VStack } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { useMachine } from "@xstate/react"
@@ -8,9 +8,9 @@ import DrawerPlaylistFooter from "./DrawerPlaylistFooter"
 import PlaylistFilters from "../PlaylistFilters"
 import usePlaylistFilter from "../usePlaylistFilter"
 
+import { useSocketMachine } from "../../hooks/useSocketMachine"
 import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
-import { toggleableCollectionMachine } from "../../machines/toggleableCollectionMachine"
-import { useCurrentPlaylist, usePlaylistStore } from "../../state/playlistStore"
+import { createToggleableCollectionMachine } from "../../machines/toggleableCollectionMachine"
 import { toast } from "../../lib/toasts"
 
 import { Dictionary } from "../../types/Dictionary"
@@ -18,11 +18,16 @@ import { Reaction } from "../../types/Reaction"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { Emoji } from "../../types/Emoji"
 import PlaylistWindow from "../PlaylistWindow"
-import { useIsAdmin } from "../../state/authStore"
-import { useCurrentRoom } from "../../state/roomStore"
+import {
+  useCurrentPlaylist,
+  usePlaylistSend,
+  usePlaylistActive,
+  useIsAdmin,
+  useCurrentRoom,
+} from "../../hooks/useActors"
 
 function DrawerPlaylist() {
-  const { send: playlistSend } = usePlaylistStore()
+  const playlistSend = usePlaylistSend()
   const currentPlaylist = useCurrentPlaylist()
   const isAdmin = useIsAdmin()
   const [isEditing, setIsEditing] = useState(false)
@@ -32,36 +37,53 @@ function DrawerPlaylist() {
   const defaultPlaylistName = `${room?.title || "Radio Room"} ${today}`
   const [name, setName] = useState<string>(defaultPlaylistName)
   const hasInitialized = useRef(false)
-  const [state, send] = useMachine(savePlaylistMachine, {
-    actions: {
-      notifyPlaylistCreated: (context) => {
-        setIsEditing(false)
-        toast({
-          title: "Playlist created",
-          description: context.playlistMeta?.url ? (
-            <Text>
-              <Link href={context.playlistMeta.url} target="_blank" textDecoration={"underline"}>
-                {context.playlistMeta.title}
-              </Link>{" "}
-              was added to your collection
-            </Text>
-          ) : (
-            <Text>{context.playlistMeta?.title} was created</Text>
-          ),
-          type: "success",
-          duration: 4000,
-        })
-      },
-    },
-  })
-  const [filterState, filterSend] = useMachine(toggleableCollectionMachine, {
-    context: {
-      idPath: "shortcodes",
-      name: "playlistFilters",
-      persistent: false,
-    },
-  })
-  const isOpen = usePlaylistStore((s) => s.state.matches("active"))
+
+  // Create save playlist machine with custom notification action
+  const customSavePlaylistMachine = useMemo(
+    () =>
+      savePlaylistMachine.provide({
+        actions: {
+          notifyPlaylistCreated: ({ context }) => {
+            setIsEditing(false)
+            toast({
+              title: "Playlist created",
+              description: context.playlistMeta?.url ? (
+                <Text>
+                  <Link
+                    href={context.playlistMeta.url}
+                    target="_blank"
+                    textDecoration={"underline"}
+                  >
+                    {context.playlistMeta.title}
+                  </Link>{" "}
+                  was added to your collection
+                </Text>
+              ) : (
+                <Text>{context.playlistMeta?.title} was created</Text>
+              ),
+              type: "success",
+              duration: 4000,
+            })
+          },
+        },
+      }),
+    [],
+  )
+  const [state, send] = useSocketMachine(customSavePlaylistMachine)
+
+  // Create filter machine with custom context
+  const filterMachine = useMemo(
+    () =>
+      createToggleableCollectionMachine({
+        collection: [],
+        idPath: "shortcodes",
+        name: "playlistFilters",
+        persistent: false,
+      }),
+    [],
+  )
+  const [filterState, filterSend] = useMachine(filterMachine)
+  const isOpen = usePlaylistActive()
   const isLoading = state.matches("loading")
   const canSave = isAdmin // Only room creator can save playlists
 
@@ -81,19 +103,23 @@ function DrawerPlaylist() {
     ? filterPlaylist(emojis)
     : currentPlaylist
 
-  const [selectedPlaylistState, selectedPlaylistSend] = useMachine(toggleableCollectionMachine, {
-    context: {
-      collection: currentPlaylist, // Start with all tracks selected by default
-      persistent: false,
-      name: "playlist-selected",
-      idPath: "track.id", // Use track.id from QueueItem
-    },
-  })
+  // Create selected playlist machine with custom context
+  const selectedPlaylistMachine = useMemo(
+    () =>
+      createToggleableCollectionMachine({
+        collection: [], // Will be populated via SET_ITEMS when drawer opens
+        persistent: false,
+        name: "playlist-selected",
+        idPath: "track.id", // Use track.id from QueueItem
+      }),
+    [],
+  )
+  const [selectedPlaylistState, selectedPlaylistSend] = useMachine(selectedPlaylistMachine)
 
   // Initialize selected playlist when drawer first opens or playlist loads
   useEffect(() => {
     if (isOpen && currentPlaylist.length > 0 && !hasInitialized.current) {
-      selectedPlaylistSend("SET_ITEMS", { data: currentPlaylist })
+      selectedPlaylistSend({ type: "SET_ITEMS", data: currentPlaylist })
       hasInitialized.current = true
     }
   }, [isOpen, currentPlaylist, selectedPlaylistSend])
@@ -106,22 +132,27 @@ function DrawerPlaylist() {
   }, [isOpen])
 
   const handleSelectionChange = (item: PlaylistItem) => {
-    selectedPlaylistSend("TOGGLE_ITEM", {
+    selectedPlaylistSend({
+      type: "TOGGLE_ITEM",
       data: { ...item, id: item.track.id },
     })
   }
   const handleNameChange = (name: string) => setName(name)
   const handleFilterChange = (emoji: Emoji) => {
-    filterSend("TOGGLE_ITEM", { data: emoji })
+    filterSend({ type: "TOGGLE_ITEM", data: emoji })
   }
-  const handleTogglePlaylist = useCallback(() => playlistSend("TOGGLE_PLAYLIST"), [playlistSend])
+  const handleTogglePlaylist = useCallback(
+    () => playlistSend({ type: "TOGGLE_PLAYLIST" }),
+    [playlistSend],
+  )
   const handleSave = useCallback(
     (e: FormEvent) => {
       e.preventDefault()
       e.stopPropagation()
       const trackIds = selectedPlaylistState.context.collection.map((item) => item.track.id)
 
-      send("SAVE_PLAYLIST", {
+      send({
+        type: "SAVE_PLAYLIST",
         name,
         trackIds,
       })
@@ -132,11 +163,12 @@ function DrawerPlaylist() {
   const handleSelect = (selection: "all" | "none" | "filtered") => {
     switch (selection) {
       case "all":
-        return selectedPlaylistSend("SET_ITEMS", { data: currentPlaylist })
+        return selectedPlaylistSend({ type: "SET_ITEMS", data: currentPlaylist })
       case "none":
-        return selectedPlaylistSend("CLEAR")
+        return selectedPlaylistSend({ type: "CLEAR" })
       case "filtered":
-        return selectedPlaylistSend("ADD_ITEMS", {
+        return selectedPlaylistSend({
+          type: "ADD_ITEMS",
           data: filteredPlaylistItems,
         })
     }

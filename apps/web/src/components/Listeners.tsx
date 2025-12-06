@@ -3,8 +3,7 @@ import { Box, Button, Flex } from "@chakra-ui/react"
 
 import UserList from "./UserList"
 import { User } from "../types/User"
-import { useListeners } from "../state/usersStore"
-import { useCurrentRoomHasAudio } from "../state/roomStore"
+import { useListeners, useCurrentRoomHasAudio } from "../hooks/useActors"
 
 interface ListenersProps {
   onViewListeners: (showListeners: boolean) => void

@@ -5,8 +5,12 @@ import { Link, Box, Button, Icon, Text, HStack, VStack, Spinner } from "@chakra-
 import { LuCheckCircle } from "react-icons/lu"
 import { FaSpotify } from "react-icons/fa"
 
-import { useMetadataSourceAuthStore } from "../state/metadataSourceAuthStore"
-import { useCurrentUser } from "../state/authStore"
+import {
+  useCurrentUser,
+  useIsMetadataSourceAuthenticated,
+  useIsMetadataSourceLoading,
+  useMetadataSourceAuthSend,
+} from "../hooks/useActors"
 
 export default function ButtonRoomAuthSpotify({
   hideText = false,
@@ -17,33 +21,32 @@ export default function ButtonRoomAuthSpotify({
 }) {
   const currentUser = useCurrentUser()
   const location = useLocation()
-  const { state, send } = useMetadataSourceAuthStore()
+  const isAuthenticated = useIsMetadataSourceAuthenticated()
+  const isLoading = useIsMetadataSourceLoading()
+  const metadataSend = useMetadataSourceAuthSend()
 
   useEffect(() => {
     if (currentUser?.userId) {
       sessionStorage.setItem("postSpotifyAuthRedirect", location.pathname)
-      send("INIT", {
+      metadataSend({
+        type: "INIT",
         data: {
           userId: currentUser.userId,
           serviceName,
         },
       })
-      send("FETCH_STATUS")
+      metadataSend({ type: "FETCH_STATUS" })
     }
-  }, [currentUser?.userId, serviceName, send, location.pathname])
+  }, [currentUser?.userId, serviceName, metadataSend, location.pathname])
 
   const serviceDisplayName = serviceName.charAt(0).toUpperCase() + serviceName.slice(1)
 
   return (
     <Box>
-      {state.matches("loading") && <Spinner size="sm" />}
-      {state.matches("unauthenticated") && (
+      {isLoading && <Spinner size="sm" />}
+      {!isLoading && !isAuthenticated && (
         <VStack align="flex-start">
-          <Button
-            asChild
-            loading={state.matches("working")}
-            disabled={state.matches("working")}
-          >
+          <Button asChild>
             <Link
               href={`${import.meta.env.VITE_API_URL}/auth/${serviceName}/login?userId=${
                 currentUser.userId
@@ -60,7 +63,7 @@ export default function ButtonRoomAuthSpotify({
           )}
         </VStack>
       )}
-      {state.matches("authenticated") && (
+      {isAuthenticated && (
         <HStack gap={2}>
           <Icon as={LuCheckCircle} color="primary" _dark={{ color: "secondaryText" }} />
           <Text fontSize="sm">Your {serviceDisplayName} account is linked to this room.</Text>

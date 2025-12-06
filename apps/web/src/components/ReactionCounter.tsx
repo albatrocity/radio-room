@@ -2,9 +2,7 @@ import { memo, useEffect, useCallback, useMemo } from "react"
 import { useMachine } from "@xstate/react"
 import { groupBy } from "lodash/fp"
 import { reactionsMachine } from "../machines/reactionsMachine"
-import { useAllReactionsOf } from "../state/reactionsStore"
-
-import { useCurrentUser } from "../state/authStore"
+import { useAllReactionsOf, useCurrentUser } from "../hooks/useActors"
 import ReactionSelection, { ReactionSelectionProps } from "./ReactionSelection"
 
 import { ReactionSubject } from "../types/ReactionSubject"
@@ -18,16 +16,11 @@ const ReactionCounter = ({ reactTo, ...rest }: ReactionCounterProps) => {
   const currentUser = useCurrentUser()
   const allReactions = useAllReactionsOf(reactTo.type, reactTo.id)
 
-  const [state, send] = useMachine(reactionsMachine, {
-    context: {
-      reactTo,
-      currentUser,
-      reactions: allReactions,
-    },
-  })
+  const [state, send] = useMachine(reactionsMachine)
 
   useEffect(() => {
-    send("SET_REACT_TO", {
+    send({
+      type: "SET_REACT_TO",
       data: { reactTo, reactions: allReactions },
     })
   }, [reactTo, allReactions, send])
@@ -36,14 +29,19 @@ const ReactionCounter = ({ reactTo, ...rest }: ReactionCounterProps) => {
 
   const handleSelection = useCallback(
     (emoji: Emoji) => {
-      send("SELECT_REACTION", { data: emoji })
+      send({ type: "SELECT_REACTION", data: emoji })
     },
     [send],
   )
 
-  const handleClose = useCallback(() => send("CLOSE"), [send])
+  const handleClose = useCallback(() => send({ type: "CLOSE" }), [send])
 
-  const handleToggle = useCallback(() => send("TOGGLE", { data: { reactTo } }), [send, reactTo])
+  const handleToggle = useCallback(() => send({ type: "TOGGLE", data: { reactTo } }), [send, reactTo])
+
+  // Don't render until user is authenticated
+  if (!currentUser) {
+    return null
+  }
 
   return (
     <ReactionSelection

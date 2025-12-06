@@ -10,7 +10,7 @@ import {
 import { User } from "../types/User"
 import Modal from "./Modal"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
-import { useCurrentRoom } from "../state/roomStore"
+import { useCurrentRoom } from "../hooks/useActors"
 
 interface Props {
   onClose: () => void

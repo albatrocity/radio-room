@@ -1,28 +1,26 @@
 import { Formik } from "formik"
 import React from "react"
-import { useAdminStore } from "../../../state/adminStore"
 import {
   Field,
   DialogBody,
   DialogFooter,
   VStack,
 } from "@chakra-ui/react"
-import { useSettingsStore } from "../../../state/settingsStore"
 import FormActions from "./FormActions"
-import { useModalsStore } from "../../../state/modalsState"
+import { useModalsSend, useSettings, useAdminSend } from "../../../hooks/useActors"
 import FieldText from "../../Fields/FieldText"
 
 function Password() {
-  const { state } = useSettingsStore()
-  const { send: modalSend } = useModalsStore()
-  const { send } = useAdminStore()
+  const settings = useSettings()
+  const modalSend = useModalsSend()
+  const send = useAdminSend()
 
-  const onCancel = () => modalSend("CLOSE")
+  const onCancel = () => modalSend({ type: "CLOSE" })
 
   return (
     <Formik
       initialValues={{
-        password: state.context.password || "",
+        password: settings.password || "",
       }}
       enableReinitialize
       validate={() => {

@@ -1,14 +1,14 @@
 import React from "react"
 import AboutContent from "../AboutContent"
 import Modal from "../Modal"
-import { useModalsStore } from "../../state/modalsState"
+import { useModalsSend, useIsModalOpen } from "../../hooks/useActors"
 
 function ModalAbout() {
-  const { send } = useModalsStore()
-  const isModalViewingHelp = useModalsStore((s) => s.state.matches("help"))
+  const modalSend = useModalsSend()
+  const isModalViewingHelp = useIsModalOpen("help")
 
   return (
-    <Modal isOpen={isModalViewingHelp} onClose={() => send("CLOSE")}>
+    <Modal isOpen={isModalViewingHelp} onClose={() => modalSend({ type: "CLOSE" })}>
       <AboutContent />
     </Modal>
   )

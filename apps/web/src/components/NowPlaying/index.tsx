@@ -1,10 +1,14 @@
 import { memo } from "react"
 import { Box, VStack } from "@chakra-ui/react"
 
-import { useUsers } from "../../state/usersStore"
-import { useCurrentRoom, useRoomStore } from "../../state/roomStore"
-import { useIsAdmin } from "../../state/authStore"
-import { useMediaSourceStatus, useHasTrackData } from "../../state/audioStore"
+import {
+  useUsers,
+  useCurrentRoom,
+  useRoomState,
+  useIsAdmin,
+  useMediaSourceStatus,
+  useNowPlaying,
+} from "../../hooks/useActors"
 import { RoomMeta } from "../../types/Room"
 
 import { NowPlayingLoading } from "./NowPlayingLoading"
@@ -20,20 +24,20 @@ interface NowPlayingProps {
 type DisplayState = "loading" | "waiting" | "empty" | "playing"
 
 function useDisplayState(meta?: RoomMeta): DisplayState {
-  const { state: roomState } = useRoomStore()
+  const roomState = useRoomState()
   const mediaSourceStatus = useMediaSourceStatus()
-  const hasTrackDataFromStore = useHasTrackData()
-  const hasTrackData = !!meta?.nowPlaying?.track || hasTrackDataFromStore
+  const nowPlaying = useNowPlaying()
+  const hasTrackData = !!meta?.nowPlaying?.track || !!nowPlaying?.track
 
-  if (roomState.matches("loading")) {
+  if (roomState === "loading") {
     return "loading"
   }
 
-  if (roomState.matches("success") && mediaSourceStatus === "unknown") {
+  if (roomState === "success" && mediaSourceStatus === "unknown") {
     return "waiting"
   }
 
-  if (roomState.matches("success") && mediaSourceStatus === "offline" && !hasTrackData) {
+  if (roomState === "success" && mediaSourceStatus === "offline" && !hasTrackData) {
     return "empty"
   }
 

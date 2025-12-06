@@ -5,12 +5,12 @@ import ReactionCounter from "./ReactionCounter"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import RadioPlayer from "./RadioPlayer"
 import {
-  useAudioStore,
-  useIsBuffering,
+  useAudioSend,
+  useIsAudioLoading,
   useIsMuted,
   useIsPlaying,
   useVolume,
-} from "../state/audioStore"
+} from "../hooks/useActors"
 
 type Props = {
   trackId: string // For reactions (stable ID)
@@ -27,21 +27,21 @@ export default function RadioControls({
   hasPlaylist,
   streamUrl,
 }: Props) {
-  const { send: audioSend } = useAudioStore()
+  const audioSend = useAudioSend()
   const playing = useIsPlaying()
   const muted = useIsMuted()
   const volume = useVolume()
-  const loading = useIsBuffering()
-  const handleVolume = (v: number) => audioSend("CHANGE_VOLUME", { volume: v })
+  const loading = useIsAudioLoading()
+  const handleVolume = (v: number) => audioSend({ type: "CHANGE_VOLUME", volume: v })
 
-  const handlePlayPause = () => audioSend("TOGGLE")
-  const handleMute = () => audioSend("TOGGLE_MUTE")
-  const handleLoad = () => audioSend("LOADED")
-  const handlePlay = () => audioSend("PLAY")
+  const handlePlayPause = () => audioSend({ type: "TOGGLE" })
+  const handleMute = () => audioSend({ type: "TOGGLE_MUTE" })
+  const handleLoad = () => audioSend({ type: "LOADED" })
+  const handlePlay = () => audioSend({ type: "PLAY" })
 
   useEffect(() => {
     return () => {
-      audioSend("STOP")
+      audioSend({ type: "STOP" })
     }
   }, [])
 

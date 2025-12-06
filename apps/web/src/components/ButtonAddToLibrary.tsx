@@ -1,9 +1,9 @@
 import { useEffect } from "react"
-import { useMachine } from "@xstate/react"
 import { IconButton } from "@chakra-ui/react"
 import { FaRegHeart, FaHeart } from "react-icons/fa"
 
-import { useIsAdmin } from "../state/authStore"
+import { useIsAdmin } from "../hooks/useActors"
+import { useSocketMachine } from "../hooks/useSocketMachine"
 import addToLibraryMachine from "../machines/addToLibraryMachine"
 
 interface Props {
@@ -12,13 +12,13 @@ interface Props {
 
 export default function ButtonAddToLibrary({ id }: Props) {
   const isAdmin = useIsAdmin()
-  const [state, send] = useMachine(addToLibraryMachine)
+  const [state, send] = useSocketMachine(addToLibraryMachine)
 
   const isAdded = id ? state.context.tracks[id] : false
 
   useEffect(() => {
     if (id) {
-      send("SET_IDS", { data: [id] })
+      send({ type: "SET_IDS", data: [id] })
     }
   }, [id])
 
@@ -37,7 +37,7 @@ export default function ButtonAddToLibrary({ id }: Props) {
       loading={state.matches("loading")}
       disabled={state.matches("loading")}
       onClick={() => {
-        isAdded ? send("REMOVE", { data: [id] }) : send("ADD", { data: [id] })
+        isAdded ? send({ type: "REMOVE", data: [id] }) : send({ type: "ADD", data: [id] })
       }}
     >
       {isAdded ? <FaHeart /> : <FaRegHeart />}

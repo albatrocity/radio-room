@@ -1,17 +1,28 @@
-import { Stack, Button, Heading, Icon, IconButton, Box, Wrap, BoxProps } from "@chakra-ui/react"
+import {
+  Stack,
+  Button,
+  Heading,
+  Icon,
+  IconButton,
+  Box,
+  Wrap,
+  BoxProps,
+  RecipeProps,
+} from "@chakra-ui/react"
 import { LuArrowLeft, LuSettings, LuBookmark } from "react-icons/lu"
-
-import { useBookmarks } from "../state/bookmarkedChatStore"
-import { useModalsStore } from "../state/modalsState"
 import { Link } from "@tanstack/react-router"
+
+import { useBookmarks, useModalsSend } from "../hooks/useActors"
+
+type ButtonVariant = RecipeProps<"button">["variant"]
 
 type Props = {
   buttonColorScheme?: string
+  buttonVariant?: ButtonVariant
 } & BoxProps
 
-function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
-  const { send: modalSend } = useModalsStore()
-
+function AdminPanel({ buttonColorScheme, buttonVariant = "bright", width, ...rest }: Props) {
+  const modalSend = useModalsSend()
   const bookmarks = useBookmarks()
 
   return (
@@ -27,9 +38,9 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
           <Box hideBelow="sm">
             <Button
               size="xs"
-              variant="bright"
+              variant={buttonVariant}
               colorPalette={buttonColorScheme}
-              onClick={() => modalSend("EDIT_SETTINGS")}
+              onClick={() => modalSend({ type: "EDIT_SETTINGS" })}
             >
               <Icon as={LuSettings} />
               Settings
@@ -38,9 +49,9 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
           <Box hideFrom="sm">
             <IconButton
               size="md"
-              variant="bright"
+              variant={buttonVariant}
               colorPalette={buttonColorScheme}
-              onClick={() => modalSend("EDIT_SETTINGS")}
+              onClick={() => modalSend({ type: "EDIT_SETTINGS" })}
               aria-label="Settings"
             >
               <Icon as={LuSettings} />
@@ -49,9 +60,9 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
           <Box hideBelow="sm">
             <Button
               size="xs"
-              variant="bright"
+              variant={buttonVariant}
               colorPalette={buttonColorScheme}
-              onClick={() => modalSend("VIEW_BOOKMARKS")}
+              onClick={() => modalSend({ type: "VIEW_BOOKMARKS" })}
             >
               <Icon as={LuBookmark} />
               Bookmarks {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}
@@ -60,10 +71,10 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
           <Box hideFrom="sm">
             <IconButton
               size="md"
-              variant="bright"
+              variant={buttonVariant}
               colorPalette={buttonColorScheme}
               aria-label="Bookmarks"
-              onClick={() => modalSend("VIEW_BOOKMARKS")}
+              onClick={() => modalSend({ type: "VIEW_BOOKMARKS" })}
             >
               <Icon as={LuBookmark} />
             </IconButton>
@@ -72,7 +83,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
             <IconButton
               aria-label="Back to Rooms"
               asChild
-              variant="bright"
+              variant={buttonVariant}
               colorPalette={buttonColorScheme}
             >
               <Link to="/">
@@ -83,7 +94,7 @@ function AdminPanel({ buttonColorScheme, width, ...rest }: Props) {
         </Wrap>
         <Box hideBelow="sm">
           <Wrap>
-            <Button asChild size="xs" variant="bright" colorPalette={buttonColorScheme}>
+            <Button asChild size="xs" variant={buttonVariant} colorPalette={buttonColorScheme}>
               <Link to="/">
                 <LuArrowLeft />
                 Back to Rooms

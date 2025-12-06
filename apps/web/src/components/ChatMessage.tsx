@@ -20,8 +20,7 @@ import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { User } from "../types/User"
 import Timestamp from "./Timestamp"
 
-import { useAuthStore } from "../state/authStore"
-import { useBookmarkedChatStore, useBookmarks } from "../state/bookmarkedChatStore"
+import { useIsAdmin, useBookmarks, useBookmarksSend } from "../hooks/useActors"
 
 export interface ChatMessageProps {
   content: string
@@ -53,9 +52,10 @@ const ChatMessage = ({
   anotherUserMessage = false,
 }: ChatMessageProps) => {
   const [parsedImageUrls, setParsedImageUrls] = useState<string[]>([])
-  const currentIsAdmin = useAuthStore((s) => s.state.context.isAdmin)
-  const { send: bookmarkSend } = useBookmarkedChatStore()
-  const isBookmarked = useBookmarks().find(({ id }) => id === timestamp)
+  const currentIsAdmin = useIsAdmin()
+  const bookmarkSend = useBookmarksSend()
+  const bookmarks = useBookmarks()
+  const isBookmarked = bookmarks.find(({ id }) => id === timestamp)
 
   const [hovered, setHovered] = useState(false)
   const alwaysShowReactionPicker = useBreakpointValue({
@@ -80,7 +80,8 @@ const ChatMessage = ({
   )
 
   const handleBookmark = useCallback(() => {
-    bookmarkSend("TOGGLE_MESSAGE", {
+    bookmarkSend({
+      type: "TOGGLE_MESSAGE",
       data: {
         id: timestamp,
         timestamp,

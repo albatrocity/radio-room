@@ -5,8 +5,7 @@ import { FiArrowDown } from "react-icons/fi"
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso"
 
 import { scrollFollowMachine } from "../machines/scrollFollowMachine"
-import { useCurrentUser } from "../state/authStore"
-import { useSortedChatMessages } from "../state/chatStore"
+import { useCurrentUser, useSortedChatMessages } from "../hooks/useActors"
 import { ChatMessage as Message } from "../types/ChatMessage"
 import { User } from "../types/User"
 import ChatMessage from "./ChatMessage"
@@ -79,7 +78,7 @@ function ChatWindow() {
         itemContent={renderComponent}
         ref={virtuosoRef}
         followOutput={"smooth"}
-        atBottomStateChange={(atBottom) => send(atBottom ? "ATTACH" : "DETACH")}
+        atBottomStateChange={(atBottom) => send({ type: atBottom ? "ATTACH" : "DETACH" })}
         alignToBottom
         initialTopMostItemIndex={messages.length - 1}
       />
