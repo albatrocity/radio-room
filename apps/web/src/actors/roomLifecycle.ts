@@ -9,6 +9,7 @@
 import { authActor } from "./authActor"
 import { chatActor } from "./chatActor"
 import { playlistActor } from "./playlistActor"
+import { queueListActor } from "./queueListActor"
 import { usersActor } from "./usersActor"
 import { reactionsActor } from "./reactionsActor"
 import { settingsActor } from "./settingsActor"
@@ -63,6 +64,7 @@ export function initializeRoom(roomId: string): void {
   roomActor.send({ type: "ACTIVATE" })
   chatActor.send({ type: "ACTIVATE" })
   playlistActor.send({ type: "ACTIVATE" })
+  queueListActor.send({ type: "ACTIVATE" })
   usersActor.send({ type: "ACTIVATE" })
   reactionsActor.send({ type: "ACTIVATE" })
   settingsActor.send({ type: "ACTIVATE" })
@@ -107,6 +109,7 @@ export function teardownRoom(): void {
   roomActor.send({ type: "DEACTIVATE" })
   chatActor.send({ type: "DEACTIVATE" })
   playlistActor.send({ type: "DEACTIVATE" })
+  queueListActor.send({ type: "DEACTIVATE" })
   usersActor.send({ type: "DEACTIVATE" })
   reactionsActor.send({ type: "DEACTIVATE" })
   settingsActor.send({ type: "DEACTIVATE" })

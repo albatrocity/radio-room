@@ -46,6 +46,9 @@ export type Room = {
   announceNowPlaying?: boolean
   announceUsernameChanges?: boolean
   persistent?: boolean
+  // Queue display settings (default true)
+  showQueueCount?: boolean
+  showQueueTracks?: boolean
 }
 
 // =============================================================================
@@ -67,6 +70,8 @@ export interface StoredRoom
     | "persistent"
     | "mediaSourceConfig"
     | "metadataSourceIds"
+    | "showQueueCount"
+    | "showQueueTracks"
   > {
   fetchMeta: Bool
   enableSpotifyLogin: Bool
@@ -74,6 +79,8 @@ export interface StoredRoom
   announceNowPlaying?: Bool
   announceUsernameChanges?: Bool
   persistent?: Bool
+  showQueueCount?: Bool
+  showQueueTracks?: Bool
   spotifyError?: string
   radioError?: string
   mediaSourceConfig?: string

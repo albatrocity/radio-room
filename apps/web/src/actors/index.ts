@@ -55,21 +55,13 @@ export {
 } from "./chatActor"
 
 // Playlist Actor
-export {
-  playlistActor,
-  getPlaylist,
-  isPlaylistExpanded,
-  togglePlaylist,
-} from "./playlistActor"
+export { playlistActor, getPlaylist, isPlaylistExpanded, togglePlaylist } from "./playlistActor"
+
+// Queue List Actor
+export { queueListActor, getQueueList, getQueueCount, hasQueueItems } from "./queueListActor"
 
 // Users Actor
-export {
-  usersActor,
-  getUsers,
-  getListeners,
-  getDj,
-  getUserById,
-} from "./usersActor"
+export { usersActor, getUsers, getListeners, getDj, getUserById } from "./usersActor"
 
 // Reactions Actor
 export {
@@ -129,13 +121,7 @@ export {
 } from "./djActor"
 
 // Admin Actor
-export {
-  adminActor,
-  setSettings,
-  clearPlaylist,
-  deleteRoom,
-  deputizeDj,
-} from "./adminActor"
+export { adminActor, setSettings, clearPlaylist, deleteRoom, deputizeDj } from "./adminActor"
 
 // Metadata Source Auth Actor
 export {

@@ -27,6 +27,7 @@ import {
   clearRoomLastEmptied,
   isRoomPollingPaused,
   setRoomPollingPaused,
+  getQueue,
 } from "../operations/data"
 import generateId from "../lib/generateId"
 import generateAnonName from "../lib/generateAnonName"
@@ -213,6 +214,7 @@ export class AuthService {
     const meta = await getRoomCurrent({ context: this.context, roomId })
     const allReactions = await getAllRoomReactions({ context: this.context, roomId })
     const pluginConfigs = await getAllPluginConfigs({ context: this.context, roomId })
+    const queue = await getQueue({ context: this.context, roomId })
 
     // Get access token for room creator to enable authenticated features (search, liked tracks, etc.)
     // Use the first metadata source (primary) for auth token
@@ -238,6 +240,7 @@ export class AuthService {
         meta,
         passwordRequired: !isNullish(room?.password),
         playlist,
+        queue,
         reactions: allReactions,
         pluginConfigs,
         user: {

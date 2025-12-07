@@ -82,7 +82,7 @@ const ReactionSelection = memo(function ReactionSelection({
   )
 
   return (
-    <HStack w="100%">
+    <HStack>
       <Wrap flexShrink={scrollHorizontal ? 0 : 1}>
         {reactionKeys.map((x) => (
           <Box key={x} justifyContent="center" alignItems="center">

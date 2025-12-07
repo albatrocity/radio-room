@@ -183,6 +183,15 @@ export default async function handleRoomNowPlayingData({
   if (queuedTrack) {
     const trackKey = `${queuedTrack.mediaSource.type}:${queuedTrack.mediaSource.trackId}`
     await removeFromQueue({ context, roomId, trackId: trackKey })
+
+    // Emit QUEUE_CHANGED event after removing track
+    if (context.systemEvents) {
+      const updatedQueue = await getQueue({ context, roomId })
+      await context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+        roomId,
+        queue: updatedQueue,
+      })
+    }
   }
 }
 

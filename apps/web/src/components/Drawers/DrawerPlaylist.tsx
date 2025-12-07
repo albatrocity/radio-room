@@ -19,6 +19,7 @@ import { Reaction } from "../../types/Reaction"
 import { PlaylistItem } from "../../types/PlaylistItem"
 import { Emoji } from "../../types/Emoji"
 import PlaylistWindow from "../PlaylistWindow"
+import QueuedTracksSection from "../QueuedTracksSection"
 import {
   useCurrentPlaylist,
   usePlaylistSend,
@@ -47,7 +48,7 @@ function DrawerPlaylist() {
 
   // Target service for saving (defaults to first available)
   const [targetService, setTargetService] = useState<MetadataSourceType>(
-    availableServices[0] || "spotify"
+    availableServices[0] || "spotify",
   )
 
   // Update targetService when availableServices change
@@ -153,7 +154,7 @@ function DrawerPlaylist() {
   // Auto-deselect unavailable tracks when target service changes
   useEffect(() => {
     if (!isEditing) return
-    
+
     const currentCollection = selectedPlaylistState.context.collection
     const availableTracks = currentCollection.filter((item) => {
       // Check if track is available for target service
@@ -163,7 +164,7 @@ function DrawerPlaylist() {
       if (targetService === "spotify" && item.mediaSource?.type === "spotify") return true
       return false
     })
-    
+
     // Only update if we need to remove some tracks
     if (availableTracks.length < currentCollection.length) {
       selectedPlaylistSend({ type: "SET_ITEMS", data: availableTracks })
@@ -244,12 +245,12 @@ function DrawerPlaylist() {
         )
       }
     >
-      <VStack w="100%" h="100%" gap={4}>
-        <Box w="100%" bg="primaryBg" px={4} py={2} borderRadius={4}>
+      <VStack w="100%" h="100%" gap={4} overflow="hidden">
+        <Box w="100%" bg="secondary.subtle/20" p={4} borderRadius={4} flexShrink={0}>
           <PlaylistFilters onChange={handleFilterChange} emojis={emojis} />
         </Box>
         {isEditing && (
-          <HStack w="100%" justify="flex-end">
+          <HStack w="100%" justify="flex-end" flexShrink={0}>
             {filterState.context.collection.length > 0 && (
               <Button
                 onClick={() => handleSelect("filtered")}
@@ -281,14 +282,27 @@ function DrawerPlaylist() {
           </HStack>
         )}
         {isOpen && (
-          <Box w="100%" h={["calc(100% - 22vh)", "100%"]}>
-            <PlaylistWindow
-              selected={selectedPlaylistState.context.collection}
-              isSelectable={isEditing}
-              onSelect={handleSelectionChange}
-              playlist={filteredPlaylistItems}
-              targetService={isEditing ? targetService : undefined}
-            />
+          <Box
+            w="100%"
+            flex={1}
+            minH={0}
+            display="flex"
+            flexDirection="column"
+            overflow="hidden"
+            gap={2}
+          >
+            <Box flex={1} minH={0} overflow="hidden" colorPalette="secondary">
+              <PlaylistWindow
+                selected={selectedPlaylistState.context.collection}
+                isSelectable={isEditing}
+                onSelect={handleSelectionChange}
+                playlist={filteredPlaylistItems}
+                targetService={isEditing ? targetService : undefined}
+              />
+            </Box>
+            <Box flexShrink={0} colorPalette="primary">
+              <QueuedTracksSection />
+            </Box>
           </Box>
         )}
       </VStack>

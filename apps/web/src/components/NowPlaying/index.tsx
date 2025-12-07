@@ -81,8 +81,8 @@ function NowPlaying({ meta }: NowPlayingProps) {
 
         <PluginArea area="nowPlaying" />
 
-        <Box hideBelow="sm">
-          <ButtonAddToQueue variant="solid" />
+        <Box hideBelow="sm" colorPalette="primary">
+          <ButtonAddToQueue variant="subtle" />
         </Box>
       </VStack>
     </Box>

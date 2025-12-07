@@ -32,6 +32,7 @@ function PlaylistFilters({ onChange, emojis }: Props) {
         onClose={onClose}
         onToggle={onToggle}
         showAddButton={true}
+        buttonVariant="ghost"
       />
     </Wrap>
   )

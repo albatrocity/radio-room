@@ -139,19 +139,19 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
             <PluginArea area="nowPlayingBadge" />
 
             {artist && (
-              <Heading color="primaryBg" margin="none" as="h4" size="sm">
+              <Heading color="primary.contrast" margin="none" as="h4" size="sm">
                 {artist}
               </Heading>
             )}
 
             {album && (
-              <Text as="span" color="primaryBg" margin="none" fontSize="xs">
+              <Text as="span" color="primary.contrast/50" margin="none" fontSize="xs">
                 {album}
               </Text>
             )}
 
             {releaseDate && (
-              <Text as="span" color="primaryBg" fontSize="xs">
+              <Text as="span" color="primary.contrast/50" fontSize="xs">
                 Released {safeDate(releaseDate)}
               </Text>
             )}
@@ -178,10 +178,10 @@ interface TrackTitleProps {
 
 function TrackTitle({ title, externalUrl, pluginStyles }: TrackTitleProps) {
   const headingStyles = {
-    color: "primaryBg",
+    color: "primary.contrast",
     margin: "none",
     as: "h3" as const,
-    size: ["md", "lg"] as any,
+    size: ["md", "2xl"] as any,
   }
 
   if (externalUrl) {
@@ -212,8 +212,8 @@ function AddedByInfo({ dj, djUsername, addedAt }: AddedByInfoProps) {
 
   return (
     <HStack mt={4} gap={2}>
-      <Icon color="primaryBg" boxSize={3} as={FiUser} />
-      <Text as="i" color="primaryBg" fontSize="xs">
+      <Icon color="primary.contrast" boxSize={3} as={FiUser} />
+      <Text as="i" color="primary.contrast" fontSize="xs">
         Added by {djUsername} at {format(new Date(addedAt), "p")}
       </Text>
     </HStack>
@@ -253,12 +253,12 @@ function MetadataSourceInfo({ metadataSource }: MetadataSourceInfoProps) {
 
   return (
     <HStack gap={1}>
-      <Text as="span" color="primary.200" fontSize="2xs">
+      <Text as="span" color="primary.contrast/50" fontSize="2xs">
         Track data provided by
       </Text>
       <HStack gap={1}>
-        {SourceIcon && <Icon as={SourceIcon} color="primary.200" boxSize={3} />}
-        <Text color="primary.200" fontSize="2xs" as="span">
+        {SourceIcon && <Icon as={SourceIcon} color="primary.contrast/50" boxSize={3} />}
+        <Text color="primary.contrast/50" fontSize="2xs" as="span">
           {getSourceName(metadataSource.type)}
         </Text>
       </HStack>
