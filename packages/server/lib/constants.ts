@@ -10,10 +10,13 @@ export const ONE_DAY = 1000 * 60 * 60 * 24;
 export const THREE_DAYS = 1000 * 60 * 60 * 24 * 3;
 export const SEVEN_DAYS = 1000 * 60 * 60 * 24 * 7;
 
+export const FIFTEEN_MINUTES = 1000 * 60 * 15;
+
 export const JUKEBOX_FETCH_INTERVAL = FIVE_SECONDS;
 export const RADIO_FETCH_INTERVAL = FIVE_SECONDS;
 export const THROTTLED_JUKEBOX_FETCH_INTERVAL = TEN_SECONDS;
 export const ROOM_EXPIRE_TIME = ONE_DAY;
+export const ROOM_IDLE_PAUSE_TIME = FIFTEEN_MINUTES;
 
 export const ERROR_STATION_FETCH_FAILED = "Erorr: Failed to fetch station";
 

@@ -23,6 +23,10 @@ import {
   deleteUser,
   nukeUserRooms,
   getAllPluginConfigs,
+  setRoomLastEmptied,
+  clearRoomLastEmptied,
+  isRoomPollingPaused,
+  setRoomPollingPaused,
 } from "../operations/data"
 import generateId from "../lib/generateId"
 import generateAnonName from "../lib/generateAnonName"
@@ -34,6 +38,32 @@ import { THREE_HOURS } from "../lib/constants"
  */
 export class AuthService {
   constructor(private context: AppContext) {}
+
+  /**
+   * Resume polling jobs for a room that was paused due to inactivity.
+   * Re-registers the media source polling job using the adapter's onRoomCreated hook.
+   */
+  private async resumeRoomPollingJobs(roomId: string, room: Room) {
+    console.log(`[AuthService] Resuming polling jobs for room ${roomId}`)
+
+    // Get the media source adapter and call its onRoomCreated to re-register the job
+    const mediaSourceId = room.mediaSourceId
+    if (!mediaSourceId) {
+      console.log(`[AuthService] No media source configured for room ${roomId}`)
+      return
+    }
+
+    const mediaSourceModule = this.context.adapters.mediaSourceModules.get(mediaSourceId)
+    if (mediaSourceModule?.onRoomCreated) {
+      await mediaSourceModule.onRoomCreated({
+        roomId,
+        userId: room.creator,
+        roomType: room.type,
+        context: this.context,
+      })
+      console.log(`[AuthService] Resumed ${mediaSourceId} polling for room ${roomId}`)
+    }
+  }
 
   /**
    * Check if a password matches for a room
@@ -156,6 +186,19 @@ export class AuthService {
       await addDj({ context: this.context, roomId, userId })
     }
 
+    // Clear the "room empty" timestamp since a user has joined
+    await clearRoomLastEmptied({ context: this.context, roomId })
+
+    // Resume polling jobs only if the room creator rejoins
+    // Guests rejoining should not resume polling to avoid unnecessary API calls
+    if (isAdmin) {
+      const pollingWasPaused = await isRoomPollingPaused({ context: this.context, roomId })
+      if (pollingWasPaused && this.context.jobService) {
+        await this.resumeRoomPollingJobs(roomId, room)
+        await setRoomPollingPaused({ context: this.context, roomId, paused: false })
+      }
+    }
+
     // If the admin has logged in, remove expiration of room keys
     if (isAdmin) {
       await persistRoom({ context: this.context, roomId })
@@ -270,6 +313,12 @@ export class AuthService {
 
     if (createdRooms.length === 0) {
       await expireUserIn({ context: this.context, userId, ms: THREE_HOURS })
+    }
+
+    // If the room is now empty, record the timestamp
+    // The cleanup job will use this to pause polling after 15 minutes
+    if (users.length === 0) {
+      await setRoomLastEmptied({ context: this.context, roomId })
     }
 
     return {

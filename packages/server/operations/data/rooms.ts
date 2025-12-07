@@ -604,3 +604,91 @@ export async function nukeUserRooms({ context, userId }: NukeUserRoomsParams) {
   await context.redis.pubClient.unlink(`user:${userId}:rooms`)
   await Promise.all(rooms.map((room) => deleteRoom({ context, roomId: room.id })))
 }
+
+// =============================================================================
+// Room Idle State Tracking
+// =============================================================================
+
+type SetRoomLastEmptiedParams = {
+  context: AppContext
+  roomId: string
+}
+
+/**
+ * Record when a room became empty (no users online).
+ * Used to determine when to pause polling jobs.
+ */
+export async function setRoomLastEmptied({ context, roomId }: SetRoomLastEmptiedParams) {
+  const key = `room:${roomId}:lastEmptied`
+  await context.redis.pubClient.set(key, Date.now().toString())
+}
+
+type GetRoomLastEmptiedParams = {
+  context: AppContext
+  roomId: string
+}
+
+/**
+ * Get the timestamp when the room became empty.
+ * Returns null if the room is not empty or timestamp was cleared.
+ */
+export async function getRoomLastEmptied({
+  context,
+  roomId,
+}: GetRoomLastEmptiedParams): Promise<number | null> {
+  const key = `room:${roomId}:lastEmptied`
+  const value = await context.redis.pubClient.get(key)
+  return value ? parseInt(value, 10) : null
+}
+
+type ClearRoomLastEmptiedParams = {
+  context: AppContext
+  roomId: string
+}
+
+/**
+ * Clear the lastEmptied timestamp (called when a user joins the room).
+ */
+export async function clearRoomLastEmptied({ context, roomId }: ClearRoomLastEmptiedParams) {
+  const key = `room:${roomId}:lastEmptied`
+  await context.redis.pubClient.del(key)
+}
+
+type IsRoomPollingPausedParams = {
+  context: AppContext
+  roomId: string
+}
+
+/**
+ * Check if polling has been paused for a room.
+ */
+export async function isRoomPollingPaused({
+  context,
+  roomId,
+}: IsRoomPollingPausedParams): Promise<boolean> {
+  const key = `room:${roomId}:pollingPaused`
+  const value = await context.redis.pubClient.get(key)
+  return value === "true"
+}
+
+type SetRoomPollingPausedParams = {
+  context: AppContext
+  roomId: string
+  paused: boolean
+}
+
+/**
+ * Set the polling paused state for a room.
+ */
+export async function setRoomPollingPaused({
+  context,
+  roomId,
+  paused,
+}: SetRoomPollingPausedParams) {
+  const key = `room:${roomId}:pollingPaused`
+  if (paused) {
+    await context.redis.pubClient.set(key, "true")
+  } else {
+    await context.redis.pubClient.del(key)
+  }
+}
