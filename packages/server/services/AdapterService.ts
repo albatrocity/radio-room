@@ -127,87 +127,134 @@ export class AdapterService {
   }
 
   /**
-   * Get the MetadataSource for a room (uses room creator's credentials)
+   * Get the primary MetadataSource for a room (uses room creator's credentials)
    * Creates and caches a room-specific instance with dynamic token fetching
    */
   async getRoomMetadataSource(roomId: string): Promise<MetadataSource | null> {
-    // Check cache first
-    if (this.roomMetadataSources.has(roomId)) {
-      return this.roomMetadataSources.get(roomId)!
-    }
+    const sources = await this.getRoomMetadataSources(roomId)
+    // Return the first (primary) source
+    const firstSource = sources.values().next()
+    return firstSource.done ? null : firstSource.value
+  }
 
+  /**
+   * Get all MetadataSources for a room (uses room creator's credentials)
+   * Creates and caches room-specific instances with dynamic token fetching
+   * Returns a Map keyed by source name (e.g., "spotify", "tidal")
+   */
+  async getRoomMetadataSources(roomId: string): Promise<Map<string, MetadataSource>> {
     const room = await findRoom({ context: this.context, roomId })
 
-    if (!room || !room.metadataSourceId) {
-      return null
+    if (!room || !room.metadataSourceIds?.length) {
+      return new Map()
     }
 
-    const serviceName = room.metadataSourceId
-    const adapterModule = this.context.adapters.metadataSourceModules.get(serviceName)
+    const sources = new Map<string, MetadataSource>()
 
-    if (!adapterModule) {
-      console.error(`No adapter module found for metadata source: ${serviceName}`)
-      return null
+    for (const sourceId of room.metadataSourceIds) {
+      // Check cache first
+      const cacheKey = `${roomId}:${sourceId}`
+      if (this.roomMetadataSources.has(cacheKey)) {
+        sources.set(sourceId, this.roomMetadataSources.get(cacheKey)!)
+        continue
+      }
+
+      const adapterModule = this.context.adapters.metadataSourceModules.get(sourceId)
+
+      if (!adapterModule) {
+        console.error(`No adapter module found for metadata source: ${sourceId}`)
+        continue
+      }
+
+      const serviceConfig = getServiceConfig(sourceId)
+      if (!serviceConfig.clientId) {
+        console.error(`No client ID configured for service: ${getServiceName(sourceId)}`)
+        continue
+      }
+
+      try {
+        // Create a room-specific metadata source instance with dynamic token fetching
+        const metadataSource = await adapterModule.register({
+          name: sourceId,
+          url: "",
+          authentication: {
+            type: "oauth",
+            clientId: serviceConfig.clientId,
+            token: {
+              accessToken: "", // Not used
+              refreshToken: "",
+            },
+            getStoredTokens: async () => {
+              // This function is called on each API operation to get fresh tokens
+              // for the room creator
+              if (!this.context.data?.getUserServiceAuth) {
+                throw new Error("getUserServiceAuth not available in context")
+              }
+
+              const auth = await this.context.data.getUserServiceAuth({
+                userId: room.creator,
+                serviceName: sourceId,
+              })
+
+              if (!auth || !auth.accessToken) {
+                throw new Error(`No auth tokens found for room creator ${room.creator}`)
+              }
+
+              // Check if token is expired or about to expire (within 5 minutes)
+              const expiresAt = auth.expiresAt ?? 0
+              const isExpired = expiresAt > 0 && Date.now() > expiresAt - 5 * 60 * 1000
+
+              if (isExpired) {
+                console.log(`[AdapterService] Token for ${sourceId} is expired, refreshing...`)
+                
+                // Get the service auth adapter to refresh
+                const serviceAuthAdapter = this.context.adapters.serviceAuth.get(sourceId)
+                if (serviceAuthAdapter?.refreshAuth) {
+                  try {
+                    const refreshed = await serviceAuthAdapter.refreshAuth(room.creator)
+                    console.log(`[AdapterService] Token refreshed for ${sourceId}`)
+                    return {
+                      accessToken: refreshed.accessToken,
+                      refreshToken: refreshed.refreshToken,
+                      metadata: auth.metadata, // Preserve metadata (e.g., tidalUserId)
+                    }
+                  } catch (refreshError) {
+                    console.error(`[AdapterService] Failed to refresh ${sourceId} token:`, refreshError)
+                    // Return the old tokens and let the API call fail
+                  }
+                }
+              }
+
+              return {
+                accessToken: auth.accessToken,
+                refreshToken: auth.refreshToken,
+                metadata: auth.metadata,
+              }
+            },
+          },
+          registerJob: async (job) => {
+            if (this.context.jobService) {
+              await this.context.jobService.scheduleJob(job)
+            }
+            return job
+          },
+          onRegistered: () => {},
+          onAuthenticationCompleted: () => {},
+          onAuthenticationFailed: (error) =>
+            console.error(`Metadata source ${sourceId} authentication failed:`, error),
+          onSearchResults: () => {},
+          onError: (error) => console.error(`Metadata source ${sourceId} error:`, error),
+        })
+
+        // Cache the instance
+        this.roomMetadataSources.set(cacheKey, metadataSource)
+        sources.set(sourceId, metadataSource)
+      } catch (error) {
+        console.error(`Error creating metadata source ${sourceId}:`, error)
+      }
     }
 
-    const clientId = process.env.SPOTIFY_CLIENT_ID
-
-    if (!clientId) {
-      console.error("SPOTIFY_CLIENT_ID is not defined")
-      return null
-    }
-
-    // Create a room-specific metadata source instance with dynamic token fetching
-    const metadataSource = await adapterModule.register({
-      name: serviceName,
-      url: "",
-      authentication: {
-        type: "oauth",
-        clientId,
-        token: {
-          accessToken: "", // Not used
-          refreshToken: "",
-        },
-        getStoredTokens: async () => {
-          // This function is called on each API operation to get fresh tokens
-          // for the room creator
-          if (!this.context.data?.getUserServiceAuth) {
-            throw new Error("getUserServiceAuth not available in context")
-          }
-
-          const auth = await this.context.data.getUserServiceAuth({
-            userId: room.creator,
-            serviceName,
-          })
-
-          if (!auth || !auth.accessToken) {
-            throw new Error(`No auth tokens found for room creator ${room.creator}`)
-          }
-
-          return {
-            accessToken: auth.accessToken,
-            refreshToken: auth.refreshToken,
-          }
-        },
-      },
-      registerJob: async (job) => {
-        if (this.context.jobService) {
-          await this.context.jobService.scheduleJob(job)
-        }
-        return job
-      },
-      onRegistered: () => {},
-      onAuthenticationCompleted: () => {},
-      onAuthenticationFailed: (error) =>
-        console.error("Metadata source authentication failed:", error),
-      onSearchResults: () => {},
-      onError: (error) => console.error("Metadata source error:", error),
-    })
-
-    // Cache the instance
-    this.roomMetadataSources.set(roomId, metadataSource)
-
-    return metadataSource
+    return sources
   }
 
   /**
@@ -219,7 +266,9 @@ export class AdapterService {
   async getUserMetadataSource(roomId: string, userId?: string): Promise<MetadataSource | null> {
     const room = await findRoom({ context: this.context, roomId })
 
-    if (!room || !room.metadataSourceId) {
+    // Use the first (primary) metadata source
+    const primaryMetadataSourceId = room?.metadataSourceIds?.[0]
+    if (!room || !primaryMetadataSourceId) {
       return null
     }
 
@@ -227,10 +276,10 @@ export class AdapterService {
     const targetUserId = userId ?? room.creator
 
     // Get the adapter module
-    const adapterModule = this.context.adapters.metadataSourceModules.get(room.metadataSourceId)
+    const adapterModule = this.context.adapters.metadataSourceModules.get(primaryMetadataSourceId)
 
     if (!adapterModule) {
-      console.error(`No adapter module found for metadata source: ${room.metadataSourceId}`)
+      console.error(`No adapter module found for metadata source: ${primaryMetadataSourceId}`)
       return null
     }
 
@@ -242,27 +291,27 @@ export class AdapterService {
 
     const auth = await this.context.data.getUserServiceAuth({
       userId: targetUserId,
-      serviceName: room.metadataSourceId,
+      serviceName: primaryMetadataSourceId,
     })
 
     if (!auth || !auth.accessToken) {
       console.error(
-        `No auth tokens found for user ${targetUserId} on service ${room.metadataSourceId}`,
+        `No auth tokens found for user ${targetUserId} on service ${primaryMetadataSourceId}`,
       )
       return null
     }
 
     // Get service-specific config
-    const serviceConfig = getServiceConfig(room.metadataSourceId)
+    const serviceConfig = getServiceConfig(primaryMetadataSourceId)
     if (!serviceConfig.clientId) {
-      console.error(`No client ID configured for service: ${getServiceName(room.metadataSourceId)}`)
+      console.error(`No client ID configured for service: ${getServiceName(primaryMetadataSourceId)}`)
       return null
     }
 
     // Create a user-specific metadata source with fresh credentials
     try {
       const userMetadataSource = await adapterModule.register({
-        name: room.metadataSourceId,
+        name: primaryMetadataSourceId,
         url: "",
         authentication: {
           type: "oauth",
@@ -289,6 +338,94 @@ export class AdapterService {
       return userMetadataSource
     } catch (error) {
       console.error(`Error creating user-specific metadata source:`, error)
+      return null
+    }
+  }
+
+  /**
+   * Get a specific MetadataSource for a user (for operations like playlist creation)
+   * This creates a fresh instance with the user's current credentials for a specific service
+   * @param roomId - The room ID
+   * @param userId - User ID for credentials
+   * @param sourceType - The metadata source type (e.g., "spotify", "tidal")
+   */
+  async getMetadataSourceForUser(
+    roomId: string,
+    userId: string,
+    sourceType: string,
+  ): Promise<MetadataSource | null> {
+    const room = await findRoom({ context: this.context, roomId })
+
+    // Check if the requested source is enabled for this room
+    if (!room?.metadataSourceIds?.includes(sourceType)) {
+      console.error(`Metadata source ${sourceType} not enabled for room ${roomId}`)
+      return null
+    }
+
+    // Get the adapter module
+    const adapterModule = this.context.adapters.metadataSourceModules.get(sourceType)
+
+    if (!adapterModule) {
+      console.error(`No adapter module found for metadata source: ${sourceType}`)
+      return null
+    }
+
+    // Get user's credentials from Redis
+    if (!this.context.data?.getUserServiceAuth) {
+      console.error("getUserServiceAuth not available in context")
+      return null
+    }
+
+    const auth = await this.context.data.getUserServiceAuth({
+      userId,
+      serviceName: sourceType,
+    })
+
+    if (!auth || !auth.accessToken) {
+      console.error(`No auth tokens found for user ${userId} on service ${sourceType}`)
+      return null
+    }
+
+    console.log(`[AdapterService.getMetadataSourceForUser] Auth metadata for ${sourceType}:`, auth.metadata)
+
+    // Get service-specific config
+    const serviceConfig = getServiceConfig(sourceType)
+    if (!serviceConfig.clientId) {
+      console.error(`No client ID configured for service: ${getServiceName(sourceType)}`)
+      return null
+    }
+
+    // Create a user-specific metadata source with fresh credentials
+    try {
+      const userMetadataSource = await adapterModule.register({
+        name: sourceType,
+        url: "",
+        authentication: {
+          type: "oauth",
+          clientId: serviceConfig.clientId,
+          token: {
+            accessToken: auth.accessToken,
+            refreshToken: auth.refreshToken,
+          },
+          async getStoredTokens() {
+            return {
+              accessToken: auth.accessToken,
+              refreshToken: auth.refreshToken,
+              metadata: auth.metadata, // Pass metadata (e.g., tidalUserId)
+            }
+          },
+        },
+        registerJob: () => Promise.resolve({} as any),
+        onRegistered: () => {},
+        onAuthenticationCompleted: () => {},
+        onAuthenticationFailed: () => {},
+        onSearchResults: () => {},
+        onError: () => {},
+      })
+
+      return userMetadataSource
+    } catch (error) {
+      console.error(`Error creating user-specific metadata source for ${sourceType}:`, error)
       return null
     }
   }
@@ -324,7 +461,7 @@ export class AdapterService {
       case "playback":
         return !!room.playbackControllerId
       case "metadata":
-        return !!room.metadataSourceId
+        return !!room.metadataSourceIds?.length
       case "media":
         return !!room.mediaSourceId
       default:

@@ -50,8 +50,8 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
    */
   socket.on(
     "SAVE_PLAYLIST",
-    async ({ name, trackIds }: { name: string; trackIds: QueueItem["track"]["id"][] }) => {
-      await handlers.savePlaylist(connections, { name, trackIds })
+    async ({ name, trackIds, targetService, roomId }: { name: string; trackIds: QueueItem["track"]["id"][]; targetService?: string; roomId?: string }) => {
+      await handlers.savePlaylist(connections, { name, trackIds, targetService, roomId })
     },
   )
 

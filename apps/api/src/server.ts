@@ -1,11 +1,16 @@
 import { createServer, registerAdapters, createOAuthPlaceholder } from "@repo/server"
 import {
   playbackController,
-  metadataSource,
+  metadataSource as spotifyMetadataSource,
   mediaSource as spotifyMediaSource,
   createSpotifyAuthRoutes,
   createSpotifyServiceAuthAdapter,
 } from "@repo/adapter-spotify"
+import {
+  metadataSource as tidalMetadataSource,
+  createTidalAuthRoutes,
+  createTidalServiceAuthAdapter,
+} from "@repo/adapter-tidal"
 import { mediaSource as shoutcastMediaSource } from "@repo/media-source-shoutcast"
 import createPlaylistDemocracyPlugin from "@repo/plugin-playlist-democracy"
 import createSpecialWordsPlugin from "@repo/plugin-special-words"
@@ -22,23 +27,33 @@ async function main() {
   })
 
   const spotifyOAuth = createOAuthPlaceholder(process.env.SPOTIFY_CLIENT_ID ?? "")
+  const tidalOAuth = createOAuthPlaceholder(process.env.TIDAL_CLIENT_ID ?? "")
 
   // Register all adapters and plugins declaratively
   await registerAdapters(server, {
-    serviceAuth: [{ name: "spotify", factory: createSpotifyServiceAuthAdapter }],
+    serviceAuth: [
+      { name: "spotify", factory: createSpotifyServiceAuthAdapter },
+      { name: "tidal", factory: createTidalServiceAuthAdapter },
+    ],
 
     playbackControllers: [
       { name: "spotify", module: playbackController, authentication: spotifyOAuth },
     ],
 
-    metadataSources: [{ name: "spotify", module: metadataSource, authentication: spotifyOAuth }],
+    metadataSources: [
+      { name: "spotify", module: spotifyMetadataSource, authentication: spotifyOAuth },
+      { name: "tidal", module: tidalMetadataSource, authentication: tidalOAuth },
+    ],
 
     mediaSources: [
       { name: "spotify", module: spotifyMediaSource },
       { name: "shoutcast", module: shoutcastMediaSource },
     ],
 
-    authRoutes: [{ path: "/auth/spotify", handler: createSpotifyAuthRoutes }],
+    authRoutes: [
+      { path: "/auth/spotify", handler: createSpotifyAuthRoutes },
+      { path: "/auth/tidal", handler: createTidalAuthRoutes },
+    ],
 
     plugins: [createPlaylistDemocracyPlugin, createSpecialWordsPlugin],
   })

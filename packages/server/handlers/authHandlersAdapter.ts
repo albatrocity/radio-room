@@ -112,6 +112,7 @@ export class AuthHandlers {
       username: result.userData.username,
       id: socket.id,
     }
+    session.roomId = roomId
     session.save()
 
     // Join the room

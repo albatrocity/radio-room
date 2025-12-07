@@ -1,5 +1,3 @@
-import React from "react"
-
 import { useModalsSnapshot, useModalsSend } from "../../../hooks/useActors"
 import {
   Collapsible,
@@ -19,10 +17,7 @@ import Overview from "./Overview"
 import Content from "./Content"
 import Chat from "./Chat"
 import Password from "./Password"
-import ReactionTriggerActions from "./ReactionTriggerActions"
-import MessageTriggerActions from "./MessageTriggerActions"
 import DjFeatures from "./DjFeatures"
-import SpotifyFeatures from "./SpotifyFeatures"
 import DynamicPluginSettings from "./DynamicPluginSettings"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 
@@ -50,9 +45,6 @@ function ModalAdminSettings() {
     send({ type: "BACK" })
   }
 
-  const isTriggersView =
-    state.matches("settings.reaction_triggers") || state.matches("settings.message_triggers")
-
   // Convert plugin name to state key (e.g., "playlist-democracy" -> "playlist_democracy")
   const toStateKey = (name: string) => name.split("-").join("_")
 
@@ -60,7 +52,7 @@ function ModalAdminSettings() {
     <DialogRoot
       open={isEditingSettings}
       onOpenChange={(e) => !e.open && hideEditForm()}
-      size={isTriggersView ? "xl" : "md"}
+      size={"md"}
       placement="center"
     >
       <DialogBackdrop />

@@ -25,6 +25,8 @@ import { themeActor } from "../actors/themeActor"
 import { errorsActor } from "../actors/errorsActor"
 import { metadataSourceAuthActor } from "../actors/metadataSourceAuthActor"
 import { bookmarkedChatActor } from "../actors/bookmarkedChatActor"
+import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
+import { MetadataSourceType } from "../types/Queue"
 
 import { sortByTimestamp } from "../lib/sortByTimestamp"
 import { ChatMessage } from "../types/ChatMessage"
@@ -401,3 +403,17 @@ export const useIsBookmarked = (messageTimestamp: string) => {
 }
 
 export const useBookmarksSend = () => bookmarkedChatActor.send
+
+// ============================================================================
+// Metadata Preference Hooks
+// ============================================================================
+
+export const useAvailableMetadataSources = () => {
+  return useSelector(metadataPreferenceActor, (s) => s.context.availableSources)
+}
+
+export const usePreferredMetadataSource = (): MetadataSourceType | undefined => {
+  return useSelector(metadataPreferenceActor, (s) => s.context.preferredSource)
+}
+
+export const useMetadataPreferenceSend = () => metadataPreferenceActor.send

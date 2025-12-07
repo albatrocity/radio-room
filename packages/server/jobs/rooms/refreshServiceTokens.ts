@@ -19,8 +19,13 @@ export async function refreshServiceTokens(context: AppContext, roomId: string) 
     servicesToRefresh.push(room.playbackControllerId)
   }
   
-  if (room.metadataSourceId && !servicesToRefresh.includes(room.metadataSourceId)) {
-    servicesToRefresh.push(room.metadataSourceId)
+  // Add all metadata sources that aren't already in the list
+  if (room.metadataSourceIds) {
+    for (const sourceId of room.metadataSourceIds) {
+      if (!servicesToRefresh.includes(sourceId)) {
+        servicesToRefresh.push(sourceId)
+      }
+    }
   }
 
   // Refresh tokens for each service the room uses

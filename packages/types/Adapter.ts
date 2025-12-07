@@ -1,8 +1,14 @@
+export type StoredTokens = { 
+  accessToken: string
+  refreshToken: string
+  metadata?: Record<string, unknown>
+}
+
 export type AdapterAuthentication =
   | { type: "none" }
   | {
       type: "token"
-      getStoredTokens: () => Promise<{ accessToken: string; refreshToken: string }>
+      getStoredTokens: () => Promise<StoredTokens>
       clientId: string
     }
   | {
@@ -11,7 +17,7 @@ export type AdapterAuthentication =
         accessToken: string
         refreshToken: string
       }
-      getStoredTokens: () => Promise<{ accessToken: string; refreshToken: string }>
+      getStoredTokens: () => Promise<StoredTokens>
       clientId: string
     }
 

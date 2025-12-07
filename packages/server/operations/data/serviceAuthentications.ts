@@ -4,6 +4,7 @@ export type ServiceAuthTokens = {
   accessToken: string
   refreshToken: string
   expiresAt?: number
+  metadata?: Record<string, unknown>
 }
 
 type StoreUserServiceAuthParams = {
@@ -25,6 +26,7 @@ export async function storeUserServiceAuth({
     refreshToken: tokens.refreshToken,
     expiresAt: tokens.expiresAt?.toString() ?? "",
     updatedAt: Date.now().toString(),
+    metadata: tokens.metadata ? JSON.stringify(tokens.metadata) : "",
   })
 }
 
@@ -46,10 +48,20 @@ export async function getUserServiceAuth({
     return null
   }
 
+  let metadata: Record<string, unknown> | undefined
+  if (data.metadata) {
+    try {
+      metadata = JSON.parse(data.metadata)
+    } catch {
+      // Invalid JSON, ignore
+    }
+  }
+
   return {
     accessToken: data.accessToken,
     refreshToken: data.refreshToken,
     expiresAt: data.expiresAt ? parseInt(data.expiresAt) : undefined,
+    metadata,
   }
 }
 

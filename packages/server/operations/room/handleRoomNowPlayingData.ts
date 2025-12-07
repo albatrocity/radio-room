@@ -9,7 +9,9 @@ import {
   Room,
   MediaSourceSubmission,
   MetadataSourceTrack,
+  MetadataSourceTrackData,
 } from "@repo/types"
+import type { MetadataSourceType } from "@repo/types/TrackSource"
 import {
   addTrackToRoomPlaylist,
   clearRoomCurrent,
@@ -91,7 +93,11 @@ export default async function handleRoomNowPlayingData({
   }
 
   // Determine the track data to use (enriched or raw)
-  const { track, metadataSource } = await resolveTrackData(context, room, submission)
+  const { track, metadataSource, metadataSources } = await resolveTrackData(
+    context,
+    room,
+    submission,
+  )
 
   // Get queue to determine DJ (who added the track)
   const queue = await getQueue({ context, roomId })
@@ -111,6 +117,7 @@ export default async function handleRoomNowPlayingData({
       trackId: submission.trackId,
     },
     metadataSource,
+    metadataSources,
     addedAt: queuedTrack?.addedAt ?? Date.now(),
     addedBy: trackDj,
     addedDuring: queuedTrack ? "queue" : "nowPlaying",
@@ -203,67 +210,189 @@ function isSameTrack(
   return sameMediaSource
 }
 
+type ResolveTrackDataResult = {
+  track: MetadataSourceTrack
+  metadataSource?: { type: MetadataSourceType; trackId: string }
+  metadataSources?: Record<MetadataSourceType, MetadataSourceTrackData | undefined>
+}
+
 /**
- * Resolve track data - use enrichedTrack if provided, otherwise enrich via MetadataSource,
- * or fall back to constructing from raw data.
+ * Resolve track data - use enrichedTrack as primary if provided, but still fetch
+ * from all configured MetadataSources to support user preferences.
+ *
+ * Fetches from all configured metadata sources in parallel.
+ * The enrichedTrack (if provided) or first successful result populates `track`,
+ * all successful results go in `metadataSources`.
  */
 async function resolveTrackData(
   context: AppContext,
   room: Room | null | undefined,
   submission: MediaSourceSubmission,
-): Promise<{ track: MetadataSourceTrack; metadataSource?: { type: any; trackId: string } }> {
-  // If enrichedTrack is provided, use it (MediaSource already has rich data)
-  if (submission.enrichedTrack) {
+): Promise<ResolveTrackDataResult> {
+  const metadataSourceIds = room?.metadataSourceIds
+
+  // If we have an enrichedTrack and no additional metadata sources configured,
+  // just use what we have
+  if (submission.enrichedTrack && (!metadataSourceIds || metadataSourceIds.length <= 1)) {
     return {
       track: submission.enrichedTrack,
       metadataSource: submission.metadataSource,
     }
   }
 
-  // Try to enrich via room's MetadataSource if configured
-  if (room?.fetchMeta && room?.metadataSourceId) {
-    try {
-      const adapterService = new AdapterService(context)
-      const metadataSource = await adapterService.getRoomMetadataSource(room.id)
-
-      if (metadataSource?.api?.search) {
-        const query = submission.artist
-          ? `${submission.artist} ${submission.title}`.trim()
-          : submission.title
-
-        console.log(`[handleRoomNowPlayingData] Enriching track via MetadataSource: "${query}"`)
-        const searchResults = await metadataSource.api.search(query)
-
-        if (searchResults && searchResults.length > 0) {
-          const enrichedTrack = searchResults[0]
-          console.log(`[handleRoomNowPlayingData] ✓ Enriched track: "${enrichedTrack.title}"`)
-          return {
-            track: enrichedTrack,
-            metadataSource: {
-              type: room.metadataSourceId as any,
-              trackId: enrichedTrack.id,
-            },
-          }
-        }
-
-        console.log(`[handleRoomNowPlayingData] ✗ No metadata found for "${query}"`)
+  // If no fetchMeta or no metadata sources configured, fall back to raw/enriched
+  if (!room?.fetchMeta || !metadataSourceIds?.length) {
+    if (submission.enrichedTrack) {
+      return {
+        track: submission.enrichedTrack,
+        metadataSource: submission.metadataSource,
       }
-    } catch (error: any) {
-      // Token/auth errors are expected for rooms where creator hasn't authenticated
-      if (error?.message?.includes("token") || error?.message?.includes("auth")) {
-        console.log(
-          `[handleRoomNowPlayingData] MetadataSource auth required for room ${room.id}, using raw data`,
-        )
-      } else {
-        console.error(`[handleRoomNowPlayingData] Error enriching track:`, error)
-      }
+    }
+    return {
+      track: createRawTrack(submission),
+      metadataSource: undefined,
     }
   }
 
-  // Fall back to constructing from raw submission data
+  // Build the search query
+  const query = submission.artist
+    ? `${submission.artist} ${submission.title}`.trim()
+    : submission.title
+
+  // Determine which source already provided enriched data (if any)
+  const enrichedSourceType = submission.metadataSource?.type as MetadataSourceType | undefined
+
+  // Filter out the source that already provided enriched data - no need to search it again
+  const sourcesToSearch = metadataSourceIds.filter((id) => id !== enrichedSourceType)
+
+  console.log(
+    `[handleRoomNowPlayingData] Enriching track via ${sourcesToSearch.length} MetadataSource(s): "${query}"` +
+      (enrichedSourceType ? ` (skipping ${enrichedSourceType} - already have data)` : ""),
+  )
+
+  // Get all metadata sources for the room
+  const adapterService = new AdapterService(context)
+  const metadataSources = await adapterService.getRoomMetadataSources(room.id)
+
+  if (metadataSources.size === 0 && !submission.enrichedTrack) {
+    console.log(`[handleRoomNowPlayingData] No metadata sources available for room ${room.id}`)
+    return {
+      track: createRawTrack(submission),
+      metadataSource: undefined,
+    }
+  }
+
+  // Fetch from sources that don't already have data (in parallel)
+  const searchPromises = Array.from(metadataSources.entries())
+    .filter(([sourceId]) => sourceId !== enrichedSourceType) // Skip the source that provided enrichedTrack
+    .map(
+      async ([sourceId, source]): Promise<{
+        sourceId: string
+        track: MetadataSourceTrack | null
+        error?: Error
+      }> => {
+        try {
+          if (!source?.api?.search) {
+            console.log(`[handleRoomNowPlayingData] ${sourceId}: No search API available`)
+            return { sourceId, track: null }
+          }
+
+          console.log(`[handleRoomNowPlayingData] ${sourceId}: Searching for "${query}"...`)
+          const searchResults = await source.api.search(query)
+          if (searchResults && searchResults.length > 0) {
+            console.log(
+              `[handleRoomNowPlayingData] ✓ ${sourceId}: Found "${searchResults[0].title}"`,
+            )
+            return { sourceId, track: searchResults[0] }
+          }
+
+          console.log(`[handleRoomNowPlayingData] ✗ ${sourceId}: No results for "${query}"`)
+          return { sourceId, track: null }
+        } catch (error: any) {
+          const errorMsg = error?.message || String(error)
+
+          // Check for re-authentication needed
+          if (errorMsg.includes("re-authenticate") || errorMsg.includes("invalid_user_grant")) {
+            console.log(
+              `[handleRoomNowPlayingData] ${sourceId}: ⚠️ Re-authentication needed - refresh token invalid`,
+            )
+          }
+          // Token/auth errors are expected for rooms where creator hasn't authenticated
+          else if (
+            errorMsg.includes("token") ||
+            errorMsg.includes("auth") ||
+            errorMsg.includes("401")
+          ) {
+            console.log(`[handleRoomNowPlayingData] ${sourceId}: Auth required, skipping`)
+          } else {
+            console.error(`[handleRoomNowPlayingData] ${sourceId}: Error:`, error)
+          }
+          return { sourceId, track: null, error }
+        }
+      },
+    )
+
+  const results = await Promise.all(searchPromises)
+
+  // Find successful results
+  const successfulResults = results.filter((r) => r.track !== null)
+
+  // Build the metadataSources record with all successful results
+  const metadataSourcesRecord: Record<MetadataSourceType, MetadataSourceTrackData | undefined> = {
+    spotify: undefined,
+    tidal: undefined,
+    applemusic: undefined,
+  }
+
+  for (const result of successfulResults) {
+    const sourceType = result.sourceId as MetadataSourceType
+    metadataSourcesRecord[sourceType] = {
+      source: {
+        type: sourceType,
+        trackId: result.track!.id,
+      },
+      track: result.track!,
+    }
+  }
+
+  // If we have an enrichedTrack, use it as primary but include other sources
+  if (submission.enrichedTrack) {
+    // Also add the enriched track to metadataSources if its source type is known
+    if (submission.metadataSource) {
+      const sourceType = submission.metadataSource.type as MetadataSourceType
+      metadataSourcesRecord[sourceType] = {
+        source: submission.metadataSource,
+        track: submission.enrichedTrack,
+      }
+    }
+
+    return {
+      track: submission.enrichedTrack,
+      metadataSource: submission.metadataSource,
+      metadataSources: metadataSourcesRecord,
+    }
+  }
+
+  // No enrichedTrack - use first successful result as primary
+  if (successfulResults.length === 0) {
+    console.log(`[handleRoomNowPlayingData] No metadata found from any source for "${query}"`)
+    return {
+      track: createRawTrack(submission),
+      metadataSource: undefined,
+    }
+  }
+
+  const primary = successfulResults[0]
+  const primaryTrack = primary.track!
+  const primarySourceType = primary.sourceId as MetadataSourceType
+
   return {
-    track: createRawTrack(submission),
-    metadataSource: undefined,
+    track: primaryTrack,
+    metadataSource: {
+      type: primarySourceType,
+      trackId: primaryTrack.id,
+    },
+    metadataSources: metadataSourcesRecord,
   }
 }
 

@@ -11,7 +11,7 @@ import {
   clearRoomPlaylist,
 } from "../operations/data"
 import handleRoomNowPlayingData from "../operations/room/handleRoomNowPlayingData"
-import makeNowPlayingFromStationMeta from "../lib/makeNowPlayingFromStationMeta"
+import { makeStableTrackId } from "../lib/makeNowPlayingFromStationMeta"
 import systemMessage from "../lib/systemMessage"
 
 /**
@@ -111,19 +111,34 @@ export class AdminService {
     const turningOffFetch = !newSettings.fetchMeta && room.fetchMeta
     const turningOnFetch = newSettings.fetchMeta && !room.fetchMeta
 
+    // Save room settings FIRST so handleRoomNowPlayingData sees the correct fetchMeta value
+    await saveRoom({ context: this.context, room: newSettings })
+
     if (turningOffFetch || turningOnFetch) {
       const current = await clearRoomCurrent({ context: this.context, roomId: room.id })
-      const nowPlaying = await makeNowPlayingFromStationMeta(current?.stationMeta)
-      await handleRoomNowPlayingData({
-        context: this.context,
-        roomId: room.id,
-        nowPlaying,
-        stationMeta: current?.stationMeta,
-        forcePublish: true,
-      })
+      const stationMeta = current?.stationMeta
+
+      // Construct a proper MediaSourceSubmission from station meta
+      if (stationMeta?.title) {
+        // Parse the station meta title (format: "title | artist | album")
+        const parts = stationMeta.title.split("|").map((s) => s.trim())
+        const submission = {
+          trackId: makeStableTrackId(stationMeta),
+          sourceType: "shoutcast" as const,
+          title: parts[0] || "Unknown",
+          artist: parts[1],
+          album: parts[2],
+          stationMeta,
+        }
+
+        await handleRoomNowPlayingData({
+          context: this.context,
+          roomId: room.id,
+          submission,
+        })
+      }
     }
 
-    await saveRoom({ context: this.context, room: newSettings })
     const updatedRoom = await findRoom({ context: this.context, roomId })
 
     return { room: updatedRoom, error: null }

@@ -49,8 +49,8 @@ export default function ButtonRoomAuthSpotify({
           <Button asChild>
             <Link
               href={`${import.meta.env.VITE_API_URL}/auth/${serviceName}/login?userId=${
-                currentUser.userId
-              }&redirect=/callback`}
+                currentUser?.userId
+              }&redirect=${encodeURIComponent(location.pathname)}`}
             >
               {serviceName === "spotify" && <Icon as={FaSpotify} />}
               Link {serviceDisplayName}

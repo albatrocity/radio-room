@@ -26,7 +26,7 @@ export function withDefaults(
     | "radioProtocol"
     | "deputizeOnJoin"
     | "playbackControllerId"
-    | "metadataSourceId"
+    | "metadataSourceIds"
     | "mediaSourceId"
     | "mediaSourceConfig"
   >,
