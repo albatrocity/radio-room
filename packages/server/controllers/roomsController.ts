@@ -8,11 +8,36 @@ import {
   parseRoom,
   removeSensitiveRoomAttributes,
   getUserRooms,
+  getUserServiceAuth,
 } from "../operations/data"
 import { checkUserChallenge } from "../operations/userChallenge"
 import { RoomSnapshot } from "@repo/types/Room"
 import { SocketWithContext } from "../lib/socketWithContext"
 import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
+import { AppContext } from "@repo/types"
+
+/**
+ * Get available metadata sources for a user based on their linked services
+ * Always includes "spotify", adds "tidal" if user has it linked
+ */
+async function getAvailableMetadataSourcesForUser(
+  context: AppContext,
+  userId: string,
+): Promise<string[]> {
+  const sources: string[] = ["spotify"] // Spotify is always available as default
+
+  // Check if user has Tidal linked
+  try {
+    const tidalAuth = await getUserServiceAuth({ context, userId, serviceName: "tidal" })
+    if (tidalAuth?.accessToken) {
+      sources.push("tidal")
+    }
+  } catch {
+    // Tidal not linked, that's fine
+  }
+
+  return sources
+}
 
 function configureAdaptersForRoomType(params: {
   type: "jukebox" | "radio"
@@ -34,14 +59,14 @@ function configureAdaptersForRoomType(params: {
   if (type === "jukebox") {
     return {
       playbackControllerId: playbackControllerId || "spotify",
-      metadataSourceIds: metadataSourceIds || ["spotify"],
+      metadataSourceIds: metadataSourceIds, // Will be set by caller if not provided
       mediaSourceId: mediaSourceId || "spotify",
       mediaSourceConfig,
     }
   } else if (type === "radio") {
     return {
       playbackControllerId: playbackControllerId || "spotify",
-      metadataSourceIds: metadataSourceIds || ["spotify"],
+      metadataSourceIds: metadataSourceIds, // Will be set by caller if not provided
       mediaSourceId: mediaSourceId || "shoutcast",
       mediaSourceConfig: mediaSourceConfig || (radioMetaUrl ? { url: radioMetaUrl } : undefined),
     }
@@ -80,12 +105,16 @@ export async function create(req: Request, res: Response) {
     await checkUserChallenge({ challenge, userId, context })
     const id = createRoomId({ creator: userId, type, createdAt })
 
+    // Get available metadata sources for the user (includes Tidal if linked)
+    const availableMetadataSources = requestedMetadataSourceIds || 
+      await getAvailableMetadataSourcesForUser(context, userId)
+
     // Auto-configure adapter IDs based on room type
     const { playbackControllerId, metadataSourceIds, mediaSourceId, mediaSourceConfig } =
       configureAdaptersForRoomType({
         type,
         playbackControllerId: requestedPlaybackControllerId,
-        metadataSourceIds: requestedMetadataSourceIds,
+        metadataSourceIds: availableMetadataSources,
         mediaSourceId: requestedMediaSourceId,
         mediaSourceConfig: requestedMediaSourceConfig,
         radioMetaUrl,
