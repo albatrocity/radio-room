@@ -1,4 +1,9 @@
-import { MetadataSourceApi, MetadataSourceLifecycleCallbacks, MetadataSourceTrack, MetadataSourceSearchParameters } from "@repo/types"
+import {
+  MetadataSourceApi,
+  MetadataSourceLifecycleCallbacks,
+  MetadataSourceTrack,
+  MetadataSourceSearchParameters,
+} from "@repo/types"
 import {
   TidalApiClient,
   searchTracks,
@@ -15,6 +20,109 @@ import {
   transformTidalTrack,
 } from "./schemas"
 
+/**
+ * FUTURE ENHANCEMENT: ISRC-based lookup
+ *
+ * Tidal's API supports looking up tracks by ISRC (International Standard Recording Code):
+ *   GET /tracks?filter[isrc]={ISRC}&countryCode={CC}
+ *
+ * This would provide much more accurate matching than text search, as ISRC is a unique
+ * identifier for a specific recording. To implement this:
+ *
+ * 1. Add `isrc` field to MetadataSourceTrack type
+ * 2. Have Spotify include ISRC in its enriched track data (it's available via their API)
+ * 3. Add `isrc` field to MediaSourceSubmission
+ * 4. Add `findByIsrc(isrc: string)` method to MetadataSourceApi interface
+ * 5. Implement ISRC lookup in this adapter using:
+ *    GET /tracks?filter[isrc]=${isrc}&countryCode=${countryCode}
+ *
+ * When ISRC is available, use it first for exact matching. Fall back to text search
+ * with the scoring logic below if ISRC lookup fails.
+ *
+ * Reference: https://tidal-music.github.io/tidal-api-reference/
+ */
+
+/**
+ * Find the best matching track from search results.
+ * Tidal's search API can return results that don't closely match the input,
+ * so we score results and only return tracks that meet a minimum threshold.
+ *
+ * @param results - Array of tracks from Tidal search
+ * @param inputArtist - Original artist name to match (lowercase)
+ * @param inputTitle - Original title to match (lowercase)
+ * @param inputAlbum - Optional album name to match (lowercase) - used as bonus scoring
+ * @returns Best matching track with score, or null if no good match
+ */
+function findBestMatch(
+  results: MetadataSourceTrack[],
+  inputArtist: string,
+  inputTitle: string,
+  inputAlbum?: string,
+): { track: MetadataSourceTrack; index: number; score: number } | null {
+  let bestMatch: { track: MetadataSourceTrack; index: number; score: number } | null = null
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i]
+    const resultArtist =
+      result.artists
+        ?.map((a: { title: string }) => a.title)
+        .join(", ")
+        .toLowerCase() ?? ""
+    const resultTitle = result.title.toLowerCase()
+    const resultAlbum = result.album?.title?.toLowerCase() ?? ""
+
+    let score = 0
+
+    // Check artist match (lenient - check if either contains the other)
+    const artistMatch =
+      resultArtist.includes(inputArtist) ||
+      inputArtist.includes(resultArtist) ||
+      // Also check individual artists for collaborations
+      result.artists?.some(
+        (a: { title: string }) =>
+          a.title.toLowerCase().includes(inputArtist) ||
+          inputArtist.includes(a.title.toLowerCase()),
+      )
+    if (artistMatch) {
+      score += 50
+    }
+
+    // Check title match (lenient - check if either contains the other)
+    const titleMatch = resultTitle.includes(inputTitle) || inputTitle.includes(resultTitle)
+    if (titleMatch) {
+      score += 50
+    }
+
+    // Bonus for exact matches
+    if (resultArtist === inputArtist) {
+      score += 20
+    }
+    if (resultTitle === inputTitle) {
+      score += 20
+    }
+
+    // Album matching bonus (helps pick correct version: single vs album, deluxe, etc.)
+    if (inputAlbum && resultAlbum) {
+      const albumMatch = resultAlbum.includes(inputAlbum) || inputAlbum.includes(resultAlbum)
+      if (albumMatch) {
+        score += 30
+      }
+      // Extra bonus for exact album match
+      if (resultAlbum === inputAlbum) {
+        score += 20
+      }
+    }
+
+    // Only consider if we have at least a partial match on both artist and title
+    // (score >= 100 means both matched)
+    if (score >= 100 && (!bestMatch || score > bestMatch.score)) {
+      bestMatch = { track: result, index: i, score }
+    }
+  }
+
+  return bestMatch
+}
+
 interface MakeApiParams {
   client: TidalApiClient
   config: MetadataSourceLifecycleCallbacks
@@ -24,7 +132,11 @@ interface MakeApiParams {
 /**
  * Create a MetadataSourceApi implementation for Tidal
  */
-export async function makeApi({ client, config, tidalUserId }: MakeApiParams): Promise<MetadataSourceApi> {
+export async function makeApi({
+  client,
+  config,
+  tidalUserId,
+}: MakeApiParams): Promise<MetadataSourceApi> {
   // Notify that authentication completed
   config.onAuthenticationCompleted?.()
 
@@ -34,39 +146,15 @@ export async function makeApi({ client, config, tidalUserId }: MakeApiParams): P
      */
     async search(query: string): Promise<MetadataSourceTrack[]> {
       try {
-        console.log(`[Tidal API] Searching for: "${query}"`)
         const response = await searchTracks(client, query)
-        console.log(`[Tidal API] Raw response:`, JSON.stringify(response, null, 2).substring(0, 500))
-        
         const parsed = tidalSearchResponseSchema.safeParse(response)
 
         if (!parsed.success) {
-          console.error("[Tidal API] Failed to parse search response:")
-          // Log each error
-          for (const error of parsed.error.errors) {
-            console.error(`[Tidal API]   - Path: ${error.path.join('.')}, Code: ${error.code}, Message: ${error.message}`)
-          }
-          console.error("[Tidal API] Response was:", JSON.stringify(response, null, 2).substring(0, 1000))
+          console.error("[Tidal API] Failed to parse search response:", parsed.error)
           return []
         }
 
-        console.log(`[Tidal API] Parsed ${parsed.data.data.length} tracks`)
-        console.log(`[Tidal API] Included items:`, parsed.data.included?.length ?? 0)
-        if (parsed.data.included?.length) {
-          console.log(`[Tidal API] Included types:`, [...new Set(parsed.data.included.map(i => i.type))])
-          // Log album data to see if imageCover is present
-          const albums = parsed.data.included.filter(i => i.type === "albums")
-          if (albums.length > 0) {
-            console.log(`[Tidal API] Album attributes keys:`, Object.keys(albums[0].attributes ?? {}))
-            console.log(`[Tidal API] Album relationships keys:`, Object.keys((albums[0] as any).relationships ?? {}))
-          }
-          // Log image resources if any
-          const images = parsed.data.included.filter(i => i.type === "imageResources" || i.type === "images")
-          if (images.length > 0) {
-            console.log(`[Tidal API] Found ${images.length} image resources`)
-          }
-        }
-        return parsed.data.data.map((track) =>
+        return parsed.data.data.map((track: Parameters<typeof transformTidalTrack>[0]) =>
           transformTidalTrack(track, parsed.data.included),
         )
       } catch (error) {
@@ -97,13 +185,41 @@ export async function makeApi({ client, config, tidalUserId }: MakeApiParams): P
     },
 
     /**
-     * Search for tracks by structured parameters
+     * Search for tracks by structured parameters.
+     * Uses smart matching to filter results that don't match the input artist/title.
+     * This addresses Tidal's search API sometimes returning irrelevant top results.
      */
     async searchByParams(params: MetadataSourceSearchParameters): Promise<MetadataSourceTrack[]> {
       const { title, artists, album } = params
       const artistNames = artists.map((a: { title: string }) => a.title).join(" ")
-      const query = `${title} ${artistNames} ${album?.title ?? ""}`.trim()
-      return this.search(query)
+
+      // Build query - don't include album as it can confuse Tidal's search
+      const query = `${artistNames} ${title}`.trim()
+
+      // Get raw search results
+      const allResults = await this.search(query)
+
+      if (allResults.length === 0) {
+        return []
+      }
+
+      // Apply matching logic to find the best result
+      const inputArtist = artistNames.toLowerCase()
+      const inputTitle = title.toLowerCase()
+      const inputAlbum = album?.title?.toLowerCase()
+
+      const bestMatch = findBestMatch(allResults, inputArtist, inputTitle, inputAlbum)
+
+      if (bestMatch) {
+        // Return the best match followed by other results (in case caller wants alternatives)
+        const otherResults = allResults.filter(
+          (_: MetadataSourceTrack, idx: number) => idx !== bestMatch.index,
+        )
+        return [bestMatch.track, ...otherResults]
+      }
+
+      // No good match found - return empty to indicate no match
+      return []
     },
 
     /**
@@ -161,8 +277,6 @@ export async function makeApi({ client, config, tidalUserId }: MakeApiParams): P
         throw new Error("Tidal user ID not available for playlist operations")
       }
 
-      console.log(`[Tidal MetadataSource] Creating playlist "${params.title}" with ${params.trackIds.length} tracks`)
-
       // Step 1: Create the empty playlist
       const playlist = await createPlaylistApi(
         client,
@@ -175,8 +289,6 @@ export async function makeApi({ client, config, tidalUserId }: MakeApiParams): P
       if (params.trackIds.length > 0) {
         await addTracksToPlaylist(client, playlist.id, params.trackIds)
       }
-
-      console.log(`[Tidal MetadataSource] ✓ Playlist created: ${playlist.url}`)
 
       return {
         title: playlist.title,
@@ -191,4 +303,3 @@ export async function makeApi({ client, config, tidalUserId }: MakeApiParams): P
 
   return api
 }
-
