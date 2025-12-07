@@ -15,7 +15,7 @@ vi.mock("../operations/room/handleRoomNowPlayingData", () => ({
   default: vi.fn(),
 }))
 vi.mock("../lib/makeNowPlayingFromStationMeta", () => ({
-  default: vi.fn().mockResolvedValue({}),
+  makeStableTrackId: vi.fn().mockReturnValue("stable-track-id"),
 }))
 vi.mock("../lib/systemMessage", () => ({
   default: vi.fn((msg) => ({ content: msg, type: "system" })),
@@ -32,7 +32,7 @@ import {
   clearRoomPlaylist,
 } from "../operations/data"
 import handleRoomNowPlayingData from "../operations/room/handleRoomNowPlayingData"
-import makeNowPlayingFromStationMeta from "../lib/makeNowPlayingFromStationMeta"
+import { makeStableTrackId } from "../lib/makeNowPlayingFromStationMeta"
 import { appContextFactory, roomFactory, userFactory } from "@repo/factories"
 
 describe("AdminService", () => {
@@ -223,7 +223,7 @@ describe("AdminService", () => {
       const newSettings = { fetchMeta: true }
 
       vi.mocked(clearRoomCurrent).mockResolvedValueOnce({
-        stationMeta: { title: "Test", bitrate: "256" },
+        stationMeta: { title: "Test Song | Test Artist | Test Album", bitrate: "256" },
       })
 
       await adminService.setRoomSettings("room123", "admin123", newSettings)
@@ -233,14 +233,22 @@ describe("AdminService", () => {
         roomId: "room123",
       })
 
-      expect(makeNowPlayingFromStationMeta).toHaveBeenCalledWith({ title: "Test", bitrate: "256" })
+      expect(makeStableTrackId).toHaveBeenCalledWith({
+        title: "Test Song | Test Artist | Test Album",
+        bitrate: "256",
+      })
 
       expect(handleRoomNowPlayingData).toHaveBeenCalledWith({
         context: mockContext,
         roomId: "room123",
-        nowPlaying: undefined,
-        stationMeta: { title: "Test", bitrate: "256" },
-        forcePublish: true,
+        submission: {
+          trackId: "stable-track-id",
+          sourceType: "shoutcast",
+          title: "Test Song",
+          artist: "Test Artist",
+          album: "Test Album",
+          stationMeta: { title: "Test Song | Test Artist | Test Album", bitrate: "256" },
+        },
       })
     })
 

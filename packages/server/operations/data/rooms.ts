@@ -232,6 +232,9 @@ type ClearRoomCurrentParams = {
 export async function clearRoomCurrent({ context, roomId, omitKeys }: ClearRoomCurrentParams) {
   const roomCurrentKey = `room:${roomId}:current`
   try {
+    // First, get current state before clearing (to return stationMeta etc.)
+    const current = await getRoomCurrent({ context, roomId })
+
     await context.redis.pubClient.hDel(
       roomCurrentKey,
       difference(
@@ -245,12 +248,12 @@ export async function clearRoomCurrent({ context, roomId, omitKeys }: ClearRoomC
           "track",
           "artist",
           "lastUpdatedAt",
+          "nowPlaying", // Also clear nowPlaying to force re-processing
         ],
         omitKeys ?? [],
       ),
     )
 
-    const current = await getRoomCurrent({ context, roomId })
     return current
   } catch (e) {
     console.error(e)
