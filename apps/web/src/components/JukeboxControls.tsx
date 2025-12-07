@@ -10,17 +10,11 @@ import { useIsAdmin } from "../hooks/useActors"
 
 type Props = {
   trackId: string // For reactions (stable ID)
-  libraryTrackId: string // For library operations (MetadataSource ID)
   hasPlaylist: boolean
   onShowPlaylist: () => void
 }
 
-export default function JukeboxControls({
-  trackId,
-  libraryTrackId,
-  hasPlaylist,
-  onShowPlaylist,
-}: Props) {
+export default function JukeboxControls({ trackId, hasPlaylist, onShowPlaylist }: Props) {
   const isAdmin = useIsAdmin()
   return (
     <Box>
@@ -28,7 +22,7 @@ export default function JukeboxControls({
         <Box py={1} h={10} overflowX="auto">
           <Box px={4} flexDir="row">
             <HStack alignItems="flex-start">
-              <ButtonAddToLibrary id={libraryTrackId} />
+              <ButtonAddToLibrary />
               <ReactionCounter
                 reactTo={{ type: "track", id: trackId }}
                 showAddButton={true}

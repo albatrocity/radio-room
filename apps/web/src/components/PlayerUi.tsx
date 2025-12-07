@@ -8,7 +8,6 @@ import {
   useIsStationOnline,
   useStationMeta,
   useCurrentTrackId,
-  useMetadataSourceTrackId,
   useCurrentRoom,
   useCurrentRoomHasAudio,
 } from "../hooks/useActors"
@@ -31,7 +30,6 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const isOnline = useIsStationOnline()
   const meta = useStationMeta()
   const trackId = useCurrentTrackId() // For reactions (stable ID)
-  const libraryTrackId = useMetadataSourceTrackId() // For library operations (Spotify ID)
 
   const isJukebox = !hasAudio
 
@@ -48,7 +46,6 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
       {isJukebox && (
         <JukeboxControls
           trackId={trackId}
-          libraryTrackId={libraryTrackId}
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}
         />
@@ -66,7 +63,6 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
         >
           <RadioControls
             trackId={trackId}
-            libraryTrackId={libraryTrackId}
             onShowPlaylist={onShowPlaylist}
             hasPlaylist={hasPlaylist}
             streamUrl={room.radioListenUrl ?? room.radioMetaUrl}
