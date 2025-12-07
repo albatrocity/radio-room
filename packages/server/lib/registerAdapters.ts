@@ -87,10 +87,16 @@ export async function registerAdapters(
 
   // Register metadata sources
   for (const { name, module, authentication, url = "" } of config.metadataSources ?? []) {
-    const instance = await module.register({ name, url, authentication, registerJob })
-    context.adapters.metadataSourceModules.set(name, module)
-    context.adapters.metadataSources.set(name, instance)
-    console.log(`Registered metadata source: ${name}`)
+    try {
+      const instance = await module.register({ name, url, authentication, registerJob })
+      context.adapters.metadataSourceModules.set(name, module)
+      context.adapters.metadataSources.set(name, instance)
+      console.log(`Registered metadata source: ${name}`)
+    } catch (error) {
+      console.error(`Failed to register metadata source ${name}:`, error)
+      // Store the module anyway so it can be instantiated per-room later
+      context.adapters.metadataSourceModules.set(name, module)
+    }
   }
 
   // Register media sources
@@ -103,9 +109,14 @@ export async function registerAdapters(
 
   // Mount auth routes
   for (const { path, handler } of config.authRoutes ?? []) {
-    const router = handler(context)
-    server.mountRoutes(path, router)
-    console.log(`Mounted auth routes: ${path}`)
+    try {
+      const router = handler(context)
+      server.mountRoutes(path, router)
+      console.log(`Mounted auth routes: ${path}`)
+    } catch (error) {
+      console.error(`Failed to mount auth routes at ${path}:`, error)
+      // Continue with other auth routes - don't let one failure break others
+    }
   }
 
   // Store plugins to be registered after server.start() initializes the PluginRegistry

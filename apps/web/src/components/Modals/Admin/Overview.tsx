@@ -15,6 +15,7 @@ import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 import ActiveIndicator from "../../ActiveIndicator"
 import DestructiveActions from "./DestructiveActions"
 import ButtonRoomAuthSpotify from "../../ButtonRoomAuthSpotify"
+import ButtonRoomAuthTidal from "../../ButtonRoomAuthTidal"
 
 /**
  * Convert plugin name to a display-friendly title
@@ -179,7 +180,10 @@ function Overview() {
             <Heading as="h4" size="sm" textAlign="left">
               Authentication
             </Heading>
-            <ButtonRoomAuthSpotify />
+            <VStack w="100%" align="left" gap={4}>
+              <ButtonRoomAuthSpotify />
+              <ButtonRoomAuthTidal />
+            </VStack>
           </VStack>
         </VStack>
         <Separator my={6} />

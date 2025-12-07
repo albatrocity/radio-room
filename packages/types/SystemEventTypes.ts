@@ -16,6 +16,8 @@ import type { QueueItem } from "./Queue"
 import type { ReactionPayload, ReactionStore } from "./Reaction"
 import type { User } from "./User"
 import type { ChatMessage } from "./ChatMessage"
+import type { MetadataSourceTrack } from "./MetadataSource"
+import type { MetadataSourceType } from "./TrackSource"
 
 /**
  * System event handler signatures
@@ -42,6 +44,14 @@ export type SystemEventHandlers = {
   PLAYLIST_TRACK_ADDED: (data: { roomId: string; track: QueueItem }) => Promise<void> | void
 
   PLAYLIST_TRACK_UPDATED: (data: { roomId: string; track: QueueItem }) => Promise<void> | void
+
+  // Event for when additional metadata arrives for an existing track (from secondary MetadataSources)
+  TRACK_METADATA_UPDATED: (data: {
+    roomId: string
+    trackKey: string // mediaSource identifier (e.g., "spotify:trackId")
+    metadataSourceType: MetadataSourceType
+    track: MetadataSourceTrack
+  }) => Promise<void> | void
 
   // Reaction events
   REACTION_ADDED: (data: {

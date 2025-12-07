@@ -27,12 +27,13 @@ function ModalAddToQueue() {
   const room = useCurrentRoom()
   const hideEditForm = () => modalSend({ type: "CLOSE" })
 
-  // Initialize auth check when modal opens
+  // Initialize auth check when modal opens (use primary metadata source)
+  const primaryMetadataSourceId = room?.metadataSourceIds?.[0]
   useEffect(() => {
-    if (isAddingToQueue && isAdmin && room?.metadataSourceId && currentUser?.userId) {
+    if (isAddingToQueue && isAdmin && primaryMetadataSourceId && currentUser?.userId) {
       // Determine service name from metadata source ID
       // Format: "spotify-metadata" -> "spotify"
-      const serviceName = room.metadataSourceId.split("-")[0]
+      const serviceName = primaryMetadataSourceId.split("-")[0]
       metadataAuthSend({
         type: "INIT",
         data: {
@@ -42,7 +43,7 @@ function ModalAddToQueue() {
       })
       metadataAuthSend({ type: "FETCH_STATUS" })
     }
-  }, [isAddingToQueue, isAdmin, room?.metadataSourceId, currentUser?.userId, metadataAuthSend])
+  }, [isAddingToQueue, isAdmin, primaryMetadataSourceId, currentUser?.userId, metadataAuthSend])
 
   const canViewSavedTracks = isAdmin && isMetadataSourceAuthenticated
 

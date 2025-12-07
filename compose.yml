@@ -41,6 +41,9 @@ services:
       - SESSION_SECRET=dev-secret-change-in-production
       - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
       - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - TIDAL_CLIENT_ID=${TIDAL_CLIENT_ID}
+      - TIDAL_CLIENT_SECRET=${TIDAL_CLIENT_SECRET}
+      - TIDAL_REDIRECT_URI=${TIDAL_REDIRECT_URI:-http://127.0.0.1:3000/auth/tidal/callback}
       # Use 127.0.0.1 (loopback) instead of localhost per Spotify's requirements
       - SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI:-http://127.0.0.1:3000/auth/spotify/callback}
       - APP_URL=${APP_URL:-http://127.0.0.1:8000}

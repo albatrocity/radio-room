@@ -24,7 +24,7 @@ vi.mock("../operations/data", async () => {
       userId: "1",
       creator: "1", // Room creator ID
       title: "Test Room",
-      metadataSourceId: "spotify-metadata",
+      metadataSourceIds: ["spotify"],
     }),
   }
 })
@@ -84,7 +84,7 @@ describe("DJHandlers", () => {
       userId: "1",
       creator: "1",
       title: "Test Room",
-      metadataSourceId: "spotify-metadata",
+      metadataSourceIds: ["spotify"],
     } as any)
 
     // Mock the DJService

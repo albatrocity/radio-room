@@ -66,11 +66,14 @@ export async function saveRoom({ context, room }: SaveRoomParams) {
     await addRoomToRoomList({ context, roomId: room.id })
     await addRoomToUserRoomList({ context, room })
 
-    // Ensure mediaSourceConfig is JSON-stringified before saving
+    // Ensure mediaSourceConfig and metadataSourceIds are JSON-stringified before saving
     const roomToSave = {
       ...room,
       ...(room.mediaSourceConfig
         ? { mediaSourceConfig: JSON.stringify(room.mediaSourceConfig) }
+        : {}),
+      ...(room.metadataSourceIds
+        ? { metadataSourceIds: JSON.stringify(room.metadataSourceIds) }
         : {}),
     }
 
@@ -391,6 +394,7 @@ export function parseRoom(room: StoredRoom): Room {
     ...(room.spotifyError ? { spotifyError: safeParse(room.spotifyError) } : {}),
     ...(room.radioError ? { radioError: safeParse(room.radioError) } : {}),
     ...(room.mediaSourceConfig ? { mediaSourceConfig: safeParse(room.mediaSourceConfig) } : {}),
+    ...(room.metadataSourceIds ? { metadataSourceIds: safeParse(room.metadataSourceIds) } : {}),
   }
 }
 

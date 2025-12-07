@@ -17,7 +17,7 @@ import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
 function configureAdaptersForRoomType(params: {
   type: "jukebox" | "radio"
   playbackControllerId?: string
-  metadataSourceId?: string
+  metadataSourceIds?: string[]
   mediaSourceId?: string
   mediaSourceConfig?: any
   radioMetaUrl?: string
@@ -25,7 +25,7 @@ function configureAdaptersForRoomType(params: {
   const {
     type,
     playbackControllerId,
-    metadataSourceId,
+    metadataSourceIds,
     mediaSourceId,
     mediaSourceConfig,
     radioMetaUrl,
@@ -34,14 +34,14 @@ function configureAdaptersForRoomType(params: {
   if (type === "jukebox") {
     return {
       playbackControllerId: playbackControllerId || "spotify",
-      metadataSourceId: metadataSourceId || "spotify",
+      metadataSourceIds: metadataSourceIds || ["spotify"],
       mediaSourceId: mediaSourceId || "spotify",
       mediaSourceConfig,
     }
   } else if (type === "radio") {
     return {
       playbackControllerId: playbackControllerId || "spotify",
-      metadataSourceId: metadataSourceId || "spotify",
+      metadataSourceIds: metadataSourceIds || ["spotify"],
       mediaSourceId: mediaSourceId || "shoutcast",
       mediaSourceConfig: mediaSourceConfig || (radioMetaUrl ? { url: radioMetaUrl } : undefined),
     }
@@ -50,7 +50,7 @@ function configureAdaptersForRoomType(params: {
   // Default fallback
   return {
     playbackControllerId,
-    metadataSourceId,
+    metadataSourceIds,
     mediaSourceId,
     mediaSourceConfig,
   }
@@ -67,7 +67,7 @@ export async function create(req: Request, res: Response) {
     radioProtocol,
     deputizeOnJoin,
     playbackControllerId: requestedPlaybackControllerId,
-    metadataSourceId: requestedMetadataSourceId,
+    metadataSourceIds: requestedMetadataSourceIds,
     mediaSourceId: requestedMediaSourceId,
     mediaSourceConfig: requestedMediaSourceConfig,
   } = req.body
@@ -81,11 +81,11 @@ export async function create(req: Request, res: Response) {
     const id = createRoomId({ creator: userId, type, createdAt })
 
     // Auto-configure adapter IDs based on room type
-    const { playbackControllerId, metadataSourceId, mediaSourceId, mediaSourceConfig } =
+    const { playbackControllerId, metadataSourceIds, mediaSourceId, mediaSourceConfig } =
       configureAdaptersForRoomType({
         type,
         playbackControllerId: requestedPlaybackControllerId,
-        metadataSourceId: requestedMetadataSourceId,
+        metadataSourceIds: requestedMetadataSourceIds,
         mediaSourceId: requestedMediaSourceId,
         mediaSourceConfig: requestedMediaSourceConfig,
         radioMetaUrl,
@@ -103,7 +103,7 @@ export async function create(req: Request, res: Response) {
       deputizeOnJoin,
       lastRefreshedAt: createdAt,
       playbackControllerId,
-      metadataSourceId,
+      metadataSourceIds,
       mediaSourceId,
       mediaSourceConfig,
     })

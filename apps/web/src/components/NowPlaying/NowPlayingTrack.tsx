@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { FiUser } from "react-icons/fi"
 import { FaSpotify } from "react-icons/fa"
+import { SiTidal } from "react-icons/si"
 import {
   Heading,
   Text,
@@ -21,6 +22,8 @@ import { User } from "../../types/User"
 import { Room, RoomMeta } from "../../types/Room"
 import { PluginArea } from "../PluginComponents"
 import { usePluginStyles } from "../../hooks/usePluginStyles"
+import { usePreferredMetadataSource } from "../../hooks/useActors"
+import { MetadataSourceType } from "../../types/Queue"
 
 interface NowPlayingTrackProps {
   meta: RoomMeta
@@ -56,9 +59,41 @@ function getExternalUrl(release: any): string | null {
   )
 }
 
+/**
+ * Get the track data for the user's preferred metadata source,
+ * falling back to the default track data if preferred source isn't available
+ */
+function getPreferredTrackData(
+  nowPlaying: RoomMeta["nowPlaying"],
+  preferredSource: MetadataSourceType | undefined,
+) {
+  // If we have a preference and the data is available, use it
+  if (preferredSource && nowPlaying?.metadataSources?.[preferredSource]) {
+    return {
+      track: nowPlaying.metadataSources[preferredSource]!.track,
+      metadataSource: nowPlaying.metadataSources[preferredSource]!.source,
+    }
+  }
+
+  // Fall back to default track data
+  return {
+    track: nowPlaying?.track,
+    metadataSource: nowPlaying?.metadataSource,
+  }
+}
+
 export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   const { album, artist, track, nowPlaying, title, dj } = meta
-  const release = nowPlaying?.track
+  const preferredSource = usePreferredMetadataSource()
+
+  // Get track data based on user's preference
+  const { track: preferredTrack, metadataSource: activeMetadataSource } = useMemo(
+    () => getPreferredTrackData(nowPlaying, preferredSource),
+    [nowPlaying, preferredSource],
+  )
+
+  // Use preferred track data if available, otherwise fall back to default
+  const release = preferredTrack || nowPlaying?.track
 
   const coverUrl = getCoverUrl(release, room)
   const externalUrl = getExternalUrl(release)
@@ -125,7 +160,7 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
 
             <PluginArea area="nowPlayingInfo" color="primaryBg" />
 
-            <MetadataSourceInfo metadataSource={nowPlaying?.metadataSource} />
+            <MetadataSourceInfo metadataSource={activeMetadataSource} />
           </VStack>
         </Stack>
       </LinkBox>
@@ -151,7 +186,7 @@ function TrackTitle({ title, externalUrl, pluginStyles }: TrackTitleProps) {
 
   if (externalUrl) {
     return (
-      <LinkOverlay href={externalUrl} isExternal>
+      <LinkOverlay href={externalUrl} target="_blank" rel="noopener noreferrer">
         <Heading {...headingStyles} style={pluginStyles}>
           {title}
         </Heading>
@@ -192,24 +227,40 @@ interface MetadataSourceInfoProps {
 function MetadataSourceInfo({ metadataSource }: MetadataSourceInfoProps) {
   if (!metadataSource) return null
 
+  const getSourceIcon = (type: string) => {
+    switch (type) {
+      case "spotify":
+        return FaSpotify
+      case "tidal":
+        return SiTidal
+      default:
+        return null
+    }
+  }
+
+  const getSourceName = (type: string) => {
+    switch (type) {
+      case "spotify":
+        return "Spotify"
+      case "tidal":
+        return "Tidal"
+      default:
+        return type
+    }
+  }
+
+  const SourceIcon = getSourceIcon(metadataSource.type)
+
   return (
     <HStack gap={1}>
       <Text as="span" color="primary.200" fontSize="2xs">
         Track data provided by
       </Text>
       <HStack gap={1}>
-        {metadataSource.type === "spotify" ? (
-          <>
-            <Icon as={FaSpotify} color="primary.200" boxSize={3} />
-            <Text color="primary.200" fontSize="2xs" as="span">
-              Spotify
-            </Text>
-          </>
-        ) : (
-          <Text color="primary.200" fontSize="2xs" as="span">
-            {metadataSource.type}
-          </Text>
-        )}
+        {SourceIcon && <Icon as={SourceIcon} color="primary.200" boxSize={3} />}
+        <Text color="primary.200" fontSize="2xs" as="span">
+          {getSourceName(metadataSource.type)}
+        </Text>
       </HStack>
     </HStack>
   )

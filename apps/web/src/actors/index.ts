@@ -147,6 +147,17 @@ export {
   getServiceName,
 } from "./metadataSourceAuthActor"
 
+// Metadata Preference Actor
+export {
+  metadataPreferenceActor,
+  getPreferredSource,
+  getAvailableSources,
+  setAvailableSources,
+  setPreferredSource,
+  clearPreference,
+  metadataSourceDisplayNames,
+} from "./metadataPreferenceActor"
+
 // Bookmarked Chat Actor
 export {
   bookmarkedChatActor,

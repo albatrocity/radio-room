@@ -172,15 +172,17 @@ export class AuthService {
     const pluginConfigs = await getAllPluginConfigs({ context: this.context, roomId })
 
     // Get access token for room creator to enable authenticated features (search, liked tracks, etc.)
+    // Use the first metadata source (primary) for auth token
     let accessToken: string | undefined = undefined
-    if (isAdmin && room.metadataSourceId && this.context.data?.getUserServiceAuth) {
+    const primaryMetadataSource = room.metadataSourceIds?.[0]
+    if (isAdmin && primaryMetadataSource && this.context.data?.getUserServiceAuth) {
       try {
         const auth = await this.context.data.getUserServiceAuth({
           userId,
-          serviceName: room.metadataSourceId,
+          serviceName: primaryMetadataSource,
         })
         accessToken = auth?.accessToken
-        console.log(`Retrieved ${room.metadataSourceId} access token for room creator ${userId}`)
+        console.log(`Retrieved ${primaryMetadataSource} access token for room creator ${userId}`)
       } catch (error) {
         console.error(`Failed to retrieve access token for room creator ${userId}:`, error)
       }

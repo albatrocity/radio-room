@@ -1,0 +1,28 @@
+{
+  "name": "@repo/adapter-tidal",
+  "version": "1.0.0",
+  "description": "Tidal adapter for Radio Room - MetadataSource implementation",
+  "main": "index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/types": "*",
+    "@repo/typescript-config": "*",
+    "@types/express": "^5.0.0",
+    "vitest": "^4.0.13"
+  },
+  "dependencies": {
+    "@repo/server": "*",
+    "@repo/utils": "*",
+    "express": "^5.1.0",
+    "zod": "^4.1.13"
+  }
+}
+

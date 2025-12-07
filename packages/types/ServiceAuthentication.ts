@@ -7,6 +7,8 @@ export type ServiceAuthenticationTokens = {
   accessToken: string
   refreshToken: string
   expiresAt?: number
+  /** Service-specific metadata (e.g., Tidal user ID for library operations) */
+  metadata?: Record<string, unknown>
 }
 
 export type ServiceAuthenticationStatus = {

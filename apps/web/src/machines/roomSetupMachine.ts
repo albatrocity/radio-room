@@ -34,7 +34,7 @@ const createRoomLogic = fromPromise<RoomCreationResponse, RoomSetupContext>(
     // For jukebox rooms, use Spotify for both playback and metadata
     // For radio rooms, use Shoutcast for media source
     const playbackControllerId = roomType === "jukebox" ? "spotify" : undefined
-    const metadataSourceId = roomType === "jukebox" ? "spotify" : undefined
+    const metadataSourceIds = roomType === "jukebox" ? ["spotify"] : undefined
     const mediaSourceId = roomType === "radio" ? "shoutcast" : undefined
 
     const res = await apiCreateRoom({
@@ -46,7 +46,7 @@ const createRoomLogic = fromPromise<RoomCreationResponse, RoomSetupContext>(
         radioProtocol: ctx.room?.radioProtocol ?? undefined,
         deputizeOnJoin: ctx.room?.deputizeOnJoin ?? false,
         playbackControllerId,
-        metadataSourceId,
+        metadataSourceIds,
         mediaSourceId,
       },
       challenge: ctx.challenge ?? "",

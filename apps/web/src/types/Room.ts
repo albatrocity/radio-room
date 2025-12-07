@@ -29,6 +29,7 @@ export type Room = {
   lastUpdatedAt?: string
   announceUsernameChanges?: boolean
   announceNowPlaying?: boolean
+  metadataSourceIds?: string[]
 }
 
 export type RoomSetup = Pick<
@@ -41,7 +42,7 @@ export type RoomSetup = Pick<
   | "deputizeOnJoin"
 > & {
   playbackControllerId?: string
-  metadataSourceId?: string
+  metadataSourceIds?: string[]
   mediaSourceId?: string
 }
 

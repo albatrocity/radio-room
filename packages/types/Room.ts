@@ -36,7 +36,7 @@ export type Room = {
   radioProtocol?: StationProtocol
   // New adapter-based configuration
   playbackControllerId?: string
-  metadataSourceId?: string
+  metadataSourceIds?: string[]
   mediaSourceId?: string
   mediaSourceConfig?: { url: string }
   createdAt: string
@@ -66,6 +66,7 @@ export interface StoredRoom
     | "announceUsernameChanges"
     | "persistent"
     | "mediaSourceConfig"
+    | "metadataSourceIds"
   > {
   fetchMeta: Bool
   enableSpotifyLogin: Bool
@@ -76,6 +77,7 @@ export interface StoredRoom
   spotifyError?: string
   radioError?: string
   mediaSourceConfig?: string
+  metadataSourceIds?: string // JSON stringified array
 }
 
 // =============================================================================
