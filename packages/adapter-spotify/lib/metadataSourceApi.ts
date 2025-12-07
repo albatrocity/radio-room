@@ -39,8 +39,31 @@ export async function makeApi({
       }
     },
     async searchByParams(params) {
-      const { title, artists, album, id } = params
-      const query = `track:${title} artist:${artists.join(" OR ")} album:${album} id:${id}`
+      const { title, artists, album } = params
+
+      // Build Spotify search query with proper field syntax
+      // https://developer.spotify.com/documentation/web-api/reference/search
+      const queryParts: string[] = []
+
+      if (title) {
+        queryParts.push(`track:"${title}"`)
+      }
+
+      // Artists is an array of { id, title, urls } objects
+      if (artists && artists.length > 0) {
+        const artistNames = artists.map((a) => a.title).filter(Boolean)
+        if (artistNames.length > 0) {
+          // Use the first artist for more precise matching
+          queryParts.push(`artist:"${artistNames[0]}"`)
+        }
+      }
+
+      // Album is an object with title property
+      if (album?.title) {
+        queryParts.push(`album:"${album.title}"`)
+      }
+
+      const query = queryParts.join(" ")
       return this.search(query)
     },
     // Playlist creation

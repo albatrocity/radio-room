@@ -1,4 +1,4 @@
-import React, { useEffect } from "react"
+import { useEffect } from "react"
 import { Box, Container, HStack } from "@chakra-ui/react"
 
 import ReactionCounter from "./ReactionCounter"
@@ -14,19 +14,12 @@ import {
 
 type Props = {
   trackId: string // For reactions (stable ID)
-  libraryTrackId: string // For library operations (MetadataSource ID)
   onShowPlaylist: () => void
   hasPlaylist: boolean
   streamUrl?: string
 }
 
-export default function RadioControls({
-  trackId,
-  libraryTrackId,
-  onShowPlaylist,
-  hasPlaylist,
-  streamUrl,
-}: Props) {
+export default function RadioControls({ trackId, onShowPlaylist, hasPlaylist, streamUrl }: Props) {
   const audioSend = useAudioSend()
   const playing = useIsPlaying()
   const muted = useIsMuted()
@@ -50,7 +43,7 @@ export default function RadioControls({
       <Box display={["none", "flex"]} background="actionBg" alignItems="center" py="1">
         <Container>
           <HStack>
-            <ButtonAddToLibrary id={libraryTrackId} />
+            <ButtonAddToLibrary />
             <ReactionCounter
               reactTo={{ type: "track", id: trackId }}
               darkBg={true}
@@ -72,7 +65,6 @@ export default function RadioControls({
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}
           trackId={trackId}
-          libraryTrackId={libraryTrackId}
           loading={loading}
           streamUrl={streamUrl}
         />

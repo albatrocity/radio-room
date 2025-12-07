@@ -206,7 +206,7 @@ export class AdapterService {
 
               if (isExpired) {
                 console.log(`[AdapterService] Token for ${sourceId} is expired, refreshing...`)
-                
+
                 // Get the service auth adapter to refresh
                 const serviceAuthAdapter = this.context.adapters.serviceAuth.get(sourceId)
                 if (serviceAuthAdapter?.refreshAuth) {
@@ -219,7 +219,10 @@ export class AdapterService {
                       metadata: auth.metadata, // Preserve metadata (e.g., tidalUserId)
                     }
                   } catch (refreshError) {
-                    console.error(`[AdapterService] Failed to refresh ${sourceId} token:`, refreshError)
+                    console.error(
+                      `[AdapterService] Failed to refresh ${sourceId} token:`,
+                      refreshError,
+                    )
                     // Return the old tokens and let the API call fail
                   }
                 }
@@ -304,7 +307,9 @@ export class AdapterService {
     // Get service-specific config
     const serviceConfig = getServiceConfig(primaryMetadataSourceId)
     if (!serviceConfig.clientId) {
-      console.error(`No client ID configured for service: ${getServiceName(primaryMetadataSourceId)}`)
+      console.error(
+        `No client ID configured for service: ${getServiceName(primaryMetadataSourceId)}`,
+      )
       return null
     }
 
@@ -385,8 +390,6 @@ export class AdapterService {
       console.error(`No auth tokens found for user ${userId} on service ${sourceType}`)
       return null
     }
-
-    console.log(`[AdapterService.getMetadataSourceForUser] Auth metadata for ${sourceType}:`, auth.metadata)
 
     // Get service-specific config
     const serviceConfig = getServiceConfig(sourceType)
