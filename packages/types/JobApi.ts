@@ -98,20 +98,4 @@ export interface JobApi {
    * Returns null if no track is currently playing.
    */
   getCurrentTrackId: (roomId: string) => Promise<string | null>
-
-  /**
-   * Submit queue sync data from the MediaSource.
-   *
-   * The server will:
-   * - Compare MediaSource queue with app's internal queue
-   * - Remove tracks from app queue that are no longer in MediaSource queue
-   * - Emit QUEUE_CHANGED event if changes occurred
-   *
-   * @param roomId - The room to sync queue for
-   * @param mediaSourceTrackUris - Array of track URIs currently in the MediaSource queue
-   */
-  submitQueueSync: (params: {
-    roomId: string
-    mediaSourceTrackUris: string[]
-  }) => Promise<{ changed: boolean; removedCount: number }>
 }

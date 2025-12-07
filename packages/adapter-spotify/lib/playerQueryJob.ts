@@ -1,11 +1,6 @@
 import { AppContext, JobRegistration, JobApi } from "@repo/types"
 import { SpotifyApi } from "@spotify/web-api-ts-sdk"
 import { trackItemSchema } from "./schemas"
-import { fetchSpotifyQueue } from "./operations/syncQueue"
-
-// Throttle queue sync to once per 60 seconds
-const QUEUE_SYNC_INTERVAL_MS = 60 * 1000
-const lastQueueSyncTime: Map<string, number> = new Map()
 
 /**
  * Creates a polling job that fetches currently playing track from Spotify.
@@ -13,14 +8,15 @@ const lastQueueSyncTime: Map<string, number> = new Map()
  * This job:
  * 1. Polls Spotify API for currently playing track
  * 2. Submits track data to server via JobApi
- * 3. Periodically syncs the Spotify queue with the app's queue (every 60 seconds)
  *
  * The server handles:
  * - Track deduplication (is this a new track?)
  * - QueueItem construction
  * - Redis persistence
  * - Playlist/queue management
- * - Event emission (TRACK_CHANGED, MEDIA_SOURCE_STATUS_CHANGED, QUEUE_CHANGED)
+ * - Event emission (TRACK_CHANGED, MEDIA_SOURCE_STATUS_CHANGED)
+ *
+ * Note: Queue sync is handled separately by the server's queue sync job.
  */
 export function createPlayerQueryJob(params: {
   context: AppContext
@@ -102,31 +98,6 @@ export function createPlayerQueryJob(params: {
         } else {
           // No track playing - notify server
           await api.submitMediaData({ roomId })
-        }
-
-        // Sync queue periodically (throttled to once per 60 seconds)
-        const lastSync = lastQueueSyncTime.get(roomId) ?? 0
-        const now = Date.now()
-        if (now - lastSync >= QUEUE_SYNC_INTERVAL_MS) {
-          try {
-            const { trackUris } = await fetchSpotifyQueue({ spotifyApi })
-            const result = await api.submitQueueSync({
-              roomId,
-              mediaSourceTrackUris: trackUris,
-            })
-            if (result.changed) {
-              console.log(
-                `[Queue Sync] Room ${roomId}: Removed ${result.removedCount} tracks no longer in Spotify queue`,
-              )
-            }
-            lastQueueSyncTime.set(roomId, now)
-          } catch (queueError: any) {
-            // Don't fail the whole job if queue sync fails
-            console.warn(
-              `[Queue Sync] Failed for room ${roomId}:`,
-              queueError?.message || queueError,
-            )
-          }
         }
       } catch (error: any) {
         // Handle rate limiting

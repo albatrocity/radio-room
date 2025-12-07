@@ -106,7 +106,7 @@ export async function getQueue({ roomId, context }: { roomId: string; context: A
   try {
     // Get track IDs from the set
     const trackIds = await context.redis.pubClient.sMembers(`room:${roomId}:queue`)
-    
+
     // Fetch each queued track
     const queueItems = await Promise.all(
       trackIds.map(async (trackId) => {
@@ -122,9 +122,9 @@ export async function getQueue({ roomId, context }: { roomId: string; context: A
           console.error(`Error fetching queued track ${trackId}:`, e)
           return null
         }
-      })
+      }),
     )
-    
+
     // Filter out nulls
     return queueItems.filter((item): item is QueueItem => item !== null)
   } catch (e) {

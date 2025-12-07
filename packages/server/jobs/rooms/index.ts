@@ -1,5 +1,6 @@
 import { refreshServiceTokens } from "./refreshServiceTokens"
 import { cleanupRoom } from "./cleanupRooms"
+import { syncQueue } from "./syncQueue"
 import { AppContext, JobApi } from "@repo/types"
 
 export default async function roomsJobHandler({ context }: { api: JobApi; context: AppContext }) {
@@ -10,6 +11,7 @@ export default async function roomsJobHandler({ context }: { api: JobApi; contex
     await Promise.all(
       roomIds.map(async (id) => {
         await refreshServiceTokens(context, id)
+        await syncQueue(context, id)
         return cleanupRoom(context, id)
       }),
     )
