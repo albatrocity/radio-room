@@ -2,9 +2,9 @@ import { useMemo, memo } from "react"
 import { format } from "date-fns"
 import { Stack, LinkBox, LinkOverlay, Text, Icon, Image, Box, HStack } from "@chakra-ui/react"
 
-import { PlaylistItem as PlaylistItemType } from "../types/PlaylistItem"
+import { PlaylistItem as PlaylistItemType, getPreferredTrack } from "../types/PlaylistItem"
 import { FiUser, FiSkipForward } from "react-icons/fi"
-import { useUsers } from "../hooks/useActors"
+import { useUsers, usePreferredMetadataSource } from "../hooks/useActors"
 import { PluginArea } from "./PluginComponents"
 
 type Props = {
@@ -12,11 +12,19 @@ type Props = {
 }
 
 const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
-  // Get album art from track images (QueueItem format)
+  const preferredSource = usePreferredMetadataSource()
+  
+  // Get track data from preferred metadata source (or fall back to default)
+  const preferredTrack = useMemo(
+    () => getPreferredTrack(item, preferredSource),
+    [item, preferredSource],
+  )
+
+  // Get album art from preferred track
   const artThumb = useMemo(() => {
-    const imageUrl = item.track.album?.images?.find((img) => img.type === "image" && img.url)?.url
+    const imageUrl = preferredTrack?.album?.images?.find((img) => img.type === "image" && img.url)?.url
     return imageUrl
-  }, [item.track.album?.images])
+  }, [preferredTrack?.album?.images])
 
   const users = useUsers()
   const djUsername = useMemo(
@@ -24,10 +32,10 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
     [users, item.addedBy],
   )
 
-  // Get external URL from track.urls
+  // Get external URL from preferred track
   const externalUrl = useMemo(
-    () => item.track.urls?.find((url) => url.type === "resource")?.url,
-    [item.track.urls],
+    () => preferredTrack?.urls?.find((url) => url.type === "resource")?.url,
+    [preferredTrack?.urls],
   )
 
   // Check if track was skipped by playlist-democracy plugin
@@ -51,7 +59,7 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
             </Box>
           )}
           <Stack direction="column" gap={0}>
-            {item.track && (
+            {preferredTrack && (
               <HStack gap={1}>
                 <LinkOverlay isExternal href={externalUrl} m={0}>
                   <Text
@@ -59,13 +67,13 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
                     textDecoration={isSkipped ? "line-through" : "none"}
                     color={isSkipped ? "secondaryText" : "inherit"}
                   >
-                    {item.track.title}
+                    {preferredTrack.title}
                   </Text>
                 </LinkOverlay>
                 {isSkipped && <Icon as={FiSkipForward} color="orange.400" boxSize={3} />}
               </HStack>
             )}
-            {item.track.artists.map((a) => (
+            {preferredTrack?.artists?.map((a) => (
               <Text
                 key={a.id}
                 textDecoration={isSkipped ? "line-through" : "none"}
