@@ -102,7 +102,11 @@ export function createTidalAuthRoutes(context: AppContext) {
     }
 
     // Tidal OAuth scopes
-    const scope = "search.read collection.read collection.write user.read"
+    // - search.read: Required for search functionality
+    // - collection.read/write: Required for library operations (save tracks)
+    // - user.read: Required to get user ID
+    // - playlists.read/write: Required for playlist creation
+    const scope = "search.read collection.read collection.write user.read playlists.read playlists.write"
 
     console.log("[Tidal Auth] Redirect URI being used:", redirectUri)
     console.log("[Tidal Auth] Client ID:", clientId?.substring(0, 8) + "...")

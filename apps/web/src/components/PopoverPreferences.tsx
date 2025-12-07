@@ -10,13 +10,13 @@ import {
   Switch,
   Separator,
   Field,
-  NativeSelect,
   Text,
 } from "@chakra-ui/react"
 import { FiSettings, FiMoon } from "react-icons/fi"
 
 import FormTheme from "./FormTheme"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
+import { ServiceSelect } from "./ServiceSelect"
 import {
   useCurrentRoom,
   useAvailableMetadataSources,
@@ -24,7 +24,7 @@ import {
   useMetadataPreferenceSend,
 } from "../hooks/useActors"
 import { useColorMode } from "./ui/color-mode"
-import { metadataSourceDisplayNames, setAvailableSources } from "../actors"
+import { setAvailableSources } from "../actors"
 import { MetadataSourceType } from "../types/Queue"
 
 type Props = {}
@@ -43,10 +43,10 @@ const PopoverPreferences = (props: Props) => {
     }
   }, [room?.metadataSourceIds])
 
-  const handleSourceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleSourceChange = (source: MetadataSourceType) => {
     sendMetadataPreference({
       type: "SET_PREFERRED_SOURCE",
-      source: e.target.value as MetadataSourceType,
+      source,
     })
   }
 
@@ -93,16 +93,12 @@ const PopoverPreferences = (props: Props) => {
                   <Field.Label>
                     <Text fontWeight="semibold">Preferred Music Service</Text>
                   </Field.Label>
-                  <NativeSelect.Root>
-                    <NativeSelect.Field value={preferredSource} onChange={handleSourceChange}>
-                      {availableSources.map((source) => (
-                        <option key={source} value={source}>
-                          {metadataSourceDisplayNames[source] ?? source}
-                        </option>
-                      ))}
-                    </NativeSelect.Field>
-                    <NativeSelect.Indicator />
-                  </NativeSelect.Root>
+                  <ServiceSelect
+                    value={preferredSource || availableSources[0] || "spotify"}
+                    onChange={handleSourceChange}
+                    availableServices={availableSources}
+                    size="md"
+                  />
                   <Field.HelperText>Track info and links will use this service</Field.HelperText>
                 </Field.Root>
               </Box>

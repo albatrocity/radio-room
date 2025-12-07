@@ -6,6 +6,8 @@ import {
   addToUserCollection,
   removeFromUserCollection,
   checkSavedTracks as checkSavedTracksApi,
+  createPlaylist as createPlaylistApi,
+  addTracksToPlaylist,
 } from "./tidalApi"
 import {
   tidalSearchResponseSchema,
@@ -146,8 +148,45 @@ export async function makeApi({ client, config, tidalUserId }: MakeApiParams): P
       await removeFromUserCollection(client, tidalUserId, trackIds)
     },
 
-    // Note: createPlaylist and getSavedTracks are not implemented for Tidal
-    // as they are optional in the MetadataSourceApi interface
+    /**
+     * Create a playlist and add tracks to it
+     * Requires playlists.write scope and Tidal auth
+     */
+    async createPlaylist(params: {
+      title: string
+      trackIds: string[]
+      userId: string
+    }): Promise<{ title: string; trackIds: string[]; id: string; url?: string }> {
+      if (!tidalUserId) {
+        throw new Error("Tidal user ID not available for playlist operations")
+      }
+
+      console.log(`[Tidal MetadataSource] Creating playlist "${params.title}" with ${params.trackIds.length} tracks`)
+
+      // Step 1: Create the empty playlist
+      const playlist = await createPlaylistApi(
+        client,
+        tidalUserId,
+        params.title,
+        `Created from Radio Room on ${new Date().toLocaleDateString()}`,
+      )
+
+      // Step 2: Add tracks to the playlist
+      if (params.trackIds.length > 0) {
+        await addTracksToPlaylist(client, playlist.id, params.trackIds)
+      }
+
+      console.log(`[Tidal MetadataSource] ✓ Playlist created: ${playlist.url}`)
+
+      return {
+        title: playlist.title,
+        trackIds: params.trackIds,
+        id: playlist.id,
+        url: playlist.url,
+      }
+    },
+
+    // Note: getSavedTracks is not implemented for Tidal yet
   }
 
   return api

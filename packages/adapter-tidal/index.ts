@@ -20,11 +20,15 @@ export const metadataSource: MetadataSourceAdapter = {
         throw new Error("Invalid authentication type for Tidal adapter")
       }
 
+      // Get stored tokens to extract tidalUserId from metadata
+      const storedTokens = await authentication.getStoredTokens()
+      const tidalUserId = storedTokens.metadata?.tidalUserId as string | undefined
+
       const client = await getTidalApi(config)
       const api = await makeApi({
         client,
         config,
-        // tidalUserId will be passed through the config when available
+        tidalUserId,
       })
 
       await onRegistered?.({ name })

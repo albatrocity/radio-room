@@ -111,12 +111,23 @@ export async function tidalFetch<T>(
     throw new Error(`Tidal API error: ${response.status} ${response.statusText} - ${errorBody}`)
   }
 
-  // Handle 204 No Content
+  // Handle 204 No Content or empty responses
   if (response.status === 204) {
     return {} as T
   }
 
-  return response.json()
+  // Check if response body is empty before parsing
+  const text = await response.text()
+  if (!text || text.trim() === "") {
+    return {} as T
+  }
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    console.warn("[Tidal API] Could not parse response as JSON:", text.substring(0, 100))
+    return {} as T
+  }
 }
 
 /**
@@ -398,4 +409,135 @@ export async function checkSavedTracks(
     console.error("Error checking saved tracks:", error)
     return trackIds.map(() => false)
   }
+}
+
+// =============================================================================
+// Playlist Operations
+// =============================================================================
+
+/**
+ * Create a new playlist for a user
+ * Requires playlists.write scope
+ * See: https://tidal-music.github.io/tidal-api-reference/
+ */
+export async function createPlaylist(
+  client: TidalApiClient,
+  userId: string,
+  title: string,
+  description?: string,
+): Promise<{ id: string; title: string; url?: string }> {
+  console.log(`[Tidal API] Creating playlist "${title}" for user ${userId}`)
+
+  // JSON:API format - POST to /playlists with folder relationship
+  const response = await tidalFetch<{
+    data: {
+      id: string
+      type: string
+      attributes: {
+        name?: string
+        title?: string
+        description?: string
+        externalLinks?: Array<{ href: string; meta: { type: string } }>
+      }
+    }
+  }>(client, `/playlists`, {
+    method: "POST",
+    body: JSON.stringify({
+      data: {
+        type: "playlists",
+        attributes: {
+          name: title,
+          description: description || "",
+          privacy: "PUBLIC",
+        },
+        relationships: {
+          // Link to user's root folder
+          folder: {
+            data: {
+              type: "userCollectionFolders",
+              id: "root",
+            },
+          },
+        },
+      },
+    }),
+  })
+
+  console.log(
+    `[Tidal API] Created playlist response:`,
+    JSON.stringify(response, null, 2).substring(0, 500),
+  )
+
+  // Get the external URL if available
+  const externalUrl = response.data.attributes.externalLinks?.find(
+    (link) => link.meta.type === "TIDAL_SHARING",
+  )?.href
+
+  return {
+    id: response.data.id,
+    title: response.data.attributes.name || response.data.attributes.title || title,
+    url: externalUrl || `https://tidal.com/browse/playlist/${response.data.id}`,
+  }
+}
+
+/**
+ * Add tracks to an existing playlist
+ * Requires playlists.write scope
+ * Note: Tidal limits batch size to 20 tracks, so we chunk the requests
+ */
+export async function addTracksToPlaylist(
+  client: TidalApiClient,
+  playlistId: string,
+  trackIds: string[],
+): Promise<void> {
+  console.log(`[Tidal API] Adding ${trackIds.length} tracks to playlist ${playlistId}`)
+
+  const BATCH_SIZE = 20
+
+  // Chunk track IDs into batches of 20
+  for (let i = 0; i < trackIds.length; i += BATCH_SIZE) {
+    const batch = trackIds.slice(i, i + BATCH_SIZE)
+    const startPosition = i
+
+    console.log(
+      `[Tidal API] Adding batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} tracks (positions ${startPosition}-${startPosition + batch.length - 1})`,
+    )
+
+    await tidalFetch<void>(client, `/playlists/${playlistId}/relationships/items`, {
+      method: "POST",
+      body: JSON.stringify({
+        data: batch.map((id, index) => ({
+          type: "tracks",
+          id,
+          meta: {
+            itemPosition: startPosition + index, // Position in the playlist
+          },
+        })),
+      }),
+    })
+  }
+
+  console.log(`[Tidal API] Successfully added all ${trackIds.length} tracks to playlist`)
+}
+
+/**
+ * Get user's playlists
+ * Requires playlists.read scope
+ */
+export async function getUserPlaylists(
+  client: TidalApiClient,
+  userId: string,
+): Promise<Array<{ id: string; title: string }>> {
+  const response = await tidalFetch<{
+    data: Array<{
+      id: string
+      type: string
+      attributes: { title: string }
+    }>
+  }>(client, `/users/${userId}/playlists?countryCode=${client.countryCode}`)
+
+  return response.data.map((playlist) => ({
+    id: playlist.id,
+    title: playlist.attributes.title,
+  }))
 }

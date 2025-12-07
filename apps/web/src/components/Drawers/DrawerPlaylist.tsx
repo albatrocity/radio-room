@@ -2,6 +2,7 @@ import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } f
 import { Box, Button, HStack, Text, Link, VStack } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { useMachine } from "@xstate/react"
+import { MetadataSourceType } from "@repo/types"
 
 import Drawer from "../Drawer"
 import DrawerPlaylistFooter from "./DrawerPlaylistFooter"
@@ -37,6 +38,24 @@ function DrawerPlaylist() {
   const defaultPlaylistName = `${room?.title || "Radio Room"} ${today}`
   const [name, setName] = useState<string>(defaultPlaylistName)
   const hasInitialized = useRef(false)
+
+  // Available services for playlist saving (from room's metadataSourceIds)
+  const availableServices = useMemo(() => {
+    const sources = room?.metadataSourceIds || ["spotify"]
+    return sources as MetadataSourceType[]
+  }, [room?.metadataSourceIds])
+
+  // Target service for saving (defaults to first available)
+  const [targetService, setTargetService] = useState<MetadataSourceType>(
+    availableServices[0] || "spotify"
+  )
+
+  // Update targetService when availableServices change
+  useEffect(() => {
+    if (!availableServices.includes(targetService)) {
+      setTargetService(availableServices[0] || "spotify")
+    }
+  }, [availableServices, targetService])
 
   // Create save playlist machine with custom notification action
   const customSavePlaylistMachine = useMemo(
@@ -131,6 +150,26 @@ function DrawerPlaylist() {
     }
   }, [isOpen])
 
+  // Auto-deselect unavailable tracks when target service changes
+  useEffect(() => {
+    if (!isEditing) return
+    
+    const currentCollection = selectedPlaylistState.context.collection
+    const availableTracks = currentCollection.filter((item) => {
+      // Check if track is available for target service
+      const sourceData = item.metadataSources?.[targetService]
+      if (sourceData?.source?.trackId) return true
+      // Fallback for spotify media source
+      if (targetService === "spotify" && item.mediaSource?.type === "spotify") return true
+      return false
+    })
+    
+    // Only update if we need to remove some tracks
+    if (availableTracks.length < currentCollection.length) {
+      selectedPlaylistSend({ type: "SET_ITEMS", data: availableTracks })
+    }
+  }, [targetService, isEditing, selectedPlaylistState.context.collection, selectedPlaylistSend])
+
   const handleSelectionChange = (item: PlaylistItem) => {
     selectedPlaylistSend({
       type: "TOGGLE_ITEM",
@@ -149,16 +188,17 @@ function DrawerPlaylist() {
     (e: FormEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      const trackIds = selectedPlaylistState.context.collection.map((item) => item.track.id)
 
       send({
         type: "SAVE_PLAYLIST",
         name,
-        trackIds,
+        items: selectedPlaylistState.context.collection,
+        targetService,
+        roomId: room?.id,
       })
       return void 0
     },
-    [send, selectedPlaylistState.context.collection, name, isAdmin],
+    [send, selectedPlaylistState.context.collection, name, targetService, room?.id],
   )
   const handleSelect = (selection: "all" | "none" | "filtered") => {
     switch (selection) {
@@ -197,6 +237,9 @@ function DrawerPlaylist() {
             isLoading={isLoading}
             value={name}
             trackCount={selectedPlaylistState.context.collection.length}
+            availableServices={availableServices}
+            targetService={targetService}
+            onServiceChange={setTargetService}
           />
         )
       }
@@ -244,6 +287,7 @@ function DrawerPlaylist() {
               isSelectable={isEditing}
               onSelect={handleSelectionChange}
               playlist={filteredPlaylistItems}
+              targetService={isEditing ? targetService : undefined}
             />
           </Box>
         )}

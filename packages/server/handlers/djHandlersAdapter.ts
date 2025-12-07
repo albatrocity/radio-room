@@ -261,30 +261,67 @@ export class DJHandlers {
   }
 
   /**
-   * Save a playlist to the room's metadata source
+   * Save a playlist to a metadata source
+   * 
+   * @param targetService - Optional service to save to (e.g., "spotify", "tidal")
+   *                        If not provided, uses the room's primary metadata source
+   * @param roomId - Optional room ID from client (preferred over socket.data)
    */
   savePlaylist = async (
     { socket }: HandlerConnections,
-    { name, trackIds }: { name: string; trackIds: QueueItem["track"]["id"][] },
+    { name, trackIds, targetService, roomId: clientRoomId }: { 
+      name: string
+      trackIds: QueueItem["track"]["id"][]
+      targetService?: string
+      roomId?: string
+    },
   ) => {
     try {
-      const { roomId, userId } = socket.data
+      // Get roomId and userId - prefer client-provided roomId, then socket.data, then session
+      const roomId = clientRoomId ?? socket.data.roomId ?? socket.request?.session?.roomId
+      const userId = socket.data.userId ?? socket.request?.session?.user?.userId
 
-      console.log("[savePlaylist] Received request:", { roomId, userId, name, trackIds })
+      console.log("[savePlaylist] Received request:", { 
+        roomId, 
+        userId, 
+        name, 
+        trackIds: trackIds.length,
+        targetService 
+      })
 
-      // Get the user's metadata source with fresh tokens
-      // This is required for authenticated operations like creating playlists
-      const metadataSource = await this.adapterService.getUserMetadataSource(roomId, userId)
-
-      if (!metadataSource) {
-        console.log("[savePlaylist] No metadata source found")
+      if (!roomId || !userId) {
+        console.log("[savePlaylist] Missing roomId or userId")
         socket.emit("event", {
           type: "SAVE_PLAYLIST_FAILED",
-          error: { message: "No metadata source configured for this room" },
+          error: { message: "You must be in a room to save a playlist" },
         })
         return
       }
 
+      // Get the metadata source - either the specified one or the user's default
+      let metadataSource
+      if (targetService) {
+        // Get the specific metadata source
+        metadataSource = await this.adapterService.getMetadataSourceForUser(
+          roomId, 
+          userId, 
+          targetService
+        )
+      } else {
+        // Get the user's primary metadata source
+        metadataSource = await this.adapterService.getUserMetadataSource(roomId, userId)
+      }
+
+      if (!metadataSource) {
+        console.log("[savePlaylist] No metadata source found for:", targetService || "primary")
+        socket.emit("event", {
+          type: "SAVE_PLAYLIST_FAILED",
+          error: { message: `${targetService || "Metadata source"} is not configured for this room` },
+        })
+        return
+      }
+
+      console.log("[savePlaylist] Using metadata source:", metadataSource.name)
       console.log("[savePlaylist] Calling DJService.savePlaylist")
       const result = await this.djService.savePlaylist(metadataSource, userId, name, trackIds)
 

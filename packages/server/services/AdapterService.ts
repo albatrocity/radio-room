@@ -216,6 +216,7 @@ export class AdapterService {
                     return {
                       accessToken: refreshed.accessToken,
                       refreshToken: refreshed.refreshToken,
+                      metadata: auth.metadata, // Preserve metadata (e.g., tidalUserId)
                     }
                   } catch (refreshError) {
                     console.error(`[AdapterService] Failed to refresh ${sourceId} token:`, refreshError)
@@ -227,6 +228,7 @@ export class AdapterService {
               return {
                 accessToken: auth.accessToken,
                 refreshToken: auth.refreshToken,
+                metadata: auth.metadata,
               }
             },
           },
@@ -336,6 +338,94 @@ export class AdapterService {
       return userMetadataSource
     } catch (error) {
       console.error(`Error creating user-specific metadata source:`, error)
+      return null
+    }
+  }
+
+  /**
+   * Get a specific MetadataSource for a user (for operations like playlist creation)
+   * This creates a fresh instance with the user's current credentials for a specific service
+   * @param roomId - The room ID
+   * @param userId - User ID for credentials
+   * @param sourceType - The metadata source type (e.g., "spotify", "tidal")
+   */
+  async getMetadataSourceForUser(
+    roomId: string,
+    userId: string,
+    sourceType: string,
+  ): Promise<MetadataSource | null> {
+    const room = await findRoom({ context: this.context, roomId })
+
+    // Check if the requested source is enabled for this room
+    if (!room?.metadataSourceIds?.includes(sourceType)) {
+      console.error(`Metadata source ${sourceType} not enabled for room ${roomId}`)
+      return null
+    }
+
+    // Get the adapter module
+    const adapterModule = this.context.adapters.metadataSourceModules.get(sourceType)
+
+    if (!adapterModule) {
+      console.error(`No adapter module found for metadata source: ${sourceType}`)
+      return null
+    }
+
+    // Get user's credentials from Redis
+    if (!this.context.data?.getUserServiceAuth) {
+      console.error("getUserServiceAuth not available in context")
+      return null
+    }
+
+    const auth = await this.context.data.getUserServiceAuth({
+      userId,
+      serviceName: sourceType,
+    })
+
+    if (!auth || !auth.accessToken) {
+      console.error(`No auth tokens found for user ${userId} on service ${sourceType}`)
+      return null
+    }
+
+    console.log(`[AdapterService.getMetadataSourceForUser] Auth metadata for ${sourceType}:`, auth.metadata)
+
+    // Get service-specific config
+    const serviceConfig = getServiceConfig(sourceType)
+    if (!serviceConfig.clientId) {
+      console.error(`No client ID configured for service: ${getServiceName(sourceType)}`)
+      return null
+    }
+
+    // Create a user-specific metadata source with fresh credentials
+    try {
+      const userMetadataSource = await adapterModule.register({
+        name: sourceType,
+        url: "",
+        authentication: {
+          type: "oauth",
+          clientId: serviceConfig.clientId,
+          token: {
+            accessToken: auth.accessToken,
+            refreshToken: auth.refreshToken,
+          },
+          async getStoredTokens() {
+            return {
+              accessToken: auth.accessToken,
+              refreshToken: auth.refreshToken,
+              metadata: auth.metadata, // Pass metadata (e.g., tidalUserId)
+            }
+          },
+        },
+        registerJob: () => Promise.resolve({} as any),
+        onRegistered: () => {},
+        onAuthenticationCompleted: () => {},
+        onAuthenticationFailed: () => {},
+        onSearchResults: () => {},
+        onError: () => {},
+      })
+
+      return userMetadataSource
+    } catch (error) {
+      console.error(`Error creating user-specific metadata source for ${sourceType}:`, error)
       return null
     }
   }
