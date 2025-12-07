@@ -102,7 +102,7 @@ export default async function handleRoomNowPlayingData({
   // Get queue to determine DJ (who added the track)
   const queue = await getQueue({ context, roomId })
   const queuedTrack = queue?.find(
-    (item) =>
+    (item: QueueItem) =>
       item.mediaSource.type === submission.sourceType &&
       item.mediaSource.trackId === submission.trackId,
   )
@@ -129,7 +129,7 @@ export default async function handleRoomNowPlayingData({
     nowPlaying,
     dj: trackDj,
     title: track.title,
-    artist: track.artists?.map((a) => a.title).join(", "),
+    artist: track.artists?.map((a: { title: string }) => a.title).join(", "),
     album: track.album?.title,
     track: track.title,
     artwork: room?.artwork || track.album?.images?.[0]?.url,
@@ -254,28 +254,55 @@ async function resolveTrackData(
     }
   }
 
-  // Build the search query
+  // Build search parameters for structured search
+  // This allows adapters to do smart matching on artist/title separately
+  const searchParams: {
+    id: string
+    title: string
+    artists: Array<{ id: string; title: string; urls: never[] }>
+    album?: {
+      id: string
+      title: string
+      urls: never[]
+      artists: never[]
+      releaseDate: string
+      releaseDatePrecision: "year"
+      totalTracks: number
+      label: string
+      images: never[]
+    }
+  } = {
+    id: submission.trackId,
+    title: submission.title,
+    artists: submission.artist ? [{ id: "unknown", title: submission.artist, urls: [] }] : [],
+    album: submission.album
+      ? {
+          id: "unknown",
+          title: submission.album,
+          urls: [],
+          artists: [],
+          releaseDate: "",
+          releaseDatePrecision: "year",
+          totalTracks: 0,
+          label: "",
+          images: [],
+        }
+      : undefined,
+  }
+
+  // Also build a simple query for sources that don't support searchByParams well
   const query = submission.artist
-    ? `${submission.artist} ${submission.title}`.trim()
+    ? (submission.artist + " " + submission.title).trim()
     : submission.title
 
   // Determine which source already provided enriched data (if any)
   const enrichedSourceType = submission.metadataSource?.type as MetadataSourceType | undefined
-
-  // Filter out the source that already provided enriched data - no need to search it again
-  const sourcesToSearch = metadataSourceIds.filter((id) => id !== enrichedSourceType)
-
-  console.log(
-    `[handleRoomNowPlayingData] Enriching track via ${sourcesToSearch.length} MetadataSource(s): "${query}"` +
-      (enrichedSourceType ? ` (skipping ${enrichedSourceType} - already have data)` : ""),
-  )
 
   // Get all metadata sources for the room
   const adapterService = new AdapterService(context)
   const metadataSources = await adapterService.getRoomMetadataSources(room.id)
 
   if (metadataSources.size === 0 && !submission.enrichedTrack) {
-    console.log(`[handleRoomNowPlayingData] No metadata sources available for room ${room.id}`)
     return {
       track: createRawTrack(submission),
       metadataSource: undefined,
@@ -293,38 +320,36 @@ async function resolveTrackData(
       }> => {
         try {
           if (!source?.api?.search) {
-            console.log(`[handleRoomNowPlayingData] ${sourceId}: No search API available`)
             return { sourceId, track: null }
           }
 
-          console.log(`[handleRoomNowPlayingData] ${sourceId}: Searching for "${query}"...`)
-          const searchResults = await source.api.search(query)
+          // Use searchByParams for structured search with smart matching (if available)
+          // This allows adapters like Tidal to do their own result filtering
+          let searchResults: MetadataSourceTrack[] = []
+          if (source.api.searchByParams && submission.artist) {
+            searchResults = await source.api.searchByParams(searchParams)
+          } else {
+            searchResults = await source.api.search(query)
+          }
+
           if (searchResults && searchResults.length > 0) {
-            console.log(
-              `[handleRoomNowPlayingData] ✓ ${sourceId}: Found "${searchResults[0].title}"`,
-            )
+            // Adapters that support searchByParams return results in best-match order
+            // Take the first result which should be the best match
             return { sourceId, track: searchResults[0] }
           }
 
-          console.log(`[handleRoomNowPlayingData] ✗ ${sourceId}: No results for "${query}"`)
           return { sourceId, track: null }
         } catch (error: any) {
+          // Only log unexpected errors (not auth-related which are expected)
           const errorMsg = error?.message || String(error)
-
-          // Check for re-authentication needed
-          if (errorMsg.includes("re-authenticate") || errorMsg.includes("invalid_user_grant")) {
-            console.log(
-              `[handleRoomNowPlayingData] ${sourceId}: ⚠️ Re-authentication needed - refresh token invalid`,
-            )
-          }
-          // Token/auth errors are expected for rooms where creator hasn't authenticated
-          else if (
+          const isAuthError =
             errorMsg.includes("token") ||
             errorMsg.includes("auth") ||
-            errorMsg.includes("401")
-          ) {
-            console.log(`[handleRoomNowPlayingData] ${sourceId}: Auth required, skipping`)
-          } else {
+            errorMsg.includes("401") ||
+            errorMsg.includes("re-authenticate") ||
+            errorMsg.includes("invalid_user_grant")
+
+          if (!isAuthError) {
             console.error(`[handleRoomNowPlayingData] ${sourceId}: Error:`, error)
           }
           return { sourceId, track: null, error }
@@ -375,7 +400,6 @@ async function resolveTrackData(
 
   // No enrichedTrack - use first successful result as primary
   if (successfulResults.length === 0) {
-    console.log(`[handleRoomNowPlayingData] No metadata found from any source for "${query}"`)
     return {
       track: createRawTrack(submission),
       metadataSource: undefined,
