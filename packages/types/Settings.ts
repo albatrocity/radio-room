@@ -11,6 +11,9 @@ export const settingsSchema = z.object({
   deputizeOnJoin: z.boolean(),
   enableSpotifyLogin: z.boolean(),
   artwork: z.string().optional(),
+  // Queue display settings (default true when undefined)
+  showQueueCount: z.boolean().optional(),
+  showQueueTracks: z.boolean().optional(),
 })
 
 export type Settings = z.infer<typeof settingsSchema>

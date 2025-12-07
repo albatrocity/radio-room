@@ -14,9 +14,9 @@ const COLOR_CATEGORIES = ["primary", "secondary", "action"] as const
 const PALETTE_TOKENS = {
   solid: { light: 500, dark: 800 },
   contrast: { light: 50, dark: 200 },
-  fg: { light: 600, dark: 700 },
-  muted: { light: 200, dark: 900 },
-  subtle: { light: 100, dark: 500 },
+  fg: { light: 600, dark: 200 },
+  muted: { light: 200, dark: 800 },
+  subtle: { light: 100, dark: 900 },
   emphasized: { light: 200, dark: 800 },
   focusRing: { light: 500, dark: 500 },
 } as const
@@ -189,7 +189,7 @@ const config = defineConfig({
           value: "{colors.primary.subtle}",
         },
         actionBg: {
-          value: "{colors.action.fg}",
+          value: { base: "{colors.action.600}", _dark: "{colors.action.700}" },
         },
         actionBgLite: {
           value: { base: "{colors.action.subtle}", _dark: "{colors.action.800}" },

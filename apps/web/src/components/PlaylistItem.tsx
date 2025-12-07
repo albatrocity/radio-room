@@ -1,6 +1,16 @@
 import { useMemo, memo } from "react"
 import { format } from "date-fns"
-import { Stack, LinkBox, LinkOverlay, Text, Icon, Image, Box, HStack } from "@chakra-ui/react"
+import {
+  Stack,
+  LinkBox,
+  LinkOverlay,
+  Text,
+  Icon,
+  Image,
+  Box,
+  HStack,
+  StackSeparator,
+} from "@chakra-ui/react"
 
 import { PlaylistItem as PlaylistItemType, getPreferredTrack } from "../types/PlaylistItem"
 import { FiUser, FiSkipForward } from "react-icons/fi"
@@ -13,7 +23,7 @@ type Props = {
 
 const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
   const preferredSource = usePreferredMetadataSource()
-  
+
   // Get track data from preferred metadata source (or fall back to default)
   const preferredTrack = useMemo(
     () => getPreferredTrack(item, preferredSource),
@@ -22,7 +32,9 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
 
   // Get album art from preferred track
   const artThumb = useMemo(() => {
-    const imageUrl = preferredTrack?.album?.images?.find((img) => img.type === "image" && img.url)?.url
+    const imageUrl = preferredTrack?.album?.images?.find(
+      (img) => img.type === "image" && img.url,
+    )?.url
     return imageUrl
   }, [preferredTrack?.album?.images])
 
@@ -65,7 +77,7 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
                   <Text
                     fontWeight={"bold"}
                     textDecoration={isSkipped ? "line-through" : "none"}
-                    color={isSkipped ? "secondaryText" : "inherit"}
+                    color={isSkipped ? "colorPalette.fg/70" : "colorPalette.fg"}
                   >
                     {preferredTrack.title}
                   </Text>
@@ -73,15 +85,18 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
                 {isSkipped && <Icon as={FiSkipForward} color="orange.400" boxSize={3} />}
               </HStack>
             )}
-            {preferredTrack?.artists?.map((a) => (
-              <Text
-                key={a.id}
-                textDecoration={isSkipped ? "line-through" : "none"}
-                color={isSkipped ? "secondaryText" : "inherit"}
-              >
-                {a.title}
-              </Text>
-            ))}
+            <HStack color="colorPalette.fg/70" fontSize="xs" separator={<StackSeparator />}>
+              {preferredTrack?.artists?.map((a) => (
+                <Text
+                  key={a.id}
+                  as="span"
+                  textDecoration={isSkipped ? "line-through" : "none"}
+                  color={isSkipped ? "colorPalette.fg/40" : "colorPalette.fg/70"}
+                >
+                  {a.title}
+                </Text>
+              ))}
+            </HStack>
           </Stack>
         </Stack>
       </LinkBox>
@@ -90,15 +105,16 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
         direction={["row", "column"]}
         justifyContent={["space-between", "space-around"]}
         align="end"
+        gap={0}
       >
-        <Text color="secondaryText" fontSize="xs" textAlign="right">
+        <Text color="colorPalette.fg/70" fontSize="xs" textAlign="right">
           {item.playedAt ? format(item.playedAt, "p") : format(item.addedAt, "p")}
         </Text>
 
         {!!item.addedBy && (
-          <Stack direction="row" gap={2} justifyContent="center" alignItems="center">
-            <Icon boxSize={3} color="secondaryText" as={FiUser} />
-            <Text as="i" fontSize="xs" color="secondaryText">
+          <Stack direction="row" gap={1} justifyContent="center" alignItems="center">
+            <Icon boxSize={3} color="colorPalette.fg/70" as={FiUser} />
+            <Text as="i" fontSize="xs" color="colorPalette.fg/70">
               Added by {djUsername}
             </Text>
           </Stack>

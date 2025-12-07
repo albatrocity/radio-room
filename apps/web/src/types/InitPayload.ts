@@ -9,6 +9,7 @@ export type InitPayload = {
   messages: ChatMessage[]
   meta: StationMeta
   playlist: QueueItem[]
+  queue: QueueItem[]
   reactions: {
     message: Record<string, Reaction[]>
     track: Record<string, Reaction[]>

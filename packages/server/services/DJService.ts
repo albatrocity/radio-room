@@ -190,6 +190,15 @@ export class DJService {
 
     await addToQueue({ context: this.context, roomId, item: queuedItem })
 
+    // Emit QUEUE_CHANGED event
+    if (this.context.systemEvents) {
+      const updatedQueue = await getQueue({ context: this.context, roomId })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+        roomId,
+        queue: updatedQueue,
+      })
+    }
+
     return {
       success: true,
       queuedItem,
@@ -227,8 +236,12 @@ export class DJService {
     trackIds: QueueItem["track"]["id"][],
   ) {
     try {
-      console.log("[DJService.savePlaylist] Starting:", { userId, name, trackCount: trackIds.length })
-      
+      console.log("[DJService.savePlaylist] Starting:", {
+        userId,
+        name,
+        trackCount: trackIds.length,
+      })
+
       if (metadataSource.api.createPlaylist === undefined) {
         console.log("[DJService.savePlaylist] createPlaylist not supported")
         return {

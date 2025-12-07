@@ -19,7 +19,7 @@ const PlaylistWindow = ({ playlist, isSelectable, selected, onSelect, targetServ
   const renderComponent = (index: number) => {
     const item = playlist[index]
     const isSelected = selected?.some((s) => s.track.id === item.track.id) ?? false
-    
+
     return (
       <VStack pb={2} gap={2} w="100%" align="stretch">
         <SelectablePlaylistItem

@@ -291,7 +291,10 @@ export async function getRoomCurrent({ context, roomId }: GetRoomCurrentParams) 
 
   // Augment now playing data with plugin metadata
   if (roomMeta.nowPlaying) {
-    const augmentedNowPlaying = await context.pluginRegistry.augmentNowPlaying(roomId, roomMeta.nowPlaying)
+    const augmentedNowPlaying = await context.pluginRegistry.augmentNowPlaying(
+      roomId,
+      roomMeta.nowPlaying,
+    )
     return {
       ...roomMeta,
       nowPlaying: augmentedNowPlaying,
@@ -392,6 +395,9 @@ export function parseRoom(room: StoredRoom): Room {
     persistent: room.persistent === "true",
     announceNowPlaying: room.announceNowPlaying === "true",
     announceUsernameChanges: room.announceUsernameChanges === "true",
+    // Queue display settings default to true when undefined
+    showQueueCount: room.showQueueCount !== "false",
+    showQueueTracks: room.showQueueTracks !== "false",
     passwordRequired: !isNullish(room.password),
     ...(room.artwork === "undefined" ? {} : { artwork: room.artwork }),
     ...(room.spotifyError ? { spotifyError: safeParse(room.spotifyError) } : {}),

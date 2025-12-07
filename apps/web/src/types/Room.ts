@@ -30,16 +30,14 @@ export type Room = {
   announceUsernameChanges?: boolean
   announceNowPlaying?: boolean
   metadataSourceIds?: string[]
+  // Queue display settings (default true)
+  showQueueCount?: boolean
+  showQueueTracks?: boolean
 }
 
 export type RoomSetup = Pick<
   Room,
-  | "type"
-  | "title"
-  | "radioMetaUrl"
-  | "radioListenUrl"
-  | "radioProtocol"
-  | "deputizeOnJoin"
+  "type" | "title" | "radioMetaUrl" | "radioListenUrl" | "radioProtocol" | "deputizeOnJoin"
 > & {
   playbackControllerId?: string
   metadataSourceIds?: string[]

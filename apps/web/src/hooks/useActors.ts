@@ -13,6 +13,7 @@ import { useSelector } from "@xstate/react"
 import { authActor } from "../actors/authActor"
 import { chatActor } from "../actors/chatActor"
 import { playlistActor } from "../actors/playlistActor"
+import { queueListActor } from "../actors/queueListActor"
 import { usersActor } from "../actors/usersActor"
 import { reactionsActor } from "../actors/reactionsActor"
 import { settingsActor } from "../actors/settingsActor"
@@ -26,7 +27,7 @@ import { errorsActor } from "../actors/errorsActor"
 import { metadataSourceAuthActor } from "../actors/metadataSourceAuthActor"
 import { bookmarkedChatActor } from "../actors/bookmarkedChatActor"
 import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
-import { MetadataSourceType } from "../types/Queue"
+import { MetadataSourceType, QueueItem } from "../types/Queue"
 
 import { sortByTimestamp } from "../lib/sortByTimestamp"
 import { ChatMessage } from "../types/ChatMessage"
@@ -113,6 +114,24 @@ export const usePlaylistActive = () => {
 }
 
 export const usePlaylistSend = () => playlistActor.send
+
+// ============================================================================
+// Queue List Hooks
+// ============================================================================
+
+export const useQueueList = (): QueueItem[] => {
+  return useSelector(queueListActor, (s) => s.context.queue)
+}
+
+export const useQueueCount = () => {
+  return useSelector(queueListActor, (s) => s.context.queue.length)
+}
+
+export const useHasQueueItems = () => {
+  return useSelector(queueListActor, (s) => s.context.queue.length > 0)
+}
+
+export const useQueueListSend = () => queueListActor.send
 
 // ============================================================================
 // Users Hooks
