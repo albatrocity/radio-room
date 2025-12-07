@@ -15,6 +15,8 @@ import { trackItemSchema } from "./schemas"
  * - Redis persistence
  * - Playlist/queue management
  * - Event emission (TRACK_CHANGED, MEDIA_SOURCE_STATUS_CHANGED)
+ *
+ * Note: Queue sync is handled separately by the server's queue sync job.
  */
 export function createPlayerQueryJob(params: {
   context: AppContext

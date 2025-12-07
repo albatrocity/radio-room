@@ -23,4 +23,3 @@ export function createJobApi(context: AppContext): JobApi {
     },
   }
 }
-

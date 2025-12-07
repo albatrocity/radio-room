@@ -99,4 +99,3 @@ export interface JobApi {
    */
   getCurrentTrackId: (roomId: string) => Promise<string | null>
 }
-

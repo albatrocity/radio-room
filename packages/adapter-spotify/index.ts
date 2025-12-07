@@ -13,6 +13,7 @@ import { mediaSource as spotifyMediaSource } from "./lib/mediaSourceAdapter"
 export { createSpotifyAuthRoutes } from "./lib/authRoutes"
 export { createSpotifyServiceAuthAdapter } from "./lib/serviceAuth"
 export { createPlayerQueryJob } from "./lib/playerQueryJob"
+export { createQueueSyncJob } from "./lib/queueSyncJob"
 
 // Export the MediaSource adapter
 export const mediaSource: MediaSourceAdapter = spotifyMediaSource
@@ -43,6 +44,41 @@ export const playbackController: PlaybackControllerAdapter = {
       console.error("Error getting Spotify API:", error)
       await onError?.(new Error(String(error)))
       throw error
+    }
+  },
+
+  onRoomCreated: async ({ roomId, userId, roomType, context }) => {
+    // Register queue sync job for all room types (both jukebox and radio use Spotify as PlaybackController)
+    console.log(`Spotify PlaybackController: Setting up queue sync for ${roomType} room ${roomId}`)
+
+    const { createQueueSyncJob } = await import("./lib/queueSyncJob")
+
+    const job = createQueueSyncJob({
+      context,
+      roomId,
+      userId,
+    })
+
+    // Register the job with the JobService
+    if (context.jobService) {
+      const existingJob = context.jobs.find((j) => j.name === job.name)
+      if (existingJob) {
+        console.log(`Queue sync job for room ${roomId} already registered, skipping`)
+        return
+      }
+
+      await context.jobService.scheduleJob(job)
+      console.log(`Registered queue sync job for room ${roomId}`)
+    }
+  },
+
+  onRoomDeleted: async ({ roomId, context }) => {
+    console.log(`Spotify PlaybackController: Cleaning up queue sync for room ${roomId}`)
+
+    const jobName = `queue-sync-${roomId}`
+    if (context.jobService) {
+      context.jobService.disableJob(jobName)
+      console.log(`Stopped queue sync job for room ${roomId}`)
     }
   },
 }
