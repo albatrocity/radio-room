@@ -32,14 +32,14 @@ function QueuedTracksSection() {
     const item = queue[index]
     return (
       <VStack pb={2} gap={2} w="100%" align="stretch">
-        <PlaylistItem item={item} colorPalette="primary" />
+        <PlaylistItem item={item} />
         {index < queue.length - 1 && <Separator borderColor="secondaryBorder" opacity={0.5} />}
       </VStack>
     )
   }
 
   return (
-    <Box background="primary.subtle/20" p={4} borderRadius={6}>
+    <Box background="primary.subtle/20" p={4} borderRadius={6} colorPalette="primary">
       <VStack align="stretch" gap={4}>
         <HStack gap={2} justify="space-between">
           <HStack gap={2}>
@@ -56,7 +56,7 @@ function QueuedTracksSection() {
               {queue.length}
             </Badge>
           </HStack>
-          <ButtonAddToQueue variant="solid" size="xs" showCount={false} />
+          <ButtonAddToQueue variant="solid" colorPalette="primary" size="xs" showCount={false} />
         </HStack>
         <Box w="100%">
           <Virtuoso

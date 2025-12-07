@@ -8,6 +8,7 @@ import { useModalsSend, useQueueCount, useCurrentRoom } from "../hooks/useActors
 type Props = {
   showText?: boolean
   variant?: ButtonProps["variant"]
+  colorPalette?: ButtonProps["colorPalette"]
   label?: string
   size?: ButtonProps["size"]
   showCount?: boolean
@@ -18,6 +19,7 @@ function ButtonAddToQueue({
   label = "Add to Queue",
   showCount = true,
   variant = "ghost",
+  colorPalette,
   size = "md",
 }: Props) {
   const canDj = useCanDj()
@@ -42,14 +44,20 @@ function ButtonAddToQueue({
     ) : null
 
   return showText ? (
-    <Button variant={variant} onClick={onAddToQueue} size={size}>
+    <Button variant={variant} colorPalette={colorPalette} onClick={onAddToQueue} size={size}>
       <Icon as={RiPlayListAddFill} />
       {label}
       {countBadge}
     </Button>
   ) : (
     <Box position="relative" display="inline-block">
-      <IconButton aria-label="Add to Queue" variant={variant} onClick={onAddToQueue} size={size}>
+      <IconButton
+        aria-label="Add to Queue"
+        variant={variant}
+        colorPalette={colorPalette}
+        onClick={onAddToQueue}
+        size={size}
+      >
         <Icon as={RiPlayListAddFill} />
       </IconButton>
       {showQueueCount && queueCount > 0 && (
