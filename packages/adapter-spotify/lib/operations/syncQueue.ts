@@ -1,34 +1,30 @@
-import { getSpotifyApiForRoom } from "./getSpotifyApi";
-import axios from "axios";
-import { SpotifyTrack } from "../../types/SpotifyTrack";
-import { setQueue, getQueue } from "../data";
-import { compact } from "remeda";
+import { SpotifyApi } from "@spotify/web-api-ts-sdk"
 
-const ENDPOINT = "https://api.spotify.com/v1/me/player/queue";
+/**
+ * Fetches the current queue from Spotify.
+ *
+ * Returns an array of Spotify track URIs that are currently in the queue.
+ * The server will compare these with the app's internal queue and remove
+ * any tracks that are no longer present in Spotify's queue.
+ */
+export async function fetchSpotifyQueue(params: {
+  spotifyApi: SpotifyApi
+}): Promise<{ trackUris: string[] }> {
+  const { spotifyApi } = params
 
-type QueueResponse = {
-  currently_playing?: SpotifyTrack;
-  queue: SpotifyTrack[];
-};
-
-export default async function syncQueue(roomId: string) {
   try {
-    const spotifyApi = await getSpotifyApiForRoom(roomId);
-    const accessToken = spotifyApi.getAccessToken();
-    const { data }: { data: QueueResponse } = await axios.get(ENDPOINT, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-    const queuedUris = data.queue.map(({ uri }) => uri);
-    const currentQueue = (await getQueue(roomId)) ?? [];
-    const newQueue = compact(currentQueue).filter((t) => {
-      return queuedUris.includes(t.uri);
-    });
-    await setQueue(roomId, newQueue);
+    const queueData = await spotifyApi.player.getUsersQueue()
 
-    return getQueue(roomId);
-  } catch (e) {
-    return (await getQueue(roomId)) ?? [];
+    // Extract URIs from the queue (not including currently playing)
+    const trackUris = queueData.queue
+      .filter((item): item is { uri: string } => "uri" in item)
+      .map((item) => item.uri)
+
+    return { trackUris }
+  } catch (error: any) {
+    // If we can't fetch the queue, return empty array
+    // This will cause no sync to happen (we don't want to remove tracks on error)
+    console.error("Error fetching Spotify queue:", error?.message || error)
+    throw error
   }
 }
