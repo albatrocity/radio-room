@@ -1,16 +1,18 @@
 import { setup, assign } from "xstate"
 import { toast } from "../lib/toasts"
 import { emitToSocket } from "../actors/socketActor"
+import { MetadataSourceType } from "../types/Queue"
 
 interface Context {
   ids: string[]
   tracks: Record<string, boolean>
+  targetService?: MetadataSourceType
 }
 
 type Event =
-  | { type: "ADD"; data?: string[] }
-  | { type: "REMOVE"; data?: string[] }
-  | { type: "SET_IDS"; data?: string[] }
+  | { type: "ADD"; data?: string[]; targetService?: MetadataSourceType }
+  | { type: "REMOVE"; data?: string[]; targetService?: MetadataSourceType }
+  | { type: "SET_IDS"; data?: string[]; targetService?: MetadataSourceType }
   | { type: "CHECK" }
   | { type: "CHECK_SAVED_TRACKS_RESULTS"; data: { results: boolean[]; trackIds: string[] } }
   | { type: "CHECK_SAVED_TRACKS_FAILURE"; data: { message: string } }
@@ -27,15 +29,24 @@ const addToLibraryMachine = setup({
   },
   actions: {
     sendCheckRequest: ({ context }) => {
-      emitToSocket("CHECK_SAVED_TRACKS", context.ids)
+      emitToSocket("CHECK_SAVED_TRACKS", {
+        trackIds: context.ids,
+        targetService: context.targetService,
+      })
     },
     sendAddRequest: ({ context, event }) => {
       const data = event.type === "ADD" ? event.data ?? context.ids : context.ids
-      emitToSocket("ADD_TO_LIBRARY", data)
+      const targetService =
+        event.type === "ADD" ? event.targetService ?? context.targetService : context.targetService
+      emitToSocket("ADD_TO_LIBRARY", { trackIds: data, targetService })
     },
     sendRemoveRequest: ({ context, event }) => {
       const data = event.type === "REMOVE" ? event.data ?? context.ids : context.ids
-      emitToSocket("REMOVE_FROM_LIBRARY", data)
+      const targetService =
+        event.type === "REMOVE"
+          ? event.targetService ?? context.targetService
+          : context.targetService
+      emitToSocket("REMOVE_FROM_LIBRARY", { trackIds: data, targetService })
     },
     setCheckedTracks: assign(({ context, event }) => {
       if (event.type === "CHECK_SAVED_TRACKS_RESULTS") {
@@ -55,6 +66,7 @@ const addToLibraryMachine = setup({
       if (event.type === "SET_IDS") {
         return {
           ids: event.data ?? context.ids,
+          targetService: event.targetService ?? context.targetService,
         }
       }
       return {}
@@ -99,6 +111,7 @@ const addToLibraryMachine = setup({
   context: {
     ids: [],
     tracks: {},
+    targetService: undefined,
   },
   on: {
     SET_IDS: {
@@ -172,6 +185,8 @@ const addToLibraryMachine = setup({
       id: "error",
       on: {
         CHECK: "loading.checking",
+        ADD: "loading.adding",
+        REMOVE: "loading.removing",
         SET_IDS: {
           actions: ["setIds"],
           target: "loading.checking",

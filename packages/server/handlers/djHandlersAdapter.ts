@@ -93,10 +93,17 @@ export class DJHandlers {
 
   /**
    * Check if tracks are saved in user's library
+   * @param payload - Object containing trackIds and optional targetService
    */
-  checkSavedTracks = async ({ socket }: HandlerConnections, trackIds: string[]) => {
+  checkSavedTracks = async (
+    { socket }: HandlerConnections,
+    payload: { trackIds: string[]; targetService?: string },
+  ) => {
+    const { trackIds, targetService } = payload
+    console.log("[checkSavedTracks] Called with:", { trackIds, targetService })
     try {
       const { roomId, userId } = socket.data
+      console.log("[checkSavedTracks] roomId:", roomId, "userId:", userId)
 
       if (!trackIds || !Array.isArray(trackIds) || trackIds.length === 0) {
         // Return empty results for invalid input
@@ -107,7 +114,10 @@ export class DJHandlers {
         return
       }
 
-      const metadataSource = await this.adapterService.getUserMetadataSource(roomId, userId)
+      // Get the metadata source - use specific service if provided, otherwise use primary
+      const metadataSource = targetService
+        ? await this.adapterService.getMetadataSourceForUser(roomId, userId, targetService)
+        : await this.adapterService.getUserMetadataSource(roomId, userId)
 
       if (!metadataSource?.api?.checkSavedTracks) {
         // Service doesn't support library - return all false gracefully
@@ -136,20 +146,36 @@ export class DJHandlers {
 
   /**
    * Add tracks to user's library
+   * @param payload - Object containing trackIds and optional targetService
    */
-  addToLibrary = async ({ socket }: HandlerConnections, trackIds: string[]) => {
+  addToLibrary = async (
+    { socket }: HandlerConnections,
+    payload: { trackIds: string[]; targetService?: string },
+  ) => {
+    const { trackIds, targetService } = payload
+    console.log("[addToLibrary] Called with:", { trackIds, targetService })
     try {
       const { roomId, userId } = socket.data
+      console.log("[addToLibrary] roomId:", roomId, "userId:", userId)
 
       if (!trackIds || !Array.isArray(trackIds) || trackIds.length === 0) {
-        // Silently ignore - no tracks to add
+        socket.emit("event", {
+          type: "ADD_TO_LIBRARY_FAILURE",
+          data: { message: "No tracks specified" },
+        })
         return
       }
 
-      const metadataSource = await this.adapterService.getUserMetadataSource(roomId, userId)
+      // Get the metadata source - use specific service if provided, otherwise use primary
+      const metadataSource = targetService
+        ? await this.adapterService.getMetadataSourceForUser(roomId, userId, targetService)
+        : await this.adapterService.getUserMetadataSource(roomId, userId)
 
       if (!metadataSource?.api?.addToLibrary) {
-        // Service doesn't support library - silently ignore
+        socket.emit("event", {
+          type: "ADD_TO_LIBRARY_FAILURE",
+          data: { message: "Please connect a music service to add tracks to your library" },
+        })
         return
       }
 
@@ -170,20 +196,34 @@ export class DJHandlers {
 
   /**
    * Remove tracks from user's library
+   * @param payload - Object containing trackIds and optional targetService
    */
-  removeFromLibrary = async ({ socket }: HandlerConnections, trackIds: string[]) => {
+  removeFromLibrary = async (
+    { socket }: HandlerConnections,
+    payload: { trackIds: string[]; targetService?: string },
+  ) => {
+    const { trackIds, targetService } = payload
     try {
       const { roomId, userId } = socket.data
 
       if (!trackIds || !Array.isArray(trackIds) || trackIds.length === 0) {
-        // Silently ignore - no tracks to remove
+        socket.emit("event", {
+          type: "REMOVE_FROM_LIBRARY_FAILURE",
+          data: { message: "No tracks specified" },
+        })
         return
       }
 
-      const metadataSource = await this.adapterService.getUserMetadataSource(roomId, userId)
+      // Get the metadata source - use specific service if provided, otherwise use primary
+      const metadataSource = targetService
+        ? await this.adapterService.getMetadataSourceForUser(roomId, userId, targetService)
+        : await this.adapterService.getUserMetadataSource(roomId, userId)
 
       if (!metadataSource?.api?.removeFromLibrary) {
-        // Service doesn't support library - silently ignore
+        socket.emit("event", {
+          type: "REMOVE_FROM_LIBRARY_FAILURE",
+          data: { message: "Please connect a music service to manage your library" },
+        })
         return
       }
 
@@ -262,14 +302,19 @@ export class DJHandlers {
 
   /**
    * Save a playlist to a metadata source
-   * 
+   *
    * @param targetService - Optional service to save to (e.g., "spotify", "tidal")
    *                        If not provided, uses the room's primary metadata source
    * @param roomId - Optional room ID from client (preferred over socket.data)
    */
   savePlaylist = async (
     { socket }: HandlerConnections,
-    { name, trackIds, targetService, roomId: clientRoomId }: { 
+    {
+      name,
+      trackIds,
+      targetService,
+      roomId: clientRoomId,
+    }: {
       name: string
       trackIds: QueueItem["track"]["id"][]
       targetService?: string
@@ -281,12 +326,12 @@ export class DJHandlers {
       const roomId = clientRoomId ?? socket.data.roomId ?? socket.request?.session?.roomId
       const userId = socket.data.userId ?? socket.request?.session?.user?.userId
 
-      console.log("[savePlaylist] Received request:", { 
-        roomId, 
-        userId, 
-        name, 
+      console.log("[savePlaylist] Received request:", {
+        roomId,
+        userId,
+        name,
         trackIds: trackIds.length,
-        targetService 
+        targetService,
       })
 
       if (!roomId || !userId) {
@@ -303,9 +348,9 @@ export class DJHandlers {
       if (targetService) {
         // Get the specific metadata source
         metadataSource = await this.adapterService.getMetadataSourceForUser(
-          roomId, 
-          userId, 
-          targetService
+          roomId,
+          userId,
+          targetService,
         )
       } else {
         // Get the user's primary metadata source
@@ -316,7 +361,9 @@ export class DJHandlers {
         console.log("[savePlaylist] No metadata source found for:", targetService || "primary")
         socket.emit("event", {
           type: "SAVE_PLAYLIST_FAILED",
-          error: { message: `${targetService || "Metadata source"} is not configured for this room` },
+          error: {
+            message: `${targetService || "Metadata source"} is not configured for this room`,
+          },
         })
         return
       }
@@ -330,9 +377,9 @@ export class DJHandlers {
       if (result.success) {
         socket.emit("event", { type: "PLAYLIST_SAVED", data: result.data })
       } else {
-        socket.emit("event", { 
-          type: "SAVE_PLAYLIST_FAILED", 
-          error: { message: result.error?.message || String(result.error) }
+        socket.emit("event", {
+          type: "SAVE_PLAYLIST_FAILED",
+          error: { message: result.error?.message || String(result.error) },
         })
       }
     } catch (error: any) {

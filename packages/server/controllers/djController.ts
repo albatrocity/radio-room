@@ -50,31 +50,62 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
    */
   socket.on(
     "SAVE_PLAYLIST",
-    async ({ name, trackIds, targetService, roomId }: { name: string; trackIds: QueueItem["track"]["id"][]; targetService?: string; roomId?: string }) => {
+    async ({
+      name,
+      trackIds,
+      targetService,
+      roomId,
+    }: {
+      name: string
+      trackIds: QueueItem["track"]["id"][]
+      targetService?: string
+      roomId?: string
+    }) => {
       await handlers.savePlaylist(connections, { name, trackIds, targetService, roomId })
     },
   )
 
   /**
    * Check if tracks are saved in user's library
+   * Accepts either legacy format (string[]) or new format ({ trackIds, targetService })
    */
-  socket.on("CHECK_SAVED_TRACKS", async (trackIds: string[]) => {
-    await handlers.checkSavedTracks(connections, trackIds)
-  })
+  socket.on(
+    "CHECK_SAVED_TRACKS",
+    async (payload: string[] | { trackIds: string[]; targetService?: string }) => {
+      // Support both legacy array format and new object format
+      const trackIds = Array.isArray(payload) ? payload : payload.trackIds
+      const targetService = Array.isArray(payload) ? undefined : payload.targetService
+      console.log("[djController] CHECK_SAVED_TRACKS received:", { trackIds, targetService })
+      await handlers.checkSavedTracks(connections, { trackIds, targetService })
+    },
+  )
 
   /**
    * Add tracks to user's library
+   * Accepts either legacy format (string[]) or new format ({ trackIds, targetService })
    */
-  socket.on("ADD_TO_LIBRARY", async (trackIds: string[]) => {
-    await handlers.addToLibrary(connections, trackIds)
-  })
+  socket.on(
+    "ADD_TO_LIBRARY",
+    async (payload: string[] | { trackIds: string[]; targetService?: string }) => {
+      const trackIds = Array.isArray(payload) ? payload : payload.trackIds
+      const targetService = Array.isArray(payload) ? undefined : payload.targetService
+      console.log("[djController] ADD_TO_LIBRARY received:", { trackIds, targetService })
+      await handlers.addToLibrary(connections, { trackIds, targetService })
+    },
+  )
 
   /**
    * Remove tracks from user's library
+   * Accepts either legacy format (string[]) or new format ({ trackIds, targetService })
    */
-  socket.on("REMOVE_FROM_LIBRARY", async (trackIds: string[]) => {
-    await handlers.removeFromLibrary(connections, trackIds)
-  })
+  socket.on(
+    "REMOVE_FROM_LIBRARY",
+    async (payload: string[] | { trackIds: string[]; targetService?: string }) => {
+      const trackIds = Array.isArray(payload) ? payload : payload.trackIds
+      const targetService = Array.isArray(payload) ? undefined : payload.targetService
+      await handlers.removeFromLibrary(connections, { trackIds, targetService })
+    },
+  )
 
   socket.on("GET_SAVED_TRACKS", async () => {
     await handlers.getSavedTracks(connections)
