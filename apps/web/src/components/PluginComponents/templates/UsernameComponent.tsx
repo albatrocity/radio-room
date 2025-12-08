@@ -12,5 +12,9 @@ export function UsernameTemplateComponent({ userId, fallback }: UsernameComponen
   const listeners = useListeners()
   const user = listeners.find((u: User) => u.userId === userId)
 
-  return <Text as="span">{user?.username || fallback || userId}</Text>
+  return (
+    <Text color={user ? "colorPalette.fg" : "colorPalette.fg/50"} as="span">
+      {user?.username || fallback || userId}
+    </Text>
+  )
 }
