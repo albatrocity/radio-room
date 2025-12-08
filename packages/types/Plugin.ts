@@ -1,6 +1,7 @@
 import type { z } from "zod"
 import type { AppContext } from "./AppContext"
 import type { Room } from "./Room"
+import type { RoomExportData, PluginExportAugmentation, PluginMarkdownContext } from "./RoomExport"
 import type { QueueItem } from "./Queue"
 import type { Reaction } from "./Reaction"
 import type { User } from "./User"
@@ -131,9 +132,7 @@ export interface PluginStorage {
    */
   pipeline(
     commands: Array<
-      | { op: "get"; key: string }
-      | { op: "exists"; key: string }
-      | { op: "mget"; keys: string[] }
+      { op: "get"; key: string } | { op: "exists"; key: string } | { op: "mget"; keys: string[] }
     >,
   ): Promise<Array<string | null | boolean | (string | null)[]>>
   /** Sorted Sets */
@@ -342,6 +341,49 @@ export interface Plugin {
    * }
    */
   augmentNowPlaying?(item: QueueItem): Promise<PluginAugmentationData>
+
+  // ============================================================================
+  // Room Export Methods
+  // ============================================================================
+
+  /**
+   * Add additional data to room export.
+   * Called once per export to add top-level plugin data and/or markdown sections.
+   *
+   * @param exportData - The complete room export data
+   * @returns Object with optional data (added to pluginExports) and markdownSections
+   *
+   * @example
+   * async augmentRoomExport(exportData: RoomExportData): Promise<PluginExportAugmentation> {
+   *   const skippedCount = exportData.playlist.filter(
+   *     item => item.pluginData?.['playlist-democracy']?.skipped
+   *   ).length
+   *   return {
+   *     data: { totalSkipped: skippedCount },
+   *     markdownSections: [`## Playlist Democracy\n\n${skippedCount} tracks were skipped by vote.`]
+   *   }
+   * }
+   */
+  augmentRoomExport?(exportData: RoomExportData): Promise<PluginExportAugmentation>
+
+  /**
+   * Format plugin's augmented data as markdown for individual items.
+   * Called for each item that has this plugin's data in pluginData.
+   *
+   * @param pluginData - The plugin's data from item.pluginData[pluginName]
+   * @param context - What type of item (playlist track, chat message, etc.)
+   * @returns Markdown string to include, or null to skip
+   *
+   * @example
+   * formatPluginDataMarkdown(pluginData: any, context: PluginMarkdownContext): string | null {
+   *   if (context.type === 'playlist' && pluginData.skipped) {
+   *     const { voteCount, requiredCount } = pluginData.skipData
+   *     return `⏭️ Skipped (${voteCount}/${requiredCount} votes)`
+   *   }
+   *   return null
+   * }
+   */
+  formatPluginDataMarkdown?(pluginData: unknown, context: PluginMarkdownContext): string | null
 }
 
 /**

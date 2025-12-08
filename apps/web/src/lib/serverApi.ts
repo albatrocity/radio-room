@@ -24,14 +24,8 @@ export type CreateRoomParams = {
   userId: string
 }
 
-export async function createRoom({
-  room,
-  challenge,
-  userId,
-}: CreateRoomParams) {
-  const res = await api
-    .post(`rooms`, { json: { ...room, userId, challenge } })
-    .json()
+export async function createRoom({ room, challenge, userId }: CreateRoomParams) {
+  const res = await api.post(`rooms`, { json: { ...room, userId, challenge } }).json()
   return res
 }
 
@@ -101,4 +95,36 @@ export async function getPluginComponentState(
     .get(`api/rooms/${roomId}/plugins/${pluginName}/components`)
     .json<{ state: PluginComponentState }>()
   return res
+}
+
+// =============================================================================
+// Room Export
+// =============================================================================
+
+export type ExportFormat = "json" | "markdown"
+
+/**
+ * Export room data in the specified format.
+ * Returns a Blob that can be downloaded as a file.
+ */
+export async function exportRoom(roomId: string, format: ExportFormat): Promise<Blob> {
+  const res = await api.get(`api/rooms/${roomId}/export`, {
+    searchParams: { format },
+    timeout: 60000, // Longer timeout for large exports
+  })
+  return res.blob()
+}
+
+/**
+ * Download a blob as a file.
+ */
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }

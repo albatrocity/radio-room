@@ -24,14 +24,12 @@ import {
   useCurrentPlaylist,
   usePlaylistSend,
   usePlaylistActive,
-  useIsAdmin,
   useCurrentRoom,
 } from "../../hooks/useActors"
 
 function DrawerPlaylist() {
   const playlistSend = usePlaylistSend()
   const currentPlaylist = useCurrentPlaylist()
-  const isAdmin = useIsAdmin()
   const [isEditing, setIsEditing] = useState(false)
   const room = useCurrentRoom()
   const todayRef = useRef(format(new Date(), "M/d/y"))
@@ -105,7 +103,6 @@ function DrawerPlaylist() {
   const [filterState, filterSend] = useMachine(filterMachine)
   const isOpen = usePlaylistActive()
   const isLoading = state.matches("loading")
-  const canSave = isAdmin // Only room creator can save playlists
 
   const emojis = filterState.context.collection.reduce((mem, emoji) => {
     mem[emoji.shortcodes] = [
@@ -229,20 +226,18 @@ function DrawerPlaylist() {
       size={["full", "lg"]}
       onClose={handleTogglePlaylist}
       footer={
-        canSave && (
-          <DrawerPlaylistFooter
-            isEditing={isEditing}
-            onEdit={() => setIsEditing(!isEditing)}
-            onSave={handleSave}
-            onChange={handleNameChange}
-            isLoading={isLoading}
-            value={name}
-            trackCount={selectedPlaylistState.context.collection.length}
-            availableServices={availableServices}
-            targetService={targetService}
-            onServiceChange={setTargetService}
-          />
-        )
+        <DrawerPlaylistFooter
+          isEditing={isEditing}
+          onEdit={() => setIsEditing(!isEditing)}
+          onSave={handleSave}
+          onChange={handleNameChange}
+          isLoading={isLoading}
+          value={name}
+          trackCount={selectedPlaylistState.context.collection.length}
+          availableServices={availableServices}
+          targetService={targetService}
+          onServiceChange={setTargetService}
+        />
       }
     >
       <VStack w="100%" h="100%" gap={4} overflow="hidden">
