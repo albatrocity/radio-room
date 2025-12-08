@@ -25,6 +25,7 @@ import {
   usePlaylistSend,
   usePlaylistActive,
   useCurrentRoom,
+  useIsAdmin,
 } from "../../hooks/useActors"
 
 function DrawerPlaylist() {
@@ -37,6 +38,7 @@ function DrawerPlaylist() {
   const defaultPlaylistName = `${room?.title || "Radio Room"} ${today}`
   const [name, setName] = useState<string>(defaultPlaylistName)
   const hasInitialized = useRef(false)
+  const isAdmin = useIsAdmin()
 
   // Available services for playlist saving (from room's metadataSourceIds)
   const availableServices = useMemo(() => {
@@ -226,18 +228,20 @@ function DrawerPlaylist() {
       size={["full", "lg"]}
       onClose={handleTogglePlaylist}
       footer={
-        <DrawerPlaylistFooter
-          isEditing={isEditing}
-          onEdit={() => setIsEditing(!isEditing)}
-          onSave={handleSave}
-          onChange={handleNameChange}
-          isLoading={isLoading}
-          value={name}
-          trackCount={selectedPlaylistState.context.collection.length}
-          availableServices={availableServices}
-          targetService={targetService}
-          onServiceChange={setTargetService}
-        />
+        isAdmin && (
+          <DrawerPlaylistFooter
+            isEditing={isEditing}
+            onEdit={() => setIsEditing(!isEditing)}
+            onSave={handleSave}
+            onChange={handleNameChange}
+            isLoading={isLoading}
+            value={name}
+            trackCount={selectedPlaylistState.context.collection.length}
+            availableServices={availableServices}
+            targetService={targetService}
+            onServiceChange={setTargetService}
+          />
+        )
       }
     >
       <VStack w="100%" h="100%" gap={4} overflow="hidden">

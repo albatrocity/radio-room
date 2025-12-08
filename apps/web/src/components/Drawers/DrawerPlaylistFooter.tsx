@@ -3,7 +3,6 @@ import { Box, Button, HStack, Text, Input } from "@chakra-ui/react"
 import { MetadataSourceType } from "@repo/types"
 import { ServiceSelect, serviceConfig } from "../ServiceSelect"
 import ButtonExportRoom from "../ButtonExportRoom"
-import { useIsAdmin } from "../../hooks/useActors"
 
 interface Props {
   isEditing: boolean
@@ -18,9 +17,19 @@ interface Props {
   onServiceChange: (service: MetadataSourceType) => void
 }
 
-const DrawerPlaylistFooter = ({ isEditing, onSave, ...props }: Props) => {
+const DrawerPlaylistFooter = ({
+  isEditing,
+  onSave,
+  onEdit,
+  onChange,
+  onServiceChange,
+  trackCount,
+  value,
+  availableServices,
+  targetService,
+  isLoading,
+}: Props) => {
   const inputRef = useRef<HTMLInputElement>(null)
-  const isAdmin = useIsAdmin()
 
   useEffect(() => {
     if (inputRef.current) {
@@ -34,74 +43,57 @@ const DrawerPlaylistFooter = ({ isEditing, onSave, ...props }: Props) => {
       <ButtonExportRoom size="sm" />
 
       <Box as="form" onSubmit={onSave}>
-        {isAdmin && <AdminPlaylistControls {...props} />}
+        <Box w="100%">
+          {isEditing ? (
+            <HStack justifyContent="space-between" w="100%" flexWrap="wrap" gap={2}>
+              <Button onClick={onEdit} variant="ghost">
+                Cancel
+              </Button>
+              <HStack flexWrap="wrap" gap={2}>
+                <Box flexShrink={0}>
+                  <Text fontSize="sm">{trackCount} Tracks</Text>
+                </Box>
+                <Input
+                  name="name"
+                  placeholder="Playlist name"
+                  autoFocus
+                  value={value}
+                  onChange={(e) => onChange(e.target.value)}
+                  ref={inputRef}
+                  size="sm"
+                  w="auto"
+                  minW="150px"
+                />
+                {availableServices.length > 1 && (
+                  <ServiceSelect
+                    value={targetService}
+                    onChange={onServiceChange}
+                    availableServices={availableServices}
+                    size="sm"
+                  />
+                )}
+                <Button
+                  onClick={onSave}
+                  loading={isLoading}
+                  disabled={isLoading || trackCount === 0}
+                  type="submit"
+                  size="sm"
+                >
+                  Save to {serviceConfig[targetService]?.label || targetService}
+                </Button>
+              </HStack>
+            </HStack>
+          ) : (
+            <HStack justifyContent="end">
+              <Button variant="outline" onClick={onEdit}>
+                Save Playlist
+              </Button>
+            </HStack>
+          )}
+        </Box>
       </Box>
     </HStack>
   )
 }
 
 export default DrawerPlaylistFooter
-
-function AdminPlaylistControls({
-  isEditing,
-  onEdit,
-  onSave,
-  isLoading,
-  onChange,
-  value,
-  trackCount,
-  availableServices,
-  targetService,
-  onServiceChange,
-}: Props) {
-  return (
-    <Box w="100%">
-      {isEditing ? (
-        <HStack justifyContent="space-between" w="100%" flexWrap="wrap" gap={2}>
-          <Button onClick={onEdit} variant="ghost">
-            Cancel
-          </Button>
-          <HStack flexWrap="wrap" gap={2}>
-            <Box flexShrink={0}>
-              <Text fontSize="sm">{trackCount} Tracks</Text>
-            </Box>
-            <Input
-              name="name"
-              placeholder="Playlist name"
-              autoFocus
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              ref={inputRef}
-              size="sm"
-              w="auto"
-              minW="150px"
-            />
-            {availableServices.length > 1 && (
-              <ServiceSelect
-                value={targetService}
-                onChange={onServiceChange}
-                availableServices={availableServices}
-                size="sm"
-              />
-            )}
-            <Button
-              onClick={onSave}
-              loading={isLoading}
-              disabled={isLoading || trackCount === 0}
-              type="submit"
-              size="sm"
-            >
-              Save to {serviceConfig[targetService]?.label || targetService}
-            </Button>
-          </HStack>
-        </HStack>
-      ) : (
-        <HStack justifyContent="end">
-          <Button variant="outline" onClick={onEdit}>
-            Save Playlist
-          </Button>
-        </HStack>
-      )}
-    </Box>
-  )
-}
