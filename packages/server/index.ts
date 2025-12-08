@@ -37,6 +37,7 @@ import {
   getPluginComponentStates,
   getPluginComponentState,
 } from "./controllers/pluginsController"
+import { exportRoom } from "./controllers/exportController"
 import { clearRoomOnlineUsers } from "./operations/data"
 import { SocketWithContext } from "./lib/socketWithContext"
 import { PluginRegistry } from "./lib/plugins"
@@ -152,6 +153,8 @@ export class RadioRoomServer {
       // Plugin component state endpoints
       .get("/api/rooms/:roomId/plugins/components", getPluginComponentStates)
       .get("/api/rooms/:roomId/plugins/:pluginName/components", getPluginComponentState)
+      // Room export endpoint
+      .get("/api/rooms/:roomId/export", exportRoom)
 
     // Create HTTP server from Express app, but don't start listening yet
     this.httpServer = createHttpServer(this.app)

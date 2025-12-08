@@ -83,6 +83,11 @@ export class PluginAPIImpl implements PluginAPI {
     return users
   }
 
+  async getUsersByIds(userIds: string[]): Promise<User[]> {
+    const { getUsersByIds } = await import("../../operations/data")
+    return getUsersByIds({ context: this.context, userIds })
+  }
+
   async skipTrack(roomId: string, trackId: string): Promise<void> {
     // Verify the track is still playing before skipping
     const nowPlaying = await this.getNowPlaying(roomId)

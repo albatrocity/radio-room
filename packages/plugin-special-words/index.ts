@@ -17,9 +17,29 @@ import {
   type SpecialWordsConfig,
 } from "./types"
 import { getComponentSchema, getConfigSchema } from "./schema"
+import type { PluginExportAugmentation, RoomExportData } from "@repo/types"
 
 export type { SpecialWordsConfig } from "./types"
 export { specialWordsConfigSchema, defaultSpecialWordsConfig } from "./types"
+
+// ============================================================================
+// Component State Type
+// ============================================================================
+
+interface LeaderboardEntry {
+  score: number
+  value: string
+}
+
+interface UserLeaderboardEntry extends LeaderboardEntry {
+  /** Username for display (looked up from user data, falls back to userId if not found) */
+  username: string
+}
+
+export interface SpecialWordsComponentState extends Record<string, unknown> {
+  usersLeaderboard: UserLeaderboardEntry[]
+  allWordsLeaderboard: LeaderboardEntry[]
+}
 
 // ============================================================================
 // Constants
@@ -91,13 +111,25 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
   // Component State
   // ============================================================================
 
-  async getComponentState(): Promise<PluginComponentState> {
-    if (!this.context) return {}
+  async getComponentState(): Promise<SpecialWordsComponentState> {
+    if (!this.context) {
+      return { usersLeaderboard: [], allWordsLeaderboard: [] }
+    }
 
-    const [usersLeaderboard, allWordsLeaderboard] = await Promise.all([
+    const [rawUsersLeaderboard, allWordsLeaderboard] = await Promise.all([
       this.context.storage.zrangeWithScores(USER_WORD_COUNT_KEY, 0, -1),
       this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1),
     ])
+
+    // Hydrate user leaderboard with usernames (includes users who have left)
+    const userIds = rawUsersLeaderboard.map((entry) => entry.value)
+    const users = await this.context.api.getUsersByIds(userIds)
+    const userMap = new Map(users.map((u) => [u.userId, u.username]))
+
+    const usersLeaderboard = rawUsersLeaderboard.map((entry) => ({
+      ...entry,
+      username: userMap.get(entry.value) ?? entry.value, // Fallback to userId if user not found
+    }))
 
     return {
       usersLeaderboard,
@@ -325,6 +357,45 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     })
   }
 
+  // ============================================================================
+  // Augmentation
+  // ============================================================================
+
+  async augmentRoomExport(exportData: RoomExportData): Promise<PluginExportAugmentation> {
+    // Count words that were detected by this plugin
+    const state = await this.getComponentState()
+    const config = await this.getConfig()
+
+    const title = `${config?.wordLabel ?? "Special Words"} Stats`
+
+    // Build a combined user lookup map from userHistory (preferred) and current users
+    // userHistory includes users who have left; current users may have updated names
+    const allUsers = [...(exportData.userHistory || []), ...exportData.users]
+    const userMap = new Map(allUsers.map((u) => [u.userId, u.username]))
+
+    const hydratedUserLeaderboard = state.usersLeaderboard.map((item) => {
+      return {
+        userId: item.value,
+        username: userMap.get(item.value) ?? item.value,
+        wordCount: item.score,
+      }
+    })
+
+    return {
+      // Data added to export.pluginExports["special-words"]
+      data: {
+        usersLeaderboard: hydratedUserLeaderboard,
+        allWordsLeaderboard: state.allWordsLeaderboard,
+      },
+
+      // Additional markdown sections appended to export
+      markdownSections: [
+        `## ${title}\n\n` +
+          `### Users Leaderboard \n${hydratedUserLeaderboard.map((item, index) => `${index + 1}. ${item.username}: ${item.wordCount}`).join("\n")}\n` +
+          `### All Words Leaderboard \n${state.allWordsLeaderboard.map((item, index) => `${index + 1}. ${item.value}: ${item.score}`).join("\n")}\n`,
+      ],
+    }
+  }
   // ============================================================================
   // Helpers
   // ============================================================================

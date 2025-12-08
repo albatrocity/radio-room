@@ -1,7 +1,8 @@
-import React, { FormEvent, useEffect, useRef } from "react"
+import { FormEvent, useEffect, useRef } from "react"
 import { Box, Button, HStack, Text, Input } from "@chakra-ui/react"
 import { MetadataSourceType } from "@repo/types"
 import { ServiceSelect, serviceConfig } from "../ServiceSelect"
+import ButtonExportRoom from "../ButtonExportRoom"
 
 interface Props {
   isEditing: boolean
@@ -18,15 +19,15 @@ interface Props {
 
 const DrawerPlaylistFooter = ({
   isEditing,
-  onEdit,
   onSave,
-  isLoading,
+  onEdit,
   onChange,
-  value,
+  onServiceChange,
   trackCount,
+  value,
   availableServices,
   targetService,
-  onServiceChange,
+  isLoading,
 }: Props) => {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -38,56 +39,60 @@ const DrawerPlaylistFooter = ({
   }, [isEditing, inputRef.current])
 
   return (
-    <Box as="form" onSubmit={onSave} w="100%">
-      <Box w="100%">
-        {isEditing ? (
-          <HStack justifyContent="space-between" w="100%" flexWrap="wrap" gap={2}>
-            <Button onClick={onEdit} variant="ghost">
-              Cancel
-            </Button>
-            <HStack flexWrap="wrap" gap={2}>
-              <Box flexShrink={0}>
-                <Text fontSize="sm">{trackCount} Tracks</Text>
-              </Box>
-              <Input
-                name="name"
-                placeholder="Playlist name"
-                autoFocus
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                ref={inputRef}
-                size="sm"
-                w="auto"
-                minW="150px"
-              />
-              {availableServices.length > 1 && (
-                <ServiceSelect
-                  value={targetService}
-                  onChange={onServiceChange}
-                  availableServices={availableServices}
+    <HStack justifyContent="flex-end" w="100%" flexWrap="wrap" gap={2}>
+      <ButtonExportRoom size="sm" />
+
+      <Box as="form" onSubmit={onSave}>
+        <Box w="100%">
+          {isEditing ? (
+            <HStack justifyContent="space-between" w="100%" flexWrap="wrap" gap={2}>
+              <Button onClick={onEdit} variant="ghost">
+                Cancel
+              </Button>
+              <HStack flexWrap="wrap" gap={2}>
+                <Box flexShrink={0}>
+                  <Text fontSize="sm">{trackCount} Tracks</Text>
+                </Box>
+                <Input
+                  name="name"
+                  placeholder="Playlist name"
+                  autoFocus
+                  value={value}
+                  onChange={(e) => onChange(e.target.value)}
+                  ref={inputRef}
                   size="sm"
+                  w="auto"
+                  minW="150px"
                 />
-              )}
-              <Button
-                onClick={onSave}
-                loading={isLoading}
-                disabled={isLoading || trackCount === 0}
-                type="submit"
-                size="sm"
-              >
-                Save to {serviceConfig[targetService]?.label || targetService}
+                {availableServices.length > 1 && (
+                  <ServiceSelect
+                    value={targetService}
+                    onChange={onServiceChange}
+                    availableServices={availableServices}
+                    size="sm"
+                  />
+                )}
+                <Button
+                  onClick={onSave}
+                  loading={isLoading}
+                  disabled={isLoading || trackCount === 0}
+                  type="submit"
+                  size="sm"
+                >
+                  Save to {serviceConfig[targetService]?.label || targetService}
+                </Button>
+              </HStack>
+            </HStack>
+          ) : (
+            <HStack justifyContent="end">
+              <Button variant="outline" onClick={onEdit}>
+                Save Playlist
               </Button>
             </HStack>
-          </HStack>
-        ) : (
-          <HStack justifyContent="end">
-            <Button variant="outline" onClick={onEdit}>
-              Save Playlist
-            </Button>
-          </HStack>
-        )}
+          )}
+        </Box>
       </Box>
-    </Box>
+    </HStack>
   )
 }
 

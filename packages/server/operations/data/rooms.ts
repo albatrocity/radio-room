@@ -5,6 +5,7 @@ import { writeJsonToHset, getHMembersFromSet } from "./utils"
 import { getQueue } from "./djs"
 import { User } from "@repo/types/User"
 import { QueueItem, AppContext, roomMetaToRedisSchema, redisToRoomMetaSchema } from "@repo/types"
+import { getRoomUserHistory, deleteUser } from "./users"
 
 type AddRoomToRoomListParams = {
   context: AppContext
@@ -488,6 +489,20 @@ export async function deleteRoom({ context, roomId }: DeleteRoomParams) {
         )
       }
     }
+  }
+
+  // Cleanup user data for users who don't own any rooms
+  // This prevents orphaned user data from accumulating in Redis
+  try {
+    const historyUserIds = await getRoomUserHistory({ context, roomId })
+    for (const userId of historyUserIds) {
+      const userRooms = await getUserRooms({ context, userId })
+      if (userRooms.length === 0) {
+        await deleteUser({ context, userId })
+      }
+    }
+  } catch (error) {
+    console.error("[deleteRoom] Error cleaning up user data:", error)
   }
 
   // Get all keys relating to room

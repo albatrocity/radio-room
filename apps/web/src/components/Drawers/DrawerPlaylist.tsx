@@ -24,14 +24,13 @@ import {
   useCurrentPlaylist,
   usePlaylistSend,
   usePlaylistActive,
-  useIsAdmin,
   useCurrentRoom,
+  useIsAdmin,
 } from "../../hooks/useActors"
 
 function DrawerPlaylist() {
   const playlistSend = usePlaylistSend()
   const currentPlaylist = useCurrentPlaylist()
-  const isAdmin = useIsAdmin()
   const [isEditing, setIsEditing] = useState(false)
   const room = useCurrentRoom()
   const todayRef = useRef(format(new Date(), "M/d/y"))
@@ -39,6 +38,7 @@ function DrawerPlaylist() {
   const defaultPlaylistName = `${room?.title || "Radio Room"} ${today}`
   const [name, setName] = useState<string>(defaultPlaylistName)
   const hasInitialized = useRef(false)
+  const isAdmin = useIsAdmin()
 
   // Available services for playlist saving (from room's metadataSourceIds)
   const availableServices = useMemo(() => {
@@ -105,7 +105,6 @@ function DrawerPlaylist() {
   const [filterState, filterSend] = useMachine(filterMachine)
   const isOpen = usePlaylistActive()
   const isLoading = state.matches("loading")
-  const canSave = isAdmin // Only room creator can save playlists
 
   const emojis = filterState.context.collection.reduce((mem, emoji) => {
     mem[emoji.shortcodes] = [
@@ -229,7 +228,7 @@ function DrawerPlaylist() {
       size={["full", "lg"]}
       onClose={handleTogglePlaylist}
       footer={
-        canSave && (
+        isAdmin && (
           <DrawerPlaylistFooter
             isEditing={isEditing}
             onEdit={() => setIsEditing(!isEditing)}

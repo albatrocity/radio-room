@@ -28,6 +28,7 @@ import {
   isRoomPollingPaused,
   setRoomPollingPaused,
   getQueue,
+  addUserToRoomHistory,
 } from "../operations/data"
 import generateId from "../lib/generateId"
 import generateAnonName from "../lib/generateAnonName"
@@ -182,6 +183,8 @@ export class AuthService {
     // save data to redis
     await addOnlineUser({ context: this.context, roomId, userId })
     await saveUser({ context: this.context, userId, attributes: newUser })
+    // Track user in room history for export (only adds if not already present)
+    await addUserToRoomHistory({ context: this.context, roomId, userId })
     // Add user as DJ if auto-deputize is enabled OR if they were previously manually deputized
     if (isDeputyDj) {
       await addDj({ context: this.context, roomId, userId })

@@ -6,6 +6,9 @@ import {
   PluginSchemaInfo,
   Room,
   QueueItem,
+  RoomExportData,
+  PluginExportAugmentation,
+  PluginMarkdownContext,
 } from "@repo/types"
 import { Server } from "socket.io"
 import { PluginAPIImpl } from "./PluginAPI"
@@ -59,7 +62,9 @@ export class PluginRegistry {
     // Create a temporary instance to get the name and version
     const tempInstance = factory()
     this.pluginFactories.set(tempInstance.name, factory)
-    console.log(`[PluginRegistry] Registered plugin factory: ${tempInstance.name} v${tempInstance.version}`)
+    console.log(
+      `[PluginRegistry] Registered plugin factory: ${tempInstance.name} v${tempInstance.version}`,
+    )
   }
 
   /**
@@ -455,5 +460,82 @@ export class PluginRegistry {
     }
 
     return states
+  }
+
+  // ============================================================================
+  // Room Export Methods
+  // ============================================================================
+
+  /**
+   * Call a plugin's augmentRoomExport method if it exists.
+   * @param roomId - The room being exported
+   * @param pluginName - The plugin to call
+   * @param exportData - The export data to augment
+   * @returns The plugin's export augmentation, or null if not implemented
+   */
+  async callPluginExportAugmentation(
+    roomId: string,
+    pluginName: string,
+    exportData: RoomExportData,
+  ): Promise<PluginExportAugmentation | null> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return null
+
+    const pluginInstance = roomPlugins.get(pluginName)
+    if (!pluginInstance) return null
+
+    const { plugin } = pluginInstance
+    if (typeof plugin.augmentRoomExport !== "function") return null
+
+    try {
+      return await plugin.augmentRoomExport(exportData)
+    } catch (error) {
+      console.error(`[PluginRegistry] Error in augmentRoomExport for plugin ${pluginName}:`, error)
+      return null
+    }
+  }
+
+  /**
+   * Format plugin data as markdown for an individual item.
+   * Calls formatPluginDataMarkdown on all plugins that have data for the item.
+   *
+   * @param roomId - The room being exported
+   * @param pluginData - The item's pluginData object (keyed by plugin name)
+   * @param context - The markdown context (type of item)
+   * @returns Array of formatted markdown strings from each plugin
+   */
+  formatPluginDataAsMarkdown(
+    roomId: string,
+    pluginData: Record<string, unknown> | undefined,
+    context: PluginMarkdownContext,
+  ): string[] {
+    if (!pluginData) return []
+
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return []
+
+    const results: string[] = []
+
+    for (const [pluginName, data] of Object.entries(pluginData)) {
+      const pluginInstance = roomPlugins.get(pluginName)
+      if (!pluginInstance) continue
+
+      const { plugin } = pluginInstance
+      if (typeof plugin.formatPluginDataMarkdown !== "function") continue
+
+      try {
+        const formatted = plugin.formatPluginDataMarkdown(data, context)
+        if (formatted) {
+          results.push(formatted)
+        }
+      } catch (error) {
+        console.error(
+          `[PluginRegistry] Error in formatPluginDataMarkdown for plugin ${pluginName}:`,
+          error,
+        )
+      }
+    }
+
+    return results
   }
 }

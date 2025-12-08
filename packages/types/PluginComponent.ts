@@ -52,6 +52,8 @@ export type TemplateComponentName =
  */
 export interface UsernameComponentProps {
   userId: string
+  /** Fallback username to display if user is not found in current users list */
+  fallback?: string
 }
 
 /**
@@ -122,6 +124,7 @@ export interface ButtonComponentProps {
 export interface LeaderboardEntry {
   value: string
   score: number
+  username?: string
 }
 
 // Forward declare CompositeTemplate (defined below)

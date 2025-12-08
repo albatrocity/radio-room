@@ -272,3 +272,73 @@ export async function persistUser({ context, userId }: PersistUserParams) {
   await context.redis.pubClient.persist(`user:${userId}`)
   await context.redis.pubClient.persist(`user:${userId}:rooms`)
 }
+
+// =============================================================================
+// User History (for room export)
+// =============================================================================
+
+type AddUserToRoomHistoryParams = {
+  context: AppContext
+  roomId: string
+  userId: string
+}
+
+/**
+ * Add a user to the room's history of unique users.
+ * This is used for room export to show all users who ever joined.
+ */
+export async function addUserToRoomHistory({
+  context,
+  roomId,
+  userId,
+}: AddUserToRoomHistoryParams) {
+  try {
+    return await context.redis.pubClient.sAdd(`room:${roomId}:userHistory`, userId)
+  } catch (e) {
+    console.log("ERROR FROM data/users/addUserToRoomHistory", roomId, userId)
+    console.error(e)
+    return null
+  }
+}
+
+type GetRoomUserHistoryParams = {
+  context: AppContext
+  roomId: string
+}
+
+/**
+ * Get all userIds that have ever joined a room.
+ */
+export async function getRoomUserHistory({
+  context,
+  roomId,
+}: GetRoomUserHistoryParams): Promise<string[]> {
+  try {
+    return await context.redis.pubClient.sMembers(`room:${roomId}:userHistory`)
+  } catch (e) {
+    console.log("ERROR FROM data/users/getRoomUserHistory", roomId)
+    console.error(e)
+    return []
+  }
+}
+
+type GetUsersByIdsParams = {
+  context: AppContext
+  userIds: string[]
+}
+
+/**
+ * Batch lookup users by their IDs.
+ * Returns users that exist (filters out nulls for deleted/expired users).
+ */
+export async function getUsersByIds({ context, userIds }: GetUsersByIdsParams): Promise<User[]> {
+  try {
+    const reads = userIds.map((userId) => getUser({ context, userId }))
+    const allUsers = await Promise.all(reads)
+    return filter(allUsers, isTruthy)
+  } catch (e) {
+    console.log("ERROR FROM data/users/getUsersByIds", userIds)
+    console.error(e)
+    return []
+  }
+}
