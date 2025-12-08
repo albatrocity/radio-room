@@ -23,6 +23,20 @@ export type { SpecialWordsConfig } from "./types"
 export { specialWordsConfigSchema, defaultSpecialWordsConfig } from "./types"
 
 // ============================================================================
+// Component State Type
+// ============================================================================
+
+interface LeaderboardEntry {
+  score: number
+  value: string
+}
+
+export interface SpecialWordsComponentState extends Record<string, unknown> {
+  usersLeaderboard: LeaderboardEntry[]
+  allWordsLeaderboard: LeaderboardEntry[]
+}
+
+// ============================================================================
 // Constants
 // ============================================================================
 
@@ -92,8 +106,10 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
   // Component State
   // ============================================================================
 
-  async getComponentState(): Promise<PluginComponentState> {
-    if (!this.context) return {}
+  async getComponentState(): Promise<SpecialWordsComponentState> {
+    if (!this.context) {
+      return { usersLeaderboard: [], allWordsLeaderboard: [] }
+    }
 
     const [usersLeaderboard, allWordsLeaderboard] = await Promise.all([
       this.context.storage.zrangeWithScores(USER_WORD_COUNT_KEY, 0, -1),
