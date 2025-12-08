@@ -17,6 +17,7 @@ import {
   type SpecialWordsConfig,
 } from "./types"
 import { getComponentSchema, getConfigSchema } from "./schema"
+import { PluginExportAugmentation, RoomExportData } from "../../node_modules/@repo/types/RoomExport"
 
 export type { SpecialWordsConfig } from "./types"
 export { specialWordsConfigSchema, defaultSpecialWordsConfig } from "./types"
@@ -325,6 +326,50 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     })
   }
 
+  // ============================================================================
+  // Augmentation
+  // ============================================================================
+
+  async augmentRoomExport(exportData: RoomExportData): Promise<PluginExportAugmentation> {
+    // Count words that were detected by this plugin
+    const state = await this.getComponentState()
+    console.log("state", state)
+    const config = await this.getConfig()
+
+    // state = {
+    //      usersLeaderboard: [
+    //        { value: '1243633676', score: 1 },
+    //        { value: '81a261eef2822c00640094286cf79913', score: 2 }
+    //   ],
+    //   allWordsLeaderboard: [ { value: 'poot', score: 1 }, { value: 'proot', score: 2 } ]
+    //   }
+
+    const title = `${config?.wordLabel ?? "Special Words"} Stats`
+
+    const hydratedUserLeaderboard = state.usersLeaderboard.map((item) => {
+      return {
+        userId: item.value,
+        username:
+          exportData.users.find((user) => user.userId === item.value)?.username ?? item.value,
+        wordCount: item.score,
+      }
+    })
+
+    return {
+      // Data added to export.pluginExports["playlist-democracy"]
+      data: {
+        usersLeaderboard: hydratedUserLeaderboard,
+        allWordsLeaderboard: state.allWordsLeaderboard,
+      },
+
+      // Additional markdown sections appended to export
+      markdownSections: [
+        `## ${title}\n\n` +
+          `### Users Leaderboard \n${hydratedUserLeaderboard.map((item, index) => `${index + 1}. ${item.username}: ${item.wordCount}`).join("\n")}\n` +
+          `### All Words Leaderboard \n${state.allWordsLeaderboard.map((item, index) => `${index + 1}. ${item.value}: ${item.score}`).join("\n")}\n`,
+      ],
+    }
+  }
   // ============================================================================
   // Helpers
   // ============================================================================

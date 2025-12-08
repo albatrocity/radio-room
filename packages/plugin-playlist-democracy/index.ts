@@ -16,6 +16,11 @@ import {
   type PlaylistDemocracyConfig,
 } from "./types"
 import { getComponentSchema, getConfigSchema } from "./schema"
+import {
+  PluginExportAugmentation,
+  PluginMarkdownContext,
+  RoomExportData,
+} from "../../node_modules/@repo/types/RoomExport"
 
 export type { PlaylistDemocracyConfig } from "./types"
 export { playlistDemocracyConfigSchema, defaultPlaylistDemocracyConfig } from "./types"
@@ -454,6 +459,52 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       const skipData = this.parseSkipData(dataStr)
       return skipData ? { skipped: true, skipData } : {}
     })
+  }
+
+  async augmentRoomExport(exportData: RoomExportData): Promise<PluginExportAugmentation> {
+    // Count tracks that were skipped by this plugin
+    const skippedTracks = exportData.playlist.filter(
+      (item) => item.pluginData?.["playlist-democracy"]?.skipped,
+    )
+
+    // Calculate stats
+    const totalSkipped = skippedTracks.length
+    const totalVotes = skippedTracks.reduce(
+      (sum, item) => sum + (item.pluginData?.["playlist-democracy"]?.skipData?.voteCount || 0),
+      0,
+    )
+
+    return {
+      // Data added to export.pluginExports["playlist-democracy"]
+      data: {
+        totalSkipped,
+        totalVotes,
+        averageVotesPerSkip: totalSkipped > 0 ? totalVotes / totalSkipped : 0,
+      },
+
+      // Additional markdown sections appended to export
+      markdownSections: [
+        `## Playlist Democracy Stats\n\n` +
+          `- **Tracks Skipped:** ${totalSkipped}\n` +
+          `- **Total Votes Cast:** ${totalVotes}\n` +
+          `- **Average Votes per Skip:** ${(totalVotes / totalSkipped).toFixed(1)}`,
+      ],
+    }
+  }
+
+  formatPluginDataMarkdown(pluginData: unknown, context: PluginMarkdownContext): string | null {
+    // Only format for playlist items
+    if (context.type !== "playlist") return null
+
+    const data = pluginData as {
+      skipped?: boolean
+      skipData?: { voteCount: number; requiredCount: number }
+    }
+
+    if (!data.skipped || !data.skipData) return null
+
+    const { voteCount, requiredCount } = data.skipData
+    return `⏭️ Skipped (${voteCount}/${requiredCount} votes)`
   }
 
   // ============================================================================
