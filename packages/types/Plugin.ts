@@ -172,6 +172,8 @@ export interface PluginAPI {
     filterEmoji?: string
   }): Promise<Reaction[]>
   getUsers(roomId: string, params?: { status?: "listening" | "participating" }): Promise<User[]>
+  /** Look up users by their IDs (includes users who have left the room) */
+  getUsersByIds(userIds: string[]): Promise<User[]>
   skipTrack(roomId: string, trackId: string): Promise<void>
   sendSystemMessage(roomId: string, message: string, meta?: ChatMessage["meta"]): Promise<void>
   getPluginConfig(roomId: string, pluginName: string): Promise<any | null>

@@ -17,7 +17,7 @@ import {
   type SpecialWordsConfig,
 } from "./types"
 import { getComponentSchema, getConfigSchema } from "./schema"
-import { PluginExportAugmentation, RoomExportData } from "../../node_modules/@repo/types/RoomExport"
+import type { PluginExportAugmentation, RoomExportData } from "@repo/types"
 
 export type { SpecialWordsConfig } from "./types"
 export { specialWordsConfigSchema, defaultSpecialWordsConfig } from "./types"
@@ -31,8 +31,13 @@ interface LeaderboardEntry {
   value: string
 }
 
+interface UserLeaderboardEntry extends LeaderboardEntry {
+  /** Username for display (looked up from user data, falls back to userId if not found) */
+  username: string
+}
+
 export interface SpecialWordsComponentState extends Record<string, unknown> {
-  usersLeaderboard: LeaderboardEntry[]
+  usersLeaderboard: UserLeaderboardEntry[]
   allWordsLeaderboard: LeaderboardEntry[]
 }
 
@@ -111,10 +116,20 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       return { usersLeaderboard: [], allWordsLeaderboard: [] }
     }
 
-    const [usersLeaderboard, allWordsLeaderboard] = await Promise.all([
+    const [rawUsersLeaderboard, allWordsLeaderboard] = await Promise.all([
       this.context.storage.zrangeWithScores(USER_WORD_COUNT_KEY, 0, -1),
       this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1),
     ])
+
+    // Hydrate user leaderboard with usernames (includes users who have left)
+    const userIds = rawUsersLeaderboard.map((entry) => entry.value)
+    const users = await this.context.api.getUsersByIds(userIds)
+    const userMap = new Map(users.map((u) => [u.userId, u.username]))
+
+    const usersLeaderboard = rawUsersLeaderboard.map((entry) => ({
+      ...entry,
+      username: userMap.get(entry.value) ?? entry.value, // Fallback to userId if user not found
+    }))
 
     return {
       usersLeaderboard,
@@ -351,27 +366,23 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     const state = await this.getComponentState()
     const config = await this.getConfig()
 
-    // state = {
-    //      usersLeaderboard: [
-    //        { value: '1243633676', score: 1 },
-    //        { value: '81a261eef2822c00640094286cf79913', score: 2 }
-    //   ],
-    //   allWordsLeaderboard: [ { value: 'poot', score: 1 }, { value: 'proot', score: 2 } ]
-    //   }
-
     const title = `${config?.wordLabel ?? "Special Words"} Stats`
+
+    // Build a combined user lookup map from userHistory (preferred) and current users
+    // userHistory includes users who have left; current users may have updated names
+    const allUsers = [...(exportData.userHistory || []), ...exportData.users]
+    const userMap = new Map(allUsers.map((u) => [u.userId, u.username]))
 
     const hydratedUserLeaderboard = state.usersLeaderboard.map((item) => {
       return {
         userId: item.value,
-        username:
-          exportData.users.find((user) => user.userId === item.value)?.username ?? item.value,
+        username: userMap.get(item.value) ?? item.value,
         wordCount: item.score,
       }
     })
 
     return {
-      // Data added to export.pluginExports["playlist-democracy"]
+      // Data added to export.pluginExports["special-words"]
       data: {
         usersLeaderboard: hydratedUserLeaderboard,
         allWordsLeaderboard: state.allWordsLeaderboard,

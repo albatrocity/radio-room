@@ -40,8 +40,7 @@ export function LeaderboardTemplateComponent({
       {sortedData.map((entry, index) => {
         const rank = index + 1
         const values = {
-          value: entry.value,
-          score: entry.score,
+          ...entry, // Include all entry fields (value, score, username, etc.)
           rank,
         }
 

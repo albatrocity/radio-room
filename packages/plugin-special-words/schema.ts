@@ -43,7 +43,11 @@ export function getComponentSchema(): PluginComponentSchema {
             dataKey: "usersLeaderboard",
             title: "Top {{config.wordLabel:pluralize:2}} Users",
             rowTemplate: [
-              { type: "component", name: "username", props: { userId: "{{value}}" } },
+              {
+                type: "component",
+                name: "username",
+                props: { userId: "{{value}}", fallback: "{{username}}" },
+              },
               { type: "text", content: ": {{score}} {{config.wordLabel:pluralize:score}}" },
             ],
             maxItems: 10,
@@ -132,4 +136,3 @@ export function getConfigSchema(): PluginConfigSchema {
     },
   }
 }
-
