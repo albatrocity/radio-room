@@ -44,6 +44,13 @@ export interface RoomExportData {
   users: User[]
 
   /**
+   * All unique users who ever joined this room.
+   * Looked up from stored userIds - users whose data has expired
+   * or been deleted will not appear in this list.
+   */
+  userHistory: User[]
+
+  /**
    * Complete playlist history with:
    * - Track metadata (including metadataSources for service links)
    * - Who added each track and when

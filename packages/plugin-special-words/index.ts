@@ -349,7 +349,6 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
   async augmentRoomExport(exportData: RoomExportData): Promise<PluginExportAugmentation> {
     // Count words that were detected by this plugin
     const state = await this.getComponentState()
-    console.log("state", state)
     const config = await this.getConfig()
 
     // state = {

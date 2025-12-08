@@ -25,8 +25,13 @@ export function formatRoomExportAsMarkdown(
   // Room Info
   sections.push(formatRoomInfo(data))
 
-  // Users
+  // Users (currently online)
   sections.push(formatUsers(data.users))
+
+  // User History (all unique users who joined)
+  if (data.userHistory && data.userHistory.length > 0) {
+    sections.push(formatUserHistory(data.userHistory))
+  }
 
   // Playlist
   sections.push(formatPlaylist(data, pluginRegistry, roomId))
@@ -86,6 +91,22 @@ function formatUsers(users: User[]): string {
     const statusStr = user.status === "listening" ? " 🎧" : ""
 
     lines.push(`- ${user.username || "Anonymous"}${roleStr}${statusStr}`)
+  }
+
+  return lines.join("\n")
+}
+
+function formatUserHistory(users: User[]): string {
+  const lines = [
+    "## User History",
+    "",
+    `*${users.length} unique user${users.length === 1 ? "" : "s"} joined this room*`,
+    "",
+  ]
+
+  for (let i = 0; i < users.length; i++) {
+    const user = users[i]
+    lines.push(`${i + 1}. ${user.username || "Anonymous"}`)
   }
 
   return lines.join("\n")
@@ -217,8 +238,12 @@ function formatFooter(data: RoomExportData): string {
   const stats = [
     `${data.playlist.length} tracks played`,
     `${data.chat.length} messages`,
-    `${data.users.length} users`,
+    `${data.users.length} users online`,
   ]
+
+  if (data.userHistory && data.userHistory.length > 0) {
+    stats.push(`${data.userHistory.length} unique visitors`)
+  }
 
   if (data.queue.length > 0) {
     stats.push(`${data.queue.length} tracks queued`)

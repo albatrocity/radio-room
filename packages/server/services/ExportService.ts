@@ -14,6 +14,8 @@ import {
   getQueue,
   getAllRoomReactions,
   removeSensitiveRoomAttributes,
+  getRoomUserHistory,
+  getUsersByIds,
 } from "../operations/data"
 import { formatRoomExportAsMarkdown } from "../lib/markdownFormatter"
 
@@ -60,19 +62,23 @@ export class ExportService {
    * Build the canonical room export data structure.
    */
   private async buildExportData(roomId: string): Promise<RoomExportData> {
-    // Fetch all data in parallel
-    const [room, playlist, messages, users, queue, reactions] = await Promise.all([
+    // Fetch all data in parallel (including user history IDs)
+    const [room, playlist, messages, users, queue, reactions, userHistoryIds] = await Promise.all([
       findRoom({ context: this.context, roomId }),
       getRoomPlaylist({ context: this.context, roomId }),
       this.getAllMessages(roomId),
       getRoomUsers({ context: this.context, roomId }),
       getQueue({ context: this.context, roomId }),
       getAllRoomReactions({ context: this.context, roomId }),
+      getRoomUserHistory({ context: this.context, roomId }),
     ])
 
     if (!room) {
       throw new Error(`Room ${roomId} not found`)
     }
+
+    // Lookup user data for all users in history
+    const userHistory = await getUsersByIds({ context: this.context, userIds: userHistoryIds })
 
     // Build room info (exclude sensitive data)
     const sanitizedRoom = removeSensitiveRoomAttributes(room)
@@ -89,6 +95,7 @@ export class ExportService {
       exportedAt: new Date().toISOString(),
       room: roomInfo,
       users,
+      userHistory,
       playlist,
       chat: messages,
       queue,
