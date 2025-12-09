@@ -1,9 +1,8 @@
 import { memo, useCallback } from "react"
 import { Box, Grid, GridItem, HStack } from "@chakra-ui/react"
 
-import ChatInput from "./ChatInput"
+import ChatInput, { MessagePayload } from "./ChatInput"
 import TypingIndicator from "./TypingIndicator"
-import { ChatMessage } from "../types/ChatMessage"
 import PopoverPreferences from "./PopoverPreferences"
 import ChatWindow from "./ChatWindow"
 
@@ -22,7 +21,7 @@ const Chat = () => {
   const handleTypingStart = useCallback(() => chatSend({ type: "START_TYPING" }), [chatSend])
   const handleTypingStop = useCallback(() => chatSend({ type: "STOP_TYPING" }), [chatSend])
   const handleSend = useCallback(
-    (msg: ChatMessage) => chatSend({ type: "SUBMIT_MESSAGE", data: msg }),
+    (msg: MessagePayload) => chatSend({ type: "SUBMIT_MESSAGE", data: msg }),
     [chatSend],
   )
 
@@ -55,17 +54,13 @@ const Chat = () => {
         <Box px={2} zIndex={1}>
           <TypingIndicator currentUserId={currentUserId} />
         </Box>
-        <HStack zIndex={2} w="100%">
-          <Box>
-            <PopoverPreferences />
-          </Box>
-          <Box w="100%">
-            <ChatInput
-              onTypingStart={handleTypingStart}
-              onTypingStop={handleTypingStop}
-              onSend={handleSend}
-            />
-          </Box>
+        <HStack zIndex={2} w="100%" gap={0} align="center">
+          <PopoverPreferences />
+          <ChatInput
+            onTypingStart={handleTypingStart}
+            onTypingStop={handleTypingStop}
+            onSend={handleSend}
+          />
         </HStack>
       </GridItem>
     </Grid>

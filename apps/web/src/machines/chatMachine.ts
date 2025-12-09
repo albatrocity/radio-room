@@ -29,9 +29,25 @@ type TypingEvent = {
   type: "START_TYPING" | "STOP_TYPING"
 }
 
+/**
+ * Image data to be sent with a message
+ */
+type ImageData = {
+  data: string // base64 encoded
+  mimeType: string
+}
+
+/**
+ * Message payload that can include images
+ */
+type MessagePayload = {
+  content: string
+  images?: ImageData[]
+}
+
 type SubmitMessageAction = {
   type: "SUBMIT_MESSAGE"
-  data: ChatMessage["content"]
+  data: MessagePayload
 }
 
 type LifecycleEvent = {

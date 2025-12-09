@@ -22,6 +22,8 @@ export interface AppContext {
   }
   pluginRegistry?: any // Will be typed as PluginRegistry in server code
   systemEvents?: SystemEvents
+  /** Base URL for the API (e.g., "https://api.example.com"). Used for generating absolute URLs. */
+  apiUrl?: string
   data?: {
     getUserServiceAuth: (params: {
       userId: string

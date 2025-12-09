@@ -26,7 +26,13 @@ export function createRedisContext(redisUrl: string): RedisContext {
   }
 }
 
-export function createAppContext(redisUrl: string): AppContext {
+export interface CreateAppContextOptions {
+  redisUrl: string
+  apiUrl?: string
+}
+
+export function createAppContext(options: CreateAppContextOptions): AppContext {
+  const { redisUrl, apiUrl } = options
   const context: AppContext = {
     redis: createRedisContext(redisUrl),
     adapters: {
@@ -39,6 +45,7 @@ export function createAppContext(redisUrl: string): AppContext {
       mediaSourceModules: new Map(),
     },
     jobs: [],
+    apiUrl,
     data: {
       getUserServiceAuth: async ({ userId, serviceName }) => {
         return getUserServiceAuth({ context, userId, serviceName })

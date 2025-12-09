@@ -9,4 +9,6 @@ export interface CreateServerConfig {
   REDIS_URL?: string
   ENVIRONMENT?: "production" | "development"
   DOMAIN?: string
+  /** Base URL for the API (e.g., "https://api.example.com"). Used for generating absolute URLs. */
+  API_URL?: string
 }

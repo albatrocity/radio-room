@@ -1,6 +1,6 @@
 import { Server } from "socket.io"
 import { SocketWithContext } from "../lib/socketWithContext"
-import { createMessageHandlers } from "../handlers/messageHandlersAdapter"
+import { createMessageHandlers, MessagePayload } from "../handlers/messageHandlersAdapter"
 
 /**
  * Message Controller - Manages chat message events
@@ -17,8 +17,9 @@ export function createMessageController(socket: SocketWithContext, io: Server): 
 
   /**
    * Handle new chat message
+   * Accepts either a string (legacy) or an object with content and optional images
    */
-  socket.on("SEND_MESSAGE", async (message: string) => {
+  socket.on("SEND_MESSAGE", async (message: string | MessagePayload) => {
     await handlers.newMessage(connections, message)
   })
 

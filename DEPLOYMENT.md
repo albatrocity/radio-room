@@ -119,10 +119,6 @@ heroku logs --tail -a your-heroku-app-name
 Set these in your Netlify site settings (Site settings → Build & deploy → Environment variables):
 
 ```bash
-# Required
-GATSBY_API_URL=https://your-heroku-app.herokuapp.com
-GATSBY_SOCKET_URL=https://your-heroku-app.herokuapp.com
-
 # Optional
 NODE_ENV=production
 ```

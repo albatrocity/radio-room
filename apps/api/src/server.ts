@@ -16,11 +16,13 @@ import createPlaylistDemocracyPlugin from "@repo/plugin-playlist-democracy"
 import createSpecialWordsPlugin from "@repo/plugin-special-words"
 
 async function main() {
+  const port = Number(process.env.PORT ?? 3000)
   const server = createServer({
-    PORT: Number(process.env.PORT ?? 3000),
+    PORT: port,
     REDIS_URL: process.env.REDIS_URL ?? "redis://localhost:6379",
     ENVIRONMENT: (process.env.ENVIRONMENT as "production" | "development") || "development",
     DOMAIN: process.env.ENVIRONMENT === "production" ? ".listeningroom.club" : "localhost",
+    API_URL: process.env.API_URL ?? `http://localhost:${port}`,
     onStart: () => {
       console.log("Server started successfully")
     },

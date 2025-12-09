@@ -1,11 +1,10 @@
-import React, { memo, useEffect, useState, useMemo, useCallback } from "react"
+import React, { memo, useState, useCallback } from "react"
 import {
   Box,
   Flex,
   HStack,
   Icon,
   IconButton,
-  Image,
   Spacer,
   Stack,
   Text,
@@ -14,7 +13,6 @@ import {
 } from "@chakra-ui/react"
 import { FiBookmark } from "react-icons/fi"
 
-import getUrls from "../lib/getUrls"
 import ReactionCounter from "./ReactionCounter"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { User } from "../types/User"
@@ -32,16 +30,6 @@ export interface ChatMessageProps {
   anotherUserMessage?: boolean
 }
 
-function isImageUrl(url: string) {
-  return /\.(jpg|jpeg|png|webp|avif|gif)$/.test(url)
-}
-
-function isImgUrl(url: string) {
-  return fetch(url, { method: "HEAD" }).then((res) => {
-    return res?.headers?.get("Content-Type")?.startsWith("image")
-  })
-}
-
 const ChatMessage = ({
   content,
   mentions = [],
@@ -51,7 +39,6 @@ const ChatMessage = ({
   showUsername = false,
   anotherUserMessage = false,
 }: ChatMessageProps) => {
-  const [parsedImageUrls, setParsedImageUrls] = useState<string[]>([])
   const currentIsAdmin = useIsAdmin()
   const bookmarkSend = useBookmarksSend()
   const bookmarks = useBookmarks()
@@ -65,19 +52,6 @@ const ChatMessage = ({
   const showFloatingTimestamp = (!showUsername && hovered) || (isBookmarked && !showUsername)
 
   const isMention = mentions.indexOf(currentUserId) > -1
-  const urls = useMemo((): string[] => getUrls(content), [content])
-
-  // Memoize images to prevent recalculation on every render
-  const images = useMemo(
-    () => Array.from(new Set([...parsedImageUrls, ...urls.filter((x: string) => isImageUrl(x))])),
-    [parsedImageUrls, urls],
-  )
-
-  // Memoize parsed content
-  const parsedContent = useMemo(
-    () => images.reduce((mem, x) => mem.replace(x, ""), content),
-    [images, content],
-  )
 
   const handleBookmark = useCallback(() => {
     bookmarkSend({
@@ -91,31 +65,6 @@ const ChatMessage = ({
       },
     })
   }, [bookmarkSend, timestamp, content, user, mentions])
-
-  useEffect(() => {
-    async function testUrls() {
-      try {
-        const responses = await Promise.all(urls.map((x) => isImgUrl(x)))
-
-        const testedImageUrls = responses
-          .map((res, i) => {
-            if (res) {
-              return urls[i]
-            } else {
-              return ""
-            }
-          })
-          .filter((x) => x !== "")
-
-        if (testedImageUrls.length) {
-          setParsedImageUrls(testedImageUrls)
-        }
-      } catch (e) {
-        console.log(e)
-      }
-    }
-    testUrls()
-  }, [urls])
 
   return (
     <Box
@@ -155,16 +104,7 @@ const ChatMessage = ({
         <Box w="100%">
           <Stack direction="row" gap={2} w="100%">
             <Box flex={{ grow: 1 }} textStyle="chatMessage">
-              <ParsedEmojiMessage content={parsedContent} />
-              {images.length > 0 && (
-                <Stack direction="column" gap={2}>
-                  {images.map((x) => (
-                    <Box key={x}>
-                      <Image w="100%" maxW="400px" objectFit="contain" src={x} />
-                    </Box>
-                  ))}
-                </Stack>
-              )}
+              <ParsedEmojiMessage content={content} />
             </Box>
             {showFloatingTimestamp && (
               <HStack p={2} position="absolute" top={0} right={2} borderRadius={4} bg="appBg">

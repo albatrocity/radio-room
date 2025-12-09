@@ -10,14 +10,43 @@ import React, {
   RefObject,
 } from "react"
 
-import { Box, IconButton, Flex, Icon, Spacer, Text } from "@chakra-ui/react"
+import {
+  Box,
+  IconButton,
+  Flex,
+  Icon,
+  Spacer,
+  Text,
+  FileUpload,
+  useFileUpload,
+} from "@chakra-ui/react"
 import { FiArrowUpCircle } from "react-icons/fi"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
 
 import MentionSuggestionsContainer from "./MentionSuggestionsContainer"
-import { ChatMessage } from "../types/ChatMessage"
+import ImageUpload from "./ImageUpload"
 import { useCurrentUser, useIsAuthenticated, useUsers, useIsAnyModalOpen } from "../hooks/useActors"
+import { fileToBase64 } from "../lib/image"
+
+const MAX_FILE_SIZE = 4 * 1024 * 1024 // 4MB per image
+const MAX_FILES = 5
+
+/**
+ * Image data to be sent with a message
+ */
+export type ImageData = {
+  data: string // base64 encoded
+  mimeType: string
+}
+
+/**
+ * Message payload that can include images
+ */
+export type MessagePayload = {
+  content: string
+  images?: ImageData[]
+}
 
 const renderUserSuggestion = (
   suggestion: any,
@@ -109,7 +138,7 @@ const Input = memo(
 interface Props {
   onTypingStart: () => void
   onTypingStop: () => void
-  onSend: (value: ChatMessage) => void
+  onSend: (value: MessagePayload) => void
 }
 
 const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
@@ -122,6 +151,17 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
   const [isTyping, setTyping] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
   const [content, setContent] = useState("")
+  const [files, setFiles] = useState<File[]>([])
+
+  const fileUpload = useFileUpload({
+    accept: ["image/*"],
+    maxFiles: MAX_FILES,
+    maxFileSize: MAX_FILE_SIZE,
+    onFileChange: (details) => {
+      // isInternalUpdate.current = true
+      handleFilesChange(details.acceptedFiles)
+    },
+  })
 
   // Use CSS variables for colors
   const borderColor = "var(--chakra-colors-secondary-border, #ccc)"
@@ -142,11 +182,16 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
     }
   }, [isTyping])
 
-  const isValid = content !== ""
+  // Message is valid if there's content or images
+  const isValid = content !== "" || files.length > 0
 
   const handleKeyInput = useCallback(() => {
     setTyping(true)
     handleTypingStop()
+  }, [])
+
+  const handleFilesChange = useCallback((newFiles: File[]) => {
+    setFiles(newFiles)
   }, [])
 
   const userSuggestions = useMemo(
@@ -194,67 +239,119 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
     },
   }
 
-  const handleSubmit = (e: React.SyntheticEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
-    if (content !== "") {
-      onSend(content as unknown as ChatMessage)
+
+    if (!isValid) return
+
+    setSubmitting(true)
+
+    try {
+      // Convert files to base64 ImageData
+      const images: ImageData[] = await Promise.all(
+        files.map(async (file) => ({
+          data: await fileToBase64(file),
+          mimeType: file.type,
+        })),
+      )
+
+      // Send the message payload
+      onSend({
+        content,
+        images: images.length > 0 ? images : undefined,
+      })
+
+      // Clear the form
       setContent("")
+      setFiles([])
+    } catch (error) {
+      console.error("Error preparing message:", error)
+    } finally {
+      setSubmitting(false)
     }
-    setSubmitting(false)
   }
 
   if (!currentUser) {
     return null
   }
 
+  const isFileUploadDisabled = !isAuthenticated || isSubmitting || files.length < MAX_FILES
+
   return (
-    <form onSubmit={handleSubmit} style={{ width: "100%" }}>
-      <Flex direction="row" w="100%" grow={1} justify="center" overflowX="clip">
-        <Box
-          w="100%"
-          opacity={isAuthenticated ? 1 : 0}
-          css={{
-            "& > div": {
-              height: "100%",
-            },
-          }}
-        >
-          <Input
-            onChange={(value: string) => {
-              setContent(value)
+    <FileUpload.RootProvider value={fileUpload} disabled={isFileUploadDisabled}>
+      <form onSubmit={handleSubmit} style={{ width: "100%" }}>
+        {/* Image previews */}
+        {files.length > 0 && (
+          <Box mb={2}>
+            <ImageUpload
+              files={files}
+              disabled={isFileUploadDisabled}
+              fileUpload={fileUpload}
+              maxFiles={MAX_FILES}
+              maxFileSize={MAX_FILE_SIZE}
+            />
+          </Box>
+        )}
+
+        <Flex direction="row" w="100%" grow={1} justify="center" overflowX="clip" gap={1}>
+          {/* Image upload button */}
+          {files.length === 0 && (
+            <Box opacity={isAuthenticated ? 1 : 0}>
+              <ImageUpload
+                files={files}
+                disabled={isFileUploadDisabled}
+                fileUpload={fileUpload}
+                maxFiles={MAX_FILES}
+                maxFileSize={MAX_FILE_SIZE}
+              />
+            </Box>
+          )}
+
+          <Box
+            w="100%"
+            opacity={isAuthenticated ? 1 : 0}
+            css={{
+              "& > div": {
+                height: "100%",
+              },
             }}
-            handleSubmit={handleSubmit}
-            value={content}
-            inputRef={inputRef}
-            inputStyle={inputStyle}
-            handleKeyInput={handleKeyInput}
-            userSuggestions={userSuggestions}
-            mentionStyle={mentionStyle}
-            renderUserSuggestion={renderUserSuggestion}
-            autoFocus={modalActive}
-            isDisabled={!isAuthenticated}
-          />
-        </Box>
-        <Spacer />
-        <Box
-          transition="width 0.2s, opacity 0.2s"
-          width={isValid ? "auto" : "5px"}
-          opacity={isValid ? 1 : 0}
-          overflow="hidden"
-        >
-          <IconButton
-            aria-label="Send Message"
-            type="submit"
-            variant="ghost"
-            disabled={isSubmitting || !isValid}
-            colorPalette="action"
-            css={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
           >
-            <Icon as={FiArrowUpCircle} />
-          </IconButton>
-        </Box>
-      </Flex>
-    </form>
+            <Input
+              onChange={(value: string) => {
+                setContent(value)
+              }}
+              handleSubmit={handleSubmit}
+              value={content}
+              inputRef={inputRef}
+              inputStyle={inputStyle}
+              handleKeyInput={handleKeyInput}
+              userSuggestions={userSuggestions}
+              mentionStyle={mentionStyle}
+              renderUserSuggestion={renderUserSuggestion}
+              autoFocus={modalActive}
+              isDisabled={!isAuthenticated}
+            />
+          </Box>
+          <Box
+            transition="width 0.2s, opacity 0.2s"
+            width={isValid ? "auto" : "5px"}
+            opacity={isValid ? 1 : 0}
+            overflow="hidden"
+          >
+            <IconButton
+              aria-label="Send Message"
+              type="submit"
+              variant="ghost"
+              disabled={isSubmitting || !isValid}
+              colorPalette="action"
+              css={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
+            >
+              <Icon as={FiArrowUpCircle} />
+            </IconButton>
+          </Box>
+        </Flex>
+      </form>
+    </FileUpload.RootProvider>
   )
 }
 
