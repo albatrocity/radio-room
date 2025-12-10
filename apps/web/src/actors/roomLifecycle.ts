@@ -13,7 +13,7 @@ import { queueListActor } from "./queueListActor"
 import { usersActor } from "./usersActor"
 import { reactionsActor } from "./reactionsActor"
 import { settingsActor } from "./settingsActor"
-import { roomActor, fetchRoom } from "./roomActor"
+import { roomActor, fetchRoom, getLatestRoomData } from "./roomActor"
 import { audioActor } from "./audioActor"
 import { djActor } from "./djActor"
 import { adminActor } from "./adminActor"
@@ -174,11 +174,22 @@ export function forceCleanup(): void {
 /**
  * Handle page visibility change.
  * Fetches latest data when returning to visible tab.
+ *
+ * Note on mobile background behavior:
+ * When users switch to another app on mobile, the browser may throttle or suspend
+ * JavaScript execution and close the WebSocket connection. This is expected behavior
+ * by design to conserve battery and resources. Socket.io will automatically attempt
+ * to reconnect when the app regains focus, and the RECONNECTED event will trigger
+ * a data sync. This visibility change handler provides an additional sync opportunity
+ * for cases where the socket remained connected but the page was backgrounded.
  */
 export function handleVisibilityChange(isVisible: boolean): void {
   if (isVisible && isInitialized && currentRoomId) {
     console.log("[RoomLifecycle] Page visible, fetching latest data")
-    // Room actor will emit GET_LATEST_ROOM_DATA
+    // Fetch room data via HTTP to ensure we have the latest room settings
     fetchRoom(currentRoomId)
+    // Also request incremental updates (messages, playlist) via socket
+    // This handles the case where socket stayed connected but page was backgrounded
+    getLatestRoomData()
   }
 }
