@@ -143,6 +143,11 @@ export class PluginAPIImpl implements PluginAPI {
     })
   }
 
+  async getQueue(roomId: string): Promise<QueueItem[]> {
+    const { getQueue } = await import("../../operations/data")
+    return await getQueue({ context: this.context, roomId })
+  }
+
   /**
    * Emit a custom plugin event.
    * Events are namespaced as PLUGIN:{pluginName}:{eventName}
