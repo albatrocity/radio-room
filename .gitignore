@@ -98,3 +98,4 @@ vite.config.ts.timestamp-*
 
 plans/*
 work-history/*
+_old/
