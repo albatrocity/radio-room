@@ -437,6 +437,12 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     }
 
     await this.emit("TRACK_SKIPPED", { isSkipped: true, voteCount, requiredCount })
+
+    await this.context!.api.queueSoundEffect({
+      url: "https://cdn.freesound.org/previews/650/650842_11771918-lq.mp3",
+      volume: 0.5,
+    })
+
     await this.sendSkipMessage(trackTitle, config, voteCount, requiredCount, totalListeners)
   }
 

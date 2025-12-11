@@ -175,4 +175,25 @@ export class PluginAPIImpl implements PluginAPI {
       data: payload,
     })
   }
+
+  /**
+   * Queue a sound effect to be played on all clients in the room.
+   */
+  async queueSoundEffect(params: { url: string; volume?: number }): Promise<void> {
+    if (!this.roomId) {
+      console.warn("[PluginAPI] Cannot queue sound effect: room context not set")
+      return
+    }
+
+    if (!this.context.systemEvents) {
+      console.warn("[PluginAPI] systemEvents not available, cannot queue sound effect")
+      return
+    }
+
+    await this.context.systemEvents.emit(this.roomId, "SOUND_EFFECT_QUEUED", {
+      roomId: this.roomId,
+      url: params.url,
+      volume: params.volume ?? 1.0,
+    })
+  }
 }

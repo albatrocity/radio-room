@@ -205,6 +205,26 @@ export interface PluginAPI {
    * ```
    */
   emit<T extends Record<string, unknown>>(eventName: string, data: T): Promise<void>
+
+  /**
+   * Queue a sound effect to be played on all clients in the room.
+   *
+   * Sound effects are played one at a time in order. If a sound is already
+   * playing, the new sound will be added to a queue.
+   *
+   * @param params - Sound effect parameters
+   * @param params.url - URL to the sound effect audio file
+   * @param params.volume - Volume level (0.0 to 1.0, defaults to 1.0)
+   *
+   * @example
+   * ```typescript
+   * await this.context.api.queueSoundEffect({
+   *   url: "https://example.com/sounds/ding.mp3",
+   *   volume: 0.8,
+   * })
+   * ```
+   */
+  queueSoundEffect(params: { url: string; volume?: number }): Promise<void>
 }
 
 /**

@@ -108,6 +108,13 @@ export {
   toggleMute,
 } from "./audioActor"
 
+// Sound Effects Actor
+export {
+  soundEffectsActor,
+  isPlayingSoundEffect,
+  getQueuedSoundEffectsCount,
+} from "./soundEffectsActor"
+
 // DJ Actor
 export {
   djActor,
