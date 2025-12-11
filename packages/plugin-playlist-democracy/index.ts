@@ -377,6 +377,27 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
           requiredCount,
         })
       } else {
+        // Check if we should skip based on queue length
+        if (config.skipRequiresQueue) {
+          const queue = await this.context!.api.getQueue(this.context!.roomId)
+          const queueLength = queue.length
+
+          if (queueLength <= config.skipRequiresQueueMin) {
+            console.log(
+              `[${this.name}] Threshold not met, but queue too short (${queueLength} <= ${config.skipRequiresQueueMin}), not skipping`,
+            )
+            // Hide countdown - track didn't pass vote but we're not skipping due to queue
+            await this.emit("THRESHOLD_NOT_MET_QUEUE_SHORT", {
+              showCountdown: false,
+              voteCount,
+              requiredCount,
+              queueLength,
+              skipRequiresQueueMin: config.skipRequiresQueueMin,
+            })
+            return
+          }
+        }
+
         await this.skipTrack(trackId, trackTitle, config, voteCount, requiredCount, totalListeners)
       }
     } catch (error) {

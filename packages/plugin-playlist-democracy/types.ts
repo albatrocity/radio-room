@@ -9,6 +9,8 @@ export const playlistDemocracyConfigSchema = z.object({
   timeLimit: z.number().min(10000).max(300000), // milliseconds (10s - 5min)
   thresholdType: z.enum(["percentage", "static"]),
   thresholdValue: z.number().min(1).max(100), // 0-100 for percentage, absolute number for static
+  skipRequiresQueue: z.boolean(), // only skip when queue has enough tracks
+  skipRequiresQueueMin: z.number().min(0), // minimum queue length required to skip
 })
 
 /**
@@ -25,4 +27,6 @@ export const defaultPlaylistDemocracyConfig: PlaylistDemocracyConfig = {
   timeLimit: 60000, // 60 seconds
   thresholdType: "percentage",
   thresholdValue: 50,
+  skipRequiresQueue: false,
+  skipRequiresQueueMin: 0,
 }

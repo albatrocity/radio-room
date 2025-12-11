@@ -180,6 +180,8 @@ export interface PluginAPI {
   setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>
   /** Emit an update for a playlist track (e.g., when pluginData changes) */
   updatePlaylistTrack(roomId: string, track: QueueItem): Promise<void>
+  /** Get the current queue for a room */
+  getQueue(roomId: string): Promise<QueueItem[]>
 
   /**
    * Emit a custom plugin event.

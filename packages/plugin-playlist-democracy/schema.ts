@@ -105,6 +105,8 @@ export function getConfigSchema(): PluginConfigSchema {
       "thresholdValue",
       percentExampleBlock,
       staticExampleBlock,
+      "skipRequiresQueue",
+      "skipRequiresQueueMin",
     ],
     fieldMeta: {
       enabled: {
@@ -142,6 +144,22 @@ export function getConfigSchema(): PluginConfigSchema {
         label: "Threshold Value",
         description: "Percentage of listeners (1-100%) or number of reactions needed",
         showWhen: { field: "enabled", value: true },
+      },
+      skipRequiresQueue: {
+        type: "boolean",
+        label: "Only skip when queue has tracks",
+        description:
+          "When enabled, tracks will not be skipped if the queue has too few tracks waiting",
+        showWhen: { field: "enabled", value: true },
+      },
+      skipRequiresQueueMin: {
+        type: "number",
+        label: "Minimum queue length to skip",
+        description: "Tracks will only be skipped if the queue has more than this many tracks",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "skipRequiresQueue", value: true },
+        ],
       },
     },
   }
