@@ -28,5 +28,5 @@ export const defaultPlaylistDemocracyConfig: PlaylistDemocracyConfig = {
   thresholdType: "percentage",
   thresholdValue: 50,
   skipRequiresQueue: false,
-  skipRequiresQueueMin: 1,
+  skipRequiresQueueMin: 0,
 }
