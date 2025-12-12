@@ -128,6 +128,8 @@ const ChatMessage = ({
       onMouseLeave={() => setHovered(false)}
       position="relative"
       w="100%"
+      data-screen-effect-target="message"
+      data-message-id={timestamp}
     >
       {showUsername && (
         <Flex direction="row" justify="between" grow={1} align="center" w="100%">

@@ -115,6 +115,24 @@ export {
   getQueuedSoundEffectsCount,
 } from "./soundEffectsActor"
 
+// Screen Effects Actor
+export {
+  screenEffectsActor,
+  isPlayingScreenEffect,
+  getQueuedScreenEffectsCount,
+  getCurrentEffect,
+  signalEffectEnded,
+  signalEffectError,
+} from "./screenEffectsActor"
+
+// Reduced Motion Actor
+export {
+  reducedMotionActor,
+  isReducedMotionEnabled,
+  toggleReducedMotion,
+  setReducedMotion,
+} from "./reducedMotionActor"
+
 // DJ Actor
 export {
   djActor,

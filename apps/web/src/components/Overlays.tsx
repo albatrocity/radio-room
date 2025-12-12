@@ -10,6 +10,7 @@ import ModalPassword from "./Modals/ModalPassword"
 import ModalAbout from "./Modals/ModalAbout"
 import ModalAddToQueue from "./Modals/ModalAddToQueue"
 import ModalAdminSettings from "./Modals/Admin/ModalAdminSettings"
+import ScreenEffectsProvider from "./ScreenEffectsProvider"
 
 function Overlays() {
   return (
@@ -25,6 +26,9 @@ function Overlays() {
       <ModalAdminSettings />
       <ModalEditUsername />
       <ModalPassword />
+
+      {/* Screen effects handler - applies CSS animations from plugin events */}
+      <ScreenEffectsProvider />
     </div>
   )
 }

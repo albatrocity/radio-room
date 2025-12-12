@@ -1051,6 +1051,25 @@ await this.context.api.queueSoundEffect({
 })
 ```
 
+### 9. Use Screen Effects Thoughtfully
+
+```typescript
+// Animate plugin components to draw attention
+await this.context.api.queueScreenEffect({
+  target: "plugin",
+  targetId: "my-button", // Component id from your schema
+  effect: "pulse",
+})
+
+// For chat messages, prefer non-scaling effects to avoid clipping
+await this.context.api.queueScreenEffect({
+  target: "message",
+  targetId: message.timestamp,
+  effect: "shakeX", // Good: doesn't scale
+  // effect: "tada", // May clip in scroll container
+})
+```
+
 ## Complete Example
 
 See the [Playlist Democracy Plugin](../packages/plugin-playlist-democracy) for a complete reference implementation featuring:
@@ -1080,6 +1099,7 @@ See the [Playlist Democracy Plugin](../packages/plugin-playlist-democracy) for a
 | `updatePlaylistTrack(roomId, track)`           | Update track with pluginData    |
 | `emit(eventName, data)`                        | Emit plugin event to frontend   |
 | `queueSoundEffect(params)`                     | Play a sound effect in the room |
+| `queueScreenEffect(params)`                    | Play a CSS animation in the room |
 
 ### System Message Options
 
@@ -1133,6 +1153,94 @@ private async onReactionAdded(data: { roomId: string; reaction: any }): Promise<
 - Sound effect volume is capped at the user's current volume setting (sound effects will never be louder than the radio)
 - If a user has muted audio, sound effects are skipped
 - Sound effects use Web Audio API, separate from the radio stream
+
+### Screen Effects
+
+Play CSS animations (from animate.css) on UI elements in the room. Screen effects are queued and played one at a time on all connected clients.
+
+```typescript
+await this.context.api.queueScreenEffect({
+  target: "nowPlaying",
+  effect: "pulse",
+  duration: 1000, // optional, in milliseconds
+})
+```
+
+**Parameters:**
+
+| Parameter  | Type                | Required | Description                                           |
+| ---------- | ------------------- | -------- | ----------------------------------------------------- |
+| `target`   | `ScreenEffectTarget`| Yes      | What to animate: `room`, `nowPlaying`, `message`, or `plugin` |
+| `targetId` | `string`            | No       | For `message`: timestamp or `"latest"`. For `plugin`: component ID |
+| `effect`   | `ScreenEffectName`  | Yes      | Animation name (see available effects below)          |
+| `duration` | `number`            | No       | Custom duration in milliseconds (default varies by effect) |
+
+**Target Types:**
+
+| Target       | Description                 | `targetId` Usage                    |
+| ------------ | --------------------------- | ----------------------------------- |
+| `room`       | Entire room UI              | Not needed                          |
+| `nowPlaying` | Now playing section         | Not needed                          |
+| `message`    | Specific chat message       | Message timestamp or `"latest"`     |
+| `plugin`     | Plugin's own components     | Component `id` from your schema     |
+
+**Available Effects (animate.css attention seekers):**
+
+`bounce`, `flash`, `pulse`, `rubberBand`, `shakeX`, `shakeY`, `headShake`, `swing`, `tada`, `wobble`, `jello`, `heartBeat`
+
+**Example: Animate plugin component on event**
+
+```typescript
+private async onWordDetected(word: string, message: ChatMessage): Promise<void> {
+  const config = await this.getConfig()
+  if (!config?.enabled) return
+
+  // Pulse the leaderboard button when a special word is detected
+  await this.context!.api.queueScreenEffect({
+    target: "plugin",
+    targetId: "leaderboard-button", // matches component id in schema
+    effect: "pulse",
+  })
+}
+```
+
+**Example: Animate a chat message**
+
+```typescript
+// Shake the message that triggered an event
+await this.context!.api.queueScreenEffect({
+  target: "message",
+  targetId: message.timestamp,
+  effect: "shakeX",
+})
+
+// Or animate the most recent message
+await this.context!.api.queueScreenEffect({
+  target: "message",
+  targetId: "latest",
+  effect: "flash",
+})
+```
+
+**Example: Animate the now playing section**
+
+```typescript
+// Celebrate when a popular track starts
+await this.context!.api.queueScreenEffect({
+  target: "nowPlaying",
+  effect: "tada",
+  duration: 1500,
+})
+```
+
+**Notes:**
+
+- Screen effects play on all clients in the room simultaneously
+- Multiple screen effects are queued and played sequentially (one at a time)
+- Users can disable animations via the "Reduce Motion" preference in settings
+- The system also respects the OS-level `prefers-reduced-motion` setting
+- Plugins can only animate their own components (using component `id` from schema)
+- For chat messages, use animations that don't scale (`flash`, `shakeX`, `shakeY`, `headShake`) to avoid clipping issues in scroll containers
 
 ## Testing
 

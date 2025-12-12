@@ -6,6 +6,8 @@ import {
   User,
   ReactionSubject,
   ChatMessage,
+  ScreenEffectTarget,
+  ScreenEffectName,
 } from "@repo/types"
 import { Server } from "socket.io"
 import { getRoomPath } from "../getRoomPath"
@@ -194,6 +196,34 @@ export class PluginAPIImpl implements PluginAPI {
       roomId: this.roomId,
       url: params.url,
       volume: params.volume ?? 1.0,
+    })
+  }
+
+  /**
+   * Queue a screen effect (CSS animation) to be played on all clients in the room.
+   */
+  async queueScreenEffect(params: {
+    target: ScreenEffectTarget
+    targetId?: string
+    effect: ScreenEffectName
+    duration?: number
+  }): Promise<void> {
+    if (!this.roomId) {
+      console.warn("[PluginAPI] Cannot queue screen effect: room context not set")
+      return
+    }
+
+    if (!this.context.systemEvents) {
+      console.warn("[PluginAPI] systemEvents not available, cannot queue screen effect")
+      return
+    }
+
+    await this.context.systemEvents.emit(this.roomId, "SCREEN_EFFECT_QUEUED", {
+      roomId: this.roomId,
+      target: params.target,
+      targetId: params.targetId,
+      effect: params.effect,
+      duration: params.duration,
     })
   }
 }

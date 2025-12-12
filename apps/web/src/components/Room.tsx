@@ -37,7 +37,7 @@ const Room = ({ id }: { id: string }) => {
   }, [isNewUser, isAuthenticated, modalSend])
 
   return (
-    <Box w="100%" h="100%">
+    <Box w="100%" h="100%" data-screen-effect-target="room">
       <Grid
         flexGrow={1}
         flexShrink={1}
