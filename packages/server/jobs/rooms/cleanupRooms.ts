@@ -5,6 +5,7 @@ import {
   findRoom,
   getRoomOnlineUserIds,
   removeRoomFromRoomList,
+  removeRoomFromUserRoomList,
   getRoomLastEmptied,
   isRoomPollingPaused,
   setRoomPollingPaused,
@@ -33,6 +34,8 @@ export async function cleanupRoom(context: AppContext, roomId: string) {
         `[cleanupRoom] Setting TTL for room ${roomId} to ${ROOM_EXPIRE_TIME}ms (24 hours)`,
       )
       await expireRoomIn({ context, roomId, ms: ROOM_EXPIRE_TIME })
+      // Remove from user's room list now since the room will be deleted when TTL expires
+      await removeRoomFromUserRoomList({ context, room })
     }
   }
 
