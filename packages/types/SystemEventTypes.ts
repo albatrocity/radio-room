@@ -110,6 +110,13 @@ export type SystemEventHandlers = {
     status?: number
     message?: string
   }) => Promise<void> | void
+
+  // Sound effect events
+  SOUND_EFFECT_QUEUED: (data: {
+    roomId: string
+    url: string
+    volume: number
+  }) => Promise<void> | void
 }
 
 /**

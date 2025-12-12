@@ -10,6 +10,11 @@ export const specialWordsConfigSchema = z.object({
   sendMessageOnDetection: z.boolean().optional().default(true),
   wordLabel: z.string().optional().default("word"),
   showLeaderboard: z.boolean().optional().default(false),
+  soundEffectOnDetection: z.boolean().optional().default(false),
+  soundEffectOnDetectionUrl: z
+    .url()
+    .optional()
+    .default("https://cdn.freesound.org/previews/650/650842_11771918-lq.mp3"),
 })
 
 /**
@@ -27,4 +32,6 @@ export const defaultSpecialWordsConfig: SpecialWordsConfig = {
   wordLabel: "word",
   messageTemplate: `Special word detected: {{word}} by {{username}}. {{username}} has used {{userAllWordsCount}} special words and is ranked {{userRank}}. Total words used: {{totalWordsUsed}}. This word has been used {{thisWordCount}} times ({{userThisWordCount}} times by {{username}}) and is ranked {{thisWordRank}}.`,
   showLeaderboard: false,
+  soundEffectOnDetection: false,
+  soundEffectOnDetectionUrl: "https://cdn.freesound.org/previews/650/650842_11771918-lq.mp3",
 }

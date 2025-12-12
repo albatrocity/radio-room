@@ -90,6 +90,8 @@ export function getConfigSchema(): PluginConfigSchema {
       "sendMessageOnDetection",
       "messageTemplate",
       "showLeaderboard",
+      "soundEffectOnDetection",
+      "soundEffectOnDetectionUrl",
     ],
     fieldMeta: {
       enabled: {
@@ -132,6 +134,21 @@ export function getConfigSchema(): PluginConfigSchema {
         label: "Show Leaderboard",
         description: "Shows a button to open the leaderboard in a modal",
         showWhen: { field: "enabled", value: true },
+      },
+      soundEffectOnDetection: {
+        type: "boolean",
+        label: "Play sound effect on detection",
+        description: "When enabled, a sound effect will be played when a special word is detected",
+        showWhen: { field: "enabled", value: true },
+      },
+      soundEffectOnDetectionUrl: {
+        type: "url",
+        label: "Sound effect on detection URL",
+        description: "The URL of the sound effect to play when a special word is detected",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "soundEffectOnDetection", value: true },
+        ],
       },
     },
   }

@@ -17,7 +17,7 @@ import {
   type SpecialWordsConfig,
 } from "./types"
 import { getComponentSchema, getConfigSchema } from "./schema"
-import type { PluginExportAugmentation, RoomExportData } from "@repo/types"
+import { PluginExportAugmentation, RoomExportData } from "@repo/types/RoomExport"
 
 export type { SpecialWordsConfig } from "./types"
 export { specialWordsConfigSchema, defaultSpecialWordsConfig } from "./types"
@@ -207,6 +207,10 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
 
     // Emit plugin event to frontend
     await this.emitWordDetected(word, userId, username, message.timestamp, stats)
+
+    if (config.soundEffectOnDetection) {
+      await this.playSoundEffect(config)
+    }
   }
 
   private detectSpecialWords(content: string, configWords: string[]): string[] {
@@ -354,6 +358,15 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       thisWordRank: stats.thisWordRank,
       usersLeaderboard: stats.usersLeaderboard,
       allWordsLeaderboard: stats.allWordsLeaderboard,
+    })
+  }
+
+  private async playSoundEffect(config: SpecialWordsConfig): Promise<void> {
+    if (!this.context) return
+
+    await this.context.api.queueSoundEffect({
+      url: config.soundEffectOnDetectionUrl,
+      volume: 0.6,
     })
   }
 
