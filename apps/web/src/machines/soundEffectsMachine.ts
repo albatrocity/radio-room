@@ -1,6 +1,7 @@
 import { setup, assign } from "xstate"
 import { Howl } from "howler"
 import { subscribeById, unsubscribeById } from "../actors/socketActor"
+import { getVolume, isMuted } from "../actors/audioActor"
 
 // ============================================================================
 // Types
@@ -44,7 +45,7 @@ export const soundEffectsMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `soundEffects-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event) })
+      subscribeById(id, { send: (event) => self.send(event as SoundEffectsEvent) })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {
@@ -72,7 +73,21 @@ export const soundEffectsMachine = setup({
         context.currentSound.unload()
       }
 
-      console.log("PLAYING SOUND", next.url)
+      // Respect user's volume setting - sound effects should not exceed user volume
+      // If user is muted, skip the sound effect entirely
+      const userVolume = getVolume()
+      const userMuted = isMuted()
+
+      if (userMuted) {
+        // Skip this sound and check if there are more in queue
+        if (rest.length > 0) {
+          self.send({ type: "SOUND_ENDED" })
+        }
+        return { queue: rest, currentSound: null }
+      }
+
+      // Cap the sound effect volume at the user's volume level
+      const effectiveVolume = Math.min(next.volume, userVolume)
 
       // Create new Howl instance for the sound effect
       // Note: We intentionally don't use html5: true here.
@@ -80,8 +95,7 @@ export const soundEffectsMachine = setup({
       // works better alongside the radio stream (which uses HTML5 Audio).
       const sound = new Howl({
         src: [next.url],
-        volume: next.volume,
-
+        volume: effectiveVolume,
         onend: () => {
           self.send({ type: "SOUND_ENDED" })
         },

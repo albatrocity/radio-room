@@ -1130,7 +1130,8 @@ private async onReactionAdded(data: { roomId: string; reaction: any }): Promise<
 - Sound effects play on all clients in the room simultaneously
 - Multiple sound effects are queued and played sequentially (one at a time)
 - Audio files must be accessible via HTTPS and support CORS
-- Use reasonable volumes (0.3-0.7) to avoid startling users
+- Sound effect volume is capped at the user's current volume setting (sound effects will never be louder than the radio)
+- If a user has muted audio, sound effects are skipped
 - Sound effects use Web Audio API, separate from the radio stream
 
 ## Testing
