@@ -413,6 +413,8 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     requiredCount: number,
     totalListeners: number,
   ): Promise<void> {
+    if (!this.context) return
+
     console.log(`[${this.name}] Skipping track ${trackId}`)
 
     const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
@@ -438,10 +440,12 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
     await this.emit("TRACK_SKIPPED", { isSkipped: true, voteCount, requiredCount })
 
-    await this.context!.api.queueSoundEffect({
-      url: "https://cdn.freesound.org/previews/650/650842_11771918-lq.mp3",
-      volume: 0.5,
-    })
+    if (config.soundEffectOnSkip && this.context) {
+      const url =
+        config.soundEffectOnSkipUrl ??
+        "https://cdn.freesound.org/previews/650/650842_11771918-lq.mp3"
+      await this.context.api.queueSoundEffect({ url, volume: 0.7 })
+    }
 
     await this.sendSkipMessage(trackTitle, config, voteCount, requiredCount, totalListeners)
   }

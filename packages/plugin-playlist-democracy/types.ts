@@ -11,6 +11,8 @@ export const playlistDemocracyConfigSchema = z.object({
   thresholdValue: z.number().min(1).max(100), // 0-100 for percentage, absolute number for static
   skipRequiresQueue: z.boolean(), // only skip when queue has enough tracks
   skipRequiresQueueMin: z.number().min(0), // minimum queue length required to skip
+  soundEffectOnSkip: z.boolean(), // play sound effect when skipping
+  soundEffectOnSkipUrl: z.url(), // URL of the sound effect to play when skipping
 })
 
 /**
@@ -29,4 +31,6 @@ export const defaultPlaylistDemocracyConfig: PlaylistDemocracyConfig = {
   thresholdValue: 50,
   skipRequiresQueue: false,
   skipRequiresQueueMin: 0,
+  soundEffectOnSkip: false,
+  soundEffectOnSkipUrl: "https://cdn.freesound.org/previews/650/650842_11771918-lq.mp3",
 }

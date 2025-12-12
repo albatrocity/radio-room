@@ -107,6 +107,8 @@ export function getConfigSchema(): PluginConfigSchema {
       staticExampleBlock,
       "skipRequiresQueue",
       "skipRequiresQueueMin",
+      "soundEffectOnSkip",
+      "soundEffectOnSkipUrl",
     ],
     fieldMeta: {
       enabled: {
@@ -159,6 +161,21 @@ export function getConfigSchema(): PluginConfigSchema {
         showWhen: [
           { field: "enabled", value: true },
           { field: "skipRequiresQueue", value: true },
+        ],
+      },
+      soundEffectOnSkip: {
+        type: "boolean",
+        label: "Play sound effect on skip",
+        description: "When enabled, a sound effect will be played when a track is skipped",
+        showWhen: { field: "enabled", value: true },
+      },
+      soundEffectOnSkipUrl: {
+        type: "url",
+        label: "Sound effect on skip URL",
+        description: "The URL of the sound effect to play when a track is skipped",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "soundEffectOnSkip", value: true },
         ],
       },
     },
