@@ -39,7 +39,10 @@ type RemoveRoomFromUserRoomListParams = {
   room: Room
 }
 
-async function removeRoomFromUserRoomList({ context, room }: RemoveRoomFromUserRoomListParams) {
+export async function removeRoomFromUserRoomList({
+  context,
+  room,
+}: RemoveRoomFromUserRoomListParams) {
   await context.redis.pubClient.sRem(`user:${room.creator}:rooms`, room.id)
 }
 
