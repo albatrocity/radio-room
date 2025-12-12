@@ -444,7 +444,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       const url =
         config.soundEffectOnSkipUrl ??
         "https://cdn.freesound.org/previews/650/650842_11771918-lq.mp3"
-      await this.context.api.queueSoundEffect({ url, volume: 0.7 })
+      await this.context.api.queueSoundEffect({ url, volume: 0.6 })
     }
 
     await this.sendSkipMessage(trackTitle, config, voteCount, requiredCount, totalListeners)

@@ -1041,6 +1041,16 @@ await this.emit("STATE_CHANGED", {
 })
 ```
 
+### 8. Use Sound Effects Sparingly
+
+```typescript
+// Play a sound effect on important events
+await this.context.api.queueSoundEffect({
+  url: "https://example.com/sounds/ding.mp3",
+  volume: 0.5, // Don't blast users at full volume
+})
+```
+
 ## Complete Example
 
 See the [Playlist Democracy Plugin](../packages/plugin-playlist-democracy) for a complete reference implementation featuring:
@@ -1069,6 +1079,7 @@ See the [Playlist Democracy Plugin](../packages/plugin-playlist-democracy) for a
 | `setPluginConfig(roomId, pluginName, config)`  | Update plugin config            |
 | `updatePlaylistTrack(roomId, track)`           | Update track with pluginData    |
 | `emit(eventName, data)`                        | Emit plugin event to frontend   |
+| `queueSoundEffect(params)`                     | Play a sound effect in the room |
 
 ### System Message Options
 
@@ -1078,6 +1089,49 @@ await this.context.api.sendSystemMessage(roomId, "Message text", {
   status: "info", // "info" | "success" | "warning" | "error"
 })
 ```
+
+### Sound Effects
+
+Play audio sound effects in the room. Sound effects are queued and played one at a time on all connected clients.
+
+```typescript
+await this.context.api.queueSoundEffect({
+  url: "https://example.com/sounds/notification.mp3",
+  volume: 0.5, // 0.0 to 1.0, defaults to 1.0
+})
+```
+
+**Parameters:**
+
+| Parameter | Type     | Required | Description                                 |
+| --------- | -------- | -------- | ------------------------------------------- |
+| `url`     | `string` | Yes      | URL to the audio file (mp3, wav, ogg, etc)  |
+| `volume`  | `number` | No       | Volume level from 0.0 to 1.0 (default: 1.0) |
+
+**Example: Play sound on special event**
+
+```typescript
+private async onReactionAdded(data: { roomId: string; reaction: any }): Promise<void> {
+  const config = await this.getConfig()
+  if (!config?.enabled || !config.soundEffectUrl) return
+
+  // Play sound when someone reacts with the target emoji
+  if (data.reaction.emoji.shortcodes === config.targetEmoji) {
+    await this.context!.api.queueSoundEffect({
+      url: config.soundEffectUrl,
+      volume: config.soundEffectVolume ?? 0.5,
+    })
+  }
+}
+```
+
+**Notes:**
+
+- Sound effects play on all clients in the room simultaneously
+- Multiple sound effects are queued and played sequentially (one at a time)
+- Audio files must be accessible via HTTPS and support CORS
+- Use reasonable volumes (0.3-0.7) to avoid startling users
+- Sound effects use Web Audio API, separate from the radio stream
 
 ## Testing
 

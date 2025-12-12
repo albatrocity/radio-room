@@ -366,7 +366,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
 
     await this.context.api.queueSoundEffect({
       url: config.soundEffectOnDetectionUrl,
-      volume: 0.7,
+      volume: 0.6,
     })
   }
 
