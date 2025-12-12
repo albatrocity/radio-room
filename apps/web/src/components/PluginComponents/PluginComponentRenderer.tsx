@@ -10,6 +10,7 @@ import {
   DialogCloseTrigger,
   CloseButton,
   VStack,
+  Box,
 } from "@chakra-ui/react"
 import {
   interpolateTemplate,
@@ -62,6 +63,7 @@ interface PluginComponentRendererProps {
 /**
  * Renders a single plugin component.
  * Checks showWhen conditions and delegates to the appropriate template component.
+ * Wraps the component with data attributes for screen effect targeting.
  */
 export function PluginComponentRenderer({ component }: PluginComponentRendererProps) {
   const { config, store } = React.useContext(PluginComponentContext)!
@@ -80,7 +82,18 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
     }
   }
 
-  return renderPluginComponent(component, config)
+  // Wrap the component with data attributes for screen effect targeting
+  // Note: We use display="inline-block" instead of "contents" because
+  // CSS animations require an element that generates a box.
+  return (
+    <Box
+      data-screen-effect-target="plugin"
+      data-plugin-component-id={component.id}
+      display="inline-block"
+    >
+      {renderPluginComponent(component, config)}
+    </Box>
+  )
 }
 
 // ============================================================================

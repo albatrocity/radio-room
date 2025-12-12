@@ -398,6 +398,12 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
           }
         }
 
+        await this.context.api.queueScreenEffect({
+          target: "nowPlaying",
+          targetId: trackId,
+          effect: "headShake",
+          duration: 1000,
+        })
         await this.skipTrack(trackId, trackTitle, config, voteCount, requiredCount, totalListeners)
       }
     } catch (error) {
@@ -595,6 +601,13 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       config.thresholdType === "percentage"
         ? `${config.thresholdValue}%`
         : `${config.thresholdValue}`
+
+    await this.context!.api.queueScreenEffect({
+      target: "nowPlaying",
+      targetId: "latest",
+      effect: "pulse",
+      duration: 500,
+    })
 
     await this.context!.api.sendSystemMessage(
       this.context!.roomId,

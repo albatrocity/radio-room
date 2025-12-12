@@ -12,7 +12,7 @@ import {
   Field,
   Text,
 } from "@chakra-ui/react"
-import { FiSettings, FiMoon } from "react-icons/fi"
+import { FiSettings, FiMoon, FiZapOff } from "react-icons/fi"
 
 import FormTheme from "./FormTheme"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
@@ -26,11 +26,13 @@ import {
 import { useColorMode } from "./ui/color-mode"
 import { setAvailableSources } from "../actors"
 import { MetadataSourceType } from "../types/Queue"
+import { useReducedMotionPreference } from "../hooks/useReducedMotion"
 
 type Props = {}
 
 const PopoverPreferences = (props: Props) => {
   const { colorMode, toggleColorMode } = useColorMode()
+  const { isReducedMotion, toggleReducedMotion } = useReducedMotionPreference()
   const room = useCurrentRoom()
   const availableSources = useAvailableMetadataSources()
   const preferredSource = usePreferredMetadataSource()
@@ -70,6 +72,19 @@ const PopoverPreferences = (props: Props) => {
                   id="darkMode"
                   onCheckedChange={toggleColorMode}
                   checked={colorMode === "dark"}
+                >
+                  <Switch.HiddenInput />
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                </Switch.Root>
+              </HStack>
+              <HStack align="center">
+                <Icon as={FiZapOff} aria-label="Reduce Motion" />
+                <Switch.Root
+                  id="reduceMotion"
+                  onCheckedChange={toggleReducedMotion}
+                  checked={isReducedMotion}
                 >
                   <Switch.HiddenInput />
                   <Switch.Control>

@@ -122,7 +122,7 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   const addedAt = new Date(nowPlaying?.addedAt ?? 0).toString()
 
   return (
-    <VStack align="start" gap={4} w="100%">
+    <VStack align="start" gap={4} w="100%" data-screen-effect-target="nowPlaying">
       <LinkBox width="100%">
         <Stack direction={["row", "column"]} gap={5} justify="center" flexGrow={1}>
           {coverUrl && (

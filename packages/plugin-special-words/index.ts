@@ -211,6 +211,18 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     if (config.soundEffectOnDetection) {
       await this.playSoundEffect(config)
     }
+    await this.context.api.queueScreenEffect({
+      target: "message",
+      targetId: message.timestamp,
+      effect: "headShake",
+      duration: 1000,
+    })
+    await this.context.api.queueScreenEffect({
+      target: "plugin",
+      targetId: "leaderboard-button",
+      effect: "pulse",
+      duration: 500,
+    })
   }
 
   private detectSpecialWords(content: string, configWords: string[]): string[] {

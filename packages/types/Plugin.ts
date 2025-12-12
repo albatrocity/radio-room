@@ -7,7 +7,7 @@ import type { Reaction } from "./Reaction"
 import type { User } from "./User"
 import type { ReactionSubject } from "./ReactionSubject"
 import type { ChatMessage } from "./ChatMessage"
-import type { SystemEventHandlers } from "./SystemEventTypes"
+import type { SystemEventHandlers, ScreenEffectTarget, ScreenEffectName } from "./SystemEventTypes"
 import type { PluginComponentSchema, PluginComponentState } from "./PluginComponent"
 
 // ============================================================================
@@ -225,6 +225,50 @@ export interface PluginAPI {
    * ```
    */
   queueSoundEffect(params: { url: string; volume?: number }): Promise<void>
+
+  /**
+   * Queue a screen effect (CSS animation) to be played on all clients in the room.
+   *
+   * Screen effects are played one at a time in order. If an effect is already
+   * playing, the new effect will be added to a queue.
+   *
+   * Available effects (from animate.css attention seekers):
+   * bounce, flash, pulse, rubberBand, shakeX, shakeY, headShake, swing, tada, wobble, jello, heartBeat
+   *
+   * @param params - Screen effect parameters
+   * @param params.target - What to animate: 'room', 'nowPlaying', 'message', or 'plugin'
+   * @param params.targetId - For 'message': timestamp or "latest". For 'plugin': componentId
+   * @param params.effect - The animation effect name
+   * @param params.duration - Optional custom duration in milliseconds
+   *
+   * @example
+   * ```typescript
+   * // Shake the entire room
+   * await this.context.api.queueScreenEffect({
+   *   target: "room",
+   *   effect: "shakeX",
+   * })
+   *
+   * // Pulse the now playing section
+   * await this.context.api.queueScreenEffect({
+   *   target: "nowPlaying",
+   *   effect: "pulse",
+   * })
+   *
+   * // Bounce the most recent chat message
+   * await this.context.api.queueScreenEffect({
+   *   target: "message",
+   *   targetId: "latest",
+   *   effect: "bounce",
+   * })
+   * ```
+   */
+  queueScreenEffect(params: {
+    target: ScreenEffectTarget
+    targetId?: string
+    effect: ScreenEffectName
+    duration?: number
+  }): Promise<void>
 }
 
 /**

@@ -19,6 +19,7 @@ import { djActor } from "./djActor"
 import { adminActor } from "./adminActor"
 import { metadataSourceAuthActor } from "./metadataSourceAuthActor"
 import { soundEffectsActor } from "./soundEffectsActor"
+import { screenEffectsActor } from "./screenEffectsActor"
 
 import {
   getPersistedRoomState,
@@ -74,6 +75,7 @@ export function initializeRoom(roomId: string): void {
   adminActor.send({ type: "ACTIVATE" })
   metadataSourceAuthActor.send({ type: "ACTIVATE" })
   soundEffectsActor.send({ type: "ACTIVATE" })
+  screenEffectsActor.send({ type: "ACTIVATE" })
 
   // Start fetching room data
   fetchRoom(roomId)
@@ -120,6 +122,7 @@ export function teardownRoom(): void {
   adminActor.send({ type: "DEACTIVATE" })
   metadataSourceAuthActor.send({ type: "DEACTIVATE" })
   soundEffectsActor.send({ type: "DEACTIVATE" })
+  screenEffectsActor.send({ type: "DEACTIVATE" })
 
   currentRoomId = null
   isInitialized = false
