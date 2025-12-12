@@ -158,7 +158,9 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
 
             <AddedByInfo dj={dj} djUsername={djUsername} addedAt={addedAt} />
 
-            <PluginArea area="nowPlayingInfo" color="primaryBg" />
+            <Box colorPalette="primary" color="colorPalette.contrast">
+              <PluginArea area="nowPlayingInfo" />
+            </Box>
 
             <MetadataSourceInfo metadataSource={activeMetadataSource} />
           </VStack>
