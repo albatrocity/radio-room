@@ -1,10 +1,4 @@
-import {
-  Field,
-  Input,
-  NativeSelect,
-  VStack,
-  Text,
-} from "@chakra-ui/react"
+import { Field, Input, NativeSelect, VStack, Text } from "@chakra-ui/react"
 import React from "react"
 
 import { Room } from "../../types/Room"
@@ -12,16 +6,18 @@ import { StationProtocol } from "../../types/StationProtocol"
 
 type Props = {
   onChange: (settings: Partial<Room>) => void
+  settings?: Partial<Room>
 }
 
-export default function FormRadioSettings({ onChange }: Props) {
+export default function FormRadioSettings({ onChange, settings }: Props) {
   return (
     <VStack gap={4} w="100%">
       <Field.Root>
-        <Field.Label htmlFor="radioMetaUrl">Radio URL</Field.Label>
+        <Field.Label htmlFor="radioListenUrl">Radio URL</Field.Label>
         <Input
-          name="radioMetaUrl"
+          name="radioListenUrl"
           placeholder="Radio URL"
+          defaultValue={settings?.radioListenUrl}
           onChange={(e) => {
             onChange({ radioListenUrl: e.target.value })
           }}
@@ -34,10 +30,11 @@ export default function FormRadioSettings({ onChange }: Props) {
         </Field.HelperText>
       </Field.Root>
       <Field.Root>
-        <Field.Label>Radio Metadata URL</Field.Label>
+        <Field.Label htmlFor="radioMetaUrl">Radio Metadata URL</Field.Label>
         <Input
           name="radioMetaUrl"
           placeholder="Radio Metadata URL"
+          defaultValue={settings?.radioMetaUrl}
           onChange={(e) => {
             onChange({ radioMetaUrl: e.target.value })
           }}
@@ -51,9 +48,8 @@ export default function FormRadioSettings({ onChange }: Props) {
         <NativeSelect.Root>
           <NativeSelect.Field
             name="radioProtocol"
-            onChange={(e) =>
-              onChange({ radioProtocol: e.target.value as StationProtocol })
-            }
+            defaultValue={settings?.radioProtocol ?? "shoutcastv2"}
+            onChange={(e) => onChange({ radioProtocol: e.target.value as StationProtocol })}
           >
             <option value="shoutcastv2">Shoutcast v2</option>
             <option value="shoutcastv1">Shoutcast v1</option>
@@ -62,9 +58,7 @@ export default function FormRadioSettings({ onChange }: Props) {
           </NativeSelect.Field>
           <NativeSelect.Indicator />
         </NativeSelect.Root>
-        <Field.HelperText>
-          The base URL of the SHOUTCast server you want to connect to.
-        </Field.HelperText>
+        <Field.HelperText>The protocol used by the internet radio station.</Field.HelperText>
       </Field.Root>
     </VStack>
   )

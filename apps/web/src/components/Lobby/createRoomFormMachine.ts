@@ -50,7 +50,9 @@ export const createRoomFormMachine = setup({
         sessionStorage.setItem("postSpotifyAuthRedirect", "/rooms/create")
 
         // Redirect to Spotify OAuth flow
-        window.location.href = `${import.meta.env.VITE_API_URL}/auth/spotify/login?redirect=/callback`
+        window.location.href = `${
+          import.meta.env.VITE_API_URL
+        }/auth/spotify/login?redirect=/callback`
       }
     },
   },
@@ -60,9 +62,9 @@ export const createRoomFormMachine = setup({
   context: {
     type: "jukebox",
     title: "My Room",
-    radioMetaUrl: undefined,
-    radioListenUrl: undefined,
-    radioProtocol: undefined,
+    radioMetaUrl: "http://live.rcast.net:8678",
+    radioListenUrl: "https://stream1.rcast.net/66341",
+    radioProtocol: "shoutcastv2",
     deputizeOnJoin: true,
   },
   states: {

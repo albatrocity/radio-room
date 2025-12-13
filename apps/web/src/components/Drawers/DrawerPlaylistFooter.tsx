@@ -2,7 +2,6 @@ import { FormEvent, useEffect, useRef } from "react"
 import { Box, Button, HStack, Text, Input } from "@chakra-ui/react"
 import { MetadataSourceType } from "@repo/types"
 import { ServiceSelect, serviceConfig } from "../ServiceSelect"
-import ButtonExportRoom from "../ButtonExportRoom"
 
 interface Props {
   isEditing: boolean
@@ -40,8 +39,6 @@ const DrawerPlaylistFooter = ({
 
   return (
     <HStack justifyContent="flex-end" w="100%" flexWrap="wrap" gap={2}>
-      <ButtonExportRoom size="sm" />
-
       <Box as="form" onSubmit={onSave}>
         <Box w="100%">
           {isEditing ? (

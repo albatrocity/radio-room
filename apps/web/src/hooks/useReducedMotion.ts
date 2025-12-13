@@ -69,36 +69,40 @@ export function useSystemReducedMotion(): boolean {
 }
 
 /**
- * Hook that returns the in-app reduced motion preference and toggle function.
+ * Hook that returns the in-app animation preference and toggle function.
  * Use this for the settings toggle UI.
+ *
+ * Returns `animationsEnabled: true` when animations should play,
+ * and `animationsEnabled: false` when animations should be disabled.
  */
-export function useReducedMotionPreference(): {
-  isReducedMotion: boolean
-  toggleReducedMotion: () => void
+export function useAnimationPreference(): {
+  animationsEnabled: boolean
+  toggleAnimations: () => void
 } {
-  const isReducedMotion = useSyncExternalStore(
+  const reducedMotion = useSyncExternalStore(
     subscribeToActor,
     getActorReducedMotion,
     () => false, // Server snapshot
   )
 
-  const toggleReducedMotion = useCallback(() => {
+  const toggleAnimations = useCallback(() => {
     reducedMotionActor.send({ type: "TOGGLE_REDUCED_MOTION" })
   }, [])
 
-  return { isReducedMotion, toggleReducedMotion }
+  // Invert: reducedMotion=true means animations are disabled
+  return { animationsEnabled: !reducedMotion, toggleAnimations }
 }
 
 /**
  * Hook that checks BOTH the system preference AND the in-app preference.
- * Returns true if either is enabled (respects the more restrictive setting).
+ * Returns true if animations should play (both system and app allow animations).
  *
- * Use this hook to determine if animations should be disabled.
+ * Use this hook to determine if animations should be enabled.
  */
-export function useReducedMotion(): boolean {
-  const systemPrefers = useSystemReducedMotion()
-  const { isReducedMotion: appPrefers } = useReducedMotionPreference()
+export function useAnimationsEnabled(): boolean {
+  const systemPrefersReduced = useSystemReducedMotion()
+  const { animationsEnabled: appAnimationsEnabled } = useAnimationPreference()
 
-  return systemPrefers || appPrefers
+  // Animations are enabled only if both system and app allow them
+  return !systemPrefersReduced && appAnimationsEnabled
 }
-

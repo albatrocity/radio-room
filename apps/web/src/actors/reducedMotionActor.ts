@@ -22,7 +22,7 @@ export const reducedMotionActor = createActor(reducedMotionMachine).start()
 /**
  * Check if the user has enabled reduced motion in the app settings.
  * Note: This only checks the app preference, not the system preference.
- * Use useReducedMotion() hook to check both.
+ * Use useAnimationsEnabled() hook to check both.
  */
 export function isReducedMotionEnabled(): boolean {
   return reducedMotionActor.getSnapshot().context.reducedMotion
@@ -41,4 +41,3 @@ export function toggleReducedMotion(): void {
 export function setReducedMotion(value: boolean): void {
   reducedMotionActor.send({ type: "SET_REDUCED_MOTION", value })
 }
-

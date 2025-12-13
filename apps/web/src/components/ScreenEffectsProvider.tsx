@@ -16,7 +16,7 @@ import {
   signalEffectError,
 } from "../actors/screenEffectsActor"
 import { findTargetElement, applyAnimation } from "../lib/screenEffects"
-import { useReducedMotion } from "../hooks/useReducedMotion"
+import { useAnimationsEnabled } from "../hooks/useReducedMotion"
 import type { ScreenEffect } from "../machines/screenEffectsMachine"
 
 // Maximum number of retries to find an element (for timing issues)
@@ -51,15 +51,15 @@ async function findElementWithRetry(
 
 export function ScreenEffectsProvider() {
   const currentEffect = useSelector(screenEffectsActor, selectCurrentEffect)
-  const isReducedMotion = useReducedMotion()
+  const animationsEnabled = useAnimationsEnabled()
   const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (!currentEffect) return
 
-    // If user prefers reduced motion, skip the animation
+    // If animations are disabled, skip the animation
     // but still signal that the effect "ended" so the queue continues
-    if (isReducedMotion) {
+    if (!animationsEnabled) {
       signalEffectEnded()
       return
     }
@@ -77,7 +77,9 @@ export function ScreenEffectsProvider() {
 
         if (!element) {
           console.warn(
-            `[ScreenEffects] Target element not found after retries: ${target}${targetId ? `:${targetId}` : ""}`,
+            `[ScreenEffects] Target element not found after retries: ${target}${
+              targetId ? `:${targetId}` : ""
+            }`,
           )
           signalEffectError()
           return
@@ -101,7 +103,7 @@ export function ScreenEffectsProvider() {
     return () => {
       abortControllerRef.current?.abort()
     }
-  }, [currentEffect, isReducedMotion])
+  }, [currentEffect, animationsEnabled])
 
   // This component doesn't render anything - it just manages side effects
   return null

@@ -12,7 +12,7 @@ import {
   Field,
   Text,
 } from "@chakra-ui/react"
-import { FiSettings, FiMoon, FiZapOff } from "react-icons/fi"
+import { FiSettings, FiMoon, FiZapOff, FiZap } from "react-icons/fi"
 
 import FormTheme from "./FormTheme"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
@@ -26,13 +26,13 @@ import {
 import { useColorMode } from "./ui/color-mode"
 import { setAvailableSources } from "../actors"
 import { MetadataSourceType } from "../types/Queue"
-import { useReducedMotionPreference } from "../hooks/useReducedMotion"
+import { useAnimationPreference } from "../hooks/useReducedMotion"
 
 type Props = {}
 
 const PopoverPreferences = (props: Props) => {
   const { colorMode, toggleColorMode } = useColorMode()
-  const { isReducedMotion, toggleReducedMotion } = useReducedMotionPreference()
+  const { animationsEnabled, toggleAnimations } = useAnimationPreference()
   const room = useCurrentRoom()
   const availableSources = useAvailableMetadataSources()
   const preferredSource = usePreferredMetadataSource()
@@ -64,7 +64,7 @@ const PopoverPreferences = (props: Props) => {
       <Popover.Positioner>
         <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }}>
           <Popover.Header fontWeight="bold">
-            <HStack justify="space-between" gap={1} w="100%">
+            <HStack align="center">
               <Flex grow={1}>Theme</Flex>
               <HStack align="center">
                 <Icon as={FiMoon} aria-label="Dark Mode" />
@@ -72,19 +72,6 @@ const PopoverPreferences = (props: Props) => {
                   id="darkMode"
                   onCheckedChange={toggleColorMode}
                   checked={colorMode === "dark"}
-                >
-                  <Switch.HiddenInput />
-                  <Switch.Control>
-                    <Switch.Thumb />
-                  </Switch.Control>
-                </Switch.Root>
-              </HStack>
-              <HStack align="center">
-                <Icon as={FiZapOff} aria-label="Reduce Motion" />
-                <Switch.Root
-                  id="reduceMotion"
-                  onCheckedChange={toggleReducedMotion}
-                  checked={isReducedMotion}
                 >
                   <Switch.HiddenInput />
                   <Switch.Control>
@@ -100,25 +87,39 @@ const PopoverPreferences = (props: Props) => {
               <FormTheme />
             </VStack>
           </Box>
-          {showMetadataSourceSelect && (
-            <>
-              <Separator />
-              <Box p={4}>
-                <Field.Root>
-                  <Field.Label>
-                    <Text fontWeight="semibold">Preferred Music Service</Text>
-                  </Field.Label>
-                  <ServiceSelect
-                    value={preferredSource || availableSources[0] || "spotify"}
-                    onChange={handleSourceChange}
-                    availableServices={availableSources}
-                    size="md"
-                  />
-                  <Field.HelperText>Track info and links will use this service</Field.HelperText>
-                </Field.Root>
-              </Box>
-            </>
-          )}
+          <Separator />
+          <Box p={4}>
+            {showMetadataSourceSelect && (
+              <Field.Root>
+                <Field.Label>
+                  <Text fontWeight="semibold">Preferred Music Service</Text>
+                </Field.Label>
+                <ServiceSelect
+                  value={preferredSource || availableSources[0] || "spotify"}
+                  onChange={handleSourceChange}
+                  availableServices={availableSources}
+                  size="md"
+                />
+                <Field.HelperText>Track info and links will use this service</Field.HelperText>
+              </Field.Root>
+            )}
+            <HStack align="center" justify="space-between" gap={2}>
+              <Text>Animations</Text>
+              <HStack align="center">
+                <Icon as={FiZap} aria-label="Animations" />
+                <Switch.Root
+                  id="animations"
+                  onCheckedChange={toggleAnimations}
+                  checked={animationsEnabled}
+                >
+                  <Switch.HiddenInput />
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                </Switch.Root>
+              </HStack>
+            </HStack>
+          </Box>
           {room?.enableSpotifyLogin && (
             <>
               <Separator />

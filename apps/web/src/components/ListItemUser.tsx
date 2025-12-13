@@ -16,7 +16,7 @@ const statusIcon = (user: User) => {
   switch (user.status) {
     case "participating":
       return (
-        <Tooltip content="Spectating" positioning={{ placement: "top" }}>
+        <Tooltip content="Spectating" positioning={{ placement: "top" }} showArrow>
           <Box>
             <Icon opacity={0.5} _hover={{ opacity: 1 }} as={FiEye} boxSize={3} />
           </Box>
