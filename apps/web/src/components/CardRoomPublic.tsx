@@ -1,19 +1,14 @@
-import { Button, Card, Heading, Text, VStack, HStack, Image, Box } from "@chakra-ui/react"
+import { Button, Card, Heading, Text, VStack, HStack, Box } from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
-import { LuUsers, LuMusic } from "react-icons/lu"
+import { LuUsers } from "react-icons/lu"
+import { QueueItem } from "@repo/types"
 import { Room } from "../types/Room"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
-
-type NowPlayingInfo = {
-  track?: string
-  artist?: string
-  album?: string
-  artwork?: string
-} | null
+import TrackDisplay from "./TrackDisplay"
 
 type Props = Omit<Room, "password"> & {
   userCount?: number
-  nowPlaying?: NowPlayingInfo
+  nowPlaying?: QueueItem | null
   creatorName?: string
 }
 
@@ -42,32 +37,10 @@ export default function CardRoomPublic({
           {extraInfo && <ParsedEmojiMessage content={extraInfo} />}
 
           {/* Now Playing */}
-          {nowPlaying?.track && (
-            <HStack gap={2} p={2} bg="bg.subtle" borderRadius="md">
-              {nowPlaying.artwork ? (
-                <Image
-                  src={nowPlaying.artwork}
-                  alt={nowPlaying.album}
-                  boxSize="40px"
-                  borderRadius="sm"
-                  objectFit="cover"
-                />
-              ) : (
-                <Box p={2} bg="bg.muted" borderRadius="sm">
-                  <LuMusic />
-                </Box>
-              )}
-              <VStack align="start" gap={0} flex={1} minW={0}>
-                <Text fontSize="sm" fontWeight="medium" truncate>
-                  {nowPlaying.track}
-                </Text>
-                {nowPlaying.artist && (
-                  <Text fontSize="xs" color="fg.muted" truncate>
-                    {nowPlaying.artist}
-                  </Text>
-                )}
-              </VStack>
-            </HStack>
+          {nowPlaying && (
+            <Box p={2} bg="bg.subtle" borderRadius="md">
+              <TrackDisplay item={nowPlaying} />
+            </Box>
           )}
 
           {/* User count */}

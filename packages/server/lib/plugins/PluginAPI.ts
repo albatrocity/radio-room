@@ -153,6 +153,12 @@ export class PluginAPIImpl implements PluginAPI {
   /**
    * Emit a custom plugin event.
    * Events are namespaced as PLUGIN:{pluginName}:{eventName}
+   *
+   * Note: Plugin events emit directly to Socket.IO rather than through SystemEvents
+   * because they are:
+   * 1. Dynamically named (not typed in SystemEventTypes)
+   * 2. Room-specific only (don't need lobby or cross-server broadcasting)
+   * 3. Already properly namespaced to avoid conflicts
    */
   async emit<T extends Record<string, unknown>>(eventName: string, data: T): Promise<void> {
     if (!this.pluginName || !this.roomId) {
@@ -171,7 +177,7 @@ export class PluginAPIImpl implements PluginAPI {
 
     console.log(`[PluginAPI] Emitting ${namespacedEvent}`, payload)
 
-    // Broadcast to room via Socket.IO
+    // Broadcast to room via Socket.IO (direct emission is intentional - see above)
     this.io.to(getRoomPath(this.roomId)).emit("event", {
       type: namespacedEvent,
       data: payload,

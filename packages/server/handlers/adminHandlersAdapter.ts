@@ -2,7 +2,6 @@ import { AdminService } from "../services/AdminService"
 import { HandlerConnections, AppContext } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
-import { getRoomPath } from "../lib/getRoomPath"
 
 /**
  * Socket.io adapter for the AdminService
@@ -157,14 +156,14 @@ export class AdminHandlers {
       roomId: socket.data.roomId,
     })
 
-    io.to(getRoomPath(socket.data.roomId)).emit("event", {
-      type: "ROOM_SETTINGS_UPDATED",
-      data: {
+    // Emit via SystemEvents so broadcasters receive ROOM_SETTINGS_UPDATED
+    if (socket.context.systemEvents) {
+      await socket.context.systemEvents.emit(socket.data.roomId, "ROOM_SETTINGS_UPDATED", {
         roomId: socket.data.roomId,
         room: result.room,
         pluginConfigs: updatedPluginConfigs,
-      },
-    })
+      })
+    }
 
     // Emit configChanged events for updated plugin configs
     if (socket.context.pluginRegistry && result.room && pluginConfigs) {
@@ -241,10 +240,13 @@ export class AdminHandlers {
       return
     }
 
-    io.to(getRoomPath(socket.data.roomId)).emit("event", {
-      type: "PLAYLIST",
-      data: [],
-    })
+    // Emit via SystemEvents so broadcasters receive QUEUE_CHANGED
+    if (socket.context.systemEvents) {
+      await socket.context.systemEvents.emit(socket.data.roomId, "QUEUE_CHANGED", {
+        roomId: socket.data.roomId,
+        queue: [],
+      })
+    }
   }
 }
 
