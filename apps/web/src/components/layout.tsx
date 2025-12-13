@@ -5,6 +5,7 @@ import Div100vh from "react-div-100vh"
 import "./layout.css"
 
 import { useCurrentTheme } from "../hooks/useActors"
+import { useDynamicTheme } from "../hooks/useDynamicTheme"
 
 const ThemedLayout = ({ children, fill }: { children: ReactNode; fill?: boolean }) => {
   const chosenThemeId = useCurrentTheme()
@@ -13,6 +14,9 @@ const ThemedLayout = ({ children, fill }: { children: ReactNode; fill?: boolean 
   useEffect(() => {
     document.documentElement.dataset.theme = chosenThemeId
   }, [chosenThemeId])
+
+  // Extract and apply colors from album artwork when dynamic theme is active
+  useDynamicTheme()
 
   const Component = fill ? Div100vh : React.Fragment
 
