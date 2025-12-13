@@ -422,6 +422,63 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     }
   }
   // ============================================================================
+  // Actions
+  // ============================================================================
+
+  async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+    if (action === "resetLeaderboards") {
+      return this.resetLeaderboards()
+    }
+    return { success: false, message: `Unknown action: ${action}` }
+  }
+
+  private async resetLeaderboards(): Promise<{ success: boolean; message?: string }> {
+    if (!this.context) {
+      return { success: false, message: "Plugin not initialized" }
+    }
+
+    try {
+      // Get all users from the leaderboard to clean up their per-user word counts
+      const usersLeaderboard = await this.context.storage.zrangeWithScores(
+        USER_WORD_COUNT_KEY,
+        0,
+        -1,
+      )
+
+      // Delete per-user word count keys
+      for (const entry of usersLeaderboard) {
+        await this.context.storage.del(`${WORDS_PER_USER_KEY}:${entry.value}`)
+      }
+
+      // Delete the main leaderboard keys by removing all entries
+      const allUserIds = usersLeaderboard.map((e) => e.value)
+      for (const userId of allUserIds) {
+        await this.context.storage.zrem(USER_WORD_COUNT_KEY, userId)
+      }
+
+      const allWordsLeaderboard = await this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1)
+      const allWords = allWordsLeaderboard.map((e) => e.value)
+      for (const word of allWords) {
+        await this.context.storage.zrem(WORD_RANK_KEY, word)
+      }
+
+      console.log(`[${this.name}] Leaderboards reset for room ${this.context.roomId}`)
+
+      // Emit an event to update the frontend with empty leaderboards
+      // Include the store keys so the frontend machine updates its store
+      await this.emit("LEADERBOARDS_RESET", {
+        usersLeaderboard: [],
+        allWordsLeaderboard: [],
+      })
+
+      return { success: true, message: "Leaderboards have been reset" }
+    } catch (error) {
+      console.error(`[${this.name}] Error resetting leaderboards:`, error)
+      return { success: false, message: `Error resetting leaderboards: ${error}` }
+    }
+  }
+
+  // ============================================================================
   // Helpers
   // ============================================================================
 

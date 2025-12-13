@@ -397,4 +397,26 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    * ```
    */
   async augmentNowPlaying?(item: QueueItem): Promise<PluginAugmentationData>
+
+  /**
+   * Execute a plugin action triggered from the admin config UI.
+   * Override this method to handle custom actions defined in getConfigSchema().
+   *
+   * @param action - The action identifier from PluginActionElement
+   * @returns Result with success status and optional message
+   *
+   * @example
+   * ```typescript
+   * async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+   *   if (action === 'resetLeaderboards') {
+   *     await this.clearAllLeaderboards()
+   *     return { success: true, message: 'Leaderboards reset successfully' }
+   *   }
+   *   return { success: false, message: 'Unknown action' }
+   * }
+   * ```
+   */
+  async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+    return { success: false, message: `Unknown action: ${action}` }
+  }
 }

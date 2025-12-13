@@ -1,4 +1,4 @@
-import React, { useMemo } from "react"
+import React, { useMemo, useState } from "react"
 import {
   Box,
   Button,
@@ -16,6 +16,7 @@ import {
   VStack,
   Wrap,
   useDisclosure,
+  CloseButton,
 } from "@chakra-ui/react"
 import Picker from "@emoji-mart/react"
 import data from "@emoji-mart/data"
@@ -25,8 +26,11 @@ import type {
   PluginFieldMeta,
   PluginSchemaElement,
   PluginFieldType,
+  PluginActionElement,
 } from "../../../types/PluginSchema"
 import type { CompositeTemplate } from "../../../types/PluginComponent"
+import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
+import { toaster } from "../../ui/toaster"
 
 interface PluginConfigFormProps {
   schema: PluginConfigSchema
@@ -34,6 +38,8 @@ interface PluginConfigFormProps {
   onChange: (field: string, value: unknown) => void
   /** Parent field value for conditional visibility */
   allValues?: Record<string, unknown>
+  /** Plugin name - required for executing actions */
+  pluginName?: string
 }
 
 /**
@@ -407,6 +413,143 @@ function renderSchemaElement(
 }
 
 /**
+ * Action button component with optional confirmation popover
+ */
+function ActionButton({
+  element,
+  pluginName,
+}: {
+  element: PluginActionElement
+  pluginName: string
+}) {
+  const [isLoading, setIsLoading] = useState(false)
+  const subscriptionIdRef = React.useRef<string | null>(null)
+
+  const executeAction = () => {
+    setIsLoading(true)
+
+    // Create a unique subscription ID
+    const subscriptionId = `plugin-action-${element.action}-${Date.now()}`
+    subscriptionIdRef.current = subscriptionId
+
+    // Subscribe to the result event
+    subscribeById(subscriptionId, {
+      send: (event: { type: string; data?: { success: boolean; message?: string } }) => {
+        if (event.type === "PLUGIN_ACTION_RESULT" && event.data) {
+          setIsLoading(false)
+          unsubscribeById(subscriptionId)
+          subscriptionIdRef.current = null
+
+          if (event.data.success) {
+            toaster.create({
+              title: "Success",
+              description: event.data.message || "Action completed successfully",
+              type: "success",
+            })
+          } else {
+            toaster.create({
+              title: "Error",
+              description: event.data.message || "Action failed",
+              type: "error",
+            })
+          }
+        }
+      },
+    })
+
+    // Execute the action
+    emitToSocket("EXECUTE_PLUGIN_ACTION", {
+      pluginName,
+      action: element.action,
+    })
+
+    // Timeout after 10 seconds
+    setTimeout(() => {
+      if (subscriptionIdRef.current === subscriptionId) {
+        setIsLoading(false)
+        unsubscribeById(subscriptionId)
+        subscriptionIdRef.current = null
+        toaster.create({
+          title: "Timeout",
+          description: "Action timed out",
+          type: "error",
+        })
+      }
+    }, 10000)
+  }
+
+  const buttonVariant = element.variant === "destructive" ? "outline" : element.variant || "solid"
+  const buttonColorPalette = element.variant === "destructive" ? "red" : undefined
+
+  // If confirmation is required, wrap in a popover
+  if (element.confirmMessage) {
+    return (
+      <Popover.Root>
+        <Popover.Trigger asChild>
+          <Button variant={buttonVariant} colorPalette={buttonColorPalette} loading={isLoading}>
+            {element.label}
+          </Button>
+        </Popover.Trigger>
+        <Popover.Positioner>
+          <Popover.Content>
+            <Popover.Arrow />
+            <Popover.CloseTrigger asChild position="absolute" top="1" right="1">
+              <CloseButton size="sm" />
+            </Popover.CloseTrigger>
+            <Popover.Body>
+              <Text>{element.confirmMessage}</Text>
+            </Popover.Body>
+            <Popover.Footer justifyContent="flex-end" display="flex">
+              <Button colorPalette="red" onClick={executeAction} loading={isLoading}>
+                {element.confirmText || "Confirm"}
+              </Button>
+            </Popover.Footer>
+          </Popover.Content>
+        </Popover.Positioner>
+      </Popover.Root>
+    )
+  }
+
+  // No confirmation required, just a simple button
+  return (
+    <Button
+      variant={buttonVariant}
+      colorPalette={buttonColorPalette}
+      onClick={executeAction}
+      loading={isLoading}
+    >
+      {element.label}
+    </Button>
+  )
+}
+
+/**
+ * Render an action element
+ */
+function renderActionElement(
+  element: PluginActionElement,
+  index: number,
+  allValues: Record<string, unknown>,
+  pluginName?: string,
+): React.ReactNode {
+  // Check conditional visibility
+  if (!shouldShow(element.showWhen, allValues)) {
+    return null
+  }
+
+  if (!pluginName) {
+    console.warn("PluginConfigForm: pluginName is required to render action buttons")
+    return null
+  }
+
+  return (
+    <Box key={`action-${index}`}>
+      <ActionButton element={element} pluginName={pluginName} />
+    </Box>
+  )
+}
+
+/**
  * A dynamic form renderer that maps semantic field types to Chakra UI components.
  * Renders plugin configuration forms based on the schema definition.
  */
@@ -415,6 +558,7 @@ export default function PluginConfigForm({
   values,
   onChange,
   allValues,
+  pluginName,
 }: PluginConfigFormProps) {
   const effectiveValues = allValues || values
 
@@ -448,8 +592,18 @@ export default function PluginConfigForm({
           )
         }
 
+        // Handle action elements
+        if (item.type === "action") {
+          return renderActionElement(
+            item as PluginActionElement,
+            index,
+            effectiveValues,
+            pluginName,
+          )
+        }
+
         // Handle schema elements (text blocks, headings)
-        return renderSchemaElement(item, index, effectiveValues)
+        return renderSchemaElement(item as PluginSchemaElement, index, effectiveValues)
       })}
     </VStack>
   )

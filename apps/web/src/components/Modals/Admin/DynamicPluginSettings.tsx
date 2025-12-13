@@ -104,6 +104,7 @@ export default function DynamicPluginSettings({ pluginName }: DynamicPluginSetti
               schema={pluginSchema.configSchema!}
               values={values}
               onChange={(field, value) => setFieldValue(field, value)}
+              pluginName={pluginName}
             />
           </DialogBody>
           <DialogFooter>
