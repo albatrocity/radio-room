@@ -92,6 +92,16 @@ export function getConfigSchema(): PluginConfigSchema {
       "showLeaderboard",
       "soundEffectOnDetection",
       "soundEffectOnDetectionUrl",
+      {
+        type: "action",
+        action: "resetLeaderboards",
+        label: "Reset Leaderboards",
+        variant: "destructive",
+        confirmMessage:
+          "Are you sure you want to reset all leaderboards? This will clear all user scores and word counts. This action cannot be undone.",
+        confirmText: "Reset Leaderboards",
+        showWhen: { field: "enabled", value: true },
+      },
     ],
     fieldMeta: {
       enabled: {

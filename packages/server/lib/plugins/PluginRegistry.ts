@@ -496,6 +496,46 @@ export class PluginRegistry {
   }
 
   /**
+   * Execute a plugin action.
+   * Called when an admin triggers an action button from the plugin config UI.
+   *
+   * @param roomId - The room where the plugin is active
+   * @param pluginName - The plugin to execute the action on
+   * @param action - The action identifier
+   * @returns Result with success status and optional message
+   */
+  async executePluginAction(
+    roomId: string,
+    pluginName: string,
+    action: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) {
+      return { success: false, message: "Room not found" }
+    }
+
+    const pluginInstance = roomPlugins.get(pluginName)
+    if (!pluginInstance) {
+      return { success: false, message: `Plugin ${pluginName} not found in room` }
+    }
+
+    const { plugin } = pluginInstance
+    if (typeof plugin.executeAction !== "function") {
+      return { success: false, message: `Plugin ${pluginName} does not support actions` }
+    }
+
+    try {
+      return await plugin.executeAction(action)
+    } catch (error) {
+      console.error(
+        `[PluginRegistry] Error executing action ${action} for plugin ${pluginName}:`,
+        error,
+      )
+      return { success: false, message: `Error executing action: ${error}` }
+    }
+  }
+
+  /**
    * Format plugin data as markdown for an individual item.
    * Calls formatPluginDataMarkdown on all plugins that have data for the item.
    *

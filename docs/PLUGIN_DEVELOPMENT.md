@@ -9,6 +9,7 @@ This guide explains how to create plugins for Radio Room. Plugins extend room fu
 - [BasePlugin Reference](#baseplugin-reference)
 - [Event System](#event-system)
 - [Configuration Schema](#configuration-schema)
+- [Plugin Actions](#plugin-actions)
 - [Plugin Components](#plugin-components)
 - [Data Augmentation](#data-augmentation)
 - [Room Export](#room-export)
@@ -314,6 +315,20 @@ protected async onCleanup(): Promise<void> {
 }
 ```
 
+#### `executeAction(action: string): Promise<{ success: boolean; message?: string }>`
+
+Handle action buttons from the admin config UI. Override this to implement custom actions.
+
+```typescript
+async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+  if (action === "resetLeaderboards") {
+    await this.clearAllLeaderboards()
+    return { success: true, message: "Leaderboards have been reset" }
+  }
+  return { success: false, message: `Unknown action: ${action}` }
+}
+```
+
 ## Event System
 
 Plugins subscribe to system events using SCREAMING_SNAKE_CASE names.
@@ -475,6 +490,16 @@ layout: [
 
   // Field reference (string = field name)
   "myFieldName",
+
+  // Action button (see Plugin Actions section)
+  {
+    type: "action",
+    action: "resetData",
+    label: "Reset Data",
+    variant: "destructive",
+    confirmMessage: "Are you sure? This cannot be undone.",
+    confirmText: "Reset",
+  },
 ]
 ```
 
@@ -490,6 +515,216 @@ fieldMeta: {
     storageUnit: "milliseconds", // Store as milliseconds
     showWhen: { field: "enabled", value: true },
   },
+}
+```
+
+## Plugin Actions
+
+Add action buttons to your plugin's config form to trigger server-side operations like resetting data, syncing state, or performing maintenance tasks.
+
+### Defining Action Buttons
+
+Add action elements to your config schema's `layout` array:
+
+```typescript
+getConfigSchema(): PluginConfigSchema {
+  return {
+    jsonSchema: z.toJSONSchema(myConfigSchema),
+    layout: [
+      "enabled",
+      "threshold",
+      // Action button at the end of the form
+      {
+        type: "action",
+        action: "resetLeaderboards",      // Unique action identifier
+        label: "Reset Leaderboards",      // Button text
+        variant: "destructive",           // "solid" | "outline" | "ghost" | "destructive"
+        confirmMessage: "Are you sure you want to reset all leaderboards? This cannot be undone.",
+        confirmText: "Reset Leaderboards", // Confirmation button text
+        showWhen: { field: "enabled", value: true }, // Optional conditional visibility
+      },
+    ],
+    fieldMeta: { /* ... */ },
+  }
+}
+```
+
+### Action Element Properties
+
+| Property         | Type     | Required | Description                                                      |
+| ---------------- | -------- | -------- | ---------------------------------------------------------------- |
+| `type`           | `string` | Yes      | Must be `"action"`                                               |
+| `action`         | `string` | Yes      | Unique identifier passed to `executeAction()`                    |
+| `label`          | `string` | Yes      | Button label text                                                |
+| `variant`        | `string` | No       | Button style: `"solid"`, `"outline"`, `"ghost"`, `"destructive"` |
+| `confirmMessage` | `string` | No       | If provided, shows confirmation dialog before executing          |
+| `confirmText`    | `string` | No       | Text for the confirmation button (default: "Confirm")            |
+| `showWhen`       | `object` | No       | Conditional visibility (same as field `showWhen`)                |
+
+### Handling Actions
+
+Override the `executeAction` method to handle action button clicks:
+
+```typescript
+async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+  switch (action) {
+    case "resetLeaderboards":
+      return this.resetLeaderboards()
+    case "syncData":
+      return this.syncData()
+    default:
+      return { success: false, message: `Unknown action: ${action}` }
+  }
+}
+
+private async resetLeaderboards(): Promise<{ success: boolean; message?: string }> {
+  if (!this.context) {
+    return { success: false, message: "Plugin not initialized" }
+  }
+
+  try {
+    // Clear leaderboard data from storage
+    const leaderboard = await this.context.storage.zrangeWithScores("leaderboard", 0, -1)
+    for (const entry of leaderboard) {
+      await this.context.storage.zrem("leaderboard", entry.value)
+    }
+
+    // IMPORTANT: Emit event with updated store keys to refresh frontend
+    await this.emit("LEADERBOARDS_RESET", {
+      usersLeaderboard: [],      // Include store keys in event data
+      allWordsLeaderboard: [],   // Frontend will update its store
+    })
+
+    return { success: true, message: "Leaderboards have been reset" }
+  } catch (error) {
+    return { success: false, message: `Error: ${error}` }
+  }
+}
+```
+
+### Updating Frontend After Actions
+
+When an action modifies data that's displayed in plugin components, you must emit an event containing the updated store keys. The frontend's `pluginComponentMachine` listens for `PLUGIN:{pluginName}:*` events and updates its store when event data contains any of the plugin's `storeKeys`.
+
+```typescript
+// Component schema defines which keys to watch
+getComponentSchema(): PluginComponentSchema {
+  return {
+    components: [ /* ... */ ],
+    storeKeys: ["usersLeaderboard", "allWordsLeaderboard"], // Keys that trigger updates
+  }
+}
+
+// Event must include the store keys for frontend to update
+await this.emit("DATA_RESET", {
+  usersLeaderboard: [],      // ✓ Frontend will update
+  allWordsLeaderboard: [],   // ✓ Frontend will update
+})
+
+// This won't update the frontend (no store keys in payload)
+await this.emit("DATA_RESET", {})  // ✗ Frontend won't know to update
+```
+
+### Event Flow
+
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Admin clicks "Reset Leaderboards" button                                │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Frontend emits EXECUTE_PLUGIN_ACTION via Socket.IO                      │
+│   { pluginName: "special-words", action: "resetLeaderboards" }          │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Server: PluginRegistry.executePluginAction() calls plugin.executeAction │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Plugin: executeAction("resetLeaderboards")                              │
+│   1. Clear data from storage                                            │
+│   2. Emit event with new store values                                   │
+│   3. Return { success: true, message: "..." }                           │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Frontend receives:                                                       │
+│   1. PLUGIN_ACTION_RESULT → Shows success/error toast                   │
+│   2. PLUGIN:special-words:LEADERBOARDS_RESET → Updates component store  │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Complete Example
+
+```typescript
+// schema.ts
+export function getConfigSchema(): PluginConfigSchema {
+  return {
+    jsonSchema: z.toJSONSchema(myConfigSchema),
+    layout: [
+      { type: "heading", content: "My Plugin" },
+      "enabled",
+      "words",
+      "showLeaderboard",
+      // Destructive action with confirmation
+      {
+        type: "action",
+        action: "resetLeaderboards",
+        label: "Reset Leaderboards",
+        variant: "destructive",
+        confirmMessage: "Are you sure? All scores will be lost.",
+        confirmText: "Reset",
+        showWhen: { field: "enabled", value: true },
+      },
+      // Simple action without confirmation
+      {
+        type: "action",
+        action: "syncNow",
+        label: "Sync Now",
+        variant: "outline",
+        showWhen: { field: "enabled", value: true },
+      },
+    ],
+    fieldMeta: {
+      /* ... */
+    },
+  }
+}
+```
+
+```typescript
+// index.ts
+async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+  switch (action) {
+    case "resetLeaderboards":
+      return this.resetLeaderboards()
+    case "syncNow":
+      return this.syncNow()
+    default:
+      return { success: false, message: `Unknown action: ${action}` }
+  }
+}
+
+private async resetLeaderboards(): Promise<{ success: boolean; message?: string }> {
+  // ... clear data ...
+
+  // Update frontend components
+  await this.emit("LEADERBOARDS_RESET", {
+    usersLeaderboard: [],
+    allWordsLeaderboard: [],
+  })
+
+  return { success: true, message: "Leaderboards reset successfully" }
+}
+
+private async syncNow(): Promise<{ success: boolean; message?: string }> {
+  // ... perform sync ...
+  return { success: true, message: "Sync completed" }
 }
 ```
 
@@ -1087,18 +1322,18 @@ See the [Playlist Democracy Plugin](../packages/plugin-playlist-democracy) for a
 
 ### PluginAPI Methods
 
-| Method                                         | Description                     |
-| ---------------------------------------------- | ------------------------------- |
-| `getNowPlaying(roomId)`                        | Get current track               |
-| `getUsers(roomId)`                             | Get users in room               |
-| `getReactions(params)`                         | Get reactions for track/message |
-| `skipTrack(roomId, trackId)`                   | Skip current track              |
-| `sendSystemMessage(roomId, message, options?)` | Send system chat message        |
-| `getPluginConfig(roomId, pluginName)`          | Get plugin config               |
-| `setPluginConfig(roomId, pluginName, config)`  | Update plugin config            |
-| `updatePlaylistTrack(roomId, track)`           | Update track with pluginData    |
-| `emit(eventName, data)`                        | Emit plugin event to frontend   |
-| `queueSoundEffect(params)`                     | Play a sound effect in the room |
+| Method                                         | Description                      |
+| ---------------------------------------------- | -------------------------------- |
+| `getNowPlaying(roomId)`                        | Get current track                |
+| `getUsers(roomId)`                             | Get users in room                |
+| `getReactions(params)`                         | Get reactions for track/message  |
+| `skipTrack(roomId, trackId)`                   | Skip current track               |
+| `sendSystemMessage(roomId, message, options?)` | Send system chat message         |
+| `getPluginConfig(roomId, pluginName)`          | Get plugin config                |
+| `setPluginConfig(roomId, pluginName, config)`  | Update plugin config             |
+| `updatePlaylistTrack(roomId, track)`           | Update track with pluginData     |
+| `emit(eventName, data)`                        | Emit plugin event to frontend    |
+| `queueSoundEffect(params)`                     | Play a sound effect in the room  |
 | `queueScreenEffect(params)`                    | Play a CSS animation in the room |
 
 ### System Message Options
@@ -1168,21 +1403,21 @@ await this.context.api.queueScreenEffect({
 
 **Parameters:**
 
-| Parameter  | Type                | Required | Description                                           |
-| ---------- | ------------------- | -------- | ----------------------------------------------------- |
-| `target`   | `ScreenEffectTarget`| Yes      | What to animate: `room`, `nowPlaying`, `message`, or `plugin` |
-| `targetId` | `string`            | No       | For `message`: timestamp or `"latest"`. For `plugin`: component ID |
-| `effect`   | `ScreenEffectName`  | Yes      | Animation name (see available effects below)          |
-| `duration` | `number`            | No       | Custom duration in milliseconds (default varies by effect) |
+| Parameter  | Type                 | Required | Description                                                        |
+| ---------- | -------------------- | -------- | ------------------------------------------------------------------ |
+| `target`   | `ScreenEffectTarget` | Yes      | What to animate: `room`, `nowPlaying`, `message`, or `plugin`      |
+| `targetId` | `string`             | No       | For `message`: timestamp or `"latest"`. For `plugin`: component ID |
+| `effect`   | `ScreenEffectName`   | Yes      | Animation name (see available effects below)                       |
+| `duration` | `number`             | No       | Custom duration in milliseconds (default varies by effect)         |
 
 **Target Types:**
 
-| Target       | Description                 | `targetId` Usage                    |
-| ------------ | --------------------------- | ----------------------------------- |
-| `room`       | Entire room UI              | Not needed                          |
-| `nowPlaying` | Now playing section         | Not needed                          |
-| `message`    | Specific chat message       | Message timestamp or `"latest"`     |
-| `plugin`     | Plugin's own components     | Component `id` from your schema     |
+| Target       | Description             | `targetId` Usage                |
+| ------------ | ----------------------- | ------------------------------- |
+| `room`       | Entire room UI          | Not needed                      |
+| `nowPlaying` | Now playing section     | Not needed                      |
+| `message`    | Specific chat message   | Message timestamp or `"latest"` |
+| `plugin`     | Plugin's own components | Component `id` from your schema |
 
 **Available Effects (animate.css attention seekers):**
 
