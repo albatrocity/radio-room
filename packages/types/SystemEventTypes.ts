@@ -85,7 +85,11 @@ export type SystemEventHandlers = {
   // Room events
   ROOM_DELETED: (data: { roomId: string }) => Promise<void> | void
 
-  ROOM_SETTINGS_UPDATED: (data: { roomId: string; room: Room }) => Promise<void> | void
+  ROOM_SETTINGS_UPDATED: (data: {
+    roomId: string
+    room: Room
+    pluginConfigs?: Record<string, unknown>
+  }) => Promise<void> | void
 
   // Chat events
   MESSAGE_RECEIVED: (data: { roomId: string; message: ChatMessage }) => Promise<void> | void
