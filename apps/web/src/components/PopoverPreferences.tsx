@@ -88,23 +88,26 @@ const PopoverPreferences = (props: Props) => {
             </VStack>
           </Box>
           <Separator />
-          <Box p={4}>
-            {showMetadataSourceSelect && (
-              <Field.Root>
-                <Field.Label>
-                  <Text fontWeight="semibold">Preferred Music Service</Text>
-                </Field.Label>
-                <ServiceSelect
-                  value={preferredSource || availableSources[0] || "spotify"}
-                  onChange={handleSourceChange}
-                  availableServices={availableSources}
-                  size="md"
-                />
-                <Field.HelperText>Track info and links will use this service</Field.HelperText>
-              </Field.Root>
-            )}
-            <HStack align="center" justify="space-between" gap={2}>
-              <Text>Animations</Text>
+          <VStack align="stretch">
+            <Box p={4}>
+              {showMetadataSourceSelect && (
+                <Field.Root>
+                  <Field.Label>
+                    <Text fontWeight="semibold">Preferred Music Service</Text>
+                  </Field.Label>
+                  <ServiceSelect
+                    value={preferredSource || availableSources[0] || "spotify"}
+                    onChange={handleSourceChange}
+                    availableServices={availableSources}
+                    size="md"
+                  />
+                  <Field.HelperText>Track info and links will use this service</Field.HelperText>
+                </Field.Root>
+              )}
+            </Box>
+            <Separator />
+            <HStack p={4} align="center" justify="space-between" gap={2}>
+              <Text fontWeight="semibold">Animations</Text>
               <HStack align="center">
                 <Icon as={FiZap} aria-label="Animations" />
                 <Switch.Root
@@ -119,15 +122,15 @@ const PopoverPreferences = (props: Props) => {
                 </Switch.Root>
               </HStack>
             </HStack>
-          </Box>
-          {room?.enableSpotifyLogin && (
-            <>
-              <Separator />
-              <Box p={4}>
-                <ButtonAuthSpotify />
-              </Box>
-            </>
-          )}
+            {room?.enableSpotifyLogin && (
+              <>
+                <Separator />
+                <Box p={4}>
+                  <ButtonAuthSpotify />
+                </Box>
+              </>
+            )}
+          </VStack>
         </Popover.Content>
       </Popover.Positioner>
     </Popover.Root>
