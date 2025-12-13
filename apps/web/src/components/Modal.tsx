@@ -41,7 +41,7 @@ const Modal = ({
     <DialogRoot open={isDialogOpen} onOpenChange={(e) => !e.open && onClose()} placement="center">
       <DialogBackdrop />
       <DialogPositioner>
-        <DialogContent mx={2} bg="appBg">
+        <DialogContent mx={2} bg="appBg" layerStyle="themeTransition">
           <DialogHeader>{heading}</DialogHeader>
 
           {canClose && (

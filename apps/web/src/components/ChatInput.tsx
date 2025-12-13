@@ -218,6 +218,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
               height: "100%",
             },
           }}
+          layerStyle="themeTransition"
         >
           <Input
             onChange={(value: string) => {

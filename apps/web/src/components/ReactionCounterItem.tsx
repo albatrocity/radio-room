@@ -1,5 +1,7 @@
 import { memo } from "react"
-import { Button, HStack, Text, Tooltip, ButtonProps, ColorPalette } from "@chakra-ui/react"
+import { Button, HStack, Text, Tooltip, ButtonProps } from "@chakra-ui/react"
+
+type AppColorPalette = "primary" | "secondary" | "action"
 import { EmojiData } from "emoji-mart"
 
 import ListUsernames from "./ListUsernames"
@@ -12,7 +14,7 @@ type ReactionCounterItemProps = {
   onReactionClick: (emoji: EmojiData) => void
   currentUserId: string
   darkBg?: boolean
-  buttonColorScheme: ColorPalette
+  buttonColorScheme: AppColorPalette
 } & ButtonProps
 
 const ReactionCounterItem = ({

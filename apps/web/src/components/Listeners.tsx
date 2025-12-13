@@ -19,7 +19,7 @@ const Listeners = ({ onViewListeners, onEditUser }: ListenersProps) => {
   }, [onViewListeners])
 
   return (
-    <Box className="list-outer" h="100%" w="100%">
+    <Box className="list-outer" h="100%" w="100%" layerStyle="themeTransition">
       <Box hideFrom="md">
         <Box px={2} py={1}>
           <Button onClick={handleListeners}>Listeners ({listenerCount})</Button>

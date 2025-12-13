@@ -29,7 +29,9 @@ const Sidebar = () => {
       w={["100%", "20vw"]}
       minW={"250px"}
       h="100%"
+      className="sidebar"
       background="secondaryBg"
+      layerStyle="themeTransition"
       borderLeftWidth={1}
       borderLeftColor="secondaryBorder"
       borderLeftStyle="solid"
@@ -62,6 +64,7 @@ const Sidebar = () => {
               borderTopWidth={1}
               borderTopColor="secondaryBorder"
               background="actionBg"
+              layerStyle="themeTransition"
               width="100%"
               buttonColorScheme="action"
             />

@@ -49,6 +49,7 @@
     "xstate": "^5.18.2"
   },
   "devDependencies": {
+    "@chakra-ui/react-mcp": "^2.1.1",
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
     "@types/emoji-mart": "^3.0.9",

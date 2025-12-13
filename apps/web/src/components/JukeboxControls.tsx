@@ -18,7 +18,7 @@ export default function JukeboxControls({ trackId, hasPlaylist, onShowPlaylist }
   const isAdmin = useIsAdmin()
   return (
     <Box>
-      <Box background="actionBg">
+      <Box background="actionBg" layerStyle="themeTransition">
         <Box py={1} h={10} overflowX="auto">
           <Box px={4} flexDir="row">
             <HStack alignItems="flex-start">
@@ -35,7 +35,7 @@ export default function JukeboxControls({ trackId, hasPlaylist, onShowPlaylist }
           </Box>
         </Box>
       </Box>
-      <Box background="actionBgDark">
+      <Box background="actionBgDark" layerStyle="themeTransition">
         <Box>
           <HStack px={2} justifyContent={hasPlaylist ? "space-between" : "flex-end"}>
             {hasPlaylist && (

@@ -124,6 +124,7 @@ const ChatMessage = ({
       borderBottomWidth={anotherUserMessage ? 0 : 1}
       borderBottomColor="secondaryBorder"
       background={isMention ? "primaryBg" : "none"}
+      layerStyle="themeTransition"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       position="relative"
@@ -156,7 +157,7 @@ const ChatMessage = ({
       <Wrap gap="1" align="center" w="100%">
         <Box w="100%">
           <Stack direction="row" gap={2} w="100%">
-            <Box flex={{ grow: 1 }} textStyle="chatMessage">
+            <Box textStyle="chatMessage" layerStyle="themeTransition">
               <ParsedEmojiMessage content={parsedContent} />
               {images.length > 0 && (
                 <Stack direction="column" gap={2}>
@@ -169,7 +170,15 @@ const ChatMessage = ({
               )}
             </Box>
             {showFloatingTimestamp && (
-              <HStack p={2} position="absolute" top={0} right={2} borderRadius={4} bg="appBg">
+              <HStack
+                p={2}
+                position="absolute"
+                top={0}
+                right={2}
+                borderRadius={4}
+                bg="appBg"
+                layerStyle="themeTransition"
+              >
                 {currentIsAdmin && (
                   <IconButton
                     aria-label="Bookmark message"

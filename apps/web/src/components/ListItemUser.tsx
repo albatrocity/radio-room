@@ -61,6 +61,7 @@ const ListItemUser = ({
       display="flex"
       alignItems="center"
       background={user.isDj ? "primaryBg" : "transparent"}
+      layerStyle="themeTransition"
     >
       <Box opacity={userTyping ? 1 : 0} transition="opacity 0.6s ease-in-out">
         <Box

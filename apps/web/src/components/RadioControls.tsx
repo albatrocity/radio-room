@@ -40,7 +40,13 @@ export default function RadioControls({ trackId, onShowPlaylist, hasPlaylist, st
 
   return (
     <Box>
-      <Box display={["none", "flex"]} background="actionBg" alignItems="center" py="1">
+      <Box
+        display={["none", "flex"]}
+        background="actionBg"
+        layerStyle="themeTransition"
+        alignItems="center"
+        py="1"
+      >
         <Container>
           <HStack>
             <ButtonAddToLibrary />

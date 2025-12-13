@@ -40,7 +40,8 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
       }}
       direction="column"
       height="100%"
-      bg="primary.solid"
+      background="primary.solid"
+      layerStyle="themeTransition"
     >
       <NowPlaying meta={meta} />
       {isJukebox && (
