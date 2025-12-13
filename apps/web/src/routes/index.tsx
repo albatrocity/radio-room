@@ -1,24 +1,19 @@
 import React from "react"
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router"
 
-import PageLayout from "../components/PageLayout"
+import PublicPageLayout from "../components/PublicPageLayout"
 import Lobby from "../components/Lobby/Lobby"
 import AppToasts from "../components/AppToasts"
-import { useOAuthCallback } from "../hooks/useOAuthCallback"
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute("/")({
   component: IndexPage,
 })
 
 function IndexPage() {
-  // Handle OAuth callback redirects
-  useOAuthCallback()
-  
   return (
-    <PageLayout>
+    <PublicPageLayout>
       <AppToasts />
       <Lobby />
-    </PageLayout>
+    </PublicPageLayout>
   )
 }
-

@@ -8,137 +8,150 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as LogoutRouteImport } from './routes/logout'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as CallbackRouteImport } from './routes/callback'
-import { Route as AboutRouteImport } from './routes/about'
-import { Route as SplatRouteImport } from './routes/$'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as RoomsCreateRouteImport } from './routes/rooms/create'
-import { Route as RoomsRoomIdRouteImport } from './routes/rooms/$roomId'
+import { Route as rootRouteImport } from "./routes/__root"
+import { Route as PrivacyRouteImport } from "./routes/privacy"
+import { Route as LogoutRouteImport } from "./routes/logout"
+import { Route as LoginRouteImport } from "./routes/login"
+import { Route as CallbackRouteImport } from "./routes/callback"
+import { Route as AdminRouteImport } from "./routes/admin"
+import { Route as AboutRouteImport } from "./routes/about"
+import { Route as SplatRouteImport } from "./routes/$"
+import { Route as IndexRouteImport } from "./routes/index"
+import { Route as RoomsCreateRouteImport } from "./routes/rooms/create"
+import { Route as RoomsRoomIdRouteImport } from "./routes/rooms/$roomId"
 
 const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
+  id: "/privacy",
+  path: "/privacy",
   getParentRoute: () => rootRouteImport,
 } as any)
 const LogoutRoute = LogoutRouteImport.update({
-  id: '/logout',
-  path: '/logout',
+  id: "/logout",
+  path: "/logout",
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+  id: "/login",
+  path: "/login",
   getParentRoute: () => rootRouteImport,
 } as any)
 const CallbackRoute = CallbackRouteImport.update({
-  id: '/callback',
-  path: '/callback',
+  id: "/callback",
+  path: "/callback",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: "/admin",
+  path: "/admin",
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
+  id: "/about",
+  path: "/about",
   getParentRoute: () => rootRouteImport,
 } as any)
 const SplatRoute = SplatRouteImport.update({
-  id: '/$',
-  path: '/$',
+  id: "/$",
+  path: "/$",
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
 } as any)
 const RoomsCreateRoute = RoomsCreateRouteImport.update({
-  id: '/rooms/create',
-  path: '/rooms/create',
+  id: "/rooms/create",
+  path: "/rooms/create",
   getParentRoute: () => rootRouteImport,
 } as any)
 const RoomsRoomIdRoute = RoomsRoomIdRouteImport.update({
-  id: '/rooms/$roomId',
-  path: '/rooms/$roomId',
+  id: "/rooms/$roomId",
+  path: "/rooms/$roomId",
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/$': typeof SplatRoute
-  '/about': typeof AboutRoute
-  '/callback': typeof CallbackRoute
-  '/login': typeof LoginRoute
-  '/logout': typeof LogoutRoute
-  '/privacy': typeof PrivacyRoute
-  '/rooms/$roomId': typeof RoomsRoomIdRoute
-  '/rooms/create': typeof RoomsCreateRoute
+  "/": typeof IndexRoute
+  "/$": typeof SplatRoute
+  "/about": typeof AboutRoute
+  "/admin": typeof AdminRoute
+  "/callback": typeof CallbackRoute
+  "/login": typeof LoginRoute
+  "/logout": typeof LogoutRoute
+  "/privacy": typeof PrivacyRoute
+  "/rooms/$roomId": typeof RoomsRoomIdRoute
+  "/rooms/create": typeof RoomsCreateRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/$': typeof SplatRoute
-  '/about': typeof AboutRoute
-  '/callback': typeof CallbackRoute
-  '/login': typeof LoginRoute
-  '/logout': typeof LogoutRoute
-  '/privacy': typeof PrivacyRoute
-  '/rooms/$roomId': typeof RoomsRoomIdRoute
-  '/rooms/create': typeof RoomsCreateRoute
+  "/": typeof IndexRoute
+  "/$": typeof SplatRoute
+  "/about": typeof AboutRoute
+  "/admin": typeof AdminRoute
+  "/callback": typeof CallbackRoute
+  "/login": typeof LoginRoute
+  "/logout": typeof LogoutRoute
+  "/privacy": typeof PrivacyRoute
+  "/rooms/$roomId": typeof RoomsRoomIdRoute
+  "/rooms/create": typeof RoomsCreateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/$': typeof SplatRoute
-  '/about': typeof AboutRoute
-  '/callback': typeof CallbackRoute
-  '/login': typeof LoginRoute
-  '/logout': typeof LogoutRoute
-  '/privacy': typeof PrivacyRoute
-  '/rooms/$roomId': typeof RoomsRoomIdRoute
-  '/rooms/create': typeof RoomsCreateRoute
+  "/": typeof IndexRoute
+  "/$": typeof SplatRoute
+  "/about": typeof AboutRoute
+  "/admin": typeof AdminRoute
+  "/callback": typeof CallbackRoute
+  "/login": typeof LoginRoute
+  "/logout": typeof LogoutRoute
+  "/privacy": typeof PrivacyRoute
+  "/rooms/$roomId": typeof RoomsRoomIdRoute
+  "/rooms/create": typeof RoomsCreateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
-    | '/$'
-    | '/about'
-    | '/callback'
-    | '/login'
-    | '/logout'
-    | '/privacy'
-    | '/rooms/$roomId'
-    | '/rooms/create'
+    | "/"
+    | "/$"
+    | "/about"
+    | "/admin"
+    | "/callback"
+    | "/login"
+    | "/logout"
+    | "/privacy"
+    | "/rooms/$roomId"
+    | "/rooms/create"
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
-    | '/$'
-    | '/about'
-    | '/callback'
-    | '/login'
-    | '/logout'
-    | '/privacy'
-    | '/rooms/$roomId'
-    | '/rooms/create'
+    | "/"
+    | "/$"
+    | "/about"
+    | "/admin"
+    | "/callback"
+    | "/login"
+    | "/logout"
+    | "/privacy"
+    | "/rooms/$roomId"
+    | "/rooms/create"
   id:
-    | '__root__'
-    | '/'
-    | '/$'
-    | '/about'
-    | '/callback'
-    | '/login'
-    | '/logout'
-    | '/privacy'
-    | '/rooms/$roomId'
-    | '/rooms/create'
+    | "__root__"
+    | "/"
+    | "/$"
+    | "/about"
+    | "/admin"
+    | "/callback"
+    | "/login"
+    | "/logout"
+    | "/privacy"
+    | "/rooms/$roomId"
+    | "/rooms/create"
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   AboutRoute: typeof AboutRoute
+  AdminRoute: typeof AdminRoute
   CallbackRoute: typeof CallbackRoute
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
@@ -147,68 +160,75 @@ export interface RootRouteChildren {
   RoomsCreateRoute: typeof RoomsCreateRoute
 }
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
+    "/privacy": {
+      id: "/privacy"
+      path: "/privacy"
+      fullPath: "/privacy"
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/logout': {
-      id: '/logout'
-      path: '/logout'
-      fullPath: '/logout'
+    "/logout": {
+      id: "/logout"
+      path: "/logout"
+      fullPath: "/logout"
       preLoaderRoute: typeof LogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
+    "/login": {
+      id: "/login"
+      path: "/login"
+      fullPath: "/login"
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/callback': {
-      id: '/callback'
-      path: '/callback'
-      fullPath: '/callback'
+    "/callback": {
+      id: "/callback"
+      path: "/callback"
+      fullPath: "/callback"
       preLoaderRoute: typeof CallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
+    "/about": {
+      id: "/about"
+      path: "/about"
+      fullPath: "/about"
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/$': {
-      id: '/$'
-      path: '/$'
-      fullPath: '/$'
+    "/admin": {
+      id: "/admin"
+      path: "/admin"
+      fullPath: "/admin"
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/$": {
+      id: "/$"
+      path: "/$"
+      fullPath: "/$"
       preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
+    "/": {
+      id: "/"
+      path: "/"
+      fullPath: "/"
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/rooms/create': {
-      id: '/rooms/create'
-      path: '/rooms/create'
-      fullPath: '/rooms/create'
+    "/rooms/create": {
+      id: "/rooms/create"
+      path: "/rooms/create"
+      fullPath: "/rooms/create"
       preLoaderRoute: typeof RoomsCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/rooms/$roomId': {
-      id: '/rooms/$roomId'
-      path: '/rooms/$roomId'
-      fullPath: '/rooms/$roomId'
+    "/rooms/$roomId": {
+      id: "/rooms/$roomId"
+      path: "/rooms/$roomId"
+      fullPath: "/rooms/$roomId"
       preLoaderRoute: typeof RoomsRoomIdRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -219,6 +239,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   AboutRoute: AboutRoute,
+  AdminRoute: AdminRoute,
   CallbackRoute: CallbackRoute,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,

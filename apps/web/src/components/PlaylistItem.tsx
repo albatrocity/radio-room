@@ -73,7 +73,7 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
           <Stack direction="column" gap={0}>
             {preferredTrack && (
               <HStack gap={1}>
-                <LinkOverlay isExternal href={externalUrl} m={0}>
+                <LinkOverlay target="_blank" href={externalUrl} m={0}>
                   <Text
                     fontWeight={"bold"}
                     textDecoration={isSkipped ? "line-through" : "none"}

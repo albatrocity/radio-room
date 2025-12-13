@@ -24,6 +24,7 @@ import {
   deleteRoom,
   findRoom,
   findRooms,
+  findAllRooms,
 } from "./controllers/roomsController"
 
 import { createActivityController } from "./controllers/activityController"
@@ -136,6 +137,7 @@ export class RadioRoomServer {
       .use(createContextMiddleware(this.context))
       .get("/me", me)
       .get("/rooms/", findRooms)
+      .get("/rooms/all", findAllRooms)
       .get("/rooms/:id", findRoom)
       .post("/rooms", create)
       .delete("/rooms/:id", deleteRoom)
