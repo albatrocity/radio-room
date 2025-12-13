@@ -1,4 +1,3 @@
-import React from "react"
 import { Box, RadioGroup, Stack, Text } from "@chakra-ui/react"
 
 import ThemePreview from "./ThemePreview"
@@ -24,8 +23,7 @@ function FormTheme() {
               <RadioGroup.ItemControl />
               <RadioGroup.ItemText>
                 <Stack direction="row">
-                  <ThemePreview theme={theme} />{" "}
-                  <Text fontSize="sm">{theme.name}</Text>
+                  <ThemePreview theme={theme} /> <Text fontSize="sm">{theme.name}</Text>
                 </Stack>
               </RadioGroup.ItemText>
             </RadioGroup.Item>
