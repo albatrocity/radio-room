@@ -60,6 +60,19 @@ export async function getUserRooms({ context, userId }: GetUserRoomsParams) {
   })
 }
 
+type GetAllRoomsParams = {
+  context: AppContext
+}
+
+export async function getAllRooms({ context }: GetAllRoomsParams) {
+  return getHMembersFromSet<StoredRoom>({
+    context,
+    setKey: "rooms",
+    recordPrefix: "room",
+    recordSuffix: "details",
+  })
+}
+
 type SaveRoomParams = {
   context: AppContext
   room: Room
