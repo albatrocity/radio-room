@@ -118,15 +118,14 @@ export class AuthHandlers {
     // Join the room
     socket.join(getRoomPath(roomId))
 
-    // Emit join event
-    io.to(getRoomPath(roomId)).emit("event", {
-      type: "USER_JOINED",
-      data: {
+    // Emit via SystemEvents so LobbyBroadcaster and plugins receive USER_JOINED
+    if (socket.context.systemEvents) {
+      await socket.context.systemEvents.emit(roomId, "USER_JOINED", {
         roomId,
         user: result.newUser,
         users: result.newUsers,
-      },
-    })
+      })
+    }
 
     // Send init data to user
     socket.emit("event", {
@@ -159,14 +158,14 @@ export class AuthHandlers {
     socket.request.session.user = result.newUser
     socket.request.session.save()
 
-    io.to(getRoomPath(socket.data.roomId)).emit("event", {
-      type: "USER_JOINED",
-      data: {
+    // Emit via SystemEvents so LobbyBroadcaster and plugins receive USER_JOINED
+    if (socket.context.systemEvents) {
+      await socket.context.systemEvents.emit(socket.data.roomId, "USER_JOINED", {
         roomId: socket.data.roomId,
         users: result.newUsers,
         user: result.newUser,
-      },
-    })
+      })
+    }
 
     // send system message of username change if provided
     if (result.systemMessage) {

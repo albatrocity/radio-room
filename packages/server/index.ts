@@ -31,6 +31,7 @@ import { createActivityController } from "./controllers/activityController"
 import { createAdminController } from "./controllers/adminController"
 import { createAuthController, me, logout } from "./controllers/authController"
 import { createDJController } from "./controllers/djController"
+import { createLobbyController } from "./controllers/lobbyController"
 import { createMessageController } from "./controllers/messageController"
 import {
   getPluginSchemas,
@@ -207,10 +208,23 @@ export class RadioRoomServer {
     }
     this.pendingPlugins = [] // Clear after registration
 
+    // Initialize BroadcasterRegistry and register broadcasters
+    const { BroadcasterRegistry, RoomBroadcaster, LobbyBroadcaster } = await import(
+      "./lib/broadcasters"
+    )
+    const broadcasterRegistry = new BroadcasterRegistry()
+    broadcasterRegistry.register(new RoomBroadcaster(this.io))
+    broadcasterRegistry.register(new LobbyBroadcaster(this.io))
+    console.log("BroadcasterRegistry initialized")
+
     // Initialize SystemEvents (unified event emission layer)
-    // Broadcasts to: Redis PubSub, Socket.IO, and Plugin System
+    // Broadcasts to: Redis PubSub, Plugin System, and Broadcasters
     const { SystemEvents } = await import("./lib/SystemEvents")
-    this.context.systemEvents = new SystemEvents(this.context.redis, this.io, this.pluginRegistry)
+    this.context.systemEvents = new SystemEvents(
+      this.context.redis,
+      this.pluginRegistry,
+      broadcasterRegistry,
+    )
     console.log("SystemEvents initialized")
 
     this.io.on("connection", (socket) => {
@@ -224,6 +238,7 @@ export class RadioRoomServer {
       createDJController(socketWithContext, this.io)
       createAdminController(socketWithContext, this.io)
       createRoomsController(socketWithContext, this.io)
+      createLobbyController(socketWithContext)
     })
 
     // Start the HTTP server listening

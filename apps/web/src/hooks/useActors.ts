@@ -436,3 +436,35 @@ export const usePreferredMetadataSource = (): MetadataSourceType | undefined => 
 }
 
 export const useMetadataPreferenceSend = () => metadataPreferenceActor.send
+
+// ============================================================================
+// Lobby Hooks
+// ============================================================================
+
+import { lobbyActor } from "../actors/lobbyActor"
+import { LobbyRoom } from "../machines/lobbyMachine"
+
+export const useLobbyRooms = (): LobbyRoom[] => {
+  return useSelector(lobbyActor, (s) => s.context.rooms)
+}
+
+export const useLobbyError = () => {
+  return useSelector(lobbyActor, (s) => s.context.error)
+}
+
+export const useLobbyState = () => {
+  return useSelector(lobbyActor, (s) => s.value)
+}
+
+export const useIsLobbyLoading = () => {
+  return useSelector(
+    lobbyActor,
+    (s) => s.matches({ connected: "loading" }) || s.matches("connecting"),
+  )
+}
+
+export const useIsLobbyReady = () => {
+  return useSelector(lobbyActor, (s) => s.matches({ connected: "ready" }))
+}
+
+export const useLobbySend = () => lobbyActor.send

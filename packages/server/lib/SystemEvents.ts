@@ -1,8 +1,7 @@
 import { AppContext, SystemEventPayload, SystemEventName } from "@repo/types"
 import type { SystemEvents as ISystemEvents } from "@repo/types"
-import type { Server } from "socket.io"
 import { PluginRegistry } from "./plugins/PluginRegistry"
-import { getRoomPath } from "./getRoomPath"
+import { BroadcasterRegistry } from "./broadcasters"
 
 /**
  * SystemEvents - Unified event emission layer
@@ -11,12 +10,12 @@ import { getRoomPath } from "./getRoomPath"
  * Events are broadcast to THREE consumers:
  * 1. Redis PubSub (for cross-server communication)
  * 2. Plugin System (for in-process plugin event handling)
- * 3. Socket.IO (for real-time frontend updates)
+ * 3. Broadcasters (for real-time frontend updates via Socket.IO)
  *
  * Benefits:
- * - Single emit() call instead of separate PubSub + Plugin + Socket.IO emissions
+ * - Single emit() call instead of separate emissions
  * - Consistent event payloads across all consumers
- * - Easy to add new consumers (webhooks, analytics, audit logs)
+ * - Extensible broadcaster pattern for different socket channels
  * - Type-safe event definitions
  * - Centralized event discovery
  *
@@ -32,8 +31,8 @@ import { getRoomPath } from "./getRoomPath"
 export class SystemEvents implements ISystemEvents {
   constructor(
     private readonly redis: AppContext["redis"],
-    private readonly io?: Server,
     private readonly pluginRegistry?: PluginRegistry,
+    private readonly broadcasterRegistry?: BroadcasterRegistry,
   ) {}
 
   /**
@@ -42,10 +41,10 @@ export class SystemEvents implements ISystemEvents {
    * This broadcasts the event to:
    * 1. Redis PubSub (publishes to SYSTEM:{EVENT} channel)
    * 2. Plugin System (emits to in-process plugins)
-   * 3. Socket.IO (broadcasts to frontend clients in the room)
+   * 3. Broadcasters (each broadcaster decides how to handle the event)
    *
    * @param roomId - Room where the event occurred
-   * @param event - Event name (must match PluginLifecycleEvents)
+   * @param event - Event name (must match SystemEventName)
    * @param data - Event payload (must match event signature)
    */
   async emit<K extends SystemEventName>(
@@ -60,8 +59,8 @@ export class SystemEvents implements ISystemEvents {
       // 2. Emit to Plugin System for in-process handlers
       await this.emitToPlugins(roomId, event, data)
 
-      // 3. Emit to Socket.IO for real-time frontend updates
-      this.emitToSocketIO(roomId, event, data)
+      // 3. Emit to Broadcasters for socket channel delivery
+      this.emitToBroadcasters(roomId, event, data)
     } catch (error) {
       console.error(`[SystemEvents] Error emitting ${event} for room ${roomId}:`, error)
       // Don't throw - we want to continue even if one consumer fails
@@ -100,25 +99,22 @@ export class SystemEvents implements ISystemEvents {
   }
 
   /**
-   * Emit event to Socket.IO
-   * Broadcasts standardized event to frontend clients in the room
+   * Emit event to all registered Broadcasters
+   * Each broadcaster decides whether and how to handle the event
    */
-  private emitToSocketIO<K extends SystemEventName>(
+  private emitToBroadcasters<K extends SystemEventName>(
     roomId: string,
     event: K,
     data: SystemEventPayload<K>,
   ): void {
-    if (!this.io) {
+    if (!this.broadcasterRegistry) {
       return
     }
 
     try {
-      this.io.to(getRoomPath(roomId)).emit("event", {
-        type: event as string,
-        data,
-      })
+      this.broadcasterRegistry.broadcast(roomId, event, data)
     } catch (error) {
-      console.error(`[SystemEvents] Socket.IO emission failed for ${event}:`, error)
+      console.error(`[SystemEvents] Broadcaster emission failed for ${event}:`, error)
     }
   }
 
