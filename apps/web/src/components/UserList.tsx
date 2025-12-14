@@ -61,7 +61,7 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
   )
 
   return (
-    <VStack>
+    <VStack overflowX="hidden">
       {dj && (
         <Box mb={2} w="100%">
           {showHeading && (
@@ -89,7 +89,7 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
           </HStack>
         )}
         {/* Plugin components for user list area */}
-        <PluginArea area="userList" />
+        <PluginArea area="userList" direction="column" />
         <List.Root gap={1} w="100%">
           {currentListener && (
             <ListItemUser

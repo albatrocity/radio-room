@@ -1,10 +1,5 @@
 import React, { memo } from "react"
-import {
-  Alert,
-  Flex,
-  HStack,
-  Text,
-} from "@chakra-ui/react"
+import { Alert, Flex, HStack, Text } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { ChatMessage } from "../types/ChatMessage"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
@@ -15,7 +10,7 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
   const dateString = format(date, "M/d/y")
   const { status, type, title } = meta
   return type === "alert" ? (
-    <Alert.Root status={status ?? "info"}>
+    <Alert.Root status={status ?? "info"} bg="secondaryBg" color="secondaryText" borderRadius={0}>
       <Alert.Indicator />
       {title && <Alert.Title>{title}</Alert.Title>}
       <Alert.Description>

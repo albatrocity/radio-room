@@ -16,6 +16,8 @@ interface PluginAreaProps {
   spacing?: number
   /** Text color for components in this area */
   color?: string
+  /** Item-level context for per-item areas (e.g., user data for userListItem) */
+  itemContext?: Record<string, unknown>
 }
 
 interface PluginComponents {
@@ -44,6 +46,7 @@ export function PluginArea({
   itemId,
   spacing = 2,
   color,
+  itemContext,
 }: PluginAreaProps) {
   const { schemas, isLoading } = usePluginSchemas()
   const pluginConfigs = usePluginConfigs() || {}
@@ -90,6 +93,7 @@ export function PluginArea({
           config={config}
           components={components}
           textColor={color}
+          itemContext={itemContext}
         >
           {components
             .filter((c) => c.type !== "modal")

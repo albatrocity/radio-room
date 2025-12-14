@@ -152,7 +152,7 @@ export type ScreenEffectName =
 /**
  * Screen effect target types
  */
-export type ScreenEffectTarget = "room" | "nowPlaying" | "message" | "plugin"
+export type ScreenEffectTarget = "room" | "nowPlaying" | "message" | "plugin" | "user"
 
 /**
  * Extract the payload type for a given event

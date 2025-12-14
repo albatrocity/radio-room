@@ -77,6 +77,12 @@ export function findTargetElement(
         `[data-screen-effect-target="plugin"][data-plugin-component-id="${targetId}"]`,
       )
 
+    case "user":
+      if (!targetId) return null
+      return document.querySelector(
+        `[data-screen-effect-target="user"][data-user-id="${targetId}"]`,
+      )
+
     default:
       return null
   }
