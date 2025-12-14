@@ -11,6 +11,7 @@ import {
   getUser,
   isDj,
   removeDj,
+  removeFromQueue,
   updateUserAttributes,
 } from "../operations/data"
 import systemMessage from "../lib/systemMessage"
@@ -146,9 +147,7 @@ export class DJService {
       }
     }
 
-    // Add to the playback controller's queue
-    // Use the resource URL (e.g., Spotify URI) from the track metadata
-    // This ensures we use the adapter's native format
+    // Get the resource URL (e.g., Spotify URI) from the track metadata
     const resourceUrl = track.urls.find((url) => url.type === "resource")?.url
     if (!resourceUrl) {
       return {
@@ -157,18 +156,9 @@ export class DJService {
       }
     }
 
-    try {
-      await playbackController.api.addToQueue(resourceUrl)
-    } catch (error) {
-      console.error("Failed to add to playback queue:", error)
-      return {
-        success: false,
-        message: "Failed to add track to playback queue",
-        error,
-      }
-    }
-
-    // Store in our internal queue
+    // IMPORTANT: Store in our internal queue FIRST, before adding to Spotify.
+    // This prevents a race condition where Spotify immediately plays the track
+    // (when queue is empty) before we've stored it, causing the DJ attribution to fail.
     const queuedItem = queueItemFactory.build({
       track,
       mediaSource: {
@@ -189,6 +179,21 @@ export class DJService {
     })
 
     await addToQueue({ context: this.context, roomId, item: queuedItem })
+
+    // Now add to Spotify's queue
+    try {
+      await playbackController.api.addToQueue(resourceUrl)
+    } catch (error) {
+      // If adding to Spotify fails, remove from our internal queue to stay in sync
+      console.error("Failed to add to playback queue:", error)
+      const trackKey = `${queuedItem.mediaSource.type}:${queuedItem.mediaSource.trackId}`
+      await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
+      return {
+        success: false,
+        message: "Failed to add track to playback queue",
+        error,
+      }
+    }
 
     // Emit QUEUE_CHANGED event
     if (this.context.systemEvents) {
