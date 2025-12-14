@@ -12,6 +12,7 @@ import {
   useListeners,
   useAdminSend,
   useRoomCreator,
+  usePluginConfigs,
 } from "../hooks/useActors"
 import { PluginArea } from "./PluginComponents"
 
@@ -61,7 +62,7 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
   )
 
   return (
-    <VStack>
+    <VStack overflowX="hidden">
       {dj && (
         <Box mb={2} w="100%">
           {showHeading && (

@@ -519,6 +519,12 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       trackId,
       competitiveLeaderboard,
     })
+
+    await this.context.api.queueScreenEffect({
+      target: "user",
+      targetId: userId,
+      effect: "pulse",
+    })
   }
 
   private async skipTrack(
