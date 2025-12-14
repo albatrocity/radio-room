@@ -1,10 +1,15 @@
 import { z } from "zod"
-import type { PluginConfigSchema, PluginComponentSchema, PluginSchemaElement } from "@repo/types"
+import type {
+  PluginConfigSchema,
+  PluginComponentSchema,
+  PluginSchemaElement,
+  PluginActionElement,
+} from "@repo/types"
 import { playlistDemocracyConfigSchema } from "./types"
 
 /**
  * UI component schema for frontend rendering.
- * Defines the countdown timer, text block, and badge components.
+ * Defines the countdown timer, text block, badge, and competitive mode components.
  */
 export function getComponentSchema(): PluginComponentSchema {
   return {
@@ -43,8 +48,62 @@ export function getComponentSchema(): PluginComponentSchema {
         icon: "skip-forward",
         tooltip: "{{voteCount}}/{{requiredCount}} votes",
       },
+      // Competitive mode leaderboard button
+      {
+        id: "competitive-leaderboard-button",
+        type: "button",
+        area: "userList",
+        label: "DJ Leaderboard",
+        icon: "trophy",
+        opensModal: "competitive-leaderboard-modal",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "competitiveModeEnabled", value: true },
+        ],
+        variant: "solid",
+        size: "sm",
+      },
+      // Competitive mode leaderboard modal
+      {
+        id: "competitive-leaderboard-modal",
+        type: "modal",
+        area: "userList",
+        title: "DJ Leaderboard",
+        size: "md",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "competitiveModeEnabled", value: true },
+        ],
+        children: [
+          {
+            id: "competitive-leaderboard",
+            type: "leaderboard",
+            area: "userList",
+            dataKey: "competitiveLeaderboard",
+            title: "Top DJs",
+            rowTemplate: [
+              {
+                type: "component",
+                name: "username",
+                props: { userId: "{{value}}", fallback: "{{username}}" },
+              },
+              { type: "text", content: ": {{score}} pts" },
+            ],
+            maxItems: 10,
+            showRank: true,
+          },
+        ],
+      },
     ],
-    storeKeys: ["showCountdown", "trackStartTime", "isSkipped", "voteCount", "requiredCount"],
+    storeKeys: [
+      "showCountdown",
+      "trackStartTime",
+      "isSkipped",
+      "voteCount",
+      "requiredCount",
+      "competitiveLeaderboard",
+      "competitiveModeEnabled",
+    ],
   }
 }
 
@@ -109,6 +168,28 @@ export function getConfigSchema(): PluginConfigSchema {
       "skipRequiresQueueMin",
       "soundEffectOnSkip",
       "soundEffectOnSkipUrl",
+      { type: "heading", content: "Competitive Mode" },
+      {
+        type: "text-block",
+        content:
+          "Award points to DJs whose tracks survive the vote. Tracks that are not skipped earn 1 point for the user who queued them.",
+        variant: "info",
+        showWhen: { field: "enabled", value: true },
+      },
+      "competitiveModeEnabled",
+      {
+        type: "action",
+        action: "resetCompetitiveLeaderboard",
+        label: "Reset Leaderboard",
+        variant: "destructive",
+        confirmMessage:
+          "Are you sure you want to reset the competitive leaderboard? This will clear all DJ scores. This action cannot be undone.",
+        confirmText: "Reset Leaderboard",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "competitiveModeEnabled", value: true },
+        ],
+      } satisfies PluginActionElement,
     ],
     fieldMeta: {
       enabled: {
@@ -177,6 +258,13 @@ export function getConfigSchema(): PluginConfigSchema {
           { field: "enabled", value: true },
           { field: "soundEffectOnSkip", value: true },
         ],
+      },
+      competitiveModeEnabled: {
+        type: "boolean",
+        label: "Enable Competitive Mode",
+        description:
+          "When enabled, DJs earn points for tracks that survive the vote. A leaderboard button will appear in the user list.",
+        showWhen: { field: "enabled", value: true },
       },
     },
   }

@@ -26,6 +26,31 @@ export type { PlaylistDemocracyConfig } from "./types"
 export { playlistDemocracyConfigSchema, defaultPlaylistDemocracyConfig } from "./types"
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+const COMPETITIVE_LEADERBOARD_KEY = "competitive-leaderboard"
+
+// ============================================================================
+// Component State Type
+// ============================================================================
+
+interface LeaderboardEntry {
+  score: number
+  value: string
+}
+
+interface UserLeaderboardEntry extends LeaderboardEntry {
+  /** Username for display (looked up from user data, falls back to userId if not found) */
+  username: string
+}
+
+export interface PlaylistDemocracyComponentState extends PluginComponentState {
+  competitiveLeaderboard: UserLeaderboardEntry[]
+  competitiveModeEnabled: boolean
+}
+
+// ============================================================================
 // Plugin Implementation
 // ============================================================================
 
@@ -65,46 +90,66 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
   // Component State
   // ============================================================================
 
-  async getComponentState(): Promise<PluginComponentState> {
-    if (!this.context) return {}
+  async getComponentState(): Promise<PlaylistDemocracyComponentState> {
+    if (!this.context) {
+      return {
+        showCountdown: false,
+        trackStartTime: null,
+        isSkipped: false,
+        voteCount: 0,
+        requiredCount: 0,
+        competitiveLeaderboard: [],
+        competitiveModeEnabled: false,
+      }
+    }
 
     const config = await this.getConfig()
     if (!config?.enabled) {
-      return this.createDisabledState()
+      return this.createDisabledState(config)
     }
 
     const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
     if (!nowPlaying?.playedAt) {
-      return this.createWaitingState()
+      return this.createWaitingState(config)
     }
 
     return this.createActiveState(nowPlaying, config)
   }
 
-  private createDisabledState(): PluginComponentState {
+  private async createDisabledState(
+    config: PlaylistDemocracyConfig | null,
+  ): Promise<PlaylistDemocracyComponentState> {
+    const competitiveLeaderboard = await this.getCompetitiveLeaderboard()
     return {
       showCountdown: false,
       trackStartTime: null,
       isSkipped: false,
       voteCount: 0,
       requiredCount: 0,
+      competitiveLeaderboard,
+      competitiveModeEnabled: config?.competitiveModeEnabled ?? false,
     }
   }
 
-  private createWaitingState(): PluginComponentState {
+  private async createWaitingState(
+    config: PlaylistDemocracyConfig,
+  ): Promise<PlaylistDemocracyComponentState> {
+    const competitiveLeaderboard = await this.getCompetitiveLeaderboard()
     return {
       showCountdown: true,
       trackStartTime: null,
       isSkipped: false,
       voteCount: 0,
       requiredCount: 0,
+      competitiveLeaderboard,
+      competitiveModeEnabled: config.competitiveModeEnabled,
     }
   }
 
   private async createActiveState(
     nowPlaying: QueueItem,
     config: PlaylistDemocracyConfig,
-  ): Promise<PluginComponentState> {
+  ): Promise<PlaylistDemocracyComponentState> {
     const trackId = nowPlaying.mediaSource.trackId
     const trackStartTime = new Date(nowPlaying.playedAt!).getTime()
 
@@ -114,6 +159,8 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       { op: "get", key: this.makeVoteKey(trackId) },
     ])) as [string | null, string | null]
 
+    const competitiveLeaderboard = await this.getCompetitiveLeaderboard()
+
     const skipData = this.parseSkipData(skipDataStr)
     if (skipData) {
       return {
@@ -122,6 +169,8 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
         isSkipped: true,
         voteCount: skipData.voteCount,
         requiredCount: skipData.requiredCount,
+        competitiveLeaderboard,
+        competitiveModeEnabled: config.competitiveModeEnabled,
       }
     }
 
@@ -137,7 +186,29 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       isSkipped: false,
       voteCount: Number(voteCountStr || 0),
       requiredCount: this.calculateRequiredVotes(listeningUsers.length, config),
+      competitiveLeaderboard,
+      competitiveModeEnabled: config.competitiveModeEnabled,
     }
+  }
+
+  private async getCompetitiveLeaderboard(): Promise<UserLeaderboardEntry[]> {
+    if (!this.context) return []
+
+    const rawLeaderboard = await this.context.storage.zrangeWithScores(
+      COMPETITIVE_LEADERBOARD_KEY,
+      0,
+      -1,
+    )
+
+    // Hydrate with usernames
+    const userIds = rawLeaderboard.map((entry) => entry.value)
+    const users = await this.context.api.getUsersByIds(userIds)
+    const userMap = new Map(users.map((u) => [u.userId, u.username]))
+
+    return rawLeaderboard.map((entry) => ({
+      ...entry,
+      username: userMap.get(entry.value) ?? entry.value,
+    }))
   }
 
   // ============================================================================
@@ -370,6 +441,10 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
       if (thresholdMet) {
         console.log(`[${this.name}] Threshold met, track will continue playing`)
+
+        // Award point to the user who queued the track (if competitive mode is enabled)
+        await this.awardCompetitivePoint(trackId, config)
+
         // Hide countdown - track passed the vote
         await this.emit("THRESHOLD_MET", {
           showCountdown: false,
@@ -386,6 +461,10 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
             console.log(
               `[${this.name}] Threshold not met, but queue too short (${queueLength} <= ${config.skipRequiresQueueMin}), not skipping`,
             )
+
+            // Still award point since we're not actually skipping
+            await this.awardCompetitivePoint(trackId, config)
+
             // Hide countdown - track didn't pass vote but we're not skipping due to queue
             await this.emit("THRESHOLD_NOT_MET_QUEUE_SHORT", {
               showCountdown: false,
@@ -409,6 +488,37 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     } catch (error) {
       console.error(`[${this.name}] Error checking threshold:`, error)
     }
+  }
+
+  private async awardCompetitivePoint(
+    trackId: string,
+    config: PlaylistDemocracyConfig,
+  ): Promise<void> {
+    if (!this.context || !config.competitiveModeEnabled) return
+
+    // Get the now playing track to find who queued it
+    const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
+    if (!nowPlaying?.addedBy?.userId) {
+      console.log(`[${this.name}] No user found for track ${trackId}, skipping competitive point`)
+      return
+    }
+
+    const userId = nowPlaying.addedBy.userId
+    console.log(
+      `[${this.name}] Awarding 1 competitive point to user ${userId} for track ${trackId}`,
+    )
+
+    // Increment the user's score in the leaderboard
+    await this.context.storage.zincrby(COMPETITIVE_LEADERBOARD_KEY, 1, userId)
+
+    // Get updated leaderboard and emit to frontend
+    const competitiveLeaderboard = await this.getCompetitiveLeaderboard()
+
+    await this.emit("COMPETITIVE_POINT_AWARDED", {
+      userId,
+      trackId,
+      competitiveLeaderboard,
+    })
   }
 
   private async skipTrack(
@@ -542,6 +652,48 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
     const { voteCount, requiredCount } = data.skipData
     return `⏭️ Skipped (${voteCount}/${requiredCount} votes)`
+  }
+
+  // ============================================================================
+  // Actions
+  // ============================================================================
+
+  async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+    if (action === "resetCompetitiveLeaderboard") {
+      return this.resetCompetitiveLeaderboard()
+    }
+    return { success: false, message: `Unknown action: ${action}` }
+  }
+
+  private async resetCompetitiveLeaderboard(): Promise<{ success: boolean; message?: string }> {
+    if (!this.context) {
+      return { success: false, message: "Plugin not initialized" }
+    }
+
+    try {
+      // Get all entries and remove them
+      const leaderboard = await this.context.storage.zrangeWithScores(
+        COMPETITIVE_LEADERBOARD_KEY,
+        0,
+        -1,
+      )
+
+      for (const entry of leaderboard) {
+        await this.context.storage.zrem(COMPETITIVE_LEADERBOARD_KEY, entry.value)
+      }
+
+      console.log(`[${this.name}] Competitive leaderboard reset for room ${this.context.roomId}`)
+
+      // Emit event to update frontend with empty leaderboard
+      await this.emit("COMPETITIVE_LEADERBOARD_RESET", {
+        competitiveLeaderboard: [],
+      })
+
+      return { success: true, message: "Leaderboard has been reset" }
+    } catch (error) {
+      console.error(`[${this.name}] Error resetting competitive leaderboard:`, error)
+      return { success: false, message: `Error resetting leaderboard: ${error}` }
+    }
   }
 
   // ============================================================================

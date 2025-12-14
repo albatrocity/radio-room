@@ -13,6 +13,7 @@ export const playlistDemocracyConfigSchema = z.object({
   skipRequiresQueueMin: z.number().min(0), // minimum queue length required to skip
   soundEffectOnSkip: z.boolean(), // play sound effect when skipping
   soundEffectOnSkipUrl: z.url(), // URL of the sound effect to play when skipping
+  competitiveModeEnabled: z.boolean(), // enable competitive mode with leaderboard
 })
 
 /**
@@ -33,4 +34,5 @@ export const defaultPlaylistDemocracyConfig: PlaylistDemocracyConfig = {
   skipRequiresQueueMin: 0,
   soundEffectOnSkip: false,
   soundEffectOnSkipUrl: "https://cdn.freesound.org/previews/650/650842_11771918-lq.mp3",
+  competitiveModeEnabled: false,
 }
