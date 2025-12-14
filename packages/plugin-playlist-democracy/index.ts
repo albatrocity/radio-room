@@ -223,6 +223,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     this.on("REACTION_ADDED", this.onReactionAdded.bind(this))
     this.on("REACTION_REMOVED", this.onReactionRemoved.bind(this))
     this.on("USER_LEFT", this.onUserLeave.bind(this))
+    this.on("USER_JOINED", this.onUserJoin.bind(this))
     this.onConfigChange(this.handleConfigChange.bind(this))
   }
 
@@ -294,7 +295,52 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     const hasAdmins = users.some((u) => u.isAdmin)
 
     if (!hasAdmins) {
-      await this.disablePluginNoAdmins()
+      // Delay before disabling to allow for browser refresh
+      this.scheduleNoAdminCheck()
+    }
+  }
+
+  private async onUserJoin(): Promise<void> {
+    // Cancel any pending no-admin check when a user joins
+    this.cancelNoAdminCheck()
+  }
+
+  private scheduleNoAdminCheck(): void {
+    // Cancel any existing timer
+    this.cancelNoAdminCheck()
+
+    const NO_ADMIN_CHECK_KEY = "no-admin-check"
+    const NO_ADMIN_DELAY_MS = 30000 // 30 seconds
+
+    console.log(`[${this.name}] No admins detected, scheduling disable check in 30 seconds`)
+
+    const timeout = setTimeout(async () => {
+      this.activeTimers.delete(NO_ADMIN_CHECK_KEY)
+
+      if (!this.context) return
+
+      // Re-check if there are still no admins
+      const users = await this.context.api.getUsers(this.context.roomId)
+      const hasAdmins = users.some((u) => u.isAdmin)
+
+      if (!hasAdmins) {
+        console.log(`[${this.name}] Still no admins after 30 seconds, disabling plugin`)
+        await this.disablePluginNoAdmins()
+      } else {
+        console.log(`[${this.name}] Admin returned, keeping plugin enabled`)
+      }
+    }, NO_ADMIN_DELAY_MS)
+
+    this.activeTimers.set(NO_ADMIN_CHECK_KEY, timeout)
+  }
+
+  private cancelNoAdminCheck(): void {
+    const NO_ADMIN_CHECK_KEY = "no-admin-check"
+    const timer = this.activeTimers.get(NO_ADMIN_CHECK_KEY)
+    if (timer) {
+      clearTimeout(timer)
+      this.activeTimers.delete(NO_ADMIN_CHECK_KEY)
+      console.log(`[${this.name}] Cancelled pending no-admin check`)
     }
   }
 
