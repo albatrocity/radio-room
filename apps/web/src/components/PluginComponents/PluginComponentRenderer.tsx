@@ -12,11 +12,7 @@ import {
   VStack,
   Box,
 } from "@chakra-ui/react"
-import {
-  interpolateTemplate,
-  interpolatePropsRecursively,
-  checkShowWhenCondition,
-} from "@repo/utils"
+import { interpolateTemplate, interpolatePropsRecursively } from "@repo/utils"
 import { pluginComponentMachine } from "../../machines/pluginComponentMachine"
 import { useCurrentRoom } from "../../hooks/useActors"
 import { PluginComponentContext } from "./context"
@@ -66,16 +62,24 @@ interface PluginComponentRendererProps {
  * Wraps the component with data attributes for screen effect targeting.
  */
 export function PluginComponentRenderer({ component }: PluginComponentRendererProps) {
-  const { config, store } = React.useContext(PluginComponentContext)!
+  const { config, store, itemContext } = React.useContext(PluginComponentContext)!
 
   // Check showWhen condition
   if (component.showWhen) {
     const conditions = Array.isArray(component.showWhen) ? component.showWhen : [component.showWhen]
 
     // All conditions must be true (AND logic)
-    const allConditionsMet = conditions.every((condition) =>
-      checkShowWhenCondition(condition, config, store),
-    )
+    // Using inline check to handle item.* fields correctly
+    const allConditionsMet = conditions.every((condition) => {
+      let actualValue: unknown
+      if (condition.field.startsWith("item.")) {
+        const itemField = condition.field.slice(5)
+        actualValue = itemContext?.[itemField]
+      } else {
+        actualValue = config[condition.field] ?? store[condition.field]
+      }
+      return actualValue === condition.value
+    })
 
     if (!allConditionsMet) {
       return null
@@ -108,6 +112,8 @@ interface PluginComponentProviderProps {
   components: PluginComponentDefinition[]
   /** Text color for components */
   textColor?: string
+  /** Item-level context for per-item areas */
+  itemContext?: Record<string, unknown>
 }
 
 /**
@@ -121,6 +127,7 @@ export function PluginComponentProvider({
   config,
   components,
   textColor,
+  itemContext,
 }: PluginComponentProviderProps) {
   const room = useCurrentRoom()
   const roomId = room?.id
@@ -164,8 +171,8 @@ export function PluginComponentProvider({
 
   // Memoize context value - callbacks are now stable
   const contextValue = useMemo(
-    () => ({ store, config, openModal, closeModal, textColor }),
-    [store, config, openModal, closeModal, textColor],
+    () => ({ store, config, openModal, closeModal, textColor, itemContext }),
+    [store, config, openModal, closeModal, textColor, itemContext],
   )
 
   return (

@@ -819,30 +819,101 @@ getComponentSchema(): PluginComponentSchema {
 
 ### Component Areas
 
-| Area              | Location                        |
-| ----------------- | ------------------------------- |
-| `nowPlaying`      | Below now playing info          |
-| `nowPlayingInfo`  | Inline with now playing details |
-| `nowPlayingBadge` | Badge area near title           |
-| `nowPlayingArt`   | Overlay on album art            |
-| `playlistItem`    | Per-track in playlist           |
-| `userList`        | User list section               |
-| `userListItem`    | Per-user in list                |
+| Area              | Location                        | Item Context Available |
+| ----------------- | ------------------------------- | ---------------------- |
+| `nowPlaying`      | Below now playing info          | No                     |
+| `nowPlayingInfo`  | Inline with now playing details | No                     |
+| `nowPlayingBadge` | Badge area near title           | No                     |
+| `nowPlayingArt`   | Overlay on album art            | No                     |
+| `playlistItem`    | Per-track in playlist           | Yes (track data)       |
+| `userList`        | User list section               | No                     |
+| `userListItem`    | Per-user in list                | Yes (user data)        |
 
 ### Component Types
 
-| Type          | Description      | Key Props                                     |
-| ------------- | ---------------- | --------------------------------------------- |
-| `text`        | Inline text      | `content`, `variant`                          |
-| `text-block`  | Block text       | `content`, `variant`                          |
-| `heading`     | Section heading  | `content`, `level`                            |
-| `emoji`       | Emoji display    | `emoji`, `size`                               |
-| `icon`        | Icon display     | `icon`, `size`, `color`                       |
-| `button`      | Clickable button | `label`, `icon`, `opensModal`                 |
-| `badge`       | Status badge     | `label`, `variant`, `icon`, `tooltip`         |
-| `leaderboard` | Ranked list      | `dataKey`, `title`, `rowTemplate`, `maxItems` |
-| `countdown`   | Timer display    | `startKey`, `duration`, `text`                |
-| `modal`       | Dialog container | `title`, `size`, `children`                   |
+| Type         | Description      | Key Props                     |
+| ------------ | ---------------- | ----------------------------- |
+| `text`       | Inline text      | `content`, `variant`          |
+| `text-block` | Block text       | `content`, `variant`          |
+| `heading`    | Section heading  | `content`, `level`            |
+| `emoji`      | Emoji display    | `emoji`, `size`               |
+| `icon`       | Icon display     | `icon`, `size`, `color`       |
+| `button`     | Clickable button | `label`, `icon`, `opensModal` |
+
+**Available Icons:**
+
+`trophy`, `star`, `medal`, `award`, `heart`, `skip-forward`, `swords`
+| `badge` | Status badge | `label`, `variant`, `icon`, `tooltip` |
+| `leaderboard` | Ranked list | `dataKey`, `title`, `rowTemplate`, `maxItems` |
+| `countdown` | Timer display | `startKey`, `duration`, `text` |
+| `modal` | Dialog container | `title`, `size`, `children` |
+
+### Per-Item Components
+
+Components in `userListItem` or `playlistItem` areas render once per item (user or track). These areas provide an `itemContext` with item-specific data that can be used in `showWhen` conditions.
+
+#### User List Item Context
+
+For `userListItem` components, the following fields are available:
+
+| Field        | Type      | Description                      |
+| ------------ | --------- | -------------------------------- |
+| `userId`     | `string`  | The user's unique ID             |
+| `isDeputyDj` | `boolean` | Whether the user is a deputy DJ  |
+| `isDj`       | `boolean` | Whether the user is currently DJ |
+| `isAdmin`    | `boolean` | Whether the user is room admin   |
+
+#### Using Item Context in showWhen
+
+Use the `item.` prefix to check item context values:
+
+```typescript
+{
+  id: "deputy-badge",
+  type: "icon",
+  area: "userListItem",
+  icon: "star",
+  color: "yellow.400",
+  showWhen: [
+    { field: "enabled", value: true },           // Check plugin config
+    { field: "item.isDeputyDj", value: true },   // Check item context
+  ],
+}
+```
+
+#### Example: Competitive Mode Icon
+
+Show a sword icon next to deputy DJs when competitive mode is enabled:
+
+```typescript
+getComponentSchema(): PluginComponentSchema {
+  return {
+    components: [
+      {
+        id: "competitive-user-icon",
+        type: "icon",
+        area: "userListItem",
+        icon: "swords",
+        size: "sm",
+        color: "orange.400",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "competitiveModeEnabled", value: true },
+          { field: "item.isDeputyDj", value: true },
+        ],
+      },
+      // ... other components
+    ],
+    storeKeys: ["competitiveModeEnabled"],
+  }
+}
+```
+
+The icon will only appear for users where:
+
+1. The plugin is enabled (`config.enabled === true`)
+2. Competitive mode is on (`config.competitiveModeEnabled === true` or `store.competitiveModeEnabled === true`)
+3. The specific user is a deputy DJ (`itemContext.isDeputyDj === true`)
 
 ### Component State
 
@@ -1403,12 +1474,12 @@ await this.context.api.queueScreenEffect({
 
 **Parameters:**
 
-| Parameter  | Type                 | Required | Description                                                        |
-| ---------- | -------------------- | -------- | ------------------------------------------------------------------ |
-| `target`   | `ScreenEffectTarget` | Yes      | What to animate: `room`, `nowPlaying`, `message`, or `plugin`      |
-| `targetId` | `string`             | No       | For `message`: timestamp or `"latest"`. For `plugin`: component ID |
-| `effect`   | `ScreenEffectName`   | Yes      | Animation name (see available effects below)                       |
-| `duration` | `number`             | No       | Custom duration in milliseconds (default varies by effect)         |
+| Parameter  | Type                 | Required | Description                                                                            |
+| ---------- | -------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `target`   | `ScreenEffectTarget` | Yes      | What to animate: `room`, `nowPlaying`, `message`, `plugin`, or `user`                  |
+| `targetId` | `string`             | No       | For `message`: timestamp or `"latest"`. For `plugin`: component ID. For `user`: userId |
+| `effect`   | `ScreenEffectName`   | Yes      | Animation name (see available effects below)                                           |
+| `duration` | `number`             | No       | Custom duration in milliseconds (default varies by effect)                             |
 
 **Target Types:**
 
@@ -1418,6 +1489,7 @@ await this.context.api.queueScreenEffect({
 | `nowPlaying` | Now playing section     | Not needed                      |
 | `message`    | Specific chat message   | Message timestamp or `"latest"` |
 | `plugin`     | Plugin's own components | Component `id` from your schema |
+| `user`       | Specific user in list   | User's `userId`                 |
 
 **Available Effects (animate.css attention seekers):**
 
@@ -1465,6 +1537,17 @@ await this.context!.api.queueScreenEffect({
   target: "nowPlaying",
   effect: "tada",
   duration: 1500,
+})
+```
+
+**Example: Animate a specific user**
+
+```typescript
+// Pulse a user when they earn a point
+await this.context!.api.queueScreenEffect({
+  target: "user",
+  targetId: userId, // The user's userId
+  effect: "pulse",
 })
 ```
 

@@ -17,4 +17,3 @@ export function IconTemplateComponent({ icon, size = "md", color }: IconComponen
 
   return <Icon as={IconComponent} boxSize={boxSize} color={color} />
 }
-

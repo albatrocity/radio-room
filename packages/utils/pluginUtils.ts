@@ -19,7 +19,11 @@ export interface ShowWhenCondition {
 
 /**
  * Check if a single showWhen condition is met.
- * Checks config first, then store/context values.
+ * Checks config first, then store/context values, then item context.
+ *
+ * Field prefixes:
+ * - `item.field` - Check the item context (e.g., per-user data)
+ * - `field` - Check config, then store
  *
  * @example
  * ```typescript
@@ -36,18 +40,35 @@ export interface ShowWhenCondition {
  *   {},                       // config
  *   { showCountdown: true }   // store
  * ) // → true
+ *
+ * // Check item context (e.g., user data)
+ * checkShowWhenCondition(
+ *   { field: "item.isDeputyDj", value: true },
+ *   {},                       // config
+ *   {},                       // store
+ *   { isDeputyDj: true }      // itemContext
+ * ) // → true
  * ```
  *
  * @param condition - The condition to check
  * @param config - Plugin configuration values
  * @param store - Plugin component store values
+ * @param itemContext - Optional item-level context (e.g., user data for userListItem)
  * @returns Whether the condition is met
  */
 export function checkShowWhenCondition(
   condition: ShowWhenCondition,
   config: Record<string, unknown>,
   store: Record<string, unknown>,
+  itemContext?: Record<string, unknown>,
 ): boolean {
+  // Handle item.field syntax for item context
+  if (condition.field.startsWith("item.")) {
+    const itemField = condition.field.slice(5) // Remove "item." prefix
+    const actualValue = itemContext?.[itemField]
+    return actualValue === condition.value
+  }
+
   const actualValue = config[condition.field] ?? store[condition.field]
   return actualValue === condition.value
 }
@@ -66,20 +87,35 @@ export function checkShowWhenCondition(
  *   { enabled: true, thresholdType: "percentage" },
  *   {}
  * ) // → true
+ *
+ * // With item context
+ * checkShowWhenConditions(
+ *   [
+ *     { field: "competitiveModeEnabled", value: true },
+ *     { field: "item.isDeputyDj", value: true }
+ *   ],
+ *   { competitiveModeEnabled: true },
+ *   {},
+ *   { isDeputyDj: true }
+ * ) // → true
  * ```
  *
  * @param conditions - Single condition or array of conditions
  * @param config - Plugin configuration values
  * @param store - Plugin component store values
+ * @param itemContext - Optional item-level context
  * @returns Whether all conditions are met
  */
 export function checkShowWhenConditions(
   conditions: ShowWhenCondition | ShowWhenCondition[],
   config: Record<string, unknown>,
   store: Record<string, unknown>,
+  itemContext?: Record<string, unknown>,
 ): boolean {
   const conditionsArray = Array.isArray(conditions) ? conditions : [conditions]
-  return conditionsArray.every((condition) => checkShowWhenCondition(condition, config, store))
+  return conditionsArray.every((condition) =>
+    checkShowWhenCondition(condition, config, store, itemContext),
+  )
 }
 
 // ============================================================================
@@ -151,4 +187,3 @@ export function interpolatePropsRecursively(
 
   return interpolated
 }
-

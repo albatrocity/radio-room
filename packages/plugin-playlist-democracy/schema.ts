@@ -48,6 +48,20 @@ export function getComponentSchema(): PluginComponentSchema {
         icon: "skip-forward",
         tooltip: "{{voteCount}}/{{requiredCount}} votes",
       },
+      // Competitive mode sword icon for deputy DJs
+      {
+        id: "competitive-user-icon",
+        type: "icon",
+        area: "userListItem",
+        icon: "swords",
+        size: "sm",
+        color: "orange.400",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "competitiveModeEnabled", value: true },
+          { field: "item.isDeputyDj", value: true },
+        ],
+      },
       // Competitive mode leaderboard button
       {
         id: "competitive-leaderboard-button",

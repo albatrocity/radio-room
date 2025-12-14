@@ -12,7 +12,6 @@ import {
   useListeners,
   useAdminSend,
   useRoomCreator,
-  usePluginConfigs,
 } from "../hooks/useActors"
 import { PluginArea } from "./PluginComponents"
 
