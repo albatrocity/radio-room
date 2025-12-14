@@ -7,7 +7,6 @@ import {
   saveRoom,
   parseRoom,
   removeSensitiveRoomAttributes,
-  getUserRooms,
   getAllRooms,
   getUserServiceAuth,
   getRoomOnlineUsers,
@@ -204,7 +203,11 @@ export async function findRooms(req: Request, res: Response) {
     })
   }
 
-  const rooms = await getUserRooms({ context, userId: req.session.user?.userId || "s" })
+  const userId = req.session.user.userId
+
+  // Filter all rooms by creator (using string coercion for type safety)
+  const allRooms = await getAllRooms({ context })
+  const rooms = allRooms.filter((r) => String(r.creator) === String(userId))
 
   return res.status(200).send({
     rooms: rooms.map(parseRoom).map(removeSensitiveRoomAttributes),

@@ -177,6 +177,11 @@ export class AuthHandlers {
    * Handle user disconnection
    */
   disconnect = async ({ socket, io }: HandlerConnections) => {
+    // Guard: Only process disconnect if socket was in a room
+    if (!socket.data.roomId) {
+      return
+    }
+
     const result = await this.authService.disconnect(
       socket.data.roomId,
       socket.data.userId,
