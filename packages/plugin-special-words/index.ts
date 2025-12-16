@@ -229,7 +229,9 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     const words = content.toLowerCase().split(/\s+/)
     const configWordsSet = new Set(configWords.map((w) => this.normalizeWord(w)))
 
-    return words.filter((word) => configWordsSet.has(word))
+    return words
+      .map((word) => this.normalizeWord(word))
+      .filter((word) => word && configWordsSet.has(word))
   }
 
   // ============================================================================
@@ -483,7 +485,11 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
   // ============================================================================
 
   private normalizeWord(word: string): string {
-    return word.toLowerCase().trim()
+    // Remove leading/trailing punctuation, then lowercase and trim
+    return word
+      .toLowerCase()
+      .trim()
+      .replace(/^[^\w]+|[^\w]+$/g, "")
   }
 
   private isSystemMessage(message: ChatMessage): boolean {

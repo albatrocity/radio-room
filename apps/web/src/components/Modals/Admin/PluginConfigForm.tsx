@@ -235,6 +235,13 @@ function StringArrayField({ meta, value, onChange }: FieldProps) {
   const [inputValue, setInputValue] = React.useState("")
   const items = (value as string[]) || []
 
+  const addItems = (newItems: string[]) => {
+    const trimmed = newItems.map((i) => i.trim()).filter((i) => i && !items.includes(i))
+    if (trimmed.length > 0) {
+      onChange([...items, ...trimmed])
+    }
+  }
+
   const addItem = () => {
     if (inputValue.trim() && !items.includes(inputValue.trim())) {
       onChange([...items, inputValue.trim()])
@@ -246,13 +253,26 @@ function StringArrayField({ meta, value, onChange }: FieldProps) {
     onChange(items.filter((i) => i !== item))
   }
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData("text").trim()
+    e.preventDefault()
+    if (pasted.includes(",")) {
+      const newItems = pasted.split(",")
+      addItems(newItems)
+      setInputValue("")
+    } else {
+      // Single word paste - set trimmed value
+      setInputValue(pasted)
+    }
+  }
+
   return (
     <>
       <Field.Label>{meta.label}</Field.Label>
       <HStack>
         <Input
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={(e) => setInputValue(e.target.value.trim())}
           placeholder={meta.placeholder}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -260,6 +280,7 @@ function StringArrayField({ meta, value, onChange }: FieldProps) {
               addItem()
             }
           }}
+          onPaste={handlePaste}
         />
         <Button onClick={addItem} size="sm">
           Add
@@ -270,7 +291,9 @@ function StringArrayField({ meta, value, onChange }: FieldProps) {
           {items.map((item) => (
             <Tag.Root key={item} size="md" colorPalette="blue">
               <Tag.Label>{item}</Tag.Label>
-              <Tag.CloseTrigger onClick={() => removeItem(item)} />
+              <Tag.EndElement>
+                <Tag.CloseTrigger onClick={() => removeItem(item)} />
+              </Tag.EndElement>
             </Tag.Root>
           ))}
         </Wrap>
