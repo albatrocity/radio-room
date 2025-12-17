@@ -69,32 +69,32 @@ export default function ButtonExportRoom({ size = "sm" }: Props) {
   if (!room) return null
 
   return (
-    <Menu.Root>
-      <Menu.Trigger asChild>
-        <Tooltip content="Export room data" showArrow>
+    <Tooltip content="Export room data" showArrow>
+      <Menu.Root>
+        <Menu.Trigger asChild>
           <IconButton aria-label="Export room" size={size} variant="ghost" disabled={isLoading}>
             {isLoading ? <Spinner size="sm" /> : <FaDownload />}
           </IconButton>
-        </Tooltip>
-      </Menu.Trigger>
-      <Portal>
-        <Menu.Positioner>
-          <Menu.Content>
-            <Menu.Item
-              value="markdown"
-              onClick={() => handleExport("markdown")}
-              disabled={isLoading}
-            >
-              {loadingFormat === "markdown" ? <Spinner size="sm" /> : <FaFileAlt />}
-              Markdown
-            </Menu.Item>
-            <Menu.Item value="json" onClick={() => handleExport("json")} disabled={isLoading}>
-              {loadingFormat === "json" ? <Spinner size="sm" /> : <FaFileCode />}
-              JSON
-            </Menu.Item>
-          </Menu.Content>
-        </Menu.Positioner>
-      </Portal>
-    </Menu.Root>
+        </Menu.Trigger>
+        <Portal>
+          <Menu.Positioner style={{ zIndex: 2000 }}>
+            <Menu.Content>
+              <Menu.Item
+                value="markdown"
+                onClick={() => handleExport("markdown")}
+                disabled={isLoading}
+              >
+                {loadingFormat === "markdown" ? <Spinner size="sm" /> : <FaFileAlt />}
+                Markdown
+              </Menu.Item>
+              <Menu.Item value="json" onClick={() => handleExport("json")} disabled={isLoading}>
+                {loadingFormat === "json" ? <Spinner size="sm" /> : <FaFileCode />}
+                JSON
+              </Menu.Item>
+            </Menu.Content>
+          </Menu.Positioner>
+        </Portal>
+      </Menu.Root>
+    </Tooltip>
   )
 }
