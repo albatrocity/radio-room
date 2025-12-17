@@ -69,7 +69,7 @@ export interface SpecialWordsEvents {
     totalWordsUsed: number
     thisWordCount: number
     thisWordRank: number
-    usersLeaderboard: { score: number; value: string }[]
+    usersLeaderboard: { score: number; value: string; username: string }[]
     allWordsLeaderboard: { score: number; value: string }[]
   }
 }
@@ -260,7 +260,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     userAllWordsCount: number
     userRank: number
     userThisWordCount: number
-    usersLeaderboard: { score: number; value: string }[]
+    usersLeaderboard: { score: number; value: string; username: string }[]
     allWordsLeaderboard: { score: number; value: string }[]
     thisWordCount: number
     totalWordsUsed: number
@@ -285,7 +285,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       userAllWordsCount,
       userRank,
       userThisWordCount,
-      usersLeaderboard,
+      rawUsersLeaderboard,
       allWordsLeaderboard,
       thisWordCount,
       thisWordRank,
@@ -298,6 +298,16 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       this.context.storage.zscore(WORD_RANK_KEY, normalizedWord),
       this.context.storage.zrevrank(WORD_RANK_KEY, normalizedWord),
     ])
+
+    // Hydrate user leaderboard with usernames (includes users who have left)
+    const userIds = rawUsersLeaderboard.map((entry) => entry.value)
+    const users = await this.context.api.getUsersByIds(userIds)
+    const userMap = new Map(users.map((u) => [u.userId, u.username]))
+
+    const usersLeaderboard = rawUsersLeaderboard.map((entry) => ({
+      ...entry,
+      username: userMap.get(entry.value) ?? entry.value, // Fallback to userId if user not found
+    }))
 
     const totalWordsUsed = usersLeaderboard.reduce((acc, curr) => acc + curr.score, 0)
 
