@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react"
-import { IconButton, Menu, Spinner } from "@chakra-ui/react"
+import { IconButton, Menu, Portal, Spinner } from "@chakra-ui/react"
 import { FaDownload, FaFileCode, FaFileAlt } from "react-icons/fa"
 import { Tooltip } from "./ui/tooltip"
 
@@ -77,18 +77,24 @@ export default function ButtonExportRoom({ size = "sm" }: Props) {
           </IconButton>
         </Tooltip>
       </Menu.Trigger>
-      <Menu.Positioner>
-        <Menu.Content>
-          <Menu.Item value="markdown" onClick={() => handleExport("markdown")} disabled={isLoading}>
-            {loadingFormat === "markdown" ? <Spinner size="sm" /> : <FaFileAlt />}
-            Markdown
-          </Menu.Item>
-          <Menu.Item value="json" onClick={() => handleExport("json")} disabled={isLoading}>
-            {loadingFormat === "json" ? <Spinner size="sm" /> : <FaFileCode />}
-            JSON
-          </Menu.Item>
-        </Menu.Content>
-      </Menu.Positioner>
+      <Portal>
+        <Menu.Positioner>
+          <Menu.Content>
+            <Menu.Item
+              value="markdown"
+              onClick={() => handleExport("markdown")}
+              disabled={isLoading}
+            >
+              {loadingFormat === "markdown" ? <Spinner size="sm" /> : <FaFileAlt />}
+              Markdown
+            </Menu.Item>
+            <Menu.Item value="json" onClick={() => handleExport("json")} disabled={isLoading}>
+              {loadingFormat === "json" ? <Spinner size="sm" /> : <FaFileCode />}
+              JSON
+            </Menu.Item>
+          </Menu.Content>
+        </Menu.Positioner>
+      </Portal>
     </Menu.Root>
   )
 }
