@@ -64,6 +64,21 @@ services:
     networks:
       - app_network
 
+  load-tester:
+    build:
+      context: .
+      dockerfile: ./apps/load-tester/Dockerfile
+    volumes:
+      - ./apps/load-tester/scenarios:/app/scenarios
+    environment:
+      - NODE_ENV=production
+    networks:
+      - app_network
+    depends_on:
+      - api
+    profiles:
+      - testing  # Only start with: docker compose --profile testing up load-tester
+
 volumes:
   redis-data:
 

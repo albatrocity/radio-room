@@ -1,0 +1,55 @@
+# Chat Activity Scenario
+# Tests full user lifecycle with realistic chat behavior
+#
+# Scenario: 10 users join, send messages, react, and leave
+
+name: "chat-activity-test"
+description: "10 users with realistic chat activity - messages, reactions, lifecycle"
+target: "http://localhost:3000"
+roomId: "test-room"
+duration: 120  # 2 minutes
+verbose: false
+
+users:
+  count: 10
+  joinPattern: "staggered"
+  joinDuration: 15  # 15 seconds to join
+  leaveAfterActions: true
+
+actions:
+  sendMessages:
+    enabled: true
+    messagesPerUser: 8  # Active chatters
+    content:
+      - "Hey everyone! 👋"
+      - "Great song choice!"
+      - "Who's the DJ today?"
+      - "This is such a vibe"
+      - "Love this track 🎵"
+      - "Anyone else dancing? 💃"
+      - "Turn it up!"
+      - "Classic tune"
+      - "First time here, love it!"
+      - "Good evening folks"
+      - "😂😂😂"
+      - "Absolutely slaps"
+      - "Adding this to my playlist"
+      - "The bass on this 👌"
+    distribution: "random"
+
+  reactions:
+    enabled: true
+    reactionsPerUser: 5
+    targetTypes:
+      - "message"
+      - "track"
+    emojis:
+      - "👍"
+      - "❤️"
+      - "🔥"
+      - "😂"
+      - "🎵"
+      - "👏"
+      - "✨"
+    distribution: "random"
+
