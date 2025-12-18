@@ -1,5 +1,12 @@
 import { AppContext, JobRegistration, JobApi, PlaybackControllerQueueItem } from "@repo/types"
-import { SpotifyApi } from "@spotify/web-api-ts-sdk"
+
+/**
+ * Spotify's Get User's Queue endpoint only returns up to 20 tracks.
+ * We cannot safely remove tracks from the app queue when we can't see
+ * the full Spotify queue, as tracks beyond position 20 would appear
+ * to be "missing" even though they exist.
+ */
+const SPOTIFY_QUEUE_API_LIMIT = 20
 
 /**
  * Creates a queue sync job that periodically syncs the app's queue with Spotify's queue.
@@ -12,6 +19,10 @@ import { SpotifyApi } from "@spotify/web-api-ts-sdk"
  *
  * This handles the case where someone removes a track from Spotify's queue
  * outside of the app (e.g., via Spotify client).
+ *
+ * IMPORTANT: Spotify's queue API only returns up to 20 tracks. When the queue
+ * has 20+ tracks, we cannot determine which tracks beyond position 20 exist,
+ * so we skip the sync to avoid incorrectly removing valid tracks.
  */
 export function createQueueSyncJob(params: {
   context: AppContext
@@ -25,6 +36,7 @@ export function createQueueSyncJob(params: {
     description: `Syncs app queue with Spotify queue for room ${roomId}`,
     cron: "0 * * * * *", // Every minute (at second 0)
     enabled: true,
+    runAt: Date.now(),
     handler: async ({ api }: { api: JobApi; context: AppContext }) => {
       try {
         // Dynamic imports to avoid circular dependencies
@@ -51,12 +63,21 @@ export function createQueueSyncJob(params: {
           playbackQueueTrackIds = playbackQueue.map(
             (track: PlaybackControllerQueueItem) => track.id,
           )
+
+          // Spotify's queue API only returns up to 20 tracks.
+          // If we get 20 tracks back, we can't see the full queue and shouldn't
+          // remove any tracks - they might exist beyond position 20.
+          if (playbackQueueTrackIds.length >= SPOTIFY_QUEUE_API_LIMIT) {
+            // We can't see the full queue, so skip sync to avoid removing valid tracks
+            return
+          }
         } catch (error: any) {
           console.warn(`[Queue Sync] Failed to fetch queue for room ${roomId}:`, error?.message)
           return
         }
 
         // Find tracks in app queue that are NOT in the PlaybackController queue
+        // Safe to do this only when Spotify returns < 20 tracks (full queue visibility)
         const tracksToRemove = appQueue.filter((item) => {
           return !playbackQueueTrackIds.includes(item.mediaSource.trackId)
         })
