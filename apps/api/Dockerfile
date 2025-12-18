@@ -1,8 +1,8 @@
 FROM node:22-alpine AS base
 
 FROM base AS builder
-RUN apk update
-RUN apk add --no-cache libc6-compat python3 make g++
+# Combine apk commands into single layer
+RUN apk update && apk add --no-cache libc6-compat python3 make g++
 WORKDIR /app
 RUN npm i turbo --global
 COPY . .
@@ -10,8 +10,8 @@ RUN turbo prune api --docker
 
 # Add lockfile and package.json's of isolated subworkspace
 FROM base AS installer
-RUN apk update
-RUN apk add --no-cache libc6-compat python3 make g++
+# Combine apk commands into single layer  
+RUN apk update && apk add --no-cache libc6-compat python3 make g++
 WORKDIR /app
 
 # First install dependencies (as they change less often)
@@ -26,8 +26,8 @@ FROM base AS runner
 WORKDIR /app
 
 # Don't run production as root
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nodejs
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nodejs
 USER nodejs
 
 # Copy application source and dependencies
