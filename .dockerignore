@@ -1,2 +1,53 @@
+# Dependencies (installed fresh in container)
 node_modules
-npm-debug.log
+**/node_modules
+
+# Build outputs
+dist
+**/dist
+.turbo
+**/.turbo
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE and editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test and coverage
+coverage
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# Documentation
+*.md
+docs/
+plans/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Misc dev files
+.eslintcache
+.prettierignore
+*.tsbuildinfo

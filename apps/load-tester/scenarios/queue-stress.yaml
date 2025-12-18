@@ -1,0 +1,114 @@
+# Queue Stress Test Scenario
+# Tests queue sync and Spotify integration under load
+#
+# Scenario: 15 users add 40 songs to the queue over 3 minutes
+
+name: "queue-stress-test"
+description: "15 users add 40 songs over 3 minutes to stress test queue sync"
+target: "http://localhost:3000"
+roomId: "test-room"
+duration: 180 # 3 minutes
+verbose: false
+
+users:
+  count: 15
+  joinPattern: "staggered"
+  joinDuration: 30 # Spread joins over 30 seconds
+  leaveAfterActions: false
+
+actions:
+  queueSongs:
+    enabled: true
+    totalSongs: 40
+    # Track IDs from playlist: https://open.spotify.com/playlist/1PNIf31dxISu8AzXhTNPEQ
+    trackIds:
+      - "04fwv6CT6oawtQjubJ8Wwj" # Biscaglione
+      - "01liKzGQmuq4BRFR19YaeI" # Touchdown
+      - "2hcs9rYtSxPOuPP9rvyzey" # Swimming
+      - "1whE2KlByEj8U2j5a6i4Rk" # Let's Dream
+      - "6el4JtaptHILO6QSPOO4ZS" # Dreams Away
+      - "0qPlVAaBWUWd7xUPLxfRGB" # The Lines
+      - "6hiC8xqNTsMV5Zxmtm2nmS" # Leave Me Alone
+      - "0JCAezTC5IlK1a9o0YBEsD" # Don't Take It Personal
+      - "4GAiYOIazkQkbMyngCb0Az" # Detox Island
+      - "11VHtbpesamzg0CpICxsq6" # Nunca Te Voy a Olvidar
+      - "1I3YtpyO4auh961y23a1Ia" # Kandy
+      - "1AVcNhZZqLYPcdKikNKeHz" # Hula Hula
+      - "3jjsRKEsF42ccXf8kWR3nu" # Washing Machine Heart
+      - "6kJYHNlytKIwClXLDuRjPG" # From the Air
+      - "1y4MD7geYGJx7uaNvOJQOf" # Window
+      - "64Ei6vWaId3AGuqPZjl77M" # David Died
+      - "68VCCqeujyd3SqmYAWB0lZ" # Nights Over Egypt
+      - "1CvswXTcE7cUh4DQDu3uAE" # Empty Promises
+      - "3VPeA7IW68QRNTfgzb6biZ" # Kitchen
+      - "4GofXrGDmc57jtT4phANDF" # Paradiso
+      - "1tP4oxJYFdBddLr8D8ZyJc" # Drip Decay (Live)
+      - "3kCRMqCVZZwJOR3Opkk62R" # Countryside
+      - "1GJgoTGiGtQ06yYFHskUh6" # Your Gold Teeth II
+      - "18ykuwAU25noV8QClzYRFv" # Quand La Mer Furieuse
+      - "0ddz96vdESM0HrhayrSigF" # Look Into Dance
+      - "1g9GiiPPaL7KcDHlDzu7lT" # Au Pays du Cocaine
+      - "1Dugqy9EGYV66nkp7yLiA4" # Duduke
+      - "38XOEv37waF4pd8Ztmna7K" # Hey Young World
+      - "7x1dmOdCBYmXOZECXfgVTW" # Sleep Is Wrong
+      - "3EUl8M6SzxZl03NPkB8mUd" # Neon Moon
+      - "6fg1xaDxkuQVJjwrgjx837" # Once Upon a Time in the West
+      - "03wgi2tpRy0pdUVZSsBomu" # Somewhere In America
+      - "3EUYI292ePO4YTpnpupwAA" # Happy on the Grill
+      - "0Tk8JuxBYsN47oOZkg3Jlb" # Kiss From a Rose
+      - "1FRbyVnxScKgbKoTDQLC70" # If I Had the World to Give
+      - "1b5gSirr5oA0EV9zv9O2sZ" # avril 14th
+      - "5ffKSi0pfdd7H2inNdg1S5" # Crazy Game of Poker
+      - "0orDEh9TN4jkgnDIXJkXnN" # The Worst Band In The World
+      - "5E5zxt4PTQHUeh94rqdT48" # Spare
+      - "5wGfZ5xEWjxS2vfYkEp4U8" # I Paint a Design
+      - "3qkxl9PlTBGp1XAZkB5vFX" # Next Time Might Be Your Time
+      - "0qtODBXCDFVwrMFNes78TU" # LOVE ME, HATE ME
+      - "04NwYtnKWEqP294zHkyuFW" # On The Way
+      - "5wDuIDsCWKSROQY3JlDEuV" # I'm No Stranger to the Rain
+      - "6tsOcBnaKgzK22yEiqRh8P" # MONOPOLY
+      - "6qsKnjwlxuSVlTfcjc8pRQ" # The Most Beautiful Girl
+      - "5cDfI3KOa64zbuUgD6a4hG" # Blue
+      - "39huBRxHAq1HiyezGmo960" # Countdown to Love
+      - "6x3xYEa3GbZSSdiuFD29P8" # World_train
+      - "2HJ8ogPEUy8TQfl8nnnHJy" # Loving You Is on My Mind
+      - "4gSjMYf4OOs9FCzpnQ64Wc" # Player Haters In Dis House
+      - "02srSkeu2pzybuVr2B9TJm" # When Will I See You Again
+      - "4PlRtv7Rdqefy8avYvbwQh" # Supposed to Make You Happy
+      - "2KmVDJa2NW46WIvXGn9otN" # If It Were Left Up to Me
+      - "7pcvIxnSwyMyj1eOEcYKAn" # Eternal Love
+      - "5Up7kKnSg7Z1YHRToUbZ1p" # Miraculous Weekend
+      - "2YQBDxMbQbOsdXixdL4ZyE" # Butterfly
+      - "6v2xrthaluVZtMS53UdfdE" # Many Roads to Follow
+      - "6gB6Hh2bPNmq5Owy31KbHt" # Dallas Does Debbie
+      - "17sbCSL9A29Adp82vUZRJy" # Home
+      - "1oxtlUVC1mEhsx6mIDT0O1" # Workin' On A Groovy Thing
+      - "1UdL4gYrsJVqBxY8VkvkN1" # Papaya
+      - "1tGRfoeKD06YvZr6l3uwEk" # Pulaski
+      - "4bAIxDtCjIV7QYV1lueGXX" # Cosoco
+      - "0ra3sCuIaZVc2mqxnST3jY" # Maple Leaves
+      - "33HqYo8b3I9xPdEALEdFFi" # Pigs... (In There)
+      - "6N7gPTru90HYLRUIVDQ185" # More Than This
+      - "7zHzP5a8ThhGTfchuzsjmA" # Gossip Playground
+    distribution: "even" # Spread evenly over duration
+
+  sendMessages:
+    enabled: true
+    messagesPerUser: 2
+    content:
+      - "Adding a track! 🎵"
+      - "Check out this song"
+      - "This one's a banger"
+      - "Queue time!"
+    distribution: "random"
+
+  reactions:
+    enabled: true
+    reactionsPerUser: 3
+    targetTypes:
+      - "track"
+    emojis:
+      - "🔥"
+      - "👏"
+      - "🎵"
+    distribution: "random"

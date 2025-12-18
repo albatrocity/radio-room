@@ -1,0 +1,30 @@
+# Mass Join Stress Test Scenario
+# Tests connection handling and user list broadcasting under heavy load
+#
+# Scenario: 400 users join a room over 1 minute
+
+name: "mass-join-test"
+description: "400 users join over 1 minute to stress test connection handling"
+target: "http://localhost:3000"
+roomId: "test-room"
+duration: 120  # 2 minutes total
+verbose: false
+
+users:
+  count: 400
+  joinPattern: "burst"  # Most users join quickly
+  joinDuration: 60  # 1 minute to complete all joins
+  leaveAfterActions: false
+  stayDuration: 60  # Stay for 1 minute after joining
+
+actions:
+  # Minimal actions - focus is on connection stress
+  sendMessages:
+    enabled: true
+    messagesPerUser: 1
+    content:
+      - "👋"
+      - "Hello!"
+      - "Hi everyone"
+    distribution: "random"
+
