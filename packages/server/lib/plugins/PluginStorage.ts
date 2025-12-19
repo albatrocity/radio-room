@@ -15,7 +15,7 @@ export class PluginStorageImpl implements PluginStorage {
    * Generate a namespaced key for this plugin
    */
   private makeKey(key: string): string {
-    return `plugin:${this.pluginName}:room:${this.roomId}:${key}`
+    return `room:${this.roomId}:plugins:${this.pluginName}:storage:${key}`
   }
 
   async get(key: string): Promise<string | null> {
@@ -99,9 +99,7 @@ export class PluginStorageImpl implements PluginStorage {
    */
   async pipeline(
     commands: Array<
-      | { op: "get"; key: string }
-      | { op: "exists"; key: string }
-      | { op: "mget"; keys: string[] }
+      { op: "get"; key: string } | { op: "exists"; key: string } | { op: "mget"; keys: string[] }
     >,
   ): Promise<Array<string | null | boolean | (string | null)[]>> {
     if (commands.length === 0) {

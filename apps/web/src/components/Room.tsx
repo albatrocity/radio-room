@@ -37,10 +37,8 @@ const Room = ({ id }: { id: string }) => {
   }, [isNewUser, isAuthenticated, modalSend])
 
   return (
-    <Box w="100%" h="100%">
+    <Box w="100%" h="100%" data-screen-effect-target="room">
       <Grid
-        flexGrow={1}
-        flexShrink={1}
         h="100%"
         className="room"
         templateAreas={[
@@ -88,7 +86,7 @@ const Room = ({ id }: { id: string }) => {
         <GridItem area="chat" minHeight={0}>
           {currentUser && <Chat />}
         </GridItem>
-        <GridItem area="sidebar" h="100%">
+        <GridItem area="sidebar" h="100%" minH={0} overflow="hidden">
           {currentUser && (
             <Box hideBelow="sm" h="100%">
               <Sidebar />

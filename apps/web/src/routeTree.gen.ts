@@ -13,6 +13,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CallbackRouteImport } from './routes/callback'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
@@ -37,6 +38,11 @@ const LoginRoute = LoginRouteImport.update({
 const CallbackRoute = CallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/about': typeof AboutRoute
+  '/admin': typeof AdminRoute
   '/callback': typeof CallbackRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/about': typeof AboutRoute
+  '/admin': typeof AdminRoute
   '/callback': typeof CallbackRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/about': typeof AboutRoute
+  '/admin': typeof AdminRoute
   '/callback': typeof CallbackRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/about'
+    | '/admin'
     | '/callback'
     | '/login'
     | '/logout'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/about'
+    | '/admin'
     | '/callback'
     | '/login'
     | '/logout'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/about'
+    | '/admin'
     | '/callback'
     | '/login'
     | '/logout'
@@ -139,6 +151,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   AboutRoute: typeof AboutRoute
+  AdminRoute: typeof AdminRoute
   CallbackRoute: typeof CallbackRoute
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
@@ -175,6 +188,13 @@ declare module '@tanstack/react-router' {
       path: '/callback'
       fullPath: '/callback'
       preLoaderRoute: typeof CallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -219,6 +239,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   AboutRoute: AboutRoute,
+  AdminRoute: AdminRoute,
   CallbackRoute: CallbackRoute,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,

@@ -1,10 +1,15 @@
 import { z } from "zod"
-import type { PluginConfigSchema, PluginComponentSchema, PluginSchemaElement } from "@repo/types"
+import type {
+  PluginConfigSchema,
+  PluginComponentSchema,
+  PluginSchemaElement,
+  PluginActionElement,
+} from "@repo/types"
 import { playlistDemocracyConfigSchema } from "./types"
 
 /**
  * UI component schema for frontend rendering.
- * Defines the countdown timer, text block, and badge components.
+ * Defines the countdown timer, text block, badge, and competitive mode components.
  */
 export function getComponentSchema(): PluginComponentSchema {
   return {
@@ -43,8 +48,76 @@ export function getComponentSchema(): PluginComponentSchema {
         icon: "skip-forward",
         tooltip: "{{voteCount}}/{{requiredCount}} votes",
       },
+      // Competitive mode sword icon for deputy DJs
+      {
+        id: "competitive-user-icon",
+        type: "icon",
+        area: "userListItem",
+        icon: "swords",
+        size: "sm",
+        color: "orange.400",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "competitiveModeEnabled", value: true },
+          { field: "item.isDeputyDj", value: true },
+        ],
+      },
+      // Competitive mode leaderboard button
+      {
+        id: "competitive-leaderboard-button",
+        type: "button",
+        area: "userList",
+        label: "DJ Leaderboard",
+        icon: "trophy",
+        opensModal: "competitive-leaderboard-modal",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "competitiveModeEnabled", value: true },
+        ],
+        variant: "solid",
+        size: "sm",
+      },
+      // Competitive mode leaderboard modal
+      {
+        id: "competitive-leaderboard-modal",
+        type: "modal",
+        area: "userList",
+        title: "DJ Leaderboard",
+        size: "md",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "competitiveModeEnabled", value: true },
+        ],
+        children: [
+          {
+            id: "competitive-leaderboard",
+            type: "leaderboard",
+            area: "userList",
+            dataKey: "competitiveLeaderboard",
+            title: "Top DJs",
+            rowTemplate: [
+              {
+                type: "component",
+                name: "username",
+                props: { userId: "{{value}}", fallback: "{{username}}" },
+              },
+              { type: "text", content: ": {{score}} pts" },
+            ],
+            maxItems: 10,
+            showRank: true,
+          },
+        ],
+      },
     ],
-    storeKeys: ["showCountdown", "trackStartTime", "isSkipped", "voteCount", "requiredCount"],
+    storeKeys: [
+      "showCountdown",
+      "trackStartTime",
+      "isSkipped",
+      "voteCount",
+      "requiredCount",
+      "competitiveLeaderboard",
+      "competitiveModeEnabled",
+    ],
   }
 }
 
@@ -105,6 +178,32 @@ export function getConfigSchema(): PluginConfigSchema {
       "thresholdValue",
       percentExampleBlock,
       staticExampleBlock,
+      "skipRequiresQueue",
+      "skipRequiresQueueMin",
+      "soundEffectOnSkip",
+      "soundEffectOnSkipUrl",
+      { type: "heading", content: "Competitive Mode" },
+      {
+        type: "text-block",
+        content:
+          "Award points to DJs whose tracks survive the vote. Tracks that are not skipped earn 1 point for the user who queued them.",
+        variant: "info",
+        showWhen: { field: "enabled", value: true },
+      },
+      "competitiveModeEnabled",
+      {
+        type: "action",
+        action: "resetCompetitiveLeaderboard",
+        label: "Reset Leaderboard",
+        variant: "destructive",
+        confirmMessage:
+          "Are you sure you want to reset the competitive leaderboard? This will clear all DJ scores. This action cannot be undone.",
+        confirmText: "Reset Leaderboard",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "competitiveModeEnabled", value: true },
+        ],
+      } satisfies PluginActionElement,
     ],
     fieldMeta: {
       enabled: {
@@ -141,6 +240,44 @@ export function getConfigSchema(): PluginConfigSchema {
         type: "number",
         label: "Threshold Value",
         description: "Percentage of listeners (1-100%) or number of reactions needed",
+        showWhen: { field: "enabled", value: true },
+      },
+      skipRequiresQueue: {
+        type: "boolean",
+        label: "Only skip when queue has tracks",
+        description:
+          "When enabled, tracks will not be skipped if the queue has too few tracks waiting",
+        showWhen: { field: "enabled", value: true },
+      },
+      skipRequiresQueueMin: {
+        type: "number",
+        label: "Minimum queue length to skip",
+        description: "Tracks will only be skipped if the queue has more than this many tracks",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "skipRequiresQueue", value: true },
+        ],
+      },
+      soundEffectOnSkip: {
+        type: "boolean",
+        label: "Play sound effect on skip",
+        description: "When enabled, a sound effect will be played when a track is skipped",
+        showWhen: { field: "enabled", value: true },
+      },
+      soundEffectOnSkipUrl: {
+        type: "url",
+        label: "Sound effect on skip URL",
+        description: "The URL of the sound effect to play when a track is skipped",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "soundEffectOnSkip", value: true },
+        ],
+      },
+      competitiveModeEnabled: {
+        type: "boolean",
+        label: "Enable Competitive Mode",
+        description:
+          "When enabled, DJs earn points for tracks that survive the vote. A leaderboard button will appear in the user list.",
         showWhen: { field: "enabled", value: true },
       },
     },

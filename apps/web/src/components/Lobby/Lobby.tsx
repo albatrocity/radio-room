@@ -1,63 +1,54 @@
-import React, { useEffect } from "react"
-import { Box, Button, Grid, GridItem } from "@chakra-ui/react"
-import LobbyOverlays from "./LobbyOverlays"
-import { useCurrentUser, useModalsSend } from "../../hooks/useActors"
-import { useMachine } from "@xstate/react"
-import { createdRoomsFetchMachine } from "../../machines/createdRoomsFetchMachine"
-import CardRoom from "../CardRoom"
-import CardsAppInfo from "../AppIntro"
-import { LuPlus } from "react-icons/lu"
+import { useEffect } from "react"
+import { Box, Grid, GridItem, Text, Spinner, VStack } from "@chakra-ui/react"
+import {
+  useLobbyRooms,
+  useIsLobbyLoading,
+  useIsLobbyReady,
+  useLobbySend,
+} from "../../hooks/useActors"
+import CardRoomPublic from "../CardRoomPublic"
 
 export default function Lobby() {
-  const user = useCurrentUser()
-  const modalSend = useModalsSend()
+  const rooms = useLobbyRooms()
+  const isLoading = useIsLobbyLoading()
+  const isReady = useIsLobbyReady()
+  const send = useLobbySend()
 
-  const [state, fetchSend] = useMachine(createdRoomsFetchMachine)
-
-  async function handleRoomDelete(roomId: string) {
-    return fetchSend({ type: "DELETE_ROOM", data: { roomId } })
-  }
-
+  // Connect to lobby on mount, disconnect on unmount
   useEffect(() => {
-    if (user?.userId) {
-      fetchSend({
-        type: "FETCH",
-        data: {
-          userId: user?.userId,
-        },
-      })
-    } else {
-      fetchSend({ type: "SESSION_ENDED" })
+    send({ type: "CONNECT" })
+    return () => {
+      send({ type: "DISCONNECT" })
     }
-  }, [user?.userId])
+  }, [send])
+
+  if (isLoading) {
+    return (
+      <Box my={4}>
+        <VStack>
+          <Spinner />
+          <Text>Loading rooms...</Text>
+        </VStack>
+      </Box>
+    )
+  }
 
   return (
     <Box>
       <Grid
         my={4}
-        templateColumns={[
-          "repeat(1, 1fr)",
-          "repeat(2, 1fr)",
-          "repeat(3, 1fr)",
-          "repeat(4, 1fr)",
-        ]}
+        templateColumns={["repeat(1, 1fr)", "repeat(2, 1fr)", "repeat(3, 1fr)", "repeat(4, 1fr)"]}
         gap={6}
       >
-        <CardsAppInfo />
-        {state.context.rooms.map((room) => (
+        {rooms.map((room) => (
           <GridItem key={room.id}>
-            <CardRoom {...room} onDelete={(id) => handleRoomDelete(id)} />
+            <CardRoomPublic {...room} />
           </GridItem>
         ))}
-        {state.context.rooms.length === 0 && (
+        {rooms.length === 0 && isReady && (
           <GridItem>
             <Box>
-              <Button
-                onClick={() => modalSend({ type: "CREATE_ROOM" })}
-              >
-                <LuPlus />
-                Create a Room
-              </Button>
+              <Text>No rooms are currently available.</Text>
             </Box>
           </GridItem>
         )}

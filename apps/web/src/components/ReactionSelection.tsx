@@ -8,9 +8,10 @@ import {
   Icon,
   useBreakpointValue,
   Box,
-  ColorPalette,
   RecipeProps,
 } from "@chakra-ui/react"
+
+type AppColorPalette = "primary" | "secondary" | "action"
 import { FiPlus, FiSmile } from "react-icons/fi"
 
 import ReactionPicker from "./ReactionPicker"
@@ -28,7 +29,7 @@ export type ReactionSelectionProps = {
   onSelect: (emoji: Emoji) => void
   onClose: () => void
   onToggle: () => void
-  buttonColorScheme?: ColorPalette
+  buttonColorScheme?: AppColorPalette
   buttonVariant?: ButtonVariant
   reactionVariant?: ButtonVariant
   disabled?: boolean

@@ -260,7 +260,6 @@ type ExpireUserInParams = {
 
 export async function expireUserIn({ context, userId, ms }: ExpireUserInParams) {
   await context.redis.pubClient.pExpire(`user:${userId}`, ms)
-  await context.redis.pubClient.pExpire(`user:${userId}:rooms`, ms)
 }
 
 type PersistUserParams = {
@@ -270,7 +269,6 @@ type PersistUserParams = {
 
 export async function persistUser({ context, userId }: PersistUserParams) {
   await context.redis.pubClient.persist(`user:${userId}`)
-  await context.redis.pubClient.persist(`user:${userId}:rooms`)
 }
 
 // =============================================================================

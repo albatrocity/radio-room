@@ -1,5 +1,5 @@
 import { z } from "zod"
-import type { PluginConfigSchema, PluginComponentSchema } from "@repo/types"
+import type { PluginConfigSchema, PluginComponentSchema, PluginActionElement } from "@repo/types"
 import { specialWordsConfigSchema } from "./types"
 
 /**
@@ -21,7 +21,7 @@ export function getComponentSchema(): PluginComponentSchema {
           { field: "enabled", value: true },
           { field: "showLeaderboard", value: true },
         ],
-        variant: "ghost",
+        variant: "solid",
         size: "sm",
       },
       // Modal containing leaderboards
@@ -75,6 +75,17 @@ export function getComponentSchema(): PluginComponentSchema {
  * Configuration schema for dynamic form generation in admin UI.
  */
 export function getConfigSchema(): PluginConfigSchema {
+  const resetLeaderboardsAction = {
+    type: "action",
+    action: "resetLeaderboards",
+    label: "Reset Leaderboards",
+    variant: "destructive",
+    confirmMessage:
+      "Are you sure you want to reset all leaderboards? This will clear all user scores and word counts. This action cannot be undone.",
+    confirmText: "Reset Leaderboards",
+    showWhen: { field: "enabled", value: true },
+  } satisfies PluginActionElement
+
   return {
     jsonSchema: z.toJSONSchema(specialWordsConfigSchema),
     layout: [
@@ -90,6 +101,9 @@ export function getConfigSchema(): PluginConfigSchema {
       "sendMessageOnDetection",
       "messageTemplate",
       "showLeaderboard",
+      "soundEffectOnDetection",
+      "soundEffectOnDetectionUrl",
+      resetLeaderboardsAction,
     ],
     fieldMeta: {
       enabled: {
@@ -132,6 +146,21 @@ export function getConfigSchema(): PluginConfigSchema {
         label: "Show Leaderboard",
         description: "Shows a button to open the leaderboard in a modal",
         showWhen: { field: "enabled", value: true },
+      },
+      soundEffectOnDetection: {
+        type: "boolean",
+        label: "Play sound effect on detection",
+        description: "When enabled, a sound effect will be played when a special word is detected",
+        showWhen: { field: "enabled", value: true },
+      },
+      soundEffectOnDetectionUrl: {
+        type: "url",
+        label: "Sound effect on detection URL",
+        description: "The URL of the sound effect to play when a special word is detected",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "soundEffectOnDetection", value: true },
+        ],
       },
     },
   }

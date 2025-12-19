@@ -85,7 +85,11 @@ export type SystemEventHandlers = {
   // Room events
   ROOM_DELETED: (data: { roomId: string }) => Promise<void> | void
 
-  ROOM_SETTINGS_UPDATED: (data: { roomId: string; room: Room }) => Promise<void> | void
+  ROOM_SETTINGS_UPDATED: (data: {
+    roomId: string
+    room: Room
+    pluginConfigs?: Record<string, unknown>
+  }) => Promise<void> | void
 
   // Chat events
   MESSAGE_RECEIVED: (data: { roomId: string; message: ChatMessage }) => Promise<void> | void
@@ -110,7 +114,45 @@ export type SystemEventHandlers = {
     status?: number
     message?: string
   }) => Promise<void> | void
+
+  // Sound effect events
+  SOUND_EFFECT_QUEUED: (data: {
+    roomId: string
+    url: string
+    volume: number
+  }) => Promise<void> | void
+
+  // Screen effect events
+  SCREEN_EFFECT_QUEUED: (data: {
+    roomId: string
+    target: ScreenEffectTarget
+    targetId?: string // timestamp for messages, componentId for plugins, or "latest"
+    effect: ScreenEffectName
+    duration?: number // optional custom duration in ms
+  }) => Promise<void> | void
 }
+
+/**
+ * Available screen effect animation names (from animate.css attention seekers)
+ */
+export type ScreenEffectName =
+  | "bounce"
+  | "flash"
+  | "pulse"
+  | "rubberBand"
+  | "shakeX"
+  | "shakeY"
+  | "headShake"
+  | "swing"
+  | "tada"
+  | "wobble"
+  | "jello"
+  | "heartBeat"
+
+/**
+ * Screen effect target types
+ */
+export type ScreenEffectTarget = "room" | "nowPlaying" | "message" | "plugin" | "user"
 
 /**
  * Extract the payload type for a given event

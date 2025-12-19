@@ -2,7 +2,7 @@ import { Box, Container, Heading, List, ListItem, Text } from "@chakra-ui/react"
 import React from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import ConfirmationPopover from "../components/ConfirmationPopover"
-import PageLayout from "../components/PageLayout"
+import PublicPageLayout from "../components/PublicPageLayout"
 import { useAuthSend, useCurrentUser } from "../hooks/useActors"
 
 export const Route = createFileRoute("/privacy")({
@@ -14,7 +14,7 @@ function PrivacyPage() {
   const currentUser = useCurrentUser()
 
   return (
-    <PageLayout>
+    <PublicPageLayout>
       <Container margin={0}>
         <Box textStyle="body">
           <Heading as={"h1"} size="2xl" mb={2}>
@@ -96,6 +96,6 @@ function PrivacyPage() {
           </Text>
         </Box>
       </Container>
-    </PageLayout>
+    </PublicPageLayout>
   )
 }

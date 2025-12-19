@@ -39,7 +39,13 @@ function QueuedTracksSection() {
   }
 
   return (
-    <Box background="primary.subtle/20" p={4} borderRadius={6} colorPalette="primary">
+    <Box
+      background="primary.subtle/20"
+      p={4}
+      borderRadius={6}
+      colorPalette="primary"
+      layerStyle="themeTransition"
+    >
       <VStack align="stretch" gap={4}>
         <HStack gap={2} justify="space-between">
           <HStack gap={2}>

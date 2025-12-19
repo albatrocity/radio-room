@@ -83,8 +83,19 @@ const ListItemUser = ({
           <HStack gap="0.4rem" justifyContent="flex-start">
             {showStatus && statusIcon(user)}
             {isAdmin && <Icon as={BiCrown} boxSize={3} />}
+            <PluginArea
+              area="userListItem"
+              itemContext={{
+                userId: user.userId,
+                isDeputyDj: user.isDeputyDj,
+                isDj: user.isDj,
+                isAdmin: user.isAdmin,
+              }}
+              direction="row"
+              spacing={1}
+            />
             <Box>
-              <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm">
+              <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm" lineClamp={2}>
                 {user.username || "anonymous"}
               </Text>
             </Box>
@@ -131,10 +142,26 @@ const ListItemUser = ({
             )}
           </HStack>
         </HStack>
-        <PluginArea area="userListItem" />
       </VStack>
     </List.Item>
   )
 }
 
-export default memo(ListItemUser)
+// Custom comparison to ensure re-render when user properties change
+function arePropsEqual(prevProps: ListItemUserProps, nextProps: ListItemUserProps): boolean {
+  return (
+    prevProps.user.userId === nextProps.user.userId &&
+    prevProps.user.username === nextProps.user.username &&
+    prevProps.user.isDj === nextProps.user.isDj &&
+    prevProps.user.isDeputyDj === nextProps.user.isDeputyDj &&
+    prevProps.user.isAdmin === nextProps.user.isAdmin &&
+    prevProps.user.status === nextProps.user.status &&
+    prevProps.currentUser?.userId === nextProps.currentUser?.userId &&
+    prevProps.currentUser?.isAdmin === nextProps.currentUser?.isAdmin &&
+    prevProps.userTyping === nextProps.userTyping &&
+    prevProps.showStatus === nextProps.showStatus &&
+    prevProps.isAdmin === nextProps.isAdmin
+  )
+}
+
+export default memo(ListItemUser, arePropsEqual)

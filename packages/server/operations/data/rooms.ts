@@ -25,33 +25,28 @@ export async function removeRoomFromRoomList({ context, roomId }: RemoveRoomFrom
   await context.redis.pubClient.sRem("rooms", roomId)
 }
 
-type AddRoomToUserRoomListParams = {
-  context: AppContext
-  room: Room
-}
-
-async function addRoomToUserRoomList({ context, room }: AddRoomToUserRoomListParams) {
-  await context.redis.pubClient.sAdd(`user:${room.creator}:rooms`, room.id)
-}
-
-type RemoveRoomFromUserRoomListParams = {
-  context: AppContext
-  room: Room
-}
-
-async function removeRoomFromUserRoomList({ context, room }: RemoveRoomFromUserRoomListParams) {
-  await context.redis.pubClient.sRem(`user:${room.creator}:rooms`, room.id)
-}
-
 type GetUserRoomsParams = {
   context: AppContext
   userId: User["userId"]
 }
 
+/**
+ * Get all rooms created by a specific user.
+ * Filters all rooms by the creator field rather than relying on user:{userId}:rooms set.
+ */
 export async function getUserRooms({ context, userId }: GetUserRoomsParams) {
+  const allRooms = await getAllRooms({ context })
+  return allRooms.filter((r) => String(r.creator) === String(userId))
+}
+
+type GetAllRoomsParams = {
+  context: AppContext
+}
+
+export async function getAllRooms({ context }: GetAllRoomsParams) {
   return getHMembersFromSet<StoredRoom>({
     context,
-    setKey: `user:${userId}:rooms`,
+    setKey: "rooms",
     recordPrefix: "room",
     recordSuffix: "details",
   })
@@ -65,7 +60,6 @@ type SaveRoomParams = {
 export async function saveRoom({ context, room }: SaveRoomParams) {
   try {
     await addRoomToRoomList({ context, roomId: room.id })
-    await addRoomToUserRoomList({ context, room })
 
     // Ensure mediaSourceConfig and metadataSourceIds are JSON-stringified before saving
     const roomToSave = {
@@ -366,11 +360,11 @@ export async function removeUserRoomsSpotifyError({
   context,
   userId,
 }: RemoveUserRoomsSpotifyErrorParams) {
-  const userCreatedRooms = await context.redis.pubClient.sMembers(`user:${userId}:rooms`)
+  const userCreatedRooms = await getUserRooms({ context, userId })
 
   await Promise.all(
-    userCreatedRooms.map((roomId) => {
-      return context.redis.pubClient.hDel(`room:${roomId}:details`, "spotifyError")
+    userCreatedRooms.map((room) => {
+      return context.redis.pubClient.hDel(`room:${room.id}:details`, "spotifyError")
     }),
   )
 }
@@ -509,9 +503,8 @@ export async function deleteRoom({ context, roomId }: DeleteRoomParams) {
   const keys = await getAllRoomDataKeys({ context, roomId })
   // delete them
   await Promise.all(keys.map((k) => context.redis.pubClient.unlink(k)))
-  // remove room from room list and user's room list
+  // remove room from room list
   await removeRoomFromRoomList({ context, roomId: room.id })
-  await removeRoomFromUserRoomList({ context, room })
 }
 
 type ExpireRoomInParams = {
@@ -622,7 +615,6 @@ type NukeUserRoomsParams = {
 
 export async function nukeUserRooms({ context, userId }: NukeUserRoomsParams) {
   const rooms = await getUserRooms({ context, userId })
-  await context.redis.pubClient.unlink(`user:${userId}:rooms`)
   await Promise.all(rooms.map((room) => deleteRoom({ context, roomId: room.id })))
 }
 

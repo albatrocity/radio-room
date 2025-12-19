@@ -29,7 +29,9 @@ const Sidebar = () => {
       w={["100%", "20vw"]}
       minW={"250px"}
       h="100%"
+      className="sidebar"
       background="secondaryBg"
+      layerStyle="themeTransition"
       borderLeftWidth={1}
       borderLeftColor="secondaryBorder"
       borderLeftStyle="solid"
@@ -38,12 +40,13 @@ const Sidebar = () => {
         direction={["row", "column"]}
         w="100%"
         h="100%"
+        overflow="hidden"
         style={{
           filter: isUnauthorized ? "blur(0.5rem)" : "none",
         }}
       >
         <Banner />
-        <Flex h="100%" direction="column">
+        <Flex h="100%" minH={0} direction="column" overflow="hidden" flex="1 1 0">
           <Listeners onViewListeners={handleViewListeners} onEditUser={handleEditUser} />
         </Flex>
         <Box hideBelow="sm">
@@ -62,6 +65,7 @@ const Sidebar = () => {
               borderTopWidth={1}
               borderTopColor="secondaryBorder"
               background="actionBg"
+              layerStyle="themeTransition"
               width="100%"
               buttonColorScheme="action"
             />

@@ -45,6 +45,32 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
     await handlers.clearPlaylist(connections)
   })
 
+  /**
+   * Execute a plugin action
+   */
+  socket.on("EXECUTE_PLUGIN_ACTION", async (data: { pluginName: string; action: string }) => {
+    const { pluginName, action } = data
+
+    if (!socket.context.pluginRegistry) {
+      socket.emit("event", {
+        type: "PLUGIN_ACTION_RESULT",
+        data: { success: false, message: "Plugin registry not available" },
+      })
+      return
+    }
+
+    const result = await socket.context.pluginRegistry.executePluginAction(
+      socket.data.roomId,
+      pluginName,
+      action,
+    )
+
+    socket.emit("event", {
+      type: "PLUGIN_ACTION_RESULT",
+      data: result,
+    })
+  })
+
   // TODO: Implement trigger events
   // socket.on("GET_TRIGGER_EVENTS", async () => {
   //   await handlers.getTriggerEvents(connections)

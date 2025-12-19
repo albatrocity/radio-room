@@ -8,6 +8,7 @@ import Drawer from "../Drawer"
 import DrawerPlaylistFooter from "./DrawerPlaylistFooter"
 import PlaylistFilters from "../PlaylistFilters"
 import usePlaylistFilter from "../usePlaylistFilter"
+import ButtonExportRoom from "../ButtonExportRoom"
 
 import { useSocketMachine } from "../../hooks/useSocketMachine"
 import { savePlaylistMachine } from "../../machines/savePlaylistMachine"
@@ -225,6 +226,7 @@ function DrawerPlaylist() {
       open={isOpen}
       placement="start"
       heading="Playlist"
+      headingActions={<ButtonExportRoom size="sm" />}
       size={["full", "lg"]}
       onClose={handleTogglePlaylist}
       footer={
@@ -245,7 +247,7 @@ function DrawerPlaylist() {
       }
     >
       <VStack w="100%" h="100%" gap={4} overflow="hidden">
-        <Box w="100%" bg="secondary.subtle/20" p={4} borderRadius={4} flexShrink={0}>
+        <Box w="100%" bg="secondary.subtle/20" p={2} borderRadius={4} flexShrink={0}>
           <PlaylistFilters onChange={handleFilterChange} emojis={emojis} />
         </Box>
         {isEditing && (

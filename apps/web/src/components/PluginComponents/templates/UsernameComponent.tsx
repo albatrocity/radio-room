@@ -11,6 +11,7 @@ import type { UsernameComponentProps } from "../../../types/PluginComponent"
 export function UsernameTemplateComponent({ userId, fallback }: UsernameComponentProps) {
   const listeners = useListeners()
   const user = listeners.find((u: User) => u.userId === userId)
+  console.log("user", user, fallback)
 
   return (
     <Text color={user ? "colorPalette.fg" : "colorPalette.fg/50"} as="span">

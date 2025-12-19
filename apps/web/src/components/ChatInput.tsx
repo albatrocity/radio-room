@@ -9,6 +9,7 @@ import React, {
   useMemo,
   RefObject,
 } from "react"
+import { createPortal } from "react-dom"
 
 import {
   Box,
@@ -19,8 +20,10 @@ import {
   Text,
   FileUpload,
   useFileUpload,
+  HStack,
+  Image,
 } from "@chakra-ui/react"
-import { FiArrowUpCircle } from "react-icons/fi"
+import { FiArrowUpCircle, FiX } from "react-icons/fi"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
 
@@ -139,9 +142,11 @@ interface Props {
   onTypingStart: () => void
   onTypingStop: () => void
   onSend: (value: MessagePayload) => void
+  /** Container ref for rendering image previews via portal */
+  imagePreviewContainer?: RefObject<HTMLDivElement | null>
 }
 
-const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
+const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer }: Props) => {
   const currentUser = useCurrentUser()
   const users = useUsers()
   const isAuthenticated = useIsAuthenticated()
@@ -277,22 +282,55 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend }: Props) => {
 
   const isFileUploadDisabled = !isAuthenticated || isSubmitting || files.length < MAX_FILES
 
-  return (
-    <FileUpload.RootProvider value={fileUpload} disabled={isFileUploadDisabled}>
-      <form onSubmit={handleSubmit} style={{ width: "100%" }}>
-        {/* Image previews */}
-        {files.length > 0 && (
-          <Box mb={2}>
-            <ImageUpload
-              files={files}
-              disabled={isFileUploadDisabled}
-              fileUpload={fileUpload}
-              maxFiles={MAX_FILES}
-              maxFileSize={MAX_FILE_SIZE}
-            />
-          </Box>
-        )}
+  // Image preview component - rendered via portal if container provided
+  const imagePreviews =
+    files.length > 0 ? (
+      <HStack gap={2} flexWrap="wrap" px={2} mb={2}>
+        <FileUpload.ItemGroup>
+          <FileUpload.Context>
+            {({ acceptedFiles }) =>
+              acceptedFiles.map((file, index) => (
+                <FileUpload.Item key={`${file.name}-${index}`} file={file}>
+                  <Box position="relative" borderRadius="md" overflow="hidden">
+                    <FileUpload.ItemPreview type="image/*">
+                      <Image
+                        src={URL.createObjectURL(file)}
+                        alt={file.name}
+                        boxSize="60px"
+                        objectFit="cover"
+                        borderRadius="md"
+                      />
+                    </FileUpload.ItemPreview>
+                    <FileUpload.ItemDeleteTrigger asChild>
+                      <IconButton
+                        aria-label="Remove image"
+                        size="xs"
+                        variant="solid"
+                        colorPalette="red"
+                        position="absolute"
+                        top={0}
+                        right={0}
+                        borderRadius="full"
+                      >
+                        <Icon as={FiX} boxSize={3} />
+                      </IconButton>
+                    </FileUpload.ItemDeleteTrigger>
+                  </Box>
+                </FileUpload.Item>
+              ))
+            }
+          </FileUpload.Context>
+        </FileUpload.ItemGroup>
+      </HStack>
+    ) : null
 
+  return (
+    <FileUpload.RootProvider value={fileUpload}>
+      {/* Portal image previews to container if provided */}
+      {imagePreviews &&
+        imagePreviewContainer?.current &&
+        createPortal(imagePreviews, imagePreviewContainer.current)}
+      <form onSubmit={handleSubmit} style={{ width: "100%" }}>
         <Flex direction="row" w="100%" grow={1} justify="center" overflowX="clip" gap={1}>
           {/* Image upload button */}
           {files.length === 0 && (

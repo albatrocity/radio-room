@@ -6,6 +6,8 @@ import {
   User,
   ReactionSubject,
   ChatMessage,
+  ScreenEffectTarget,
+  ScreenEffectName,
 } from "@repo/types"
 import { Server } from "socket.io"
 import { getRoomPath } from "../getRoomPath"
@@ -143,9 +145,20 @@ export class PluginAPIImpl implements PluginAPI {
     })
   }
 
+  async getQueue(roomId: string): Promise<QueueItem[]> {
+    const { getQueue } = await import("../../operations/data")
+    return await getQueue({ context: this.context, roomId })
+  }
+
   /**
    * Emit a custom plugin event.
    * Events are namespaced as PLUGIN:{pluginName}:{eventName}
+   *
+   * Note: Plugin events emit directly to Socket.IO rather than through SystemEvents
+   * because they are:
+   * 1. Dynamically named (not typed in SystemEventTypes)
+   * 2. Room-specific only (don't need lobby or cross-server broadcasting)
+   * 3. Already properly namespaced to avoid conflicts
    */
   async emit<T extends Record<string, unknown>>(eventName: string, data: T): Promise<void> {
     if (!this.pluginName || !this.roomId) {
@@ -164,10 +177,59 @@ export class PluginAPIImpl implements PluginAPI {
 
     console.log(`[PluginAPI] Emitting ${namespacedEvent}`, payload)
 
-    // Broadcast to room via Socket.IO
+    // Broadcast to room via Socket.IO (direct emission is intentional - see above)
     this.io.to(getRoomPath(this.roomId)).emit("event", {
       type: namespacedEvent,
       data: payload,
+    })
+  }
+
+  /**
+   * Queue a sound effect to be played on all clients in the room.
+   */
+  async queueSoundEffect(params: { url: string; volume?: number }): Promise<void> {
+    if (!this.roomId) {
+      console.warn("[PluginAPI] Cannot queue sound effect: room context not set")
+      return
+    }
+
+    if (!this.context.systemEvents) {
+      console.warn("[PluginAPI] systemEvents not available, cannot queue sound effect")
+      return
+    }
+
+    await this.context.systemEvents.emit(this.roomId, "SOUND_EFFECT_QUEUED", {
+      roomId: this.roomId,
+      url: params.url,
+      volume: params.volume ?? 1.0,
+    })
+  }
+
+  /**
+   * Queue a screen effect (CSS animation) to be played on all clients in the room.
+   */
+  async queueScreenEffect(params: {
+    target: ScreenEffectTarget
+    targetId?: string
+    effect: ScreenEffectName
+    duration?: number
+  }): Promise<void> {
+    if (!this.roomId) {
+      console.warn("[PluginAPI] Cannot queue screen effect: room context not set")
+      return
+    }
+
+    if (!this.context.systemEvents) {
+      console.warn("[PluginAPI] systemEvents not available, cannot queue screen effect")
+      return
+    }
+
+    await this.context.systemEvents.emit(this.roomId, "SCREEN_EFFECT_QUEUED", {
+      roomId: this.roomId,
+      target: params.target,
+      targetId: params.targetId,
+      effect: params.effect,
+      duration: params.duration,
     })
   }
 }

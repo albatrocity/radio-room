@@ -17,7 +17,7 @@ import {
   type SpecialWordsConfig,
 } from "./types"
 import { getComponentSchema, getConfigSchema } from "./schema"
-import type { PluginExportAugmentation, RoomExportData } from "@repo/types"
+import { PluginExportAugmentation, RoomExportData } from "@repo/types/RoomExport"
 
 export type { SpecialWordsConfig } from "./types"
 export { specialWordsConfigSchema, defaultSpecialWordsConfig } from "./types"
@@ -69,7 +69,7 @@ export interface SpecialWordsEvents {
     totalWordsUsed: number
     thisWordCount: number
     thisWordRank: number
-    usersLeaderboard: { score: number; value: string }[]
+    usersLeaderboard: { score: number; value: string; username: string }[]
     allWordsLeaderboard: { score: number; value: string }[]
   }
 }
@@ -207,13 +207,31 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
 
     // Emit plugin event to frontend
     await this.emitWordDetected(word, userId, username, message.timestamp, stats)
+
+    if (config.soundEffectOnDetection) {
+      await this.playSoundEffect(config)
+    }
+    await this.context.api.queueScreenEffect({
+      target: "message",
+      targetId: message.timestamp,
+      effect: "headShake",
+      duration: 1000,
+    })
+    await this.context.api.queueScreenEffect({
+      target: "plugin",
+      targetId: "leaderboard-button",
+      effect: "pulse",
+      duration: 500,
+    })
   }
 
   private detectSpecialWords(content: string, configWords: string[]): string[] {
     const words = content.toLowerCase().split(/\s+/)
     const configWordsSet = new Set(configWords.map((w) => this.normalizeWord(w)))
 
-    return words.filter((word) => configWordsSet.has(word))
+    return words
+      .map((word) => this.normalizeWord(word))
+      .filter((word) => word && configWordsSet.has(word))
   }
 
   // ============================================================================
@@ -242,7 +260,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     userAllWordsCount: number
     userRank: number
     userThisWordCount: number
-    usersLeaderboard: { score: number; value: string }[]
+    usersLeaderboard: { score: number; value: string; username: string }[]
     allWordsLeaderboard: { score: number; value: string }[]
     thisWordCount: number
     totalWordsUsed: number
@@ -267,7 +285,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       userAllWordsCount,
       userRank,
       userThisWordCount,
-      usersLeaderboard,
+      rawUsersLeaderboard,
       allWordsLeaderboard,
       thisWordCount,
       thisWordRank,
@@ -280,6 +298,16 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       this.context.storage.zscore(WORD_RANK_KEY, normalizedWord),
       this.context.storage.zrevrank(WORD_RANK_KEY, normalizedWord),
     ])
+
+    // Hydrate user leaderboard with usernames (includes users who have left)
+    const userIds = rawUsersLeaderboard.map((entry) => entry.value)
+    const users = await this.context.api.getUsersByIds(userIds)
+    const userMap = new Map(users.map((u) => [u.userId, u.username]))
+
+    const usersLeaderboard = rawUsersLeaderboard.map((entry) => ({
+      ...entry,
+      username: userMap.get(entry.value) ?? entry.value, // Fallback to userId if user not found
+    }))
 
     const totalWordsUsed = usersLeaderboard.reduce((acc, curr) => acc + curr.score, 0)
 
@@ -357,6 +385,15 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     })
   }
 
+  private async playSoundEffect(config: SpecialWordsConfig): Promise<void> {
+    if (!this.context) return
+
+    await this.context.api.queueSoundEffect({
+      url: config.soundEffectOnDetectionUrl,
+      volume: 0.6,
+    })
+  }
+
   // ============================================================================
   // Augmentation
   // ============================================================================
@@ -397,11 +434,72 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     }
   }
   // ============================================================================
+  // Actions
+  // ============================================================================
+
+  async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+    if (action === "resetLeaderboards") {
+      return this.resetLeaderboards()
+    }
+    return { success: false, message: `Unknown action: ${action}` }
+  }
+
+  private async resetLeaderboards(): Promise<{ success: boolean; message?: string }> {
+    if (!this.context) {
+      return { success: false, message: "Plugin not initialized" }
+    }
+
+    try {
+      // Get all users from the leaderboard to clean up their per-user word counts
+      const usersLeaderboard = await this.context.storage.zrangeWithScores(
+        USER_WORD_COUNT_KEY,
+        0,
+        -1,
+      )
+
+      // Delete per-user word count keys
+      for (const entry of usersLeaderboard) {
+        await this.context.storage.del(`${WORDS_PER_USER_KEY}:${entry.value}`)
+      }
+
+      // Delete the main leaderboard keys by removing all entries
+      const allUserIds = usersLeaderboard.map((e) => e.value)
+      for (const userId of allUserIds) {
+        await this.context.storage.zrem(USER_WORD_COUNT_KEY, userId)
+      }
+
+      const allWordsLeaderboard = await this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1)
+      const allWords = allWordsLeaderboard.map((e) => e.value)
+      for (const word of allWords) {
+        await this.context.storage.zrem(WORD_RANK_KEY, word)
+      }
+
+      console.log(`[${this.name}] Leaderboards reset for room ${this.context.roomId}`)
+
+      // Emit an event to update the frontend with empty leaderboards
+      // Include the store keys so the frontend machine updates its store
+      await this.emit("LEADERBOARDS_RESET", {
+        usersLeaderboard: [],
+        allWordsLeaderboard: [],
+      })
+
+      return { success: true, message: "Leaderboards have been reset" }
+    } catch (error) {
+      console.error(`[${this.name}] Error resetting leaderboards:`, error)
+      return { success: false, message: `Error resetting leaderboards: ${error}` }
+    }
+  }
+
+  // ============================================================================
   // Helpers
   // ============================================================================
 
   private normalizeWord(word: string): string {
-    return word.toLowerCase().trim()
+    // Remove leading/trailing punctuation, then lowercase and trim
+    return word
+      .toLowerCase()
+      .trim()
+      .replace(/^[^\w]+|[^\w]+$/g, "")
   }
 
   private isSystemMessage(message: ChatMessage): boolean {

@@ -3,7 +3,6 @@ import { PUBSUB_METADATA_SOURCE_AUTH_ERROR, PUBSUB_RADIO_ERROR } from "../../lib
 import {} from "../../lib/context"
 import { createOperations } from "../../operations"
 import { MetadataSourceError, AppContext, PubSubHandlerArgs } from "@repo/types"
-import { getRoomPath } from "../../lib/getRoomPath"
 import { emitRoomSettingsUpdated } from "../../operations/data/rooms"
 
 type ContextPubSubHandlerArgs = PubSubHandlerArgs & { context: AppContext }
@@ -61,16 +60,16 @@ async function handleMetadataSourceError({ io, message, context }: ContextPubSub
 async function handleRadioError({ io, message, context }: ContextPubSubHandlerArgs) {
   const { roomId, error }: { userId: string; roomId?: string; error: Error } = JSON.parse(message)
   if (roomId) {
-    io.to(getRoomPath(roomId)).emit("event", {
-      type: "ERROR",
-      data: {
-        status: 500,
-        message:
+    // Emit via SystemEvents so broadcasters receive ERROR_OCCURRED
+    if (context.systemEvents) {
+      await context.systemEvents.emit(roomId, "ERROR_OCCURRED", {
+        roomId,
+        error:
           "Fetching the radio station failed. Please check the radio station URL and protocol in the room settings.",
-        duration: null,
-        id: "radio-error",
-      },
-    })
+        status: 500,
+        message: "radio-error",
+      })
+    }
 
     await context.redis.pubClient.hSet(
       `room:${roomId}:details`,

@@ -8,9 +8,11 @@ import raspberry from "./raspberry"
 import banana from "./banana"
 import plum from "./plum"
 import strawberry from "./strawberry"
+import dynamic from "./dynamic"
 
 const themes: Record<string, AppTheme> = {
   defaultTheme,
+  dynamic,
   watermelon,
   grape,
   tangerine,

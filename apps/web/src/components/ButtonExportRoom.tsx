@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react"
-import { Button, HStack, Text } from "@chakra-ui/react"
+import { IconButton, Menu, Portal, Spinner } from "@chakra-ui/react"
 import { FaDownload, FaFileCode, FaFileAlt } from "react-icons/fa"
+import { Tooltip } from "./ui/tooltip"
 
 import { useCurrentRoom } from "../hooks/useActors"
 import { exportRoom, downloadBlob, ExportFormat } from "../lib/serverApi"
@@ -9,26 +10,23 @@ import { toast } from "../lib/toasts"
 interface Props {
   /** Size variant for the button */
   size?: "xs" | "sm" | "md" | "lg"
-  /** Whether to show as icon-only button */
-  iconOnly?: boolean
 }
 
 /**
- * Button to export room data in JSON or Markdown format.
+ * IconButton with menu to export room data in JSON or Markdown format.
  * Available to all users in a room.
  */
-export default function ButtonExportRoom({ size = "sm", iconOnly = false }: Props) {
+export default function ButtonExportRoom({ size = "sm" }: Props) {
   const room = useCurrentRoom()
   const [isLoading, setIsLoading] = useState(false)
-  const [isOpen, setIsOpen] = useState(false)
-  const [selectedFormat, setSelectedFormat] = useState<ExportFormat>("markdown")
+  const [loadingFormat, setLoadingFormat] = useState<ExportFormat | null>(null)
 
   const handleExport = useCallback(
     async (format: ExportFormat) => {
       if (!room?.id) return
 
       setIsLoading(true)
-      setSelectedFormat(format)
+      setLoadingFormat(format)
 
       try {
         const blob = await exportRoom(room.id, format)
@@ -62,6 +60,7 @@ export default function ButtonExportRoom({ size = "sm", iconOnly = false }: Prop
         })
       } finally {
         setIsLoading(false)
+        setLoadingFormat(null)
       }
     },
     [room?.id, room?.title],
@@ -69,62 +68,33 @@ export default function ButtonExportRoom({ size = "sm", iconOnly = false }: Prop
 
   if (!room) return null
 
-  if (iconOnly) {
-    return (
-      <Button
-        aria-label="Export room"
-        size={size}
-        variant="ghost"
-        loading={isLoading}
-        disabled={isLoading}
-        onClick={() => handleExport(selectedFormat)}
-      >
-        <FaDownload />
-      </Button>
-    )
-  }
-
   return (
-    <HStack gap={1}>
-      {!isOpen && (
-        <Button onClick={() => setIsOpen(true)} size={size} variant="outline">
-          Export Room
-        </Button>
-      )}
-
-      {isOpen && (
-        <HStack>
-          <Button
-            size={size}
-            variant="ghost"
-            loading={isLoading && selectedFormat === "markdown"}
-            disabled={isLoading}
-            onClick={() => handleExport("markdown")}
-            title="Export as Markdown"
-          >
-            <FaFileAlt />
-            <Text display={{ base: "none", md: "inline" }} ml={1}>
-              Markdown
-            </Text>
-          </Button>
-          <Button
-            size={size}
-            variant="ghost"
-            loading={isLoading && selectedFormat === "json"}
-            disabled={isLoading}
-            onClick={() => handleExport("json")}
-            title="Export as JSON"
-          >
-            <FaFileCode />
-            <Text display={{ base: "none", md: "inline" }} ml={1}>
-              JSON
-            </Text>
-          </Button>
-          <Button size={size} onClick={() => setIsOpen(false)} variant="outline">
-            Cancel
-          </Button>
-        </HStack>
-      )}
-    </HStack>
+    <Tooltip content="Export room data" showArrow>
+      <Menu.Root>
+        <Menu.Trigger asChild>
+          <IconButton aria-label="Export room" size={size} variant="ghost" disabled={isLoading}>
+            {isLoading ? <Spinner size="sm" /> : <FaDownload />}
+          </IconButton>
+        </Menu.Trigger>
+        <Portal>
+          <Menu.Positioner style={{ zIndex: 2000 }}>
+            <Menu.Content>
+              <Menu.Item
+                value="markdown"
+                onClick={() => handleExport("markdown")}
+                disabled={isLoading}
+              >
+                {loadingFormat === "markdown" ? <Spinner size="sm" /> : <FaFileAlt />}
+                Markdown
+              </Menu.Item>
+              <Menu.Item value="json" onClick={() => handleExport("json")} disabled={isLoading}>
+                {loadingFormat === "json" ? <Spinner size="sm" /> : <FaFileCode />}
+                JSON
+              </Menu.Item>
+            </Menu.Content>
+          </Menu.Positioner>
+        </Portal>
+      </Menu.Root>
+    </Tooltip>
   )
 }

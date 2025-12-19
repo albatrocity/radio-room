@@ -73,10 +73,13 @@ const ChatMessage = ({
       borderBottomWidth={anotherUserMessage ? 0 : 1}
       borderBottomColor="secondaryBorder"
       background={isMention ? "primaryBg" : "none"}
+      layerStyle="themeTransition"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       position="relative"
       w="100%"
+      data-screen-effect-target="message"
+      data-message-id={timestamp}
     >
       {showUsername && (
         <Flex direction="row" justify="between" grow={1} align="center" w="100%">
@@ -107,7 +110,15 @@ const ChatMessage = ({
               <ParsedEmojiMessage content={content} />
             </Box>
             {showFloatingTimestamp && (
-              <HStack p={2} position="absolute" top={0} right={2} borderRadius={4} bg="appBg">
+              <HStack
+                p={2}
+                position="absolute"
+                top={0}
+                right={2}
+                borderRadius={4}
+                bg="appBg"
+                layerStyle="themeTransition"
+              >
                 {currentIsAdmin && (
                   <IconButton
                     aria-label="Bookmark message"

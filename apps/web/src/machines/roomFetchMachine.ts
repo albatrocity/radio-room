@@ -40,6 +40,10 @@ export type RoomFetchEvent =
   | { type: "SETTINGS"; data: Room }
   | { type: "ROOM_SETTINGS_UPDATED"; data: { roomId: string; room: Omit<Room, "password"> } }
   | { type: "GET_LATEST_ROOM_DATA" }
+  | {
+      type: "ROOM_DATA"
+      data: { room: Omit<Room, "password">; messages: unknown[]; playlist: unknown[] }
+    }
   | { type: "ROOM_DELETED" }
   | { type: "RECONNECTED" }
   | { type: "SESSION_ENDED" }
@@ -162,6 +166,11 @@ export const roomFetchMachine = setup({
           room: event.data.room,
         }
       }
+      if (event.type === "ROOM_DATA") {
+        return {
+          room: event.data.room,
+        }
+      }
       return context
     }),
     reset: assign(() => {
@@ -269,6 +278,9 @@ export const roomFetchMachine = setup({
             },
             GET_LATEST_ROOM_DATA: {
               actions: ["getLatestData"],
+            },
+            ROOM_DATA: {
+              actions: ["setRoom"],
             },
           },
         },

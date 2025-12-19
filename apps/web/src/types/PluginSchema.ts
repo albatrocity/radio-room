@@ -50,6 +50,28 @@ export interface PluginSchemaElement {
 }
 
 /**
+ * Plugin action element - for action buttons in the form layout
+ */
+export interface PluginActionElement {
+  type: "action"
+  /** Unique action identifier - passed to executeAction */
+  action: string
+  /** Button label */
+  label: string
+  /** Button variant */
+  variant?: "solid" | "outline" | "ghost" | "destructive"
+  /** Confirmation message - if provided, shows a confirmation dialog before executing */
+  confirmMessage?: string
+  /** Confirmation button text */
+  confirmText?: string
+  /**
+   * Element is only shown when condition(s) are met.
+   * If an array is provided, ALL conditions must be true (AND logic).
+   */
+  showWhen?: ShowWhenCondition | ShowWhenCondition[]
+}
+
+/**
  * Field-specific UI metadata not captured in JSON Schema
  */
 export interface PluginFieldMeta {
@@ -77,8 +99,8 @@ export interface PluginFieldMeta {
 export interface PluginConfigSchema {
   /** JSON Schema generated from Zod via z.toJSONSchema() */
   jsonSchema: Record<string, unknown>
-  /** UI layout - field order and text blocks */
-  layout: (string | PluginSchemaElement)[]
+  /** UI layout - field order, text blocks, and action buttons */
+  layout: (string | PluginSchemaElement | PluginActionElement)[]
   /** Field-specific UI hints not captured in JSON Schema */
   fieldMeta: Record<string, PluginFieldMeta>
 }

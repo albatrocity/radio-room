@@ -70,7 +70,7 @@ const RadioPlayer = ({
 
   return (
     <Box>
-      <Box hideFrom="sm" background="actionBg">
+      <Box hideFrom="sm" background="actionBg" layerStyle="themeTransition">
         <Box py={1} h={10} overflowX="auto">
           <Box px={4} flexDir="row">
             <HStack alignItems="flex-start">
@@ -85,7 +85,7 @@ const RadioPlayer = ({
           </Box>
         </Box>
       </Box>
-      <Box background="actionBgLite" py={1}>
+      <Box background="actionBgLite" py={1} layerStyle="themeTransition">
         <Container px={3}>
           <HStack w="100%" direction="row" justify="space-between" align="center">
             <HStack>

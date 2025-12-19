@@ -13,7 +13,7 @@ const markdownTheme = {
   },
   a: ({ children, href }) => {
     return (
-      <Link rel="noopener noreferrer" textDecoration="underline" isExternal href={href}>
+      <Link rel="noopener noreferrer" textDecoration="underline" target="_blank" href={href}>
         {children}
       </Link>
     )

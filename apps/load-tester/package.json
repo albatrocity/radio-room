@@ -1,0 +1,38 @@
+{
+  "name": "load-tester",
+  "version": "1.0.0",
+  "description": "Load testing tool for Radio Room - simulates multiple users for stress testing",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "load-tester": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "start": "node dist/index.js",
+    "load-test": "tsx src/index.ts",
+    "clean": "rm -rf dist"
+  },
+  "author": "Ross Brown <albatrocity@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "socket.io-client": "^4.8.1",
+    "yaml": "^2.7.1",
+    "zod": "^3.25.30"
+  },
+  "devDependencies": {
+    "@repo/factories": "*",
+    "@repo/types": "*",
+    "@repo/typescript-config": "*",
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=22.16.0"
+  }
+}
+

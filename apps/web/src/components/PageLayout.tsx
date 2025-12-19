@@ -53,7 +53,12 @@ export default function PageLayout({ children }: Props) {
         />
         <Grid templateRows="auto 1fr auto" h="100%">
           <GridItem>
-            <HStack p={4} bg="secondaryBg" justifyContent="space-between">
+            <HStack
+              p={4}
+              bg="secondaryBg"
+              layerStyle="themeTransition"
+              justifyContent="space-between"
+            >
               <Box hideBelow="sm">
                 <Heading as="h2" size="lg">
                   {isHome ? (
@@ -91,7 +96,10 @@ export default function PageLayout({ children }: Props) {
                     </Button>
                   </Box>
                   <Box hideFrom="sm">
-                    <IconButton onClick={() => modalSend({ type: "CREATE_ROOM" })} aria-label="Create a Room">
+                    <IconButton
+                      onClick={() => modalSend({ type: "CREATE_ROOM" })}
+                      aria-label="Create a Room"
+                    >
                       <LuPlus />
                     </IconButton>
                   </Box>
@@ -105,7 +113,7 @@ export default function PageLayout({ children }: Props) {
             </Box>
           </GridItem>
           <GridItem as="footer" textStyle="footer">
-            <Wrap p={4} bg="secondaryBg" gap={4}>
+            <Wrap p={4} bg="secondaryBg" layerStyle="themeTransition" gap={4}>
               <ChakraLink asChild>
                 <Link to="/privacy">Privacy Policy</Link>
               </ChakraLink>

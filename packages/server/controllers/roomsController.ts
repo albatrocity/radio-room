@@ -7,8 +7,11 @@ import {
   saveRoom,
   parseRoom,
   removeSensitiveRoomAttributes,
-  getUserRooms,
+  getAllRooms,
   getUserServiceAuth,
+  getRoomOnlineUsers,
+  getRoomCurrent,
+  getUser,
 } from "../operations/data"
 import { checkUserChallenge } from "../operations/userChallenge"
 import { RoomSnapshot } from "@repo/types/Room"
@@ -106,8 +109,8 @@ export async function create(req: Request, res: Response) {
     const id = createRoomId({ creator: userId, type, createdAt })
 
     // Get available metadata sources for the user (includes Tidal if linked)
-    const availableMetadataSources = requestedMetadataSourceIds || 
-      await getAvailableMetadataSourcesForUser(context, userId)
+    const availableMetadataSources =
+      requestedMetadataSourceIds || (await getAvailableMetadataSourcesForUser(context, userId))
 
     // Auto-configure adapter IDs based on room type
     const { playbackControllerId, metadataSourceIds, mediaSourceId, mediaSourceConfig } =
@@ -200,10 +203,54 @@ export async function findRooms(req: Request, res: Response) {
     })
   }
 
-  const rooms = await getUserRooms({ context, userId: req.session.user?.userId || "s" })
+  const userId = req.session.user.userId
+
+  // Filter all rooms by creator (using string coercion for type safety)
+  const allRooms = await getAllRooms({ context })
+  const rooms = allRooms.filter((r) => String(r.creator) === String(userId))
 
   return res.status(200).send({
     rooms: rooms.map(parseRoom).map(removeSensitiveRoomAttributes),
+  })
+}
+
+export async function findAllRooms(req: Request, res: Response) {
+  const { context } = req
+  const rooms = await getAllRooms({ context })
+
+  // Fetch additional data for each room (user count, now playing, creator name)
+  const roomsWithDetails = await Promise.all(
+    rooms.map(async (room) => {
+      const parsedRoom = parseRoom(room)
+      const sanitizedRoom = removeSensitiveRoomAttributes(parsedRoom)
+
+      try {
+        const [onlineUsers, currentMeta, creatorUser] = await Promise.all([
+          getRoomOnlineUsers({ context, roomId: room.id }),
+          getRoomCurrent({ context, roomId: room.id }),
+          room.creator ? getUser({ context, userId: room.creator }) : null,
+        ])
+
+        return {
+          ...sanitizedRoom,
+          creatorName: creatorUser?.username ?? sanitizedRoom.creator,
+          userCount: onlineUsers?.length ?? 0,
+          nowPlaying: currentMeta?.nowPlaying ?? null,
+        }
+      } catch {
+        // If fetching additional data fails, return room without it
+        return {
+          ...sanitizedRoom,
+          creatorName: sanitizedRoom.creator,
+          userCount: 0,
+          nowPlaying: null,
+        }
+      }
+    }),
+  )
+
+  return res.status(200).send({
+    rooms: roomsWithDetails,
   })
 }
 

@@ -101,11 +101,15 @@ export default async function handleRoomNowPlayingData({
 
   // Get queue to determine DJ (who added the track)
   const queue = await getQueue({ context, roomId })
-  const queuedTrack = queue?.find(
-    (item: QueueItem) =>
-      item.mediaSource.type === submission.sourceType &&
-      item.mediaSource.trackId === submission.trackId,
-  )
+
+  // Find the queued track that matches this submission
+  const queuedTrack = findQueuedTrack({
+    queue,
+    submission,
+    track,
+    metadataSources,
+    isRadioRoom: room?.type === "radio",
+  })
   const trackDj = queuedTrack?.addedBy
 
   // Construct QueueItem
@@ -217,6 +221,80 @@ function isSameTrack(
   }
 
   return sameMediaSource
+}
+
+type FindQueuedTrackParams = {
+  queue: QueueItem[]
+  submission: MediaSourceSubmission
+  track: MetadataSourceTrack
+  metadataSources?: Record<MetadataSourceType, MetadataSourceTrackData | undefined>
+  isRadioRoom?: boolean
+}
+
+/**
+ * Find a queued track that matches the current submission.
+ *
+ * Uses three matching strategies in order:
+ * 1. Exact match by mediaSource type + trackId (jukebox mode)
+ * 2. Match by metadataSource track IDs (radio mode - queued via Spotify, played via radio)
+ * 3. Fuzzy match by title/artist (fallback for radio rooms)
+ */
+function findQueuedTrack({
+  queue,
+  submission,
+  track,
+  metadataSources,
+  isRadioRoom,
+}: FindQueuedTrackParams): QueueItem | undefined {
+  if (!queue?.length) return undefined
+
+  // Strategy 1: Exact match by mediaSource (works for jukebox mode)
+  let match = queue.find(
+    (item) =>
+      item.mediaSource.type === submission.sourceType &&
+      item.mediaSource.trackId === submission.trackId,
+  )
+  if (match) return match
+
+  // Strategy 2: Match using metadataSource track IDs
+  // This handles radio rooms where tracks are queued via Spotify but detected via Shoutcast
+  if (metadataSources) {
+    for (const [sourceType, sourceData] of Object.entries(metadataSources)) {
+      if (!sourceData?.source?.trackId) continue
+
+      match = queue.find(
+        (item) =>
+          item.mediaSource.type === sourceType &&
+          item.mediaSource.trackId === sourceData.source.trackId,
+      )
+      if (match) return match
+    }
+  }
+
+  // Strategy 3: Fuzzy match by title/artist (fallback for radio rooms only)
+  if (isRadioRoom) {
+    const submissionTitle = track.title.toLowerCase().trim()
+    const submissionArtist = track.artists?.[0]?.title?.toLowerCase().trim() || ""
+
+    match = queue.find((item) => {
+      const queuedTitle = item.track.title.toLowerCase().trim()
+      const queuedArtist = item.track.artists?.[0]?.title?.toLowerCase().trim() || ""
+
+      const titleMatch =
+        queuedTitle.includes(submissionTitle) ||
+        submissionTitle.includes(queuedTitle) ||
+        queuedTitle === submissionTitle
+      const artistMatch =
+        queuedArtist.includes(submissionArtist) ||
+        submissionArtist.includes(queuedArtist) ||
+        queuedArtist === submissionArtist
+
+      return titleMatch && artistMatch
+    })
+    if (match) return match
+  }
+
+  return undefined
 }
 
 type ResolveTrackDataResult = {

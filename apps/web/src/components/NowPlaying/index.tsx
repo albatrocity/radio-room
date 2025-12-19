@@ -59,12 +59,13 @@ function NowPlaying({ meta }: NowPlayingProps) {
   return (
     <Box
       p={3}
-      background="primary"
+      // background="primary"
       alignContent="center"
       alignItems="center"
       justifyContent="center"
       flexGrow={1}
       height="100%"
+      layerStyle="themeTransition"
     >
       <VStack gap={4} justify="space-between" height="100%" width="100%">
         {displayState === "loading" && <NowPlayingLoading />}

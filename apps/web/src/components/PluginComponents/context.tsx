@@ -12,6 +12,8 @@ export interface PluginComponentContextValue {
   closeModal: (modalId: string) => void
   /** Text color for components in this area */
   textColor?: string
+  /** Item-level context for per-item areas (e.g., user data for userListItem) */
+  itemContext?: Record<string, unknown>
 }
 
 export const PluginComponentContext = createContext<PluginComponentContextValue | null>(null)
@@ -23,4 +25,3 @@ export function usePluginComponentContext() {
   }
   return ctx
 }
-

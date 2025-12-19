@@ -9,6 +9,7 @@ This guide explains how to create plugins for Radio Room. Plugins extend room fu
 - [BasePlugin Reference](#baseplugin-reference)
 - [Event System](#event-system)
 - [Configuration Schema](#configuration-schema)
+- [Plugin Actions](#plugin-actions)
 - [Plugin Components](#plugin-components)
 - [Data Augmentation](#data-augmentation)
 - [Room Export](#room-export)
@@ -314,6 +315,20 @@ protected async onCleanup(): Promise<void> {
 }
 ```
 
+#### `executeAction(action: string): Promise<{ success: boolean; message?: string }>`
+
+Handle action buttons from the admin config UI. Override this to implement custom actions.
+
+```typescript
+async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+  if (action === "resetLeaderboards") {
+    await this.clearAllLeaderboards()
+    return { success: true, message: "Leaderboards have been reset" }
+  }
+  return { success: false, message: `Unknown action: ${action}` }
+}
+```
+
 ## Event System
 
 Plugins subscribe to system events using SCREAMING_SNAKE_CASE names.
@@ -475,6 +490,16 @@ layout: [
 
   // Field reference (string = field name)
   "myFieldName",
+
+  // Action button (see Plugin Actions section)
+  {
+    type: "action",
+    action: "resetData",
+    label: "Reset Data",
+    variant: "destructive",
+    confirmMessage: "Are you sure? This cannot be undone.",
+    confirmText: "Reset",
+  },
 ]
 ```
 
@@ -490,6 +515,216 @@ fieldMeta: {
     storageUnit: "milliseconds", // Store as milliseconds
     showWhen: { field: "enabled", value: true },
   },
+}
+```
+
+## Plugin Actions
+
+Add action buttons to your plugin's config form to trigger server-side operations like resetting data, syncing state, or performing maintenance tasks.
+
+### Defining Action Buttons
+
+Add action elements to your config schema's `layout` array:
+
+```typescript
+getConfigSchema(): PluginConfigSchema {
+  return {
+    jsonSchema: z.toJSONSchema(myConfigSchema),
+    layout: [
+      "enabled",
+      "threshold",
+      // Action button at the end of the form
+      {
+        type: "action",
+        action: "resetLeaderboards",      // Unique action identifier
+        label: "Reset Leaderboards",      // Button text
+        variant: "destructive",           // "solid" | "outline" | "ghost" | "destructive"
+        confirmMessage: "Are you sure you want to reset all leaderboards? This cannot be undone.",
+        confirmText: "Reset Leaderboards", // Confirmation button text
+        showWhen: { field: "enabled", value: true }, // Optional conditional visibility
+      },
+    ],
+    fieldMeta: { /* ... */ },
+  }
+}
+```
+
+### Action Element Properties
+
+| Property         | Type     | Required | Description                                                      |
+| ---------------- | -------- | -------- | ---------------------------------------------------------------- |
+| `type`           | `string` | Yes      | Must be `"action"`                                               |
+| `action`         | `string` | Yes      | Unique identifier passed to `executeAction()`                    |
+| `label`          | `string` | Yes      | Button label text                                                |
+| `variant`        | `string` | No       | Button style: `"solid"`, `"outline"`, `"ghost"`, `"destructive"` |
+| `confirmMessage` | `string` | No       | If provided, shows confirmation dialog before executing          |
+| `confirmText`    | `string` | No       | Text for the confirmation button (default: "Confirm")            |
+| `showWhen`       | `object` | No       | Conditional visibility (same as field `showWhen`)                |
+
+### Handling Actions
+
+Override the `executeAction` method to handle action button clicks:
+
+```typescript
+async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+  switch (action) {
+    case "resetLeaderboards":
+      return this.resetLeaderboards()
+    case "syncData":
+      return this.syncData()
+    default:
+      return { success: false, message: `Unknown action: ${action}` }
+  }
+}
+
+private async resetLeaderboards(): Promise<{ success: boolean; message?: string }> {
+  if (!this.context) {
+    return { success: false, message: "Plugin not initialized" }
+  }
+
+  try {
+    // Clear leaderboard data from storage
+    const leaderboard = await this.context.storage.zrangeWithScores("leaderboard", 0, -1)
+    for (const entry of leaderboard) {
+      await this.context.storage.zrem("leaderboard", entry.value)
+    }
+
+    // IMPORTANT: Emit event with updated store keys to refresh frontend
+    await this.emit("LEADERBOARDS_RESET", {
+      usersLeaderboard: [],      // Include store keys in event data
+      allWordsLeaderboard: [],   // Frontend will update its store
+    })
+
+    return { success: true, message: "Leaderboards have been reset" }
+  } catch (error) {
+    return { success: false, message: `Error: ${error}` }
+  }
+}
+```
+
+### Updating Frontend After Actions
+
+When an action modifies data that's displayed in plugin components, you must emit an event containing the updated store keys. The frontend's `pluginComponentMachine` listens for `PLUGIN:{pluginName}:*` events and updates its store when event data contains any of the plugin's `storeKeys`.
+
+```typescript
+// Component schema defines which keys to watch
+getComponentSchema(): PluginComponentSchema {
+  return {
+    components: [ /* ... */ ],
+    storeKeys: ["usersLeaderboard", "allWordsLeaderboard"], // Keys that trigger updates
+  }
+}
+
+// Event must include the store keys for frontend to update
+await this.emit("DATA_RESET", {
+  usersLeaderboard: [],      // ✓ Frontend will update
+  allWordsLeaderboard: [],   // ✓ Frontend will update
+})
+
+// This won't update the frontend (no store keys in payload)
+await this.emit("DATA_RESET", {})  // ✗ Frontend won't know to update
+```
+
+### Event Flow
+
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Admin clicks "Reset Leaderboards" button                                │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Frontend emits EXECUTE_PLUGIN_ACTION via Socket.IO                      │
+│   { pluginName: "special-words", action: "resetLeaderboards" }          │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Server: PluginRegistry.executePluginAction() calls plugin.executeAction │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Plugin: executeAction("resetLeaderboards")                              │
+│   1. Clear data from storage                                            │
+│   2. Emit event with new store values                                   │
+│   3. Return { success: true, message: "..." }                           │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Frontend receives:                                                       │
+│   1. PLUGIN_ACTION_RESULT → Shows success/error toast                   │
+│   2. PLUGIN:special-words:LEADERBOARDS_RESET → Updates component store  │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Complete Example
+
+```typescript
+// schema.ts
+export function getConfigSchema(): PluginConfigSchema {
+  return {
+    jsonSchema: z.toJSONSchema(myConfigSchema),
+    layout: [
+      { type: "heading", content: "My Plugin" },
+      "enabled",
+      "words",
+      "showLeaderboard",
+      // Destructive action with confirmation
+      {
+        type: "action",
+        action: "resetLeaderboards",
+        label: "Reset Leaderboards",
+        variant: "destructive",
+        confirmMessage: "Are you sure? All scores will be lost.",
+        confirmText: "Reset",
+        showWhen: { field: "enabled", value: true },
+      },
+      // Simple action without confirmation
+      {
+        type: "action",
+        action: "syncNow",
+        label: "Sync Now",
+        variant: "outline",
+        showWhen: { field: "enabled", value: true },
+      },
+    ],
+    fieldMeta: {
+      /* ... */
+    },
+  }
+}
+```
+
+```typescript
+// index.ts
+async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+  switch (action) {
+    case "resetLeaderboards":
+      return this.resetLeaderboards()
+    case "syncNow":
+      return this.syncNow()
+    default:
+      return { success: false, message: `Unknown action: ${action}` }
+  }
+}
+
+private async resetLeaderboards(): Promise<{ success: boolean; message?: string }> {
+  // ... clear data ...
+
+  // Update frontend components
+  await this.emit("LEADERBOARDS_RESET", {
+    usersLeaderboard: [],
+    allWordsLeaderboard: [],
+  })
+
+  return { success: true, message: "Leaderboards reset successfully" }
+}
+
+private async syncNow(): Promise<{ success: boolean; message?: string }> {
+  // ... perform sync ...
+  return { success: true, message: "Sync completed" }
 }
 ```
 
@@ -584,30 +819,101 @@ getComponentSchema(): PluginComponentSchema {
 
 ### Component Areas
 
-| Area              | Location                        |
-| ----------------- | ------------------------------- |
-| `nowPlaying`      | Below now playing info          |
-| `nowPlayingInfo`  | Inline with now playing details |
-| `nowPlayingBadge` | Badge area near title           |
-| `nowPlayingArt`   | Overlay on album art            |
-| `playlistItem`    | Per-track in playlist           |
-| `userList`        | User list section               |
-| `userListItem`    | Per-user in list                |
+| Area              | Location                        | Item Context Available |
+| ----------------- | ------------------------------- | ---------------------- |
+| `nowPlaying`      | Below now playing info          | No                     |
+| `nowPlayingInfo`  | Inline with now playing details | No                     |
+| `nowPlayingBadge` | Badge area near title           | No                     |
+| `nowPlayingArt`   | Overlay on album art            | No                     |
+| `playlistItem`    | Per-track in playlist           | Yes (track data)       |
+| `userList`        | User list section               | No                     |
+| `userListItem`    | Per-user in list                | Yes (user data)        |
 
 ### Component Types
 
-| Type          | Description      | Key Props                                     |
-| ------------- | ---------------- | --------------------------------------------- |
-| `text`        | Inline text      | `content`, `variant`                          |
-| `text-block`  | Block text       | `content`, `variant`                          |
-| `heading`     | Section heading  | `content`, `level`                            |
-| `emoji`       | Emoji display    | `emoji`, `size`                               |
-| `icon`        | Icon display     | `icon`, `size`, `color`                       |
-| `button`      | Clickable button | `label`, `icon`, `opensModal`                 |
-| `badge`       | Status badge     | `label`, `variant`, `icon`, `tooltip`         |
-| `leaderboard` | Ranked list      | `dataKey`, `title`, `rowTemplate`, `maxItems` |
-| `countdown`   | Timer display    | `startKey`, `duration`, `text`                |
-| `modal`       | Dialog container | `title`, `size`, `children`                   |
+| Type         | Description      | Key Props                     |
+| ------------ | ---------------- | ----------------------------- |
+| `text`       | Inline text      | `content`, `variant`          |
+| `text-block` | Block text       | `content`, `variant`          |
+| `heading`    | Section heading  | `content`, `level`            |
+| `emoji`      | Emoji display    | `emoji`, `size`               |
+| `icon`       | Icon display     | `icon`, `size`, `color`       |
+| `button`     | Clickable button | `label`, `icon`, `opensModal` |
+
+**Available Icons:**
+
+`trophy`, `star`, `medal`, `award`, `heart`, `skip-forward`, `swords`
+| `badge` | Status badge | `label`, `variant`, `icon`, `tooltip` |
+| `leaderboard` | Ranked list | `dataKey`, `title`, `rowTemplate`, `maxItems` |
+| `countdown` | Timer display | `startKey`, `duration`, `text` |
+| `modal` | Dialog container | `title`, `size`, `children` |
+
+### Per-Item Components
+
+Components in `userListItem` or `playlistItem` areas render once per item (user or track). These areas provide an `itemContext` with item-specific data that can be used in `showWhen` conditions.
+
+#### User List Item Context
+
+For `userListItem` components, the following fields are available:
+
+| Field        | Type      | Description                      |
+| ------------ | --------- | -------------------------------- |
+| `userId`     | `string`  | The user's unique ID             |
+| `isDeputyDj` | `boolean` | Whether the user is a deputy DJ  |
+| `isDj`       | `boolean` | Whether the user is currently DJ |
+| `isAdmin`    | `boolean` | Whether the user is room admin   |
+
+#### Using Item Context in showWhen
+
+Use the `item.` prefix to check item context values:
+
+```typescript
+{
+  id: "deputy-badge",
+  type: "icon",
+  area: "userListItem",
+  icon: "star",
+  color: "yellow.400",
+  showWhen: [
+    { field: "enabled", value: true },           // Check plugin config
+    { field: "item.isDeputyDj", value: true },   // Check item context
+  ],
+}
+```
+
+#### Example: Competitive Mode Icon
+
+Show a sword icon next to deputy DJs when competitive mode is enabled:
+
+```typescript
+getComponentSchema(): PluginComponentSchema {
+  return {
+    components: [
+      {
+        id: "competitive-user-icon",
+        type: "icon",
+        area: "userListItem",
+        icon: "swords",
+        size: "sm",
+        color: "orange.400",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "competitiveModeEnabled", value: true },
+          { field: "item.isDeputyDj", value: true },
+        ],
+      },
+      // ... other components
+    ],
+    storeKeys: ["competitiveModeEnabled"],
+  }
+}
+```
+
+The icon will only appear for users where:
+
+1. The plugin is enabled (`config.enabled === true`)
+2. Competitive mode is on (`config.competitiveModeEnabled === true` or `store.competitiveModeEnabled === true`)
+3. The specific user is a deputy DJ (`itemContext.isDeputyDj === true`)
 
 ### Component State
 
@@ -1041,6 +1347,35 @@ await this.emit("STATE_CHANGED", {
 })
 ```
 
+### 8. Use Sound Effects Sparingly
+
+```typescript
+// Play a sound effect on important events
+await this.context.api.queueSoundEffect({
+  url: "https://example.com/sounds/ding.mp3",
+  volume: 0.5, // Don't blast users at full volume
+})
+```
+
+### 9. Use Screen Effects Thoughtfully
+
+```typescript
+// Animate plugin components to draw attention
+await this.context.api.queueScreenEffect({
+  target: "plugin",
+  targetId: "my-button", // Component id from your schema
+  effect: "pulse",
+})
+
+// For chat messages, prefer non-scaling effects to avoid clipping
+await this.context.api.queueScreenEffect({
+  target: "message",
+  targetId: message.timestamp,
+  effect: "shakeX", // Good: doesn't scale
+  // effect: "tada", // May clip in scroll container
+})
+```
+
 ## Complete Example
 
 See the [Playlist Democracy Plugin](../packages/plugin-playlist-democracy) for a complete reference implementation featuring:
@@ -1058,17 +1393,19 @@ See the [Playlist Democracy Plugin](../packages/plugin-playlist-democracy) for a
 
 ### PluginAPI Methods
 
-| Method                                         | Description                     |
-| ---------------------------------------------- | ------------------------------- |
-| `getNowPlaying(roomId)`                        | Get current track               |
-| `getUsers(roomId)`                             | Get users in room               |
-| `getReactions(params)`                         | Get reactions for track/message |
-| `skipTrack(roomId, trackId)`                   | Skip current track              |
-| `sendSystemMessage(roomId, message, options?)` | Send system chat message        |
-| `getPluginConfig(roomId, pluginName)`          | Get plugin config               |
-| `setPluginConfig(roomId, pluginName, config)`  | Update plugin config            |
-| `updatePlaylistTrack(roomId, track)`           | Update track with pluginData    |
-| `emit(eventName, data)`                        | Emit plugin event to frontend   |
+| Method                                         | Description                      |
+| ---------------------------------------------- | -------------------------------- |
+| `getNowPlaying(roomId)`                        | Get current track                |
+| `getUsers(roomId)`                             | Get users in room                |
+| `getReactions(params)`                         | Get reactions for track/message  |
+| `skipTrack(roomId, trackId)`                   | Skip current track               |
+| `sendSystemMessage(roomId, message, options?)` | Send system chat message         |
+| `getPluginConfig(roomId, pluginName)`          | Get plugin config                |
+| `setPluginConfig(roomId, pluginName, config)`  | Update plugin config             |
+| `updatePlaylistTrack(roomId, track)`           | Update track with pluginData     |
+| `emit(eventName, data)`                        | Emit plugin event to frontend    |
+| `queueSoundEffect(params)`                     | Play a sound effect in the room  |
+| `queueScreenEffect(params)`                    | Play a CSS animation in the room |
 
 ### System Message Options
 
@@ -1078,6 +1415,150 @@ await this.context.api.sendSystemMessage(roomId, "Message text", {
   status: "info", // "info" | "success" | "warning" | "error"
 })
 ```
+
+### Sound Effects
+
+Play audio sound effects in the room. Sound effects are queued and played one at a time on all connected clients.
+
+```typescript
+await this.context.api.queueSoundEffect({
+  url: "https://example.com/sounds/notification.mp3",
+  volume: 0.5, // 0.0 to 1.0, defaults to 1.0
+})
+```
+
+**Parameters:**
+
+| Parameter | Type     | Required | Description                                 |
+| --------- | -------- | -------- | ------------------------------------------- |
+| `url`     | `string` | Yes      | URL to the audio file (mp3, wav, ogg, etc)  |
+| `volume`  | `number` | No       | Volume level from 0.0 to 1.0 (default: 1.0) |
+
+**Example: Play sound on special event**
+
+```typescript
+private async onReactionAdded(data: { roomId: string; reaction: any }): Promise<void> {
+  const config = await this.getConfig()
+  if (!config?.enabled || !config.soundEffectUrl) return
+
+  // Play sound when someone reacts with the target emoji
+  if (data.reaction.emoji.shortcodes === config.targetEmoji) {
+    await this.context!.api.queueSoundEffect({
+      url: config.soundEffectUrl,
+      volume: config.soundEffectVolume ?? 0.5,
+    })
+  }
+}
+```
+
+**Notes:**
+
+- Sound effects play on all clients in the room simultaneously
+- Multiple sound effects are queued and played sequentially (one at a time)
+- Audio files must be accessible via HTTPS and support CORS
+- Sound effect volume is capped at the user's current volume setting (sound effects will never be louder than the radio)
+- If a user has muted audio, sound effects are skipped
+- Sound effects use Web Audio API, separate from the radio stream
+
+### Screen Effects
+
+Play CSS animations (from animate.css) on UI elements in the room. Screen effects are queued and played one at a time on all connected clients.
+
+```typescript
+await this.context.api.queueScreenEffect({
+  target: "nowPlaying",
+  effect: "pulse",
+  duration: 1000, // optional, in milliseconds
+})
+```
+
+**Parameters:**
+
+| Parameter  | Type                 | Required | Description                                                                            |
+| ---------- | -------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `target`   | `ScreenEffectTarget` | Yes      | What to animate: `room`, `nowPlaying`, `message`, `plugin`, or `user`                  |
+| `targetId` | `string`             | No       | For `message`: timestamp or `"latest"`. For `plugin`: component ID. For `user`: userId |
+| `effect`   | `ScreenEffectName`   | Yes      | Animation name (see available effects below)                                           |
+| `duration` | `number`             | No       | Custom duration in milliseconds (default varies by effect)                             |
+
+**Target Types:**
+
+| Target       | Description             | `targetId` Usage                |
+| ------------ | ----------------------- | ------------------------------- |
+| `room`       | Entire room UI          | Not needed                      |
+| `nowPlaying` | Now playing section     | Not needed                      |
+| `message`    | Specific chat message   | Message timestamp or `"latest"` |
+| `plugin`     | Plugin's own components | Component `id` from your schema |
+| `user`       | Specific user in list   | User's `userId`                 |
+
+**Available Effects (animate.css attention seekers):**
+
+`bounce`, `flash`, `pulse`, `rubberBand`, `shakeX`, `shakeY`, `headShake`, `swing`, `tada`, `wobble`, `jello`, `heartBeat`
+
+**Example: Animate plugin component on event**
+
+```typescript
+private async onWordDetected(word: string, message: ChatMessage): Promise<void> {
+  const config = await this.getConfig()
+  if (!config?.enabled) return
+
+  // Pulse the leaderboard button when a special word is detected
+  await this.context!.api.queueScreenEffect({
+    target: "plugin",
+    targetId: "leaderboard-button", // matches component id in schema
+    effect: "pulse",
+  })
+}
+```
+
+**Example: Animate a chat message**
+
+```typescript
+// Shake the message that triggered an event
+await this.context!.api.queueScreenEffect({
+  target: "message",
+  targetId: message.timestamp,
+  effect: "shakeX",
+})
+
+// Or animate the most recent message
+await this.context!.api.queueScreenEffect({
+  target: "message",
+  targetId: "latest",
+  effect: "flash",
+})
+```
+
+**Example: Animate the now playing section**
+
+```typescript
+// Celebrate when a popular track starts
+await this.context!.api.queueScreenEffect({
+  target: "nowPlaying",
+  effect: "tada",
+  duration: 1500,
+})
+```
+
+**Example: Animate a specific user**
+
+```typescript
+// Pulse a user when they earn a point
+await this.context!.api.queueScreenEffect({
+  target: "user",
+  targetId: userId, // The user's userId
+  effect: "pulse",
+})
+```
+
+**Notes:**
+
+- Screen effects play on all clients in the room simultaneously
+- Multiple screen effects are queued and played sequentially (one at a time)
+- Users can disable animations via the "Reduce Motion" preference in settings
+- The system also respects the OS-level `prefers-reduced-motion` setting
+- Plugins can only animate their own components (using component `id` from schema)
+- For chat messages, use animations that don't scale (`flash`, `shakeX`, `shakeY`, `headShake`) to avoid clipping issues in scroll containers
 
 ## Testing
 

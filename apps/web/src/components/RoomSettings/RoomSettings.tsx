@@ -17,7 +17,7 @@ export default function RoomSettings({ settings, onChange, roomType }: Props) {
     <VStack gap={8} w="100%">
       <SharedSettings onChange={onChange} settings={settings} />
       {roomType === "jukebox" && <FormJukeboxSettings onChange={onChange} />}
-      {roomType === "radio" && <FormRadioSettings onChange={onChange} />}
+      {roomType === "radio" && <FormRadioSettings onChange={onChange} settings={settings} />}
 
       <Alert.Root status="warning" fontSize="sm" color="blackAlpha.700" alignItems="flex-start">
         <Alert.Indicator />

@@ -7,7 +7,7 @@ import type { Reaction } from "./Reaction"
 import type { User } from "./User"
 import type { ReactionSubject } from "./ReactionSubject"
 import type { ChatMessage } from "./ChatMessage"
-import type { SystemEventHandlers } from "./SystemEventTypes"
+import type { SystemEventHandlers, ScreenEffectTarget, ScreenEffectName } from "./SystemEventTypes"
 import type { PluginComponentSchema, PluginComponentState } from "./PluginComponent"
 
 // ============================================================================
@@ -61,6 +61,28 @@ export interface PluginSchemaElement {
 }
 
 /**
+ * Plugin action element - for action buttons in the form layout
+ */
+export interface PluginActionElement {
+  type: "action"
+  /** Unique action identifier - passed to executeAction */
+  action: string
+  /** Button label */
+  label: string
+  /** Button variant */
+  variant?: "solid" | "outline" | "ghost" | "destructive"
+  /** Confirmation message - if provided, shows a confirmation dialog before executing */
+  confirmMessage?: string
+  /** Confirmation button text */
+  confirmText?: string
+  /**
+   * Element is only shown when condition(s) are met.
+   * If an array is provided, ALL conditions must be true (AND logic).
+   */
+  showWhen?: ShowWhenCondition | ShowWhenCondition[]
+}
+
+/**
  * Field-specific UI metadata not captured in JSON Schema
  */
 export interface PluginFieldMeta {
@@ -88,8 +110,8 @@ export interface PluginFieldMeta {
 export interface PluginConfigSchema {
   /** JSON Schema generated from Zod via z.toJSONSchema() */
   jsonSchema: Record<string, unknown>
-  /** UI layout - field order and text blocks */
-  layout: (string | PluginSchemaElement)[]
+  /** UI layout - field order, text blocks, and action buttons */
+  layout: (string | PluginSchemaElement | PluginActionElement)[]
   /** Field-specific UI hints not captured in JSON Schema */
   fieldMeta: Record<string, PluginFieldMeta>
 }
@@ -180,6 +202,8 @@ export interface PluginAPI {
   setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>
   /** Emit an update for a playlist track (e.g., when pluginData changes) */
   updatePlaylistTrack(roomId: string, track: QueueItem): Promise<void>
+  /** Get the current queue for a room */
+  getQueue(roomId: string): Promise<QueueItem[]>
 
   /**
    * Emit a custom plugin event.
@@ -203,6 +227,70 @@ export interface PluginAPI {
    * ```
    */
   emit<T extends Record<string, unknown>>(eventName: string, data: T): Promise<void>
+
+  /**
+   * Queue a sound effect to be played on all clients in the room.
+   *
+   * Sound effects are played one at a time in order. If a sound is already
+   * playing, the new sound will be added to a queue.
+   *
+   * @param params - Sound effect parameters
+   * @param params.url - URL to the sound effect audio file
+   * @param params.volume - Volume level (0.0 to 1.0, defaults to 1.0)
+   *
+   * @example
+   * ```typescript
+   * await this.context.api.queueSoundEffect({
+   *   url: "https://example.com/sounds/ding.mp3",
+   *   volume: 0.8,
+   * })
+   * ```
+   */
+  queueSoundEffect(params: { url: string; volume?: number }): Promise<void>
+
+  /**
+   * Queue a screen effect (CSS animation) to be played on all clients in the room.
+   *
+   * Screen effects are played one at a time in order. If an effect is already
+   * playing, the new effect will be added to a queue.
+   *
+   * Available effects (from animate.css attention seekers):
+   * bounce, flash, pulse, rubberBand, shakeX, shakeY, headShake, swing, tada, wobble, jello, heartBeat
+   *
+   * @param params - Screen effect parameters
+   * @param params.target - What to animate: 'room', 'nowPlaying', 'message', or 'plugin'
+   * @param params.targetId - For 'message': timestamp or "latest". For 'plugin': componentId
+   * @param params.effect - The animation effect name
+   * @param params.duration - Optional custom duration in milliseconds
+   *
+   * @example
+   * ```typescript
+   * // Shake the entire room
+   * await this.context.api.queueScreenEffect({
+   *   target: "room",
+   *   effect: "shakeX",
+   * })
+   *
+   * // Pulse the now playing section
+   * await this.context.api.queueScreenEffect({
+   *   target: "nowPlaying",
+   *   effect: "pulse",
+   * })
+   *
+   * // Bounce the most recent chat message
+   * await this.context.api.queueScreenEffect({
+   *   target: "message",
+   *   targetId: "latest",
+   *   effect: "bounce",
+   * })
+   * ```
+   */
+  queueScreenEffect(params: {
+    target: ScreenEffectTarget
+    targetId?: string
+    effect: ScreenEffectName
+    duration?: number
+  }): Promise<void>
 }
 
 /**
@@ -304,6 +392,24 @@ export interface Plugin {
 
   register(context: PluginContext): Promise<void>
   cleanup(): Promise<void>
+
+  /**
+   * Execute a plugin action.
+   * Actions are triggered from the admin config UI via action buttons.
+   *
+   * @param action - The action identifier from PluginActionElement
+   * @returns Result with success status and optional message
+   *
+   * @example
+   * async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+   *   if (action === 'resetLeaderboards') {
+   *     await this.clearAllLeaderboards()
+   *     return { success: true, message: 'Leaderboards reset successfully' }
+   *   }
+   *   return { success: false, message: 'Unknown action' }
+   * }
+   */
+  executeAction?(action: string): Promise<{ success: boolean; message?: string }>
 
   /**
    * Optional method to augment playlist items with plugin-specific metadata.

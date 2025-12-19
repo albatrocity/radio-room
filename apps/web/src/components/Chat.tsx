@@ -1,4 +1,4 @@
-import { memo, useCallback } from "react"
+import { memo, useCallback, useRef } from "react"
 import { Box, Grid, GridItem, HStack } from "@chakra-ui/react"
 
 import ChatInput, { MessagePayload } from "./ChatInput"
@@ -14,6 +14,7 @@ const Chat = () => {
   const isUnauthorized = authState === "unauthorized"
   const chatSend = useChatSend()
   const messages = useChatMessages()
+  const imagePreviewRef = useRef<HTMLDivElement>(null)
 
   const currentUserId = currentUser?.userId
 
@@ -43,9 +44,10 @@ const Chat = () => {
       gridTemplateRows={"1fr auto"}
       css={{
         filter: isUnauthorized ? "blur(0.5rem)" : "none",
+        overflowX: "visible",
       }}
     >
-      <GridItem height="100%" width="100%" area={"chat"} overflowX="hidden" minHeight={0}>
+      <GridItem height="100%" width="100%" area={"chat"} overflowX="visible" minHeight={0}>
         <Box h="100%" w="100%" className="messages-container">
           {messages.length > 0 && <ChatWindow />}
         </Box>
@@ -54,12 +56,15 @@ const Chat = () => {
         <Box px={2} zIndex={1}>
           <TypingIndicator currentUserId={currentUserId} />
         </Box>
+        {/* Image previews will be portaled here from ChatInput */}
+        <Box ref={imagePreviewRef} />
         <HStack zIndex={2} w="100%" gap={0} align="center">
           <PopoverPreferences />
           <ChatInput
             onTypingStart={handleTypingStart}
             onTypingStop={handleTypingStop}
             onSend={handleSend}
+            imagePreviewContainer={imagePreviewRef}
           />
         </HStack>
       </GridItem>

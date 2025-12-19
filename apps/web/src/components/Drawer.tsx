@@ -1,8 +1,9 @@
 import React, { ReactNode } from "react"
-import { Drawer as ChakraDrawer, CloseButton, DrawerRootProps } from "@chakra-ui/react"
+import { ButtonGroup, Drawer as ChakraDrawer, CloseButton, DrawerRootProps } from "@chakra-ui/react"
 
 interface Props {
-  heading?: string
+  heading?: string | ReactNode
+  headingActions?: ReactNode
   children: ReactNode
   footer?: ReactNode
   open?: boolean
@@ -16,6 +17,7 @@ interface Props {
 
 const Drawer = ({
   heading,
+  headingActions,
   children,
   footer,
   open,
@@ -46,14 +48,14 @@ const Drawer = ({
       <ChakraDrawer.Backdrop />
       <ChakraDrawer.Positioner>
         <ChakraDrawer.Content>
-          {heading && (
-            <ChakraDrawer.Header>
-              <ChakraDrawer.Title>{heading}</ChakraDrawer.Title>
-            </ChakraDrawer.Header>
-          )}
-          <ChakraDrawer.CloseTrigger asChild position="absolute" top="2" right="2">
-            <CloseButton size="sm" />
-          </ChakraDrawer.CloseTrigger>
+          <ChakraDrawer.CloseTrigger />
+          <ChakraDrawer.Header css={{ paddingBottom: 0 }}>
+            <ChakraDrawer.Title>{heading}</ChakraDrawer.Title>
+            <ButtonGroup>{headingActions}</ButtonGroup>
+            <ChakraDrawer.CloseTrigger asChild pos="unset">
+              <CloseButton colorPalette="secondary" variant="plain" />
+            </ChakraDrawer.CloseTrigger>
+          </ChakraDrawer.Header>
           <ChakraDrawer.Body>{children}</ChakraDrawer.Body>
           {footer && <ChakraDrawer.Footer borderTopWidth="1px">{footer}</ChakraDrawer.Footer>}
         </ChakraDrawer.Content>
