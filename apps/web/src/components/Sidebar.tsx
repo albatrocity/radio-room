@@ -40,12 +40,13 @@ const Sidebar = () => {
         direction={["row", "column"]}
         w="100%"
         h="100%"
+        overflow="hidden"
         style={{
           filter: isUnauthorized ? "blur(0.5rem)" : "none",
         }}
       >
         <Banner />
-        <Flex h="100%" direction="column">
+        <Flex h="100%" minH={0} direction="column" overflow="hidden" flex="1 1 0">
           <Listeners onViewListeners={handleViewListeners} onEditUser={handleEditUser} />
         </Flex>
         <Box hideBelow="sm">
