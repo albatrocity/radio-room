@@ -54,6 +54,7 @@
     "@repo/typescript-config": "*",
     "@types/emoji-mart": "^3.0.9",
     "@types/lodash": "^4.17.21",
+    "@types/react-dom": "^19.2.3",
     "@types/react-howler": "^5.2.0",
     "@types/react-linkify": "^1.0.1",
     "@types/react-page-visibility": "^6.4.1",

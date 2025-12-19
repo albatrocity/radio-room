@@ -22,6 +22,7 @@ import {
   useFileUpload,
   HStack,
   Image,
+  Wrap,
 } from "@chakra-ui/react"
 import { FiArrowUpCircle, FiX } from "react-icons/fi"
 import { MentionsInput, Mention } from "react-mentions"
@@ -285,12 +286,16 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   // Image preview component - rendered via portal if container provided
   const imagePreviews =
     files.length > 0 ? (
-      <HStack gap={2} flexWrap="wrap" px={2} mb={2}>
-        <FileUpload.ItemGroup>
+      <FileUpload.ItemGroup>
+        <Wrap gap={2}>
           <FileUpload.Context>
             {({ acceptedFiles }) =>
               acceptedFiles.map((file, index) => (
-                <FileUpload.Item key={`${file.name}-${index}`} file={file}>
+                <FileUpload.Item
+                  key={`${file.name}-${index}`}
+                  file={file}
+                  css={{ width: "fit-content" }}
+                >
                   <Box position="relative" borderRadius="md" overflow="hidden">
                     <FileUpload.ItemPreview type="image/*">
                       <Image
@@ -320,8 +325,8 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
               ))
             }
           </FileUpload.Context>
-        </FileUpload.ItemGroup>
-      </HStack>
+        </Wrap>
+      </FileUpload.ItemGroup>
     ) : null
 
   return (

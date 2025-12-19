@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef } from "react"
-import { Box, Grid, GridItem, HStack } from "@chakra-ui/react"
+import { Box, Grid, GridItem, HStack, Stack } from "@chakra-ui/react"
 
 import ChatInput, { MessagePayload } from "./ChatInput"
 import TypingIndicator from "./TypingIndicator"
@@ -53,20 +53,22 @@ const Chat = () => {
         </Box>
       </GridItem>
       <GridItem px={2} py={2} area={"input"} boxShadow="inner">
-        <Box px={2} zIndex={1}>
-          <TypingIndicator currentUserId={currentUserId} />
-        </Box>
-        {/* Image previews will be portaled here from ChatInput */}
-        <Box ref={imagePreviewRef} />
-        <HStack zIndex={2} w="100%" gap={0} align="center">
-          <PopoverPreferences />
-          <ChatInput
-            onTypingStart={handleTypingStart}
-            onTypingStop={handleTypingStop}
-            onSend={handleSend}
-            imagePreviewContainer={imagePreviewRef}
-          />
-        </HStack>
+        <Stack gap={2}>
+          <Box px={2} zIndex={1}>
+            <TypingIndicator currentUserId={currentUserId} />
+          </Box>
+          {/* Image previews will be portaled here from ChatInput */}
+          <Box ref={imagePreviewRef} />
+          <HStack zIndex={2} w="100%" gap={0} align="center">
+            <PopoverPreferences />
+            <ChatInput
+              onTypingStart={handleTypingStart}
+              onTypingStop={handleTypingStop}
+              onSend={handleSend}
+              imagePreviewContainer={imagePreviewRef}
+            />
+          </HStack>
+        </Stack>
       </GridItem>
     </Grid>
   )
