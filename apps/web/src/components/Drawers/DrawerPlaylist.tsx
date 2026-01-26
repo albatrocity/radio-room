@@ -36,7 +36,7 @@ function DrawerPlaylist() {
   const room = useCurrentRoom()
   const todayRef = useRef(format(new Date(), "M/d/y"))
   const today = todayRef.current
-  const defaultPlaylistName = `${room?.title || "Radio Room"} ${today}`
+  const defaultPlaylistName = `${room?.title || "Listening Room"} ${today}`
   const [name, setName] = useState<string>(defaultPlaylistName)
   const hasInitialized = useRef(false)
   const isAdmin = useIsAdmin()

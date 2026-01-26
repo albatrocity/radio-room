@@ -279,7 +279,7 @@ export class ScenarioRunner {
   private printHeader(): void {
     console.log()
     console.log(chalk.bold.cyan("═".repeat(60)))
-    console.log(chalk.bold.cyan("  Radio Room Load Tester"))
+    console.log(chalk.bold.cyan("  Listening Room Load Tester"))
     console.log(chalk.bold.cyan("═".repeat(60)))
     console.log()
     console.log(chalk.white(`  Scenario:    ${chalk.bold(this.config.name)}`))

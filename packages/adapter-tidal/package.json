@@ -1,7 +1,7 @@
 {
   "name": "@repo/adapter-tidal",
   "version": "1.0.0",
-  "description": "Tidal adapter for Radio Room - MetadataSource implementation",
+  "description": "Tidal adapter for Listening Room - MetadataSource implementation",
   "main": "index.ts",
   "scripts": {
     "test": "vitest run",

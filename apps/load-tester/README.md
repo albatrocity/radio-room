@@ -1,6 +1,6 @@
-# Radio Room Load Tester
+# Listening Room Load Tester
 
-A load testing tool for Radio Room that simulates multiple users joining rooms, sending messages, adding songs to the queue, and reacting to content.
+A load testing tool for Listening Room that simulates multiple users joining rooms, sending messages, adding songs to the queue, and reacting to content.
 
 ## Quick Start
 
@@ -21,13 +21,13 @@ npm run load-test -w apps/load-tester -- run --target http://localhost:3000 --ro
 
 ```bash
 # Build the image
-docker build -t radio-room-load-tester -f apps/load-tester/Dockerfile .
+docker build -t listening-room-load-tester -f apps/load-tester/Dockerfile .
 
 # Run with a scenario file
-docker run -v $(pwd)/apps/load-tester/scenarios:/app/scenarios radio-room-load-tester run --scenario /app/scenarios/chat-activity.yaml
+docker run -v $(pwd)/apps/load-tester/scenarios:/app/scenarios listening-room-load-tester run --scenario /app/scenarios/chat-activity.yaml
 
 # Run with inline options
-docker run radio-room-load-tester run --target http://host.docker.internal:3000 --room test-room --users 5
+docker run listening-room-load-tester run --target http://host.docker.internal:3000 --room test-room --users 5
 ```
 
 ## CLI Usage
@@ -158,7 +158,7 @@ The tool outputs a summary at the end of each run:
 
 ```
 ═══════════════════════════════════════════════════════════
-  Radio Room Load Tester
+  Listening Room Load Tester
 ═══════════════════════════════════════════════════════════
 
   Scenario:    chat-activity-test

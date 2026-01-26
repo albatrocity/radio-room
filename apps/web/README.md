@@ -1,6 +1,6 @@
-# Radio Room Web Client
+# Listening Room Web Client
 
-A React-based web client for Radio Room, using XState v5 for state management and Socket.IO for real-time communication.
+A React-based web client for Listening Room, using XState v5 for state management and Socket.IO for real-time communication.
 
 ## Table of Contents
 

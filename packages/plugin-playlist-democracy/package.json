@@ -1,7 +1,7 @@
 {
   "name": "@repo/plugin-playlist-democracy",
   "version": "1.0.0",
-  "description": "Playlist Democracy plugin for Radio Room - automatically skips tracks that don't meet reaction thresholds",
+  "description": "Playlist Democracy plugin for Listening Room - automatically skips tracks that don't meet reaction thresholds",
   "main": "index.ts",
   "types": "index.ts",
   "exports": {
