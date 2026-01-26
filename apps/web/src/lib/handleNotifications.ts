@@ -21,7 +21,7 @@ export const handleNotifications = async (
   if (hidden && mentioned && !authorIsMe && document[hidden]) {
     // TODO: Find replacement
     // addNotification({
-    //   title: "@Mention in Radio Room",
+    //   title: "@Mention in Listening Room",
     //   message: payload?.content,
     //   native: true,
     // })

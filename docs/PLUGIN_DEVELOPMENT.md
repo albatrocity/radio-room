@@ -1,6 +1,6 @@
 # Plugin Development Guide
 
-This guide explains how to create plugins for Radio Room. Plugins extend room functionality through an event-driven architecture with support for custom UI components, configuration forms, and data augmentation.
+This guide explains how to create plugins for Listening Room. Plugins extend room functionality through an event-driven architecture with support for custom UI components, configuration forms, and data augmentation.
 
 ## Table of Contents
 

@@ -13,7 +13,7 @@ const program = new Command()
 
 program
   .name("load-tester")
-  .description("Load testing tool for Radio Room - simulates multiple users")
+  .description("Load testing tool for Listening Room - simulates multiple users")
   .version("1.0.0")
 
 program
@@ -129,7 +129,7 @@ program
   .action((file) => {
     const { writeFileSync } = require("fs")
 
-    const sampleScenario = `# Radio Room Load Test Scenario
+    const sampleScenario = `# Listening Room Load Test Scenario
 name: "sample-test"
 description: "A sample load test scenario"
 target: "http://localhost:3000"

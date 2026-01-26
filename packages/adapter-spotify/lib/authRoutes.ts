@@ -146,13 +146,13 @@ export function createSpotifyAuthRoutes(context: AppContext) {
       const me = await spotifyApi.currentUser.profile()
       const spotifyUserId = me.id
 
-      // Use the original Radio Room user ID if provided, otherwise use Spotify ID
+      // Use the original Listening Room user ID if provided, otherwise use Spotify ID
       // This ensures tokens are stored under the correct user identity
       const userId = originalUserId || spotifyUserId
       const username = req.session.user?.username ?? me.display_name
 
       console.log("[Spotify Auth] Spotify user ID:", spotifyUserId)
-      console.log("[Spotify Auth] Original Radio Room user ID:", originalUserId)
+      console.log("[Spotify Auth] Original Listening Room user ID:", originalUserId)
       console.log("[Spotify Auth] Final userId for session:", userId)
       console.log("[Spotify Auth] Username:", username)
 
@@ -176,7 +176,7 @@ export function createSpotifyAuthRoutes(context: AppContext) {
         })
       })
 
-      // Store tokens in authentication store (under Radio Room user ID)
+      // Store tokens in authentication store (under Listening Room user ID)
       await storeUserServiceAuth({
         context,
         userId,

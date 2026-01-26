@@ -258,11 +258,11 @@ export function createTidalAuthRoutes(context: AppContext) {
         username = "Tidal User"
       }
 
-      // Use the original Radio Room user ID if provided, otherwise use Tidal ID
+      // Use the original Listening Room user ID if provided, otherwise use Tidal ID
       const userId = originalUserId || tidalUserId
 
       console.log("[Tidal Auth] Tidal user ID:", tidalUserId)
-      console.log("[Tidal Auth] Original Radio Room user ID:", originalUserId)
+      console.log("[Tidal Auth] Original Listening Room user ID:", originalUserId)
       console.log("[Tidal Auth] Final userId for session:", userId)
       console.log("[Tidal Auth] Username:", username)
 
@@ -286,7 +286,7 @@ export function createTidalAuthRoutes(context: AppContext) {
         })
       })
 
-      // Store tokens in authentication store (under Radio Room user ID)
+      // Store tokens in authentication store (under Listening Room user ID)
       await storeUserServiceAuth({
         context,
         userId,

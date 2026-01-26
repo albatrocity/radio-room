@@ -1,5 +1,5 @@
 /**
- * Shared utilities for the radio-room project.
+ * Shared utilities for the listening-room project.
  * Used by both frontend and backend packages.
  */
 
