@@ -1,0 +1,22 @@
+{
+  "name": "@repo/plugin-absent-dj",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@repo/plugin-base": "*",
+    "@repo/types": "*",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4"
+  }
+}

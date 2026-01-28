@@ -14,6 +14,7 @@ import {
 import { mediaSource as shoutcastMediaSource } from "@repo/media-source-shoutcast"
 import createPlaylistDemocracyPlugin from "@repo/plugin-playlist-democracy"
 import createSpecialWordsPlugin from "@repo/plugin-special-words"
+import createAbsentDjPlugin from "@repo/plugin-absent-dj"
 
 async function main() {
   const server = createServer({
@@ -55,7 +56,7 @@ async function main() {
       { path: "/auth/tidal", handler: createTidalAuthRoutes },
     ],
 
-    plugins: [createPlaylistDemocracyPlugin, createSpecialWordsPlugin],
+    plugins: [createPlaylistDemocracyPlugin, createSpecialWordsPlugin, createAbsentDjPlugin],
   })
 
   await server.start()
