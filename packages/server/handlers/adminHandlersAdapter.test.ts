@@ -8,6 +8,14 @@ import { roomFactory, userFactory } from "@repo/factories"
 
 // Mock dependencies
 vi.mock("../services/AdminService")
+vi.mock("../operations/data/pluginConfigs", () => ({
+  getAllPluginConfigs: vi.fn().mockResolvedValue({}),
+  getPluginConfig: vi.fn().mockResolvedValue(null),
+  setPluginConfig: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock("../operations/data", () => ({
+  findRoom: vi.fn().mockResolvedValue(null),
+}))
 
 describe("AdminHandlers", () => {
   let mockSocket: any
@@ -91,11 +99,12 @@ describe("AdminHandlers", () => {
         type: "ROOM_SETTINGS",
         data: {
           room: mockRoom,
+          pluginConfigs: undefined,
         },
       })
     })
 
-    test("emits ERROR event when not authorized", async () => {
+    test("emits ERROR_OCCURRED event when not authorized", async () => {
       adminService.getRoomSettings.mockResolvedValueOnce({
         room: null,
         error: {
@@ -108,7 +117,7 @@ describe("AdminHandlers", () => {
       await adminHandlers.getRoomSettings({ socket: mockSocket, io: mockIo })
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
-        type: "ERROR",
+        type: "ERROR_OCCURRED",
         data: {
           status: 403,
           error: "Forbidden",
@@ -166,10 +175,20 @@ describe("AdminHandlers", () => {
 
       expect(mockIo.to).toHaveBeenCalledWith("socket123")
       expect(toEmit).toHaveBeenCalledWith("event", {
-        type: "NEW_MESSAGE",
-        data: { content: "You have been kicked", type: "system" },
+        type: "MESSAGE_RECEIVED",
+        data: {
+          roomId: "room123",
+          message: { content: "You have been kicked", type: "system" },
+        },
       })
-      expect(toEmit).toHaveBeenCalledWith("event", { type: "KICKED" })
+      expect(toEmit).toHaveBeenCalledWith("event", {
+        type: "USER_KICKED",
+        data: {
+          roomId: "room123",
+          user: userToKick,
+          reason: "You have been kicked",
+        },
+      })
       expect(mockGet).toHaveBeenCalledWith("socket123")
       expect(mockDisconnect).toHaveBeenCalled()
     })
@@ -184,19 +203,23 @@ describe("AdminHandlers", () => {
       expect(adminService.setRoomSettings).toHaveBeenCalledWith("room123", "admin123", newSettings)
     })
 
-    test("emits ROOM_SETTINGS event with updated room data", async () => {
+    test("emits ROOM_SETTINGS_UPDATED event via systemEvents with updated room data", async () => {
       const newSettings = { fetchMeta: true }
 
       await adminHandlers.setRoomSettings({ socket: mockSocket, io: mockIo }, newSettings)
 
-      expect(roomSpy).toHaveBeenCalledWith("/rooms/room123")
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        type: "ROOM_SETTINGS",
-        data: { room: mockRoom },
-      })
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room123",
+        "ROOM_SETTINGS_UPDATED",
+        {
+          roomId: "room123",
+          room: mockRoom,
+          pluginConfigs: undefined,
+        },
+      )
     })
 
-    test("emits ERROR event when not authorized", async () => {
+    test("emits ERROR_OCCURRED event when not authorized", async () => {
       adminService.setRoomSettings.mockResolvedValueOnce({
         room: null,
         error: {
@@ -209,14 +232,13 @@ describe("AdminHandlers", () => {
       await adminHandlers.setRoomSettings({ socket: mockSocket, io: mockIo }, { fetchMeta: true })
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
-        type: "ERROR",
+        type: "ERROR_OCCURRED",
         data: {
           status: 403,
           error: "Forbidden",
           message: "You are not the room creator.",
         },
       })
-      expect(roomSpy).not.toHaveBeenCalled()
     })
   })
 
@@ -227,17 +249,17 @@ describe("AdminHandlers", () => {
       expect(adminService.clearPlaylist).toHaveBeenCalledWith("room123", "admin123")
     })
 
-    test("emits PLAYLIST event with empty data", async () => {
+    test("emits QUEUE_CHANGED event via systemEvents with empty data", async () => {
       await adminHandlers.clearPlaylist({ socket: mockSocket, io: mockIo })
 
-      expect(roomSpy).toHaveBeenCalledWith("/rooms/room123")
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        type: "PLAYLIST",
-        data: [],
-      })
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room123",
+        "QUEUE_CHANGED",
+        { roomId: "room123", queue: [] },
+      )
     })
 
-    test("emits ERROR event when not authorized", async () => {
+    test("emits ERROR_OCCURRED event when not authorized", async () => {
       adminService.clearPlaylist.mockResolvedValueOnce({
         success: false,
         error: {
@@ -250,7 +272,7 @@ describe("AdminHandlers", () => {
       await adminHandlers.clearPlaylist({ socket: mockSocket, io: mockIo })
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
-        type: "ERROR",
+        type: "ERROR_OCCURRED",
         data: {
           status: 403,
           error: "Forbidden",

@@ -36,9 +36,6 @@ describe("AuthHandlers", () => {
     toBroadcast = socketResult.toBroadcast
     roomSpy = socketResult.roomSpy
     broadcastEmit = socketResult.broadcastEmit
-    
-    // Add context to socket
-    mockSocket.context = { redis: {}, db: {}, adapters: {}, jobs: [] }
 
     // Mock the AuthService
     authService = {
@@ -173,7 +170,7 @@ describe("AuthHandlers", () => {
       })
     })
 
-    test("emits ERROR event when service returns an error", async () => {
+    test("emits ERROR_OCCURRED event when service returns an error", async () => {
       authService.submitPassword.mockResolvedValueOnce({
         error: {
           message: "Room not found",
@@ -185,7 +182,7 @@ describe("AuthHandlers", () => {
       await authHandlers.submitPassword({ socket: mockSocket, io: mockIo }, "secret", "room123")
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
-        type: "ERROR",
+        type: "ERROR_OCCURRED",
         data: {
           message: "Room not found",
           status: 404,
@@ -242,7 +239,7 @@ describe("AuthHandlers", () => {
       expect(mockSocket.request.session.save).toHaveBeenCalled()
     })
 
-    test("joins the room and emits USER_JOINED event", async () => {
+    test("joins the room and emits USER_JOINED event via systemEvents", async () => {
       await authHandlers.login(
         { socket: mockSocket, io: mockIo },
         {
@@ -254,10 +251,11 @@ describe("AuthHandlers", () => {
       )
 
       expect(mockSocket.join).toHaveBeenCalledWith("/rooms/room123")
-      expect(roomSpy).toHaveBeenCalledWith("/rooms/room123")
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        type: "USER_JOINED",
-        data: {
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room123",
+        "USER_JOINED",
+        {
+          roomId: "room123",
           user: expect.objectContaining({
             userId: "user123",
             username: "Homer",
@@ -269,7 +267,7 @@ describe("AuthHandlers", () => {
             }),
           ]),
         },
-      })
+      )
     })
 
     test("emits INIT event with init data", async () => {
@@ -295,7 +293,7 @@ describe("AuthHandlers", () => {
       })
     })
 
-    test("emits ERROR event when service returns an error", async () => {
+    test("emits ERROR_OCCURRED event when service returns an error", async () => {
       authService.login.mockResolvedValueOnce({
         error: {
           message: "Room not found",
@@ -314,7 +312,7 @@ describe("AuthHandlers", () => {
       )
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
-        type: "ERROR",
+        type: "ERROR_OCCURRED",
         data: {
           message: "Room not found",
           status: 404,
@@ -356,7 +354,7 @@ describe("AuthHandlers", () => {
       expect(authService.changeUsername).toHaveBeenCalledWith("user123", "NewName", "room123")
     })
 
-    test("updates session and emits USER_JOINED event on success", async () => {
+    test("updates session and emits USER_JOINED event via systemEvents on success", async () => {
       await authHandlers.changeUsername(
         { socket: mockSocket, io: mockIo },
         { userId: "user123", username: "NewName" },
@@ -370,10 +368,11 @@ describe("AuthHandlers", () => {
       )
       expect(mockSocket.request.session.save).toHaveBeenCalled()
 
-      expect(roomSpy).toHaveBeenCalledWith("/rooms/room123")
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        type: "USER_JOINED",
-        data: {
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room123",
+        "USER_JOINED",
+        {
+          roomId: "room123",
           user: expect.objectContaining({
             userId: "user123",
             username: "NewName",
@@ -385,7 +384,7 @@ describe("AuthHandlers", () => {
             }),
           ]),
         },
-      })
+      )
     })
 
     test("sends system message when provided", async () => {
@@ -414,15 +413,16 @@ describe("AuthHandlers", () => {
       expect(authService.disconnect).toHaveBeenCalledWith("room123", "user123", "Homer")
     })
 
-    test("leaves the room and emits USER_LEFT event", async () => {
+    test("leaves the room and emits USER_LEFT event via systemEvents", async () => {
       await authHandlers.disconnect({ socket: mockSocket, io: mockIo })
 
       expect(mockSocket.leave).toHaveBeenCalledWith("/rooms/room123")
-      expect(roomSpy).toHaveBeenCalledWith("/rooms/room123")
-      expect(broadcastEmit).toHaveBeenCalledWith("event", {
-        type: "USER_LEFT",
-        data: {
-          user: { username: "Homer" },
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room123",
+        "USER_LEFT",
+        {
+          roomId: "room123",
+          user: { userId: "user123", username: "Homer" },
           users: expect.arrayContaining([
             expect.objectContaining({
               userId: "another-user",
@@ -430,7 +430,7 @@ describe("AuthHandlers", () => {
             }),
           ]),
         },
-      })
+      )
     })
   })
 

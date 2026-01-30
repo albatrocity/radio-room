@@ -225,6 +225,7 @@ describe("AdminService", () => {
       vi.mocked(clearRoomCurrent).mockResolvedValueOnce({
         stationMeta: { title: "Test Song | Test Artist | Test Album", bitrate: "256" },
       })
+      vi.mocked(makeStableTrackId).mockReturnValueOnce("stable-track-id")
 
       await adminService.setRoomSettings("room123", "admin123", newSettings)
 

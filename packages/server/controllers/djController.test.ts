@@ -43,11 +43,11 @@ describe("DJController", () => {
     test("should register all DJ-related socket events", () => {
       createDJController(mockSocket, mockIo)
 
-      expect(mockSocket.on).toHaveBeenCalledWith("dj deputize user", expect.any(Function))
-      expect(mockSocket.on).toHaveBeenCalledWith("queue song", expect.any(Function))
-      expect(mockSocket.on).toHaveBeenCalledWith("search track", expect.any(Function))
-      expect(mockSocket.on).toHaveBeenCalledWith("search spotify track", expect.any(Function))
-      expect(mockSocket.on).toHaveBeenCalledWith("save playlist", expect.any(Function))
+      expect(mockSocket.on).toHaveBeenCalledWith("DEPUTIZE_DJ", expect.any(Function))
+      expect(mockSocket.on).toHaveBeenCalledWith("QUEUE_SONG", expect.any(Function))
+      expect(mockSocket.on).toHaveBeenCalledWith("SEARCH_TRACK", expect.any(Function))
+      expect(mockSocket.on).toHaveBeenCalledWith("SEARCH_SPOTIFY_TRACK", expect.any(Function))
+      expect(mockSocket.on).toHaveBeenCalledWith("SAVE_PLAYLIST", expect.any(Function))
     })
 
     test("should register exactly 5 socket events", () => {
@@ -58,39 +58,39 @@ describe("DJController", () => {
   })
 
   describe("event handler registration", () => {
-    test("should register 'dj deputize user' handler", () => {
+    test("should register 'DEPUTIZE_DJ' handler", () => {
       createDJController(mockSocket, mockIo)
 
-      expect(socketEventHandlers.has("dj deputize user")).toBe(true)
-      expect(socketEventHandlers.get("dj deputize user")).toBeTypeOf("function")
+      expect(socketEventHandlers.has("DEPUTIZE_DJ")).toBe(true)
+      expect(socketEventHandlers.get("DEPUTIZE_DJ")).toBeTypeOf("function")
     })
 
-    test("should register 'queue song' handler", () => {
+    test("should register 'QUEUE_SONG' handler", () => {
       createDJController(mockSocket, mockIo)
 
-      expect(socketEventHandlers.has("queue song")).toBe(true)
-      expect(socketEventHandlers.get("queue song")).toBeTypeOf("function")
+      expect(socketEventHandlers.has("QUEUE_SONG")).toBe(true)
+      expect(socketEventHandlers.get("QUEUE_SONG")).toBeTypeOf("function")
     })
 
-    test("should register 'search track' handler", () => {
+    test("should register 'SEARCH_TRACK' handler", () => {
       createDJController(mockSocket, mockIo)
 
-      expect(socketEventHandlers.has("search track")).toBe(true)
-      expect(socketEventHandlers.get("search track")).toBeTypeOf("function")
+      expect(socketEventHandlers.has("SEARCH_TRACK")).toBe(true)
+      expect(socketEventHandlers.get("SEARCH_TRACK")).toBeTypeOf("function")
     })
 
-    test("should register 'search spotify track' handler for backward compatibility", () => {
+    test("should register 'SEARCH_SPOTIFY_TRACK' handler for backward compatibility", () => {
       createDJController(mockSocket, mockIo)
 
-      expect(socketEventHandlers.has("search spotify track")).toBe(true)
-      expect(socketEventHandlers.get("search spotify track")).toBeTypeOf("function")
+      expect(socketEventHandlers.has("SEARCH_SPOTIFY_TRACK")).toBe(true)
+      expect(socketEventHandlers.get("SEARCH_SPOTIFY_TRACK")).toBeTypeOf("function")
     })
 
-    test("should register 'save playlist' handler", () => {
+    test("should register 'SAVE_PLAYLIST' handler", () => {
       createDJController(mockSocket, mockIo)
 
-      expect(socketEventHandlers.has("save playlist")).toBe(true)
-      expect(socketEventHandlers.get("save playlist")).toBeTypeOf("function")
+      expect(socketEventHandlers.has("SAVE_PLAYLIST")).toBe(true)
+      expect(socketEventHandlers.get("SAVE_PLAYLIST")).toBeTypeOf("function")
     })
   })
 
