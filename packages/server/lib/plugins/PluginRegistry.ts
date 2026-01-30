@@ -9,6 +9,8 @@ import {
   RoomExportData,
   PluginExportAugmentation,
   PluginMarkdownContext,
+  QueueValidationParams,
+  QueueValidationResult,
 } from "@repo/types"
 import { Server } from "socket.io"
 import { PluginAPIImpl } from "./PluginAPI"
@@ -204,6 +206,73 @@ export class PluginRegistry {
     )
 
     await Promise.allSettled(promises)
+  }
+
+  // ============================================================================
+  // Queue Validation
+  // ============================================================================
+
+  /** Timeout for queue validation calls (fail-open after this) */
+  private static readonly VALIDATION_TIMEOUT_MS = 500
+
+  /**
+   * Validate a queue request against all plugins that implement validateQueueRequest.
+   *
+   * This is called by DJService before adding a track to the queue.
+   * All plugins are called; the first rejection wins.
+   *
+   * IMPORTANT: Uses fail-open semantics - if a plugin errors or times out,
+   * the request is allowed to proceed. This ensures core functionality
+   * isn't blocked by plugin failures.
+   *
+   * @param params - Queue request parameters
+   * @returns Validation result - allowed or rejected with reason
+   */
+  async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+
+    if (!roomPluginMap || roomPluginMap.size === 0) {
+      return { allowed: true }
+    }
+
+    // Get plugins that implement validateQueueRequest
+    const pluginsWithValidation = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.validateQueueRequest === "function",
+    )
+
+    if (pluginsWithValidation.length === 0) {
+      return { allowed: true }
+    }
+
+    // Call each validator sequentially - first rejection wins
+    for (const [pluginName, { plugin }] of pluginsWithValidation) {
+      try {
+        const result = await Promise.race([
+          plugin.validateQueueRequest!(params),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+
+        if (!result.allowed) {
+          console.log(
+            `[PluginRegistry] Queue request rejected by ${pluginName}: ${result.reason}`,
+          )
+          return result
+        }
+      } catch (error) {
+        // Fail-open: don't block queue on plugin errors
+        console.warn(
+          `[PluginRegistry] Queue validator ${pluginName} failed (allowing request):`,
+          error,
+        )
+      }
+    }
+
+    return { allowed: true }
   }
 
   /**

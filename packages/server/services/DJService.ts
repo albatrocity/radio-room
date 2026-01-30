@@ -98,6 +98,24 @@ export class DJService {
       }
     }
 
+    // Run plugin validation hooks (e.g., rate limiting)
+    // Uses fail-open semantics: if plugins error/timeout, request proceeds
+    if (this.context.pluginRegistry) {
+      const validationResult = await this.context.pluginRegistry.validateQueueRequest({
+        roomId,
+        userId,
+        username,
+        trackId,
+      })
+
+      if (!validationResult.allowed) {
+        return {
+          success: false,
+          message: validationResult.reason,
+        }
+      }
+    }
+
     // Get the room to find the creator
     const room = await findRoom({ context: this.context, roomId })
 
