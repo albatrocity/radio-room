@@ -248,6 +248,40 @@ export class AdminHandlers {
       })
     }
   }
+
+  /**
+   * Delete a single track from a room's playlist
+   */
+  deletePlaylistTrack = async (
+    { socket }: HandlerConnections,
+    data: { playedAt: number },
+  ) => {
+    const result = await this.adminService.deletePlaylistTrack(
+      socket.data.roomId,
+      socket.data.userId,
+      data.playedAt,
+    )
+
+    if (result.error) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
+      return
+    }
+
+    if (!result.success) {
+      return
+    }
+
+    // Emit via SystemEvents so broadcasters receive PLAYLIST_TRACK_DELETED
+    if (socket.context.systemEvents) {
+      await socket.context.systemEvents.emit(socket.data.roomId, "PLAYLIST_TRACK_DELETED", {
+        roomId: socket.data.roomId,
+        playedAt: data.playedAt,
+      })
+    }
+  }
 }
 
 /**

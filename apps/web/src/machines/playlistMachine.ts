@@ -19,6 +19,7 @@ type PlaylistEvent =
   | { type: "PLAYLIST"; data: QueueItem[] }
   | { type: "PLAYLIST_TRACK_ADDED"; data: { track: QueueItem } }
   | { type: "PLAYLIST_TRACK_UPDATED"; data: { track: QueueItem } }
+  | { type: "PLAYLIST_TRACK_DELETED"; data: { playedAt: number } }
   | { type: "ROOM_DATA"; data: { playlist: QueueItem[] } }
   | { type: "TOGGLE_PLAYLIST" }
 
@@ -96,6 +97,15 @@ export const playlistMachine = setup({
         )
       },
     }),
+    removeFromPlaylist: assign({
+      playlist: ({ context, event }) => {
+        if (event.type !== "PLAYLIST_TRACK_DELETED") {
+          return context.playlist
+        }
+        // Remove the track by playedAt timestamp
+        return context.playlist.filter((item) => item.playedAt !== event.data.playedAt)
+      },
+    }),
   },
 }).createMachine({
   id: "playlist",
@@ -131,6 +141,9 @@ export const playlistMachine = setup({
         },
         PLAYLIST_TRACK_UPDATED: {
           actions: ["updateTrackInPlaylist"],
+        },
+        PLAYLIST_TRACK_DELETED: {
+          actions: ["removeFromPlaylist"],
         },
         ROOM_DATA: {
           actions: ["addTracksToPlaylist"],
