@@ -4,9 +4,15 @@ import type {
   PluginConfigSchema,
   PluginComponentSchema,
   PluginComponentState,
+  PluginAugmentationData,
   QueueItem,
   User,
 } from "@repo/types"
+import type {
+  PluginExportAugmentation,
+  PluginMarkdownContext,
+  RoomExportData,
+} from "@repo/types/RoomExport"
 import { BasePlugin } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import {
@@ -18,6 +24,17 @@ import { getComponentSchema, getConfigSchema } from "./schema"
 
 export type { AbsentDjConfig } from "./types"
 export { absentDjConfigSchema, defaultAbsentDjConfig } from "./types"
+
+// ============================================================================
+// Skip Data Type
+// ============================================================================
+
+interface SkipData {
+  trackId: string
+  trackTitle: string
+  timestamp: number
+  absentUsername: string
+}
 
 // ============================================================================
 // Component State Type
@@ -148,6 +165,14 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     // Clear any existing timer from previous track
     this.clearTimer()
 
+    // Reset isSkipped state when a new track starts
+    await this.emit("TRACK_CHANGED", {
+      showCountdown: false,
+      countdownStartTime: null,
+      absentUsername: null,
+      isSkipped: false,
+    })
+
     const config = await this.getConfig()
     if (!config?.enabled) return
 
@@ -169,6 +194,18 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     if (isPresent) {
       console.log(`[${this.name}] DJ ${addedByUsername} is present, no action needed`)
       return
+    }
+
+    // Check queue length requirement
+    if (config.skipRequiresQueue) {
+      const queue = await this.context.api.getQueue(this.context.roomId)
+      const queueLength = queue?.length ?? 0
+      if (queueLength <= config.skipRequiresQueueMin) {
+        console.log(
+          `[${this.name}] Queue has ${queueLength} tracks (minimum required: ${config.skipRequiresQueueMin + 1}), not skipping`,
+        )
+        return
+      }
     }
 
     console.log(
@@ -245,7 +282,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
   private async onPluginEnabled(config: AbsentDjConfig): Promise<void> {
     await this.context!.api.sendSystemMessage(
       this.context!.roomId,
-      `👻 Absent DJ enabled: Tracks will be skipped after ${Math.floor(config.skipDelay / 1000)} seconds if the DJ is not in the room`,
+      `👻 Absent DJ enabled: Tracks will be skipped after ${Math.floor(config.skipDelay / 1000)} seconds if the person that added the track is not in the room`,
       { type: "alert", status: "info" },
     )
 
@@ -257,6 +294,18 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     const isPresent = users.some((u) => u.userId === nowPlaying.addedBy!.userId)
 
     if (!isPresent) {
+      // Check queue length requirement
+      if (config.skipRequiresQueue) {
+        const queue = await this.context!.api.getQueue(this.context!.roomId)
+        const queueLength = queue?.length ?? 0
+        if (queueLength <= config.skipRequiresQueueMin) {
+          console.log(
+            `[${this.name}] Queue has ${queueLength} tracks (minimum required: ${config.skipRequiresQueueMin + 1}), not starting countdown`,
+          )
+          return
+        }
+      }
+
       const addedByUsername = nowPlaying.addedBy.username ?? "Unknown DJ"
       console.log(
         `[${this.name}] Current track DJ ${addedByUsername} is absent, starting countdown`,
@@ -354,7 +403,45 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
   ): Promise<void> {
     if (!this.context) return
 
+    // Re-check queue length requirement before skipping (it may have changed during countdown)
+    if (config.skipRequiresQueue) {
+      const queue = await this.context.api.getQueue(this.context.roomId)
+      const queueLength = queue?.length ?? 0
+      if (queueLength <= config.skipRequiresQueueMin) {
+        console.log(
+          `[${this.name}] Queue has ${queueLength} tracks (minimum required: ${config.skipRequiresQueueMin + 1}), cancelling skip`,
+        )
+        // Reset the UI state
+        await this.emit("SKIP_CANCELLED", {
+          showCountdown: false,
+          countdownStartTime: null,
+          absentUsername: null,
+          isSkipped: false,
+        })
+        return
+      }
+    }
+
     console.log(`[${this.name}] Skipping track ${trackId} - DJ ${absentUsername} is absent`)
+
+    // Store skip data for export
+    const skipData: SkipData = {
+      trackId,
+      trackTitle,
+      timestamp: Date.now(),
+      absentUsername,
+    }
+    await this.context.storage.set(`skipped:${trackId}`, JSON.stringify(skipData))
+
+    // Update the playlist track with plugin data for export
+    const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
+    if (nowPlaying) {
+      const existingPluginData = nowPlaying.pluginData ?? {}
+      await this.context.api.updatePlaylistTrack(this.context.roomId, {
+        ...nowPlaying,
+        pluginData: { ...existingPluginData, [this.name]: { skipped: true, skipData } },
+      })
+    }
 
     // Skip the track
     await this.context.api.skipTrack(this.context.roomId, trackId)
@@ -390,6 +477,96 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     return template
       .replace(/\{\{username\}\}/g, username)
       .replace(/\{\{title\}\}/g, title)
+  }
+
+  private parseSkipData(dataStr: string | null): SkipData | null {
+    if (!dataStr) return null
+    try {
+      return JSON.parse(dataStr) as SkipData
+    } catch {
+      return null
+    }
+  }
+
+  // ============================================================================
+  // Augmentation
+  // ============================================================================
+
+  async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
+    if (!this.context) return {}
+
+    const config = await this.getConfig()
+    if (!config?.enabled) return {}
+
+    const skipData = this.parseSkipData(
+      await this.context.storage.get(`skipped:${item.mediaSource.trackId}`),
+    )
+    if (!skipData) return {}
+
+    return {
+      skipped: true,
+      skipData,
+      styles: { title: { textDecoration: "line-through", opacity: 0.7 } },
+    }
+  }
+
+  async augmentPlaylistBatch(items: QueueItem[]): Promise<PluginAugmentationData[]> {
+    if (!this.context || items.length === 0) {
+      return items.map(() => ({}))
+    }
+
+    const skipKeys = items.map((item) => `skipped:${item.mediaSource.trackId}`)
+    const skipDataStrings = await this.context.storage.mget(skipKeys)
+
+    return skipDataStrings.map((dataStr) => {
+      const skipData = this.parseSkipData(dataStr)
+      return skipData ? { skipped: true, skipData } : {}
+    })
+  }
+
+  // ============================================================================
+  // Room Export
+  // ============================================================================
+
+  async augmentRoomExport(exportData: RoomExportData): Promise<PluginExportAugmentation> {
+    // Count tracks that were skipped by this plugin
+    const skippedTracks = exportData.playlist.filter(
+      (item) => item.pluginData?.["absent-dj"]?.skipped,
+    )
+
+    const totalSkipped = skippedTracks.length
+
+    // Get unique absent DJs
+    const absentDjs = new Set(
+      skippedTracks
+        .map((item) => item.pluginData?.["absent-dj"]?.skipData?.absentUsername)
+        .filter(Boolean),
+    )
+
+    return {
+      // Data added to export.pluginExports["absent-dj"] for programmatic access
+      data: {
+        totalSkipped,
+        uniqueAbsentDjs: absentDjs.size,
+        absentDjNames: Array.from(absentDjs),
+      },
+      // No separate markdown section - notes are added per-track via formatPluginDataMarkdown
+      markdownSections: [],
+    }
+  }
+
+  formatPluginDataMarkdown(pluginData: unknown, context: PluginMarkdownContext): string | null {
+    // Only format for playlist items
+    if (context.type !== "playlist") return null
+
+    const data = pluginData as {
+      skipped?: boolean
+      skipData?: { absentUsername: string }
+    }
+
+    if (!data.skipped || !data.skipData) return null
+
+    return `👻 Skipped (DJ ${data.skipData.absentUsername} absent)`
   }
 }
 

@@ -65,6 +65,8 @@ export function getConfigSchema(): PluginConfigSchema {
         variant: "info",
         showWhen: { field: "enabled", value: true },
       },
+      "skipRequiresQueue",
+      "skipRequiresQueueMin",
       { type: "heading", content: "Messages" },
       {
         type: "text-block",
@@ -92,6 +94,22 @@ export function getConfigSchema(): PluginConfigSchema {
         displayUnit: "seconds",
         storageUnit: "milliseconds",
         showWhen: { field: "enabled", value: true },
+      },
+      skipRequiresQueue: {
+        type: "boolean",
+        label: "Only skip when queue has tracks",
+        description:
+          "When enabled, tracks will not be skipped if the queue has too few tracks waiting",
+        showWhen: { field: "enabled", value: true },
+      },
+      skipRequiresQueueMin: {
+        type: "number",
+        label: "Minimum queue length to skip",
+        description: "Tracks will only be skipped if the queue has more than this many tracks",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "skipRequiresQueue", value: true },
+        ],
       },
       messageOnPlay: {
         type: "string",
