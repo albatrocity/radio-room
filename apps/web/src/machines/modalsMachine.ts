@@ -24,6 +24,7 @@ export type Event =
   | { type: "EDIT_PLAYLIST_DEMOCRACY" }
   | { type: "EDIT_SPECIAL_WORDS" }
   | { type: "EDIT_ABSENT_DJ" }
+  | { type: "EDIT_QUEUE_HYGIENE" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
@@ -95,6 +96,7 @@ export const modalsMachine = setup({
             EDIT_PLAYLIST_DEMOCRACY: "playlist_democracy",
             EDIT_SPECIAL_WORDS: "special_words",
             EDIT_ABSENT_DJ: "absent_dj",
+            EDIT_QUEUE_HYGIENE: "queue_hygiene",
           },
         },
         playlist_democracy: {
@@ -108,6 +110,11 @@ export const modalsMachine = setup({
           },
         },
         absent_dj: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        queue_hygiene: {
           on: {
             BACK: "overview",
           },

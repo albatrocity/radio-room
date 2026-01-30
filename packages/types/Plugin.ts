@@ -347,6 +347,50 @@ export interface PluginAugmentationData {
   [key: string]: any
 }
 
+// ============================================================================
+// Queue Validation Types
+// ============================================================================
+
+/**
+ * Parameters passed to queue validation hooks
+ */
+export interface QueueValidationParams {
+  roomId: string
+  userId: string
+  username: string
+  trackId: string
+}
+
+/**
+ * Result of a queue validation check
+ */
+export type QueueValidationResult =
+  | { allowed: true }
+  | { allowed: false; reason: string }
+
+/**
+ * Helper to create an "allowed" queue validation response.
+ * Use this when the queue request should proceed.
+ *
+ * @example
+ * if (!config.enabled) return allowQueueRequest()
+ */
+export const allowQueueRequest = (): QueueValidationResult => ({ allowed: true })
+
+/**
+ * Helper to create a "rejected" queue validation response.
+ * Use this to block a queue request with a user-facing message.
+ *
+ * @param reason - Message explaining why the request was rejected (shown to user)
+ *
+ * @example
+ * return rejectQueueRequest("Please wait for another DJ to add a song")
+ */
+export const rejectQueueRequest = (reason: string): QueueValidationResult => ({
+  allowed: false,
+  reason,
+})
+
 /**
  * Base plugin interface
  */
@@ -410,6 +454,33 @@ export interface Plugin {
    * }
    */
   executeAction?(action: string): Promise<{ success: boolean; message?: string }>
+
+  /**
+   * Validate a queue request before it is processed.
+   * Called by DJService before adding a track to the queue.
+   *
+   * This is a pre-processing hook that allows plugins to block queue operations.
+   * All plugins with this method are called; the first rejection wins.
+   *
+   * IMPORTANT: This method should be fast (<500ms). If it times out or throws,
+   * the system will default to allowing the request (fail-open semantics).
+   *
+   * @param params - Queue request parameters
+   * @returns Validation result - either allowed or rejected with reason
+   *
+   * @example
+   * async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {
+   *   const config = await this.getConfig()
+   *   if (!config?.enabled) return allowQueueRequest()
+   *
+   *   const lastQueueTime = await this.storage.get(`lastQueue:${params.userId}`)
+   *   if (lastQueueTime && Date.now() - Number(lastQueueTime) < config.cooldownMs) {
+   *     return rejectQueueRequest('Please wait before queuing another song')
+   *   }
+   *   return allowQueueRequest()
+   * }
+   */
+  validateQueueRequest?(params: QueueValidationParams): Promise<QueueValidationResult>
 
   /**
    * Optional method to augment playlist items with plugin-specific metadata.
