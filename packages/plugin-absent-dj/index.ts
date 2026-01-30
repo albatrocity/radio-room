@@ -48,16 +48,17 @@ export interface AbsentDjComponentState extends PluginComponentState {
 }
 
 // ============================================================================
-// Timer Data Type
+// Timer Constants and Types
 // ============================================================================
 
-interface ActiveTimer {
-  timeout: NodeJS.Timeout
+const COUNTDOWN_TIMER_ID = "absent-dj-countdown"
+
+/** Metadata stored with the countdown timer */
+interface CountdownTimerData {
   trackId: string
   absentUserId: string
   absentUsername: string
   trackTitle: string
-  startTime: number
 }
 
 // ============================================================================
@@ -81,8 +82,6 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
 
   static readonly configSchema = absentDjConfigSchema
   static readonly defaultConfig = defaultAbsentDjConfig
-
-  private activeTimer: ActiveTimer | null = null
 
   // ============================================================================
   // Schema Methods
@@ -121,11 +120,12 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     }
 
     // If we have an active timer, show the countdown
-    if (this.activeTimer) {
+    const timer = this.getTimer<CountdownTimerData>(COUNTDOWN_TIMER_ID)
+    if (timer) {
       return {
         showCountdown: true,
-        countdownStartTime: this.activeTimer.startTime,
-        absentUsername: this.activeTimer.absentUsername,
+        countdownStartTime: timer.startTime,
+        absentUsername: timer.data?.absentUsername ?? null,
         isSkipped: false,
       }
     }
@@ -151,10 +151,6 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     this.onConfigChange(this.handleConfigChange.bind(this))
   }
 
-  protected async onCleanup(): Promise<void> {
-    this.clearTimer()
-  }
-
   // ============================================================================
   // Event Handlers
   // ============================================================================
@@ -163,7 +159,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     if (!this.context) return
 
     // Clear any existing timer from previous track
-    this.clearTimer()
+    this.clearTimer(COUNTDOWN_TIMER_ID)
 
     // Reset isSkipped state when a new track starts
     await this.emit("TRACK_CHANGED", {
@@ -222,22 +218,25 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     }
 
     // Start the countdown timer
-    this.startTimer(track, addedByUserId, addedByUsername, config)
+    this.startCountdownTimer(track, addedByUserId, addedByUsername, config)
   }
 
   private async onUserJoined(data: { roomId: string; user: User }): Promise<void> {
-    if (!this.context || !this.activeTimer) return
+    if (!this.context) return
+
+    const timer = this.getTimer<CountdownTimerData>(COUNTDOWN_TIMER_ID)
+    if (!timer) return
 
     const config = await this.getConfig()
     if (!config?.enabled) return
 
     // Check if the joining user is the absent DJ we're waiting for
-    if (data.user.userId === this.activeTimer.absentUserId) {
+    if (data.user.userId === timer.data?.absentUserId) {
       console.log(
-        `[${this.name}] DJ ${this.activeTimer.absentUsername} returned! Cancelling skip countdown`,
+        `[${this.name}] DJ ${timer.data.absentUsername} returned! Cancelling skip countdown`,
       )
 
-      this.clearTimer()
+      this.clearTimer(COUNTDOWN_TIMER_ID)
 
       // Emit event to hide countdown on frontend
       await this.emit("COUNTDOWN_CANCELLED", {
@@ -324,12 +323,12 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
         })
       }
 
-      this.startTimer(nowPlaying, nowPlaying.addedBy.userId, addedByUsername, config)
+      this.startCountdownTimer(nowPlaying, nowPlaying.addedBy.userId, addedByUsername, config)
     }
   }
 
   private async onPluginDisabled(): Promise<void> {
-    this.clearTimer()
+    this.clearTimer(COUNTDOWN_TIMER_ID)
     await this.emit("PLUGIN_DISABLED", {
       showCountdown: false,
       countdownStartTime: null,
@@ -346,49 +345,35 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
   // Timer Management
   // ============================================================================
 
-  private startTimer(
+  private startCountdownTimer(
     track: QueueItem,
     absentUserId: string,
     absentUsername: string,
     config: AbsentDjConfig,
   ): void {
-    this.clearTimer()
-
     const trackId = track.mediaSource.trackId
-    const startTime = Date.now()
+    const trackTitle = track.title
 
-    const timeout = setTimeout(async () => {
-      await this.skipTrack(trackId, track.title, absentUsername, config)
-      this.activeTimer = null
-    }, config.skipDelay)
-
-    this.activeTimer = {
-      timeout,
-      trackId,
-      absentUserId,
-      absentUsername,
-      trackTitle: track.title,
-      startTime,
-    }
-
-    // Emit event to show countdown on frontend
-    this.emit("COUNTDOWN_STARTED", {
-      showCountdown: true,
-      countdownStartTime: startTime,
-      absentUsername,
+    this.startTimer<CountdownTimerData>(COUNTDOWN_TIMER_ID, {
+      duration: config.skipDelay,
+      callback: async () => {
+        await this.skipTrack(trackId, trackTitle, absentUsername, config)
+      },
+      data: {
+        trackId,
+        absentUserId,
+        absentUsername,
+        trackTitle,
+      },
     })
 
-    console.log(
-      `[${this.name}] Started countdown for track ${trackId}, will skip in ${config.skipDelay}ms`,
-    )
-  }
-
-  private clearTimer(): void {
-    if (this.activeTimer) {
-      clearTimeout(this.activeTimer.timeout)
-      console.log(`[${this.name}] Cleared timer for track ${this.activeTimer.trackId}`)
-      this.activeTimer = null
-    }
+    // Emit event to show countdown on frontend
+    const timer = this.getTimer(COUNTDOWN_TIMER_ID)
+    this.emit("COUNTDOWN_STARTED", {
+      showCountdown: true,
+      countdownStartTime: timer?.startTime ?? Date.now(),
+      absentUsername,
+    })
   }
 
   // ============================================================================
