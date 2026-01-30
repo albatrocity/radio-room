@@ -107,3 +107,45 @@ export async function clearRoomPlaylist({ context, roomId }: ClearRoomPlaylistPa
     console.error(e)
   }
 }
+
+type RemoveFromPlaylistParams = {
+  context: AppContext
+  roomId: string
+  playedAt: number // Unique identifier for the track
+}
+
+/**
+ * Remove a track from the playlist by its playedAt timestamp.
+ * Returns true if the track was found and removed, false otherwise.
+ */
+export async function removeFromPlaylist({
+  context,
+  roomId,
+  playedAt,
+}: RemoveFromPlaylistParams): Promise<boolean> {
+  try {
+    const roomKey = `room:${roomId}:playlist`
+    const roomExists = await context.redis.pubClient.exists(roomKey)
+    if (!roomExists) {
+      return false
+    }
+
+    // Get all items to find the one with matching playedAt
+    const results = await context.redis.pubClient.zRange(roomKey, 0, -1)
+
+    for (const itemString of results) {
+      const item = JSON.parse(itemString) as QueueItem
+      if (item.playedAt === playedAt) {
+        // Remove this specific item by value
+        const removed = await context.redis.pubClient.zRem(roomKey, itemString)
+        return removed > 0
+      }
+    }
+
+    return false
+  } catch (e) {
+    console.log("ERROR FROM data/playlists/removeFromPlaylist", roomId, playedAt)
+    console.error(e)
+    return false
+  }
+}

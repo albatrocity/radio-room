@@ -1,4 +1,4 @@
-import { useMemo, memo } from "react"
+import { useMemo, memo, useState, useCallback } from "react"
 import { format } from "date-fns"
 import {
   Stack,
@@ -10,12 +10,15 @@ import {
   Box,
   HStack,
   StackSeparator,
+  IconButton,
 } from "@chakra-ui/react"
 
 import { PlaylistItem as PlaylistItemType, getPreferredTrack } from "../types/PlaylistItem"
-import { FiUser, FiSkipForward } from "react-icons/fi"
-import { useUsers, usePreferredMetadataSource } from "../hooks/useActors"
+import { FiUser, FiSkipForward, FiTrash2 } from "react-icons/fi"
+import { useUsers, usePreferredMetadataSource, useIsAdmin } from "../hooks/useActors"
 import { PluginArea } from "./PluginComponents"
+import { emitToSocket } from "../actors/socketActor"
+import ConfirmationDialog from "./ConfirmationDialog"
 
 type Props = {
   item: PlaylistItemType
@@ -23,12 +26,30 @@ type Props = {
 
 const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
   const preferredSource = usePreferredMetadataSource()
+  const isAdmin = useIsAdmin()
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
 
   // Get track data from preferred metadata source (or fall back to default)
   const preferredTrack = useMemo(
     () => getPreferredTrack(item, preferredSource),
     [item, preferredSource],
   )
+
+  const handleDeleteClick = useCallback(() => {
+    setIsDeleteDialogOpen(true)
+  }, [])
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (item.playedAt) {
+      emitToSocket("DELETE_PLAYLIST_TRACK", { playedAt: item.playedAt })
+    }
+    setIsDeleteDialogOpen(false)
+  }, [item.playedAt])
+
+  const handleDeleteCancel = useCallback(() => {
+    setIsDeleteDialogOpen(false)
+  }, [])
 
   // Get album art from preferred track
   const artThumb = useMemo(() => {
@@ -62,6 +83,8 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
       align="stretch"
       width="100%"
       opacity={isSkipped ? 0.6 : 1}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <LinkBox>
         <Stack direction="row">
@@ -127,7 +150,38 @@ const PlaylistItem = memo(function PlaylistItem({ item }: Props) {
               : undefined}
           </Text>
         )}
+        {isAdmin && item.playedAt && (
+          <IconButton
+            aria-label="Delete track from playlist"
+            size="xs"
+            variant="ghost"
+            colorPalette="red"
+            onClick={handleDeleteClick}
+            css={{
+              opacity: isHovered ? 1 : 0,
+              transition: "opacity 0.2s ease-in-out",
+            }}
+          >
+            <FiTrash2 />
+          </IconButton>
+        )}
       </Stack>
+
+      <ConfirmationDialog
+        open={isDeleteDialogOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Track"
+        body={
+          <Text>
+            Are you sure you want to remove{" "}
+            <Text as="strong">{preferredTrack?.title || "this track"}</Text> from the playlist?
+            This will also remove it from room exports.
+          </Text>
+        }
+        confirmLabel="Delete"
+        isDangerous
+      />
     </Stack>
   )
 })

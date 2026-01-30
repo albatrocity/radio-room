@@ -9,6 +9,7 @@ import {
   getUser,
   saveRoom,
   clearRoomPlaylist,
+  removeFromPlaylist,
 } from "../operations/data"
 import handleRoomNowPlayingData from "../operations/room/handleRoomNowPlayingData"
 import { makeStableTrackId } from "../lib/makeNowPlayingFromStationMeta"
@@ -156,6 +157,32 @@ export class AdminService {
 
     await clearRoomPlaylist({ context: this.context, roomId })
     await clearQueue({ context: this.context, roomId })
+
+    return { success: true, error: null }
+  }
+
+  /**
+   * Delete a single track from a room's playlist
+   */
+  async deletePlaylistTrack(roomId: string, userId: string, playedAt: number) {
+    const { room, error } = await this.getAuthedRoom(roomId, userId)
+
+    if (!room) {
+      return { success: false, error }
+    }
+
+    const removed = await removeFromPlaylist({ context: this.context, roomId, playedAt })
+
+    if (!removed) {
+      return {
+        success: false,
+        error: {
+          status: 404,
+          error: "Not Found",
+          message: "Track not found in playlist.",
+        },
+      }
+    }
 
     return { success: true, error: null }
   }
