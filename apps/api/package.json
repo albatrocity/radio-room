@@ -15,6 +15,7 @@
     "@repo/adapter-spotify": "*",
     "@repo/adapter-tidal": "*",
     "@repo/media-source-shoutcast": "*",
+    "@repo/plugin-absent-dj": "*",
     "@repo/plugin-special-words": "*",
     "@repo/plugin-playlist-democracy": "*",
     "@repo/server": "*",

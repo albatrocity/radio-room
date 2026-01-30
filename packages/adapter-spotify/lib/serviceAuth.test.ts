@@ -2,15 +2,7 @@ import { describe, expect, test, vi, beforeEach } from "vitest"
 import { createSpotifyServiceAuthAdapter } from "./serviceAuth"
 import { AppContext } from "@repo/types"
 import { appContextFactory } from "@repo/factories"
-import * as serviceAuthOperations from "@repo/server/operations/data/serviceAuthentications"
 import * as refreshOp from "./operations/refreshSpotifyAccessToken"
-
-// Mock the service authentication operations
-vi.mock("@repo/server/operations/data/serviceAuthentications", () => ({
-  getUserServiceAuth: vi.fn(),
-  deleteUserServiceAuth: vi.fn(),
-  storeUserServiceAuth: vi.fn(),
-}))
 
 // Mock the Spotify token refresh operation
 vi.mock("./operations/refreshSpotifyAccessToken", () => ({
@@ -20,6 +12,9 @@ vi.mock("./operations/refreshSpotifyAccessToken", () => ({
 describe("createSpotifyServiceAuthAdapter", () => {
   let mockContext: AppContext
   let spotifyAuthAdapter: ReturnType<typeof createSpotifyServiceAuthAdapter>
+  let mockGetUserServiceAuth: ReturnType<typeof vi.fn>
+  let mockDeleteUserServiceAuth: ReturnType<typeof vi.fn>
+  let mockStoreUserServiceAuth: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -35,7 +30,21 @@ describe("createSpotifyServiceAuthAdapter", () => {
       expiresIn: 3600,
     })
     
-    mockContext = appContextFactory.build()
+    // Create mock functions for context.data
+    mockGetUserServiceAuth = vi.fn()
+    mockDeleteUserServiceAuth = vi.fn()
+    mockStoreUserServiceAuth = vi.fn()
+    
+    // Build context with mocked data functions
+    mockContext = {
+      ...appContextFactory.build(),
+      data: {
+        getUserServiceAuth: mockGetUserServiceAuth,
+        deleteUserServiceAuth: mockDeleteUserServiceAuth,
+        storeUserServiceAuth: mockStoreUserServiceAuth,
+      },
+    } as unknown as AppContext
+    
     spotifyAuthAdapter = createSpotifyServiceAuthAdapter(mockContext)
   })
 
@@ -59,7 +68,7 @@ describe("createSpotifyServiceAuthAdapter", () => {
         expiresAt: Date.now() + 3600000,
       }
 
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(mockAuth)
+      mockGetUserServiceAuth.mockResolvedValue(mockAuth)
 
       const result = await spotifyAuthAdapter.getAuthStatus("user123")
 
@@ -69,15 +78,14 @@ describe("createSpotifyServiceAuthAdapter", () => {
         serviceName: "spotify",
       })
 
-      expect(serviceAuthOperations.getUserServiceAuth).toHaveBeenCalledWith({
-        context: mockContext,
+      expect(mockGetUserServiceAuth).toHaveBeenCalledWith({
         userId: "user123",
         serviceName: "spotify",
       })
     })
 
     test("should return unauthenticated status when no tokens found", async () => {
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(null)
+      mockGetUserServiceAuth.mockResolvedValue(null)
 
       const result = await spotifyAuthAdapter.getAuthStatus("user123")
 
@@ -95,7 +103,7 @@ describe("createSpotifyServiceAuthAdapter", () => {
         expiresAt: Date.now() + 3600000,
       }
 
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(mockAuth)
+      mockGetUserServiceAuth.mockResolvedValue(mockAuth)
 
       const result = await spotifyAuthAdapter.getAuthStatus("user123")
 
@@ -107,9 +115,7 @@ describe("createSpotifyServiceAuthAdapter", () => {
     })
 
     test("should handle errors gracefully and return unauthenticated", async () => {
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockRejectedValue(
-        new Error("Redis connection failed"),
-      )
+      mockGetUserServiceAuth.mockRejectedValue(new Error("Redis connection failed"))
 
       const result = await spotifyAuthAdapter.getAuthStatus("user123")
 
@@ -126,12 +132,11 @@ describe("createSpotifyServiceAuthAdapter", () => {
         expiresAt: Date.now() + 3600000,
       }
 
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(mockAuth)
+      mockGetUserServiceAuth.mockResolvedValue(mockAuth)
 
       const result = await spotifyAuthAdapter.getAuthStatus("user456")
 
-      expect(serviceAuthOperations.getUserServiceAuth).toHaveBeenCalledWith({
-        context: mockContext,
+      expect(mockGetUserServiceAuth).toHaveBeenCalledWith({
         userId: "user456",
         serviceName: "spotify",
       })
@@ -143,38 +148,36 @@ describe("createSpotifyServiceAuthAdapter", () => {
 
   describe("logout", () => {
     test("should call deleteUserServiceAuth with correct parameters", async () => {
-      vi.mocked(serviceAuthOperations.deleteUserServiceAuth).mockResolvedValue()
+      mockDeleteUserServiceAuth.mockResolvedValue(undefined)
 
       await spotifyAuthAdapter.logout("user123")
 
-      expect(serviceAuthOperations.deleteUserServiceAuth).toHaveBeenCalledWith({
-        context: mockContext,
+      expect(mockDeleteUserServiceAuth).toHaveBeenCalledWith({
         userId: "user123",
         serviceName: "spotify",
       })
     })
 
     test("should work with different user IDs", async () => {
-      vi.mocked(serviceAuthOperations.deleteUserServiceAuth).mockResolvedValue()
+      mockDeleteUserServiceAuth.mockResolvedValue(undefined)
 
       await spotifyAuthAdapter.logout("user789")
 
-      expect(serviceAuthOperations.deleteUserServiceAuth).toHaveBeenCalledWith({
-        context: mockContext,
+      expect(mockDeleteUserServiceAuth).toHaveBeenCalledWith({
         userId: "user789",
         serviceName: "spotify",
       })
     })
 
     test("should not throw error when user has no auth to delete", async () => {
-      vi.mocked(serviceAuthOperations.deleteUserServiceAuth).mockResolvedValue()
+      mockDeleteUserServiceAuth.mockResolvedValue(undefined)
 
       await expect(spotifyAuthAdapter.logout("nonexistent-user")).resolves.not.toThrow()
     })
 
     test("should propagate errors from deleteUserServiceAuth", async () => {
       const error = new Error("Redis delete failed")
-      vi.mocked(serviceAuthOperations.deleteUserServiceAuth).mockRejectedValue(error)
+      mockDeleteUserServiceAuth.mockRejectedValue(error)
 
       await expect(spotifyAuthAdapter.logout("user123")).rejects.toThrow("Redis delete failed")
     })
@@ -188,8 +191,8 @@ describe("createSpotifyServiceAuthAdapter", () => {
         expiresAt: Date.now() - 1000, // Expired
       }
 
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(mockAuth)
-      vi.mocked(serviceAuthOperations.storeUserServiceAuth).mockResolvedValue()
+      mockGetUserServiceAuth.mockResolvedValue(mockAuth)
+      mockStoreUserServiceAuth.mockResolvedValue(undefined)
 
       const result = await spotifyAuthAdapter.refreshAuth("user123")
 
@@ -201,8 +204,7 @@ describe("createSpotifyServiceAuthAdapter", () => {
       )
 
       // Should store the new tokens
-      expect(serviceAuthOperations.storeUserServiceAuth).toHaveBeenCalledWith({
-        context: mockContext,
+      expect(mockStoreUserServiceAuth).toHaveBeenCalledWith({
         userId: "user123",
         serviceName: "spotify",
         tokens: {
@@ -225,7 +227,7 @@ describe("createSpotifyServiceAuthAdapter", () => {
         expiresAt: Date.now() + 3600000,
       }
 
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(mockAuth)
+      mockGetUserServiceAuth.mockResolvedValue(mockAuth)
 
       await expect(spotifyAuthAdapter.refreshAuth("user123")).rejects.toThrow(
         "No refresh token available",
@@ -233,7 +235,7 @@ describe("createSpotifyServiceAuthAdapter", () => {
     })
 
     test("should throw error when no auth data exists", async () => {
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(null)
+      mockGetUserServiceAuth.mockResolvedValue(null)
 
       await expect(spotifyAuthAdapter.refreshAuth("user123")).rejects.toThrow(
         "No refresh token available",
@@ -241,7 +243,7 @@ describe("createSpotifyServiceAuthAdapter", () => {
     })
 
     test("should throw error when auth exists but tokens are undefined", async () => {
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue({
+      mockGetUserServiceAuth.mockResolvedValue({
         accessToken: "",
         refreshToken: "",
       })
@@ -261,16 +263,16 @@ describe("createSpotifyServiceAuthAdapter", () => {
       }
 
       // After login (tokens stored)
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(mockAuth)
+      mockGetUserServiceAuth.mockResolvedValue(mockAuth)
       const statusAfterLogin = await spotifyAuthAdapter.getAuthStatus("user123")
       expect(statusAfterLogin.isAuthenticated).toBe(true)
 
       // Logout
-      vi.mocked(serviceAuthOperations.deleteUserServiceAuth).mockResolvedValue()
+      mockDeleteUserServiceAuth.mockResolvedValue(undefined)
       await spotifyAuthAdapter.logout("user123")
 
       // Check status after logout
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(null)
+      mockGetUserServiceAuth.mockResolvedValue(null)
       const statusAfterLogout = await spotifyAuthAdapter.getAuthStatus("user123")
       expect(statusAfterLogout.isAuthenticated).toBe(false)
     })
@@ -282,8 +284,8 @@ describe("createSpotifyServiceAuthAdapter", () => {
         expiresAt: Date.now() - 1000,
       }
 
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(expiredAuth)
-      vi.mocked(serviceAuthOperations.storeUserServiceAuth).mockResolvedValue()
+      mockGetUserServiceAuth.mockResolvedValue(expiredAuth)
+      mockStoreUserServiceAuth.mockResolvedValue(undefined)
 
       // Refresh should call Spotify API and return new tokens
       const refreshedTokens = await spotifyAuthAdapter.refreshAuth("user123")
@@ -302,12 +304,11 @@ describe("createSpotifyServiceAuthAdapter", () => {
 
   describe("edge cases", () => {
     test("should handle empty user ID", async () => {
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(null)
+      mockGetUserServiceAuth.mockResolvedValue(null)
 
       const result = await spotifyAuthAdapter.getAuthStatus("")
 
-      expect(serviceAuthOperations.getUserServiceAuth).toHaveBeenCalledWith({
-        context: mockContext,
+      expect(mockGetUserServiceAuth).toHaveBeenCalledWith({
         userId: "",
         serviceName: "spotify",
       })
@@ -323,12 +324,11 @@ describe("createSpotifyServiceAuthAdapter", () => {
         expiresAt: Date.now() + 3600000,
       }
 
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(mockAuth)
+      mockGetUserServiceAuth.mockResolvedValue(mockAuth)
 
       const result = await spotifyAuthAdapter.getAuthStatus(specialUserId)
 
-      expect(serviceAuthOperations.getUserServiceAuth).toHaveBeenCalledWith({
-        context: mockContext,
+      expect(mockGetUserServiceAuth).toHaveBeenCalledWith({
         userId: specialUserId,
         serviceName: "spotify",
       })
@@ -343,7 +343,7 @@ describe("createSpotifyServiceAuthAdapter", () => {
         expiresAt: Date.now() + 3600000,
       }
 
-      vi.mocked(serviceAuthOperations.getUserServiceAuth).mockResolvedValue(mockAuth)
+      mockGetUserServiceAuth.mockResolvedValue(mockAuth)
 
       // Make multiple concurrent calls
       const results = await Promise.all([
@@ -358,7 +358,7 @@ describe("createSpotifyServiceAuthAdapter", () => {
         expect(result.serviceName).toBe("spotify")
       })
 
-      expect(serviceAuthOperations.getUserServiceAuth).toHaveBeenCalledTimes(3)
+      expect(mockGetUserServiceAuth).toHaveBeenCalledTimes(3)
     })
   })
 })

@@ -1,25 +1,22 @@
 {
-  "name": "@repo/utils",
+  "name": "@repo/plugin-absent-dj",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
   "scripts": {
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "test:watch": "vitest",
     "lint": "prettier --write . && eslint . --fix",
     "format": "prettier --write ."
   },
-  "author": "",
-  "license": "ISC",
+  "dependencies": {
+    "@repo/plugin-base": "*",
+    "@repo/types": "*",
+    "zod": "^4.1.13"
+  },
   "devDependencies": {
     "@repo/eslint-config": "*",
-    "@repo/types": "*",
     "@repo/typescript-config": "*",
     "vitest": "^4.0.13"
-  },
-  "dependencies": {
-    "react-mentions": "3.0.2",
-    "zod": "^4.1.13"
   }
 }
