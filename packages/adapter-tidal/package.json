@@ -4,7 +4,7 @@
   "description": "Tidal adapter for Listening Room - MetadataSource implementation",
   "main": "index.ts",
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "lint": "prettier --write . && eslint . --fix",
     "format": "prettier --write ."
