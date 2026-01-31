@@ -3,14 +3,27 @@ import { Alert, Flex, HStack, Text } from "@chakra-ui/react"
 import { format } from "date-fns"
 import { ChatMessage } from "../types/ChatMessage"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
+import { useCurrentUser } from "../hooks/useActors"
 
-const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
+const SystemMessage = ({ content, timestamp, meta = {}, mentions = [] }: ChatMessage) => {
   const date = new Date(timestamp)
   const time = format(date, "p")
   const dateString = format(date, "M/d/y")
   const { status, type, title } = meta
+  const currentUser = useCurrentUser()
+
+  // Check if current user is mentioned (by username)
+  const isMention = currentUser?.username
+    ? mentions.includes(currentUser.username)
+    : false
+
   return type === "alert" ? (
-    <Alert.Root status={status ?? "info"} bg="secondaryBg" color="secondaryText" borderRadius={0}>
+    <Alert.Root
+      status={status ?? "info"}
+      bg={isMention ? "primaryBg" : "secondaryBg"}
+      color="secondaryText"
+      borderRadius={0}
+    >
       <Alert.Indicator />
       {title && <Alert.Title>{title}</Alert.Title>}
       <Alert.Description>
@@ -28,6 +41,8 @@ const SystemMessage = ({ content, timestamp, meta = {} }: ChatMessage) => {
       alignItems="center"
       flexDirection="column"
       role="group"
+      bg={isMention ? "primaryBg" : "none"}
+      layerStyle="themeTransition"
     >
       <Text as="span" color="secondaryText" fontSize="sm" textAlign="center">
         <ParsedEmojiMessage content={content} />
