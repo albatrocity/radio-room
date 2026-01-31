@@ -437,6 +437,74 @@ export class DJHandlers {
       })
     }
   }
+
+  /**
+   * Request removal of a track from the queue
+   * Sends a system message to the room notifying the admin
+   */
+  requestQueueRemoval = async (
+    { socket, io }: HandlerConnections,
+    { trackId }: { trackId: string },
+  ) => {
+    try {
+      const { roomId, userId, username } = socket.data
+
+      // Get the queue to find the track
+      const { getQueue, findRoom, getUser } = await import("../operations/data")
+      const queue = await getQueue({ context: this.context, roomId })
+
+      // Find the track in the queue
+      const queueItem = queue.find((item) => item.track.id === trackId)
+
+      if (!queueItem) {
+        socket.emit("event", {
+          type: "REQUEST_QUEUE_REMOVAL_FAILURE",
+          data: { message: "Track not found in queue" },
+        })
+        return
+      }
+
+      // Verify the user added this track
+      if (queueItem.addedBy?.userId !== userId) {
+        socket.emit("event", {
+          type: "REQUEST_QUEUE_REMOVAL_FAILURE",
+          data: { message: "You can only request removal of tracks you added" },
+        })
+        return
+      }
+
+      // Get room to find the creator
+      const room = await findRoom({ context: this.context, roomId })
+      const creator = room?.creator
+        ? await getUser({ context: this.context, userId: room.creator })
+        : null
+      const creatorMention = creator?.username ? `@${creator.username}` : "Room admin"
+
+      // Get the actual track title from track.track.title
+      const trackTitle = queueItem.track.title || queueItem.title || "Unknown track"
+
+      // Send a system message to the room mentioning the admin
+      const { default: systemMessage } = await import("../lib/systemMessage")
+      const message = systemMessage(
+        `{creatorMention}: ${username} requested removal of "${trackTitle}" from the queue.`,
+        { status: "info" },
+        creator?.username ? [creator.username] : undefined,
+      )
+
+      await sendMessage(io, roomId, message, this.context)
+
+      socket.emit("event", {
+        type: "REQUEST_QUEUE_REMOVAL_SUCCESS",
+        data: { trackId },
+      })
+    } catch (error: any) {
+      console.error("Error requesting queue removal:", error)
+      socket.emit("event", {
+        type: "REQUEST_QUEUE_REMOVAL_FAILURE",
+        data: { message: error?.message || "Failed to request queue removal" },
+      })
+    }
+  }
 }
 
 /**
