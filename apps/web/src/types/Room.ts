@@ -33,6 +33,8 @@ export type Room = {
   // Queue display settings (default true)
   showQueueCount?: boolean
   showQueueTracks?: boolean
+  // Chat settings
+  allowChatImages?: boolean
 }
 
 export type RoomSetup = Pick<

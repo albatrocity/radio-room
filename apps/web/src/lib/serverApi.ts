@@ -103,6 +103,39 @@ export async function getPluginComponentState(
 }
 
 // =============================================================================
+// Image Upload
+// =============================================================================
+
+export type UploadedImage = {
+  id: string
+  url: string
+}
+
+export type ImageUploadResponse = {
+  success: boolean
+  images: UploadedImage[]
+}
+
+/**
+ * Upload images to a room via HTTP multipart form data.
+ * Returns array of uploaded image IDs and URLs.
+ */
+export async function uploadImages(roomId: string, files: File[]): Promise<ImageUploadResponse> {
+  const formData = new FormData()
+  files.forEach((file) => formData.append("images", file))
+
+  const res = await ky
+    .post(`${API_URL}/api/rooms/${roomId}/images`, {
+      body: formData,
+      credentials: "include",
+      timeout: 60000, // Longer timeout for large uploads
+    })
+    .json<ImageUploadResponse>()
+
+  return res
+}
+
+// =============================================================================
 // Room Export
 // =============================================================================
 

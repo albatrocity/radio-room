@@ -11,19 +11,10 @@ import { chatMachine } from "../machines/chatMachine"
 import { ChatMessage } from "../types/ChatMessage"
 
 /**
- * Image data to be sent with a message
- */
-type ImageData = {
-  data: string // base64 encoded
-  mimeType: string
-}
-
-/**
- * Message payload that can include images
+ * Message payload - images are uploaded via HTTP before sending
  */
 type MessagePayload = {
   content: string
-  images?: ImageData[]
 }
 
 // ============================================================================

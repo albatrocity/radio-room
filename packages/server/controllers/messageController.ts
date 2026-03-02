@@ -17,7 +17,7 @@ export function createMessageController(socket: SocketWithContext, io: Server): 
 
   /**
    * Handle new chat message
-   * Accepts either a string (legacy) or an object with content and optional images
+   * Accepts either a string (legacy) or an object with content
    */
   socket.on("SEND_MESSAGE", async (message: string | MessagePayload) => {
     await handlers.newMessage(connections, message)

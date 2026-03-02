@@ -41,6 +41,7 @@ import {
 } from "./controllers/pluginsController"
 import { exportRoom } from "./controllers/exportController"
 import { getImage } from "./operations/data"
+import { upload, uploadImages } from "./controllers/imageController"
 import { clearRoomOnlineUsers } from "./operations/data"
 import { SocketWithContext } from "./lib/socketWithContext"
 import { PluginRegistry } from "./lib/plugins"
@@ -162,7 +163,9 @@ export class RadioRoomServer {
       .get("/api/rooms/:roomId/plugins/:pluginName/components", getPluginComponentState)
       // Room export endpoint
       .get("/api/rooms/:roomId/export", exportRoom)
-      // Room image endpoint
+      // Room image upload endpoint (HTTP multipart)
+      .post("/api/rooms/:roomId/images", upload.array("images", 5), uploadImages)
+      // Room image retrieval endpoint
       .get("/api/rooms/:roomId/images/:imageId", async (req, res) => {
         const { roomId, imageId } = req.params
         const context = (req as any).context as AppContext

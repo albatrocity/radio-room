@@ -20,6 +20,7 @@ export default function Chat() {
       initialValues={{
         announceNowPlaying: settings.announceNowPlaying,
         announceUsernameChanges: settings.announceUsernameChanges,
+        allowChatImages: settings.allowChatImages,
       }}
       enableReinitialize
       validate={() => {
@@ -104,6 +105,37 @@ export default function Chat() {
                 <Field.HelperText>
                   If enabled, a system message will be sent to the chat when
                   someone changes their username.
+                </Field.HelperText>
+              </Field.Root>
+              <Field.Root>
+                <Checkbox.Root
+                  checked={values.allowChatImages}
+                  onCheckedChange={(details) => {
+                    const syntheticEvent = {
+                      target: {
+                        name: "allowChatImages",
+                        value: details.checked,
+                        type: "checkbox",
+                        checked: details.checked,
+                      },
+                    }
+                    handleChange(syntheticEvent as any)
+                    if (details.checked !== initialValues.allowChatImages) {
+                      setTouched({ allowChatImages: true })
+                    } else {
+                      setTouched({ allowChatImages: false })
+                    }
+                  }}
+                  name="allowChatImages"
+                >
+                  <Checkbox.HiddenInput onBlur={handleBlur} />
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <Checkbox.Label>Allow Chat Images</Checkbox.Label>
+                </Checkbox.Root>
+                <Field.HelperText>
+                  If enabled, users can upload and share images in chat messages.
                 </Field.HelperText>
               </Field.Root>
             </VStack>

@@ -49,6 +49,8 @@ export type Room = {
   // Queue display settings (default true)
   showQueueCount?: boolean
   showQueueTracks?: boolean
+  // Chat settings
+  allowChatImages?: boolean
 }
 
 // =============================================================================
@@ -72,6 +74,7 @@ export interface StoredRoom
     | "metadataSourceIds"
     | "showQueueCount"
     | "showQueueTracks"
+    | "allowChatImages"
   > {
   fetchMeta: Bool
   enableSpotifyLogin: Bool
@@ -81,6 +84,7 @@ export interface StoredRoom
   persistent?: Bool
   showQueueCount?: Bool
   showQueueTracks?: Bool
+  allowChatImages?: Bool
   spotifyError?: string
   radioError?: string
   mediaSourceConfig?: string

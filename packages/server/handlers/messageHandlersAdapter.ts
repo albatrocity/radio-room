@@ -2,25 +2,15 @@ import { HandlerConnections } from "@repo/types/HandlerConnections"
 import { MessageService } from "../services/MessageService"
 import sendMessage from "../lib/sendMessage"
 import { AppContext } from "@repo/types"
-import { storeImage } from "../operations/data"
-import generateId from "../lib/generateId"
 
 /**
- * Image data structure for uploaded images
- */
-export type ImageData = {
-  data: string // base64 encoded image data
-  mimeType: string
-}
-
-/**
- * Message payload that supports both simple string messages and messages with images
+ * Message payload - supports both simple string and object format
+ * Images are uploaded via HTTP and their markdown is included in the content
  */
 export type MessagePayload =
   | string
   | {
       content: string
-      images?: ImageData[]
     }
 
 /**
@@ -35,51 +25,13 @@ export class MessageHandlers {
 
   /**
    * Handle a new message event from Socket.io
-   * Supports both legacy string messages and new object format with images
+   * Supports both legacy string messages and object format with content
    */
   newMessage = async ({ socket, io }: HandlerConnections, message: MessagePayload) => {
     const { roomId, userId, username } = socket.data
 
     // Normalize the message payload
-    let content: string
-    let images: ImageData[] | undefined
-
-    if (typeof message === "string") {
-      content = message
-    } else {
-      content = message.content
-      images = message.images
-    }
-
-    // Process images if present - store them and append as markdown images
-    if (images && images.length > 0) {
-      const markdownImages: string[] = []
-      const apiUrl = this.context.apiUrl || ""
-
-      for (const image of images) {
-        const imageId = generateId()
-
-        // Store the image in Redis
-        await storeImage({
-          roomId,
-          imageId,
-          base64Data: image.data,
-          mimeType: image.mimeType,
-          context: this.context,
-        })
-
-        // Build markdown image syntax with full URL
-        // Format: ![image](url)
-        const imageUrl = `${apiUrl}/api/rooms/${roomId}/images/${imageId}`
-        markdownImages.push(`![image](${imageUrl})`)
-      }
-
-      // Append markdown images to the message content
-      if (markdownImages.length > 0) {
-        const imagesText = markdownImages.join("\n")
-        content = content ? `${content}\n\n${imagesText}` : imagesText
-      }
-    }
+    const content = typeof message === "string" ? message : message.content
 
     const result = await this.messageService.processNewMessage(roomId, userId, username, content)
 

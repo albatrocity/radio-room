@@ -24,32 +24,29 @@ import {
   Image,
   Wrap,
 } from "@chakra-ui/react"
-import { FiArrowUpCircle, FiX } from "react-icons/fi"
+import { FiArrowUpCircle, FiX, FiImage } from "react-icons/fi"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
 
 import MentionSuggestionsContainer from "./MentionSuggestionsContainer"
 import ImageUpload from "./ImageUpload"
-import { useCurrentUser, useIsAuthenticated, useUsers, useIsAnyModalOpen } from "../hooks/useActors"
-import { fileToBase64 } from "../lib/image"
+import { useCurrentUser, useIsAuthenticated, useUsers, useIsAnyModalOpen, useSettings, useCurrentRoom } from "../hooks/useActors"
+import { uploadImages } from "../lib/serverApi"
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024 // 4MB per image
 const MAX_FILES = 5
 
-/**
- * Image data to be sent with a message
- */
-export type ImageData = {
-  data: string // base64 encoded
-  mimeType: string
-}
+const isHeicFile = (file: File) =>
+  file.type === "image/heic" ||
+  file.type === "image/heif" ||
+  file.name.toLowerCase().endsWith(".heic")
 
 /**
- * Message payload that can include images
+ * Message payload - now just contains content string
+ * Images are uploaded via HTTP and their markdown is appended to content
  */
 export type MessagePayload = {
   content: string
-  images?: ImageData[]
 }
 
 const renderUserSuggestion = (
@@ -152,6 +149,9 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const users = useUsers()
   const isAuthenticated = useIsAuthenticated()
   const modalActive = useIsAnyModalOpen()
+  const settings = useSettings()
+  const room = useCurrentRoom()
+  const allowChatImages = settings.allowChatImages !== false
 
   const inputRef = useRef<ReactPortal>(null)
   const [isTyping, setTyping] = useState(false)
@@ -248,30 +248,32 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
 
-    if (!isValid) return
+    if (!isValid || !room?.id) return
 
     setSubmitting(true)
 
     try {
-      // Convert files to base64 ImageData
-      const images: ImageData[] = await Promise.all(
-        files.map(async (file) => ({
-          data: await fileToBase64(file),
-          mimeType: file.type,
-        })),
-      )
+      let messageContent = content
 
-      // Send the message payload
-      onSend({
-        content,
-        images: images.length > 0 ? images : undefined,
-      })
+      // Upload images via HTTP if any are selected
+      if (files.length > 0) {
+        const uploadResult = await uploadImages(room.id, files)
+
+        if (uploadResult.success && uploadResult.images.length > 0) {
+          // Append markdown image tags to the message content
+          const imageMarkdown = uploadResult.images.map((img) => `![image](${img.url})`).join("\n")
+          messageContent = messageContent ? `${messageContent}\n\n${imageMarkdown}` : imageMarkdown
+        }
+      }
+
+      // Send the message via WebSocket
+      onSend({ content: messageContent })
 
       // Clear the form
       setContent("")
       setFiles([])
     } catch (error) {
-      console.error("Error preparing message:", error)
+      console.error("Error sending message:", error)
     } finally {
       setSubmitting(false)
     }
@@ -285,7 +287,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
 
   // Image preview component - rendered via portal if container provided
   const imagePreviews =
-    files.length > 0 ? (
+    allowChatImages && files.length > 0 ? (
       <FileUpload.ItemGroup>
         <Wrap gap={2}>
           <FileUpload.Context>
@@ -297,15 +299,27 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
                   css={{ width: "fit-content" }}
                 >
                   <Box position="relative" borderRadius="md" overflow="hidden">
-                    <FileUpload.ItemPreview type="image/*">
-                      <Image
-                        src={URL.createObjectURL(file)}
-                        alt={file.name}
+                    {isHeicFile(file) ? (
+                      <Flex
+                        align="center"
+                        justify="center"
                         boxSize="60px"
-                        objectFit="cover"
+                        bg="gray.100"
                         borderRadius="md"
-                      />
-                    </FileUpload.ItemPreview>
+                      >
+                        <Icon as={FiImage} boxSize={6} color="gray.400" />
+                      </Flex>
+                    ) : (
+                      <FileUpload.ItemPreview type="image/*">
+                        <Image
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
+                          boxSize="60px"
+                          objectFit="cover"
+                          borderRadius="md"
+                        />
+                      </FileUpload.ItemPreview>
+                    )}
                     <FileUpload.ItemDeleteTrigger asChild>
                       <IconButton
                         aria-label="Remove image"
@@ -338,7 +352,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
       <form onSubmit={handleSubmit} style={{ width: "100%" }}>
         <Flex direction="row" w="100%" grow={1} justify="center" overflowX="clip" gap={1}>
           {/* Image upload button */}
-          {files.length === 0 && (
+          {allowChatImages && files.length === 0 && (
             <Box opacity={isAuthenticated ? 1 : 0}>
               <ImageUpload
                 files={files}
