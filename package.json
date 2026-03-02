@@ -12,6 +12,10 @@
     "prettier": "^3.6.2",
     "turbo": "^2.5.4"
   },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "4.53.3",
+    "@rollup/rollup-linux-arm64-gnu": "4.53.3"
+  },
   "scripts": {
     "build": "turbo run build",
     "clean": "turbo run clean",

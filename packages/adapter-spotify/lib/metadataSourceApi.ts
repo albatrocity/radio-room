@@ -25,7 +25,7 @@ export async function makeApi({
 
   const api: MetadataSourceApi = {
     async search(query) {
-      const searchResults = await spotifyApi.search(query, ["track"])
+      const searchResults = await spotifyApi.search(query, ["track"], undefined, 10)
       return (searchResults.tracks?.items ?? []).map((item) => trackItemSchema.parse(item))
     },
     async findById(id) {
@@ -66,31 +66,37 @@ export async function makeApi({
       const query = queryParts.join(" ")
       return this.search(query)
     },
-    // Playlist creation
+    // Playlist creation (POST /me/playlists, POST /playlists/{id}/items per Feb 2026 migration)
     async createPlaylist(params) {
-      const { title, trackIds, userId } = params
+      const { title, trackIds, userId: _userId } = params
+      // _userId accepted for API compatibility; we use POST /me/playlists (current user only)
 
-      // Create the playlist
-      const playlist = await spotifyApi.playlists.createPlaylist(userId, {
-        name: title,
-        description: `Created by Listening Room on ${new Date().toLocaleDateString()}`,
-        public: false,
-      })
+      // Create the playlist for the current user (POST /me/playlists)
+      const playlist = await spotifyApi.makeRequest<{ id: string; name: string; external_urls?: { spotify?: string } }>(
+        "POST",
+        "me/playlists",
+        {
+          name: title,
+          description: `Created by Listening Room on ${new Date().toLocaleDateString()}`,
+          public: false,
+        },
+      )
 
-      // Add tracks to playlist (Spotify URIs format: spotify:track:id)
+      // Add tracks via new items endpoint (POST /playlists/{id}/items)
       const uris = trackIds.map((id) => `spotify:track:${id}`)
-      if (uris.length > 0) {
-        await spotifyApi.playlists.addItemsToPlaylist(playlist.id, uris)
+      if (uris.length > 0 && playlist) {
+        await spotifyApi.makeRequest("POST", `playlists/${playlist.id}/items`, { uris })
       }
 
       return {
-        id: playlist.id,
-        title: playlist.name,
+        id: playlist!.id,
+        title: playlist!.name,
         trackIds,
-        url: playlist.external_urls?.spotify,
+        url: playlist!.external_urls?.spotify,
       }
     },
     // Library management methods
+    // getSavedTracks: still uses existing GET saved-tracks list endpoint (not replaced in Feb 2026 migration)
     async getSavedTracks() {
       const savedTracks = await spotifyApi.currentUser.tracks.savedTracks()
       // Transform Spotify tracks to MetadataSourceTrack format
@@ -100,19 +106,18 @@ export async function makeApi({
       if (!trackIds || trackIds.length === 0) {
         return []
       }
-
-      // All IDs should be valid Spotify IDs now (metadataSource ensures this)
-      const result = await spotifyApi.currentUser.tracks.hasSavedTracks(trackIds)
-      return result
+      const uris = trackIds.map((id) => `spotify:track:${id}`)
+      const query = `me/library/contains?uris=${encodeURIComponent(uris.join(","))}`
+      const result = await spotifyApi.makeRequest<boolean[]>("GET", query)
+      return result ?? []
     },
     async addToLibrary(trackIds: string[]) {
-      // The Spotify API PUT /v1/me/tracks expects body: { ids: [...] }
-      // but the SDK's saveTracks sends the array directly, so we need to use makeRequest
-      await spotifyApi.makeRequest("PUT", "me/tracks", { ids: trackIds })
+      const uris = trackIds.map((id) => `spotify:track:${id}`)
+      await spotifyApi.makeRequest("PUT", "me/library", { uris })
     },
     async removeFromLibrary(trackIds: string[]) {
-      // The Spotify API DELETE /v1/me/tracks expects body: { ids: [...] }
-      await spotifyApi.makeRequest("DELETE", "me/tracks", { ids: trackIds })
+      const uris = trackIds.map((id) => `spotify:track:${id}`)
+      await spotifyApi.makeRequest("DELETE", "me/library", { uris })
     },
   }
 

@@ -1,6 +1,8 @@
 # Simple Vite development Dockerfile
 # Production builds are handled by Netlify
-FROM node:22-alpine
+# Use Debian slim (glibc) instead of Alpine (musl) to avoid npm optional-deps bug
+# where @rollup/rollup-linux-arm64-musl is not installed (see npm/cli#4828)
+FROM node:22-bookworm-slim
 
 WORKDIR /app
 
@@ -26,6 +28,12 @@ COPY packages/utils/package.json ./packages/utils/
 
 # Install dependencies (cached unless package.json files change)
 RUN npm ci
+
+# Work around npm optional-deps bug (https://github.com/npm/cli/issues/4828):
+# Rollup's platform binary often isn't installed. Install both linux variants so
+# the image works on arm64 and x64 Docker hosts.
+RUN ROLLUP_VER=$(node -p "require('./node_modules/rollup/package.json').optionalDependencies['@rollup/rollup-linux-arm64-gnu']") && \
+  npm install "@rollup/rollup-linux-arm64-gnu@${ROLLUP_VER}" "@rollup/rollup-linux-x64-gnu@${ROLLUP_VER}" --no-save
 
 # Now copy source code (volumes will override in docker-compose for hot reload)
 COPY packages/ ./packages/
