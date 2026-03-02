@@ -40,6 +40,7 @@ export function withDefaults(
     radioMetaUrl: undefined,
     announceNowPlaying: true,
     announceUsernameChanges: true,
+    allowChatImages: false,
     ...roomDetails,
     deputizeOnJoin: roomDetails.deputizeOnJoin || false,
   }

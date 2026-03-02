@@ -517,13 +517,13 @@ describe("PlaylistDemocracyPlugin", () => {
 
       // Initially mock successful getUsers call for any immediate checks
       vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
-      
+
       // Track changed should start the timer
       await trackChangedHandler({ roomId: "test-room", track })
-      
+
       // Now simulate API error for when the timer fires
       vi.mocked(mockContext.api.getUsers).mockRejectedValue(new Error("API Error"))
-      
+
       // Complete the timeout - error is caught internally and logged
       vi.advanceTimersByTime(60000)
       await vi.runAllTimersAsync()
@@ -768,7 +768,7 @@ describe("PlaylistDemocracyPlugin", () => {
 
       // Clear any calls made during setup, then cleanup
       vi.mocked(mockContext.api.getUsers).mockClear()
-      
+
       // Cleanup should cancel the timer
       await plugin.cleanup()
 

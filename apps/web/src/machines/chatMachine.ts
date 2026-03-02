@@ -29,9 +29,16 @@ type TypingEvent = {
   type: "START_TYPING" | "STOP_TYPING"
 }
 
+/**
+ * Message payload - images are uploaded via HTTP before sending
+ */
+type MessagePayload = {
+  content: string
+}
+
 type SubmitMessageAction = {
   type: "SUBMIT_MESSAGE"
-  data: ChatMessage["content"]
+  data: MessagePayload
 }
 
 type LifecycleEvent = {

@@ -252,10 +252,7 @@ export class AdminHandlers {
   /**
    * Delete a single track from a room's playlist
    */
-  deletePlaylistTrack = async (
-    { socket }: HandlerConnections,
-    data: { playedAt: number },
-  ) => {
+  deletePlaylistTrack = async ({ socket }: HandlerConnections, data: { playedAt: number }) => {
     const result = await this.adminService.deletePlaylistTrack(
       socket.data.roomId,
       socket.data.userId,

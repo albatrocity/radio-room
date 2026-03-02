@@ -70,12 +70,22 @@ program
         runner = ScenarioRunner.fromConfig(scenarioConfig)
       } else {
         console.log()
-        console.log(chalk.yellow("Please provide either a --scenario file or --target and --room options."))
+        console.log(
+          chalk.yellow("Please provide either a --scenario file or --target and --room options."),
+        )
         console.log()
         console.log(chalk.gray("Examples:"))
         console.log(chalk.gray("  npx load-tester run --scenario scenarios/queue-stress.yaml"))
-        console.log(chalk.gray("  npx load-tester run --scenario scenarios/queue-stress.yaml --target http://prod.example.com --room my-room"))
-        console.log(chalk.gray("  npx load-tester run --target http://localhost:3000 --room test-room --users 10"))
+        console.log(
+          chalk.gray(
+            "  npx load-tester run --scenario scenarios/queue-stress.yaml --target http://prod.example.com --room my-room",
+          ),
+        )
+        console.log(
+          chalk.gray(
+            "  npx load-tester run --target http://localhost:3000 --room test-room --users 10",
+          ),
+        )
         console.log()
         process.exit(1)
       }
@@ -91,7 +101,9 @@ program
         process.exit(1)
       }
     } catch (error) {
-      logger.error(`Failed to run scenario: ${error instanceof Error ? error.message : "Unknown error"}`)
+      logger.error(
+        `Failed to run scenario: ${error instanceof Error ? error.message : "Unknown error"}`,
+      )
       if (options.verbose && error instanceof Error) {
         console.error(error.stack)
       }
@@ -185,10 +197,8 @@ actions:
   })
 
 // Default command
-program
-  .action(() => {
-    program.help()
-  })
+program.action(() => {
+  program.help()
+})
 
 program.parse()
-

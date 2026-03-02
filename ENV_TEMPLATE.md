@@ -11,7 +11,7 @@ SPOTIFY_REDIRECT_URI=http://localhost:3000/auth/spotify/callback
 
 # Application URLs
 APP_URL=http://localhost:8000
-GATSBY_API_URL=http://localhost:3000
+API_URL=http://localhost:3000
 
 # Session Configuration
 SESSION_SECRET=dev-secret-change-in-production
@@ -33,7 +33,6 @@ SPOTIFY_CLIENT_ID=your_client_id_here
 SPOTIFY_CLIENT_SECRET=your_client_secret_here
 SPOTIFY_REDIRECT_URI=http://localhost:3000/auth/spotify/callback
 APP_URL=http://localhost:8000
-GATSBY_API_URL=http://localhost:3000
 SESSION_SECRET=dev-secret-change-in-production
 ENVIRONMENT=development
 NODE_ENV=development
@@ -55,8 +54,9 @@ Then edit `.env` and replace `your_client_id_here` and `your_client_secret_here`
 
 ### Required for Web App
 
-- **`GATSBY_API_URL`**: URL where the API server is running
-  - **Important**: Must start with `GATSBY_` to be available in the browser
+### Required for API (Image Support)
+
+- **`API_URL`**: Public URL of the API server (used for generating absolute image URLs in chat)
   - Default: `http://localhost:3000`
 
 ### Optional
@@ -69,18 +69,13 @@ Then edit `.env` and replace `your_client_id_here` and `your_client_secret_here`
 
 The `compose.yml` file reads from your `.env` file and passes variables to containers:
 
-```yaml
+````yaml
 # API container
 environment:
   - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
   - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
   # ... etc
 
-# Web container  
-environment:
-  - GATSBY_API_URL=${GATSBY_API_URL:-http://localhost:3000}
-  # The :- syntax provides a default if not set
-```
 
 ## Production Notes
 
@@ -99,10 +94,9 @@ SPOTIFY_CLIENT_ID=your_prod_client_id
 SPOTIFY_CLIENT_SECRET=your_prod_client_secret
 SPOTIFY_REDIRECT_URI=https://api.yourdomain.com/auth/spotify/callback
 APP_URL=https://yourdomain.com
-GATSBY_API_URL=https://api.yourdomain.com
+API_URL=https://api.yourdomain.com
 SESSION_SECRET=very-long-random-string-here
 ENVIRONMENT=production
 NODE_ENV=production
 REDIS_URL=redis://your-redis-host:6379
-```
-
+````

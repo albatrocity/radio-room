@@ -40,6 +40,8 @@ import {
   getPluginComponentState,
 } from "./controllers/pluginsController"
 import { exportRoom } from "./controllers/exportController"
+import { getImage } from "./operations/data"
+import { upload, uploadImages } from "./controllers/imageController"
 import { clearRoomOnlineUsers } from "./operations/data"
 import { SocketWithContext } from "./lib/socketWithContext"
 import { PluginRegistry } from "./lib/plugins"
@@ -85,7 +87,10 @@ export class RadioRoomServer {
     }
 
     // Create context with adapters and jobs
-    this.context = createAppContext(config.REDIS_URL ?? "redis://localhost:6379")
+    this.context = createAppContext({
+      redisUrl: config.REDIS_URL ?? "redis://localhost:6379",
+      apiUrl: config.API_URL,
+    })
 
     // Initialize JobService
     this.jobService = new JobService(this.context)
@@ -158,6 +163,31 @@ export class RadioRoomServer {
       .get("/api/rooms/:roomId/plugins/:pluginName/components", getPluginComponentState)
       // Room export endpoint
       .get("/api/rooms/:roomId/export", exportRoom)
+      // Room image upload endpoint (HTTP multipart)
+      .post("/api/rooms/:roomId/images", upload.array("images", 5), uploadImages)
+      // Room image retrieval endpoint
+      .get("/api/rooms/:roomId/images/:imageId", async (req, res) => {
+        const { roomId, imageId } = req.params
+        const context = (req as any).context as AppContext
+
+        const imageData = await getImage({ roomId, imageId, context })
+
+        if (!imageData) {
+          return res.status(404).json({ error: "Image not found" })
+        }
+
+        // Convert base64 to buffer
+        const buffer = Buffer.from(imageData.data, "base64")
+
+        // Set appropriate headers
+        res.set({
+          "Content-Type": imageData.mimeType,
+          "Content-Length": buffer.length,
+          "Cache-Control": "public, max-age=31536000", // Cache for 1 year
+        })
+
+        return res.send(buffer)
+      })
 
     // Create HTTP server from Express app, but don't start listening yet
     this.httpServer = createHttpServer(this.app)

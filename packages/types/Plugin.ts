@@ -364,9 +364,7 @@ export interface QueueValidationParams {
 /**
  * Result of a queue validation check
  */
-export type QueueValidationResult =
-  | { allowed: true }
-  | { allowed: false; reason: string }
+export type QueueValidationResult = { allowed: true } | { allowed: false; reason: string }
 
 /**
  * Helper to create an "allowed" queue validation response.

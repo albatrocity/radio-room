@@ -43,7 +43,9 @@ export class ScenarioRunner {
 
     const result = scenarioConfigSchema.safeParse(rawConfig)
     if (!result.success) {
-      const errors = result.error.errors.map((e) => `  - ${e.path.join(".")}: ${e.message}`).join("\n")
+      const errors = result.error.errors
+        .map((e) => `  - ${e.path.join(".")}: ${e.message}`)
+        .join("\n")
       throw new Error(`Invalid scenario configuration:\n${errors}`)
     }
 
@@ -53,7 +55,10 @@ export class ScenarioRunner {
   /**
    * Load a scenario from a YAML file with CLI overrides
    */
-  static fromFileWithOverrides(filePath: string, overrides: Record<string, unknown>): ScenarioRunner {
+  static fromFileWithOverrides(
+    filePath: string,
+    overrides: Record<string, unknown>,
+  ): ScenarioRunner {
     logger.info(`Loading scenario from ${filePath}`)
 
     const fileContents = readFileSync(filePath, "utf-8")
@@ -66,7 +71,7 @@ export class ScenarioRunner {
       if (key === "users" && typeof value === "object" && value !== null) {
         // Merge users object
         mergedConfig.users = {
-          ...(rawConfig.users as Record<string, unknown> || {}),
+          ...((rawConfig.users as Record<string, unknown>) || {}),
           ...value,
         }
       } else {
@@ -76,7 +81,9 @@ export class ScenarioRunner {
 
     const result = scenarioConfigSchema.safeParse(mergedConfig)
     if (!result.success) {
-      const errors = result.error.errors.map((e) => `  - ${e.path.join(".")}: ${e.message}`).join("\n")
+      const errors = result.error.errors
+        .map((e) => `  - ${e.path.join(".")}: ${e.message}`)
+        .join("\n")
       throw new Error(`Invalid scenario configuration:\n${errors}`)
     }
 
@@ -117,7 +124,7 @@ export class ScenarioRunner {
           joinPattern: this.config.users.joinPattern,
           joinDuration: this.config.users.joinDuration,
         },
-        this.metrics
+        this.metrics,
       )
 
       // Spawn users
@@ -153,7 +160,7 @@ export class ScenarioRunner {
       const times = calculateActionTimes(
         actions.queueSongs.totalSongs,
         durationMs,
-        actions.queueSongs.distribution
+        actions.queueSongs.distribution,
       )
       const queueAction = createQueueSongAction({ trackIds: actions.queueSongs.trackIds })
 
@@ -166,14 +173,18 @@ export class ScenarioRunner {
       }
 
       logger.info(
-        `Scheduled ${actions.queueSongs.totalSongs} queue actions (${actions.queueSongs.distribution} distribution)`
+        `Scheduled ${actions.queueSongs.totalSongs} queue actions (${actions.queueSongs.distribution} distribution)`,
       )
     }
 
     // Schedule send message actions
     if (actions.sendMessages?.enabled) {
       const totalMessages = actions.sendMessages.messagesPerUser * this.config.users.count
-      const times = calculateActionTimes(totalMessages, durationMs, actions.sendMessages.distribution)
+      const times = calculateActionTimes(
+        totalMessages,
+        durationMs,
+        actions.sendMessages.distribution,
+      )
       const messageAction = createSendMessageAction({
         content: actions.sendMessages.content,
         simulateTyping: true,
@@ -188,7 +199,7 @@ export class ScenarioRunner {
       }
 
       logger.info(
-        `Scheduled ${totalMessages} message actions (${actions.sendMessages.distribution} distribution)`
+        `Scheduled ${totalMessages} message actions (${actions.sendMessages.distribution} distribution)`,
       )
     }
 
@@ -210,7 +221,7 @@ export class ScenarioRunner {
       }
 
       logger.info(
-        `Scheduled ${totalReactions} reaction actions (${actions.reactions.distribution} distribution)`
+        `Scheduled ${totalReactions} reaction actions (${actions.reactions.distribution} distribution)`,
       )
     }
 
@@ -223,7 +234,9 @@ export class ScenarioRunner {
       return
     }
 
-    logger.info(`Executing ${scheduledActions.length} total actions over ${this.config.duration}s...`)
+    logger.info(
+      `Executing ${scheduledActions.length} total actions over ${this.config.duration}s...`,
+    )
 
     // Execute actions
     const startTime = Date.now()
@@ -317,7 +330,7 @@ export class ScenarioRunner {
       console.log(
         chalk.white(`    ${action}: `) +
           color(`${stats.successes}/${stats.count} (${successRate}%)`) +
-          (stats.avgDuration > 0 ? chalk.gray(` avg ${Math.round(stats.avgDuration)}ms`) : "")
+          (stats.avgDuration > 0 ? chalk.gray(` avg ${Math.round(stats.avgDuration)}ms`) : ""),
       )
     }
 
@@ -337,4 +350,3 @@ export class ScenarioRunner {
     console.log()
   }
 }
-

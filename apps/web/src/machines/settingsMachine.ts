@@ -21,6 +21,7 @@ export type SettingsContext = Pick<
   | "radioProtocol"
   | "announceUsernameChanges"
   | "announceNowPlaying"
+  | "allowChatImages"
 > & {
   /** Generic plugin configs keyed by plugin name */
   pluginConfigs: Record<string, Record<string, unknown>>
@@ -54,6 +55,7 @@ let subscriptionCounter = 0
 const defaultContext: SettingsContext = {
   announceUsernameChanges: true,
   announceNowPlaying: true,
+  allowChatImages: true,
   title: "",
   fetchMeta: true,
   extraInfo: "",
@@ -112,6 +114,7 @@ export const settingsMachine = setup({
           radioProtocol: event.data.room.radioProtocol,
           announceNowPlaying: event.data.room.announceNowPlaying,
           announceUsernameChanges: event.data.room.announceUsernameChanges,
+          allowChatImages: event.data.room.allowChatImages,
           pluginConfigs,
         }
         return newContext

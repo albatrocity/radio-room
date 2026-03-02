@@ -353,6 +353,20 @@ async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidati
 }
 ```
 
+#### `executeAction(action: string): Promise<{ success: boolean; message?: string }>`
+
+Handle action buttons from the admin config UI. Override this to implement custom actions.
+
+```typescript
+async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+  if (action === "resetLeaderboards") {
+    await this.clearAllLeaderboards()
+    return { success: true, message: "Leaderboards have been reset" }
+  }
+  return { success: false, message: `Unknown action: ${action}` }
+}
+```
+
 ## Event System
 
 Plugins subscribe to system events using SCREAMING_SNAKE_CASE names.
@@ -445,9 +459,9 @@ async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidati
 
 Use these helper functions from `@repo/types` for consistent, type-safe responses:
 
-| Function | Returns | Description |
-| --- | --- | --- |
-| `allowQueueRequest()` | `{ allowed: true }` | Allow the queue request to proceed |
+| Function                     | Returns                      | Description                                  |
+| ---------------------------- | ---------------------------- | -------------------------------------------- |
+| `allowQueueRequest()`        | `{ allowed: true }`          | Allow the queue request to proceed           |
 | `rejectQueueRequest(reason)` | `{ allowed: false, reason }` | Block the request with a user-facing message |
 
 ```typescript
@@ -464,24 +478,24 @@ return rejectQueueRequest("You added the last song. Wait for another DJ to add o
 
 The `params` object contains:
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `roomId` | `string` | The room where the request originated |
-| `userId` | `string` | The user attempting to queue a song |
-| `username` | `string` | The user's display name |
-| `trackId` | `string` | The track being queued |
+| Field      | Type     | Description                           |
+| ---------- | -------- | ------------------------------------- |
+| `roomId`   | `string` | The room where the request originated |
+| `userId`   | `string` | The user attempting to queue a song   |
+| `username` | `string` | The user's display name               |
+| `trackId`  | `string` | The track being queued                |
 
 ### Fail-Open Semantics
 
 Queue validation uses **fail-open** semantics to ensure core functionality isn't blocked by plugin failures:
 
-| Plugin Behavior | Result |
-| --- | --- |
-| Returns `allowQueueRequest()` | ✅ Allowed (continues to next plugin) |
-| Returns `rejectQueueRequest(reason)` | ❌ **Blocked** (stops processing) |
-| Throws an error | ✅ Allowed (error logged) |
-| Times out (>500ms) | ✅ Allowed (timeout logged) |
-| Doesn't implement method | ✅ Allowed (skipped) |
+| Plugin Behavior                      | Result                                |
+| ------------------------------------ | ------------------------------------- |
+| Returns `allowQueueRequest()`        | ✅ Allowed (continues to next plugin) |
+| Returns `rejectQueueRequest(reason)` | ❌ **Blocked** (stops processing)     |
+| Throws an error                      | ✅ Allowed (error logged)             |
+| Times out (>500ms)                   | ✅ Allowed (timeout logged)           |
+| Doesn't implement method             | ✅ Allowed (skipped)                  |
 
 **Important**: Only an explicit `rejectQueueRequest()` will block the enqueue. All error conditions allow the request to proceed, ensuring users can always add songs even if a plugin misbehaves.
 
@@ -1482,28 +1496,28 @@ If a timer with the same ID already exists, it will be cleared and replaced.
 
 ### Timer Methods
 
-| Method | Return Type | Description |
-| --- | --- | --- |
-| `startTimer<T>(id, config)` | `void` | Start a timer; replaces existing timer with same ID |
-| `clearTimer(id)` | `boolean` | Clear a timer; returns `true` if found |
-| `clearAllTimers()` | `void` | Clear all active timers |
-| `getTimer<T>(id)` | `Timer<T> \| null` | Get timer info (without internal handle) |
-| `getAllTimers()` | `Timer[]` | Get all active timers |
-| `resetTimer(id)` | `boolean` | Restart timer from beginning; returns `true` if found |
-| `getTimerRemaining(id)` | `number \| null` | Get remaining ms, or `null` if not found |
+| Method                      | Return Type        | Description                                           |
+| --------------------------- | ------------------ | ----------------------------------------------------- |
+| `startTimer<T>(id, config)` | `void`             | Start a timer; replaces existing timer with same ID   |
+| `clearTimer(id)`            | `boolean`          | Clear a timer; returns `true` if found                |
+| `clearAllTimers()`          | `void`             | Clear all active timers                               |
+| `getTimer<T>(id)`           | `Timer<T> \| null` | Get timer info (without internal handle)              |
+| `getAllTimers()`            | `Timer[]`          | Get all active timers                                 |
+| `resetTimer(id)`            | `boolean`          | Restart timer from beginning; returns `true` if found |
+| `getTimerRemaining(id)`     | `number \| null`   | Get remaining ms, or `null` if not found              |
 
 ### Timer Types
 
 ```typescript
 interface TimerConfig<T = unknown> {
-  duration: number                         // Duration in milliseconds
-  callback: () => Promise<void> | void     // Function to call when timer expires
-  data?: T                                 // Optional metadata attached to timer
+  duration: number // Duration in milliseconds
+  callback: () => Promise<void> | void // Function to call when timer expires
+  data?: T // Optional metadata attached to timer
 }
 
 interface Timer<T = unknown> {
   id: string
-  startTime: number   // Date.now() when timer was started
+  startTime: number // Date.now() when timer was started
   duration: number
   data?: T
 }
@@ -1555,7 +1569,7 @@ async getComponentState(): Promise<PluginComponentState> {
 ```typescript
 private async onUserReturned(userId: string): Promise<void> {
   const timer = this.getTimer<{ absentUserId: string }>("absent-check")
-  
+
   if (timer?.data?.absentUserId === userId) {
     this.clearTimer("absent-check")
     await this.emit("COUNTDOWN_CANCELLED", { showCountdown: false })
@@ -1782,10 +1796,10 @@ See the [Queue Hygiene Plugin](../packages/plugin-queue-hygiene) for a queue val
 
 Helper functions exported from `@repo/types` for use in `validateQueueRequest`:
 
-| Function | Returns | Description |
-| --- | --- | --- |
-| `allowQueueRequest()` | `{ allowed: true }` | Allow the queue request to proceed |
-| `rejectQueueRequest(reason: string)` | `{ allowed: false, reason }` | Block with user-facing message |
+| Function                             | Returns                      | Description                        |
+| ------------------------------------ | ---------------------------- | ---------------------------------- |
+| `allowQueueRequest()`                | `{ allowed: true }`          | Allow the queue request to proceed |
+| `rejectQueueRequest(reason: string)` | `{ allowed: false, reason }` | Block with user-facing message     |
 
 ### System Message Options
 

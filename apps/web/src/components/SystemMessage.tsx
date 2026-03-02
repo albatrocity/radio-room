@@ -13,9 +13,7 @@ const SystemMessage = ({ content, timestamp, meta = {}, mentions = [] }: ChatMes
   const currentUser = useCurrentUser()
 
   // Check if current user is mentioned (by username)
-  const isMention = currentUser?.username
-    ? mentions.includes(currentUser.username)
-    : false
+  const isMention = currentUser?.username ? mentions.includes(currentUser.username) : false
 
   return type === "alert" ? (
     <Alert.Root

@@ -10,6 +10,13 @@ import { createActor } from "xstate"
 import { chatMachine } from "../machines/chatMachine"
 import { ChatMessage } from "../types/ChatMessage"
 
+/**
+ * Message payload - images are uploaded via HTTP before sending
+ */
+type MessagePayload = {
+  content: string
+}
+
 // ============================================================================
 // Actor Instance
 // ============================================================================
@@ -42,8 +49,8 @@ export function getSortedChatMessages(): ChatMessage[] {
 /**
  * Submit a new chat message.
  */
-export function submitMessage(content: ChatMessage["content"]): void {
-  chatActor.send({ type: "SUBMIT_MESSAGE", data: content })
+export function submitMessage(payload: MessagePayload): void {
+  chatActor.send({ type: "SUBMIT_MESSAGE", data: payload })
 }
 
 /**
