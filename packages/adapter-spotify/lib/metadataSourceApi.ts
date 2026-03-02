@@ -73,7 +73,7 @@ export async function makeApi({
       // Create the playlist
       const playlist = await spotifyApi.playlists.createPlaylist(userId, {
         name: title,
-        description: `Created by Radio Room on ${new Date().toLocaleDateString()}`,
+        description: `Created by Listening Room on ${new Date().toLocaleDateString()}`,
         public: false,
       })
 

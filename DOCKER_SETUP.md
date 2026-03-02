@@ -166,20 +166,20 @@ To build for production:
 
 ```bash
 # Build API
-docker build -f apps/api/Dockerfile -t radio-room-api .
+docker build -f apps/api/Dockerfile -t listening-room-api .
 
 # Run production API
 docker run -p 3000:3000 \
   -e REDIS_URL=redis://your-redis:6379 \
   -e SPOTIFY_CLIENT_ID=your_id \
   -e SPOTIFY_CLIENT_SECRET=your_secret \
-  radio-room-api
+  listening-room-api
 
 # Build Web
-docker build -f apps/web/Dockerfile --target runner -t radio-room-web .
+docker build -f apps/web/Dockerfile --target runner -t listening-room-web .
 
 # Run production Web
-docker run -p 8000:8000 radio-room-web
+docker run -p 8000:8000 listening-room-web
 ```
 
 ## Architecture

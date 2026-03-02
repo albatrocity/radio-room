@@ -1,6 +1,6 @@
 # Backend Development
 
-This document covers key architectural patterns and concepts in the Radio Room server.
+This document covers key architectural patterns and concepts in the Listening Room server.
 
 ## Table of Contents
 

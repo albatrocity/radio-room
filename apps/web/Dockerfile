@@ -15,6 +15,7 @@ COPY packages/adapter-spotify/package.json ./packages/adapter-spotify/
 COPY packages/adapter-tidal/package.json ./packages/adapter-tidal/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
 COPY packages/factories/package.json ./packages/factories/
+COPY packages/plugin-absent-dj/package.json ./packages/plugin-absent-dj/
 COPY packages/plugin-base/package.json ./packages/plugin-base/
 COPY packages/plugin-playlist-democracy/package.json ./packages/plugin-playlist-democracy/
 COPY packages/plugin-special-words/package.json ./packages/plugin-special-words/

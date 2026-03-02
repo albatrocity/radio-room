@@ -14,6 +14,8 @@ import {
 import { mediaSource as shoutcastMediaSource } from "@repo/media-source-shoutcast"
 import createPlaylistDemocracyPlugin from "@repo/plugin-playlist-democracy"
 import createSpecialWordsPlugin from "@repo/plugin-special-words"
+import createAbsentDjPlugin from "@repo/plugin-absent-dj"
+import createQueueHygienePlugin from "@repo/plugin-queue-hygiene"
 
 async function main() {
   const port = Number(process.env.PORT ?? 3000)
@@ -57,7 +59,12 @@ async function main() {
       { path: "/auth/tidal", handler: createTidalAuthRoutes },
     ],
 
-    plugins: [createPlaylistDemocracyPlugin, createSpecialWordsPlugin],
+    plugins: [
+      createPlaylistDemocracyPlugin,
+      createSpecialWordsPlugin,
+      createAbsentDjPlugin,
+      createQueueHygienePlugin,
+    ],
   })
 
   await server.start()

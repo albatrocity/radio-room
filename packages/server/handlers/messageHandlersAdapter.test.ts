@@ -35,8 +35,13 @@ describe("MessageHandlers", () => {
       username: "Homer",
     }))
     
-    // Add context to socket
-    mockSocket.context = { redis: {}, db: {}, adapters: {}, jobs: [] }
+    // Add systemEvents to socket context
+    mockSocket.context = {
+      ...mockSocket.context,
+      systemEvents: {
+        emit: vi.fn(),
+      },
+    }
     
     // Mock the MessageService methods
     messageService = {
@@ -81,16 +86,16 @@ describe("MessageHandlers", () => {
       )
     })
 
-    test("emits typing event to the room", async () => {
+    test("emits typing event via systemEvents", async () => {
       await messageHandlers.newMessage(
         { socket: mockSocket as any, io: mockIo as any },
         "Hello world",
       )
-      expect(mockIo.to).toHaveBeenCalledWith(mockRoomPath)
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        type: "TYPING",
-        data: { typing: mockTypingUsers },
-      })
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room1",
+        "TYPING_CHANGED",
+        { roomId: "room1", typing: mockTypingUsers },
+      )
     })
 
     test("sends the message", async () => {
@@ -115,13 +120,13 @@ describe("MessageHandlers", () => {
       expect(messageService.clearAllMessages).toHaveBeenCalledWith("room1")
     })
 
-    test("emits SET_MESSAGES event", async () => {
+    test("emits MESSAGES_CLEARED event via systemEvents", async () => {
       await messageHandlers.clearMessages({ socket: mockSocket as any, io: mockIo as any })
-      expect(mockIo.to).toHaveBeenCalledWith(mockRoomPath)
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        type: "SET_MESSAGES",
-        data: { messages: [] },
-      })
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room1",
+        "MESSAGES_CLEARED",
+        { roomId: "room1" },
+      )
     })
   })
 
@@ -132,13 +137,13 @@ describe("MessageHandlers", () => {
       expect(messageService.addUserToTyping).toHaveBeenCalledWith("room1", "1")
     })
 
-    test("broadcasts TYPING event to the room", async () => {
+    test("emits TYPING_CHANGED event via systemEvents", async () => {
       await messageHandlers.startTyping({ socket: mockSocket as any, io: mockIo as any })
-      expect(mockSocket.broadcast.to).toHaveBeenCalledWith(mockRoomPath)
-      expect(broadcastEmit).toHaveBeenCalledWith("event", {
-        type: "TYPING",
-        data: { typing: mockTypingUsers },
-      })
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room1",
+        "TYPING_CHANGED",
+        { roomId: "room1", typing: mockTypingUsers },
+      )
     })
   })
 
@@ -149,13 +154,13 @@ describe("MessageHandlers", () => {
       expect(messageService.removeUserFromTyping).toHaveBeenCalledWith("room1", "1")
     })
 
-    test("broadcasts TYPING event to the room", async () => {
+    test("emits TYPING_CHANGED event via systemEvents", async () => {
       await messageHandlers.stopTyping({ socket: mockSocket as any, io: mockIo as any })
-      expect(mockSocket.broadcast.to).toHaveBeenCalledWith(mockRoomPath)
-      expect(broadcastEmit).toHaveBeenCalledWith("event", {
-        type: "TYPING",
-        data: { typing: mockTypingUsers },
-      })
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room1",
+        "TYPING_CHANGED",
+        { roomId: "room1", typing: mockTypingUsers },
+      )
     })
   })
 })

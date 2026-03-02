@@ -110,6 +110,14 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
   socket.on("GET_SAVED_TRACKS", async () => {
     await handlers.getSavedTracks(connections)
   })
+
+  /**
+   * Request removal of a track from the queue
+   * Sends a system message to notify the room admin
+   */
+  socket.on("REQUEST_QUEUE_REMOVAL", async ({ trackId }: { trackId: string }) => {
+    await handlers.requestQueueRemoval(connections, { trackId })
+  })
 }
 
 /**

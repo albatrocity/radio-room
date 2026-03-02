@@ -8,9 +8,14 @@ vi.mock("../services/ActivityService")
 vi.mock("../operations/sockets/users", () => ({
   pubUserJoined: vi.fn(),
 }))
+vi.mock("../operations/reactions", () => ({
+  addReaction: vi.fn(),
+  removeReaction: vi.fn(),
+}))
 
 // Import mocked dependencies
 import { pubUserJoined } from "../operations/sockets/users"
+import { addReaction as addReactionOp, removeReaction as removeReactionOp } from "../operations/reactions"
 
 describe("ActivityHandlers", () => {
   let mockSocket: any
@@ -86,7 +91,7 @@ describe("ActivityHandlers", () => {
         io: mockIo,
         roomId: "room123",
         data: { user: mockUser, users: mockUsers },
-        context: undefined,
+        context: mockSocket.context,
       })
     })
 
@@ -116,7 +121,7 @@ describe("ActivityHandlers", () => {
         io: mockIo,
         roomId: "room123",
         data: { user: mockUser, users: mockUsers },
-        context: undefined,
+        context: mockSocket.context,
       })
     })
 
@@ -133,73 +138,32 @@ describe("ActivityHandlers", () => {
   })
 
   describe("addReaction", () => {
-    test("calls addReaction with correct parameters", async () => {
+    test("calls addReaction operation with correct parameters", async () => {
       const reaction = reactionPayloadFactory.build()
 
       await activityHandlers.addReaction({ socket: mockSocket, io: mockIo }, reaction)
 
-      expect(activityService.addReaction).toHaveBeenCalledWith("room123", reaction)
-    })
-
-    test("emits REACTIONS event with updated reactions", async () => {
-      const reaction = reactionPayloadFactory.build()
-
-      await activityHandlers.addReaction({ socket: mockSocket, io: mockIo }, reaction)
-
-      expect(mockIo.to).toHaveBeenCalled()
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        type: "REACTIONS",
-        data: { reactions: mockReactions },
+      expect(addReactionOp).toHaveBeenCalledWith({
+        context: mockSocket.context,
+        roomId: "room123",
+        reaction,
       })
-    })
-
-    test("does not emit event when result is null", async () => {
-      activityService.addReaction.mockResolvedValueOnce(null)
-
-      const reaction = reactionPayloadFactory.build()
-
-      await activityHandlers.addReaction({ socket: mockSocket, io: mockIo }, reaction)
-
-      expect(mockIo.to).not.toHaveBeenCalled()
-      expect(toEmit).not.toHaveBeenCalled()
     })
   })
 
   describe("removeReaction", () => {
-    test("calls removeReaction with correct parameters", async () => {
+    test("calls removeReaction operation with correct parameters", async () => {
       const reaction = reactionPayloadFactory.build()
 
       await activityHandlers.removeReaction({ socket: mockSocket, io: mockIo }, reaction)
 
-      expect(activityService.removeReaction).toHaveBeenCalledWith(
-        "room123",
-        reaction.emoji,
-        reaction.reactTo,
-        reaction.user,
-      )
-    })
-
-    test("emits REACTIONS event with updated reactions", async () => {
-      const reaction = reactionPayloadFactory.build()
-
-      await activityHandlers.removeReaction({ socket: mockSocket, io: mockIo }, reaction)
-
-      expect(mockIo.to).toHaveBeenCalled()
-      expect(toEmit).toHaveBeenCalledWith("event", {
-        type: "REACTIONS",
-        data: { reactions: mockReactions },
+      expect(removeReactionOp).toHaveBeenCalledWith({
+        context: mockSocket.context,
+        roomId: "room123",
+        emoji: reaction.emoji,
+        reactTo: reaction.reactTo,
+        user: reaction.user,
       })
-    })
-
-    test("does not emit event when result is null", async () => {
-      activityService.removeReaction.mockResolvedValueOnce(null)
-
-      const reaction = reactionPayloadFactory.build()
-
-      await activityHandlers.removeReaction({ socket: mockSocket, io: mockIo }, reaction)
-
-      expect(mockIo.to).not.toHaveBeenCalled()
-      expect(toEmit).not.toHaveBeenCalled()
     })
   })
 })

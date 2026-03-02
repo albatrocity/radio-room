@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Radio Room Docker Setup Script
+# Listening Room Docker Setup Script
 
 set -e
 
-echo "🎵 Radio Room Docker Setup"
+echo "🎵 Listening Room Docker Setup"
 echo "=========================="
 echo ""
 

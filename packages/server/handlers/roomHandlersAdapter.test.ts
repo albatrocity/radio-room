@@ -5,6 +5,9 @@ import { makeSocketWithBroadcastMocks } from "../lib/testHelpers"
 
 // Mock dependencies
 vi.mock("../services/RoomService")
+vi.mock("../operations/data/pluginConfigs", () => ({
+  getAllPluginConfigs: vi.fn().mockResolvedValue({}),
+}))
 
 // Test suite for RoomHandlers
 describe("RoomHandlers", () => {
@@ -48,7 +51,10 @@ describe("RoomHandlers", () => {
       expect(mockIo.to).toHaveBeenCalledWith(mockSocket.id)
       expect(toEmit).toHaveBeenCalledWith("event", {
         type: "ROOM_SETTINGS",
-        data: mockRoomSettings,
+        data: {
+          ...mockRoomSettings,
+          pluginConfigs: undefined,
+        },
       })
     })
   })

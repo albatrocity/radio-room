@@ -32,7 +32,7 @@ function AboutPage() {
           )}
           <Text>
             You can view the source code{" "}
-            <Link href="https://github.com/albatrocity/radio-room" target="_blank">
+            <Link href="https://github.com/albatrocity/listening-room" target="_blank">
               here
             </Link>
             .

@@ -46,6 +46,13 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
   })
 
   /**
+   * Delete a single track from the room's playlist
+   */
+  socket.on("DELETE_PLAYLIST_TRACK", async (data: { playedAt: number }) => {
+    await handlers.deletePlaylistTrack(connections, data)
+  })
+
+  /**
    * Execute a plugin action
    */
   socket.on("EXECUTE_PLUGIN_ACTION", async (data: { pluginName: string; action: string }) => {

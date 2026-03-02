@@ -1,7 +1,7 @@
 {
   "name": "load-tester",
   "version": "1.0.0",
-  "description": "Load testing tool for Radio Room - simulates multiple users for stress testing",
+  "description": "Load testing tool for Listening Room - simulates multiple users for stress testing",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

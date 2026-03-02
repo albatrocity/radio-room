@@ -1,5 +1,5 @@
 import { memo, lazy, Suspense } from "react"
-import { Box, Center, Flex, Spinner } from "@chakra-ui/react"
+import { Box, Center, Flex, Icon, IconButton, Spinner, Text } from "@chakra-ui/react"
 
 import NowPlaying from "./NowPlaying"
 
@@ -12,6 +12,7 @@ import {
   useCurrentRoomHasAudio,
 } from "../hooks/useActors"
 import JukeboxControls from "./JukeboxControls"
+import { RiPlayListFill } from "react-icons/ri"
 const RadioControls = lazy(() => import("./RadioControls"))
 
 interface PlayerUiProps {
@@ -70,6 +71,19 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
           />
         </Suspense>
       )}
+
+      {!isOnline && hasPlaylist &&
+        <Box p={2} bg="actionBg">
+          <IconButton
+            size="md"
+            aria-label="Playlist"
+            variant="ghost"
+            onClick={onShowPlaylist}
+          >
+            <Icon boxSize={5} as={RiPlayListFill} />
+          </IconButton>
+        </Box>
+      }
     </Flex>
   )
 }

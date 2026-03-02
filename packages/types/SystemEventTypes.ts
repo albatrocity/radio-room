@@ -45,6 +45,11 @@ export type SystemEventHandlers = {
 
   PLAYLIST_TRACK_UPDATED: (data: { roomId: string; track: QueueItem }) => Promise<void> | void
 
+  PLAYLIST_TRACK_DELETED: (data: {
+    roomId: string
+    playedAt: number // Unique identifier for the track (sorted set score)
+  }) => Promise<void> | void
+
   // Queue events
   QUEUE_CHANGED: (data: { roomId: string; queue: QueueItem[] }) => Promise<void> | void
 

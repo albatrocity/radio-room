@@ -1,7 +1,7 @@
 {
   "name": "@repo/plugin-special-words",
   "version": "1.0.0",
-  "description": "Special Words plugin for Radio Room - detect special words in messages",
+  "description": "Special Words plugin for Listening Room - detect special words in messages",
   "main": "index.ts",
   "types": "index.ts",
   "exports": {
@@ -9,7 +9,7 @@
     "./types": "./types.ts"
   },
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "lint": "prettier --write . && eslint . --fix",
     "format": "prettier --write ."

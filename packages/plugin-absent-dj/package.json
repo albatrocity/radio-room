@@ -1,0 +1,22 @@
+{
+  "name": "@repo/plugin-absent-dj",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@repo/plugin-base": "*",
+    "@repo/types": "*",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.0.13"
+  }
+}

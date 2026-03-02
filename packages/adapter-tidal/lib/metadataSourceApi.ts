@@ -282,7 +282,7 @@ export async function makeApi({
         client,
         tidalUserId,
         params.title,
-        `Created from Radio Room on ${new Date().toLocaleDateString()}`,
+        `Created from Listening Room on ${new Date().toLocaleDateString()}`,
       )
 
       // Step 2: Add tracks to the playlist

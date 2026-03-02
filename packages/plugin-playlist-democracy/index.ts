@@ -30,6 +30,7 @@ export { playlistDemocracyConfigSchema, defaultPlaylistDemocracyConfig } from ".
 // ============================================================================
 
 const COMPETITIVE_LEADERBOARD_KEY = "competitive-leaderboard"
+const NO_ADMIN_CHECK_TIMER_ID = "no-admin-check"
 
 // ============================================================================
 // Component State Type
@@ -71,8 +72,6 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
   static readonly configSchema = playlistDemocracyConfigSchema
   static readonly defaultConfig = defaultPlaylistDemocracyConfig
-
-  private readonly activeTimers = new Map<string, NodeJS.Timeout>()
 
   // ============================================================================
   // Schema Methods
@@ -227,10 +226,6 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     this.onConfigChange(this.handleConfigChange.bind(this))
   }
 
-  protected async onCleanup(): Promise<void> {
-    this.clearAllTimers()
-  }
-
   // ============================================================================
   // Event Handlers
   // ============================================================================
@@ -306,40 +301,31 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
   }
 
   private scheduleNoAdminCheck(): void {
-    // Cancel any existing timer
-    this.cancelNoAdminCheck()
-
-    const NO_ADMIN_CHECK_KEY = "no-admin-check"
     const NO_ADMIN_DELAY_MS = 30000 // 30 seconds
 
     console.log(`[${this.name}] No admins detected, scheduling disable check in 30 seconds`)
 
-    const timeout = setTimeout(async () => {
-      this.activeTimers.delete(NO_ADMIN_CHECK_KEY)
+    this.startTimer(NO_ADMIN_CHECK_TIMER_ID, {
+      duration: NO_ADMIN_DELAY_MS,
+      callback: async () => {
+        if (!this.context) return
 
-      if (!this.context) return
+        // Re-check if there are still no admins
+        const users = await this.context.api.getUsers(this.context.roomId)
+        const hasAdmins = users.some((u) => u.isAdmin)
 
-      // Re-check if there are still no admins
-      const users = await this.context.api.getUsers(this.context.roomId)
-      const hasAdmins = users.some((u) => u.isAdmin)
-
-      if (!hasAdmins) {
-        console.log(`[${this.name}] Still no admins after 30 seconds, disabling plugin`)
-        await this.disablePluginNoAdmins()
-      } else {
-        console.log(`[${this.name}] Admin returned, keeping plugin enabled`)
-      }
-    }, NO_ADMIN_DELAY_MS)
-
-    this.activeTimers.set(NO_ADMIN_CHECK_KEY, timeout)
+        if (!hasAdmins) {
+          console.log(`[${this.name}] Still no admins after 30 seconds, disabling plugin`)
+          await this.disablePluginNoAdmins()
+        } else {
+          console.log(`[${this.name}] Admin returned, keeping plugin enabled`)
+        }
+      },
+    })
   }
 
   private cancelNoAdminCheck(): void {
-    const NO_ADMIN_CHECK_KEY = "no-admin-check"
-    const timer = this.activeTimers.get(NO_ADMIN_CHECK_KEY)
-    if (timer) {
-      clearTimeout(timer)
-      this.activeTimers.delete(NO_ADMIN_CHECK_KEY)
+    if (this.clearTimer(NO_ADMIN_CHECK_TIMER_ID)) {
       console.log(`[${this.name}] Cancelled pending no-admin check`)
     }
   }
@@ -388,7 +374,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       )
 
       await this.emit("TRACK_STARTED", { showCountdown: true, trackStartTime: playedAt })
-      this.startTimerWithDuration(trackId, nowPlaying.title, config, remaining)
+      this.startTrackTimerWithDuration(trackId, nowPlaying.title, config, remaining)
     }
   }
 
@@ -421,44 +407,31 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
   // Timer Management
   // ============================================================================
 
+  private makeTrackTimerId(trackId: string): string {
+    return `track:${trackId}`
+  }
+
   private startTrackTimer(
     trackId: string,
     trackTitle: string,
     config: PlaylistDemocracyConfig,
   ): void {
-    this.clearTimer(trackId)
-    this.startTimerWithDuration(trackId, trackTitle, config, config.timeLimit)
+    this.startTrackTimerWithDuration(trackId, trackTitle, config, config.timeLimit)
     console.log(`[${this.name}] Started monitoring track ${trackId} for ${config.timeLimit}ms`)
   }
 
-  private startTimerWithDuration(
+  private startTrackTimerWithDuration(
     trackId: string,
     trackTitle: string,
     config: PlaylistDemocracyConfig,
     duration: number,
   ): void {
-    const timeout = setTimeout(async () => {
-      await this.checkThresholdAndSkip(trackId, trackTitle, config)
-      this.activeTimers.delete(trackId)
-    }, duration)
-
-    this.activeTimers.set(trackId, timeout)
-  }
-
-  private clearTimer(trackId: string): void {
-    const timer = this.activeTimers.get(trackId)
-    if (timer) {
-      clearTimeout(timer)
-      this.activeTimers.delete(trackId)
-    }
-  }
-
-  private clearAllTimers(): void {
-    this.activeTimers.forEach((timeout, trackId) => {
-      clearTimeout(timeout)
-      console.log(`[${this.name}] Cleared timer for track ${trackId}`)
+    this.startTimer(this.makeTrackTimerId(trackId), {
+      duration,
+      callback: async () => {
+        await this.checkThresholdAndSkip(trackId, trackTitle, config)
+      },
     })
-    this.activeTimers.clear()
   }
 
   // ============================================================================

@@ -1,6 +1,6 @@
-# Radio Room Server
+# Listening Room Server
 
-Express/Socket.io server for a [Radio Room](https://github.com/albatrocity/radio-room) instance.
+Express/Socket.io server for a [Listening Room](https://github.com/albatrocity/listening-room) instance.
 
 ```
 # .env

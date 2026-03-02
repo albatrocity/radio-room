@@ -30,7 +30,14 @@ import { debounce } from "lodash"
 
 import MentionSuggestionsContainer from "./MentionSuggestionsContainer"
 import ImageUpload from "./ImageUpload"
-import { useCurrentUser, useIsAuthenticated, useUsers, useIsAnyModalOpen, useSettings, useCurrentRoom } from "../hooks/useActors"
+import {
+  useCurrentUser,
+  useIsAuthenticated,
+  useUsers,
+  useIsAnyModalOpen,
+  useSettings,
+  useCurrentRoom,
+} from "../hooks/useActors"
 import { uploadImages } from "../lib/serverApi"
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024 // 4MB per image

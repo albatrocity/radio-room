@@ -32,7 +32,7 @@ function QueuedTracksSection() {
     const item = queue[index]
     return (
       <VStack pb={2} gap={2} w="100%" align="stretch">
-        <PlaylistItem item={item} />
+        <PlaylistItem item={item} isQueueItem />
         {index < queue.length - 1 && <Separator borderColor="secondaryBorder" opacity={0.5} />}
       </VStack>
     )

@@ -41,6 +41,30 @@ export function makeSocket({ roomId = "room123", id, ...rest }: Options = {}) {
       emit: broadcastEmit,
       to: toBroadcast,
     },
+    context: {
+      pluginRegistry: {
+        emit: vi.fn(),
+        syncRoomPlugins: vi.fn(),
+      },
+      systemEvents: {
+        emit: vi.fn(),
+      },
+      redis: {
+        client: {},
+        sub: {},
+        pub: {},
+      },
+      adapters: {
+        playbackControllers: new Map(),
+        metadataSources: new Map(),
+        mediaSources: new Map(),
+        serviceAuth: new Map(),
+        playbackControllerModules: new Map(),
+        metadataSourceModules: new Map(),
+        mediaSourceModules: new Map(),
+      },
+      jobs: [],
+    },
   } as unknown as Socket
 
   // Ensure roomId is always set on socket.data

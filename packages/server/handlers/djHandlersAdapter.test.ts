@@ -123,8 +123,10 @@ describe("DJHandlers", () => {
       getRoomMediaSource: vi.fn().mockResolvedValue({}),
     }
 
-    // Mock AdapterService constructor
-    vi.mocked(AdapterService).mockImplementation(() => adapterService)
+    // Mock AdapterService constructor - use function() to create a proper constructor
+    vi.mocked(AdapterService).mockImplementation(function () {
+      return adapterService
+    } as any)
 
     djHandlers = new DJHandlers(djService, mockContext)
   })
@@ -147,8 +149,11 @@ describe("DJHandlers", () => {
       expect(toEmit).toHaveBeenCalledWith(
         "event",
         {
-          type: "NEW_MESSAGE",
-          data: mockSystemMessage,
+          type: "MESSAGE_RECEIVED",
+          data: {
+            roomId: "room1",
+            message: mockSystemMessage,
+          },
         },
         { status: "info" },
       )

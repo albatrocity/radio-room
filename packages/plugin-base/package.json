@@ -1,7 +1,7 @@
 {
   "name": "@repo/plugin-base",
   "version": "1.0.0",
-  "description": "Base class for Radio Room plugins with automatic cleanup",
+  "description": "Base class for Listening Room plugins with automatic cleanup",
   "main": "index.ts",
   "types": "index.ts",
   "exports": {

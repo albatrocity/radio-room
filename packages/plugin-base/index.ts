@@ -11,6 +11,44 @@ import {
   SystemEventPayload,
 } from "@repo/types"
 
+// ============================================================================
+// Timer Types
+// ============================================================================
+
+/**
+ * Configuration for starting a timer.
+ * @template T - Type of optional metadata attached to the timer
+ */
+export interface TimerConfig<T = unknown> {
+  /** Duration in milliseconds */
+  duration: number
+  /** Function to call when timer expires */
+  callback: () => Promise<void> | void
+  /** Optional metadata to attach to the timer */
+  data?: T
+}
+
+/**
+ * Timer information returned by getTimer/getAllTimers.
+ * Does not include the internal timeout handle.
+ * @template T - Type of optional metadata attached to the timer
+ */
+export interface Timer<T = unknown> {
+  id: string
+  /** Timestamp (Date.now()) when the timer was started */
+  startTime: number
+  /** Duration in milliseconds */
+  duration: number
+  /** Optional metadata attached to the timer */
+  data?: T
+}
+
+/** Internal timer entry that includes the timeout handle and callback */
+interface InternalTimer<T = unknown> extends Timer<T> {
+  timeout: NodeJS.Timeout
+  callback: () => Promise<void> | void
+}
+
 /**
  * Base class for plugins that provides automatic storage cleanup,
  * typed config access, schema support, and a hook for custom cleanup logic.
@@ -108,6 +146,12 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    * Set automatically when register() is called.
    */
   protected context: PluginContext | null = null
+
+  /**
+   * Internal storage for active timers.
+   * Maps timer ID to timer data and handle.
+   */
+  private readonly timers = new Map<string, InternalTimer<any>>()
 
   /**
    * Create a new plugin instance with optional config overrides.
@@ -235,6 +279,203 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     await this.context.api.emit(eventName, data)
   }
 
+  // ============================================================================
+  // Timer Management
+  // ============================================================================
+
+  /**
+   * Start a timer with the given ID and configuration.
+   * If a timer with the same ID already exists, it will be cleared first.
+   *
+   * @param id - Unique identifier for this timer
+   * @param config - Timer configuration including duration, callback, and optional data
+   *
+   * @example
+   * ```typescript
+   * // Simple timer
+   * this.startTimer("skip-countdown", {
+   *   duration: 30000,
+   *   callback: async () => {
+   *     await this.skipTrack()
+   *   }
+   * })
+   *
+   * // Timer with metadata
+   * this.startTimer<{ trackId: string }>("track-timer", {
+   *   duration: 60000,
+   *   callback: () => console.log("Timer expired"),
+   *   data: { trackId: "abc123" }
+   * })
+   * ```
+   */
+  protected startTimer<T = unknown>(id: string, config: TimerConfig<T>): void {
+    // Clear existing timer with same ID if present
+    this.clearTimer(id)
+
+    const startTime = Date.now()
+
+    const timeout = setTimeout(async () => {
+      try {
+        await config.callback()
+      } catch (error) {
+        console.error(`[${this.name}] Timer callback error for "${id}":`, error)
+      } finally {
+        this.timers.delete(id)
+      }
+    }, config.duration)
+
+    this.timers.set(id, {
+      id,
+      startTime,
+      duration: config.duration,
+      data: config.data,
+      timeout,
+      callback: config.callback,
+    })
+
+    console.log(`[${this.name}] Started timer "${id}" for ${config.duration}ms`)
+  }
+
+  /**
+   * Clear a specific timer by ID.
+   *
+   * @param id - The timer ID to clear
+   * @returns `true` if a timer was found and cleared, `false` otherwise
+   *
+   * @example
+   * ```typescript
+   * if (this.clearTimer("skip-countdown")) {
+   *   console.log("Countdown cancelled")
+   * }
+   * ```
+   */
+  protected clearTimer(id: string): boolean {
+    const timer = this.timers.get(id)
+    if (timer) {
+      clearTimeout(timer.timeout)
+      this.timers.delete(id)
+      console.log(`[${this.name}] Cleared timer "${id}"`)
+      return true
+    }
+    return false
+  }
+
+  /**
+   * Clear all active timers for this plugin instance.
+   *
+   * @example
+   * ```typescript
+   * // In cleanup or when disabling plugin
+   * this.clearAllTimers()
+   * ```
+   */
+  protected clearAllTimers(): void {
+    this.timers.forEach((timer, id) => {
+      clearTimeout(timer.timeout)
+      console.log(`[${this.name}] Cleared timer "${id}"`)
+    })
+    this.timers.clear()
+  }
+
+  /**
+   * Get information about a specific timer.
+   *
+   * @param id - The timer ID to look up
+   * @returns Timer information or `null` if not found
+   *
+   * @example
+   * ```typescript
+   * const timer = this.getTimer<{ trackId: string }>("track-timer")
+   * if (timer) {
+   *   console.log(`Timer for track ${timer.data?.trackId} started at ${timer.startTime}`)
+   * }
+   * ```
+   */
+  protected getTimer<T = unknown>(id: string): Timer<T> | null {
+    const timer = this.timers.get(id)
+    if (!timer) return null
+
+    // Return timer info without the internal handle and callback
+    return {
+      id: timer.id,
+      startTime: timer.startTime,
+      duration: timer.duration,
+      data: timer.data as T,
+    }
+  }
+
+  /**
+   * Get all active timers for this plugin instance.
+   *
+   * @returns Array of timer information objects
+   *
+   * @example
+   * ```typescript
+   * const timers = this.getAllTimers()
+   * console.log(`${timers.length} active timers`)
+   * ```
+   */
+  protected getAllTimers(): Timer[] {
+    return Array.from(this.timers.values()).map((timer) => ({
+      id: timer.id,
+      startTime: timer.startTime,
+      duration: timer.duration,
+      data: timer.data,
+    }))
+  }
+
+  /**
+   * Reset a timer, restarting it from the beginning with its original configuration.
+   *
+   * @param id - The timer ID to reset
+   * @returns `true` if the timer was found and reset, `false` otherwise
+   *
+   * @example
+   * ```typescript
+   * // User activity detected, reset the inactivity timer
+   * this.resetTimer("inactivity-timeout")
+   * ```
+   */
+  protected resetTimer(id: string): boolean {
+    const timer = this.timers.get(id)
+    if (!timer) return false
+
+    // Clear the existing timeout
+    clearTimeout(timer.timeout)
+
+    // Restart with the same configuration
+    this.startTimer(id, {
+      duration: timer.duration,
+      callback: timer.callback,
+      data: timer.data,
+    })
+
+    return true
+  }
+
+  /**
+   * Get the remaining time for a specific timer.
+   *
+   * @param id - The timer ID to check
+   * @returns Remaining milliseconds, `0` if expired, or `null` if timer not found
+   *
+   * @example
+   * ```typescript
+   * const remaining = this.getTimerRemaining("skip-countdown")
+   * if (remaining !== null) {
+   *   console.log(`${Math.ceil(remaining / 1000)} seconds remaining`)
+   * }
+   * ```
+   */
+  protected getTimerRemaining(id: string): number | null {
+    const timer = this.timers.get(id)
+    if (!timer) return null
+
+    const elapsed = Date.now() - timer.startTime
+    const remaining = timer.duration - elapsed
+    return Math.max(0, remaining)
+  }
+
   /**
    * Get the merged default config (static defaults + factory overrides).
    * Override this if you need custom default config logic.
@@ -330,7 +571,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
 
   /**
    * Cleanup plugin resources and storage.
-   * Automatically cleans up plugin storage and calls onCleanup() if defined.
+   * Automatically clears all timers, cleans up plugin storage, and calls onCleanup() if defined.
    */
   async cleanup(): Promise<void> {
     if (!this.context) {
@@ -338,6 +579,9 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     }
 
     console.log(`[${this.name}] Running cleanup for room ${this.context.roomId}`)
+
+    // Clear all active timers
+    this.clearAllTimers()
 
     // Cleanup storage (removes all keys for this plugin in this room)
     if (this.context.storage) {

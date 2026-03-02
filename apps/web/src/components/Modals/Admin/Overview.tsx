@@ -1,5 +1,6 @@
-import { LuChevronRight } from "react-icons/lu"
-import { useSettings, useModalsSend } from "../../../hooks/useActors"
+import { useRef } from "react"
+import { LuChevronRight, LuDownload, LuUpload } from "react-icons/lu"
+import { useSettings, useModalsSend, useAdminSend } from "../../../hooks/useActors"
 import {
   Box,
   Button,
@@ -10,12 +11,16 @@ import {
   VStack,
   Separator,
   Spinner,
+  Input,
+  Text,
 } from "@chakra-ui/react"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 import ActiveIndicator from "../../ActiveIndicator"
 import DestructiveActions from "./DestructiveActions"
 import ButtonRoomAuthSpotify from "../../ButtonRoomAuthSpotify"
 import ButtonRoomAuthTidal from "../../ButtonRoomAuthTidal"
+import { exportPreset, importPreset } from "../../../lib/pluginPresets"
+import { toaster } from "../../ui/toaster"
 
 /**
  * Convert plugin name to a display-friendly title
@@ -38,8 +43,10 @@ function toEventName(name: string): string {
 
 function Overview() {
   const send = useModalsSend()
+  const adminSend = useAdminSend()
   const settings = useSettings()
   const { schemas, isLoading } = usePluginSchemas()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const hasPassword = !!settings.password
   const hasSettings = !!settings.extraInfo || !!settings.artwork || !!settings.radioMetaUrl
@@ -54,6 +61,62 @@ function Overview() {
 
   // Filter plugins that have a configSchema
   const configurablePlugins = schemas.filter((p) => p.configSchema)
+
+  // Check if there are any plugin configs to export
+  const hasPluginConfigs =
+    settings.pluginConfigs && Object.keys(settings.pluginConfigs).length > 0
+
+  const handleExportPreset = () => {
+    const presetName = settings.title ? `${settings.title} Preset` : "Plugin Preset"
+    exportPreset(settings.pluginConfigs || {}, presetName)
+    toaster.create({
+      title: "Preset exported",
+      description: "Your plugin configuration has been downloaded",
+      type: "success",
+      duration: 3000,
+    })
+  }
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const result = await importPreset(file)
+
+    if (!result.valid || !result.preset) {
+      toaster.create({
+        title: "Import failed",
+        description: result.error || "Invalid preset file",
+        type: "error",
+        duration: 5000,
+      })
+      // Reset the input so the same file can be selected again
+      event.target.value = ""
+      return
+    }
+
+    // Apply the imported configs
+    adminSend({
+      type: "SET_SETTINGS",
+      data: {
+        pluginConfigs: result.preset.pluginConfigs,
+      },
+    })
+
+    toaster.create({
+      title: "Preset imported",
+      description: `Applied "${result.preset.presetName}" configuration`,
+      type: "success",
+      duration: 3000,
+    })
+
+    // Reset the input
+    event.target.value = ""
+  }
 
   return (
     <Box>
@@ -174,6 +237,46 @@ function Overview() {
                 ))
               )}
             </VStack>
+          </VStack>
+
+          <VStack align="left" gap={2}>
+            <Heading as="h4" size="sm" textAlign="left">
+              Presets
+            </Heading>
+            <Text fontSize="sm" color="gray.500">
+              Export your plugin settings as a file, or import a preset to apply saved
+              configurations.
+            </Text>
+            <HStack w="100%" gap={2}>
+              <Button
+                colorPalette="action"
+                variant="subtle"
+                borderRadius="lg"
+                flex={1}
+                onClick={handleExportPreset}
+                disabled={!hasPluginConfigs}
+              >
+                <LuDownload />
+                Export
+              </Button>
+              <Button
+                colorPalette="action"
+                variant="subtle"
+                borderRadius="lg"
+                flex={1}
+                onClick={handleImportClick}
+              >
+                <LuUpload />
+                Import
+              </Button>
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,application/json"
+                display="none"
+                onChange={handleFileChange}
+              />
+            </HStack>
           </VStack>
 
           <VStack w="100%" align="left" gap={2}>
