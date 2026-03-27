@@ -50,6 +50,10 @@ COPY --from=installer --chown=nodejs:nodejs /app/apps/api/package.json ./apps/ap
 COPY --from=installer --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=installer --chown=nodejs:nodejs /app/package.json ./package.json
 
+# Copy migration script and SQL files for release phase
+COPY --from=installer --chown=nodejs:nodejs /app/packages/db/dist ./packages/db/dist
+COPY --from=installer --chown=nodejs:nodejs /app/packages/db/drizzle ./packages/db/drizzle
+
 # Expose port (Heroku will set PORT env var)
 EXPOSE 3000
 
