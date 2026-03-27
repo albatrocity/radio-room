@@ -12,6 +12,7 @@ import {
   useListeners,
   useAdminSend,
   useRoomCreator,
+  useIsRoomCreator,
 } from "../hooks/useActors"
 import { PluginArea } from "./PluginComponents"
 
@@ -31,6 +32,7 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
   const currentUser = useCurrentUser()
   const listeners = useListeners()
   const creator = useRoomCreator()
+  const isCurrentUserRoomCreator = useIsRoomCreator()
   const dj = useDj()
 
   const {
@@ -51,6 +53,11 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
 
   const handleDeputizeDj = useCallback(
     (userId: User["userId"]) => adminSend({ type: "DEPUTIZE_DJ", userId }),
+    [adminSend],
+  )
+
+  const handleDesignateAdmin = useCallback(
+    (userId: User["userId"]) => adminSend({ type: "DESIGNATE_ADMIN", userId }),
     [adminSend],
   )
 
@@ -95,7 +102,8 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
             <ListItemUser
               key={currentListener.userId}
               user={currentListener}
-              isAdmin={currentListener.userId === creator}
+              isAdmin={currentListener.userId === creator || !!currentListener.isAdmin}
+              isRoomCreator={currentListener.userId === creator}
               userTyping={isTyping(currentUser)}
               currentUser={currentUser}
               onEditUser={onEditUser}
@@ -106,13 +114,15 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
             <ListItemUser
               key={x.userId}
               user={x}
-              isAdmin={x.userId === creator}
+              isAdmin={x.userId === creator || !!x.isAdmin}
+              isRoomCreator={x.userId === creator}
               showStatus={showStatus}
               userTyping={isTyping(x)}
               currentUser={currentUser}
               onEditUser={onEditUser}
               onKickUser={handleKickUser}
               onDeputizeDj={handleDeputizeDj}
+              onDesignateAdmin={isCurrentUserRoomCreator ? handleDesignateAdmin : undefined}
             />
           ))}
         </List.Root>

@@ -3,6 +3,7 @@ import {
   getMessagesSince,
   getRoomPlaylistSince,
   removeSensitiveRoomAttributes,
+  isAdminMember,
 } from "../operations/data"
 import { HandlerConnections } from "@repo/types/HandlerConnections"
 import { RoomSnapshot } from "@repo/types/Room"
@@ -18,7 +19,9 @@ export async function getRoomSettings({ io, socket }: HandlerConnections) {
     return
   }
 
-  const isAdmin = socket.data.userId === room?.creator
+  const isAdmin =
+    socket.data.userId === room.creator ||
+    (await isAdminMember({ context, roomId: socket.data.roomId, userId: socket.data.userId }))
 
   io.to(socket.id).emit("event", {
     type: "ROOM_SETTINGS",
@@ -41,7 +44,9 @@ export async function getLatestRoomData(
     return
   }
 
-  const isAdmin = socket.data.userId === room?.creator
+  const isAdmin =
+    socket.data.userId === room.creator ||
+    (await isAdminMember({ context, roomId: socket.data.roomId, userId: socket.data.userId }))
 
   const messages = await getMessagesSince({
     context,

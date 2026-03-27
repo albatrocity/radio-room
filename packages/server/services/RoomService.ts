@@ -5,6 +5,7 @@ import {
   getMessagesSince,
   getRoomPlaylistSince,
   removeSensitiveRoomAttributes,
+  isAdminMember,
 } from "../operations/data"
 
 /**
@@ -26,7 +27,9 @@ export class RoomService {
       return null
     }
 
-    const isAdmin = userId === room?.creator
+    const isAdmin =
+      userId === room.creator ||
+      (await isAdminMember({ context: this.context, roomId, userId }))
 
     return {
       room: isAdmin ? room : removeSensitiveRoomAttributes(room),
@@ -46,7 +49,9 @@ export class RoomService {
       return null
     }
 
-    const isAdmin = userId === room?.creator
+    const isAdmin =
+      userId === room.creator ||
+      (await isAdminMember({ context: this.context, roomId, userId }))
 
     const messages = await getMessagesSince({
       context: this.context,

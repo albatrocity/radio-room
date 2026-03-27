@@ -32,6 +32,13 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
   })
 
   /**
+   * Designate or remove a user as room admin (creator-only)
+   */
+  socket.on("DESIGNATE_ADMIN", async (userId: string) => {
+    await handlers.designateAdmin(connections, userId)
+  })
+
+  /**
    * Update room settings
    */
   socket.on("SET_ROOM_SETTINGS", async (settings: Partial<Room>) => {

@@ -4,7 +4,7 @@ import { get, isEqual } from "lodash/fp"
 import { Box, Text, HStack, IconButton, Icon, List, VStack, Stack } from "@chakra-ui/react"
 import { Tooltip } from "./ui/tooltip"
 import { LuPencil, LuX } from "react-icons/lu"
-import { FiMic, FiMusic, FiEye, FiHeadphones } from "react-icons/fi"
+import { FiMic, FiMusic, FiEye, FiHeadphones, FiShield } from "react-icons/fi"
 import { BiMessageRoundedDots, BiCrown } from "react-icons/bi"
 import { User } from "../types/User"
 import { PluginArea } from "./PluginComponents"
@@ -39,9 +39,11 @@ interface ListItemUserProps {
   onEditUser: (user: User) => void
   onKickUser?: (userId: string) => void
   onDeputizeDj?: (userId: string) => void
+  onDesignateAdmin?: (userId: string) => void
   showStatus?: boolean
   userTyping: boolean
   isAdmin?: boolean
+  isRoomCreator?: boolean
 }
 
 const ListItemUser = ({
@@ -50,9 +52,11 @@ const ListItemUser = ({
   onEditUser,
   onKickUser,
   onDeputizeDj,
+  onDesignateAdmin,
   userTyping,
   showStatus = true,
   isAdmin = false,
+  isRoomCreator = false,
 }: ListItemUserProps) => {
   return (
     <List.Item
@@ -82,7 +86,20 @@ const ListItemUser = ({
         >
           <HStack gap="0.4rem" justifyContent="flex-start">
             {showStatus && statusIcon(user)}
-            {isAdmin && <Icon as={BiCrown} boxSize={3} />}
+            {isRoomCreator && (
+              <Tooltip content="Room Creator" positioning={{ placement: "top" }}>
+                <Box>
+                  <Icon as={BiCrown} boxSize={3} />
+                </Box>
+              </Tooltip>
+            )}
+            {isAdmin && !isRoomCreator && (
+              <Tooltip content="Room Admin" positioning={{ placement: "top" }}>
+                <Box>
+                  <Icon as={FiShield} boxSize={3} />
+                </Box>
+              </Tooltip>
+            )}
             <PluginArea
               area="userListItem"
               itemContext={{
@@ -130,7 +147,24 @@ const ListItemUser = ({
                 </IconButton>
               </Tooltip>
             )}
-            {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
+            {onDesignateAdmin && !isEqual(user?.userId, currentUser?.userId) && (
+              <Tooltip
+                positioning={{ placement: "top" }}
+                content={user.isAdmin ? "Remove admin privileges" : "Make admin"}
+              >
+                <IconButton
+                  size="xs"
+                  variant={user.isAdmin ? "subtle" : "ghost"}
+                  aria-label="Designate Admin"
+                  onClick={() => {
+                    onDesignateAdmin(user.userId)
+                  }}
+                >
+                  <Icon as={FiShield} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && !isAdmin && (
               <IconButton
                 size="xs"
                 variant="ghost"
@@ -160,7 +194,8 @@ function arePropsEqual(prevProps: ListItemUserProps, nextProps: ListItemUserProp
     prevProps.currentUser?.isAdmin === nextProps.currentUser?.isAdmin &&
     prevProps.userTyping === nextProps.userTyping &&
     prevProps.showStatus === nextProps.showStatus &&
-    prevProps.isAdmin === nextProps.isAdmin
+    prevProps.isAdmin === nextProps.isAdmin &&
+    prevProps.isRoomCreator === nextProps.isRoomCreator
   )
 }
 

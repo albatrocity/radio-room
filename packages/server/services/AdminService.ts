@@ -10,6 +10,10 @@ import {
   saveRoom,
   clearRoomPlaylist,
   removeFromPlaylist,
+  addAdmin,
+  removeAdmin,
+  isAdminMember,
+  updateUserAttributes,
 } from "../operations/data"
 import handleRoomNowPlayingData from "../operations/room/handleRoomNowPlayingData"
 import { makeStableTrackId } from "../lib/makeNowPlayingFromStationMeta"
@@ -22,15 +26,18 @@ export class AdminService {
   constructor(private context: AppContext) {}
 
   /**
-   * Check if a user is an admin for a room
+   * Check if a user is an admin (creator or designated admin) for a room
    */
   async getAuthedRoom(roomId: string, userId: string) {
     const room = await findRoom({ context: this.context, roomId })
-    const isAdmin = userId === room?.creator
 
     if (!room) {
       return { room: null, isAdmin: false, error: null }
     }
+
+    const isCreator = userId === room.creator
+    const isDesignatedAdmin = await isAdminMember({ context: this.context, roomId, userId })
+    const isAdmin = isCreator || isDesignatedAdmin
 
     if (!isAdmin) {
       return {
@@ -39,12 +46,69 @@ export class AdminService {
         error: {
           status: 403,
           error: "Forbidden",
-          message: "You are not the room creator.",
+          message: "You are not a room admin.",
         },
       }
     }
 
     return { room, isAdmin: true, error: null }
+  }
+
+  /**
+   * Toggle admin status for a user (creator-only action)
+   */
+  async designateAdmin(roomId: string, callerUserId: string, targetUserId: string) {
+    const room = await findRoom({ context: this.context, roomId })
+
+    if (!room || room.creator !== callerUserId) {
+      return {
+        error: { status: 403, error: "Forbidden", message: "Only the room creator can designate admins." },
+      }
+    }
+
+    if (targetUserId === callerUserId) {
+      return {
+        error: { status: 400, error: "Bad Request", message: "Cannot change your own admin status." },
+      }
+    }
+
+    const storedUser = await getUser({ context: this.context, userId: targetUserId })
+    const socketId = storedUser?.id
+
+    const alreadyAdmin = await isAdminMember({ context: this.context, roomId, userId: targetUserId })
+
+    let eventType: string
+    let isAdmin: boolean
+    let message
+
+    if (alreadyAdmin) {
+      eventType = "END_ADMIN_SESSION"
+      isAdmin = false
+      await removeAdmin({ context: this.context, roomId, userId: targetUserId })
+      message = systemMessage("You are no longer a room admin.", {
+        status: "info",
+        type: "alert",
+        title: "Admin Removed",
+      })
+    } else {
+      eventType = "START_ADMIN_SESSION"
+      isAdmin = true
+      await addAdmin({ context: this.context, roomId, userId: targetUserId })
+      message = systemMessage("You've been promoted to a room admin.", {
+        status: "success",
+        type: "alert",
+        title: "Admin Promoted",
+      })
+    }
+
+    const { user, users } = await updateUserAttributes({
+      context: this.context,
+      userId: targetUserId,
+      attributes: { isAdmin },
+      roomId,
+    })
+
+    return { socketId, eventType, message, user, users, error: null }
   }
 
   /**
@@ -77,8 +141,26 @@ export class AdminService {
   /**
    * Kick a user from a room
    */
-  async kickUser(user: User) {
+  async kickUser(roomId: string, user: User) {
     const { userId } = user
+
+    const room = await findRoom({ context: this.context, roomId })
+    if (room && userId === room.creator) {
+      return {
+        socketId: null,
+        message: null,
+        error: { status: 403, error: "Forbidden", message: "Cannot kick the room creator." },
+      }
+    }
+
+    if (room && (await isAdminMember({ context: this.context, roomId, userId }))) {
+      return {
+        socketId: null,
+        message: null,
+        error: { status: 403, error: "Forbidden", message: "Cannot kick a room admin. Remove their admin privileges first." },
+      }
+    }
+
     const storedUser = await getUser({ context: this.context, userId })
     const socketId = storedUser?.id
 
@@ -91,6 +173,7 @@ export class AdminService {
     return {
       socketId,
       message: newMessage,
+      error: null,
     }
   }
 

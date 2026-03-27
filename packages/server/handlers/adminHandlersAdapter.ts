@@ -2,6 +2,7 @@ import { AdminService } from "../services/AdminService"
 import { HandlerConnections, AppContext } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
+import { pubUserJoined } from "../operations/sockets/users"
 
 /**
  * Socket.io adapter for the AdminService
@@ -55,7 +56,15 @@ export class AdminHandlers {
    * Kick a user from a room
    */
   kickUser = async ({ io, socket }: HandlerConnections, user: User) => {
-    const result = await this.adminService.kickUser(user)
+    const result = await this.adminService.kickUser(socket.data.roomId, user)
+
+    if (result.error) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
+      return
+    }
 
     if (result.socketId) {
       // Send message notification to the kicked user (direct message to specific socket)
@@ -219,6 +228,48 @@ export class AdminHandlers {
       } catch (error) {
         console.error("[Plugins] Error syncing plugins after settings update:", error)
       }
+    }
+  }
+
+  /**
+   * Designate or remove a user as room admin (creator-only)
+   */
+  designateAdmin = async ({ io, socket }: HandlerConnections, userId: User["userId"]) => {
+    const { context } = socket
+
+    const result = await this.adminService.designateAdmin(
+      socket.data.roomId,
+      socket.data.userId,
+      userId,
+    )
+
+    if (result.error) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
+      return
+    }
+
+    if (result.socketId) {
+      io.to(result.socketId).emit("event", {
+        type: "MESSAGE_RECEIVED",
+        data: {
+          roomId: socket.data.roomId,
+          message: result.message,
+        },
+      })
+
+      io.to(result.socketId).emit("event", { type: result.eventType })
+    }
+
+    if (result.user) {
+      pubUserJoined({
+        io,
+        roomId: socket.data.roomId,
+        data: { user: result.user, users: result.users },
+        context,
+      })
     }
   }
 

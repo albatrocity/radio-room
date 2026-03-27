@@ -46,3 +46,10 @@ export function deleteRoom(id: string): void {
 export function deputizeDj(userId: string): void {
   adminActor.send({ type: "DEPUTIZE_DJ", userId })
 }
+
+/**
+ * Designate a user as room admin (creator-only).
+ */
+export function designateAdmin(userId: string): void {
+  adminActor.send({ type: "DESIGNATE_ADMIN", userId })
+}
