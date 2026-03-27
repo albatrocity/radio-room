@@ -1,25 +1,100 @@
-import React, { useEffect } from "react"
-import { createFileRoute } from "@tanstack/react-router"
+import { useState } from "react"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import {
+  Box,
+  Button,
+  Center,
+  Heading,
+  Input,
+  Text,
+  VStack,
+  Separator,
+} from "@chakra-ui/react"
 
 import Layout from "../components/layout"
-import { Center, Heading } from "@chakra-ui/react"
+import { authClient } from "@repo/auth/client"
+import { FcGoogle } from "react-icons/fc"
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
 })
 
 function LoginPage() {
-  useEffect(() => {
-    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000"
-    console.log("Redirecting to Spotify login, API URL:", apiUrl)
-    // Use window.location.href for external redirect
-    window.location.href = `${apiUrl}/auth/spotify/login?redirect=/admin`
-  }, [])
+  const navigate = useNavigate()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleEmailLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+
+    const { error } = await authClient.signIn.email({
+      email,
+      password,
+    })
+
+    setLoading(false)
+    if (error) {
+      setError(error.message ?? "Invalid email or password")
+    } else {
+      navigate({ to: "/admin", replace: true })
+    }
+  }
+
+  async function handleGoogleLogin() {
+    await authClient.signIn.social({
+      provider: "google",
+      callbackURL: "/admin",
+    })
+  }
 
   return (
     <Layout>
-      <Center h="100vh">
-        <Heading>Sending you to Spotify...</Heading>
+      <Center minH="80vh">
+        <Box w="full" maxW="sm">
+          <VStack gap={6}>
+            <Heading size="xl">Admin Login</Heading>
+
+            <Button onClick={handleGoogleLogin} variant="outline" w="full" size="lg">
+              <FcGoogle />
+              Sign in with Google
+            </Button>
+
+            <Separator />
+
+            <form onSubmit={handleEmailLogin} style={{ width: "100%" }}>
+              <VStack gap={4} w="full">
+                <Input
+                  placeholder="Email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  size="lg"
+                />
+                <Input
+                  placeholder="Password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  size="lg"
+                />
+                {error && (
+                  <Text color="red.500" fontSize="sm">
+                    {error}
+                  </Text>
+                )}
+                <Button type="submit" w="full" size="lg" loading={loading}>
+                  Sign in with Email
+                </Button>
+              </VStack>
+            </form>
+          </VStack>
+        </Box>
       </Center>
     </Layout>
   )

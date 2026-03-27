@@ -1,3 +1,7 @@
 build:
   docker:
     web: Dockerfile.api
+release:
+  image: web
+  command:
+    - node packages/db/dist/migrate.js

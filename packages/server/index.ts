@@ -120,6 +120,9 @@ export class RadioRoomServer {
       secret: process.env.SESSION_SECRET ?? "secret",
     })
 
+    const requireAdmin = config.requireAdmin
+    const noopMiddleware: express.RequestHandler = (_req, _res, next) => next()
+
     this.app = express()
       .set("trust proxy", 1)
       .use(express.static(__dirname + "/public"))
@@ -137,16 +140,23 @@ export class RadioRoomServer {
           credentials: true,
         }),
       )
+
+    if (config.platformAuthHandler) {
+      this.app.options(config.platformAuthHandler.path, (_req, res) => res.sendStatus(204))
+      this.app.all(config.platformAuthHandler.path, config.platformAuthHandler.handler)
+    }
+
+    this.app
       .use(express.json())
       .use(cookieParser())
       .use(this.sessionMiddleware)
       .use(createContextMiddleware(this.context))
       .get("/me", me)
-      .get("/rooms/", findRooms)
+      .get("/rooms/", requireAdmin ?? noopMiddleware, findRooms)
       .get("/rooms/all", findAllRooms)
       .get("/rooms/:id", findRoom)
-      .post("/rooms", create)
-      .delete("/rooms/:id", deleteRoom)
+      .post("/rooms", requireAdmin ?? noopMiddleware, create)
+      .delete("/rooms/:id", requireAdmin ?? noopMiddleware, deleteRoom)
       .post("/logout", logout)
       .get("/debug/jobs", (req, res) => {
         const status = this.jobService.getJobStatus()

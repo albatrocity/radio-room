@@ -20,6 +20,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0012](0012-server-side-oauth-no-client-tokens.md) | Server-Side OAuth with No Client-Side Token Exposure | Accepted |
 | [0013](0013-track-identity-media-and-metadata-sources.md) | Track Identity via Explicit Media and Metadata Sources | Accepted |
 | [0014](0014-emit-domain-events-from-operations-only.md) | Emit Domain Events from Operations Only | Accepted |
+| [0015](0015-postgresql-for-persistent-user-data.md) | PostgreSQL for Persistent User Data | Accepted |
+| [0016](0016-better-auth-with-drizzle-for-platform-authentication.md) | Better-Auth with Drizzle for Platform Authentication | Accepted |
 
 ## Creating a New ADR
 

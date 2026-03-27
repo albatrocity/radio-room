@@ -10,6 +10,12 @@ export default defineConfig({
   server: {
     port: 8000,
     host: '0.0.0.0',
+    proxy: {
+      '/api/auth': {
+        target: process.env.API_INTERNAL_URL || 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+    },
   },
   envPrefix: 'VITE_',
   build: {

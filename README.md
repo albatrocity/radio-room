@@ -16,6 +16,30 @@ docker compose up
 - Web: http://localhost:8000
 - API: http://localhost:3000
 - Redis: localhost:6379
+- PostgreSQL: localhost:5432
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and fill in the required values:
+
+```bash
+cp .env.example .env
+```
+
+Key variables:
+- `DATABASE_URL` -- PostgreSQL connection string (required for admin auth)
+- `BETTER_AUTH_SECRET` -- Secret for session encryption (min 32 chars)
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` -- Google OAuth credentials (optional)
+- `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` -- Spotify OAuth credentials (for Spotify rooms)
+- `TIDAL_CLIENT_ID` / `TIDAL_CLIENT_SECRET` -- Tidal OAuth credentials (for Tidal rooms)
+
+### Seed Admin User
+
+After starting services, create the first admin account:
+
+```bash
+SEED_ADMIN_EMAIL=admin@example.com SEED_ADMIN_PASSWORD=your-password npx tsx packages/db/src/seed.ts
+```
 
 See [DOCKER_SETUP.md](DOCKER_SETUP.md) for detailed setup instructions including Spotify/Tidal OAuth configuration.
 
@@ -35,6 +59,8 @@ listening-room/
 ├── packages/
 │   ├── server/       # Core server logic
 │   ├── types/        # Shared TypeScript types
+│   ├── auth/         # Better-Auth instance, middleware, React client
+│   ├── db/           # Drizzle ORM schema, migrations, database client
 │   ├── adapter-*/    # Media source adapters (Spotify, Tidal, Shoutcast)
 │   ├── plugin-*/     # Room plugins
 │   └── ...

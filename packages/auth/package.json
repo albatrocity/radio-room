@@ -1,0 +1,28 @@
+{
+  "name": "@repo/auth",
+  "version": "1.0.0",
+  "description": "Better-Auth instance, middleware, and React client for the Listening Room platform",
+  "type": "module",
+  "exports": {
+    "./server": "./src/server.ts",
+    "./client": "./src/client.ts",
+    "./middleware": "./src/middleware.ts"
+  },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@repo/db": "*",
+    "better-auth": "^1.5.0",
+    "better-auth-invitation-only": "^1.0.0"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.6.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.13"
+  }
+}

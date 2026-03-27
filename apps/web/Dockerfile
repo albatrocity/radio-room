@@ -15,6 +15,8 @@ COPY apps/web/package*.json ./apps/web/
 COPY packages/adapter-shoutcast/package.json ./packages/adapter-shoutcast/
 COPY packages/adapter-spotify/package.json ./packages/adapter-spotify/
 COPY packages/adapter-tidal/package.json ./packages/adapter-tidal/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/db/package.json ./packages/db/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
 COPY packages/factories/package.json ./packages/factories/
 COPY packages/plugin-absent-dj/package.json ./packages/plugin-absent-dj/
