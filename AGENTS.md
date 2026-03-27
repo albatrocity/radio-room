@@ -2,10 +2,22 @@
 
 This document provides guidelines for AI agents working with the Listening Room codebase.
 
+## Architectural Decision Records
+
+**Before implementing any feature or refactor**, review the relevant ADRs in [`docs/adrs/`](docs/adrs/index.md). ADRs document the architectural decisions that shape this codebase. Your implementation must align with these decisions unless you are explicitly proposing to supersede one.
+
+### Workflow
+
+1. **Review before implementing**: Read the [ADR index](docs/adrs/index.md) and any ADRs related to the area you are working in. For example, if you are adding a new Socket.IO handler, review [ADR 0008](docs/adrs/0008-system-events-and-broadcaster-pattern.md), [ADR 0010](docs/adrs/0010-controller-hof-closure-pattern.md), and [ADR 0014](docs/adrs/0014-emit-domain-events-from-operations-only.md).
+2. **Align your approach**: Ensure your implementation follows the patterns and constraints described in the relevant ADRs. If you are unsure whether a decision applies, err on the side of following it and flag the question.
+3. **Create new ADRs**: When you make an architectural decision during feature development (e.g., choosing a data structure, introducing a new pattern, selecting a library, changing an integration approach), create a new ADR in `docs/adrs/`. Use the next available number and follow the template in the [index](docs/adrs/index.md). Update the index table with the new entry.
+4. **Propose superseding**: If you believe an existing ADR should be changed, create a new ADR with status "Accepted" that describes the new decision, and update the old ADR's status to "Superseded by [NNNN]".
+
 ## Documentation References
 
 For detailed documentation, see:
 
+- **[ADR Index](docs/adrs/index.md)** - Architectural Decision Records
 - **[Backend Development](docs/BACKEND_DEVELOPMENT.md)** - SystemEvents, Broadcaster pattern, server architecture
 - **[Plugin Development](docs/PLUGIN_DEVELOPMENT.md)** - Creating plugins, event system, UI components, storage API
 - **[Web Client](apps/web/README.md)** - XState actors, Socket.IO integration, React patterns
