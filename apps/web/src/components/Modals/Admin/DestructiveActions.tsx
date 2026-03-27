@@ -12,6 +12,7 @@ import {
   useDjSend,
   useIsDjaying,
   useCurrentRoom,
+  useIsRoomCreator,
 } from "../../../hooks/useActors"
 
 export default function DestructiveActions() {
@@ -20,6 +21,7 @@ export default function DestructiveActions() {
   const djSend = useDjSend()
   const room = useCurrentRoom()
   const buttonColorScheme = useColorModeValue("whiteAlpha", undefined)
+  const isRoomCreator = useIsRoomCreator()
 
   const isDj = useIsDjaying()
 
@@ -53,7 +55,7 @@ export default function DestructiveActions() {
           }
         />
 
-        {room && (
+        {room && isRoomCreator && (
           <ConfirmationPopover
             triggerColorScheme="red"
             triggerText="Delete Room"

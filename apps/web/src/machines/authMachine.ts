@@ -32,6 +32,8 @@ type AuthEvent =
   | { type: "SESSION_ENDED" }
   | { type: "NUKE_USER" }
   | { type: "ACTIVATE_ADMIN" }
+  | { type: "START_ADMIN_SESSION" }
+  | { type: "END_ADMIN_SESSION" }
   | { type: "GET_SESSION_USER" }
   | { type: "KICK_USER"; userId: string }
   | { type: "USER_KICKED" }
@@ -188,6 +190,11 @@ export const authMachine = setup({
       isAdmin: true,
       currentUser: ({ context }) =>
         context.currentUser ? { ...context.currentUser, isAdmin: true } : { userId: "" },
+    }),
+    deactivateAdmin: assign({
+      isAdmin: false,
+      currentUser: ({ context }) =>
+        context.currentUser ? { ...context.currentUser, isAdmin: false } : context.currentUser,
     }),
     disableRetry: assign({
       shouldRetry: () => false,
@@ -514,6 +521,12 @@ export const authMachine = setup({
         },
         ACTIVATE_ADMIN: {
           actions: ["activateAdmin"],
+        },
+        START_ADMIN_SESSION: {
+          actions: ["activateAdmin"],
+        },
+        END_ADMIN_SESSION: {
+          actions: ["deactivateAdmin"],
         },
         KICK_USER: {
           actions: ["kickUser"],

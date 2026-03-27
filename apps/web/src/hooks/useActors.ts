@@ -46,6 +46,12 @@ export const useIsAdmin = () => {
   return useSelector(authActor, (s) => s.context.isAdmin)
 }
 
+export const useIsRoomCreator = () => {
+  const currentUser = useSelector(authActor, (s) => s.context.currentUser)
+  const creator = useSelector(roomActor, (s) => s.context.room?.creator)
+  return !!currentUser && !!creator && currentUser.userId === creator
+}
+
 export const useIsAuthenticated = () => {
   return useSelector(authActor, (s) => s.matches("authenticated"))
 }

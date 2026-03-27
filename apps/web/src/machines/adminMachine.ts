@@ -1,7 +1,8 @@
 import { setup, assign, fromPromise } from "xstate"
 
 import { toast } from "../lib/toasts"
-import { getIsAdmin } from "../actors/authActor"
+import { getIsAdmin, getCurrentUser } from "../actors/authActor"
+import { getCurrentRoom } from "../actors/roomActor"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 import { deleteRoom as deleteRoomData } from "../lib/serverApi"
 
@@ -26,6 +27,10 @@ type AdminEvent =
     }
   | {
       type: "DEPUTIZE_DJ"
+      userId: string
+    }
+  | {
+      type: "DESIGNATE_ADMIN"
       userId: string
     }
   | DeleteRoomEvent
@@ -60,6 +65,11 @@ export const adminMachine = setup({
     isAdmin: () => {
       return getIsAdmin()
     },
+    isRoomCreator: () => {
+      const user = getCurrentUser()
+      const room = getCurrentRoom()
+      return !!user && !!room && user.userId === room.creator
+    },
   },
   actions: {
     subscribe: assign(({ self }) => {
@@ -75,6 +85,10 @@ export const adminMachine = setup({
     deputizeDj: ({ event }) => {
       if (event.type !== "DEPUTIZE_DJ") return
       emitToSocket("DEPUTIZE_DJ", event.userId)
+    },
+    designateAdmin: ({ event }) => {
+      if (event.type !== "DESIGNATE_ADMIN") return
+      emitToSocket("DESIGNATE_ADMIN", event.userId)
     },
     setSettings: ({ event }) => {
       if (event.type !== "SET_SETTINGS") return
@@ -134,8 +148,9 @@ export const adminMachine = setup({
         },
         SET_SETTINGS: { actions: ["setSettings", "notify"], guard: "isAdmin" },
         CLEAR_PLAYLIST: { actions: ["clearPlaylist"], guard: "isAdmin" },
-        DELETE_ROOM: { target: ".deleting", guard: "isAdmin" },
+        DELETE_ROOM: { target: ".deleting", guard: "isRoomCreator" },
         DEPUTIZE_DJ: { actions: ["deputizeDj"], guard: "isAdmin" },
+        DESIGNATE_ADMIN: { actions: ["designateAdmin"], guard: "isRoomCreator" },
       },
       initial: "ready",
       states: {
