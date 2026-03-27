@@ -11,6 +11,7 @@
     "@emoji-mart/react": "^1.1.0",
     "@emotion/react": "^11.14.0",
     "@react-icons/all-files": "^4.1.0",
+    "@repo/auth": "*",
     "@repo/utils": "*",
     "@tanstack/react-router": "^1.139.3",
     "@tanstack/router-devtools": "^1.139.3",

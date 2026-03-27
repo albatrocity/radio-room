@@ -5,6 +5,7 @@ import Div100vh from "react-div-100vh"
 import { useMachine } from "@xstate/react"
 import { roomSetupMachine } from "../../machines/roomSetupMachine"
 import { StationProtocol } from "../../types/StationProtocol"
+import { authClient } from "@repo/auth/client"
 
 export const Route = createFileRoute("/rooms/create")({
   component: CreateRoomPage,
@@ -15,20 +16,27 @@ function CreateRoomPage() {
   const searchParams = useSearch({ from: "/rooms/create" })
   const challenge = (searchParams as any).challenge
   const userId = (searchParams as any).userId
+  const { data: session, isPending } = authClient.useSession()
 
-  // Prevent double room creation (React StrictMode runs effects twice)
   const hasStartedCreation = useRef(false)
 
   const [_state, send] = useMachine(roomSetupMachine)
 
   useEffect(() => {
-    // Guard against double execution (React StrictMode + potential remounts)
+    if (!isPending && !session) {
+      navigate({
+        to: "/login",
+        replace: true,
+      })
+    }
+  }, [isPending, session, navigate])
+
+  useEffect(() => {
     if (hasStartedCreation.current) {
       console.log("[CreateRoom] Already started creation (ref), skipping")
       return
     }
 
-    // Also check sessionStorage for cross-mount protection
     const creationInProgress = sessionStorage.getItem("roomCreationInProgress")
     if (creationInProgress === challenge) {
       console.log("[CreateRoom] Already started creation (sessionStorage), skipping")
@@ -44,7 +52,6 @@ function CreateRoomPage() {
       return
     }
 
-    // Mark creation as started before sending
     hasStartedCreation.current = true
     sessionStorage.setItem("roomCreationInProgress", challenge)
     console.log("[CreateRoom] Starting room creation for user:", userId)

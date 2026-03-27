@@ -12,6 +12,8 @@
   "author": "Ross Brown <albatrocity@gmail.com>",
   "license": "ISC",
   "dependencies": {
+    "@repo/auth": "*",
+    "@repo/db": "*",
     "@repo/adapter-spotify": "*",
     "@repo/adapter-tidal": "*",
     "@repo/media-source-shoutcast": "*",

@@ -16,6 +16,8 @@ services:
       - NODE_ENV=development
       # Use 127.0.0.1 (loopback) instead of localhost per Spotify's requirements
       - VITE_API_URL=${VITE_API_URL:-http://127.0.0.1:3000}
+      # Internal Docker network URL for Vite proxy (server-side)
+      - API_INTERNAL_URL=http://api:3000
     restart: unless-stopped
     networks:
       - app_network
@@ -48,8 +50,13 @@ services:
       - SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI:-http://127.0.0.1:3000/auth/spotify/callback}
       - APP_URL=${APP_URL:-http://127.0.0.1:8000}
       - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://listening_room:listening_room@postgres:5432/listening_room
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-dev-better-auth-secret-change-in-production}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
     depends_on:
       - redis
+      - postgres
     restart: unless-stopped
     networks:
       - app_network
@@ -61,6 +68,19 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    networks:
+      - app_network
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: listening_room
+      POSTGRES_PASSWORD: listening_room
+      POSTGRES_DB: listening_room
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
     networks:
       - app_network
 
@@ -81,6 +101,7 @@ services:
 
 volumes:
   redis-data:
+  postgres-data:
 
 networks:
   app_network:

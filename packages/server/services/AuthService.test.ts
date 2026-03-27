@@ -444,4 +444,87 @@ describe("AuthService", () => {
       expect(result).toEqual({ success: true })
     })
   })
+
+  describe("guest access is unaffected by platform auth", () => {
+    test("guest joins room without any platform session", async () => {
+      vi.mocked(findRoom).mockResolvedValueOnce(
+        roomFactory.build({ id: "room123", password: "" }),
+      )
+      vi.mocked(isDj).mockResolvedValueOnce(false)
+
+      const result = await authService.login({
+        incomingUserId: undefined,
+        incomingUsername: undefined,
+        password: "",
+        roomId: "room123",
+        socketId: "socket123",
+        sessionUser: undefined,
+      })
+
+      expect(result.error).toBeUndefined()
+      expect(result.init).toBeDefined()
+      expect(result.init?.user.userId).toBe("generated-id")
+      expect(result.init?.user.isAdmin).toBe(false)
+    })
+
+    test("guest joins room with a username", async () => {
+      vi.mocked(findRoom).mockResolvedValueOnce(
+        roomFactory.build({ id: "room123", password: "" }),
+      )
+      vi.mocked(isDj).mockResolvedValueOnce(false)
+
+      const result = await authService.login({
+        incomingUserId: undefined,
+        incomingUsername: "GuestUser",
+        password: "",
+        roomId: "room123",
+        socketId: "socket123",
+        sessionUser: undefined,
+      })
+
+      expect(result.error).toBeUndefined()
+      expect(result.init?.user.username).toBe("GuestUser")
+    })
+
+    test("guest joins password-protected room with correct password", async () => {
+      vi.mocked(findRoom).mockResolvedValueOnce(mockRoom)
+      vi.mocked(isDj).mockResolvedValueOnce(false)
+
+      const result = await authService.login({
+        incomingUserId: undefined,
+        incomingUsername: "GuestUser",
+        password: "secret",
+        roomId: "room123",
+        socketId: "socket123",
+        sessionUser: undefined,
+      })
+
+      expect(result.error).toBeUndefined()
+      expect(result.init).toBeDefined()
+    })
+
+    test("room creator gets isAdmin from userId match, not platform auth", async () => {
+      vi.mocked(findRoom).mockResolvedValueOnce(mockRoom)
+      vi.mocked(isDj).mockResolvedValueOnce(false)
+
+      const result = await authService.login({
+        incomingUserId: "admin123",
+        incomingUsername: "Creator",
+        password: "",
+        roomId: "room123",
+        socketId: "socket123",
+        sessionUser: undefined,
+      })
+
+      expect(result.error).toBeUndefined()
+      expect(result.init?.user.isAdmin).toBe(true)
+    })
+
+    test("AuthService does not import or depend on platform auth", async () => {
+      const authServiceSource = await import("./AuthService")
+      const sourceString = authServiceSource.toString()
+      expect(sourceString).not.toContain("@repo/auth")
+      expect(sourceString).not.toContain("better-auth")
+    })
+  })
 })

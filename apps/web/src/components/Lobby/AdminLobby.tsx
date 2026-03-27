@@ -1,14 +1,17 @@
 import { useEffect } from "react"
-import { Box, Button, Grid, GridItem, Text, Spinner, VStack } from "@chakra-ui/react"
+import { Box, Button, Grid, GridItem, Text, Spinner, VStack, Separator } from "@chakra-ui/react"
 import { useCurrentUser, useModalsSend } from "../../hooks/useActors"
 import { useMachine } from "@xstate/react"
 import { createdRoomsFetchMachine } from "../../machines/createdRoomsFetchMachine"
 import CardRoom from "../CardRoom"
 import { LuPlus } from "react-icons/lu"
+import { authClient } from "@repo/auth/client"
+import InvitationManager from "./InvitationManager"
 
 export default function AdminLobby() {
   const user = useCurrentUser()
   const modalSend = useModalsSend()
+  const { data: session } = authClient.useSession()
 
   const [state, fetchSend] = useMachine(createdRoomsFetchMachine)
 
@@ -29,16 +32,14 @@ export default function AdminLobby() {
     }
   }, [user?.userId, fetchSend])
 
-  // Show message if not logged in
-  if (!user?.userId) {
+  if (!session) {
     return (
       <Box my={4}>
-        <Text>Please log in with Spotify to manage your rooms.</Text>
+        <Text>Please log in to manage your rooms.</Text>
       </Box>
     )
   }
 
-  // Show loading state
   if (state.matches("loading")) {
     return (
       <Box my={4}>
@@ -71,6 +72,10 @@ export default function AdminLobby() {
           </Box>
         </GridItem>
       </Grid>
+
+      <Separator my={8} />
+
+      <InvitationManager />
     </Box>
   )
 }

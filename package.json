@@ -9,6 +9,8 @@
     "@pandacss/is-valid-prop": "^1.8.1"
   },
   "devDependencies": {
+    "drizzle-kit": "^0.31.0",
+    "drizzle-orm": "^0.45.1",
     "prettier": "^3.6.2",
     "turbo": "^2.5.4"
   },

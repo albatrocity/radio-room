@@ -16,6 +16,8 @@ import createPlaylistDemocracyPlugin from "@repo/plugin-playlist-democracy"
 import createSpecialWordsPlugin from "@repo/plugin-special-words"
 import createAbsentDjPlugin from "@repo/plugin-absent-dj"
 import createQueueHygienePlugin from "@repo/plugin-queue-hygiene"
+import { authHandler } from "@repo/auth/server"
+import { requireAdmin } from "@repo/auth/middleware"
 
 async function main() {
   const port = Number(process.env.PORT ?? 3000)
@@ -25,6 +27,11 @@ async function main() {
     ENVIRONMENT: (process.env.ENVIRONMENT as "production" | "development") || "development",
     DOMAIN: process.env.ENVIRONMENT === "production" ? ".listeningroom.club" : "localhost",
     API_URL: process.env.API_URL ?? `http://localhost:${port}`,
+    platformAuthHandler: {
+      path: "/api/auth/*splat",
+      handler: authHandler,
+    },
+    requireAdmin,
     onStart: () => {
       console.log("Server started successfully")
     },

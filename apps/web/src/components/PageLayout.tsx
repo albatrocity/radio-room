@@ -15,10 +15,10 @@ import { Link } from "@tanstack/react-router"
 
 import Layout from "./layout"
 import { LuPlus } from "react-icons/lu"
-import { FaSpotify } from "react-icons/fa"
 import { useModalsSend, useIsModalOpen, useAuthSend, useCurrentUser } from "../hooks/useActors"
 import ConfirmationDialog from "./ConfirmationDialog"
 import LobbyOverlays from "./Lobby/LobbyOverlays"
+import { authClient } from "@repo/auth/client"
 
 type Props = {
   children: React.ReactNode
@@ -29,11 +29,17 @@ export default function PageLayout({ children }: Props) {
   const isNukeUserModalOpen = useIsModalOpen("nukeUser")
   const authSend = useAuthSend()
   const currentUser = useCurrentUser()
+  const { data: platformSession } = authClient.useSession()
   const isHome = window.location.pathname === "/"
 
   useEffect(() => {
     authSend({ type: "GET_SESSION_USER" })
   }, [authSend])
+
+  async function handleSignOut() {
+    await authClient.signOut()
+    authSend({ type: "LOGOUT" })
+  }
 
   return (
     <Layout fill>
@@ -71,21 +77,20 @@ export default function PageLayout({ children }: Props) {
                 </Heading>
               </Box>
               <HStack justifyContent="flex-end">
-                {currentUser ? (
+                {platformSession ? (
                   <HStack>
-                    <Button onClick={() => modalSend({ type: "NUKE_USER" })} variant="ghost">
-                      Disconnect Spotify
-                    </Button>
-                    <Button onClick={() => authSend({ type: "LOGOUT" })} variant="ghost">
-                      Logout
+                    {currentUser && (
+                      <Button onClick={() => modalSend({ type: "NUKE_USER" })} variant="ghost">
+                        Disconnect Spotify
+                      </Button>
+                    )}
+                    <Button onClick={handleSignOut} variant="ghost">
+                      Sign Out
                     </Button>
                   </HStack>
                 ) : (
                   <Button asChild variant="outline">
-                    <Link to="/login">
-                      <FaSpotify />
-                      Login
-                    </Link>
+                    <Link to="/login">Login</Link>
                   </Button>
                 )}
                 <Box>
