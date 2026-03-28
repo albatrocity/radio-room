@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react"
 import {
-  Badge,
   Box,
   Combobox,
   createListCollection,
   Portal,
   Spinner,
+  Tag,
   Wrap,
 } from "@chakra-ui/react"
 import type { TagType } from "@repo/types"
@@ -125,10 +125,21 @@ export function TagCombobox({
             <Wrap gap="2" mb={2}>
               {value.map((id) => {
                 const t = tags.find((x) => x.id === id)
+                const label = t?.name ?? id
                 return (
-                  <Badge key={id} size="sm">
-                    {t?.name ?? id}
-                  </Badge>
+                  <Tag.Root key={id} size="sm">
+                    <Tag.Label>{label}</Tag.Label>
+                    {!disabled && !createTag.isPending && (
+                      <Tag.EndElement>
+                        <Tag.CloseTrigger
+                          aria-label={`Remove ${label}`}
+                          onClick={() =>
+                            onValueChange(value.filter((v) => v !== id))
+                          }
+                        />
+                      </Tag.EndElement>
+                    )}
+                  </Tag.Root>
                 )
               })}
             </Wrap>
