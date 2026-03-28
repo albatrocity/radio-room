@@ -136,6 +136,7 @@ export class RadioRoomServer {
             "https://www.listen.show",
             "https://listeningroom.club",
             "https://www.listeningroom.club",
+            "https://scheduler.listeningroom.club",
           ],
           credentials: true,
         }),
