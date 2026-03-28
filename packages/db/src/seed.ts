@@ -1,5 +1,17 @@
 process.env.SEED_MODE = "true"
 
+const DEFAULT_SEGMENT_TAGS = [
+  "Live Performance",
+  "Interview",
+  "DJ Set",
+  "Discussion",
+  "Intermission",
+  "Opener",
+  "Closer",
+]
+
+const DEFAULT_SHOW_TAGS = ["Special Event"]
+
 async function seedAdmin() {
   const { auth } = await import("@repo/auth/server")
 
@@ -63,8 +75,31 @@ async function seedAdmin() {
   console.log(`  Name:  ${name}`)
   console.log(`  Role:  admin`)
   console.log(`  ID:    ${userId}`)
+}
 
+async function seedTags() {
+  const { db, tag } = await import("@repo/db")
+
+  const allTags = [
+    ...DEFAULT_SEGMENT_TAGS.map((name) => ({ name, type: "segment" as const })),
+    ...DEFAULT_SHOW_TAGS.map((name) => ({ name, type: "show" as const })),
+  ]
+
+  for (const { name, type } of allTags) {
+    try {
+      await db.insert(tag).values({ name, type }).onConflictDoNothing()
+    } catch {
+      // Tag may already exist
+    }
+  }
+
+  console.log(`Seeded ${allTags.length} default tags (${DEFAULT_SEGMENT_TAGS.length} segment, ${DEFAULT_SHOW_TAGS.length} show)`)
+}
+
+async function main() {
+  await seedAdmin()
+  await seedTags()
   process.exit(0)
 }
 
-seedAdmin()
+main()

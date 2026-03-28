@@ -6,21 +6,23 @@
   "main": "src/index.ts",
   "scripts": {
     "build": "esbuild src/migrate.ts --bundle --platform=node --target=node22 --outfile=dist/migrate.js --external:pg --format=cjs",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:migrate:run": "tsx src/migrate.ts",
-    "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx src/seed.ts",
+    "db:generate": "dotenv -e ../../.env -- drizzle-kit generate",
+    "db:migrate": "dotenv -e ../../.env -- drizzle-kit migrate",
+    "db:migrate:run": "dotenv -e ../../.env -- tsx src/migrate.ts",
+    "db:studio": "dotenv -e ../../.env -- drizzle-kit studio",
+    "db:seed": "dotenv -e ../../.env -- tsx src/seed.ts",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0",
     "drizzle-orm": "^0.45.1",
     "pg": "^8.16.0"
   },
   "devDependencies": {
     "@repo/typescript-config": "*",
     "@types/pg": "^8.15.4",
+    "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.0",
     "esbuild": "^0.24.2",
     "tsx": "^4.19.2",

@@ -84,6 +84,28 @@ services:
     networks:
       - app_network
 
+  scheduler:
+    container_name: scheduler
+    build:
+      context: .
+      dockerfile: ./apps/scheduler/Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      # Mount entire app directory so TanStack Router's .tanstack/tmp/ and src/
+      # share the same filesystem (avoids EXDEV rename errors in Docker)
+      - ./apps/scheduler:/app/apps/scheduler
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=${VITE_API_URL:-http://127.0.0.1:3000}
+      - VITE_WEB_URL=${VITE_WEB_URL:-http://127.0.0.1:8000}
+      - API_INTERNAL_URL=http://api:3000
+    restart: unless-stopped
+    networks:
+      - app_network
+    depends_on:
+      - api
+
   load-tester:
     build:
       context: .

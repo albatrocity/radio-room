@@ -22,6 +22,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0014](0014-emit-domain-events-from-operations-only.md) | Emit Domain Events from Operations Only | Accepted |
 | [0015](0015-postgresql-for-persistent-user-data.md) | PostgreSQL for Persistent User Data | Accepted |
 | [0016](0016-better-auth-with-drizzle-for-platform-authentication.md) | Better-Auth with Drizzle for Platform Authentication | Accepted |
+| [0017](0017-scheduling-app-for-show-programming.md) | Scheduling App for Show Programming | Accepted |
+| [0018](0018-url-search-params-for-entity-filters.md) | URL Search Params for Entity Filters (Scheduler) | Accepted |
 
 ## Creating a New ADR
 

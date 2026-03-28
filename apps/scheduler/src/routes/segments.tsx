@@ -1,0 +1,18 @@
+import { createFileRoute } from "@tanstack/react-router"
+import { z } from "zod"
+import { zodSearchValidator } from "@tanstack/router-zod-adapter"
+import { zStringArray } from "../lib/searchParams"
+import { SegmentKanban } from "../components/segments/SegmentKanban"
+
+const segmentsSearchSchema = z.object({
+  tags: zStringArray,
+})
+
+export const Route = createFileRoute("/segments")({
+  validateSearch: zodSearchValidator(segmentsSearchSchema),
+  component: SegmentsPage,
+})
+
+function SegmentsPage() {
+  return <SegmentKanban />
+}

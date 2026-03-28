@@ -12,7 +12,10 @@ export const auth = betterAuth({
   trustedOrigins: [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
+    "http://localhost:8001",
+    "http://127.0.0.1:8001",
     ...(process.env.APP_URL ? [process.env.APP_URL] : []),
+    ...(process.env.SCHEDULER_URL ? [process.env.SCHEDULER_URL] : []),
   ],
   emailAndPassword: { enabled: true },
   socialProviders: {
