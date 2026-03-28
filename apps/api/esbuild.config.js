@@ -1,4 +1,5 @@
 const esbuild = require("esbuild")
+const path = require("path")
 
 // External packages that should not be bundled
 // These are runtime dependencies that need to be installed in node_modules
@@ -24,7 +25,6 @@ const external = [
   // Adapters
   "@spotify/web-api-ts-sdk",
   "node-internet-radio",
-  // Note: zod is bundled instead of external to avoid runtime issues on Heroku
 ]
 
 esbuild
@@ -35,6 +35,14 @@ esbuild
     target: "node22",
     outfile: "dist/server.js",
     external,
+    // better-auth imports "zod"; esbuild resolves from paths under root
+    // node_modules/... where zod is absent after npm workspaces + turbo prune
+    // (zod stays under apps/api/node_modules). Alias to the real install.
+    alias: {
+      zod: path.dirname(
+        require.resolve("zod/package.json", { paths: [__dirname] }),
+      ),
+    },
     format: "cjs",
     sourcemap: true,
     minify: process.env.NODE_ENV === "production",
