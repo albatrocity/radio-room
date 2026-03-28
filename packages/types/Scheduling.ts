@@ -32,6 +32,8 @@ export interface SegmentDTO {
   title: string
   description: string | null
   isRecurring: boolean
+  /** Approximate duration in minutes (nullable). */
+  duration: number | null
   pluginPreset: PluginPreset | null
   status: SegmentStatus
   createdBy: string
@@ -52,6 +54,8 @@ export interface ShowSegmentDTO {
   id: string
   segmentId: string
   position: number
+  /** Per-show override in minutes; effective = durationOverride ?? segment.duration */
+  durationOverride: number | null
   segment: SegmentDTO
 }
 
@@ -94,6 +98,8 @@ export interface CreateSegmentRequest {
   title: string
   description?: string | null
   isRecurring?: boolean
+  /** Approximate duration in minutes (optional). */
+  duration?: number | null
   pluginPreset?: PluginPreset | null
   status?: SegmentStatus
   tagIds?: string[]
@@ -103,6 +109,8 @@ export interface UpdateSegmentRequest {
   title?: string
   description?: string | null
   isRecurring?: boolean
+  /** Approximate duration in minutes. */
+  duration?: number | null
   pluginPreset?: PluginPreset | null
   status?: SegmentStatus
   tagIds?: string[]

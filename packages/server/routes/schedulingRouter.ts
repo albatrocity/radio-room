@@ -97,6 +97,40 @@ export function createSchedulingRouter(): Router {
     }
   })
 
+  router.patch("/shows/:showId/segments/:segmentId", async (req: Request, res: Response) => {
+    try {
+      const body = req.body as { durationOverride?: unknown }
+      if (!("durationOverride" in body)) {
+        res.status(400).json({ error: "durationOverride is required (number of minutes or null)" })
+        return
+      }
+      const durationOverride = body.durationOverride
+      if (
+        durationOverride !== null &&
+        (typeof durationOverride !== "number" ||
+          !Number.isInteger(durationOverride) ||
+          durationOverride < 0)
+      ) {
+        res.status(400).json({ error: "durationOverride must be a non-negative integer or null" })
+        return
+      }
+      const value = durationOverride
+      const row = await scheduling.updateShowSegmentDuration(
+        req.params.showId,
+        req.params.segmentId,
+        value,
+      )
+      if (!row) {
+        res.status(404).json({ error: "Show segment not found" })
+        return
+      }
+      res.json({ success: true })
+    } catch (error) {
+      console.error("Error updating show segment duration:", error)
+      res.status(500).json({ error: "Failed to update segment duration" })
+    }
+  })
+
   // =========================================================================
   // Segments
   // =========================================================================

@@ -15,15 +15,22 @@ export interface SegmentBrowserCardProps {
 function SegmentBrowserCardBody({ segment }: { segment: SegmentDTO }) {
   return (
     <>
-      <HStack justify="space-between">
+      <HStack justify="space-between" gap={2}>
         <Text fontWeight="medium" fontSize="sm" lineClamp={1}>
           {segment.title}
         </Text>
-        {segment.isRecurring && (
-          <Icon color="fg.muted" asChild>
-            <Repeat size={14} />
-          </Icon>
-        )}
+        <HStack gap={1} flexShrink={0}>
+          {segment.duration != null && (
+            <Badge size="sm" variant="outline" colorPalette="gray">
+              {segment.duration}m
+            </Badge>
+          )}
+          {segment.isRecurring && (
+            <Icon color="fg.muted" asChild>
+              <Repeat size={14} />
+            </Icon>
+          )}
+        </HStack>
       </HStack>
       {segment.tags && segment.tags.length > 0 && (
         <HStack gap={1} mt={1} flexWrap="wrap">

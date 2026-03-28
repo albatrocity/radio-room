@@ -18,6 +18,7 @@ function updateRequestToDtoPatch(
   if (req.title !== undefined) patch.title = req.title
   if (req.description !== undefined) patch.description = req.description
   if (req.isRecurring !== undefined) patch.isRecurring = req.isRecurring
+  if (req.duration !== undefined) patch.duration = req.duration
   if (req.pluginPreset !== undefined) patch.pluginPreset = req.pluginPreset
   if (req.status !== undefined) patch.status = req.status
   return patch

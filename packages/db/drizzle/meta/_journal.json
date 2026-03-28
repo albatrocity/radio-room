@@ -15,6 +15,13 @@
       "when": 1774659012577,
       "tag": "0001_dear_titania",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774719496547,
+      "tag": "0002_outstanding_morlocks",
+      "breakpoints": true
     }
   ]
 }

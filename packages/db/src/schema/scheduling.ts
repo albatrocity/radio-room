@@ -49,6 +49,8 @@ export const segment = pgTable("segment", {
   title: text("title").notNull(),
   description: text("description"),
   isRecurring: boolean("is_recurring").notNull().default(false),
+  /** Approximate duration in minutes (nullable). */
+  duration: integer("duration"),
   pluginPreset: jsonb("plugin_preset"),
   status: segmentStatusEnum("status").notNull().default("draft"),
   createdBy: text("created_by")
@@ -84,6 +86,8 @@ export const showSegment = pgTable(
       .notNull()
       .references(() => segment.id, { onDelete: "cascade" }),
     position: integer("position").notNull(),
+    /** Per-show override in minutes; effective duration = durationOverride ?? segment.duration */
+    durationOverride: integer("duration_override"),
   },
   (table) => [unique("show_segment_position_unique").on(table.showId, table.position)],
 )

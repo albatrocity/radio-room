@@ -20,11 +20,18 @@ function SegmentCardBody({ segment }: { segment: SegmentDTO }) {
         <Text fontWeight="medium" fontSize="sm" lineClamp={1}>
           {segment.title}
         </Text>
-        {segment.isRecurring && (
-          <Icon color="fg.muted" asChild>
-            <Repeat size={14} />
-          </Icon>
-        )}
+        <HStack gap={1} flexShrink={0}>
+          {segment.duration != null && (
+            <Badge size="sm" variant="outline" colorPalette="gray">
+              {segment.duration}m
+            </Badge>
+          )}
+          {segment.isRecurring && (
+            <Icon color="fg.muted" asChild>
+              <Repeat size={14} />
+            </Icon>
+          )}
+        </HStack>
       </HStack>
       {segment.description && (
         <Text fontSize="xs" color="fg.muted" lineClamp={2} mb={1}>

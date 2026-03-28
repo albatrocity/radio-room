@@ -1,27 +1,37 @@
+import { useEffect, useState } from "react"
 import {
   Box,
   Button,
   VStack,
   Text,
   HStack,
-  Badge,
   Icon,
   Timeline,
   Wrap,
   Stack,
   Tag,
+  Input,
 } from "@chakra-ui/react"
 import { useDragOperation, useDroppable } from "@dnd-kit/react"
 import { isSortable, useSortable } from "@dnd-kit/react/sortable"
 import { GripVertical, Repeat, Trash2 } from "lucide-react"
 import type { ShowSegmentDTO } from "@repo/types"
+import {
+  displayMinutesForInput,
+  durationOverrideFromInput,
+  formatDurationMinutes,
+  segmentStartTimes,
+  totalEstimatedMinutes,
+} from "../../lib/showDuration"
 
 /** Shared group so timeline rows sort with each other only. */
 const SHOW_TIMELINE_SORTABLE_GROUP = "show-timeline"
 
 interface ShowTimelineProps {
   segments: ShowSegmentDTO[]
+  showStartTime: string
   onRemove?: (segmentId: string) => void
+  onDurationCommit?: (segmentId: string, durationOverride: number | null) => void
 }
 
 function isSegmentBrowserDragSource(source: { data: unknown } | null | undefined): boolean {
@@ -30,7 +40,12 @@ function isSegmentBrowserDragSource(source: { data: unknown } | null | undefined
   return d.source === "segment-browser"
 }
 
-export function ShowTimeline({ segments, onRemove }: ShowTimelineProps) {
+export function ShowTimeline({
+  segments,
+  showStartTime,
+  onRemove,
+  onDurationCommit,
+}: ShowTimelineProps) {
   const { ref, isDropTarget: isTimelineRootDropTarget } = useDroppable({ id: "timeline" })
   const { source, target } = useDragOperation()
 
@@ -54,53 +69,72 @@ export function ShowTimeline({ segments, onRemove }: ShowTimelineProps) {
 
   const listSurfaceActive = isTimelineRootDropTarget || segmentBrowserOverTimeline
 
+  const startTimes = segmentStartTimes(showStartTime, segments)
+  const totalMin = totalEstimatedMinutes(segments)
+
   return (
-    <Box
-      ref={ref}
-      bg={listSurfaceActive ? "bg.emphasized" : "transparent"}
-      borderRadius="lg"
-      p={2}
-      minH="200px"
-      transition="background 0.15s"
-    >
-      {segments.length === 0 ? (
-        <Box
-          p={8}
-          textAlign="center"
-          color="fg.muted"
-          borderWidth="2px"
-          borderStyle="dashed"
-          borderColor="border.muted"
-          borderRadius="lg"
-        >
-          <Text>Drag segments here to add them to the show</Text>
-        </Box>
-      ) : (
-        <Timeline.Root gap={0}>
-          {segments.map((showSeg, index) => (
-            <TimelineItem
-              key={showSeg.segmentId}
-              showSegment={showSeg}
-              index={index}
-              onRemove={onRemove}
-              segmentBrowserRowHighlight={segmentBrowserRowHighlightId === showSeg.segmentId}
-            />
-          ))}
-        </Timeline.Root>
+    <VStack gap={3} align="stretch">
+      <Box
+        ref={ref}
+        bg={listSurfaceActive ? "bg.emphasized" : "transparent"}
+        borderRadius="lg"
+        p={2}
+        minH="200px"
+        transition="background 0.15s"
+      >
+        {segments.length === 0 ? (
+          <Box
+            p={8}
+            textAlign="center"
+            color="fg.muted"
+            borderWidth="2px"
+            borderStyle="dashed"
+            borderColor="border.muted"
+            borderRadius="lg"
+          >
+            <Text>Drag segments here to add them to the show</Text>
+          </Box>
+        ) : (
+          <Timeline.Root gap={0}>
+            {segments.map((showSeg, index) => (
+              <TimelineItem
+                key={showSeg.segmentId}
+                showSegment={showSeg}
+                index={index}
+                estimatedStart={startTimes[index]!}
+                onRemove={onRemove}
+                onDurationCommit={onDurationCommit}
+                segmentBrowserRowHighlight={segmentBrowserRowHighlightId === showSeg.segmentId}
+              />
+            ))}
+          </Timeline.Root>
+        )}
+      </Box>
+      {segments.length > 0 && (
+        <Text fontSize="sm" color="fg.muted">
+          Estimated show duration (from segment times):{" "}
+          <Text as="span" fontWeight="medium" color="fg">
+            {formatDurationMinutes(totalMin)}
+          </Text>
+        </Text>
       )}
-    </Box>
+    </VStack>
   )
 }
 
 function TimelineItem({
   showSegment,
   index,
+  estimatedStart,
   onRemove,
+  onDurationCommit,
   segmentBrowserRowHighlight,
 }: {
   showSegment: ShowSegmentDTO
   index: number
+  estimatedStart: Date
   onRemove?: (segmentId: string) => void
+  onDurationCommit?: (segmentId: string, durationOverride: number | null) => void
   segmentBrowserRowHighlight?: boolean
 }) {
   const { ref, handleRef, isDragging, isDropTarget } = useSortable({
@@ -111,6 +145,22 @@ function TimelineItem({
 
   const seg = showSegment.segment
   const rowDropActive = isDropTarget || segmentBrowserRowHighlight
+
+  const [durationDraft, setDurationDraft] = useState(() =>
+    displayMinutesForInput(showSegment),
+  )
+
+  useEffect(() => {
+    setDurationDraft(displayMinutesForInput(showSegment))
+  }, [showSegment.durationOverride, showSegment.segment.duration, showSegment.segmentId])
+
+  const hasOverride = showSegment.durationOverride !== null
+
+  function commitDuration() {
+    if (!onDurationCommit) return
+    const next = durationOverrideFromInput(seg.duration ?? null, durationDraft)
+    onDurationCommit(showSegment.segmentId, next)
+  }
 
   return (
     <Timeline.Item
@@ -133,11 +183,14 @@ function TimelineItem({
         <Timeline.Indicator>{index + 1}</Timeline.Indicator>
       </Timeline.Connector>
 
-      {/* <Timeline.Content width="auto">
-        <Text color="fg.muted" fontSize="xs">
-          estimated start time here
+      <Timeline.Content width="auto" minW="72px">
+        <Text color="fg.muted" fontSize="xs" fontWeight="medium">
+          {estimatedStart.toLocaleTimeString(undefined, {
+            hour: "numeric",
+            minute: "2-digit",
+          })}
         </Text>
-      </Timeline.Content> */}
+      </Timeline.Content>
 
       <Timeline.Content>
         <Timeline.Title>
@@ -166,6 +219,48 @@ function TimelineItem({
                 </Wrap>
               )}
             </HStack>
+
+            {onDurationCommit && (
+              <HStack gap={2} align="center" flexWrap="wrap" mt={1}>
+                <Text fontSize="xs" color="fg.muted" whiteSpace="nowrap">
+                  Approx. duration
+                </Text>
+                <HStack gap={1} align="center">
+                  <Input
+                    size="xs"
+                    maxW="72px"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="—"
+                    fontStyle={hasOverride ? "italic" : undefined}
+                    value={durationDraft}
+                    onChange={(e) => setDurationDraft(e.target.value)}
+                    onBlur={commitDuration}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.currentTarget.blur()
+                      }
+                    }}
+                  />
+                  <Text fontSize="xs" color="fg.muted">
+                    min
+                  </Text>
+                </HStack>
+                {hasOverride && (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => {
+                      onDurationCommit(showSegment.segmentId, null)
+                      setDurationDraft(displayMinutesForInput({ ...showSegment, durationOverride: null }))
+                    }}
+                  >
+                    Use segment default
+                  </Button>
+                )}
+              </HStack>
+            )}
           </Stack>
         </Timeline.Description>
       </Timeline.Content>

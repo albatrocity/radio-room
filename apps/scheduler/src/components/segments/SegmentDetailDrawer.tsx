@@ -39,16 +39,27 @@ export function SegmentDetailDrawer({ segmentId, open, onClose }: SegmentDetailD
     defaultValues: {
       title: segment?.title ?? "",
       description: segment?.description ?? "",
+      durationMinutes:
+        segment?.duration !== null && segment?.duration !== undefined
+          ? String(segment.duration)
+          : "",
       isRecurring: segment?.isRecurring ?? false,
       status: (segment?.status ?? "draft") as SegmentStatus,
       tagIds: segment?.tags?.map((t) => t.id) ?? [],
     },
     onSubmit: async ({ value }) => {
       if (!segmentId) return
+      const raw = value.durationMinutes.trim()
+      let duration: number | null = null
+      if (raw !== "") {
+        const n = parseInt(raw, 10)
+        if (Number.isFinite(n) && n >= 0) duration = n
+      }
       await updateSegment.mutateAsync({
         id: segmentId,
         title: value.title,
         description: value.description || null,
+        duration,
         isRecurring: value.isRecurring,
         status: value.status,
         tagIds: value.tagIds,
@@ -62,6 +73,10 @@ export function SegmentDetailDrawer({ segmentId, open, onClose }: SegmentDetailD
     form.reset({
       title: segment.title,
       description: segment.description ?? "",
+      durationMinutes:
+        segment.duration !== null && segment.duration !== undefined
+          ? String(segment.duration)
+          : "",
       isRecurring: segment.isRecurring,
       status: segment.status,
       tagIds: segment.tags?.map((t) => t.id) ?? [],
@@ -110,6 +125,22 @@ export function SegmentDetailDrawer({ segmentId, open, onClose }: SegmentDetailD
                           value={field.state.value}
                           onChange={(e) => field.handleChange(e.target.value)}
                           rows={4}
+                        />
+                      </Box>
+                    )}
+                  </form.Field>
+
+                  <form.Field name="durationMinutes">
+                    {(field) => (
+                      <Box>
+                        <Box mb={1} fontSize="sm" fontWeight="medium">
+                          Approx. duration (minutes)
+                        </Box>
+                        <Input
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          placeholder="Optional"
+                          inputMode="numeric"
                         />
                       </Box>
                     )}

@@ -66,6 +66,7 @@ export async function findShowById(id: string) {
       id: ss.id,
       segmentId: ss.segmentId,
       position: ss.position,
+      durationOverride: ss.durationOverride ?? null,
       segment: {
         ...ss.segment,
         tags: ss.segment.segmentTags.map((st) => st.tag),
@@ -133,6 +134,18 @@ export async function deleteShow(id: string) {
 
 export async function reorderShowSegments(showId: string, segmentIds: string[]) {
   return db.transaction(async (tx) => {
+    const existing = await tx
+      .select({
+        segmentId: showSegment.segmentId,
+        durationOverride: showSegment.durationOverride,
+      })
+      .from(showSegment)
+      .where(eq(showSegment.showId, showId))
+
+    const overrideBySegmentId = new Map(
+      existing.map((r) => [r.segmentId, r.durationOverride ?? null]),
+    )
+
     await tx.delete(showSegment).where(eq(showSegment.showId, showId))
 
     if (segmentIds.length === 0) return []
@@ -144,12 +157,27 @@ export async function reorderShowSegments(showId: string, segmentIds: string[]) 
           showId,
           segmentId,
           position: index,
+          durationOverride: overrideBySegmentId.get(segmentId) ?? null,
         })),
       )
       .returning()
 
     return rows
   })
+}
+
+export async function updateShowSegmentDuration(
+  showId: string,
+  segmentId: string,
+  durationOverride: number | null,
+) {
+  const [row] = await db
+    .update(showSegment)
+    .set({ durationOverride })
+    .where(and(eq(showSegment.showId, showId), eq(showSegment.segmentId, segmentId)))
+    .returning()
+
+  return row ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -242,6 +270,7 @@ export async function createSegment(data: CreateSegmentRequest, createdBy: strin
         title: data.title,
         description: data.description ?? null,
         isRecurring: data.isRecurring ?? false,
+        duration: data.duration ?? null,
         pluginPreset: data.pluginPreset ?? null,
         status: data.status ?? "draft",
         createdBy,
@@ -265,6 +294,7 @@ export async function updateSegment(id: string, data: UpdateSegmentRequest) {
     if (data.title !== undefined) values.title = data.title
     if (data.description !== undefined) values.description = data.description
     if (data.isRecurring !== undefined) values.isRecurring = data.isRecurring
+    if (data.duration !== undefined) values.duration = data.duration
     if (data.pluginPreset !== undefined) values.pluginPreset = data.pluginPreset
     if (data.status !== undefined) values.status = data.status
 

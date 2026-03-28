@@ -72,6 +72,16 @@ export async function reorderShowSegments(showId: string, segmentIds: string[]):
   await api.put(`api/scheduling/shows/${showId}/segments`, { json: { segmentIds } })
 }
 
+export async function updateShowSegmentDuration(
+  showId: string,
+  segmentId: string,
+  durationOverride: number | null,
+): Promise<void> {
+  await api.patch(`api/scheduling/shows/${showId}/segments/${segmentId}`, {
+    json: { durationOverride },
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Segments
 // ---------------------------------------------------------------------------

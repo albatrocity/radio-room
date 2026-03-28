@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useCallback, useMemo } from "react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { z } from "zod"
 import { zodSearchValidator } from "@tanstack/router-zod-adapter"
@@ -19,7 +19,14 @@ import { move } from "@dnd-kit/helpers"
 type DragEndPayload = Parameters<DragEndEvent>[0]
 import { ArrowLeft } from "lucide-react"
 import type { SegmentDTO, ShowStatus } from "@repo/types"
-import { useShow, useUpdateShow, useDeleteShow, useReorderShowSegments } from "../../hooks/useShows"
+import {
+  useShow,
+  useUpdateShow,
+  useDeleteShow,
+  useReorderShowSegments,
+  useUpdateShowSegmentDuration,
+} from "../../hooks/useShows"
+import { formatDurationMinutes, totalEstimatedMinutes } from "../../lib/showDuration"
 import { ShowTimeline } from "../../components/shows/ShowTimeline"
 import { SegmentBrowser } from "../../components/shows/SegmentBrowser"
 import { SegmentBrowserCard } from "../../components/shows/SegmentBrowserCard"
@@ -65,6 +72,7 @@ function ShowDetailPage() {
   const updateShow = useUpdateShow()
   const deleteShow = useDeleteShow()
   const reorderSegments = useReorderShowSegments()
+  const { mutate: mutateSegmentDuration } = useUpdateShowSegmentDuration()
 
   const currentSegmentIds = useMemo(
     () => (show?.segments ?? []).map((s) => s.segmentId),
@@ -75,6 +83,18 @@ function ShowDetailPage() {
     const newIds = currentSegmentIds.filter((id) => id !== segmentId)
     reorderSegments.mutate({ showId, segmentIds: newIds })
   }
+
+  const handleDurationCommit = useCallback(
+    (segmentId: string, durationOverride: number | null) => {
+      mutateSegmentDuration({ showId, segmentId, durationOverride })
+    },
+    [showId, mutateSegmentDuration],
+  )
+
+  const estimatedTotalMinutes = useMemo(
+    () => totalEstimatedMinutes(show?.segments ?? []),
+    [show?.segments],
+  )
 
   function handleDragEnd(event: DragEndPayload) {
     if (!show || event.canceled) return
@@ -208,6 +228,12 @@ function ShowDetailPage() {
                 </>
               )}
             </Text>
+            <Text fontSize="sm" color="fg.muted">
+              Estimated from segments:{" "}
+              <Text as="span" fontWeight="medium" color="fg">
+                {formatDurationMinutes(estimatedTotalMinutes)}
+              </Text>
+            </Text>
           </HStack>
 
           {show.description && (
@@ -236,7 +262,9 @@ function ShowDetailPage() {
               <Box flex="1">
                 <ShowTimeline
                   segments={show.segments ?? []}
+                  showStartTime={show.startTime}
                   onRemove={handleRemoveSegment}
+                  onDurationCommit={handleDurationCommit}
                 />
               </Box>
               <Box w={{ base: "100%", lg: "320px" }} flexShrink={0}>

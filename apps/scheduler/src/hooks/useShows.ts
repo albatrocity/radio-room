@@ -49,6 +49,7 @@ function buildOptimisticShowSegments(
       id: `optimistic-${segmentId}`,
       segmentId,
       position: index,
+      durationOverride: null,
       segment: fromCache,
     })
   }
@@ -113,6 +114,46 @@ export function useDeleteShow() {
 }
 
 type ReorderContext = { previousShow: ShowDTO | undefined }
+
+export function useUpdateShowSegmentDuration() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      showId,
+      segmentId,
+      durationOverride,
+    }: {
+      showId: string
+      segmentId: string
+      durationOverride: number | null
+    }) => api.updateShowSegmentDuration(showId, segmentId, durationOverride),
+    onMutate: async ({ showId, segmentId, durationOverride }) => {
+      const detailKey = queryKeys.shows.detail(showId)
+      await queryClient.cancelQueries({ queryKey: detailKey })
+      const previousShow = queryClient.getQueryData<ShowDTO>(detailKey)
+      if (previousShow?.segments) {
+        queryClient.setQueryData<ShowDTO>(detailKey, {
+          ...previousShow,
+          segments: previousShow.segments.map((s) =>
+            s.segmentId === segmentId ? { ...s, durationOverride } : s,
+          ),
+        })
+      }
+      return { previousShow }
+    },
+    onError: (_err, variables, context) => {
+      if (context?.previousShow !== undefined) {
+        queryClient.setQueryData(queryKeys.shows.detail(variables.showId), context.previousShow)
+      }
+      toaster.create({ title: "Failed to update duration", type: "error" })
+    },
+    onSettled: (_data, _err, variables) => {
+      if (variables) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.shows.detail(variables.showId) })
+      }
+    },
+  })
+}
 
 export function useReorderShowSegments() {
   const queryClient = useQueryClient()
