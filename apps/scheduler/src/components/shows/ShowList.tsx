@@ -1,5 +1,15 @@
-import { useState } from "react"
-import { Box, Button, Heading, HStack, Text, Badge, VStack } from "@chakra-ui/react"
+import { useMemo, useState } from "react"
+import {
+  Box,
+  Button,
+  Heading,
+  HStack,
+  Text,
+  Badge,
+  VStack,
+  Select,
+  createListCollection,
+} from "@chakra-ui/react"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import { Plus, CalendarDays } from "lucide-react"
 import type { ShowFilters as ShowFiltersType, ShowStatus } from "@repo/types"
@@ -15,6 +25,11 @@ const STATUS_COLORS: Record<ShowStatus, string> = {
   published: "blue",
 }
 
+const START_TIME_SORT_ITEMS = [
+  { label: "Start: earliest first", value: "asc" },
+  { label: "Start: latest first", value: "desc" },
+] as const
+
 function showFiltersFromSearch(
   search: ReturnType<typeof showsRouteApi.useSearch>,
 ): ShowFiltersType {
@@ -23,6 +38,7 @@ function showFiltersFromSearch(
     startDate: search.startDate,
     endDate: search.endDate,
     status: search.status,
+    startTimeOrder: search.startTimeOrder,
   }
 }
 
@@ -33,6 +49,11 @@ export function ShowList() {
   const [createOpen, setCreateOpen] = useState(false)
   const { data: shows = [], isLoading } = useShows(filters)
 
+  const startTimeSortCollection = useMemo(
+    () => createListCollection({ items: [...START_TIME_SORT_ITEMS] }),
+    [],
+  )
+
   function setFilters(next: ShowFiltersType) {
     navigate({
       to: "/shows",
@@ -41,6 +62,7 @@ export function ShowList() {
         ...(next.startDate ? { startDate: next.startDate } : {}),
         ...(next.endDate ? { endDate: next.endDate } : {}),
         ...(next.status ? { status: next.status } : {}),
+        startTimeOrder: next.startTimeOrder ?? search.startTimeOrder,
       },
       replace: true,
     })
@@ -56,9 +78,48 @@ export function ShowList() {
         </Button>
       </HStack>
 
-      <Box mb={4}>
+      <HStack mb={4} gap={3} align="flex-end" flexWrap="wrap">
         <ShowFilters filters={filters} onChange={setFilters} />
-      </Box>
+        <Select.Root
+          aria-label="Sort shows by start date"
+          collection={startTimeSortCollection}
+          size="sm"
+          minW="200px"
+          maxW="200px"
+          value={[search.startTimeOrder]}
+          onValueChange={(e) => {
+            const next = e.value[0]
+            if (next !== "asc" && next !== "desc") return
+            navigate({
+              to: "/shows",
+              search: { ...search, startTimeOrder: next },
+              replace: true,
+            })
+          }}
+        >
+          <Select.HiddenSelect />
+          <Select.Control>
+            <Select.Trigger>
+              <Select.ValueText placeholder="Sort by start" />
+            </Select.Trigger>
+            <Select.IndicatorGroup>
+              <Select.Indicator />
+            </Select.IndicatorGroup>
+          </Select.Control>
+          <Select.Positioner>
+            <Select.Content>
+              <Select.List>
+                {startTimeSortCollection.items.map((item) => (
+                  <Select.Item key={item.value} item={item}>
+                    <Select.ItemText>{item.label}</Select.ItemText>
+                    <Select.ItemIndicator />
+                  </Select.Item>
+                ))}
+              </Select.List>
+            </Select.Content>
+          </Select.Positioner>
+        </Select.Root>
+      </HStack>
 
       {isLoading ? (
         <Box>Loading shows...</Box>

@@ -8,6 +8,7 @@ const showListSearchSchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   status: z.enum(["draft", "ready", "published"]).optional(),
+  startTimeOrder: z.enum(["asc", "desc"]).default("asc"),
 })
 
 export const Route = createFileRoute("/shows/")({

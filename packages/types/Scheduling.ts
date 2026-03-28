@@ -130,6 +130,8 @@ export interface ShowFilters {
   startDate?: string
   endDate?: string
   status?: ShowStatus
+  /** Sort shows by `startTime`. Omitted = descending (newest first), same as pre-sort API. */
+  startTimeOrder?: "asc" | "desc"
 }
 
 export interface SegmentFilters {

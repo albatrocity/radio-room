@@ -31,12 +31,14 @@ export async function findShows(filters: ShowFilters = {}) {
     conditions.push(lte(show.startTime, new Date(filters.endDate)))
   }
 
+  const startAsc = filters.startTimeOrder === "asc"
+
   const rows = await db.query.show.findMany({
     where: conditions.length > 0 ? and(...conditions) : undefined,
     with: {
       showTags: { with: { tag: true } },
     },
-    orderBy: (s, { desc }) => [desc(s.startTime)],
+    orderBy: (s, { asc, desc }) => [startAsc ? asc(s.startTime) : desc(s.startTime)],
   })
 
   return rows.map((row) => ({

@@ -11,12 +11,16 @@ export function createSchedulingRouter(): Router {
 
   router.get("/shows", async (req: Request, res: Response) => {
     try {
-      const { search, startDate, endDate, status } = req.query
+      const { search, startDate, endDate, status, startTimeOrder } = req.query
       const shows = await scheduling.findShows({
         search: search as string | undefined,
         startDate: startDate as string | undefined,
         endDate: endDate as string | undefined,
         status: status as any,
+        startTimeOrder:
+          startTimeOrder === "asc" || startTimeOrder === "desc"
+            ? startTimeOrder
+            : undefined,
       })
       res.json({ shows })
     } catch (error) {
