@@ -27,6 +27,7 @@ import { useShow, useUpdateShow, useDeleteShow, useReorderShowSegments } from ".
 import { ShowTimeline } from "../../components/shows/ShowTimeline"
 import { SegmentBrowser } from "../../components/shows/SegmentBrowser"
 import { SegmentBrowserCard } from "../../components/shows/SegmentBrowserCard"
+import { TagCombobox } from "../../components/tags/TagCombobox"
 import { zSearchBoolean, zStringArray } from "../../lib/searchParams"
 
 const showDetailSearchSchema = z.object({
@@ -192,6 +193,17 @@ function ShowDetailPage() {
               {show.description}
             </Text>
           )}
+
+          <Box mb={6} maxW="md">
+            <TagCombobox
+              tagType="show"
+              value={(show.tags ?? []).map((t) => t.id)}
+              onValueChange={(tagIds) =>
+                updateShow.mutate({ id: showId, tagIds })
+              }
+              disabled={updateShow.isPending}
+            />
+          </Box>
 
           <Heading size="md" mb={3}>
             Segments

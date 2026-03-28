@@ -1,6 +1,7 @@
 import { Box, Button, Fieldset, Input, Textarea } from "@chakra-ui/react"
 import { useForm } from "@tanstack/react-form"
 import { useCreateShow } from "../../hooks/useShows"
+import { TagCombobox } from "../tags/TagCombobox"
 import {
   DialogRoot,
   DialogContent,
@@ -25,6 +26,7 @@ export function CreateShowModal({ open, onClose }: CreateShowModalProps) {
       description: "",
       startTime: "",
       endTime: "",
+      tagIds: [] as string[],
     },
     onSubmit: async ({ value }) => {
       await createShow.mutateAsync({
@@ -32,6 +34,7 @@ export function CreateShowModal({ open, onClose }: CreateShowModalProps) {
         description: value.description || null,
         startTime: new Date(value.startTime).toISOString(),
         endTime: value.endTime ? new Date(value.endTime).toISOString() : null,
+        tagIds: value.tagIds,
       })
       onClose()
     },
@@ -123,6 +126,18 @@ export function CreateShowModal({ open, onClose }: CreateShowModalProps) {
                           />
                         </label>
                       </Box>
+                    )}
+                  </form.Field>
+                </Box>
+                <Box mb={4}>
+                  <form.Field name="tagIds">
+                    {(field) => (
+                      <TagCombobox
+                        tagType="show"
+                        value={field.state.value}
+                        onValueChange={field.handleChange}
+                        insideOverlay
+                      />
                     )}
                   </form.Field>
                 </Box>

@@ -75,34 +75,55 @@ export async function findShowById(id: string) {
 }
 
 export async function createShow(data: CreateShowRequest, createdBy: string) {
-  const [row] = await db
-    .insert(show)
-    .values({
-      title: data.title,
-      description: data.description ?? null,
-      startTime: new Date(data.startTime),
-      endTime: data.endTime ? new Date(data.endTime) : null,
-      roomId: data.roomId ?? null,
-      status: data.status ?? "working",
-      createdBy,
-    })
-    .returning()
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(show)
+      .values({
+        title: data.title,
+        description: data.description ?? null,
+        startTime: new Date(data.startTime),
+        endTime: data.endTime ? new Date(data.endTime) : null,
+        roomId: data.roomId ?? null,
+        status: data.status ?? "working",
+        createdBy,
+      })
+      .returning()
 
-  return row
+    if (data.tagIds && data.tagIds.length > 0) {
+      await tx
+        .insert(showTag)
+        .values(data.tagIds.map((tagId) => ({ showId: row.id, tagId })))
+    }
+
+    return row
+  })
 }
 
 export async function updateShow(id: string, data: UpdateShowRequest) {
-  const values: Record<string, unknown> = { updatedAt: new Date() }
+  return db.transaction(async (tx) => {
+    const values: Record<string, unknown> = { updatedAt: new Date() }
 
-  if (data.title !== undefined) values.title = data.title
-  if (data.description !== undefined) values.description = data.description
-  if (data.startTime !== undefined) values.startTime = new Date(data.startTime)
-  if (data.endTime !== undefined) values.endTime = data.endTime ? new Date(data.endTime) : null
-  if (data.roomId !== undefined) values.roomId = data.roomId
-  if (data.status !== undefined) values.status = data.status
+    if (data.title !== undefined) values.title = data.title
+    if (data.description !== undefined) values.description = data.description
+    if (data.startTime !== undefined) values.startTime = new Date(data.startTime)
+    if (data.endTime !== undefined) values.endTime = data.endTime ? new Date(data.endTime) : null
+    if (data.roomId !== undefined) values.roomId = data.roomId
+    if (data.status !== undefined) values.status = data.status
 
-  const [row] = await db.update(show).set(values).where(eq(show.id, id)).returning()
-  return row ?? null
+    const [row] = await tx.update(show).set(values).where(eq(show.id, id)).returning()
+    if (!row) return null
+
+    if (data.tagIds !== undefined) {
+      await tx.delete(showTag).where(eq(showTag.showId, id))
+      if (data.tagIds.length > 0) {
+        await tx
+          .insert(showTag)
+          .values(data.tagIds.map((tagId) => ({ showId: id, tagId })))
+      }
+    }
+
+    return row
+  })
 }
 
 export async function deleteShow(id: string) {

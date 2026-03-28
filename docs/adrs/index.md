@@ -24,6 +24,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0016](0016-better-auth-with-drizzle-for-platform-authentication.md) | Better-Auth with Drizzle for Platform Authentication | Accepted |
 | [0017](0017-scheduling-app-for-show-programming.md) | Scheduling App for Show Programming | Accepted |
 | [0018](0018-url-search-params-for-entity-filters.md) | URL Search Params for Entity Filters (Scheduler) | Accepted |
+| [0019](0019-pin-react-18-types-monorepo-wide.md) | Pin React 18 Type Packages Monorepo-Wide | Accepted |
 
 ## Creating a New ADR
 

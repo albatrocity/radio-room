@@ -8,8 +8,8 @@ import {
 } from "@chakra-ui/react"
 import { useForm } from "@tanstack/react-form"
 import { useCreateSegment } from "../../hooks/useSegments"
-import { useTags } from "../../hooks/useTags"
 import type { SegmentStatus } from "@repo/types"
+import { TagCombobox } from "../tags/TagCombobox"
 import {
   DialogRoot,
   DialogContent,
@@ -27,7 +27,6 @@ interface CreateSegmentModalProps {
 
 export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
   const createSegment = useCreateSegment()
-  const { data: tags } = useTags("segment")
 
   const form = useForm({
     defaultValues: {
@@ -116,38 +115,18 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
                     )}
                   </form.Field>
                 </Box>
-                {tags && tags.length > 0 && (
-                  <Box mb={4}>
-                    <Box mb={1} fontSize="sm" fontWeight="medium">
-                      Tags
-                    </Box>
-                    <HStack gap={2} flexWrap="wrap">
-                      <form.Field name="tagIds">
-                        {(field) =>
-                          tags.map((tag) => {
-                            const selected = field.state.value.includes(tag.id)
-                            return (
-                              <Button
-                                key={tag.id}
-                                size="xs"
-                                variant={selected ? "solid" : "outline"}
-                                colorPalette={selected ? "blue" : "gray"}
-                                onClick={() => {
-                                  const next = selected
-                                    ? field.state.value.filter((id) => id !== tag.id)
-                                    : [...field.state.value, tag.id]
-                                  field.handleChange(next)
-                                }}
-                              >
-                                {tag.name}
-                              </Button>
-                            )
-                          })
-                        }
-                      </form.Field>
-                    </HStack>
-                  </Box>
-                )}
+                <Box mb={4}>
+                  <form.Field name="tagIds">
+                    {(field) => (
+                      <TagCombobox
+                        tagType="segment"
+                        value={field.state.value}
+                        onValueChange={field.handleChange}
+                        insideOverlay
+                      />
+                    )}
+                  </form.Field>
+                </Box>
               </Fieldset.Content>
             </Fieldset.Root>
           </DialogBody>

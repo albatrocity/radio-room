@@ -73,6 +73,7 @@ export interface CreateShowRequest {
   endTime?: string | null
   roomId?: string | null
   status?: ShowStatus
+  tagIds?: string[]
 }
 
 export interface UpdateShowRequest {
@@ -82,6 +83,7 @@ export interface UpdateShowRequest {
   endTime?: string | null
   roomId?: string | null
   status?: ShowStatus
+  tagIds?: string[]
 }
 
 export interface ReorderShowSegmentsRequest {
