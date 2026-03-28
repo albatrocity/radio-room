@@ -15,7 +15,9 @@ import { SegmentDetailDrawer } from "./SegmentDetailDrawer"
 
 const segmentsRouteApi = getRouteApi("/segments")
 
-const COLUMNS: SegmentStatus[] = ["draft", "working", "ready", "archived"]
+type SegmentsSearch = ReturnType<typeof segmentsRouteApi.useSearch>
+
+const COLUMNS: SegmentStatus[] = ["draft", "ready", "archived"]
 
 type SegmentDragData = { segment: SegmentDTO }
 
@@ -36,12 +38,11 @@ export function SegmentKanban() {
   const updateSegment = useUpdateSegment()
 
   const [createOpen, setCreateOpen] = useState(false)
-  const [drawerSegmentId, setDrawerSegmentId] = useState<string | null>(null)
+  const drawerSegmentId = search.segmentId
 
   const columns = useMemo(() => {
     const grouped: Record<SegmentStatus, SegmentDTO[]> = {
       draft: [],
-      working: [],
       ready: [],
       archived: [],
     }
@@ -93,7 +94,13 @@ export function SegmentKanban() {
                     : [...selectedTagIds, tag.id]
                   navigate({
                     to: "/segments",
-                    search: next.length > 0 ? { tags: next } : {},
+                    search: (prev: SegmentsSearch) => {
+                      if (next.length > 0) {
+                        return { ...prev, tags: next }
+                      }
+                      const { tags: _tags, ...rest } = prev
+                      return rest
+                    },
                     replace: true,
                   })
                 }}
@@ -107,7 +114,14 @@ export function SegmentKanban() {
               size="xs"
               variant="ghost"
               onClick={() =>
-                navigate({ to: "/segments", search: {}, replace: true })
+                navigate({
+                  to: "/segments",
+                  search: (prev: SegmentsSearch) => {
+                    const { tags: _tags, ...rest } = prev
+                    return rest
+                  },
+                  replace: true,
+                })
               }
             >
               Clear
@@ -126,16 +140,20 @@ export function SegmentKanban() {
                 key={status}
                 status={status}
                 segments={columns[status]}
-                onCardClick={(seg) => setDrawerSegmentId(seg.id)}
+                onCardClick={(seg) =>
+                  navigate({
+                    to: "/segments",
+                    search: (prev: SegmentsSearch) => ({ ...prev, segmentId: seg.id }),
+                    replace: true,
+                  })
+                }
               />
             ))}
           </HStack>
           <DragOverlay dropAnimation={null}>
             {(source) => {
               const seg = segmentFromSource(source)
-              return seg ? (
-                <SegmentCard segment={seg} onClick={() => {}} isDragOverlay />
-              ) : null
+              return seg ? <SegmentCard segment={seg} onClick={() => {}} isDragOverlay /> : null
             }}
           </DragOverlay>
         </DragDropProvider>
@@ -145,7 +163,16 @@ export function SegmentKanban() {
       <SegmentDetailDrawer
         segmentId={drawerSegmentId}
         open={!!drawerSegmentId}
-        onClose={() => setDrawerSegmentId(null)}
+        onClose={() =>
+          navigate({
+            to: "/segments",
+            search: (prev: SegmentsSearch) => {
+              const { segmentId: _segmentId, ...rest } = prev
+              return rest
+            },
+            replace: true,
+          })
+        }
       />
     </Box>
   )

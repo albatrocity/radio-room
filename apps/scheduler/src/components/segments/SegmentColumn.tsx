@@ -5,7 +5,6 @@ import { SegmentCard } from "./SegmentCard"
 
 const STATUS_LABELS: Record<SegmentStatus, string> = {
   draft: "Draft",
-  working: "Working",
   ready: "Ready",
   archived: "Archived",
 }

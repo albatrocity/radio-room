@@ -17,8 +17,8 @@ import { user } from "./auth"
 // Enums
 // ---------------------------------------------------------------------------
 
-export const showStatusEnum = pgEnum("show_status", ["working", "ready", "published"])
-export const segmentStatusEnum = pgEnum("segment_status", ["draft", "working", "ready", "archived"])
+export const showStatusEnum = pgEnum("show_status", ["draft", "ready", "published"])
+export const segmentStatusEnum = pgEnum("segment_status", ["draft", "ready", "archived"])
 export const tagTypeEnum = pgEnum("tag_type", ["segment", "show"])
 
 // ---------------------------------------------------------------------------
@@ -34,7 +34,7 @@ export const show = pgTable("show", {
   startTime: timestamp("start_time", { withTimezone: true }).notNull(),
   endTime: timestamp("end_time", { withTimezone: true }),
   roomId: text("room_id"),
-  status: showStatusEnum("status").notNull().default("working"),
+  status: showStatusEnum("status").notNull().default("draft"),
   createdBy: text("created_by")
     .notNull()
     .references(() => user.id),

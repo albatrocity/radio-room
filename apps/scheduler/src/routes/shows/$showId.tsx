@@ -2,16 +2,7 @@ import { useCallback, useMemo } from "react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { z } from "zod"
 import { zodSearchValidator } from "@tanstack/router-zod-adapter"
-import {
-  Box,
-  Button,
-  Flex,
-  Heading,
-  HStack,
-  Text,
-  Badge,
-  Spinner,
-} from "@chakra-ui/react"
+import { Box, Button, Flex, Heading, HStack, Text, Badge, Spinner } from "@chakra-ui/react"
 import { DragDropProvider, DragOverlay, type DragEndEvent } from "@dnd-kit/react"
 import { isSortable } from "@dnd-kit/react/sortable"
 import { move } from "@dnd-kit/helpers"
@@ -38,6 +29,7 @@ const showDetailSearchSchema = z.object({
   segTags: zStringArray,
   recurringOnly: zSearchBoolean,
   scheduled: z.enum(["all", "scheduled", "unscheduled"]).optional(),
+  segStatus: z.enum(["draft", "ready", "archived"]).optional(),
 })
 
 export const Route = createFileRoute("/shows/$showId")({
@@ -46,13 +38,13 @@ export const Route = createFileRoute("/shows/$showId")({
 })
 
 const STATUS_OPTIONS: { value: ShowStatus; label: string }[] = [
-  { value: "working", label: "Working" },
+  { value: "draft", label: "Draft" },
   { value: "ready", label: "Ready" },
   { value: "published", label: "Published" },
 ]
 
 const STATUS_COLORS: Record<ShowStatus, string> = {
-  working: "yellow",
+  draft: "yellow",
   ready: "green",
   published: "blue",
 }
@@ -60,7 +52,9 @@ const STATUS_COLORS: Record<ShowStatus, string> = {
 /** Drag payload from {@link SegmentBrowserCard} (segment list panel). */
 type SegmentBrowserDragData = { segment: SegmentDTO; source: "segment-browser" }
 
-function segmentFromDragSource(source: { data: unknown } | null | undefined): SegmentDTO | undefined {
+function segmentFromDragSource(
+  source: { data: unknown } | null | undefined,
+): SegmentDTO | undefined {
   if (!source) return undefined
   const data = source.data as SegmentBrowserDragData | { segment?: SegmentDTO } | undefined
   return data && "segment" in data ? data.segment : undefined
@@ -125,8 +119,7 @@ function ShowDetailPage() {
         const targetShape = target.shape
         const pointer = event.operation.position.current
         if (targetShape?.center && pointer) {
-          const belowRow =
-            Math.round(pointer.y) > Math.round(targetShape.center.y)
+          const belowRow = Math.round(pointer.y) > Math.round(targetShape.center.y)
           if (belowRow) insertIndex += 1
         }
         insertIndex = Math.max(0, Math.min(insertIndex, currentSegmentIds.length))
@@ -212,8 +205,7 @@ function ShowDetailPage() {
                 month: "long",
                 day: "numeric",
                 year: "numeric",
-              })}
-              {" "}
+              })}{" "}
               {new Date(show.startTime).toLocaleTimeString(undefined, {
                 hour: "numeric",
                 minute: "2-digit",
@@ -246,9 +238,7 @@ function ShowDetailPage() {
             <TagCombobox
               tagType="show"
               value={(show.tags ?? []).map((t) => t.id)}
-              onValueChange={(tagIds) =>
-                updateShow.mutate({ id: showId, tagIds })
-              }
+              onValueChange={(tagIds) => updateShow.mutate({ id: showId, tagIds })}
               disabled={updateShow.isPending}
             />
           </Box>

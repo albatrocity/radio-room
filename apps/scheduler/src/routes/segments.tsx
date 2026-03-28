@@ -6,6 +6,7 @@ import { SegmentKanban } from "../components/segments/SegmentKanban"
 
 const segmentsSearchSchema = z.object({
   tags: zStringArray,
+  segmentId: z.string().optional(),
 })
 
 export const Route = createFileRoute("/segments")({

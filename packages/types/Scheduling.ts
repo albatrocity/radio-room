@@ -4,8 +4,8 @@ import type { PluginPreset } from "./PluginPreset"
 // Enum value types
 // ---------------------------------------------------------------------------
 
-export type ShowStatus = "working" | "ready" | "published"
-export type SegmentStatus = "draft" | "working" | "ready" | "archived"
+export type ShowStatus = "draft" | "ready" | "published"
+export type SegmentStatus = "draft" | "ready" | "archived"
 export type TagType = "segment" | "show"
 
 // ---------------------------------------------------------------------------

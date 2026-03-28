@@ -95,7 +95,7 @@ export function ShowTimeline({
             <Text>Drag segments here to add them to the show</Text>
           </Box>
         ) : (
-          <Timeline.Root gap={0}>
+          <Timeline.Root>
             {segments.map((showSeg, index) => (
               <TimelineItem
                 key={showSeg.segmentId}
@@ -146,9 +146,7 @@ function TimelineItem({
   const seg = showSegment.segment
   const rowDropActive = isDropTarget || segmentBrowserRowHighlight
 
-  const [durationDraft, setDurationDraft] = useState(() =>
-    displayMinutesForInput(showSegment),
-  )
+  const [durationDraft, setDurationDraft] = useState(() => displayMinutesForInput(showSegment))
 
   useEffect(() => {
     setDurationDraft(displayMinutesForInput(showSegment))
@@ -190,6 +188,31 @@ function TimelineItem({
             minute: "2-digit",
           })}
         </Text>
+        {onDurationCommit && (
+          <HStack gap={2} align="center" flexWrap="wrap" mt={1}>
+            <HStack gap={1} align="center">
+              <Input
+                size="2xs"
+                maxW="72px"
+                type="text"
+                inputMode="numeric"
+                placeholder="—"
+                fontStyle={hasOverride ? "italic" : undefined}
+                value={durationDraft}
+                onChange={(e) => setDurationDraft(e.target.value)}
+                onBlur={commitDuration}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.currentTarget.blur()
+                  }
+                }}
+              />
+              <Text fontSize="xs" color="fg.muted">
+                min
+              </Text>
+            </HStack>
+          </HStack>
+        )}
       </Timeline.Content>
 
       <Timeline.Content>
@@ -206,10 +229,14 @@ function TimelineItem({
 
         <Timeline.Description>
           <Stack gap={2}>
-            {seg.description}
+            {seg.description && seg.description.length > 0 && (
+              <Text fontSize="xs" color="fg.muted">
+                {seg.description}
+              </Text>
+            )}
 
-            <HStack gap={1}>
-              {seg.tags && seg.tags.length > 0 && (
+            {seg.tags && seg.tags.length > 0 && (
+              <HStack gap={1}>
                 <Wrap gap={1}>
                   {seg.tags.map((tag) => (
                     <Tag.Root key={tag.id} size="sm" variant="subtle" colorPalette="blue">
@@ -217,48 +244,6 @@ function TimelineItem({
                     </Tag.Root>
                   ))}
                 </Wrap>
-              )}
-            </HStack>
-
-            {onDurationCommit && (
-              <HStack gap={2} align="center" flexWrap="wrap" mt={1}>
-                <Text fontSize="xs" color="fg.muted" whiteSpace="nowrap">
-                  Approx. duration
-                </Text>
-                <HStack gap={1} align="center">
-                  <Input
-                    size="xs"
-                    maxW="72px"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="—"
-                    fontStyle={hasOverride ? "italic" : undefined}
-                    value={durationDraft}
-                    onChange={(e) => setDurationDraft(e.target.value)}
-                    onBlur={commitDuration}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.currentTarget.blur()
-                      }
-                    }}
-                  />
-                  <Text fontSize="xs" color="fg.muted">
-                    min
-                  </Text>
-                </HStack>
-                {hasOverride && (
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => {
-                      onDurationCommit(showSegment.segmentId, null)
-                      setDurationDraft(displayMinutesForInput({ ...showSegment, durationOverride: null }))
-                    }}
-                  >
-                    Use segment default
-                  </Button>
-                )}
               </HStack>
             )}
           </Stack>
@@ -266,7 +251,7 @@ function TimelineItem({
       </Timeline.Content>
 
       <Timeline.Connector>
-        <Timeline.Indicator bg="transparent">
+        <Timeline.Indicator bg="transparent" outline="none">
           {onRemove && (
             <Button
               aria-label="Remove segment from show"

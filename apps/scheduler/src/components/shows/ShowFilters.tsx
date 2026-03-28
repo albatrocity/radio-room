@@ -8,7 +8,7 @@ interface ShowFiltersProps {
 
 const STATUS_OPTIONS: { value: ShowStatus | ""; label: string }[] = [
   { value: "", label: "All statuses" },
-  { value: "working", label: "Working" },
+  { value: "draft", label: "Draft" },
   { value: "ready", label: "Ready" },
   { value: "published", label: "Published" },
 ]

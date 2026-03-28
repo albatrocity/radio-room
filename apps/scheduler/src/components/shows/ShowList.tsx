@@ -10,12 +10,14 @@ import { CreateShowModal } from "./CreateShowModal"
 const showsRouteApi = getRouteApi("/shows/")
 
 const STATUS_COLORS: Record<ShowStatus, string> = {
-  working: "yellow",
+  draft: "yellow",
   ready: "green",
   published: "blue",
 }
 
-function showFiltersFromSearch(search: ReturnType<typeof showsRouteApi.useSearch>): ShowFiltersType {
+function showFiltersFromSearch(
+  search: ReturnType<typeof showsRouteApi.useSearch>,
+): ShowFiltersType {
   return {
     search: search.search,
     startDate: search.startDate,
@@ -103,8 +105,7 @@ export function ShowList() {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
-                      })}
-                      {" "}
+                      })}{" "}
                       {new Date(show.startTime).toLocaleTimeString(undefined, {
                         hour: "numeric",
                         minute: "2-digit",

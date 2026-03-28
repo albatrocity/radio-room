@@ -7,7 +7,7 @@ const showListSearchSchema = z.object({
   search: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
-  status: z.enum(["working", "ready", "published"]).optional(),
+  status: z.enum(["draft", "ready", "published"]).optional(),
 })
 
 export const Route = createFileRoute("/shows/")({

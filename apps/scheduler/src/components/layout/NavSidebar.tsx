@@ -1,4 +1,4 @@
-import { Box, VStack, Text, Link as ChakraLink, Spacer, Button } from "@chakra-ui/react"
+import { Box, VStack, Text, Link as ChakraLink, Spacer, Button, ScrollArea } from "@chakra-ui/react"
 import { Link, useRouterState } from "@tanstack/react-router"
 import { LayoutGrid, CalendarDays, LogOut } from "lucide-react"
 import { authClient } from "@repo/auth/client"
@@ -21,7 +21,9 @@ export function NavSidebar() {
     <Box
       as="nav"
       w="220px"
-      minH="100vh"
+      h="100vh"
+      position="sticky"
+      top={0}
       borderRightWidth="1px"
       borderColor="border.muted"
       py={6}
@@ -33,30 +35,34 @@ export function NavSidebar() {
         Scheduler
       </Text>
       <VStack gap={1} align="stretch">
-        {navItems.map(({ to, label, icon: Icon }) => {
-          const isActive = currentPath.startsWith(to)
-          return (
-            <ChakraLink asChild key={to}>
-              <Link
-                to={to}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "8px 12px",
-                  borderRadius: "6px",
-                  textDecoration: "none",
-                  fontSize: "14px",
-                  fontWeight: isActive ? 600 : 400,
-                  background: isActive ? "var(--chakra-colors-bg-emphasized)" : "transparent",
-                }}
-              >
-                <Icon size={18} />
-                {label}
-              </Link>
-            </ChakraLink>
-          )
-        })}
+        <ScrollArea.Root h="100%">
+          <ScrollArea.Viewport>
+            {navItems.map(({ to, label, icon: Icon }) => {
+              const isActive = currentPath.startsWith(to)
+              return (
+                <ChakraLink asChild key={to}>
+                  <Link
+                    to={to}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      textDecoration: "none",
+                      fontSize: "14px",
+                      fontWeight: isActive ? 600 : 400,
+                      background: isActive ? "var(--chakra-colors-bg-emphasized)" : "transparent",
+                    }}
+                  >
+                    <Icon size={18} />
+                    {label}
+                  </Link>
+                </ChakraLink>
+              )
+            })}
+          </ScrollArea.Viewport>
+        </ScrollArea.Root>
       </VStack>
       <Spacer />
       <Box px={3} mb={3}>
