@@ -23,6 +23,8 @@ export interface TagComboboxProps {
   /** Dialog / drawer: avoid Portal on positioner; use fixed positioning */
   insideOverlay?: boolean
   label?: string
+  /** When false, only existing tags can be selected (no “create” row or API). Default true. */
+  allowCreate?: boolean
 }
 
 export function TagCombobox({
@@ -32,6 +34,7 @@ export function TagCombobox({
   disabled,
   insideOverlay = false,
   label = "Tags",
+  allowCreate = true,
 }: TagComboboxProps) {
   const { data: tags = [], isLoading } = useTags(tagType)
   const createTag = useCreateTag()
@@ -42,13 +45,14 @@ export function TagCombobox({
     const q = query.trim().toLowerCase()
     const filtered =
       q === "" ? base : base.filter((t) => t.label.toLowerCase().includes(q))
+    if (!allowCreate) return filtered
     const exact = base.some((t) => t.label.toLowerCase() === q)
     const canCreate = query.trim().length > 0 && !exact
     if (canCreate) {
       return [{ label: query.trim(), value: NEW_ITEM_VALUE }, ...filtered]
     }
     return filtered
-  }, [tags, query])
+  }, [tags, query, allowCreate])
 
   const collection = useMemo(
     () =>
@@ -110,8 +114,8 @@ export function TagCombobox({
         value={value}
         onValueChange={handleValueChange}
         onInputValueChange={(e) => setQuery(e.inputValue)}
-        disabled={disabled || createTag.isPending}
-        allowCustomValue
+        disabled={disabled || (allowCreate && createTag.isPending)}
+        allowCustomValue={allowCreate}
         openOnClick
         positioning={positioning}
       >
@@ -129,7 +133,7 @@ export function TagCombobox({
                 return (
                   <Tag.Root key={id} size="sm">
                     <Tag.Label>{label}</Tag.Label>
-                    {!disabled && !createTag.isPending && (
+                    {!disabled && !(allowCreate && createTag.isPending) && (
                       <Tag.EndElement>
                         <Tag.CloseTrigger
                           aria-label={`Remove ${label}`}
@@ -144,7 +148,11 @@ export function TagCombobox({
               })}
             </Wrap>
             <Combobox.Control>
-              <Combobox.Input placeholder="Search or create tags…" />
+              <Combobox.Input
+                placeholder={
+                  allowCreate ? "Search or create tags…" : "Search tags…"
+                }
+              />
               <Combobox.IndicatorGroup>
                 <Combobox.ClearTrigger />
                 <Combobox.Trigger />

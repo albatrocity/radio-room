@@ -127,8 +127,10 @@ export function SegmentKanban() {
               />
             ))}
           </HStack>
-          <DragOverlay>
-            {activeSegment && <SegmentCard segment={activeSegment} onClick={() => {}} />}
+          <DragOverlay dropAnimation={null}>
+            {activeSegment && (
+              <SegmentCard segment={activeSegment} onClick={() => {}} isDragOverlay />
+            )}
           </DragOverlay>
         </DndContext>
       )}

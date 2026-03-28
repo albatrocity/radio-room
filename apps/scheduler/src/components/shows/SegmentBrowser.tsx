@@ -2,7 +2,7 @@ import { Box, Heading, Input, VStack, HStack, Button, Text } from "@chakra-ui/re
 import { getRouteApi } from "@tanstack/react-router"
 import type { SegmentFilters } from "@repo/types"
 import { useSegments } from "../../hooks/useSegments"
-import { useTags } from "../../hooks/useTags"
+import { TagCombobox } from "../tags/TagCombobox"
 import { SegmentBrowserCard } from "./SegmentBrowserCard"
 
 const showDetailRouteApi = getRouteApi("/shows/$showId")
@@ -54,7 +54,6 @@ export function SegmentBrowser({ excludeSegmentIds = [] }: SegmentBrowserProps) 
   }
 
   const { data: segments = [] } = useSegments(filters)
-  const { data: tags = [] } = useTags("segment")
 
   const visibleSegments = segments.filter((s) => !excludeSegmentIds.includes(s.id))
 
@@ -71,7 +70,7 @@ export function SegmentBrowser({ excludeSegmentIds = [] }: SegmentBrowserProps) 
         Segment Browser
       </Heading>
 
-      <VStack gap={2} align="stretch" mb={3}>
+      <VStack gap={4} align="stretch" mb={3}>
         <Input
           placeholder="Search segments..."
           value={segSearchText}
@@ -79,38 +78,20 @@ export function SegmentBrowser({ excludeSegmentIds = [] }: SegmentBrowserProps) 
           size="sm"
         />
 
-        {tags.length > 0 && (
-          <HStack gap={1} flexWrap="wrap">
-            {tags.map((tag) => {
-              const selected = selectedTagIds.includes(tag.id)
-              return (
-                <Button
-                  key={tag.id}
-                  size="xs"
-                  variant={selected ? "solid" : "outline"}
-                  colorPalette={selected ? "blue" : "gray"}
-                  onClick={() => {
-                    const next = selected
-                      ? selectedTagIds.filter((id: string) => id !== tag.id)
-                      : [...selectedTagIds, tag.id]
-                    updateSearch({ segTags: next })
-                  }}
-                >
-                  {tag.name}
-                </Button>
-              )
-            })}
-          </HStack>
-        )}
+        <TagCombobox
+          tagType="segment"
+          label="Filter by tags"
+          value={selectedTagIds}
+          allowCreate={false}
+          onValueChange={(next) => updateSearch({ segTags: next.length > 0 ? next : [] })}
+        />
 
         <HStack gap={3}>
           <label style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "13px" }}>
             <input
               type="checkbox"
               checked={recurringOnly}
-              onChange={(e) =>
-                updateSearch({ recurringOnly: e.target.checked ? true : false })
-              }
+              onChange={(e) => updateSearch({ recurringOnly: e.target.checked ? true : false })}
             />
             Recurring only
           </label>
@@ -131,7 +112,7 @@ export function SegmentBrowser({ excludeSegmentIds = [] }: SegmentBrowserProps) 
         </HStack>
       </VStack>
 
-      <VStack gap={2} align="stretch" maxH="60vh" overflowY="auto">
+      <VStack gap={2} align="stretch" maxH="60vh" bg="bg.panel" p="4" overflowY="auto">
         {visibleSegments.length === 0 ? (
           <Text fontSize="sm" color="fg.muted" textAlign="center" p={4}>
             No segments match your filters

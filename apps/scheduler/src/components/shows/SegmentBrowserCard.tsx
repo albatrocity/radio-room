@@ -3,36 +3,18 @@ import { useDraggable } from "@dnd-kit/core"
 import { Repeat } from "lucide-react"
 import type { SegmentDTO } from "@repo/types"
 
-interface SegmentBrowserCardProps {
+export interface SegmentBrowserCardProps {
   segment: SegmentDTO
+  /**
+   * Static presentation for {@link DragOverlay}: do not register a second draggable
+   * with the same id as the list row, and do not mirror transform on the source.
+   */
+  isDragOverlay?: boolean
 }
 
-export function SegmentBrowserCard({ segment }: SegmentBrowserCardProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `browser-${segment.id}`,
-    data: { segment, source: "browser" },
-  })
-
-  const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
-    : undefined
-
+function SegmentBrowserCardBody({ segment }: { segment: SegmentDTO }) {
   return (
-    <Box
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      style={style}
-      bg="bg.panel"
-      borderWidth="1px"
-      borderColor="border.muted"
-      borderRadius="md"
-      p={2}
-      cursor="grab"
-      opacity={isDragging ? 0.5 : 1}
-      _hover={{ borderColor: "border.emphasized" }}
-      transition="border-color 0.15s"
-    >
+    <>
       <HStack justify="space-between">
         <Text fontWeight="medium" fontSize="sm" lineClamp={1}>
           {segment.title}
@@ -52,6 +34,58 @@ export function SegmentBrowserCard({ segment }: SegmentBrowserCardProps) {
           ))}
         </HStack>
       )}
+    </>
+  )
+}
+
+function SegmentBrowserCardOverlay({ segment }: Pick<SegmentBrowserCardProps, "segment">) {
+  return (
+    <Box
+      bg="bg.panel"
+      borderWidth="1px"
+      borderColor="border.muted"
+      borderRadius="md"
+      p={2}
+      cursor="grabbing"
+      boxShadow="md"
+      _hover={{ borderColor: "border.emphasized" }}
+      transition="border-color 0.15s"
+    >
+      <SegmentBrowserCardBody segment={segment} />
     </Box>
   )
+}
+
+function SegmentBrowserCardDraggable({ segment }: Pick<SegmentBrowserCardProps, "segment">) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `browser-${segment.id}`,
+    data: { segment, source: "browser" },
+  })
+
+  return (
+    <Box
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      bg="bg.panel"
+      borderWidth="1px"
+      borderColor="border.muted"
+      borderRadius="md"
+      p={2}
+      cursor="grab"
+      opacity={isDragging ? 0 : 1}
+      pointerEvents={isDragging ? "none" : undefined}
+      _hover={{ borderColor: "border.emphasized" }}
+      transition="border-color 0.15s"
+    >
+      <SegmentBrowserCardBody segment={segment} />
+    </Box>
+  )
+}
+
+export function SegmentBrowserCard({ segment, isDragOverlay }: SegmentBrowserCardProps) {
+  if (isDragOverlay) {
+    return <SegmentBrowserCardOverlay segment={segment} />
+  }
+  return <SegmentBrowserCardDraggable segment={segment} />
 }

@@ -1,40 +1,21 @@
-import { Box, Badge, HStack, Text, Icon } from "@chakra-ui/react"
+import { Box, Badge, HStack, Text, Icon, Stack } from "@chakra-ui/react"
 import { useDraggable } from "@dnd-kit/core"
 import { Repeat } from "lucide-react"
 import type { SegmentDTO } from "@repo/types"
 
-interface SegmentCardProps {
+export interface SegmentCardProps {
   segment: SegmentDTO
   onClick: () => void
+  /**
+   * Static presentation for {@link DragOverlay}: do not register a second draggable
+   * with the same id, and do not mirror transform on the source.
+   */
+  isDragOverlay?: boolean
 }
 
-export function SegmentCard({ segment, onClick }: SegmentCardProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: segment.id,
-    data: { segment },
-  })
-
-  const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
-    : undefined
-
+function SegmentCardBody({ segment }: { segment: SegmentDTO }) {
   return (
-    <Box
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      style={style}
-      bg="bg.panel"
-      borderWidth="1px"
-      borderColor="border.muted"
-      borderRadius="md"
-      p={3}
-      cursor="grab"
-      opacity={isDragging ? 0.5 : 1}
-      onClick={onClick}
-      _hover={{ borderColor: "border.emphasized" }}
-      transition="border-color 0.15s"
-    >
+    <Stack gap={1}>
       <HStack justify="space-between" mb={segment.description || segment.tags?.length ? 1 : 0}>
         <Text fontWeight="medium" fontSize="sm" lineClamp={1}>
           {segment.title}
@@ -59,6 +40,60 @@ export function SegmentCard({ segment, onClick }: SegmentCardProps) {
           ))}
         </HStack>
       )}
+    </Stack>
+  )
+}
+
+function SegmentCardOverlay({ segment, onClick }: Pick<SegmentCardProps, "segment" | "onClick">) {
+  return (
+    <Box
+      bg="bg.panel"
+      borderWidth="1px"
+      borderColor="border.muted"
+      borderRadius="md"
+      p={3}
+      cursor="grabbing"
+      boxShadow="md"
+      onClick={onClick}
+      _hover={{ borderColor: "border.emphasized" }}
+      transition="border-color 0.15s"
+    >
+      <SegmentCardBody segment={segment} />
     </Box>
   )
+}
+
+function SegmentCardDraggable({ segment, onClick }: Pick<SegmentCardProps, "segment" | "onClick">) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: segment.id,
+    data: { segment },
+  })
+
+  return (
+    <Box
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      bg="bg.panel"
+      borderWidth="1px"
+      borderColor="border.muted"
+      borderRadius="md"
+      p={3}
+      cursor="grab"
+      opacity={isDragging ? 0 : 1}
+      pointerEvents={isDragging ? "none" : undefined}
+      onClick={onClick}
+      _hover={{ borderColor: "border.emphasized" }}
+      transition="border-color 0.15s"
+    >
+      <SegmentCardBody segment={segment} />
+    </Box>
+  )
+}
+
+export function SegmentCard({ segment, onClick, isDragOverlay }: SegmentCardProps) {
+  if (isDragOverlay) {
+    return <SegmentCardOverlay segment={segment} onClick={onClick} />
+  }
+  return <SegmentCardDraggable segment={segment} onClick={onClick} />
 }

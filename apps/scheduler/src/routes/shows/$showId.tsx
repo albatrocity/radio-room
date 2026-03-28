@@ -221,8 +221,8 @@ function ShowDetailPage() {
                 <SegmentBrowser excludeSegmentIds={currentSegmentIds} />
               </Box>
             </Flex>
-            <DragOverlay>
-              {activeSegment && <SegmentBrowserCard segment={activeSegment} />}
+            <DragOverlay dropAnimation={null}>
+              {activeSegment && <SegmentBrowserCard segment={activeSegment} isDragOverlay />}
             </DragOverlay>
           </DndContext>
 
