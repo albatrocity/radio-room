@@ -2,6 +2,7 @@ import { Box, VStack, Text, Link as ChakraLink, Spacer, Button } from "@chakra-u
 import { Link, useRouterState } from "@tanstack/react-router"
 import { LayoutGrid, CalendarDays, LogOut } from "lucide-react"
 import { authClient } from "@repo/auth/client"
+import { ThemePreferenceControl } from "./ThemePreferenceControl"
 
 const navItems = [
   { to: "/segments" as const, label: "Segments", icon: LayoutGrid },
@@ -58,6 +59,12 @@ export function NavSidebar() {
         })}
       </VStack>
       <Spacer />
+      <Box px={3} mb={3}>
+        <Text fontSize="xs" color="fg.muted" mb={1.5}>
+          Theme
+        </Text>
+        <ThemePreferenceControl />
+      </Box>
       <Button
         variant="ghost"
         size="sm"
