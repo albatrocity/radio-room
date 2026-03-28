@@ -3,7 +3,7 @@ import { useForm } from "@tanstack/react-form"
 import { useCreateShow } from "../../hooks/useShows"
 import { TagCombobox } from "../tags/TagCombobox"
 import {
-  DialogRoot,
+  SchedulingDialogRoot,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -41,7 +41,7 @@ export function CreateShowModal({ open, onClose }: CreateShowModalProps) {
   })
 
   return (
-    <DialogRoot open={open} onOpenChange={(e) => !e.open && onClose()}>
+    <SchedulingDialogRoot open={open} onClose={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New Show</DialogTitle>
@@ -154,6 +154,6 @@ export function CreateShowModal({ open, onClose }: CreateShowModalProps) {
           </DialogFooter>
         </form>
       </DialogContent>
-    </DialogRoot>
+    </SchedulingDialogRoot>
   )
 }

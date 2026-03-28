@@ -4,7 +4,7 @@ import { useCreateSegment } from "../../hooks/useSegments"
 import type { SegmentStatus } from "@repo/types"
 import { TagCombobox } from "../tags/TagCombobox"
 import {
-  DialogRoot,
+  SchedulingDialogRoot,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -50,7 +50,7 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
   })
 
   return (
-    <DialogRoot open={open} onOpenChange={(e) => !e.open && onClose()}>
+    <SchedulingDialogRoot open={open} onClose={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New Segment</DialogTitle>
@@ -161,6 +161,6 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
           </DialogFooter>
         </form>
       </DialogContent>
-    </DialogRoot>
+    </SchedulingDialogRoot>
   )
 }
