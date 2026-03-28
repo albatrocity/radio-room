@@ -5,7 +5,7 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "build": "esbuild src/migrate.ts --bundle --platform=node --target=node22 --outfile=dist/migrate.js --external:pg --format=cjs",
+    "build": "esbuild src/migrate.ts --bundle --platform=node --target=node22 --outfile=dist/migrate.mjs --external:pg --format=esm",
     "db:generate": "dotenv -e ../../.env -- drizzle-kit generate",
     "db:migrate": "dotenv -e ../../.env -- drizzle-kit migrate",
     "db:migrate:run": "dotenv -e ../../.env -- tsx src/migrate.ts",

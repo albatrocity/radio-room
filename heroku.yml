@@ -4,4 +4,4 @@ build:
 release:
   image: web
   command:
-    - node packages/db/dist/migrate.js
+    - node packages/db/dist/migrate.mjs
