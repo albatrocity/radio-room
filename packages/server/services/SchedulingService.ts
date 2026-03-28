@@ -85,15 +85,13 @@ export async function createShow(data: CreateShowRequest, createdBy: string) {
         startTime: new Date(data.startTime),
         endTime: data.endTime ? new Date(data.endTime) : null,
         roomId: data.roomId ?? null,
-        status: data.status ?? "working",
+        status: data.status ?? "draft",
         createdBy,
       })
       .returning()
 
     if (data.tagIds && data.tagIds.length > 0) {
-      await tx
-        .insert(showTag)
-        .values(data.tagIds.map((tagId) => ({ showId: row.id, tagId })))
+      await tx.insert(showTag).values(data.tagIds.map((tagId) => ({ showId: row.id, tagId })))
     }
 
     return row
@@ -117,9 +115,7 @@ export async function updateShow(id: string, data: UpdateShowRequest) {
     if (data.tagIds !== undefined) {
       await tx.delete(showTag).where(eq(showTag.showId, id))
       if (data.tagIds.length > 0) {
-        await tx
-          .insert(showTag)
-          .values(data.tagIds.map((tagId) => ({ showId: id, tagId })))
+        await tx.insert(showTag).values(data.tagIds.map((tagId) => ({ showId: id, tagId })))
       }
     }
 
@@ -202,7 +198,9 @@ export async function findSegments(filters: SegmentFilters = {}) {
         db
           .select({ one: sql`1` })
           .from(segmentTag)
-          .where(and(eq(segmentTag.segmentId, segment.id), inArray(segmentTag.tagId, filters.tags))),
+          .where(
+            and(eq(segmentTag.segmentId, segment.id), inArray(segmentTag.tagId, filters.tags)),
+          ),
       ),
     )
   }
@@ -278,9 +276,7 @@ export async function createSegment(data: CreateSegmentRequest, createdBy: strin
       .returning()
 
     if (data.tagIds && data.tagIds.length > 0) {
-      await tx
-        .insert(segmentTag)
-        .values(data.tagIds.map((tagId) => ({ segmentId: row.id, tagId })))
+      await tx.insert(segmentTag).values(data.tagIds.map((tagId) => ({ segmentId: row.id, tagId })))
     }
 
     return row
@@ -304,9 +300,7 @@ export async function updateSegment(id: string, data: UpdateSegmentRequest) {
     if (data.tagIds !== undefined) {
       await tx.delete(segmentTag).where(eq(segmentTag.segmentId, id))
       if (data.tagIds.length > 0) {
-        await tx
-          .insert(segmentTag)
-          .values(data.tagIds.map((tagId) => ({ segmentId: id, tagId })))
+        await tx.insert(segmentTag).values(data.tagIds.map((tagId) => ({ segmentId: id, tagId })))
       }
     }
 
@@ -336,10 +330,7 @@ export async function findTags(type?: TagType) {
 }
 
 export async function createTag(data: CreateTagRequest) {
-  const [row] = await db
-    .insert(tag)
-    .values({ name: data.name, type: data.type })
-    .returning()
+  const [row] = await db.insert(tag).values({ name: data.name, type: data.type }).returning()
   return row
 }
 
