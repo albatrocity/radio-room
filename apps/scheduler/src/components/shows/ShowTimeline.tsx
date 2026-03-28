@@ -1,4 +1,16 @@
-import { Box, Button, VStack, Text, HStack, Badge, Icon } from "@chakra-ui/react"
+import {
+  Box,
+  Button,
+  VStack,
+  Text,
+  HStack,
+  Badge,
+  Icon,
+  Timeline,
+  Wrap,
+  Stack,
+  Tag,
+} from "@chakra-ui/react"
 import { useDroppable } from "@dnd-kit/react"
 import { useSortable } from "@dnd-kit/react/sortable"
 import { GripVertical, Repeat, Trash2 } from "lucide-react"
@@ -37,7 +49,7 @@ export function ShowTimeline({ segments, onRemove }: ShowTimelineProps) {
           <Text>Drag segments here to add them to the show</Text>
         </Box>
       ) : (
-        <VStack gap={0} align="stretch">
+        <Timeline.Root gap={0}>
           {segments.map((showSeg, index) => (
             <TimelineItem
               key={showSeg.segmentId}
@@ -46,7 +58,7 @@ export function ShowTimeline({ segments, onRemove }: ShowTimelineProps) {
               onRemove={onRemove}
             />
           ))}
-        </VStack>
+        </Timeline.Root>
       )}
     </Box>
   )
@@ -70,92 +82,74 @@ function TimelineItem({
   const seg = showSegment.segment
 
   return (
-    <Box ref={ref} opacity={isDragging ? 0.5 : 1}>
-      <HStack gap={0}>
-        {/* Timeline gutter */}
-        <Box
-          w="40px"
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          flexShrink={0}
-        >
-          <Box
-            w="24px"
-            h="24px"
-            borderRadius="full"
-            bg="blue.solid"
-            color="white"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            fontSize="xs"
-            fontWeight="bold"
-          >
-            {index + 1}
-          </Box>
-          <Box w="2px" flex="1" bg="border.muted" minH="20px" />
+    <Timeline.Item ref={ref} opacity={isDragging ? 0.5 : 1}>
+      <Timeline.Content width="auto">
+        <Box ref={handleRef} cursor="grab" color="fg.muted">
+          <GripVertical size={16} />
         </Box>
+      </Timeline.Content>
 
-        {/* Segment card */}
-        <Box
-          flex="1"
-          borderWidth="1px"
-          borderColor="border.muted"
-          borderRadius="md"
-          p={3}
-          mb={2}
-          bg="bg.panel"
-          _hover={{ borderColor: "border.emphasized" }}
-        >
-          <HStack justify="space-between">
-            <HStack gap={2}>
-              <Box ref={handleRef} cursor="grab" color="fg.muted">
-                <GripVertical size={16} />
-              </Box>
-              <Text fontWeight="medium" fontSize="sm">
-                {seg.title}
-              </Text>
-              {seg.isRecurring && (
-                <Icon color="fg.muted" asChild>
-                  <Repeat size={14} />
-                </Icon>
-              )}
-            </HStack>
+      <Timeline.Connector>
+        <Timeline.Separator />
+        <Timeline.Indicator>{index + 1}</Timeline.Indicator>
+      </Timeline.Connector>
+
+      {/* <Timeline.Content width="auto">
+        <Text color="fg.muted" fontSize="xs">
+          estimated start time here
+        </Text>
+      </Timeline.Content> */}
+
+      <Timeline.Content>
+        <Timeline.Title>
+          <HStack gap={2} justify="space-between" w="100%">
+            {seg.title}
+            {seg.isRecurring && (
+              <Icon color="fg.muted" asChild>
+                <Repeat size={14} />
+              </Icon>
+            )}
+          </HStack>
+        </Timeline.Title>
+
+        <Timeline.Description>
+          <Stack gap={2}>
+            {seg.description}
+
             <HStack gap={1}>
               {seg.tags && seg.tags.length > 0 && (
-                <HStack gap={1}>
+                <Wrap gap={1}>
                   {seg.tags.map((tag) => (
-                    <Badge key={tag.id} size="sm" variant="subtle" colorPalette="blue">
-                      {tag.name}
-                    </Badge>
+                    <Tag.Root key={tag.id} size="sm" variant="subtle" colorPalette="blue">
+                      <Tag.Label>{tag.name}</Tag.Label>
+                    </Tag.Root>
                   ))}
-                </HStack>
-              )}
-              {onRemove && (
-                <Button
-                  aria-label="Remove segment from show"
-                  variant="ghost"
-                  size="xs"
-                  colorPalette="red"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onRemove(showSegment.segmentId)
-                  }}
-                >
-                  <Trash2 size={14} />
-                </Button>
+                </Wrap>
               )}
             </HStack>
-          </HStack>
-          {seg.description && (
-            <Text fontSize="xs" color="fg.muted" mt={1} ml={6} lineClamp={2}>
-              {seg.description}
-            </Text>
+          </Stack>
+        </Timeline.Description>
+      </Timeline.Content>
+
+      <Timeline.Connector>
+        <Timeline.Indicator bg="transparent">
+          {onRemove && (
+            <Button
+              aria-label="Remove segment from show"
+              variant="ghost"
+              size="xs"
+              colorPalette="red"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                onRemove(showSegment.segmentId)
+              }}
+            >
+              <Trash2 size={14} />
+            </Button>
           )}
-        </Box>
-      </HStack>
-    </Box>
+        </Timeline.Indicator>
+      </Timeline.Connector>
+    </Timeline.Item>
   )
 }
