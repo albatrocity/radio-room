@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useMemo } from "react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { z } from "zod"
 import { zodSearchValidator } from "@tanstack/router-zod-adapter"
@@ -12,15 +12,10 @@ import {
   Badge,
   Spinner,
 } from "@chakra-ui/react"
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core"
-import { arrayMove } from "@dnd-kit/sortable"
-import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core"
+import { DragDropProvider, DragOverlay, type DragEndEvent } from "@dnd-kit/react"
+
+type DragEndPayload = Parameters<DragEndEvent>[0]
+import { move } from "@dnd-kit/helpers"
 import { ArrowLeft } from "lucide-react"
 import type { SegmentDTO, ShowStatus } from "@repo/types"
 import { useShow, useUpdateShow, useDeleteShow, useReorderShowSegments } from "../../hooks/useShows"
@@ -54,15 +49,20 @@ const STATUS_COLORS: Record<ShowStatus, string> = {
   published: "blue",
 }
 
+type BrowserDragData = { segment: SegmentDTO; source: "browser" }
+
+function segmentFromDragSource(source: { data: unknown } | null | undefined): SegmentDTO | undefined {
+  if (!source) return undefined
+  const data = source.data as BrowserDragData | { segment?: SegmentDTO } | undefined
+  return data && "segment" in data ? data.segment : undefined
+}
+
 function ShowDetailPage() {
   const { showId } = Route.useParams()
   const { data: show, isLoading } = useShow(showId)
   const updateShow = useUpdateShow()
   const deleteShow = useDeleteShow()
   const reorderSegments = useReorderShowSegments()
-  const [activeSegment, setActiveSegment] = useState<SegmentDTO | null>(null)
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const currentSegmentIds = useMemo(
     () => (show?.segments ?? []).map((s) => s.segmentId),
@@ -74,32 +74,30 @@ function ShowDetailPage() {
     reorderSegments.mutate({ showId, segmentIds: newIds })
   }
 
-  function handleDragStart(event: DragStartEvent) {
-    const seg = event.active.data.current?.segment as SegmentDTO | undefined
-    setActiveSegment(seg ?? null)
-  }
+  function handleDragEnd(event: DragEndPayload) {
+    if (!show || event.canceled) return
 
-  function handleDragEnd(event: DragEndEvent) {
-    setActiveSegment(null)
-    const { active, over } = event
-    if (!over || !show) return
+    const { source, target } = event.operation
+    if (!source || !target) return
 
-    const source = active.data.current?.source
-    const draggedSegment = active.data.current?.segment as SegmentDTO | undefined
+    const data = source.data as BrowserDragData | Record<string, unknown> | undefined
+    const draggedSegment =
+      data && typeof data === "object" && "segment" in data
+        ? (data as { segment: SegmentDTO }).segment
+        : undefined
 
     // Dropping from browser into timeline
-    if (source === "browser" && over.id === "timeline" && draggedSegment) {
+    if (data && "source" in data && data.source === "browser" && String(target.id) === "timeline" && draggedSegment) {
       const newIds = [...currentSegmentIds, draggedSegment.id]
       reorderSegments.mutate({ showId, segmentIds: newIds })
       return
     }
 
-    // Reordering within timeline
-    if (!source) {
-      const oldIndex = currentSegmentIds.indexOf(String(active.id))
-      const newIndex = currentSegmentIds.indexOf(String(over.id))
-      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-        const newIds = arrayMove(currentSegmentIds, oldIndex, newIndex)
+    // Reordering within timeline (sortable items — no browser source tag)
+    if (!data || !("source" in data) || data.source !== "browser") {
+      const newIds = move(currentSegmentIds, event)
+      const orderChanged = newIds.some((id, i) => id !== currentSegmentIds[i])
+      if (orderChanged) {
         reorderSegments.mutate({ showId, segmentIds: newIds })
       }
     }
@@ -209,7 +207,7 @@ function ShowDetailPage() {
             Segments
           </Heading>
 
-          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <DragDropProvider onDragEnd={handleDragEnd}>
             <Flex gap={6} direction={{ base: "column", lg: "row" }}>
               <Box flex="1">
                 <ShowTimeline
@@ -222,9 +220,12 @@ function ShowDetailPage() {
               </Box>
             </Flex>
             <DragOverlay dropAnimation={null}>
-              {activeSegment && <SegmentBrowserCard segment={activeSegment} isDragOverlay />}
+              {(source) => {
+                const seg = segmentFromDragSource(source)
+                return seg ? <SegmentBrowserCard segment={seg} isDragOverlay /> : null
+              }}
             </DragOverlay>
-          </DndContext>
+          </DragDropProvider>
 
           <Box mt={8}>
             <Button

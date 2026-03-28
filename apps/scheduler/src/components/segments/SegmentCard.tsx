@@ -1,5 +1,5 @@
 import { Box, Badge, HStack, Text, Icon, Stack } from "@chakra-ui/react"
-import { useDraggable } from "@dnd-kit/core"
+import { useDraggable } from "@dnd-kit/react"
 import { Repeat } from "lucide-react"
 import type { SegmentDTO } from "@repo/types"
 
@@ -64,16 +64,14 @@ function SegmentCardOverlay({ segment, onClick }: Pick<SegmentCardProps, "segmen
 }
 
 function SegmentCardDraggable({ segment, onClick }: Pick<SegmentCardProps, "segment" | "onClick">) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { ref, isDragging } = useDraggable({
     id: segment.id,
     data: { segment },
   })
 
   return (
     <Box
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
+      ref={ref}
       bg="bg.panel"
       borderWidth="1px"
       borderColor="border.muted"

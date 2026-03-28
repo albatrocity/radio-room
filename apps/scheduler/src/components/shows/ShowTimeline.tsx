@@ -1,9 +1,11 @@
 import { Box, Button, VStack, Text, HStack, Badge, Icon } from "@chakra-ui/react"
-import { useDroppable } from "@dnd-kit/core"
-import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
+import { useDroppable } from "@dnd-kit/react"
+import { useSortable } from "@dnd-kit/react/sortable"
 import { GripVertical, Repeat, Trash2 } from "lucide-react"
 import type { ShowSegmentDTO } from "@repo/types"
+
+/** Shared group so timeline rows sort with each other only. */
+const SHOW_TIMELINE_SORTABLE_GROUP = "show-timeline"
 
 interface ShowTimelineProps {
   segments: ShowSegmentDTO[]
@@ -11,13 +13,12 @@ interface ShowTimelineProps {
 }
 
 export function ShowTimeline({ segments, onRemove }: ShowTimelineProps) {
-  const { setNodeRef, isOver } = useDroppable({ id: "timeline" })
-  const segmentIds = segments.map((s) => s.segmentId)
+  const { ref, isDropTarget } = useDroppable({ id: "timeline" })
 
   return (
     <Box
-      ref={setNodeRef}
-      bg={isOver ? "bg.emphasized" : "transparent"}
+      ref={ref}
+      bg={isDropTarget ? "bg.emphasized" : "transparent"}
       borderRadius="lg"
       p={2}
       minH="200px"
@@ -36,18 +37,16 @@ export function ShowTimeline({ segments, onRemove }: ShowTimelineProps) {
           <Text>Drag segments here to add them to the show</Text>
         </Box>
       ) : (
-        <SortableContext items={segmentIds} strategy={verticalListSortingStrategy}>
-          <VStack gap={0} align="stretch">
-            {segments.map((showSeg, index) => (
-              <TimelineItem
-                key={showSeg.segmentId}
-                showSegment={showSeg}
-                index={index}
-                onRemove={onRemove}
-              />
-            ))}
-          </VStack>
-        </SortableContext>
+        <VStack gap={0} align="stretch">
+          {segments.map((showSeg, index) => (
+            <TimelineItem
+              key={showSeg.segmentId}
+              showSegment={showSeg}
+              index={index}
+              onRemove={onRemove}
+            />
+          ))}
+        </VStack>
       )}
     </Box>
   )
@@ -62,20 +61,16 @@ function TimelineItem({
   index: number
   onRemove?: (segmentId: string) => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const { ref, handleRef, isDragging } = useSortable({
     id: showSegment.segmentId,
+    index,
+    group: SHOW_TIMELINE_SORTABLE_GROUP,
   })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
 
   const seg = showSegment.segment
 
   return (
-    <Box ref={setNodeRef} style={style}>
+    <Box ref={ref} opacity={isDragging ? 0.5 : 1}>
       <HStack gap={0}>
         {/* Timeline gutter */}
         <Box
@@ -115,7 +110,7 @@ function TimelineItem({
         >
           <HStack justify="space-between">
             <HStack gap={2}>
-              <Box {...listeners} {...attributes} cursor="grab" color="fg.muted">
+              <Box ref={handleRef} cursor="grab" color="fg.muted">
                 <GripVertical size={16} />
               </Box>
               <Text fontWeight="medium" fontSize="sm">

@@ -1,5 +1,5 @@
 import { Box, Heading, VStack, Text } from "@chakra-ui/react"
-import { useDroppable } from "@dnd-kit/core"
+import { useDroppable } from "@dnd-kit/react"
 import type { SegmentDTO, SegmentStatus } from "@repo/types"
 import { SegmentCard } from "./SegmentCard"
 
@@ -17,14 +17,14 @@ interface SegmentColumnProps {
 }
 
 export function SegmentColumn({ status, segments, onCardClick }: SegmentColumnProps) {
-  const { isOver, setNodeRef } = useDroppable({ id: status })
+  const { isDropTarget, ref } = useDroppable({ id: status })
 
   return (
     <Box
-      ref={setNodeRef}
+      ref={ref}
       flex="1"
       minW="240px"
-      bg={isOver ? "bg.emphasized" : "bg.subtle"}
+      bg={isDropTarget ? "bg.emphasized" : "bg.subtle"}
       borderRadius="lg"
       p={3}
       transition="background 0.15s"

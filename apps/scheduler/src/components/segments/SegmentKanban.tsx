@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react"
 import { Box, Button, HStack, Heading } from "@chakra-ui/react"
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core"
-import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core"
+import { DragDropProvider, DragOverlay, type DragEndEvent } from "@dnd-kit/react"
+
+type DragEndPayload = Parameters<DragEndEvent>[0]
 import { getRouteApi } from "@tanstack/react-router"
 import { Plus } from "lucide-react"
 import type { SegmentDTO, SegmentStatus } from "@repo/types"
@@ -16,6 +17,14 @@ const segmentsRouteApi = getRouteApi("/segments")
 
 const COLUMNS: SegmentStatus[] = ["draft", "working", "ready", "archived"]
 
+type SegmentDragData = { segment: SegmentDTO }
+
+function segmentFromSource(source: { data: unknown } | null | undefined): SegmentDTO | undefined {
+  if (!source) return undefined
+  const data = source.data as SegmentDragData | undefined
+  return data?.segment
+}
+
 export function SegmentKanban() {
   const search = segmentsRouteApi.useSearch()
   const navigate = segmentsRouteApi.useNavigate()
@@ -28,9 +37,6 @@ export function SegmentKanban() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [drawerSegmentId, setDrawerSegmentId] = useState<string | null>(null)
-  const [activeSegment, setActiveSegment] = useState<SegmentDTO | null>(null)
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const columns = useMemo(() => {
     const grouped: Record<SegmentStatus, SegmentDTO[]> = {
@@ -45,20 +51,17 @@ export function SegmentKanban() {
     return grouped
   }, [segments])
 
-  function handleDragStart(event: DragStartEvent) {
-    const seg = event.active.data.current?.segment as SegmentDTO | undefined
-    setActiveSegment(seg ?? null)
-  }
+  function handleDragEnd(event: DragEndPayload) {
+    if (event.canceled) return
 
-  function handleDragEnd(event: DragEndEvent) {
-    setActiveSegment(null)
-    const { active, over } = event
-    if (!over) return
+    const { source, target } = event.operation
+    if (!source || !target) return
 
-    const targetStatus = over.id as SegmentStatus
+    const targetStatus = target.id as SegmentStatus
     if (!COLUMNS.includes(targetStatus)) return
 
-    const seg = active.data.current?.segment as SegmentDTO | undefined
+    const data = source.data as SegmentDragData | undefined
+    const seg = data?.segment
     if (!seg || seg.status === targetStatus) return
 
     updateSegment.mutate({ id: seg.id, status: targetStatus })
@@ -86,7 +89,7 @@ export function SegmentKanban() {
                 colorPalette={selected ? "blue" : "gray"}
                 onClick={() => {
                   const next = selected
-                    ? selectedTagIds.filter((id) => id !== tag.id)
+                    ? selectedTagIds.filter((id: string) => id !== tag.id)
                     : [...selectedTagIds, tag.id]
                   navigate({
                     to: "/segments",
@@ -116,7 +119,7 @@ export function SegmentKanban() {
       {isLoading ? (
         <Box>Loading segments...</Box>
       ) : (
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DragDropProvider onDragEnd={handleDragEnd}>
           <HStack gap={3} align="start" overflowX="auto" pb={4}>
             {COLUMNS.map((status) => (
               <SegmentColumn
@@ -128,11 +131,14 @@ export function SegmentKanban() {
             ))}
           </HStack>
           <DragOverlay dropAnimation={null}>
-            {activeSegment && (
-              <SegmentCard segment={activeSegment} onClick={() => {}} isDragOverlay />
-            )}
+            {(source) => {
+              const seg = segmentFromSource(source)
+              return seg ? (
+                <SegmentCard segment={seg} onClick={() => {}} isDragOverlay />
+              ) : null
+            }}
           </DragOverlay>
-        </DndContext>
+        </DragDropProvider>
       )}
 
       <CreateSegmentModal open={createOpen} onClose={() => setCreateOpen(false)} />
