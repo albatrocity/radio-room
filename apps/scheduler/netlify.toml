@@ -1,7 +1,9 @@
 # Netlify: set site "Base directory" / "Package directory" to `apps/scheduler` in the UI.
 
 [build]
-  command = "cd ../.. && npm install --include=optional && npm run build --workspace=scheduler"
+  # Netlify cwd is the repo root when using a package directory; do not `cd ../..`
+  # (that escapes to /opt and npm tries to write /opt/package-lock.json).
+  command = "npm install --include=optional && npm run build --workspace=scheduler"
   publish = "dist"
 
 [build.environment]
