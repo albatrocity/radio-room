@@ -5,7 +5,7 @@
 
 name: "mass-join-test"
 description: "400 users join over 1 minute to stress test connection handling"
-target: "http://localhost:3000"
+target: "http://127.0.0.1:3000"
 roomId: "test-room"
 duration: 120  # 2 minutes total
 verbose: false

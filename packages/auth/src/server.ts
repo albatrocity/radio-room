@@ -7,12 +7,10 @@ import { db } from "@repo/db"
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
-  baseURL: process.env.APP_URL || "http://localhost:8000",
+  baseURL: process.env.APP_URL || "http://127.0.0.1:8000",
   basePath: "/api/auth",
   trustedOrigins: [
-    "http://localhost:8000",
     "http://127.0.0.1:8000",
-    "http://localhost:8001",
     "http://127.0.0.1:8001",
     ...(process.env.APP_URL ? [process.env.APP_URL] : []),
     ...(process.env.SCHEDULER_URL ? [process.env.SCHEDULER_URL] : []),
@@ -29,7 +27,7 @@ export const auth = betterAuth({
     admin(),
     inviteOnly({
       enabled: () => process.env.SEED_MODE !== "true",
-      baseUrl: process.env.APP_URL || "http://localhost:8000",
+      baseUrl: process.env.APP_URL || "http://127.0.0.1:8000",
       expiresInSeconds: 7 * 24 * 60 * 60,
       onInvitationUsed: async () => {
         // Invitation consumed; admin must manually promote user role if needed

@@ -26,7 +26,7 @@ async function main() {
     REDIS_URL: process.env.REDIS_URL ?? "redis://localhost:6379",
     ENVIRONMENT: (process.env.ENVIRONMENT as "production" | "development") || "development",
     DOMAIN: process.env.ENVIRONMENT === "production" ? ".listeningroom.club" : "localhost",
-    API_URL: process.env.API_URL ?? `http://localhost:${port}`,
+    API_URL: process.env.API_URL ?? `http://127.0.0.1:${port}`,
     platformAuthHandler: {
       path: "/api/auth/*splat",
       handler: authHandler,

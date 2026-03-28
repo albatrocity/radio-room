@@ -12,7 +12,7 @@
 
 1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/applications)
 2. Create a new application
-3. Add `http://localhost:3000/auth/spotify/callback` to Redirect URIs
+3. Add `http://127.0.0.1:3000/auth/spotify/callback` to Redirect URIs (Spotify expects the loopback literal; use **http://127.0.0.1** in the browser for the web and scheduler apps so OAuth and cookies match)
 4. Copy your Client ID and Client Secret
 
 ### 2. Configure Environment Variables
@@ -28,8 +28,8 @@ Edit `.env` and add your Spotify credentials:
 ```env
 SPOTIFY_CLIENT_ID=your_actual_client_id
 SPOTIFY_CLIENT_SECRET=your_actual_client_secret
-SPOTIFY_REDIRECT_URI=http://localhost:3000/auth/spotify/callback
-APP_URL=http://localhost:8000
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/auth/spotify/callback
+APP_URL=http://127.0.0.1:8000
 ```
 
 ### 3. Start Services
@@ -91,14 +91,14 @@ docker-compose down -v
 ### 1. Check API Health
 
 ```bash
-curl http://localhost:3000/me
+curl http://127.0.0.1:3000/me
 ```
 
 Should return: `{"error":"Unauthorized"}` (expected - not logged in)
 
 ### 2. Test Spotify Auth
 
-1. Navigate to: http://localhost:3000/auth/spotify/login
+1. Navigate to: http://127.0.0.1:3000/auth/spotify/login
 2. Log in with your Spotify account
 3. You should be redirected back to the web app
 
@@ -227,8 +227,8 @@ Development volumes mounted for hot reloading:
 
 After services are running:
 
-1. Authenticate with Spotify: `http://localhost:3000/auth/spotify/login`
-2. Access web app: `http://localhost:8000`
+1. Authenticate with Spotify: `http://127.0.0.1:3000/auth/spotify/login`
+2. Access web app: `http://127.0.0.1:8000` (scheduler: `http://127.0.0.1:8001`)
 3. Create a room with adapter configuration
 4. Test playback and metadata features
 

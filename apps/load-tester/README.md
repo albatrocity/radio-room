@@ -14,7 +14,7 @@ npm install
 npm run load-test -w apps/load-tester -- run --scenario scenarios/chat-activity.yaml
 
 # Run with inline options
-npm run load-test -w apps/load-tester -- run --target http://localhost:3000 --room test-room --users 10 --duration 60
+npm run load-test -w apps/load-tester -- run --target http://127.0.0.1:3000 --room test-room --users 10 --duration 60
 ```
 
 ### Using Docker
@@ -83,7 +83,7 @@ Create a YAML file to define complex test scenarios:
 ```yaml
 name: "my-test"
 description: "Custom load test"
-target: "http://localhost:3000"
+target: "http://127.0.0.1:3000"
 roomId: "test-room"
 password: "optional" # if room is password-protected
 duration: 60 # seconds
@@ -162,7 +162,7 @@ The tool outputs a summary at the end of each run:
 ═══════════════════════════════════════════════════════════
 
   Scenario:    chat-activity-test
-  Target:      http://localhost:3000
+  Target:      http://127.0.0.1:3000
   Room:        test-room
   Users:       10
   Duration:    120s

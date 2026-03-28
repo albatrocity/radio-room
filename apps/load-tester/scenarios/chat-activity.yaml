@@ -5,7 +5,7 @@
 
 name: "chat-activity-test"
 description: "10 users with realistic chat activity - messages, reactions, lifecycle"
-target: "http://localhost:3000"
+target: "http://127.0.0.1:3000"
 roomId: "test-room"
 duration: 120  # 2 minutes
 verbose: false

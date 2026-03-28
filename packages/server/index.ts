@@ -130,9 +130,7 @@ export class RadioRoomServer {
       .use(
         cors({
           origin: [
-            "http://localhost:8000",
-            "http://127.0.0.1:8000", // Loopback address for local dev (Spotify requirement)
-            "http://localhost:8001", // Scheduler app
+            "http://127.0.0.1:8000",
             "http://127.0.0.1:8001",
             "https://listen.show",
             "https://www.listen.show",

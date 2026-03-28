@@ -18,10 +18,10 @@ if [ ! -f .env ]; then
 # Required: Get from https://developer.spotify.com/dashboard
 SPOTIFY_CLIENT_ID=your_spotify_client_id
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
-SPOTIFY_REDIRECT_URI=http://localhost:3000/auth/spotify/callback
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/auth/spotify/callback
 
 # Application Configuration
-APP_URL=http://localhost:8000
+APP_URL=http://127.0.0.1:8000
 REDIS_URL=redis://redis:6379
 SESSION_SECRET=$(openssl rand -base64 32)
 PORT=3000
@@ -36,10 +36,10 @@ EOF
 # Get these from https://developer.spotify.com/dashboard/applications
 SPOTIFY_CLIENT_ID=your_spotify_client_id_here
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
-SPOTIFY_REDIRECT_URI=http://localhost:3000/auth/spotify/callback
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/auth/spotify/callback
 
 # Application URLs
-APP_URL=http://localhost:8000
+APP_URL=http://127.0.0.1:8000
 
 # Redis (default for docker-compose)
 REDIS_URL=redis://redis:6379
@@ -90,8 +90,8 @@ if docker-compose ps | grep -q "Up"; then
     echo "✅ Services started successfully!"
     echo ""
     echo "🌐 Access your application:"
-    echo "   Web App:  http://localhost:8000"
-    echo "   API:      http://localhost:3000"
+    echo "   Web App:  http://127.0.0.1:8000"
+    echo "   API:      http://127.0.0.1:3000"
     echo "   Redis:    localhost:6379"
     echo ""
     echo "📝 View logs:"
@@ -101,7 +101,7 @@ if docker-compose ps | grep -q "Up"; then
     echo "   docker-compose down"
     echo ""
     echo "🔐 To authenticate with Spotify:"
-    echo "   1. Go to http://localhost:3000/auth/spotify/login"
+    echo "   1. Go to http://127.0.0.1:3000/auth/spotify/login"
     echo "   2. Log in with your Spotify account"
     echo "   3. You'll be redirected back to the app"
     echo ""

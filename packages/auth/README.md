@@ -147,7 +147,7 @@ await authClient.inviteOnly.revokeInvitation({ id: invitationId })
 
 Google OAuth redirect URIs:
 
-- Local: `http://localhost:3000/api/auth/callback/google`
+- Local: `http://127.0.0.1:3000/api/auth/callback/google`
 - Production: `https://api.listeningroom.club/api/auth/callback/google`
 
 ## Auth Architecture

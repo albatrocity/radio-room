@@ -7,11 +7,11 @@ Create a `.env` file in the project root with these variables:
 # Get these from https://developer.spotify.com/dashboard
 SPOTIFY_CLIENT_ID=your_spotify_client_id_here
 SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
-SPOTIFY_REDIRECT_URI=http://localhost:3000/auth/spotify/callback
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/auth/spotify/callback
 
-# Application URLs
-APP_URL=http://localhost:8000
-API_URL=http://localhost:3000
+# Application URLs (use 127.0.0.1 in the browser for web/scheduler so OAuth and cookies match Spotify and the API)
+APP_URL=http://127.0.0.1:8000
+API_URL=http://127.0.0.1:3000
 
 # Session Configuration
 SESSION_SECRET=dev-secret-change-in-production
@@ -31,8 +31,8 @@ REDIS_URL=redis://redis:6379
 cat > .env << 'EOF'
 SPOTIFY_CLIENT_ID=your_client_id_here
 SPOTIFY_CLIENT_SECRET=your_client_secret_here
-SPOTIFY_REDIRECT_URI=http://localhost:3000/auth/spotify/callback
-APP_URL=http://localhost:8000
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/auth/spotify/callback
+APP_URL=http://127.0.0.1:8000
 SESSION_SECRET=dev-secret-change-in-production
 ENVIRONMENT=development
 NODE_ENV=development
@@ -57,7 +57,7 @@ Then edit `.env` and replace `your_client_id_here` and `your_client_secret_here`
 ### Required for API (Image Support)
 
 - **`API_URL`**: Public URL of the API server (used for generating absolute image URLs in chat)
-  - Default: `http://localhost:3000`
+  - Default: `http://127.0.0.1:3000`
 
 ### Optional
 

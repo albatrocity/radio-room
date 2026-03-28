@@ -97,6 +97,7 @@ services:
       - ./apps/scheduler:/app/apps/scheduler
     environment:
       - NODE_ENV=development
+      # Use loopback (127.0.0.1) for VITE_API_URL so it matches Spotify redirect URIs and stays same-site with the web/scheduler apps when you open them at http://127.0.0.1:* (not localhost).
       - VITE_API_URL=${VITE_API_URL:-http://127.0.0.1:3000}
       - VITE_WEB_URL=${VITE_WEB_URL:-http://127.0.0.1:8000}
       - API_INTERNAL_URL=http://api:3000
