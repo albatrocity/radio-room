@@ -13,9 +13,10 @@ import {
   Spinner,
 } from "@chakra-ui/react"
 import { DragDropProvider, DragOverlay, type DragEndEvent } from "@dnd-kit/react"
+import { isSortable } from "@dnd-kit/react/sortable"
+import { move } from "@dnd-kit/helpers"
 
 type DragEndPayload = Parameters<DragEndEvent>[0]
-import { move } from "@dnd-kit/helpers"
 import { ArrowLeft } from "lucide-react"
 import type { SegmentDTO, ShowStatus } from "@repo/types"
 import { useShow, useUpdateShow, useDeleteShow, useReorderShowSegments } from "../../hooks/useShows"
@@ -49,11 +50,12 @@ const STATUS_COLORS: Record<ShowStatus, string> = {
   published: "blue",
 }
 
-type BrowserDragData = { segment: SegmentDTO; source: "browser" }
+/** Drag payload from {@link SegmentBrowserCard} (segment list panel). */
+type SegmentBrowserDragData = { segment: SegmentDTO; source: "segment-browser" }
 
 function segmentFromDragSource(source: { data: unknown } | null | undefined): SegmentDTO | undefined {
   if (!source) return undefined
-  const data = source.data as BrowserDragData | { segment?: SegmentDTO } | undefined
+  const data = source.data as SegmentBrowserDragData | { segment?: SegmentDTO } | undefined
   return data && "segment" in data ? data.segment : undefined
 }
 
@@ -80,21 +82,43 @@ function ShowDetailPage() {
     const { source, target } = event.operation
     if (!source || !target) return
 
-    const data = source.data as BrowserDragData | Record<string, unknown> | undefined
+    const data = source.data as SegmentBrowserDragData | Record<string, unknown> | undefined
     const draggedSegment =
       data && typeof data === "object" && "segment" in data
         ? (data as { segment: SegmentDTO }).segment
         : undefined
 
-    // Dropping from browser into timeline
-    if (data && "source" in data && data.source === "browser" && String(target.id) === "timeline" && draggedSegment) {
-      const newIds = [...currentSegmentIds, draggedSegment.id]
-      reorderSegments.mutate({ showId, segmentIds: newIds })
+    // Drag from segment browser list → timeline (empty list: root droppable; with rows: sortable targets)
+    if (data && "source" in data && data.source === "segment-browser" && draggedSegment) {
+      if (currentSegmentIds.includes(draggedSegment.id)) return
+
+      if (String(target.id) === "timeline") {
+        reorderSegments.mutate({
+          showId,
+          segmentIds: [...currentSegmentIds, draggedSegment.id],
+        })
+        return
+      }
+
+      if (isSortable(target)) {
+        let insertIndex = target.index
+        const targetShape = target.shape
+        const pointer = event.operation.position.current
+        if (targetShape?.center && pointer) {
+          const belowRow =
+            Math.round(pointer.y) > Math.round(targetShape.center.y)
+          if (belowRow) insertIndex += 1
+        }
+        insertIndex = Math.max(0, Math.min(insertIndex, currentSegmentIds.length))
+        const newIds = [...currentSegmentIds]
+        newIds.splice(insertIndex, 0, draggedSegment.id)
+        reorderSegments.mutate({ showId, segmentIds: newIds })
+      }
       return
     }
 
-    // Reordering within timeline (sortable items — no browser source tag)
-    if (!data || !("source" in data) || data.source !== "browser") {
+    // Reordering within timeline (sortable items — not a segment-browser list drag)
+    if (!data || !("source" in data) || data.source !== "segment-browser") {
       const newIds = move(currentSegmentIds, event)
       const orderChanged = newIds.some((id, i) => id !== currentSegmentIds[i])
       if (orderChanged) {

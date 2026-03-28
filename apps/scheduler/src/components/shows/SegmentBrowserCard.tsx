@@ -58,8 +58,8 @@ function SegmentBrowserCardOverlay({ segment }: Pick<SegmentBrowserCardProps, "s
 
 function SegmentBrowserCardDraggable({ segment }: Pick<SegmentBrowserCardProps, "segment">) {
   const { ref, isDragging } = useDraggable({
-    id: `browser-${segment.id}`,
-    data: { segment, source: "browser" as const },
+    id: `segment-browser-${segment.id}`,
+    data: { segment, source: "segment-browser" as const },
   })
 
   return (
