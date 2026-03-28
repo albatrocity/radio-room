@@ -14,7 +14,9 @@ import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CallbackRouteImport } from './routes/callback'
+import { Route as InvitationsRouteImport } from './routes/invitations'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AccountRouteImport } from './routes/account'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
@@ -46,9 +48,19 @@ const CallbackRoute = CallbackRouteImport.update({
   path: '/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InvitationsRoute = InvitationsRouteImport.update({
+  id: '/invitations',
+  path: '/invitations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -81,8 +93,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/about': typeof AboutRoute
+  '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
   '/callback': typeof CallbackRoute
+  '/invitations': typeof InvitationsRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/privacy': typeof PrivacyRoute
@@ -94,8 +108,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/about': typeof AboutRoute
+  '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
   '/callback': typeof CallbackRoute
+  '/invitations': typeof InvitationsRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/privacy': typeof PrivacyRoute
@@ -108,8 +124,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/about': typeof AboutRoute
+  '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
   '/callback': typeof CallbackRoute
+  '/invitations': typeof InvitationsRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
   '/privacy': typeof PrivacyRoute
@@ -123,8 +141,10 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/about'
+    | '/account'
     | '/admin'
     | '/callback'
+    | '/invitations'
     | '/login'
     | '/logout'
     | '/privacy'
@@ -136,8 +156,10 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/about'
+    | '/account'
     | '/admin'
     | '/callback'
+    | '/invitations'
     | '/login'
     | '/logout'
     | '/privacy'
@@ -149,8 +171,10 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/about'
+    | '/account'
     | '/admin'
     | '/callback'
+    | '/invitations'
     | '/login'
     | '/logout'
     | '/privacy'
@@ -163,8 +187,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
   AboutRoute: typeof AboutRoute
+  AccountRoute: typeof AccountRoute
   AdminRoute: typeof AdminRoute
   CallbackRoute: typeof CallbackRoute
+  InvitationsRoute: typeof InvitationsRoute
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -208,6 +234,20 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invitations': {
+      id: '/invitations'
+      path: '/invitations'
+      fullPath: '/invitations'
+      preLoaderRoute: typeof InvitationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -259,8 +299,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
   AboutRoute: AboutRoute,
+  AccountRoute: AccountRoute,
   AdminRoute: AdminRoute,
   CallbackRoute: CallbackRoute,
+  InvitationsRoute: InvitationsRoute,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,
   PrivacyRoute: PrivacyRoute,

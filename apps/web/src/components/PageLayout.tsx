@@ -79,6 +79,9 @@ export default function PageLayout({ children }: Props) {
               <HStack justifyContent="flex-end">
                 {platformSession ? (
                   <HStack>
+                    <Button asChild variant="ghost">
+                      <Link to="/invitations">Invitations</Link>
+                    </Button>
                     {currentUser && (
                       <Button onClick={() => modalSend({ type: "NUKE_USER" })} variant="ghost">
                         Disconnect Spotify
@@ -125,6 +128,11 @@ export default function PageLayout({ children }: Props) {
               <ChakraLink asChild>
                 <Link to="/about">About</Link>
               </ChakraLink>
+              {platformSession && (
+                <ChakraLink asChild>
+                  <Link to="/account">Account</Link>
+                </ChakraLink>
+              )}
               {import.meta.env.VITE_CONTACT_EMAIL && (
                 <ChakraLink
                   href={`mailto:${import.meta.env.VITE_CONTACT_EMAIL}?subject=Listening%20Room`}
