@@ -7,7 +7,7 @@
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "22"
+  NODE_VERSION = "22.16.0"
   NPM_VERSION = "10.9.2"
   CI = "true"
   NODE_ENV = "production"
