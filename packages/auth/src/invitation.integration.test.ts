@@ -25,7 +25,7 @@ describe("Invitation flow integration", () => {
           expiresInSeconds: 3600,
         }),
       ],
-      trustedOrigins: ["http://localhost:3000"],
+      trustedOrigins: ["http://127.0.0.1:3000"],
       secret: "test-secret-at-least-32-characters-long",
     })
 

@@ -42,6 +42,7 @@ import {
 import { exportRoom } from "./controllers/exportController"
 import { getImage } from "./operations/data"
 import { upload, uploadImages } from "./controllers/imageController"
+import { createSchedulingRouter } from "./routes/schedulingRouter"
 import { clearRoomOnlineUsers } from "./operations/data"
 import { SocketWithContext } from "./lib/socketWithContext"
 import { PluginRegistry } from "./lib/plugins"
@@ -129,20 +130,18 @@ export class RadioRoomServer {
       .use(
         cors({
           origin: [
-            "http://localhost:8000",
-            "http://127.0.0.1:8000", // Loopback address for local dev (Spotify requirement)
+            "http://127.0.0.1:8000",
+            "http://127.0.0.1:8001",
             "https://listen.show",
             "https://www.listen.show",
             "https://listeningroom.club",
             "https://www.listeningroom.club",
           ],
-          preflightContinue: true,
           credentials: true,
         }),
       )
 
     if (config.platformAuthHandler) {
-      this.app.options(config.platformAuthHandler.path, (_req, res) => res.sendStatus(204))
       this.app.all(config.platformAuthHandler.path, config.platformAuthHandler.handler)
     }
 
@@ -198,6 +197,8 @@ export class RadioRoomServer {
 
         return res.send(buffer)
       })
+      // Scheduling API (admin-only)
+      .use("/api/scheduling", requireAdmin ?? noopMiddleware, createSchedulingRouter())
 
     // Create HTTP server from Express app, but don't start listening yet
     this.httpServer = createHttpServer(this.app)

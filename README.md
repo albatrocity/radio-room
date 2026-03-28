@@ -12,9 +12,11 @@ npm install
 docker compose up
 ```
 
-**Services:**
-- Web: http://localhost:8000
-- API: http://localhost:3000
+**Services:** Open the web and scheduler apps at **http://127.0.0.1** (not `localhost`) so URLs match Spotify OAuth redirect URIs and session cookies stay same-site across the API and frontends.
+
+- Web: http://127.0.0.1:8000
+- Scheduler: http://127.0.0.1:8001
+- API: http://127.0.0.1:3000
 - Redis: localhost:6379
 - PostgreSQL: localhost:5432
 

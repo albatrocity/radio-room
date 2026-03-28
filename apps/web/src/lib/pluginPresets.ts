@@ -5,26 +5,9 @@
  * and restore them later or apply them to different rooms.
  */
 
-// ============================================================================
-// Types
-// ============================================================================
+import type { PluginPreset, PresetValidationResult } from "@repo/types"
 
-export interface PluginPreset {
-  /** User-provided name for the preset */
-  presetName: string
-  /** ISO timestamp when the preset was exported */
-  exportedAt: string
-  /** Schema version for forward compatibility */
-  version: 1
-  /** Plugin configurations keyed by plugin name */
-  pluginConfigs: Record<string, Record<string, unknown>>
-}
-
-export interface PresetValidationResult {
-  valid: boolean
-  error?: string
-  preset?: PluginPreset
-}
+export type { PluginPreset, PresetValidationResult }
 
 // ============================================================================
 // Validation

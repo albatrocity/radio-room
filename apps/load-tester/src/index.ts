@@ -83,7 +83,7 @@ program
         )
         console.log(
           chalk.gray(
-            "  npx load-tester run --target http://localhost:3000 --room test-room --users 10",
+            "  npx load-tester run --target http://127.0.0.1:3000 --room test-room --users 10",
           ),
         )
         console.log()
@@ -144,7 +144,7 @@ program
     const sampleScenario = `# Listening Room Load Test Scenario
 name: "sample-test"
 description: "A sample load test scenario"
-target: "http://localhost:3000"
+target: "http://127.0.0.1:3000"
 roomId: "test-room"
 # password: "optional-room-password"
 duration: 60  # seconds

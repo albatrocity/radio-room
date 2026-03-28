@@ -6,7 +6,7 @@ Express/Socket.io server for a [Listening Room](https://github.com/albatrocity/l
 # .env
 CLIENT_ID=<SPOTIFY_CLIENT_ID>
 CLIENT_SECRET=<SPOTIFY_CLIENT_SECRET>
-REDIRECT_URI=http://localhost:3000/callback
+REDIRECT_URI=http://127.0.0.1:3000/callback
 ```
 
 ## Development

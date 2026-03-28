@@ -1,6 +1,6 @@
 import type { ScenarioConfig } from "./schema.js"
 
-export const DEFAULT_TARGET = "http://localhost:3000"
+export const DEFAULT_TARGET = "http://127.0.0.1:3000"
 export const DEFAULT_ROOM_ID = "test-room"
 export const DEFAULT_USER_COUNT = 5
 export const DEFAULT_DURATION = 60 // seconds

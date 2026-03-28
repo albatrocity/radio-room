@@ -5,7 +5,7 @@
 
 name: "queue-stress-test"
 description: "15 users add 40 songs over 3 minutes to stress test queue sync"
-target: "http://localhost:3000"
+target: "http://127.0.0.1:3000"
 roomId: "test-room"
 duration: 180 # 3 minutes
 verbose: false

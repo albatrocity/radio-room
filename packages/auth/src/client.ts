@@ -5,6 +5,9 @@ import { inviteOnlyClient } from "better-auth-invitation-only/client"
 export const authClient = createAuthClient({
   baseURL: import.meta.env.VITE_API_URL || "",
   plugins: [adminClient(), inviteOnlyClient()],
+  fetchOptions: {
+    credentials: "include" as RequestCredentials,
+  },
 })
 
 export const { useSession, signIn, signUp, signOut } = authClient

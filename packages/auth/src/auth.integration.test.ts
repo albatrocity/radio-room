@@ -17,7 +17,7 @@ describe("Better-Auth integration", () => {
       basePath: "/api/auth",
       emailAndPassword: { enabled: true },
       plugins: [admin()],
-      trustedOrigins: ["http://localhost:3000"],
+      trustedOrigins: ["http://127.0.0.1:3000"],
       secret: "test-secret-at-least-32-characters-long",
     })
   })
