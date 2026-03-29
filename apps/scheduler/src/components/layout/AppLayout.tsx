@@ -18,6 +18,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
         borderBottomWidth="1px"
         borderColor="border.muted"
         flexShrink={0}
+        position="sticky"
+        bg="bg.panel"
+        zIndex="docked"
+        top={0}
       >
         <IconButton
           aria-label="Open menu"
