@@ -13,11 +13,11 @@ import {
 } from "@chakra-ui/react"
 
 import Layout from "../components/layout"
-import { authClient } from "@repo/auth/client"
+import { authApiUrl, authClient } from "@repo/auth/client"
 import { FcGoogle } from "react-icons/fc"
 
 async function authFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`/api/auth${path}`, {
+  const res = await fetch(authApiUrl(path), {
     credentials: "include",
     ...options,
     headers: { "Content-Type": "application/json", ...options?.headers },

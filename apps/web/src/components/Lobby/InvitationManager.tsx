@@ -11,6 +11,7 @@ import {
   Badge,
 } from "@chakra-ui/react"
 import { LuCopy, LuPlus, LuX } from "react-icons/lu"
+import { authApiUrl } from "@repo/auth/client"
 
 interface Invitation {
   id: string
@@ -23,7 +24,7 @@ interface Invitation {
 }
 
 async function authFetch(path: string, options?: RequestInit) {
-  const res = await fetch(`/api/auth${path}`, {
+  const res = await fetch(authApiUrl(path), {
     credentials: "include",
     ...options,
     headers: { "Content-Type": "application/json", ...options?.headers },
