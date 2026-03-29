@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Dialog, CloseButton } from "@chakra-ui/react"
+import { Dialog, CloseButton, Portal } from "@chakra-ui/react"
 
 export const DialogRoot = Dialog.Root
 export const DialogBackdrop = Dialog.Backdrop
@@ -29,9 +29,12 @@ export function SchedulingDialogRoot({
       onOpenChange={(e) => !e.open && onClose()}
       placement="center"
       scrollBehavior="inside"
+      size="md"
     >
-      <Dialog.Backdrop />
-      <Dialog.Positioner>{children}</Dialog.Positioner>
+      <Portal>
+        <Dialog.Backdrop />
+        <Dialog.Positioner>{children}</Dialog.Positioner>
+      </Portal>
     </Dialog.Root>
   )
 }

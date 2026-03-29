@@ -9,33 +9,31 @@ const navItems = [
   { to: "/shows" as const, label: "Shows", icon: CalendarDays },
 ]
 
-export function NavSidebar() {
+export type NavSidebarContentProps = {
+  /** Called after choosing a route or signing out (e.g. close mobile drawer). */
+  onNavigate?: () => void
+  /** Default true; set false in mobile drawer when the shell already shows the app title. */
+  showTitle?: boolean
+}
+
+export function NavSidebarContent({ onNavigate, showTitle = true }: NavSidebarContentProps) {
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
 
   async function handleSignOut() {
     await authClient.signOut()
+    onNavigate?.()
   }
 
   return (
-    <Box
-      as="nav"
-      w="220px"
-      h="100vh"
-      position="sticky"
-      top={0}
-      borderRightWidth="1px"
-      borderColor="border.muted"
-      py={6}
-      px={3}
-      display="flex"
-      flexDirection="column"
-    >
-      <Text fontSize="lg" fontWeight="bold" px={3} mb={6}>
-        Scheduler
-      </Text>
-      <VStack gap={1} align="stretch">
-        <ScrollArea.Root h="100%">
+    <Box display="flex" flexDirection="column" flex="1" minH={0} py={6} px={3} h="full">
+      {showTitle ? (
+        <Text fontSize="lg" fontWeight="bold" px={3} mb={6}>
+          Scheduler
+        </Text>
+      ) : null}
+      <VStack gap={1} align="stretch" flex="1" minH={0}>
+        <ScrollArea.Root flex="1" minH={0}>
           <ScrollArea.Viewport>
             {navItems.map(({ to, label, icon: Icon }) => {
               const isActive = currentPath.startsWith(to)
@@ -43,6 +41,7 @@ export function NavSidebar() {
                 <ChakraLink asChild key={to}>
                   <Link
                     to={to}
+                    onClick={() => onNavigate?.()}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -82,6 +81,25 @@ export function NavSidebar() {
         <LogOut size={16} />
         Sign out
       </Button>
+    </Box>
+  )
+}
+
+/** Fixed left column for md+ viewports. */
+export function NavSidebar() {
+  return (
+    <Box
+      as="nav"
+      w="220px"
+      h="100vh"
+      position="sticky"
+      top={0}
+      borderRightWidth="1px"
+      borderColor="border.muted"
+      display="flex"
+      flexDirection="column"
+    >
+      <NavSidebarContent />
     </Box>
   )
 }

@@ -47,13 +47,14 @@ export function CreateShowModal({ open, onClose }: CreateShowModalProps) {
           <DialogTitle>New Show</DialogTitle>
           <DialogCloseTrigger />
         </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            form.handleSubmit()
-          }}
-        >
-          <DialogBody>
+        <DialogBody>
+          <form
+            id="create-show-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              form.handleSubmit()
+            }}
+          >
             <Fieldset.Root>
               <Fieldset.Content>
                 <Box mb={4}>
@@ -143,16 +144,21 @@ export function CreateShowModal({ open, onClose }: CreateShowModalProps) {
                 </Box>
               </Fieldset.Content>
             </Fieldset.Root>
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" colorPalette="blue" loading={createShow.isPending}>
-              Create
-            </Button>
-          </DialogFooter>
-        </form>
+          </form>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="create-show-form"
+            colorPalette="blue"
+            loading={createShow.isPending}
+          >
+            Create
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </SchedulingDialogRoot>
   )

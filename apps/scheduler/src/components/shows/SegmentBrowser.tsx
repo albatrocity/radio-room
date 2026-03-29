@@ -9,6 +9,9 @@ const showDetailRouteApi = getRouteApi("/shows/$showId")
 
 interface SegmentBrowserProps {
   excludeSegmentIds?: string[]
+  /** Appends a segment to the end of the show timeline (used for mobile quick-add). */
+  onAddSegmentToShowEnd?: (segmentId: string) => void
+  isAddToShowPending?: boolean
 }
 
 type ScheduledFilter = "all" | "scheduled" | "unscheduled"
@@ -48,7 +51,11 @@ function mergeSegmentBrowserSearch(
   return out
 }
 
-export function SegmentBrowser({ excludeSegmentIds = [] }: SegmentBrowserProps) {
+export function SegmentBrowser({
+  excludeSegmentIds = [],
+  onAddSegmentToShowEnd,
+  isAddToShowPending,
+}: SegmentBrowserProps) {
   const search = showDetailRouteApi.useSearch()
   const navigate = showDetailRouteApi.useNavigate()
 
@@ -156,7 +163,16 @@ export function SegmentBrowser({ excludeSegmentIds = [] }: SegmentBrowserProps) 
             No segments match your filters
           </Text>
         ) : (
-          visibleSegments.map((seg) => <SegmentBrowserCard key={seg.id} segment={seg} />)
+          visibleSegments.map((seg) => (
+            <SegmentBrowserCard
+              key={seg.id}
+              segment={seg}
+              onAppendToShowEnd={
+                onAddSegmentToShowEnd ? () => onAddSegmentToShowEnd(seg.id) : undefined
+              }
+              isAppendPending={isAddToShowPending}
+            />
+          ))
         )}
       </VStack>
     </Box>

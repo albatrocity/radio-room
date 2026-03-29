@@ -1,6 +1,6 @@
-import { Box, Badge, HStack, Text, Icon } from "@chakra-ui/react"
+import { Box, Badge, Button, HStack, Text, Icon } from "@chakra-ui/react"
 import { useDraggable } from "@dnd-kit/react"
-import { Repeat } from "lucide-react"
+import { ListPlus, Repeat } from "lucide-react"
 import type { SegmentDTO } from "@repo/types"
 
 export interface SegmentBrowserCardProps {
@@ -10,6 +10,10 @@ export interface SegmentBrowserCardProps {
    * with the same id as the list row, and do not mirror transform on the source.
    */
   isDragOverlay?: boolean
+  /** When set, a mobile-only control appends this segment to the show timeline (end). */
+  onAppendToShowEnd?: () => void
+  /** Disables the append control while a reorder mutation is in flight. */
+  isAppendPending?: boolean
 }
 
 function SegmentBrowserCardBody({ segment }: { segment: SegmentDTO }) {
@@ -63,7 +67,11 @@ function SegmentBrowserCardOverlay({ segment }: Pick<SegmentBrowserCardProps, "s
   )
 }
 
-function SegmentBrowserCardDraggable({ segment }: Pick<SegmentBrowserCardProps, "segment">) {
+function SegmentBrowserCardDraggable({
+  segment,
+  onAppendToShowEnd,
+  isAppendPending,
+}: Pick<SegmentBrowserCardProps, "segment" | "onAppendToShowEnd" | "isAppendPending">) {
   const { ref, isDragging } = useDraggable({
     id: `segment-browser-${segment.id}`,
     data: { segment, source: "segment-browser" as const },
@@ -84,13 +92,45 @@ function SegmentBrowserCardDraggable({ segment }: Pick<SegmentBrowserCardProps, 
       transition="border-color 0.15s"
     >
       <SegmentBrowserCardBody segment={segment} />
+      {onAppendToShowEnd ? (
+        <Button
+          type="button"
+          mt={2}
+          size="xs"
+          variant="outline"
+          width="full"
+          display={{ base: "flex", lg: "none" }}
+          loading={isAppendPending}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            onAppendToShowEnd()
+          }}
+        >
+          <Icon asChild boxSize={3.5} mr={1}>
+            <ListPlus />
+          </Icon>
+          Add to show
+        </Button>
+      ) : null}
     </Box>
   )
 }
 
-export function SegmentBrowserCard({ segment, isDragOverlay }: SegmentBrowserCardProps) {
+export function SegmentBrowserCard({
+  segment,
+  isDragOverlay,
+  onAppendToShowEnd,
+  isAppendPending,
+}: SegmentBrowserCardProps) {
   if (isDragOverlay) {
     return <SegmentBrowserCardOverlay segment={segment} />
   }
-  return <SegmentBrowserCardDraggable segment={segment} />
+  return (
+    <SegmentBrowserCardDraggable
+      segment={segment}
+      onAppendToShowEnd={onAppendToShowEnd}
+      isAppendPending={isAppendPending}
+    />
+  )
 }

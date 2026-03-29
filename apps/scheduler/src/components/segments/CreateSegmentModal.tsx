@@ -56,13 +56,14 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
           <DialogTitle>New Segment</DialogTitle>
           <DialogCloseTrigger />
         </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            form.handleSubmit()
-          }}
-        >
-          <DialogBody>
+        <DialogBody>
+          <form
+            id="create-segment-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              form.handleSubmit()
+            }}
+          >
             <Fieldset.Root>
               <Fieldset.Content>
                 <Box mb={4}>
@@ -150,16 +151,21 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
                 </Box>
               </Fieldset.Content>
             </Fieldset.Root>
-          </DialogBody>
-          <DialogFooter>
-            <Button variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" colorPalette="blue" loading={createSegment.isPending}>
-              Create
-            </Button>
-          </DialogFooter>
-        </form>
+          </form>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            colorPalette="blue"
+            form="create-segment-form"
+            loading={createSegment.isPending}
+          >
+            Create
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </SchedulingDialogRoot>
   )

@@ -78,6 +78,14 @@ function ShowDetailPage() {
     reorderSegments.mutate({ showId, segmentIds: newIds })
   }
 
+  function handleAddSegmentToShowEnd(segmentId: string) {
+    if (currentSegmentIds.includes(segmentId)) return
+    reorderSegments.mutate({
+      showId,
+      segmentIds: [...currentSegmentIds, segmentId],
+    })
+  }
+
   const handleDurationCommit = useCallback(
     (segmentId: string, durationOverride: number | null) => {
       mutateSegmentDuration({ showId, segmentId, durationOverride })
@@ -258,7 +266,11 @@ function ShowDetailPage() {
                 />
               </Box>
               <Box w={{ base: "100%", lg: "320px" }} flexShrink={0}>
-                <SegmentBrowser excludeSegmentIds={currentSegmentIds} />
+                <SegmentBrowser
+                  excludeSegmentIds={currentSegmentIds}
+                  onAddSegmentToShowEnd={handleAddSegmentToShowEnd}
+                  isAddToShowPending={reorderSegments.isPending}
+                />
               </Box>
             </Flex>
             <DragOverlay dropAnimation={null}>
