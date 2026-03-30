@@ -82,8 +82,12 @@ function SegmentCardDraggable({ segment, onClick }: Pick<SegmentCardProps, "segm
   })
 
   function handleCardClick(e: MouseEvent<HTMLElement>) {
-    if (e.target instanceof Element && e.target.closest("[data-assignee-picker]")) {
-      return
+    const target = e.target
+    if (target instanceof Element) {
+      // Trigger lives under data-assignee-picker; portaled menu content uses data-assignee-picker-menu.
+      if (target.closest("[data-assignee-picker], [data-assignee-picker-menu]")) {
+        return
+      }
     }
     onClick()
   }
