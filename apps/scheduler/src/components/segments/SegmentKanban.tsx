@@ -72,7 +72,7 @@ export function SegmentKanban() {
     <Flex direction="column" flex="1" minH="0">
       <HStack justify="space-between" mb={4} flexShrink={0}>
         <Heading size="lg">Segments</Heading>
-        <Button colorPalette="blue" size="sm" onClick={() => setCreateOpen(true)}>
+        <Button colorPalette="blue" size="xs" onClick={() => setCreateOpen(true)}>
           <Plus size={16} />
           New Segment
         </Button>
