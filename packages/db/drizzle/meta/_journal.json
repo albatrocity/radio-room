@@ -29,6 +29,13 @@
       "when": 1774722803486,
       "tag": "0003_previous_kid_colt",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774825696376,
+      "tag": "0004_cheerful_night_thrasher",
+      "breakpoints": true
     }
   ]
 }

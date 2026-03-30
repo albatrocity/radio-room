@@ -24,4 +24,8 @@ export const queryKeys = {
     all: ["tags"] as const,
     list: (type?: string) => ["tags", "list", type] as const,
   },
+  schedulingAdmins: {
+    all: ["scheduling", "admins"] as const,
+    list: () => ["scheduling", "admins", "list"] as const,
+  },
 } as const

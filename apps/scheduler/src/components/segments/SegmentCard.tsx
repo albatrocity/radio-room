@@ -1,7 +1,9 @@
+import type { MouseEvent } from "react"
 import { Box, Badge, HStack, Text, Icon, Stack } from "@chakra-ui/react"
 import { useDraggable } from "@dnd-kit/react"
 import { Repeat } from "lucide-react"
 import type { SegmentDTO } from "@repo/types"
+import { SegmentAssigneePicker } from "./SegmentAssigneePicker"
 
 export interface SegmentCardProps {
   segment: SegmentDTO
@@ -16,10 +18,13 @@ export interface SegmentCardProps {
 function SegmentCardBody({ segment }: { segment: SegmentDTO }) {
   return (
     <Stack gap={1}>
-      <HStack justify="space-between" mb={segment.description || segment.tags?.length ? 1 : 0}>
-        <Text fontWeight="medium" fontSize="sm" lineClamp={1}>
-          {segment.title}
-        </Text>
+      <HStack justify="space-between" gap={2} mb={segment.description || segment.tags?.length ? 1 : 0}>
+        <HStack gap={2} minW={0} flex={1}>
+          <SegmentAssigneePicker segment={segment} />
+          <Text fontWeight="medium" fontSize="sm" lineClamp={1}>
+            {segment.title}
+          </Text>
+        </HStack>
         <HStack gap={1} flexShrink={0}>
           {segment.duration != null && (
             <Badge size="sm" variant="outline" colorPalette="gray">
@@ -76,6 +81,13 @@ function SegmentCardDraggable({ segment, onClick }: Pick<SegmentCardProps, "segm
     data: { segment },
   })
 
+  function handleCardClick(e: MouseEvent<HTMLElement>) {
+    if (e.target instanceof Element && e.target.closest("[data-assignee-picker]")) {
+      return
+    }
+    onClick()
+  }
+
   return (
     <Box
       ref={ref}
@@ -87,7 +99,7 @@ function SegmentCardDraggable({ segment, onClick }: Pick<SegmentCardProps, "segm
       cursor="grab"
       opacity={isDragging ? 0 : 1}
       pointerEvents={isDragging ? "none" : undefined}
-      onClick={onClick}
+      onClick={handleCardClick}
       _hover={{ borderColor: "border.emphasized" }}
       transition="border-color 0.15s"
     >

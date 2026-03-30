@@ -40,9 +40,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <Box display={{ base: "none", md: "block" }} flexShrink={0}>
           <NavSidebar />
         </Box>
-        <Box flex="1" p={{ base: 4, md: 6 }} overflow="auto" minW={0}>
+        <Flex direction="column" flex="1" minW={0} minH="0">
           {children}
-        </Box>
+        </Flex>
       </Flex>
 
       <Drawer.Root

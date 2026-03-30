@@ -1,4 +1,4 @@
-import { Box, Heading, VStack, Text } from "@chakra-ui/react"
+import { Box, Heading, VStack, Text, ScrollArea } from "@chakra-ui/react"
 import { useDroppable } from "@dnd-kit/react"
 import type { SegmentDTO, SegmentStatus } from "@repo/types"
 import { SegmentCard } from "./SegmentCard"
@@ -23,22 +23,30 @@ export function SegmentColumn({ status, segments, onCardClick }: SegmentColumnPr
       ref={ref}
       flex="1"
       minW="240px"
+      height="100%"
       bg={isDropTarget ? "bg.emphasized" : "bg.subtle"}
       borderRadius="lg"
       p={3}
       transition="background 0.15s"
+      display="flex"
+      flexDirection="column"
+      minH="0"
     >
-      <Heading size="sm" mb={3} px={1}>
+      <Heading size="sm" mb={3} px={1} flexShrink={0}>
         {STATUS_LABELS[status]}{" "}
         <Text as="span" color="fg.muted" fontWeight="normal">
           ({segments.length})
         </Text>
       </Heading>
-      <VStack gap={2} align="stretch" minH="100px">
-        {segments.map((seg) => (
-          <SegmentCard key={seg.id} segment={seg} onClick={() => onCardClick(seg)} />
-        ))}
-      </VStack>
+      <ScrollArea.Root flex="1" minH={0} w="100%" overflow="hidden">
+        <ScrollArea.Viewport>
+          <VStack gap={2} align="stretch" minH="100px">
+            {segments.map((seg) => (
+              <SegmentCard key={seg.id} segment={seg} onClick={() => onCardClick(seg)} />
+            ))}
+          </VStack>
+        </ScrollArea.Viewport>
+      </ScrollArea.Root>
     </Box>
   )
 }

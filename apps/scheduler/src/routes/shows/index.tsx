@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
 import { zodSearchValidator } from "@tanstack/router-zod-adapter"
 import { ShowList } from "../../components/shows/ShowList"
+import { PageContent } from "../../components/layout/PageContent"
 
 const showListSearchSchema = z.object({
   search: z.string().optional(),
@@ -17,5 +18,9 @@ export const Route = createFileRoute("/shows/")({
 })
 
 function ShowsPage() {
-  return <ShowList />
+  return (
+    <PageContent>
+      <ShowList />
+    </PageContent>
+  )
 }

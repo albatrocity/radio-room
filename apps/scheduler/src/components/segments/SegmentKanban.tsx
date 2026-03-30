@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { Box, Button, HStack, Heading } from "@chakra-ui/react"
+import { Box, Button, Flex, HStack, Heading } from "@chakra-ui/react"
 import { DragDropProvider, DragOverlay, type DragEndEvent } from "@dnd-kit/react"
 
 type DragEndPayload = Parameters<DragEndEvent>[0]
@@ -69,8 +69,8 @@ export function SegmentKanban() {
   }
 
   return (
-    <Box>
-      <HStack justify="space-between" mb={4}>
+    <Flex direction="column" flex="1" minH="0">
+      <HStack justify="space-between" mb={4} flexShrink={0}>
         <Heading size="lg">Segments</Heading>
         <Button colorPalette="blue" size="sm" onClick={() => setCreateOpen(true)}>
           <Plus size={16} />
@@ -79,7 +79,7 @@ export function SegmentKanban() {
       </HStack>
 
       {tags.length > 0 && (
-        <HStack gap={2} mb={4} flexWrap="wrap">
+        <HStack gap={2} mb={4} flexWrap="wrap" flexShrink={0}>
           {tags.map((tag) => {
             const selected = selectedTagIds.includes(tag.id)
             return (
@@ -133,30 +133,34 @@ export function SegmentKanban() {
       {isLoading ? (
         <Box>Loading segments...</Box>
       ) : (
-        <DragDropProvider onDragEnd={handleDragEnd}>
-          <HStack gap={3} align="start" overflowX="auto" pb={4}>
-            {COLUMNS.map((status) => (
-              <SegmentColumn
-                key={status}
-                status={status}
-                segments={columns[status]}
-                onCardClick={(seg) =>
-                  navigate({
-                    to: "/segments",
-                    search: (prev: SegmentsSearch) => ({ ...prev, segmentId: seg.id }),
-                    replace: true,
-                  })
-                }
-              />
-            ))}
-          </HStack>
-          <DragOverlay dropAnimation={null}>
-            {(source) => {
-              const seg = segmentFromSource(source)
-              return seg ? <SegmentCard segment={seg} onClick={() => {}} isDragOverlay /> : null
-            }}
-          </DragOverlay>
-        </DragDropProvider>
+        <Flex direction="column" flex="1" minH="0" overflow="hidden">
+          <DragDropProvider onDragEnd={handleDragEnd}>
+            <Flex flex="1" minH="0" overflow="hidden" direction="column">
+              <HStack gap={3} align="stretch" flex="1" minH="0" overflowX="auto" overflowY="hidden">
+                {COLUMNS.map((status) => (
+                  <SegmentColumn
+                    key={status}
+                    status={status}
+                    segments={columns[status]}
+                    onCardClick={(seg) =>
+                      navigate({
+                        to: "/segments",
+                        search: (prev: SegmentsSearch) => ({ ...prev, segmentId: seg.id }),
+                        replace: true,
+                      })
+                    }
+                  />
+                ))}
+              </HStack>
+            </Flex>
+            <DragOverlay dropAnimation={null} style={{ flex: "none" }}>
+              {(source) => {
+                const seg = segmentFromSource(source)
+                return seg ? <SegmentCard segment={seg} onClick={() => {}} isDragOverlay /> : null
+              }}
+            </DragOverlay>
+          </DragDropProvider>
+        </Flex>
       )}
 
       <CreateSegmentModal open={createOpen} onClose={() => setCreateOpen(false)} />
@@ -174,6 +178,6 @@ export function SegmentKanban() {
           })
         }
       />
-    </Box>
+    </Flex>
   )
 }
