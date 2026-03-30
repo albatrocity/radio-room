@@ -1,4 +1,5 @@
-import { Box, Heading, Input, VStack, HStack, Button, Text } from "@chakra-ui/react"
+import { Box, Heading, Input, VStack, HStack, Button, Text, Menu, Portal } from "@chakra-ui/react"
+import { ChevronDown } from "lucide-react"
 import { getRouteApi } from "@tanstack/react-router"
 import type { SegmentFilters, SegmentStatus } from "@repo/types"
 import { useSegments } from "../../hooks/useSegments"
@@ -24,6 +25,12 @@ const STATUS_FILTER_LABELS: Record<SegmentStatus, string> = {
   draft: "Draft",
   ready: "Ready",
   archived: "Archived",
+}
+
+const SCHEDULED_FILTER_LABELS: Record<ScheduledFilter, string> = {
+  all: "All",
+  scheduled: "Scheduled",
+  unscheduled: "New",
 }
 
 function mergeSegmentBrowserSearch(
@@ -63,7 +70,7 @@ export function SegmentBrowser({
   const recurringOnly = search.recurringOnly === true
   const selectedTagIds = search.segTags ?? []
   const segSearchText = search.segSearch ?? ""
-  const statusFilter = search.segStatus
+  const statusFilter = search.segStatus as SegmentStatus | undefined
 
   const filters: SegmentFilters = {
     search: segSearchText || undefined,
@@ -117,43 +124,101 @@ export function SegmentBrowser({
           </label>
         </HStack>
 
-        <HStack gap={1} flexWrap="wrap">
-          {(["all", "scheduled", "unscheduled"] as const).map((val) => (
-            <Button
-              key={val}
-              size="xs"
-              variant={scheduledFilter === val ? "solid" : "outline"}
-              colorPalette={scheduledFilter === val ? "blue" : "gray"}
-              onClick={() => updateSearch({ scheduled: val })}
-            >
-              {val === "all" ? "All" : val === "scheduled" ? "Scheduled" : "New"}
-            </Button>
-          ))}
-        </HStack>
-
-        <Text fontSize="xs" color="fg.muted" fontWeight="medium">
-          Status
-        </Text>
-        <HStack gap={1} flexWrap="wrap">
-          <Button
-            size="xs"
-            variant={statusFilter === undefined ? "solid" : "outline"}
-            colorPalette={statusFilter === undefined ? "blue" : "gray"}
-            onClick={() => updateSearch({ segStatus: undefined })}
+        <HStack gap={2} flexWrap="wrap" align="center">
+          <Menu.Root
+            lazyMount
+            closeOnSelect
+            positioning={{ placement: "bottom-start", gutter: 4 }}
           >
-            All
-          </Button>
-          {SEGMENT_STATUSES.map((val) => (
-            <Button
-              key={val}
-              size="xs"
-              variant={statusFilter === val ? "solid" : "outline"}
-              colorPalette={statusFilter === val ? "blue" : "gray"}
-              onClick={() => updateSearch({ segStatus: val })}
-            >
-              {STATUS_FILTER_LABELS[val]}
-            </Button>
-          ))}
+            <Menu.Trigger asChild>
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                borderRadius="full"
+                colorPalette={scheduledFilter === "all" ? "gray" : "blue"}
+                fontWeight="medium"
+                aria-label={`Schedule filter: ${SCHEDULED_FILTER_LABELS[scheduledFilter]}`}
+              >
+                <HStack gap={1} align="center">
+                  <Text as="span" fontSize="xs" color="fg.muted" fontWeight="normal">
+                    Schedule
+                  </Text>
+                  <Text as="span" fontSize="xs">
+                    {SCHEDULED_FILTER_LABELS[scheduledFilter]}
+                  </Text>
+                  <ChevronDown size={14} strokeWidth={2} aria-hidden />
+                </HStack>
+              </Button>
+            </Menu.Trigger>
+            <Portal>
+              <Menu.Positioner zIndex="dropdown">
+                <Menu.Content minW="9rem">
+                  {(["all", "scheduled", "unscheduled"] as const).map((val) => (
+                    <Menu.Item
+                      key={val}
+                      value={val}
+                      onClick={() => updateSearch({ scheduled: val })}
+                      bg={scheduledFilter === val ? "bg.subtle" : undefined}
+                    >
+                      {SCHEDULED_FILTER_LABELS[val]}
+                    </Menu.Item>
+                  ))}
+                </Menu.Content>
+              </Menu.Positioner>
+            </Portal>
+          </Menu.Root>
+
+          <Menu.Root
+            lazyMount
+            closeOnSelect
+            positioning={{ placement: "bottom-start", gutter: 4 }}
+          >
+            <Menu.Trigger asChild>
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                borderRadius="full"
+                colorPalette={statusFilter === undefined ? "gray" : "blue"}
+                fontWeight="medium"
+                aria-label={`Status filter: ${statusFilter === undefined ? "All" : STATUS_FILTER_LABELS[statusFilter]}`}
+              >
+                <HStack gap={1} align="center">
+                  <Text as="span" fontSize="xs" color="fg.muted" fontWeight="normal">
+                    Status
+                  </Text>
+                  <Text as="span" fontSize="xs">
+                    {statusFilter === undefined ? "All" : STATUS_FILTER_LABELS[statusFilter]}
+                  </Text>
+                  <ChevronDown size={14} strokeWidth={2} aria-hidden />
+                </HStack>
+              </Button>
+            </Menu.Trigger>
+            <Portal>
+              <Menu.Positioner zIndex="dropdown">
+                <Menu.Content minW="9rem">
+                  <Menu.Item
+                    value="__all__"
+                    onClick={() => updateSearch({ segStatus: undefined })}
+                    bg={statusFilter === undefined ? "bg.subtle" : undefined}
+                  >
+                    All
+                  </Menu.Item>
+                  {SEGMENT_STATUSES.map((val) => (
+                    <Menu.Item
+                      key={val}
+                      value={val}
+                      onClick={() => updateSearch({ segStatus: val })}
+                      bg={statusFilter === val ? "bg.subtle" : undefined}
+                    >
+                      {STATUS_FILTER_LABELS[val]}
+                    </Menu.Item>
+                  ))}
+                </Menu.Content>
+              </Menu.Positioner>
+            </Portal>
+          </Menu.Root>
         </HStack>
       </VStack>
 
