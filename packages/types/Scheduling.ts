@@ -41,6 +41,19 @@ export interface RoomExportDTO {
   updatedAt: string
 }
 
+/** Persisted playlist row for a show (after publish continue). Empty until then. */
+export interface RoomPlaylistTrackDTO {
+  id: string
+  position: number
+  title: string
+  playedAt: string | null
+  addedAt: string | null
+  spotifyTrackId: string | null
+  tidalTrackId: string | null
+  mediaSourceType: string | null
+  mediaSourceTrackId: string | null
+}
+
 export interface ShowDTO {
   id: string
   title: string
@@ -56,6 +69,8 @@ export interface ShowDTO {
   tags?: TagDTO[]
   /** Present when a room export row exists for this show (draft or published). */
   roomExport?: RoomExportDTO | null
+  /** Ordered persisted tracks after publish continue; empty until then. */
+  roomPlaylistTracks?: RoomPlaylistTrackDTO[]
 }
 
 export interface SegmentDTO {

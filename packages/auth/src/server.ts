@@ -5,15 +5,39 @@ import { toNodeHandler } from "better-auth/node"
 import { inviteOnly } from "better-auth-invitation-only"
 import { db } from "@repo/db"
 
+function trimOrigin(url: string): string {
+  return url.replace(/\/$/, "")
+}
+
+/**
+ * Origin Google (and other IdPs) redirect to for `/api/auth/callback/*`.
+ * Must be the host that runs the API (Better Auth handler), not only the static web host.
+ * Local dev: `APP_URL` (Vite proxies `/api/auth` to the API).
+ * Production with API on e.g. `api.*`: set `API_URL` on the API process and `ENVIRONMENT=production`,
+ * or override with `BETTER_AUTH_BASE_URL`.
+ */
+function betterAuthBaseURL(): string {
+  if (process.env.BETTER_AUTH_BASE_URL) {
+    return trimOrigin(process.env.BETTER_AUTH_BASE_URL)
+  }
+  if (process.env.ENVIRONMENT === "production" && process.env.API_URL) {
+    return trimOrigin(process.env.API_URL)
+  }
+  return trimOrigin(process.env.APP_URL || "http://127.0.0.1:8000")
+}
+
+const authBaseURL = betterAuthBaseURL()
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
-  baseURL: process.env.APP_URL || "http://127.0.0.1:8000",
+  baseURL: authBaseURL,
   basePath: "/api/auth",
   trustedOrigins: [
     "http://127.0.0.1:8000",
     "http://127.0.0.1:8001",
-    ...(process.env.APP_URL ? [process.env.APP_URL] : []),
-    ...(process.env.SCHEDULER_URL ? [process.env.SCHEDULER_URL] : []),
+    ...(process.env.APP_URL ? [trimOrigin(process.env.APP_URL)] : []),
+    ...(process.env.API_URL ? [trimOrigin(process.env.API_URL)] : []),
+    ...(process.env.SCHEDULER_URL ? [trimOrigin(process.env.SCHEDULER_URL)] : []),
   ],
   emailAndPassword: { enabled: true },
   socialProviders: {

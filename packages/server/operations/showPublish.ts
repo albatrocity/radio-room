@@ -7,14 +7,49 @@ import {
   segment,
 } from "@repo/db"
 import { eq, and, inArray } from "drizzle-orm"
+import { z } from "zod"
 import type { AppContext, RoomExportMarkdownOptions } from "@repo/types"
 import type { QueueItem } from "@repo/types/Queue"
 import type { RoomExportDTO, RoomExportPlaylistLinks } from "@repo/types"
+import { queueItemStableKey } from "@repo/types/Queue"
 import * as scheduling from "../services/SchedulingService"
 import { findRoom, getRoomPlaylist, deleteRoom } from "./data"
 import { ExportService } from "../services/ExportService"
 import { AdapterService } from "../services/AdapterService"
 import { DJService } from "../services/DJService"
+
+const continuePublishBodySchema = z.object({
+  /** Ordered {@link queueItemStableKey} values; server merges with live `getRoomPlaylist`. */
+  orderedTrackKeys: z.array(z.string()),
+})
+
+function buildStableKeyQueues(items: QueueItem[]): Map<string, QueueItem[]> {
+  const m = new Map<string, QueueItem[]>()
+  for (const item of items) {
+    const k = queueItemStableKey(item)
+    const list = m.get(k) ?? []
+    list.push(item)
+    m.set(k, list)
+  }
+  return m
+}
+
+function resolvePlaylistFromOrderedKeys(orderedKeys: string[], live: QueueItem[]): QueueItem[] {
+  const pool = buildStableKeyQueues(live)
+  const out: QueueItem[] = []
+  for (const k of orderedKeys) {
+    const list = pool.get(k)
+    if (!list || list.length === 0) {
+      throw new scheduling.SchedulingBadRequestError(
+        `Unknown or stale playlist entry. Resync from the room on the playlist step, then try Continue again.`,
+      )
+    }
+    out.push(list.shift()!)
+    if (list.length === 0) pool.delete(k)
+    else pool.set(k, list)
+  }
+  return out
+}
 
 export async function findRoomIdsByShowId(context: AppContext, showId: string): Promise<string[]> {
   const roomIds = await context.redis.pubClient.sMembers("rooms")
@@ -65,10 +100,7 @@ function toExportDto(row: typeof roomExport.$inferSelect): RoomExportDTO {
   }
 }
 
-/**
- * Build draft export, persist playlist rows, optionally create Spotify/Tidal playlists (room creator).
- */
-export async function prepareShowPublish(showId: string, context: AppContext) {
+async function resolveReadyShowWithRoom(showId: string, context: AppContext) {
   const showRecord = await scheduling.findShowById(showId)
   if (!showRecord) {
     throw new scheduling.SchedulingBadRequestError("Show not found")
@@ -91,7 +123,69 @@ export async function prepareShowPublish(showId: string, context: AppContext) {
     throw new scheduling.SchedulingBadRequestError("Room is not attached to this show")
   }
 
+  return { showRecord, roomId, room }
+}
+
+/**
+ * Draft export row + return live Redis playlist for client-side review. Does not touch room_playlist_track.
+ */
+export async function syncPublishPlaylistFromRoom(showId: string, context: AppContext) {
+  const { roomId } = await resolveReadyShowWithRoom(showId, context)
   const playlistItems = await getRoomPlaylist({ context, roomId })
+
+  const now = new Date()
+  const [existing] = await db.select().from(roomExport).where(eq(roomExport.showId, showId)).limit(1)
+
+  if (existing) {
+    await db
+      .update(roomExport)
+      .set({
+        markdown: "",
+        status: "draft",
+        playlistLinks: null,
+        updatedAt: now,
+      })
+      .where(eq(roomExport.id, existing.id))
+  } else {
+    await db.insert(roomExport).values({
+      showId,
+      markdown: "",
+      status: "draft",
+      playlistLinks: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+  }
+
+  const [fresh] = await db.select().from(roomExport).where(eq(roomExport.showId, showId)).limit(1)
+
+  return {
+    roomId,
+    export: toExportDto(fresh!),
+    playlistItems,
+  }
+}
+
+/**
+ * Persist curated tracks, OAuth playlists, Markdown with playlist override; updates room_export.
+ */
+export async function continuePrepareShowPublish(
+  showId: string,
+  body: unknown,
+  context: AppContext,
+) {
+  const parsed = continuePublishBodySchema.safeParse(body)
+  if (!parsed.success) {
+    throw new scheduling.SchedulingBadRequestError(
+      `Invalid body: ${parsed.error.flatten().formErrors.join("; ") || "orderedTrackKeys must be a string array"}`,
+    )
+  }
+  const { orderedTrackKeys } = parsed.data
+
+  const { showRecord, roomId, room } = await resolveReadyShowWithRoom(showId, context)
+
+  const livePlaylist = await getRoomPlaylist({ context, roomId })
+  const playlistItems = resolvePlaylistFromOrderedKeys(orderedTrackKeys, livePlaylist)
 
   const adapterService = new AdapterService(context)
   const djService = new DJService(context)
@@ -124,7 +218,7 @@ export async function prepareShowPublish(showId: string, context: AppContext) {
         }
       }
     } catch (error) {
-      console.warn("[prepareShowPublish] playlist creation failed (continuing without)", {
+      console.warn("[continuePrepareShowPublish] playlist creation failed (continuing without)", {
         showId,
         roomId,
         service: svc,
@@ -143,7 +237,11 @@ export async function prepareShowPublish(showId: string, context: AppContext) {
       ...(playlistLinks.spotify?.url ? { spotifyPlaylist: playlistLinks.spotify.url } : {}),
     },
   }
-  const markdown = await exportService.exportRoom(roomId, "markdown", markdownOptions)
+  const markdown = await exportService.exportRoomMarkdownWithPlaylist(
+    roomId,
+    playlistItems,
+    markdownOptions,
+  )
 
   const now = new Date()
   const [existing] = await db.select().from(roomExport).where(eq(roomExport.showId, showId)).limit(1)
@@ -213,6 +311,12 @@ export async function prepareShowPublish(showId: string, context: AppContext) {
  * Re-publish from `published`: update markdown only.
  */
 export async function finalizeShowPublish(showId: string, markdown: string, context: AppContext) {
+  if (!markdown.trim()) {
+    throw new scheduling.SchedulingBadRequestError(
+      "Markdown cannot be empty. Edit the archive content before publishing.",
+    )
+  }
+
   const [showRow] = await db.select().from(show).where(eq(show.id, showId)).limit(1)
   if (!showRow) {
     throw new scheduling.SchedulingBadRequestError("Show not found")
@@ -243,7 +347,9 @@ export async function finalizeShowPublish(showId: string, markdown: string, cont
 
   const [ex] = await db.select().from(roomExport).where(eq(roomExport.showId, showId)).limit(1)
   if (!ex) {
-    throw new scheduling.SchedulingBadRequestError("Run publish prepare before finalize")
+    throw new scheduling.SchedulingBadRequestError(
+      "No export draft found. Sync the playlist from the show, then use Continue from the playlist editor.",
+    )
   }
 
   await db.transaction(async (tx) => {

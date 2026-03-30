@@ -1,7 +1,11 @@
 import { Router, Request, Response } from "express"
 import type { AppContext, TagType } from "@repo/types"
 import * as scheduling from "../services/SchedulingService"
-import { finalizeShowPublish, prepareShowPublish } from "../operations/showPublish"
+import {
+  finalizeShowPublish,
+  syncPublishPlaylistFromRoom,
+  continuePrepareShowPublish,
+} from "../operations/showPublish"
 
 /** Mounted at app level (before requireAdmin) for guest + platform-admin access. */
 export async function getSchedulingShowByIdHandler(req: Request, res: Response) {
@@ -106,22 +110,41 @@ export function createSchedulingRouter(): Router {
     }
   })
 
-  router.post("/shows/:id/publish/prepare", async (req: Request, res: Response) => {
+  router.post("/shows/:id/publish/sync-playlist", async (req: Request, res: Response) => {
     try {
       const context = (req as Request & { context?: AppContext }).context
       if (!context) {
         res.status(500).json({ error: "Server context not available" })
         return
       }
-      const result = await prepareShowPublish(req.params.id, context)
+      const result = await syncPublishPlaylistFromRoom(req.params.id, context)
       res.json(result)
     } catch (error) {
       if (error instanceof scheduling.SchedulingBadRequestError) {
         res.status(400).json({ error: error.message })
         return
       }
-      console.error("Error preparing show publish:", error)
-      res.status(500).json({ error: "Failed to prepare publish" })
+      console.error("Error syncing publish playlist:", error)
+      res.status(500).json({ error: "Failed to sync playlist for publish" })
+    }
+  })
+
+  router.post("/shows/:id/publish/continue", async (req: Request, res: Response) => {
+    try {
+      const context = (req as Request & { context?: AppContext }).context
+      if (!context) {
+        res.status(500).json({ error: "Server context not available" })
+        return
+      }
+      const result = await continuePrepareShowPublish(req.params.id, req.body, context)
+      res.json(result)
+    } catch (error) {
+      if (error instanceof scheduling.SchedulingBadRequestError) {
+        res.status(400).json({ error: error.message })
+        return
+      }
+      console.error("Error continuing show publish:", error)
+      res.status(500).json({ error: "Failed to continue publish" })
     }
   })
 

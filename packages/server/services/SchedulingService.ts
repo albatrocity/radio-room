@@ -1,4 +1,4 @@
-import { db, show, segment, tag, showSegment, segmentTag, showTag, user } from "@repo/db"
+import { db, show, segment, tag, showSegment, segmentTag, showTag, user, roomPlaylistTrack } from "@repo/db"
 import { eq, and, or, isNull, ilike, gte, lte, inArray, sql, exists, notExists } from "drizzle-orm"
 import type {
   SchedulingAdminUserDTO,
@@ -11,6 +11,7 @@ import type {
   CreateTagRequest,
   TagType,
   RoomExportPlaylistLinks,
+  RoomPlaylistTrackDTO,
 } from "@repo/types"
 
 export class SchedulingBadRequestError extends Error {
@@ -92,6 +93,20 @@ export async function findShows(filters: ShowFilters = {}) {
   }))
 }
 
+function mapRoomPlaylistTrackRow(t: typeof roomPlaylistTrack.$inferSelect): RoomPlaylistTrackDTO {
+  return {
+    id: t.id,
+    position: t.position,
+    title: t.title,
+    playedAt: t.playedAt ? t.playedAt.toISOString() : null,
+    addedAt: t.addedAt ? t.addedAt.toISOString() : null,
+    spotifyTrackId: t.spotifyTrackId,
+    tidalTrackId: t.tidalTrackId,
+    mediaSourceType: t.mediaSourceType,
+    mediaSourceTrackId: t.mediaSourceTrackId,
+  }
+}
+
 export async function findShowById(id: string) {
   const row = await db.query.show.findFirst({
     where: eq(show.id, id),
@@ -102,12 +117,15 @@ export async function findShowById(id: string) {
       },
       showTags: { with: { tag: true } },
       roomExport: true,
+      roomPlaylistTracks: {
+        orderBy: (rpt, { asc }) => [asc(rpt.position)],
+      },
     },
   })
 
   if (!row) return null
 
-  const { roomExport: roomExportRow, showSegments, showTags, ...rest } = row
+  const { roomExport: roomExportRow, showSegments, showTags, roomPlaylistTracks, ...rest } = row
 
   return {
     ...rest,
@@ -131,6 +149,7 @@ export async function findShowById(id: string) {
           updatedAt: roomExportRow.updatedAt.toISOString(),
         }
       : null,
+    roomPlaylistTracks: roomPlaylistTracks.map(mapRoomPlaylistTrackRow),
   }
 }
 

@@ -27,7 +27,7 @@ import {
   useReorderShowSegments,
   useUpdateShowSegmentDuration,
 } from "../../hooks/useShows"
-import { usePrepareShowPublish } from "../../hooks/usePublishShow"
+import { useSyncPublishPlaylist } from "../../hooks/usePublishShow"
 import { formatDurationMinutes, totalEstimatedMinutes } from "../../lib/showDuration"
 import { ShowTimeline } from "../../components/shows/ShowTimeline"
 import { SegmentBrowser } from "../../components/shows/SegmentBrowser"
@@ -75,18 +75,15 @@ function segmentFromDragSource(
 function ShowDetailPage() {
   const { showId } = Route.useParams()
   const isPublishRoute = useRouterState({
-    select: (s) => s.location.pathname.endsWith("/publish"),
+    select: (s) => s.location.pathname.includes("/publish"),
   })
-  if (isPublishRoute) {
-    return <Outlet />
-  }
 
   const { data: show, isLoading } = useShow(showId)
   const updateShow = useUpdateShow()
   const deleteShow = useDeleteShow()
   const reorderSegments = useReorderShowSegments()
   const { mutate: mutateSegmentDuration } = useUpdateShowSegmentDuration()
-  const preparePublish = usePrepareShowPublish(showId)
+  const syncPublish = useSyncPublishPlaylist(showId)
   const navigate = useNavigate()
 
   const currentSegmentIds = useMemo(
@@ -169,6 +166,10 @@ function ShowDetailPage() {
     }
   }
 
+  if (isPublishRoute) {
+    return <Outlet />
+  }
+
   if (isLoading) {
     return (
       <PageContent>
@@ -217,11 +218,17 @@ function ShowDetailPage() {
                 {canPreparePublish && (
                   <Button
                     size="xs"
-                    loading={preparePublish.isPending}
+                    loading={syncPublish.isPending}
                     onClick={() =>
-                      preparePublish.mutate(undefined, {
-                        onSuccess: () => {
-                          navigate({ to: "/shows/$showId/publish", params: { showId } })
+                      syncPublish.mutate(undefined, {
+                        onSuccess: (data) => {
+                          navigate({
+                            to: "/shows/$showId/publish/playlist",
+                            params: { showId },
+                            state: { playlistItems: data.playlistItems } as {
+                              playlistItems: typeof data.playlistItems
+                            },
+                          })
                         },
                       })
                     }
@@ -301,7 +308,7 @@ function ShowDetailPage() {
                 <Text as="span" fontFamily="mono">
                   show.room_id
                 </Text>{" "}
-                is empty). Prepare publish will still try to find a room in Redis that has this show
+                is empty). Sync playlist will still try to find a room in Redis that has this show
                 attached. Re-save room settings with the show attached, or create the room with this
                 show, to set the link.
               </Text>

@@ -13,7 +13,9 @@ import type {
   TagType,
   SchedulingAdminUserDTO,
   RoomExportDTO,
+  RoomExportPlaylistLinks,
 } from "@repo/types"
+import type { QueueItem } from "@repo/types/Queue"
 
 const API_URL = import.meta.env.VITE_API_URL || ""
 
@@ -70,15 +72,31 @@ export async function deleteShow(id: string): Promise<void> {
   await api.delete(`api/scheduling/shows/${id}`)
 }
 
-export type PrepareShowPublishResponse = {
+export type SyncPublishPlaylistResponse = {
   roomId: string
   export: RoomExportDTO
-  playlistLinks: Record<string, unknown>
+  playlistItems: QueueItem[]
 }
 
-export async function prepareShowPublish(showId: string): Promise<PrepareShowPublishResponse> {
-  const res = await api.post(`api/scheduling/shows/${showId}/publish/prepare`)
-  return res.json<PrepareShowPublishResponse>()
+export async function syncPublishPlaylist(showId: string): Promise<SyncPublishPlaylistResponse> {
+  const res = await api.post(`api/scheduling/shows/${showId}/publish/sync-playlist`)
+  return res.json<SyncPublishPlaylistResponse>()
+}
+
+export type ContinuePublishResponse = {
+  roomId: string
+  export: RoomExportDTO
+  playlistLinks: RoomExportPlaylistLinks
+}
+
+export async function continuePublish(
+  showId: string,
+  orderedTrackKeys: string[],
+): Promise<ContinuePublishResponse> {
+  const res = await api.post(`api/scheduling/shows/${showId}/publish/continue`, {
+    json: { orderedTrackKeys },
+  })
+  return res.json<ContinuePublishResponse>()
 }
 
 export type FinalizeShowPublishResponse = {

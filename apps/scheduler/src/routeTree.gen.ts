@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ShowsIndexRouteImport } from './routes/shows/index'
 import { Route as ShowsShowIdRouteImport } from './routes/shows/$showId'
 import { Route as ShowsShowIdPublishRouteImport } from './routes/shows/$showId.publish'
+import { Route as ShowsShowIdPublishPlaylistRouteImport } from './routes/shows/$showId.publish.playlist'
 
 const SegmentsRoute = SegmentsRouteImport.update({
   id: '/segments',
@@ -46,6 +47,12 @@ const ShowsShowIdPublishRoute = ShowsShowIdPublishRouteImport.update({
   path: '/publish',
   getParentRoute: () => ShowsShowIdRoute,
 } as any)
+const ShowsShowIdPublishPlaylistRoute =
+  ShowsShowIdPublishPlaylistRouteImport.update({
+    id: '/playlist',
+    path: '/playlist',
+    getParentRoute: () => ShowsShowIdPublishRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,7 +60,8 @@ export interface FileRoutesByFullPath {
   '/segments': typeof SegmentsRoute
   '/shows/$showId': typeof ShowsShowIdRouteWithChildren
   '/shows': typeof ShowsIndexRoute
-  '/shows/$showId/publish': typeof ShowsShowIdPublishRoute
+  '/shows/$showId/publish': typeof ShowsShowIdPublishRouteWithChildren
+  '/shows/$showId/publish/playlist': typeof ShowsShowIdPublishPlaylistRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -61,7 +69,8 @@ export interface FileRoutesByTo {
   '/segments': typeof SegmentsRoute
   '/shows/$showId': typeof ShowsShowIdRouteWithChildren
   '/shows': typeof ShowsIndexRoute
-  '/shows/$showId/publish': typeof ShowsShowIdPublishRoute
+  '/shows/$showId/publish': typeof ShowsShowIdPublishRouteWithChildren
+  '/shows/$showId/publish/playlist': typeof ShowsShowIdPublishPlaylistRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -70,7 +79,8 @@ export interface FileRoutesById {
   '/segments': typeof SegmentsRoute
   '/shows/$showId': typeof ShowsShowIdRouteWithChildren
   '/shows/': typeof ShowsIndexRoute
-  '/shows/$showId/publish': typeof ShowsShowIdPublishRoute
+  '/shows/$showId/publish': typeof ShowsShowIdPublishRouteWithChildren
+  '/shows/$showId/publish/playlist': typeof ShowsShowIdPublishPlaylistRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,6 +91,7 @@ export interface FileRouteTypes {
     | '/shows/$showId'
     | '/shows'
     | '/shows/$showId/publish'
+    | '/shows/$showId/publish/playlist'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -89,6 +100,7 @@ export interface FileRouteTypes {
     | '/shows/$showId'
     | '/shows'
     | '/shows/$showId/publish'
+    | '/shows/$showId/publish/playlist'
   id:
     | '__root__'
     | '/'
@@ -97,6 +109,7 @@ export interface FileRouteTypes {
     | '/shows/$showId'
     | '/shows/'
     | '/shows/$showId/publish'
+    | '/shows/$showId/publish/playlist'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -151,15 +164,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShowsShowIdPublishRouteImport
       parentRoute: typeof ShowsShowIdRoute
     }
+    '/shows/$showId/publish/playlist': {
+      id: '/shows/$showId/publish/playlist'
+      path: '/playlist'
+      fullPath: '/shows/$showId/publish/playlist'
+      preLoaderRoute: typeof ShowsShowIdPublishPlaylistRouteImport
+      parentRoute: typeof ShowsShowIdPublishRoute
+    }
   }
 }
 
+interface ShowsShowIdPublishRouteChildren {
+  ShowsShowIdPublishPlaylistRoute: typeof ShowsShowIdPublishPlaylistRoute
+}
+
+const ShowsShowIdPublishRouteChildren: ShowsShowIdPublishRouteChildren = {
+  ShowsShowIdPublishPlaylistRoute: ShowsShowIdPublishPlaylistRoute,
+}
+
+const ShowsShowIdPublishRouteWithChildren =
+  ShowsShowIdPublishRoute._addFileChildren(ShowsShowIdPublishRouteChildren)
+
 interface ShowsShowIdRouteChildren {
-  ShowsShowIdPublishRoute: typeof ShowsShowIdPublishRoute
+  ShowsShowIdPublishRoute: typeof ShowsShowIdPublishRouteWithChildren
 }
 
 const ShowsShowIdRouteChildren: ShowsShowIdRouteChildren = {
-  ShowsShowIdPublishRoute: ShowsShowIdPublishRoute,
+  ShowsShowIdPublishRoute: ShowsShowIdPublishRouteWithChildren,
 }
 
 const ShowsShowIdRouteWithChildren = ShowsShowIdRoute._addFileChildren(
