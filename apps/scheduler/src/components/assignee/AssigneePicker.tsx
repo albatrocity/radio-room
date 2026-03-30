@@ -1,4 +1,4 @@
-import { Avatar, Button, Menu, Text, HStack, Spinner, Box } from "@chakra-ui/react"
+import { Avatar, Button, Menu, Text, HStack, Spinner, Box, Portal } from "@chakra-ui/react"
 
 /**
  * Minimal admin / assignee row for the picker list and optimistic updates.
@@ -61,61 +61,61 @@ export function AssigneePicker<TUser extends AssigneePickerUser = AssigneePicker
             onClick={(e) => e.stopPropagation()}
           >
             <Avatar.Root size="2xs" colorPalette="gray">
-              {assignee?.image ? (
-                <Avatar.Image src={assignee.image} alt="" />
-              ) : null}
+              {assignee?.image ? <Avatar.Image src={assignee.image} alt="" /> : null}
               <Avatar.Fallback name={assignee?.name} />
             </Avatar.Root>
           </Button>
         </Menu.Trigger>
-        <Menu.Positioner zIndex="dropdown">
-          <Menu.Content
-            minW="220px"
-            maxH="min(280px, var(--available-height, 70vh))"
-            overflowY="auto"
-          >
-            {adminsLoading ? (
-              <HStack justify="center" py={6}>
-                <Spinner size="sm" />
-              </HStack>
-            ) : (
-              <>
-                {assignedUserId ? (
-                  <>
+        <Portal>
+          <Menu.Positioner zIndex="dropdown">
+            <Menu.Content
+              minW="220px"
+              maxH="min(280px, var(--available-height, 70vh))"
+              overflowY="auto"
+            >
+              {adminsLoading ? (
+                <HStack justify="center" py={6}>
+                  <Spinner size="sm" />
+                </HStack>
+              ) : (
+                <>
+                  {assignedUserId ? (
+                    <>
+                      <Menu.Item
+                        value="__unassign__"
+                        onClick={onUnassign}
+                        colorPalette="red"
+                        css={triggerPointerPassthroughCss}
+                      >
+                        Clear assignee
+                      </Menu.Item>
+                      <Menu.Separator />
+                    </>
+                  ) : null}
+                  {candidateUsers.map((user) => (
                     <Menu.Item
-                      value="__unassign__"
-                      onClick={onUnassign}
-                      colorPalette="red"
+                      key={user.id}
+                      value={user.id}
+                      onClick={() => onAssign(user)}
                       css={triggerPointerPassthroughCss}
+                      bg={assignedUserId === user.id ? "bg.subtle" : undefined}
                     >
-                      Clear assignee
+                      <HStack gap={2}>
+                        <Avatar.Root size="2xs">
+                          {user.image ? <Avatar.Image src={user.image} alt="" /> : null}
+                          <Avatar.Fallback name={user.name} />
+                        </Avatar.Root>
+                        <Text fontSize="sm" lineClamp={1}>
+                          {user.name}
+                        </Text>
+                      </HStack>
                     </Menu.Item>
-                    <Menu.Separator />
-                  </>
-                ) : null}
-                {candidateUsers.map((user) => (
-                  <Menu.Item
-                    key={user.id}
-                    value={user.id}
-                    onClick={() => onAssign(user)}
-                    css={triggerPointerPassthroughCss}
-                    bg={assignedUserId === user.id ? "bg.subtle" : undefined}
-                  >
-                    <HStack gap={2}>
-                      <Avatar.Root size="2xs">
-                        {user.image ? <Avatar.Image src={user.image} alt="" /> : null}
-                        <Avatar.Fallback name={user.name} />
-                      </Avatar.Root>
-                      <Text fontSize="sm" lineClamp={1}>
-                        {user.name}
-                      </Text>
-                    </HStack>
-                  </Menu.Item>
-                ))}
-              </>
-            )}
-          </Menu.Content>
-        </Menu.Positioner>
+                  ))}
+                </>
+              )}
+            </Menu.Content>
+          </Menu.Positioner>
+        </Portal>
       </Menu.Root>
     </Box>
   )
