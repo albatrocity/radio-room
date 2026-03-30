@@ -47,7 +47,8 @@ function LoginPage() {
   async function handleGoogleLogin() {
     await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/admin",
+      // Absolute URL: Better Auth baseURL is the API; relative paths would redirect to api.* .
+      callbackURL: `${window.location.origin}/admin`,
     })
   }
 
