@@ -16,6 +16,7 @@ import { useForm } from "@tanstack/react-form"
 import { useSegment, useUpdateSegment, useDeleteSegment } from "../../hooks/useSegments"
 import type { SegmentDTO, SegmentStatus } from "@repo/types"
 import { TagCombobox } from "../tags/TagCombobox"
+import { SegmentPluginPresetEditor } from "./SegmentPluginPresetEditor"
 
 interface SegmentDetailDrawerProps {
   segmentId: string | undefined
@@ -38,6 +39,7 @@ function segmentToFormDefaults(segment: SegmentDTO) {
     isRecurring: segment.isRecurring,
     status: segment.status,
     tagIds: segment.tags?.map((t) => t.id) ?? [],
+    pluginPreset: segment.pluginPreset,
   }
 }
 
@@ -67,6 +69,7 @@ function SegmentDetailForm({ segment, onClose }: SegmentDetailFormProps) {
         isRecurring: value.isRecurring,
         status: value.status,
         tagIds: value.tagIds,
+        pluginPreset: value.pluginPreset,
       })
       onClose()
     },
@@ -178,6 +181,12 @@ function SegmentDetailForm({ segment, onClose }: SegmentDetailFormProps) {
             )}
           </form.Field>
         </Box>
+
+        <form.Field name="pluginPreset">
+          {(field) => (
+            <SegmentPluginPresetEditor value={field.state.value} onChange={field.handleChange} />
+          )}
+        </form.Field>
 
         <HStack gap={2}>
           <Button type="submit" colorPalette="blue" loading={updateSegment.isPending}>
