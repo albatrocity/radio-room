@@ -14,6 +14,7 @@ import {
   getUser,
 } from "../operations/data"
 import { checkUserChallenge } from "../operations/userChallenge"
+import * as scheduling from "../services/SchedulingService"
 import { RoomSnapshot } from "@repo/types/Room"
 import { SocketWithContext } from "../lib/socketWithContext"
 import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
@@ -98,6 +99,7 @@ export async function create(req: Request, res: Response) {
     metadataSourceIds: requestedMetadataSourceIds,
     mediaSourceId: requestedMediaSourceId,
     mediaSourceConfig: requestedMediaSourceConfig,
+    showId: requestedShowId,
   } = req.body
   const createdAt = Date.now().toString()
   console.log("radioListenUrl", radioListenUrl)
@@ -106,6 +108,21 @@ export async function create(req: Request, res: Response) {
 
   try {
     await checkUserChallenge({ challenge, userId, context })
+
+    let showId: string | undefined
+    if (requestedShowId != null && requestedShowId !== "") {
+      const attachedShow = await scheduling.findShowById(String(requestedShowId))
+      if (!attachedShow) {
+        res.statusCode = 400
+        return res.send({ error: "Show not found", status: 400 })
+      }
+      if (attachedShow.status !== "ready") {
+        res.statusCode = 400
+        return res.send({ error: "Show must be in ready state to attach", status: 400 })
+      }
+      showId = attachedShow.id
+    }
+
     const id = createRoomId({ creator: userId, type, createdAt })
 
     // Get available metadata sources for the user (includes Tidal if linked)
@@ -138,6 +155,7 @@ export async function create(req: Request, res: Response) {
       metadataSourceIds,
       mediaSourceId,
       mediaSourceConfig,
+      ...(showId ? { showId } : {}),
     })
     await saveRoom({ context, room })
 

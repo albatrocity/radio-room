@@ -19,4 +19,6 @@ export const roomFactory = Factory.define<Room>(({ sequence }) => ({
   announceNowPlaying: false,
   announceUsernameChanges: false,
   persistent: false,
+  showSchedulePublic: false,
+  announceActiveSegment: true,
 }))

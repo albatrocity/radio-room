@@ -22,6 +22,10 @@ export type SettingsContext = Pick<
   | "announceUsernameChanges"
   | "announceNowPlaying"
   | "allowChatImages"
+  | "showId"
+  | "activeSegmentId"
+  | "showSchedulePublic"
+  | "announceActiveSegment"
 > & {
   /** Generic plugin configs keyed by plugin name */
   pluginConfigs: Record<string, Record<string, unknown>>
@@ -56,6 +60,10 @@ const defaultContext: SettingsContext = {
   announceUsernameChanges: true,
   announceNowPlaying: true,
   allowChatImages: true,
+  announceActiveSegment: true,
+  showSchedulePublic: false,
+  showId: undefined,
+  activeSegmentId: undefined,
   title: "",
   fetchMeta: true,
   extraInfo: "",
@@ -115,6 +123,10 @@ export const settingsMachine = setup({
           announceNowPlaying: event.data.room.announceNowPlaying,
           announceUsernameChanges: event.data.room.announceUsernameChanges,
           allowChatImages: event.data.room.allowChatImages,
+          showId: event.data.room.showId,
+          activeSegmentId: event.data.room.activeSegmentId,
+          showSchedulePublic: event.data.room.showSchedulePublic,
+          announceActiveSegment: event.data.room.announceActiveSegment,
           pluginConfigs,
         }
         return newContext

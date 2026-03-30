@@ -42,7 +42,8 @@ import {
 import { exportRoom } from "./controllers/exportController"
 import { getImage } from "./operations/data"
 import { upload, uploadImages } from "./controllers/imageController"
-import { createSchedulingRouter } from "./routes/schedulingRouter"
+import { createSchedulingRouter, getSchedulingShowByIdHandler } from "./routes/schedulingRouter"
+import { schedulingShowReadAuth } from "./middleware/schedulingShowReadAuth"
 import { clearRoomOnlineUsers } from "./operations/data"
 import { SocketWithContext } from "./lib/socketWithContext"
 import { PluginRegistry } from "./lib/plugins"
@@ -198,6 +199,7 @@ export class RadioRoomServer {
 
         return res.send(buffer)
       })
+      .get("/api/scheduling/shows/:id", schedulingShowReadAuth, getSchedulingShowByIdHandler)
       // Scheduling API (admin-only)
       .use("/api/scheduling", requireAdmin ?? noopMiddleware, createSchedulingRouter())
 

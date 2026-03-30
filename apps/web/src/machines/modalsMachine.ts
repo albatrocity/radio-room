@@ -21,6 +21,7 @@ export type Event =
   | { type: "EDIT_DJ" }
   | { type: "EDIT_SPOTIFY" }
   | { type: "EDIT_PASSWORD" }
+  | { type: "EDIT_SCHEDULE" }
   | { type: "EDIT_PLAYLIST_DEMOCRACY" }
   | { type: "EDIT_SPECIAL_WORDS" }
   | { type: "EDIT_ABSENT_DJ" }
@@ -93,6 +94,7 @@ export const modalsMachine = setup({
             EDIT_DJ: "dj",
             EDIT_SPOTIFY: "spotify",
             EDIT_PASSWORD: "password",
+            EDIT_SCHEDULE: "schedule",
             EDIT_PLAYLIST_DEMOCRACY: "playlist_democracy",
             EDIT_SPECIAL_WORDS: "special_words",
             EDIT_ABSENT_DJ: "absent_dj",
@@ -140,6 +142,11 @@ export const modalsMachine = setup({
           },
         },
         password: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        schedule: {
           on: {
             BACK: "overview",
           },

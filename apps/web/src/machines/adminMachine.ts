@@ -15,12 +15,16 @@ type DeleteRoomEvent = {
   data: { id: string }
 }
 
-type AdminEvent =
+export type AdminEvent =
   | { type: "ACTIVATE" }
   | { type: "DEACTIVATE" }
   | {
       type: "SET_SETTINGS"
       data: any
+    }
+  | {
+      type: "ACTIVATE_SEGMENT"
+      data: { segmentId: string; presetMode: "merge" | "replace" | "skip" }
     }
   | {
       type: "CLEAR_PLAYLIST"
@@ -74,7 +78,7 @@ export const adminMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `admin-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event) })
+      subscribeById(id, { send: (event) => self.send(event as AdminEvent) })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {
@@ -94,6 +98,10 @@ export const adminMachine = setup({
       if (event.type !== "SET_SETTINGS") return
       emitToSocket("SET_ROOM_SETTINGS", event.data)
     },
+    activateSegment: ({ event }) => {
+      if (event.type !== "ACTIVATE_SEGMENT") return
+      emitToSocket("SET_ACTIVE_SEGMENT", event.data)
+    },
     clearPlaylist: () => {
       emitToSocket("CLEAR_PLAYLIST", {})
     },
@@ -102,7 +110,6 @@ export const adminMachine = setup({
         title: "Settings updated",
         status: "success",
         duration: 3000,
-        isClosable: true,
       })
     },
     onDeleteSuccess: () => {
@@ -147,6 +154,7 @@ export const adminMachine = setup({
           actions: ["reset"],
         },
         SET_SETTINGS: { actions: ["setSettings", "notify"], guard: "isAdmin" },
+        ACTIVATE_SEGMENT: { actions: ["activateSegment"], guard: "isAdmin" },
         CLEAR_PLAYLIST: { actions: ["clearPlaylist"], guard: "isAdmin" },
         DELETE_ROOM: { target: ".deleting", guard: "isRoomCreator" },
         DEPUTIZE_DJ: { actions: ["deputizeDj"], guard: "isAdmin" },

@@ -6,7 +6,8 @@
   "exports": {
     "./server": "./src/server.ts",
     "./client": "./src/client.ts",
-    "./middleware": "./src/middleware.ts"
+    "./middleware": "./src/middleware.ts",
+    "./platformSession": "./src/platformSession.ts"
   },
   "scripts": {
     "test": "vitest run --passWithNoTests",

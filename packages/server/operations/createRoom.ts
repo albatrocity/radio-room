@@ -29,6 +29,7 @@ export function withDefaults(
     | "metadataSourceIds"
     | "mediaSourceId"
     | "mediaSourceConfig"
+    | "showId"
   >,
 ): Room {
   return {
@@ -41,6 +42,10 @@ export function withDefaults(
     announceNowPlaying: true,
     announceUsernameChanges: true,
     allowChatImages: false,
+    showSchedulePublic: false,
+    announceActiveSegment: true,
+    showId: undefined,
+    activeSegmentId: undefined,
     ...roomDetails,
     deputizeOnJoin: roomDetails.deputizeOnJoin || false,
   }

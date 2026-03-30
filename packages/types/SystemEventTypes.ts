@@ -96,6 +96,14 @@ export type SystemEventHandlers = {
     pluginConfigs?: Record<string, unknown>
   }) => Promise<void> | void
 
+  /** Fired when a room admin activates a segment on the attached show (Redis pub/sub + sockets). */
+  SEGMENT_ACTIVATED: (data: {
+    roomId: string
+    showId: string
+    segmentId: string
+    segmentTitle: string
+  }) => Promise<void> | void
+
   // Chat events
   MESSAGE_RECEIVED: (data: { roomId: string; message: ChatMessage }) => Promise<void> | void
 

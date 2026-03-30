@@ -1,4 +1,5 @@
 import { AdminService } from "../services/AdminService"
+import { activateRoomSegment, type PresetApplyMode } from "../operations/activateRoomSegment"
 import { HandlerConnections, AppContext } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
@@ -99,6 +100,29 @@ export class AdminHandlers {
       if (io.sockets.sockets.get(result.socketId)) {
         io.sockets.sockets.get(result.socketId)?.disconnect()
       }
+    }
+  }
+
+  /**
+   * Activate a segment on the room’s attached show (admin only).
+   */
+  activateSegment = async (
+    { socket }: HandlerConnections,
+    data: { segmentId: string; presetMode: PresetApplyMode },
+  ) => {
+    const result = await activateRoomSegment({
+      context: socket.context,
+      roomId: socket.data.roomId,
+      userId: socket.data.userId,
+      segmentId: data.segmentId,
+      presetMode: data.presetMode,
+    })
+
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
     }
   }
 

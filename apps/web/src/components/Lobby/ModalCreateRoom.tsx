@@ -5,7 +5,7 @@ import { useModalsSend, useIsModalOpen } from "../../hooks/useActors"
 import { createRoomFormMachine } from "./createRoomFormMachine"
 
 import Modal from "../Modal"
-import { Room } from "../../types/Room"
+import { RoomSetup } from "../../types/Room"
 import RoomSettings from "../RoomSettings/RoomSettings"
 import RoomTypeSelect from "./RoomTypeSelect"
 import { LuArrowLeft } from "react-icons/lu"
@@ -20,7 +20,7 @@ export default function ModalCreateRoom({}: Props) {
   const loading = formState.matches("creating")
 
   const handleNext = () => {
-    formSend({ type: "NEXT" })
+    formSend({ type: "NEXT", data: null })
   }
 
   return (
@@ -32,7 +32,11 @@ export default function ModalCreateRoom({}: Props) {
         footer={
           <HStack justify="space-between" w="100%">
             {formState.matches("settings") && (
-              <Button variant="ghost" onClick={() => formSend({ type: "BACK" })} disabled={loading}>
+              <Button
+                variant="ghost"
+                onClick={() => formSend({ type: "BACK", data: null })}
+                disabled={loading}
+              >
                 <LuArrowLeft />
                 Back
               </Button>
@@ -78,7 +82,7 @@ export default function ModalCreateRoom({}: Props) {
             <RoomSettings
               roomType={formState.context.type}
               settings={formState.context}
-              onChange={(settings: Partial<Room>) => {
+              onChange={(settings: Partial<RoomSetup>) => {
                 formSend({ type: "SET_SETTINGS", data: { settings } })
               }}
             />

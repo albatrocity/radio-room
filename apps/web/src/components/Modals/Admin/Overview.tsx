@@ -52,6 +52,8 @@ function Overview() {
   const hasSettings = !!settings.extraInfo || !!settings.artwork || !!settings.radioMetaUrl
   const hasChatSettings = settings.announceNowPlaying ?? settings.announceUsernameChanges
   const hasDjSettings = settings.deputizeOnJoin
+  const hasScheduleSettings =
+    !!settings.showId || !!settings.showSchedulePublic || settings.announceActiveSegment === false
 
   // Check if a plugin is active based on its 'enabled' config
   const isPluginActive = (pluginName: string): boolean => {
@@ -157,6 +159,22 @@ function Overview() {
                 Chat
                 <HStack>
                   {hasChatSettings && <ActiveIndicator />}
+                  <LuChevronRight />
+                </HStack>
+              </Button>
+              <Button
+                colorPalette="action"
+                variant="subtle"
+                borderRadius="none"
+                w="100%"
+                textAlign="left"
+                fontWeight="400"
+                justifyContent="space-between"
+                onClick={() => send({ type: "EDIT_SCHEDULE" })}
+              >
+                Schedule
+                <HStack>
+                  {hasScheduleSettings && <ActiveIndicator />}
                   <LuChevronRight />
                 </HStack>
               </Button>

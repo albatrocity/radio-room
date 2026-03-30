@@ -1,6 +1,7 @@
 import { create, findRooms, deleteRoom } from "../controllers/roomsController"
 import { checkUserChallenge } from "../operations/userChallenge"
 import { saveRoom } from "../operations/data"
+import * as scheduling from "../services/SchedulingService"
 import { vi, describe, it, expect, beforeEach } from "vitest"
 import { appContextFactory, platformUserFactory } from "@repo/factories"
 import { Request, Response } from "express"
@@ -19,6 +20,9 @@ vi.mock("../operations/createRoom", async (importOriginal) => {
   }
 })
 vi.mock("../operations/data")
+vi.mock("../services/SchedulingService", () => ({
+  findShowById: vi.fn(),
+}))
 
 describe("create", () => {
   let mockContext: any
@@ -95,6 +99,52 @@ describe("create", () => {
         type: "jukebox",
       }),
     })
+  })
+
+  it("persists showId when show is ready", async () => {
+    vi.mocked(scheduling.findShowById).mockResolvedValue({
+      id: "show-1",
+      status: "ready",
+    } as any)
+
+    mockRequest.body = {
+      challenge: "challenge",
+      userId: "userId",
+      title: "Green Room",
+      type: "jukebox",
+      showId: "show-1",
+    }
+    mockCheckUserChallenge.mockResolvedValue(1)
+
+    await create(mockRequest as Request, mockResponse as Response)
+
+    expect(saveRoom).toHaveBeenCalledWith({
+      context: mockContext,
+      room: expect.objectContaining({
+        showId: "show-1",
+      }),
+    })
+  })
+
+  it("rejects showId when show is not ready", async () => {
+    vi.mocked(scheduling.findShowById).mockResolvedValue({
+      id: "show-1",
+      status: "published",
+    } as any)
+
+    mockRequest.body = {
+      challenge: "challenge",
+      userId: "userId",
+      title: "Green Room",
+      type: "jukebox",
+      showId: "show-1",
+    }
+    mockCheckUserChallenge.mockResolvedValue(1)
+
+    await create(mockRequest as Request, mockResponse as Response)
+
+    expect(mockResponse.statusCode).toBe(400)
+    expect(saveRoom).not.toHaveBeenCalled()
   })
 })
 

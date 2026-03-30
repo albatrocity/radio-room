@@ -51,6 +51,14 @@ export type Room = {
   showQueueTracks?: boolean
   // Chat settings
   allowChatImages?: boolean
+  /** Attached scheduling show id (Postgres); timeline/activation read live from API */
+  showId?: string | null
+  /** Currently active segment within the attached show */
+  activeSegmentId?: string | null
+  /** When true, non-admins see the show timeline in the room sidebar */
+  showSchedulePublic?: boolean
+  /** When true, segment activation posts a system chat message with the segment title */
+  announceActiveSegment?: boolean
 }
 
 // =============================================================================
@@ -75,6 +83,8 @@ export interface StoredRoom
     | "showQueueCount"
     | "showQueueTracks"
     | "allowChatImages"
+    | "showSchedulePublic"
+    | "announceActiveSegment"
   > {
   fetchMeta: Bool
   enableSpotifyLogin: Bool
@@ -85,6 +95,8 @@ export interface StoredRoom
   showQueueCount?: Bool
   showQueueTracks?: Bool
   allowChatImages?: Bool
+  showSchedulePublic?: Bool
+  announceActiveSegment?: Bool
   spotifyError?: string
   radioError?: string
   mediaSourceConfig?: string

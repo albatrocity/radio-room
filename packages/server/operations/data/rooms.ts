@@ -57,6 +57,22 @@ type SaveRoomParams = {
   room: Room
 }
 
+type HDelRoomDetailsFieldsParams = {
+  context: AppContext
+  roomId: string
+  fields: string[]
+}
+
+/** Remove hash fields from room:{id}:details (e.g. clearing optional string ids). */
+export async function hDelRoomDetailsFields({ context, roomId, fields }: HDelRoomDetailsFieldsParams) {
+  if (fields.length === 0) return
+  try {
+    await context.redis.pubClient.hDel(`room:${roomId}:details`, fields)
+  } catch (e) {
+    console.error("[rooms] hDelRoomDetailsFields", roomId, fields, e)
+  }
+}
+
 export async function saveRoom({ context, room }: SaveRoomParams) {
   try {
     await addRoomToRoomList({ context, roomId: room.id })
@@ -395,6 +411,8 @@ export function parseRoom(room: StoredRoom): Room {
     showQueueTracks: room.showQueueTracks !== "false",
     // Chat settings default to false when undefined
     allowChatImages: room.allowChatImages === "true",
+    showSchedulePublic: room.showSchedulePublic === "true",
+    announceActiveSegment: room.announceActiveSegment !== "false",
     passwordRequired: !isNullish(room.password),
     ...(room.artwork === "undefined" ? {} : { artwork: room.artwork }),
     ...(room.spotifyError ? { spotifyError: safeParse(room.spotifyError) } : {}),

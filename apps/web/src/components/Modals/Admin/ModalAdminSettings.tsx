@@ -17,9 +17,15 @@ import Overview from "./Overview"
 import Content from "./Content"
 import Chat from "./Chat"
 import Password from "./Password"
+import Schedule from "./Schedule"
 import DjFeatures from "./DjFeatures"
 import DynamicPluginSettings from "./DynamicPluginSettings"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
+
+/** XState `matches` typing can lag nested settings substates; keep runtime checks correct. */
+function matchesSettingsPath(state: unknown, path: string) {
+  return (state as { matches: (p: string) => boolean }).matches(path)
+}
 
 const Header = ({ showBack, onBack }: { showBack: boolean; onBack: () => void }) => {
   return (
@@ -59,35 +65,40 @@ function ModalAdminSettings() {
       <DialogPositioner>
         <DialogContent bg="appBg">
           <DialogHeader>
-            <Header showBack={!state.matches("settings.overview")} onBack={onBack} />
+            <Header showBack={!matchesSettingsPath(state, "settings.overview")} onBack={onBack} />
           </DialogHeader>
           <DialogCloseTrigger asChild position="absolute" top="2" right="2">
             <CloseButton size="sm" />
           </DialogCloseTrigger>
 
-          <Collapsible.Root open={state.matches("settings.overview")}>
+          <Collapsible.Root open={matchesSettingsPath(state, "settings.overview")}>
             <Collapsible.Content>
               <Overview />
             </Collapsible.Content>
           </Collapsible.Root>
-          <Collapsible.Root open={state.matches("settings.dj")}>
+          <Collapsible.Root open={matchesSettingsPath(state, "settings.dj")}>
             <Collapsible.Content>
               <DjFeatures />
             </Collapsible.Content>
           </Collapsible.Root>
-          <Collapsible.Root open={state.matches("settings.content")}>
+          <Collapsible.Root open={matchesSettingsPath(state, "settings.content")}>
             <Collapsible.Content>
               <Content />
             </Collapsible.Content>
           </Collapsible.Root>
-          <Collapsible.Root open={state.matches("settings.chat")}>
+          <Collapsible.Root open={matchesSettingsPath(state, "settings.chat")}>
             <Collapsible.Content>
               <Chat />
             </Collapsible.Content>
           </Collapsible.Root>
-          <Collapsible.Root open={state.matches("settings.password")}>
+          <Collapsible.Root open={matchesSettingsPath(state, "settings.password")}>
             <Collapsible.Content>
               <Password />
+            </Collapsible.Content>
+          </Collapsible.Root>
+          <Collapsible.Root open={matchesSettingsPath(state, "settings.schedule")}>
+            <Collapsible.Content>
+              <Schedule />
             </Collapsible.Content>
           </Collapsible.Root>
 
@@ -97,7 +108,7 @@ function ModalAdminSettings() {
             .map((plugin) => (
               <Collapsible.Root
                 key={plugin.name}
-                open={state.matches(`settings.${toStateKey(plugin.name)}`)}
+                open={matchesSettingsPath(state, `settings.${toStateKey(plugin.name)}`)}
               >
                 <Collapsible.Content>
                   <DynamicPluginSettings pluginName={plugin.name} />

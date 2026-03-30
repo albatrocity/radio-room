@@ -69,6 +69,7 @@ function CreateRoomPage() {
           deputizeOnJoin: sessionStorage.getItem("createRoomDeputizeOnJoin") === "true",
           radioProtocol:
             (sessionStorage.getItem("createRoomRadioProtocol") as StationProtocol) ?? "shoutcastv2",
+          showId: sessionStorage.getItem("createRoomShowId") ?? undefined,
         },
       },
     })

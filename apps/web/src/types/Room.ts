@@ -35,11 +35,21 @@ export type Room = {
   showQueueTracks?: boolean
   // Chat settings
   allowChatImages?: boolean
+  showId?: string | null
+  activeSegmentId?: string | null
+  showSchedulePublic?: boolean
+  announceActiveSegment?: boolean
 }
 
 export type RoomSetup = Pick<
   Room,
-  "type" | "title" | "radioMetaUrl" | "radioListenUrl" | "radioProtocol" | "deputizeOnJoin"
+  | "type"
+  | "title"
+  | "radioMetaUrl"
+  | "radioListenUrl"
+  | "radioProtocol"
+  | "deputizeOnJoin"
+  | "showId"
 > & {
   playbackControllerId?: string
   metadataSourceIds?: string[]
