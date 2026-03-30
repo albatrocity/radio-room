@@ -22,6 +22,7 @@ vi.mock("../operations/createRoom", async (importOriginal) => {
 vi.mock("../operations/data")
 vi.mock("../services/SchedulingService", () => ({
   findShowById: vi.fn(),
+  syncShowRoomPointer: vi.fn().mockResolvedValue(undefined),
 }))
 
 describe("create", () => {

@@ -36,6 +36,13 @@
       "when": 1774825696376,
       "tag": "0004_cheerful_night_thrasher",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774896587878,
+      "tag": "0005_room_export_and_playlist",
+      "breakpoints": true
     }
   ]
 }

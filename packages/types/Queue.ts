@@ -35,6 +35,17 @@ export const queueItemSchema = z.object({
 
 export type QueueItem = z.infer<typeof queueItemSchema>
 
+/**
+ * Compact stable fingerprint for a playlist row. Used to reorder/trim the room
+ * playlist on continue without sending full {@link QueueItem} payloads.
+ * Encodes `mediaSource` (type + trackId), `playedAt` (null if not played yet),
+ * and `addedAt` so duplicate plays of the same catalog track stay distinct.
+ */
+export function queueItemStableKey(item: QueueItem): string {
+  const { type, trackId } = item.mediaSource
+  return JSON.stringify([type, trackId, item.playedAt ?? null, item.addedAt])
+}
+
 // =============================================================================
 // Queue Schema & Type
 // =============================================================================

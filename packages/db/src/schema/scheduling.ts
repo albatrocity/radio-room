@@ -8,6 +8,7 @@ import {
   jsonb,
   unique,
   primaryKey,
+  index,
 } from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
@@ -20,6 +21,7 @@ import { user } from "./auth"
 export const showStatusEnum = pgEnum("show_status", ["draft", "ready", "published"])
 export const segmentStatusEnum = pgEnum("segment_status", ["draft", "ready", "archived"])
 export const tagTypeEnum = pgEnum("tag_type", ["segment", "show"])
+export const roomExportStatusEnum = pgEnum("room_export_status", ["draft", "published"])
 
 // ---------------------------------------------------------------------------
 // Tables
@@ -120,13 +122,72 @@ export const showTag = pgTable(
   (table) => [primaryKey({ columns: [table.showId, table.tagId] })],
 )
 
+export const roomExport = pgTable("room_export", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  showId: text("show_id")
+    .notNull()
+    .references(() => show.id, { onDelete: "cascade" })
+    .unique(),
+  markdown: text("markdown").notNull().default(""),
+  status: roomExportStatusEnum("status").notNull().default("draft"),
+  playlistLinks: jsonb("playlist_links"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const roomPlaylistTrack = pgTable(
+  "room_playlist_track",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    showId: text("show_id")
+      .notNull()
+      .references(() => show.id, { onDelete: "cascade" }),
+    roomExportId: text("room_export_id").references(() => roomExport.id, { onDelete: "set null" }),
+    position: integer("position").notNull(),
+    playedAt: timestamp("played_at", { withTimezone: true }),
+    addedAt: timestamp("added_at", { withTimezone: true }),
+    title: text("title").notNull().default(""),
+    addedByUserId: text("added_by_user_id"),
+    mediaSourceType: text("media_source_type"),
+    mediaSourceTrackId: text("media_source_track_id"),
+    spotifyTrackId: text("spotify_track_id"),
+    tidalTrackId: text("tidal_track_id"),
+    trackPayload: jsonb("track_payload"),
+  },
+  (table) => [
+    index("room_playlist_track_show_id_idx").on(table.showId),
+    unique("room_playlist_track_show_position_unique").on(table.showId, table.position),
+  ],
+)
+
 // ---------------------------------------------------------------------------
 // Relations
 // ---------------------------------------------------------------------------
 
-export const showRelations = relations(show, ({ many }) => ({
+export const showRelations = relations(show, ({ many, one }) => ({
   showSegments: many(showSegment),
   showTags: many(showTag),
+  roomExport: one(roomExport, {
+    fields: [show.id],
+    references: [roomExport.showId],
+  }),
+  roomPlaylistTracks: many(roomPlaylistTrack),
+}))
+
+export const roomExportRelations = relations(roomExport, ({ one }) => ({
+  show: one(show, { fields: [roomExport.showId], references: [show.id] }),
+}))
+
+export const roomPlaylistTrackRelations = relations(roomPlaylistTrack, ({ one }) => ({
+  show: one(show, { fields: [roomPlaylistTrack.showId], references: [show.id] }),
+  roomExport: one(roomExport, {
+    fields: [roomPlaylistTrack.roomExportId],
+    references: [roomExport.id],
+  }),
 }))
 
 export const segmentRelations = relations(segment, ({ one, many }) => ({

@@ -28,6 +28,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0020](0020-plugin-preset-validation-in-repo-utils.md) | Plugin Preset Validation in `@repo/utils` | Accepted |
 | [0021](0021-room-attached-show-and-segment-activation.md) | Room-attached Show and Segment Activation | Accepted |
 | [0022](0022-rest-guest-authentication.md) | REST guest authentication (listening-room HTTP) | Accepted |
+| [0023](0023-publish-playlists-use-room-creator-oauth.md) | Publish playlists use room creator OAuth | Accepted |
+| [0024](0024-post-show-publish-and-archive-flow.md) | Post-show publish and archive flow | Accepted |
 
 ## Creating a New ADR
 

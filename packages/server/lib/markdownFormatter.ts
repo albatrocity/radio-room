@@ -1,4 +1,11 @@
-import type { RoomExportData, QueueItem, User, Reaction, MetadataSourceType } from "@repo/types"
+import type {
+  RoomExportData,
+  QueueItem,
+  User,
+  Reaction,
+  MetadataSourceType,
+  RoomExportMarkdownOptions,
+} from "@repo/types"
 import type { PluginRegistry } from "./plugins/PluginRegistry"
 
 /**
@@ -9,10 +16,11 @@ export function formatRoomExportAsMarkdown(
   pluginMarkdownSections: string[],
   pluginRegistry: PluginRegistry | undefined,
   roomId: string,
+  markdownOptions?: RoomExportMarkdownOptions,
 ): string {
   const sections: string[] = []
 
-  // Header
+  // Header (title lives in frontmatter; keep export timestamp only)
   sections.push(formatHeader(data))
 
   // Room Info
@@ -45,13 +53,90 @@ export function formatRoomExportAsMarkdown(
   // Footer
   sections.push(formatFooter(data))
 
-  return sections.join("\n\n---\n\n")
+  const body = sections.join("\n\n---\n\n")
+  const front = formatYamlFrontmatterAndIntro(data, markdownOptions)
+  return `${front}\n\n---\n\n${body}`
+}
+
+/** Double-quoted YAML scalar with escapes for control chars. */
+export function yamlDoubleQuotedScalar(value: string): string {
+  return `"${value
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\n/g, "\\n")}"`
+}
+
+function formatYamlFrontmatterAndIntro(
+  data: RoomExportData,
+  markdownOptions?: RoomExportMarkdownOptions,
+): string {
+  const fm = markdownOptions?.frontmatter
+  const title = (fm?.title ?? data.room.title).trim()
+  const date =
+    fm?.date ?? new Date(data.exportedAt).toISOString().slice(0, 10)
+
+  let description: string | undefined
+  if (fm == null) {
+    description =
+      data.room.description != null && String(data.room.description).trim() !== ""
+        ? String(data.room.description).trim()
+        : undefined
+  } else if (fm.description !== undefined) {
+    description =
+      fm.description.trim() === "" ? undefined : fm.description.trim()
+  } else {
+    description =
+      data.room.description != null && String(data.room.description).trim() !== ""
+        ? String(data.room.description).trim()
+        : undefined
+  }
+
+  const tracks = data.playlist.length
+  const messages = data.chat.length
+  const visitors = data.userHistory?.length ?? 0
+
+  const tidalUrl = fm?.tidalPlaylist?.trim()
+  const spotifyUrl = fm?.spotifyPlaylist?.trim()
+
+  const yamlLines: string[] = ["---", `title: ${yamlDoubleQuotedScalar(title)}`, `date: ${date}`]
+  if (description !== undefined) {
+    yamlLines.push(`description: ${yamlDoubleQuotedScalar(description)}`)
+  }
+  if (tidalUrl) {
+    yamlLines.push(`tidalPlaylist: ${yamlDoubleQuotedScalar(tidalUrl)}`)
+  }
+  if (spotifyUrl) {
+    yamlLines.push(`spotifyPlaylist: ${yamlDoubleQuotedScalar(spotifyUrl)}`)
+  }
+  yamlLines.push("stats:")
+  yamlLines.push(`  tracks: ${tracks}`)
+  yamlLines.push(`  messages: ${messages}`)
+  yamlLines.push(`  visitors: ${visitors}`)
+  yamlLines.push("---")
+
+  const introLines: string[] = [...yamlLines, ""]
+  if (tidalUrl) {
+    introLines.push(`- [Tidal playlist](${tidalUrl})`)
+  }
+  if (spotifyUrl) {
+    introLines.push(`- [Spotify playlist](${spotifyUrl})`)
+  }
+  if (tidalUrl || spotifyUrl) {
+    introLines.push("")
+  }
+  introLines.push(
+    `_${tracks} tracks played • ${messages} messages • ${visitors} unique visitors_`,
+  )
+  introLines.push("")
+  introLines.push("---")
+
+  return introLines.join("\n")
 }
 
 function formatHeader(data: RoomExportData): string {
-  return `# ${data.room.title}
-
-*Exported on ${formatDate(data.exportedAt)}*`
+  return `*Exported on ${formatDate(data.exportedAt)}*`
 }
 
 function formatRoomInfo(data: RoomExportData): string {

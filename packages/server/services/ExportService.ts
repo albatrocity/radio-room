@@ -3,9 +3,9 @@ import type {
   RoomExportData,
   RoomExportInfo,
   ExportFormat,
-  PluginExportAugmentation,
-  ReactionStore,
+  RoomExportMarkdownOptions,
 } from "@repo/types"
+import type { QueueItem } from "@repo/types/Queue"
 import {
   findRoom,
   getRoomPlaylist,
@@ -30,9 +30,14 @@ export class ExportService {
    * Export room data in the specified format.
    * @param roomId - The room to export
    * @param format - Output format (json or markdown)
+   * @param markdownOptions - Optional YAML frontmatter overrides (markdown only)
    * @returns Formatted export data as string
    */
-  async exportRoom(roomId: string, format: ExportFormat): Promise<string> {
+  async exportRoom(
+    roomId: string,
+    format: ExportFormat,
+    markdownOptions?: RoomExportMarkdownOptions,
+  ): Promise<string> {
     // Build the canonical export data
     const exportData = await this.buildExportData(roomId)
 
@@ -51,6 +56,7 @@ export class ExportService {
         pluginAugmentations.markdownSections,
         this.context.pluginRegistry,
         roomId,
+        markdownOptions,
       )
     }
 
@@ -59,13 +65,42 @@ export class ExportService {
   }
 
   /**
-   * Build the canonical room export data structure.
+   * Markdown export using a curated playlist instead of the live Redis playlist.
+   * Other sections (chat, queue, reactions, etc.) still come from the room.
    */
-  private async buildExportData(roomId: string): Promise<RoomExportData> {
+  async exportRoomMarkdownWithPlaylist(
+    roomId: string,
+    playlistOverride: QueueItem[],
+    markdownOptions?: RoomExportMarkdownOptions,
+  ): Promise<string> {
+    const exportData = await this.buildExportData(roomId, playlistOverride)
+    const pluginAugmentations = await this.getPluginAugmentations(roomId, exportData)
+    if (Object.keys(pluginAugmentations.data).length > 0) {
+      exportData.pluginExports = pluginAugmentations.data
+    }
+    return formatRoomExportAsMarkdown(
+      exportData,
+      pluginAugmentations.markdownSections,
+      this.context.pluginRegistry,
+      roomId,
+      markdownOptions,
+    )
+  }
+
+  /**
+   * Build the canonical room export data structure.
+   * @param playlistOverride - When set, used as `playlist` instead of {@link getRoomPlaylist}.
+   */
+  private async buildExportData(
+    roomId: string,
+    playlistOverride?: QueueItem[],
+  ): Promise<RoomExportData> {
     // Fetch all data in parallel (including user history IDs)
     const [room, playlist, messages, users, queue, reactions, userHistoryIds] = await Promise.all([
       findRoom({ context: this.context, roomId }),
-      getRoomPlaylist({ context: this.context, roomId }),
+      playlistOverride !== undefined
+        ? Promise.resolve(playlistOverride)
+        : getRoomPlaylist({ context: this.context, roomId }),
       this.getAllMessages(roomId),
       getRoomUsers({ context: this.context, roomId }),
       getQueue({ context: this.context, roomId }),

@@ -19,6 +19,7 @@ import {
 import handleRoomNowPlayingData from "../operations/room/handleRoomNowPlayingData"
 import { makeStableTrackId } from "../lib/makeNowPlayingFromStationMeta"
 import systemMessage from "../lib/systemMessage"
+import * as scheduling from "./SchedulingService"
 
 /**
  * A service that handles admin operations without Socket.io dependencies
@@ -196,11 +197,44 @@ export class AdminService {
       delete (newSettings as { activeSegmentId?: string | null }).activeSegmentId
     }
 
+    if ("showId" in values) {
+      const sid = values.showId
+      ;(newSettings as Room).persistent = !!(sid && String(sid).length > 0)
+    }
+
     const turningOffFetch = !newSettings.fetchMeta && room.fetchMeta
     const turningOnFetch = newSettings.fetchMeta && !room.fetchMeta
 
     // Save room settings FIRST so handleRoomNowPlayingData sees the correct fetchMeta value
     await saveRoom({ context: this.context, room: newSettings })
+
+    if ("showId" in values) {
+      const nextShowId =
+        values.showId === null || values.showId === ""
+          ? null
+          : values.showId === undefined
+            ? undefined
+            : String(values.showId)
+      try {
+        await scheduling.syncShowRoomPointer({
+          roomId,
+          previousShowId: room.showId ?? null,
+          nextShowId,
+        })
+      } catch (e) {
+        if (e instanceof scheduling.SchedulingBadRequestError) {
+          return {
+            room: null,
+            error: { message: e.message, code: "BAD_REQUEST" as const },
+          }
+        }
+        console.error("[setRoomSettings] syncShowRoomPointer failed:", e)
+        return {
+          room: null,
+          error: { message: "Failed to update show room link", code: "INTERNAL" as const },
+        }
+      }
+    }
 
     const scheduleFieldsToClear: string[] = []
     if ("showId" in values && values.showId === null) {

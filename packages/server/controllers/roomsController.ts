@@ -155,9 +155,19 @@ export async function create(req: Request, res: Response) {
       metadataSourceIds,
       mediaSourceId,
       mediaSourceConfig,
-      ...(showId ? { showId } : {}),
+      ...(showId ? { showId, persistent: true } : {}),
     })
     await saveRoom({ context, room })
+
+    if (showId) {
+      try {
+        await scheduling.syncShowRoomPointer({ roomId: id, nextShowId: showId })
+      } catch (e) {
+        console.error("[createRoom] Failed to sync show.room_id:", e)
+        res.statusCode = 500
+        return res.send({ error: "Failed to link show to room in scheduling", status: 500 })
+      }
+    }
 
     // Initialize plugins for the new room FIRST
     // This must happen before media source jobs start to ensure plugins receive events

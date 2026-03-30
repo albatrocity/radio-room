@@ -1,6 +1,11 @@
 import { Router, Request, Response } from "express"
-import type { TagType } from "@repo/types"
+import type { AppContext, TagType } from "@repo/types"
 import * as scheduling from "../services/SchedulingService"
+import {
+  finalizeShowPublish,
+  syncPublishPlaylistFromRoom,
+  continuePrepareShowPublish,
+} from "../operations/showPublish"
 
 /** Mounted at app level (before requireAdmin) for guest + platform-admin access. */
 export async function getSchedulingShowByIdHandler(req: Request, res: Response) {
@@ -64,6 +69,10 @@ export function createSchedulingRouter(): Router {
       const show = await scheduling.createShow(req.body, createdBy)
       res.status(201).json({ show })
     } catch (error) {
+      if (error instanceof scheduling.SchedulingBadRequestError) {
+        res.status(400).json({ error: error.message })
+        return
+      }
       console.error("Error creating show:", error)
       res.status(500).json({ error: "Failed to create show" })
     }
@@ -78,6 +87,10 @@ export function createSchedulingRouter(): Router {
       }
       res.json({ show })
     } catch (error) {
+      if (error instanceof scheduling.SchedulingBadRequestError) {
+        res.status(400).json({ error: error.message })
+        return
+      }
       console.error("Error updating show:", error)
       res.status(500).json({ error: "Failed to update show" })
     }
@@ -94,6 +107,68 @@ export function createSchedulingRouter(): Router {
     } catch (error) {
       console.error("Error deleting show:", error)
       res.status(500).json({ error: "Failed to delete show" })
+    }
+  })
+
+  router.post("/shows/:id/publish/sync-playlist", async (req: Request, res: Response) => {
+    try {
+      const context = (req as Request & { context?: AppContext }).context
+      if (!context) {
+        res.status(500).json({ error: "Server context not available" })
+        return
+      }
+      const result = await syncPublishPlaylistFromRoom(req.params.id, context)
+      res.json(result)
+    } catch (error) {
+      if (error instanceof scheduling.SchedulingBadRequestError) {
+        res.status(400).json({ error: error.message })
+        return
+      }
+      console.error("Error syncing publish playlist:", error)
+      res.status(500).json({ error: "Failed to sync playlist for publish" })
+    }
+  })
+
+  router.post("/shows/:id/publish/continue", async (req: Request, res: Response) => {
+    try {
+      const context = (req as Request & { context?: AppContext }).context
+      if (!context) {
+        res.status(500).json({ error: "Server context not available" })
+        return
+      }
+      const result = await continuePrepareShowPublish(req.params.id, req.body, context)
+      res.json(result)
+    } catch (error) {
+      if (error instanceof scheduling.SchedulingBadRequestError) {
+        res.status(400).json({ error: error.message })
+        return
+      }
+      console.error("Error continuing show publish:", error)
+      res.status(500).json({ error: "Failed to continue publish" })
+    }
+  })
+
+  router.post("/shows/:id/publish/finalize", async (req: Request, res: Response) => {
+    try {
+      const context = (req as Request & { context?: AppContext }).context
+      if (!context) {
+        res.status(500).json({ error: "Server context not available" })
+        return
+      }
+      const markdown = (req.body as { markdown?: unknown })?.markdown
+      if (typeof markdown !== "string") {
+        res.status(400).json({ error: "markdown must be a string" })
+        return
+      }
+      const result = await finalizeShowPublish(req.params.id, markdown, context)
+      res.json(result)
+    } catch (error) {
+      if (error instanceof scheduling.SchedulingBadRequestError) {
+        res.status(400).json({ error: error.message })
+        return
+      }
+      console.error("Error finalizing show publish:", error)
+      res.status(500).json({ error: "Failed to finalize publish" })
     }
   })
 

@@ -20,6 +20,11 @@ vi.mock("../lib/makeNowPlayingFromStationMeta", () => ({
 vi.mock("../lib/systemMessage", () => ({
   default: vi.fn((msg) => ({ content: msg, type: "system" })),
 }))
+const mockSyncShowRoomPointer = vi.fn().mockResolvedValue(undefined)
+vi.mock("./SchedulingService", () => ({
+  syncShowRoomPointer: (...args: unknown[]) => mockSyncShowRoomPointer(...args),
+  SchedulingBadRequestError: class SchedulingBadRequestError extends Error {},
+}))
 
 // Import mocked dependencies
 import systemMessage from "../lib/systemMessage"
@@ -266,6 +271,20 @@ describe("AdminService", () => {
           error: "Forbidden",
           message: "You are not the room creator.",
         },
+      })
+    })
+
+    test("calls syncShowRoomPointer when showId is updated", async () => {
+      vi.mocked(findRoom)
+        .mockResolvedValueOnce({ ...mockRoom, showId: "show-a" })
+        .mockResolvedValueOnce({ ...mockRoom, showId: "show-b", fetchMeta: false })
+
+      await adminService.setRoomSettings("room123", "admin123", { showId: "show-b" })
+
+      expect(mockSyncShowRoomPointer).toHaveBeenCalledWith({
+        roomId: "room123",
+        previousShowId: "show-a",
+        nextShowId: "show-b",
       })
     })
   })

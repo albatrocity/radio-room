@@ -7,6 +7,7 @@ import type { PluginPreset } from "./PluginPreset"
 export type ShowStatus = "draft" | "ready" | "published"
 export type SegmentStatus = "draft" | "ready" | "archived"
 export type TagType = "segment" | "show"
+export type RoomExportStatus = "draft" | "published"
 
 // ---------------------------------------------------------------------------
 // Entity DTOs (API responses)
@@ -17,6 +18,40 @@ export interface SchedulingAdminUserDTO {
   id: string
   name: string
   image: string | null
+}
+
+export interface RoomExportPlaylistLinkDTO {
+  id: string
+  title?: string
+  url?: string
+}
+
+export interface RoomExportPlaylistLinks {
+  spotify?: RoomExportPlaylistLinkDTO
+  tidal?: RoomExportPlaylistLinkDTO
+}
+
+export interface RoomExportDTO {
+  id: string
+  showId: string
+  markdown: string
+  status: RoomExportStatus
+  playlistLinks: RoomExportPlaylistLinks | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** Persisted playlist row for a show (after publish continue). Empty until then. */
+export interface RoomPlaylistTrackDTO {
+  id: string
+  position: number
+  title: string
+  playedAt: string | null
+  addedAt: string | null
+  spotifyTrackId: string | null
+  tidalTrackId: string | null
+  mediaSourceType: string | null
+  mediaSourceTrackId: string | null
 }
 
 export interface ShowDTO {
@@ -32,6 +67,10 @@ export interface ShowDTO {
   updatedAt: string
   segments?: ShowSegmentDTO[]
   tags?: TagDTO[]
+  /** Present when a room export row exists for this show (draft or published). */
+  roomExport?: RoomExportDTO | null
+  /** Ordered persisted tracks after publish continue; empty until then. */
+  roomPlaylistTracks?: RoomPlaylistTrackDTO[]
 }
 
 export interface SegmentDTO {
@@ -101,6 +140,10 @@ export interface UpdateShowRequest {
 
 export interface ReorderShowSegmentsRequest {
   segmentIds: string[]
+}
+
+export interface PublishShowFinalizeRequest {
+  markdown: string
 }
 
 export interface CreateSegmentRequest {

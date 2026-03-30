@@ -82,6 +82,23 @@ export interface RoomExportData {
   pluginExports?: Record<string, unknown>
 }
 
+/**
+ * Optional overrides for Markdown export YAML frontmatter (show publish, etc.).
+ * Unset fields fall back to room export data or are omitted.
+ */
+export interface RoomExportMarkdownFrontmatterOverrides {
+  title?: string
+  /** Calendar date YYYY-MM-DD */
+  date?: string
+  description?: string
+  tidalPlaylist?: string
+  spotifyPlaylist?: string
+}
+
+export interface RoomExportMarkdownOptions {
+  frontmatter?: RoomExportMarkdownFrontmatterOverrides
+}
+
 // =============================================================================
 // Plugin Export Augmentation Types
 // =============================================================================
