@@ -2,6 +2,21 @@ import { Router, Request, Response } from "express"
 import type { TagType } from "@repo/types"
 import * as scheduling from "../services/SchedulingService"
 
+/** Mounted at app level (before requireAdmin) for guest + platform-admin access. */
+export async function getSchedulingShowByIdHandler(req: Request, res: Response) {
+  try {
+    const show = await scheduling.findShowById(req.params.id)
+    if (!show) {
+      res.status(404).json({ error: "Show not found" })
+      return
+    }
+    res.json({ show })
+  } catch (error) {
+    console.error("Error fetching show:", error)
+    res.status(500).json({ error: "Failed to fetch show" })
+  }
+}
+
 export function createSchedulingRouter(): Router {
   const router = Router()
 
@@ -51,20 +66,6 @@ export function createSchedulingRouter(): Router {
     } catch (error) {
       console.error("Error creating show:", error)
       res.status(500).json({ error: "Failed to create show" })
-    }
-  })
-
-  router.get("/shows/:id", async (req: Request, res: Response) => {
-    try {
-      const show = await scheduling.findShowById(req.params.id)
-      if (!show) {
-        res.status(404).json({ error: "Show not found" })
-        return
-      }
-      res.json({ show })
-    } catch (error) {
-      console.error("Error fetching show:", error)
-      res.status(500).json({ error: "Failed to fetch show" })
     }
   })
 

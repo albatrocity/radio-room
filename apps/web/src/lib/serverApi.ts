@@ -25,8 +25,7 @@ export type CreateRoomParams = {
 }
 
 export async function createRoom({ room, challenge, userId }: CreateRoomParams) {
-  const res = await api.post(`rooms`, { json: { ...room, userId, challenge } }).json()
-  return res
+  return api.post(`rooms`, { json: { ...room, userId, challenge } }).json<RoomCreationResponse>()
 }
 
 export async function findRoom(id: Room["id"]) {

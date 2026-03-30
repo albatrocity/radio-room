@@ -46,6 +46,16 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
   })
 
   /**
+   * Activate a segment on the attached show (plugin preset apply mode: merge | replace | skip)
+   */
+  socket.on(
+    "SET_ACTIVE_SEGMENT",
+    async (data: { segmentId: string; presetMode: "merge" | "replace" | "skip" }) => {
+      await handlers.activateSegment(connections, data)
+    },
+  )
+
+  /**
    * Clear the room's playlist
    */
   socket.on("CLEAR_PLAYLIST", async () => {

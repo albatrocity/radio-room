@@ -34,6 +34,11 @@ export const createRoomFormMachine = setup({
       sessionStorage.setItem("createRoomTitle", context.title)
       sessionStorage.setItem("createRoomType", context.type)
       sessionStorage.setItem("createRoomDeputizeOnJoin", context.deputizeOnJoin.toString())
+      if (context.showId) {
+        sessionStorage.setItem("createRoomShowId", context.showId)
+      } else {
+        sessionStorage.removeItem("createRoomShowId")
+      }
       if (context.type === "radio") {
         sessionStorage.setItem("createRoomRadioProtocol", context.radioProtocol ?? "shoutcastv2")
         if (context.radioMetaUrl) {
@@ -62,6 +67,7 @@ export const createRoomFormMachine = setup({
   context: {
     type: "jukebox",
     title: "My Room",
+    showId: undefined as string | undefined,
     radioMetaUrl: "http://live.rcast.net:8678",
     radioListenUrl: "https://stream1.rcast.net/66341",
     radioProtocol: "shoutcastv2",

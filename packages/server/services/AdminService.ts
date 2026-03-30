@@ -8,6 +8,7 @@ import {
   findRoom,
   getUser,
   saveRoom,
+  hDelRoomDetailsFields,
   clearRoomPlaylist,
   removeFromPlaylist,
   addAdmin,
@@ -191,12 +192,30 @@ export class AdminService {
       ...omit(room, ["spotifyError", "radioError"]),
       ...omit(values, ["spotifyError", "radioError"]),
     }
+    if ("showId" in values && values.showId === null) {
+      delete (newSettings as { activeSegmentId?: string | null }).activeSegmentId
+    }
 
     const turningOffFetch = !newSettings.fetchMeta && room.fetchMeta
     const turningOnFetch = newSettings.fetchMeta && !room.fetchMeta
 
     // Save room settings FIRST so handleRoomNowPlayingData sees the correct fetchMeta value
     await saveRoom({ context: this.context, room: newSettings })
+
+    const scheduleFieldsToClear: string[] = []
+    if ("showId" in values && values.showId === null) {
+      scheduleFieldsToClear.push("showId", "activeSegmentId")
+    }
+    if ("activeSegmentId" in values && values.activeSegmentId === null) {
+      scheduleFieldsToClear.push("activeSegmentId")
+    }
+    if (scheduleFieldsToClear.length > 0) {
+      await hDelRoomDetailsFields({
+        context: this.context,
+        roomId,
+        fields: scheduleFieldsToClear,
+      })
+    }
 
     if (turningOffFetch || turningOnFetch) {
       const current = await clearRoomCurrent({ context: this.context, roomId: room.id })

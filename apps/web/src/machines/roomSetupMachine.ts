@@ -48,6 +48,7 @@ const createRoomLogic = fromPromise<RoomCreationResponse, RoomSetupContext>(
         playbackControllerId,
         metadataSourceIds,
         mediaSourceId,
+        ...(ctx.room?.showId ? { showId: ctx.room.showId } : {}),
       },
       challenge: ctx.challenge ?? "",
       userId: ctx.userId ?? "",
@@ -69,6 +70,7 @@ export const roomSetupMachine = setup({
       if (event.type !== "xstate.error.actor.createRoomRequest") return {}
       // Clear the creation flag on error so user can retry
       sessionStorage.removeItem("roomCreationInProgress")
+      sessionStorage.removeItem("createRoomShowId")
       return {
         error: String(event.error),
       }
@@ -90,6 +92,7 @@ export const roomSetupMachine = setup({
       sessionStorage.removeItem("createRoomradioMetaUrl")
       sessionStorage.removeItem("createRoomRadioListenUrl")
       sessionStorage.removeItem("createRoomRadioProtocol")
+      sessionStorage.removeItem("createRoomShowId")
       sessionStorage.removeItem("roomCreationInProgress")
       window.location.href = `/rooms/${event.output.room.id}`
     },
