@@ -13,7 +13,7 @@ import {
 } from "@chakra-ui/react"
 
 import Layout from "../components/layout"
-import { authApiUrl, authClient } from "@repo/auth/client"
+import { authApiUrl, authClient, setInviteCodeCookieForOAuth } from "@repo/auth/client"
 import { FcGoogle } from "react-icons/fc"
 
 async function authFetch(path: string, options?: RequestInit) {
@@ -86,7 +86,7 @@ function RegisterPage() {
 
   async function handleGoogleSignup() {
     if (inviteCode) {
-      await (authClient as any).inviteOnly.setInviteCodeCookie(inviteCode)
+      setInviteCodeCookieForOAuth(inviteCode)
     }
     await authClient.signIn.social({
       provider: "google",
