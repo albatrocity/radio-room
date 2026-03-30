@@ -39,7 +39,24 @@ export function SegmentColumn({ status, segments, onCardClick }: SegmentColumnPr
         </Text>
       </Heading>
       <ScrollArea.Root flex="1" minH={0} w="100%" overflow="hidden">
-        <ScrollArea.Viewport>
+        <ScrollArea.Viewport
+          css={{
+            "--scroll-shadow-size": "4rem",
+            maskImage: "linear-gradient(#000, #000)",
+            "&[data-overflow-y]": {
+              maskImage:
+                "linear-gradient(#000,#000,transparent 0,#000 var(--scroll-shadow-size),#000 calc(100% - var(--scroll-shadow-size)),transparent)",
+              "&[data-at-top]": {
+                maskImage:
+                  "linear-gradient(180deg,#000 calc(100% - var(--scroll-shadow-size)),transparent)",
+              },
+              "&[data-at-bottom]": {
+                maskImage:
+                  "linear-gradient(0deg,#000 calc(100% - var(--scroll-shadow-size)),transparent)",
+              },
+            },
+          }}
+        >
           <VStack gap={2} align="stretch" minH="100px">
             {segments.map((seg) => (
               <SegmentCard key={seg.id} segment={seg} onClick={() => onCardClick(seg)} />
