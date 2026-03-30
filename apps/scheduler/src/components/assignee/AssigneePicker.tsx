@@ -7,6 +7,8 @@ import { Avatar, Button, Menu, Text, HStack, Spinner, Box } from "@chakra-ui/rea
 export type AssigneePickerUser = {
   id: string
   name: string
+  /** Profile image URL (e.g. from OAuth); optional for minimal callers. */
+  image?: string | null
 }
 
 export interface AssigneePickerProps<TUser extends AssigneePickerUser = AssigneePickerUser> {
@@ -59,6 +61,9 @@ export function AssigneePicker<TUser extends AssigneePickerUser = AssigneePicker
             onClick={(e) => e.stopPropagation()}
           >
             <Avatar.Root size="2xs" colorPalette="gray">
+              {assignee?.image ? (
+                <Avatar.Image src={assignee.image} alt="" />
+              ) : null}
               <Avatar.Fallback name={assignee?.name} />
             </Avatar.Root>
           </Button>
@@ -98,6 +103,7 @@ export function AssigneePicker<TUser extends AssigneePickerUser = AssigneePicker
                   >
                     <HStack gap={2}>
                       <Avatar.Root size="2xs">
+                        {user.image ? <Avatar.Image src={user.image} alt="" /> : null}
                         <Avatar.Fallback name={user.name} />
                       </Avatar.Root>
                       <Text fontSize="sm" lineClamp={1}>
