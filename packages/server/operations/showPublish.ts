@@ -7,7 +7,7 @@ import {
   segment,
 } from "@repo/db"
 import { eq, and, inArray } from "drizzle-orm"
-import type { AppContext } from "@repo/types"
+import type { AppContext, RoomExportMarkdownOptions } from "@repo/types"
 import type { QueueItem } from "@repo/types/Queue"
 import type { RoomExportDTO, RoomExportPlaylistLinks } from "@repo/types"
 import * as scheduling from "../services/SchedulingService"
@@ -92,8 +92,6 @@ export async function prepareShowPublish(showId: string, context: AppContext) {
   }
 
   const playlistItems = await getRoomPlaylist({ context, roomId })
-  const exportService = new ExportService(context)
-  const markdown = await exportService.exportRoom(roomId, "markdown")
 
   const adapterService = new AdapterService(context)
   const djService = new DJService(context)
@@ -101,30 +99,51 @@ export async function prepareShowPublish(showId: string, context: AppContext) {
   const playlistTitle = `${showRecord.title} (Listening Room)`
 
   for (const svc of ["spotify", "tidal"] as const) {
-    const metadataSource = await adapterService.getMetadataSourceForUser(roomId, room.creator, svc)
-    if (!metadataSource?.api?.createPlaylist) {
-      continue
-    }
-    const trackIds = playlistItems
-      .map((item: QueueItem) => extractServiceTrackId(item, svc))
-      .filter((id: string | null): id is string => !!id)
-    if (trackIds.length === 0) {
-      continue
-    }
-    const result = await djService.savePlaylist(
-      metadataSource,
-      room.creator,
-      playlistTitle,
-      trackIds,
-    )
-    if (result.success && result.data) {
-      playlistLinks[svc] = {
-        id: result.data.id,
-        url: result.data.url,
-        title: result.data.title,
+    try {
+      const metadataSource = await adapterService.getMetadataSourceForUser(roomId, room.creator, svc)
+      if (!metadataSource?.api?.createPlaylist) {
+        continue
       }
+      const trackIds = playlistItems
+        .map((item: QueueItem) => extractServiceTrackId(item, svc))
+        .filter((id: string | null): id is string => !!id)
+      if (trackIds.length === 0) {
+        continue
+      }
+      const result = await djService.savePlaylist(
+        metadataSource,
+        room.creator,
+        playlistTitle,
+        trackIds,
+      )
+      if (result.success && result.data) {
+        playlistLinks[svc] = {
+          id: result.data.id,
+          url: result.data.url,
+          title: result.data.title,
+        }
+      }
+    } catch (error) {
+      console.warn("[prepareShowPublish] playlist creation failed (continuing without)", {
+        showId,
+        roomId,
+        service: svc,
+        error,
+      })
     }
   }
+
+  const exportService = new ExportService(context)
+  const markdownOptions: RoomExportMarkdownOptions = {
+    frontmatter: {
+      title: showRecord.title,
+      date: showRecord.startTime.toISOString().slice(0, 10),
+      description: showRecord.description?.trim() ?? "",
+      ...(playlistLinks.tidal?.url ? { tidalPlaylist: playlistLinks.tidal.url } : {}),
+      ...(playlistLinks.spotify?.url ? { spotifyPlaylist: playlistLinks.spotify.url } : {}),
+    },
+  }
+  const markdown = await exportService.exportRoom(roomId, "markdown", markdownOptions)
 
   const now = new Date()
   const [existing] = await db.select().from(roomExport).where(eq(roomExport.showId, showId)).limit(1)

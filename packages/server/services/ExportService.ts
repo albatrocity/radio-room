@@ -3,8 +3,7 @@ import type {
   RoomExportData,
   RoomExportInfo,
   ExportFormat,
-  PluginExportAugmentation,
-  ReactionStore,
+  RoomExportMarkdownOptions,
 } from "@repo/types"
 import {
   findRoom,
@@ -30,9 +29,14 @@ export class ExportService {
    * Export room data in the specified format.
    * @param roomId - The room to export
    * @param format - Output format (json or markdown)
+   * @param markdownOptions - Optional YAML frontmatter overrides (markdown only)
    * @returns Formatted export data as string
    */
-  async exportRoom(roomId: string, format: ExportFormat): Promise<string> {
+  async exportRoom(
+    roomId: string,
+    format: ExportFormat,
+    markdownOptions?: RoomExportMarkdownOptions,
+  ): Promise<string> {
     // Build the canonical export data
     const exportData = await this.buildExportData(roomId)
 
@@ -51,6 +55,7 @@ export class ExportService {
         pluginAugmentations.markdownSections,
         this.context.pluginRegistry,
         roomId,
+        markdownOptions,
       )
     }
 
