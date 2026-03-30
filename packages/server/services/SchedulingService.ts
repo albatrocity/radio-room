@@ -1,6 +1,7 @@
-import { db, show, segment, tag, showSegment, segmentTag, showTag } from "@repo/db"
-import { eq, and, ilike, gte, lte, inArray, sql, exists, notExists } from "drizzle-orm"
+import { db, show, segment, tag, showSegment, segmentTag, showTag, user } from "@repo/db"
+import { eq, and, or, isNull, ilike, gte, lte, inArray, sql, exists, notExists } from "drizzle-orm"
 import type {
+  SchedulingAdminUserDTO,
   ShowFilters,
   SegmentFilters,
   CreateShowRequest,
@@ -10,6 +11,49 @@ import type {
   CreateTagRequest,
   TagType,
 } from "@repo/types"
+
+export class SchedulingBadRequestError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "SchedulingBadRequestError"
+  }
+}
+
+const segmentRelationalWith = {
+  segmentTags: { with: { tag: true } },
+  assignee: { columns: { id: true, name: true, image: true } },
+} as const
+
+function assigneeFields(
+  assignedTo: string | null | undefined,
+  assigneeRel: { id: string; name: string; image: string | null } | null | undefined,
+): { assignedTo: string | null; assignee: SchedulingAdminUserDTO | null } {
+  const at = assignedTo ?? null
+  if (!at) return { assignedTo: null, assignee: null }
+  if (assigneeRel)
+    return {
+      assignedTo: at,
+      assignee: {
+        id: assigneeRel.id,
+        name: assigneeRel.name,
+        image: assigneeRel.image,
+      },
+    }
+  return { assignedTo: at, assignee: { id: at, name: "", image: null } }
+}
+
+function mapSegmentRow(row: {
+  segmentTags: { tag: typeof tag.$inferSelect }[]
+  assignee?: { id: string; name: string; image: string | null } | null
+  assignedTo: string | null
+}) {
+  const { segmentTags, assignee, ...rest } = row
+  return {
+    ...rest,
+    tags: segmentTags.map((st) => st.tag),
+    ...assigneeFields(rest.assignedTo ?? null, assignee),
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Shows
@@ -52,7 +96,7 @@ export async function findShowById(id: string) {
     where: eq(show.id, id),
     with: {
       showSegments: {
-        with: { segment: { with: { segmentTags: { with: { tag: true } } } } },
+        with: { segment: { with: segmentRelationalWith } },
         orderBy: (ss, { asc }) => [asc(ss.position)],
       },
       showTags: { with: { tag: true } },
@@ -69,10 +113,7 @@ export async function findShowById(id: string) {
       segmentId: ss.segmentId,
       position: ss.position,
       durationOverride: ss.durationOverride ?? null,
-      segment: {
-        ...ss.segment,
-        tags: ss.segment.segmentTags.map((st) => st.tag),
-      },
+      segment: mapSegmentRow(ss.segment),
     })),
   }
 }
@@ -228,23 +269,18 @@ export async function findSegments(filters: SegmentFilters = {}) {
 
   const rows = await db.query.segment.findMany({
     where: conditions.length > 0 ? and(...conditions) : undefined,
-    with: {
-      segmentTags: { with: { tag: true } },
-    },
+    with: segmentRelationalWith,
     orderBy: (s, { desc }) => [desc(s.createdAt)],
   })
 
-  return rows.map((row) => ({
-    ...row,
-    tags: row.segmentTags.map((st) => st.tag),
-  }))
+  return rows.map((row) => mapSegmentRow(row))
 }
 
 export async function findSegmentById(id: string) {
   const row = await db.query.segment.findFirst({
     where: eq(segment.id, id),
     with: {
-      segmentTags: { with: { tag: true } },
+      ...segmentRelationalWith,
       showSegments: {
         with: {
           show: { columns: { id: true, title: true, startTime: true, status: true } },
@@ -255,15 +291,15 @@ export async function findSegmentById(id: string) {
 
   if (!row) return null
 
+  const { showSegments, ...segmentPart } = row
   return {
-    ...row,
-    tags: row.segmentTags.map((st) => st.tag),
-    shows: row.showSegments.map((ss) => ss.show),
+    ...mapSegmentRow(segmentPart),
+    shows: showSegments.map((ss) => ss.show),
   }
 }
 
 export async function createSegment(data: CreateSegmentRequest, createdBy: string) {
-  return db.transaction(async (tx) => {
+  const newId = await db.transaction(async (tx) => {
     const [row] = await tx
       .insert(segment)
       .values({
@@ -281,12 +317,16 @@ export async function createSegment(data: CreateSegmentRequest, createdBy: strin
       await tx.insert(segmentTag).values(data.tagIds.map((tagId) => ({ segmentId: row.id, tagId })))
     }
 
-    return row
+    return row.id
   })
+
+  const created = await findSegmentById(newId)
+  if (!created) throw new Error("Segment not found after create")
+  return created
 }
 
 export async function updateSegment(id: string, data: UpdateSegmentRequest) {
-  return db.transaction(async (tx) => {
+  const updated = await db.transaction(async (tx) => {
     const values: Record<string, unknown> = { updatedAt: new Date() }
 
     if (data.title !== undefined) values.title = data.title
@@ -295,6 +335,25 @@ export async function updateSegment(id: string, data: UpdateSegmentRequest) {
     if (data.duration !== undefined) values.duration = data.duration
     if (data.pluginPreset !== undefined) values.pluginPreset = data.pluginPreset
     if (data.status !== undefined) values.status = data.status
+
+    if (data.assignedTo !== undefined) {
+      if (data.assignedTo === null) {
+        values.assignedTo = null
+      } else {
+        const adminUser = await tx.query.user.findFirst({
+          where: and(
+            eq(user.id, data.assignedTo),
+            eq(user.role, "admin"),
+            or(isNull(user.banned), eq(user.banned, false)),
+          ),
+          columns: { id: true },
+        })
+        if (!adminUser) {
+          throw new SchedulingBadRequestError("assignedTo must be an active admin user id")
+        }
+        values.assignedTo = data.assignedTo
+      }
+    }
 
     const [row] = await tx.update(segment).set(values).where(eq(segment.id, id)).returning()
     if (!row) return null
@@ -308,11 +367,23 @@ export async function updateSegment(id: string, data: UpdateSegmentRequest) {
 
     return row
   })
+
+  if (!updated) return null
+  return findSegmentById(id)
 }
 
 export async function deleteSegment(id: string) {
   const [row] = await db.delete(segment).where(eq(segment.id, id)).returning()
   return row ?? null
+}
+
+export async function findSchedulingAdmins(): Promise<SchedulingAdminUserDTO[]> {
+  const rows = await db.query.user.findMany({
+    where: and(eq(user.role, "admin"), or(isNull(user.banned), eq(user.banned, false))),
+    columns: { id: true, name: true, image: true },
+    orderBy: (u, { asc }) => [asc(u.name)],
+  })
+  return rows.map((r) => ({ id: r.id, name: r.name, image: r.image }))
 }
 
 // ---------------------------------------------------------------------------

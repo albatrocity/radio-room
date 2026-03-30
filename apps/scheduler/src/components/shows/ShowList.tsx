@@ -69,7 +69,7 @@ export function ShowList() {
   }
 
   return (
-    <Box>
+    <Box flex="1" minH="0" overflow="auto">
       <HStack justify="space-between" mb={4}>
         <Heading size="lg">Shows</Heading>
         <Button colorPalette="blue" size="sm" onClick={() => setCreateOpen(true)}>

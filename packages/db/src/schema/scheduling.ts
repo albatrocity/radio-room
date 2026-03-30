@@ -56,6 +56,8 @@ export const segment = pgTable("segment", {
   createdBy: text("created_by")
     .notNull()
     .references(() => user.id),
+  /** Platform admin responsible for the segment (nullable). */
+  assignedTo: text("assigned_to").references(() => user.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
@@ -127,7 +129,8 @@ export const showRelations = relations(show, ({ many }) => ({
   showTags: many(showTag),
 }))
 
-export const segmentRelations = relations(segment, ({ many }) => ({
+export const segmentRelations = relations(segment, ({ one, many }) => ({
+  assignee: one(user, { fields: [segment.assignedTo], references: [user.id] }),
   showSegments: many(showSegment),
   segmentTags: many(segmentTag),
 }))

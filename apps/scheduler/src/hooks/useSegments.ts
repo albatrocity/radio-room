@@ -7,13 +7,18 @@ import type {
   SegmentFilters,
   CreateSegmentRequest,
   UpdateSegmentRequest,
+  SchedulingAdminUserDTO,
 } from "@repo/types"
 import { toaster } from "../components/ui/toaster"
 
-function updateRequestToDtoPatch(
-  variables: { id: string } & UpdateSegmentRequest,
-): Partial<SegmentDTO> {
-  const { id: _id, ...req } = variables
+export type UpdateSegmentMutationVariables = UpdateSegmentRequest & {
+  id: string
+  /** Used only for optimistic cache when setting `assignedTo` to a user id. */
+  optimisticAssignee?: SchedulingAdminUserDTO | null
+}
+
+function updateRequestToDtoPatch(variables: UpdateSegmentMutationVariables): Partial<SegmentDTO> {
+  const { id: _id, optimisticAssignee, ...req } = variables
   const patch: Partial<SegmentDTO> = {}
   if (req.title !== undefined) patch.title = req.title
   if (req.description !== undefined) patch.description = req.description
@@ -21,6 +26,14 @@ function updateRequestToDtoPatch(
   if (req.duration !== undefined) patch.duration = req.duration
   if (req.pluginPreset !== undefined) patch.pluginPreset = req.pluginPreset
   if (req.status !== undefined) patch.status = req.status
+  if (req.assignedTo !== undefined) {
+    patch.assignedTo = req.assignedTo
+    if (req.assignedTo === null) {
+      patch.assignee = null
+    } else if (optimisticAssignee !== undefined) {
+      patch.assignee = optimisticAssignee
+    }
+  }
   return patch
 }
 
@@ -85,7 +98,7 @@ type UpdateSegmentContext = {
 export function useUpdateSegment() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: UpdateSegmentRequest & { id: string }) =>
+    mutationFn: ({ id, optimisticAssignee: _a, ...data }: UpdateSegmentMutationVariables) =>
       api.updateSegment(id, data),
     onMutate: async (variables): Promise<UpdateSegmentContext> => {
       await queryClient.cancelQueries({ queryKey: queryKeys.segments.all })
@@ -130,6 +143,7 @@ export function useUpdateSegment() {
     },
     onSettled: (_data, _err, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.segments.all })
+      queryClient.invalidateQueries({ queryKey: queryKeys.shows.all })
       if (variables) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.segments.detail(variables.id),

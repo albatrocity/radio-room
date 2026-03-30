@@ -5,6 +5,16 @@ import * as scheduling from "../services/SchedulingService"
 export function createSchedulingRouter(): Router {
   const router = Router()
 
+  router.get("/admins", async (_req: Request, res: Response) => {
+    try {
+      const users = await scheduling.findSchedulingAdmins()
+      res.json({ users })
+    } catch (error) {
+      console.error("Error listing scheduling admins:", error)
+      res.status(500).json({ error: "Failed to list admins" })
+    }
+  })
+
   // =========================================================================
   // Shows
   // =========================================================================
@@ -194,6 +204,10 @@ export function createSchedulingRouter(): Router {
       }
       res.json({ segment })
     } catch (error) {
+      if (error instanceof scheduling.SchedulingBadRequestError) {
+        res.status(400).json({ error: error.message })
+        return
+      }
       console.error("Error updating segment:", error)
       res.status(500).json({ error: "Failed to update segment" })
     }

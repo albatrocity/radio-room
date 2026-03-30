@@ -3,6 +3,7 @@ import { z } from "zod"
 import { zodSearchValidator } from "@tanstack/router-zod-adapter"
 import { zStringArray } from "../lib/searchParams"
 import { SegmentKanban } from "../components/segments/SegmentKanban"
+import { ManagedOverflowContainer } from "../components/layout/ManagedOverflowContainer"
 
 const segmentsSearchSchema = z.object({
   tags: zStringArray,
@@ -15,5 +16,9 @@ export const Route = createFileRoute("/segments")({
 })
 
 function SegmentsPage() {
-  return <SegmentKanban />
+  return (
+    <ManagedOverflowContainer>
+      <SegmentKanban />
+    </ManagedOverflowContainer>
+  )
 }

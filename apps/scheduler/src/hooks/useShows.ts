@@ -50,7 +50,11 @@ function buildOptimisticShowSegments(
       segmentId,
       position: index,
       durationOverride: null,
-      segment: fromCache,
+      segment: {
+        ...fromCache,
+        assignedTo: fromCache.assignedTo ?? null,
+        assignee: fromCache.assignee ?? null,
+      },
     })
   }
   return next

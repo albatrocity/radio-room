@@ -11,6 +11,7 @@ import type {
   ShowFilters,
   SegmentFilters,
   TagType,
+  SchedulingAdminUserDTO,
 } from "@repo/types"
 
 const API_URL = import.meta.env.VITE_API_URL || ""
@@ -114,6 +115,16 @@ export async function updateSegment(id: string, body: UpdateSegmentRequest): Pro
 
 export async function deleteSegment(id: string): Promise<void> {
   await api.delete(`api/scheduling/segments/${id}`)
+}
+
+// ---------------------------------------------------------------------------
+// Scheduling admins (assignee picker)
+// ---------------------------------------------------------------------------
+
+export async function fetchSchedulingAdmins(): Promise<SchedulingAdminUserDTO[]> {
+  const res = await api.get("api/scheduling/admins")
+  const data = await res.json<{ users: SchedulingAdminUserDTO[] }>()
+  return data.users
 }
 
 // ---------------------------------------------------------------------------

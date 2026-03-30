@@ -12,6 +12,13 @@ export type TagType = "segment" | "show"
 // Entity DTOs (API responses)
 // ---------------------------------------------------------------------------
 
+/** Platform admin user summary for scheduling UI (assignee picker, avatars). */
+export interface SchedulingAdminUserDTO {
+  id: string
+  name: string
+  image: string | null
+}
+
 export interface ShowDTO {
   id: string
   title: string
@@ -37,6 +44,8 @@ export interface SegmentDTO {
   pluginPreset: PluginPreset | null
   status: SegmentStatus
   createdBy: string
+  assignedTo: string | null
+  assignee: SchedulingAdminUserDTO | null
   createdAt: string
   updatedAt: string
   tags?: TagDTO[]
@@ -114,6 +123,8 @@ export interface UpdateSegmentRequest {
   pluginPreset?: PluginPreset | null
   status?: SegmentStatus
   tagIds?: string[]
+  /** Set to a platform admin user id, or `null` to clear assignee. */
+  assignedTo?: string | null
 }
 
 export interface CreateTagRequest {

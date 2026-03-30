@@ -2,7 +2,17 @@ import { useCallback, useMemo } from "react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { z } from "zod"
 import { zodSearchValidator } from "@tanstack/router-zod-adapter"
-import { Box, Button, Flex, Heading, HStack, Text, Badge, Spinner } from "@chakra-ui/react"
+import {
+  Box,
+  Button,
+  Flex,
+  Heading,
+  HStack,
+  Text,
+  Badge,
+  Spinner,
+  AbsoluteCenter,
+} from "@chakra-ui/react"
 import { DragDropProvider, DragOverlay, type DragEndEvent } from "@dnd-kit/react"
 import { isSortable } from "@dnd-kit/react/sortable"
 import { move } from "@dnd-kit/helpers"
@@ -23,6 +33,7 @@ import { SegmentBrowser } from "../../components/shows/SegmentBrowser"
 import { SegmentBrowserCard } from "../../components/shows/SegmentBrowserCard"
 import { TagCombobox } from "../../components/tags/TagCombobox"
 import { zSearchBoolean, zStringArray } from "../../lib/searchParams"
+import { PageContent } from "../../components/layout/PageContent"
 
 const showDetailSearchSchema = z.object({
   segSearch: z.string().optional(),
@@ -150,153 +161,159 @@ function ShowDetailPage() {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" p={8}>
-        <Spinner />
-      </Box>
+      <PageContent>
+        <AbsoluteCenter>
+          <Spinner />
+        </AbsoluteCenter>
+      </PageContent>
     )
   }
 
   if (!show) {
     return (
-      <Box p={8}>
-        <Text>Show not found.</Text>
-        <Link to="/shows">Back to shows</Link>
-      </Box>
+      <PageContent>
+        <Box p={8} flex="1" minH="0" overflow="auto">
+          <Text>Show not found.</Text>
+          <Link to="/shows">Back to shows</Link>
+        </Box>
+      </PageContent>
     )
   }
 
   return (
-    <Box>
-      <HStack mb={4}>
-        <Link to="/shows">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft size={16} />
-            Shows
-          </Button>
-        </Link>
-      </HStack>
-
-      <Flex gap={6} direction={{ base: "column", lg: "row" }}>
-        {/* Left: Show info + timeline */}
-        <Box flex="1">
-          <HStack justify="space-between" mb={2}>
-            <Heading size="lg">{show.title}</Heading>
-            <Badge colorPalette={STATUS_COLORS[show.status]} size="md">
-              {show.status}
-            </Badge>
-          </HStack>
-
-          <HStack gap={4} mb={4}>
-            <select
-              value={show.status}
-              onChange={(e) =>
-                updateShow.mutate({ id: showId, status: e.target.value as ShowStatus })
-              }
-              style={{
-                padding: "4px 8px",
-                borderRadius: "6px",
-                border: "1px solid var(--chakra-colors-border-muted)",
-                background: "var(--chakra-colors-bg-panel)",
-                color: "inherit",
-                fontSize: "14px",
-              }}
-            >
-              {STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <Text fontSize="sm" color="fg.muted">
-              {new Date(show.startTime).toLocaleDateString(undefined, {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}{" "}
-              {new Date(show.startTime).toLocaleTimeString(undefined, {
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-              {show.endTime && (
-                <>
-                  {" - "}
-                  {new Date(show.endTime).toLocaleTimeString(undefined, {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </>
-              )}
-            </Text>
-            <Text fontSize="sm" color="fg.muted">
-              Estimated from segments:{" "}
-              <Text as="span" fontWeight="medium" color="fg">
-                {formatDurationMinutes(estimatedTotalMinutes)}
-              </Text>
-            </Text>
-          </HStack>
-
-          {show.description && (
-            <Text fontSize="sm" color="fg.muted" mb={4}>
-              {show.description}
-            </Text>
-          )}
-
-          <Box mb={6} maxW="md">
-            <TagCombobox
-              tagType="show"
-              value={(show.tags ?? []).map((t) => t.id)}
-              onValueChange={(tagIds) => updateShow.mutate({ id: showId, tagIds })}
-              disabled={updateShow.isPending}
-            />
-          </Box>
-
-          <Heading size="md" mb={3}>
-            Segments
-          </Heading>
-
-          <DragDropProvider onDragEnd={handleDragEnd}>
-            <Flex gap={6} direction={{ base: "column", lg: "row" }}>
-              <Box flex="1">
-                <ShowTimeline
-                  segments={show.segments ?? []}
-                  showStartTime={show.startTime}
-                  onRemove={handleRemoveSegment}
-                  onDurationCommit={handleDurationCommit}
-                />
-              </Box>
-              <Box w={{ base: "100%", lg: "320px" }} flexShrink={0}>
-                <SegmentBrowser
-                  excludeSegmentIds={currentSegmentIds}
-                  onAddSegmentToShowEnd={handleAddSegmentToShowEnd}
-                  isAddToShowPending={reorderSegments.isPending}
-                />
-              </Box>
-            </Flex>
-            <DragOverlay dropAnimation={null}>
-              {(source) => {
-                const seg = segmentFromDragSource(source)
-                return seg ? <SegmentBrowserCard segment={seg} isDragOverlay /> : null
-              }}
-            </DragOverlay>
-          </DragDropProvider>
-
-          <Box mt={8}>
-            <Button
-              variant="outline"
-              colorPalette="red"
-              size="sm"
-              onClick={async () => {
-                await deleteShow.mutateAsync(showId)
-                window.location.href = "/shows"
-              }}
-              loading={deleteShow.isPending}
-            >
-              Delete Show
+    <PageContent>
+      <Box flex="1" minH="0" overflow="auto">
+        <HStack mb={4}>
+          <Link to="/shows">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft size={16} />
+              Shows
             </Button>
+          </Link>
+        </HStack>
+
+        <Flex gap={6} direction={{ base: "column", lg: "row" }}>
+          {/* Left: Show info + timeline */}
+          <Box flex="1">
+            <HStack justify="space-between" mb={2}>
+              <Heading size="lg">{show.title}</Heading>
+              <Badge colorPalette={STATUS_COLORS[show.status]} size="md">
+                {show.status}
+              </Badge>
+            </HStack>
+
+            <HStack gap={4} mb={4}>
+              <select
+                value={show.status}
+                onChange={(e) =>
+                  updateShow.mutate({ id: showId, status: e.target.value as ShowStatus })
+                }
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: "6px",
+                  border: "1px solid var(--chakra-colors-border-muted)",
+                  background: "var(--chakra-colors-bg-panel)",
+                  color: "inherit",
+                  fontSize: "14px",
+                }}
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <Text fontSize="sm" color="fg.muted">
+                {new Date(show.startTime).toLocaleDateString(undefined, {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                })}{" "}
+                {new Date(show.startTime).toLocaleTimeString(undefined, {
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+                {show.endTime && (
+                  <>
+                    {" - "}
+                    {new Date(show.endTime).toLocaleTimeString(undefined, {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </>
+                )}
+              </Text>
+              <Text fontSize="sm" color="fg.muted">
+                Estimated from segments:{" "}
+                <Text as="span" fontWeight="medium" color="fg">
+                  {formatDurationMinutes(estimatedTotalMinutes)}
+                </Text>
+              </Text>
+            </HStack>
+
+            {show.description && (
+              <Text fontSize="sm" color="fg.muted" mb={4}>
+                {show.description}
+              </Text>
+            )}
+
+            <Box mb={6} maxW="md">
+              <TagCombobox
+                tagType="show"
+                value={(show.tags ?? []).map((t) => t.id)}
+                onValueChange={(tagIds) => updateShow.mutate({ id: showId, tagIds })}
+                disabled={updateShow.isPending}
+              />
+            </Box>
+
+            <Heading size="md" mb={3}>
+              Segments
+            </Heading>
+
+            <DragDropProvider onDragEnd={handleDragEnd}>
+              <Flex gap={6} direction={{ base: "column", lg: "row" }}>
+                <Box flex="1">
+                  <ShowTimeline
+                    segments={show.segments ?? []}
+                    showStartTime={show.startTime}
+                    onRemove={handleRemoveSegment}
+                    onDurationCommit={handleDurationCommit}
+                  />
+                </Box>
+                <Box w={{ base: "100%", lg: "320px" }} flexShrink={0}>
+                  <SegmentBrowser
+                    excludeSegmentIds={currentSegmentIds}
+                    onAddSegmentToShowEnd={handleAddSegmentToShowEnd}
+                    isAddToShowPending={reorderSegments.isPending}
+                  />
+                </Box>
+              </Flex>
+              <DragOverlay dropAnimation={null}>
+                {(source) => {
+                  const seg = segmentFromDragSource(source)
+                  return seg ? <SegmentBrowserCard segment={seg} isDragOverlay /> : null
+                }}
+              </DragOverlay>
+            </DragDropProvider>
+
+            <Box mt={8}>
+              <Button
+                variant="outline"
+                colorPalette="red"
+                size="sm"
+                onClick={async () => {
+                  await deleteShow.mutateAsync(showId)
+                  window.location.href = "/shows"
+                }}
+                loading={deleteShow.isPending}
+              >
+                Delete Show
+              </Button>
+            </Box>
           </Box>
-        </Box>
-      </Flex>
-    </Box>
+        </Flex>
+      </Box>
+    </PageContent>
   )
 }

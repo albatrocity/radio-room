@@ -12,6 +12,7 @@ import {
   Tag,
   Input,
 } from "@chakra-ui/react"
+import { SegmentAssigneePicker } from "../segments/SegmentAssigneePicker"
 import { useDragOperation, useDroppable } from "@dnd-kit/react"
 import { isSortable, useSortable } from "@dnd-kit/react/sortable"
 import { GripVertical, Repeat, Trash2 } from "lucide-react"
@@ -217,10 +218,15 @@ function TimelineItem({
 
       <Timeline.Content>
         <Timeline.Title>
-          <HStack gap={2} justify="space-between" w="100%">
-            {seg.title}
+          <HStack gap={2} justify="space-between" w="100%" align="center">
+            <HStack gap={2} minW={0} flex={1} align="center">
+              <SegmentAssigneePicker segment={seg} />
+              <Text as="span" lineClamp={1}>
+                {seg.title}
+              </Text>
+            </HStack>
             {seg.isRecurring && (
-              <Icon color="fg.muted" asChild>
+              <Icon color="fg.muted" asChild flexShrink={0}>
                 <Repeat size={14} />
               </Icon>
             )}
