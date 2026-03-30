@@ -1,6 +1,27 @@
 import type { MouseEvent, PointerEvent } from "react"
 import { Avatar, Button, Menu, Text, HStack, Spinner, Box, Portal } from "@chakra-ui/react"
 
+/** Palettes for avatar fallbacks — excludes gray so unassigned trigger stays visually distinct. */
+const ASSIGNEE_AVATAR_PALETTES = [
+  "blue",
+  "cyan",
+  "teal",
+  "green",
+  "purple",
+  "pink",
+  "orange",
+  "red",
+] as const
+
+function colorPaletteForUserId(userId: string): (typeof ASSIGNEE_AVATAR_PALETTES)[number] {
+  let h = 0
+  for (let i = 0; i < userId.length; i++) {
+    h = (Math.imul(31, h) + userId.charCodeAt(i)) | 0
+  }
+  const idx = Math.abs(h) % ASSIGNEE_AVATAR_PALETTES.length
+  return ASSIGNEE_AVATAR_PALETTES[idx]!
+}
+
 /**
  * Minimal admin / assignee row for the picker list and optimistic updates.
  * Callers can use {@link SchedulingAdminUserDTO} from `@repo/types`.
@@ -66,7 +87,10 @@ export function AssigneePicker<TUser extends AssigneePickerUser = AssigneePicker
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
-            <Avatar.Root size="2xs" colorPalette="gray">
+            <Avatar.Root
+              size="2xs"
+              colorPalette={assignee ? colorPaletteForUserId(assignee.id) : "gray"}
+            >
               {assignee?.image ? <Avatar.Image src={assignee.image} alt="" /> : null}
               <Avatar.Fallback name={assignee?.name} />
             </Avatar.Root>
@@ -110,7 +134,7 @@ export function AssigneePicker<TUser extends AssigneePickerUser = AssigneePicker
                       bg={assignedUserId === user.id ? "bg.subtle" : undefined}
                     >
                       <HStack gap={2}>
-                        <Avatar.Root size="2xs">
+                        <Avatar.Root size="2xs" colorPalette={colorPaletteForUserId(user.id)}>
                           {user.image ? <Avatar.Image src={user.image} alt="" /> : null}
                           <Avatar.Fallback name={user.name} />
                         </Avatar.Root>
