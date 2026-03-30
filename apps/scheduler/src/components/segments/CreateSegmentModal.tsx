@@ -1,8 +1,9 @@
 import { Box, Button, Fieldset, HStack, Input, Textarea } from "@chakra-ui/react"
 import { useForm } from "@tanstack/react-form"
 import { useCreateSegment } from "../../hooks/useSegments"
-import type { SegmentStatus } from "@repo/types"
+import type { PluginPreset, SegmentStatus } from "@repo/types"
 import { TagCombobox } from "../tags/TagCombobox"
+import { SegmentPluginPresetEditor } from "./SegmentPluginPresetEditor"
 import {
   SchedulingDialogRoot,
   DialogContent,
@@ -29,6 +30,7 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
       isRecurring: false,
       status: "draft" as SegmentStatus,
       tagIds: [] as string[],
+      pluginPreset: null as PluginPreset | null,
     },
     onSubmit: async ({ value }) => {
       const raw = value.durationMinutes.trim()
@@ -44,6 +46,7 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
         isRecurring: value.isRecurring,
         status: value.status,
         tagIds: value.tagIds,
+        pluginPreset: value.pluginPreset,
       })
       onClose()
     },
@@ -145,6 +148,16 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
                         value={field.state.value}
                         onValueChange={field.handleChange}
                         insideOverlay
+                      />
+                    )}
+                  </form.Field>
+                </Box>
+                <Box mb={4}>
+                  <form.Field name="pluginPreset">
+                    {(field) => (
+                      <SegmentPluginPresetEditor
+                        value={field.state.value}
+                        onChange={field.handleChange}
                       />
                     )}
                   </form.Field>
