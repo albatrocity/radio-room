@@ -91,6 +91,7 @@ function RegisterPage() {
     await authClient.signIn.social({
       provider: "google",
       callbackURL: `${window.location.origin}/admin`,
+      requestSignUp: true,
     })
   }
 

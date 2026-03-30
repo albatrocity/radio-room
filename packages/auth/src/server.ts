@@ -3,7 +3,9 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { admin } from "better-auth/plugins"
 import { toNodeHandler } from "better-auth/node"
 import { inviteOnly } from "better-auth-invitation-only"
-import { db } from "@repo/db"
+import { eq } from "drizzle-orm"
+import { db, user as userTable } from "@repo/db"
+import { oauthCallbackInviteAfterHook } from "./oauthInviteAfterHook"
 
 function trimOrigin(url: string): string {
   return url.replace(/\/$/, "")
@@ -32,6 +34,9 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
   baseURL: authBaseURL,
   basePath: "/api/auth",
+  hooks: {
+    after: oauthCallbackInviteAfterHook(),
+  },
   trustedOrigins: [
     "http://127.0.0.1:8000",
     "http://127.0.0.1:8001",
@@ -53,8 +58,11 @@ export const auth = betterAuth({
       enabled: () => process.env.SEED_MODE !== "true",
       baseUrl: process.env.APP_URL || "http://127.0.0.1:8000",
       expiresInSeconds: 7 * 24 * 60 * 60,
-      onInvitationUsed: async () => {
-        // Invitation consumed; admin must manually promote user role if needed
+      onInvitationUsed: async ({ user }) => {
+        await db
+          .update(userTable)
+          .set({ role: "admin", updatedAt: new Date() })
+          .where(eq(userTable.id, user.id))
       },
     }),
   ],
