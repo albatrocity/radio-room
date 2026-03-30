@@ -32,6 +32,7 @@ import { formatDurationMinutes, totalEstimatedMinutes } from "../../lib/showDura
 import { ShowTimeline } from "../../components/shows/ShowTimeline"
 import { SegmentBrowser } from "../../components/shows/SegmentBrowser"
 import { SegmentBrowserCard } from "../../components/shows/SegmentBrowserCard"
+import { StreamingPlaylistButtons } from "../../components/shows/StreamingPlaylistButtons"
 import { TagCombobox } from "../../components/tags/TagCombobox"
 import { zSearchBoolean, zStringArray } from "../../lib/searchParams"
 import { PageContent } from "../../components/layout/PageContent"
@@ -341,6 +342,7 @@ function ShowDetailPage() {
                 <Heading size="sm" mb={2}>
                   Room archive
                 </Heading>
+                <StreamingPlaylistButtons playlistLinks={show.roomExport.playlistLinks} />
                 <Text fontSize="xs" color="fg.muted" whiteSpace="pre-wrap" lineClamp={12} mb={3}>
                   {show.roomExport.markdown}
                 </Text>

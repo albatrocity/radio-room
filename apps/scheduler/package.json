@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "type": "module",
   "dependencies": {
+    "@bytemd/plugin-frontmatter": "^1.22.0",
     "@bytemd/plugin-gfm": "^1.22.0",
     "@bytemd/plugin-highlight": "^1.22.0",
     "@bytemd/react": "^1.22.0",

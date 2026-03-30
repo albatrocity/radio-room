@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react"
 import { Editor, Viewer } from "@bytemd/react"
 import gfm from "@bytemd/plugin-gfm"
 import highlight from "@bytemd/plugin-highlight"
+import frontmatter from "@bytemd/plugin-frontmatter"
 import { Box, Flex, ScrollArea } from "@chakra-ui/react"
 import { Prose } from "../ui/prose"
 import "bytemd/dist/index.css"
@@ -17,7 +18,7 @@ type Props = {
  * Stored artifact is raw Markdown (sanitize on read in archive apps).
  */
 export function MarkdownEditor({ value, onChange }: Props) {
-  const plugins = useMemo(() => [gfm(), highlight()], [])
+  const plugins = useMemo(() => [gfm(), highlight(), frontmatter()], [])
   /** Preview is rendered beside the editor; hide ByteMD's built-in preview pane */
   const overridePreview = useCallback(() => {}, [])
 
