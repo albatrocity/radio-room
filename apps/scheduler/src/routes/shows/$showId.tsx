@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router"
 import { z } from "zod"
 import { zodSearchValidator } from "@tanstack/router-zod-adapter"
 import {
@@ -27,6 +27,7 @@ import {
   useReorderShowSegments,
   useUpdateShowSegmentDuration,
 } from "../../hooks/useShows"
+import { usePrepareShowPublish } from "../../hooks/usePublishShow"
 import { formatDurationMinutes, totalEstimatedMinutes } from "../../lib/showDuration"
 import { ShowTimeline } from "../../components/shows/ShowTimeline"
 import { SegmentBrowser } from "../../components/shows/SegmentBrowser"
@@ -48,10 +49,10 @@ export const Route = createFileRoute("/shows/$showId")({
   component: ShowDetailPage,
 })
 
-const STATUS_OPTIONS: { value: ShowStatus; label: string }[] = [
+/** Manual status changes only; `published` is set by the publish finalize flow. */
+const STATUS_OPTIONS_EDITABLE: { value: ShowStatus; label: string }[] = [
   { value: "draft", label: "Draft" },
   { value: "ready", label: "Ready" },
-  { value: "published", label: "Published" },
 ]
 
 const STATUS_COLORS: Record<ShowStatus, string> = {
@@ -73,11 +74,20 @@ function segmentFromDragSource(
 
 function ShowDetailPage() {
   const { showId } = Route.useParams()
+  const isPublishRoute = useRouterState({
+    select: (s) => s.location.pathname.endsWith("/publish"),
+  })
+  if (isPublishRoute) {
+    return <Outlet />
+  }
+
   const { data: show, isLoading } = useShow(showId)
   const updateShow = useUpdateShow()
   const deleteShow = useDeleteShow()
   const reorderSegments = useReorderShowSegments()
   const { mutate: mutateSegmentDuration } = useUpdateShowSegmentDuration()
+  const preparePublish = usePrepareShowPublish(showId)
+  const navigate = useNavigate()
 
   const currentSegmentIds = useMemo(
     () => (show?.segments ?? []).map((s) => s.segmentId),
@@ -180,6 +190,9 @@ function ShowDetailPage() {
     )
   }
 
+  const isPublished = show.status === "published"
+  const canPreparePublish = !isPublished && show.status === "ready"
+
   return (
     <PageContent>
       <Box flex="1" minH="0" overflow="auto">
@@ -195,34 +208,64 @@ function ShowDetailPage() {
         <Flex gap={6} direction={{ base: "column", lg: "row" }}>
           {/* Left: Show info + timeline */}
           <Box flex="1">
-            <HStack justify="space-between" mb={2}>
+            <HStack justify="space-between" mb={2} flexWrap="wrap" gap={2}>
               <Heading size="lg">{show.title}</Heading>
-              <Badge colorPalette={STATUS_COLORS[show.status]} size="md">
-                {show.status}
-              </Badge>
+              <HStack gap={2} flexWrap="wrap">
+                <Badge colorPalette={STATUS_COLORS[show.status]} size="md">
+                  {show.status}
+                </Badge>
+                {canPreparePublish && (
+                  <Button
+                    size="xs"
+                    loading={preparePublish.isPending}
+                    onClick={() =>
+                      preparePublish.mutate(undefined, {
+                        onSuccess: () => {
+                          navigate({ to: "/shows/$showId/publish", params: { showId } })
+                        },
+                      })
+                    }
+                  >
+                    Publish…
+                  </Button>
+                )}
+                {isPublished && (
+                  <Link to="/shows/$showId/publish" params={{ showId }}>
+                    <Button size="sm" variant="outline">
+                      Edit archive
+                    </Button>
+                  </Link>
+                )}
+              </HStack>
             </HStack>
 
-            <HStack gap={4} mb={4}>
-              <select
-                value={show.status}
-                onChange={(e) =>
-                  updateShow.mutate({ id: showId, status: e.target.value as ShowStatus })
-                }
-                style={{
-                  padding: "4px 8px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--chakra-colors-border-muted)",
-                  background: "var(--chakra-colors-bg-panel)",
-                  color: "inherit",
-                  fontSize: "14px",
-                }}
-              >
-                {STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+            <HStack gap={4} mb={4} flexWrap="wrap" align="flex-start">
+              {!isPublished ? (
+                <select
+                  value={show.status}
+                  onChange={(e) =>
+                    updateShow.mutate({ id: showId, status: e.target.value as ShowStatus })
+                  }
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    border: "1px solid var(--chakra-colors-border-muted)",
+                    background: "var(--chakra-colors-bg-panel)",
+                    color: "inherit",
+                    fontSize: "14px",
+                  }}
+                >
+                  {STATUS_OPTIONS_EDITABLE.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Text fontSize="sm" fontWeight="medium" color="fg.muted">
+                  This show is published. Timeline and segments are read-only.
+                </Text>
+              )}
               <Text fontSize="sm" color="fg.muted">
                 {new Date(show.startTime).toLocaleDateString(undefined, {
                   weekday: "long",
@@ -252,6 +295,18 @@ function ShowDetailPage() {
               </Text>
             </HStack>
 
+            {canPreparePublish && !show.roomId && (
+              <Text fontSize="xs" color="fg.muted" mb={3} maxW="lg">
+                No listening room is linked in scheduling yet (Postgres{" "}
+                <Text as="span" fontFamily="mono">
+                  show.room_id
+                </Text>{" "}
+                is empty). Prepare publish will still try to find a room in Redis that has this show
+                attached. Re-save room settings with the show attached, or create the room with this
+                show, to set the link.
+              </Text>
+            )}
+
             {show.description && (
               <Text fontSize="sm" color="fg.muted" mb={4}>
                 {show.description}
@@ -263,39 +318,70 @@ function ShowDetailPage() {
                 tagType="show"
                 value={(show.tags ?? []).map((t) => t.id)}
                 onValueChange={(tagIds) => updateShow.mutate({ id: showId, tagIds })}
-                disabled={updateShow.isPending}
+                disabled={updateShow.isPending || isPublished}
               />
             </Box>
+
+            {isPublished && show.roomExport && (
+              <Box
+                mb={6}
+                p={4}
+                borderWidth="1px"
+                borderRadius="md"
+                borderColor="border.muted"
+                bg="bg.subtle"
+              >
+                <Heading size="sm" mb={2}>
+                  Room archive
+                </Heading>
+                <Text fontSize="xs" color="fg.muted" whiteSpace="pre-wrap" lineClamp={12} mb={3}>
+                  {show.roomExport.markdown}
+                </Text>
+                <Link to="/shows/$showId/publish" params={{ showId }}>
+                  <Button size="xs" variant="outline">
+                    Open in editor
+                  </Button>
+                </Link>
+              </Box>
+            )}
 
             <Heading size="md" mb={3}>
               Segments
             </Heading>
 
-            <DragDropProvider onDragEnd={handleDragEnd}>
-              <Flex gap={6} direction={{ base: "column", lg: "row" }}>
-                <Box flex="1">
-                  <ShowTimeline
-                    segments={show.segments ?? []}
-                    showStartTime={show.startTime}
-                    onRemove={handleRemoveSegment}
-                    onDurationCommit={handleDurationCommit}
-                  />
-                </Box>
-                <Box w={{ base: "100%", lg: "320px" }} flexShrink={0}>
-                  <SegmentBrowser
-                    excludeSegmentIds={currentSegmentIds}
-                    onAddSegmentToShowEnd={handleAddSegmentToShowEnd}
-                    isAddToShowPending={reorderSegments.isPending}
-                  />
-                </Box>
-              </Flex>
-              <DragOverlay dropAnimation={null}>
-                {(source) => {
-                  const seg = segmentFromDragSource(source)
-                  return seg ? <SegmentBrowserCard segment={seg} isDragOverlay /> : null
-                }}
-              </DragOverlay>
-            </DragDropProvider>
+            {isPublished ? (
+              <ShowTimeline
+                readOnly
+                segments={show.segments ?? []}
+                showStartTime={show.startTime}
+              />
+            ) : (
+              <DragDropProvider onDragEnd={handleDragEnd}>
+                <Flex gap={6} direction={{ base: "column", lg: "row" }}>
+                  <Box flex="1">
+                    <ShowTimeline
+                      segments={show.segments ?? []}
+                      showStartTime={show.startTime}
+                      onRemove={handleRemoveSegment}
+                      onDurationCommit={handleDurationCommit}
+                    />
+                  </Box>
+                  <Box w={{ base: "100%", lg: "320px" }} flexShrink={0}>
+                    <SegmentBrowser
+                      excludeSegmentIds={currentSegmentIds}
+                      onAddSegmentToShowEnd={handleAddSegmentToShowEnd}
+                      isAddToShowPending={reorderSegments.isPending}
+                    />
+                  </Box>
+                </Flex>
+                <DragOverlay dropAnimation={null}>
+                  {(source) => {
+                    const seg = segmentFromDragSource(source)
+                    return seg ? <SegmentBrowserCard segment={seg} isDragOverlay /> : null
+                  }}
+                </DragOverlay>
+              </DragDropProvider>
+            )}
 
             <Box mt={8}>
               <Button

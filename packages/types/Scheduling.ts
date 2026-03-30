@@ -7,6 +7,7 @@ import type { PluginPreset } from "./PluginPreset"
 export type ShowStatus = "draft" | "ready" | "published"
 export type SegmentStatus = "draft" | "ready" | "archived"
 export type TagType = "segment" | "show"
+export type RoomExportStatus = "draft" | "published"
 
 // ---------------------------------------------------------------------------
 // Entity DTOs (API responses)
@@ -17,6 +18,27 @@ export interface SchedulingAdminUserDTO {
   id: string
   name: string
   image: string | null
+}
+
+export interface RoomExportPlaylistLinkDTO {
+  id: string
+  title?: string
+  url?: string
+}
+
+export interface RoomExportPlaylistLinks {
+  spotify?: RoomExportPlaylistLinkDTO
+  tidal?: RoomExportPlaylistLinkDTO
+}
+
+export interface RoomExportDTO {
+  id: string
+  showId: string
+  markdown: string
+  status: RoomExportStatus
+  playlistLinks: RoomExportPlaylistLinks | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface ShowDTO {
@@ -32,6 +54,8 @@ export interface ShowDTO {
   updatedAt: string
   segments?: ShowSegmentDTO[]
   tags?: TagDTO[]
+  /** Present when a room export row exists for this show (draft or published). */
+  roomExport?: RoomExportDTO | null
 }
 
 export interface SegmentDTO {
@@ -101,6 +125,10 @@ export interface UpdateShowRequest {
 
 export interface ReorderShowSegmentsRequest {
   segmentIds: string[]
+}
+
+export interface PublishShowFinalizeRequest {
+  markdown: string
 }
 
 export interface CreateSegmentRequest {

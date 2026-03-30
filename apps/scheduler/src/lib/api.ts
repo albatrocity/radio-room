@@ -12,6 +12,7 @@ import type {
   SegmentFilters,
   TagType,
   SchedulingAdminUserDTO,
+  RoomExportDTO,
 } from "@repo/types"
 
 const API_URL = import.meta.env.VITE_API_URL || ""
@@ -67,6 +68,31 @@ export async function updateShow(id: string, body: UpdateShowRequest): Promise<S
 
 export async function deleteShow(id: string): Promise<void> {
   await api.delete(`api/scheduling/shows/${id}`)
+}
+
+export type PrepareShowPublishResponse = {
+  roomId: string
+  export: RoomExportDTO
+  playlistLinks: Record<string, unknown>
+}
+
+export async function prepareShowPublish(showId: string): Promise<PrepareShowPublishResponse> {
+  const res = await api.post(`api/scheduling/shows/${showId}/publish/prepare`)
+  return res.json<PrepareShowPublishResponse>()
+}
+
+export type FinalizeShowPublishResponse = {
+  export: RoomExportDTO
+}
+
+export async function finalizeShowPublish(
+  showId: string,
+  markdown: string,
+): Promise<FinalizeShowPublishResponse> {
+  const res = await api.post(`api/scheduling/shows/${showId}/publish/finalize`, {
+    json: { markdown },
+  })
+  return res.json<FinalizeShowPublishResponse>()
 }
 
 export async function reorderShowSegments(showId: string, segmentIds: string[]): Promise<void> {

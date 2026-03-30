@@ -10,6 +10,7 @@ import type {
   UpdateSegmentRequest,
   CreateTagRequest,
   TagType,
+  RoomExportPlaylistLinks,
 } from "@repo/types"
 
 export class SchedulingBadRequestError extends Error {
@@ -100,25 +101,47 @@ export async function findShowById(id: string) {
         orderBy: (ss, { asc }) => [asc(ss.position)],
       },
       showTags: { with: { tag: true } },
+      roomExport: true,
     },
   })
 
   if (!row) return null
 
+  const { roomExport: roomExportRow, showSegments, showTags, ...rest } = row
+
   return {
-    ...row,
-    tags: row.showTags.map((st) => st.tag),
-    segments: row.showSegments.map((ss) => ({
+    ...rest,
+    tags: showTags.map((st) => st.tag),
+    segments: showSegments.map((ss) => ({
       id: ss.id,
       segmentId: ss.segmentId,
       position: ss.position,
       durationOverride: ss.durationOverride ?? null,
       segment: mapSegmentRow(ss.segment),
     })),
+    roomExport: roomExportRow
+      ? {
+          id: roomExportRow.id,
+          showId: roomExportRow.showId,
+          markdown: roomExportRow.markdown,
+          status: roomExportRow.status,
+          playlistLinks:
+            (roomExportRow.playlistLinks as RoomExportPlaylistLinks | null) ?? null,
+          createdAt: roomExportRow.createdAt.toISOString(),
+          updatedAt: roomExportRow.updatedAt.toISOString(),
+        }
+      : null,
   }
 }
 
 export async function createShow(data: CreateShowRequest, createdBy: string) {
+  const initialStatus = data.status ?? "draft"
+  if (initialStatus === "published") {
+    throw new SchedulingBadRequestError(
+      "Cannot create a show as published; use the publish finalize flow.",
+    )
+  }
+
   return db.transaction(async (tx) => {
     const [row] = await tx
       .insert(show)
@@ -128,7 +151,7 @@ export async function createShow(data: CreateShowRequest, createdBy: string) {
         startTime: new Date(data.startTime),
         endTime: data.endTime ? new Date(data.endTime) : null,
         roomId: data.roomId ?? null,
-        status: data.status ?? "draft",
+        status: initialStatus,
         createdBy,
       })
       .returning()
@@ -141,7 +164,43 @@ export async function createShow(data: CreateShowRequest, createdBy: string) {
   })
 }
 
+/**
+ * Keep Postgres `show.room_id` aligned with Redis room attachment.
+ * Call when a room's `showId` field changes or on room create with a show.
+ */
+export async function syncShowRoomPointer(opts: {
+  roomId: string
+  /** Previous `room.showId` in Redis before the update (omit on create). */
+  previousShowId?: string | null
+  /** Next show id, or null to detach. `undefined` means no change (skip). */
+  nextShowId?: string | null
+}) {
+  const { roomId, previousShowId, nextShowId } = opts
+  if (nextShowId === undefined) return
+
+  const prev = previousShowId ?? null
+  const next = nextShowId === "" ? null : nextShowId
+
+  if (prev && prev !== next) {
+    await updateShow(prev, { roomId: null })
+  }
+
+  if (next) {
+    const row = await findShowById(next)
+    if (!row || row.status !== "ready") {
+      throw new SchedulingBadRequestError("Show must exist and be in ready state to attach to a room")
+    }
+    await updateShow(next, { roomId })
+  }
+}
+
 export async function updateShow(id: string, data: UpdateShowRequest) {
+  if (data.status === "published") {
+    throw new SchedulingBadRequestError(
+      "Published status is set only by the publish finalize flow, not manual updates.",
+    )
+  }
+
   return db.transaction(async (tx) => {
     const values: Record<string, unknown> = { updatedAt: new Date() }
 

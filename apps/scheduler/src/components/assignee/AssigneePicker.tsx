@@ -44,6 +44,8 @@ export interface AssigneePickerProps<TUser extends AssigneePickerUser = Assignee
   isSaving: boolean
   onAssign: (user: TUser) => void
   onUnassign: () => void
+  /** When true, show avatar only (no menu). */
+  disabled?: boolean
 }
 
 export function AssigneePicker<TUser extends AssigneePickerUser = AssigneePickerUser>({
@@ -55,6 +57,7 @@ export function AssigneePicker<TUser extends AssigneePickerUser = AssigneePicker
   isSaving,
   onAssign,
   onUnassign,
+  disabled = false,
 }: AssigneePickerProps<TUser>) {
   const assignLabel = assignee ? `Assigned to ${assignee.name}` : `Assign ${entityLabel}`
 
@@ -66,6 +69,20 @@ export function AssigneePicker<TUser extends AssigneePickerUser = AssigneePicker
   /** Menu is portaled; stop bubbling so SegmentCard's onClick does not open the drawer after selecting. */
   function stopCardPointerBubble(e: MouseEvent | PointerEvent) {
     e.stopPropagation()
+  }
+
+  if (disabled) {
+    return (
+      <Box data-assignee-picker="" flexShrink={0} aria-label={assignLabel}>
+        <Avatar.Root
+          size="2xs"
+          colorPalette={assignee ? colorPaletteForUserId(assignee.id) : "gray"}
+        >
+          {assignee?.image ? <Avatar.Image src={assignee.image} alt="" /> : null}
+          <Avatar.Fallback name={assignee?.name} />
+        </Avatar.Root>
+      </Box>
+    )
   }
 
   return (

@@ -5,9 +5,10 @@ import { useUpdateSegment } from "../../hooks/useSegments"
 
 interface SegmentAssigneePickerProps {
   segment: SegmentDTO
+  readOnly?: boolean
 }
 
-export function SegmentAssigneePicker({ segment }: SegmentAssigneePickerProps) {
+export function SegmentAssigneePicker({ segment, readOnly = false }: SegmentAssigneePickerProps) {
   const { data: admins = [], isPending: adminsLoading } = useSchedulingAdmins()
   const updateSegment = useUpdateSegment()
 
@@ -22,6 +23,7 @@ export function SegmentAssigneePicker({ segment }: SegmentAssigneePickerProps) {
       candidateUsers={admins}
       adminsLoading={adminsLoading}
       isSaving={isSaving}
+      disabled={readOnly}
       onAssign={(user) =>
         updateSegment.mutate({
           id: segment.id,
