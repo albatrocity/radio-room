@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>local-remote</title>
+    <style>
+      :root {
+        color-scheme: dark light;
+        font-family: system-ui, sans-serif;
+        line-height: 1.4;
+      }
+      body {
+        max-width: 52rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+      }
+      fieldset {
+        border: 1px solid #8884;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        padding: 1rem;
+      }
+      legend {
+        padding: 0 0.35rem;
+      }
+      label {
+        display: block;
+        margin: 0.5rem 0 0.2rem;
+        font-weight: 600;
+      }
+      input[type="text"],
+      input[type="number"],
+      select {
+        width: 100%;
+        max-width: 36rem;
+        padding: 0.45rem 0.5rem;
+        box-sizing: border-box;
+      }
+      .row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      button {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+      }
+      #status {
+        font-family: ui-monospace, monospace;
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        background: #8882;
+        padding: 0.75rem;
+        border-radius: 6px;
+      }
+      .maps {
+        margin-top: 0.5rem;
+      }
+      .map-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.35rem;
+        align-items: center;
+      }
+      .map-row input.seg {
+        max-width: 8rem;
+      }
+      .map-row input.path {
+        flex: 1;
+        max-width: 28rem;
+      }
+      .err {
+        color: #c33;
+        margin-top: 0.5rem;
+      }
+      .hint {
+        font-size: 0.9rem;
+        opacity: 0.85;
+        margin: 0.25rem 0 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>local-remote</h1>
+    <p>
+      Connect to the platform Redis, listen for <code>SYSTEM:*</code> events, and send
+      <strong>OSC</strong> over UDP when <code>SEGMENT_ACTIVATED</code> matches your room and segment
+      map (e.g. trigger a <a href="https://rogueamoeba.com/support/manuals/farrago/?page=osc">Farrago</a>
+      tile).
+    </p>
+
+    <fieldset>
+      <legend>Connection</legend>
+      <label for="redisUrl">Redis URL</label>
+      <input id="redisUrl" type="text" autocomplete="off" />
+
+      <label for="roomId">Room ID (empty = all rooms)</label>
+      <input id="roomId" type="text" autocomplete="off" />
+
+      <label for="httpListen">HTTP listen (restart app to apply)</label>
+      <input id="httpListen" type="text" autocomplete="off" />
+    </fieldset>
+
+    <fieldset>
+      <legend>OSC (SEGMENT_ACTIVATED)</legend>
+      <div class="row">
+        <input id="oscEnabled" type="checkbox" />
+        <label for="oscEnabled" style="margin: 0">Enabled</label>
+      </div>
+
+      <label for="oscHost">OSC host</label>
+      <input id="oscHost" type="text" placeholder="127.0.0.1" />
+      <p class="hint">Use <code>127.0.0.1</code> when Farrago runs on this Mac.</p>
+
+      <label for="oscPort">OSC UDP port</label>
+      <input id="oscPort" type="number" min="1" max="65535" placeholder="match Farrago OSC Input" />
+      <p class="hint">Must match <strong>OSC Input</strong> port in Farrago Settings → Controllers.</p>
+
+      <div class="row" style="margin-top: 0.75rem">
+        <button type="button" id="testOsc">Test OSC to Farrago</button>
+      </div>
+      <p class="hint">
+        Sends <code>/ping</code> to the host and port above (see
+        <a href="https://rogueamoeba.com/support/manuals/farrago/?page=osc">Farrago OSC</a>).
+        <strong>Success = UDP send OK</strong> (see <code>bytesSent</code>). Farrago often
+        <strong>does not</strong> reply back to this app—it sends responses to
+        <strong>OSC Output</strong>, so <code>replyReceived: false</code> is common and
+        <em>not</em> proof of failure. Same Mac as Farrago: try <code>127.0.0.1</code>. For
+        tiles, use <strong>default args</strong> (e.g. <code>1</code>) with
+        <code>/set/…/play</code> or <code>/select</code>. No save required for this button.
+      </p>
+
+      <label for="defaultArgs">Default OSC arguments (comma-separated floats)</label>
+      <input id="defaultArgs" type="text" placeholder="e.g. 1 or 1.0" />
+      <p class="hint">Sent as float32 after the address on every trigger (many Farrago endpoints expect a value).</p>
+
+      <label>Segment ID → OSC address</label>
+      <p class="hint">
+        Full path starting with <code>/</code>, e.g.
+        <code>/set/selected/tile/0/0/play</code>
+      </p>
+      <div class="maps" id="segmentMap"></div>
+      <button type="button" id="addMapRow">Add mapping</button>
+    </fieldset>
+
+    <div class="row" style="margin: 1rem 0">
+      <button type="button" id="save">Save &amp; apply</button>
+      <button type="button" id="reload">Reload</button>
+    </div>
+    <div id="msg" class="err" aria-live="polite"></div>
+
+    <h2>Status</h2>
+    <div id="status">Loading…</div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      function segmentMapRows(container, mapObj) {
+        container.innerHTML = "";
+        const entries = Object.entries(mapObj || {});
+        if (entries.length === 0) entries.push(["", ""]);
+        for (const [k, v] of entries) {
+          const row = document.createElement("div");
+          row.className = "map-row";
+          row.innerHTML =
+            '<input class="seg" type="text" placeholder="segment id" />' +
+            '<span>→</span>' +
+            '<input class="path" type="text" placeholder="/set/selected/tile/0/0/play" />' +
+            '<button type="button" class="rm">Remove</button>';
+          row.querySelector(".seg").value = k;
+          row.querySelector(".path").value = v;
+          row.querySelector(".rm").onclick = () => row.remove();
+          container.appendChild(row);
+        }
+      }
+
+      function readSegmentMap(container) {
+        const out = {};
+        for (const row of container.querySelectorAll(".map-row")) {
+          const k = row.querySelector(".seg").value.trim();
+          const v = row.querySelector(".path").value.trim();
+          if (k && v) out[k] = v;
+        }
+        return out;
+      }
+
+      function parseDefaultArgs(str) {
+        const t = str.trim();
+        if (!t) return [];
+        return t
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((s) => {
+            const n = Number(s);
+            if (Number.isNaN(n)) throw new Error("Invalid default arg: " + s);
+            return n;
+          });
+      }
+
+      function defaultArgsToString(arr) {
+        if (!arr || !arr.length) return "";
+        return arr.join(", ");
+      }
+
+      function cfgToForm(c) {
+        $("redisUrl").value = c.redisUrl || "";
+        $("roomId").value = c.roomId || "";
+        $("httpListen").value = c.httpListen || "";
+        $("oscEnabled").checked = !!c.features?.osc?.enabled;
+        $("oscHost").value = c.features?.osc?.host || "127.0.0.1";
+        $("oscPort").value = c.features?.osc?.port != null ? String(c.features.osc.port) : "";
+        $("defaultArgs").value = defaultArgsToString(c.features?.osc?.defaultArgs);
+        segmentMapRows($("segmentMap"), c.features?.osc?.segmentMap || {});
+      }
+
+      function formToCfg(base) {
+        const c = structuredClone(base);
+        c.redisUrl = $("redisUrl").value.trim();
+        c.roomId = $("roomId").value.trim();
+        c.httpListen = $("httpListen").value.trim();
+        c.features = c.features || {};
+        c.features.osc = c.features.osc || {};
+        c.features.osc.enabled = $("oscEnabled").checked;
+        c.features.osc.host = $("oscHost").value.trim() || "127.0.0.1";
+        const p = Number($("oscPort").value);
+        c.features.osc.port = Number.isFinite(p) ? p : 0;
+        c.features.osc.defaultArgs = parseDefaultArgs($("defaultArgs").value);
+        c.features.osc.segmentMap = readSegmentMap($("segmentMap"));
+        return c;
+      }
+
+      let lastConfig = null;
+
+      async function refreshStatus() {
+        try {
+          const r = await fetch("/api/status");
+          const s = await r.json();
+          $("status").textContent = JSON.stringify(s, null, 2);
+        } catch (e) {
+          $("status").textContent = String(e);
+        }
+      }
+
+      async function reload() {
+        $("msg").textContent = "";
+        const r = await fetch("/api/config");
+        if (!r.ok) {
+          $("msg").textContent = await r.text();
+          return;
+        }
+        lastConfig = await r.json();
+        cfgToForm(lastConfig);
+      }
+
+      $("save").onclick = async () => {
+        $("msg").textContent = "";
+        let body;
+        try {
+          body = formToCfg(lastConfig || {});
+        } catch (e) {
+          $("msg").textContent = String(e.message || e);
+          return;
+        }
+        const r = await fetch("/api/config", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const t = await r.text();
+        if (!r.ok) {
+          try {
+            const j = JSON.parse(t);
+            $("msg").textContent = j.error || t;
+          } catch {
+            $("msg").textContent = t;
+          }
+          return;
+        }
+        lastConfig = JSON.parse(t);
+        cfgToForm(lastConfig);
+        $("msg").textContent = "Saved.";
+        setTimeout(() => {
+          if ($("msg").textContent === "Saved.") $("msg").textContent = "";
+        }, 2000);
+      };
+
+      $("reload").onclick = reload;
+
+      $("testOsc").onclick = async () => {
+        $("msg").textContent = "";
+        const host = $("oscHost").value.trim() || "127.0.0.1";
+        const port = Number($("oscPort").value);
+        if (!Number.isFinite(port) || port <= 0) {
+          $("msg").textContent = "Set a valid OSC port before testing.";
+          return;
+        }
+        $("msg").textContent = "Sending test…";
+        try {
+          const r = await fetch("/api/osc-test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              host,
+              port,
+              address: "/ping",
+              waitForReply: true,
+              replyTimeoutMs: 500,
+            }),
+          });
+          const j = await r.json();
+          if (!r.ok || !j.ok) {
+            $("msg").textContent = "OSC test failed: " + (j.error || r.statusText);
+            return;
+          }
+          $("msg").textContent =
+            j.note +
+            "\n\n" +
+            JSON.stringify(
+              {
+                target: j.target,
+                address: j.address,
+                outcome: j.outcome,
+              },
+              null,
+              2
+            );
+        } catch (e) {
+          $("msg").textContent = "OSC test error: " + String(e);
+        }
+      };
+
+      $("addMapRow").onclick = () => {
+        const row = document.createElement("div");
+        row.className = "map-row";
+        row.innerHTML =
+          '<input class="seg" type="text" placeholder="segment id" />' +
+          '<span>→</span>' +
+          '<input class="path" type="text" placeholder="/set/selected/tile/0/0/play" />' +
+          '<button type="button" class="rm">Remove</button>';
+        row.querySelector(".rm").onclick = () => row.remove();
+        $("segmentMap").appendChild(row);
+      };
+
+      reload();
+      setInterval(refreshStatus, 1500);
+    </script>
+  </body>
+</html>
