@@ -17,6 +17,7 @@ import { useSegment, useUpdateSegment, useDeleteSegment } from "../../hooks/useS
 import type { SegmentDTO, SegmentStatus } from "@repo/types"
 import { TagCombobox } from "../tags/TagCombobox"
 import { SegmentPluginPresetEditor } from "./SegmentPluginPresetEditor"
+import { SegmentRoomSettingsEditor } from "./SegmentRoomSettingsEditor"
 
 interface SegmentDetailDrawerProps {
   segmentId: string | undefined
@@ -40,6 +41,7 @@ function segmentToFormDefaults(segment: SegmentDTO) {
     status: segment.status,
     tagIds: segment.tags?.map((t) => t.id) ?? [],
     pluginPreset: segment.pluginPreset,
+    roomSettingsOverride: segment.roomSettingsOverride ?? null,
   }
 }
 
@@ -70,6 +72,7 @@ function SegmentDetailForm({ segment, onClose }: SegmentDetailFormProps) {
         status: value.status,
         tagIds: value.tagIds,
         pluginPreset: value.pluginPreset,
+        roomSettingsOverride: value.roomSettingsOverride,
       })
       onClose()
     },
@@ -185,6 +188,12 @@ function SegmentDetailForm({ segment, onClose }: SegmentDetailFormProps) {
         <form.Field name="pluginPreset">
           {(field) => (
             <SegmentPluginPresetEditor value={field.state.value} onChange={field.handleChange} />
+          )}
+        </form.Field>
+
+        <form.Field name="roomSettingsOverride">
+          {(field) => (
+            <SegmentRoomSettingsEditor value={field.state.value} onChange={field.handleChange} />
           )}
         </form.Field>
 

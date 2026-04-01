@@ -1,7 +1,7 @@
 import { omit } from "remeda"
 import type { AppContext } from "@repo/types"
 import type { Room } from "@repo/types/Room"
-import type { SegmentDTO } from "@repo/types"
+import type { SegmentDTO, SegmentRoomSettingsOverride } from "@repo/types"
 import { validatePreset } from "@repo/utils"
 import * as scheduling from "../services/SchedulingService"
 import systemMessage from "../lib/systemMessage"
@@ -13,8 +13,20 @@ import {
   deleteAllPluginConfigs,
   getAllPluginConfigs,
 } from "./data/pluginConfigs"
+import { applyFetchMetaTransitionEffects } from "./room/applyFetchMetaTransitionEffects"
+import { applySegmentDeputyBulkAction } from "./room/applySegmentDeputyBulkAction"
 
 export type PresetApplyMode = "merge" | "replace" | "skip"
+
+function patchRoomFromSegmentOverride(override: SegmentRoomSettingsOverride | null | undefined): Partial<Room> {
+  if (!override) return {}
+  const p: Partial<Room> = {}
+  if (override.deputizeOnJoin !== undefined) p.deputizeOnJoin = override.deputizeOnJoin
+  if (override.showQueueCount !== undefined) p.showQueueCount = override.showQueueCount
+  if (override.showQueueTracks !== undefined) p.showQueueTracks = override.showQueueTracks
+  if (override.fetchMeta !== undefined) p.fetchMeta = override.fetchMeta
+  return p
+}
 
 type ErrorBody = { status: number; error: string; message: string }
 
@@ -88,9 +100,27 @@ export async function activateRoomSegment(params: {
 
   const previousRoom = room
   const base = omit(room, ["spotifyError", "radioError"] as const)
+  const overridePatch = patchRoomFromSegmentOverride(segment.roomSettingsOverride)
+  const mergedRoom: Room = { ...base, ...overridePatch, activeSegmentId: segmentId }
+
   await saveRoom({
     context,
-    room: { ...base, activeSegmentId: segmentId },
+    room: mergedRoom,
+  })
+
+  if (previousRoom.fetchMeta !== mergedRoom.fetchMeta) {
+    await applyFetchMetaTransitionEffects({
+      context,
+      roomId,
+      previousFetchMeta: previousRoom.fetchMeta,
+      newFetchMeta: mergedRoom.fetchMeta,
+    })
+  }
+
+  await applySegmentDeputyBulkAction({
+    context,
+    roomId,
+    action: segment.roomSettingsOverride?.deputyBulkAction,
   })
 
   if (context.systemEvents) {

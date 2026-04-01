@@ -10,6 +10,8 @@ vi.mock("../operations/data", () => ({
   getUser: vi.fn(),
   saveRoom: vi.fn(),
   clearRoomPlaylist: vi.fn(),
+  isAdminMember: vi.fn(),
+  hDelRoomDetailsFields: vi.fn(),
 }))
 vi.mock("../operations/room/handleRoomNowPlayingData", () => ({
   default: vi.fn(),
@@ -35,6 +37,7 @@ import {
   getUser,
   saveRoom,
   clearRoomPlaylist,
+  isAdminMember,
 } from "../operations/data"
 import handleRoomNowPlayingData from "../operations/room/handleRoomNowPlayingData"
 import { makeStableTrackId } from "../lib/makeNowPlayingFromStationMeta"
@@ -61,6 +64,7 @@ describe("AdminService", () => {
     adminService = new AdminService(mockContext)
 
     // Setup default mocks
+    vi.mocked(isAdminMember).mockResolvedValue(false)
     vi.mocked(findRoom).mockResolvedValue(mockRoom)
     vi.mocked(getUser).mockResolvedValue(mockUser)
     vi.mocked(systemMessage).mockImplementation((msg) => ({
@@ -102,7 +106,7 @@ describe("AdminService", () => {
         error: {
           status: 403,
           error: "Forbidden",
-          message: "You are not the room creator.",
+          message: "You are not a room admin.",
         },
       })
     })
@@ -138,7 +142,7 @@ describe("AdminService", () => {
         error: {
           status: 403,
           error: "Forbidden",
-          message: "You are not the room creator.",
+          message: "You are not a room admin.",
         },
       })
     })
@@ -177,7 +181,7 @@ describe("AdminService", () => {
         username: "Homer",
       })
 
-      const result = await adminService.kickUser(userToKick)
+      const result = await adminService.kickUser("room123", userToKick)
 
       expect(getUser).toHaveBeenCalledWith({
         context: mockContext,
@@ -199,6 +203,7 @@ describe("AdminService", () => {
           mentions: [],
           timestamp: expect.any(String),
         },
+        error: null,
       })
     })
   })
@@ -269,7 +274,7 @@ describe("AdminService", () => {
         error: {
           status: 403,
           error: "Forbidden",
-          message: "You are not the room creator.",
+          message: "You are not a room admin.",
         },
       })
     })
@@ -320,7 +325,7 @@ describe("AdminService", () => {
         error: {
           status: 403,
           error: "Forbidden",
-          message: "You are not the room creator.",
+          message: "You are not a room admin.",
         },
       })
     })

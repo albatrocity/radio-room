@@ -43,6 +43,13 @@
       "when": 1774896587878,
       "tag": "0005_room_export_and_playlist",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775051615633,
+      "tag": "0006_faithful_machine_man",
+      "breakpoints": true
     }
   ]
 }
