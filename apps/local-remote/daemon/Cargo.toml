@@ -1,0 +1,24 @@
+[package]
+name = "local-remote"
+version = "0.1.0"
+edition = "2021"
+description = "Subscribe to Listening Room Redis system events; local control UI + OSC"
+
+[[bin]]
+name = "local-remote"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+axum = "0.8"
+dirs = "6"
+futures-util = "0.3"
+redis = { version = "0.27.5", features = ["tokio-comp"] }
+rosc = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full", "sync"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

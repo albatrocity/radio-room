@@ -33,7 +33,9 @@ listening-room/
 ├── apps/
 │   ├── api/          # Express + Socket.IO server entry point
 │   ├── web/          # React frontend (Vite, XState v5, Chakra UI v3)
-│   └── load-tester/  # Load testing CLI tool
+│   ├── scheduler/    # Show scheduling admin (Vite + React)
+│   ├── load-tester/  # Load testing CLI tool
+│   └── local-remote/ # Rust daemon: remote Redis SYSTEM:* + local config UI
 │
 ├── packages/
 │   ├── server/       # Core server logic (handlers, operations, services)
