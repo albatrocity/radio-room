@@ -31,6 +31,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0023](0023-publish-playlists-use-room-creator-oauth.md) | Publish playlists use room creator OAuth | Accepted |
 | [0024](0024-post-show-publish-and-archive-flow.md) | Post-show publish and archive flow | Accepted |
 | [0025](0025-local-remote-rust-daemon.md) | local-remote: Rust daemon + local control UI | Accepted |
+| [0026](0026-segment-room-settings-overrides.md) | Segment room settings overrides on activation | Accepted |
 
 ## Creating a New ADR
 

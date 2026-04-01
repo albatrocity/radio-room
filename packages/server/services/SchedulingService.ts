@@ -386,6 +386,7 @@ export async function createSegment(data: CreateSegmentRequest, createdBy: strin
         isRecurring: data.isRecurring ?? false,
         duration: data.duration ?? null,
         pluginPreset: data.pluginPreset ?? null,
+        roomSettingsOverride: data.roomSettingsOverride ?? null,
         status: data.status ?? "draft",
         createdBy,
       })
@@ -412,6 +413,7 @@ export async function updateSegment(id: string, data: UpdateSegmentRequest) {
     if (data.isRecurring !== undefined) values.isRecurring = data.isRecurring
     if (data.duration !== undefined) values.duration = data.duration
     if (data.pluginPreset !== undefined) values.pluginPreset = data.pluginPreset
+    if (data.roomSettingsOverride !== undefined) values.roomSettingsOverride = data.roomSettingsOverride
     if (data.status !== undefined) values.status = data.status
 
     if (data.assignedTo !== undefined) {

@@ -25,6 +25,7 @@ function updateRequestToDtoPatch(variables: UpdateSegmentMutationVariables): Par
   if (req.isRecurring !== undefined) patch.isRecurring = req.isRecurring
   if (req.duration !== undefined) patch.duration = req.duration
   if (req.pluginPreset !== undefined) patch.pluginPreset = req.pluginPreset
+  if (req.roomSettingsOverride !== undefined) patch.roomSettingsOverride = req.roomSettingsOverride
   if (req.status !== undefined) patch.status = req.status
   if (req.assignedTo !== undefined) {
     patch.assignedTo = req.assignedTo

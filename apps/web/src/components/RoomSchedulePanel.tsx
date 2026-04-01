@@ -210,7 +210,8 @@ export default function RoomSchedulePanel() {
                 <strong>{pendingTitle}</strong>
               </Text>
               <Text fontSize="sm" color="fg.muted" mb={3}>
-                Apply this segment&apos;s plugin preset?
+                Apply this segment&apos;s plugin preset? Any room setting overrides saved on the segment
+                are applied automatically when you activate (no extra step).
               </Text>
               <VStack gap={2} align="stretch">
                 <Button

@@ -1,9 +1,10 @@
 import { Box, Button, Fieldset, HStack, Input, Textarea } from "@chakra-ui/react"
 import { useForm } from "@tanstack/react-form"
 import { useCreateSegment } from "../../hooks/useSegments"
-import type { PluginPreset, SegmentStatus } from "@repo/types"
+import type { PluginPreset, SegmentRoomSettingsOverride, SegmentStatus } from "@repo/types"
 import { TagCombobox } from "../tags/TagCombobox"
 import { SegmentPluginPresetEditor } from "./SegmentPluginPresetEditor"
+import { SegmentRoomSettingsEditor } from "./SegmentRoomSettingsEditor"
 import {
   SchedulingDialogRoot,
   DialogContent,
@@ -31,6 +32,7 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
       status: "draft" as SegmentStatus,
       tagIds: [] as string[],
       pluginPreset: null as PluginPreset | null,
+      roomSettingsOverride: null as SegmentRoomSettingsOverride | null,
     },
     onSubmit: async ({ value }) => {
       const raw = value.durationMinutes.trim()
@@ -47,6 +49,7 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
         status: value.status,
         tagIds: value.tagIds,
         pluginPreset: value.pluginPreset,
+        roomSettingsOverride: value.roomSettingsOverride,
       })
       onClose()
     },
@@ -156,6 +159,16 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
                   <form.Field name="pluginPreset">
                     {(field) => (
                       <SegmentPluginPresetEditor
+                        value={field.state.value}
+                        onChange={field.handleChange}
+                      />
+                    )}
+                  </form.Field>
+                </Box>
+                <Box mb={4}>
+                  <form.Field name="roomSettingsOverride">
+                    {(field) => (
+                      <SegmentRoomSettingsEditor
                         value={field.state.value}
                         onChange={field.handleChange}
                       />

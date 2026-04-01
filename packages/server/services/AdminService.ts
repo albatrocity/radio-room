@@ -4,7 +4,6 @@ import { Room } from "@repo/types/Room"
 import { omit } from "remeda"
 import {
   clearQueue,
-  clearRoomCurrent,
   findRoom,
   getUser,
   saveRoom,
@@ -16,8 +15,7 @@ import {
   isAdminMember,
   updateUserAttributes,
 } from "../operations/data"
-import handleRoomNowPlayingData from "../operations/room/handleRoomNowPlayingData"
-import { makeStableTrackId } from "../lib/makeNowPlayingFromStationMeta"
+import { applyFetchMetaTransitionEffects } from "../operations/room/applyFetchMetaTransitionEffects"
 import systemMessage from "../lib/systemMessage"
 import * as scheduling from "./SchedulingService"
 
@@ -202,9 +200,6 @@ export class AdminService {
       ;(newSettings as Room).persistent = !!(sid && String(sid).length > 0)
     }
 
-    const turningOffFetch = !newSettings.fetchMeta && room.fetchMeta
-    const turningOnFetch = newSettings.fetchMeta && !room.fetchMeta
-
     // Save room settings FIRST so handleRoomNowPlayingData sees the correct fetchMeta value
     await saveRoom({ context: this.context, room: newSettings })
 
@@ -251,30 +246,12 @@ export class AdminService {
       })
     }
 
-    if (turningOffFetch || turningOnFetch) {
-      const current = await clearRoomCurrent({ context: this.context, roomId: room.id })
-      const stationMeta = current?.stationMeta
-
-      // Construct a proper MediaSourceSubmission from station meta
-      if (stationMeta?.title) {
-        // Parse the station meta title (format: "title | artist | album")
-        const parts = stationMeta.title.split("|").map((s) => s.trim())
-        const submission = {
-          trackId: makeStableTrackId(stationMeta),
-          sourceType: "shoutcast" as const,
-          title: parts[0] || "Unknown",
-          artist: parts[1],
-          album: parts[2],
-          stationMeta,
-        }
-
-        await handleRoomNowPlayingData({
-          context: this.context,
-          roomId: room.id,
-          submission,
-        })
-      }
-    }
+    await applyFetchMetaTransitionEffects({
+      context: this.context,
+      roomId,
+      previousFetchMeta: room.fetchMeta,
+      newFetchMeta: newSettings.fetchMeta,
+    })
 
     const updatedRoom = await findRoom({ context: this.context, roomId })
 

@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { activateRoomSegment } from "./activateRoomSegment"
 import type { AppContext } from "@repo/types"
 import type { Room } from "@repo/types/Room"
+import { applyFetchMetaTransitionEffects } from "./room/applyFetchMetaTransitionEffects"
+import { applySegmentDeputyBulkAction } from "./room/applySegmentDeputyBulkAction"
 
 const m = vi.hoisted(() => ({
   findRoom: vi.fn(),
@@ -34,6 +36,14 @@ vi.mock("./data/pluginConfigs", () => ({
   setPluginConfig: m.setPluginConfig,
   deleteAllPluginConfigs: m.deleteAllPluginConfigs,
   getAllPluginConfigs: m.getAllPluginConfigs,
+}))
+
+vi.mock("./room/applyFetchMetaTransitionEffects", () => ({
+  applyFetchMetaTransitionEffects: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock("./room/applySegmentDeputyBulkAction", () => ({
+  applySegmentDeputyBulkAction: vi.fn().mockResolvedValue(undefined),
 }))
 
 function baseRoom(over: Partial<Room> = {}): Room {
@@ -78,6 +88,7 @@ describe("activateRoomSegment", () => {
             id: "seg-1",
             title: "Intro",
             pluginPreset: null,
+            roomSettingsOverride: null,
             duration: 5,
             status: "ready",
             description: null,
@@ -150,5 +161,121 @@ describe("activateRoomSegment", () => {
       "ROOM_SETTINGS_UPDATED",
       expect.any(Object),
     )
+    expect(vi.mocked(applySegmentDeputyBulkAction)).toHaveBeenCalledWith({
+      context,
+      roomId: "r1",
+      action: undefined,
+    })
+  })
+
+  it("merges roomSettingsOverride into saveRoom and invokes fetchMeta transition when fetchMeta changes", async () => {
+    m.findShowById.mockResolvedValueOnce({
+      id: "show-1",
+      segments: [
+        {
+          segmentId: "seg-1",
+          segment: {
+            id: "seg-1",
+            title: "Intro",
+            pluginPreset: null,
+            roomSettingsOverride: { deputizeOnJoin: true, fetchMeta: false },
+            duration: 5,
+            status: "ready",
+            description: null,
+            isRecurring: false,
+            createdBy: "u1",
+            assignedTo: null,
+            assignee: null,
+            createdAt: "",
+            updatedAt: "",
+          },
+        },
+      ],
+    })
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: null, announceActiveSegment: false, fetchMeta: true }))
+      .mockResolvedValueOnce(
+        baseRoom({
+          activeSegmentId: "seg-1",
+          announceActiveSegment: false,
+          deputizeOnJoin: true,
+          fetchMeta: false,
+        }),
+      )
+
+    await activateRoomSegment({
+      context,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "skip",
+    })
+
+    expect(m.saveRoom).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context,
+        room: expect.objectContaining({
+          activeSegmentId: "seg-1",
+          deputizeOnJoin: true,
+          fetchMeta: false,
+        }),
+      }),
+    )
+    expect(vi.mocked(applyFetchMetaTransitionEffects)).toHaveBeenCalledWith({
+      context,
+      roomId: "r1",
+      previousFetchMeta: true,
+      newFetchMeta: false,
+    })
+    expect(vi.mocked(applySegmentDeputyBulkAction)).toHaveBeenCalledWith({
+      context,
+      roomId: "r1",
+      action: undefined,
+    })
+  })
+
+  it("passes deputyBulkAction to applySegmentDeputyBulkAction", async () => {
+    m.findShowById.mockResolvedValueOnce({
+      id: "show-1",
+      segments: [
+        {
+          segmentId: "seg-1",
+          segment: {
+            id: "seg-1",
+            title: "Intro",
+            pluginPreset: null,
+            roomSettingsOverride: { deputyBulkAction: "dedeputize_all" },
+            duration: 5,
+            status: "ready",
+            description: null,
+            isRecurring: false,
+            createdBy: "u1",
+            assignedTo: null,
+            assignee: null,
+            createdAt: "",
+            updatedAt: "",
+          },
+        },
+      ],
+    })
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: null, announceActiveSegment: false }))
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: "seg-1", announceActiveSegment: false }))
+
+    await activateRoomSegment({
+      context,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "skip",
+    })
+
+    expect(vi.mocked(applySegmentDeputyBulkAction)).toHaveBeenCalledWith({
+      context,
+      roomId: "r1",
+      action: "dedeputize_all",
+    })
   })
 })

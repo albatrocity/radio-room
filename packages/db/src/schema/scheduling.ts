@@ -54,6 +54,8 @@ export const segment = pgTable("segment", {
   /** Approximate duration in minutes (nullable). */
   duration: integer("duration"),
   pluginPreset: jsonb("plugin_preset"),
+  /** Partial room booleans applied on segment activation (see SegmentRoomSettingsOverride in @repo/types). */
+  roomSettingsOverride: jsonb("room_settings_override"),
   status: segmentStatusEnum("status").notNull().default("draft"),
   createdBy: text("created_by")
     .notNull()

@@ -1,0 +1,1 @@
+ALTER TABLE "segment" ADD COLUMN "room_settings_override" jsonb;

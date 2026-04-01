@@ -1,6 +1,22 @@
 import type { PluginPreset } from "./PluginPreset"
 
 // ---------------------------------------------------------------------------
+// Segment room settings (applied on activation in listening room)
+// ---------------------------------------------------------------------------
+
+/** Bulk deputy-DJ update when the segment is activated (online users / current deputies). */
+export type DeputyBulkAction = "deputize_all" | "dedeputize_all"
+
+/** Keys optional: only present keys overwrite the room when the segment is activated. */
+export type SegmentRoomSettingsOverride = {
+  deputizeOnJoin?: boolean
+  showQueueCount?: boolean
+  showQueueTracks?: boolean
+  fetchMeta?: boolean
+  deputyBulkAction?: DeputyBulkAction
+}
+
+// ---------------------------------------------------------------------------
 // Enum value types
 // ---------------------------------------------------------------------------
 
@@ -81,6 +97,7 @@ export interface SegmentDTO {
   /** Approximate duration in minutes (nullable). */
   duration: number | null
   pluginPreset: PluginPreset | null
+  roomSettingsOverride: SegmentRoomSettingsOverride | null
   status: SegmentStatus
   createdBy: string
   assignedTo: string | null
@@ -153,6 +170,7 @@ export interface CreateSegmentRequest {
   /** Approximate duration in minutes (optional). */
   duration?: number | null
   pluginPreset?: PluginPreset | null
+  roomSettingsOverride?: SegmentRoomSettingsOverride | null
   status?: SegmentStatus
   tagIds?: string[]
 }
@@ -164,6 +182,7 @@ export interface UpdateSegmentRequest {
   /** Approximate duration in minutes. */
   duration?: number | null
   pluginPreset?: PluginPreset | null
+  roomSettingsOverride?: SegmentRoomSettingsOverride | null
   status?: SegmentStatus
   tagIds?: string[]
   /** Set to a platform admin user id, or `null` to clear assignee. */

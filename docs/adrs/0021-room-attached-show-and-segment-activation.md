@@ -23,6 +23,8 @@ Shows and segments live in PostgreSQL (scheduling). Listening rooms live in Redi
 
 ## Consequences
 
+- **Related:** Optional **room setting overrides** (non-plugin booleans applied on every activation without `presetMode`) are documented in [ADR 0026](0026-segment-room-settings-overrides.md).
+
 - **Positive:** Host-side or future daemons can subscribe to Redis `SYSTEM:SEGMENT_ACTIVATED` without coupling to Socket.IO. Room state stays small and schedule edits in Postgres are reflected on next timeline fetch.
 - **Positive:** Preset apply modes match admin expectations (merge vs full replace vs skip).
 - **Trade-off:** Removing `showId` requires `HDEL` on hash fields (see `hDelRoomDetailsFields`); null merges alone are insufficient with `HSET`-only writes.
