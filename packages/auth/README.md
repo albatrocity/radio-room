@@ -107,9 +107,14 @@ All registration requires a valid invite code. Without one, sign-up is blocked.
 // Email/password with invite code
 await authClient.signUp.email({ email, password, name, inviteCode })
 
-// Google OAuth with invite code
-await authClient.inviteOnly.setInviteCodeCookie(inviteCode)
-await authClient.signIn.social({ provider: "google", callbackURL: "/admin" })
+// Google OAuth with invite code (register only — use `setInviteCodeCookieForOAuth` in production when API is on another subdomain)
+import { setInviteCodeCookieForOAuth } from "@repo/auth/client"
+setInviteCodeCookieForOAuth(inviteCode)
+await authClient.signIn.social({
+  provider: "google",
+  callbackURL: `${window.location.origin}/admin`,
+  requestSignUp: true,
+})
 ```
 
 ### Sign out
@@ -150,6 +155,13 @@ Google OAuth redirect URIs:
 - Local: `http://127.0.0.1:3000/api/auth/callback/google`
 - Production: `https://api.listeningroom.club/api/auth/callback/google`
 
+### Google signup vs login (invite-gated)
+
+- **Register** (`/register`): call `signIn.social` with `requestSignUp: true` and set the invite cookie (`ba-invite-code`) before redirect so the API can require a valid pending invitation for **new** Google accounts only.
+- **Login** (`/login`): call `signIn.social` **without** `requestSignUp`. Implicit Google signup is disabled in auth config, so existing users can sign in even if the original invitation row was deleted or already consumed.
+- **Production** with the API on a different subdomain than the web app: set `VITE_AUTH_COOKIE_DOMAIN` on the **web** build (e.g. `.listeningroom.club`) so the invite cookie is sent to the API on the OAuth callback. Keep `APP_URL` as the web origin and `API_URL` / `ENVIRONMENT=production` on the API so Better Auth’s `baseURL` matches the callback host (see server env helpers in `packages/auth/src/server.ts`).
+- **Email/password** registration and sign-in stay gated by the invite-only plugin on `/sign-up/email` and are unchanged.
+
 ## Auth Architecture
 
 This package implements the **platform auth** layer. It coexists with, but does not replace, the existing **room auth** layer:
@@ -165,7 +177,7 @@ The `requireAdmin` middleware only applies to HTTP routes. Socket.IO handlers an
 ## Plugins
 
 - **`admin`** (`better-auth/plugins`) — adds `role` field to users (`"user"` or `"admin"`), provides `setRole` API
-- **`inviteOnly`** (`better-auth-invitation-only`) — gates all registration behind admin-issued invite codes, supports email/password and OAuth flows, SHA-256 hashes codes before storage
+- **`inviteOnly`** (`better-auth-invitation-only`) — gates email signup and invitation APIs; OAuth callback invite checks are implemented in `oauthSignupInviteHooks.ts` so returning Google users are not blocked by consumed or deleted invitations
 
 ## Testing
 

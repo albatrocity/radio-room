@@ -5,7 +5,7 @@ import { toNodeHandler } from "better-auth/node"
 import { inviteOnly } from "better-auth-invitation-only"
 import { eq } from "drizzle-orm"
 import { db, user as userTable } from "@repo/db"
-import { oauthCallbackInviteAfterHook } from "./oauthInviteAfterHook"
+import { oauthSignupInviteAfterHook, oauthSignupInviteBeforeHook } from "./oauthSignupInviteHooks"
 
 function trimOrigin(url: string): string {
   return url.replace(/\/$/, "")
@@ -35,7 +35,8 @@ export const auth = betterAuth({
   baseURL: authBaseURL,
   basePath: "/api/auth",
   hooks: {
-    after: oauthCallbackInviteAfterHook(),
+    before: oauthSignupInviteBeforeHook(),
+    after: oauthSignupInviteAfterHook(),
   },
   trustedOrigins: [
     "http://127.0.0.1:8000",
@@ -50,6 +51,8 @@ export const auth = betterAuth({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       prompt: "select_account",
+      /** Only `/register` sends `requestSignUp: true`; `/login` cannot create new users via Google. */
+      disableImplicitSignUp: true,
       overrideUserInfoOnSignIn: true,
     },
   },
@@ -58,6 +61,10 @@ export const auth = betterAuth({
     inviteOnly({
       enabled: () => process.env.SEED_MODE !== "true",
       baseUrl: process.env.APP_URL || "http://127.0.0.1:8000",
+      /** OAuth invite checks run in `oauthSignupInviteBeforeHook`; keep email signup gated here. */
+      protectedPaths: {
+        oauthCallbacks: false,
+      },
       expiresInSeconds: 7 * 24 * 60 * 60,
       onInvitationUsed: async ({ user }) => {
         await db
