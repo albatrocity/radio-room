@@ -59,7 +59,7 @@ let subscriptionCounter = 0
 const defaultContext: SettingsContext = {
   announceUsernameChanges: true,
   announceNowPlaying: true,
-  allowChatImages: true,
+  allowChatImages: false,
   announceActiveSegment: true,
   showSchedulePublic: false,
   showId: undefined,
