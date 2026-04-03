@@ -57,6 +57,21 @@ declare module "express-session" {
 
 const PORT = Number(process.env.PORT ?? 3000)
 
+/** Comma-separated extra browser origins (e.g. local-remote on a custom bind). */
+function parseCorsOriginList(envVal: string | undefined): string[] {
+  if (!envVal?.trim()) return []
+  return envVal
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+const LOCAL_REMOTE_CORS_ORIGINS = [
+  "http://127.0.0.1:9876",
+  "http://localhost:9876",
+  ...parseCorsOriginList(process.env.LOCAL_REMOTE_URL),
+]
+
 export class RadioRoomServer {
   private readonly io: SocketIoServer
   sessionStore: RedisStore
@@ -138,6 +153,7 @@ export class RadioRoomServer {
             "https://listeningroom.club",
             "https://www.listeningroom.club",
             ...(process.env.SCHEDULER_URL ? [process.env.SCHEDULER_URL] : []),
+            ...LOCAL_REMOTE_CORS_ORIGINS,
           ],
           credentials: true,
         }),

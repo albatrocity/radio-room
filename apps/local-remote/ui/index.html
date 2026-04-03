@@ -72,7 +72,11 @@
       }
       .map-row input.path {
         flex: 1;
-        max-width: 28rem;
+        min-width: 8rem;
+        max-width: 22rem;
+      }
+      .map-row button.test {
+        flex-shrink: 0;
       }
       .err {
         color: #c33;
@@ -82,6 +86,43 @@
         font-size: 0.9rem;
         opacity: 0.85;
         margin: 0.25rem 0 0.5rem;
+      }
+      .segment-pick-list {
+        margin: 0.5rem 0 0;
+        padding: 0;
+        list-style: none;
+        max-width: 36rem;
+      }
+      .segment-pick-list li {
+        margin-bottom: 0.35rem;
+      }
+      .segment-pick-list button {
+        width: 100%;
+        text-align: left;
+        font: inherit;
+        padding: 0.4rem 0.5rem;
+        border: 1px solid #8884;
+        border-radius: 6px;
+        background: #8881;
+        cursor: pointer;
+      }
+      .segment-pick-list button:hover {
+        background: #8883;
+      }
+      .segment-pick-list button:focus {
+        outline: 2px solid highlight;
+      }
+      .segment-pick-list .meta {
+        display: block;
+        font-size: 0.8rem;
+        opacity: 0.8;
+        font-family: ui-monospace, monospace;
+        margin-top: 0.15rem;
+      }
+      .map-row.map-row--highlight {
+        outline: 2px solid #48c;
+        border-radius: 4px;
+        padding: 2px;
       }
     </style>
   </head>
@@ -104,6 +145,37 @@
 
       <label for="httpListen">HTTP listen (restart app to apply)</label>
       <input id="httpListen" type="text" autocomplete="off" />
+
+      <label for="platformApiBaseUrl">Platform API URL (scheduling picks)</label>
+      <input
+        id="platformApiBaseUrl"
+        type="text"
+        autocomplete="off"
+        placeholder="http://127.0.0.1:3000"
+      />
+      <p class="hint">
+        Must match the host you used to sign in as a <strong>platform admin</strong> in the scheduler
+        (avoid mixing <code>localhost</code> vs <code>127.0.0.1</code> with cookies). Listing ready
+        shows requires that session in this browser.
+      </p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Pick segments (ready shows)</legend>
+      <p class="hint">
+        Fetches shows in <code>ready</code> state from the platform API, then loads segment names. Click
+        a segment to add an OSC mapping row (segment id matches <code>SEGMENT_ACTIVATED</code> in Redis).
+      </p>
+      <div class="row">
+        <button type="button" id="fetchReadyShows">Fetch ready shows</button>
+      </div>
+      <label for="schedulingShowSelect">Show</label>
+      <select id="schedulingShowSelect" aria-label="Ready show">
+        <option value="">— Fetch shows first —</option>
+      </select>
+      <label>Segments</label>
+      <ul class="segment-pick-list" id="segmentPickList" hidden aria-live="polite"></ul>
+      <p class="hint" id="schedulingPickerHint" style="margin-top: 0.5rem"></p>
     </fieldset>
 
     <fieldset>
@@ -142,7 +214,8 @@
       <label>Segment ID → OSC address</label>
       <p class="hint">
         Full path starting with <code>/</code>, e.g.
-        <code>/set/selected/tile/0/0/play</code>
+        <code>/set/selected/tile/0/0/play</code>. Use <strong>Test</strong> on a row to send that path with the
+        default args (same as a live trigger); no save required.
       </p>
       <div class="maps" id="segmentMap"></div>
       <button type="button" id="addMapRow">Add mapping</button>
@@ -160,23 +233,76 @@
     <script>
       const $ = (id) => document.getElementById(id);
 
+      const DEFAULT_PLATFORM_API = "http://127.0.0.1:3000";
+
+      function normalizeApiBase(raw) {
+        let s = String(raw || "").trim();
+        while (s.endsWith("/")) s = s.slice(0, -1);
+        return s;
+      }
+
+      function effectiveApiBase() {
+        return normalizeApiBase($("platformApiBaseUrl").value) || DEFAULT_PLATFORM_API;
+      }
+
+      function clearMapRowHighlight() {
+        for (const row of $("segmentMap").querySelectorAll(".map-row--highlight")) {
+          row.classList.remove("map-row--highlight");
+        }
+      }
+
+      function createMapRowEl(segId, path) {
+        const row = document.createElement("div");
+        row.className = "map-row";
+        row.innerHTML =
+          '<input class="seg" type="text" placeholder="segment id" />' +
+          '<span>→</span>' +
+          '<input class="path" type="text" placeholder="/set/selected/tile/0/0/play" />' +
+          '<button type="button" class="test-osc">Test</button>' +
+          '<button type="button" class="rm">Remove</button>';
+        row.querySelector(".seg").value = segId;
+        row.querySelector(".path").value = path;
+        row.querySelector(".rm").onclick = () => {
+          row.remove();
+          clearMapRowHighlight();
+        };
+        return row;
+      }
+
       function segmentMapRows(container, mapObj) {
         container.innerHTML = "";
         const entries = Object.entries(mapObj || {});
         if (entries.length === 0) entries.push(["", ""]);
         for (const [k, v] of entries) {
-          const row = document.createElement("div");
-          row.className = "map-row";
-          row.innerHTML =
-            '<input class="seg" type="text" placeholder="segment id" />' +
-            '<span>→</span>' +
-            '<input class="path" type="text" placeholder="/set/selected/tile/0/0/play" />' +
-            '<button type="button" class="rm">Remove</button>';
-          row.querySelector(".seg").value = k;
-          row.querySelector(".path").value = v;
-          row.querySelector(".rm").onclick = () => row.remove();
-          container.appendChild(row);
+          container.appendChild(createMapRowEl(k, v));
         }
+      }
+
+      function findMapRowBySegmentId(segmentId) {
+        const want = segmentId.trim();
+        if (!want) return null;
+        for (const row of $("segmentMap").querySelectorAll(".map-row")) {
+          if (row.querySelector(".seg").value.trim() === want) return row;
+        }
+        return null;
+      }
+
+      function addOrFocusSegmentMapping(segmentId) {
+        const id = String(segmentId || "").trim();
+        if (!id) return;
+        clearMapRowHighlight();
+        const existing = findMapRowBySegmentId(id);
+        if (existing) {
+          existing.classList.add("map-row--highlight");
+          existing.querySelector(".path").focus();
+          existing.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          return;
+        }
+        const row = createMapRowEl(id, "");
+        $("segmentMap").appendChild(row);
+        row.classList.add("map-row--highlight");
+        row.querySelector(".path").focus();
+        row.scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
 
       function readSegmentMap(container) {
@@ -212,6 +338,7 @@
         $("redisUrl").value = c.redisUrl || "";
         $("roomId").value = c.roomId || "";
         $("httpListen").value = c.httpListen || "";
+        $("platformApiBaseUrl").value = c.platformApiBaseUrl || "";
         $("oscEnabled").checked = !!c.features?.osc?.enabled;
         $("oscHost").value = c.features?.osc?.host || "127.0.0.1";
         $("oscPort").value = c.features?.osc?.port != null ? String(c.features.osc.port) : "";
@@ -224,6 +351,7 @@
         c.redisUrl = $("redisUrl").value.trim();
         c.roomId = $("roomId").value.trim();
         c.httpListen = $("httpListen").value.trim();
+        c.platformApiBaseUrl = $("platformApiBaseUrl").value.trim();
         c.features = c.features || {};
         c.features.osc = c.features.osc || {};
         c.features.osc.enabled = $("oscEnabled").checked;
@@ -292,30 +420,136 @@
 
       $("reload").onclick = reload;
 
-      $("testOsc").onclick = async () => {
+      function setSchedulingHint(text, isError) {
+        const el = $("schedulingPickerHint");
+        el.textContent = text || "";
+        el.style.color = isError ? "#c33" : "";
+      }
+
+      async function fetchReadyShowsList() {
+        setSchedulingHint("");
         $("msg").textContent = "";
-        const host = $("oscHost").value.trim() || "127.0.0.1";
-        const port = Number($("oscPort").value);
-        if (!Number.isFinite(port) || port <= 0) {
-          $("msg").textContent = "Set a valid OSC port before testing.";
-          return;
+        const base = effectiveApiBase();
+        const sel = $("schedulingShowSelect");
+        const list = $("segmentPickList");
+        list.innerHTML = "";
+        list.hidden = true;
+        sel.innerHTML = '<option value="">— Loading… —</option>';
+        try {
+          const url = `${base}/api/scheduling/shows?status=ready`;
+          const r = await fetch(url, { credentials: "include" });
+          if (r.status === 401 || r.status === 403) {
+            sel.innerHTML = '<option value="">— Unauthorized —</option>';
+            setSchedulingHint(
+              "Sign in as a platform admin in the scheduler using the same Platform API URL host, then retry.",
+              true,
+            );
+            $("msg").textContent =
+              "Scheduling: " +
+              (r.status === 403 ? "Forbidden (admin role required)." : "Not signed in.");
+            return;
+          }
+          if (!r.ok) {
+            const t = await r.text();
+            sel.innerHTML = '<option value="">— Error —</option>';
+            setSchedulingHint("Failed to list shows: " + (t || r.statusText), true);
+            return;
+          }
+          const data = await r.json();
+          const shows = data.shows || [];
+          sel.innerHTML = "";
+          if (shows.length === 0) {
+            sel.innerHTML = '<option value="">— No ready shows —</option>';
+            setSchedulingHint("No shows in ready state.");
+            return;
+          }
+          sel.appendChild(new Option("— Select a show —", ""));
+          for (const sh of shows) {
+            const start = sh.startTime
+              ? new Date(sh.startTime).toLocaleString(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })
+              : "";
+            const label = [sh.title || "(untitled)", start].filter(Boolean).join(" · ");
+            sel.appendChild(new Option(label, sh.id));
+          }
+          setSchedulingHint(`Loaded ${shows.length} ready show(s). Select one to list segments.`);
+        } catch (e) {
+          sel.innerHTML = '<option value="">— Error —</option>';
+          setSchedulingHint(String(e.message || e), true);
         }
+      }
+
+      async function loadShowSegments(showId) {
+        const list = $("segmentPickList");
+        list.innerHTML = "";
+        list.hidden = true;
+        setSchedulingHint("");
+        if (!showId) return;
+        const base = effectiveApiBase();
+        try {
+          const r = await fetch(`${base}/api/scheduling/shows/${encodeURIComponent(showId)}`, {
+            credentials: "include",
+          });
+          if (r.status === 401 || r.status === 403) {
+            setSchedulingHint("Could not load show (sign in as platform admin).", true);
+            return;
+          }
+          if (!r.ok) {
+            const errBody = await r.text();
+            setSchedulingHint("Failed to load show: " + (errBody || r.statusText), true);
+            return;
+          }
+          const data = await r.json();
+          const show = data.show;
+          const segments = show?.segments || [];
+          if (segments.length === 0) {
+            setSchedulingHint("This show has no segments.");
+            return;
+          }
+          for (const row of segments) {
+            const seg = row.segment || {};
+            const segmentId = row.segmentId || seg.id;
+            const title = seg.title || segmentId || "(segment)";
+            const li = document.createElement("li");
+            const btn = document.createElement("button");
+            btn.type = "button";
+            const titleEl = document.createElement("span");
+            titleEl.textContent = title;
+            const metaEl = document.createElement("span");
+            metaEl.className = "meta";
+            metaEl.textContent = segmentId || "";
+            btn.appendChild(titleEl);
+            btn.appendChild(metaEl);
+            btn.onclick = () => addOrFocusSegmentMapping(segmentId);
+            li.appendChild(btn);
+            list.appendChild(li);
+          }
+          list.hidden = false;
+          setSchedulingHint("Click a segment to add a mapping row (or focus an existing one).");
+        } catch (e) {
+          setSchedulingHint(String(e.message || e), true);
+        }
+      }
+
+      $("fetchReadyShows").onclick = fetchReadyShowsList;
+
+      $("schedulingShowSelect").onchange = () => {
+        loadShowSegments($("schedulingShowSelect").value);
+      };
+
+      async function postOscTestAndShowMessage(body, errorPrefix) {
         $("msg").textContent = "Sending test…";
         try {
           const r = await fetch("/api/osc-test", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              host,
-              port,
-              address: "/ping",
-              waitForReply: true,
-              replyTimeoutMs: 500,
-            }),
+            body: JSON.stringify(body),
           });
           const j = await r.json();
           if (!r.ok || !j.ok) {
-            $("msg").textContent = "OSC test failed: " + (j.error || r.statusText);
+            $("msg").textContent = errorPrefix + (j.error || r.statusText);
             return;
           }
           $("msg").textContent =
@@ -331,20 +565,82 @@
               2
             );
         } catch (e) {
-          $("msg").textContent = "OSC test error: " + String(e);
+          $("msg").textContent = errorPrefix + String(e);
         }
+      }
+
+      function oscHostPortOrError() {
+        const host = $("oscHost").value.trim() || "127.0.0.1";
+        const port = Number($("oscPort").value);
+        if (!Number.isFinite(port) || port <= 0) {
+          return { error: "Set a valid OSC port before testing." };
+        }
+        return { host, port };
+      }
+
+      $("testOsc").onclick = async () => {
+        $("msg").textContent = "";
+        const hp = oscHostPortOrError();
+        if (hp.error) {
+          $("msg").textContent = hp.error;
+          return;
+        }
+        await postOscTestAndShowMessage(
+          {
+            host: hp.host,
+            port: hp.port,
+            address: "/ping",
+            waitForReply: true,
+            replyTimeoutMs: 500,
+          },
+          "OSC test failed: "
+        );
       };
 
+      $("segmentMap").addEventListener("click", async (e) => {
+        const testBtn = e.target.closest("button.test-osc");
+        if (!testBtn || !$("segmentMap").contains(testBtn)) return;
+        e.preventDefault();
+        const row = testBtn.closest(".map-row");
+        if (!row) return;
+        $("msg").textContent = "";
+        const hp = oscHostPortOrError();
+        if (hp.error) {
+          $("msg").textContent = hp.error;
+          return;
+        }
+        const address = row.querySelector(".path").value.trim();
+        if (!address) {
+          $("msg").textContent = "Enter an OSC path in this row before testing.";
+          return;
+        }
+        if (!address.startsWith("/")) {
+          $("msg").textContent = "OSC path must start with /.";
+          return;
+        }
+        let args;
+        try {
+          args = parseDefaultArgs($("defaultArgs").value);
+        } catch (err) {
+          $("msg").textContent = String(err.message || err);
+          return;
+        }
+        await postOscTestAndShowMessage(
+          {
+            host: hp.host,
+            port: hp.port,
+            address,
+            args,
+            waitForReply: true,
+            replyTimeoutMs: 500,
+          },
+          "OSC path test failed: "
+        );
+      });
+
       $("addMapRow").onclick = () => {
-        const row = document.createElement("div");
-        row.className = "map-row";
-        row.innerHTML =
-          '<input class="seg" type="text" placeholder="segment id" />' +
-          '<span>→</span>' +
-          '<input class="path" type="text" placeholder="/set/selected/tile/0/0/play" />' +
-          '<button type="button" class="rm">Remove</button>';
-        row.querySelector(".rm").onclick = () => row.remove();
-        $("segmentMap").appendChild(row);
+        clearMapRowHighlight();
+        $("segmentMap").appendChild(createMapRowEl("", ""));
       };
 
       reload();

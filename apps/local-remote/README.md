@@ -24,6 +24,8 @@ npm run dev
 
 Open **http://127.0.0.1:9876/** (default). Set Redis URL, room filter, OSC host/port, and **segment id → OSC address** map, then **Save & apply** (Redis subscription reconnects without restarting the process).
 
+Use **Pick segments (ready shows)** to load segment ids from the platform scheduling API instead of copying them by hand: set **Platform API URL** to your Listening Room API origin (default behavior uses `http://127.0.0.1:3000` when the field is empty), sign in as a **platform admin** in the scheduler in the **same browser**, then **Fetch ready shows**. See [Scheduling API (segment picker)](#scheduling-api-segment-picker) below.
+
 > **Note:** Changing `httpListen` is written to config but only takes effect after you restart the app.
 
 ## Config file
@@ -33,7 +35,19 @@ Default path (first run creates it):
 - **macOS:** `~/Library/Application Support/local-remote/config.json`
 - **Linux:** `~/.config/local-remote/config.json`
 
-JSON uses **camelCase** (e.g. `redisUrl`, `roomId`, `features.osc.segmentMap`, `features.osc.defaultArgs`).
+JSON uses **camelCase** (e.g. `redisUrl`, `roomId`, `platformApiBaseUrl`, `features.osc.segmentMap`, `features.osc.defaultArgs`).
+
+## Scheduling API (segment picker)
+
+The embedded UI can call the platform **`GET /api/scheduling/shows?status=ready`** and **`GET /api/scheduling/shows/:id`** from the browser using **`fetch` with `credentials: "include"`**, reusing the same **Better Auth** session cookie as the scheduler app ([ADR 0016](../../docs/adrs/0016-better-auth-with-drizzle-for-platform-authentication.md)).
+
+**Requirements:**
+
+1. **Platform admin** — Listing ready shows is allowed only for users with the platform **admin** role (same as the scheduling app).
+2. **Same API host as login** — Set **Platform API URL** to the exact origin where you authenticate (e.g. if you use `http://127.0.0.1:3000` in the scheduler’s API config, use that here too). Mixing `localhost` and `127.0.0.1` often breaks cookies.
+3. **CORS** — The API allowlists local-remote’s default UI origins (`http://127.0.0.1:9876`, `http://localhost:9876`). If you change **HTTP listen**, set **`LOCAL_REMOTE_URL`** on the API server to that origin (comma-separated for multiple values). See [ADR 0027](../../docs/adrs/0027-local-remote-scheduling-ui-cors.md).
+
+Segment rows added from the picker use **`segmentId`** from the show (the id emitted on **`SEGMENT_ACTIVATED`** in Redis), not the per-show join row id.
 
 ## Platform event contract
 
@@ -54,12 +68,20 @@ Filter by **room**: set `roomId` in the UI. Leave it **empty** to accept all roo
 
 ## OSC connection test
 
-Use the **Test OSC to Farrago** button in the web UI, or `POST /api/osc-test` with JSON (defaults shown):
+Use the **Test OSC to Farrago** button (`/ping`) or each mapping row’s **Test** button to send that row’s path with the same **default args** as live `SEGMENT_ACTIVATED` sends. Or call `POST /api/osc-test` with JSON (defaults shown):
 
 ```bash
 curl -s -X POST http://127.0.0.1:9876/api/osc-test \
   -H 'Content-Type: application/json' \
   -d '{"host":"127.0.0.1","port":8000,"address":"/ping","waitForReply":true,"replyTimeoutMs":500}'
+```
+
+Example tile path with float args:
+
+```bash
+curl -s -X POST http://127.0.0.1:9876/api/osc-test \
+  -H 'Content-Type: application/json' \
+  -d '{"host":"127.0.0.1","port":8000,"address":"/set/selected/tile/0/0/play","args":[1.0],"waitForReply":true,"replyTimeoutMs":500}'
 ```
 
 - **`address`** defaults to `/ping` ([Farrago documents](https://rogueamoeba.com/support/manuals/farrago/?page=osc) replies to ping for controller sync).
