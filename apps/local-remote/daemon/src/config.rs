@@ -24,6 +24,9 @@ pub struct Config {
     /// Local HTTP API + static UI (`host:port` or `ip:port`).
     #[serde(default = "default_http_addr")]
     pub http_listen: String,
+    /// Platform HTTP API base URL for scheduling picks in the UI (e.g. `http://127.0.0.1:3000`). Empty uses UI default.
+    #[serde(default)]
+    pub platform_api_base_url: String,
     #[serde(default)]
     pub features: Features,
 }
@@ -83,6 +86,7 @@ impl Default for Config {
             redis_url: default_redis_url(),
             room_id: String::new(),
             http_listen: default_http_addr(),
+            platform_api_base_url: String::new(),
             features: Features::default(),
         }
     }
