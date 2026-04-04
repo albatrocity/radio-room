@@ -144,6 +144,7 @@ describe("RoomService", () => {
         room: mockRoom,
         messages: mockMessages,
         playlist: mockPlaylist,
+        scheduleSnapshot: null,
       })
 
       expect(removeSensitiveRoomAttributes).not.toHaveBeenCalled()
@@ -176,6 +177,7 @@ describe("RoomService", () => {
         room: { ...mockRoom },
         messages: mockMessages,
         playlist: mockPlaylist,
+        scheduleSnapshot: null,
       })
     })
   })

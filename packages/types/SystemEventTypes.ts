@@ -18,6 +18,7 @@ import type { User } from "./User"
 import type { ChatMessage } from "./ChatMessage"
 import type { MetadataSourceTrack } from "./MetadataSource"
 import type { MetadataSourceType } from "./TrackSource"
+import type { RoomScheduleSnapshotDTO } from "./Scheduling"
 
 /**
  * System event handler signatures
@@ -102,6 +103,13 @@ export type SystemEventHandlers = {
     showId: string
     segmentId: string
     segmentTitle: string
+  }) => Promise<void> | void
+
+  /** Attached show timeline changed; full snapshot included (see ADR 0028). */
+  SHOW_SCHEDULE_UPDATED: (data: {
+    roomId: string
+    showId: string | null
+    snapshot: RoomScheduleSnapshotDTO | null
   }) => Promise<void> | void
 
   // Chat events

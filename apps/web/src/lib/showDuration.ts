@@ -1,7 +1,7 @@
 import type { ShowSegmentDTO } from "@repo/types"
 
 export function effectiveScheduleMinutes(ss: ShowSegmentDTO): number {
-  const v = ss.durationOverride ?? ss.segment.duration
+  const v = ss.durationOverride ?? ss.segment?.duration
   return v ?? 0
 }
 

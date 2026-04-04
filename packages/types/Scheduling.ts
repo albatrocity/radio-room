@@ -131,6 +131,32 @@ export interface ShowSummaryDTO {
   status: ShowStatus
 }
 
+/** Segment slice stored in room schedule snapshot (Redis + socket). */
+export interface RoomScheduleSnapshotSegmentDTO {
+  segmentId: string
+  position: number
+  durationOverride: number | null
+  /** Effective minutes: durationOverride ?? segment.duration ?? 0 */
+  durationMinutes: number
+  segment: {
+    title: string
+    pluginPreset: PluginPreset | null
+  }
+}
+
+/**
+ * Denormalized show timeline for listening-room clients and Redis-only tools.
+ * Postgres remains source of truth; rebuilt on show/segment mutations.
+ */
+export interface RoomScheduleSnapshotDTO {
+  version: 1
+  showId: string
+  showTitle: string
+  startTime: string
+  updatedAt: string
+  segments: RoomScheduleSnapshotSegmentDTO[]
+}
+
 // ---------------------------------------------------------------------------
 // Request bodies
 // ---------------------------------------------------------------------------

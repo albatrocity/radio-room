@@ -297,6 +297,15 @@ export async function updateShowSegmentDuration(
   return row ?? null
 }
 
+/** Distinct show ids that currently include this segment (for snapshot refresh). */
+export async function findShowIdsBySegmentId(segmentId: string): Promise<string[]> {
+  const rows = await db
+    .select({ showId: showSegment.showId })
+    .from(showSegment)
+    .where(eq(showSegment.segmentId, segmentId))
+  return [...new Set(rows.map((r) => r.showId))]
+}
+
 // ---------------------------------------------------------------------------
 // Segments
 // ---------------------------------------------------------------------------

@@ -33,6 +33,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0025](0025-local-remote-rust-daemon.md) | local-remote: Rust daemon + local control UI | Accepted |
 | [0026](0026-segment-room-settings-overrides.md) | Segment room settings overrides on activation | Accepted |
 | [0027](0027-local-remote-scheduling-ui-cors.md) | local-remote UI: CORS for scheduling API reads | Accepted |
+| [0028](0028-room-schedule-redis-snapshot.md) | Room schedule snapshot in Redis + SHOW_SCHEDULE_UPDATED | Accepted |
 
 ## Creating a New ADR
 

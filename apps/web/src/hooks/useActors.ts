@@ -27,6 +27,7 @@ import { errorsActor } from "../actors/errorsActor"
 import { metadataSourceAuthActor } from "../actors/metadataSourceAuthActor"
 import { bookmarkedChatActor } from "../actors/bookmarkedChatActor"
 import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
+import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { MetadataSourceType, QueueItem } from "../types/Queue"
 
 import { sortByTimestamp } from "../lib/sortByTimestamp"
@@ -220,6 +221,10 @@ export const useSettingsSend = () => settingsActor.send
 
 export const useCurrentRoom = () => {
   return useSelector(roomActor, (s) => s.context.room)
+}
+
+export const useRoomScheduleSnapshot = (): RoomScheduleSnapshotDTO | null => {
+  return useSelector(roomActor, (s) => s.context.scheduleSnapshot)
 }
 
 export const useCurrentRoomHasAudio = () => {
