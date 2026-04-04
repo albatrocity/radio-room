@@ -18,7 +18,8 @@ import * as scheduling from "../services/SchedulingService"
 import { RoomSnapshot } from "@repo/types/Room"
 import { SocketWithContext } from "../lib/socketWithContext"
 import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
-import { AppContext } from "@repo/types"
+import { AppContext, RoomScheduleSnapshotDTO } from "@repo/types"
+import { readRoomScheduleSnapshot, refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
 
 /**
  * Get available metadata sources for a user based on their linked services
@@ -167,6 +168,7 @@ export async function create(req: Request, res: Response) {
         res.statusCode = 500
         return res.send({ error: "Failed to link show to room in scheduling", status: 500 })
       }
+      await refreshRoomScheduleSnapshot(context, id)
     }
 
     // Initialize plugins for the new room FIRST
@@ -217,10 +219,21 @@ export async function findRoom(req: Request, res: Response) {
 
   const room = await findRoomData({ context, roomId: id })
   if (room?.id) {
-    return res.send({ room: removeSensitiveRoomAttributes(room) })
+    let scheduleSnapshot: RoomScheduleSnapshotDTO | null = null
+    if (room.showId) {
+      scheduleSnapshot = await readRoomScheduleSnapshot(context, id)
+      if (!scheduleSnapshot) {
+        await refreshRoomScheduleSnapshot(context, id)
+        scheduleSnapshot = await readRoomScheduleSnapshot(context, id)
+      }
+    }
+    return res.send({
+      room: removeSensitiveRoomAttributes(room),
+      scheduleSnapshot,
+    })
   }
   res.statusCode = 404
-  return res.send({ room: null })
+  return res.send({ room: null, scheduleSnapshot: null })
 }
 
 export async function findRooms(req: Request, res: Response) {

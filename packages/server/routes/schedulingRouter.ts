@@ -6,6 +6,16 @@ import {
   syncPublishPlaylistFromRoom,
   continuePrepareShowPublish,
 } from "../operations/showPublish"
+import { refreshScheduleSnapshotForShow } from "../operations/scheduleRedisSnapshot"
+
+function getAppContext(req: Request): AppContext | undefined {
+  return (req as Request & { context?: AppContext }).context
+}
+
+async function afterShowTimelineChanged(context: AppContext | undefined, showId: string) {
+  if (!context) return
+  await refreshScheduleSnapshotForShow(context, showId)
+}
 
 /** Mounted at app level (before requireAdmin) for guest + platform-admin access. */
 export async function getSchedulingShowByIdHandler(req: Request, res: Response) {
@@ -85,6 +95,7 @@ export function createSchedulingRouter(): Router {
         res.status(404).json({ error: "Show not found" })
         return
       }
+      await afterShowTimelineChanged(getAppContext(req), req.params.id)
       res.json({ show })
     } catch (error) {
       if (error instanceof scheduling.SchedulingBadRequestError) {
@@ -98,11 +109,13 @@ export function createSchedulingRouter(): Router {
 
   router.delete("/shows/:id", async (req: Request, res: Response) => {
     try {
-      const show = await scheduling.deleteShow(req.params.id)
+      const showId = req.params.id
+      const show = await scheduling.deleteShow(showId)
       if (!show) {
         res.status(404).json({ error: "Show not found" })
         return
       }
+      await afterShowTimelineChanged(getAppContext(req), showId)
       res.json({ success: true })
     } catch (error) {
       console.error("Error deleting show:", error)
@@ -180,6 +193,7 @@ export function createSchedulingRouter(): Router {
         return
       }
       const segments = await scheduling.reorderShowSegments(req.params.id, segmentIds)
+      await afterShowTimelineChanged(getAppContext(req), req.params.id)
       res.json({ segments })
     } catch (error) {
       console.error("Error reordering show segments:", error)
@@ -214,6 +228,7 @@ export function createSchedulingRouter(): Router {
         res.status(404).json({ error: "Show segment not found" })
         return
       }
+      await afterShowTimelineChanged(getAppContext(req), req.params.showId)
       res.json({ success: true })
     } catch (error) {
       console.error("Error updating show segment duration:", error)
@@ -278,6 +293,11 @@ export function createSchedulingRouter(): Router {
         res.status(404).json({ error: "Segment not found" })
         return
       }
+      const ctx = getAppContext(req)
+      const showIds = await scheduling.findShowIdsBySegmentId(req.params.id)
+      for (const sid of showIds) {
+        await afterShowTimelineChanged(ctx, sid)
+      }
       res.json({ segment })
     } catch (error) {
       if (error instanceof scheduling.SchedulingBadRequestError) {
@@ -291,10 +311,15 @@ export function createSchedulingRouter(): Router {
 
   router.delete("/segments/:id", async (req: Request, res: Response) => {
     try {
+      const ctx = getAppContext(req)
+      const showIds = await scheduling.findShowIdsBySegmentId(req.params.id)
       const segment = await scheduling.deleteSegment(req.params.id)
       if (!segment) {
         res.status(404).json({ error: "Segment not found" })
         return
+      }
+      for (const sid of showIds) {
+        await afterShowTimelineChanged(ctx, sid)
       }
       res.json({ success: true })
     } catch (error) {

@@ -1,4 +1,4 @@
-import { AppContext } from "@repo/types"
+import { AppContext, RoomScheduleSnapshotDTO } from "@repo/types"
 import { RoomSnapshot } from "@repo/types/Room"
 import {
   findRoom,
@@ -7,6 +7,7 @@ import {
   removeSensitiveRoomAttributes,
   isAdminMember,
 } from "../operations/data"
+import { readRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
 
 /**
  * A service that handles Room-related operations without Socket.io dependencies
@@ -65,10 +66,16 @@ export class RoomService {
       since: snapshot.lastPlaylistItemTime,
     })
 
+    let scheduleSnapshot: RoomScheduleSnapshotDTO | null = null
+    if (room.showId) {
+      scheduleSnapshot = await readRoomScheduleSnapshot(this.context, roomId)
+    }
+
     return {
       room: isAdmin ? room : removeSensitiveRoomAttributes(room),
       messages,
       playlist,
+      scheduleSnapshot,
     }
   }
 }

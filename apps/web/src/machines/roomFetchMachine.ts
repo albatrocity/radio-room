@@ -2,6 +2,7 @@
 
 import { HTTPError } from "ky"
 import { assign, setup, fromCallback, fromPromise } from "xstate"
+import type { RoomScheduleSnapshotDTO } from "@repo/types"
 
 import socket from "../lib/socket"
 import { getErrorMessage } from "../lib/errors"
@@ -19,6 +20,7 @@ export interface RoomFetchContext {
   fetchOnInit: boolean
   id: Room["id"] | null
   room: Omit<Room, "password"> | null
+  scheduleSnapshot: RoomScheduleSnapshotDTO | null
   error?: RoomError | null
   subscriptionId: string | null
 }
@@ -39,10 +41,23 @@ export type RoomFetchEvent =
   | { type: "RESET" }
   | { type: "SETTINGS"; data: Room }
   | { type: "ROOM_SETTINGS_UPDATED"; data: { roomId: string; room: Omit<Room, "password"> } }
+  | {
+      type: "SHOW_SCHEDULE_UPDATED"
+      data: {
+        roomId: string
+        showId: string | null
+        snapshot: RoomScheduleSnapshotDTO | null
+      }
+    }
   | { type: "GET_LATEST_ROOM_DATA" }
   | {
       type: "ROOM_DATA"
-      data: { room: Omit<Room, "password">; messages: unknown[]; playlist: unknown[] }
+      data: {
+        room: Omit<Room, "password">
+        messages: unknown[]
+        playlist: unknown[]
+        scheduleSnapshot?: RoomScheduleSnapshotDTO | null
+      }
     }
   | { type: "ROOM_DELETED" }
   | { type: "RECONNECTED" }
@@ -156,27 +171,49 @@ export const roomFetchMachine = setup({
       }
     }),
     setRoom: assign(({ context, event }) => {
+      const hasShow = (r: Omit<Room, "password"> | null | undefined) =>
+        r?.showId != null && r.showId !== ""
+
       if (event.type === "xstate.done.actor.fetchRoom") {
+        const r = event.output.room
         return {
-          room: event.output.room,
+          room: r,
+          scheduleSnapshot: hasShow(r) ? (event.output.scheduleSnapshot ?? null) : null,
         }
       }
       if (event.type === "ROOM_SETTINGS_UPDATED") {
+        const r = event.data.room
         return {
-          room: event.data.room,
+          room: r,
+          scheduleSnapshot: hasShow(r) ? context.scheduleSnapshot : null,
         }
       }
       if (event.type === "ROOM_DATA") {
+        const r = event.data.room
+        const snap =
+          event.data.scheduleSnapshot !== undefined
+            ? event.data.scheduleSnapshot
+            : context.scheduleSnapshot
         return {
-          room: event.data.room,
+          room: r,
+          scheduleSnapshot: hasShow(r) ? snap : null,
         }
       }
       return context
+    }),
+    setScheduleFromSocket: assign(({ context, event }) => {
+      if (event.type !== "SHOW_SCHEDULE_UPDATED") return context
+      if (event.data.roomId !== context.id) return context
+      return {
+        ...context,
+        scheduleSnapshot: event.data.snapshot,
+      }
     }),
     reset: assign(() => {
       return {
         id: null,
         room: null,
+        scheduleSnapshot: null,
         error: null,
         subscriptionId: null,
       }
@@ -209,6 +246,7 @@ export const roomFetchMachine = setup({
     fetchOnInit: true,
     id: null,
     room: null,
+    scheduleSnapshot: null,
     subscriptionId: null,
   },
   states: {
@@ -251,6 +289,9 @@ export const roomFetchMachine = setup({
         SESSION_ENDED: {
           actions: ["reset"],
           target: ".initial",
+        },
+        SHOW_SCHEDULE_UPDATED: {
+          actions: ["setScheduleFromSocket"],
         },
       },
       initial: "initial",

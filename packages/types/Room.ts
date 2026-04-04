@@ -51,7 +51,7 @@ export type Room = {
   showQueueTracks?: boolean
   // Chat settings
   allowChatImages?: boolean
-  /** Attached scheduling show id (Postgres); timeline/activation read live from API */
+  /** Attached scheduling show id (Postgres); timeline via Redis snapshot + SHOW_SCHEDULE_UPDATED */
   showId?: string | null
   /** Currently active segment within the attached show */
   activeSegmentId?: string | null

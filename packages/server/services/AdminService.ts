@@ -16,6 +16,7 @@ import {
   updateUserAttributes,
 } from "../operations/data"
 import { applyFetchMetaTransitionEffects } from "../operations/room/applyFetchMetaTransitionEffects"
+import { refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
 import systemMessage from "../lib/systemMessage"
 import * as scheduling from "./SchedulingService"
 
@@ -254,6 +255,10 @@ export class AdminService {
     })
 
     const updatedRoom = await findRoom({ context: this.context, roomId })
+
+    if ("showId" in values) {
+      await refreshRoomScheduleSnapshot(this.context, roomId)
+    }
 
     return { room: updatedRoom, error: null }
   }

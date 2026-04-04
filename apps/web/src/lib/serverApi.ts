@@ -1,4 +1,5 @@
 import ky from "ky"
+import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { Room, RoomSetup } from "../types/Room"
 import type { PluginSchemasResponse, PluginSchemaInfo } from "../types/PluginSchema"
 import type { PluginComponentStores, PluginComponentState } from "../types/PluginComponent"
@@ -16,7 +17,10 @@ const api = ky.create({
 })
 
 export type RoomCreationResponse = { room: Room }
-export type RoomFindResponse = { room: Room | null }
+export type RoomFindResponse = {
+  room: Room | null
+  scheduleSnapshot?: RoomScheduleSnapshotDTO | null
+}
 export type RoomsResponse = { rooms: Room[] }
 export type CreateRoomParams = {
   room: RoomSetup

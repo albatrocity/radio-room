@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useMemo, useState } from "react"
 import {
   Badge,
   Box,
@@ -18,16 +18,18 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react"
-import type { ShowDTO, ShowSegmentDTO } from "@repo/types"
-import { useAdminSend, useCurrentRoom, useIsAdmin } from "../hooks/useActors"
-import { fetchShow } from "../lib/schedulingApi"
+import type { ShowSegmentDTO } from "@repo/types"
+import { fetchRoom } from "../actors/roomActor"
+import { useAdminSend, useCurrentRoom, useIsAdmin, useRoomScheduleSnapshot } from "../hooks/useActors"
+import { snapshotToShowDTO } from "../lib/snapshotToShow"
 import {
   formatDurationMinutes,
   segmentStartTimes,
   totalEstimatedMinutes,
 } from "../lib/showDuration"
 
-function segmentHasSavedPluginPreset(segment: ShowSegmentDTO["segment"]): boolean {
+function segmentHasSavedPluginPreset(segment: ShowSegmentDTO["segment"] | undefined): boolean {
+  if (!segment) return false
   const p = segment.pluginPreset
   if (p == null) return false
   return Object.keys(p.pluginConfigs ?? {}).length > 0
@@ -37,40 +39,16 @@ export default function RoomSchedulePanel() {
   const room = useCurrentRoom()
   const isAdmin = useIsAdmin()
   const adminSend = useAdminSend()
+  const scheduleSnapshot = useRoomScheduleSnapshot()
   const showId = room?.showId
 
-  const [show, setShow] = useState<ShowDTO | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const show = useMemo(() => snapshotToShowDTO(scheduleSnapshot), [scheduleSnapshot])
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [pendingSegmentId, setPendingSegmentId] = useState<string | null>(null)
   const [pendingTitle, setPendingTitle] = useState("")
 
   const visible = !!showId && (isAdmin || room?.showSchedulePublic === true)
-
-  const loadShow = useCallback(async () => {
-    if (!showId || !room?.id) return
-    setLoading(true)
-    setError(null)
-    try {
-      const s = await fetchShow(showId, { roomId: room.id })
-      setShow(s)
-    } catch {
-      setError("Could not load show schedule.")
-      setShow(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [showId, room?.id])
-
-  useEffect(() => {
-    if (!visible || !showId) {
-      setShow(null)
-      return
-    }
-    loadShow()
-  }, [visible, showId, loadShow])
 
   const activateSegmentImmediate = (segmentId: string) => {
     adminSend({
@@ -86,8 +64,9 @@ export default function RoomSchedulePanel() {
   }
 
   const onActivateClick = (ss: ShowSegmentDTO) => {
-    if (segmentHasSavedPluginPreset(ss.segment)) {
-      openPresetDialog(ss.segmentId, ss.segment.title)
+    const seg = ss.segment
+    if (segmentHasSavedPluginPreset(seg)) {
+      openPresetDialog(ss.segmentId, seg?.title ?? "")
     } else {
       activateSegmentImmediate(ss.segmentId)
     }
@@ -111,6 +90,7 @@ export default function RoomSchedulePanel() {
   const segments = show?.segments ?? []
   const startTimes = show ? segmentStartTimes(show.startTime, segments) : []
   const totalMin = totalEstimatedMinutes(segments)
+  const waitingForSnapshot = !show && !!showId
 
   return (
     <Box px={4} py={3} borderBottomWidth={1} borderBottomColor="secondaryBorder" w="100%">
@@ -119,24 +99,19 @@ export default function RoomSchedulePanel() {
           <Heading as="h3" size="sm">
             Show schedule
           </Heading>
-          {isAdmin && (
-            <Button size="xs" variant="ghost" onClick={() => loadShow()}>
+          {isAdmin && room?.id && (
+            <Button size="xs" variant="ghost" onClick={() => fetchRoom(room.id)}>
               Refresh
             </Button>
           )}
         </HStack>
-        {loading && (
+        {waitingForSnapshot && (
           <HStack>
             <Spinner size="sm" />
-            <Text fontSize="sm">Loading…</Text>
+            <Text fontSize="sm">Loading schedule…</Text>
           </HStack>
         )}
-        {error && (
-          <Text fontSize="sm" color="red.500">
-            {error}
-          </Text>
-        )}
-        {!loading && show && (
+        {show && (
           <>
             <Text fontSize="xs" color="gray.500">
               {show.title} · {formatDurationMinutes(totalMin)} estimated
@@ -168,7 +143,7 @@ export default function RoomSchedulePanel() {
                           </Badge>
                         )}
                       </HStack>
-                      <Text lineClamp={2}>{ss.segment.title}</Text>
+                      <Text lineClamp={2}>{ss.segment?.title ?? ""}</Text>
                     </VStack>
                     {isAdmin && (
                       <Button

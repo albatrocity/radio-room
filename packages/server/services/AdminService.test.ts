@@ -27,6 +27,10 @@ vi.mock("./SchedulingService", () => ({
   syncShowRoomPointer: (...args: unknown[]) => mockSyncShowRoomPointer(...args),
   SchedulingBadRequestError: class SchedulingBadRequestError extends Error {},
 }))
+const mockRefreshRoomScheduleSnapshot = vi.fn().mockResolvedValue(undefined)
+vi.mock("../operations/scheduleRedisSnapshot", () => ({
+  refreshRoomScheduleSnapshot: (...args: unknown[]) => mockRefreshRoomScheduleSnapshot(...args),
+}))
 
 // Import mocked dependencies
 import systemMessage from "../lib/systemMessage"
@@ -291,6 +295,7 @@ describe("AdminService", () => {
         previousShowId: "show-a",
         nextShowId: "show-b",
       })
+      expect(mockRefreshRoomScheduleSnapshot).toHaveBeenCalledWith(mockContext, "room123")
     })
   })
 
