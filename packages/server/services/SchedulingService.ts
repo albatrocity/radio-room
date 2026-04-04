@@ -476,6 +476,82 @@ export async function findSchedulingAdmins(): Promise<SchedulingAdminUserDTO[]> 
 }
 
 // ---------------------------------------------------------------------------
+// Public read-only (local-remote segment picker; no auth)
+// ---------------------------------------------------------------------------
+
+export type PublicReadyShowSummary = {
+  id: string
+  title: string | null
+  startTime: string | null
+}
+
+/** Minimal fields for picking shows; **ready** status only (no drafts / published). */
+export async function findReadyShowsForPublic(): Promise<PublicReadyShowSummary[]> {
+  const rows = await findShows({ status: "ready", startTimeOrder: "desc" })
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    startTime: r.startTime ? r.startTime.toISOString() : null,
+  }))
+}
+
+export type PublicReadyShowSegmentRow = {
+  id: string
+  segmentId: string
+  position: number
+  segment: { id: string; title: string | null }
+}
+
+export type PublicReadyShowWithSegments = {
+  id: string
+  title: string | null
+  startTime: string | null
+  segments: PublicReadyShowSegmentRow[]
+}
+
+/**
+ * Segment id/title pairs for OSC mapping; only when the show is **ready**.
+ * Returns `null` if missing or not ready (same as not found for callers).
+ */
+export async function findReadyShowWithSegmentsForPublic(
+  showId: string,
+): Promise<PublicReadyShowWithSegments | null> {
+  const row = await db.query.show.findFirst({
+    where: and(eq(show.id, showId), eq(show.status, "ready")),
+    columns: {
+      id: true,
+      title: true,
+      startTime: true,
+    },
+    with: {
+      showSegments: {
+        orderBy: (ss, { asc }) => [asc(ss.position)],
+        columns: {
+          id: true,
+          segmentId: true,
+          position: true,
+        },
+        with: {
+          segment: { columns: { id: true, title: true } },
+        },
+      },
+    },
+  })
+  if (!row) return null
+  return {
+    id: row.id,
+    title: row.title,
+    startTime: row.startTime ? row.startTime.toISOString() : null,
+    segments: row.showSegments.map((ss) => ({
+      id: ss.id,
+      segmentId: ss.segmentId,
+      position: ss.position,
+      segment: { id: ss.segment.id, title: ss.segment.title },
+    })),
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Tags
 // ---------------------------------------------------------------------------
 

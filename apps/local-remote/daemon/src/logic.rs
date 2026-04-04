@@ -98,4 +98,11 @@ mod config_tests {
             .insert("1".to_string(), "no-leading-slash".to_string());
         assert!(cfg.validate().is_err());
     }
+
+    #[test]
+    fn validate_accepts_rediss_url() {
+        let mut cfg = Config::default();
+        cfg.redis_url = "rediss://:secret@example.com:6380".to_string();
+        assert!(cfg.validate().is_ok());
+    }
 }

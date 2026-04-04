@@ -11,11 +11,13 @@ pub const DEFAULT_HTTP_ADDR: &str = "127.0.0.1:9876";
 /// Default Redis URL for dev (matches common local setups).
 pub const DEFAULT_REDIS_URL: &str = "redis://127.0.0.1:6379";
 pub const DEFAULT_OSC_HOST: &str = "127.0.0.1";
+/// Default platform API for scheduling picks (local monorepo API).
+pub const DEFAULT_PLATFORM_API_BASE_URL: &str = "http://127.0.0.1:3000";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
-    /// Full Redis connection URL (e.g. `redis://:pass@host:6379`).
+    /// Full Redis connection URL (e.g. `redis://:pass@host:6379` or `rediss://...` for TLS).
     #[serde(default = "default_redis_url")]
     pub redis_url: String,
     /// If empty, all rooms match for event handling.
@@ -24,8 +26,8 @@ pub struct Config {
     /// Local HTTP API + static UI (`host:port` or `ip:port`).
     #[serde(default = "default_http_addr")]
     pub http_listen: String,
-    /// Platform HTTP API base URL for scheduling picks in the UI (e.g. `http://127.0.0.1:3000`). Empty uses UI default.
-    #[serde(default)]
+    /// Platform HTTP API base URL for scheduling picks in the UI (e.g. `https://api.example.com`).
+    #[serde(default = "default_platform_api_base_url")]
     pub platform_api_base_url: String,
     #[serde(default)]
     pub features: Features,
@@ -37,6 +39,10 @@ fn default_redis_url() -> String {
 
 fn default_http_addr() -> String {
     DEFAULT_HTTP_ADDR.to_string()
+}
+
+fn default_platform_api_base_url() -> String {
+    DEFAULT_PLATFORM_API_BASE_URL.to_string()
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -86,7 +92,7 @@ impl Default for Config {
             redis_url: default_redis_url(),
             room_id: String::new(),
             http_listen: default_http_addr(),
-            platform_api_base_url: String::new(),
+            platform_api_base_url: default_platform_api_base_url(),
             features: Features::default(),
         }
     }

@@ -154,17 +154,19 @@
         placeholder="http://127.0.0.1:3000"
       />
       <p class="hint">
-        Must match the host you used to sign in as a <strong>platform admin</strong> in the scheduler
-        (avoid mixing <code>localhost</code> vs <code>127.0.0.1</code> with cookies). Listing ready
-        shows requires that session in this browser.
+        Used for <strong>Fetch ready shows</strong> / segment list. The platform exposes read-only
+        <code>/api/public/scheduling/*</code> endpoints (no login). Production API must allow this
+        origin in CORS (see <code>LOCAL_REMOTE_URL</code> if you change HTTP listen).
       </p>
     </fieldset>
 
     <fieldset>
       <legend>Pick segments (ready shows)</legend>
       <p class="hint">
-        Fetches shows in <code>ready</code> state from the platform API, then loads segment names. Click
-        a segment to add an OSC mapping row (segment id matches <code>SEGMENT_ACTIVATED</code> in Redis).
+        Fetches <strong>ready</strong> shows via the platform’s public scheduling API (no login), then
+        loads segment names. Click a segment to add an OSC mapping row (segment id matches
+        <code>SEGMENT_ACTIVATED</code> in Redis). Requests use whatever is currently in
+        <strong>Platform API URL</strong> above.
       </p>
       <div class="row">
         <button type="button" id="fetchReadyShows">Fetch ready shows</button>
@@ -429,33 +431,21 @@
       async function fetchReadyShowsList() {
         setSchedulingHint("");
         $("msg").textContent = "";
-        const base = effectiveApiBase();
         const sel = $("schedulingShowSelect");
         const list = $("segmentPickList");
         list.innerHTML = "";
         list.hidden = true;
         sel.innerHTML = '<option value="">— Loading… —</option>';
         try {
-          const url = `${base}/api/scheduling/shows?status=ready`;
-          const r = await fetch(url, { credentials: "include" });
-          if (r.status === 401 || r.status === 403) {
-            sel.innerHTML = '<option value="">— Unauthorized —</option>';
-            setSchedulingHint(
-              "Sign in as a platform admin in the scheduler using the same Platform API URL host, then retry.",
-              true,
-            );
-            $("msg").textContent =
-              "Scheduling: " +
-              (r.status === 403 ? "Forbidden (admin role required)." : "Not signed in.");
-            return;
-          }
+          const base = effectiveApiBase();
+          const r = await fetch(`${base}/api/public/scheduling/ready-shows`);
+          const text = await r.text();
           if (!r.ok) {
-            const t = await r.text();
             sel.innerHTML = '<option value="">— Error —</option>';
-            setSchedulingHint("Failed to list shows: " + (t || r.statusText), true);
+            setSchedulingHint("Failed to list shows: " + (text || r.statusText), true);
             return;
           }
-          const data = await r.json();
+          const data = JSON.parse(text);
           const shows = data.shows || [];
           sel.innerHTML = "";
           if (shows.length === 0) {
@@ -487,21 +477,17 @@
         list.hidden = true;
         setSchedulingHint("");
         if (!showId) return;
-        const base = effectiveApiBase();
         try {
-          const r = await fetch(`${base}/api/scheduling/shows/${encodeURIComponent(showId)}`, {
-            credentials: "include",
-          });
-          if (r.status === 401 || r.status === 403) {
-            setSchedulingHint("Could not load show (sign in as platform admin).", true);
-            return;
-          }
+          const base = effectiveApiBase();
+          const r = await fetch(
+            `${base}/api/public/scheduling/shows/${encodeURIComponent(showId)}`,
+          );
+          const text = await r.text();
           if (!r.ok) {
-            const errBody = await r.text();
-            setSchedulingHint("Failed to load show: " + (errBody || r.statusText), true);
+            setSchedulingHint("Failed to load show: " + (text || r.statusText), true);
             return;
           }
-          const data = await r.json();
+          const data = JSON.parse(text);
           const show = data.show;
           const segments = show?.segments || [];
           if (segments.length === 0) {

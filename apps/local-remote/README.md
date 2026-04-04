@@ -24,7 +24,7 @@ npm run dev
 
 Open **http://127.0.0.1:9876/** (default). Set Redis URL, room filter, OSC host/port, and **segment id → OSC address** map, then **Save & apply** (Redis subscription reconnects without restarting the process).
 
-Use **Pick segments (ready shows)** to load segment ids from the platform scheduling API instead of copying them by hand: set **Platform API URL** to your Listening Room API origin (default behavior uses `http://127.0.0.1:3000` when the field is empty), sign in as a **platform admin** in the scheduler in the **same browser**, then **Fetch ready shows**. See [Scheduling API (segment picker)](#scheduling-api-segment-picker) below.
+Use **Pick segments (ready shows)** to load segment ids from the platform’s **public** scheduling endpoints instead of copying them by hand: set **Platform API URL** to your API origin (defaults to `http://127.0.0.1:3000` in config when unset). No login or cookie—see [Scheduling API (segment picker)](#scheduling-api-segment-picker). The API must allow the local-remote origin in **CORS** ([ADR 0027](../../docs/adrs/0027-local-remote-scheduling-ui-cors.md), [ADR 0029](../../docs/adrs/0029-public-scheduling-read-for-local-remote.md)).
 
 > **Note:** Changing `httpListen` is written to config but only takes effect after you restart the app.
 
@@ -39,13 +39,14 @@ JSON uses **camelCase** (e.g. `redisUrl`, `roomId`, `platformApiBaseUrl`, `featu
 
 ## Scheduling API (segment picker)
 
-The embedded UI can call the platform **`GET /api/scheduling/shows?status=ready`** and **`GET /api/scheduling/shows/:id`** from the browser using **`fetch` with `credentials: "include"`**, reusing the same **Better Auth** session cookie as the scheduler app ([ADR 0016](../../docs/adrs/0016-better-auth-with-drizzle-for-platform-authentication.md)).
+The embedded UI performs **unauthenticated** `fetch` calls from the browser to the platform API:
 
-**Requirements:**
+- **`GET {platformApiBaseUrl}/api/public/scheduling/ready-shows`** — lists **ready** shows (id, title, start time).
+- **`GET {platformApiBaseUrl}/api/public/scheduling/shows/:id`** — returns the same show **only** if status is **ready**, with ordered segments (id + title only per segment).
 
-1. **Platform admin** — Listing ready shows is allowed only for users with the platform **admin** role (same as the scheduling app).
-2. **Same API host as login** — Set **Platform API URL** to the exact origin where you authenticate (e.g. if you use `http://127.0.0.1:3000` in the scheduler’s API config, use that here too). Mixing `localhost` and `127.0.0.1` often breaks cookies.
-3. **CORS** — The API allowlists local-remote’s default UI origins (`http://127.0.0.1:9876`, `http://localhost:9876`). If you change **HTTP listen**, set **`LOCAL_REMOTE_URL`** on the API server to that origin (comma-separated for multiple values). See [ADR 0027](../../docs/adrs/0027-local-remote-scheduling-ui-cors.md).
+These routes are **read-only** and intentionally minimal so operators do not need to paste session cookies into local-remote ([ADR 0029](../../docs/adrs/0029-public-scheduling-read-for-local-remote.md)). **Draft** and **published** shows are not exposed by this API (404 for non-ready detail).
+
+**CORS:** The UI origin (default `http://127.0.0.1:9876`) must be allowed by the API. Defaults include that origin; use **`LOCAL_REMOTE_URL`** if you bind local-remote elsewhere. No **`credentials: "include"`** is used for these calls.
 
 Segment rows added from the picker use **`segmentId`** from the show (the id emitted on **`SEGMENT_ACTIVATED`** in Redis), not the per-show join row id.
 
