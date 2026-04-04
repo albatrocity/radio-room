@@ -18,6 +18,7 @@ pub const DEFAULT_PLATFORM_API_BASE_URL: &str = "http://127.0.0.1:3000";
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     /// Full Redis connection URL (e.g. `redis://:pass@host:6379` or `rediss://...` for TLS).
+    /// For `rediss://` when verification fails (`UnknownIssuer`), append `/#insecure` to skip cert verification.
     #[serde(default = "default_redis_url")]
     pub redis_url: String,
     /// If empty, all rooms match for event handling.

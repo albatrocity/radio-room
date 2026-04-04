@@ -105,4 +105,11 @@ mod config_tests {
         cfg.redis_url = "rediss://:secret@example.com:6380".to_string();
         assert!(cfg.validate().is_ok());
     }
+
+    #[test]
+    fn validate_accepts_rediss_insecure_fragment() {
+        let mut cfg = Config::default();
+        cfg.redis_url = "rediss://:secret@example.com:6380/#insecure".to_string();
+        assert!(cfg.validate().is_ok());
+    }
 }

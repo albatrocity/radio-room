@@ -6,6 +6,7 @@ Local daemon that connects to the **same Redis** as the Listening Room platform,
 
 - [Rust](https://rustup.rs/) (stable), `cargo` on your `PATH`
 - Network access to the remote Redis used by the platform
+- **TLS Redis (`rediss://`):** If you see `invalid peer certificate: UnknownIssuer`, append **`/#insecure`** to the URL (e.g. `rediss://:password@host:port/#insecure`). That disables TLS certificate verification—use only when you trust the network path (see redis-rs docs). Prefer fixing trust (correct CA bundle) in production when possible.
 - For Farrago on the same Mac: enable **OSC Input** and note the **UDP port** (Settings → Controllers)
 
 ## Run

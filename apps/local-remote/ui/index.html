@@ -139,6 +139,10 @@
       <legend>Connection</legend>
       <label for="redisUrl">Redis URL</label>
       <input id="redisUrl" type="text" autocomplete="off" />
+      <p class="hint">
+        <code>rediss://</code> for TLS. If logs show <code>UnknownIssuer</code>, try appending
+        <code>/#insecure</code> to the URL (skips cert verification—only on trusted networks).
+      </p>
 
       <label for="roomId">Room ID (empty = all rooms)</label>
       <input id="roomId" type="text" autocomplete="off" />
