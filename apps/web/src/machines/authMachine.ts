@@ -69,6 +69,7 @@ type AuthEvent =
   | { type: "SOCKET_ERROR"; data: { error?: string } }
   | { type: "SOCKET_RECONNECTING"; data: { attemptNumber: number } }
   | { type: "SOCKET_RECONNECT_FAILED" }
+  | { type: "FORCE_REFRESH" }
 
 // Visibility callback actor
 const visibilityLogic = fromCallback<AuthEvent>(({ sendBack }) => {
@@ -503,6 +504,10 @@ export const authMachine = setup({
     },
     authenticated: {
       on: {
+        FORCE_REFRESH: {
+          target: "retrieving",
+          actions: ["resetInitialized"],
+        },
         SETUP: {
           target: "retrieving",
           actions: ["setRoomId", "setCurrentUser"],

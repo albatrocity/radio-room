@@ -30,11 +30,22 @@ import {
 } from "../lib/roomStatePersistence"
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+/**
+ * If the tab has been hidden for longer than this, do a full re-login
+ * instead of an incremental sync so every actor domain gets fresh data.
+ */
+const STALE_THRESHOLD_MS = 5 * 60 * 1000 // 5 minutes
+
+// ============================================================================
 // State
 // ============================================================================
 
 let currentRoomId: string | null = null
 let isInitialized = false
+let lastVisibleTimestamp = Date.now()
 
 // ============================================================================
 // Initialize Room
@@ -181,6 +192,12 @@ export function forceCleanup(): void {
  * Handle page visibility change.
  * Fetches latest data when returning to visible tab.
  *
+ * When the tab has been hidden for longer than STALE_THRESHOLD_MS we trigger a
+ * full re-login (FORCE_REFRESH) so that every actor domain (users, reactions,
+ * DJ state, audio metadata, queue, plugin configs, etc.) receives a fresh INIT
+ * payload from the server. For shorter absences an incremental sync (messages
+ * and playlist since last timestamp) is sufficient.
+ *
  * Note on mobile background behavior:
  * When users switch to another app on mobile, the browser may throttle or suspend
  * JavaScript execution and close the WebSocket connection. This is expected behavior
@@ -190,12 +207,24 @@ export function forceCleanup(): void {
  * for cases where the socket remained connected but the page was backgrounded.
  */
 export function handleVisibilityChange(isVisible: boolean): void {
-  if (isVisible && isInitialized && currentRoomId) {
-    console.log("[RoomLifecycle] Page visible, fetching latest data")
-    // Fetch room data via HTTP to ensure we have the latest room settings
+  if (!isVisible) {
+    lastVisibleTimestamp = Date.now()
+    return
+  }
+
+  if (!isInitialized || !currentRoomId) return
+
+  const elapsed = Date.now() - lastVisibleTimestamp
+
+  if (elapsed > STALE_THRESHOLD_MS) {
+    console.log(
+      `[RoomLifecycle] Away for ${Math.round(elapsed / 1000)}s, forcing full refresh`,
+    )
+    authActor.send({ type: "FORCE_REFRESH" })
     fetchRoom(currentRoomId)
-    // Also request incremental updates (messages, playlist) via socket
-    // This handles the case where socket stayed connected but page was backgrounded
+  } else {
+    console.log("[RoomLifecycle] Page visible, fetching latest data")
+    fetchRoom(currentRoomId)
     getLatestRoomData()
   }
 }
