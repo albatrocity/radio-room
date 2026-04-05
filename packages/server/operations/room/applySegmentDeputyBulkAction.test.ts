@@ -24,6 +24,15 @@ vi.mock("../data/utils", () => ({
   writeJsonToHset: m.writeJsonToHset,
 }))
 
+vi.mock("../../lib/systemMessage", () => ({
+  default: (content: string, meta?: {}) => ({
+    user: { username: "system", id: "system", userId: "system" },
+    content,
+    meta,
+    timestamp: "mock-ts",
+  }),
+}))
+
 describe("applySegmentDeputyBulkAction", () => {
   const emit = vi.fn()
   const context = {
@@ -61,6 +70,28 @@ describe("applySegmentDeputyBulkAction", () => {
     )
   })
 
+  it("dedeputize_all emits DEPUTY_BULK_APPLIED and MESSAGE_RECEIVED", async () => {
+    m.getDjs.mockResolvedValueOnce(["a"])
+    m.getRoomUsers.mockResolvedValueOnce([{ userId: "x" } as any])
+
+    await applySegmentDeputyBulkAction({ context, roomId: "r1", action: "dedeputize_all" })
+
+    expect(emit).toHaveBeenCalledWith("r1", "DEPUTY_BULK_APPLIED", {
+      roomId: "r1",
+      action: "dedeputize_all",
+    })
+    expect(emit).toHaveBeenCalledWith(
+      "r1",
+      "MESSAGE_RECEIVED",
+      expect.objectContaining({
+        roomId: "r1",
+        message: expect.objectContaining({
+          content: "All deputy DJ sessions have ended",
+        }),
+      }),
+    )
+  })
+
   it("deputize_all adds each online user as deputy", async () => {
     m.getRoomUsers
       .mockResolvedValueOnce([
@@ -82,5 +113,28 @@ describe("applySegmentDeputyBulkAction", () => {
       attributes: { isDeputyDj: true },
     })
     expect(emit).toHaveBeenCalled()
+  })
+
+  it("deputize_all emits DEPUTY_BULK_APPLIED and MESSAGE_RECEIVED", async () => {
+    m.getRoomUsers
+      .mockResolvedValueOnce([{ userId: "u1" } as any])
+      .mockResolvedValueOnce([{ userId: "u1" } as any])
+
+    await applySegmentDeputyBulkAction({ context, roomId: "r1", action: "deputize_all" })
+
+    expect(emit).toHaveBeenCalledWith("r1", "DEPUTY_BULK_APPLIED", {
+      roomId: "r1",
+      action: "deputize_all",
+    })
+    expect(emit).toHaveBeenCalledWith(
+      "r1",
+      "MESSAGE_RECEIVED",
+      expect.objectContaining({
+        roomId: "r1",
+        message: expect.objectContaining({
+          content: "All users have been promoted to deputy DJs",
+        }),
+      }),
+    )
   })
 })

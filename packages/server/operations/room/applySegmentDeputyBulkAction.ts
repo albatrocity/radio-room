@@ -3,6 +3,7 @@ import type { DeputyBulkAction } from "@repo/types"
 import { addDj, getDjs, removeDj } from "../data/djs"
 import { getRoomUsers } from "../data/users"
 import { writeJsonToHset } from "../data/utils"
+import systemMessage from "../../lib/systemMessage"
 
 /**
  * Apply bulk deputy-DJ changes when a segment is activated.
@@ -41,11 +42,28 @@ export async function applySegmentDeputyBulkAction(params: {
   }
 
   const users = await getRoomUsers({ context, roomId })
-  if (users.length > 0 && context.systemEvents) {
-    await context.systemEvents.emit(roomId, "USER_JOINED", {
+  if (context.systemEvents) {
+    if (users.length > 0) {
+      await context.systemEvents.emit(roomId, "USER_JOINED", {
+        roomId,
+        user: users[0],
+        users,
+      })
+    }
+
+    await context.systemEvents.emit(roomId, "DEPUTY_BULK_APPLIED", {
       roomId,
-      user: users[0],
-      users,
+      action,
+    })
+
+    const message =
+      action === "deputize_all"
+        ? "All users have been promoted to deputy DJs"
+        : "All deputy DJ sessions have ended"
+
+    await context.systemEvents.emit(roomId, "MESSAGE_RECEIVED", {
+      roomId,
+      message: systemMessage(message, { type: "alert", status: "info" }),
     })
   }
 }

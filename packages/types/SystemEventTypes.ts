@@ -105,6 +105,12 @@ export type SystemEventHandlers = {
     segmentTitle: string
   }) => Promise<void> | void
 
+  /** Fired when a segment bulk-deputizes or bulk-dedeputizes all users in the room. */
+  DEPUTY_BULK_APPLIED: (data: {
+    roomId: string
+    action: "deputize_all" | "dedeputize_all"
+  }) => Promise<void> | void
+
   /** Attached show timeline changed; full snapshot included (see ADR 0028). */
   SHOW_SCHEDULE_UPDATED: (data: {
     roomId: string

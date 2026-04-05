@@ -19,6 +19,7 @@ type DjEvent =
   | { type: "START_DJ_SESSION" }
   | { type: "START_DEPUTY_DJ_SESSION" }
   | { type: "END_DEPUTY_DJ_SESSION" }
+  | { type: "DEPUTY_BULK_APPLIED"; data: { action: "deputize_all" | "dedeputize_all" } }
 
 // ============================================================================
 // Machine
@@ -38,6 +39,14 @@ export const djMachine = setup({
     isDeputyDj: ({ event }) => {
       if (event.type !== "INIT") return false
       return !!event.data.user?.isDeputyDj
+    },
+    isBulkDeputize: ({ event }) => {
+      if (event.type !== "DEPUTY_BULK_APPLIED") return false
+      return event.data.action === "deputize_all"
+    },
+    isBulkDedeputize: ({ event }) => {
+      if (event.type !== "DEPUTY_BULK_APPLIED") return false
+      return event.data.action === "dedeputize_all"
     },
   },
   actions: {
@@ -103,6 +112,10 @@ export const djMachine = setup({
         deputyDjaying: {
           on: {
             END_DEPUTY_DJ_SESSION: "inactive",
+            DEPUTY_BULK_APPLIED: {
+              target: "inactive",
+              guard: "isBulkDedeputize",
+            },
           },
         },
         inactive: {
@@ -113,6 +126,10 @@ export const djMachine = setup({
               guard: "isAdmin",
             },
             START_DEPUTY_DJ_SESSION: "deputyDjaying",
+            DEPUTY_BULK_APPLIED: {
+              target: "deputyDjaying",
+              guard: "isBulkDeputize",
+            },
           },
         },
       },
