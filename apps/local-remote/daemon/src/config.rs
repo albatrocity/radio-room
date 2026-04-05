@@ -51,6 +51,20 @@ fn default_platform_api_base_url() -> String {
 pub struct Features {
     #[serde(default)]
     pub osc: OscFeature,
+    /// Browser soundboard + UDP listener for Farrago OSC Output (see README).
+    #[serde(default)]
+    pub soundboard: SoundboardFeature,
+}
+
+/// When enabled, binds UDP on `osc_listen_port` and expects Farrago **OSC Output** aimed at this host:port.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SoundboardFeature {
+    #[serde(default)]
+    pub enabled: bool,
+    /// Local UDP port to receive OSC from Farrago (distinct from `osc.port`, which is Farrago **Input**).
+    #[serde(default)]
+    pub osc_listen_port: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,6 +138,15 @@ impl Config {
             for (seg, path) in &o.segment_map {
                 validate_osc_address(path)
                     .with_context(|| format!("invalid OSC path for segment {seg}"))?;
+            }
+        }
+        let sb = &self.features.soundboard;
+        if sb.enabled {
+            if !o.enabled {
+                anyhow::bail!("features.soundboard requires features.osc.enabled (uses osc.host / osc.port to send)");
+            }
+            if sb.osc_listen_port == 0 {
+                anyhow::bail!("features.soundboard.oscListenPort must be non-zero when soundboard is enabled");
             }
         }
         Ok(())

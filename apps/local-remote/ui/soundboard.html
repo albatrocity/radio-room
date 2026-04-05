@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Farrago soundboard · local-remote</title>
+    <style>
+      :root {
+        color-scheme: dark light;
+        font-family: system-ui, sans-serif;
+        line-height: 1.4;
+      }
+      body {
+        max-width: 56rem;
+        margin: 1.5rem auto;
+        padding: 0 1rem;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+      h1 {
+        font-size: 1.35rem;
+        margin: 0;
+        flex: 1 1 auto;
+      }
+      .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-bottom: 0.75rem;
+      }
+      .tabs button {
+        padding: 0.4rem 0.75rem;
+        border-radius: 6px;
+        border: 1px solid #8886;
+        background: #8882;
+        cursor: pointer;
+        font: inherit;
+      }
+      .tabs button[aria-selected="true"] {
+        background: #48c;
+        color: #fff;
+        border-color: #48c;
+      }
+      .grid {
+        display: grid;
+        gap: 0.5rem;
+        min-height: 4rem;
+      }
+      .tile {
+        border-radius: 10px;
+        padding: 0.6rem 0.5rem;
+        min-height: 5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        cursor: pointer;
+        border: 2px solid #0002;
+        color: #fff;
+        position: relative;
+        box-shadow: inset 0 0 0 1px #fff2;
+        transition: transform 0.1s, box-shadow 0.15s;
+        text-shadow: 0 1px 2px #0004;
+      }
+      .tile:hover {
+        transform: scale(1.03);
+      }
+      .tile:active {
+        transform: scale(0.97);
+      }
+      .tile.playing {
+        border-color: #22c55e;
+        box-shadow: 0 0 12px 2px #22c55eaa, inset 0 0 0 1px #fff2;
+        animation: pulse-glow 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse-glow {
+        0%, 100% { box-shadow: 0 0 10px 1px #22c55e88, inset 0 0 0 1px #fff2; }
+        50% { box-shadow: 0 0 18px 4px #22c55ecc, inset 0 0 0 1px #fff2; }
+      }
+      .tile .badge {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .tile.playing .badge {
+        background: #22c55e;
+        box-shadow: 0 0 6px #22c55e;
+        opacity: 1;
+      }
+      .tile.playing .badge svg {
+        width: 10px;
+        height: 10px;
+        fill: #fff;
+      }
+      .tile .emoji {
+        font-size: 1.75rem;
+        line-height: 1;
+        margin-bottom: 0.2rem;
+      }
+      .tile .icon {
+        width: 1.5rem;
+        height: 1.5rem;
+        margin-bottom: 0.25rem;
+        opacity: 0.7;
+      }
+      .tile .title {
+        font-size: 0.78rem;
+        font-weight: 600;
+        word-break: break-word;
+        max-width: 100%;
+        line-height: 1.2;
+      }
+      .tile.empty {
+        opacity: 0.45;
+      }
+      .tile.empty .title {
+        font-weight: 400;
+      }
+      .row-btns {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      button.action {
+        padding: 0.45rem 0.9rem;
+        cursor: pointer;
+        font: inherit;
+      }
+      #msg {
+        margin-top: 0.75rem;
+        font-size: 0.9rem;
+        color: #c33;
+        white-space: pre-wrap;
+      }
+      .hint {
+        font-size: 0.88rem;
+        opacity: 0.85;
+        margin: 0.5rem 0;
+      }
+      a.back {
+        color: inherit;
+      }
+      /* ---- Now Playing bar ---- */
+      .now-playing {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-bottom: 0.75rem;
+        min-height: 2.2rem;
+      }
+      .np-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.5rem 0.35rem 0.65rem;
+        border-radius: 20px;
+        color: #fff;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-shadow: 0 1px 2px #0004;
+        border: none;
+        cursor: default;
+        white-space: nowrap;
+        box-shadow: 0 1px 4px #0003;
+      }
+      .np-pill .np-stop {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: none;
+        background: #fff3;
+        color: #fff;
+        font-size: 0.75rem;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: background 0.1s;
+      }
+      .np-pill .np-stop:hover {
+        background: #fff6;
+      }
+      /* ---- Search ---- */
+      .search-wrap {
+        overflow: hidden;
+        max-height: 0;
+        transition: max-height 0.15s ease-out, margin 0.15s ease-out;
+        margin-bottom: 0;
+      }
+      .search-wrap.open {
+        max-height: 3rem;
+        margin-bottom: 0.6rem;
+      }
+      .search-wrap input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.45rem 0.65rem;
+        border-radius: 8px;
+        border: 1px solid #8886;
+        background: #8881;
+        font: inherit;
+        font-size: 0.95rem;
+        outline: none;
+      }
+      .search-wrap input:focus {
+        border-color: #48c;
+        box-shadow: 0 0 0 2px #48c4;
+      }
+      .tile.search-hidden {
+        visibility: hidden;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Farrago soundboard</h1>
+      <div class="row-btns">
+        <button type="button" class="action" id="btnPing">Refresh from Farrago</button>
+        <a class="back" href="/">← Settings</a>
+      </div>
+    </header>
+    <div id="nowPlaying" class="now-playing"></div>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Farrago sets"></div>
+    <div class="search-wrap" id="searchWrap">
+      <input type="text" id="searchInput" placeholder="Search tiles…" autocomplete="off" />
+    </div>
+    <div id="gridWrap"></div>
+    <div id="msg" aria-live="polite"></div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      /** @type {{ kind: string, index?: number } | null} */
+      let activeTab = null;
+      let searchQuery = "";
+
+      // ---- Search: type-to-filter ----
+      document.addEventListener("keydown", (e) => {
+        const tag = (e.target.tagName || "").toLowerCase();
+        if (tag === "input" || tag === "textarea") return;
+        if (e.key === "Escape") {
+          searchQuery = "";
+          $("searchInput").value = "";
+          $("searchWrap").classList.remove("open");
+          applySearchFilter();
+          return;
+        }
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          $("searchWrap").classList.add("open");
+          $("searchInput").focus();
+        }
+      });
+
+      $("searchInput").addEventListener("input", (e) => {
+        searchQuery = e.target.value.toLowerCase();
+        applySearchFilter();
+      });
+
+      $("searchInput").addEventListener("blur", () => {
+        if (!$("searchInput").value) {
+          $("searchWrap").classList.remove("open");
+        }
+      });
+
+      $("searchInput").addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          searchQuery = "";
+          $("searchInput").value = "";
+          $("searchWrap").classList.remove("open");
+          $("searchInput").blur();
+          applySearchFilter();
+        }
+      });
+
+      function applySearchFilter() {
+        const grid = $("gridWrap").querySelector(".grid");
+        if (!grid) return;
+        for (const el of grid.querySelectorAll(".tile")) {
+          if (!searchQuery) {
+            el.classList.remove("search-hidden");
+            continue;
+          }
+          const title = (el.title || "").toLowerCase();
+          el.classList.toggle("search-hidden", !title.includes(searchQuery));
+        }
+      }
+
+      const ICON_SVG =
+        '<svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>';
+
+      const BADGE_PLAY_SVG = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+      const BADGE_PAUSE_SVG = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+
+      const EMOJI_RE = /^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/u;
+
+      function extractEmoji(text) {
+        if (!text) return null;
+        const m = text.match(EMOJI_RE);
+        return m ? m[0] : null;
+      }
+
+      function tileEmoji(tile) {
+        if (!tile) return null;
+        if (tile.emoji) return tile.emoji;
+        const fromTitle = extractEmoji(tile.title);
+        if (fromTitle) return fromTitle;
+        const fromNotes = extractEmoji(tile.notes);
+        if (fromNotes) return fromNotes;
+        return null;
+      }
+
+      function tileKey(x, y) {
+        return x + "," + y;
+      }
+
+      function parseKey(k) {
+        const [x, y] = k.split(",").map(Number);
+        return { x, y };
+      }
+
+      function buildTileMap(tiles) {
+        const m = new Map();
+        for (const t of tiles || []) {
+          m.set(tileKey(t.x, t.y), t);
+        }
+        return m;
+      }
+
+      function gridExtent(keys) {
+        let maxX = 0,
+          maxY = 0;
+        for (const k of keys) {
+          const { x, y } = parseKey(k);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+        return { cols: maxX + 1, rows: maxY + 1 };
+      }
+
+      function tileClass(t) {
+        return "tile" + (t && t.playing ? " playing" : "") + (!t || !t.title ? " empty" : "");
+      }
+
+      function tileInner(t) {
+        const emoji = tileEmoji(t);
+        const iconHtml = emoji
+          ? '<span class="emoji">' + escapeHtml(emoji) + "</span>"
+          : ICON_SVG;
+        const badgeIcon = t && t.playing
+          ? (t.allowPausing ? BADGE_PAUSE_SVG : BADGE_PLAY_SVG)
+          : BADGE_PLAY_SVG;
+        const badge = '<span class="badge">' + badgeIcon + "</span>";
+        return badge + iconHtml + '<span class="title">' + (t && t.title ? escapeHtml(t.title) : "—") + "</span>";
+      }
+
+      function renderGrid(tiles) {
+        const wrap = $("gridWrap");
+        const map = buildTileMap(tiles);
+        const keys = Array.from(map.keys());
+        if (keys.length === 0) {
+          wrap.innerHTML =
+            '<p class="hint">No tiles yet. Click <strong>Refresh from Farrago</strong> after OSC Output is configured.</p>';
+          return;
+        }
+        const { cols, rows } = gridExtent(keys);
+
+        const existing = wrap.querySelector(".grid");
+        const sameDims =
+          existing &&
+          existing.dataset.cols === String(cols) &&
+          existing.dataset.rows === String(rows);
+
+        if (sameDims) {
+          // In-place update: only touch tiles whose state changed.
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+              const el = existing.querySelector('[data-x="' + x + '"][data-y="' + y + '"]');
+              if (!el) continue;
+              const t = map.get(tileKey(x, y));
+              const cls = tileClass(t);
+              if (el.className !== cls) el.className = cls;
+              const bg = t && t.colorHex ? t.colorHex : "#4b5563";
+              if (el.dataset.bg !== bg) {
+                el.style.background = bg;
+                el.dataset.bg = bg;
+              }
+              const inner = tileInner(t);
+              if (el._lastInner !== inner) {
+                el.innerHTML = inner;
+                el._lastInner = inner;
+              }
+            }
+          }
+          return;
+        }
+
+        // Full rebuild (first render or grid dimensions changed).
+        const grid = document.createElement("div");
+        grid.className = "grid";
+        grid.dataset.cols = cols;
+        grid.dataset.rows = rows;
+        grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            const t = map.get(tileKey(x, y));
+            const el = document.createElement("button");
+            el.type = "button";
+            el.className = tileClass(t);
+            el.dataset.x = x;
+            el.dataset.y = y;
+            const bg = t && t.colorHex ? t.colorHex : "#4b5563";
+            el.style.background = bg;
+            el.dataset.bg = bg;
+            const inner = tileInner(t);
+            el.innerHTML = inner;
+            el._lastInner = inner;
+            el.title = t && t.title ? t.title : "Empty";
+            el.onclick = () => playTile(x, y);
+            grid.appendChild(el);
+          }
+        }
+        wrap.innerHTML = "";
+        wrap.appendChild(grid);
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      async function stopTile(setIndex, x, y) {
+        const body =
+          setIndex == null
+            ? { useSelectedSet: true, x, y }
+            : { set: setIndex, x, y };
+        try {
+          await fetch("/api/soundboard/stop", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+        } catch (_) {}
+      }
+
+      function collectPlayingTiles(state) {
+        const playing = [];
+        for (const s of state.sets || []) {
+          for (const t of s.tiles || []) {
+            if (t.playing) {
+              playing.push(t);
+            }
+          }
+        }
+        for (const t of state.selectedMirror || []) {
+          if (t.playing && !playing.some((p) => p.x === t.x && p.y === t.y && p.title === t.title)) {
+            playing.push(t);
+          }
+        }
+        return playing;
+      }
+
+      function npKey(t) {
+        return (t.setIndex != null ? t.setIndex : "sel") + "-" + t.x + "-" + t.y;
+      }
+
+      function renderNowPlaying(state) {
+        const container = $("nowPlaying");
+        const playing = collectPlayingTiles(state);
+        const newKeys = new Set(playing.map(npKey));
+        const existingEls = container.querySelectorAll(".np-pill");
+        const existingKeys = new Set();
+        for (const el of existingEls) {
+          if (!newKeys.has(el.dataset.key)) {
+            el.remove();
+          } else {
+            existingKeys.add(el.dataset.key);
+          }
+        }
+        for (const t of playing) {
+          const key = npKey(t);
+          if (existingKeys.has(key)) continue;
+          const pill = document.createElement("span");
+          pill.className = "np-pill";
+          pill.dataset.key = key;
+          const bg = t.colorHex || "#4b5563";
+          pill.style.background = bg;
+          const label = escapeHtml(t.title || "Untitled");
+          pill.innerHTML = label + ' <button class="np-stop" title="Stop">&#x25A0;</button>';
+          pill.querySelector(".np-stop").onclick = () => stopTile(t.setIndex, t.x, t.y);
+          container.appendChild(pill);
+        }
+      }
+
+      async function playTile(x, y) {
+        $("msg").textContent = "";
+        if (!activeTab) {
+          $("msg").textContent = "No set data yet.";
+          return;
+        }
+        const body =
+          activeTab.kind === "selected"
+            ? { useSelectedSet: true, x, y }
+            : { set: activeTab.index, x, y };
+        try {
+          const r = await fetch("/api/soundboard/play", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const j = await r.json();
+          if (!r.ok || !j.ok) {
+            $("msg").textContent = j.error || r.statusText;
+          }
+        } catch (e) {
+          $("msg").textContent = String(e.message || e);
+        }
+      }
+
+      function renderTabs(state) {
+        const tabs = $("tabs");
+        tabs.innerHTML = "";
+        const sets = state.sets || [];
+        const hasSelected = (state.selectedMirror || []).length > 0;
+
+        function addTab(label, kind, index) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.setAttribute("role", "tab");
+          b.textContent = label;
+          b.dataset.kind = kind;
+          if (kind === "set") b.dataset.index = String(index);
+          b.onclick = () => selectTab(kind, index);
+          tabs.appendChild(b);
+        }
+
+        for (const s of sets) {
+          addTab("Set " + s.setIndex, "set", s.setIndex);
+        }
+        if (hasSelected) {
+          addTab("Selected (Farrago)", "selected", 0);
+        }
+
+        if (!activeTab && sets.length) {
+          activeTab = { kind: "set", index: sets[0].setIndex };
+        } else if (!activeTab && hasSelected) {
+          activeTab = { kind: "selected", index: 0 };
+        }
+
+        if (activeTab && activeTab.kind === "set") {
+          const ok = sets.some((s) => s.setIndex === activeTab.index);
+          if (!ok) {
+            activeTab = sets.length
+              ? { kind: "set", index: sets[0].setIndex }
+              : hasSelected
+                ? { kind: "selected", index: 0 }
+                : null;
+          }
+        }
+
+        for (const b of tabs.querySelectorAll("button")) {
+          const sel =
+            activeTab &&
+            b.dataset.kind === activeTab.kind &&
+            (activeTab.kind !== "set" || Number(b.dataset.index) === activeTab.index);
+          b.setAttribute("aria-selected", sel ? "true" : "false");
+        }
+      }
+
+      function selectTab(kind, index) {
+        activeTab = kind === "set" ? { kind: "set", index } : { kind: "selected", index };
+        for (const b of $("tabs").querySelectorAll("button")) {
+          const sel =
+            activeTab &&
+            b.dataset.kind === activeTab.kind &&
+            (activeTab.kind !== "set" || Number(b.dataset.index) === activeTab.index);
+          b.setAttribute("aria-selected", sel ? "true" : "false");
+        }
+        refreshView(lastState);
+      }
+
+      let lastState = null;
+
+      function refreshView(state) {
+        lastState = state;
+        if (!state) return;
+        renderNowPlaying(state);
+        renderTabs(state);
+        let tiles = [];
+        if (activeTab && activeTab.kind === "set") {
+          const s = (state.sets || []).find((x) => x.setIndex === activeTab.index);
+          tiles = s ? s.tiles : [];
+        } else if (activeTab && activeTab.kind === "selected") {
+          tiles = state.selectedMirror || [];
+        }
+        renderGrid(tiles);
+        if (searchQuery) applySearchFilter();
+      }
+
+      // ---- WebSocket for real-time state ----
+      let ws = null;
+      let wsRetryMs = 1000;
+
+      function connectWs() {
+        const proto = location.protocol === "https:" ? "wss:" : "ws:";
+        ws = new WebSocket(`${proto}//${location.host}/api/soundboard/ws`);
+
+        ws.onopen = () => {
+          wsRetryMs = 1000;
+        };
+
+        ws.onmessage = (e) => {
+          try {
+            const state = JSON.parse(e.data);
+            refreshView(state);
+          } catch (_) {}
+        };
+
+        ws.onclose = () => {
+          ws = null;
+          setTimeout(connectWs, wsRetryMs);
+          wsRetryMs = Math.min(wsRetryMs * 1.5, 10000);
+        };
+
+        ws.onerror = () => {
+          ws.close();
+        };
+      }
+
+      connectWs();
+
+      $("btnPing").onclick = async () => {
+        $("msg").textContent = "";
+        try {
+          const r = await fetch("/api/soundboard/ping", { method: "POST" });
+          const j = await r.json();
+          if (!r.ok || !j.ok) {
+            $("msg").textContent = j.error || r.statusText;
+          }
+        } catch (e) {
+          $("msg").textContent = String(e.message || e);
+        }
+      };
+    </script>
+  </body>
+</html>

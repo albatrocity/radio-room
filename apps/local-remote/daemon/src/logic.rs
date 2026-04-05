@@ -112,4 +112,22 @@ mod config_tests {
         cfg.redis_url = "rediss://:secret@example.com:6380/#insecure".to_string();
         assert!(cfg.validate().is_ok());
     }
+
+    #[test]
+    fn validate_soundboard_requires_osc() {
+        let mut cfg = Config::default();
+        cfg.features.soundboard.enabled = true;
+        cfg.features.soundboard.osc_listen_port = 9877;
+        assert!(cfg.validate().is_err());
+    }
+
+    #[test]
+    fn validate_soundboard_ok_when_osc_enabled() {
+        let mut cfg = Config::default();
+        cfg.features.osc.enabled = true;
+        cfg.features.osc.port = 8000;
+        cfg.features.soundboard.enabled = true;
+        cfg.features.soundboard.osc_listen_port = 9877;
+        assert!(cfg.validate().is_ok());
+    }
 }

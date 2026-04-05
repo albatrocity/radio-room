@@ -1,8 +1,11 @@
 mod api;
 mod config;
 mod events;
+mod farrago;
 mod logic;
+mod osc_listener;
 mod osc_send;
+mod play_monitor;
 mod redis_worker;
 mod state;
 
@@ -33,6 +36,16 @@ async fn main() -> anyhow::Result<()> {
     let redis_state = state.clone();
     tokio::spawn(async move {
         redis_worker::run_redis_loop(redis_state).await;
+    });
+
+    let osc_in_state = state.clone();
+    tokio::spawn(async move {
+        osc_listener::run_osc_listener(osc_in_state).await;
+    });
+
+    let play_mon_state = state.clone();
+    tokio::spawn(async move {
+        play_monitor::run_play_monitor(play_mon_state).await;
     });
 
     let app: Router = api::build_router(state.clone());

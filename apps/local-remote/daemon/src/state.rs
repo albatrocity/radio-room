@@ -1,7 +1,9 @@
 use crate::config::Config;
+use crate::farrago::{FarragoBoard, FarragoBoardSnapshot};
+use rosc::OscType;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
-use tokio::sync::Notify;
+use tokio::sync::{broadcast, Notify};
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct StatusSnapshot {
@@ -12,6 +14,7 @@ pub struct StatusSnapshot {
     pub last_osc_address: Option<String>,
     pub last_osc_error: Option<String>,
     pub last_osc_at_ms: Option<u128>,
+    pub last_farrago_ping_at_ms: Option<u128>,
 }
 
 pub struct AppState {
@@ -23,11 +26,18 @@ pub struct AppState {
     pub last_osc_address: RwLock<Option<String>>,
     pub last_osc_error: RwLock<Option<String>>,
     pub last_osc_at_ms: RwLock<Option<u128>>,
+    pub last_farrago_ping_at_ms: RwLock<Option<u128>>,
+    pub farrago_board: RwLock<FarragoBoard>,
     pub reconnect: Notify,
+    /// Fires whenever the Farrago board state changes. WebSocket clients subscribe to this.
+    pub board_changed: broadcast::Sender<()>,
+    /// Wakes the play-state monitor when a tile play command is sent.
+    pub play_started: Notify,
 }
 
 impl AppState {
     pub fn new(cfg: Config) -> Self {
+        let (board_tx, _) = broadcast::channel(64);
         Self {
             config: RwLock::new(cfg),
             redis_connected: AtomicBool::new(false),
@@ -37,7 +47,11 @@ impl AppState {
             last_osc_address: RwLock::new(None),
             last_osc_error: RwLock::new(None),
             last_osc_at_ms: RwLock::new(None),
+            last_farrago_ping_at_ms: RwLock::new(None),
+            farrago_board: RwLock::new(FarragoBoard::default()),
             reconnect: Notify::new(),
+            board_changed: board_tx,
+            play_started: Notify::new(),
         }
     }
 
@@ -54,6 +68,11 @@ impl AppState {
             last_osc_address: self.last_osc_address.read().ok().and_then(|g| g.clone()),
             last_osc_error: self.last_osc_error.read().ok().and_then(|g| g.clone()),
             last_osc_at_ms: self.last_osc_at_ms.read().ok().and_then(|g| *g),
+            last_farrago_ping_at_ms: self
+                .last_farrago_ping_at_ms
+                .read()
+                .ok()
+                .and_then(|g| *g),
         }
     }
 
@@ -96,6 +115,40 @@ impl AppState {
     pub fn record_osc_error(&self, err: String) {
         if let Ok(mut w) = self.last_osc_error.write() {
             *w = Some(err);
+        }
+    }
+
+    /// Apply one OSC message to the Farrago board model and notify WS clients.
+    pub fn apply_farrago_osc(&self, addr: &str, args: &[OscType]) {
+        if let Ok(mut w) = self.farrago_board.write() {
+            w.apply_message(addr, args);
+        }
+        let _ = self.board_changed.send(());
+    }
+
+    pub fn farrago_snapshot(&self) -> FarragoBoardSnapshot {
+        self.farrago_board
+            .read()
+            .ok()
+            .map(|g| g.snapshot())
+            .unwrap_or_default()
+    }
+
+    pub fn has_any_playing(&self) -> bool {
+        self.farrago_board
+            .read()
+            .ok()
+            .map(|b| b.has_any_playing())
+            .unwrap_or(false)
+    }
+
+    pub fn record_farrago_ping(&self) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        if let Ok(mut w) = self.last_farrago_ping_at_ms.write() {
+            *w = Some(now);
         }
     }
 }

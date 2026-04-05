@@ -36,7 +36,7 @@ Default path (first run creates it):
 - **macOS:** `~/Library/Application Support/local-remote/config.json`
 - **Linux:** `~/.config/local-remote/config.json`
 
-JSON uses **camelCase** (e.g. `redisUrl`, `roomId`, `platformApiBaseUrl`, `features.osc.segmentMap`, `features.osc.defaultArgs`).
+JSON uses **camelCase** (e.g. `redisUrl`, `roomId`, `platformApiBaseUrl`, `features.osc.segmentMap`, `features.osc.defaultArgs`, `features.soundboard.oscListenPort`).
 
 ## Scheduling API (segment picker)
 
@@ -67,6 +67,17 @@ Filter by **room**: set `roomId` in the UI. Leave it **empty** to accept all roo
 4. Optional **default arguments**: comma-separated floats (e.g. `1` or `1.0`) appended as OSC float32 arguments on every send if the target expects a value.
 
 **v1** only reacts to **`SEGMENT_ACTIVATED`**. Other `SYSTEM:*` events are ignored for OSC (extensible later).
+
+## Farrago soundboard (optional)
+
+Browser UI at **`/soundboard`** to list Farrago **sets**, show **tiles** (title + color from OSC), and **play** them. Farrago does not send `/ping` replies back to the sender’s UDP socket—it emits updates on **OSC Output**, so local-remote opens a **second UDP port** to receive them ([ADR 0030](../../docs/adrs/0030-local-remote-farrago-soundboard.md)).
+
+1. Enable **OSC** in local-remote (same as for segment mapping): **OSC host** (e.g. `127.0.0.1`) and **OSC UDP port** = Farrago **OSC Input** port.
+2. Enable **Farrago soundboard** on the settings page (or set `features.soundboard.enabled` / `features.soundboard.oscListenPort` in `config.json`). Pick a **listen port** that is **not** Farrago’s Input port (e.g. Input `8000`, listen `9877`).
+3. In Farrago → Settings → Controllers, set **OSC Output** to **`127.0.0.1:{oscListenPort}`** (same port as `oscListenPort`).
+4. Open **`http://127.0.0.1:9876/soundboard`** (adjust host if you changed `httpListen`) and click **Refresh from Farrago** (sends `/ping`). Tile **icons** are not available via Farrago’s OSC docs; the UI uses a generic speaker icon.
+
+**API:** `GET /api/soundboard/state`, `POST /api/soundboard/ping`, `POST /api/soundboard/play`, `POST /api/soundboard/stop` (JSON body `{ "set": 0, "x": 0, "y": 0 }` or `{ "useSelectedSet": true, "x": 0, "y": 0 }` for the current Farrago selection).
 
 ## OSC connection test
 

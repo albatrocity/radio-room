@@ -132,7 +132,8 @@
       Connect to the platform Redis, listen for <code>SYSTEM:*</code> events, and send
       <strong>OSC</strong> over UDP when <code>SEGMENT_ACTIVATED</code> matches your room and segment
       map (e.g. trigger a <a href="https://rogueamoeba.com/support/manuals/farrago/?page=osc">Farrago</a>
-      tile).
+      tile). Open the <a href="/soundboard">Farrago soundboard</a> for a tile grid (requires soundboard +
+      OSC below).
     </p>
 
     <fieldset>
@@ -225,6 +226,25 @@
       </p>
       <div class="maps" id="segmentMap"></div>
       <button type="button" id="addMapRow">Add mapping</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Farrago soundboard (optional)</legend>
+      <p class="hint">
+        Listens for Farrago <strong>OSC Output</strong> on the UDP port below and serves
+        <a href="/soundboard"><code>/soundboard</code></a>. Requires <strong>OSC enabled</strong> above
+        (same host/port are used to send <code>/ping</code> and tile <code>/play</code>).
+      </p>
+      <div class="row">
+        <input id="soundboardEnabled" type="checkbox" />
+        <label for="soundboardEnabled" style="margin: 0">Soundboard enabled</label>
+      </div>
+      <label for="soundboardOscListenPort">OSC listen port (Farrago Output → this machine)</label>
+      <input id="soundboardOscListenPort" type="number" min="1" max="65535" placeholder="e.g. 9877" />
+      <p class="hint">
+        In Farrago → Settings → Controllers, set <strong>OSC Output</strong> to
+        <code>127.0.0.1</code> and this port (must differ from Farrago <strong>OSC Input</strong> port).
+      </p>
     </fieldset>
 
     <div class="row" style="margin: 1rem 0">
@@ -350,6 +370,11 @@
         $("oscPort").value = c.features?.osc?.port != null ? String(c.features.osc.port) : "";
         $("defaultArgs").value = defaultArgsToString(c.features?.osc?.defaultArgs);
         segmentMapRows($("segmentMap"), c.features?.osc?.segmentMap || {});
+        $("soundboardEnabled").checked = !!c.features?.soundboard?.enabled;
+        $("soundboardOscListenPort").value =
+          c.features?.soundboard?.oscListenPort != null
+            ? String(c.features.soundboard.oscListenPort)
+            : "";
       }
 
       function formToCfg(base) {
@@ -366,6 +391,10 @@
         c.features.osc.port = Number.isFinite(p) ? p : 0;
         c.features.osc.defaultArgs = parseDefaultArgs($("defaultArgs").value);
         c.features.osc.segmentMap = readSegmentMap($("segmentMap"));
+        c.features.soundboard = c.features.soundboard || {};
+        c.features.soundboard.enabled = $("soundboardEnabled").checked;
+        const sbp = Number($("soundboardOscListenPort").value);
+        c.features.soundboard.oscListenPort = Number.isFinite(sbp) ? sbp : 0;
         return c;
       }
 

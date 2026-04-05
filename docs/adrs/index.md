@@ -35,6 +35,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0027](0027-local-remote-scheduling-ui-cors.md) | local-remote UI: CORS for scheduling API reads | Accepted |
 | [0028](0028-room-schedule-redis-snapshot.md) | Room schedule snapshot in Redis + SHOW_SCHEDULE_UPDATED | Accepted |
 | [0029](0029-public-scheduling-read-for-local-remote.md) | Public read-only scheduling API for local-remote segment picker | Accepted |
+| [0030](0030-local-remote-farrago-soundboard.md) | local-remote: Farrago soundboard (bidirectional OSC) | Accepted |
 
 ## Creating a New ADR
 
