@@ -70,10 +70,19 @@
       .map-row input.seg {
         max-width: 8rem;
       }
-      .map-row input.path {
+      .map-row .tile-picker-wrap {
         flex: 1;
         min-width: 8rem;
         max-width: 22rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .map-row .tile-picker-wrap select,
+      .map-row .tile-picker-wrap input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.45rem 0.5rem;
       }
       .map-row button.test {
         flex-shrink: 0;
@@ -218,14 +227,17 @@
       <input id="defaultArgs" type="text" placeholder="e.g. 1 or 1.0" />
       <p class="hint">Sent as float32 after the address on every trigger (many Farrago endpoints expect a value).</p>
 
-      <label>Segment ID → OSC address</label>
+      <label>Segment ID → Farrago tile</label>
       <p class="hint">
-        Full path starting with <code>/</code>, e.g.
-        <code>/set/selected/tile/0/0/play</code>. Use <strong>Test</strong> on a row to send that path with the
-        default args (same as a live trigger); no save required.
+        Select a Farrago tile from the dropdown, or choose <strong>Custom path…</strong> for manual OSC entry.
+        Use <strong>Test</strong> on a row to send that path with the default args (same as a live trigger; no save
+        required). <strong>Refresh tiles</strong> fetches the latest tile list from Farrago.
       </p>
       <div class="maps" id="segmentMap"></div>
-      <button type="button" id="addMapRow">Add mapping</button>
+      <div class="row">
+        <button type="button" id="addMapRow">Add mapping</button>
+        <button type="button" id="refreshTiles">Refresh tiles</button>
+      </div>
     </fieldset>
 
     <fieldset>
@@ -271,6 +283,89 @@
         return normalizeApiBase($("platformApiBaseUrl").value) || DEFAULT_PLATFORM_API;
       }
 
+      let cachedBoardState = null;
+
+      function tileOscPath(tile) {
+        return "/set/" + tile.setIndex + "/tile/" + tile.x + "/" + tile.y + "/play";
+      }
+
+      function tileLabel(tile) {
+        const parts = [];
+        if (tile.emoji) parts.push(tile.emoji);
+        parts.push(tile.title || "Tile " + tile.x + "," + tile.y);
+        return parts.join(" ");
+      }
+
+      function populateTilePicker(selectEl, currentPath) {
+        selectEl.innerHTML = "";
+        selectEl.appendChild(new Option("— Select a tile —", ""));
+        const sets = cachedBoardState?.sets || [];
+        for (const set of sets) {
+          const tiles = (set.tiles || []).filter(function (t) { return t.title; });
+          if (tiles.length === 0) continue;
+          const group = document.createElement("optgroup");
+          group.label = "Set " + (set.setIndex + 1);
+          for (const t of tiles) {
+            group.appendChild(new Option(tileLabel(t), tileOscPath(t)));
+          }
+          selectEl.appendChild(group);
+        }
+        selectEl.appendChild(new Option("Custom path…", "__custom__"));
+        if (currentPath && currentPath !== "__custom__") {
+          const match = Array.from(selectEl.options).some(function (o) {
+            return o.value === currentPath;
+          });
+          selectEl.value = match ? currentPath : "__custom__";
+        }
+      }
+
+      function getRowPath(row) {
+        const select = row.querySelector(".tile-picker");
+        if (select && select.value && select.value !== "__custom__") return select.value;
+        const custom = row.querySelector(".path-custom");
+        return custom ? custom.value.trim() : "";
+      }
+
+      function syncCustomVisibility(row) {
+        const select = row.querySelector(".tile-picker");
+        const custom = row.querySelector(".path-custom");
+        if (!select || !custom) return;
+        var isCustom = select.value === "__custom__";
+        custom.hidden = !isCustom;
+        if (isCustom && !custom.value) custom.focus();
+      }
+
+      function rebuildAllTilePickers() {
+        for (const row of $("segmentMap").querySelectorAll(".map-row")) {
+          const select = row.querySelector(".tile-picker");
+          const custom = row.querySelector(".path-custom");
+          if (!select) continue;
+          const currentPath = getRowPath(row);
+          populateTilePicker(select, currentPath);
+          if (select.value === "__custom__") {
+            custom.value = currentPath;
+            custom.hidden = false;
+          } else {
+            custom.hidden = true;
+          }
+        }
+      }
+
+      async function fetchFarragoTiles() {
+        try {
+          const r = await fetch("/api/soundboard/state");
+          if (!r.ok) { cachedBoardState = null; return; }
+          cachedBoardState = await r.json();
+        } catch { cachedBoardState = null; }
+        rebuildAllTilePickers();
+      }
+
+      async function pingAndFetchTiles() {
+        try { await fetch("/api/soundboard/ping", { method: "POST" }); } catch {}
+        await new Promise(function (r) { setTimeout(r, 600); });
+        await fetchFarragoTiles();
+      }
+
       function clearMapRowHighlight() {
         for (const row of $("segmentMap").querySelectorAll(".map-row--highlight")) {
           row.classList.remove("map-row--highlight");
@@ -280,18 +375,46 @@
       function createMapRowEl(segId, path) {
         const row = document.createElement("div");
         row.className = "map-row";
-        row.innerHTML =
-          '<input class="seg" type="text" placeholder="segment id" />' +
-          '<span>→</span>' +
-          '<input class="path" type="text" placeholder="/set/selected/tile/0/0/play" />' +
-          '<button type="button" class="test-osc">Test</button>' +
-          '<button type="button" class="rm">Remove</button>';
-        row.querySelector(".seg").value = segId;
-        row.querySelector(".path").value = path;
-        row.querySelector(".rm").onclick = () => {
-          row.remove();
-          clearMapRowHighlight();
-        };
+
+        const segInput = document.createElement("input");
+        segInput.className = "seg";
+        segInput.type = "text";
+        segInput.placeholder = "segment id";
+        segInput.value = segId;
+
+        const arrow = document.createElement("span");
+        arrow.textContent = "→";
+
+        const wrap = document.createElement("div");
+        wrap.className = "tile-picker-wrap";
+
+        const select = document.createElement("select");
+        select.className = "tile-picker";
+        populateTilePicker(select, path);
+
+        const customInput = document.createElement("input");
+        customInput.className = "path-custom";
+        customInput.type = "text";
+        customInput.placeholder = "/set/selected/tile/0/0/play";
+        if (select.value === "__custom__" && path) customInput.value = path;
+        customInput.hidden = select.value !== "__custom__";
+
+        select.onchange = function () { syncCustomVisibility(row); };
+
+        wrap.append(select, customInput);
+
+        const testBtn = document.createElement("button");
+        testBtn.type = "button";
+        testBtn.className = "test-osc";
+        testBtn.textContent = "Test";
+
+        const rmBtn = document.createElement("button");
+        rmBtn.type = "button";
+        rmBtn.className = "rm";
+        rmBtn.textContent = "Remove";
+        rmBtn.onclick = function () { row.remove(); clearMapRowHighlight(); };
+
+        row.append(segInput, arrow, wrap, testBtn, rmBtn);
         return row;
       }
 
@@ -320,14 +443,14 @@
         const existing = findMapRowBySegmentId(id);
         if (existing) {
           existing.classList.add("map-row--highlight");
-          existing.querySelector(".path").focus();
+          existing.querySelector(".tile-picker").focus();
           existing.scrollIntoView({ block: "nearest", behavior: "smooth" });
           return;
         }
         const row = createMapRowEl(id, "");
         $("segmentMap").appendChild(row);
         row.classList.add("map-row--highlight");
-        row.querySelector(".path").focus();
+        row.querySelector(".tile-picker").focus();
         row.scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
 
@@ -335,7 +458,7 @@
         const out = {};
         for (const row of container.querySelectorAll(".map-row")) {
           const k = row.querySelector(".seg").value.trim();
-          const v = row.querySelector(".path").value.trim();
+          const v = getRowPath(row);
           if (k && v) out[k] = v;
         }
         return out;
@@ -628,9 +751,9 @@
           $("msg").textContent = hp.error;
           return;
         }
-        const address = row.querySelector(".path").value.trim();
+        const address = getRowPath(row);
         if (!address) {
-          $("msg").textContent = "Enter an OSC path in this row before testing.";
+          $("msg").textContent = "Select a tile or enter an OSC path in this row before testing.";
           return;
         }
         if (!address.startsWith("/")) {
@@ -662,7 +785,15 @@
         $("segmentMap").appendChild(createMapRowEl("", ""));
       };
 
-      reload();
+      $("refreshTiles").onclick = async () => {
+        $("refreshTiles").disabled = true;
+        $("refreshTiles").textContent = "Loading…";
+        await pingAndFetchTiles();
+        $("refreshTiles").disabled = false;
+        $("refreshTiles").textContent = "Refresh tiles";
+      };
+
+      reload().then(() => fetchFarragoTiles());
       setInterval(refreshStatus, 1500);
     </script>
   </body>
