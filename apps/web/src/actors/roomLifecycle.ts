@@ -215,6 +215,7 @@ export function handleVisibilityChange(isVisible: boolean): void {
   if (!isInitialized || !currentRoomId) return
 
   const elapsed = Date.now() - lastVisibleTimestamp
+  lastVisibleTimestamp = Date.now()
 
   if (elapsed > STALE_THRESHOLD_MS) {
     console.log(

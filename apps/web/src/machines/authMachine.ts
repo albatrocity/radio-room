@@ -505,9 +505,17 @@ export const authMachine = setup({
     authenticated: {
       on: {
         FORCE_REFRESH: {
-          target: "retrieving",
-          actions: ["resetInitialized"],
+          actions: ["resetInitialized", "login"],
         },
+        INIT: [
+          {
+            actions: ["activateAdmin", "setCurrentUser", "assignInitialized"],
+            guard: "isRoomAdmin",
+          },
+          {
+            actions: ["setCurrentUser", "saveUser", "assignInitialized"],
+          },
+        ],
         SETUP: {
           target: "retrieving",
           actions: ["setRoomId", "setCurrentUser"],
