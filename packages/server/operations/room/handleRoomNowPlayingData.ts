@@ -153,7 +153,7 @@ export default async function handleRoomNowPlayingData({
     artist: track.artists?.map((a: { title: string }) => a.title).join(", "),
     album: track.album?.title,
     track: track.title,
-    artwork: room?.artwork || track.album?.images?.[0]?.url,
+    artwork: (room?.artworkStreamingOnly ? undefined : room?.artwork) || track.album?.images?.[0]?.url,
     lastUpdatedAt: Date.now().toString(),
     stationMeta: submission.stationMeta,
     release: nowPlaying,

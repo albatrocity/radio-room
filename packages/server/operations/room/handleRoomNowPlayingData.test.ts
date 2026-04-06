@@ -163,3 +163,59 @@ describe("handleRoomNowPlayingData — streaming mode early return", () => {
     expect(m.clearRoomCurrent).toHaveBeenCalled()
   })
 })
+
+describe("handleRoomNowPlayingData — artworkStreamingOnly", () => {
+  const emit = vi.fn()
+  const context = {
+    systemEvents: { emit },
+    redis: {
+      pubClient: { get: vi.fn(), publish: vi.fn() },
+      subClient: {},
+    },
+  } as unknown as AppContext
+
+  const submission = {
+    trackId: "track-abc",
+    sourceType: "shoutcast" as const,
+    title: "Actual Song",
+    artist: "Actual Artist",
+    album: "Actual Album",
+    stationMeta: { title: "Actual Song|Actual Artist|Actual Album", bitrate: "128" },
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    m.getRoomCurrent.mockResolvedValue(null)
+    m.setRoomCurrent.mockResolvedValue(undefined)
+    m.addTrackToRoomPlaylist.mockResolvedValue(undefined)
+    m.getQueue.mockResolvedValue([])
+    m.writeJsonToHset.mockResolvedValue(undefined)
+    emit.mockResolvedValue(undefined)
+  })
+
+  it("uses room artwork when artworkStreamingOnly is false (default)", async () => {
+    m.findRoom.mockResolvedValue(baseRoom({ fetchMeta: true, artwork: "room.png" }))
+    m.getRoomCurrent
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ title: "Actual Song" })
+
+    await handleRoomNowPlayingData({ context, roomId: "r1", submission })
+
+    const meta = m.setRoomCurrent.mock.calls[0][0].meta
+    expect(meta.artwork).toBe("room.png")
+  })
+
+  it("skips room artwork when artworkStreamingOnly is true and track detection is on", async () => {
+    m.findRoom.mockResolvedValue(
+      baseRoom({ fetchMeta: true, artwork: "room.png", artworkStreamingOnly: true }),
+    )
+    m.getRoomCurrent
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ title: "Actual Song" })
+
+    await handleRoomNowPlayingData({ context, roomId: "r1", submission })
+
+    const meta = m.setRoomCurrent.mock.calls[0][0].meta
+    expect(meta.artwork).not.toBe("room.png")
+  })
+})

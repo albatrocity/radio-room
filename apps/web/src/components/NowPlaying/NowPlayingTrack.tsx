@@ -32,8 +32,9 @@ interface NowPlayingTrackProps {
 }
 
 function getCoverUrl(release: any, room: Partial<Room> | null): string | null {
-  if (room?.artwork) {
-    return room.artwork
+  const useRoomArtwork = room?.artwork && (!room.artworkStreamingOnly || !room.fetchMeta)
+  if (useRoomArtwork) {
+    return room.artwork!
   }
 
   if (release?.album?.images?.length) {

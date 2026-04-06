@@ -17,6 +17,7 @@ export type Room = {
   password: string | null
   passwordRequired?: boolean
   artwork?: string
+  artworkStreamingOnly?: boolean
   enableSpotifyLogin: boolean
   deputizeOnJoin: boolean
   radioMetaUrl?: string

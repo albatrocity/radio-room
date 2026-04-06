@@ -28,6 +28,8 @@ export type Room = {
   password: string | null
   passwordRequired?: boolean
   artwork?: string
+  /** When true, room artwork is only used in streaming mode (track detection off); metadata source artwork is shown otherwise */
+  artworkStreamingOnly?: boolean
   enableSpotifyLogin: boolean
   deputizeOnJoin: boolean
   // Legacy fields - keep for backward compatibility

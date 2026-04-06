@@ -338,7 +338,7 @@ export async function makeJukeboxCurrentPayload({
     const currentlyPlaying = await getRoomCurrent({ context, roomId })
     const trackIsCurrent = currentlyPlaying?.nowPlaying?.track?.id === nowPlaying?.track?.id
     const room = await findRoom({ context, roomId })
-    const artwork = room?.artwork ?? nowPlaying?.track?.album?.images?.[0]?.url
+    const artwork = (room?.artworkStreamingOnly ? undefined : room?.artwork) ?? nowPlaying?.track?.album?.images?.[0]?.url
     const queue = await getQueue({ context, roomId })
     const queuedTrack = queue.find((x) => x.track?.id === nowPlaying?.track?.id)
     const trackDj = trackIsCurrent ? currentlyPlaying?.dj : queuedTrack ? queuedTrack.addedBy : null
@@ -414,6 +414,7 @@ export function parseRoom(room: StoredRoom): Room {
     showSchedulePublic: room.showSchedulePublic === "true",
     announceActiveSegment: room.announceActiveSegment !== "false",
     public: room.public !== "false",
+    artworkStreamingOnly: room.artworkStreamingOnly === "true",
     passwordRequired: !isNullish(room.password),
     ...(room.artwork === "undefined" ? {} : { artwork: room.artwork }),
     ...(room.spotifyError ? { spotifyError: safeParse(room.spotifyError) } : {}),

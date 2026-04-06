@@ -13,6 +13,7 @@ export type SettingsContext = Pick<
   | "extraInfo"
   | "password"
   | "artwork"
+  | "artworkStreamingOnly"
   | "deputizeOnJoin"
   | "enableSpotifyLogin"
   | "type"
@@ -71,6 +72,7 @@ const defaultContext: SettingsContext = {
   extraInfo: "",
   password: "",
   artwork: undefined,
+  artworkStreamingOnly: false,
   deputizeOnJoin: false,
   enableSpotifyLogin: false,
   type: "jukebox",
@@ -116,6 +118,7 @@ export const settingsMachine = setup({
           extraInfo: event.data.room.extraInfo,
           password: event.data.room.password,
           artwork: event.data.room.artwork,
+          artworkStreamingOnly: event.data.room.artworkStreamingOnly,
           deputizeOnJoin: event.data.room.deputizeOnJoin,
           enableSpotifyLogin: event.data.room.enableSpotifyLogin,
           type: event.data.room.type,

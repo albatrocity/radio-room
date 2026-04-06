@@ -27,6 +27,7 @@ function Content() {
         public: settings.public ?? true,
         extraInfo: settings.extraInfo ?? "",
         artwork: settings.artwork ?? "",
+        artworkStreamingOnly: settings.artworkStreamingOnly ?? false,
         radioMetaUrl: settings.radioMetaUrl ?? "",
         radioListenUrl: settings.radioListenUrl ?? "",
         radioProtocol: settings.radioProtocol ?? "shoutcastv2",
@@ -181,10 +182,45 @@ function Content() {
                   }}
                 />
                 <Field.HelperText>
-                  URL of an image to display in the Now Playing area. Overrides any album artwork
-                  from Spotify. Leave blank to use album artwork.
+                  URL of an image to display in the Now Playing area. Leave blank to use album
+                  artwork from metadata sources.
                 </Field.HelperText>
               </Field.Root>
+
+              {values.artwork && hasAudio && (
+                <Field.Root>
+                  <Checkbox.Root
+                    checked={values.artworkStreamingOnly}
+                    onCheckedChange={(details) => {
+                      const syntheticEvent = {
+                        target: {
+                          name: "artworkStreamingOnly",
+                          value: details.checked,
+                          type: "checkbox",
+                          checked: details.checked,
+                        },
+                      }
+                      handleChange(syntheticEvent as any)
+                      if (details.checked !== initialValues.artworkStreamingOnly) {
+                        setTouched({ artworkStreamingOnly: true })
+                      } else {
+                        setTouched({ artworkStreamingOnly: false })
+                      }
+                    }}
+                    name="artworkStreamingOnly"
+                  >
+                    <Checkbox.HiddenInput onBlur={handleBlur} />
+                    <Checkbox.Control>
+                      <Checkbox.Indicator />
+                    </Checkbox.Control>
+                    <Checkbox.Label>Only show artwork in streaming mode</Checkbox.Label>
+                  </Checkbox.Root>
+                  <Field.HelperText>
+                    When enabled, this artwork is only used when track detection is off. Album
+                    artwork from Spotify or Tidal is shown when track detection is on.
+                  </Field.HelperText>
+                </Field.Root>
+              )}
 
               {hasAudio && (
                 <Field.Root>
