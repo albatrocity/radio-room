@@ -10,6 +10,7 @@ import {
   hDelRoomDetailsFields,
   clearRoomPlaylist,
   removeFromPlaylist,
+  deleteMessage,
   addAdmin,
   removeAdmin,
   isAdminMember,
@@ -309,6 +310,32 @@ export class AdminService {
           status: 404,
           error: "Not Found",
           message: "Track not found in playlist.",
+        },
+      }
+    }
+
+    return { success: true, error: null }
+  }
+
+  /**
+   * Delete a single chat message from a room (admin only)
+   */
+  async deleteMessage(roomId: string, userId: string, timestamp: string) {
+    const { room, error } = await this.getAuthedRoom(roomId, userId)
+
+    if (!room) {
+      return { success: false, error }
+    }
+
+    const removed = await deleteMessage({ context: this.context, roomId, timestamp })
+
+    if (!removed) {
+      return {
+        success: false,
+        error: {
+          status: 404,
+          error: "Not Found",
+          message: "Message not found.",
         },
       }
     }

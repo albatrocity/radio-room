@@ -11,14 +11,15 @@ import {
   useBreakpointValue,
   Wrap,
 } from "@chakra-ui/react"
-import { FiBookmark } from "react-icons/fi"
+import { FiBookmark, FiTrash2 } from "react-icons/fi"
 
 import ReactionCounter from "./ReactionCounter"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
+import ConfirmationDialog from "./ConfirmationDialog"
 import { User } from "../types/User"
 import Timestamp from "./Timestamp"
 
-import { useIsAdmin, useBookmarks, useBookmarksSend } from "../hooks/useActors"
+import { useIsAdmin, useBookmarks, useBookmarksSend, useChatSend } from "../hooks/useActors"
 
 export interface ChatMessageProps {
   content: string
@@ -40,11 +41,13 @@ const ChatMessage = ({
   anotherUserMessage = false,
 }: ChatMessageProps) => {
   const currentIsAdmin = useIsAdmin()
+  const chatSend = useChatSend()
   const bookmarkSend = useBookmarksSend()
   const bookmarks = useBookmarks()
   const isBookmarked = bookmarks.find(({ id }) => id === timestamp)
 
   const [hovered, setHovered] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const alwaysShowReactionPicker = useBreakpointValue({
     base: true,
     md: false,
@@ -65,6 +68,19 @@ const ChatMessage = ({
       },
     })
   }, [bookmarkSend, timestamp, content, user, mentions])
+
+  const handleDeleteClick = useCallback(() => {
+    setIsDeleteDialogOpen(true)
+  }, [])
+
+  const handleDeleteConfirm = useCallback(() => {
+    chatSend({ type: "DELETE_MESSAGE", data: { timestamp } })
+    setIsDeleteDialogOpen(false)
+  }, [chatSend, timestamp])
+
+  const handleDeleteCancel = useCallback(() => {
+    setIsDeleteDialogOpen(false)
+  }, [])
 
   return (
     <Box
@@ -88,6 +104,17 @@ const ChatMessage = ({
           </Text>
           <Spacer />
           <HStack>
+            {currentIsAdmin && (
+              <IconButton
+                aria-label="Delete message"
+                colorPalette="red"
+                variant="ghost"
+                size="xs"
+                onClick={handleDeleteClick}
+              >
+                <Icon as={FiTrash2} />
+              </IconButton>
+            )}
             {currentIsAdmin && (
               <IconButton
                 aria-label="Bookmark message"
@@ -121,6 +148,17 @@ const ChatMessage = ({
               >
                 {currentIsAdmin && (
                   <IconButton
+                    aria-label="Delete message"
+                    colorPalette="red"
+                    variant="ghost"
+                    size="xs"
+                    onClick={handleDeleteClick}
+                  >
+                    <Icon as={FiTrash2} />
+                  </IconButton>
+                )}
+                {currentIsAdmin && (
+                  <IconButton
                     aria-label="Bookmark message"
                     colorPalette="primary"
                     variant={isBookmarked ? "solid" : "ghost"}
@@ -143,6 +181,20 @@ const ChatMessage = ({
         buttonColorScheme="primary"
         buttonVariant="ghost"
         reactionVariant="reactionBright"
+      />
+
+      <ConfirmationDialog
+        open={isDeleteDialogOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Message"
+        body={
+          <Text>
+            Are you sure you want to delete this message? This cannot be undone.
+          </Text>
+        }
+        confirmLabel="Delete"
+        isDangerous
       />
     </Box>
   )

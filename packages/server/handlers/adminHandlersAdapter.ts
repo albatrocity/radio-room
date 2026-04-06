@@ -325,6 +325,36 @@ export class AdminHandlers {
   }
 
   /**
+   * Delete a single chat message from a room
+   */
+  deleteMessage = async ({ socket }: HandlerConnections, data: { timestamp: string }) => {
+    const result = await this.adminService.deleteMessage(
+      socket.data.roomId,
+      socket.data.userId,
+      data.timestamp,
+    )
+
+    if (result.error) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
+      return
+    }
+
+    if (!result.success) {
+      return
+    }
+
+    if (socket.context.systemEvents) {
+      await socket.context.systemEvents.emit(socket.data.roomId, "MESSAGE_DELETED", {
+        roomId: socket.data.roomId,
+        timestamp: data.timestamp,
+      })
+    }
+  }
+
+  /**
    * Delete a single track from a room's playlist
    */
   deletePlaylistTrack = async ({ socket }: HandlerConnections, data: { playedAt: number }) => {
