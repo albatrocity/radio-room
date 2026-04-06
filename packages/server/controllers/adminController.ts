@@ -63,6 +63,13 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
   })
 
   /**
+   * Delete a single chat message from the room
+   */
+  socket.on("DELETE_MESSAGE", async (data: { timestamp: string }) => {
+    await handlers.deleteMessage(connections, data)
+  })
+
+  /**
    * Delete a single track from the room's playlist
    */
   socket.on("DELETE_PLAYLIST_TRACK", async (data: { playedAt: number }) => {

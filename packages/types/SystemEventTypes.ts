@@ -121,6 +121,8 @@ export type SystemEventHandlers = {
   // Chat events
   MESSAGE_RECEIVED: (data: { roomId: string; message: ChatMessage }) => Promise<void> | void
 
+  MESSAGE_DELETED: (data: { roomId: string; timestamp: string }) => Promise<void> | void
+
   MESSAGES_CLEARED: (data: { roomId: string }) => Promise<void> | void
 
   TYPING_CHANGED: (data: { roomId: string; typing: User[] }) => Promise<void> | void

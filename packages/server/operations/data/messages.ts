@@ -76,6 +76,26 @@ export async function getMessagesSince({
   }
 }
 
+export async function deleteMessage({
+  roomId,
+  timestamp,
+  context,
+}: {
+  roomId: string
+  timestamp: string
+  context: AppContext
+}): Promise<number> {
+  try {
+    const score = new Date(timestamp).getTime()
+    const key = `room:${roomId}:messages`
+    return await context.redis.pubClient.zRemRangeByScore(key, score, score)
+  } catch (e) {
+    console.log("ERROR FROM data/messages/deleteMessage", roomId, timestamp)
+    console.error(e)
+    return 0
+  }
+}
+
 export async function clearMessages({ roomId, context }: { roomId: string; context: AppContext }) {
   try {
     console.log("CLEARING MESSAGES", roomId)

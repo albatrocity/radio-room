@@ -21,6 +21,21 @@ type NewMessageEvent = {
   }
 }
 
+type MessageDeletedEvent = {
+  type: "MESSAGE_DELETED"
+  data: {
+    roomId: string
+    timestamp: string
+  }
+}
+
+type DeleteMessageAction = {
+  type: "DELETE_MESSAGE"
+  data: {
+    timestamp: string
+  }
+}
+
 type ResetEvent = {
   type: "CLEAR_MESSAGES" | "RESET"
 }
@@ -74,6 +89,8 @@ type SetDataEvent =
 
 type MachineEvent =
   | NewMessageEvent
+  | MessageDeletedEvent
+  | DeleteMessageAction
   | SetDataEvent
   | ResetEvent
   | TypingEvent
@@ -133,6 +150,19 @@ export const chatMachine = setup({
         return context.messages
       },
     }),
+    removeMessage: assign({
+      messages: ({ context, event }) => {
+        if (event.type === "MESSAGE_DELETED") {
+          return context.messages.filter((m) => m.timestamp !== event.data.timestamp)
+        }
+        return context.messages
+      },
+    }),
+    deleteMessageAndEmit: ({ event }) => {
+      if (event.type === "DELETE_MESSAGE") {
+        emitToSocket("DELETE_MESSAGE", { timestamp: event.data.timestamp })
+      }
+    },
     addMessages: assign({
       messages: ({ context, event }) => {
         if (event.type === "ROOM_DATA") {
@@ -208,7 +238,9 @@ export const chatMachine = setup({
               actions: ["addMessages"],
             },
             SUBMIT_MESSAGE: { actions: ["sendMessage"] },
+            DELETE_MESSAGE: { actions: ["deleteMessageAndEmit"] },
             MESSAGE_RECEIVED: { actions: ["addMessage", "handleNotifications"] },
+            MESSAGE_DELETED: { actions: ["removeMessage"] },
             MESSAGES_CLEARED: { actions: ["setData"] },
           },
           states: {
