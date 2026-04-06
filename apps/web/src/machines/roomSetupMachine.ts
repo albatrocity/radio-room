@@ -45,6 +45,7 @@ const createRoomLogic = fromPromise<RoomCreationResponse, RoomSetupContext>(
         radioMetaUrl: ctx.room?.radioMetaUrl ?? undefined,
         radioProtocol: ctx.room?.radioProtocol ?? undefined,
         deputizeOnJoin: ctx.room?.deputizeOnJoin ?? false,
+        public: ctx.room?.public ?? true,
         playbackControllerId,
         metadataSourceIds,
         mediaSourceId,

@@ -101,6 +101,7 @@ export async function create(req: Request, res: Response) {
     mediaSourceId: requestedMediaSourceId,
     mediaSourceConfig: requestedMediaSourceConfig,
     showId: requestedShowId,
+    public: isPublic,
   } = req.body
   const createdAt = Date.now().toString()
   console.log("radioListenUrl", radioListenUrl)
@@ -157,6 +158,7 @@ export async function create(req: Request, res: Response) {
       mediaSourceId,
       mediaSourceConfig,
       ...(showId ? { showId, persistent: true } : {}),
+      ...(isPublic !== undefined ? { public: isPublic } : {}),
     })
     await saveRoom({ context, room })
 
@@ -259,9 +261,14 @@ export async function findAllRooms(req: Request, res: Response) {
   const { context } = req
   const rooms = await getAllRooms({ context })
 
+  const publicRooms = rooms.filter((room) => {
+    const val = room.public as unknown
+    return val !== false && val !== "false"
+  })
+
   // Fetch additional data for each room (user count, now playing, creator name)
   const roomsWithDetails = await Promise.all(
-    rooms.map(async (room) => {
+    publicRooms.map(async (room) => {
       const parsedRoom = parseRoom(room)
       const sanitizedRoom = removeSensitiveRoomAttributes(parsedRoom)
 

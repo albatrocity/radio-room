@@ -34,6 +34,7 @@ export const createRoomFormMachine = setup({
       sessionStorage.setItem("createRoomTitle", context.title)
       sessionStorage.setItem("createRoomType", context.type)
       sessionStorage.setItem("createRoomDeputizeOnJoin", context.deputizeOnJoin.toString())
+      sessionStorage.setItem("createRoomPublic", (context.public ?? true).toString())
       if (context.showId) {
         sessionStorage.setItem("createRoomShowId", context.showId)
       } else {
@@ -72,6 +73,7 @@ export const createRoomFormMachine = setup({
     radioListenUrl: "https://stream1.rcast.net/66341",
     radioProtocol: "shoutcastv2",
     deputizeOnJoin: true,
+    public: true,
   },
   states: {
     selectType: {

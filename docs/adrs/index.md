@@ -37,6 +37,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0029](0029-public-scheduling-read-for-local-remote.md) | Public read-only scheduling API for local-remote segment picker | Accepted |
 | [0030](0030-local-remote-farrago-soundboard.md) | local-remote: Farrago soundboard (bidirectional OSC) | Accepted |
 | [0031](0031-staleness-aware-refresh-on-visibility.md) | Staleness-Aware Refresh on Tab Visibility | Accepted |
+| [0032](0032-room-public-visibility-flag.md) | Room Public Visibility Flag | Accepted |
 
 ## Creating a New ADR
 

@@ -48,6 +48,25 @@ export default function SharedSettings({ onChange, settings }: Props) {
           grant this permission to individuals.
         </Field.HelperText>
       </Field.Root>
+      <Field.Root>
+        <Checkbox.Root
+          checked={settings.public ?? true}
+          onCheckedChange={(details) => {
+            onChange({ public: !!details.checked })
+          }}
+          name="public"
+        >
+          <Checkbox.HiddenInput />
+          <Checkbox.Control>
+            <Checkbox.Indicator />
+          </Checkbox.Control>
+          <Checkbox.Label>List in lobby</Checkbox.Label>
+        </Checkbox.Root>
+        <Field.HelperText>
+          When enabled, this room will be visible in the public lobby.
+          When disabled, the room is only accessible via its direct URL.
+        </Field.HelperText>
+      </Field.Root>
     </VStack>
   )
 }

@@ -39,6 +39,7 @@ export type Room = {
   activeSegmentId?: string | null
   showSchedulePublic?: boolean
   announceActiveSegment?: boolean
+  public?: boolean
 }
 
 export type RoomSetup = Pick<
@@ -50,6 +51,7 @@ export type RoomSetup = Pick<
   | "radioProtocol"
   | "deputizeOnJoin"
   | "showId"
+  | "public"
 > & {
   playbackControllerId?: string
   metadataSourceIds?: string[]

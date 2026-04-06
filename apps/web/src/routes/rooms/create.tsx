@@ -67,6 +67,7 @@ function CreateRoomPage() {
           radioMetaUrl: sessionStorage.getItem("createRoomradioMetaUrl") ?? undefined,
           radioListenUrl: sessionStorage.getItem("createRoomRadioListenUrl"),
           deputizeOnJoin: sessionStorage.getItem("createRoomDeputizeOnJoin") === "true",
+          public: sessionStorage.getItem("createRoomPublic") !== "false",
           radioProtocol:
             (sessionStorage.getItem("createRoomRadioProtocol") as StationProtocol) ?? "shoutcastv2",
           showId: sessionStorage.getItem("createRoomShowId") ?? undefined,

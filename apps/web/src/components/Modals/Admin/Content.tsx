@@ -24,6 +24,7 @@ function Content() {
       initialValues={{
         title: settings.title ?? "",
         fetchMeta: settings.fetchMeta,
+        public: settings.public ?? true,
         extraInfo: settings.extraInfo ?? "",
         artwork: settings.artwork ?? "",
         radioMetaUrl: settings.radioMetaUrl ?? "",
@@ -58,6 +59,39 @@ function Content() {
                     }
                   }}
                 />
+              </Field.Root>
+
+              <Field.Root>
+                <Checkbox.Root
+                  checked={values.public}
+                  onCheckedChange={(details) => {
+                    const syntheticEvent = {
+                      target: {
+                        name: "public",
+                        value: details.checked,
+                        type: "checkbox",
+                        checked: details.checked,
+                      },
+                    }
+                    handleChange(syntheticEvent as any)
+                    if (details.checked !== initialValues.public) {
+                      setTouched({ public: true })
+                    } else {
+                      setTouched({ public: false })
+                    }
+                  }}
+                  name="public"
+                >
+                  <Checkbox.HiddenInput onBlur={handleBlur} />
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <Checkbox.Label>List in lobby</Checkbox.Label>
+                </Checkbox.Root>
+                <Field.HelperText>
+                  When enabled, this room will be visible in the public lobby.
+                  When disabled, the room is only accessible via its direct URL.
+                </Field.HelperText>
               </Field.Root>
 
               {settings.type === "radio" && (

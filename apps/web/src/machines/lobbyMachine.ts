@@ -30,6 +30,18 @@ export interface LobbyRoomUpdate {
   nowPlaying?: QueueItem | null
 }
 
+/**
+ * Payload when a room becomes visible in the lobby
+ */
+export interface LobbyRoomAdded {
+  roomId: string
+  title: string
+  type: Room["type"]
+  creator: string
+  artwork?: string
+  passwordRequired?: boolean
+}
+
 export interface LobbyContext {
   rooms: LobbyRoom[]
   error: RoomError | null
@@ -39,6 +51,8 @@ export type LobbyEvent =
   | { type: "CONNECT" }
   | { type: "DISCONNECT" }
   | { type: "ROOM_UPDATED"; data: LobbyRoomUpdate }
+  | { type: "ROOM_ADDED"; data: LobbyRoomAdded }
+  | { type: "ROOM_REMOVED"; data: { roomId: string } }
   | { type: "ROOMS_LOADED"; data: { rooms: LobbyRoom[] } }
   | { type: "FETCH_ERROR"; error: RoomError }
   | { type: "SOCKET_CONNECTED" }
@@ -71,6 +85,14 @@ const socketSubscriptionLogic = fromCallback<LobbyEvent>(({ sendBack }) => {
     sendBack({ type: "ROOM_UPDATED", data: update })
   }
 
+  const handleRoomAdded = (data: LobbyRoomAdded) => {
+    sendBack({ type: "ROOM_ADDED", data })
+  }
+
+  const handleRoomRemoved = (data: { roomId: string }) => {
+    sendBack({ type: "ROOM_REMOVED", data })
+  }
+
   // If already connected, join immediately
   if (socket.connected) {
     socket.emit("JOIN_LOBBY")
@@ -80,6 +102,8 @@ const socketSubscriptionLogic = fromCallback<LobbyEvent>(({ sendBack }) => {
   socket.on("connect", handleConnect)
   socket.on("disconnect", handleDisconnect)
   socket.on("LOBBY_ROOM_UPDATE", handleRoomUpdate)
+  socket.on("LOBBY_ROOM_ADDED", handleRoomAdded)
+  socket.on("LOBBY_ROOM_REMOVED", handleRoomRemoved)
 
   // Cleanup on unsubscribe
   return () => {
@@ -87,6 +111,8 @@ const socketSubscriptionLogic = fromCallback<LobbyEvent>(({ sendBack }) => {
     socket.off("connect", handleConnect)
     socket.off("disconnect", handleDisconnect)
     socket.off("LOBBY_ROOM_UPDATE", handleRoomUpdate)
+    socket.off("LOBBY_ROOM_ADDED", handleRoomAdded)
+    socket.off("LOBBY_ROOM_REMOVED", handleRoomRemoved)
   }
 })
 
@@ -118,6 +144,30 @@ export const lobbyMachine = setup({
       const { roomId, ...updates } = event.data
       return {
         rooms: context.rooms.map((room) => (room.id === roomId ? { ...room, ...updates } : room)),
+      }
+    }),
+    addOrUpdateRoom: assign(({ context, event }) => {
+      if (event.type !== "ROOM_ADDED") return context
+      const { roomId, ...roomData } = event.data
+      const exists = context.rooms.some((r) => r.id === roomId)
+      if (exists) {
+        return {
+          rooms: context.rooms.map((r) =>
+            r.id === roomId ? { ...r, ...roomData } : r,
+          ),
+        }
+      }
+      return {
+        rooms: [
+          ...context.rooms,
+          { id: roomId, ...roomData } as LobbyRoom,
+        ],
+      }
+    }),
+    removeRoom: assign(({ context, event }) => {
+      if (event.type !== "ROOM_REMOVED") return context
+      return {
+        rooms: context.rooms.filter((r) => r.id !== event.data.roomId),
       }
     }),
   },
@@ -152,6 +202,12 @@ export const lobbyMachine = setup({
         DISCONNECT: "disconnecting",
         ROOM_UPDATED: {
           actions: "updateRoom",
+        },
+        ROOM_ADDED: {
+          actions: "addOrUpdateRoom",
+        },
+        ROOM_REMOVED: {
+          actions: "removeRoom",
         },
         REFETCH: ".loading",
       },

@@ -59,6 +59,8 @@ export type Room = {
   showSchedulePublic?: boolean
   /** When true, segment activation posts a system chat message with the segment title */
   announceActiveSegment?: boolean
+  /** When true, the room is listed in the public lobby; when false, only accessible via direct URL */
+  public?: boolean
 }
 
 // =============================================================================
@@ -85,6 +87,7 @@ export interface StoredRoom
     | "allowChatImages"
     | "showSchedulePublic"
     | "announceActiveSegment"
+    | "public"
   > {
   fetchMeta: Bool
   enableSpotifyLogin: Bool
@@ -97,6 +100,7 @@ export interface StoredRoom
   allowChatImages?: Bool
   showSchedulePublic?: Bool
   announceActiveSegment?: Bool
+  public?: Bool
   spotifyError?: string
   radioError?: string
   mediaSourceConfig?: string

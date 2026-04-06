@@ -26,6 +26,7 @@ export type SettingsContext = Pick<
   | "activeSegmentId"
   | "showSchedulePublic"
   | "announceActiveSegment"
+  | "public"
 > & {
   /** Generic plugin configs keyed by plugin name */
   pluginConfigs: Record<string, Record<string, unknown>>
@@ -62,6 +63,7 @@ const defaultContext: SettingsContext = {
   allowChatImages: false,
   announceActiveSegment: true,
   showSchedulePublic: false,
+  public: true,
   showId: undefined,
   activeSegmentId: undefined,
   title: "",
@@ -127,6 +129,7 @@ export const settingsMachine = setup({
           activeSegmentId: event.data.room.activeSegmentId,
           showSchedulePublic: event.data.room.showSchedulePublic,
           announceActiveSegment: event.data.room.announceActiveSegment,
+          public: event.data.room.public,
           pluginConfigs,
         }
         return newContext

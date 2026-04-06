@@ -30,6 +30,7 @@ export function withDefaults(
     | "mediaSourceId"
     | "mediaSourceConfig"
     | "showId"
+    | "public"
   >,
 ): Room {
   return {
@@ -44,6 +45,7 @@ export function withDefaults(
     allowChatImages: false,
     showSchedulePublic: false,
     announceActiveSegment: true,
+    public: true,
     showId: undefined,
     activeSegmentId: undefined,
     ...roomDetails,

@@ -413,6 +413,7 @@ export function parseRoom(room: StoredRoom): Room {
     allowChatImages: room.allowChatImages === "true",
     showSchedulePublic: room.showSchedulePublic === "true",
     announceActiveSegment: room.announceActiveSegment !== "false",
+    public: room.public !== "false",
     passwordRequired: !isNullish(room.password),
     ...(room.artwork === "undefined" ? {} : { artwork: room.artwork }),
     ...(room.spotifyError ? { spotifyError: safeParse(room.spotifyError) } : {}),
