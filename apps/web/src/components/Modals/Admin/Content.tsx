@@ -212,13 +212,12 @@ function Content() {
                     <Checkbox.Control>
                       <Checkbox.Indicator />
                     </Checkbox.Control>
-                    <Checkbox.Label>Fetch album metadata</Checkbox.Label>
+                    <Checkbox.Label>Track detection</Checkbox.Label>
                   </Checkbox.Root>
                   <Field.HelperText>
-                    Album Metadata (album artwork, release date, info URL) is automatically fetched
-                    from Spotify based on the data from the online radio server. If you're getting
-                    inaccurate data or want to display the meta directly from the online radio
-                    station, disable this option.
+                    When enabled, tracks are identified from the audio stream, displayed in Now
+                    Playing, and added to the playlist. When disabled, the room enters streaming
+                    mode — showing room branding instead of track info.
                   </Field.HelperText>
                 </Field.Root>
               )}

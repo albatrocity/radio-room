@@ -23,6 +23,7 @@ import {
 } from "../data"
 import { writeJsonToHset } from "../data/utils"
 import { AdapterService } from "../../services/AdapterService"
+import { isStreamingMode } from "../../lib/streamingMode"
 
 type HandleRoomNowPlayingDataParams = {
   context: AppContext
@@ -56,7 +57,7 @@ export default async function handleRoomNowPlayingData({
 
   // Handle no submission (offline or error state)
   if (!submission) {
-    if (room?.fetchMeta) {
+    if (!isStreamingMode(room)) {
       await clearRoomCurrent({ context, roomId })
     }
 
@@ -90,6 +91,22 @@ export default async function handleRoomNowPlayingData({
         stationMeta: JSON.stringify(submission.stationMeta),
       },
     })
+  }
+
+  // In streaming mode, skip all track processing. The stream-online
+  // status is still emitted so clients know audio is available.
+  if (isStreamingMode(room)) {
+    if (context.systemEvents) {
+      await context.systemEvents.emit(roomId, "MEDIA_SOURCE_STATUS_CHANGED", {
+        roomId,
+        status: "online" as const,
+        sourceType,
+        bitrate: submission.stationMeta?.bitrate
+          ? Number(submission.stationMeta.bitrate)
+          : undefined,
+      })
+    }
+    return null
   }
 
   // Determine the track data to use (enriched or raw)

@@ -15,9 +15,13 @@ import {
   isAdminMember,
   updateUserAttributes,
 } from "../operations/data"
-import { applyFetchMetaTransitionEffects } from "../operations/room/applyFetchMetaTransitionEffects"
+import {
+  applyFetchMetaTransitionEffects,
+  enterStreamingMode,
+} from "../operations/room/applyFetchMetaTransitionEffects"
 import { refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
 import systemMessage from "../lib/systemMessage"
+import { isStreamingMode, streamingDisplayChanged } from "../lib/streamingMode"
 import * as scheduling from "./SchedulingService"
 
 /**
@@ -253,6 +257,14 @@ export class AdminService {
       previousFetchMeta: room.fetchMeta,
       newFetchMeta: newSettings.fetchMeta,
     })
+
+    if (
+      room.fetchMeta === newSettings.fetchMeta &&
+      isStreamingMode(newSettings) &&
+      streamingDisplayChanged(room, newSettings)
+    ) {
+      await enterStreamingMode(this.context, roomId)
+    }
 
     const updatedRoom = await findRoom({ context: this.context, roomId })
 

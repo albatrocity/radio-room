@@ -13,7 +13,11 @@ import {
   deleteAllPluginConfigs,
   getAllPluginConfigs,
 } from "./data/pluginConfigs"
-import { applyFetchMetaTransitionEffects } from "./room/applyFetchMetaTransitionEffects"
+import {
+  applyFetchMetaTransitionEffects,
+  enterStreamingMode,
+} from "./room/applyFetchMetaTransitionEffects"
+import { isStreamingMode } from "../lib/streamingMode"
 import { applySegmentDeputyBulkAction } from "./room/applySegmentDeputyBulkAction"
 
 export type PresetApplyMode = "merge" | "replace" | "skip"
@@ -115,6 +119,8 @@ export async function activateRoomSegment(params: {
       previousFetchMeta: previousRoom.fetchMeta,
       newFetchMeta: mergedRoom.fetchMeta,
     })
+  } else if (isStreamingMode(mergedRoom) && previousRoom.activeSegmentId !== segmentId) {
+    await enterStreamingMode(context, roomId)
   }
 
   await applySegmentDeputyBulkAction({
