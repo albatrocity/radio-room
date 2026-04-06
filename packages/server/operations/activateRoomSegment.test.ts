@@ -11,7 +11,7 @@ import { applySegmentDeputyBulkAction } from "./room/applySegmentDeputyBulkActio
 const m = vi.hoisted(() => ({
   findRoom: vi.fn(),
   saveRoom: vi.fn(),
-  isAdminMember: vi.fn(),
+  isRoomAdmin: vi.fn(),
   findShowById: vi.fn(),
   persistMessage: vi.fn(),
   getPluginConfig: vi.fn(),
@@ -27,7 +27,7 @@ vi.mock("../services/SchedulingService", () => ({
 vi.mock("./data", () => ({
   findRoom: m.findRoom,
   saveRoom: m.saveRoom,
-  isAdminMember: m.isAdminMember,
+  isRoomAdmin: m.isRoomAdmin,
 }))
 
 vi.mock("./data/messages", () => ({
@@ -84,7 +84,7 @@ describe("activateRoomSegment", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    m.isAdminMember.mockResolvedValue(true)
+    m.isRoomAdmin.mockResolvedValue(true)
     m.getPluginConfig.mockResolvedValue(null)
     m.getAllPluginConfigs.mockResolvedValue({})
     m.findShowById.mockResolvedValue({
@@ -132,7 +132,7 @@ describe("activateRoomSegment", () => {
   it("rejects when user is not admin", async () => {
     m.findRoom.mockReset()
     m.findRoom.mockResolvedValueOnce(baseRoom({ creator: "other", showId: "show-1" }))
-    m.isAdminMember.mockResolvedValueOnce(false)
+    m.isRoomAdmin.mockResolvedValueOnce(false)
     const r = await activateRoomSegment({
       context,
       roomId: "r1",

@@ -13,6 +13,7 @@ import {
   addAdmin,
   removeAdmin,
   isAdminMember,
+  isRoomAdmin,
   updateUserAttributes,
 } from "../operations/data"
 import {
@@ -40,9 +41,7 @@ export class AdminService {
       return { room: null, isAdmin: false, error: null }
     }
 
-    const isCreator = userId === room.creator
-    const isDesignatedAdmin = await isAdminMember({ context: this.context, roomId, userId })
-    const isAdmin = isCreator || isDesignatedAdmin
+    const isAdmin = await isRoomAdmin({ context: this.context, roomId, userId, roomCreator: room.creator })
 
     if (!isAdmin) {
       return {

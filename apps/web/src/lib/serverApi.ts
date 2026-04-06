@@ -138,6 +138,30 @@ export async function uploadImages(roomId: string, files: File[]): Promise<Image
   return res
 }
 
+export type ArtworkUploadResponse = {
+  success: boolean
+  url: string
+}
+
+/**
+ * Upload a single artwork image for a room (admin-only).
+ * Returns the URL where the image is served.
+ */
+export async function uploadArtwork(roomId: string, file: File): Promise<ArtworkUploadResponse> {
+  const formData = new FormData()
+  formData.append("artwork", file)
+
+  const res = await ky
+    .post(`${API_URL}/api/rooms/${roomId}/artwork`, {
+      body: formData,
+      credentials: "include",
+      timeout: 60000,
+    })
+    .json<ArtworkUploadResponse>()
+
+  return res
+}
+
 // =============================================================================
 // Room Export
 // =============================================================================

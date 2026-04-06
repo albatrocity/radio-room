@@ -11,6 +11,7 @@ vi.mock("../operations/data", () => ({
   saveRoom: vi.fn(),
   clearRoomPlaylist: vi.fn(),
   isAdminMember: vi.fn(),
+  isRoomAdmin: vi.fn(),
   hDelRoomDetailsFields: vi.fn(),
 }))
 vi.mock("../operations/room/handleRoomNowPlayingData", () => ({
@@ -42,6 +43,7 @@ import {
   saveRoom,
   clearRoomPlaylist,
   isAdminMember,
+  isRoomAdmin,
 } from "../operations/data"
 import handleRoomNowPlayingData from "../operations/room/handleRoomNowPlayingData"
 import { makeStableTrackId } from "../lib/makeNowPlayingFromStationMeta"
@@ -69,6 +71,9 @@ describe("AdminService", () => {
 
     // Setup default mocks
     vi.mocked(isAdminMember).mockResolvedValue(false)
+    vi.mocked(isRoomAdmin).mockImplementation(async ({ userId, roomCreator }) =>
+      roomCreator === userId,
+    )
     vi.mocked(findRoom).mockResolvedValue(mockRoom)
     vi.mocked(getUser).mockResolvedValue(mockUser)
     vi.mocked(systemMessage).mockImplementation((msg) => ({

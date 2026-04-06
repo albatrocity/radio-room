@@ -41,7 +41,7 @@ import {
 } from "./controllers/pluginsController"
 import { exportRoom } from "./controllers/exportController"
 import { getImage } from "./operations/data"
-import { upload, uploadImages } from "./controllers/imageController"
+import { upload, uploadImages, uploadArtwork } from "./controllers/imageController"
 import { getPublicReadyShowById, getPublicReadyShows } from "./routes/publicSchedulingRoutes"
 import { createSchedulingRouter, getSchedulingShowByIdHandler } from "./routes/schedulingRouter"
 import { schedulingShowReadAuth } from "./middleware/schedulingShowReadAuth"
@@ -193,6 +193,8 @@ export class RadioRoomServer {
       .get("/api/rooms/:roomId/export", exportRoom)
       // Room image upload endpoint (HTTP multipart)
       .post("/api/rooms/:roomId/images", upload.array("images", 5), uploadImages)
+      // Room artwork upload endpoint (admin-only, single file)
+      .post("/api/rooms/:roomId/artwork", upload.single("artwork"), uploadArtwork)
       // Room image retrieval endpoint
       .get("/api/rooms/:roomId/images/:imageId", async (req, res) => {
         const { roomId, imageId } = req.params
