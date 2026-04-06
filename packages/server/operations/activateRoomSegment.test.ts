@@ -2,13 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { activateRoomSegment } from "./activateRoomSegment"
 import type { AppContext } from "@repo/types"
 import type { Room } from "@repo/types/Room"
-import { applyFetchMetaTransitionEffects } from "./room/applyFetchMetaTransitionEffects"
+import {
+  applyFetchMetaTransitionEffects,
+  enterStreamingMode,
+} from "./room/applyFetchMetaTransitionEffects"
 import { applySegmentDeputyBulkAction } from "./room/applySegmentDeputyBulkAction"
 
 const m = vi.hoisted(() => ({
   findRoom: vi.fn(),
   saveRoom: vi.fn(),
-  isAdminMember: vi.fn(),
+  isRoomAdmin: vi.fn(),
   findShowById: vi.fn(),
   persistMessage: vi.fn(),
   getPluginConfig: vi.fn(),
@@ -24,7 +27,7 @@ vi.mock("../services/SchedulingService", () => ({
 vi.mock("./data", () => ({
   findRoom: m.findRoom,
   saveRoom: m.saveRoom,
-  isAdminMember: m.isAdminMember,
+  isRoomAdmin: m.isRoomAdmin,
 }))
 
 vi.mock("./data/messages", () => ({
@@ -40,6 +43,11 @@ vi.mock("./data/pluginConfigs", () => ({
 
 vi.mock("./room/applyFetchMetaTransitionEffects", () => ({
   applyFetchMetaTransitionEffects: vi.fn().mockResolvedValue(undefined),
+  enterStreamingMode: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock("../lib/streamingMode", () => ({
+  isStreamingMode: (room: any) => !!room && !room.fetchMeta && room.type === "radio",
 }))
 
 vi.mock("./room/applySegmentDeputyBulkAction", () => ({
@@ -76,7 +84,7 @@ describe("activateRoomSegment", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    m.isAdminMember.mockResolvedValue(true)
+    m.isRoomAdmin.mockResolvedValue(true)
     m.getPluginConfig.mockResolvedValue(null)
     m.getAllPluginConfigs.mockResolvedValue({})
     m.findShowById.mockResolvedValue({
@@ -124,7 +132,7 @@ describe("activateRoomSegment", () => {
   it("rejects when user is not admin", async () => {
     m.findRoom.mockReset()
     m.findRoom.mockResolvedValueOnce(baseRoom({ creator: "other", showId: "show-1" }))
-    m.isAdminMember.mockResolvedValueOnce(false)
+    m.isRoomAdmin.mockResolvedValueOnce(false)
     const r = await activateRoomSegment({
       context,
       roomId: "r1",
@@ -277,5 +285,98 @@ describe("activateRoomSegment", () => {
       roomId: "r1",
       action: "dedeputize_all",
     })
+  })
+
+  it("enters streaming mode when fetchMeta is already off (radio room) and segment changes", async () => {
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(
+        baseRoom({
+          type: "radio",
+          activeSegmentId: "old-seg",
+          announceActiveSegment: false,
+          fetchMeta: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        baseRoom({
+          type: "radio",
+          activeSegmentId: "seg-1",
+          announceActiveSegment: false,
+          fetchMeta: false,
+        }),
+      )
+
+    await activateRoomSegment({
+      context,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "skip",
+    })
+
+    expect(vi.mocked(applyFetchMetaTransitionEffects)).not.toHaveBeenCalled()
+    expect(vi.mocked(enterStreamingMode)).toHaveBeenCalledWith(context, "r1")
+  })
+
+  it("does not enter streaming mode when fetchMeta is on and segment changes", async () => {
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(
+        baseRoom({
+          activeSegmentId: "old-seg",
+          announceActiveSegment: false,
+          fetchMeta: true,
+        }),
+      )
+      .mockResolvedValueOnce(
+        baseRoom({
+          activeSegmentId: "seg-1",
+          announceActiveSegment: false,
+          fetchMeta: true,
+        }),
+      )
+
+    await activateRoomSegment({
+      context,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "skip",
+    })
+
+    expect(vi.mocked(applyFetchMetaTransitionEffects)).not.toHaveBeenCalled()
+    expect(vi.mocked(enterStreamingMode)).not.toHaveBeenCalled()
+  })
+
+  it("does not enter streaming mode for jukebox rooms with fetchMeta off", async () => {
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(
+        baseRoom({
+          type: "jukebox",
+          activeSegmentId: "old-seg",
+          announceActiveSegment: false,
+          fetchMeta: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        baseRoom({
+          type: "jukebox",
+          activeSegmentId: "seg-1",
+          announceActiveSegment: false,
+          fetchMeta: false,
+        }),
+      )
+
+    await activateRoomSegment({
+      context,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "skip",
+    })
+
+    expect(vi.mocked(enterStreamingMode)).not.toHaveBeenCalled()
   })
 })

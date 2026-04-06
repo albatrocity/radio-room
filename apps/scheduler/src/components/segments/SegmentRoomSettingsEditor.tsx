@@ -38,9 +38,9 @@ const ROWS: {
   },
   {
     key: "fetchMeta",
-    label: "Fetch album metadata",
+    label: "Track detection",
     helper:
-      "Album metadata (album artwork, release date, info URL) can be enriched from Spotify using data from the stream. Disable if you prefer metadata only from the radio source.",
+      "When enabled, tracks are identified from the audio stream, displayed in Now Playing, and added to the playlist. When disabled, the room enters streaming mode — showing room branding instead of track info.",
   },
 ]
 

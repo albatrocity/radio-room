@@ -13,11 +13,16 @@ import {
   addAdmin,
   removeAdmin,
   isAdminMember,
+  isRoomAdmin,
   updateUserAttributes,
 } from "../operations/data"
-import { applyFetchMetaTransitionEffects } from "../operations/room/applyFetchMetaTransitionEffects"
+import {
+  applyFetchMetaTransitionEffects,
+  enterStreamingMode,
+} from "../operations/room/applyFetchMetaTransitionEffects"
 import { refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
 import systemMessage from "../lib/systemMessage"
+import { isStreamingMode, streamingDisplayChanged } from "../lib/streamingMode"
 import * as scheduling from "./SchedulingService"
 
 /**
@@ -36,9 +41,7 @@ export class AdminService {
       return { room: null, isAdmin: false, error: null }
     }
 
-    const isCreator = userId === room.creator
-    const isDesignatedAdmin = await isAdminMember({ context: this.context, roomId, userId })
-    const isAdmin = isCreator || isDesignatedAdmin
+    const isAdmin = await isRoomAdmin({ context: this.context, roomId, userId, roomCreator: room.creator })
 
     if (!isAdmin) {
       return {
@@ -253,6 +256,14 @@ export class AdminService {
       previousFetchMeta: room.fetchMeta,
       newFetchMeta: newSettings.fetchMeta,
     })
+
+    if (
+      room.fetchMeta === newSettings.fetchMeta &&
+      isStreamingMode(newSettings) &&
+      streamingDisplayChanged(room, newSettings)
+    ) {
+      await enterStreamingMode(this.context, roomId)
+    }
 
     const updatedRoom = await findRoom({ context: this.context, roomId })
 

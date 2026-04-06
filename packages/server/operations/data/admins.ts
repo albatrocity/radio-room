@@ -66,3 +66,22 @@ export async function isAdminMember({
     return false
   }
 }
+
+/**
+ * Check if a user is a room admin — either the room creator or a designated
+ * admin in the room:{roomId}:admins set.
+ */
+export async function isRoomAdmin({
+  roomId,
+  userId,
+  roomCreator,
+  context,
+}: {
+  roomId: string
+  userId: string
+  roomCreator?: string | null
+  context: AppContext
+}): Promise<boolean> {
+  if (roomCreator && roomCreator === userId) return true
+  return isAdminMember({ roomId, userId, context })
+}

@@ -2,6 +2,7 @@ import { Request, Response } from "express"
 import multer from "multer"
 import { AppContext } from "@repo/types"
 import { storeImage, findRoom } from "../operations/data"
+import { isRoomAdmin } from "../operations/data/admins"
 import generateId from "../lib/generateId"
 import { isHeicMimeType, convertHeicToJpeg } from "../operations/data/imageConversion"
 
@@ -89,5 +90,61 @@ export async function uploadImages(req: Request, res: Response) {
   return res.json({
     success: true,
     images: uploadedImages,
+  })
+}
+
+/**
+ * Upload a single artwork image for a room. Requires room admin.
+ * Stores the image in Redis and returns its serving URL.
+ */
+export async function uploadArtwork(req: Request, res: Response) {
+  const { roomId } = req.params
+  const context = (req as any).context as AppContext
+  const file = req.file as Express.Multer.File | undefined
+
+  if (!file) {
+    return res.status(400).json({ error: "No file provided" })
+  }
+
+  const userId = req.session.user?.userId
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized" })
+  }
+
+  const room = await findRoom({ context, roomId })
+  if (!room) {
+    return res.status(404).json({ error: "Room not found" })
+  }
+
+  const isAdmin = await isRoomAdmin({ roomId, userId, roomCreator: room.creator, context })
+  if (!isAdmin) {
+    return res.status(403).json({ error: "Only room admins can upload artwork" })
+  }
+
+  const imageId = generateId()
+  let base64Data = file.buffer.toString("base64")
+  let mimeType = file.mimetype
+
+  if (isHeicMimeType(mimeType) || file.originalname.toLowerCase().endsWith(".heic")) {
+    try {
+      base64Data = await convertHeicToJpeg(base64Data)
+      mimeType = "image/jpeg"
+    } catch (error) {
+      console.error("[ImageController] HEIC conversion failed:", error)
+      return res.status(500).json({ error: "Failed to process HEIC image" })
+    }
+  }
+
+  const result = await storeImage({ roomId, imageId, base64Data, mimeType, context })
+
+  if (!result.success) {
+    console.error("[ImageController] Failed to store artwork image:", result.error)
+    return res.status(500).json({ error: "Failed to store image" })
+  }
+
+  const apiUrl = context.apiUrl || ""
+  return res.json({
+    success: true,
+    url: `${apiUrl}/api/rooms/${roomId}/images/${imageId}`,
   })
 }

@@ -28,7 +28,7 @@ import {
   isRoomPollingPaused,
   setRoomPollingPaused,
   getQueue,
-  isAdminMember,
+  isRoomAdmin,
   addUserToRoomHistory,
 } from "../operations/data"
 import generateId from "../lib/generateId"
@@ -164,8 +164,7 @@ export class AuthService {
     const users = await getRoomUsers({ context: this.context, roomId })
     const isDeputyDj =
       room?.deputizeOnJoin || (await isDj({ context: this.context, roomId, userId }))
-    const isAdmin =
-      room?.creator === userId || (await isAdminMember({ context: this.context, roomId, userId }))
+    const isAdmin = await isRoomAdmin({ context: this.context, roomId, userId, roomCreator: room?.creator })
 
     // Create a new user object
     const newUser = {

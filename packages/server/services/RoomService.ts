@@ -5,7 +5,7 @@ import {
   getMessagesSince,
   getRoomPlaylistSince,
   removeSensitiveRoomAttributes,
-  isAdminMember,
+  isRoomAdmin,
 } from "../operations/data"
 import { readRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
 
@@ -28,9 +28,7 @@ export class RoomService {
       return null
     }
 
-    const isAdmin =
-      userId === room.creator ||
-      (await isAdminMember({ context: this.context, roomId, userId }))
+    const isAdmin = await isRoomAdmin({ context: this.context, roomId, userId, roomCreator: room.creator })
 
     return {
       room: isAdmin ? room : removeSensitiveRoomAttributes(room),
@@ -50,9 +48,7 @@ export class RoomService {
       return null
     }
 
-    const isAdmin =
-      userId === room.creator ||
-      (await isAdminMember({ context: this.context, roomId, userId }))
+    const isAdmin = await isRoomAdmin({ context: this.context, roomId, userId, roomCreator: room.creator })
 
     const messages = await getMessagesSince({
       context: this.context,

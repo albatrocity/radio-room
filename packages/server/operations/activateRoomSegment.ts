@@ -5,7 +5,7 @@ import type { SegmentDTO, SegmentRoomSettingsOverride } from "@repo/types"
 import { validatePreset } from "@repo/utils"
 import * as scheduling from "../services/SchedulingService"
 import systemMessage from "../lib/systemMessage"
-import { findRoom, saveRoom, isAdminMember } from "./data"
+import { findRoom, saveRoom, isRoomAdmin } from "./data"
 import { persistMessage } from "./data/messages"
 import {
   getPluginConfig,
@@ -13,7 +13,11 @@ import {
   deleteAllPluginConfigs,
   getAllPluginConfigs,
 } from "./data/pluginConfigs"
-import { applyFetchMetaTransitionEffects } from "./room/applyFetchMetaTransitionEffects"
+import {
+  applyFetchMetaTransitionEffects,
+  enterStreamingMode,
+} from "./room/applyFetchMetaTransitionEffects"
+import { isStreamingMode } from "../lib/streamingMode"
 import { applySegmentDeputyBulkAction } from "./room/applySegmentDeputyBulkAction"
 
 export type PresetApplyMode = "merge" | "replace" | "skip"
@@ -44,9 +48,8 @@ export async function activateRoomSegment(params: {
     return { ok: false, error: { status: 404, error: "Not Found", message: "Room not found." } }
   }
 
-  const isCreator = userId === room.creator
-  const isDesignatedAdmin = await isAdminMember({ context, roomId, userId })
-  if (!isCreator && !isDesignatedAdmin) {
+  const isAdmin = await isRoomAdmin({ context, roomId, userId, roomCreator: room.creator })
+  if (!isAdmin) {
     return {
       ok: false,
       error: { status: 403, error: "Forbidden", message: "You are not a room admin." },
@@ -115,6 +118,8 @@ export async function activateRoomSegment(params: {
       previousFetchMeta: previousRoom.fetchMeta,
       newFetchMeta: mergedRoom.fetchMeta,
     })
+  } else if (isStreamingMode(mergedRoom) && previousRoom.activeSegmentId !== segmentId) {
+    await enterStreamingMode(context, roomId)
   }
 
   await applySegmentDeputyBulkAction({
