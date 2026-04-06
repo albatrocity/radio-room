@@ -15,11 +15,11 @@ function AboutPage() {
             About
           </Heading>
           <Text>
-            Listening Room is a project created by me,{" "}
-            <Link href="https://github.com/albatrocity" target="_blank">
-              Ross Brown
-            </Link>
-            , to facilitate fun. It's a labor of love and learning.
+            Listening Room is a project created by{" "}
+            <Link href="https://instagram.com/listeningroom.club" target="_blank">
+              some friends
+            </Link>{" "}
+            to enhance the fun of listening to music together. It's a labor of love and learning.
           </Text>
           {import.meta.env.VITE_CONTACT_EMAIL && (
             <Text>
@@ -32,7 +32,7 @@ function AboutPage() {
           )}
           <Text>
             You can view the source code{" "}
-            <Link href="https://github.com/albatrocity/listening-room" target="_blank">
+            <Link href="https://github.com/albatrocity/radio-room" target="_blank">
               here
             </Link>
             .
