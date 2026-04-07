@@ -35,12 +35,12 @@ listening-room/
 │   ├── web/          # React frontend (Vite, XState v5, Chakra UI v3)
 │   ├── scheduler/    # Show scheduling admin (Vite + React)
 │   ├── load-tester/  # Load testing CLI tool
-│   └── local-remote/ # Rust daemon: remote Redis SYSTEM:* + local config UI
+│   └── local-remote/ # Rust daemon: remote Redis SYSTEM:*, macOS Now Playing watcher, local config UI
 │
 ├── packages/
 │   ├── server/       # Core server logic (handlers, operations, services)
 │   ├── types/        # Shared TypeScript types
-│   ├── adapter-*/    # Media/metadata source adapters (Spotify, Tidal, Shoutcast)
+│   ├── adapter-*/    # Media/metadata source adapters (Spotify, Tidal, Shoutcast, RTMP)
 │   ├── plugin-*/     # Room plugins (playlist-democracy, special-words)
 │   ├── plugin-base/  # Base class for plugins
 │   ├── factories/    # Test factories for mocking data
@@ -53,7 +53,7 @@ listening-room/
 ### Package Naming
 
 - Internal packages use `@repo/` prefix (e.g., `@repo/server`, `@repo/types`)
-- Adapters: `@repo/adapter-{name}` (spotify, tidal, shoutcast)
+- Adapters: `@repo/adapter-{name}` (spotify, tidal, shoutcast, rtmp)
 - Plugins: `@repo/plugin-{name}` (playlist-democracy, special-words)
 
 ---
@@ -69,6 +69,7 @@ listening-room/
 | **Handlers** | `packages/server/handlers/` | Socket.IO event handlers (one per event type) |
 | **Operations** | `packages/server/operations/` | Business logic functions called by handlers |
 | **Services** | `packages/server/services/` | External integrations and data access |
+| **Room Type Helpers** | `packages/server/lib/roomTypeHelpers.ts` | Reusable predicates for room type logic (e.g., `hasListenableStream`) |
 
 ### Frontend
 
@@ -78,6 +79,7 @@ listening-room/
 | **Machines** | `apps/web/src/machines/` | XState machine definitions (logic only) |
 | **socketActor** | `apps/web/src/actors/socketActor.ts` | Central Socket.IO hub, broadcasts to actors |
 | **ACTIVATE/DEACTIVATE** | Room-scoped actors | Lifecycle pattern for room entry/exit |
+| **Room Type Helpers** | `apps/web/src/lib/roomTypeHelpers.ts` | Client-side room type predicates (mirrors backend helpers) |
 
 ### Plugin System
 
@@ -88,6 +90,24 @@ listening-room/
 | **Config Schema** | Define with Zod, generates admin UI automatically |
 | **Component Schema** | Declarative UI components (no React in plugins) |
 | **Storage** | Redis-backed, namespaced per plugin/room |
+
+### Room Types
+
+| Type | MediaSource | Description |
+|------|-------------|-------------|
+| **jukebox** | `spotify` | On-demand playback via Spotify Connect |
+| **radio** | `shoutcast` | Shoutcast/Icecast stream with embedded metadata |
+| **live** | `rtmp` | RTMP ingest via MediaMTX, WebRTC/LL-HLS output, metadata via `local-remote` daemon |
+
+When adding logic that depends on room type, prefer using helper functions from `roomTypeHelpers.ts` rather than direct `room.type` checks. For example, use `hasListenableStream(room)` instead of `room.type === "radio" || room.type === "live"`. This keeps room-type knowledge centralized and makes it easy to add new stream-backed types. See [ADR 0034](docs/adrs/0034-live-room-type-rtmp-adapter.md).
+
+### Infrastructure
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| **MediaMTX** | `infra/mediamtx/` | RTMP ingest, WebRTC (WHEP) + LL-HLS output for live rooms |
+
+MediaMTX runs locally via `docker compose --profile live up` and is deployed to a VPS via `.github/workflows/deploy-mediamtx.yml`.
 
 ---
 
@@ -114,6 +134,14 @@ listening-room/
 
 See [Plugin Development Guide](docs/PLUGIN_DEVELOPMENT.md) for full details.
 
+### Adding a MediaSource Adapter
+
+1. Create `packages/adapter-{name}/` with `index.ts` implementing `MediaSourceAdapter`
+2. Add the source type to `mediaSourceTypeSchema` in `packages/types/TrackSource.ts`
+3. Register in `apps/api/src/server.ts` `mediaSources` array
+4. Add a branch in `configureAdaptersForRoomType` in `packages/server/controllers/roomsController.ts`
+5. If adding a new room type, add it to `Room.type` union in `packages/types/Room.ts` and update `roomTypeHelpers.ts`
+
 ### Adding a Frontend Actor
 
 1. Create machine in `apps/web/src/machines/{name}Machine.ts`
@@ -131,6 +159,9 @@ npm install
 
 # Start all services (Docker)
 docker compose up
+
+# Start with MediaMTX for live rooms
+docker compose --profile live up
 
 # Run dev servers (without Docker)
 npm run dev

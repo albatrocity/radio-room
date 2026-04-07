@@ -259,6 +259,25 @@
       </p>
     </fieldset>
 
+    <fieldset>
+      <legend>Now Playing (macOS)</legend>
+      <p class="hint">
+        Watches the macOS Now Playing center for track changes. Publishes metadata to Redis
+        (<code>SYSTEM:NOW_PLAYING_CHANGED</code>) and writes a <code>Now Playing.txt</code> file
+        that Audio Hijack can read for stream overlay metadata.
+      </p>
+      <div class="row">
+        <input id="nowPlayingEnabled" type="checkbox" />
+        <label for="nowPlayingEnabled" style="margin: 0">Enabled</label>
+      </div>
+      <label for="nowPlayingFilePath">Now Playing file path</label>
+      <input id="nowPlayingFilePath" type="text" placeholder="~/Now Playing.txt" />
+      <p class="hint">
+        Written on each track change. Audio Hijack's Live Stream block reads this via
+        <strong>Other Source…</strong> for the stream overlay.
+      </p>
+    </fieldset>
+
     <div class="row" style="margin: 1rem 0">
       <button type="button" id="save">Save &amp; apply</button>
       <button type="button" id="reload">Reload</button>
@@ -498,6 +517,8 @@
           c.features?.soundboard?.oscListenPort != null
             ? String(c.features.soundboard.oscListenPort)
             : "";
+        $("nowPlayingEnabled").checked = !!c.features?.nowPlaying?.enabled;
+        $("nowPlayingFilePath").value = c.features?.nowPlaying?.nowPlayingFilePath || "";
       }
 
       function formToCfg(base) {
@@ -518,6 +539,10 @@
         c.features.soundboard.enabled = $("soundboardEnabled").checked;
         const sbp = Number($("soundboardOscListenPort").value);
         c.features.soundboard.oscListenPort = Number.isFinite(sbp) ? sbp : 0;
+        c.features.nowPlaying = c.features.nowPlaying || {};
+        c.features.nowPlaying.enabled = $("nowPlayingEnabled").checked;
+        const npPath = $("nowPlayingFilePath").value.trim();
+        if (npPath) c.features.nowPlaying.nowPlayingFilePath = npPath;
         return c;
       }
 

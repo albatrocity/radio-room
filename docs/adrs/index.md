@@ -39,6 +39,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0031](0031-staleness-aware-refresh-on-visibility.md) | Staleness-Aware Refresh on Tab Visibility | Accepted |
 | [0032](0032-room-public-visibility-flag.md) | Room Public Visibility Flag | Accepted |
 | [0033](0033-room-title-display-when-fetch-meta-off.md) | Track Detection Toggle and Streaming Mode | Accepted |
+| [0034](0034-live-room-type-rtmp-adapter.md) | Live Room Type and RTMP Adapter | Accepted |
 
 ## Creating a New ADR
 

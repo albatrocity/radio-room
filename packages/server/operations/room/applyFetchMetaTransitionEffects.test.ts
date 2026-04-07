@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import {
   enterStreamingMode,
   applyFetchMetaTransitionEffects,
+  refreshNowPlayingFromCachedMeta,
   refreshNowPlayingFromStationMeta,
 } from "./applyFetchMetaTransitionEffects"
 import type { AppContext, RoomScheduleSnapshotDTO } from "@repo/types"
@@ -141,6 +142,27 @@ describe("enterStreamingMode", () => {
 
     expect(m.setRoomCurrent).not.toHaveBeenCalled()
     expect(emit).not.toHaveBeenCalled()
+  })
+
+  it("uses room.mediaSourceId for the mediaSource type", async () => {
+    m.findRoom.mockResolvedValue(baseRoom({ type: "live", mediaSourceId: "rtmp" }))
+
+    await enterStreamingMode(context, "r1")
+
+    const meta = m.setRoomCurrent.mock.calls[0][0].meta
+    expect(meta.nowPlaying.mediaSource).toEqual({ type: "rtmp", trackId: "streaming-mode" })
+  })
+
+  it("emits the room type as sourceType for live rooms", async () => {
+    m.findRoom.mockResolvedValue(baseRoom({ type: "live", mediaSourceId: "rtmp" }))
+
+    await enterStreamingMode(context, "r1")
+
+    expect(emit).toHaveBeenCalledWith("r1", "MEDIA_SOURCE_STATUS_CHANGED", {
+      roomId: "r1",
+      status: "online",
+      sourceType: "live",
+    })
   })
 })
 

@@ -14,6 +14,7 @@ import {
 import JukeboxControls from "./JukeboxControls"
 import { RiPlayListFill } from "react-icons/ri"
 const RadioControls = lazy(() => import("./RadioControls"))
+const LivePlayer = lazy(() => import("./LivePlayer"))
 
 interface PlayerUiProps {
   onShowPlaylist: () => void
@@ -63,12 +64,22 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
             </Box>
           }
         >
-          <RadioControls
-            trackId={trackId}
-            onShowPlaylist={onShowPlaylist}
-            hasPlaylist={hasPlaylist}
-            streamUrl={room.radioListenUrl ?? room.radioMetaUrl}
-          />
+          {room.type === "live" ? (
+            <LivePlayer
+              trackId={trackId}
+              onShowPlaylist={onShowPlaylist}
+              hasPlaylist={hasPlaylist}
+              whepUrl={room.radioListenUrl}
+              hlsUrl={room.radioMetaUrl}
+            />
+          ) : (
+            <RadioControls
+              trackId={trackId}
+              onShowPlaylist={onShowPlaylist}
+              hasPlaylist={hasPlaylist}
+              streamUrl={room.radioListenUrl ?? room.radioMetaUrl}
+            />
+          )}
         </Suspense>
       )}
 

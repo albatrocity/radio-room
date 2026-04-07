@@ -122,6 +122,20 @@ services:
     profiles:
       - testing  # Only start with: docker compose --profile testing up load-tester
 
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    ports:
+      - "1935:1935"       # RTMP ingest
+      - "8888:8888"       # LL-HLS output (fallback)
+      - "8889:8889"       # WebRTC WHEP signaling (primary)
+      - "8189:8189/udp"   # WebRTC ICE/media
+    volumes:
+      - ./infra/mediamtx/mediamtx.yml:/mediamtx.yml:ro
+    networks:
+      - app_network
+    profiles:
+      - live              # Only start with: docker compose --profile live up
+
 volumes:
   redis-data:
   postgres-data:

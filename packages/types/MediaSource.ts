@@ -36,7 +36,7 @@ export interface MediaSourceAdapter {
   onRoomCreated?: (params: {
     roomId: string
     userId: string
-    roomType: "jukebox" | "radio"
+    roomType: "jukebox" | "radio" | "live"
     context: import("./AppContext").AppContext
   }) => Promise<void>
   onRoomDeleted?: (params: {

@@ -21,7 +21,7 @@ export type RoomError = z.infer<typeof roomErrorSchema>
 export type Room = {
   id: string
   creator: string
-  type: "jukebox" | "radio"
+  type: "jukebox" | "radio" | "live"
   title: string
   fetchMeta: boolean
   extraInfo: string | undefined
@@ -136,7 +136,7 @@ export type RoomMeta = z.infer<typeof roomMetaSchema>
 
 export const mediaSourceStatusSchema = z.object({
   status: z.enum(["online", "offline", "connecting", "error"]),
-  sourceType: z.enum(["jukebox", "radio"]).optional(),
+  sourceType: z.enum(["jukebox", "radio", "live"]).optional(),
   bitrate: z.number().optional(),
   error: z.string().optional(),
   lastUpdatedAt: z.string().optional(),

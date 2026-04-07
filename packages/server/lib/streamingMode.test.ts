@@ -10,6 +10,14 @@ describe("isStreamingMode", () => {
     expect(isStreamingMode({ fetchMeta: true, type: "radio" })).toBe(false)
   })
 
+  it("returns true for a live room with fetchMeta off", () => {
+    expect(isStreamingMode({ fetchMeta: false, type: "live" })).toBe(true)
+  })
+
+  it("returns false for a live room with fetchMeta on", () => {
+    expect(isStreamingMode({ fetchMeta: true, type: "live" })).toBe(false)
+  })
+
   it("returns false for a jukebox room with fetchMeta off", () => {
     expect(isStreamingMode({ fetchMeta: false, type: "jukebox" })).toBe(false)
   })

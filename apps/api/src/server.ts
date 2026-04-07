@@ -12,6 +12,7 @@ import {
   createTidalServiceAuthAdapter,
 } from "@repo/adapter-tidal"
 import { mediaSource as shoutcastMediaSource } from "@repo/media-source-shoutcast"
+import { mediaSource as rtmpMediaSource } from "@repo/media-source-rtmp"
 import createPlaylistDemocracyPlugin from "@repo/plugin-playlist-democracy"
 import createSpecialWordsPlugin from "@repo/plugin-special-words"
 import createAbsentDjPlugin from "@repo/plugin-absent-dj"
@@ -59,6 +60,7 @@ async function main() {
     mediaSources: [
       { name: "spotify", module: spotifyMediaSource },
       { name: "shoutcast", module: shoutcastMediaSource },
+      { name: "rtmp", module: rtmpMediaSource },
     ],
 
     authRoutes: [

@@ -10,7 +10,7 @@ export type RoomError = {
 
 export type Room = {
   id: string
-  type: "jukebox" | "radio"
+  type: "jukebox" | "radio" | "live"
   title: string
   fetchMeta: boolean
   extraInfo: string | undefined

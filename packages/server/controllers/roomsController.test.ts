@@ -102,6 +102,29 @@ describe("create", () => {
     })
   })
 
+  it("creates a live room with rtmp media source", async () => {
+    mockRequest.body = {
+      challenge: "challenge",
+      userId: "userId",
+      title: "Live Room",
+      type: "live",
+    }
+
+    mockCheckUserChallenge.mockResolvedValue(1)
+
+    await create(mockRequest as Request, mockResponse as Response)
+
+    expect(saveRoom).toHaveBeenCalledWith({
+      context: mockContext,
+      room: expect.objectContaining({
+        title: "Live Room",
+        creator: "userId",
+        type: "live",
+        mediaSourceId: "rtmp",
+      }),
+    })
+  })
+
   it("persists showId when show is ready", async () => {
     vi.mocked(scheduling.findShowById).mockResolvedValue({
       id: "show-1",

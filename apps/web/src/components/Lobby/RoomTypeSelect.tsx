@@ -86,6 +86,12 @@ export default function RoomTypeSelect({ onSelect }: Props) {
           value="radio"
           checked={value === "radio"}
         />
+        <RoomTypeCard
+          title="Live"
+          description="Broadcast live audio via RTMP with sub-second latency using WebRTC. Track metadata is forwarded from your music player via the local-remote daemon."
+          value="live"
+          checked={value === "live"}
+        />
       </VStack>
     </RadioGroup.Root>
   )

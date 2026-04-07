@@ -5,6 +5,7 @@
   "description": "Local daemon: subscribe to remote Redis SYSTEM:* events, optional MIDI triggers",
   "scripts": {
     "build": "cargo build --manifest-path daemon/Cargo.toml --release --target-dir daemon/target && mkdir -p dist && cp daemon/target/release/local-remote dist/local-remote",
+    "build:intel": "cargo build --manifest-path daemon/Cargo.toml --release --target x86_64-apple-darwin",
     "dev": "cargo run --manifest-path daemon/Cargo.toml --target-dir daemon/target",
     "test": "cargo test --manifest-path daemon/Cargo.toml --target-dir daemon/target",
     "clean": "cargo clean --manifest-path daemon/Cargo.toml --target-dir daemon/target && rm -rf dist",

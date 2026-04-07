@@ -37,7 +37,7 @@ export type SystemEventHandlers = {
   MEDIA_SOURCE_STATUS_CHANGED: (data: {
     roomId: string
     status: "online" | "offline" | "connecting" | "error"
-    sourceType?: "jukebox" | "radio"
+    sourceType?: "jukebox" | "radio" | "live"
     bitrate?: number
     error?: string
   }) => Promise<void> | void

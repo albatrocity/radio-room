@@ -1,0 +1,23 @@
+{
+  "name": "@repo/media-source-rtmp",
+  "version": "1.0.0",
+  "description": "RTMP media source adapter - receives track metadata via Redis pub/sub from the local-remote daemon",
+  "main": "index.ts",
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/types": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.0.13"
+  },
+  "dependencies": {
+    "@repo/utils": "*"
+  }
+}

@@ -24,6 +24,7 @@ import {
 import { writeJsonToHset } from "../data/utils"
 import { AdapterService } from "../../services/AdapterService"
 import { isStreamingMode } from "../../lib/streamingMode"
+import { hasListenableStream } from "../../lib/roomTypeHelpers"
 
 type HandleRoomNowPlayingDataParams = {
   context: AppContext
@@ -53,7 +54,9 @@ export default async function handleRoomNowPlayingData({
   const room = await findRoom({ context, roomId })
 
   // Determine source type for status events
-  const sourceType = room?.type === "radio" ? ("radio" as const) : ("jukebox" as const)
+  const sourceType = hasListenableStream(room)
+    ? (room!.type as "radio" | "live")
+    : ("jukebox" as const)
 
   // Handle no submission (offline or error state)
   if (!submission) {
@@ -125,7 +128,7 @@ export default async function handleRoomNowPlayingData({
     submission,
     track,
     metadataSources,
-    isRadioRoom: room?.type === "radio",
+    isRadioRoom: hasListenableStream(room),
   })
   const trackDj = queuedTrack?.addedBy
 
@@ -176,7 +179,7 @@ export default async function handleRoomNowPlayingData({
       status: "online" as const,
       sourceType,
       bitrate:
-        room?.type === "radio" && submission.stationMeta?.bitrate
+        hasListenableStream(room) && submission.stationMeta?.bitrate
           ? Number(submission.stationMeta.bitrate)
           : undefined,
     })
@@ -232,8 +235,8 @@ function isSameTrack(
     current.nowPlaying.mediaSource.type === submission.sourceType &&
     current.nowPlaying.mediaSource.trackId === submission.trackId
 
-  // For radio rooms, also verify station title
-  if (room?.type === "radio" && submission.stationMeta?.title && current?.stationMeta?.title) {
+  // For stream-backed rooms, also verify station title
+  if (hasListenableStream(room) && submission.stationMeta?.title && current?.stationMeta?.title) {
     return sameMediaSource && current.stationMeta.title === submission.stationMeta.title
   }
 

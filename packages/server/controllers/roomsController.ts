@@ -45,7 +45,7 @@ async function getAvailableMetadataSourcesForUser(
 }
 
 function configureAdaptersForRoomType(params: {
-  type: "jukebox" | "radio"
+  type: "jukebox" | "radio" | "live"
   playbackControllerId?: string
   metadataSourceIds?: string[]
   mediaSourceId?: string
@@ -64,16 +64,23 @@ function configureAdaptersForRoomType(params: {
   if (type === "jukebox") {
     return {
       playbackControllerId: playbackControllerId || "spotify",
-      metadataSourceIds: metadataSourceIds, // Will be set by caller if not provided
+      metadataSourceIds: metadataSourceIds,
       mediaSourceId: mediaSourceId || "spotify",
       mediaSourceConfig,
     }
   } else if (type === "radio") {
     return {
       playbackControllerId: playbackControllerId || "spotify",
-      metadataSourceIds: metadataSourceIds, // Will be set by caller if not provided
+      metadataSourceIds: metadataSourceIds,
       mediaSourceId: mediaSourceId || "shoutcast",
       mediaSourceConfig: mediaSourceConfig || (radioMetaUrl ? { url: radioMetaUrl } : undefined),
+    }
+  } else if (type === "live") {
+    return {
+      playbackControllerId: playbackControllerId || "spotify",
+      metadataSourceIds: metadataSourceIds,
+      mediaSourceId: mediaSourceId || "rtmp",
+      mediaSourceConfig,
     }
   }
 
