@@ -19,6 +19,32 @@ const ICE_EVENT_MAP: Record<string, LiveTransportEvent["type"]> = {
   failed: "ICE_FAILED",
 }
 
+/**
+ * Chrome plays WHEP Opus as mono unless fmtp includes stereo hints; many servers
+ * answer with only minptime + useinbandfec. HLS is unaffected (VLC stereo, WebRTC mono).
+ * @see https://github.com/bluenviron/mediamtx/issues/2043
+ */
+function ensureOpusStereoFmtpInOffer(sdp: string): string {
+  const opusPayloadTypes = new Set<string>()
+  for (const line of sdp.split(/\r\n/)) {
+    const m = /^a=rtpmap:(\d+) opus\/48000/i.exec(line)
+    if (m) opusPayloadTypes.add(m[1])
+  }
+  if (opusPayloadTypes.size === 0) return sdp
+
+  return sdp.replace(/^a=fmtp:(\d+) (.+)$/gm, (full, pt: string, params: string) => {
+    if (!opusPayloadTypes.has(pt)) return full
+    let next = params.trim()
+    if (!/(^|;)stereo=1(;|$)/.test(next)) {
+      next = next ? `${next};stereo=1` : "stereo=1"
+    }
+    if (!/(^|;)sprop-stereo=1(;|$)/.test(next)) {
+      next = `${next};sprop-stereo=1`
+    }
+    return `a=fmtp:${pt} ${next}`
+  })
+}
+
 export function useLiveTransport(
   whepUrl: string | undefined,
   hlsUrl: string | undefined,
@@ -74,12 +100,13 @@ export function useLiveTransport(
     ;(async () => {
       try {
         const offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
+        const sdp = ensureOpusStereoFmtpInOffer(offer.sdp ?? "")
+        await pc.setLocalDescription({ type: offer.type, sdp })
 
         const response = await fetch(whepUrl, {
           method: "POST",
           headers: { "Content-Type": "application/sdp", Accept: "application/sdp" },
-          body: offer.sdp,
+          body: sdp,
         })
         if (!response.ok) throw new Error(`WHEP ${response.status}`)
 
