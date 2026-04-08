@@ -6,14 +6,33 @@
 |------|---------|
 | [`mediamtx.yml`](mediamtx.yml) | Default bundled in the Docker image; fine for local Docker Compose (override via compose volume). |
 | [`mediamtx.production.example.yml`](mediamtx.production.example.yml) | Template for the VPS copy at `/opt/mediamtx/mediamtx.yml`. |
+| [`Caddyfile`](Caddyfile) | Reverse proxy config deployed to `/etc/caddy/Caddyfile` on the VPS. |
 
 ## Production VPS
 
 1. Create `/opt/mediamtx` on the droplet and copy `mediamtx.production.example.yml` to `/opt/mediamtx/mediamtx.yml`.
 2. Set `webrtcAdditionalHosts` to the **same hostname** listeners use in the browser (your `A` record or reserved IP).
-3. After TLS termination (Caddy/nginx) on 443, put **HTTPS** URLs in live room settings so they match your deployed web app (`https://`).
+3. Caddy terminates TLS on **443** and proxies to MediaMTX on localhost. Put **HTTPS** URLs in live room settings so they match your deployed web app (`https://`).
 
-GitHub Actions (`.github/workflows/deploy-mediamtx.yml`) pulls the image and runs the container with `-v /opt/mediamtx/mediamtx.yml:/mediamtx.yml:ro`.
+GitHub Actions (`.github/workflows/deploy-mediamtx.yml`) pulls the image and runs the container with `-v /opt/mediamtx/mediamtx.yml:/mediamtx.yml:ro`. MediaMTX ports **8888** and **8889** are bound to **localhost only**; Caddy handles public HTTPS.
+
+### Caddy (TLS termination)
+
+Caddy runs natively on the droplet (not in Docker) and automatically provisions a **free Let's Encrypt certificate** via ACME HTTP-01. No paid cert or manual renewal required — just ensure **port 80** is open for the challenge.
+
+The [`Caddyfile`](Caddyfile) routes by path:
+
+- Requests ending in `/whep` or `/whip` → `localhost:8889` (MediaMTX WebRTC signaling)
+- Everything else → `localhost:8888` (MediaMTX LL-HLS segments and playlists)
+
+**Live room settings** (example with stream key `live`):
+
+| Field | URL |
+|-------|-----|
+| WebRTC WHEP | `https://stream.listeningroom.club/live/whep` |
+| LL-HLS Fallback | `https://stream.listeningroom.club/live/index.m3u8` |
+
+The provision script (`scripts/provision-droplet-remote.sh`) installs Caddy and deploys the Caddyfile automatically.
 
 ### GitHub Actions configuration
 
@@ -56,9 +75,9 @@ Then on the server: `sudo nano /opt/mediamtx/mediamtx.yml` and set **`webrtcAddi
 | Port | Protocol | Purpose |
 |------|----------|---------|
 | 22 | TCP | SSH (restrict to your IP if possible) |
+| 80 | TCP | Caddy ACME HTTP-01 challenge (Let's Encrypt cert renewal) |
+| 443 | TCP | HTTPS — Caddy reverse proxy to MediaMTX WHEP + HLS |
 | 1935 | TCP | RTMP ingest |
-| 8888 | TCP | LL-HLS (or only localhost if proxied) |
-| 8889 | TCP | WHEP signaling (or only localhost if proxied) |
 | 8189 | UDP | WebRTC media |
 
-If you terminate TLS on the host and only expose 443, still allow **8189/udp** and map proxies to 8888/8889 on localhost.
+Ports **8888** (HLS) and **8889** (WHEP) are bound to **localhost only** on the Docker container; they are not exposed publicly. All browser traffic goes through **Caddy on 443**.

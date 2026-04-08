@@ -40,6 +40,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0032](0032-room-public-visibility-flag.md) | Room Public Visibility Flag | Accepted |
 | [0033](0033-room-title-display-when-fetch-meta-off.md) | Track Detection Toggle and Streaming Mode | Accepted |
 | [0034](0034-live-room-type-rtmp-adapter.md) | Live Room Type and RTMP Adapter | Accepted |
+| [0035](0035-caddy-tls-termination-for-mediamtx.md) | Caddy TLS Termination for MediaMTX | Accepted |
 
 ## Creating a New ADR
 

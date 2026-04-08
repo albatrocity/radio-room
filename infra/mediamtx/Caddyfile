@@ -1,0 +1,9 @@
+stream.listeningroom.club {
+	@whep path_regexp whep /.*/(whep|whip)$
+	handle @whep {
+		reverse_proxy localhost:8889
+	}
+	handle {
+		reverse_proxy localhost:8888
+	}
+}

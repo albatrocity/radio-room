@@ -107,8 +107,12 @@ jobs:
               --name mediamtx \
               --restart unless-stopped \
               -p 1935:1935 \
-              -p 8888:8888 \
-              -p 8889:8889 \
+              -p 127.0.0.1:8888:8888 \
+              -p 127.0.0.1:8889:8889 \
               -p 8189:8189/udp \
               -v /opt/mediamtx/mediamtx.yml:/mediamtx.yml:ro \
               "$REGISTRY/$IMAGE_NAME:latest"
+            if command -v caddy >/dev/null 2>&1; then
+              echo "Caddy detected; reloading config..."
+              $SUDO systemctl reload caddy || true
+            fi

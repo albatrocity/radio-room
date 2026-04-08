@@ -2,8 +2,8 @@
 # The GitHub Actions deploy workflow mounts this file into the container (read-only).
 
 # RTMP ingest:   rtmp://YOUR_PUBLIC_HOST:1935/{streamKey}
-# WHEP:          https://YOUR_PUBLIC_HOST:8889/{streamKey}/whep   (or reverse-proxy to 443)
-# LL-HLS:        https://YOUR_PUBLIC_HOST:8888/{streamKey}/index.m3u8
+# WHEP:          https://YOUR_PUBLIC_HOST/{streamKey}/whep        (Caddy on 443 → localhost:8889)
+# LL-HLS:        https://YOUR_PUBLIC_HOST/{streamKey}/index.m3u8  (Caddy on 443 → localhost:8888)
 
 logLevel: info
 logDestinations: [stdout]
@@ -15,7 +15,7 @@ hls: true
 hlsAddress: :8888
 hlsVariant: lowLatency
 hlsAlwaysRemux: true
-# Tighten in production, e.g. ["https://app.example.com"]
+# Tighten in production once Caddy is fronting these ports.
 hlsAllowOrigins: ["*"]
 hlsSegmentDuration: 1s
 hlsPartDuration: 200ms
@@ -29,7 +29,7 @@ webrtcICEServers2:
 
 # Hostname(s) or public IPv4 that browsers use to reach this server (ICE).
 webrtcAdditionalHosts:
-  - stream.example.com
+  - stream.listeningroom.club
 
 rtsp: false
 srt: false
