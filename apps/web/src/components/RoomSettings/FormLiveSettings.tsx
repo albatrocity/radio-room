@@ -20,7 +20,7 @@ export default function FormLiveSettings({ onChange, settings }: Props) {
         <Field.Label htmlFor="radioListenUrl">WebRTC WHEP URL</Field.Label>
         <Input
           name="radioListenUrl"
-          placeholder="http://mediamtx:8889/stream/whep"
+          placeholder="https://stream.listeningroom.club/live/whep"
           defaultValue={settings?.radioListenUrl}
           onChange={(e) => {
             onChange({ radioListenUrl: e.target.value })
@@ -34,7 +34,7 @@ export default function FormLiveSettings({ onChange, settings }: Props) {
         <Field.Label htmlFor="radioMetaUrl">LL-HLS Fallback URL</Field.Label>
         <Input
           name="radioMetaUrl"
-          placeholder="http://mediamtx:8888/stream/index.m3u8"
+          placeholder="https://stream.listeningroom.club/live/index.m3u8"
           defaultValue={settings?.radioMetaUrl}
           onChange={(e) => {
             onChange({ radioMetaUrl: e.target.value })

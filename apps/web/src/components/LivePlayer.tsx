@@ -1,5 +1,5 @@
 import { useEffect, memo } from "react"
-import { Box, Icon, IconButton, HStack, Slider, Container, Text } from "@chakra-ui/react"
+import { Box, Icon, IconButton, HStack, Slider, Container } from "@chakra-ui/react"
 import { LuVolume2, LuVolumeX } from "react-icons/lu"
 import { RiPlayListFill } from "react-icons/ri"
 
@@ -42,7 +42,7 @@ const LivePlayer = ({
   const loading = useIsAudioLoading()
   const isAdmin = useIsAdmin()
 
-  const { transport, audioRef } = useLiveTransport(whepUrl, hlsUrl, audioSend as
+  const { audioRef } = useLiveTransport(whepUrl, hlsUrl, audioSend as
     (event: { type: "LOADED" } | { type: "PLAY" } | { type: "STOP" }) => void)
 
   const handleVolume = (v: number) => audioSend({ type: "CHANGE_VOLUME", volume: v })
@@ -140,11 +140,6 @@ const LivePlayer = ({
                     <Icon as={LuVolume2} boxSize={5} />
                   )}
                 </IconButton>
-              )}
-              {transport !== "none" && (
-                <Text fontSize="2xs" color="fg.muted" textTransform="uppercase" userSelect="none">
-                  {transport === "webrtc" ? "WebRTC" : "HLS"}
-                </Text>
               )}
             </HStack>
             <Box hideBelow="sm" w="100%" pr={3}>

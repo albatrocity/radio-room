@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { Box, VStack } from "@chakra-ui/react"
+import { Box, Heading, VStack } from "@chakra-ui/react"
 
 import {
   useUsers,
@@ -21,7 +21,7 @@ interface NowPlayingProps {
   meta?: RoomMeta
 }
 
-type DisplayState = "loading" | "waiting" | "empty" | "playing"
+type DisplayState = "loading" | "waiting" | "empty" | "playing" | "streamingNoTrack"
 
 function useDisplayState(meta?: RoomMeta): DisplayState {
   const roomState = useRoomState()
@@ -45,7 +45,10 @@ function useDisplayState(meta?: RoomMeta): DisplayState {
     return "playing"
   }
 
-  // Fallback - show empty if we have no data
+  if (mediaSourceStatus === "online") {
+    return "streamingNoTrack"
+  }
+
   return "empty"
 }
 
@@ -74,6 +77,14 @@ function NowPlaying({ meta }: NowPlayingProps) {
 
         {displayState === "empty" && (
           <NowPlayingEmpty roomType={room?.type ?? "jukebox"} isAdmin={isAdmin} />
+        )}
+
+        {displayState === "streamingNoTrack" && (
+          <VStack gap={2} px={4} alignContent="flex-start">
+            <Heading w="100%" as="h2" size="lg" color="whiteAlpha.900" textAlign="left">
+              {room?.title ?? "Live"}
+            </Heading>
+          </VStack>
         )}
 
         {displayState === "playing" && meta && (
