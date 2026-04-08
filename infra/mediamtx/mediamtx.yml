@@ -42,10 +42,9 @@ webrtcAllowOrigins: ["*"]
 webrtcICEServers2:
   - url: stun:stun.l.google.com:19302
 
-# ICE candidates must be reachable from browsers. In Docker/LAN, add the host IP clients use
-# (not 127.0.0.1 from the browser’s perspective). Example for a Mac at 192.168.86.24:
-webrtcAdditionalHosts:
-  - 192.168.86.24
+# ICE: set hostname(s) or LAN IP browsers use. Local dev: add your host IP under compose override or edit here.
+# Production: maintain /opt/mediamtx/mediamtx.yml on the VPS — see mediamtx.production.example.yml and README.md.
+webrtcAdditionalHosts: []
 
 # Note: WebRTC to Docker on a LAN can still fail ICE in some browsers; the web app tries WHEP
 # first then falls back to LL-HLS. A public VPS with correct webrtcAdditionalHosts often works without fallback.

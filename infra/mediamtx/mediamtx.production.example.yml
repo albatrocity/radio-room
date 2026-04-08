@@ -1,0 +1,39 @@
+# Copy to your VPS as /opt/mediamtx/mediamtx.yml and edit placeholders.
+# The GitHub Actions deploy workflow mounts this file into the container (read-only).
+
+# RTMP ingest:   rtmp://YOUR_PUBLIC_HOST:1935/{streamKey}
+# WHEP:          https://YOUR_PUBLIC_HOST:8889/{streamKey}/whep   (or reverse-proxy to 443)
+# LL-HLS:        https://YOUR_PUBLIC_HOST:8888/{streamKey}/index.m3u8
+
+logLevel: info
+logDestinations: [stdout]
+
+rtmp: true
+rtmpAddress: :1935
+
+hls: true
+hlsAddress: :8888
+hlsVariant: lowLatency
+hlsAlwaysRemux: true
+# Tighten in production, e.g. ["https://app.example.com"]
+hlsAllowOrigins: ["*"]
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+hlsSegmentCount: 7
+
+webrtc: true
+webrtcAddress: :8889
+webrtcAllowOrigins: ["*"]
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+
+# Hostname(s) or public IPv4 that browsers use to reach this server (ICE).
+webrtcAdditionalHosts:
+  - stream.example.com
+
+rtsp: false
+srt: false
+
+paths:
+  all_others:
+    source: publisher

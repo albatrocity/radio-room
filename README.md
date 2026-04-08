@@ -169,4 +169,6 @@ ffmpeg -re -f lavfi -i "sine=frequency=440:sample_rate=44100:duration=60" \
   -f flv rtmp://localhost:1935/live
 ```
 
-**Stream from another machine on your LAN:** replace `localhost` with the host machine's IP (`ipconfig getifaddr en0` on macOS). Configuration lives in [`infra/mediamtx/mediamtx.yml`](infra/mediamtx/mediamtx.yml).
+**Stream from another machine on your LAN:** replace `localhost` with the host machine's IP (`ipconfig getifaddr en0` on macOS). Configuration lives in [`infra/mediamtx/mediamtx.yml`](infra/mediamtx/mediamtx.yml). For **local WebRTC ICE**, add that LAN IP under `webrtcAdditionalHosts` (the committed default is `[]`; compose still mounts this file for editing).
+
+**Production (e.g. DigitalOcean):** see [`infra/mediamtx/README.md`](infra/mediamtx/README.md) for firewall ports, `/opt/mediamtx/mediamtx.yml`, GitHub Actions deploy, and HTTPS/WebRTC notes.
