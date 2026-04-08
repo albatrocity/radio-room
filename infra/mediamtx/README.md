@@ -28,7 +28,24 @@ Image: `ghcr.io/<owner>/<repo>/mediamtx:latest` (owner/repo are lowercased for G
 
 ### DigitalOcean Droplet (manual or MCP)
 
-Create a **Basic** Droplet (e.g. Ubuntu 24.04, `s-1vcpu-1gb`), attach your **SSH key**, then copy `mediamtx.production.example.yml` to `/opt/mediamtx/mediamtx.yml` and edit `webrtcAdditionalHosts`. The DigitalOcean **Droplets MCP** in Cursor can list regions/images/sizes and create droplets once your API token is configured in Cursor (do not commit tokens to git — see `.cursor/mcp.json.example`).
+**Prefer creating the droplet with SSH keys** (Droplets MCP `droplet-create` accepts `SSHKeys`: key IDs or fingerprints from **Account → Security → SSH keys**). If a droplet was created **without** keys, use the control panel **Access → Launch Droplet Console**, log in as `root`, then install your public key:
+
+```bash
+mkdir -p ~/.ssh
+echo 'ssh-ed25519 AAAA...your-key... comment' >> ~/.ssh/authorized_keys
+chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys
+```
+
+After `ssh root@<droplet-ip>` works:
+
+```bash
+chmod +x infra/mediamtx/scripts/provision-droplet-remote.sh
+REMOTE=root@<droplet-ip> ./infra/mediamtx/scripts/provision-droplet-remote.sh
+```
+
+Then on the server: `sudo nano /opt/mediamtx/mediamtx.yml` and set **`webrtcAdditionalHosts`** to the hostname or IP listeners use (match DNS / reserved IP).
+
+**Example MCP create** (adjust `Region`, add `SSHKeys` when possible): Ubuntu 24.04 image id `195932981`, size `s-1vcpu-1gb`, e.g. region `nyc3`.
 
 ## DigitalOcean firewall (inbound)
 
