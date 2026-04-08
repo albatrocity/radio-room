@@ -10,7 +10,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/mediamtx
 
 jobs:
   build-and-deploy:
@@ -23,6 +22,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # GHCR image names must be lowercase; github.repository can be mixed case.
+      - name: Image name (lowercase for GHCR)
+        id: image
+        run: |
+          img="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/mediamtx"
+          echo "image_name=$img" >> "$GITHUB_OUTPUT"
+          echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -37,15 +44,15 @@ jobs:
           context: infra/mediamtx
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ steps.image.outputs.image_name }}:latest
+            ${{ env.REGISTRY }}/${{ steps.image.outputs.image_name }}:${{ github.sha }}
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         env:
           REGISTRY: ${{ env.REGISTRY }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          GITHUB_OWNER: ${{ github.repository_owner }}
+          IMAGE_NAME: ${{ steps.image.outputs.image_name }}
+          GITHUB_OWNER: ${{ steps.image.outputs.owner_lc }}
           GHCR_PULL_TOKEN: ${{ secrets.MEDIAMTX_GHCR_TOKEN }}
         with:
           host: ${{ secrets.MEDIAMTX_HOST }}
@@ -54,15 +61,22 @@ jobs:
           envs: REGISTRY,IMAGE_NAME,GITHUB_OWNER,GHCR_PULL_TOKEN
           script: |
             set -e
-            if [ -n "$GHCR_PULL_TOKEN" ]; then
-              echo "$GHCR_PULL_TOKEN" | docker login "$REGISTRY" -u "$GITHUB_OWNER" --password-stdin
+            if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=; fi
+            if [ -n "${GHCR_PULL_TOKEN:-}" ]; then
+              echo "$GHCR_PULL_TOKEN" | $SUDO docker login "$REGISTRY" -u "$GITHUB_OWNER" --password-stdin
             fi
-            docker pull "$REGISTRY/$IMAGE_NAME:latest"
-            docker stop mediamtx || true
-            docker rm mediamtx || true
-            mkdir -p /opt/mediamtx
-            test -f /opt/mediamtx/mediamtx.yml || { echo "Missing /opt/mediamtx/mediamtx.yml — copy infra/mediamtx/mediamtx.production.example.yml and edit (see infra/mediamtx/README.md)"; exit 1; }
-            docker run -d \
+            $SUDO docker pull "$REGISTRY/$IMAGE_NAME:latest" || {
+              echo "ERROR: docker pull failed. If the GHCR package is private, set secret MEDIAMTX_GHCR_TOKEN (PAT with read:packages) or make the package public under Packages → mediamtx → Package settings."
+              exit 1
+            }
+            $SUDO docker stop mediamtx || true
+            $SUDO docker rm mediamtx || true
+            $SUDO mkdir -p /opt/mediamtx
+            $SUDO test -f /opt/mediamtx/mediamtx.yml || {
+              echo "ERROR: Missing /opt/mediamtx/mediamtx.yml. Run infra/mediamtx/scripts/provision-droplet-remote.sh or see infra/mediamtx/README.md."
+              exit 1
+            }
+            $SUDO docker run -d \
               --name mediamtx \
               --restart unless-stopped \
               -p 1935:1935 \
