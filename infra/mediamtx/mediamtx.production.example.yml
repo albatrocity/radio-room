@@ -40,12 +40,13 @@ paths:
   # Audio Hijack publishes to rtmp://HOST:1935/ingest (H264 + AAC).
   # FFmpeg strips video (H264 B-frames crash WebRTC) and transcodes
   # AAC → Opus, re-publishing audio-only via RTSP to the "live" path.
+  # -ac 2 forces stereo (mono ingest is duplicated L/R); -ar 48000 matches WebRTC Opus.
   ingest:
     source: publisher
     runOnReady: >-
       ffmpeg -hide_banner -loglevel warning
       -i rtmp://127.0.0.1:1935/ingest
-      -vn -c:a libopus -b:a 256k
+      -vn -ac 2 -ar 48000 -c:a libopus -b:a 256k
       -f rtsp rtsp://127.0.0.1:8554/live
     runOnReadyRestart: true
 
