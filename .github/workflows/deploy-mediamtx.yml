@@ -106,10 +106,7 @@ jobs:
             $SUDO docker run -d \
               --name mediamtx \
               --restart unless-stopped \
-              -p 1935:1935 \
-              -p 127.0.0.1:8888:8888 \
-              -p 127.0.0.1:8889:8889 \
-              -p 8189:8189/udp \
+              --network host \
               -v /opt/mediamtx/mediamtx.yml:/mediamtx.yml:ro \
               "$REGISTRY/$IMAGE_NAME:latest"
             if command -v caddy >/dev/null 2>&1; then

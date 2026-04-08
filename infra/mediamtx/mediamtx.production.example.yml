@@ -1,6 +1,7 @@
 # Copy to your VPS as /opt/mediamtx/mediamtx.yml and edit placeholders.
-# The GitHub Actions deploy workflow mounts this file into the container (read-only).
-
+# The container runs with --network host (no Docker NAT), so bind addresses control
+# what is publicly reachable.  Caddy reverse-proxies 127.0.0.1 ports to HTTPS.
+#
 # RTMP ingest:   rtmp://YOUR_PUBLIC_HOST:1935/{streamKey}
 # WHEP:          https://YOUR_PUBLIC_HOST/{streamKey}/whep        (Caddy on 443 → localhost:8889)
 # LL-HLS:        https://YOUR_PUBLIC_HOST/{streamKey}/index.m3u8  (Caddy on 443 → localhost:8888)
@@ -12,18 +13,18 @@ rtmp: true
 rtmpAddress: :1935
 
 hls: true
-hlsAddress: :8888
+hlsAddress: 127.0.0.1:8888
 hlsVariant: lowLatency
 hlsAlwaysRemux: true
-# Tighten in production once Caddy is fronting these ports.
 hlsAllowOrigins: ["*"]
 hlsSegmentDuration: 1s
 hlsPartDuration: 200ms
 hlsSegmentCount: 7
 
 webrtc: true
-webrtcAddress: :8889
+webrtcAddress: 127.0.0.1:8889
 webrtcAllowOrigins: ["*"]
+webrtcICEUDPMuxAddress: :8189
 webrtcICEServers2:
   - url: stun:stun.l.google.com:19302
 

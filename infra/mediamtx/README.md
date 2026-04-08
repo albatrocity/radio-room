@@ -14,7 +14,7 @@
 2. Set `webrtcAdditionalHosts` to the **same hostname** listeners use in the browser (your `A` record or reserved IP).
 3. Caddy terminates TLS on **443** and proxies to MediaMTX on localhost. Put **HTTPS** URLs in live room settings so they match your deployed web app (`https://`).
 
-GitHub Actions (`.github/workflows/deploy-mediamtx.yml`) pulls the image and runs the container with `-v /opt/mediamtx/mediamtx.yml:/mediamtx.yml:ro`. MediaMTX ports **8888** and **8889** are bound to **localhost only**; Caddy handles public HTTPS.
+GitHub Actions (`.github/workflows/deploy-mediamtx.yml`) pulls the image and runs the container with `--network host` so MediaMTX shares the host's network stack. This avoids Docker's UDP MASQUERADE rewriting source ports, which breaks WebRTC SRTP delivery. Bind addresses in `mediamtx.yml` control what is publicly reachable: HLS (`127.0.0.1:8888`) and WHEP (`127.0.0.1:8889`) are localhost-only; Caddy handles public HTTPS.
 
 ### Caddy (TLS termination)
 
@@ -80,4 +80,4 @@ Then on the server: `sudo nano /opt/mediamtx/mediamtx.yml` and set **`webrtcAddi
 | 1935 | TCP | RTMP ingest |
 | 8189 | UDP | WebRTC media |
 
-Ports **8888** (HLS) and **8889** (WHEP) are bound to **localhost only** on the Docker container; they are not exposed publicly. All browser traffic goes through **Caddy on 443**.
+Ports **8888** (HLS) and **8889** (WHEP) are bound to **127.0.0.1** in `mediamtx.yml`; they are not publicly reachable. All browser traffic goes through **Caddy on 443**. The container runs with `--network host` to avoid Docker NAT issues with WebRTC UDP.
