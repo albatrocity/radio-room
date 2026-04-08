@@ -14,6 +14,8 @@ export interface AudioContext {
   mediaSourceStatus: "online" | "offline" | "connecting" | "unknown"
   participationStatus: "listening" | "participating"
   subscriptionId: string | null
+  /** Live/radio: media element is ready while user is still stopped (LOADED/PLAY arrived before TOGGLE). */
+  streamBufferReady: boolean
 }
 
 type AudioEvent =
@@ -44,6 +46,7 @@ const defaultContext: AudioContext = {
   mediaSourceStatus: "unknown",
   participationStatus: "participating",
   subscriptionId: null,
+  streamBufferReady: false,
 }
 
 export const audioMachine = setup({
@@ -115,6 +118,8 @@ export const audioMachine = setup({
       emitToSocket("STOP_LISTENING", {})
     },
     resetAudio: assign(() => defaultContext),
+    setStreamBufferReady: assign({ streamBufferReady: true }),
+    clearStreamBufferReady: assign({ streamBufferReady: false }),
   },
   guards: {
     volumeAboveZero: ({ event }) => {
@@ -155,6 +160,7 @@ export const audioMachine = setup({
         context.meta.nowPlaying.mediaSource.trackId === event.data.track.mediaSource.trackId
       )
     },
+    isStreamBufferReady: ({ context }) => context.streamBufferReady,
   },
 }).createMachine({
   id: "audio",
@@ -239,10 +245,23 @@ export const audioMachine = setup({
                 },
                 stopped: {
                   on: {
-                    TOGGLE: {
-                      target: "playing",
-                      actions: ["listen", "startListening"],
+                    LOADED: {
+                      actions: ["setStreamBufferReady"],
                     },
+                    PLAY: {
+                      actions: ["setStreamBufferReady"],
+                    },
+                    TOGGLE: [
+                      {
+                        target: "playing.loaded",
+                        guard: "isStreamBufferReady",
+                        actions: ["listen", "startListening"],
+                      },
+                      {
+                        target: "playing",
+                        actions: ["listen", "startListening"],
+                      },
+                    ],
                     TRACK_CHANGED: {
                       actions: ["setMeta"],
                     },
@@ -296,6 +315,7 @@ export const audioMachine = setup({
           },
         },
         offline: {
+          entry: ["clearStreamBufferReady"],
           on: {
             ONLINE: "online",
             INIT: [
