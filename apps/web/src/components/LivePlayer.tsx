@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, memo } from "react"
+import { useEffect, useRef, useState, memo } from "react"
 import { Box, Icon, IconButton, HStack, Slider, Container, Text } from "@chakra-ui/react"
 import { LuVolume2, LuVolumeX } from "react-icons/lu"
 import { RiPlayListFill } from "react-icons/ri"
@@ -60,131 +60,137 @@ const LivePlayer = ({
   const [transport, setTransport] = useState<Transport>("none")
   const hlsFallbackStartedRef = useRef(false)
 
+  // Stable refs so the connection effect doesn't re-run when callbacks change identity.
+  const audioSendRef = useRef(audioSend)
+  audioSendRef.current = audioSend
+  const whepUrlRef = useRef(whepUrl)
+  whepUrlRef.current = whepUrl
+  const hlsUrlRef = useRef(hlsUrl)
+  hlsUrlRef.current = hlsUrl
+
   const handleVolume = (v: number) => audioSend({ type: "CHANGE_VOLUME", volume: v })
   const handlePlayPause = () => audioSend({ type: "TOGGLE" })
   const handleMute = () => audioSend({ type: "TOGGLE_MUTE" })
 
   useHotkeys("space", () => handlePlayPause())
 
-  const startHlsFallback = useCallback(() => {
-    if (!hlsUrl || !audioRef.current) return
-    if (hlsFallbackStartedRef.current) return
-    hlsFallbackStartedRef.current = true
-
-    const audio = audioRef.current
-
-    // Critical after failed WebRTC: a lingering MediaStream blocks HLS from producing audible output.
-    hlsRef.current?.destroy()
-    hlsRef.current = null
-    audio.pause()
-    audio.srcObject = null
-    audio.removeAttribute("src")
-    audio.load()
-
-    const canNative = !!audio.canPlayType?.("application/vnd.apple.mpegurl")
-    const useNative = canNative && prefersAppleNativeHls()
-
-    if (useNative) {
-      audio.src = hlsUrl
-      audio.play().catch(() => {})
-    } else if (Hls.isSupported()) {
-      // LL-HLS + MSE is flaky on Safari; native path above avoids hls.js there entirely.
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-      })
-      hls.loadSource(hlsUrl)
-      hls.attachMedia(audio)
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        audio.play().catch(() => {})
-      })
-      hlsRef.current = hls
-    } else if (canNative) {
-      audio.src = hlsUrl
-      audio.play().catch(() => {})
-    }
-
-    setTransport("hls")
-    audioSend({ type: "LOADED" })
-    audioSend({ type: "PLAY" })
-  }, [hlsUrl, audioSend])
-
-  const startWebRTC = useCallback(async () => {
-    if (!whepUrl || !audioRef.current) return
-
-    try {
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-      })
-      pcRef.current = pc
-
-      pc.addTransceiver("audio", { direction: "recvonly" })
-
-      pc.ontrack = (event) => {
-        if (audioRef.current && event.streams[0]) {
-          audioRef.current.srcObject = event.streams[0]
-          audioRef.current.play().catch(() => {})
-          audioSend({ type: "LOADED" })
-          audioSend({ type: "PLAY" })
-        }
-      }
-
-      const offer = await pc.createOffer()
-      await pc.setLocalDescription(offer)
-
-      const response = await fetch(whepUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/sdp",
-          Accept: "application/sdp",
-        },
-        body: offer.sdp,
-      })
-
-      if (!response.ok) {
-        throw new Error(`WHEP request failed: ${response.status}`)
-      }
-
-      const answerSdp = await response.text()
-      await pc.setRemoteDescription({ type: "answer", sdp: answerSdp })
-
-      setTransport("webrtc")
-
-      const timeout = setTimeout(() => {
-        if (pc.iceConnectionState !== "connected" && pc.iceConnectionState !== "completed") {
-          console.warn("[LivePlayer] WebRTC ICE timed out, falling back to HLS")
-          pc.close()
-          pcRef.current = null
-          startHlsFallback()
-        }
-      }, 10000)
-
-      pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
-          clearTimeout(timeout)
-        }
-        if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
-          clearTimeout(timeout)
-          console.warn("[LivePlayer] WebRTC connection lost, falling back to HLS")
-          pc.close()
-          pcRef.current = null
-          startHlsFallback()
-        }
-      }
-    } catch (err) {
-      console.warn("[LivePlayer] WebRTC failed, falling back to HLS:", err)
-      startHlsFallback()
-    }
-  }, [whepUrl, audioSend, startHlsFallback])
-
   useEffect(() => {
+    const currentWhepUrl = whepUrlRef.current
+    const currentHlsUrl = hlsUrlRef.current
     hlsFallbackStartedRef.current = false
 
-    // Try WHEP first on all browsers (including Safari); production VPS setups often work where
-    // Docker/LAN ICE fails. On failure or timeout we fall back to HLS (native on WebKit).
-    if (whepUrl) {
+    function startHlsFallback() {
+      if (!currentHlsUrl || !audioRef.current) return
+      if (hlsFallbackStartedRef.current) return
+      hlsFallbackStartedRef.current = true
+
+      const audio = audioRef.current
+
+      hlsRef.current?.destroy()
+      hlsRef.current = null
+      audio.pause()
+      audio.srcObject = null
+      audio.removeAttribute("src")
+      audio.load()
+
+      const canNative = !!audio.canPlayType?.("application/vnd.apple.mpegurl")
+      const useNative = canNative && prefersAppleNativeHls()
+
+      if (useNative) {
+        audio.src = currentHlsUrl
+        audio.play().catch(() => {})
+      } else if (Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+        })
+        hls.loadSource(currentHlsUrl)
+        hls.attachMedia(audio)
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          audio.play().catch(() => {})
+        })
+        hlsRef.current = hls
+      } else if (canNative) {
+        audio.src = currentHlsUrl
+        audio.play().catch(() => {})
+      }
+
+      setTransport("hls")
+      audioSendRef.current({ type: "LOADED" })
+      audioSendRef.current({ type: "PLAY" })
+    }
+
+    async function startWebRTC() {
+      if (!currentWhepUrl || !audioRef.current) return
+
+      try {
+        const pc = new RTCPeerConnection({
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        })
+        pcRef.current = pc
+
+        pc.addTransceiver("audio", { direction: "recvonly" })
+
+        pc.ontrack = (event) => {
+          if (audioRef.current && event.streams[0]) {
+            audioRef.current.srcObject = event.streams[0]
+            audioRef.current.play().catch(() => {})
+            audioSendRef.current({ type: "LOADED" })
+            audioSendRef.current({ type: "PLAY" })
+          }
+        }
+
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+
+        const response = await fetch(currentWhepUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/sdp",
+            Accept: "application/sdp",
+          },
+          body: offer.sdp,
+        })
+
+        if (!response.ok) {
+          throw new Error(`WHEP request failed: ${response.status}`)
+        }
+
+        const answerSdp = await response.text()
+        await pc.setRemoteDescription({ type: "answer", sdp: answerSdp })
+
+        setTransport("webrtc")
+
+        const timeout = setTimeout(() => {
+          if (pc.iceConnectionState !== "connected" && pc.iceConnectionState !== "completed") {
+            console.warn("[LivePlayer] WebRTC ICE timed out, falling back to HLS")
+            pc.close()
+            pcRef.current = null
+            startHlsFallback()
+          }
+        }, 10000)
+
+        pc.oniceconnectionstatechange = () => {
+          if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+            clearTimeout(timeout)
+          }
+          if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
+            clearTimeout(timeout)
+            console.warn("[LivePlayer] WebRTC connection lost, falling back to HLS")
+            pc.close()
+            pcRef.current = null
+            startHlsFallback()
+          }
+        }
+      } catch (err) {
+        console.warn("[LivePlayer] WebRTC failed, falling back to HLS:", err)
+        startHlsFallback()
+      }
+    }
+
+    if (currentWhepUrl) {
       void startWebRTC()
-    } else if (hlsUrl) {
+    } else if (currentHlsUrl) {
       startHlsFallback()
     }
 
@@ -200,9 +206,9 @@ const LivePlayer = ({
         audio.removeAttribute("src")
         audio.load()
       }
-      audioSend({ type: "STOP" })
+      audioSendRef.current({ type: "STOP" })
     }
-  }, [whepUrl, hlsUrl, startWebRTC, startHlsFallback])
+  }, [whepUrl, hlsUrl])
 
   useEffect(() => {
     if (audioRef.current) {
