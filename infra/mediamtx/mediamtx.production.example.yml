@@ -32,20 +32,21 @@ webrtcICEServers2:
 webrtcAdditionalHosts:
   - stream.listeningroom.club
 
-rtsp: false
+rtsp: true
+rtspAddress: 127.0.0.1:8554
 srt: false
 
 paths:
-  # Audio Hijack publishes to rtmp://HOST:1935/ingest
-  # FFmpeg strips the video track (which has H264 B-frames that break WebRTC)
-  # and re-publishes audio-only to the "live" path.
+  # Audio Hijack publishes to rtmp://HOST:1935/ingest (H264 + AAC).
+  # FFmpeg strips video (H264 B-frames crash WebRTC) and transcodes
+  # AAC → Opus, re-publishing audio-only via RTSP to the "live" path.
   ingest:
     source: publisher
     runOnReady: >-
       ffmpeg -hide_banner -loglevel warning
       -i rtmp://127.0.0.1:1935/ingest
-      -vn -c:a copy
-      -f flv rtmp://127.0.0.1:1935/live
+      -vn -c:a libopus -b:a 256k
+      -f rtsp rtsp://127.0.0.1:8554/live
     runOnReadyRestart: true
 
   live:

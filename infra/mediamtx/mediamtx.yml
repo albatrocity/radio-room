@@ -52,7 +52,8 @@ webrtcAdditionalHosts: []
 ###############################################
 # Disabled protocols
 
-rtsp: false
+rtsp: true
+rtspAddress: 127.0.0.1:8554
 srt: false
 
 ###############################################
@@ -64,8 +65,8 @@ paths:
     runOnReady: >-
       ffmpeg -hide_banner -loglevel warning
       -i rtmp://127.0.0.1:1935/ingest
-      -vn -c:a copy
-      -f flv rtmp://127.0.0.1:1935/live
+      -vn -c:a libopus -b:a 256k
+      -f rtsp rtsp://127.0.0.1:8554/live
     runOnReadyRestart: true
 
   live:

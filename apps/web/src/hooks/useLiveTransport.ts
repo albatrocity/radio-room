@@ -36,6 +36,14 @@ export function useLiveTransport(
 
   const isInWebrtc = state.matches("webrtc")
   const isInHls = state.matches("hls")
+  const isWebrtcPlaying = state.matches({ webrtc: "playing" })
+
+  // Signal the audio actor once WebRTC is confirmed active (ICE connected, track ready).
+  useEffect(() => {
+    if (isWebrtcPlaying) {
+      audioSendRef.current({ type: "LOADED" })
+    }
+  }, [isWebrtcPlaying])
 
   // WebRTC lifecycle — runs once when entering the "webrtc" compound state,
   // cleans up when leaving it (transition to "hls").
@@ -52,31 +60,15 @@ export function useLiveTransport(
 
     pc.ontrack = (event) => {
       console.log("[webrtc] ontrack fired:", event.track.kind, "readyState:", event.track.readyState, "streams:", event.streams.length)
-      if (!audio) {
-        console.warn("[webrtc] ontrack: audio element is null!")
-        return
-      }
+      if (!audio) return
       const stream = event.streams[0] ?? new MediaStream([event.track])
       audio.srcObject = stream
-      const playResult = audio.play()
-      playResult.then(() => console.log("[webrtc] audio.play() succeeded")).catch((e) => console.warn("[webrtc] audio.play() blocked:", e.message))
       send({ type: "TRACK_RECEIVED" })
-      audioSendRef.current({ type: "LOADED" })
-      audioSendRef.current({ type: "PLAY" })
     }
 
     pc.oniceconnectionstatechange = () => {
-      console.log("[webrtc] iceConnectionState:", pc.iceConnectionState)
       const mapped = ICE_EVENT_MAP[pc.iceConnectionState]
       if (mapped) send({ type: mapped })
-    }
-
-    pc.onconnectionstatechange = () => {
-      console.log("[webrtc] connectionState:", pc.connectionState)
-    }
-
-    pc.onicegatheringstatechange = () => {
-      console.log("[webrtc] iceGatheringState:", pc.iceGatheringState)
     }
 
     ;(async () => {
@@ -92,14 +84,7 @@ export function useLiveTransport(
         if (!response.ok) throw new Error(`WHEP ${response.status}`)
 
         const answerSdp = await response.text()
-        console.log("[webrtc] SDP answer received, setting remote description...")
         await pc.setRemoteDescription({ type: "answer", sdp: answerSdp })
-        console.log("[webrtc] setRemoteDescription done. Transceivers:", pc.getTransceivers().map(t => ({
-          mid: t.mid,
-          direction: t.direction,
-          currentDirection: t.currentDirection,
-          receiverTrack: t.receiver.track ? { kind: t.receiver.track.kind, readyState: t.receiver.track.readyState, muted: t.receiver.track.muted } : null,
-        })))
         send({ type: "WHEP_OK" })
       } catch (err) {
         console.warn("[webrtc] WHEP failed:", err)

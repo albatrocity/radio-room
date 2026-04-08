@@ -48,6 +48,7 @@ export const liveTransportMachine = setup({
           on: {
             WHEP_OK: { target: "iceConnecting", actions: log("[transport] WHEP_OK → iceConnecting") },
             WHEP_FAILED: { target: "#liveTransport.webrtcFailed", actions: log("[transport] WHEP_FAILED → webrtcFailed") },
+            TRACK_RECEIVED: { actions: log("[transport] track received (during signaling)") },
           },
         },
 
@@ -82,9 +83,9 @@ export const liveTransportMachine = setup({
       },
     },
 
-    // DEBUG: dead-end state instead of HLS fallback so we can see where WebRTC fails
     webrtcFailed: {
-      entry: log("[transport] *** WEBRTC FAILED — stuck here (HLS fallback disabled for debugging) ***"),
+      entry: log("[transport] WebRTC failed, falling back to HLS"),
+      always: "hls",
     },
 
     hls: {
