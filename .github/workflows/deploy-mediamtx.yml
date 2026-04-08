@@ -47,12 +47,35 @@ jobs:
             ${{ env.REGISTRY }}/${{ steps.image.outputs.image_name }}:latest
             ${{ env.REGISTRY }}/${{ steps.image.outputs.image_name }}:${{ github.sha }}
 
-      # Inline REGISTRY / image / owner into the script on the runner. Relying on appleboy
-      # "envs" forwarding alone often leaves empty vars on the remote shell.
+      # Host/DNS is not secret — often stored as an Actions *Variable* (repo or environment).
+      # If you only set vars.MEDIAMTX_HOST, secrets.MEDIAMTX_HOST is empty → appleboy "missing server host".
+      - name: Resolve SSH host and validate deploy credentials
+        id: deploy_target
+        run: |
+          set -e
+          HOST="${{ vars.MEDIAMTX_HOST }}"
+          if [ -z "$HOST" ]; then HOST="${{ secrets.MEDIAMTX_HOST }}"; fi
+          if [ -z "$HOST" ]; then
+            echo "::error::MEDIAMTX_HOST is empty. Add an Actions **Variable** or **Secret** named MEDIAMTX_HOST:"
+            echo "  Settings → Secrets and variables → Actions → Variables (repository), OR"
+            echo "  Settings → Environments → rb-radio-listener → Environment variables / Secrets"
+            exit 1
+          fi
+          echo "host=$HOST" >> "$GITHUB_OUTPUT"
+          echo "SSH host resolved (length ${#HOST})"
+          if [ -z "${{ secrets.MEDIAMTX_USER }}" ]; then
+            echo "::error::MEDIAMTX_USER secret is empty (environment rb-radio-listener or repository secrets)."
+            exit 1
+          fi
+          if [ -z "${{ secrets.MEDIAMTX_SSH_KEY }}" ]; then
+            echo "::error::MEDIAMTX_SSH_KEY secret is empty."
+            exit 1
+          fi
+
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.MEDIAMTX_HOST }}
+          host: ${{ steps.deploy_target.outputs.host }}
           username: ${{ secrets.MEDIAMTX_USER }}
           key: ${{ secrets.MEDIAMTX_SSH_KEY }}
           script: |

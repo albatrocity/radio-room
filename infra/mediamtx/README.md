@@ -15,14 +15,18 @@
 
 GitHub Actions (`.github/workflows/deploy-mediamtx.yml`) pulls the image and runs the container with `-v /opt/mediamtx/mediamtx.yml:/mediamtx.yml:ro`.
 
-### GitHub repository secrets
+### GitHub Actions configuration
 
-| Secret | Required | Purpose |
-|--------|----------|---------|
-| `MEDIAMTX_HOST` | Yes | Droplet public IP, reserved IP, or DNS name for SSH |
-| `MEDIAMTX_USER` | Yes | SSH user (e.g. `root` or `deploy`) |
-| `MEDIAMTX_SSH_KEY` | Yes | Private key (PEM) for that user |
-| `MEDIAMTX_GHCR_TOKEN` | If GHCR package is **private** | PAT with `read:packages`; used on the droplet for `docker login` before `docker pull` |
+The workflow (`.github/workflows/deploy-mediamtx.yml`) uses **environment** `rb-radio-listener`. Set values on **Settings → Environments → `rb-radio-listener`** (recommended), or as **repository** secrets/variables under **Settings → Secrets and variables → Actions**.
+
+**`MEDIAMTX_HOST`** — the deploy step reads **`vars.MEDIAMTX_HOST` first**, then **`secrets.MEDIAMTX_HOST`**. The host is not sensitive, so a **Variable** is fine. If you only create a variable named `MEDIAMTX_HOST`, **`secrets.MEDIAMTX_HOST` stays empty**; the old `host: ${{ secrets.MEDIAMTX_HOST }}` pattern caused **appleboy/ssh-action** to fail with `error: missing server host`.
+
+| Name | Type | Required | Purpose |
+|------|------|----------|---------|
+| `MEDIAMTX_HOST` | **Variable or Secret** | Yes | Droplet public IP, reserved IP, or DNS name for SSH |
+| `MEDIAMTX_USER` | Secret | Yes | SSH user (e.g. `root` or `deploy`) |
+| `MEDIAMTX_SSH_KEY` | Secret | Yes | Private key (PEM) for that user |
+| `MEDIAMTX_GHCR_TOKEN` | Secret | If GHCR package is **private** | PAT with `read:packages`; used on the droplet for `docker login` before `docker pull` |
 
 Image: `ghcr.io/<owner>/<repo>/mediamtx:latest` (owner/repo are lowercased for GHCR).
 
