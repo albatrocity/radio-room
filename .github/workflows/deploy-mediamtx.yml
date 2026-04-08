@@ -107,6 +107,8 @@ jobs:
               --name mediamtx \
               --restart unless-stopped \
               --network host \
+              -e API_URL="${{ vars.API_URL }}" \
+              -e STREAM_HEALTH_SECRET="${{ secrets.STREAM_HEALTH_SECRET }}" \
               -v /opt/mediamtx/mediamtx.yml:/mediamtx.yml:ro \
               "$REGISTRY/$IMAGE_NAME:latest"
             if command -v caddy >/dev/null 2>&1; then

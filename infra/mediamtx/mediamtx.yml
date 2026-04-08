@@ -71,3 +71,14 @@ paths:
 
   live:
     source: publisher
+    runOnReady: >-
+      curl -sf -X POST "${API_URL:-http://127.0.0.1:3000}/api/stream-health"
+      -H "Authorization: Bearer ${STREAM_HEALTH_SECRET:-dev}"
+      -H "Content-Type: application/json"
+      -d '{"path":"$MTX_PATH","status":"online"}'
+    runOnReadyRestart: false
+    runOnNotReady: >-
+      curl -sf -X POST "${API_URL:-http://127.0.0.1:3000}/api/stream-health"
+      -H "Authorization: Bearer ${STREAM_HEALTH_SECRET:-dev}"
+      -H "Content-Type: application/json"
+      -d '{"path":"$MTX_PATH","status":"offline"}'

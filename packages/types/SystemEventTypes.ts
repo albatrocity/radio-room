@@ -136,6 +136,12 @@ export type SystemEventHandlers = {
     previousConfig: Record<string, unknown>
   }) => Promise<void> | void
 
+  // Stream health events (MediaMTX webhook → API)
+  STREAM_HEALTH_CHANGED: (data: {
+    roomId: string
+    status: "online" | "offline"
+  }) => Promise<void> | void
+
   // Error events
   ERROR_OCCURRED: (data: {
     roomId: string

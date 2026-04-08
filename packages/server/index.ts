@@ -40,6 +40,7 @@ import {
   getPluginComponentState,
 } from "./controllers/pluginsController"
 import { exportRoom } from "./controllers/exportController"
+import { streamHealth } from "./controllers/streamHealthController"
 import { getImage } from "./operations/data"
 import { upload, uploadImages, uploadArtwork } from "./controllers/imageController"
 import { getPublicReadyShowById, getPublicReadyShows } from "./routes/publicSchedulingRoutes"
@@ -218,6 +219,7 @@ export class RadioRoomServer {
 
         return res.send(buffer)
       })
+      .post("/api/stream-health", streamHealth)
       .get("/api/public/scheduling/ready-shows", getPublicReadyShows)
       .get("/api/public/scheduling/shows/:id", getPublicReadyShowById)
       .get("/api/scheduling/shows/:id", schedulingShowReadAuth, getSchedulingShowByIdHandler)

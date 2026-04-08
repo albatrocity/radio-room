@@ -64,7 +64,9 @@ export default async function handleRoomNowPlayingData({
       await clearRoomCurrent({ context, roomId })
     }
 
-    if (context.systemEvents) {
+    // For live rooms, stream health (MediaMTX webhook) is the sole authority
+    // for online/offline status. NOW_PLAYING_CHANGED only clears metadata.
+    if (room?.type !== "live" && context.systemEvents) {
       const status = error ? ("error" as const) : ("offline" as const)
       await context.systemEvents.emit(roomId, "MEDIA_SOURCE_STATUS_CHANGED", {
         roomId,
@@ -96,10 +98,11 @@ export default async function handleRoomNowPlayingData({
     })
   }
 
-  // In streaming mode, skip all track processing. The stream-online
-  // status is still emitted so clients know audio is available.
+  // In streaming mode, skip all track processing. For non-live rooms
+  // the stream-online status is still emitted so clients know audio is
+  // available. Live rooms rely on the stream health webhook instead.
   if (isStreamingMode(room)) {
-    if (context.systemEvents) {
+    if (room?.type !== "live" && context.systemEvents) {
       await context.systemEvents.emit(roomId, "MEDIA_SOURCE_STATUS_CHANGED", {
         roomId,
         status: "online" as const,
@@ -174,15 +177,18 @@ export default async function handleRoomNowPlayingData({
       meta: updatedCurrent,
     })
 
-    await context.systemEvents.emit(roomId, "MEDIA_SOURCE_STATUS_CHANGED", {
-      roomId,
-      status: "online" as const,
-      sourceType,
-      bitrate:
-        hasListenableStream(room) && submission.stationMeta?.bitrate
-          ? Number(submission.stationMeta.bitrate)
-          : undefined,
-    })
+    // Live rooms rely on the stream health webhook for status; skip here.
+    if (room?.type !== "live") {
+      await context.systemEvents.emit(roomId, "MEDIA_SOURCE_STATUS_CHANGED", {
+        roomId,
+        status: "online" as const,
+        sourceType,
+        bitrate:
+          hasListenableStream(room) && submission.stationMeta?.bitrate
+            ? Number(submission.stationMeta.bitrate)
+            : undefined,
+      })
+    }
   }
 
   // Add to playlist

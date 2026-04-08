@@ -41,6 +41,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0033](0033-room-title-display-when-fetch-meta-off.md) | Track Detection Toggle and Streaming Mode | Accepted |
 | [0034](0034-live-room-type-rtmp-adapter.md) | Live Room Type and RTMP Adapter | Accepted |
 | [0035](0035-caddy-tls-termination-for-mediamtx.md) | Caddy TLS Termination for MediaMTX | Accepted |
+| [0036](0036-stream-health-webhook-for-live-rooms.md) | Stream Health Webhook for Live Rooms | Accepted |
 
 ## Creating a New ADR
 

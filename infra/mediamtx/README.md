@@ -46,6 +46,8 @@ The workflow (`.github/workflows/deploy-mediamtx.yml`) uses **environment** `rb-
 | `MEDIAMTX_USER` | Secret | Yes | SSH user (e.g. `root` or `deploy`) |
 | `MEDIAMTX_SSH_KEY` | Secret | Yes | Private key (PEM) for that user |
 | `MEDIAMTX_GHCR_TOKEN` | Secret | If GHCR package is **private** | PAT with `read:packages`; used on the droplet for `docker login` before `docker pull` |
+| `API_URL` | **Variable** | Yes (for stream health) | API server base URL (e.g. `https://api.listeningroom.club`) |
+| `STREAM_HEALTH_SECRET` | Secret | Yes (for stream health) | Shared secret for the `POST /api/stream-health` webhook |
 
 Image: `ghcr.io/<owner>/<repo>/mediamtx:latest` (owner/repo are lowercased for GHCR).
 
@@ -69,6 +71,19 @@ REMOTE=root@<droplet-ip> ./infra/mediamtx/scripts/provision-droplet-remote.sh
 Then on the server: `sudo nano /opt/mediamtx/mediamtx.yml` and set **`webrtcAdditionalHosts`** to the hostname or IP listeners use (match DNS / reserved IP).
 
 **Example MCP create** (adjust `Region`, add `SSHKeys` when possible): Ubuntu 24.04 image id `195932981`, size `s-1vcpu-1gb`, e.g. region `nyc3`.
+
+## Stream health webhook
+
+MediaMTX reports stream liveness to the API server via an HTTP webhook. The `live` path in `mediamtx.yml` uses `runOnReady` and `runOnNotReady` hooks to POST to `POST /api/stream-health` with a Bearer token.
+
+This decouples "is audio flowing?" from "what track is playing?":
+
+- **Stream health** (MediaMTX → API): controls whether a live room shows as online or offline.
+- **Now Playing** (local-remote → Redis → adapter-rtmp): provides optional track metadata overlay when a music app is detected.
+
+A live room becomes "online" the moment MediaMTX receives an active publisher on the `live` path, even if no music app metadata is available (e.g. vinyl, talking, non-standard audio sources).
+
+The API server also needs `STREAM_HEALTH_SECRET` set in its environment (e.g. Heroku config var) to validate incoming requests.
 
 ## DigitalOcean firewall (inbound)
 
