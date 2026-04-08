@@ -1,6 +1,7 @@
 import { Field, Input, VStack, Text } from "@chakra-ui/react"
 import React from "react"
 
+import { DEFAULT_LIVE_HLS_URL, DEFAULT_LIVE_WHEP_URL } from "../../lib/liveStreamDefaults"
 import { Room } from "../../types/Room"
 
 type Props = {
@@ -20,8 +21,8 @@ export default function FormLiveSettings({ onChange, settings }: Props) {
         <Field.Label htmlFor="radioListenUrl">WebRTC WHEP URL</Field.Label>
         <Input
           name="radioListenUrl"
-          placeholder="https://stream.listeningroom.club/live/whep"
-          defaultValue={settings?.radioListenUrl}
+          placeholder={DEFAULT_LIVE_WHEP_URL}
+          defaultValue={settings?.radioListenUrl ?? DEFAULT_LIVE_WHEP_URL}
           onChange={(e) => {
             onChange({ radioListenUrl: e.target.value })
           }}
@@ -34,8 +35,8 @@ export default function FormLiveSettings({ onChange, settings }: Props) {
         <Field.Label htmlFor="radioMetaUrl">LL-HLS Fallback URL</Field.Label>
         <Input
           name="radioMetaUrl"
-          placeholder="https://stream.listeningroom.club/live/index.m3u8"
-          defaultValue={settings?.radioMetaUrl}
+          placeholder={DEFAULT_LIVE_HLS_URL}
+          defaultValue={settings?.radioMetaUrl ?? DEFAULT_LIVE_HLS_URL}
           onChange={(e) => {
             onChange({ radioMetaUrl: e.target.value })
           }}

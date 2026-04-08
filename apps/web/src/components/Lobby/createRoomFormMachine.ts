@@ -1,4 +1,5 @@
 import { assign, setup } from "xstate"
+import { DEFAULT_LIVE_HLS_URL, DEFAULT_LIVE_WHEP_URL } from "../../lib/liveStreamDefaults"
 import { RoomSetup } from "../../types/Room"
 
 export type Event =
@@ -13,13 +14,33 @@ export const createRoomFormMachine = setup({
     events: {} as Event,
   },
   actions: {
-    assignType: assign({
-      type: ({ context, event }) => {
-        if (event.type === "SELECT_TYPE") {
-          return event.data?.type || context.type
+    assignType: assign(({ context, event }) => {
+      if (event.type !== "SELECT_TYPE") return {}
+      const nextType = event.data?.type ?? context.type
+      if (nextType === "live") {
+        return {
+          type: "live" as const,
+          radioListenUrl: DEFAULT_LIVE_WHEP_URL,
+          radioMetaUrl: DEFAULT_LIVE_HLS_URL,
         }
-        return context.type
-      },
+      }
+      if (nextType === "jukebox") {
+        return {
+          type: "jukebox" as const,
+          radioListenUrl: undefined,
+          radioMetaUrl: undefined,
+          radioProtocol: undefined,
+        }
+      }
+      if (nextType === "radio") {
+        return {
+          type: "radio" as const,
+          radioMetaUrl: "http://live.rcast.net:8678",
+          radioListenUrl: "https://stream1.rcast.net/66341",
+          radioProtocol: "shoutcastv2",
+        }
+      }
+      return { type: nextType }
     }),
     assignSettings: assign(({ context, event }) => {
       if (event.type === "SET_SETTINGS") {
