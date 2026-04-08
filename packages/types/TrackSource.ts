@@ -8,7 +8,7 @@ import { z } from "zod"
 // MediaSource Schema & Types
 // =============================================================================
 
-export const mediaSourceTypeSchema = z.enum(["spotify", "shoutcast", "applemusic"])
+export const mediaSourceTypeSchema = z.enum(["spotify", "shoutcast", "rtmp", "applemusic"])
 export type MediaSourceType = z.infer<typeof mediaSourceTypeSchema>
 
 export const mediaSourceInfoSchema = z.object({

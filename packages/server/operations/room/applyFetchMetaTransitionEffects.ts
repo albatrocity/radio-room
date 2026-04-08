@@ -1,26 +1,37 @@
-import type { AppContext, QueueItem, RoomMeta } from "@repo/types"
+import type { AppContext, QueueItem, RoomMeta, MediaSourceType } from "@repo/types"
 import { clearRoomCurrent, findRoom, getRoomCurrent, setRoomCurrent } from "../data"
 import { readRoomScheduleSnapshot } from "../scheduleRedisSnapshot"
 import handleRoomNowPlayingData from "./handleRoomNowPlayingData"
 import { makeStableTrackId } from "../../lib/makeNowPlayingFromStationMeta"
 
 /**
- * Clear current now-playing state, rebuild a submission from cached station
+ * Clear current now-playing state, rebuild a submission from cached
  * metadata, and re-run `handleRoomNowPlayingData` so the persisted RoomMeta
  * reflects the latest room/segment display settings.
+ *
+ * Derives sourceType from the room's mediaSourceId rather than
+ * hardcoding a single adapter.
  */
-export async function refreshNowPlayingFromStationMeta(
+export async function refreshNowPlayingFromCachedMeta(
   context: AppContext,
   roomId: string,
 ): Promise<void> {
+  const room = await findRoom({ context, roomId })
   const current = await clearRoomCurrent({ context, roomId })
   const stationMeta = current?.stationMeta
 
   if (stationMeta?.title) {
-    const parts = stationMeta.title.split("|").map((s) => s.trim())
+    const sourceType = (room?.mediaSourceId ?? "shoutcast") as MediaSourceType
+
+    // Shoutcast embeds pipe-delimited metadata; RTMP metadata arrives pre-structured
+    const parts =
+      sourceType === "shoutcast"
+        ? stationMeta.title.split("|").map((s) => s.trim())
+        : [stationMeta.title]
+
     const submission = {
       trackId: makeStableTrackId(stationMeta),
-      sourceType: "shoutcast" as const,
+      sourceType,
       title: parts[0] || "Unknown",
       artist: parts[1],
       album: parts[2],
@@ -34,6 +45,9 @@ export async function refreshNowPlayingFromStationMeta(
     })
   }
 }
+
+/** @deprecated Use refreshNowPlayingFromCachedMeta */
+export const refreshNowPlayingFromStationMeta = refreshNowPlayingFromCachedMeta
 
 /**
  * Transition into streaming mode: clear track data and set up a minimal
@@ -82,7 +96,7 @@ export async function enterStreamingMode(
       images: [],
       urls: [],
     },
-    mediaSource: { type: "shoutcast", trackId: "streaming-mode" },
+    mediaSource: { type: (room.mediaSourceId ?? "shoutcast") as MediaSourceType, trackId: "streaming-mode" },
     addedAt: Date.now(),
     playedAt: Date.now(),
   }
@@ -110,7 +124,7 @@ export async function enterStreamingMode(
     await context.systemEvents.emit(roomId, "MEDIA_SOURCE_STATUS_CHANGED", {
       roomId,
       status: "online" as const,
-      sourceType: "radio" as const,
+      sourceType: room.type as "radio" | "live",
     })
   }
 }
@@ -132,7 +146,7 @@ export async function applyFetchMetaTransitionEffects(params: {
   if (!newFetchMeta) {
     await enterStreamingMode(context, roomId)
   } else {
-    await refreshNowPlayingFromStationMeta(context, roomId)
+    await refreshNowPlayingFromCachedMeta(context, roomId)
   }
 }
 

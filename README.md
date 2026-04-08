@@ -142,3 +142,33 @@ npm test
 # Build all packages
 npm run build
 ```
+
+### MediaMTX (Live Rooms)
+
+Live rooms use [MediaMTX](https://github.com/bluenviron/mediamtx) to accept RTMP ingest and serve WebRTC/LL-HLS output. Start it alongside the other services with the `live` profile:
+
+```bash
+docker compose --profile live up
+```
+
+Once running:
+
+| Endpoint | URL | Purpose |
+|----------|-----|---------|
+| RTMP ingest | `rtmp://localhost:1935/{streamKey}` | Point OBS, Audio Hijack, or FFmpeg here |
+| WebRTC (WHEP) | `http://localhost:8889/{streamKey}/whep` | Sub-second playback (primary) |
+| LL-HLS | `http://localhost:8888/{streamKey}/index.m3u8` | 2-6s latency fallback (plays in Safari/VLC) |
+
+The `{streamKey}` is any path you choose (e.g., `live`). Whatever you use for ingest is what you use for playback.
+
+**Test with FFmpeg** (sends a 440Hz test tone):
+
+```bash
+ffmpeg -re -f lavfi -i "sine=frequency=440:sample_rate=44100:duration=60" \
+  -c:a aac -b:a 320k \
+  -f flv rtmp://localhost:1935/live
+```
+
+**Stream from another machine on your LAN:** replace `localhost` with the host machine's IP (`ipconfig getifaddr en0` on macOS). Configuration lives in [`infra/mediamtx/mediamtx.yml`](infra/mediamtx/mediamtx.yml). For **local WebRTC ICE**, add that LAN IP under `webrtcAdditionalHosts` (the committed default is `[]`; compose still mounts this file for editing).
+
+**Production (e.g. DigitalOcean):** see [`infra/mediamtx/README.md`](infra/mediamtx/README.md) for firewall ports, `/opt/mediamtx/mediamtx.yml`, GitHub Actions deploy, and HTTPS/WebRTC notes.

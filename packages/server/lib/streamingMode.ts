@@ -1,11 +1,12 @@
 import type { Room } from "@repo/types/Room"
+import { hasListenableStream } from "./roomTypeHelpers"
 
 /**
- * A radio room with track detection disabled enters "streaming mode":
+ * A stream-backed room with track detection disabled enters "streaming mode":
  * no track processing, no playlist accumulation, room-branding display only.
  */
 export function isStreamingMode(room: Pick<Room, "fetchMeta" | "type"> | null | undefined): boolean {
-  return !!room && !room.fetchMeta && room.type === "radio"
+  return !!room && !room.fetchMeta && hasListenableStream(room)
 }
 
 export function isTrackDetectionEnabled(room: Pick<Room, "fetchMeta"> | null | undefined): boolean {

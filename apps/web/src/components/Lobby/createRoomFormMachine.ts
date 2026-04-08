@@ -49,6 +49,14 @@ export const createRoomFormMachine = setup({
           sessionStorage.setItem("createRoomRadioListenUrl", context.radioListenUrl)
         }
       }
+      if (context.type === "live") {
+        if (context.radioListenUrl) {
+          sessionStorage.setItem("createRoomRadioListenUrl", context.radioListenUrl)
+        }
+        if (context.radioMetaUrl) {
+          sessionStorage.setItem("createRoomradioMetaUrl", context.radioMetaUrl)
+        }
+      }
     },
     redirectToLogin: ({ event }) => {
       if (event.type === "NEXT") {

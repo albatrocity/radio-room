@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "chakra-ui": {
+      "command": "npx",
+      "args": ["-y", "@chakra-ui/react-mcp"]
+    },
+    "droplets": {
+      "url": "https://droplets.mcp.digitalocean.com/mcp",
+      "headers": {
+        "Authorization": "dop_v1_YOUR_DIGITALOCEAN_API_TOKEN"
+      }
+    }
+  }
+}

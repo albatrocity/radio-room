@@ -22,3 +22,11 @@ export const roomFactory = Factory.define<Room>(({ sequence }) => ({
   showSchedulePublic: false,
   announceActiveSegment: true,
 }))
+
+export const liveRoomFactory = roomFactory.params({
+  type: "live",
+  mediaSourceId: "rtmp",
+  radioMetaUrl: undefined,
+  radioListenUrl: undefined,
+  radioProtocol: undefined,
+})

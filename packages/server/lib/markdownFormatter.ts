@@ -142,7 +142,8 @@ function formatHeader(data: RoomExportData): string {
 function formatRoomInfo(data: RoomExportData): string {
   const lines = ["## Room Info", ""]
 
-  lines.push(`- **Type:** ${data.room.type === "jukebox" ? "Jukebox" : "Radio"}`)
+  const typeLabels: Record<string, string> = { jukebox: "Jukebox", radio: "Radio", live: "Live" }
+  lines.push(`- **Type:** ${typeLabels[data.room.type] || data.room.type}`)
   lines.push(`- **Created:** ${formatDate(data.room.createdAt)}`)
 
   if (data.room.description) {

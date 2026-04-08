@@ -5,6 +5,7 @@ import { Room, RoomSetup } from "../../types/Room"
 import FormJukeboxSettings from "./FormJukeboxSettings"
 import SharedSettings from "./SharedSettings"
 import FormRadioSettings from "./FormRadioSettings"
+import FormLiveSettings from "./FormLiveSettings"
 import FormAttachShow from "./FormAttachShow"
 
 type Props = {
@@ -20,6 +21,7 @@ export default function RoomSettings({ settings, onChange, roomType }: Props) {
       <FormAttachShow onChange={onChange} settings={settings} />
       {roomType === "jukebox" && <FormJukeboxSettings onChange={onChange} />}
       {roomType === "radio" && <FormRadioSettings onChange={onChange} settings={settings} />}
+      {roomType === "live" && <FormLiveSettings onChange={onChange} settings={settings} />}
 
       <Alert.Root status="warning" fontSize="sm" color="blackAlpha.700" alignItems="flex-start">
         <Alert.Indicator />

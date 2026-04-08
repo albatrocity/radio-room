@@ -35,10 +35,11 @@ export function getRoomError(): RoomFetchContext["error"] {
 }
 
 /**
- * Check if room has audio (radio type).
+ * Check if room has a listenable audio stream (radio or live type).
  */
 export function roomHasAudio(): boolean {
-  return roomActor.getSnapshot().context.room?.type === "radio"
+  const type = roomActor.getSnapshot().context.room?.type
+  return type === "radio" || type === "live"
 }
 
 /**

@@ -164,6 +164,72 @@ describe("handleRoomNowPlayingData — streaming mode early return", () => {
   })
 })
 
+describe("handleRoomNowPlayingData — live room type", () => {
+  const emit = vi.fn()
+  const context = {
+    systemEvents: { emit },
+    redis: {
+      pubClient: { get: vi.fn(), publish: vi.fn() },
+      subClient: {},
+    },
+  } as unknown as AppContext
+
+  const submission = {
+    trackId: "track-abc",
+    sourceType: "rtmp" as const,
+    title: "Actual Song",
+    artist: "Actual Artist",
+    album: "Actual Album",
+    stationMeta: { title: "Actual Song|Actual Artist|Actual Album", bitrate: "128" },
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    m.getRoomCurrent.mockResolvedValue(null)
+    m.setRoomCurrent.mockResolvedValue(undefined)
+    m.addTrackToRoomPlaylist.mockResolvedValue(undefined)
+    m.getQueue.mockResolvedValue([])
+    m.writeJsonToHset.mockResolvedValue(undefined)
+    emit.mockResolvedValue(undefined)
+  })
+
+  it("emits sourceType 'live' in streaming mode for live rooms", async () => {
+    m.findRoom.mockResolvedValue(baseRoom({ type: "live", fetchMeta: false }))
+
+    await handleRoomNowPlayingData({ context, roomId: "r1", submission })
+
+    expect(emit).toHaveBeenCalledWith("r1", "MEDIA_SOURCE_STATUS_CHANGED", {
+      roomId: "r1",
+      status: "online",
+      sourceType: "live",
+      bitrate: 128,
+    })
+  })
+
+  it("returns early when fetchMeta is off for a live room — no track processing", async () => {
+    m.findRoom.mockResolvedValue(baseRoom({ type: "live", fetchMeta: false }))
+
+    const result = await handleRoomNowPlayingData({ context, roomId: "r1", submission })
+
+    expect(result).toBeNull()
+    expect(m.setRoomCurrent).not.toHaveBeenCalled()
+    expect(m.addTrackToRoomPlaylist).not.toHaveBeenCalled()
+  })
+
+  it("emits sourceType 'live' on offline for live rooms", async () => {
+    m.findRoom.mockResolvedValue(baseRoom({ type: "live", fetchMeta: false }))
+
+    await handleRoomNowPlayingData({ context, roomId: "r1" })
+
+    expect(emit).toHaveBeenCalledWith("r1", "MEDIA_SOURCE_STATUS_CHANGED", {
+      roomId: "r1",
+      status: "offline",
+      sourceType: "live",
+      error: undefined,
+    })
+  })
+})
+
 describe("handleRoomNowPlayingData — artworkStreamingOnly", () => {
   const emit = vi.fn()
   const context = {

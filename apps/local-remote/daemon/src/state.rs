@@ -6,6 +6,15 @@ use std::sync::{Arc, RwLock};
 use tokio::sync::{broadcast, Notify};
 
 #[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NowPlayingSnapshot {
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub last_updated_at_ms: Option<u128>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct StatusSnapshot {
     pub redis_connected: bool,
     pub redis_last_error: Option<String>,
@@ -15,6 +24,7 @@ pub struct StatusSnapshot {
     pub last_osc_error: Option<String>,
     pub last_osc_at_ms: Option<u128>,
     pub last_farrago_ping_at_ms: Option<u128>,
+    pub now_playing: NowPlayingSnapshot,
 }
 
 pub struct AppState {
@@ -33,6 +43,11 @@ pub struct AppState {
     pub board_changed: broadcast::Sender<()>,
     /// Wakes the play-state monitor when a tile play command is sent.
     pub play_started: Notify,
+    // Now Playing state
+    pub now_playing_title: RwLock<Option<String>>,
+    pub now_playing_artist: RwLock<Option<String>>,
+    pub now_playing_album: RwLock<Option<String>>,
+    pub now_playing_updated_at_ms: RwLock<Option<u128>>,
 }
 
 impl AppState {
@@ -52,6 +67,10 @@ impl AppState {
             reconnect: Notify::new(),
             board_changed: board_tx,
             play_started: Notify::new(),
+            now_playing_title: RwLock::new(None),
+            now_playing_artist: RwLock::new(None),
+            now_playing_album: RwLock::new(None),
+            now_playing_updated_at_ms: RwLock::new(None),
         }
     }
 
@@ -73,6 +92,12 @@ impl AppState {
                 .read()
                 .ok()
                 .and_then(|g| *g),
+            now_playing: NowPlayingSnapshot {
+                title: self.now_playing_title.read().ok().and_then(|g| g.clone()),
+                artist: self.now_playing_artist.read().ok().and_then(|g| g.clone()),
+                album: self.now_playing_album.read().ok().and_then(|g| g.clone()),
+                last_updated_at_ms: self.now_playing_updated_at_ms.read().ok().and_then(|g| *g),
+            },
         }
     }
 
@@ -140,6 +165,17 @@ impl AppState {
             .ok()
             .map(|b| b.has_any_playing())
             .unwrap_or(false)
+    }
+
+    pub fn record_now_playing(&self, title: Option<String>, artist: Option<String>, album: Option<String>) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        if let Ok(mut w) = self.now_playing_title.write() { *w = title; }
+        if let Ok(mut w) = self.now_playing_artist.write() { *w = artist; }
+        if let Ok(mut w) = self.now_playing_album.write() { *w = album; }
+        if let Ok(mut w) = self.now_playing_updated_at_ms.write() { *w = Some(now); }
     }
 
     pub fn record_farrago_ping(&self) {

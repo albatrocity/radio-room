@@ -1,0 +1,63 @@
+# MediaMTX configuration for Listening Room
+# Accepts RTMP ingest and serves WebRTC (WHEP) + LL-HLS output.
+#
+# RTMP ingest:          rtmp://localhost:1935/{streamKey}
+# WebRTC playback:      http://localhost:8889/{streamKey}/whep
+# LL-HLS playback:      http://localhost:8888/{streamKey}/index.m3u8
+
+###############################################
+# General
+
+logLevel: info
+logDestinations: [stdout]
+
+###############################################
+# RTMP (ingest)
+
+rtmp: true
+rtmpAddress: :1935
+
+###############################################
+# HLS (LL-HLS fallback output)
+
+hls: true
+hlsAddress: :8888
+hlsVariant: lowLatency
+hlsAlwaysRemux: true
+hlsAllowOrigins: ["*"]
+# Latency is mostly (player buffer) × segment length; many players hold ~3 segments before play.
+# Without explicit values, defaults can land around ~2s segments → ~6s perceived delay.
+# Tighter segments/parts reduce delay at the cost of more manifest churn and less seek cushion.
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+hlsSegmentCount: 7
+
+###############################################
+# WebRTC (primary low-latency output via WHEP)
+
+webrtc: true
+webrtcAddress: :8889
+# Allow WHEP from another origin (e.g. web app on http://127.0.0.1:8000, MediaMTX on LAN IP).
+webrtcAllowOrigins: ["*"]
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+
+# ICE: set hostname(s) or LAN IP browsers use. Local dev: add your host IP under compose override or edit here.
+# Production: maintain /opt/mediamtx/mediamtx.yml on the VPS — see mediamtx.production.example.yml and README.md.
+webrtcAdditionalHosts: []
+
+# Note: WebRTC to Docker on a LAN can still fail ICE in some browsers; the web app tries WHEP
+# first then falls back to LL-HLS. A public VPS with correct webrtcAdditionalHosts often works without fallback.
+
+###############################################
+# Disabled protocols
+
+rtsp: false
+srt: false
+
+###############################################
+# Paths
+
+paths:
+  all_others:
+    source: publisher

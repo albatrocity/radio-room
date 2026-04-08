@@ -3,6 +3,7 @@ mod config;
 mod events;
 mod farrago;
 mod logic;
+mod now_playing;
 mod osc_listener;
 mod osc_send;
 mod play_monitor;
@@ -46,6 +47,11 @@ async fn main() -> anyhow::Result<()> {
     let play_mon_state = state.clone();
     tokio::spawn(async move {
         play_monitor::run_play_monitor(play_mon_state).await;
+    });
+
+    let np_state = state.clone();
+    tokio::spawn(async move {
+        now_playing::run_now_playing_watcher(np_state).await;
     });
 
     let app: Router = api::build_router(state.clone());

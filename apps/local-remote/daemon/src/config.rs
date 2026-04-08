@@ -54,6 +54,34 @@ pub struct Features {
     /// Browser soundboard + UDP listener for Farrago OSC Output (see README).
     #[serde(default)]
     pub soundboard: SoundboardFeature,
+    /// macOS Now Playing watcher: publishes track metadata to Redis and writes Now Playing.txt.
+    #[serde(default)]
+    pub now_playing: NowPlayingFeature,
+}
+
+fn default_now_playing_file_path() -> String {
+    dirs::home_dir()
+        .map(|h| h.join("Now Playing.txt").to_string_lossy().into_owned())
+        .unwrap_or_else(|| "Now Playing.txt".to_string())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NowPlayingFeature {
+    #[serde(default)]
+    pub enabled: bool,
+    /// Path to write the Now Playing.txt file for Audio Hijack.
+    #[serde(default = "default_now_playing_file_path")]
+    pub now_playing_file_path: String,
+}
+
+impl Default for NowPlayingFeature {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            now_playing_file_path: default_now_playing_file_path(),
+        }
+    }
 }
 
 /// When enabled, binds UDP on `osc_listen_port` and expects Farrago **OSC Output** aimed at this host:port.

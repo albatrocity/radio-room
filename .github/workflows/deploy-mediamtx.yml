@@ -1,0 +1,72 @@
+name: Deploy MediaMTX
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/mediamtx/**"
+
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/mediamtx
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: infra/mediamtx
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GHCR_PULL_TOKEN: ${{ secrets.MEDIAMTX_GHCR_TOKEN }}
+        with:
+          host: ${{ secrets.MEDIAMTX_HOST }}
+          username: ${{ secrets.MEDIAMTX_USER }}
+          key: ${{ secrets.MEDIAMTX_SSH_KEY }}
+          envs: REGISTRY,IMAGE_NAME,GITHUB_OWNER,GHCR_PULL_TOKEN
+          script: |
+            set -e
+            if [ -n "$GHCR_PULL_TOKEN" ]; then
+              echo "$GHCR_PULL_TOKEN" | docker login "$REGISTRY" -u "$GITHUB_OWNER" --password-stdin
+            fi
+            docker pull "$REGISTRY/$IMAGE_NAME:latest"
+            docker stop mediamtx || true
+            docker rm mediamtx || true
+            mkdir -p /opt/mediamtx
+            test -f /opt/mediamtx/mediamtx.yml || { echo "Missing /opt/mediamtx/mediamtx.yml — copy infra/mediamtx/mediamtx.production.example.yml and edit (see infra/mediamtx/README.md)"; exit 1; }
+            docker run -d \
+              --name mediamtx \
+              --restart unless-stopped \
+              -p 1935:1935 \
+              -p 8888:8888 \
+              -p 8889:8889 \
+              -p 8189:8189/udp \
+              -v /opt/mediamtx/mediamtx.yml:/mediamtx.yml:ro \
+              "$REGISTRY/$IMAGE_NAME:latest"

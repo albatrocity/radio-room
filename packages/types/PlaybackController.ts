@@ -62,7 +62,7 @@ export interface PlaybackControllerAdapter {
   onRoomCreated?: (params: {
     roomId: string
     userId: string
-    roomType: "jukebox" | "radio"
+    roomType: "jukebox" | "radio" | "live"
     context: AppContext
   }) => Promise<void>
   onRoomDeleted?: (params: { roomId: string; context: AppContext }) => Promise<void>

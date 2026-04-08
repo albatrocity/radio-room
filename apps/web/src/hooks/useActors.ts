@@ -228,7 +228,10 @@ export const useRoomScheduleSnapshot = (): RoomScheduleSnapshotDTO | null => {
 }
 
 export const useCurrentRoomHasAudio = () => {
-  return useSelector(roomActor, (s) => s.context.room?.type === "radio")
+  return useSelector(roomActor, (s) => {
+    const type = s.context.room?.type
+    return type === "radio" || type === "live"
+  })
 }
 
 export const useRoomBanner = () => {

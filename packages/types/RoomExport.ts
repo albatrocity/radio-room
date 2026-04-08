@@ -23,7 +23,7 @@ export interface RoomExportInfo {
   id: string
   title: string
   description?: string
-  type: "jukebox" | "radio"
+  type: "jukebox" | "radio" | "live"
   createdAt: string
   creator: string
 }

@@ -99,3 +99,6 @@ vite.config.ts.timestamp-*
 plans/*
 work-history/*
 _old/
+
+# Local MCP config (may contain API tokens); use .cursor/mcp.json.example
+.cursor/mcp.json
