@@ -19,7 +19,7 @@ export interface AudioContext {
 type AudioEvent =
   | { type: "ACTIVATE" }
   | { type: "DEACTIVATE" }
-  | { type: "INIT"; data: { meta: RoomMeta } }
+  | { type: "INIT"; data: { meta: RoomMeta; streamHealthStatus?: "online" | "offline" } }
   | { type: "OFFLINE" }
   | { type: "ONLINE" }
   | { type: "TRACK_CHANGED"; data: { meta: RoomMeta } }
@@ -89,7 +89,11 @@ export const audioMachine = setup({
       return {}
     }),
     setStatusFromMeta: assign(({ event }) => {
-      // For INIT event, infer status from whether we have track data
+      // For live rooms, stream health is the authority for online/offline
+      if ("data" in event && "streamHealthStatus" in event.data && event.data.streamHealthStatus) {
+        return { mediaSourceStatus: event.data.streamHealthStatus }
+      }
+      // Otherwise infer status from whether we have track data
       if ("data" in event && event.data.meta?.nowPlaying) {
         return { mediaSourceStatus: "online" as const }
       }
@@ -126,6 +130,9 @@ export const audioMachine = setup({
       return false
     },
     hasTrack: ({ event }) => {
+      if ("data" in event && "streamHealthStatus" in event.data && event.data.streamHealthStatus === "online") {
+        return true
+      }
       if ("data" in event && "meta" in event.data) {
         return !isEmpty(event.data.meta) && !isNil(event.data.meta.nowPlaying)
       }

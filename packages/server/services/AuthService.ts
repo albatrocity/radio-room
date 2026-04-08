@@ -31,6 +31,7 @@ import {
   isRoomAdmin,
   addUserToRoomHistory,
 } from "../operations/data"
+import { getStreamHealthStatus } from "../operations/room/handleStreamHealth"
 import generateId from "../lib/generateId"
 import generateAnonName from "../lib/generateAnonName"
 import systemMessage from "../lib/systemMessage"
@@ -220,6 +221,9 @@ export class AuthService {
     const allReactions = await getAllRoomReactions({ context: this.context, roomId })
     const pluginConfigs = await getAllPluginConfigs({ context: this.context, roomId })
     const queue = await getQueue({ context: this.context, roomId })
+    const streamHealthStatus = room.type === "live"
+      ? await getStreamHealthStatus(this.context, roomId)
+      : null
 
     // Get access token for room creator to enable authenticated features (search, liked tracks, etc.)
     // Use the first metadata source (primary) for auth token
@@ -257,6 +261,7 @@ export class AuthService {
         },
         accessToken, // Only set for room creator with metadata source
         isNewUser: isNew,
+        ...(streamHealthStatus ? { streamHealthStatus } : {}),
       },
       userData: {
         userId,
