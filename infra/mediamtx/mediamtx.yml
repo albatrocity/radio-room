@@ -24,6 +24,13 @@ hls: true
 hlsAddress: :8888
 hlsVariant: lowLatency
 hlsAlwaysRemux: true
+hlsAllowOrigins: ["*"]
+# Latency is mostly (player buffer) × segment length; many players hold ~3 segments before play.
+# Without explicit values, defaults can land around ~2s segments → ~6s perceived delay.
+# Tighter segments/parts reduce delay at the cost of more manifest churn and less seek cushion.
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+hlsSegmentCount: 7
 
 ###############################################
 # WebRTC (primary low-latency output via WHEP)
