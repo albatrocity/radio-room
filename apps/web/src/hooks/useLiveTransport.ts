@@ -51,22 +51,32 @@ export function useLiveTransport(
     pc.addTransceiver("audio", { direction: "recvonly" })
 
     pc.ontrack = (event) => {
-      if (!audio) return
-      console.debug("[LivePlayer] ontrack:", event.track.kind, "streams:", event.streams.length)
+      console.log("[webrtc] ontrack fired:", event.track.kind, "readyState:", event.track.readyState, "streams:", event.streams.length)
+      if (!audio) {
+        console.warn("[webrtc] ontrack: audio element is null!")
+        return
+      }
       const stream = event.streams[0] ?? new MediaStream([event.track])
       audio.srcObject = stream
-      audio.play().catch(() => {})
+      const playResult = audio.play()
+      playResult.then(() => console.log("[webrtc] audio.play() succeeded")).catch((e) => console.warn("[webrtc] audio.play() blocked:", e.message))
       send({ type: "TRACK_RECEIVED" })
       audioSendRef.current({ type: "LOADED" })
       audioSendRef.current({ type: "PLAY" })
     }
 
     pc.oniceconnectionstatechange = () => {
+      console.log("[webrtc] iceConnectionState:", pc.iceConnectionState)
       const mapped = ICE_EVENT_MAP[pc.iceConnectionState]
-      if (mapped) {
-        console.debug("[LivePlayer] ICE state:", pc.iceConnectionState)
-        send({ type: mapped })
-      }
+      if (mapped) send({ type: mapped })
+    }
+
+    pc.onconnectionstatechange = () => {
+      console.log("[webrtc] connectionState:", pc.connectionState)
+    }
+
+    pc.onicegatheringstatechange = () => {
+      console.log("[webrtc] iceGatheringState:", pc.iceGatheringState)
     }
 
     ;(async () => {
@@ -82,10 +92,17 @@ export function useLiveTransport(
         if (!response.ok) throw new Error(`WHEP ${response.status}`)
 
         const answerSdp = await response.text()
+        console.log("[webrtc] SDP answer received, setting remote description...")
         await pc.setRemoteDescription({ type: "answer", sdp: answerSdp })
+        console.log("[webrtc] setRemoteDescription done. Transceivers:", pc.getTransceivers().map(t => ({
+          mid: t.mid,
+          direction: t.direction,
+          currentDirection: t.currentDirection,
+          receiverTrack: t.receiver.track ? { kind: t.receiver.track.kind, readyState: t.receiver.track.readyState, muted: t.receiver.track.muted } : null,
+        })))
         send({ type: "WHEP_OK" })
       } catch (err) {
-        console.warn("[LivePlayer] WHEP failed:", err)
+        console.warn("[webrtc] WHEP failed:", err)
         send({ type: "WHEP_FAILED" })
       }
     })()
