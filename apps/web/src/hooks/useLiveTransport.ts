@@ -51,13 +51,14 @@ export function useLiveTransport(
     pc.addTransceiver("audio", { direction: "recvonly" })
 
     pc.ontrack = (event) => {
-      if (audio && event.streams[0]) {
-        audio.srcObject = event.streams[0]
-        audio.play().catch(() => {})
-        send({ type: "TRACK_RECEIVED" })
-        audioSendRef.current({ type: "LOADED" })
-        audioSendRef.current({ type: "PLAY" })
-      }
+      if (!audio) return
+      console.debug("[LivePlayer] ontrack:", event.track.kind, "streams:", event.streams.length)
+      const stream = event.streams[0] ?? new MediaStream([event.track])
+      audio.srcObject = stream
+      audio.play().catch(() => {})
+      send({ type: "TRACK_RECEIVED" })
+      audioSendRef.current({ type: "LOADED" })
+      audioSendRef.current({ type: "PLAY" })
     }
 
     pc.oniceconnectionstatechange = () => {
