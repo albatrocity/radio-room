@@ -47,26 +47,30 @@ jobs:
             ${{ env.REGISTRY }}/${{ steps.image.outputs.image_name }}:latest
             ${{ env.REGISTRY }}/${{ steps.image.outputs.image_name }}:${{ github.sha }}
 
+      # Inline REGISTRY / image / owner into the script on the runner. Relying on appleboy
+      # "envs" forwarding alone often leaves empty vars on the remote shell.
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
-        env:
-          REGISTRY: ${{ env.REGISTRY }}
-          IMAGE_NAME: ${{ steps.image.outputs.image_name }}
-          GITHUB_OWNER: ${{ steps.image.outputs.owner_lc }}
-          GHCR_PULL_TOKEN: ${{ secrets.MEDIAMTX_GHCR_TOKEN }}
         with:
           host: ${{ secrets.MEDIAMTX_HOST }}
           username: ${{ secrets.MEDIAMTX_USER }}
           key: ${{ secrets.MEDIAMTX_SSH_KEY }}
-          envs: REGISTRY,IMAGE_NAME,GITHUB_OWNER,GHCR_PULL_TOKEN
           script: |
             set -e
+            REGISTRY="ghcr.io"
+            IMAGE_NAME="${{ steps.image.outputs.image_name }}"
+            OWNER="${{ steps.image.outputs.owner_lc }}"
+            echo "Deploy: pull $REGISTRY/$IMAGE_NAME:latest"
             if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=; fi
-            if [ -n "${GHCR_PULL_TOKEN:-}" ]; then
-              echo "$GHCR_PULL_TOKEN" | $SUDO docker login "$REGISTRY" -u "$GITHUB_OWNER" --password-stdin
+            if ! command -v docker >/dev/null 2>&1; then
+              echo "ERROR: docker is not installed on the server. SSH in and run: curl -fsSL https://get.docker.com | sudo sh"
+              exit 1
+            fi
+            if [ -n "${{ secrets.MEDIAMTX_GHCR_TOKEN }}" ]; then
+              echo "${{ secrets.MEDIAMTX_GHCR_TOKEN }}" | $SUDO docker login "$REGISTRY" -u "$OWNER" --password-stdin
             fi
             $SUDO docker pull "$REGISTRY/$IMAGE_NAME:latest" || {
-              echo "ERROR: docker pull failed. If the GHCR package is private, set secret MEDIAMTX_GHCR_TOKEN (PAT with read:packages) or make the package public under Packages → mediamtx → Package settings."
+              echo "ERROR: docker pull failed. If the GHCR package is private, add MEDIAMTX_GHCR_TOKEN (PAT with read:packages) to environment rb-radio-listener, or make the mediamtx package public."
               exit 1
             }
             $SUDO docker stop mediamtx || true
