@@ -109,6 +109,9 @@ export async function create(req: Request, res: Response) {
     mediaSourceConfig: requestedMediaSourceConfig,
     showId: requestedShowId,
     public: isPublic,
+    liveIngestEnabled,
+    liveWhepUrl,
+    liveHlsUrl,
   } = req.body
   const createdAt = Date.now().toString()
   console.log("radioListenUrl", radioListenUrl)
@@ -166,6 +169,9 @@ export async function create(req: Request, res: Response) {
       mediaSourceConfig,
       ...(showId ? { showId, persistent: true } : {}),
       ...(isPublic !== undefined ? { public: isPublic } : {}),
+      ...(liveIngestEnabled !== undefined ? { liveIngestEnabled: !!liveIngestEnabled } : {}),
+      ...(liveWhepUrl !== undefined ? { liveWhepUrl: liveWhepUrl || undefined } : {}),
+      ...(liveHlsUrl !== undefined ? { liveHlsUrl: liveHlsUrl || undefined } : {}),
     })
     await saveRoom({ context, room })
 

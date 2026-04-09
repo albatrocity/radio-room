@@ -31,7 +31,12 @@ import {
   isRoomAdmin,
   addUserToRoomHistory,
 } from "../operations/data"
-import { getStreamHealthStatus } from "../operations/room/handleStreamHealth"
+import {
+  getStreamHealthStatus,
+  getWebrtcExperimentalStreamHealthStatus,
+} from "../operations/room/handleStreamHealth"
+import { isHybridRadioRoom } from "../lib/roomTypeHelpers"
+import { onListeningUserDisconnected } from "../operations/room/listeningTransportStats"
 import generateId from "../lib/generateId"
 import generateAnonName from "../lib/generateAnonName"
 import systemMessage from "../lib/systemMessage"
@@ -221,8 +226,10 @@ export class AuthService {
     const allReactions = await getAllRoomReactions({ context: this.context, roomId })
     const pluginConfigs = await getAllPluginConfigs({ context: this.context, roomId })
     const queue = await getQueue({ context: this.context, roomId })
-    const streamHealthStatus = room.type === "live"
-      ? await getStreamHealthStatus(this.context, roomId)
+    const streamHealthStatus =
+      room.type === "live" ? await getStreamHealthStatus(this.context, roomId) : null
+    const webrtcStreamHealthStatus = isHybridRadioRoom(room)
+      ? await getWebrtcExperimentalStreamHealthStatus(this.context, roomId)
       : null
 
     // Get access token for room creator to enable authenticated features (search, liked tracks, etc.)
@@ -262,6 +269,7 @@ export class AuthService {
         accessToken, // Only set for room creator with metadata source
         isNewUser: isNew,
         ...(streamHealthStatus ? { streamHealthStatus } : {}),
+        ...(webrtcStreamHealthStatus ? { webrtcStreamHealthStatus } : {}),
       },
       userData: {
         userId,
@@ -319,6 +327,7 @@ export class AuthService {
    * Handle user disconnection
    */
   async disconnect(roomId: string, userId: string, username: string) {
+    await onListeningUserDisconnected(this.context, roomId, userId)
     await removeOnlineUser({ context: this.context, roomId, userId })
 
     const users = await getRoomUsers({ context: this.context, roomId })

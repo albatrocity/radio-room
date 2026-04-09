@@ -60,6 +60,7 @@ type AuthEvent =
         passwordRequired: boolean
         accessToken: string | null
         isNewUser: boolean
+        webrtcStreamHealthStatus?: "online" | "offline"
       }
     }
   | { type: "SOCKET_RECONNECTED"; data: { attemptNumber: number } }

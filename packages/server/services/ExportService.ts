@@ -17,6 +17,10 @@ import {
   getRoomUserHistory,
   getUsersByIds,
 } from "../operations/data"
+import {
+  getListeningTransportCounts,
+  shouldSnapshotListeningTransports,
+} from "../operations/room/listeningTransportStats"
 import { formatRoomExportAsMarkdown } from "../lib/markdownFormatter"
 
 /**
@@ -126,6 +130,10 @@ export class ExportService {
       creator: sanitizedRoom.creator,
     }
 
+    const listeningTransportSnapshot = shouldSnapshotListeningTransports(room)
+      ? await getListeningTransportCounts(this.context, roomId)
+      : undefined
+
     return {
       exportedAt: new Date().toISOString(),
       room: roomInfo,
@@ -135,6 +143,7 @@ export class ExportService {
       chat: messages,
       queue,
       reactions: reactions || { message: {}, track: {} },
+      ...(listeningTransportSnapshot ? { listeningTransportSnapshot } : {}),
     }
   }
 

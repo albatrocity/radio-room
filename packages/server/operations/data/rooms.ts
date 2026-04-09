@@ -414,6 +414,8 @@ export function parseRoom(room: StoredRoom): Room {
     showSchedulePublic: room.showSchedulePublic === "true",
     announceActiveSegment: room.announceActiveSegment !== "false",
     public: room.public !== "false",
+    liveIngestEnabled:
+      (room as unknown as { liveIngestEnabled?: string }).liveIngestEnabled === "true",
     artworkStreamingOnly: room.artworkStreamingOnly === "true",
     passwordRequired: !isNullish(room.password),
     ...(room.artwork === "undefined" ? {} : { artwork: room.artwork }),

@@ -75,6 +75,15 @@ export interface RoomExportData {
   reactions: ReactionStore
 
   /**
+   * Snapshot of how many users were counted as listening via each transport
+   * (Shoutcast HTTP vs experimental WebRTC), when the room tracks it.
+   */
+  listeningTransportSnapshot?: {
+    shoutcast: number
+    webrtc: number
+  }
+
+  /**
    * Additional plugin-specific export data.
    * Keyed by plugin name, contains summary stats or other data
    * that plugins add via augmentRoomExport.

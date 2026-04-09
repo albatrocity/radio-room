@@ -23,6 +23,9 @@ export type Room = {
   radioMetaUrl?: string
   radioListenUrl?: string
   radioProtocol?: StationProtocol
+  liveIngestEnabled?: boolean
+  liveWhepUrl?: string
+  liveHlsUrl?: string
   createdAt?: string
   creator?: string
   spotifyError?: RoomError
@@ -50,6 +53,9 @@ export type RoomSetup = Pick<
   | "radioMetaUrl"
   | "radioListenUrl"
   | "radioProtocol"
+  | "liveIngestEnabled"
+  | "liveWhepUrl"
+  | "liveHlsUrl"
   | "deputizeOnJoin"
   | "showId"
   | "public"

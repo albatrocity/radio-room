@@ -21,17 +21,17 @@ function pluralize(word: string, count: number): string {
 
   // Handle special cases
   const lower = word.toLowerCase()
-  
+
   // Words ending in 'y' preceded by consonant -> 'ies'
   if (lower.match(/[^aeiou]y$/)) {
     return word.slice(0, -1) + "ies"
   }
-  
+
   // Words ending in 's', 'ss', 'sh', 'ch', 'x', 'z' -> 'es'
   if (lower.match(/(s|ss|sh|ch|x|z)$/)) {
     return word + "es"
   }
-  
+
   // Words ending in 'f' or 'fe' -> 'ves'
   if (lower.endsWith("f")) {
     return word.slice(0, -1) + "ves"
@@ -39,7 +39,7 @@ function pluralize(word: string, count: number): string {
   if (lower.endsWith("fe")) {
     return word.slice(0, -2) + "ves"
   }
-  
+
   // Default: just add 's'
   return word + "s"
 }
@@ -86,7 +86,7 @@ export function formatValue(
       // Pluralize the value based on a count (field name or literal number)
       if (typeof value === "string" && formatterArg) {
         let count: number | undefined
-        
+
         // Check if formatterArg is a literal number
         const literalNumber = Number(formatterArg)
         if (!isNaN(literalNumber)) {
@@ -103,7 +103,7 @@ export function formatValue(
             count = current
           }
         }
-        
+
         if (typeof count === "number") {
           return pluralize(value, count)
         }
@@ -159,30 +159,33 @@ export function formatValue(
  */
 export function interpolateTemplate(content: string, values: Record<string, unknown>): string {
   // Updated regex to support nested paths (config.fieldName) and optional formatter argument
-  return content.replace(/\{\{([\w.]+)(?::(\w+)(?::(\w+))?)?\}\}/g, (match, fieldPath, formatter, formatterArg) => {
-    // Support nested paths like "config.fieldName"
-    let value = values[fieldPath]
-    if (fieldPath.includes(".")) {
-      const parts = fieldPath.split(".")
-      let current: any = values
-      for (const part of parts) {
-        current = current?.[part]
-        if (current === undefined || current === null) {
-          return match // Keep placeholder if path not found
+  return content.replace(
+    /\{\{([\w.]+)(?::(\w+)(?::(\w+))?)?\}\}/g,
+    (match, fieldPath, formatter, formatterArg) => {
+      // Support nested paths like "config.fieldName"
+      let value = values[fieldPath]
+      if (fieldPath.includes(".")) {
+        const parts = fieldPath.split(".")
+        let current: any = values
+        for (const part of parts) {
+          current = current?.[part]
+          if (current === undefined || current === null) {
+            return match // Keep placeholder if path not found
+          }
         }
+        value = current
       }
-      value = current
-    }
-    
-    if (value === undefined || value === null) {
-      return match // Keep placeholder if value not found
-    }
-    
-    if (formatter) {
-      return formatValue(value, formatter, formatterArg, values)
-    }
-    return String(value)
-  })
+
+      if (value === undefined || value === null) {
+        return match // Keep placeholder if value not found
+      }
+
+      if (formatter) {
+        return formatValue(value, formatter, formatterArg, values)
+      }
+      return String(value)
+    },
+  )
 }
 
 /**

@@ -1,5 +1,5 @@
-import { memo, lazy, Suspense } from "react"
-import { Box, Center, Flex, Icon, IconButton, Spinner, Text } from "@chakra-ui/react"
+import { memo, lazy, Suspense, useMemo } from "react"
+import { Box, Center, Flex, Icon, IconButton, Spinner } from "@chakra-ui/react"
 
 import NowPlaying from "./NowPlaying"
 
@@ -15,6 +15,7 @@ import JukeboxControls from "./JukeboxControls"
 import { RiPlayListFill } from "react-icons/ri"
 const RadioControls = lazy(() => import("./RadioControls"))
 const LivePlayer = lazy(() => import("./LivePlayer"))
+import { useHybridListeningTransport } from "../hooks/useHybridListeningTransport"
 
 interface PlayerUiProps {
   onShowPlaylist: () => void
@@ -28,12 +29,22 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const room = useCurrentRoom()
   const isUnauthorized = authState === "unauthorized"
 
-  // Clean state from audio store
   const isOnline = useIsStationOnline()
   const meta = useStationMeta()
-  const trackId = useCurrentTrackId() // For reactions (stable ID)
+  const trackId = useCurrentTrackId()
+  const { listeningTransport, isHybrid, hybridReady, webrtcExperimentalStatus } =
+    useHybridListeningTransport()
 
   const isJukebox = !hasAudio
+
+  const showPlayer = useMemo(() => {
+    if (!hasAudio || !room) return false
+    if (!isHybrid) return isOnline
+    if (listeningTransport === "shoutcast") return isOnline
+    return webrtcExperimentalStatus !== "offline"
+  }, [hasAudio, room, isHybrid, listeningTransport, isOnline, webrtcExperimentalStatus])
+
+  const showPlaylistOnly = !showPlayer && hasPlaylist
 
   return (
     <Flex
@@ -54,7 +65,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
         />
       )}
 
-      {isOnline && hasAudio && room && (
+      {showPlayer && (
         <Suspense
           fallback={
             <Box p={4} bg="secondaryBg">
@@ -64,7 +75,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
             </Box>
           }
         >
-          {room.type === "live" ? (
+          {room?.type === "live" ? (
             <LivePlayer
               trackId={trackId}
               onShowPlaylist={onShowPlaylist}
@@ -72,18 +83,28 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
               whepUrl={room.radioListenUrl}
               hlsUrl={room.radioMetaUrl}
             />
-          ) : (
-            <RadioControls
+          ) : isHybrid && listeningTransport === "webrtc" && hybridReady ? (
+            <LivePlayer
+              key="hybrid-webrtc"
               trackId={trackId}
               onShowPlaylist={onShowPlaylist}
               hasPlaylist={hasPlaylist}
-              streamUrl={room.radioListenUrl ?? room.radioMetaUrl}
+              whepUrl={room.liveWhepUrl}
+              hlsUrl={room.liveHlsUrl}
+            />
+          ) : (
+            <RadioControls
+              key="shoutcast"
+              trackId={trackId}
+              onShowPlaylist={onShowPlaylist}
+              hasPlaylist={hasPlaylist}
+              streamUrl={room?.radioListenUrl ?? room?.radioMetaUrl}
             />
           )}
         </Suspense>
       )}
 
-      {!isOnline && hasPlaylist &&
+      {showPlaylistOnly && (
         <Box p={2} bg="actionBg">
           <IconButton
             size="md"
@@ -94,7 +115,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
             <Icon boxSize={5} as={RiPlayListFill} />
           </IconButton>
         </Box>
-      }
+      )}
     </Flex>
   )
 }

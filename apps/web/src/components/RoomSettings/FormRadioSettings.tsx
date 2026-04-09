@@ -1,8 +1,9 @@
-import { Field, Input, NativeSelect, VStack, Text } from "@chakra-ui/react"
+import { Field, Input, NativeSelect, VStack, Text, Checkbox } from "@chakra-ui/react"
 import React from "react"
 
 import { Room } from "../../types/Room"
 import { StationProtocol } from "../../types/StationProtocol"
+import { DEFAULT_LIVE_HLS_URL, DEFAULT_LIVE_WHEP_URL } from "../../lib/liveStreamDefaults"
 
 type Props = {
   onChange: (settings: Partial<Room>) => void
@@ -60,6 +61,48 @@ export default function FormRadioSettings({ onChange, settings }: Props) {
         </NativeSelect.Root>
         <Field.HelperText>The protocol used by the internet radio station.</Field.HelperText>
       </Field.Root>
+
+      <Field.Root>
+        <Checkbox.Root
+          checked={!!settings?.liveIngestEnabled}
+          onCheckedChange={(d) => onChange({ liveIngestEnabled: !!d.checked })}
+        >
+          <Checkbox.HiddenInput />
+          <Checkbox.Control>
+            <Checkbox.Indicator />
+          </Checkbox.Control>
+          <Checkbox.Label>Enable experimental WebRTC listen path (MediaMTX)</Checkbox.Label>
+        </Checkbox.Root>
+        <Field.HelperText>
+          Simulcast: listeners can choose Shoutcast (default) or low-latency WebRTC. Requires WHEP and
+          LL-HLS playback URLs. Now Playing stays tied to Shoutcast metadata.
+        </Field.HelperText>
+      </Field.Root>
+
+      {settings?.liveIngestEnabled && (
+        <>
+          <Field.Root>
+            <Field.Label htmlFor="liveWhepUrl">WebRTC WHEP URL</Field.Label>
+            <Input
+              name="liveWhepUrl"
+              placeholder={DEFAULT_LIVE_WHEP_URL}
+              defaultValue={settings?.liveWhepUrl ?? DEFAULT_LIVE_WHEP_URL}
+              onChange={(e) => onChange({ liveWhepUrl: e.target.value })}
+            />
+            <Field.HelperText>MediaMTX WHEP endpoint for experimental playback.</Field.HelperText>
+          </Field.Root>
+          <Field.Root>
+            <Field.Label htmlFor="liveHlsUrl">LL-HLS fallback URL</Field.Label>
+            <Input
+              name="liveHlsUrl"
+              placeholder={DEFAULT_LIVE_HLS_URL}
+              defaultValue={settings?.liveHlsUrl ?? DEFAULT_LIVE_HLS_URL}
+              onChange={(e) => onChange({ liveHlsUrl: e.target.value })}
+            />
+            <Field.HelperText>Used when WebRTC cannot connect.</Field.HelperText>
+          </Field.Root>
+        </>
+      )}
     </VStack>
   )
 }

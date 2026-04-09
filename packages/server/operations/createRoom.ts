@@ -31,6 +31,9 @@ export function withDefaults(
     | "mediaSourceConfig"
     | "showId"
     | "public"
+    | "liveIngestEnabled"
+    | "liveWhepUrl"
+    | "liveHlsUrl"
   >,
 ): Room {
   return {

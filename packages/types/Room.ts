@@ -36,6 +36,15 @@ export type Room = {
   radioMetaUrl?: string
   radioListenUrl?: string
   radioProtocol?: StationProtocol
+  /**
+   * Radio rooms only: offer optional experimental WebRTC (MediaMTX WHEP/LL-HLS) alongside Shoutcast.
+   * Canonical Now Playing stays on the Shoutcast/ICY pipeline.
+   */
+  liveIngestEnabled?: boolean
+  /** WebRTC WHEP playback URL when `liveIngestEnabled` */
+  liveWhepUrl?: string
+  /** LL-HLS fallback URL when `liveIngestEnabled` */
+  liveHlsUrl?: string
   // New adapter-based configuration
   playbackControllerId?: string
   metadataSourceIds?: string[]
@@ -90,6 +99,7 @@ export interface StoredRoom
     | "showSchedulePublic"
     | "announceActiveSegment"
     | "public"
+    | "liveIngestEnabled"
   > {
   fetchMeta: Bool
   enableSpotifyLogin: Bool
@@ -103,6 +113,7 @@ export interface StoredRoom
   showSchedulePublic?: Bool
   announceActiveSegment?: Bool
   public?: Bool
+  liveIngestEnabled?: Bool
   spotifyError?: string
   radioError?: string
   mediaSourceConfig?: string

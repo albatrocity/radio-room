@@ -1,7 +1,8 @@
 import type { Request, Response } from "express"
 import type { AppContext } from "@repo/types"
-import { getAllRooms } from "../operations/data"
+import { getAllRooms, parseRoom } from "../operations/data"
 import handleStreamHealth from "../operations/room/handleStreamHealth"
+import { isHybridRadioRoom } from "../lib/roomTypeHelpers"
 
 /**
  * Extracts the stream path from a WHEP URL.
@@ -45,14 +46,22 @@ export async function streamHealth(req: Request, res: Response) {
   const context = (req as any).context as AppContext
 
   const rooms = await getAllRooms({ context })
-  const matched = rooms.filter((room) => {
-    if (room.type !== "live") return false
-    const roomPath = room.radioListenUrl ? extractStreamPath(room.radioListenUrl) : null
-    return roomPath === path
+  const matched = rooms.map(parseRoom).filter((room) => {
+    if (room.type === "live") {
+      const roomPath = room.radioListenUrl ? extractStreamPath(room.radioListenUrl) : null
+      return roomPath === path
+    }
+    if (isHybridRadioRoom(room) && room.liveWhepUrl) {
+      const roomPath = extractStreamPath(room.liveWhepUrl)
+      return roomPath === path
+    }
+    return false
   })
 
   if (matched.length === 0) {
-    return res.status(404).json({ error: `no live room found for stream path "${path}"` })
+    return res
+      .status(404)
+      .json({ error: `no room found for stream path "${path}" (live or hybrid radio with WebRTC)` })
   }
 
   await Promise.all(

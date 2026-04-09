@@ -21,9 +21,9 @@ export function createActivityController(socket: SocketWithContext, io: Server):
   /**
    * Update user status to listening
    */
-  socket.on("START_LISTENING", async () => {
+  socket.on("START_LISTENING", async (payload?: { audioTransport?: "shoutcast" | "webrtc" }) => {
     console.log("START LISTENING SOCKET EVENT")
-    await handlers.startListening(connections)
+    await handlers.startListening(connections, payload)
   })
 
   /**
@@ -33,6 +33,13 @@ export function createActivityController(socket: SocketWithContext, io: Server):
     console.log("STOP LISTENING SOCKET EVENT")
     await handlers.stopListening(connections)
   })
+
+  socket.on(
+    "SET_LISTENING_AUDIO_TRANSPORT",
+    async (payload: { audioTransport: "shoutcast" | "webrtc" }) => {
+      await handlers.setListeningAudioTransport(connections, payload)
+    },
+  )
 
   /**
    * Add a reaction to a reactionable item

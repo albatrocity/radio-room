@@ -11,6 +11,12 @@ vi.mock("../operations/data", () => ({
   updateUserAttributes: vi.fn(),
 }))
 
+vi.mock("../operations/room/listeningTransportStats", () => ({
+  onListeningStarted: vi.fn(),
+  onListeningStopped: vi.fn(),
+  onListeningTransportChanged: vi.fn(),
+}))
+
 // Import mocked dependencies
 import {
   addReaction,

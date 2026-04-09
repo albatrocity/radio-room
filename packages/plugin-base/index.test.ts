@@ -11,7 +11,7 @@ interface TestPluginConfig {
 class TestPlugin extends BasePlugin<TestPluginConfig> {
   name = "test-plugin"
   version = "1.0.0"
-  
+
   registerCalled = false
   cleanupCalled = false
 
@@ -216,7 +216,7 @@ describe("BasePlugin", () => {
 
       const minimal = new MinimalPlugin()
       await minimal.register(mockContext)
-      
+
       // Should not throw
       await expect(minimal.cleanup()).resolves.not.toThrow()
     })
@@ -249,11 +249,11 @@ describe("BasePlugin", () => {
     test("should enforce abstract members", () => {
       // This test verifies that TypeScript enforces the abstract members
       // If this compiles, it means the type constraints are working
-      
+
       class ValidPlugin extends BasePlugin<{ enabled: boolean }> {
         name = "valid"
         version = "1.0.0"
-        
+
         async register(context: PluginContext): Promise<void> {
           this.context = context
         }
@@ -704,15 +704,21 @@ describe("BasePlugin", () => {
 
         timerPlugin.testStartTimer("timer-1", {
           duration: 1000,
-          callback: () => { results.push("timer-1") },
+          callback: () => {
+            results.push("timer-1")
+          },
         })
         timerPlugin.testStartTimer("timer-2", {
           duration: 500,
-          callback: () => { results.push("timer-2") },
+          callback: () => {
+            results.push("timer-2")
+          },
         })
         timerPlugin.testStartTimer("timer-3", {
           duration: 1500,
-          callback: () => { results.push("timer-3") },
+          callback: () => {
+            results.push("timer-3")
+          },
         })
 
         await vi.advanceTimersByTimeAsync(500)
@@ -742,4 +748,3 @@ describe("BasePlugin", () => {
     })
   })
 })
-

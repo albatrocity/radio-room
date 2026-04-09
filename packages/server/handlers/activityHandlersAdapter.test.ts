@@ -58,6 +58,10 @@ describe("ActivityHandlers", () => {
         user: mockUser,
         users: mockUsers,
       }),
+      setListeningAudioTransport: vi.fn().mockResolvedValue({
+        user: mockUser,
+        users: mockUsers,
+      }),
       stopListening: vi.fn().mockResolvedValue({
         user: mockUser,
         users: mockUsers,
@@ -81,7 +85,15 @@ describe("ActivityHandlers", () => {
     test("calls startListening with correct parameters", async () => {
       await activityHandlers.startListening({ socket: mockSocket, io: mockIo })
 
-      expect(activityService.startListening).toHaveBeenCalledWith("room123", "user123")
+      expect(activityService.startListening).toHaveBeenCalledWith("room123", "user123", undefined)
+    })
+
+    test("forwards audioTransport when provided", async () => {
+      await activityHandlers.startListening({ socket: mockSocket, io: mockIo }, {
+        audioTransport: "webrtc",
+      })
+
+      expect(activityService.startListening).toHaveBeenCalledWith("room123", "user123", "webrtc")
     })
 
     test("calls pubUserJoined with user data", async () => {

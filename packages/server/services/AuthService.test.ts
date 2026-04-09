@@ -15,10 +15,15 @@ import {
   isDj,
   addDj,
 } from "../operations/data"
+import { onListeningUserDisconnected } from "../operations/room/listeningTransportStats"
 import systemMessage from "../lib/systemMessage"
 
 // Mock the operations that interact with Redis
 vi.mock("../operations/data")
+
+vi.mock("../operations/room/listeningTransportStats", () => ({
+  onListeningUserDisconnected: vi.fn(),
+}))
 
 // Mock library functions
 vi.mock("../lib/generateId", () => ({
@@ -411,6 +416,12 @@ describe("AuthService", () => {
       vi.mocked(getUserRooms).mockResolvedValueOnce([])
 
       const result = await authService.disconnect("room123", "user123", "Homer")
+
+      expect(onListeningUserDisconnected).toHaveBeenCalledWith(
+        mockContext,
+        "room123",
+        "user123",
+      )
 
       expect(removeOnlineUser).toHaveBeenCalledWith({
         context: mockContext,

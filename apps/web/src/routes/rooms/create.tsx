@@ -71,6 +71,9 @@ function CreateRoomPage() {
           radioProtocol:
             (sessionStorage.getItem("createRoomRadioProtocol") as StationProtocol) ?? "shoutcastv2",
           showId: sessionStorage.getItem("createRoomShowId") ?? undefined,
+          liveIngestEnabled: sessionStorage.getItem("createRoomLiveIngestEnabled") === "true",
+          liveWhepUrl: sessionStorage.getItem("createRoomLiveWhepUrl") ?? undefined,
+          liveHlsUrl: sessionStorage.getItem("createRoomLiveHlsUrl") ?? undefined,
         },
       },
     })
