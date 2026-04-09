@@ -8,6 +8,7 @@ import socket from "../lib/socket"
 import { getErrorMessage } from "../lib/errors"
 import { findRoom, RoomFindResponse } from "../lib/serverApi"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
+import { audioActor } from "../actors/audioActor"
 import { chatActor } from "../actors/chatActor"
 import { playlistActor } from "../actors/playlistActor"
 import { Room, RoomError } from "../types/Room"
@@ -170,6 +171,23 @@ export const roomFetchMachine = setup({
         id: event.data.id,
       }
     }),
+    /**
+     * Hybrid radio WebRTC must stop before room context updates reach React, or Shoutcast
+     * mounts with a stale "playing" snapshot from the audio machine (play then does nothing).
+     */
+    stopAudioWhenHybridRadioIngestDisabled: ({ context, event }) => {
+      if (event.type !== "ROOM_SETTINGS_UPDATED" && event.type !== "ROOM_DATA") {
+        return
+      }
+      const prev = context.room
+      const next = event.data.room
+      if (!prev || !next) return
+      if (prev.type !== "radio" || next.type !== "radio") return
+      if (!prev.liveIngestEnabled) return
+      // Still enabled (explicit true); false/undefined = path off
+      if (next.liveIngestEnabled === true) return
+      audioActor.send({ type: "STOP" })
+    },
     setRoom: assign(({ context, event }) => {
       const hasShow = (r: Omit<Room, "password"> | null | undefined) =>
         r?.showId != null && r.showId !== ""
@@ -315,13 +333,13 @@ export const roomFetchMachine = setup({
         success: {
           on: {
             ROOM_SETTINGS_UPDATED: {
-              actions: ["setRoom"],
+              actions: ["stopAudioWhenHybridRadioIngestDisabled", "setRoom"],
             },
             GET_LATEST_ROOM_DATA: {
               actions: ["getLatestData"],
             },
             ROOM_DATA: {
-              actions: ["setRoom"],
+              actions: ["stopAudioWhenHybridRadioIngestDisabled", "setRoom"],
             },
           },
         },

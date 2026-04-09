@@ -17,6 +17,7 @@ import {
   isRoomAdmin,
   updateUserAttributes,
 } from "../operations/data"
+import { migrateWebRtcListeningTransportsToShoutcast } from "../operations/room/listeningTransportStats"
 import {
   applyFetchMetaTransitionEffects,
   enterStreamingMode,
@@ -207,6 +208,15 @@ export class AdminService {
 
     // Save room settings FIRST so handleRoomNowPlayingData sees the correct fetchMeta value
     await saveRoom({ context: this.context, room: newSettings })
+
+    if (
+      room.type === "radio" &&
+      !!room.liveIngestEnabled &&
+      newSettings.type === "radio" &&
+      newSettings.liveIngestEnabled === false
+    ) {
+      await migrateWebRtcListeningTransportsToShoutcast(this.context, roomId)
+    }
 
     if ("showId" in values) {
       const nextShowId =

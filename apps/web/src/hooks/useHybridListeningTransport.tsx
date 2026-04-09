@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -23,6 +24,7 @@ function transportStorageKey(roomId: string) {
 }
 
 export type HybridListeningTransportContextValue = {
+  /** Effective path: Shoutcast whenever hybrid ingest is off, else user preference. */
   listeningTransport: ListeningAudioTransport
   persistTransport: (t: ListeningAudioTransport) => void
   isHybrid: boolean
@@ -36,6 +38,11 @@ const HybridListeningTransportContext =
 /**
  * Single shared state for hybrid radio listen transport (Shoutcast vs WebRTC).
  * Must wrap the room layout so PlayerUi and PopoverPreferences see the same value.
+ *
+ * When `liveIngestEnabled` is turned off, **listening transport** is derived as Shoutcast
+ * immediately (see `listeningTransportEffective`); `audioActor` STOP is sent from
+ * `roomFetchMachine` on `ROOM_SETTINGS_UPDATED` / `ROOM_DATA` so playback state stays in sync
+ * before React paints Shoutcast controls.
  */
 export function HybridListeningTransportProvider({ children }: { children: ReactNode }) {
   const room = useCurrentRoom()
@@ -48,56 +55,58 @@ export function HybridListeningTransportProvider({ children }: { children: React
   const isHybrid = !!(room && isHybridRadioRoom(room))
   const hybridReady = !!(room?.liveWhepUrl && room?.liveHlsUrl)
 
-  const [listeningTransport, setListeningTransport] =
+  const [listeningTransportPreference, setListeningTransportPreference] =
     useState<ListeningAudioTransport>("shoutcast")
 
-  useEffect(() => {
-    if (!room?.id) return
-    if (!isHybrid) {
-      setListeningTransport("shoutcast")
-      return
+  const listeningTransportEffective = useMemo((): ListeningAudioTransport => {
+    if (!room || !isHybridRadioRoom(room)) {
+      return "shoutcast"
     }
+    return listeningTransportPreference
+  }, [room, listeningTransportPreference])
+
+  useLayoutEffect(() => {
+    if (!room?.id || !isHybrid) return
     const raw = localStorage.getItem(transportStorageKey(room.id))
-    setListeningTransport(raw === "webrtc" ? "webrtc" : "shoutcast")
+    setListeningTransportPreference(raw === "webrtc" ? "webrtc" : "shoutcast")
   }, [room?.id, isHybrid])
 
   useEffect(() => {
-    if (!isHybrid || !room?.liveIngestEnabled) {
-      setListeningTransport("shoutcast")
-    }
-  }, [isHybrid, room?.liveIngestEnabled])
-
-  useEffect(() => {
-    setListeningAudioTransportPreference(listeningTransport)
+    setListeningAudioTransportPreference(listeningTransportEffective)
     if (participation === "listening") {
-      emitToSocket("SET_LISTENING_AUDIO_TRANSPORT", { audioTransport: listeningTransport })
+      emitToSocket("SET_LISTENING_AUDIO_TRANSPORT", {
+        audioTransport: listeningTransportEffective,
+      })
     }
-  }, [listeningTransport, participation])
+  }, [listeningTransportEffective, participation])
 
   const persistTransport = useCallback(
     (t: ListeningAudioTransport) => {
-      if (t !== listeningTransport) {
-        // Reset playback before React swaps LivePlayer ↔ RadioControls. Otherwise the new
-        // player can mount while the machine is still "playing" from the old transport, and
-        // STOP/cleanup from the old player only runs after paint (effects), which breaks
-        // Shoutcast/Howler after WebRTC.
+      if (!room?.id || !isHybrid) return
+      if (t !== listeningTransportPreference) {
         audioActor.send({ type: "STOP" })
       }
-      setListeningTransport(t)
-      if (room?.id) localStorage.setItem(transportStorageKey(room.id), t)
+      setListeningTransportPreference(t)
+      localStorage.setItem(transportStorageKey(room.id), t)
     },
-    [room?.id, listeningTransport],
+    [room?.id, isHybrid, listeningTransportPreference],
   )
 
   const value = useMemo(
     () => ({
-      listeningTransport,
+      listeningTransport: listeningTransportEffective,
       persistTransport,
       isHybrid,
       hybridReady,
       webrtcExperimentalStatus,
     }),
-    [listeningTransport, persistTransport, isHybrid, hybridReady, webrtcExperimentalStatus],
+    [
+      listeningTransportEffective,
+      persistTransport,
+      isHybrid,
+      hybridReady,
+      webrtcExperimentalStatus,
+    ],
   )
 
   return (
@@ -107,10 +116,6 @@ export function HybridListeningTransportProvider({ children }: { children: React
   )
 }
 
-/**
- * Hybrid radio: Shoutcast vs experimental WebRTC listen path — persisted per room and
- * synced to the server when the user is in the listening participation bucket.
- */
 export function useHybridListeningTransport() {
   const ctx = useContext(HybridListeningTransportContext)
   if (!ctx) {

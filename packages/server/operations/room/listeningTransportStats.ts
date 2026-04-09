@@ -109,6 +109,27 @@ export async function onListeningUserDisconnected(
   await onListeningStopped(context, roomId, userId)
 }
 
+/**
+ * When hybrid radio WebRTC/RTMP ingest is disabled, every listener bucketed as WebRTC
+ * must move to Shoutcast so counts and per-user keys match effective transport.
+ */
+export async function migrateWebRtcListeningTransportsToShoutcast(
+  context: AppContext,
+  roomId: string,
+): Promise<void> {
+  const prefix = `room:${roomId}:listeningTransport:`
+  for await (const key of context.redis.pubClient.scanIterator({
+    MATCH: `${prefix}*`,
+    COUNT: 128,
+  })) {
+    const v = await context.redis.pubClient.get(key)
+    if (v !== "webrtc") continue
+    await context.redis.pubClient.set(key, "shoutcast")
+    await adjustCount(context, roomId, "webrtc", -1)
+    await adjustCount(context, roomId, "shoutcast", 1)
+  }
+}
+
 export async function getListeningTransportCounts(
   context: AppContext,
   roomId: string,
