@@ -111,6 +111,9 @@ function SegmentDetailForm({ segment, onClose }: SegmentDetailFormProps) {
                 onChange={(e) => field.handleChange(e.target.value)}
                 rows={4}
               />
+              <Text fontSize="xs" color="fg.muted" mt={1}>
+                Markdown is supported.
+              </Text>
             </Box>
           )}
         </form.Field>

@@ -1,4 +1,4 @@
-import { Box, Button, Fieldset, HStack, Input, Textarea } from "@chakra-ui/react"
+import { Box, Button, Fieldset, HStack, Input, Text, Textarea } from "@chakra-ui/react"
 import { useForm } from "@tanstack/react-form"
 import { useCreateSegment } from "../../hooks/useSegments"
 import type { PluginPreset, SegmentRoomSettingsOverride, SegmentStatus } from "@repo/types"
@@ -104,6 +104,9 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
                             placeholder="What is this segment about?"
                             rows={3}
                           />
+                          <Text fontSize="xs" color="fg.muted" mt={1}>
+                            Markdown is supported.
+                          </Text>
                         </label>
                       </Box>
                     )}
