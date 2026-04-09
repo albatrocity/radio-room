@@ -77,6 +77,7 @@ export function useLiveTransport(
     if (!isInWebrtc || !whepUrl || !audioRef.current) return
 
     const audio = audioRef.current
+    const ac = new AbortController()
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     })
@@ -107,21 +108,29 @@ export function useLiveTransport(
           method: "POST",
           headers: { "Content-Type": "application/sdp", Accept: "application/sdp" },
           body: sdp,
+          signal: ac.signal,
         })
+        if (ac.signal.aborted) return
         if (!response.ok) throw new Error(`WHEP ${response.status}`)
 
         const answerSdp = await response.text()
+        if (ac.signal.aborted) return
         await pc.setRemoteDescription({ type: "answer", sdp: answerSdp })
         send({ type: "WHEP_OK" })
       } catch (err) {
+        if (ac.signal.aborted) return
         console.warn("[webrtc] WHEP failed:", err)
         send({ type: "WHEP_FAILED" })
       }
     })()
 
     return () => {
+      ac.abort()
       pc.ontrack = null
       pc.oniceconnectionstatechange = null
+      for (const r of pc.getReceivers()) {
+        r.track?.stop()
+      }
       pc.close()
       pcRef.current = null
     }

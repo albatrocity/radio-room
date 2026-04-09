@@ -1,11 +1,14 @@
 import type { Room } from "../types/Room"
 
-/**
- * Returns true for room types that provide an audio stream
- * for listeners to play in the browser (radio and live rooms).
- */
+/** Radio and live rooms expose a browser-playable stream (Shoutcast/HTTP or WebRTC/HLS). */
 export function hasListenableStream(
   room: Pick<Room, "type"> | null | undefined,
 ): boolean {
   return !!room && (room.type === "radio" || room.type === "live")
+}
+
+export function isHybridRadioRoom(
+  room: Pick<Room, "type" | "liveIngestEnabled"> | null | undefined,
+): boolean {
+  return !!room && room.type === "radio" && !!room.liveIngestEnabled
 }

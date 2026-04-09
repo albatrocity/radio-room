@@ -69,6 +69,20 @@ export const createRoomFormMachine = setup({
         if (context.radioListenUrl) {
           sessionStorage.setItem("createRoomRadioListenUrl", context.radioListenUrl)
         }
+        sessionStorage.setItem(
+          "createRoomLiveIngestEnabled",
+          String(context.liveIngestEnabled ?? false),
+        )
+        if (context.liveWhepUrl) {
+          sessionStorage.setItem("createRoomLiveWhepUrl", context.liveWhepUrl)
+        } else {
+          sessionStorage.removeItem("createRoomLiveWhepUrl")
+        }
+        if (context.liveHlsUrl) {
+          sessionStorage.setItem("createRoomLiveHlsUrl", context.liveHlsUrl)
+        } else {
+          sessionStorage.removeItem("createRoomLiveHlsUrl")
+        }
       }
       if (context.type === "live") {
         if (context.radioListenUrl) {
@@ -101,6 +115,9 @@ export const createRoomFormMachine = setup({
     radioMetaUrl: "http://live.rcast.net:8678",
     radioListenUrl: "https://stream1.rcast.net/66341",
     radioProtocol: "shoutcastv2",
+    liveIngestEnabled: false,
+    liveWhepUrl: undefined as string | undefined,
+    liveHlsUrl: undefined as string | undefined,
     deputizeOnJoin: true,
     public: true,
   },

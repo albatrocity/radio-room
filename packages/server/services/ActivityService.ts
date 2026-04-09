@@ -10,6 +10,12 @@ import {
   removeReaction as removeReactionData,
   updateUserAttributes,
 } from "../operations/data"
+import {
+  type ListeningAudioTransport,
+  onListeningStarted,
+  onListeningStopped,
+  onListeningTransportChanged,
+} from "../operations/room/listeningTransportStats"
 
 /**
  * A service that handles user activity operations without Socket.io dependencies
@@ -20,7 +26,13 @@ export class ActivityService {
   /**
    * Update user status to listening
    */
-  async startListening(roomId: string, userId: string) {
+  async startListening(
+    roomId: string,
+    userId: string,
+    audioTransport?: ListeningAudioTransport,
+  ) {
+    await onListeningStarted(this.context, roomId, userId, audioTransport)
+
     const result = await updateUserAttributes({
       context: this.context,
       userId,
@@ -37,6 +49,8 @@ export class ActivityService {
    * Update user status to participating
    */
   async stopListening(roomId: string, userId: string) {
+    await onListeningStopped(this.context, roomId, userId)
+
     const result = await updateUserAttributes({
       context: this.context,
       userId,
@@ -47,6 +61,24 @@ export class ActivityService {
     })
 
     return result
+  }
+
+  /**
+   * Switch listen transport while remaining in listening mode.
+   */
+  async setListeningAudioTransport(
+    roomId: string,
+    userId: string,
+    audioTransport: ListeningAudioTransport,
+  ) {
+    await onListeningTransportChanged(this.context, roomId, userId, audioTransport)
+
+    return updateUserAttributes({
+      context: this.context,
+      userId,
+      attributes: { status: "listening" },
+      roomId,
+    })
   }
 
   /**

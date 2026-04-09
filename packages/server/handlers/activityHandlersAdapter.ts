@@ -17,8 +17,37 @@ export class ActivityHandlers {
   /**
    * Update user status to listening
    */
-  startListening = async ({ socket, io }: HandlerConnections) => {
-    const result = await this.activityService.startListening(socket.data.roomId, socket.data.userId)
+  startListening = async (
+    { socket, io }: HandlerConnections,
+    payload?: { audioTransport?: "shoutcast" | "webrtc" },
+  ) => {
+    const result = await this.activityService.startListening(
+      socket.data.roomId,
+      socket.data.userId,
+      payload?.audioTransport,
+    )
+
+    if (!result.user) {
+      return
+    }
+
+    pubUserJoined({
+      io,
+      roomId: socket.data.roomId,
+      data: { user: result.user, users: result.users },
+      context: socket.context,
+    })
+  }
+
+  setListeningAudioTransport = async (
+    { socket, io }: HandlerConnections,
+    payload: { audioTransport: "shoutcast" | "webrtc" },
+  ) => {
+    const result = await this.activityService.setListeningAudioTransport(
+      socket.data.roomId,
+      socket.data.userId,
+      payload.audioTransport,
+    )
 
     if (!result.user) {
       return

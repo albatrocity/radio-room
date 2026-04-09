@@ -20,6 +20,9 @@ export type SettingsContext = Pick<
   | "radioMetaUrl"
   | "radioListenUrl"
   | "radioProtocol"
+  | "liveIngestEnabled"
+  | "liveWhepUrl"
+  | "liveHlsUrl"
   | "announceUsernameChanges"
   | "announceNowPlaying"
   | "allowChatImages"
@@ -78,6 +81,9 @@ const defaultContext: SettingsContext = {
   type: "jukebox",
   radioMetaUrl: "",
   radioListenUrl: "",
+  liveIngestEnabled: false,
+  liveWhepUrl: "",
+  liveHlsUrl: "",
   pluginConfigs: {},
   subscriptionId: null,
 }
@@ -125,6 +131,9 @@ export const settingsMachine = setup({
           radioMetaUrl: event.data.room.radioMetaUrl,
           radioListenUrl: event.data.room.radioListenUrl,
           radioProtocol: event.data.room.radioProtocol,
+          liveIngestEnabled: event.data.room.liveIngestEnabled ?? false,
+          liveWhepUrl: event.data.room.liveWhepUrl ?? "",
+          liveHlsUrl: event.data.room.liveHlsUrl ?? "",
           announceNowPlaying: event.data.room.announceNowPlaying,
           announceUsernameChanges: event.data.room.announceUsernameChanges,
           allowChatImages: event.data.room.allowChatImages,

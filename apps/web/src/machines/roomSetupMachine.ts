@@ -42,6 +42,9 @@ const createRoomLogic = fromPromise<RoomCreationResponse, RoomSetupContext>(
         radioListenUrl: ctx.room?.radioListenUrl ?? undefined,
         radioMetaUrl: ctx.room?.radioMetaUrl ?? undefined,
         radioProtocol: ctx.room?.radioProtocol ?? undefined,
+        liveIngestEnabled: ctx.room?.liveIngestEnabled ?? undefined,
+        liveWhepUrl: ctx.room?.liveWhepUrl ?? undefined,
+        liveHlsUrl: ctx.room?.liveHlsUrl ?? undefined,
         deputizeOnJoin: ctx.room?.deputizeOnJoin ?? false,
         public: ctx.room?.public ?? true,
         playbackControllerId,
@@ -70,6 +73,9 @@ export const roomSetupMachine = setup({
       // Clear the creation flag on error so user can retry
       sessionStorage.removeItem("roomCreationInProgress")
       sessionStorage.removeItem("createRoomShowId")
+      sessionStorage.removeItem("createRoomLiveIngestEnabled")
+      sessionStorage.removeItem("createRoomLiveWhepUrl")
+      sessionStorage.removeItem("createRoomLiveHlsUrl")
       return {
         error: String(event.error),
       }
@@ -92,6 +98,9 @@ export const roomSetupMachine = setup({
       sessionStorage.removeItem("createRoomRadioListenUrl")
       sessionStorage.removeItem("createRoomRadioProtocol")
       sessionStorage.removeItem("createRoomShowId")
+      sessionStorage.removeItem("createRoomLiveIngestEnabled")
+      sessionStorage.removeItem("createRoomLiveWhepUrl")
+      sessionStorage.removeItem("createRoomLiveHlsUrl")
       sessionStorage.removeItem("roomCreationInProgress")
       window.location.href = `/rooms/${event.output.room.id}`
     },

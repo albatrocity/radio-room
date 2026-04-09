@@ -38,6 +38,8 @@ export type SystemEventHandlers = {
     roomId: string
     status: "online" | "offline" | "connecting" | "error"
     sourceType?: "jukebox" | "radio" | "live"
+    /** Which listen path this status refers to (hybrid radio + experimental WebRTC). */
+    streamTransport?: "shoutcast" | "webrtc"
     bitrate?: number
     error?: string
   }) => Promise<void> | void
@@ -140,6 +142,11 @@ export type SystemEventHandlers = {
   STREAM_HEALTH_CHANGED: (data: {
     roomId: string
     status: "online" | "offline"
+    /**
+     * When set, this health update applies to the experimental WebRTC ingest only
+     * (`radio` + `liveIngestEnabled`). Omitted for `live` rooms (primary path).
+     */
+    ingest?: "webrtc_experimental"
   }) => Promise<void> | void
 
   // Error events

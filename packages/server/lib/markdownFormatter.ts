@@ -26,6 +26,10 @@ export function formatRoomExportAsMarkdown(
   // Room Info
   sections.push(formatRoomInfo(data))
 
+  if (data.listeningTransportSnapshot) {
+    sections.push(formatListeningTransportSnapshot(data.listeningTransportSnapshot))
+  }
+
   // Users (currently online)
   sections.push(formatUsers(data.users))
 
@@ -151,6 +155,20 @@ function formatRoomInfo(data: RoomExportData): string {
   }
 
   return lines.join("\n")
+}
+
+function formatListeningTransportSnapshot(snapshot: {
+  shoutcast: number
+  webrtc: number
+}): string {
+  return [
+    "## Listening transport (snapshot)",
+    "",
+    `_Counted users in listening mode when the export was generated._`,
+    "",
+    `- **Shoutcast HTTP:** ${snapshot.shoutcast}`,
+    `- **WebRTC (experimental path):** ${snapshot.webrtc}`,
+  ].join("\n")
 }
 
 function formatUsers(users: User[]): string {

@@ -24,7 +24,7 @@ import {
 import { writeJsonToHset } from "../data/utils"
 import { AdapterService } from "../../services/AdapterService"
 import { isStreamingMode } from "../../lib/streamingMode"
-import { hasListenableStream } from "../../lib/roomTypeHelpers"
+import { hasListenableStream, isHybridRadioRoom } from "../../lib/roomTypeHelpers"
 
 type HandleRoomNowPlayingDataParams = {
   context: AppContext
@@ -53,6 +53,11 @@ export default async function handleRoomNowPlayingData({
 }: HandleRoomNowPlayingDataParams) {
   const room = await findRoom({ context, roomId })
 
+  // Hybrid radio: Shoutcast/ICY is authoritative; ignore RTMP sidecar metadata.
+  if (submission && isHybridRadioRoom(room) && submission.sourceType === "rtmp") {
+    return null
+  }
+
   // Determine source type for status events
   const sourceType = hasListenableStream(room)
     ? (room!.type as "radio" | "live")
@@ -72,6 +77,7 @@ export default async function handleRoomNowPlayingData({
         roomId,
         status,
         sourceType,
+        ...(isHybridRadioRoom(room) ? { streamTransport: "shoutcast" as const } : {}),
         error,
       })
     }
@@ -107,6 +113,7 @@ export default async function handleRoomNowPlayingData({
         roomId,
         status: "online" as const,
         sourceType,
+        ...(isHybridRadioRoom(room) ? { streamTransport: "shoutcast" as const } : {}),
         bitrate: submission.stationMeta?.bitrate
           ? Number(submission.stationMeta.bitrate)
           : undefined,
@@ -183,6 +190,7 @@ export default async function handleRoomNowPlayingData({
         roomId,
         status: "online" as const,
         sourceType,
+        ...(isHybridRadioRoom(room) ? { streamTransport: "shoutcast" as const } : {}),
         bitrate:
           hasListenableStream(room) && submission.stationMeta?.bitrate
             ? Number(submission.stationMeta.bitrate)

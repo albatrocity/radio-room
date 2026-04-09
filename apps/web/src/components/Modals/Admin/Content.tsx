@@ -72,6 +72,9 @@ function Content() {
         radioMetaUrl: settings.radioMetaUrl ?? "",
         radioListenUrl: settings.radioListenUrl ?? "",
         radioProtocol: settings.radioProtocol ?? "shoutcastv2",
+        liveIngestEnabled: settings.liveIngestEnabled ?? false,
+        liveWhepUrl: settings.liveWhepUrl ?? "",
+        liveHlsUrl: settings.liveHlsUrl ?? "",
       }}
       enableReinitialize
       validate={() => {
@@ -185,6 +188,65 @@ function Content() {
                       setting up the room, try changing the protocol.
                     </Field.HelperText>
                   </Field.Root>
+                  <Field.Root>
+                    <Checkbox.Root
+                      checked={values.liveIngestEnabled}
+                      onCheckedChange={(details) => {
+                        const checked = !!details.checked
+                        setFieldValue("liveIngestEnabled", checked)
+                        if (checked !== initialValues.liveIngestEnabled) {
+                          setTouched({ liveIngestEnabled: true })
+                        } else {
+                          setTouched({ liveIngestEnabled: false })
+                        }
+                      }}
+                    >
+                      <Checkbox.HiddenInput onBlur={handleBlur} />
+                      <Checkbox.Control>
+                        <Checkbox.Indicator />
+                      </Checkbox.Control>
+                      <Checkbox.Label>Experimental WebRTC listen path (MediaMTX)</Checkbox.Label>
+                    </Checkbox.Root>
+                    <Field.HelperText>
+                      Offers Shoutcast + optional WebRTC. Now Playing remains Shoutcast-driven.
+                    </Field.HelperText>
+                  </Field.Root>
+                  {values.liveIngestEnabled && (
+                    <>
+                      <Field.Root>
+                        <Field.Label>WebRTC WHEP URL</Field.Label>
+                        <Input
+                          name="liveWhepUrl"
+                          value={values.liveWhepUrl}
+                          onBlur={handleBlur}
+                          onChange={(e) => {
+                            handleChange(e)
+                            if (e.target.value !== initialValues.liveWhepUrl) {
+                              setTouched({ liveWhepUrl: true })
+                            } else {
+                              setTouched({ liveWhepUrl: false })
+                            }
+                          }}
+                        />
+                      </Field.Root>
+                      <Field.Root>
+                        <Field.Label>LL-HLS fallback URL</Field.Label>
+                        <Input
+                          name="liveHlsUrl"
+                          value={values.liveHlsUrl}
+                          onBlur={handleBlur}
+                          onChange={(e) => {
+                            handleChange(e)
+                            if (e.target.value !== initialValues.liveHlsUrl) {
+                              setTouched({ liveHlsUrl: true })
+                            } else {
+                              setTouched({ liveHlsUrl: false })
+                            }
+                          }}
+                        />
+                      </Field.Root>
+                    </>
+                  )}
                 </>
               )}
 
