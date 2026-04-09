@@ -1,5 +1,6 @@
 import ky from "ky"
 import type { RoomScheduleSnapshotDTO } from "@repo/types"
+import { RADIO_SESSION_HEADER, SESSION_ID } from "../constants"
 import { Room, RoomSetup } from "../types/Room"
 import type { PluginSchemasResponse, PluginSchemaInfo } from "../types/PluginSchema"
 import type { PluginComponentStores, PluginComponentState } from "../types/PluginComponent"
@@ -127,11 +128,15 @@ export async function uploadImages(roomId: string, files: File[]): Promise<Image
   const formData = new FormData()
   files.forEach((file) => formData.append("images", file))
 
+  const radioUserId =
+    typeof sessionStorage !== "undefined" ? sessionStorage.getItem(SESSION_ID) : null
+
   const res = await ky
     .post(`${API_URL}/api/rooms/${roomId}/images`, {
       body: formData,
       credentials: "include",
       timeout: 60000, // Longer timeout for large uploads
+      headers: radioUserId ? { [RADIO_SESSION_HEADER]: radioUserId } : undefined,
     })
     .json<ImageUploadResponse>()
 

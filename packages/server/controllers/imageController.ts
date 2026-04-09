@@ -1,10 +1,44 @@
 import { Request, Response } from "express"
 import multer from "multer"
 import { AppContext } from "@repo/types"
-import { storeImage, findRoom } from "../operations/data"
+import { storeImage, findRoom, getUser, getRoomUsers } from "../operations/data"
 import { isRoomAdmin } from "../operations/data/admins"
 import generateId from "../lib/generateId"
+import { RADIO_SESSION_HEADER } from "../lib/constants"
 import { isHeicMimeType, convertHeicToJpeg } from "../operations/data/imageConversion"
+
+/**
+ * Socket login often does not persist the Express session cookie to the browser, so HTTP
+ * requests may lack `req.session.user`. Accept the same header as scheduling guest reads:
+ * Redis user id + verify the user is online in the room.
+ */
+async function resolveChatUploaderUserId(
+  req: Request,
+  context: AppContext,
+  roomId: string,
+): Promise<string | null> {
+  const fromSession = req.session.user?.userId
+  if (fromSession) {
+    return fromSession
+  }
+
+  const fromHeader = req.get(RADIO_SESSION_HEADER)?.trim()
+  if (!fromHeader) {
+    return null
+  }
+
+  const user = await getUser({ context, userId: fromHeader })
+  if (!user) {
+    return null
+  }
+
+  const roomUsers = await getRoomUsers({ context, roomId })
+  if (!roomUsers.some((u) => u.userId === fromHeader)) {
+    return null
+  }
+
+  return fromHeader
+}
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024 // 4MB per image
 const MAX_FILES = 5
@@ -35,14 +69,25 @@ export async function uploadImages(req: Request, res: Response) {
     return res.status(400).json({ error: "No files provided" })
   }
 
-  // Verify room exists
+  const userId = await resolveChatUploaderUserId(req, context, roomId)
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized" })
+  }
+
   const room = await findRoom({ context, roomId })
   if (!room) {
     return res.status(404).json({ error: "Room not found" })
   }
 
-  // Check if chat images are allowed
-  if (!room.allowChatImages) {
+  const canUpload =
+    room.allowChatImages === true ||
+    (await isRoomAdmin({
+      roomId,
+      userId,
+      roomCreator: room.creator,
+      context,
+    }))
+  if (!canUpload) {
     return res.status(403).json({ error: "Image uploads are not allowed in this room" })
   }
 

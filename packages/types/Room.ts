@@ -61,6 +61,7 @@ export type Room = {
   showQueueCount?: boolean
   showQueueTracks?: boolean
   // Chat settings
+  /** When true, non-admin listeners may upload images in chat; room admins may always upload. */
   allowChatImages?: boolean
   /** Attached scheduling show id (Postgres); timeline via Redis snapshot + SHOW_SCHEDULE_UPDATED */
   showId?: string | null
