@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import {
   Badge,
   Box,
   Button,
+  CloseButton,
   DialogBackdrop,
   DialogBody,
   DialogCloseTrigger,
@@ -11,28 +12,46 @@ import {
   DialogHeader,
   DialogPositioner,
   DialogRoot,
-  HStack,
+  Drawer as ChakraDrawer,
   Heading,
-  CloseButton,
+  HStack,
+  Icon,
+  IconButton,
   Spinner,
   Text,
   VStack,
+  useBreakpointValue,
 } from "@chakra-ui/react"
 import type { ShowSegmentDTO } from "@repo/types"
+import { FiFileText } from "react-icons/fi"
 import { fetchRoom } from "../actors/roomActor"
-import { useAdminSend, useCurrentRoom, useIsAdmin, useRoomScheduleSnapshot } from "../hooks/useActors"
+import {
+  useAdminSend,
+  useCurrentRoom,
+  useIsAdmin,
+  useRoomScheduleSnapshot,
+} from "../hooks/useActors"
+import { fetchShow } from "../lib/schedulingApi"
 import { snapshotToShowDTO } from "../lib/snapshotToShow"
 import {
   formatDurationMinutes,
   segmentStartTimes,
   totalEstimatedMinutes,
 } from "../lib/showDuration"
+import SegmentNotesMarkdown from "./SegmentNotesMarkdown"
 
 function segmentHasSavedPluginPreset(segment: ShowSegmentDTO["segment"] | undefined): boolean {
   if (!segment) return false
   const p = segment.pluginPreset
   if (p == null) return false
   return Object.keys(p.pluginConfigs ?? {}).length > 0
+}
+
+type NotesTarget = { segmentId: string; title: string }
+
+type ShowNotesCache = {
+  cacheKey: string
+  bySegmentId: Map<string, string | null>
 }
 
 export default function RoomSchedulePanel() {
@@ -44,9 +63,19 @@ export default function RoomSchedulePanel() {
 
   const show = useMemo(() => snapshotToShowDTO(scheduleSnapshot), [scheduleSnapshot])
 
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [activateDialogOpen, setActivateDialogOpen] = useState(false)
   const [pendingSegmentId, setPendingSegmentId] = useState<string | null>(null)
   const [pendingTitle, setPendingTitle] = useState("")
+
+  const [notesOpen, setNotesOpen] = useState(false)
+  const [notesTarget, setNotesTarget] = useState<NotesTarget | null>(null)
+  const [notesStatus, setNotesStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
+  const [notesMarkdown, setNotesMarkdown] = useState<string | null>(null)
+  const [notesError, setNotesError] = useState<string | null>(null)
+
+  const notesCacheRef = useRef<ShowNotesCache | null>(null)
+
+  const isSmallScreen = useBreakpointValue({ base: true, md: false }) ?? false
 
   const visible = !!showId && (isAdmin || room?.showSchedulePublic === true)
 
@@ -60,7 +89,7 @@ export default function RoomSchedulePanel() {
   const openPresetDialog = (segmentId: string, title: string) => {
     setPendingSegmentId(segmentId)
     setPendingTitle(title)
-    setDialogOpen(true)
+    setActivateDialogOpen(true)
   }
 
   const onActivateClick = (ss: ShowSegmentDTO) => {
@@ -78,10 +107,66 @@ export default function RoomSchedulePanel() {
       type: "ACTIVATE_SEGMENT",
       data: { segmentId: pendingSegmentId, presetMode },
     })
-    setDialogOpen(false)
+    setActivateDialogOpen(false)
     setPendingSegmentId(null)
     setPendingTitle("")
   }
+
+  const closeNotes = useCallback(() => {
+    setNotesOpen(false)
+    setNotesTarget(null)
+    setNotesStatus("idle")
+    setNotesMarkdown(null)
+    setNotesError(null)
+  }, [])
+
+  const loadNotesForTarget = useCallback(
+    async (target: NotesTarget, bustCache: boolean) => {
+      if (!showId || !room?.id) return
+      setNotesStatus("loading")
+      setNotesError(null)
+      setNotesMarkdown(null)
+      const cacheKey = `${showId}:${scheduleSnapshot?.updatedAt ?? ""}`
+      try {
+        if (bustCache) {
+          notesCacheRef.current = null
+        }
+        let map =
+          notesCacheRef.current?.cacheKey === cacheKey ? notesCacheRef.current.bySegmentId : null
+        if (!map) {
+          const dto = await fetchShow(showId, { roomId: room.id })
+          map = new Map<string, string | null>()
+          for (const ss of dto.segments ?? []) {
+            map.set(ss.segmentId, ss.segment?.description ?? null)
+          }
+          notesCacheRef.current = { cacheKey, bySegmentId: map }
+        }
+        setNotesMarkdown(map.get(target.segmentId) ?? null)
+        setNotesStatus("ready")
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Failed to load notes"
+        setNotesError(message)
+        setNotesStatus("error")
+      }
+    },
+    [room?.id, showId, scheduleSnapshot?.updatedAt],
+  )
+
+  const openSegmentNotes = useCallback(
+    (segmentId: string, title: string) => {
+      if (!showId || !room?.id) return
+      setNotesTarget({ segmentId, title })
+      setNotesOpen(true)
+      void loadNotesForTarget({ segmentId, title }, false)
+    },
+    [loadNotesForTarget, room?.id, showId],
+  )
+
+  const retryNotes = useCallback(() => {
+    if (notesTarget) {
+      void loadNotesForTarget(notesTarget, true)
+    }
+  }, [loadNotesForTarget, notesTarget])
 
   if (!visible || !showId) {
     return null
@@ -91,6 +176,37 @@ export default function RoomSchedulePanel() {
   const startTimes = show ? segmentStartTimes(show.startTime, segments) : []
   const totalMin = totalEstimatedMinutes(segments)
   const waitingForSnapshot = !show && !!showId
+
+  const notesTitle = notesTarget?.title ?? ""
+
+  const notesBodyInner = (
+    <>
+      {notesStatus === "loading" && (
+        <HStack py={4}>
+          <Spinner size="sm" />
+          <Text fontSize="sm">Loading notes…</Text>
+        </HStack>
+      )}
+      {notesStatus === "error" && notesError && (
+        <VStack align="stretch" gap={3} py={2}>
+          <Text fontSize="sm" color="red.500">
+            {notesError}
+          </Text>
+          <Button size="sm" variant="outline" onClick={retryNotes}>
+            Retry
+          </Button>
+        </VStack>
+      )}
+      {notesStatus === "ready" &&
+        (notesMarkdown != null && notesMarkdown.trim() !== "" ? (
+          <SegmentNotesMarkdown content={notesMarkdown} />
+        ) : (
+          <Text fontSize="sm" color="fg.muted">
+            No notes for this segment.
+          </Text>
+        ))}
+    </>
+  )
 
   return (
     <Box px={4} py={3} borderBottomWidth={1} borderBottomColor="secondaryBorder" w="100%">
@@ -146,13 +262,19 @@ export default function RoomSchedulePanel() {
                       <Text lineClamp={2}>{ss.segment?.title ?? ""}</Text>
                     </VStack>
                     {isAdmin && (
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        onClick={() => onActivateClick(ss)}
-                      >
-                        Activate
-                      </Button>
+                      <HStack gap={1} shrink={0}>
+                        <IconButton
+                          size="xs"
+                          variant="ghost"
+                          aria-label="View segment notes"
+                          onClick={() => openSegmentNotes(ss.segmentId, ss.segment?.title ?? "")}
+                        >
+                          <Icon as={FiFileText} />
+                        </IconButton>
+                        <Button size="xs" variant="outline" onClick={() => onActivateClick(ss)}>
+                          Activate
+                        </Button>
+                      </HStack>
                     )}
                   </HStack>
                 )
@@ -163,10 +285,10 @@ export default function RoomSchedulePanel() {
       </VStack>
 
       <DialogRoot
-        open={dialogOpen}
+        open={activateDialogOpen}
         onOpenChange={(e) => {
           if (!e.open) {
-            setDialogOpen(false)
+            setActivateDialogOpen(false)
             setPendingSegmentId(null)
             setPendingTitle("")
           }
@@ -185,14 +307,11 @@ export default function RoomSchedulePanel() {
                 <strong>{pendingTitle}</strong>
               </Text>
               <Text fontSize="sm" color="fg.muted" mb={3}>
-                Apply this segment&apos;s plugin preset? Any room setting overrides saved on the segment
-                are applied automatically when you activate (no extra step).
+                Apply this segment&apos;s plugin preset? Any room setting overrides saved on the
+                segment are applied automatically when you activate (no extra step).
               </Text>
               <VStack gap={2} align="stretch">
-                <Button
-                  colorPalette="blue"
-                  onClick={() => sendActivate("merge")}
-                >
+                <Button colorPalette="blue" onClick={() => sendActivate("merge")}>
                   Merge preset into current plugins
                 </Button>
                 <Button variant="outline" onClick={() => sendActivate("replace")}>
@@ -204,13 +323,82 @@ export default function RoomSchedulePanel() {
               </VStack>
             </DialogBody>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setDialogOpen(false)}>
+              <Button variant="ghost" onClick={() => setActivateDialogOpen(false)}>
                 Cancel
               </Button>
             </DialogFooter>
           </DialogContent>
         </DialogPositioner>
       </DialogRoot>
+
+      {isSmallScreen ? (
+        <DialogRoot
+          open={notesOpen}
+          onOpenChange={(e) => {
+            if (!e.open) closeNotes()
+          }}
+          placement="center"
+        >
+          <DialogBackdrop />
+          <DialogPositioner alignItems="stretch" justifyContent="stretch" p={0}>
+            <DialogContent
+              maxW="100vw"
+              w="100%"
+              minH="100dvh"
+              m={0}
+              rounded="none"
+              display="flex"
+              flexDirection="column"
+            >
+              <DialogHeader fontWeight="semibold" flexShrink={0}>
+                Segment notes
+              </DialogHeader>
+              <DialogCloseTrigger asChild position="absolute" top="2" right="2">
+                <CloseButton size="sm" />
+              </DialogCloseTrigger>
+              <DialogBody flex="1" overflowY="auto">
+                <Heading as="h2" size="sm" mb={3}>
+                  {notesTitle}
+                </Heading>
+                {notesBodyInner}
+              </DialogBody>
+              <DialogFooter flexShrink={0}>
+                <Button variant="ghost" onClick={closeNotes}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </DialogPositioner>
+        </DialogRoot>
+      ) : (
+        <ChakraDrawer.Root
+          open={notesOpen}
+          onOpenChange={(e) => {
+            if (!e.open) closeNotes()
+          }}
+          placement="start"
+          modal={false}
+          preventScroll={false}
+          closeOnInteractOutside
+        >
+          <ChakraDrawer.Positioner>
+            <ChakraDrawer.Content maxW="md" minW="280px">
+              <ChakraDrawer.Header>
+                <ChakraDrawer.Title>Segment notes</ChakraDrawer.Title>
+                <ChakraDrawer.CloseTrigger asChild>
+                  <CloseButton size="sm" />
+                </ChakraDrawer.CloseTrigger>
+              </ChakraDrawer.Header>
+              <ChakraDrawer.Body flex="1" overflowY="auto">
+                <Heading as="h2" size="sm" mb={3}>
+                  {notesTitle}
+                </Heading>
+                {notesBodyInner}
+              </ChakraDrawer.Body>
+            </ChakraDrawer.Content>
+          </ChakraDrawer.Positioner>
+        </ChakraDrawer.Root>
+      )}
     </Box>
   )
 }
