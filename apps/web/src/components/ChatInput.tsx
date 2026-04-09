@@ -11,19 +11,7 @@ import React, {
 } from "react"
 import { createPortal } from "react-dom"
 
-import {
-  Box,
-  IconButton,
-  Flex,
-  Icon,
-  Spacer,
-  Text,
-  FileUpload,
-  useFileUpload,
-  HStack,
-  Image,
-  Wrap,
-} from "@chakra-ui/react"
+import { Box, IconButton, Flex, Icon, Text, Image, Wrap } from "@chakra-ui/react"
 import { FiArrowUpCircle, FiX, FiImage } from "react-icons/fi"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
@@ -33,6 +21,7 @@ import ImageUpload from "./ImageUpload"
 import {
   useCurrentUser,
   useIsAuthenticated,
+  useIsAdmin,
   useUsers,
   useIsAnyModalOpen,
   useSettings,
@@ -158,7 +147,11 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const modalActive = useIsAnyModalOpen()
   const settings = useSettings()
   const room = useCurrentRoom()
-  const allowChatImages = settings.allowChatImages !== false
+  const isAdmin = useIsAdmin()
+  // Room fetch (HTTP) often hydrates before socket ROOM_SETTINGS; use both so guests see the control after refresh.
+  const guestChatImagesAllowed =
+    settings.allowChatImages === true || room?.allowChatImages === true
+  const canUseChatImages = isAdmin || guestChatImagesAllowed
 
   const inputRef = useRef<ReactPortal>(null)
   const [isTyping, setTyping] = useState(false)
@@ -166,15 +159,20 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const [content, setContent] = useState("")
   const [files, setFiles] = useState<File[]>([])
 
-  const fileUpload = useFileUpload({
-    accept: ["image/*"],
-    maxFiles: MAX_FILES,
-    maxFileSize: MAX_FILE_SIZE,
-    onFileChange: (details) => {
-      // isInternalUpdate.current = true
-      handleFilesChange(details.acceptedFiles)
+  const addImageFiles = useCallback(
+    (incoming: File[]) => {
+      if (!isAuthenticated || !canUseChatImages) return
+      const valid = incoming.filter(
+        (f) =>
+          f.size <= MAX_FILE_SIZE &&
+          (f.type.startsWith("image/") ||
+            /\.(heic|heif|png|jpe?g|gif|webp|bmp|svg)$/i.test(f.name)),
+      )
+      if (valid.length === 0) return
+      setFiles((prev) => [...prev, ...valid].slice(0, MAX_FILES))
     },
-  })
+    [isAuthenticated, canUseChatImages],
+  )
 
   // Use CSS variables for colors
   const borderColor = "var(--chakra-colors-secondary-border, #ccc)"
@@ -203,9 +201,16 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
     handleTypingStop()
   }, [])
 
-  const handleFilesChange = useCallback((newFiles: File[]) => {
-    setFiles(newFiles)
+  const removeFileAt = useCallback((index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index))
   }, [])
+
+  const filePreviewUrls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
+  useEffect(() => {
+    return () => {
+      filePreviewUrls.forEach((u) => URL.revokeObjectURL(u))
+    }
+  }, [filePreviewUrls])
 
   const userSuggestions = useMemo(
     () =>
@@ -290,83 +295,109 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
     return null
   }
 
-  const isFileUploadDisabled = !isAuthenticated || isSubmitting || files.length < MAX_FILES
+  const isFileUploadDisabled =
+    !isAuthenticated || isSubmitting || files.length >= MAX_FILES
 
-  // Image preview component - rendered via portal if container provided
+  // Previews follow React `files` state (source of truth for submit); not FileUpload.Context.
   const imagePreviews =
-    allowChatImages && files.length > 0 ? (
-      <FileUpload.ItemGroup>
-        <Wrap gap={2}>
-          <FileUpload.Context>
-            {({ acceptedFiles }) =>
-              acceptedFiles.map((file, index) => (
-                <FileUpload.Item
-                  key={`${file.name}-${index}`}
-                  file={file}
-                  css={{ width: "fit-content" }}
-                >
-                  <Box position="relative" borderRadius="md" overflow="hidden">
-                    {isHeicFile(file) ? (
-                      <Flex
-                        align="center"
-                        justify="center"
-                        boxSize="60px"
-                        bg="gray.100"
-                        borderRadius="md"
-                      >
-                        <Icon as={FiImage} boxSize={6} color="gray.400" />
-                      </Flex>
-                    ) : (
-                      <FileUpload.ItemPreview type="image/*">
-                        <Image
-                          src={URL.createObjectURL(file)}
-                          alt={file.name}
-                          boxSize="60px"
-                          objectFit="cover"
-                          borderRadius="md"
-                        />
-                      </FileUpload.ItemPreview>
-                    )}
-                    <FileUpload.ItemDeleteTrigger asChild>
-                      <IconButton
-                        aria-label="Remove image"
-                        size="xs"
-                        variant="solid"
-                        colorPalette="red"
-                        position="absolute"
-                        top={0}
-                        right={0}
-                        borderRadius="full"
-                      >
-                        <Icon as={FiX} boxSize={3} />
-                      </IconButton>
-                    </FileUpload.ItemDeleteTrigger>
-                  </Box>
-                </FileUpload.Item>
-              ))
-            }
-          </FileUpload.Context>
-        </Wrap>
-      </FileUpload.ItemGroup>
+    canUseChatImages && files.length > 0 ? (
+      <Wrap gap={2}>
+        {files.map((file, index) => (
+          <Box
+            key={`${file.name}-${index}-${file.size}`}
+            position="relative"
+            borderRadius="md"
+            overflow="hidden"
+            width="fit-content"
+          >
+            {isHeicFile(file) ? (
+              <Flex
+                align="center"
+                justify="center"
+                boxSize="60px"
+                bg="gray.100"
+                borderRadius="md"
+              >
+                <Icon as={FiImage} boxSize={6} color="gray.400" />
+              </Flex>
+            ) : (
+              <Image
+                src={filePreviewUrls[index] ?? ""}
+                alt={file.name}
+                boxSize="60px"
+                objectFit="cover"
+                borderRadius="md"
+              />
+            )}
+            <IconButton
+              aria-label="Remove image"
+              size="xs"
+              variant="solid"
+              colorPalette="red"
+              position="absolute"
+              top={0}
+              right={0}
+              borderRadius="full"
+              onClick={() => removeFileAt(index)}
+            >
+              <Icon as={FiX} boxSize={3} />
+            </IconButton>
+          </Box>
+        ))}
+      </Wrap>
     ) : null
 
+  const handlePasteImages = useCallback(
+    (e: React.ClipboardEvent) => {
+      if (!canUseChatImages || !isAuthenticated) return
+      const fromClipboard = Array.from(e.clipboardData.files)
+      const images = fromClipboard.filter((f) => f.type.startsWith("image/"))
+      if (images.length === 0) return
+      e.preventDefault()
+      addImageFiles(images)
+    },
+    [addImageFiles, canUseChatImages, isAuthenticated],
+  )
+
   return (
-    <FileUpload.RootProvider value={fileUpload}>
+    <>
       {/* Portal image previews to container if provided */}
       {imagePreviews &&
         imagePreviewContainer?.current &&
         createPortal(imagePreviews, imagePreviewContainer.current)}
-      <form onSubmit={handleSubmit} style={{ width: "100%" }}>
-        <Flex direction="row" w="100%" grow={1} justify="center" overflowX="clip" gap={1}>
+      <form
+        onSubmit={handleSubmit}
+        onPaste={handlePasteImages}
+        style={{ width: "100%" }}
+      >
+        <Flex
+          direction="row"
+          w="100%"
+          grow={1}
+          justify="center"
+          overflowX="clip"
+          gap={1}
+          onDragOver={(e) => {
+            if (!canUseChatImages || !isAuthenticated) return
+            e.preventDefault()
+            e.stopPropagation()
+          }}
+          onDrop={(e) => {
+            if (!canUseChatImages || !isAuthenticated) return
+            e.preventDefault()
+            e.stopPropagation()
+            const dt = e.dataTransfer.files
+            if (dt?.length) {
+              addImageFiles(Array.from(dt))
+            }
+          }}
+        >
           {/* Image upload button */}
-          {allowChatImages && files.length === 0 && (
+          {canUseChatImages && files.length < MAX_FILES && (
             <Box opacity={isAuthenticated ? 1 : 0}>
               <ImageUpload
-                files={files}
+                onFilesPicked={addImageFiles}
                 disabled={isFileUploadDisabled}
-                fileUpload={fileUpload}
-                maxFiles={MAX_FILES}
-                maxFileSize={MAX_FILE_SIZE}
               />
             </Box>
           )}
@@ -415,7 +446,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
           </Box>
         </Flex>
       </form>
-    </FileUpload.RootProvider>
+    </>
   )
 }
 

@@ -55,6 +55,8 @@ interface SettingsContextData {
   radioProtocol?: string
   announceUsernameChanges: boolean
   announceNowPlaying: boolean
+  /** Persisted for chat image UI; matches room details when rehydrated */
+  allowChatImages?: boolean
   pluginConfigs: Record<string, Record<string, unknown>>
 }
 

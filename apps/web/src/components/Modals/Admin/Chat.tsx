@@ -132,10 +132,11 @@ export default function Chat() {
                   <Checkbox.Control>
                     <Checkbox.Indicator />
                   </Checkbox.Control>
-                  <Checkbox.Label>Allow Chat Images</Checkbox.Label>
+                  <Checkbox.Label>Allow guests to upload chat images</Checkbox.Label>
                 </Checkbox.Root>
                 <Field.HelperText>
-                  If enabled, users can upload and share images in chat messages.
+                  When enabled, listeners who are not room admins can attach images in chat.
+                  Room admins can always upload images in chat.
                 </Field.HelperText>
               </Field.Root>
             </VStack>

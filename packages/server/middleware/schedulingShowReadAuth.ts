@@ -2,9 +2,9 @@ import type { Request, Response, NextFunction } from "express"
 import { getPlatformAdminSession } from "@repo/auth/platformSession"
 import type { AppContext } from "@repo/types"
 import { findRoom, getUser } from "../operations/data"
+import { RADIO_SESSION_HEADER } from "../lib/constants"
 
-/** Client sends the listening-room Redis user id (same value as web sessionStorage `radio-session-id`). */
-export const RADIO_SESSION_HEADER = "x-radio-session-id"
+export { RADIO_SESSION_HEADER }
 
 export async function schedulingShowReadAuth(req: Request, res: Response, next: NextFunction) {
   try {

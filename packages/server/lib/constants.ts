@@ -1,5 +1,8 @@
 export const REACTIONABLE_TYPES = ["message", "track"];
 
+/** HTTP header: listening-room Redis user id (matches web sessionStorage `radio-session-id`). */
+export const RADIO_SESSION_HEADER = "x-radio-session-id";
+
 export const FIVE_SECONDS = 1000 * 5;
 export const TEN_SECONDS = 1000 * 10;
 export const THREE_MINUTES = 1000 * 60 * 3;
