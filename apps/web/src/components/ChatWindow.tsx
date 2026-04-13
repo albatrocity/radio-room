@@ -1,10 +1,11 @@
 import { Box, Button, Icon, ScrollArea } from "@chakra-ui/react"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { useMachine } from "@xstate/react"
+import { useMachine, useSelector } from "@xstate/react"
 import React, { useEffect } from "react"
 import { LuArrowDown } from "react-icons/lu"
 import { useStickToBottom } from "use-stick-to-bottom"
 
+import { chatScrollTargetActor } from "../actors/chatScrollTargetActor"
 import { scrollFollowMachine } from "../machines/scrollFollowMachine"
 import { useCurrentUser, useSortedChatMessages } from "../hooks/useActors"
 import { ChatMessage as Message } from "../types/ChatMessage"
@@ -42,6 +43,11 @@ function ChatWindow() {
   const [state, send] = useMachine(scrollFollowMachine)
   const messages = useSortedChatMessages()
   const currentUser = useCurrentUser()
+  const scrollTargetTimestamp = useSelector(
+    chatScrollTargetActor,
+    (s) => s.context.targetTimestamp,
+  )
+  const scrollRequestId = useSelector(chatScrollTargetActor, (s) => s.context.requestId)
 
   const { scrollRef, contentRef, scrollToBottom, isAtBottom } = useStickToBottom({
     resize: "smooth",
@@ -59,6 +65,23 @@ function ChatWindow() {
   useEffect(() => {
     send({ type: isAtBottom ? "ATTACH" : "DETACH" })
   }, [isAtBottom, send])
+
+  useEffect(() => {
+    if (!scrollTargetTimestamp || messages.length === 0) {
+      return
+    }
+    const index = messages.findIndex((m) => m.timestamp === scrollTargetTimestamp)
+    if (index === -1) {
+      console.warn(
+        "[ChatWindow] Bookmarked message not found in current chat history:",
+        scrollTargetTimestamp,
+      )
+      chatScrollTargetActor.send({ type: "CLEAR_TARGET" })
+      return
+    }
+    virtualizer.scrollToIndex(index, { align: "center", behavior: "smooth" })
+    chatScrollTargetActor.send({ type: "CLEAR_TARGET" })
+  }, [scrollTargetTimestamp, scrollRequestId, messages, virtualizer])
 
   const handleBottomClick = () => {
     void scrollToBottom({ animation: "smooth", duration: 100 })

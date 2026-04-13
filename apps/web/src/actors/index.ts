@@ -179,6 +179,9 @@ export {
   setBookmarks,
 } from "./bookmarkedChatActor"
 
+// Chat scroll target (viewport jump to timestamp)
+export { chatScrollTargetActor } from "./chatScrollTargetActor"
+
 // Room Lifecycle
 export {
   initializeRoom,
