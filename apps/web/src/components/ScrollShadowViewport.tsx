@@ -11,7 +11,7 @@ const ScrollShadowViewport = React.forwardRef<
     <ScrollArea.Viewport
       ref={ref}
       css={{
-        "--scroll-shadow-size": "4rem",
+        "--scroll-shadow-size": "6rem",
         maskImage: "linear-gradient(#000, #000)",
         "&[data-overflow-y]": {
           maskImage:

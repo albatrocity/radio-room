@@ -22,7 +22,8 @@ import { Emoji } from "../types/Emoji"
 import { Reaction } from "../types/Reaction"
 import { Dictionary } from "../types/Dictionary"
 
-type ButtonVariant = RecipeProps<"button">["variant"]
+type CustomVariant = "bright" | "reaction" | "reactionBright"
+type ButtonVariant = RecipeProps<"button">["variant"] | CustomVariant
 
 export type ReactionSelectionProps = {
   reactions: Dictionary<Reaction[]>
@@ -94,6 +95,7 @@ const ReactionSelection = memo(function ReactionSelection({
               colorScheme={buttonColorScheme}
               onReactionClick={onSelect}
               variant={reactionVariant}
+              buttonColorScheme={buttonColorScheme ?? "action"}
               emoji={x}
               darkBg={darkBg}
             />

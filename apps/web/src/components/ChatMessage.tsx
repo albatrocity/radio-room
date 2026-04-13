@@ -133,7 +133,7 @@ const ChatMessage = ({
       <Wrap gap="1" align="center" w="100%">
         <Box w="100%">
           <Stack direction="row" gap={2} w="100%">
-            <Box flex={{ grow: 1 }} textStyle="chatMessage">
+            <Box flexGrow={1} textStyle="chatMessage">
               <ParsedEmojiMessage content={content} />
             </Box>
             {showFloatingTimestamp && (

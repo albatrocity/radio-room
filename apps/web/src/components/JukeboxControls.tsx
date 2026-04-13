@@ -28,7 +28,6 @@ export default function JukeboxControls({ trackId, hasPlaylist, onShowPlaylist }
                 showAddButton={true}
                 darkBg={true}
                 buttonColorScheme="action"
-                buttonVariant="bright"
                 scrollHorizontal
               />
             </HStack>
