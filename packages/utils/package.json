@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@repo/types": "*",
-    "react-mentions": "3.0.2",
     "zod": "^4.1.13"
   }
 }

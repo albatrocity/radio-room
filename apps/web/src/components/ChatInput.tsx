@@ -1,22 +1,11 @@
-import React, {
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-  memo,
-  ReactNode,
-  ReactPortal,
-  useMemo,
-  RefObject,
-} from "react"
+import React, { useEffect, useRef, useState, useCallback, memo, useMemo, RefObject } from "react"
 import { createPortal } from "react-dom"
 
-import { Box, IconButton, Flex, Icon, Text, Image, Wrap } from "@chakra-ui/react"
+import { Box, IconButton, Flex, Icon, Image, Wrap, Textarea } from "@chakra-ui/react"
 import { LuArrowUpCircle, LuImage, LuX } from "react-icons/lu"
-import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
 
-import MentionSuggestionsContainer from "./MentionSuggestionsContainer"
+import MentionOverlay from "./MentionOverlay"
 import ImageUpload from "./ImageUpload"
 import {
   useCurrentUser,
@@ -27,6 +16,12 @@ import {
   useSettings,
   useCurrentRoom,
 } from "../hooks/useActors"
+import { useMentionTrigger, type MentionUser } from "../hooks/useMentionTrigger"
+import {
+  encodePlainTextMentionsForServer,
+  reconcileMentionRegistryWithText,
+  type MentionPick,
+} from "../lib/encodeChatMentions"
 import { uploadImages } from "../lib/serverApi"
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024 // 4MB per image
@@ -34,40 +29,6 @@ const MAX_FILES = 5
 
 const borderColor = "var(--chakra-colors-secondary-border, #ccc)"
 const inputBackground = "var(--chakra-colors-secondary-bg, #f5f5f5)"
-
-const mentionStyle = {
-  fontWeight: 700,
-  height: "100%",
-}
-
-const inputStyle = {
-  control: {
-    backgroundColor: "transparent",
-    fontWeight: "normal",
-  },
-
-  highlighter: {
-    overflow: "hidden",
-    padding: 0,
-    border: "none",
-    height: "100%",
-  },
-
-  input: {
-    margin: 0,
-    width: "100%",
-    border: `1px solid ${borderColor}`,
-    borderRadius: "4px",
-    padding: "6px",
-    fontSize: "1rem",
-    background: inputBackground,
-  },
-
-  suggestions: {
-    backgroundColor: "transparent",
-    boxShadow: `0 2px 2px rgba(0, 0, 0, 0.2)`,
-  },
-}
 
 const isHeicFile = (file: File) =>
   file.type === "image/heic" ||
@@ -82,93 +43,6 @@ export type MessagePayload = {
   content: string
 }
 
-const renderUserSuggestion = (
-  suggestion: any,
-  search: any,
-  highlightedDisplay: any,
-  index: any,
-  focused: any,
-) => {
-  return (
-    <Box
-      backgroundColor={focused ? "actionBgLite" : "transparent"}
-      className={`user ${focused ? "focused" : ""}`}
-      px={2}
-      py={1}
-    >
-      <Text fontSize="xs">{highlightedDisplay}</Text>
-    </Box>
-  )
-}
-
-type InputProps = {
-  inputRef: RefObject<ReactPortal | undefined>
-  inputStyle: any
-  handleKeyInput: () => void
-  userSuggestions: { id: string; display: string }[]
-  mentionStyle: any
-  renderUserSuggestion: (
-    suggestion: any,
-    search: any,
-    highlightedDisplay: any,
-    index: any,
-    focused: any,
-  ) => ReactNode
-  autoFocus: boolean
-  value: string
-  onChange: (value: string) => void
-  handleSubmit: (e: React.SyntheticEvent) => void
-  isDisabled: boolean
-}
-
-const Input = memo(
-  ({
-    inputRef,
-    inputStyle,
-    handleKeyInput,
-    userSuggestions,
-    mentionStyle,
-    renderUserSuggestion,
-    autoFocus,
-    value,
-    onChange,
-    handleSubmit,
-    isDisabled = false,
-  }: InputProps) => (
-    <MentionsInput
-      name="content"
-      allowSuggestionsAboveCursor={true}
-      forceSuggestionsAboveCursor={true}
-      customSuggestionsContainer={MentionSuggestionsContainer}
-      inputRef={inputRef as any}
-      style={inputStyle}
-      value={value}
-      autoFocus={autoFocus}
-      autoComplete="off"
-      onKeyDown={(e) => {
-        if (e.keyCode === 13 && !e.shiftKey) {
-          handleSubmit(e)
-        }
-      }}
-      onChange={(e) => {
-        if (e.target.value && e.target.value !== "") {
-          handleKeyInput()
-        }
-        onChange(e.target.value)
-      }}
-      placeholder={isDisabled ? "" : "Say something..."}
-      disabled={isDisabled}
-    >
-      <Mention
-        trigger="@"
-        appendSpaceOnAdd={true}
-        data={userSuggestions}
-        style={mentionStyle}
-        renderSuggestion={renderUserSuggestion}
-      />
-    </MentionsInput>
-  ),
-)
 interface Props {
   onTypingStart: () => void
   onTypingStop: () => void
@@ -186,16 +60,27 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const room = useCurrentRoom()
   const isAdmin = useIsAdmin()
   // Room fetch (HTTP) often hydrates before socket ROOM_SETTINGS; use both so guests see the control after refresh.
-  const guestChatImagesAllowed =
-    settings.allowChatImages === true || room?.allowChatImages === true
+  const guestChatImagesAllowed = settings.allowChatImages === true || room?.allowChatImages === true
   const canUseChatImages = isAdmin || guestChatImagesAllowed
 
-  const inputRef = useRef<ReactPortal>(null)
-  const submitStateRef = useRef({ content: "", files: [] as File[], roomId: undefined as string | undefined })
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const submitStateRef = useRef({
+    content: "",
+    files: [] as File[],
+    roomId: undefined as string | undefined,
+    mentionRegistry: [] as MentionPick[],
+    knownMentionDisplays: [] as string[],
+  })
   const [isTyping, setTyping] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
   const [content, setContent] = useState("")
+  const [cursor, setCursor] = useState(0)
   const [files, setFiles] = useState<File[]>([])
+  /**
+   * Overlay picks (ordered; supports duplicate display names).
+   * Pruned on blur and again at submit via reconcileMentionRegistryWithText (not on every keystroke).
+   */
+  const [mentionRegistry, setMentionRegistry] = useState<MentionPick[]>([])
 
   const addImageFiles = useCallback(
     (incoming: File[]) => {
@@ -225,15 +110,19 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
     } else {
       onTypingStop()
     }
-  }, [isTyping])
+  }, [isTyping, onTypingStart, onTypingStop])
 
   const isValid = content !== "" || files.length > 0
-  submitStateRef.current = { content, files, roomId: room?.id }
+
+  const recordPick = useCallback((user: MentionUser) => {
+    const display = user.display.trim()
+    setMentionRegistry((r) => [...r, { userId: user.id, display }])
+  }, [])
 
   const handleKeyInput = useCallback(() => {
     setTyping(true)
     handleTypingStop()
-  }, [])
+  }, [handleTypingStop])
 
   const removeFileAt = useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index))
@@ -249,19 +138,63 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const userSuggestions = useMemo(
     () =>
       users
-        .filter(({ userId }) => userId !== currentUser.userId)
+        .filter(({ userId }) => userId !== currentUser?.userId)
         .map((x) => ({
           id: x.userId,
-          display: x.username,
-        })),
+          display: (x.username ?? "").trim(),
+        }))
+        .filter((u) => u.display !== ""),
     [currentUser, users],
+  )
+
+  const knownMentionDisplays = useMemo(() => {
+    const s = new Set<string>()
+    for (const u of userSuggestions) s.add(u.display.trim())
+    return [...s]
+  }, [userSuggestions])
+
+  const knownForScan = useMemo(() => {
+    const s = new Set<string>(knownMentionDisplays)
+    for (const p of mentionRegistry) s.add(p.display.trim())
+    return [...s]
+  }, [knownMentionDisplays, mentionRegistry])
+
+  submitStateRef.current = {
+    content,
+    files,
+    roomId: room?.id,
+    mentionRegistry,
+    knownMentionDisplays: knownForScan,
+  }
+
+  const mention = useMentionTrigger({
+    value: content,
+    onValueChange: setContent,
+    cursor,
+    onCursorChange: setCursor,
+    users: userSuggestions,
+    textareaRef,
+    recordPick,
+  })
+
+  const handleMentionPick = useCallback(
+    (user: MentionUser) => {
+      mention.selectUser(user)
+    },
+    [mention],
   )
 
   const handleSubmit = useCallback(
     async (e: React.SyntheticEvent) => {
       e.preventDefault()
 
-      const { content, files, roomId } = submitStateRef.current
+      const {
+        content,
+        files,
+        roomId,
+        mentionRegistry: registrySnapshot,
+        knownMentionDisplays: knownSnapshot,
+      } = submitStateRef.current
       const valid = content !== "" || files.length > 0
       if (!valid || !roomId) return
 
@@ -283,10 +216,23 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
           }
         }
 
+        const registryForEncode = reconcileMentionRegistryWithText(
+          messageContent,
+          registrySnapshot,
+          knownSnapshot,
+        )
+        messageContent = encodePlainTextMentionsForServer(
+          messageContent,
+          registryForEncode,
+          knownSnapshot,
+        )
+
         onSend({ content: messageContent })
 
         setContent("")
         setFiles([])
+        setCursor(0)
+        setMentionRegistry([])
       } catch (error) {
         console.error("Error sending message:", error)
       } finally {
@@ -296,12 +242,49 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
     [onSend],
   )
 
+  const handleTextareaChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const v = e.target.value
+      setContent(v)
+      setCursor(e.target.selectionStart ?? v.length)
+      if (v) {
+        handleKeyInput()
+      }
+    },
+    [handleKeyInput],
+  )
+
+  const handleTextareaSelect = useCallback((e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    setCursor(e.currentTarget.selectionStart ?? 0)
+  }, [])
+
+  const handleTextareaBlur = useCallback(
+    (e: React.FocusEvent<HTMLTextAreaElement>) => {
+      const v = e.target.value
+      setMentionRegistry((prev) =>
+        reconcileMentionRegistryWithText(v, prev, knownForScan),
+      )
+    },
+    [knownForScan],
+  )
+
+  const handleTextareaKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      mention.handleKeyDown(e)
+      if (e.defaultPrevented) return
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault()
+        void handleSubmit(e)
+      }
+    },
+    [handleSubmit, mention],
+  )
+
   if (!currentUser) {
     return null
   }
 
-  const isFileUploadDisabled =
-    !isAuthenticated || isSubmitting || files.length >= MAX_FILES
+  const isFileUploadDisabled = !isAuthenticated || isSubmitting || files.length >= MAX_FILES
 
   const imagePreviews = useMemo(
     () =>
@@ -393,11 +376,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
       {imagePreviews &&
         imagePreviewContainer?.current &&
         createPortal(imagePreviews, imagePreviewContainer.current)}
-      <form
-        onSubmit={handleSubmit}
-        onPaste={handlePasteImages}
-        style={{ width: "100%" }}
-      >
+      <form onSubmit={handleSubmit} onPaste={handlePasteImages} style={{ width: "100%" }}>
         <Flex
           direction="row"
           w="100%"
@@ -408,37 +387,52 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {/* Image upload button */}
           {canUseChatImages && files.length < MAX_FILES && (
             <Box opacity={isAuthenticated ? 1 : 0}>
-              <ImageUpload
-                onFilesPicked={addImageFiles}
-                disabled={isFileUploadDisabled}
-              />
+              <ImageUpload onFilesPicked={addImageFiles} disabled={isFileUploadDisabled} />
             </Box>
           )}
 
-          <Box
-            w="100%"
-            opacity={isAuthenticated ? 1 : 0}
-            css={{
-              "& > div": {
-                height: "100%",
-              },
-            }}
-          >
-            <Input
-              onChange={setContent}
-              handleSubmit={handleSubmit}
+          <Box w="100%" opacity={isAuthenticated ? 1 : 0} position="relative">
+            {mention.isActive && (
+              <MentionOverlay
+                users={mention.filteredUsers}
+                highlightedIndex={mention.highlightedIndex}
+                onHighlightIndex={mention.setHighlightedIndex}
+                onSelect={handleMentionPick}
+                placement="above"
+              />
+            )}
+            <Textarea
+              ref={textareaRef}
+              name="content"
+              autoComplete="off"
+              rows={1}
               value={content}
-              inputRef={inputRef}
-              inputStyle={inputStyle}
-              handleKeyInput={handleKeyInput}
-              userSuggestions={userSuggestions}
-              mentionStyle={mentionStyle}
-              renderUserSuggestion={renderUserSuggestion}
+              onChange={handleTextareaChange}
+              onBlur={handleTextareaBlur}
+              onSelect={handleTextareaSelect}
+              onClick={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
+              onKeyDown={handleTextareaKeyDown}
               autoFocus={modalActive}
-              isDisabled={!isAuthenticated}
+              disabled={!isAuthenticated}
+              placeholder={isAuthenticated ? "Say something..." : ""}
+              w="100%"
+              resize="none"
+              minH="36px"
+              maxH="120px"
+              m={0}
+              p="6px"
+              fontSize="1rem"
+              lineHeight="1.4"
+              borderWidth={1}
+              borderStyle="solid"
+              borderColor={borderColor}
+              borderRadius="4px"
+              bg={inputBackground}
+              css={{
+                fieldSizing: "content",
+              }}
             />
           </Box>
           <Box

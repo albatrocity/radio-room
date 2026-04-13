@@ -55,7 +55,15 @@ function ModalAddToQueue() {
   }
 
   return (
-    <Modal open={isAddingToQueue} onClose={hideEditForm} heading="Add to play queue">
+    <Modal
+      open={isAddingToQueue}
+      onClose={hideEditForm}
+      heading={
+        <Heading as="h2" size="md">
+          Add to play queue
+        </Heading>
+      }
+    >
       <Stack direction="column" gap={8}>
         <Box zIndex={2}>
           <FormAddToQueue
@@ -75,10 +83,7 @@ function ModalAddToQueue() {
               w="100%"
               pointerEvents={open ? "auto" : "none"}
             />
-            <Box
-              opacity={open ? 0.1 : isLoading ? 0.5 : 1}
-              transition="opacity 0.2s"
-            >
+            <Box opacity={open ? 0.1 : isLoading ? 0.5 : 1} transition="opacity 0.2s">
               <Heading as="h4" size="sm" mb={2}>
                 Your recently liked tracks
               </Heading>
