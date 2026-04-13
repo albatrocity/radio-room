@@ -11,6 +11,7 @@ import ModalAbout from "./Modals/ModalAbout"
 import ModalAddToQueue from "./Modals/ModalAddToQueue"
 import ModalAdminSettings from "./Modals/Admin/ModalAdminSettings"
 import ScreenEffectsProvider from "./ScreenEffectsProvider"
+import DrawerSchedule from "./Drawers/DrawerSchedule"
 
 function Overlays() {
   return (
@@ -19,6 +20,7 @@ function Overlays() {
       <DrawerPlaylist />
       <Box hideFrom="sm">
         <DrawerListeners />
+        <DrawerSchedule />
       </Box>
 
       <ModalAbout />

@@ -13,6 +13,7 @@ export type Event =
   | { type: "VIEW_HELP" }
   | { type: "VIEW_BOOKMARKS" }
   | { type: "VIEW_LISTENERS" }
+  | { type: "VIEW_SCHEDULE" }
   | { type: "CLOSE" }
   | { type: "CREATE_ROOM" }
   | { type: "BACK" }
@@ -70,6 +71,9 @@ export const modalsMachine = setup({
     VIEW_LISTENERS: {
       target: ".listeners",
     },
+    VIEW_SCHEDULE: {
+      target: ".schedule",
+    },
     CLOSE: {
       target: ".closed",
     },
@@ -82,6 +86,7 @@ export const modalsMachine = setup({
     queue: {},
     listeners: {},
     help: {},
+    schedule: {},
     createRoom: {},
     settings: {
       entry: ["fetchSettings"],

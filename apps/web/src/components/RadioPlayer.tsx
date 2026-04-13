@@ -12,6 +12,7 @@ import PlayStateIcon from "./PlayStateIcon"
 import AdminControls from "./AdminControls"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import { useIsAdmin } from "../hooks/useActors"
+import ButtonSchedule from "./ButtonSchedule"
 
 interface RadioPlayerProps {
   volume: number
@@ -145,6 +146,7 @@ const RadioPlayer = ({
               <HStack>
                 {isAdmin && <AdminControls buttonColorScheme="action" buttonVariant="subtle" />}
                 <ButtonAddToQueue showText={false} />
+                <ButtonSchedule showText={false} />
                 <ButtonListeners variant="ghost" padding={0} />
               </HStack>
             </Box>
