@@ -1,8 +1,7 @@
 import { HStack, Icon } from "@chakra-ui/react"
 import { Select, SingleValue } from "chakra-react-select"
 import { MetadataSourceType } from "@repo/types"
-import { FaSpotify } from "react-icons/fa"
-import { SiTidal, SiApplemusic } from "react-icons/si"
+import { LuApple, LuMusic, LuWaves } from "react-icons/lu"
 import { IconType } from "react-icons"
 
 interface ServiceConfig {
@@ -12,9 +11,9 @@ interface ServiceConfig {
 }
 
 export const serviceConfig: Record<MetadataSourceType, ServiceConfig> = {
-  spotify: { label: "Spotify", icon: FaSpotify, color: "green.400" },
-  tidal: { label: "Tidal", icon: SiTidal, color: "cyan.400" },
-  applemusic: { label: "Apple Music", icon: SiApplemusic, color: "pink.400" },
+  spotify: { label: "Spotify", icon: LuMusic, color: "green.400" },
+  tidal: { label: "Tidal", icon: LuWaves, color: "cyan.400" },
+  applemusic: { label: "Apple Music", icon: LuApple, color: "pink.400" },
 }
 
 interface ServiceOption {

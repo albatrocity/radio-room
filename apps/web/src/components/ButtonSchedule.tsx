@@ -1,9 +1,6 @@
-import useCanDj from "./useCanDj"
-
 import { IconButton, Icon, Button, ButtonProps, Badge, Box } from "@chakra-ui/react"
-import { RiPlayListAddFill } from "react-icons/ri"
+import { LuClock, LuListPlus } from "react-icons/lu"
 import { useCurrentRoom, useIsAdmin, useModalsSend } from "../hooks/useActors"
-import { LuClock } from "react-icons/lu"
 
 type Props = {
   showText?: boolean
@@ -35,7 +32,7 @@ function ButtonSchedule({
 
   return showText ? (
     <Button variant={variant} colorPalette={colorPalette} onClick={onViewSchedule} size={size}>
-      <Icon as={RiPlayListAddFill} />
+      <Icon as={LuListPlus} />
       {label}
     </Button>
   ) : (

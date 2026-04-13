@@ -14,7 +14,7 @@ import {
 } from "@chakra-ui/react"
 
 import { PlaylistItem as PlaylistItemType, getPreferredTrack } from "../types/PlaylistItem"
-import { FiUser, FiSkipForward, FiTrash2, FiX } from "react-icons/fi"
+import { LuSkipForward, LuTrash2, LuUser, LuX } from "react-icons/lu"
 import { useUsers, usePreferredMetadataSource, useIsAdmin, useCurrentUser } from "../hooks/useActors"
 import { PluginArea } from "./PluginComponents"
 import { emitToSocket } from "../actors/socketActor"
@@ -122,7 +122,7 @@ const PlaylistItem = memo(function PlaylistItem({ item, isQueueItem = false }: P
                     {preferredTrack.title}
                   </Text>
                 </LinkOverlay>
-                {isSkipped && <Icon as={FiSkipForward} color="orange.400" boxSize={3} />}
+                {isSkipped && <Icon as={LuSkipForward} color="orange.400" boxSize={3} />}
               </HStack>
             )}
             <HStack color="colorPalette.fg/70" fontSize="xs" separator={<StackSeparator />}>
@@ -153,7 +153,7 @@ const PlaylistItem = memo(function PlaylistItem({ item, isQueueItem = false }: P
 
         {!!item.addedBy && (
           <Stack direction="row" gap={1} justifyContent="center" alignItems="center">
-            <Icon boxSize={3} color="colorPalette.fg/70" as={FiUser} />
+            <Icon boxSize={3} color="colorPalette.fg/70" as={LuUser} />
             <Text as="i" fontSize="xs" color="colorPalette.fg/70">
               Added by {djUsername}
             </Text>
@@ -180,7 +180,7 @@ const PlaylistItem = memo(function PlaylistItem({ item, isQueueItem = false }: P
               transition: "opacity 0.2s ease-in-out",
             }}
           >
-            <FiTrash2 />
+            <LuTrash2 />
           </IconButton>
         )}
         {/* Request removal button for queue items (own tracks only) */}
@@ -192,7 +192,7 @@ const PlaylistItem = memo(function PlaylistItem({ item, isQueueItem = false }: P
             colorPalette="orange"
             onClick={handleRequestRemoval}
           >
-            <FiX />
+            <LuX />
           </IconButton>
         )}
       </Stack>

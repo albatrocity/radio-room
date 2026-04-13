@@ -5,6 +5,8 @@ import {
   Button,
   Center,
   Heading,
+  HStack,
+  Icon,
   Input,
   Text,
   VStack,
@@ -13,7 +15,7 @@ import {
 
 import Layout from "../components/layout"
 import { authClient } from "@repo/auth/client"
-import { FcGoogle } from "react-icons/fc"
+import { LuChrome } from "react-icons/lu"
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -60,8 +62,10 @@ function LoginPage() {
             <Heading size="xl">Admin Login</Heading>
 
             <Button onClick={handleGoogleLogin} variant="outline" w="full" size="lg">
-              <FcGoogle />
-              Sign in with Google
+              <HStack gap={2}>
+                <Icon as={LuChrome} boxSize={5} />
+                <Text>Sign in with Google</Text>
+              </HStack>
             </Button>
 
             <Separator />

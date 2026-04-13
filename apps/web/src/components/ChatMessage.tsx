@@ -11,7 +11,7 @@ import {
   useBreakpointValue,
   Wrap,
 } from "@chakra-ui/react"
-import { FiBookmark, FiTrash2 } from "react-icons/fi"
+import { LuBookmark, LuTrash2 } from "react-icons/lu"
 
 import ReactionCounter from "./ReactionCounter"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
@@ -112,7 +112,7 @@ const ChatMessage = ({
                 size="xs"
                 onClick={handleDeleteClick}
               >
-                <Icon as={FiTrash2} />
+                <Icon as={LuTrash2} />
               </IconButton>
             )}
             {currentIsAdmin && (
@@ -123,7 +123,7 @@ const ChatMessage = ({
                 size="xs"
                 onClick={handleBookmark}
               >
-                <Icon as={FiBookmark} />
+                <Icon as={LuBookmark} />
               </IconButton>
             )}
             <Timestamp value={timestamp} />
@@ -154,7 +154,7 @@ const ChatMessage = ({
                     size="xs"
                     onClick={handleDeleteClick}
                   >
-                    <Icon as={FiTrash2} />
+                    <Icon as={LuTrash2} />
                   </IconButton>
                 )}
                 {currentIsAdmin && (
@@ -165,7 +165,7 @@ const ChatMessage = ({
                     size="xs"
                     onClick={handleBookmark}
                   >
-                    <Icon as={FiBookmark} />
+                    <Icon as={LuBookmark} />
                   </IconButton>
                 )}
                 <Timestamp value={timestamp} />

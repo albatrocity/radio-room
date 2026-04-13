@@ -15,7 +15,7 @@ import {
   Text,
   ScrollArea,
 } from "@chakra-ui/react"
-import { FiSettings, FiMoon, FiZap } from "react-icons/fi"
+import { LuMoon, LuSettings, LuZap } from "react-icons/lu"
 
 import FormTheme from "./FormTheme"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
@@ -64,7 +64,7 @@ const PopoverPreferences = (props: Props) => {
     <Popover.Root lazyMount>
       <Popover.Trigger asChild>
         <IconButton aria-label="Settings" variant="ghost" colorPalette="action">
-          <Icon as={FiSettings} />
+          <Icon as={LuSettings} />
         </IconButton>
       </Popover.Trigger>
       <Popover.Positioner>
@@ -73,7 +73,7 @@ const PopoverPreferences = (props: Props) => {
             <HStack align="center">
               <Flex grow={1}>Theme</Flex>
               <HStack align="center">
-                <Icon as={FiMoon} aria-label="Dark Mode" />
+                <Icon as={LuMoon} aria-label="Dark Mode" />
                 <Switch.Root
                   id="darkMode"
                   onCheckedChange={toggleColorMode}
@@ -155,7 +155,7 @@ const PopoverPreferences = (props: Props) => {
                   <HStack p={4} align="center" justify="space-between" gap={2}>
                     <Text fontWeight="semibold">Animations</Text>
                     <HStack align="center">
-                      <Icon as={FiZap} aria-label="Animations" />
+                      <Icon as={LuZap} aria-label="Animations" />
                       <Switch.Root
                         id="animations"
                         onCheckedChange={toggleAnimations}

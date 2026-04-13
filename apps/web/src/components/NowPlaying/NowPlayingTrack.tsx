@@ -1,7 +1,5 @@
 import { useMemo } from "react"
-import { FiUser } from "react-icons/fi"
-import { FaSpotify } from "react-icons/fa"
-import { SiTidal } from "react-icons/si"
+import { LuMusic, LuUser, LuWaves } from "react-icons/lu"
 import {
   Heading,
   Text,
@@ -215,7 +213,7 @@ function AddedByInfo({ dj, djUsername, addedAt }: AddedByInfoProps) {
 
   return (
     <HStack mt={4} gap={2}>
-      <Icon color="primary.contrast" boxSize={3} as={FiUser} />
+      <Icon color="primary.contrast" boxSize={3} as={LuUser} />
       <Text as="i" color="primary.contrast" fontSize="xs">
         Added by {djUsername} at {format(new Date(addedAt), "p")}
       </Text>
@@ -233,9 +231,9 @@ function MetadataSourceInfo({ metadataSource }: MetadataSourceInfoProps) {
   const getSourceIcon = (type: string) => {
     switch (type) {
       case "spotify":
-        return FaSpotify
+        return LuMusic
       case "tidal":
-        return SiTidal
+        return LuWaves
       default:
         return null
     }

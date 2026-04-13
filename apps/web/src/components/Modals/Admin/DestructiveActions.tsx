@@ -1,9 +1,7 @@
 import React from "react"
 import { Wrap, Button, Icon, Text } from "@chakra-ui/react"
 
-import { BiMessageRoundedMinus } from "react-icons/bi"
-import { FiList } from "react-icons/fi"
-import { LuTrash2 } from "react-icons/lu"
+import { LuEraser, LuList, LuTrash2 } from "react-icons/lu"
 import ConfirmationPopover from "../../ConfirmationPopover"
 import { useColorModeValue } from "../../ui/color-mode"
 import {
@@ -30,7 +28,7 @@ export default function DestructiveActions() {
       <Wrap>
         <ConfirmationPopover
           triggerText="Clear Chat"
-          triggerIcon={<Icon as={BiMessageRoundedMinus} />}
+          triggerIcon={<Icon as={LuEraser} />}
           triggerVariant="outline"
           onConfirm={() => chatSend({ type: "CLEAR_MESSAGES" })}
           confirmText="Clear Chat"
@@ -43,7 +41,7 @@ export default function DestructiveActions() {
 
         <ConfirmationPopover
           triggerText="Clear Playlist"
-          triggerIcon={<Icon as={FiList} />}
+          triggerIcon={<Icon as={LuList} />}
           triggerVariant="outline"
           onConfirm={() => adminSend({ type: "CLEAR_PLAYLIST" })}
           confirmText="Clear Playlist"
@@ -59,7 +57,7 @@ export default function DestructiveActions() {
           <ConfirmationPopover
             triggerColorScheme="red"
             triggerText="Delete Room"
-            triggerIcon={<LuTrash2 />}
+            triggerIcon={<Icon as={LuTrash2} />}
             triggerVariant="outline"
             onConfirm={() =>
               adminSend({ type: "DELETE_ROOM", data: { id: room.id } })

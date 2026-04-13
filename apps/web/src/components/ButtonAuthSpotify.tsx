@@ -1,8 +1,7 @@
 // component for the button to authenticate with a music service
 import React, { useEffect } from "react"
 import { Link, Box, Button, IconButton, Icon, Text, HStack } from "@chakra-ui/react"
-import { LuCheckCircle, LuTrash2 } from "react-icons/lu"
-import { FaSpotify } from "react-icons/fa"
+import { LuCheckCircle, LuMusic, LuTrash2 } from "react-icons/lu"
 
 import {
   useCurrentUser,
@@ -64,7 +63,7 @@ export default function ButtonAuthSpotify({
               userId ?? currentUser.userId
             }`}
           >
-            {serviceName === "spotify" && <Icon as={FaSpotify} />}
+            {serviceName === "spotify" && <Icon as={LuMusic} />}
             Link {serviceDisplayName}
           </Link>
         </Button>

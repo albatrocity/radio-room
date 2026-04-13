@@ -1,7 +1,7 @@
 import { Box, Button, Icon } from "@chakra-ui/react"
 import { useMachine } from "@xstate/react"
 import React, { useRef } from "react"
-import { FiArrowDown } from "react-icons/fi"
+import { LuArrowDown } from "react-icons/lu"
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso"
 
 import { scrollFollowMachine } from "../machines/scrollFollowMachine"
@@ -60,7 +60,7 @@ function ChatWindow() {
     return (
       <InnerItem
         index={index}
-        currentUserId={currentUser.userId}
+        currentUserId={currentUser?.userId ?? ""}
         message={message}
         sameUserAsLastMessage={sameUserAsLastMessage}
         sameUserAsNextMessage={sameUserAsNextMessage}
@@ -95,7 +95,7 @@ function ChatWindow() {
       >
         Scroll to bottom
         {state.context.newMessages > 0 && `(${state.context.newMessages} new)`}
-        <Icon as={FiArrowDown} boxSize={4} ml={2} />
+        <Icon as={LuArrowDown} boxSize={4} ml={2} />
       </Button>
     </Box>
   )

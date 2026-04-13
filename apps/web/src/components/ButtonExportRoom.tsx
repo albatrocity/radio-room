@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react"
-import { IconButton, Menu, Portal, Spinner } from "@chakra-ui/react"
-import { FaDownload, FaFileCode, FaFileAlt } from "react-icons/fa"
+import { Icon, IconButton, Menu, Portal, Spinner } from "@chakra-ui/react"
+import { LuDownload, LuFileCode, LuFileText } from "react-icons/lu"
 import { Tooltip } from "./ui/tooltip"
 
 import { useCurrentRoom } from "../hooks/useActors"
@@ -73,7 +73,7 @@ export default function ButtonExportRoom({ size = "sm" }: Props) {
       <Menu.Root>
         <Menu.Trigger asChild>
           <IconButton aria-label="Export room" size={size} variant="ghost" disabled={isLoading}>
-            {isLoading ? <Spinner size="sm" /> : <FaDownload />}
+            {isLoading ? <Spinner size="sm" /> : <Icon as={LuDownload} />}
           </IconButton>
         </Menu.Trigger>
         <Portal>
@@ -84,11 +84,11 @@ export default function ButtonExportRoom({ size = "sm" }: Props) {
                 onClick={() => handleExport("markdown")}
                 disabled={isLoading}
               >
-                {loadingFormat === "markdown" ? <Spinner size="sm" /> : <FaFileAlt />}
+                {loadingFormat === "markdown" ? <Spinner size="sm" /> : <Icon as={LuFileText} />}
                 Markdown
               </Menu.Item>
               <Menu.Item value="json" onClick={() => handleExport("json")} disabled={isLoading}>
-                {loadingFormat === "json" ? <Spinner size="sm" /> : <FaFileCode />}
+                {loadingFormat === "json" ? <Spinner size="sm" /> : <Icon as={LuFileCode} />}
                 JSON
               </Menu.Item>
             </Menu.Content>

@@ -1,6 +1,6 @@
 import React from "react"
 import { Button, ButtonProps, Icon } from "@chakra-ui/react"
-import { FiUsers } from "react-icons/fi"
+import { LuUsers } from "react-icons/lu"
 import { useListeners, useModalsSend } from "../hooks/useActors"
 
 const ButtonListeners = (props: ButtonProps) => {
@@ -15,7 +15,7 @@ const ButtonListeners = (props: ButtonProps) => {
       size="sm"
       {...props}
     >
-      <Icon boxSize={5} as={FiUsers} />
+      <Icon boxSize={5} as={LuUsers} />
       {listeners.length}
     </Button>
   )
