@@ -25,7 +25,7 @@ const ScrollShadowViewport = React.forwardRef<
               "linear-gradient(0deg,#000 calc(100% - var(--scroll-shadow-size)),transparent)",
           },
         },
-        overscrollBehaviorY: "contain",
+        overscrollBehaviorY: "none",
       }}
       {...props}
     >
