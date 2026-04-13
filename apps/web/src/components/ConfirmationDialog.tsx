@@ -9,6 +9,7 @@ import {
   DialogBody,
   DialogFooter,
   HStack,
+  Portal,
 } from "@chakra-ui/react"
 
 type Props = {
@@ -47,33 +48,35 @@ function ConfirmationDialog({
       initialFocusEl={() => cancelRef.current}
       placement="center"
     >
-      <DialogBackdrop />
-      <DialogPositioner>
-        <DialogContent>
-          <DialogHeader fontSize="lg" fontWeight="bold">
-            {title}
-          </DialogHeader>
+      <Portal>
+        <DialogBackdrop />
+        <DialogPositioner>
+          <DialogContent>
+            <DialogHeader fontSize="lg" fontWeight="bold">
+              {title}
+            </DialogHeader>
 
-          <DialogBody>{body}</DialogBody>
+            <DialogBody>{body}</DialogBody>
 
-          <DialogFooter>
-            <HStack gap={2}>
-              <Button ref={cancelRef} variant="ghost" onClick={onClose}>
-                {cancelLabel}
-              </Button>
-              <Button
-                onClick={() => {
-                  onConfirm()
-                  onClose()
-                }}
-                colorPalette={isDangerous ? "red" : undefined}
-              >
-                {confirmLabel}
-              </Button>
-            </HStack>
-          </DialogFooter>
-        </DialogContent>
-      </DialogPositioner>
+            <DialogFooter>
+              <HStack gap={2}>
+                <Button ref={cancelRef} variant="ghost" onClick={onClose}>
+                  {cancelLabel}
+                </Button>
+                <Button
+                  onClick={() => {
+                    onConfirm()
+                    onClose()
+                  }}
+                  colorPalette={isDangerous ? "red" : undefined}
+                >
+                  {confirmLabel}
+                </Button>
+              </HStack>
+            </DialogFooter>
+          </DialogContent>
+        </DialogPositioner>
+      </Portal>
     </DialogRoot>
   )
 }

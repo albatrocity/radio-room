@@ -10,6 +10,7 @@ import {
   DialogFooter,
   DialogCloseTrigger,
   CloseButton,
+  Portal,
 } from "@chakra-ui/react"
 
 interface Props {
@@ -39,20 +40,22 @@ const Modal = ({
 
   return (
     <DialogRoot open={isDialogOpen} onOpenChange={(e) => !e.open && onClose()} placement="center">
-      <DialogBackdrop />
-      <DialogPositioner>
-        <DialogContent mx={2} bg="appBg" layerStyle="themeTransition">
-          <DialogHeader>{heading}</DialogHeader>
+      <Portal>
+        <DialogBackdrop />
+        <DialogPositioner>
+          <DialogContent mx={2} bg="appBg" layerStyle="themeTransition">
+            <DialogHeader>{heading}</DialogHeader>
 
-          {canClose && (
-            <DialogCloseTrigger asChild position="absolute" top="2" right="2">
-              <CloseButton size="sm" />
-            </DialogCloseTrigger>
-          )}
-          <DialogBody>{children}</DialogBody>
-          {showFooter && <DialogFooter>{footer}</DialogFooter>}
-        </DialogContent>
-      </DialogPositioner>
+            {canClose && (
+              <DialogCloseTrigger asChild position="absolute" top="2" right="2">
+                <CloseButton size="sm" />
+              </DialogCloseTrigger>
+            )}
+            <DialogBody>{children}</DialogBody>
+            {showFooter && <DialogFooter>{footer}</DialogFooter>}
+          </DialogContent>
+        </DialogPositioner>
+      </Portal>
     </DialogRoot>
   )
 }
