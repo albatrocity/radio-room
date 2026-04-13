@@ -43,14 +43,11 @@ function ChatWindow() {
   const [state, send] = useMachine(scrollFollowMachine)
   const messages = useSortedChatMessages()
   const currentUser = useCurrentUser()
-  const scrollTargetTimestamp = useSelector(
-    chatScrollTargetActor,
-    (s) => s.context.targetTimestamp,
-  )
+  const scrollTargetTimestamp = useSelector(chatScrollTargetActor, (s) => s.context.targetTimestamp)
   const scrollRequestId = useSelector(chatScrollTargetActor, (s) => s.context.requestId)
 
   const { scrollRef, contentRef, scrollToBottom, isAtBottom } = useStickToBottom({
-    resize: "smooth",
+    resize: { damping: 0.72, stiffness: 0.1, mass: 1 },
     initial: "instant",
   })
 
