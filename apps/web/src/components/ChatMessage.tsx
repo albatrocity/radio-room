@@ -188,11 +188,7 @@ const ChatMessage = ({
         onClose={handleDeleteCancel}
         onConfirm={handleDeleteConfirm}
         title="Delete Message"
-        body={
-          <Text>
-            Are you sure you want to delete this message? This cannot be undone.
-          </Text>
-        }
+        body={<Text>Are you sure you want to delete this message? This cannot be undone.</Text>}
         confirmLabel="Delete"
         isDangerous
       />

@@ -11,6 +11,7 @@ import { ChatMessage as Message } from "../types/ChatMessage"
 import { User } from "../types/User"
 import ChatMessage from "./ChatMessage"
 import SystemMessage from "./SystemMessage"
+import ScrollShadowViewport from "./ScrollShadowViewport"
 
 const InnerItem = React.memo(
   ({
@@ -51,7 +52,7 @@ function ChatWindow() {
     count: messages.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 72,
-    overscan: 12,
+    overscan: 50,
     getItemKey: (index) => messages[index]?.timestamp ?? index,
   })
 
@@ -60,7 +61,7 @@ function ChatWindow() {
   }, [isAtBottom, send])
 
   const handleBottomClick = () => {
-    void scrollToBottom({ animation: "smooth" })
+    void scrollToBottom({ animation: "smooth", duration: 100 })
   }
 
   const virtualItems = virtualizer.getVirtualItems()
@@ -70,7 +71,7 @@ function ChatWindow() {
   return (
     <Box position="relative" height="100%">
       <ScrollArea.Root height="100%" size="sm" variant="hover">
-        <ScrollArea.Viewport ref={scrollRef} height="100%">
+        <ScrollShadowViewport ref={scrollRef} height="100%">
           <ScrollArea.Content>
             <Box
               ref={contentRef}
@@ -108,7 +109,7 @@ function ChatWindow() {
               })}
             </Box>
           </ScrollArea.Content>
-        </ScrollArea.Viewport>
+        </ScrollShadowViewport>
         <ScrollArea.Scrollbar>
           <ScrollArea.Thumb />
         </ScrollArea.Scrollbar>
@@ -125,9 +126,8 @@ function ChatWindow() {
         transitionDelay={showJumpToBottom ? "1s" : "0s"}
         onClick={handleBottomClick}
       >
-        Scroll to bottom
-        {state.context.newMessages > 0 && `(${state.context.newMessages} new)`}
-        <Icon as={LuArrowDown} boxSize={4} ml={2} />
+        {state.context.newMessages > 0 && `${state.context.newMessages} new`}
+        <Icon as={LuArrowDown} boxSize={4} />
       </Button>
     </Box>
   )

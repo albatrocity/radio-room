@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react"
-import { Box, Heading, HStack, Badge, Separator, VStack } from "@chakra-ui/react"
-import { Virtuoso, VirtuosoHandle } from "react-virtuoso"
+import { Box, Heading, HStack, Badge, Separator, VStack, ScrollArea } from "@chakra-ui/react"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { QueueItem } from "../types/Queue"
 import { useQueueList, useCurrentRoom } from "../hooks/useActors"
 import PlaylistItem from "./PlaylistItem"
@@ -13,7 +13,7 @@ const MAX_LIST_HEIGHT = 200 // Cap the list height
 function QueuedTracksSection() {
   const queue: QueueItem[] = useQueueList()
   const room = useCurrentRoom()
-  const virtuosoRef = useRef<VirtuosoHandle>(null)
+  const viewportRef = useRef<HTMLDivElement | null>(null)
 
   // showQueueTracks defaults to true when undefined
   const showQueueTracks = room?.showQueueTracks !== false
@@ -24,19 +24,22 @@ function QueuedTracksSection() {
     return Math.min(contentHeight, MAX_LIST_HEIGHT)
   }, [queue.length])
 
+  const virtualizer = useVirtualizer({
+    count: queue.length,
+    getScrollElement: () => viewportRef.current,
+    estimateSize: () => 78,
+    overscan: 4,
+    getItemKey: (index) => {
+      const item = queue[index]
+      return item ? `${item.addedAt}-${item.track.id}` : index
+    },
+  })
+
   if (!showQueueTracks || queue.length === 0) {
     return null
   }
 
-  const renderItem = (index: number) => {
-    const item = queue[index]
-    return (
-      <VStack pb={2} gap={2} w="100%" align="stretch">
-        <PlaylistItem item={item} isQueueItem />
-        {index < queue.length - 1 && <Separator borderColor="secondaryBorder" opacity={0.5} />}
-      </VStack>
-    )
-  }
+  const virtualItems = virtualizer.getVirtualItems()
 
   return (
     <Box
@@ -65,12 +68,42 @@ function QueuedTracksSection() {
           <ButtonAddToQueue variant="solid" colorPalette="primary" size="xs" showCount={false} />
         </HStack>
         <Box w="100%">
-          <Virtuoso
-            style={{ height: listHeight }}
-            totalCount={queue.length}
-            itemContent={renderItem}
-            ref={virtuosoRef}
-          />
+          <ScrollArea.Root height={`${listHeight}px`} size="sm" variant="hover">
+            <ScrollArea.Viewport ref={viewportRef} height="100%">
+              <ScrollArea.Content>
+                <Box position="relative" width="100%" height={`${virtualizer.getTotalSize()}px`}>
+                  {virtualItems.map((virtualRow) => {
+                    const item = queue[virtualRow.index]
+                    if (!item) return null
+
+                    return (
+                      <Box
+                        key={virtualRow.key}
+                        data-index={virtualRow.index}
+                        ref={virtualizer.measureElement}
+                        position="absolute"
+                        top={0}
+                        left={0}
+                        width="100%"
+                        transform={`translateY(${virtualRow.start}px)`}
+                      >
+                        <VStack pb={2} gap={2} w="100%" align="stretch">
+                          <PlaylistItem item={item} isQueueItem />
+                          {virtualRow.index < queue.length - 1 && (
+                            <Separator borderColor="secondaryBorder" opacity={0.5} />
+                          )}
+                        </VStack>
+                      </Box>
+                    )
+                  })}
+                </Box>
+              </ScrollArea.Content>
+            </ScrollArea.Viewport>
+            <ScrollArea.Scrollbar>
+              <ScrollArea.Thumb />
+            </ScrollArea.Scrollbar>
+            <ScrollArea.Corner />
+          </ScrollArea.Root>
         </Box>
       </VStack>
     </Box>
