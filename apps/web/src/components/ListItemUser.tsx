@@ -4,7 +4,7 @@ import { get, isEqual } from "lodash/fp"
 import { Box, Text, HStack, IconButton, Icon, List, VStack, Stack } from "@chakra-ui/react"
 import { Tooltip } from "./ui/tooltip"
 import { LuPencil, LuX } from "react-icons/lu"
-import { FiMic, FiMusic, FiEye, FiHeadphones, FiShield } from "react-icons/fi"
+import { FiMic, FiMusic, FiEye, FiHeadphones } from "react-icons/fi"
 import { BiMessageRoundedDots, BiCrown } from "react-icons/bi"
 import { User } from "../types/User"
 import { PluginArea } from "./PluginComponents"
@@ -96,7 +96,7 @@ const ListItemUser = ({
             {isAdmin && !isRoomCreator && (
               <Tooltip content="Room Admin" positioning={{ placement: "top" }}>
                 <Box>
-                  <Icon as={FiShield} boxSize={3} />
+                  <Icon as={BiCrown} boxSize={3} />
                 </Box>
               </Tooltip>
             )}
@@ -160,7 +160,7 @@ const ListItemUser = ({
                     onDesignateAdmin(user.userId)
                   }}
                 >
-                  <Icon as={FiShield} />
+                  <Icon as={BiCrown} />
                 </IconButton>
               </Tooltip>
             )}
