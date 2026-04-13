@@ -46,6 +46,10 @@ function ChatWindow() {
   const scrollTargetTimestamp = useSelector(chatScrollTargetActor, (s) => s.context.targetTimestamp)
   const scrollRequestId = useSelector(chatScrollTargetActor, (s) => s.context.requestId)
 
+  if (!currentUser) {
+    throw new Error("Current user not found")
+  }
+
   const { scrollRef, contentRef, scrollToBottom, isAtBottom } = useStickToBottom({
     resize: { damping: 0.72, stiffness: 0.1, mass: 1 },
     initial: "instant",
@@ -119,7 +123,7 @@ function ChatWindow() {
                     transform={`translateY(${virtualRow.start}px)`}
                   >
                     <InnerItem
-                      currentUserId={currentUser?.userId ?? ""}
+                      currentUserId={currentUser.userId}
                       message={message}
                       sameUserAsLastMessage={sameUserAsLastMessage}
                       sameUserAsNextMessage={sameUserAsNextMessage}

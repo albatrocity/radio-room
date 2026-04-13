@@ -32,8 +32,7 @@ const DrawerBookmarks = () => {
       <ConfirmationDialog
         body={
           <Text>
-            Are you sure you want to clear all bookmarked messages? This cannot
-            be undone.
+            Are you sure you want to clear all bookmarked messages? This cannot be undone.
           </Text>
         }
         isOpen={isOpen}
@@ -50,12 +49,8 @@ const DrawerBookmarks = () => {
         onClose={() => hideBookmarks()}
         footer={
           messages.length > 0 && (
-            <Button
-              leftIcon={<Icon as={LuTrash2} />}
-              colorScheme="red"
-              variant="ghost"
-              onClick={onOpen}
-            >
+            <Button colorScheme="red" variant="ghost" onClick={clearBookmarks}>
+              <Icon as={LuTrash2} size="sm" />
               Clear Bookmarks
             </Button>
           )
@@ -65,9 +60,7 @@ const DrawerBookmarks = () => {
           {messages.length > 0 ? (
             <BookmarkedMessages />
           ) : (
-            <Text fontSize="sm">
-              Click the bookmark icon on a message to save it here.
-            </Text>
+            <Text fontSize="sm">Click the bookmark icon on a message to save it here.</Text>
           )}
         </Box>
       </Drawer>

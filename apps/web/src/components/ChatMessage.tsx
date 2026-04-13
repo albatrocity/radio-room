@@ -165,7 +165,7 @@ const ChatMessage = ({
                     size="xs"
                     onClick={handleBookmark}
                   >
-                    <Icon as={LuBookmark} />
+                    <Icon as={LuBookmark} fill={isBookmarked ? "currentColor" : "none"} />
                   </IconButton>
                 )}
                 <Timestamp value={timestamp} />
