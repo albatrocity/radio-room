@@ -79,29 +79,7 @@ function AdminPanel({ buttonColorScheme, buttonVariant = "bright", width, ...res
               <Icon as={LuBookmark} />
             </IconButton>
           </Box>
-          <Box hideFrom="sm">
-            <IconButton
-              aria-label="Back to Rooms"
-              asChild
-              variant={buttonVariant}
-              colorPalette={buttonColorScheme}
-            >
-              <Link to="/">
-                <LuArrowLeft />
-              </Link>
-            </IconButton>
-          </Box>
         </Wrap>
-        <Box hideBelow="sm">
-          <Wrap>
-            <Button asChild size="xs" variant={buttonVariant} colorPalette={buttonColorScheme}>
-              <Link to="/">
-                <LuArrowLeft />
-                Back to Rooms
-              </Link>
-            </Button>
-          </Wrap>
-        </Box>
       </Stack>
     </Box>
   )
