@@ -5,6 +5,8 @@ import {
   Button,
   Center,
   Heading,
+  HStack,
+  Icon,
   Input,
   Text,
   VStack,
@@ -14,7 +16,7 @@ import {
 
 import Layout from "../components/layout"
 import { authApiUrl, authClient, setInviteCodeCookieForOAuth } from "@repo/auth/client"
-import { FcGoogle } from "react-icons/fc"
+import { LuChrome } from "react-icons/lu"
 
 async function authFetch(path: string, options?: RequestInit) {
   const res = await fetch(authApiUrl(path), {
@@ -131,8 +133,10 @@ function RegisterPage() {
             <Text color="fg.muted">You've been invited to join Listening Room.</Text>
 
             <Button onClick={handleGoogleSignup} variant="outline" w="full" size="lg">
-              <FcGoogle />
-              Sign up with Google
+              <HStack gap={2}>
+                <Icon as={LuChrome} boxSize={5} />
+                <Text>Sign up with Google</Text>
+              </HStack>
             </Button>
 
             <Separator />

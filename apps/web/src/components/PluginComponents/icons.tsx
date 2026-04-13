@@ -1,18 +1,24 @@
-import { FaTrophy, FaStar, FaMedal, FaAward, FaHeart } from "react-icons/fa"
-import { FiSkipForward } from "react-icons/fi"
-import { LuSwords } from "react-icons/lu"
+import {
+  LuAward,
+  LuHeart,
+  LuMedal,
+  LuSkipForward,
+  LuStar,
+  LuSwords,
+  LuTrophy,
+} from "react-icons/lu"
 
 // ============================================================================
 // Icon Mapping
 // ============================================================================
 
 export const ICON_MAP: Record<string, React.ComponentType> = {
-  trophy: FaTrophy,
-  star: FaStar,
-  medal: FaMedal,
-  award: FaAward,
-  heart: FaHeart,
-  "skip-forward": FiSkipForward,
+  trophy: LuTrophy,
+  star: LuStar,
+  medal: LuMedal,
+  award: LuAward,
+  heart: LuHeart,
+  "skip-forward": LuSkipForward,
   swords: LuSwords,
 }
 

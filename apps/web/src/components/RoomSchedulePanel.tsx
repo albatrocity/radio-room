@@ -23,7 +23,7 @@ import {
   useBreakpointValue,
 } from "@chakra-ui/react"
 import type { ShowSegmentDTO } from "@repo/types"
-import { FiFileText } from "react-icons/fi"
+import { LuFileText } from "react-icons/lu"
 import { fetchRoom } from "../actors/roomActor"
 import {
   useAdminSend,
@@ -269,7 +269,7 @@ export default function RoomSchedulePanel() {
                           aria-label="View segment notes"
                           onClick={() => openSegmentNotes(ss.segmentId, ss.segment?.title ?? "")}
                         >
-                          <Icon as={FiFileText} />
+                          <Icon as={LuFileText} />
                         </IconButton>
                         <Button size="xs" variant="outline" onClick={() => onActivateClick(ss)}>
                           Activate

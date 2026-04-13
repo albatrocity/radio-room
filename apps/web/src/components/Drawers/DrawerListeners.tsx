@@ -21,18 +21,13 @@ function DrawerListeners() {
   return (
     <Drawer
       isOpen={isModalViewingListeners}
-      isFullHeight
       heading={`Listeners (${listeners.length})`}
       size={["sm", "lg"]}
       onClose={() => hideListeners()}
     >
       <Box p="sm" overflow="auto" h="100%">
         <div>
-          <UserList
-            showHeading={false}
-            showStatus={hasAudio}
-            onEditUser={handleEditUser}
-          />
+          <UserList showHeading={false} showStatus={hasAudio} onEditUser={handleEditUser} />
         </div>
       </Box>
     </Drawer>

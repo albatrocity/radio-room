@@ -12,7 +12,7 @@ import React, {
 import { createPortal } from "react-dom"
 
 import { Box, IconButton, Flex, Icon, Text, Image, Wrap } from "@chakra-ui/react"
-import { FiArrowUpCircle, FiX, FiImage } from "react-icons/fi"
+import { LuArrowUpCircle, LuImage, LuX } from "react-icons/lu"
 import { MentionsInput, Mention } from "react-mentions"
 import { debounce } from "lodash"
 
@@ -318,7 +318,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
                 bg="gray.100"
                 borderRadius="md"
               >
-                <Icon as={FiImage} boxSize={6} color="gray.400" />
+                <Icon as={LuImage} boxSize={6} color="gray.400" />
               </Flex>
             ) : (
               <Image
@@ -340,7 +340,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
               borderRadius="full"
               onClick={() => removeFileAt(index)}
             >
-              <Icon as={FiX} boxSize={3} />
+              <Icon as={LuX} boxSize={3} />
             </IconButton>
           </Box>
         ))}
@@ -441,7 +441,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
               colorPalette="action"
               css={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
             >
-              <Icon as={FiArrowUpCircle} />
+              <Icon as={LuArrowUpCircle} />
             </IconButton>
           </Box>
         </Flex>

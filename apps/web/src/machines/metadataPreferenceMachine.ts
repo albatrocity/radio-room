@@ -104,18 +104,18 @@ export const metadataSourceDisplayNames: Record<MetadataSourceType, string> = {
 }
 
 /**
- * Get icon name for a metadata source (for use with react-icons)
+ * Get Lucide icon component name for a metadata source (`react-icons/lu` exports).
  */
 export function getMetadataSourceIcon(source: MetadataSourceType): string {
   switch (source) {
     case "spotify":
-      return "FaSpotify"
+      return "LuMusic"
     case "tidal":
-      return "SiTidal"
+      return "LuWaves"
     case "applemusic":
-      return "FaApple"
+      return "LuApple"
     default:
-      return "FaMusic"
+      return "LuMusic"
   }
 }
 

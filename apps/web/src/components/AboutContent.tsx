@@ -1,6 +1,6 @@
 import { Box, Text, Link, Icon } from "@chakra-ui/react"
 import { useRoomCreator, useListeners } from "../hooks/useActors"
-import { BiCrown } from "react-icons/bi"
+import { LuCrown } from "react-icons/lu"
 
 type Props = {}
 
@@ -12,7 +12,7 @@ function AboutContent({}: Props) {
     <Box p="md" textStyle="body">
       <Text as="p">
         Thanks for being here! You are participating in a Listening Room created by{" "}
-        <Icon as={BiCrown} boxSize={3} /> <Text as="strong">{creatorName}</Text>, and you're seeing
+        <Icon as={LuCrown} boxSize={3} /> <Text as="strong">{creatorName}</Text>, and you're seeing
         what's currently playing on their <Link href="https://spotify.com">Spotify</Link> account.
         Learn more about this project by visiting the <Link href="/about">About page</Link>.
       </Text>

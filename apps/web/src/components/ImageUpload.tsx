@@ -1,6 +1,6 @@
 import { memo, useCallback, useRef } from "react"
 import { Icon, Menu, Portal, IconButton } from "@chakra-ui/react"
-import { FiCamera, FiImage, FiUpload } from "react-icons/fi"
+import { LuCamera, LuImage, LuUpload } from "react-icons/lu"
 
 interface ImageUploadProps {
   /** Append picked images (caller enforces max count / size / auth) */
@@ -59,18 +59,18 @@ const ImageUpload = ({ onFilesPicked, disabled = false }: ImageUploadProps) => {
       <Menu.Root>
         <Menu.Trigger asChild>
           <IconButton variant="ghost" disabled={disabled} aria-label="Attach image">
-            <Icon as={FiImage} />
+            <Icon as={LuImage} />
           </IconButton>
         </Menu.Trigger>
         <Portal>
           <Menu.Positioner>
             <Menu.Content>
               <Menu.Item value="upload" disabled={disabled} onClick={openFilePicker}>
-                <Icon as={FiUpload} />
+                <Icon as={LuUpload} />
                 Upload
               </Menu.Item>
               <Menu.Item value="camera" disabled={disabled} onClick={openCamera}>
-                <Icon as={FiCamera} />
+                <Icon as={LuCamera} />
                 Take photo
               </Menu.Item>
             </Menu.Content>

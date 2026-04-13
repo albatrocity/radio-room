@@ -2,8 +2,7 @@
 import React, { useEffect } from "react"
 import { useLocation } from "@tanstack/react-router"
 import { Link, Box, Button, Icon, Text, HStack, VStack, Spinner } from "@chakra-ui/react"
-import { LuCheckCircle } from "react-icons/lu"
-import { FaSpotify } from "react-icons/fa"
+import { LuCheckCircle, LuMusic } from "react-icons/lu"
 
 import {
   useCurrentUser,
@@ -52,7 +51,7 @@ export default function ButtonRoomAuthSpotify({
                 currentUser?.userId
               }&redirect=${encodeURIComponent(location.pathname)}`}
             >
-              {serviceName === "spotify" && <Icon as={FaSpotify} />}
+              {serviceName === "spotify" && <Icon as={LuMusic} />}
               Link {serviceDisplayName}
             </Link>
           </Button>

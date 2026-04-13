@@ -1,8 +1,7 @@
 import { useRef, memo, useEffect, useCallback } from "react"
 import { Box, Icon, IconButton, HStack, Slider, Container } from "@chakra-ui/react"
 
-import { LuVolume2, LuVolumeX } from "react-icons/lu"
-import { RiPlayListFill } from "react-icons/ri"
+import { LuListMusic, LuVolume2, LuVolumeX } from "react-icons/lu"
 import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
 import ButtonListeners from "./ButtonListeners"
@@ -12,6 +11,7 @@ import PlayStateIcon from "./PlayStateIcon"
 import AdminControls from "./AdminControls"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import { useIsAdmin } from "../hooks/useActors"
+import ButtonSchedule from "./ButtonSchedule"
 
 interface RadioPlayerProps {
   volume: number
@@ -96,7 +96,7 @@ const RadioPlayer = ({
                   variant="ghost"
                   onClick={onShowPlaylist}
                 >
-                  <Icon boxSize={5} as={RiPlayListFill} />
+                  <Icon boxSize={5} as={LuListMusic} />
                 </IconButton>
               )}
               <IconButton
@@ -145,6 +145,7 @@ const RadioPlayer = ({
               <HStack>
                 {isAdmin && <AdminControls buttonColorScheme="action" buttonVariant="subtle" />}
                 <ButtonAddToQueue showText={false} />
+                <ButtonSchedule showText={false} />
                 <ButtonListeners variant="ghost" padding={0} />
               </HStack>
             </Box>

@@ -12,7 +12,7 @@ import {
 } from "@chakra-ui/react"
 
 type AppColorPalette = "primary" | "secondary" | "action"
-import { FiPlus, FiSmile } from "react-icons/fi"
+import { LuPlus, LuSmile } from "react-icons/lu"
 
 import ReactionPicker from "./ReactionPicker"
 import ReactionCounterItem from "./ReactionCounterItem"
@@ -120,8 +120,8 @@ const ReactionSelection = memo(function ReactionSelection({
                   disabled={!showAddButton}
                   onClick={() => onToggle()}
                 >
-                  <Icon as={FiSmile} />
-                  <Icon boxSize={3} as={FiPlus} />
+                  <Icon as={LuSmile} />
+                  <Icon boxSize={3} as={LuPlus} />
                 </IconButton>
               </Box>
             </Popover.Trigger>

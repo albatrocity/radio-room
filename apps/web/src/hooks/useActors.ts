@@ -26,6 +26,7 @@ import { themeActor } from "../actors/themeActor"
 import { errorsActor } from "../actors/errorsActor"
 import { metadataSourceAuthActor } from "../actors/metadataSourceAuthActor"
 import { bookmarkedChatActor } from "../actors/bookmarkedChatActor"
+import { chatScrollTargetActor } from "../actors/chatScrollTargetActor"
 import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
 import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { MetadataSourceType, QueueItem } from "../types/Queue"
@@ -436,6 +437,8 @@ export const useIsBookmarked = (messageTimestamp: string) => {
 }
 
 export const useBookmarksSend = () => bookmarkedChatActor.send
+
+export const useChatScrollTargetSend = () => chatScrollTargetActor.send
 
 // ============================================================================
 // Metadata Preference Hooks

@@ -12,7 +12,7 @@ import {
   useCurrentRoomHasAudio,
 } from "../hooks/useActors"
 import JukeboxControls from "./JukeboxControls"
-import { RiPlayListFill } from "react-icons/ri"
+import { LuListMusic } from "react-icons/lu"
 const RadioControls = lazy(() => import("./RadioControls"))
 const LivePlayer = lazy(() => import("./LivePlayer"))
 import { useHybridListeningTransport } from "../hooks/useHybridListeningTransport"
@@ -112,7 +112,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
             variant="ghost"
             onClick={onShowPlaylist}
           >
-            <Icon boxSize={5} as={RiPlayListFill} />
+            <Icon boxSize={5} as={LuListMusic} />
           </IconButton>
         </Box>
       )}

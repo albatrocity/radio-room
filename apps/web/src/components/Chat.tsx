@@ -1,4 +1,5 @@
-import { memo, useCallback, useRef } from "react"
+import { memo, useCallback, useEffect, useRef } from "react"
+import { useSelector } from "@xstate/react"
 import { Box, Grid, GridItem, HStack, Stack } from "@chakra-ui/react"
 
 import ChatInput, { MessagePayload } from "./ChatInput"
@@ -6,6 +7,7 @@ import TypingIndicator from "./TypingIndicator"
 import PopoverPreferences from "./PopoverPreferences"
 import ChatWindow from "./ChatWindow"
 
+import { chatScrollTargetActor } from "../actors/chatScrollTargetActor"
 import { useCurrentUser, useChatMessages, useAuthState, useChatSend } from "../hooks/useActors"
 
 const Chat = () => {
@@ -15,8 +17,18 @@ const Chat = () => {
   const chatSend = useChatSend()
   const messages = useChatMessages()
   const imagePreviewRef = useRef<HTMLDivElement>(null)
+  const pendingScrollTarget = useSelector(
+    chatScrollTargetActor,
+    (s) => s.context.targetTimestamp,
+  )
 
   const currentUserId = currentUser?.userId
+
+  useEffect(() => {
+    if (messages.length === 0 && pendingScrollTarget) {
+      chatScrollTargetActor.send({ type: "CLEAR_TARGET" })
+    }
+  }, [messages.length, pendingScrollTarget])
 
   // Memoize callbacks to prevent ChatInput re-renders
   const handleTypingStart = useCallback(() => chatSend({ type: "START_TYPING" }), [chatSend])

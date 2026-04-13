@@ -1,7 +1,6 @@
 import { useEffect, memo } from "react"
 import { Box, Icon, IconButton, HStack, Slider, Container } from "@chakra-ui/react"
-import { LuVolume2, LuVolumeX } from "react-icons/lu"
-import { RiPlayListFill } from "react-icons/ri"
+import { LuListMusic, LuVolume2, LuVolumeX } from "react-icons/lu"
 
 import ReactionCounter from "./ReactionCounter"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
@@ -116,7 +115,7 @@ const LivePlayer = ({
                   variant="ghost"
                   onClick={onShowPlaylist}
                 >
-                  <Icon boxSize={5} as={RiPlayListFill} />
+                  <Icon boxSize={5} as={LuListMusic} />
                 </IconButton>
               )}
               <IconButton

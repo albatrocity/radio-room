@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useCallback } from "react"
-import { IconButton } from "@chakra-ui/react"
-import { FaRegHeart, FaHeart } from "react-icons/fa"
+import { Icon, IconButton } from "@chakra-ui/react"
+import { LuHeart } from "react-icons/lu"
 
 import { useIsAdmin, useNowPlaying, usePreferredMetadataSource } from "../hooks/useActors"
 import { useSocketMachine } from "../hooks/useSocketMachine"
@@ -83,7 +83,11 @@ export default function ButtonAddToLibrary() {
           : send({ type: "ADD", data: [trackId], targetService })
       }}
     >
-      {isAdded ? <FaHeart /> : <FaRegHeart />}
+      {isAdded ? (
+        <Icon as={LuHeart} fill="currentColor" />
+      ) : (
+        <Icon as={LuHeart} />
+      )}
     </IconButton>
   )
 }

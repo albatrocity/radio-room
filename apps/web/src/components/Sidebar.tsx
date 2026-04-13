@@ -1,6 +1,6 @@
 import { useCallback, memo } from "react"
 import { Box, Stack, Flex, IconButton, Icon } from "@chakra-ui/react"
-import { FiHelpCircle } from "react-icons/fi"
+import { LuHelpCircle } from "react-icons/lu"
 import Listeners from "./Listeners"
 import AdminControls from "./AdminControls"
 import Banner from "./Banner"
@@ -55,7 +55,7 @@ const Sidebar = () => {
           {!isAdmin && (
             <Flex p={3} align="center" grow={1} shrink={0} width="100%">
               <IconButton size="sm" aria-label="Help" variant="ghost" onClick={handleViewHelp}>
-                <Icon as={FiHelpCircle} />
+                <Icon as={LuHelpCircle} />
               </IconButton>
             </Flex>
           )}

@@ -2,7 +2,7 @@ import React from "react"
 import useCanDj from "./useCanDj"
 
 import { IconButton, Icon, Button, ButtonProps, Badge, Box } from "@chakra-ui/react"
-import { RiPlayListAddFill } from "react-icons/ri"
+import { LuListPlus } from "react-icons/lu"
 import { useModalsSend, useQueueCount, useCurrentRoom } from "../hooks/useActors"
 
 type Props = {
@@ -45,7 +45,7 @@ function ButtonAddToQueue({
 
   return showText ? (
     <Button variant={variant} colorPalette={colorPalette} onClick={onAddToQueue} size={size}>
-      <Icon as={RiPlayListAddFill} />
+      <Icon as={LuListPlus} />
       {label}
       {countBadge}
     </Button>
@@ -58,7 +58,7 @@ function ButtonAddToQueue({
         onClick={onAddToQueue}
         size={size}
       >
-        <Icon as={RiPlayListAddFill} />
+        <Icon as={LuListPlus} />
       </IconButton>
       {showQueueCount && queueCount > 0 && (
         <Badge

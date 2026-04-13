@@ -1,6 +1,6 @@
 import React from "react"
 import { Button, Box, Icon, Text, useDisclosure } from "@chakra-ui/react"
-import { FiTrash2 } from "react-icons/fi"
+import { LuTrash2 } from "react-icons/lu"
 
 import BookmarkedMessages from "../BookmarkedMessages"
 import Drawer from "../Drawer"
@@ -51,7 +51,7 @@ const DrawerBookmarks = () => {
         footer={
           messages.length > 0 && (
             <Button
-              leftIcon={<Icon as={FiTrash2} />}
+              leftIcon={<Icon as={LuTrash2} />}
               colorScheme="red"
               variant="ghost"
               onClick={onOpen}

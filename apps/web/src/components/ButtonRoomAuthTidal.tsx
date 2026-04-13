@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react"
 import { useLocation } from "@tanstack/react-router"
 import { Link, Box, Button, Icon, Text, HStack, VStack, Spinner } from "@chakra-ui/react"
-import { LuCheckCircle, LuPlus, LuUnlink } from "react-icons/lu"
-import { SiTidal } from "react-icons/si"
+import { LuCheckCircle, LuPlus, LuUnlink, LuWaves } from "react-icons/lu"
 
 import { useCurrentUser, useCurrentRoom } from "../hooks/useActors"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors"
@@ -93,7 +92,7 @@ export default function ButtonRoomAuthTidal({ hideText = false }: { hideText?: b
                 currentUser?.userId
               }&redirect=${encodeURIComponent(location.pathname)}`}
             >
-              <Icon as={SiTidal} />
+              <Icon as={LuWaves} />
               Link Tidal
             </Link>
           </Button>

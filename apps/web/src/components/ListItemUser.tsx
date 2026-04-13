@@ -3,22 +3,29 @@ import { get, isEqual } from "lodash/fp"
 
 import { Box, Text, HStack, IconButton, Icon, List, VStack, Stack } from "@chakra-ui/react"
 import { Tooltip } from "./ui/tooltip"
-import { LuPencil, LuX } from "react-icons/lu"
-import { FiMic, FiMusic, FiEye, FiHeadphones, FiShield } from "react-icons/fi"
-import { BiMessageRoundedDots, BiCrown } from "react-icons/bi"
+import {
+  LuCrown,
+  LuEye,
+  LuHeadphones,
+  LuMessageCircle,
+  LuMic,
+  LuMusic,
+  LuPencil,
+  LuX,
+} from "react-icons/lu"
 import { User } from "../types/User"
 import { PluginArea } from "./PluginComponents"
 
 const statusIcon = (user: User) => {
   if (user.isDj) {
-    return <Icon as={FiMic} boxSize={3} />
+    return <Icon as={LuMic} boxSize={3} />
   }
   switch (user.status) {
     case "participating":
       return (
         <Tooltip content="Spectating" positioning={{ placement: "top" }}>
           <Box>
-            <Icon opacity={0.5} _hover={{ opacity: 1 }} as={FiEye} boxSize={3} />
+            <Icon opacity={0.5} _hover={{ opacity: 1 }} as={LuEye} boxSize={3} />
           </Box>
         </Tooltip>
       )
@@ -26,7 +33,7 @@ const statusIcon = (user: User) => {
       return (
         <Tooltip content="Listening" positioning={{ placement: "top" }}>
           <Box>
-            <Icon opacity={0.5} _hover={{ opacity: 1 }} as={FiHeadphones} boxSize={3} />
+            <Icon opacity={0.5} _hover={{ opacity: 1 }} as={LuHeadphones} boxSize={3} />
           </Box>
         </Tooltip>
       )
@@ -72,7 +79,7 @@ const ListItemUser = ({
           transform="scaleX(-1)"
           left="-10px"
         >
-          <Icon as={BiMessageRoundedDots} color="action.300" mr={1} />
+          <Icon as={LuMessageCircle} color="action.300" mr={1} />
         </Box>
       </Box>
       <VStack gap={1} align="start" w="100%">
@@ -89,14 +96,14 @@ const ListItemUser = ({
             {isRoomCreator && (
               <Tooltip content="Room Creator" positioning={{ placement: "top" }}>
                 <Box>
-                  <Icon as={BiCrown} boxSize={3} />
+                  <Icon as={LuCrown} boxSize={3} />
                 </Box>
               </Tooltip>
             )}
             {isAdmin && !isRoomCreator && (
               <Tooltip content="Room Admin" positioning={{ placement: "top" }}>
                 <Box>
-                  <Icon as={FiShield} boxSize={3} />
+                  <Icon as={LuCrown} boxSize={3} />
                 </Box>
               </Tooltip>
             )}
@@ -143,7 +150,7 @@ const ListItemUser = ({
                     onDeputizeDj?.(user.userId)
                   }}
                 >
-                  <Icon as={FiMusic} />
+                  <Icon as={LuMusic} />
                 </IconButton>
               </Tooltip>
             )}
@@ -160,7 +167,7 @@ const ListItemUser = ({
                     onDesignateAdmin(user.userId)
                   }}
                 >
-                  <Icon as={FiShield} />
+                  <Icon as={LuCrown} />
                 </IconButton>
               </Tooltip>
             )}

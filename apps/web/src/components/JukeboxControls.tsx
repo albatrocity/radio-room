@@ -1,5 +1,5 @@
 import { Box, HStack, IconButton, Icon } from "@chakra-ui/react"
-import { RiPlayListFill } from "react-icons/ri"
+import { LuListMusic } from "react-icons/lu"
 
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import ButtonAddToQueue from "./ButtonAddToQueue"
@@ -46,7 +46,7 @@ export default function JukeboxControls({ trackId, hasPlaylist, onShowPlaylist }
                 variant="bright"
                 onClick={onShowPlaylist}
               >
-                <Icon boxSize={5} as={RiPlayListFill} />
+                <Icon boxSize={5} as={LuListMusic} />
               </IconButton>
             )}
             <Box hideFrom="sm">
