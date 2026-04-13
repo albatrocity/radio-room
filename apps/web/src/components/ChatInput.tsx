@@ -32,6 +32,43 @@ import { uploadImages } from "../lib/serverApi"
 const MAX_FILE_SIZE = 4 * 1024 * 1024 // 4MB per image
 const MAX_FILES = 5
 
+const borderColor = "var(--chakra-colors-secondary-border, #ccc)"
+const inputBackground = "var(--chakra-colors-secondary-bg, #f5f5f5)"
+
+const mentionStyle = {
+  fontWeight: 700,
+  height: "100%",
+}
+
+const inputStyle = {
+  control: {
+    backgroundColor: "transparent",
+    fontWeight: "normal",
+  },
+
+  highlighter: {
+    overflow: "hidden",
+    padding: 0,
+    border: "none",
+    height: "100%",
+  },
+
+  input: {
+    margin: 0,
+    width: "100%",
+    border: `1px solid ${borderColor}`,
+    borderRadius: "4px",
+    padding: "6px",
+    fontSize: "1rem",
+    background: inputBackground,
+  },
+
+  suggestions: {
+    backgroundColor: "transparent",
+    boxShadow: `0 2px 2px rgba(0, 0, 0, 0.2)`,
+  },
+}
+
 const isHeicFile = (file: File) =>
   file.type === "image/heic" ||
   file.type === "image/heif" ||
@@ -154,6 +191,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const canUseChatImages = isAdmin || guestChatImagesAllowed
 
   const inputRef = useRef<ReactPortal>(null)
+  const submitStateRef = useRef({ content: "", files: [] as File[], roomId: undefined as string | undefined })
   const [isTyping, setTyping] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
   const [content, setContent] = useState("")
@@ -174,10 +212,6 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
     [isAuthenticated, canUseChatImages],
   )
 
-  // Use CSS variables for colors
-  const borderColor = "var(--chakra-colors-secondary-border, #ccc)"
-  const inputBackground = "var(--chakra-colors-secondary-bg, #f5f5f5)"
-
   const handleTypingStop = useCallback(
     debounce(() => {
       setTyping(false)
@@ -193,8 +227,8 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
     }
   }, [isTyping])
 
-  // Message is valid if there's content or images
   const isValid = content !== "" || files.length > 0
+  submitStateRef.current = { content, files, roomId: room?.id }
 
   const handleKeyInput = useCallback(() => {
     setTyping(true)
@@ -223,73 +257,44 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
     [currentUser, users],
   )
 
-  const mentionStyle = {
-    fontWeight: 700,
-    height: "100%",
-  }
+  const handleSubmit = useCallback(
+    async (e: React.SyntheticEvent) => {
+      e.preventDefault()
 
-  const inputStyle = {
-    control: {
-      backgroundColor: "transparent",
-      fontWeight: "normal",
-    },
+      const { content, files, roomId } = submitStateRef.current
+      const valid = content !== "" || files.length > 0
+      if (!valid || !roomId) return
 
-    highlighter: {
-      overflow: "hidden",
-      padding: 0,
-      border: "none",
-      height: "100%",
-    },
+      setSubmitting(true)
 
-    input: {
-      margin: 0,
-      width: "100%",
-      border: `1px solid ${borderColor}`,
-      borderRadius: "4px",
-      padding: "6px",
-      fontSize: "1rem",
-      background: inputBackground,
-    },
+      try {
+        let messageContent = content
 
-    suggestions: {
-      backgroundColor: "transparent",
-      boxShadow: `0 2px 2px rgba(0, 0, 0, 0.2)`,
-    },
-  }
+        if (files.length > 0) {
+          const uploadResult = await uploadImages(roomId, files)
 
-  const handleSubmit = async (e: React.SyntheticEvent) => {
-    e.preventDefault()
-
-    if (!isValid || !room?.id) return
-
-    setSubmitting(true)
-
-    try {
-      let messageContent = content
-
-      // Upload images via HTTP if any are selected
-      if (files.length > 0) {
-        const uploadResult = await uploadImages(room.id, files)
-
-        if (uploadResult.success && uploadResult.images.length > 0) {
-          // Append markdown image tags to the message content
-          const imageMarkdown = uploadResult.images.map((img) => `![image](${img.url})`).join("\n")
-          messageContent = messageContent ? `${messageContent}\n\n${imageMarkdown}` : imageMarkdown
+          if (uploadResult.success && uploadResult.images.length > 0) {
+            const imageMarkdown = uploadResult.images
+              .map((img) => `![image](${img.url})`)
+              .join("\n")
+            messageContent = messageContent
+              ? `${messageContent}\n\n${imageMarkdown}`
+              : imageMarkdown
+          }
         }
+
+        onSend({ content: messageContent })
+
+        setContent("")
+        setFiles([])
+      } catch (error) {
+        console.error("Error sending message:", error)
+      } finally {
+        setSubmitting(false)
       }
-
-      // Send the message via WebSocket
-      onSend({ content: messageContent })
-
-      // Clear the form
-      setContent("")
-      setFiles([])
-    } catch (error) {
-      console.error("Error sending message:", error)
-    } finally {
-      setSubmitting(false)
-    }
-  }
+    },
+    [onSend],
+  )
 
   if (!currentUser) {
     return null
@@ -298,54 +303,56 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const isFileUploadDisabled =
     !isAuthenticated || isSubmitting || files.length >= MAX_FILES
 
-  // Previews follow React `files` state (source of truth for submit); not FileUpload.Context.
-  const imagePreviews =
-    canUseChatImages && files.length > 0 ? (
-      <Wrap gap={2}>
-        {files.map((file, index) => (
-          <Box
-            key={`${file.name}-${index}-${file.size}`}
-            position="relative"
-            borderRadius="md"
-            overflow="hidden"
-            width="fit-content"
-          >
-            {isHeicFile(file) ? (
-              <Flex
-                align="center"
-                justify="center"
-                boxSize="60px"
-                bg="gray.100"
-                borderRadius="md"
-              >
-                <Icon as={LuImage} boxSize={6} color="gray.400" />
-              </Flex>
-            ) : (
-              <Image
-                src={filePreviewUrls[index] ?? ""}
-                alt={file.name}
-                boxSize="60px"
-                objectFit="cover"
-                borderRadius="md"
-              />
-            )}
-            <IconButton
-              aria-label="Remove image"
-              size="xs"
-              variant="solid"
-              colorPalette="red"
-              position="absolute"
-              top={0}
-              right={0}
-              borderRadius="full"
-              onClick={() => removeFileAt(index)}
+  const imagePreviews = useMemo(
+    () =>
+      canUseChatImages && files.length > 0 ? (
+        <Wrap gap={2}>
+          {files.map((file, index) => (
+            <Box
+              key={`${file.name}-${index}-${file.size}`}
+              position="relative"
+              borderRadius="md"
+              overflow="hidden"
+              width="fit-content"
             >
-              <Icon as={LuX} boxSize={3} />
-            </IconButton>
-          </Box>
-        ))}
-      </Wrap>
-    ) : null
+              {isHeicFile(file) ? (
+                <Flex
+                  align="center"
+                  justify="center"
+                  boxSize="60px"
+                  bg="gray.100"
+                  borderRadius="md"
+                >
+                  <Icon as={LuImage} boxSize={6} color="gray.400" />
+                </Flex>
+              ) : (
+                <Image
+                  src={filePreviewUrls[index] ?? ""}
+                  alt={file.name}
+                  boxSize="60px"
+                  objectFit="cover"
+                  borderRadius="md"
+                />
+              )}
+              <IconButton
+                aria-label="Remove image"
+                size="xs"
+                variant="solid"
+                colorPalette="red"
+                position="absolute"
+                top={0}
+                right={0}
+                borderRadius="full"
+                onClick={() => removeFileAt(index)}
+              >
+                <Icon as={LuX} boxSize={3} />
+              </IconButton>
+            </Box>
+          ))}
+        </Wrap>
+      ) : null,
+    [canUseChatImages, files, filePreviewUrls, removeFileAt],
+  )
 
   const handlePasteImages = useCallback(
     (e: React.ClipboardEvent) => {
@@ -359,9 +366,30 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
     [addImageFiles, canUseChatImages, isAuthenticated],
   )
 
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!canUseChatImages || !isAuthenticated) return
+      e.preventDefault()
+      e.stopPropagation()
+    },
+    [canUseChatImages, isAuthenticated],
+  )
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      if (!canUseChatImages || !isAuthenticated) return
+      e.preventDefault()
+      e.stopPropagation()
+      const dt = e.dataTransfer.files
+      if (dt?.length) {
+        addImageFiles(Array.from(dt))
+      }
+    },
+    [addImageFiles, canUseChatImages, isAuthenticated],
+  )
+
   return (
     <>
-      {/* Portal image previews to container if provided */}
       {imagePreviews &&
         imagePreviewContainer?.current &&
         createPortal(imagePreviews, imagePreviewContainer.current)}
@@ -377,20 +405,8 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
           justify="center"
           overflowX="clip"
           gap={1}
-          onDragOver={(e) => {
-            if (!canUseChatImages || !isAuthenticated) return
-            e.preventDefault()
-            e.stopPropagation()
-          }}
-          onDrop={(e) => {
-            if (!canUseChatImages || !isAuthenticated) return
-            e.preventDefault()
-            e.stopPropagation()
-            const dt = e.dataTransfer.files
-            if (dt?.length) {
-              addImageFiles(Array.from(dt))
-            }
-          }}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
         >
           {/* Image upload button */}
           {canUseChatImages && files.length < MAX_FILES && (
@@ -412,9 +428,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
             }}
           >
             <Input
-              onChange={(value: string) => {
-                setContent(value)
-              }}
+              onChange={setContent}
               handleSubmit={handleSubmit}
               value={content}
               inputRef={inputRef}
