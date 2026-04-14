@@ -52,16 +52,14 @@ export function getConfigSchema(): PluginConfigSchema {
       { type: "heading", content: "Absent DJ" },
       {
         type: "text-block",
-        content:
-          "Automatically skip tracks when the user who added them is no longer in the room.",
+        content: "Automatically skip tracks when the user who added them is no longer in the room.",
         variant: "info",
       },
       "enabled",
       "skipDelay",
       {
         type: "text-block",
-        content:
-          "If the DJ returns before the countdown ends, their track will continue playing.",
+        content: "If the DJ returns before the countdown ends, their track will continue playing.",
         variant: "info",
         showWhen: { field: "enabled", value: true },
       },
@@ -121,8 +119,7 @@ export function getConfigSchema(): PluginConfigSchema {
       messageOnSkip: {
         type: "string",
         label: "Message on Skip",
-        description:
-          "System message when a track is skipped. Leave empty for no message.",
+        description: "System message when a track is skipped. Leave empty for no message.",
         showWhen: { field: "enabled", value: true },
       },
       soundEffectOnSkip: {

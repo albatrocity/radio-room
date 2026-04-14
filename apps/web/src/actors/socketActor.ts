@@ -242,6 +242,13 @@ const socketMachine = setup({
         }
       })
     },
+    /** Safety net when the manager is inactive (e.g. finite reconnection cap exhausted) */
+    attemptReconnect: () => {
+      if (!socket.connected && !socket.active) {
+        console.log("[SocketActor] Delayed reconnect nudge (disconnected safety net)")
+        socket.connect()
+      }
+    },
   },
 }).createMachine({
   id: "socket",
@@ -289,6 +296,13 @@ const socketMachine = setup({
     },
     disconnected: {
       entry: "setDisconnected",
+      after: {
+        30000: {
+          target: "disconnected",
+          reenter: true,
+          actions: "attemptReconnect",
+        },
+      },
       on: {
         SOCKET_CONNECTED: {
           target: "connected",

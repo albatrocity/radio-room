@@ -15,11 +15,7 @@ import type {
 } from "@repo/types/RoomExport"
 import { BasePlugin } from "@repo/plugin-base"
 import packageJson from "./package.json"
-import {
-  absentDjConfigSchema,
-  defaultAbsentDjConfig,
-  type AbsentDjConfig,
-} from "./types"
+import { absentDjConfigSchema, defaultAbsentDjConfig, type AbsentDjConfig } from "./types"
 import { getComponentSchema, getConfigSchema } from "./schema"
 
 export type { AbsentDjConfig } from "./types"
@@ -77,8 +73,7 @@ interface CountdownTimerData {
 export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
   name = "absent-dj"
   version = packageJson.version
-  description =
-    "Automatically skip tracks when the DJ who added them is not present in the room."
+  description = "Automatically skip tracks when the DJ who added them is not present in the room."
 
   static readonly configSchema = absentDjConfigSchema
   static readonly defaultConfig = defaultAbsentDjConfig
@@ -334,11 +329,10 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
       countdownStartTime: null,
       absentUsername: null,
     })
-    await this.context!.api.sendSystemMessage(
-      this.context!.roomId,
-      `👻 Absent DJ disabled`,
-      { type: "alert", status: "info" },
-    )
+    await this.context!.api.sendSystemMessage(this.context!.roomId, `👻 Absent DJ disabled`, {
+      type: "alert",
+      status: "info",
+    })
   }
 
   // ============================================================================
@@ -459,9 +453,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
   // ============================================================================
 
   private interpolateMessage(template: string, username: string, title: string): string {
-    return template
-      .replace(/\{\{username\}\}/g, username)
-      .replace(/\{\{title\}\}/g, title)
+    return template.replace(/\{\{username\}\}/g, username).replace(/\{\{title\}\}/g, title)
   }
 
   private parseSkipData(dataStr: string | null): SkipData | null {

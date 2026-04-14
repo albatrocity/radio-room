@@ -28,6 +28,7 @@ import {
   stopAutoSave,
   clearPersistedRoomState,
 } from "../lib/roomStatePersistence"
+import socket from "../lib/socket"
 
 // ============================================================================
 // Constants
@@ -205,11 +206,21 @@ export function forceCleanup(): void {
  * to reconnect when the app regains focus, and the RECONNECTED event will trigger
  * a data sync. This visibility change handler provides an additional sync opportunity
  * for cases where the socket remained connected but the page was backgrounded.
+ *
+ * When the socket is dead (e.g. reconnect manager gave up while JS was suspended),
+ * explicitly nudge `socket.connect()` so returning to the tab can recover without a refresh.
  */
 export function handleVisibilityChange(isVisible: boolean): void {
   if (!isVisible) {
     lastVisibleTimestamp = Date.now()
     return
+  }
+
+  if (!socket.connected) {
+    console.log("[RoomLifecycle] Socket dead on visibility, reconnecting...")
+    if (!socket.active) {
+      socket.connect()
+    }
   }
 
   if (!isInitialized || !currentRoomId) return

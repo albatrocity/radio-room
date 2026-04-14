@@ -4,7 +4,8 @@ const socketEndPoint: string = import.meta.env.VITE_API_URL || ""
 const socket = socketIOClient(socketEndPoint, {
   transports: ["websocket", "polling"],
   reconnectionDelayMax: 10000,
-  reconnectionAttempts: 10,
+  /** Never give up: mobile backgrounding can exhaust a finite cap while JS is suspended */
+  reconnectionAttempts: Infinity,
   reconnectionDelay: 1000,
   timeout: 20000,
   withCredentials: true,

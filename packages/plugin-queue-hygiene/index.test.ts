@@ -12,11 +12,7 @@ import {
 } from "@repo/types"
 
 // Mock factories
-function createMockQueueItem(
-  trackId: string,
-  userId?: string,
-  addedAt?: number,
-): QueueItem {
+function createMockQueueItem(trackId: string, userId?: string, addedAt?: number): QueueItem {
   return {
     title: `Track ${trackId}`,
     mediaSource: {
@@ -136,14 +132,8 @@ describe("QueueHygienePlugin", () => {
     test("should subscribe to lifecycle events", async () => {
       await plugin.register(mockContext)
 
-      expect(mockContext.lifecycle.on).toHaveBeenCalledWith(
-        "QUEUE_CHANGED",
-        expect.any(Function),
-      )
-      expect(mockContext.lifecycle.on).toHaveBeenCalledWith(
-        "CONFIG_CHANGED",
-        expect.any(Function),
-      )
+      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("QUEUE_CHANGED", expect.any(Function))
+      expect(mockContext.lifecycle.on).toHaveBeenCalledWith("CONFIG_CHANGED", expect.any(Function))
     })
 
     test("should provide config schema", () => {
@@ -210,9 +200,7 @@ describe("QueueHygienePlugin", () => {
         ...enabledConfig,
         preventConsecutive: false,
       })
-      vi.mocked(mockContext.api.getUsers).mockResolvedValue([
-        createMockUser("user1"),
-      ])
+      vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
 
       const result = await plugin.validateQueueRequest(validationParams)
 
@@ -235,9 +223,7 @@ describe("QueueHygienePlugin", () => {
     })
 
     test("should allow when queue is empty", async () => {
-      vi.mocked(mockContext.api.getUsers).mockResolvedValue([
-        createMockUser("user1"),
-      ])
+      vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([])
 
       const result = await plugin.validateQueueRequest(validationParams)
@@ -250,9 +236,7 @@ describe("QueueHygienePlugin", () => {
         ...enabledConfig,
         rateLimitEnabled: false,
       })
-      vi.mocked(mockContext.api.getUsers).mockResolvedValue([
-        createMockUser("user1"),
-      ])
+      vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
       // Last track was from same user
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),
@@ -267,9 +251,7 @@ describe("QueueHygienePlugin", () => {
     })
 
     test("should reject when cooldown has not expired", async () => {
-      vi.mocked(mockContext.api.getUsers).mockResolvedValue([
-        createMockUser("user1"),
-      ])
+      vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
       // Last track was from same user
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),
@@ -288,9 +270,7 @@ describe("QueueHygienePlugin", () => {
     })
 
     test("should allow when cooldown has expired", async () => {
-      vi.mocked(mockContext.api.getUsers).mockResolvedValue([
-        createMockUser("user1"),
-      ])
+      vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
       // Last track was from same user
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),
@@ -305,9 +285,7 @@ describe("QueueHygienePlugin", () => {
     })
 
     test("should allow when no previous queue timestamp exists", async () => {
-      vi.mocked(mockContext.api.getUsers).mockResolvedValue([
-        createMockUser("user1"),
-      ])
+      vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
       // Last track was from same user
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),
@@ -346,18 +324,14 @@ describe("QueueHygienePlugin", () => {
     })
 
     test("should use base cooldown with empty queue and few DJs", async () => {
-      vi.mocked(mockContext.api.getUsers).mockResolvedValue([
-        createMockUser("user1"),
-      ])
+      vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
       // Last track from same user (consecutive)
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),
       ])
       // User queued 25 seconds ago (just under base cooldown of 30s)
       const twentyFiveSecondsAgo = Date.now() - 25000
-      vi.mocked(mockContext.storage.get).mockResolvedValue(
-        String(twentyFiveSecondsAgo),
-      )
+      vi.mocked(mockContext.storage.get).mockResolvedValue(String(twentyFiveSecondsAgo))
 
       const result = await plugin.validateQueueRequest(validationParams)
 
@@ -380,9 +354,7 @@ describe("QueueHygienePlugin", () => {
       // User queued 60 seconds ago
       // With 10 DJs and empty queue, cooldown should be higher than base
       const sixtySecondsAgo = Date.now() - 60000
-      vi.mocked(mockContext.storage.get).mockResolvedValue(
-        String(sixtySecondsAgo),
-      )
+      vi.mocked(mockContext.storage.get).mockResolvedValue(String(sixtySecondsAgo))
 
       // Need to check behavior - with scaling, may or may not be allowed
       const result = await plugin.validateQueueRequest(validationParams)
@@ -406,9 +378,7 @@ describe("QueueHygienePlugin", () => {
 
       // User queued 2 minutes ago
       const twoMinutesAgo = Date.now() - 120000
-      vi.mocked(mockContext.storage.get).mockResolvedValue(
-        String(twoMinutesAgo),
-      )
+      vi.mocked(mockContext.storage.get).mockResolvedValue(String(twoMinutesAgo))
 
       const result = await plugin.validateQueueRequest(validationParams)
 
@@ -438,9 +408,7 @@ describe("QueueHygienePlugin", () => {
 
       // User queued 35 seconds ago (just over base cooldown of 30s)
       const thirtyFiveSecondsAgo = Date.now() - 35000
-      vi.mocked(mockContext.storage.get).mockResolvedValue(
-        String(thirtyFiveSecondsAgo),
-      )
+      vi.mocked(mockContext.storage.get).mockResolvedValue(String(thirtyFiveSecondsAgo))
 
       const result = await plugin.validateQueueRequest(validationParams)
 

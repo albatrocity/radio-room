@@ -71,15 +71,13 @@ export function getConfigSchema(): PluginConfigSchema {
       preventConsecutive: {
         type: "boolean",
         label: "Prevent Consecutive Tracks",
-        description:
-          "Block users from adding songs back-to-back when other DJs are in the room",
+        description: "Block users from adding songs back-to-back when other DJs are in the room",
         showWhen: { field: "enabled", value: true },
       },
       rateLimitEnabled: {
         type: "boolean",
         label: "Enable Cooldown",
-        description:
-          "Apply a time-based cooldown when a user tries to add consecutive tracks",
+        description: "Apply a time-based cooldown when a user tries to add consecutive tracks",
         showWhen: { field: "enabled", value: true },
       },
       baseCooldownMs: {
