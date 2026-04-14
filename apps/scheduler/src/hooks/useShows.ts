@@ -96,6 +96,7 @@ export function useUpdateShow() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.shows.all })
       queryClient.invalidateQueries({ queryKey: queryKeys.shows.detail(variables.id) })
+      toaster.create({ title: "Show updated", type: "success" })
     },
     onError: () => {
       toaster.create({ title: "Failed to update show", type: "error" })

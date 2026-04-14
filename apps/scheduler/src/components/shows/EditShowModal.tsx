@@ -1,6 +1,9 @@
-import { Box, Button } from "@chakra-ui/react"
+import { useEffect, useRef } from "react"
+import { Button } from "@chakra-ui/react"
 import { useForm } from "@tanstack/react-form"
-import { useCreateShow } from "../../hooks/useShows"
+import type { ShowDTO } from "@repo/types"
+import { toDatetimeLocalValue } from "../../lib/datetimeLocal"
+import { useUpdateShow } from "../../hooks/useShows"
 import { ShowDetailsFormFields, type ShowDetailsFormValues } from "./ShowDetailsFormFields"
 import {
   SchedulingDialogRoot,
@@ -12,26 +15,31 @@ import {
   DialogCloseTrigger,
 } from "../segments/DialogParts"
 
-interface CreateShowModalProps {
+interface EditShowModalProps {
   open: boolean
   onClose: () => void
+  show: ShowDTO
 }
 
-const emptyDefaults: ShowDetailsFormValues = {
-  title: "",
-  description: "",
-  startTime: "",
-  endTime: "",
-  tagIds: [],
+function valuesFromShow(show: ShowDTO): ShowDetailsFormValues {
+  return {
+    title: show.title,
+    description: show.description ?? "",
+    startTime: toDatetimeLocalValue(show.startTime),
+    endTime: show.endTime ? toDatetimeLocalValue(show.endTime) : "",
+    tagIds: (show.tags ?? []).map((t) => t.id),
+  }
 }
 
-export function CreateShowModal({ open, onClose }: CreateShowModalProps) {
-  const createShow = useCreateShow()
+export function EditShowModal({ open, onClose, show }: EditShowModalProps) {
+  const updateShow = useUpdateShow()
+  const wasOpen = useRef(false)
 
   const form = useForm({
-    defaultValues: emptyDefaults,
+    defaultValues: valuesFromShow(show),
     onSubmit: async ({ value }) => {
-      await createShow.mutateAsync({
+      await updateShow.mutateAsync({
+        id: show.id,
         title: value.title,
         description: value.description || null,
         startTime: new Date(value.startTime).toISOString(),
@@ -42,16 +50,27 @@ export function CreateShowModal({ open, onClose }: CreateShowModalProps) {
     },
   })
 
+  useEffect(() => {
+    if (open) {
+      if (!wasOpen.current) {
+        form.reset(valuesFromShow(show))
+      }
+      wasOpen.current = true
+    } else {
+      wasOpen.current = false
+    }
+  }, [open, show])
+
   return (
     <SchedulingDialogRoot open={open} onClose={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New Show</DialogTitle>
+          <DialogTitle>Edit Show</DialogTitle>
           <DialogCloseTrigger />
         </DialogHeader>
         <DialogBody>
           <form
-            id="create-show-form"
+            id="edit-show-form"
             onSubmit={(e) => {
               e.preventDefault()
               form.handleSubmit()
@@ -66,11 +85,11 @@ export function CreateShowModal({ open, onClose }: CreateShowModalProps) {
           </Button>
           <Button
             type="submit"
-            form="create-show-form"
+            form="edit-show-form"
             colorPalette="blue"
-            loading={createShow.isPending}
+            loading={updateShow.isPending}
           >
-            Create
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>

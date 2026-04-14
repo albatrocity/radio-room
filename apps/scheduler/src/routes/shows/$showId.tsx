@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router"
 import { z } from "zod"
 import { zodSearchValidator } from "@tanstack/router-zod-adapter"
@@ -29,6 +29,7 @@ import {
 } from "../../hooks/useShows"
 import { useSyncPublishPlaylist } from "../../hooks/usePublishShow"
 import { formatDurationMinutes, totalEstimatedMinutes } from "../../lib/showDuration"
+import { EditShowModal } from "../../components/shows/EditShowModal"
 import { ShowTimeline } from "../../components/shows/ShowTimeline"
 import { SegmentBrowser } from "../../components/shows/SegmentBrowser"
 import { SegmentBrowserCard } from "../../components/shows/SegmentBrowserCard"
@@ -86,6 +87,7 @@ function ShowDetailPage() {
   const { mutate: mutateSegmentDuration } = useUpdateShowSegmentDuration()
   const syncPublish = useSyncPublishPlaylist(showId)
   const navigate = useNavigate()
+  const [editDetailsOpen, setEditDetailsOpen] = useState(false)
 
   const currentSegmentIds = useMemo(
     () => (show?.segments ?? []).map((s) => s.segmentId),
@@ -216,6 +218,11 @@ function ShowDetailPage() {
                 <Badge colorPalette={STATUS_COLORS[show.status]} size="md">
                   {show.status}
                 </Badge>
+                {!isPublished && (
+                  <Button size="sm" variant="outline" onClick={() => setEditDetailsOpen(true)}>
+                    Edit details
+                  </Button>
+                )}
                 {canPreparePublish && (
                   <Button
                     size="xs"
@@ -406,6 +413,14 @@ function ShowDetailPage() {
                 Delete Show
               </Button>
             </Box>
+
+            {!isPublished && (
+              <EditShowModal
+                open={editDetailsOpen}
+                onClose={() => setEditDetailsOpen(false)}
+                show={show}
+              />
+            )}
           </Box>
         </Flex>
       </Box>
