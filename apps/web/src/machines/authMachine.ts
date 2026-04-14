@@ -81,7 +81,10 @@ const visibilityLogic = fromCallback<AuthEvent>(({ sendBack }) => {
       } else {
         console.log("[Auth] Tab visible, checking connection...")
         if (!socket.connected) {
-          console.log("[Auth] Socket disconnected, triggering reconnection")
+          console.log("[Auth] Socket disconnected, nudging reconnect")
+          if (!socket.active) {
+            socket.connect()
+          }
           sendBack({ type: "SOCKET_DISCONNECTED", data: { reason: "visibility_change" } })
         }
       }

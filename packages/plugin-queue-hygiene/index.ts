@@ -53,8 +53,7 @@ const QUEUE_LENGTH_THRESHOLD = 15 // Queue length at which cooldown reaches max
 export class QueueHygienePlugin extends BasePlugin<QueueHygieneConfig> {
   name = "queue-hygiene"
   version = "1.0.0"
-  description =
-    "Prevent queue saturation by enforcing fair access rules for all DJs."
+  description = "Prevent queue saturation by enforcing fair access rules for all DJs."
 
   static readonly configSchema = queueHygieneConfigSchema
   static readonly defaultConfig = defaultQueueHygieneConfig
@@ -122,11 +121,10 @@ export class QueueHygienePlugin extends BasePlugin<QueueHygieneConfig> {
   private async onPluginDisabled(): Promise<void> {
     console.log(`[${this.name}] Plugin disabled for room ${this.context!.roomId}`)
 
-    await this.context!.api.sendSystemMessage(
-      this.context!.roomId,
-      `🧹 Queue Hygiene disabled`,
-      { type: "alert", status: "info" },
-    )
+    await this.context!.api.sendSystemMessage(this.context!.roomId, `🧹 Queue Hygiene disabled`, {
+      type: "alert",
+      status: "info",
+    })
   }
 
   // ============================================================================
@@ -147,9 +145,7 @@ export class QueueHygienePlugin extends BasePlugin<QueueHygieneConfig> {
    *       - If expired: allow
    *       - If not expired: reject with remaining time
    */
-  async validateQueueRequest(
-    params: QueueValidationParams,
-  ): Promise<QueueValidationResult> {
+  async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {
     if (!this.context) {
       return allowQueueRequest()
     }
@@ -186,15 +182,11 @@ export class QueueHygienePlugin extends BasePlugin<QueueHygieneConfig> {
     // This would be consecutive - check rate limit
     if (!config.rateLimitEnabled) {
       // Rate limiting disabled, just reject consecutive
-      return rejectQueueRequest(
-        "Please wait for another DJ to add a song before adding another",
-      )
+      return rejectQueueRequest("Please wait for another DJ to add a song before adding another")
     }
 
     // Check if cooldown has expired
-    const lastQueueTimeStr = await this.context.storage.get(
-      this.makeLastQueueKey(userId),
-    )
+    const lastQueueTimeStr = await this.context.storage.get(this.makeLastQueueKey(userId))
 
     if (!lastQueueTimeStr) {
       // No record of last queue time, allow
@@ -227,19 +219,14 @@ export class QueueHygienePlugin extends BasePlugin<QueueHygieneConfig> {
   /**
    * When queue changes, update the last queue timestamp for the user who added.
    */
-  private async onQueueChanged(data: {
-    roomId: string
-    queue: QueueItem[]
-  }): Promise<void> {
+  private async onQueueChanged(data: { roomId: string; queue: QueueItem[] }): Promise<void> {
     if (!this.context) return
 
     const config = await this.getConfig()
     if (!config?.enabled) return
 
     // Find the most recently added item
-    const sortedQueue = [...data.queue].sort(
-      (a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0),
-    )
+    const sortedQueue = [...data.queue].sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0))
 
     const mostRecent = sortedQueue[0]
     if (!mostRecent?.addedBy?.userId || !mostRecent.addedAt) return
@@ -331,8 +318,7 @@ export class QueueHygienePlugin extends BasePlugin<QueueHygieneConfig> {
     }
 
     // Calculate combined ratio (average of enabled factors)
-    const combinedRatio =
-      ratios.length > 0 ? ratios.reduce((a, b) => a + b, 0) / ratios.length : 0
+    const combinedRatio = ratios.length > 0 ? ratios.reduce((a, b) => a + b, 0) / ratios.length : 0
 
     // Linear interpolation from base to max
     const cooldownRange = maxCooldownMs - baseCooldownMs
@@ -362,9 +348,7 @@ export class QueueHygienePlugin extends BasePlugin<QueueHygieneConfig> {
  * Factory function to create the plugin.
  * A new instance is created for each room.
  */
-export function createQueueHygienePlugin(
-  configOverrides?: Partial<QueueHygieneConfig>,
-): Plugin {
+export function createQueueHygienePlugin(configOverrides?: Partial<QueueHygieneConfig>): Plugin {
   return new QueueHygienePlugin(configOverrides)
 }
 

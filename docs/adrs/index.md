@@ -43,6 +43,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0035](0035-caddy-tls-termination-for-mediamtx.md) | Caddy TLS Termination for MediaMTX | Accepted |
 | [0036](0036-stream-health-webhook-for-live-rooms.md) | Stream Health Webhook for Live Rooms | Accepted |
 | [0037](0037-hybrid-radio-shoutcast-rtmp-bridge.md) | Hybrid Radio — Shoutcast + Optional Experimental WebRTC | Accepted |
+| [0038](0038-socket-io-client-never-give-up-reconnection.md) | Socket.IO Client — Never-Give-Up Reconnection | Accepted |
 
 ## Creating a New ADR
 
