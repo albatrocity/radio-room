@@ -15,6 +15,7 @@ import {
   updateUserAttributes,
 } from "../operations/data"
 import systemMessage from "../lib/systemMessage"
+import generateAnonName from "../lib/generateAnonName"
 import { queueItemFactory } from "@repo/factories"
 import { AdapterService } from "./AdapterService"
 
@@ -174,6 +175,11 @@ export class DJService {
       }
     }
 
+    const resolvedDisplayName =
+      username?.trim() ||
+      (await getUser({ context: this.context, userId }))?.username?.trim() ||
+      generateAnonName()
+
     // IMPORTANT: Store in our internal queue FIRST, before adding to Spotify.
     // This prevents a race condition where Spotify immediately plays the track
     // (when queue is empty) before we've stored it, causing the DJ attribution to fail.
@@ -189,7 +195,7 @@ export class DJService {
       },
       addedBy: {
         userId,
-        username,
+        username: resolvedDisplayName,
       },
       addedAt: Date.now(), // When the song was added to queue
       addedDuring: undefined, // Not playing during another track
@@ -225,7 +231,7 @@ export class DJService {
     return {
       success: true,
       queuedItem,
-      systemMessage: systemMessage(`${username || "Someone"} added a song to the queue`),
+      systemMessage: systemMessage(`${resolvedDisplayName} added a song to the queue`),
     }
   }
 

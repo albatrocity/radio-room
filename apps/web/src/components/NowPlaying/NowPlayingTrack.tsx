@@ -104,13 +104,14 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   // Get plugin-provided styles for the title
   const titleStyles = usePluginStyles(nowPlaying?.pluginData, "title")
 
-  const djUsername = useMemo(
-    () =>
-      dj
-        ? users.find(({ userId }) => userId === dj.userId)?.username ?? dj?.username ?? null
-        : null,
-    [users, dj],
-  )
+  const djUsername = useMemo(() => {
+    if (!dj) return null
+    return (
+      users.find(({ userId }) => userId === dj.userId)?.username ??
+      dj.username ??
+      (dj.userId ? `Guest (${dj.userId.slice(0, 8)})` : "Unknown guest")
+    )
+  }, [users, dj])
 
   const titleDisplay =
     nullifyEmptyString(track) ??

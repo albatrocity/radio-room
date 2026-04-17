@@ -22,6 +22,10 @@ import {
   shouldSnapshotListeningTransports,
 } from "../operations/room/listeningTransportStats"
 import { formatRoomExportAsMarkdown } from "../lib/markdownFormatter"
+import {
+  buildUserDisplayNameLookup,
+  enrichQueueItemsForExport,
+} from "../lib/resolveAddedByDisplayName"
 
 /**
  * Service for exporting room data in various formats.
@@ -134,14 +138,16 @@ export class ExportService {
       ? await getListeningTransportCounts(this.context, roomId)
       : undefined
 
+    const displayNameLookup = buildUserDisplayNameLookup(users, userHistory)
+
     return {
       exportedAt: new Date().toISOString(),
       room: roomInfo,
       users,
       userHistory,
-      playlist,
+      playlist: enrichQueueItemsForExport(playlist, displayNameLookup),
       chat: messages,
-      queue,
+      queue: enrichQueueItemsForExport(queue, displayNameLookup),
       reactions: reactions || { message: {}, track: {} },
       ...(listeningTransportSnapshot ? { listeningTransportSnapshot } : {}),
     }

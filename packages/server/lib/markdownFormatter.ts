@@ -7,6 +7,10 @@ import type {
   RoomExportMarkdownOptions,
 } from "@repo/types"
 import type { PluginRegistry } from "./plugins/PluginRegistry"
+import {
+  buildUserDisplayNameLookup,
+  resolveAddedByDisplayName,
+} from "./resolveAddedByDisplayName"
 
 /**
  * Format room export data as a human-readable Markdown document.
@@ -19,6 +23,8 @@ export function formatRoomExportAsMarkdown(
   markdownOptions?: RoomExportMarkdownOptions,
 ): string {
   const sections: string[] = []
+
+  const addedByLookup = buildUserDisplayNameLookup(data.users, data.userHistory ?? [])
 
   // Header (title lives in frontmatter; keep export timestamp only)
   sections.push(formatHeader(data))
@@ -39,14 +45,14 @@ export function formatRoomExportAsMarkdown(
   }
 
   // Playlist
-  sections.push(formatPlaylist(data, pluginRegistry, roomId))
+  sections.push(formatPlaylist(data, pluginRegistry, roomId, addedByLookup))
 
   // Chat
   sections.push(formatChat(data, pluginRegistry, roomId))
 
   // Queue
   if (data.queue.length > 0) {
-    sections.push(formatQueue(data, pluginRegistry, roomId))
+    sections.push(formatQueue(data, pluginRegistry, roomId, addedByLookup))
   }
 
   // Plugin sections
@@ -213,6 +219,7 @@ function formatPlaylist(
   data: RoomExportData,
   pluginRegistry: PluginRegistry | undefined,
   roomId: string,
+  addedByLookup: Map<string, User>,
 ): string {
   if (data.playlist.length === 0) {
     return "## Playlist\n\n*No tracks played yet*"
@@ -231,7 +238,7 @@ function formatPlaylist(
     const track = escapeMarkdown(item.track.title)
     const artist = escapeMarkdown(item.track.artists?.map((a) => a.title).join(", ") || "Unknown")
     const album = escapeMarkdown(item.track.album?.title || "")
-    const addedBy = item.addedBy?.username || "Unknown"
+    const addedBy = resolveAddedByDisplayName(item, addedByLookup)
     const addedAt = item.addedAt ? formatTime(item.addedAt) : ""
 
     // Get reactions for this track
@@ -304,6 +311,7 @@ function formatQueue(
   data: RoomExportData,
   pluginRegistry: PluginRegistry | undefined,
   roomId: string,
+  addedByLookup: Map<string, User>,
 ): string {
   const lines = ["## Queue (Upcoming)", ""]
 
@@ -316,7 +324,7 @@ function formatQueue(
 
     const track = escapeMarkdown(item.track.title)
     const artist = escapeMarkdown(item.track.artists?.map((a) => a.title).join(", ") || "Unknown")
-    const addedBy = item.addedBy?.username || "Unknown"
+    const addedBy = resolveAddedByDisplayName(item, addedByLookup)
 
     // Get plugin notes
     const notes = pluginRegistry

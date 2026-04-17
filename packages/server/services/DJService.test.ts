@@ -172,7 +172,7 @@ describe("DJService", () => {
         id: "track123",
         title: "Test Track",
         artist: "Test Artist",
-        urls: [{ type: "resource", url: "spotify:track:123" }],
+        urls: [{ type: "resource", url: "spotify:track:123", id: "r0" }],
       })
       
       // Mock adapter service methods
@@ -192,7 +192,7 @@ describe("DJService", () => {
       // @ts-ignore - accessing private property for testing
       djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue(mockPlaybackController)
 
-      const result = await djService.queueSong("room123", "user123", "Homer", "track123")
+      await djService.queueSong("room123", "user123", "Homer", "track123")
 
       expect(addToQueue).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -209,20 +209,51 @@ describe("DJService", () => {
           }),
         })
       )
+    })
 
-      // expect(result).toEqual({
-      //   success: true,
-      //   queuedItem: expect.objectContaining({
-      //     addedBy: {
-      //       userId: "user123",
-      //       username: "Homer",
-      //     },
-      //   }),
-      //   systemMessage: expect.objectContaining({
-      //     content: expect.stringContaining("Homer"),
-      //     type: "system",
-      //   }),
-      // })
+    test("resolves display name from Redis when socket username is empty", async () => {
+      vi.mocked(addToQueue).mockResolvedValue(undefined)
+      vi.mocked(findRoom).mockResolvedValue(
+        roomFactory.build({
+          id: "room123",
+          creator: "user123",
+        }),
+      )
+      const mockTrack = metadataSourceTrackFactory.build({
+        id: "track123",
+        title: "Test Track",
+        urls: [{ type: "resource" as const, url: "spotify:track:123", id: "r1" }],
+      })
+      const mockMetadataSource = {
+        api: {
+          findById: vi.fn().mockResolvedValue(mockTrack),
+        },
+      }
+      const mockPlaybackController = {
+        api: {
+          addToQueue: vi.fn().mockResolvedValue(undefined),
+        },
+      }
+
+      // @ts-ignore - accessing private property for testing
+      djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue(mockMetadataSource)
+      // @ts-ignore - accessing private property for testing
+      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue(mockPlaybackController)
+
+      vi.mocked(getUser).mockResolvedValue({
+        userId: "user123",
+        username: "SavedInRedis",
+      } as any)
+
+      await djService.queueSong("room123", "user123", "", "track123")
+
+      expect(addToQueue).toHaveBeenCalledWith(
+        expect.objectContaining({
+          item: expect.objectContaining({
+            addedBy: { userId: "user123", username: "SavedInRedis" },
+          }),
+        }),
+      )
     })
 
     test("returns error when song is already in queue (same user)", async () => {
