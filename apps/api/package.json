@@ -20,6 +20,7 @@
     "@repo/media-source-rtmp": "*",
     "@repo/plugin-absent-dj": "*",
     "@repo/plugin-queue-hygiene": "*",
+    "@repo/plugin-guess-the-tune": "*",
     "@repo/plugin-special-words": "*",
     "@repo/plugin-playlist-democracy": "*",
     "@repo/server": "*",

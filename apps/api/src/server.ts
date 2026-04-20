@@ -17,6 +17,7 @@ import createPlaylistDemocracyPlugin from "@repo/plugin-playlist-democracy"
 import createSpecialWordsPlugin from "@repo/plugin-special-words"
 import createAbsentDjPlugin from "@repo/plugin-absent-dj"
 import createQueueHygienePlugin from "@repo/plugin-queue-hygiene"
+import createGuessTheTunePlugin from "@repo/plugin-guess-the-tune"
 import { authHandler } from "@repo/auth/server"
 import { requireAdmin } from "@repo/auth/middleware"
 
@@ -73,6 +74,7 @@ async function main() {
       createSpecialWordsPlugin,
       createAbsentDjPlugin,
       createQueueHygienePlugin,
+      createGuessTheTunePlugin,
     ],
   })
 

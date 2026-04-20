@@ -24,7 +24,7 @@ Architecture:
 - **Augmentation hooks**: Optional `augmentPlaylistBatch()` and `augmentNowPlaying()` let plugins enrich data before it reaches clients.
 - **Actions**: Admin-triggered actions via `executeAction()` with type-safe action names.
 
-Current plugins: `playlist-democracy`, `special-words`, `absent-dj`, `queue-hygiene`.
+Current plugins: `playlist-democracy`, `special-words`, `absent-dj`, `queue-hygiene`, `guess-the-tune`.
 
 ## Consequences
 
