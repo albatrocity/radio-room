@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { messageMatchesTarget } from "./matching"
+import { propsInPlay } from "./index"
+import { defaultGuessTheTuneConfig } from "./types"
 
 describe("messageMatchesTarget", () => {
   it("matches exact substring", () => {
@@ -28,5 +30,27 @@ describe("messageMatchesTarget", () => {
         0.55,
       ),
     ).toBe(true)
+  })
+})
+
+describe("propsInPlay", () => {
+  const base = { ...defaultGuessTheTuneConfig }
+
+  it("returns only fields that are enabled and non-empty", () => {
+    expect(
+      propsInPlay(
+        { ...base, matchTitle: true, matchArtist: false, matchAlbum: true },
+        { title: "  x  ", artist: "A", album: "" },
+      ),
+    ).toEqual(["title"])
+  })
+
+  it("returns title artist album in stable order when all apply", () => {
+    expect(
+      propsInPlay(
+        { ...base, matchTitle: true, matchArtist: true, matchAlbum: true },
+        { title: "T", artist: "A", album: "L" },
+      ),
+    ).toEqual(["title", "artist", "album"])
   })
 })

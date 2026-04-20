@@ -13,7 +13,7 @@ Introduce **`elementProps`** on `PluginAugmentationData`: a map from a small set
 
 - `obscured` — UI should redact or mask that slot.
 - `obscureBypassRoles` — advisory list of viewer roles (`admin`, `dj`, `creator`, `owner`) for which obscuring should not apply; the **web client** resolves this generically (e.g. `usePluginElementProps`) so Now Playing stays unaware of any specific plugin or its config keys.
-- `revealedBy` / `placeholder` — optional metadata for post-guess display.
+- `revealedBy` / `placeholder` — optional metadata when a slot is revealed (e.g. who guessed in chat) or obscured (placeholder text).
 
 Plugins implement `augmentNowPlaying()` and return `{ elementProps: { ... } }` under their namespaced `pluginData` entry (unchanged merge rules in `PluginRegistry`).
 

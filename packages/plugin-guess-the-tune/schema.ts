@@ -55,6 +55,50 @@ export function getComponentSchema(): PluginComponentSchema {
 }
 
 export function getConfigSchema(): PluginConfigSchema {
+  const revealTitleAction = {
+    type: "action",
+    action: "revealTitle",
+    label: "Reveal track title for everyone",
+    variant: "outline",
+    confirmMessage:
+      "Show the real track title in Now Playing for all listeners? This does not award points.",
+    confirmText: "Reveal title",
+    showWhen: { field: "enabled", value: true },
+  } satisfies PluginActionElement
+
+  const revealArtistAction = {
+    type: "action",
+    action: "revealArtist",
+    label: "Reveal artist for everyone",
+    variant: "outline",
+    confirmMessage:
+      "Show the real artist name in Now Playing for all listeners? This does not award points.",
+    confirmText: "Reveal artist",
+    showWhen: { field: "enabled", value: true },
+  } satisfies PluginActionElement
+
+  const revealAlbumAction = {
+    type: "action",
+    action: "revealAlbum",
+    label: "Reveal album for everyone",
+    variant: "outline",
+    confirmMessage:
+      "Show the real album title in Now Playing for all listeners? This does not award points.",
+    confirmText: "Reveal album",
+    showWhen: { field: "enabled", value: true },
+  } satisfies PluginActionElement
+
+  const revealAllAction = {
+    type: "action",
+    action: "revealAll",
+    label: "Reveal all obscured fields",
+    variant: "outline",
+    confirmMessage:
+      "Reveal every obscured title, artist, and album field that applies to the current track? No points are awarded.",
+    confirmText: "Reveal all",
+    showWhen: { field: "enabled", value: true },
+  } satisfies PluginActionElement
+
   const resetAction = {
     type: "action",
     action: "resetLeaderboard",
@@ -91,6 +135,10 @@ export function getConfigSchema(): PluginConfigSchema {
       "soundEffectOnMatch",
       "soundEffectOnMatchUrl",
       "messageTemplate",
+      revealTitleAction,
+      revealArtistAction,
+      revealAlbumAction,
+      revealAllAction,
       resetAction,
     ],
     fieldMeta: {

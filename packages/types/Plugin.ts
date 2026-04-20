@@ -368,7 +368,15 @@ export interface PluginElementProps {
    * The UI resolves this against the current viewer's roles.
    */
   obscureBypassRoles?: PluginObscureBypassRole[]
-  revealedBy?: { userId: string; username: string; at: number } | null
+  /**
+   * When a slot is no longer obscured, optional attribution (e.g. Guess the Tune: who matched in chat, or admin reveal).
+   */
+  revealedBy?: {
+    userId: string
+    username: string
+    at: number
+    source?: "chat" | "admin"
+  } | null
   placeholder?: string
 }
 
@@ -431,6 +439,15 @@ export const rejectQueueRequest = (reason: string): QueueValidationResult => ({
 })
 
 /**
+ * Caller identity for admin-triggered plugin actions (e.g. config UI action buttons).
+ * Populated server-side from the admin Socket.IO connection; not sent from the client payload.
+ */
+export interface PluginActionInitiator {
+  userId: string
+  username?: string
+}
+
+/**
  * Base plugin interface
  */
 export interface Plugin {
@@ -481,10 +498,11 @@ export interface Plugin {
    * Actions are triggered from the admin config UI via action buttons.
    *
    * @param action - The action identifier from PluginActionElement
+   * @param initiator - Present when the action was triggered from the admin plugin config UI
    * @returns Result with success status and optional message
    *
    * @example
-   * async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+   * async executeAction(action: string, initiator?: PluginActionInitiator): Promise<{ success: boolean; message?: string }> {
    *   if (action === 'resetLeaderboards') {
    *     await this.clearAllLeaderboards()
    *     return { success: true, message: 'Leaderboards reset successfully' }
@@ -492,7 +510,10 @@ export interface Plugin {
    *   return { success: false, message: 'Unknown action' }
    * }
    */
-  executeAction?(action: string): Promise<{ success: boolean; message?: string }>
+  executeAction?(
+    action: string,
+    initiator?: PluginActionInitiator,
+  ): Promise<{ success: boolean; message?: string }>
 
   /**
    * Validate a queue request before it is processed.

@@ -1,6 +1,7 @@
 import {
   AppContext,
   Plugin,
+  PluginActionInitiator,
   PluginContext,
   PluginLifecycleEvents,
   PluginSchemaInfo,
@@ -571,12 +572,14 @@ export class PluginRegistry {
    * @param roomId - The room where the plugin is active
    * @param pluginName - The plugin to execute the action on
    * @param action - The action identifier
+   * @param initiator - Acting admin user from the admin socket (optional)
    * @returns Result with success status and optional message
    */
   async executePluginAction(
     roomId: string,
     pluginName: string,
     action: string,
+    initiator?: PluginActionInitiator,
   ): Promise<{ success: boolean; message?: string }> {
     const roomPlugins = this.roomPlugins.get(roomId)
     if (!roomPlugins) {
@@ -594,7 +597,7 @@ export class PluginRegistry {
     }
 
     try {
-      return await plugin.executeAction(action)
+      return await plugin.executeAction(action, initiator)
     } catch (error) {
       console.error(
         `[PluginRegistry] Error executing action ${action} for plugin ${pluginName}:`,

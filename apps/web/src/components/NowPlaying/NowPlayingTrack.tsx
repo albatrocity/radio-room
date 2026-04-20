@@ -24,6 +24,9 @@ import { usePluginStyles } from "../../hooks/usePluginStyles"
 import { usePluginElementProps } from "../../hooks/usePluginElementProps"
 import { usePreferredMetadataSource } from "../../hooks/useActors"
 import { MetadataSourceType } from "../../types/Queue"
+import type { PluginElementProps } from "@repo/types"
+
+type RevealedBy = NonNullable<PluginElementProps["revealedBy"]>
 
 interface NowPlayingTrackProps {
   meta: RoomMeta
@@ -225,6 +228,11 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
 
 // Sub-components
 
+function guessRevealCreditLine(revealedBy: RevealedBy): string {
+  const name = revealedBy.username?.trim() || "someone"
+  return revealedBy.source === "admin" ? `Revealed by ${name}` : `Identified by ${name}`
+}
+
 const shimmerCss = {
   "@keyframes nowPlayingShimmer": {
     "0%": { opacity: 0.35 },
@@ -238,7 +246,7 @@ interface ObscuredTitleBlockProps {
   children: string | null
   obscured: boolean
   placeholder?: string
-  revealedBy?: { userId: string; username: string; at: number } | null
+  revealedBy?: RevealedBy | null
   externalUrl: string | null
   pluginStyles: React.CSSProperties
 }
@@ -270,7 +278,7 @@ function ObscuredTitleBlock({
   const credit =
     revealedBy != null ? (
       <Text fontSize="2xs" color="primary.contrast/55" mt={1}>
-        Identified by {revealedBy.username ?? "someone"}
+        {guessRevealCreditLine(revealedBy)}
       </Text>
     ) : null
 
@@ -301,7 +309,7 @@ interface ObscuredTextBlockProps {
   children: string
   obscured: boolean
   placeholder?: string
-  revealedBy?: { userId: string; username: string; at: number } | null
+  revealedBy?: RevealedBy | null
   /** Use heading styles for artist line */
   asHeading?: boolean
 }
@@ -348,7 +356,7 @@ function ObscuredTextBlock({
   const credit =
     revealedBy != null ? (
       <Text fontSize="2xs" color="primary.contrast/45" mt={0.5}>
-        Identified by {revealedBy.username ?? "someone"}
+        {guessRevealCreditLine(revealedBy)}
       </Text>
     ) : null
 
