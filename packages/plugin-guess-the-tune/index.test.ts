@@ -31,6 +31,15 @@ describe("messageMatchesTarget", () => {
       ),
     ).toBe(true)
   })
+
+  it("does not match a tiny fragment against a one-word title", () => {
+    expect(messageMatchesTarget("ch", "charlie", 0.55)).toBe(false)
+  })
+
+  it("matches a one-word title when the guess is long enough to be a real attempt", () => {
+    expect(messageMatchesTarget("charlie", "charlie", 0.55)).toBe(true)
+    expect(messageMatchesTarget("charl", "charlie", 0.55)).toBe(true)
+  })
 })
 
 describe("propsInPlay", () => {

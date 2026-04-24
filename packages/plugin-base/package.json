@@ -10,7 +10,7 @@
   "scripts": {
     "lint": "prettier --write . && eslint . --fix",
     "format": "prettier --write .",
-    "test": "vitest"
+    "test": "vitest run"
   },
   "author": "",
   "license": "ISC",

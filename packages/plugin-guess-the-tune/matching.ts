@@ -35,16 +35,33 @@ function messageMatchCandidates(messageNorm: string): string[] {
 }
 
 /**
+ * For a one-word target (e.g. title "charlie"), reject guesses that are far shorter than
+ * the word, so "ch" does not match "charlie". Multi-word titles still use per-word fuzzy
+ * matching (e.g. "u" → "you" for a short target word in a longer title).
+ */
+function minCandidateLengthForSingleWordTarget(targetWord: string): number {
+  if (targetWord.length <= 2) return 1
+  if (targetWord.length === 3) return 2
+  return Math.max(3, Math.ceil(targetWord.length * 0.5))
+}
+
+/**
  * True if `candidate` is a fuzzy match for the single word `targetWord` (Fuse threshold).
  * Single-character candidates are only considered against longer targets (e.g. "u" → "you").
+ * When `treatAsSingleWordTitle` is true, `candidate` must be long enough (see
+ * `minCandidateLengthForSingleWordTarget`); this blocks tiny fragments like "ch" on "charlie".
  */
 function tokenMatchesTargetWord(
   candidate: string,
   targetWord: string,
   fuzzyThreshold: number,
+  treatAsSingleWordTitle: boolean,
 ): boolean {
   if (!candidate.length || !targetWord.length) return false
   if (candidate.length === 1 && targetWord.length < 3) return false
+  if (treatAsSingleWordTitle && candidate.length < minCandidateLengthForSingleWordTarget(targetWord)) {
+    return false
+  }
 
   const fuse = new Fuse([{ text: targetWord }], {
     keys: ["text"],
@@ -83,13 +100,16 @@ export function messageMatchesTarget(
     const single = words(t)[0] ?? t
     if (single.length < MIN_TARGET_WORD_LEN) return false
     const candidates = messageMatchCandidates(m)
-    return candidates.some((c) => tokenMatchesTargetWord(c, single, fuzzyThreshold))
+    return candidates.some((c) => tokenMatchesTargetWord(c, single, fuzzyThreshold, true))
   }
 
   const candidates = messageMatchCandidates(m)
+  const singleSignificantToken = targetTokens.length === 1
 
   for (const targetWord of targetTokens) {
-    const matched = candidates.some((c) => tokenMatchesTargetWord(c, targetWord, fuzzyThreshold))
+    const matched = candidates.some((c) =>
+      tokenMatchesTargetWord(c, targetWord, fuzzyThreshold, singleSignificantToken),
+    )
     if (!matched) return false
   }
 

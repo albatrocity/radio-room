@@ -197,14 +197,12 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
       revealedAll[field] = JSON.stringify(revealedBy)
 
       const elapsed = Date.now() - startedAt
-      const mult =
-        elapsed <= config.speedMultiplierWindowSec * 1000 ? config.speedMultiplier : 1
+      const mult = elapsed <= config.speedMultiplierWindowSec * 1000 ? config.speedMultiplier : 1
       const points = Math.floor(basePoints[prop] * mult)
 
       await this.context.storage.zincrby(USER_SCORES_KEY, points, message.user.userId)
 
-      const multiplierSuffix =
-        mult > 1 ? ` (${mult}× speed bonus)` : ""
+      const multiplierSuffix = mult > 1 ? ` (${mult}× speed bonus)` : ""
 
       const body = interpolateTemplate(config.messageTemplate ?? "", {
         username: message.user.username ?? message.user.userId,
@@ -229,7 +227,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
       if (config.soundEffectOnMatch) {
         await this.context.api.queueSoundEffect({
           url: config.soundEffectOnMatchUrl ?? "",
-          volume: 0.5,
+          volume: 0.3,
         })
       }
 
@@ -531,9 +529,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
   }
 }
 
-export function createGuessTheTunePlugin(
-  configOverrides?: Partial<GuessTheTuneConfig>,
-): Plugin {
+export function createGuessTheTunePlugin(configOverrides?: Partial<GuessTheTuneConfig>): Plugin {
   return new GuessTheTunePlugin(configOverrides)
 }
 
