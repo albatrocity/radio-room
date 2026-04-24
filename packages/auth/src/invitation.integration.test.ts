@@ -1,27 +1,30 @@
 import { describe, test, expect, beforeAll } from "vitest"
+import { eq } from "drizzle-orm"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { admin } from "better-auth/plugins"
+import { admin, bearer } from "better-auth/plugins"
 import { inviteOnly } from "better-auth-invitation-only"
-import { drizzle } from "drizzle-orm/better-sqlite3"
-import Database from "better-sqlite3"
+import { authSqliteTestSchema, openAuthTestSqlite, user as userTable } from "./test/sqliteAuthSchema"
 
 describe("Invitation flow integration", () => {
   let auth: ReturnType<typeof betterAuth>
   let adminToken: string
+  /** While true, invite-only gating is off (bootstrap first admin), matching production `SEED_MODE` idea. */
+  const inviteSeed = { active: true }
 
   beforeAll(async () => {
-    const sqlite = new Database(":memory:")
-    const db = drizzle(sqlite)
+    const { db } = openAuthTestSqlite()
 
     auth = betterAuth({
-      database: drizzleAdapter(db, { provider: "sqlite" }),
+      database: drizzleAdapter(db, { provider: "sqlite", schema: authSqliteTestSchema }),
+      baseURL: "http://127.0.0.1:3000",
       basePath: "/api/auth",
       emailAndPassword: { enabled: true },
       plugins: [
+        bearer(),
         admin(),
         inviteOnly({
-          enabled: true,
+          enabled: () => !inviteSeed.active,
           expiresInSeconds: 3600,
         }),
       ],
@@ -29,7 +32,7 @@ describe("Invitation flow integration", () => {
       secret: "test-secret-at-least-32-characters-long",
     })
 
-    // Bootstrap admin user (server-side bypasses invite gate)
+    // Bootstrap: invite gating is off, then set admin role in DB (setRole needs an admin session; seeding uses DB in prod)
     const adminResult = await auth.api.signUpEmail({
       body: {
         email: "admin@test.com",
@@ -37,19 +40,13 @@ describe("Invitation flow integration", () => {
         name: "Admin",
       },
     })
-    await auth.api.setRole({
-      body: { userId: adminResult.user.id, role: "admin" },
-      headers: new Headers({
-        cookie: `better-auth.session_token=${adminResult.session.token}`,
-      }),
-    })
-    adminToken = adminResult.session.token
+    await db.update(userTable).set({ role: "admin" }).where(eq(userTable.id, adminResult.user.id))
+    adminToken = adminResult.token
+    inviteSeed.active = false
   })
 
   function adminHeaders() {
-    return new Headers({
-      cookie: `better-auth.session_token=${adminToken}`,
-    })
+    return new Headers({ Authorization: `Bearer ${adminToken}` })
   }
 
   test("signup without invite code is rejected when invite-only is enabled", async () => {

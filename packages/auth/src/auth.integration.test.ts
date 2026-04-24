@@ -1,22 +1,29 @@
 import { describe, test, expect, beforeAll } from "vitest"
+import { eq } from "drizzle-orm"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { admin } from "better-auth/plugins"
-import { drizzle } from "drizzle-orm/better-sqlite3"
-import Database from "better-sqlite3"
+import { admin, bearer } from "better-auth/plugins"
+import { authSqliteTestSchema, openAuthTestSqlite, user as userTable } from "./test/sqliteAuthSchema"
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3"
+
+function sessionHeaders(token: string) {
+  return new Headers({ Authorization: `Bearer ${token}` })
+}
 
 describe("Better-Auth integration", () => {
   let auth: ReturnType<typeof betterAuth>
+  let testDb: BetterSQLite3Database<typeof authSqliteTestSchema>
 
   beforeAll(async () => {
-    const sqlite = new Database(":memory:")
-    const db = drizzle(sqlite)
+    const { db } = openAuthTestSqlite()
+    testDb = db
 
     auth = betterAuth({
-      database: drizzleAdapter(db, { provider: "sqlite" }),
+      database: drizzleAdapter(db, { provider: "sqlite", schema: authSqliteTestSchema }),
+      baseURL: "http://127.0.0.1:3000",
       basePath: "/api/auth",
       emailAndPassword: { enabled: true },
-      plugins: [admin()],
+      plugins: [bearer(), admin()],
       trustedOrigins: ["http://127.0.0.1:3000"],
       secret: "test-secret-at-least-32-characters-long",
     })
@@ -34,7 +41,7 @@ describe("Better-Auth integration", () => {
     expect(result.user).toBeDefined()
     expect(result.user.email).toBe("test@example.com")
     expect(result.user.name).toBe("Test User")
-    expect(result.session).toBeDefined()
+    expect(result.token).toBeDefined()
   })
 
   test("sign in with correct credentials returns session", async () => {
@@ -45,7 +52,7 @@ describe("Better-Auth integration", () => {
       },
     })
 
-    expect(result.session).toBeDefined()
+    expect(result.token).toBeDefined()
     expect(result.user.email).toBe("test@example.com")
   })
 
@@ -72,9 +79,7 @@ describe("Better-Auth integration", () => {
     })
 
     const session = await auth.api.getSession({
-      headers: new Headers({
-        cookie: `better-auth.session_token=${signInResult.session.token}`,
-      }),
+      headers: sessionHeaders(signInResult.token),
     })
 
     expect(session).not.toBeNull()
@@ -83,9 +88,7 @@ describe("Better-Auth integration", () => {
 
   test("get session with invalid token returns null", async () => {
     const session = await auth.api.getSession({
-      headers: new Headers({
-        cookie: "better-auth.session_token=invalid-token",
-      }),
+      headers: new Headers({ Authorization: "Bearer invalid-not-a-session" }),
     })
 
     expect(session).toBeNull()
@@ -112,6 +115,12 @@ describe("Better-Auth integration", () => {
       },
     })
 
+    // Seed-style: promote the first account to admin in the DB, then sign in so the session has admin.
+    await testDb
+      .update(userTable)
+      .set({ role: "admin" })
+      .where(eq(userTable.email, "test@example.com"))
+
     const adminSignIn = await auth.api.signInEmail({
       body: {
         email: "test@example.com",
@@ -119,27 +128,14 @@ describe("Better-Auth integration", () => {
       },
     })
 
-    // First, make the first user admin so they can set roles
-    // (In real code, the seed script does this)
-    await auth.api.setRole({
-      body: { userId: adminSignIn.user.id, role: "admin" },
-      headers: new Headers({
-        cookie: `better-auth.session_token=${adminSignIn.session.token}`,
-      }),
-    })
-
     // Now set role on the new user
     await auth.api.setRole({
       body: { userId: signUpResult.user.id, role: "admin" },
-      headers: new Headers({
-        cookie: `better-auth.session_token=${adminSignIn.session.token}`,
-      }),
+      headers: sessionHeaders(adminSignIn.token),
     })
 
     const session = await auth.api.getSession({
-      headers: new Headers({
-        cookie: `better-auth.session_token=${signUpResult.session.token}`,
-      }),
+      headers: sessionHeaders(signUpResult.token),
     })
 
     expect(session?.user.role).toBe("admin")
@@ -176,12 +172,10 @@ describe("Better-Auth integration", () => {
         password: "password123",
       },
     })
-    expect(signInResult.session).toBeDefined()
+    expect(signInResult.token).toBeDefined()
 
     const session = await auth.api.getSession({
-      headers: new Headers({
-        cookie: `better-auth.session_token=${signInResult.session.token}`,
-      }),
+      headers: sessionHeaders(signInResult.token),
     })
     expect(session?.user.email).toBe("lifecycle@example.com")
   })
