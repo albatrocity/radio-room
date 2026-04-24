@@ -841,6 +841,7 @@ await this.emit("DATA_RESET", {})  // ✗ Frontend won't know to update
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ Server: PluginRegistry.executePluginAction() calls plugin.executeAction │
+│   (optional second arg: initiator { userId, username } from admin socket) │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼

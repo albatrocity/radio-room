@@ -10,6 +10,7 @@ import {
   Stack,
   Icon,
   Box,
+  Image,
 } from "@chakra-ui/react"
 import { format } from "date-fns"
 
@@ -20,14 +21,35 @@ import { User } from "../../types/User"
 import { Room, RoomMeta } from "../../types/Room"
 import { PluginArea } from "../PluginComponents"
 import { usePluginStyles } from "../../hooks/usePluginStyles"
+import { usePluginElementProps } from "../../hooks/usePluginElementProps"
 import { usePreferredMetadataSource } from "../../hooks/useActors"
 import { MetadataSourceType } from "../../types/Queue"
+import type { PluginElementProps } from "@repo/types"
+
+type RevealedBy = NonNullable<PluginElementProps["revealedBy"]>
 
 interface NowPlayingTrackProps {
   meta: RoomMeta
   room: Partial<Room> | null
   users: User[]
 }
+
+/** Neutral “hidden artwork” placeholder (SVG data URI — no network). */
+const OBSCURED_ARTWORK_PLACEHOLDER =
+  "data:image/svg+xml;charset=utf-8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+      <defs>
+        <linearGradient id="obArtG" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#3d3d48"/>
+          <stop offset="100%" stop-color="#26262e"/>
+        </linearGradient>
+      </defs>
+      <rect width="512" height="512" fill="url(#obArtG)"/>
+      <circle cx="256" cy="256" r="132" fill="none" stroke="#5c5c6a" stroke-width="10"/>
+      <circle cx="256" cy="256" r="48" fill="#5c5c6a"/>
+    </svg>`,
+  )
 
 function getCoverUrl(release: any, room: Partial<Room> | null): string | null {
   const useRoomArtwork = room?.artwork && (!room.artworkStreamingOnly || !room.fetchMeta)
@@ -104,6 +126,11 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   // Get plugin-provided styles for the title
   const titleStyles = usePluginStyles(nowPlaying?.pluginData, "title")
 
+  const titleElementProps = usePluginElementProps(nowPlaying?.pluginData, "title")
+  const artistElementProps = usePluginElementProps(nowPlaying?.pluginData, "artist")
+  const albumElementProps = usePluginElementProps(nowPlaying?.pluginData, "album")
+  const artworkElementProps = usePluginElementProps(nowPlaying?.pluginData, "artwork")
+
   const djUsername = useMemo(
     () =>
       dj
@@ -129,24 +156,54 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
               <Box position="absolute">
                 <PluginArea area="nowPlayingArt" color="primaryBg" />
               </Box>
-              <AlbumArtwork coverUrl={coverUrl} />
+              <Box position="relative" overflow="hidden" borderRadius="md" height="100%" width="100%">
+                {artworkElementProps.obscured ? (
+                  <Image
+                    src={OBSCURED_ARTWORK_PLACEHOLDER}
+                    alt=""
+                    height="100%"
+                    width="100%"
+                    objectFit="cover"
+                    draggable={false}
+                  />
+                ) : (
+                  <AlbumArtwork coverUrl={coverUrl} />
+                )}
+              </Box>
             </Box>
           )}
           <VStack align="start" gap={0}>
-            <TrackTitle title={titleDisplay} externalUrl={externalUrl} pluginStyles={titleStyles} />
+            <ObscuredTitleBlock
+              obscured={titleElementProps.obscured}
+              placeholder={titleElementProps.placeholder}
+              revealedBy={titleElementProps.revealedBy}
+              externalUrl={externalUrl}
+              pluginStyles={titleStyles}
+            >
+              {titleDisplay}
+            </ObscuredTitleBlock>
 
             <PluginArea area="nowPlayingBadge" />
 
             {artist && (
-              <Heading color="primary.contrast" margin="none" as="h4" size="sm">
+              <ObscuredTextBlock
+                obscured={artistElementProps.obscured}
+                placeholder={artistElementProps.placeholder}
+                revealedBy={artistElementProps.revealedBy}
+                asHeading
+              >
                 {artist}
-              </Heading>
+              </ObscuredTextBlock>
             )}
 
             {album && (
-              <Text as="span" color="primary.contrast/50" margin="none" fontSize="xs">
+              <ObscuredTextBlock
+                obscured={albumElementProps.obscured}
+                placeholder={albumElementProps.placeholder}
+                revealedBy={albumElementProps.revealedBy}
+              >
                 {album}
-              </Text>
+              </ObscuredTextBlock>
             )}
 
             {releaseDate && (
@@ -171,13 +228,37 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
 
 // Sub-components
 
-interface TrackTitleProps {
-  title: string | null
+function guessRevealCreditLine(revealedBy: RevealedBy): string {
+  const name = revealedBy.username?.trim() || "someone"
+  return revealedBy.source === "admin" ? `Revealed by ${name}` : `Identified by ${name}`
+}
+
+const shimmerCss = {
+  "@keyframes nowPlayingShimmer": {
+    "0%": { opacity: 0.35 },
+    "50%": { opacity: 0.95 },
+    "100%": { opacity: 0.35 },
+  },
+  animation: "nowPlayingShimmer 2.2s ease-in-out infinite",
+}
+
+interface ObscuredTitleBlockProps {
+  children: string | null
+  obscured: boolean
+  placeholder?: string
+  revealedBy?: RevealedBy | null
   externalUrl: string | null
   pluginStyles: React.CSSProperties
 }
 
-function TrackTitle({ title, externalUrl, pluginStyles }: TrackTitleProps) {
+function ObscuredTitleBlock({
+  children,
+  obscured,
+  placeholder,
+  revealedBy,
+  externalUrl,
+  pluginStyles,
+}: ObscuredTitleBlockProps) {
   const headingStyles = {
     color: "primary.contrast",
     margin: "none",
@@ -185,20 +266,118 @@ function TrackTitle({ title, externalUrl, pluginStyles }: TrackTitleProps) {
     size: ["md", "2xl"] as any,
   }
 
-  if (externalUrl) {
+  if (obscured) {
+    const label = placeholder ?? "???"
     return (
-      <LinkOverlay href={externalUrl} target="_blank" rel="noopener noreferrer">
-        <Heading {...headingStyles} style={pluginStyles}>
-          {title}
-        </Heading>
-      </LinkOverlay>
+      <Heading {...headingStyles} css={shimmerCss} userSelect="none" aria-hidden="true">
+        {label}
+      </Heading>
+    )
+  }
+
+  const credit =
+    revealedBy != null ? (
+      <Text fontSize="2xs" color="primary.contrast/55" mt={1}>
+        {guessRevealCreditLine(revealedBy)}
+      </Text>
+    ) : null
+
+  if (externalUrl && children) {
+    return (
+      <>
+        <LinkOverlay href={externalUrl} target="_blank" rel="noopener noreferrer">
+          <Heading {...headingStyles} style={pluginStyles}>
+            {children}
+          </Heading>
+        </LinkOverlay>
+        {credit}
+      </>
     )
   }
 
   return (
-    <Heading {...headingStyles} style={pluginStyles}>
-      {title}
-    </Heading>
+    <>
+      <Heading {...headingStyles} style={pluginStyles}>
+        {children}
+      </Heading>
+      {credit}
+    </>
+  )
+}
+
+interface ObscuredTextBlockProps {
+  children: string
+  obscured: boolean
+  placeholder?: string
+  revealedBy?: RevealedBy | null
+  /** Use heading styles for artist line */
+  asHeading?: boolean
+}
+
+function ObscuredTextBlock({
+  children,
+  obscured,
+  placeholder,
+  revealedBy,
+  asHeading,
+}: ObscuredTextBlockProps) {
+  if (obscured) {
+    const label = placeholder ?? "???"
+    if (asHeading) {
+      return (
+        <Heading
+          color="primary.contrast"
+          margin="none"
+          as="h4"
+          size="sm"
+          css={shimmerCss}
+          userSelect="none"
+          aria-hidden="true"
+        >
+          {label}
+        </Heading>
+      )
+    }
+    return (
+      <Text
+        as="span"
+        color="primary.contrast/50"
+        margin="none"
+        fontSize="xs"
+        css={shimmerCss}
+        userSelect="none"
+        aria-hidden="true"
+      >
+        {label}
+      </Text>
+    )
+  }
+
+  const credit =
+    revealedBy != null ? (
+      <Text fontSize="2xs" color="primary.contrast/45" mt={0.5}>
+        {guessRevealCreditLine(revealedBy)}
+      </Text>
+    ) : null
+
+  if (asHeading) {
+    return (
+      <Box>
+        <Heading color="primary.contrast" margin="none" as="h4" size="sm">
+          {children}
+        </Heading>
+        {credit}
+      </Box>
+    )
+  }
+
+  return (
+    <Box>
+      <Text as="span" color="primary.contrast/50" margin="none" fontSize="xs">
+        {children}
+      </Text>
+      {credit}
+    </Box>
   )
 }
 

@@ -1,5 +1,6 @@
 import type {
   Plugin,
+  PluginActionInitiator,
   PluginContext,
   PluginConfigSchema,
   PluginComponentSchema,
@@ -683,7 +684,10 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
   // Actions
   // ============================================================================
 
-  async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+  async executeAction(
+    action: string,
+    _initiator?: PluginActionInitiator,
+  ): Promise<{ success: boolean; message?: string }> {
     if (action === "resetCompetitiveLeaderboard") {
       return this.resetCompetitiveLeaderboard()
     }

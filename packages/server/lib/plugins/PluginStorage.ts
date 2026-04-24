@@ -243,6 +243,44 @@ export class PluginStorageImpl implements PluginStorage {
     }
   }
 
+  async hget(key: string, field: string): Promise<string | null> {
+    try {
+      const v = await this.context.redis.pubClient.hGet(this.makeKey(key), field)
+      return v ?? null
+    } catch (error) {
+      console.error(`[PluginStorage] Error hget ${key}.${field}:`, error)
+      return null
+    }
+  }
+
+  async hset(key: string, field: string, value: string): Promise<void> {
+    try {
+      await this.context.redis.pubClient.hSet(this.makeKey(key), field, value)
+    } catch (error) {
+      console.error(`[PluginStorage] Error hset ${key}.${field}:`, error)
+    }
+  }
+
+  async hgetall(key: string): Promise<Record<string, string>> {
+    try {
+      const all = await this.context.redis.pubClient.hGetAll(this.makeKey(key))
+      return all ?? {}
+    } catch (error) {
+      console.error(`[PluginStorage] Error hgetall ${key}:`, error)
+      return {}
+    }
+  }
+
+  async hsetnx(key: string, field: string, value: string): Promise<boolean> {
+    try {
+      const n = await this.context.redis.pubClient.hSetNX(this.makeKey(key), field, value)
+      return Boolean(n)
+    } catch (error) {
+      console.error(`[PluginStorage] Error hsetnx ${key}.${field}:`, error)
+      return false
+    }
+  }
+
   /**
    * Cleanup all keys for this plugin in this room
    */

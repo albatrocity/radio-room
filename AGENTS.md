@@ -169,6 +169,8 @@ npm run dev
 # Run tests
 npm test
 
+Uses `turbo run test --continue=always` so one failing package (e.g. server tests on an older Node than `packages/server`’s `engines`) does not skip the rest of the workspaces. For a single package: `npm test -w @repo/plugin-guess-the-tune`.
+
 # Lint
 npm run lint
 

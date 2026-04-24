@@ -172,6 +172,15 @@ export interface PluginStorage {
   zremrangebyscore(key: string, min: number, max: number): Promise<void>
   zscore(key: string, value: string): Promise<number | null>
   zincrby(key: string, increment: number, value: string): Promise<number>
+
+  /** Redis hash: get one field */
+  hget(key: string, field: string): Promise<string | null>
+  /** Redis hash: set one field */
+  hset(key: string, field: string, value: string): Promise<void>
+  /** Redis hash: get all fields */
+  hgetall(key: string): Promise<Record<string, string>>
+  /** Redis hash: set field only if it does not exist. Returns true if set. */
+  hsetnx(key: string, field: string, value: string): Promise<boolean>
 }
 
 /**
@@ -337,12 +346,52 @@ export interface PluginStyleHints {
 }
 
 /**
+ * Now-playing UI slots plugins may annotate via {@link PluginAugmentationData.elementProps}.
+ */
+export type PluginElementKey = "title" | "artist" | "album" | "artwork"
+
+/**
+ * Roles that may bypass {@link PluginElementProps.obscured} in the web client.
+ * Advisory only — not an authorization boundary (see ADR 0039).
+ */
+export type PluginObscureBypassRole = "admin" | "dj" | "creator" | "owner"
+
+/**
+ * Text/metadata slots (excludes artwork).
+ */
+export type PluginTextElementKey = Exclude<PluginElementKey, "artwork">
+
+export interface PluginElementProps {
+  obscured?: boolean
+  /**
+   * Roles for which this element should not be obscured even when `obscured` is true.
+   * The UI resolves this against the current viewer's roles.
+   */
+  obscureBypassRoles?: PluginObscureBypassRole[]
+  /**
+   * When a slot is no longer obscured, optional attribution (e.g. Guess the Tune: who matched in chat, or admin reveal).
+   */
+  revealedBy?: {
+    userId: string
+    username: string
+    at: number
+    source?: "chat" | "admin"
+  } | null
+  placeholder?: string
+}
+
+/**
  * Plugin data returned from augmentation methods.
  * Can include style hints and any plugin-specific metadata.
  */
 export interface PluginAugmentationData {
   /** Optional style modifications for UI elements */
   styles?: PluginStyleHints
+  /**
+   * Declarative hints for Now Playing slots (obscured, bypass roles, etc.).
+   * Merged per-plugin under `QueueItem.pluginData[pluginName]`.
+   */
+  elementProps?: Partial<Record<PluginElementKey, PluginElementProps>>
   /** Any other plugin-specific data */
   [key: string]: any
 }
@@ -388,6 +437,15 @@ export const rejectQueueRequest = (reason: string): QueueValidationResult => ({
   allowed: false,
   reason,
 })
+
+/**
+ * Caller identity for admin-triggered plugin actions (e.g. config UI action buttons).
+ * Populated server-side from the admin Socket.IO connection; not sent from the client payload.
+ */
+export interface PluginActionInitiator {
+  userId: string
+  username?: string
+}
 
 /**
  * Base plugin interface
@@ -440,10 +498,11 @@ export interface Plugin {
    * Actions are triggered from the admin config UI via action buttons.
    *
    * @param action - The action identifier from PluginActionElement
+   * @param initiator - Present when the action was triggered from the admin plugin config UI
    * @returns Result with success status and optional message
    *
    * @example
-   * async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+   * async executeAction(action: string, initiator?: PluginActionInitiator): Promise<{ success: boolean; message?: string }> {
    *   if (action === 'resetLeaderboards') {
    *     await this.clearAllLeaderboards()
    *     return { success: true, message: 'Leaderboards reset successfully' }
@@ -451,7 +510,10 @@ export interface Plugin {
    *   return { success: false, message: 'Unknown action' }
    * }
    */
-  executeAction?(action: string): Promise<{ success: boolean; message?: string }>
+  executeAction?(
+    action: string,
+    initiator?: PluginActionInitiator,
+  ): Promise<{ success: boolean; message?: string }>
 
   /**
    * Validate a queue request before it is processed.

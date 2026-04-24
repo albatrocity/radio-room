@@ -27,6 +27,7 @@ export type Event =
   | { type: "EDIT_SPECIAL_WORDS" }
   | { type: "EDIT_ABSENT_DJ" }
   | { type: "EDIT_QUEUE_HYGIENE" }
+  | { type: "EDIT_GUESS_THE_TUNE" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
@@ -100,10 +101,12 @@ export const modalsMachine = setup({
             EDIT_SPOTIFY: "spotify",
             EDIT_PASSWORD: "password",
             EDIT_SCHEDULE: "schedule",
+            // Plugin rows in Overview use EDIT_{NAME} (see toEventName); each needs a transition + substate below.
             EDIT_PLAYLIST_DEMOCRACY: "playlist_democracy",
             EDIT_SPECIAL_WORDS: "special_words",
             EDIT_ABSENT_DJ: "absent_dj",
             EDIT_QUEUE_HYGIENE: "queue_hygiene",
+            EDIT_GUESS_THE_TUNE: "guess_the_tune",
           },
         },
         playlist_democracy: {
@@ -122,6 +125,11 @@ export const modalsMachine = setup({
           },
         },
         queue_hygiene: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        guess_the_tune: {
           on: {
             BACK: "overview",
           },

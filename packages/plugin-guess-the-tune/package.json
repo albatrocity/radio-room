@@ -1,0 +1,32 @@
+{
+  "name": "@repo/plugin-guess-the-tune",
+  "version": "1.0.0",
+  "description": "Guess the Tune — obscure now playing, fuzzy chat matches, leaderboard",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types.ts"
+  },
+  "scripts": {
+    "test": "vitest run --reporter=dot",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.0.13"
+  },
+  "dependencies": {
+    "@repo/plugin-base": "*",
+    "@repo/types": "*",
+    "@repo/utils": "*",
+    "fuse.js": "^7.1.0"
+  },
+  "peerDependencies": {
+    "zod": "^4.1.13"
+  }
+}

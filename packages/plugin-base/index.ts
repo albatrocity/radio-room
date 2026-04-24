@@ -1,6 +1,7 @@
 import type { z } from "zod"
 import {
   Plugin,
+  PluginActionInitiator,
   PluginContext,
   PluginAugmentationData,
   PluginLifecycleEvents,
@@ -647,11 +648,12 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    * Override this method to handle custom actions defined in getConfigSchema().
    *
    * @param action - The action identifier from PluginActionElement
+   * @param initiator - When invoked from the admin room socket, the acting user (server-derived; not from the client payload)
    * @returns Result with success status and optional message
    *
    * @example
    * ```typescript
-   * async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+   * async executeAction(action: string, initiator?: PluginActionInitiator): Promise<{ success: boolean; message?: string }> {
    *   if (action === 'resetLeaderboards') {
    *     await this.clearAllLeaderboards()
    *     return { success: true, message: 'Leaderboards reset successfully' }
@@ -660,7 +662,10 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    * }
    * ```
    */
-  async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+  async executeAction(
+    action: string,
+    _initiator?: PluginActionInitiator,
+  ): Promise<{ success: boolean; message?: string }> {
     return { success: false, message: `Unknown action: ${action}` }
   }
 }

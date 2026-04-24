@@ -94,6 +94,9 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
       socket.data.roomId,
       pluginName,
       action,
+      socket.data.userId
+        ? { userId: socket.data.userId, username: socket.data.username }
+        : undefined,
     )
 
     socket.emit("event", {
