@@ -5,9 +5,11 @@
  * events to all subscribed actors. It serves as the single source of truth
  * for socket state and the event distribution hub.
  *
- * Other actors subscribe to receive events rather than invoking socketService directly.
+ * Other actors subscribe to receive events via this hub instead of wiring Socket.IO ad hoc.
  *
  * XState v5: Uses fromCallback for socket subscriptions and setup() for type-safe machine definition.
+ *
+ * Broadcast surface: SOCKET_ONLINE, SOCKET_OFFLINE, SOCKET_RECONNECTING.
  */
 
 import { setup, fromCallback, assign, createActor, AnyActorRef, EventObject } from "xstate"
@@ -31,6 +33,9 @@ interface Subscriber {
   send: (event: { type: string; data?: any }) => void
 }
 
+/** Payload for the next SOCKET_ONLINE broadcast (set on transition into `connected`) */
+type OnlinePayload = { attemptNumber?: number }
+
 interface SocketContext {
   // Record<subscriberId, subscriber> - ID-based for resilient subscriptions
   // Using plain object instead of Map for better XState compatibility
@@ -38,6 +43,10 @@ interface SocketContext {
   connectionStatus: "disconnected" | "connecting" | "connected"
   reconnectAttempts: number
   lastError: string | null
+  /** Reason for the next SOCKET_OFFLINE broadcast (set on transition into `disconnected`) */
+  lastOfflineReason: string
+  /** Optional reconnect attempt number for the next SOCKET_ONLINE broadcast */
+  lastOnlinePayload: OnlinePayload
 }
 
 type SocketMachineEvent =
@@ -51,6 +60,25 @@ type SocketMachineEvent =
   | { type: "SOCKET_RECONNECTING"; attemptNumber: number }
   | { type: "SOCKET_RECONNECTED"; attemptNumber: number }
   | { type: "SOCKET_RECONNECT_FAILED" }
+
+// ============================================================================
+// Broadcast helper (subscribers)
+// ============================================================================
+
+function broadcast(
+  subs: Record<string, Subscriber>,
+  type: string,
+  data: Record<string, unknown> = {},
+): void {
+  Object.entries(subs).forEach(([id, s]) => {
+    if (typeof s?.send !== "function") return
+    try {
+      s.send({ type, data })
+    } catch (err) {
+      console.error("[SocketActor] broadcast error:", id, err)
+    }
+  })
+}
 
 // ============================================================================
 // Socket Connection Actor (fromCallback)
@@ -182,6 +210,26 @@ const socketMachine = setup({
     resetReconnectAttempts: assign({
       reconnectAttempts: 0,
     }),
+    /** Before entering `disconnected` — run on transitions to disconnected */
+    prepareOfflineFromDisconnect: assign(({ event }: { event: SocketMachineEvent }) => {
+      if (event.type === "SOCKET_DISCONNECTED" && "reason" in event) {
+        return { lastOfflineReason: (event as { reason?: string }).reason ?? "disconnected" }
+      }
+      return { lastOfflineReason: "disconnected" }
+    }),
+    prepareOfflineReconnectFailed: assign({
+      lastOfflineReason: "reconnect_failed",
+    }),
+    clearOnlinePayload: assign({
+      lastOnlinePayload: () => ({} as OnlinePayload),
+    }),
+    setOnlinePayloadFromFirstConnect: assign({
+      lastOnlinePayload: () => ({} as OnlinePayload),
+    }),
+    setOnlinePayloadFromReconnect: assign(({ event }: { event: SocketMachineEvent }) => {
+      if (event.type !== "SOCKET_RECONNECTED") return { lastOnlinePayload: {} as OnlinePayload }
+      return { lastOnlinePayload: { attemptNumber: event.attemptNumber } }
+    }),
     emitToServer: ({ event }: { event: SocketMachineEvent }) => {
       if (event.type !== "EMIT") return
 
@@ -204,62 +252,19 @@ const socketMachine = setup({
         }
       })
     },
-    broadcastConnected: ({ context }: { context: SocketContext }) => {
-      Object.entries(context.subscribers).forEach(([id, subscriber]) => {
-        if (!subscriber || typeof subscriber.send !== "function") return
-        try {
-          subscriber.send({ type: "SOCKET_CONNECTED", data: {} })
-        } catch (err) {
-          console.error("[SocketActor] Error broadcasting connected:", id, err)
-        }
-      })
-    },
-    /**
-     * Notify subscribers the transport is down (mirrors broadcastConnected / broadcastReconnected)
-     * so auth and other machines can re-run LOGIN on the next connect / reconnect.
-     */
-    broadcastDisconnected: ({ context, event }: { context: SocketContext; event: SocketMachineEvent }) => {
-      let reason: string | undefined
-      if (event.type === "SOCKET_DISCONNECTED" && "reason" in event) {
-        reason = (event as { reason?: string }).reason
-      } else if (event.type === "SOCKET_RECONNECT_FAILED") {
-        reason = "reconnect_failed"
-      } else if (event.type === "SOCKET_ERROR") {
-        reason = (event as { error: string }).error
+    broadcastOnline: ({ context }: { context: SocketContext }) => {
+      const d: Record<string, unknown> = {}
+      if (context.lastOnlinePayload?.attemptNumber != null) {
+        d.attemptNumber = context.lastOnlinePayload.attemptNumber
       }
-      Object.entries(context.subscribers).forEach(([id, subscriber]) => {
-        if (!subscriber || typeof subscriber.send !== "function") return
-        try {
-          subscriber.send({ type: "SOCKET_DISCONNECTED", data: { reason } })
-        } catch (err) {
-          console.error("[SocketActor] Error broadcasting disconnect:", id, err)
-        }
-      })
+      broadcast(context.subscribers, "SOCKET_ONLINE", d)
     },
-    broadcastReconnected: ({ context, event }: { context: SocketContext; event: SocketMachineEvent }) => {
-      if (event.type !== "SOCKET_RECONNECTED") return
-
-      Object.entries(context.subscribers).forEach(([id, subscriber]) => {
-        if (!subscriber || typeof subscriber.send !== "function") return
-        try {
-          subscriber.send({
-            type: "SOCKET_RECONNECTED",
-            data: { attemptNumber: event.attemptNumber },
-          })
-        } catch (err) {
-          console.error("[SocketActor] Error broadcasting reconnected:", id, err)
-        }
-      })
+    broadcastOffline: ({ context }: { context: SocketContext }) => {
+      broadcast(context.subscribers, "SOCKET_OFFLINE", { reason: context.lastOfflineReason })
     },
-    broadcastReconnectFailed: ({ context }: { context: SocketContext }) => {
-      Object.entries(context.subscribers).forEach(([id, subscriber]) => {
-        if (!subscriber || typeof subscriber.send !== "function") return
-        try {
-          subscriber.send({ type: "SOCKET_RECONNECT_FAILED", data: {} })
-        } catch (err) {
-          console.error("[SocketActor] Error broadcasting reconnect failed:", id, err)
-        }
-      })
+    broadcastRetrying: ({ context, event }: { context: SocketContext; event: SocketMachineEvent }) => {
+      if (event.type !== "SOCKET_RECONNECTING") return
+      broadcast(context.subscribers, "SOCKET_RECONNECTING", { attemptNumber: event.attemptNumber })
     },
     /** Safety net when the manager is inactive (e.g. finite reconnection cap exhausted) */
     attemptReconnect: () => {
@@ -277,6 +282,8 @@ const socketMachine = setup({
     connectionStatus: "disconnected",
     reconnectAttempts: 0,
     lastError: null,
+    lastOfflineReason: "disconnected",
+    lastOnlinePayload: {},
   },
   invoke: {
     id: "socketConnection",
@@ -305,16 +312,15 @@ const socketMachine = setup({
       on: {
         SOCKET_CONNECTED: {
           target: "connected",
-          actions: ["setConnected", "broadcastConnected"],
+          actions: ["setOnlinePayloadFromFirstConnect", "setConnected", "resetReconnectAttempts", "broadcastOnline"],
         },
         SOCKET_DISCONNECTED: {
           target: "disconnected",
-          actions: ["setDisconnected", "broadcastDisconnected"],
+          actions: ["prepareOfflineFromDisconnect", "setDisconnected", "broadcastOffline"],
         },
       },
     },
     disconnected: {
-      entry: "setDisconnected",
       after: {
         30000: {
           target: "disconnected",
@@ -325,36 +331,19 @@ const socketMachine = setup({
       on: {
         SOCKET_CONNECTED: {
           target: "connected",
-          actions: ["setConnected", "broadcastConnected"],
+          actions: ["setOnlinePayloadFromFirstConnect", "setConnected", "resetReconnectAttempts", "broadcastOnline"],
         },
         SOCKET_RECONNECTING: {
           target: "reconnecting",
-          actions: "setReconnecting",
-        },
-      },
-    },
-    connecting: {
-      on: {
-        SOCKET_CONNECTED: {
-          target: "connected",
-          actions: "setConnected",
-        },
-        SOCKET_ERROR: {
-          target: "disconnected",
-          actions: ["setError", "broadcastDisconnected"],
-        },
-        SOCKET_DISCONNECTED: {
-          target: "disconnected",
-          actions: ["setDisconnected", "broadcastDisconnected"],
+          actions: ["setReconnecting", "incrementReconnectAttempts", "broadcastRetrying"],
         },
       },
     },
     connected: {
-      entry: "setConnected",
       on: {
         SOCKET_DISCONNECTED: {
           target: "disconnected",
-          actions: ["setDisconnected", "broadcastDisconnected"],
+          actions: ["prepareOfflineFromDisconnect", "setDisconnected", "broadcastOffline"],
         },
         SOCKET_ERROR: {
           actions: "setError",
@@ -362,22 +351,28 @@ const socketMachine = setup({
       },
     },
     reconnecting: {
-      entry: "setReconnecting",
       on: {
         SOCKET_RECONNECTING: {
-          actions: "incrementReconnectAttempts",
+          actions: ["incrementReconnectAttempts", "broadcastRetrying"],
+        },
+        /** Fires before `reconnect` on some stacks — connect without attempt number */
+        SOCKET_CONNECTED: {
+          target: "connected",
+          actions: ["setOnlinePayloadFromFirstConnect", "setConnected", "resetReconnectAttempts", "broadcastOnline"],
         },
         SOCKET_RECONNECTED: {
           target: "connected",
-          actions: ["setConnected", "resetReconnectAttempts", "broadcastReconnected"],
+          actions: [
+            "setOnlinePayloadFromReconnect",
+            "setConnected",
+            "resetReconnectAttempts",
+            "broadcastOnline",
+            "clearOnlinePayload",
+          ],
         },
         SOCKET_RECONNECT_FAILED: {
           target: "disconnected",
-          actions: ["setDisconnected", "broadcastReconnectFailed", "broadcastDisconnected"],
-        },
-        SOCKET_CONNECTED: {
-          target: "connected",
-          actions: ["setConnected", "resetReconnectAttempts", "broadcastConnected"],
+          actions: ["prepareOfflineReconnectFailed", "setDisconnected", "broadcastOffline"],
         },
         SOCKET_ERROR: {
           actions: "setError",

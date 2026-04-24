@@ -63,13 +63,9 @@ type AuthEvent =
         webrtcStreamHealthStatus?: "online" | "offline"
       }
     }
-  | { type: "SOCKET_RECONNECTED"; data: { attemptNumber: number } }
-  | { type: "SOCKET_DISCONNECTED"; data: { reason?: string } }
-  | { type: "SOCKET_CONNECTED" }
-  | { type: "SOCKET_CONNECTING" }
-  | { type: "SOCKET_ERROR"; data: { error?: string } }
+  | { type: "SOCKET_ONLINE"; data: { attemptNumber?: number } }
+  | { type: "SOCKET_OFFLINE"; data: { reason?: string } }
   | { type: "SOCKET_RECONNECTING"; data: { attemptNumber: number } }
-  | { type: "SOCKET_RECONNECT_FAILED" }
   | { type: "FORCE_REFRESH" }
 
 // Visibility callback actor
@@ -85,7 +81,7 @@ const visibilityLogic = fromCallback<AuthEvent>(({ sendBack }) => {
           if (!socket.active) {
             socket.connect()
           }
-          sendBack({ type: "SOCKET_DISCONNECTED", data: { reason: "visibility_change" } })
+          sendBack({ type: "SOCKET_OFFLINE", data: { reason: "visibility_change" } })
         }
       }
     }
@@ -301,8 +297,8 @@ export const authMachine = setup({
       }
     },
     logDisconnect: ({ event }) => {
-      if (event.type === "SOCKET_DISCONNECTED") {
-        console.log("[Auth] Socket disconnected, reason:", event.data.reason)
+      if (event.type === "SOCKET_OFFLINE") {
+        console.log("[Auth] Socket offline, reason:", event.data.reason)
       }
     },
     showDisconnectedToast: () => {
@@ -389,6 +385,9 @@ export const authMachine = setup({
       if (event.type !== "SET_PASSWORD_ACCEPTED") return false
       return !event.data.passwordAccepted
     },
+    isReconnectPermanentlyFailed: ({ event }) => {
+      return event.type === "SOCKET_OFFLINE" && event.data?.reason === "reconnect_failed"
+    },
   },
 }).createMachine({
   id: "auth",
@@ -452,23 +451,7 @@ export const authMachine = setup({
           actions: ["setRoomId"],
         },
         // Re-LOGIN in-place: `retrieving` + `connecting` leave `authenticated` and hide ChatInput; stay authenticated like FORCE_REFRESH.
-        SOCKET_RECONNECTED: [
-          {
-            guard: "hasRejoinUser",
-            target: "authenticated",
-            actions: [
-              "showReconnectedToast",
-              "getStoredPassword",
-              "resetInitialized",
-              "login",
-            ],
-          },
-          {
-            target: "retrieving",
-            actions: ["showReconnectedToast"],
-          },
-        ],
-        SOCKET_CONNECTED: [
+        SOCKET_ONLINE: [
           {
             guard: "hasRejoinUser",
             target: "authenticated",
@@ -487,8 +470,9 @@ export const authMachine = setup({
         SOCKET_RECONNECTING: {
           actions: ["showReconnectingToast"],
         },
-        SOCKET_RECONNECT_FAILED: {
+        SOCKET_OFFLINE: {
           actions: ["showReconnectFailedToast"],
+          guard: "isReconnectPermanentlyFailed",
         },
       },
     },
@@ -523,8 +507,8 @@ export const authMachine = setup({
         UNAUTHORIZED: {
           target: "unauthorized",
         },
-        // Retry login immediately when socket connects (in case initial attempt failed)
-        SOCKET_CONNECTED: {
+        // Retry login immediately when socket is online (in case initial attempt failed)
+        SOCKET_ONLINE: {
           target: "connecting",
           reenter: true,
         },
@@ -538,11 +522,8 @@ export const authMachine = setup({
         FORCE_REFRESH: {
           actions: ["resetInitialized", "login"],
         },
-        /** New server socket after reconnect — must re-LOGIN to repopulate socket.data and rejoin room channel */
-        SOCKET_RECONNECTED: {
-          actions: ["resetInitialized", "login"],
-        },
-        SOCKET_CONNECTED: {
+        /** Transport up — must re-LOGIN to repopulate socket.data and rejoin room channel */
+        SOCKET_ONLINE: {
           actions: ["resetInitialized", "login"],
         },
         INIT: [
@@ -563,7 +544,7 @@ export const authMachine = setup({
           target: "idle",
           actions: ["disconnectUser"],
         },
-        SOCKET_DISCONNECTED: {
+        SOCKET_OFFLINE: {
           target: "disconnected",
           actions: ["logDisconnect"],
         },
@@ -586,9 +567,6 @@ export const authMachine = setup({
         USER_KICKED: {
           target: "disconnected",
           actions: ["disableRetry", "disconnectUser"],
-        },
-        SOCKET_ERROR: {
-          target: "disconnected",
         },
         NUKE_USER: {
           target: "loggingOut",
