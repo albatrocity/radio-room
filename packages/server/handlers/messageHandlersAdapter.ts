@@ -30,6 +30,13 @@ export class MessageHandlers {
   newMessage = async ({ socket, io }: HandlerConnections, message: MessagePayload) => {
     const { roomId, userId, username } = socket.data
 
+    if (!roomId) {
+      console.warn("[MessageHandler] SEND_MESSAGE dropped: no roomId on socket (client should re-LOGIN after reconnect)", {
+        socketId: socket.id,
+      })
+      return
+    }
+
     // Normalize the message payload
     const content = typeof message === "string" ? message : message.content
 

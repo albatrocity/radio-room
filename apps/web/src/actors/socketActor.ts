@@ -185,13 +185,10 @@ const socketMachine = setup({
     emitToServer: ({ event }: { event: SocketMachineEvent }) => {
       if (event.type !== "EMIT") return
 
-      if (socket.connected) {
-        socket.emit(event.eventType, event.data)
-      } else {
-        // Socket not connected - it will retry on SOCKET_CONNECTED
-        if (!socket.active) {
-          socket.connect()
-        }
+      // Always emit: Socket.IO buffers while disconnected; dropping here lost sends after reconnect
+      socket.emit(event.eventType, event.data)
+      if (!socket.connected && !socket.active) {
+        socket.connect()
       }
     },
     broadcastToSubscribers: ({ context, event }: { context: SocketContext; event: SocketMachineEvent }) => {
@@ -214,6 +211,28 @@ const socketMachine = setup({
           subscriber.send({ type: "SOCKET_CONNECTED", data: {} })
         } catch (err) {
           console.error("[SocketActor] Error broadcasting connected:", id, err)
+        }
+      })
+    },
+    /**
+     * Notify subscribers the transport is down (mirrors broadcastConnected / broadcastReconnected)
+     * so auth and other machines can re-run LOGIN on the next connect / reconnect.
+     */
+    broadcastDisconnected: ({ context, event }: { context: SocketContext; event: SocketMachineEvent }) => {
+      let reason: string | undefined
+      if (event.type === "SOCKET_DISCONNECTED" && "reason" in event) {
+        reason = (event as { reason?: string }).reason
+      } else if (event.type === "SOCKET_RECONNECT_FAILED") {
+        reason = "reconnect_failed"
+      } else if (event.type === "SOCKET_ERROR") {
+        reason = (event as { error: string }).error
+      }
+      Object.entries(context.subscribers).forEach(([id, subscriber]) => {
+        if (!subscriber || typeof subscriber.send !== "function") return
+        try {
+          subscriber.send({ type: "SOCKET_DISCONNECTED", data: { reason } })
+        } catch (err) {
+          console.error("[SocketActor] Error broadcasting disconnect:", id, err)
         }
       })
     },
@@ -290,7 +309,7 @@ const socketMachine = setup({
         },
         SOCKET_DISCONNECTED: {
           target: "disconnected",
-          actions: "setDisconnected",
+          actions: ["setDisconnected", "broadcastDisconnected"],
         },
       },
     },
@@ -306,7 +325,7 @@ const socketMachine = setup({
       on: {
         SOCKET_CONNECTED: {
           target: "connected",
-          actions: "setConnected",
+          actions: ["setConnected", "broadcastConnected"],
         },
         SOCKET_RECONNECTING: {
           target: "reconnecting",
@@ -322,11 +341,11 @@ const socketMachine = setup({
         },
         SOCKET_ERROR: {
           target: "disconnected",
-          actions: "setError",
+          actions: ["setError", "broadcastDisconnected"],
         },
         SOCKET_DISCONNECTED: {
           target: "disconnected",
-          actions: "setDisconnected",
+          actions: ["setDisconnected", "broadcastDisconnected"],
         },
       },
     },
@@ -335,7 +354,7 @@ const socketMachine = setup({
       on: {
         SOCKET_DISCONNECTED: {
           target: "disconnected",
-          actions: "setDisconnected",
+          actions: ["setDisconnected", "broadcastDisconnected"],
         },
         SOCKET_ERROR: {
           actions: "setError",
@@ -354,11 +373,11 @@ const socketMachine = setup({
         },
         SOCKET_RECONNECT_FAILED: {
           target: "disconnected",
-          actions: ["setDisconnected", "broadcastReconnectFailed"],
+          actions: ["setDisconnected", "broadcastReconnectFailed", "broadcastDisconnected"],
         },
         SOCKET_CONNECTED: {
           target: "connected",
-          actions: ["setConnected", "resetReconnectAttempts"],
+          actions: ["setConnected", "resetReconnectAttempts", "broadcastConnected"],
         },
         SOCKET_ERROR: {
           actions: "setError",

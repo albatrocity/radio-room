@@ -226,6 +226,10 @@ export const chatMachine = setup({
               target: "ready",
               actions: ["setData"],
             },
+            // Same as `ready`: after reconnect, INIT can lag auth; do not drop SUBMIT (ChatInput clears anyway)
+            SUBMIT_MESSAGE: { actions: ["sendMessage"] },
+            START_TYPING: { actions: ["startTyping"] },
+            STOP_TYPING: { actions: ["stopTyping"] },
           },
         },
         ready: {

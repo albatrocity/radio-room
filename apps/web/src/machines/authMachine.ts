@@ -362,6 +362,8 @@ export const authMachine = setup({
   guards: {
     shouldRetry: ({ context }) => context.shouldRetry,
     shouldNotRetry: ({ context }) => !context.shouldRetry,
+    /** Stays in `authenticated` for ChatInput and other useIsAuthenticated() UI (see ADR 0031) */
+    hasRejoinUser: ({ context }) => Boolean(context.currentUser?.userId),
     isRoomAdmin: ({ event }) => {
       return event.type === "INIT" && !!event.data.user?.isAdmin
     },
@@ -449,14 +451,39 @@ export const authMachine = setup({
           target: "retrieving",
           actions: ["setRoomId"],
         },
-        SOCKET_RECONNECTED: {
-          target: "retrieving",
-          actions: ["showReconnectedToast"],
-        },
-        SOCKET_CONNECTED: {
-          target: "retrieving",
-          actions: ["showReconnectedToast"],
-        },
+        // Re-LOGIN in-place: `retrieving` + `connecting` leave `authenticated` and hide ChatInput; stay authenticated like FORCE_REFRESH.
+        SOCKET_RECONNECTED: [
+          {
+            guard: "hasRejoinUser",
+            target: "authenticated",
+            actions: [
+              "showReconnectedToast",
+              "getStoredPassword",
+              "resetInitialized",
+              "login",
+            ],
+          },
+          {
+            target: "retrieving",
+            actions: ["showReconnectedToast"],
+          },
+        ],
+        SOCKET_CONNECTED: [
+          {
+            guard: "hasRejoinUser",
+            target: "authenticated",
+            actions: [
+              "showReconnectedToast",
+              "getStoredPassword",
+              "resetInitialized",
+              "login",
+            ],
+          },
+          {
+            target: "retrieving",
+            actions: ["showReconnectedToast"],
+          },
+        ],
         SOCKET_RECONNECTING: {
           actions: ["showReconnectingToast"],
         },
@@ -509,6 +536,13 @@ export const authMachine = setup({
     authenticated: {
       on: {
         FORCE_REFRESH: {
+          actions: ["resetInitialized", "login"],
+        },
+        /** New server socket after reconnect — must re-LOGIN to repopulate socket.data and rejoin room channel */
+        SOCKET_RECONNECTED: {
+          actions: ["resetInitialized", "login"],
+        },
+        SOCKET_CONNECTED: {
           actions: ["resetInitialized", "login"],
         },
         INIT: [
