@@ -10,7 +10,7 @@
 import { useSelector } from "@xstate/react"
 
 // Import all actors
-import { authActor } from "../actors/authActor"
+import { authActor, sendAuthEvent } from "../actors/authActor"
 import { chatActor } from "../actors/chatActor"
 import { playlistActor } from "../actors/playlistActor"
 import { queueListActor } from "../actors/queueListActor"
@@ -28,6 +28,7 @@ import { metadataSourceAuthActor } from "../actors/metadataSourceAuthActor"
 import { bookmarkedChatActor } from "../actors/bookmarkedChatActor"
 import { chatScrollTargetActor } from "../actors/chatScrollTargetActor"
 import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
+import { lobbyActor } from "../actors/lobbyActor"
 import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { MetadataSourceType, QueueItem } from "../types/Queue"
 
@@ -35,6 +36,37 @@ import { sortByTimestamp } from "../lib/sortByTimestamp"
 import { ChatMessage } from "../types/ChatMessage"
 import { ReactionSubject } from "../types/ReactionSubject"
 import { Reaction } from "../types/Reaction"
+import type { LobbyRoom } from "../machines/lobbyMachine"
+
+/**
+ * XState v5: returning `actor.send` from hooks loses `this` when the reference is
+ * called as a plain function (e.g. onClick/onSubmit), which mis-routes events or
+ * targets stopped child actors.
+ */
+function boundSendRef<A extends { send: (e: never) => void }>(actor: A) {
+  return (event: Parameters<A["send"]>[0]) => {
+    actor.send(event)
+  }
+}
+
+const sendToChat = boundSendRef(chatActor)
+const sendToPlaylist = boundSendRef(playlistActor)
+const sendToQueueList = boundSendRef(queueListActor)
+const sendToUsers = boundSendRef(usersActor)
+const sendToReactions = boundSendRef(reactionsActor)
+const sendToSettings = boundSendRef(settingsActor)
+const sendToRoom = boundSendRef(roomActor)
+const sendToAudio = boundSendRef(audioActor)
+const sendToDj = boundSendRef(djActor)
+const sendToAdmin = boundSendRef(adminActor)
+const sendToModals = boundSendRef(modalsActor)
+const sendToTheme = boundSendRef(themeActor)
+const sendToErrors = boundSendRef(errorsActor)
+const sendToMetadataSourceAuth = boundSendRef(metadataSourceAuthActor)
+const sendToBookmarks = boundSendRef(bookmarkedChatActor)
+const sendToChatScrollTarget = boundSendRef(chatScrollTargetActor)
+const sendToMetadataPreference = boundSendRef(metadataPreferenceActor)
+const sendToLobby = boundSendRef(lobbyActor)
 
 // ============================================================================
 // Auth Hooks
@@ -66,7 +98,11 @@ export const useAuthState = () => {
   return useSelector(authActor, (s) => s.value)
 }
 
-export const useAuthSend = () => authActor.send
+/**
+ * Use the module-level `sendAuthEvent` wrapper — never return `authActor.send` unbound
+ * (extracting a method drops `this` and mis-routes / breaks delivery in XState v5).
+ */
+export const useAuthSend = () => sendAuthEvent
 
 export const useAuthInitialized = () => {
   return useSelector(authActor, (s) => s.context.initialized)
@@ -107,7 +143,7 @@ export const useChatReady = () => {
   return useSelector(chatActor, (s) => s.matches({ active: "ready" }))
 }
 
-export const useChatSend = () => chatActor.send
+export const useChatSend = () => sendToChat
 
 // ============================================================================
 // Playlist Hooks
@@ -121,7 +157,7 @@ export const usePlaylistActive = () => {
   return useSelector(playlistActor, (s) => s.matches({ active: "expanded" }))
 }
 
-export const usePlaylistSend = () => playlistActor.send
+export const usePlaylistSend = () => sendToPlaylist
 
 // ============================================================================
 // Queue List Hooks
@@ -139,7 +175,7 @@ export const useHasQueueItems = () => {
   return useSelector(queueListActor, (s) => s.context.queue.length > 0)
 }
 
-export const useQueueListSend = () => queueListActor.send
+export const useQueueListSend = () => sendToQueueList
 
 // ============================================================================
 // Users Hooks
@@ -157,7 +193,7 @@ export const useDj = () => {
   return useSelector(usersActor, (s) => s.context.dj)
 }
 
-export const useUsersSend = () => usersActor.send
+export const useUsersSend = () => sendToUsers
 
 // ============================================================================
 // Reactions Hooks
@@ -188,7 +224,7 @@ export const useGetAllReactionsOf = (type: ReactionSubject["type"]) => {
   return (id: ReactionSubject["id"]) => reactions?.[id] ?? EMPTY_REACTIONS
 }
 
-export const useReactionsSend = () => reactionsActor.send
+export const useReactionsSend = () => sendToReactions
 
 // ============================================================================
 // Settings Hooks
@@ -214,7 +250,7 @@ export const usePluginConfigs = () => {
   return useSelector(settingsActor, (s) => s.context.pluginConfigs)
 }
 
-export const useSettingsSend = () => settingsActor.send
+export const useSettingsSend = () => sendToSettings
 
 // ============================================================================
 // Room Hooks
@@ -251,7 +287,7 @@ export const useRoomState = () => {
   return useSelector(roomActor, (s) => s.value)
 }
 
-export const useRoomSend = () => roomActor.send
+export const useRoomSend = () => sendToRoom
 
 // ============================================================================
 // Audio Hooks
@@ -295,7 +331,7 @@ export const useParticipationStatus = () => {
   return useSelector(audioActor, (s) => s.context.participationStatus)
 }
 
-export const useAudioSend = () => audioActor.send
+export const useAudioSend = () => sendToAudio
 
 // Aliases for compatibility
 export const useIsStationOnline = useIsAudioOnline
@@ -337,7 +373,7 @@ export const useDjState = () => {
   return useSelector(djActor, (s) => s.value)
 }
 
-export const useDjSend = () => djActor.send
+export const useDjSend = () => sendToDj
 
 // ============================================================================
 // Admin Hooks
@@ -351,7 +387,7 @@ export const useIsDeleting = () => {
   return useSelector(adminActor, (s) => s.matches({ active: "deleting" }))
 }
 
-export const useAdminSend = () => adminActor.send
+export const useAdminSend = () => sendToAdmin
 
 // ============================================================================
 // Modals Hooks
@@ -382,7 +418,7 @@ export const useIsAnyModalOpen = () => {
   return useSelector(modalsActor, (s) => !s.matches("closed"))
 }
 
-export const useModalsSend = () => modalsActor.send
+export const useModalsSend = () => sendToModals
 
 // ============================================================================
 // Theme Hooks
@@ -392,7 +428,7 @@ export const useCurrentTheme = () => {
   return useSelector(themeActor, (s) => s.context.theme)
 }
 
-export const useThemeSend = () => themeActor.send
+export const useThemeSend = () => sendToTheme
 
 // ============================================================================
 // Errors Hooks
@@ -402,7 +438,7 @@ export const useErrors = () => {
   return useSelector(errorsActor, (s) => s.context.errors)
 }
 
-export const useErrorsSend = () => errorsActor.send
+export const useErrorsSend = () => sendToErrors
 
 // ============================================================================
 // Metadata Source Auth Hooks
@@ -420,7 +456,7 @@ export const useMetadataSourceServiceName = () => {
   return useSelector(metadataSourceAuthActor, (s) => s.context.serviceName)
 }
 
-export const useMetadataSourceAuthSend = () => metadataSourceAuthActor.send
+export const useMetadataSourceAuthSend = () => sendToMetadataSourceAuth
 
 // ============================================================================
 // Bookmarked Chat Hooks
@@ -436,9 +472,9 @@ export const useIsBookmarked = (messageTimestamp: string) => {
   )
 }
 
-export const useBookmarksSend = () => bookmarkedChatActor.send
+export const useBookmarksSend = () => sendToBookmarks
 
-export const useChatScrollTargetSend = () => chatScrollTargetActor.send
+export const useChatScrollTargetSend = () => sendToChatScrollTarget
 
 // ============================================================================
 // Metadata Preference Hooks
@@ -452,14 +488,11 @@ export const usePreferredMetadataSource = (): MetadataSourceType | undefined => 
   return useSelector(metadataPreferenceActor, (s) => s.context.preferredSource)
 }
 
-export const useMetadataPreferenceSend = () => metadataPreferenceActor.send
+export const useMetadataPreferenceSend = () => sendToMetadataPreference
 
 // ============================================================================
 // Lobby Hooks
 // ============================================================================
-
-import { lobbyActor } from "../actors/lobbyActor"
-import { LobbyRoom } from "../machines/lobbyMachine"
 
 export const useLobbyRooms = (): LobbyRoom[] => {
   return useSelector(lobbyActor, (s) => s.context.rooms)
@@ -484,4 +517,4 @@ export const useIsLobbyReady = () => {
   return useSelector(lobbyActor, (s) => s.matches({ connected: "ready" }))
 }
 
-export const useLobbySend = () => lobbyActor.send
+export const useLobbySend = () => sendToLobby
