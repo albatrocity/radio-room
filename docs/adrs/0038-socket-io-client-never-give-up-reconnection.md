@@ -23,6 +23,8 @@ Visibility-based staleness refresh ([ADR 0031](0031-staleness-aware-refresh-on-v
 
 Server-side Engine.IO `pingInterval` / `pingTimeout` ([`packages/server/index.ts`](../../packages/server/index.ts)) are unchanged.
 
+4. **Subscriber lifecycle events (web app):** The socket actor broadcasts a small semantic surface to XState actors via `subscribeActor` / `subscribeById`: `SOCKET_ONLINE` (includes optional `attemptNumber` after reconnect), `SOCKET_OFFLINE` (includes `reason`), and `SOCKET_RECONNECTING` (includes `attemptNumber`). This replaces a larger set of raw Socket.IO–mirrored event names so auth can run a single re-`LOGIN` on `SOCKET_ONLINE` per recovery.
+
 ## Consequences
 
 - Tabs that wake from long suspension can recover the transport without a refresh, then existing `LOGIN` / `INIT` and visibility sync paths can refresh data.

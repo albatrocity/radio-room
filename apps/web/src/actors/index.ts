@@ -45,14 +45,7 @@ export { themeActor, getCurrentTheme, setTheme } from "./themeActor"
 export { errorsActor, reportError, clearError, getErrors } from "./errorsActor"
 
 // Chat Actor
-export {
-  chatActor,
-  getChatMessages,
-  getSortedChatMessages,
-  submitMessage,
-  startTyping,
-  stopTyping,
-} from "./chatActor"
+export { chatActor } from "./chatActor"
 
 // Playlist Actor
 export { playlistActor, getPlaylist, isPlaylistExpanded, togglePlaylist } from "./playlistActor"

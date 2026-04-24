@@ -10,6 +10,7 @@ import ImageUpload from "./ImageUpload"
 import {
   useCurrentUser,
   useIsAuthenticated,
+  useAuthInitialized,
   useIsAdmin,
   useUsers,
   useIsAnyModalOpen,
@@ -55,6 +56,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const currentUser = useCurrentUser()
   const users = useUsers()
   const isAuthenticated = useIsAuthenticated()
+  const isAuthInitialized = useAuthInitialized()
   const modalActive = useIsAnyModalOpen()
   const settings = useSettings()
   const room = useCurrentRoom()
@@ -84,7 +86,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
 
   const addImageFiles = useCallback(
     (incoming: File[]) => {
-      if (!isAuthenticated || !canUseChatImages) return
+      if (!isAuthenticated || !isAuthInitialized || !canUseChatImages) return
       const valid = incoming.filter(
         (f) =>
           f.size <= MAX_FILE_SIZE &&
@@ -94,7 +96,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
       if (valid.length === 0) return
       setFiles((prev) => [...prev, ...valid].slice(0, MAX_FILES))
     },
-    [isAuthenticated, canUseChatImages],
+    [isAuthenticated, isAuthInitialized, canUseChatImages],
   )
 
   const handleTypingStop = useCallback(
@@ -197,6 +199,9 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
       } = submitStateRef.current
       const valid = content !== "" || files.length > 0
       if (!valid || !roomId) return
+      if (!isAuthInitialized) {
+        return
+      }
 
       setSubmitting(true)
 
@@ -239,7 +244,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
         setSubmitting(false)
       }
     },
-    [onSend],
+    [onSend, isAuthInitialized],
   )
 
   const handleTextareaChange = useCallback(
@@ -284,7 +289,8 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
     return null
   }
 
-  const isFileUploadDisabled = !isAuthenticated || isSubmitting || files.length >= MAX_FILES
+  const isFileUploadDisabled =
+    !isAuthenticated || !isAuthInitialized || isSubmitting || files.length >= MAX_FILES
 
   const imagePreviews = useMemo(
     () =>
@@ -339,28 +345,28 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
 
   const handlePasteImages = useCallback(
     (e: React.ClipboardEvent) => {
-      if (!canUseChatImages || !isAuthenticated) return
+      if (!canUseChatImages || !isAuthenticated || !isAuthInitialized) return
       const fromClipboard = Array.from(e.clipboardData.files)
       const images = fromClipboard.filter((f) => f.type.startsWith("image/"))
       if (images.length === 0) return
       e.preventDefault()
       addImageFiles(images)
     },
-    [addImageFiles, canUseChatImages, isAuthenticated],
+    [addImageFiles, canUseChatImages, isAuthenticated, isAuthInitialized],
   )
 
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
-      if (!canUseChatImages || !isAuthenticated) return
+      if (!canUseChatImages || !isAuthenticated || !isAuthInitialized) return
       e.preventDefault()
       e.stopPropagation()
     },
-    [canUseChatImages, isAuthenticated],
+    [canUseChatImages, isAuthenticated, isAuthInitialized],
   )
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
-      if (!canUseChatImages || !isAuthenticated) return
+      if (!canUseChatImages || !isAuthenticated || !isAuthInitialized) return
       e.preventDefault()
       e.stopPropagation()
       const dt = e.dataTransfer.files
@@ -368,7 +374,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
         addImageFiles(Array.from(dt))
       }
     },
-    [addImageFiles, canUseChatImages, isAuthenticated],
+    [addImageFiles, canUseChatImages, isAuthenticated, isAuthInitialized],
   )
 
   return (
@@ -415,8 +421,14 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
               onClick={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
               onKeyDown={handleTextareaKeyDown}
               autoFocus={modalActive}
-              disabled={!isAuthenticated}
-              placeholder={isAuthenticated ? "Say something..." : ""}
+              disabled={!isAuthenticated || !isAuthInitialized}
+              placeholder={
+                !isAuthenticated
+                  ? ""
+                  : !isAuthInitialized
+                    ? "Syncing session…"
+                    : "Say something..."
+              }
               w="100%"
               resize="none"
               minH="36px"
@@ -445,7 +457,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
               aria-label="Send Message"
               type="submit"
               variant="ghost"
-              disabled={isSubmitting || !isValid}
+              disabled={isSubmitting || !isValid || !isAuthInitialized}
               colorPalette="action"
               css={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
             >

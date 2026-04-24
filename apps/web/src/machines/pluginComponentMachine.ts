@@ -21,12 +21,9 @@ export type PluginComponentEvent =
   | { type: "PLUGIN_EVENT"; data: Record<string, unknown> }
   | { type: "RETRY" }
   | { type: "RESET" }
-  | { type: "SOCKET_CONNECTED"; data: Record<string, unknown> }
-  | { type: "SOCKET_DISCONNECTED"; data: Record<string, unknown> }
-  | { type: "SOCKET_ERROR"; data: Record<string, unknown> }
+  | { type: "SOCKET_ONLINE"; data: Record<string, unknown> }
+  | { type: "SOCKET_OFFLINE"; data: Record<string, unknown> }
   | { type: "SOCKET_RECONNECTING"; data: Record<string, unknown> }
-  | { type: "SOCKET_RECONNECTED"; data: Record<string, unknown> }
-  | { type: "SOCKET_RECONNECT_FAILED"; data: Record<string, unknown> }
   | { type: "xstate.done.actor.fetchComponentState"; output: PluginComponentState }
   | { type: "xstate.error.actor.fetchComponentState"; error: Error }
   | { type: string; data?: any } // For plugin-specific events
@@ -60,12 +57,9 @@ const pluginSocketActor = fromCallback<PluginComponentEvent, { pluginName: strin
       send: (event: { type: string; data?: any }) => {
         // Forward all socket lifecycle events
         if (
-          event.type === "SOCKET_CONNECTED" ||
-          event.type === "SOCKET_DISCONNECTED" ||
-          event.type === "SOCKET_ERROR" ||
-          event.type === "SOCKET_RECONNECTING" ||
-          event.type === "SOCKET_RECONNECTED" ||
-          event.type === "SOCKET_RECONNECT_FAILED"
+          event.type === "SOCKET_ONLINE" ||
+          event.type === "SOCKET_OFFLINE" ||
+          event.type === "SOCKET_RECONNECTING"
         ) {
           sendBack({ type: event.type, data: event.data || {} })
           return

@@ -63,13 +63,9 @@ type AuthEvent =
         webrtcStreamHealthStatus?: "online" | "offline"
       }
     }
-  | { type: "SOCKET_RECONNECTED"; data: { attemptNumber: number } }
-  | { type: "SOCKET_DISCONNECTED"; data: { reason?: string } }
-  | { type: "SOCKET_CONNECTED" }
-  | { type: "SOCKET_CONNECTING" }
-  | { type: "SOCKET_ERROR"; data: { error?: string } }
+  | { type: "SOCKET_ONLINE"; data: { attemptNumber?: number } }
+  | { type: "SOCKET_OFFLINE"; data: { reason?: string } }
   | { type: "SOCKET_RECONNECTING"; data: { attemptNumber: number } }
-  | { type: "SOCKET_RECONNECT_FAILED" }
   | { type: "FORCE_REFRESH" }
 
 // Visibility callback actor
@@ -85,7 +81,7 @@ const visibilityLogic = fromCallback<AuthEvent>(({ sendBack }) => {
           if (!socket.active) {
             socket.connect()
           }
-          sendBack({ type: "SOCKET_DISCONNECTED", data: { reason: "visibility_change" } })
+          sendBack({ type: "SOCKET_OFFLINE", data: { reason: "visibility_change" } })
         }
       }
     }
@@ -240,7 +236,8 @@ export const authMachine = setup({
     setPasswordError: assign({
       passwordError: ({ event }) => {
         if (event.type !== "SET_PASSWORD_ACCEPTED") return undefined
-        if (event.data === undefined) return undefined
+        if (!event.data) return undefined
+        if (event.data.passwordAccepted) return undefined
         return "Password incorrect"
       },
     }),
@@ -295,14 +292,14 @@ export const authMachine = setup({
         return event.data.roomId
       },
     }),
-    savePasswordAction: ({ event }) => {
+    savePasswordAction: ({ context, event }) => {
       if (event.type === "SET_PASSWORD") {
-        savePassword(event.data)
+        savePassword(context, event)
       }
     },
     logDisconnect: ({ event }) => {
-      if (event.type === "SOCKET_DISCONNECTED") {
-        console.log("[Auth] Socket disconnected, reason:", event.data.reason)
+      if (event.type === "SOCKET_OFFLINE") {
+        console.log("[Auth] Socket offline, reason:", event.data?.reason)
       }
     },
     showDisconnectedToast: () => {
@@ -319,7 +316,7 @@ export const authMachine = setup({
       if (event.type === "SOCKET_RECONNECTING") {
         toast({
           title: "Reconnecting...",
-          description: `Attempt ${event.data.attemptNumber}`,
+          description: `Attempt ${event.data?.attemptNumber ?? "…"}`,
           status: "info",
           duration: 2000,
           isClosable: false,
@@ -362,18 +359,21 @@ export const authMachine = setup({
   guards: {
     shouldRetry: ({ context }) => context.shouldRetry,
     shouldNotRetry: ({ context }) => !context.shouldRetry,
+    /** Stays in `authenticated` for ChatInput and other useIsAuthenticated() UI (see ADR 0031) */
+    hasRejoinUser: ({ context }) => Boolean(context.currentUser?.userId),
     isRoomAdmin: ({ event }) => {
-      return event.type === "INIT" && !!event.data.user?.isAdmin
+      return event.type === "INIT" && !!event.data?.user?.isAdmin
     },
     isAdmin: ({ context }) => {
       return !!context.currentUser?.isAdmin
     },
     requiresPassword: ({ event }) => {
       if (event.type !== "SET_PASSWORD_REQUIREMENT") return false
-      return event.data.passwordRequired
+      return Boolean(event.data?.passwordRequired)
     },
     hasStoredPasswordAndPasswordAccepted: ({ context, event }) => {
       if (event.type !== "SET_PASSWORD_REQUIREMENT") return false
+      if (!event.data) return false
       return (
         !event.data.passwordRequired ||
         (event.data.passwordRequired && !!context.password && event.data.passwordAccepted === true)
@@ -381,11 +381,14 @@ export const authMachine = setup({
     },
     passwordAccepted: ({ event }) => {
       if (event.type !== "SET_PASSWORD_ACCEPTED") return false
-      return event.data.passwordAccepted
+      return event.data?.passwordAccepted === true
     },
     passwordRejected: ({ event }) => {
       if (event.type !== "SET_PASSWORD_ACCEPTED") return false
-      return !event.data.passwordAccepted
+      return event.data != null && event.data.passwordAccepted === false
+    },
+    isReconnectPermanentlyFailed: ({ event }) => {
+      return event.type === "SOCKET_OFFLINE" && event.data?.reason === "reconnect_failed"
     },
   },
 }).createMachine({
@@ -449,19 +452,29 @@ export const authMachine = setup({
           target: "retrieving",
           actions: ["setRoomId"],
         },
-        SOCKET_RECONNECTED: {
-          target: "retrieving",
-          actions: ["showReconnectedToast"],
-        },
-        SOCKET_CONNECTED: {
-          target: "retrieving",
-          actions: ["showReconnectedToast"],
-        },
+        // Re-LOGIN in-place: `retrieving` + `connecting` leave `authenticated` and hide ChatInput; stay authenticated like FORCE_REFRESH.
+        SOCKET_ONLINE: [
+          {
+            guard: "hasRejoinUser",
+            target: "authenticated",
+            actions: [
+              "showReconnectedToast",
+              "getStoredPassword",
+              "resetInitialized",
+              "login",
+            ],
+          },
+          {
+            target: "retrieving",
+            actions: ["showReconnectedToast"],
+          },
+        ],
         SOCKET_RECONNECTING: {
           actions: ["showReconnectingToast"],
         },
-        SOCKET_RECONNECT_FAILED: {
+        SOCKET_OFFLINE: {
           actions: ["showReconnectFailedToast"],
+          guard: "isReconnectPermanentlyFailed",
         },
       },
     },
@@ -477,6 +490,17 @@ export const authMachine = setup({
         onError: {
           target: "connecting",
         },
+      },
+      /** If global SETUP pulled us out of `unauthorized` mid-flow, the response can arrive here */
+      on: {
+        SET_PASSWORD_ACCEPTED: [
+          { actions: ["setPasswordError"], guard: "passwordRejected" },
+          {
+            actions: ["setPasswordError", "setNew"],
+            target: "connecting",
+            guard: "passwordAccepted",
+          },
+        ],
       },
     },
     connecting: {
@@ -496,11 +520,21 @@ export const authMachine = setup({
         UNAUTHORIZED: {
           target: "unauthorized",
         },
-        // Retry login immediately when socket connects (in case initial attempt failed)
-        SOCKET_CONNECTED: {
+        // Retry login immediately when socket is online (in case initial attempt failed)
+        SOCKET_ONLINE: {
           target: "connecting",
           reenter: true,
         },
+        /** Server response can follow entry `login` if we landed here from `retrieving` + race */
+        SET_PASSWORD_ACCEPTED: [
+          { actions: ["setPasswordError"], guard: "passwordRejected" },
+          {
+            actions: ["setPasswordError", "setNew"],
+            target: "connecting",
+            reenter: true,
+            guard: "passwordAccepted",
+          },
+        ],
       },
       after: {
         3000: "connecting",
@@ -509,6 +543,10 @@ export const authMachine = setup({
     authenticated: {
       on: {
         FORCE_REFRESH: {
+          actions: ["resetInitialized", "login"],
+        },
+        /** Transport up — must re-LOGIN to repopulate socket.data and rejoin room channel */
+        SOCKET_ONLINE: {
           actions: ["resetInitialized", "login"],
         },
         INIT: [
@@ -529,7 +567,7 @@ export const authMachine = setup({
           target: "idle",
           actions: ["disconnectUser"],
         },
-        SOCKET_DISCONNECTED: {
+        SOCKET_OFFLINE: {
           target: "disconnected",
           actions: ["logDisconnect"],
         },
@@ -553,9 +591,6 @@ export const authMachine = setup({
           target: "disconnected",
           actions: ["disableRetry", "disconnectUser"],
         },
-        SOCKET_ERROR: {
-          target: "disconnected",
-        },
         NUKE_USER: {
           target: "loggingOut",
           actions: ["clearSession", "nukeUser", "showNukeSuccessToast"],
@@ -568,6 +603,10 @@ export const authMachine = setup({
     },
     unauthorized: {
       on: {
+        /** Do not use root `SETUP` -> `retrieving` while the password prompt is open (drops SET_PASSWORD_ACCEPTED) */
+        SETUP: {
+          actions: "setRoomId",
+        },
         SET_PASSWORD: {
           actions: ["setPasswordInContext", "savePasswordAction", "submitPassword"],
         },
