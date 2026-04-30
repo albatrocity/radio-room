@@ -11,6 +11,7 @@ import {
   HStack,
   StackSeparator,
   IconButton,
+  useSlotRecipe,
 } from "@chakra-ui/react"
 
 import { PlaylistItem as PlaylistItemType, getPreferredTrack } from "../types/PlaylistItem"
@@ -20,6 +21,7 @@ import { PluginArea } from "./PluginComponents"
 import { emitToSocket } from "../actors/socketActor"
 import ConfirmationDialog from "./ConfirmationDialog"
 import { toast } from "../lib/toasts"
+import { playlistItemRecipe } from "../theme/playlistItemRecipe"
 
 type Props = {
   item: PlaylistItemType
@@ -92,47 +94,36 @@ const PlaylistItem = memo(function PlaylistItem({ item, isQueueItem = false }: P
   const isSkipped = item.pluginData?.["playlist-democracy"]?.skipped === true
   const skipData = item.pluginData?.["playlist-democracy"]?.skipData
 
+  const recipe = useSlotRecipe({ recipe: playlistItemRecipe })
+  const styles = recipe({ isSkipped, isHovered })
+
   return (
     <Stack
       key={item.playedAt?.toString() || item.addedAt.toString()}
       direction={["column", "row"]}
-      justifyContent="space-between"
-      align="stretch"
-      width="100%"
-      opacity={isSkipped ? 0.6 : 1}
+      css={styles.root}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <LinkBox>
+      <LinkBox css={styles.trackInfo}>
         <Stack direction="row">
           {artThumb && (
-            <Box w={12} h={12}>
+            <Box css={styles.artwork}>
               <Image loading="lazy" src={artThumb} />
             </Box>
           )}
-          <Stack direction="column" gap={0}>
+          <Stack direction="column" css={styles.trackDetails}>
             {preferredTrack && (
               <HStack gap={1}>
                 <LinkOverlay target="_blank" href={externalUrl} m={0}>
-                  <Text
-                    fontWeight={"bold"}
-                    textDecoration={isSkipped ? "line-through" : "none"}
-                    color={isSkipped ? "colorPalette.fg/70" : "colorPalette.fg"}
-                  >
-                    {preferredTrack.title}
-                  </Text>
+                  <Text css={styles.title}>{preferredTrack.title}</Text>
                 </LinkOverlay>
                 {isSkipped && <Icon as={LuSkipForward} color="orange.400" boxSize={3} />}
               </HStack>
             )}
             <HStack color="colorPalette.fg/70" fontSize="xs" separator={<StackSeparator />}>
               {preferredTrack?.artists?.map((a) => (
-                <Text
-                  key={a.id}
-                  as="span"
-                  textDecoration={isSkipped ? "line-through" : "none"}
-                  color={isSkipped ? "colorPalette.fg/40" : "colorPalette.fg/70"}
-                >
+                <Text key={a.id} as="span" css={styles.artist}>
                   {a.title}
                 </Text>
               ))}
@@ -144,8 +135,7 @@ const PlaylistItem = memo(function PlaylistItem({ item, isQueueItem = false }: P
       <Stack
         direction={["row", "column"]}
         justifyContent={["space-between", "space-around"]}
-        align="end"
-        gap={0}
+        css={styles.metadata}
       >
         <Text color="colorPalette.fg/70" fontSize="xs" textAlign="right">
           {item.playedAt ? format(item.playedAt, "p") : format(item.addedAt, "p")}
@@ -175,10 +165,7 @@ const PlaylistItem = memo(function PlaylistItem({ item, isQueueItem = false }: P
             variant="ghost"
             colorPalette="red"
             onClick={handleDeleteClick}
-            css={{
-              opacity: isHovered ? 1 : 0,
-              transition: "opacity 0.2s ease-in-out",
-            }}
+            css={styles.deleteButton}
           >
             <LuTrash2 />
           </IconButton>

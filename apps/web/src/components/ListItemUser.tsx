@@ -1,7 +1,7 @@
 import React, { memo } from "react"
 import { get, isEqual } from "lodash/fp"
 
-import { Box, Text, HStack, IconButton, Icon, List, VStack, Stack } from "@chakra-ui/react"
+import { Box, Text, HStack, IconButton, Icon, List, VStack, useSlotRecipe } from "@chakra-ui/react"
 import { Tooltip } from "./ui/tooltip"
 import {
   LuCrown,
@@ -15,6 +15,7 @@ import {
 } from "react-icons/lu"
 import { User } from "../types/User"
 import { PluginArea } from "./PluginComponents"
+import { listItemUserRecipe } from "../theme/listItemUserRecipe"
 
 const statusIcon = (user: User) => {
   if (user.isDj) {
@@ -65,33 +66,19 @@ const ListItemUser = ({
   isAdmin = false,
   isRoomCreator = false,
 }: ListItemUserProps) => {
+  const recipe = useSlotRecipe({ recipe: listItemUserRecipe })
+  const styles = recipe({ isDj: user.isDj, isTyping: userTyping })
+
   return (
-    <List.Item
-      key={user.userId}
-      flexDirection="row"
-      display="flex"
-      alignItems="center"
-      background={user.isDj ? "primaryBg" : "transparent"}
-    >
-      <Box opacity={userTyping ? 1 : 0} transition="opacity 0.6s ease-in-out">
-        <Box
-          animation={userTyping ? "pulse 0.8s infinite ease-in-out" : undefined}
-          transform="scaleX(-1)"
-          left="-10px"
-        >
+    <List.Item key={user.userId} css={styles.root}>
+      <Box css={styles.typingIndicator}>
+        <Box css={styles.typingIcon}>
           <Icon as={LuMessageCircle} color="action.300" mr={1} />
         </Box>
       </Box>
-      <VStack gap={1} align="start" w="100%">
-        <HStack
-          alignItems="center"
-          borderBottomWidth="1px"
-          gap="0.4rem"
-          py={user.isDj ? 2 : 0}
-          width="100%"
-          justifyContent="space-between"
-        >
-          <HStack gap="0.4rem" justifyContent="flex-start">
+      <VStack css={styles.content}>
+        <HStack css={styles.row}>
+          <HStack css={styles.leftGroup}>
             {showStatus && statusIcon(user)}
             {isRoomCreator && (
               <Tooltip content="Room Creator" positioning={{ placement: "top" }}>
@@ -119,12 +106,12 @@ const ListItemUser = ({
               spacing={1}
             />
             <Box>
-              <Text fontWeight={user.isDj ? 700 : 500} fontSize="sm" lineClamp={2}>
+              <Text css={styles.username} lineClamp={2}>
                 {user.username || "anonymous"}
               </Text>
             </Box>
           </HStack>
-          <HStack gap="0.4rem">
+          <HStack css={styles.actions}>
             {user.userId === get("userId", currentUser) && (
               <IconButton
                 variant="plain"

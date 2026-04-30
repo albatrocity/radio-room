@@ -54,7 +54,13 @@ const MentionOverlay = ({
           px={2}
           py={1}
           cursor="pointer"
-          bg={index === highlightedIndex ? "actionBgLite" : "transparent"}
+          bg="transparent"
+          data-highlighted={index === highlightedIndex || undefined}
+          css={{
+            "&[data-highlighted]": {
+              bg: "actionBgLite",
+            },
+          }}
           onMouseDown={(e) => {
             e.preventDefault()
             onSelect(user)

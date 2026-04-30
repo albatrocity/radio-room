@@ -9,6 +9,7 @@ import {
   Stack,
   Text,
   useBreakpointValue,
+  useSlotRecipe,
   Wrap,
 } from "@chakra-ui/react"
 import { LuBookmark, LuTrash2 } from "react-icons/lu"
@@ -18,6 +19,7 @@ import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import ConfirmationDialog from "./ConfirmationDialog"
 import { User } from "../types/User"
 import Timestamp from "./Timestamp"
+import { chatMessageRecipe } from "../theme/chatMessageRecipe"
 
 import { useIsAdmin, useBookmarks, useBookmarksSend, useChatSend } from "../hooks/useActors"
 
@@ -56,6 +58,13 @@ const ChatMessage = ({
 
   const isMention = mentions.indexOf(currentUserId) > -1
 
+  const recipe = useSlotRecipe({ recipe: chatMessageRecipe })
+  const styles = recipe({
+    isMention,
+    isBookmarked: !!isBookmarked,
+    hasBorder: !anotherUserMessage,
+  })
+
   const handleBookmark = useCallback(() => {
     bookmarkSend({
       type: "TOGGLE_MESSAGE",
@@ -84,26 +93,18 @@ const ChatMessage = ({
 
   return (
     <Box
-      px={3}
-      py={1}
-      borderBottomWidth={anotherUserMessage ? 0 : 1}
-      borderBottomColor="secondaryBorder"
-      background={isMention ? "primaryBg" : "none"}
+      css={styles.root}
       layerStyle="themeTransition"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      position="relative"
-      w="100%"
       data-screen-effect-target="message"
       data-message-id={timestamp}
     >
       {showUsername && (
-        <Flex direction="row" justify="between" grow={1} align="center" w="100%">
-          <Text my="sm" fontWeight={700}>
-            {user.username}
-          </Text>
+        <Flex css={styles.header}>
+          <Text css={styles.username}>{user.username}</Text>
           <Spacer />
-          <HStack>
+          <HStack css={styles.headerActions}>
             {currentIsAdmin && (
               <IconButton
                 aria-label="Delete message"
@@ -130,22 +131,14 @@ const ChatMessage = ({
           </HStack>
         </Flex>
       )}
-      <Wrap gap="1" align="center" w="100%">
-        <Box w="100%">
+      <Wrap css={styles.content}>
+        <Box css={styles.messageBody}>
           <Stack direction="row" gap={2} w="100%">
             <Box flexGrow={1} textStyle="chatMessage">
               <ParsedEmojiMessage content={content} />
             </Box>
             {showFloatingTimestamp && (
-              <HStack
-                p={2}
-                position="absolute"
-                top={0}
-                right={2}
-                borderRadius={4}
-                bg="appBg"
-                layerStyle="themeTransition"
-              >
+              <HStack css={styles.floatingActions} layerStyle="themeTransition">
                 {currentIsAdmin && (
                   <IconButton
                     aria-label="Delete message"
@@ -165,7 +158,7 @@ const ChatMessage = ({
                     size="xs"
                     onClick={handleBookmark}
                   >
-                    <Icon as={LuBookmark} fill={isBookmarked ? "currentColor" : "none"} />
+                    <Icon as={LuBookmark} css={styles.bookmarkIcon} />
                   </IconButton>
                 )}
                 <Timestamp value={timestamp} />

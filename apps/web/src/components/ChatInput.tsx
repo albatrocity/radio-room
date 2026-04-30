@@ -394,12 +394,30 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
           onDrop={handleDrop}
         >
           {canUseChatImages && files.length < MAX_FILES && (
-            <Box opacity={isAuthenticated ? 1 : 0}>
+            <Box
+              opacity={0}
+              data-authenticated={isAuthenticated || undefined}
+              css={{
+                "&[data-authenticated]": {
+                  opacity: 1,
+                },
+              }}
+            >
               <ImageUpload onFilesPicked={addImageFiles} disabled={isFileUploadDisabled} />
             </Box>
           )}
 
-          <Box w="100%" opacity={isAuthenticated ? 1 : 0} position="relative">
+          <Box
+            w="100%"
+            opacity={0}
+            position="relative"
+            data-authenticated={isAuthenticated || undefined}
+            css={{
+              "&[data-authenticated]": {
+                opacity: 1,
+              },
+            }}
+          >
             {mention.isActive && (
               <MentionOverlay
                 users={mention.filteredUsers}
@@ -449,9 +467,16 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
           </Box>
           <Box
             transition="width 0.2s, opacity 0.2s"
-            width={isValid ? "auto" : "5px"}
-            opacity={isValid ? 1 : 0}
+            width="5px"
+            opacity={0}
             overflow="hidden"
+            data-valid={isValid || undefined}
+            css={{
+              "&[data-valid]": {
+                width: "auto",
+                opacity: 1,
+              },
+            }}
           >
             <IconButton
               aria-label="Send Message"
