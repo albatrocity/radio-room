@@ -202,6 +202,9 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
 
       await this.context.storage.zincrby(USER_SCORES_KEY, points, message.user.userId)
 
+      await this.context.game.addScore(message.user.userId, "score", points, "guess-the-tune")
+      await this.context.game.addScore(message.user.userId, "coin", points, "guess-the-tune")
+
       const multiplierSuffix = mult > 1 ? ` (${mult}× speed bonus)` : ""
 
       const body = interpolateTemplate(config.messageTemplate ?? "", {

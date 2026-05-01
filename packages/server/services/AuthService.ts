@@ -1,4 +1,4 @@
-import { AppContext } from "@repo/types"
+import { AppContext, GameSession } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import { isNullish, uniqueBy } from "remeda"
@@ -232,6 +232,15 @@ export class AuthService {
       ? await getWebrtcExperimentalStreamHealthStatus(this.context, roomId)
       : null
 
+    let activeGameSession: GameSession | null = null
+    try {
+      if (this.context.gameSessions) {
+        activeGameSession = await this.context.gameSessions.getActiveSession(roomId)
+      }
+    } catch (err) {
+      console.error("[AuthService] Failed to load active game session for init:", err)
+    }
+
     // Get access token for room creator to enable authenticated features (search, liked tracks, etc.)
     // Use the first metadata source (primary) for auth token
     let accessToken: string | undefined = undefined
@@ -268,6 +277,7 @@ export class AuthService {
         },
         accessToken, // Only set for room creator with metadata source
         isNewUser: isNew,
+        activeGameSession,
         ...(streamHealthStatus ? { streamHealthStatus } : {}),
         ...(webrtcStreamHealthStatus ? { webrtcStreamHealthStatus } : {}),
       },

@@ -17,6 +17,7 @@ import { roomActor, fetchRoom, getLatestRoomData } from "./roomActor"
 import { audioActor } from "./audioActor"
 import { djActor } from "./djActor"
 import { adminActor } from "./adminActor"
+import { gameSessionActor } from "./gameSessionActor"
 import { metadataSourceAuthActor } from "./metadataSourceAuthActor"
 import { soundEffectsActor } from "./soundEffectsActor"
 import { screenEffectsActor } from "./screenEffectsActor"
@@ -85,6 +86,7 @@ export function initializeRoom(roomId: string): void {
   audioActor.send({ type: "ACTIVATE" })
   djActor.send({ type: "ACTIVATE" })
   adminActor.send({ type: "ACTIVATE" })
+  gameSessionActor.send({ type: "ACTIVATE" })
   metadataSourceAuthActor.send({ type: "ACTIVATE" })
   soundEffectsActor.send({ type: "ACTIVATE" })
   screenEffectsActor.send({ type: "ACTIVATE" })
@@ -132,6 +134,7 @@ export function teardownRoom(): void {
   audioActor.send({ type: "DEACTIVATE" })
   djActor.send({ type: "DEACTIVATE" })
   adminActor.send({ type: "DEACTIVATE" })
+  gameSessionActor.send({ type: "DEACTIVATE" })
   metadataSourceAuthActor.send({ type: "DEACTIVATE" })
   soundEffectsActor.send({ type: "DEACTIVATE" })
   screenEffectsActor.send({ type: "DEACTIVATE" })

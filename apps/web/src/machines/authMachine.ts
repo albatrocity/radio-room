@@ -5,6 +5,7 @@ import { getSessionUser, logout } from "../lib/serverApi"
 import { getPassword, savePassword } from "../lib/passwordOperations"
 import { emitToSocket } from "../actors/socketActor"
 
+import type { GameSession } from "@repo/types"
 import { User } from "../types/User"
 import { Reaction } from "../types/Reaction"
 import { PlaylistItem } from "../types/PlaylistItem"
@@ -61,6 +62,7 @@ type AuthEvent =
         accessToken: string | null
         isNewUser: boolean
         webrtcStreamHealthStatus?: "online" | "offline"
+        activeGameSession?: GameSession | null
       }
     }
   | { type: "SOCKET_ONLINE"; data: { attemptNumber?: number } }

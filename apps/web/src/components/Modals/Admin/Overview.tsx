@@ -1,6 +1,11 @@
 import { useRef } from "react"
 import { LuChevronRight, LuDownload, LuUpload } from "react-icons/lu"
-import { useSettings, useModalsSend, useAdminSend } from "../../../hooks/useActors"
+import {
+  useSettings,
+  useModalsSend,
+  useAdminSend,
+  useHasActiveGameSession,
+} from "../../../hooks/useActors"
 import {
   Box,
   Button,
@@ -47,6 +52,7 @@ function Overview() {
   const settings = useSettings()
   const { schemas, isLoading } = usePluginSchemas()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const hasActiveGameSession = useHasActiveGameSession()
 
   const hasPassword = !!settings.password
   const hasSettings = !!settings.extraInfo || !!settings.artwork || !!settings.radioMetaUrl
@@ -189,7 +195,10 @@ function Overview() {
                 onClick={() => send({ type: "EDIT_GAME_SESSIONS" })}
               >
                 Game sessions
-                <LuChevronRight />
+                <HStack>
+                  {hasActiveGameSession && <ActiveIndicator />}
+                  <LuChevronRight />
+                </HStack>
               </Button>
               <Button
                 colorPalette="action"

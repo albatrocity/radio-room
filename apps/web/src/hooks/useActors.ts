@@ -21,6 +21,7 @@ import { roomActor } from "../actors/roomActor"
 import { audioActor } from "../actors/audioActor"
 import { djActor } from "../actors/djActor"
 import { adminActor } from "../actors/adminActor"
+import { gameSessionActor } from "../actors/gameSessionActor"
 import { modalsActor } from "../actors/modalsActor"
 import { themeActor } from "../actors/themeActor"
 import { errorsActor } from "../actors/errorsActor"
@@ -388,6 +389,22 @@ export const useIsDeleting = () => {
 }
 
 export const useAdminSend = () => sendToAdmin
+
+// ============================================================================
+// Game Session Hooks
+// ============================================================================
+
+export const useActiveGameSessionId = () => {
+  return useSelector(gameSessionActor, (s) => s.context.activeSessionId)
+}
+
+export const useActiveGameSessionName = () => {
+  return useSelector(gameSessionActor, (s) => s.context.activeSessionName)
+}
+
+export const useHasActiveGameSession = () => {
+  return useSelector(gameSessionActor, (s) => s.context.activeSessionId != null)
+}
 
 // ============================================================================
 // Modals Hooks

@@ -368,6 +368,45 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
   socket.on("GET_LATEST_ROOM_DATA", async (snapshot: RoomSnapshot) => {
     await handlers.getLatestRoomData(connections, snapshot)
   })
+
+  /**
+   * Return the requesting user's game state and inventory for the active session.
+   * Responds with `USER_GAME_STATE` on this socket only.
+   */
+  socket.on("GET_MY_GAME_STATE", async () => {
+    const gameSessions = socket.context.gameSessions
+    const inventory = socket.context.inventory
+
+    if (!gameSessions) {
+      socket.emit("event", {
+        type: "USER_GAME_STATE",
+        data: { session: null, state: null, inventory: null },
+      })
+      return
+    }
+
+    const session = await gameSessions.getActiveSession(socket.data.roomId)
+    if (!session) {
+      socket.emit("event", {
+        type: "USER_GAME_STATE",
+        data: { session: null, state: null, inventory: null },
+      })
+      return
+    }
+
+    const state = await gameSessions.getUserState(socket.data.roomId, socket.data.userId)
+    const inv = inventory
+      ? await inventory.getInventory(socket.data.roomId, socket.data.userId)
+      : null
+    const itemDefinitions = inventory
+      ? await inventory.getAllItemDefinitions(socket.data.roomId)
+      : []
+
+    socket.emit("event", {
+      type: "USER_GAME_STATE",
+      data: { session, state, inventory: inv, itemDefinitions },
+    })
+  })
 }
 
 /**
