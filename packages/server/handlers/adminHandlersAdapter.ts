@@ -408,7 +408,7 @@ export class AdminHandlers {
    */
   startGameSession = async (
     { socket }: HandlerConnections,
-    data: { name: string },
+    data: { name: string; initialCoins?: number },
   ) => {
     if (!data?.name?.trim()) {
       socket.emit("event", {
@@ -422,8 +422,26 @@ export class AdminHandlers {
       return
     }
 
+    let initialCoins: number | undefined
+    if (data.initialCoins != null) {
+      const raw = Number(data.initialCoins)
+      if (!Number.isFinite(raw) || raw < 0) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 400,
+            error: "Bad Request",
+            message: "Starting coin balance must be a non-negative number.",
+          },
+        })
+        return
+      }
+      initialCoins = Math.floor(raw)
+    }
+
     const result = await this.adminService.startGameSession(socket.data.roomId, socket.data.userId, {
       name: data.name.trim(),
+      ...(initialCoins != null ? { initialValues: { coin: initialCoins } } : {}),
     })
 
     if (result.error) {

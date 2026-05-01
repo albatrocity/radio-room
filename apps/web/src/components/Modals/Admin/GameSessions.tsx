@@ -28,6 +28,7 @@ export default function GameSessions() {
   const panelOpen = modalsState.matches("settings.game_sessions")
 
   const [sessionName, setSessionName] = useState("")
+  const [initialCoinsInput, setInitialCoinsInput] = useState("")
   const [activeSession, setActiveSession] = useState<GameSession | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [statusLoading, setStatusLoading] = useState(true)
@@ -159,9 +160,29 @@ export default function GameSessions() {
       })
       return
     }
+
+    const trimmedCoins = initialCoinsInput.trim()
+    let initialCoins: number | undefined
+    if (trimmedCoins.length > 0) {
+      const parsed = Number(trimmedCoins)
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        toaster.create({
+          title: "Invalid starting coins",
+          description: "Enter a non-negative number, or leave blank for 0.",
+          type: "warning",
+          duration: 3000,
+        })
+        return
+      }
+      initialCoins = Math.floor(parsed)
+    }
+
     actionPendingRef.current = true
     setActionLoading(true)
-    emitToSocket("START_GAME_SESSION", { name })
+    emitToSocket("START_GAME_SESSION", {
+      name,
+      ...(initialCoins != null ? { initialCoins } : {}),
+    })
   }
 
   const endSession = () => {
@@ -174,6 +195,11 @@ export default function GameSessions() {
     activeSession != null
       ? format(new Date(activeSession.startedAt), "MMM d, yyyy · h:mm a")
       : ""
+
+  const startingCoins =
+    activeSession != null && activeSession.config.enabledAttributes.includes("coin")
+      ? activeSession.config.initialValues.coin
+      : undefined
 
   return (
     <>
@@ -219,6 +245,11 @@ export default function GameSessions() {
                     <Text fontSize="sm" color="fg.muted">
                       Started {startedLabel}
                     </Text>
+                    {startingCoins != null && (
+                      <Text fontSize="sm" color="fg.muted">
+                        Starting coins: {startingCoins}
+                      </Text>
+                    )}
                     {activeSession.config.description && (
                       <Text fontSize="sm" color="fg.muted">
                         {activeSession.config.description}
@@ -267,6 +298,23 @@ export default function GameSessions() {
             <Field.HelperText>
               Uses default attributes (score, coin) and leaderboards. If a session is already
               running, it will be ended first.
+            </Field.HelperText>
+          </Field.Root>
+
+          <Field.Root>
+            <Field.Label>Starting coin balance</Field.Label>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={initialCoinsInput}
+              onChange={(e) => setInitialCoinsInput(e.target.value)}
+              placeholder="0"
+              disabled={actionLoading || statusLoading}
+            />
+            <Field.HelperText>
+              Each user starts the session with this many coins. Leave blank for 0.
             </Field.HelperText>
           </Field.Root>
 
