@@ -32,13 +32,22 @@ const TypingIndicator = ({ currentUserId }: Props) => {
     }
   }, [typingUsers])
 
+  const isActive = typingUsers.length > 0
+
   return (
     <Box
-      opacity={typingUsers.length > 0 ? 1 : 0}
-      transform={typingUsers.length > 0 ? "translateY(0)" : "translateY(100%)"}
+      opacity={0}
+      transform="translateY(100%)"
       transition="opacity 0.1s, transform 0.1s"
       pl="40px"
       pb={1}
+      data-active={isActive || undefined}
+      css={{
+        "&[data-active]": {
+          opacity: 1,
+          transform: "translateY(0)",
+        },
+      }}
     >
       <Text fontSize="xs">
         {formattedNames} {typingUsers.length === 1 || typingUsers.length === 0 ? "is" : "are"}{" "}

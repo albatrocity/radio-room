@@ -18,9 +18,15 @@ const SystemMessage = ({ content, timestamp, meta = {}, mentions = [] }: ChatMes
   return type === "alert" ? (
     <Alert.Root
       status={status ?? "info"}
-      bg={isMention ? "primaryBg" : "secondaryBg"}
+      bg="secondaryBg"
       color="secondaryText"
       borderRadius={0}
+      data-mention={isMention || undefined}
+      css={{
+        "&[data-mention]": {
+          bg: "primaryBg",
+        },
+      }}
     >
       <Alert.Indicator />
       {title && <Alert.Title>{title}</Alert.Title>}
@@ -39,7 +45,13 @@ const SystemMessage = ({ content, timestamp, meta = {}, mentions = [] }: ChatMes
       alignItems="center"
       flexDirection="column"
       role="group"
-      bg={isMention ? "primaryBg" : "none"}
+      bg="none"
+      data-mention={isMention || undefined}
+      css={{
+        "&[data-mention]": {
+          bg: "primaryBg",
+        },
+      }}
       layerStyle="themeTransition"
     >
       <Text as="span" color="secondaryText" fontSize="sm" textAlign="center">

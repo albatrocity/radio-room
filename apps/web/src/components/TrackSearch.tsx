@@ -50,7 +50,17 @@ function TrackSearch({ onChoose, onDropdownOpenChange }: Props) {
         components={{
           DropdownIndicator: null,
           Option: ({ data, innerRef, innerProps, isFocused }) => (
-            <Box ref={innerRef} {...innerProps} bg={isFocused ? "actionBgLite" : "transparent"}>
+            <Box
+              ref={innerRef}
+              {...innerProps}
+              bg="transparent"
+              data-focused={isFocused || undefined}
+              css={{
+                "&[data-focused]": {
+                  bg: "actionBgLite",
+                },
+              }}
+            >
               <TrackItem {...data} />
             </Box>
           ),

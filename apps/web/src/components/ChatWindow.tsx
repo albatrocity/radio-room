@@ -144,10 +144,18 @@ function ChatWindow() {
         bottom={2}
         right={2}
         zIndex={2}
-        opacity={showJumpToBottom ? 1 : 0}
-        pointerEvents={showJumpToBottom ? "auto" : "none"}
+        opacity={0}
+        pointerEvents="none"
         transition="opacity 0.2s"
-        transitionDelay={showJumpToBottom ? "1s" : "0s"}
+        transitionDelay="0s"
+        data-visible={showJumpToBottom || undefined}
+        css={{
+          "&[data-visible]": {
+            opacity: 1,
+            pointerEvents: "auto",
+            transitionDelay: "1s",
+          },
+        }}
         onClick={handleBottomClick}
       >
         {state.context.newMessages > 0 && `${state.context.newMessages} new`}

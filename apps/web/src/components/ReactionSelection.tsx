@@ -112,7 +112,16 @@ const ReactionSelection = memo(function ReactionSelection({
             closeOnEscape
           >
             <Popover.Trigger asChild>
-              <Box opacity={showAddButton ? 1 : 0} transition="opacity 0.1s">
+              <Box
+                opacity={0}
+                transition="opacity 0.1s"
+                data-visible={showAddButton || undefined}
+                css={{
+                  "&[data-visible]": {
+                    opacity: 1,
+                  },
+                }}
+              >
                 <IconButton
                   aria-label="Add reaction"
                   size="xs"

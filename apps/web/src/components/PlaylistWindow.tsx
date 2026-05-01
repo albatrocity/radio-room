@@ -96,10 +96,18 @@ const PlaylistWindow = ({ playlist, isSelectable, selected, onSelect, targetServ
         size="xs"
         variant="solid"
         colorPalette="secondary"
-        opacity={showJumpToBottom ? 1 : 0}
-        pointerEvents={showJumpToBottom ? "auto" : "none"}
+        opacity={0}
+        pointerEvents="none"
         transition="opacity 0.2s"
-        transitionDelay={showJumpToBottom ? "0.5s" : "0s"}
+        transitionDelay="0s"
+        data-visible={showJumpToBottom || undefined}
+        css={{
+          "&[data-visible]": {
+            opacity: 1,
+            pointerEvents: "auto",
+            transitionDelay: "0.5s",
+          },
+        }}
         onClick={handleJumpToBottom}
       >
         Latest
