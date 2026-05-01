@@ -1,4 +1,5 @@
 import type { PluginPreset } from "./PluginPreset"
+import type { GameSessionConfig } from "./GameSession"
 
 // ---------------------------------------------------------------------------
 // Segment room settings (applied on activation in listening room)
@@ -97,6 +98,12 @@ export interface SegmentDTO {
   /** Approximate duration in minutes (nullable). */
   duration: number | null
   pluginPreset: PluginPreset | null
+  /**
+   * Optional game session configuration to auto-start when this segment
+   * activates. Auto-ends on the next segment activation or show end.
+   * `id` may be omitted; one is generated at activation time.
+   */
+  gameSessionPreset?: (Partial<GameSessionConfig> & { name: string }) | null
   roomSettingsOverride: SegmentRoomSettingsOverride | null
   status: SegmentStatus
   createdBy: string
@@ -196,6 +203,7 @@ export interface CreateSegmentRequest {
   /** Approximate duration in minutes (optional). */
   duration?: number | null
   pluginPreset?: PluginPreset | null
+  gameSessionPreset?: (Partial<GameSessionConfig> & { name: string }) | null
   roomSettingsOverride?: SegmentRoomSettingsOverride | null
   status?: SegmentStatus
   tagIds?: string[]
@@ -208,6 +216,7 @@ export interface UpdateSegmentRequest {
   /** Approximate duration in minutes. */
   duration?: number | null
   pluginPreset?: PluginPreset | null
+  gameSessionPreset?: (Partial<GameSessionConfig> & { name: string }) | null
   roomSettingsOverride?: SegmentRoomSettingsOverride | null
   status?: SegmentStatus
   tagIds?: string[]

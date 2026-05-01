@@ -9,6 +9,23 @@ import type { ReactionSubject } from "./ReactionSubject"
 import type { ChatMessage } from "./ChatMessage"
 import type { SystemEventHandlers, ScreenEffectTarget, ScreenEffectName } from "./SystemEventTypes"
 import type { PluginComponentSchema, PluginComponentState } from "./PluginComponent"
+import type {
+  GameAttributeName,
+  GameLeaderboardEntry,
+  GameSession,
+  GameSessionConfig,
+  GameSessionResults,
+  GameStateModifier,
+  PluginAttributeDefinition,
+  UserGameState,
+} from "./GameSession"
+import type {
+  InventoryAcquisitionSource,
+  InventoryItem,
+  ItemDefinition,
+  ItemUseResult,
+  UserInventory,
+} from "./Inventory"
 
 // ============================================================================
 // Plugin Configuration Schema Types
@@ -318,6 +335,108 @@ export interface PluginLifecycle {
   off<K extends keyof PluginLifecycleEvents>(event: K, handler: PluginLifecycleEvents[K]): void
 }
 
+// ============================================================================
+// Game Session API (exposed on PluginContext.game)
+// ============================================================================
+
+/**
+ * Plugin-facing game session API. All methods operate on the plugin's room.
+ *
+ * Read methods return `null` when no session is active. Write methods are
+ * no-ops (and resolve safely) when there is no active session.
+ */
+export interface GameSessionPluginAPI {
+  // ---------- Session lifecycle ------------------------------------------
+  /** Get the currently-active session for this room (or `null`). */
+  getActiveSession(): Promise<GameSession | null>
+  /**
+   * Start a new session, ending any active one.
+   * Defaults are filled in for omitted fields (see `GameSessionService`).
+   */
+  startSession(config: Partial<GameSessionConfig> & { name: string }): Promise<GameSession>
+  /** End the active session. Returns the final results. No-op if no session. */
+  endSession(): Promise<GameSessionResults | null>
+
+  // ---------- Attribute registration -------------------------------------
+  /**
+   * Declare plugin-defined attributes so they appear in UI pickers / docs.
+   * Names are namespaced as `<pluginName>:<def.name>`.
+   */
+  registerAttributes(definitions: PluginAttributeDefinition[]): void
+
+  // ---------- State mutations --------------------------------------------
+  /** Add to an attribute, applying active modifiers. Resolves to the new value. */
+  addScore(userId: string, attribute: GameAttributeName, amount: number, reason?: string): Promise<number>
+  /** Set an attribute, ignoring multipliers/additives. */
+  setScore(userId: string, attribute: GameAttributeName, value: number, reason?: string): Promise<number>
+
+  // ---------- Modifiers --------------------------------------------------
+  /** Apply a modifier to a user. Returns the assigned modifier id. */
+  applyModifier(userId: string, modifier: Omit<GameStateModifier, "id" | "source">): Promise<string>
+  /** Remove a modifier instance. Returns whether it was found and removed. */
+  removeModifier(userId: string, modifierId: string): Promise<boolean>
+
+  // ---------- Reads ------------------------------------------------------
+  /** Get the full game state for a user (or `null`). */
+  getUserState(userId: string): Promise<UserGameState | null>
+  /** Render a leaderboard. Returns an empty array if the leaderboard is unknown. */
+  getLeaderboard(leaderboardId: string): Promise<GameLeaderboardEntry[]>
+}
+
+// ============================================================================
+// Inventory API (exposed on PluginContext.inventory)
+// ============================================================================
+
+/**
+ * Plugin-facing inventory API. Plugins:
+ * - Register their item definitions during `register()`.
+ * - Award items via `giveItem()`.
+ * - Implement `onItemUsed` (on the plugin instance) to resolve item effects.
+ *
+ * Reads are open: any plugin may inspect any user's inventory or any
+ * registered item definition (used for cross-plugin marketplaces / shops).
+ */
+export interface InventoryPluginAPI {
+  // ---------- Registration ----------------------------------------------
+  /**
+   * Register one or more item definitions. The `id` and `sourcePlugin` are
+   * derived from the calling plugin; pass only `shortId` and metadata.
+   */
+  registerItemDefinitions(
+    definitions: Array<Omit<ItemDefinition, "id" | "sourcePlugin">>,
+  ): void
+
+  // ---------- Mutations -------------------------------------------------
+  giveItem(
+    userId: string,
+    definitionId: string,
+    quantity?: number,
+    metadata?: Record<string, unknown>,
+    source?: InventoryAcquisitionSource,
+  ): Promise<InventoryItem | null>
+
+  removeItem(userId: string, itemId: string, quantity?: number): Promise<boolean>
+
+  transferItem(
+    fromUserId: string,
+    toUserId: string,
+    itemId: string,
+    quantity?: number,
+  ): Promise<boolean>
+
+  /**
+   * Use an item. Core validates ownership, dispatches to the owning plugin's
+   * `onItemUsed`, and decrements quantity if the result is `consumed`.
+   */
+  useItem(userId: string, itemId: string, context?: unknown): Promise<ItemUseResult>
+
+  // ---------- Reads -----------------------------------------------------
+  getInventory(userId: string): Promise<UserInventory>
+  hasItem(userId: string, definitionId: string, minQuantity?: number): Promise<boolean>
+  getItemDefinition(definitionId: string): Promise<ItemDefinition | null>
+  getAllItemDefinitions(): Promise<ItemDefinition[]>
+}
+
 /**
  * Context provided to each plugin instance
  */
@@ -326,6 +445,10 @@ export interface PluginContext {
   api: PluginAPI
   storage: PluginStorage
   lifecycle: PluginLifecycle
+  /** Game session API (cross-plugin attributes, modifiers, leaderboards). */
+  game: GameSessionPluginAPI
+  /** Inventory API (cross-plugin item storage / trading / usage). */
+  inventory: InventoryPluginAPI
   getRoom: () => Promise<Room | null>
   appContext: AppContext
 }
@@ -623,6 +746,34 @@ export interface Plugin {
    * }
    */
   formatPluginDataMarkdown?(pluginData: unknown, context: PluginMarkdownContext): string | null
+
+  /**
+   * Called by `InventoryService` when a user uses an item whose
+   * `definition.sourcePlugin` matches this plugin. Plugins implement effects
+   * (e.g. apply a modifier, award score, send a message) and return whether
+   * the item should be consumed.
+   *
+   * @example
+   * async onItemUsed(userId, item, definition) {
+   *   if (definition.shortId === "speed-potion") {
+   *     await this.context.game.applyModifier(userId, {
+   *       name: "speed_boost",
+   *       effects: [{ type: "multiplier", target: "score", value: 2 }],
+   *       startAt: Date.now(),
+   *       endAt: Date.now() + 60_000,
+   *       stackBehavior: "extend",
+   *     })
+   *     return { success: true, consumed: true, message: "Speed boost!" }
+   *   }
+   *   return { success: false, consumed: false, message: "Unknown item" }
+   * }
+   */
+  onItemUsed?(
+    userId: string,
+    item: InventoryItem,
+    definition: ItemDefinition,
+    context?: unknown,
+  ): Promise<ItemUseResult>
 }
 
 /**

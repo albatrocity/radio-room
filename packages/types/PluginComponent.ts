@@ -46,6 +46,12 @@ export type TemplateComponentName =
   | "badge"
   | "leaderboard"
   | "countdown"
+  | "game-leaderboard"
+  | "game-attribute"
+  | "modifier-badge"
+  | "inventory-button"
+  | "inventory-grid"
+  | "item-badge"
 
 /**
  * Props for the username template component.
@@ -173,6 +179,90 @@ export interface BadgeComponentProps {
 }
 
 /**
+ * Props for the game-leaderboard template component.
+ *
+ * Backed by an active game session's `LeaderboardConfig.id`. The frontend
+ * subscribes to `GAME_STATE_CHANGED` events to keep entries fresh.
+ */
+export interface GameLeaderboardComponentProps {
+  /** Reference to a `LeaderboardConfig.id` on the active session. */
+  leaderboardId: string
+  /** Optional title override (defaults to `LeaderboardConfig.displayName`). */
+  title?: string
+  maxItems?: number
+  showRank?: boolean
+}
+
+/**
+ * Props for the game-attribute template component.
+ *
+ * Renders a single attribute value for a user (intended for `userListItem`).
+ */
+export interface GameAttributeComponentProps {
+  /**
+   * Attribute name (e.g. `"score"`, `"coin"`, `"potion-shop:potions-used"`).
+   * Supports template interpolation (`{{userId}}` etc.).
+   */
+  attribute: string
+  /** Display format hint. */
+  format?: "number" | "currency" | "health-bar"
+  /** Optional icon shown alongside the value. */
+  icon?: string
+  /** Optional label displayed next to the value. */
+  label?: string
+}
+
+/**
+ * Props for the modifier-badge template component.
+ * Shows a badge for the named modifier when active for the contextual user.
+ */
+export interface ModifierBadgeComponentProps {
+  /** Modifier name to watch for (e.g. `"poisoned"`). */
+  modifier: string
+  /** Visual variant. */
+  variant?: "success" | "warning" | "error" | "info"
+  /** Optional label/icon overrides. */
+  label?: string
+  icon?: string
+}
+
+/**
+ * Props for the inventory-button template component.
+ * Opens the inventory grid in a modal when clicked.
+ */
+export interface InventoryButtonComponentProps {
+  label: string
+  icon?: string
+  /** Modal id to open (must reference a modal containing an inventory-grid). */
+  opensModal: string
+}
+
+/**
+ * Props for the inventory-grid template component.
+ *
+ * Renders the current user's inventory. Designed to be placed inside a modal.
+ */
+export interface InventoryGridComponentProps {
+  showQuantity?: boolean
+  allowUse?: boolean
+  allowTrade?: boolean
+  /** Optional filter by source plugin. */
+  filterSourcePlugin?: string
+}
+
+/**
+ * Props for the item-badge template component.
+ *
+ * Renders a small badge on a user list row when the contextual user owns at
+ * least one of the referenced item.
+ */
+export interface ItemBadgeComponentProps {
+  /** Fully-qualified `ItemDefinition.id` (e.g. `"potion-shop:speed-potion"`). */
+  definitionId: string
+  showQuantity?: boolean
+}
+
+/**
  * Type-safe mapping of component names to their props.
  */
 export interface TemplateComponentPropsMap {
@@ -186,6 +276,12 @@ export interface TemplateComponentPropsMap {
   badge: BadgeComponentProps
   leaderboard: LeaderboardComponentProps
   countdown: CountdownComponentProps
+  "game-leaderboard": GameLeaderboardComponentProps
+  "game-attribute": GameAttributeComponentProps
+  "modifier-badge": ModifierBadgeComponentProps
+  "inventory-button": InventoryButtonComponentProps
+  "inventory-grid": InventoryGridComponentProps
+  "item-badge": ItemBadgeComponentProps
 }
 
 // ============================================================================
@@ -260,6 +356,12 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "badge" } & BadgeComponentProps)
   | (PluginComponentMetadata & { type: "leaderboard" } & LeaderboardComponentProps)
   | (PluginComponentMetadata & { type: "countdown" } & CountdownComponentProps)
+  | (PluginComponentMetadata & { type: "game-leaderboard" } & GameLeaderboardComponentProps)
+  | (PluginComponentMetadata & { type: "game-attribute" } & GameAttributeComponentProps)
+  | (PluginComponentMetadata & { type: "modifier-badge" } & ModifierBadgeComponentProps)
+  | (PluginComponentMetadata & { type: "inventory-button" } & InventoryButtonComponentProps)
+  | (PluginComponentMetadata & { type: "inventory-grid" } & InventoryGridComponentProps)
+  | (PluginComponentMetadata & { type: "item-badge" } & ItemBadgeComponentProps)
   | PluginModalComponent // Modal is special - it contains children
 
 /**

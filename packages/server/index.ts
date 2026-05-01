@@ -49,6 +49,8 @@ import { schedulingShowReadAuth } from "./middleware/schedulingShowReadAuth"
 import { clearRoomOnlineUsers } from "./operations/data"
 import { SocketWithContext } from "./lib/socketWithContext"
 import { PluginRegistry } from "./lib/plugins"
+import { GameSessionService } from "./services/GameSessionService"
+import { InventoryService } from "./services/InventoryService"
 
 declare module "express-session" {
   interface Session {
@@ -268,6 +270,14 @@ export class RadioRoomServer {
     this.context.pluginRegistry = this.pluginRegistry
     console.log("PluginRegistry initialized")
 
+    // Initialize game session + inventory services. These must be on the
+    // context BEFORE plugins register so PluginContext.game/inventory work.
+    const gameSessions = new GameSessionService(this.context)
+    this.context.gameSessions = gameSessions
+    this.context.inventory = new InventoryService(this.context)
+    gameSessions.start()
+    console.log("GameSessionService and InventoryService initialized")
+
     // Register any plugins that were queued via registerAdapters()
     // We pass the factory function so PluginRegistry can create new instances per room
     for (const pluginFactory of this.pendingPlugins) {
@@ -472,6 +482,10 @@ export class RadioRoomServer {
     for (const roomId of roomIds) {
       await this.pluginRegistry.cleanupRoom(roomId)
     }
+
+    // Stop the game session ticker (if started)
+    const gameSessions = this.context.gameSessions as GameSessionService | undefined
+    gameSessions?.stop()
 
     await this.jobService.stop()
     await this.context.redis.pubClient.quit()

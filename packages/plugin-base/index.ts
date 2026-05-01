@@ -1,5 +1,10 @@
 import type { z } from "zod"
 import {
+  GameSessionPluginAPI,
+  InventoryItem,
+  InventoryPluginAPI,
+  ItemDefinition,
+  ItemUseResult,
   Plugin,
   PluginActionInitiator,
   PluginContext,
@@ -278,6 +283,51 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
       return
     }
     await this.context.api.emit(eventName, data)
+  }
+
+  // ============================================================================
+  // Game Session / Inventory accessors
+  // ============================================================================
+
+  /**
+   * Convenience accessor for the game session API. Throws if the plugin has
+   * not yet been registered.
+   */
+  protected get game(): GameSessionPluginAPI {
+    if (!this.context) {
+      throw new Error(`[${this.name}] context not initialised; call super.register first`)
+    }
+    return this.context.game
+  }
+
+  /**
+   * Convenience accessor for the inventory API. Throws if the plugin has not
+   * yet been registered.
+   */
+  protected get inventory(): InventoryPluginAPI {
+    if (!this.context) {
+      throw new Error(`[${this.name}] context not initialised; call super.register first`)
+    }
+    return this.context.inventory
+  }
+
+  /**
+   * Optional handler invoked when a user uses an inventory item whose
+   * `definition.sourcePlugin` matches this plugin. Override to apply effects.
+   *
+   * Returning `{ consumed: true }` causes the core to decrement the item's
+   * quantity (and remove the stack when it reaches zero).
+   *
+   * The base implementation returns a "not handled" result so that subclasses
+   * which don't define items can leave it untouched.
+   */
+  async onItemUsed(
+    _userId: string,
+    _item: InventoryItem,
+    _definition: ItemDefinition,
+    _context?: unknown,
+  ): Promise<ItemUseResult> {
+    return { success: false, consumed: false, message: `${this.name} has no item handler` }
   }
 
   // ============================================================================

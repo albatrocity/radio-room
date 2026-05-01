@@ -4,25 +4,25 @@ overview: Design exploration for a global Game Sessions system that plugins can 
 todos:
   - id: define-types
     content: Define GameSession types in @repo/types (GameSession, GameSessionConfig, UserGameState, InventoryItem, ItemDefinition, etc.)
-    status: pending
+    status: completed
   - id: game-session-service
     content: Create GameSessionService for session lifecycle, state storage, and modifier expiry
-    status: pending
+    status: completed
   - id: inventory-service
     content: Create InventoryService for item storage, definition registry, transfers, and limit enforcement
-    status: pending
+    status: completed
   - id: plugin-api
     content: Extend PluginContext with game session API (addScore, applyModifier, giveItem, etc.)
-    status: pending
+    status: completed
   - id: system-events
     content: Add GAME_SESSION_* and INVENTORY_* events to SystemEventTypes
-    status: pending
+    status: completed
   - id: segment-integration
     content: Wire segment activation to auto-start/stop game sessions
-    status: pending
+    status: completed
   - id: ui-components
     content: Add game-leaderboard, game-attribute, and inventory component types
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -55,16 +55,18 @@ type GameStateAttributeName = CoreAttributeName | PluginAttributeName
 ```
 
 **Rationale:**
+
 - **Core attributes** provide discoverability and enable the "store" use case (spend `coin` from any plugin)
 - **Namespaced plugin attributes** allow domain-specific mechanics without core changes
 - Write permissions: Plugins can write to core attributes AND their own namespace, read everything
 - This mirrors how CSS custom properties work (`--plugin-name-value`)
 
 **Registry approach for discoverability:**
+
 ```typescript
 // Plugins register their attributes at load time
 interface PluginAttributeDefinition {
-  name: string           // e.g., "streak"
+  name: string // e.g., "streak"
   type: "counter" | "gauge" | "flag"
   description: string
   defaultValue: number
@@ -118,34 +120,34 @@ MODIFIER_APPLIED: (data: {
 ```typescript
 interface GameSessionConfig {
   id: string
-  name: string                          // "Friday Night Battle"
-  
+  name: string // "Friday Night Battle"
+
   // Which attributes are active in this session
   enabledAttributes: GameStateAttributeName[]
   initialValues: Record<GameStateAttributeName, number>
-  
+
   // Leaderboard configuration
   leaderboards: LeaderboardConfig[]
-  
+
   // Timing
-  startsAt?: number                     // Auto-start at timestamp
-  endsAt?: number                       // Auto-end at timestamp
-  duration?: number                     // Or duration in ms
-  
+  startsAt?: number // Auto-start at timestamp
+  endsAt?: number // Auto-end at timestamp
+  duration?: number // Or duration in ms
+
   // Mode
   mode: "individual" | "team"
   teams?: TeamConfig[]
-  
+
   // Segment binding
-  segmentId?: string                    // Auto-start/end with segment
+  segmentId?: string // Auto-start/end with segment
 }
 
 interface LeaderboardConfig {
   id: string
-  attribute: GameStateAttributeName     // "score", "coin", etc.
+  attribute: GameStateAttributeName // "score", "coin", etc.
   sortOrder: "desc" | "asc"
-  displayName: string                   // "High Scores"
-  showTop?: number                      // Limit display
+  displayName: string // "High Scores"
+  showTop?: number // Limit display
 }
 ```
 
@@ -155,37 +157,38 @@ Your spec has modifiers but needs:
 
 ```typescript
 interface GameStateModifier {
-  id: string                            // Unique instance ID
-  name: string                          // "double_points", "poisoned"
-  source: string                        // Which plugin applied it
-  
+  id: string // Unique instance ID
+  name: string // "double_points", "poisoned"
+  source: string // Which plugin applied it
+
   // Timing (you have startAt/endAt, good)
   startAt: number
   endAt: number
-  
+
   // Effects
   effects: GameStateEffect[]
-  
+
   // Stacking rules
   stackBehavior: "replace" | "stack" | "extend"
   maxStacks?: number
 }
 
 // Effect types need expansion
-type GameStateEffect = 
+type GameStateEffect =
   | { type: "multiplier"; target: GameStateAttributeName; value: number }
   | { type: "additive"; target: GameStateAttributeName; value: number }
   | { type: "set"; target: GameStateAttributeName; value: number }
-  | { type: "lock"; target: GameStateAttributeName }  // Prevent changes
-  | { type: "visible"; value: boolean }               // Hide from leaderboard
-  | { type: "flag"; name: string; value: boolean }    // Custom flags
+  | { type: "lock"; target: GameStateAttributeName } // Prevent changes
+  | { type: "visible"; value: boolean } // Hide from leaderboard
+  | { type: "flag"; name: string; value: boolean } // Custom flags
 ```
 
 ### 2.4 Inventory System
 
-Core provides inventory *storage* abstraction; plugins register item *definitions* and handle usage.
+Core provides inventory _storage_ abstraction; plugins register item _definitions_ and handle usage.
 
 **Why core, not a plugin:**
+
 - Cross-plugin items are a feature (Guess the Tune awards potions, Potion Shop provides effects)
 - Trading/marketplace needs central authority to mediate ownership
 - Unified UI - one inventory panel regardless of item source
@@ -194,9 +197,9 @@ Core provides inventory *storage* abstraction; plugins register item *definition
 ```typescript
 // Item instance stored in user inventory
 interface InventoryItem {
-  itemId: string                    // Unique instance ID (uuid)
-  definitionId: string              // "potion-shop:speed-potion"
-  sourcePlugin: string              // "potion-shop"
+  itemId: string // Unique instance ID (uuid)
+  definitionId: string // "potion-shop:speed-potion"
+  sourcePlugin: string // "potion-shop"
   quantity: number
   acquiredAt: number
   metadata?: Record<string, unknown> // Plugin-specific data
@@ -205,27 +208,27 @@ interface InventoryItem {
 interface UserInventory {
   userId: string
   items: InventoryItem[]
-  maxSlots: number                  // Configurable per session
+  maxSlots: number // Configurable per session
 }
 
 // Plugins register item definitions at load time
 interface ItemDefinition {
-  id: string                        // "speed-potion" (namespaced as "plugin:speed-potion")
-  name: string                      // "Speed Potion"
+  id: string // "speed-potion" (namespaced as "plugin:speed-potion")
+  name: string // "Speed Potion"
   description: string
-  icon?: string                     // Emoji or icon name
-  stackable: boolean                // Can quantities combine?
-  maxStack: number                  // Max per stack if stackable
-  tradeable: boolean                // Can be transferred to other users?
-  consumable: boolean               // Destroyed on use?
-  coinValue?: number                // Base value for selling
+  icon?: string // Emoji or icon name
+  stackable: boolean // Can quantities combine?
+  maxStack: number // Max per stack if stackable
+  tradeable: boolean // Can be transferred to other users?
+  consumable: boolean // Destroyed on use?
+  coinValue?: number // Base value for selling
 }
 
 // Result of using an item
 interface ItemUseResult {
   success: boolean
-  consumed: boolean                 // Should core decrement quantity?
-  message?: string                  // Feedback to user
+  consumed: boolean // Should core decrement quantity?
+  message?: string // Feedback to user
 }
 ```
 
@@ -235,18 +238,28 @@ interface ItemUseResult {
 interface InventoryAPI {
   // Registration (called in plugin register())
   registerItemDefinition(def: ItemDefinition): void
-  
+
   // Mutations
-  giveItem(userId: string, definitionId: string, quantity?: number, metadata?: Record<string, unknown>): Promise<InventoryItem>
+  giveItem(
+    userId: string,
+    definitionId: string,
+    quantity?: number,
+    metadata?: Record<string, unknown>,
+  ): Promise<InventoryItem>
   removeItem(userId: string, itemId: string, quantity?: number): Promise<boolean>
-  transferItem(fromUserId: string, toUserId: string, itemId: string, quantity?: number): Promise<boolean>
-  
+  transferItem(
+    fromUserId: string,
+    toUserId: string,
+    itemId: string,
+    quantity?: number,
+  ): Promise<boolean>
+
   // Reads
   getInventory(userId: string): Promise<UserInventory>
   hasItem(userId: string, definitionId: string, minQuantity?: number): Promise<boolean>
   getItemDefinition(definitionId: string): ItemDefinition | null
   getAllItemDefinitions(): ItemDefinition[]
-  
+
   // Usage (core calls back to owning plugin's onItemUsed handler)
   useItem(userId: string, itemId: string, context?: unknown): Promise<ItemUseResult>
 }
@@ -286,10 +299,10 @@ User clicks "Use" on Speed Potion
 abstract class BasePlugin {
   // Override to handle item usage for items this plugin defines
   protected async onItemUsed(
-    userId: string, 
-    item: InventoryItem, 
+    userId: string,
+    item: InventoryItem,
     definition: ItemDefinition,
-    context?: unknown
+    context?: unknown,
   ): Promise<ItemUseResult> {
     return { success: false, consumed: false, message: "Item not usable" }
   }
@@ -330,12 +343,12 @@ INVENTORY_ITEM_TRANSFERRED: (data: {
 ```typescript
 interface GameSessionConfig {
   // ... existing fields
-  
+
   // Inventory settings
   inventoryEnabled: boolean
-  maxInventorySlots: number         // Default: 20
-  allowTrading: boolean             // Can users transfer items?
-  allowSelling: boolean             // Can users sell items for coins?
+  maxInventorySlots: number // Default: 20
+  allowTrading: boolean // Can users transfer items?
+  allowSelling: boolean // Can users sell items for coins?
 }
 ```
 
@@ -346,10 +359,10 @@ interface GameSessionPermissions {
   // Who can start/stop sessions
   startSession: "admin" | "deputy" | "any"
   stopSession: "admin" | "deputy" | "creator"
-  
+
   // Who can modify state directly (vs through plugin actions)
   modifyState: "admin" | "plugin_only"
-  
+
   // Who can apply modifiers
   applyModifiers: "admin" | "plugin_only"
 }
@@ -364,15 +377,15 @@ interface GameSessionAPI {
   getActiveSession(roomId: string): Promise<GameSession | null>
   startSession(roomId: string, config: GameSessionConfig): Promise<GameSession>
   endSession(roomId: string, sessionId: string): Promise<GameSessionResults>
-  
+
   // State mutations
   addScore(userId: string, attribute: GameStateAttributeName, amount: number): Promise<void>
   setScore(userId: string, attribute: GameStateAttributeName, value: number): Promise<void>
-  
+
   // Modifiers
   applyModifier(userId: string, modifier: Omit<GameStateModifier, "id">): Promise<string>
   removeModifier(userId: string, modifierId: string): Promise<void>
-  
+
   // Reads
   getUserState(userId: string): Promise<UserGameState | null>
   getLeaderboard(leaderboardId: string): Promise<LeaderboardEntry[]>
@@ -382,6 +395,7 @@ interface GameSessionAPI {
 ### 2.8 Modifier Tick/Expiry
 
 Who expires modifiers? Options:
+
 1. **Timer in GameSessionService**: Background interval checks expiry
 2. **Lazy evaluation**: Check on read, expire on access
 3. **Redis TTL**: Use Redis EXPIRE for automatic cleanup
@@ -394,7 +408,7 @@ Recommend option 1 for immediate UI updates + option 2 as fallback for accuracy.
 // Segment gains new optional field
 interface SegmentDTO {
   // ... existing fields
-  gameSessionPreset?: GameSessionConfig  // Or reference to a preset
+  gameSessionPreset?: GameSessionConfig // Or reference to a preset
 }
 
 // On segment activation (existing SEGMENT_ACTIVATED event):
@@ -463,16 +477,16 @@ interface GameSessionResults {
   config: GameSessionConfig
   startedAt: number
   endedAt: number
-  
+
   // Final state for all participants
   participants: Array<{
     userId: string
     username: string
     finalState: UserGameState
     finalInventory: InventoryItem[]
-    rank: Record<string, number>  // Rank per leaderboard
+    rank: Record<string, number> // Rank per leaderboard
   }>
-  
+
   // Stats
   totalScoreAwarded: number
   totalCoinsSpent: number

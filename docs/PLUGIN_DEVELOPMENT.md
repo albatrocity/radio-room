@@ -15,6 +15,7 @@ This guide explains how to create plugins for Listening Room. Plugins extend roo
 - [Data Augmentation](#data-augmentation)
 - [Room Export](#room-export)
 - [Storage API](#storage-api)
+- [Game Sessions & Inventory](#game-sessions--inventory)
 - [Timer API](#timer-api)
 - [Best Practices](#best-practices)
 - [Complete Example](#complete-example)
@@ -30,6 +31,8 @@ This guide explains how to create plugins for Listening Room. Plugins extend roo
                             ├─ Creates PluginContext
                             │   ├─ api: PluginAPI
                             │   ├─ storage: PluginStorage
+                            │   ├─ game: GameSessionPluginAPI (room-scoped)
+                            │   ├─ inventory: InventoryPluginAPI (room-scoped)
                             │   ├─ lifecycle: Event handlers
                             │   └─ roomId: string
                             │
@@ -62,6 +65,7 @@ This guide explains how to create plugins for Listening Room. Plugins extend roo
 3. **Declarative UI**: Define UI components via JSON schema - no React code in plugins
 4. **Type-Safe**: Full TypeScript support with Zod schema validation
 5. **Sandboxed Storage**: Redis storage namespaced by plugin and room
+6. **Optional Global Game State**: Core services expose `context.game` (sessions, score/coin, modifiers, leaderboards) and `context.inventory` (cross-plugin items). Use these when you want shared economy or UI across plugins; keep plugin-local sorted sets when scores should stay private to one plugin.
 
 ## Quick Start
 
@@ -321,6 +325,14 @@ protected async onCleanup(): Promise<void> {
 
 See [Timer API](#timer-api) for full documentation on the built-in timer management system.
 
+#### Game sessions & inventory (`this.game` / `this.inventory`)
+
+See [Game Sessions & Inventory](#game-sessions--inventory). After `super.register(context)`, use:
+
+- **`this.game`** — Session lifecycle, `addScore` / `setScore`, modifiers, leaderboards.
+- **`this.inventory`** — Register item definitions, `giveItem`, `transferItem`, `useItem`.
+- **`onItemUsed`** — Override to handle `useItem` for definitions owned by your plugin.
+
 #### `executeAction(action: string): Promise<{ success: boolean; message?: string }>`
 
 Handle action buttons from the admin config UI. Override this to implement custom actions.
@@ -384,6 +396,23 @@ Plugins subscribe to system events using SCREAMING_SNAKE_CASE names.
 | `CONFIG_CHANGED`        | `{ roomId, pluginName, config, previousConfig }` | Plugin config updated |
 | `ROOM_SETTINGS_UPDATED` | `{ roomId, room: Room }`                         | Room settings changed |
 | `ROOM_DELETED`          | `{ roomId }`                                     | Room was deleted      |
+| `SEGMENT_ACTIVATED`     | `{ roomId, showId, segmentId, segmentTitle }`      | Admin activated a schedule segment |
+
+### Game & inventory events
+
+These fire when [game sessions & inventory](#game-sessions--inventory) are in use:
+
+| Event | Payload (summary) |
+| ----- | ----------------- |
+| `GAME_SESSION_STARTED` | `{ roomId, sessionId, config }` |
+| `GAME_SESSION_ENDED` | `{ roomId, sessionId, results }` |
+| `GAME_STATE_CHANGED` | `{ roomId, sessionId, userId, changes }` |
+| `GAME_MODIFIER_APPLIED` | `{ roomId, sessionId, userId, modifier }` |
+| `GAME_MODIFIER_REMOVED` | `{ roomId, sessionId, userId, modifierId, reason }` |
+| `INVENTORY_ITEM_ACQUIRED` | `{ roomId, sessionId, userId, item, source }` |
+| `INVENTORY_ITEM_USED` | `{ roomId, sessionId, userId, item, result }` |
+| `INVENTORY_ITEM_REMOVED` | `{ roomId, sessionId, userId, itemId, quantity }` |
+| `INVENTORY_ITEM_TRANSFERRED` | `{ roomId, sessionId, fromUserId, toUserId, item, quantity }` |
 
 ### Example Event Handlers
 
@@ -1048,6 +1077,12 @@ getComponentSchema(): PluginComponentSchema {
 | `leaderboard` | Ranked list | `dataKey`, `title`, `rowTemplate`, `maxItems` |
 | `countdown` | Timer display | `startKey`, `duration`, `text` |
 | `modal` | Dialog container | `title`, `size`, `children` |
+| `game-leaderboard` | Session leaderboard | `leaderboardId`, `title?`, `maxItems`, `showRank` |
+| `game-attribute` | One attribute value | `attribute`, `format?`, `icon?`, `label?` |
+| `modifier-badge` | Active modifier hint | `modifier`, `variant?`, `label?`, `icon?` |
+| `inventory-button` | Opens inventory modal | `label`, `opensModal`, `icon?` |
+| `inventory-grid` | Item grid (often in modal) | `showQuantity`, `allowUse`, `allowTrade`, `filterSourcePlugin?` |
+| `item-badge` | Owns-item indicator | `definitionId`, `showQuantity` |
 
 ### Per-Item Components
 
@@ -1459,6 +1494,165 @@ const entries = await this.context.storage.zrangeWithScores("leaderboard", 0, 9)
 await this.context.storage.zincrby("leaderboard", 1, memberId)
 ```
 
+## Game Sessions & Inventory
+
+Listening Room provides **core infrastructure** for cross-plugin game state so plugins can share `score` / `coin`, timed modifiers, configurable leaderboards, and a single inventory per user—without each plugin rolling its own Redis keys.
+
+**Architecture:** See [ADR 0040: Game Sessions and Inventory](adrs/0040-game-sessions-and-inventory.md).
+
+### When to use what
+
+| Approach | Use when |
+| -------- | -------- |
+| **`this.context.storage`** (`zincrby`, etc.) | Scoreboards or state that should stay **isolated** to your plugin (current behaviour for Guess the Tune, etc.). |
+| **`this.game` / `this.inventory`** | **Shared** economy (`coin`), unified leaderboards, buffs/debuffs that affect multiple plugins, items another plugin can award or consume. |
+
+Access APIs via **`this.game`** and **`this.inventory`** on `BasePlugin` (aliases for `this.context!.game` / `this.context!.inventory`). They are room-scoped: you never pass `roomId`; the server ties calls to the plugin’s room.
+
+If `GameSessionService` is not running (should not happen in production), methods no-op or return empty values safely.
+
+### Attributes
+
+- **Core attributes** — `score` and `coin`. Any plugin may read and write them (cross-plugin economy).
+- **Plugin attributes** — Namespaced as `"<plugin-name>:<key>"` (e.g. `"guess-the-tune:streak"`). Convention: only the **owning** plugin writes its namespace; everyone may read.
+
+Register metadata for your custom attributes so UIs can discover them:
+
+```typescript
+await super.register(context)
+
+this.game.registerAttributes([
+  {
+    name: "streak",
+    type: "counter",
+    description: "Correct guesses in a row",
+    defaultValue: 0,
+    label: "Streak",
+  },
+])
+```
+
+### Game session API (`this.game`)
+
+| Method | Description |
+| ------ | ----------- |
+| `getActiveSession()` | Current `GameSession` or `null`. |
+| `startSession(config)` | Starts a session; ends any existing active session for the room. Pass at least `{ name: string }`; other fields get defaults (`enabledAttributes`, leaderboards, inventory flags, etc.). |
+| `endSession()` | Ends the active session; returns `GameSessionResults` or `null`. |
+| `registerAttributes(defs)` | Registers `PluginAttributeDefinition[]` (fire-and-forget). |
+| `addScore(userId, attribute, amount, reason?)` | Adds to an attribute; applies active **multiplier** / **additive** modifiers; returns new value. **Lock** effects block changes. |
+| `setScore(userId, attribute, value, reason?)` | Sets absolute value (ignores multiplier/additive on that write path). |
+| `applyModifier(userId, modifier)` | Applies a timed modifier; `source` is set to your plugin name. Omit `id` and `source` from the payload. |
+| `removeModifier(userId, modifierId)` | Removes one modifier instance. |
+| `getUserState(userId)` | Full `UserGameState` or `null` if no active session. |
+| `getLeaderboard(leaderboardId)` | Hydrated rows (`GameLeaderboardEntry[]`) for a `LeaderboardConfig.id`. |
+
+**Modifiers** support `stackBehavior`: `"replace"` | `"stack"` | `"extend"`, plus optional `maxStacks`. Effects include `multiplier`, `additive`, `set`, `lock`, and `flag` on targets — see `@repo/types` (`GameStateModifier`, `GameStateEffect`).
+
+### Inventory API (`this.inventory`)
+
+Items are **defined** by plugins and **stored** by core so any plugin can `giveItem` using another plugin’s `definitionId`.
+
+Register definitions in `register()` (ids are built as `"<your-plugin-name>:<shortId>"`):
+
+```typescript
+this.inventory.registerItemDefinitions([
+  {
+    shortId: "speed-potion",
+    name: "Speed Potion",
+    description: "2× score for 60 seconds",
+    stackable: true,
+    maxStack: 99,
+    tradeable: true,
+    consumable: true,
+    coinValue: 10,
+  },
+])
+```
+
+| Method | Description |
+| ------ | ----------- |
+| `registerItemDefinitions(defs)` | One or more definitions without `id` / `sourcePlugin` (set automatically). |
+| `giveItem(userId, definitionId, quantity?, metadata?, source?)` | Awards items; respects stacking, slot limits, session config. |
+| `removeItem(userId, itemId, quantity?)` | Removes quantity from a stack. |
+| `transferItem(fromUserId, toUserId, itemId, quantity?)` | Only if `ItemDefinition.tradeable` and the active session allows trading. |
+| `useItem(userId, itemId, context?)` | Validates ownership, calls the **defining** plugin’s `onItemUsed`, may decrement if result `consumed`. |
+| `getInventory(userId)` | `UserInventory` (items + `maxSlots`). |
+| `hasItem(userId, definitionId, minQuantity?)` | Convenience check. |
+| `getItemDefinition(definitionId)` | Async lookup. |
+| `getAllItemDefinitions()` | All definitions registered for the room. |
+
+### Handling item use (`onItemUsed`)
+
+Override on your plugin class when you register consumables or usable items. The server routes `useItem` to the plugin that **owns** the item definition.
+
+```typescript
+async onItemUsed(
+  userId: string,
+  item: InventoryItem,
+  definition: ItemDefinition,
+  _context?: unknown,
+): Promise<ItemUseResult> {
+  if (definition.shortId === "speed-potion") {
+    const until = Date.now() + 60_000
+    await this.game.applyModifier(userId, {
+      name: "speed_boost",
+      effects: [{ type: "multiplier", target: "score", value: 2 }],
+      startAt: Date.now(),
+      endAt: until,
+      stackBehavior: "extend",
+    })
+    return { success: true, consumed: true, message: "Speed boost!" }
+  }
+  return { success: false, consumed: false, message: "Unknown item" }
+}
+```
+
+`BasePlugin` provides a default implementation that returns “not handled”; override only when you define items.
+
+### System events (subscribe via `this.on`)
+
+Emitters use `SystemEvents` (same pipeline as other domain events). Useful payloads:
+
+| Event | When |
+| ----- | ---- |
+| `GAME_SESSION_STARTED` | `{ roomId, sessionId, config }` |
+| `GAME_SESSION_ENDED` | `{ roomId, sessionId, results }` |
+| `GAME_STATE_CHANGED` | `{ roomId, sessionId, userId, changes }` — attribute deltas |
+| `GAME_MODIFIER_APPLIED` | Modifier applied or extended |
+| `GAME_MODIFIER_REMOVED` | Expired or manually removed |
+| `INVENTORY_ITEM_ACQUIRED` | Item given (source: `plugin` \| `trade` \| `purchase` \| `admin`) |
+| `INVENTORY_ITEM_USED` | After `useItem` completes |
+| `INVENTORY_ITEM_REMOVED` | Partial/full stack removal |
+| `INVENTORY_ITEM_TRANSFERRED` | Player-to-player transfer |
+
+### Segment-bound sessions (scheduling)
+
+If a show segment includes **`gameSessionPreset`** on `SegmentDTO`, activating that segment **ends** any prior game session for the room and **starts** a new one from the preset (when preset apply mode is not `"skip"`). Presets are partial configs plus a required `name`; optional `segmentId` is filled at activation.
+
+This ties session lifetime to segment changes without extra plugin code.
+
+### UI components (declarative)
+
+Add these to `getComponentSchema()` like other template-backed components. Types live in `@repo/types` (`PluginComponentDefinition`).
+
+| Type | Typical area | Purpose |
+| ---- | ------------ | ------- |
+| `game-leaderboard` | `userList`, `nowPlaying` | Ranks by `leaderboardId` from active session config |
+| `game-attribute` | `userListItem` | Single attribute (`score`, `coin`, or namespaced) |
+| `modifier-badge` | `userListItem` | Show when a named modifier is active |
+| `inventory-button` | `userList` | Opens a modal (`opensModal`) |
+| `inventory-grid` | Inside a `modal` | Grid with optional use/trade |
+| `item-badge` | `userListItem` | Badge when user owns `definitionId` |
+
+Frontends must implement these template names alongside existing ones (`leaderboard`, `badge`, etc.). Until implemented, they may no-op.
+
+### Session configuration snapshot
+
+`GameSessionConfig` includes `enabledAttributes`, `initialValues`, `leaderboards`, timing (`startsAt` / `endsAt` / `duration`), `mode` (`individual` \| `team`), optional `teams`, `segmentId`, and inventory flags: `inventoryEnabled`, `maxInventorySlots`, `allowTrading`, `allowSelling`.
+
+---
+
 ## Timer API
 
 BasePlugin provides a built-in timer management system for scheduling delayed operations. Timers are automatically cleaned up when the plugin is cleaned up or when a room is deleted.
@@ -1736,7 +1930,11 @@ await this.context.api.queueSoundEffect({
 })
 ```
 
-### 9. Use Screen Effects Thoughtfully
+### 9. Prefer global game APIs for shared scores and items
+
+If multiple plugins should interact with the same points or inventory, use `this.game` and `this.inventory` instead of duplicating sorted sets in `storage`. Keep plugin-local storage when the feature is intentionally isolated.
+
+### 10. Use Screen Effects Thoughtfully
 
 ```typescript
 // Animate plugin components to draw attention
@@ -1775,6 +1973,8 @@ See the [Queue Hygiene Plugin](../packages/plugin-queue-hygiene) for a queue val
 - Consecutive track prevention
 - Admin exemption logic
 
+For **cross-plugin score, coin, modifiers, leaderboards, and inventory**, see [Game Sessions & Inventory](#game-sessions--inventory) and [ADR 0040](adrs/0040-game-sessions-and-inventory.md).
+
 ## Plugin API Reference
 
 ### PluginAPI Methods
@@ -1792,6 +1992,10 @@ See the [Queue Hygiene Plugin](../packages/plugin-queue-hygiene) for a queue val
 | `emit(eventName, data)`                        | Emit plugin event to frontend    |
 | `queueSoundEffect(params)`                     | Play a sound effect in the room  |
 | `queueScreenEffect(params)`                    | Play a CSS animation in the room |
+
+### Game & inventory APIs (`PluginContext`)
+
+Available as **`context.game`** and **`context.inventory`** (and **`this.game`** / **`this.inventory`** on `BasePlugin`). Full reference: [Game Sessions & Inventory](#game-sessions--inventory); types: `GameSessionPluginAPI`, `InventoryPluginAPI` in `@repo/types`.
 
 ### Queue Validation Helpers
 

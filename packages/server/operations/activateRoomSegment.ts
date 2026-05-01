@@ -86,6 +86,7 @@ export async function activateRoomSegment(params: {
 
   const segment = showRow.segment as SegmentDTO
   const preset = segment.pluginPreset
+  const gamePreset = segment.gameSessionPreset
 
   if (presetMode !== "skip" && preset) {
     const v = validatePreset(preset)
@@ -215,6 +216,33 @@ export async function activateRoomSegment(params: {
       room: updatedRoom,
       pluginConfigs: updatedPluginConfigs,
     })
+  }
+
+  // ---------------------------------------------------------------------------
+  // Game session integration
+  //
+  // If the segment defines a `gameSessionPreset`, activating it auto-ends any
+  // currently-active session (whose lifetime is implicitly bound to the
+  // previous segment) and starts a new one tagged with this segment id.
+  //
+  // If the segment has no preset, we still end the previous session so games
+  // don't bleed across segments.
+  // ---------------------------------------------------------------------------
+  const gameSessions = context.gameSessions as
+    | { startSession: (...args: any[]) => Promise<any>; endSession: (roomId: string) => Promise<any> }
+    | undefined
+
+  if (gameSessions) {
+    try {
+      // Always end the previous session — the previous segment "owned" it.
+      await gameSessions.endSession(roomId)
+
+      if (presetMode !== "skip" && gamePreset) {
+        await gameSessions.startSession(roomId, { ...gamePreset, segmentId })
+      }
+    } catch (e) {
+      console.error("[activateRoomSegment] game session sync failed:", e)
+    }
   }
 
   return { ok: true, room: updatedRoom }

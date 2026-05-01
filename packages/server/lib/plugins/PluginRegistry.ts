@@ -1,5 +1,8 @@
 import {
   AppContext,
+  InventoryItem,
+  ItemDefinition,
+  ItemUseResult,
   Plugin,
   PluginActionInitiator,
   PluginContext,
@@ -17,6 +20,8 @@ import { Server } from "socket.io"
 import { PluginAPIImpl } from "./PluginAPI"
 import { PluginStorageImpl } from "./PluginStorage"
 import { PluginLifecycleImpl } from "./PluginLifecycle"
+import { PluginGameSessionAPI } from "./PluginGameSessionAPI"
+import { PluginInventoryAPI } from "./PluginInventoryAPI"
 
 /**
  * Plugin factory function - creates a new plugin instance
@@ -100,6 +105,8 @@ export class PluginRegistry {
       api: scopedApi,
       storage,
       lifecycle,
+      game: new PluginGameSessionAPI(this.context, pluginName, roomId),
+      inventory: new PluginInventoryAPI(this.context, pluginName, roomId),
       getRoom: async () => {
         const { findRoom } = await import("../../operations/data")
         const room = await findRoom({ context: this.context, roomId })
@@ -604,6 +611,41 @@ export class PluginRegistry {
         error,
       )
       return { success: false, message: `Error executing action: ${error}` }
+    }
+  }
+
+  /**
+   * Dispatch an inventory item use to the source plugin's `onItemUsed` handler.
+   *
+   * Called by `InventoryService.useItem`. Returns `null` when the plugin is not
+   * loaded for the room or doesn't implement the handler — `InventoryService`
+   * surfaces a default "not usable" result in that case.
+   */
+  async invokeOnItemUsed(
+    roomId: string,
+    pluginName: string,
+    userId: string,
+    item: InventoryItem,
+    definition: ItemDefinition,
+    callContext: unknown,
+  ): Promise<ItemUseResult | null> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return null
+
+    const instance = roomPlugins.get(pluginName)
+    if (!instance) return null
+
+    const { plugin } = instance
+    if (typeof plugin.onItemUsed !== "function") return null
+
+    try {
+      return await plugin.onItemUsed(userId, item, definition, callContext)
+    } catch (error) {
+      console.error(
+        `[PluginRegistry] Error in onItemUsed for plugin ${pluginName}:`,
+        error,
+      )
+      return { success: false, consumed: false, message: `Error using item: ${error}` }
     }
   }
 
