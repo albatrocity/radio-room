@@ -1,24 +1,27 @@
 ---
 name: Game Sessions Design
-overview: Design exploration for a global Game Sessions system that plugins can hook into, enabling shared game state with per-user attributes, modifiers, and leaderboards across the plugin ecosystem.
+overview: Design exploration for a global Game Sessions system that plugins can hook into, enabling shared game state with per-user attributes, modifiers, inventory, and leaderboards across the plugin ecosystem.
 todos:
   - id: define-types
-    content: Define GameSession types in @repo/types (GameSession, GameSessionConfig, UserGameState, etc.)
+    content: Define GameSession types in @repo/types (GameSession, GameSessionConfig, UserGameState, InventoryItem, ItemDefinition, etc.)
     status: pending
   - id: game-session-service
     content: Create GameSessionService for session lifecycle, state storage, and modifier expiry
     status: pending
+  - id: inventory-service
+    content: Create InventoryService for item storage, definition registry, transfers, and limit enforcement
+    status: pending
   - id: plugin-api
-    content: Extend PluginContext with game session API (addScore, applyModifier, etc.)
+    content: Extend PluginContext with game session API (addScore, applyModifier, giveItem, etc.)
     status: pending
   - id: system-events
-    content: Add GAME_SESSION_* events to SystemEventTypes
+    content: Add GAME_SESSION_* and INVENTORY_* events to SystemEventTypes
     status: pending
   - id: segment-integration
     content: Wire segment activation to auto-start/stop game sessions
     status: pending
   - id: ui-components
-    content: Add game-leaderboard and game-attribute component types
+    content: Add game-leaderboard, game-attribute, and inventory component types
     status: pending
 isProject: false
 ---
@@ -178,7 +181,165 @@ type GameStateEffect =
   | { type: "flag"; name: string; value: boolean }    // Custom flags
 ```
 
-### 2.4 Permission Model
+### 2.4 Inventory System
+
+Core provides inventory *storage* abstraction; plugins register item *definitions* and handle usage.
+
+**Why core, not a plugin:**
+- Cross-plugin items are a feature (Guess the Tune awards potions, Potion Shop provides effects)
+- Trading/marketplace needs central authority to mediate ownership
+- Unified UI - one inventory panel regardless of item source
+- Limit enforcement - session config sets `maxInventorySlots`, core enforces
+
+```typescript
+// Item instance stored in user inventory
+interface InventoryItem {
+  itemId: string                    // Unique instance ID (uuid)
+  definitionId: string              // "potion-shop:speed-potion"
+  sourcePlugin: string              // "potion-shop"
+  quantity: number
+  acquiredAt: number
+  metadata?: Record<string, unknown> // Plugin-specific data
+}
+
+interface UserInventory {
+  userId: string
+  items: InventoryItem[]
+  maxSlots: number                  // Configurable per session
+}
+
+// Plugins register item definitions at load time
+interface ItemDefinition {
+  id: string                        // "speed-potion" (namespaced as "plugin:speed-potion")
+  name: string                      // "Speed Potion"
+  description: string
+  icon?: string                     // Emoji or icon name
+  stackable: boolean                // Can quantities combine?
+  maxStack: number                  // Max per stack if stackable
+  tradeable: boolean                // Can be transferred to other users?
+  consumable: boolean               // Destroyed on use?
+  coinValue?: number                // Base value for selling
+}
+
+// Result of using an item
+interface ItemUseResult {
+  success: boolean
+  consumed: boolean                 // Should core decrement quantity?
+  message?: string                  // Feedback to user
+}
+```
+
+**Inventory API for plugins:**
+
+```typescript
+interface InventoryAPI {
+  // Registration (called in plugin register())
+  registerItemDefinition(def: ItemDefinition): void
+  
+  // Mutations
+  giveItem(userId: string, definitionId: string, quantity?: number, metadata?: Record<string, unknown>): Promise<InventoryItem>
+  removeItem(userId: string, itemId: string, quantity?: number): Promise<boolean>
+  transferItem(fromUserId: string, toUserId: string, itemId: string, quantity?: number): Promise<boolean>
+  
+  // Reads
+  getInventory(userId: string): Promise<UserInventory>
+  hasItem(userId: string, definitionId: string, minQuantity?: number): Promise<boolean>
+  getItemDefinition(definitionId: string): ItemDefinition | null
+  getAllItemDefinitions(): ItemDefinition[]
+  
+  // Usage (core calls back to owning plugin's onItemUsed handler)
+  useItem(userId: string, itemId: string, context?: unknown): Promise<ItemUseResult>
+}
+```
+
+**Item usage flow:**
+
+```
+User clicks "Use" on Speed Potion
+           │
+           ▼
+┌─────────────────────────────────┐
+│  Core InventoryService          │
+│  1. Validate user owns item     │
+│  2. Look up sourcePlugin        │
+│  3. Call plugin.onItemUsed()    │
+└─────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────┐
+│  PotionShopPlugin.onItemUsed()  │
+│  - Apply modifier (2x score)    │
+│  - Return { consumed: true }    │
+└─────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────┐
+│  Core InventoryService          │
+│  - If consumed, decrement qty   │
+│  - Emit INVENTORY_ITEM_USED     │
+└─────────────────────────────────┘
+```
+
+**BasePlugin gains item handler:**
+
+```typescript
+abstract class BasePlugin {
+  // Override to handle item usage for items this plugin defines
+  protected async onItemUsed(
+    userId: string, 
+    item: InventoryItem, 
+    definition: ItemDefinition,
+    context?: unknown
+  ): Promise<ItemUseResult> {
+    return { success: false, consumed: false, message: "Item not usable" }
+  }
+}
+```
+
+**Inventory events:**
+
+```typescript
+INVENTORY_ITEM_ACQUIRED: (data: {
+  roomId: string
+  sessionId: string
+  userId: string
+  item: InventoryItem
+  source: "plugin" | "trade" | "purchase"
+}) => void
+
+INVENTORY_ITEM_USED: (data: {
+  roomId: string
+  sessionId: string
+  userId: string
+  item: InventoryItem
+  result: ItemUseResult
+}) => void
+
+INVENTORY_ITEM_TRANSFERRED: (data: {
+  roomId: string
+  sessionId: string
+  fromUserId: string
+  toUserId: string
+  item: InventoryItem
+  quantity: number
+}) => void
+```
+
+**Session config for inventory:**
+
+```typescript
+interface GameSessionConfig {
+  // ... existing fields
+  
+  // Inventory settings
+  inventoryEnabled: boolean
+  maxInventorySlots: number         // Default: 20
+  allowTrading: boolean             // Can users transfer items?
+  allowSelling: boolean             // Can users sell items for coins?
+}
+```
+
+### 2.6 Permission Model
 
 ```typescript
 interface GameSessionPermissions {
@@ -194,7 +355,7 @@ interface GameSessionPermissions {
 }
 ```
 
-### 2.5 Plugin API Surface
+### 2.7 Plugin API Surface
 
 ```typescript
 // New methods on PluginContext.api (or new PluginContext.gameSession)
@@ -218,7 +379,7 @@ interface GameSessionAPI {
 }
 ```
 
-### 2.6 Modifier Tick/Expiry
+### 2.8 Modifier Tick/Expiry
 
 Who expires modifiers? Options:
 1. **Timer in GameSessionService**: Background interval checks expiry
@@ -227,7 +388,7 @@ Who expires modifiers? Options:
 
 Recommend option 1 for immediate UI updates + option 2 as fallback for accuracy.
 
-### 2.7 Segment Integration
+### 2.9 Segment Integration
 
 ```typescript
 // Segment gains new optional field
@@ -243,7 +404,7 @@ interface SegmentDTO {
 // 4. Auto-end the session and emit results
 ```
 
-### 2.8 UI Integration
+### 2.10 UI Integration
 
 New component types for plugin schemas:
 
@@ -270,9 +431,31 @@ New component types for plugin schemas:
     area: "userListItem"
     modifier: string             // Modifier name
   }
+| {
+    id: string
+    type: "inventory-button"
+    area: "userList"
+    label: string                // "My Inventory"
+    opensModal: string           // Modal component id
+  }
+| {
+    id: string
+    type: "inventory-grid"
+    area: "modal"                // Only in modals
+    showQuantity: boolean
+    allowUse: boolean
+    allowTrade: boolean
+  }
+| {
+    id: string
+    type: "item-badge"
+    area: "userListItem"
+    definitionId: string         // Show if user has this item
+    showQuantity: boolean
+  }
 ```
 
-### 2.9 Persistence and Export
+### 2.11 Persistence and Export
 
 ```typescript
 interface GameSessionResults {
@@ -286,12 +469,16 @@ interface GameSessionResults {
     userId: string
     username: string
     finalState: UserGameState
+    finalInventory: InventoryItem[]
     rank: Record<string, number>  // Rank per leaderboard
   }>
   
   // Stats
   totalScoreAwarded: number
   totalCoinsSpent: number
+  totalItemsAcquired: number
+  totalItemsUsed: number
+  totalItemsTraded: number
 }
 
 // Integration with room export
@@ -325,6 +512,16 @@ interface RoomExportData {
    - Session generates a 5x5 bingo card of special words
    - First to complete a line wins
    - Modifiers: "shuffle_card", "steal_word"
+
+4. **Potion Shop Economy** (inventory showcase)
+   - Earn coins from other plugins (guessing, voting, special words)
+   - Spend coins at the shop on items:
+     - "Speed Potion" - 2x score for 60 seconds
+     - "Shield Potion" - Block one negative modifier
+     - "Hint Scroll" - Reveal first letter in Guess the Tune
+     - "Golden Vote" - Your vote counts as 2 in Democracy
+   - Items persist in inventory, usable anytime during session
+   - Trade items with other users
 
 ### New Game Modes
 
@@ -380,28 +577,48 @@ interface RoomExportData {
 │  - Leaderboard computation                                      │
 └─────────────────────────────────────────────────────────────────┘
                             │
+                            │
+┌─────────────────────────────────────────────────────────────────┐
+│                     InventoryService                            │
+│  - Item definition registry                                     │
+│  - User inventory storage (Redis)                               │
+│  - Transfer mediation                                           │
+│  - Limit enforcement                                            │
+│  - Item usage callback dispatch                                 │
+└─────────────────────────────────────────────────────────────────┘
+                            │
             ┌───────────────┼───────────────┐
             │               │               │
             ▼               ▼               ▼
     ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
     │ Plugin A     │ │ Plugin B     │ │ Plugin C     │
+    │ (Potion Shop)│ │ (Guess Tune) │ │ (Democracy)  │
+    │              │ │              │ │              │
+    │ Registers:   │ │ Awards:      │ │ Awards:      │
+    │ - potions    │ │ - potions as │ │ - golden     │
+    │ - effects    │ │   prizes     │ │   vote item  │
     │              │ │              │ │              │
     │ this.game    │ │ this.game    │ │ this.game    │
-    │   .addScore()│ │   .addScore()│ │  .applyMod() │
+    │  .addScore() │ │  .giveItem() │ │  .addScore() │
+    │ this.inventory│ │             │ │              │
+    │  .registerItem│ │             │ │              │
     └──────────────┘ └──────────────┘ └──────────────┘
                             │
                             ▼
     ┌─────────────────────────────────────────────────────────────┐
     │                     SystemEvents                             │
-    │  GAME_SESSION_STARTED, GAME_STATE_CHANGED, etc.             │
+    │  GAME_SESSION_STARTED, GAME_STATE_CHANGED,                  │
+    │  INVENTORY_ITEM_ACQUIRED, INVENTORY_ITEM_USED, etc.         │
     └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
     ┌─────────────────────────────────────────────────────────────┐
     │                     Frontend                                 │
     │  - Leaderboard components                                   │
-    │  - Per-user stat displays                                   │
+    │  - Per-user stat displays (score, coin)                     │
     │  - Modifier badges/effects                                  │
+    │  - Inventory grid modal                                     │
+    │  - Item badges on users                                     │
     └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -409,9 +626,10 @@ interface RoomExportData {
 
 ## Implementation Phases
 
-1. **Core infrastructure**: GameSessionService, Redis storage, events
-2. **Plugin API**: `this.game.*` methods on BasePlugin
+1. **Core infrastructure**: GameSessionService, InventoryService, Redis storage, events
+2. **Plugin API**: `this.game.*` and `this.inventory.*` methods on BasePlugin
 3. **Segment integration**: Auto-start/stop sessions
-4. **UI components**: Leaderboard and attribute display
+4. **UI components**: Leaderboard, attribute display, inventory grid
 5. **Migrate existing plugins**: Opt-in to use global game state
-6. **Store/economy**: Coin spending, modifier purchases
+6. **Store/economy**: Coin spending, item shop, modifier purchases
+7. **Trading**: User-to-user item transfers
