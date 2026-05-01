@@ -384,6 +384,81 @@ export class AdminHandlers {
       })
     }
   }
+
+  /**
+   * Return the active game session for this room (admin only).
+   */
+  getGameSessionStatus = async ({ socket }: HandlerConnections) => {
+    const result = await this.adminService.getGameSessionStatus(socket.data.roomId, socket.data.userId)
+    if (result.error) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
+      return
+    }
+    socket.emit("event", {
+      type: "GAME_SESSION_STATUS",
+      data: { session: result.session },
+    })
+  }
+
+  /**
+   * Start an ad-hoc game session (admin only). Core emits GAME_SESSION_STARTED.
+   */
+  startGameSession = async (
+    { socket }: HandlerConnections,
+    data: { name: string },
+  ) => {
+    if (!data?.name?.trim()) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: {
+          status: 400,
+          error: "Bad Request",
+          message: "Session name is required.",
+        },
+      })
+      return
+    }
+
+    const result = await this.adminService.startGameSession(socket.data.roomId, socket.data.userId, {
+      name: data.name.trim(),
+    })
+
+    if (result.error) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
+      return
+    }
+
+    socket.emit("event", {
+      type: "GAME_SESSION_ADMIN_STARTED",
+      data: { session: result.session },
+    })
+  }
+
+  /**
+   * End the active game session (admin only). Core emits GAME_SESSION_ENDED.
+   */
+  endGameSession = async ({ socket }: HandlerConnections) => {
+    const result = await this.adminService.endGameSession(socket.data.roomId, socket.data.userId)
+
+    if (result.error) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
+      return
+    }
+
+    socket.emit("event", {
+      type: "GAME_SESSION_ADMIN_ENDED",
+      data: { results: result.results },
+    })
+  }
 }
 
 /**

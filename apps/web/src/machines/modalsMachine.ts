@@ -23,6 +23,7 @@ export type Event =
   | { type: "EDIT_SPOTIFY" }
   | { type: "EDIT_PASSWORD" }
   | { type: "EDIT_SCHEDULE" }
+  | { type: "EDIT_GAME_SESSIONS" }
   | { type: "EDIT_PLAYLIST_DEMOCRACY" }
   | { type: "EDIT_SPECIAL_WORDS" }
   | { type: "EDIT_ABSENT_DJ" }
@@ -101,6 +102,7 @@ export const modalsMachine = setup({
             EDIT_SPOTIFY: "spotify",
             EDIT_PASSWORD: "password",
             EDIT_SCHEDULE: "schedule",
+            EDIT_GAME_SESSIONS: "game_sessions",
             // Plugin rows in Overview use EDIT_{NAME} (see toEventName); each needs a transition + substate below.
             EDIT_PLAYLIST_DEMOCRACY: "playlist_democracy",
             EDIT_SPECIAL_WORDS: "special_words",
@@ -160,6 +162,11 @@ export const modalsMachine = setup({
           },
         },
         schedule: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        game_sessions: {
           on: {
             BACK: "overview",
           },

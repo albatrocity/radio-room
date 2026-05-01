@@ -186,6 +186,19 @@ function Overview() {
                 textAlign="left"
                 fontWeight="400"
                 justifyContent="space-between"
+                onClick={() => send({ type: "EDIT_GAME_SESSIONS" })}
+              >
+                Game sessions
+                <LuChevronRight />
+              </Button>
+              <Button
+                colorPalette="action"
+                variant="subtle"
+                borderRadius="none"
+                w="100%"
+                textAlign="left"
+                fontWeight="400"
+                justifyContent="space-between"
                 onClick={() => send({ type: "EDIT_DJ" })}
               >
                 DJ Features

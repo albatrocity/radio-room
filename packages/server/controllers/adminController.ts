@@ -77,6 +77,21 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
   })
 
   /**
+   * Game session (admin): status, start ad-hoc, end active
+   */
+  socket.on("GET_GAME_SESSION_STATUS", async () => {
+    await handlers.getGameSessionStatus(connections)
+  })
+
+  socket.on("START_GAME_SESSION", async (data: { name: string }) => {
+    await handlers.startGameSession(connections, data)
+  })
+
+  socket.on("END_GAME_SESSION", async () => {
+    await handlers.endGameSession(connections)
+  })
+
+  /**
    * Execute a plugin action
    */
   socket.on("EXECUTE_PLUGIN_ACTION", async (data: { pluginName: string; action: string }) => {

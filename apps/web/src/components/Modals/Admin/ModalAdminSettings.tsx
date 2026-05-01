@@ -18,6 +18,7 @@ import Content from "./Content"
 import Chat from "./Chat"
 import Password from "./Password"
 import Schedule from "./Schedule"
+import GameSessions from "./GameSessions"
 import DjFeatures from "./DjFeatures"
 import DynamicPluginSettings from "./DynamicPluginSettings"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
@@ -99,6 +100,11 @@ function ModalAdminSettings() {
           <Collapsible.Root open={matchesSettingsPath(state, "settings.schedule")}>
             <Collapsible.Content>
               <Schedule />
+            </Collapsible.Content>
+          </Collapsible.Root>
+          <Collapsible.Root open={matchesSettingsPath(state, "settings.game_sessions")}>
+            <Collapsible.Content>
+              <GameSessions />
             </Collapsible.Content>
           </Collapsible.Root>
 
