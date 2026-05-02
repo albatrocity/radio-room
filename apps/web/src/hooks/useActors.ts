@@ -22,6 +22,11 @@ import { audioActor } from "../actors/audioActor"
 import { djActor } from "../actors/djActor"
 import { adminActor } from "../actors/adminActor"
 import { gameSessionActor } from "../actors/gameSessionActor"
+import {
+  userGameStateActor,
+  refreshUserGameState,
+  type UserGameStatePayload,
+} from "../actors/userGameStateActor"
 import { modalsActor } from "../actors/modalsActor"
 import { themeActor } from "../actors/themeActor"
 import { errorsActor } from "../actors/errorsActor"
@@ -404,6 +409,43 @@ export const useActiveGameSessionName = () => {
 
 export const useHasActiveGameSession = () => {
   return useSelector(gameSessionActor, (s) => s.context.activeSessionId != null)
+}
+
+// ============================================================================
+// User Game State Hooks
+// ============================================================================
+
+export { refreshUserGameState }
+export type { UserGameStatePayload }
+
+export const useUserGameStatePayload = () => {
+  return useSelector(userGameStateActor, (s) => s.context.payload)
+}
+
+export const useUserGameStateLoading = () => {
+  return useSelector(userGameStateActor, (s) =>
+    s.matches("loading") || s.matches("refreshing"),
+  )
+}
+
+export const useUserGameStateError = () => {
+  return useSelector(userGameStateActor, (s) => s.context.error)
+}
+
+export const useUserGameSession = () => {
+  return useSelector(userGameStateActor, (s) => s.context.payload?.session ?? null)
+}
+
+export const useUserState = () => {
+  return useSelector(userGameStateActor, (s) => s.context.payload?.state ?? null)
+}
+
+export const useUserInventory = () => {
+  return useSelector(userGameStateActor, (s) => s.context.payload?.inventory ?? null)
+}
+
+export const useUserItemDefinitions = () => {
+  return useSelector(userGameStateActor, (s) => s.context.payload?.itemDefinitions ?? [])
 }
 
 // ============================================================================

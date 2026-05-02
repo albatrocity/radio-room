@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo } from "react"
 import {
-  Badge,
   Box,
   HStack,
   Heading,
@@ -14,23 +13,22 @@ import {
 } from "@chakra-ui/react"
 import type {
   GameAttributeName,
-  GameSession,
   ItemDefinition,
   PluginComponentDefinition,
   PluginTabComponent,
-  UserGameState,
-  UserInventory,
 } from "@repo/types"
 import { checkShowWhenConditions } from "@repo/utils"
 import Modal from "../Modal"
 import {
   useIsModalOpen,
   useModalsSend,
-  useCurrentUser,
   usePluginConfigs,
+  useUserGameStatePayload,
+  useUserGameStateLoading,
+  useUserGameStateError,
+  refreshUserGameState,
 } from "../../hooks/useActors"
 import { usePluginSchemas } from "../../hooks/usePluginSchemas"
-import { emitToSocket, subscribeById, unsubscribeById } from "../../actors/socketActor"
 import {
   PluginComponentProvider,
   PluginComponentRenderer,
@@ -38,15 +36,6 @@ import {
 import { getIcon } from "../PluginComponents/icons"
 import { UserGameStateContext, type UserGameStateSnapshot } from "./UserGameStateContext"
 import InventoryTab from "./GameState/InventoryTab"
-
-const SUBSCRIPTION_ID = "user-game-state-modal"
-
-interface UserGameStatePayload {
-  session: GameSession | null
-  state: UserGameState | null
-  inventory: UserInventory | null
-  itemDefinitions?: ItemDefinition[]
-}
 
 function attributeLabel(attribute: GameAttributeName): string {
   if (attribute === "score") return "Score"
@@ -81,68 +70,19 @@ interface PluginTabEntry {
 function ModalUserGameState() {
   const modalSend = useModalsSend()
   const isOpen = useIsModalOpen("gameState")
-  const currentUser = useCurrentUser()
   const { schemas } = usePluginSchemas()
   const pluginConfigs = usePluginConfigs() || {}
 
-  const [payload, setPayload] = useState<UserGameStatePayload | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const payload = useUserGameStatePayload()
+  const loading = useUserGameStateLoading()
+  const error = useUserGameStateError()
 
-  /** Used to ignore stale ERROR_OCCURRED events that don't belong to this fetch. */
-  const seenStatusRef = useRef(false)
-
+  // Refresh data when modal opens
   useEffect(() => {
-    if (!isOpen) return
-
-    seenStatusRef.current = false
-    setLoading(true)
-    setError(null)
-
-    subscribeById(SUBSCRIPTION_ID, {
-      send: (event: { type: string; data?: unknown }) => {
-        if (event.type === "USER_GAME_STATE") {
-          seenStatusRef.current = true
-          setLoading(false)
-          setPayload(event.data as UserGameStatePayload)
-          return
-        }
-
-        if (
-          event.type === "GAME_STATE_CHANGED" ||
-          event.type === "GAME_MODIFIER_APPLIED" ||
-          event.type === "GAME_MODIFIER_REMOVED" ||
-          event.type === "INVENTORY_ITEM_ACQUIRED" ||
-          event.type === "INVENTORY_ITEM_REMOVED" ||
-          event.type === "INVENTORY_ITEM_USED" ||
-          event.type === "INVENTORY_ITEM_TRANSFERRED"
-        ) {
-          const d = event.data as { userId?: string } | undefined
-          if (!currentUser?.userId || !d?.userId || d.userId === currentUser.userId) {
-            emitToSocket("GET_MY_GAME_STATE", {})
-          }
-          return
-        }
-
-        if (event.type === "GAME_SESSION_ENDED") {
-          setPayload({ session: null, state: null, inventory: null, itemDefinitions: [] })
-          return
-        }
-
-        if (event.type === "ERROR_OCCURRED" && !seenStatusRef.current) {
-          const err = event.data as { message?: string } | undefined
-          setLoading(false)
-          setError(err?.message ?? "Could not load your game state.")
-        }
-      },
-    })
-
-    emitToSocket("GET_MY_GAME_STATE", {})
-
-    return () => {
-      unsubscribeById(SUBSCRIPTION_ID)
+    if (isOpen) {
+      refreshUserGameState()
     }
-  }, [isOpen, currentUser?.userId])
+  }, [isOpen])
 
   const definitionMap = useMemo(() => {
     const map = new Map<string, ItemDefinition>()
@@ -153,7 +93,6 @@ function ModalUserGameState() {
   }, [payload?.itemDefinitions])
 
   const enabledAttributes = payload?.session?.config.enabledAttributes ?? []
-  /** Score and coin are shown in the modal footer; omit from the Stats grid to avoid duplication. */
   const enabledAttributesForGrid = useMemo(
     () => enabledAttributes.filter((a) => a !== "score" && a !== "coin"),
     [enabledAttributes],
@@ -163,10 +102,6 @@ function ModalUserGameState() {
   const inventoryItems = payload?.inventory?.items ?? []
   const maxSlots = payload?.inventory?.maxSlots ?? 0
 
-  // Collect plugin-registered tabs for the gameStateTab area, filtered by
-  // their showWhen conditions (evaluated against config + an empty store
-  // because tabs are visible at the bar level regardless of per-instance
-  // store data).
   const pluginTabs = useMemo<PluginTabEntry[]>(() => {
     const result: PluginTabEntry[] = []
     for (const schema of schemas) {
