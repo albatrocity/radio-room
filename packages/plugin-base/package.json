@@ -5,7 +5,8 @@
   "main": "index.ts",
   "types": "index.ts",
   "exports": {
-    ".": "./index.ts"
+    ".": "./index.ts",
+    "./helpers": "./helpers/index.ts"
   },
   "scripts": {
     "lint": "prettier --write . && eslint . --fix",

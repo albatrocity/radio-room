@@ -23,6 +23,7 @@ import type {
   InventoryAcquisitionSource,
   InventoryItem,
   ItemDefinition,
+  ItemSellResult,
   ItemUseResult,
   UserInventory,
 } from "./Inventory"
@@ -774,6 +775,27 @@ export interface Plugin {
     definition: ItemDefinition,
     context?: unknown,
   ): Promise<ItemUseResult>
+
+  /**
+   * Optional handler invoked when a user sells an inventory item back to the
+   * owning plugin (typically a shop). Plugins handle the sale themselves --
+   * remove the item, credit the user with coins, restock if applicable --
+   * and return the refund amount for client feedback.
+   *
+   * Plugins that don't sell items can omit this; the inventory controller
+   * surfaces a "this item can't be sold" message in that case.
+   *
+   * @example
+   * async onItemSold(userId, item, definition) {
+   *   return this.shop.sell({ userId }, item.itemId)
+   * }
+   */
+  onItemSold?(
+    userId: string,
+    item: InventoryItem,
+    definition: ItemDefinition,
+    context?: unknown,
+  ): Promise<ItemSellResult>
 }
 
 /**

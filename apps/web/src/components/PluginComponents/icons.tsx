@@ -1,7 +1,10 @@
 import {
   LuAward,
+  LuCoins,
   LuHeart,
   LuMedal,
+  LuPackage,
+  LuShoppingCart,
   LuSkipForward,
   LuStar,
   LuSwords,
@@ -20,6 +23,9 @@ export const ICON_MAP: Record<string, React.ComponentType> = {
   heart: LuHeart,
   "skip-forward": LuSkipForward,
   swords: LuSwords,
+  coins: LuCoins,
+  "shopping-cart": LuShoppingCart,
+  package: LuPackage,
 }
 
 export function getIcon(iconName: string): React.ComponentType | undefined {

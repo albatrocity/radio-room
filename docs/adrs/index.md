@@ -46,6 +46,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0038](0038-socket-io-client-never-give-up-reconnection.md) | Socket.IO Client — Never-Give-Up Reconnection | Accepted |
 | [0039](0039-plugin-element-properties-for-now-playing.md) | Plugin `elementProps` for Now Playing (obscure / bypass roles) | Accepted |
 | [0040](0040-game-sessions-and-inventory.md) | Game Sessions and Inventory as Core Infrastructure | Accepted |
+| [0041](0041-game-state-tabs-and-composable-shop-helper.md) | Game State Tabs and Composable Shop Helper | Accepted |
 
 ## Creating a New ADR
 

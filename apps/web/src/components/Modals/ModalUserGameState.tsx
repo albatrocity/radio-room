@@ -4,23 +4,40 @@ import {
   Box,
   HStack,
   Heading,
+  Icon,
   SimpleGrid,
   Spinner,
   Stack,
+  Tabs,
   Text,
   VStack,
 } from "@chakra-ui/react"
 import type {
   GameAttributeName,
   GameSession,
-  InventoryItem,
   ItemDefinition,
+  PluginComponentDefinition,
+  PluginTabComponent,
   UserGameState,
   UserInventory,
 } from "@repo/types"
+import { checkShowWhenConditions } from "@repo/utils"
 import Modal from "../Modal"
-import { useIsModalOpen, useModalsSend, useCurrentUser } from "../../hooks/useActors"
+import {
+  useIsModalOpen,
+  useModalsSend,
+  useCurrentUser,
+  usePluginConfigs,
+} from "../../hooks/useActors"
+import { usePluginSchemas } from "../../hooks/usePluginSchemas"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../actors/socketActor"
+import {
+  PluginComponentProvider,
+  PluginComponentRenderer,
+} from "../PluginComponents/PluginComponentRenderer"
+import { getIcon } from "../PluginComponents/icons"
+import { UserGameStateContext, type UserGameStateSnapshot } from "./UserGameStateContext"
+import InventoryTab from "./GameState/InventoryTab"
 
 const SUBSCRIPTION_ID = "user-game-state-modal"
 
@@ -50,53 +67,23 @@ function formatNumber(n: number): string {
   return new Intl.NumberFormat().format(n)
 }
 
-interface InventoryRowProps {
-  item: InventoryItem
-  definition?: ItemDefinition
-}
-
-function InventoryRow({ item, definition }: InventoryRowProps) {
-  const name = definition?.name ?? item.definitionId
-  const description = definition?.description
-  const icon = definition?.icon
-
-  return (
-    <HStack
-      align="flex-start"
-      gap={3}
-      borderWidth="1px"
-      borderColor="border.muted"
-      borderRadius="md"
-      p={3}
-    >
-      {icon && (
-        <Box fontSize="2xl" lineHeight="1" pt="2px">
-          {icon}
-        </Box>
-      )}
-      <VStack align="start" gap={0} flex="1" minW={0}>
-        <HStack gap={2} flexWrap="wrap">
-          <Text fontWeight="medium">{name}</Text>
-          {item.quantity > 1 && (
-            <Badge size="sm" variant="subtle">
-              ×{item.quantity}
-            </Badge>
-          )}
-        </HStack>
-        {description && (
-          <Text fontSize="xs" color="fg.muted">
-            {description}
-          </Text>
-        )}
-      </VStack>
-    </HStack>
-  )
+interface PluginTabEntry {
+  id: string
+  pluginName: string
+  label: string
+  icon?: string
+  config: Record<string, unknown>
+  storeKeys: string[]
+  components: PluginComponentDefinition[]
+  tab: PluginTabComponent
 }
 
 function ModalUserGameState() {
   const modalSend = useModalsSend()
   const isOpen = useIsModalOpen("gameState")
   const currentUser = useCurrentUser()
+  const { schemas } = usePluginSchemas()
+  const pluginConfigs = usePluginConfigs() || {}
 
   const [payload, setPayload] = useState<UserGameStatePayload | null>(null)
   const [loading, setLoading] = useState(true)
@@ -121,7 +108,6 @@ function ModalUserGameState() {
           return
         }
 
-        // Refresh state when broadcast events change anything relevant for me.
         if (
           event.type === "GAME_STATE_CHANGED" ||
           event.type === "GAME_MODIFIER_APPLIED" ||
@@ -167,10 +153,51 @@ function ModalUserGameState() {
   }, [payload?.itemDefinitions])
 
   const enabledAttributes = payload?.session?.config.enabledAttributes ?? []
-  const attributes = payload?.state?.attributes ?? ({} as Record<GameAttributeName, number>)
+  /** Score and coin are shown in the modal footer; omit from the Stats grid to avoid duplication. */
+  const enabledAttributesForGrid = useMemo(
+    () => enabledAttributes.filter((a) => a !== "score" && a !== "coin"),
+    [enabledAttributes],
+  )
+  const attributes = (payload?.state?.attributes ?? {}) as Record<GameAttributeName, number>
   const inventoryEnabled = payload?.session?.config.inventoryEnabled ?? false
   const inventoryItems = payload?.inventory?.items ?? []
   const maxSlots = payload?.inventory?.maxSlots ?? 0
+
+  // Collect plugin-registered tabs for the gameStateTab area, filtered by
+  // their showWhen conditions (evaluated against config + an empty store
+  // because tabs are visible at the bar level regardless of per-instance
+  // store data).
+  const pluginTabs = useMemo<PluginTabEntry[]>(() => {
+    const result: PluginTabEntry[] = []
+    for (const schema of schemas) {
+      const components = schema.componentSchema?.components ?? []
+      const tabs = components.filter(
+        (c): c is PluginTabComponent =>
+          c.type === "tab" && c.area === "gameStateTab",
+      )
+      if (tabs.length === 0) continue
+
+      const config = pluginConfigs[schema.name] || schema.defaultConfig || {}
+      const storeKeys = schema.componentSchema?.storeKeys || []
+
+      for (const tab of tabs) {
+        if (tab.showWhen && !checkShowWhenConditions(tab.showWhen, config, {})) {
+          continue
+        }
+        result.push({
+          id: `${schema.name}:${tab.id}`,
+          pluginName: schema.name,
+          label: tab.label,
+          icon: tab.icon,
+          config,
+          storeKeys,
+          components,
+          tab,
+        })
+      }
+    }
+    return result
+  }, [schemas, pluginConfigs])
 
   const heading = (
     <HStack gap={2} flexWrap="wrap">
@@ -182,99 +209,148 @@ function ModalUserGameState() {
     </HStack>
   )
 
+  const gameStateValue = useMemo<UserGameStateSnapshot>(() => {
+    return {
+      session: payload?.session ?? null,
+      state: payload?.state ?? null,
+      inventory: payload?.inventory ?? null,
+      itemDefinitions: payload?.itemDefinitions ?? [],
+      getAttribute: (attribute: GameAttributeName) => attributes[attribute] ?? 0,
+    }
+  }, [payload, attributes])
+
+  const showGameFooter =
+    !loading && !error && !!payload?.session
+
+  const footer = showGameFooter ? (
+    <HStack justify="space-between" width="full" flexWrap="wrap" gap={4}>
+      <HStack gap={2}>
+        <Text fontSize="sm" color="fg.muted">
+          Score
+        </Text>
+        <Text fontSize="sm" fontWeight="semibold">
+          {formatNumber(attributes.score ?? 0)}
+        </Text>
+      </HStack>
+      <HStack gap={2}>
+        <Text fontSize="sm" color="fg.muted">
+          Coins
+        </Text>
+        <Text fontSize="sm" fontWeight="semibold">
+          {formatNumber(attributes.coin ?? 0)}
+        </Text>
+      </HStack>
+    </HStack>
+  ) : null
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={() => modalSend({ type: "CLOSE" })}
       heading={heading}
-      showFooter={false}
+      showFooter={showGameFooter}
+      footer={footer ?? undefined}
     >
-      <Stack gap={5}>
-        {loading && (
-          <HStack>
-            <Spinner size="sm" />
-            <Text fontSize="sm" color="fg.muted">
-              Loading your stats…
+      <UserGameStateContext.Provider value={gameStateValue}>
+        <Stack gap={5}>
+          {loading && (
+            <HStack>
+              <Spinner size="sm" />
+              <Text fontSize="sm" color="fg.muted">
+                Loading your stats…
+              </Text>
+            </HStack>
+          )}
+
+          {!loading && error && (
+            <Text fontSize="sm" color="red.500">
+              {error}
             </Text>
-          </HStack>
-        )}
+          )}
 
-        {!loading && error && (
-          <Text fontSize="sm" color="red.500">
-            {error}
-          </Text>
-        )}
+          {!loading && !error && !payload?.session && (
+            <Text fontSize="sm" color="fg.muted">
+              No game session is running right now.
+            </Text>
+          )}
 
-        {!loading && !error && !payload?.session && (
-          <Text fontSize="sm" color="fg.muted">
-            No game session is running right now.
-          </Text>
-        )}
+          {!loading && !error && payload?.session && (
+            <Tabs.Root defaultValue="inventory" variant="line" colorPalette="action">
+              <Tabs.List>
+                <Tabs.Trigger value="inventory">
+                  <Icon as={getIcon("package")} />
+                  Inventory
+                </Tabs.Trigger>
+                {pluginTabs.map((entry) => {
+                  const TabIcon = entry.icon ? getIcon(entry.icon) : undefined
+                  return (
+                    <Tabs.Trigger key={entry.id} value={entry.id}>
+                      {TabIcon ? <Icon as={TabIcon} /> : null}
+                      {entry.label}
+                    </Tabs.Trigger>
+                  )
+                })}
+              </Tabs.List>
 
-        {!loading && !error && payload?.session && (
-          <>
-            <Box>
-              <Heading size="sm" mb={2}>
-                Attributes
-              </Heading>
-              {enabledAttributes.length === 0 ? (
-                <Text fontSize="sm" color="fg.muted">
-                  No attributes are enabled for this session.
-                </Text>
-              ) : (
-                <SimpleGrid columns={{ base: 2, sm: 3 }} gap={3}>
-                  {enabledAttributes.map((attr) => (
-                    <Box
-                      key={attr}
-                      borderWidth="1px"
-                      borderColor="border.muted"
-                      borderRadius="md"
-                      p={3}
-                      bg="bg.subtle"
-                    >
-                      <Text fontSize="xs" color="fg.muted">
-                        {attributeLabel(attr)}
-                      </Text>
-                      <Text fontSize="2xl" fontWeight="semibold">
-                        {formatNumber(attributes[attr] ?? 0)}
-                      </Text>
+              <Tabs.Content value="inventory">
+                <Stack gap={5} pt={2}>
+                  {enabledAttributesForGrid.length > 0 && (
+                    <Box>
+                      <Heading size="sm" mb={2}>
+                        Stats
+                      </Heading>
+                      <SimpleGrid columns={{ base: 2, sm: 3 }} gap={3}>
+                        {enabledAttributesForGrid.map((attr) => (
+                          <Box
+                            key={attr}
+                            borderWidth="1px"
+                            borderColor="border.muted"
+                            borderRadius="md"
+                            p={3}
+                            bg="bg.subtle"
+                          >
+                            <Text fontSize="xs" color="fg.muted">
+                              {attributeLabel(attr)}
+                            </Text>
+                            <Text fontSize="2xl" fontWeight="semibold">
+                              {formatNumber(attributes[attr] ?? 0)}
+                            </Text>
+                          </Box>
+                        ))}
+                      </SimpleGrid>
                     </Box>
-                  ))}
-                </SimpleGrid>
-              )}
-            </Box>
-
-            {inventoryEnabled && (
-              <Box>
-                <HStack justify="space-between" align="baseline" mb={2}>
-                  <Heading size="sm">Inventory</Heading>
-                  {maxSlots > 0 && (
-                    <Text fontSize="xs" color="fg.muted">
-                      {inventoryItems.length} / {maxSlots} slots
-                    </Text>
                   )}
-                </HStack>
 
-                {inventoryItems.length === 0 ? (
-                  <Text fontSize="sm" color="fg.muted">
-                    Your inventory is empty.
-                  </Text>
-                ) : (
-                  <Stack gap={2}>
-                    {inventoryItems.map((item) => (
-                      <InventoryRow
-                        key={item.itemId}
-                        item={item}
-                        definition={definitionMap.get(item.definitionId)}
-                      />
-                    ))}
-                  </Stack>
-                )}
-              </Box>
-            )}
-          </>
-        )}
-      </Stack>
+                  {inventoryEnabled && (
+                    <InventoryTab
+                      items={inventoryItems}
+                      maxSlots={maxSlots}
+                      definitionMap={definitionMap}
+                    />
+                  )}
+                </Stack>
+              </Tabs.Content>
+
+              {pluginTabs.map((entry) => (
+                <Tabs.Content key={entry.id} value={entry.id}>
+                  <PluginComponentProvider
+                    pluginName={entry.pluginName}
+                    storeKeys={entry.storeKeys}
+                    config={entry.config}
+                    components={entry.components}
+                  >
+                    <VStack align="stretch" gap={3} pt={2}>
+                      {entry.tab.children.map((child) => (
+                        <PluginComponentRenderer key={child.id} component={child} />
+                      ))}
+                    </VStack>
+                  </PluginComponentProvider>
+                </Tabs.Content>
+              ))}
+            </Tabs.Root>
+          )}
+        </Stack>
+      </UserGameStateContext.Provider>
     </Modal>
   )
 }

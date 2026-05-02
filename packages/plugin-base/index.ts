@@ -719,3 +719,15 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     return { success: false, message: `Unknown action: ${action}` }
   }
 }
+
+// ============================================================================
+// Composable helpers (importable directly from `@repo/plugin-base/helpers`).
+// Re-exported here for convenience.
+// ============================================================================
+
+export {
+  ShopHelper,
+  type ShopItem,
+  type ShopTransactionResult,
+  type GenerateShopComponentsOptions,
+} from "./helpers"

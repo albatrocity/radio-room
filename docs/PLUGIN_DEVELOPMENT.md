@@ -16,6 +16,8 @@ This guide explains how to create plugins for Listening Room. Plugins extend roo
 - [Room Export](#room-export)
 - [Storage API](#storage-api)
 - [Game Sessions & Inventory](#game-sessions--inventory)
+- [Shop Helper](#shop-helper)
+- [Game State Tabs](#game-state-tabs)
 - [Timer API](#timer-api)
 - [Best Practices](#best-practices)
 - [Complete Example](#complete-example)
@@ -45,6 +47,10 @@ This guide explains how to create plugins for Listening Room. Plugins extend roo
 │  │ Config      │  │ Components   │  │ Event Handlers    │  │
 │  │ Schema      │  │ Schema       │  │ & Business Logic  │  │
 │  └─────────────┘  └──────────────┘  └───────────────────┘  │
+│                                                             │
+│  ┌────────────────── Composable Helpers ──────────────────┐│
+│  │ ShopHelper · (future: RoundsHelper, LeaderboardHelper) ││
+│  └────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -1049,40 +1055,43 @@ getComponentSchema(): PluginComponentSchema {
 
 ### Component Areas
 
-| Area              | Location                        | Item Context Available |
-| ----------------- | ------------------------------- | ---------------------- |
-| `nowPlaying`      | Below now playing info          | No                     |
-| `nowPlayingInfo`  | Inline with now playing details | No                     |
-| `nowPlayingBadge` | Badge area near title           | No                     |
-| `nowPlayingArt`   | Overlay on album art            | No                     |
-| `playlistItem`    | Per-track in playlist           | Yes (track data)       |
-| `userList`        | User list section               | No                     |
-| `userListItem`    | Per-user in list                | Yes (user data)        |
+| Area              | Location                              | Item Context Available |
+| ----------------- | ------------------------------------- | ---------------------- |
+| `nowPlaying`      | Below now playing info                | No                     |
+| `nowPlayingInfo`  | Inline with now playing details       | No                     |
+| `nowPlayingBadge` | Badge area near title                 | No                     |
+| `nowPlayingArt`   | Overlay on album art                  | No                     |
+| `playlistItem`    | Per-track in playlist                 | Yes (track data)       |
+| `userList`        | User list section                     | No                     |
+| `userListItem`    | Per-user in list                      | Yes (user data)        |
+| `gameStateTab`    | Tab content in user game state modal  | No                     |
 
 ### Component Types
 
-| Type         | Description      | Key Props                     |
-| ------------ | ---------------- | ----------------------------- |
-| `text`       | Inline text      | `content`, `variant`          |
-| `text-block` | Block text       | `content`, `variant`          |
-| `heading`    | Section heading  | `content`, `level`            |
-| `emoji`      | Emoji display    | `emoji`, `size`               |
-| `icon`       | Icon display     | `icon`, `size`, `color`       |
-| `button`     | Clickable button | `label`, `icon`, `opensModal` |
+| Type               | Description                   | Key Props                                                       |
+| ------------------ | ----------------------------- | --------------------------------------------------------------- |
+| `text`             | Inline text                   | `content`, `variant`                                            |
+| `text-block`       | Block text                    | `content`, `variant`                                            |
+| `heading`          | Section heading               | `content`, `level`                                              |
+| `emoji`            | Emoji display                 | `emoji`, `size`                                                 |
+| `icon`             | Icon display                  | `icon`, `size`, `color`                                         |
+| `button`           | Clickable button              | `label`, `icon`, `opensModal`, `action`                         |
+| `badge`            | Status badge                  | `label`, `variant`, `icon`, `tooltip`                           |
+| `leaderboard`      | Ranked list                   | `dataKey`, `title`, `rowTemplate`, `maxItems`                   |
+| `countdown`        | Timer display                 | `startKey`, `duration`, `text`                                  |
+| `modal`            | Dialog container              | `title`, `size`, `children`                                     |
+| `tab`              | Tab in game state modal       | `label`, `icon?`, `children` (only in `gameStateTab`)           |
+| `game-leaderboard` | Session leaderboard           | `leaderboardId`, `title?`, `maxItems`, `showRank`               |
+| `game-attribute`   | One attribute value           | `attribute`, `format?`, `icon?`, `label?`                       |
+| `modifier-badge`   | Active modifier hint          | `modifier`, `variant?`, `label?`, `icon?`                       |
+| `inventory-button` | Opens inventory modal         | `label`, `opensModal`, `icon?`                                  |
+| `inventory-grid`   | Item grid (often in modal)    | `showQuantity`, `allowUse`, `allowTrade`, `filterSourcePlugin?` |
+| `item-badge`       | Owns-item indicator           | `definitionId`, `showQuantity`                                  |
 
 **Available Icons:**
 
-`trophy`, `star`, `medal`, `award`, `heart`, `skip-forward`, `swords`
-| `badge` | Status badge | `label`, `variant`, `icon`, `tooltip` |
-| `leaderboard` | Ranked list | `dataKey`, `title`, `rowTemplate`, `maxItems` |
-| `countdown` | Timer display | `startKey`, `duration`, `text` |
-| `modal` | Dialog container | `title`, `size`, `children` |
-| `game-leaderboard` | Session leaderboard | `leaderboardId`, `title?`, `maxItems`, `showRank` |
-| `game-attribute` | One attribute value | `attribute`, `format?`, `icon?`, `label?` |
-| `modifier-badge` | Active modifier hint | `modifier`, `variant?`, `label?`, `icon?` |
-| `inventory-button` | Opens inventory modal | `label`, `opensModal`, `icon?` |
-| `inventory-grid` | Item grid (often in modal) | `showQuantity`, `allowUse`, `allowTrade`, `filterSourcePlugin?` |
-| `item-badge` | Owns-item indicator | `definitionId`, `showQuantity` |
+`trophy`, `star`, `medal`, `award`, `heart`, `skip-forward`, `swords`,
+`coins`, `shopping-cart`, `package`
 
 ### Per-Item Components
 
@@ -1610,6 +1619,25 @@ async onItemUsed(
 
 `BasePlugin` provides a default implementation that returns “not handled”; override only when you define items.
 
+### Handling item sell-back (`onItemSold`)
+
+When a user sells an item from their inventory (via the built-in **Inventory** tab in the User Game State modal, which emits `SELL_INVENTORY_ITEM`), the server routes the sale to the plugin that owns the item definition through `onItemSold`. The plugin is responsible for the full sale: removing the item from inventory, refunding coins, restocking, and emitting any UI updates.
+
+When implementing a shop, prefer composing the [`ShopHelper`](#shop-helper) rather than rolling this logic by hand.
+
+```typescript
+async onItemSold(
+  userId: string,
+  item: InventoryItem,
+  definition: ItemDefinition,
+): Promise<ItemSellResult> {
+  const config = await this.getConfig()
+  return this.shop.sell({ userId }, item.itemId, { basePrice: config.skipTokenPrice })
+}
+```
+
+If a plugin defines tradeable items but doesn't implement `onItemSold`, attempting to sell those items returns "this item can't be sold" to the client.
+
 ### System events (subscribe via `this.on`)
 
 Emitters use `SystemEvents` (same pipeline as other domain events). Useful payloads:
@@ -1650,6 +1678,220 @@ Frontends must implement these template names alongside existing ones (`leaderbo
 ### Session configuration snapshot
 
 `GameSessionConfig` includes `enabledAttributes`, `initialValues`, `leaderboards`, timing (`startsAt` / `endsAt` / `duration`), `mode` (`individual` \| `team`), optional `teams`, `segmentId`, and inventory flags: `inventoryEnabled`, `maxInventorySlots`, `allowTrading`, `allowSelling`.
+
+---
+
+## Shop Helper
+
+Plugins that sell items for in-game `coin` (e.g. Music Shop) can compose a **`ShopHelper`** from `@repo/plugin-base/helpers` instead of writing stock / purchase / sell logic by hand. The helper:
+
+- Stores per-item stock in plugin storage (`shop:stock:<shortId>`).
+- Performs purchase / sell flows atomically and refunds on failure (sold out, can't afford, inventory full).
+- Generates declarative UI components for an entire shop tab.
+- Provides default `storeKeys` and a `getComponentState` snapshot of stock levels for the renderer.
+
+`ShopHelper` is intentionally **composable** rather than an inheritance layer, so a single plugin can mix multiple helpers (e.g. shop + game) without single-inheritance conflicts.
+
+### `ShopItem`
+
+```typescript
+interface ShopItem {
+  // Item definition (registered via inventory.registerItemDefinitions)
+  definition: Omit<ItemDefinition, "id" | "sourcePlugin">
+  // Starting stock per game session (restocked on `restockAll`)
+  initialStock: number
+  // Fraction of price refunded when sold back (0-1)
+  sellBackRatio: number
+}
+```
+
+### ShopHelper Methods
+
+| Method | Purpose |
+| ------ | ------- |
+| `getItem(shortId)` | Look up the registered `ShopItem`. |
+| `getDefinitionId(shortId)` | Fully-qualified id (`"<plugin>:<shortId>"`). |
+| `getSellPrice(shortId, basePrice?)` | Computed sell price (`floor(price * sellBackRatio)`). |
+| `registerItems()` | Forwards every item definition to `inventory.registerItemDefinitions`. |
+| `getStock(shortId)` / `getAllStock()` | Read current stock. |
+| `setStock`, `decrementStock`, `incrementStock`, `restockAll` | Stock mutations (atomic where it matters). |
+| `purchase(initiator, shortId, price)` | Atomic buy: stock check → coin debit → `giveItem`, with refunds on any failure. |
+| `sell(initiator, itemId, options?)` | Sell-back: validates ownership + source plugin → `removeItem` → coin credit → restock. |
+| `generateComponents(options?)` | Build declarative UI for every item (heading + description + buy button). Suitable for placing inside a `tab` component's `children`. |
+| `getStoreKeys()` | Default store keys to expose to the frontend (`<shortIdCamel>Stock`). |
+| `getComponentState()` | Stock snapshot for `getComponentState`. |
+
+### Usage
+
+```typescript
+import { BasePlugin, ShopHelper, type ShopItem } from "@repo/plugin-base"
+
+class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
+  name = "music-shop"
+  private shop!: ShopHelper
+
+  private buildShopItems(config: MusicShopConfig): ShopItem[] {
+    return [
+      {
+        definition: {
+          shortId: "skip-token",
+          name: "Skip Token",
+          description: "Skip the currently playing song instantly.",
+          icon: config.skipTokenIcon,
+          stackable: true,
+          maxStack: 99,
+          tradeable: true,
+          consumable: true,
+          coinValue: config.skipTokenPrice,
+        },
+        initialStock: config.skipTokenStock,
+        sellBackRatio: config.sellBackRatio,
+      },
+    ]
+  }
+
+  async register(context: PluginContext) {
+    await super.register(context)
+    const config = (await this.getConfig()) ?? defaultMusicShopConfig
+    this.shop = new ShopHelper(this.name, context, this.buildShopItems(config))
+    this.shop.registerItems()
+    this.on("GAME_SESSION_STARTED", () => this.shop.restockAll())
+  }
+
+  async executeAction(action: string, initiator?: PluginActionInitiator) {
+    if (action === "buySkipToken") {
+      const config = await this.getConfig()
+      if (!config?.isSellingItems) {
+        return { success: false, message: "Shop is closed." }
+      }
+      return this.shop.purchase(initiator, "skip-token", config.skipTokenPrice)
+    }
+    return { success: false, message: `Unknown action: ${action}` }
+  }
+
+  async onItemSold(userId: string, item: InventoryItem) {
+    const config = await this.getConfig()
+    return this.shop.sell({ userId }, item.itemId, { basePrice: config!.skipTokenPrice })
+  }
+}
+```
+
+### Composing multiple helpers
+
+Because `ShopHelper` is a member rather than a base class, a plugin can hold several helpers without inheritance conflicts:
+
+```typescript
+class TriviaPlugin extends BasePlugin<TriviaConfig> {
+  private shop!: ShopHelper
+  // Future: private rounds!: RoundsHelper
+  // Future: private leaderboard!: LeaderboardHelper
+
+  async register(context: PluginContext) {
+    await super.register(context)
+    this.shop = new ShopHelper(this.name, context, this.hintItems)
+    this.shop.registerItems()
+  }
+}
+```
+
+### Recommended `isSellingItems` config flag
+
+Shop plugins should expose a separate boolean for "actively selling" so admins can pause sales without disabling item effects:
+
+| `enabled` | `isSellingItems` | Behavior                                                                 |
+| --------- | ---------------- | ------------------------------------------------------------------------ |
+| `true`    | `true`           | Shop tab visible, can buy, can use, can sell back.                       |
+| `true`    | `false`          | Shop tab hidden, purchases blocked. Items still **usable** and sellable. |
+| `false`   | -                | Plugin fully off (item effects also blocked).                            |
+
+The Music Shop plugin's `executeAction("buySkipToken", ...)` rejects when `config.isSellingItems` is false even though the plugin itself is enabled.
+
+---
+
+## Game State Tabs
+
+The user's **Game State modal** (opened via the game state button in the room header) is a tabbed container. The first tab is always the built-in **Inventory** tab (with attribute stats, items, and Use / Sell buttons). Plugins can register additional tabs declaratively.
+
+### Registering a tab
+
+Use the `gameStateTab` area together with the `tab` component type in `getComponentSchema()`:
+
+```typescript
+getComponentSchema(): PluginComponentSchema {
+  return {
+    components: [
+      {
+        id: "music-shop-tab",
+        type: "tab",
+        area: "gameStateTab",
+        label: "Shop",
+        icon: "shopping-cart",
+        // Tab is hidden when these conditions don't match.
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "isSellingItems", value: true },
+        ],
+        children: [
+          // Anything renderable in `gameStateTab`. Reuse template
+          // components like `text-block`, `heading`, `button`,
+          // `game-attribute`, etc.
+          {
+            id: "shop-coin-balance",
+            type: "game-attribute",
+            area: "gameStateTab",
+            attribute: "coin",
+            label: "Your balance",
+            icon: "coins",
+          },
+          {
+            id: "shop-skip-token-stock",
+            type: "text-block",
+            area: "gameStateTab",
+            content: "{{skipTokenStock}} in stock",
+          },
+          {
+            id: "shop-buy-skip-token",
+            type: "button",
+            area: "gameStateTab",
+            label: "Buy ({{config.skipTokenPrice}} coins)",
+            action: "buySkipToken",
+          },
+        ],
+      },
+    ],
+    storeKeys: ["skipTokenStock"],
+  }
+}
+```
+
+Tabs render in **registration order**; the built-in **Inventory** tab is always first.
+
+### `game-attribute` and `UserGameStateContext`
+
+Plugin tab content is rendered inside a `UserGameStateContext`, which exposes the current user's attributes, inventory, and active session. The `game-attribute` template component reads from this context, so `{ type: "game-attribute", attribute: "coin" }` displays the user's live coin balance without any additional wiring.
+
+If you need to read game state from custom React components, import the hook:
+
+```tsx
+import { useUserGameState } from "@/components/Modals/UserGameStateContext"
+
+function MyTabContent() {
+  const gs = useUserGameState()
+  if (!gs) return null
+  return <span>{gs.getAttribute("coin")} coins</span>
+}
+```
+
+The context is `null` outside the game state modal, so components can render meaningful fallbacks when used elsewhere.
+
+### Inventory actions
+
+The built-in Inventory tab exposes per-item buttons:
+
+- **Use** – emitted as `USE_INVENTORY_ITEM { itemId }`. Routes to the source plugin's `onItemUsed`.
+- **Sell** – emitted as `SELL_INVENTORY_ITEM { itemId }`. Routes to the source plugin's `onItemSold` (typically `ShopHelper.sell`).
+
+The buttons render automatically based on the `ItemDefinition` flags: **Use** appears for `consumable` items, **Sell** appears for `tradeable` items with a positive `coinValue`. The server responds with `INVENTORY_ACTION_RESULT { success, message, refund? }`.
 
 ---
 

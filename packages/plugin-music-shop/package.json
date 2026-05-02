@@ -1,0 +1,31 @@
+{
+  "name": "@repo/plugin-music-shop",
+  "version": "1.0.0",
+  "description": "Music Shop plugin for Listening Room - users buy items that affect music playback",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types.ts"
+  },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.0.13"
+  },
+  "dependencies": {
+    "@repo/plugin-base": "*",
+    "@repo/types": "*"
+  },
+  "peerDependencies": {
+    "zod": "^4.1.13"
+  }
+}

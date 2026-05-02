@@ -1,5 +1,5 @@
 import { Icon, IconButton } from "@chakra-ui/react"
-import { LuTrophy } from "react-icons/lu"
+import { LuGamepad } from "react-icons/lu"
 import {
   useActiveGameSessionName,
   useHasActiveGameSession,
@@ -27,7 +27,7 @@ function ButtonGameState() {
       colorPalette="action"
       onClick={() => modalSend({ type: "VIEW_GAME_STATE" })}
     >
-      <Icon as={LuTrophy} />
+      <Icon as={LuGamepad} />
     </IconButton>
   )
 }

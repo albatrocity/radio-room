@@ -26,6 +26,7 @@ export type PluginComponentArea =
   | "nowPlaying" // General now playing area
   | "userListItem" // Next to each user in the user list
   | "userList" // Top/bottom of the user list
+  | "gameStateTab" // Tab content in the user's game state modal
 
 // ============================================================================
 // Template Component System
@@ -115,11 +116,24 @@ export interface IconComponentProps {
 
 /**
  * Props for the button template component.
+ *
+ * A button may either open a modal (`opensModal`) or invoke a plugin action
+ * (`action`). When `action` is provided, the frontend emits
+ * `EXECUTE_PLUGIN_ACTION` so the plugin's `executeAction(action, initiator)`
+ * runs server-side with the clicking user as the initiator. Use
+ * `confirmMessage` to gate destructive or expensive actions behind a
+ * confirmation popover.
  */
 export interface ButtonComponentProps {
   label: string
   icon?: string
   opensModal?: string
+  /** Plugin action identifier - dispatched via `EXECUTE_PLUGIN_ACTION`. */
+  action?: string
+  /** If set, the user is asked to confirm before the action runs. */
+  confirmMessage?: string
+  /** Confirmation button label (defaults to "Confirm"). */
+  confirmText?: string
   variant?: "solid" | "ghost" | "outline" | "link"
   size?: "sm" | "md" | "lg"
 }
@@ -363,6 +377,7 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "inventory-grid" } & InventoryGridComponentProps)
   | (PluginComponentMetadata & { type: "item-badge" } & ItemBadgeComponentProps)
   | PluginModalComponent // Modal is special - it contains children
+  | PluginTabComponent // Tab is a container for game state modal tabs
 
 /**
  * Type aliases for convenience when working with specific component types.
@@ -398,6 +413,43 @@ export interface PluginModalComponent extends PluginComponentMetadata {
   type: "modal"
   title: string
   size?: "sm" | "md" | "lg" | "xl"
+  children: PluginComponentDefinition[]
+}
+
+/**
+ * Tab component - registers a tab in the user's game state modal.
+ *
+ * Plugins can register tabs to provide additional UI within the game state
+ * modal (which always has a built-in "Inventory" tab as the first entry).
+ * The tab's `children` are rendered when the tab is selected.
+ *
+ * Tabs are only valid inside `area: "gameStateTab"`.
+ *
+ * @example
+ * ```typescript
+ * {
+ *   id: "music-shop-tab",
+ *   type: "tab",
+ *   area: "gameStateTab",
+ *   label: "Shop",
+ *   icon: "shopping-cart",
+ *   showWhen: { field: "enabled", value: true },
+ *   children: [
+ *     { id: "shop-stock", type: "text-block", area: "gameStateTab",
+ *       content: "{{skipTokenStock}} in stock" },
+ *     { id: "buy-skip-token", type: "button", area: "gameStateTab",
+ *       label: "Buy ({{config.skipTokenPrice}} coins)", action: "buySkipToken" },
+ *   ],
+ * }
+ * ```
+ */
+export interface PluginTabComponent extends PluginComponentMetadata {
+  type: "tab"
+  /** Tab label shown in the tab bar */
+  label: string
+  /** Optional icon name to display in the tab bar */
+  icon?: string
+  /** Components rendered when this tab is selected */
   children: PluginComponentDefinition[]
 }
 

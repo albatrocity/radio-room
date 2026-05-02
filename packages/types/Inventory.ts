@@ -84,5 +84,18 @@ export interface ItemUseResult {
   message?: string
 }
 
+/**
+ * Returned by a plugin's `onItemSold` handler. The plugin is responsible
+ * for removing the item from inventory and crediting the user; this result
+ * is purely informational.
+ */
+export interface ItemSellResult {
+  success: boolean
+  /** Optional user-facing feedback (toast / chat alert). */
+  message?: string
+  /** Coins refunded to the user. */
+  refund?: number
+}
+
 /** Source attribution for `INVENTORY_ITEM_ACQUIRED`. */
 export type InventoryAcquisitionSource = "plugin" | "trade" | "purchase" | "admin"

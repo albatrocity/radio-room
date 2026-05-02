@@ -13,13 +13,20 @@ import { ButtonTemplateComponent } from "./ButtonComponent"
 import { BadgeTemplateComponent } from "./BadgeComponent"
 import { LeaderboardTemplateComponent } from "./LeaderboardComponent"
 import { CountdownTemplateComponent } from "./CountdownComponent"
+import { GameAttributeTemplateComponent } from "./GameAttributeComponent"
 
 /**
  * Strongly-typed map of built-in template component names to React components.
  * All frontends must implement these components for composite templates to work.
+ *
+ * Note: this map is partial - some declared component types (e.g.
+ * `game-leaderboard`, `inventory-grid`, `modifier-badge`) are reserved in
+ * the type system but not yet implemented client-side. Plugins that
+ * register them today will hit the "Unknown component" warning in
+ * `renderTemplateComponent`.
  */
 export const TEMPLATE_COMPONENT_MAP: {
-  [K in TemplateComponentName]: React.ComponentType<TemplateComponentPropsMap[K]>
+  [K in TemplateComponentName]?: React.ComponentType<TemplateComponentPropsMap[K]>
 } = {
   username: UsernameTemplateComponent,
   text: TextTemplateComponent,
@@ -31,6 +38,7 @@ export const TEMPLATE_COMPONENT_MAP: {
   badge: BadgeTemplateComponent,
   leaderboard: LeaderboardTemplateComponent,
   countdown: CountdownTemplateComponent,
+  "game-attribute": GameAttributeTemplateComponent,
 }
 
 /**

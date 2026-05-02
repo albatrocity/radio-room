@@ -407,6 +407,122 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       data: { session, state, inventory: inv, itemDefinitions },
     })
   })
+
+  /**
+   * Use an inventory item. Looks up the item in the user's inventory and
+   * dispatches to the source plugin's `onItemUsed` handler. The plugin
+   * decides whether the item is consumed.
+   *
+   * Responds with `INVENTORY_ACTION_RESULT` on this socket only.
+   */
+  socket.on("USE_INVENTORY_ITEM", async (data: { itemId: string }) => {
+    const inventory = socket.context.inventory
+    if (!inventory) {
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: false, message: "Inventory service not available" },
+      })
+      return
+    }
+
+    if (!data?.itemId) {
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: false, message: "Missing itemId" },
+      })
+      return
+    }
+
+    const result = await inventory.useItem(socket.data.roomId, socket.data.userId, data.itemId)
+
+    socket.emit("event", {
+      type: "INVENTORY_ACTION_RESULT",
+      data: { success: result.success, message: result.message },
+    })
+  })
+
+  /**
+   * Sell an inventory item back to its owning plugin (typically a shop).
+   * Looks up the item, finds its source plugin, and dispatches to the
+   * plugin's `onItemSold` handler. The plugin handles the sale (removing
+   * the item, crediting coins, restocking, etc.).
+   *
+   * Responds with `INVENTORY_ACTION_RESULT` on this socket only.
+   */
+  socket.on("SELL_INVENTORY_ITEM", async (data: { itemId: string }) => {
+    const inventory = socket.context.inventory
+    const registry = socket.context.pluginRegistry as
+      | {
+          invokeOnItemSold?: (
+            roomId: string,
+            pluginName: string,
+            userId: string,
+            item: import("@repo/types").InventoryItem,
+            definition: import("@repo/types").ItemDefinition,
+            callContext: unknown,
+          ) => Promise<import("@repo/types").ItemSellResult | null>
+        }
+      | undefined
+
+    if (!inventory || !registry?.invokeOnItemSold) {
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: false, message: "Inventory service not available" },
+      })
+      return
+    }
+
+    if (!data?.itemId) {
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: false, message: "Missing itemId" },
+      })
+      return
+    }
+
+    const inv = await inventory.getInventory(socket.data.roomId, socket.data.userId)
+    const item = (inv.items as import("@repo/types").InventoryItem[]).find(
+      (i) => i.itemId === data.itemId,
+    )
+    if (!item) {
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: false, message: "Item not found in inventory" },
+      })
+      return
+    }
+
+    const definition = await inventory.getItemDefinition(socket.data.roomId, item.definitionId)
+    if (!definition) {
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: false, message: "Item definition not found" },
+      })
+      return
+    }
+
+    const result = await registry.invokeOnItemSold(
+      socket.data.roomId,
+      definition.sourcePlugin,
+      socket.data.userId,
+      item,
+      definition,
+      undefined,
+    )
+
+    if (!result) {
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: false, message: "This item can't be sold." },
+      })
+      return
+    }
+
+    socket.emit("event", {
+      type: "INVENTORY_ACTION_RESULT",
+      data: { success: result.success, message: result.message, refund: result.refund },
+    })
+  })
 }
 
 /**

@@ -2,6 +2,7 @@ import {
   AppContext,
   InventoryItem,
   ItemDefinition,
+  ItemSellResult,
   ItemUseResult,
   Plugin,
   PluginActionInitiator,
@@ -646,6 +647,40 @@ export class PluginRegistry {
         error,
       )
       return { success: false, consumed: false, message: `Error using item: ${error}` }
+    }
+  }
+
+  /**
+   * Dispatch an inventory sell-back to the source plugin's `onItemSold`
+   * handler. Returns `null` when the plugin is not loaded for the room or
+   * doesn't implement the handler -- the inventory controller surfaces a
+   * "can't be sold" message in that case.
+   */
+  async invokeOnItemSold(
+    roomId: string,
+    pluginName: string,
+    userId: string,
+    item: InventoryItem,
+    definition: ItemDefinition,
+    callContext: unknown,
+  ): Promise<ItemSellResult | null> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return null
+
+    const instance = roomPlugins.get(pluginName)
+    if (!instance) return null
+
+    const { plugin } = instance
+    if (typeof plugin.onItemSold !== "function") return null
+
+    try {
+      return await plugin.onItemSold(userId, item, definition, callContext)
+    } catch (error) {
+      console.error(
+        `[PluginRegistry] Error in onItemSold for plugin ${pluginName}:`,
+        error,
+      )
+      return { success: false, message: `Error selling item: ${error}` }
     }
   }
 
