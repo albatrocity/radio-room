@@ -69,7 +69,6 @@ export function UserModifiersList({ modifiers, definitionMap }: UserModifiersLis
               <Text
                 fontSize="sm"
                 fontWeight="medium"
-                color="secondaryText"
                 textTransform="capitalize"
                 flex={1}
                 minW={0}

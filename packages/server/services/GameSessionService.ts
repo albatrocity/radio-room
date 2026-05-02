@@ -541,6 +541,34 @@ export class GameSessionService {
     }
   }
 
+  /**
+   * Snapshot of active modifiers for every participant of the active session,
+   * keyed by userId. Used to hydrate clients that need every user's
+   * modifier state (e.g. per-user effect bars in the listener list).
+   *
+   * Returns `null` when there is no active session.
+   */
+  async getActiveModifiersByUser(
+    roomId: string,
+  ): Promise<{ sessionId: string; modifiersByUserId: Record<string, GameStateModifier[]> } | null> {
+    const session = await this.getActiveSession(roomId)
+    if (!session) return null
+
+    const userIds = await this.context.redis.pubClient.sMembers(
+      participantsKey(roomId, session.id),
+    )
+
+    const modifiersByUserId: Record<string, GameStateModifier[]> = {}
+    for (const userId of userIds) {
+      const state = await this.getUserState(roomId, userId)
+      if (state.modifiers.length > 0) {
+        modifiersByUserId[userId] = state.modifiers
+      }
+    }
+
+    return { sessionId: session.id, modifiersByUserId }
+  }
+
   async getLeaderboard(
     roomId: string,
     leaderboardId: string,

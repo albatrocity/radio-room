@@ -409,6 +409,37 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
   })
 
   /**
+   * Return the active session's modifier snapshot for every participant.
+   * Responds with `ROOM_GAME_STATE` on this socket only. Used by the client
+   * to hydrate per-user effect bars for the listener list.
+   */
+  socket.on("GET_ROOM_GAME_STATE", async () => {
+    const gameSessions = socket.context.gameSessions
+
+    if (!gameSessions) {
+      socket.emit("event", {
+        type: "ROOM_GAME_STATE",
+        data: { sessionId: null, modifiersByUserId: {} },
+      })
+      return
+    }
+
+    const snapshot = await gameSessions.getActiveModifiersByUser(socket.data.roomId)
+    if (!snapshot) {
+      socket.emit("event", {
+        type: "ROOM_GAME_STATE",
+        data: { sessionId: null, modifiersByUserId: {} },
+      })
+      return
+    }
+
+    socket.emit("event", {
+      type: "ROOM_GAME_STATE",
+      data: snapshot,
+    })
+  })
+
+  /**
    * Use an inventory item. Looks up the item in the user's inventory and
    * dispatches to the source plugin's `onItemUsed` handler. The plugin
    * decides whether the item is consumed.

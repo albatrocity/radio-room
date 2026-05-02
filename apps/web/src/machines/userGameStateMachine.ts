@@ -6,6 +6,8 @@
  *
  * Send ACTIVATE on room entry, DEACTIVATE on room exit (see roomLifecycle).
  * Send REFRESH when the modal opens to ensure fresh data.
+ * Handles socket `INIT` (post-LOGIN) by requesting game state again — the initial
+ * `GET_MY_GAME_STATE` from ACTIVATE can run before LOGIN attaches `roomId`.
  */
 
 import type { GameSession, ItemDefinition, UserGameState, UserInventory } from "@repo/types"
@@ -29,6 +31,8 @@ type UserGameStateEvent =
   | { type: "ACTIVATE" }
   | { type: "DEACTIVATE" }
   | { type: "REFRESH" }
+  /** After LOGIN the socket has `roomId`; re-fetch so GET_MY_GAME_STATE is not lost to the pre-login timing race. */
+  | { type: "INIT"; data?: unknown }
   | { type: "USER_GAME_STATE"; data: UserGameStatePayload }
   | { type: "GAME_STATE_CHANGED"; data: { userId?: string } }
   | { type: "GAME_MODIFIER_APPLIED"; data: { userId?: string } }
@@ -123,6 +127,9 @@ export const userGameStateMachine = setup({
           target: "idle",
           actions: ["unsubscribe", "reset"],
         },
+        INIT: {
+          actions: ["requestGameState"],
+        },
         USER_GAME_STATE: {
           target: "ready",
           actions: ["setPayload"],
@@ -141,6 +148,9 @@ export const userGameStateMachine = setup({
         },
         REFRESH: {
           target: "refreshing",
+        },
+        INIT: {
+          actions: ["requestGameState"],
         },
         USER_GAME_STATE: {
           actions: ["setPayload"],
@@ -181,6 +191,9 @@ export const userGameStateMachine = setup({
           target: "idle",
           actions: ["unsubscribe", "reset"],
         },
+        INIT: {
+          actions: ["requestGameState"],
+        },
         USER_GAME_STATE: {
           target: "ready",
           actions: ["setPayload"],
@@ -196,6 +209,9 @@ export const userGameStateMachine = setup({
         DEACTIVATE: {
           target: "idle",
           actions: ["unsubscribe", "reset"],
+        },
+        INIT: {
+          target: "refreshing",
         },
         REFRESH: {
           target: "loading",

@@ -27,6 +27,9 @@ import {
   refreshUserGameState,
   type UserGameStatePayload,
 } from "../actors/userGameStateActor"
+import { roomGameStateActor } from "../actors/roomGameStateActor"
+import { sharedTickerActor } from "../actors/sharedTickerActor"
+import type { GameStateModifier } from "@repo/types"
 import { modalsActor } from "../actors/modalsActor"
 import { themeActor } from "../actors/themeActor"
 import { errorsActor } from "../actors/errorsActor"
@@ -446,6 +449,36 @@ export const useUserInventory = () => {
 
 export const useUserItemDefinitions = () => {
   return useSelector(userGameStateActor, (s) => s.context.payload?.itemDefinitions ?? [])
+}
+
+// ============================================================================
+// Room Game State Hooks
+// ============================================================================
+
+/** Stable empty array so users with no modifiers don't trigger re-renders. */
+const EMPTY_MODIFIERS: GameStateModifier[] = []
+
+/**
+ * Modifiers for a single user from the room-wide snapshot. Returns a
+ * referentially-stable empty array when the user has no active modifiers,
+ * so React equality checks don't churn.
+ */
+export const useUserModifiers = (userId: string | undefined): GameStateModifier[] => {
+  return useSelector(roomGameStateActor, (s) =>
+    userId ? (s.context.modifiersByUserId[userId] ?? EMPTY_MODIFIERS) : EMPTY_MODIFIERS,
+  )
+}
+
+// ============================================================================
+// Shared Ticker Hooks
+// ============================================================================
+
+/**
+ * Subscribe to the shared 1Hz ticker. Use this instead of `setInterval` for
+ * low-frequency UI updates (e.g. draining progress bars).
+ */
+export const useNow = (): number => {
+  return useSelector(sharedTickerActor, (s) => s.context.now)
 }
 
 // ============================================================================

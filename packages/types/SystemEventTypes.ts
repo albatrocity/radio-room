@@ -230,6 +230,20 @@ export type SystemEventHandlers = {
     reason: "manual" | "expired"
   }) => Promise<void> | void
 
+  /**
+   * Snapshot of the active session's modifier state for every participant.
+   * Emitted to a single socket in response to `GET_ROOM_GAME_STATE`.
+   * Used by the client to hydrate per-user effect bars in the listener list;
+   * incremental updates flow through `GAME_MODIFIER_APPLIED` / `GAME_MODIFIER_REMOVED`.
+   *
+   * Note: this is a client-bound socket response only — it is not broadcast
+   * via SystemEvents and has no plugin handler path.
+   */
+  ROOM_GAME_STATE: (data: {
+    sessionId: string | null
+    modifiersByUserId: Record<string, GameStateModifier[]>
+  }) => Promise<void> | void
+
   // ==========================================================================
   // Inventory events
   // ==========================================================================
