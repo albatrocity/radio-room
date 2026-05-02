@@ -1,6 +1,7 @@
 import {
   LuAward,
   LuChevronsUp,
+  LuFence,
   LuCoins,
   LuDisc2,
   LuExpand,
@@ -38,6 +39,7 @@ export const ICON_MAP: Record<string, React.ComponentType> = {
   shrink: LuShrink,
   expand: LuExpand,
   "chevrons-up": LuChevronsUp,
+  fence: LuFence,
 }
 
 export function getIcon(iconName: string): React.ComponentType | undefined {

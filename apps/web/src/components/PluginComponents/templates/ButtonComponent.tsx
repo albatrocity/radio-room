@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react"
-import { Button, Icon, Popover, Text } from "@chakra-ui/react"
+import { Button, Popover, Text } from "@chakra-ui/react"
 import { getIcon } from "../icons"
+import { SvgIcon } from "../../ui/svg-icon"
 import { usePluginComponentContext } from "../context"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
 import { toaster } from "../../ui/toaster"
@@ -114,7 +115,7 @@ export function ButtonTemplateComponent({
       disabled={disabled}
       onClick={handleClick}
     >
-      {IconComponent ? <Icon as={IconComponent} mr={1} /> : null}
+      {IconComponent ? <SvgIcon icon={IconComponent} mr={1} /> : null}
       {label}
     </Button>
   )

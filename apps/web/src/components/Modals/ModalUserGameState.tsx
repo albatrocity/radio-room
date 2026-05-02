@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { HStack, Icon, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
+import { HStack, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
 import type { GameAttributeName, ItemDefinition } from "@repo/types"
 import Modal from "../Modal"
 import {
@@ -12,6 +12,7 @@ import {
 } from "../../hooks/useActors"
 import { useGameStateNewPluginTabs } from "../GameStateNewPluginTabsProvider"
 import { getIcon } from "../PluginComponents/icons"
+import { SvgIcon } from "../ui/svg-icon"
 import { UserGameStateContext, type UserGameStateSnapshot } from "./UserGameStateContext"
 import {
   GameStateInventoryContent,
@@ -23,6 +24,10 @@ import { UserModifiersList } from "../UserModifiersList"
 function formatNumber(n: number): string {
   return new Intl.NumberFormat().format(n)
 }
+
+const TROPHY_ICON = getIcon("trophy")
+const COINS_ICON = getIcon("coins")
+const PACKAGE_ICON = getIcon("package")
 
 function ModalUserGameState() {
   const modalSend = useModalsSend()
@@ -85,7 +90,7 @@ function ModalUserGameState() {
       <UserModifiersList modifiers={payload.state?.modifiers ?? []} definitionMap={definitionMap} />
       <HStack justify="space-between" width="full" flexWrap="wrap" gap={4}>
         <HStack gap={2}>
-          <Icon as={getIcon("trophy")} boxSize={4} color="fg.muted" />
+          {TROPHY_ICON ? <SvgIcon icon={TROPHY_ICON} boxSize={4} color="fg.muted" /> : null}
           <Text fontSize="sm" color="fg.muted">
             Score
           </Text>
@@ -94,7 +99,7 @@ function ModalUserGameState() {
           </Text>
         </HStack>
         <HStack gap={2}>
-          <Icon as={getIcon("coins")} boxSize={4} color="fg.muted" />
+          {COINS_ICON ? <SvgIcon icon={COINS_ICON} boxSize={4} color="fg.muted" /> : null}
           <Text fontSize="sm" color="fg.muted">
             Coins
           </Text>
@@ -151,7 +156,7 @@ function ModalUserGameState() {
             >
               <Tabs.List>
                 <Tabs.Trigger value="inventory">
-                  <Icon as={getIcon("package")} />
+                  {PACKAGE_ICON ? <SvgIcon icon={PACKAGE_ICON} mr={1} /> : null}
                   Inventory
                 </Tabs.Trigger>
                 <GameStatePluginTabTriggers tabs={pluginTabs} unseenTabIds={unseenPluginTabIds} />

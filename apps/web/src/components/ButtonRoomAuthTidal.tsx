@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react"
 import { useLocation } from "@tanstack/react-router"
 import { Link, Box, Button, Icon, Text, HStack, VStack, Spinner } from "@chakra-ui/react"
-import { LuCheckCircle, LuPlus, LuUnlink, LuWaves } from "react-icons/lu"
+import { LuCheck, LuPlus, LuUnlink, LuWaves } from "react-icons/lu"
 
 import { useCurrentUser, useCurrentRoom } from "../hooks/useActors"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors"
@@ -106,7 +106,7 @@ export default function ButtonRoomAuthTidal({ hideText = false }: { hideText?: b
       {isAuthenticated && !isTidalEnabled && (
         <VStack align="flex-start" gap={2}>
           <HStack gap={2}>
-            <Icon as={LuCheckCircle} color="green.500" />
+            <Icon as={LuCheck} color="green.500" />
             <Text fontSize="sm">Tidal account linked</Text>
           </HStack>
           <HStack gap={2}>
@@ -140,7 +140,7 @@ export default function ButtonRoomAuthTidal({ hideText = false }: { hideText?: b
       {isAuthenticated && isTidalEnabled && (
         <VStack align="flex-start" gap={2}>
           <HStack gap={2}>
-            <Icon as={LuCheckCircle} color="primary" _dark={{ color: "secondaryText" }} />
+            <Icon as={LuCheck} color="primary" _dark={{ color: "secondaryText" }} />
             <Text fontSize="sm">Tidal is linked and enabled for this room</Text>
           </HStack>
           <Button

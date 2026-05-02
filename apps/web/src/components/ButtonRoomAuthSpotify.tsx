@@ -2,7 +2,7 @@
 import React, { useEffect } from "react"
 import { useLocation } from "@tanstack/react-router"
 import { Link, Box, Button, Icon, Text, HStack, VStack, Spinner } from "@chakra-ui/react"
-import { LuCheckCircle, LuMusic } from "react-icons/lu"
+import { LuCheck, LuMusic } from "react-icons/lu"
 
 import {
   useCurrentUser,
@@ -64,7 +64,7 @@ export default function ButtonRoomAuthSpotify({
       )}
       {isAuthenticated && (
         <HStack gap={2}>
-          <Icon as={LuCheckCircle} color="primary" _dark={{ color: "secondaryText" }} />
+          <Icon as={LuCheck} color="primary" _dark={{ color: "secondaryText" }} />
           <Text fontSize="sm">Your {serviceDisplayName} account is linked to this room.</Text>
         </HStack>
       )}

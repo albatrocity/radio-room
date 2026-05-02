@@ -1,7 +1,7 @@
 // component for the button to authenticate with a music service
 import React, { useEffect } from "react"
 import { Link, Box, Button, IconButton, Icon, Text, HStack } from "@chakra-ui/react"
-import { LuCheckCircle, LuMusic, LuTrash2 } from "react-icons/lu"
+import { LuCheck, LuMusic, LuTrash2 } from "react-icons/lu"
 
 import {
   useCurrentUser,
@@ -71,7 +71,7 @@ export default function ButtonAuthSpotify({
       {isMetadataAuthenticated && (
         <HStack gap={2} w="100%" justify="space-between">
           <HStack gap={2}>
-            <Icon as={LuCheckCircle} color="primary" />
+            <Icon as={LuCheck} color="primary" />
             <Text fontSize="sm">Your {serviceDisplayName} account is linked.</Text>
           </HStack>
           <IconButton

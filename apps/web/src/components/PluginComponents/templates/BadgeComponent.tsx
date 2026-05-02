@@ -1,8 +1,9 @@
 import React from "react"
-import { Badge, HStack, Icon, Text } from "@chakra-ui/react"
+import { Badge, HStack, Text } from "@chakra-ui/react"
 import { Tooltip } from "../../ui/tooltip"
 import { interpolateTemplate, interpolateCompositeTemplate } from "@repo/utils"
 import { getIcon } from "../icons"
+import { SvgIcon } from "../../ui/svg-icon"
 import { usePluginComponentContext } from "../context"
 import { renderTemplateComponent } from "./componentMap"
 import type { BadgeComponentProps } from "../../../types/PluginComponent"
@@ -58,7 +59,7 @@ export function BadgeTemplateComponent({
   const badge = (
     <Badge colorScheme={colorScheme} variant="subtle" mt={1}>
       <HStack gap={1}>
-        {IconComponent && <Icon as={IconComponent} boxSize={3} />}
+        {IconComponent && <SvgIcon icon={IconComponent} boxSize={3} />}
         <Text>{renderLabel()}</Text>
       </HStack>
     </Badge>

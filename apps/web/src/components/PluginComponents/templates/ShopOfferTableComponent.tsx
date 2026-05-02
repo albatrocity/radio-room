@@ -1,4 +1,4 @@
-import { Box, Center, Icon, Table, Text, VStack } from "@chakra-ui/react"
+import { Box, Center, Table, Text, VStack } from "@chakra-ui/react"
 import type {
   ShopOfferTableComponentProps,
   ShopOfferTableRow,
@@ -6,6 +6,7 @@ import type {
 import { useUserGameState } from "../../Modals/UserGameStateContext"
 import { usePluginComponentContext } from "../context"
 import { getIcon } from "../icons"
+import { SvgIcon } from "../../ui/svg-icon"
 import { AnimatedShopQty } from "./AnimatedShopQty"
 import { ButtonTemplateComponent } from "./ButtonComponent"
 
@@ -30,7 +31,7 @@ function ShopOfferTableRowView({
       <Table.Cell verticalAlign="middle" w="52px">
         <Center width="full" height="full">
           {IconComponent ? (
-            <Icon as={IconComponent} boxSize={7} color="fg.muted" aria-hidden />
+            <SvgIcon icon={IconComponent} boxSize={5} color="fg.muted" aria-hidden />
           ) : null}
         </Center>
       </Table.Cell>

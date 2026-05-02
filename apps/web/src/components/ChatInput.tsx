@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, memo, useMemo, RefObje
 import { createPortal } from "react-dom"
 
 import { Box, IconButton, Flex, Icon, Image, Wrap, Textarea } from "@chakra-ui/react"
-import { LuArrowUpCircle, LuImage, LuX } from "react-icons/lu"
+import { LuCircleArrowUp, LuImage, LuX } from "react-icons/lu"
 import { debounce } from "lodash"
 
 import MentionOverlay from "./MentionOverlay"
@@ -266,9 +266,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const handleTextareaBlur = useCallback(
     (e: React.FocusEvent<HTMLTextAreaElement>) => {
       const v = e.target.value
-      setMentionRegistry((prev) =>
-        reconcileMentionRegistryWithText(v, prev, knownForScan),
-      )
+      setMentionRegistry((prev) => reconcileMentionRegistryWithText(v, prev, knownForScan))
     },
     [knownForScan],
   )
@@ -441,11 +439,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
               autoFocus={modalActive}
               disabled={!isAuthenticated || !isAuthInitialized}
               placeholder={
-                !isAuthenticated
-                  ? ""
-                  : !isAuthInitialized
-                    ? "Syncing session…"
-                    : "Say something..."
+                !isAuthenticated ? "" : !isAuthInitialized ? "Syncing session…" : "Say something..."
               }
               w="100%"
               resize="none"
@@ -486,7 +480,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
               colorPalette="action"
               css={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
             >
-              <Icon as={LuArrowUpCircle} />
+              <Icon as={LuCircleArrowUp} />
             </IconButton>
           </Box>
         </Flex>
