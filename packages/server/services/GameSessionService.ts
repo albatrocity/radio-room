@@ -437,6 +437,12 @@ export class GameSessionService {
       const existing = modifiers.find((m) => m.name === incoming.name)
       if (existing) {
         existing.endAt = Math.max(existing.endAt, incoming.endAt)
+        if (incoming.itemDefinitionId && !existing.itemDefinitionId) {
+          existing.itemDefinitionId = incoming.itemDefinitionId
+        }
+        if (incoming.icon && !existing.icon) {
+          existing.icon = incoming.icon
+        }
         // Don't push the new modifier - we extended the existing one
         await this.persistModifiers(roomId, session.id, userId, modifiers)
         await this.touchParticipant(roomId, session.id, userId)

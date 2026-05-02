@@ -153,6 +153,20 @@ export class ShopHelper {
     return Math.max(0, Math.floor(price * item.sellBackRatio))
   }
 
+  /**
+   * Match a plugin action against `shopBuyAction(shortId, buyPrefix)` for every
+   * registered item. Returns the matching `shortId`, or `undefined` when the
+   * action is not a buy action for this shop.
+   */
+  matchBuyAction(action: string, buyPrefix?: string): string | undefined {
+    for (const item of this.items) {
+      if (shopBuyAction(item.definition.shortId, buyPrefix) === action) {
+        return item.definition.shortId
+      }
+    }
+    return undefined
+  }
+
   // ==========================================================================
   // Item registration
   // ==========================================================================
@@ -233,6 +247,23 @@ export class ShopHelper {
    * Returns a `success: false` result with a user-facing message when any
    * step fails (sold out, insufficient coins, no active session, etc.).
    */
+  /**
+   * Purchase using the price configured on the item's catalog entry
+   * (`ShopItem.definition.coinValue`). Convenience wrapper around `purchase()`
+   * for the common case where shops always charge the catalog price.
+   */
+  async purchaseCatalogItem(
+    initiator: PluginActionInitiator | undefined,
+    shortId: string,
+  ): Promise<ShopTransactionResult> {
+    const item = this.getItem(shortId)
+    if (!item) {
+      return { success: false, message: `Unknown item: ${shortId}` }
+    }
+    const price = item.definition.coinValue ?? 0
+    return this.purchase(initiator, shortId, price)
+  }
+
   async purchase(
     initiator: PluginActionInitiator | undefined,
     shortId: string,
@@ -438,6 +469,18 @@ export class ShopHelper {
       state[shopStockStoreKey(item.definition.shortId)] = await this.getStock(item.definition.shortId)
     }
     return state
+  }
+
+  /**
+   * Same as `getComponentState()` but adds a `sellPrice` quote computed from
+   * `quoteShortId` via `getSellPrice()`. Useful for emitting `STOCK_CHANGED`
+   * snapshots that bundle stock + a representative sell-back price.
+   */
+  async getComponentStateWithSellPrice(
+    quoteShortId: string,
+  ): Promise<Record<string, number> & { sellPrice: number }> {
+    const stocks = await this.getComponentState()
+    return { ...stocks, sellPrice: this.getSellPrice(quoteShortId) }
   }
 
   // ==========================================================================

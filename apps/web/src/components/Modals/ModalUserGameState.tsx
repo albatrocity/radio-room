@@ -18,6 +18,7 @@ import {
   GameStatePluginTabTriggers,
   GameStatePluginTabContents,
 } from "./GameState"
+import { UserModifiersList } from "../UserModifiersList"
 
 function formatNumber(n: number): string {
   return new Intl.NumberFormat().format(n)
@@ -80,26 +81,29 @@ function ModalUserGameState() {
   const showGameFooter = !loading && !error && !!payload?.session
 
   const footer = showGameFooter ? (
-    <HStack justify="space-between" width="full" flexWrap="wrap" gap={4}>
-      <HStack gap={2}>
-        <Icon as={getIcon("trophy")} boxSize={4} color="fg.muted" />
-        <Text fontSize="sm" color="fg.muted">
-          Score
-        </Text>
-        <Text fontSize="sm" fontWeight="semibold">
-          {formatNumber(attributes.score ?? 0)}
-        </Text>
+    <Stack gap={3} width="full">
+      <UserModifiersList modifiers={payload.state?.modifiers ?? []} definitionMap={definitionMap} />
+      <HStack justify="space-between" width="full" flexWrap="wrap" gap={4}>
+        <HStack gap={2}>
+          <Icon as={getIcon("trophy")} boxSize={4} color="fg.muted" />
+          <Text fontSize="sm" color="fg.muted">
+            Score
+          </Text>
+          <Text fontSize="sm" fontWeight="semibold">
+            {formatNumber(attributes.score ?? 0)}
+          </Text>
+        </HStack>
+        <HStack gap={2}>
+          <Icon as={getIcon("coins")} boxSize={4} color="fg.muted" />
+          <Text fontSize="sm" color="fg.muted">
+            Coins
+          </Text>
+          <Text fontSize="sm" fontWeight="semibold">
+            {formatNumber(attributes.coin ?? 0)}
+          </Text>
+        </HStack>
       </HStack>
-      <HStack gap={2}>
-        <Icon as={getIcon("coins")} boxSize={4} color="fg.muted" />
-        <Text fontSize="sm" color="fg.muted">
-          Coins
-        </Text>
-        <Text fontSize="sm" fontWeight="semibold">
-          {formatNumber(attributes.coin ?? 0)}
-        </Text>
-      </HStack>
-    </HStack>
+    </Stack>
   ) : null
 
   return (

@@ -7,6 +7,7 @@ import {
   LuPackage,
   LuShoppingCart,
   LuSkipForward,
+  LuSquareStack,
   LuStar,
   LuSwords,
   LuTrophy,
@@ -29,6 +30,7 @@ export const ICON_MAP: Record<string, React.ComponentType> = {
   "shopping-cart": LuShoppingCart,
   package: LuPackage,
   "disc-2": LuDisc2,
+  "square-stack": LuSquareStack,
   waves: LuWaves,
 }
 

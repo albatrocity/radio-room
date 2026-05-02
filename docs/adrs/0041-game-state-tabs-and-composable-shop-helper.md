@@ -1,7 +1,9 @@
 # 0041. Game State Tabs and Composable Shop Helper
 
 **Date:** 2026-05-01
-**Status:** Accepted
+**Status:** Partially superseded by [0045](0045-shop-plugin-base-class.md)
+
+> **Note:** The "Composable `ShopHelper` instead of a `ShopBasePlugin`" decision below is partially superseded by [ADR 0045](0045-shop-plugin-base-class.md), which introduces a `ShopPlugin` base class for the typical inheritance case while keeping `ShopHelper` available for composition. The other decisions in this ADR — the tabbed game state modal, `onItemSold` as a first-class lifecycle hook, and the `isSellingItems` config convention — remain in force.
 
 ## Context
 

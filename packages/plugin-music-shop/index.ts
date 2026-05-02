@@ -1,20 +1,16 @@
 import { z } from "zod"
-import { BasePlugin, ShopHelper } from "@repo/plugin-base"
+import { ShopPlugin, type ShopItem } from "@repo/plugin-base"
 import {
   getActiveFlags,
   type ChatMessage,
   type Plugin,
-  type PluginActionInitiator,
-  type PluginContext,
   type PluginConfigSchema,
   type PluginComponentSchema,
-  type SystemEventPayload,
   type InventoryItem,
   type ItemDefinition,
   type ItemUseResult,
-  type ItemSellResult,
 } from "@repo/types"
-import { buildSegments, shopBuyAction, tokenizeWords } from "@repo/plugin-base"
+import { buildSegments, tokenizeWords } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import {
   musicShopConfigSchema,
@@ -22,8 +18,6 @@ import {
   buildMusicShopItems,
   buildMusicShopOfferRows,
   musicShopComponentStoreKeys,
-  requireMusicShopCatalogEntry,
-  MUSIC_SHOP_CATALOG,
   type MusicShopConfig,
 } from "./types"
 export type { MusicShopConfig } from "./types"
@@ -44,46 +38,32 @@ const ANALOG_DELAY_SHORT_ID = "analog-delay-pedal"
 /** Flag on `GameStateEffect` for chat echo (see `getActiveFlags`). */
 const ECHO_FLAG = "echo"
 
-interface MusicShopEvents {
-  /** Per–stock-key snapshot from the catalog + sell-back quote. */
-  STOCK_CHANGED: Record<string, number> & { sellPrice: number }
-  PURCHASE_COMPLETE: {
-    userId: string
-    username: string
-    item: string
-    price: number
-    skipTokenStock: number
-    sellPrice: number
-  }
-  SALE_COMPLETE: {
-    userId: string
-    username: string
-    item: string
-    refund: number
-    skipTokenStock: number
-    sellPrice: number
-  }
-}
-
-export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
+export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
   name = PLUGIN_NAME
   version = packageJson.version
-  description =
-    "In-room shop where users spend coins on items that affect playback (Skip Tokens, etc)."
+  description = "In-room shop where users spend coins on items."
 
   // Cast avoids duplicate zod installs resolving to different `z` module instances under npm workspaces.
   static readonly configSchema = musicShopConfigSchema as any
   static readonly defaultConfig = defaultMusicShopConfig
 
-  private shop!: ShopHelper
+  protected shopItems: ShopItem[] = buildMusicShopItems()
+  protected defaultSellQuoteShortId = SKIP_TOKEN_SHORT_ID
 
-  async register(context: PluginContext): Promise<void> {
-    await super.register(context)
+  protected isShopEnabled(config: MusicShopConfig): boolean {
+    return config.enabled
+  }
 
-    this.shop = new ShopHelper(this.name, context, buildMusicShopItems())
-    this.shop.registerItems()
+  protected isSellingItems(config: MusicShopConfig): boolean {
+    return config.isSellingItems
+  }
 
-    this.on("GAME_SESSION_STARTED", this.onGameSessionStarted.bind(this))
+  protected shopClosedMessage(): string {
+    return "The Music Shop is closed."
+  }
+
+  protected notSellingMessage(): string {
+    return "The Music Shop is not selling items right now."
   }
 
   // ==========================================================================
@@ -134,7 +114,8 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
         echoDurationMs: {
           type: "duration",
           label: "Analog Delay duration",
-          description: "How long the chat echo effect lasts when someone uses an Analog Delay Pedal.",
+          description:
+            "How long the chat echo effect lasts when someone uses an Analog Delay Pedal.",
           displayUnit: "minutes",
           storageUnit: "milliseconds",
           showWhen: { field: "enabled", value: true },
@@ -173,106 +154,8 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
     }
   }
 
-  async getComponentState(): Promise<Record<string, number>> {
-    const stocks = await this.shop.getComponentState()
-    return {
-      ...stocks,
-      sellPrice: this.computeSellPrice(),
-    }
-  }
-
   // ==========================================================================
-  // Event handlers
-  // ==========================================================================
-
-  private async onGameSessionStarted(
-    _data: SystemEventPayload<"GAME_SESSION_STARTED">,
-  ): Promise<void> {
-    if (!this.context) return
-    const config = await this.getConfig()
-    if (!config?.enabled) return
-    await this.shop.restockAll()
-    await this.emitStockChanged()
-  }
-
-  // ==========================================================================
-  // Plugin actions (admin + user-triggered)
-  // ==========================================================================
-
-  async executeAction(
-    action: string,
-    initiator?: PluginActionInitiator,
-  ): Promise<{ success: boolean; message?: string }> {
-    for (const entry of MUSIC_SHOP_CATALOG) {
-      if (action === shopBuyAction(entry.shortId)) {
-        return this.buyCatalogItem(initiator, entry.shortId)
-      }
-    }
-    if (action === "restock") {
-      return this.adminRestock()
-    }
-    return { success: false, message: `Unknown action: ${action}` }
-  }
-
-  private async buyCatalogItem(
-    initiator: PluginActionInitiator | undefined,
-    shortId: string,
-  ): Promise<{ success: boolean; message?: string }> {
-    if (!this.context) {
-      return { success: false, message: "Plugin not initialized" }
-    }
-    const config = await this.getConfig()
-    if (!config?.enabled) {
-      return { success: false, message: "The Music Shop is closed." }
-    }
-    if (!config.isSellingItems) {
-      return { success: false, message: "The Music Shop is not selling items right now." }
-    }
-
-    const catalogEntry = requireMusicShopCatalogEntry(shortId)
-    const price = catalogEntry.coinValue
-    const result = await this.shop.purchase(initiator, shortId, price)
-
-    if (result.success && result.newStock !== undefined) {
-      const username = initiator?.username?.trim() || initiator?.userId || "Someone"
-      const skipTokenStock = await this.shop.getStock(SKIP_TOKEN_SHORT_ID)
-      await this.emit<MusicShopEvents["PURCHASE_COMPLETE"]>("PURCHASE_COMPLETE", {
-        userId: initiator?.userId ?? "",
-        username,
-        item: shortId,
-        price,
-        skipTokenStock,
-        sellPrice: this.computeSellPrice(),
-      })
-      await this.emitStockChanged()
-
-      await this.context.api.sendSystemMessage(
-        this.context.roomId,
-        `${username} bought ${catalogEntry.name} for ${price} coins.`,
-      )
-    }
-
-    return { success: result.success, message: result.message }
-  }
-
-  private async adminRestock(): Promise<{ success: boolean; message?: string }> {
-    if (!this.context) {
-      return { success: false, message: "Plugin not initialized" }
-    }
-    const config = await this.getConfig()
-    if (!config?.enabled) {
-      return { success: false, message: "Music Shop is disabled." }
-    }
-    await this.shop.restockAll()
-    await this.emitStockChanged()
-    return {
-      success: true,
-      message: "Shop stock reset to each item's configured starting quantity.",
-    }
-  }
-
-  // ==========================================================================
-  // Inventory hooks (use + sell)
+  // Inventory hooks (item-specific behavior)
   // ==========================================================================
 
   async onItemUsed(
@@ -286,7 +169,7 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
     }
     const config = await this.getConfig()
     if (!config?.enabled) {
-      return { success: false, consumed: false, message: "The Music Shop is closed." }
+      return { success: false, consumed: false, message: this.shopClosedMessage() }
     }
 
     if (definition.shortId === SKIP_TOKEN_SHORT_ID) {
@@ -304,7 +187,10 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
 
       const [user] = await this.context.api.getUsersByIds([userId])
       const username = user?.username?.trim() || userId
-      await this.context.api.sendSystemMessage(this.context.roomId, `${username} used a Skip Token!`)
+      await this.context.api.sendSystemMessage(
+        this.context.roomId,
+        `${username} used a Skip Token!`,
+      )
 
       return { success: true, consumed: true, message: "Skipped!" }
     }
@@ -321,10 +207,11 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
       const now = Date.now()
       await this.game.applyModifier(targetUserId, {
         name: "analog_delay_echo",
-        effects: [{ type: "flag", name: ECHO_FLAG, value: true }],
+        effects: [{ type: "flag", name: ECHO_FLAG, value: true, icon: "square-stack" }],
         startAt: now,
         endAt: now + config.echoDurationMs,
         stackBehavior: "extend",
+        itemDefinitionId: definition.id,
       })
 
       const [actor] = await this.context.api.getUsersByIds([userId])
@@ -368,65 +255,6 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
     })
 
     return { ...message, content, contentSegments }
-  }
-
-  async onItemSold(
-    userId: string,
-    item: InventoryItem,
-    definition: ItemDefinition,
-    _callContext?: unknown,
-  ): Promise<ItemSellResult> {
-    if (!this.context) {
-      return { success: false, message: "Plugin not initialized" }
-    }
-    const config = await this.getConfig()
-    if (!config?.enabled) {
-      return { success: false, message: "The Music Shop is closed." }
-    }
-
-    const [user] = await this.context.api.getUsersByIds([userId])
-    const username = user?.username?.trim() || userId
-
-    const result = await this.shop.sell({ userId, username }, item.itemId, {
-      basePrice: requireMusicShopCatalogEntry(definition.shortId).coinValue,
-    })
-
-    if (result.success) {
-      const refund = result.refund ?? 0
-      await this.emit<MusicShopEvents["SALE_COMPLETE"]>("SALE_COMPLETE", {
-        userId,
-        username,
-        item: definition.shortId,
-        refund,
-        skipTokenStock: result.newStock ?? 0,
-        sellPrice: this.computeSellPrice(),
-      })
-      await this.emitStockChanged()
-
-      await this.context.api.sendSystemMessage(
-        this.context.roomId,
-        `${username} sold a ${definition.name} back for ${refund} coins.`,
-      )
-    }
-
-    return { success: result.success, message: result.message, refund: result.refund }
-  }
-
-  // ==========================================================================
-  // Internals
-  // ==========================================================================
-
-  private computeSellPrice(): number {
-    const entry = requireMusicShopCatalogEntry(SKIP_TOKEN_SHORT_ID)
-    return Math.max(0, Math.floor(entry.coinValue * entry.sellBackRatio))
-  }
-
-  private async emitStockChanged(): Promise<void> {
-    const stocks = await this.shop.getComponentState()
-    await this.emit<MusicShopEvents["STOCK_CHANGED"]>("STOCK_CHANGED", {
-      ...stocks,
-      sellPrice: this.computeSellPrice(),
-    })
   }
 }
 

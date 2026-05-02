@@ -69,6 +69,8 @@ export interface PluginAttributeDefinition {
  * - `lock`: prevents `addScore()` / `setScore()` from changing the attribute
  *   while the modifier is active.
  * - `flag`: arbitrary boolean flag that plugins can read (e.g. `"silenced"`).
+ *
+ * Any variant may set optional `icon` (e.g. Lucide name in the web `ICON_MAP`) for UI.
  */
 export type GameStateEffect =
   | { type: "multiplier"; target: GameAttributeName; value: number }
@@ -76,6 +78,8 @@ export type GameStateEffect =
   | { type: "set"; target: GameAttributeName; value: number }
   | { type: "lock"; target: GameAttributeName }
   | { type: "flag"; name: string; value: boolean }
+
+export type GameStateEffectWithIcon = GameStateEffect & { icon?: string }
 
 /** How a newly-applied modifier of the same `name` interacts with existing instances. */
 export type ModifierStackBehavior = "replace" | "stack" | "extend"
@@ -88,7 +92,7 @@ export interface GameStateModifier {
   /** Plugin that applied the modifier. `"system"` for admin-applied. */
   source: string
   /** Effects applied while this modifier is active. */
-  effects: GameStateEffect[]
+  effects: GameStateEffectWithIcon[]
   /** Unix epoch (ms) when the modifier becomes active. */
   startAt: number
   /** Unix epoch (ms) when the modifier expires. */
@@ -97,6 +101,16 @@ export interface GameStateModifier {
   stackBehavior: ModifierStackBehavior
   /** Cap on stacks if `stackBehavior === "stack"`. Ignored otherwise. */
   maxStacks?: number
+  /**
+   * Optional icon key for the whole modifier row in UIs. When set, overrides
+   * per-effect `icon` and item fallbacks.
+   */
+  icon?: string
+  /**
+   * When this modifier was caused by using an inventory item, that item’s
+   * `ItemDefinition.id`. Used to resolve an icon after per-effect `icon` values.
+   */
+  itemDefinitionId?: string
 }
 
 /**

@@ -47,7 +47,7 @@ const Modal = ({
             {heading && <DialogHeader>{heading}</DialogHeader>}
 
             {canClose && (
-              <DialogCloseTrigger asChild position="absolute" top="2" right="2">
+              <DialogCloseTrigger asChild position="absolute" top="2" right="2" zIndex={1}>
                 <CloseButton size="sm" />
               </DialogCloseTrigger>
             )}
