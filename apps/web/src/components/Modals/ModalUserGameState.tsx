@@ -1,22 +1,6 @@
 import { useEffect, useMemo } from "react"
-import {
-  Box,
-  HStack,
-  Heading,
-  Icon,
-  SimpleGrid,
-  Spinner,
-  Stack,
-  Tabs,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
-import type {
-  GameAttributeName,
-  ItemDefinition,
-  PluginComponentDefinition,
-  PluginTabComponent,
-} from "@repo/types"
+import { HStack, Heading, Icon, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
+import type { GameAttributeName, ItemDefinition, PluginTabComponent } from "@repo/types"
 import { checkShowWhenConditions } from "@repo/utils"
 import Modal from "../Modal"
 import {
@@ -29,42 +13,17 @@ import {
   refreshUserGameState,
 } from "../../hooks/useActors"
 import { usePluginSchemas } from "../../hooks/usePluginSchemas"
-import {
-  PluginComponentProvider,
-  PluginComponentRenderer,
-} from "../PluginComponents/PluginComponentRenderer"
 import { getIcon } from "../PluginComponents/icons"
 import { UserGameStateContext, type UserGameStateSnapshot } from "./UserGameStateContext"
-import InventoryTab from "./GameState/InventoryTab"
-
-function attributeLabel(attribute: GameAttributeName): string {
-  if (attribute === "score") return "Score"
-  if (attribute === "coin") return "Coins"
-  if (attribute.includes(":")) {
-    const [pluginName, name] = attribute.split(":")
-    const pretty = (s: string) =>
-      s
-        .split("-")
-        .map((w) => (w ? w[0]!.toUpperCase() + w.slice(1) : ""))
-        .join(" ")
-    return `${pretty(pluginName ?? "")} · ${pretty(name ?? "")}`
-  }
-  return attribute
-}
+import {
+  GameStateInventoryContent,
+  GameStatePluginTabTriggers,
+  GameStatePluginTabContents,
+  type PluginTabEntry,
+} from "./GameState"
 
 function formatNumber(n: number): string {
   return new Intl.NumberFormat().format(n)
-}
-
-interface PluginTabEntry {
-  id: string
-  pluginName: string
-  label: string
-  icon?: string
-  config: Record<string, unknown>
-  storeKeys: string[]
-  components: PluginComponentDefinition[]
-  tab: PluginTabComponent
 }
 
 function ModalUserGameState() {
@@ -77,7 +36,6 @@ function ModalUserGameState() {
   const loading = useUserGameStateLoading()
   const error = useUserGameStateError()
 
-  // Refresh data when modal opens
   useEffect(() => {
     if (isOpen) {
       refreshUserGameState()
@@ -93,10 +51,6 @@ function ModalUserGameState() {
   }, [payload?.itemDefinitions])
 
   const enabledAttributes = payload?.session?.config.enabledAttributes ?? []
-  const enabledAttributesForGrid = useMemo(
-    () => enabledAttributes.filter((a) => a !== "score" && a !== "coin"),
-    [enabledAttributes],
-  )
   const attributes = (payload?.state?.attributes ?? {}) as Record<GameAttributeName, number>
   const inventoryEnabled = payload?.session?.config.inventoryEnabled ?? false
   const inventoryItems = payload?.inventory?.items ?? []
@@ -210,72 +164,21 @@ function ModalUserGameState() {
                   <Icon as={getIcon("package")} />
                   Inventory
                 </Tabs.Trigger>
-                {pluginTabs.map((entry) => {
-                  const TabIcon = entry.icon ? getIcon(entry.icon) : undefined
-                  return (
-                    <Tabs.Trigger key={entry.id} value={entry.id}>
-                      {TabIcon ? <Icon as={TabIcon} /> : null}
-                      {entry.label}
-                    </Tabs.Trigger>
-                  )
-                })}
+                <GameStatePluginTabTriggers tabs={pluginTabs} />
               </Tabs.List>
 
               <Tabs.Content value="inventory">
-                <Stack gap={5} pt={2}>
-                  {enabledAttributesForGrid.length > 0 && (
-                    <Box>
-                      <Heading size="sm" mb={2}>
-                        Stats
-                      </Heading>
-                      <SimpleGrid columns={{ base: 2, sm: 3 }} gap={3}>
-                        {enabledAttributesForGrid.map((attr) => (
-                          <Box
-                            key={attr}
-                            borderWidth="1px"
-                            borderColor="border.muted"
-                            borderRadius="md"
-                            p={3}
-                            bg="bg.subtle"
-                          >
-                            <Text fontSize="xs" color="fg.muted">
-                              {attributeLabel(attr)}
-                            </Text>
-                            <Text fontSize="2xl" fontWeight="semibold">
-                              {formatNumber(attributes[attr] ?? 0)}
-                            </Text>
-                          </Box>
-                        ))}
-                      </SimpleGrid>
-                    </Box>
-                  )}
-
-                  {inventoryEnabled && (
-                    <InventoryTab
-                      items={inventoryItems}
-                      maxSlots={maxSlots}
-                      definitionMap={definitionMap}
-                    />
-                  )}
-                </Stack>
+                <GameStateInventoryContent
+                  enabledAttributes={enabledAttributes}
+                  attributes={attributes}
+                  inventoryEnabled={inventoryEnabled}
+                  inventoryItems={inventoryItems}
+                  maxSlots={maxSlots}
+                  definitionMap={definitionMap}
+                />
               </Tabs.Content>
 
-              {pluginTabs.map((entry) => (
-                <Tabs.Content key={entry.id} value={entry.id}>
-                  <PluginComponentProvider
-                    pluginName={entry.pluginName}
-                    storeKeys={entry.storeKeys}
-                    config={entry.config}
-                    components={entry.components}
-                  >
-                    <VStack align="stretch" gap={3} pt={2}>
-                      {entry.tab.children.map((child) => (
-                        <PluginComponentRenderer key={child.id} component={child} />
-                      ))}
-                    </VStack>
-                  </PluginComponentProvider>
-                </Tabs.Content>
-              ))}
+              <GameStatePluginTabContents tabs={pluginTabs} />
             </Tabs.Root>
           )}
         </Stack>
