@@ -19,8 +19,20 @@ export const chatMessageMetaSchema = z.object({
 export const textEffectSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("size"),
-    /** Maps to Chakra font sizes in `textEffectStyles` (`2xs`, `xs`, `sm`, …) plus legacy `small`/`normal`/`large`. */
-    value: z.enum(["2xs", "xs", "sm", "small", "normal", "large"]),
+    /** Maps to Chakra font sizes in `textEffectStyles` (`3xs`-`3xl`) plus legacy `small`/`normal`/`large`. */
+    value: z.enum([
+      "3xs",
+      "2xs",
+      "xs",
+      "sm",
+      "small",
+      "normal",
+      "large",
+      "lg",
+      "xl",
+      "2xl",
+      "3xl",
+    ]),
   }),
 ])
 export type TextEffect = z.infer<typeof textEffectSchema>

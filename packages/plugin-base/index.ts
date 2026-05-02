@@ -23,6 +23,17 @@ export {
   tokenizeWords,
   buildSegments,
   type TokenizedWord,
+  SHRINK_FLAG,
+  GROW_FLAG,
+  ECHO_FLAG,
+  countTextEffectStacks,
+  netSizeShift,
+  resolveBaseSize,
+  resolveEchoSize,
+  echoCount,
+  applyTextEffects,
+  type TextEffectStacks,
+  type AppliedTextEffects,
 } from "./helpers"
 
 export {

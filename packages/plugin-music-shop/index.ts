@@ -1,7 +1,14 @@
 import { z } from "zod"
-import { ShopPlugin, type ShopItem } from "@repo/plugin-base"
 import {
-  getActiveFlags,
+  ShopPlugin,
+  type ShopItem,
+  ECHO_FLAG,
+  GROW_FLAG,
+  SHRINK_FLAG,
+  applyTextEffects,
+  countTextEffectStacks,
+} from "@repo/plugin-base"
+import {
   type ChatMessage,
   type GameStateEffectWithMeta,
   type Plugin,
@@ -11,7 +18,6 @@ import {
   type ItemDefinition,
   type ItemUseResult,
 } from "@repo/types"
-import { buildSegments, tokenizeWords } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import {
   musicShopConfigSchema,
@@ -38,11 +44,6 @@ export {
 } from "./types"
 
 const PLUGIN_NAME = "music-shop"
-
-/** Flag on `GameStateEffect` for chat echo (see `getActiveFlags`). */
-const ECHO_FLAG = "echo"
-const COMPRESSOR_FLAG = "compressor"
-const BOOST_FLAG = "boost"
 
 export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
   name = PLUGIN_NAME
@@ -265,7 +266,7 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
       return this.applyTargetedTimedModifier(userId, callContext, definition, config.effectDurationMs, {
         modifierName: "compressor",
         effects: [
-          { type: "flag", name: COMPRESSOR_FLAG, value: true, icon: "shrink", intent: "negative" },
+          { type: "flag", name: SHRINK_FLAG, value: true, icon: "shrink", intent: "negative" },
         ],
         successMessage: "Compressor engaged. It was lost with use.",
         describe: ({ isSelf, actor, target }) =>
@@ -277,7 +278,7 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
       return this.applyTargetedTimedModifier(userId, callContext, definition, config.effectDurationMs, {
         modifierName: "boost",
         effects: [
-          { type: "flag", name: BOOST_FLAG, value: true, icon: "chevrons-up", intent: "positive" },
+          { type: "flag", name: GROW_FLAG, value: true, icon: "chevrons-up", intent: "positive" },
         ],
         successMessage: "Boost engaged. It was lost with use.",
         describe: ({ isSelf, actor, target }) =>
@@ -296,44 +297,11 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
     const state = await this.game.getUserState(message.user.userId)
     if (!state) return null
 
-    const flags = getActiveFlags(state.modifiers, Date.now())
-    if (!flags[ECHO_FLAG] && !flags[COMPRESSOR_FLAG] && !flags[BOOST_FLAG]) return null
+    const stacks = countTextEffectStacks(state.modifiers, Date.now())
+    const result = applyTextEffects(message.content, stacks)
+    if (!result) return null
 
-    const hasEcho = Boolean(flags[ECHO_FLAG])
-    const hasCompressor = Boolean(flags[COMPRESSOR_FLAG])
-    const hasBoost = Boolean(flags[BOOST_FLAG])
-
-    const tokens = tokenizeWords(message.content)
-    const { content, contentSegments } = buildSegments(tokens, (t) => {
-      if (!t.word) return []
-      if (hasCompressor && hasEcho) {
-        return [
-          { text: t.word, effects: [{ type: "size", value: "xs" }] },
-          { text: ` ${t.word}`, effects: [{ type: "size", value: "2xs" }] },
-        ]
-      }
-      if (hasCompressor && !hasEcho) {
-        return [{ text: t.word, effects: [{ type: "size", value: "xs" }] }]
-      }
-      if (hasBoost && hasEcho) {
-        return [
-          { text: t.word, effects: [{ type: "size", value: "large" }] },
-          { text: ` ${t.word}`, effects: [{ type: "size", value: "small" }] },
-        ]
-      }
-      if (hasBoost) {
-        return [{ text: t.word, effects: [{ type: "size", value: "large" }] }]
-      }
-      return [
-        { text: t.word },
-        {
-          text: ` ${t.word}`,
-          effects: [{ type: "size", value: "small" }],
-        },
-      ]
-    })
-
-    return { ...message, content, contentSegments }
+    return { ...message, content: result.content, contentSegments: result.contentSegments }
   }
 }
 
