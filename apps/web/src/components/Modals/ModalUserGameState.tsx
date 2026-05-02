@@ -1,25 +1,22 @@
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { HStack, Icon, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
-import type { GameAttributeName, ItemDefinition, PluginTabComponent } from "@repo/types"
-import { checkShowWhenConditions } from "@repo/utils"
+import type { GameAttributeName, ItemDefinition } from "@repo/types"
 import Modal from "../Modal"
 import {
   useIsModalOpen,
   useModalsSend,
-  usePluginConfigs,
   useUserGameStatePayload,
   useUserGameStateLoading,
   useUserGameStateError,
   refreshUserGameState,
 } from "../../hooks/useActors"
-import { usePluginSchemas } from "../../hooks/usePluginSchemas"
+import { useGameStateNewPluginTabs } from "../GameStateNewPluginTabsProvider"
 import { getIcon } from "../PluginComponents/icons"
 import { UserGameStateContext, type UserGameStateSnapshot } from "./UserGameStateContext"
 import {
   GameStateInventoryContent,
   GameStatePluginTabTriggers,
   GameStatePluginTabContents,
-  type PluginTabEntry,
 } from "./GameState"
 
 function formatNumber(n: number): string {
@@ -29,8 +26,8 @@ function formatNumber(n: number): string {
 function ModalUserGameState() {
   const modalSend = useModalsSend()
   const isOpen = useIsModalOpen("gameState")
-  const { schemas } = usePluginSchemas()
-  const pluginConfigs = usePluginConfigs() || {}
+  const { pluginTabs, unseenPluginTabIds, markPluginTabViewed } = useGameStateNewPluginTabs()
+  const [gameStateTab, setGameStateTab] = useState("inventory")
 
   const payload = useUserGameStatePayload()
   const loading = useUserGameStateLoading()
@@ -56,36 +53,19 @@ function ModalUserGameState() {
   const inventoryItems = payload?.inventory?.items ?? []
   const maxSlots = payload?.inventory?.maxSlots ?? 0
 
-  const pluginTabs = useMemo<PluginTabEntry[]>(() => {
-    const result: PluginTabEntry[] = []
-    for (const schema of schemas) {
-      const components = schema.componentSchema?.components ?? []
-      const tabs = components.filter(
-        (c): c is PluginTabComponent => c.type === "tab" && c.area === "gameStateTab",
-      )
-      if (tabs.length === 0) continue
-
-      const config = pluginConfigs[schema.name] || schema.defaultConfig || {}
-      const storeKeys = schema.componentSchema?.storeKeys || []
-
-      for (const tab of tabs) {
-        if (tab.showWhen && !checkShowWhenConditions(tab.showWhen, config, {})) {
-          continue
-        }
-        result.push({
-          id: `${schema.name}:${tab.id}`,
-          pluginName: schema.name,
-          label: tab.label,
-          icon: tab.icon,
-          config,
-          storeKeys,
-          components,
-          tab,
-        })
-      }
+  const validTabValues = useMemo(() => {
+    const ids = new Set<string>(["inventory"])
+    for (const t of pluginTabs) {
+      ids.add(t.id)
     }
-    return result
-  }, [schemas, pluginConfigs])
+    return ids
+  }, [pluginTabs])
+
+  useEffect(() => {
+    if (!validTabValues.has(gameStateTab)) {
+      setGameStateTab("inventory")
+    }
+  }, [validTabValues, gameStateTab])
 
   const gameStateValue = useMemo<UserGameStateSnapshot>(() => {
     return {
@@ -153,13 +133,24 @@ function ModalUserGameState() {
           )}
 
           {!loading && !error && payload?.session && (
-            <Tabs.Root defaultValue="inventory" variant="line" colorPalette="action">
+            <Tabs.Root
+              value={gameStateTab}
+              onValueChange={(d) => {
+                const v = d.value
+                setGameStateTab(v)
+                if (pluginTabs.some((t) => t.id === v)) {
+                  markPluginTabViewed(v)
+                }
+              }}
+              variant="line"
+              colorPalette="action"
+            >
               <Tabs.List>
                 <Tabs.Trigger value="inventory">
                   <Icon as={getIcon("package")} />
                   Inventory
                 </Tabs.Trigger>
-                <GameStatePluginTabTriggers tabs={pluginTabs} />
+                <GameStatePluginTabTriggers tabs={pluginTabs} unseenTabIds={unseenPluginTabIds} />
               </Tabs.List>
 
               <Tabs.Content value="inventory">

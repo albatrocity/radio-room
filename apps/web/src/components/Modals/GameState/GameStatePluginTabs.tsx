@@ -1,4 +1,4 @@
-import { Icon, Tabs, VStack } from "@chakra-ui/react"
+import { HStack, Icon, Status, Tabs, VStack } from "@chakra-ui/react"
 import type { PluginComponentDefinition, PluginTabComponent } from "@repo/types"
 import {
   PluginComponentProvider,
@@ -19,17 +19,42 @@ export interface PluginTabEntry {
 
 interface GameStatePluginTabTriggersProps {
   tabs: PluginTabEntry[]
+  /** Plugin tab ids that appeared since last visit and have not been opened yet */
+  unseenTabIds?: ReadonlySet<string>
 }
 
-export function GameStatePluginTabTriggers({ tabs }: GameStatePluginTabTriggersProps) {
+export function GameStatePluginTabTriggers({
+  tabs,
+  unseenTabIds,
+}: GameStatePluginTabTriggersProps) {
   return (
     <>
       {tabs.map((entry) => {
         const TabIcon = entry.icon ? getIcon(entry.icon) : undefined
+        const showNew = unseenTabIds?.has(entry.id) ?? false
         return (
-          <Tabs.Trigger key={entry.id} value={entry.id}>
-            {TabIcon ? <Icon as={TabIcon} /> : null}
-            {entry.label}
+          <Tabs.Trigger
+            key={entry.id}
+            value={entry.id}
+            position="relative"
+            pr={showNew ? 2 : undefined}
+          >
+            <HStack gap={1} align="center">
+              {TabIcon ? <Icon as={TabIcon} /> : null}
+              {entry.label}
+            </HStack>
+            {showNew ? (
+              <Status.Root
+                size="sm"
+                colorPalette="primary"
+                position="absolute"
+                top="0"
+                right="0"
+                pointerEvents="none"
+              >
+                <Status.Indicator />
+              </Status.Root>
+            ) : null}
           </Tabs.Trigger>
         )
       })}

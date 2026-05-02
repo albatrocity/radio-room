@@ -6,6 +6,7 @@ import PlayerUi from "./PlayerUi"
 import Chat from "./Chat"
 import Sidebar from "./Sidebar"
 import Overlays from "./Overlays"
+import { GameStateNewPluginTabsProvider } from "./GameStateNewPluginTabsProvider"
 import KeyboardShortcuts from "./KeyboardShortcuts"
 import RoomError from "./RoomError"
 
@@ -40,10 +41,11 @@ const Room = ({ id }: { id: string }) => {
   return (
     <Box w="100%" h="100%" data-screen-effect-target="room">
       <HybridListeningTransportProvider>
-        <Grid
-          h="100%"
-          className="room"
-          templateAreas={[
+        <GameStateNewPluginTabsProvider>
+          <Grid
+            h="100%"
+            className="room"
+            templateAreas={[
             `"alert alert"
           "header header"
       "chat chat"
@@ -97,7 +99,8 @@ const Room = ({ id }: { id: string }) => {
           </GridItem>
         </Grid>
 
-        <Overlays />
+          <Overlays />
+        </GameStateNewPluginTabsProvider>
       </HybridListeningTransportProvider>
     </Box>
   )
