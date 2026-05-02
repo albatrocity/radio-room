@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react"
-import { HStack, Heading, Icon, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
+import { HStack, Icon, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
 import type { GameAttributeName, ItemDefinition, PluginTabComponent } from "@repo/types"
 import { checkShowWhenConditions } from "@repo/utils"
 import Modal from "../Modal"
@@ -87,12 +87,6 @@ function ModalUserGameState() {
     return result
   }, [schemas, pluginConfigs])
 
-  const heading = (
-    <HStack gap={2} flexWrap="wrap">
-      {payload?.session && <Heading size="lg">{payload.session.config.name}</Heading>}
-    </HStack>
-  )
-
   const gameStateValue = useMemo<UserGameStateSnapshot>(() => {
     return {
       session: payload?.session ?? null,
@@ -108,6 +102,7 @@ function ModalUserGameState() {
   const footer = showGameFooter ? (
     <HStack justify="space-between" width="full" flexWrap="wrap" gap={4}>
       <HStack gap={2}>
+        <Icon as={getIcon("trophy")} boxSize={4} color="fg.muted" />
         <Text fontSize="sm" color="fg.muted">
           Score
         </Text>
@@ -116,6 +111,7 @@ function ModalUserGameState() {
         </Text>
       </HStack>
       <HStack gap={2}>
+        <Icon as={getIcon("coins")} boxSize={4} color="fg.muted" />
         <Text fontSize="sm" color="fg.muted">
           Coins
         </Text>
@@ -130,7 +126,6 @@ function ModalUserGameState() {
     <Modal
       isOpen={isOpen}
       onClose={() => modalSend({ type: "CLOSE" })}
-      heading={heading}
       showFooter={showGameFooter}
       footer={footer ?? undefined}
     >

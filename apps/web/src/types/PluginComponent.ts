@@ -48,4 +48,6 @@ export type {
   PluginComponentSchema,
   PluginComponentState,
   PluginComponentStores,
+  ShopOfferTableRow,
+  ShopOfferTableComponentProps,
 } from "@repo/types"

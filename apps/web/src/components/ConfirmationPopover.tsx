@@ -1,9 +1,5 @@
 import React, { ReactNode } from "react"
-import {
-  Button,
-  Popover,
-  CloseButton,
-} from "@chakra-ui/react"
+import { Button, CloseButton, Popover } from "@chakra-ui/react"
 
 type Props = {
   triggerIcon?: React.ReactNode
@@ -29,10 +25,7 @@ export default function ConfirmationPopover({
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
-        <Button
-          variant={triggerVariant as any}
-          colorPalette={triggerColorScheme}
-        >
+        <Button variant={triggerVariant as never} colorPalette={triggerColorScheme}>
           {triggerIcon}
           {triggerText}
         </Button>

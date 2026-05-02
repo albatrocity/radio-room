@@ -17,15 +17,21 @@ import {
   musicShopConfigSchema,
   defaultMusicShopConfig,
   buildMusicShopItems,
+  buildMusicShopOfferRows,
+  musicShopComponentStoreKeys,
   requireMusicShopCatalogEntry,
+  MUSIC_SHOP_CATALOG,
   type MusicShopConfig,
 } from "./types"
+import { shopBuyAction } from "@repo/plugin-base"
 
 export type { MusicShopConfig } from "./types"
 export {
   musicShopConfigSchema,
   defaultMusicShopConfig,
   buildMusicShopItems,
+  buildMusicShopOfferRows,
+  musicShopComponentStoreKeys,
   MUSIC_SHOP_CATALOG,
   getMusicShopCatalogEntry,
   requireMusicShopCatalogEntry,
@@ -34,20 +40,13 @@ export {
 const PLUGIN_NAME = "music-shop"
 const SKIP_TOKEN_SHORT_ID = "skip-token"
 
-interface MusicShopComponentState extends Record<string, unknown> {
-  skipTokenStock: number
-  sellPrice: number
-}
-
 interface MusicShopEvents {
-  STOCK_CHANGED: {
-    skipTokenStock: number
-    sellPrice: number
-  }
+  /** Per–stock-key snapshot from the catalog + sell-back quote. */
+  STOCK_CHANGED: Record<string, number> & { sellPrice: number }
   PURCHASE_COMPLETE: {
     userId: string
     username: string
-    item: "skip-token"
+    item: string
     price: number
     skipTokenStock: number
     sellPrice: number
@@ -55,7 +54,7 @@ interface MusicShopEvents {
   SALE_COMPLETE: {
     userId: string
     username: string
-    item: "skip-token"
+    item: string
     refund: number
     skipTokenStock: number
     sellPrice: number
@@ -132,7 +131,6 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
   }
 
   getComponentSchema(): PluginComponentSchema {
-    const scratchedCd = requireMusicShopCatalogEntry(SKIP_TOKEN_SHORT_ID)
     return {
       components: [
         {
@@ -150,43 +148,22 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
           ],
           children: [
             {
-              id: "music-shop-skip-token-heading",
-              type: "heading",
+              id: "music-shop-offers",
+              type: "shop-offer-table",
               area: "gameStateTab",
-              content: "Scratched CD",
-              level: 3,
-            },
-            {
-              id: "music-shop-skip-token-description",
-              type: "text-block",
-              area: "gameStateTab",
-              content: [
-                { type: "text", content: "Skip the currently playing song. " },
-                { type: "text", content: `Cost: ${scratchedCd.coinValue} coins. ` },
-                { type: "text", content: "{{skipTokenStock}} in stock." },
-              ],
-            },
-            {
-              id: "music-shop-buy-skip-token",
-              type: "button",
-              area: "gameStateTab",
-              label: `Buy Scratched CD (${scratchedCd.coinValue} coins)`,
-              icon: scratchedCd.icon,
-              variant: "solid",
-              size: "sm",
-              action: "buySkipToken",
+              rows: buildMusicShopOfferRows(),
             },
           ],
         },
       ],
-      storeKeys: ["skipTokenStock", "sellPrice"],
+      storeKeys: musicShopComponentStoreKeys(),
     }
   }
 
-  async getComponentState(): Promise<MusicShopComponentState> {
-    const stock = await this.shop.getStock(SKIP_TOKEN_SHORT_ID)
+  async getComponentState(): Promise<Record<string, number>> {
+    const stocks = await this.shop.getComponentState()
     return {
-      skipTokenStock: stock,
+      ...stocks,
       sellPrice: this.computeSellPrice(),
     }
   }
@@ -213,8 +190,10 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
     action: string,
     initiator?: PluginActionInitiator,
   ): Promise<{ success: boolean; message?: string }> {
-    if (action === "buySkipToken") {
-      return this.buySkipToken(initiator)
+    for (const entry of MUSIC_SHOP_CATALOG) {
+      if (action === shopBuyAction(entry.shortId)) {
+        return this.buyCatalogItem(initiator, entry.shortId)
+      }
     }
     if (action === "restock") {
       return this.adminRestock()
@@ -222,8 +201,9 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
     return { success: false, message: `Unknown action: ${action}` }
   }
 
-  private async buySkipToken(
-    initiator?: PluginActionInitiator,
+  private async buyCatalogItem(
+    initiator: PluginActionInitiator | undefined,
+    shortId: string,
   ): Promise<{ success: boolean; message?: string }> {
     if (!this.context) {
       return { success: false, message: "Plugin not initialized" }
@@ -236,24 +216,25 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
       return { success: false, message: "The Music Shop is not selling items right now." }
     }
 
-    const price = requireMusicShopCatalogEntry(SKIP_TOKEN_SHORT_ID).coinValue
-    const result = await this.shop.purchase(initiator, SKIP_TOKEN_SHORT_ID, price)
+    const catalogEntry = requireMusicShopCatalogEntry(shortId)
+    const price = catalogEntry.coinValue
+    const result = await this.shop.purchase(initiator, shortId, price)
 
     if (result.success && result.newStock !== undefined) {
       const username = initiator?.username?.trim() || initiator?.userId || "Someone"
       await this.emit<MusicShopEvents["PURCHASE_COMPLETE"]>("PURCHASE_COMPLETE", {
         userId: initiator?.userId ?? "",
         username,
-        item: "skip-token",
+        item: shortId,
         price,
         skipTokenStock: result.newStock,
         sellPrice: this.computeSellPrice(),
       })
-      await this.emitStockChanged(result.newStock)
+      await this.emitStockChanged()
 
       await this.context.api.sendSystemMessage(
         this.context.roomId,
-        `${username} bought a Skip Token for ${price} coins.`,
+        `${username} bought ${catalogEntry.name} for ${price} coins.`,
       )
     }
 
@@ -338,12 +319,12 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
       await this.emit<MusicShopEvents["SALE_COMPLETE"]>("SALE_COMPLETE", {
         userId,
         username,
-        item: "skip-token",
+        item: definition.shortId,
         refund,
         skipTokenStock: result.newStock ?? 0,
         sellPrice: this.computeSellPrice(),
       })
-      await this.emitStockChanged(result.newStock)
+      await this.emitStockChanged()
 
       await this.context.api.sendSystemMessage(
         this.context.roomId,
@@ -363,10 +344,10 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
     return Math.max(0, Math.floor(entry.coinValue * entry.sellBackRatio))
   }
 
-  private async emitStockChanged(overrideStock?: number): Promise<void> {
-    const stock = overrideStock ?? (await this.shop.getStock(SKIP_TOKEN_SHORT_ID))
+  private async emitStockChanged(): Promise<void> {
+    const stocks = await this.shop.getComponentState()
     await this.emit<MusicShopEvents["STOCK_CHANGED"]>("STOCK_CHANGED", {
-      skipTokenStock: stock,
+      ...stocks,
       sellPrice: this.computeSellPrice(),
     })
   }

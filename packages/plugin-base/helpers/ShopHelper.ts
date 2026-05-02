@@ -380,7 +380,7 @@ export class ShopHelper {
     for (const item of this.items) {
       const { shortId, name, description, icon, coinValue } = item.definition
       const action = `${prefix}${pascalCase(shortId)}`
-      const stockKey = stockStoreKey(shortId)
+      const stockKey = shopStockStoreKey(shortId)
       const priceTemplate =
         options?.priceTemplates?.[shortId] ?? (coinValue !== undefined ? String(coinValue) : "—")
 
@@ -425,7 +425,7 @@ export class ShopHelper {
    * `getComponentSchema().storeKeys`.
    */
   getStoreKeys(): string[] {
-    return this.items.map((i) => stockStoreKey(i.definition.shortId))
+    return this.items.map((i) => shopStockStoreKey(i.definition.shortId))
   }
 
   /**
@@ -435,7 +435,7 @@ export class ShopHelper {
   async getComponentState(): Promise<Record<string, number>> {
     const state: Record<string, number> = {}
     for (const item of this.items) {
-      state[stockStoreKey(item.definition.shortId)] = await this.getStock(item.definition.shortId)
+      state[shopStockStoreKey(item.definition.shortId)] = await this.getStock(item.definition.shortId)
     }
     return state
   }
@@ -458,12 +458,23 @@ function pascalCase(s: string): string {
     .join("")
 }
 
-/** Convert `skip-token` to `skipTokenStock`. */
-function stockStoreKey(shortId: string): string {
+/**
+ * Store key for shop stock in plugin component state (e.g. `skip-token` → `skipTokenStock`).
+ * Matches `ShopHelper.getStoreKeys()` / `getComponentState()`.
+ */
+export function shopStockStoreKey(shortId: string): string {
   const camel = shortId
     .split(/[-_]/)
     .filter(Boolean)
     .map((part, i) => (i === 0 ? part : part[0]!.toUpperCase() + part.slice(1)))
     .join("")
   return `${camel}Stock`
+}
+
+/**
+ * Default buy action id for a catalog short id (e.g. `skip-token` → `buySkipToken`).
+ * Same convention as `generateComponents()` (`buy` + PascalCase short id).
+ */
+export function shopBuyAction(shortId: string, buyPrefix = "buy"): string {
+  return `${buyPrefix}${pascalCase(shortId)}`
 }

@@ -1,5 +1,12 @@
 import { z } from "zod"
-import { buildShopItemsFromCatalog, type ShopCatalogEntry, type ShopItem } from "@repo/plugin-base"
+import type { ShopOfferTableRow } from "@repo/types"
+import {
+  buildShopItemsFromCatalog,
+  shopBuyAction,
+  shopStockStoreKey,
+  type ShopCatalogEntry,
+  type ShopItem,
+} from "@repo/plugin-base"
 
 export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
   {
@@ -11,7 +18,7 @@ export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
     tradeable: true,
     consumable: true,
     coinValue: 100,
-    icon: "skip-forward",
+    icon: "disc-2",
     initialStock: 3,
     sellBackRatio: 0.5,
   },
@@ -48,4 +55,24 @@ export const defaultMusicShopConfig: MusicShopConfig = {
 
 export function buildMusicShopItems(): ShopItem[] {
   return buildShopItemsFromCatalog(MUSIC_SHOP_CATALOG)
+}
+
+/** Rows for `shop-offer-table` — derived from `MUSIC_SHOP_CATALOG`. */
+export function buildMusicShopOfferRows(): ShopOfferTableRow[] {
+  return MUSIC_SHOP_CATALOG.map((entry) => ({
+    icon: entry.icon,
+    name: entry.name,
+    description: entry.description,
+    price: entry.coinValue,
+    quantityStoreKey: shopStockStoreKey(entry.shortId),
+    action: shopBuyAction(entry.shortId),
+    buyLabel: "Buy",
+    confirmMessage: `Spend ${entry.coinValue} coins on ${entry.name}?`,
+    confirmText: "Buy",
+  }))
+}
+
+/** `storeKeys` for `getComponentSchema`: stock keys from catalog + `sellPrice`. */
+export function musicShopComponentStoreKeys(): string[] {
+  return [...MUSIC_SHOP_CATALOG.map((e) => shopStockStoreKey(e.shortId)), "sellPrice"]
 }

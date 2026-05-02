@@ -1,11 +1,5 @@
 import React, { useEffect, useRef, useState } from "react"
-import {
-  Button,
-  CloseButton,
-  Icon,
-  Popover,
-  Text,
-} from "@chakra-ui/react"
+import { Button, Icon, Popover, Text } from "@chakra-ui/react"
 import { getIcon } from "../icons"
 import { usePluginComponentContext } from "../context"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
@@ -37,6 +31,7 @@ export function ButtonTemplateComponent({
   confirmText,
   variant = "ghost",
   size = "sm",
+  disabled,
   pluginName,
 }: ButtonTemplateComponentProps) {
   const { openModal } = usePluginComponentContext()
@@ -75,8 +70,7 @@ export function ButtonTemplateComponent({
         toaster.create({
           title: event.data.success ? "Success" : "Error",
           description:
-            event.data.message ||
-            (event.data.success ? "Action completed" : "Action failed"),
+            event.data.message || (event.data.success ? "Action completed" : "Action failed"),
           type: event.data.success ? "success" : "error",
         })
       },
@@ -115,8 +109,9 @@ export function ButtonTemplateComponent({
   const buttonNode = (
     <Button
       size={size}
-      variant={variant}
+      variant={variant as never}
       loading={isLoading}
+      disabled={disabled}
       onClick={handleClick}
     >
       {IconComponent ? <Icon as={IconComponent} mr={1} /> : null}
@@ -126,23 +121,20 @@ export function ButtonTemplateComponent({
 
   if (action && confirmMessage) {
     return (
-      <Popover.Root
-        open={confirmOpen}
-        onOpenChange={(e) => setConfirmOpen(e.open)}
-      >
+      <Popover.Root open={confirmOpen} onOpenChange={(e) => setConfirmOpen(e.open)}>
         <Popover.Trigger asChild>{buttonNode}</Popover.Trigger>
         <Popover.Positioner>
           <Popover.Content>
             <Popover.Arrow />
-            <Popover.CloseTrigger asChild position="absolute" top="1" right="1">
-              <CloseButton size="sm" />
-            </Popover.CloseTrigger>
             <Popover.Body>
               <Text>{confirmMessage}</Text>
             </Popover.Body>
             <Popover.Footer justifyContent="flex-end" display="flex">
+              <Button variant="plain" size="sm" onClick={() => setConfirmOpen(false)}>
+                Cancel
+              </Button>
               <Button
-                colorPalette="red"
+                colorPalette="primary"
                 onClick={() => {
                   setConfirmOpen(false)
                   dispatchAction()

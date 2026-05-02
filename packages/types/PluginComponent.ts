@@ -10,6 +10,8 @@
  * - Frontends implement template components; plugins reference them by name
  */
 
+import type { GameAttributeName } from "./GameSession"
+
 // ============================================================================
 // Placement Areas
 // ============================================================================
@@ -53,6 +55,7 @@ export type TemplateComponentName =
   | "inventory-button"
   | "inventory-grid"
   | "item-badge"
+  | "shop-offer-table"
 
 /**
  * Props for the username template component.
@@ -136,6 +139,8 @@ export interface ButtonComponentProps {
   confirmText?: string
   variant?: "solid" | "ghost" | "outline" | "link"
   size?: "sm" | "md" | "lg"
+  /** When true, the button is non-interactive. */
+  disabled?: boolean
 }
 
 /**
@@ -276,6 +281,41 @@ export interface ItemBadgeComponentProps {
   showQuantity?: boolean
 }
 
+/** One row in a `shop-offer-table` (game shop / catalog UI). */
+export interface ShopOfferTableRow {
+  /** Lucide icon key (see frontend `ICON_MAP`, e.g. `disc-2`). */
+  icon: string
+  name: string
+  description: string
+  /** Price in `balanceAttribute` units (e.g. coins). Displayed in the UI and used for afford checks. */
+  price: number
+  /** Plugin component store key for in-stock quantity (e.g. `skipTokenStock`). */
+  quantityStoreKey: string
+  /** Plugin action dispatched when Buy is clicked (`EXECUTE_PLUGIN_ACTION`). */
+  action: string
+  /** Buy button label (default `Buy`). */
+  buyLabel?: string
+  /**
+   * If set, opening the buy flow shows a confirmation popover before
+   * `EXECUTE_PLUGIN_ACTION` runs (same behavior as `button.confirmMessage`).
+   */
+  confirmMessage?: string
+  /** Label on the popover confirm button (defaults to `Confirm` in the template). */
+  confirmText?: string
+  /**
+   * Attribute compared against `price` for afford checks (default `coin`).
+   */
+  balanceAttribute?: GameAttributeName
+}
+
+/**
+ * Tabular shop listing: icon, item (name + description), price, qty, buy action.
+ * Intended for `area: "gameStateTab"` inside a plugin tab.
+ */
+export interface ShopOfferTableComponentProps {
+  rows: ShopOfferTableRow[]
+}
+
 /**
  * Type-safe mapping of component names to their props.
  */
@@ -296,6 +336,7 @@ export interface TemplateComponentPropsMap {
   "inventory-button": InventoryButtonComponentProps
   "inventory-grid": InventoryGridComponentProps
   "item-badge": ItemBadgeComponentProps
+  "shop-offer-table": ShopOfferTableComponentProps
 }
 
 // ============================================================================
@@ -376,6 +417,7 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "inventory-button" } & InventoryButtonComponentProps)
   | (PluginComponentMetadata & { type: "inventory-grid" } & InventoryGridComponentProps)
   | (PluginComponentMetadata & { type: "item-badge" } & ItemBadgeComponentProps)
+  | (PluginComponentMetadata & { type: "shop-offer-table" } & ShopOfferTableComponentProps)
   | PluginModalComponent // Modal is special - it contains children
   | PluginTabComponent // Tab is a container for game state modal tabs
 
@@ -404,6 +446,9 @@ export type PluginUsernameComponent = PluginComponentMetadata & {
 export type PluginCountdownComponent = PluginComponentMetadata & {
   type: "countdown"
 } & CountdownComponentProps
+export type PluginShopOfferTableComponent = PluginComponentMetadata & {
+  type: "shop-offer-table"
+} & ShopOfferTableComponentProps
 
 /**
  * Modal component - special container that can hold other components.

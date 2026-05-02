@@ -18,7 +18,7 @@ import generateId from "../lib/generateId"
 // Default config helpers
 // ============================================================================
 
-const DEFAULT_INVENTORY_SLOTS = 20
+const DEFAULT_INVENTORY_SLOTS = 3
 
 /**
  * Fill in defaults for an incoming session config. The plan keeps the

@@ -14,6 +14,7 @@ import { BadgeTemplateComponent } from "./BadgeComponent"
 import { LeaderboardTemplateComponent } from "./LeaderboardComponent"
 import { CountdownTemplateComponent } from "./CountdownComponent"
 import { GameAttributeTemplateComponent } from "./GameAttributeComponent"
+import { ShopOfferTableTemplateComponent } from "./ShopOfferTableComponent"
 
 /**
  * Strongly-typed map of built-in template component names to React components.
@@ -39,6 +40,7 @@ export const TEMPLATE_COMPONENT_MAP: {
   leaderboard: LeaderboardTemplateComponent,
   countdown: CountdownTemplateComponent,
   "game-attribute": GameAttributeTemplateComponent,
+  "shop-offer-table": ShopOfferTableTemplateComponent,
 }
 
 /**
