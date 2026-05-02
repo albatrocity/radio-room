@@ -79,7 +79,10 @@ export type GameStateEffect =
   | { type: "lock"; target: GameAttributeName }
   | { type: "flag"; name: string; value: boolean }
 
-export type GameStateEffectWithIcon = GameStateEffect & { icon?: string }
+export type GameStateEffectWithMeta = GameStateEffect & {
+  icon?: string
+  intent?: "positive" | "negative" | "neutral"
+}
 
 /** How a newly-applied modifier of the same `name` interacts with existing instances. */
 export type ModifierStackBehavior = "replace" | "stack" | "extend"
@@ -92,7 +95,7 @@ export interface GameStateModifier {
   /** Plugin that applied the modifier. `"system"` for admin-applied. */
   source: string
   /** Effects applied while this modifier is active. */
-  effects: GameStateEffectWithIcon[]
+  effects: GameStateEffectWithMeta[]
   /** Unix epoch (ms) when the modifier becomes active. */
   startAt: number
   /** Unix epoch (ms) when the modifier expires. */

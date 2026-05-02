@@ -11,6 +11,7 @@ import {
 export const SCRATCHED_CD_SHORT_ID = "scratched-cd"
 export const ANALOG_DELAY_SHORT_ID = "analog-delay-pedal"
 export const COMPRESSOR_SHORT_ID = "compressor-pedal"
+export const BOOST_SHORT_ID = "boost-pedal"
 
 export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
   {
@@ -52,6 +53,20 @@ export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
     requiresTarget: "user",
     coinValue: 50,
     icon: "shrink",
+    initialStock: 5,
+    sellBackRatio: 0,
+  },
+  {
+    shortId: BOOST_SHORT_ID,
+    name: "Boost Pedal",
+    description: "Makes chat messages large for a limited time. Use on yourself or others.",
+    stackable: true,
+    maxStack: 99,
+    tradeable: false,
+    consumable: true,
+    requiresTarget: "user",
+    coinValue: 50,
+    icon: "chevrons-up",
     initialStock: 5,
     sellBackRatio: 0,
   },

@@ -22,6 +22,7 @@ import {
   SCRATCHED_CD_SHORT_ID,
   ANALOG_DELAY_SHORT_ID,
   COMPRESSOR_SHORT_ID,
+  BOOST_SHORT_ID,
 } from "./types"
 export type { MusicShopConfig } from "./types"
 export {
@@ -40,6 +41,7 @@ const PLUGIN_NAME = "music-shop"
 /** Flag on `GameStateEffect` for chat echo (see `getActiveFlags`). */
 const ECHO_FLAG = "echo"
 const COMPRESSOR_FLAG = "compressor"
+const BOOST_FLAG = "boost"
 
 export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
   name = PLUGIN_NAME
@@ -210,7 +212,9 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
       const now = Date.now()
       await this.game.applyModifier(targetUserId, {
         name: "analog_delay_echo",
-        effects: [{ type: "flag", name: ECHO_FLAG, value: true, icon: "square-stack" }],
+        effects: [
+          { type: "flag", name: ECHO_FLAG, value: true, icon: "square-stack", intent: "negative" },
+        ],
         startAt: now,
         endAt: now + config.effectDurationMs,
         stackBehavior: "extend",
@@ -243,7 +247,9 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
       const now = Date.now()
       await this.game.applyModifier(targetUserId, {
         name: "compressor",
-        effects: [{ type: "flag", name: COMPRESSOR_FLAG, value: true, icon: "shrink" }],
+        effects: [
+          { type: "flag", name: COMPRESSOR_FLAG, value: true, icon: "shrink", intent: "negative" },
+        ],
         startAt: now,
         endAt: now + config.effectDurationMs,
         stackBehavior: "extend",
@@ -255,13 +261,49 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
       const actorName = actor?.username?.trim() || userId
       const targetName = target?.username?.trim() || targetUserId
       const who =
-        targetUserId === userId ? `${actorName} is compressed` : `${targetName}'s chat echoes`
+        targetUserId === userId
+          ? `${actorName} is compressed`
+          : `${targetName}'s chat is compressed`
       await this.context.api.sendSystemMessage(
         this.context.roomId,
         `${who} (${definition.name} — ${Math.round(config.effectDurationMs / 60_000)} min).`,
       )
 
       return { success: true, consumed: true, message: "Compressor engaged. It was lost with use." }
+    }
+
+    if (definition.shortId === BOOST_SHORT_ID) {
+      const ctx = callContext as { targetUserId?: string } | undefined
+      const targetUserId = ctx?.targetUserId ?? userId
+      const roomUsers = await this.context.api.getUsers(this.context.roomId)
+      const inRoom = roomUsers.some((u) => u.userId === targetUserId)
+      if (!inRoom) {
+        return { success: false, consumed: false, message: "That user is not in this room." }
+      }
+
+      const now = Date.now()
+      await this.game.applyModifier(targetUserId, {
+        name: "boost",
+        effects: [
+          { type: "flag", name: BOOST_FLAG, value: true, icon: "chevrons-up", intent: "positive" },
+        ],
+        startAt: now,
+        endAt: now + config.effectDurationMs,
+        stackBehavior: "extend",
+        itemDefinitionId: definition.id,
+      })
+
+      const [actor] = await this.context.api.getUsersByIds([userId])
+      const [target] = await this.context.api.getUsersByIds([targetUserId])
+      const actorName = actor?.username?.trim() || userId
+      const targetName = target?.username?.trim() || targetUserId
+      const who = targetUserId === userId ? `${actorName} is boosted` : `${targetName} is boosted`
+      await this.context.api.sendSystemMessage(
+        this.context.roomId,
+        `${who} (${definition.name} — ${Math.round(config.effectDurationMs / 60_000)} min).`,
+      )
+
+      return { success: true, consumed: true, message: "Boost engaged. It was lost with use." }
     }
 
     return { success: false, consumed: false, message: `Unknown item: ${definition.shortId}` }
@@ -276,10 +318,11 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
     if (!state) return null
 
     const flags = getActiveFlags(state.modifiers, Date.now())
-    if (!flags[ECHO_FLAG] && !flags[COMPRESSOR_FLAG]) return null
+    if (!flags[ECHO_FLAG] && !flags[COMPRESSOR_FLAG] && !flags[BOOST_FLAG]) return null
 
     const hasEcho = Boolean(flags[ECHO_FLAG])
     const hasCompressor = Boolean(flags[COMPRESSOR_FLAG])
+    const hasBoost = Boolean(flags[BOOST_FLAG])
 
     const tokens = tokenizeWords(message.content)
     const { content, contentSegments } = buildSegments(tokens, (t) => {
@@ -292,6 +335,15 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
       }
       if (hasCompressor && !hasEcho) {
         return [{ text: t.word, effects: [{ type: "size", value: "xs" }] }]
+      }
+      if (hasBoost && hasEcho) {
+        return [
+          { text: t.word, effects: [{ type: "size", value: "large" }] },
+          { text: ` ${t.word}`, effects: [{ type: "size", value: "small" }] },
+        ]
+      }
+      if (hasBoost) {
+        return [{ text: t.word, effects: [{ type: "size", value: "large" }] }]
       }
       return [
         { text: t.word },

@@ -13,6 +13,16 @@ function formatModifierName(name: string): string {
   return name.replace(/_/g, " ")
 }
 
+/** Uses per-effect `intent` (`GameStateEffectWithMeta`) for list indicator color. */
+function resolveModifierIndicatorColor(modifier: GameStateModifier): string {
+  for (const effect of modifier.effects) {
+    if (effect.intent === "positive") return "green.500"
+    if (effect.intent === "negative") return "red.500"
+    if (effect.intent === "neutral") return "gray.500"
+  }
+  return "gray.500"
+}
+
 function resolveModifierIndicatorIcon(
   modifier: GameStateModifier,
   definitionMap: Map<string, ItemDefinition>,
@@ -52,7 +62,7 @@ export function UserModifiersList({ modifiers, definitionMap }: UserModifiersLis
       <List.Root variant="plain">
         {activeModifiers.map((m) => (
           <List.Item as="li" key={m.id}>
-            <List.Indicator asChild color="green.500">
+            <List.Indicator asChild color={resolveModifierIndicatorColor(m)}>
               <Icon as={resolveModifierIndicatorIcon(m, definitionMap)} boxSize={4} />
             </List.Indicator>
             <HStack justify="space-between" width="full" gap={3}>
