@@ -49,7 +49,7 @@ This guide explains how to create plugins for Listening Room. Plugins extend roo
 │  └─────────────┘  └──────────────┘  └───────────────────┘  │
 │                                                             │
 │  ┌────────────────── Composable Helpers ──────────────────┐│
-│  │ ShopHelper · (future: RoundsHelper, LeaderboardHelper) ││
+│  │ ShopHelper / ShopPlugin · (future: RoundsHelper, …)   ││
 │  └────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
                             │
@@ -1557,12 +1557,13 @@ this.game.registerAttributes([
 | `registerAttributes(defs)`                     | Registers `PluginAttributeDefinition[]` (fire-and-forget).                                                                                                                               |
 | `addScore(userId, attribute, amount, reason?)` | Adds to an attribute; applies active **multiplier** / **additive** modifiers; returns new value. **Lock** effects block changes.                                                         |
 | `setScore(userId, attribute, value, reason?)`  | Sets absolute value (ignores multiplier/additive on that write path).                                                                                                                    |
-| `applyModifier(userId, modifier)`              | Applies a timed modifier; `source` is set to your plugin name. Omit `id` and `source` from the payload.                                                                                  |
+| `applyModifier(userId, modifier)`              | Applies a modifier with your own `startAt` / `endAt` (ms); `source` is set to your plugin name. Omit `id` and `source` from the payload.                                                                               |
+| `applyTimedModifier(userId, durationMs, modifier)` | Same as `applyModifier`, but sets `startAt = Date.now()` and `endAt = startAt + durationMs`. Omit `startAt`, `endAt`, `id`, and `source` from the payload.                                                        |
 | `removeModifier(userId, modifierId)`           | Removes one modifier instance.                                                                                                                                                           |
 | `getUserState(userId)`                         | Full `UserGameState` or `null` if no active session.                                                                                                                                     |
 | `getLeaderboard(leaderboardId)`                | Hydrated rows (`GameLeaderboardEntry[]`) for a `LeaderboardConfig.id`.                                                                                                                   |
 
-**Modifiers** support `stackBehavior`: `"replace"` | `"stack"` | `"extend"`, plus optional `maxStacks`. Effects include `multiplier`, `additive`, `set`, `lock`, and `flag` on targets — see `@repo/types` (`GameStateModifier`, `GameStateEffect`).
+**Modifiers** support `stackBehavior`: `"replace"` | `"stack"` | `"extend"`, plus optional `maxStacks`. Effects include `multiplier`, `additive`, `set`, `lock`, and `flag` on targets — see `@repo/types` (`GameStateModifier`, `GameStateEffect`, `GameStateEffectWithMeta`). Per-effect metadata may include optional **`icon`** (e.g. Lucide name for UIs) and **`intent`** (`"positive"` \| `"negative"` \| `"neutral"`) for styling (e.g. modifier lists).
 
 ### Inventory API (`this.inventory`)
 
@@ -1609,12 +1610,9 @@ async onItemUsed(
   _context?: unknown,
 ): Promise<ItemUseResult> {
   if (definition.shortId === "speed-potion") {
-    const until = Date.now() + 60_000
-    await this.game.applyModifier(userId, {
+    await this.game.applyTimedModifier(userId, 60_000, {
       name: "speed_boost",
       effects: [{ type: "multiplier", target: "score", value: 2 }],
-      startAt: Date.now(),
-      endAt: until,
       stackBehavior: "extend",
     })
     return { success: true, consumed: true, message: "Speed boost!" }
@@ -1631,7 +1629,7 @@ For **`effects` of type `"flag"`**, derive booleans with **`getActiveFlags(userS
 
 When a user sells an item from their inventory (via the built-in **Inventory** tab in the User Game State modal, which emits `SELL_INVENTORY_ITEM`), the server routes the sale to the plugin that owns the item definition through `onItemSold`. The plugin is responsible for the full sale: removing the item from inventory, refunding coins, restocking, and emitting any UI updates.
 
-When implementing a shop, prefer composing the [`ShopHelper`](#shop-helper) rather than rolling this logic by hand.
+When implementing a shop, prefer the [`ShopHelper`](#shop-helper) (or extend [`ShopPlugin`](#shop-helper)) rather than rolling this logic by hand.
 
 ```typescript
 async onItemSold(
@@ -1700,6 +1698,8 @@ Plugins that sell items for in-game `coin` (e.g. Music Shop) can compose a **`Sh
 
 `ShopHelper` is intentionally **composable** rather than an inheritance layer, so a single plugin can mix multiple helpers (e.g. shop + game) without single-inheritance conflicts.
 
+**`ShopPlugin`:** For a typical coin shop, you can extend **`ShopPlugin<TConfig>`** from `@repo/plugin-base` instead of hand-wiring `ShopHelper`, `executeAction`, `onItemSold`, and stock-related plugin events. It composes `ShopHelper` internally; subclasses provide `shopItems`, `isShopEnabled`, and `isSellingItems`, and may override hooks for item behaviour. See [ADR 0045: ShopPlugin base class](adrs/0045-shop-plugin-base-class.md). Prefer raw **`ShopHelper`** when you need to compose multiple helpers or avoid a shop-specific base class.
+
 ### `ShopItem`
 
 ```typescript
@@ -1724,10 +1724,13 @@ interface ShopItem {
 | `getStock(shortId)` / `getAllStock()`                        | Read current stock.                                                                                                                   |
 | `setStock`, `decrementStock`, `incrementStock`, `restockAll` | Stock mutations (atomic where it matters).                                                                                            |
 | `purchase(initiator, shortId, price)`                        | Atomic buy: stock check → coin debit → `giveItem`, with refunds on any failure.                                                       |
+| `purchaseCatalogItem(initiator, shortId)`                    | Same as `purchase` using the item’s catalog `coinValue` (common case for fixed prices).                                            |
+| `matchBuyAction(action, buyPrefix?)`                        | Returns the `shortId` if `action` matches the generated buy action for an item (default prefix `buy`, e.g. `buySkipToken`).            |
 | `sell(initiator, itemId, options?)`                          | Sell-back: validates ownership + source plugin → `removeItem` → coin credit → restock.                                                |
 | `generateComponents(options?)`                               | Build declarative UI for every item (heading + description + buy button). Suitable for placing inside a `tab` component's `children`. |
 | `getStoreKeys()`                                             | Default store keys to expose to the frontend (`<shortIdCamel>Stock`).                                                                 |
-| `getComponentState()`                                        | Stock snapshot for `getComponentState`.                                                                                               |
+| `getComponentState()`                                        | Stock snapshot for `getComponentState` (per-item stock keys).                                                                          |
+| `getComponentStateWithSellPrice(quoteShortId)`              | Stock snapshot plus a `sellPrice` field from `getSellPrice(quoteShortId)` (e.g. for `STOCK_CHANGED` / UI).                           |
 
 ### Usage
 

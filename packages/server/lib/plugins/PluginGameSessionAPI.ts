@@ -102,6 +102,19 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
     return this.service.applyModifier(this.roomId, userId, this.pluginName, modifier)
   }
 
+  async applyTimedModifier(
+    userId: string,
+    durationMs: number,
+    modifier: Omit<GameStateModifier, "id" | "source" | "startAt" | "endAt">,
+  ): Promise<string> {
+    const now = Date.now()
+    return this.applyModifier(userId, {
+      ...modifier,
+      startAt: now,
+      endAt: now + durationMs,
+    })
+  }
+
   async removeModifier(userId: string, modifierId: string): Promise<boolean> {
     if (!this.service) return false
     return this.service.removeModifier(this.roomId, userId, modifierId)

@@ -374,6 +374,15 @@ export interface GameSessionPluginAPI {
   // ---------- Modifiers --------------------------------------------------
   /** Apply a modifier to a user. Returns the assigned modifier id. */
   applyModifier(userId: string, modifier: Omit<GameStateModifier, "id" | "source">): Promise<string>
+  /**
+   * Convenience wrapper: applies a modifier with `startAt = Date.now()` and
+   * `endAt = startAt + durationMs`. Returns the assigned modifier id.
+   */
+  applyTimedModifier(
+    userId: string,
+    durationMs: number,
+    modifier: Omit<GameStateModifier, "id" | "source" | "startAt" | "endAt">,
+  ): Promise<string>
   /** Remove a modifier instance. Returns whether it was found and removed. */
   removeModifier(userId: string, modifierId: string): Promise<boolean>
 

@@ -3,6 +3,7 @@ import { ShopPlugin, type ShopItem } from "@repo/plugin-base"
 import {
   getActiveFlags,
   type ChatMessage,
+  type GameStateEffectWithMeta,
   type Plugin,
   type PluginConfigSchema,
   type PluginComponentSchema,
@@ -163,6 +164,54 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
   // Inventory hooks (item-specific behavior)
   // ==========================================================================
 
+  /**
+   * Apply a timed flag modifier to a target user (self or chosen), announce in chat.
+   */
+  private async applyTargetedTimedModifier(
+    userId: string,
+    callContext: unknown,
+    definition: ItemDefinition,
+    effectDurationMs: number,
+    spec: {
+      modifierName: string
+      effects: GameStateEffectWithMeta[]
+      successMessage: string
+      describe: (p: { isSelf: boolean; actor: string; target: string }) => string
+    },
+  ): Promise<ItemUseResult> {
+    if (!this.context) {
+      return { success: false, consumed: false, message: "Plugin not initialized" }
+    }
+    const targetUserId =
+      (callContext as { targetUserId?: string } | undefined)?.targetUserId ?? userId
+    const roomUsers = await this.context.api.getUsers(this.context.roomId)
+    if (!roomUsers.some((u) => u.userId === targetUserId)) {
+      return { success: false, consumed: false, message: "That user is not in this room." }
+    }
+
+    const now = Date.now()
+    await this.game.applyModifier(targetUserId, {
+      name: spec.modifierName,
+      effects: spec.effects,
+      startAt: now,
+      endAt: now + effectDurationMs,
+      stackBehavior: "extend",
+      itemDefinitionId: definition.id,
+    })
+
+    const [actor] = await this.context.api.getUsersByIds([userId])
+    const [target] = await this.context.api.getUsersByIds([targetUserId])
+    const actorName = actor?.username?.trim() || userId
+    const targetName = target?.username?.trim() || targetUserId
+    const isSelf = targetUserId === userId
+    const who = spec.describe({ isSelf, actor: actorName, target: targetName })
+    await this.context.api.sendSystemMessage(
+      this.context.roomId,
+      `${who} (${definition.name} — ${Math.round(effectDurationMs / 60_000)} min).`,
+    )
+    return { success: true, consumed: true, message: spec.successMessage }
+  }
+
   async onItemUsed(
     userId: string,
     _item: InventoryItem,
@@ -201,109 +250,39 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
     }
 
     if (definition.shortId === ANALOG_DELAY_SHORT_ID) {
-      const ctx = callContext as { targetUserId?: string } | undefined
-      const targetUserId = ctx?.targetUserId ?? userId
-      const roomUsers = await this.context.api.getUsers(this.context.roomId)
-      const inRoom = roomUsers.some((u) => u.userId === targetUserId)
-      if (!inRoom) {
-        return { success: false, consumed: false, message: "That user is not in this room." }
-      }
-
-      const now = Date.now()
-      await this.game.applyModifier(targetUserId, {
-        name: "analog_delay_echo",
+      return this.applyTargetedTimedModifier(userId, callContext, definition, config.effectDurationMs, {
+        modifierName: "analog_delay_echo",
         effects: [
           { type: "flag", name: ECHO_FLAG, value: true, icon: "square-stack", intent: "negative" },
         ],
-        startAt: now,
-        endAt: now + config.effectDurationMs,
-        stackBehavior: "extend",
-        itemDefinitionId: definition.id,
+        successMessage: "Echo engaged. It was lost with use.",
+        describe: ({ isSelf, actor, target }) =>
+          isSelf ? `${actor} is hearing echoes` : `${target}'s chat echoes`,
       })
-
-      const [actor] = await this.context.api.getUsersByIds([userId])
-      const [target] = await this.context.api.getUsersByIds([targetUserId])
-      const actorName = actor?.username?.trim() || userId
-      const targetName = target?.username?.trim() || targetUserId
-      const who =
-        targetUserId === userId ? `${actorName} is hearing echoes` : `${targetName}'s chat echoes`
-      await this.context.api.sendSystemMessage(
-        this.context.roomId,
-        `${who} (${definition.name} — ${Math.round(config.effectDurationMs / 60_000)} min).`,
-      )
-
-      return { success: true, consumed: true, message: "Echo engaged. It was lost with use." }
     }
 
     if (definition.shortId === COMPRESSOR_SHORT_ID) {
-      const ctx = callContext as { targetUserId?: string } | undefined
-      const targetUserId = ctx?.targetUserId ?? userId
-      const roomUsers = await this.context.api.getUsers(this.context.roomId)
-      const inRoom = roomUsers.some((u) => u.userId === targetUserId)
-      if (!inRoom) {
-        return { success: false, consumed: false, message: "That user is not in this room." }
-      }
-
-      const now = Date.now()
-      await this.game.applyModifier(targetUserId, {
-        name: "compressor",
+      return this.applyTargetedTimedModifier(userId, callContext, definition, config.effectDurationMs, {
+        modifierName: "compressor",
         effects: [
           { type: "flag", name: COMPRESSOR_FLAG, value: true, icon: "shrink", intent: "negative" },
         ],
-        startAt: now,
-        endAt: now + config.effectDurationMs,
-        stackBehavior: "extend",
-        itemDefinitionId: definition.id,
+        successMessage: "Compressor engaged. It was lost with use.",
+        describe: ({ isSelf, actor, target }) =>
+          isSelf ? `${actor} is compressed` : `${target}'s chat is compressed`,
       })
-
-      const [actor] = await this.context.api.getUsersByIds([userId])
-      const [target] = await this.context.api.getUsersByIds([targetUserId])
-      const actorName = actor?.username?.trim() || userId
-      const targetName = target?.username?.trim() || targetUserId
-      const who =
-        targetUserId === userId
-          ? `${actorName} is compressed`
-          : `${targetName}'s chat is compressed`
-      await this.context.api.sendSystemMessage(
-        this.context.roomId,
-        `${who} (${definition.name} — ${Math.round(config.effectDurationMs / 60_000)} min).`,
-      )
-
-      return { success: true, consumed: true, message: "Compressor engaged. It was lost with use." }
     }
 
     if (definition.shortId === BOOST_SHORT_ID) {
-      const ctx = callContext as { targetUserId?: string } | undefined
-      const targetUserId = ctx?.targetUserId ?? userId
-      const roomUsers = await this.context.api.getUsers(this.context.roomId)
-      const inRoom = roomUsers.some((u) => u.userId === targetUserId)
-      if (!inRoom) {
-        return { success: false, consumed: false, message: "That user is not in this room." }
-      }
-
-      const now = Date.now()
-      await this.game.applyModifier(targetUserId, {
-        name: "boost",
+      return this.applyTargetedTimedModifier(userId, callContext, definition, config.effectDurationMs, {
+        modifierName: "boost",
         effects: [
           { type: "flag", name: BOOST_FLAG, value: true, icon: "chevrons-up", intent: "positive" },
         ],
-        startAt: now,
-        endAt: now + config.effectDurationMs,
-        stackBehavior: "extend",
-        itemDefinitionId: definition.id,
+        successMessage: "Boost engaged. It was lost with use.",
+        describe: ({ isSelf, actor, target }) =>
+          isSelf ? `${actor} is boosted` : `${target} is boosted`,
       })
-
-      const [actor] = await this.context.api.getUsersByIds([userId])
-      const [target] = await this.context.api.getUsersByIds([targetUserId])
-      const actorName = actor?.username?.trim() || userId
-      const targetName = target?.username?.trim() || targetUserId
-      const who = targetUserId === userId ? `${actorName} is boosted` : `${targetName} is boosted`
-      await this.context.api.sendSystemMessage(
-        this.context.roomId,
-        `${who} (${definition.name} — ${Math.round(config.effectDurationMs / 60_000)} min).`,
-      )
-
-      return { success: true, consumed: true, message: "Boost engaged. It was lost with use." }
     }
 
     return { success: false, consumed: false, message: `Unknown item: ${definition.shortId}` }
