@@ -19,11 +19,18 @@ export const GROW_FLAG = "grow"
  */
 export const ECHO_FLAG = "echo"
 
+/**
+ * Flag name for text gating effect. Each active modifier with this flag replaces
+ * lowercase letters with underscores (escaped for Markdown chat rendering).
+ */
+export const GATE_FLAG = "gate"
+
 /** Stack counts for each text effect (0 = inactive). */
 export interface TextEffectStacks {
   shrink: number
   grow: number
   echo: number
+  gate: number
 }
 
 /**
@@ -41,21 +48,24 @@ export function countTextEffectStacks(
   modifiers: GameStateModifier[] | undefined,
   now: number,
 ): TextEffectStacks {
-  const stacks: TextEffectStacks = { shrink: 0, grow: 0, echo: 0 }
+  const stacks: TextEffectStacks = { shrink: 0, grow: 0, echo: 0, gate: 0 }
   for (const modifier of modifiers ?? []) {
     if (modifier.startAt > now || modifier.endAt <= now) continue
     let setShrink = false
     let setGrow = false
     let setEcho = false
+    let setGate = false
     for (const effect of modifier.effects) {
       if (effect.type !== "flag" || effect.value !== true) continue
       if (effect.name === SHRINK_FLAG) setShrink = true
       else if (effect.name === GROW_FLAG) setGrow = true
       else if (effect.name === ECHO_FLAG) setEcho = true
+      else if (effect.name === GATE_FLAG) setGate = true
     }
     if (setShrink) stacks.shrink += 1
     if (setGrow) stacks.grow += 1
     if (setEcho) stacks.echo += 1
+    if (setGate) stacks.gate += 1
   }
   return stacks
 }

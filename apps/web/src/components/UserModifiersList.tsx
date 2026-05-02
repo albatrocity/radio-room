@@ -61,7 +61,7 @@ export function UserModifiersList({ modifiers, definitionMap }: UserModifiersLis
     <Stack gap={1.5} width="full">
       <List.Root variant="plain">
         {activeModifiers.map((m) => (
-          <List.Item as="li" key={m.id}>
+          <List.Item as="li" key={m.id} alignItems="center">
             <List.Indicator asChild color={resolveModifierIndicatorColor(m)}>
               <Icon as={resolveModifierIndicatorIcon(m, definitionMap)} boxSize={4} />
             </List.Indicator>

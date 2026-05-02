@@ -7,6 +7,7 @@ import {
   SHRINK_FLAG,
   applyTextEffects,
   countTextEffectStacks,
+  GATE_FLAG,
 } from "@repo/plugin-base"
 import {
   type ChatMessage,
@@ -30,6 +31,7 @@ import {
   ANALOG_DELAY_SHORT_ID,
   COMPRESSOR_SHORT_ID,
   BOOST_SHORT_ID,
+  GATE_SHORT_ID,
 } from "./types"
 export type { MusicShopConfig } from "./types"
 export {
@@ -303,6 +305,24 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
           successMessage: "Boost engaged. It was lost with use.",
           describe: ({ isSelf, actor, target }) =>
             isSelf ? `${actor} is boosted` : `${target} is boosted`,
+        },
+      )
+    }
+
+    if (definition.shortId === GATE_SHORT_ID) {
+      return this.applyTargetedTimedModifier(
+        userId,
+        callContext,
+        definition,
+        config.effectDurationMs,
+        {
+          modifierName: "gate",
+          effects: [
+            { type: "flag", name: GATE_FLAG, value: true, icon: "fence", intent: "negative" },
+          ],
+          successMessage: "Gate engaged. It was lost with use.",
+          describe: ({ isSelf, actor, target }) =>
+            isSelf ? `${actor} is gated` : `${target} is gated`,
         },
       )
     }

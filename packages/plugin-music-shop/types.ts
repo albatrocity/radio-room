@@ -72,7 +72,7 @@ export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
     sellBackRatio: 0,
   },
   {
-    shortId: BOOST_SHORT_ID,
+    shortId: GATE_SHORT_ID,
     name: "Gate",
     description:
       "Replaces lowercase letters with underscores for a limited time. Use on yourself or others.",

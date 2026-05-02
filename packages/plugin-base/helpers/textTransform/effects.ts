@@ -74,3 +74,12 @@ export function echoCount(stacks: TextEffectStacks): number {
   if (stacks.echo <= 0) return 0
   return Math.min(stacks.echo, MAX_ECHO)
 }
+
+/**
+ * Gate transform: each ASCII lowercase letter becomes a visible underscore. We emit
+ * Markdown `\_` so chat renderers (react-markdown / GFM) treat it as a literal `_`
+ * instead of italics delimiters.
+ */
+export function applyGateTransform(text: string): string {
+  return text.replace(/[a-z]/g, "\\_")
+}

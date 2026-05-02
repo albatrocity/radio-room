@@ -26,6 +26,7 @@ export {
   SHRINK_FLAG,
   GROW_FLAG,
   ECHO_FLAG,
+  GATE_FLAG,
   countTextEffectStacks,
   netSizeShift,
   resolveBaseSize,
