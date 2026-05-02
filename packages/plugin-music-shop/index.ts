@@ -190,13 +190,10 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
       return { success: false, consumed: false, message: "That user is not in this room." }
     }
 
-    const now = Date.now()
-    await this.game.applyModifier(targetUserId, {
+    await this.game.applyTimedModifier(targetUserId, effectDurationMs, {
       name: spec.modifierName,
       effects: spec.effects,
-      startAt: now,
-      endAt: now + effectDurationMs,
-      stackBehavior: "extend",
+      stackBehavior: "stack",
       itemDefinitionId: definition.id,
     })
 

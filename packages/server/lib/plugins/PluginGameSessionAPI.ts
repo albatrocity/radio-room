@@ -108,10 +108,26 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
     modifier: Omit<GameStateModifier, "id" | "source" | "startAt" | "endAt">,
   ): Promise<string> {
     const now = Date.now()
+    let endAt = now + durationMs
+
+    // For `stack` behavior, accumulate remaining time from the longest-lived
+    // active same-name modifier so repeated applications visibly tail off:
+    // existing stacks keep their `endAt`, the new stack carries the extra time.
+    if (modifier.stackBehavior === "stack") {
+      const state = await this.getUserState(userId)
+      const sameName = (state?.modifiers ?? []).filter(
+        (m) => m.name === modifier.name && m.startAt <= now && m.endAt > now,
+      )
+      if (sameName.length > 0) {
+        const latestEndAt = Math.max(...sameName.map((m) => m.endAt))
+        endAt = latestEndAt + durationMs
+      }
+    }
+
     return this.applyModifier(userId, {
       ...modifier,
       startAt: now,
-      endAt: now + durationMs,
+      endAt,
     })
   }
 

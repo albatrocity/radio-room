@@ -377,6 +377,12 @@ export interface GameSessionPluginAPI {
   /**
    * Convenience wrapper: applies a modifier with `startAt = Date.now()` and
    * `endAt = startAt + durationMs`. Returns the assigned modifier id.
+   *
+   * Special case for `stackBehavior: "stack"`: when the user already has an
+   * active modifier of the same `name`, the new instance's `endAt` is extended
+   * to `latestExistingEndAt + durationMs`. Existing stacks keep their original
+   * `endAt`, so repeated applications produce a tail-off where the stack count
+   * naturally drops as older instances expire.
    */
   applyTimedModifier(
     userId: string,
