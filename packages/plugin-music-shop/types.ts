@@ -1,4 +1,33 @@
 import { z } from "zod"
+import { buildShopItemsFromCatalog, type ShopCatalogEntry, type ShopItem } from "@repo/plugin-base"
+
+export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
+  {
+    shortId: "skip-token",
+    name: "Scratched CD",
+    description: "Skip the currently playing song instantly.",
+    stackable: true,
+    maxStack: 99,
+    tradeable: true,
+    consumable: true,
+    coinValue: 100,
+    icon: "skip-forward",
+    initialStock: 3,
+    sellBackRatio: 0.5,
+  },
+]
+
+export function getMusicShopCatalogEntry(shortId: string): ShopCatalogEntry | undefined {
+  return MUSIC_SHOP_CATALOG.find((e) => e.shortId === shortId)
+}
+
+export function requireMusicShopCatalogEntry(shortId: string): ShopCatalogEntry {
+  const row = getMusicShopCatalogEntry(shortId)
+  if (!row) {
+    throw new Error(`[music-shop] Unknown catalog item: ${shortId}`)
+  }
+  return row
+}
 
 export const musicShopConfigSchema = z.object({
   enabled: z.boolean().default(false),
@@ -8,10 +37,6 @@ export const musicShopConfigSchema = z.object({
    * close sales without disabling item effects.
    */
   isSellingItems: z.boolean().default(true),
-  skipTokenPrice: z.number().int().min(1).default(100),
-  skipTokenStock: z.number().int().min(0).default(3),
-  skipTokenIcon: z.string().default("skip-forward"),
-  sellBackRatio: z.number().min(0).max(1).default(0.5),
 })
 
 export type MusicShopConfig = z.infer<typeof musicShopConfigSchema>
@@ -19,8 +44,8 @@ export type MusicShopConfig = z.infer<typeof musicShopConfigSchema>
 export const defaultMusicShopConfig: MusicShopConfig = {
   enabled: false,
   isSellingItems: true,
-  skipTokenPrice: 100,
-  skipTokenStock: 3,
-  skipTokenIcon: "skip-forward",
-  sellBackRatio: 0.5,
+}
+
+export function buildMusicShopItems(): ShopItem[] {
+  return buildShopItemsFromCatalog(MUSIC_SHOP_CATALOG)
 }

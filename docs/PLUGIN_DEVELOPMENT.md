@@ -391,33 +391,33 @@ Plugins subscribe to system events using SCREAMING_SNAKE_CASE names.
 
 ### Available Events
 
-| Event                   | Payload                                          | Description           |
-| ----------------------- | ------------------------------------------------ | --------------------- |
-| `TRACK_CHANGED`         | `{ roomId, track: QueueItem }`                   | Now playing changed   |
-| `REACTION_ADDED`        | `{ roomId, reaction: ReactionPayload }`          | User added reaction   |
-| `REACTION_REMOVED`      | `{ roomId, reaction: ReactionPayload }`          | User removed reaction |
-| `MESSAGE_RECEIVED`      | `{ roomId, message: ChatMessage }`               | Chat message sent     |
-| `USER_JOINED`           | `{ roomId, user: User }`                         | User joined room      |
-| `USER_LEFT`             | `{ roomId, user: User }`                         | User left room        |
-| `CONFIG_CHANGED`        | `{ roomId, pluginName, config, previousConfig }` | Plugin config updated |
-| `ROOM_SETTINGS_UPDATED` | `{ roomId, room: Room }`                         | Room settings changed |
-| `ROOM_DELETED`          | `{ roomId }`                                     | Room was deleted      |
-| `SEGMENT_ACTIVATED`     | `{ roomId, showId, segmentId, segmentTitle }`      | Admin activated a schedule segment |
+| Event                   | Payload                                          | Description                        |
+| ----------------------- | ------------------------------------------------ | ---------------------------------- |
+| `TRACK_CHANGED`         | `{ roomId, track: QueueItem }`                   | Now playing changed                |
+| `REACTION_ADDED`        | `{ roomId, reaction: ReactionPayload }`          | User added reaction                |
+| `REACTION_REMOVED`      | `{ roomId, reaction: ReactionPayload }`          | User removed reaction              |
+| `MESSAGE_RECEIVED`      | `{ roomId, message: ChatMessage }`               | Chat message sent                  |
+| `USER_JOINED`           | `{ roomId, user: User }`                         | User joined room                   |
+| `USER_LEFT`             | `{ roomId, user: User }`                         | User left room                     |
+| `CONFIG_CHANGED`        | `{ roomId, pluginName, config, previousConfig }` | Plugin config updated              |
+| `ROOM_SETTINGS_UPDATED` | `{ roomId, room: Room }`                         | Room settings changed              |
+| `ROOM_DELETED`          | `{ roomId }`                                     | Room was deleted                   |
+| `SEGMENT_ACTIVATED`     | `{ roomId, showId, segmentId, segmentTitle }`    | Admin activated a schedule segment |
 
 ### Game & inventory events
 
 These fire when [game sessions & inventory](#game-sessions--inventory) are in use:
 
-| Event | Payload (summary) |
-| ----- | ----------------- |
-| `GAME_SESSION_STARTED` | `{ roomId, sessionId, config }` |
-| `GAME_SESSION_ENDED` | `{ roomId, sessionId, results }` |
-| `GAME_STATE_CHANGED` | `{ roomId, sessionId, userId, changes }` |
-| `GAME_MODIFIER_APPLIED` | `{ roomId, sessionId, userId, modifier }` |
-| `GAME_MODIFIER_REMOVED` | `{ roomId, sessionId, userId, modifierId, reason }` |
-| `INVENTORY_ITEM_ACQUIRED` | `{ roomId, sessionId, userId, item, source }` |
-| `INVENTORY_ITEM_USED` | `{ roomId, sessionId, userId, item, result }` |
-| `INVENTORY_ITEM_REMOVED` | `{ roomId, sessionId, userId, itemId, quantity }` |
+| Event                        | Payload (summary)                                             |
+| ---------------------------- | ------------------------------------------------------------- |
+| `GAME_SESSION_STARTED`       | `{ roomId, sessionId, config }`                               |
+| `GAME_SESSION_ENDED`         | `{ roomId, sessionId, results }`                              |
+| `GAME_STATE_CHANGED`         | `{ roomId, sessionId, userId, changes }`                      |
+| `GAME_MODIFIER_APPLIED`      | `{ roomId, sessionId, userId, modifier }`                     |
+| `GAME_MODIFIER_REMOVED`      | `{ roomId, sessionId, userId, modifierId, reason }`           |
+| `INVENTORY_ITEM_ACQUIRED`    | `{ roomId, sessionId, userId, item, source }`                 |
+| `INVENTORY_ITEM_USED`        | `{ roomId, sessionId, userId, item, result }`                 |
+| `INVENTORY_ITEM_REMOVED`     | `{ roomId, sessionId, userId, itemId, quantity }`             |
 | `INVENTORY_ITEM_TRANSFERRED` | `{ roomId, sessionId, fromUserId, toUserId, item, quantity }` |
 
 ### Example Event Handlers
@@ -1055,38 +1055,38 @@ getComponentSchema(): PluginComponentSchema {
 
 ### Component Areas
 
-| Area              | Location                              | Item Context Available |
-| ----------------- | ------------------------------------- | ---------------------- |
-| `nowPlaying`      | Below now playing info                | No                     |
-| `nowPlayingInfo`  | Inline with now playing details       | No                     |
-| `nowPlayingBadge` | Badge area near title                 | No                     |
-| `nowPlayingArt`   | Overlay on album art                  | No                     |
-| `playlistItem`    | Per-track in playlist                 | Yes (track data)       |
-| `userList`        | User list section                     | No                     |
-| `userListItem`    | Per-user in list                      | Yes (user data)        |
-| `gameStateTab`    | Tab content in user game state modal  | No                     |
+| Area              | Location                             | Item Context Available |
+| ----------------- | ------------------------------------ | ---------------------- |
+| `nowPlaying`      | Below now playing info               | No                     |
+| `nowPlayingInfo`  | Inline with now playing details      | No                     |
+| `nowPlayingBadge` | Badge area near title                | No                     |
+| `nowPlayingArt`   | Overlay on album art                 | No                     |
+| `playlistItem`    | Per-track in playlist                | Yes (track data)       |
+| `userList`        | User list section                    | No                     |
+| `userListItem`    | Per-user in list                     | Yes (user data)        |
+| `gameStateTab`    | Tab content in user game state modal | No                     |
 
 ### Component Types
 
-| Type               | Description                   | Key Props                                                       |
-| ------------------ | ----------------------------- | --------------------------------------------------------------- |
-| `text`             | Inline text                   | `content`, `variant`                                            |
-| `text-block`       | Block text                    | `content`, `variant`                                            |
-| `heading`          | Section heading               | `content`, `level`                                              |
-| `emoji`            | Emoji display                 | `emoji`, `size`                                                 |
-| `icon`             | Icon display                  | `icon`, `size`, `color`                                         |
-| `button`           | Clickable button              | `label`, `icon`, `opensModal`, `action`                         |
-| `badge`            | Status badge                  | `label`, `variant`, `icon`, `tooltip`                           |
-| `leaderboard`      | Ranked list                   | `dataKey`, `title`, `rowTemplate`, `maxItems`                   |
-| `countdown`        | Timer display                 | `startKey`, `duration`, `text`                                  |
-| `modal`            | Dialog container              | `title`, `size`, `children`                                     |
-| `tab`              | Tab in game state modal       | `label`, `icon?`, `children` (only in `gameStateTab`)           |
-| `game-leaderboard` | Session leaderboard           | `leaderboardId`, `title?`, `maxItems`, `showRank`               |
-| `game-attribute`   | One attribute value           | `attribute`, `format?`, `icon?`, `label?`                       |
-| `modifier-badge`   | Active modifier hint          | `modifier`, `variant?`, `label?`, `icon?`                       |
-| `inventory-button` | Opens inventory modal         | `label`, `opensModal`, `icon?`                                  |
-| `inventory-grid`   | Item grid (often in modal)    | `showQuantity`, `allowUse`, `allowTrade`, `filterSourcePlugin?` |
-| `item-badge`       | Owns-item indicator           | `definitionId`, `showQuantity`                                  |
+| Type               | Description                | Key Props                                                       |
+| ------------------ | -------------------------- | --------------------------------------------------------------- |
+| `text`             | Inline text                | `content`, `variant`                                            |
+| `text-block`       | Block text                 | `content`, `variant`                                            |
+| `heading`          | Section heading            | `content`, `level`                                              |
+| `emoji`            | Emoji display              | `emoji`, `size`                                                 |
+| `icon`             | Icon display               | `icon`, `size`, `color`                                         |
+| `button`           | Clickable button           | `label`, `icon`, `opensModal`, `action`                         |
+| `badge`            | Status badge               | `label`, `variant`, `icon`, `tooltip`                           |
+| `leaderboard`      | Ranked list                | `dataKey`, `title`, `rowTemplate`, `maxItems`                   |
+| `countdown`        | Timer display              | `startKey`, `duration`, `text`                                  |
+| `modal`            | Dialog container           | `title`, `size`, `children`                                     |
+| `tab`              | Tab in game state modal    | `label`, `icon?`, `children` (only in `gameStateTab`)           |
+| `game-leaderboard` | Session leaderboard        | `leaderboardId`, `title?`, `maxItems`, `showRank`               |
+| `game-attribute`   | One attribute value        | `attribute`, `format?`, `icon?`, `label?`                       |
+| `modifier-badge`   | Active modifier hint       | `modifier`, `variant?`, `label?`, `icon?`                       |
+| `inventory-button` | Opens inventory modal      | `label`, `opensModal`, `icon?`                                  |
+| `inventory-grid`   | Item grid (often in modal) | `showQuantity`, `allowUse`, `allowTrade`, `filterSourcePlugin?` |
+| `item-badge`       | Owns-item indicator        | `definitionId`, `showQuantity`                                  |
 
 **Available Icons:**
 
@@ -1511,10 +1511,10 @@ Listening Room provides **core infrastructure** for cross-plugin game state so p
 
 ### When to use what
 
-| Approach | Use when |
-| -------- | -------- |
-| **`this.context.storage`** (`zincrby`, etc.) | Scoreboards or state that should stay **isolated** to your plugin (current behaviour for Guess the Tune, etc.). |
-| **`this.game` / `this.inventory`** | **Shared** economy (`coin`), unified leaderboards, buffs/debuffs that affect multiple plugins, items another plugin can award or consume. |
+| Approach                                     | Use when                                                                                                                                  |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **`this.context.storage`** (`zincrby`, etc.) | Scoreboards or state that should stay **isolated** to your plugin (current behaviour for Guess the Tune, etc.).                           |
+| **`this.game` / `this.inventory`**           | **Shared** economy (`coin`), unified leaderboards, buffs/debuffs that affect multiple plugins, items another plugin can award or consume. |
 
 Access APIs via **`this.game`** and **`this.inventory`** on `BasePlugin` (aliases for `this.context!.game` / `this.context!.inventory`). They are room-scoped: you never pass `roomId`; the server ties calls to the plugin’s room.
 
@@ -1543,18 +1543,18 @@ this.game.registerAttributes([
 
 ### Game session API (`this.game`)
 
-| Method | Description |
-| ------ | ----------- |
-| `getActiveSession()` | Current `GameSession` or `null`. |
-| `startSession(config)` | Starts a session; ends any existing active session for the room. Pass at least `{ name: string }`; other fields get defaults (`enabledAttributes`, leaderboards, inventory flags, etc.). |
-| `endSession()` | Ends the active session; returns `GameSessionResults` or `null`. |
-| `registerAttributes(defs)` | Registers `PluginAttributeDefinition[]` (fire-and-forget). |
-| `addScore(userId, attribute, amount, reason?)` | Adds to an attribute; applies active **multiplier** / **additive** modifiers; returns new value. **Lock** effects block changes. |
-| `setScore(userId, attribute, value, reason?)` | Sets absolute value (ignores multiplier/additive on that write path). |
-| `applyModifier(userId, modifier)` | Applies a timed modifier; `source` is set to your plugin name. Omit `id` and `source` from the payload. |
-| `removeModifier(userId, modifierId)` | Removes one modifier instance. |
-| `getUserState(userId)` | Full `UserGameState` or `null` if no active session. |
-| `getLeaderboard(leaderboardId)` | Hydrated rows (`GameLeaderboardEntry[]`) for a `LeaderboardConfig.id`. |
+| Method                                         | Description                                                                                                                                                                              |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getActiveSession()`                           | Current `GameSession` or `null`.                                                                                                                                                         |
+| `startSession(config)`                         | Starts a session; ends any existing active session for the room. Pass at least `{ name: string }`; other fields get defaults (`enabledAttributes`, leaderboards, inventory flags, etc.). |
+| `endSession()`                                 | Ends the active session; returns `GameSessionResults` or `null`.                                                                                                                         |
+| `registerAttributes(defs)`                     | Registers `PluginAttributeDefinition[]` (fire-and-forget).                                                                                                                               |
+| `addScore(userId, attribute, amount, reason?)` | Adds to an attribute; applies active **multiplier** / **additive** modifiers; returns new value. **Lock** effects block changes.                                                         |
+| `setScore(userId, attribute, value, reason?)`  | Sets absolute value (ignores multiplier/additive on that write path).                                                                                                                    |
+| `applyModifier(userId, modifier)`              | Applies a timed modifier; `source` is set to your plugin name. Omit `id` and `source` from the payload.                                                                                  |
+| `removeModifier(userId, modifierId)`           | Removes one modifier instance.                                                                                                                                                           |
+| `getUserState(userId)`                         | Full `UserGameState` or `null` if no active session.                                                                                                                                     |
+| `getLeaderboard(leaderboardId)`                | Hydrated rows (`GameLeaderboardEntry[]`) for a `LeaderboardConfig.id`.                                                                                                                   |
 
 **Modifiers** support `stackBehavior`: `"replace"` | `"stack"` | `"extend"`, plus optional `maxStacks`. Effects include `multiplier`, `additive`, `set`, `lock`, and `flag` on targets — see `@repo/types` (`GameStateModifier`, `GameStateEffect`).
 
@@ -1579,17 +1579,17 @@ this.inventory.registerItemDefinitions([
 ])
 ```
 
-| Method | Description |
-| ------ | ----------- |
-| `registerItemDefinitions(defs)` | One or more definitions without `id` / `sourcePlugin` (set automatically). |
-| `giveItem(userId, definitionId, quantity?, metadata?, source?)` | Awards items; respects stacking, slot limits, session config. |
-| `removeItem(userId, itemId, quantity?)` | Removes quantity from a stack. |
-| `transferItem(fromUserId, toUserId, itemId, quantity?)` | Only if `ItemDefinition.tradeable` and the active session allows trading. |
-| `useItem(userId, itemId, context?)` | Validates ownership, calls the **defining** plugin’s `onItemUsed`, may decrement if result `consumed`. |
-| `getInventory(userId)` | `UserInventory` (items + `maxSlots`). |
-| `hasItem(userId, definitionId, minQuantity?)` | Convenience check. |
-| `getItemDefinition(definitionId)` | Async lookup. |
-| `getAllItemDefinitions()` | All definitions registered for the room. |
+| Method                                                          | Description                                                                                            |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `registerItemDefinitions(defs)`                                 | One or more definitions without `id` / `sourcePlugin` (set automatically).                             |
+| `giveItem(userId, definitionId, quantity?, metadata?, source?)` | Awards items; respects stacking, slot limits, session config.                                          |
+| `removeItem(userId, itemId, quantity?)`                         | Removes quantity from a stack.                                                                         |
+| `transferItem(fromUserId, toUserId, itemId, quantity?)`         | Only if `ItemDefinition.tradeable` and the active session allows trading.                              |
+| `useItem(userId, itemId, context?)`                             | Validates ownership, calls the **defining** plugin’s `onItemUsed`, may decrement if result `consumed`. |
+| `getInventory(userId)`                                          | `UserInventory` (items + `maxSlots`).                                                                  |
+| `hasItem(userId, definitionId, minQuantity?)`                   | Convenience check.                                                                                     |
+| `getItemDefinition(definitionId)`                               | Async lookup.                                                                                          |
+| `getAllItemDefinitions()`                                       | All definitions registered for the room.                                                               |
 
 ### Handling item use (`onItemUsed`)
 
@@ -1642,17 +1642,17 @@ If a plugin defines tradeable items but doesn't implement `onItemSold`, attempti
 
 Emitters use `SystemEvents` (same pipeline as other domain events). Useful payloads:
 
-| Event | When |
-| ----- | ---- |
-| `GAME_SESSION_STARTED` | `{ roomId, sessionId, config }` |
-| `GAME_SESSION_ENDED` | `{ roomId, sessionId, results }` |
-| `GAME_STATE_CHANGED` | `{ roomId, sessionId, userId, changes }` — attribute deltas |
-| `GAME_MODIFIER_APPLIED` | Modifier applied or extended |
-| `GAME_MODIFIER_REMOVED` | Expired or manually removed |
-| `INVENTORY_ITEM_ACQUIRED` | Item given (source: `plugin` \| `trade` \| `purchase` \| `admin`) |
-| `INVENTORY_ITEM_USED` | After `useItem` completes |
-| `INVENTORY_ITEM_REMOVED` | Partial/full stack removal |
-| `INVENTORY_ITEM_TRANSFERRED` | Player-to-player transfer |
+| Event                        | When                                                              |
+| ---------------------------- | ----------------------------------------------------------------- |
+| `GAME_SESSION_STARTED`       | `{ roomId, sessionId, config }`                                   |
+| `GAME_SESSION_ENDED`         | `{ roomId, sessionId, results }`                                  |
+| `GAME_STATE_CHANGED`         | `{ roomId, sessionId, userId, changes }` — attribute deltas       |
+| `GAME_MODIFIER_APPLIED`      | Modifier applied or extended                                      |
+| `GAME_MODIFIER_REMOVED`      | Expired or manually removed                                       |
+| `INVENTORY_ITEM_ACQUIRED`    | Item given (source: `plugin` \| `trade` \| `purchase` \| `admin`) |
+| `INVENTORY_ITEM_USED`        | After `useItem` completes                                         |
+| `INVENTORY_ITEM_REMOVED`     | Partial/full stack removal                                        |
+| `INVENTORY_ITEM_TRANSFERRED` | Player-to-player transfer                                         |
 
 ### Segment-bound sessions (scheduling)
 
@@ -1664,14 +1664,14 @@ This ties session lifetime to segment changes without extra plugin code.
 
 Add these to `getComponentSchema()` like other template-backed components. Types live in `@repo/types` (`PluginComponentDefinition`).
 
-| Type | Typical area | Purpose |
-| ---- | ------------ | ------- |
+| Type               | Typical area             | Purpose                                             |
+| ------------------ | ------------------------ | --------------------------------------------------- |
 | `game-leaderboard` | `userList`, `nowPlaying` | Ranks by `leaderboardId` from active session config |
-| `game-attribute` | `userListItem` | Single attribute (`score`, `coin`, or namespaced) |
-| `modifier-badge` | `userListItem` | Show when a named modifier is active |
-| `inventory-button` | `userList` | Opens a modal (`opensModal`) |
-| `inventory-grid` | Inside a `modal` | Grid with optional use/trade |
-| `item-badge` | `userListItem` | Badge when user owns `definitionId` |
+| `game-attribute`   | `userListItem`           | Single attribute (`score`, `coin`, or namespaced)   |
+| `modifier-badge`   | `userListItem`           | Show when a named modifier is active                |
+| `inventory-button` | `userList`               | Opens a modal (`opensModal`)                        |
+| `inventory-grid`   | Inside a `modal`         | Grid with optional use/trade                        |
+| `item-badge`       | `userListItem`           | Badge when user owns `definitionId`                 |
 
 Frontends must implement these template names alongside existing ones (`leaderboard`, `badge`, etc.). Until implemented, they may no-op.
 
@@ -1707,53 +1707,71 @@ interface ShopItem {
 
 ### ShopHelper Methods
 
-| Method | Purpose |
-| ------ | ------- |
-| `getItem(shortId)` | Look up the registered `ShopItem`. |
-| `getDefinitionId(shortId)` | Fully-qualified id (`"<plugin>:<shortId>"`). |
-| `getSellPrice(shortId, basePrice?)` | Computed sell price (`floor(price * sellBackRatio)`). |
-| `registerItems()` | Forwards every item definition to `inventory.registerItemDefinitions`. |
-| `getStock(shortId)` / `getAllStock()` | Read current stock. |
-| `setStock`, `decrementStock`, `incrementStock`, `restockAll` | Stock mutations (atomic where it matters). |
-| `purchase(initiator, shortId, price)` | Atomic buy: stock check → coin debit → `giveItem`, with refunds on any failure. |
-| `sell(initiator, itemId, options?)` | Sell-back: validates ownership + source plugin → `removeItem` → coin credit → restock. |
-| `generateComponents(options?)` | Build declarative UI for every item (heading + description + buy button). Suitable for placing inside a `tab` component's `children`. |
-| `getStoreKeys()` | Default store keys to expose to the frontend (`<shortIdCamel>Stock`). |
-| `getComponentState()` | Stock snapshot for `getComponentState`. |
+| Method                                                       | Purpose                                                                                                                               |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `getItem(shortId)`                                           | Look up the registered `ShopItem`.                                                                                                    |
+| `getDefinitionId(shortId)`                                   | Fully-qualified id (`"<plugin>:<shortId>"`).                                                                                          |
+| `getSellPrice(shortId, basePrice?)`                          | Computed sell price (`floor(price * sellBackRatio)`).                                                                                 |
+| `registerItems()`                                            | Forwards every item definition to `inventory.registerItemDefinitions`.                                                                |
+| `getStock(shortId)` / `getAllStock()`                        | Read current stock.                                                                                                                   |
+| `setStock`, `decrementStock`, `incrementStock`, `restockAll` | Stock mutations (atomic where it matters).                                                                                            |
+| `purchase(initiator, shortId, price)`                        | Atomic buy: stock check → coin debit → `giveItem`, with refunds on any failure.                                                       |
+| `sell(initiator, itemId, options?)`                          | Sell-back: validates ownership + source plugin → `removeItem` → coin credit → restock.                                                |
+| `generateComponents(options?)`                               | Build declarative UI for every item (heading + description + buy button). Suitable for placing inside a `tab` component's `children`. |
+| `getStoreKeys()`                                             | Default store keys to expose to the frontend (`<shortIdCamel>Stock`).                                                                 |
+| `getComponentState()`                                        | Stock snapshot for `getComponentState`.                                                                                               |
 
 ### Usage
 
+Define items in a static catalog using `ShopCatalogEntry`, then convert to `ShopItem[]`:
+
 ```typescript
-import { BasePlugin, ShopHelper, type ShopItem } from "@repo/plugin-base"
+// types.ts
+import {
+  buildShopItemsFromCatalog,
+  type ShopCatalogEntry,
+  type ShopItem,
+} from "@repo/plugin-base"
+
+export const CATALOG: readonly ShopCatalogEntry[] = [
+  {
+    shortId: "skip-token",
+    name: "Skip Token",
+    description: "Skip the currently playing song instantly.",
+    stackable: true,
+    maxStack: 99,
+    tradeable: true,
+    consumable: true,
+    coinValue: 100,
+    icon: "skip-forward",
+    initialStock: 3,
+    sellBackRatio: 0.5,
+  },
+]
+
+export function buildShopItems(): ShopItem[] {
+  return buildShopItemsFromCatalog(CATALOG)
+}
+
+export function getCatalogEntry(shortId: string): ShopCatalogEntry {
+  const entry = CATALOG.find((e) => e.shortId === shortId)
+  if (!entry) throw new Error(`Unknown item: ${shortId}`)
+  return entry
+}
+```
+
+```typescript
+// index.ts
+import { BasePlugin, ShopHelper } from "@repo/plugin-base"
+import { buildShopItems, getCatalogEntry } from "./types"
 
 class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
   name = "music-shop"
   private shop!: ShopHelper
 
-  private buildShopItems(config: MusicShopConfig): ShopItem[] {
-    return [
-      {
-        definition: {
-          shortId: "skip-token",
-          name: "Skip Token",
-          description: "Skip the currently playing song instantly.",
-          icon: config.skipTokenIcon,
-          stackable: true,
-          maxStack: 99,
-          tradeable: true,
-          consumable: true,
-          coinValue: config.skipTokenPrice,
-        },
-        initialStock: config.skipTokenStock,
-        sellBackRatio: config.sellBackRatio,
-      },
-    ]
-  }
-
   async register(context: PluginContext) {
     await super.register(context)
-    const config = (await this.getConfig()) ?? defaultMusicShopConfig
-    this.shop = new ShopHelper(this.name, context, this.buildShopItems(config))
+    this.shop = new ShopHelper(this.name, context, buildShopItems())
     this.shop.registerItems()
     this.on("GAME_SESSION_STARTED", () => this.shop.restockAll())
   }
@@ -1764,14 +1782,15 @@ class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
       if (!config?.isSellingItems) {
         return { success: false, message: "Shop is closed." }
       }
-      return this.shop.purchase(initiator, "skip-token", config.skipTokenPrice)
+      const price = getCatalogEntry("skip-token").coinValue
+      return this.shop.purchase(initiator, "skip-token", price)
     }
     return { success: false, message: `Unknown action: ${action}` }
   }
 
   async onItemSold(userId: string, item: InventoryItem) {
-    const config = await this.getConfig()
-    return this.shop.sell({ userId }, item.itemId, { basePrice: config!.skipTokenPrice })
+    const price = getCatalogEntry("skip-token").coinValue
+    return this.shop.sell({ userId }, item.itemId, { basePrice: price })
   }
 }
 ```

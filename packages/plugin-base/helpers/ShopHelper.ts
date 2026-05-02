@@ -6,7 +6,36 @@ import type {
 } from "@repo/types"
 
 /**
- * Definition for an item sold in a shop.
+ * A catalog entry for an item sold in a shop. Combines the item definition
+ * fields with shop-specific properties (price, stock, sell-back ratio).
+ *
+ * Use this type when defining a static catalog array. Convert to `ShopItem[]`
+ * via `buildShopItemsFromCatalog()` before passing to `ShopHelper`.
+ */
+export type ShopCatalogEntry = Omit<ItemDefinition, "id" | "sourcePlugin"> & {
+  /** Required icon for shop/inventory UIs. */
+  icon: string
+  /** Required price in coins. */
+  coinValue: number
+  /** Units restocked per game session (see `ShopHelper.restockAll`). */
+  initialStock: number
+  /** Fraction of price refunded when sold back (0-1). */
+  sellBackRatio: number
+}
+
+/**
+ * Convert a catalog array into `ShopItem[]` for `ShopHelper`.
+ */
+export function buildShopItemsFromCatalog(catalog: readonly ShopCatalogEntry[]): ShopItem[] {
+  return catalog.map(({ initialStock, sellBackRatio, ...definition }) => ({
+    definition,
+    initialStock,
+    sellBackRatio,
+  }))
+}
+
+/**
+ * Definition for an item sold in a shop (runtime format for `ShopHelper`).
  *
  * `definition` is forwarded to `inventory.registerItemDefinitions()`. The
  * `initialStock` is the per-game-session starting quantity (restocked on

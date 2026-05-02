@@ -13,7 +13,7 @@ import { GameSessionService } from "./GameSessionService"
 // Constants
 // ============================================================================
 
-const DEFAULT_MAX_SLOTS = 20
+const DEFAULT_MAX_SLOTS = 3
 
 // ============================================================================
 // Redis key helpers
@@ -72,14 +72,8 @@ export class InventoryService {
     await this.context.redis.pubClient.hSet(definitionsKey(roomId), fields)
   }
 
-  async getItemDefinition(
-    roomId: string,
-    definitionId: string,
-  ): Promise<ItemDefinition | null> {
-    const raw = await this.context.redis.pubClient.hGet(
-      definitionsKey(roomId),
-      definitionId,
-    )
+  async getItemDefinition(roomId: string, definitionId: string): Promise<ItemDefinition | null> {
+    const raw = await this.context.redis.pubClient.hGet(definitionsKey(roomId), definitionId)
     if (!raw) return null
     try {
       return JSON.parse(raw) as ItemDefinition
@@ -201,9 +195,7 @@ export class InventoryService {
 
     // Need to allocate a new slot.
     if (inv.items.length >= inv.maxSlots) {
-      console.warn(
-        `[InventoryService] giveItem: ${userId} inventory full (${inv.maxSlots} slots)`,
-      )
+      console.warn(`[InventoryService] giveItem: ${userId} inventory full (${inv.maxSlots} slots)`)
       return null
     }
 
@@ -235,14 +227,7 @@ export class InventoryService {
     }
     // For stackable items where quantity exceeded the new stack's cap.
     if (definition.stackable && quantity > item.quantity) {
-      await this.giveItem(
-        roomId,
-        userId,
-        definitionId,
-        quantity - item.quantity,
-        metadata,
-        source,
-      )
+      await this.giveItem(roomId, userId, definitionId, quantity - item.quantity, metadata, source)
     }
 
     return item
@@ -252,12 +237,7 @@ export class InventoryService {
    * Remove `quantity` (default 1) from an item stack. Empty stacks are deleted.
    * Returns whether anything was removed.
    */
-  async removeItem(
-    roomId: string,
-    userId: string,
-    itemId: string,
-    quantity = 1,
-  ): Promise<boolean> {
+  async removeItem(roomId: string, userId: string, itemId: string, quantity = 1): Promise<boolean> {
     if (quantity <= 0) return false
 
     const raw = await this.context.redis.pubClient.hGet(userItemsKey(roomId, userId), itemId)
@@ -445,11 +425,7 @@ export class InventoryService {
   // Internal helpers
   // ==========================================================================
 
-  private async persistItem(
-    roomId: string,
-    userId: string,
-    item: InventoryItem,
-  ): Promise<void> {
+  private async persistItem(roomId: string, userId: string, item: InventoryItem): Promise<void> {
     await this.context.redis.pubClient.hSet(
       userItemsKey(roomId, userId),
       item.itemId,
@@ -501,14 +477,15 @@ export class InventoryService {
     callContext: unknown,
   ): Promise<ItemUseResult> {
     const registry = this.context.pluginRegistry as
-      | { invokeOnItemUsed?: (
-          roomId: string,
-          pluginName: string,
-          userId: string,
-          item: InventoryItem,
-          definition: ItemDefinition,
-          callContext: unknown,
-        ) => Promise<ItemUseResult | null>
+      | {
+          invokeOnItemUsed?: (
+            roomId: string,
+            pluginName: string,
+            userId: string,
+            item: InventoryItem,
+            definition: ItemDefinition,
+            callContext: unknown,
+          ) => Promise<ItemUseResult | null>
         }
       | undefined
 

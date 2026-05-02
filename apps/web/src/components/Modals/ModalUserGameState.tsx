@@ -172,8 +172,7 @@ function ModalUserGameState() {
     for (const schema of schemas) {
       const components = schema.componentSchema?.components ?? []
       const tabs = components.filter(
-        (c): c is PluginTabComponent =>
-          c.type === "tab" && c.area === "gameStateTab",
+        (c): c is PluginTabComponent => c.type === "tab" && c.area === "gameStateTab",
       )
       if (tabs.length === 0) continue
 
@@ -201,11 +200,7 @@ function ModalUserGameState() {
 
   const heading = (
     <HStack gap={2} flexWrap="wrap">
-      {payload?.session && (
-        <Badge size="sm" colorPalette="green" variant="solid">
-          {payload.session.config.name}
-        </Badge>
-      )}
+      {payload?.session && <Heading size="lg">{payload.session.config.name}</Heading>}
     </HStack>
   )
 
@@ -219,8 +214,7 @@ function ModalUserGameState() {
     }
   }, [payload, attributes])
 
-  const showGameFooter =
-    !loading && !error && !!payload?.session
+  const showGameFooter = !loading && !error && !!payload?.session
 
   const footer = showGameFooter ? (
     <HStack justify="space-between" width="full" flexWrap="wrap" gap={4}>

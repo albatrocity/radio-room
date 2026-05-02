@@ -727,6 +727,8 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
 
 export {
   ShopHelper,
+  buildShopItemsFromCatalog,
+  type ShopCatalogEntry,
   type ShopItem,
   type ShopTransactionResult,
   type GenerateShopComponentsOptions,

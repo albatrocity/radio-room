@@ -192,9 +192,7 @@ export default function GameSessions() {
   }
 
   const startedLabel =
-    activeSession != null
-      ? format(new Date(activeSession.startedAt), "MMM d, yyyy · h:mm a")
-      : ""
+    activeSession != null ? format(new Date(activeSession.startedAt), "MMM d, yyyy · h:mm a") : ""
 
   const startingCoins =
     activeSession != null && activeSession.config.enabledAttributes.includes("coin")
@@ -230,7 +228,13 @@ export default function GameSessions() {
           )}
 
           {activeSession && (
-            <Box borderWidth="1px" borderColor="border.muted" borderRadius="lg" p={4} bg="bg.subtle">
+            <Box
+              borderWidth="1px"
+              borderColor="border.muted"
+              borderRadius="lg"
+              p={4}
+              bg="bg.subtle"
+            >
               <VStack align="stretch" gap={3}>
                 <HStack justify="space-between" align="flex-start" gap={3} flexWrap="wrap">
                   <VStack align="start" gap={1} flex="1" minW={0}>
@@ -292,7 +296,6 @@ export default function GameSessions() {
             <Input
               value={sessionName}
               onChange={(e) => setSessionName(e.target.value)}
-              placeholder="e.g. Lunch trivia"
               disabled={actionLoading || statusLoading}
             />
             <Field.HelperText>
