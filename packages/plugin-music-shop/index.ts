@@ -19,6 +19,9 @@ import {
   buildMusicShopOfferRows,
   musicShopComponentStoreKeys,
   type MusicShopConfig,
+  SCRATCHED_CD_SHORT_ID,
+  ANALOG_DELAY_SHORT_ID,
+  COMPRESSOR_SHORT_ID,
 } from "./types"
 export type { MusicShopConfig } from "./types"
 export {
@@ -33,10 +36,10 @@ export {
 } from "./types"
 
 const PLUGIN_NAME = "music-shop"
-const SKIP_TOKEN_SHORT_ID = "skip-token"
-const ANALOG_DELAY_SHORT_ID = "analog-delay-pedal"
+
 /** Flag on `GameStateEffect` for chat echo (see `getActiveFlags`). */
 const ECHO_FLAG = "echo"
+const COMPRESSOR_FLAG = "compressor"
 
 export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
   name = PLUGIN_NAME
@@ -48,7 +51,7 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
   static readonly defaultConfig = defaultMusicShopConfig
 
   protected shopItems: ShopItem[] = buildMusicShopItems()
-  protected defaultSellQuoteShortId = SKIP_TOKEN_SHORT_ID
+  protected defaultSellQuoteShortId = SCRATCHED_CD_SHORT_ID
 
   protected isShopEnabled(config: MusicShopConfig): boolean {
     return config.enabled
@@ -172,7 +175,7 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
       return { success: false, consumed: false, message: this.shopClosedMessage() }
     }
 
-    if (definition.shortId === SKIP_TOKEN_SHORT_ID) {
+    if (definition.shortId === SCRATCHED_CD_SHORT_ID) {
       const np = await this.context.api.getNowPlaying(this.context.roomId)
       if (!np?.mediaSource?.trackId) {
         return { success: false, consumed: false, message: "Nothing is playing right now." }
@@ -209,7 +212,7 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
         name: "analog_delay_echo",
         effects: [{ type: "flag", name: ECHO_FLAG, value: true, icon: "square-stack" }],
         startAt: now,
-        endAt: now + config.echoDurationMs,
+        endAt: now + config.effectDurationMs,
         stackBehavior: "extend",
         itemDefinitionId: definition.id,
       })
@@ -222,10 +225,43 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
         targetUserId === userId ? `${actorName} is hearing echoes` : `${targetName}'s chat echoes`
       await this.context.api.sendSystemMessage(
         this.context.roomId,
-        `${who} (${definition.name} — ${Math.round(config.echoDurationMs / 60_000)} min).`,
+        `${who} (${definition.name} — ${Math.round(config.effectDurationMs / 60_000)} min).`,
       )
 
-      return { success: true, consumed: true, message: "Echo engaged!" }
+      return { success: true, consumed: true, message: "Echo engaged. It was lost with use." }
+    }
+
+    if (definition.shortId === COMPRESSOR_SHORT_ID) {
+      const ctx = callContext as { targetUserId?: string } | undefined
+      const targetUserId = ctx?.targetUserId ?? userId
+      const roomUsers = await this.context.api.getUsers(this.context.roomId)
+      const inRoom = roomUsers.some((u) => u.userId === targetUserId)
+      if (!inRoom) {
+        return { success: false, consumed: false, message: "That user is not in this room." }
+      }
+
+      const now = Date.now()
+      await this.game.applyModifier(targetUserId, {
+        name: "compressor",
+        effects: [{ type: "flag", name: COMPRESSOR_FLAG, value: true, icon: "shrink" }],
+        startAt: now,
+        endAt: now + config.effectDurationMs,
+        stackBehavior: "extend",
+        itemDefinitionId: definition.id,
+      })
+
+      const [actor] = await this.context.api.getUsersByIds([userId])
+      const [target] = await this.context.api.getUsersByIds([targetUserId])
+      const actorName = actor?.username?.trim() || userId
+      const targetName = target?.username?.trim() || targetUserId
+      const who =
+        targetUserId === userId ? `${actorName} is compressed` : `${targetName}'s chat echoes`
+      await this.context.api.sendSystemMessage(
+        this.context.roomId,
+        `${who} (${definition.name} — ${Math.round(config.effectDurationMs / 60_000)} min).`,
+      )
+
+      return { success: true, consumed: true, message: "Compressor engaged. It was lost with use." }
     }
 
     return { success: false, consumed: false, message: `Unknown item: ${definition.shortId}` }
@@ -240,11 +276,23 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
     if (!state) return null
 
     const flags = getActiveFlags(state.modifiers, Date.now())
-    if (!flags[ECHO_FLAG]) return null
+    if (!flags[ECHO_FLAG] && !flags[COMPRESSOR_FLAG]) return null
+
+    const hasEcho = Boolean(flags[ECHO_FLAG])
+    const hasCompressor = Boolean(flags[COMPRESSOR_FLAG])
 
     const tokens = tokenizeWords(message.content)
     const { content, contentSegments } = buildSegments(tokens, (t) => {
       if (!t.word) return []
+      if (hasCompressor && hasEcho) {
+        return [
+          { text: t.word, effects: [{ type: "size", value: "xs" }] },
+          { text: ` ${t.word}`, effects: [{ type: "size", value: "2xs" }] },
+        ]
+      }
+      if (hasCompressor && !hasEcho) {
+        return [{ text: t.word, effects: [{ type: "size", value: "xs" }] }]
+      }
       return [
         { text: t.word },
         {

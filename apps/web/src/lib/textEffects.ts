@@ -9,8 +9,12 @@ export function textEffectStyles(effects?: TextEffect[]): SystemStyleObject {
   const out: SystemStyleObject = {}
   for (const e of effects ?? []) {
     if (e.type === "size") {
-      if (e.value === "small") {
+      if (e.value === "2xs") {
+        out.fontSize = "2xs"
+      } else if (e.value === "xs" || e.value === "small") {
         out.fontSize = "xs"
+      } else if (e.value === "sm") {
+        out.fontSize = "sm"
       } else if (e.value === "large") {
         out.fontSize = "lg"
       } else {

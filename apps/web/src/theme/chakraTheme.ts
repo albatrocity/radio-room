@@ -171,6 +171,10 @@ const config = defineConfig({
   conditions,
   theme: {
     tokens: {
+      /** Extra-small chat echo text (below `xs`); used by plugin `TextEffect` size `2xs`. */
+      fontSizes: {
+        "2xs": { value: "0.625rem" },
+      },
       colors: colorTokens,
     },
     semanticTokens: {

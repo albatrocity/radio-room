@@ -8,9 +8,13 @@ import {
   type ShopItem,
 } from "@repo/plugin-base"
 
+export const SCRATCHED_CD_SHORT_ID = "scratched-cd"
+export const ANALOG_DELAY_SHORT_ID = "analog-delay-pedal"
+export const COMPRESSOR_SHORT_ID = "compressor-pedal"
+
 export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
   {
-    shortId: "skip-token",
+    shortId: SCRATCHED_CD_SHORT_ID,
     name: "Scratched CD",
     description: "Skip the currently playing song instantly.",
     stackable: true,
@@ -23,7 +27,7 @@ export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
     sellBackRatio: 0.5,
   },
   {
-    shortId: "analog-delay-pedal",
+    shortId: ANALOG_DELAY_SHORT_ID,
     name: "Analog Delay Pedal",
     description:
       "Echoes every word in a user's chat messages for a limited time. Use on yourself or others.",
@@ -34,6 +38,20 @@ export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
     requiresTarget: "user",
     coinValue: 50,
     icon: "square-stack",
+    initialStock: 5,
+    sellBackRatio: 0,
+  },
+  {
+    shortId: COMPRESSOR_SHORT_ID,
+    name: "Compressor Pedal",
+    description: "Makes chat messages very small for a limited time. Use on yourself or others.",
+    stackable: true,
+    maxStack: 99,
+    tradeable: false,
+    consumable: true,
+    requiresTarget: "user",
+    coinValue: 50,
+    icon: "shrink",
     initialStock: 5,
     sellBackRatio: 0,
   },
@@ -60,7 +78,7 @@ export const musicShopConfigSchema = z.object({
    */
   isSellingItems: z.boolean().default(true),
   /** How long the Analog Delay chat echo lasts (default 10 minutes). */
-  echoDurationMs: z
+  effectDurationMs: z
     .number()
     .int()
     .min(60_000)
@@ -73,7 +91,7 @@ export type MusicShopConfig = z.infer<typeof musicShopConfigSchema>
 export const defaultMusicShopConfig: MusicShopConfig = {
   enabled: false,
   isSellingItems: true,
-  echoDurationMs: 10 * 60 * 1000,
+  effectDurationMs: 10 * 60 * 1000,
 }
 
 export function buildMusicShopItems(): ShopItem[] {
