@@ -171,8 +171,9 @@ const config = defineConfig({
   conditions,
   theme: {
     tokens: {
-      /** Extra-small chat echo text below Chakra's `xs`; used by plugin `TextEffect` shrink stacks. */
+      /** Extra-small chat text below Chakra's `xs`; used by plugin `TextEffect` shrink stacks. */
       fontSizes: {
+        "4xs": { value: "0.375rem" },
         "3xs": { value: "0.5rem" },
         "2xs": { value: "0.625rem" },
       },

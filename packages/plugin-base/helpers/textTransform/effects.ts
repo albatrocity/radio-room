@@ -4,18 +4,19 @@ import type { TextEffectStacks } from "./flags"
 /**
  * Size scale ordered from smallest to largest. The base index `NORMAL_INDEX`
  * represents normal/`md` text; positive offsets grow text, negative offsets
- * shrink it. Values map directly to `TextEffect["value"]` size names.
+ * shrink it. Steps use wider Chakra jumps than body copy (`xl`–`7xl` for grow)
+ * so stacked buffs read as clearly exaggerated.
  */
 const SIZE_SCALE = [
+  "4xs",
   "3xs",
   "2xs",
   "xs",
-  "sm",
   "normal",
-  "lg",
   "xl",
-  "2xl",
   "3xl",
+  "5xl",
+  "7xl",
 ] as const satisfies ReadonlyArray<TextEffect["value"]>
 
 const NORMAL_INDEX = 4
@@ -57,7 +58,7 @@ export function resolveBaseSize(stacks: TextEffectStacks): TextEffect["value"] |
 
 /**
  * Resolve the size for the Nth echo (1-indexed). Each echo is one step smaller
- * than the previous, creating a fading cascade. Sizes are clamped at `3xs`.
+ * than the previous, creating a fading cascade. Sizes are clamped at `4xs`.
  */
 export function resolveEchoSize(
   stacks: TextEffectStacks,

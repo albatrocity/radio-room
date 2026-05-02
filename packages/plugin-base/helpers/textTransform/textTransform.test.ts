@@ -149,59 +149,59 @@ describe("resolveBaseSize", () => {
   })
 
   it("maps shrink stacks to progressively smaller sizes", () => {
-    expect(resolveBaseSize(stacks({ shrink: 1 }))).toBe("sm")
-    expect(resolveBaseSize(stacks({ shrink: 2 }))).toBe("xs")
-    expect(resolveBaseSize(stacks({ shrink: 3 }))).toBe("2xs")
-    expect(resolveBaseSize(stacks({ shrink: 4 }))).toBe("3xs")
+    expect(resolveBaseSize(stacks({ shrink: 1 }))).toBe("xs")
+    expect(resolveBaseSize(stacks({ shrink: 2 }))).toBe("2xs")
+    expect(resolveBaseSize(stacks({ shrink: 3 }))).toBe("3xs")
+    expect(resolveBaseSize(stacks({ shrink: 4 }))).toBe("4xs")
   })
 
   it("maps grow stacks to progressively larger sizes", () => {
-    expect(resolveBaseSize(stacks({ grow: 1 }))).toBe("lg")
-    expect(resolveBaseSize(stacks({ grow: 2 }))).toBe("xl")
-    expect(resolveBaseSize(stacks({ grow: 3 }))).toBe("2xl")
-    expect(resolveBaseSize(stacks({ grow: 4 }))).toBe("3xl")
+    expect(resolveBaseSize(stacks({ grow: 1 }))).toBe("xl")
+    expect(resolveBaseSize(stacks({ grow: 2 }))).toBe("3xl")
+    expect(resolveBaseSize(stacks({ grow: 3 }))).toBe("5xl")
+    expect(resolveBaseSize(stacks({ grow: 4 }))).toBe("7xl")
   })
 
   it("respects cancellation between grow and shrink", () => {
-    expect(resolveBaseSize(stacks({ grow: 2, shrink: 1 }))).toBe("lg")
-    expect(resolveBaseSize(stacks({ grow: 1, shrink: 2 }))).toBe("sm")
-    expect(resolveBaseSize(stacks({ grow: 3, shrink: 1 }))).toBe("xl")
+    expect(resolveBaseSize(stacks({ grow: 2, shrink: 1 }))).toBe("xl")
+    expect(resolveBaseSize(stacks({ grow: 1, shrink: 2 }))).toBe("xs")
+    expect(resolveBaseSize(stacks({ grow: 3, shrink: 1 }))).toBe("3xl")
   })
 
   it("clamps oversized shifts", () => {
-    expect(resolveBaseSize(stacks({ grow: 99 }))).toBe("3xl")
-    expect(resolveBaseSize(stacks({ shrink: 99 }))).toBe("3xs")
+    expect(resolveBaseSize(stacks({ grow: 99 }))).toBe("7xl")
+    expect(resolveBaseSize(stacks({ shrink: 99 }))).toBe("4xs")
   })
 })
 
 describe("resolveEchoSize", () => {
   it("starts one step smaller than the base size", () => {
-    expect(resolveEchoSize(stacks({}), 1)).toBe("sm")
-    expect(resolveEchoSize(stacks({ grow: 2 }), 1)).toBe("lg")
-    expect(resolveEchoSize(stacks({ shrink: 2 }), 1)).toBe("2xs")
+    expect(resolveEchoSize(stacks({}), 1)).toBe("xs")
+    expect(resolveEchoSize(stacks({ grow: 2 }), 1)).toBe("xl")
+    expect(resolveEchoSize(stacks({ shrink: 2 }), 1)).toBe("3xs")
   })
 
   it("cascades each successive echo one step smaller", () => {
-    expect(resolveEchoSize(stacks({}), 1)).toBe("sm")
-    expect(resolveEchoSize(stacks({}), 2)).toBe("xs")
-    expect(resolveEchoSize(stacks({}), 3)).toBe("2xs")
-    expect(resolveEchoSize(stacks({}), 4)).toBe("3xs")
+    expect(resolveEchoSize(stacks({}), 1)).toBe("xs")
+    expect(resolveEchoSize(stacks({}), 2)).toBe("2xs")
+    expect(resolveEchoSize(stacks({}), 3)).toBe("3xs")
+    expect(resolveEchoSize(stacks({}), 4)).toBe("4xs")
   })
 
   it("cascades from a grown base toward smaller sizes", () => {
     const s = stacks({ grow: 4 })
-    expect(resolveEchoSize(s, 1)).toBe("2xl")
-    expect(resolveEchoSize(s, 2)).toBe("xl")
-    expect(resolveEchoSize(s, 3)).toBe("lg")
+    expect(resolveEchoSize(s, 1)).toBe("5xl")
+    expect(resolveEchoSize(s, 2)).toBe("3xl")
+    expect(resolveEchoSize(s, 3)).toBe("xl")
     expect(resolveEchoSize(s, 4)).toBe("normal")
   })
 
   it("clamps echo size at the smallest available size", () => {
     const s = stacks({ shrink: 2 })
-    expect(resolveEchoSize(s, 1)).toBe("2xs")
-    expect(resolveEchoSize(s, 2)).toBe("3xs")
-    expect(resolveEchoSize(s, 3)).toBe("3xs")
-    expect(resolveEchoSize(s, 4)).toBe("3xs")
+    expect(resolveEchoSize(s, 1)).toBe("3xs")
+    expect(resolveEchoSize(s, 2)).toBe("4xs")
+    expect(resolveEchoSize(s, 3)).toBe("4xs")
+    expect(resolveEchoSize(s, 4)).toBe("4xs")
   })
 })
 
@@ -236,9 +236,9 @@ describe("applyTextEffects", () => {
     expect(result).not.toBeNull()
     expect(result!.content).toBe("Hello world")
     expect(result!.contentSegments).toEqual([
-      { text: "Hello", effects: [{ type: "size", value: "sm" }] },
+      { text: "Hello", effects: [{ type: "size", value: "xs" }] },
       { text: " " },
-      { text: "world", effects: [{ type: "size", value: "sm" }] },
+      { text: "world", effects: [{ type: "size", value: "xs" }] },
     ])
   })
 
@@ -248,9 +248,9 @@ describe("applyTextEffects", () => {
     expect(result!.content).toBe("Hello Hello Hello Hello")
     expect(result!.contentSegments).toEqual([
       { text: "Hello" },
-      { text: " Hello", effects: [{ type: "size", value: "sm" }] },
       { text: " Hello", effects: [{ type: "size", value: "xs" }] },
       { text: " Hello", effects: [{ type: "size", value: "2xs" }] },
+      { text: " Hello", effects: [{ type: "size", value: "3xs" }] },
     ])
   })
 
@@ -259,8 +259,8 @@ describe("applyTextEffects", () => {
     expect(result).not.toBeNull()
     expect(result!.content).toBe("Hi Hi Hi")
     expect(result!.contentSegments).toEqual([
-      { text: "Hi", effects: [{ type: "size", value: "xl" }] },
-      { text: " Hi", effects: [{ type: "size", value: "lg" }] },
+      { text: "Hi", effects: [{ type: "size", value: "3xl" }] },
+      { text: " Hi", effects: [{ type: "size", value: "xl" }] },
       { text: " Hi", effects: [{ type: "size", value: "normal" }] },
     ])
   })
@@ -280,6 +280,6 @@ describe("applyTextEffects", () => {
     const sizes = result!.contentSegments
       .filter((s) => s.text.trim() === "hi")
       .map((s) => s.effects?.[0]?.type === "size" ? s.effects[0].value : null)
-    expect(sizes).toEqual(["xs", "2xs", "3xs", "3xs", "3xs"])
+    expect(sizes).toEqual(["2xs", "3xs", "4xs", "4xs", "4xs"])
   })
 })

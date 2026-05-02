@@ -9,7 +9,9 @@ export function textEffectStyles(effects?: TextEffect[]): SystemStyleObject {
   const out: SystemStyleObject = {}
   for (const e of effects ?? []) {
     if (e.type === "size") {
-      if (e.value === "3xs") {
+      if (e.value === "4xs") {
+        out.fontSize = "4xs"
+      } else if (e.value === "3xs") {
         out.fontSize = "3xs"
       } else if (e.value === "2xs") {
         out.fontSize = "2xs"
@@ -25,6 +27,14 @@ export function textEffectStyles(effects?: TextEffect[]): SystemStyleObject {
         out.fontSize = "2xl"
       } else if (e.value === "3xl") {
         out.fontSize = "3xl"
+      } else if (e.value === "4xl") {
+        out.fontSize = "4xl"
+      } else if (e.value === "5xl") {
+        out.fontSize = "5xl"
+      } else if (e.value === "6xl") {
+        out.fontSize = "6xl"
+      } else if (e.value === "7xl") {
+        out.fontSize = "7xl"
       } else {
         out.fontSize = "md"
       }

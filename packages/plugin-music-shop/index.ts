@@ -248,39 +248,63 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
     }
 
     if (definition.shortId === ANALOG_DELAY_SHORT_ID) {
-      return this.applyTargetedTimedModifier(userId, callContext, definition, config.effectDurationMs, {
-        modifierName: "analog_delay_echo",
-        effects: [
-          { type: "flag", name: ECHO_FLAG, value: true, icon: "square-stack", intent: "negative" },
-        ],
-        successMessage: "Echo engaged. It was lost with use.",
-        describe: ({ isSelf, actor, target }) =>
-          isSelf ? `${actor} is hearing echoes` : `${target}'s chat echoes`,
-      })
+      return this.applyTargetedTimedModifier(
+        userId,
+        callContext,
+        definition,
+        config.effectDurationMs,
+        {
+          modifierName: "analog_delay_echo",
+          effects: [
+            {
+              type: "flag",
+              name: ECHO_FLAG,
+              value: true,
+              icon: "square-stack",
+              intent: "negative",
+            },
+          ],
+          successMessage: "Echo engaged. It was lost with use.",
+          describe: ({ isSelf, actor, target }) =>
+            isSelf ? `${actor} is hearing echoes` : `${target}'s chat echoes`,
+        },
+      )
     }
 
     if (definition.shortId === COMPRESSOR_SHORT_ID) {
-      return this.applyTargetedTimedModifier(userId, callContext, definition, config.effectDurationMs, {
-        modifierName: "compressor",
-        effects: [
-          { type: "flag", name: SHRINK_FLAG, value: true, icon: "shrink", intent: "negative" },
-        ],
-        successMessage: "Compressor engaged. It was lost with use.",
-        describe: ({ isSelf, actor, target }) =>
-          isSelf ? `${actor} is compressed` : `${target}'s chat is compressed`,
-      })
+      return this.applyTargetedTimedModifier(
+        userId,
+        callContext,
+        definition,
+        config.effectDurationMs,
+        {
+          modifierName: "compressor",
+          effects: [
+            { type: "flag", name: SHRINK_FLAG, value: true, icon: "shrink", intent: "negative" },
+          ],
+          successMessage: "Compressor engaged. It was lost with use.",
+          describe: ({ isSelf, actor, target }) =>
+            isSelf ? `${actor} is compressed` : `${target} has been compressed`,
+        },
+      )
     }
 
     if (definition.shortId === BOOST_SHORT_ID) {
-      return this.applyTargetedTimedModifier(userId, callContext, definition, config.effectDurationMs, {
-        modifierName: "boost",
-        effects: [
-          { type: "flag", name: GROW_FLAG, value: true, icon: "chevrons-up", intent: "positive" },
-        ],
-        successMessage: "Boost engaged. It was lost with use.",
-        describe: ({ isSelf, actor, target }) =>
-          isSelf ? `${actor} is boosted` : `${target} is boosted`,
-      })
+      return this.applyTargetedTimedModifier(
+        userId,
+        callContext,
+        definition,
+        config.effectDurationMs,
+        {
+          modifierName: "boost",
+          effects: [
+            { type: "flag", name: GROW_FLAG, value: true, icon: "chevrons-up", intent: "positive" },
+          ],
+          successMessage: "Boost engaged. It was lost with use.",
+          describe: ({ isSelf, actor, target }) =>
+            isSelf ? `${actor} is boosted` : `${target} is boosted`,
+        },
+      )
     }
 
     return { success: false, consumed: false, message: `Unknown item: ${definition.shortId}` }
