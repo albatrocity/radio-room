@@ -371,6 +371,12 @@ async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidati
 }
 ```
 
+#### `transformChatMessage(roomId, message): Promise<ChatMessage | null>` (optional)
+
+Transform a chat message **after** it is parsed (mentions, Mustache) but **before** it is broadcast and persisted. Plugins are called **in order**; each receives the previous plugin’s result. Return `null` to leave the message unchanged. Fail-open on errors and timeouts (500ms), like `validateQueueRequest`.
+
+To express per-span presentation (e.g. smaller text on part of a line), set **`message.contentSegments`** (typed `TextSegment[]` with declarative `TextEffect`s) and keep **`message.content`** as a matching plain string. See [ADR 0042](adrs/0042-plugin-chat-message-transform-and-text-segments.md). Helpers: `tokenizeWords` / `buildSegments` in `@repo/plugin-base/helpers`.
+
 #### `executeAction(action: string): Promise<{ success: boolean; message?: string }>`
 
 Handle action buttons from the admin config UI. Override this to implement custom actions.
@@ -1619,6 +1625,8 @@ async onItemUsed(
 
 `BasePlugin` provides a default implementation that returns “not handled”; override only when you define items.
 
+For **`effects` of type `"flag"`**, derive booleans with **`getActiveFlags(userState.modifiers, Date.now())`** from **`@repo/types`** (see [ADR 0044](adrs/0044-derived-modifier-flags.md)). For items with **`requiresTarget: "user"`**, the socket passes **`callContext`** as **`{ targetUserId?: string }`** — validate the user is still in the room before applying effects to them.
+
 ### Handling item sell-back (`onItemSold`)
 
 When a user sells an item from their inventory (via the built-in **Inventory** tab in the User Game State modal, which emits `SELL_INVENTORY_ITEM`), the server routes the sale to the plugin that owns the item definition through `onItemSold`. The plugin is responsible for the full sale: removing the item from inventory, refunding coins, restocking, and emitting any UI updates.
@@ -1907,7 +1915,7 @@ The context is `null` outside the game state modal, so components can render mea
 
 The built-in Inventory tab exposes per-item buttons:
 
-- **Use** – emitted as `USE_INVENTORY_ITEM { itemId }`. Routes to the source plugin's `onItemUsed`.
+- **Use** – emitted as `USE_INVENTORY_ITEM { itemId, targetUserId? }`. Optional **`targetUserId`** is sent when the item’s definition has **`requiresTarget: "user"`** (target picker in the inventory tab). Passed through as **`callContext`** to `onItemUsed`. See [ADR 0043](adrs/0043-inventory-item-targeting.md).
 - **Sell** – emitted as `SELL_INVENTORY_ITEM { itemId }`. Routes to the source plugin's `onItemSold` (typically `ShopHelper.sell`).
 
 The buttons render automatically based on the `ItemDefinition` flags: **Use** appears for `consumable` items, **Sell** appears for `tradeable` items with a positive `coinValue`. The server responds with `INVENTORY_ACTION_RESULT { success, message, refund? }`.

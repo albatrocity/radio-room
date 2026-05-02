@@ -667,6 +667,17 @@ export interface Plugin {
   validateQueueRequest?(params: QueueValidationParams): Promise<QueueValidationResult>
 
   /**
+   * Transform a chat message before it is persisted and broadcast.
+   * Called sequentially for each enabled plugin in the room; each sees the
+   * previous plugin's result. Return `null` or `undefined` to leave the message
+   * unchanged. Fail-open on errors/timeouts (like `validateQueueRequest`).
+   *
+   * @param roomId - Room id
+   * @param message - The fully parsed message (after mentions / Mustache)
+   */
+  transformChatMessage?(roomId: string, message: ChatMessage): Promise<ChatMessage | null>
+
+  /**
    * Optional method to augment playlist items with plugin-specific metadata.
    * Called at read-time when fetching playlists.
    *

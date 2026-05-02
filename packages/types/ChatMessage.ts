@@ -13,11 +13,28 @@ export const chatMessageMetaSchema = z.object({
 })
 
 // =============================================================================
+// Text effects & segments (plugin-driven rich chat; client maps to styles)
+// =============================================================================
+
+export const textEffectSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("size"), value: z.enum(["small", "normal", "large"]) }),
+])
+export type TextEffect = z.infer<typeof textEffectSchema>
+
+export const textSegmentSchema = z.object({
+  text: z.string(),
+  effects: z.array(textEffectSchema).optional(),
+})
+export type TextSegment = z.infer<typeof textSegmentSchema>
+
+// =============================================================================
 // ChatMessage Schema & Type
 // =============================================================================
 
 export const chatMessageSchema = z.object({
   content: z.string(),
+  /** When set, the client prefers this for rendering; `content` remains the canonical string. */
+  contentSegments: z.array(textSegmentSchema).optional(),
   timestamp: z.string(),
   user: userSchema,
   mentions: z.array(z.string()).optional(),

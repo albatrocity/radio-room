@@ -40,6 +40,12 @@ export interface ItemDefinition {
   consumable: boolean
   /** Optional base coin value when sold via the inventory API. */
   coinValue?: number
+  /**
+   * When `"user"`, the inventory UI opens a target picker and sends `targetUserId`
+   * with `USE_INVENTORY_ITEM`; plugins read it from `onItemUsed` `callContext`.
+   * When `"self"` or omitted, the effect applies to the inventory owner only.
+   */
+  requiresTarget?: "self" | "user"
 }
 
 // ============================================================================

@@ -16,15 +16,18 @@ import { LuBookmark, LuTrash2 } from "react-icons/lu"
 
 import ReactionCounter from "./ReactionCounter"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
+import { MessageSegments } from "./MessageSegments"
 import ConfirmationDialog from "./ConfirmationDialog"
 import { User } from "../types/User"
 import Timestamp from "./Timestamp"
 import { chatMessageRecipe } from "../theme/chatMessageRecipe"
 
+import type { TextSegment } from "@repo/types"
 import { useIsAdmin, useBookmarks, useBookmarksSend, useChatSend } from "../hooks/useActors"
 
 export interface ChatMessageProps {
   content: string
+  contentSegments?: TextSegment[]
   mentions?: string[]
   timestamp: string
   user: User
@@ -35,6 +38,7 @@ export interface ChatMessageProps {
 
 const ChatMessage = ({
   content,
+  contentSegments,
   mentions = [],
   timestamp,
   user,
@@ -134,9 +138,13 @@ const ChatMessage = ({
       <Wrap css={styles.content}>
         <Box css={styles.messageBody}>
           <Stack direction="row" gap={2} w="100%">
-            <Box flexGrow={1} textStyle="chatMessage">
+            {contentSegments && contentSegments.length > 0 ? (
+              <Box flexGrow={1} minW={0} textStyle="chatMessage">
+                <MessageSegments segments={contentSegments} />
+              </Box>
+            ) : (
               <ParsedEmojiMessage content={content} />
-            </Box>
+            )}
             {showFloatingTimestamp && (
               <HStack css={styles.floatingActions} layerStyle="themeTransition">
                 {currentIsAdmin && (

@@ -10,6 +10,7 @@ import {
   LuStar,
   LuSwords,
   LuTrophy,
+  LuWaves,
 } from "react-icons/lu"
 
 // ============================================================================
@@ -28,6 +29,7 @@ export const ICON_MAP: Record<string, React.ComponentType> = {
   "shopping-cart": LuShoppingCart,
   package: LuPackage,
   "disc-2": LuDisc2,
+  waves: LuWaves,
 }
 
 export function getIcon(iconName: string): React.ComponentType | undefined {

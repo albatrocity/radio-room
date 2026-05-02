@@ -22,6 +22,21 @@ export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
     initialStock: 3,
     sellBackRatio: 0.5,
   },
+  {
+    shortId: "analog-delay-pedal",
+    name: "Analog Delay Pedal",
+    description:
+      "Echoes every word you type in chat for a while. Use on yourself or pick someone in the room.",
+    stackable: true,
+    maxStack: 99,
+    tradeable: false,
+    consumable: true,
+    requiresTarget: "user",
+    coinValue: 50,
+    icon: "waves",
+    initialStock: 5,
+    sellBackRatio: 0,
+  },
 ]
 
 export function getMusicShopCatalogEntry(shortId: string): ShopCatalogEntry | undefined {
@@ -44,6 +59,13 @@ export const musicShopConfigSchema = z.object({
    * close sales without disabling item effects.
    */
   isSellingItems: z.boolean().default(true),
+  /** How long the Analog Delay chat echo lasts (default 10 minutes). */
+  echoDurationMs: z
+    .number()
+    .int()
+    .min(60_000)
+    .max(60 * 60 * 1000)
+    .default(10 * 60 * 1000),
 })
 
 export type MusicShopConfig = z.infer<typeof musicShopConfigSchema>
@@ -51,6 +73,7 @@ export type MusicShopConfig = z.infer<typeof musicShopConfigSchema>
 export const defaultMusicShopConfig: MusicShopConfig = {
   enabled: false,
   isSellingItems: true,
+  echoDurationMs: 10 * 60 * 1000,
 }
 
 export function buildMusicShopItems(): ShopItem[] {

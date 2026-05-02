@@ -1,17 +1,20 @@
 import { z } from "zod"
 import { BasePlugin, ShopHelper } from "@repo/plugin-base"
-import type {
-  Plugin,
-  PluginActionInitiator,
-  PluginContext,
-  PluginConfigSchema,
-  PluginComponentSchema,
-  SystemEventPayload,
-  InventoryItem,
-  ItemDefinition,
-  ItemUseResult,
-  ItemSellResult,
+import {
+  getActiveFlags,
+  type ChatMessage,
+  type Plugin,
+  type PluginActionInitiator,
+  type PluginContext,
+  type PluginConfigSchema,
+  type PluginComponentSchema,
+  type SystemEventPayload,
+  type InventoryItem,
+  type ItemDefinition,
+  type ItemUseResult,
+  type ItemSellResult,
 } from "@repo/types"
+import { buildSegments, shopBuyAction, tokenizeWords } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import {
   musicShopConfigSchema,
@@ -23,8 +26,6 @@ import {
   MUSIC_SHOP_CATALOG,
   type MusicShopConfig,
 } from "./types"
-import { shopBuyAction } from "@repo/plugin-base"
-
 export type { MusicShopConfig } from "./types"
 export {
   musicShopConfigSchema,
@@ -39,6 +40,9 @@ export {
 
 const PLUGIN_NAME = "music-shop"
 const SKIP_TOKEN_SHORT_ID = "skip-token"
+const ANALOG_DELAY_SHORT_ID = "analog-delay-pedal"
+/** Flag on `GameStateEffect` for chat echo (see `getActiveFlags`). */
+const ECHO_FLAG = "echo"
 
 interface MusicShopEvents {
   /** Per–stock-key snapshot from the catalog + sell-back quote. */
@@ -101,6 +105,7 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
         },
         "enabled",
         "isSellingItems",
+        "echoDurationMs",
         {
           type: "action",
           action: "restock",
@@ -124,6 +129,14 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
           label: "Sell items in shop",
           description:
             "When off, the Shop tab is hidden and purchases are blocked, but users can still use and sell items they already own.",
+          showWhen: { field: "enabled", value: true },
+        },
+        echoDurationMs: {
+          type: "duration",
+          label: "Analog Delay duration",
+          description: "How long the chat echo effect lasts when someone uses an Analog Delay Pedal.",
+          displayUnit: "minutes",
+          storageUnit: "milliseconds",
           showWhen: { field: "enabled", value: true },
         },
       },
@@ -222,12 +235,13 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
 
     if (result.success && result.newStock !== undefined) {
       const username = initiator?.username?.trim() || initiator?.userId || "Someone"
+      const skipTokenStock = await this.shop.getStock(SKIP_TOKEN_SHORT_ID)
       await this.emit<MusicShopEvents["PURCHASE_COMPLETE"]>("PURCHASE_COMPLETE", {
         userId: initiator?.userId ?? "",
         username,
         item: shortId,
         price,
-        skipTokenStock: result.newStock,
+        skipTokenStock,
         sellPrice: this.computeSellPrice(),
       })
       await this.emitStockChanged()
@@ -253,7 +267,7 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
     await this.emitStockChanged()
     return {
       success: true,
-      message: `Skip Token stock restocked to ${requireMusicShopCatalogEntry(SKIP_TOKEN_SHORT_ID).initialStock}.`,
+      message: "Shop stock reset to each item's configured starting quantity.",
     }
   }
 
@@ -265,32 +279,95 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
     userId: string,
     _item: InventoryItem,
     definition: ItemDefinition,
-    _callContext?: unknown,
+    callContext?: unknown,
   ): Promise<ItemUseResult> {
     if (!this.context) {
       return { success: false, consumed: false, message: "Plugin not initialized" }
     }
-    if (definition.shortId !== SKIP_TOKEN_SHORT_ID) {
-      return { success: false, consumed: false, message: `Unknown item: ${definition.shortId}` }
+    const config = await this.getConfig()
+    if (!config?.enabled) {
+      return { success: false, consumed: false, message: "The Music Shop is closed." }
     }
 
-    const np = await this.context.api.getNowPlaying(this.context.roomId)
-    if (!np?.mediaSource?.trackId) {
-      return { success: false, consumed: false, message: "Nothing is playing right now." }
+    if (definition.shortId === SKIP_TOKEN_SHORT_ID) {
+      const np = await this.context.api.getNowPlaying(this.context.roomId)
+      if (!np?.mediaSource?.trackId) {
+        return { success: false, consumed: false, message: "Nothing is playing right now." }
+      }
+
+      try {
+        await this.context.api.skipTrack(this.context.roomId, np.mediaSource.trackId)
+      } catch (err) {
+        console.error(`[${this.name}] skipTrack failed`, err)
+        return { success: false, consumed: false, message: "Could not skip the track." }
+      }
+
+      const [user] = await this.context.api.getUsersByIds([userId])
+      const username = user?.username?.trim() || userId
+      await this.context.api.sendSystemMessage(this.context.roomId, `${username} used a Skip Token!`)
+
+      return { success: true, consumed: true, message: "Skipped!" }
     }
 
-    try {
-      await this.context.api.skipTrack(this.context.roomId, np.mediaSource.trackId)
-    } catch (err) {
-      console.error(`[${this.name}] skipTrack failed`, err)
-      return { success: false, consumed: false, message: "Could not skip the track." }
+    if (definition.shortId === ANALOG_DELAY_SHORT_ID) {
+      const ctx = callContext as { targetUserId?: string } | undefined
+      const targetUserId = ctx?.targetUserId ?? userId
+      const roomUsers = await this.context.api.getUsers(this.context.roomId)
+      const inRoom = roomUsers.some((u) => u.userId === targetUserId)
+      if (!inRoom) {
+        return { success: false, consumed: false, message: "That user is not in this room." }
+      }
+
+      const now = Date.now()
+      await this.game.applyModifier(targetUserId, {
+        name: "analog_delay_echo",
+        effects: [{ type: "flag", name: ECHO_FLAG, value: true }],
+        startAt: now,
+        endAt: now + config.echoDurationMs,
+        stackBehavior: "extend",
+      })
+
+      const [actor] = await this.context.api.getUsersByIds([userId])
+      const [target] = await this.context.api.getUsersByIds([targetUserId])
+      const actorName = actor?.username?.trim() || userId
+      const targetName = target?.username?.trim() || targetUserId
+      const who =
+        targetUserId === userId ? `${actorName} is hearing echoes` : `${targetName}'s chat echoes`
+      await this.context.api.sendSystemMessage(
+        this.context.roomId,
+        `${who} (${definition.name} — ${Math.round(config.echoDurationMs / 60_000)} min).`,
+      )
+
+      return { success: true, consumed: true, message: "Echo engaged!" }
     }
 
-    const [user] = await this.context.api.getUsersByIds([userId])
-    const username = user?.username?.trim() || userId
-    await this.context.api.sendSystemMessage(this.context.roomId, `${username} used a Skip Token!`)
+    return { success: false, consumed: false, message: `Unknown item: ${definition.shortId}` }
+  }
 
-    return { success: true, consumed: true, message: "Skipped!" }
+  async transformChatMessage(roomId: string, message: ChatMessage): Promise<ChatMessage | null> {
+    if (!this.context || roomId !== this.context.roomId) return null
+    const config = await this.getConfig()
+    if (!config?.enabled) return null
+
+    const state = await this.game.getUserState(message.user.userId)
+    if (!state) return null
+
+    const flags = getActiveFlags(state.modifiers, Date.now())
+    if (!flags[ECHO_FLAG]) return null
+
+    const tokens = tokenizeWords(message.content)
+    const { content, contentSegments } = buildSegments(tokens, (t) => {
+      if (!t.word) return []
+      return [
+        { text: t.word },
+        {
+          text: ` ${t.word}`,
+          effects: [{ type: "size", value: "small" }],
+        },
+      ]
+    })
+
+    return { ...message, content, contentSegments }
   }
 
   async onItemSold(
@@ -311,7 +388,7 @@ export class MusicShopPlugin extends BasePlugin<MusicShopConfig> {
     const username = user?.username?.trim() || userId
 
     const result = await this.shop.sell({ userId, username }, item.itemId, {
-      basePrice: requireMusicShopCatalogEntry(SKIP_TOKEN_SHORT_ID).coinValue,
+      basePrice: requireMusicShopCatalogEntry(definition.shortId).coinValue,
     })
 
     if (result.success) {

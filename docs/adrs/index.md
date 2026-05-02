@@ -47,6 +47,9 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0039](0039-plugin-element-properties-for-now-playing.md) | Plugin `elementProps` for Now Playing (obscure / bypass roles) | Accepted |
 | [0040](0040-game-sessions-and-inventory.md) | Game Sessions and Inventory as Core Infrastructure | Accepted |
 | [0041](0041-game-state-tabs-and-composable-shop-helper.md) | Game State Tabs and Composable Shop Helper | Accepted |
+| [0042](0042-plugin-chat-message-transform-and-text-segments.md) | Plugin Chat Message Transform + Structured Text Segments | Accepted |
+| [0043](0043-inventory-item-targeting.md) | Inventory Item Targeting via `requiresTarget` | Accepted |
+| [0044](0044-derived-modifier-flags.md) | Derived Modifier Flags via `getActiveFlags` | Accepted |
 
 ## Creating a New ADR
 

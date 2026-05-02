@@ -1,5 +1,6 @@
 import type { z } from "zod"
 import {
+  ChatMessage,
   GameSessionPluginAPI,
   InventoryItem,
   InventoryPluginAPI,
@@ -328,6 +329,14 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     _context?: unknown,
   ): Promise<ItemUseResult> {
     return { success: false, consumed: false, message: `${this.name} has no item handler` }
+  }
+
+  /**
+   * Optional chat transform. Default: no change (return `null`).
+   * @see `PluginRegistry.transformChatMessage`
+   */
+  async transformChatMessage(_roomId: string, _message: ChatMessage): Promise<ChatMessage | null> {
+    return null
   }
 
   // ============================================================================
@@ -734,4 +743,7 @@ export {
   type ShopItem,
   type ShopTransactionResult,
   type GenerateShopComponentsOptions,
+  tokenizeWords,
+  buildSegments,
+  type TokenizedWord,
 } from "./helpers"

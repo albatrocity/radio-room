@@ -1,5 +1,6 @@
 import {
   AppContext,
+  ChatMessage,
   InventoryItem,
   ItemDefinition,
   ItemSellResult,
@@ -282,6 +283,58 @@ export class PluginRegistry {
     }
 
     return { allowed: true }
+  }
+
+  // ============================================================================
+  // Chat message transform
+  // ============================================================================
+
+  /**
+   * Run `transformChatMessage` on all plugins in the room that implement it.
+   * Plugins are called in map iteration order; each receives the output of the
+   * previous. Fail-open on errors and timeouts (same 500ms as queue validation).
+   */
+  async transformChatMessage(roomId: string, message: ChatMessage): Promise<ChatMessage> {
+    const roomPluginMap = this.roomPlugins.get(roomId)
+
+    if (!roomPluginMap || roomPluginMap.size === 0) {
+      return message
+    }
+
+    const pluginsWithTransform = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.transformChatMessage === "function",
+    )
+
+    if (pluginsWithTransform.length === 0) {
+      return message
+    }
+
+    let current = message
+
+    for (const [pluginName, { plugin }] of pluginsWithTransform) {
+      try {
+        const next = await Promise.race([
+          plugin.transformChatMessage!(roomId, current),
+          new Promise<ChatMessage | null>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+
+        if (next != null) {
+          current = next
+        }
+      } catch (error) {
+        console.warn(
+          `[PluginRegistry] transformChatMessage ${pluginName} failed (fail-open):`,
+          error,
+        )
+      }
+    }
+
+    return current
   }
 
   /**

@@ -415,7 +415,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
    *
    * Responds with `INVENTORY_ACTION_RESULT` on this socket only.
    */
-  socket.on("USE_INVENTORY_ITEM", async (data: { itemId: string }) => {
+  socket.on("USE_INVENTORY_ITEM", async (data: { itemId: string; targetUserId?: string }) => {
     const inventory = socket.context.inventory
     if (!inventory) {
       socket.emit("event", {
@@ -433,7 +433,13 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       return
     }
 
-    const result = await inventory.useItem(socket.data.roomId, socket.data.userId, data.itemId)
+    const callContext = data.targetUserId ? { targetUserId: data.targetUserId } : undefined
+    const result = await inventory.useItem(
+      socket.data.roomId,
+      socket.data.userId,
+      data.itemId,
+      callContext,
+    )
 
     socket.emit("event", {
       type: "INVENTORY_ACTION_RESULT",
