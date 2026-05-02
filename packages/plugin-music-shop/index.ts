@@ -8,6 +8,7 @@ import {
   applyTextEffects,
   countTextEffectStacks,
   GATE_FLAG,
+  SCRAMBLE_FLAG,
 } from "@repo/plugin-base"
 import {
   type ChatMessage,
@@ -32,6 +33,7 @@ import {
   COMPRESSOR_SHORT_ID,
   BOOST_SHORT_ID,
   GATE_SHORT_ID,
+  SAMPLE_HOLD_SHORT_ID,
 } from "./types"
 export type { MusicShopConfig } from "./types"
 export {
@@ -323,6 +325,30 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
           successMessage: "Gate engaged. It was lost with use.",
           describe: ({ isSelf, actor, target }) =>
             isSelf ? `${actor} is gated` : `${target} is gated`,
+        },
+      )
+    }
+
+    if (definition.shortId === SAMPLE_HOLD_SHORT_ID) {
+      return this.applyTargetedTimedModifier(
+        userId,
+        callContext,
+        definition,
+        config.effectDurationMs,
+        {
+          modifierName: "sample-hold",
+          effects: [
+            {
+              type: "flag",
+              name: SCRAMBLE_FLAG,
+              value: true,
+              icon: "dices",
+              intent: "negative",
+            },
+          ],
+          successMessage: "Sample & Hold engaged. It was lost with use.",
+          describe: ({ isSelf, actor, target }) =>
+            isSelf ? `${actor} is randomized` : `${target} is randomized`,
         },
       )
     }

@@ -86,7 +86,7 @@ function ModalUserGameState() {
   const showGameFooter = !loading && !error && !!payload?.session
 
   const footer = showGameFooter ? (
-    <Stack gap={3} width="full">
+    <Stack gap={3} width="full" borderTopWidth={1} borderColor="border" pt={3}>
       <UserModifiersList modifiers={payload.state?.modifiers ?? []} definitionMap={definitionMap} />
       <HStack justify="space-between" width="full" flexWrap="wrap" gap={4}>
         <HStack gap={2}>

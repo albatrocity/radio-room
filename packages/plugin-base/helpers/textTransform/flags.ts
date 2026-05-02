@@ -25,12 +25,27 @@ export const ECHO_FLAG = "echo"
  */
 export const GATE_FLAG = "gate"
 
+/**
+ * Flag name for text scrambling effect. Stacks intensify the scramble:
+ *
+ *   1x  - shuffle alphabetic letters within each word (word boundaries preserved).
+ *   2x  - pool letters across the message, shuffle, refill original word slots
+ *         (word count, lengths, and non-alpha positions preserved).
+ *   3x+ - linearise non-whitespace chars and re-emit as a random number of
+ *         new words with random lengths.
+ *
+ * Only alphabetic chars (Unicode `\p{L}`) move; digits, punctuation, and other
+ * non-letters stay anchored.
+ */
+export const SCRAMBLE_FLAG = "scramble"
+
 /** Stack counts for each text effect (0 = inactive). */
 export interface TextEffectStacks {
   shrink: number
   grow: number
   echo: number
   gate: number
+  scramble: number
 }
 
 /**
@@ -48,24 +63,27 @@ export function countTextEffectStacks(
   modifiers: GameStateModifier[] | undefined,
   now: number,
 ): TextEffectStacks {
-  const stacks: TextEffectStacks = { shrink: 0, grow: 0, echo: 0, gate: 0 }
+  const stacks: TextEffectStacks = { shrink: 0, grow: 0, echo: 0, gate: 0, scramble: 0 }
   for (const modifier of modifiers ?? []) {
     if (modifier.startAt > now || modifier.endAt <= now) continue
     let setShrink = false
     let setGrow = false
     let setEcho = false
     let setGate = false
+    let setScramble = false
     for (const effect of modifier.effects) {
       if (effect.type !== "flag" || effect.value !== true) continue
       if (effect.name === SHRINK_FLAG) setShrink = true
       else if (effect.name === GROW_FLAG) setGrow = true
       else if (effect.name === ECHO_FLAG) setEcho = true
       else if (effect.name === GATE_FLAG) setGate = true
+      else if (effect.name === SCRAMBLE_FLAG) setScramble = true
     }
     if (setShrink) stacks.shrink += 1
     if (setGrow) stacks.grow += 1
     if (setEcho) stacks.echo += 1
     if (setGate) stacks.gate += 1
+    if (setScramble) stacks.scramble += 1
   }
   return stacks
 }

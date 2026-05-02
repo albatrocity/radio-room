@@ -3,6 +3,7 @@ export {
   GROW_FLAG,
   ECHO_FLAG,
   GATE_FLAG,
+  SCRAMBLE_FLAG,
   countTextEffectStacks,
   type TextEffectStacks,
 } from "./flags"
@@ -12,5 +13,6 @@ export {
   resolveEchoSize,
   echoCount,
   applyGateTransform,
+  applyScrambleTransform,
 } from "./effects"
 export { applyTextEffects, type AppliedTextEffects } from "./pipeline"

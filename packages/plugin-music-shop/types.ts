@@ -13,6 +13,7 @@ export const ANALOG_DELAY_SHORT_ID = "analog-delay-pedal"
 export const COMPRESSOR_SHORT_ID = "compressor-pedal"
 export const BOOST_SHORT_ID = "boost-pedal"
 export const GATE_SHORT_ID = "gate"
+export const SAMPLE_HOLD_SHORT_ID = "sample-hold"
 
 export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
   {
@@ -20,7 +21,7 @@ export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
     name: "Scratched CD",
     description: "Skip the currently playing song instantly.",
     stackable: true,
-    maxStack: 99,
+    maxStack: 3,
     tradeable: true,
     consumable: true,
     coinValue: 100,
@@ -34,7 +35,7 @@ export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
     description:
       "Echoes every word in a user's chat messages for a limited time. Use on yourself or others.",
     stackable: true,
-    maxStack: 99,
+    maxStack: 3,
     tradeable: false,
     consumable: true,
     requiresTarget: "user",
@@ -48,7 +49,7 @@ export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
     name: "Compressor Pedal",
     description: "Makes chat messages very small for a limited time. Use on yourself or others.",
     stackable: true,
-    maxStack: 99,
+    maxStack: 3,
     tradeable: false,
     consumable: true,
     requiresTarget: "user",
@@ -62,7 +63,7 @@ export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
     name: "Boost Pedal",
     description: "Makes chat messages large for a limited time. Use on yourself or others.",
     stackable: true,
-    maxStack: 99,
+    maxStack: 3,
     tradeable: false,
     consumable: true,
     requiresTarget: "user",
@@ -77,12 +78,26 @@ export const MUSIC_SHOP_CATALOG: readonly ShopCatalogEntry[] = [
     description:
       "Replaces lowercase letters with underscores for a limited time. Use on yourself or others.",
     stackable: true,
-    maxStack: 99,
+    maxStack: 3,
     tradeable: false,
     consumable: true,
     requiresTarget: "user",
     coinValue: 50,
     icon: "fence",
+    initialStock: 5,
+    sellBackRatio: 0,
+  },
+  {
+    shortId: SAMPLE_HOLD_SHORT_ID,
+    name: "Sample & Hold",
+    description: "Scrambles chat messages for a limited time. Use on yourself or others.",
+    stackable: true,
+    maxStack: 3,
+    tradeable: false,
+    consumable: true,
+    requiresTarget: "user",
+    coinValue: 50,
+    icon: "dices",
     initialStock: 5,
     sellBackRatio: 0,
   },
