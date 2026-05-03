@@ -94,6 +94,7 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
     getUsersByIds: vi.fn().mockResolvedValue([]),
     skipTrack: vi.fn().mockResolvedValue(undefined),
     sendSystemMessage: vi.fn().mockResolvedValue(undefined),
+    sendUserSystemMessage: vi.fn().mockResolvedValue(undefined),
     getPluginConfig: vi.fn().mockResolvedValue(null),
     setPluginConfig: vi.fn().mockResolvedValue(undefined),
     updatePlaylistTrack: vi.fn().mockResolvedValue(undefined),

@@ -123,6 +123,34 @@ export class PluginAPIImpl implements PluginAPI {
     await sendMessage(this.io, roomId, msg, this.context)
   }
 
+  async sendUserSystemMessage(
+    roomId: string,
+    userId: string,
+    message: string,
+    meta?: ChatMessage["meta"],
+  ): Promise<void> {
+    const { default: systemMessage } = await import("../../lib/systemMessage")
+    const { getRoomUsers } = await import("../../operations/data")
+
+    const users = await getRoomUsers({ context: this.context, roomId })
+    const user = users.find((u) => u.userId === userId)
+    if (!user?.id) {
+      console.warn(
+        `[PluginAPI] sendUserSystemMessage: no connected socket for userId ${userId} in room ${roomId}`,
+      )
+      return
+    }
+
+    const msg = systemMessage(message, meta)
+    this.io.to(user.id).emit("event", {
+      type: "MESSAGE_RECEIVED",
+      data: {
+        roomId,
+        message: msg,
+      },
+    })
+  }
+
   async getPluginConfig(roomId: string, pluginName: string): Promise<any | null> {
     const { getPluginConfig } = await import("../../operations/data/pluginConfigs")
     return await getPluginConfig({ context: this.context, roomId, pluginName })

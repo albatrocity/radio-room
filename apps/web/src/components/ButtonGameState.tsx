@@ -1,12 +1,19 @@
-import { useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { Box, Icon, IconButton, Status } from "@chakra-ui/react"
+import { useMachine } from "@xstate/react"
+import { CircleDollarSign } from "lucide-react"
 import { LuGamepad2 } from "react-icons/lu"
+import { useAnimeScope } from "../animations/useAnimeScope"
+import { useCoinGainButtonAnimation } from "../animations/useCoinGainButtonAnimation"
 import {
   useActiveGameSessionName,
   useHasActiveGameSession,
   useModalsSend,
+  useUserGameSession,
   useUserState,
 } from "../hooks/useActors"
+import { useAnimationsEnabled } from "../hooks/useReducedMotion"
+import { coinGainFeedbackMachine } from "../machines/coinGainFeedbackMachine"
 import { useGameStateNewPluginTabs } from "./GameStateNewPluginTabsProvider"
 
 /**
@@ -17,9 +24,40 @@ function ButtonGameState() {
   const modalSend = useModalsSend()
   const hasActiveSession = useHasActiveGameSession()
   const sessionName = useActiveGameSessionName()
+  const session = useUserGameSession()
   const { hasUnseenPluginTabs } = useGameStateNewPluginTabs()
   const userState = useUserState()
   const modifiers = userState?.modifiers
+  const animationsEnabled = useAnimationsEnabled()
+
+  const [coinFeedbackState, sendCoinFeedback] = useMachine(coinGainFeedbackMachine)
+
+  const scopeRootRef = useRef<HTMLDivElement>(null)
+  const coinMotionRef = useRef<HTMLDivElement>(null)
+  const buttonMotionRef = useRef<HTMLDivElement>(null)
+
+  const coin = userState?.attributes.coin ?? 0
+  const coinAttributeEnabled = session?.config.enabledAttributes.includes("coin") ?? false
+
+  useEffect(() => {
+    sendCoinFeedback({
+      type: "SYNC",
+      coin,
+      coinAttributeEnabled,
+      sessionActive: hasActiveSession,
+      animationsEnabled,
+    })
+  }, [coin, coinAttributeEnabled, hasActiveSession, animationsEnabled, sendCoinFeedback])
+
+  useAnimeScope(scopeRootRef, hasActiveSession)
+
+  const animating = coinFeedbackState.value === "animating"
+
+  const onCoinGainAnimationFinished = useCallback(() => {
+    sendCoinFeedback({ type: "ANIMATION_FINISHED" })
+  }, [sendCoinFeedback])
+
+  useCoinGainButtonAnimation(animating, coinMotionRef, buttonMotionRef, onCoinGainAnimationFinished)
 
   const { hasPositive, hasNegative } = useMemo(() => {
     const now = Date.now()
@@ -43,15 +81,41 @@ function ButtonGameState() {
 
   return (
     <Box position="relative" display="inline-flex">
-      <IconButton
-        aria-label={label}
-        title={label}
-        variant="ghost"
-        colorPalette="action"
-        onClick={() => modalSend({ type: "VIEW_GAME_STATE" })}
-      >
-        <Icon as={LuGamepad2} />
-      </IconButton>
+      <Box ref={scopeRootRef} position="relative" display="inline-flex">
+        {coinAttributeEnabled ? (
+          <Box
+            position="absolute"
+            inset="0"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            pointerEvents="none"
+            zIndex={2}
+          >
+            <Box
+              ref={coinMotionRef}
+              opacity={0}
+              h="1.35em"
+              w="1.35em"
+              bg="gold"
+              borderRadius="full"
+            >
+              <Icon as={CircleDollarSign} color="black/30" />
+            </Box>
+          </Box>
+        ) : null}
+        <Box ref={buttonMotionRef} display="inline-flex" style={{ transformOrigin: "center" }}>
+          <IconButton
+            aria-label={label}
+            title={label}
+            variant="ghost"
+            colorPalette="action"
+            onClick={() => modalSend({ type: "VIEW_GAME_STATE" })}
+          >
+            <Icon as={LuGamepad2} />
+          </IconButton>
+        </Box>
+      </Box>
       {hasUnseenPluginTabs ? (
         <Status.Root
           size="sm"

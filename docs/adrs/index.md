@@ -51,6 +51,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0043](0043-inventory-item-targeting.md) | Inventory Item Targeting via `requiresTarget` | Accepted |
 | [0044](0044-derived-modifier-flags.md) | Derived Modifier Flags via `getActiveFlags` | Accepted |
 | [0045](0045-shop-plugin-base-class.md) | ShopPlugin Base Class | Accepted |
+| [0046](0046-plugin-user-targeted-chat.md) | Plugin user-targeted chat (private socket delivery) | Accepted |
 
 ## Creating a New ADR
 

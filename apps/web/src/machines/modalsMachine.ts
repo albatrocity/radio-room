@@ -31,6 +31,7 @@ export type Event =
   | { type: "EDIT_QUEUE_HYGIENE" }
   | { type: "EDIT_GUESS_THE_TUNE" }
   | { type: "EDIT_MUSIC_SHOP" }
+  | { type: "EDIT_LOYALTY_PROGRAM" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
@@ -116,6 +117,7 @@ export const modalsMachine = setup({
             EDIT_QUEUE_HYGIENE: "queue_hygiene",
             EDIT_GUESS_THE_TUNE: "guess_the_tune",
             EDIT_MUSIC_SHOP: "music_shop",
+            EDIT_LOYALTY_PROGRAM: "loyalty_program",
           },
         },
         playlist_democracy: {
@@ -144,6 +146,11 @@ export const modalsMachine = setup({
           },
         },
         music_shop: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        loyalty_program: {
           on: {
             BACK: "overview",
           },

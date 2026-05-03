@@ -19,6 +19,7 @@ import createAbsentDjPlugin from "@repo/plugin-absent-dj"
 import createQueueHygienePlugin from "@repo/plugin-queue-hygiene"
 import createGuessTheTunePlugin from "@repo/plugin-guess-the-tune"
 import createMusicShopPlugin from "@repo/plugin-music-shop"
+import createLoyaltyProgramPlugin from "@repo/plugin-loyalty-program"
 import { authHandler } from "@repo/auth/server"
 import { requireAdmin } from "@repo/auth/middleware"
 
@@ -77,6 +78,7 @@ async function main() {
       createQueueHygienePlugin,
       createGuessTheTunePlugin,
       createMusicShopPlugin,
+      createLoyaltyProgramPlugin,
     ],
   })
 

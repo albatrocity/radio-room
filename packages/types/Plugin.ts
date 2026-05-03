@@ -225,6 +225,16 @@ export interface PluginAPI {
   getUsersByIds(userIds: string[]): Promise<User[]>
   skipTrack(roomId: string, trackId: string): Promise<void>
   sendSystemMessage(roomId: string, message: string, meta?: ChatMessage["meta"]): Promise<void>
+  /**
+   * Deliver a system-authored chat line to a single connected client (by user id).
+   * Does not persist to chat history or emit via SystemEvents (see ADR 0046).
+   */
+  sendUserSystemMessage(
+    roomId: string,
+    userId: string,
+    message: string,
+    meta?: ChatMessage["meta"],
+  ): Promise<void>
   getPluginConfig(roomId: string, pluginName: string): Promise<any | null>
   setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>
   /** Emit an update for a playlist track (e.g., when pluginData changes) */
