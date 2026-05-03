@@ -24,9 +24,10 @@
     "@repo/plugin-base": "*",
     "@repo/types": "*",
     "@repo/utils": "*",
-    "fuse.js": "^7.1.0"
+    "fuse.js": "^7.1.0",
+    "zod": "^4.4.2"
   },
   "peerDependencies": {
-    "zod": "^4.1.13"
+    "zod": "^4.4.2"
   }
 }

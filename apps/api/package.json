@@ -41,7 +41,7 @@
     "redis": "^4.7.0",
     "remeda": "^2.26.0",
     "socket.io": "^4.8.1",
-    "zod": "^4.1.13"
+    "zod": "^4.4.2"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",

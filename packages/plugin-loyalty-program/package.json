@@ -13,7 +13,7 @@
     "@repo/plugin-base": "*",
     "@repo/types": "*",
     "@repo/utils": "*",
-    "zod": "^4.1.13"
+    "zod": "^4.4.2"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
