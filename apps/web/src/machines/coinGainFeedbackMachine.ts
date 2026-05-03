@@ -18,6 +18,8 @@ export interface CoinGainFeedbackContext {
   pendingCoin: number | undefined
   /** Which timeline runs while in `animating`. */
   animationKind: CoinFeedbackAnimationKind | undefined
+  /** Signed delta for the current animation (+ gain, − loss); set when entering `animating`. */
+  animationCoinDelta: number | undefined
 }
 
 export const coinGainFeedbackMachine = setup({
@@ -30,11 +32,13 @@ export const coinGainFeedbackMachine = setup({
       previousCoin: () => undefined,
       pendingCoin: () => undefined,
       animationKind: () => undefined,
+      animationCoinDelta: () => undefined,
     }),
     setBaselineFromSync: assign({
       previousCoin: ({ event }) => (event.type === "SYNC" ? event.coin : undefined),
       pendingCoin: () => undefined,
       animationKind: () => undefined,
+      animationCoinDelta: () => undefined,
     }),
     setPreviousFromSync: assign({
       previousCoin: ({ event }) => (event.type === "SYNC" ? event.coin : undefined),
@@ -42,10 +46,18 @@ export const coinGainFeedbackMachine = setup({
     enterAnimatingGain: assign({
       pendingCoin: ({ event }) => (event.type === "SYNC" ? event.coin : undefined),
       animationKind: () => "gain" as const,
+      animationCoinDelta: ({ context, event }) =>
+        event.type === "SYNC" && context.previousCoin !== undefined
+          ? event.coin - context.previousCoin
+          : undefined,
     }),
     enterAnimatingLoss: assign({
       pendingCoin: ({ event }) => (event.type === "SYNC" ? event.coin : undefined),
       animationKind: () => "loss" as const,
+      animationCoinDelta: ({ context, event }) =>
+        event.type === "SYNC" && context.previousCoin !== undefined
+          ? event.coin - context.previousCoin
+          : undefined,
     }),
     mergePendingWhileAnimating: assign({
       pendingCoin: ({ event }) => (event.type === "SYNC" ? event.coin : undefined),
@@ -54,6 +66,7 @@ export const coinGainFeedbackMachine = setup({
       previousCoin: ({ context }) => context.pendingCoin ?? context.previousCoin,
       pendingCoin: () => undefined,
       animationKind: () => undefined,
+      animationCoinDelta: () => undefined,
     }),
   },
   guards: {
@@ -102,6 +115,7 @@ export const coinGainFeedbackMachine = setup({
     previousCoin: undefined,
     pendingCoin: undefined,
     animationKind: undefined,
+    animationCoinDelta: undefined,
   },
   states: {
     inactive: {

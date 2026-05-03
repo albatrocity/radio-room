@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react"
-import { Box, Icon, IconButton, Status } from "@chakra-ui/react"
+import { Box, Icon, IconButton, Status, Text } from "@chakra-ui/react"
 import { useMachine } from "@xstate/react"
 import { CircleDollarSign } from "lucide-react"
 import { LuGamepad2 } from "react-icons/lu"
@@ -15,6 +15,19 @@ import {
 import { useAnimationsEnabled } from "../hooks/useReducedMotion"
 import { coinGainFeedbackMachine } from "../machines/coinGainFeedbackMachine"
 import { useGameStateNewPluginTabs } from "./GameStateNewPluginTabsProvider"
+
+/** ≥1000 shows compact `k` units (`+1k`, `-3.5k`); smaller values stay integer with sign. */
+function formatSignedCoinDeltaCompact(delta: number): string {
+  const abs = Math.abs(delta)
+  if (abs < 1000) {
+    return delta > 0 ? `+${delta}` : String(delta)
+  }
+  const compact =
+    abs % 1000 === 0
+      ? `${abs / 1000}k`
+      : `${Number((abs / 1000).toFixed(1))}k`
+  return delta < 0 ? `-${compact}` : `+${compact}`
+}
 
 /**
  * Opens the user's game state modal. Hidden when no game session is running
@@ -53,6 +66,7 @@ function ButtonGameState() {
 
   const animating = coinFeedbackState.matches("animating")
   const coinAnimationKind = coinFeedbackState.context.animationKind
+  const animationCoinDelta = coinFeedbackState.context.animationCoinDelta
 
   const onCoinFeedbackAnimationFinished = useCallback(() => {
     sendCoinFeedback({ type: "ANIMATION_FINISHED" })
@@ -101,13 +115,41 @@ function ButtonGameState() {
           >
             <Box
               ref={coinMotionRef}
+              position="relative"
               opacity={0}
               h="1.35em"
               w="1.35em"
               bg="gold"
               borderRadius="full"
             >
-              <Icon as={CircleDollarSign} color="black/30" />
+              <Icon
+                as={CircleDollarSign}
+                boxSize="full"
+                color="black/30"
+                opacity={
+                  animating && animationCoinDelta !== undefined ? 0.22 : 1
+                }
+              />
+              {animating && animationCoinDelta !== undefined ? (
+                <Text
+                  position="absolute"
+                  inset="0"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                  fontSize="8px"
+                  fontWeight="bold"
+                  lineHeight="1"
+                  textAlign="center"
+                  color={coinAnimationKind === "loss" ? "red.900" : "green.900"}
+                  fontVariantNumeric="tabular-nums"
+                  zIndex={1}
+                  pointerEvents="none"
+                  textShadow="0 0 2px rgba(255,255,255,0.95), 0 0 3px rgba(255,255,255,0.9)"
+                >
+                  {formatSignedCoinDeltaCompact(animationCoinDelta)}
+                </Text>
+              ) : null}
             </Box>
           </Box>
         ) : null}
