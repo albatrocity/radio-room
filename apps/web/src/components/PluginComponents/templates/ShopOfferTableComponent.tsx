@@ -21,13 +21,15 @@ function ShopOfferTableRowView({
   const gameState = useUserGameState()
   const qtyRaw = store[row.quantityStoreKey]
   const qty = typeof qtyRaw === "number" ? qtyRaw : Number(qtyRaw ?? 0)
+  const qtyFinite = Number.isFinite(qty)
+  const outOfStock = qtyFinite && qty <= 0
   const IconComponent = getIcon(row.icon)
 
   const attr = row.balanceAttribute ?? "coin"
   const cannotAfford = gameState == null || gameState.getAttribute(attr) < row.price
 
   return (
-    <Table.Row>
+    <Table.Row opacity={outOfStock ? 0.6 : 1}>
       <Table.Cell verticalAlign="middle" w="52px">
         <Center width="full" height="full">
           {IconComponent ? (
@@ -58,7 +60,7 @@ function ShopOfferTableRowView({
           size="sm"
           confirmMessage={row.confirmMessage}
           confirmText={row.confirmText}
-          disabled={cannotAfford}
+          disabled={cannotAfford || outOfStock}
         />
       </Table.Cell>
     </Table.Row>

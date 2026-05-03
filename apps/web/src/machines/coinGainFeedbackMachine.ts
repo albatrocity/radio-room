@@ -10,10 +10,14 @@ export type CoinGainFeedbackEvent =
     }
   | { type: "ANIMATION_FINISHED" }
 
+export type CoinFeedbackAnimationKind = "gain" | "loss"
+
 export interface CoinGainFeedbackContext {
   previousCoin: number | undefined
   /** Latest coin value while `animating` (merges rapid SYNC updates). */
   pendingCoin: number | undefined
+  /** Which timeline runs while in `animating`. */
+  animationKind: CoinFeedbackAnimationKind | undefined
 }
 
 export const coinGainFeedbackMachine = setup({
@@ -25,16 +29,23 @@ export const coinGainFeedbackMachine = setup({
     clearTracking: assign({
       previousCoin: () => undefined,
       pendingCoin: () => undefined,
+      animationKind: () => undefined,
     }),
     setBaselineFromSync: assign({
       previousCoin: ({ event }) => (event.type === "SYNC" ? event.coin : undefined),
       pendingCoin: () => undefined,
+      animationKind: () => undefined,
     }),
     setPreviousFromSync: assign({
       previousCoin: ({ event }) => (event.type === "SYNC" ? event.coin : undefined),
     }),
-    enterAnimating: assign({
+    enterAnimatingGain: assign({
       pendingCoin: ({ event }) => (event.type === "SYNC" ? event.coin : undefined),
+      animationKind: () => "gain" as const,
+    }),
+    enterAnimatingLoss: assign({
+      pendingCoin: ({ event }) => (event.type === "SYNC" ? event.coin : undefined),
+      animationKind: () => "loss" as const,
     }),
     mergePendingWhileAnimating: assign({
       pendingCoin: ({ event }) => (event.type === "SYNC" ? event.coin : undefined),
@@ -42,6 +53,7 @@ export const coinGainFeedbackMachine = setup({
     finishAnimation: assign({
       previousCoin: ({ context }) => context.pendingCoin ?? context.previousCoin,
       pendingCoin: () => undefined,
+      animationKind: () => undefined,
     }),
   },
   guards: {
@@ -67,10 +79,19 @@ export const coinGainFeedbackMachine = setup({
       context.previousCoin !== undefined &&
       event.coin > context.previousCoin,
 
-    coinDecreased: ({ context, event }) =>
+    shouldAnimateCoinLoss: ({ context, event }) =>
       event.type === "SYNC" &&
       event.sessionActive &&
       event.coinAttributeEnabled &&
+      event.animationsEnabled &&
+      context.previousCoin !== undefined &&
+      event.coin < context.previousCoin,
+
+    coinDecreasedWithoutAnimation: ({ context, event }) =>
+      event.type === "SYNC" &&
+      event.sessionActive &&
+      event.coinAttributeEnabled &&
+      !event.animationsEnabled &&
       context.previousCoin !== undefined &&
       event.coin < context.previousCoin,
   },
@@ -80,6 +101,7 @@ export const coinGainFeedbackMachine = setup({
   context: {
     previousCoin: undefined,
     pendingCoin: undefined,
+    animationKind: undefined,
   },
   states: {
     inactive: {
@@ -105,14 +127,19 @@ export const coinGainFeedbackMachine = setup({
           {
             guard: "shouldAnimateCoinGain",
             target: "animating",
-            actions: "enterAnimating",
+            actions: "enterAnimatingGain",
+          },
+          {
+            guard: "shouldAnimateCoinLoss",
+            target: "animating",
+            actions: "enterAnimatingLoss",
           },
           {
             guard: "coinIncreasedWithoutAnimation",
             actions: "setPreviousFromSync",
           },
           {
-            guard: "coinDecreased",
+            guard: "coinDecreasedWithoutAnimation",
             actions: "setPreviousFromSync",
           },
         ],

@@ -28,7 +28,7 @@ export class LoyaltyProgramPlugin extends BasePlugin<LoyaltyProgramConfig> {
   version = packageJson.version
   description = "Loyalty Program — awards coins for time spent in the room."
 
-  static readonly configSchema = loyaltyProgramConfigSchema
+  static readonly configSchema = loyaltyProgramConfigSchema as any
   static readonly defaultConfig = defaultLoyaltyProgramConfig
 
   getConfigSchema(): PluginConfigSchema {

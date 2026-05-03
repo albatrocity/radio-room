@@ -245,10 +245,10 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
       const username = user?.username?.trim() || userId
       await this.context.api.sendSystemMessage(
         this.context.roomId,
-        `${username} used a Skip Token!`,
+        `${username} used a Scratched CD and skipped the current track!`,
       )
 
-      return { success: true, consumed: true, message: "Skipped!" }
+      return { success: true, consumed: true, message: "Used Scratched CD. It was lost with use." }
     }
 
     if (definition.shortId === ANALOG_DELAY_SHORT_ID) {
@@ -268,7 +268,7 @@ export class MusicShopPlugin extends ShopPlugin<MusicShopConfig> {
               intent: "negative",
             },
           ],
-          successMessage: "Echo engaged. It was lost with use.",
+          successMessage: "Analog Delay Pedal engaged. It was lost with use.",
           describe: ({ isSelf, actor, target }) =>
             isSelf ? `${actor} is hearing echoes` : `${target}'s chat echoes`,
         },

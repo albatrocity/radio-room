@@ -4,7 +4,7 @@ import { useMachine } from "@xstate/react"
 import { CircleDollarSign } from "lucide-react"
 import { LuGamepad2 } from "react-icons/lu"
 import { useAnimeScope } from "../animations/useAnimeScope"
-import { useCoinGainButtonAnimation } from "../animations/useCoinGainButtonAnimation"
+import { useCoinFeedbackButtonAnimation } from "../animations/useCoinFeedbackButtonAnimation"
 import {
   useActiveGameSessionName,
   useHasActiveGameSession,
@@ -51,13 +51,20 @@ function ButtonGameState() {
 
   useAnimeScope(scopeRootRef, hasActiveSession)
 
-  const animating = coinFeedbackState.value === "animating"
+  const animating = coinFeedbackState.matches("animating")
+  const coinAnimationKind = coinFeedbackState.context.animationKind
 
-  const onCoinGainAnimationFinished = useCallback(() => {
+  const onCoinFeedbackAnimationFinished = useCallback(() => {
     sendCoinFeedback({ type: "ANIMATION_FINISHED" })
   }, [sendCoinFeedback])
 
-  useCoinGainButtonAnimation(animating, coinMotionRef, buttonMotionRef, onCoinGainAnimationFinished)
+  useCoinFeedbackButtonAnimation(
+    animating,
+    coinAnimationKind,
+    coinMotionRef,
+    buttonMotionRef,
+    onCoinFeedbackAnimationFinished,
+  )
 
   const { hasPositive, hasNegative } = useMemo(() => {
     const now = Date.now()

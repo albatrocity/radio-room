@@ -38,6 +38,11 @@
   "overrides": {
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
-    "zod": "4.4.2"
+    "@tanstack/router-plugin": {
+      "zod": "3.25.76"
+    },
+    "@tanstack/router-generator": {
+      "zod": "3.25.76"
+    }
   }
 }
