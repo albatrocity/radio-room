@@ -76,14 +76,15 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {instance.offers.map((row) => {
+          {instance.offers.map((row, index) => {
             const IconComponent = getIcon(row.icon)
             const cannotAfford = gameState == null || gameState.getAttribute("coin") < row.price
             const outOfStock = !row.available
-            const action = `buy:${row.shortId}`
+            const offerId = row.offerId ?? index
+            const action = `buy:${offerId}`
 
             return (
-              <Table.Row key={row.shortId} opacity={outOfStock ? 0.55 : 1}>
+              <Table.Row key={offerId} opacity={outOfStock ? 0.55 : 1}>
                 <Table.Cell verticalAlign="middle" w="52px">
                   <Center width="full" height="full">
                     {IconComponent ? (

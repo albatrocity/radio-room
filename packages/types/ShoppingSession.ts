@@ -9,6 +9,8 @@ export type ItemRarity = "common" | "uncommon" | "rare" | "legendary"
  * One offer row in the user's current shop instance.
  */
 export interface ShopOffer {
+  /** Index of this row in the instance's `offers` array (unique per slot; same `shortId` may repeat). */
+  offerId: number
   shortId: string
   name: string
   description: string

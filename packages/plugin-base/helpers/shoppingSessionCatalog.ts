@@ -138,19 +138,48 @@ export function pickWeightedDistinctShortIds(
   return picked
 }
 
+/**
+ * Weighted random picks with replacement — the same `shortId` may appear multiple times.
+ */
+export function pickWeightedShortIds(
+  candidates: WeightedCandidate[],
+  count: number,
+  random: () => number = Math.random,
+): string[] {
+  if (candidates.length === 0 || count <= 0) return []
+  const total = candidates.reduce((s, c) => s + c.weight, 0)
+  if (total <= 0) return []
+
+  const picked: string[] = []
+  for (let i = 0; i < count; i++) {
+    let r = random() * total
+    let chosen = candidates[0]!
+    for (const c of candidates) {
+      r -= c.weight
+      if (r <= 0) {
+        chosen = c
+        break
+      }
+    }
+    picked.push(chosen.shortId)
+  }
+  return picked
+}
+
 export function buildShoppingInstance(
   shop: ShopCatalogEntry,
   shortIds: string[],
   catalogByShortId: Map<string, ItemCatalogEntry>,
   openedAt: number,
 ): ShoppingSessionInstance {
-  const offers = shortIds.map((sid) => {
+  const offers = shortIds.map((sid, index) => {
     const entry = catalogByShortId.get(sid)
     if (!entry) {
       throw new Error(`Unknown catalog item in instance: ${sid}`)
     }
     const { name, description, icon = "package" } = entry.definition
     return {
+      offerId: index,
       shortId: sid,
       name,
       description,

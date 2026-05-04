@@ -308,14 +308,19 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!config?.enabled) {
         return { success: false, message: "Item Shops are disabled." }
       }
-      const shortId = action.slice("buy:".length)
-      const result = await this.shopping.purchase(initiator, shortId)
+      const offerId = Number.parseInt(action.slice("buy:".length), 10)
+      if (!Number.isInteger(offerId)) {
+        return { success: false, message: "Invalid offer." }
+      }
+      const result = await this.shopping.purchase(initiator, offerId)
       if (result.success && initiator?.userId) {
         const instance = await this.shopping.getInstance(initiator.userId)
         if (instance) {
           const shop = SHOP_CATALOG.find((s) => s.shopId === instance.shopId)
           if (shop?.onBuy) {
-            const offer = instance.offers.find((o) => o.shortId === shortId)
+            const offer =
+              instance.offers.find((o) => o.offerId === offerId) ?? instance.offers[offerId]
+            const shortId = offer?.shortId ?? String(offerId)
             const purchasedItemName = offer?.name ?? shortId
             const username = await this.resolveBuyerUsername(initiator)
             const ctx = this.createShopBuyContext(

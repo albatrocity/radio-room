@@ -16,7 +16,7 @@ import {
   type ShopCatalogEntry,
   buildItemCatalogMap,
   buildShoppingInstance,
-  pickWeightedDistinctShortIds,
+  pickWeightedShortIds,
   resolveItemRarity,
   resolveShopItemPrice,
   resolveUnlistedSellBasePrice,
@@ -98,7 +98,7 @@ export class ShoppingSessionHelper {
   }
 
   /**
-   * Picks a random shop, 3 distinct weighted offers, persists, DMs the user.
+   * Picks a random shop, 3 weighted offers (duplicates allowed), persists, DMs the user.
    *
    * @param eligibleShops - Same semantics as {@link startSession}.
    */
@@ -152,8 +152,10 @@ export class ShoppingSessionHelper {
       const w = this.rarityWeights[r] ?? this.rarityWeights.common
       return { shortId: ai.shortId, weight: w }
     })
-    const n = Math.min(count, candidates.length)
-    return pickWeightedDistinctShortIds(candidates, n)
+    if (candidates.length === 0) {
+      return []
+    }
+    return pickWeightedShortIds(candidates, count)
   }
 
   private getShopById(shopId: string): ShopCatalogEntry | undefined {
@@ -165,7 +167,7 @@ export class ShoppingSessionHelper {
    */
   async purchase(
     initiator: PluginActionInitiator | undefined,
-    shortId: string,
+    offerId: number,
   ): Promise<ShopTransactionResult> {
     const userId = initiator?.userId
     if (!userId) {
@@ -182,7 +184,11 @@ export class ShoppingSessionHelper {
     if (!inst) {
       return { success: false, message: "You don't have a shop assigned right now." }
     }
-    const offer = inst.offers.find((o: ShopOffer) => o.shortId === shortId)
+    const offer =
+      inst.offers.find((o: ShopOffer) => o.offerId === offerId) ??
+      (Number.isInteger(offerId) && offerId >= 0 && offerId < inst.offers.length
+        ? inst.offers[offerId]
+        : undefined)
     if (!offer) {
       return { success: false, message: "This item is not in your current shop." }
     }
@@ -190,6 +196,7 @@ export class ShoppingSessionHelper {
       return { success: false, message: `Sold out — no ${offer.name} remaining here.` }
     }
     const price = offer.price
+    const shortId = offer.shortId
     const userState = await this.context.game.getUserState(userId)
     const currentCoins = userState?.attributes?.coin ?? 0
     if (currentCoins < price) {
