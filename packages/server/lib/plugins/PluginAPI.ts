@@ -115,11 +115,12 @@ export class PluginAPIImpl implements PluginAPI {
     roomId: string,
     message: string,
     meta?: ChatMessage["meta"],
+    mentions?: ChatMessage["mentions"],
   ): Promise<void> {
     const { default: sendMessage } = await import("../../lib/sendMessage")
     const { default: systemMessage } = await import("../../lib/systemMessage")
 
-    const msg = systemMessage(message, meta)
+    const msg = systemMessage(message, meta, mentions)
 
     await sendMessage(this.io, roomId, msg, this.context)
   }

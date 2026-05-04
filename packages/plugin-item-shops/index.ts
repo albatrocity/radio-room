@@ -1,5 +1,5 @@
 import { z } from "zod"
-import type { ItemShopsShopCatalogEntry } from "@repo/plugin-base/helpers"
+import type { ItemShopsShopCatalogEntry, ShopBuyContext } from "@repo/plugin-base/helpers"
 import { BasePlugin, applyTextEffects, countTextEffectStacks, ShoppingSessionHelper } from "@repo/plugin-base"
 import {
   type ChatMessage,
@@ -47,6 +47,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
   private shopping!: ShoppingSessionHelper
 
+  /** Per-shop state stores for `onBuy` callbacks (keyed by shopId, then by arbitrary key). */
+  private shopStateStores = new Map<string, Map<string, unknown>>()
+
   async register(context: import("@repo/types").PluginContext): Promise<void> {
     await super.register(context)
     this.shopping = new ShoppingSessionHelper(
@@ -61,8 +64,95 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   }
 
   private async handleGameSessionEnded(_data: SystemEventPayload<"GAME_SESSION_ENDED">): Promise<void> {
+    this.clearShopTimersAndState()
     await this.shopping.clearSessionRound()
     await this.stripOwnedItemsFromAllUsers()
+  }
+
+  private shopTimerPrefix(shopId: string): string {
+    return `shop:${shopId}:`
+  }
+
+  private clearShopTimersAndState(): void {
+    for (const shop of SHOP_CATALOG) {
+      const prefix = this.shopTimerPrefix(shop.shopId)
+      for (const timer of this.getAllTimers()) {
+        if (timer.id.startsWith(prefix)) {
+          this.clearTimer(timer.id)
+        }
+      }
+      shop.onSessionEnd?.()
+    }
+    this.shopStateStores.clear()
+  }
+
+  private async resolveBuyerUsername(initiator: PluginActionInitiator): Promise<string> {
+    const fromInitiator = initiator.username?.trim()
+    if (fromInitiator) return fromInitiator
+    if (!this.context) return initiator.userId
+    const [user] = await this.context.api.getUsersByIds([initiator.userId])
+    return user?.username?.trim() || initiator.userId
+  }
+
+  private getShopStateStore(shopId: string): Map<string, unknown> {
+    let store = this.shopStateStores.get(shopId)
+    if (!store) {
+      store = new Map()
+      this.shopStateStores.set(shopId, store)
+    }
+    return store
+  }
+
+  private createShopBuyContext(
+    shop: ItemShopsShopCatalogEntry,
+    userId: string,
+    username: string,
+    itemShortId: string,
+    itemName: string,
+  ): ShopBuyContext {
+    const timerPrefix = this.shopTimerPrefix(shop.shopId)
+    const stateStore = this.getShopStateStore(shop.shopId)
+
+    const ctx: ShopBuyContext = {
+      roomId: this.context!.roomId,
+      userId,
+      username,
+      itemShortId,
+      itemName,
+
+      startTimer: (id, config) => {
+        this.startTimer(timerPrefix + id, config)
+      },
+      getTimer: <T = unknown>(id: string) => {
+        const timer = this.getTimer<T>(timerPrefix + id)
+        return timer ? { id: timer.id, data: timer.data as T | undefined } : null
+      },
+      clearTimer: (id) => this.clearTimer(timerPrefix + id),
+
+      sendSystemMessage: async (message, meta, mentions) => {
+        await this.context!.api.sendSystemMessage(
+          this.context!.roomId,
+          message,
+          meta,
+          mentions,
+        )
+      },
+
+      isShoppingActive: () => this.shopping.isActive(),
+      isUserInRoom: async (uid) => {
+        const users = await this.context!.api.getUsers(this.context!.roomId)
+        return users.some((u) => u.userId === uid)
+      },
+
+      getState: <T>(key: string) => stateStore.get(key) as T | undefined,
+      setState: <T>(key: string, value: T) => {
+        stateStore.set(key, value)
+      },
+      deleteState: (key) => {
+        stateStore.delete(key)
+      },
+    }
+    return ctx
   }
 
   private async handleUserJoined(data: SystemEventPayload<"USER_JOINED">): Promise<void> {
@@ -220,7 +310,24 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       }
       const shortId = action.slice("buy:".length)
       const result = await this.shopping.purchase(initiator, shortId)
-      if (result.success) {
+      if (result.success && initiator?.userId) {
+        const instance = await this.shopping.getInstance(initiator.userId)
+        if (instance) {
+          const shop = SHOP_CATALOG.find((s) => s.shopId === instance.shopId)
+          if (shop?.onBuy) {
+            const offer = instance.offers.find((o) => o.shortId === shortId)
+            const purchasedItemName = offer?.name ?? shortId
+            const username = await this.resolveBuyerUsername(initiator)
+            const ctx = this.createShopBuyContext(
+              shop,
+              initiator.userId,
+              username,
+              shortId,
+              purchasedItemName,
+            )
+            await shop.onBuy(ctx)
+          }
+        }
         await this.emit("SHOPPING_SESSION_UPDATED", { roomId: this.context.roomId })
       }
       return { success: result.success, message: result.message }

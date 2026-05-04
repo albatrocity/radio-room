@@ -13,6 +13,7 @@ export type {
   ShopCatalogEntry as ItemShopsShopCatalogEntry,
   ShopAvailableItem,
   ItemCatalogEntry,
+  ShopBuyContext,
 } from "./shoppingSessionCatalog"
 export {
   resolveItemRarity,

@@ -1,10 +1,50 @@
-import type { ItemDefinition, ItemRarity, ShoppingSessionInstance } from "@repo/types"
+import type { ChatMessage, ItemDefinition, ItemRarity, ShoppingSessionInstance } from "@repo/types"
 
 /** Shop-specific listing (subset of the master item catalog). */
 export type ShopAvailableItem = {
   shortId: string
   /** Optional per-shop price override (buy + listed sell-back base). */
   coinValue?: number
+}
+
+/**
+ * Context passed to shop `onBuy` callbacks with APIs for timers, messaging, and state.
+ */
+export type ShopBuyContext = {
+  roomId: string
+  userId: string
+  username: string
+  itemShortId: string
+  itemName: string
+
+  /** Start a timer scoped to this shop (id is auto-prefixed with shopId). */
+  startTimer: <T = unknown>(
+    id: string,
+    config: { duration: number; callback: () => Promise<void> | void; data?: T },
+  ) => void
+  /** Get a timer by id (auto-prefixed with shopId). */
+  getTimer: <T = unknown>(id: string) => { id: string; data?: T } | null
+  /** Clear a timer by id (auto-prefixed with shopId). */
+  clearTimer: (id: string) => boolean
+
+  /** Send a system message to the room. */
+  sendSystemMessage: (
+    message: string,
+    meta?: ChatMessage["meta"],
+    mentions?: string[],
+  ) => Promise<void>
+
+  /** Check if the shopping session is still active. */
+  isShoppingActive: () => Promise<boolean>
+  /** Check if a user is still in the room. */
+  isUserInRoom: (userId: string) => Promise<boolean>
+
+  /** Get shop-scoped state by key. */
+  getState: <T>(key: string) => T | undefined
+  /** Set shop-scoped state by key. */
+  setState: <T>(key: string, value: T) => void
+  /** Delete shop-scoped state by key. */
+  deleteState: (key: string) => void
 }
 
 export type ShopCatalogEntry = {
@@ -14,6 +54,10 @@ export type ShopCatalogEntry = {
   availableItems: ShopAvailableItem[]
   listedBuybackRate: number
   unlistedBuybackRate: number
+  /** Called after a successful purchase. Use for shop-specific follow-up behaviors. */
+  onBuy?: (ctx: ShopBuyContext) => void | Promise<void>
+  /** Called when the shopping session ends. Use for cleanup (timers are auto-cleared). */
+  onSessionEnd?: () => void
 }
 
 export type ItemCatalogEntry = {

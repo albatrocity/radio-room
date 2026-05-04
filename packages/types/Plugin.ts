@@ -239,7 +239,12 @@ export interface PluginAPI {
   /** Look up users by their IDs (includes users who have left the room) */
   getUsersByIds(userIds: string[]): Promise<User[]>
   skipTrack(roomId: string, trackId: string): Promise<void>
-  sendSystemMessage(roomId: string, message: string, meta?: ChatMessage["meta"]): Promise<void>
+  sendSystemMessage(
+    roomId: string,
+    message: string,
+    meta?: ChatMessage["meta"],
+    mentions?: ChatMessage["mentions"],
+  ): Promise<void>
   /**
    * Deliver a system-authored chat line to a single connected client (by user id).
    * Does not persist to chat history or emit via SystemEvents (see ADR 0046).
