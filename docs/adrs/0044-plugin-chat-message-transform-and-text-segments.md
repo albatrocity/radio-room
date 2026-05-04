@@ -1,4 +1,4 @@
-# 0042. Plugin Chat Message Transform Hook + Structured Text Segments
+# 0044. Plugin Chat Message Transform Hook + Structured Text Segments
 
 **Date:** 2026-05-02
 **Status:** Accepted

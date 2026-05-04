@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import { describe, expect, test, vi, beforeEach } from "vitest"
 import { AuthService } from "./AuthService"
 import { Room } from "@repo/types/Room"
@@ -14,6 +15,7 @@ import {
   getRoomUsers,
   isDj,
   addDj,
+  isRoomAdmin,
 } from "../operations/data"
 import { onListeningUserDisconnected } from "../operations/room/listeningTransportStats"
 import systemMessage from "../lib/systemMessage"
@@ -42,6 +44,9 @@ vi.mock("../lib/systemMessage", () => ({
   })),
 }))
 
+import generateId from "../lib/generateId"
+import generateAnonName from "../lib/generateAnonName"
+
 describe("AuthService", () => {
   let authService: AuthService
   let mockContext: any
@@ -65,6 +70,12 @@ describe("AuthService", () => {
     })
 
     authService = new AuthService(mockContext)
+
+    vi.mocked(generateId).mockReturnValue("generated-id")
+    vi.mocked(generateAnonName).mockReturnValue("anon-user")
+    vi.mocked(isRoomAdmin).mockImplementation(async ({ userId, roomCreator }) =>
+      userId === roomCreator ? true : false,
+    )
   })
 
   test("should be defined", () => {
@@ -472,10 +483,10 @@ describe("AuthService", () => {
         sessionUser: undefined,
       })
 
-      expect(result.error).toBeUndefined()
-      expect(result.init).toBeDefined()
-      expect(result.init?.user.userId).toBe("generated-id")
-      expect(result.init?.user.isAdmin).toBe(false)
+      expect(result.error).toBeNull()
+      expect(result.initData).toBeDefined()
+      expect(result.initData?.user.userId).toBe("generated-id")
+      expect(result.initData?.user.isAdmin).toBe(false)
     })
 
     test("guest joins room with a username", async () => {
@@ -493,8 +504,8 @@ describe("AuthService", () => {
         sessionUser: undefined,
       })
 
-      expect(result.error).toBeUndefined()
-      expect(result.init?.user.username).toBe("GuestUser")
+      expect(result.error).toBeNull()
+      expect(result.initData?.user.username).toBe("GuestUser")
     })
 
     test("guest joins password-protected room with correct password", async () => {
@@ -510,8 +521,8 @@ describe("AuthService", () => {
         sessionUser: undefined,
       })
 
-      expect(result.error).toBeUndefined()
-      expect(result.init).toBeDefined()
+      expect(result.error).toBeNull()
+      expect(result.initData).toBeDefined()
     })
 
     test("room creator gets isAdmin from userId match, not platform auth", async () => {
@@ -527,13 +538,12 @@ describe("AuthService", () => {
         sessionUser: undefined,
       })
 
-      expect(result.error).toBeUndefined()
-      expect(result.init?.user.isAdmin).toBe(true)
+      expect(result.error).toBeNull()
+      expect(result.initData?.user.isAdmin).toBe(true)
     })
 
-    test("AuthService does not import or depend on platform auth", async () => {
-      const authServiceSource = await import("./AuthService")
-      const sourceString = authServiceSource.toString()
+    test("AuthService does not import or depend on platform auth", () => {
+      const sourceString = readFileSync(new URL("./AuthService.ts", import.meta.url), "utf-8")
       expect(sourceString).not.toContain("@repo/auth")
       expect(sourceString).not.toContain("better-auth")
     })

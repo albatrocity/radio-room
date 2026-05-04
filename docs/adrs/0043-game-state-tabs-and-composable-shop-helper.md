@@ -1,9 +1,9 @@
-# 0041. Game State Tabs and Composable Shop Helper
+# 0043. Game State Tabs and Composable Shop Helper
 
 **Date:** 2026-05-01
-**Status:** Partially superseded by [0045](0045-shop-plugin-base-class.md)
+**Status:** Partially superseded by [0047](0047-shop-plugin-base-class.md)
 
-> **Note:** The "Composable `ShopHelper` instead of a `ShopBasePlugin`" decision below is partially superseded by [ADR 0045](0045-shop-plugin-base-class.md), which introduces a `ShopPlugin` base class for the typical inheritance case while keeping `ShopHelper` available for composition. The other decisions in this ADR — the tabbed game state modal, `onItemSold` as a first-class lifecycle hook, and the `isSellingItems` config convention — remain in force.
+> **Note:** The "Composable `ShopHelper` instead of a `ShopBasePlugin`" decision below is partially superseded by [ADR 0047](0047-shop-plugin-base-class.md), which introduces a `ShopPlugin` base class for the typical inheritance case while keeping `ShopHelper` available for composition. The other decisions in this ADR — the tabbed game state modal, `onItemSold` as a first-class lifecycle hook, and the `isSellingItems` config convention — remain in force.
 
 ## Context
 
@@ -75,7 +75,7 @@ Shop plugins should expose a separate boolean for "actively selling" so admins c
 ## References
 
 - [ADR 0006 — Plugin System for Room Features](0006-plugin-system-for-room-features.md)
-- [ADR 0040 — Game Sessions and Inventory as Core Infrastructure](0040-game-sessions-and-inventory.md)
+- [ADR 0042 — Game Sessions and Inventory as Core Infrastructure](0042-game-sessions-and-inventory.md)
 - `packages/plugin-base/helpers/ShopHelper.ts`
 - `apps/web/src/components/Modals/ModalUserGameState.tsx`
 - `apps/web/src/components/Modals/UserGameStateContext.tsx`

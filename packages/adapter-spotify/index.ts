@@ -14,6 +14,7 @@ export { createSpotifyAuthRoutes } from "./lib/authRoutes"
 export { createSpotifyServiceAuthAdapter } from "./lib/serviceAuth"
 export { createPlayerQueryJob } from "./lib/playerQueryJob"
 export { createQueueSyncJob } from "./lib/queueSyncJob"
+export { createTrackAdvanceJob } from "./lib/trackAdvanceJob"
 
 // Export the MediaSource adapter
 export const mediaSource: MediaSourceAdapter = spotifyMediaSource
@@ -48,37 +49,50 @@ export const playbackController: PlaybackControllerAdapter = {
   },
 
   onRoomCreated: async ({ roomId, userId, roomType, context }) => {
-    // Register queue sync job for all room types (both jukebox and radio use Spotify as PlaybackController)
-    console.log(`Spotify PlaybackController: Setting up queue sync for ${roomType} room ${roomId}`)
+    // Register queue sync (Spotify-mirrored) and track advance (app-controlled) jobs.
+    // Each handler no-ops when the room's playbackMode does not apply.
+    console.log(`Spotify PlaybackController: Setting up queue jobs for ${roomType} room ${roomId}`)
 
-    const { createQueueSyncJob } = await import("./lib/queueSyncJob")
-
-    const job = createQueueSyncJob({
-      context,
-      roomId,
-      userId,
-    })
-
-    // Register the job with the JobService
     if (context.jobService) {
-      const existingJob = context.jobs.find((j) => j.name === job.name)
-      if (existingJob) {
-        console.log(`Queue sync job for room ${roomId} already registered, skipping`)
-        return
+      const { createQueueSyncJob } = await import("./lib/queueSyncJob")
+      const { createTrackAdvanceJob } = await import("./lib/trackAdvanceJob")
+      const { AdapterService } = await import("@repo/server/services/AdapterService")
+
+      const queueSyncJob = createQueueSyncJob({ context, roomId, userId })
+      if (!context.jobs.find((j) => j.name === queueSyncJob.name)) {
+        await context.jobService.scheduleJob(queueSyncJob)
+        console.log(`Registered queue sync job for room ${roomId}`)
       }
 
-      await context.jobService.scheduleJob(job)
-      console.log(`Registered queue sync job for room ${roomId}`)
+      const adapterService = new AdapterService(context)
+      const playbackController = await adapterService.getRoomPlaybackController(roomId)
+
+      if (playbackController) {
+        const trackAdvanceJob = createTrackAdvanceJob({
+          context,
+          roomId,
+          userId,
+          playTrack: (uri) => playbackController.api.playTrack(uri),
+        })
+        if (!context.jobs.find((j) => j.name === trackAdvanceJob.name)) {
+          await context.jobService.scheduleJob(trackAdvanceJob)
+          console.log(`Registered track advance job for room ${roomId}`)
+        }
+      } else {
+        console.warn(
+          `[Spotify PlaybackController] No playback controller for room ${roomId}; track advance job not registered`,
+        )
+      }
     }
   },
 
   onRoomDeleted: async ({ roomId, context }) => {
-    console.log(`Spotify PlaybackController: Cleaning up queue sync for room ${roomId}`)
+    console.log(`Spotify PlaybackController: Cleaning up queue jobs for room ${roomId}`)
 
-    const jobName = `queue-sync-${roomId}`
     if (context.jobService) {
-      context.jobService.disableJob(jobName)
-      console.log(`Stopped queue sync job for room ${roomId}`)
+      context.jobService.disableJob(`queue-sync-${roomId}`)
+      context.jobService.disableJob(`track-advance-${roomId}`)
+      console.log(`Stopped queue sync and track advance jobs for room ${roomId}`)
     }
   },
 }

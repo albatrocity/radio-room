@@ -28,6 +28,7 @@ import {
   isRoomPollingPaused,
   setRoomPollingPaused,
   getQueue,
+  getQueueWithDispatched,
   isRoomAdmin,
   addUserToRoomHistory,
 } from "../operations/data"
@@ -35,7 +36,7 @@ import {
   getStreamHealthStatus,
   getWebrtcExperimentalStreamHealthStatus,
 } from "../operations/room/handleStreamHealth"
-import { isHybridRadioRoom } from "../lib/roomTypeHelpers"
+import { isAppControlledPlayback, isHybridRadioRoom } from "../lib/roomTypeHelpers"
 import { onListeningUserDisconnected } from "../operations/room/listeningTransportStats"
 import generateId from "../lib/generateId"
 import generateAnonName from "../lib/generateAnonName"
@@ -225,7 +226,9 @@ export class AuthService {
     const meta = await getRoomCurrent({ context: this.context, roomId })
     const allReactions = await getAllRoomReactions({ context: this.context, roomId })
     const pluginConfigs = await getAllPluginConfigs({ context: this.context, roomId })
-    const queue = await getQueue({ context: this.context, roomId })
+    const queue = isAppControlledPlayback(room)
+      ? await getQueueWithDispatched({ context: this.context, roomId })
+      : await getQueue({ context: this.context, roomId })
     const streamHealthStatus =
       room.type === "live" ? await getStreamHealthStatus(this.context, roomId) : null
     const webrtcStreamHealthStatus = isHybridRadioRoom(room)

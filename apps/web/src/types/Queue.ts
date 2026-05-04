@@ -71,6 +71,9 @@ export interface QueueItem {
 
   // Plugin-augmented metadata (e.g., skip data from playlist-democracy plugin)
   pluginData?: Record<string, any>
+
+  /** Server-set on socket payloads: row is locked at queue head (not draggable). */
+  locked?: boolean
 }
 
 /**

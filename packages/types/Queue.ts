@@ -31,9 +31,16 @@ export const queueItemSchema = z.object({
   addedDuring: z.string().nullish(),
   playedAt: z.number().nullish(),
   pluginData: z.record(z.string(), z.any()).nullish(), // Plugin-augmented metadata
+  /** Wire-only: dispatched-but-not-yet-on-metadata row; not persisted to Redis queue blobs */
+  locked: z.boolean().optional(),
 })
 
 export type QueueItem = z.infer<typeof queueItemSchema>
+
+/** Redis ordered-queue member key: media source type + catalog track id */
+export function canonicalQueueTrackKey(item: QueueItem): string {
+  return `${item.mediaSource.type}:${item.mediaSource.trackId}`
+}
 
 /**
  * Compact stable fingerprint for a playlist row. Used to reorder/trim the room

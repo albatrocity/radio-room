@@ -157,7 +157,7 @@ describe("AdminHandlers", () => {
 
       await adminHandlers.kickUser({ socket: mockSocket, io: mockIo }, userToKick as User)
 
-      expect(adminService.kickUser).toHaveBeenCalledWith(userToKick)
+      expect(adminService.kickUser).toHaveBeenCalledWith("room123", userToKick)
     })
 
     test("emits events and disconnects socket", async () => {

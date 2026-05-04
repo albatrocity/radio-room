@@ -2,17 +2,25 @@ import { describe, expect, test, vi, beforeEach } from "vitest"
 import { DJService } from "./DJService"
 import { AppContext, QueueItem } from "@repo/types"
 import { MetadataSource } from "@repo/types"
+import { canonicalQueueTrackKey } from "@repo/types/Queue"
 
 // Mock dependencies
 vi.mock("../operations/data", () => ({
   addDj: vi.fn(),
   addToQueue: vi.fn(),
+  clearDispatchedTrack: vi.fn(),
   findRoom: vi.fn(),
+  getDispatchedTrack: vi.fn(),
   getDjs: vi.fn(),
   getQueue: vi.fn(),
+  getQueueWithDispatched: vi.fn(),
   getUser: vi.fn(),
   isDj: vi.fn(),
+  isRoomAdmin: vi.fn(),
   removeDj: vi.fn(),
+  removeFromQueue: vi.fn(),
+  setQueue: vi.fn(),
+  setDispatchedTrack: vi.fn(),
   updateUserAttributes: vi.fn(),
 }))
 vi.mock("../lib/systemMessage", () => ({
@@ -31,12 +39,19 @@ import systemMessage from "../lib/systemMessage"
 import {
   addDj,
   addToQueue,
+  clearDispatchedTrack,
   findRoom,
+  getDispatchedTrack,
   getDjs,
   getQueue,
+  getQueueWithDispatched,
   getUser,
   isDj,
+  isRoomAdmin,
   removeDj,
+  removeFromQueue,
+  setQueue,
+  setDispatchedTrack,
   updateUserAttributes,
 } from "../operations/data"
 import {
@@ -63,7 +78,13 @@ describe("DJService", () => {
   beforeEach(() => {
     vi.resetAllMocks()
     mockContext = appContextFactory.build()
+    mockContext.systemEvents = { emit: vi.fn() }
     djService = new DJService(mockContext)
+
+    vi.mocked(getDispatchedTrack).mockResolvedValue(null)
+    vi.mocked(getQueueWithDispatched).mockImplementation(async (params) => {
+      return vi.mocked(getQueue)(params) as Promise<QueueItem[]>
+    })
 
     // Setup default mocks
     vi.mocked(getUser).mockResolvedValue(mockUser)
@@ -171,8 +192,7 @@ describe("DJService", () => {
       const mockTrack = metadataSourceTrackFactory.build({
         id: "track123",
         title: "Test Track",
-        artist: "Test Artist",
-        urls: [{ type: "resource", url: "spotify:track:123" }],
+        urls: [{ type: "resource", url: "spotify:track:123", id: "url1" }],
       })
       
       // Mock adapter service methods
@@ -184,6 +204,8 @@ describe("DJService", () => {
       const mockPlaybackController = {
         api: {
           addToQueue: vi.fn().mockResolvedValue(undefined),
+          getPlayback: vi.fn().mockResolvedValue({ state: "paused" as const, track: null }),
+          playTrack: vi.fn().mockResolvedValue(undefined),
         },
       }
       
@@ -279,6 +301,111 @@ describe("DJService", () => {
         success: false,
         message: expect.stringContaining("Marge has already queued that song"),
       })
+    })
+
+    test("app-controlled: queues in Redis only — does not call Spotify addToQueue or playTrack", async () => {
+      vi.mocked(addToQueue).mockResolvedValue(undefined)
+      vi.mocked(findRoom).mockResolvedValue(
+        roomFactory.build({
+          id: "room123",
+          creator: "user123",
+          playbackMode: "app-controlled",
+          playbackControllerId: "spotify",
+        }),
+      )
+      const mockTrack = metadataSourceTrackFactory.build({
+        id: "track123",
+        title: "Test Track",
+        urls: [{ type: "resource", url: "spotify:track:123", id: "url1" }],
+      })
+      const mockMetadataSource = {
+        api: {
+          findById: vi.fn().mockResolvedValue(mockTrack),
+        },
+      }
+      const mockAddToQueue = vi.fn()
+      const mockPlayTrack = vi.fn()
+      const mockPlaybackController = {
+        api: {
+          addToQueue: mockAddToQueue,
+          getPlayback: vi.fn(),
+          playTrack: mockPlayTrack,
+        },
+      }
+      // @ts-ignore — testing private property
+      djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue(mockMetadataSource)
+      // @ts-ignore
+      djService["adapterService"].getRoomPlaybackController = vi
+        .fn()
+        .mockResolvedValue(mockPlaybackController)
+
+      await djService.queueSong("room123", "user123", "Homer", "track123")
+
+      expect(mockAddToQueue).not.toHaveBeenCalled()
+      expect(mockPlayTrack).not.toHaveBeenCalled()
+      expect(addToQueue).toHaveBeenCalled()
+    })
+  })
+
+  describe("playQueuedTrack", () => {
+    test("rejects when user is not owner or admin", async () => {
+      const item = queueItemFactory.build({
+        addedBy: {
+          userId: "other-user",
+          username: "Marge",
+        },
+      })
+      vi.mocked(findRoom).mockResolvedValue(
+        roomFactory.build({
+          playbackMode: "app-controlled",
+          playbackControllerId: "spotify",
+        }),
+      )
+      vi.mocked(getQueue).mockResolvedValue([item])
+      vi.mocked(isRoomAdmin).mockResolvedValue(false)
+
+      const result = await djService.playQueuedTrack("room123", "user123", item.track.id)
+
+      expect(result.success).toBe(false)
+      expect(removeFromQueue).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("resumePlayback", () => {
+    test("rejects when user is not creator or admin", async () => {
+      vi.mocked(findRoom).mockResolvedValue(
+        roomFactory.build({
+          creator: "someone-else",
+          playbackMode: "app-controlled",
+          playbackControllerId: "spotify",
+        }),
+      )
+      vi.mocked(isRoomAdmin).mockResolvedValue(false)
+
+      const result = await djService.resumePlayback("room123", "user123")
+
+      expect(result.success).toBe(false)
+    })
+
+    test("calls Spotify play when user is room creator", async () => {
+      vi.mocked(findRoom).mockResolvedValue(
+        roomFactory.build({
+          creator: "user123",
+          playbackMode: "app-controlled",
+          playbackControllerId: "spotify",
+        }),
+      )
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+      const play = vi.fn().mockResolvedValue(undefined)
+      // @ts-ignore
+      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+        api: { play },
+      })
+
+      const result = await djService.resumePlayback("room123", "user123")
+
+      expect(result.success).toBe(true)
+      expect(play).toHaveBeenCalled()
     })
   })
 
@@ -474,6 +601,85 @@ describe("DJService", () => {
 
       expect(result).toEqual({
         shouldDeputize: false,
+      })
+    })
+  })
+
+  describe("reorderQueue", () => {
+    const appControlledRoom = roomFactory.build({
+      id: "room123",
+      creator: "creator1",
+      playbackMode: "app-controlled",
+    })
+
+    const itemA = queueItemFactory.build({
+      mediaSource: { type: "spotify", trackId: "track-a" },
+      track: metadataSourceTrackFactory.build({ id: "track-a", title: "A" }),
+    })
+    const itemB = queueItemFactory.build({
+      mediaSource: { type: "spotify", trackId: "track-b" },
+      track: metadataSourceTrackFactory.build({ id: "track-b", title: "B" }),
+    })
+
+    test("rejects when room is not app-controlled", async () => {
+      vi.mocked(findRoom).mockResolvedValue(
+        roomFactory.build({ id: "room123", playbackMode: "spotify-controlled" }),
+      )
+
+      const result = await djService.reorderQueue("room123", "user123", [
+        canonicalQueueTrackKey(itemA),
+      ])
+
+      expect(result).toEqual({
+        success: false,
+        message: "Queue reordering is only available in app-controlled playback mode",
+      })
+      expect(setQueue).not.toHaveBeenCalled()
+    })
+
+    test("rejects when ordered keys are not a permutation of the queue", async () => {
+      vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+      vi.mocked(getQueue).mockResolvedValue([itemA, itemB])
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+
+      const result = await djService.reorderQueue("room123", "user123", [canonicalQueueTrackKey(itemA)])
+
+      expect(result).toEqual({ success: false, message: "Invalid queue order" })
+      expect(setQueue).not.toHaveBeenCalled()
+    })
+
+    test("rejects when user is not authorized", async () => {
+      vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+      vi.mocked(getQueue).mockResolvedValue([itemA, itemB])
+      vi.mocked(isRoomAdmin).mockResolvedValue(false)
+
+      const keys = [canonicalQueueTrackKey(itemB), canonicalQueueTrackKey(itemA)]
+      const result = await djService.reorderQueue("room123", "user123", keys)
+
+      expect(result).toEqual({ success: false, message: "Not authorized to reorder the queue" })
+      expect(setQueue).not.toHaveBeenCalled()
+    })
+
+    test("reorders queue and emits QUEUE_CHANGED when authorized as admin", async () => {
+      vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+      vi.mocked(getQueue)
+        .mockResolvedValueOnce([itemA, itemB])
+        .mockResolvedValueOnce([itemB, itemA])
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+      vi.mocked(setQueue).mockResolvedValue([itemB, itemA])
+
+      const keys = [canonicalQueueTrackKey(itemB), canonicalQueueTrackKey(itemA)]
+      const result = await djService.reorderQueue("room123", "user123", keys)
+
+      expect(result).toEqual({ success: true })
+      expect(setQueue).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        items: [itemB, itemA],
+      })
+      expect(mockContext.systemEvents?.emit).toHaveBeenCalledWith("room123", "QUEUE_CHANGED", {
+        roomId: "room123",
+        queue: [itemB, itemA],
       })
     })
   })

@@ -113,6 +113,9 @@ describe("DJHandlers", () => {
       handleUserJoined: vi.fn().mockResolvedValue({
         shouldDeputize: false,
       }),
+      reorderQueue: vi.fn().mockResolvedValue({
+        success: true,
+      }),
     }
 
     // Mock the AdapterService
@@ -451,6 +454,53 @@ describe("DJHandlers", () => {
       )
 
       expect(spy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("reorderQueue", () => {
+    test("calls djService.reorderQueue with ordered keys", async () => {
+      const keys = ["spotify:track-a", "spotify:track-b"]
+      await djHandlers.reorderQueue({ socket: mockSocket, io: mockIo }, { orderedKeys: keys })
+
+      expect(djService.reorderQueue).toHaveBeenCalledWith("room1", "1", keys)
+    })
+
+    test("emits REORDER_QUEUE_SUCCESS when service succeeds", async () => {
+      djService.reorderQueue.mockResolvedValueOnce({ success: true })
+
+      await djHandlers.reorderQueue({ socket: mockSocket, io: mockIo }, {
+        orderedKeys: ["spotify:a"],
+      })
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", { type: "REORDER_QUEUE_SUCCESS" })
+    })
+
+    test("emits REORDER_QUEUE_FAILURE when payload is not an array", async () => {
+      await djHandlers.reorderQueue({ socket: mockSocket, io: mockIo }, {
+        orderedKeys: null as unknown as string[],
+      })
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "REORDER_QUEUE_FAILURE",
+        data: { message: "Invalid payload" },
+      })
+      expect(djService.reorderQueue).not.toHaveBeenCalled()
+    })
+
+    test("emits REORDER_QUEUE_FAILURE when service rejects", async () => {
+      djService.reorderQueue.mockResolvedValueOnce({
+        success: false,
+        message: "Not authorized",
+      })
+
+      await djHandlers.reorderQueue({ socket: mockSocket, io: mockIo }, {
+        orderedKeys: ["spotify:a"],
+      })
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "REORDER_QUEUE_FAILURE",
+        data: { message: "Not authorized" },
+      })
     })
   })
 })

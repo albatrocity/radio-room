@@ -1,11 +1,11 @@
-# 0045. ShopPlugin Base Class
+# 0047. ShopPlugin Base Class
 
 **Date:** 2026-05-02
 **Status:** Accepted
 
 ## Context
 
-[ADR 0041](0041-game-state-tabs-and-composable-shop-helper.md) introduced `ShopHelper` as a composable utility for shop plugins, deliberately favouring composition over inheritance to keep the inheritance slot free.
+[ADR 0043](0043-game-state-tabs-and-composable-shop-helper.md) introduced `ShopHelper` as a composable utility for shop plugins, deliberately favouring composition over inheritance to keep the inheritance slot free.
 
 In practice, after building out [`MusicShopPlugin`](../../packages/plugin-music-shop/index.ts) on top of `ShopHelper`, the same orchestration code kept reappearing inside the host plugin:
 
@@ -129,8 +129,8 @@ export type ShopPurchaseCompletePayload = {
 ## References
 
 - [ADR 0006 — Plugin System for Room Features](0006-plugin-system-for-room-features.md)
-- [ADR 0040 — Game Sessions and Inventory as Core Infrastructure](0040-game-sessions-and-inventory.md)
-- [ADR 0041 — Game State Tabs and Composable Shop Helper](0041-game-state-tabs-and-composable-shop-helper.md) (partially superseded; tabs and `isSellingItems` convention remain in force)
+- [ADR 0042 — Game Sessions and Inventory as Core Infrastructure](0042-game-sessions-and-inventory.md)
+- [ADR 0043 — Game State Tabs and Composable Shop Helper](0043-game-state-tabs-and-composable-shop-helper.md) (partially superseded; tabs and `isSellingItems` convention remain in force)
 - [`packages/plugin-base/ShopPlugin.ts`](../../packages/plugin-base/ShopPlugin.ts)
 - [`packages/plugin-base/helpers/ShopHelper.ts`](../../packages/plugin-base/helpers/ShopHelper.ts)
 - [`packages/plugin-music-shop/index.ts`](../../packages/plugin-music-shop/index.ts)

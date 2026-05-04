@@ -8,7 +8,7 @@
  * - Inventory of items defined by plugins (with cross-plugin visibility/usage)
  * - Configurable leaderboards derived from attributes
  *
- * See `docs/adrs/0040-game-sessions-and-inventory.md` for the architectural
+ * See `docs/adrs/0042-game-sessions-and-inventory.md` for the architectural
  * rationale (core attributes vs. plugin-defined namespaces, why inventory is
  * core infrastructure, modifier expiry strategy, etc.).
  */

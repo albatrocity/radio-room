@@ -5,12 +5,15 @@ import { Room, RoomSnapshot } from "@repo/types/Room"
 import { ChatMessage } from "@repo/types/ChatMessage"
 import { QueueItem } from "@repo/types/Queue"
 
+const mockIsRoomAdmin = vi.hoisted(() => vi.fn())
+
 // Mock dependencies
 vi.mock("../operations/data", () => ({
   findRoom: vi.fn(),
   getMessagesSince: vi.fn(),
   getRoomPlaylistSince: vi.fn(),
   removeSensitiveRoomAttributes: vi.fn((room) => ({ ...room, sensitive: false })),
+  isRoomAdmin: mockIsRoomAdmin,
 }))
 
 // Import mocked dependencies
@@ -19,6 +22,7 @@ import {
   getMessagesSince,
   getRoomPlaylistSince,
   removeSensitiveRoomAttributes,
+  isRoomAdmin,
 } from "../operations/data"
 import {
   appContextFactory,
@@ -52,6 +56,9 @@ describe("RoomService", () => {
     vi.mocked(findRoom).mockResolvedValue(mockRoom)
     vi.mocked(getMessagesSince).mockResolvedValue(mockMessages)
     vi.mocked(getRoomPlaylistSince).mockResolvedValue(mockPlaylist)
+    vi.mocked(isRoomAdmin).mockImplementation(async ({ userId, roomCreator }) =>
+      userId === roomCreator ? true : false,
+    )
   })
 
   test("should be defined", () => {

@@ -45,6 +45,12 @@ export type Room = {
   liveWhepUrl?: string
   /** LL-HLS fallback URL when `liveIngestEnabled` */
   liveHlsUrl?: string
+  /**
+   * Spotify playback delegation for rooms with a PlaybackController (typically radio).
+   * `spotify-controlled` (default): tracks go to Spotify's queue; app queue mirrors Spotify.
+   * `app-controlled`: app queue is authoritative; advance job starts the next track via Web API.
+   */
+  playbackMode?: "spotify-controlled" | "app-controlled"
   // New adapter-based configuration
   playbackControllerId?: string
   metadataSourceIds?: string[]

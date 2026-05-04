@@ -1,6 +1,6 @@
 import { AppContext } from "@repo/types"
 import { User } from "@repo/types/User"
-import { QueueItem } from "@repo/types/Queue"
+import { QueueItem, canonicalQueueTrackKey } from "@repo/types/Queue"
 import { MetadataSource, MetadataSourceTrack } from "@repo/types"
 import {
   addDj,
@@ -8,15 +8,28 @@ import {
   findRoom,
   getDjs,
   getQueue,
+  getQueueWithDispatched,
   getUser,
   isDj,
+  isRoomAdmin,
   removeDj,
   removeFromQueue,
+  clearDispatchedTrack,
+  setDispatchedTrack,
+  setQueue,
   updateUserAttributes,
 } from "../operations/data"
 import systemMessage from "../lib/systemMessage"
 import { queueItemFactory } from "@repo/factories"
 import { AdapterService } from "./AdapterService"
+import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
+
+function isSameMultiset(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  const sa = [...a].sort()
+  const sb = [...b].sort()
+  return sa.every((v, i) => v === sb[i])
+}
 
 /**
  * A service that handles DJ-related operations without Socket.io dependencies
@@ -198,24 +211,28 @@ export class DJService {
 
     await addToQueue({ context: this.context, roomId, item: queuedItem })
 
-    // Now add to Spotify's queue
-    try {
-      await playbackController.api.addToQueue(resourceUrl)
-    } catch (error) {
-      // If adding to Spotify fails, remove from our internal queue to stay in sync
-      console.error("Failed to add to playback queue:", error)
-      const trackKey = `${queuedItem.mediaSource.type}:${queuedItem.mediaSource.trackId}`
-      await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
-      return {
-        success: false,
-        message: "Failed to add track to playback queue",
-        error,
+    // Spotify-native queue (default). App-controlled: Redis-only queue; advance job / explicit Play start Spotify.
+    if (!isAppControlledPlayback(room)) {
+      try {
+        await playbackController.api.addToQueue(resourceUrl)
+      } catch (error) {
+        // If adding to Spotify fails, remove from our internal queue to stay in sync
+        console.error("Failed to add to playback queue:", error)
+        const trackKey = `${queuedItem.mediaSource.type}:${queuedItem.mediaSource.trackId}`
+        await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
+        return {
+          success: false,
+          message: "Failed to add track to playback queue",
+          error,
+        }
       }
     }
 
     // Emit QUEUE_CHANGED event
     if (this.context.systemEvents) {
-      const updatedQueue = await getQueue({ context: this.context, roomId })
+      const updatedQueue = isAppControlledPlayback(room)
+        ? await getQueueWithDispatched({ context: this.context, roomId })
+        : await getQueue({ context: this.context, roomId })
       await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
         roomId,
         queue: updatedQueue,
@@ -299,6 +316,69 @@ export class DJService {
   /**
    * Handle a user joining, automatically deputizing them if needed
    */
+  /** Room creator or designated admins only (app-controlled queues). */
+  async userCanReorderQueueInRoom(roomId: string, userId: string): Promise<boolean> {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room || !isAppControlledPlayback(room)) {
+      return false
+    }
+    return await isRoomAdmin({
+      context: this.context,
+      roomId,
+      userId,
+      roomCreator: room.creator,
+    })
+  }
+
+  /**
+   * Reorder the Redis-backed queue (app-controlled only). Emits QUEUE_CHANGED via systemEvents.
+   */
+  async reorderQueue(roomId: string, userId: string, orderedCanonicalKeys: string[]) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "Queue reordering is only available in app-controlled playback mode",
+      }
+    }
+
+    const current = await getQueue({ context: this.context, roomId })
+    const currentKeys = current.map((item) => canonicalQueueTrackKey(item))
+    if (!isSameMultiset(currentKeys, orderedCanonicalKeys)) {
+      return { success: false as const, message: "Invalid queue order" }
+    }
+
+    const allowed = await this.userCanReorderQueueInRoom(roomId, userId)
+    if (!allowed) {
+      return { success: false as const, message: "Not authorized to reorder the queue" }
+    }
+
+    const byKey = new Map(current.map((item) => [canonicalQueueTrackKey(item), item] as const))
+    const items: QueueItem[] = []
+    for (const k of orderedCanonicalKeys) {
+      const item = byKey.get(k)
+      if (!item) {
+        return { success: false as const, message: "Invalid queue order" }
+      }
+      items.push(item)
+    }
+
+    await setQueue({ roomId, items, context: this.context })
+
+    if (this.context.systemEvents) {
+      const updatedQueue = await getQueueWithDispatched({ context: this.context, roomId })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+        roomId,
+        queue: updatedQueue,
+      })
+    }
+
+    return { success: true as const }
+  }
+
   async handleUserJoined(roomId: string, user: User) {
     const room = await findRoom({ context: this.context, roomId })
     const deputyDjs = await getDjs({ context: this.context, roomId })
@@ -315,5 +395,186 @@ export class DJService {
     return {
       shouldDeputize: false,
     }
+  }
+
+  /**
+   * Remove a track from the authoritative Redis queue (app-controlled rooms).
+   * Callers must enforce playback mode; verifies ownership or room admin.
+   */
+  async removeFromQueueDirect(roomId: string, userId: string, trackId: QueueItem["track"]["id"]) {
+    const room = await findRoom({ context: this.context, roomId })
+
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "Direct queue removal is only available in app-controlled playback mode",
+      }
+    }
+
+    const queue = await getQueue({ context: this.context, roomId })
+    const queueItem = queue.find((item) => item.track.id === trackId)
+
+    if (!queueItem) {
+      return { success: false as const, message: "Track not found in queue" }
+    }
+
+    const isOwner = queueItem.addedBy?.userId === userId
+    const admin =
+      !isOwner &&
+      (await isRoomAdmin({
+        context: this.context,
+        roomId,
+        userId,
+        roomCreator: room.creator,
+      }))
+
+    if (!isOwner && !admin) {
+      return { success: false as const, message: "Not authorized to remove this track" }
+    }
+
+    const trackKey = `${queueItem.mediaSource.type}:${queueItem.mediaSource.trackId}`
+    await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
+
+    if (this.context.systemEvents) {
+      const updatedQueue = await getQueueWithDispatched({ context: this.context, roomId })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+        roomId,
+        queue: updatedQueue,
+      })
+    }
+
+    const title = queueItem.track.title || queueItem.title || "Track"
+
+    return { success: true as const, trackTitle: title }
+  }
+
+  /**
+   * App-controlled: start a specific queued track on Spotify (owner of that item or room admin).
+   */
+  async playQueuedTrack(roomId: string, userId: string, trackId: QueueItem["track"]["id"]) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "This action is only available in app-controlled playback mode",
+      }
+    }
+
+    const queue = await getQueue({ context: this.context, roomId })
+    const queueItem = queue.find((item) => item.track.id === trackId)
+    if (!queueItem) {
+      return { success: false as const, message: "Track not found in queue" }
+    }
+
+    const isOwner = queueItem.addedBy?.userId === userId
+    const admin =
+      !isOwner &&
+      (await isRoomAdmin({
+        context: this.context,
+        roomId,
+        userId,
+        roomCreator: room.creator,
+      }))
+    if (!isOwner && !admin) {
+      return { success: false as const, message: "Not authorized to play this track from the queue" }
+    }
+
+    const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
+    if (!playbackController) {
+      return { success: false as const, message: "No playback controller configured for this room" }
+    }
+
+    const uri = queueItem.track.urls?.find((u) => u.type === "resource")?.url
+    if (!uri) {
+      return { success: false as const, message: "Track resource URL not found" }
+    }
+
+    const trackKey = `${queueItem.mediaSource.type}:${queueItem.mediaSource.trackId}`
+    await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
+    await setDispatchedTrack({ context: this.context, roomId, item: queueItem })
+
+    const playTrack = (
+      playbackController.api as { playTrack?: (mediaUri: string) => Promise<void> }
+    ).playTrack
+    if (!playTrack) {
+      await addToQueue({ context: this.context, roomId, item: queueItem })
+      await clearDispatchedTrack({ context: this.context, roomId })
+      return { success: false as const, message: "Playback controller does not support starting tracks" }
+    }
+
+    try {
+      await playTrack(uri)
+    } catch (e) {
+      console.error("[DJService.playQueuedTrack] playTrack failed:", e)
+      await clearDispatchedTrack({ context: this.context, roomId })
+      await addToQueue({ context: this.context, roomId, item: queueItem })
+      return {
+        success: false as const,
+        message: "Failed to start playback on Spotify",
+      }
+    }
+
+    if (this.context.systemEvents) {
+      const updatedQueue = await getQueueWithDispatched({ context: this.context, roomId })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+        roomId,
+        queue: updatedQueue,
+      })
+    }
+
+    return {
+      success: true as const,
+      trackTitle: queueItem.track.title || queueItem.title || "Track",
+    }
+  }
+
+  /**
+   * App-controlled: resume Spotify playback (unpause). Room creator or room admin only.
+   */
+  async resumePlayback(roomId: string, userId: string) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "This action is only available in app-controlled playback mode",
+      }
+    }
+
+    const allowed = await isRoomAdmin({
+      context: this.context,
+      roomId,
+      userId,
+      roomCreator: room.creator,
+    })
+    if (!allowed) {
+      return { success: false as const, message: "Not authorized to resume playback" }
+    }
+
+    const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
+    if (!playbackController) {
+      return { success: false as const, message: "No playback controller configured for this room" }
+    }
+
+    try {
+      await playbackController.api.play()
+    } catch (e) {
+      console.error("[DJService.resumePlayback] play failed:", e)
+      return {
+        success: false as const,
+        message: "Failed to resume playback on Spotify",
+      }
+    }
+
+    return { success: true as const }
   }
 }

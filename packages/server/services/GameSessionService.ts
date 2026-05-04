@@ -66,7 +66,7 @@ export function buildSessionConfig(
 // ============================================================================
 
 /**
- * Key namespace overview (see ADR 0040):
+ * Key namespace overview (see ADR 0042):
  *
  *   room:{roomId}:game:active                        -> sessionId of active session
  *   room:{roomId}:game:session:{sessionId}           -> JSON GameSession

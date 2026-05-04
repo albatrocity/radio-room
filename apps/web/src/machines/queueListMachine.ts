@@ -14,7 +14,10 @@ export interface QueueListContext {
 type QueueListEvent =
   | { type: "ACTIVATE" }
   | { type: "DEACTIVATE" }
-  | { type: "INIT"; data: { queue?: QueueItem[] } }
+  | {
+      type: "INIT"
+      data: { queue?: QueueItem[] }
+    }
   | { type: "QUEUE_CHANGED"; data: { queue: QueueItem[] } }
 
 // ============================================================================
@@ -39,16 +42,11 @@ export const queueListMachine = setup({
         unsubscribeById(context.subscriptionId)
       }
     },
-    setQueue: assign({
-      queue: ({ event }) => {
-        if (event.type === "INIT") {
-          return event.data.queue || []
-        }
-        if (event.type === "QUEUE_CHANGED") {
-          return event.data.queue || []
-        }
-        return []
-      },
+    applySocketQueue: assign(({ event }) => {
+      if (event.type === "INIT" || event.type === "QUEUE_CHANGED") {
+        return { queue: event.data.queue ?? [] }
+      }
+      return {}
     }),
     resetQueue: assign({
       queue: () => [],
@@ -63,13 +61,11 @@ export const queueListMachine = setup({
     subscriptionId: null,
   },
   states: {
-    // Idle state - not subscribed to socket events
     idle: {
       on: {
         ACTIVATE: "active",
       },
     },
-    // Active state - subscribed to socket events
     active: {
       entry: ["subscribe"],
       exit: ["unsubscribe"],
@@ -79,10 +75,10 @@ export const queueListMachine = setup({
           actions: ["resetQueue"],
         },
         INIT: {
-          actions: ["setQueue"],
+          actions: ["applySocketQueue"],
         },
         QUEUE_CHANGED: {
-          actions: ["setQueue"],
+          actions: ["applySocketQueue"],
         },
       },
     },

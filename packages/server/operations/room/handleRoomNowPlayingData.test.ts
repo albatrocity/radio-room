@@ -11,6 +11,8 @@ const m = vi.hoisted(() => ({
   clearRoomCurrent: vi.fn(),
   getQueue: vi.fn(),
   removeFromQueue: vi.fn(),
+  getDispatchedTrack: vi.fn(),
+  clearDispatchedTrack: vi.fn(),
   writeJsonToHset: vi.fn(),
 }))
 
@@ -22,6 +24,8 @@ vi.mock("../data", () => ({
   clearRoomCurrent: m.clearRoomCurrent,
   getQueue: m.getQueue,
   removeFromQueue: m.removeFromQueue,
+  getDispatchedTrack: m.getDispatchedTrack,
+  clearDispatchedTrack: m.clearDispatchedTrack,
 }))
 
 vi.mock("../data/utils", () => ({
@@ -74,6 +78,8 @@ describe("handleRoomNowPlayingData — streaming mode early return", () => {
     m.setRoomCurrent.mockResolvedValue(undefined)
     m.addTrackToRoomPlaylist.mockResolvedValue(undefined)
     m.getQueue.mockResolvedValue([])
+    m.getDispatchedTrack.mockResolvedValue(null)
+    m.clearDispatchedTrack.mockResolvedValue(undefined)
     m.writeJsonToHset.mockResolvedValue(undefined)
     emit.mockResolvedValue(undefined)
   })
@@ -189,21 +195,18 @@ describe("handleRoomNowPlayingData — live room type", () => {
     m.setRoomCurrent.mockResolvedValue(undefined)
     m.addTrackToRoomPlaylist.mockResolvedValue(undefined)
     m.getQueue.mockResolvedValue([])
+    m.getDispatchedTrack.mockResolvedValue(null)
+    m.clearDispatchedTrack.mockResolvedValue(undefined)
     m.writeJsonToHset.mockResolvedValue(undefined)
     emit.mockResolvedValue(undefined)
   })
 
-  it("emits sourceType 'live' in streaming mode for live rooms", async () => {
+  it("does not emit stream status from metadata for live rooms (webhook is authoritative)", async () => {
     m.findRoom.mockResolvedValue(baseRoom({ type: "live", fetchMeta: false }))
 
     await handleRoomNowPlayingData({ context, roomId: "r1", submission })
 
-    expect(emit).toHaveBeenCalledWith("r1", "MEDIA_SOURCE_STATUS_CHANGED", {
-      roomId: "r1",
-      status: "online",
-      sourceType: "live",
-      bitrate: 128,
-    })
+    expect(emit).not.toHaveBeenCalled()
   })
 
   it("returns early when fetchMeta is off for a live room — no track processing", async () => {
@@ -216,17 +219,12 @@ describe("handleRoomNowPlayingData — live room type", () => {
     expect(m.addTrackToRoomPlaylist).not.toHaveBeenCalled()
   })
 
-  it("emits sourceType 'live' on offline for live rooms", async () => {
+  it("does not emit offline status from handler for live rooms (webhook is authoritative)", async () => {
     m.findRoom.mockResolvedValue(baseRoom({ type: "live", fetchMeta: false }))
 
     await handleRoomNowPlayingData({ context, roomId: "r1" })
 
-    expect(emit).toHaveBeenCalledWith("r1", "MEDIA_SOURCE_STATUS_CHANGED", {
-      roomId: "r1",
-      status: "offline",
-      sourceType: "live",
-      error: undefined,
-    })
+    expect(emit).not.toHaveBeenCalled()
   })
 })
 
@@ -255,6 +253,8 @@ describe("handleRoomNowPlayingData — artworkStreamingOnly", () => {
     m.setRoomCurrent.mockResolvedValue(undefined)
     m.addTrackToRoomPlaylist.mockResolvedValue(undefined)
     m.getQueue.mockResolvedValue([])
+    m.getDispatchedTrack.mockResolvedValue(null)
+    m.clearDispatchedTrack.mockResolvedValue(undefined)
     m.writeJsonToHset.mockResolvedValue(undefined)
     emit.mockResolvedValue(undefined)
   })

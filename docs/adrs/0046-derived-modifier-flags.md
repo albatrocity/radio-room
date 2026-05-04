@@ -1,4 +1,4 @@
-# 0044. Derived Modifier Flags via `getActiveFlags`
+# 0046. Derived Modifier Flags via `getActiveFlags`
 
 **Date:** 2026-05-02
 **Status:** Accepted
@@ -27,6 +27,6 @@ This is the **canonical read path** for flag-style effects until/unless we denor
 
 ## References
 
-- [ADR 0040 — Game Sessions and Inventory](0040-game-sessions-and-inventory.md)
+- [ADR 0042 — Game Sessions and Inventory](0042-game-sessions-and-inventory.md)
 - `packages/types/GameSession.ts`
 - `packages/server/services/GameSessionService.ts`

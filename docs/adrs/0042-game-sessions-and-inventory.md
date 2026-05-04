@@ -1,4 +1,4 @@
-# 0040. Game Sessions and Inventory as Core Infrastructure
+# 0042. Game Sessions and Inventory as Core Infrastructure
 
 **Date:** 2026-05-01
 **Status:** Accepted

@@ -45,13 +45,15 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0037](0037-hybrid-radio-shoutcast-rtmp-bridge.md) | Hybrid Radio — Shoutcast + Optional Experimental WebRTC | Accepted |
 | [0038](0038-socket-io-client-never-give-up-reconnection.md) | Socket.IO Client — Never-Give-Up Reconnection | Accepted |
 | [0039](0039-plugin-element-properties-for-now-playing.md) | Plugin `elementProps` for Now Playing (obscure / bypass roles) | Accepted |
-| [0040](0040-game-sessions-and-inventory.md) | Game Sessions and Inventory as Core Infrastructure | Accepted |
-| [0041](0041-game-state-tabs-and-composable-shop-helper.md) | Game State Tabs and Composable Shop Helper | Partially superseded by [0045](0045-shop-plugin-base-class.md) |
-| [0042](0042-plugin-chat-message-transform-and-text-segments.md) | Plugin Chat Message Transform + Structured Text Segments | Accepted |
-| [0043](0043-inventory-item-targeting.md) | Inventory Item Targeting via `requiresTarget` | Accepted |
-| [0044](0044-derived-modifier-flags.md) | Derived Modifier Flags via `getActiveFlags` | Accepted |
-| [0045](0045-shop-plugin-base-class.md) | ShopPlugin Base Class | Accepted |
-| [0046](0046-plugin-user-targeted-chat.md) | Plugin user-targeted chat (private socket delivery) | Accepted |
+| [0040](0040-app-controlled-playback-and-ordered-queue.md) | App-Controlled Spotify Playback and Ordered Redis Queue | Accepted |
+| [0041](0041-queue-drag-reorder-authorization.md) | App-controlled queue reorder authorization and UX | Accepted |
+| [0042](0042-game-sessions-and-inventory.md) | Game Sessions and Inventory as Core Infrastructure | Accepted |
+| [0043](0043-game-state-tabs-and-composable-shop-helper.md) | Game State Tabs and Composable Shop Helper | Partially superseded by [0047](0047-shop-plugin-base-class.md) |
+| [0044](0044-plugin-chat-message-transform-and-text-segments.md) | Plugin Chat Message Transform + Structured Text Segments | Accepted |
+| [0045](0045-inventory-item-targeting.md) | Inventory Item Targeting via `requiresTarget` | Accepted |
+| [0046](0046-derived-modifier-flags.md) | Derived Modifier Flags via `getActiveFlags` | Accepted |
+| [0047](0047-shop-plugin-base-class.md) | ShopPlugin Base Class | Accepted |
+| [0048](0048-plugin-user-targeted-chat.md) | Plugin user-targeted chat (private socket delivery) | Accepted |
 
 ## Creating a New ADR
 

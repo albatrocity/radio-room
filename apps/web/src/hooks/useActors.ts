@@ -46,6 +46,7 @@ import { ChatMessage } from "../types/ChatMessage"
 import { ReactionSubject } from "../types/ReactionSubject"
 import { Reaction } from "../types/Reaction"
 import type { LobbyRoom } from "../machines/lobbyMachine"
+import { useMemo } from "react"
 
 /**
  * XState v5: returning `actor.send` from hooks loses `this` when the reference is
@@ -93,6 +94,16 @@ export const useIsRoomCreator = () => {
   const currentUser = useSelector(authActor, (s) => s.context.currentUser)
   const creator = useSelector(roomActor, (s) => s.context.room?.creator)
   return !!currentUser && !!creator && currentUser.userId === creator
+}
+
+/** App-controlled queue: drag handles for room admins (creator or designated admins). */
+export const useCanReorderQueue = () => {
+  const room = useSelector(roomActor, (s) => s.context.room)
+  const isAdmin = useSelector(authActor, (s) => s.context.isAdmin)
+  return useMemo(() => {
+    if (room?.playbackMode !== "app-controlled") return false
+    return isAdmin
+  }, [room?.playbackMode, isAdmin])
 }
 
 export const useIsAuthenticated = () => {

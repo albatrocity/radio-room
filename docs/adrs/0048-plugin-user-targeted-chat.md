@@ -1,4 +1,4 @@
-# 0046. Plugin User-Targeted Chat (Private Socket Delivery)
+# 0048. Plugin User-Targeted Chat (Private Socket Delivery)
 
 **Date:** 2026-05-02
 **Status:** Accepted

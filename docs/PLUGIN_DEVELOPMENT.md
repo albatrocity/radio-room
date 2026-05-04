@@ -375,7 +375,7 @@ async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidati
 
 Transform a chat message **after** it is parsed (mentions, Mustache) but **before** it is broadcast and persisted. Plugins are called **in order**; each receives the previous plugin’s result. Return `null` to leave the message unchanged. Fail-open on errors and timeouts (500ms), like `validateQueueRequest`.
 
-To express per-span presentation (e.g. smaller text on part of a line), set **`message.contentSegments`** (typed `TextSegment[]` with declarative `TextEffect`s) and keep **`message.content`** as a matching plain string. See [ADR 0042](adrs/0042-plugin-chat-message-transform-and-text-segments.md). Helpers: `tokenizeWords` / `buildSegments` in `@repo/plugin-base/helpers`.
+To express per-span presentation (e.g. smaller text on part of a line), set **`message.contentSegments`** (typed `TextSegment[]` with declarative `TextEffect`s) and keep **`message.content`** as a matching plain string. See [ADR 0044](adrs/0044-plugin-chat-message-transform-and-text-segments.md). Helpers: `tokenizeWords` / `buildSegments` in `@repo/plugin-base/helpers`.
 
 #### `executeAction(action: string): Promise<{ success: boolean; message?: string }>`
 
@@ -1513,7 +1513,7 @@ await this.context.storage.zincrby("leaderboard", 1, memberId)
 
 Listening Room provides **core infrastructure** for cross-plugin game state so plugins can share `score` / `coin`, timed modifiers, configurable leaderboards, and a single inventory per user—without each plugin rolling its own Redis keys.
 
-**Architecture:** See [ADR 0040: Game Sessions and Inventory](adrs/0040-game-sessions-and-inventory.md).
+**Architecture:** See [ADR 0042: Game Sessions and Inventory](adrs/0042-game-sessions-and-inventory.md).
 
 ### When to use what
 
@@ -1623,7 +1623,7 @@ async onItemUsed(
 
 `BasePlugin` provides a default implementation that returns “not handled”; override only when you define items.
 
-For **`effects` of type `"flag"`**, derive booleans with **`getActiveFlags(userState.modifiers, Date.now())`** from **`@repo/types`** (see [ADR 0044](adrs/0044-derived-modifier-flags.md)). For items with **`requiresTarget: "user"`**, the socket passes **`callContext`** as **`{ targetUserId?: string }`** — validate the user is still in the room before applying effects to them.
+For **`effects` of type `"flag"`**, derive booleans with **`getActiveFlags(userState.modifiers, Date.now())`** from **`@repo/types`** (see [ADR 0046](adrs/0046-derived-modifier-flags.md)). For items with **`requiresTarget: "user"`**, the socket passes **`callContext`** as **`{ targetUserId?: string }`** — validate the user is still in the room before applying effects to them.
 
 ### Handling item sell-back (`onItemSold`)
 
@@ -1698,7 +1698,7 @@ Plugins that sell items for in-game `coin` (e.g. Music Shop) can compose a **`Sh
 
 `ShopHelper` is intentionally **composable** rather than an inheritance layer, so a single plugin can mix multiple helpers (e.g. shop + game) without single-inheritance conflicts.
 
-**`ShopPlugin`:** For a typical coin shop, you can extend **`ShopPlugin<TConfig>`** from `@repo/plugin-base` instead of hand-wiring `ShopHelper`, `executeAction`, `onItemSold`, and stock-related plugin events. It composes `ShopHelper` internally; subclasses provide `shopItems`, `isShopEnabled`, and `isSellingItems`, and may override hooks for item behaviour. See [ADR 0045: ShopPlugin base class](adrs/0045-shop-plugin-base-class.md). Prefer raw **`ShopHelper`** when you need to compose multiple helpers or avoid a shop-specific base class.
+**`ShopPlugin`:** For a typical coin shop, you can extend **`ShopPlugin<TConfig>`** from `@repo/plugin-base` instead of hand-wiring `ShopHelper`, `executeAction`, `onItemSold`, and stock-related plugin events. It composes `ShopHelper` internally; subclasses provide `shopItems`, `isShopEnabled`, and `isSellingItems`, and may override hooks for item behaviour. See [ADR 0047: ShopPlugin base class](adrs/0047-shop-plugin-base-class.md). Prefer raw **`ShopHelper`** when you need to compose multiple helpers or avoid a shop-specific base class.
 
 ### `ShopItem`
 
@@ -1918,7 +1918,7 @@ The context is `null` outside the game state modal, so components can render mea
 
 The built-in Inventory tab exposes per-item buttons:
 
-- **Use** – emitted as `USE_INVENTORY_ITEM { itemId, targetUserId? }`. Optional **`targetUserId`** is sent when the item’s definition has **`requiresTarget: "user"`** (target picker in the inventory tab). Passed through as **`callContext`** to `onItemUsed`. See [ADR 0043](adrs/0043-inventory-item-targeting.md).
+- **Use** – emitted as `USE_INVENTORY_ITEM { itemId, targetUserId? }`. Optional **`targetUserId`** is sent when the item’s definition has **`requiresTarget: "user"`** (target picker in the inventory tab). Passed through as **`callContext`** to `onItemUsed`. See [ADR 0045](adrs/0045-inventory-item-targeting.md).
 - **Sell** – emitted as `SELL_INVENTORY_ITEM { itemId }`. Routes to the source plugin's `onItemSold` (typically `ShopHelper.sell`).
 
 The buttons render automatically based on the `ItemDefinition` flags: **Use** appears for `consumable` items, **Sell** appears for `tradeable` items with a positive `coinValue`. The server responds with `INVENTORY_ACTION_RESULT { success, message, refund? }`.
@@ -2245,7 +2245,7 @@ See the [Queue Hygiene Plugin](../packages/plugin-queue-hygiene) for a queue val
 - Consecutive track prevention
 - Admin exemption logic
 
-For **cross-plugin score, coin, modifiers, leaderboards, and inventory**, see [Game Sessions & Inventory](#game-sessions--inventory) and [ADR 0040](adrs/0040-game-sessions-and-inventory.md).
+For **cross-plugin score, coin, modifiers, leaderboards, and inventory**, see [Game Sessions & Inventory](#game-sessions--inventory) and [ADR 0042](adrs/0042-game-sessions-and-inventory.md).
 
 ## Plugin API Reference
 

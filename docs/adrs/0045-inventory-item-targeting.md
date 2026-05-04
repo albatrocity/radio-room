@@ -1,11 +1,11 @@
-# 0043. Inventory Item Targeting via `requiresTarget`
+# 0045. Inventory Item Targeting via `requiresTarget`
 
 **Date:** 2026-05-02
 **Status:** Accepted
 
 ## Context
 
-[ADR 0040](0040-game-sessions-and-inventory.md) established **`useItem`** and **`onItemUsed`**, with an optional fourth argument **`callContext`**. The socket event **`USE_INVENTORY_ITEM`** only sent **`{ itemId }`**, so **`callContext`** was never populated from the client. Items that should apply an effect to someone other than the inventory owner had no generic wire format or UI.
+[ADR 0042](0042-game-sessions-and-inventory.md) established **`useItem`** and **`onItemUsed`**, with an optional fourth argument **`callContext`**. The socket event **`USE_INVENTORY_ITEM`** only sent **`{ itemId }`**, so **`callContext`** was never populated from the client. Items that should apply an effect to someone other than the inventory owner had no generic wire format or UI.
 
 ## Decision
 
@@ -27,7 +27,7 @@
 
 ## References
 
-- [ADR 0040 — Game Sessions and Inventory](0040-game-sessions-and-inventory.md)
-- [ADR 0041 — Game State Tabs and Shop Helper](0041-game-state-tabs-and-composable-shop-helper.md)
+- [ADR 0042 — Game Sessions and Inventory](0042-game-sessions-and-inventory.md)
+- [ADR 0043 — Game State Tabs and Shop Helper](0043-game-state-tabs-and-composable-shop-helper.md)
 - `packages/server/controllers/roomsController.ts`
 - `packages/server/services/InventoryService.ts`
