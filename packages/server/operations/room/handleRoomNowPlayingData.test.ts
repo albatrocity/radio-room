@@ -201,17 +201,12 @@ describe("handleRoomNowPlayingData — live room type", () => {
     emit.mockResolvedValue(undefined)
   })
 
-  it("emits sourceType 'live' in streaming mode for live rooms", async () => {
+  it("does not emit stream status from metadata for live rooms (webhook is authoritative)", async () => {
     m.findRoom.mockResolvedValue(baseRoom({ type: "live", fetchMeta: false }))
 
     await handleRoomNowPlayingData({ context, roomId: "r1", submission })
 
-    expect(emit).toHaveBeenCalledWith("r1", "MEDIA_SOURCE_STATUS_CHANGED", {
-      roomId: "r1",
-      status: "online",
-      sourceType: "live",
-      bitrate: 128,
-    })
+    expect(emit).not.toHaveBeenCalled()
   })
 
   it("returns early when fetchMeta is off for a live room — no track processing", async () => {
@@ -224,17 +219,12 @@ describe("handleRoomNowPlayingData — live room type", () => {
     expect(m.addTrackToRoomPlaylist).not.toHaveBeenCalled()
   })
 
-  it("emits sourceType 'live' on offline for live rooms", async () => {
+  it("does not emit offline status from handler for live rooms (webhook is authoritative)", async () => {
     m.findRoom.mockResolvedValue(baseRoom({ type: "live", fetchMeta: false }))
 
     await handleRoomNowPlayingData({ context, roomId: "r1" })
 
-    expect(emit).toHaveBeenCalledWith("r1", "MEDIA_SOURCE_STATUS_CHANGED", {
-      roomId: "r1",
-      status: "offline",
-      sourceType: "live",
-      error: undefined,
-    })
+    expect(emit).not.toHaveBeenCalled()
   })
 })
 
