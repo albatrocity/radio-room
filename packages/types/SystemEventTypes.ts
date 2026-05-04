@@ -56,13 +56,6 @@ export type SystemEventHandlers = {
   // Queue events
   QUEUE_CHANGED: (data: { roomId: string; queue: QueueItem[] }) => Promise<void> | void
 
-  /** App-controlled playback: next track was started on Spotify (queue head popped; see dispatched flow) */
-  TRACK_DISPATCHED: (data: {
-    roomId: string
-    track: QueueItem
-    queue: QueueItem[]
-  }) => Promise<void> | void
-
   // Event for when additional metadata arrives for an existing track (from secondary MetadataSources)
   TRACK_METADATA_UPDATED: (data: {
     roomId: string

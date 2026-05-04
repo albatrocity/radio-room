@@ -19,6 +19,7 @@ import {
   findRoom,
   getDispatchedTrack,
   getQueue,
+  getQueueWithDispatched,
   getRoomCurrent,
   removeFromQueue,
   setRoomCurrent,
@@ -255,7 +256,9 @@ export default async function handleRoomNowPlayingData({
 
     // Emit QUEUE_CHANGED event after removing track
     if (context.systemEvents) {
-      const updatedQueue = await getQueue({ context, roomId })
+      const updatedQueue = isAppControlledPlayback(room)
+        ? await getQueueWithDispatched({ context, roomId })
+        : await getQueue({ context, roomId })
       await context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
         roomId,
         queue: updatedQueue,
@@ -265,6 +268,13 @@ export default async function handleRoomNowPlayingData({
 
   if (queueMatchSource === "dispatched") {
     await clearDispatchedTrack({ context, roomId })
+    if (context.systemEvents && isAppControlledPlayback(room)) {
+      const updatedQueue = await getQueueWithDispatched({ context, roomId })
+      await context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+        roomId,
+        queue: updatedQueue,
+      })
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-import { QueueItem } from "@repo/types/Queue"
+import { QueueItem, canonicalQueueTrackKey } from "@repo/types/Queue"
 import { AppContext } from "@repo/types"
 
 /** Legacy unordered queue membership (SET). Replaced by {@link queueOrderKey} ZSET. */
@@ -30,10 +30,6 @@ end
 redis.call('ZREM', KEYS[1], m[1])
 return m[1]
 `
-
-export function canonicalQueueTrackKey(item: QueueItem): string {
-  return `${item.mediaSource.type}:${item.mediaSource.trackId}`
-}
 
 /**
  * Migrate legacy SET-based queue to ZSET when the ordered key is missing or empty.
@@ -298,6 +294,27 @@ export async function getQueue({ roomId, context }: { roomId: string; context: A
     console.error(e)
     return []
   }
+}
+
+/**
+ * Redis queue plus in-flight dispatched track (app-controlled), with `locked: true` on the head row.
+ * Use for INIT / QUEUE_CHANGED wire payloads only — never for reorder validation or queue mutations.
+ */
+export async function getQueueWithDispatched({
+  roomId,
+  context,
+}: {
+  roomId: string
+  context: AppContext
+}): Promise<QueueItem[]> {
+  const [dispatched, queue] = await Promise.all([
+    getDispatchedTrack({ roomId, context }),
+    getQueue({ roomId, context }),
+  ])
+  if (dispatched) {
+    return [{ ...dispatched, locked: true }, ...queue]
+  }
+  return queue
 }
 
 /**

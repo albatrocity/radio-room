@@ -1,6 +1,6 @@
 import { AppContext } from "@repo/types"
 import { User } from "@repo/types/User"
-import { QueueItem } from "@repo/types/Queue"
+import { QueueItem, canonicalQueueTrackKey } from "@repo/types/Queue"
 import { MetadataSource, MetadataSourceTrack } from "@repo/types"
 import {
   addDj,
@@ -8,6 +8,7 @@ import {
   findRoom,
   getDjs,
   getQueue,
+  getQueueWithDispatched,
   getUser,
   isDj,
   isRoomAdmin,
@@ -15,12 +16,20 @@ import {
   removeFromQueue,
   clearDispatchedTrack,
   setDispatchedTrack,
+  setQueue,
   updateUserAttributes,
 } from "../operations/data"
 import systemMessage from "../lib/systemMessage"
 import { queueItemFactory } from "@repo/factories"
 import { AdapterService } from "./AdapterService"
 import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
+
+function isSameMultiset(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  const sa = [...a].sort()
+  const sb = [...b].sort()
+  return sa.every((v, i) => v === sb[i])
+}
 
 /**
  * A service that handles DJ-related operations without Socket.io dependencies
@@ -221,7 +230,9 @@ export class DJService {
 
     // Emit QUEUE_CHANGED event
     if (this.context.systemEvents) {
-      const updatedQueue = await getQueue({ context: this.context, roomId })
+      const updatedQueue = isAppControlledPlayback(room)
+        ? await getQueueWithDispatched({ context: this.context, roomId })
+        : await getQueue({ context: this.context, roomId })
       await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
         roomId,
         queue: updatedQueue,
@@ -305,6 +316,69 @@ export class DJService {
   /**
    * Handle a user joining, automatically deputizing them if needed
    */
+  /** Room creator or designated admins only (app-controlled queues). */
+  async userCanReorderQueueInRoom(roomId: string, userId: string): Promise<boolean> {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room || !isAppControlledPlayback(room)) {
+      return false
+    }
+    return await isRoomAdmin({
+      context: this.context,
+      roomId,
+      userId,
+      roomCreator: room.creator,
+    })
+  }
+
+  /**
+   * Reorder the Redis-backed queue (app-controlled only). Emits QUEUE_CHANGED via systemEvents.
+   */
+  async reorderQueue(roomId: string, userId: string, orderedCanonicalKeys: string[]) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "Queue reordering is only available in app-controlled playback mode",
+      }
+    }
+
+    const current = await getQueue({ context: this.context, roomId })
+    const currentKeys = current.map((item) => canonicalQueueTrackKey(item))
+    if (!isSameMultiset(currentKeys, orderedCanonicalKeys)) {
+      return { success: false as const, message: "Invalid queue order" }
+    }
+
+    const allowed = await this.userCanReorderQueueInRoom(roomId, userId)
+    if (!allowed) {
+      return { success: false as const, message: "Not authorized to reorder the queue" }
+    }
+
+    const byKey = new Map(current.map((item) => [canonicalQueueTrackKey(item), item] as const))
+    const items: QueueItem[] = []
+    for (const k of orderedCanonicalKeys) {
+      const item = byKey.get(k)
+      if (!item) {
+        return { success: false as const, message: "Invalid queue order" }
+      }
+      items.push(item)
+    }
+
+    await setQueue({ roomId, items, context: this.context })
+
+    if (this.context.systemEvents) {
+      const updatedQueue = await getQueueWithDispatched({ context: this.context, roomId })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+        roomId,
+        queue: updatedQueue,
+      })
+    }
+
+    return { success: true as const }
+  }
+
   async handleUserJoined(roomId: string, user: User) {
     const room = await findRoom({ context: this.context, roomId })
     const deputyDjs = await getDjs({ context: this.context, roomId })
@@ -366,7 +440,7 @@ export class DJService {
     await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
 
     if (this.context.systemEvents) {
-      const updatedQueue = await getQueue({ context: this.context, roomId })
+      const updatedQueue = await getQueueWithDispatched({ context: this.context, roomId })
       await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
         roomId,
         queue: updatedQueue,
@@ -448,14 +522,9 @@ export class DJService {
     }
 
     if (this.context.systemEvents) {
-      const updatedQueue = await getQueue({ context: this.context, roomId })
+      const updatedQueue = await getQueueWithDispatched({ context: this.context, roomId })
       await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
         roomId,
-        queue: updatedQueue,
-      })
-      await this.context.systemEvents.emit(roomId, "TRACK_DISPATCHED", {
-        roomId,
-        track: queueItem,
         queue: updatedQueue,
       })
     }

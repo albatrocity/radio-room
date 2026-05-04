@@ -154,16 +154,20 @@ export class AuthHandlers {
     if (!result.success) {
       return
     }
+    const { newUser, newUsers } = result
+    if (!newUser) {
+      return
+    }
 
-    socket.request.session.user = result.newUser
+    socket.request.session.user = newUser
     socket.request.session.save()
 
     // Emit via SystemEvents so LobbyBroadcaster and plugins receive USER_JOINED
     if (socket.context.systemEvents) {
       await socket.context.systemEvents.emit(socket.data.roomId, "USER_JOINED", {
         roomId: socket.data.roomId,
-        users: result.newUsers,
-        user: result.newUser,
+        users: newUsers,
+        user: newUser,
       })
     }
 

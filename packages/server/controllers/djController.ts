@@ -130,6 +130,10 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
     await handlers.playQueuedTrack(connections, { trackId })
   })
 
+  socket.on("REORDER_QUEUE", async (payload: { orderedKeys: string[] }) => {
+    await handlers.reorderQueue(connections, payload)
+  })
+
   socket.on("RESUME_PLAYBACK", async () => {
     await handlers.resumePlayback(connections)
   })

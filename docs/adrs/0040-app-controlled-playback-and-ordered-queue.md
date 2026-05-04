@@ -21,7 +21,7 @@ The legacy app queue used a Redis **SET** plus JSON blobs; member order was unde
 
 4. **Jobs**: Register both the existing queue-sync job (skips when app-controlled) and a new **track advance** job (skips when not app-controlled). Each tick checks `playbackMode` so toggling the room setting works without adapter re-registration.
 
-5. **`TRACK_DISPATCHED`**: System event emitted when the advance job starts the next Spotify track, carrying the popped item and remaining queue for plugins.
+5. **Queue payloads over the wire**: After dispatch (advance job or explicit Play), the popped item still appears in **`QUEUE_CHANGED`** as the first queue row with **`locked: true`** until Shoutcast matches now-playing and dispatched Redis state is cleared — clients do not need a separate dispatched concept or extra event.
 
 ## Consequences
 

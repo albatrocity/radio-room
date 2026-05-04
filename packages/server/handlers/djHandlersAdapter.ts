@@ -542,6 +542,37 @@ export class DJHandlers {
     }
   }
 
+  reorderQueue = async (
+    { socket }: HandlerConnections,
+    { orderedKeys }: { orderedKeys: string[] },
+  ) => {
+    try {
+      const { roomId, userId } = socket.data
+      if (!Array.isArray(orderedKeys)) {
+        socket.emit("event", {
+          type: "REORDER_QUEUE_FAILURE",
+          data: { message: "Invalid payload" },
+        })
+        return
+      }
+      const result = await this.djService.reorderQueue(roomId, userId, orderedKeys)
+      if (!result.success) {
+        socket.emit("event", {
+          type: "REORDER_QUEUE_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+      socket.emit("event", { type: "REORDER_QUEUE_SUCCESS" })
+    } catch (error: any) {
+      console.error("Error reordering queue:", error)
+      socket.emit("event", {
+        type: "REORDER_QUEUE_FAILURE",
+        data: { message: error?.message || "Failed to reorder queue" },
+      })
+    }
+  }
+
   playQueuedTrack = async ({ socket }: HandlerConnections, { trackId }: { trackId: string }) => {
     try {
       const { roomId, userId } = socket.data
