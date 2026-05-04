@@ -99,6 +99,20 @@ export class PluginAPIImpl implements PluginAPI {
       return
     }
 
+    const {
+      findRoom,
+      popNextFromQueue,
+      setDispatchedTrack,
+      getQueueWithDispatched,
+      clearDispatchedTrack,
+    } = await import("../../operations/data")
+    const { isAppControlledPlayback } = await import("../roomTypeHelpers")
+
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      throw new Error(`Room not found: ${roomId}`)
+    }
+
     const { AdapterService } = await import("../../services/AdapterService")
     const adapterService = new AdapterService(this.context)
     const playbackController = await adapterService.getRoomPlaybackController(roomId)
@@ -107,7 +121,44 @@ export class PluginAPIImpl implements PluginAPI {
       throw new Error(`No playback controller found for room ${roomId}`)
     }
 
-    await playbackController.api.skipToNextTrack()
+    if (!isAppControlledPlayback(room)) {
+      await playbackController.api.skipToNextTrack()
+      return
+    }
+
+    const nextItem = await popNextFromQueue({ context: this.context, roomId })
+
+    // App queue is authoritative, but with nothing queued fall back to Spotify skip.
+    if (!nextItem) {
+      await playbackController.api.skipToNextTrack()
+      return
+    }
+
+    await setDispatchedTrack({ context: this.context, roomId, item: nextItem })
+
+    const uri = nextItem.track.urls?.find((u) => u.type === "resource")?.url
+    if (!uri) {
+      console.error("[PluginAPI] skipTrack: no resource URI for next track")
+      await clearDispatchedTrack({ context: this.context, roomId })
+      await playbackController.api.skipToNextTrack()
+      return
+    }
+
+    try {
+      await playbackController.api.playTrack(uri)
+    } catch (e) {
+      console.error("[PluginAPI] skipTrack: playTrack failed:", e)
+      await clearDispatchedTrack({ context: this.context, roomId })
+      return
+    }
+
+    if (this.context.systemEvents) {
+      const updatedQueue = await getQueueWithDispatched({ context: this.context, roomId })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+        roomId,
+        queue: updatedQueue,
+      })
+    }
   }
 
   async sendSystemMessage(
@@ -121,6 +172,34 @@ export class PluginAPIImpl implements PluginAPI {
     const msg = systemMessage(message, meta)
 
     await sendMessage(this.io, roomId, msg, this.context)
+  }
+
+  async sendUserSystemMessage(
+    roomId: string,
+    userId: string,
+    message: string,
+    meta?: ChatMessage["meta"],
+  ): Promise<void> {
+    const { default: systemMessage } = await import("../../lib/systemMessage")
+    const { getRoomUsers } = await import("../../operations/data")
+
+    const users = await getRoomUsers({ context: this.context, roomId })
+    const user = users.find((u) => u.userId === userId)
+    if (!user?.id) {
+      console.warn(
+        `[PluginAPI] sendUserSystemMessage: no connected socket for userId ${userId} in room ${roomId}`,
+      )
+      return
+    }
+
+    const msg = systemMessage(message, meta)
+    this.io.to(user.id).emit("event", {
+      type: "MESSAGE_RECEIVED",
+      data: {
+        roomId,
+        message: msg,
+      },
+    })
   }
 
   async getPluginConfig(roomId: string, pluginName: string): Promise<any | null> {
