@@ -49,9 +49,11 @@ export interface ItemDefinition {
   /**
    * When `"user"`, the inventory UI opens a target picker and sends `targetUserId`
    * with `USE_INVENTORY_ITEM`; plugins read it from `onItemUsed` `callContext`.
+   * When `"queueItem"`, the inventory UI opens a queue picker and sends `targetQueueItemId`
+   * (metadata track id) with `USE_INVENTORY_ITEM`.
    * When `"self"` or omitted, the effect applies to the inventory owner only.
    */
-  requiresTarget?: "self" | "user"
+  requiresTarget?: "self" | "user" | "queueItem"
 }
 
 // ============================================================================

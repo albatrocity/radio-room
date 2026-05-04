@@ -21,6 +21,7 @@ import {
   GATE_SHORT_ID,
   SAMPLE_HOLD_SHORT_ID,
   JOKER_PEDAL_SHORT_ID,
+  HUMMUS_VEGGIES_SHORT_ID,
 } from "./items"
 
 /**
@@ -236,6 +237,40 @@ function useSampleHold(
   )
 }
 
+async function useHummusVeggies(
+  deps: ItemShopsBehaviorDeps,
+  userId: string,
+  _definition: ItemDefinition,
+  callContext?: unknown,
+): Promise<ItemUseResult> {
+  const { context } = deps
+  const targetQueueItemId = (callContext as { targetQueueItemId?: string } | undefined)
+    ?.targetQueueItemId
+
+  if (!targetQueueItemId) {
+    return { success: false, consumed: false, message: "Select a track to promote." }
+  }
+
+  const result = await context.api.moveTrackByPosition(context.roomId, targetQueueItemId, -1)
+
+  if (!result.success) {
+    return { success: false, consumed: false, message: result.message }
+  }
+
+  const [user] = await context.api.getUsersByIds([userId])
+  const username = user?.username?.trim() || userId
+  await context.api.sendSystemMessage(
+    context.roomId,
+    `${username} used Hummus & Veggies to promote a track!`,
+  )
+
+  return {
+    success: true,
+    consumed: true,
+    message: "Track promoted!",
+  }
+}
+
 function useJokerPedal(
   deps: ItemShopsBehaviorDeps,
   userId: string,
@@ -277,4 +312,5 @@ export const ITEM_USE_BEHAVIORS: Record<string, ItemUseHandler> = {
   [GATE_SHORT_ID]: useGate,
   [SAMPLE_HOLD_SHORT_ID]: useSampleHold,
   [JOKER_PEDAL_SHORT_ID]: useJokerPedal,
+  [HUMMUS_VEGGIES_SHORT_ID]: useHummusVeggies,
 }

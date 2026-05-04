@@ -666,6 +666,55 @@ export class DJService {
     return this.moveTrackTo(roomId, metadataTrackId, "bottom")
   }
 
+  /**
+   * App-controlled only: move a track forward or backward in the queue by `delta` slots.
+   * Negative delta promotes (toward index 0); positive delta demotes (toward the tail).
+   */
+  async moveTrackByPosition(
+    roomId: string,
+    metadataTrackId: QueueItem["track"]["id"],
+    delta: number,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    const guard = await this.requireAppControlledRoom(roomId)
+    if (!guard.ok) return guard.error
+
+    if (!Number.isFinite(delta) || delta === 0) {
+      return { success: false as const, message: "Invalid queue move delta" }
+    }
+
+    const queue = await getQueue({ context: this.context, roomId })
+    const index = queue.findIndex((q) => q.track.id === metadataTrackId)
+    if (index === -1) {
+      return { success: false as const, message: "Track not found in queue" }
+    }
+
+    if (queue.length === 0) {
+      return { success: false as const, message: "Queue is empty" }
+    }
+    if (queue.length === 1) {
+      return { success: false as const, message: "Not enough tracks in the queue to reorder" }
+    }
+
+    const finalIndex = Math.max(0, Math.min(queue.length - 1, index + delta))
+    if (finalIndex === index) {
+      return {
+        success: false as const,
+        message: "Track can't move further in that direction",
+      }
+    }
+
+    const reordered = [...queue]
+    const [target] = reordered.splice(index, 1)
+    if (!target) {
+      return { success: false as const, message: "Track not found in queue" }
+    }
+    reordered.splice(finalIndex, 0, target)
+
+    await setQueue({ roomId, items: reordered, context: this.context })
+    await this.emitQueueChanged(roomId)
+    return { success: true as const }
+  }
+
   private async moveTrackTo(
     roomId: string,
     metadataTrackId: QueueItem["track"]["id"],

@@ -323,6 +323,20 @@ export interface PluginAPI {
   ): Promise<{ success: true } | { success: false; message: string }>
 
   /**
+   * Move a queued track by a relative number of positions.
+   *
+   * Negative `delta` moves toward the front of the queue (promote); positive moves toward the back.
+   * App-controlled rooms only.
+   *
+   * @param metadataTrackId - Catalog ID from the metadata source (`QueueItem.track.id`).
+   */
+  moveTrackByPosition(
+    roomId: string,
+    metadataTrackId: string,
+    delta: number,
+  ): Promise<{ success: true } | { success: false; message: string }>
+
+  /**
    * Shuffle the queue (Fisher–Yates).
    *
    * App-controlled rooms only. Returns `{ success: false, message }` for

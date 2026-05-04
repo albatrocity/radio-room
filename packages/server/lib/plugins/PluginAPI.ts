@@ -233,6 +233,16 @@ export class PluginAPIImpl implements PluginAPI {
     return await djService.moveTrackToQueueBottom(roomId, metadataTrackId)
   }
 
+  async moveTrackByPosition(
+    roomId: string,
+    metadataTrackId: string,
+    delta: number,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    const { DJService } = await import("../../services/DJService")
+    const djService = new DJService(this.context)
+    return await djService.moveTrackByPosition(roomId, metadataTrackId, delta)
+  }
+
   async shuffleTrackQueue(
     roomId: string,
   ): Promise<{ success: true } | { success: false; message: string }> {

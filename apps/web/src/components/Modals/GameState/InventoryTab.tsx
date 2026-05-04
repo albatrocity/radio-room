@@ -19,6 +19,7 @@ import { getIcon } from "../../PluginComponents/icons"
 import { toaster } from "../../ui/toaster"
 import { useUserGameState } from "../UserGameStateContext"
 import { InventoryUseTargetPopover } from "./TargetUserPicker"
+import { InventoryUseQueueItemPicker } from "./QueueItemPicker"
 
 interface InventoryTabProps {
   items: InventoryItem[]
@@ -73,6 +74,7 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
   const coinValue = definition?.coinValue ?? 0
   const sellable = tradeable && coinValue > 0
   const requiresTargetUser = definition?.requiresTarget === "user"
+  const requiresTargetQueueItem = definition?.requiresTarget === "queueItem"
   const isItemShopsItem = item.sourcePlugin === ITEM_SHOPS_PLUGIN_NAME
   const shopVisitOpen = gameState?.currentShopInstance != null
   const showSellButton = sellable && (!isItemShopsItem || shopVisitOpen)
@@ -95,7 +97,7 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
     }
   }, [])
 
-  const dispatch = (action: "use" | "sell", targetUserId?: string) => {
+  const dispatch = (action: "use" | "sell", targetUserId?: string, targetQueueItemId?: string) => {
     const subscriptionId = `inventory-${action}-${item.itemId}-${Date.now()}`
     subscriptionIdRef.current = subscriptionId
     setPending({ itemId: item.itemId, action })
@@ -118,10 +120,11 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
     })
 
     if (action === "use") {
-      emitToSocket(
-        "USE_INVENTORY_ITEM",
-        targetUserId ? { itemId: item.itemId, targetUserId } : { itemId: item.itemId },
-      )
+      emitToSocket("USE_INVENTORY_ITEM", {
+        itemId: item.itemId,
+        ...(targetUserId ? { targetUserId } : {}),
+        ...(targetQueueItemId ? { targetQueueItemId } : {}),
+      })
     } else {
       emitToSocket("SELL_INVENTORY_ITEM", { itemId: item.itemId })
     }
@@ -164,7 +167,20 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
       </VStack>
       <HStack gap={2} flexShrink={0}>
         {consumable &&
-          (requiresTargetUser ? (
+          (requiresTargetQueueItem ? (
+            <InventoryUseQueueItemPicker
+              onPick={(targetQueueItemId) => dispatch("use", undefined, targetQueueItemId)}
+            >
+              <Button
+                size="xs"
+                variant="solid"
+                colorPalette="action"
+                loading={pending?.itemId === item.itemId && pending.action === "use"}
+              >
+                Use
+              </Button>
+            </InventoryUseQueueItemPicker>
+          ) : requiresTargetUser ? (
             <InventoryUseTargetPopover onPick={(targetUserId) => dispatch("use", targetUserId)}>
               <Button
                 size="xs"

@@ -7,6 +7,7 @@ export const BOOST_SHORT_ID = "boost-pedal"
 export const GATE_SHORT_ID = "gate"
 export const SAMPLE_HOLD_SHORT_ID = "sample-hold"
 export const JOKER_PEDAL_SHORT_ID = "joker-pedal"
+export const HUMMUS_VEGGIES_SHORT_ID = "hummus-veggies"
 
 /**
  * Master item catalog (prices, rarity, inventory flags). Shop-specific price
@@ -118,6 +119,21 @@ export const ITEM_CATALOG: readonly ItemCatalogEntry[] = [
       coinValue: 50,
       icon: "laugh",
       rarity: "uncommon",
+    },
+  },
+  {
+    definition: {
+      shortId: HUMMUS_VEGGIES_SHORT_ID,
+      name: "Hummus & Veggies",
+      description: "Move any song up 1 position in the queue.",
+      stackable: true,
+      maxStack: 3,
+      tradeable: true,
+      consumable: true,
+      requiresTarget: "queueItem",
+      coinValue: 50,
+      icon: "arrow-up-narrow-wide",
+      rarity: "rare",
     },
   },
 ]

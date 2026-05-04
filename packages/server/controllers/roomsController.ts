@@ -494,7 +494,9 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
    *
    * Responds with `INVENTORY_ACTION_RESULT` on this socket only.
    */
-  socket.on("USE_INVENTORY_ITEM", async (data: { itemId: string; targetUserId?: string }) => {
+  socket.on(
+    "USE_INVENTORY_ITEM",
+    async (data: { itemId: string; targetUserId?: string; targetQueueItemId?: string }) => {
     const inventory = socket.context.inventory
     if (!inventory) {
       socket.emit("event", {
@@ -512,7 +514,15 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       return
     }
 
-    const callContext = data.targetUserId ? { targetUserId: data.targetUserId } : undefined
+    const callContext =
+      data.targetUserId != null || data.targetQueueItemId != null
+        ? {
+            ...(data.targetUserId != null ? { targetUserId: data.targetUserId } : {}),
+            ...(data.targetQueueItemId != null
+              ? { targetQueueItemId: data.targetQueueItemId }
+              : {}),
+          }
+        : undefined
     const result = await inventory.useItem(
       socket.data.roomId,
       socket.data.userId,
@@ -524,7 +534,8 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       type: "INVENTORY_ACTION_RESULT",
       data: { success: result.success, message: result.message },
     })
-  })
+    },
+  )
 
   /**
    * Sell an inventory item back to its owning plugin (typically a shop).
