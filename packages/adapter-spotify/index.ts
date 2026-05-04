@@ -56,6 +56,7 @@ export const playbackController: PlaybackControllerAdapter = {
     if (context.jobService) {
       const { createQueueSyncJob } = await import("./lib/queueSyncJob")
       const { createTrackAdvanceJob } = await import("./lib/trackAdvanceJob")
+      const { AdapterService } = await import("@repo/server/services/AdapterService")
 
       const queueSyncJob = createQueueSyncJob({ context, roomId, userId })
       if (!context.jobs.find((j) => j.name === queueSyncJob.name)) {
@@ -63,10 +64,24 @@ export const playbackController: PlaybackControllerAdapter = {
         console.log(`Registered queue sync job for room ${roomId}`)
       }
 
-      const trackAdvanceJob = createTrackAdvanceJob({ context, roomId, userId })
-      if (!context.jobs.find((j) => j.name === trackAdvanceJob.name)) {
-        await context.jobService.scheduleJob(trackAdvanceJob)
-        console.log(`Registered track advance job for room ${roomId}`)
+      const adapterService = new AdapterService(context)
+      const playbackController = await adapterService.getRoomPlaybackController(roomId)
+
+      if (playbackController) {
+        const trackAdvanceJob = createTrackAdvanceJob({
+          context,
+          roomId,
+          userId,
+          playTrack: (uri) => playbackController.api.playTrack(uri),
+        })
+        if (!context.jobs.find((j) => j.name === trackAdvanceJob.name)) {
+          await context.jobService.scheduleJob(trackAdvanceJob)
+          console.log(`Registered track advance job for room ${roomId}`)
+        }
+      } else {
+        console.warn(
+          `[Spotify PlaybackController] No playback controller for room ${roomId}; track advance job not registered`,
+        )
       }
     }
   },

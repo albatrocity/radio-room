@@ -125,6 +125,14 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
   socket.on("REMOVE_FROM_QUEUE", async ({ trackId }: { trackId: string }) => {
     await handlers.removeFromQueueDirect(connections, { trackId })
   })
+
+  socket.on("PLAY_QUEUED_TRACK", async ({ trackId }: { trackId: string }) => {
+    await handlers.playQueuedTrack(connections, { trackId })
+  })
+
+  socket.on("RESUME_PLAYBACK", async () => {
+    await handlers.resumePlayback(connections)
+  })
 }
 
 /**

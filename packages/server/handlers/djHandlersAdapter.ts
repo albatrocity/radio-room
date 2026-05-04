@@ -541,6 +541,58 @@ export class DJHandlers {
       })
     }
   }
+
+  playQueuedTrack = async ({ socket }: HandlerConnections, { trackId }: { trackId: string }) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.djService.playQueuedTrack(roomId, userId, trackId)
+
+      if (!result.success) {
+        socket.emit("event", {
+          type: "PLAY_QUEUED_TRACK_FAILURE",
+          data: { message: result.message, trackId },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "PLAY_QUEUED_TRACK_SUCCESS",
+        data: { trackId, trackTitle: result.trackTitle },
+      })
+    } catch (error: any) {
+      console.error("Error playing queued track:", error)
+      socket.emit("event", {
+        type: "PLAY_QUEUED_TRACK_FAILURE",
+        data: {
+          message: error?.message || "Failed to play track from queue",
+          trackId,
+        },
+      })
+    }
+  }
+
+  resumePlayback = async ({ socket }: HandlerConnections) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.djService.resumePlayback(roomId, userId)
+
+      if (!result.success) {
+        socket.emit("event", {
+          type: "RESUME_PLAYBACK_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+
+      socket.emit("event", { type: "RESUME_PLAYBACK_SUCCESS" })
+    } catch (error: any) {
+      console.error("Error resuming playback:", error)
+      socket.emit("event", {
+        type: "RESUME_PLAYBACK_FAILURE",
+        data: { message: error?.message || "Failed to resume playback" },
+      })
+    }
+  }
 }
 
 /**

@@ -15,7 +15,7 @@ import {
 } from "@chakra-ui/react"
 
 import { PlaylistItem as PlaylistItemType, getPreferredTrack } from "../types/PlaylistItem"
-import { LuSkipForward, LuTrash2, LuUser, LuX } from "react-icons/lu"
+import { LuPlay, LuSkipForward, LuTrash2, LuUser, LuX } from "react-icons/lu"
 import {
   useUsers,
   usePreferredMetadataSource,
@@ -109,6 +109,37 @@ const PlaylistItem = memo(function PlaylistItem({
     socket.on("event", onEvent)
     timeoutId = window.setTimeout(() => socket.off("event", onEvent), 10000)
     emitToSocket("REMOVE_FROM_QUEUE", { trackId: item.track.id })
+  }, [item.track.id])
+
+  const handlePlayQueuedTrack = useCallback(() => {
+    let timeoutId: number
+    const onEvent = (payload: { type?: string; data?: { message?: string; trackId?: string } }) => {
+      if (payload.type === "PLAY_QUEUED_TRACK_SUCCESS" && payload.data?.trackId === item.track.id) {
+        socket.off("event", onEvent)
+        window.clearTimeout(timeoutId)
+        toast({
+          title: "Playing on Spotify",
+          type: "success",
+          duration: 3000,
+        })
+      }
+      if (
+        payload.type === "PLAY_QUEUED_TRACK_FAILURE" &&
+        payload.data?.trackId === item.track.id
+      ) {
+        socket.off("event", onEvent)
+        window.clearTimeout(timeoutId)
+        toast({
+          title: "Couldn't start playback",
+          description: payload.data?.message,
+          type: "error",
+          duration: 4000,
+        })
+      }
+    }
+    socket.on("event", onEvent)
+    timeoutId = window.setTimeout(() => socket.off("event", onEvent), 10000)
+    emitToSocket("PLAY_QUEUED_TRACK", { trackId: item.track.id })
   }, [item.track.id])
 
   // Get album art from preferred track
@@ -215,6 +246,17 @@ const PlaylistItem = memo(function PlaylistItem({
               css={styles.deleteButton}
             >
               <LuTrash2 />
+            </IconButton>
+          )}
+          {canActOnQueueItem && isAppControlledQueue && (
+            <IconButton
+              aria-label="Play this track on Spotify"
+              size="xs"
+              variant="ghost"
+              colorPalette="primary"
+              onClick={handlePlayQueuedTrack}
+            >
+              <LuPlay />
             </IconButton>
           )}
           {/* Queue removal: app-controlled removes in Redis; Spotify-controlled requests admin */}

@@ -49,6 +49,8 @@ export function createTrackAdvanceJob(params: {
       try {
         const { findRoom } = await import("@repo/server/operations/data")
         const {
+          addToQueue,
+          clearDispatchedTrack,
           popNextFromQueue,
           getDispatchedTrack,
           setDispatchedTrack,
@@ -112,11 +114,21 @@ export function createTrackAdvanceJob(params: {
 
         const uri = resourceUriFromQueueItem(nextItem)
         if (!uri) {
-          console.warn(`[TrackAdvance] No resource URI for room ${roomId}, skipped`)
+          console.warn(`[TrackAdvance] No resource URI for room ${roomId}, restoring queue entry`)
+          await addToQueue({ context, roomId, item: nextItem })
           return
         }
 
         await setDispatchedTrack({ context, roomId, item: nextItem })
+
+        try {
+          await playTrack(uri)
+        } catch (error: unknown) {
+          console.error(`[TrackAdvance] playTrack failed room ${roomId}:`, error)
+          await clearDispatchedTrack({ context, roomId })
+          await addToQueue({ context, roomId, item: nextItem })
+          return
+        }
 
         const updatedQueue = await getQueue({ context, roomId })
 
@@ -130,12 +142,6 @@ export function createTrackAdvanceJob(params: {
             track: nextItem,
             queue: updatedQueue,
           })
-        }
-
-        try {
-          await playTrack(uri)
-        } catch (error: unknown) {
-          console.error(`[TrackAdvance] playTrack failed room ${roomId}:`, error)
         }
       } catch (error: unknown) {
         const err = error as { status?: number; message?: string }

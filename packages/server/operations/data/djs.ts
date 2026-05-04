@@ -301,6 +301,36 @@ export async function getQueue({ roomId, context }: { roomId: string; context: A
 }
 
 /**
+ * Read the next track (FIFO head) without removing it from the ordered queue.
+ */
+export async function peekNextFromQueue({
+  roomId,
+  context,
+}: {
+  roomId: string
+  context: AppContext
+}): Promise<QueueItem | null> {
+  try {
+    await ensureQueueMigrated({ roomId, context })
+    const client = context.redis.pubClient
+    const orderKey = queueOrderKey(roomId)
+    const members = await client.zRange(orderKey, 0, 0)
+    const rawMember = members[0]
+    if (rawMember == null || rawMember === "") {
+      return null
+    }
+    const rawJson = await client.get(queuedTrackBlobKey(roomId, rawMember))
+    if (!rawJson) {
+      return null
+    }
+    return JSON.parse(rawJson) as QueueItem
+  } catch (e) {
+    console.error("ERROR FROM data/djs/peekNextFromQueue", roomId, e)
+    return null
+  }
+}
+
+/**
  * Atomically remove and return the next track (lowest score) from the ordered queue.
  */
 export async function popNextFromQueue({
