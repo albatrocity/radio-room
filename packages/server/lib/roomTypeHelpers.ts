@@ -18,3 +18,10 @@ export function isHybridRadioRoom(
 ): boolean {
   return !!room && room.type === "radio" && !!room.liveIngestEnabled
 }
+
+/** App-owned queue: advance job starts next track; optional dispatched state for DJ credit. */
+export function isAppControlledPlayback(
+  room: Pick<Room, "playbackMode"> | null | undefined,
+): boolean {
+  return room?.playbackMode === "app-controlled"
+}

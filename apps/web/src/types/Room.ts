@@ -26,6 +26,13 @@ export type Room = {
   liveIngestEnabled?: boolean
   liveWhepUrl?: string
   liveHlsUrl?: string
+  /**
+   * Spotify playback delegation when a PlaybackController is configured (e.g. hybrid radio).
+   * `spotify-controlled` (default): tracks go to Spotify's queue; app queue mirrors Spotify.
+   * `app-controlled`: app queue is authoritative; advance job starts the next track via Web API.
+   */
+  playbackMode?: "spotify-controlled" | "app-controlled"
+  playbackControllerId?: string
   createdAt?: string
   creator?: string
   spotifyError?: RoomError

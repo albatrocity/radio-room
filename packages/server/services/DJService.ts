@@ -17,6 +17,7 @@ import {
 import systemMessage from "../lib/systemMessage"
 import { queueItemFactory } from "@repo/factories"
 import { AdapterService } from "./AdapterService"
+import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
 
 /**
  * A service that handles DJ-related operations without Socket.io dependencies
@@ -198,18 +199,20 @@ export class DJService {
 
     await addToQueue({ context: this.context, roomId, item: queuedItem })
 
-    // Now add to Spotify's queue
-    try {
-      await playbackController.api.addToQueue(resourceUrl)
-    } catch (error) {
-      // If adding to Spotify fails, remove from our internal queue to stay in sync
-      console.error("Failed to add to playback queue:", error)
-      const trackKey = `${queuedItem.mediaSource.type}:${queuedItem.mediaSource.trackId}`
-      await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
-      return {
-        success: false,
-        message: "Failed to add track to playback queue",
-        error,
+    // Spotify-native queue (default). App-controlled rooms keep order only in Redis; advance job plays next.
+    if (!isAppControlledPlayback(room)) {
+      try {
+        await playbackController.api.addToQueue(resourceUrl)
+      } catch (error) {
+        // If adding to Spotify fails, remove from our internal queue to stay in sync
+        console.error("Failed to add to playback queue:", error)
+        const trackKey = `${queuedItem.mediaSource.type}:${queuedItem.mediaSource.trackId}`
+        await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
+        return {
+          success: false,
+          message: "Failed to add track to playback queue",
+          error,
+        }
       }
     }
 

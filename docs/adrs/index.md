@@ -45,6 +45,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0037](0037-hybrid-radio-shoutcast-rtmp-bridge.md) | Hybrid Radio — Shoutcast + Optional Experimental WebRTC | Accepted |
 | [0038](0038-socket-io-client-never-give-up-reconnection.md) | Socket.IO Client — Never-Give-Up Reconnection | Accepted |
 | [0039](0039-plugin-element-properties-for-now-playing.md) | Plugin `elementProps` for Now Playing (obscure / bypass roles) | Accepted |
+| [0040](0040-app-controlled-playback-and-ordered-queue.md) | App-Controlled Spotify Playback and Ordered Redis Queue | Accepted |
 
 ## Creating a New ADR
 

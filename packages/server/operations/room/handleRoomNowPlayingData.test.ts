@@ -11,6 +11,8 @@ const m = vi.hoisted(() => ({
   clearRoomCurrent: vi.fn(),
   getQueue: vi.fn(),
   removeFromQueue: vi.fn(),
+  getDispatchedTrack: vi.fn(),
+  clearDispatchedTrack: vi.fn(),
   writeJsonToHset: vi.fn(),
 }))
 
@@ -22,6 +24,8 @@ vi.mock("../data", () => ({
   clearRoomCurrent: m.clearRoomCurrent,
   getQueue: m.getQueue,
   removeFromQueue: m.removeFromQueue,
+  getDispatchedTrack: m.getDispatchedTrack,
+  clearDispatchedTrack: m.clearDispatchedTrack,
 }))
 
 vi.mock("../data/utils", () => ({
@@ -74,6 +78,8 @@ describe("handleRoomNowPlayingData — streaming mode early return", () => {
     m.setRoomCurrent.mockResolvedValue(undefined)
     m.addTrackToRoomPlaylist.mockResolvedValue(undefined)
     m.getQueue.mockResolvedValue([])
+    m.getDispatchedTrack.mockResolvedValue(null)
+    m.clearDispatchedTrack.mockResolvedValue(undefined)
     m.writeJsonToHset.mockResolvedValue(undefined)
     emit.mockResolvedValue(undefined)
   })
@@ -189,6 +195,8 @@ describe("handleRoomNowPlayingData — live room type", () => {
     m.setRoomCurrent.mockResolvedValue(undefined)
     m.addTrackToRoomPlaylist.mockResolvedValue(undefined)
     m.getQueue.mockResolvedValue([])
+    m.getDispatchedTrack.mockResolvedValue(null)
+    m.clearDispatchedTrack.mockResolvedValue(undefined)
     m.writeJsonToHset.mockResolvedValue(undefined)
     emit.mockResolvedValue(undefined)
   })
@@ -255,6 +263,8 @@ describe("handleRoomNowPlayingData — artworkStreamingOnly", () => {
     m.setRoomCurrent.mockResolvedValue(undefined)
     m.addTrackToRoomPlaylist.mockResolvedValue(undefined)
     m.getQueue.mockResolvedValue([])
+    m.getDispatchedTrack.mockResolvedValue(null)
+    m.clearDispatchedTrack.mockResolvedValue(undefined)
     m.writeJsonToHset.mockResolvedValue(undefined)
     emit.mockResolvedValue(undefined)
   })

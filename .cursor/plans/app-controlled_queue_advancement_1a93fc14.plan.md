@@ -4,31 +4,31 @@ overview: Add a `playbackMode` toggle to radio rooms so the app controls Spotify
 todos:
   - id: room-type
     content: Add `playbackMode` field to `Room` type in `packages/types/Room.ts`
-    status: pending
+    status: completed
   - id: ordered-queue
     content: Migrate room queue from Redis SET to sorted set (ZSET) with score-based ordering; update all queue ops in `djs.ts`; lazy migration from legacy SET
-    status: pending
+    status: completed
   - id: dispatched-ops
     content: Add `setDispatchedTrack`, `getDispatchedTrack`, `clearDispatchedTrack` Redis operations in `packages/server/operations/data/djs.ts`
-    status: pending
+    status: completed
   - id: advance-job
     content: Create `trackAdvanceJob.ts` -- poll Spotify playback + `popNextFromQueue` (ZPOPMIN) + dispatch via `startResumePlayback`
-    status: pending
+    status: completed
   - id: handle-dispatched
     content: Modify `findQueuedTrack` in `handleRoomNowPlayingData.ts` to check dispatched state for DJ credit
-    status: pending
+    status: completed
   - id: dj-service
     content: Branch `DJService.queueSong` to skip Spotify queue push when `playbackMode === 'app-controlled'`
-    status: pending
+    status: completed
   - id: job-registration
     content: Update `playbackController.onRoomCreated/onRoomDeleted` in `packages/adapter-spotify/index.ts` for conditional job registration
-    status: pending
+    status: completed
   - id: system-event
     content: Add `TRACK_DISPATCHED` system event type
-    status: pending
+    status: completed
   - id: adr
     content: Write ADR for app-controlled playback mode and ordered queue (ZSET) migration
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -108,6 +108,7 @@ Replace `room:{roomId}:queue` (SET) with `room:{roomId}:queue_order` (ZSET). Mem
 - **`setQueue`** -- `DEL queue_order`, then `ZADD` each item with sequential scores, reconcile JSON blobs. Fix keying: use canonical `trackKey` everywhere (`setQueue` currently references `item.track.id` in places).
 
 **Atomic pop for advance job:** Add `popNextFromQueue({ context, roomId }) -> QueueItem | null`:
+
 1. `ZPOPMIN queue_order` -- atomically removes and returns the lowest-score member (next to play)
 2. If result is empty, return null
 3. Load JSON from `room:{roomId}:queued_track:{trackKey}`, `UNLINK` blob, return `QueueItem`
@@ -120,6 +121,7 @@ This is preferable to `getQueue()[0]` + `removeFromQueue` because `ZPOPMIN` is a
 2. If both empty, no-op.
 
 **Why sorted set over LIST:**
+
 - `ZREM` by member is O(log N) vs LIST's `LREM` at O(N)
 - Members are unique by definition -- deduplication is free (matches existing `sIsMember` check)
 - Reordering = `ZADD` with a new score; no remove/reinsert dance

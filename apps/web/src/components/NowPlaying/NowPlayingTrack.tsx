@@ -156,7 +156,7 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
               <Box position="absolute">
                 <PluginArea area="nowPlayingArt" color="primaryBg" />
               </Box>
-              <Box position="relative" overflow="hidden" borderRadius="md" height="100%" width="100%">
+              <Box position="relative" overflow="hidden" height="100%" width="100%">
                 {artworkElementProps.obscured ? (
                   <Image
                     src={OBSCURED_ARTWORK_PLACEHOLDER}

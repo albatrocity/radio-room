@@ -14,8 +14,10 @@ import {
 import type { MetadataSourceType } from "@repo/types/TrackSource"
 import {
   addTrackToRoomPlaylist,
+  clearDispatchedTrack,
   clearRoomCurrent,
   findRoom,
+  getDispatchedTrack,
   getQueue,
   getRoomCurrent,
   removeFromQueue,
@@ -24,7 +26,11 @@ import {
 import { writeJsonToHset } from "../data/utils"
 import { AdapterService } from "../../services/AdapterService"
 import { isStreamingMode } from "../../lib/streamingMode"
-import { hasListenableStream, isHybridRadioRoom } from "../../lib/roomTypeHelpers"
+import {
+  hasListenableStream,
+  isAppControlledPlayback,
+  isHybridRadioRoom,
+} from "../../lib/roomTypeHelpers"
 
 type HandleRoomNowPlayingDataParams = {
   context: AppContext
@@ -132,14 +138,39 @@ export default async function handleRoomNowPlayingData({
   // Get queue to determine DJ (who added the track)
   const queue = await getQueue({ context, roomId })
 
-  // Find the queued track that matches this submission
-  const queuedTrack = findQueuedTrack({
-    queue,
-    submission,
-    track,
-    metadataSources,
-    isRadioRoom: hasListenableStream(room),
-  })
+  let queuedTrack: QueueItem | undefined
+  let queueMatchSource: "queue" | "dispatched" | undefined
+
+  if (isAppControlledPlayback(room)) {
+    const dispatched = await getDispatchedTrack({ context, roomId })
+    if (
+      dispatched &&
+      itemMatchesQueuedSubmission(dispatched, {
+        submission,
+        track,
+        metadataSources,
+        isRadioRoom: hasListenableStream(room),
+      })
+    ) {
+      queuedTrack = dispatched
+      queueMatchSource = "dispatched"
+    }
+  }
+
+  if (!queuedTrack) {
+    const fromQueue = findQueuedTrack({
+      queue,
+      submission,
+      track,
+      metadataSources,
+      isRadioRoom: hasListenableStream(room),
+    })
+    if (fromQueue) {
+      queuedTrack = fromQueue
+      queueMatchSource = "queue"
+    }
+  }
+
   const trackDj = queuedTrack?.addedBy
 
   // Construct QueueItem
@@ -217,8 +248,8 @@ export default async function handleRoomNowPlayingData({
     })
   }
 
-  // Remove from queue if it was queued
-  if (queuedTrack) {
+  // Remove from queue if it was still in the ordered queue (not already popped for app-controlled dispatch)
+  if (queuedTrack && queueMatchSource === "queue") {
     const trackKey = `${queuedTrack.mediaSource.type}:${queuedTrack.mediaSource.trackId}`
     await removeFromQueue({ context, roomId, trackId: trackKey })
 
@@ -230,6 +261,10 @@ export default async function handleRoomNowPlayingData({
         queue: updatedQueue,
       })
     }
+  }
+
+  if (queueMatchSource === "dispatched") {
+    await clearDispatchedTrack({ context, roomId })
   }
 }
 
@@ -265,6 +300,58 @@ type FindQueuedTrackParams = {
   isRadioRoom?: boolean
 }
 
+type MatchQueuedSubmissionParams = Pick<
+  FindQueuedTrackParams,
+  "submission" | "track" | "metadataSources" | "isRadioRoom"
+>
+
+/**
+ * Whether a queue item matches the current media submission (same rules as {@link findQueuedTrack}).
+ */
+function itemMatchesQueuedSubmission(
+  item: QueueItem,
+  { submission, track, metadataSources, isRadioRoom }: MatchQueuedSubmissionParams,
+): boolean {
+  if (
+    item.mediaSource.type === submission.sourceType &&
+    item.mediaSource.trackId === submission.trackId
+  ) {
+    return true
+  }
+
+  if (metadataSources) {
+    for (const [sourceType, sourceData] of Object.entries(metadataSources)) {
+      if (!sourceData?.source?.trackId) continue
+      if (
+        item.mediaSource.type === sourceType &&
+        item.mediaSource.trackId === sourceData.source.trackId
+      ) {
+        return true
+      }
+    }
+  }
+
+  if (isRadioRoom) {
+    const submissionTitle = track.title.toLowerCase().trim()
+    const submissionArtist = track.artists?.[0]?.title?.toLowerCase().trim() || ""
+    const queuedTitle = item.track.title.toLowerCase().trim()
+    const queuedArtist = item.track.artists?.[0]?.title?.toLowerCase().trim() || ""
+
+    const titleMatch =
+      queuedTitle.includes(submissionTitle) ||
+      submissionTitle.includes(queuedTitle) ||
+      queuedTitle === submissionTitle
+    const artistMatch =
+      queuedArtist.includes(submissionArtist) ||
+      submissionArtist.includes(queuedArtist) ||
+      queuedArtist === submissionArtist
+
+    if (titleMatch && artistMatch) return true
+  }
+
+  return false
+}
+
 /**
  * Find a queued track that matches the current submission.
  *
@@ -282,53 +369,14 @@ function findQueuedTrack({
 }: FindQueuedTrackParams): QueueItem | undefined {
   if (!queue?.length) return undefined
 
-  // Strategy 1: Exact match by mediaSource (works for jukebox mode)
-  let match = queue.find(
-    (item) =>
-      item.mediaSource.type === submission.sourceType &&
-      item.mediaSource.trackId === submission.trackId,
+  return queue.find((item) =>
+    itemMatchesQueuedSubmission(item, {
+      submission,
+      track,
+      metadataSources,
+      isRadioRoom,
+    }),
   )
-  if (match) return match
-
-  // Strategy 2: Match using metadataSource track IDs
-  // This handles radio rooms where tracks are queued via Spotify but detected via Shoutcast
-  if (metadataSources) {
-    for (const [sourceType, sourceData] of Object.entries(metadataSources)) {
-      if (!sourceData?.source?.trackId) continue
-
-      match = queue.find(
-        (item) =>
-          item.mediaSource.type === sourceType &&
-          item.mediaSource.trackId === sourceData.source.trackId,
-      )
-      if (match) return match
-    }
-  }
-
-  // Strategy 3: Fuzzy match by title/artist (fallback for radio rooms only)
-  if (isRadioRoom) {
-    const submissionTitle = track.title.toLowerCase().trim()
-    const submissionArtist = track.artists?.[0]?.title?.toLowerCase().trim() || ""
-
-    match = queue.find((item) => {
-      const queuedTitle = item.track.title.toLowerCase().trim()
-      const queuedArtist = item.track.artists?.[0]?.title?.toLowerCase().trim() || ""
-
-      const titleMatch =
-        queuedTitle.includes(submissionTitle) ||
-        submissionTitle.includes(queuedTitle) ||
-        queuedTitle === submissionTitle
-      const artistMatch =
-        queuedArtist.includes(submissionArtist) ||
-        submissionArtist.includes(queuedArtist) ||
-        queuedArtist === submissionArtist
-
-      return titleMatch && artistMatch
-    })
-    if (match) return match
-  }
-
-  return undefined
 }
 
 type ResolveTrackDataResult = {
