@@ -24,6 +24,8 @@ export interface PlaybackControllerApi {
     track: PlaybackControllerQueueItem | null
   }>
   play: () => Promise<void>
+  /** Start playback of a specific track URI on the active device (e.g. Spotify resource URI). */
+  playTrack: (mediaId: string) => Promise<void>
   pause: () => Promise<void>
   seekTo: (position: number) => Promise<void>
   skipToNextTrack: () => Promise<PlaybackControllerQueueItem[]>

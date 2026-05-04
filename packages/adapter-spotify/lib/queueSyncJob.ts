@@ -40,8 +40,14 @@ export function createQueueSyncJob(params: {
     handler: async ({ api }: { api: JobApi; context: AppContext }) => {
       try {
         // Dynamic imports to avoid circular dependencies
-        const { getQueue, removeFromQueue } = await import("@repo/server/operations/data")
+        const { findRoom, getQueue, removeFromQueue } = await import("@repo/server/operations/data")
+        const { isAppControlledPlayback } = await import("@repo/server/lib/roomTypeHelpers")
         const { AdapterService } = await import("@repo/server/services/AdapterService")
+
+        const room = await findRoom({ context, roomId })
+        if (isAppControlledPlayback(room)) {
+          return
+        }
 
         // Get the app's current queue
         const appQueue = await getQueue({ context, roomId })

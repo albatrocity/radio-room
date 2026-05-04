@@ -222,8 +222,9 @@ describe("AdminService", () => {
       const newSettings = { fetchMeta: true }
 
       vi.mocked(findRoom)
-        .mockResolvedValueOnce(mockRoom) // First call for getAuthedRoom
-        .mockResolvedValueOnce({ ...mockRoom, fetchMeta: true }) // Second call after update
+        .mockResolvedValueOnce(mockRoom) // getAuthedRoom
+        .mockResolvedValueOnce({ ...mockRoom, fetchMeta: true }) // refreshNowPlayingFromCachedMeta (fetchMeta transition)
+        .mockResolvedValueOnce({ ...mockRoom, fetchMeta: true }) // final updatedRoom
 
       const result = await adminService.setRoomSettings("room123", "admin123", newSettings)
 

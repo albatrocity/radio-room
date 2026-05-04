@@ -18,12 +18,18 @@ const mockFindRoom = vi.hoisted(() => vi.fn())
 const mockGetMessagesSince = vi.hoisted(() => vi.fn())
 const mockGetRoomPlaylistSince = vi.hoisted(() => vi.fn())
 const mockRemoveSensitiveRoomAttributes = vi.hoisted(() => vi.fn((room) => room))
+const mockIsRoomAdmin = vi.hoisted(() =>
+  vi.fn(async ({ userId, roomCreator }: { userId?: string; roomCreator?: string }) =>
+    userId === roomCreator ? true : false,
+  ),
+)
 
 vi.mock("../operations/data", () => ({
   findRoom: mockFindRoom,
   getMessagesSince: mockGetMessagesSince,
   getRoomPlaylistSince: mockGetRoomPlaylistSince,
   removeSensitiveRoomAttributes: mockRemoveSensitiveRoomAttributes,
+  isRoomAdmin: mockIsRoomAdmin,
 }))
 
 // Import after mocking

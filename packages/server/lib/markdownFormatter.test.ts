@@ -15,7 +15,22 @@ function minimalExport(overrides: Partial<RoomExportData> = {}): RoomExportData 
     },
     users: [],
     userHistory: [{ id: "u1", username: "a" } as any, { id: "u2", username: "b" } as any],
-    playlist: [{}, {}] as any,
+    playlist: [
+      {
+        track: {
+          title: "Track A",
+          artists: [{ title: "Artist A" }],
+          album: { title: "Album A" },
+        },
+      },
+      {
+        track: {
+          title: "Track B",
+          artists: [{ title: "Artist B" }],
+          album: { title: "Album B" },
+        },
+      },
+    ] as any,
     chat: [{}, {}, {}] as any,
     queue: [],
     reactions: { message: {}, track: {} },

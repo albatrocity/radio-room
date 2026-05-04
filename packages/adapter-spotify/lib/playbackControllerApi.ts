@@ -52,7 +52,31 @@ export async function makeApi({
       const api = await getSpotifyApi()
       const device = await getNowPlayingDevice(api)
 
-      await api.player.startResumePlayback(device.id)
+      try {
+        await api.player.startResumePlayback(device.id)
+      } catch (error: any) {
+        // Spotify returns 204 No Content on success; SDK may throw JSON parse errors on empty body
+        if (!(error.message?.includes("JSON") || error.message?.includes("Unexpected"))) {
+          throw error
+        }
+      }
+      await config.onPlay?.()
+      await config.onPlaybackStateChange?.("playing")
+    },
+    async playTrack(mediaId) {
+      const api = await getSpotifyApi()
+      const device = await getNowPlayingDevice(api)
+
+      try {
+        await api.player.startResumePlayback(device.id, undefined, [mediaId], undefined, 0)
+      } catch (error: any) {
+        if (error.message?.includes("JSON") || error.message?.includes("Unexpected")) {
+          // Spotify returns empty body on success sometimes
+        } else {
+          throw error
+        }
+      }
+
       await config.onPlay?.()
       await config.onPlaybackStateChange?.("playing")
     },
@@ -60,7 +84,13 @@ export async function makeApi({
       const api = await getSpotifyApi()
       const device = await getNowPlayingDevice(api)
 
-      await api.player.pausePlayback(device.id)
+      try {
+        await api.player.pausePlayback(device.id)
+      } catch (error: any) {
+        if (!(error.message?.includes("JSON") || error.message?.includes("Unexpected"))) {
+          throw error
+        }
+      }
       await config.onPause?.()
       await config.onPlaybackStateChange?.("paused")
     },
@@ -134,7 +164,16 @@ export async function makeApi({
     },
     async getPlayback() {
       const api = await getSpotifyApi()
-      const { is_playing, item } = await api.player.getPlaybackState()
+      const playback = await api.player.getPlaybackState()
+      // Spotify returns null body when nothing is playing / no active device context
+      if (!playback) {
+        return {
+          state: "paused" as const,
+          track: null,
+        }
+      }
+
+      const { is_playing, item } = playback
 
       return {
         state: is_playing ? "playing" : "paused",
@@ -147,7 +186,12 @@ export async function makeApi({
 }
 
 async function getNowPlayingDevice(spotifyApi: SpotifyApi) {
-  const { device } = await spotifyApi.player.getPlaybackState()
+  const playback = await spotifyApi.player.getPlaybackState()
+  if (!playback) {
+    throw new Error("No active device found")
+  }
+
+  const { device } = playback
 
   if (!device?.id) {
     throw new Error("No active device found")
