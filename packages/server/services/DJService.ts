@@ -1,4 +1,4 @@
-import { AppContext } from "@repo/types"
+import { AppContext, QueueItemAttribution } from "@repo/types"
 import { User } from "@repo/types/User"
 import { QueueItem, canonicalQueueTrackKey } from "@repo/types/Queue"
 import { MetadataSource, MetadataSourceTrack } from "@repo/types"
@@ -30,6 +30,27 @@ function isSameMultiset(a: string[], b: string[]): boolean {
   const sb = [...b].sort()
   return sa.every((v, i) => v === sb[i])
 }
+
+/**
+ * Coerce a {@link QueueItemAttribution} into a `QueueItem.addedBy`-shaped value.
+ *
+ * Plugin attributions are stored under a sentinel `userId` of `plugin:<pluginName>`,
+ * which is safe because all display code reads `addedBy?.username` only.
+ */
+function attributionToAddedBy(
+  attr: QueueItemAttribution,
+): { userId: string; username: string } {
+  if (attr.type === "user") {
+    return { userId: attr.userId, username: attr.username }
+  }
+  return {
+    userId: `plugin:${attr.pluginName}`,
+    username: attr.displayName ?? attr.pluginName,
+  }
+}
+
+const APP_CONTROLLED_ONLY_MESSAGE =
+  "Operation only available in app-controlled playback mode"
 
 /**
  * A service that handles DJ-related operations without Socket.io dependencies
@@ -83,7 +104,8 @@ export class DJService {
   }
 
   /**
-   * Add a song to the queue using the room's PlaybackController adapter
+   * Add a song to the queue on behalf of a real user (socket handler entrypoint).
+   * Runs plugin validation hooks (rate limiting, etc.).
    */
   async queueSong(
     roomId: string,
@@ -91,100 +113,109 @@ export class DJService {
     username: string,
     trackId: QueueItem["track"]["id"],
   ) {
-    // Get the current queue
+    return this.queueSongAs(
+      roomId,
+      { type: "user", userId, username },
+      trackId,
+      { runPluginValidation: true },
+    )
+  }
+
+  /**
+   * Add a song to the queue with arbitrary attribution (user or plugin).
+   *
+   * Used by both the user-facing {@link queueSong} and `PluginAPI.addToTrackQueue`.
+   * `runPluginValidation` defaults to `false` so plugin-initiated adds don't get
+   * blocked by other plugins' `validateQueueRequest` hooks.
+   */
+  async queueSongAs(
+    roomId: string,
+    attribution: QueueItemAttribution,
+    metadataTrackId: QueueItem["track"]["id"],
+    options?: { runPluginValidation?: boolean },
+  ) {
+    const addedBy = attributionToAddedBy(attribution)
+    const runValidation = options?.runPluginValidation ?? false
+
     const queue = await getQueue({ context: this.context, roomId })
 
-    // Check if the song is already in the queue
-    const inQueue = queue.find((x) => x.track.id === trackId)
+    const inQueue = queue.find((x) => x.track.id === metadataTrackId)
 
     if (inQueue) {
+      const existingAttributedToSameUser =
+        attribution.type === "user" && inQueue.addedBy?.userId === attribution.userId
+
       const djUsername =
         (await getUser({ context: this.context, userId: inQueue.addedBy?.userId! }))?.username ??
+        inQueue.addedBy?.username ??
         "Someone"
 
       return {
-        success: false,
-        message:
-          inQueue.addedBy?.userId === userId
-            ? "You've already queued that song, please choose another"
-            : `${djUsername} has already queued that song. Please try a different song.`,
+        success: false as const,
+        message: existingAttributedToSameUser
+          ? "You've already queued that song, please choose another"
+          : `${djUsername} has already queued that song. Please try a different song.`,
       }
     }
 
-    // Run plugin validation hooks (e.g., rate limiting)
-    // Uses fail-open semantics: if plugins error/timeout, request proceeds
-    if (this.context.pluginRegistry) {
+    if (runValidation && this.context.pluginRegistry) {
       const validationResult = await this.context.pluginRegistry.validateQueueRequest({
         roomId,
-        userId,
-        username,
-        trackId,
+        userId: addedBy.userId,
+        username: addedBy.username,
+        trackId: metadataTrackId,
       })
 
       if (!validationResult.allowed) {
         return {
-          success: false,
-          message: validationResult.reason,
+          success: false as const,
+          message: validationResult.reason ?? "Queue request was rejected",
         }
       }
     }
 
-    // Get the room to find the creator
     const room = await findRoom({ context: this.context, roomId })
 
     if (!room) {
-      return {
-        success: false,
-        message: "Room not found",
-      }
+      return { success: false as const, message: "Room not found" }
     }
 
-    // Get the room's playback controller
     const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
 
     if (!playbackController) {
       return {
-        success: false,
+        success: false as const,
         message: "No playback controller configured for this room",
       }
     }
 
-    // Get metadata source with room creator's tokens (so guests can queue songs)
     const metadataSource = await this.adapterService.getUserMetadataSource(roomId, room.creator)
 
     if (!metadataSource) {
       return {
-        success: false,
+        success: false as const,
         message: "No metadata source configured for this room",
       }
     }
 
-    // Fetch track metadata
     let track: MetadataSourceTrack | null
 
     try {
-      track = await metadataSource.api.findById(trackId)
+      track = await metadataSource.api.findById(metadataTrackId)
       if (!track) {
-        return {
-          success: false,
-          message: "Track not found",
-        }
+        return { success: false as const, message: "Track not found" }
       }
     } catch (error) {
       return {
-        success: false,
+        success: false as const,
         message: "Failed to fetch track information",
         error,
       }
     }
 
-    // Get the resource URL (e.g., Spotify URI) from the track metadata
     const resourceUrl = track.urls.find((url) => url.type === "resource")?.url
     if (!resourceUrl) {
-      return {
-        success: false,
-        message: "Track resource URL not found",
-      }
+      return { success: false as const, message: "Track resource URL not found" }
     }
 
     // IMPORTANT: Store in our internal queue FIRST, before adding to Spotify.
@@ -200,13 +231,10 @@ export class DJService {
         type: "spotify",
         trackId: track.id,
       },
-      addedBy: {
-        userId,
-        username,
-      },
-      addedAt: Date.now(), // When the song was added to queue
-      addedDuring: undefined, // Not playing during another track
-      playedAt: undefined, // Hasn't played yet
+      addedBy,
+      addedAt: Date.now(),
+      addedDuring: undefined,
+      playedAt: undefined,
     })
 
     await addToQueue({ context: this.context, roomId, item: queuedItem })
@@ -216,19 +244,17 @@ export class DJService {
       try {
         await playbackController.api.addToQueue(resourceUrl)
       } catch (error) {
-        // If adding to Spotify fails, remove from our internal queue to stay in sync
         console.error("Failed to add to playback queue:", error)
-        const trackKey = `${queuedItem.mediaSource.type}:${queuedItem.mediaSource.trackId}`
+        const trackKey = canonicalQueueTrackKey(queuedItem)
         await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
         return {
-          success: false,
+          success: false as const,
           message: "Failed to add track to playback queue",
           error,
         }
       }
     }
 
-    // Emit QUEUE_CHANGED event
     if (this.context.systemEvents) {
       const updatedQueue = isAppControlledPlayback(room)
         ? await getQueueWithDispatched({ context: this.context, roomId })
@@ -240,9 +266,9 @@ export class DJService {
     }
 
     return {
-      success: true,
+      success: true as const,
       queuedItem,
-      systemMessage: systemMessage(`${username || "Someone"} added a song to the queue`),
+      systemMessage: systemMessage(`${addedBy.username || "Someone"} added a song to the queue`),
     }
   }
 
@@ -575,6 +601,126 @@ export class DJService {
       }
     }
 
+    return { success: true as const }
+  }
+
+  /**
+   * Emit `QUEUE_CHANGED` for an app-controlled room. Includes the dispatched-but-not-yet-on-air
+   * head row so clients see the same shape as `getQueueWithDispatched`.
+   */
+  private async emitQueueChanged(roomId: string): Promise<void> {
+    if (!this.context.systemEvents) return
+    const queue = await getQueueWithDispatched({ context: this.context, roomId })
+    await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", { roomId, queue })
+  }
+
+  /**
+   * Resolve room and ensure it is in app-controlled playback mode.
+   * Returns the room when allowed, or a `{ success: false, message }` result otherwise.
+   */
+  private async requireAppControlledRoom(roomId: string) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { ok: false as const, error: { success: false as const, message: "Room not found" } }
+    }
+    if (!isAppControlledPlayback(room)) {
+      return {
+        ok: false as const,
+        error: { success: false as const, message: APP_CONTROLLED_ONLY_MESSAGE },
+      }
+    }
+    return { ok: true as const, room }
+  }
+
+  /**
+   * App-controlled only: remove a track from the Redis-backed queue.
+   * Plugins are trusted callers; no per-user authorization check is performed here.
+   */
+  async removeTrackFromQueue(roomId: string, metadataTrackId: QueueItem["track"]["id"]) {
+    const guard = await this.requireAppControlledRoom(roomId)
+    if (!guard.ok) return guard.error
+
+    const queue = await getQueue({ context: this.context, roomId })
+    const item = queue.find((q) => q.track.id === metadataTrackId)
+    if (!item) {
+      return { success: false as const, message: "Track not found in queue" }
+    }
+
+    const queueKey = canonicalQueueTrackKey(item)
+    await removeFromQueue({ context: this.context, roomId, trackId: queueKey })
+    await this.emitQueueChanged(roomId)
+    return { success: true as const }
+  }
+
+  /**
+   * App-controlled only: move a track to the head of the queue.
+   */
+  async moveTrackToQueueTop(roomId: string, metadataTrackId: QueueItem["track"]["id"]) {
+    return this.moveTrackTo(roomId, metadataTrackId, "top")
+  }
+
+  /**
+   * App-controlled only: move a track to the tail of the queue.
+   */
+  async moveTrackToQueueBottom(roomId: string, metadataTrackId: QueueItem["track"]["id"]) {
+    return this.moveTrackTo(roomId, metadataTrackId, "bottom")
+  }
+
+  private async moveTrackTo(
+    roomId: string,
+    metadataTrackId: QueueItem["track"]["id"],
+    edge: "top" | "bottom",
+  ) {
+    const guard = await this.requireAppControlledRoom(roomId)
+    if (!guard.ok) return guard.error
+
+    const queue = await getQueue({ context: this.context, roomId })
+    const index = queue.findIndex((q) => q.track.id === metadataTrackId)
+    if (index === -1) {
+      return { success: false as const, message: "Track not found in queue" }
+    }
+
+    if (queue.length <= 1) {
+      // Already at both top and bottom; no-op success.
+      return { success: true as const }
+    }
+
+    const reordered = [...queue]
+    const [target] = reordered.splice(index, 1)
+    if (!target) {
+      return { success: false as const, message: "Track not found in queue" }
+    }
+    if (edge === "top") {
+      reordered.unshift(target)
+    } else {
+      reordered.push(target)
+    }
+
+    await setQueue({ roomId, items: reordered, context: this.context })
+    await this.emitQueueChanged(roomId)
+    return { success: true as const }
+  }
+
+  /**
+   * App-controlled only: shuffle the queue (Fisher–Yates). Empty/single-item queues are no-ops.
+   */
+  async shuffleQueue(roomId: string) {
+    const guard = await this.requireAppControlledRoom(roomId)
+    if (!guard.ok) return guard.error
+
+    const queue = await getQueue({ context: this.context, roomId })
+    if (queue.length <= 1) {
+      return { success: true as const }
+    }
+
+    const shuffled = [...queue]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i]!, shuffled[j]!] = [shuffled[j]!, shuffled[i]!]
+    }
+
+    await setQueue({ roomId, items: shuffled, context: this.context })
+    await this.emitQueueChanged(roomId)
     return { success: true as const }
   }
 }

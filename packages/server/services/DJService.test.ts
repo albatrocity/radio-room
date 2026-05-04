@@ -683,4 +683,314 @@ describe("DJService", () => {
       })
     })
   })
+
+  describe("plugin queue management", () => {
+    const appControlledRoom = roomFactory.build({
+      id: "room123",
+      creator: "creator1",
+      playbackMode: "app-controlled",
+      playbackControllerId: "spotify",
+    })
+    const spotifyControlledRoom = roomFactory.build({
+      id: "room123",
+      creator: "creator1",
+      playbackMode: "spotify-controlled",
+      playbackControllerId: "spotify",
+    })
+
+    const itemA = queueItemFactory.build({
+      mediaSource: { type: "spotify", trackId: "track-a" },
+      track: metadataSourceTrackFactory.build({ id: "track-a", title: "A" }),
+    })
+    const itemB = queueItemFactory.build({
+      mediaSource: { type: "spotify", trackId: "track-b" },
+      track: metadataSourceTrackFactory.build({ id: "track-b", title: "B" }),
+    })
+    const itemC = queueItemFactory.build({
+      mediaSource: { type: "spotify", trackId: "track-c" },
+      track: metadataSourceTrackFactory.build({ id: "track-c", title: "C" }),
+    })
+
+    describe("queueSongAs", () => {
+      test("plugin attribution is persisted into addedBy", async () => {
+        vi.mocked(addToQueue).mockResolvedValue(undefined)
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+
+        const mockTrack = metadataSourceTrackFactory.build({
+          id: "track123",
+          title: "Test Track",
+          urls: [{ type: "resource", url: "spotify:track:123", id: "url1" }],
+        })
+        const mockMetadataSource = {
+          api: { findById: vi.fn().mockResolvedValue(mockTrack) },
+        }
+        const mockPlaybackController = {
+          api: {
+            addToQueue: vi.fn(),
+            getPlayback: vi.fn(),
+            playTrack: vi.fn(),
+          },
+        }
+        // @ts-ignore — testing private property
+        djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue(mockMetadataSource)
+        // @ts-ignore
+        djService["adapterService"].getRoomPlaybackController = vi
+          .fn()
+          .mockResolvedValue(mockPlaybackController)
+
+        const result = await djService.queueSongAs(
+          "room123",
+          { type: "plugin", pluginName: "music-shop", displayName: "Music Shop" },
+          "track123",
+        )
+
+        expect(result.success).toBe(true)
+        expect(addToQueue).toHaveBeenCalledWith(
+          expect.objectContaining({
+            item: expect.objectContaining({
+              addedBy: expect.objectContaining({
+                userId: "plugin:music-shop",
+                username: "Music Shop",
+              }),
+            }),
+          }),
+        )
+      })
+
+      test("runPluginValidation: false (default) skips plugin validation hooks", async () => {
+        vi.mocked(addToQueue).mockResolvedValue(undefined)
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+
+        const validateQueueRequest = vi.fn().mockResolvedValue({ allowed: false, reason: "blocked" })
+        mockContext.pluginRegistry = {
+          validateQueueRequest,
+          // Other methods on the registry are not invoked here.
+        } as unknown as AppContext["pluginRegistry"]
+        djService = new DJService(mockContext)
+
+        const mockTrack = metadataSourceTrackFactory.build({
+          id: "track123",
+          urls: [{ type: "resource", url: "spotify:track:123", id: "url1" }],
+        })
+        // @ts-ignore — testing private property
+        djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue({
+          api: { findById: vi.fn().mockResolvedValue(mockTrack) },
+        })
+        // @ts-ignore
+        djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+          api: { addToQueue: vi.fn() },
+        })
+
+        const result = await djService.queueSongAs(
+          "room123",
+          { type: "plugin", pluginName: "music-shop" },
+          "track123",
+        )
+
+        expect(validateQueueRequest).not.toHaveBeenCalled()
+        expect(result.success).toBe(true)
+      })
+
+      test("runPluginValidation: true honors a rejection from a plugin hook", async () => {
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+
+        const validateQueueRequest = vi.fn().mockResolvedValue({
+          allowed: false,
+          reason: "rate limited",
+        })
+        mockContext.pluginRegistry = {
+          validateQueueRequest,
+        } as unknown as AppContext["pluginRegistry"]
+        djService = new DJService(mockContext)
+
+        const result = await djService.queueSongAs(
+          "room123",
+          { type: "plugin", pluginName: "music-shop" },
+          "track123",
+          { runPluginValidation: true },
+        )
+
+        expect(result).toEqual({ success: false, message: "rate limited" })
+        expect(addToQueue).not.toHaveBeenCalled()
+      })
+    })
+
+    describe("removeTrackFromQueue", () => {
+      test("rejects when room is not app-controlled", async () => {
+        vi.mocked(findRoom).mockResolvedValue(spotifyControlledRoom)
+
+        const result = await djService.removeTrackFromQueue("room123", "track-a")
+
+        expect(result).toEqual({
+          success: false,
+          message: "Operation only available in app-controlled playback mode",
+        })
+        expect(removeFromQueue).not.toHaveBeenCalled()
+      })
+
+      test("returns track-not-found when track is not in queue", async () => {
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+        vi.mocked(getQueue).mockResolvedValue([itemA])
+
+        const result = await djService.removeTrackFromQueue("room123", "missing-track")
+
+        expect(result).toEqual({ success: false, message: "Track not found in queue" })
+        expect(removeFromQueue).not.toHaveBeenCalled()
+      })
+
+      test("removes the track and emits QUEUE_CHANGED on success", async () => {
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+        vi.mocked(getQueue).mockResolvedValue([itemA, itemB])
+
+        const result = await djService.removeTrackFromQueue("room123", "track-a")
+
+        expect(result).toEqual({ success: true })
+        expect(removeFromQueue).toHaveBeenCalledWith({
+          context: mockContext,
+          roomId: "room123",
+          trackId: canonicalQueueTrackKey(itemA),
+        })
+        expect(mockContext.systemEvents?.emit).toHaveBeenCalledWith(
+          "room123",
+          "QUEUE_CHANGED",
+          expect.objectContaining({ roomId: "room123" }),
+        )
+      })
+    })
+
+    describe("moveTrackToQueueTop", () => {
+      test("rejects on spotify-controlled rooms", async () => {
+        vi.mocked(findRoom).mockResolvedValue(spotifyControlledRoom)
+
+        const result = await djService.moveTrackToQueueTop("room123", "track-b")
+
+        expect(result).toEqual({
+          success: false,
+          message: "Operation only available in app-controlled playback mode",
+        })
+        expect(setQueue).not.toHaveBeenCalled()
+      })
+
+      test("returns track-not-found when track is missing", async () => {
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+        vi.mocked(getQueue).mockResolvedValue([itemA, itemB])
+
+        const result = await djService.moveTrackToQueueTop("room123", "track-c")
+
+        expect(result).toEqual({ success: false, message: "Track not found in queue" })
+        expect(setQueue).not.toHaveBeenCalled()
+      })
+
+      test("moves the track to the head and emits QUEUE_CHANGED", async () => {
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+        vi.mocked(getQueue).mockResolvedValue([itemA, itemB, itemC])
+
+        const result = await djService.moveTrackToQueueTop("room123", "track-c")
+
+        expect(result).toEqual({ success: true })
+        expect(setQueue).toHaveBeenCalledWith({
+          context: mockContext,
+          roomId: "room123",
+          items: [itemC, itemA, itemB],
+        })
+        expect(mockContext.systemEvents?.emit).toHaveBeenCalledWith(
+          "room123",
+          "QUEUE_CHANGED",
+          expect.objectContaining({ roomId: "room123" }),
+        )
+      })
+    })
+
+    describe("moveTrackToQueueBottom", () => {
+      test("moves the track to the tail", async () => {
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+        vi.mocked(getQueue).mockResolvedValue([itemA, itemB, itemC])
+
+        const result = await djService.moveTrackToQueueBottom("room123", "track-a")
+
+        expect(result).toEqual({ success: true })
+        expect(setQueue).toHaveBeenCalledWith({
+          context: mockContext,
+          roomId: "room123",
+          items: [itemB, itemC, itemA],
+        })
+      })
+
+      test("rejects on spotify-controlled rooms", async () => {
+        vi.mocked(findRoom).mockResolvedValue(spotifyControlledRoom)
+
+        const result = await djService.moveTrackToQueueBottom("room123", "track-a")
+
+        expect(result).toEqual({
+          success: false,
+          message: "Operation only available in app-controlled playback mode",
+        })
+        expect(setQueue).not.toHaveBeenCalled()
+      })
+    })
+
+    describe("shuffleQueue", () => {
+      test("rejects on spotify-controlled rooms", async () => {
+        vi.mocked(findRoom).mockResolvedValue(spotifyControlledRoom)
+
+        const result = await djService.shuffleQueue("room123")
+
+        expect(result).toEqual({
+          success: false,
+          message: "Operation only available in app-controlled playback mode",
+        })
+        expect(setQueue).not.toHaveBeenCalled()
+      })
+
+      test("empty queue is a no-op success", async () => {
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+        vi.mocked(getQueue).mockResolvedValue([])
+
+        const result = await djService.shuffleQueue("room123")
+
+        expect(result).toEqual({ success: true })
+        expect(setQueue).not.toHaveBeenCalled()
+        expect(mockContext.systemEvents?.emit).not.toHaveBeenCalled()
+      })
+
+      test("single-item queue is a no-op success", async () => {
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+        vi.mocked(getQueue).mockResolvedValue([itemA])
+
+        const result = await djService.shuffleQueue("room123")
+
+        expect(result).toEqual({ success: true })
+        expect(setQueue).not.toHaveBeenCalled()
+      })
+
+      test("calls setQueue with a permutation of the original queue and emits QUEUE_CHANGED", async () => {
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+        vi.mocked(getQueue).mockResolvedValue([itemA, itemB, itemC])
+
+        // Force a deterministic non-trivial shuffle: Math.random returns 0,
+        // which makes Fisher–Yates swap each i with index 0 — producing a reverse.
+        const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0)
+
+        try {
+          const result = await djService.shuffleQueue("room123")
+
+          expect(result).toEqual({ success: true })
+          expect(setQueue).toHaveBeenCalledWith({
+            context: mockContext,
+            roomId: "room123",
+            items: expect.arrayContaining([itemA, itemB, itemC]),
+          })
+          const call = vi.mocked(setQueue).mock.calls[0]?.[0]
+          expect(call?.items).toHaveLength(3)
+          expect(mockContext.systemEvents?.emit).toHaveBeenCalledWith(
+            "room123",
+            "QUEUE_CHANGED",
+            expect.objectContaining({ roomId: "room123" }),
+          )
+        } finally {
+          randomSpy.mockRestore()
+        }
+      })
+    })
+  })
 })

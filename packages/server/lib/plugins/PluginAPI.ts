@@ -2,6 +2,7 @@ import {
   AppContext,
   PluginAPI,
   QueueItem,
+  QueueItemAttribution,
   Reaction,
   User,
   ReactionSubject,
@@ -176,6 +177,67 @@ export class PluginAPIImpl implements PluginAPI {
   async getQueue(roomId: string): Promise<QueueItem[]> {
     const { getQueue } = await import("../../operations/data")
     return await getQueue({ context: this.context, roomId })
+  }
+
+  async addToTrackQueue(
+    roomId: string,
+    metadataTrackId: string,
+    options?: { addedBy?: QueueItemAttribution; runPluginValidation?: boolean },
+  ): Promise<
+    | { success: true; queuedItem: QueueItem }
+    | { success: false; message: string }
+  > {
+    const attribution: QueueItemAttribution =
+      options?.addedBy ?? {
+        type: "plugin",
+        pluginName: this.pluginName ?? "unknown-plugin",
+      }
+
+    const { DJService } = await import("../../services/DJService")
+    const djService = new DJService(this.context)
+    const result = await djService.queueSongAs(roomId, attribution, metadataTrackId, {
+      runPluginValidation: options?.runPluginValidation ?? false,
+    })
+
+    if (result.success) {
+      return { success: true, queuedItem: result.queuedItem }
+    }
+    return { success: false, message: result.message }
+  }
+
+  async removeFromTrackQueue(
+    roomId: string,
+    metadataTrackId: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    const { DJService } = await import("../../services/DJService")
+    const djService = new DJService(this.context)
+    return await djService.removeTrackFromQueue(roomId, metadataTrackId)
+  }
+
+  async moveToTrackQueueTop(
+    roomId: string,
+    metadataTrackId: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    const { DJService } = await import("../../services/DJService")
+    const djService = new DJService(this.context)
+    return await djService.moveTrackToQueueTop(roomId, metadataTrackId)
+  }
+
+  async moveToTrackQueueBottom(
+    roomId: string,
+    metadataTrackId: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    const { DJService } = await import("../../services/DJService")
+    const djService = new DJService(this.context)
+    return await djService.moveTrackToQueueBottom(roomId, metadataTrackId)
+  }
+
+  async shuffleTrackQueue(
+    roomId: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    const { DJService } = await import("../../services/DJService")
+    const djService = new DJService(this.context)
+    return await djService.shuffleQueue(roomId)
   }
 
   /**

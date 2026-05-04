@@ -214,6 +214,18 @@ export interface PluginEventPayload {
 }
 
 /**
+ * Attribution for a queue addition performed via PluginAPI.
+ * - `user`: credit the addition to a real user (e.g. user purchased a queue-skip item).
+ * - `plugin`: credit the addition to the plugin itself (the default for plugin-initiated adds).
+ *
+ * When a plugin attribution is used, the resulting `QueueItem.addedBy` carries a
+ * sentinel `userId` of `plugin:<pluginName>` and a `username` of `displayName ?? pluginName`.
+ */
+export type QueueItemAttribution =
+  | { type: "user"; userId: string; username: string }
+  | { type: "plugin"; pluginName: string; displayName?: string }
+
+/**
  * Plugin API - provides safe methods for plugins to interact with the system
  */
 export interface PluginAPI {
@@ -244,6 +256,76 @@ export interface PluginAPI {
   updatePlaylistTrack(roomId: string, track: QueueItem): Promise<void>
   /** Get the current queue for a room */
   getQueue(roomId: string): Promise<QueueItem[]>
+
+  /**
+   * Add a track to the room's queue.
+   *
+   * Works for both `app-controlled` and `spotify-controlled` rooms. When the
+   * room is spotify-controlled, the track is also pushed to the Spotify queue.
+   *
+   * Defaults to attributing the addition to the calling plugin. Pass
+   * `options.addedBy` to attribute to a specific user (e.g. the user who
+   * "earned" the queue add).
+   *
+   * `options.runPluginValidation` defaults to `false` so plugin-initiated adds
+   * are not blocked by other plugins' `validateQueueRequest` hooks.
+   *
+   * @param metadataTrackId - The catalog ID from the metadata source (e.g. Spotify track ID).
+   */
+  addToTrackQueue(
+    roomId: string,
+    metadataTrackId: string,
+    options?: { addedBy?: QueueItemAttribution; runPluginValidation?: boolean },
+  ): Promise<
+    | { success: true; queuedItem: QueueItem }
+    | { success: false; message: string }
+  >
+
+  /**
+   * Remove a track from the room's queue.
+   *
+   * App-controlled rooms only. Spotify-controlled rooms will receive
+   * `{ success: false, message }` because Spotify's queue API does not support
+   * removing arbitrary positions.
+   *
+   * @param metadataTrackId - The catalog ID from the metadata source.
+   */
+  removeFromTrackQueue(
+    roomId: string,
+    metadataTrackId: string,
+  ): Promise<{ success: true } | { success: false; message: string }>
+
+  /**
+   * Move a track to the top of the queue (next to play).
+   *
+   * App-controlled rooms only. Returns `{ success: false, message }` for
+   * spotify-controlled rooms.
+   */
+  moveToTrackQueueTop(
+    roomId: string,
+    metadataTrackId: string,
+  ): Promise<{ success: true } | { success: false; message: string }>
+
+  /**
+   * Move a track to the bottom of the queue.
+   *
+   * App-controlled rooms only. Returns `{ success: false, message }` for
+   * spotify-controlled rooms.
+   */
+  moveToTrackQueueBottom(
+    roomId: string,
+    metadataTrackId: string,
+  ): Promise<{ success: true } | { success: false; message: string }>
+
+  /**
+   * Shuffle the queue (Fisher–Yates).
+   *
+   * App-controlled rooms only. Returns `{ success: false, message }` for
+   * spotify-controlled rooms. Empty queues are a no-op success.
+   */
+  shuffleTrackQueue(
+    roomId: string,
+  ): Promise<{ success: true } | { success: false; message: string }>
 
   /**
    * Emit a custom plugin event.
