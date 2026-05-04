@@ -2,8 +2,13 @@ import { AppContext, JobRegistration, JobApi } from "@repo/types"
 import { SpotifyApi } from "@spotify/web-api-ts-sdk"
 import type { TrackItem } from "@spotify/web-api-ts-sdk"
 
-/** Fire early enough that polling jitter + API latency still lands before track end. */
-export const ADVANCE_THRESHOLD_MS = 5000
+/**
+ * Advance only when this much (or less) of the track remains.
+ * A larger window caused the first poll inside "last N ms" to skip immediately,
+ * cutting off the end of songs. One second preserves the outro while still
+ * leaving time for Web API play before Spotify auto-advances or stops.
+ */
+export const ADVANCE_THRESHOLD_MS = 1000
 
 function trackDurationMs(item: TrackItem): number | undefined {
   if (item && typeof item === "object" && "duration_ms" in item) {
@@ -29,13 +34,15 @@ export function createTrackAdvanceJob(params: {
   context: AppContext
   roomId: string
   userId: string
+  /** Resolved PlaybackController API — keeps Spotify Web API calls inside the adapter. */
+  playTrack: (mediaUri: string) => Promise<void>
 }): JobRegistration {
-  const { context, roomId, userId } = params
+  const { context, roomId, userId, playTrack } = params
 
   return {
     name: `track-advance-${roomId}`,
     description: `App-controlled Spotify playback advance for room ${roomId}`,
-    cron: "*/3 * * * * *",
+    cron: "*/1 * * * * *", // Match narrow end window (1s); 3s polls often missed the final second
     enabled: true,
     runAt: Date.now(),
     handler: async ({ api: _jobApi }: { api: JobApi; context: AppContext }) => {
@@ -125,25 +132,10 @@ export function createTrackAdvanceJob(params: {
           })
         }
 
-        const deviceId = playback.device?.id
-        if (!deviceId) {
-          console.warn(`[TrackAdvance] No active device id for room ${roomId}`)
-          return
-        }
-
         try {
-          await spotifyApi.player.startResumePlayback(deviceId, undefined, [uri], undefined, 0)
+          await playTrack(uri)
         } catch (error: unknown) {
-          const err = error as { message?: string }
-          if (
-            err.message?.includes("JSON") ||
-            err.message?.includes("Unexpected") ||
-            err.message?.includes("204")
-          ) {
-            // Spotify returns empty body on success sometimes
-          } else {
-            console.error(`[TrackAdvance] startResumePlayback failed room ${roomId}:`, error)
-          }
+          console.error(`[TrackAdvance] playTrack failed room ${roomId}:`, error)
         }
       } catch (error: unknown) {
         const err = error as { status?: number; message?: string }
