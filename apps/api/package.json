@@ -21,7 +21,7 @@
     "@repo/plugin-absent-dj": "*",
     "@repo/plugin-guess-the-tune": "*",
     "@repo/plugin-loyalty-program": "*",
-    "@repo/plugin-music-shop": "*",
+    "@repo/plugin-item-shops": "*",
     "@repo/plugin-playlist-democracy": "*",
     "@repo/plugin-queue-hygiene": "*",
     "@repo/plugin-special-words": "*",

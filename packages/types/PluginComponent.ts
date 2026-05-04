@@ -56,6 +56,7 @@ export type TemplateComponentName =
   | "inventory-grid"
   | "item-badge"
   | "shop-offer-table"
+  | "current-shop-offers"
 
 /**
  * Props for the username template component.
@@ -317,6 +318,12 @@ export interface ShopOfferTableComponentProps {
 }
 
 /**
+ * Renders the current user's shopping-session offers from `UserGameStateContext`
+ * (`currentShopInstance`). No template props — avoids duplicating offer rows in the schema.
+ */
+export type CurrentShopOffersComponentProps = {}
+
+/**
  * Type-safe mapping of component names to their props.
  */
 export interface TemplateComponentPropsMap {
@@ -337,6 +344,7 @@ export interface TemplateComponentPropsMap {
   "inventory-grid": InventoryGridComponentProps
   "item-badge": ItemBadgeComponentProps
   "shop-offer-table": ShopOfferTableComponentProps
+  "current-shop-offers": CurrentShopOffersComponentProps
 }
 
 // ============================================================================
@@ -418,6 +426,7 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "inventory-grid" } & InventoryGridComponentProps)
   | (PluginComponentMetadata & { type: "item-badge" } & ItemBadgeComponentProps)
   | (PluginComponentMetadata & { type: "shop-offer-table" } & ShopOfferTableComponentProps)
+  | (PluginComponentMetadata & { type: "current-shop-offers" } & CurrentShopOffersComponentProps)
   | PluginModalComponent // Modal is special - it contains children
   | PluginTabComponent // Tab is a container for game state modal tabs
 

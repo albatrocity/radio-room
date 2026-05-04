@@ -3,6 +3,7 @@ import type {
   GameAttributeName,
   GameSession,
   ItemDefinition,
+  ShoppingSessionInstance,
   UserGameState,
   UserInventory,
 } from "@repo/types"
@@ -17,6 +18,8 @@ export interface UserGameStateSnapshot {
   state: UserGameState | null
   inventory: UserInventory | null
   itemDefinitions: ItemDefinition[]
+  /** Per-user shop instance from Item Shops (when a round is active). */
+  currentShopInstance: ShoppingSessionInstance | null
   /** Convenience lookup for a single attribute (e.g. `coin`). */
   getAttribute: (attribute: GameAttributeName) => number
 }

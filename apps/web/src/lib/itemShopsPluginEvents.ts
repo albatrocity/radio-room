@@ -1,0 +1,10 @@
+import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
+
+const PREFIX = `PLUGIN:${ITEM_SHOPS_PLUGIN_NAME}:` as const
+
+/** Socket `event` types emitted by Item Shops via `context.api.emit`. */
+export const ITEM_SHOPS_SOCKET_EVENTS = {
+  SHOPPING_SESSION_STARTED: `${PREFIX}SHOPPING_SESSION_STARTED`,
+  SHOPPING_SESSION_ENDED: `${PREFIX}SHOPPING_SESSION_ENDED`,
+  SHOPPING_SESSION_UPDATED: `${PREFIX}SHOPPING_SESSION_UPDATED`,
+} as const

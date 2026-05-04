@@ -12,9 +12,12 @@ import {
   VStack,
 } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition } from "@repo/types"
+import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
+import { quoteItemShopsSellCoins } from "../../../lib/itemShopsSellQuote"
 import { getIcon } from "../../PluginComponents/icons"
 import { toaster } from "../../ui/toaster"
+import { useUserGameState } from "../UserGameStateContext"
 import { InventoryUseTargetPopover } from "./TargetUserPicker"
 
 interface InventoryTabProps {
@@ -61,6 +64,7 @@ function EmptyInventorySlot() {
 }
 
 function InventoryRow({ item, definition }: InventoryRowProps) {
+  const gameState = useUserGameState()
   const name = definition?.name ?? item.definitionId
   const description = definition?.description
   const icon = definition?.icon
@@ -69,6 +73,16 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
   const coinValue = definition?.coinValue ?? 0
   const sellable = tradeable && coinValue > 0
   const requiresTargetUser = definition?.requiresTarget === "user"
+  const isItemShopsItem = item.sourcePlugin === ITEM_SHOPS_PLUGIN_NAME
+  const shopVisitOpen = gameState?.currentShopInstance != null
+  const showSellButton = sellable && (!isItemShopsItem || shopVisitOpen)
+  const sellButtonLabel =
+    isItemShopsItem && shopVisitOpen && definition && gameState?.currentShopInstance
+      ? (() => {
+          const q = quoteItemShopsSellCoins(gameState.currentShopInstance, definition)
+          return q != null ? `Sell (${q})` : "Sell"
+        })()
+      : "Sell"
   const IconGlyph = icon ? getIcon(icon) : undefined
 
   const [pending, setPending] = useState<PendingAction>(null)
@@ -172,14 +186,14 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
               Use
             </Button>
           ))}
-        {sellable && (
+        {showSellButton && (
           <Button
             size="xs"
             variant="outline"
             loading={pending?.itemId === item.itemId && pending.action === "sell"}
             onClick={() => dispatch("sell")}
           >
-            Sell
+            {sellButtonLabel}
           </Button>
         )}
       </HStack>

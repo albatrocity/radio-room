@@ -80,7 +80,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint \"**/*.{ts,tsx}\"",
-    "format": "prettier --write \"**/*.{js,jsx,json,md}\""
+    "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
+    "test": "vitest run --config vitest.config.mts"
   },
   "repository": {
     "type": "git",

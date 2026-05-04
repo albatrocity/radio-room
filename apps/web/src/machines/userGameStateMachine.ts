@@ -10,15 +10,23 @@
  * `GET_MY_GAME_STATE` from ACTIVATE can run before LOGIN attaches `roomId`.
  */
 
-import type { GameSession, ItemDefinition, UserGameState, UserInventory } from "@repo/types"
+import type {
+  GameSession,
+  ItemDefinition,
+  ShoppingSessionInstance,
+  UserGameState,
+  UserInventory,
+} from "@repo/types"
 import { setup, assign } from "xstate"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
+import { ITEM_SHOPS_SOCKET_EVENTS } from "../lib/itemShopsPluginEvents"
 
 export interface UserGameStatePayload {
   session: GameSession | null
   state: UserGameState | null
   inventory: UserInventory | null
   itemDefinitions: ItemDefinition[]
+  currentShopInstance?: ShoppingSessionInstance | null
 }
 
 interface UserGameStateContext {
@@ -43,6 +51,9 @@ type UserGameStateEvent =
   | { type: "INVENTORY_ITEM_TRANSFERRED"; data: { userId?: string } }
   | { type: "GAME_SESSION_STARTED"; data: unknown }
   | { type: "GAME_SESSION_ENDED"; data: unknown }
+  | { type: typeof ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_STARTED; data: unknown }
+  | { type: typeof ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_ENDED; data: unknown }
+  | { type: typeof ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_UPDATED; data: unknown }
   | { type: "ERROR_OCCURRED"; data: { message?: string } }
 
 const EVENTS_THAT_TRIGGER_REFRESH = new Set([
@@ -85,7 +96,17 @@ export const userGameStateMachine = setup({
     },
     setPayload: assign(({ event }) => {
       if (event.type !== "USER_GAME_STATE") return {}
-      return { payload: event.data, error: null }
+      const d = event.data
+      return {
+        payload: {
+          session: d.session,
+          state: d.state,
+          inventory: d.inventory,
+          itemDefinitions: d.itemDefinitions ?? [],
+          currentShopInstance: d.currentShopInstance ?? null,
+        },
+        error: null,
+      }
     }),
     clearPayload: assign({
       payload: () => ({
@@ -93,6 +114,7 @@ export const userGameStateMachine = setup({
         state: null,
         inventory: null,
         itemDefinitions: [],
+        currentShopInstance: null,
       }),
       error: () => null,
     }),
@@ -134,6 +156,15 @@ export const userGameStateMachine = setup({
           target: "ready",
           actions: ["setPayload"],
         },
+        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_STARTED]: {
+          actions: ["requestGameState"],
+        },
+        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_ENDED]: {
+          actions: ["requestGameState"],
+        },
+        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_UPDATED]: {
+          actions: ["requestGameState"],
+        },
         ERROR_OCCURRED: {
           target: "error",
           actions: ["setError"],
@@ -160,6 +191,15 @@ export const userGameStateMachine = setup({
         },
         GAME_SESSION_ENDED: {
           actions: ["clearPayload"],
+        },
+        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_STARTED]: {
+          actions: ["requestGameState"],
+        },
+        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_ENDED]: {
+          actions: ["requestGameState"],
+        },
+        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_UPDATED]: {
+          actions: ["requestGameState"],
         },
         GAME_STATE_CHANGED: {
           actions: ["requestGameState"],
@@ -197,6 +237,15 @@ export const userGameStateMachine = setup({
         USER_GAME_STATE: {
           target: "ready",
           actions: ["setPayload"],
+        },
+        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_STARTED]: {
+          actions: ["requestGameState"],
+        },
+        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_ENDED]: {
+          actions: ["requestGameState"],
+        },
+        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_UPDATED]: {
+          actions: ["requestGameState"],
         },
         ERROR_OCCURRED: {
           target: "error",

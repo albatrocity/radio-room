@@ -1,12 +1,11 @@
 {
-  "name": "@repo/plugin-music-shop",
+  "name": "@repo/plugin-item-shops",
   "version": "1.0.0",
-  "description": "Music Shop plugin for Listening Room - users buy items that affect music playback",
+  "description": "Item shops with per-user shopping sessions for Listening Room",
   "main": "index.ts",
   "types": "index.ts",
   "exports": {
-    ".": "./index.ts",
-    "./types": "./types.ts"
+    ".": "./index.ts"
   },
   "scripts": {
     "test": "vitest run --passWithNoTests",

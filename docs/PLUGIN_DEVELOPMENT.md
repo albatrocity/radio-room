@@ -1700,6 +1700,8 @@ Plugins that sell items for in-game `coin` (e.g. Music Shop) can compose a **`Sh
 
 **`ShopPlugin`:** For a typical coin shop, you can extend **`ShopPlugin<TConfig>`** from `@repo/plugin-base` instead of hand-wiring `ShopHelper`, `executeAction`, `onItemSold`, and stock-related plugin events. It composes `ShopHelper` internally; subclasses provide `shopItems`, `isShopEnabled`, and `isSellingItems`, and may override hooks for item behaviour. See [ADR 0047: ShopPlugin base class](adrs/0047-shop-plugin-base-class.md). Prefer raw **`ShopHelper`** when you need to compose multiple helpers or avoid a shop-specific base class.
 
+**`ShoppingSessionHelper` (per-user sessions):** If you need **per-listener random shop instances** (ephemeral “rounds” with a few weighted offers) instead of **global per-item stock** for the whole room, use **`ShoppingSessionHelper`** from `@repo/plugin-base/helpers` and extend `BasePlugin` (not `ShopPlugin`). The built-in **Item Shops** plugin (`@repo/plugin-item-shops`) is the reference implementation. See [ADR 0049: Item Shops and Shopping Sessions](adrs/0049-item-shops-and-shopping-sessions.md).
+
 ### `ShopItem`
 
 ```typescript
@@ -1914,6 +1916,8 @@ function MyTabContent() {
 
 The context is `null` outside the game state modal, so components can render meaningful fallbacks when used elsewhere.
 
+For **Item Shops**–style sell previews, the same payload includes **`currentShopInstance`** (`ShoppingSessionInstance` from `GET_MY_GAME_STATE` when a shopping round is active and the user has a visit). Persisted fields **`listedShortIds`**, optional **`listedPriceOverrides`**, and **`listedBuybackRate` / `unlistedBuybackRate`** match server sell-back math so the web client can quote refunds (e.g. `quoteItemShopsSellCoins` in `apps/web/src/lib/itemShopsSellQuote.ts`) without bundling the full shop catalog.
+
 ### Inventory actions
 
 The built-in Inventory tab exposes per-item buttons:
@@ -1921,7 +1925,7 @@ The built-in Inventory tab exposes per-item buttons:
 - **Use** – emitted as `USE_INVENTORY_ITEM { itemId, targetUserId? }`. Optional **`targetUserId`** is sent when the item’s definition has **`requiresTarget: "user"`** (target picker in the inventory tab). Passed through as **`callContext`** to `onItemUsed`. See [ADR 0045](adrs/0045-inventory-item-targeting.md).
 - **Sell** – emitted as `SELL_INVENTORY_ITEM { itemId }`. Routes to the source plugin's `onItemSold` (typically `ShopHelper.sell`).
 
-The buttons render automatically based on the `ItemDefinition` flags: **Use** appears for `consumable` items, **Sell** appears for `tradeable` items with a positive `coinValue`. The server responds with `INVENTORY_ACTION_RESULT { success, message, refund? }`.
+The buttons render automatically based on the `ItemDefinition` flags: **Use** appears for `consumable` items, **Sell** appears for `tradeable` items with a positive `coinValue`. For **item-shops** items, the built-in tab only shows **Sell** while **`currentShopInstance`** is present (a shop visit is open); the button label can include the quoted coin refund using instance listing fields above. The server responds with `INVENTORY_ACTION_RESULT { success, message, refund? }`.
 
 ---
 

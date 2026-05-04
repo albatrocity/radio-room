@@ -18,8 +18,15 @@ import * as scheduling from "../services/SchedulingService"
 import { RoomSnapshot } from "@repo/types/Room"
 import { SocketWithContext } from "../lib/socketWithContext"
 import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
-import { AppContext, RoomScheduleSnapshotDTO } from "@repo/types"
+import {
+  AppContext,
+  RoomScheduleSnapshotDTO,
+  ITEM_SHOPS_PLUGIN_NAME,
+  ITEM_SHOPS_SESSION_STORAGE_KEYS,
+  type ShoppingSessionInstance,
+} from "@repo/types"
 import { readRoomScheduleSnapshot, refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
+import { PluginStorageImpl } from "../lib/plugins/PluginStorage"
 
 /**
  * Get available metadata sources for a user based on their linked services
@@ -380,7 +387,13 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
     if (!gameSessions) {
       socket.emit("event", {
         type: "USER_GAME_STATE",
-        data: { session: null, state: null, inventory: null },
+        data: {
+          session: null,
+          state: null,
+          inventory: null,
+          itemDefinitions: [],
+          currentShopInstance: null,
+        },
       })
       return
     }
@@ -389,7 +402,13 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
     if (!session) {
       socket.emit("event", {
         type: "USER_GAME_STATE",
-        data: { session: null, state: null, inventory: null },
+        data: {
+          session: null,
+          state: null,
+          inventory: null,
+          itemDefinitions: [],
+          currentShopInstance: null,
+        },
       })
       return
     }
@@ -402,9 +421,38 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       ? await inventory.getAllItemDefinitions(socket.data.roomId)
       : []
 
+    let currentShopInstance: ShoppingSessionInstance | null = null
+    if (inventory) {
+      const storage = new PluginStorageImpl(
+        socket.context,
+        ITEM_SHOPS_PLUGIN_NAME,
+        socket.data.roomId,
+      )
+      const active = await storage.get(ITEM_SHOPS_SESSION_STORAGE_KEYS.ACTIVE)
+      if (active === "true") {
+        const raw = await storage.hget(
+          ITEM_SHOPS_SESSION_STORAGE_KEYS.INSTANCES,
+          socket.data.userId,
+        )
+        if (raw) {
+          try {
+            currentShopInstance = JSON.parse(raw) as ShoppingSessionInstance
+          } catch {
+            currentShopInstance = null
+          }
+        }
+      }
+    }
+
     socket.emit("event", {
       type: "USER_GAME_STATE",
-      data: { session, state, inventory: inv, itemDefinitions },
+      data: {
+        session,
+        state,
+        inventory: inv,
+        itemDefinitions,
+        currentShopInstance,
+      },
     })
   })
 

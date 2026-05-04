@@ -1,3 +1,5 @@
+import type { ItemRarity } from "./ShoppingSession"
+
 /**
  * Inventory Types
  *
@@ -40,6 +42,10 @@ export interface ItemDefinition {
   consumable: boolean
   /** Optional base coin value when sold via the inventory API. */
   coinValue?: number
+  /**
+   * Weighted shop sampling / UX (e.g. item shops). Undefined means `"common"`.
+   */
+  rarity?: ItemRarity
   /**
    * When `"user"`, the inventory UI opens a target picker and sends `targetUserId`
    * with `USE_INVENTORY_ITEM`; plugins read it from `onItemUsed` `callContext`.

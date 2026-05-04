@@ -8,6 +8,20 @@ export {
   type ShopTransactionResult,
   type GenerateShopComponentsOptions,
 } from "./ShopHelper"
+export { ShoppingSessionHelper } from "./ShoppingSessionHelper"
+export type {
+  ShopCatalogEntry as ItemShopsShopCatalogEntry,
+  ShopAvailableItem,
+  ItemCatalogEntry,
+} from "./shoppingSessionCatalog"
+export {
+  resolveItemRarity,
+  resolveShopItemPrice,
+  resolveUnlistedSellBasePrice,
+  isShopListedItem,
+  buildItemCatalogMap,
+  DEFAULT_RARITY_WEIGHTS,
+} from "./shoppingSessionCatalog"
 export { tokenizeWords, buildSegments, type TokenizedWord } from "./chatTransform"
 export {
   SHRINK_FLAG,
