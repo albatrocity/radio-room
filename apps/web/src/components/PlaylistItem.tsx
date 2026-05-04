@@ -19,17 +19,25 @@ import { LuSkipForward, LuTrash2, LuUser, LuX } from "react-icons/lu"
 import { useUsers, usePreferredMetadataSource, useIsAdmin, useCurrentUser } from "../hooks/useActors"
 import { PluginArea } from "./PluginComponents"
 import { emitToSocket } from "../actors/socketActor"
+import socket from "../lib/socket"
 import ConfirmationDialog from "./ConfirmationDialog"
 import { toast } from "../lib/toasts"
 import { playlistItemRecipe } from "../theme/playlistItemRecipe"
+import type { Room } from "../types/Room"
 
 type Props = {
   item: PlaylistItemType
   /** Whether this item is in the queue (not yet played) vs playlist history */
   isQueueItem?: boolean
+  /** When `app-controlled`, queue removal is applied in Redis; otherwise only a request is sent. */
+  playbackMode?: Room["playbackMode"]
 }
 
-const PlaylistItem = memo(function PlaylistItem({ item, isQueueItem = false }: Props) {
+const PlaylistItem = memo(function PlaylistItem({
+  item,
+  isQueueItem = false,
+  playbackMode,
+}: Props) {
   const preferredSource = usePreferredMetadataSource()
   const isAdmin = useIsAdmin()
   const currentUser = useCurrentUser()
@@ -70,6 +78,37 @@ const PlaylistItem = memo(function PlaylistItem({ item, isQueueItem = false }: P
     })
   }, [item.track.id])
 
+  const handleRemoveFromQueueDirect = useCallback(() => {
+    let timeoutId: number
+    const onEvent = (payload: { type?: string; data?: { message?: string; trackId?: string } }) => {
+      if (payload.type === "REMOVE_FROM_QUEUE_SUCCESS" && payload.data?.trackId === item.track.id) {
+        socket.off("event", onEvent)
+        window.clearTimeout(timeoutId)
+        toast({
+          title: "Removed from queue",
+          type: "success",
+          duration: 3000,
+        })
+      }
+      if (
+        payload.type === "REMOVE_FROM_QUEUE_FAILURE" &&
+        payload.data?.trackId === item.track.id
+      ) {
+        socket.off("event", onEvent)
+        window.clearTimeout(timeoutId)
+        toast({
+          title: "Couldn't remove track",
+          description: payload.data?.message,
+          type: "error",
+          duration: 4000,
+        })
+      }
+    }
+    socket.on("event", onEvent)
+    timeoutId = window.setTimeout(() => socket.off("event", onEvent), 10000)
+    emitToSocket("REMOVE_FROM_QUEUE", { trackId: item.track.id })
+  }, [item.track.id])
+
   // Get album art from preferred track
   const artThumb = useMemo(() => {
     const imageUrl = preferredTrack?.album?.images?.find(
@@ -96,6 +135,11 @@ const PlaylistItem = memo(function PlaylistItem({ item, isQueueItem = false }: P
 
   const recipe = useSlotRecipe({ recipe: playlistItemRecipe })
   const styles = recipe({ isSkipped, isHovered })
+
+  const isAppControlledQueue = playbackMode === "app-controlled"
+  const canActOnQueueItem =
+    isQueueItem &&
+    (isAppControlledQueue ? Boolean(isOwnTrack || isAdmin) : Boolean(isOwnTrack))
 
   return (
     <Stack
@@ -170,14 +214,16 @@ const PlaylistItem = memo(function PlaylistItem({ item, isQueueItem = false }: P
             <LuTrash2 />
           </IconButton>
         )}
-        {/* Request removal button for queue items (own tracks only) */}
-        {isQueueItem && isOwnTrack && (
+        {/* Queue removal: app-controlled removes in Redis; Spotify-controlled requests admin */}
+        {canActOnQueueItem && (
           <IconButton
-            aria-label="Request removal from queue"
+            aria-label={
+              isAppControlledQueue ? "Remove from queue" : "Request removal from queue"
+            }
             size="xs"
             variant="ghost"
             colorPalette="orange"
-            onClick={handleRequestRemoval}
+            onClick={isAppControlledQueue ? handleRemoveFromQueueDirect : handleRequestRemoval}
           >
             <LuX />
           </IconButton>

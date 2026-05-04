@@ -88,7 +88,11 @@ function QueuedTracksSection() {
                         transform={`translateY(${virtualRow.start}px)`}
                       >
                         <VStack pb={2} gap={2} w="100%" align="stretch">
-                          <PlaylistItem item={item} isQueueItem />
+                          <PlaylistItem
+                            item={item}
+                            isQueueItem
+                            playbackMode={room?.playbackMode}
+                          />
                           {virtualRow.index < queue.length - 1 && (
                             <Separator borderColor="secondaryBorder" opacity={0.5} />
                           )}

@@ -184,6 +184,8 @@ describe("DJService", () => {
       const mockPlaybackController = {
         api: {
           addToQueue: vi.fn().mockResolvedValue(undefined),
+          getPlayback: vi.fn().mockResolvedValue({ state: "paused" as const, track: null }),
+          playTrack: vi.fn().mockResolvedValue(undefined),
         },
       }
       

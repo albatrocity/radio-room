@@ -118,6 +118,13 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
   socket.on("REQUEST_QUEUE_REMOVAL", async ({ trackId }: { trackId: string }) => {
     await handlers.requestQueueRemoval(connections, { trackId })
   })
+
+  /**
+   * Remove a track from the app-owned queue (app-controlled playback mode).
+   */
+  socket.on("REMOVE_FROM_QUEUE", async ({ trackId }: { trackId: string }) => {
+    await handlers.removeFromQueueDirect(connections, { trackId })
+  })
 }
 
 /**

@@ -505,6 +505,42 @@ export class DJHandlers {
       })
     }
   }
+
+  /**
+   * Remove a track from the Redis queue when the room uses app-controlled playback.
+   */
+  removeFromQueueDirect = async (
+    { socket }: HandlerConnections,
+    { trackId }: { trackId: string },
+  ) => {
+    try {
+      const { roomId, userId } = socket.data
+
+      const result = await this.djService.removeFromQueueDirect(roomId, userId, trackId)
+
+      if (!result.success) {
+        socket.emit("event", {
+          type: "REMOVE_FROM_QUEUE_FAILURE",
+          data: { message: result.message, trackId },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "REMOVE_FROM_QUEUE_SUCCESS",
+        data: { trackId, trackTitle: result.trackTitle },
+      })
+    } catch (error: any) {
+      console.error("Error removing from queue:", error)
+      socket.emit("event", {
+        type: "REMOVE_FROM_QUEUE_FAILURE",
+        data: {
+          message: error?.message || "Failed to remove track from queue",
+          trackId,
+        },
+      })
+    }
+  }
 }
 
 /**

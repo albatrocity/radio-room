@@ -10,8 +10,11 @@ import {
   getQueue,
   getUser,
   isDj,
+  isRoomAdmin,
+  popNextFromQueue,
   removeDj,
   removeFromQueue,
+  setDispatchedTrack,
   updateUserAttributes,
 } from "../operations/data"
 import systemMessage from "../lib/systemMessage"
@@ -199,6 +202,9 @@ export class DJService {
 
     await addToQueue({ context: this.context, roomId, item: queuedItem })
 
+    /** App-controlled: track started immediately on idle Spotify (matches advance job semantics). */
+    let dispatchedImmediate: QueueItem | null = null
+
     // Spotify-native queue (default). App-controlled rooms keep order only in Redis; advance job plays next.
     if (!isAppControlledPlayback(room)) {
       try {
@@ -214,6 +220,33 @@ export class DJService {
           error,
         }
       }
+    } else {
+      try {
+        const playback = await playbackController.api.getPlayback()
+        const idle = playback.track === null
+
+        if (idle) {
+          const nextItem = await popNextFromQueue({ context: this.context, roomId })
+          if (nextItem) {
+            const uri = nextItem.track.urls?.find((u) => u.type === "resource")?.url
+            if (uri) {
+              await setDispatchedTrack({ context: this.context, roomId, item: nextItem })
+              try {
+                await playbackController.api.playTrack(uri)
+                dispatchedImmediate = nextItem
+              } catch (playErr) {
+                console.error("[DJService.queueSong] Immediate play failed:", playErr)
+                await addToQueue({ context: this.context, roomId, item: nextItem })
+              }
+            } else {
+              console.warn("[DJService.queueSong] No resource URI for immediate play; restoring queue")
+              await addToQueue({ context: this.context, roomId, item: nextItem })
+            }
+          }
+        }
+      } catch (error) {
+        console.error("[DJService.queueSong] App-controlled idle check failed:", error)
+      }
     }
 
     // Emit QUEUE_CHANGED event
@@ -223,6 +256,13 @@ export class DJService {
         roomId,
         queue: updatedQueue,
       })
+      if (dispatchedImmediate) {
+        await this.context.systemEvents.emit(roomId, "TRACK_DISPATCHED", {
+          roomId,
+          track: dispatchedImmediate,
+          queue: updatedQueue,
+        })
+      }
     }
 
     return {
@@ -318,5 +358,60 @@ export class DJService {
     return {
       shouldDeputize: false,
     }
+  }
+
+  /**
+   * Remove a track from the authoritative Redis queue (app-controlled rooms).
+   * Callers must enforce playback mode; verifies ownership or room admin.
+   */
+  async removeFromQueueDirect(roomId: string, userId: string, trackId: QueueItem["track"]["id"]) {
+    const room = await findRoom({ context: this.context, roomId })
+
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "Direct queue removal is only available in app-controlled playback mode",
+      }
+    }
+
+    const queue = await getQueue({ context: this.context, roomId })
+    const queueItem = queue.find((item) => item.track.id === trackId)
+
+    if (!queueItem) {
+      return { success: false as const, message: "Track not found in queue" }
+    }
+
+    const isOwner = queueItem.addedBy?.userId === userId
+    const admin =
+      !isOwner &&
+      (await isRoomAdmin({
+        context: this.context,
+        roomId,
+        userId,
+        roomCreator: room.creator,
+      }))
+
+    if (!isOwner && !admin) {
+      return { success: false as const, message: "Not authorized to remove this track" }
+    }
+
+    const trackKey = `${queueItem.mediaSource.type}:${queueItem.mediaSource.trackId}`
+    await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
+
+    if (this.context.systemEvents) {
+      const updatedQueue = await getQueue({ context: this.context, roomId })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+        roomId,
+        queue: updatedQueue,
+      })
+    }
+
+    const title = queueItem.track.title || queueItem.title || "Track"
+
+    return { success: true as const, trackTitle: title }
   }
 }
