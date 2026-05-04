@@ -8,7 +8,11 @@ import type { SystemStyleObject } from "@chakra-ui/react"
 export function textEffectStyles(effects?: TextEffect[]): SystemStyleObject {
   const out: SystemStyleObject = {}
   for (const e of effects ?? []) {
-    if (e.type === "size") {
+    if (e.type === "font") {
+      if (e.value === "comicSans") {
+        out.fontFamily = '"Comic Sans MS", "Comic Sans", cursive'
+      }
+    } else if (e.type === "size") {
       if (e.value === "4xs") {
         out.fontSize = "4xs"
       } else if (e.value === "3xs") {

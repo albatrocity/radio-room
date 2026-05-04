@@ -1,4 +1,5 @@
 import {
+  COMIC_SANS_FLAG,
   ECHO_FLAG,
   GROW_FLAG,
   SHRINK_FLAG,
@@ -19,6 +20,7 @@ import {
   BOOST_SHORT_ID,
   GATE_SHORT_ID,
   SAMPLE_HOLD_SHORT_ID,
+  JOKER_PEDAL_SHORT_ID,
 } from "./items"
 
 /**
@@ -234,6 +236,36 @@ function useSampleHold(
   )
 }
 
+function useJokerPedal(
+  deps: ItemShopsBehaviorDeps,
+  userId: string,
+  definition: ItemDefinition,
+  callContext?: unknown,
+): Promise<ItemUseResult> {
+  return applyTargetedTimedModifier(
+    deps,
+    userId,
+    callContext,
+    definition,
+    deps.effectDurationMs,
+    {
+      modifierName: "joker_pedal",
+      effects: [
+        {
+          type: "flag",
+          name: COMIC_SANS_FLAG,
+          value: true,
+          icon: "laugh",
+          intent: "negative",
+        },
+      ],
+      successMessage: "Joker Pedal engaged. It was lost with use.",
+      describe: ({ isSelf, actor, target }) =>
+        isSelf ? `${actor} is in Comic Sans` : `${target}'s chat is in Comic Sans`,
+    },
+  )
+}
+
 /**
  * Registry of `shortId` → use handler. Add new items here and in `items.ts` / `shops.ts`.
  */
@@ -244,4 +276,5 @@ export const ITEM_USE_BEHAVIORS: Record<string, ItemUseHandler> = {
   [BOOST_SHORT_ID]: useBoost,
   [GATE_SHORT_ID]: useGate,
   [SAMPLE_HOLD_SHORT_ID]: useSampleHold,
+  [JOKER_PEDAL_SHORT_ID]: useJokerPedal,
 }

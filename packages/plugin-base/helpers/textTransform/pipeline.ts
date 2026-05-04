@@ -15,8 +15,21 @@ export interface AppliedTextEffects {
   contentSegments: TextSegment[]
 }
 
-function sizeEffects(value: TextEffect["value"]): TextEffect[] {
+type SizeValue = Extract<TextEffect, { type: "size" }>["value"]
+
+function sizeEffects(value: SizeValue): TextEffect[] {
   return [{ type: "size", value }]
+}
+
+const COMIC_SANS_EFFECT: TextEffect = { type: "font", value: "comicSans" }
+
+function withComicSans(
+  effects: TextEffect[] | undefined,
+  stacks: TextEffectStacks,
+): TextEffect[] | undefined {
+  if (stacks.comicSans <= 0) return effects
+  if (!effects?.length) return [COMIC_SANS_EFFECT]
+  return [...effects, COMIC_SANS_EFFECT]
 }
 
 /**
@@ -37,6 +50,8 @@ function sizeEffects(value: TextEffect["value"]): TextEffect[] {
  *    the previous, capped at `3xs`.
  * 4. Reassemble `content` and `contentSegments` via `buildSegments` so the
  *    plain string and styled segments stay consistent.
+ * 5. When `comicSans` stacks are active, append a `font` effect to each word
+ *    segment (and echoes) for Comic Sans rendering in the client.
  */
 export function applyTextEffects(
   content: string,
@@ -46,7 +61,7 @@ export function applyTextEffects(
   const shift = netSizeShift(stacks)
   const gate = stacks.gate > 0
   const scramble = stacks.scramble > 0
-  if (echoes === 0 && shift === 0 && !gate && !scramble) return null
+  if (echoes === 0 && shift === 0 && !gate && !scramble && stacks.comicSans <= 0) return null
 
   const baseSize = resolveBaseSize(stacks)
   const transformed = scramble ? applyScrambleTransform(content, stacks.scramble) : content
@@ -55,12 +70,13 @@ export function applyTextEffects(
     if (!token.word) return []
     const word = gate ? applyGateTransform(token.word) : token.word
     const baseSegment: TextSegment = { text: word }
-    if (baseSize) baseSegment.effects = sizeEffects(baseSize)
+    const baseEffects = baseSize ? sizeEffects(baseSize) : undefined
+    baseSegment.effects = withComicSans(baseEffects, stacks)
     const segments: TextSegment[] = [baseSegment]
     for (let i = 1; i <= echoes; i++) {
       segments.push({
         text: ` ${word}`,
-        effects: sizeEffects(resolveEchoSize(stacks, i)),
+        effects: withComicSans(sizeEffects(resolveEchoSize(stacks, i)), stacks),
       })
     }
     return segments

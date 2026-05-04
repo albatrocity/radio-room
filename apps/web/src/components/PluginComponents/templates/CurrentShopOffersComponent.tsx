@@ -1,4 +1,4 @@
-import { Box, Center, Heading, Table, Text, VStack } from "@chakra-ui/react"
+import { Box, Center, Heading, HStack, Table, Text, VStack } from "@chakra-ui/react"
 import type { CurrentShopOffersComponentProps } from "../../../types/PluginComponent"
 import { useUserGameState } from "../../Modals/UserGameStateContext"
 import { usePluginComponentContext } from "../context"
@@ -15,6 +15,8 @@ function formatBuybackPercent(rate: number): string {
   return `${Math.round(pct * 10) / 10}%`
 }
 
+const COINS_ICON = getIcon("coins")
+
 /**
  * Renders the current user's `currentShopInstance` from room game state.
  * (Props are intentionally empty — data comes from `UserGameStateContext`.)
@@ -27,8 +29,8 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
   if (!instance) {
     return (
       <Text fontSize="sm" color="fg.muted">
-        No shop is open for you right now. Wait for the next shopping session, or ask a host to start
-        one.
+        No shop is open for you right now. Wait for the next shopping session, or ask a host to
+        start one.
       </Text>
     )
   }
@@ -49,8 +51,8 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
       </Heading>
       {showBuybackMeta ? (
         <Text fontSize="xs" color="fg.muted" mb={3} lineHeight="short">
-          Buyback: items this shop sells — {formatBuybackPercent(listedRate)} of the price below. Other
-          tradeable items — {formatBuybackPercent(unlistedRate)} of catalog value.
+          Buyback: items this shop sells — {formatBuybackPercent(listedRate)} of the price below.
+          Other tradeable items — {formatBuybackPercent(unlistedRate)} of catalog value.
         </Text>
       ) : null}
       <Table.Root
@@ -70,9 +72,6 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
             <Table.ColumnHeader w="52px" aria-label="Icon" />
             <Table.ColumnHeader>Item</Table.ColumnHeader>
             <Table.ColumnHeader textAlign="end">Price</Table.ColumnHeader>
-            {listedRate != null ? (
-              <Table.ColumnHeader textAlign="end">Buyback</Table.ColumnHeader>
-            ) : null}
             <Table.ColumnHeader textAlign="end" w="min-content" />
           </Table.Row>
         </Table.Header>
@@ -82,8 +81,7 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
             const cannotAfford = gameState == null || gameState.getAttribute("coin") < row.price
             const outOfStock = !row.available
             const action = `buy:${row.shortId}`
-            const buybackCoins =
-              listedRate != null ? Math.max(0, Math.floor(row.price * listedRate)) : undefined
+
             return (
               <Table.Row key={row.shortId} opacity={outOfStock ? 0.55 : 1}>
                 <Table.Cell verticalAlign="middle" w="52px">
@@ -102,15 +100,12 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                   </VStack>
                 </Table.Cell>
                 <Table.Cell verticalAlign="middle" textAlign="end">
-                  <Text fontWeight="medium">{row.price}</Text>
+                  <HStack gap={0.5}>
+                    <Text fontWeight="medium">{row.price}</Text>
+                    {COINS_ICON && <SvgIcon color="secondaryText/50" icon={COINS_ICON} />}
+                  </HStack>
                 </Table.Cell>
-                {listedRate != null ? (
-                  <Table.Cell verticalAlign="middle" textAlign="end">
-                    <Text fontWeight="medium" color="fg.muted">
-                      {buybackCoins}
-                    </Text>
-                  </Table.Cell>
-                ) : null}
+
                 <Table.Cell verticalAlign="middle" textAlign="end">
                   <ButtonTemplateComponent
                     label="Buy"

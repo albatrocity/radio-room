@@ -39,6 +39,11 @@ export const textEffectSchema = z.discriminatedUnion("type", [
       "7xl",
     ]),
   }),
+  z.object({
+    type: z.literal("font"),
+    /** Maps to font stacks in `textEffectStyles` on the web client. */
+    value: z.enum(["comicSans"]),
+  }),
 ])
 export type TextEffect = z.infer<typeof textEffectSchema>
 

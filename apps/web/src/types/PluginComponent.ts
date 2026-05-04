@@ -50,4 +50,5 @@ export type {
   PluginComponentStores,
   ShopOfferTableRow,
   ShopOfferTableComponentProps,
+  CurrentShopOffersComponentProps,
 } from "@repo/types"

@@ -2,6 +2,9 @@ import type { TextEffect } from "@repo/types"
 import { tokenizeWords } from "../chatTransform"
 import type { TextEffectStacks } from "./flags"
 
+/** Size-only branch of {@link TextEffect} (excludes `font`). */
+type TextSizeValue = Extract<TextEffect, { type: "size" }>["value"]
+
 /**
  * Size scale ordered from smallest to largest. The base index `NORMAL_INDEX`
  * represents normal/`md` text; positive offsets grow text, negative offsets
@@ -18,7 +21,7 @@ const SIZE_SCALE = [
   "3xl",
   "5xl",
   "7xl",
-] as const satisfies ReadonlyArray<TextEffect["value"]>
+] as const satisfies ReadonlyArray<TextSizeValue>
 
 const NORMAL_INDEX = 4
 const MIN_INDEX = 0
@@ -32,7 +35,7 @@ function clampShift(shift: number): number {
   return shift
 }
 
-function sizeForIndex(index: number): TextEffect["value"] {
+function sizeForIndex(index: number): TextSizeValue {
   const clamped = Math.max(MIN_INDEX, Math.min(MAX_INDEX, index))
   return SIZE_SCALE[clamped]!
 }
@@ -51,7 +54,7 @@ export function netSizeShift(stacks: TextEffectStacks): number {
  * `"normal"` value is used at shift 0 only when an echo follows; otherwise
  * we return `null` to keep payloads minimal.
  */
-export function resolveBaseSize(stacks: TextEffectStacks): TextEffect["value"] | null {
+export function resolveBaseSize(stacks: TextEffectStacks): TextSizeValue | null {
   const shift = netSizeShift(stacks)
   if (shift === 0) return null
   return sizeForIndex(NORMAL_INDEX + shift)
@@ -64,7 +67,7 @@ export function resolveBaseSize(stacks: TextEffectStacks): TextEffect["value"] |
 export function resolveEchoSize(
   stacks: TextEffectStacks,
   echoIndex: number,
-): TextEffect["value"] {
+): TextSizeValue {
   const baseShift = netSizeShift(stacks)
   const echoShift = baseShift - echoIndex
   return sizeForIndex(NORMAL_INDEX + echoShift)

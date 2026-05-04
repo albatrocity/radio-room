@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import type { GameStateModifier } from "@repo/types"
 import {
+  COMIC_SANS_FLAG,
   GATE_FLAG,
   SCRAMBLE_FLAG,
   countTextEffectStacks,
@@ -84,6 +85,7 @@ describe("countTextEffectStacks gate", () => {
       echo: 0,
       gate: 2,
       scramble: 0,
+      comicSans: 0,
     })
   })
 })
@@ -130,6 +132,32 @@ describe("countTextEffectStacks scramble", () => {
       echo: 0,
       gate: 0,
       scramble: 2,
+      comicSans: 0,
+    })
+  })
+})
+
+describe("countTextEffectStacks comicSans", () => {
+  test("counts comic_sans flag stacks", () => {
+    const now = 1000
+    const modifiers: GameStateModifier[] = [
+      {
+        id: "c1",
+        name: "joker",
+        source: "test",
+        stackBehavior: "stack",
+        startAt: 0,
+        endAt: 2000,
+        effects: [{ type: "flag", name: COMIC_SANS_FLAG, value: true }],
+      },
+    ]
+    expect(countTextEffectStacks(modifiers, now)).toEqual({
+      shrink: 0,
+      grow: 0,
+      echo: 0,
+      gate: 0,
+      scramble: 0,
+      comicSans: 1,
     })
   })
 })
@@ -142,6 +170,7 @@ describe("applyTextEffects gate", () => {
       echo: 0,
       gate: 1,
       scramble: 0,
+      comicSans: 0,
     })
     expect(result).not.toBeNull()
     expect(result!.content).toBe("H\\_\\_\\_\\_ \\_\\_\\_\\_\\_")
@@ -157,8 +186,29 @@ describe("applyTextEffects gate", () => {
       echo: 1,
       gate: 1,
       scramble: 0,
+      comicSans: 0,
     })
     expect(result!.content).toBe("H\\_ H\\_")
+  })
+})
+
+describe("applyTextEffects comicSans", () => {
+  test("comicSans-only adds font effect to word segments", () => {
+    const result = applyTextEffects("hello", {
+      shrink: 0,
+      grow: 0,
+      echo: 0,
+      gate: 0,
+      scramble: 0,
+      comicSans: 1,
+    })
+    expect(result).not.toBeNull()
+    expect(result!.content).toBe("hello")
+    const withFont = result!.contentSegments.filter((s) => s.effects?.some((e) => e.type === "font"))
+    expect(withFont.length).toBeGreaterThan(0)
+    expect(
+      withFont.every((s) => s.effects?.some((e) => e.type === "font" && e.value === "comicSans")),
+    ).toBe(true)
   })
 })
 
@@ -279,6 +329,7 @@ describe("applyTextEffects scramble", () => {
       echo: 0,
       gate: 0,
       scramble: 1,
+      comicSans: 0,
     })
     expect(result).not.toBeNull()
     // Joined segments equal the content string.
@@ -296,6 +347,7 @@ describe("applyTextEffects scramble", () => {
       echo: 0,
       gate: 1,
       scramble: 1,
+      comicSans: 0,
     })
     expect(result).not.toBeNull()
     // "hi" scrambled in place is still 2 lowercase letters → both gated.
@@ -309,6 +361,7 @@ describe("applyTextEffects scramble", () => {
       echo: 1,
       gate: 0,
       scramble: 1,
+      comicSans: 0,
     })
     expect(result).not.toBeNull()
     // Output is `<scrambled> <scrambled>`; both halves must be permutations of "ab".

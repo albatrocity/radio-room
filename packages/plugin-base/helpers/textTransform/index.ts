@@ -4,6 +4,7 @@ export {
   ECHO_FLAG,
   GATE_FLAG,
   SCRAMBLE_FLAG,
+  COMIC_SANS_FLAG,
   countTextEffectStacks,
   type TextEffectStacks,
 } from "./flags"

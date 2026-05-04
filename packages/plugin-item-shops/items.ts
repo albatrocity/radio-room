@@ -6,6 +6,7 @@ export const COMPRESSOR_SHORT_ID = "compressor-pedal"
 export const BOOST_SHORT_ID = "boost-pedal"
 export const GATE_SHORT_ID = "gate"
 export const SAMPLE_HOLD_SHORT_ID = "sample-hold"
+export const JOKER_PEDAL_SHORT_ID = "joker-pedal"
 
 /**
  * Master item catalog (prices, rarity, inventory flags). Shop-specific price
@@ -101,6 +102,22 @@ export const ITEM_CATALOG: readonly ItemCatalogEntry[] = [
       coinValue: 50,
       icon: "dices",
       rarity: "legendary",
+    },
+  },
+  {
+    definition: {
+      shortId: JOKER_PEDAL_SHORT_ID,
+      name: "Joker Pedal",
+      description:
+        "Makes chat messages appear in Comic Sans for a limited time. Use on yourself or others.",
+      stackable: true,
+      maxStack: 3,
+      tradeable: true,
+      consumable: true,
+      requiresTarget: "user",
+      coinValue: 50,
+      icon: "laugh",
+      rarity: "uncommon",
     },
   },
 ]
