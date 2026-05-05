@@ -29,6 +29,16 @@ import ConfirmationDialog from "./ConfirmationDialog"
 import { toast } from "../lib/toasts"
 import { playlistItemRecipe } from "../theme/playlistItemRecipe"
 import type { Room } from "../types/Room"
+import { usePluginElementProps } from "../hooks/usePluginElementProps"
+
+const shimmerCss = {
+  "@keyframes playlistItemShimmer": {
+    "0%": { opacity: 0.35 },
+    "50%": { opacity: 0.95 },
+    "100%": { opacity: 0.35 },
+  },
+  animation: "playlistItemShimmer 2.2s ease-in-out infinite",
+}
 
 type Props = {
   item: PlaylistItemType
@@ -57,6 +67,9 @@ const PlaylistItem = memo(function PlaylistItem({
     () => getPreferredTrack(item, preferredSource),
     [item, preferredSource],
   )
+  const titleElementProps = usePluginElementProps(item.pluginData, "title")
+  const artistElementProps = usePluginElementProps(item.pluginData, "artist")
+  const artworkElementProps = usePluginElementProps(item.pluginData, "artwork")
 
   const handleDeleteClick = useCallback(() => {
     setIsDeleteDialogOpen(true)
@@ -185,24 +198,44 @@ const PlaylistItem = memo(function PlaylistItem({
         <Stack direction="row">
           {artThumb && (
             <Box css={styles.artwork}>
-              <Image loading="lazy" src={artThumb} />
+              {artworkElementProps.obscured ? (
+                <Box
+                  width="100%"
+                  height="100%"
+                  bg="colorPalette.muted"
+                  borderRadius="sm"
+                  css={shimmerCss}
+                />
+              ) : (
+                <Image loading="lazy" src={artThumb} />
+              )}
             </Box>
           )}
           <Stack direction="column" css={styles.trackDetails}>
             {preferredTrack && (
               <HStack gap={1}>
                 <LinkOverlay target="_blank" href={externalUrl} m={0}>
-                  <Text css={styles.title}>{preferredTrack.title}</Text>
+                  <Text css={{ ...styles.title, ...(titleElementProps.obscured ? shimmerCss : {}) }}>
+                    {titleElementProps.obscured
+                      ? titleElementProps.placeholder ?? "???"
+                      : preferredTrack.title}
+                  </Text>
                 </LinkOverlay>
                 {isSkipped && <Icon as={LuSkipForward} color="orange.400" boxSize={3} />}
               </HStack>
             )}
             <HStack color="colorPalette.fg/70" fontSize="xs" separator={<StackSeparator />}>
-              {preferredTrack?.artists?.map((a) => (
-                <Text key={a.id} as="span" css={styles.artist}>
-                  {a.title}
+              {artistElementProps.obscured ? (
+                <Text as="span" css={{ ...styles.artist, ...shimmerCss }}>
+                  {artistElementProps.placeholder ?? "???"}
                 </Text>
-              ))}
+              ) : (
+                preferredTrack?.artists?.map((a) => (
+                  <Text key={a.id} as="span" css={styles.artist}>
+                    {a.title}
+                  </Text>
+                ))
+              )}
             </HStack>
           </Stack>
         </Stack>
