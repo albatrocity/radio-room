@@ -148,7 +148,7 @@ export const ITEM_CATALOG: readonly ItemCatalogEntry[] = [
       consumable: true,
       requiresTarget: "queueItem",
       coinValue: 50,
-      icon: "refrigerator",
+      icon: "frown",
       rarity: "rare",
     },
   },
