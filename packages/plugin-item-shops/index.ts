@@ -221,6 +221,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       },
 
       isShoppingActive: () => this.shopping.isActive(),
+      isGameSessionActive: async () => {
+        const session = await this.context!.game.getActiveSession()
+        return session != null
+      },
       isUserInRoom: async (uid) => {
         const users = await this.context!.api.getUsers(this.context!.roomId)
         return users.some((u) => u.userId === uid)

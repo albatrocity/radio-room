@@ -34,8 +34,10 @@ export type ShopBuyContext = {
     mentions?: string[],
   ) => Promise<void>
 
-  /** Check if the shopping session is still active. */
+  /** Check if the shopping round is still active (per-room item-shops session). */
   isShoppingActive: () => Promise<boolean>
+  /** Check if a game session is currently active in the room. */
+  isGameSessionActive: () => Promise<boolean>
   /** Check if a user is still in the room. */
   isUserInRoom: (userId: string) => Promise<boolean>
 

@@ -25,7 +25,7 @@ async function deliverSweetwaterFollowUpAndReschedule(
   const state = ctx.getState<SweetwaterUserState>(userId)
   if (!state) return
 
-  if (!(await ctx.isShoppingActive())) {
+  if (!(await ctx.isGameSessionActive())) {
     ctx.clearTimer(sweetwaterTimerId(userId))
     ctx.deleteState(userId)
     return

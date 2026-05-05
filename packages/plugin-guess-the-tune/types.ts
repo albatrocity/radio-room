@@ -40,7 +40,7 @@ export const defaultGuessTheTuneConfig: GuessTheTuneConfig = {
   showNowPlayingToAdmins: true,
   fuzzyThreshold: 0.35,
   soundEffectOnMatch: true,
-  soundEffectOnMatchUrl: "https://cdn.freesound.org/previews/650/650842_11771918-lq.mp3",
+  soundEffectOnMatchUrl: "https://ross-brown.s3.amazonaws.com/broadcast/correct.mp3",
   messageTemplate:
     "{{username}} identified the {{propertyLabel}}! +{{points}} points{{multiplierSuffix}}",
   showLeaderboard: true,
