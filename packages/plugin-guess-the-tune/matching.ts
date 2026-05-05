@@ -11,6 +11,139 @@ const norm = (s: string) =>
 const MIN_TARGET_WORD_LEN = 2
 
 /**
+ * Content inside trailing parentheses that we treat as release/edition metadata (not part of the creative title).
+ */
+const PAREN_METADATA_INNER = new RegExp(
+  [
+    "^\\s*(?:",
+    // Remaster variants
+    "Remastered(?:\\s+\\d{4})?",
+    "|\\d{4}\\s+Remaster(?:ed)?(?:\\s+(?:LP\\s+)?Version)?",
+    "|Remaster(?:ed)?\\s+\\d{4}(?:\\s+LP\\s+Version)?",
+    "|\\d{4}\\s+Mix",
+    // Editions
+    "|Deluxe Edition|Super Deluxe|Expanded Edition",
+    "|Radio Edit|Single Version|LP Version|Album Version",
+    "|Original Motion Picture Soundtrack",
+    "|Bonus Track",
+    "|Demo|Mono|Stereo",
+    "|\\d+(?:st|nd|rd|th)?\\s+Anniversary Edition",
+    // Live
+    "|Live(?:\\s+(?:at|from)\\s+.+)?",
+    // Featured artists (suffix only)
+    "|feat\\.\\s*.+",
+    ")\\s*$",
+  ].join(""),
+  "i",
+)
+
+/**
+ * Trailing hyphen-separated metadata segments (common on streaming catalogs).
+ */
+const HYPHEN_METADATA_SUFFIXES: RegExp[] = [
+  /\s*-\s*Remastered(?:\s+\d{4})?\s*$/i,
+  /\s*-\s*\d{4}(?:\s+Remaster(?:ed)?(?:\s+(?:LP\s+)?Version)?)?\s*$/i,
+  /\s*-\s*\d{4}\s+Mix\s*$/i,
+  /\s*-\s*Live(?:\s+(?:at|from)\s+.+)?\s*$/i,
+  /\s*-\s*Radio Edit\s*$/i,
+  /\s*-\s*Single Version\s*$/i,
+  /\s*-\s*Demo\s*$/i,
+  /\s*-\s*Mono\s*$/i,
+  /\s*-\s*Stereo\s*$/i,
+  /\s*-\s*Bonus Track\s*$/i,
+  /\s*-\s*(?:\d+(?:st|nd|rd|th)?\s+)?Anniversary Edition\s*$/i,
+  /\s*-\s*Mix\s*$/i,
+  /\s*-\s*(?:Deluxe Edition|Super Deluxe|Expanded Edition)\s*$/i,
+]
+
+function stripOneTrailingParenMetadata(s: string): string {
+  const m = s.match(/\(\s*([^)]*)\)\s*$/i)
+  if (!m || m.index === undefined) return s
+  const inner = (m[1] ?? "").trim()
+  if (!inner || !PAREN_METADATA_INNER.test(inner)) return s
+  return s.slice(0, m.index).trimEnd()
+}
+
+function stripOneHyphenMetadata(s: string): string {
+  for (const re of HYPHEN_METADATA_SUFFIXES) {
+    const next = s.replace(re, "").trimEnd()
+    if (next !== s) return next
+  }
+  return s
+}
+
+/**
+ * Text after a spaced hyphen (`Title - …`) that we treat as catalog-only (remaster/year/edition).
+ * Year-leading tails are common on DSPs ("2018 Stereo Remaster"); we avoid stripping creative
+ * subtitles like "Song - Part Two" by requiring metadata-shaped fragments unless year-led.
+ */
+function looksLikeCatalogHyphenSuffix(fragment: string): boolean {
+  const f = fragment.trim()
+  if (!f) return false
+
+  // Almost always catalog when the tail begins with a release year.
+  if (/^\d{4}\s/.test(f)) return true
+
+  if (/^(?:Stereo|Mono)\s+Remaster(?:ed)?$/i.test(f)) return true
+  if (/^Remaster(?:ed)?(?:\s+\d{4})?$/i.test(f)) return true
+
+  if (
+    /^(?:Deluxe Edition|Super Deluxe|Expanded Edition|Radio Edit|Single Version|LP Version|Album Version|Bonus Track|Demo)$/i.test(
+      f,
+    )
+  ) {
+    return true
+  }
+
+  if (/^Mix$/i.test(f)) return true
+  if (/^Live(?:\s+(?:at|from)\s+.+)?$/i.test(f)) return true
+  if (/^(?:Mono|Stereo)$/i.test(f)) return true
+
+  return false
+}
+
+/**
+ * If the last ` - ` segment looks like catalog metadata, drop it (possibly repeatedly).
+ * Handles forms like "Picture Book - 2018 Stereo Remaster" where regex-only stripping misses
+ * words between year and "Remaster".
+ */
+function stripSuspiciousFinalHyphenSegment(s: string): string {
+  const parts = s.split(/\s+-\s+/)
+  if (parts.length < 2) return s
+  const last = parts[parts.length - 1] ?? ""
+  if (!looksLikeCatalogHyphenSuffix(last)) return s
+  return parts.slice(0, -1).join(" - ").trimEnd()
+}
+
+/**
+ * Remove common catalog suffixes (remaster/year/edition/live) so guesses match the core title/album.
+ * Applied only to the target string during matching, not for display.
+ */
+export function stripMetadataSuffixes(s: string): string {
+  let prev = ""
+  let out = s.trim()
+  while (out !== prev) {
+    prev = out
+    const afterParen = stripOneTrailingParenMetadata(out)
+    if (afterParen !== out) {
+      out = afterParen
+      continue
+    }
+    const afterHyphen = stripOneHyphenMetadata(out)
+    if (afterHyphen !== out) {
+      out = afterHyphen
+      continue
+    }
+    const afterSuspiciousHyphen = stripSuspiciousFinalHyphenSegment(out)
+    if (afterSuspiciousHyphen !== out) {
+      out = afterSuspiciousHyphen
+      continue
+    }
+  }
+  return out.trim()
+}
+
+/**
  * Tokenize normalized text into words for matching.
  */
 function words(s: string): string[] {
@@ -81,13 +214,17 @@ function tokenMatchesTargetWord(
  * "how" from matching the full title "How Music Makes You Feel Better".
  *
  * Accepts typos per word, e.g. "How music makes u feel better" vs the full title.
+ *
+ * Catalog suffixes like "- Remastered 2009" or "(2011 Remaster)" are stripped from
+ * `target` before matching so players can guess the core title/album name.
  */
 export function messageMatchesTarget(
   message: string,
   target: string,
   fuzzyThreshold: number,
 ): boolean {
-  const t = norm(target)
+  const stripped = stripMetadataSuffixes(target)
+  const t = norm(stripped.length ? stripped : target)
   const m = norm(message)
   if (!t.length || !m.length) return false
 
