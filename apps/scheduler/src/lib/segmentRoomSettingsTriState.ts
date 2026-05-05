@@ -1,11 +1,18 @@
 import type { SegmentRoomSettingsOverride } from "@repo/types"
 
 export type RoomSettingTriState = "true" | "false" | "unchanged"
+export type PlaybackModeTriState = "unchanged" | "spotify-controlled" | "app-controlled"
 
 /** Tri-state for bulk deputy update (stored as `deputyBulkAction` when not unchanged). */
 export type DeputyBulkTriState = "unchanged" | "deputize_all" | "dedeputize_all"
 
-const KEYS = ["deputizeOnJoin", "showQueueCount", "showQueueTracks", "fetchMeta"] as const
+const KEYS = [
+  "deputizeOnJoin",
+  "showQueueCount",
+  "showQueueTracks",
+  "fetchMeta",
+  "announceNowPlaying",
+] as const
 
 export type RoomSettingOverrideKey = (typeof KEYS)[number]
 
@@ -25,7 +32,16 @@ export function overrideToAllTriStates(
     showQueueCount: overrideToTriState(override, "showQueueCount"),
     showQueueTracks: overrideToTriState(override, "showQueueTracks"),
     fetchMeta: overrideToTriState(override, "fetchMeta"),
+    announceNowPlaying: overrideToTriState(override, "announceNowPlaying"),
   }
+}
+
+export function overrideToPlaybackModeTriState(
+  override: SegmentRoomSettingsOverride | null | undefined,
+): PlaybackModeTriState {
+  const mode = override?.playbackMode
+  if (mode === "spotify-controlled" || mode === "app-controlled") return mode
+  return "unchanged"
 }
 
 export function overrideToDeputyBulkTriState(
@@ -39,11 +55,15 @@ export function overrideToDeputyBulkTriState(
 export function buildOverrideFromTriStates(
   states: Record<RoomSettingOverrideKey, RoomSettingTriState>,
   deputyBulk: DeputyBulkTriState,
+  playbackMode: PlaybackModeTriState,
 ): SegmentRoomSettingsOverride | null {
   const out: SegmentRoomSettingsOverride = {}
   for (const k of KEYS) {
     if (states[k] === "true") out[k] = true
     if (states[k] === "false") out[k] = false
+  }
+  if (playbackMode === "spotify-controlled" || playbackMode === "app-controlled") {
+    out.playbackMode = playbackMode
   }
   if (deputyBulk === "deputize_all") out.deputyBulkAction = "deputize_all"
   if (deputyBulk === "dedeputize_all") out.deputyBulkAction = "dedeputize_all"
