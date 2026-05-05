@@ -13,6 +13,8 @@ export type SegmentRoomSettingsOverride = {
   showQueueCount?: boolean
   showQueueTracks?: boolean
   fetchMeta?: boolean
+  announceNowPlaying?: boolean
+  playbackMode?: "spotify-controlled" | "app-controlled"
   deputyBulkAction?: DeputyBulkAction
 }
 

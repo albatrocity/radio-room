@@ -3,11 +3,13 @@ import { Box, Field, RadioGroup, Text, VStack } from "@chakra-ui/react"
 import type { SegmentRoomSettingsOverride } from "@repo/types"
 import {
   type DeputyBulkTriState,
+  type PlaybackModeTriState,
   type RoomSettingOverrideKey,
   type RoomSettingTriState,
   buildOverrideFromTriStates,
   overrideToAllTriStates,
   overrideToDeputyBulkTriState,
+  overrideToPlaybackModeTriState,
 } from "../../lib/segmentRoomSettingsTriState"
 
 export interface SegmentRoomSettingsEditorProps {
@@ -41,6 +43,11 @@ const ROWS: {
     label: "Track detection",
     helper:
       "When enabled, tracks are identified from the audio stream, displayed in Now Playing, and added to the playlist. When disabled, the room enters streaming mode — showing room branding instead of track info.",
+  },
+  {
+    key: "announceNowPlaying",
+    label: "Announce now playing",
+    helper: "When enabled, chat receives automatic now-playing announcements.",
   },
 ]
 
@@ -108,17 +115,54 @@ function TriStateRadios(props: {
   )
 }
 
+function PlaybackModeRadios(props: {
+  value: PlaybackModeTriState
+  onValueChange: (next: PlaybackModeTriState) => void
+}) {
+  const { value, onValueChange } = props
+  return (
+    <RadioGroup.Root
+      value={value}
+      onValueChange={(d) => onValueChange(d.value as PlaybackModeTriState)}
+      size="sm"
+    >
+      <VStack align="stretch" gap={1}>
+        <RadioGroup.Item value="unchanged">
+          <RadioGroup.ItemHiddenInput />
+          <RadioGroup.ItemControl />
+          <RadioGroup.ItemText>Unchanged</RadioGroup.ItemText>
+        </RadioGroup.Item>
+        <RadioGroup.Item value="spotify-controlled">
+          <RadioGroup.ItemHiddenInput />
+          <RadioGroup.ItemControl />
+          <RadioGroup.ItemText>Spotify-controlled</RadioGroup.ItemText>
+        </RadioGroup.Item>
+        <RadioGroup.Item value="app-controlled">
+          <RadioGroup.ItemHiddenInput />
+          <RadioGroup.ItemControl />
+          <RadioGroup.ItemText>App-controlled</RadioGroup.ItemText>
+        </RadioGroup.Item>
+      </VStack>
+    </RadioGroup.Root>
+  )
+}
+
 export function SegmentRoomSettingsEditor({ value, onChange }: SegmentRoomSettingsEditorProps) {
   const triStates = useMemo(() => overrideToAllTriStates(value), [value])
   const deputyBulk = useMemo(() => overrideToDeputyBulkTriState(value), [value])
+  const playbackMode = useMemo(() => overrideToPlaybackModeTriState(value), [value])
 
   const setKey = (key: RoomSettingOverrideKey, next: RoomSettingTriState) => {
     const nextStates = { ...triStates, [key]: next }
-    onChange(buildOverrideFromTriStates(nextStates, deputyBulk))
+    onChange(buildOverrideFromTriStates(nextStates, deputyBulk, playbackMode))
   }
 
   const setDeputyBulk = (next: DeputyBulkTriState) => {
-    onChange(buildOverrideFromTriStates(triStates, next))
+    onChange(buildOverrideFromTriStates(triStates, next, playbackMode))
+  }
+
+  const setPlaybackMode = (next: PlaybackModeTriState) => {
+    onChange(buildOverrideFromTriStates(triStates, deputyBulk, next))
   }
 
   return (
@@ -140,6 +184,17 @@ export function SegmentRoomSettingsEditor({ value, onChange }: SegmentRoomSettin
             <Field.HelperText fontSize="xs">{row.helper}</Field.HelperText>
           </Field.Root>
         ))}
+
+        <Field.Root>
+          <Field.Label fontSize="sm" fontWeight="medium">
+            Playback mode
+          </Field.Label>
+          <PlaybackModeRadios value={playbackMode} onValueChange={setPlaybackMode} />
+          <Field.HelperText fontSize="xs">
+            Control whether Spotify or the app queue drives playback progression when this segment
+            is activated.
+          </Field.HelperText>
+        </Field.Root>
 
         <Field.Root>
           <Field.Label fontSize="sm" fontWeight="medium">
