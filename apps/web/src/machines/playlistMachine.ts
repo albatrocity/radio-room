@@ -21,6 +21,7 @@ type PlaylistEvent =
   | { type: "PLAYLIST_TRACK_UPDATED"; data: { track: QueueItem } }
   | { type: "PLAYLIST_TRACK_DELETED"; data: { playedAt: number } }
   | { type: "ROOM_DATA"; data: { playlist: QueueItem[] } }
+  | { type: "ROOM_SETTINGS_UPDATED"; data: { pluginConfigs?: Record<string, unknown> } }
   | { type: "TOGGLE_PLAYLIST" }
 
 // ============================================================================
@@ -106,6 +107,36 @@ export const playlistMachine = setup({
         return context.playlist.filter((item) => item.playedAt !== event.data.playedAt)
       },
     }),
+    clearDisabledPluginData: assign({
+      playlist: ({ context, event }) => {
+        if (event.type !== "ROOM_SETTINGS_UPDATED" || !event.data.pluginConfigs) {
+          return context.playlist
+        }
+
+        const disabledPlugins = new Set<string>()
+        for (const [name, config] of Object.entries(event.data.pluginConfigs)) {
+          if ((config as { enabled?: boolean } | undefined)?.enabled !== true) {
+            disabledPlugins.add(name)
+          }
+        }
+
+        if (disabledPlugins.size === 0) return context.playlist
+
+        return context.playlist.map((item) => {
+          if (!item.pluginData) return item
+
+          const cleanedPluginData = { ...item.pluginData }
+          for (const pluginName of disabledPlugins) {
+            delete cleanedPluginData[pluginName]
+          }
+
+          if (Object.keys(cleanedPluginData).length === 0) {
+            return { ...item, pluginData: undefined }
+          }
+          return { ...item, pluginData: cleanedPluginData }
+        })
+      },
+    }),
   },
 }).createMachine({
   id: "playlist",
@@ -147,6 +178,9 @@ export const playlistMachine = setup({
         },
         ROOM_DATA: {
           actions: ["addTracksToPlaylist"],
+        },
+        ROOM_SETTINGS_UPDATED: {
+          actions: ["clearDisabledPluginData"],
         },
       },
       initial: "collapsed",

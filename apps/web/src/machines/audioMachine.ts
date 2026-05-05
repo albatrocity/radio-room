@@ -47,6 +47,7 @@ type AudioEvent =
       type: "STREAM_HEALTH_CHANGED"
       data: { roomId: string; status: "online" | "offline"; ingest?: "webrtc_experimental" }
     }
+  | { type: "ROOM_SETTINGS_UPDATED"; data: { pluginConfigs?: Record<string, unknown> } }
   | { type: "PLAYLIST_TRACK_UPDATED"; data: { track: QueueItem } }
   | { type: "LOADED" }
   | { type: "PLAY" }
@@ -106,6 +107,34 @@ export const audioMachine = setup({
         }
       }
       return {}
+    }),
+    clearDisabledPluginDataFromNowPlaying: assign(({ context, event }) => {
+      if (event.type !== "ROOM_SETTINGS_UPDATED" || !event.data.pluginConfigs) return {}
+      if (!context.meta?.nowPlaying?.pluginData) return {}
+
+      const disabledPlugins = new Set<string>()
+      for (const [name, config] of Object.entries(event.data.pluginConfigs)) {
+        if ((config as { enabled?: boolean } | undefined)?.enabled !== true) {
+          disabledPlugins.add(name)
+        }
+      }
+
+      if (disabledPlugins.size === 0) return {}
+
+      const cleanedPluginData = { ...context.meta.nowPlaying.pluginData }
+      for (const pluginName of disabledPlugins) {
+        delete cleanedPluginData[pluginName]
+      }
+
+      return {
+        meta: {
+          ...context.meta,
+          nowPlaying: {
+            ...context.meta.nowPlaying,
+            pluginData: Object.keys(cleanedPluginData).length > 0 ? cleanedPluginData : undefined,
+          },
+        },
+      }
     }),
     setMediaSourceStatus: assign(({ event }) => {
       if (event.type !== "MEDIA_SOURCE_STATUS_CHANGED") return {}
@@ -226,6 +255,9 @@ export const audioMachine = setup({
         DEACTIVATE: {
           target: "idle",
           actions: ["resetAudio"],
+        },
+        ROOM_SETTINGS_UPDATED: {
+          actions: ["clearDisabledPluginDataFromNowPlaying"],
         },
       },
       initial: "offline",
