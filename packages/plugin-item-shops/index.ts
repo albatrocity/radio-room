@@ -26,6 +26,10 @@ import {
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
 
+const GREEN_ROOM_SHOP_ID = "green-room"
+const GREEN_ROOM_RETURN_MS = 5 * 60 * 1000
+const GREEN_ROOM_RETURN_PREFIX = "greenRoomReturn:"
+
 function getEligibleShops(config: ItemShopsConfig): ItemShopsShopCatalogEntry[] {
   const knownIds = new Set(SHOP_CATALOG.map((s) => s.shopId))
   const selected = new Set(config.enabledShopIds.filter((id) => knownIds.has(id)))
@@ -64,9 +68,87 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   }
 
   private async handleGameSessionEnded(_data: SystemEventPayload<"GAME_SESSION_ENDED">): Promise<void> {
+    this.disposeGreenRoomReturnTimers()
     this.clearShopTimersAndState()
     await this.shopping.clearSessionRound()
     await this.stripOwnedItemsFromAllUsers()
+  }
+
+  private disposeGreenRoomReturnTimers(): void {
+    for (const timer of this.getAllTimers()) {
+      if (timer.id.startsWith(GREEN_ROOM_RETURN_PREFIX)) {
+        this.clearTimer(timer.id)
+      }
+    }
+  }
+
+  private async processGreenRoomDepartures(): Promise<void> {
+    if (!this.context) return
+    const greenRoomStore = this.shopStateStores.get(GREEN_ROOM_SHOP_ID)
+    if (!greenRoomStore || greenRoomStore.size === 0) return
+
+    const userIds = Array.from(greenRoomStore.keys())
+    for (const userId of userIds) {
+      const inv = await this.context.inventory.getInventory(userId)
+      const stacks = inv.items.filter((s) => s.sourcePlugin === this.name && s.quantity > 0)
+      if (stacks.length === 0) {
+        greenRoomStore.delete(userId)
+        continue
+      }
+
+      const stack = stacks[Math.floor(Math.random() * stacks.length)]!
+      const definition = await this.context.inventory.getItemDefinition(stack.definitionId)
+      const itemName = definition?.name ?? "item"
+
+      const removed = await this.context.inventory.removeItem(userId, stack.itemId, 1)
+      if (!removed) {
+        greenRoomStore.delete(userId)
+        continue
+      }
+
+      const [user] = await this.context.api.getUsersByIds([userId])
+      const username = user?.username?.trim() || userId
+
+      const message = `Hey, you left your ${itemName}. We're closing up for the night but we'll get it back to you soon.`
+      await this.context.api.sendSystemMessage(
+        this.context.roomId,
+        message,
+        { type: "alert", status: "info", title: "Message from the Green Room" },
+        [username],
+      )
+
+      const definitionId = stack.definitionId
+      const roomId = this.context.roomId
+      this.startTimer(`${GREEN_ROOM_RETURN_PREFIX}${userId}:${Date.now()}`, {
+        duration: GREEN_ROOM_RETURN_MS,
+        callback: async () => {
+          if (!this.context) return
+          const returned = await this.context.inventory.giveItem(
+            userId,
+            definitionId,
+            1,
+            undefined,
+            "purchase",
+          )
+          if (!returned) return
+          const [u] = await this.context.api.getUsersByIds([userId])
+          const mentionName = u?.username?.trim() || userId
+          const followUp = `hey here's your ${itemName} back`
+          await this.context.api.sendSystemMessage(
+            roomId,
+            followUp,
+            { type: "alert", status: "info", title: "Message from the Green Room" },
+            [mentionName],
+          )
+        },
+      })
+
+      greenRoomStore.delete(userId)
+    }
+
+    if (greenRoomStore.size === 0) {
+      this.shopStateStores.delete(GREEN_ROOM_SHOP_ID)
+    }
   }
 
   private shopTimerPrefix(shopId: string): string {
@@ -291,6 +373,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           message: "Select at least one shop in Item Shops settings (Shops in rotation).",
         }
       }
+      await this.processGreenRoomDepartures()
       const users = await this.context.api.getUsers(this.context.roomId)
       await this.shopping.startSession(users, eligible)
       await this.emit("SHOPPING_SESSION_STARTED", { roomId: this.context.roomId })
@@ -300,6 +383,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!config?.enabled) {
         return { success: false, message: "Item Shops are disabled." }
       }
+      await this.processGreenRoomDepartures()
       await this.shopping.clearSessionRound()
       await this.emit("SHOPPING_SESSION_ENDED", { roomId: this.context.roomId })
       return { success: true, message: "All shopping sessions ended." }

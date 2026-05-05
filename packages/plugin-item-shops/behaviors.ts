@@ -22,6 +22,7 @@ import {
   SAMPLE_HOLD_SHORT_ID,
   JOKER_PEDAL_SHORT_ID,
   HUMMUS_VEGGIES_SHORT_ID,
+  EMPTY_FRIDGE_SHORT_ID,
 } from "./items"
 
 /**
@@ -113,28 +114,21 @@ function useAnalogDelay(
   definition: ItemDefinition,
   callContext?: unknown,
 ): Promise<ItemUseResult> {
-  return applyTargetedTimedModifier(
-    deps,
-    userId,
-    callContext,
-    definition,
-    deps.effectDurationMs,
-    {
-      modifierName: "analog_delay_echo",
-      effects: [
-        {
-          type: "flag",
-          name: ECHO_FLAG,
-          value: true,
-          icon: "square-stack",
-          intent: "negative",
-        },
-      ],
-      successMessage: "Analog Delay Pedal engaged. It was lost with use.",
-      describe: ({ isSelf, actor, target }) =>
-        isSelf ? `${actor} is hearing echoes` : `${target}'s chat echoes`,
-    },
-  )
+  return applyTargetedTimedModifier(deps, userId, callContext, definition, deps.effectDurationMs, {
+    modifierName: "analog_delay_echo",
+    effects: [
+      {
+        type: "flag",
+        name: ECHO_FLAG,
+        value: true,
+        icon: "square-stack",
+        intent: "negative",
+      },
+    ],
+    successMessage: "Analog Delay Pedal engaged. It was lost with use.",
+    describe: ({ isSelf, actor, target }) =>
+      isSelf ? `${actor} is hearing echoes` : `${target}'s chat echoes`,
+  })
 }
 
 function useCompressor(
@@ -143,22 +137,13 @@ function useCompressor(
   definition: ItemDefinition,
   callContext?: unknown,
 ): Promise<ItemUseResult> {
-  return applyTargetedTimedModifier(
-    deps,
-    userId,
-    callContext,
-    definition,
-    deps.effectDurationMs,
-    {
-      modifierName: "compressor",
-      effects: [
-        { type: "flag", name: SHRINK_FLAG, value: true, icon: "shrink", intent: "negative" },
-      ],
-      successMessage: "Compressor engaged. It was lost with use.",
-      describe: ({ isSelf, actor, target }) =>
-        isSelf ? `${actor} is compressed` : `${target} has been compressed`,
-    },
-  )
+  return applyTargetedTimedModifier(deps, userId, callContext, definition, deps.effectDurationMs, {
+    modifierName: "compressor",
+    effects: [{ type: "flag", name: SHRINK_FLAG, value: true, icon: "shrink", intent: "negative" }],
+    successMessage: "Compressor engaged. It was lost with use.",
+    describe: ({ isSelf, actor, target }) =>
+      isSelf ? `${actor} is compressed` : `${target} has been compressed`,
+  })
 }
 
 function useBoost(
@@ -167,22 +152,15 @@ function useBoost(
   definition: ItemDefinition,
   callContext?: unknown,
 ): Promise<ItemUseResult> {
-  return applyTargetedTimedModifier(
-    deps,
-    userId,
-    callContext,
-    definition,
-    deps.effectDurationMs,
-    {
-      modifierName: "boost",
-      effects: [
-        { type: "flag", name: GROW_FLAG, value: true, icon: "chevrons-up", intent: "positive" },
-      ],
-      successMessage: "Boost engaged. It was lost with use.",
-      describe: ({ isSelf, actor, target }) =>
-        isSelf ? `${actor} is boosted` : `${target} is boosted`,
-    },
-  )
+  return applyTargetedTimedModifier(deps, userId, callContext, definition, deps.effectDurationMs, {
+    modifierName: "boost",
+    effects: [
+      { type: "flag", name: GROW_FLAG, value: true, icon: "chevrons-up", intent: "positive" },
+    ],
+    successMessage: "Boost engaged. It was lost with use.",
+    describe: ({ isSelf, actor, target }) =>
+      isSelf ? `${actor} is boosted` : `${target} is boosted`,
+  })
 }
 
 function useGate(
@@ -191,20 +169,12 @@ function useGate(
   definition: ItemDefinition,
   callContext?: unknown,
 ): Promise<ItemUseResult> {
-  return applyTargetedTimedModifier(
-    deps,
-    userId,
-    callContext,
-    definition,
-    deps.effectDurationMs,
-    {
-      modifierName: "gate",
-      effects: [{ type: "flag", name: GATE_FLAG, value: true, icon: "fence", intent: "negative" }],
-      successMessage: "Gate engaged. It was lost with use.",
-      describe: ({ isSelf, actor, target }) =>
-        isSelf ? `${actor} is gated` : `${target} is gated`,
-    },
-  )
+  return applyTargetedTimedModifier(deps, userId, callContext, definition, deps.effectDurationMs, {
+    modifierName: "gate",
+    effects: [{ type: "flag", name: GATE_FLAG, value: true, icon: "fence", intent: "negative" }],
+    successMessage: "Gate engaged. It was lost with use.",
+    describe: ({ isSelf, actor, target }) => (isSelf ? `${actor} is gated` : `${target} is gated`),
+  })
 }
 
 function useSampleHold(
@@ -213,31 +183,24 @@ function useSampleHold(
   definition: ItemDefinition,
   callContext?: unknown,
 ): Promise<ItemUseResult> {
-  return applyTargetedTimedModifier(
-    deps,
-    userId,
-    callContext,
-    definition,
-    deps.effectDurationMs,
-    {
-      modifierName: "sample-hold",
-      effects: [
-        {
-          type: "flag",
-          name: SCRAMBLE_FLAG,
-          value: true,
-          icon: "dices",
-          intent: "negative",
-        },
-      ],
-      successMessage: "Sample & Hold engaged. It was lost with use.",
-      describe: ({ isSelf, actor, target }) =>
-        isSelf ? `${actor} is randomized` : `${target} is randomized`,
-    },
-  )
+  return applyTargetedTimedModifier(deps, userId, callContext, definition, deps.effectDurationMs, {
+    modifierName: "sample-hold",
+    effects: [
+      {
+        type: "flag",
+        name: SCRAMBLE_FLAG,
+        value: true,
+        icon: "dices",
+        intent: "negative",
+      },
+    ],
+    successMessage: "Sample & Hold engaged. It was lost with use.",
+    describe: ({ isSelf, actor, target }) =>
+      isSelf ? `${actor} is randomized` : `${target} is randomized`,
+  })
 }
 
-async function useHummusVeggies(
+async function usePromoteTrack(
   deps: ItemShopsBehaviorDeps,
   userId: string,
   _definition: ItemDefinition,
@@ -277,28 +240,55 @@ function useJokerPedal(
   definition: ItemDefinition,
   callContext?: unknown,
 ): Promise<ItemUseResult> {
-  return applyTargetedTimedModifier(
-    deps,
-    userId,
-    callContext,
-    definition,
-    deps.effectDurationMs,
-    {
-      modifierName: "joker_pedal",
-      effects: [
-        {
-          type: "flag",
-          name: COMIC_SANS_FLAG,
-          value: true,
-          icon: "laugh",
-          intent: "negative",
-        },
-      ],
-      successMessage: "Joker Pedal engaged. It was lost with use.",
-      describe: ({ isSelf, actor, target }) =>
-        isSelf ? `${actor} is in Comic Sans` : `${target}'s chat is in Comic Sans`,
-    },
+  return applyTargetedTimedModifier(deps, userId, callContext, definition, deps.effectDurationMs, {
+    modifierName: "joker_pedal",
+    effects: [
+      {
+        type: "flag",
+        name: COMIC_SANS_FLAG,
+        value: true,
+        icon: "laugh",
+        intent: "negative",
+      },
+    ],
+    successMessage: "Joker Pedal engaged. It was lost with use.",
+    describe: ({ isSelf, actor, target }) =>
+      isSelf ? `${actor} is in Comic Sans` : `${target}'s chat is in Comic Sans`,
+  })
+}
+
+async function useDemoteTrack(
+  deps: ItemShopsBehaviorDeps,
+  userId: string,
+  _definition: ItemDefinition,
+  callContext?: unknown,
+): Promise<ItemUseResult> {
+  const { context } = deps
+  const targetQueueItemId = (callContext as { targetQueueItemId?: string } | undefined)
+    ?.targetQueueItemId
+
+  if (!targetQueueItemId) {
+    return { success: false, consumed: false, message: "Select a track to demote." }
+  }
+
+  const result = await context.api.moveTrackByPosition(context.roomId, targetQueueItemId, 1)
+
+  if (!result.success) {
+    return { success: false, consumed: false, message: result.message }
+  }
+
+  const [user] = await context.api.getUsersByIds([userId])
+  const username = user?.username?.trim() || userId
+  await context.api.sendSystemMessage(
+    context.roomId,
+    `${username} used Empty Fridge to demote a track!`,
   )
+
+  return {
+    success: true,
+    consumed: true,
+    message: "Track demoted!",
+  }
 }
 
 /**
@@ -312,5 +302,6 @@ export const ITEM_USE_BEHAVIORS: Record<string, ItemUseHandler> = {
   [GATE_SHORT_ID]: useGate,
   [SAMPLE_HOLD_SHORT_ID]: useSampleHold,
   [JOKER_PEDAL_SHORT_ID]: useJokerPedal,
-  [HUMMUS_VEGGIES_SHORT_ID]: useHummusVeggies,
+  [HUMMUS_VEGGIES_SHORT_ID]: usePromoteTrack,
+  [EMPTY_FRIDGE_SHORT_ID]: useDemoteTrack,
 }

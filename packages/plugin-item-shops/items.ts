@@ -8,6 +8,7 @@ export const GATE_SHORT_ID = "gate"
 export const SAMPLE_HOLD_SHORT_ID = "sample-hold"
 export const JOKER_PEDAL_SHORT_ID = "joker-pedal"
 export const HUMMUS_VEGGIES_SHORT_ID = "hummus-veggies"
+export const EMPTY_FRIDGE_SHORT_ID = "empty-fridge"
 
 /**
  * Master item catalog (prices, rarity, inventory flags). Shop-specific price
@@ -132,7 +133,22 @@ export const ITEM_CATALOG: readonly ItemCatalogEntry[] = [
       consumable: true,
       requiresTarget: "queueItem",
       coinValue: 50,
-      icon: "arrow-up-narrow-wide",
+      icon: "salad",
+      rarity: "rare",
+    },
+  },
+  {
+    definition: {
+      shortId: EMPTY_FRIDGE_SHORT_ID,
+      name: "Empty from fridge",
+      description: "Move any song down 1 position in the queue.",
+      stackable: true,
+      maxStack: 3,
+      tradeable: true,
+      consumable: true,
+      requiresTarget: "queueItem",
+      coinValue: 50,
+      icon: "refrigerator",
       rarity: "rare",
     },
   },
