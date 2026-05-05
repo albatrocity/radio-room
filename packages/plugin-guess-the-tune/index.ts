@@ -243,60 +243,15 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
   }
 
   async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
-    if (!this.context) return {}
-
     const config = await this.getConfig()
-    if (!config?.enabled) return {}
+    return this.buildElementPropsAugmentation(item, config, { requireRound: false })
+  }
 
-    if (!config.matchTitle && !config.matchArtist && !config.matchAlbum) {
-      return {}
-    }
-
-    const stable = queueItemStableKey(item)
-    const rk = roundKey(stable)
-    const revealed = await this.context.storage.hgetall(rk)
-
-    const bypassRoles: PluginObscureBypassRole[] = config.showNowPlayingToAdmins ? ["admin"] : []
-
-    const elementProps: Partial<Record<PluginElementKey, PluginElementProps>> = {}
-
-    for (const key of TEXT_KEYS) {
-      const matchKey = `match${capitalize(key)}` as keyof GuessTheTuneConfig
-      if (!config[matchKey]) continue
-
-      const rev = revealed[`revealed:${key}`]
-      if (rev) {
-        try {
-          const revealedBy = JSON.parse(rev) as PluginElementProps["revealedBy"]
-          if (revealedBy?.userId != null) {
-            elementProps[key] = { obscured: false, revealedBy }
-          } else {
-            elementProps[key] = { obscured: false }
-          }
-        } catch {
-          elementProps[key] = { obscured: false }
-        }
-      } else {
-        elementProps[key] = {
-          obscured: true,
-          placeholder: "???",
-          obscureBypassRoles: bypassRoles,
-        }
-      }
-    }
-
-    // Artwork often shows artist/album text — keep placeholder until both are revealed (when enabled).
-    const artistRevealed = Boolean(revealed["revealed:artist"])
-    const albumRevealed = Boolean(revealed["revealed:album"])
-    const artworkObscured =
-      (config.matchArtist && !artistRevealed) || (config.matchAlbum && !albumRevealed)
-
-    elementProps.artwork = {
-      obscured: artworkObscured,
-      obscureBypassRoles: bypassRoles,
-    }
-
-    return { elementProps }
+  async augmentPlaylistBatch(items: QueueItem[]): Promise<PluginAugmentationData[]> {
+    const config = await this.getConfig()
+    return Promise.all(
+      items.map((item) => this.buildElementPropsAugmentation(item, config, { requireRound: true })),
+    )
   }
 
   async augmentRoomExport(exportData: RoomExportData): Promise<PluginExportAugmentation> {
@@ -526,6 +481,70 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
 
   private isSystemMessage(message: ChatMessage): boolean {
     return message.user.userId === "system"
+  }
+
+  private async buildElementPropsAugmentation(
+    item: QueueItem,
+    config: GuessTheTuneConfig | null,
+    options: { requireRound: boolean } = { requireRound: true },
+  ): Promise<PluginAugmentationData> {
+    if (!this.context) return {}
+    if (!config?.enabled) return {}
+
+    if (!config.matchTitle && !config.matchArtist && !config.matchAlbum) {
+      return {}
+    }
+
+    const stable = queueItemStableKey(item)
+    const rk = roundKey(stable)
+    const startedAt = await this.context.storage.hget(rk, "startedAt")
+    if (!startedAt && options.requireRound) {
+      // No round exists for this track, so it should render normally.
+      return {}
+    }
+    const revealed = await this.context.storage.hgetall(rk)
+
+    const bypassRoles: PluginObscureBypassRole[] = config.showNowPlayingToAdmins ? ["admin"] : []
+
+    const elementProps: Partial<Record<PluginElementKey, PluginElementProps>> = {}
+
+    for (const key of TEXT_KEYS) {
+      const matchKey = `match${capitalize(key)}` as keyof GuessTheTuneConfig
+      if (!config[matchKey]) continue
+
+      const rev = revealed[`revealed:${key}`]
+      if (rev) {
+        try {
+          const revealedBy = JSON.parse(rev) as PluginElementProps["revealedBy"]
+          if (revealedBy?.userId != null) {
+            elementProps[key] = { obscured: false, revealedBy }
+          } else {
+            elementProps[key] = { obscured: false }
+          }
+        } catch {
+          elementProps[key] = { obscured: false }
+        }
+      } else {
+        elementProps[key] = {
+          obscured: true,
+          placeholder: "???",
+          obscureBypassRoles: bypassRoles,
+        }
+      }
+    }
+
+    // Artwork often shows artist/album text — keep placeholder until both are revealed (when enabled).
+    const artistRevealed = Boolean(revealed["revealed:artist"])
+    const albumRevealed = Boolean(revealed["revealed:album"])
+    const artworkObscured =
+      (config.matchArtist && !artistRevealed) || (config.matchAlbum && !albumRevealed)
+
+    elementProps.artwork = {
+      obscured: artworkObscured,
+      obscureBypassRoles: bypassRoles,
+    }
+
+    return { elementProps }
   }
 }
 

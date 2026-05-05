@@ -9,6 +9,7 @@ import {
   useIsAdmin,
   useIsRoomCreator,
   useCanAddToQueue,
+  usePluginConfigs,
 } from "./useActors"
 
 /**
@@ -34,6 +35,7 @@ function usePluginObscureViewerRoles(): PluginObscureBypassRole[] {
 function mergeRawElementProps(
   pluginData: Record<string, unknown> | undefined,
   element: PluginElementKey,
+  enabledPlugins: Set<string>,
 ): PluginElementProps {
   if (!pluginData) return {}
 
@@ -44,6 +46,7 @@ function mergeRawElementProps(
 
   const names = Object.keys(pluginData).sort()
   for (const pluginName of names) {
+    if (!enabledPlugins.has(pluginName)) continue
     const data = pluginData[pluginName] as Record<string, unknown> | undefined
     const ep = data?.elementProps as Partial<Record<PluginElementKey, PluginElementProps>> | undefined
     const slice = ep?.[element]
@@ -81,9 +84,22 @@ export function usePluginElementProps(
   element: PluginElementKey,
 ): ResolvedPluginElementProps {
   const viewerRoles = usePluginObscureViewerRoles()
+  const pluginConfigs = usePluginConfigs()
+  const enabledPlugins = useMemo(() => {
+    const enabled = new Set<string>()
+    if (!pluginConfigs) return enabled
+
+    for (const [name, config] of Object.entries(pluginConfigs)) {
+      if ((config as { enabled?: boolean } | undefined)?.enabled === true) {
+        enabled.add(name)
+      }
+    }
+
+    return enabled
+  }, [pluginConfigs])
 
   return useMemo(() => {
-    const raw = mergeRawElementProps(pluginData, element)
+    const raw = mergeRawElementProps(pluginData, element, enabledPlugins)
     const bypass =
       raw.obscured &&
       raw.obscureBypassRoles?.some((r) => viewerRoles.includes(r))
@@ -92,5 +108,5 @@ export function usePluginElementProps(
       ...raw,
       obscured: Boolean(raw.obscured && !bypass),
     }
-  }, [pluginData, element, viewerRoles])
+  }, [pluginData, element, viewerRoles, enabledPlugins])
 }
