@@ -132,6 +132,7 @@ export function getConfigSchema(): PluginConfigSchema {
       "fuzzyThreshold",
       "showNowPlayingToAdmins",
       "showLeaderboard",
+      "ignoreOwnQueueSubmissions",
       "soundEffectOnMatch",
       "soundEffectOnMatchUrl",
       "messageTemplate",
@@ -205,6 +206,13 @@ export function getConfigSchema(): PluginConfigSchema {
       showLeaderboard: {
         type: "boolean",
         label: "Show leaderboard button",
+        showWhen: { field: "enabled", value: true },
+      },
+      ignoreOwnQueueSubmissions: {
+        type: "boolean",
+        label: "Ignore scoring on own queue submissions",
+        description:
+          "When enabled, users cannot score points or reveal attributes on tracks they queued.",
         showWhen: { field: "enabled", value: true },
       },
       soundEffectOnMatch: {

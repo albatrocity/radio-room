@@ -23,6 +23,7 @@ export const guessTheTuneConfigSchema = z.object({
       "{{username}} identified the {{propertyLabel}}! +{{points}} points{{multiplierSuffix}}",
     ),
   showLeaderboard: z.boolean().default(true),
+  ignoreOwnQueueSubmissions: z.boolean().default(true),
 })
 
 export type GuessTheTuneConfig = z.infer<typeof guessTheTuneConfigSchema>
@@ -44,6 +45,7 @@ export const defaultGuessTheTuneConfig: GuessTheTuneConfig = {
   messageTemplate:
     "{{username}} identified the {{propertyLabel}}! +{{points}} points{{multiplierSuffix}}",
   showLeaderboard: true,
+  ignoreOwnQueueSubmissions: true,
 }
 
 export type GuessProperty = "title" | "artist" | "album"

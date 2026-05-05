@@ -160,6 +160,13 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
     const np = await this.context.api.getNowPlaying(this.context.roomId)
     if (!np?.track) return
 
+    if (
+      config.ignoreOwnQueueSubmissions &&
+      np.addedBy?.userId === message.user.userId
+    ) {
+      return
+    }
+
     const stable = queueItemStableKey(np)
     const rk = roundKey(stable)
     const startedAtStr = await this.context.storage.hget(rk, "startedAt")
