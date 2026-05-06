@@ -297,7 +297,7 @@ const PlaylistItem = memo(function PlaylistItem({
             </IconButton>
           )}
           {/* Queue removal: app-controlled removes in Redis; Spotify-controlled requests admin */}
-          {canActOnQueueItem && !showControls && (
+          {canActOnQueueItem && (
             <IconButton
               aria-label={isAppControlledQueue ? "Remove from queue" : "Request removal from queue"}
               size="xs"
