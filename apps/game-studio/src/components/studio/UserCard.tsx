@@ -14,8 +14,8 @@ import {
   Text,
   Wrap,
 } from "@chakra-ui/react"
+import { getActiveFlags } from "@repo/game-logic"
 import type { ItemDefinition } from "@repo/types"
-import { getActiveFlags } from "@repo/types"
 import { User as UserIcon } from "lucide-react"
 import { useMemo, useState } from "react"
 import * as studioActions from "../../studio/studioActions"

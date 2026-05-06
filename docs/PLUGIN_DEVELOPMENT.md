@@ -1724,7 +1724,7 @@ async onItemUsed(
 
 `BasePlugin` provides a default implementation that returns “not handled”; override only when you define items.
 
-For **`effects` of type `"flag"`**, derive booleans with **`getActiveFlags(userState.modifiers, Date.now())`** from **`@repo/types`** (see [ADR 0046](adrs/0046-derived-modifier-flags.md)). For items with **`requiresTarget: "user"`**, the socket passes **`callContext`** as **`{ targetUserId?: string }`** — validate the user is still in the room before applying effects to them.
+For **`effects` of type `"flag"`**, derive booleans with **`getActiveFlags(userState.modifiers, Date.now())`** from **`@repo/game-logic`** (see [ADR 0046](adrs/0046-derived-modifier-flags.md)). For items with **`requiresTarget: "user"`**, the socket passes **`callContext`** as **`{ targetUserId?: string }`** — validate the user is still in the room before applying effects to them.
 
 ### Handling item sell-back (`onItemSold`)
 

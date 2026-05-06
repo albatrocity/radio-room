@@ -9,7 +9,7 @@
 
 ## Decision
 
-Expose a **pure helper** **`getActiveFlags(modifiers, now): Record<string, boolean>`** on **`@repo/types`** (implemented next to **`GameStateModifier`**). It walks non-expired modifiers (same time window as modifier evaluation) and folds **`flag`** effects into a string-keyed map.
+Expose a **pure helper** **`getActiveFlags(modifiers, now): Record<string, boolean>`** from **`@repo/game-logic`** (types live in **`@repo/types`**; implementation is pure logic and must not create a **`@repo/types` ↔ `@repo/game-logic`** dependency cycle). It walks non-expired modifiers (same time window as modifier evaluation) and folds **`flag`** effects into a string-keyed map.
 
 This is the **canonical read path** for flag-style effects until/unless we denormalize **`UserGameState.flags`** on apply/remove.
 
@@ -28,5 +28,5 @@ This is the **canonical read path** for flag-style effects until/unless we denor
 ## References
 
 - [ADR 0042 — Game Sessions and Inventory](0042-game-sessions-and-inventory.md)
-- `packages/types/GameSession.ts`
+- `packages/game-logic/src/getActiveFlags.ts`
 - `packages/server/services/GameSessionService.ts`

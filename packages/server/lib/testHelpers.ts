@@ -45,6 +45,7 @@ export function makeSocket({ roomId = "room123", id, ...rest }: Options = {}) {
       pluginRegistry: {
         emit: vi.fn(),
         syncRoomPlugins: vi.fn(),
+        transformChatMessage: vi.fn(async (_roomId, message) => message),
       },
       systemEvents: {
         emit: vi.fn(),

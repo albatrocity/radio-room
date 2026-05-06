@@ -9,7 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@repo/game-logic": "*",
     "zod": "^4.4.2"
   },
   "devDependencies": {

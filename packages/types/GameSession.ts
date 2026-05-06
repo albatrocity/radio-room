@@ -275,8 +275,4 @@ export interface GameSessionResults {
   }
 }
 
-/**
- * Derive boolean flags from non-expired `flag` effects on active modifiers.
- * Implemented in `@repo/game-logic` (ADR 0046).
- */
-export { getActiveFlags } from "@repo/game-logic"
+/** @see `getActiveFlags` in `@repo/game-logic` (ADR 0046) — imported there to avoid a package cycle with `@repo/types`. */
