@@ -177,7 +177,7 @@ export const ITEM_CATALOG: readonly ItemCatalogEntry[] = [
     definition: {
       shortId: WARRANTY_SHORT_ID,
       name: "Warranty",
-      description: "Holding this blocks the next attack from other items. Lost on use.",
+      description: "Holding this prevents debuffs from the next attack. Lost on use.",
       stackable: true,
       maxStack: 3,
       tradeable: true,
@@ -190,7 +190,7 @@ export const ITEM_CATALOG: readonly ItemCatalogEntry[] = [
           intents: ["negative"],
           sourcePlugins: ["item-shops"],
         },
-        scope: ["modifier", "queue"],
+        scope: ["modifier"],
       },
     },
   },
