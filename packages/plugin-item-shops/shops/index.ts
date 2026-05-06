@@ -1,5 +1,5 @@
 import type { ItemShopsShopCatalogEntry } from "@repo/plugin-base/helpers"
-import { BOOST_SHORT_ID } from "../items"
+import { items } from "../items"
 import { SWEETWATER_SHOP } from "./sweetwater"
 import { GREEN_ROOM_SHOP } from "./green-room"
 
@@ -13,7 +13,7 @@ export const SHOP_CATALOG: readonly ItemShopsShopCatalogEntry[] = [
     shopId: "startup-guy",
     name: "Startup Guy",
     openingMessage: "{{shopName}} wants to acquire some of your assets!",
-    availableItems: [{ shortId: BOOST_SHORT_ID, coinValue: 200 }],
+    availableItems: [{ shortId: items.boostPedal.shortId, coinValue: 200 }],
     listedBuybackRate: 4.0,
     unlistedBuybackRate: 2.0,
   },

@@ -1,6 +1,11 @@
 import { z } from "zod"
 import type { ItemShopsShopCatalogEntry, ShopBuyContext } from "@repo/plugin-base/helpers"
-import { BasePlugin, applyTextEffects, countTextEffectStacks, ShoppingSessionHelper } from "@repo/plugin-base"
+import {
+  BasePlugin,
+  applyTextEffects,
+  countTextEffectStacks,
+  ShoppingSessionHelper,
+} from "@repo/plugin-base"
 import {
   type ChatMessage,
   type ItemDefinition,
@@ -15,14 +20,9 @@ import {
 } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import packageJson from "./package.json"
-import { ITEM_USE_BEHAVIORS } from "./behaviors"
-import { ITEM_CATALOG } from "./items"
+import { ITEM_CATALOG, ITEM_USE_BEHAVIORS } from "./items/index"
 import { SHOP_CATALOG } from "./shops"
-import {
-  itemShopsConfigSchema,
-  defaultItemShopsConfig,
-  type ItemShopsConfig,
-} from "./types"
+import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
 
@@ -38,7 +38,7 @@ function getEligibleShops(config: ItemShopsConfig): ItemShopsShopCatalogEntry[] 
 
 export type { ItemShopsConfig } from "./types"
 export { itemShopsConfigSchema, defaultItemShopsConfig } from "./types"
-export { ITEM_CATALOG } from "./items"
+export { ITEM_CATALOG, items } from "./items/index"
 export { SHOP_CATALOG } from "./shops"
 
 export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
@@ -56,18 +56,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
   async register(context: import("@repo/types").PluginContext): Promise<void> {
     await super.register(context)
-    this.shopping = new ShoppingSessionHelper(
-      this.name,
-      context,
-      ITEM_CATALOG,
-      SHOP_CATALOG,
-    )
+    this.shopping = new ShoppingSessionHelper(this.name, context, ITEM_CATALOG, SHOP_CATALOG)
     this.context!.inventory.registerItemDefinitions(ITEM_CATALOG.map((e) => e.definition))
     this.on("GAME_SESSION_ENDED", this.handleGameSessionEnded.bind(this))
     this.on("USER_JOINED", this.handleUserJoined.bind(this))
   }
 
-  private async handleGameSessionEnded(_data: SystemEventPayload<"GAME_SESSION_ENDED">): Promise<void> {
+  private async handleGameSessionEnded(
+    _data: SystemEventPayload<"GAME_SESSION_ENDED">,
+  ): Promise<void> {
     this.disposeGreenRoomReturnTimers()
     this.clearShopTimersAndState()
     await this.shopping.clearSessionRound()
@@ -212,12 +209,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       clearTimer: (id) => this.clearTimer(timerPrefix + id),
 
       sendSystemMessage: async (message, meta, mentions) => {
-        await this.context!.api.sendSystemMessage(
-          this.context!.roomId,
-          message,
-          meta,
-          mentions,
-        )
+        await this.context!.api.sendSystemMessage(this.context!.roomId, message, meta, mentions)
       },
 
       isShoppingActive: () => this.shopping.isActive(),
@@ -502,7 +494,11 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     const transformed = applyTextEffects(message.content, stacks)
     if (!transformed) return null
 
-    return { ...message, content: transformed.content, contentSegments: transformed.contentSegments }
+    return {
+      ...message,
+      content: transformed.content,
+      contentSegments: transformed.contentSegments,
+    }
   }
 }
 
