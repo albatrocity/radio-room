@@ -28,6 +28,7 @@
     "node": ">=22.16.0"
   },
   "dependencies": {
+    "@repo/game-logic": "*",
     "@repo/auth": "*",
     "@repo/db": "*",
     "@repo/utils": "*",

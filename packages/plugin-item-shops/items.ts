@@ -194,6 +194,19 @@ export const ITEM_CATALOG: readonly ItemCatalogEntry[] = [
       },
     },
   },
+  {
+    definition: {
+      shortId: "thing1",
+      name: "Thing 1",
+      description: "Thing 1 description",
+      stackable: true,
+      maxStack: 3,
+      tradeable: true,
+      consumable: false,
+      coinValue: 100,
+      icon: "star",
+    },
+  },
 ]
 
 export function getItemCatalogEntry(shortId: string): ItemCatalogEntry | undefined {

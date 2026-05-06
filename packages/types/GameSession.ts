@@ -124,29 +124,6 @@ export interface GameStateModifier {
   itemDefinitionId?: string
 }
 
-/**
- * Derive boolean flags from non-expired `flag` effects on active modifiers.
- * `UserGameState.flags` may be unset; this is the canonical read path for
- * `GameStateEffect` of type `"flag"` when you already have a modifier list
- * (same time-window rules as `evaluateModifiers` in `GameSessionService`).
- */
-export function getActiveFlags(
-  modifiers: GameStateModifier[] | undefined,
-  now: number,
-): Record<string, boolean> {
-  const list = modifiers ?? []
-  const flags: Record<string, boolean> = {}
-  for (const modifier of list) {
-    if (modifier.startAt > now || modifier.endAt <= now) continue
-    for (const effect of modifier.effects) {
-      if (effect.type === "flag") {
-        flags[effect.name] = effect.value
-      }
-    }
-  }
-  return flags
-}
-
 // ============================================================================
 // User game state
 // ============================================================================
@@ -297,3 +274,9 @@ export interface GameSessionResults {
     itemsTraded: number
   }
 }
+
+/**
+ * Derive boolean flags from non-expired `flag` effects on active modifiers.
+ * Implemented in `@repo/game-logic` (ADR 0046).
+ */
+export { getActiveFlags } from "@repo/game-logic"

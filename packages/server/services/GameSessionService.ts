@@ -13,6 +13,7 @@ import {
   PluginAttributeDefinition,
   UserGameState,
 } from "@repo/types"
+import { evaluateModifiers, pruneExpiredModifiers } from "@repo/game-logic"
 import generateId from "../lib/generateId"
 import systemMessage from "../lib/systemMessage"
 import { DefenseService } from "./DefenseService"
@@ -101,67 +102,8 @@ function attributeDefsKey(roomId: string): string {
   return `room:${roomId}:game:attribute-defs`
 }
 
-// ============================================================================
-// Modifier evaluation
-// ============================================================================
-
-/**
- * Compute the effective delta to apply to `attribute` given the user's active
- * modifiers, splitting multipliers and additives as documented on
- * `GameStateEffect`.
- *
- * Returns `null` when the attribute is locked (caller should skip the change).
- */
-function evaluateModifiers(
-  amount: number,
-  attribute: GameAttributeName,
-  modifiers: GameStateModifier[],
-  now: number,
-): number | null {
-  let multiplier = 1
-  let additive = 0
-
-  for (const modifier of modifiers) {
-    if (modifier.startAt > now || modifier.endAt <= now) continue
-
-    for (const effect of modifier.effects) {
-      if (effect.type === "lock" && effect.target === attribute) {
-        return null
-      }
-      if (effect.type === "multiplier" && effect.target === attribute) {
-        multiplier *= effect.value
-      } else if (effect.type === "additive" && effect.target === attribute) {
-        additive += effect.value
-      }
-    }
-  }
-
-  return amount * multiplier + additive
-}
-
-/**
- * Pure helper that prunes expired modifiers and returns the surviving array
- * along with the ids that were removed (used by callers to emit events).
- */
-export function pruneExpiredModifiers(
-  modifiers: GameStateModifier[],
-  now: number,
-): { active: GameStateModifier[]; expired: GameStateModifier[] } {
-  const active: GameStateModifier[] = []
-  const expired: GameStateModifier[] = []
-  for (const modifier of modifiers) {
-    if (modifier.endAt <= now) {
-      expired.push(modifier)
-    } else {
-      active.push(modifier)
-    }
-  }
-  return { active, expired }
-}
-
-// ============================================================================
-// GameSessionService
-// ============================================================================
+/** Re-export for callers/tests that imported from `./GameSessionService`. */
+export { pruneExpiredModifiers } from "@repo/game-logic"
 
 /**
  * GameSessionService manages session lifecycle, per-user game state, modifier

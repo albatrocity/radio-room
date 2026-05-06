@@ -20,6 +20,7 @@
     "@repo/typescript-config": "*"
   },
   "dependencies": {
+    "@repo/game-logic": "*",
     "@repo/types": "*",
     "zod": "^4.4.2"
   }

@@ -56,6 +56,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0048](0048-plugin-user-targeted-chat.md) | Plugin user-targeted chat (private socket delivery) | Accepted |
 | [0049](0049-item-shops-and-shopping-sessions.md) | Item Shops and Shopping Sessions (per-user instances) | Accepted |
 | [0050](0050-inventory-defense-items.md) | Passive defense items (inventory + `DefenseService`) | Accepted |
+| [0051](0051-game-studio-client-sandbox.md) | Game Studio — client-side plugin sandbox (`apps/game-studio`) | Accepted |
 
 ## Creating a New ADR
 

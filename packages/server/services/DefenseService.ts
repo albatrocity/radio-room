@@ -1,13 +1,18 @@
 import type { AppContext } from "@repo/types"
 import type {
   DefenseSpec,
-  DefenseTargeting,
-  GameStateEffectWithMeta,
   GameStateModifier,
   ItemDefinition,
 } from "@repo/types"
+import {
+  modifierMatchesTargeting,
+  queueTargetingMatches,
+} from "@repo/game-logic"
 import { InventoryService } from "./InventoryService"
 import { GameSessionService } from "./GameSessionService"
+
+/** Re-export for tests and callers expecting `./DefenseService`. */
+export { modifierMatchesTargeting } from "@repo/game-logic"
 
 /** Returned when a defense item is consumed to block an action. */
 export interface DefenseBlockInfo {
@@ -133,55 +138,4 @@ export class DefenseService {
     const session = await this.gameSessions?.getActiveSession(roomId)
     return session?.id ?? ""
   }
-}
-
-function queueTargetingMatches(targeting: DefenseTargeting, intent: "positive" | "negative"): boolean {
-  if (targeting.blockAllModifiers) return true
-  if (!targeting.intents?.length) return false
-  return targeting.intents.includes(intent)
-}
-
-export function modifierMatchesTargeting(
-  modifier: GameStateModifier,
-  targeting: DefenseTargeting,
-): boolean {
-  if (targeting.blockAllModifiers) return true
-
-  if (targeting.sourcePlugins?.length && !targeting.sourcePlugins.includes(modifier.source)) {
-    return false
-  }
-  if (targeting.sourceItemDefinitionIds?.length) {
-    if (
-      !modifier.itemDefinitionId ||
-      !targeting.sourceItemDefinitionIds.includes(modifier.itemDefinitionId)
-    ) {
-      return false
-    }
-  }
-
-  const hasPerEffect =
-    (targeting.flagNames?.length ?? 0) > 0 || (targeting.intents?.length ?? 0) > 0
-
-  if (!hasPerEffect) {
-    return true
-  }
-
-  for (const effect of modifier.effects) {
-    if (effectMatchesTargeting(effect, targeting)) return true
-  }
-  return false
-}
-
-function effectMatchesTargeting(
-  effect: GameStateEffectWithMeta,
-  targeting: DefenseTargeting,
-): boolean {
-  if (targeting.flagNames?.length) {
-    if (effect.type !== "flag") return false
-    if (!targeting.flagNames.includes(effect.name)) return false
-  }
-  if (targeting.intents?.length) {
-    if (!effect.intent || !targeting.intents.includes(effect.intent)) return false
-  }
-  return true
 }
