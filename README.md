@@ -72,6 +72,26 @@ listening-room/
 
 ---
 
+## Game Devs
+
+**Game Studio** is a self-contained Vite app for testing items, shops, and game rules in the browser—**no Docker or API** required. All current item and shop content used in the studio lives in **`packages/plugin-item-shops/`**; edit there and run the studio to see changes with hot reload.
+
+- **Full setup and platform notes (macOS / Windows):** [apps/game-studio/README.md](apps/game-studio/README.md)
+
+From the **repository root**, start the dev server (http://localhost:8002):
+
+```bash
+make game-studio
+```
+
+**Windows:** If `make` is not available, use:
+
+```bash
+npm run dev -w game-studio
+```
+
+---
+
 ## Documentation
 
 - **[AGENTS.md](AGENTS.md)** - AI agent guidelines and codebase patterns
