@@ -21,7 +21,7 @@ describe("PluginGameSessionAPI.applyTimedModifier", () => {
     mockService = {
       getActiveSession: vi.fn(async () => ({ id: "session-1" }) as GameSession),
       getUserState: vi.fn(),
-      applyModifier: vi.fn(async () => "new-modifier-id"),
+      applyModifier: vi.fn(async () => ({ ok: true as const, modifierId: "new-modifier-id" })),
     }
     const ctx = { gameSessions: mockService } as never
     api = new PluginGameSessionAPI(ctx, PLUGIN_NAME, ROOM_ID)
@@ -32,13 +32,13 @@ describe("PluginGameSessionAPI.applyTimedModifier", () => {
   ): GameStateModifier {
     return {
       id: `id-${Math.random()}`,
-      name: overrides.name,
       source: PLUGIN_NAME,
       effects: [{ type: "flag", name: "flag-x", value: true }],
       startAt: NOW - 1000,
       endAt: NOW + 60_000,
       stackBehavior: "stack",
       ...overrides,
+      name: overrides.name,
     }
   }
 
@@ -176,7 +176,7 @@ describe("PluginGameSessionAPI.applyTimedModifier", () => {
 
   test("returns the modifier id from applyModifier", async () => {
     setUserState([])
-    mockService.applyModifier.mockResolvedValueOnce("custom-id")
+    mockService.applyModifier.mockResolvedValueOnce({ ok: true, modifierId: "custom-id" })
 
     const result = await api.applyTimedModifier(USER_ID, 5_000, {
       name: "x",
@@ -184,6 +184,6 @@ describe("PluginGameSessionAPI.applyTimedModifier", () => {
       stackBehavior: "replace",
     })
 
-    expect(result).toBe("custom-id")
+    expect(result).toEqual({ ok: true, modifierId: "custom-id" })
   })
 })

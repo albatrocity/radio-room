@@ -110,11 +110,15 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
           subscriptionIdRef.current = null
         }
         setPending(null)
+        const blocked =
+          !event.data.success &&
+          typeof event.data.message === "string" &&
+          event.data.message.toLowerCase().includes("blocked")
         toaster.create({
-          title: event.data.success ? "Success" : "Error",
+          title: event.data.success ? "Success" : blocked ? "Blocked" : "Error",
           description:
             event.data.message || (event.data.success ? "Action completed" : "Action failed"),
-          type: event.data.success ? "success" : "error",
+          type: event.data.success ? "success" : blocked ? "warning" : "error",
         })
       },
     })

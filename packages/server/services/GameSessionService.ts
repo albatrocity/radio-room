@@ -1,5 +1,6 @@
 import {
   AppContext,
+  ApplyModifierResult,
   GameAttributeName,
   GameLeaderboardEntry,
   GameSession,
@@ -13,6 +14,8 @@ import {
   UserGameState,
 } from "@repo/types"
 import generateId from "../lib/generateId"
+import systemMessage from "../lib/systemMessage"
+import { DefenseService } from "./DefenseService"
 
 // ============================================================================
 // Default config helpers
@@ -420,9 +423,47 @@ export class GameSessionService {
     userId: string,
     sourcePlugin: string,
     incoming: Omit<GameStateModifier, "id" | "source">,
-  ): Promise<string> {
+    actorUserId?: string,
+  ): Promise<ApplyModifierResult> {
     const session = await this.getActiveSession(roomId)
-    if (!session) return ""
+    if (!session) return { ok: false, reason: "no_active_session" }
+
+    const defenseSvc = new DefenseService(this.context)
+    const blocked = await defenseSvc.checkModifierDefense(roomId, userId, sourcePlugin, incoming)
+    if (blocked) {
+      const provisionalModifier: GameStateModifier = {
+        ...incoming,
+        id: "",
+        source: sourcePlugin,
+      }
+      await defenseSvc.emitEffectBlocked({
+        roomId,
+        sessionId: session.id,
+        targetUserId: userId,
+        actorUserId,
+        blockType: "modifier",
+        modifier: provisionalModifier,
+        blockedBy: blocked,
+      })
+      if (this.context.systemEvents) {
+        const { getUsersByIds } = await import("../operations/data")
+        const [targetUser] = await getUsersByIds({ context: this.context, userIds: [userId] })
+        const [actorUser] =
+          actorUserId != null
+            ? await getUsersByIds({ context: this.context, userIds: [actorUserId] })
+            : []
+        const attackerName = actorUser?.username?.trim() || sourcePlugin
+        const targetName = targetUser?.username?.trim() || userId
+        await this.context.systemEvents.emit(roomId, "MESSAGE_RECEIVED", {
+          roomId,
+          message: systemMessage(
+            `${attackerName} attacked ${targetName}, but ${blocked.itemName} blocked it.`,
+            { type: "alert", status: "warning", title: "Blocked" },
+          ),
+        })
+      }
+      return { ok: false, reason: "defense_blocked", blockingItemName: blocked.itemName }
+    }
 
     const state = await this.getUserState(roomId, userId)
     const id = generateId()
@@ -454,7 +495,7 @@ export class GameSessionService {
             modifier: existing,
           })
         }
-        return existing.id
+        return { ok: true, modifierId: existing.id }
       }
       modifiers.push(modifier)
     } else {
@@ -484,7 +525,7 @@ export class GameSessionService {
       })
     }
 
-    return id
+    return { ok: true, modifierId: id }
   }
 
   async removeModifier(roomId: string, userId: string, modifierId: string): Promise<boolean> {

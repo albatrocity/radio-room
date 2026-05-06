@@ -10,6 +10,7 @@ import type { ChatMessage } from "./ChatMessage"
 import type { SystemEventHandlers, ScreenEffectTarget, ScreenEffectName } from "./SystemEventTypes"
 import type { PluginComponentSchema, PluginComponentState } from "./PluginComponent"
 import type {
+  ApplyModifierResult,
   GameAttributeName,
   GameLeaderboardEntry,
   GameSession,
@@ -334,6 +335,8 @@ export interface PluginAPI {
     roomId: string,
     metadataTrackId: string,
     delta: number,
+    /** When set (e.g. item user), included in defense / audit flows. */
+    actorUserId?: string,
   ): Promise<{ success: true } | { success: false; message: string }>
 
   /**
@@ -486,11 +489,18 @@ export interface GameSessionPluginAPI {
   setScore(userId: string, attribute: GameAttributeName, value: number, reason?: string): Promise<number>
 
   // ---------- Modifiers --------------------------------------------------
-  /** Apply a modifier to a user. Returns the assigned modifier id. */
-  applyModifier(userId: string, modifier: Omit<GameStateModifier, "id" | "source">): Promise<string>
+  /**
+   * Apply a modifier to a user. On success, returns `modifierId`. Fails when
+   * there is no session or a held defense item blocks the modifier.
+   */
+  applyModifier(
+    userId: string,
+    modifier: Omit<GameStateModifier, "id" | "source">,
+    options?: { actorUserId?: string },
+  ): Promise<ApplyModifierResult>
   /**
    * Convenience wrapper: applies a modifier with `startAt = Date.now()` and
-   * `endAt = startAt + durationMs`. Returns the assigned modifier id.
+   * `endAt = startAt + durationMs`.
    *
    * Special case for `stackBehavior: "stack"`: when the user already has an
    * active modifier of the same `name`, the new instance's `endAt` is extended
@@ -502,7 +512,9 @@ export interface GameSessionPluginAPI {
     userId: string,
     durationMs: number,
     modifier: Omit<GameStateModifier, "id" | "source" | "startAt" | "endAt">,
-  ): Promise<string>
+    /** User who caused the application (e.g. item user), for defense events. */
+    actorUserId?: string,
+  ): Promise<ApplyModifierResult>
   /** Remove a modifier instance. Returns whether it was found and removed. */
   removeModifier(userId: string, modifierId: string): Promise<boolean>
 
@@ -897,13 +909,19 @@ export interface Plugin {
    * @example
    * async onItemUsed(userId, item, definition) {
    *   if (definition.shortId === "speed-potion") {
-   *     await this.context.game.applyModifier(userId, {
+   *     const result = await this.context.game.applyModifier(userId, {
    *       name: "speed_boost",
    *       effects: [{ type: "multiplier", target: "score", value: 2 }],
    *       startAt: Date.now(),
    *       endAt: Date.now() + 60_000,
    *       stackBehavior: "extend",
    *     })
+   *     if (!result.ok) {
+   *       if (result.reason === "defense_blocked") {
+   *         return { success: false, consumed: false, message: `Blocked by ${result.blockingItemName}` }
+   *       }
+   *       return { success: false, consumed: false, message: "No active session." }
+   *     }
    *     return { success: true, consumed: true, message: "Speed boost!" }
    *   }
    *   return { success: false, consumed: false, message: "Unknown item" }

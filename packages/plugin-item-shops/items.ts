@@ -9,6 +9,8 @@ export const SAMPLE_HOLD_SHORT_ID = "sample-hold"
 export const JOKER_PEDAL_SHORT_ID = "joker-pedal"
 export const HUMMUS_VEGGIES_SHORT_ID = "hummus-veggies"
 export const EMPTY_FRIDGE_SHORT_ID = "empty-fridge"
+export const CATERED_MEAL_SHORT_ID = "catered-meal"
+export const WARRANTY_SHORT_ID = "warranty"
 
 /**
  * Master item catalog (prices, rarity, inventory flags). Shop-specific price
@@ -140,7 +142,7 @@ export const ITEM_CATALOG: readonly ItemCatalogEntry[] = [
   {
     definition: {
       shortId: EMPTY_FRIDGE_SHORT_ID,
-      name: "Empty from fridge",
+      name: "Empty Fridge",
       description: "Move any song down 1 position in the queue.",
       stackable: true,
       maxStack: 3,
@@ -148,8 +150,48 @@ export const ITEM_CATALOG: readonly ItemCatalogEntry[] = [
       consumable: true,
       requiresTarget: "queueItem",
       coinValue: 50,
-      icon: "frown",
+      icon: "refrigerator",
       rarity: "rare",
+    },
+  },
+  {
+    definition: {
+      shortId: CATERED_MEAL_SHORT_ID,
+      name: "Catered Meal",
+      description:
+        "Holding this prevents a track of yours from being demoted in the queue one time.",
+      stackable: true,
+      maxStack: 3,
+      tradeable: true,
+      consumable: false,
+      coinValue: 75,
+      icon: "chef-hat",
+      rarity: "rare",
+      defense: {
+        targeting: { intents: ["negative"] },
+        scope: ["queue"],
+      },
+    },
+  },
+  {
+    definition: {
+      shortId: WARRANTY_SHORT_ID,
+      name: "Warranty",
+      description: "Holding this blocks the next attack from other items. Lost on use.",
+      stackable: true,
+      maxStack: 3,
+      tradeable: true,
+      consumable: false,
+      coinValue: 60,
+      icon: "badge-check",
+      rarity: "uncommon",
+      defense: {
+        targeting: {
+          intents: ["negative"],
+          sourcePlugins: ["item-shops"],
+        },
+        scope: ["modifier", "queue"],
+      },
     },
   },
 ]

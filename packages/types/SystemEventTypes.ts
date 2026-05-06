@@ -231,6 +231,32 @@ export type SystemEventHandlers = {
   }) => Promise<void> | void
 
   /**
+   * A held defense item blocked a modifier or queue move. `modifier` is set
+   * when `blockType === "modifier"` (may omit `id` when the modifier was never stored).
+   */
+  GAME_EFFECT_BLOCKED: (data: {
+    roomId: string
+    sessionId: string
+    /** User the action targeted (modifier recipient or queue track owner). */
+    targetUserId: string
+    /** User who initiated the action, when known (e.g. item user). */
+    actorUserId?: string
+    blockType: "modifier" | "queue"
+    modifier?: GameStateModifier
+    queue?: {
+      metadataTrackId: string
+      delta: number
+      intent: "positive" | "negative"
+    }
+    blockedBy: {
+      itemDefinitionId: string
+      itemId: string
+      defenderUserId: string
+      itemName: string
+    }
+  }) => Promise<void> | void
+
+  /**
    * Snapshot of the active session's modifier state for every participant.
    * Emitted to a single socket in response to `GET_ROOM_GAME_STATE`.
    * Used by the client to hydrate per-user effect bars in the listener list;

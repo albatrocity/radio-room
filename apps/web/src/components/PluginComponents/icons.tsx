@@ -20,6 +20,11 @@ import {
   LuWaves,
   LuSalad,
   LuFrown,
+  LuShield,
+  LuAnchor,
+  LuBadgeCheck,
+  LuRefrigerator,
+  LuChefHat,
 } from "react-icons/lu"
 
 // ============================================================================
@@ -48,6 +53,11 @@ export const ICON_MAP: Record<string, React.ComponentType> = {
   laugh: LuLaugh,
   salad: LuSalad,
   frown: LuFrown,
+  shield: LuShield,
+  anchor: LuAnchor,
+  "badge-check": LuBadgeCheck,
+  refrigerator: LuRefrigerator,
+  "chef-hat": LuChefHat,
 }
 
 export function getIcon(iconName: string): React.ComponentType | undefined {

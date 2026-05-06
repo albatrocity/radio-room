@@ -22,6 +22,7 @@ import {
 import systemMessage from "../lib/systemMessage"
 import { queueItemFactory } from "@repo/factories"
 import { AdapterService } from "./AdapterService"
+import { DefenseService } from "./DefenseService"
 import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
 
 function isSameMultiset(a: string[], b: string[]): boolean {
@@ -674,6 +675,7 @@ export class DJService {
     roomId: string,
     metadataTrackId: QueueItem["track"]["id"],
     delta: number,
+    actorUserId?: string,
   ): Promise<{ success: true } | { success: false; message: string }> {
     const guard = await this.requireAppControlledRoom(roomId)
     if (!guard.ok) return guard.error
@@ -686,6 +688,43 @@ export class DJService {
     const index = queue.findIndex((q) => q.track.id === metadataTrackId)
     if (index === -1) {
       return { success: false as const, message: "Track not found in queue" }
+    }
+
+    const queueItem = queue[index]
+    if (queueItem) {
+      const ownerId = queueItem.addedBy?.userId ?? ""
+      const intent = delta > 0 ? ("negative" as const) : ("positive" as const)
+      const defenseSvc = new DefenseService(this.context)
+      const blocked = await defenseSvc.checkQueueDefense(roomId, ownerId, intent)
+      if (blocked) {
+        const sessionId = await defenseSvc.getActiveSessionId(roomId)
+        await defenseSvc.emitEffectBlocked({
+          roomId,
+          sessionId,
+          targetUserId: ownerId,
+          actorUserId,
+          blockType: "queue",
+          queue: { metadataTrackId, delta, intent },
+          blockedBy: blocked,
+        })
+        if (this.context.systemEvents) {
+          const ownerUser = ownerId ? await getUser({ context: this.context, userId: ownerId }) : null
+          const actorUser = actorUserId
+            ? await getUser({ context: this.context, userId: actorUserId })
+            : null
+          const attackerName = actorUser?.username?.trim() || "Someone"
+          const targetName = ownerUser?.username?.trim() || ownerId
+          const actionWord = intent === "negative" ? "demote" : "promote"
+          await this.context.systemEvents.emit(roomId, "MESSAGE_RECEIVED", {
+            roomId,
+            message: systemMessage(
+              `${attackerName} tried to ${actionWord} ${targetName}'s queued track, but ${blocked.itemName} blocked it.`,
+              { type: "alert", status: "warning", title: "Blocked" },
+            ),
+          })
+        }
+        return { success: false as const, message: `Blocked by ${blocked.itemName}` }
+      }
     }
 
     if (queue.length === 0) {

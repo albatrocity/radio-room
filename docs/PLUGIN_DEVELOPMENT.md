@@ -1557,8 +1557,8 @@ this.game.registerAttributes([
 | `registerAttributes(defs)`                     | Registers `PluginAttributeDefinition[]` (fire-and-forget).                                                                                                                               |
 | `addScore(userId, attribute, amount, reason?)` | Adds to an attribute; applies active **multiplier** / **additive** modifiers; returns new value. **Lock** effects block changes.                                                         |
 | `setScore(userId, attribute, value, reason?)`  | Sets absolute value (ignores multiplier/additive on that write path).                                                                                                                    |
-| `applyModifier(userId, modifier)`              | Applies a modifier with your own `startAt` / `endAt` (ms); `source` is set to your plugin name. Omit `id` and `source` from the payload.                                                                               |
-| `applyTimedModifier(userId, durationMs, modifier)` | Same as `applyModifier`, but sets `startAt = Date.now()` and `endAt = startAt + durationMs`. Omit `startAt`, `endAt`, `id`, and `source` from the payload.                                                        |
+| `applyModifier(userId, modifier, options?)`     | Returns `ApplyModifierResult`: on success `{ ok: true, modifierId }`; on failure `{ ok: false, reason: "no_active_session" \| "defense_blocked", blockingItemName? }`. Optional `options.actorUserId` attributes the initiator for defense events. Omit `id` and `source` from `modifier`. |
+| `applyTimedModifier(userId, durationMs, modifier, actorUserId?)` | Same as `applyModifier`, but sets `startAt = Date.now()` and `endAt = startAt + durationMs`. Optional `actorUserId` is forwarded as `applyModifier`’s `actorUserId`.                                                        |
 | `removeModifier(userId, modifierId)`           | Removes one modifier instance.                                                                                                                                                           |
 | `getUserState(userId)`                         | Full `UserGameState` or `null` if no active session.                                                                                                                                     |
 | `getLeaderboard(leaderboardId)`                | Hydrated rows (`GameLeaderboardEntry[]`) for a `LeaderboardConfig.id`.                                                                                                                   |
@@ -1568,6 +1568,8 @@ this.game.registerAttributes([
 ### Inventory API (`this.inventory`)
 
 Items are **defined** by plugins and **stored** by core so any plugin can `giveItem` using another plugin’s `definitionId`.
+
+Optional **`defense`** on `ItemDefinition` enables **passive** blocking of matching modifiers or queue moves while the item is held; each block removes one from stack `quantity` (see `DefenseScope`, `DefenseSpec` in `@repo/types`).
 
 Register definitions in `register()` (ids are built as `"<your-plugin-name>:<shortId>"`):
 
@@ -1598,6 +1600,95 @@ this.inventory.registerItemDefinitions([
 | `getItemDefinition(definitionId)`                               | Async lookup.                                                                                          |
 | `getAllItemDefinitions()`                                       | All definitions registered for the room.                                                               |
 
+### Defense items (passive interception)
+
+Defense items are **held-passive** inventory definitions. They are not "used" to activate; they trigger automatically when a matching incoming action targets the holder (or a track they queued, for queue defenses).
+
+Add a `defense` block on `ItemDefinition`:
+
+```typescript
+this.inventory.registerItemDefinitions([
+  {
+    shortId: "queue-anchor",
+    name: "Queue Anchor",
+    description: "Blocks one negative queue move against a track you queued.",
+    stackable: true,
+    maxStack: 3,
+    tradeable: true,
+    consumable: false, // passive item, not actively used
+    coinValue: 75,
+    defense: {
+      scope: ["queue"],
+      targeting: { intents: ["negative"] }, // demotion
+    },
+  },
+])
+```
+
+#### Defense matching model
+
+- **Scope first**:
+  - `scope: ["modifier"]` protects against `this.game.applyModifier` / `applyTimedModifier`.
+  - `scope: ["queue"]` protects against queue moves (`moveTrackByPosition`).
+- **Queue intent mapping**:
+  - `delta > 0` (demotion) => `intent: "negative"`
+  - `delta < 0` (promotion) => `intent: "positive"`
+- **Modifier matching is whole-modifier**:
+  - If any effect in the incoming modifier matches your per-effect filters (`intents`, `flagNames`), the **entire modifier is blocked**.
+- **Source filters**:
+  - `sourcePlugins`: matches `GameStateModifier.source` (the plugin applying it).
+  - `sourceItemDefinitionIds`: matches `GameStateModifier.itemDefinitionId`.
+- **Priority**:
+  - When multiple held defenses match, the server consumes the first by `acquiredAt` (oldest matching stack first).
+- **Consumption**:
+  - One successful block removes `quantity` by 1 from the matching stack.
+  - This is independent of `consumable`; `consumable` controls active `useItem` behavior, not passive trigger behavior.
+
+#### What plugins receive when blocked
+
+`this.game.applyModifier(...)` and `this.game.applyTimedModifier(...)` return `ApplyModifierResult`:
+
+```typescript
+const applied = await this.game.applyTimedModifier(targetUserId, 60_000, {
+  name: "compressor",
+  effects: [{ type: "flag", name: "shrink", value: true, intent: "negative" }],
+  stackBehavior: "stack",
+})
+
+if (!applied.ok) {
+  if (applied.reason === "defense_blocked") {
+    return { success: false, consumed: false, message: `Blocked by ${applied.blockingItemName}` }
+  }
+  return { success: false, consumed: false, message: "No active session." }
+}
+```
+
+For queue actions, `PluginAPI.moveTrackByPosition(...)` returns `{ success: false, message }` with attacker-facing feedback like `Blocked by <item name>`.
+
+#### Actor attribution
+
+When the initiating user matters (for audits / event payloads), pass the actor:
+
+- `this.game.applyModifier(userId, modifier, { actorUserId })`
+- `this.game.applyTimedModifier(userId, durationMs, modifier, actorUserId)`
+- `this.context.api.moveTrackByPosition(roomId, metadataTrackId, delta, actorUserId)`
+
+For item-triggered effects, this should be the **user using the item** (not the plugin name).
+
+#### Event: `GAME_EFFECT_BLOCKED`
+
+When a defense triggers, the server emits `GAME_EFFECT_BLOCKED` via `SystemEvents` (plugins can subscribe with `this.on("GAME_EFFECT_BLOCKED", ...)`).
+
+Payload summary:
+
+- `roomId`, `sessionId`
+- `targetUserId` (the defended target)
+- `actorUserId?` (initiator, when known)
+- `blockType`: `"modifier"` or `"queue"`
+- `modifier?` (for modifier blocks)
+- `queue?` (`metadataTrackId`, `delta`, `intent`) for queue blocks
+- `blockedBy` (`itemDefinitionId`, `itemId`, `defenderUserId`, `itemName`)
+
 ### Handling item use (`onItemUsed`)
 
 Override on your plugin class when you register consumables or usable items. The server routes `useItem` to the plugin that **owns** the item definition.
@@ -1610,11 +1701,21 @@ async onItemUsed(
   _context?: unknown,
 ): Promise<ItemUseResult> {
   if (definition.shortId === "speed-potion") {
-    await this.game.applyTimedModifier(userId, 60_000, {
+    const result = await this.game.applyTimedModifier(userId, 60_000, {
       name: "speed_boost",
       effects: [{ type: "multiplier", target: "score", value: 2 }],
       stackBehavior: "extend",
     })
+    if (!result.ok) {
+      if (result.reason === "defense_blocked") {
+        return {
+          success: false,
+          consumed: false,
+          message: `Blocked by ${result.blockingItemName}`,
+        }
+      }
+      return { success: false, consumed: false, message: "No active session." }
+    }
     return { success: true, consumed: true, message: "Speed boost!" }
   }
   return { success: false, consumed: false, message: "Unknown item" }

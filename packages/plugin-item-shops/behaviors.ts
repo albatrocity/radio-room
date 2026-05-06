@@ -23,6 +23,8 @@ import {
   JOKER_PEDAL_SHORT_ID,
   HUMMUS_VEGGIES_SHORT_ID,
   EMPTY_FRIDGE_SHORT_ID,
+  CATERED_MEAL_SHORT_ID,
+  WARRANTY_SHORT_ID,
 } from "./items"
 
 /**
@@ -63,12 +65,28 @@ async function applyTargetedTimedModifier(
     return { success: false, consumed: false, message: "That user is not in this room." }
   }
 
-  await game.applyTimedModifier(targetUserId, effectDurationMs, {
-    name: spec.modifierName,
-    effects: spec.effects,
-    stackBehavior: "stack",
-    itemDefinitionId: definition.id,
-  })
+  const applied = await game.applyTimedModifier(
+    targetUserId,
+    effectDurationMs,
+    {
+      name: spec.modifierName,
+      effects: spec.effects,
+      stackBehavior: "stack",
+      itemDefinitionId: definition.id,
+    },
+    userId,
+  )
+
+  if (!applied.ok) {
+    if (applied.reason === "defense_blocked") {
+      return {
+        success: false,
+        consumed: false,
+        message: `Blocked by ${applied.blockingItemName}`,
+      }
+    }
+    return { success: false, consumed: false, message: "Could not apply effect." }
+  }
 
   const [actor] = await context.api.getUsersByIds([userId])
   const [target] = await context.api.getUsersByIds([targetUserId])
@@ -81,6 +99,18 @@ async function applyTargetedTimedModifier(
     `${who} (${definition.name} — ${Math.round(effectDurationMs / 60_000)} min).`,
   )
   return { success: true, consumed: true, message: spec.successMessage }
+}
+
+async function usePassiveDefenseItem(
+  _deps: ItemShopsBehaviorDeps,
+  _userId: string,
+  _definition: ItemDefinition,
+): Promise<ItemUseResult> {
+  return {
+    success: false,
+    consumed: false,
+    message: "This item protects you automatically — keep it in your inventory.",
+  }
 }
 
 async function useScratchedCd(
@@ -214,7 +244,12 @@ async function usePromoteTrack(
     return { success: false, consumed: false, message: "Select a track to promote." }
   }
 
-  const result = await context.api.moveTrackByPosition(context.roomId, targetQueueItemId, -1)
+  const result = await context.api.moveTrackByPosition(
+    context.roomId,
+    targetQueueItemId,
+    -1,
+    userId,
+  )
 
   if (!result.success) {
     return { success: false, consumed: false, message: result.message }
@@ -271,7 +306,7 @@ async function useDemoteTrack(
     return { success: false, consumed: false, message: "Select a track to demote." }
   }
 
-  const result = await context.api.moveTrackByPosition(context.roomId, targetQueueItemId, 1)
+  const result = await context.api.moveTrackByPosition(context.roomId, targetQueueItemId, 1, userId)
 
   if (!result.success) {
     return { success: false, consumed: false, message: result.message }
@@ -295,6 +330,8 @@ async function useDemoteTrack(
  * Registry of `shortId` → use handler. Add new items here and in `items.ts` / `shops.ts`.
  */
 export const ITEM_USE_BEHAVIORS: Record<string, ItemUseHandler> = {
+  [CATERED_MEAL_SHORT_ID]: usePassiveDefenseItem,
+  [WARRANTY_SHORT_ID]: usePassiveDefenseItem,
   [SCRATCHED_CD_SHORT_ID]: useScratchedCd,
   [ANALOG_DELAY_SHORT_ID]: useAnalogDelay,
   [COMPRESSOR_SHORT_ID]: useCompressor,

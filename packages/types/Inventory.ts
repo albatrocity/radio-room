@@ -12,6 +12,46 @@ import type { ItemRarity } from "./ShoppingSession"
  */
 
 // ============================================================================
+// Defense items (passive, held in inventory)
+// ============================================================================
+
+/**
+ * What incoming actions a defense item can intercept. `queue` uses the same
+ * intent vocabulary as effects: demotion (delta &gt; 0) is `negative`, promotion
+ * (delta &lt; 0) is `positive`.
+ */
+export type DefenseScope = "modifier" | "queue"
+
+/**
+ * Specifies what a defense item blocks. Constraints are AND-combined where
+ * applicable; entire modifiers are blocked if any effect matches (when
+ * per-effect filters are present). Enforced in `DefenseService` on the server.
+ */
+export interface DefenseTargeting {
+  /** Block effects with these flag names (e.g. chat text flags). */
+  flagNames?: string[]
+  /** Block effects with these intents, or queue moves of this intent. */
+  intents?: ("positive" | "negative" | "neutral")[]
+  /** Block modifiers whose `GameStateModifier.source` is in this list. */
+  sourcePlugins?: string[]
+  /** Block modifiers whose `itemDefinitionId` is in this list. */
+  sourceItemDefinitionIds?: string[]
+  /** Block any modifier (ignore per-effect targeting). */
+  blockAllModifiers?: boolean
+}
+
+export interface DefenseSpec {
+  targeting: DefenseTargeting
+  /** Which subsystems this item defends in. */
+  scope: DefenseScope[]
+  /**
+   * Documented “charges” per design; consumption is implemented via stack
+   * `quantity` (one block removes one from the stack).
+   */
+  charges?: number
+}
+
+// ============================================================================
 // Item definitions
 // ============================================================================
 
@@ -54,6 +94,11 @@ export interface ItemDefinition {
    * When `"self"` or omitted, the effect applies to the inventory owner only.
    */
   requiresTarget?: "self" | "user" | "queueItem"
+  /**
+   * When set, holding this item passively blocks matching modifiers / queue
+   * moves; one block consumes one from stack `quantity`.
+   */
+  defense?: DefenseSpec
 }
 
 // ============================================================================

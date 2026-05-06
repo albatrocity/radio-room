@@ -1,5 +1,6 @@
 import {
   AppContext,
+  ApplyModifierResult,
   GameAttributeName,
   GameLeaderboardEntry,
   GameSession,
@@ -97,16 +98,24 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
   async applyModifier(
     userId: string,
     modifier: Omit<GameStateModifier, "id" | "source">,
-  ): Promise<string> {
-    if (!this.service) return ""
-    return this.service.applyModifier(this.roomId, userId, this.pluginName, modifier)
+    options?: { actorUserId?: string },
+  ): Promise<ApplyModifierResult> {
+    if (!this.service) return { ok: false, reason: "no_active_session" }
+    return this.service.applyModifier(
+      this.roomId,
+      userId,
+      this.pluginName,
+      modifier,
+      options?.actorUserId,
+    )
   }
 
   async applyTimedModifier(
     userId: string,
     durationMs: number,
     modifier: Omit<GameStateModifier, "id" | "source" | "startAt" | "endAt">,
-  ): Promise<string> {
+    actorUserId?: string,
+  ): Promise<ApplyModifierResult> {
     const now = Date.now()
     let endAt = now + durationMs
 
@@ -124,11 +133,15 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
       }
     }
 
-    return this.applyModifier(userId, {
-      ...modifier,
-      startAt: now,
-      endAt,
-    })
+    return this.applyModifier(
+      userId,
+      {
+        ...modifier,
+        startAt: now,
+        endAt,
+      },
+      { actorUserId },
+    )
   }
 
   async removeModifier(userId: string, modifierId: string): Promise<boolean> {

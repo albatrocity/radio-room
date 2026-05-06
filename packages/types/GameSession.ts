@@ -87,6 +87,14 @@ export type GameStateEffectWithMeta = GameStateEffect & {
 /** How a newly-applied modifier of the same `name` interacts with existing instances. */
 export type ModifierStackBehavior = "replace" | "stack" | "extend"
 
+/**
+ * Result of `GameSessionService.applyModifier` / `GameSessionPluginAPI.applyModifier`.
+ */
+export type ApplyModifierResult =
+  | { ok: true; modifierId: string }
+  | { ok: false; reason: "no_active_session" }
+  | { ok: false; reason: "defense_blocked"; blockingItemName: string }
+
 export interface GameStateModifier {
   /** Unique instance ID assigned by `GameSessionService`. */
   id: string

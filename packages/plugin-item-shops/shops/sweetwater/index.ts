@@ -6,6 +6,7 @@ import {
   GATE_SHORT_ID,
   JOKER_PEDAL_SHORT_ID,
   SAMPLE_HOLD_SHORT_ID,
+  WARRANTY_SHORT_ID,
 } from "../../items"
 import { formatSweetwaterMessage, pickRandomSweetwaterMessage } from "./messages"
 
@@ -38,11 +39,7 @@ async function deliverSweetwaterFollowUpAndReschedule(
   }
 
   const template = pickRandomSweetwaterMessage()
-  const content = formatSweetwaterMessage(
-    template,
-    state.username,
-    state.lastPurchasedItemName,
-  )
+  const content = formatSweetwaterMessage(template, state.username, state.lastPurchasedItemName)
   await ctx.sendSystemMessage(
     content,
     { type: "alert", status: "info", title: "Message from your Sweetwater Rep" },
@@ -90,6 +87,7 @@ export const SWEETWATER_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: GATE_SHORT_ID, coinValue: 25 },
     { shortId: JOKER_PEDAL_SHORT_ID, coinValue: 28 },
     { shortId: SAMPLE_HOLD_SHORT_ID, coinValue: 30 },
+    { shortId: WARRANTY_SHORT_ID, coinValue: 60 },
   ],
   listedBuybackRate: 0.5,
   unlistedBuybackRate: 0.25,
