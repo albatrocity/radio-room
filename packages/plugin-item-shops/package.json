@@ -17,6 +17,7 @@
   "license": "ISC",
   "devDependencies": {
     "@repo/eslint-config": "*",
+    "@repo/factories": "*",
     "@repo/typescript-config": "*",
     "vitest": "^4.0.13"
   },
