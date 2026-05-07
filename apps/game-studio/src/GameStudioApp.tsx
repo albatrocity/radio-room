@@ -104,16 +104,6 @@ export function GameStudioApp() {
               })()
             }
             onOpenItemDrawer={() => setDrawerOpen(true)}
-            onClearSandbox={() => {
-              if (
-                window.confirm(
-                  "Clear the sandbox? This removes all players, sessions, items, chat, and events in this tab (no reload).",
-                )
-              ) {
-                studioActions.clearStudioSandbox()
-                toaster.create({ title: "Sandbox cleared", type: "success" })
-              }
-            }}
             onResetSandbox={() => {
               if (
                 window.confirm(

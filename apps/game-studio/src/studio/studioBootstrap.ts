@@ -1,6 +1,11 @@
 import type { AppContext, Plugin, PluginContext } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
-import { createItemShopsPlugin, defaultItemShopsConfig, SHOP_CATALOG } from "@repo/plugin-item-shops"
+import {
+  createItemShopsPlugin,
+  defaultItemShopsConfig,
+  ITEM_CATALOG,
+  SHOP_CATALOG,
+} from "@repo/plugin-item-shops"
 import { createMockPluginStorage } from "./mockPluginStorage"
 import { MockPluginLifecycle } from "./mockLifecycle"
 import { MockStudioGameSessionApi } from "./mockStudioGameApi"
@@ -36,25 +41,6 @@ export function enforceStudioItemShopsPluginDefaults(room: StudioRoom): void {
     assignShopOnJoin: true,
     enabledShopIds,
   })
-}
-
-/** Empty sandbox room shape (matches bootstrap before hydrate). */
-export function resetStudioRoomToInitialSandbox(room: StudioRoom): void {
-  room.users = new Map()
-  room.pluginConfigs = new Map([[ITEM_SHOPS_PLUGIN_NAME, { ...ITEM_SHOPS_STUDIO_CONFIG }]])
-  room.pluginStores = new Map()
-  room.ensurePluginStore(ITEM_SHOPS_PLUGIN_NAME)
-  room.activeSession = null
-  room.participants = new Set()
-  room.userStates = new Map()
-  room.definitions = new Map()
-  room.inventories = new Map()
-  room.leaderboardScores = new Map()
-  room.queue = []
-  room.chat = []
-  room.events = []
-  room.reactions = new Map()
-  room.notify()
 }
 
 export type StudioBootstrap = {
@@ -93,6 +79,8 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
   const pluginName = ITEM_SHOPS_PLUGIN_NAME
   room.setPluginConfig(pluginName, { ...ITEM_SHOPS_STUDIO_CONFIG })
 
+  tryHydrateRoom(room)
+
   const itemShopsPlugin = createItemShopsPlugin({ enabled: true, assignShopOnJoin: true })
 
   const pluginApi = new MockStudioPluginApi(room, lifecycle, pluginName)
@@ -101,7 +89,7 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
 
   registry.register(room.roomId, pluginName, itemShopsPlugin)
 
-  const storage = createMockPluginStorage(room.ensurePluginStore(pluginName), () => room.notify())
+  const storage = createMockPluginStorage(room, pluginName, () => room.notify())
 
   const ctx: PluginContext = {
     roomId: room.roomId,
@@ -129,7 +117,7 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
 
   await itemShopsPlugin.register(ctx)
 
-  tryHydrateRoom(room)
+  ctx.inventory.registerItemDefinitions(ITEM_CATALOG.map((e) => e.definition))
   enforceStudioItemShopsPluginDefaults(room)
   attachStudioPersistence(room)
 

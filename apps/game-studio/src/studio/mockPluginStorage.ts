@@ -1,5 +1,5 @@
 import type { PluginStorage } from "@repo/types"
-import type { PluginKvStore } from "./studioRoom"
+import type { PluginKvStore, StudioRoom } from "./studioRoom"
 
 function ensureHash(store: PluginKvStore, key: string): Map<string, string> {
   let h = store.hashes.get(key)
@@ -10,20 +10,26 @@ function ensureHash(store: PluginKvStore, key: string): Map<string, string> {
   return h
 }
 
+/**
+ * Resolves `room.ensurePluginStore(pluginName)` on each call so hydration / reset can replace
+ * `room.pluginStores` without orphaning the plugin's Redis-shaped mock.
+ */
 export function createMockPluginStorage(
-  store: PluginKvStore,
+  room: StudioRoom,
+  pluginName: string,
   onMutate?: () => void,
 ): PluginStorage & {
   cleanup(): Promise<void>
 } {
   const touch = () => onMutate?.()
+  const store = (): PluginKvStore => room.ensurePluginStore(pluginName)
 
   return {
     async get(key: string): Promise<string | null> {
-      return store.kv.get(key) ?? null
+      return store().kv.get(key) ?? null
     },
     async set(key: string, value: string): Promise<void> {
-      store.kv.set(key, value)
+      store().kv.set(key, value)
       touch()
     },
     async inc(): Promise<number> {
@@ -33,16 +39,19 @@ export function createMockPluginStorage(
       throw new Error("MockPluginStorage.dec not implemented")
     },
     async del(key: string): Promise<void> {
-      store.kv.delete(key)
-      store.hashes.delete(key)
-      store.zsets.delete(key)
+      const s = store()
+      s.kv.delete(key)
+      s.hashes.delete(key)
+      s.zsets.delete(key)
       touch()
     },
     async exists(key: string): Promise<boolean> {
-      return store.kv.has(key) || store.hashes.has(key) || store.zsets.has(key)
+      const s = store()
+      return s.kv.has(key) || s.hashes.has(key) || s.zsets.has(key)
     },
     async mget(keys: string[]): Promise<(string | null)[]> {
-      return keys.map((k) => store.kv.get(k) ?? null)
+      const s = store()
+      return keys.map((k) => s.kv.get(k) ?? null)
     },
     async pipeline(): Promise<Array<string | null | boolean | (string | null)[]>> {
       return []
@@ -76,28 +85,29 @@ export function createMockPluginStorage(
       return 0
     },
     async hget(key: string, field: string): Promise<string | null> {
-      return ensureHash(store, key).get(field) ?? null
+      return ensureHash(store(), key).get(field) ?? null
     },
     async hset(key: string, field: string, value: string): Promise<void> {
-      ensureHash(store, key).set(field, value)
+      ensureHash(store(), key).set(field, value)
       touch()
     },
     async hgetall(key: string): Promise<Record<string, string>> {
-      const h = store.hashes.get(key)
+      const h = store().hashes.get(key)
       if (!h) return {}
       return Object.fromEntries(h)
     },
     async hsetnx(key: string, field: string, value: string): Promise<boolean> {
-      const h = ensureHash(store, key)
+      const h = ensureHash(store(), key)
       if (h.has(field)) return false
       h.set(field, value)
       touch()
       return true
     },
     async cleanup(): Promise<void> {
-      store.kv.clear()
-      store.hashes.clear()
-      store.zsets.clear()
+      const s = store()
+      s.kv.clear()
+      s.hashes.clear()
+      s.zsets.clear()
       touch()
     },
   }

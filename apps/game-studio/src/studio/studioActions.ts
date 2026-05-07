@@ -8,13 +8,7 @@ import type {
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import { SHOP_CATALOG, ITEM_CATALOG } from "@repo/plugin-item-shops"
 import { newId } from "./id"
-import { enforceStudioItemShopsPluginDefaults, resetStudioRoomToInitialSandbox } from "./studioBootstrap"
-import {
-  attachStudioPersistence,
-  clearPersistedSnapshot,
-  detachStudioPersistence,
-  persistStudioRoom,
-} from "./studioPersistence"
+import { clearPersistedSnapshot, detachStudioPersistence } from "./studioPersistence"
 import { getStudio } from "./studioEnvironment"
 import { readShoppingInstance } from "./studioShoppingRead"
 
@@ -119,13 +113,27 @@ export async function giveItemDirect(
   userId: string,
   shortId: string,
 ): Promise<{ success: boolean; message?: string }> {
-  const { itemShopsContext } = getStudio()
+  const { itemShopsContext, room } = getStudio()
   const defId = `${ITEM_SHOPS_PLUGIN_NAME}:${shortId}`
+
+  if (!room.activeSession) {
+    return {
+      success: false,
+      message: "Start a game session first (toolbar → Start game).",
+    }
+  }
+  if (!room.getDefinition(defId)) {
+    return {
+      success: false,
+      message: `Unknown item "${shortId}". Item definitions may be missing — reload the page or use Reset if this persists.`,
+    }
+  }
+
   const row = await itemShopsContext.inventory.giveItem(userId, defId, 1, undefined, "plugin")
   if (!row) {
     return {
       success: false,
-      message: "Could not grant item (needs active session / inventory space / unknown definition).",
+      message: "Could not grant item (inventory may be full — end session or free a slot).",
     }
   }
   return { success: true }
@@ -207,17 +215,6 @@ export function resetStudioSandbox(): void {
   detachStudioPersistence(room)
   clearPersistedSnapshot()
   window.location.reload()
-}
-
-/** Wipe all sandbox state in this tab without reloading. */
-export function clearStudioSandbox(): void {
-  const { room } = getStudio()
-  detachStudioPersistence(room)
-  clearPersistedSnapshot()
-  resetStudioRoomToInitialSandbox(room)
-  enforceStudioItemShopsPluginDefaults(room)
-  persistStudioRoom(room)
-  attachStudioPersistence(room)
 }
 
 export async function reactToNowPlaying(userId: string, emoji: string): Promise<void> {

@@ -2,7 +2,6 @@ import type {
   ChatMessage,
   GameSession,
   InventoryItem,
-  ItemDefinition,
   QueueItem,
   Reaction,
   User,
@@ -10,8 +9,8 @@ import type {
 } from "@repo/types"
 import type { PluginKvStore, StudioEventEntry, StudioRoom } from "./studioRoom"
 
-/** Bump when persisted shape changes (migrate in load). */
-export const STUDIO_SNAPSHOT_VERSION = 1 as const
+/** Bump when persisted shape changes (migrate in load). v2 drops definitions (always from plugin code). */
+export const STUDIO_SNAPSHOT_VERSION = 2 as const
 
 export const STUDIO_STORAGE_KEY = "radio-room-game-studio-sandbox"
 
@@ -19,7 +18,7 @@ export const STUDIO_STORAGE_KEY = "radio-room-game-studio-sandbox"
 const MAX_PERSIST_CHAT = 300
 const MAX_PERSIST_EVENTS = 500
 
-export type PersistedSnapshotV1 = {
+export type PersistedSnapshotV2 = {
   v: typeof STUDIO_SNAPSHOT_VERSION
   users: [string, User][]
   pluginConfigs: [string, Record<string, unknown>][]
@@ -27,7 +26,6 @@ export type PersistedSnapshotV1 = {
   activeSession: GameSession | null
   participants: string[]
   userStates: [string, UserGameState][]
-  definitions: [string, ItemDefinition][]
   inventories: [string, InventoryItem[]][]
   leaderboardScores: [string, [string, number][]][]
   queue: QueueItem[]
@@ -74,7 +72,7 @@ function revivePluginStores(raw: SerializedPluginStores): Map<string, PluginKvSt
   return stores
 }
 
-export function snapshotRoom(room: StudioRoom): PersistedSnapshotV1 {
+export function snapshotRoom(room: StudioRoom): PersistedSnapshotV2 {
   return {
     v: STUDIO_SNAPSHOT_VERSION,
     users: [...room.users.entries()],
@@ -83,7 +81,6 @@ export function snapshotRoom(room: StudioRoom): PersistedSnapshotV1 {
     activeSession: room.activeSession,
     participants: [...room.participants],
     userStates: [...room.userStates.entries()],
-    definitions: [...room.definitions.entries()],
     inventories: [...room.inventories.entries()],
     leaderboardScores: [...room.leaderboardScores.entries()].map(([lbId, m]) => [
       lbId,
@@ -96,14 +93,13 @@ export function snapshotRoom(room: StudioRoom): PersistedSnapshotV1 {
   }
 }
 
-export function applySnapshotToRoom(room: StudioRoom, snap: PersistedSnapshotV1): void {
+export function applySnapshotToRoom(room: StudioRoom, snap: PersistedSnapshotV2): void {
   room.users = new Map(snap.users)
   room.pluginConfigs = new Map(snap.pluginConfigs)
   room.pluginStores = revivePluginStores(snap.pluginStores)
   room.activeSession = snap.activeSession
   room.participants = new Set(snap.participants)
   room.userStates = new Map(snap.userStates)
-  room.definitions = new Map(snap.definitions)
   room.inventories = new Map(snap.inventories)
   room.leaderboardScores = new Map(
     snap.leaderboardScores.map(([lbId, rows]) => [lbId, new Map(rows)]),
@@ -121,7 +117,7 @@ export function persistStudioRoom(room: StudioRoom): void {
   localStorage.setItem(STUDIO_STORAGE_KEY, json)
 }
 
-export function loadSnapshotFromStorage(): PersistedSnapshotV1 | null {
+export function loadSnapshotFromStorage(): PersistedSnapshotV2 | null {
   try {
     const raw = localStorage.getItem(STUDIO_STORAGE_KEY)
     if (!raw) return null
@@ -129,7 +125,7 @@ export function loadSnapshotFromStorage(): PersistedSnapshotV1 | null {
     if (!parsed || typeof parsed !== "object") return null
     const v = (parsed as { v?: number }).v
     if (v !== STUDIO_SNAPSHOT_VERSION) return null
-    return parsed as PersistedSnapshotV1
+    return parsed as PersistedSnapshotV2
   } catch {
     return null
   }

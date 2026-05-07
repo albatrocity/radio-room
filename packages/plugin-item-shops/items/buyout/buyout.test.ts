@@ -79,4 +79,45 @@ describe("buyout", () => {
       expect.stringMatching(/pat used Buyout and liquidated 3 item\(s\) for 300 coins/),
     )
   })
+
+  test("resolves bare definitionId when inventory rows omit sourcePlugin", async () => {
+    const deps = createMockDeps()
+    const inv = {
+      items: [{ itemId: "stack-1", definitionId: "compressor-pedal", quantity: 2 }],
+      userId: "u1",
+      maxSlots: 20,
+    }
+    vi.mocked(deps.context.inventory.getInventory).mockResolvedValue(inv as never)
+    vi.mocked(deps.context.inventory.getItemDefinition).mockImplementation(async (id: string) => {
+      if (id !== "item-shops:compressor-pedal") return null
+      return {
+        id: "item-shops:compressor-pedal",
+        shortId: "compressor-pedal",
+        sourcePlugin: "item-shops",
+        name: "Compressor",
+        description: "",
+        stackable: true,
+        maxStack: 3,
+        tradeable: true,
+        consumable: true,
+        coinValue: 10,
+      } as never
+    })
+    vi.mocked(deps.context.inventory.removeItem).mockResolvedValue(true)
+
+    const user = userFactory.build({ userId: "u1", username: "alex" })
+    stubRoomUsers(deps, [user])
+
+    const result = await invokeUse(
+      buyout,
+      deps,
+      user.userId,
+      createMockDefinition("buyout", { id: "item-shops:buyout" }),
+    )
+
+    expect(result.success).toBe(true)
+    expect(result.message).toMatch(/Sold 2 item\(s\) for 40 coins/)
+    expect(deps.context.inventory.removeItem).toHaveBeenCalledWith("u1", "stack-1", 2)
+    expect(deps.game.addScore).toHaveBeenCalledWith("u1", "coin", 40, "item-shops:buyout")
+  })
 })
