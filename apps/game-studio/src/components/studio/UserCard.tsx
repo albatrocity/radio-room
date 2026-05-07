@@ -313,13 +313,18 @@ export function UserCard({ room, userId, now }: UserCardProps) {
 
               return (
                 <HStack key={row.itemId} justify="space-between" align="flex-start" wrap="wrap">
-                  <Box>
+                  <Box maxW="full">
                     <Text fontWeight="medium">
                       {label}
                       {row.quantity > 1 ? ` ×${row.quantity}` : ""}
                     </Text>
+                    {def?.description ? (
+                      <Text fontSize="xs" color="fg.muted" mt="1">
+                        {def.description}
+                      </Text>
+                    ) : null}
                     {rt ? (
-                      <Text fontSize="xs" color="fg.muted">
+                      <Text fontSize="xs" color="fg.muted" mt={def?.description ? "1" : undefined}>
                         Requires: {rt}
                       </Text>
                     ) : null}

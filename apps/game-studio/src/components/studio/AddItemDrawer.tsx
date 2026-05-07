@@ -118,9 +118,19 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
                               typeof available === "string" ? available : available.shortId
                             const cat = catalogMap.get(shortId)
                             const label = cat?.definition.name ?? shortId
+                            const desc = cat?.definition.description
                             return (
-                              <HStack key={shortId} justify="space-between">
-                                <Text fontSize="sm">{label}</Text>
+                              <HStack key={shortId} justify="space-between" align="flex-start">
+                                <Stack gap="1" flex="1" minW="0">
+                                  <Text fontSize="sm" fontWeight="medium">
+                                    {label}
+                                  </Text>
+                                  {desc ? (
+                                    <Text fontSize="xs" color="fg.muted">
+                                      {desc}
+                                    </Text>
+                                  ) : null}
+                                </Stack>
                                 <Button
                                   size="xs"
                                   variant="surface"
@@ -193,9 +203,14 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
                           <Text fontSize="sm">No offers generated.</Text>
                         ) : (
                           shoppingInstance.offers.map((offer) => (
-                            <HStack key={`${offer.offerId}-${offer.shortId}`} justify="space-between">
-                              <Stack gap="0" align="flex-start">
+                            <HStack key={`${offer.offerId}-${offer.shortId}`} justify="space-between" align="flex-start">
+                              <Stack gap="1" align="flex-start" flex="1" minW="0">
                                 <Text fontWeight="medium">{offer.name}</Text>
+                                {offer.description ? (
+                                  <Text fontSize="xs" color="fg.muted">
+                                    {offer.description}
+                                  </Text>
+                                ) : null}
                                 <Text fontSize="xs" color="fg.muted">
                                   {offer.price} coins · {offer.available ? "available" : "sold"}
                                 </Text>
