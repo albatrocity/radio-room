@@ -1,8 +1,4 @@
-import type {
-  GameStateEffectWithMeta,
-  ItemDefinition,
-  ItemUseResult,
-} from "@repo/types"
+import type { GameStateEffectWithMeta, ItemDefinition, ItemUseResult } from "@repo/types"
 import type { ItemShopsBehaviorDeps, ItemUseHandler } from "./types"
 
 export type TargetedTimedModifierSpec = {
@@ -49,8 +45,8 @@ export async function applyTargetedTimedModifier(
     if (applied.reason === "defense_blocked") {
       return {
         success: false,
-        consumed: false,
-        message: `Blocked by ${applied.blockingItemName}`,
+        consumed: true,
+        message: `Blocked by ${applied.blockingItemName}. Your item was still lost.`,
       }
     }
     return { success: false, consumed: false, message: "Could not apply effect." }
@@ -76,7 +72,7 @@ export async function usePassiveDefenseItem(
 ): Promise<ItemUseResult> {
   return {
     success: false,
-    consumed: false,
+    consumed: true,
     message: "This item protects you automatically — keep it in your inventory.",
   }
 }
