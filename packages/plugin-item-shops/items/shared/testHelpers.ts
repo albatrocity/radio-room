@@ -52,7 +52,15 @@ export function createMockGame(): GameSessionPluginAPI {
 export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): ItemShopsBehaviorDeps {
   return {
     pluginName: "item-shops",
-    context: { roomId: "room-1", api: createMockPluginAPI() } as PluginContext,
+    context: {
+      roomId: "room-1",
+      api: createMockPluginAPI(),
+      inventory: {
+        getInventory: vi.fn().mockResolvedValue({ userId: "", items: [], maxSlots: 20 }),
+        getItemDefinition: vi.fn().mockResolvedValue(null),
+        removeItem: vi.fn().mockResolvedValue(true),
+      },
+    } as PluginContext,
     game: createMockGame(),
     effectDurationMs: 600_000,
     ...overrides,

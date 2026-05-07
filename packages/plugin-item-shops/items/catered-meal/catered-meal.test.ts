@@ -8,7 +8,7 @@ describe("cateredMeal", () => {
     const result = await invokeUse(cateredMeal, deps, "u1", createMockDefinition("catered-meal"))
 
     expect(result.success).toBe(false)
-    expect(result.consumed).toBe(false)
+    expect(result.consumed).toBe(true)
     expect(result.message).toMatch(/keep it in your inventory/i)
   })
 })

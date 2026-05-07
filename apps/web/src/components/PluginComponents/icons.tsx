@@ -6,6 +6,7 @@ import {
   LuCoins,
   LuDisc2,
   LuExpand,
+  LuHandCoins,
   LuHandPlatter,
   LuHeart,
   LuLaugh,
@@ -60,6 +61,7 @@ export const ICON_MAP: Record<string, React.ComponentType> = {
   refrigerator: LuRefrigerator,
   "chef-hat": LuChefHat,
   "hand-platter": LuHandPlatter,
+  "hand-coins": LuHandCoins,
 }
 
 export function getIcon(iconName: string): React.ComponentType | undefined {

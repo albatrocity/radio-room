@@ -46,7 +46,7 @@ export async function applyTargetedTimedModifier(
       return {
         success: false,
         consumed: true,
-        message: `Blocked by ${applied.blockingItemName}. Your item was still lost.`,
+        message: `Blocked by ${applied.blockingItemName}. Your item was lost with use.`,
       }
     }
     return { success: false, consumed: false, message: "Could not apply effect." }

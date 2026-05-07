@@ -1,6 +1,7 @@
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 import { analogDelayPedal } from "./analog-delay-pedal"
 import { boostPedal } from "./boost-pedal"
+import { buyout } from "./buyout"
 import { cateredMeal } from "./catered-meal"
 import { compressorPedal } from "./compressor-pedal"
 import { emptyFridge } from "./empty-fridge"
@@ -28,6 +29,7 @@ export const items = {
   emptyFridge,
   cateredMeal,
   warranty,
+  buyout,
 } as const
 
 /**
