@@ -77,12 +77,20 @@ export function GameStudioApp() {
             }
             onStartShopping={() =>
               void (async () => {
-                const res = await studioActions.startShoppingSession()
-                toaster.create({
-                  title: res.success ? "Shopping round started" : "Shopping failed",
-                  description: res.message,
-                  type: res.success ? "success" : "error",
-                })
+                try {
+                  const res = await studioActions.startShoppingSession()
+                  toaster.create({
+                    title: res.success ? "Shopping round started" : "Shopping failed",
+                    description: res.message,
+                    type: res.success ? "success" : "error",
+                  })
+                } catch (e) {
+                  toaster.create({
+                    title: "Shopping failed",
+                    description: String(e),
+                    type: "error",
+                  })
+                }
               })()
             }
             onEndShopping={() =>
@@ -96,6 +104,16 @@ export function GameStudioApp() {
               })()
             }
             onOpenItemDrawer={() => setDrawerOpen(true)}
+            onClearSandbox={() => {
+              if (
+                window.confirm(
+                  "Clear the sandbox? This removes all players, sessions, items, chat, and events in this tab (no reload).",
+                )
+              ) {
+                studioActions.clearStudioSandbox()
+                toaster.create({ title: "Sandbox cleared", type: "success" })
+              }
+            }}
             onResetSandbox={() => {
               if (
                 window.confirm(

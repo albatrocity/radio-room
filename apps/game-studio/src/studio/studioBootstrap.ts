@@ -1,6 +1,6 @@
 import type { AppContext, Plugin, PluginContext } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
-import { createItemShopsPlugin, defaultItemShopsConfig } from "@repo/plugin-item-shops"
+import { createItemShopsPlugin, defaultItemShopsConfig, SHOP_CATALOG } from "@repo/plugin-item-shops"
 import { createMockPluginStorage } from "./mockPluginStorage"
 import { MockPluginLifecycle } from "./mockLifecycle"
 import { MockStudioGameSessionApi } from "./mockStudioGameApi"
@@ -9,6 +9,53 @@ import { MockStudioPluginApi } from "./mockStudioPluginApi"
 import { StudioPluginRegistry } from "./studioPluginRegistry"
 import { attachStudioPersistence, tryHydrateRoom } from "./studioPersistence"
 import { StudioRoom } from "./studioRoom"
+
+const ITEM_SHOPS_STUDIO_CONFIG = {
+  ...defaultItemShopsConfig,
+  enabled: true,
+} as const
+
+/**
+ * Snapshots from older sessions may carry empty `enabledShopIds` or `assignShopOnJoin: false`,
+ * which makes shopping rounds “active” but leaves per-user shop instances empty.
+ */
+export function enforceStudioItemShopsPluginDefaults(room: StudioRoom): void {
+  const stored = room.getPluginConfig(ITEM_SHOPS_PLUGIN_NAME) ?? {}
+  const storedIds = Array.isArray(stored.enabledShopIds)
+    ? stored.enabledShopIds.filter((id): id is string => typeof id === "string")
+    : []
+  const knownIds = new Set(SHOP_CATALOG.map((s) => s.shopId))
+  const validStored = storedIds.filter((id) => knownIds.has(id))
+  const enabledShopIds =
+    validStored.length > 0 ? validStored : [...SHOP_CATALOG.map((s) => s.shopId)]
+
+  room.setPluginConfig(ITEM_SHOPS_PLUGIN_NAME, {
+    ...defaultItemShopsConfig,
+    ...stored,
+    enabled: true,
+    assignShopOnJoin: true,
+    enabledShopIds,
+  })
+}
+
+/** Empty sandbox room shape (matches bootstrap before hydrate). */
+export function resetStudioRoomToInitialSandbox(room: StudioRoom): void {
+  room.users = new Map()
+  room.pluginConfigs = new Map([[ITEM_SHOPS_PLUGIN_NAME, { ...ITEM_SHOPS_STUDIO_CONFIG }]])
+  room.pluginStores = new Map()
+  room.ensurePluginStore(ITEM_SHOPS_PLUGIN_NAME)
+  room.activeSession = null
+  room.participants = new Set()
+  room.userStates = new Map()
+  room.definitions = new Map()
+  room.inventories = new Map()
+  room.leaderboardScores = new Map()
+  room.queue = []
+  room.chat = []
+  room.events = []
+  room.reactions = new Map()
+  room.notify()
+}
 
 export type StudioBootstrap = {
   room: StudioRoom
@@ -44,10 +91,7 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
   const registry = new StudioPluginRegistry()
 
   const pluginName = ITEM_SHOPS_PLUGIN_NAME
-  room.setPluginConfig(pluginName, {
-    ...defaultItemShopsConfig,
-    enabled: true,
-  })
+  room.setPluginConfig(pluginName, { ...ITEM_SHOPS_STUDIO_CONFIG })
 
   const itemShopsPlugin = createItemShopsPlugin({ enabled: true, assignShopOnJoin: true })
 
@@ -86,6 +130,7 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
   await itemShopsPlugin.register(ctx)
 
   tryHydrateRoom(room)
+  enforceStudioItemShopsPluginDefaults(room)
   attachStudioPersistence(room)
 
   return { room, lifecycle, registry, itemShopsPlugin, itemShopsContext: ctx }

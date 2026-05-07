@@ -16,10 +16,10 @@ You only need the monorepo root—do not run `npm install` only inside `apps/gam
 
 Use a current **LTS** Node.js (the repo pins compatible versions via npm workspaces). We recommend installing Node through a version manager:
 
-| Platform | Tool | Install |
-|----------|------|---------|
-| macOS / Linux | **[nvm](https://github.com/nvm-sh/nvm)** | Follow the [nvm install instructions](https://github.com/nvm-sh/nvm#installing-and-updating), then run the commands below in Terminal. |
-| Windows | **[nvm-windows](https://github.com/coreybutler/nvm-windows)** | Install from the [releases page](https://github.com/coreybutler/nvm-windows/releases), then open **PowerShell** or **cmd** (elevated if the installer requires it). |
+| Platform      | Tool                                                          | Install                                                                                                                                                             |
+| ------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS / Linux | **[nvm](https://github.com/nvm-sh/nvm)**                      | Follow the [nvm install instructions](https://github.com/nvm-sh/nvm#installing-and-updating), then run the commands below in Terminal.                              |
+| Windows       | **[nvm-windows](https://github.com/coreybutler/nvm-windows)** | Install from the [releases page](https://github.com/coreybutler/nvm-windows/releases), then open **PowerShell** or **cmd** (elevated if the installer requires it). |
 
 **macOS / Linux (nvm)** — install and select LTS:
 
@@ -80,7 +80,7 @@ From the **repository root**:
 make game-studio
 ```
 
-Then open **http://localhost:8002** in your browser.
+Then open **http://localhost:8005** in your browser.
 
 **Windows without `make`:** `make` is not installed by default. Use the same script npm uses under the hood:
 
@@ -94,11 +94,11 @@ If you want `make` on Windows, you can install it (e.g. [Chocolatey](https://cho
 
 ## Useful commands (from repository root)
 
-| Command | Purpose |
-|--------|--------|
-| `make game-studio` or `npm run dev -w game-studio` | Dev server (port **8002**) |
-| `npm run build -w game-studio` | Production build into `apps/game-studio/dist` |
-| `npm run check-types -w game-studio` | Typecheck the app |
+| Command                                            | Purpose                                       |
+| -------------------------------------------------- | --------------------------------------------- |
+| `make game-studio` or `npm run dev -w game-studio` | Dev server (port **8005**)                    |
+| `npm run build -w game-studio`                     | Production build into `apps/game-studio/dist` |
+| `npm run check-types -w game-studio`               | Typecheck the app                             |
 
 ---
 

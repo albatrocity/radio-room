@@ -34,16 +34,14 @@ export default defineConfig(({ mode }) => ({
     ],
   },
   server: {
-    port: 8002,
+    port: 8005,
     host: "0.0.0.0",
     fs: {
       allow: [repoRoot],
     },
     watch: {
       ignored: watchWorkspaceLinkedPackages(),
-      ...(process.env.CHOKIDAR_USEPOLLING === "true"
-        ? { usePolling: true, interval: 100 }
-        : {}),
+      ...(process.env.CHOKIDAR_USEPOLLING === "true" ? { usePolling: true, interval: 100 } : {}),
     },
   },
   envPrefix: "VITE_",

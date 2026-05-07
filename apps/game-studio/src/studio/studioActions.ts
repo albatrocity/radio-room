@@ -8,7 +8,15 @@ import type {
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import { SHOP_CATALOG, ITEM_CATALOG } from "@repo/plugin-item-shops"
 import { newId } from "./id"
+import { enforceStudioItemShopsPluginDefaults, resetStudioRoomToInitialSandbox } from "./studioBootstrap"
+import {
+  attachStudioPersistence,
+  clearPersistedSnapshot,
+  detachStudioPersistence,
+  persistStudioRoom,
+} from "./studioPersistence"
 import { getStudio } from "./studioEnvironment"
+import { readShoppingInstance } from "./studioShoppingRead"
 
 function stubEmoji(native: string): Emoji {
   return {
@@ -67,9 +75,26 @@ export async function endStudioGameSession(): Promise<void> {
 }
 
 export async function startShoppingSession(): Promise<{ success: boolean; message?: string }> {
-  const { registry, room } = getStudio()
+  const { registry, room, lifecycle } = getStudio()
   const initiator: PluginActionInitiator = { userId: "studio-admin", username: "Studio" }
-  return registry.executePluginAction(room.roomId, ITEM_SHOPS_PLUGIN_NAME, "startShoppingSession", initiator)
+  const res = await registry.executePluginAction(
+    room.roomId,
+    ITEM_SHOPS_PLUGIN_NAME,
+    "startShoppingSession",
+    initiator,
+  )
+  if (!res.success) return res
+
+  const users = [...room.users.values()]
+  for (const user of users) {
+    if (readShoppingInstance(room, user.userId)) continue
+    await lifecycle.emit("USER_JOINED", {
+      roomId: room.roomId,
+      user,
+      users,
+    })
+  }
+  return res
 }
 
 export async function endShoppingSession(): Promise<{ success: boolean; message?: string }> {
@@ -176,6 +201,25 @@ export async function sellInventoryItem(userId: string, itemId: string): Promise
   return res?.message ?? (res?.success ? "Sold" : "Failed")
 }
 
+/** Drop persisted snapshot and reload (plugins re-register). Fixes unload repersist race. */
+export function resetStudioSandbox(): void {
+  const { room } = getStudio()
+  detachStudioPersistence(room)
+  clearPersistedSnapshot()
+  window.location.reload()
+}
+
+/** Wipe all sandbox state in this tab without reloading. */
+export function clearStudioSandbox(): void {
+  const { room } = getStudio()
+  detachStudioPersistence(room)
+  clearPersistedSnapshot()
+  resetStudioRoomToInitialSandbox(room)
+  enforceStudioItemShopsPluginDefaults(room)
+  persistStudioRoom(room)
+  attachStudioPersistence(room)
+}
+
 export async function reactToNowPlaying(userId: string, emoji: string): Promise<void> {
   const { room, itemShopsContext, lifecycle } = getStudio()
   const np = await itemShopsContext.api.getNowPlaying(room.roomId)
@@ -194,4 +238,3 @@ export async function reactToNowPlaying(userId: string, emoji: string): Promise<
   })
 }
 
-export { resetStudioPersistenceAndReload as resetStudioSandbox } from "./studioPersistence"

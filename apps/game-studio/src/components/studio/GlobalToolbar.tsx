@@ -10,6 +10,7 @@ import {
   Text,
 } from "@chakra-ui/react"
 import {
+  Eraser,
   Moon,
   Plus,
   RotateCcw,
@@ -33,6 +34,7 @@ export type GlobalToolbarProps = {
   onStartShopping: () => void
   onEndShopping: () => void
   onOpenItemDrawer: () => void
+  onClearSandbox: () => void
   onResetSandbox: () => void
 }
 
@@ -46,6 +48,7 @@ export function GlobalToolbar({
   onStartShopping,
   onEndShopping,
   onOpenItemDrawer,
+  onClearSandbox,
   onResetSandbox,
 }: GlobalToolbarProps) {
   const hasSession = !!room.activeSession
@@ -125,6 +128,9 @@ export function GlobalToolbar({
 
         <Separator orientation="vertical" height="6" />
 
+        <Button size="sm" variant="outline" colorPalette="orange" onClick={onClearSandbox}>
+          <Eraser size={16} /> Clear
+        </Button>
         <Button size="sm" variant="outline" colorPalette="red" onClick={onResetSandbox}>
           <RotateCcw size={16} /> Reset
         </Button>

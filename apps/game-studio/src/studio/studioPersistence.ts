@@ -148,6 +148,8 @@ export function tryHydrateRoom(room: StudioRoom): boolean {
 
 let persistDebounce: ReturnType<typeof setTimeout> | null = null
 
+const persistenceCleanup = new WeakMap<StudioRoom, () => void>()
+
 function flushPersist(room: StudioRoom): void {
   if (persistDebounce) {
     clearTimeout(persistDebounce)
@@ -162,21 +164,37 @@ function flushPersist(room: StudioRoom): void {
 
 /**
  * Debounced persist on room mutations. Call once after bootstrap + hydrate.
+ * Idempotent per room: second attach is a no-op until detach.
  */
 export function attachStudioPersistence(room: StudioRoom): void {
-  room.subscribe(() => {
+  if (persistenceCleanup.has(room)) return
+
+  const schedulePersist = (): void => {
     if (persistDebounce) clearTimeout(persistDebounce)
     persistDebounce = setTimeout(() => {
       persistDebounce = null
       flushPersist(room)
     }, 320)
-  })
+  }
 
-  window.addEventListener("beforeunload", () => flushPersist(room))
+  const unsub = room.subscribe(schedulePersist)
+  const onUnload = (): void => {
+    flushPersist(room)
+  }
+  window.addEventListener("beforeunload", onUnload)
+
+  persistenceCleanup.set(room, () => {
+    unsub()
+    window.removeEventListener("beforeunload", onUnload)
+    if (persistDebounce) {
+      clearTimeout(persistDebounce)
+      persistDebounce = null
+    }
+  })
 }
 
-/** Clear saved state and reload so plugins re-register cleanly. */
-export function resetStudioPersistenceAndReload(): void {
-  clearPersistedSnapshot()
-  window.location.reload()
+/** Cancel pending writes and stop saving on unload (e.g. before wiping storage). */
+export function detachStudioPersistence(room: StudioRoom): void {
+  persistenceCleanup.get(room)?.()
+  persistenceCleanup.delete(room)
 }
