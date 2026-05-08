@@ -27,6 +27,7 @@ describe("fuzzPedal", () => {
       modifierName: "interface_blur",
       flag: INTERFACE_BLUR_FLAG,
       intent: "negative",
+      durationMs: 2000,
     })
   })
 

@@ -84,6 +84,11 @@ export type GameStateEffect =
 export type GameStateEffectWithMeta = GameStateEffect & {
   icon?: LucideIconName
   intent?: "positive" | "negative" | "neutral"
+  /**
+   * Optional per-effect duration (ms) when applying via item helpers (`timedModifierEffect`).
+   * Stripped before the modifier is persisted so evaluation logic only sees standard effect shapes.
+   */
+  durationMs?: number
 }
 
 /** How a newly-applied modifier of the same `name` interacts with existing instances. */

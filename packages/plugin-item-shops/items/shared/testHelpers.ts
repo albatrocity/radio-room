@@ -115,11 +115,12 @@ export function expectApplyTimedModifierForPedal(
     modifierName: string
     flag: string
     intent: "positive" | "negative"
+    durationMs?: number
   },
 ): void {
   expect(deps.game.applyTimedModifier).toHaveBeenCalledWith(
     actorUserId,
-    DEFAULT_EFFECT_MS,
+    options.durationMs ?? DEFAULT_EFFECT_MS,
     expect.objectContaining({
       name: options.modifierName,
       effects: [

@@ -19,7 +19,15 @@ export const fuzzPedal = createItem({
   },
   use: timedModifierEffect({
     modifierName: "interface_blur",
-    effects: [{ type: "flag", name: INTERFACE_BLUR_FLAG, value: true, intent: "negative" }],
+    effects: [
+      {
+        type: "flag",
+        name: INTERFACE_BLUR_FLAG,
+        value: true,
+        intent: "negative",
+        durationMs: 30000,
+      },
+    ],
     successMessage: "Fuzz pedal engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor}'s screen is fuzzed out` : `${target}'s screen is fuzzed out`,
