@@ -6,6 +6,8 @@ export const ECHO_FLAG = "echo"
 export const GATE_FLAG = "gate"
 export const SCRAMBLE_FLAG = "scramble"
 export const COMIC_SANS_FLAG = "comic_sans"
+/** Timed modifier flag: stackable UI blur on the web client (`apps/web` overlay). */
+export const INTERFACE_BLUR_FLAG = "interface_blur"
 
 /** Stack counts for each text effect (0 = inactive). */
 export interface TextEffectStacks {
@@ -55,6 +57,25 @@ export function countTextEffectStacks(
     if (setGate) stacks.gate += 1
     if (setScramble) stacks.scramble += 1
     if (setComicSans) stacks.comicSans += 1
+  }
+  return stacks
+}
+
+/**
+ * Count active modifiers that apply the interface blur flag (one stack per modifier).
+ */
+export function countInterfaceBlurStacks(
+  modifiers: GameStateModifier[] | undefined,
+  now: number,
+): number {
+  let stacks = 0
+  for (const modifier of modifiers ?? []) {
+    if (modifier.startAt > now || modifier.endAt <= now) continue
+    const hasBlur = modifier.effects.some(
+      (effect) =>
+        effect.type === "flag" && effect.name === INTERFACE_BLUR_FLAG && effect.value === true,
+    )
+    if (hasBlur) stacks += 1
   }
   return stacks
 }

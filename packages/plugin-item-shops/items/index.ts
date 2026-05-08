@@ -1,5 +1,6 @@
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 import { analogDelayPedal } from "./analog-delay-pedal"
+import { fuzzPedal } from "./fuzz-pedal"
 import { boostPedal } from "./boost-pedal"
 import { buyout } from "./buyout"
 import { cateredMeal } from "./catered-meal"
@@ -20,6 +21,7 @@ import type { ItemUseHandler } from "./shared/types"
 export const items = {
   scratchedCd,
   analogDelayPedal,
+  blurPedal: fuzzPedal,
   compressorPedal,
   boostPedal,
   gate,

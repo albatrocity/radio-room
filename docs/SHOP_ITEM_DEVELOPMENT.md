@@ -61,6 +61,7 @@ npm run create-item -w @repo/plugin-item-shops
     - `GROW_FLAG`, `SHRINK_FLAG`, `ECHO_FLAG`, `GATE_FLAG`, `SCRAMBLE_FLAG`, `COMIC_SANS_FLAG`
   - Custom flags can be created by the CLI and are immediately readable via `getActiveFlags`
   - A custom flag will only affect UI text rendering after wiring it through text effect code paths (`countTextEffectStacks` / text transform helpers)
+  - Full-screen / overlay UI flags (e.g. stackable blur) use shared stack helpers such as `countInterfaceBlurStacks` plus web helpers in `apps/web/src/lib/screenEffects.ts` and `ModifierBlurLayer`
 - **multiplier** - Scales score/coin changes while active
   - Example: `{ type: "multiplier", target: "score", value: 2 }`
 - **additive** - Adds a flat amount to score/coin changes while active

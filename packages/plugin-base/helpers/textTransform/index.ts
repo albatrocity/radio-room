@@ -5,7 +5,9 @@ export {
   GATE_FLAG,
   SCRAMBLE_FLAG,
   COMIC_SANS_FLAG,
+  INTERFACE_BLUR_FLAG,
   countTextEffectStacks,
+  countInterfaceBlurStacks,
   type TextEffectStacks,
 } from "./flags"
 export {

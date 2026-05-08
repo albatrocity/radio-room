@@ -1,10 +1,11 @@
 /**
  * Screen Effects Utility Library
  *
- * Provides utilities for applying and removing animate.css animations
- * to DOM elements. Used by the ScreenEffectsProvider to manage animations.
+ * - animate.css helpers for ephemeral plugin-driven animations (`ScreenEffectsProvider`).
+ * - Modifier-driven viewport visuals (e.g. stackable blur overlay).
  */
 
+import type { CSSProperties } from "react"
 import type { ScreenEffectName, ScreenEffectTarget } from "@repo/types"
 
 // Import animate.css styles
@@ -169,4 +170,38 @@ export function removeAnimation(
  */
 export function getEffectDuration(effect: ScreenEffectName, customDuration?: number): number {
   return customDuration || DEFAULT_EFFECT_DURATIONS[effect] || 1000
+}
+
+// ============================================================================
+// Interface blur (timed modifier stacks — see `countInterfaceBlurStacks`)
+// ============================================================================
+
+/** Blur radius added per concurrent modifier carrying `INTERFACE_BLUR_FLAG`. */
+export const INTERFACE_BLUR_PER_STACK_PX = 2
+
+/** Upper bound for blur radius (px). */
+export const INTERFACE_BLUR_MAX_PX = 14
+
+export function interfaceBlurPx(stackCount: number): number {
+  if (stackCount <= 0) return 0
+  return Math.min(stackCount * INTERFACE_BLUR_PER_STACK_PX, INTERFACE_BLUR_MAX_PX)
+}
+
+/**
+ * Full-viewport overlay styles using backdrop blur. Pair with `position: fixed`
+ * container; `pointer-events: none` keeps the UI interactive.
+ */
+export function interfaceBlurOverlayStyle(blurPx: number): CSSProperties {
+  if (blurPx <= 0) {
+    return { pointerEvents: "none" }
+  }
+  const blur = `blur(${blurPx}px)`
+  return {
+    position: "fixed",
+    inset: 0,
+    pointerEvents: "none",
+    backdropFilter: blur,
+    WebkitBackdropFilter: blur,
+    transition: "backdrop-filter 0.35s ease-out, -webkit-backdrop-filter 0.35s ease-out",
+  }
 }
