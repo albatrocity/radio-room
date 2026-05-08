@@ -5,11 +5,28 @@ export type Rarity = "common" | "uncommon" | "rare" | "legendary"
 export type RequiresTarget = "self" | "user" | "queueItem"
 export type BehaviorKind = "timedModifier" | "passiveDefense" | "customHandler" | "none"
 
+export type EffectType = "flag" | "multiplier" | "additive"
+
+export type TimedModifierEffectConfig = {
+  type: EffectType
+  intent: "positive" | "negative" | "neutral"
+  icon?: LucideIconName
+  flagConstName?: string
+  flagName?: string
+  target?: "score" | "coin"
+  value?: number
+}
+
+export type NewFlagDeclaration = {
+  constName: string
+  value: string
+}
+
 export type TimedModifierConfig = {
-  flag: string
-  intent: "positive" | "negative"
   modifierName: string
   successMessage: string
+  effects: TimedModifierEffectConfig[]
+  newFlags: NewFlagDeclaration[]
 }
 
 export type PassiveDefenseConfig = {
@@ -156,19 +173,6 @@ async function promptTimedModifier(
   shortId: string,
   displayName: string,
 ): Promise<TimedModifierConfig> {
-  const flag = await select<string>({
-    message: "Flag constant:",
-    choices: FLAG_OPTIONS.map((value) => ({ value, name: value })),
-  })
-
-  const intent = await select<"positive" | "negative">({
-    message: "Intent:",
-    choices: [
-      { value: "positive", name: "positive" },
-      { value: "negative", name: "negative" },
-    ],
-  })
-
   const modifierName = (await input({
     message: "Modifier name:",
     default: shortId,
@@ -182,7 +186,100 @@ async function promptTimedModifier(
     validate: (value) => (value.trim().length > 0 ? true : "Success message is required."),
   })).trim()
 
-  return { flag, intent, modifierName, successMessage }
+  const effects: TimedModifierEffectConfig[] = []
+  const newFlags: NewFlagDeclaration[] = []
+  let addAnother = true
+  while (addAnother) {
+    const effect = await promptTimedModifierEffect({ iconDefault: undefined })
+    effects.push(effect.effect)
+    if (effect.newFlag) {
+      newFlags.push(effect.newFlag)
+    }
+    addAnother = await confirm({ message: "Add another effect?", default: false })
+  }
+
+  return { modifierName, successMessage, effects, newFlags }
+}
+
+async function promptTimedModifierEffect(params: {
+  iconDefault?: LucideIconName
+}): Promise<{ effect: TimedModifierEffectConfig; newFlag?: NewFlagDeclaration }> {
+  const effectType = await select<EffectType>({
+    message: "Effect type:",
+    choices: [
+      { value: "flag", name: "flag" },
+      { value: "multiplier", name: "multiplier" },
+      { value: "additive", name: "additive" },
+    ],
+  })
+
+  const intent = await select<"positive" | "negative" | "neutral">({
+    message: "Effect intent:",
+    choices: [
+      { value: "positive", name: "positive" },
+      { value: "negative", name: "negative" },
+      { value: "neutral", name: "neutral" },
+    ],
+  })
+
+  const iconOverride = await input({
+    message: "Icon override (optional PascalCase Lucide name):",
+    default: params.iconDefault ?? "",
+  })
+  const icon = iconOverride.trim().length > 0 ? (iconOverride.trim() as LucideIconName) : undefined
+
+  if (effectType === "flag") {
+    const flagChoice = await select<string>({
+      message: "Flag constant:",
+      choices: [
+        ...FLAG_OPTIONS.map((value) => ({ value, name: value })),
+        { value: "__NEW_FLAG__", name: "Create new flag constant" },
+      ],
+    })
+
+    if (flagChoice !== "__NEW_FLAG__") {
+      return {
+        effect: { type: "flag", intent, icon, flagConstName: flagChoice },
+      }
+    }
+
+    const rawFlag = (await input({
+      message: "New flag value (snake_case):",
+      validate: (value) =>
+        /^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(value.trim())
+          ? true
+          : "Use snake_case: lowercase letters, numbers, and underscores.",
+    })).trim()
+
+    const constName = toFlagConstName(rawFlag)
+    return {
+      effect: { type: "flag", intent, icon, flagConstName: constName, flagName: rawFlag },
+      newFlag: { constName, value: rawFlag },
+    }
+  }
+
+  const target = await select<"score" | "coin">({
+    message: "Target attribute:",
+    choices: [
+      { value: "score", name: "score" },
+      { value: "coin", name: "coin" },
+    ],
+  })
+
+  const value = await promptNumber(
+    effectType === "multiplier" ? "Multiplier value (e.g. 1.5):" : "Additive value (e.g. 10):",
+    effectType === "multiplier" ? 1.5 : 10,
+  )
+
+  return {
+    effect: {
+      type: effectType,
+      intent,
+      icon,
+      target,
+      value,
+    },
+  }
 }
 
 async function promptPassiveDefense(): Promise<PassiveDefenseConfig> {
@@ -259,6 +356,21 @@ async function promptPositiveInt(message: string, defaultValue: number): Promise
   return Number.parseInt(raw, 10)
 }
 
+async function promptNumber(message: string, defaultValue: number): Promise<number> {
+  const raw = await input({
+    message,
+    default: String(defaultValue),
+    validate: (value) => {
+      const parsed = Number.parseFloat(value)
+      if (!Number.isFinite(parsed)) {
+        return "Enter a valid number."
+      }
+      return true
+    },
+  })
+  return Number.parseFloat(raw)
+}
+
 function validateShortId(shortIdValue: string, existingShortIds: Set<string>): true | string {
   const value = shortIdValue.trim()
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)) {
@@ -280,4 +392,8 @@ function slugify(value: string): string {
 
 function toCamelCase(value: string): string {
   return value.replace(/-([a-z0-9])/g, (_, ch: string) => ch.toUpperCase())
+}
+
+function toFlagConstName(value: string): string {
+  return `${value.toUpperCase()}_FLAG`
 }

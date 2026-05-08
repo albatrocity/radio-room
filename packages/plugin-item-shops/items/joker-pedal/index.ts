@@ -19,8 +19,7 @@ export const jokerPedal = createItem({
   },
   use: timedModifierEffect({
     modifierName: "joker_pedal",
-    flag: COMIC_SANS_FLAG,
-    intent: "negative",
+    effects: [{ type: "flag", name: COMIC_SANS_FLAG, value: true, intent: "negative" }],
     successMessage: "Joker Pedal engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} is in Comic Sans` : `${target}'s chat is in Comic Sans`,

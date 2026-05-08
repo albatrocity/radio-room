@@ -19,8 +19,7 @@ export const analogDelayPedal = createItem({
   },
   use: timedModifierEffect({
     modifierName: "analog_delay_echo",
-    flag: ECHO_FLAG,
-    intent: "negative",
+    effects: [{ type: "flag", name: ECHO_FLAG, value: true, intent: "negative" }],
     successMessage: "Analog Delay Pedal engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} is hearing echoes` : `${target}'s chat echoes`,

@@ -18,8 +18,7 @@ export const boostPedal = createItem({
   },
   use: timedModifierEffect({
     modifierName: "boost",
-    flag: GROW_FLAG,
-    intent: "positive",
+    effects: [{ type: "flag", name: GROW_FLAG, value: true, intent: "positive" }],
     successMessage: "Boost engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} is boosted` : `${target} is boosted`,

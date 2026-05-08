@@ -80,12 +80,8 @@ export async function usePassiveDefenseItem(
 export type TimedModifierEffectConfig = {
   /** Internal modifier name (e.g. "boost", "compressor"). */
   modifierName: string
-  /** The flag constant to apply (e.g. GROW_FLAG, SHRINK_FLAG). */
-  flag: string
-  /** Icon override. Defaults to the item definition's `icon`. */
-  icon?: string
-  /** Whether this effect is positive or negative for the target. */
-  intent: "positive" | "negative"
+  /** One or more modifier effects to apply while active. */
+  effects: GameStateEffectWithMeta[]
   /** Message shown to the user who activated the item. */
   successMessage: string
   /** Generates the system message describing who is affected. */
@@ -100,8 +96,7 @@ export type TimedModifierEffectConfig = {
  * ```ts
  * use: timedModifierEffect({
  *   modifierName: "boost",
- *   flag: GROW_FLAG,
- *   intent: "positive",
+ *   effects: [{ type: "flag", name: GROW_FLAG, value: true, intent: "positive" }],
  *   successMessage: "Boost engaged. It was lost with use.",
  *   describe: ({ isSelf, actor, target }) =>
  *     isSelf ? `${actor} is boosted` : `${target} is boosted`,
@@ -118,15 +113,10 @@ export function timedModifierEffect(config: TimedModifierEffectConfig): ItemUseH
       effectDurationMs: deps.effectDurationMs,
       spec: {
         modifierName: config.modifierName,
-        effects: [
-          {
-            type: "flag",
-            name: config.flag,
-            value: true,
-            icon: config.icon ?? definition.icon ?? config.modifierName,
-            intent: config.intent,
-          },
-        ],
+        effects: config.effects.map((effect) => {
+          const resolvedIcon = effect.icon ?? (definition.icon as GameStateEffectWithMeta["icon"])
+          return resolvedIcon == null ? effect : { ...effect, icon: resolvedIcon }
+        }),
         successMessage: config.successMessage,
         describe: config.describe,
       },

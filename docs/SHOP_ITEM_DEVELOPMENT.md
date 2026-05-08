@@ -52,6 +52,31 @@ npm run create-item -w @repo/plugin-item-shops
 - **Passive defense:** use `usePassiveDefenseItem` and `definition.defense`
 - **Custom behavior:** generated async `use` handler stub with `ItemShopsBehaviorDeps`
 
+### Effect Types
+
+`GameStateEffectWithMeta` supports multiple effect kinds on a single modifier, and the item CLI now supports generating multi-effect modifiers.
+
+- **flag** - Boolean flag in user game state
+  - Text-effect flags currently wired to chat rendering are:
+    - `GROW_FLAG`, `SHRINK_FLAG`, `ECHO_FLAG`, `GATE_FLAG`, `SCRAMBLE_FLAG`, `COMIC_SANS_FLAG`
+  - Custom flags can be created by the CLI and are immediately readable via `getActiveFlags`
+  - A custom flag will only affect UI text rendering after wiring it through text effect code paths (`countTextEffectStacks` / text transform helpers)
+- **multiplier** - Scales score/coin changes while active
+  - Example: `{ type: "multiplier", target: "score", value: 2 }`
+- **additive** - Adds a flat amount to score/coin changes while active
+  - Example: `{ type: "additive", target: "score", value: 10 }`
+- **set** - Forces attribute reads to a fixed value while active (advanced)
+- **lock** - Prevents attribute writes while active (advanced)
+
+Example multi-effect payload:
+
+```ts
+effects: [
+  { type: "flag", name: GROW_FLAG, value: true, intent: "positive" },
+  { type: "multiplier", target: "score", value: 1.5, intent: "positive" },
+]
+```
+
 ## Creating Shops
 
 Use the shop generator:
