@@ -238,6 +238,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     const config = await this.getConfig()
     if (!config?.enabled || !config.assignShopOnJoin) return
     if (!(await this.shopping.isActive())) return
+    // Skip if user already has an assignment (e.g. page refresh during session)
+    const existing = await this.shopping.getInstance(data.user.userId)
+    if (existing) return
     const eligible = getEligibleShops(config)
     if (eligible.length === 0) return
     await this.shopping.assignInstanceForUserId(data.user.userId, Date.now(), eligible)
