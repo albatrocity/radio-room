@@ -81,8 +81,6 @@ export const SWEETWATER_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: items.jokerPedal.shortId, coinValue: 28 },
     { shortId: items.sampleHold.shortId, coinValue: 30 },
     { shortId: items.warranty.shortId, coinValue: 60 },
-    { shortId: items.vanCubby.shortId, coinValue: 80 },
-    { shortId: items.merchCashBox.shortId, coinValue: 55 },
   ],
   listedBuybackRate: 0.5,
   unlistedBuybackRate: 0.25,
