@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest"
 import { userFactory } from "@repo/factories"
-import { INTERFACE_BLUR_FLAG } from "@repo/plugin-base"
-import { fuzzPedal } from "./index"
+import { INTERFACE_SATURATE_FLAG } from "@repo/plugin-base"
+import { tubeOverdrive } from "./index"
 import {
   createMockDefinition,
   createMockDeps,
@@ -10,23 +10,23 @@ import {
   stubRoomUsers,
 } from "../shared/testHelpers"
 
-describe("fuzzPedal", () => {
-  test("calls applyTimedModifier with interface blur flag", async () => {
+describe("tubeOverdrive", () => {
+  test("calls applyTimedModifier with interface saturate flag", async () => {
     const deps = createMockDeps()
     const actor = userFactory.build()
     stubRoomUsers(deps, [actor])
-    const def = createMockDefinition(fuzzPedal.shortId, {
-      name: fuzzPedal.catalogEntry.definition.name,
-      icon: fuzzPedal.catalogEntry.definition.icon,
+    const def = createMockDefinition(tubeOverdrive.shortId, {
+      name: tubeOverdrive.catalogEntry.definition.name,
+      icon: tubeOverdrive.catalogEntry.definition.icon,
     })
 
-    const result = await invokeUse(fuzzPedal, deps, actor.userId, def)
+    const result = await invokeUse(tubeOverdrive, deps, actor.userId, def)
 
     expect(result.success).toBe(true)
     expectApplyTimedModifierForPedal(deps, actor.userId, {
-      modifierName: "interface_blur",
-      flag: INTERFACE_BLUR_FLAG,
-      intent: "negative",
+      modifierName: "interface_saturate",
+      flag: INTERFACE_SATURATE_FLAG,
+      intent: "positive",
       durationMs: 30000,
     })
   })
@@ -36,9 +36,9 @@ describe("fuzzPedal", () => {
     const actor = userFactory.build()
     const target = userFactory.build({ userId: "target-u1" })
     stubRoomUsers(deps, [actor])
-    const def = createMockDefinition("fuzz-pedal")
+    const def = createMockDefinition("tube-overdrive")
 
-    const result = await invokeUse(fuzzPedal, deps, actor.userId, def, {
+    const result = await invokeUse(tubeOverdrive, deps, actor.userId, def, {
       targetUserId: target.userId,
     })
 
@@ -56,9 +56,9 @@ describe("fuzzPedal", () => {
       reason: "defense_blocked",
       blockingItemName: "Warranty",
     })
-    const def = createMockDefinition("fuzz-pedal")
+    const def = createMockDefinition("tube-overdrive")
 
-    const result = await invokeUse(fuzzPedal, deps, actor.userId, def)
+    const result = await invokeUse(tubeOverdrive, deps, actor.userId, def)
 
     expect(result.success).toBe(false)
     expect(result.message).toContain("Warranty")

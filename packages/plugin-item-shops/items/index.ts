@@ -11,6 +11,7 @@ import { hummusVeggies } from "./hummus-veggies"
 import { jokerPedal } from "./joker-pedal"
 import { sampleHold } from "./sample-hold"
 import { scratchedCd } from "./scratched-cd"
+import { tubeOverdrive } from "./tube-overdrive"
 import { warranty } from "./warranty"
 import type { ItemUseHandler } from "./shared/types"
 
@@ -22,6 +23,7 @@ export const items = {
   scratchedCd,
   analogDelayPedal,
   blurPedal: fuzzPedal,
+  tubeOverdrive,
   compressorPedal,
   boostPedal,
   gate,

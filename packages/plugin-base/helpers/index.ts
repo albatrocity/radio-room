@@ -25,15 +25,19 @@ export {
 } from "./shoppingSessionCatalog"
 export { tokenizeWords, buildSegments, type TokenizedWord } from "./chatTransform"
 export {
+  INTERFACE_BLUR_FLAG,
+  INTERFACE_SATURATE_FLAG,
+  countInterfaceBlurStacks,
+  countInterfaceSaturateStacks,
+} from "./interfaceEffects"
+export {
   SHRINK_FLAG,
   GROW_FLAG,
   ECHO_FLAG,
   GATE_FLAG,
   SCRAMBLE_FLAG,
   COMIC_SANS_FLAG,
-  INTERFACE_BLUR_FLAG,
   countTextEffectStacks,
-  countInterfaceBlurStacks,
   netSizeShift,
   resolveBaseSize,
   resolveEchoSize,

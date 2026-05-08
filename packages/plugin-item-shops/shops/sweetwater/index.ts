@@ -77,6 +77,7 @@ export const SWEETWATER_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: items.compressorPedal.shortId, coinValue: 15 },
     { shortId: items.boostPedal.shortId, coinValue: 20 },
     { shortId: items.blurPedal.shortId, coinValue: 25 },
+    { shortId: items.tubeOverdrive.shortId, coinValue: 27 },
     { shortId: items.gate.shortId, coinValue: 25 },
     { shortId: items.jokerPedal.shortId, coinValue: 28 },
     { shortId: items.sampleHold.shortId, coinValue: 30 },

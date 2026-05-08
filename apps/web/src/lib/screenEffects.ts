@@ -173,7 +173,7 @@ export function getEffectDuration(effect: ScreenEffectName, customDuration?: num
 }
 
 // ============================================================================
-// Interface blur (timed modifier stacks — see `countInterfaceBlurStacks`)
+// Interface viewport modifiers (blur + saturation stacks — see `@repo/game-logic`)
 // ============================================================================
 
 /** Blur radius added per concurrent modifier carrying `INTERFACE_BLUR_FLAG`. */
@@ -182,26 +182,62 @@ export const INTERFACE_BLUR_PER_STACK_PX = 2
 /** Upper bound for blur radius (px). */
 export const INTERFACE_BLUR_MAX_PX = 14
 
+/** Base `saturate()` % at one stack (`INTERFACE_SATURATE_FLAG`). */
+export const INTERFACE_SATURATE_BASE_PERCENT = 220
+
+/** Extra `saturate()` % per additional stack (until cap). */
+export const INTERFACE_SATURATE_PER_EXTRA_STACK_PERCENT = 40
+
+/** Upper bound for `saturate()` percentage. */
+export const INTERFACE_SATURATE_MAX_PERCENT = 300
+
 export function interfaceBlurPx(stackCount: number): number {
   if (stackCount <= 0) return 0
   return Math.min(stackCount * INTERFACE_BLUR_PER_STACK_PX, INTERFACE_BLUR_MAX_PX)
 }
 
 /**
- * Full-viewport overlay styles using backdrop blur. Pair with `position: fixed`
- * container; `pointer-events: none` keeps the UI interactive.
+ * Maps stack count to CSS `saturate()` percentage (strong boost, stacks feel “cranked”).
  */
-export function interfaceBlurOverlayStyle(blurPx: number): CSSProperties {
-  if (blurPx <= 0) {
+export function interfaceSaturatePercent(stackCount: number): number {
+  if (stackCount <= 0) return 100
+  return Math.min(
+    INTERFACE_SATURATE_BASE_PERCENT +
+      (stackCount - 1) * INTERFACE_SATURATE_PER_EXTRA_STACK_PERCENT,
+    INTERFACE_SATURATE_MAX_PERCENT,
+  )
+}
+
+export type InterfaceModifierBackdropParams = {
+  /** Resolved blur radius in px (0 when reduced motion disables blur). */
+  blurPx: number
+  /** Concurrent modifiers carrying `INTERFACE_SATURATE_FLAG`. */
+  saturateStackCount: number
+}
+
+/**
+ * Full-viewport overlay using `backdrop-filter`: optional blur + optional saturation.
+ * Pair with `position: fixed`; `pointer-events: none` keeps the UI interactive.
+ */
+export function interfaceModifierBackdropStyle(params: InterfaceModifierBackdropParams): CSSProperties {
+  const { blurPx, saturateStackCount } = params
+  const filters: string[] = []
+  if (blurPx > 0) {
+    filters.push(`blur(${blurPx}px)`)
+  }
+  if (saturateStackCount > 0) {
+    filters.push(`saturate(${interfaceSaturatePercent(saturateStackCount)}%)`)
+  }
+  if (filters.length === 0) {
     return { pointerEvents: "none" }
   }
-  const blur = `blur(${blurPx}px)`
+  const backdrop = filters.join(" ")
   return {
     position: "fixed",
     inset: 0,
     pointerEvents: "none",
-    backdropFilter: blur,
-    WebkitBackdropFilter: blur,
+    backdropFilter: backdrop,
+    WebkitBackdropFilter: backdrop,
     transition: "backdrop-filter 0.35s ease-out, -webkit-backdrop-filter 0.35s ease-out",
   }
 }
