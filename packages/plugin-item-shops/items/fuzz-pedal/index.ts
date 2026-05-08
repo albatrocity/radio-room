@@ -14,7 +14,7 @@ export const fuzzPedal = createItem({
     consumable: true,
     requiresTarget: "user",
     coinValue: 25,
-    icon: "CloudFog",
+    icon: "ZodiacAquarius",
     rarity: "uncommon",
   },
   use: timedModifierEffect({
