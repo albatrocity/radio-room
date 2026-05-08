@@ -5,13 +5,13 @@ export const hummusVeggies = createItem({
   shortId: "hummus-veggies",
   definition: {
     name: "Hummus & Veggies",
-    description: "Move any song up 1 position in the queue.",
+    description: "Hey, not bad. Move any song up 1 position in the queue.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
     consumable: true,
     requiresTarget: "queueItem",
-    coinValue: 50,
+    coinValue: 15,
     icon: "salad",
     rarity: "rare",
   },
@@ -50,7 +50,7 @@ export const hummusVeggies = createItem({
     const username = user?.username?.trim() || userId
     await context.api.sendSystemMessage(
       context.roomId,
-      `${username} used Hummus & Veggies to promote a track!`,
+      `${username} ate Hummus & Veggies to promote a track!`,
     )
 
     return {

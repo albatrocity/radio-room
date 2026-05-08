@@ -54,7 +54,7 @@ export async function startStudioGameSession(): Promise<void> {
   const { room, itemShopsContext } = getStudio()
   await itemShopsContext.game.startSession({
     name: "Sandbox session",
-    initialValues: { coin: 500, score: 0 },
+    initialValues: { coin: 25, score: 0 },
     maxInventorySlots: 12,
     allowSelling: true,
   })

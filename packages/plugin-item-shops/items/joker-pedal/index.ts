@@ -5,15 +5,15 @@ import { createItem } from "../shared/types"
 export const jokerPedal = createItem({
   shortId: "joker-pedal",
   definition: {
-    name: "Joker Pedal",
+    name: "Funny Pedal",
     description:
-      "Makes chat messages appear in Comic Sans for a limited time. Use on yourself or others.",
+      "Ha ha! This pedal is practically comical in nature. Use on yourself or others.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 50,
+    coinValue: 15,
     icon: "laugh",
     rarity: "uncommon",
   },

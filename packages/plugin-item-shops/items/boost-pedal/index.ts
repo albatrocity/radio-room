@@ -12,7 +12,7 @@ export const boostPedal = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 50,
+    coinValue: 10,
     icon: "chevrons-up",
     rarity: "common",
   },
@@ -22,6 +22,6 @@ export const boostPedal = createItem({
     intent: "positive",
     successMessage: "Boost engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} is boosted` : `${target} is boosted`,
+      isSelf ? `${actor} got louder.` : `${target} got louder.`,
   }),
 })

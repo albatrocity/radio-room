@@ -7,7 +7,7 @@ export const gate = createItem({
   definition: {
     name: "Gate",
     description:
-      "Replaces lowercase letters with underscores for a limited time. Use on yourself or others.",
+      "REPLACES LOWERCASE LETTERS WITH __________",
     stackable: true,
     maxStack: 3,
     tradeable: true,
