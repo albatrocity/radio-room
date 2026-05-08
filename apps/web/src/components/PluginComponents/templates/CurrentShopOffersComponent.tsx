@@ -5,6 +5,7 @@ import { usePluginComponentContext } from "../context"
 import { getIcon } from "../icons"
 import { SvgIcon } from "../../ui/svg-icon"
 import { ButtonTemplateComponent } from "./ButtonComponent"
+import { ItemRarityTag } from "../ItemRarity"
 
 type Props = CurrentShopOffersComponentProps
 
@@ -94,6 +95,7 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                 </Table.Cell>
                 <Table.Cell verticalAlign="middle">
                   <VStack align="start" gap={0}>
+                    <ItemRarityTag rarity={row.rarity} />
                     <Text fontWeight="bold">{row.name}</Text>
                     <Text fontSize="xs" color="fg.muted" lineHeight="short">
                       {row.description}

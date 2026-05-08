@@ -12,6 +12,7 @@
 
 import type { GameAttributeName } from "./GameSession"
 import type { LucideIconName } from "./LucideIconKey"
+import type { ItemRarity } from "./ShoppingSession"
 
 // ============================================================================
 // Placement Areas
@@ -308,6 +309,8 @@ export interface ShopOfferTableRow {
    * Attribute compared against `price` for afford checks (default `coin`).
    */
   balanceAttribute?: GameAttributeName
+  /** Item rarity for display styling (e.g. color-coded tag). */
+  itemRarity?: ItemRarity
 }
 
 /**

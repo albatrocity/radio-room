@@ -1,4 +1,10 @@
-import type { ChatMessage, ItemDefinition, ItemRarity, ShoppingSessionInstance } from "@repo/types"
+import type {
+  ChatMessage,
+  ItemDefinition,
+  ItemRarity,
+  LucideIconName,
+  ShoppingSessionInstance,
+} from "@repo/types"
 
 /** Shop-specific listing (subset of the master item catalog). */
 export type ShopAvailableItem = {
@@ -179,7 +185,7 @@ export function buildShoppingInstance(
     if (!entry) {
       throw new Error(`Unknown catalog item in instance: ${sid}`)
     }
-    const { name, description, icon = "package" } = entry.definition
+    const { name, description, icon = "package" as LucideIconName, rarity } = entry.definition
     return {
       offerId: index,
       shortId: sid,
@@ -188,6 +194,7 @@ export function buildShoppingInstance(
       icon,
       price: resolveShopItemPrice(shop, sid, catalogByShortId),
       available: true,
+      rarity: rarity ?? "common",
     }
   })
   const listedPriceOverrides = Object.fromEntries(

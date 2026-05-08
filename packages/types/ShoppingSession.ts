@@ -20,6 +20,8 @@ export interface ShopOffer {
   price: number
   /** false after the user purchased the single available unit. */
   available: boolean
+  /** Item rarity for display styling. */
+  rarity: ItemRarity
 }
 
 /**

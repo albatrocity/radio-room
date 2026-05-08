@@ -9,6 +9,7 @@ import { getIcon } from "../icons"
 import { SvgIcon } from "../../ui/svg-icon"
 import { AnimatedShopQty } from "./AnimatedShopQty"
 import { ButtonTemplateComponent } from "./ButtonComponent"
+import { ItemRarityTag } from "../ItemRarity"
 
 function ShopOfferTableRowView({
   row,
@@ -39,6 +40,7 @@ function ShopOfferTableRowView({
       </Table.Cell>
       <Table.Cell verticalAlign="middle">
         <VStack align="start" gap={0}>
+          {row.itemRarity && <ItemRarityTag rarity={row.itemRarity} />}
           <Text fontWeight="bold">{row.name}</Text>
           <Text fontSize="xs" color="fg.muted" lineHeight="short">
             {row.description}
