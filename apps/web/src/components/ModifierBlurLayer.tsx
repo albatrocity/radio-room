@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { Box } from "@chakra-ui/react"
-import { countInterfaceBlurStacks } from "@repo/game-logic"
-import { interfaceBlurOverlayStyle, interfaceBlurPx } from "../lib/screenEffects"
+import { countInterfaceBlurStacks, countInterfaceSaturateStacks } from "@repo/game-logic"
+import { interfaceBlurPx, interfaceModifierBackdropStyle } from "../lib/screenEffects"
 import { useAnimationsEnabled } from "../hooks/useReducedMotion"
 import { useCurrentUser, useNow, useUserModifiers } from "../hooks/useActors"
 
@@ -9,8 +9,9 @@ import { useCurrentUser, useNow, useUserModifiers } from "../hooks/useActors"
 const BLUR_LAYER_Z_INDEX = 500
 
 /**
- * Full-viewport backdrop blur when the current user has active `INTERFACE_BLUR_FLAG`
- * modifiers. Stacks like chat text effects (one stack per concurrent modifier).
+ * Full-viewport `backdrop-filter` when the current user has active interface modifiers:
+ * stackable blur (`INTERFACE_BLUR_FLAG`) and/or saturation (`INTERFACE_SATURATE_FLAG`).
+ * Blur respects reduced motion; saturation stays on (static filter, not animation).
  */
 export function ModifierBlurLayer() {
   const user = useCurrentUser()
@@ -18,12 +19,21 @@ export function ModifierBlurLayer() {
   const now = useNow()
   const animationsEnabled = useAnimationsEnabled()
 
-  const stacks = useMemo(() => countInterfaceBlurStacks(modifiers, now), [modifiers, now])
-  const blurPx = animationsEnabled ? interfaceBlurPx(stacks) : 0
+  const blurStacks = useMemo(() => countInterfaceBlurStacks(modifiers, now), [modifiers, now])
+  const saturateStacks = useMemo(() => countInterfaceSaturateStacks(modifiers, now), [modifiers, now])
 
-  if (blurPx <= 0) return null
+  const blurPx = animationsEnabled ? interfaceBlurPx(blurStacks) : 0
+
+  if (blurPx <= 0 && saturateStacks <= 0) return null
 
   return (
-    <Box aria-hidden zIndex={BLUR_LAYER_Z_INDEX} style={interfaceBlurOverlayStyle(blurPx)} />
+    <Box
+      aria-hidden
+      zIndex={BLUR_LAYER_Z_INDEX}
+      style={interfaceModifierBackdropStyle({
+        blurPx,
+        saturateStackCount: saturateStacks,
+      })}
+    />
   )
 }

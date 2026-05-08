@@ -12,9 +12,13 @@ export {
   GATE_FLAG,
   SCRAMBLE_FLAG,
   COMIC_SANS_FLAG,
-  INTERFACE_BLUR_FLAG,
   countTextEffectStacks,
-  countInterfaceBlurStacks,
   type TextEffectStacks,
 } from "./textEffectStacks"
+export {
+  INTERFACE_BLUR_FLAG,
+  INTERFACE_SATURATE_FLAG,
+  countInterfaceBlurStacks,
+  countInterfaceSaturateStacks,
+} from "./interfaceModifierStacks"
 export * from "./shoppingSessionCatalog"
