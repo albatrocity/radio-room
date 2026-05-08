@@ -15,7 +15,7 @@ export const scratchedCd = createItem({
     rarity: "rare",
   },
   /**
-   * @param deps - Plugin API, room context, and configured pedal duration.
+   * @param deps - Plugin API and room context.
    * @param userId - User activating the item.
    * @param _definition - Resolved item definition (unused; behavior is fixed).
    */

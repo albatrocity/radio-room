@@ -26,7 +26,9 @@ export async function generateShopScaffold(
 
 function buildShopIndexFile(answers: ShopWizardAnswers): string {
   const lines: string[] = []
-  lines.push('import type { ItemShopsShopCatalogEntry, ShopBuyContext } from "@repo/plugin-base/helpers"')
+  lines.push(
+    'import type { ItemShopsShopCatalogEntry, ShopBuyContext } from "@repo/plugin-base/helpers"',
+  )
   lines.push('import { items } from "../../items"')
   lines.push("")
   lines.push(`function ${answers.onBuyHandlerName}(_ctx: ShopBuyContext): void {`)

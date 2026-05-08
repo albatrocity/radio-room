@@ -39,7 +39,7 @@ In `packages/plugin-item-shops/items/index.ts`:
 
 | Pattern | Use |
 |--------|-----|
-| Single timed **flag** on targeted user (pedal-style) | `timedModifierEffect()` from `items/shared/behaviorHelpers.ts` — pass `modifierName`, `flag`, `intent`, `successMessage`, `describe`. Duration comes from `deps.effectDurationMs`. |
+| Single timed **flag** on targeted user (pedal-style) | `timedModifierEffect()` from `items/shared/behaviorHelpers.ts` — pass `modifierName`, `effects` (each with `durationMs`), `intent`, `successMessage`, `describe`. |
 | Custom timed effects (multiple effects or non-flag) | `applyTargetedTimedModifier()` with a full `TargetedTimedModifierSpec` (`effects` as `GameStateEffectWithMeta[]`). |
 | Equipped defense item that should not “activate” | `usePassiveDefenseItem` + `definition.defense` — see `items/warranty/index.ts`. |
 | Bespoke logic | Async `use` handler: `(deps, userId, definition, callContext) => Promise<ItemUseResult>` with `{ success, consumed, message }`. Read `callContext` with narrow typing (see `empty-fridge`, `scratched-cd`). |

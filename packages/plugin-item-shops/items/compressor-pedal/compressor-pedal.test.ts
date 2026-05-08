@@ -27,6 +27,7 @@ describe("compressorPedal", () => {
       modifierName: "compressor",
       flag: SHRINK_FLAG,
       intent: "negative",
+      durationMs: 300_000,
     })
   })
 })

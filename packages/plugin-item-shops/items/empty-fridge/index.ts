@@ -35,7 +35,12 @@ export const emptyFridge = createItem({
       return { success: false, consumed: false, message: "Select a track to demote." }
     }
 
-    const result = await context.api.moveTrackByPosition(context.roomId, targetQueueItemId, 1, userId)
+    const result = await context.api.moveTrackByPosition(
+      context.roomId,
+      targetQueueItemId,
+      1,
+      userId,
+    )
 
     if (!result.success) {
       return { success: false, consumed: false, message: result.message }

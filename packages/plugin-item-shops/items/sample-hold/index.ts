@@ -18,7 +18,9 @@ export const sampleHold = createItem({
   },
   use: timedModifierEffect({
     modifierName: "sample-hold",
-    effects: [{ type: "flag", name: SCRAMBLE_FLAG, value: true, intent: "negative" }],
+    effects: [
+      { type: "flag", name: SCRAMBLE_FLAG, value: true, intent: "negative", durationMs: 300_000 },
+    ],
     successMessage: "Sample & Hold engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} is randomized` : `${target} is randomized`,

@@ -85,8 +85,8 @@ export type GameStateEffectWithMeta = GameStateEffect & {
   icon?: LucideIconName
   intent?: "positive" | "negative" | "neutral"
   /**
-   * Optional per-effect duration (ms) when applying via item helpers (`timedModifierEffect`).
-   * Stripped before the modifier is persisted so evaluation logic only sees standard effect shapes.
+   * Per-effect duration (ms) when applying via item helpers (`timedModifierEffect`).
+   * Item behaviors must set this for timed modifiers; it is stripped before persistence so evaluation only sees standard effect shapes.
    */
   durationMs?: number
 }

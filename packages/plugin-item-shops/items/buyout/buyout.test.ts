@@ -1,10 +1,25 @@
 import { describe, expect, test, vi } from "vitest"
 import { userFactory } from "@repo/factories"
 import { buyout } from "./index"
-import { createMockDefinition, createMockDeps, invokeUse, stubRoomUsers } from "../shared/testHelpers"
+import {
+  createMockDefinition,
+  createMockDeps,
+  invokeUse,
+  stubRoomUsers,
+} from "../shared/testHelpers"
 
-function mockInventory(deps: ReturnType<typeof createMockDeps>, setup: { stacks: Array<{ itemId: string; definitionId: string; quantity: number }>; definitions: Record<string, { coinValue?: number }> }) {
-  const inv = { items: setup.stacks.map((s) => ({ ...s, sourcePlugin: "item-shops" })), userId: "u1", maxSlots: 20 }
+function mockInventory(
+  deps: ReturnType<typeof createMockDeps>,
+  setup: {
+    stacks: Array<{ itemId: string; definitionId: string; quantity: number }>
+    definitions: Record<string, { coinValue?: number }>
+  },
+) {
+  const inv = {
+    items: setup.stacks.map((s) => ({ ...s, sourcePlugin: "item-shops" })),
+    userId: "u1",
+    maxSlots: 20,
+  }
   vi.mocked(deps.context.inventory.getInventory).mockResolvedValue(inv as never)
   vi.mocked(deps.context.inventory.getItemDefinition).mockImplementation(async (id: string) => {
     const meta = setup.definitions[id]

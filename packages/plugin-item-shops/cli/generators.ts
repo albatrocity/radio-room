@@ -38,10 +38,16 @@ export async function generateItemScaffold(
     const updatedTextStacks = await appendGameLogicFlags(gameLogicTextStacksPath, newFlags)
     if (updatedTextStacks) changedFiles.push(gameLogicTextStacksPath)
 
-    const updatedPluginBaseFlags = await appendPluginBaseFlagsReExport(pluginBaseFlagsPath, newFlags)
+    const updatedPluginBaseFlags = await appendPluginBaseFlagsReExport(
+      pluginBaseFlagsPath,
+      newFlags,
+    )
     if (updatedPluginBaseFlags) changedFiles.push(pluginBaseFlagsPath)
 
-    const updatedPluginBaseIndex = await appendPluginBaseIndexReExport(pluginBaseIndexPath, newFlags)
+    const updatedPluginBaseIndex = await appendPluginBaseIndexReExport(
+      pluginBaseIndexPath,
+      newFlags,
+    )
     if (updatedPluginBaseIndex) changedFiles.push(pluginBaseIndexPath)
   }
 
@@ -64,7 +70,10 @@ export async function generateItemScaffold(
   return changedFiles
 }
 
-async function updateItemsIndex(itemsIndexPath: string, answers: ItemWizardAnswers): Promise<boolean> {
+async function updateItemsIndex(
+  itemsIndexPath: string,
+  answers: ItemWizardAnswers,
+): Promise<boolean> {
   let content = await readFile(itemsIndexPath, "utf8")
   let changed = false
 
@@ -88,7 +97,11 @@ async function updateItemsIndex(itemsIndexPath: string, answers: ItemWizardAnswe
   return changed
 }
 
-async function appendShopItem(shopPath: string, variableName: string, coinValue: number): Promise<boolean> {
+async function appendShopItem(
+  shopPath: string,
+  variableName: string,
+  coinValue: number,
+): Promise<boolean> {
   const content = await readFile(shopPath, "utf8")
   const itemExpression = `{ shortId: items.${variableName}.shortId, coinValue: ${coinValue} }`
   if (content.includes(itemExpression)) return false
@@ -198,7 +211,9 @@ function buildItemFile(answers: ItemWizardAnswers): string {
     lines.push(`    ],`)
     lines.push(`    successMessage: "${escapeDoubleQuotes(answers.timedModifier.successMessage)}",`)
     lines.push(`    describe: ({ isSelf, actor, target }) =>`)
-    lines.push(`      isSelf ? \`\${actor} used ${escapeTemplateLiteral(answers.name)} on themselves\` : \`\${actor} used ${escapeTemplateLiteral(answers.name)} on \${target}\`,`)
+    lines.push(
+      `      isSelf ? \`\${actor} used ${escapeTemplateLiteral(answers.name)} on themselves\` : \`\${actor} used ${escapeTemplateLiteral(answers.name)} on \${target}\`,`,
+    )
     lines.push(`  }),`)
   } else if (answers.behaviorKind === "passiveDefense") {
     lines.push(`  use: usePassiveDefenseItem,`)
@@ -209,7 +224,9 @@ function buildItemFile(answers: ItemWizardAnswers): string {
     lines.push(`    _definition: ItemDefinition,`)
     lines.push(`    _callContext?: unknown,`)
     lines.push(`  ): Promise<ItemUseResult> => {`)
-    lines.push(`    return { success: false, consumed: false, message: "TODO: implement custom behavior." }`)
+    lines.push(
+      `    return { success: false, consumed: false, message: "TODO: implement custom behavior." }`,
+    )
     lines.push(`  },`)
   }
 
@@ -245,24 +262,28 @@ function escapeTemplateLiteral(value: string): string {
 
 function buildTimedEffectLiteral(effect: TimedModifierEffectConfig): string {
   const baseIcon = effect.icon ? `, icon: "${escapeDoubleQuotes(effect.icon)}"` : ""
+  const duration = `, durationMs: ${effect.durationMs}`
   if (effect.type === "flag") {
     const constName = effect.flagConstName ?? "GROW_FLAG"
-    return `{ type: "flag", name: ${constName}, value: true${baseIcon}, intent: "${effect.intent}" }`
+    return `{ type: "flag", name: ${constName}, value: true${baseIcon}, intent: "${effect.intent}"${duration} }`
   }
 
   const target = effect.target ?? "score"
   const value = effect.value ?? (effect.type === "multiplier" ? 1 : 0)
-  return `{ type: "${effect.type}", target: "${target}", value: ${value}${baseIcon}, intent: "${effect.intent}" }`
+  return `{ type: "${effect.type}", target: "${target}", value: ${value}${baseIcon}, intent: "${effect.intent}"${duration} }`
 }
 
-async function appendGameLogicFlags(path: string, declarations: NewFlagDeclaration[]): Promise<boolean> {
+async function appendGameLogicFlags(
+  path: string,
+  declarations: NewFlagDeclaration[],
+): Promise<boolean> {
   let content = await readFile(path, "utf8")
   let changed = false
   for (const declaration of declarations) {
     const line = `export const ${declaration.constName} = "${declaration.value}"`
     if (!content.includes(line)) {
       content = content.replace(
-        "export const COMIC_SANS_FLAG = \"comic_sans\"",
+        'export const COMIC_SANS_FLAG = "comic_sans"',
         `export const COMIC_SANS_FLAG = "comic_sans"\n${line}`,
       )
       changed = true

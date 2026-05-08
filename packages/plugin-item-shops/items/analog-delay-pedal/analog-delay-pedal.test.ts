@@ -27,6 +27,7 @@ describe("analogDelayPedal", () => {
       modifierName: "analog_delay_echo",
       flag: ECHO_FLAG,
       intent: "negative",
+      durationMs: 300_000,
     })
   })
 })

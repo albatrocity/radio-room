@@ -18,7 +18,9 @@ export const compressorPedal = createItem({
   },
   use: timedModifierEffect({
     modifierName: "compressor",
-    effects: [{ type: "flag", name: SHRINK_FLAG, value: true, intent: "negative" }],
+    effects: [
+      { type: "flag", name: SHRINK_FLAG, value: true, intent: "negative", durationMs: 300_000 },
+    ],
     successMessage: "Compressor engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} is compressed` : `${target} has been compressed`,

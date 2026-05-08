@@ -19,7 +19,9 @@ export const gate = createItem({
   },
   use: timedModifierEffect({
     modifierName: "gate",
-    effects: [{ type: "flag", name: GATE_FLAG, value: true, intent: "negative" }],
+    effects: [
+      { type: "flag", name: GATE_FLAG, value: true, intent: "negative", durationMs: 300_000 },
+    ],
     successMessage: "Gate engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) => (isSelf ? `${actor} is gated` : `${target} is gated`),
   }),

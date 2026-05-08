@@ -80,8 +80,7 @@ effects: [
 
 ### Timed modifier durations (`timedModifierEffect`)
 
-- Default duration comes from the game session snapshot (`deps.effectDurationMs`) for any effect that omits `durationMs`.
-- Set optional **`durationMs`** on individual effects (`GameStateEffectWithMeta`). It is consumed when applying the modifier and **not** stored on the persisted modifier.
+- Each effect in `effects` **must** include **`durationMs`** (`GameStateEffectWithMeta`). It is consumed when applying the modifier and **not** stored on the persisted modifier.
 - If resolved durations differ across effects, the helper applies **one `applyTimedModifier` call per duration group**. Modifier names become `${modifierName}__${durationMs}` when more than one group exists so stacking semantics stay per bucket.
 
 ## Creating Shops

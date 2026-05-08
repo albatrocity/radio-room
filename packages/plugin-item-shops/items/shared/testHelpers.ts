@@ -62,12 +62,14 @@ export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): Item
       },
     } as PluginContext,
     game: createMockGame(),
-    effectDurationMs: 600_000,
     ...overrides,
   }
 }
 
-export function createMockDefinition(shortId: string, overrides?: Partial<ItemDefinition>): ItemDefinition {
+export function createMockDefinition(
+  shortId: string,
+  overrides?: Partial<ItemDefinition>,
+): ItemDefinition {
   return {
     id: `def-${shortId}`,
     shortId,
@@ -105,9 +107,6 @@ export async function invokeUse(
   return handler(deps, userId, definition, callContext)
 }
 
-/** Default pedal duration in tests — matches `createMockDeps().effectDurationMs`. */
-const DEFAULT_EFFECT_MS = 600_000
-
 export function expectApplyTimedModifierForPedal(
   deps: ItemShopsBehaviorDeps,
   actorUserId: string,
@@ -115,12 +114,12 @@ export function expectApplyTimedModifierForPedal(
     modifierName: string
     flag: string
     intent: "positive" | "negative"
-    durationMs?: number
+    durationMs: number
   },
 ): void {
   expect(deps.game.applyTimedModifier).toHaveBeenCalledWith(
     actorUserId,
-    options.durationMs ?? DEFAULT_EFFECT_MS,
+    options.durationMs,
     expect.objectContaining({
       name: options.modifierName,
       effects: [

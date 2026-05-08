@@ -13,7 +13,6 @@ export type ItemShopsBehaviorDeps = {
   pluginName: string
   context: PluginContext
   game: GameSessionPluginAPI
-  effectDurationMs: number
 }
 
 export type ItemUseHandler = (

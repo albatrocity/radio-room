@@ -277,7 +277,6 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         "enabled",
         "enabledShopIds",
         "assignShopOnJoin",
-        "effectDurationMs",
         {
           type: "action",
           action: "startShoppingSession",
@@ -317,14 +316,6 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           label: "Assign shop when users join mid-session",
           description:
             "If a shopping round is active, give late joiners their own random shop instance.",
-          showWhen: { field: "enabled", value: true },
-        },
-        effectDurationMs: {
-          type: "duration",
-          label: "Pedal effect duration",
-          description: "How long timed chat modifiers last when a pedal is used.",
-          displayUnit: "minutes",
-          storageUnit: "milliseconds",
           showWhen: { field: "enabled", value: true },
         },
       },
@@ -447,7 +438,6 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         pluginName: this.name,
         context: this.context,
         game: this.game,
-        effectDurationMs: config.effectDurationMs,
       },
       userId,
       definition,

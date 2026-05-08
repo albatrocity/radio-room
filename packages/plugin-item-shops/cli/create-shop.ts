@@ -38,9 +38,7 @@ async function main(): Promise<void> {
 async function readExistingShopIds(packageDir: string): Promise<Set<string>> {
   const shopsDir = join(packageDir, "shops")
   const dirEntries = await readdir(shopsDir, { withFileTypes: true })
-  const fromDirs = dirEntries
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
+  const fromDirs = dirEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
 
   const shopsIndexPath = join(shopsDir, "index.ts")
   const shopsIndexContent = await readFile(shopsIndexPath, "utf8")

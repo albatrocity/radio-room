@@ -14,7 +14,9 @@ async function main(): Promise<void> {
   const iconNames = getLucideIconNames()
 
   console.log(chalk.cyan("\nItem Shops Item Wizard\n"))
-  console.log(chalk.gray("Guided setup for item definition, behavior, catalog, and shop registration.\n"))
+  console.log(
+    chalk.gray("Guided setup for item definition, behavior, catalog, and shop registration.\n"),
+  )
 
   const answers = await promptForItemConfig({
     existingShortIds,

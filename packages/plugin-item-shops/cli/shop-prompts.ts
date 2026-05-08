@@ -27,22 +27,28 @@ type PromptContext = {
 }
 
 export async function promptForShopConfig(context: PromptContext): Promise<ShopWizardAnswers> {
-  const name = (await input({
-    message: "Shop display name:",
-    validate: (value) => (value.trim().length > 0 ? true : "Shop name is required."),
-  })).trim()
+  const name = (
+    await input({
+      message: "Shop display name:",
+      validate: (value) => (value.trim().length > 0 ? true : "Shop name is required."),
+    })
+  ).trim()
 
   const suggestedShopId = slugify(name)
-  const shopId = (await input({
-    message: "Shop ID (kebab-case):",
-    default: suggestedShopId,
-    validate: (value) => validateShopId(value, context.existingShopIds),
-  })).trim()
+  const shopId = (
+    await input({
+      message: "Shop ID (kebab-case):",
+      default: suggestedShopId,
+      validate: (value) => validateShopId(value, context.existingShopIds),
+    })
+  ).trim()
 
-  const openingMessage = (await input({
-    message: "Opening message (optional, supports {{shopName}}):",
-    default: "Welcome to {{shopName}}!",
-  })).trim()
+  const openingMessage = (
+    await input({
+      message: "Opening message (optional, supports {{shopName}}):",
+      default: "Welcome to {{shopName}}!",
+    })
+  ).trim()
 
   const listedBuybackRate = await promptNonNegativeNumber("Listed buyback rate:", 0.5)
   const unlistedBuybackRate = await promptNonNegativeNumber("Unlisted buyback rate:", 0.25)

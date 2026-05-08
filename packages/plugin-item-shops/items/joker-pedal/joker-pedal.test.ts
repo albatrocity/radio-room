@@ -27,6 +27,7 @@ describe("jokerPedal", () => {
       modifierName: "joker_pedal",
       flag: COMIC_SANS_FLAG,
       intent: "negative",
+      durationMs: 300_000,
     })
   })
 })

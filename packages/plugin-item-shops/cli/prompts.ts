@@ -10,6 +10,8 @@ export type EffectType = "flag" | "multiplier" | "additive"
 export type TimedModifierEffectConfig = {
   type: EffectType
   intent: "positive" | "negative" | "neutral"
+  /** Modifier lifetime in ms (passed through `timedModifierEffect`; stripped before persistence). */
+  durationMs: number
   icon?: LucideIconName
   flagConstName?: string
   flagName?: string
@@ -75,24 +77,30 @@ type PromptContext = {
 }
 
 export async function promptForItemConfig(context: PromptContext): Promise<ItemWizardAnswers> {
-  const name = (await input({
-    message: "Display name:",
-    validate: (value) => (value.trim().length > 0 ? true : "Name is required."),
-  })).trim()
+  const name = (
+    await input({
+      message: "Display name:",
+      validate: (value) => (value.trim().length > 0 ? true : "Name is required."),
+    })
+  ).trim()
 
   const generatedShortId = slugify(name)
-  const shortId = (await input({
-    message: "Short ID (kebab-case):",
-    default: generatedShortId,
-    validate: (value) => validateShortId(value, context.existingShortIds),
-  })).trim()
+  const shortId = (
+    await input({
+      message: "Short ID (kebab-case):",
+      default: generatedShortId,
+      validate: (value) => validateShortId(value, context.existingShortIds),
+    })
+  ).trim()
 
   const variableName = toCamelCase(shortId)
 
-  const description = (await input({
-    message: "Description:",
-    validate: (value) => (value.trim().length > 0 ? true : "Description is required."),
-  })).trim()
+  const description = (
+    await input({
+      message: "Description:",
+      validate: (value) => (value.trim().length > 0 ? true : "Description is required."),
+    })
+  ).trim()
 
   const icon = await search({
     message: "Icon (PascalCase Lucide icon name):",
@@ -146,7 +154,8 @@ export async function promptForItemConfig(context: PromptContext): Promise<ItemW
 
   const timedModifier =
     behaviorKind === "timedModifier" ? await promptTimedModifier(shortId, name) : undefined
-  const passiveDefense = behaviorKind === "passiveDefense" ? await promptPassiveDefense() : undefined
+  const passiveDefense =
+    behaviorKind === "passiveDefense" ? await promptPassiveDefense() : undefined
   const shops = await promptShops()
 
   return {
@@ -173,18 +182,22 @@ async function promptTimedModifier(
   shortId: string,
   displayName: string,
 ): Promise<TimedModifierConfig> {
-  const modifierName = (await input({
-    message: "Modifier name:",
-    default: shortId,
-    validate: (value) =>
-      value.trim().length > 0 ? true : "Modifier name is required for timed modifier behavior.",
-  })).trim()
+  const modifierName = (
+    await input({
+      message: "Modifier name:",
+      default: shortId,
+      validate: (value) =>
+        value.trim().length > 0 ? true : "Modifier name is required for timed modifier behavior.",
+    })
+  ).trim()
 
-  const successMessage = (await input({
-    message: "Success message shown to item user:",
-    default: `${displayName} activated. It was lost with use.`,
-    validate: (value) => (value.trim().length > 0 ? true : "Success message is required."),
-  })).trim()
+  const successMessage = (
+    await input({
+      message: "Success message shown to item user:",
+      default: `${displayName} activated. It was lost with use.`,
+      validate: (value) => (value.trim().length > 0 ? true : "Success message is required."),
+    })
+  ).trim()
 
   const effects: TimedModifierEffectConfig[] = []
   const newFlags: NewFlagDeclaration[] = []
@@ -222,6 +235,8 @@ async function promptTimedModifierEffect(params: {
     ],
   })
 
+  const durationMs = await promptPositiveInt("Effect duration (milliseconds):", 300_000)
+
   const iconOverride = await input({
     message: "Icon override (optional PascalCase Lucide name):",
     default: params.iconDefault ?? "",
@@ -239,21 +254,30 @@ async function promptTimedModifierEffect(params: {
 
     if (flagChoice !== "__NEW_FLAG__") {
       return {
-        effect: { type: "flag", intent, icon, flagConstName: flagChoice },
+        effect: { type: "flag", intent, durationMs, icon, flagConstName: flagChoice },
       }
     }
 
-    const rawFlag = (await input({
-      message: "New flag value (snake_case):",
-      validate: (value) =>
-        /^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(value.trim())
-          ? true
-          : "Use snake_case: lowercase letters, numbers, and underscores.",
-    })).trim()
+    const rawFlag = (
+      await input({
+        message: "New flag value (snake_case):",
+        validate: (value) =>
+          /^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(value.trim())
+            ? true
+            : "Use snake_case: lowercase letters, numbers, and underscores.",
+      })
+    ).trim()
 
     const constName = toFlagConstName(rawFlag)
     return {
-      effect: { type: "flag", intent, icon, flagConstName: constName, flagName: rawFlag },
+      effect: {
+        type: "flag",
+        intent,
+        durationMs,
+        icon,
+        flagConstName: constName,
+        flagName: rawFlag,
+      },
       newFlag: { constName, value: rawFlag },
     }
   }
@@ -275,6 +299,7 @@ async function promptTimedModifierEffect(params: {
     effect: {
       type: effectType,
       intent,
+      durationMs,
       icon,
       target,
       value,
@@ -302,9 +327,11 @@ async function promptPassiveDefense(): Promise<PassiveDefenseConfig> {
     validate: (values) => (values.length > 0 ? true : "Select at least one scope."),
   })
 
-  const sourcePluginInput = (await input({
-    message: "Source plugins (comma-separated, optional):",
-  })).trim()
+  const sourcePluginInput = (
+    await input({
+      message: "Source plugins (comma-separated, optional):",
+    })
+  ).trim()
 
   const sourcePlugins = sourcePluginInput
     ? sourcePluginInput

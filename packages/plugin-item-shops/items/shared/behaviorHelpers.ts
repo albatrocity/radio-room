@@ -13,15 +13,13 @@ export type ApplyTargetedTimedModifierParams = {
   userId: string
   callContext: unknown
   definition: ItemDefinition
-  /** Session default duration when an effect omits `durationMs`. */
-  effectDurationMs: number
   spec: TargetedTimedModifierSpec
 }
 
 export async function applyTargetedTimedModifier(
   params: ApplyTargetedTimedModifierParams,
 ): Promise<ItemUseResult> {
-  const { deps, userId, callContext, definition, effectDurationMs, spec } = params
+  const { deps, userId, callContext, definition, spec } = params
   const { context, game } = deps
   const targetUserId =
     (callContext as { targetUserId?: string } | undefined)?.targetUserId ?? userId
@@ -31,7 +29,6 @@ export async function applyTargetedTimedModifier(
   }
 
   const groups = groupEffectsByResolvedDurationMs(spec.effects, {
-    sessionDefaultMs: effectDurationMs,
     modifierName: spec.modifierName,
   })
 
@@ -89,7 +86,7 @@ export async function usePassiveDefenseItem(
 export type TimedModifierEffectConfig = {
   /** Internal modifier name (e.g. "boost", "compressor"). */
   modifierName: string
-  /** One or more modifier effects to apply while active. */
+  /** One or more modifier effects to apply while active. Each must include `durationMs`. */
   effects: GameStateEffectWithMeta[]
   /** Message shown to the user who activated the item. */
   successMessage: string
@@ -105,7 +102,9 @@ export type TimedModifierEffectConfig = {
  * ```ts
  * use: timedModifierEffect({
  *   modifierName: "boost",
- *   effects: [{ type: "flag", name: GROW_FLAG, value: true, intent: "positive" }],
+ *   effects: [
+ *     { type: "flag", name: GROW_FLAG, value: true, intent: "positive", durationMs: 300_000 },
+ *   ],
  *   successMessage: "Boost engaged. It was lost with use.",
  *   describe: ({ isSelf, actor, target }) =>
  *     isSelf ? `${actor} is boosted` : `${target} is boosted`,
@@ -119,7 +118,6 @@ export function timedModifierEffect(config: TimedModifierEffectConfig): ItemUseH
       userId,
       callContext,
       definition,
-      effectDurationMs: deps.effectDurationMs,
       spec: {
         modifierName: config.modifierName,
         effects: config.effects.map((effect) => {
@@ -147,13 +145,17 @@ function stripDurationMs(effect: GameStateEffectWithMeta): GameStateEffectWithMe
 function groupEffectsByResolvedDurationMs(
   effects: GameStateEffectWithMeta[],
   params: {
-    sessionDefaultMs: number
     modifierName: string
   },
 ): EffectDurationGroup[] {
   const buckets = new Map<number, GameStateEffectWithMeta[]>()
   for (const effect of effects) {
-    const resolvedMs = effect.durationMs ?? params.sessionDefaultMs
+    const resolvedMs = effect.durationMs
+    if (resolvedMs === undefined) {
+      throw new Error(
+        `[timedModifierEffect] Each effect must set durationMs for modifier "${params.modifierName}".`,
+      )
+    }
     if (!Number.isFinite(resolvedMs) || resolvedMs <= 0) {
       throw new Error(
         `[timedModifierEffect] Invalid duration for modifier "${params.modifierName}": ${String(resolvedMs)}`,
