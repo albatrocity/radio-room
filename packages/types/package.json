@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "lucide-static": "^1.14.0",
     "zod": "^4.4.2"
   },
   "devDependencies": {

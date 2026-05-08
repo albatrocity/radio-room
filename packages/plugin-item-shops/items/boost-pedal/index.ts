@@ -13,7 +13,7 @@ export const boostPedal = createItem({
     consumable: true,
     requiresTarget: "user",
     coinValue: 50,
-    icon: "chevrons-up",
+    icon: "ChevronsUp",
     rarity: "common",
   },
   use: timedModifierEffect({

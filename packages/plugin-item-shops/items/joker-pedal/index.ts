@@ -14,7 +14,7 @@ export const jokerPedal = createItem({
     consumable: true,
     requiresTarget: "user",
     coinValue: 50,
-    icon: "laugh",
+    icon: "Laugh",
     rarity: "uncommon",
   },
   use: timedModifierEffect({

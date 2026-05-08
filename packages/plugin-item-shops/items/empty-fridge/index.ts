@@ -12,7 +12,7 @@ export const emptyFridge = createItem({
     consumable: true,
     requiresTarget: "queueItem",
     coinValue: 50,
-    icon: "refrigerator",
+    icon: "Refrigerator",
     rarity: "rare",
   },
   /**

@@ -15,7 +15,7 @@ export function getComponentSchema(): PluginComponentSchema {
         type: "button",
         area: "userList",
         label: "{{config.wordLabel}} Leaderboard",
-        icon: "trophy",
+        icon: "Trophy",
         opensModal: "leaderboard-modal",
         showWhen: [
           { field: "enabled", value: true },

@@ -336,7 +336,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           type: "tab",
           area: "gameStateTab",
           label: "Item Shop",
-          icon: "shopping-cart",
+          icon: "ShoppingCart",
           showWhen: { field: "enabled", value: true },
           children: [
             {

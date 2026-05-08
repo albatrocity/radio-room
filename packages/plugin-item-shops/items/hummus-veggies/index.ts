@@ -12,7 +12,7 @@ export const hummusVeggies = createItem({
     consumable: true,
     requiresTarget: "queueItem",
     coinValue: 50,
-    icon: "salad",
+    icon: "Salad",
     rarity: "rare",
   },
   /**

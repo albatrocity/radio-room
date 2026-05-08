@@ -1,3 +1,5 @@
+import type { LucideIconName } from "./LucideIconKey"
+
 /**
  * Shopping session instances (per-user, ephemeral to a "shopping round").
  * See ADR 0049.
@@ -14,7 +16,7 @@ export interface ShopOffer {
   shortId: string
   name: string
   description: string
-  icon: string
+  icon: LucideIconName
   price: number
   /** false after the user purchased the single available unit. */
   available: boolean

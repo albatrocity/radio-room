@@ -1,3 +1,5 @@
+import type { LucideIconName } from "./LucideIconKey"
+
 /**
  * Game Session Types
  *
@@ -80,7 +82,7 @@ export type GameStateEffect =
   | { type: "flag"; name: string; value: boolean }
 
 export type GameStateEffectWithMeta = GameStateEffect & {
-  icon?: string
+  icon?: LucideIconName
   intent?: "positive" | "negative" | "neutral"
 }
 
@@ -116,7 +118,7 @@ export interface GameStateModifier {
    * Optional icon key for the whole modifier row in UIs. When set, overrides
    * per-effect `icon` and item fallbacks.
    */
-  icon?: string
+  icon?: LucideIconName
   /**
    * When this modifier was caused by using an inventory item, that item’s
    * `ItemDefinition.id`. Used to resolve an icon after per-effect `icon` values.

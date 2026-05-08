@@ -35,7 +35,7 @@ export function getComponentSchema(): PluginComponentSchema {
         showWhen: { field: "isSkipped", value: true },
         label: "Skipped (DJ absent)",
         variant: "warning",
-        icon: "skip-forward",
+        icon: "SkipForward",
       },
     ],
     storeKeys: ["showCountdown", "countdownStartTime", "absentUsername", "isSkipped"],

@@ -13,7 +13,7 @@ export const compressorPedal = createItem({
     consumable: true,
     requiresTarget: "user",
     coinValue: 50,
-    icon: "shrink",
+    icon: "Shrink",
     rarity: "common",
   },
   use: timedModifierEffect({

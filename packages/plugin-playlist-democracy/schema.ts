@@ -45,7 +45,7 @@ export function getComponentSchema(): PluginComponentSchema {
         showWhen: { field: "isSkipped", value: true },
         label: "Skipped",
         variant: "warning",
-        icon: "skip-forward",
+        icon: "SkipForward",
         tooltip: "{{voteCount}}/{{requiredCount}} votes",
       },
       // Competitive mode sword icon for deputy DJs
@@ -53,7 +53,7 @@ export function getComponentSchema(): PluginComponentSchema {
         id: "competitive-user-icon",
         type: "icon",
         area: "userListItem",
-        icon: "swords",
+        icon: "Swords",
         size: "sm",
         color: "orange.400",
         showWhen: [
@@ -68,7 +68,7 @@ export function getComponentSchema(): PluginComponentSchema {
         type: "button",
         area: "userList",
         label: "DJ Leaderboard",
-        icon: "trophy",
+        icon: "Trophy",
         opensModal: "competitive-leaderboard-modal",
         showWhen: [
           { field: "enabled", value: true },

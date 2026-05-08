@@ -13,7 +13,7 @@ export const sampleHold = createItem({
     consumable: true,
     requiresTarget: "user",
     coinValue: 50,
-    icon: "dices",
+    icon: "Dices",
     rarity: "legendary",
   },
   use: timedModifierEffect({

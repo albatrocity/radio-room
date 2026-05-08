@@ -79,7 +79,7 @@ export function createMockDefinition(shortId: string, overrides?: Partial<ItemDe
     tradeable: true,
     consumable: true,
     coinValue: 50,
-    icon: "star",
+    icon: "Star",
     ...overrides,
   }
 }

@@ -1,4 +1,5 @@
 import type { ItemRarity } from "./ShoppingSession"
+import type { LucideIconName } from "./LucideIconKey"
 
 /**
  * Inventory Types
@@ -70,7 +71,7 @@ export interface ItemDefinition {
   name: string
   description: string
   /** Optional emoji or icon name surfaced by the UI. */
-  icon?: string
+  icon?: LucideIconName
 
   /** When `true`, multiple acquisitions combine into a single stack. */
   stackable: boolean

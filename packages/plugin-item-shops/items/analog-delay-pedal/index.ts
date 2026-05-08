@@ -14,7 +14,7 @@ export const analogDelayPedal = createItem({
     consumable: true,
     requiresTarget: "user",
     coinValue: 50,
-    icon: "square-stack",
+    icon: "SquareStack",
     rarity: "uncommon",
   },
   use: timedModifierEffect({
