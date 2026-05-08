@@ -22,7 +22,7 @@ import type { ItemUseHandler } from "./shared/types"
 export const items = {
   scratchedCd,
   analogDelayPedal,
-  blurPedal: fuzzPedal,
+  fuzzPedal,
   tubeOverdrive,
   compressorPedal,
   boostPedal,
