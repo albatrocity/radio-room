@@ -20,6 +20,8 @@ import { User as UserIcon } from "lucide-react"
 import { useMemo, useState } from "react"
 import * as studioActions from "../../studio/studioActions"
 import type { StudioRoom } from "../../studio/studioRoom"
+import { StudioCoinAmountStoragePopover } from "./StudioCoinAmountStoragePopover"
+import { StudioInventoryItemStoragePopover } from "./StudioInventoryItemStoragePopover"
 import { toaster } from "../ui/toaster"
 
 function toastResult(title: string, ok: boolean, detail?: string): void {
@@ -311,6 +313,70 @@ export function UserCard({ room, userId, now }: UserCardProps) {
               const rt = def?.requiresTarget
               const queueBlocked = rt === "queueItem" && !effectiveQueueTrack
 
+              const inventoryRows = room.getInventory(userId)
+              const selectableOther =
+                rt === "inventoryItem"
+                  ? inventoryRows.filter((invItem) => {
+                      if (invItem.itemId === row.itemId) return false
+                      const d = room.getDefinition(invItem.definitionId)
+                      const sid = d?.shortId
+                      if (sid === "van-cubby" || sid === "merch-cash-box") return false
+                      return true
+                    })
+                  : []
+              const storageBlocked = rt === "inventoryItem" && selectableOther.length === 0
+              const coinBlocked = rt === "coinAmount" && coin < 1
+
+              const useButton =
+                rt === "inventoryItem" ? (
+                  <StudioInventoryItemStoragePopover
+                    room={room}
+                    userId={userId}
+                    excludingItemId={row.itemId}
+                    onConfirm={(targetInventoryItemId, password) =>
+                      void run(`Use ${label}`, async () =>
+                        studioActions.useInventoryItem(userId, row.itemId, {
+                          targetInventoryItemId,
+                          password,
+                        }),
+                      )
+                    }
+                  >
+                    <Button size="xs" variant="surface" disabled={storageBlocked}>
+                      Use
+                    </Button>
+                  </StudioInventoryItemStoragePopover>
+                ) : rt === "coinAmount" ? (
+                  <StudioCoinAmountStoragePopover
+                    maxCoins={coin}
+                    onConfirm={(coinAmount, password) =>
+                      void run(`Use ${label}`, async () =>
+                        studioActions.useInventoryItem(userId, row.itemId, {
+                          coinAmount,
+                          password,
+                        }),
+                      )
+                    }
+                  >
+                    <Button size="xs" variant="surface" disabled={coinBlocked}>
+                      Use
+                    </Button>
+                  </StudioCoinAmountStoragePopover>
+                ) : (
+                  <Button
+                    size="xs"
+                    variant="surface"
+                    disabled={queueBlocked}
+                    onClick={() =>
+                      void run(`Use ${label}`, async () =>
+                        studioActions.useInventoryItem(userId, row.itemId, buildUseContext(def)),
+                      )
+                    }
+                  >
+                    Use
+                  </Button>
+                )
+
               return (
                 <HStack key={row.itemId} justify="space-between" align="flex-start" wrap="wrap">
                   <Box maxW="full">
@@ -330,18 +396,7 @@ export function UserCard({ room, userId, now }: UserCardProps) {
                     ) : null}
                   </Box>
                   <HStack gap="1">
-                    <Button
-                      size="xs"
-                      variant="surface"
-                      disabled={queueBlocked}
-                      onClick={() =>
-                        void run(`Use ${label}`, async () =>
-                          studioActions.useInventoryItem(userId, row.itemId, buildUseContext(def)),
-                        )
-                      }
-                    >
-                      Use
-                    </Button>
+                    {useButton}
                     <Button
                       size="xs"
                       variant="outline"

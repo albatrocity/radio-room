@@ -102,6 +102,11 @@ export class PluginRegistry {
     // Create a scoped API that knows the plugin name and roomId for event namespacing
     const scopedApi = this.api.forPlugin(pluginName, roomId)
 
+    const artifacts = this.context.artifacts
+    if (!artifacts) {
+      throw new Error("[PluginRegistry] AppContext.artifacts is not initialised")
+    }
+
     const pluginContext: PluginContext = {
       roomId,
       api: scopedApi,
@@ -109,6 +114,7 @@ export class PluginRegistry {
       lifecycle,
       game: new PluginGameSessionAPI(this.context, pluginName, roomId),
       inventory: new PluginInventoryAPI(this.context, pluginName, roomId),
+      artifacts,
       getRoom: async () => {
         const { findRoom } = await import("../../operations/data")
         const room = await findRoom({ context: this.context, roomId })

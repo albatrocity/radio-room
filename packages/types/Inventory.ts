@@ -94,7 +94,7 @@ export interface ItemDefinition {
    * (metadata track id) with `USE_INVENTORY_ITEM`.
    * When `"self"` or omitted, the effect applies to the inventory owner only.
    */
-  requiresTarget?: "self" | "user" | "queueItem"
+  requiresTarget?: "self" | "user" | "queueItem" | "inventoryItem" | "coinAmount"
   /**
    * When set, holding this item passively blocks matching modifiers / queue
    * moves; one block consumes one from stack `quantity`.

@@ -1,6 +1,7 @@
 // Include socket.io type extensions
 /// <reference path="./socket.io.d.ts" />
 
+export * from "./Artifacts"
 export * from "./Adapter"
 export * from "./AppContext"
 export * from "./ChatMessage"

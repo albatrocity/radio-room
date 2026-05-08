@@ -87,15 +87,17 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
             return (
               <Table.Row key={offerId} opacity={outOfStock ? 0.55 : 1}>
                 <Table.Cell verticalAlign="middle" w="52px">
-                  <Center width="full" height="full">
-                    {IconComponent ? (
-                      <SvgIcon icon={IconComponent} boxSize={5} color="fg.muted" aria-hidden />
-                    ) : null}
-                  </Center>
+                  <VStack>
+                    <Center width="full" height="full">
+                      {IconComponent ? (
+                        <SvgIcon icon={IconComponent} boxSize={5} color="fg.muted" aria-hidden />
+                      ) : null}
+                    </Center>
+                    {row.rarity && <ItemRarityTag rarity={row.rarity} />}
+                  </VStack>
                 </Table.Cell>
                 <Table.Cell verticalAlign="middle">
                   <VStack align="start" gap={0}>
-                    <ItemRarityTag rarity={row.rarity} />
                     <Text fontWeight="bold">{row.name}</Text>
                     <Text fontSize="xs" color="fg.muted" lineHeight="short">
                       {row.description}

@@ -1,19 +1,19 @@
 import { Tag, TagRootProps } from "@chakra-ui/react"
 import { ItemRarity } from "@repo/types"
 
-type ItemRarityTagProps = { rarity: ItemRarity } & Omit<TagRootProps, "colorScheme">
+type ItemRarityTagProps = { rarity: ItemRarity } & Omit<TagRootProps, "colorPalette">
 
 export function ItemRarityTag({ rarity, ...props }: ItemRarityTagProps) {
-  const color = getRarityColor(rarity)
+  const colorPalette = getRarityPalette(rarity)
 
   return (
-    <Tag.Root colorScheme={color} {...props}>
+    <Tag.Root colorPalette={colorPalette} variant="subtle" size="sm" {...props}>
       <Tag.Label>{rarity.charAt(0).toUpperCase() + rarity.slice(1)}</Tag.Label>
     </Tag.Root>
   )
 }
 
-function getRarityColor(rarity: ItemRarity): TagRootProps["colorScheme"] {
+function getRarityPalette(rarity: ItemRarity): TagRootProps["colorPalette"] {
   switch (rarity) {
     case "common":
       return "gray"

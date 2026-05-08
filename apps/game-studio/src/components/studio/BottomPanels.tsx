@@ -5,6 +5,7 @@ import type { StudioRoom } from "../../studio/studioRoom"
 import { formatChatBody } from "../../lib/formatChatMessage"
 import { type ReactNode, useMemo, useState } from "react"
 import { MessageSegments } from "./MessageSegments"
+import { StoredArtifactsPanel } from "./StoredArtifactsPanel"
 
 export type BottomPanelsProps = {
   room: StudioRoom
@@ -97,6 +98,12 @@ export function BottomPanels({ room }: BottomPanelsProps) {
           )}
         </Stack>
       </PanelShell>
+
+      {room.storedArtifacts.length > 0 ? (
+        <PanelShell title="Stored artifacts">
+          <StoredArtifactsPanel room={room} />
+        </PanelShell>
+      ) : null}
     </Stack>
   )
 }

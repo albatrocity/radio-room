@@ -8,6 +8,7 @@ import type {
   ServiceAuthenticationTokens,
 } from "./ServiceAuthentication"
 import type { SystemEvents } from "./SystemEvents"
+import type { ArtifactsPluginAPI } from "./Artifacts"
 
 export type { RedisClientType } from "redis"
 
@@ -25,6 +26,8 @@ export interface AppContext {
   gameSessions?: any // Typed as GameSessionService in server code
   /** Inventory service (item definitions, user inventories, transfers). */
   inventory?: any // Typed as InventoryService in server code
+  /** Global stored artifacts API (cross-room Redis-backed storage). */
+  artifacts?: ArtifactsPluginAPI
   systemEvents?: SystemEvents
   /** Base URL for the API (e.g., "https://api.example.com"). Used for generating absolute URLs. */
   apiUrl?: string

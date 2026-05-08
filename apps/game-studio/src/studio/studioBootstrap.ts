@@ -6,6 +6,7 @@ import {
   ITEM_CATALOG,
   SHOP_CATALOG,
 } from "@repo/plugin-item-shops"
+import { MockStudioArtifactsApi } from "./mockStudioArtifactsApi"
 import { createMockPluginStorage } from "./mockPluginStorage"
 import { MockPluginLifecycle } from "./mockLifecycle"
 import { MockStudioGameSessionApi } from "./mockStudioGameApi"
@@ -86,6 +87,7 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
   const pluginApi = new MockStudioPluginApi(room, lifecycle, pluginName)
   const gameApi = new MockStudioGameSessionApi(room, lifecycle, pluginName)
   const inventoryApi = new MockStudioInventoryApi(room, registry, pluginName)
+  const artifactsApi = new MockStudioArtifactsApi(room)
 
   registry.register(room.roomId, pluginName, itemShopsPlugin)
 
@@ -98,6 +100,7 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
     lifecycle,
     game: gameApi,
     inventory: inventoryApi,
+    artifacts: artifactsApi,
     getRoom: async () => ({
       id: room.roomId,
       creator: "studio",

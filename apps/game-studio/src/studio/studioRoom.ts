@@ -8,6 +8,7 @@ import type {
   ItemDefinition,
   QueueItem,
   Reaction,
+  StoredArtifact,
   User,
   UserGameState,
 } from "@repo/types"
@@ -46,6 +47,9 @@ export class StudioRoom {
   events: StudioEventEntry[] = []
 
   reactions = new Map<string, Reaction[]>()
+
+  /** Global sandbox artifact storage (mirrors production Redis-backed artifacts). */
+  storedArtifacts: StoredArtifact[] = []
 
   /** Bumped on every `notify()` so `useSyncExternalStore` can subscribe to room mutations. */
   snapshotEpoch = 0
@@ -208,6 +212,19 @@ export class StudioRoom {
     list.push(reaction)
     this.reactions.set(k, list)
     this.notify()
+  }
+
+  addStoredArtifact(artifact: StoredArtifact): void {
+    this.storedArtifacts.push(artifact)
+    this.notify()
+  }
+
+  removeStoredArtifact(id: string): boolean {
+    const idx = this.storedArtifacts.findIndex((a) => a.id === id)
+    if (idx === -1) return false
+    this.storedArtifacts.splice(idx, 1)
+    this.notify()
+    return true
   }
 
   /** Snapshot reference used by useSyncExternalStore (mutate in place + notify). */

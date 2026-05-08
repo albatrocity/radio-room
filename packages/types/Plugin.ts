@@ -28,6 +28,12 @@ import type {
   ItemUseResult,
   UserInventory,
 } from "./Inventory"
+import type {
+  ArtifactRetrieveAttempt,
+  ArtifactsPluginAPI,
+  StoredArtifact,
+  StoredArtifactPublic,
+} from "./Artifacts"
 
 // ============================================================================
 // Plugin Configuration Schema Types
@@ -525,6 +531,8 @@ export interface GameSessionPluginAPI {
   getLeaderboard(leaderboardId: string): Promise<GameLeaderboardEntry[]>
 }
 
+export type { ArtifactRetrieveAttempt, ArtifactsPluginAPI, StoredArtifact, StoredArtifactPublic }
+
 // ============================================================================
 // Inventory API (exposed on PluginContext.inventory)
 // ============================================================================
@@ -591,6 +599,8 @@ export interface PluginContext {
   game: GameSessionPluginAPI
   /** Inventory API (cross-plugin item storage / trading / usage). */
   inventory: InventoryPluginAPI
+  /** Global artifact storage (cross-room, survives sessions). */
+  artifacts: ArtifactsPluginAPI
   getRoom: () => Promise<Room | null>
   appContext: AppContext
 }

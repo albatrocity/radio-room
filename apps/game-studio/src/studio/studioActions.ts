@@ -198,6 +198,82 @@ export async function useInventoryItem(
   return res.message ?? (res.success ? "OK" : "Failed")
 }
 
+/**
+ * Retrieve a stored artifact into the given user's inventory/coins (sandbox mirror of production socket flow).
+ */
+export async function retrieveArtifact(
+  artifactId: string,
+  password: string,
+  retrievingUserId: string,
+): Promise<{ success: boolean; message: string }> {
+  const { itemShopsContext, room } = getStudio()
+  const username = room.users.get(retrievingUserId)?.username?.trim() || "Someone"
+
+  const attempt = await itemShopsContext.artifacts.attemptRetrieve(artifactId, password)
+
+  if (attempt.status === "not_found") {
+    await itemShopsContext.api.sendSystemMessage(
+      room.roomId,
+      `${username} tried to retrieve storage that is no longer here.`,
+    )
+    return { success: false, message: "That stored item no longer exists." }
+  }
+
+  if (attempt.status === "wrong_password") {
+    await itemShopsContext.api.sendSystemMessage(
+      room.roomId,
+      `${username} failed to retrieve an artifact from storage (wrong password).`,
+    )
+    return { success: false, message: "Wrong password." }
+  }
+
+  const art = attempt.artifact
+
+  if (art.artifactType === "coin") {
+    const amt = art.coinValue ?? 0
+    if (amt < 1) {
+      return { success: false, message: "Invalid stored coins." }
+    }
+    await itemShopsContext.game.addScore(
+      retrievingUserId,
+      "coin",
+      amt,
+      "stored-artifact:retrieve",
+    )
+    await itemShopsContext.artifacts.remove(artifactId)
+    await itemShopsContext.api.sendSystemMessage(
+      room.roomId,
+      `${username} retrieved ${amt.toLocaleString()} coins from storage.`,
+    )
+    return { success: true, message: `Added ${amt.toLocaleString()} coins.` }
+  }
+
+  const defId = art.itemDefinitionId
+  const qty = art.itemQuantity ?? 1
+  if (!defId || qty < 1) {
+    return { success: false, message: "Invalid stored item." }
+  }
+
+  const given = await itemShopsContext.inventory.giveItem(
+    retrievingUserId,
+    defId,
+    qty,
+    undefined,
+    "plugin",
+  )
+  if (!given) {
+    return { success: false, message: "Inventory full — make space and try again." }
+  }
+
+  await itemShopsContext.artifacts.remove(artifactId)
+  const label = art.itemName ?? "an item"
+  await itemShopsContext.api.sendSystemMessage(
+    room.roomId,
+    `${username} retrieved ${label} from storage.`,
+  )
+  return { success: true, message: `Received ${label}.` }
+}
+
 export async function sellInventoryItem(userId: string, itemId: string): Promise<string> {
   const { registry, room } = getStudio()
   const inv = room.getInventory(userId)

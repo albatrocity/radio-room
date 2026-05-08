@@ -12,6 +12,8 @@ import { jokerPedal } from "./joker-pedal"
 import { sampleHold } from "./sample-hold"
 import { scratchedCd } from "./scratched-cd"
 import { warranty } from "./warranty"
+import { vanCubby } from "./van-cubby"
+import { merchCashBox } from "./merch-cash-box"
 import type { ItemUseHandler } from "./shared/types"
 
 /**
@@ -32,6 +34,8 @@ export const items = {
   cateredMeal,
   warranty,
   buyout,
+  vanCubby,
+  merchCashBox,
 } as const
 
 /**

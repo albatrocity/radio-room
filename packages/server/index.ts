@@ -48,7 +48,7 @@ import { createSchedulingRouter, getSchedulingShowByIdHandler } from "./routes/s
 import { schedulingShowReadAuth } from "./middleware/schedulingShowReadAuth"
 import { clearRoomOnlineUsers } from "./operations/data"
 import { SocketWithContext } from "./lib/socketWithContext"
-import { PluginRegistry } from "./lib/plugins"
+import { PluginArtifactsAPI, PluginRegistry } from "./lib/plugins"
 import { GameSessionService } from "./services/GameSessionService"
 import { InventoryService } from "./services/InventoryService"
 
@@ -275,8 +275,9 @@ export class RadioRoomServer {
     const gameSessions = new GameSessionService(this.context)
     this.context.gameSessions = gameSessions
     this.context.inventory = new InventoryService(this.context)
+    this.context.artifacts = new PluginArtifactsAPI(this.context)
     gameSessions.start()
-    console.log("GameSessionService and InventoryService initialized")
+    console.log("GameSessionService, InventoryService, and PluginArtifactsAPI initialized")
 
     // Register any plugins that were queued via registerAdapters()
     // We pass the factory function so PluginRegistry can create new instances per room
