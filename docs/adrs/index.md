@@ -57,6 +57,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0049](0049-item-shops-and-shopping-sessions.md) | Item Shops and Shopping Sessions (per-user instances) | Accepted |
 | [0050](0050-inventory-defense-items.md) | Passive defense items (inventory + `DefenseService`) | Accepted |
 | [0051](0051-game-studio-client-sandbox.md) | Game Studio — client-side plugin sandbox (`apps/game-studio`) | Accepted |
+| [0052](0052-global-artifacts-api.md) | Global artifacts API (`context.artifacts`) | Accepted |
 
 ## Creating a New ADR
 

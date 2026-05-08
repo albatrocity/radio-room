@@ -12,14 +12,15 @@ export const compressorPedal = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 10,
-    icon: "shrink",
+    coinValue: 50,
+    icon: "Shrink",
     rarity: "common",
   },
   use: timedModifierEffect({
     modifierName: "compressor",
-    flag: SHRINK_FLAG,
-    intent: "negative",
+    effects: [
+      { type: "flag", name: SHRINK_FLAG, value: true, intent: "negative", durationMs: 300_000 },
+    ],
     successMessage: "Compressor engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} is compressed` : `${target} has been compressed`,

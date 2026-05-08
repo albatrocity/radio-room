@@ -10,12 +10,12 @@ export const scratchedCd = createItem({
     maxStack: 3,
     tradeable: true,
     consumable: true,
-    coinValue: 25,
-    icon: "disc-2",
+    coinValue: 100,
+    icon: "Disc2",
     rarity: "rare",
   },
   /**
-   * @param deps - Plugin API, room context, and configured pedal duration.
+   * @param deps - Plugin API and room context.
    * @param userId - User activating the item.
    * @param _definition - Resolved item definition (unused; behavior is fixed).
    */

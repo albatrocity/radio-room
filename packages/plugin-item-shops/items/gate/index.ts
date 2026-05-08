@@ -14,13 +14,14 @@ export const gate = createItem({
     consumable: true,
     requiresTarget: "user",
     coinValue: 50,
-    icon: "fence",
+    icon: "Fence",
     rarity: "uncommon",
   },
   use: timedModifierEffect({
     modifierName: "gate",
-    flag: GATE_FLAG,
-    intent: "negative",
+    effects: [
+      { type: "flag", name: GATE_FLAG, value: true, intent: "negative", durationMs: 300_000 },
+    ],
     successMessage: "Gate engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) => (isSelf ? `${actor} is gated` : `${target} is gated`),
   }),

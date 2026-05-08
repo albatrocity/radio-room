@@ -13,7 +13,6 @@ export type ItemShopsBehaviorDeps = {
   pluginName: string
   context: PluginContext
   game: GameSessionPluginAPI
-  effectDurationMs: number
 }
 
 export type ItemUseHandler = (
@@ -40,7 +39,7 @@ export type ItemDefinitionInput = Omit<ItemCatalogEntry["definition"], "shortId"
  * ```ts
  * export const boostPedal = createItem({
  *   shortId: "boost-pedal",
- *   definition: { name: "Boost Pedal", icon: "chevrons-up", ... },
+ *   definition: { name: "Boost Pedal", icon: "ChevronsUp", ... },
  *   use: timedModifierEffect({ ... }),
  * })
  * ```

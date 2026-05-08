@@ -27,6 +27,7 @@ describe("sampleHold", () => {
       modifierName: "sample-hold",
       flag: SCRAMBLE_FLAG,
       intent: "negative",
+      durationMs: 300_000,
     })
   })
 })

@@ -1,5 +1,6 @@
 import { expect, vi } from "vitest"
 import type {
+  ArtifactsPluginAPI,
   GameSessionPluginAPI,
   ItemDefinition,
   PluginAPI,
@@ -33,6 +34,15 @@ export function createMockPluginAPI(): PluginAPI {
   } as unknown as PluginAPI
 }
 
+export function createMockArtifacts(): ArtifactsPluginAPI {
+  return {
+    store: vi.fn().mockResolvedValue("artifact-id"),
+    getAll: vi.fn().mockResolvedValue([]),
+    attemptRetrieve: vi.fn().mockResolvedValue({ status: "not_found" }),
+    remove: vi.fn().mockResolvedValue(true),
+  }
+}
+
 export function createMockGame(): GameSessionPluginAPI {
   return {
     getActiveSession: vi.fn().mockResolvedValue(null),
@@ -55,19 +65,23 @@ export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): Item
     context: {
       roomId: "room-1",
       api: createMockPluginAPI(),
+      artifacts: createMockArtifacts(),
       inventory: {
         getInventory: vi.fn().mockResolvedValue({ userId: "", items: [], maxSlots: 20 }),
         getItemDefinition: vi.fn().mockResolvedValue(null),
         removeItem: vi.fn().mockResolvedValue(true),
+        giveItem: vi.fn().mockResolvedValue(null),
       },
     } as PluginContext,
     game: createMockGame(),
-    effectDurationMs: 600_000,
     ...overrides,
   }
 }
 
-export function createMockDefinition(shortId: string, overrides?: Partial<ItemDefinition>): ItemDefinition {
+export function createMockDefinition(
+  shortId: string,
+  overrides?: Partial<ItemDefinition>,
+): ItemDefinition {
   return {
     id: `def-${shortId}`,
     shortId,
@@ -79,7 +93,7 @@ export function createMockDefinition(shortId: string, overrides?: Partial<ItemDe
     tradeable: true,
     consumable: true,
     coinValue: 50,
-    icon: "star",
+    icon: "Star",
     ...overrides,
   }
 }
@@ -105,9 +119,6 @@ export async function invokeUse(
   return handler(deps, userId, definition, callContext)
 }
 
-/** Default pedal duration in tests — matches `createMockDeps().effectDurationMs`. */
-const DEFAULT_EFFECT_MS = 600_000
-
 export function expectApplyTimedModifierForPedal(
   deps: ItemShopsBehaviorDeps,
   actorUserId: string,
@@ -115,11 +126,12 @@ export function expectApplyTimedModifierForPedal(
     modifierName: string
     flag: string
     intent: "positive" | "negative"
+    durationMs: number
   },
 ): void {
   expect(deps.game.applyTimedModifier).toHaveBeenCalledWith(
     actorUserId,
-    DEFAULT_EFFECT_MS,
+    options.durationMs,
     expect.objectContaining({
       name: options.modifierName,
       effects: [

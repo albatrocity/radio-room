@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { HStack, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
-import type { GameAttributeName, ItemDefinition } from "@repo/types"
+import type { GameAttributeName, ItemDefinition, StoredArtifactPublic } from "@repo/types"
 import Modal from "../Modal"
+import { emitToSocket, subscribeById, unsubscribeById } from "../../actors/socketActor"
 import {
   useIsModalOpen,
   useModalsSend,
@@ -19,6 +20,7 @@ import {
   GameStatePluginTabTriggers,
   GameStatePluginTabContents,
 } from "./GameState"
+import StoredItemsTab from "./GameState/StoredItemsTab"
 import { UserModifiersList } from "../UserModifiersList"
 
 function formatNumber(n: number): string {
@@ -28,6 +30,7 @@ function formatNumber(n: number): string {
 const TROPHY_ICON = getIcon("trophy")
 const COINS_ICON = getIcon("coins")
 const PACKAGE_ICON = getIcon("package")
+const STORED_ICON = getIcon("Archive")
 
 function ModalUserGameState() {
   const modalSend = useModalsSend()
@@ -59,13 +62,40 @@ function ModalUserGameState() {
   const inventoryItems = payload?.inventory?.items ?? []
   const maxSlots = payload?.inventory?.maxSlots ?? 0
 
+  const [storedArtifacts, setStoredArtifacts] = useState<StoredArtifactPublic[]>([])
+
+  const refreshStoredArtifacts = useCallback(() => {
+    const subId = `stored-refresh-${Date.now()}`
+    subscribeById(subId, {
+      send: (ev: { type: string; data?: { artifacts?: StoredArtifactPublic[] } }) => {
+        if (ev.type !== "STORED_ARTIFACTS_RESULT" || !ev.data) return
+        setStoredArtifacts(ev.data.artifacts ?? [])
+        unsubscribeById(subId)
+      },
+    })
+    emitToSocket("GET_STORED_ARTIFACTS", {})
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen || !payload?.session) {
+      setStoredArtifacts([])
+      return
+    }
+    refreshStoredArtifacts()
+  }, [isOpen, payload?.session?.id, inventoryItems, refreshStoredArtifacts])
+
+  const showStoredTab = storedArtifacts.length > 0
+
   const validTabValues = useMemo(() => {
     const ids = new Set<string>(["inventory"])
+    if (showStoredTab) {
+      ids.add("stored")
+    }
     for (const t of pluginTabs) {
       ids.add(t.id)
     }
     return ids
-  }, [pluginTabs])
+  }, [pluginTabs, showStoredTab])
 
   useEffect(() => {
     if (!validTabValues.has(gameStateTab)) {
@@ -160,6 +190,12 @@ function ModalUserGameState() {
                   {PACKAGE_ICON ? <SvgIcon icon={PACKAGE_ICON} mr={1} /> : null}
                   Inventory
                 </Tabs.Trigger>
+                {showStoredTab ? (
+                  <Tabs.Trigger value="stored">
+                    {STORED_ICON ? <SvgIcon icon={STORED_ICON} mr={1} /> : null}
+                    Stored Items
+                  </Tabs.Trigger>
+                ) : null}
                 <GameStatePluginTabTriggers tabs={pluginTabs} unseenTabIds={unseenPluginTabIds} />
               </Tabs.List>
 
@@ -173,6 +209,12 @@ function ModalUserGameState() {
                   definitionMap={definitionMap}
                 />
               </Tabs.Content>
+
+              {showStoredTab ? (
+                <Tabs.Content value="stored">
+                  <StoredItemsTab artifacts={storedArtifacts} onRefresh={refreshStoredArtifacts} />
+                </Tabs.Content>
+              ) : null}
 
               <GameStatePluginTabContents tabs={pluginTabs} />
             </Tabs.Root>

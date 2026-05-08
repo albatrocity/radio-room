@@ -9,7 +9,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./shopping-session-catalog": "./src/shoppingSessionCatalog.ts",
-    "./text-effect-stacks": "./src/textEffectStacks.ts"
+    "./text-effect-stacks": "./src/textEffectStacks.ts",
+    "./interface-modifier-stacks": "./src/interfaceModifierStacks.ts"
   },
   "scripts": {
     "test": "true",

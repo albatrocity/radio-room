@@ -76,6 +76,7 @@ function GameStateInventoryContent({
           items={inventoryItems}
           maxSlots={maxSlots}
           definitionMap={definitionMap}
+          coinBalance={attributes.coin ?? 0}
         />
       )}
     </Stack>

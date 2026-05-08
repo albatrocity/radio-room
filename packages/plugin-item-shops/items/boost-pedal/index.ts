@@ -12,16 +12,17 @@ export const boostPedal = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 10,
-    icon: "chevrons-up",
+    coinValue: 50,
+    icon: "ChevronsUp",
     rarity: "common",
   },
   use: timedModifierEffect({
     modifierName: "boost",
-    flag: GROW_FLAG,
-    intent: "positive",
+    effects: [
+      { type: "flag", name: GROW_FLAG, value: true, intent: "positive", durationMs: 300_000 },
+    ],
     successMessage: "Boost engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} got louder.` : `${target} got louder.`,
+      isSelf ? `${actor} is boosted` : `${target} is boosted`,
   }),
 })

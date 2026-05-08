@@ -10,7 +10,7 @@ export function getComponentSchema(): PluginComponentSchema {
         type: "button",
         area: "userList",
         label: "Guess the Tune Leaderboard",
-        icon: "trophy",
+        icon: "Trophy",
         opensModal: "guess-tune-leaderboard-modal",
         showWhen: [
           { field: "enabled", value: true },

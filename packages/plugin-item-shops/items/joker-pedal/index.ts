@@ -5,22 +5,23 @@ import { createItem } from "../shared/types"
 export const jokerPedal = createItem({
   shortId: "joker-pedal",
   definition: {
-    name: "Funny Pedal",
+    name: "Joker Pedal",
     description:
-      "Ha ha! This pedal is practically comical in nature. Use on yourself or others.",
+      "Makes chat messages appear in Comic Sans for a limited time. Use on yourself or others.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 15,
-    icon: "laugh",
+    coinValue: 50,
+    icon: "Laugh",
     rarity: "uncommon",
   },
   use: timedModifierEffect({
     modifierName: "joker_pedal",
-    flag: COMIC_SANS_FLAG,
-    intent: "negative",
+    effects: [
+      { type: "flag", name: COMIC_SANS_FLAG, value: true, intent: "negative", durationMs: 300_000 },
+    ],
     successMessage: "Joker Pedal engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} is in Comic Sans` : `${target}'s chat is in Comic Sans`,

@@ -27,6 +27,7 @@ describe("boostPedal", () => {
       modifierName: "boost",
       flag: GROW_FLAG,
       intent: "positive",
+      durationMs: 300_000,
     })
   })
 

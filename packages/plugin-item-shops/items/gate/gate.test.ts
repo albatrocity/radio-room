@@ -27,6 +27,7 @@ describe("gate", () => {
       modifierName: "gate",
       flag: GATE_FLAG,
       intent: "negative",
+      durationMs: 300_000,
     })
   })
 })

@@ -238,6 +238,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     const config = await this.getConfig()
     if (!config?.enabled || !config.assignShopOnJoin) return
     if (!(await this.shopping.isActive())) return
+    // Skip if user already has an assignment (e.g. page refresh during session)
+    const existing = await this.shopping.getInstance(data.user.userId)
+    if (existing) return
     const eligible = getEligibleShops(config)
     if (eligible.length === 0) return
     await this.shopping.assignInstanceForUserId(data.user.userId, Date.now(), eligible)
@@ -274,7 +277,6 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         "enabled",
         "enabledShopIds",
         "assignShopOnJoin",
-        "effectDurationMs",
         {
           type: "action",
           action: "startShoppingSession",
@@ -316,14 +318,6 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
             "If a shopping round is active, give late joiners their own random shop instance.",
           showWhen: { field: "enabled", value: true },
         },
-        effectDurationMs: {
-          type: "duration",
-          label: "Pedal effect duration",
-          description: "How long timed chat modifiers last when a pedal is used.",
-          displayUnit: "minutes",
-          storageUnit: "milliseconds",
-          showWhen: { field: "enabled", value: true },
-        },
       },
     }
   }
@@ -336,7 +330,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           type: "tab",
           area: "gameStateTab",
           label: "Item Shop",
-          icon: "shopping-cart",
+          icon: "ShoppingCart",
           showWhen: { field: "enabled", value: true },
           children: [
             {
@@ -444,7 +438,6 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         pluginName: this.name,
         context: this.context,
         game: this.game,
-        effectDurationMs: config.effectDurationMs,
       },
       userId,
       definition,

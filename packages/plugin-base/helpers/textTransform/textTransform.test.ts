@@ -1,11 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import type { GameStateModifier } from "@repo/types"
-import {
-  COMIC_SANS_FLAG,
-  GATE_FLAG,
-  SCRAMBLE_FLAG,
-  countTextEffectStacks,
-} from "./flags"
+import { COMIC_SANS_FLAG, GATE_FLAG, SCRAMBLE_FLAG, countTextEffectStacks } from "./flags"
 import { applyGateTransform, applyScrambleTransform } from "./effects"
 import { applyTextEffects } from "./pipeline"
 

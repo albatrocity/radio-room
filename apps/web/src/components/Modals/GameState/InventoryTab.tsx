@@ -13,6 +13,7 @@ import {
 } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
+import { resolveItemRarity } from "@repo/game-logic"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
 import { quoteItemShopsSellCoins } from "../../../lib/itemShopsSellQuote"
 import { getIcon } from "../../PluginComponents/icons"
@@ -20,16 +21,23 @@ import { toaster } from "../../ui/toaster"
 import { useUserGameState } from "../UserGameStateContext"
 import { InventoryUseTargetPopover } from "./TargetUserPicker"
 import { InventoryUseQueueItemPicker } from "./QueueItemPicker"
+import { InventoryItemStoragePopover } from "./InventoryItemPicker"
+import { CoinAmountStoragePopover } from "./CoinAmountPicker"
+import { ItemRarityTag } from "../../PluginComponents/ItemRarity"
 
 interface InventoryTabProps {
   items: InventoryItem[]
   maxSlots: number
   definitionMap: Map<string, ItemDefinition>
+  coinBalance: number
 }
 
 interface InventoryRowProps {
   item: InventoryItem
   definition?: ItemDefinition
+  allItems: InventoryItem[]
+  definitionMap: Map<string, ItemDefinition>
+  coinBalance: number
 }
 
 /**
@@ -38,7 +46,7 @@ interface InventoryRowProps {
  * (see `chakraTheme.ts` + `[data-theme]` on the document).
  */
 const inventorySlotFrameProps = {
-  align: "flex-start" as const,
+  align: "center" as const,
   gap: 2,
   borderWidth: "1px",
   borderColor: "primary.muted",
@@ -64,7 +72,13 @@ function EmptyInventorySlot() {
   )
 }
 
-function InventoryRow({ item, definition }: InventoryRowProps) {
+function InventoryRow({
+  item,
+  definition,
+  allItems,
+  definitionMap,
+  coinBalance,
+}: InventoryRowProps) {
   const gameState = useUserGameState()
   const name = definition?.name ?? item.definitionId
   const description = definition?.description
@@ -75,6 +89,8 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
   const sellable = tradeable && coinValue > 0
   const requiresTargetUser = definition?.requiresTarget === "user"
   const requiresTargetQueueItem = definition?.requiresTarget === "queueItem"
+  const requiresInventoryItem = definition?.requiresTarget === "inventoryItem"
+  const requiresCoinAmount = definition?.requiresTarget === "coinAmount"
   const isItemShopsItem = item.sourcePlugin === ITEM_SHOPS_PLUGIN_NAME
   const shopVisitOpen = gameState?.currentShopInstance != null
   const showSellButton = sellable && (!isItemShopsItem || shopVisitOpen)
@@ -97,7 +113,16 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
     }
   }, [])
 
-  const dispatch = (action: "use" | "sell", targetUserId?: string, targetQueueItemId?: string) => {
+  const dispatch = (
+    action: "use" | "sell",
+    extra?: {
+      targetUserId?: string
+      targetQueueItemId?: string
+      targetInventoryItemId?: string
+      password?: string
+      coinAmount?: number
+    },
+  ) => {
     const subscriptionId = `inventory-${action}-${item.itemId}-${Date.now()}`
     subscriptionIdRef.current = subscriptionId
     setPending({ itemId: item.itemId, action })
@@ -126,8 +151,13 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
     if (action === "use") {
       emitToSocket("USE_INVENTORY_ITEM", {
         itemId: item.itemId,
-        ...(targetUserId ? { targetUserId } : {}),
-        ...(targetQueueItemId ? { targetQueueItemId } : {}),
+        ...(extra?.targetUserId != null ? { targetUserId: extra.targetUserId } : {}),
+        ...(extra?.targetQueueItemId != null ? { targetQueueItemId: extra.targetQueueItemId } : {}),
+        ...(extra?.targetInventoryItemId != null
+          ? { targetInventoryItemId: extra.targetInventoryItemId }
+          : {}),
+        ...(extra?.password != null ? { password: extra.password } : {}),
+        ...(extra?.coinAmount != null ? { coinAmount: extra.coinAmount } : {}),
       })
     } else {
       emitToSocket("SELL_INVENTORY_ITEM", { itemId: item.itemId })
@@ -149,11 +179,14 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
 
   return (
     <HStack {...inventorySlotFrameProps}>
-      {IconGlyph ? (
-        <Icon as={IconGlyph} boxSize={7} color="fg.muted" flexShrink={0} aria-hidden />
-      ) : (
-        <Box boxSize={7} flexShrink={0} aria-hidden />
-      )}
+      <VStack minW="6rem" align="center" justify="center" h="100%">
+        {IconGlyph ? (
+          <Icon as={IconGlyph} boxSize={7} color="fg.muted" flexShrink={0} aria-hidden />
+        ) : (
+          <Box boxSize={7} flexShrink={0} aria-hidden />
+        )}
+        {definition != null && <ItemRarityTag rarity={resolveItemRarity(definition)} />}
+      </VStack>
       <VStack align="start" gap={0} flex="1" minW={0}>
         <HStack gap={2} flexWrap="wrap">
           <Text fontWeight="medium">{name}</Text>
@@ -173,7 +206,7 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
         {consumable &&
           (requiresTargetQueueItem ? (
             <InventoryUseQueueItemPicker
-              onPick={(targetQueueItemId) => dispatch("use", undefined, targetQueueItemId)}
+              onPick={(targetQueueItemId) => dispatch("use", { targetQueueItemId })}
             >
               <Button
                 size="xs"
@@ -185,7 +218,7 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
               </Button>
             </InventoryUseQueueItemPicker>
           ) : requiresTargetUser ? (
-            <InventoryUseTargetPopover onPick={(targetUserId) => dispatch("use", targetUserId)}>
+            <InventoryUseTargetPopover onPick={(targetUserId) => dispatch("use", { targetUserId })}>
               <Button
                 size="xs"
                 variant="solid"
@@ -195,6 +228,38 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
                 Use
               </Button>
             </InventoryUseTargetPopover>
+          ) : requiresInventoryItem ? (
+            <InventoryItemStoragePopover
+              excludingItemId={item.itemId}
+              items={allItems}
+              definitionMap={definitionMap}
+              onConfirm={(targetInventoryItemId, password) =>
+                dispatch("use", { targetInventoryItemId, password })
+              }
+            >
+              <Button
+                size="xs"
+                variant="solid"
+                colorPalette="action"
+                loading={pending?.itemId === item.itemId && pending.action === "use"}
+              >
+                Use
+              </Button>
+            </InventoryItemStoragePopover>
+          ) : requiresCoinAmount ? (
+            <CoinAmountStoragePopover
+              maxCoins={Math.max(0, Math.floor(coinBalance))}
+              onConfirm={(coinAmount, password) => dispatch("use", { coinAmount, password })}
+            >
+              <Button
+                size="xs"
+                variant="solid"
+                colorPalette="action"
+                loading={pending?.itemId === item.itemId && pending.action === "use"}
+              >
+                Use
+              </Button>
+            </CoinAmountStoragePopover>
           ) : (
             <Button
               size="xs"
@@ -221,7 +286,7 @@ function InventoryRow({ item, definition }: InventoryRowProps) {
   )
 }
 
-function InventoryTab({ items, maxSlots, definitionMap }: InventoryTabProps) {
+function InventoryTab({ items, maxSlots, definitionMap, coinBalance }: InventoryTabProps) {
   const emptySlotCount = maxSlots > 0 ? Math.max(0, maxSlots - items.length) : 0
   const showSlotGrid = maxSlots > 0
 
@@ -249,6 +314,9 @@ function InventoryTab({ items, maxSlots, definitionMap }: InventoryTabProps) {
               key={item.itemId}
               item={item}
               definition={definitionMap.get(item.definitionId)}
+              allItems={items}
+              definitionMap={definitionMap}
+              coinBalance={coinBalance}
             />
           ))}
           {showSlotGrid &&

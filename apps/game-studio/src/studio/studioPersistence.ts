@@ -4,6 +4,7 @@ import type {
   InventoryItem,
   QueueItem,
   Reaction,
+  StoredArtifact,
   User,
   UserGameState,
 } from "@repo/types"
@@ -32,6 +33,8 @@ export type PersistedSnapshotV2 = {
   chat: ChatMessage[]
   events: StudioEventEntry[]
   reactions: [string, Reaction[]][]
+  /** Added after v2 — omitted in older localStorage payloads */
+  storedArtifacts?: StoredArtifact[]
 }
 
 type SerializedPluginStores = Record<
@@ -90,6 +93,7 @@ export function snapshotRoom(room: StudioRoom): PersistedSnapshotV2 {
     chat: room.chat.slice(-MAX_PERSIST_CHAT),
     events: room.events.slice(-MAX_PERSIST_EVENTS),
     reactions: [...room.reactions.entries()],
+    storedArtifacts: room.storedArtifacts,
   }
 }
 
@@ -108,6 +112,7 @@ export function applySnapshotToRoom(room: StudioRoom, snap: PersistedSnapshotV2)
   room.chat = snap.chat
   room.events = snap.events
   room.reactions = new Map(snap.reactions)
+  room.storedArtifacts = snap.storedArtifacts ?? []
   room.notify()
 }
 

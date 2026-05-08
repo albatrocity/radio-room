@@ -11,7 +11,7 @@ export const cateredMeal = createItem({
     tradeable: true,
     consumable: false,
     coinValue: 75,
-    icon: "hand-platter",
+    icon: "HandPlatter",
     rarity: "rare",
     defense: {
       targeting: { intents: ["negative"] },

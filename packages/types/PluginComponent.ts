@@ -11,6 +11,8 @@
  */
 
 import type { GameAttributeName } from "./GameSession"
+import type { LucideIconName } from "./LucideIconKey"
+import type { ItemRarity } from "./ShoppingSession"
 
 // ============================================================================
 // Placement Areas
@@ -113,7 +115,7 @@ export interface EmojiComponentProps {
  * Props for the icon template component.
  */
 export interface IconComponentProps {
-  icon: string
+  icon: LucideIconName
   size?: "sm" | "md" | "lg"
   color?: string
 }
@@ -130,7 +132,7 @@ export interface IconComponentProps {
  */
 export interface ButtonComponentProps {
   label: string
-  icon?: string
+  icon?: LucideIconName
   opensModal?: string
   /** Plugin action identifier - dispatched via `EXECUTE_PLUGIN_ACTION`. */
   action?: string
@@ -193,7 +195,7 @@ export interface BadgeComponentProps {
   /** Visual variant */
   variant?: "success" | "warning" | "error" | "info"
   /** Icon name (e.g., "skip-forward", "heart", "star") */
-  icon?: string
+  icon?: LucideIconName
   /** Tooltip text on hover (supports template interpolation) */
   tooltip?: string
 }
@@ -227,7 +229,7 @@ export interface GameAttributeComponentProps {
   /** Display format hint. */
   format?: "number" | "currency" | "health-bar"
   /** Optional icon shown alongside the value. */
-  icon?: string
+  icon?: LucideIconName
   /** Optional label displayed next to the value. */
   label?: string
 }
@@ -243,7 +245,7 @@ export interface ModifierBadgeComponentProps {
   variant?: "success" | "warning" | "error" | "info"
   /** Optional label/icon overrides. */
   label?: string
-  icon?: string
+  icon?: LucideIconName
 }
 
 /**
@@ -252,7 +254,7 @@ export interface ModifierBadgeComponentProps {
  */
 export interface InventoryButtonComponentProps {
   label: string
-  icon?: string
+  icon?: LucideIconName
   /** Modal id to open (must reference a modal containing an inventory-grid). */
   opensModal: string
 }
@@ -284,8 +286,8 @@ export interface ItemBadgeComponentProps {
 
 /** One row in a `shop-offer-table` (game shop / catalog UI). */
 export interface ShopOfferTableRow {
-  /** Lucide icon key (see frontend `ICON_MAP`, e.g. `disc-2`). */
-  icon: string
+  /** Lucide icon key (e.g. `disc-2`). */
+  icon: LucideIconName
   name: string
   description: string
   /** Price in `balanceAttribute` units (e.g. coins). Displayed in the UI and used for afford checks. */
@@ -307,6 +309,8 @@ export interface ShopOfferTableRow {
    * Attribute compared against `price` for afford checks (default `coin`).
    */
   balanceAttribute?: GameAttributeName
+  /** Item rarity for display styling (e.g. color-coded tag). */
+  itemRarity?: ItemRarity
 }
 
 /**
@@ -486,7 +490,7 @@ export interface PluginModalComponent extends PluginComponentMetadata {
  *   type: "tab",
  *   area: "gameStateTab",
  *   label: "Shop",
- *   icon: "shopping-cart",
+ *   icon: "ShoppingCart",
  *   showWhen: { field: "enabled", value: true },
  *   children: [
  *     { id: "shop-stock", type: "text-block", area: "gameStateTab",
@@ -502,7 +506,7 @@ export interface PluginTabComponent extends PluginComponentMetadata {
   /** Tab label shown in the tab bar */
   label: string
   /** Optional icon name to display in the tab bar */
-  icon?: string
+  icon?: LucideIconName
   /** Components rendered when this tab is selected */
   children: PluginComponentDefinition[]
 }

@@ -30,7 +30,12 @@ describe("hummusVeggies", () => {
 
   test("fails without targetQueueItemId", async () => {
     const deps = createMockDeps()
-    const result = await invokeUse(hummusVeggies, deps, "u1", createMockDefinition("hummus-veggies"))
+    const result = await invokeUse(
+      hummusVeggies,
+      deps,
+      "u1",
+      createMockDefinition("hummus-veggies"),
+    )
     expect(result.success).toBe(false)
     expect(result.message).toMatch(/Select a track/i)
   })
@@ -44,9 +49,15 @@ describe("hummusVeggies", () => {
       message: "Cannot move",
     })
 
-    const result = await invokeUse(hummusVeggies, deps, user.userId, createMockDefinition("hummus-veggies"), {
-      targetQueueItemId: "q1",
-    })
+    const result = await invokeUse(
+      hummusVeggies,
+      deps,
+      user.userId,
+      createMockDefinition("hummus-veggies"),
+      {
+        targetQueueItemId: "q1",
+      },
+    )
 
     expect(result.success).toBe(false)
     expect(result.message).toBe("Cannot move")

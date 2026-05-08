@@ -7,13 +7,6 @@ export const itemShopsConfigSchema = z.object({
    * When a shopping round is active and someone joins the room, assign them a shop immediately.
    */
   assignShopOnJoin: z.boolean().default(true),
-  /** Duration for timed pedal-style modifiers (default 5 minutes). */
-  effectDurationMs: z
-    .number()
-    .int()
-    .min(60_000)
-    .max(60 * 60 * 1000)
-    .default(5* 60 * 1000),
   /**
    * Shops eligible for random assignment when starting or joining a shopping session.
    * Stale ids not in `SHOP_CATALOG` are ignored at runtime (see `getEligibleShops` in the plugin).
@@ -26,6 +19,5 @@ export type ItemShopsConfig = z.infer<typeof itemShopsConfigSchema>
 export const defaultItemShopsConfig: ItemShopsConfig = {
   enabled: false,
   assignShopOnJoin: true,
-  effectDurationMs: 5 * 60 * 1000,
   enabledShopIds: SHOP_CATALOG.map((s) => s.shopId),
 }

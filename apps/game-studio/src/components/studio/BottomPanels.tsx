@@ -4,6 +4,8 @@ import { Box, Code, Field, Heading, Input, Stack, Text } from "@chakra-ui/react"
 import type { StudioRoom } from "../../studio/studioRoom"
 import { formatChatBody } from "../../lib/formatChatMessage"
 import { type ReactNode, useMemo, useState } from "react"
+import { MessageSegments } from "./MessageSegments"
+import { StoredArtifactsPanel } from "./StoredArtifactsPanel"
 
 export type BottomPanelsProps = {
   room: StudioRoom
@@ -84,12 +86,24 @@ export function BottomPanels({ room }: BottomPanelsProps) {
                 <Text fontSize="xs" color="fg.muted">
                   {m.user.username} · {new Date(m.timestamp).toLocaleTimeString()}
                 </Text>
-                <Text fontSize="sm">{formatChatBody(m)}</Text>
+                <Text fontSize="sm">
+                  {m.contentSegments && m.contentSegments.length > 0 ? (
+                    <MessageSegments segments={m.contentSegments} />
+                  ) : (
+                    formatChatBody(m)
+                  )}
+                </Text>
               </Box>
             ))
           )}
         </Stack>
       </PanelShell>
+
+      {room.storedArtifacts.length > 0 ? (
+        <PanelShell title="Stored artifacts">
+          <StoredArtifactsPanel room={room} />
+        </PanelShell>
+      ) : null}
     </Stack>
   )
 }

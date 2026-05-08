@@ -1,7 +1,12 @@
 import { describe, expect, test } from "vitest"
 import { userFactory } from "@repo/factories"
 import { emptyFridge } from "./index"
-import { createMockDefinition, createMockDeps, invokeUse, stubRoomUsers } from "../shared/testHelpers"
+import {
+  createMockDefinition,
+  createMockDeps,
+  invokeUse,
+  stubRoomUsers,
+} from "../shared/testHelpers"
 
 describe("emptyFridge", () => {
   test("demotes track with delta +1", async () => {
@@ -9,9 +14,15 @@ describe("emptyFridge", () => {
     const user = userFactory.build()
     stubRoomUsers(deps, [user])
 
-    const result = await invokeUse(emptyFridge, deps, user.userId, createMockDefinition("empty-fridge"), {
-      targetQueueItemId: "meta-track-2",
-    })
+    const result = await invokeUse(
+      emptyFridge,
+      deps,
+      user.userId,
+      createMockDefinition("empty-fridge"),
+      {
+        targetQueueItemId: "meta-track-2",
+      },
+    )
 
     expect(result.success).toBe(true)
     expect(deps.context.api.moveTrackByPosition).toHaveBeenCalledWith(

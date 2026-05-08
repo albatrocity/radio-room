@@ -1,69 +1,21 @@
-import {
-  LuAward,
-  LuChevronsUp,
-  LuFence,
-  LuDices,
-  LuCoins,
-  LuDisc2,
-  LuExpand,
-  LuHandCoins,
-  LuHandPlatter,
-  LuHeart,
-  LuLaugh,
-  LuMedal,
-  LuPackage,
-  LuShoppingCart,
-  LuShrink,
-  LuSkipForward,
-  LuSquareStack,
-  LuStar,
-  LuSwords,
-  LuTrophy,
-  LuWaves,
-  LuSalad,
-  LuFrown,
-  LuShield,
-  LuAnchor,
-  LuBadgeCheck,
-  LuRefrigerator,
-  LuChefHat,
-} from "react-icons/lu"
+import * as LucideIcons from "lucide-react"
+import type { LucideIconName } from "@repo/types"
 
-// ============================================================================
-// Icon Mapping
-// ============================================================================
+type IconComponent = React.ComponentType
 
-export const ICON_MAP: Record<string, React.ComponentType> = {
-  trophy: LuTrophy,
-  star: LuStar,
-  medal: LuMedal,
-  award: LuAward,
-  heart: LuHeart,
-  "skip-forward": LuSkipForward,
-  swords: LuSwords,
-  coins: LuCoins,
-  "shopping-cart": LuShoppingCart,
-  package: LuPackage,
-  "disc-2": LuDisc2,
-  "square-stack": LuSquareStack,
-  waves: LuWaves,
-  shrink: LuShrink,
-  expand: LuExpand,
-  "chevrons-up": LuChevronsUp,
-  fence: LuFence,
-  dices: LuDices,
-  laugh: LuLaugh,
-  salad: LuSalad,
-  frown: LuFrown,
-  shield: LuShield,
-  anchor: LuAnchor,
-  "badge-check": LuBadgeCheck,
-  refrigerator: LuRefrigerator,
-  "chef-hat": LuChefHat,
-  "hand-platter": LuHandPlatter,
-  "hand-coins": LuHandCoins,
-}
+const iconCache = new Map<string, IconComponent | undefined>()
 
-export function getIcon(iconName: string): React.ComponentType | undefined {
-  return ICON_MAP[iconName.toLowerCase()]
+export function getIcon(iconName: LucideIconName | string): React.ComponentType | undefined {
+  const normalizedName = iconName.trim()
+  if (!normalizedName) return undefined
+
+  if (iconCache.has(normalizedName)) {
+    return iconCache.get(normalizedName)
+  }
+
+  const icon = (LucideIcons as Record<string, unknown>)[normalizedName]
+  const resolvedIcon = icon != null ? (icon as IconComponent) : undefined
+
+  iconCache.set(normalizedName, resolvedIcon)
+  return resolvedIcon
 }

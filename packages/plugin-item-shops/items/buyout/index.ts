@@ -88,7 +88,7 @@ export const buyout = createItem({
     tradeable: false,
     consumable: true,
     coinValue: 25,
-    icon: "hand-coins",
+    icon: "HandCoins",
     rarity: "rare",
   },
   use: useBuyout,

@@ -1,5 +1,6 @@
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 import { analogDelayPedal } from "./analog-delay-pedal"
+import { fuzzPedal } from "./fuzz-pedal"
 import { boostPedal } from "./boost-pedal"
 import { buyout } from "./buyout"
 import { cateredMeal } from "./catered-meal"
@@ -10,7 +11,10 @@ import { hummusVeggies } from "./hummus-veggies"
 import { jokerPedal } from "./joker-pedal"
 import { sampleHold } from "./sample-hold"
 import { scratchedCd } from "./scratched-cd"
+import { tubeOverdrive } from "./tube-overdrive"
 import { warranty } from "./warranty"
+import { vanCubby } from "./van-cubby"
+import { merchCashBox } from "./merch-cash-box"
 import type { ItemUseHandler } from "./shared/types"
 
 /**
@@ -20,6 +24,8 @@ import type { ItemUseHandler } from "./shared/types"
 export const items = {
   scratchedCd,
   analogDelayPedal,
+  fuzzPedal,
+  tubeOverdrive,
   compressorPedal,
   boostPedal,
   gate,
@@ -30,6 +36,8 @@ export const items = {
   cateredMeal,
   warranty,
   buyout,
+  vanCubby,
+  merchCashBox,
 } as const
 
 /**

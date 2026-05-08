@@ -1,4 +1,4 @@
-/** Re-export for backwards compatibility — canonical implementations live in `@repo/game-logic`. */
+/** Chat text effect flags — canonical implementations live in `@repo/game-logic/text-effect-stacks`. */
 export {
   SHRINK_FLAG,
   GROW_FLAG,

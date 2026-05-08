@@ -5,24 +5,25 @@ import { createItem } from "../shared/types"
 export const analogDelayPedal = createItem({
   shortId: "analog-delay-pedal",
   definition: {
-    name: "Delay Pedal",
+    name: "Analog Delay Pedal",
     description:
-      "Echoes Echoes every every word word in in a a user's user's chat chat messages messages for for a a limited limited time. time. Use Use on on yourself yourself or or others. others.",
+      "Echoes every word in a user's chat messages for a limited time. Use on yourself or others.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 15,
-    icon: "square-stack",
+    coinValue: 50,
+    icon: "SquareStack",
     rarity: "uncommon",
   },
   use: timedModifierEffect({
     modifierName: "analog_delay_echo",
-    flag: ECHO_FLAG,
-    intent: "negative",
-    successMessage: "You smash your foot down on the Delay Pedal. It was lost with use.",
+    effects: [
+      { type: "flag", name: ECHO_FLAG, value: true, intent: "negative", durationMs: 300_000 },
+    ],
+    successMessage: "Analog Delay Pedal engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} is hearing echoes...` : `${target} is hearing echoes...`,
+      isSelf ? `${actor} is hearing echoes` : `${target}'s chat echoes`,
   }),
 })
