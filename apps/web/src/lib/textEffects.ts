@@ -8,6 +8,21 @@ import type { SystemStyleObject } from "@chakra-ui/react"
 export function textEffectStyles(effects?: TextEffect[]): SystemStyleObject {
   const out: SystemStyleObject = {}
   for (const e of effects ?? []) {
+    if (e.type === "color") {
+     if (e.value === "orange"){
+    out.color === "orange.500"  
+     }else if (e.value === "red"){
+      out.color === "red.solid"
+     }else if (e.value === "blue"){
+      out.color === "blue.subtle"
+     }else if (e.value === "green"){
+      out.color === "green.focusRing"
+     }else if (e.value === "purple"){
+      out. color === "purple.800"
+     }else if (e.value === "yellow"){
+      out.color === "yellow.600"
+     }
+     } 
     if (e.type === "font") {
       if (e.value === "comicSans") {
         out.fontFamily = '"Comic Sans MS", "Comic Sans", cursive'
