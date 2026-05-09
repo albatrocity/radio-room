@@ -15,7 +15,6 @@ import { MockStudioPluginApi } from "./mockStudioPluginApi"
 import { StudioPluginRegistry } from "./studioPluginRegistry"
 import { STUDIO_SESSION_AFTER_RESET_KEY } from "./constants"
 import { attachStudioPersistence, tryHydrateRoom } from "./studioPersistence"
-import { seedStudioSampleQueueIfEmpty } from "./studioSampleQueue"
 import { StudioRoom } from "./studioRoom"
 
 const ITEM_SHOPS_STUDIO_CONFIG = {
@@ -131,8 +130,6 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
     sessionStorage.removeItem(STUDIO_SESSION_AFTER_RESET_KEY)
     room.queue = []
     room.notify()
-  } else {
-    await seedStudioSampleQueueIfEmpty(room, lifecycle)
   }
 
   return { room, lifecycle, registry, itemShopsPlugin, itemShopsContext: ctx }

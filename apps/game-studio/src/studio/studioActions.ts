@@ -462,7 +462,7 @@ export function resetStudioSandbox(): void {
   const { room } = getStudio()
   detachStudioPersistence(room)
   clearPersistedSnapshot()
-  /** Skip `seedStudioSampleQueueIfEmpty` on next load — otherwise the queue refills immediately. */
+  /** Next bootstrap pass clears the queue after reload (see `STUDIO_SESSION_AFTER_RESET_KEY`). */
   sessionStorage.setItem(STUDIO_SESSION_AFTER_RESET_KEY, "1")
   sessionStorage.removeItem(STUDIO_PREVIEW_VIEW_AS_USER_KEY)
   window.location.reload()

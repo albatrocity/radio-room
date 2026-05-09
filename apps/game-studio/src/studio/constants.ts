@@ -1,8 +1,8 @@
 export const STUDIO_ROOM_ID = "studio-room"
 
 /**
- * Set in sessionStorage before reload by Reset — bootstrap skips auto-seeding sample queue rows
- * so the queue stays empty after reset (otherwise `seedStudioSampleQueueIfEmpty` refills it).
+ * Set in sessionStorage before reload by Reset — bootstrap clears the queue on the next load
+ * so a fresh studio isn’t left with a hydrated queue from persistence.
  */
 export const STUDIO_SESSION_AFTER_RESET_KEY = "game-studio-after-reset"
 

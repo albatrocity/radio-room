@@ -26,7 +26,10 @@ export function cloneSampleQueueItem(
   }
 }
 
-/** When there is no persisted queue, seed with realistic tracks so Room UI preview matches production richness. */
+/**
+ * Optional: fill an empty queue with sample tracks (e.g. for a dev tool or test).
+ * Bootstrap does not call this — add tracks via UI actions or persist a snapshot instead.
+ */
 export async function seedStudioSampleQueueIfEmpty(
   room: StudioRoom,
   lifecycle: MockPluginLifecycle,
