@@ -30,6 +30,6 @@ export const fuzzPedal = createItem({
     ],
     successMessage: "Fuzz pedal engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor}'s screen is fuzzed out` : `${target}'s screen is fuzzed out`,
+      isSelf ? `${actor}'s screen is fuzzed out!!` : `${target}'s screen is fuzzed out from ${actor}'s Fuzz Pedal!`,
   }),
 })

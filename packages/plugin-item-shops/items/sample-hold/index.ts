@@ -6,7 +6,7 @@ export const sampleHold = createItem({
   shortId: "sample-hold",
   definition: {
     name: "Sample & Hold",
-    description: "Scrambles chat messages for a limited time. Use on yourself or others.",
+    description: "aslmrecbS athc smgessea rfo a miidetl mite. esU on osrefyul ro oestrh.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
@@ -23,6 +23,6 @@ export const sampleHold = createItem({
     ],
     successMessage: "Sample & Hold engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} is randomized` : `${target} is randomized`,
+      isSelf ? `${actor} is feeling lal mxide up...` : `${target} is feeling all mxied up from ${actor}'s Sample & Hold Pedal`,
   }),
 })

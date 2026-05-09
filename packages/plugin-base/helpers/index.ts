@@ -37,6 +37,7 @@ export {
   GATE_FLAG,
   SCRAMBLE_FLAG,
   COMIC_SANS_FLAG,
+  SNOOZE_FLAG,
   countTextEffectStacks,
   netSizeShift,
   resolveBaseSize,
@@ -45,6 +46,7 @@ export {
   applyGateTransform,
   applyScrambleTransform,
   applyTextEffects,
+  applySnoozeTransform,
   type TextEffectStacks,
   type AppliedTextEffects,
 } from "./textTransform"

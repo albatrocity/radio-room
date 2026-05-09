@@ -11,6 +11,7 @@ export const snoozePedal = createItem({
     maxStack: 3,
     tradeable: true,
     consumable: true,
+    requiresTarget: "user",
     coinValue: 45,
     icon: "Moon",
     rarity: "rare",
@@ -22,6 +23,6 @@ export const snoozePedal = createItem({
     ],
     successMessage: "Snooze Pedal activated. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} used Snooze Pedal on themselves` : `${actor} used Snooze Pedal on ${target}`,
+      isSelf ? `${actor} yawned and stzrtzd to snooze...` : `${actor} used Snooze Pedal and ${target} got very slzzpy... `,
   }),
 })

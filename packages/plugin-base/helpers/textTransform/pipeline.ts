@@ -63,7 +63,7 @@ export function applyTextEffects(
   const gate = stacks.gate > 0
   const snooze = stacks.snooze > 0
   const scramble = stacks.scramble > 0
-  if (echoes === 0 && shift === 0 && !gate && !scramble && stacks.comicSans <= 0) return null
+  if (echoes === 0 && shift === 0 && !gate && !scramble && !snooze && stacks.comicSans <= 0) return null
 
   const baseSize = resolveBaseSize(stacks)
   const transformed = scramble ? applyScrambleTransform(content, stacks.scramble) : content

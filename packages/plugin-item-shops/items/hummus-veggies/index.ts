@@ -11,7 +11,7 @@ export const hummusVeggies = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "queueItem",
-    coinValue: 50,
+    coinValue: 20,
     icon: "Salad",
     rarity: "rare",
   },
@@ -50,7 +50,7 @@ export const hummusVeggies = createItem({
     const username = user?.username?.trim() || userId
     await context.api.sendSystemMessage(
       context.roomId,
-      `${username} used Hummus & Veggies to promote a track!`,
+      `Yum! ${username} ate Hummus & Veggies and promoted a track!`,
     )
 
     return {

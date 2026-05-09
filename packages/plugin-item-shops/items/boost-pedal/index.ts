@@ -6,13 +6,13 @@ export const boostPedal = createItem({
   shortId: "boost-pedal",
   definition: {
     name: "Boost Pedal",
-    description: "Makes chat messages large for a limited time. Use on yourself or others.",
+    description: "Makes chat messages BIG for a limited time. Use on yourself or others.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 50,
+    coinValue: 10,
     icon: "ChevronsUp",
     rarity: "common",
   },
@@ -23,6 +23,6 @@ export const boostPedal = createItem({
     ],
     successMessage: "Boost engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} is boosted` : `${target} is boosted`,
+      isSelf ? `${actor} turned themselves up a little louder.` : `${actor}'s Boost Pedal turned ${target} up a little louder. `,
   }),
 })
