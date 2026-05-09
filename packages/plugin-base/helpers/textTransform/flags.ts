@@ -6,6 +6,7 @@ export {
   GATE_FLAG,
   SCRAMBLE_FLAG,
   COMIC_SANS_FLAG,
+  COFFEE_FLAG,
   SNOOZE_FLAG,
   countTextEffectStacks,
   type TextEffectStacks,

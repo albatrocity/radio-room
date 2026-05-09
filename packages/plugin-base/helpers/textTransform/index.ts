@@ -6,6 +6,7 @@ export {
   SCRAMBLE_FLAG,
   COMIC_SANS_FLAG,
   SNOOZE_FLAG,
+  COFFEE_FLAG,
   countTextEffectStacks,
   type TextEffectStacks,
 } from "./flags"
@@ -16,6 +17,7 @@ export {
   echoCount,
   applyGateTransform,
   applyScrambleTransform,
-  applySnoozeTransform
+  applySnoozeTransform,
+  applyCoffeeTransform
 } from "./effects"
 export { applyTextEffects, type AppliedTextEffects } from "./pipeline"

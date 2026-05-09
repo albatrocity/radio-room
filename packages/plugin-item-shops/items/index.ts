@@ -16,6 +16,7 @@ import { warranty } from "./warranty"
 import { vanCubby } from "./van-cubby"
 import { merchCashBox } from "./merch-cash-box"
 import { snoozePedal } from "./snooze-pedal"
+import { coffeePedal } from "./coffee-pedal"
 import type { ItemUseHandler } from "./shared/types"
 
 /**
@@ -40,6 +41,7 @@ export const items = {
   vanCubby,
   merchCashBox,
   snoozePedal,
+  coffeePedal,
 } as const
 
 /**

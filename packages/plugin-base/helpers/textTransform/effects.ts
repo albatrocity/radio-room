@@ -96,6 +96,14 @@ export function applySnoozeTransform(text: string): string {
 }
 
 /**
+ * Coffee transform: each ASCII z becomes a !
+ */
+export function applyCoffeeTransform(text: string): string {
+  return text.replace(/[zZ]/g, "!")
+}
+
+
+/**
  * Unicode-aware "is letter" check that doesn't rely on the `/u` regex flag
  * (which would require an ES2018+ target). A character is treated as a letter
  * iff it has distinct upper and lower case forms — true for ASCII letters,
