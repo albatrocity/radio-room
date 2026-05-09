@@ -8,8 +8,13 @@ import type {
   User,
   UserGameState,
 } from "@repo/types"
+import { io as ioClient, type Socket as IoClientSocket } from "socket.io-client"
 import { readShoppingInstance } from "./studioShoppingRead"
 import type { StudioRoom } from "./studioRoom"
+import {
+  dispatchStudioBridgeCommand,
+  type StudioBridgeCommand,
+} from "./studioBridgeCommands"
 
 /**
  * Must stay aligned with `apps/studio-bridge/src/types.ts` `BridgeSnapshot`.
@@ -106,5 +111,61 @@ export function connectStudioBridge(room: StudioRoom, baseUrl: string): () => vo
     cancelled = true
     unsub()
     if (timer) clearTimeout(timer)
+  }
+}
+
+/**
+ * Tell studio-bridge to switch every Listening Room preview tab in `roomId` to view as `userId`.
+ * Requires `make game-studio` / studio-bridge on `VITE_STUDIO_BRIDGE_URL`.
+ */
+export async function requestStudioBridgeViewAs(
+  baseUrl: string,
+  roomId: string,
+  userId: string,
+): Promise<void> {
+  const root = baseUrl.replace(/\/$/, "")
+  const res = await fetch(`${root}/preview/view-as`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomId, userId }),
+  })
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "")
+    throw new Error(`view-as failed (${res.status}): ${detail || res.statusText}`)
+  }
+}
+
+/**
+ * Receive Room UI actions (chat, inventory, plugin buttons) from Listening Room via studio-bridge.
+ */
+export function connectStudioBridgeControl(baseUrl: string, roomId: string): () => void {
+  const root = baseUrl.replace(/\/$/, "")
+  const socket: IoClientSocket = ioClient(root, {
+    transports: ["websocket", "polling"],
+    autoConnect: true,
+  })
+
+  const onConnect = (): void => {
+    socket.emit("STUDIO_SUBSCRIBE", { roomId })
+  }
+
+  const onEvent = (msg: { type?: string; data?: unknown }): void => {
+    if (msg?.type !== "STUDIO_BRIDGE_COMMAND" || !msg.data || typeof msg.data !== "object") return
+    void dispatchStudioBridgeCommand(msg.data as StudioBridgeCommand).catch((e) => {
+      console.warn("[game-studio] studio bridge command failed", e)
+    })
+  }
+
+  socket.on("connect", onConnect)
+  socket.on("event", onEvent)
+
+  if (socket.connected) {
+    onConnect()
+  }
+
+  return () => {
+    socket.off("connect", onConnect)
+    socket.off("event", onEvent)
+    socket.disconnect()
   }
 }

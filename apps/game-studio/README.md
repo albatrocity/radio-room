@@ -80,12 +80,15 @@ From the **repository root**:
 make game-studio
 ```
 
-This starts **two** processes:
+This starts **three** dev servers:
 
-1. **`studio-bridge`** — Socket.IO + HTTP on **http://127.0.0.1:3099** (powers the optional Room UI preview below).
-2. **Game Studio** — Vite on **http://localhost:8005**.
+1. **`studio-bridge`** — Socket.IO + HTTP on **http://127.0.0.1:3099**.
+2. **Game Studio** — Vite on **http://localhost:8005** (sandbox UI).
+3. **`apps/web`** — **`npm run dev:studio-bridge`** so **`VITE_API_URL`** points at the bridge (not the main API).
 
-Open **http://localhost:8005** for the sandbox UI.
+After a short delay it tries to open **http://localhost:8000/rooms/studio-room** (same room id as [`STUDIO_ROOM_ID`](./src/studio/constants.ts)) in your default browser (**macOS:** `open`, **Linux:** `xdg-open`). Use the Game Studio tab so sandbox state keeps syncing to the bridge.
+
+Open **http://localhost:8005** anytime for the sandbox UI if you closed that tab.
 
 **Game Studio only (no bridge):** if you do not need the web Room UI preview:
 
@@ -93,30 +96,28 @@ Open **http://localhost:8005** for the sandbox UI.
 npm run dev -w game-studio
 ```
 
-**Windows without `make`:** run both workspaces yourself (from repo root):
+**Windows without `make`:** run all three dev servers yourself (from repo root):
 
 ```bash
-npx concurrently -n bridge,studio -c blue,green "npm run dev -w studio-bridge" "npm run dev -w game-studio"
+npx concurrently -n bridge,studio,web -c blue,green,magenta \
+  "npm run dev -w studio-bridge" \
+  "npm run dev -w game-studio" \
+  "npm run dev:studio-bridge -w web"
 ```
+
+Then open **http://localhost:8000/rooms/studio-room** manually.
 
 If you want `make` on Windows, you can install it (e.g. [Chocolatey](https://chocolatey.org/): `choco install make`, or [Scoop](https://scoop.sh/): `scoop install make`, or use **WSL** and run the Linux flow there).
 
 ---
 
-## Preview the real Room UI (optional)
+## Preview the real Room UI
 
-Use this when you want the production **`apps/web`** room shell (chat, listeners, game UI) while you orchestrate state from Game Studio.
+**`make game-studio`** already starts **`apps/web`** in bridge mode and tries to open **http://localhost:8000/rooms/studio-room**. Use plain **`npm run dev -w web`** only when pointing at the full stack API—not for `studio-room` preview (port **3000** has no stub room).
 
-1. Run **`make game-studio`** and keep **Game Studio** open so it keeps POSTing sandbox state to the bridge.
-2. In another terminal, start the web app **against the bridge** (not the main API on :3000 — that returns “Room not found” for `studio-room`):
+Uses [`apps/web/.env.studio-bridge`](../../apps/web/.env.studio-bridge) (`VITE_API_URL=http://127.0.0.1:3099`). Alternatively: `VITE_API_URL=http://127.0.0.1:3099 npm run dev -w web`.
 
-   ```bash
-   npm run dev:studio-bridge -w web
-   ```
-
-   This uses [`apps/web/.env.studio-bridge`](../../apps/web/.env.studio-bridge) (`VITE_API_URL=http://127.0.0.1:3099`). Alternatively: `VITE_API_URL=http://127.0.0.1:3099 npm run dev -w web`.
-
-3. Open **http://localhost:8000/rooms/studio-room** (room id matches [`STUDIO_ROOM_ID`](./src/studio/constants.ts)).
+Room id matches [`STUDIO_ROOM_ID`](./src/studio/constants.ts).
 
 Use a **username / identity that exists in your Game Studio sandbox** (session storage / stored user in the web app), or sign in as the first sandbox user—otherwise the bridge will still log you in as the first player it finds.
 

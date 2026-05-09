@@ -16,8 +16,9 @@ import {
 } from "@chakra-ui/react"
 import { getActiveFlags } from "@repo/game-logic"
 import type { ItemDefinition } from "@repo/types"
-import { User as UserIcon } from "lucide-react"
+import { Eye, User as UserIcon } from "lucide-react"
 import { useMemo, useState } from "react"
+import { requestStudioBridgeViewAs } from "../../studio/bridgeClient"
 import * as studioActions from "../../studio/studioActions"
 import type { StudioRoom } from "../../studio/studioRoom"
 import { StudioCoinAmountStoragePopover } from "./StudioCoinAmountStoragePopover"
@@ -99,7 +100,24 @@ export function UserCard({ room, userId, now }: UserCardProps) {
             <UserIcon size={18} />
             <Heading size="md">{user.username}</Heading>
           </HStack>
-          <Badge colorPalette={state ? "green" : "gray"}>{state ? "In session" : "Idle"}</Badge>
+          <HStack gap="2" align="center">
+            <Button
+              size="xs"
+              variant="outline"
+              title="Switch Listening Room preview (web) to this user"
+              onClick={() =>
+                void run("Room preview", async () => {
+                  const baseUrl =
+                    import.meta.env.VITE_STUDIO_BRIDGE_URL ?? "http://127.0.0.1:3099"
+                  await requestStudioBridgeViewAs(baseUrl, room.roomId, userId)
+                  return "Listening Room preview updated"
+                })
+              }
+            >
+              <Eye size={14} /> View as
+            </Button>
+            <Badge colorPalette={state ? "green" : "gray"}>{state ? "In session" : "Idle"}</Badge>
+          </HStack>
         </HStack>
 
         <HStack gap="4" fontSize="sm">

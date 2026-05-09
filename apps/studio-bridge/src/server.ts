@@ -1,21 +1,28 @@
 import http from "node:http"
 import cors from "cors"
 import express from "express"
+import type { Socket } from "socket.io"
 import type { Server as IOServer } from "socket.io"
 import { Server } from "socket.io"
+import type { User } from "@repo/types/User"
 
 import type { BridgeSnapshot } from "./types.js"
 import {
   buildInitPayload,
   buildRoomGameStateSnapshot,
+  buildRoomMeta,
   buildUserGameStatePayload,
   resolveBridgeUser,
   roomSocketPath,
+  studioControlRoomPath,
 } from "./payloads.js"
 import {
   consumeSnapshotBroadcast,
+  diffUsers,
   getBridgeSnapshot,
   getLastSyncEpochMs,
+  getPreviousBridgeSnapshot,
+  queueHeadTrackId,
   setBridgeSnapshot,
 } from "./snapshotStore.js"
 import {
@@ -23,6 +30,7 @@ import {
   stubRoomForRoomData,
   stubStudioBridgeRoom,
 } from "./stubRoom.js"
+import { bridgePluginSchemasForApi } from "./stubPluginSchemas.js"
 
 const PORT = Number(process.env.STUDIO_BRIDGE_PORT ?? process.env.PORT ?? 3099)
 
@@ -32,15 +40,79 @@ function bridgeRoomTimestampIso(): string {
   return ms > 0 ? new Date(ms).toISOString() : BRIDGE_PRE_SYNC_ISO
 }
 
+/** Updates socket identity and pushes INIT + USER_GAME_STATE (same contract as socket VIEW_AS_USER). */
+function applyViewAsToSocket(socket: Socket, snap: BridgeSnapshot, newUser: User): void {
+  socket.data.userId = newUser.userId
+  socket.data.username = newUser.username
+  socket.emit("event", {
+    type: "INIT",
+    data: buildInitPayload(snap, newUser),
+  })
+  socket.emit("event", {
+    type: "USER_GAME_STATE",
+    data: buildUserGameStatePayload(snap, newUser.userId),
+  })
+}
+
+/** Forward Room UI actions to the first connected Game Studio tab (same machine). */
+async function forwardRoomUiCommandToStudio(
+  io: IOServer,
+  roomId: string,
+  command: Record<string, unknown>,
+): Promise<boolean> {
+  const path = studioControlRoomPath(roomId)
+  const sockets = await io.in(path).fetchSockets()
+  if (sockets.length === 0) return false
+  sockets[0]!.emit("event", {
+    type: "STUDIO_BRIDGE_COMMAND",
+    data: command,
+  })
+  return true
+}
+
 function broadcastRefresh(io: IOServer, roomId: string): void {
   const snap = getBridgeSnapshot()
   if (!snap || snap.roomId !== roomId) return
   // Identical snapshot spam (debounced sync + modifier tick) caused React "Maximum update depth".
   if (!consumeSnapshotBroadcast(snap)) return
 
+  const prevSnap = getPreviousBridgeSnapshot()
   const refreshedAt = bridgeRoomTimestampIso()
 
-  void io.in(roomSocketPath(roomId)).fetchSockets().then((sockets) => {
+  const roomPath = roomSocketPath(roomId)
+
+  if (prevSnap && prevSnap.roomId === snap.roomId) {
+    const { joined, left } = diffUsers(prevSnap, snap)
+    for (const user of joined) {
+      io.to(roomPath).emit("event", {
+        type: "USER_JOINED",
+        data: { roomId, user, users: snap.users },
+      })
+    }
+    for (const user of left) {
+      io.to(roomPath).emit("event", {
+        type: "USER_LEFT",
+        data: { roomId, user, users: snap.users },
+      })
+    }
+  }
+
+  const sameRoom = prevSnap && prevSnap.roomId === snap.roomId
+  const prevTrackId = sameRoom ? queueHeadTrackId(prevSnap) : null
+  const nextTrackId = queueHeadTrackId(snap)
+  if (prevTrackId !== nextTrackId) {
+    const track = snap.queue[0]
+    io.to(roomPath).emit("event", {
+      type: "TRACK_CHANGED",
+      data: {
+        roomId,
+        ...(track ? { track } : {}),
+        meta: buildRoomMeta(snap),
+      },
+    })
+  }
+
+  void io.in(roomPath).fetchSockets().then((sockets) => {
     for (const s of sockets) {
       const uid = s.data.userId as string | undefined
       if (!uid) continue
@@ -68,6 +140,11 @@ function broadcastRefresh(io: IOServer, roomId: string): void {
 
 function wireSocketHandlers(io: IOServer): void {
   io.on("connection", (socket) => {
+    socket.on("STUDIO_SUBSCRIBE", (payload: { roomId?: string }) => {
+      if (typeof payload?.roomId !== "string") return
+      socket.join(studioControlRoomPath(payload.roomId))
+    })
+
     socket.on(
       "LOGIN",
       (payload: {
@@ -104,6 +181,14 @@ function wireSocketHandlers(io: IOServer): void {
         })
       },
     )
+
+    socket.on("VIEW_AS_USER", (payload: { userId?: string; username?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const snap = getBridgeSnapshot()
+      if (!roomId || !snap || snap.roomId !== roomId) return
+      const newUser = resolveBridgeUser(snap, payload.userId, payload.username)
+      applyViewAsToSocket(socket, snap, newUser)
+    })
 
     socket.on("GET_MY_GAME_STATE", () => {
       const roomId = socket.data.roomId as string | undefined
@@ -175,25 +260,130 @@ function wireSocketHandlers(io: IOServer): void {
       },
     )
 
-    socket.on("USE_INVENTORY_ITEM", () => {
+    socket.on(
+      "USE_INVENTORY_ITEM",
+      async (data: {
+        itemId?: string
+        targetUserId?: string
+        targetQueueItemId?: string
+        targetInventoryItemId?: string
+        password?: string
+        coinAmount?: number
+      }) => {
+        const roomId = socket.data.roomId as string | undefined
+        const userId = socket.data.userId as string | undefined
+        if (!roomId || !userId || !data?.itemId) {
+          socket.emit("event", {
+            type: "INVENTORY_ACTION_RESULT",
+            data: { success: false, message: "Not in a room or missing itemId." },
+          })
+          return
+        }
+        const forwarded = await forwardRoomUiCommandToStudio(io, roomId, {
+          kind: "USE_INVENTORY_ITEM",
+          roomId,
+          userId,
+          itemId: data.itemId,
+          ...(data.targetUserId != null ? { targetUserId: data.targetUserId } : {}),
+          ...(data.targetQueueItemId != null ? { targetQueueItemId: data.targetQueueItemId } : {}),
+          ...(data.targetInventoryItemId != null
+            ? { targetInventoryItemId: data.targetInventoryItemId }
+            : {}),
+          ...(data.password != null ? { password: data.password } : {}),
+          ...(data.coinAmount != null ? { coinAmount: data.coinAmount } : {}),
+        })
+        socket.emit("event", {
+          type: "INVENTORY_ACTION_RESULT",
+          data: forwarded
+            ? { success: true, message: "Applied in Game Studio sandbox." }
+            : {
+                success: false,
+                message:
+                  "Game Studio is not connected to the bridge. Run `make game-studio` and keep that tab open.",
+              },
+        })
+      },
+    )
+
+    socket.on("SELL_INVENTORY_ITEM", async (data: { itemId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.itemId) {
+        socket.emit("event", {
+          type: "INVENTORY_ACTION_RESULT",
+          data: { success: false, message: "Not in a room or missing itemId." },
+        })
+        return
+      }
+      const forwarded = await forwardRoomUiCommandToStudio(io, roomId, {
+        kind: "SELL_INVENTORY_ITEM",
+        roomId,
+        userId,
+        itemId: data.itemId,
+      })
       socket.emit("event", {
         type: "INVENTORY_ACTION_RESULT",
-        data: {
-          success: false,
-          message: "Use Game Studio to use items against the sandbox.",
-        },
+        data: forwarded
+          ? { success: true, message: "Applied in Game Studio sandbox." }
+          : {
+              success: false,
+              message:
+                "Game Studio is not connected to the bridge. Run `make game-studio` and keep that tab open.",
+            },
       })
     })
 
-    socket.on("SELL_INVENTORY_ITEM", () => {
-      socket.emit("event", {
-        type: "INVENTORY_ACTION_RESULT",
-        data: {
-          success: false,
-          message: "Use Game Studio for sell flows in the sandbox.",
-        },
+    socket.on("SEND_MESSAGE", async (message: string | { content?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId) return
+      const raw =
+        typeof message === "string"
+          ? message
+          : message && typeof message === "object" && message.content != null
+            ? String(message.content)
+            : ""
+      const trimmed = raw.trim()
+      if (!trimmed) return
+      await forwardRoomUiCommandToStudio(io, roomId, {
+        kind: "SEND_MESSAGE",
+        roomId,
+        userId,
+        content: trimmed,
       })
     })
+
+    socket.on(
+      "EXECUTE_PLUGIN_ACTION",
+      async (data: { pluginName?: string; action?: string }) => {
+        const roomId = socket.data.roomId as string | undefined
+        const userId = socket.data.userId as string | undefined
+        if (!roomId || !userId || !data?.pluginName || !data?.action) {
+          socket.emit("event", {
+            type: "PLUGIN_ACTION_RESULT",
+            data: { success: false, message: "Not in a room or missing plugin action." },
+          })
+          return
+        }
+        const forwarded = await forwardRoomUiCommandToStudio(io, roomId, {
+          kind: "EXECUTE_PLUGIN_ACTION",
+          roomId,
+          userId,
+          pluginName: data.pluginName,
+          action: data.action,
+        })
+        socket.emit("event", {
+          type: "PLUGIN_ACTION_RESULT",
+          data: forwarded
+            ? { success: true, message: "Applied in Game Studio sandbox." }
+            : {
+                success: false,
+                message:
+                  "Game Studio is not connected to the bridge. Run `make game-studio` and keep that tab open.",
+              },
+        })
+      },
+    )
 
     socket.on("GET_STORED_ARTIFACTS", () => {
       socket.emit("event", {
@@ -246,7 +436,7 @@ app.post("/logout", (_req, res) => {
 })
 
 app.get("/api/plugins", (_req, res) => {
-  res.status(200).json({ plugins: [] })
+  res.status(200).json({ plugins: bridgePluginSchemasForApi })
 })
 
 /** Must be registered before `/rooms/:roomId` — otherwise `/rooms/all` is captured as roomId `"all"`. */
@@ -317,6 +507,40 @@ app.post("/emit", (req, res) => {
   const data = req.body?.data
   io.to(roomSocketPath(roomId)).emit("event", { type, data })
   res.status(204).end()
+})
+
+/**
+ * Apply “view as” to every socket in the room (Listening Room preview tabs).
+ * Called from Game Studio so sandbox authors can switch preview identity without the browser console.
+ */
+app.post("/preview/view-as", async (req, res) => {
+  const roomId = typeof req.body?.roomId === "string" ? req.body.roomId : null
+  const userId = typeof req.body?.userId === "string" ? req.body.userId : undefined
+  const username = typeof req.body?.username === "string" ? req.body.username : undefined
+  if (!roomId || !io) {
+    res.status(400).json({ error: "Expected { roomId, userId? | username? }" })
+    return
+  }
+  if (!userId && !username) {
+    res.status(400).json({ error: "Provide userId or username" })
+    return
+  }
+  const snap = getBridgeSnapshot()
+  if (!snap || snap.roomId !== roomId) {
+    res.status(404).json({ error: "No snapshot for this room" })
+    return
+  }
+  const newUser = resolveBridgeUser(snap, userId, username)
+  try {
+    const sockets = await io.in(roomSocketPath(roomId)).fetchSockets()
+    for (const s of sockets) {
+      applyViewAsToSocket(s, snap, newUser)
+    }
+    res.status(204).end()
+  } catch (e) {
+    console.error("[studio-bridge] POST /preview/view-as", e)
+    res.status(500).json({ error: String(e) })
+  }
 })
 
 const httpServer = http.createServer(app)

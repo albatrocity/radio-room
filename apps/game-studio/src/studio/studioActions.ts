@@ -109,6 +109,20 @@ export async function purchaseOffer(
   return registry.executePluginAction(room.roomId, ITEM_SHOPS_PLUGIN_NAME, `buy:${offerId}`, initiator)
 }
 
+/** Plugin actions from Listening Room preview (buy, admin buttons, etc.). */
+export async function executeBridgePluginAction(
+  userId: string,
+  pluginName: string,
+  action: string,
+): Promise<{ success: boolean; message?: string }> {
+  const { registry, room } = getStudio()
+  const initiator: PluginActionInitiator = {
+    userId,
+    username: room.users.get(userId)?.username ?? userId,
+  }
+  return registry.executePluginAction(room.roomId, pluginName, action, initiator)
+}
+
 export async function giveItemDirect(
   userId: string,
   shortId: string,

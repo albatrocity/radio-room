@@ -1,10 +1,19 @@
 import type { GameStateModifier } from "@repo/types/GameSession"
+import type { RoomMeta } from "@repo/types/Room"
 import type { User } from "@repo/types/User"
 import type { BridgeSnapshot } from "./types.js"
+
+/** Align with `apps/game-studio/src/studio/buildSessionConfig.ts` (`maxInventorySlots` default). */
+const DEFAULT_MAX_INVENTORY_SLOTS = 3
 
 /** Mirrors `packages/server/lib/getRoomPath`. */
 export function roomSocketPath(roomId: string): string {
   return `/rooms/${roomId}`
+}
+
+/** Game Studio connects here to receive Room UI actions forwarded from the bridge. */
+export function studioControlRoomPath(roomId: string): string {
+  return `/studio-control/${roomId}`
 }
 
 export function resolveBridgeUser(
@@ -44,8 +53,16 @@ export function buildRoomGameStateSnapshot(snap: BridgeSnapshot): {
   return { sessionId, modifiersByUserId }
 }
 
+/** INIT / TRACK_CHANGED: mirror jukebox “current track” from sandbox queue head so Now Playing is not empty in bridge preview. */
+export function buildRoomMeta(snap: BridgeSnapshot): Partial<RoomMeta> {
+  return {
+    stationMeta: {},
+    nowPlaying: snap.queue[0] ?? null,
+  }
+}
+
 export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) {
-  const maxSlots = snap.activeSession?.config.maxInventorySlots ?? 12
+  const maxSlots = snap.activeSession?.config.maxInventorySlots ?? DEFAULT_MAX_INVENTORY_SLOTS
   const session = snap.activeSession
   const state = snap.userStates[userId] ?? null
   const items = snap.inventories[userId] ?? []
@@ -83,9 +100,7 @@ export function buildInitPayload(snap: BridgeSnapshot, self: User) {
   return {
     users,
     messages: snap.chat,
-    meta: {
-      stationMeta: {},
-    },
+    meta: buildRoomMeta(snap),
     passwordRequired: false,
     playlist: [] as unknown[],
     queue: snap.queue,

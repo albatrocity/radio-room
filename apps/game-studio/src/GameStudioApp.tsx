@@ -11,7 +11,7 @@ import { useNowTick } from "./hooks/useNowTick"
 import { useStudioBootstrap } from "./hooks/useStudioBootstrap"
 import { useStudioRoom } from "./hooks/useStudioRoom"
 import * as studioActions from "./studio/studioActions"
-import { connectStudioBridge } from "./studio/bridgeClient"
+import { connectStudioBridge, connectStudioBridgeControl } from "./studio/bridgeClient"
 import { startModifierTicker, stopModifierTicker } from "./studio/studioEnvironment"
 
 export function GameStudioApp() {
@@ -29,7 +29,12 @@ export function GameStudioApp() {
   useEffect(() => {
     if (!boot) return
     const url = import.meta.env.VITE_STUDIO_BRIDGE_URL ?? "http://127.0.0.1:3099"
-    return connectStudioBridge(boot.room, url)
+    const unsubSync = connectStudioBridge(boot.room, url)
+    const unsubControl = connectStudioBridgeControl(url, boot.room.roomId)
+    return () => {
+      unsubSync()
+      unsubControl()
+    }
   }, [boot])
 
   if (!boot || !room) {

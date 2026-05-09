@@ -4,13 +4,13 @@ overview: Add user join/leave broadcasts, "view as" user switching, and fake now
 todos:
   - id: user-diff
     content: Add user diffing to snapshotStore and emit USER_JOINED/USER_LEFT in broadcastRefresh
-    status: pending
+    status: completed
   - id: view-as
     content: Add VIEW_AS_USER socket handler to switch the viewed user
-    status: pending
+    status: completed
   - id: now-playing
     content: Build meta.nowPlaying from queue[0] and emit TRACK_CHANGED on queue head change
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -78,10 +78,13 @@ socket.on("VIEW_AS_USER", (payload: { userId?: string; username?: string }) => {
   const newUser = resolveBridgeUser(snap, payload.userId, payload.username)
   socket.data.userId = newUser.userId
   socket.data.username = newUser.username
-  
+
   // Re-emit INIT and game state for the new user
   socket.emit("event", { type: "INIT", data: buildInitPayload(snap, newUser) })
-  socket.emit("event", { type: "USER_GAME_STATE", data: buildUserGameStatePayload(snap, newUser.userId) })
+  socket.emit("event", {
+    type: "USER_GAME_STATE",
+    data: buildUserGameStatePayload(snap, newUser.userId),
+  })
 })
 ```
 
@@ -107,7 +110,10 @@ For MVP, the socket event is sufficient - Game Studio or browser console can tri
 Add a helper to build `meta` with `nowPlaying`:
 
 ```typescript
-export function buildRoomMeta(snap: BridgeSnapshot): { stationMeta: object; nowPlaying: QueueItem | null } {
+export function buildRoomMeta(snap: BridgeSnapshot): {
+  stationMeta: object
+  nowPlaying: QueueItem | null
+} {
   return {
     stationMeta: {},
     nowPlaying: snap.queue[0] ?? null,
@@ -145,6 +151,7 @@ if (newTrackId !== prevTrackId) {
 ```
 
 The web app's `audioMachine` will then:
+
 - Set `context.meta.nowPlaying` from the event
 - Set `mediaSourceStatus` to `"online"` (via `setStatusFromMeta` when `nowPlaying` exists)
 - `NowPlaying` component will render the track card instead of the empty state
@@ -161,7 +168,7 @@ sequenceDiagram
 
     GS->>Bridge: POST /sync (BridgeSnapshot)
     Bridge->>Bridge: diff users, diff queue head
-    
+
     alt User added
         Bridge->>Web: USER_JOINED {user, users}
     end
@@ -171,7 +178,7 @@ sequenceDiagram
     alt Queue head changed
         Bridge->>Web: TRACK_CHANGED {track, meta}
     end
-    
+
     Web->>Bridge: VIEW_AS_USER {userId}
     Bridge->>Web: INIT + USER_GAME_STATE (for new user)
 ```
@@ -180,8 +187,8 @@ sequenceDiagram
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `apps/studio-bridge/src/snapshotStore.ts` | Track previous snapshot for diffing users and queue |
-| `apps/studio-bridge/src/payloads.ts` | Add `buildRoomMeta()`, update `buildInitPayload()` |
-| `apps/studio-bridge/src/server.ts` | Emit `USER_JOINED`/`USER_LEFT`/`TRACK_CHANGED`, add `VIEW_AS_USER` handler |
+| File                                      | Changes                                                                    |
+| ----------------------------------------- | -------------------------------------------------------------------------- |
+| `apps/studio-bridge/src/snapshotStore.ts` | Track previous snapshot for diffing users and queue                        |
+| `apps/studio-bridge/src/payloads.ts`      | Add `buildRoomMeta()`, update `buildInitPayload()`                         |
+| `apps/studio-bridge/src/server.ts`        | Emit `USER_JOINED`/`USER_LEFT`/`TRACK_CHANGED`, add `VIEW_AS_USER` handler |
