@@ -7,6 +7,7 @@ import {
   netSizeShift,
   resolveBaseSize,
   resolveEchoSize,
+  applySnoozeTransform
 } from "./effects"
 import type { TextEffectStacks } from "./flags"
 
@@ -60,6 +61,7 @@ export function applyTextEffects(
   const echoes = echoCount(stacks)
   const shift = netSizeShift(stacks)
   const gate = stacks.gate > 0
+  const snooze = stacks.snooze > 0
   const scramble = stacks.scramble > 0
   if (echoes === 0 && shift === 0 && !gate && !scramble && stacks.comicSans <= 0) return null
 
@@ -68,7 +70,9 @@ export function applyTextEffects(
   const tokens = tokenizeWords(transformed)
   return buildSegments(tokens, (token) => {
     if (!token.word) return []
-    const word = gate ? applyGateTransform(token.word) : token.word
+    let word = token.word
+    if (snooze) word = applySnoozeTransform(word)
+    if (gate) word = applyGateTransform(word)
     const baseSegment: TextSegment = { text: word }
     const baseEffects = baseSize ? sizeEffects(baseSize) : undefined
     baseSegment.effects = withComicSans(baseEffects, stacks)

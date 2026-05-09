@@ -89,6 +89,13 @@ export function applyGateTransform(text: string): string {
 }
 
 /**
+ * Snooze transform: each ASCII vowel becomes a z
+ */
+export function applySnoozeTransform(text: string): string {
+  return text.replace(/[aeiou]/gi, (match) => match.toLowerCase() === match ? 'z' : 'Z')
+}
+
+/**
  * Unicode-aware "is letter" check that doesn't rely on the `/u` regex flag
  * (which would require an ES2018+ target). A character is treated as a letter
  * iff it has distinct upper and lower case forms — true for ASCII letters,

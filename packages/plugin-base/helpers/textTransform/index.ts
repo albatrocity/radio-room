@@ -15,5 +15,6 @@ export {
   echoCount,
   applyGateTransform,
   applyScrambleTransform,
+  applySnoozeTransform
 } from "./effects"
 export { applyTextEffects, type AppliedTextEffects } from "./pipeline"

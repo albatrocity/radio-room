@@ -15,6 +15,7 @@ import { tubeOverdrive } from "./tube-overdrive"
 import { warranty } from "./warranty"
 import { vanCubby } from "./van-cubby"
 import { merchCashBox } from "./merch-cash-box"
+import { snoozePedal } from "./snooze-pedal"
 import type { ItemUseHandler } from "./shared/types"
 
 /**
@@ -38,6 +39,7 @@ export const items = {
   buyout,
   vanCubby,
   merchCashBox,
+  snoozePedal,
 } as const
 
 /**
