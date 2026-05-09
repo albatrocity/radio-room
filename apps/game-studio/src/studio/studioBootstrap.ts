@@ -14,6 +14,7 @@ import { MockStudioInventoryApi } from "./mockStudioInventoryApi"
 import { MockStudioPluginApi } from "./mockStudioPluginApi"
 import { StudioPluginRegistry } from "./studioPluginRegistry"
 import { attachStudioPersistence, tryHydrateRoom } from "./studioPersistence"
+import { seedStudioSampleQueueIfEmpty } from "./studioSampleQueue"
 import { StudioRoom } from "./studioRoom"
 
 const ITEM_SHOPS_STUDIO_CONFIG = {
@@ -123,6 +124,8 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
   ctx.inventory.registerItemDefinitions(ITEM_CATALOG.map((e) => e.definition))
   enforceStudioItemShopsPluginDefaults(room)
   attachStudioPersistence(room)
+
+  await seedStudioSampleQueueIfEmpty(room, lifecycle)
 
   return { room, lifecycle, registry, itemShopsPlugin, itemShopsContext: ctx }
 }

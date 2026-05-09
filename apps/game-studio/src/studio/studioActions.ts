@@ -7,6 +7,7 @@ import type {
 } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import { SHOP_CATALOG, ITEM_CATALOG } from "@repo/plugin-item-shops"
+import { cloneSampleQueueItem, getSampleQueueTemplates } from "./studioSampleQueue"
 import { newId } from "./id"
 import { clearPersistedSnapshot, detachStudioPersistence } from "./studioPersistence"
 import { getStudio } from "./studioEnvironment"
@@ -168,14 +169,17 @@ export async function applyGainScore(userId: string, n: number): Promise<void> {
 }
 
 export async function addFakeTrackToQueue(userId: string): Promise<void> {
-  const { itemShopsContext, room } = getStudio()
-  const trackId = `fake-${newId().slice(0, 8)}`
+  const { room, lifecycle } = getStudio()
+  const templates = getSampleQueueTemplates()
   const u = room.users.get(userId)
-  await itemShopsContext.api.addToTrackQueue(room.roomId, trackId, {
-    addedBy: u
-      ? { type: "user", userId: u.userId, username: u.username ?? u.userId }
-      : undefined,
+  const idx = room.queue.length % templates.length
+  const item = cloneSampleQueueItem(templates[idx]!, {
+    addedBy: u ? { userId: u.userId, username: u.username ?? u.userId } : undefined,
   })
+  room.queue.push(item)
+  await lifecycle.emit("PLAYLIST_TRACK_ADDED", { roomId: room.roomId, track: item })
+  room.logEvent("QUEUE_ADD", { metadataTrackId: item.track.id })
+  room.notify()
 }
 
 export async function advanceNowPlaying(): Promise<void> {
