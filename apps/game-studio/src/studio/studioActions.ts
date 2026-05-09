@@ -85,8 +85,8 @@ export async function startStudioGameSession(): Promise<void> {
   const { room, itemShopsContext } = getStudio()
   await itemShopsContext.game.startSession({
     name: "Sandbox session",
-    initialValues: { coin: 500, score: 0 },
-    maxInventorySlots: 3,
+    initialValues: { coin: 25, score: 0 },
+    maxInventorySlots: 12,
     allowSelling: true,
   })
   for (const uid of room.users.keys()) {
@@ -373,7 +373,8 @@ export async function storeSandboxArtifactCoin(
   const { room, itemShopsContext } = getStudio()
   const pw = password.trim()
   if (!pw) return { success: false, message: "Enter a password." }
-  if (!room.users.has(storedByUserId)) return { success: false, message: "Pick a user in the room." }
+  if (!room.users.has(storedByUserId))
+    return { success: false, message: "Pick a user in the room." }
   const amount = Math.floor(Number(coinValue))
   if (!Number.isFinite(amount) || amount < 1) {
     return { success: false, message: "Enter a positive coin amount." }
@@ -403,7 +404,8 @@ export async function storeSandboxArtifactItem(
   const { room, itemShopsContext } = getStudio()
   const pw = password.trim()
   if (!pw) return { success: false, message: "Enter a password." }
-  if (!room.users.has(storedByUserId)) return { success: false, message: "Pick a user in the room." }
+  if (!room.users.has(storedByUserId))
+    return { success: false, message: "Pick a user in the room." }
 
   const defId = `${ITEM_SHOPS_PLUGIN_NAME}:${shortId}`
   if (!room.getDefinition(defId)) {

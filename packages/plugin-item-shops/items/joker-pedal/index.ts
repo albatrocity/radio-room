@@ -7,13 +7,13 @@ export const jokerPedal = createItem({
   definition: {
     name: "Joker Pedal",
     description:
-      "Makes chat messages appear in Comic Sans for a limited time. Use on yourself or others.",
+      "Ha ha! What a funny looking pedal. Use on yourself or others.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 50,
+    coinValue: 30,
     icon: "Laugh",
     rarity: "uncommon",
   },
@@ -24,6 +24,6 @@ export const jokerPedal = createItem({
     ],
     successMessage: "Joker Pedal engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} is in Comic Sans` : `${target}'s chat is in Comic Sans`,
+      isSelf ? `${actor} is talking kinda funny...` : `${target} is talking kinda funny...`,
   }),
 })

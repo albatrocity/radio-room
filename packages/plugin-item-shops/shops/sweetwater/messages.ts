@@ -3,8 +3,8 @@
  * Placeholders: `{{username}}`, `{{purchasedItemName}}` (use `@{{username}}` in copy for @-style display).
  */
 export const SWEETWATER_SALES_REP_MESSAGES: readonly string[] = [
-  "Hey @{{username}}! It's your Sweetwater rep — how are you liking that {{purchasedItemName}} so far?",
-  "@{{username}}, quick check-in: still enjoying the {{purchasedItemName}}, or ready to talk upgrades?",
+  "Hey @{{username}}! It's Chuck, your Sweetwater rep — how are you liking that {{purchasedItemName}} so far?",
+  "@{{username}}, Chuck here with a quick check-in: still enjoying the {{purchasedItemName}}?",
   "Hi @{{username}}! Wanted to see how that {{purchasedItemName}} was treating you in the room.",
   "@{{username}}, circling back — loving the {{purchasedItemName}}, or thinking about pairing it with something new?",
   "Sweetwater here, @{{username}}! Curious if the {{purchasedItemName}} landed the way you hoped.",

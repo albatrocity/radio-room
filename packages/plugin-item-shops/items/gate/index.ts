@@ -7,7 +7,7 @@ export const gate = createItem({
   definition: {
     name: "Gate",
     description:
-      "Replaces lowercase letters with underscores for a limited time. Use on yourself or others.",
+      "REPLACES LOWERCASE LETTERS WITH __________",
     stackable: true,
     maxStack: 3,
     tradeable: true,
@@ -23,6 +23,6 @@ export const gate = createItem({
       { type: "flag", name: GATE_FLAG, value: true, intent: "negative", durationMs: 300_000 },
     ],
     successMessage: "Gate engaged. It was lost with use.",
-    describe: ({ isSelf, actor, target }) => (isSelf ? `${actor} is gated` : `${target} is gated`),
+    describe: ({ isSelf, actor, target }) => (isSelf ? `${actor} IS GATED AND HAS TO SPEAK UP TO BE HEARD.` : `${target} IS GATED BY ${actor}'s GATE PEDAL. SPEAK LOUDLY TO BE HEARD.`),
   }),
 })

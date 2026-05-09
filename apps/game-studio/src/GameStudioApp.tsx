@@ -139,7 +139,7 @@ export function GameStudioApp() {
             onResetSandbox={() => {
               if (
                 window.confirm(
-                  "Reset Game Studio? This clears saved sandbox state and reloads the page.",
+                  "Reset Game Studio? This clears saved sandbox state and reloads the page. :)",
                 )
               ) {
                 studioActions.resetStudioSandbox()

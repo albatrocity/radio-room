@@ -71,7 +71,7 @@ export const SWEETWATER_SHOP: ItemShopsShopCatalogEntry = {
   shopId: "sweetwater",
   name: "Sweetwater",
   openingMessage:
-    "{{shopName}} would love to guide you on your gear journey! Check out our selection in the Item Shop tab and reach out to one of our friendly gear experts!",
+    "Hi! It's Chuck, from {{shopName}}! Come check out the shop. We can take your sound to the next level! Together :)",
   availableItems: [
     { shortId: items.analogDelayPedal.shortId, coinValue: 10 },
     { shortId: items.compressorPedal.shortId, coinValue: 15 },
@@ -82,6 +82,7 @@ export const SWEETWATER_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: items.jokerPedal.shortId, coinValue: 28 },
     { shortId: items.sampleHold.shortId, coinValue: 30 },
     { shortId: items.warranty.shortId, coinValue: 60 },
+    { shortId: items.snoozePedal.shortId, coinValue: 30 }
   ],
   listedBuybackRate: 0.5,
   unlistedBuybackRate: 0.25,

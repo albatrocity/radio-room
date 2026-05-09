@@ -5,7 +5,7 @@ export const cateredMeal = createItem({
   shortId: "catered-meal",
   definition: {
     name: "Catered Meal",
-    description: "Holding this prevents a track of yours from being demoted in the queue one time.",
+    description: "Looks like some kind of pasta. Protects a track from being demoted, once.",
     stackable: true,
     maxStack: 3,
     tradeable: true,

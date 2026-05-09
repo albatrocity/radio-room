@@ -5,15 +5,15 @@ import { createItem } from "../shared/types"
 export const analogDelayPedal = createItem({
   shortId: "analog-delay-pedal",
   definition: {
-    name: "Analog Delay Pedal",
+    name: "Delay Pedal",
     description:
-      "Echoes every word in a user's chat messages for a limited time. Use on yourself or others.",
+      "Echoes Echoes every every word word in in a a user's user's chat chat messages messages for for a a limited limited time. time. Use Use on on yourself yourself or or others. others",
     stackable: true,
     maxStack: 3,
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 50,
+    coinValue: 25,
     icon: "SquareStack",
     rarity: "uncommon",
   },
@@ -24,6 +24,6 @@ export const analogDelayPedal = createItem({
     ],
     successMessage: "Analog Delay Pedal engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} is hearing echoes` : `${target}'s chat echoes`,
+      isSelf ? `${actor} is hearing echoes` : `${target}'s chat echoes from ${actor}'s Delay Pedal!`,
   }),
 })

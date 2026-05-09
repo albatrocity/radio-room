@@ -85,7 +85,14 @@ export function echoCount(stacks: TextEffectStacks): number {
  * instead of italics delimiters.
  */
 export function applyGateTransform(text: string): string {
-  return text.replace(/[a-z]/g, "\\_")
+  return text.replace(/[a-z]/g, "\_")
+}
+
+/**
+ * Snooze transform: each ASCII vowel becomes a z
+ */
+export function applySnoozeTransform(text: string): string {
+  return text.replace(/[aeiouAEIOU]/g, "z")
 }
 
 /**
