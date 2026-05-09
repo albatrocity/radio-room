@@ -5,6 +5,7 @@ import type {
   ItemDefinition,
   QueueItem,
   ShoppingSessionInstance,
+  StoredArtifactPublic,
   User,
   UserGameState,
 } from "@repo/types"
@@ -14,6 +15,7 @@ import type { StudioRoom } from "./studioRoom"
 import {
   dispatchStudioBridgeCommand,
   type StudioBridgeCommand,
+  type StudioBridgeCommandResult,
 } from "./studioBridgeCommands"
 
 /**
@@ -31,6 +33,7 @@ export type StudioBridgeSnapshot = {
   itemDefinitions: ItemDefinition[]
   pluginConfigs: Record<string, Record<string, unknown>>
   shoppingByUser: Record<string, ShoppingSessionInstance | null>
+  storedArtifacts: StoredArtifactPublic[]
 }
 
 export function serializeStudioRoom(room: StudioRoom): StudioBridgeSnapshot {
@@ -52,6 +55,10 @@ export function serializeStudioRoom(room: StudioRoom): StudioBridgeSnapshot {
     shoppingByUser[u.userId] = readShoppingInstance(room, u.userId)
   }
 
+  const storedArtifacts: StoredArtifactPublic[] = room.storedArtifacts.map(
+    ({ password: _password, ...pub }) => pub,
+  )
+
   return {
     roomId: room.roomId,
     users,
@@ -63,6 +70,7 @@ export function serializeStudioRoom(room: StudioRoom): StudioBridgeSnapshot {
     itemDefinitions: [...room.definitions.values()],
     pluginConfigs,
     shoppingByUser,
+    storedArtifacts,
   }
 }
 
@@ -149,11 +157,22 @@ export function connectStudioBridgeControl(baseUrl: string, roomId: string): () 
     socket.emit("STUDIO_SUBSCRIBE", { roomId })
   }
 
-  const onEvent = (msg: { type?: string; data?: unknown }): void => {
-    if (msg?.type !== "STUDIO_BRIDGE_COMMAND" || !msg.data || typeof msg.data !== "object") return
-    void dispatchStudioBridgeCommand(msg.data as StudioBridgeCommand).catch((e) => {
-      console.warn("[game-studio] studio bridge command failed", e)
-    })
+  const onEvent = (
+    msg: { type?: string; data?: unknown },
+    ack?: (result: StudioBridgeCommandResult) => void,
+  ): void => {
+    if (msg?.type !== "STUDIO_BRIDGE_COMMAND" || !msg.data || typeof msg.data !== "object") {
+      ack?.({ success: false, message: "Bad bridge command" })
+      return
+    }
+    void dispatchStudioBridgeCommand(msg.data as StudioBridgeCommand)
+      .then((result) => {
+        ack?.(result)
+      })
+      .catch((e) => {
+        console.warn("[game-studio] studio bridge command failed", e)
+        ack?.({ success: false, message: String(e) })
+      })
   }
 
   socket.on("connect", onConnect)

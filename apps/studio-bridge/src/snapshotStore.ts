@@ -23,6 +23,7 @@ function fingerprintSnapshot(s: BridgeSnapshot): string {
     itemDefinitions: s.itemDefinitions,
     pluginConfigs: s.pluginConfigs,
     shoppingByUser: s.shoppingByUser,
+    storedArtifacts: s.storedArtifacts,
   })
 }
 
@@ -64,6 +65,17 @@ export function diffUsers(
 export function queueHeadTrackId(s: BridgeSnapshot | null): string | null {
   const id = s?.queue?.[0]?.mediaSource?.trackId
   return id ?? null
+}
+
+/** True when the ordered queue (length or any position’s track id) differs. */
+export function queueChanged(prev: BridgeSnapshot, next: BridgeSnapshot): boolean {
+  if (prev.queue.length !== next.queue.length) return true
+  for (let i = 0; i < prev.queue.length; i++) {
+    const a = prev.queue[i]?.mediaSource?.trackId ?? null
+    const b = next.queue[i]?.mediaSource?.trackId ?? null
+    if (a !== b) return true
+  }
+  return false
 }
 
 export function getLastSyncEpochMs(): number {

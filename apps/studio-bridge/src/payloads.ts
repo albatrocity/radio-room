@@ -1,4 +1,5 @@
 import type { GameStateModifier } from "@repo/types/GameSession"
+import type { QueueItem } from "@repo/types/Queue"
 import type { RoomMeta } from "@repo/types/Room"
 import type { User } from "@repo/types/User"
 import type { BridgeSnapshot } from "./types.js"
@@ -53,11 +54,30 @@ export function buildRoomGameStateSnapshot(snap: BridgeSnapshot): {
   return { sessionId, modifiersByUserId }
 }
 
+/**
+ * Mirror production `handleRoomNowPlayingData` / `makeJukeboxCurrentPayload`: `NowPlayingTrack`
+ * reads `meta.track`, `meta.title`, `meta.artist`, `meta.album` — not only `nowPlaying`.
+ */
+function metaDisplayStringsFromQueueHead(
+  head: QueueItem | undefined,
+): Pick<RoomMeta, "title" | "track" | "artist" | "album"> {
+  if (!head?.track) return {}
+  const t = head.track
+  return {
+    title: t.title,
+    track: t.title,
+    artist: t.artists?.map((a) => a.title).join(", ") ?? undefined,
+    album: t.album?.title,
+  }
+}
+
 /** INIT / TRACK_CHANGED: mirror jukebox “current track” from sandbox queue head so Now Playing is not empty in bridge preview. */
 export function buildRoomMeta(snap: BridgeSnapshot): Partial<RoomMeta> {
+  const head = snap.queue[0]
   return {
     stationMeta: {},
-    nowPlaying: snap.queue[0] ?? null,
+    nowPlaying: head ?? null,
+    ...metaDisplayStringsFromQueueHead(head),
   }
 }
 

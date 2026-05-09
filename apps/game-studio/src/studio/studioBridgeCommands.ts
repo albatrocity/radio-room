@@ -26,10 +26,31 @@ export type StudioBridgeCommand =
       pluginName: string
       action: string
     }
+  | {
+      kind: "REMOVE_FROM_QUEUE"
+      roomId: string
+      userId: string
+      trackId: string
+      isAdmin: boolean
+    }
+  | {
+      kind: "RETRIEVE_STORED_ARTIFACT"
+      roomId: string
+      userId: string
+      artifactId: string
+      password: string
+    }
 
-export async function dispatchStudioBridgeCommand(cmd: StudioBridgeCommand): Promise<void> {
+/** Returned to studio-bridge when it uses Socket.IO ack (e.g. stored-artifact retrieve). */
+export type StudioBridgeCommandResult = { success: boolean; message?: string }
+
+export async function dispatchStudioBridgeCommand(
+  cmd: StudioBridgeCommand,
+): Promise<StudioBridgeCommandResult> {
   const { room } = getStudio()
-  if (cmd.roomId !== room.roomId) return
+  if (cmd.roomId !== room.roomId) {
+    return { success: false, message: "Wrong room." }
+  }
 
   switch (cmd.kind) {
     case "USE_INVENTORY_ITEM": {
@@ -44,19 +65,28 @@ export async function dispatchStudioBridgeCommand(cmd: StudioBridgeCommand): Pro
         cmd.itemId,
         Object.keys(ctx).length > 0 ? ctx : undefined,
       )
-      return
+      return { success: true }
     }
     case "SELL_INVENTORY_ITEM": {
       await studioActions.sellInventoryItem(cmd.userId, cmd.itemId)
-      return
+      return { success: true }
     }
     case "SEND_MESSAGE": {
       await studioActions.sendChatAsUser(cmd.userId, cmd.content)
-      return
+      return { success: true }
     }
     case "EXECUTE_PLUGIN_ACTION": {
       await studioActions.executeBridgePluginAction(cmd.userId, cmd.pluginName, cmd.action)
-      return
+      return { success: true }
+    }
+    case "REMOVE_FROM_QUEUE": {
+      await studioActions.removeQueueTrackForBridge(cmd.userId, cmd.trackId, {
+        isAdmin: cmd.isAdmin,
+      })
+      return { success: true }
+    }
+    case "RETRIEVE_STORED_ARTIFACT": {
+      return studioActions.retrieveArtifact(cmd.artifactId, cmd.password, cmd.userId)
     }
   }
 }

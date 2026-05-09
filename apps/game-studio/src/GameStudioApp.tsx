@@ -2,6 +2,7 @@
 
 import { Box, Center, Container, SimpleGrid, Spinner, Stack, Text } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
+import { STUDIO_PREVIEW_VIEW_AS_USER_KEY } from "./studio/constants"
 import { AddItemDrawer } from "./components/studio/AddItemDrawer"
 import { BottomPanels } from "./components/studio/BottomPanels"
 import { GlobalToolbar } from "./components/studio/GlobalToolbar"
@@ -20,6 +21,10 @@ export function GameStudioApp() {
   const now = useNowTick()
   const [newUsername, setNewUsername] = useState("Guest")
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [previewViewAsUserId, setPreviewViewAsUserId] = useState<string | null>(() => {
+    if (typeof sessionStorage === "undefined") return null
+    return sessionStorage.getItem(STUDIO_PREVIEW_VIEW_AS_USER_KEY)
+  })
 
   useEffect(() => {
     startModifierTicker()
@@ -36,6 +41,14 @@ export function GameStudioApp() {
       unsubControl()
     }
   }, [boot])
+
+  useEffect(() => {
+    if (!room) return
+    if (previewViewAsUserId != null && !room.users.has(previewViewAsUserId)) {
+      setPreviewViewAsUserId(null)
+      sessionStorage.removeItem(STUDIO_PREVIEW_VIEW_AS_USER_KEY)
+    }
+  }, [previewViewAsUserId, room?.snapshotEpoch, room])
 
   if (!boot || !room) {
     return (
@@ -116,6 +129,13 @@ export function GameStudioApp() {
               })()
             }
             onOpenItemDrawer={() => setDrawerOpen(true)}
+            onFireAllTimers={() => {
+              const { fired } = studioActions.fireAllPluginTimers()
+              toaster.create({
+                title: fired === 0 ? "No pending timers" : `Fired ${fired} timer(s)`,
+                type: fired === 0 ? "info" : "success",
+              })
+            }}
             onResetSandbox={() => {
               if (
                 window.confirm(
@@ -134,7 +154,17 @@ export function GameStudioApp() {
           ) : (
             <SimpleGrid gap="4" columns={{ base: 1, md: 2, xl: 3 }}>
               {users.map((uid) => (
-                <UserCard key={uid} room={room} userId={uid} now={now} />
+                <UserCard
+                  key={uid}
+                  room={room}
+                  userId={uid}
+                  now={now}
+                  previewViewAsUserId={previewViewAsUserId}
+                  onPreviewViewAsApplied={(appliedUserId) => {
+                    setPreviewViewAsUserId(appliedUserId)
+                    sessionStorage.setItem(STUDIO_PREVIEW_VIEW_AS_USER_KEY, appliedUserId)
+                  }}
+                />
               ))}
             </SimpleGrid>
           )}

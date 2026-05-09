@@ -1,3 +1,4 @@
+import type { StoredArtifactPublic } from "@repo/types"
 import type { ChatMessage } from "@repo/types/ChatMessage"
 import type { GameSession, UserGameState } from "@repo/types/GameSession"
 import type { InventoryItem, ItemDefinition } from "@repo/types/Inventory"
@@ -17,4 +18,6 @@ export type BridgeSnapshot = {
   itemDefinitions: ItemDefinition[]
   pluginConfigs: Record<string, Record<string, unknown>>
   shoppingByUser: Record<string, ShoppingSessionInstance | null>
+  /** Password-free listing — mirrors `ArtifactsPluginAPI.getAll()` for Listening Room preview. */
+  storedArtifacts: StoredArtifactPublic[]
 }

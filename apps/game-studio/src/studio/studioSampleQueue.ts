@@ -32,9 +32,14 @@ export async function seedStudioSampleQueueIfEmpty(
   lifecycle: MockPluginLifecycle,
 ): Promise<void> {
   if (room.queue.length > 0) return
+  const firstUser = room.users.values().next().value as User | undefined
+  const addedBy =
+    firstUser != null
+      ? { userId: firstUser.userId, username: firstUser.username ?? firstUser.userId }
+      : undefined
   let addedAt = Date.now()
   for (const template of templates) {
-    const item = cloneSampleQueueItem(template, { addedAt: addedAt++ })
+    const item = cloneSampleQueueItem(template, { addedAt: addedAt++, addedBy })
     room.queue.push(item)
     await lifecycle.emit("PLAYLIST_TRACK_ADDED", { roomId: room.roomId, track: item })
   }

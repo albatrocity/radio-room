@@ -537,6 +537,45 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
   }
 
   /**
+   * Immediately invoke a timer's callback (e.g. Game Studio / tests) and remove it
+   * without waiting for `duration`. Does not affect other timers.
+   *
+   * @returns `true` if a timer with this id existed and was fired
+   */
+  fireTimer(id: string): boolean {
+    const timer = this.timers.get(id)
+    if (!timer) return false
+
+    clearTimeout(timer.timeout)
+    this.timers.delete(id)
+
+    void (async () => {
+      try {
+        await timer.callback()
+      } catch (error) {
+        console.error(`[${this.name}] Timer callback error for "${id}" (fireTimer):`, error)
+      }
+    })()
+
+    return true
+  }
+
+  /**
+   * Fire every pending timer once (ids snapshotted at call time). Useful for sandbox / tests.
+   * Callbacks that reschedule will create new timers that are not fired in this pass.
+   *
+   * @returns How many timers were fired
+   */
+  fireAllTimers(): number {
+    const ids = [...this.timers.keys()]
+    let fired = 0
+    for (const id of ids) {
+      if (this.fireTimer(id)) fired += 1
+    }
+    return fired
+  }
+
+  /**
    * Get the merged default config (static defaults + factory overrides).
    * Override this if you need custom default config logic.
    */

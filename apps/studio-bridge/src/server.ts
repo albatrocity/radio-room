@@ -22,6 +22,7 @@ import {
   getBridgeSnapshot,
   getLastSyncEpochMs,
   getPreviousBridgeSnapshot,
+  queueChanged,
   queueHeadTrackId,
   setBridgeSnapshot,
 } from "./snapshotStore.js"
@@ -109,6 +110,13 @@ function broadcastRefresh(io: IOServer, roomId: string): void {
         ...(track ? { track } : {}),
         meta: buildRoomMeta(snap),
       },
+    })
+  }
+
+  if (sameRoom && prevSnap && queueChanged(prevSnap, snap)) {
+    io.to(roomPath).emit("event", {
+      type: "QUEUE_CHANGED",
+      data: { roomId, queue: snap.queue },
     })
   }
 
@@ -353,6 +361,43 @@ function wireSocketHandlers(io: IOServer): void {
       })
     })
 
+    socket.on("REMOVE_FROM_QUEUE", async (data: { trackId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      const trackId = typeof data?.trackId === "string" ? data.trackId : undefined
+      const snap = getBridgeSnapshot()
+      if (!roomId || !userId || !trackId || !snap || snap.roomId !== roomId) {
+        socket.emit("event", {
+          type: "REMOVE_FROM_QUEUE_FAILURE",
+          data: {
+            trackId: trackId ?? "",
+            message: "Not in a room or missing track.",
+          },
+        })
+        return
+      }
+      const roomUser = snap.users.find((u) => u.userId === userId)
+      const isAdmin = roomUser?.isAdmin === true
+      const forwarded = await forwardRoomUiCommandToStudio(io, roomId, {
+        kind: "REMOVE_FROM_QUEUE",
+        roomId,
+        userId,
+        trackId,
+        isAdmin,
+      })
+      if (!forwarded) {
+        socket.emit("event", {
+          type: "REMOVE_FROM_QUEUE_FAILURE",
+          data: {
+            trackId,
+            message:
+              "Game Studio is not connected to the bridge. Run `make game-studio` and keep that tab open.",
+          },
+        })
+      }
+      /** Success/failure is emitted by Game Studio via POST `/preview/queue-remove-result`. */
+    })
+
     socket.on(
       "EXECUTE_PLUGIN_ACTION",
       async (data: { pluginName?: string; action?: string }) => {
@@ -386,10 +431,73 @@ function wireSocketHandlers(io: IOServer): void {
     )
 
     socket.on("GET_STORED_ARTIFACTS", () => {
+      const snap = getBridgeSnapshot()
       socket.emit("event", {
         type: "STORED_ARTIFACTS_RESULT",
-        data: { artifacts: [] },
+        data: { artifacts: snap?.storedArtifacts ?? [] },
       })
+    })
+
+    socket.on("RETRIEVE_STORED_ARTIFACT", async (data: { artifactId?: string; password?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+
+      const fail = (message: string): void => {
+        socket.emit("event", {
+          type: "RETRIEVE_STORED_ARTIFACT_RESULT",
+          data: { success: false, message },
+        })
+      }
+
+      if (!roomId || !userId) {
+        fail("Not in a room.")
+        return
+      }
+
+      const artifactId = data?.artifactId?.trim()
+      const password = typeof data?.password === "string" ? data.password : ""
+      if (!artifactId || !password) {
+        fail("Artifact id and password are required.")
+        return
+      }
+
+      const studioSockets = await io.in(studioControlRoomPath(roomId)).fetchSockets()
+      if (studioSockets.length === 0) {
+        fail(
+          "Game Studio is not connected to the bridge. Run `make game-studio` and keep that tab open.",
+        )
+        return
+      }
+
+      type StudioEmitWithAck = {
+        emit: (ev: string, payload: unknown, ack?: (response: unknown) => void) => void
+      }
+      const toGameStudio = studioSockets[0]! as unknown as StudioEmitWithAck
+      toGameStudio.emit(
+        "event",
+        {
+          type: "STUDIO_BRIDGE_COMMAND",
+          data: {
+            kind: "RETRIEVE_STORED_ARTIFACT",
+            roomId,
+            userId,
+            artifactId,
+            password,
+          },
+        },
+        (response: unknown) => {
+          const r = response as { success?: boolean; message?: string } | undefined
+          socket.emit("event", {
+            type: "RETRIEVE_STORED_ARTIFACT_RESULT",
+            data: {
+              success: r?.success === true,
+              message:
+                r?.message ??
+                (r?.success === true ? "Retrieved from storage." : "Could not retrieve."),
+            },
+          })
+        },
+      )
     })
   })
 }
@@ -407,7 +515,14 @@ function validateSnapshot(body: unknown): BridgeSnapshot | null {
   if (!Array.isArray(o.itemDefinitions)) return null
   if (!o.pluginConfigs || typeof o.pluginConfigs !== "object") return null
   if (!o.shoppingByUser || typeof o.shoppingByUser !== "object") return null
-  return body as BridgeSnapshot
+  if (o.storedArtifacts !== undefined && !Array.isArray(o.storedArtifacts)) return null
+
+  const storedArtifacts = Array.isArray(o.storedArtifacts) ? o.storedArtifacts : []
+
+  return {
+    ...(body as BridgeSnapshot),
+    storedArtifacts,
+  }
 }
 
 let io: IOServer | null = null
@@ -551,6 +666,48 @@ io = new Server(httpServer, {
 })
 
 wireSocketHandlers(io)
+
+/**
+ * Game Studio reports queue removal outcome after mutating the sandbox (Listening Room awaits socket events).
+ * Localhost-only — same origin as Game Studio → bridge POST /sync.
+ */
+app.post("/preview/queue-remove-result", (req, res) => {
+  if (!io) {
+    res.status(503).json({ error: "Server not ready" })
+    return
+  }
+  const remote = req.socket.remoteAddress
+  if (
+    remote !== "127.0.0.1" &&
+    remote !== "::1" &&
+    remote !== "::ffff:127.0.0.1"
+  ) {
+    res.status(403).json({ error: "Forbidden" })
+    return
+  }
+  const roomId = typeof req.body?.roomId === "string" ? req.body.roomId : null
+  const trackId = typeof req.body?.trackId === "string" ? req.body.trackId : null
+  const success = req.body?.success === true
+  const message = typeof req.body?.message === "string" ? req.body.message : undefined
+  const trackTitle = typeof req.body?.trackTitle === "string" ? req.body.trackTitle : undefined
+  if (!roomId || !trackId) {
+    res.status(400).json({ error: "Expected roomId and trackId" })
+    return
+  }
+  const path = roomSocketPath(roomId)
+  if (success) {
+    io.to(path).emit("event", {
+      type: "REMOVE_FROM_QUEUE_SUCCESS",
+      data: { trackId, trackTitle: trackTitle ?? "" },
+    })
+  } else {
+    io.to(path).emit("event", {
+      type: "REMOVE_FROM_QUEUE_FAILURE",
+      data: { trackId, message: message ?? "Could not remove track from queue" },
+    })
+  }
+  res.status(204).end()
+})
 
 httpServer.listen(PORT, "127.0.0.1", () => {
   console.log(`[studio-bridge] listening on http://127.0.0.1:${PORT}`)

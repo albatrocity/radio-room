@@ -18,6 +18,8 @@ export function stubStudioBridgeRoom(
     id: roomId,
     creator: "studio-bridge",
     type: "jukebox",
+    /** Preview queue as authoritative (matches sandbox); avoids Spotify-delegated queue UX in studio-room. */
+    playbackMode: "app-controlled",
     title,
     fetchMeta: false,
     extraInfo: undefined,

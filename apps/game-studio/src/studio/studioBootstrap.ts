@@ -13,6 +13,7 @@ import { MockStudioGameSessionApi } from "./mockStudioGameApi"
 import { MockStudioInventoryApi } from "./mockStudioInventoryApi"
 import { MockStudioPluginApi } from "./mockStudioPluginApi"
 import { StudioPluginRegistry } from "./studioPluginRegistry"
+import { STUDIO_SESSION_AFTER_RESET_KEY } from "./constants"
 import { attachStudioPersistence, tryHydrateRoom } from "./studioPersistence"
 import { seedStudioSampleQueueIfEmpty } from "./studioSampleQueue"
 import { StudioRoom } from "./studioRoom"
@@ -125,7 +126,14 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
   enforceStudioItemShopsPluginDefaults(room)
   attachStudioPersistence(room)
 
-  await seedStudioSampleQueueIfEmpty(room, lifecycle)
+  const afterReset = sessionStorage.getItem(STUDIO_SESSION_AFTER_RESET_KEY) === "1"
+  if (afterReset) {
+    sessionStorage.removeItem(STUDIO_SESSION_AFTER_RESET_KEY)
+    room.queue = []
+    room.notify()
+  } else {
+    await seedStudioSampleQueueIfEmpty(room, lifecycle)
+  }
 
   return { room, lifecycle, registry, itemShopsPlugin, itemShopsContext: ctx }
 }

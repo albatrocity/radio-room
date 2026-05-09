@@ -16,3 +16,4 @@ Before implementing any feature or refactor, review the relevant ADRs in [`docs/
 - [docs/adrs/](docs/adrs/index.md) -- Architectural Decision Records
 - [docs/BACKEND_DEVELOPMENT.md](docs/BACKEND_DEVELOPMENT.md) -- Server architecture
 - [docs/PLUGIN_DEVELOPMENT.md](docs/PLUGIN_DEVELOPMENT.md) -- Plugin system
+- [apps/game-studio/README.md](apps/game-studio/README.md) -- Game Studio sandbox (keep studio-bridge in sync with web app features)
