@@ -2,6 +2,7 @@
 
 import {
   Button,
+  Card,
   Drawer,
   Field,
   Heading,
@@ -12,12 +13,13 @@ import {
   Tabs,
   Text,
 } from "@chakra-ui/react"
-import { ShoppingBag } from "lucide-react"
+import { Archive, ShoppingBag } from "lucide-react"
 import { useMemo, useState } from "react"
 import * as studioActions from "../../studio/studioActions"
 import { readShoppingInstance } from "../../studio/studioShoppingRead"
 import type { StudioRoom } from "../../studio/studioRoom"
 import { toaster } from "../ui/toaster"
+import { ArtifactsDrawerTab } from "./ArtifactsDrawerTab"
 
 export type AddItemDrawerProps = {
   room: StudioRoom
@@ -33,7 +35,10 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
     [ITEM_CATALOG],
   )
 
-  const defaultUserId = useMemo(() => [...room.users.keys()][0] ?? "", [room.snapshotEpoch, room.users])
+  const defaultUserId = useMemo(
+    () => [...room.users.keys()][0] ?? "",
+    [room.snapshotEpoch, room.users],
+  )
 
   const [giveRecipientPick, setGiveRecipientPick] = useState<string | null>(null)
   const [buyRecipientPick, setBuyRecipientPick] = useState<string | null>(null)
@@ -41,7 +46,10 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
   const giveRecipient = giveRecipientPick ?? defaultUserId
   const buyRecipient = buyRecipientPick ?? defaultUserId
 
-  async function toastAction(title: string, fn: () => Promise<{ success: boolean; message?: string }>) {
+  async function toastAction(
+    title: string,
+    fn: () => Promise<{ success: boolean; message?: string }>,
+  ) {
     try {
       const res = await fn()
       toaster.create({
@@ -73,20 +81,26 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
               </HStack>
             </Drawer.Title>
           </Drawer.Header>
-          <Drawer.Body>
+          <Drawer.Body pt="0">
             {room.users.size === 0 ? (
               <Text fontSize="sm" color="fg.muted">
                 Add at least one user to grant items or run buys.
               </Text>
             ) : (
-              <Tabs.Root defaultValue="give" variant="line" colorPalette="blue">
-                <Tabs.List>
+              <Tabs.Root defaultValue="give" variant="line" colorPalette="blue" p="0">
+                <Tabs.List pos="sticky" top="0" bg="bg.subtle" zIndex="sticky">
                   <Tabs.Trigger value="give">Give (catalog)</Tabs.Trigger>
                   <Tabs.Trigger value="buy">Buy (shopping session)</Tabs.Trigger>
+                  <Tabs.Trigger value="artifacts">
+                    <HStack gap="1" display="inline-flex">
+                      <Archive size={14} />
+                      Artifacts
+                    </HStack>
+                  </Tabs.Trigger>
                 </Tabs.List>
 
                 <Tabs.Content value="give">
-                  <Stack gap="4" mt="4">
+                  <Stack gap="4">
                     <Field.Root>
                       <Field.Label fontSize="sm">Recipient</Field.Label>
                       <NativeSelect.Root size="sm">
@@ -109,44 +123,51 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
                     </Text>
 
                     {SHOP_CATALOG.map((shop) => (
-                      <Stack key={shop.shopId} gap="2">
-                        <Heading size="sm">{shop.name}</Heading>
-                        <Separator />
-                        <Stack gap="2">
-                          {shop.availableItems.map((available) => {
-                            const shortId =
-                              typeof available === "string" ? available : available.shortId
-                            const cat = catalogMap.get(shortId)
-                            const label = cat?.definition.name ?? shortId
-                            const desc = cat?.definition.description
-                            return (
-                              <HStack key={shortId} justify="space-between" align="flex-start">
-                                <Stack gap="1" flex="1" minW="0">
-                                  <Text fontSize="sm" fontWeight="medium">
-                                    {label}
-                                  </Text>
-                                  {desc ? (
-                                    <Text fontSize="xs" color="fg.muted">
-                                      {desc}
-                                    </Text>
-                                  ) : null}
-                                </Stack>
-                                <Button
-                                  size="xs"
-                                  variant="surface"
-                                  onClick={() =>
-                                    void toastAction(`Give ${label}`, () =>
-                                      studioActions.giveItemDirect(giveRecipient, shortId),
-                                    )
-                                  }
-                                >
-                                  Give
-                                </Button>
-                              </HStack>
-                            )
-                          })}
-                        </Stack>
-                      </Stack>
+                      <Card.Root key={shop.shopId}>
+                        <Card.Header>
+                          <Heading size="lg" color="fg.muted">
+                            {shop.name}
+                          </Heading>
+                        </Card.Header>
+                        <Card.Body>
+                          <Stack key={shop.shopId} gap="2">
+                            <Stack gap="4" separator={<Separator />}>
+                              {shop.availableItems.map((available) => {
+                                const shortId =
+                                  typeof available === "string" ? available : available.shortId
+                                const cat = catalogMap.get(shortId)
+                                const label = cat?.definition.name ?? shortId
+                                const desc = cat?.definition.description
+                                return (
+                                  <HStack key={shortId} justify="space-between" align="flex-start">
+                                    <Stack gap="1" flex="1" minW="0">
+                                      <Text fontSize="sm" fontWeight="medium">
+                                        {label}
+                                      </Text>
+                                      {desc ? (
+                                        <Text fontSize="xs" color="fg.muted">
+                                          {desc}
+                                        </Text>
+                                      ) : null}
+                                    </Stack>
+                                    <Button
+                                      size="xs"
+                                      variant="surface"
+                                      onClick={() =>
+                                        void toastAction(`Give ${label}`, () =>
+                                          studioActions.giveItemDirect(giveRecipient, shortId),
+                                        )
+                                      }
+                                    >
+                                      Give
+                                    </Button>
+                                  </HStack>
+                                )
+                              })}
+                            </Stack>
+                          </Stack>
+                        </Card.Body>
+                      </Card.Root>
                     ))}
                   </Stack>
                 </Tabs.Content>
@@ -154,16 +175,16 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
                 <Tabs.Content value="buy">
                   <Stack gap="4" mt="4">
                     <Text fontSize="xs" color="fg.muted">
-                      Users added before shopping started won&apos;t get shops until you replay joins or add users again.
+                      Users added before shopping started won&apos;t get shops until you replay
+                      joins or add users again.
                     </Text>
                     <Button
                       size="xs"
                       variant="outline"
                       onClick={() =>
-                        void toastAction("Assignments refreshed", async () => {
-                          await studioActions.replayUserJoinedForAllUsers()
-                          return { success: true }
-                        })
+                        void toastAction("Assignments refreshed", () =>
+                          studioActions.replayUserJoinedForAllUsers(),
+                        )
                       }
                     >
                       Assign shops for existing users
@@ -187,52 +208,68 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
 
                     {!shoppingInstance ? (
                       <Text fontSize="sm" color="fg.muted">
-                        Start a shopping round and open this user&apos;s shop (assign-on-join flow runs after session +
-                        shopping start).
+                        Start a shopping round and open this user&apos;s shop (assign-on-join flow
+                        runs after session + shopping start).
                       </Text>
                     ) : (
-                      <Stack gap="2">
-                        <Text fontSize="sm">
-                          <strong>{shoppingInstance.shopName}</strong>
-                          <Text as="span" fontSize="xs" color="fg.muted" display="block">
-                            Round opened at {new Date(shoppingInstance.openedAt).toLocaleString()}
-                          </Text>
-                        </Text>
-
-                        {shoppingInstance.offers.length === 0 ? (
-                          <Text fontSize="sm">No offers generated.</Text>
-                        ) : (
-                          shoppingInstance.offers.map((offer) => (
-                            <HStack key={`${offer.offerId}-${offer.shortId}`} justify="space-between" align="flex-start">
-                              <Stack gap="1" align="flex-start" flex="1" minW="0">
-                                <Text fontWeight="medium">{offer.name}</Text>
-                                {offer.description ? (
-                                  <Text fontSize="xs" color="fg.muted">
-                                    {offer.description}
-                                  </Text>
-                                ) : null}
-                                <Text fontSize="xs" color="fg.muted">
-                                  {offer.price} coins · {offer.available ? "available" : "sold"}
-                                </Text>
-                              </Stack>
-                              <Button
-                                size="xs"
-                                colorPalette="blue"
-                                disabled={!offer.available}
-                                onClick={() =>
-                                  void toastAction(`Buy ${offer.name}`, () =>
-                                    studioActions.purchaseOffer(buyRecipient, offer.offerId),
-                                  )
-                                }
-                              >
-                                Buy
-                              </Button>
-                            </HStack>
-                          ))
-                        )}
-                      </Stack>
+                      <Card.Root>
+                        <Card.Header>
+                          <Heading size="lg" color="fg.muted">
+                            {shoppingInstance.shopName}
+                            <Text as="span" fontSize="xs" color="fg.muted" display="block">
+                              Round opened at {new Date(shoppingInstance.openedAt).toLocaleString()}
+                            </Text>
+                          </Heading>
+                        </Card.Header>
+                        <Card.Body>
+                          <Stack gap="4" separator={<Separator />}>
+                            <Stack gap="4" separator={<Separator />}>
+                              {shoppingInstance.offers.length === 0 ? (
+                                <Text fontSize="sm">No offers generated.</Text>
+                              ) : (
+                                shoppingInstance.offers.map((offer) => (
+                                  <HStack
+                                    key={`${offer.offerId}-${offer.shortId}`}
+                                    justify="space-between"
+                                    align="flex-start"
+                                  >
+                                    <Stack gap="1" align="flex-start" flex="1" minW="0">
+                                      <Text fontWeight="medium">{offer.name}</Text>
+                                      {offer.description ? (
+                                        <Text fontSize="xs" color="fg.muted">
+                                          {offer.description}
+                                        </Text>
+                                      ) : null}
+                                      <Text fontSize="xs" color="fg.muted">
+                                        {offer.price} coins ·{" "}
+                                        {offer.available ? "available" : "sold"}
+                                      </Text>
+                                    </Stack>
+                                    <Button
+                                      size="xs"
+                                      colorPalette="blue"
+                                      disabled={!offer.available}
+                                      onClick={() =>
+                                        void toastAction(`Buy ${offer.name}`, () =>
+                                          studioActions.purchaseOffer(buyRecipient, offer.offerId),
+                                        )
+                                      }
+                                    >
+                                      Buy
+                                    </Button>
+                                  </HStack>
+                                ))
+                              )}
+                            </Stack>
+                          </Stack>
+                        </Card.Body>
+                      </Card.Root>
                     )}
                   </Stack>
+                </Tabs.Content>
+
+                <Tabs.Content value="artifacts">
+                  <ArtifactsDrawerTab room={room} defaultUserId={defaultUserId} />
                 </Tabs.Content>
               </Tabs.Root>
             )}

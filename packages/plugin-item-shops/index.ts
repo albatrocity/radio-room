@@ -378,6 +378,46 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       await this.emit("SHOPPING_SESSION_ENDED", { roomId: this.context.roomId })
       return { success: true, message: "All shopping sessions ended." }
     }
+    /** Game Studio / sandbox: assign shops to users who joined before the shopping round (same rules as USER_JOINED). */
+    if (action === "replayShopAssignmentsForExistingUsers") {
+      if (!config?.enabled) {
+        return { success: false, message: "Item Shops are disabled." }
+      }
+      if (!config.assignShopOnJoin) {
+        return {
+          success: false,
+          message:
+            'Turn on "Assign shop when users join mid-session" in Item Shops settings (or reset sandbox defaults).',
+        }
+      }
+      if (!(await this.shopping.isActive())) {
+        return { success: false, message: "Start a shopping round first (toolbar → Start shopping)." }
+      }
+      const eligible = getEligibleShops(config)
+      if (eligible.length === 0) {
+        return {
+          success: false,
+          message: "Select at least one shop in Item Shops settings (Shops in rotation).",
+        }
+      }
+      const users = await this.context.api.getUsers(this.context.roomId)
+      let assigned = 0
+      for (const u of users) {
+        if (await this.shopping.getInstance(u.userId)) continue
+        await this.shopping.assignInstanceForUserId(u.userId, Date.now(), eligible)
+        assigned++
+      }
+      if (assigned > 0) {
+        await this.emit("SHOPPING_SESSION_UPDATED", { roomId: this.context.roomId })
+      }
+      return {
+        success: true,
+        message:
+          assigned === 0
+            ? "Everyone already had a shop assignment."
+            : `Assigned shops to ${assigned} user(s).`,
+      }
+    }
     if (action.startsWith("buy:")) {
       if (!config?.enabled) {
         return { success: false, message: "Item Shops are disabled." }

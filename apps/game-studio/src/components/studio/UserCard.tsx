@@ -16,8 +16,9 @@ import {
 } from "@chakra-ui/react"
 import { getActiveFlags } from "@repo/game-logic"
 import type { ItemDefinition } from "@repo/types"
-import { User as UserIcon } from "lucide-react"
+import { Eye, User as UserIcon } from "lucide-react"
 import { useMemo, useState } from "react"
+import { requestStudioBridgeViewAs } from "../../studio/bridgeClient"
 import * as studioActions from "../../studio/studioActions"
 import type { StudioRoom } from "../../studio/studioRoom"
 import { StudioCoinAmountStoragePopover } from "./StudioCoinAmountStoragePopover"
@@ -36,9 +37,18 @@ export type UserCardProps = {
   room: StudioRoom
   userId: string
   now: number
+  /** Which user the Listening Room preview is viewing as (after a successful View as). */
+  previewViewAsUserId: string | null
+  onPreviewViewAsApplied: (userId: string) => void
 }
 
-export function UserCard({ room, userId, now }: UserCardProps) {
+export function UserCard({
+  room,
+  userId,
+  now,
+  previewViewAsUserId,
+  onPreviewViewAsApplied,
+}: UserCardProps) {
   const user = room.users.get(userId)
   const state = room.getUserState(userId)
   const inventory = room.getInventory(userId)
@@ -64,6 +74,8 @@ export function UserCard({ room, userId, now }: UserCardProps) {
   const effectiveQueueTrack = pickQueueTrackId ?? defaultQueueTrackId
 
   if (!user) return null
+
+  const isActivePreviewUser = previewViewAsUserId === userId
 
   const coin = state?.attributes?.coin ?? 0
   const score = state?.attributes?.score ?? 0
@@ -99,7 +111,27 @@ export function UserCard({ room, userId, now }: UserCardProps) {
             <UserIcon size={18} />
             <Heading size="md">{user.username}</Heading>
           </HStack>
-          <Badge colorPalette={state ? "green" : "gray"}>{state ? "In session" : "Idle"}</Badge>
+          <HStack gap="2" align="center">
+            <Button
+              size="xs"
+              variant={isActivePreviewUser ? "solid" : "outline"}
+              colorPalette={isActivePreviewUser ? "blue" : "gray"}
+              aria-pressed={isActivePreviewUser}
+              title="Switch Listening Room preview (web) to this user"
+              onClick={() =>
+                void run("Room preview", async () => {
+                  const baseUrl =
+                    import.meta.env.VITE_STUDIO_BRIDGE_URL ?? "http://127.0.0.1:3099"
+                  await requestStudioBridgeViewAs(baseUrl, room.roomId, userId)
+                  onPreviewViewAsApplied(userId)
+                  return "Listening Room preview updated"
+                })
+              }
+            >
+              <Eye size={14} /> {isActivePreviewUser ? "Viewing as" : "View as"}
+            </Button>
+            <Badge colorPalette={state ? "green" : "gray"}>{state ? "In session" : "Idle"}</Badge>
+          </HStack>
         </HStack>
 
         <HStack gap="4" fontSize="sm">

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { HStack, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
-import type { GameAttributeName, ItemDefinition, StoredArtifactPublic } from "@repo/types"
+import type {
+  GameAttributeName,
+  InventoryItem,
+  ItemDefinition,
+  StoredArtifactPublic,
+} from "@repo/types"
 import Modal from "../Modal"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../actors/socketActor"
 import {
@@ -32,6 +37,11 @@ const COINS_ICON = getIcon("coins")
 const PACKAGE_ICON = getIcon("package")
 const STORED_ICON = getIcon("Archive")
 
+/** Stable fallbacks — `?? []` / `?? {}` in render create new references every paint and break effect deps / context (see Maximum update depth in studio-bridge preview). */
+const EMPTY_INVENTORY_ITEMS: InventoryItem[] = []
+const EMPTY_ITEM_DEFINITIONS: ItemDefinition[] = []
+const EMPTY_ATTRIBUTES = {} as Record<GameAttributeName, number>
+
 function ModalUserGameState() {
   const modalSend = useModalsSend()
   const isOpen = useIsModalOpen("gameState")
@@ -50,16 +60,19 @@ function ModalUserGameState() {
 
   const definitionMap = useMemo(() => {
     const map = new Map<string, ItemDefinition>()
-    for (const def of payload?.itemDefinitions ?? []) {
+    for (const def of payload?.itemDefinitions ?? EMPTY_ITEM_DEFINITIONS) {
       map.set(def.id, def)
     }
     return map
   }, [payload?.itemDefinitions])
 
   const enabledAttributes = payload?.session?.config.enabledAttributes ?? []
-  const attributes = (payload?.state?.attributes ?? {}) as Record<GameAttributeName, number>
+  const attributes = (payload?.state?.attributes ?? EMPTY_ATTRIBUTES) as Record<GameAttributeName, number>
   const inventoryEnabled = payload?.session?.config.inventoryEnabled ?? false
-  const inventoryItems = payload?.inventory?.items ?? []
+  /** Empty inventory must not use a fresh `[]` from payload each snapshot (bridge/API often do `?? []`). */
+  const rawInventoryItems = payload?.inventory?.items
+  const inventoryItems =
+    rawInventoryItems && rawInventoryItems.length > 0 ? rawInventoryItems : EMPTY_INVENTORY_ITEMS
   const maxSlots = payload?.inventory?.maxSlots ?? 0
 
   const [storedArtifacts, setStoredArtifacts] = useState<StoredArtifactPublic[]>([])

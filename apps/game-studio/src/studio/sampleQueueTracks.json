@@ -1,0 +1,3829 @@
+[
+  {
+    "title": "What Becomes Of The Brokenhearted",
+    "track": {
+      "id": "0wBaPbJ2qsbGqgnGbqBDgP",
+      "title": "What Becomes Of The Brokenhearted",
+      "urls": [
+        {
+          "type": "resource",
+          "url": "spotify:track:0wBaPbJ2qsbGqgnGbqBDgP",
+          "id": "spotify:track:0wBaPbJ2qsbGqgnGbqBDgP"
+        },
+        {
+          "type": "resource",
+          "url": "https://open.spotify.com/track/0wBaPbJ2qsbGqgnGbqBDgP",
+          "id": "spotify_url"
+        }
+      ],
+      "artists": [
+        {
+          "id": "0hF0PwB04hnXfYMiZWfJzy",
+          "title": "Jimmy Ruffin",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:artist:0hF0PwB04hnXfYMiZWfJzy",
+              "id": "spotify:artist:0hF0PwB04hnXfYMiZWfJzy"
+            }
+          ]
+        }
+      ],
+      "album": {
+        "id": "5zRvMt37YxCPddq09ivuPV",
+        "title": "Sings Top Ten",
+        "urls": [
+          {
+            "type": "resource",
+            "url": "spotify:album:5zRvMt37YxCPddq09ivuPV",
+            "id": "spotify:album:5zRvMt37YxCPddq09ivuPV"
+          }
+        ],
+        "artists": [
+          {
+            "id": "0hF0PwB04hnXfYMiZWfJzy",
+            "title": "Jimmy Ruffin",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:artist:0hF0PwB04hnXfYMiZWfJzy",
+                "id": "spotify:artist:0hF0PwB04hnXfYMiZWfJzy"
+              }
+            ]
+          }
+        ],
+        "releaseDate": "2004-01-01",
+        "releaseDatePrecision": "day",
+        "totalTracks": 12,
+        "label": "",
+        "images": [
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000b27384d23874f5563d2771bed987",
+            "id": "640x640"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00001e0284d23874f5563d2771bed987",
+            "id": "300x300"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000485184d23874f5563d2771bed987",
+            "id": "64x64"
+          }
+        ]
+      },
+      "duration": 178440,
+      "explicit": false,
+      "trackNumber": 3,
+      "discNumber": 1,
+      "popularity": 63,
+      "images": [
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000b27384d23874f5563d2771bed987",
+          "id": "640x640"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00001e0284d23874f5563d2771bed987",
+          "id": "300x300"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000485184d23874f5563d2771bed987",
+          "id": "64x64"
+        }
+      ]
+    },
+    "mediaSource": {
+      "type": "shoutcast",
+      "trackId": "492a2632089ac7a13c041f"
+    },
+    "metadataSource": {
+      "type": "spotify",
+      "trackId": "0wBaPbJ2qsbGqgnGbqBDgP"
+    },
+    "metadataSources": {
+      "spotify": {
+        "source": {
+          "type": "spotify",
+          "trackId": "0wBaPbJ2qsbGqgnGbqBDgP"
+        },
+        "track": {
+          "id": "0wBaPbJ2qsbGqgnGbqBDgP",
+          "title": "What Becomes Of The Brokenhearted",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:track:0wBaPbJ2qsbGqgnGbqBDgP",
+              "id": "spotify:track:0wBaPbJ2qsbGqgnGbqBDgP"
+            },
+            {
+              "type": "resource",
+              "url": "https://open.spotify.com/track/0wBaPbJ2qsbGqgnGbqBDgP",
+              "id": "spotify_url"
+            }
+          ],
+          "artists": [
+            {
+              "id": "0hF0PwB04hnXfYMiZWfJzy",
+              "title": "Jimmy Ruffin",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "spotify:artist:0hF0PwB04hnXfYMiZWfJzy",
+                  "id": "spotify:artist:0hF0PwB04hnXfYMiZWfJzy"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "5zRvMt37YxCPddq09ivuPV",
+            "title": "Sings Top Ten",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:album:5zRvMt37YxCPddq09ivuPV",
+                "id": "spotify:album:5zRvMt37YxCPddq09ivuPV"
+              }
+            ],
+            "artists": [
+              {
+                "id": "0hF0PwB04hnXfYMiZWfJzy",
+                "title": "Jimmy Ruffin",
+                "urls": [
+                  {
+                    "type": "resource",
+                    "url": "spotify:artist:0hF0PwB04hnXfYMiZWfJzy",
+                    "id": "spotify:artist:0hF0PwB04hnXfYMiZWfJzy"
+                  }
+                ]
+              }
+            ],
+            "releaseDate": "2004-01-01",
+            "releaseDatePrecision": "day",
+            "totalTracks": 12,
+            "label": "",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000b27384d23874f5563d2771bed987",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00001e0284d23874f5563d2771bed987",
+                "id": "300x300"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000485184d23874f5563d2771bed987",
+                "id": "64x64"
+              }
+            ]
+          },
+          "duration": 178440,
+          "explicit": false,
+          "trackNumber": 3,
+          "discNumber": 1,
+          "popularity": 63,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000b27384d23874f5563d2771bed987",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00001e0284d23874f5563d2771bed987",
+              "id": "300x300"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000485184d23874f5563d2771bed987",
+              "id": "64x64"
+            }
+          ]
+        }
+      },
+      "tidal": {
+        "source": {
+          "type": "tidal",
+          "trackId": "30343490"
+        },
+        "track": {
+          "id": "30343490",
+          "title": "What Becomes Of The Brokenhearted",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "https://tidal.com/browse/track/30343490",
+              "id": "30343490"
+            }
+          ],
+          "artists": [
+            {
+              "id": "16914",
+              "title": "Jimmy Ruffin",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "https://tidal.com/browse/artist/16914",
+                  "id": "16914"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "30343487",
+            "title": "Sings Top Ten",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "https://tidal.com/browse/album/30343487",
+                "id": "30343487"
+              }
+            ],
+            "artists": [],
+            "releaseDate": "1967-01-01",
+            "releaseDatePrecision": "day",
+            "totalTracks": 0,
+            "label": "© 2004 Motown Records, a Division of UMG Recordings, Inc.",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/1280x1280.jpg",
+                "id": "1280x1280"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/1080x1080.jpg",
+                "id": "1080x1080"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/750x750.jpg",
+                "id": "750x750"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/640x640.jpg",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/320x320.jpg",
+                "id": "320x320"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/160x160.jpg",
+                "id": "160x160"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/80x80.jpg",
+                "id": "80x80"
+              }
+            ]
+          },
+          "duration": 178000,
+          "explicit": false,
+          "trackNumber": 0,
+          "discNumber": 1,
+          "popularity": 74,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/1280x1280.jpg",
+              "id": "1280x1280"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/1080x1080.jpg",
+              "id": "1080x1080"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/750x750.jpg",
+              "id": "750x750"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/640x640.jpg",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/320x320.jpg",
+              "id": "320x320"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/160x160.jpg",
+              "id": "160x160"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/fb8ea93f/5913/4d98/ae5f/152d81846fb9/80x80.jpg",
+              "id": "80x80"
+            }
+          ]
+        }
+      }
+    },
+    "addedAt": 1777863518828,
+    "addedDuring": "nowPlaying",
+    "playedAt": 1777863518828
+  },
+  {
+    "title": "Reelin' In The Years",
+    "track": {
+      "id": "1x1XQqhBViz4opcpwc7FVs",
+      "title": "Reelin' In The Years",
+      "urls": [
+        {
+          "type": "resource",
+          "url": "spotify:track:1x1XQqhBViz4opcpwc7FVs",
+          "id": "spotify:track:1x1XQqhBViz4opcpwc7FVs"
+        },
+        {
+          "type": "resource",
+          "url": "https://open.spotify.com/track/1x1XQqhBViz4opcpwc7FVs",
+          "id": "spotify_url"
+        }
+      ],
+      "artists": [
+        {
+          "id": "6P7H3ai06vU1sGvdpBwDmE",
+          "title": "Steely Dan",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:artist:6P7H3ai06vU1sGvdpBwDmE",
+              "id": "spotify:artist:6P7H3ai06vU1sGvdpBwDmE"
+            }
+          ]
+        }
+      ],
+      "album": {
+        "id": "6DlSUW5gmq6Byc3osKDJ2p",
+        "title": "Can't Buy A Thrill",
+        "urls": [
+          {
+            "type": "resource",
+            "url": "spotify:album:6DlSUW5gmq6Byc3osKDJ2p",
+            "id": "spotify:album:6DlSUW5gmq6Byc3osKDJ2p"
+          }
+        ],
+        "artists": [
+          {
+            "id": "6P7H3ai06vU1sGvdpBwDmE",
+            "title": "Steely Dan",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:artist:6P7H3ai06vU1sGvdpBwDmE",
+                "id": "spotify:artist:6P7H3ai06vU1sGvdpBwDmE"
+              }
+            ]
+          }
+        ],
+        "releaseDate": "1972-11-01",
+        "releaseDatePrecision": "day",
+        "totalTracks": 10,
+        "label": "",
+        "images": [
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000b2730ddd7e736f870994f4707947",
+            "id": "640x640"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00001e020ddd7e736f870994f4707947",
+            "id": "300x300"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d000048510ddd7e736f870994f4707947",
+            "id": "64x64"
+          }
+        ]
+      },
+      "duration": 277467,
+      "explicit": false,
+      "trackNumber": 6,
+      "discNumber": 1,
+      "popularity": 76,
+      "images": [
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000b2730ddd7e736f870994f4707947",
+          "id": "640x640"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00001e020ddd7e736f870994f4707947",
+          "id": "300x300"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d000048510ddd7e736f870994f4707947",
+          "id": "64x64"
+        }
+      ]
+    },
+    "mediaSource": {
+      "type": "shoutcast",
+      "trackId": "d18b1e74617ec37e56c46a"
+    },
+    "metadataSource": {
+      "type": "spotify",
+      "trackId": "1x1XQqhBViz4opcpwc7FVs"
+    },
+    "metadataSources": {
+      "spotify": {
+        "source": {
+          "type": "spotify",
+          "trackId": "1x1XQqhBViz4opcpwc7FVs"
+        },
+        "track": {
+          "id": "1x1XQqhBViz4opcpwc7FVs",
+          "title": "Reelin' In The Years",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:track:1x1XQqhBViz4opcpwc7FVs",
+              "id": "spotify:track:1x1XQqhBViz4opcpwc7FVs"
+            },
+            {
+              "type": "resource",
+              "url": "https://open.spotify.com/track/1x1XQqhBViz4opcpwc7FVs",
+              "id": "spotify_url"
+            }
+          ],
+          "artists": [
+            {
+              "id": "6P7H3ai06vU1sGvdpBwDmE",
+              "title": "Steely Dan",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "spotify:artist:6P7H3ai06vU1sGvdpBwDmE",
+                  "id": "spotify:artist:6P7H3ai06vU1sGvdpBwDmE"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "6DlSUW5gmq6Byc3osKDJ2p",
+            "title": "Can't Buy A Thrill",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:album:6DlSUW5gmq6Byc3osKDJ2p",
+                "id": "spotify:album:6DlSUW5gmq6Byc3osKDJ2p"
+              }
+            ],
+            "artists": [
+              {
+                "id": "6P7H3ai06vU1sGvdpBwDmE",
+                "title": "Steely Dan",
+                "urls": [
+                  {
+                    "type": "resource",
+                    "url": "spotify:artist:6P7H3ai06vU1sGvdpBwDmE",
+                    "id": "spotify:artist:6P7H3ai06vU1sGvdpBwDmE"
+                  }
+                ]
+              }
+            ],
+            "releaseDate": "1972-11-01",
+            "releaseDatePrecision": "day",
+            "totalTracks": 10,
+            "label": "",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000b2730ddd7e736f870994f4707947",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00001e020ddd7e736f870994f4707947",
+                "id": "300x300"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d000048510ddd7e736f870994f4707947",
+                "id": "64x64"
+              }
+            ]
+          },
+          "duration": 277467,
+          "explicit": false,
+          "trackNumber": 6,
+          "discNumber": 1,
+          "popularity": 76,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000b2730ddd7e736f870994f4707947",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00001e020ddd7e736f870994f4707947",
+              "id": "300x300"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d000048510ddd7e736f870994f4707947",
+              "id": "64x64"
+            }
+          ]
+        }
+      },
+      "tidal": {
+        "source": {
+          "type": "tidal",
+          "trackId": "256733388"
+        },
+        "track": {
+          "id": "256733388",
+          "title": "Reelin' In The Years",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "https://tidal.com/browse/track/256733388",
+              "id": "256733388"
+            }
+          ],
+          "artists": [
+            {
+              "id": "14143",
+              "title": "Steely Dan",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "https://tidal.com/browse/artist/14143",
+                  "id": "14143"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "256733382",
+            "title": "Can't Buy A Thrill",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "https://tidal.com/browse/album/256733382",
+                "id": "256733382"
+              }
+            ],
+            "artists": [],
+            "releaseDate": "1972-01-01",
+            "releaseDatePrecision": "day",
+            "totalTracks": 0,
+            "label": "© 2022 UMG Recordings, Inc.",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/1280x1280.jpg",
+                "id": "1280x1280"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/1080x1080.jpg",
+                "id": "1080x1080"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/750x750.jpg",
+                "id": "750x750"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/640x640.jpg",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/320x320.jpg",
+                "id": "320x320"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/160x160.jpg",
+                "id": "160x160"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/80x80.jpg",
+                "id": "80x80"
+              }
+            ]
+          },
+          "duration": 277000,
+          "explicit": false,
+          "trackNumber": 0,
+          "discNumber": 1,
+          "popularity": 79,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/1280x1280.jpg",
+              "id": "1280x1280"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/1080x1080.jpg",
+              "id": "1080x1080"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/750x750.jpg",
+              "id": "750x750"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/640x640.jpg",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/320x320.jpg",
+              "id": "320x320"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/160x160.jpg",
+              "id": "160x160"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/3827a172/e7d3/4a17/92e6/d981d584f43e/80x80.jpg",
+              "id": "80x80"
+            }
+          ]
+        }
+      }
+    },
+    "addedAt": 1777863540657,
+    "addedBy": {
+      "id": "user-1",
+      "username": "Ross",
+      "displayName": "User 1",
+      "email": "user-1@email.com",
+      "userId": "1243633676",
+      "isAdmin": false,
+      "isDeputyDj": false,
+      "isDj": false,
+      "status": "participating"
+    },
+    "addedDuring": "queue",
+    "playedAt": 1777863609654
+  },
+  {
+    "title": "Sugar, Sugar",
+    "track": {
+      "id": "17593678",
+      "title": "Sugar, Sugar",
+      "urls": [
+        {
+          "type": "resource",
+          "url": "https://tidal.com/browse/track/17593678",
+          "id": "17593678"
+        }
+      ],
+      "artists": [
+        {
+          "id": "3529298",
+          "title": "The Archies",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "https://tidal.com/browse/artist/3529298",
+              "id": "3529298"
+            }
+          ]
+        }
+      ],
+      "album": {
+        "id": "17593677",
+        "title": "The Original Hit Recording - Sugar Sugar (Digital Only)",
+        "urls": [
+          {
+            "type": "resource",
+            "url": "https://tidal.com/browse/album/17593677",
+            "id": "17593677"
+          }
+        ],
+        "artists": [],
+        "releaseDate": "1969-01-01",
+        "releaseDatePrecision": "day",
+        "totalTracks": 0,
+        "label": "2012 Ron Dante",
+        "images": [
+          {
+            "type": "image",
+            "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/1280x1280.jpg",
+            "id": "1280x1280"
+          },
+          {
+            "type": "image",
+            "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/1080x1080.jpg",
+            "id": "1080x1080"
+          },
+          {
+            "type": "image",
+            "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/750x750.jpg",
+            "id": "750x750"
+          },
+          {
+            "type": "image",
+            "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/640x640.jpg",
+            "id": "640x640"
+          },
+          {
+            "type": "image",
+            "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/320x320.jpg",
+            "id": "320x320"
+          },
+          {
+            "type": "image",
+            "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/160x160.jpg",
+            "id": "160x160"
+          },
+          {
+            "type": "image",
+            "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/80x80.jpg",
+            "id": "80x80"
+          }
+        ]
+      },
+      "duration": 167000,
+      "explicit": false,
+      "trackNumber": 0,
+      "discNumber": 1,
+      "popularity": 71,
+      "images": [
+        {
+          "type": "image",
+          "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/1280x1280.jpg",
+          "id": "1280x1280"
+        },
+        {
+          "type": "image",
+          "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/1080x1080.jpg",
+          "id": "1080x1080"
+        },
+        {
+          "type": "image",
+          "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/750x750.jpg",
+          "id": "750x750"
+        },
+        {
+          "type": "image",
+          "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/640x640.jpg",
+          "id": "640x640"
+        },
+        {
+          "type": "image",
+          "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/320x320.jpg",
+          "id": "320x320"
+        },
+        {
+          "type": "image",
+          "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/160x160.jpg",
+          "id": "160x160"
+        },
+        {
+          "type": "image",
+          "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/80x80.jpg",
+          "id": "80x80"
+        }
+      ]
+    },
+    "mediaSource": {
+      "type": "shoutcast",
+      "trackId": "b553f0a92a24b336f25c54"
+    },
+    "metadataSource": {
+      "type": "tidal",
+      "trackId": "17593678"
+    },
+    "metadataSources": {
+      "tidal": {
+        "source": {
+          "type": "tidal",
+          "trackId": "17593678"
+        },
+        "track": {
+          "id": "17593678",
+          "title": "Sugar, Sugar",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "https://tidal.com/browse/track/17593678",
+              "id": "17593678"
+            }
+          ],
+          "artists": [
+            {
+              "id": "3529298",
+              "title": "The Archies",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "https://tidal.com/browse/artist/3529298",
+                  "id": "3529298"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "17593677",
+            "title": "The Original Hit Recording - Sugar Sugar (Digital Only)",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "https://tidal.com/browse/album/17593677",
+                "id": "17593677"
+              }
+            ],
+            "artists": [],
+            "releaseDate": "1969-01-01",
+            "releaseDatePrecision": "day",
+            "totalTracks": 0,
+            "label": "2012 Ron Dante",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/1280x1280.jpg",
+                "id": "1280x1280"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/1080x1080.jpg",
+                "id": "1080x1080"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/750x750.jpg",
+                "id": "750x750"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/640x640.jpg",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/320x320.jpg",
+                "id": "320x320"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/160x160.jpg",
+                "id": "160x160"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/80x80.jpg",
+                "id": "80x80"
+              }
+            ]
+          },
+          "duration": 167000,
+          "explicit": false,
+          "trackNumber": 0,
+          "discNumber": 1,
+          "popularity": 71,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/1280x1280.jpg",
+              "id": "1280x1280"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/1080x1080.jpg",
+              "id": "1080x1080"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/750x750.jpg",
+              "id": "750x750"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/640x640.jpg",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/320x320.jpg",
+              "id": "320x320"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/160x160.jpg",
+              "id": "160x160"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/8525bd6f/42e1/4223/b286/c32c915d9d37/80x80.jpg",
+              "id": "80x80"
+            }
+          ]
+        }
+      }
+    },
+    "addedAt": 1777863641373,
+    "addedBy": {
+      "id": "user-2",
+      "username": "Ross",
+      "displayName": "User 2",
+      "email": "user-2@email.com",
+      "userId": "1243633676",
+      "isAdmin": false,
+      "isDeputyDj": false,
+      "isDj": false,
+      "status": "participating"
+    },
+    "addedDuring": "queue",
+    "playedAt": 1777863670071
+  },
+  {
+    "title": "Mrs. Brown, You've Got A Lovely Daughter - Mono",
+    "track": {
+      "id": "1GJCJpKYfzRUsYnSRy4Mfz",
+      "title": "Mrs. Brown, You've Got A Lovely Daughter - Mono",
+      "urls": [
+        {
+          "type": "resource",
+          "url": "spotify:track:1GJCJpKYfzRUsYnSRy4Mfz",
+          "id": "spotify:track:1GJCJpKYfzRUsYnSRy4Mfz"
+        },
+        {
+          "type": "resource",
+          "url": "https://open.spotify.com/track/1GJCJpKYfzRUsYnSRy4Mfz",
+          "id": "spotify_url"
+        }
+      ],
+      "artists": [
+        {
+          "id": "48YxSlb23RAaCd4RyHcV9V",
+          "title": "Herman's Hermits",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:artist:48YxSlb23RAaCd4RyHcV9V",
+              "id": "spotify:artist:48YxSlb23RAaCd4RyHcV9V"
+            }
+          ]
+        }
+      ],
+      "album": {
+        "id": "6TbZXMXvUGFqx3opETEAuW",
+        "title": "Herman's Hermits Retrospective",
+        "urls": [
+          {
+            "type": "resource",
+            "url": "spotify:album:6TbZXMXvUGFqx3opETEAuW",
+            "id": "spotify:album:6TbZXMXvUGFqx3opETEAuW"
+          }
+        ],
+        "artists": [
+          {
+            "id": "48YxSlb23RAaCd4RyHcV9V",
+            "title": "Herman's Hermits",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:artist:48YxSlb23RAaCd4RyHcV9V",
+                "id": "spotify:artist:48YxSlb23RAaCd4RyHcV9V"
+              }
+            ]
+          }
+        ],
+        "releaseDate": "1966-01-01",
+        "releaseDatePrecision": "day",
+        "totalTracks": 26,
+        "label": "",
+        "images": [
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000b273947d3d6dc953fe02048b817d",
+            "id": "640x640"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00001e02947d3d6dc953fe02048b817d",
+            "id": "300x300"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00004851947d3d6dc953fe02048b817d",
+            "id": "64x64"
+          }
+        ]
+      },
+      "duration": 167480,
+      "explicit": false,
+      "trackNumber": 4,
+      "discNumber": 1,
+      "popularity": 36,
+      "images": [
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000b273947d3d6dc953fe02048b817d",
+          "id": "640x640"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00001e02947d3d6dc953fe02048b817d",
+          "id": "300x300"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00004851947d3d6dc953fe02048b817d",
+          "id": "64x64"
+        }
+      ]
+    },
+    "mediaSource": {
+      "type": "shoutcast",
+      "trackId": "e26a2439768c29945a0252"
+    },
+    "metadataSource": {
+      "type": "spotify",
+      "trackId": "1GJCJpKYfzRUsYnSRy4Mfz"
+    },
+    "metadataSources": {
+      "spotify": {
+        "source": {
+          "type": "spotify",
+          "trackId": "1GJCJpKYfzRUsYnSRy4Mfz"
+        },
+        "track": {
+          "id": "1GJCJpKYfzRUsYnSRy4Mfz",
+          "title": "Mrs. Brown, You've Got A Lovely Daughter - Mono",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:track:1GJCJpKYfzRUsYnSRy4Mfz",
+              "id": "spotify:track:1GJCJpKYfzRUsYnSRy4Mfz"
+            },
+            {
+              "type": "resource",
+              "url": "https://open.spotify.com/track/1GJCJpKYfzRUsYnSRy4Mfz",
+              "id": "spotify_url"
+            }
+          ],
+          "artists": [
+            {
+              "id": "48YxSlb23RAaCd4RyHcV9V",
+              "title": "Herman's Hermits",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "spotify:artist:48YxSlb23RAaCd4RyHcV9V",
+                  "id": "spotify:artist:48YxSlb23RAaCd4RyHcV9V"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "6TbZXMXvUGFqx3opETEAuW",
+            "title": "Herman's Hermits Retrospective",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:album:6TbZXMXvUGFqx3opETEAuW",
+                "id": "spotify:album:6TbZXMXvUGFqx3opETEAuW"
+              }
+            ],
+            "artists": [
+              {
+                "id": "48YxSlb23RAaCd4RyHcV9V",
+                "title": "Herman's Hermits",
+                "urls": [
+                  {
+                    "type": "resource",
+                    "url": "spotify:artist:48YxSlb23RAaCd4RyHcV9V",
+                    "id": "spotify:artist:48YxSlb23RAaCd4RyHcV9V"
+                  }
+                ]
+              }
+            ],
+            "releaseDate": "1966-01-01",
+            "releaseDatePrecision": "day",
+            "totalTracks": 26,
+            "label": "",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000b273947d3d6dc953fe02048b817d",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00001e02947d3d6dc953fe02048b817d",
+                "id": "300x300"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00004851947d3d6dc953fe02048b817d",
+                "id": "64x64"
+              }
+            ]
+          },
+          "duration": 167480,
+          "explicit": false,
+          "trackNumber": 4,
+          "discNumber": 1,
+          "popularity": 36,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000b273947d3d6dc953fe02048b817d",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00001e02947d3d6dc953fe02048b817d",
+              "id": "300x300"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00004851947d3d6dc953fe02048b817d",
+              "id": "64x64"
+            }
+          ]
+        }
+      }
+    },
+    "addedAt": 1777863750402,
+    "addedBy": {
+      "id": "user-4",
+      "username": "Ross",
+      "displayName": "User 4",
+      "email": "user-4@email.com",
+      "userId": "1243633676",
+      "isAdmin": false,
+      "isDeputyDj": false,
+      "isDj": false,
+      "status": "participating"
+    },
+    "addedDuring": "queue",
+    "playedAt": 1777863831750
+  },
+  {
+    "title": "Green Onions",
+    "track": {
+      "id": "4fQMGlCawbTkH9yPPZ49kP",
+      "title": "Green Onions",
+      "urls": [
+        {
+          "type": "resource",
+          "url": "spotify:track:4fQMGlCawbTkH9yPPZ49kP",
+          "id": "spotify:track:4fQMGlCawbTkH9yPPZ49kP"
+        },
+        {
+          "type": "resource",
+          "url": "https://open.spotify.com/track/4fQMGlCawbTkH9yPPZ49kP",
+          "id": "spotify_url"
+        }
+      ],
+      "artists": [
+        {
+          "id": "2vDV0T8sxx2ENnKXds75e5",
+          "title": "Booker T. & the M.G.'s",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:artist:2vDV0T8sxx2ENnKXds75e5",
+              "id": "spotify:artist:2vDV0T8sxx2ENnKXds75e5"
+            }
+          ]
+        }
+      ],
+      "album": {
+        "id": "2aGFVLz0oQPa3uxCfq9lcU",
+        "title": "Green Onions",
+        "urls": [
+          {
+            "type": "resource",
+            "url": "spotify:album:2aGFVLz0oQPa3uxCfq9lcU",
+            "id": "spotify:album:2aGFVLz0oQPa3uxCfq9lcU"
+          }
+        ],
+        "artists": [
+          {
+            "id": "2vDV0T8sxx2ENnKXds75e5",
+            "title": "Booker T. & the M.G.'s",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:artist:2vDV0T8sxx2ENnKXds75e5",
+                "id": "spotify:artist:2vDV0T8sxx2ENnKXds75e5"
+              }
+            ]
+          }
+        ],
+        "releaseDate": "1962",
+        "releaseDatePrecision": "year",
+        "totalTracks": 12,
+        "label": "",
+        "images": [
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000b27346007ceff2f1c33c9b9ec19c",
+            "id": "640x640"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00001e0246007ceff2f1c33c9b9ec19c",
+            "id": "300x300"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000485146007ceff2f1c33c9b9ec19c",
+            "id": "64x64"
+          }
+        ]
+      },
+      "duration": 176333,
+      "explicit": false,
+      "trackNumber": 1,
+      "discNumber": 1,
+      "popularity": 73,
+      "images": [
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000b27346007ceff2f1c33c9b9ec19c",
+          "id": "640x640"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00001e0246007ceff2f1c33c9b9ec19c",
+          "id": "300x300"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000485146007ceff2f1c33c9b9ec19c",
+          "id": "64x64"
+        }
+      ]
+    },
+    "mediaSource": {
+      "type": "shoutcast",
+      "trackId": "d986072b5486f5842bf8c9"
+    },
+    "metadataSource": {
+      "type": "spotify",
+      "trackId": "4fQMGlCawbTkH9yPPZ49kP"
+    },
+    "metadataSources": {
+      "spotify": {
+        "source": {
+          "type": "spotify",
+          "trackId": "4fQMGlCawbTkH9yPPZ49kP"
+        },
+        "track": {
+          "id": "4fQMGlCawbTkH9yPPZ49kP",
+          "title": "Green Onions",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:track:4fQMGlCawbTkH9yPPZ49kP",
+              "id": "spotify:track:4fQMGlCawbTkH9yPPZ49kP"
+            },
+            {
+              "type": "resource",
+              "url": "https://open.spotify.com/track/4fQMGlCawbTkH9yPPZ49kP",
+              "id": "spotify_url"
+            }
+          ],
+          "artists": [
+            {
+              "id": "2vDV0T8sxx2ENnKXds75e5",
+              "title": "Booker T. & the M.G.'s",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "spotify:artist:2vDV0T8sxx2ENnKXds75e5",
+                  "id": "spotify:artist:2vDV0T8sxx2ENnKXds75e5"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "2aGFVLz0oQPa3uxCfq9lcU",
+            "title": "Green Onions",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:album:2aGFVLz0oQPa3uxCfq9lcU",
+                "id": "spotify:album:2aGFVLz0oQPa3uxCfq9lcU"
+              }
+            ],
+            "artists": [
+              {
+                "id": "2vDV0T8sxx2ENnKXds75e5",
+                "title": "Booker T. & the M.G.'s",
+                "urls": [
+                  {
+                    "type": "resource",
+                    "url": "spotify:artist:2vDV0T8sxx2ENnKXds75e5",
+                    "id": "spotify:artist:2vDV0T8sxx2ENnKXds75e5"
+                  }
+                ]
+              }
+            ],
+            "releaseDate": "1962",
+            "releaseDatePrecision": "year",
+            "totalTracks": 12,
+            "label": "",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000b27346007ceff2f1c33c9b9ec19c",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00001e0246007ceff2f1c33c9b9ec19c",
+                "id": "300x300"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000485146007ceff2f1c33c9b9ec19c",
+                "id": "64x64"
+              }
+            ]
+          },
+          "duration": 176333,
+          "explicit": false,
+          "trackNumber": 1,
+          "discNumber": 1,
+          "popularity": 73,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000b27346007ceff2f1c33c9b9ec19c",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00001e0246007ceff2f1c33c9b9ec19c",
+              "id": "300x300"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000485146007ceff2f1c33c9b9ec19c",
+              "id": "64x64"
+            }
+          ]
+        }
+      },
+      "tidal": {
+        "source": {
+          "type": "tidal",
+          "trackId": "68708058"
+        },
+        "track": {
+          "id": "68708058",
+          "title": "Green Onions",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "https://tidal.com/browse/track/68708058",
+              "id": "68708058"
+            }
+          ],
+          "artists": [
+            {
+              "id": "13690",
+              "title": "Booker T. & the MG's",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "https://tidal.com/browse/artist/13690",
+                  "id": "13690"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "68708057",
+            "title": "Green Onions",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "https://tidal.com/browse/album/68708057",
+                "id": "68708057"
+              }
+            ],
+            "artists": [],
+            "releaseDate": "1962-10-01",
+            "releaseDatePrecision": "day",
+            "totalTracks": 0,
+            "label": "© 1962 Atlantic Records",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/1280x1280.jpg",
+                "id": "1280x1280"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/1080x1080.jpg",
+                "id": "1080x1080"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/750x750.jpg",
+                "id": "750x750"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/640x640.jpg",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/320x320.jpg",
+                "id": "320x320"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/160x160.jpg",
+                "id": "160x160"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/80x80.jpg",
+                "id": "80x80"
+              }
+            ]
+          },
+          "duration": 176000,
+          "explicit": false,
+          "trackNumber": 0,
+          "discNumber": 1,
+          "popularity": 77,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/1280x1280.jpg",
+              "id": "1280x1280"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/1080x1080.jpg",
+              "id": "1080x1080"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/750x750.jpg",
+              "id": "750x750"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/640x640.jpg",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/320x320.jpg",
+              "id": "320x320"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/160x160.jpg",
+              "id": "160x160"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/91c4fdcc/64f0/485a/b891/69137e58f76f/80x80.jpg",
+              "id": "80x80"
+            }
+          ]
+        }
+      }
+    },
+    "addedAt": 1777863868104,
+    "addedBy": {
+      "id": "user-1",
+      "username": "Duck",
+      "displayName": "User 1",
+      "email": "user-1@email.com",
+      "userId": "67e470f32d9c8e9b7e0822328f437efd",
+      "isAdmin": false,
+      "isDeputyDj": false,
+      "isDj": false,
+      "status": "participating"
+    },
+    "addedDuring": "queue",
+    "playedAt": 1777863999758
+  },
+  {
+    "title": "I Want A Love I Can See - 2002 \"My Girl : Best Of The Temptations\" Mix",
+    "track": {
+      "id": "3lv6sbtb3Zg8fFaIWCjqvp",
+      "title": "I Want A Love I Can See - 2002 \"My Girl : Best Of The Temptations\" Mix",
+      "urls": [
+        {
+          "type": "resource",
+          "url": "spotify:track:3lv6sbtb3Zg8fFaIWCjqvp",
+          "id": "spotify:track:3lv6sbtb3Zg8fFaIWCjqvp"
+        },
+        {
+          "type": "resource",
+          "url": "https://open.spotify.com/track/3lv6sbtb3Zg8fFaIWCjqvp",
+          "id": "spotify_url"
+        }
+      ],
+      "artists": [
+        {
+          "id": "3RwQ26hR2tJtA8F9p2n7jG",
+          "title": "The Temptations",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:artist:3RwQ26hR2tJtA8F9p2n7jG",
+              "id": "spotify:artist:3RwQ26hR2tJtA8F9p2n7jG"
+            }
+          ]
+        }
+      ],
+      "album": {
+        "id": "6l2O9hr1WQ7FvSq6Z0Zy2i",
+        "title": "Gold",
+        "urls": [
+          {
+            "type": "resource",
+            "url": "spotify:album:6l2O9hr1WQ7FvSq6Z0Zy2i",
+            "id": "spotify:album:6l2O9hr1WQ7FvSq6Z0Zy2i"
+          }
+        ],
+        "artists": [
+          {
+            "id": "3RwQ26hR2tJtA8F9p2n7jG",
+            "title": "The Temptations",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:artist:3RwQ26hR2tJtA8F9p2n7jG",
+                "id": "spotify:artist:3RwQ26hR2tJtA8F9p2n7jG"
+              }
+            ]
+          }
+        ],
+        "releaseDate": "2005-01-11",
+        "releaseDatePrecision": "day",
+        "totalTracks": 36,
+        "label": "",
+        "images": [
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000b2734b87fc30a2d3baf633da27a7",
+            "id": "640x640"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00001e024b87fc30a2d3baf633da27a7",
+            "id": "300x300"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d000048514b87fc30a2d3baf633da27a7",
+            "id": "64x64"
+          }
+        ]
+      },
+      "duration": 184293,
+      "explicit": false,
+      "trackNumber": 2,
+      "discNumber": 1,
+      "popularity": 30,
+      "images": [
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000b2734b87fc30a2d3baf633da27a7",
+          "id": "640x640"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00001e024b87fc30a2d3baf633da27a7",
+          "id": "300x300"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d000048514b87fc30a2d3baf633da27a7",
+          "id": "64x64"
+        }
+      ]
+    },
+    "mediaSource": {
+      "type": "shoutcast",
+      "trackId": "181c5a9974c0c5a4e1ef48"
+    },
+    "metadataSource": {
+      "type": "spotify",
+      "trackId": "3lv6sbtb3Zg8fFaIWCjqvp"
+    },
+    "metadataSources": {
+      "spotify": {
+        "source": {
+          "type": "spotify",
+          "trackId": "3lv6sbtb3Zg8fFaIWCjqvp"
+        },
+        "track": {
+          "id": "3lv6sbtb3Zg8fFaIWCjqvp",
+          "title": "I Want A Love I Can See - 2002 \"My Girl : Best Of The Temptations\" Mix",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:track:3lv6sbtb3Zg8fFaIWCjqvp",
+              "id": "spotify:track:3lv6sbtb3Zg8fFaIWCjqvp"
+            },
+            {
+              "type": "resource",
+              "url": "https://open.spotify.com/track/3lv6sbtb3Zg8fFaIWCjqvp",
+              "id": "spotify_url"
+            }
+          ],
+          "artists": [
+            {
+              "id": "3RwQ26hR2tJtA8F9p2n7jG",
+              "title": "The Temptations",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "spotify:artist:3RwQ26hR2tJtA8F9p2n7jG",
+                  "id": "spotify:artist:3RwQ26hR2tJtA8F9p2n7jG"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "6l2O9hr1WQ7FvSq6Z0Zy2i",
+            "title": "Gold",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:album:6l2O9hr1WQ7FvSq6Z0Zy2i",
+                "id": "spotify:album:6l2O9hr1WQ7FvSq6Z0Zy2i"
+              }
+            ],
+            "artists": [
+              {
+                "id": "3RwQ26hR2tJtA8F9p2n7jG",
+                "title": "The Temptations",
+                "urls": [
+                  {
+                    "type": "resource",
+                    "url": "spotify:artist:3RwQ26hR2tJtA8F9p2n7jG",
+                    "id": "spotify:artist:3RwQ26hR2tJtA8F9p2n7jG"
+                  }
+                ]
+              }
+            ],
+            "releaseDate": "2005-01-11",
+            "releaseDatePrecision": "day",
+            "totalTracks": 36,
+            "label": "",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000b2734b87fc30a2d3baf633da27a7",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00001e024b87fc30a2d3baf633da27a7",
+                "id": "300x300"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d000048514b87fc30a2d3baf633da27a7",
+                "id": "64x64"
+              }
+            ]
+          },
+          "duration": 184293,
+          "explicit": false,
+          "trackNumber": 2,
+          "discNumber": 1,
+          "popularity": 30,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000b2734b87fc30a2d3baf633da27a7",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00001e024b87fc30a2d3baf633da27a7",
+              "id": "300x300"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d000048514b87fc30a2d3baf633da27a7",
+              "id": "64x64"
+            }
+          ]
+        }
+      },
+      "tidal": {
+        "source": {
+          "type": "tidal",
+          "trackId": "5223324"
+        },
+        "track": {
+          "id": "5223324",
+          "title": "My Girl",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "https://tidal.com/browse/track/5223324",
+              "id": "5223324"
+            }
+          ],
+          "artists": [
+            {
+              "id": "15727",
+              "title": "The Temptations",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "https://tidal.com/browse/artist/15727",
+                  "id": "15727"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "5223322",
+            "title": "Hits of the 60s, Vol. 2",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "https://tidal.com/browse/album/5223322",
+                "id": "5223322"
+              }
+            ],
+            "artists": [],
+            "releaseDate": "2010-11-29",
+            "releaseDatePrecision": "day",
+            "totalTracks": 0,
+            "label": "(C) 2010 One Media Publishing",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/1280x1280.jpg",
+                "id": "1280x1280"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/1080x1080.jpg",
+                "id": "1080x1080"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/750x750.jpg",
+                "id": "750x750"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/640x640.jpg",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/320x320.jpg",
+                "id": "320x320"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/160x160.jpg",
+                "id": "160x160"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/80x80.jpg",
+                "id": "80x80"
+              }
+            ]
+          },
+          "duration": 177000,
+          "explicit": false,
+          "trackNumber": 0,
+          "discNumber": 1,
+          "popularity": 44,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/1280x1280.jpg",
+              "id": "1280x1280"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/1080x1080.jpg",
+              "id": "1080x1080"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/750x750.jpg",
+              "id": "750x750"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/640x640.jpg",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/320x320.jpg",
+              "id": "320x320"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/160x160.jpg",
+              "id": "160x160"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/e7f3b1d4/976b/4dd3/9215/6e21215fd743/80x80.jpg",
+              "id": "80x80"
+            }
+          ]
+        }
+      }
+    },
+    "addedAt": 1777863887339,
+    "addedBy": {
+      "id": "user-2",
+      "username": "Ross",
+      "displayName": "User 2",
+      "email": "user-2@email.com",
+      "userId": "1243633676",
+      "isAdmin": false,
+      "isDeputyDj": false,
+      "isDj": false,
+      "status": "participating"
+    },
+    "addedDuring": "queue",
+    "playedAt": 1777864170619
+  },
+  {
+    "title": "What The World Needs Now Is Love",
+    "track": {
+      "id": "6JFgBE2seXKTUkHdOVq3N1",
+      "title": "What The World Needs Now Is Love",
+      "urls": [
+        {
+          "type": "resource",
+          "url": "spotify:track:6JFgBE2seXKTUkHdOVq3N1",
+          "id": "spotify:track:6JFgBE2seXKTUkHdOVq3N1"
+        },
+        {
+          "type": "resource",
+          "url": "https://open.spotify.com/track/6JFgBE2seXKTUkHdOVq3N1",
+          "id": "spotify_url"
+        }
+      ],
+      "artists": [
+        {
+          "id": "35y7CZMg7jbG8Q96JY7dyC",
+          "title": "Burt Bacharach",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:artist:35y7CZMg7jbG8Q96JY7dyC",
+              "id": "spotify:artist:35y7CZMg7jbG8Q96JY7dyC"
+            }
+          ]
+        }
+      ],
+      "album": {
+        "id": "6b4gXrNXjFripLovsWirHz",
+        "title": "Reach Out",
+        "urls": [
+          {
+            "type": "resource",
+            "url": "spotify:album:6b4gXrNXjFripLovsWirHz",
+            "id": "spotify:album:6b4gXrNXjFripLovsWirHz"
+          }
+        ],
+        "artists": [
+          {
+            "id": "35y7CZMg7jbG8Q96JY7dyC",
+            "title": "Burt Bacharach",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:artist:35y7CZMg7jbG8Q96JY7dyC",
+                "id": "spotify:artist:35y7CZMg7jbG8Q96JY7dyC"
+              }
+            ]
+          }
+        ],
+        "releaseDate": "1967",
+        "releaseDatePrecision": "year",
+        "totalTracks": 11,
+        "label": "",
+        "images": [
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000b2737489790811cd6b0c5b4eff88",
+            "id": "640x640"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00001e027489790811cd6b0c5b4eff88",
+            "id": "300x300"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d000048517489790811cd6b0c5b4eff88",
+            "id": "64x64"
+          }
+        ]
+      },
+      "duration": 254133,
+      "explicit": false,
+      "trackNumber": 5,
+      "discNumber": 1,
+      "popularity": 49,
+      "images": [
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000b2737489790811cd6b0c5b4eff88",
+          "id": "640x640"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00001e027489790811cd6b0c5b4eff88",
+          "id": "300x300"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d000048517489790811cd6b0c5b4eff88",
+          "id": "64x64"
+        }
+      ]
+    },
+    "mediaSource": {
+      "type": "shoutcast",
+      "trackId": "59a5c864525c8a112c86e5"
+    },
+    "metadataSource": {
+      "type": "spotify",
+      "trackId": "6JFgBE2seXKTUkHdOVq3N1"
+    },
+    "metadataSources": {
+      "spotify": {
+        "source": {
+          "type": "spotify",
+          "trackId": "6JFgBE2seXKTUkHdOVq3N1"
+        },
+        "track": {
+          "id": "6JFgBE2seXKTUkHdOVq3N1",
+          "title": "What The World Needs Now Is Love",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:track:6JFgBE2seXKTUkHdOVq3N1",
+              "id": "spotify:track:6JFgBE2seXKTUkHdOVq3N1"
+            },
+            {
+              "type": "resource",
+              "url": "https://open.spotify.com/track/6JFgBE2seXKTUkHdOVq3N1",
+              "id": "spotify_url"
+            }
+          ],
+          "artists": [
+            {
+              "id": "35y7CZMg7jbG8Q96JY7dyC",
+              "title": "Burt Bacharach",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "spotify:artist:35y7CZMg7jbG8Q96JY7dyC",
+                  "id": "spotify:artist:35y7CZMg7jbG8Q96JY7dyC"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "6b4gXrNXjFripLovsWirHz",
+            "title": "Reach Out",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:album:6b4gXrNXjFripLovsWirHz",
+                "id": "spotify:album:6b4gXrNXjFripLovsWirHz"
+              }
+            ],
+            "artists": [
+              {
+                "id": "35y7CZMg7jbG8Q96JY7dyC",
+                "title": "Burt Bacharach",
+                "urls": [
+                  {
+                    "type": "resource",
+                    "url": "spotify:artist:35y7CZMg7jbG8Q96JY7dyC",
+                    "id": "spotify:artist:35y7CZMg7jbG8Q96JY7dyC"
+                  }
+                ]
+              }
+            ],
+            "releaseDate": "1967",
+            "releaseDatePrecision": "year",
+            "totalTracks": 11,
+            "label": "",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000b2737489790811cd6b0c5b4eff88",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00001e027489790811cd6b0c5b4eff88",
+                "id": "300x300"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d000048517489790811cd6b0c5b4eff88",
+                "id": "64x64"
+              }
+            ]
+          },
+          "duration": 254133,
+          "explicit": false,
+          "trackNumber": 5,
+          "discNumber": 1,
+          "popularity": 49,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000b2737489790811cd6b0c5b4eff88",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00001e027489790811cd6b0c5b4eff88",
+              "id": "300x300"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d000048517489790811cd6b0c5b4eff88",
+              "id": "64x64"
+            }
+          ]
+        }
+      },
+      "tidal": {
+        "source": {
+          "type": "tidal",
+          "trackId": "634884"
+        },
+        "track": {
+          "id": "634884",
+          "title": "What The World Needs Now Is Love",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "https://tidal.com/browse/track/634884",
+              "id": "634884"
+            }
+          ],
+          "artists": [
+            {
+              "id": "28796",
+              "title": "Burt Bacharach",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "https://tidal.com/browse/artist/28796",
+                  "id": "28796"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "634879",
+            "title": "Reach Out",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "https://tidal.com/browse/album/634879",
+                "id": "634879"
+              }
+            ],
+            "artists": [],
+            "releaseDate": "1967-01-01",
+            "releaseDatePrecision": "day",
+            "totalTracks": 0,
+            "label": "© 1967 A&M Records",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/1280x1280.jpg",
+                "id": "1280x1280"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/1080x1080.jpg",
+                "id": "1080x1080"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/750x750.jpg",
+                "id": "750x750"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/640x640.jpg",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/320x320.jpg",
+                "id": "320x320"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/160x160.jpg",
+                "id": "160x160"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/80x80.jpg",
+                "id": "80x80"
+              }
+            ]
+          },
+          "duration": 258000,
+          "explicit": false,
+          "trackNumber": 0,
+          "discNumber": 1,
+          "popularity": 54,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/1280x1280.jpg",
+              "id": "1280x1280"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/1080x1080.jpg",
+              "id": "1080x1080"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/750x750.jpg",
+              "id": "750x750"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/640x640.jpg",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/320x320.jpg",
+              "id": "320x320"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/160x160.jpg",
+              "id": "160x160"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/416edc28/ac8d/4222/b1e3/99478f735fb2/80x80.jpg",
+              "id": "80x80"
+            }
+          ]
+        }
+      }
+    },
+    "addedAt": 1777864178241,
+    "addedBy": {
+      "id": "user-3",
+      "username": "Duck",
+      "displayName": "User 3",
+      "email": "user-3@email.com",
+      "userId": "67e470f32d9c8e9b7e0822328f437efd",
+      "isAdmin": false,
+      "isDeputyDj": false,
+      "isDj": false,
+      "status": "participating"
+    },
+    "addedDuring": "queue",
+    "playedAt": 1777864341677
+  },
+  {
+    "title": "Hang On Sloopy",
+    "track": {
+      "id": "0i7O5MtSTXvR4BEY7stpjF",
+      "title": "Hang On Sloopy",
+      "urls": [
+        {
+          "type": "resource",
+          "url": "spotify:track:0i7O5MtSTXvR4BEY7stpjF",
+          "id": "spotify:track:0i7O5MtSTXvR4BEY7stpjF"
+        },
+        {
+          "type": "resource",
+          "url": "https://open.spotify.com/track/0i7O5MtSTXvR4BEY7stpjF",
+          "id": "spotify_url"
+        }
+      ],
+      "artists": [
+        {
+          "id": "6etIM3JbzGPxTdfNWWfsVH",
+          "title": "The McCoys",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:artist:6etIM3JbzGPxTdfNWWfsVH",
+              "id": "spotify:artist:6etIM3JbzGPxTdfNWWfsVH"
+            }
+          ]
+        }
+      ],
+      "album": {
+        "id": "17dRh7ma3OpZSdmWc5LT1H",
+        "title": "Hang On Sloopy: The Best Of The McCoys",
+        "urls": [
+          {
+            "type": "resource",
+            "url": "spotify:album:17dRh7ma3OpZSdmWc5LT1H",
+            "id": "spotify:album:17dRh7ma3OpZSdmWc5LT1H"
+          }
+        ],
+        "artists": [
+          {
+            "id": "6etIM3JbzGPxTdfNWWfsVH",
+            "title": "The McCoys",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:artist:6etIM3JbzGPxTdfNWWfsVH",
+                "id": "spotify:artist:6etIM3JbzGPxTdfNWWfsVH"
+              }
+            ]
+          }
+        ],
+        "releaseDate": "1995-06-06",
+        "releaseDatePrecision": "day",
+        "totalTracks": 22,
+        "label": "",
+        "images": [
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000b27324ac443ef49ebcbb172d03ea",
+            "id": "640x640"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00001e0224ac443ef49ebcbb172d03ea",
+            "id": "300x300"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000485124ac443ef49ebcbb172d03ea",
+            "id": "64x64"
+          }
+        ]
+      },
+      "duration": 231800,
+      "explicit": false,
+      "trackNumber": 2,
+      "discNumber": 1,
+      "popularity": 57,
+      "images": [
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000b27324ac443ef49ebcbb172d03ea",
+          "id": "640x640"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00001e0224ac443ef49ebcbb172d03ea",
+          "id": "300x300"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000485124ac443ef49ebcbb172d03ea",
+          "id": "64x64"
+        }
+      ]
+    },
+    "mediaSource": {
+      "type": "shoutcast",
+      "trackId": "285dd4c0d833e4a2d4fb9f"
+    },
+    "metadataSource": {
+      "type": "spotify",
+      "trackId": "0i7O5MtSTXvR4BEY7stpjF"
+    },
+    "metadataSources": {
+      "spotify": {
+        "source": {
+          "type": "spotify",
+          "trackId": "0i7O5MtSTXvR4BEY7stpjF"
+        },
+        "track": {
+          "id": "0i7O5MtSTXvR4BEY7stpjF",
+          "title": "Hang On Sloopy",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:track:0i7O5MtSTXvR4BEY7stpjF",
+              "id": "spotify:track:0i7O5MtSTXvR4BEY7stpjF"
+            },
+            {
+              "type": "resource",
+              "url": "https://open.spotify.com/track/0i7O5MtSTXvR4BEY7stpjF",
+              "id": "spotify_url"
+            }
+          ],
+          "artists": [
+            {
+              "id": "6etIM3JbzGPxTdfNWWfsVH",
+              "title": "The McCoys",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "spotify:artist:6etIM3JbzGPxTdfNWWfsVH",
+                  "id": "spotify:artist:6etIM3JbzGPxTdfNWWfsVH"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "17dRh7ma3OpZSdmWc5LT1H",
+            "title": "Hang On Sloopy: The Best Of The McCoys",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:album:17dRh7ma3OpZSdmWc5LT1H",
+                "id": "spotify:album:17dRh7ma3OpZSdmWc5LT1H"
+              }
+            ],
+            "artists": [
+              {
+                "id": "6etIM3JbzGPxTdfNWWfsVH",
+                "title": "The McCoys",
+                "urls": [
+                  {
+                    "type": "resource",
+                    "url": "spotify:artist:6etIM3JbzGPxTdfNWWfsVH",
+                    "id": "spotify:artist:6etIM3JbzGPxTdfNWWfsVH"
+                  }
+                ]
+              }
+            ],
+            "releaseDate": "1995-06-06",
+            "releaseDatePrecision": "day",
+            "totalTracks": 22,
+            "label": "",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000b27324ac443ef49ebcbb172d03ea",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00001e0224ac443ef49ebcbb172d03ea",
+                "id": "300x300"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000485124ac443ef49ebcbb172d03ea",
+                "id": "64x64"
+              }
+            ]
+          },
+          "duration": 231800,
+          "explicit": false,
+          "trackNumber": 2,
+          "discNumber": 1,
+          "popularity": 57,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000b27324ac443ef49ebcbb172d03ea",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00001e0224ac443ef49ebcbb172d03ea",
+              "id": "300x300"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000485124ac443ef49ebcbb172d03ea",
+              "id": "64x64"
+            }
+          ]
+        }
+      },
+      "tidal": {
+        "source": {
+          "type": "tidal",
+          "trackId": "51976225"
+        },
+        "track": {
+          "id": "51976225",
+          "title": "Hang on Sloopy",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "https://tidal.com/browse/track/51976225",
+              "id": "51976225"
+            }
+          ],
+          "artists": [
+            {
+              "id": "1207",
+              "title": "The McCoys",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "https://tidal.com/browse/artist/1207",
+                  "id": "1207"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "51976223",
+            "title": "Hang on Sloopy",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "https://tidal.com/browse/album/51976223",
+                "id": "51976223"
+              }
+            ],
+            "artists": [],
+            "releaseDate": "2015-10-16",
+            "releaseDatePrecision": "day",
+            "totalTracks": 0,
+            "label": "Originally released 1965. All rights reserved by Columbia Records, a division of Sony Music Entertainment",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/1280x1280.jpg",
+                "id": "1280x1280"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/1080x1080.jpg",
+                "id": "1080x1080"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/750x750.jpg",
+                "id": "750x750"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/640x640.jpg",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/320x320.jpg",
+                "id": "320x320"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/160x160.jpg",
+                "id": "160x160"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/80x80.jpg",
+                "id": "80x80"
+              }
+            ]
+          },
+          "duration": 182000,
+          "explicit": false,
+          "trackNumber": 0,
+          "discNumber": 1,
+          "popularity": 64,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/1280x1280.jpg",
+              "id": "1280x1280"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/1080x1080.jpg",
+              "id": "1080x1080"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/750x750.jpg",
+              "id": "750x750"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/640x640.jpg",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/320x320.jpg",
+              "id": "320x320"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/160x160.jpg",
+              "id": "160x160"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/0eb210b1/b76a/4040/b920/6c3d27e73532/80x80.jpg",
+              "id": "80x80"
+            }
+          ]
+        }
+      }
+    },
+    "addedAt": 1777864659754,
+    "addedDuring": "nowPlaying",
+    "playedAt": 1777864659754
+  },
+  {
+    "title": "I Only Want To Be With You",
+    "track": {
+      "id": "31A3oqQxDLdG9HRx45z62d",
+      "title": "I Only Want To Be With You",
+      "urls": [
+        {
+          "type": "resource",
+          "url": "spotify:track:31A3oqQxDLdG9HRx45z62d",
+          "id": "spotify:track:31A3oqQxDLdG9HRx45z62d"
+        },
+        {
+          "type": "resource",
+          "url": "https://open.spotify.com/track/31A3oqQxDLdG9HRx45z62d",
+          "id": "spotify_url"
+        }
+      ],
+      "artists": [
+        {
+          "id": "5zaXYwewAXedKNCff45U5l",
+          "title": "Dusty Springfield",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:artist:5zaXYwewAXedKNCff45U5l",
+              "id": "spotify:artist:5zaXYwewAXedKNCff45U5l"
+            }
+          ]
+        }
+      ],
+      "album": {
+        "id": "2coXvs2zYk60U9Dd2hm6St",
+        "title": "Stay Awhile / I Only Want To Be With You (Expanded Edition)",
+        "urls": [
+          {
+            "type": "resource",
+            "url": "spotify:album:2coXvs2zYk60U9Dd2hm6St",
+            "id": "spotify:album:2coXvs2zYk60U9Dd2hm6St"
+          }
+        ],
+        "artists": [
+          {
+            "id": "5zaXYwewAXedKNCff45U5l",
+            "title": "Dusty Springfield",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:artist:5zaXYwewAXedKNCff45U5l",
+                "id": "spotify:artist:5zaXYwewAXedKNCff45U5l"
+              }
+            ]
+          }
+        ],
+        "releaseDate": "1964-06-26",
+        "releaseDatePrecision": "day",
+        "totalTracks": 15,
+        "label": "",
+        "images": [
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000b273bb09aed3154e3eed4dbba057",
+            "id": "640x640"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00001e02bb09aed3154e3eed4dbba057",
+            "id": "300x300"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00004851bb09aed3154e3eed4dbba057",
+            "id": "64x64"
+          }
+        ]
+      },
+      "duration": 158200,
+      "explicit": false,
+      "trackNumber": 1,
+      "discNumber": 1,
+      "popularity": 65,
+      "images": [
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000b273bb09aed3154e3eed4dbba057",
+          "id": "640x640"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00001e02bb09aed3154e3eed4dbba057",
+          "id": "300x300"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00004851bb09aed3154e3eed4dbba057",
+          "id": "64x64"
+        }
+      ]
+    },
+    "mediaSource": {
+      "type": "shoutcast",
+      "trackId": "37ca7874bd49719e48a657"
+    },
+    "metadataSource": {
+      "type": "spotify",
+      "trackId": "31A3oqQxDLdG9HRx45z62d"
+    },
+    "metadataSources": {
+      "spotify": {
+        "source": {
+          "type": "spotify",
+          "trackId": "31A3oqQxDLdG9HRx45z62d"
+        },
+        "track": {
+          "id": "31A3oqQxDLdG9HRx45z62d",
+          "title": "I Only Want To Be With You",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:track:31A3oqQxDLdG9HRx45z62d",
+              "id": "spotify:track:31A3oqQxDLdG9HRx45z62d"
+            },
+            {
+              "type": "resource",
+              "url": "https://open.spotify.com/track/31A3oqQxDLdG9HRx45z62d",
+              "id": "spotify_url"
+            }
+          ],
+          "artists": [
+            {
+              "id": "5zaXYwewAXedKNCff45U5l",
+              "title": "Dusty Springfield",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "spotify:artist:5zaXYwewAXedKNCff45U5l",
+                  "id": "spotify:artist:5zaXYwewAXedKNCff45U5l"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "2coXvs2zYk60U9Dd2hm6St",
+            "title": "Stay Awhile / I Only Want To Be With You (Expanded Edition)",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:album:2coXvs2zYk60U9Dd2hm6St",
+                "id": "spotify:album:2coXvs2zYk60U9Dd2hm6St"
+              }
+            ],
+            "artists": [
+              {
+                "id": "5zaXYwewAXedKNCff45U5l",
+                "title": "Dusty Springfield",
+                "urls": [
+                  {
+                    "type": "resource",
+                    "url": "spotify:artist:5zaXYwewAXedKNCff45U5l",
+                    "id": "spotify:artist:5zaXYwewAXedKNCff45U5l"
+                  }
+                ]
+              }
+            ],
+            "releaseDate": "1964-06-26",
+            "releaseDatePrecision": "day",
+            "totalTracks": 15,
+            "label": "",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000b273bb09aed3154e3eed4dbba057",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00001e02bb09aed3154e3eed4dbba057",
+                "id": "300x300"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00004851bb09aed3154e3eed4dbba057",
+                "id": "64x64"
+              }
+            ]
+          },
+          "duration": 158200,
+          "explicit": false,
+          "trackNumber": 1,
+          "discNumber": 1,
+          "popularity": 65,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000b273bb09aed3154e3eed4dbba057",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00001e02bb09aed3154e3eed4dbba057",
+              "id": "300x300"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00004851bb09aed3154e3eed4dbba057",
+              "id": "64x64"
+            }
+          ]
+        }
+      },
+      "tidal": {
+        "source": {
+          "type": "tidal",
+          "trackId": "95435552"
+        },
+        "track": {
+          "id": "95435552",
+          "title": "I Only Want To Be With You",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "https://tidal.com/browse/track/95435552",
+              "id": "95435552"
+            }
+          ],
+          "artists": [
+            {
+              "id": "1292",
+              "title": "Dusty Springfield",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "https://tidal.com/browse/artist/1292",
+                  "id": "1292"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "95435551",
+            "title": "Stay Awhile / I Only Want To Be With You (Expanded Edition)",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "https://tidal.com/browse/album/95435551",
+                "id": "95435551"
+              }
+            ],
+            "artists": [],
+            "releaseDate": "1964-06-26",
+            "releaseDatePrecision": "day",
+            "totalTracks": 0,
+            "label": "© 1964 UMG Recordings Inc.",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/1280x1280.jpg",
+                "id": "1280x1280"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/1080x1080.jpg",
+                "id": "1080x1080"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/750x750.jpg",
+                "id": "750x750"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/640x640.jpg",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/320x320.jpg",
+                "id": "320x320"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/160x160.jpg",
+                "id": "160x160"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/80x80.jpg",
+                "id": "80x80"
+              }
+            ]
+          },
+          "duration": 158000,
+          "explicit": false,
+          "trackNumber": 0,
+          "discNumber": 1,
+          "popularity": 64,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/1280x1280.jpg",
+              "id": "1280x1280"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/1080x1080.jpg",
+              "id": "1080x1080"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/750x750.jpg",
+              "id": "750x750"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/640x640.jpg",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/320x320.jpg",
+              "id": "320x320"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/160x160.jpg",
+              "id": "160x160"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/c578aae3/a802/4d69/98bf/d8827b99b6fd/80x80.jpg",
+              "id": "80x80"
+            }
+          ]
+        }
+      }
+    },
+    "addedAt": 1777864732087,
+    "addedDuring": "nowPlaying",
+    "playedAt": 1777864732087
+  },
+  {
+    "title": "You've Lost That Lovin' Feelin' - Single Version",
+    "track": {
+      "id": "6AeyHqzNHJthYJbn0tvJ4b",
+      "title": "You've Lost That Lovin' Feelin' - Single Version",
+      "urls": [
+        {
+          "type": "resource",
+          "url": "spotify:track:6AeyHqzNHJthYJbn0tvJ4b",
+          "id": "spotify:track:6AeyHqzNHJthYJbn0tvJ4b"
+        },
+        {
+          "type": "resource",
+          "url": "https://open.spotify.com/track/6AeyHqzNHJthYJbn0tvJ4b",
+          "id": "spotify_url"
+        }
+      ],
+      "artists": [
+        {
+          "id": "4b0WsB47XCa9F83BmwQ7WX",
+          "title": "The Righteous Brothers",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:artist:4b0WsB47XCa9F83BmwQ7WX",
+              "id": "spotify:artist:4b0WsB47XCa9F83BmwQ7WX"
+            }
+          ]
+        }
+      ],
+      "album": {
+        "id": "28FEznublcKslK88ehRrfy",
+        "title": "You've Lost That Lovin' Feelin'",
+        "urls": [
+          {
+            "type": "resource",
+            "url": "spotify:album:28FEznublcKslK88ehRrfy",
+            "id": "spotify:album:28FEznublcKslK88ehRrfy"
+          }
+        ],
+        "artists": [
+          {
+            "id": "4b0WsB47XCa9F83BmwQ7WX",
+            "title": "The Righteous Brothers",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:artist:4b0WsB47XCa9F83BmwQ7WX",
+                "id": "spotify:artist:4b0WsB47XCa9F83BmwQ7WX"
+              }
+            ]
+          }
+        ],
+        "releaseDate": "1965-10-20",
+        "releaseDatePrecision": "day",
+        "totalTracks": 11,
+        "label": "",
+        "images": [
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000b273f62ec50234d5578631792ea8",
+            "id": "640x640"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00001e02f62ec50234d5578631792ea8",
+            "id": "300x300"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00004851f62ec50234d5578631792ea8",
+            "id": "64x64"
+          }
+        ]
+      },
+      "duration": 226453,
+      "explicit": false,
+      "trackNumber": 1,
+      "discNumber": 1,
+      "popularity": 65,
+      "images": [
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000b273f62ec50234d5578631792ea8",
+          "id": "640x640"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00001e02f62ec50234d5578631792ea8",
+          "id": "300x300"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00004851f62ec50234d5578631792ea8",
+          "id": "64x64"
+        }
+      ]
+    },
+    "mediaSource": {
+      "type": "shoutcast",
+      "trackId": "a6dd35995b87fd753c633e"
+    },
+    "metadataSource": {
+      "type": "spotify",
+      "trackId": "6AeyHqzNHJthYJbn0tvJ4b"
+    },
+    "metadataSources": {
+      "spotify": {
+        "source": {
+          "type": "spotify",
+          "trackId": "6AeyHqzNHJthYJbn0tvJ4b"
+        },
+        "track": {
+          "id": "6AeyHqzNHJthYJbn0tvJ4b",
+          "title": "You've Lost That Lovin' Feelin' - Single Version",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:track:6AeyHqzNHJthYJbn0tvJ4b",
+              "id": "spotify:track:6AeyHqzNHJthYJbn0tvJ4b"
+            },
+            {
+              "type": "resource",
+              "url": "https://open.spotify.com/track/6AeyHqzNHJthYJbn0tvJ4b",
+              "id": "spotify_url"
+            }
+          ],
+          "artists": [
+            {
+              "id": "4b0WsB47XCa9F83BmwQ7WX",
+              "title": "The Righteous Brothers",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "spotify:artist:4b0WsB47XCa9F83BmwQ7WX",
+                  "id": "spotify:artist:4b0WsB47XCa9F83BmwQ7WX"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "28FEznublcKslK88ehRrfy",
+            "title": "You've Lost That Lovin' Feelin'",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:album:28FEznublcKslK88ehRrfy",
+                "id": "spotify:album:28FEznublcKslK88ehRrfy"
+              }
+            ],
+            "artists": [
+              {
+                "id": "4b0WsB47XCa9F83BmwQ7WX",
+                "title": "The Righteous Brothers",
+                "urls": [
+                  {
+                    "type": "resource",
+                    "url": "spotify:artist:4b0WsB47XCa9F83BmwQ7WX",
+                    "id": "spotify:artist:4b0WsB47XCa9F83BmwQ7WX"
+                  }
+                ]
+              }
+            ],
+            "releaseDate": "1965-10-20",
+            "releaseDatePrecision": "day",
+            "totalTracks": 11,
+            "label": "",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000b273f62ec50234d5578631792ea8",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00001e02f62ec50234d5578631792ea8",
+                "id": "300x300"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00004851f62ec50234d5578631792ea8",
+                "id": "64x64"
+              }
+            ]
+          },
+          "duration": 226453,
+          "explicit": false,
+          "trackNumber": 1,
+          "discNumber": 1,
+          "popularity": 65,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000b273f62ec50234d5578631792ea8",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00001e02f62ec50234d5578631792ea8",
+              "id": "300x300"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00004851f62ec50234d5578631792ea8",
+              "id": "64x64"
+            }
+          ]
+        }
+      },
+      "tidal": {
+        "source": {
+          "type": "tidal",
+          "trackId": "3712708"
+        },
+        "track": {
+          "id": "3712708",
+          "title": "You've Lost That Lovin' Feelin'",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "https://tidal.com/browse/track/3712708",
+              "id": "3712708"
+            }
+          ],
+          "artists": [
+            {
+              "id": "7227",
+              "title": "The Righteous Brothers",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "https://tidal.com/browse/artist/7227",
+                  "id": "7227"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "3712692",
+            "title": "Gold",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "https://tidal.com/browse/album/3712692",
+                "id": "3712692"
+              }
+            ],
+            "artists": [],
+            "releaseDate": "2006-01-10",
+            "releaseDatePrecision": "day",
+            "totalTracks": 0,
+            "label": "© 2005 Universal Records, a Division of UMG Recordings, Inc.",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/1280x1280.jpg",
+                "id": "1280x1280"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/1080x1080.jpg",
+                "id": "1080x1080"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/750x750.jpg",
+                "id": "750x750"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/640x640.jpg",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/320x320.jpg",
+                "id": "320x320"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/160x160.jpg",
+                "id": "160x160"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/80x80.jpg",
+                "id": "80x80"
+              }
+            ]
+          },
+          "duration": 223000,
+          "explicit": false,
+          "trackNumber": 0,
+          "discNumber": 1,
+          "popularity": 73,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/1280x1280.jpg",
+              "id": "1280x1280"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/1080x1080.jpg",
+              "id": "1080x1080"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/750x750.jpg",
+              "id": "750x750"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/640x640.jpg",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/320x320.jpg",
+              "id": "320x320"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/160x160.jpg",
+              "id": "160x160"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/95e1c76d/1317/411f/8196/a15fd1055605/80x80.jpg",
+              "id": "80x80"
+            }
+          ]
+        }
+      }
+    },
+    "addedAt": 1777864890913,
+    "addedDuring": "nowPlaying",
+    "playedAt": 1777864890913
+  },
+  {
+    "title": "Everyday",
+    "track": {
+      "id": "39lnzOIUCSNaQmgBHoz7rt",
+      "title": "Everyday",
+      "urls": [
+        {
+          "type": "resource",
+          "url": "spotify:track:39lnzOIUCSNaQmgBHoz7rt",
+          "id": "spotify:track:39lnzOIUCSNaQmgBHoz7rt"
+        },
+        {
+          "type": "resource",
+          "url": "https://open.spotify.com/track/39lnzOIUCSNaQmgBHoz7rt",
+          "id": "spotify_url"
+        }
+      ],
+      "artists": [
+        {
+          "id": "3wYyutjgII8LJVVOLrGI0D",
+          "title": "Buddy Holly",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:artist:3wYyutjgII8LJVVOLrGI0D",
+              "id": "spotify:artist:3wYyutjgII8LJVVOLrGI0D"
+            }
+          ]
+        },
+        {
+          "id": "4r7JUeiYy24L7BuzCq9EjR",
+          "title": "The Crickets",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:artist:4r7JUeiYy24L7BuzCq9EjR",
+              "id": "spotify:artist:4r7JUeiYy24L7BuzCq9EjR"
+            }
+          ]
+        }
+      ],
+      "album": {
+        "id": "4Qy0SOU9Jg7Td10K68SanP",
+        "title": "Buddy Holly",
+        "urls": [
+          {
+            "type": "resource",
+            "url": "spotify:album:4Qy0SOU9Jg7Td10K68SanP",
+            "id": "spotify:album:4Qy0SOU9Jg7Td10K68SanP"
+          }
+        ],
+        "artists": [
+          {
+            "id": "3wYyutjgII8LJVVOLrGI0D",
+            "title": "Buddy Holly",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:artist:3wYyutjgII8LJVVOLrGI0D",
+                "id": "spotify:artist:3wYyutjgII8LJVVOLrGI0D"
+              }
+            ]
+          }
+        ],
+        "releaseDate": "1958",
+        "releaseDatePrecision": "year",
+        "totalTracks": 17,
+        "label": "",
+        "images": [
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000b27358816b5b546bdc2c0e7f6416",
+            "id": "640x640"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00001e0258816b5b546bdc2c0e7f6416",
+            "id": "300x300"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000485158816b5b546bdc2c0e7f6416",
+            "id": "64x64"
+          }
+        ]
+      },
+      "duration": 129120,
+      "explicit": false,
+      "trackNumber": 7,
+      "discNumber": 1,
+      "popularity": 65,
+      "images": [
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000b27358816b5b546bdc2c0e7f6416",
+          "id": "640x640"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00001e0258816b5b546bdc2c0e7f6416",
+          "id": "300x300"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000485158816b5b546bdc2c0e7f6416",
+          "id": "64x64"
+        }
+      ]
+    },
+    "mediaSource": {
+      "type": "shoutcast",
+      "trackId": "d8492bb2c0b7c83c79c8cf"
+    },
+    "metadataSource": {
+      "type": "spotify",
+      "trackId": "39lnzOIUCSNaQmgBHoz7rt"
+    },
+    "metadataSources": {
+      "spotify": {
+        "source": {
+          "type": "spotify",
+          "trackId": "39lnzOIUCSNaQmgBHoz7rt"
+        },
+        "track": {
+          "id": "39lnzOIUCSNaQmgBHoz7rt",
+          "title": "Everyday",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:track:39lnzOIUCSNaQmgBHoz7rt",
+              "id": "spotify:track:39lnzOIUCSNaQmgBHoz7rt"
+            },
+            {
+              "type": "resource",
+              "url": "https://open.spotify.com/track/39lnzOIUCSNaQmgBHoz7rt",
+              "id": "spotify_url"
+            }
+          ],
+          "artists": [
+            {
+              "id": "3wYyutjgII8LJVVOLrGI0D",
+              "title": "Buddy Holly",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "spotify:artist:3wYyutjgII8LJVVOLrGI0D",
+                  "id": "spotify:artist:3wYyutjgII8LJVVOLrGI0D"
+                }
+              ]
+            },
+            {
+              "id": "4r7JUeiYy24L7BuzCq9EjR",
+              "title": "The Crickets",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "spotify:artist:4r7JUeiYy24L7BuzCq9EjR",
+                  "id": "spotify:artist:4r7JUeiYy24L7BuzCq9EjR"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "4Qy0SOU9Jg7Td10K68SanP",
+            "title": "Buddy Holly",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:album:4Qy0SOU9Jg7Td10K68SanP",
+                "id": "spotify:album:4Qy0SOU9Jg7Td10K68SanP"
+              }
+            ],
+            "artists": [
+              {
+                "id": "3wYyutjgII8LJVVOLrGI0D",
+                "title": "Buddy Holly",
+                "urls": [
+                  {
+                    "type": "resource",
+                    "url": "spotify:artist:3wYyutjgII8LJVVOLrGI0D",
+                    "id": "spotify:artist:3wYyutjgII8LJVVOLrGI0D"
+                  }
+                ]
+              }
+            ],
+            "releaseDate": "1958",
+            "releaseDatePrecision": "year",
+            "totalTracks": 17,
+            "label": "",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000b27358816b5b546bdc2c0e7f6416",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00001e0258816b5b546bdc2c0e7f6416",
+                "id": "300x300"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000485158816b5b546bdc2c0e7f6416",
+                "id": "64x64"
+              }
+            ]
+          },
+          "duration": 129120,
+          "explicit": false,
+          "trackNumber": 7,
+          "discNumber": 1,
+          "popularity": 65,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000b27358816b5b546bdc2c0e7f6416",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00001e0258816b5b546bdc2c0e7f6416",
+              "id": "300x300"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000485158816b5b546bdc2c0e7f6416",
+              "id": "64x64"
+            }
+          ]
+        }
+      },
+      "tidal": {
+        "source": {
+          "type": "tidal",
+          "trackId": "94401436"
+        },
+        "track": {
+          "id": "94401436",
+          "title": "Everyday",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "https://tidal.com/browse/track/94401436",
+              "id": "94401436"
+            }
+          ],
+          "artists": [
+            {
+              "id": "25758",
+              "title": "Buddy Holly",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "https://tidal.com/browse/artist/25758",
+                  "id": "25758"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "94401407",
+            "title": "Buddy Holly",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "https://tidal.com/browse/album/94401407",
+                "id": "94401407"
+              }
+            ],
+            "artists": [],
+            "releaseDate": "1958-02-20",
+            "releaseDatePrecision": "day",
+            "totalTracks": 0,
+            "label": "© 1958 UMG Recordings Inc.",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/1280x1280.jpg",
+                "id": "1280x1280"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/1080x1080.jpg",
+                "id": "1080x1080"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/750x750.jpg",
+                "id": "750x750"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/640x640.jpg",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/320x320.jpg",
+                "id": "320x320"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/160x160.jpg",
+                "id": "160x160"
+              },
+              {
+                "type": "image",
+                "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/80x80.jpg",
+                "id": "80x80"
+              }
+            ]
+          },
+          "duration": 129000,
+          "explicit": false,
+          "trackNumber": 0,
+          "discNumber": 1,
+          "popularity": 67,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/1280x1280.jpg",
+              "id": "1280x1280"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/1080x1080.jpg",
+              "id": "1080x1080"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/750x750.jpg",
+              "id": "750x750"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/640x640.jpg",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/320x320.jpg",
+              "id": "320x320"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/160x160.jpg",
+              "id": "160x160"
+            },
+            {
+              "type": "image",
+              "url": "https://resources.tidal.com/images/00d121ea/0f9f/40a1/97ea/128710bcf0b9/80x80.jpg",
+              "id": "80x80"
+            }
+          ]
+        }
+      }
+    },
+    "addedAt": 1777864941662,
+    "addedDuring": "nowPlaying",
+    "playedAt": 1777864941662
+  },
+  {
+    "title": "Don't Let Me Be Misunderstood",
+    "track": {
+      "id": "4zzY7s6PKnMFIQ3ZNfHzGh",
+      "title": "Don't Let Me Be Misunderstood",
+      "urls": [
+        {
+          "type": "resource",
+          "url": "spotify:track:4zzY7s6PKnMFIQ3ZNfHzGh",
+          "id": "spotify:track:4zzY7s6PKnMFIQ3ZNfHzGh"
+        },
+        {
+          "type": "resource",
+          "url": "https://open.spotify.com/track/4zzY7s6PKnMFIQ3ZNfHzGh",
+          "id": "spotify_url"
+        }
+      ],
+      "artists": [
+        {
+          "id": "3ICflSq6ZgYAIrm2CTkfVP",
+          "title": "The Animals",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:artist:3ICflSq6ZgYAIrm2CTkfVP",
+              "id": "spotify:artist:3ICflSq6ZgYAIrm2CTkfVP"
+            }
+          ]
+        }
+      ],
+      "album": {
+        "id": "2deJO9RGJYw2HVO4k1HPz9",
+        "title": "The Animals: The Mickie Most Years And More",
+        "urls": [
+          {
+            "type": "resource",
+            "url": "spotify:album:2deJO9RGJYw2HVO4k1HPz9",
+            "id": "spotify:album:2deJO9RGJYw2HVO4k1HPz9"
+          }
+        ],
+        "artists": [
+          {
+            "id": "3ICflSq6ZgYAIrm2CTkfVP",
+            "title": "The Animals",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:artist:3ICflSq6ZgYAIrm2CTkfVP",
+                "id": "spotify:artist:3ICflSq6ZgYAIrm2CTkfVP"
+              }
+            ]
+          }
+        ],
+        "releaseDate": "1965-02-01",
+        "releaseDatePrecision": "day",
+        "totalTracks": 62,
+        "label": "",
+        "images": [
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d0000b2732e53030089729a33c3003a3b",
+            "id": "640x640"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d00001e022e53030089729a33c3003a3b",
+            "id": "300x300"
+          },
+          {
+            "type": "image",
+            "url": "https://i.scdn.co/image/ab67616d000048512e53030089729a33c3003a3b",
+            "id": "64x64"
+          }
+        ]
+      },
+      "duration": 149373,
+      "explicit": false,
+      "trackNumber": 5,
+      "discNumber": 4,
+      "popularity": 54,
+      "images": [
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d0000b2732e53030089729a33c3003a3b",
+          "id": "640x640"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d00001e022e53030089729a33c3003a3b",
+          "id": "300x300"
+        },
+        {
+          "type": "image",
+          "url": "https://i.scdn.co/image/ab67616d000048512e53030089729a33c3003a3b",
+          "id": "64x64"
+        }
+      ]
+    },
+    "mediaSource": {
+      "type": "shoutcast",
+      "trackId": "63425f3df432b9e5eb7417"
+    },
+    "metadataSource": {
+      "type": "spotify",
+      "trackId": "4zzY7s6PKnMFIQ3ZNfHzGh"
+    },
+    "metadataSources": {
+      "spotify": {
+        "source": {
+          "type": "spotify",
+          "trackId": "4zzY7s6PKnMFIQ3ZNfHzGh"
+        },
+        "track": {
+          "id": "4zzY7s6PKnMFIQ3ZNfHzGh",
+          "title": "Don't Let Me Be Misunderstood",
+          "urls": [
+            {
+              "type": "resource",
+              "url": "spotify:track:4zzY7s6PKnMFIQ3ZNfHzGh",
+              "id": "spotify:track:4zzY7s6PKnMFIQ3ZNfHzGh"
+            },
+            {
+              "type": "resource",
+              "url": "https://open.spotify.com/track/4zzY7s6PKnMFIQ3ZNfHzGh",
+              "id": "spotify_url"
+            }
+          ],
+          "artists": [
+            {
+              "id": "3ICflSq6ZgYAIrm2CTkfVP",
+              "title": "The Animals",
+              "urls": [
+                {
+                  "type": "resource",
+                  "url": "spotify:artist:3ICflSq6ZgYAIrm2CTkfVP",
+                  "id": "spotify:artist:3ICflSq6ZgYAIrm2CTkfVP"
+                }
+              ]
+            }
+          ],
+          "album": {
+            "id": "2deJO9RGJYw2HVO4k1HPz9",
+            "title": "The Animals: The Mickie Most Years And More",
+            "urls": [
+              {
+                "type": "resource",
+                "url": "spotify:album:2deJO9RGJYw2HVO4k1HPz9",
+                "id": "spotify:album:2deJO9RGJYw2HVO4k1HPz9"
+              }
+            ],
+            "artists": [
+              {
+                "id": "3ICflSq6ZgYAIrm2CTkfVP",
+                "title": "The Animals",
+                "urls": [
+                  {
+                    "type": "resource",
+                    "url": "spotify:artist:3ICflSq6ZgYAIrm2CTkfVP",
+                    "id": "spotify:artist:3ICflSq6ZgYAIrm2CTkfVP"
+                  }
+                ]
+              }
+            ],
+            "releaseDate": "1965-02-01",
+            "releaseDatePrecision": "day",
+            "totalTracks": 62,
+            "label": "",
+            "images": [
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d0000b2732e53030089729a33c3003a3b",
+                "id": "640x640"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d00001e022e53030089729a33c3003a3b",
+                "id": "300x300"
+              },
+              {
+                "type": "image",
+                "url": "https://i.scdn.co/image/ab67616d000048512e53030089729a33c3003a3b",
+                "id": "64x64"
+              }
+            ]
+          },
+          "duration": 149373,
+          "explicit": false,
+          "trackNumber": 5,
+          "discNumber": 4,
+          "popularity": 54,
+          "images": [
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d0000b2732e53030089729a33c3003a3b",
+              "id": "640x640"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d00001e022e53030089729a33c3003a3b",
+              "id": "300x300"
+            },
+            {
+              "type": "image",
+              "url": "https://i.scdn.co/image/ab67616d000048512e53030089729a33c3003a3b",
+              "id": "64x64"
+            }
+          ]
+        }
+      }
+    },
+    "addedAt": 1777865070860,
+    "addedDuring": "nowPlaying",
+    "playedAt": 1777865070860
+  }
+]

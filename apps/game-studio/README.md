@@ -80,32 +80,67 @@ From the **repository root**:
 make game-studio
 ```
 
-Then open **http://localhost:8005** in your browser.
+This starts **three** dev servers:
 
-**Windows without `make`:** `make` is not installed by default. Use the same script npm uses under the hood:
+1. **`studio-bridge`** — Socket.IO + HTTP on **http://127.0.0.1:3099**.
+2. **Game Studio** — Vite on **http://localhost:8005** (sandbox UI).
+3. **`apps/web`** — **`npm run dev:studio-bridge`** so **`VITE_API_URL`** points at the bridge (not the main API).
+
+After a short delay it tries to open **http://localhost:8000/rooms/studio-room** (same room id as [`STUDIO_ROOM_ID`](./src/studio/constants.ts)) in your default browser (**macOS:** `open`, **Linux:** `xdg-open`). Use the Game Studio tab so sandbox state keeps syncing to the bridge.
+
+Open **http://localhost:8005** anytime for the sandbox UI if you closed that tab.
+
+**Game Studio only (no bridge):** if you do not need the web Room UI preview:
 
 ```bash
 npm run dev -w game-studio
 ```
 
+**Windows without `make`:** run all three dev servers yourself (from repo root):
+
+```bash
+npx concurrently -n bridge,studio,web -c blue,green,magenta \
+  "npm run dev -w studio-bridge" \
+  "npm run dev -w game-studio" \
+  "npm run dev:studio-bridge -w web"
+```
+
+Then open **http://localhost:8000/rooms/studio-room** manually.
+
 If you want `make` on Windows, you can install it (e.g. [Chocolatey](https://chocolatey.org/): `choco install make`, or [Scoop](https://scoop.sh/): `scoop install make`, or use **WSL** and run the Linux flow there).
+
+---
+
+## Preview the real Room UI
+
+**`make game-studio`** already starts **`apps/web`** in bridge mode and tries to open **http://localhost:8000/rooms/studio-room**. Use plain **`npm run dev -w web`** only when pointing at the full stack API—not for `studio-room` preview (port **3000** has no stub room).
+
+Uses [`apps/web/.env.studio-bridge`](../../apps/web/.env.studio-bridge) (`VITE_API_URL=http://127.0.0.1:3099`). Alternatively: `VITE_API_URL=http://127.0.0.1:3099 npm run dev -w web`.
+
+Room id matches [`STUDIO_ROOM_ID`](./src/studio/constants.ts).
+
+Use a **username / identity that exists in your Game Studio sandbox** (session storage / stored user in the web app), or sign in as the first sandbox user—otherwise the bridge will still log you in as the first player it finds.
+
+**Override bridge URL from Game Studio:** set `VITE_STUDIO_BRIDGE_URL` if the bridge is not on `http://127.0.0.1:3099`.
 
 ---
 
 ## Useful commands (from repository root)
 
-| Command                                            | Purpose                                       |
-| -------------------------------------------------- | --------------------------------------------- |
-| `make game-studio` or `npm run dev -w game-studio` | Dev server (port **8005**)                    |
-| `npm run build -w game-studio`                     | Production build into `apps/game-studio/dist` |
-| `npm run check-types -w game-studio`               | Typecheck the app                             |
+| Command                                            | Purpose                                                         |
+| -------------------------------------------------- | --------------------------------------------------------------- |
+| `make game-studio`                                 | **studio-bridge** (3099) + Game Studio dev server (**8005**)    |
+| `npm run dev -w game-studio`                       | Game Studio only (**8005**)                                     |
+| `npm run dev -w studio-bridge`                     | Bridge only (**3099**)                                          |
+| `npm run build -w game-studio`                     | Production build into `apps/game-studio/dist`                   |
+| `npm run check-types -w game-studio`               | Typecheck the app                                                 |
 
 ---
 
 ## Notes
 
 - **State:** Progress is stored in the browser (localStorage) so refresh and most HMR updates do not wipe the sandbox. Use the in-app **Reset** control to clear it.
-- **No Docker:** You do not need `docker compose` for Game Studio.
+- **No Docker:** You do not need `docker compose` for Game Studio (the Room UI preview still only needs Node + this repo).
 - **Main app:** The full Listening Room stack (web app, API, etc.) is documented in the [root README](../../README.md); you can ignore it until you need it.
 
 For plugin architecture and server-side behavior, see [Plugin Development](../../docs/PLUGIN_DEVELOPMENT.md) and [AGENTS.md](../../AGENTS.md).

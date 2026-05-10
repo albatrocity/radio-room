@@ -13,6 +13,7 @@ import { MockStudioGameSessionApi } from "./mockStudioGameApi"
 import { MockStudioInventoryApi } from "./mockStudioInventoryApi"
 import { MockStudioPluginApi } from "./mockStudioPluginApi"
 import { StudioPluginRegistry } from "./studioPluginRegistry"
+import { STUDIO_SESSION_AFTER_RESET_KEY } from "./constants"
 import { attachStudioPersistence, tryHydrateRoom } from "./studioPersistence"
 import { StudioRoom } from "./studioRoom"
 
@@ -123,6 +124,13 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
   ctx.inventory.registerItemDefinitions(ITEM_CATALOG.map((e) => e.definition))
   enforceStudioItemShopsPluginDefaults(room)
   attachStudioPersistence(room)
+
+  const afterReset = sessionStorage.getItem(STUDIO_SESSION_AFTER_RESET_KEY) === "1"
+  if (afterReset) {
+    sessionStorage.removeItem(STUDIO_SESSION_AFTER_RESET_KEY)
+    room.queue = []
+    room.notify()
+  }
 
   return { room, lifecycle, registry, itemShopsPlugin, itemShopsContext: ctx }
 }

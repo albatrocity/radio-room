@@ -1,16 +1,39 @@
-import type {
-  ChatMessage,
-  Emoji,
-  PluginActionInitiator,
-  ReactionSubject,
-  User,
-} from "@repo/types"
+import type { ChatMessage, Emoji, PluginActionInitiator, ReactionSubject, User } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
+import { BasePlugin } from "@repo/plugin-base"
 import { SHOP_CATALOG, ITEM_CATALOG } from "@repo/plugin-item-shops"
+import { cloneSampleQueueItem, getSampleQueueTemplates } from "./studioSampleQueue"
 import { newId } from "./id"
+import { STUDIO_PREVIEW_VIEW_AS_USER_KEY, STUDIO_SESSION_AFTER_RESET_KEY } from "./constants"
 import { clearPersistedSnapshot, detachStudioPersistence } from "./studioPersistence"
 import { getStudio } from "./studioEnvironment"
 import { readShoppingInstance } from "./studioShoppingRead"
+
+/** Lets studio-bridge notify Listening Room tabs after sandbox queue mutation (fire-and-forget). */
+async function notifyBridgeQueueRemoveResult(
+  roomId: string,
+  trackId: string,
+  result: { success: boolean; message?: string; trackTitle?: string },
+): Promise<void> {
+  const env =
+    typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_STUDIO_BRIDGE_URL
+  const root = String(env ?? "http://127.0.0.1:3099").replace(/\/$/, "")
+  try {
+    await fetch(`${root}/preview/queue-remove-result`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roomId,
+        trackId,
+        success: result.success,
+        message: result.message,
+        trackTitle: result.trackTitle,
+      }),
+    })
+  } catch {
+    /* preview-only */
+  }
+}
 
 function stubEmoji(native: string): Emoji {
   return {
@@ -25,7 +48,13 @@ function stubEmoji(native: string): Emoji {
 export function addStudioUser(username: string): void {
   const { room, lifecycle } = getStudio()
   const userId = `user-${newId().slice(0, 10)}`
-  const user: User = { userId, username: username.trim() || userId, status: "listening" }
+  const user: User = {
+    userId,
+    username: username.trim() || userId,
+    status: "listening",
+    /** Sandbox preview: treat studio users as room admins for queue/auth parity with studio-bridge. */
+    isAdmin: true,
+  }
   room.addUser(user)
   if (room.activeSession) {
     room.ensureParticipant(userId)
@@ -37,17 +66,19 @@ export function addStudioUser(username: string): void {
   })
 }
 
-/** Replay assign-shop hooks when shopping starts before users join (sandbox UX). */
-export async function replayUserJoinedForAllUsers(): Promise<void> {
-  const { room, lifecycle } = getStudio()
-  const users = [...room.users.values()]
-  for (const user of users) {
-    await lifecycle.emit("USER_JOINED", {
-      roomId: room.roomId,
-      user,
-      users,
-    })
-  }
+/** Assign shops to users who joined before the shopping round (Game Studio drawer — uses plugin action, not lifecycle replay). */
+export async function replayUserJoinedForAllUsers(): Promise<{
+  success: boolean
+  message?: string
+}> {
+  const { registry, room } = getStudio()
+  const initiator: PluginActionInitiator = { userId: "studio-admin", username: "Studio" }
+  return registry.executePluginAction(
+    room.roomId,
+    ITEM_SHOPS_PLUGIN_NAME,
+    "replayShopAssignmentsForExistingUsers",
+    initiator,
+  )
 }
 
 export async function startStudioGameSession(): Promise<void> {
@@ -94,7 +125,12 @@ export async function startShoppingSession(): Promise<{ success: boolean; messag
 export async function endShoppingSession(): Promise<{ success: boolean; message?: string }> {
   const { registry, room } = getStudio()
   const initiator: PluginActionInitiator = { userId: "studio-admin", username: "Studio" }
-  return registry.executePluginAction(room.roomId, ITEM_SHOPS_PLUGIN_NAME, "endShoppingSessions", initiator)
+  return registry.executePluginAction(
+    room.roomId,
+    ITEM_SHOPS_PLUGIN_NAME,
+    "endShoppingSessions",
+    initiator,
+  )
 }
 
 export async function purchaseOffer(
@@ -106,7 +142,26 @@ export async function purchaseOffer(
     userId,
     username: room.users.get(userId)?.username ?? userId,
   }
-  return registry.executePluginAction(room.roomId, ITEM_SHOPS_PLUGIN_NAME, `buy:${offerId}`, initiator)
+  return registry.executePluginAction(
+    room.roomId,
+    ITEM_SHOPS_PLUGIN_NAME,
+    `buy:${offerId}`,
+    initiator,
+  )
+}
+
+/** Plugin actions from Listening Room preview (buy, admin buttons, etc.). */
+export async function executeBridgePluginAction(
+  userId: string,
+  pluginName: string,
+  action: string,
+): Promise<{ success: boolean; message?: string }> {
+  const { registry, room } = getStudio()
+  const initiator: PluginActionInitiator = {
+    userId,
+    username: room.users.get(userId)?.username ?? userId,
+  }
+  return registry.executePluginAction(room.roomId, pluginName, action, initiator)
 }
 
 export async function giveItemDirect(
@@ -153,15 +208,52 @@ export async function applyGainScore(userId: string, n: number): Promise<void> {
   await itemShopsContext.game.addScore(userId, "score", n, "studio")
 }
 
+/**
+ * App-controlled queue removal from Listening Room preview (studio-bridge → Game Studio).
+ * Matches production authorization: track owner or room admin (sandbox users carry `isAdmin` from studio-bridge).
+ */
+export async function removeQueueTrackForBridge(
+  userId: string,
+  trackId: string,
+  opts: { isAdmin: boolean },
+): Promise<{ success: boolean; message?: string; trackTitle?: string }> {
+  const { room, lifecycle } = getStudio()
+  const roomId = room.roomId
+  const idx = room.queue.findIndex((q) => q.track.id === trackId)
+  if (idx === -1) {
+    const r = { success: false as const, message: "Track not found in queue" }
+    await notifyBridgeQueueRemoveResult(roomId, trackId, r)
+    return r
+  }
+  const item = room.queue[idx]!
+  const isOwner = item.addedBy?.userId === userId
+  if (!opts.isAdmin && !isOwner) {
+    const r = { success: false as const, message: "Not authorized to remove this track" }
+    await notifyBridgeQueueRemoveResult(roomId, trackId, r)
+    return r
+  }
+  const title = item.track.title || item.title || "Track"
+  room.queue.splice(idx, 1)
+  room.logEvent("QUEUE_REMOVE_BRIDGE", { trackId })
+  await lifecycle.emit("QUEUE_CHANGED", { roomId, queue: [...room.queue] })
+  room.notify()
+  const ok = { success: true as const, trackTitle: title }
+  await notifyBridgeQueueRemoveResult(roomId, trackId, ok)
+  return ok
+}
+
 export async function addFakeTrackToQueue(userId: string): Promise<void> {
-  const { itemShopsContext, room } = getStudio()
-  const trackId = `fake-${newId().slice(0, 8)}`
+  const { room, lifecycle } = getStudio()
+  const templates = getSampleQueueTemplates()
   const u = room.users.get(userId)
-  await itemShopsContext.api.addToTrackQueue(room.roomId, trackId, {
-    addedBy: u
-      ? { type: "user", userId: u.userId, username: u.username ?? u.userId }
-      : undefined,
+  const idx = room.queue.length % templates.length
+  const item = cloneSampleQueueItem(templates[idx]!, {
+    addedBy: u ? { userId: u.userId, username: u.username ?? u.userId } : undefined,
   })
+  room.queue.push(item)
+  await lifecycle.emit("PLAYLIST_TRACK_ADDED", { roomId: room.roomId, track: item })
+  room.logEvent("QUEUE_ADD", { metadataTrackId: item.track.id })
+  room.notify()
 }
 
 export async function advanceNowPlaying(): Promise<void> {
@@ -234,12 +326,7 @@ export async function retrieveArtifact(
     if (amt < 1) {
       return { success: false, message: "Invalid stored coins." }
     }
-    await itemShopsContext.game.addScore(
-      retrievingUserId,
-      "coin",
-      amt,
-      "stored-artifact:retrieve",
-    )
+    await itemShopsContext.game.addScore(retrievingUserId, "coin", amt, "stored-artifact:retrieve")
     await itemShopsContext.artifacts.remove(artifactId)
     await itemShopsContext.api.sendSystemMessage(
       room.roomId,
@@ -274,6 +361,93 @@ export async function retrieveArtifact(
   return { success: true, message: `Received ${label}.` }
 }
 
+/** `storingItemId` for artifacts injected via Game Studio drawer (not from Van Cubby / Merch Cash Box use). */
+const STUDIO_MANUAL_STORING_ITEM_ID = "studio-manual"
+
+/** Seed global stored artifacts with coins (Listening Room “Stored Items” / bridge preview). */
+export async function storeSandboxArtifactCoin(
+  storedByUserId: string,
+  coinValue: number,
+  password: string,
+): Promise<{ success: boolean; message?: string }> {
+  const { room, itemShopsContext } = getStudio()
+  const pw = password.trim()
+  if (!pw) return { success: false, message: "Enter a password." }
+  if (!room.users.has(storedByUserId))
+    return { success: false, message: "Pick a user in the room." }
+  const amount = Math.floor(Number(coinValue))
+  if (!Number.isFinite(amount) || amount < 1) {
+    return { success: false, message: "Enter a positive coin amount." }
+  }
+
+  const username = room.users.get(storedByUserId)?.username?.trim() || storedByUserId
+  await itemShopsContext.artifacts.store({
+    storingPlugin: ITEM_SHOPS_PLUGIN_NAME,
+    storingItemId: STUDIO_MANUAL_STORING_ITEM_ID,
+    artifactType: "coin",
+    coinValue: amount,
+    storedAt: Date.now(),
+    storedByUserId,
+    storedByUsername: username,
+    password: pw,
+  })
+  return { success: true, message: `Stored ${amount.toLocaleString()} coins (password set).` }
+}
+
+/** Seed global stored artifacts with an item stack (matches Van Cubby-shaped payloads). */
+export async function storeSandboxArtifactItem(
+  storedByUserId: string,
+  shortId: string,
+  quantity: number,
+  password: string,
+): Promise<{ success: boolean; message?: string }> {
+  const { room, itemShopsContext } = getStudio()
+  const pw = password.trim()
+  if (!pw) return { success: false, message: "Enter a password." }
+  if (!room.users.has(storedByUserId))
+    return { success: false, message: "Pick a user in the room." }
+
+  const defId = `${ITEM_SHOPS_PLUGIN_NAME}:${shortId}`
+  if (!room.getDefinition(defId)) {
+    return {
+      success: false,
+      message: `Unknown item "${shortId}". Start a game session so definitions load, or reload.`,
+    }
+  }
+
+  const entry = ITEM_CATALOG.find((e) => e.definition.shortId === shortId)
+  const itemName = entry?.definition.name ?? shortId
+  const qty = Math.floor(Number(quantity))
+  if (!Number.isFinite(qty) || qty < 1) {
+    return { success: false, message: "Enter a positive quantity." }
+  }
+
+  const username = room.users.get(storedByUserId)?.username?.trim() || storedByUserId
+  await itemShopsContext.artifacts.store({
+    storingPlugin: ITEM_SHOPS_PLUGIN_NAME,
+    storingItemId: STUDIO_MANUAL_STORING_ITEM_ID,
+    artifactType: "item",
+    itemDefinitionId: defId,
+    itemName,
+    itemQuantity: qty,
+    storedAt: Date.now(),
+    storedByUserId,
+    storedByUsername: username,
+    password: pw,
+  })
+  return { success: true, message: `Stored ${qty}× ${itemName} (password set).` }
+}
+
+export async function removeSandboxStoredArtifact(
+  artifactId: string,
+): Promise<{ success: boolean; message?: string }> {
+  const { itemShopsContext } = getStudio()
+  const ok = await itemShopsContext.artifacts.remove(artifactId)
+  return ok
+    ? { success: true, message: "Removed from sandbox storage." }
+    : { success: false, message: "Artifact not found." }
+}
+
 export async function sellInventoryItem(userId: string, itemId: string): Promise<string> {
   const { registry, room } = getStudio()
   const inv = room.getInventory(userId)
@@ -290,7 +464,22 @@ export function resetStudioSandbox(): void {
   const { room } = getStudio()
   detachStudioPersistence(room)
   clearPersistedSnapshot()
+  /** Next bootstrap pass clears the queue after reload (see `STUDIO_SESSION_AFTER_RESET_KEY`). */
+  sessionStorage.setItem(STUDIO_SESSION_AFTER_RESET_KEY, "1")
+  sessionStorage.removeItem(STUDIO_PREVIEW_VIEW_AS_USER_KEY)
   window.location.reload()
+}
+
+/** Immediately run pending plugin timer callbacks (sandbox dev aid — e.g. Sweetwater follow-ups). */
+export function fireAllPluginTimers(): { fired: number } {
+  const { room, registry } = getStudio()
+  let fired = 0
+  for (const plugin of registry.list(room.roomId)) {
+    if (plugin instanceof BasePlugin) {
+      fired += plugin.fireAllTimers()
+    }
+  }
+  return { fired }
 }
 
 export async function reactToNowPlaying(userId: string, emoji: string): Promise<void> {
@@ -310,4 +499,3 @@ export async function reactToNowPlaying(userId: string, emoji: string): Promise<
     },
   })
 }
-

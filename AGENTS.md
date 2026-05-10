@@ -21,6 +21,7 @@ For detailed documentation, see:
 - **[Backend Development](docs/BACKEND_DEVELOPMENT.md)** - SystemEvents, Broadcaster pattern, server architecture
 - **[Plugin Development](docs/PLUGIN_DEVELOPMENT.md)** - Creating plugins, event system, UI components, storage API
 - **[Web Client](apps/web/README.md)** - XState actors, Socket.IO integration, React patterns
+- **[Game Studio](apps/game-studio/README.md)** - Local sandbox for plugin/game UI; pair with `studio-bridge`
 
 ---
 
@@ -31,11 +32,13 @@ This is a **Turborepo monorepo** using npm workspaces.
 ```
 listening-room/
 ├── apps/
-│   ├── api/          # Express + Socket.IO server entry point
-│   ├── web/          # React frontend (Vite, XState v5, Chakra UI v3)
-│   ├── scheduler/    # Show scheduling admin (Vite + React)
-│   ├── load-tester/  # Load testing CLI tool
-│   └── local-remote/ # Rust daemon: remote Redis SYSTEM:*, macOS Now Playing watcher, local config UI
+│   ├── api/              # Express + Socket.IO server entry point
+│   ├── web/              # React frontend (Vite, XState v5, Chakra UI v3)
+│   ├── game-studio/      # Plugin/game sandbox (pairs with studio-bridge for Room UI preview)
+│   ├── studio-bridge/    # Local stub API + Socket.IO for Game Studio → web preview (`make game-studio`)
+│   ├── scheduler/        # Show scheduling admin (Vite + React)
+│   ├── load-tester/      # Load testing CLI tool
+│   └── local-remote/     # Rust daemon: remote Redis SYSTEM:*, macOS Now Playing watcher, local config UI
 │
 ├── packages/
 │   ├── server/       # Core server logic (handlers, operations, services)
@@ -148,6 +151,16 @@ See [Plugin Development Guide](docs/PLUGIN_DEVELOPMENT.md) for full details.
 2. Create actor in `apps/web/src/actors/{name}Actor.ts`
 3. Export hooks from `apps/web/src/hooks/useActors.ts`
 4. If room-scoped, add ACTIVATE/DEACTIVATE handling
+
+### Keeping Game Studio Updated
+
+When adding features that affect the web app's room UI (new Socket.IO events, game state changes, plugin components, queue/playlist behavior), ensure the **studio-bridge** (`apps/studio-bridge`) supports them:
+
+1. Add any new events to `apps/studio-bridge/src/server.ts`
+2. Update `BridgeSnapshot` in `apps/studio-bridge/src/types.ts` if new data fields are needed
+3. Test with `make game-studio` to verify the preview works
+
+This keeps **Game Studio** (`apps/game-studio`) useful for rapid plugin/game feature iteration without running the full backend.
 
 ---
 
