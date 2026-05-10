@@ -44,6 +44,19 @@ export const textEffectSchema = z.discriminatedUnion("type", [
     /** Maps to font stacks in `textEffectStyles` on the web client. */
     value: z.enum(["comicSans"]),
   }),
+   z.object({
+    type: z.literal("color"),
+    /** Maps to color in `textEffectStyles` on the web client. */
+    value: z.enum([
+      "orange",
+      "purple",
+      "red",
+      "blue",
+      "yellow",
+      "green",
+    ]),
+  }),
+
 ])
 export type TextEffect = z.infer<typeof textEffectSchema>
 

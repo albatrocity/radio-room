@@ -6,6 +6,8 @@ export const ECHO_FLAG = "echo"
 export const GATE_FLAG = "gate"
 export const SCRAMBLE_FLAG = "scramble"
 export const COMIC_SANS_FLAG = "comic_sans"
+export const CARROT_FLAG = "carrot"
+export const COFFEE_FLAG = "coffee"
 export const SNOOZE_FLAG = "snooze"
 
 /** Stack counts for each text effect (0 = inactive). */
@@ -17,6 +19,8 @@ export interface TextEffectStacks {
   scramble: number
   comicSans: number
   snooze: number
+  coffee: number
+  carrot: number
 }
 
 /**
@@ -33,7 +37,9 @@ export function countTextEffectStacks(
     gate: 0,
     scramble: 0,
     comicSans: 0,
-    snooze: 0
+    snooze: 0,
+    coffee: 0,
+    carrot: 0,
   }
   for (const modifier of modifiers ?? []) {
     if (modifier.startAt > now || modifier.endAt <= now) continue
@@ -44,6 +50,8 @@ export function countTextEffectStacks(
     let setScramble = false
     let setComicSans = false
     let setSnooze = false
+    let setCoffee = false
+    let setCarrot = false
     for (const effect of modifier.effects) {
       if (effect.type !== "flag" || effect.value !== true) continue
       if (effect.name === SHRINK_FLAG) setShrink = true
@@ -53,6 +61,8 @@ export function countTextEffectStacks(
       else if (effect.name === SCRAMBLE_FLAG) setScramble = true
       else if (effect.name === COMIC_SANS_FLAG) setComicSans = true
       else if (effect.name === SNOOZE_FLAG) setSnooze = true
+      else if (effect.name === COFFEE_FLAG) setCoffee = true
+      else if (effect.name === CARROT_FLAG) setCarrot = true
     }
     if (setShrink) stacks.shrink += 1
     if (setGrow) stacks.grow += 1
@@ -61,6 +71,8 @@ export function countTextEffectStacks(
     if (setScramble) stacks.scramble += 1
     if (setComicSans) stacks.comicSans += 1
     if (setSnooze) stacks.snooze += 1
+    if (setCoffee) stacks.coffee += 1
+    if (setCarrot) stacks.carrot += 1
   }
   return stacks
 }

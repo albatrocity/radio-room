@@ -12,12 +12,12 @@ export const GREEN_ROOM_SHOP: ItemShopsShopCatalogEntry = {
   name: "Green Room",
   openingMessage: "{{shopName}} is downstairs. There should be some stuff in the fridge for you.",
   availableItems: [
-    { shortId: items.hummusVeggies.shortId, coinValue: 15 },
-    { shortId: items.emptyFridge.shortId, coinValue: 15 },
+    { shortId: items.hummusVeggies.shortId, coinValue: 10 },
+    { shortId: items.emptyFridge.shortId, coinValue: 10 },
     { shortId: items.cateredMeal.shortId, coinValue: 25 },
     { shortId: items.buyout.shortId, coinValue: 25 },
     { shortId: items.vanCubby.shortId, coinValue: 80 },
-    { shortId: items.merchCashBox.shortId, coinValue: 100 },
+    
   ],
   listedBuybackRate: 0.1,
   unlistedBuybackRate: 0,

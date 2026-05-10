@@ -73,16 +73,17 @@ export const SWEETWATER_SHOP: ItemShopsShopCatalogEntry = {
   openingMessage:
     "Hi! It's Chuck, from {{shopName}}! Come check out the shop. We can take your sound to the next level! Together :)",
   availableItems: [
-    { shortId: items.analogDelayPedal.shortId, coinValue: 10 },
-    { shortId: items.compressorPedal.shortId, coinValue: 15 },
-    { shortId: items.boostPedal.shortId, coinValue: 20 },
+    { shortId: items.analogDelayPedal.shortId, coinValue: 20 },
+    { shortId: items.compressorPedal.shortId, coinValue: 10 },
+    { shortId: items.boostPedal.shortId, coinValue: 10 },
     { shortId: items.fuzzPedal.shortId, coinValue: 25 },
     { shortId: items.tubeOverdrive.shortId, coinValue: 27 },
     { shortId: items.gate.shortId, coinValue: 25 },
     { shortId: items.jokerPedal.shortId, coinValue: 28 },
     { shortId: items.sampleHold.shortId, coinValue: 30 },
-    { shortId: items.warranty.shortId, coinValue: 60 },
-    { shortId: items.snoozePedal.shortId, coinValue: 30 }
+    { shortId: items.warranty.shortId, coinValue: 25 },
+    { shortId: items.snoozePedal.shortId, coinValue: 30 },
+    { shortId: items.coffeePedal.shortId, coinValue: 10 },
   ],
   listedBuybackRate: 0.5,
   unlistedBuybackRate: 0.25,
