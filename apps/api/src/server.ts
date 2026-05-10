@@ -18,6 +18,8 @@ import createSpecialWordsPlugin from "@repo/plugin-special-words"
 import createAbsentDjPlugin from "@repo/plugin-absent-dj"
 import createQueueHygienePlugin from "@repo/plugin-queue-hygiene"
 import createGuessTheTunePlugin from "@repo/plugin-guess-the-tune"
+import createItemShopsPlugin from "@repo/plugin-item-shops"
+import createLoyaltyProgramPlugin from "@repo/plugin-loyalty-program"
 import { authHandler } from "@repo/auth/server"
 import { requireAdmin } from "@repo/auth/middleware"
 
@@ -75,6 +77,8 @@ async function main() {
       createAbsentDjPlugin,
       createQueueHygienePlugin,
       createGuessTheTunePlugin,
+      createItemShopsPlugin,
+      createLoyaltyProgramPlugin,
     ],
   })
 

@@ -18,6 +18,7 @@ export type PluginFieldType =
   | "color" // Color picker
   | "url" // URL input with validation
   | "string-array" // Array of strings (e.g., list of words)
+  | "checkbox-group" // Multi-select: value is string[]; use `options` in field meta
 
 /** Condition for conditional visibility */
 export interface ShowWhenCondition {
@@ -90,6 +91,8 @@ export interface PluginFieldMeta {
   showWhen?: ShowWhenCondition | ShowWhenCondition[]
   /** For enum types: custom labels for each option */
   enumLabels?: Record<string, string>
+  /** For `checkbox-group`: value/label pairs (e.g. shop id + display name) */
+  options?: { value: string; label: string }[]
 }
 
 /**

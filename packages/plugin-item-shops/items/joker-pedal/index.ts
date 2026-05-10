@@ -1,0 +1,29 @@
+import { COMIC_SANS_FLAG } from "@repo/plugin-base"
+import { timedModifierEffect } from "../shared/behaviorHelpers"
+import { createItem } from "../shared/types"
+
+export const jokerPedal = createItem({
+  shortId: "joker-pedal",
+  definition: {
+    name: "Joker Pedal",
+    description:
+      "Ha ha! What a funny looking pedal. Use on yourself or others.",
+    stackable: true,
+    maxStack: 3,
+    tradeable: true,
+    consumable: true,
+    requiresTarget: "user",
+    coinValue: 30,
+    icon: "Laugh",
+    rarity: "uncommon",
+  },
+  use: timedModifierEffect({
+    modifierName: "joker_pedal",
+    effects: [
+      { type: "flag", name: COMIC_SANS_FLAG, value: true, intent: "negative", durationMs: 300_000 },
+    ],
+    successMessage: "Joker Pedal engaged. It was lost with use.",
+    describe: ({ isSelf, actor, target }) =>
+      isSelf ? `${actor} is talking kinda funny...` : `${target} is talking kinda funny...`,
+  }),
+})

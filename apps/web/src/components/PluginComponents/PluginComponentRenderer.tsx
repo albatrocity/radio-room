@@ -26,9 +26,16 @@ import type { PluginComponentDefinition, PluginModalComponent } from "../../type
 function renderPluginComponent(
   component: PluginComponentDefinition,
   config: Record<string, unknown>,
+  store: Record<string, unknown>,
+  pluginName?: string,
 ) {
   // Modals are rendered by the provider, not inline
   if (component.type === "modal") {
+    return null
+  }
+
+  // Tabs are rendered by the game state modal, not inline
+  if (component.type === "tab") {
     return null
   }
 
@@ -42,8 +49,17 @@ function renderPluginComponent(
   // Extract only the template component props (exclude metadata)
   const { id, area, showWhen, type, ...templateProps } = component
 
-  // Interpolate config values in props using shared utility
-  const interpolatedProps = interpolatePropsRecursively(templateProps, config)
+  // Buttons can reference store keys (e.g. "{{sellPrice}}"), so we expose
+  // store values alongside config values when interpolating their props.
+  const interpolationContext = { ...store, config }
+
+  // Interpolate config + store values in props using shared utility
+  const interpolatedProps = interpolatePropsRecursively(templateProps, interpolationContext)
+
+  // Buttons need to know which plugin owns them so they can dispatch actions.
+  if (type === "button" && pluginName) {
+    return <TemplateComponent {...interpolatedProps} pluginName={pluginName} />
+  }
 
   return <TemplateComponent {...interpolatedProps} />
 }
@@ -62,7 +78,7 @@ interface PluginComponentRendererProps {
  * Wraps the component with data attributes for screen effect targeting.
  */
 export function PluginComponentRenderer({ component }: PluginComponentRendererProps) {
-  const { config, store, itemContext } = React.useContext(PluginComponentContext)!
+  const { config, store, itemContext, pluginName } = React.useContext(PluginComponentContext)!
 
   // Check showWhen condition
   if (component.showWhen) {
@@ -89,13 +105,16 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
   // Wrap the component with data attributes for screen effect targeting
   // Note: We use display="inline-block" instead of "contents" because
   // CSS animations require an element that generates a box.
+  const blockLayout = component.type === "shop-offer-table" || component.type === "current-shop-offers"
+
   return (
     <Box
       data-screen-effect-target="plugin"
       data-plugin-component-id={component.id}
-      display="inline-block"
+      display={blockLayout ? "block" : "inline-block"}
+      width={blockLayout ? "full" : undefined}
     >
-      {renderPluginComponent(component, config)}
+      {renderPluginComponent(component, config, store, pluginName)}
     </Box>
   )
 }
@@ -171,8 +190,8 @@ export function PluginComponentProvider({
 
   // Memoize context value - callbacks are now stable
   const contextValue = useMemo(
-    () => ({ store, config, openModal, closeModal, textColor, itemContext }),
-    [store, config, openModal, closeModal, textColor, itemContext],
+    () => ({ store, config, openModal, closeModal, textColor, itemContext, pluginName }),
+    [store, config, openModal, closeModal, textColor, itemContext, pluginName],
   )
 
   return (

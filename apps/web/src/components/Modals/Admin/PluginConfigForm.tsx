@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from "react"
+import React, { useId, useMemo, useState } from "react"
 import {
   Box,
   Button,
   Checkbox,
+  CheckboxGroup,
   Field,
   Heading,
   HStack,
@@ -302,6 +303,48 @@ function StringArrayField({ meta, value, onChange }: FieldProps) {
   )
 }
 
+function safeIdFragment(s: string): string {
+  return s.replace(/[^a-zA-Z0-9_-]/g, "-")
+}
+
+function CheckboxGroupField({ meta, value, onChange }: FieldProps) {
+  const selected = Array.isArray(value) ? (value as string[]) : []
+  const options = meta.options ?? []
+  /** Field context maps every checkbox to the same `ids.control` for the hidden input; override per item. */
+  const idPrefix = useId().replace(/:/g, "")
+
+  return (
+    <>
+      <Field.Label>{meta.label}</Field.Label>
+      <CheckboxGroup value={selected} onValueChange={(nextValue) => onChange(nextValue)}>
+        <VStack align="stretch" gap={2}>
+          {options.map((opt) => {
+            const frag = safeIdFragment(opt.value)
+            return (
+              <Checkbox.Root
+                key={opt.value}
+                value={opt.value}
+                ids={{
+                  root: `${idPrefix}-root-${frag}`,
+                  hiddenInput: `${idPrefix}-input-${frag}`,
+                  control: `${idPrefix}-control-${frag}`,
+                  label: `${idPrefix}-label-${frag}`,
+                }}
+              >
+                <Checkbox.HiddenInput />
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                <Checkbox.Label>{opt.label}</Checkbox.Label>
+              </Checkbox.Root>
+            )
+          })}
+        </VStack>
+      </CheckboxGroup>
+    </>
+  )
+}
+
 /**
  * Render a form field based on its type
  */
@@ -331,6 +374,8 @@ function renderField(
       return <EmojiField {...props} />
     case "string-array":
       return <StringArrayField {...props} />
+    case "checkbox-group":
+      return <CheckboxGroupField {...props} />
     default:
       return <StringField {...props} />
   }

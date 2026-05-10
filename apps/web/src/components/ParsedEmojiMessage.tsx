@@ -4,32 +4,59 @@ import remarkGfm from "remark-gfm"
 import remarkBreaks from "remark-breaks"
 import remarkGemoji from "remark-gemoji"
 
-const markdownTheme = {
-  p: ({ children }) => {
-    return <Text>{children}</Text>
-  },
-  em: ({ children }) => {
-    return <Text as="em">{children}</Text>
-  },
-  a: ({ children, href }) => {
-    return (
-      <Link rel="noopener noreferrer" textDecoration="underline" target="_blank" href={href}>
-        {children}
-      </Link>
-    )
-  },
-  img: ({ src, alt }) => {
-    return (
-      <Image src={src} alt={alt || "Image"} maxW="100%" maxH="60vh" w="100%" objectFit="contain" />
-    )
-  },
+function buildMarkdownTheme(inlineParagraphs: boolean) {
+  return {
+    p: ({ children }) => {
+      return (
+        <Text as={inlineParagraphs ? "span" : undefined} display={inlineParagraphs ? "inline" : undefined}>
+          {children}
+        </Text>
+      )
+    },
+    em: ({ children }) => {
+      return (
+        <Text as="em" display={inlineParagraphs ? "inline" : undefined}>
+          {children}
+        </Text>
+      )
+    },
+    strong: ({ children }) => {
+      return <strong style={{ display: inlineParagraphs ? "inline" : undefined }}>{children}</strong>
+    },
+    a: ({ children, href }) => {
+      return (
+        <Link
+          rel="noopener noreferrer"
+          textDecoration="underline"
+          target="_blank"
+          href={href}
+          display={inlineParagraphs ? "inline" : undefined}
+        >
+          {children}
+        </Link>
+      )
+    },
+    img: ({ src, alt }) => {
+      return (
+        <Image src={src} alt={alt || "Image"} maxW="100%" maxH="60vh" w="100%" objectFit="contain" />
+      )
+    },
+  }
 }
 
-const ParsedEmojiMessage = ({ content }: { content: string }) => {
+const markdownTheme = buildMarkdownTheme(false)
+
+const ParsedEmojiMessage = ({
+  content,
+  inlineParagraphs = false,
+}: {
+  content: string
+  inlineParagraphs?: boolean
+}) => {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGemoji, remarkBreaks, remarkGfm]}
-      components={markdownTheme}
+      components={inlineParagraphs ? buildMarkdownTheme(true) : markdownTheme}
       children={content}
       skipHtml
     />

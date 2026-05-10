@@ -47,6 +47,17 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0039](0039-plugin-element-properties-for-now-playing.md) | Plugin `elementProps` for Now Playing (obscure / bypass roles) | Accepted |
 | [0040](0040-app-controlled-playback-and-ordered-queue.md) | App-Controlled Spotify Playback and Ordered Redis Queue | Accepted |
 | [0041](0041-queue-drag-reorder-authorization.md) | App-controlled queue reorder authorization and UX | Accepted |
+| [0042](0042-game-sessions-and-inventory.md) | Game Sessions and Inventory as Core Infrastructure | Accepted |
+| [0043](0043-game-state-tabs-and-composable-shop-helper.md) | Game State Tabs and Composable Shop Helper | Partially superseded by [0047](0047-shop-plugin-base-class.md) |
+| [0044](0044-plugin-chat-message-transform-and-text-segments.md) | Plugin Chat Message Transform + Structured Text Segments | Accepted |
+| [0045](0045-inventory-item-targeting.md) | Inventory Item Targeting via `requiresTarget` | Accepted |
+| [0046](0046-derived-modifier-flags.md) | Derived Modifier Flags via `getActiveFlags` | Accepted |
+| [0047](0047-shop-plugin-base-class.md) | ShopPlugin Base Class | Accepted |
+| [0048](0048-plugin-user-targeted-chat.md) | Plugin user-targeted chat (private socket delivery) | Accepted |
+| [0049](0049-item-shops-and-shopping-sessions.md) | Item Shops and Shopping Sessions (per-user instances) | Accepted |
+| [0050](0050-inventory-defense-items.md) | Passive defense items (inventory + `DefenseService`) | Accepted |
+| [0051](0051-game-studio-client-sandbox.md) | Game Studio — client-side plugin sandbox (`apps/game-studio`) | Accepted |
+| [0052](0052-global-artifacts-api.md) | Global artifacts API (`context.artifacts`) | Accepted |
 
 ## Creating a New ADR
 

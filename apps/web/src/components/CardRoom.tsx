@@ -1,4 +1,4 @@
-import { LuTrash2, LuMoreHorizontal } from "react-icons/lu"
+import { LuTrash2, LuEllipsis } from "react-icons/lu"
 import {
   Button,
   Card,
@@ -24,7 +24,7 @@ type Props = Omit<Room, "password"> & {
 
 export default function CardRoom({ title, extraInfo, id, onDelete }: Props) {
   const [isOpen, setIsOpen] = useState(false)
-  
+
   return (
     <>
       <ConfirmationDialog
@@ -36,8 +36,8 @@ export default function CardRoom({ title, extraInfo, id, onDelete }: Props) {
         title={`Delete ${title}`}
         body={
           <Text>
-            Are you sure you want to delete this room? The playlist, chat
-            history, and reactions will be gone forever. You cannot undo this.
+            Are you sure you want to delete this room? The playlist, chat history, and reactions
+            will be gone forever. You cannot undo this.
           </Text>
         }
       />
@@ -47,20 +47,12 @@ export default function CardRoom({ title, extraInfo, id, onDelete }: Props) {
             <Heading size="md">{title}</Heading>
             <MenuRoot>
               <MenuTrigger asChild>
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Options"
-                >
-                  <LuMoreHorizontal />
+                <IconButton variant="ghost" size="sm" aria-label="Options">
+                  <LuEllipsis />
                 </IconButton>
               </MenuTrigger>
               <MenuContent>
-                <MenuItem
-                  value="delete"
-                  onClick={() => setIsOpen(true)}
-                  color="red.500"
-                >
+                <MenuItem value="delete" onClick={() => setIsOpen(true)} color="red.500">
                   <HStack gap={2}>
                     <LuTrash2 /> <Text>Delete</Text>
                   </HStack>

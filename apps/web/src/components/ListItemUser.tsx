@@ -1,7 +1,17 @@
 import React, { memo } from "react"
 import { get, isEqual } from "lodash/fp"
 
-import { Box, Text, HStack, IconButton, Icon, List, VStack, useSlotRecipe } from "@chakra-ui/react"
+import {
+  Box,
+  Text,
+  HStack,
+  IconButton,
+  Icon,
+  List,
+  VStack,
+  useSlotRecipe,
+  Flex,
+} from "@chakra-ui/react"
 import { Tooltip } from "./ui/tooltip"
 import {
   LuCrown,
@@ -16,6 +26,7 @@ import {
 import { User } from "../types/User"
 import { PluginArea } from "./PluginComponents"
 import { listItemUserRecipe } from "../theme/listItemUserRecipe"
+import { UserEffectBars } from "./UserEffectBars"
 
 const statusIcon = (user: User) => {
   if (user.isDj) {
@@ -70,12 +81,17 @@ const ListItemUser = ({
   const styles = recipe({ isDj: user.isDj, isTyping: userTyping })
 
   return (
-    <List.Item key={user.userId} css={styles.root}>
-      <Box css={styles.typingIndicator}>
-        <Box css={styles.typingIcon}>
-          <Icon as={LuMessageCircle} color="action.300" mr={1} />
+    <List.Item key={user.userId} css={styles.root} gap={1}>
+      <Flex position="relative">
+        <Box w="100%" h="100%" position="absolute" top={0} left={0} opacity={0.5}>
+          <UserEffectBars tooltip={true} userId={user.userId} />
         </Box>
-      </Box>
+        <Box css={styles.typingIndicator}>
+          <Box css={styles.typingIcon}>
+            <Icon as={LuMessageCircle} color="action.300" boxSize={3} />
+          </Box>
+        </Box>
+      </Flex>
       <VStack css={styles.content}>
         <HStack css={styles.row}>
           <HStack css={styles.leftGroup}>
@@ -94,6 +110,7 @@ const ListItemUser = ({
                 </Box>
               </Tooltip>
             )}
+
             <PluginArea
               area="userListItem"
               itemContext={{
@@ -111,6 +128,7 @@ const ListItemUser = ({
               </Text>
             </Box>
           </HStack>
+
           <HStack css={styles.actions}>
             {user.userId === get("userId", currentUser) && (
               <IconButton

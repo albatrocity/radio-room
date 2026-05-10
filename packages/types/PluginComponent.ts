@@ -10,6 +10,10 @@
  * - Frontends implement template components; plugins reference them by name
  */
 
+import type { GameAttributeName } from "./GameSession"
+import type { LucideIconName } from "./LucideIconKey"
+import type { ItemRarity } from "./ShoppingSession"
+
 // ============================================================================
 // Placement Areas
 // ============================================================================
@@ -26,6 +30,7 @@ export type PluginComponentArea =
   | "nowPlaying" // General now playing area
   | "userListItem" // Next to each user in the user list
   | "userList" // Top/bottom of the user list
+  | "gameStateTab" // Tab content in the user's game state modal
 
 // ============================================================================
 // Template Component System
@@ -46,6 +51,14 @@ export type TemplateComponentName =
   | "badge"
   | "leaderboard"
   | "countdown"
+  | "game-leaderboard"
+  | "game-attribute"
+  | "modifier-badge"
+  | "inventory-button"
+  | "inventory-grid"
+  | "item-badge"
+  | "shop-offer-table"
+  | "current-shop-offers"
 
 /**
  * Props for the username template component.
@@ -102,20 +115,35 @@ export interface EmojiComponentProps {
  * Props for the icon template component.
  */
 export interface IconComponentProps {
-  icon: string
+  icon: LucideIconName
   size?: "sm" | "md" | "lg"
   color?: string
 }
 
 /**
  * Props for the button template component.
+ *
+ * A button may either open a modal (`opensModal`) or invoke a plugin action
+ * (`action`). When `action` is provided, the frontend emits
+ * `EXECUTE_PLUGIN_ACTION` so the plugin's `executeAction(action, initiator)`
+ * runs server-side with the clicking user as the initiator. Use
+ * `confirmMessage` to gate destructive or expensive actions behind a
+ * confirmation popover.
  */
 export interface ButtonComponentProps {
   label: string
-  icon?: string
+  icon?: LucideIconName
   opensModal?: string
+  /** Plugin action identifier - dispatched via `EXECUTE_PLUGIN_ACTION`. */
+  action?: string
+  /** If set, the user is asked to confirm before the action runs. */
+  confirmMessage?: string
+  /** Confirmation button label (defaults to "Confirm"). */
+  confirmText?: string
   variant?: "solid" | "ghost" | "outline" | "link"
   size?: "sm" | "md" | "lg"
+  /** When true, the button is non-interactive. */
+  disabled?: boolean
 }
 
 /**
@@ -167,10 +195,137 @@ export interface BadgeComponentProps {
   /** Visual variant */
   variant?: "success" | "warning" | "error" | "info"
   /** Icon name (e.g., "skip-forward", "heart", "star") */
-  icon?: string
+  icon?: LucideIconName
   /** Tooltip text on hover (supports template interpolation) */
   tooltip?: string
 }
+
+/**
+ * Props for the game-leaderboard template component.
+ *
+ * Backed by an active game session's `LeaderboardConfig.id`. The frontend
+ * subscribes to `GAME_STATE_CHANGED` events to keep entries fresh.
+ */
+export interface GameLeaderboardComponentProps {
+  /** Reference to a `LeaderboardConfig.id` on the active session. */
+  leaderboardId: string
+  /** Optional title override (defaults to `LeaderboardConfig.displayName`). */
+  title?: string
+  maxItems?: number
+  showRank?: boolean
+}
+
+/**
+ * Props for the game-attribute template component.
+ *
+ * Renders a single attribute value for a user (intended for `userListItem`).
+ */
+export interface GameAttributeComponentProps {
+  /**
+   * Attribute name (e.g. `"score"`, `"coin"`, `"potion-shop:potions-used"`).
+   * Supports template interpolation (`{{userId}}` etc.).
+   */
+  attribute: string
+  /** Display format hint. */
+  format?: "number" | "currency" | "health-bar"
+  /** Optional icon shown alongside the value. */
+  icon?: LucideIconName
+  /** Optional label displayed next to the value. */
+  label?: string
+}
+
+/**
+ * Props for the modifier-badge template component.
+ * Shows a badge for the named modifier when active for the contextual user.
+ */
+export interface ModifierBadgeComponentProps {
+  /** Modifier name to watch for (e.g. `"poisoned"`). */
+  modifier: string
+  /** Visual variant. */
+  variant?: "success" | "warning" | "error" | "info"
+  /** Optional label/icon overrides. */
+  label?: string
+  icon?: LucideIconName
+}
+
+/**
+ * Props for the inventory-button template component.
+ * Opens the inventory grid in a modal when clicked.
+ */
+export interface InventoryButtonComponentProps {
+  label: string
+  icon?: LucideIconName
+  /** Modal id to open (must reference a modal containing an inventory-grid). */
+  opensModal: string
+}
+
+/**
+ * Props for the inventory-grid template component.
+ *
+ * Renders the current user's inventory. Designed to be placed inside a modal.
+ */
+export interface InventoryGridComponentProps {
+  showQuantity?: boolean
+  allowUse?: boolean
+  allowTrade?: boolean
+  /** Optional filter by source plugin. */
+  filterSourcePlugin?: string
+}
+
+/**
+ * Props for the item-badge template component.
+ *
+ * Renders a small badge on a user list row when the contextual user owns at
+ * least one of the referenced item.
+ */
+export interface ItemBadgeComponentProps {
+  /** Fully-qualified `ItemDefinition.id` (e.g. `"potion-shop:speed-potion"`). */
+  definitionId: string
+  showQuantity?: boolean
+}
+
+/** One row in a `shop-offer-table` (game shop / catalog UI). */
+export interface ShopOfferTableRow {
+  /** Lucide icon key (e.g. `disc-2`). */
+  icon: LucideIconName
+  name: string
+  description: string
+  /** Price in `balanceAttribute` units (e.g. coins). Displayed in the UI and used for afford checks. */
+  price: number
+  /** Plugin component store key for in-stock quantity (e.g. `skipTokenStock`). */
+  quantityStoreKey: string
+  /** Plugin action dispatched when Buy is clicked (`EXECUTE_PLUGIN_ACTION`). */
+  action: string
+  /** Buy button label (default `Buy`). */
+  buyLabel?: string
+  /**
+   * If set, opening the buy flow shows a confirmation popover before
+   * `EXECUTE_PLUGIN_ACTION` runs (same behavior as `button.confirmMessage`).
+   */
+  confirmMessage?: string
+  /** Label on the popover confirm button (defaults to `Confirm` in the template). */
+  confirmText?: string
+  /**
+   * Attribute compared against `price` for afford checks (default `coin`).
+   */
+  balanceAttribute?: GameAttributeName
+  /** Item rarity for display styling (e.g. color-coded tag). */
+  itemRarity?: ItemRarity
+}
+
+/**
+ * Tabular shop listing: icon, item (name + description), price, qty, buy action.
+ * Intended for `area: "gameStateTab"` inside a plugin tab.
+ */
+export interface ShopOfferTableComponentProps {
+  rows: ShopOfferTableRow[]
+}
+
+/**
+ * Renders the current user's shopping-session offers from `UserGameStateContext`
+ * (`currentShopInstance`). No template props — avoids duplicating offer rows in the schema.
+ */
+export type CurrentShopOffersComponentProps = {}
 
 /**
  * Type-safe mapping of component names to their props.
@@ -186,6 +341,14 @@ export interface TemplateComponentPropsMap {
   badge: BadgeComponentProps
   leaderboard: LeaderboardComponentProps
   countdown: CountdownComponentProps
+  "game-leaderboard": GameLeaderboardComponentProps
+  "game-attribute": GameAttributeComponentProps
+  "modifier-badge": ModifierBadgeComponentProps
+  "inventory-button": InventoryButtonComponentProps
+  "inventory-grid": InventoryGridComponentProps
+  "item-badge": ItemBadgeComponentProps
+  "shop-offer-table": ShopOfferTableComponentProps
+  "current-shop-offers": CurrentShopOffersComponentProps
 }
 
 // ============================================================================
@@ -260,7 +423,16 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "badge" } & BadgeComponentProps)
   | (PluginComponentMetadata & { type: "leaderboard" } & LeaderboardComponentProps)
   | (PluginComponentMetadata & { type: "countdown" } & CountdownComponentProps)
+  | (PluginComponentMetadata & { type: "game-leaderboard" } & GameLeaderboardComponentProps)
+  | (PluginComponentMetadata & { type: "game-attribute" } & GameAttributeComponentProps)
+  | (PluginComponentMetadata & { type: "modifier-badge" } & ModifierBadgeComponentProps)
+  | (PluginComponentMetadata & { type: "inventory-button" } & InventoryButtonComponentProps)
+  | (PluginComponentMetadata & { type: "inventory-grid" } & InventoryGridComponentProps)
+  | (PluginComponentMetadata & { type: "item-badge" } & ItemBadgeComponentProps)
+  | (PluginComponentMetadata & { type: "shop-offer-table" } & ShopOfferTableComponentProps)
+  | (PluginComponentMetadata & { type: "current-shop-offers" } & CurrentShopOffersComponentProps)
   | PluginModalComponent // Modal is special - it contains children
+  | PluginTabComponent // Tab is a container for game state modal tabs
 
 /**
  * Type aliases for convenience when working with specific component types.
@@ -287,6 +459,9 @@ export type PluginUsernameComponent = PluginComponentMetadata & {
 export type PluginCountdownComponent = PluginComponentMetadata & {
   type: "countdown"
 } & CountdownComponentProps
+export type PluginShopOfferTableComponent = PluginComponentMetadata & {
+  type: "shop-offer-table"
+} & ShopOfferTableComponentProps
 
 /**
  * Modal component - special container that can hold other components.
@@ -296,6 +471,43 @@ export interface PluginModalComponent extends PluginComponentMetadata {
   type: "modal"
   title: string
   size?: "sm" | "md" | "lg" | "xl"
+  children: PluginComponentDefinition[]
+}
+
+/**
+ * Tab component - registers a tab in the user's game state modal.
+ *
+ * Plugins can register tabs to provide additional UI within the game state
+ * modal (which always has a built-in "Inventory" tab as the first entry).
+ * The tab's `children` are rendered when the tab is selected.
+ *
+ * Tabs are only valid inside `area: "gameStateTab"`.
+ *
+ * @example
+ * ```typescript
+ * {
+ *   id: "music-shop-tab",
+ *   type: "tab",
+ *   area: "gameStateTab",
+ *   label: "Shop",
+ *   icon: "ShoppingCart",
+ *   showWhen: { field: "enabled", value: true },
+ *   children: [
+ *     { id: "shop-stock", type: "text-block", area: "gameStateTab",
+ *       content: "{{skipTokenStock}} in stock" },
+ *     { id: "buy-skip-token", type: "button", area: "gameStateTab",
+ *       label: "Buy ({{config.skipTokenPrice}} coins)", action: "buySkipToken" },
+ *   ],
+ * }
+ * ```
+ */
+export interface PluginTabComponent extends PluginComponentMetadata {
+  type: "tab"
+  /** Tab label shown in the tab bar */
+  label: string
+  /** Optional icon name to display in the tab bar */
+  icon?: LucideIconName
+  /** Components rendered when this tab is selected */
   children: PluginComponentDefinition[]
 }
 

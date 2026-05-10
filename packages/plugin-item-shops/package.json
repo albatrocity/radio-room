@@ -1,0 +1,37 @@
+{
+  "name": "@repo/plugin-item-shops",
+  "version": "1.0.0",
+  "description": "Item shops with per-user shopping sessions for Listening Room",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "create-item": "tsx cli/create-item.ts",
+    "create-shop": "tsx cli/create-shop.ts",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/factories": "*",
+    "@repo/typescript-config": "*",
+    "lucide-static": "^1.14.0",
+    "tsx": "^4.20.6",
+    "vitest": "^4.0.13"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.10.1",
+    "@repo/plugin-base": "*",
+    "@repo/types": "*",
+    "chalk": "^5.6.2"
+  },
+  "peerDependencies": {
+    "zod": "^4.4.2"
+  }
+}

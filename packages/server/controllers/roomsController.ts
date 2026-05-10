@@ -18,8 +18,41 @@ import * as scheduling from "../services/SchedulingService"
 import { RoomSnapshot } from "@repo/types/Room"
 import { SocketWithContext } from "../lib/socketWithContext"
 import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
-import { AppContext, RoomScheduleSnapshotDTO } from "@repo/types"
+import { resolveItemRarity } from "@repo/game-logic"
+import {
+  AppContext,
+  RoomScheduleSnapshotDTO,
+  ITEM_SHOPS_PLUGIN_NAME,
+  ITEM_SHOPS_SESSION_STORAGE_KEYS,
+  type ItemDefinition,
+  type ShoppingSessionInstance,
+} from "@repo/types"
 import { readRoomScheduleSnapshot, refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
+import { PluginStorageImpl } from "../lib/plugins/PluginStorage"
+
+/**
+ * Persisted shop instances may omit `offer.rarity` (created before the field existed).
+ * Hydrate from room item definitions so the client always receives rarity for UI.
+ */
+function enrichCurrentShopInstanceWithOfferRarity(
+  instance: ShoppingSessionInstance | null,
+  itemDefinitions: ItemDefinition[],
+): ShoppingSessionInstance | null {
+  if (!instance) return null
+  const byShortId = new Map<string, ItemDefinition>()
+  for (const def of itemDefinitions) {
+    if (def.sourcePlugin === ITEM_SHOPS_PLUGIN_NAME) {
+      byShortId.set(def.shortId, def)
+    }
+  }
+  return {
+    ...instance,
+    offers: instance.offers.map((offer) => ({
+      ...offer,
+      rarity: offer.rarity ?? resolveItemRarity(byShortId.get(offer.shortId) ?? {}),
+    })),
+  }
+}
 
 /**
  * Get available metadata sources for a user based on their linked services
@@ -367,6 +400,395 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
    */
   socket.on("GET_LATEST_ROOM_DATA", async (snapshot: RoomSnapshot) => {
     await handlers.getLatestRoomData(connections, snapshot)
+  })
+
+  /**
+   * Return the requesting user's game state and inventory for the active session.
+   * Responds with `USER_GAME_STATE` on this socket only.
+   */
+  socket.on("GET_MY_GAME_STATE", async () => {
+    const gameSessions = socket.context.gameSessions
+    const inventory = socket.context.inventory
+
+    if (!gameSessions) {
+      socket.emit("event", {
+        type: "USER_GAME_STATE",
+        data: {
+          session: null,
+          state: null,
+          inventory: null,
+          itemDefinitions: [],
+          currentShopInstance: null,
+        },
+      })
+      return
+    }
+
+    const session = await gameSessions.getActiveSession(socket.data.roomId)
+    if (!session) {
+      socket.emit("event", {
+        type: "USER_GAME_STATE",
+        data: {
+          session: null,
+          state: null,
+          inventory: null,
+          itemDefinitions: [],
+          currentShopInstance: null,
+        },
+      })
+      return
+    }
+
+    const state = await gameSessions.getUserState(socket.data.roomId, socket.data.userId)
+    const inv = inventory
+      ? await inventory.getInventory(socket.data.roomId, socket.data.userId)
+      : null
+    const itemDefinitions = inventory
+      ? await inventory.getAllItemDefinitions(socket.data.roomId)
+      : []
+
+    let currentShopInstance: ShoppingSessionInstance | null = null
+    if (inventory) {
+      const storage = new PluginStorageImpl(
+        socket.context,
+        ITEM_SHOPS_PLUGIN_NAME,
+        socket.data.roomId,
+      )
+      const active = await storage.get(ITEM_SHOPS_SESSION_STORAGE_KEYS.ACTIVE)
+      if (active === "true") {
+        const raw = await storage.hget(
+          ITEM_SHOPS_SESSION_STORAGE_KEYS.INSTANCES,
+          socket.data.userId,
+        )
+        if (raw) {
+          try {
+            currentShopInstance = JSON.parse(raw) as ShoppingSessionInstance
+          } catch {
+            currentShopInstance = null
+          }
+        }
+      }
+    }
+
+    currentShopInstance = enrichCurrentShopInstanceWithOfferRarity(currentShopInstance, itemDefinitions)
+
+    socket.emit("event", {
+      type: "USER_GAME_STATE",
+      data: {
+        session,
+        state,
+        inventory: inv,
+        itemDefinitions,
+        currentShopInstance,
+      },
+    })
+  })
+
+  /**
+   * Return the active session's modifier snapshot for every participant.
+   * Responds with `ROOM_GAME_STATE` on this socket only. Used by the client
+   * to hydrate per-user effect bars for the listener list.
+   */
+  socket.on("GET_ROOM_GAME_STATE", async () => {
+    const gameSessions = socket.context.gameSessions
+
+    if (!gameSessions) {
+      socket.emit("event", {
+        type: "ROOM_GAME_STATE",
+        data: { sessionId: null, modifiersByUserId: {} },
+      })
+      return
+    }
+
+    const snapshot = await gameSessions.getActiveModifiersByUser(socket.data.roomId)
+    if (!snapshot) {
+      socket.emit("event", {
+        type: "ROOM_GAME_STATE",
+        data: { sessionId: null, modifiersByUserId: {} },
+      })
+      return
+    }
+
+    socket.emit("event", {
+      type: "ROOM_GAME_STATE",
+      data: snapshot,
+    })
+  })
+
+  /**
+   * Use an inventory item. Looks up the item in the user's inventory and
+   * dispatches to the source plugin's `onItemUsed` handler. The plugin
+   * decides whether the item is consumed.
+   *
+   * Responds with `INVENTORY_ACTION_RESULT` on this socket only.
+   */
+  socket.on(
+    "USE_INVENTORY_ITEM",
+    async (data: {
+      itemId: string
+      targetUserId?: string
+      targetQueueItemId?: string
+      targetInventoryItemId?: string
+      password?: string
+      coinAmount?: number
+    }) => {
+      const inventory = socket.context.inventory
+      if (!inventory) {
+        socket.emit("event", {
+          type: "INVENTORY_ACTION_RESULT",
+          data: { success: false, message: "Inventory service not available" },
+        })
+        return
+      }
+
+      if (!data?.itemId) {
+        socket.emit("event", {
+          type: "INVENTORY_ACTION_RESULT",
+          data: { success: false, message: "Missing itemId" },
+        })
+        return
+      }
+
+      const callContextRaw: Record<string, unknown> = {}
+      if (data.targetUserId != null) callContextRaw.targetUserId = data.targetUserId
+      if (data.targetQueueItemId != null) callContextRaw.targetQueueItemId = data.targetQueueItemId
+      if (data.targetInventoryItemId != null)
+        callContextRaw.targetInventoryItemId = data.targetInventoryItemId
+      if (data.password != null) callContextRaw.password = data.password
+      if (data.coinAmount != null) callContextRaw.coinAmount = data.coinAmount
+      const callContext =
+        Object.keys(callContextRaw).length > 0 ? callContextRaw : undefined
+
+      const result = await inventory.useItem(
+        socket.data.roomId,
+        socket.data.userId,
+        data.itemId,
+        callContext,
+      )
+
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: result.success, message: result.message },
+      })
+    },
+  )
+
+  /**
+   * List all globally stored artifacts (passwords omitted).
+   */
+  socket.on("GET_STORED_ARTIFACTS", async () => {
+    const artifacts = socket.context.artifacts
+    if (!artifacts) {
+      socket.emit("event", {
+        type: "STORED_ARTIFACTS_RESULT",
+        data: { artifacts: [] },
+      })
+      return
+    }
+    const list = await artifacts.getAll()
+    socket.emit("event", {
+      type: "STORED_ARTIFACTS_RESULT",
+      data: { artifacts: list },
+    })
+  })
+
+  /**
+   * Unlock a stored artifact into the current user's inventory or coin balance.
+   */
+  socket.on(
+    "RETRIEVE_STORED_ARTIFACT",
+    async (data: { artifactId?: string; password?: string }) => {
+      const artifacts = socket.context.artifacts
+      const inventory = socket.context.inventory
+      const gameSessions = socket.context.gameSessions as
+        | import("../services/GameSessionService").GameSessionService
+        | undefined
+
+      const fail = (message: string) => {
+        socket.emit("event", {
+          type: "RETRIEVE_STORED_ARTIFACT_RESULT",
+          data: { success: false, message },
+        })
+      }
+
+      if (!artifacts || !inventory || !gameSessions) {
+        fail("Service unavailable.")
+        return
+      }
+
+      const artifactId = data?.artifactId?.trim()
+      const password = typeof data?.password === "string" ? data.password : ""
+      if (!artifactId || !password) {
+        fail("Artifact id and password are required.")
+        return
+      }
+
+      const roomId = socket.data.roomId
+      const userId = socket.data.userId
+
+      const { getUsersByIds } = await import("../operations/data")
+      const [user] = await getUsersByIds({ context: socket.context, userIds: [userId] })
+      const username = user?.username?.trim() || "Someone"
+
+      const { default: sendMessage } = await import("../lib/sendMessage")
+      const { default: systemMessage } = await import("../lib/systemMessage")
+
+      const attempt = await artifacts.attemptRetrieve(artifactId, password)
+
+      if (attempt.status === "not_found") {
+        await sendMessage(
+          io,
+          roomId,
+          systemMessage(`${username} tried to retrieve storage that is no longer here.`),
+          socket.context,
+        )
+        fail("That stored item no longer exists.")
+        return
+      }
+
+      if (attempt.status === "wrong_password") {
+        await sendMessage(
+          io,
+          roomId,
+          systemMessage(`${username} failed to retrieve an artifact from storage (wrong password).`),
+          socket.context,
+        )
+        fail("Wrong password.")
+        return
+      }
+
+      const art = attempt.artifact
+
+      if (art.artifactType === "coin") {
+        const amt = art.coinValue ?? 0
+        if (amt < 1) {
+          fail("Invalid stored coins.")
+          return
+        }
+        await gameSessions.addScore(roomId, userId, "coin", amt, "stored-artifact:retrieve")
+        await artifacts.remove(artifactId)
+        await sendMessage(
+          io,
+          roomId,
+          systemMessage(`${username} retrieved ${amt.toLocaleString()} coins from storage.`),
+          socket.context,
+        )
+        socket.emit("event", {
+          type: "RETRIEVE_STORED_ARTIFACT_RESULT",
+          data: { success: true, message: `Added ${amt.toLocaleString()} coins.` },
+        })
+        return
+      }
+
+      const defId = art.itemDefinitionId
+      const qty = art.itemQuantity ?? 1
+      if (!defId || qty < 1) {
+        fail("Invalid stored item.")
+        return
+      }
+
+      const given = await inventory.giveItem(roomId, userId, defId, qty, undefined, "plugin")
+      if (!given) {
+        fail("Inventory full — make space and try again.")
+        return
+      }
+
+      await artifacts.remove(artifactId)
+      const label = art.itemName ?? "an item"
+      await sendMessage(
+        io,
+        roomId,
+        systemMessage(`${username} retrieved ${label} from storage.`),
+        socket.context,
+      )
+      socket.emit("event", {
+        type: "RETRIEVE_STORED_ARTIFACT_RESULT",
+        data: { success: true, message: `Received ${label}.` },
+      })
+    },
+  )
+
+  /**
+   * Sell an inventory item back to its owning plugin (typically a shop).
+   * Looks up the item, finds its source plugin, and dispatches to the
+   * plugin's `onItemSold` handler. The plugin handles the sale (removing
+   * the item, crediting coins, restocking, etc.).
+   *
+   * Responds with `INVENTORY_ACTION_RESULT` on this socket only.
+   */
+  socket.on("SELL_INVENTORY_ITEM", async (data: { itemId: string }) => {
+    const inventory = socket.context.inventory
+    const registry = socket.context.pluginRegistry as
+      | {
+          invokeOnItemSold?: (
+            roomId: string,
+            pluginName: string,
+            userId: string,
+            item: import("@repo/types").InventoryItem,
+            definition: import("@repo/types").ItemDefinition,
+            callContext: unknown,
+          ) => Promise<import("@repo/types").ItemSellResult | null>
+        }
+      | undefined
+
+    if (!inventory || !registry?.invokeOnItemSold) {
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: false, message: "Inventory service not available" },
+      })
+      return
+    }
+
+    if (!data?.itemId) {
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: false, message: "Missing itemId" },
+      })
+      return
+    }
+
+    const inv = await inventory.getInventory(socket.data.roomId, socket.data.userId)
+    const item = (inv.items as import("@repo/types").InventoryItem[]).find(
+      (i) => i.itemId === data.itemId,
+    )
+    if (!item) {
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: false, message: "Item not found in inventory" },
+      })
+      return
+    }
+
+    const definition = await inventory.getItemDefinition(socket.data.roomId, item.definitionId)
+    if (!definition) {
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: false, message: "Item definition not found" },
+      })
+      return
+    }
+
+    const result = await registry.invokeOnItemSold(
+      socket.data.roomId,
+      definition.sourcePlugin,
+      socket.data.userId,
+      item,
+      definition,
+      undefined,
+    )
+
+    if (!result) {
+      socket.emit("event", {
+        type: "INVENTORY_ACTION_RESULT",
+        data: { success: false, message: "This item can't be sold." },
+      })
+      return
+    }
+
+    socket.emit("event", {
+      type: "INVENTORY_ACTION_RESULT",
+      data: { success: result.success, message: result.message, refund: result.refund },
+    })
   })
 }
 

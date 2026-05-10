@@ -14,6 +14,8 @@ export interface PluginComponentContextValue {
   textColor?: string
   /** Item-level context for per-item areas (e.g., user data for userListItem) */
   itemContext?: Record<string, unknown>
+  /** Owning plugin name (used to dispatch plugin actions from buttons). */
+  pluginName?: string
 }
 
 export const PluginComponentContext = createContext<PluginComponentContextValue | null>(null)

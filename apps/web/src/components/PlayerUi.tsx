@@ -35,8 +35,6 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const { listeningTransport, isHybrid, hybridReady, webrtcExperimentalStatus } =
     useHybridListeningTransport()
 
-  const isJukebox = !hasAudio
-
   const showPlayer = useMemo(() => {
     if (!hasAudio || !room) return false
     if (!isHybrid) return isOnline
@@ -44,7 +42,8 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
     return webrtcExperimentalStatus !== "offline"
   }, [hasAudio, room, isHybrid, listeningTransport, isOnline, webrtcExperimentalStatus])
 
-  const showPlaylistOnly = !showPlayer && hasPlaylist
+  /** Stream rooms only: fallback playlist opener when the stream player strip is hidden. Jukebox rooms use {@link JukeboxControls} only — never combine both or you duplicate Library/Reactions rows (same layout as {@link RadioControls}). */
+  const showPlaylistOnly = hasAudio && !showPlayer && hasPlaylist
 
   return (
     <Flex
@@ -57,64 +56,66 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
       layerStyle="themeTransition"
     >
       <NowPlaying meta={meta} />
-      {isJukebox && (
+      {hasAudio ? (
+        <>
+          {showPlayer && (
+            <Suspense
+              fallback={
+                <Box p={4} bg="secondaryBg">
+                  <Center>
+                    <Spinner />
+                  </Center>
+                </Box>
+              }
+            >
+              {room?.type === "live" ? (
+                <LivePlayer
+                  trackId={trackId}
+                  onShowPlaylist={onShowPlaylist}
+                  hasPlaylist={hasPlaylist}
+                  whepUrl={room.radioListenUrl}
+                  hlsUrl={room.radioMetaUrl}
+                />
+              ) : isHybrid && listeningTransport === "webrtc" && hybridReady ? (
+                <LivePlayer
+                  key="hybrid-webrtc"
+                  trackId={trackId}
+                  onShowPlaylist={onShowPlaylist}
+                  hasPlaylist={hasPlaylist}
+                  whepUrl={room.liveWhepUrl}
+                  hlsUrl={room.liveHlsUrl}
+                />
+              ) : (
+                <RadioControls
+                  key="shoutcast"
+                  trackId={trackId}
+                  onShowPlaylist={onShowPlaylist}
+                  hasPlaylist={hasPlaylist}
+                  streamUrl={room?.radioListenUrl ?? room?.radioMetaUrl}
+                />
+              )}
+            </Suspense>
+          )}
+
+          {showPlaylistOnly && (
+            <Box p={2} bg="actionBg">
+              <IconButton
+                size="md"
+                aria-label="Playlist"
+                variant="ghost"
+                onClick={onShowPlaylist}
+              >
+                <Icon boxSize={5} as={LuListMusic} />
+              </IconButton>
+            </Box>
+          )}
+        </>
+      ) : (
         <JukeboxControls
           trackId={trackId}
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}
         />
-      )}
-
-      {showPlayer && (
-        <Suspense
-          fallback={
-            <Box p={4} bg="secondaryBg">
-              <Center>
-                <Spinner />
-              </Center>
-            </Box>
-          }
-        >
-          {room?.type === "live" ? (
-            <LivePlayer
-              trackId={trackId}
-              onShowPlaylist={onShowPlaylist}
-              hasPlaylist={hasPlaylist}
-              whepUrl={room.radioListenUrl}
-              hlsUrl={room.radioMetaUrl}
-            />
-          ) : isHybrid && listeningTransport === "webrtc" && hybridReady ? (
-            <LivePlayer
-              key="hybrid-webrtc"
-              trackId={trackId}
-              onShowPlaylist={onShowPlaylist}
-              hasPlaylist={hasPlaylist}
-              whepUrl={room.liveWhepUrl}
-              hlsUrl={room.liveHlsUrl}
-            />
-          ) : (
-            <RadioControls
-              key="shoutcast"
-              trackId={trackId}
-              onShowPlaylist={onShowPlaylist}
-              hasPlaylist={hasPlaylist}
-              streamUrl={room?.radioListenUrl ?? room?.radioMetaUrl}
-            />
-          )}
-        </Suspense>
-      )}
-
-      {showPlaylistOnly && (
-        <Box p={2} bg="actionBg">
-          <IconButton
-            size="md"
-            aria-label="Playlist"
-            variant="ghost"
-            onClick={onShowPlaylist}
-          >
-            <Icon boxSize={5} as={LuListMusic} />
-          </IconButton>
-        </Box>
       )}
     </Flex>
   )

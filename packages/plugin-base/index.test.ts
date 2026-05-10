@@ -94,6 +94,7 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
     getUsersByIds: vi.fn().mockResolvedValue([]),
     skipTrack: vi.fn().mockResolvedValue(undefined),
     sendSystemMessage: vi.fn().mockResolvedValue(undefined),
+    sendUserSystemMessage: vi.fn().mockResolvedValue(undefined),
     getPluginConfig: vi.fn().mockResolvedValue(null),
     setPluginConfig: vi.fn().mockResolvedValue(undefined),
     updatePlaylistTrack: vi.fn().mockResolvedValue(undefined),
@@ -570,6 +571,42 @@ describe("BasePlugin", () => {
 
         expect(timers).toHaveLength(1)
         expect(timers[0].id).toBe("timer-2")
+      })
+    })
+
+    describe("fireTimer / fireAllTimers (real timers — callbacks run in microtasks)", () => {
+      beforeEach(() => {
+        vi.useRealTimers()
+      })
+      afterEach(() => {
+        vi.useFakeTimers()
+      })
+
+      test("should invoke callback and remove timer", async () => {
+        const callback = vi.fn()
+        timerPlugin.testStartTimer("fired-now", { duration: 999_999, callback })
+        expect(timerPlugin.fireTimer("fired-now")).toBe(true)
+        expect(timerPlugin.testGetTimer("fired-now")).toBeNull()
+        await Promise.resolve()
+        await Promise.resolve()
+        expect(callback).toHaveBeenCalledTimes(1)
+      })
+
+      test("should return false when timer does not exist", () => {
+        expect(timerPlugin.fireTimer("missing")).toBe(false)
+      })
+
+      test("should fire every pending timer (ids snapshotted at start)", async () => {
+        const a = vi.fn()
+        const b = vi.fn()
+        timerPlugin.testStartTimer("fa-1", { duration: 99_000, callback: a })
+        timerPlugin.testStartTimer("fa-2", { duration: 99_000, callback: b })
+        expect(timerPlugin.fireAllTimers()).toBe(2)
+        await Promise.resolve()
+        await Promise.resolve()
+        expect(a).toHaveBeenCalledTimes(1)
+        expect(b).toHaveBeenCalledTimes(1)
+        expect(timerPlugin.testGetAllTimers()).toHaveLength(0)
       })
     })
 

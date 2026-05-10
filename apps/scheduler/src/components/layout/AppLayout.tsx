@@ -3,10 +3,7 @@ import { useLayoutEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { Menu } from "lucide-react"
 import { NavSidebar, NavSidebarContent } from "./NavSidebar"
-import {
-  SchedulerLayoutProvider,
-  SCHEDULER_MD_MIN_WIDTH_MEDIA,
-} from "./SchedulerLayoutContext"
+import { SchedulerLayoutProvider, SCHEDULER_MD_MIN_WIDTH_MEDIA } from "./SchedulerLayoutContext"
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [navOpen, setNavOpen] = useState(false)

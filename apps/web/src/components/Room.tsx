@@ -6,6 +6,7 @@ import PlayerUi from "./PlayerUi"
 import Chat from "./Chat"
 import Sidebar from "./Sidebar"
 import Overlays from "./Overlays"
+import { GameStateNewPluginTabsProvider } from "./GameStateNewPluginTabsProvider"
 import KeyboardShortcuts from "./KeyboardShortcuts"
 import RoomError from "./RoomError"
 
@@ -17,6 +18,7 @@ import {
   usePlaylistSend,
   useListeners,
   useModalsSend,
+  useHasQueueItems,
 } from "../hooks/useActors"
 import { HybridListeningTransportProvider } from "../hooks/useHybridListeningTransport"
 
@@ -27,6 +29,7 @@ const Room = ({ id }: { id: string }) => {
   const isNewUser = useIsNewUser()
   const isAuthenticated = useIsAuthenticated()
   const playlist = useCurrentPlaylist()
+  const hasQueueItems = useHasQueueItems()
   const listeners = useListeners()
   const playlistSend = usePlaylistSend()
   const modalSend = useModalsSend()
@@ -40,10 +43,11 @@ const Room = ({ id }: { id: string }) => {
   return (
     <Box w="100%" h="100%" data-screen-effect-target="room">
       <HybridListeningTransportProvider>
-        <Grid
-          h="100%"
-          className="room"
-          templateAreas={[
+        <GameStateNewPluginTabsProvider>
+          <Grid
+            h="100%"
+            className="room"
+            templateAreas={[
             `"alert alert"
           "header header"
       "chat chat"
@@ -80,7 +84,7 @@ const Room = ({ id }: { id: string }) => {
           >
             <PlayerUi
               onShowPlaylist={() => playlistSend({ type: "TOGGLE_PLAYLIST" })}
-              hasPlaylist={playlist.length > 0}
+              hasPlaylist={playlist.length > 0 || hasQueueItems}
               listenerCount={listeners.length}
             />
           </GridItem>
@@ -97,7 +101,8 @@ const Room = ({ id }: { id: string }) => {
           </GridItem>
         </Grid>
 
-        <Overlays />
+          <Overlays />
+        </GameStateNewPluginTabsProvider>
       </HybridListeningTransportProvider>
     </Box>
   )

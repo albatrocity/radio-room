@@ -1,5 +1,5 @@
-import { Icon } from "@chakra-ui/react"
 import { getIcon } from "../icons"
+import { SvgIcon } from "../../ui/svg-icon"
 import type { IconComponentProps } from "../../../types/PluginComponent"
 
 /**
@@ -15,5 +15,5 @@ export function IconTemplateComponent({ icon, size = "md", color }: IconComponen
   const sizeMap = { sm: 3, md: 4, lg: 5 }
   const boxSize = sizeMap[size]
 
-  return <Icon as={IconComponent} boxSize={boxSize} color={color} />
+  return <SvgIcon icon={IconComponent} boxSize={boxSize} color={color} />
 }

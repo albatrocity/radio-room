@@ -1,13 +1,18 @@
 // Include socket.io type extensions
 /// <reference path="./socket.io.d.ts" />
 
+export * from "./Artifacts"
 export * from "./Adapter"
 export * from "./AppContext"
 export * from "./ChatMessage"
 export * from "./Emoji"
+export * from "./GameSession"
 export * from "./HandlerConnections"
+export * from "./ShoppingSession"
+export * from "./Inventory"
 export * from "./JobApi"
 export * from "./JobRegistration"
+export * from "./LucideIconKey"
 export * from "./MediaSource"
 export * from "./MetadataSource"
 export * from "./PlaybackController"

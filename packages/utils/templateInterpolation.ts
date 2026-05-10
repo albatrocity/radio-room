@@ -48,7 +48,7 @@ function pluralize(word: string, count: number): string {
  * Format a value using a formatter name.
  *
  * Available formatters:
- * - `duration`: Converts milliseconds to human-readable (e.g., "60 seconds", "2 minutes")
+ * - `duration`: Converts milliseconds to human-readable; values are **rounded up** to whole seconds first (e.g., 2500 ms → "3 seconds", 60000 ms → "1 minute")
  * - `percentage`: Adds % suffix (e.g., "50%")
  * - `pluralize:countField`: Pluralizes the value based on another field's count
  *
@@ -66,18 +66,18 @@ export function formatValue(
 ): string {
   switch (formatter) {
     case "duration":
-      // Assume value is in milliseconds, convert to human-readable
+      // Assume value is in milliseconds; round up to whole seconds before formatting
       if (typeof value === "number") {
-        const seconds = value / 1000
-        if (seconds >= 60) {
-          const minutes = Math.floor(seconds / 60)
-          const remainingSeconds = seconds % 60
+        const totalSeconds = Math.ceil(value / 1000)
+        if (totalSeconds >= 60) {
+          const minutes = Math.floor(totalSeconds / 60)
+          const remainingSeconds = totalSeconds % 60
           if (remainingSeconds === 0) {
             return `${minutes} minute${minutes !== 1 ? "s" : ""}`
           }
           return `${minutes}m ${remainingSeconds}s`
         }
-        return `${seconds} second${seconds !== 1 ? "s" : ""}`
+        return `${totalSeconds} second${totalSeconds !== 1 ? "s" : ""}`
       }
       return String(value)
     case "percentage":
@@ -130,7 +130,10 @@ export function formatValue(
  *
  * // With formatter
  * interpolateTemplate("Time limit: {{timeLimit:duration}}", { timeLimit: 60000 })
- * // → "Time limit: 60 seconds"
+ * // → "Time limit: 1 minute"
+ *
+ * interpolateTemplate("Elapsed {{ms:duration}}", { ms: 2500 })
+ * // → "Elapsed 3 seconds"
  *
  * // With percentage formatter
  * interpolateTemplate("At {{thresholdValue:percentage}}", { thresholdValue: 50 })

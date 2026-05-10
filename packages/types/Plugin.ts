@@ -9,6 +9,31 @@ import type { ReactionSubject } from "./ReactionSubject"
 import type { ChatMessage } from "./ChatMessage"
 import type { SystemEventHandlers, ScreenEffectTarget, ScreenEffectName } from "./SystemEventTypes"
 import type { PluginComponentSchema, PluginComponentState } from "./PluginComponent"
+import type {
+  ApplyModifierResult,
+  GameAttributeName,
+  GameLeaderboardEntry,
+  GameSession,
+  GameSessionConfig,
+  GameSessionResults,
+  GameStateModifier,
+  PluginAttributeDefinition,
+  UserGameState,
+} from "./GameSession"
+import type {
+  InventoryAcquisitionSource,
+  InventoryItem,
+  ItemDefinition,
+  ItemSellResult,
+  ItemUseResult,
+  UserInventory,
+} from "./Inventory"
+import type {
+  ArtifactRetrieveAttempt,
+  ArtifactsPluginAPI,
+  StoredArtifact,
+  StoredArtifactPublic,
+} from "./Artifacts"
 
 // ============================================================================
 // Plugin Configuration Schema Types
@@ -29,6 +54,7 @@ export type PluginFieldType =
   | "color" // Color picker
   | "url" // URL input with validation
   | "string-array" // Array of strings (e.g., list of words)
+  | "checkbox-group" // Multi-select: value is string[]; use `options` in field meta
 
 /** Condition for conditional visibility */
 export interface ShowWhenCondition {
@@ -101,6 +127,8 @@ export interface PluginFieldMeta {
   showWhen?: ShowWhenCondition | ShowWhenCondition[]
   /** For enum types: custom labels for each option */
   enumLabels?: Record<string, string>
+  /** For `checkbox-group`: value/label pairs (e.g. shop id + display name) */
+  options?: { value: string; label: string }[]
 }
 
 /**
@@ -193,6 +221,18 @@ export interface PluginEventPayload {
 }
 
 /**
+ * Attribution for a queue addition performed via PluginAPI.
+ * - `user`: credit the addition to a real user (e.g. user purchased a queue-skip item).
+ * - `plugin`: credit the addition to the plugin itself (the default for plugin-initiated adds).
+ *
+ * When a plugin attribution is used, the resulting `QueueItem.addedBy` carries a
+ * sentinel `userId` of `plugin:<pluginName>` and a `username` of `displayName ?? pluginName`.
+ */
+export type QueueItemAttribution =
+  | { type: "user"; userId: string; username: string }
+  | { type: "plugin"; pluginName: string; displayName?: string }
+
+/**
  * Plugin API - provides safe methods for plugins to interact with the system
  */
 export interface PluginAPI {
@@ -206,13 +246,114 @@ export interface PluginAPI {
   /** Look up users by their IDs (includes users who have left the room) */
   getUsersByIds(userIds: string[]): Promise<User[]>
   skipTrack(roomId: string, trackId: string): Promise<void>
-  sendSystemMessage(roomId: string, message: string, meta?: ChatMessage["meta"]): Promise<void>
+  sendSystemMessage(
+    roomId: string,
+    message: string,
+    meta?: ChatMessage["meta"],
+    mentions?: ChatMessage["mentions"],
+  ): Promise<void>
+  /**
+   * Deliver a system-authored chat line to a single connected client (by user id).
+   * Does not persist to chat history or emit via SystemEvents (see ADR 0046).
+   */
+  sendUserSystemMessage(
+    roomId: string,
+    userId: string,
+    message: string,
+    meta?: ChatMessage["meta"],
+  ): Promise<void>
   getPluginConfig(roomId: string, pluginName: string): Promise<any | null>
   setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>
   /** Emit an update for a playlist track (e.g., when pluginData changes) */
   updatePlaylistTrack(roomId: string, track: QueueItem): Promise<void>
   /** Get the current queue for a room */
   getQueue(roomId: string): Promise<QueueItem[]>
+
+  /**
+   * Add a track to the room's queue.
+   *
+   * Works for both `app-controlled` and `spotify-controlled` rooms. When the
+   * room is spotify-controlled, the track is also pushed to the Spotify queue.
+   *
+   * Defaults to attributing the addition to the calling plugin. Pass
+   * `options.addedBy` to attribute to a specific user (e.g. the user who
+   * "earned" the queue add).
+   *
+   * `options.runPluginValidation` defaults to `false` so plugin-initiated adds
+   * are not blocked by other plugins' `validateQueueRequest` hooks.
+   *
+   * @param metadataTrackId - The catalog ID from the metadata source (e.g. Spotify track ID).
+   */
+  addToTrackQueue(
+    roomId: string,
+    metadataTrackId: string,
+    options?: { addedBy?: QueueItemAttribution; runPluginValidation?: boolean },
+  ): Promise<
+    | { success: true; queuedItem: QueueItem }
+    | { success: false; message: string }
+  >
+
+  /**
+   * Remove a track from the room's queue.
+   *
+   * App-controlled rooms only. Spotify-controlled rooms will receive
+   * `{ success: false, message }` because Spotify's queue API does not support
+   * removing arbitrary positions.
+   *
+   * @param metadataTrackId - The catalog ID from the metadata source.
+   */
+  removeFromTrackQueue(
+    roomId: string,
+    metadataTrackId: string,
+  ): Promise<{ success: true } | { success: false; message: string }>
+
+  /**
+   * Move a track to the top of the queue (next to play).
+   *
+   * App-controlled rooms only. Returns `{ success: false, message }` for
+   * spotify-controlled rooms.
+   */
+  moveToTrackQueueTop(
+    roomId: string,
+    metadataTrackId: string,
+  ): Promise<{ success: true } | { success: false; message: string }>
+
+  /**
+   * Move a track to the bottom of the queue.
+   *
+   * App-controlled rooms only. Returns `{ success: false, message }` for
+   * spotify-controlled rooms.
+   */
+  moveToTrackQueueBottom(
+    roomId: string,
+    metadataTrackId: string,
+  ): Promise<{ success: true } | { success: false; message: string }>
+
+  /**
+   * Move a queued track by a relative number of positions.
+   *
+   * Negative `delta` moves toward the front of the queue (promote); positive moves toward the back.
+   * App-controlled rooms only.
+   *
+   * @param metadataTrackId - Catalog ID from the metadata source (`QueueItem.track.id`).
+   */
+  moveTrackByPosition(
+    roomId: string,
+    metadataTrackId: string,
+    delta: number,
+    /** When set (e.g. item user), included in defense / audit flows. */
+    actorUserId?: string,
+  ): Promise<{ success: true } | { success: false; message: string }>
+
+  /**
+   * Shuffle the queue (Fisher–Yates).
+   *
+   * App-controlled rooms only. Returns `{ success: false, message }` for
+   * spotify-controlled rooms. Empty queues are a no-op success.
+   */
+  shuffleTrackQueue(
+    roomId: string,
+  ): Promise<{ success: true } | { success: false; message: string }>
 
   /**
    * Emit a custom plugin event.
@@ -318,6 +459,134 @@ export interface PluginLifecycle {
   off<K extends keyof PluginLifecycleEvents>(event: K, handler: PluginLifecycleEvents[K]): void
 }
 
+// ============================================================================
+// Game Session API (exposed on PluginContext.game)
+// ============================================================================
+
+/**
+ * Plugin-facing game session API. All methods operate on the plugin's room.
+ *
+ * Read methods return `null` when no session is active. Write methods are
+ * no-ops (and resolve safely) when there is no active session.
+ */
+export interface GameSessionPluginAPI {
+  // ---------- Session lifecycle ------------------------------------------
+  /** Get the currently-active session for this room (or `null`). */
+  getActiveSession(): Promise<GameSession | null>
+  /**
+   * Start a new session, ending any active one.
+   * Defaults are filled in for omitted fields (see `GameSessionService`).
+   */
+  startSession(config: Partial<GameSessionConfig> & { name: string }): Promise<GameSession>
+  /** End the active session. Returns the final results. No-op if no session. */
+  endSession(): Promise<GameSessionResults | null>
+
+  // ---------- Attribute registration -------------------------------------
+  /**
+   * Declare plugin-defined attributes so they appear in UI pickers / docs.
+   * Names are namespaced as `<pluginName>:<def.name>`.
+   */
+  registerAttributes(definitions: PluginAttributeDefinition[]): void
+
+  // ---------- State mutations --------------------------------------------
+  /** Add to an attribute, applying active modifiers. Resolves to the new value. */
+  addScore(userId: string, attribute: GameAttributeName, amount: number, reason?: string): Promise<number>
+  /** Set an attribute, ignoring multipliers/additives. */
+  setScore(userId: string, attribute: GameAttributeName, value: number, reason?: string): Promise<number>
+
+  // ---------- Modifiers --------------------------------------------------
+  /**
+   * Apply a modifier to a user. On success, returns `modifierId`. Fails when
+   * there is no session or a held defense item blocks the modifier.
+   */
+  applyModifier(
+    userId: string,
+    modifier: Omit<GameStateModifier, "id" | "source">,
+    options?: { actorUserId?: string },
+  ): Promise<ApplyModifierResult>
+  /**
+   * Convenience wrapper: applies a modifier with `startAt = Date.now()` and
+   * `endAt = startAt + durationMs`.
+   *
+   * Special case for `stackBehavior: "stack"`: when the user already has an
+   * active modifier of the same `name`, the new instance's `endAt` is extended
+   * to `latestExistingEndAt + durationMs`. Existing stacks keep their original
+   * `endAt`, so repeated applications produce a tail-off where the stack count
+   * naturally drops as older instances expire.
+   */
+  applyTimedModifier(
+    userId: string,
+    durationMs: number,
+    modifier: Omit<GameStateModifier, "id" | "source" | "startAt" | "endAt">,
+    /** User who caused the application (e.g. item user), for defense events. */
+    actorUserId?: string,
+  ): Promise<ApplyModifierResult>
+  /** Remove a modifier instance. Returns whether it was found and removed. */
+  removeModifier(userId: string, modifierId: string): Promise<boolean>
+
+  // ---------- Reads ------------------------------------------------------
+  /** Get the full game state for a user (or `null`). */
+  getUserState(userId: string): Promise<UserGameState | null>
+  /** Render a leaderboard. Returns an empty array if the leaderboard is unknown. */
+  getLeaderboard(leaderboardId: string): Promise<GameLeaderboardEntry[]>
+}
+
+export type { ArtifactRetrieveAttempt, ArtifactsPluginAPI, StoredArtifact, StoredArtifactPublic }
+
+// ============================================================================
+// Inventory API (exposed on PluginContext.inventory)
+// ============================================================================
+
+/**
+ * Plugin-facing inventory API. Plugins:
+ * - Register their item definitions during `register()`.
+ * - Award items via `giveItem()`.
+ * - Implement `onItemUsed` (on the plugin instance) to resolve item effects.
+ *
+ * Reads are open: any plugin may inspect any user's inventory or any
+ * registered item definition (used for cross-plugin marketplaces / shops).
+ */
+export interface InventoryPluginAPI {
+  // ---------- Registration ----------------------------------------------
+  /**
+   * Register one or more item definitions. The `id` and `sourcePlugin` are
+   * derived from the calling plugin; pass only `shortId` and metadata.
+   */
+  registerItemDefinitions(
+    definitions: Array<Omit<ItemDefinition, "id" | "sourcePlugin">>,
+  ): void
+
+  // ---------- Mutations -------------------------------------------------
+  giveItem(
+    userId: string,
+    definitionId: string,
+    quantity?: number,
+    metadata?: Record<string, unknown>,
+    source?: InventoryAcquisitionSource,
+  ): Promise<InventoryItem | null>
+
+  removeItem(userId: string, itemId: string, quantity?: number): Promise<boolean>
+
+  transferItem(
+    fromUserId: string,
+    toUserId: string,
+    itemId: string,
+    quantity?: number,
+  ): Promise<boolean>
+
+  /**
+   * Use an item. Core validates ownership, dispatches to the owning plugin's
+   * `onItemUsed`, and decrements quantity if the result is `consumed`.
+   */
+  useItem(userId: string, itemId: string, context?: unknown): Promise<ItemUseResult>
+
+  // ---------- Reads -----------------------------------------------------
+  getInventory(userId: string): Promise<UserInventory>
+  hasItem(userId: string, definitionId: string, minQuantity?: number): Promise<boolean>
+  getItemDefinition(definitionId: string): Promise<ItemDefinition | null>
+  getAllItemDefinitions(): Promise<ItemDefinition[]>
+}
+
 /**
  * Context provided to each plugin instance
  */
@@ -326,6 +595,12 @@ export interface PluginContext {
   api: PluginAPI
   storage: PluginStorage
   lifecycle: PluginLifecycle
+  /** Game session API (cross-plugin attributes, modifiers, leaderboards). */
+  game: GameSessionPluginAPI
+  /** Inventory API (cross-plugin item storage / trading / usage). */
+  inventory: InventoryPluginAPI
+  /** Global artifact storage (cross-room, survives sessions). */
+  artifacts: ArtifactsPluginAPI
   getRoom: () => Promise<Room | null>
   appContext: AppContext
 }
@@ -543,6 +818,17 @@ export interface Plugin {
   validateQueueRequest?(params: QueueValidationParams): Promise<QueueValidationResult>
 
   /**
+   * Transform a chat message before it is persisted and broadcast.
+   * Called sequentially for each enabled plugin in the room; each sees the
+   * previous plugin's result. Return `null` or `undefined` to leave the message
+   * unchanged. Fail-open on errors/timeouts (like `validateQueueRequest`).
+   *
+   * @param roomId - Room id
+   * @param message - The fully parsed message (after mentions / Mustache)
+   */
+  transformChatMessage?(roomId: string, message: ChatMessage): Promise<ChatMessage | null>
+
+  /**
    * Optional method to augment playlist items with plugin-specific metadata.
    * Called at read-time when fetching playlists.
    *
@@ -623,6 +909,61 @@ export interface Plugin {
    * }
    */
   formatPluginDataMarkdown?(pluginData: unknown, context: PluginMarkdownContext): string | null
+
+  /**
+   * Called by `InventoryService` when a user uses an item whose
+   * `definition.sourcePlugin` matches this plugin. Plugins implement effects
+   * (e.g. apply a modifier, award score, send a message) and return whether
+   * the item should be consumed.
+   *
+   * @example
+   * async onItemUsed(userId, item, definition) {
+   *   if (definition.shortId === "speed-potion") {
+   *     const result = await this.context.game.applyModifier(userId, {
+   *       name: "speed_boost",
+   *       effects: [{ type: "multiplier", target: "score", value: 2 }],
+   *       startAt: Date.now(),
+   *       endAt: Date.now() + 60_000,
+   *       stackBehavior: "extend",
+   *     })
+   *     if (!result.ok) {
+   *       if (result.reason === "defense_blocked") {
+   *         return { success: false, consumed: false, message: `Blocked by ${result.blockingItemName}` }
+   *       }
+   *       return { success: false, consumed: false, message: "No active session." }
+   *     }
+   *     return { success: true, consumed: true, message: "Speed boost!" }
+   *   }
+   *   return { success: false, consumed: false, message: "Unknown item" }
+   * }
+   */
+  onItemUsed?(
+    userId: string,
+    item: InventoryItem,
+    definition: ItemDefinition,
+    context?: unknown,
+  ): Promise<ItemUseResult>
+
+  /**
+   * Optional handler invoked when a user sells an inventory item back to the
+   * owning plugin (typically a shop). Plugins handle the sale themselves --
+   * remove the item, credit the user with coins, restock if applicable --
+   * and return the refund amount for client feedback.
+   *
+   * Plugins that don't sell items can omit this; the inventory controller
+   * surfaces a "this item can't be sold" message in that case.
+   *
+   * @example
+   * async onItemSold(userId, item, definition) {
+   *   return this.shop.sell({ userId }, item.itemId)
+   * }
+   */
+  onItemSold?(
+    userId: string,
+    item: InventoryItem,
+    definition: ItemDefinition,
+    context?: unknown,
+  ): Promise<ItemSellResult>
 }
 
 /**

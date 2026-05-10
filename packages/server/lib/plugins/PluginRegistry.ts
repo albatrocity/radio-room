@@ -1,5 +1,10 @@
 import {
   AppContext,
+  ChatMessage,
+  InventoryItem,
+  ItemDefinition,
+  ItemSellResult,
+  ItemUseResult,
   Plugin,
   PluginActionInitiator,
   PluginContext,
@@ -17,6 +22,8 @@ import { Server } from "socket.io"
 import { PluginAPIImpl } from "./PluginAPI"
 import { PluginStorageImpl } from "./PluginStorage"
 import { PluginLifecycleImpl } from "./PluginLifecycle"
+import { PluginGameSessionAPI } from "./PluginGameSessionAPI"
+import { PluginInventoryAPI } from "./PluginInventoryAPI"
 
 /**
  * Plugin factory function - creates a new plugin instance
@@ -95,11 +102,19 @@ export class PluginRegistry {
     // Create a scoped API that knows the plugin name and roomId for event namespacing
     const scopedApi = this.api.forPlugin(pluginName, roomId)
 
+    const artifacts = this.context.artifacts
+    if (!artifacts) {
+      throw new Error("[PluginRegistry] AppContext.artifacts is not initialised")
+    }
+
     const pluginContext: PluginContext = {
       roomId,
       api: scopedApi,
       storage,
       lifecycle,
+      game: new PluginGameSessionAPI(this.context, pluginName, roomId),
+      inventory: new PluginInventoryAPI(this.context, pluginName, roomId),
+      artifacts,
       getRoom: async () => {
         const { findRoom } = await import("../../operations/data")
         const room = await findRoom({ context: this.context, roomId })
@@ -274,6 +289,58 @@ export class PluginRegistry {
     }
 
     return { allowed: true }
+  }
+
+  // ============================================================================
+  // Chat message transform
+  // ============================================================================
+
+  /**
+   * Run `transformChatMessage` on all plugins in the room that implement it.
+   * Plugins are called in map iteration order; each receives the output of the
+   * previous. Fail-open on errors and timeouts (same 500ms as queue validation).
+   */
+  async transformChatMessage(roomId: string, message: ChatMessage): Promise<ChatMessage> {
+    const roomPluginMap = this.roomPlugins.get(roomId)
+
+    if (!roomPluginMap || roomPluginMap.size === 0) {
+      return message
+    }
+
+    const pluginsWithTransform = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.transformChatMessage === "function",
+    )
+
+    if (pluginsWithTransform.length === 0) {
+      return message
+    }
+
+    let current = message
+
+    for (const [pluginName, { plugin }] of pluginsWithTransform) {
+      try {
+        const next = await Promise.race([
+          plugin.transformChatMessage!(roomId, current),
+          new Promise<ChatMessage | null>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+
+        if (next != null) {
+          current = next
+        }
+      } catch (error) {
+        console.warn(
+          `[PluginRegistry] transformChatMessage ${pluginName} failed (fail-open):`,
+          error,
+        )
+      }
+    }
+
+    return current
   }
 
   /**
@@ -604,6 +671,75 @@ export class PluginRegistry {
         error,
       )
       return { success: false, message: `Error executing action: ${error}` }
+    }
+  }
+
+  /**
+   * Dispatch an inventory item use to the source plugin's `onItemUsed` handler.
+   *
+   * Called by `InventoryService.useItem`. Returns `null` when the plugin is not
+   * loaded for the room or doesn't implement the handler — `InventoryService`
+   * surfaces a default "not usable" result in that case.
+   */
+  async invokeOnItemUsed(
+    roomId: string,
+    pluginName: string,
+    userId: string,
+    item: InventoryItem,
+    definition: ItemDefinition,
+    callContext: unknown,
+  ): Promise<ItemUseResult | null> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return null
+
+    const instance = roomPlugins.get(pluginName)
+    if (!instance) return null
+
+    const { plugin } = instance
+    if (typeof plugin.onItemUsed !== "function") return null
+
+    try {
+      return await plugin.onItemUsed(userId, item, definition, callContext)
+    } catch (error) {
+      console.error(
+        `[PluginRegistry] Error in onItemUsed for plugin ${pluginName}:`,
+        error,
+      )
+      return { success: false, consumed: false, message: `Error using item: ${error}` }
+    }
+  }
+
+  /**
+   * Dispatch an inventory sell-back to the source plugin's `onItemSold`
+   * handler. Returns `null` when the plugin is not loaded for the room or
+   * doesn't implement the handler -- the inventory controller surfaces a
+   * "can't be sold" message in that case.
+   */
+  async invokeOnItemSold(
+    roomId: string,
+    pluginName: string,
+    userId: string,
+    item: InventoryItem,
+    definition: ItemDefinition,
+    callContext: unknown,
+  ): Promise<ItemSellResult | null> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return null
+
+    const instance = roomPlugins.get(pluginName)
+    if (!instance) return null
+
+    const { plugin } = instance
+    if (typeof plugin.onItemSold !== "function") return null
+
+    try {
+      return await plugin.onItemSold(userId, item, definition, callContext)
+    } catch (error) {
+      console.error(
+        `[PluginRegistry] Error in onItemSold for plugin ${pluginName}:`,
+        error,
+      )
+      return { success: false, message: `Error selling item: ${error}` }
     }
   }
 

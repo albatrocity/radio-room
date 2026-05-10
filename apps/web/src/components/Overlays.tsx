@@ -10,7 +10,9 @@ import ModalPassword from "./Modals/ModalPassword"
 import ModalAbout from "./Modals/ModalAbout"
 import ModalAddToQueue from "./Modals/ModalAddToQueue"
 import ModalAdminSettings from "./Modals/Admin/ModalAdminSettings"
+import ModalUserGameState from "./Modals/ModalUserGameState"
 import ScreenEffectsProvider from "./ScreenEffectsProvider"
+import { ModifierBlurLayer } from "./ModifierBlurLayer"
 import DrawerSchedule from "./Drawers/DrawerSchedule"
 
 function Overlays() {
@@ -28,7 +30,10 @@ function Overlays() {
       <ModalAdminSettings />
       <ModalEditUsername />
       <ModalPassword />
+      <ModalUserGameState />
 
+      {/* Timed modifier stacks (e.g. interface blur) */}
+      <ModifierBlurLayer />
       {/* Screen effects handler - applies CSS animations from plugin events */}
       <ScreenEffectsProvider />
     </div>

@@ -5,6 +5,7 @@ import { Box, Grid, GridItem, HStack, Stack } from "@chakra-ui/react"
 import ChatInput, { MessagePayload } from "./ChatInput"
 import TypingIndicator from "./TypingIndicator"
 import PopoverPreferences from "./PopoverPreferences"
+import ButtonGameState from "./ButtonGameState"
 import ChatWindow from "./ChatWindow"
 
 import { chatScrollTargetActor } from "../actors/chatScrollTargetActor"
@@ -72,6 +73,7 @@ const Chat = () => {
           {/* Image previews will be portaled here from ChatInput */}
           <Box ref={imagePreviewRef} />
           <HStack zIndex={2} w="100%" gap={0} align="center">
+            <ButtonGameState />
             <PopoverPreferences />
             <ChatInput
               onTypingStart={handleTypingStart}

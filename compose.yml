@@ -7,13 +7,19 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Mount source code for hot reloading
-      - ./apps/web/src:/app/apps/web/src
-      - ./apps/web/public:/app/apps/web/public
-      - ./apps/web/index.html:/app/apps/web/index.html
-      - ./apps/web/vite.config.ts:/app/apps/web/vite.config.ts
+      # Mount entire app directory so TanStack Router's .tanstack/tmp/ and src/
+      # share the same filesystem (avoids EXDEV rename errors in Docker).
+      # Workspace deps stay at /app/node_modules from the image (not under this mount).
+      # :delegated improves bind-mount consistency on Docker Desktop (macOS/Windows).
+      - ./apps/web:/app/apps/web:delegated
+      # Sync workspace packages so edits to @repo/* hot-reload (otherwise image copy is stale).
+      - ./packages:/app/packages:delegated
     environment:
       - NODE_ENV=development
+      # Vite reads VITE_DOCKER in vite.config.ts (Chokidar polling for bind mounts).
+      - VITE_DOCKER=1
+      # Standard env for file watchers on Docker volumes (belt-and-suspenders with server.watch.usePolling).
+      - CHOKIDAR_USEPOLLING=true
       # Use 127.0.0.1 (loopback) instead of localhost per Spotify's requirements
       - VITE_API_URL=${VITE_API_URL:-http://127.0.0.1:3000}
       # Internal Docker network URL for Vite proxy (server-side)

@@ -59,7 +59,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/segments': typeof SegmentsRoute
   '/shows/$showId': typeof ShowsShowIdRouteWithChildren
-  '/shows': typeof ShowsIndexRoute
+  '/shows/': typeof ShowsIndexRoute
   '/shows/$showId/publish': typeof ShowsShowIdPublishRouteWithChildren
   '/shows/$showId/publish/playlist': typeof ShowsShowIdPublishPlaylistRoute
 }
@@ -89,7 +89,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/segments'
     | '/shows/$showId'
-    | '/shows'
+    | '/shows/'
     | '/shows/$showId/publish'
     | '/shows/$showId/publish/playlist'
   fileRoutesByTo: FileRoutesByTo
@@ -146,7 +146,7 @@ declare module '@tanstack/react-router' {
     '/shows/': {
       id: '/shows/'
       path: '/shows'
-      fullPath: '/shows'
+      fullPath: '/shows/'
       preLoaderRoute: typeof ShowsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }

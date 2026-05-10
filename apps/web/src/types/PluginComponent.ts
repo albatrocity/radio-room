@@ -42,9 +42,13 @@ export type {
   PluginUsernameComponent,
   PluginCountdownComponent,
   PluginModalComponent,
+  PluginTabComponent,
   
   // Schema
   PluginComponentSchema,
   PluginComponentState,
   PluginComponentStores,
+  ShopOfferTableRow,
+  ShopOfferTableComponentProps,
+  CurrentShopOffersComponentProps,
 } from "@repo/types"

@@ -12,17 +12,19 @@
   "author": "Ross Brown <albatrocity@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "@repo/auth": "*",
-    "@repo/db": "*",
     "@repo/adapter-spotify": "*",
     "@repo/adapter-tidal": "*",
-    "@repo/media-source-shoutcast": "*",
+    "@repo/auth": "*",
+    "@repo/db": "*",
     "@repo/media-source-rtmp": "*",
+    "@repo/media-source-shoutcast": "*",
     "@repo/plugin-absent-dj": "*",
-    "@repo/plugin-queue-hygiene": "*",
     "@repo/plugin-guess-the-tune": "*",
-    "@repo/plugin-special-words": "*",
+    "@repo/plugin-loyalty-program": "*",
+    "@repo/plugin-item-shops": "*",
     "@repo/plugin-playlist-democracy": "*",
+    "@repo/plugin-queue-hygiene": "*",
+    "@repo/plugin-special-words": "*",
     "@repo/server": "*",
     "@socket.io/redis-adapter": "^8.3.0",
     "@spotify/web-api-ts-sdk": "^1.2.0",
@@ -39,7 +41,7 @@
     "redis": "^4.7.0",
     "remeda": "^2.26.0",
     "socket.io": "^4.8.1",
-    "zod": "^4.1.13"
+    "zod": "^4.4.2"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",

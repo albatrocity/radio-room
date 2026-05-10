@@ -29,6 +29,7 @@ cp .env.example .env
 ```
 
 Key variables:
+
 - `DATABASE_URL` -- PostgreSQL connection string (required for admin auth)
 - `BETTER_AUTH_SECRET` -- Secret for session encryption (min 32 chars)
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` -- Google OAuth credentials (optional)
@@ -68,6 +69,26 @@ listening-room/
 │   └── ...
 │
 └── docs/             # Documentation
+```
+
+---
+
+## Game Devs
+
+**Game Studio** is a self-contained Vite app for testing items, shops, and game rules in the browser—**no Docker or API** required. All current item and shop content used in the studio lives in **`packages/plugin-item-shops/`**; edit there and run the studio to see changes with hot reload.
+
+- **Full setup and platform notes (macOS / Windows):** [apps/game-studio/README.md](apps/game-studio/README.md)
+
+From the **repository root**, start the dev server (http://localhost:8005):
+
+```bash
+make game-studio
+```
+
+**Windows:** If `make` is not available, use:
+
+```bash
+npm run dev -w game-studio
 ```
 
 ---
@@ -153,11 +174,11 @@ docker compose --profile live up
 
 Once running:
 
-| Endpoint | URL | Purpose |
-|----------|-----|---------|
-| RTMP ingest | `rtmp://localhost:1935/{streamKey}` | Point OBS, Audio Hijack, or FFmpeg here |
-| WebRTC (WHEP) | `http://localhost:8889/{streamKey}/whep` | Sub-second playback (primary) |
-| LL-HLS | `http://localhost:8888/{streamKey}/index.m3u8` | 2-6s latency fallback (plays in Safari/VLC) |
+| Endpoint      | URL                                            | Purpose                                     |
+| ------------- | ---------------------------------------------- | ------------------------------------------- |
+| RTMP ingest   | `rtmp://localhost:1935/{streamKey}`            | Point OBS, Audio Hijack, or FFmpeg here     |
+| WebRTC (WHEP) | `http://localhost:8889/{streamKey}/whep`       | Sub-second playback (primary)               |
+| LL-HLS        | `http://localhost:8888/{streamKey}/index.m3u8` | 2-6s latency fallback (plays in Safari/VLC) |
 
 The `{streamKey}` is any path you choose (e.g., `live`). Whatever you use for ingest is what you use for playback.
 

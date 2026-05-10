@@ -1,8 +1,10 @@
+import type { TextSegment } from "@repo/types"
 import { Reaction } from "./Reaction"
 import { User } from "./User"
 
 export type ChatMessage = {
   content: string
+  contentSegments?: TextSegment[]
   mentions?: string[]
   timestamp: string
   user: User

@@ -22,6 +22,8 @@ export const listItemUserRecipe = defineSlotRecipe({
     typingIndicator: {
       opacity: 0,
       transition: "opacity 0.6s ease-in-out",
+      background: "secondaryBg",
+      zIndex: -1,
     },
     typingIcon: {
       transform: "scaleX(-1)",
@@ -70,6 +72,7 @@ export const listItemUserRecipe = defineSlotRecipe({
       true: {
         typingIndicator: {
           opacity: 1,
+          zIndex: 1,
         },
         typingIcon: {
           animation: "pulse 0.8s infinite ease-in-out",

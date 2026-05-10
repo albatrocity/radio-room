@@ -21,6 +21,6 @@
     "@repo/utils": "*",
     "@spotify/web-api-ts-sdk": "^1.2.0",
     "node-internet-radio": "^0.2.1",
-    "zod": "^4.1.13"
+    "zod": "^4.4.2"
   }
 }

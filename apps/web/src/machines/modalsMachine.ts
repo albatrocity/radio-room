@@ -14,6 +14,7 @@ export type Event =
   | { type: "VIEW_BOOKMARKS" }
   | { type: "VIEW_LISTENERS" }
   | { type: "VIEW_SCHEDULE" }
+  | { type: "VIEW_GAME_STATE" }
   | { type: "CLOSE" }
   | { type: "CREATE_ROOM" }
   | { type: "BACK" }
@@ -23,11 +24,15 @@ export type Event =
   | { type: "EDIT_SPOTIFY" }
   | { type: "EDIT_PASSWORD" }
   | { type: "EDIT_SCHEDULE" }
+  | { type: "EDIT_GAME_SESSIONS" }
   | { type: "EDIT_PLAYLIST_DEMOCRACY" }
   | { type: "EDIT_SPECIAL_WORDS" }
   | { type: "EDIT_ABSENT_DJ" }
   | { type: "EDIT_QUEUE_HYGIENE" }
   | { type: "EDIT_GUESS_THE_TUNE" }
+  | { type: "EDIT_MUSIC_SHOP" }
+  | { type: "EDIT_LOYALTY_PROGRAM" }
+  | { type: "EDIT_ITEM_SHOPS" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
@@ -75,6 +80,9 @@ export const modalsMachine = setup({
     VIEW_SCHEDULE: {
       target: ".schedule",
     },
+    VIEW_GAME_STATE: {
+      target: ".gameState",
+    },
     CLOSE: {
       target: ".closed",
     },
@@ -88,6 +96,7 @@ export const modalsMachine = setup({
     listeners: {},
     help: {},
     schedule: {},
+    gameState: {},
     createRoom: {},
     settings: {
       entry: ["fetchSettings"],
@@ -101,12 +110,16 @@ export const modalsMachine = setup({
             EDIT_SPOTIFY: "spotify",
             EDIT_PASSWORD: "password",
             EDIT_SCHEDULE: "schedule",
+            EDIT_GAME_SESSIONS: "game_sessions",
             // Plugin rows in Overview use EDIT_{NAME} (see toEventName); each needs a transition + substate below.
             EDIT_PLAYLIST_DEMOCRACY: "playlist_democracy",
             EDIT_SPECIAL_WORDS: "special_words",
             EDIT_ABSENT_DJ: "absent_dj",
             EDIT_QUEUE_HYGIENE: "queue_hygiene",
             EDIT_GUESS_THE_TUNE: "guess_the_tune",
+            EDIT_MUSIC_SHOP: "music_shop",
+            EDIT_LOYALTY_PROGRAM: "loyalty_program",
+            EDIT_ITEM_SHOPS: "item_shops",
           },
         },
         playlist_democracy: {
@@ -130,6 +143,21 @@ export const modalsMachine = setup({
           },
         },
         guess_the_tune: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        music_shop: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        loyalty_program: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        item_shops: {
           on: {
             BACK: "overview",
           },
@@ -160,6 +188,11 @@ export const modalsMachine = setup({
           },
         },
         schedule: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        game_sessions: {
           on: {
             BACK: "overview",
           },

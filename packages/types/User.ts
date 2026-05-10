@@ -7,6 +7,8 @@ import { z } from "zod"
 export const userSchema = z.object({
   id: z.string().optional(), // socket ID
   userId: z.string(),
+  /** ISO timestamp from Redis user hash (set at login); optional on typed views */
+  connectedAt: z.string().optional(),
   username: z.string().optional(),
   isAdmin: z.boolean().optional(),
   isDj: z.boolean().optional(),

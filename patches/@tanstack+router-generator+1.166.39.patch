@@ -1,0 +1,24 @@
+diff --git a/dist/cjs/config.cjs b/dist/cjs/config.cjs
+--- a/dist/cjs/config.cjs
++++ b/dist/cjs/config.cjs
+@@ -51,7 +51,7 @@
+ 	disableTypes: zod.z.boolean().optional().default(false),
+ 	addExtensions: zod.z.union([zod.z.boolean(), zod.z.string()]).optional().default(false).transform((v) => typeof v === "string" ? v.startsWith(".") ? v : `.${v}` : v),
+ 	enableRouteTreeFormatting: zod.z.boolean().optional().default(true),
+-	routeTreeFileFooter: zod.z.union([zod.z.array(zod.z.string()).optional().default([]), zod.z.function().returns(zod.z.array(zod.z.string()))]).optional(),
++	routeTreeFileFooter: zod.z.union([zod.z.array(zod.z.string()).optional().default([]), zod.z.function({ input: [], output: zod.z.array(zod.z.string()) })]).optional(),
+ 	autoCodeSplitting: zod.z.boolean().optional(),
+ 	customScaffolding: zod.z.object({
+ 		routeTemplate: zod.z.string().optional(),
+diff --git a/dist/esm/config.js b/dist/esm/config.js
+--- a/dist/esm/config.js
++++ b/dist/esm/config.js
+@@ -49,7 +49,7 @@
+ 	disableTypes: z.boolean().optional().default(false),
+ 	addExtensions: z.union([z.boolean(), z.string()]).optional().default(false).transform((v) => typeof v === "string" ? v.startsWith(".") ? v : `.${v}` : v),
+ 	enableRouteTreeFormatting: z.boolean().optional().default(true),
+-	routeTreeFileFooter: z.union([z.array(z.string()).optional().default([]), z.function().returns(z.array(z.string()))]).optional(),
++	routeTreeFileFooter: z.union([z.array(z.string()).optional().default([]), z.function({ input: [], output: z.array(z.string()) })]).optional(),
+ 	autoCodeSplitting: z.boolean().optional(),
+ 	customScaffolding: z.object({
+ 		routeTemplate: z.string().optional(),

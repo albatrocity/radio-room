@@ -124,24 +124,29 @@ export function checkShowWhenConditions(
 
 /**
  * Recursively interpolate template placeholders in an object's properties.
- * Handles nested objects and arrays. Useful for interpolating config values
- * in component props at render time.
+ * Handles nested objects and arrays. Useful for interpolating config and
+ * store values in component props at render time.
+ *
+ * The caller is responsible for structuring the `values` object to match
+ * the placeholder paths used in templates. For example, to support
+ * `{{config.fieldName}}` placeholders, pass `{ config: {...} }`. Store
+ * values can be placed at the top level for `{{storeKey}}` references.
  *
  * @example
  * ```typescript
- * // Simple string interpolation
+ * // Config values nested under "config" key
  * interpolatePropsRecursively(
  *   { label: "React with {{config.reactionType}}" },
- *   { reactionType: "+1" }
+ *   { config: { reactionType: "+1" } }
  * )
  * // → { label: "React with +1" }
  *
- * // Nested objects
+ * // Mixed: top-level store values + nested config
  * interpolatePropsRecursively(
- *   { style: { color: "{{config.color}}" } },
- *   { color: "red" }
+ *   { label: "Sell ({{sellPrice}} coins, base {{config.basePrice}})" },
+ *   { sellPrice: 50, config: { basePrice: 100 } }
  * )
- * // → { style: { color: "red" } }
+ * // → { label: "Sell (50 coins, base 100)" }
  *
  * // Arrays (e.g., CompositeTemplate)
  * interpolatePropsRecursively(
@@ -150,36 +155,33 @@ export function checkShowWhenConditions(
  *       { type: "text", content: "Value: {{config.value}}" }
  *     ]
  *   },
- *   { value: 42 }
+ *   { config: { value: 42 } }
  * )
  * // → { content: [{ type: "text", content: "Value: 42" }] }
  * ```
  *
  * @param props - Object with properties to interpolate
- * @param config - Configuration values to use for interpolation
+ * @param values - Values to use for interpolation (supports nested paths)
  * @returns New object with interpolated values
  */
 export function interpolatePropsRecursively(
   props: Record<string, unknown>,
-  config: Record<string, unknown>,
+  values: Record<string, unknown>,
 ): Record<string, unknown> {
   const interpolated: Record<string, unknown> = {}
 
   for (const [key, value] of Object.entries(props)) {
     if (typeof value === "string") {
-      // Wrap config in a "config" key for proper path resolution
-      interpolated[key] = interpolateTemplate(value, { config })
+      interpolated[key] = interpolateTemplate(value, values)
     } else if (Array.isArray(value)) {
-      // Handle arrays (e.g., CompositeTemplate)
       interpolated[key] = value.map((item) => {
         if (typeof item === "object" && item !== null) {
-          return interpolatePropsRecursively(item as Record<string, unknown>, config)
+          return interpolatePropsRecursively(item as Record<string, unknown>, values)
         }
         return item
       })
     } else if (typeof value === "object" && value !== null) {
-      // Recursively interpolate nested objects
-      interpolated[key] = interpolatePropsRecursively(value as Record<string, unknown>, config)
+      interpolated[key] = interpolatePropsRecursively(value as Record<string, unknown>, values)
     } else {
       interpolated[key] = value
     }

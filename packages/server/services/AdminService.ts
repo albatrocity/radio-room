@@ -1,6 +1,7 @@
-import { AppContext } from "@repo/types"
+import { AppContext, GameSession, GameSessionConfig, GameSessionResults } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
+import type { GameSessionService } from "./GameSessionService"
 import { omit } from "remeda"
 import {
   clearQueue,
@@ -351,5 +352,93 @@ export class AdminService {
     }
 
     return { success: true, error: null }
+  }
+
+  /**
+   * Active game session for a room (admin only).
+   */
+  async getGameSessionStatus(
+    roomId: string,
+    userId: string,
+  ): Promise<{
+    session: GameSession | null
+    error: { status: number; error: string; message: string } | null
+  }> {
+    const { room, error } = await this.getAuthedRoom(roomId, userId)
+    if (!room) {
+      return { session: null, error: error ?? { status: 403, error: "Forbidden", message: "Not authorized" } }
+    }
+    const svc = this.context.gameSessions as GameSessionService | undefined
+    if (!svc) {
+      return {
+        session: null,
+        error: {
+          status: 503,
+          error: "Service Unavailable",
+          message: "Game sessions are not available on this server.",
+        },
+      }
+    }
+    const session = await svc.getActiveSession(roomId)
+    return { session, error: null }
+  }
+
+  /**
+   * Start an ad-hoc game session (admin only). Ends any active session first.
+   */
+  async startGameSession(
+    roomId: string,
+    userId: string,
+    config: Partial<GameSessionConfig> & { name: string },
+  ): Promise<{
+    session: GameSession | null
+    error: { status: number; error: string; message: string } | null
+  }> {
+    const { room, error } = await this.getAuthedRoom(roomId, userId)
+    if (!room) {
+      return { session: null, error: error ?? { status: 403, error: "Forbidden", message: "Not authorized" } }
+    }
+    const svc = this.context.gameSessions as GameSessionService | undefined
+    if (!svc) {
+      return {
+        session: null,
+        error: {
+          status: 503,
+          error: "Service Unavailable",
+          message: "Game sessions are not available on this server.",
+        },
+      }
+    }
+    const session = await svc.startSession(roomId, config)
+    return { session, error: null }
+  }
+
+  /**
+   * End the active game session (admin only).
+   */
+  async endGameSession(
+    roomId: string,
+    userId: string,
+  ): Promise<{
+    results: GameSessionResults | null
+    error: { status: number; error: string; message: string } | null
+  }> {
+    const { room, error } = await this.getAuthedRoom(roomId, userId)
+    if (!room) {
+      return { results: null, error: error ?? { status: 403, error: "Forbidden", message: "Not authorized" } }
+    }
+    const svc = this.context.gameSessions as GameSessionService | undefined
+    if (!svc) {
+      return {
+        results: null,
+        error: {
+          status: 503,
+          error: "Service Unavailable",
+          message: "Game sessions are not available on this server.",
+        },
+      }
+    }
+    const results = await svc.endSession(roomId)
+    return { results, error: null }
   }
 }

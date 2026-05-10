@@ -19,6 +19,17 @@ import type { ChatMessage } from "./ChatMessage"
 import type { MetadataSourceTrack } from "./MetadataSource"
 import type { MetadataSourceType } from "./TrackSource"
 import type { RoomScheduleSnapshotDTO } from "./Scheduling"
+import type {
+  GameSessionConfig,
+  GameSessionResults,
+  GameStateChange,
+  GameStateModifier,
+} from "./GameSession"
+import type {
+  InventoryAcquisitionSource,
+  InventoryItem,
+  ItemUseResult,
+} from "./Inventory"
 
 /**
  * System event handler signatures
@@ -171,6 +182,129 @@ export type SystemEventHandlers = {
     targetId?: string // timestamp for messages, componentId for plugins, or "latest"
     effect: ScreenEffectName
     duration?: number // optional custom duration in ms
+  }) => Promise<void> | void
+
+  // ==========================================================================
+  // Game Session events
+  // ==========================================================================
+
+  /** Fired when a session is started (manually or via a segment). */
+  GAME_SESSION_STARTED: (data: {
+    roomId: string
+    sessionId: string
+    config: GameSessionConfig
+  }) => Promise<void> | void
+
+  /** Fired when a session ends, with final per-user results. */
+  GAME_SESSION_ENDED: (data: {
+    roomId: string
+    sessionId: string
+    results: GameSessionResults
+  }) => Promise<void> | void
+
+  /**
+   * Delta event for one or more attribute changes for a single user.
+   * Plugins / UI layers may use changes to animate without re-fetching.
+   */
+  GAME_STATE_CHANGED: (data: {
+    roomId: string
+    sessionId: string
+    userId: string
+    changes: GameStateChange[]
+  }) => Promise<void> | void
+
+  /** Fired when a modifier is applied or stacked onto a user. */
+  GAME_MODIFIER_APPLIED: (data: {
+    roomId: string
+    sessionId: string
+    userId: string
+    modifier: GameStateModifier
+  }) => Promise<void> | void
+
+  /** Fired when a modifier is removed (manually or via expiry). */
+  GAME_MODIFIER_REMOVED: (data: {
+    roomId: string
+    sessionId: string
+    userId: string
+    modifierId: string
+    reason: "manual" | "expired"
+  }) => Promise<void> | void
+
+  /**
+   * A held defense item blocked a modifier or queue move. `modifier` is set
+   * when `blockType === "modifier"` (may omit `id` when the modifier was never stored).
+   */
+  GAME_EFFECT_BLOCKED: (data: {
+    roomId: string
+    sessionId: string
+    /** User the action targeted (modifier recipient or queue track owner). */
+    targetUserId: string
+    /** User who initiated the action, when known (e.g. item user). */
+    actorUserId?: string
+    blockType: "modifier" | "queue"
+    modifier?: GameStateModifier
+    queue?: {
+      metadataTrackId: string
+      delta: number
+      intent: "positive" | "negative"
+    }
+    blockedBy: {
+      itemDefinitionId: string
+      itemId: string
+      defenderUserId: string
+      itemName: string
+    }
+  }) => Promise<void> | void
+
+  /**
+   * Snapshot of the active session's modifier state for every participant.
+   * Emitted to a single socket in response to `GET_ROOM_GAME_STATE`.
+   * Used by the client to hydrate per-user effect bars in the listener list;
+   * incremental updates flow through `GAME_MODIFIER_APPLIED` / `GAME_MODIFIER_REMOVED`.
+   *
+   * Note: this is a client-bound socket response only — it is not broadcast
+   * via SystemEvents and has no plugin handler path.
+   */
+  ROOM_GAME_STATE: (data: {
+    sessionId: string | null
+    modifiersByUserId: Record<string, GameStateModifier[]>
+  }) => Promise<void> | void
+
+  // ==========================================================================
+  // Inventory events
+  // ==========================================================================
+
+  INVENTORY_ITEM_ACQUIRED: (data: {
+    roomId: string
+    sessionId: string
+    userId: string
+    item: InventoryItem
+    source: InventoryAcquisitionSource
+  }) => Promise<void> | void
+
+  INVENTORY_ITEM_USED: (data: {
+    roomId: string
+    sessionId: string
+    userId: string
+    item: InventoryItem
+    result: ItemUseResult
+  }) => Promise<void> | void
+
+  INVENTORY_ITEM_REMOVED: (data: {
+    roomId: string
+    sessionId: string
+    userId: string
+    itemId: string
+    quantity: number
+  }) => Promise<void> | void
+
+  INVENTORY_ITEM_TRANSFERRED: (data: {
+    roomId: string
+    sessionId: string
+    fromUserId: string
+    toUserId: string
+    item: InventoryItem
+    quantity: number
   }) => Promise<void> | void
 }
 

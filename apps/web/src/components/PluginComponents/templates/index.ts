@@ -9,8 +9,9 @@ export { ButtonTemplateComponent } from "./ButtonComponent"
 export { BadgeTemplateComponent } from "./BadgeComponent"
 export { LeaderboardTemplateComponent } from "./LeaderboardComponent"
 export { CountdownTemplateComponent } from "./CountdownComponent"
+export { ShopOfferTableTemplateComponent } from "./ShopOfferTableComponent"
+export { CurrentShopOffersTemplateComponent } from "./CurrentShopOffersComponent"
 
 // Utilities
 export { TEMPLATE_COMPONENT_MAP, renderTemplateComponent } from "./componentMap"
 export { CompositeTemplateRenderer } from "./CompositeTemplateRenderer"
-

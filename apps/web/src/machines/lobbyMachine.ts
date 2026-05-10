@@ -219,7 +219,8 @@ export const lobbyMachine = setup({
             onDone: {
               target: "ready",
               actions: assign({
-                rooms: ({ event }) => event.output.rooms as LobbyRoom[],
+                rooms: ({ event }) =>
+                  (Array.isArray(event.output?.rooms) ? event.output.rooms : []) as LobbyRoom[],
                 error: null,
               }),
             },

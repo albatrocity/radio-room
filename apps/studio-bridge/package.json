@@ -1,0 +1,26 @@
+{
+  "name": "studio-bridge",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Local Socket.IO bridge for Game Studio → web Room UI preview",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "check-types": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@repo/types": "*",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

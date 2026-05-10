@@ -50,8 +50,13 @@ export class MessageHandlers {
       })
     }
 
+    const registry = socket.context.pluginRegistry
+    const messageToSend = registry
+      ? await registry.transformChatMessage(roomId, result.message)
+      : result.message
+
     // Send the message (broadcasts via SystemEvents)
-    await sendMessage(io, roomId, result.message, socket.context)
+    await sendMessage(io, roomId, messageToSend, socket.context)
   }
 
   /**

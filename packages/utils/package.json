@@ -19,6 +19,6 @@
   },
   "dependencies": {
     "@repo/types": "*",
-    "zod": "^4.1.13"
+    "zod": "^4.4.2"
   }
 }
