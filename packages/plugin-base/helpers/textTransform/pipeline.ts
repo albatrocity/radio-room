@@ -8,7 +8,7 @@ import {
   resolveBaseSize,
   resolveEchoSize,
   applySnoozeTransform,
-  applyCoffeeTransform
+  applyCoffeeTransform,
 } from "./effects"
 import type { TextEffectStacks } from "./flags"
 
@@ -22,18 +22,6 @@ type SizeValue = Extract<TextEffect, { type: "size" }>["value"]
 function sizeEffects(value: SizeValue): TextEffect[] {
   return [{ type: "size", value }]
 }
-
-const CARROT_EFFECT: TextEffect = { type:"color", value: "orange" }
-
-function MakeVeggies(
-  effects: TextEffect[] | undefined,
-  stacks: TextEffectStacks,
-): TextEffect[] | undefined {
-  if (stacks.carrot <= 0) return effects
-  if (!effects?.length) return [CARROT_EFFECT]
-  return [...effects, CARROT_EFFECT]
-}
-
 
 const COMIC_SANS_EFFECT: TextEffect = { type: "font", value: "comicSans" }
 
@@ -77,8 +65,16 @@ export function applyTextEffects(
   const snooze = stacks.snooze > 0
   const scramble = stacks.scramble > 0
   const coffee = stacks.coffee > 0
-  const carrots = stacks.carrot > 0
-  if (echoes === 0 && shift === 0 && !gate && !scramble && !snooze && !coffee && !carrots && stacks.comicSans <= 0) return null
+  if (
+    echoes === 0 &&
+    shift === 0 &&
+    !gate &&
+    !scramble &&
+    !snooze &&
+    !coffee &&
+    stacks.comicSans <= 0
+  )
+    return null
 
   const baseSize = resolveBaseSize(stacks)
   const transformed = scramble ? applyScrambleTransform(content, stacks.scramble) : content
@@ -89,7 +85,6 @@ export function applyTextEffects(
     if (snooze) word = applySnoozeTransform(word)
     if (coffee) word = applyCoffeeTransform(word)
     if (gate) word = applyGateTransform(word)
-    if (carrots) word = MakeVeggies(word)
     const baseSegment: TextSegment = { text: word }
     const baseEffects = baseSize ? sizeEffects(baseSize) : undefined
     baseSegment.effects = withComicSans(baseEffects, stacks)

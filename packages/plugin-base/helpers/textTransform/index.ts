@@ -7,7 +7,6 @@ export {
   COMIC_SANS_FLAG,
   SNOOZE_FLAG,
   COFFEE_FLAG,
-  CARROT_FLAG,
   countTextEffectStacks,
   type TextEffectStacks,
 } from "./flags"
@@ -19,6 +18,6 @@ export {
   applyGateTransform,
   applyScrambleTransform,
   applySnoozeTransform,
-  applyCoffeeTransform
+  applyCoffeeTransform,
 } from "./effects"
 export { applyTextEffects, type AppliedTextEffects } from "./pipeline"
