@@ -40,6 +40,13 @@ export type ShopBuyContext = {
     mentions?: string[],
   ) => Promise<void>
 
+  /** Send a system message visible only to a specific user. */
+  sendUserSystemMessage: (
+    userId: string,
+    message: string,
+    meta?: ChatMessage["meta"],
+  ) => Promise<void>
+
   /** Check if the shopping round is still active (per-room item-shops session). */
   isShoppingActive: () => Promise<boolean>
   /** Check if a game session is currently active in the room. */
