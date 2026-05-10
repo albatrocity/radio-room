@@ -18,6 +18,7 @@ import {
   usePlaylistSend,
   useListeners,
   useModalsSend,
+  useHasQueueItems,
 } from "../hooks/useActors"
 import { HybridListeningTransportProvider } from "../hooks/useHybridListeningTransport"
 
@@ -28,6 +29,7 @@ const Room = ({ id }: { id: string }) => {
   const isNewUser = useIsNewUser()
   const isAuthenticated = useIsAuthenticated()
   const playlist = useCurrentPlaylist()
+  const hasQueueItems = useHasQueueItems()
   const listeners = useListeners()
   const playlistSend = usePlaylistSend()
   const modalSend = useModalsSend()
@@ -82,7 +84,7 @@ const Room = ({ id }: { id: string }) => {
           >
             <PlayerUi
               onShowPlaylist={() => playlistSend({ type: "TOGGLE_PLAYLIST" })}
-              hasPlaylist={playlist.length > 0}
+              hasPlaylist={playlist.length > 0 || hasQueueItems}
               listenerCount={listeners.length}
             />
           </GridItem>

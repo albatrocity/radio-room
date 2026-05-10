@@ -1,14 +1,6 @@
 "use client"
 
-import {
-  Button,
-  Heading,
-  HStack,
-  IconButton,
-  Input,
-  Separator,
-  Text,
-} from "@chakra-ui/react"
+import { Button, Heading, HStack, IconButton, Input, Separator, Text } from "@chakra-ui/react"
 import {
   Moon,
   Plus,
@@ -18,6 +10,7 @@ import {
   Sparkles,
   Square,
   Sun,
+  Timer,
 } from "lucide-react"
 import type { StudioRoom } from "../../studio/studioRoom"
 import { isShoppingRoundActive } from "../../studio/studioShoppingRead"
@@ -33,6 +26,7 @@ export type GlobalToolbarProps = {
   onStartShopping: () => void
   onEndShopping: () => void
   onOpenItemDrawer: () => void
+  onFireAllTimers: () => void
   onResetSandbox: () => void
 }
 
@@ -46,6 +40,7 @@ export function GlobalToolbar({
   onStartShopping,
   onEndShopping,
   onOpenItemDrawer,
+  onFireAllTimers,
   onResetSandbox,
 }: GlobalToolbarProps) {
   const hasSession = !!room.activeSession
@@ -66,7 +61,7 @@ export function GlobalToolbar({
         <Sparkles size={22} />
         <Heading size="lg">Game Studio</Heading>
         <Text fontSize="sm" color="fg.muted">
-          Sandbox state persists in this browser (survives HMR and refresh)
+          Sandbox state persists in this browser
         </Text>
       </HStack>
 
@@ -99,7 +94,13 @@ export function GlobalToolbar({
         <Button size="sm" colorPalette="green" disabled={hasSession} onClick={onStartGame}>
           Start game
         </Button>
-        <Button size="sm" variant="outline" colorPalette="red" disabled={!hasSession} onClick={onEndGame}>
+        <Button
+          size="sm"
+          variant="outline"
+          colorPalette="red"
+          disabled={!hasSession}
+          onClick={onEndGame}
+        >
           <Square size={14} /> End game
         </Button>
 
@@ -121,6 +122,17 @@ export function GlobalToolbar({
 
         <Button size="sm" variant="surface" onClick={onOpenItemDrawer}>
           <ShoppingCart size={16} /> Items & shops
+        </Button>
+
+        <Separator orientation="vertical" height="6" />
+
+        <Button
+          size="sm"
+          variant="outline"
+          title="Run pending plugin timers now (e.g. shop follow-up messages)"
+          onClick={onFireAllTimers}
+        >
+          <Timer size={16} /> Fire timers
         </Button>
 
         <Separator orientation="vertical" height="6" />

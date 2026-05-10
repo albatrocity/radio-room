@@ -91,6 +91,7 @@ Thumbs.db
 .env.*
 !.env.example
 !.env.test
+!apps/web/.env.studio-bridge
 
 # Vite
 vite.config.js.timestamp-*
