@@ -1,4 +1,4 @@
-import { AppContext, QueueItemAttribution } from "@repo/types"
+import { AppContext, MoveTrackResult, QueueItemAttribution } from "@repo/types"
 import { User } from "@repo/types/User"
 import { QueueItem, canonicalQueueTrackKey } from "@repo/types/Queue"
 import { MetadataSource, MetadataSourceTrack } from "@repo/types"
@@ -676,18 +676,28 @@ export class DJService {
     metadataTrackId: QueueItem["track"]["id"],
     delta: number,
     actorUserId?: string,
-  ): Promise<{ success: true } | { success: false; message: string }> {
+  ): Promise<MoveTrackResult> {
     const guard = await this.requireAppControlledRoom(roomId)
-    if (!guard.ok) return guard.error
+    if (!guard.ok) {
+      return { success: false as const, reason: "error" as const, message: guard.error.message }
+    }
 
     if (!Number.isFinite(delta) || delta === 0) {
-      return { success: false as const, message: "Invalid queue move delta" }
+      return {
+        success: false as const,
+        reason: "error" as const,
+        message: "Invalid queue move delta",
+      }
     }
 
     const queue = await getQueue({ context: this.context, roomId })
     const index = queue.findIndex((q) => q.track.id === metadataTrackId)
     if (index === -1) {
-      return { success: false as const, message: "Track not found in queue" }
+      return {
+        success: false as const,
+        reason: "error" as const,
+        message: "Track not found in queue",
+      }
     }
 
     const queueItem = queue[index]
@@ -723,21 +733,30 @@ export class DJService {
             ),
           })
         }
-        return { success: false as const, message: `Blocked by ${blocked.itemName}` }
+        return {
+          success: false as const,
+          reason: "defense_blocked" as const,
+          blockingItemName: blocked.itemName,
+        }
       }
     }
 
     if (queue.length === 0) {
-      return { success: false as const, message: "Queue is empty" }
+      return { success: false as const, reason: "error" as const, message: "Queue is empty" }
     }
     if (queue.length === 1) {
-      return { success: false as const, message: "Not enough tracks in the queue to reorder" }
+      return {
+        success: false as const,
+        reason: "error" as const,
+        message: "Not enough tracks in the queue to reorder",
+      }
     }
 
     const finalIndex = Math.max(0, Math.min(queue.length - 1, index + delta))
     if (finalIndex === index) {
       return {
         success: false as const,
+        reason: "error" as const,
         message: "Track can't move further in that direction",
       }
     }
@@ -745,7 +764,11 @@ export class DJService {
     const reordered = [...queue]
     const [target] = reordered.splice(index, 1)
     if (!target) {
-      return { success: false as const, message: "Track not found in queue" }
+      return {
+        success: false as const,
+        reason: "error" as const,
+        message: "Track not found in queue",
+      }
     }
     reordered.splice(finalIndex, 0, target)
 

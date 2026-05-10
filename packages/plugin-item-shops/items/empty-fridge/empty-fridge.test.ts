@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest"
+import { describe, expect, test, vi } from "vitest"
 import { userFactory } from "@repo/factories"
 import { emptyFridge } from "./index"
 import {
@@ -31,6 +31,26 @@ describe("emptyFridge", () => {
       1,
       user.userId,
     )
+  })
+
+  test("consumes item when defense_blocked", async () => {
+    const deps = createMockDeps()
+    const user = userFactory.build()
+    stubRoomUsers(deps, [user])
+    vi.mocked(deps.context.api.moveTrackByPosition).mockResolvedValue({
+      success: false,
+      reason: "defense_blocked",
+      blockingItemName: "Catered Meal",
+    })
+
+    const result = await invokeUse(emptyFridge, deps, user.userId, createMockDefinition("empty-fridge"), {
+      targetQueueItemId: "meta-track-2",
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.consumed).toBe(true)
+    expect(result.message).toMatch(/Blocked by Catered Meal/)
+    expect(result.message).toMatch(/lost with use/)
   })
 
   test("fails without targetQueueItemId", async () => {

@@ -1,6 +1,7 @@
 import { queueItemFactory } from "@repo/factories/queueItem"
 import type {
   ChatMessage,
+  MoveTrackResult,
   PluginAPI,
   QueueItem,
   QueueItemAttribution,
@@ -160,11 +161,13 @@ export class MockStudioPluginApi implements PluginAPI {
     metadataTrackId: string,
     delta: number,
     actorUserId?: string,
-  ): Promise<{ success: true } | { success: false; message: string }> {
-    if (roomId !== this.room.roomId) return { success: false, message: "Wrong room" }
+  ): Promise<MoveTrackResult> {
+    if (roomId !== this.room.roomId)
+      return { success: false, reason: "error", message: "Wrong room" }
     const queue = this.room.queue
     const index = queue.findIndex((q) => q.track.id === metadataTrackId)
-    if (index === -1) return { success: false, message: "Track not found in queue" }
+    if (index === -1)
+      return { success: false, reason: "error", message: "Track not found in queue" }
 
     const queueItem = queue[index]
     if (queueItem) {
@@ -198,20 +201,33 @@ export class MockStudioPluginApi implements PluginAPI {
             { type: "alert", status: "warning", title: "Blocked" },
           ),
         )
-        return { success: false, message: `Blocked by ${blocked.itemName}` }
+        return {
+          success: false,
+          reason: "defense_blocked",
+          blockingItemName: blocked.itemName,
+        }
       }
     }
 
     if (queue.length <= 1) {
-      return { success: false, message: "Not enough tracks in the queue to reorder" }
+      return {
+        success: false,
+        reason: "error",
+        message: "Not enough tracks in the queue to reorder",
+      }
     }
     const finalIndex = Math.max(0, Math.min(queue.length - 1, index + delta))
     if (finalIndex === index) {
-      return { success: false, message: "Track can't move further in that direction" }
+      return {
+        success: false,
+        reason: "error",
+        message: "Track can't move further in that direction",
+      }
     }
     const reordered = [...queue]
     const [target] = reordered.splice(index, 1)
-    if (!target) return { success: false, message: "Track not found in queue" }
+    if (!target)
+      return { success: false, reason: "error", message: "Track not found in queue" }
     reordered.splice(finalIndex, 0, target)
     this.room.queue = reordered
     await this.lifecycle.emit("QUEUE_CHANGED", { roomId: this.room.roomId, queue: reordered })

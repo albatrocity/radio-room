@@ -40,12 +40,39 @@ describe("hummusVeggies", () => {
     expect(result.message).toMatch(/Select a track/i)
   })
 
+  test("consumes item when defense_blocked", async () => {
+    const deps = createMockDeps()
+    const user = userFactory.build()
+    stubRoomUsers(deps, [user])
+    vi.mocked(deps.context.api.moveTrackByPosition).mockResolvedValue({
+      success: false,
+      reason: "defense_blocked",
+      blockingItemName: "Catered Meal",
+    })
+
+    const result = await invokeUse(
+      hummusVeggies,
+      deps,
+      user.userId,
+      createMockDefinition("hummus-veggies"),
+      {
+        targetQueueItemId: "q1",
+      },
+    )
+
+    expect(result.success).toBe(false)
+    expect(result.consumed).toBe(true)
+    expect(result.message).toMatch(/Blocked by Catered Meal/)
+    expect(result.message).toMatch(/lost with use/)
+  })
+
   test("propagates move failure", async () => {
     const deps = createMockDeps()
     const user = userFactory.build()
     stubRoomUsers(deps, [user])
     vi.mocked(deps.context.api.moveTrackByPosition).mockResolvedValue({
       success: false,
+      reason: "error",
       message: "Cannot move",
     })
 

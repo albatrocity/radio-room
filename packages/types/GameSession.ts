@@ -102,6 +102,14 @@ export type ApplyModifierResult =
   | { ok: false; reason: "no_active_session" }
   | { ok: false; reason: "defense_blocked"; blockingItemName: string }
 
+/**
+ * Result of `DJService.moveTrackByPosition` / `PluginAPI.moveTrackByPosition`.
+ */
+export type MoveTrackResult =
+  | { success: true }
+  | { success: false; reason: "defense_blocked"; blockingItemName: string }
+  | { success: false; reason: "error"; message: string }
+
 export interface GameStateModifier {
   /** Unique instance ID assigned by `GameSessionService`. */
   id: string

@@ -17,6 +17,7 @@ import type {
   GameSessionConfig,
   GameSessionResults,
   GameStateModifier,
+  MoveTrackResult,
   PluginAttributeDefinition,
   UserGameState,
 } from "./GameSession"
@@ -343,7 +344,7 @@ export interface PluginAPI {
     delta: number,
     /** When set (e.g. item user), included in defense / audit flows. */
     actorUserId?: string,
-  ): Promise<{ success: true } | { success: false; message: string }>
+  ): Promise<MoveTrackResult>
 
   /**
    * Shuffle the queue (Fisher–Yates).
