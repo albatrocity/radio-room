@@ -48,11 +48,14 @@ describe("scratchedCd", () => {
     const now = Date.now()
     const anonymousState: UserGameState = {
       userId: user.userId,
-      attributes: {},
+      attributes: {
+        score: 0,
+        coin: 0,
+      },
       modifiers: [
         {
           id: "m1",
-          name: "ski-mask",
+          name: "disguise",
           source: "item-shops",
           stackBehavior: "stack",
           startAt: now - 1000,

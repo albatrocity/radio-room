@@ -74,6 +74,7 @@ export interface PluginAttributeDefinition {
  *
  * Any variant may set optional `icon` (e.g. Lucide name in the web `ICON_MAP`) for UI.
  */
+export type GameStateEffectIntent = "positive" | "negative" | "neutral"
 export type GameStateEffect =
   | { type: "multiplier"; target: GameAttributeName; value: number }
   | { type: "additive"; target: GameAttributeName; value: number }
@@ -83,7 +84,7 @@ export type GameStateEffect =
 
 export type GameStateEffectWithMeta = GameStateEffect & {
   icon?: LucideIconName
-  intent?: "positive" | "negative" | "neutral"
+  intent?: GameStateEffectIntent
   /**
    * Per-effect duration (ms) when applying via item helpers (`timedModifierEffect`).
    * Item behaviors must set this for timed modifiers; it is stripped before persistence so evaluation only sees standard effect shapes.

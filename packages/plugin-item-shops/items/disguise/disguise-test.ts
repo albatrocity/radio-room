@@ -9,36 +9,36 @@ import {
   invokeUse,
   stubRoomUsers,
 } from "../shared/testHelpers"
-import { skiMask } from "./index"
+import { disguise } from "./index"
 import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
 
-describe("ski-mask", () => {
+describe("disguise", () => {
   it("registers the expected shortId", () => {
-    expect(skiMask.shortId).toBe("ski-mask")
+    expect(disguise.shortId).toBe("disguise")
   })
 
   it("applies anonymous_actions flag for 5 minutes", async () => {
     const deps = createMockDeps()
     const actor = userFactory.build()
     stubRoomUsers(deps, [actor])
-    const def = createMockDefinition(skiMask.shortId, {
-      name: skiMask.catalogEntry.definition.name,
-      icon: skiMask.catalogEntry.definition.icon,
+    const def = createMockDefinition(disguise.shortId, {
+      name: disguise.catalogEntry.definition.name,
+      icon: disguise.catalogEntry.definition.icon,
     })
 
-    const result = await invokeUse(skiMask, deps, actor.userId, def)
+    const result = await invokeUse(disguise, deps, actor.userId, def)
 
     expect(result.success).toBe(true)
     expectApplyTimedModifierForPedal(deps, actor.userId, {
-      modifierName: "ski-mask",
+      modifierName: "disguise",
       flag: ANONYMOUS_ACTIONS_FLAG,
-      intent: "positive",
+      intent: "neutral",
       durationMs: 5 * 60 * 1000,
     })
 
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       deps.context.roomId,
-      `Someone went anonymous (Ski Mask — 5 min).`,
+      `Someone went anonymous (Disguise — 5 min).`,
     )
   })
 
@@ -46,12 +46,12 @@ describe("ski-mask", () => {
     const deps = createMockDeps()
     const actor = userFactory.build()
     stubRoomUsers(deps, [actor])
-    const def = createMockDefinition(skiMask.shortId, {
-      name: skiMask.catalogEntry.definition.name,
-      icon: skiMask.catalogEntry.definition.icon,
+    const def = createMockDefinition(disguise.shortId, {
+      name: disguise.catalogEntry.definition.name,
+      icon: disguise.catalogEntry.definition.icon,
     })
 
-    await invokeUse(skiMask, deps, actor.userId, def)
+    await invokeUse(disguise, deps, actor.userId, def)
 
     // applyTimedModifier is mocked — it does not persist modifiers. Mirror post-use state:
     const now = Date.now()
@@ -64,7 +64,7 @@ describe("ski-mask", () => {
       modifiers: [
         {
           id: "m1",
-          name: "ski-mask",
+          name: "disguise",
           source: "item-shops",
           stackBehavior: "stack",
           startAt: now - 1000,
