@@ -5,6 +5,7 @@ export {
 } from "./defenseMatching"
 export { evaluateModifiers, pruneExpiredModifiers } from "./modifierEvaluation"
 export { getActiveFlags } from "./getActiveFlags"
+export { ANONYMOUS_ACTIONS_FLAG, hasAnonymousActions } from "./anonymousActionsFlag"
 export {
   SHRINK_FLAG,
   GROW_FLAG,

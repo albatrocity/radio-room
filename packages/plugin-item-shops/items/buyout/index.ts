@@ -1,4 +1,5 @@
 import type { InventoryItem, ItemDefinition, ItemUseResult } from "@repo/types"
+import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
 async function resolveItemDefinition(
@@ -64,11 +65,10 @@ async function useBuyout(
     }
   }
 
-  const [user] = await context.api.getUsersByIds([userId])
-  const username = user?.username?.trim() || userId
+  const displayName = await resolveItemUseActorDisplayName(deps, userId)
   await context.api.sendSystemMessage(
     context.roomId,
-    `${username} used Buyout and liquidated ${itemsSold} item(s) for ${totalRefund} coins!`,
+    `${displayName} used Buyout and liquidated ${itemsSold} item(s) for ${totalRefund} coins!`,
   )
 
   return {

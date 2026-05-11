@@ -10,6 +10,7 @@ import { gate } from "./gate"
 import { hummusVeggies } from "./hummus-veggies"
 import { jokerPedal } from "./joker-pedal"
 import { sampleHold } from "./sample-hold"
+import { skiMask } from "./ski-mask"
 import { scratchedCd } from "./scratched-cd"
 import { tubeOverdrive } from "./tube-overdrive"
 import { warranty } from "./warranty"
@@ -44,6 +45,7 @@ export const items = {
   snoozePedal,
   coffeePedal,
   gravityBong,
+  skiMask,
 } as const
 
 /**

@@ -48,9 +48,10 @@ npm run create-item -w @repo/plugin-item-shops
 
 ### Item behavior patterns
 
-- **Timed modifier:** use `timedModifierEffect` in `items/shared/behaviorHelpers.ts`
+- **Timed modifier:** use `timedModifierEffect` in `items/shared/behaviorHelpers.ts` (system messages for who was affected use `resolveItemUseActorDisplayName` for `actor` / `target` inside `applyTargetedTimedModifier`)
 - **Passive defense:** use `usePassiveDefenseItem` and `definition.defense`
 - **Custom behavior:** generated async `use` handler stub with `ItemShopsBehaviorDeps`
+- **Room messages naming the actor:** when a `use` handler calls `sendSystemMessage` with the inventory owner’s name, use **`resolveItemUseActorDisplayName(deps, userId)`** from `items/shared/resolveItemUseActorDisplayName.ts` so the **`anonymous_actions`** timed modifier (Ski Mask) is respected. It reads `deps.game.getUserState(userId)`; in tests, **`applyTimedModifier` is mocked**, so mirror modifier state by mocking **`getUserState`** when asserting anonymous copy.
 
 ### Effect Types
 
@@ -59,6 +60,7 @@ npm run create-item -w @repo/plugin-item-shops
 - **flag** - Boolean flag in user game state
   - Text-effect flags currently wired to chat rendering are:
     - `GROW_FLAG`, `SHRINK_FLAG`, `ECHO_FLAG`, `GATE_FLAG`, `SCRAMBLE_FLAG`, `COMIC_SANS_FLAG`
+  - **`anonymous_actions`** (`ANONYMOUS_ACTIONS_FLAG` in `@repo/game-logic` / `@repo/plugin-base`) is used by Item Shops for **room-visible attribution**, not chat transforms: while active, item behaviors that call **`resolveItemUseActorDisplayName`** (`items/shared/resolveItemUseActorDisplayName.ts`) return **`"Someone"`** for `sendSystemMessage` copy instead of the actor’s username (e.g. Ski Mask before another item that announces who acted).
   - Custom flags can be created by the CLI and are immediately readable via `getActiveFlags`
   - A custom flag will only affect UI text rendering after wiring it through text effect code paths (`countTextEffectStacks` / text transform helpers)
   - Full-screen / overlay UI flags (e.g. stackable blur) use shared stack helpers such as `countInterfaceBlurStacks` plus web helpers in `apps/web/src/lib/screenEffects.ts` and `ModifierBlurLayer`
@@ -135,6 +137,7 @@ npm test -w @repo/plugin-item-shops
 ## Useful References
 
 - `packages/plugin-item-shops/items/shared/behaviorHelpers.ts`
+- `packages/plugin-item-shops/items/shared/resolveItemUseActorDisplayName.ts`
 - `packages/plugin-item-shops/items/shared/testHelpers.ts`
 - `packages/plugin-item-shops/shops/sweetwater/index.ts` (advanced timers/messages)
 - `packages/plugin-item-shops/shops/green-room/index.ts` (minimal `onBuy`)

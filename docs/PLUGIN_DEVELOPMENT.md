@@ -1726,6 +1726,8 @@ async onItemUsed(
 
 For **`effects` of type `"flag"`**, derive booleans with **`getActiveFlags(userState.modifiers, Date.now())`** from **`@repo/game-logic`** (see [ADR 0046](adrs/0046-derived-modifier-flags.md)). For items with **`requiresTarget: "user"`**, the socket passes **`callContext`** as **`{ targetUserId?: string }`** — validate the user is still in the room before applying effects to them.
 
+Item Shops items that post room **`sendSystemMessage`** lines naming the actor should use **`resolveItemUseActorDisplayName`** (see [Item Shops development](SHOP_ITEM_DEVELOPMENT.md)) so the **`anonymous_actions`** flag (Ski Mask) hides the username in that copy. Other plugins can reuse the same pattern with `getUserState` + **`hasAnonymousActions`** / **`ANONYMOUS_ACTIONS_FLAG`** from **`@repo/game-logic`** / **`@repo/plugin-base`**.
+
 ### Handling item sell-back (`onItemSold`)
 
 When a user sells an item from their inventory (via the built-in **Inventory** tab in the User Game State modal, which emits `SELL_INVENTORY_ITEM`), the server routes the sale to the plugin that owns the item definition through `onItemSold`. The plugin is responsible for the full sale: removing the item from inventory, refunding coins, restocking, and emitting any UI updates.

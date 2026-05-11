@@ -1,4 +1,5 @@
 import type { GameStateEffectWithMeta, ItemDefinition, ItemUseResult } from "@repo/types"
+import { resolveItemUseActorDisplayName } from "./resolveItemUseActorDisplayName"
 import type { ItemShopsBehaviorDeps, ItemUseHandler } from "./types"
 
 export type TargetedTimedModifierSpec = {
@@ -57,10 +58,8 @@ export async function applyTargetedTimedModifier(
     }
   }
 
-  const [actor] = await context.api.getUsersByIds([userId])
-  const [target] = await context.api.getUsersByIds([targetUserId])
-  const actorName = actor?.username?.trim() || userId
-  const targetName = target?.username?.trim() || targetUserId
+  const actorName = await resolveItemUseActorDisplayName(deps, userId)
+  const targetName = await resolveItemUseActorDisplayName(deps, targetUserId)
   const isSelf = targetUserId === userId
   const who = spec.describe({ isSelf, actor: actorName, target: targetName })
   const durationSummary = formatDurationSummary(groups.map((g) => g.durationMs))

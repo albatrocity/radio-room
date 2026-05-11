@@ -163,6 +163,7 @@ function buildItemFile(answers: ItemWizardAnswers): string {
     imports.push(`import { usePassiveDefenseItem } from "../shared/behaviorHelpers"`)
   } else if (answers.behaviorKind === "customHandler") {
     imports.push(`import type { ItemDefinition, ItemUseResult } from "@repo/types"`)
+    imports.push(`import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"`)
     imports.push(`import { type ItemShopsBehaviorDeps, createItem } from "../shared/types"`)
   }
 
@@ -219,13 +220,15 @@ function buildItemFile(answers: ItemWizardAnswers): string {
     lines.push(`  use: usePassiveDefenseItem,`)
   } else if (answers.behaviorKind === "customHandler") {
     lines.push(`  use: async (`)
-    lines.push(`    _deps: ItemShopsBehaviorDeps,`)
-    lines.push(`    _userId: string,`)
-    lines.push(`    _definition: ItemDefinition,`)
+    lines.push(`    deps: ItemShopsBehaviorDeps,`)
+    lines.push(`    userId: string,`)
+    lines.push(`    definition: ItemDefinition,`)
     lines.push(`    _callContext?: unknown,`)
     lines.push(`  ): Promise<ItemUseResult> => {`)
+    lines.push(`    const displayName = await resolveItemUseActorDisplayName(deps, userId)`)
+    lines.push(`    // Room \`sendSystemMessage\` lines must use \`displayName\`, not raw usernames.`)
     lines.push(
-      `    return { success: false, consumed: false, message: "TODO: implement custom behavior." }`,
+      `    return { success: false, consumed: false, message: \`TODO: implement custom behavior (\${displayName} / \${definition.name}).\` }`,
     )
     lines.push(`  },`)
   }

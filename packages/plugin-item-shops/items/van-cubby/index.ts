@@ -1,5 +1,6 @@
 import type { ItemUseResult } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
+import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
 import { createItem } from "../shared/types"
 
 const STORAGE_SHORT_IDS = new Set(["van-cubby", "merch-cash-box"])
@@ -76,11 +77,11 @@ export const vanCubby = createItem({
       return { success: false, consumed: false, message: "Could not store the artifact." }
     }
 
-    const [actor] = await context.api.getUsersByIds([userId])
+    const displayName = await resolveItemUseActorDisplayName(deps, userId)
     const label = targetDef?.name ?? "an item"
     await context.api.sendSystemMessage(
       context.roomId,
-      `${actor?.username ?? "Someone"} stashed ${label} in the Van Cubby.`,
+      `${displayName} stashed ${label} in the Van Cubby.`,
     )
 
     return { success: true, consumed: true, message: "Item locked away in storage." }

@@ -44,6 +44,8 @@ In `packages/plugin-item-shops/items/index.ts`:
 | Equipped defense item that should not “activate” | `usePassiveDefenseItem` + `definition.defense` — see `items/warranty/index.ts`. |
 | Bespoke logic | Async `use` handler: `(deps, userId, definition, callContext) => Promise<ItemUseResult>` with `{ success, consumed, message }`. Read `callContext` with narrow typing (see `empty-fridge`, `scratched-cd`). |
 
+**Room `sendSystemMessage` and the actor’s name:** always attribute the inventory actor with `await resolveItemUseActorDisplayName(deps, userId)` (or the relevant user id) — never interpolate raw `getUsersByIds` usernames for room-visible copy. That respects the **`anonymous_actions`** timed modifier (Ski Mask). Timed modifiers from `timedModifierEffect` already resolve actor/target names this way inside `applyTargetedTimedModifier`. The `npm run create-item` custom-handler scaffold imports the helper, resolves `displayName` for the actor, and reminds you to use it in any `sendSystemMessage`.
+
 Target user for modifiers: `callContext` may include `targetUserId`; default target is the actor (`behaviorHelpers`).
 
 ### Shops
@@ -64,7 +66,7 @@ Run: `npm test -w @repo/plugin-item-shops`
 
 ```
 - [ ] Discovery complete (name, shortId, behavior, icon, rarity, economy, shops)
-- [ ] items/<shortId>/index.ts with createItem (+ defense or use handler)
+- [ ] items/<shortId>/index.ts with createItem (+ defense or use handler); any `sendSystemMessage` naming the actor uses `resolveItemUseActorDisplayName`
 - [ ] items/<shortId>/<shortId>.test.ts
 - [ ] items/index.ts import + items registry
 - [ ] Shop(s) updated with shortId + coinValue
@@ -75,6 +77,7 @@ Run: `npm test -w @repo/plugin-item-shops`
 
 - `items/shared/types.ts` — `createItem`, `ItemUseHandler`, `ItemShopsBehaviorDeps`
 - `items/shared/behaviorHelpers.ts` — `timedModifierEffect`, `applyTargetedTimedModifier`, `usePassiveDefenseItem`
+- `items/shared/resolveItemUseActorDisplayName.ts` — room-visible actor label (Ski Mask / `anonymous_actions`)
 - `items/shared/testHelpers.ts` — mocks and `expectApplyTimedModifierForPedal`
 - Examples: `items/boost-pedal`, `items/warranty`, `items/empty-fridge`, `items/scratched-cd`
 - Shops: `shops/sweetwater/index.ts`, `shops/green-room/index.ts`, `shops/index.ts`

@@ -1,4 +1,5 @@
 import type { ItemDefinition, ItemUseResult } from "@repo/types"
+import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
 import { type ItemShopsBehaviorDeps, createItem } from "../shared/types"
 
 export const gravityBong = createItem({
@@ -29,11 +30,10 @@ export const gravityBong = createItem({
       }
     }
 
-    const [user] = await deps.context.api.getUsersByIds([userId])
-    const username = user?.username?.trim() || userId
+    const displayName = await resolveItemUseActorDisplayName(deps, userId)
     await deps.context.api.sendSystemMessage(
       deps.context.roomId,
-      `${username} used ${definition.name} and shuffled the queue!`,
+      `${displayName} used ${definition.name} and shuffled the queue!`,
     )
 
     return { success: true, consumed: true, message: "Queue shuffled!" }
