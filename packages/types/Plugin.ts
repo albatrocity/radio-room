@@ -90,6 +90,19 @@ export interface PluginSchemaElement {
 }
 
 /**
+ * Optional form fields collected in the admin UI before running a plugin action.
+ * For `user-select`, `options` are prepended to the live room user list.
+ */
+export interface PluginActionFormField {
+  name: string
+  label: string
+  type: "select" | "user-select" | "string"
+  required?: boolean
+  /** Static options. For `user-select`, prepended before room users. */
+  options?: { value: string; label: string }[]
+}
+
+/**
  * Plugin action element - for action buttons in the form layout
  */
 export interface PluginActionElement {
@@ -109,6 +122,8 @@ export interface PluginActionElement {
    * If an array is provided, ALL conditions must be true (AND logic).
    */
   showWhen?: ShowWhenCondition | ShowWhenCondition[]
+  /** Optional fields shown before execute (admin plugin settings UI). */
+  formFields?: PluginActionFormField[]
 }
 
 /**
@@ -791,10 +806,11 @@ export interface Plugin {
    *
    * @param action - The action identifier from PluginActionElement
    * @param initiator - Present when the action was triggered from the admin plugin config UI
+   * @param params - When the action defines `formFields`, collected field values from the admin UI
    * @returns Result with success status and optional message
    *
    * @example
-   * async executeAction(action: string, initiator?: PluginActionInitiator): Promise<{ success: boolean; message?: string }> {
+   * async executeAction(action: string, initiator?: PluginActionInitiator, params?: Record<string, unknown>): Promise<{ success: boolean; message?: string }> {
    *   if (action === 'resetLeaderboards') {
    *     await this.clearAllLeaderboards()
    *     return { success: true, message: 'Leaderboards reset successfully' }
@@ -805,6 +821,7 @@ export interface Plugin {
   executeAction?(
     action: string,
     initiator?: PluginActionInitiator,
+    params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }>
 
   /**

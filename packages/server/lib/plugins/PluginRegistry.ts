@@ -649,6 +649,7 @@ export class PluginRegistry {
     pluginName: string,
     action: string,
     initiator?: PluginActionInitiator,
+    params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }> {
     const roomPlugins = this.roomPlugins.get(roomId)
     if (!roomPlugins) {
@@ -666,7 +667,7 @@ export class PluginRegistry {
     }
 
     try {
-      return await plugin.executeAction(action, initiator)
+      return await plugin.executeAction(action, initiator, params)
     } catch (error) {
       console.error(
         `[PluginRegistry] Error executing action ${action} for plugin ${pluginName}:`,

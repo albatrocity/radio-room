@@ -801,13 +801,18 @@ getConfigSchema(): PluginConfigSchema {
 | `confirmMessage` | `string` | No       | If provided, shows confirmation dialog before executing          |
 | `confirmText`    | `string` | No       | Text for the confirmation button (default: "Confirm")            |
 | `showWhen`       | `object` | No       | Conditional visibility (same as field `showWhen`)                |
+| `formFields`     | `array`  | No       | Optional fields shown in a popover before run; values are passed as `params` to `executeAction` |
 
 ### Handling Actions
 
-Override the `executeAction` method to handle action button clicks:
+Override the `executeAction` method to handle action button clicks. When `formFields` are defined, the admin UI collects values and sends them as the third argument (`params`):
 
 ```typescript
-async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+async executeAction(
+  action: string,
+  initiator?: PluginActionInitiator,
+  params?: Record<string, unknown>,
+): Promise<{ success: boolean; message?: string }> {
   switch (action) {
     case "resetLeaderboards":
       return this.resetLeaderboards()
@@ -817,7 +822,11 @@ async executeAction(action: string): Promise<{ success: boolean; message?: strin
       return { success: false, message: `Unknown action: ${action}` }
   }
 }
+```
 
+Simple actions without forms omit `params`. Form field types are `select` (static `options`), `user-select` (same `options` prepended before live room users), and `string`.
+
+```typescript
 private async resetLeaderboards(): Promise<{ success: boolean; message?: string }> {
   if (!this.context) {
     return { success: false, message: "Plugin not initialized" }
@@ -1810,6 +1819,18 @@ Plugins that sell items for in-game `coin` (e.g. Music Shop) can compose a **`Sh
 **`ShopPlugin`:** For a typical coin shop, you can extend **`ShopPlugin<TConfig>`** from `@repo/plugin-base` instead of hand-wiring `ShopHelper`, `executeAction`, `onItemSold`, and stock-related plugin events. It composes `ShopHelper` internally; subclasses provide `shopItems`, `isShopEnabled`, and `isSellingItems`, and may override hooks for item behaviour. See [ADR 0047: ShopPlugin base class](adrs/0047-shop-plugin-base-class.md). Prefer raw **`ShopHelper`** when you need to compose multiple helpers or avoid a shop-specific base class.
 
 **`ShoppingSessionHelper` (per-user sessions):** If you need **per-listener random shop instances** (ephemeral “rounds” with a few weighted offers) instead of **global per-item stock** for the whole room, use **`ShoppingSessionHelper`** from `@repo/plugin-base/helpers` and extend `BasePlugin` (not `ShopPlugin`). The built-in **Item Shops** plugin (`@repo/plugin-item-shops`) is the reference implementation. See [ADR 0049: Item Shops and Shopping Sessions](adrs/0049-item-shops-and-shopping-sessions.md).
+
+**Shopping round lifecycle (`ShopCatalogEntry` / item shops):** Each shop definition may implement optional callbacks alongside `onBuy`:
+
+| Hook              | When (Item Shops plugin)                                                                 | Context type           |
+| ----------------- | ---------------------------------------------------------------------------------------- | ---------------------- |
+| `onBuy`           | After a successful purchase                                                              | `ShopBuyContext`       |
+| `onSessionStart`  | After `startSession` completes, once per shop in that round’s **eligible** catalog subset | `ShopSessionContext`   |
+| `onSessionEnd`    | When a shopping **round** ends (admin ends sessions or starts a new round while active)   | `ShopSessionContext`   |
+
+**`ShopSessionContext`** (from `@repo/plugin-base/helpers`, defined in `@repo/game-logic`) includes `roomId`, `shopId`, **`pluginName`** (use when filtering inventory by `sourcePlugin`), timer helpers (`startTimer`, `getTimer`, `clearTimer`), **`sendSystemMessage`** / **`sendUserSystemMessage`**, shop-scoped state (`getState`, `setState`, `deleteState`, **`getAllStateKeys`**), and **`inventory`** (`getInventory`, `getItemDefinition`, `removeItem`, `giveItem`). These lifecycle hooks are **not** invoked on room **`GAME_SESSION_ENDED`** — the Item Shops plugin clears shop timers and in-memory shop state on game session end and strips inventory separately.
+
+See [SHOP_ITEM_DEVELOPMENT.md](SHOP_ITEM_DEVELOPMENT.md) for shop authoring in `@repo/plugin-item-shops`.
 
 ### `ShopItem`
 
