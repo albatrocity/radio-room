@@ -192,6 +192,25 @@ npm run create-shop -w @repo/plugin-item-shops
 
 Start simple and keep callbacks deterministic. If logic grows, extract helper functions and add focused tests.
 
+### Session lifecycle hooks (`onSessionStart` / `onSessionEnd`)
+
+Optional hooks on **`ShopCatalogEntry`** (`ItemShopsShopCatalogEntry`). Import **`ShopSessionContext`** from `@repo/plugin-base/helpers` (canonical definition: `@repo/game-logic/shopping-session-catalog`).
+
+| Hook             | When called                                                                                                                                              | Typical use                                      |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `onSessionStart` | After the Item Shops plugin finishes `ShoppingSessionHelper.startSession`, once per shop in that round’s **eligible** rotation (same subset as offers) | Welcome broadcast, shop-specific setup           |
+| `onSessionEnd`   | Before the round is torn down: admin **End all shopping sessions**, or **Start new shopping session** while a round is already active                   | “Closing” behaviors, delayed inventory callbacks |
+
+**`ShopSessionContext` APIs:**
+
+- **`pluginName`** — Owning plugin id (Item Shops); pair with inventory stacks’ `sourcePlugin` when filtering.
+- **Timers** — `startTimer`, `getTimer`, `clearTimer` (timer ids are scoped per shop by the plugin).
+- **Messages** — `sendSystemMessage`, `sendUserSystemMessage`.
+- **State** — `getState`, `setState`, `deleteState`, **`getAllStateKeys`** (keys in this shop’s in-memory store, often user ids written from `onBuy`).
+- **Inventory** — `getInventory`, `getItemDefinition`, `removeItem`, `giveItem` (same behavior as `PluginContext.inventory`).
+
+**Room game session:** Hooks are **not** run on **`GAME_SESSION_ENDED`**. The plugin clears shop-scoped timers and state and removes item-shops-owned stacks via its game-session handler without calling `onSessionEnd`.
+
 ## Testing Guidance
 
 - Item and shop tests use Vitest in this package.
@@ -210,5 +229,5 @@ npm test -w @repo/plugin-item-shops
 
 - `packages/plugin-item-shops/items/shared/behaviorHelpers.ts`
 - `packages/plugin-item-shops/items/shared/testHelpers.ts`
-- `packages/plugin-item-shops/shops/sweetwater/index.ts` (advanced timers/messages)
-- `packages/plugin-item-shops/shops/green-room/index.ts` (minimal `onBuy`)
+- `packages/plugin-item-shops/shops/sweetwater/index.ts` (advanced `onBuy` timers/messages)
+- `packages/plugin-item-shops/shops/green-room/index.ts` (`onBuy` + `onSessionEnd`)

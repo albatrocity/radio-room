@@ -1,9 +1,12 @@
 import type {
   ChatMessage,
+  InventoryAcquisitionSource,
+  InventoryItem,
   ItemDefinition,
   ItemRarity,
   LucideIconName,
   ShoppingSessionInstance,
+  UserInventory,
 } from "@repo/types"
 
 /** Shop-specific listing (subset of the master item catalog). */
@@ -62,6 +65,43 @@ export type ShopBuyContext = {
   deleteState: (key: string) => void
 }
 
+/**
+ * Context passed to shop `onSessionStart` / `onSessionEnd` lifecycle hooks (timers, messaging,
+ * shop-scoped state, inventory reads/mutations scoped to the Item Shops plugin room instance).
+ */
+export type ShopSessionContext = {
+  roomId: string
+  shopId: string
+  /** Owning plugin name (Item Shops); use when filtering inventory stacks by `sourcePlugin`. */
+  pluginName: string
+
+  startTimer: ShopBuyContext["startTimer"]
+  getTimer: ShopBuyContext["getTimer"]
+  clearTimer: ShopBuyContext["clearTimer"]
+
+  sendSystemMessage: ShopBuyContext["sendSystemMessage"]
+  sendUserSystemMessage: ShopBuyContext["sendUserSystemMessage"]
+
+  getState: ShopBuyContext["getState"]
+  setState: ShopBuyContext["setState"]
+  deleteState: ShopBuyContext["deleteState"]
+  /** Keys currently present in this shop's state store (e.g. user ids tracked by `onBuy`). */
+  getAllStateKeys: () => string[]
+
+  inventory: {
+    getInventory: (userId: string) => Promise<UserInventory>
+    getItemDefinition: (definitionId: string) => Promise<ItemDefinition | null>
+    removeItem: (userId: string, itemId: string, quantity?: number) => Promise<boolean>
+    giveItem: (
+      userId: string,
+      definitionId: string,
+      quantity?: number,
+      metadata?: Record<string, unknown>,
+      source?: InventoryAcquisitionSource,
+    ) => Promise<InventoryItem | null>
+  }
+}
+
 export type ShopCatalogEntry = {
   shopId: string
   name: string
@@ -71,8 +111,13 @@ export type ShopCatalogEntry = {
   unlistedBuybackRate: number
   /** Called after a successful purchase. Use for shop-specific follow-up behaviors. */
   onBuy?: (ctx: ShopBuyContext) => void | Promise<void>
-  /** Called when the shopping session ends. Use for cleanup (timers are auto-cleared). */
-  onSessionEnd?: () => void
+  /** Called after a shopping round starts for this shop (subset of eligible shops for the round). */
+  onSessionStart?: (ctx: ShopSessionContext) => void | Promise<void>
+  /**
+   * Called when a shopping round ends (admin ends sessions or starts a new round while one is active).
+   * Not called on room game session end; the plugin clears shop timers and state then.
+   */
+  onSessionEnd?: (ctx: ShopSessionContext) => void | Promise<void>
 }
 
 export type ItemCatalogEntry = {

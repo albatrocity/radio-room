@@ -1,5 +1,9 @@
 import { z } from "zod"
-import type { ItemShopsShopCatalogEntry, ShopBuyContext } from "@repo/plugin-base/helpers"
+import type {
+  ItemShopsShopCatalogEntry,
+  ShopBuyContext,
+  ShopSessionContext,
+} from "@repo/plugin-base/helpers"
 import { BasePlugin, applyTextEffects, ShoppingSessionHelper } from "@repo/plugin-base"
 import { countFlagStacks } from "@repo/game-logic"
 import {
@@ -21,10 +25,6 @@ import { SHOP_CATALOG } from "./shops"
 import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
-
-const GREEN_ROOM_SHOP_ID = "green-room"
-const GREEN_ROOM_RETURN_MS = 5 * 60 * 1000
-const GREEN_ROOM_RETURN_PREFIX = "greenRoomReturn:"
 
 function getEligibleShops(config: ItemShopsConfig): ItemShopsShopCatalogEntry[] {
   const knownIds = new Set(SHOP_CATALOG.map((s) => s.shopId))
@@ -61,89 +61,16 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   private async handleGameSessionEnded(
     _data: SystemEventPayload<"GAME_SESSION_ENDED">,
   ): Promise<void> {
-    this.disposeGreenRoomReturnTimers()
-    this.clearShopTimersAndState()
+    this.clearShopTimersAndStateForGameEnd()
     await this.shopping.clearSessionRound()
     await this.stripOwnedItemsFromAllUsers()
   }
 
-  private disposeGreenRoomReturnTimers(): void {
-    for (const timer of this.getAllTimers()) {
-      if (timer.id.startsWith(GREEN_ROOM_RETURN_PREFIX)) {
-        this.clearTimer(timer.id)
-      }
-    }
-  }
-
-  private async processGreenRoomDepartures(): Promise<void> {
-    if (!this.context) return
-    const greenRoomStore = this.shopStateStores.get(GREEN_ROOM_SHOP_ID)
-    if (!greenRoomStore || greenRoomStore.size === 0) return
-
-    const userIds = Array.from(greenRoomStore.keys())
-    for (const userId of userIds) {
-      const inv = await this.context.inventory.getInventory(userId)
-      const stacks = inv.items.filter((s) => s.sourcePlugin === this.name && s.quantity > 0)
-      if (stacks.length === 0) {
-        greenRoomStore.delete(userId)
-        continue
-      }
-
-      const stack = stacks[Math.floor(Math.random() * stacks.length)]!
-      const definition = await this.context.inventory.getItemDefinition(stack.definitionId)
-      const itemName = definition?.name ?? "item"
-
-      const removed = await this.context.inventory.removeItem(userId, stack.itemId, 1)
-      if (!removed) {
-        greenRoomStore.delete(userId)
-        continue
-      }
-
-      const message = `Hey, you left your ${itemName}. We're closing up for the night but we'll get it back to you soon.`
-      await this.context.api.sendUserSystemMessage(
-        this.context.roomId,
-        userId,
-        message,
-        { type: "alert", status: "info", title: "Message from the Green Room" },
-      )
-
-      const definitionId = stack.definitionId
-      const roomId = this.context.roomId
-      this.startTimer(`${GREEN_ROOM_RETURN_PREFIX}${userId}:${Date.now()}`, {
-        duration: GREEN_ROOM_RETURN_MS,
-        callback: async () => {
-          if (!this.context) return
-          const returned = await this.context.inventory.giveItem(
-            userId,
-            definitionId,
-            1,
-            undefined,
-            "purchase",
-          )
-          if (!returned) return
-          const followUp = `hey here's your ${itemName} back`
-          await this.context.api.sendUserSystemMessage(
-            roomId,
-            userId,
-            followUp,
-            { type: "alert", status: "info", title: "Message from the Green Room" },
-          )
-        },
-      })
-
-      greenRoomStore.delete(userId)
-    }
-
-    if (greenRoomStore.size === 0) {
-      this.shopStateStores.delete(GREEN_ROOM_SHOP_ID)
-    }
-  }
-
-  private shopTimerPrefix(shopId: string): string {
-    return `shop:${shopId}:`
-  }
-
-  private clearShopTimersAndState(): void {
+  /**
+   * Clears shop-scoped timers and in-memory shop state. Used on room game session end only
+   * (does not run shopping-round `onSessionEnd` hooks — inventory is stripped separately).
+   */
+  private clearShopTimersAndStateForGameEnd(): void {
     for (const shop of SHOP_CATALOG) {
       const prefix = this.shopTimerPrefix(shop.shopId)
       for (const timer of this.getAllTimers()) {
@@ -151,9 +78,42 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           this.clearTimer(timer.id)
         }
       }
-      shop.onSessionEnd?.()
     }
     this.shopStateStores.clear()
+  }
+
+  /**
+   * Before ending or replacing a shopping round: run per-shop `onSessionEnd`.
+   * Does not clear shop state stores globally — shops without hooks (e.g. Sweetwater timers) keep state.
+   * Drops empty per-shop maps after a hook runs (e.g. Green Room clears its visitor keys).
+   */
+  private async invokeShoppingRoundSessionEndHooks(): Promise<void> {
+    if (!this.context) return
+    for (const shop of SHOP_CATALOG) {
+      if (!shop.onSessionEnd) continue
+      const ctx = this.createShopSessionContext(shop)
+      await shop.onSessionEnd(ctx)
+      const store = this.shopStateStores.get(shop.shopId)
+      if (store && store.size === 0) {
+        this.shopStateStores.delete(shop.shopId)
+      }
+    }
+  }
+
+  /** After `startSession`: optional per-shop `onSessionStart` for shops in this round's rotation. */
+  private async invokeShoppingRoundSessionStartHooks(
+    eligible: readonly ItemShopsShopCatalogEntry[],
+  ): Promise<void> {
+    if (!this.context) return
+    for (const shop of eligible) {
+      if (!shop.onSessionStart) continue
+      const ctx = this.createShopSessionContext(shop)
+      await shop.onSessionStart(ctx)
+    }
+  }
+
+  private shopTimerPrefix(shopId: string): string {
+    return `shop:${shopId}:`
   }
 
   private async resolveBuyerUsername(initiator: PluginActionInitiator): Promise<string> {
@@ -228,6 +188,58 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       },
       deleteState: (key) => {
         stateStore.delete(key)
+      },
+    }
+    return ctx
+  }
+
+  private createShopSessionContext(shop: ItemShopsShopCatalogEntry): ShopSessionContext {
+    const timerPrefix = this.shopTimerPrefix(shop.shopId)
+    const stateStore = this.getShopStateStore(shop.shopId)
+
+    const ctx: ShopSessionContext = {
+      roomId: this.context!.roomId,
+      shopId: shop.shopId,
+      pluginName: this.name,
+
+      startTimer: (id, config) => {
+        this.startTimer(timerPrefix + id, config)
+      },
+      getTimer: <T = unknown>(id: string) => {
+        const timer = this.getTimer<T>(timerPrefix + id)
+        return timer ? { id: timer.id, data: timer.data as T | undefined } : null
+      },
+      clearTimer: (id) => this.clearTimer(timerPrefix + id),
+
+      sendSystemMessage: async (message, meta, mentions) => {
+        await this.context!.api.sendSystemMessage(this.context!.roomId, message, meta, mentions)
+      },
+
+      sendUserSystemMessage: async (targetUserId, message, meta) => {
+        await this.context!.api.sendUserSystemMessage(
+          this.context!.roomId,
+          targetUserId,
+          message,
+          meta,
+        )
+      },
+
+      getState: <T>(key: string) => stateStore.get(key) as T | undefined,
+      setState: <T>(key: string, value: T) => {
+        stateStore.set(key, value)
+      },
+      deleteState: (key) => {
+        stateStore.delete(key)
+      },
+      getAllStateKeys: () => Array.from(stateStore.keys()),
+
+      inventory: {
+        getInventory: (userId) => this.context!.inventory.getInventory(userId),
+        getItemDefinition: (definitionId) => this.context!.inventory.getItemDefinition(definitionId),
+        removeItem: (userId, itemId, quantity) =>
+          this.context!.inventory.removeItem(userId, itemId, quantity),
+        giveItem: (userId, definitionId, quantity, metadata, source) =>
+          this.context!.inventory.giveItem(userId, definitionId, quantity, metadata, source),
       },
     }
     return ctx
@@ -363,9 +375,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           message: "Select at least one shop in Item Shops settings (Shops in rotation).",
         }
       }
-      await this.processGreenRoomDepartures()
+      await this.invokeShoppingRoundSessionEndHooks()
       const users = await this.context.api.getUsers(this.context.roomId)
       await this.shopping.startSession(users, eligible)
+      await this.invokeShoppingRoundSessionStartHooks(eligible)
       await this.emit("SHOPPING_SESSION_STARTED", { roomId: this.context.roomId })
       return { success: true, message: "Shopping session started." }
     }
@@ -373,7 +386,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!config?.enabled) {
         return { success: false, message: "Item Shops are disabled." }
       }
-      await this.processGreenRoomDepartures()
+      await this.invokeShoppingRoundSessionEndHooks()
       await this.shopping.clearSessionRound()
       await this.emit("SHOPPING_SESSION_ENDED", { roomId: this.context.roomId })
       return { success: true, message: "All shopping sessions ended." }

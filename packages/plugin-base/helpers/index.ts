@@ -14,6 +14,7 @@ export type {
   ShopAvailableItem,
   ItemCatalogEntry,
   ShopBuyContext,
+  ShopSessionContext,
 } from "./shoppingSessionCatalog"
 export {
   resolveItemRarity,
