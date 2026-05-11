@@ -59,6 +59,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0051](0051-game-studio-client-sandbox.md) | Game Studio — client-side plugin sandbox (`apps/game-studio`) | Accepted |
 | [0052](0052-global-artifacts-api.md) | Global artifacts API (`context.artifacts`) | Accepted |
 | [0053](0053-targeted-item-use-defense-intercept.md) | Defense `onDefenseTriggered` callbacks after passive block (modifier/queue) | Accepted |
+| [0054](0054-text-effect-kind-pattern.md) | Text Effect Kind Pattern + flag stack map | Accepted |
 
 ## Creating a New ADR
 

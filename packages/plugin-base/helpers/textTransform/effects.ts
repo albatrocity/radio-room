@@ -1,6 +1,5 @@
 import type { TextEffect } from "@repo/types"
 import { tokenizeWords } from "../chatTransform"
-import type { TextEffectStacks } from "./flags"
 
 /** Size-only branch of {@link TextEffect} (excludes `font`). */
 type TextSizeValue = Extract<TextEffect, { type: "size" }>["value"]
@@ -23,15 +22,18 @@ const SIZE_SCALE = [
   "7xl",
 ] as const satisfies ReadonlyArray<TextSizeValue>
 
-const NORMAL_INDEX = 4
+/** Index into {@link SIZE_SCALE} that corresponds to default body size (`normal`). */
+export const NORMAL_INDEX = 4
+
 const MIN_INDEX = 0
 const MAX_INDEX = SIZE_SCALE.length - 1
-const MAX_SHIFT = NORMAL_INDEX // +/-4
-const MAX_ECHO = 4
 
-function clampShift(shift: number): number {
-  if (shift > MAX_SHIFT) return MAX_SHIFT
-  if (shift < -MAX_SHIFT) return -MAX_SHIFT
+/** Max steps grow/shrink can move from normal (`+/-4`). */
+export const MAX_SIZE_SHIFT = NORMAL_INDEX
+
+function clampNetShift(shift: number): number {
+  if (shift > MAX_SIZE_SHIFT) return MAX_SIZE_SHIFT
+  if (shift < -MAX_SIZE_SHIFT) return -MAX_SIZE_SHIFT
   return shift
 }
 
@@ -41,70 +43,22 @@ function sizeForIndex(index: number): TextSizeValue {
 }
 
 /**
- * Net size shift = `grow - shrink`, clamped to the supported range
- * (`+/-4`). Positive values produce larger text, negative values smaller.
+ * Map a net size shift (grow − shrink, clamped) to a Chakra font size token.
+ * Echo sizing passes `netShift - echoIndex` as the shift argument.
  */
-export function netSizeShift(stacks: TextEffectStacks): number {
-  return clampShift(stacks.grow - stacks.shrink)
+export function textSizeFromNetShift(netShift: number): TextSizeValue {
+  return sizeForIndex(NORMAL_INDEX + clampNetShift(netShift))
 }
 
 /**
- * Resolve the base text size for a chat word. Returns `null` when no size
- * shift is needed (so callers can omit the size effect entirely). The legacy
- * `"normal"` value is used at shift 0 only when an echo follows; otherwise
- * we return `null` to keep payloads minimal.
+ * Base word size when shifted away from normal. Returns `null` at net shift 0
+ * so payloads omit size effects unless echoes force a base segment.
  */
-export function resolveBaseSize(stacks: TextEffectStacks): TextSizeValue | null {
-  const shift = netSizeShift(stacks)
-  if (shift === 0) return null
-  return sizeForIndex(NORMAL_INDEX + shift)
+export function baseTextSizeFromNetShift(netShift: number): TextSizeValue | null {
+  const s = clampNetShift(netShift)
+  if (s === 0) return null
+  return sizeForIndex(NORMAL_INDEX + s)
 }
-
-/**
- * Resolve the size for the Nth echo (1-indexed). Each echo is one step smaller
- * than the previous, creating a fading cascade. Sizes are clamped at `4xs`.
- */
-export function resolveEchoSize(
-  stacks: TextEffectStacks,
-  echoIndex: number,
-): TextSizeValue {
-  const baseShift = netSizeShift(stacks)
-  const echoShift = baseShift - echoIndex
-  return sizeForIndex(NORMAL_INDEX + echoShift)
-}
-
-/** Number of echo repetitions per word (echo stacks, capped at 4). */
-export function echoCount(stacks: TextEffectStacks): number {
-  if (stacks.echo <= 0) return 0
-  return Math.min(stacks.echo, MAX_ECHO)
-}
-
-/**
- * Gate transform: each ASCII lowercase letter becomes a visible underscore. We emit
- * Markdown `\_` so chat renderers (react-markdown / GFM) treat it as a literal `_`
- * instead of italics delimiters.
- */
-export function applyGateTransform(text: string): string {
-  return text.replace(/[a-z]/g, "\_")
-}
-
-/**
- * Snooze transform: each ASCII vowel becomes a z
- */
-export function applySnoozeTransform(text: string): string {
-  return text.replace(/[aeiouAEIOU]/g, "z")
-}
-
-/**
- * Coffee transform: each ASCII z becomes a !
- */
-export function applyCoffeeTransform(text: string): string {
-  return text.replace(/[zZ]/g, "!")
-}
-
-/**
-
-
 
 /**
  * Unicode-aware "is letter" check that doesn't rely on the `/u` regex flag
@@ -129,8 +83,7 @@ function shuffleInPlace<T>(arr: T[]): void {
 
 /**
  * Shuffle alphabetic entries among themselves, in place. Non-alpha entries
- * keep their index. Uses Unicode `\p{L}` so accented letters and other
- * non-ASCII letters participate, while digits / punctuation stay anchored.
+ * keep their index.
  */
 function shuffleAlphaWithin(chars: string[]): void {
   const alphaIdx: number[] = []
@@ -156,7 +109,6 @@ function randomPartitionPositive(total: number, count: number): number[] {
   if (total < count) {
     return Array.from({ length: total }, () => 1)
   }
-  // Distinct cut points in [1, total - 1], producing `count` adjacent diffs.
   const cuts = new Set<number>()
   while (cuts.size < count - 1) {
     cuts.add(1 + Math.floor(Math.random() * (total - 1)))
@@ -233,7 +185,6 @@ export function applyScrambleTransform(content: string, stacks: number): string 
     return out
   }
 
-  // stacks >= 3: random word count + lengths
   const total = linearChars.length
   const origWordCount = wordTokens.length
   const newCount = randInt(1, Math.max(1, origWordCount * 2))

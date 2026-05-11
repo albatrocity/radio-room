@@ -1,23 +1,9 @@
+export type { TextEffectKind, TextEffectStacks, WordContext } from "./types"
 export {
-  SHRINK_FLAG,
-  GROW_FLAG,
-  ECHO_FLAG,
-  GATE_FLAG,
-  SCRAMBLE_FLAG,
-  COMIC_SANS_FLAG,
-  SNOOZE_FLAG,
-  COFFEE_FLAG,
-  countTextEffectStacks,
-  type TextEffectStacks,
-} from "./flags"
-export {
-  netSizeShift,
-  resolveBaseSize,
-  resolveEchoSize,
-  echoCount,
-  applyGateTransform,
+  NORMAL_INDEX,
+  MAX_SIZE_SHIFT,
+  baseTextSizeFromNetShift,
+  textSizeFromNetShift,
   applyScrambleTransform,
-  applySnoozeTransform,
-  applyCoffeeTransform,
 } from "./effects"
 export { applyTextEffects, type AppliedTextEffects } from "./pipeline"

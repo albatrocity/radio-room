@@ -7,7 +7,6 @@ import {
   invokeUse,
   stubRoomUsers,
 } from "../shared/testHelpers"
-import { SNOOZE_FLAG } from "@repo/plugin-base"
 import { snoozePedal } from "."
 
 describe("snooze-pedal", () => {
@@ -29,7 +28,7 @@ describe("snooze-pedal", () => {
     expect(result.success).toBe(true)
     expectApplyTimedModifierForPedal(deps, actor.userId, {
       modifierName: "snooze-pedal",
-      flag: SNOOZE_FLAG,
+      flag: "snooze",
       intent: "negative",
       durationMs: 300000,
     })

@@ -1,6 +1,14 @@
-import { COFFEE_FLAG } from "@repo/plugin-base"
+import type { TextEffectKind } from "@repo/plugin-base"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
+
+const COFFEE_FLAG = "coffee"
+
+const coffeeTextEffect: TextEffectKind = {
+  phase: "word",
+  activeWhen: COFFEE_FLAG,
+  transform: (word) => word.replace(/[zZ]/g, "!"),
+}
 
 export const coffeePedal = createItem({
   shortId: "coffee-pedal",
@@ -25,4 +33,5 @@ export const coffeePedal = createItem({
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} is feeling caffienated!` : `${actor} used Coffee Pedal... ${target} is feeling caffienated!`,
   }),
+  textEffect: coffeeTextEffect,
 })

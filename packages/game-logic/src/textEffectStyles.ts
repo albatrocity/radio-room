@@ -1,5 +1,24 @@
 import type { TextEffect } from "@repo/types"
 
+type FontValue = Extract<TextEffect, { type: "font" }>["value"]
+
+function fontFamilyFor(value: FontValue): string | undefined {
+  switch (value) {
+    case "comicSans":
+      return '"Comic Sans MS", "Comic Sans", cursive'
+    case "monospace":
+      return "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+    case "serif":
+      return 'ui-serif, Georgia, "Times New Roman", serif'
+    case "papyrus":
+      return '"Papyrus", fantasy'
+    case "cursive":
+      return "cursive"
+    default:
+      return undefined
+  }
+}
+
 /**
  * CSS-like style properties generated from text effects.
  * Compatible with Chakra's SystemStyleObject and plain CSS.
@@ -14,29 +33,14 @@ export interface TextEffectStyleObject {
  * Map declarative `TextEffect` from the server to CSS style props.
  * Plugins never send raw CSS; new effect types are added here.
  */
-export function textEffectStyles(
-  effects?: TextEffect[],
-): TextEffectStyleObject {
+export function textEffectStyles(effects?: TextEffect[]): TextEffectStyleObject {
   const out: TextEffectStyleObject = {}
   for (const e of effects ?? []) {
     if (e.type === "color") {
-      if (e.value === "orange") {
-        out.color = "orange.500"
-      } else if (e.value === "red") {
-        out.color = "red.solid"
-      } else if (e.value === "blue") {
-        out.color = "blue.subtle"
-      } else if (e.value === "green") {
-        out.color = "green.focusRing"
-      } else if (e.value === "purple") {
-        out.color = "purple.800"
-      } else if (e.value === "yellow") {
-        out.color = "yellow.600"
-      }
+      const token = e.token ?? "solid"
+      out.color = `${e.palette}.${token}`
     } else if (e.type === "font") {
-      if (e.value === "comicSans") {
-        out.fontFamily = '"Comic Sans MS", "Comic Sans", cursive'
-      }
+      out.fontFamily = fontFamilyFor(e.value)
     } else if (e.type === "size") {
       if (e.value === "4xs") {
         out.fontSize = "4xs"

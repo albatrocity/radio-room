@@ -1,6 +1,14 @@
-import { SNOOZE_FLAG } from "@repo/plugin-base"
+import type { TextEffectKind } from "@repo/plugin-base"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
+
+const SNOOZE_FLAG = "snooze"
+
+const snoozeTextEffect: TextEffectKind = {
+  phase: "word",
+  activeWhen: SNOOZE_FLAG,
+  transform: (word) => word.replace(/[aeiouAEIOU]/g, "z"),
+}
 
 export const snoozePedal = createItem({
   shortId: "snooze-pedal",
@@ -25,4 +33,5 @@ export const snoozePedal = createItem({
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} yawned and stzrtzd to snooze...` : `${actor} used Snooze Pedal and ${target} got very slzzpy... `,
   }),
+  textEffect: snoozeTextEffect,
 })

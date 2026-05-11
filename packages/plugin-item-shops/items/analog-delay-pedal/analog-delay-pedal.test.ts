@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 import { userFactory } from "@repo/factories"
-import { ECHO_FLAG } from "@repo/plugin-base"
+import { ECHO_FLAG } from "../textEffects/sizeShift"
 import { analogDelayPedal } from "./index"
 import {
   createMockDefinition,

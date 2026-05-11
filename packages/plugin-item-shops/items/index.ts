@@ -1,3 +1,4 @@
+import type { TextEffectKind } from "@repo/plugin-base"
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 import { analogDelayPedal } from "./analog-delay-pedal"
 import { fuzzPedal } from "./fuzz-pedal"
@@ -21,7 +22,8 @@ import { merchCashBox } from "./merch-cash-box"
 import { snoozePedal } from "./snooze-pedal"
 import { coffeePedal } from "./coffee-pedal"
 import { gravityBong } from "./gravity-bong"
-import type { DefenseTriggeredHandler, ItemUseHandler } from "./shared/types"
+import { echoTextEffect, sizeShiftTextEffect } from "./textEffects/sizeShift"
+import type { ItemUseHandler, DefenseTriggeredHandler } from "./shared/types"
 
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
@@ -90,3 +92,17 @@ export const ITEM_DEFENSE_TRIGGERED_BEHAVIORS: Record<string, DefenseTriggeredHa
 export function getItemCatalogEntry(shortId: string): ItemCatalogEntry | undefined {
   return ITEM_CATALOG.find((e) => e.definition.shortId === shortId)
 }
+
+/**
+ * Ordered pipeline for `applyTextEffects`. Item-owned kinds (`coffee`, `snooze`,
+ * `gate`, `scramble`, `joker`, …) are collected automatically from `items[*].textEffect`.
+ * Cross-cutting kinds that read flags from multiple items (`sizeShift` reads
+ * grow+shrink, `echo` reads echo + inherits non-size effects from base segments) live in
+ * `items/textEffects/sizeShift.ts` and are appended explicitly.
+ */
+export const TEXT_EFFECT_KINDS: readonly TextEffectKind[] = (() => {
+  const ownedKinds = Object.values(items)
+    .map((i) => i.textEffect)
+    .filter((k): k is TextEffectKind => k != null)
+  return [...ownedKinds, sizeShiftTextEffect, echoTextEffect]
+})()

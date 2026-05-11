@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@inquirer/prompts": "^7.10.1",
+    "@repo/game-logic": "*",
     "@repo/plugin-base": "*",
     "@repo/types": "*",
     "chalk": "^5.6.2"

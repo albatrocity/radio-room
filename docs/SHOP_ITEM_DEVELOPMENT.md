@@ -57,13 +57,16 @@ npm run create-item -w @repo/plugin-item-shops
 
 `GameStateEffectWithMeta` supports multiple effect kinds on a single modifier, and the item CLI now supports generating multi-effect modifiers.
 
+- **`anonymous_actions`** (`ANONYMOUS_ACTIONS_FLAG` in `@repo/game-logic` / `@repo/plugin-base`) is used by Item Shops for **room-visible attribution**, not chat transforms: while active, item behaviors that call **`resolveItemUseActorDisplayName`** (`items/shared/resolveItemUseActorDisplayName.ts`) return **`"Someone"`** for `sendSystemMessage` copy instead of the actor’s username (e.g. Ski Mask before another item that announces who acted).
+- Full-screen / overlay UI flags (e.g. stackable blur) use shared stack helpers such as `countInterfaceBlurStacks` plus web helpers in `apps/web/src/lib/screenEffects.ts` and `ModifierBlurLayer`
+
 - **flag** - Boolean flag in user game state
-  - Text-effect flags currently wired to chat rendering are:
-    - `GROW_FLAG`, `SHRINK_FLAG`, `ECHO_FLAG`, `GATE_FLAG`, `SCRAMBLE_FLAG`, `COMIC_SANS_FLAG`
-  - **`anonymous_actions`** (`ANONYMOUS_ACTIONS_FLAG` in `@repo/game-logic` / `@repo/plugin-base`) is used by Item Shops for **room-visible attribution**, not chat transforms: while active, item behaviors that call **`resolveItemUseActorDisplayName`** (`items/shared/resolveItemUseActorDisplayName.ts`) return **`"Someone"`** for `sendSystemMessage` copy instead of the actor’s username (e.g. Ski Mask before another item that announces who acted).
-  - Custom flags can be created by the CLI and are immediately readable via `getActiveFlags`
-  - A custom flag will only affect UI text rendering after wiring it through text effect code paths (`countTextEffectStacks` / text transform helpers)
-  - Full-screen / overlay UI flags (e.g. stackable blur) use shared stack helpers such as `countInterfaceBlurStacks` plus web helpers in `apps/web/src/lib/screenEffects.ts` and `ModifierBlurLayer`
+  - **Cross-folder (shared) flags** — written by one item and read elsewhere — live as named exports in **`items/textEffects/sizeShift.ts`** (`GROW_FLAG`, `SHRINK_FLAG`, `ECHO_FLAG`). Import them from there in item definitions.
+  - **Self-contained flags** — where one item is both the only writer and the only reader (typically via its own `TextEffectKind`) — are declared as a local `const FOO_FLAG = "foo"` at the top of the item file. No central registry entry. The item wizard inlines newly-created flags this way.
+  - **`countFlagStacks(modifiers, now)`** from `@repo/game-logic` folds active modifiers into **`Record<string, number>`** stack counts (one per modifier per distinct flag name).
+  - **`applyTextEffects(content, stacks, TEXT_EFFECT_KINDS)`** from `@repo/plugin-base` runs item-defined **`TextEffectKind`** handlers (see below).
+  - Custom flags are readable via `getActiveFlags`; they only change chat rendering once you add a **`TextEffectKind`** and register it in **`TEXT_EFFECT_KINDS`** in `items/index.ts`.
+  - Full-screen / overlay UI flags (e.g. stackable blur) still use stack helpers such as `countInterfaceBlurStacks` plus web helpers in `apps/web/src/lib/screenEffects.ts` and `ModifierBlurLayer`
 - **multiplier** - Scales score/coin changes while active
   - Example: `{ type: "multiplier", target: "score", value: 2 }`
 - **additive** - Adds a flat amount to score/coin changes while active
@@ -74,11 +77,84 @@ npm run create-item -w @repo/plugin-item-shops
 Example multi-effect payload:
 
 ```ts
+import { GROW_FLAG } from "../textEffects/sizeShift"
+
 effects: [
   { type: "flag", name: GROW_FLAG, value: true, intent: "positive" },
   { type: "multiplier", target: "score", value: 1.5, intent: "positive" },
 ]
 ```
+
+### Authoring a `TextEffectKind`
+
+Kinds are registered in **`TEXT_EFFECT_KINDS`** in `packages/plugin-item-shops/items/index.ts`. Each kind picks a **phase**, **activation** (`activeWhen`: flag name or `(stacks) => boolean`), and **scope** (whole message vs per-word; use **`WordContext`** to target a single word).
+
+**Example 1 — word mutation (Coffee Pedal pattern)**
+
+Self-contained items declare their flag as a local `const` and pair it with their `TextEffectKind` in the same file. The flag is wired to the timed modifier via `timedModifierEffect` below; nothing outside this file needs the constant.
+
+```ts
+const COFFEE_FLAG = "coffee"
+
+const coffeeTextEffect: TextEffectKind = {
+  phase: "word",
+  activeWhen: COFFEE_FLAG,
+  transform: (word) => word.replace(/[zZ]/g, "!"),
+}
+```
+
+**Example 2 — per-letter segmentation + stack-driven Chakra token (hypothetical)**
+
+Use `type: "color"` with **`palette` + `token`** (see [Chakra colors](https://chakra-ui.com/docs/theming/colors)); intensity can track stack count by choosing different tokens.
+
+```ts
+export const ORANGE_LETTER_FLAG = "orange_letter"
+
+const TOKEN_BY_STACK = { 1: "fg", 2: "solid", 3: "emphasized" } as const
+
+export const orangeLetterTextEffect: TextEffectKind = {
+  phase: "segment",
+  activeWhen: ORANGE_LETTER_FLAG,
+  build: (word, stacks) => {
+    const count = Math.min(3, Math.max(1, stacks[ORANGE_LETTER_FLAG] ?? 0)) as 1 | 2 | 3
+    const token = TOKEN_BY_STACK[count]
+    const out: TextSegment[] = []
+    let buf = ""
+    for (const ch of word) {
+      if (ch === "i" || ch === "I") {
+        if (buf) out.push({ text: buf })
+        out.push({ text: ch, effects: [{ type: "color", palette: "orange", token }] })
+        buf = ""
+      } else {
+        buf += ch
+      }
+    }
+    if (buf) out.push({ text: buf })
+    return out.length ? out : null
+  },
+}
+```
+
+**Example 3 — content-scoped word picking (`WordContext`)**
+
+```ts
+export const HIGHLIGHT_LONGEST_FLAG = "highlight_longest"
+
+export const highlightLongestTextEffect: TextEffectKind = {
+  phase: "decorate",
+  activeWhen: HIGHLIGHT_LONGEST_FLAG,
+  effects: (_stacks, ctx) => {
+    let longestIdx = 0
+    for (let i = 1; i < ctx.allWords.length; i++) {
+      if (ctx.allWords[i]!.length > ctx.allWords[longestIdx]!.length) longestIdx = i
+    }
+    if (ctx.wordIndex !== longestIdx) return []
+    return [{ type: "color", palette: "yellow", token: "emphasized" }]
+  },
+}
+```
+
+**Applying a font family.** Emit `{ type: "font", value: <family> }` from a `decorate` or `segment` phase kind. Whole-message fonts use `decorate` (every word inherits); per-word or per-letter fonts use `segment` with **`WordContext`**. Echo segments automatically inherit **non-`size`** effects from the base word segment, so fonts (and colors from decorate) propagate without wiring echo to item-specific flags. Available values today: `comicSans`, `monospace`, `serif`, `papyrus` — extend the enum in **`packages/types/ChatMessage.ts`** and add a CSS stack in **`packages/game-logic/src/textEffectStyles.ts`** (`fontFamilyFor`).
 
 ### Timed modifier durations (`timedModifierEffect`)
 
