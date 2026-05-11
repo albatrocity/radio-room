@@ -145,6 +145,31 @@ export interface ItemUseResult {
 }
 
 /**
+ * Payload for `RoomPlugin.onDefenseTriggered` after core has matched and
+ * consumed one quantity from a passive defense stack (`modifier` or `queue`
+ * scope). Optional fields depend on what the server knows about the initiator.
+ */
+export interface DefenseTriggeredPayload {
+  roomId: string
+  defenderUserId: string
+  /** User who applied the modifier or queue action, when known. */
+  attackerUserId?: string
+  /** Item whose effect was blocked, when the modifier carried `itemDefinitionId`. */
+  attackerItemDefinition?: ItemDefinition
+  defenseItemDefinition: ItemDefinition
+}
+
+/**
+ * Optional overrides for default defense messaging. Omitted fields use core
+ * defaults (`GAME_EFFECT_BLOCKED` room line, attacker-facing copy from
+ * `ApplyModifierResult` / `MoveTrackResult`).
+ */
+export interface DefenseTriggeredResult {
+  attackerMessage?: string
+  roomMessage?: string
+}
+
+/**
  * Returned by a plugin's `onItemSold` handler. The plugin is responsible
  * for removing the item from inventory and crediting the user; this result
  * is purely informational.
@@ -158,4 +183,9 @@ export interface ItemSellResult {
 }
 
 /** Source attribution for `INVENTORY_ITEM_ACQUIRED`. */
-export type InventoryAcquisitionSource = "plugin" | "trade" | "purchase" | "admin"
+export type InventoryAcquisitionSource =
+  | "plugin"
+  | "trade"
+  | "purchase"
+  | "admin"
+  | "defense_intercept"

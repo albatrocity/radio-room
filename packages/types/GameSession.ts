@@ -101,14 +101,25 @@ export type ModifierStackBehavior = "replace" | "stack" | "extend"
 export type ApplyModifierResult =
   | { ok: true; modifierId: string }
   | { ok: false; reason: "no_active_session" }
-  | { ok: false; reason: "defense_blocked"; blockingItemName: string }
+  | {
+      ok: false
+      reason: "defense_blocked"
+      blockingItemName: string
+      /** When the defense plugin returned custom copy via `onDefenseTriggered`. */
+      attackerMessage?: string
+    }
 
 /**
  * Result of `DJService.moveTrackByPosition` / `PluginAPI.moveTrackByPosition`.
  */
 export type MoveTrackResult =
   | { success: true }
-  | { success: false; reason: "defense_blocked"; blockingItemName: string }
+  | {
+      success: false
+      reason: "defense_blocked"
+      blockingItemName: string
+      attackerMessage?: string
+    }
   | { success: false; reason: "error"; message: string }
 
 export interface GameStateModifier {

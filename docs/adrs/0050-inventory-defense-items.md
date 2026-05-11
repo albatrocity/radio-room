@@ -24,3 +24,5 @@ Items in `@repo/types` inventory can affect other users via modifiers (`GameSess
 - **Positive:** Central rules, no plugin registry hook; aligns with ADR 0042 (core inventory + game session).
 - **Negative:** `applyModifier` API is a breaking change for plugins that assumed a `string` id return value; callers must check `ApplyModifierResult`.
 - **Matching:** If modifier-level filters pass and there are no per-effect filters, any modifier from that source matches (e.g. block all modifiers from a plugin).
+
+**Extension:** Post-consume defense callbacks (`onDefenseTriggered`) and optional message overrides are specified in [ADR 0053](0053-targeted-item-use-defense-intercept.md).

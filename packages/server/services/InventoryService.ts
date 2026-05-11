@@ -234,6 +234,31 @@ export class InventoryService {
   }
 
   /**
+   * Whether `giveItem` could add `quantity` of `definitionId` without exceeding
+   * slot cap (merging into an existing stack when stackable, or a free slot).
+   */
+  async canAccommodateItem(
+    roomId: string,
+    userId: string,
+    definitionId: string,
+    quantity = 1,
+  ): Promise<boolean> {
+    if (quantity <= 0) return false
+    const definition = await this.getItemDefinition(roomId, definitionId)
+    if (!definition) return false
+    const inv = await this.getInventory(roomId, userId)
+
+    if (definition.stackable) {
+      const mergeSlot = inv.items.find(
+        (i) => i.definitionId === definitionId && i.quantity < definition.maxStack,
+      )
+      if (mergeSlot && definition.maxStack - mergeSlot.quantity >= quantity) return true
+    }
+
+    return inv.items.length < inv.maxSlots
+  }
+
+  /**
    * Remove `quantity` (default 1) from an item stack. Empty stacks are deleted.
    * Returns whether anything was removed.
    */

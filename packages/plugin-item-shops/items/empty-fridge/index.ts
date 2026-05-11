@@ -48,7 +48,9 @@ export const emptyFridge = createItem({
         return {
           success: false,
           consumed: true,
-          message: `Blocked by ${result.blockingItemName}. Your item was lost with use.`,
+          message:
+            result.attackerMessage ??
+            `Blocked by ${result.blockingItemName}. Your item was lost with use.`,
         }
       }
       return { success: false, consumed: false, message: result.message }

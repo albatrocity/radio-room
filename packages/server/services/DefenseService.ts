@@ -1,13 +1,12 @@
 import type { AppContext } from "@repo/types"
 import type {
   DefenseSpec,
+  DefenseTriggeredPayload,
+  DefenseTriggeredResult,
   GameStateModifier,
   ItemDefinition,
 } from "@repo/types"
-import {
-  modifierMatchesTargeting,
-  queueTargetingMatches,
-} from "@repo/game-logic"
+import { modifierMatchesTargeting, queueTargetingMatches } from "@repo/game-logic"
 import { InventoryService } from "./InventoryService"
 import { GameSessionService } from "./GameSessionService"
 
@@ -20,6 +19,8 @@ export interface DefenseBlockInfo {
   itemId: string
   itemDefinitionId: string
   defenderUserId: string
+  /** Set when `onDefenseTriggered` returned optional message overrides. */
+  onTriggered?: { attackerMessage?: string; roomMessage?: string }
 }
 
 /**
@@ -39,40 +40,117 @@ export class DefenseService {
 
   /**
    * If `targetUserId` has a defense item that blocks this modifier, consume
-   * one from the stack and return block info.
+   * one from the stack, run `onDefenseTriggered` on the defense item's plugin
+   * when registered, and return block info.
    */
   async checkModifierDefense(
     roomId: string,
     targetUserId: string,
     sourcePlugin: string,
     incoming: Omit<GameStateModifier, "id" | "source">,
+    actorUserId?: string,
   ): Promise<DefenseBlockInfo | null> {
     const modifier: GameStateModifier = {
       ...incoming,
       id: "",
       source: sourcePlugin,
     }
-    return this.consumeMatchingDefense(roomId, targetUserId, (def, spec) => {
+    const blocked = await this.consumeMatchingDefense(roomId, targetUserId, (def, spec) => {
       if (!spec.scope.includes("modifier")) return false
       return modifierMatchesTargeting(modifier, spec.targeting)
     })
+    if (!blocked) return null
+
+    let attackerItemDef: ItemDefinition | null | undefined
+    if (incoming.itemDefinitionId) {
+      attackerItemDef = await this.inventory?.getItemDefinition(roomId, incoming.itemDefinitionId)
+    }
+
+    return this.mergeDefenseTriggered(roomId, blocked, actorUserId, attackerItemDef ?? undefined)
   }
 
   /**
    * If the queue track owner has a defense item blocking this queue intent,
-   * consume one and return block info. Skips plugin-attributed queue rows.
+   * consume one, invoke `onDefenseTriggered` when applicable, and return block info.
    */
   async checkQueueDefense(
     roomId: string,
     queueItemOwnerUserId: string,
     intent: "positive" | "negative",
+    actorUserId?: string,
   ): Promise<DefenseBlockInfo | null> {
     if (queueItemOwnerUserId.startsWith("plugin:")) return null
 
-    return this.consumeMatchingDefense(roomId, queueItemOwnerUserId, (def, spec) => {
+    const blocked = await this.consumeMatchingDefense(roomId, queueItemOwnerUserId, (def, spec) => {
       if (!spec.scope.includes("queue")) return false
       return queueTargetingMatches(spec.targeting, intent)
     })
+    if (!blocked) return null
+    return this.mergeDefenseTriggered(roomId, blocked, actorUserId, undefined)
+  }
+
+  private async mergeDefenseTriggered(
+    roomId: string,
+    blocked: DefenseBlockInfo,
+    actorUserId: string | undefined,
+    attackerItemDefinition: ItemDefinition | undefined,
+  ): Promise<DefenseBlockInfo> {
+    const triggered = await this.tryInvokeDefenseTriggered(roomId, blocked, {
+      actorUserId,
+      attackerItemDefinition,
+    })
+    if (
+      !triggered ||
+      (triggered.attackerMessage == null && triggered.roomMessage == null)
+    ) {
+      return blocked
+    }
+    return {
+      ...blocked,
+      onTriggered: {
+        attackerMessage: triggered.attackerMessage,
+        roomMessage: triggered.roomMessage,
+      },
+    }
+  }
+
+  private async tryInvokeDefenseTriggered(
+    roomId: string,
+    blocked: DefenseBlockInfo,
+    extra: {
+      actorUserId?: string
+      attackerItemDefinition?: ItemDefinition
+    },
+  ): Promise<DefenseTriggeredResult | null> {
+    const invSvc = this.inventory
+    if (!invSvc) return null
+
+    const defenseDef = await invSvc.getItemDefinition(roomId, blocked.itemDefinitionId)
+    if (!defenseDef) return null
+
+    const registry = this.context.pluginRegistry as
+      | {
+          invokeOnDefenseTriggered?: (
+            roomId: string,
+            pluginName: string,
+            payload: DefenseTriggeredPayload,
+          ) => Promise<DefenseTriggeredResult | null>
+        }
+      | undefined
+
+    if (!registry?.invokeOnDefenseTriggered) return null
+
+    const payload: DefenseTriggeredPayload = {
+      roomId,
+      defenderUserId: blocked.defenderUserId,
+      defenseItemDefinition: defenseDef,
+      ...(extra.actorUserId != null ? { attackerUserId: extra.actorUserId } : {}),
+      ...(extra.attackerItemDefinition != null
+        ? { attackerItemDefinition: extra.attackerItemDefinition }
+        : {}),
+    }
+
+    return registry.invokeOnDefenseTriggered(roomId, defenseDef.sourcePlugin, payload)
   }
 
   private async consumeMatchingDefense(

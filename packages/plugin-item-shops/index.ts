@@ -8,6 +8,8 @@ import {
 } from "@repo/plugin-base"
 import {
   type ChatMessage,
+  type DefenseTriggeredPayload,
+  type DefenseTriggeredResult,
   type ItemDefinition,
   type ItemSellResult,
   type ItemUseResult,
@@ -20,7 +22,7 @@ import {
 } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import packageJson from "./package.json"
-import { ITEM_CATALOG, ITEM_USE_BEHAVIORS } from "./items/index"
+import { ITEM_CATALOG, ITEM_DEFENSE_TRIGGERED_BEHAVIORS, ITEM_USE_BEHAVIORS } from "./items/index"
 import { SHOP_CATALOG } from "./shops"
 import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
 
@@ -486,6 +488,32 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       userId,
       definition,
       callContext,
+    )
+  }
+
+  async onDefenseTriggered(
+    payload: DefenseTriggeredPayload,
+  ): Promise<DefenseTriggeredResult | null> {
+    if (!this.context) {
+      return null
+    }
+    const config = await this.getConfig()
+    if (!config?.enabled) {
+      return null
+    }
+
+    const handler = ITEM_DEFENSE_TRIGGERED_BEHAVIORS[payload.defenseItemDefinition.shortId]
+    if (!handler) {
+      return null
+    }
+
+    return handler(
+      {
+        pluginName: this.name,
+        context: this.context,
+        game: this.game,
+      },
+      payload,
     )
   }
 

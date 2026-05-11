@@ -22,6 +22,8 @@ import type {
   UserGameState,
 } from "./GameSession"
 import type {
+  DefenseTriggeredPayload,
+  DefenseTriggeredResult,
   InventoryAcquisitionSource,
   InventoryItem,
   ItemDefinition,
@@ -944,6 +946,16 @@ export interface Plugin {
     definition: ItemDefinition,
     context?: unknown,
   ): Promise<ItemUseResult>
+
+  /**
+   * Optional handler after core matched and **consumed** one quantity from a
+   * passive defense item (`modifier` or `queue` scope). Use for side effects
+   * (e.g. award a copy to the defender) and/or optional message overrides.
+   * Return `null` to keep default messaging; return `{ attackerMessage?, roomMessage? }`
+   * to override attacker-facing or room system copy. If the handler throws,
+   * core still keeps the defense consumed and falls back to defaults.
+   */
+  onDefenseTriggered?(payload: DefenseTriggeredPayload): Promise<DefenseTriggeredResult | null>
 
   /**
    * Optional handler invoked when a user sells an inventory item back to the

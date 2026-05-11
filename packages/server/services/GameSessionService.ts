@@ -371,7 +371,13 @@ export class GameSessionService {
     if (!session) return { ok: false, reason: "no_active_session" }
 
     const defenseSvc = new DefenseService(this.context)
-    const blocked = await defenseSvc.checkModifierDefense(roomId, userId, sourcePlugin, incoming)
+    const blocked = await defenseSvc.checkModifierDefense(
+      roomId,
+      userId,
+      sourcePlugin,
+      incoming,
+      actorUserId,
+    )
     if (blocked) {
       const provisionalModifier: GameStateModifier = {
         ...incoming,
@@ -396,15 +402,23 @@ export class GameSessionService {
             : []
         const attackerName = actorUser?.username?.trim() || sourcePlugin
         const targetName = targetUser?.username?.trim() || userId
+        const defaultRoomLine = `${attackerName} attacked ${targetName}, but ${blocked.itemName} blocked it.`
+        const roomLine = blocked.onTriggered?.roomMessage ?? defaultRoomLine
         await this.context.systemEvents.emit(roomId, "MESSAGE_RECEIVED", {
           roomId,
-          message: systemMessage(
-            `${attackerName} attacked ${targetName}, but ${blocked.itemName} blocked it.`,
-            { type: "alert", status: "warning", title: "Blocked" },
-          ),
+          message: systemMessage(roomLine, {
+            type: "alert",
+            status: "warning",
+            title: "Blocked",
+          }),
         })
       }
-      return { ok: false, reason: "defense_blocked", blockingItemName: blocked.itemName }
+      return {
+        ok: false,
+        reason: "defense_blocked",
+        blockingItemName: blocked.itemName,
+        attackerMessage: blocked.onTriggered?.attackerMessage,
+      }
     }
 
     const state = await this.getUserState(roomId, userId)

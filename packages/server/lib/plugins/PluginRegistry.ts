@@ -1,6 +1,8 @@
 import {
   AppContext,
   ChatMessage,
+  DefenseTriggeredPayload,
+  DefenseTriggeredResult,
   InventoryItem,
   ItemDefinition,
   ItemSellResult,
@@ -706,6 +708,36 @@ export class PluginRegistry {
         error,
       )
       return { success: false, consumed: false, message: `Error using item: ${error}` }
+    }
+  }
+
+  /**
+   * After core consumed a matching passive defense, dispatch to the owning
+   * plugin's `onDefenseTriggered` (side effects / message overrides). Returns
+   * `null` when unimplemented or the plugin is not loaded.
+   */
+  async invokeOnDefenseTriggered(
+    roomId: string,
+    pluginName: string,
+    payload: DefenseTriggeredPayload,
+  ): Promise<DefenseTriggeredResult | null> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return null
+
+    const instance = roomPlugins.get(pluginName)
+    if (!instance) return null
+
+    const { plugin } = instance
+    if (typeof plugin.onDefenseTriggered !== "function") return null
+
+    try {
+      return await plugin.onDefenseTriggered(payload)
+    } catch (error) {
+      console.error(
+        `[PluginRegistry] Error in onDefenseTriggered for plugin ${pluginName}:`,
+        error,
+      )
+      return { attackerMessage: `Error: ${error}` }
     }
   }
 

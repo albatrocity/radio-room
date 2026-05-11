@@ -1,8 +1,4 @@
-import type {
-  DefenseTargeting,
-  GameStateEffectWithMeta,
-  GameStateModifier,
-} from "@repo/types"
+import type { DefenseTargeting, GameStateEffectWithMeta, GameStateModifier } from "@repo/types"
 
 export function queueTargetingMatches(
   targeting: DefenseTargeting,
