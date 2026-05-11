@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { reactionSchema } from "./Reaction"
 import { userSchema } from "./User"
+import { TransformStreamDefaultController } from "node:stream/web"
 
 // =============================================================================
 // ChatMessage Meta Schema
@@ -44,27 +45,44 @@ export const textEffectSchema = z.discriminatedUnion("type", [
     /** Maps to font stacks in `textEffectStyles` on the web client. */
     value: z.enum(["comicSans"]),
   }),
-   z.object({
-    type: z.literal("color"),
-    /** Maps to color in `textEffectStyles` on the web client. */
-    value: z.enum([
-      "orange",
-      "purple",
-      "red",
-      "blue",
-      "yellow",
-      "green",
-    ]),
-  }),
-
 ])
+
+
+
 export type TextEffect = z.infer<typeof textEffectSchema>
 
 export const textSegmentSchema = z.object({
   text: z.string(),
   effects: z.array(textEffectSchema).optional(),
 })
+
 export type TextSegment = z.infer<typeof textSegmentSchema>
+
+
+
+export const ColorEffectSchema = z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("color"),
+    /** Maps to Chakra font colors */
+      value: z.enum([
+        "orange",
+        "purple",
+        "red",
+        "blue",
+        "yellow",
+        "green",
+    ]),
+  }),
+])
+
+export const ColorSegmentSchema = z.object({
+  text: z.string(),
+  effects: z.array(ColorEffectSchema).optional()
+})
+
+export type ColorEffect = z.infer<typeof ColorEffectSchema>
+export type ColorSegment = z.infer<typeof ColorSegmentSchema>
+
 
 // =============================================================================
 // ChatMessage Schema & Type

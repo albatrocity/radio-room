@@ -1,4 +1,4 @@
-import type { TextEffect, TextSegment } from "@repo/types"
+import type { TextEffect, TextSegment, ColorEffect, ColorSegment } from "@repo/types"
 import { buildSegments, tokenizeWords } from "../chatTransform"
 import {
   applyGateTransform,
@@ -22,13 +22,18 @@ type SizeValue = Extract<TextEffect, { type: "size" }>["value"]
 function sizeEffects(value: SizeValue): TextEffect[] {
   return [{ type: "size", value }]
 }
+type colorvalue = Extract<ColorEffect, { type: "color"}>["value"]
 
-const CARROT_EFFECT: TextEffect = { type:"color", value: "orange" }
+function VeggieEffect(value: colorvalue): ColorEffect[]{
+  return [{type: "color", value}
+  ]
+}
+const CARROT_EFFECT: ColorEffect = { type:"color", value: "orange" }
 
 function MakeVeggies(
-  effects: TextEffect[] | undefined,
+  effects: ColorEffect[] | undefined,
   stacks: TextEffectStacks,
-): TextEffect[] | undefined {
+): ColorEffect[] | undefined {
   if (stacks.carrot <= 0) return effects
   if (!effects?.length) return [CARROT_EFFECT]
   return [...effects, CARROT_EFFECT]
@@ -45,6 +50,7 @@ function withComicSans(
   if (!effects?.length) return [COMIC_SANS_EFFECT]
   return [...effects, COMIC_SANS_EFFECT]
 }
+
 
 /**
  * Apply text effects (scramble + size shift + cascading echoes + optional gate
@@ -68,6 +74,7 @@ function withComicSans(
  *    segment (and echoes) for Comic Sans rendering in the client.
  */
 export function applyTextEffects(
+
   content: string,
   stacks: TextEffectStacks,
 ): AppliedTextEffects | null {
@@ -79,19 +86,33 @@ export function applyTextEffects(
   const coffee = stacks.coffee > 0
   const carrots = stacks.carrot > 0
   if (echoes === 0 && shift === 0 && !gate && !scramble && !snooze && !coffee && !carrots && stacks.comicSans <= 0) return null
-
   const baseSize = resolveBaseSize(stacks)
   const transformed = scramble ? applyScrambleTransform(content, stacks.scramble) : content
   const tokens = tokenizeWords(transformed)
+  const  Veggie =
   return buildSegments(tokens, (token) => {
     if (!token.word) return []
     let word = token.word
     if (snooze) word = applySnoozeTransform(word)
     if (coffee) word = applyCoffeeTransform(word)
     if (gate) word = applyGateTransform(word)
-    if (carrots) word = MakeVeggies(word)
+    if (carrots) 
+      if (word.includes("[Ilf!1]")) {
+          word.split("[Ilf!1]"). forEach((part) =>{
+            segments.push({
+              text: part,
+              effects: MakeVeggies(stacks.carrot) 
+            
+            })
+          }
+          
+          
+          )
+      }
+      
     const baseSegment: TextSegment = { text: word }
     const baseEffects = baseSize ? sizeEffects(baseSize) : undefined
+    
     baseSegment.effects = withComicSans(baseEffects, stacks)
     const segments: TextSegment[] = [baseSegment]
     for (let i = 1; i <= echoes; i++) {
