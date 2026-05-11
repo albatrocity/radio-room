@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 import { userFactory } from "@repo/factories"
-import { COMIC_SANS_FLAG } from "../textEffects/textEffectFlags"
+import { COMIC_SANS_FLAG } from "../textEffects/sizeShift"
 import { jokerPedal } from "./index"
 import {
   createMockDefinition,

@@ -8,7 +8,6 @@ import {
   stubRoomUsers,
 } from "../shared/testHelpers"
 import { coffeePedal } from "."
-import { COFFEE_FLAG } from "../textEffects/textEffectFlags"
 
 describe("coffee-pedal", () => {
   it("registers the expected shortId", () => {
@@ -22,13 +21,13 @@ describe("coffee-pedal", () => {
     expect(
       kind.transform(
         "buzz",
-        { [COFFEE_FLAG]: 1 },
+        { coffee: 1 },
         { wordIndex: 0, wordCount: 1, allWords: ["buzz"] },
       ),
     ).toBe("bu!!")
   })
 
-  it("calls applyTimedModifier with interface blur flag", async () => {
+  it("calls applyTimedModifier with the coffee flag", async () => {
     const deps = createMockDeps()
     const actor = userFactory.build()
     stubRoomUsers(deps, [actor])
@@ -42,7 +41,7 @@ describe("coffee-pedal", () => {
     expect(result.success).toBe(true)
     expectApplyTimedModifierForPedal(deps, actor.userId, {
       modifierName: "coffee",
-      flag: COFFEE_FLAG,
+      flag: "coffee",
       intent: "positive",
       durationMs: 300000,
     })

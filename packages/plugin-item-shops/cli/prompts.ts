@@ -62,15 +62,17 @@ export type ItemWizardAnswers = {
   shops: ShopConfig
 }
 
+/**
+ * Cross-folder flag constants from `items/textEffects/sizeShift.ts` that can be
+ * picked from when authoring a timed-modifier item. New flags created via the
+ * wizard are inlined into the generated item file as a local const (see
+ * `buildItemFile` in generators.ts), not appended here.
+ */
 const FLAG_OPTIONS = [
   "GROW_FLAG",
   "SHRINK_FLAG",
   "ECHO_FLAG",
-  "GATE_FLAG",
-  "SCRAMBLE_FLAG",
   "COMIC_SANS_FLAG",
-  "COFFEE_FLAG",
-  "SNOOZE_FLAG",
 ] as const
 
 type PromptContext = {

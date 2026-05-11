@@ -5,7 +5,22 @@ import {
   baseTextSizeFromNetShift,
   textSizeFromNetShift,
 } from "@repo/plugin-base"
-import { COMIC_SANS_FLAG, ECHO_FLAG, GROW_FLAG, SHRINK_FLAG } from "./textEffectFlags"
+
+/**
+ * Cross-folder flag constants for chat text effects.
+ *
+ * These flags are written by one item (e.g. `boost-pedal` writes `GROW_FLAG`)
+ * and read by kinds in this file (`sizeShiftTextEffect`, `echoTextEffect`) plus
+ * any item that wants to react to them. Because writer and readers live in
+ * different folders, the named constant exists to prevent string drift.
+ *
+ * Self-contained flags (where one item is both sole writer and sole reader)
+ * are inlined as string literals at their item file and have no constant here.
+ */
+export const GROW_FLAG = "grow"
+export const SHRINK_FLAG = "shrink"
+export const ECHO_FLAG = "echo"
+export const COMIC_SANS_FLAG = "comic_sans"
 
 function clampNetShift(shift: number): number {
   if (shift > MAX_SIZE_SHIFT) return MAX_SIZE_SHIFT

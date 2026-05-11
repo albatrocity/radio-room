@@ -57,7 +57,8 @@ npm run create-item -w @repo/plugin-item-shops
 `GameStateEffectWithMeta` supports multiple effect kinds on a single modifier, and the item CLI now supports generating multi-effect modifiers.
 
 - **flag** - Boolean flag in user game state
-  - Chat text-effect flag constants live in **`items/textEffects/textEffectFlags.ts`** (e.g. `GROW_FLAG`, `SHRINK_FLAG`, `ECHO_FLAG`, `GATE_FLAG`, `SCRAMBLE_FLAG`, `COMIC_SANS_FLAG`, `COFFEE_FLAG`, `SNOOZE_FLAG`). Import them from there in item definitions—**not** from `@repo/plugin-base`.
+  - **Cross-folder (shared) flags** — written by one item and read elsewhere — live as named exports in **`items/textEffects/sizeShift.ts`** (`GROW_FLAG`, `SHRINK_FLAG`, `ECHO_FLAG`, `COMIC_SANS_FLAG`). Import them from there in item definitions.
+  - **Self-contained flags** — where one item is both the only writer and the only reader (typically via its own `TextEffectKind`) — are declared as a local `const FOO_FLAG = "foo"` at the top of the item file. No central registry entry. The item wizard inlines newly-created flags this way.
   - **`countFlagStacks(modifiers, now)`** from `@repo/game-logic` folds active modifiers into **`Record<string, number>`** stack counts (one per modifier per distinct flag name).
   - **`applyTextEffects(content, stacks, TEXT_EFFECT_KINDS)`** from `@repo/plugin-base` runs item-defined **`TextEffectKind`** handlers (see below).
   - Custom flags are readable via `getActiveFlags`; they only change chat rendering once you add a **`TextEffectKind`** and register it in **`TEXT_EFFECT_KINDS`** in `items/index.ts`.
@@ -72,7 +73,7 @@ npm run create-item -w @repo/plugin-item-shops
 Example multi-effect payload:
 
 ```ts
-import { GROW_FLAG } from "../textEffects/textEffectFlags"
+import { GROW_FLAG } from "../textEffects/sizeShift"
 
 effects: [
   { type: "flag", name: GROW_FLAG, value: true, intent: "positive" },
@@ -86,10 +87,12 @@ Kinds are registered in **`TEXT_EFFECT_KINDS`** in `packages/plugin-item-shops/i
 
 **Example 1 — word mutation (Coffee Pedal pattern)**
 
-```ts
-import { COFFEE_FLAG } from "../textEffects/textEffectFlags"
+Self-contained items declare their flag as a local `const` and pair it with their `TextEffectKind` in the same file. The flag is wired to the timed modifier via `timedModifierEffect` below; nothing outside this file needs the constant.
 
-export const coffeeTextEffect: TextEffectKind = {
+```ts
+const COFFEE_FLAG = "coffee"
+
+const coffeeTextEffect: TextEffectKind = {
   phase: "word",
   activeWhen: COFFEE_FLAG,
   transform: (word) => word.replace(/[zZ]/g, "!"),

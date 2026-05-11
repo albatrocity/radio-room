@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest"
 import { userFactory } from "@repo/factories"
-import { GATE_FLAG } from "../textEffects/textEffectFlags"
 import { gate } from "./index"
 import {
   createMockDefinition,
@@ -25,7 +24,7 @@ describe("gate", () => {
     expect(result.success).toBe(true)
     expectApplyTimedModifierForPedal(deps, actor.userId, {
       modifierName: "gate",
-      flag: GATE_FLAG,
+      flag: "gate",
       intent: "negative",
       durationMs: 300_000,
     })

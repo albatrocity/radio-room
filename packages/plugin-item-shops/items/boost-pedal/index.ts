@@ -1,4 +1,4 @@
-import { GROW_FLAG } from "../textEffects/textEffectFlags"
+import { GROW_FLAG } from "../textEffects/sizeShift"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
 

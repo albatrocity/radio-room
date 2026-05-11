@@ -1,7 +1,8 @@
 import type { TextEffectKind } from "@repo/plugin-base"
-import { GATE_FLAG } from "../textEffects/textEffectFlags"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
+
+const GATE_FLAG = "gate"
 
 const gateTextEffect: TextEffectKind = {
   phase: "word",

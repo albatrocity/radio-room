@@ -1,7 +1,8 @@
 import type { TextEffectKind } from "@repo/plugin-base"
-import { COFFEE_FLAG } from "../textEffects/textEffectFlags"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
+
+const COFFEE_FLAG = "coffee"
 
 const coffeeTextEffect: TextEffectKind = {
   phase: "word",

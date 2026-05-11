@@ -1,5 +1,5 @@
 import type { TextEffectKind } from "@repo/plugin-base"
-import { COMIC_SANS_FLAG } from "../textEffects/textEffectFlags"
+import { COMIC_SANS_FLAG } from "../textEffects/sizeShift"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
 

@@ -1,7 +1,8 @@
 import type { TextEffectKind } from "@repo/plugin-base"
-import { SNOOZE_FLAG } from "../textEffects/textEffectFlags"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
+
+const SNOOZE_FLAG = "snooze"
 
 const snoozeTextEffect: TextEffectKind = {
   phase: "word",

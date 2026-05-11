@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest"
 import { userFactory } from "@repo/factories"
-import { SCRAMBLE_FLAG } from "../textEffects/textEffectFlags"
 import { sampleHold } from "./index"
 import {
   createMockDefinition,
@@ -25,7 +24,7 @@ describe("sampleHold", () => {
     expect(result.success).toBe(true)
     expectApplyTimedModifierForPedal(deps, actor.userId, {
       modifierName: "sample-hold",
-      flag: SCRAMBLE_FLAG,
+      flag: "scramble",
       intent: "negative",
       durationMs: 300_000,
     })

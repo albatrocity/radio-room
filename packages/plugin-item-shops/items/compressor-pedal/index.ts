@@ -1,4 +1,4 @@
-import { SHRINK_FLAG } from "../textEffects/textEffectFlags"
+import { SHRINK_FLAG } from "../textEffects/sizeShift"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
 

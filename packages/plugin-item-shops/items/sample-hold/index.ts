@@ -1,8 +1,9 @@
 import type { TextEffectKind } from "@repo/plugin-base"
 import { applyScrambleTransform } from "@repo/plugin-base"
-import { SCRAMBLE_FLAG } from "../textEffects/textEffectFlags"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
+
+const SCRAMBLE_FLAG = "scramble"
 
 const scrambleTextEffect: TextEffectKind = {
   phase: "content",
