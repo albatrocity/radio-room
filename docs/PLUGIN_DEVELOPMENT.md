@@ -1663,7 +1663,7 @@ if (!applied.ok) {
 }
 ```
 
-For queue actions, `PluginAPI.moveTrackByPosition(...)` returns `{ success: false, message }` with attacker-facing feedback like `Blocked by <item name>`.
+For queue actions, `PluginAPI.moveTrackByPosition(...)` returns `MoveTrackResult`: on success `{ success: true }`; on failure `{ success: false, reason: "error", message }` or, when a passive defense item blocks the move, `{ success: false, reason: "defense_blocked", blockingItemName }`. Item handlers should treat `defense_blocked` like modifier defense (typically consume the attacking item and message the user).
 
 #### Actor attribution
 

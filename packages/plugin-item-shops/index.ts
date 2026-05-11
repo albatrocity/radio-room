@@ -103,15 +103,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         continue
       }
 
-      const [user] = await this.context.api.getUsersByIds([userId])
-      const username = user?.username?.trim() || userId
-
       const message = `Hey, you left your ${itemName}. We're closing up for the night but we'll get it back to you soon.`
-      await this.context.api.sendSystemMessage(
+      await this.context.api.sendUserSystemMessage(
         this.context.roomId,
+        userId,
         message,
         { type: "alert", status: "info", title: "Message from the Green Room" },
-        [username],
       )
 
       const definitionId = stack.definitionId
@@ -128,14 +125,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
             "purchase",
           )
           if (!returned) return
-          const [u] = await this.context.api.getUsersByIds([userId])
-          const mentionName = u?.username?.trim() || userId
           const followUp = `hey here's your ${itemName} back`
-          await this.context.api.sendSystemMessage(
+          await this.context.api.sendUserSystemMessage(
             roomId,
+            userId,
             followUp,
             { type: "alert", status: "info", title: "Message from the Green Room" },
-            [mentionName],
           )
         },
       })
@@ -210,6 +205,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
       sendSystemMessage: async (message, meta, mentions) => {
         await this.context!.api.sendSystemMessage(this.context!.roomId, message, meta, mentions)
+      },
+
+      sendUserSystemMessage: async (targetUserId, message, meta) => {
+        await this.context!.api.sendUserSystemMessage(
+          this.context!.roomId,
+          targetUserId,
+          message,
+          meta,
+        )
       },
 
       isShoppingActive: () => this.shopping.isActive(),

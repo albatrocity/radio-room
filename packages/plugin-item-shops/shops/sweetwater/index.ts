@@ -32,11 +32,11 @@ async function deliverSweetwaterFollowUpAndReschedule(
 
   const template = pickRandomSweetwaterMessage()
   const content = formatSweetwaterMessage(template, state.username, state.lastPurchasedItemName)
-  await ctx.sendSystemMessage(
-    content,
-    { type: "alert", status: "info", title: "Message from your Sweetwater Rep" },
-    [state.username],
-  )
+  await ctx.sendUserSystemMessage(userId, content, {
+    type: "alert",
+    status: "info",
+    title: "Message from your Sweetwater Rep",
+  })
 
   ctx.startTimer(sweetwaterTimerId(userId), {
     duration: SWEETWATER_FOLLOWUP_MS,

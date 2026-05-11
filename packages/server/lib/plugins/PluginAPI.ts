@@ -1,5 +1,6 @@
 import {
   AppContext,
+  MoveTrackResult,
   PluginAPI,
   QueueItem,
   QueueItemAttribution,
@@ -289,7 +290,7 @@ export class PluginAPIImpl implements PluginAPI {
     metadataTrackId: string,
     delta: number,
     actorUserId?: string,
-  ): Promise<{ success: true } | { success: false; message: string }> {
+  ): Promise<MoveTrackResult> {
     const { DJService } = await import("../../services/DJService")
     const djService = new DJService(this.context)
     return await djService.moveTrackByPosition(roomId, metadataTrackId, delta, actorUserId)
