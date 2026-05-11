@@ -8,8 +8,7 @@ export const disguise = createItem({
   shortId: "disguise",
   definition: {
     name: "Disguise",
-    description:
-      "For a limited time, room-visible item actions show as “Someone” instead of your name.",
+    description: "Protects your identity when using items.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
