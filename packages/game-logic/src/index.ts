@@ -23,3 +23,4 @@ export {
 } from "./interfaceModifierStacks"
 export * from "./shoppingSessionCatalog"
 export { textEffectStyles, type TextEffectStyleObject } from "./textEffectStyles"
+export { shuffleQueueItems } from "./shuffleQueueItems"
