@@ -1,3 +1,4 @@
+import { shuffleQueueItems } from "@repo/game-logic"
 import { AppContext, MoveTrackResult, QueueItemAttribution } from "@repo/types"
 import { User } from "@repo/types/User"
 import { QueueItem, canonicalQueueTrackKey } from "@repo/types/Queue"
@@ -824,11 +825,7 @@ export class DJService {
       return { success: true as const }
     }
 
-    const shuffled = [...queue]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[shuffled[i]!, shuffled[j]!] = [shuffled[j]!, shuffled[i]!]
-    }
+    const shuffled = shuffleQueueItems(queue)
 
     await setQueue({ roomId, items: shuffled, context: this.context })
     await this.emitQueueChanged(roomId)

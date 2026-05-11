@@ -1,3 +1,4 @@
+import { shuffleQueueItems } from "@repo/game-logic"
 import { queueItemFactory } from "@repo/factories/queueItem"
 import type {
   ChatMessage,
@@ -236,8 +237,33 @@ export class MockStudioPluginApi implements PluginAPI {
     return { success: true }
   }
 
-  async shuffleTrackQueue(): Promise<{ success: true } | { success: false; message: string }> {
-    return { success: false, message: "Not implemented in Game Studio" }
+  async shuffleTrackQueue(
+    roomId: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    if (roomId !== this.room.roomId)
+      return { success: false, message: "Wrong room" }
+
+    const queue = this.room.queue
+    if (queue.length <= 2) {
+      return { success: true }
+    }
+
+    const nowPlaying = queue[0]
+    if (!nowPlaying) {
+      return { success: true }
+    }
+
+    const rest = queue.slice(1)
+    const shuffledRest = shuffleQueueItems(rest)
+    this.room.queue = [nowPlaying, ...shuffledRest]
+
+    await this.lifecycle.emit("QUEUE_CHANGED", {
+      roomId: this.room.roomId,
+      queue: this.room.queue,
+    })
+    this.room.logEvent("QUEUE_SHUFFLE", { count: shuffledRest.length })
+    this.room.notify()
+    return { success: true }
   }
 
   async emit<T extends Record<string, unknown>>(eventName: string, data: T): Promise<void> {

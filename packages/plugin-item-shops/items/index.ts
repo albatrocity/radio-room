@@ -17,6 +17,7 @@ import { vanCubby } from "./van-cubby"
 import { merchCashBox } from "./merch-cash-box"
 import { snoozePedal } from "./snooze-pedal"
 import { coffeePedal } from "./coffee-pedal"
+import { gravityBong } from "./gravity-bong"
 import type { ItemUseHandler } from "./shared/types"
 
 /**
@@ -42,6 +43,7 @@ export const items = {
   merchCashBox,
   snoozePedal,
   coffeePedal,
+  gravityBong,
 } as const
 
 /**
