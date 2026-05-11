@@ -1,29 +1,39 @@
 import type { TextEffect } from "@repo/types"
-import type { SystemStyleObject } from "@chakra-ui/react"
 
 /**
- * Map declarative `TextEffect` from the server to Chakra `css` / style props.
+ * CSS-like style properties generated from text effects.
+ * Compatible with Chakra's SystemStyleObject and plain CSS.
+ */
+export interface TextEffectStyleObject {
+  fontSize?: string
+  fontFamily?: string
+  color?: string
+}
+
+/**
+ * Map declarative `TextEffect` from the server to CSS style props.
  * Plugins never send raw CSS; new effect types are added here.
  */
-export function textEffectStyles(effects?: TextEffect[]): SystemStyleObject {
-  const out: SystemStyleObject = {}
+export function textEffectStyles(
+  effects?: TextEffect[],
+): TextEffectStyleObject {
+  const out: TextEffectStyleObject = {}
   for (const e of effects ?? []) {
     if (e.type === "color") {
-     if (e.value === "orange"){
-    out.color === "orange.500"  
-     }else if (e.value === "red"){
-      out.color === "red.solid"
-     }else if (e.value === "blue"){
-      out.color === "blue.subtle"
-     }else if (e.value === "green"){
-      out.color === "green.focusRing"
-     }else if (e.value === "purple"){
-      out. color === "purple.800"
-     }else if (e.value === "yellow"){
-      out.color === "yellow.600"
-     }
-     } 
-    if (e.type === "font") {
+      if (e.value === "orange") {
+        out.color = "orange.500"
+      } else if (e.value === "red") {
+        out.color = "red.solid"
+      } else if (e.value === "blue") {
+        out.color = "blue.subtle"
+      } else if (e.value === "green") {
+        out.color = "green.focusRing"
+      } else if (e.value === "purple") {
+        out.color = "purple.800"
+      } else if (e.value === "yellow") {
+        out.color = "yellow.600"
+      }
+    } else if (e.type === "font") {
       if (e.value === "comicSans") {
         out.fontFamily = '"Comic Sans MS", "Comic Sans", cursive'
       }

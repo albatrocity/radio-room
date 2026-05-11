@@ -22,3 +22,4 @@ export {
   countInterfaceSaturateStacks,
 } from "./interfaceModifierStacks"
 export * from "./shoppingSessionCatalog"
+export { textEffectStyles, type TextEffectStyleObject } from "./textEffectStyles"

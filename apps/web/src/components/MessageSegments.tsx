@@ -1,7 +1,7 @@
 import { Box, Image, Stack } from "@chakra-ui/react"
 import type { TextEffect, TextSegment } from "@repo/types"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
-import { textEffectStyles } from "../lib/textEffects"
+import { textEffectStyles } from "@repo/game-logic"
 import { splitMarkdownImages } from "../lib/splitMarkdownImages"
 
 type InlinePiece = { effects?: TextEffect[]; text: string }
