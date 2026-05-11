@@ -89,6 +89,7 @@ export function applyTextEffects(
     const baseEffects = baseSize ? sizeEffects(baseSize) : undefined
     baseSegment.effects = withComicSans(baseEffects, stacks)
     const segments: TextSegment[] = [baseSegment]
+
     for (let i = 1; i <= echoes; i++) {
       segments.push({
         text: ` ${word}`,

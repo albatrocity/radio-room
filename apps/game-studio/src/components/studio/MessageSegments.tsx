@@ -2,7 +2,7 @@
 
 import { Box } from "@chakra-ui/react"
 import type { TextSegment } from "@repo/types"
-import { textEffectStyles } from "../../lib/textEffects"
+import { textEffectStyles } from "@repo/game-logic"
 
 export function MessageSegments({ segments }: { segments: TextSegment[] }) {
   return (
