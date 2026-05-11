@@ -1803,6 +1803,18 @@ Plugins that sell items for in-game `coin` (e.g. Music Shop) can compose a **`Sh
 
 **`ShoppingSessionHelper` (per-user sessions):** If you need **per-listener random shop instances** (ephemeral “rounds” with a few weighted offers) instead of **global per-item stock** for the whole room, use **`ShoppingSessionHelper`** from `@repo/plugin-base/helpers` and extend `BasePlugin` (not `ShopPlugin`). The built-in **Item Shops** plugin (`@repo/plugin-item-shops`) is the reference implementation. See [ADR 0049: Item Shops and Shopping Sessions](adrs/0049-item-shops-and-shopping-sessions.md).
 
+**Shopping round lifecycle (`ShopCatalogEntry` / item shops):** Each shop definition may implement optional callbacks alongside `onBuy`:
+
+| Hook              | When (Item Shops plugin)                                                                 | Context type           |
+| ----------------- | ---------------------------------------------------------------------------------------- | ---------------------- |
+| `onBuy`           | After a successful purchase                                                              | `ShopBuyContext`       |
+| `onSessionStart`  | After `startSession` completes, once per shop in that round’s **eligible** catalog subset | `ShopSessionContext`   |
+| `onSessionEnd`    | When a shopping **round** ends (admin ends sessions or starts a new round while active)   | `ShopSessionContext`   |
+
+**`ShopSessionContext`** (from `@repo/plugin-base/helpers`, defined in `@repo/game-logic`) includes `roomId`, `shopId`, **`pluginName`** (use when filtering inventory by `sourcePlugin`), timer helpers (`startTimer`, `getTimer`, `clearTimer`), **`sendSystemMessage`** / **`sendUserSystemMessage`**, shop-scoped state (`getState`, `setState`, `deleteState`, **`getAllStateKeys`**), and **`inventory`** (`getInventory`, `getItemDefinition`, `removeItem`, `giveItem`). These lifecycle hooks are **not** invoked on room **`GAME_SESSION_ENDED`** — the Item Shops plugin clears shop timers and in-memory shop state on game session end and strips inventory separately.
+
+See [SHOP_ITEM_DEVELOPMENT.md](SHOP_ITEM_DEVELOPMENT.md) for shop authoring in `@repo/plugin-item-shops`.
+
 ### `ShopItem`
 
 ```typescript
