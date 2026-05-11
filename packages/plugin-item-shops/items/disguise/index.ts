@@ -8,7 +8,7 @@ export const disguise = createItem({
   shortId: "disguise",
   definition: {
     name: "Disguise",
-    description: "Protects your identity when using items.",
+    description: "Protects your identity when using items for a limited time.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
