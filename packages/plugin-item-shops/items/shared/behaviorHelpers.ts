@@ -54,6 +54,7 @@ export async function applyTargetedTimedModifier(
         return {
           success: false,
           consumed: true,
+          title: "Intercepted",
           message:
             applied.attackerMessage ??
             `Blocked by ${applied.blockingItemName}. Your item was lost with use.`,

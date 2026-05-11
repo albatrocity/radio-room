@@ -141,7 +141,9 @@ export interface ItemUseResult {
   success: boolean
   /** When `true`, the core decrements quantity by 1 (and removes empty stacks). */
   consumed: boolean
-  /** Optional user-facing feedback (toast / chat alert). */
+  /** Optional toast/alert title (defaults to "Success", "Error", or auto-detected from message). */
+  title?: string
+  /** Optional user-facing feedback (toast / chat alert body). */
   message?: string
 }
 
