@@ -9,6 +9,7 @@ export const SPY_WORLD_SHOP: ItemShopsShopCatalogEntry = {
   availableItems: [
     { shortId: items.disguise.shortId, coinValue: 30 },
     { shortId: items.p2pFileSharing.shortId, coinValue: 30 },
+    { shortId: items.rubberBand.shortId, coinValue: 30 },
   ],
   listedBuybackRate: 0.35,
   unlistedBuybackRate: 0.12,

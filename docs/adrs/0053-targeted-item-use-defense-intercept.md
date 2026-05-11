@@ -17,13 +17,13 @@ We briefly considered a separate **`DefenseScope` value `"itemUse"`** and an **`
 
 2. **`DefenseService.checkModifierDefense` / `checkQueueDefense`** — After a matching stack is **consumed**, core loads the defense `ItemDefinition` and calls **`PluginRegistry.invokeOnDefenseTriggered(roomId, defenseDef.sourcePlugin, payload)`**. The callback is **best-effort**: defense is already spent; return `null` for default messaging, or `{ attackerMessage?, roomMessage? }` to override attacker-facing copy and/or the room **`MESSAGE_RECEIVED`** line.
 
-3. **`DefenseTriggeredPayload` / `DefenseTriggeredResult`** — In `@repo/types` (`Inventory.ts`). Payload includes `roomId`, `defenderUserId`, optional `attackerUserId`, optional `attackerItemDefinition` (when the blocked modifier carried `itemDefinitionId`), and `defenseItemDefinition`. Result fields are **optional** overrides only (no `success` flag).
+3. **`DefenseTriggeredPayload` / `DefenseTriggeredResult`** — In `@repo/types` (`Inventory.ts`). Payload includes `roomId`, `defenderUserId`, optional `attackerUserId`, optional `attackerItemDefinition` (when the blocked modifier carried `itemDefinitionId`), optional **`blockedModifier`** (the modifier that would have been applied, for **modifier** blocks only), and `defenseItemDefinition`. Result fields are **optional** overrides only (no `success` flag).
 
 4. **`RoomPlugin.onDefenseTriggered`** — Optional on `Plugin` (`Plugin.ts`); **`PluginRegistry.invokeOnDefenseTriggered`** mirrors `invokeOnItemUsed`.
 
 5. **Item shops** — Optional **`onDefenseTriggered`** per `Item` (`createItem` in `items/shared/types.ts`), map **`ITEM_DEFENSE_TRIGGERED_BEHAVIORS`** (`items/index.ts`). The item-shops plugin routes by `payload.defenseItemDefinition.shortId`.
 
-6. **`GameSessionService.applyModifier`** — Passes **`actorUserId`** into `checkModifierDefense`. On `defense_blocked`, returns **`ApplyModifierResult`** with optional **`attackerMessage`** from the callback so item handlers (e.g. `applyTargetedTimedModifier`) can show custom copy while still using **`consumed: true`**.
+6. **`GameSessionService.applyModifier`** — Passes **`actorUserId`** into `checkModifierDefense`. An internal `skipPassiveDefenseCheck` flag (not exposed on the public plugin API) is set when re-applying a bounced modifier so passive defense does not recurse; plugins reach this path only via **`GameSessionPluginAPI.reboundModifier(userId, modifier, options?)`**. On `defense_blocked`, returns **`ApplyModifierResult`** with optional **`attackerMessage`** from the callback so item handlers (e.g. `applyTargetedTimedModifier`) can show custom copy while still using **`consumed: true`**.
 
 7. **`DJService.moveTrackByPosition`** — Passes **`actorUserId`** into `checkQueueDefense`; optional **`attackerMessage`** on **`MoveTrackResult`** when blocked.
 
@@ -34,4 +34,4 @@ We briefly considered a separate **`DefenseScope` value `"itemUse"`** and an **`
 - **Positive:** One defense pipeline; `DefenseTargeting.sourcePlugins` always filters **`GameStateModifier.source`**. Item authors co-locate `defense`, `use`, and `onDefenseTriggered` in one file.
 - **Negative:** A future **`requiresTarget: "user"`** item that does **not** go through `applyModifier` / `applyTimedModifier` would not trigger modifier defense automatically; that item’s plugin would need to call defense explicitly or apply a modifier-shaped hook for consistency.
 
-**Example item:** **P2P File Sharing** (`shortId: "p2p-file-sharing"`) — `scope: ["modifier"]`, `targeting: { sourcePlugins: ["item-shops"] }`, **`onDefenseTriggered`** calls `giveItem(defender, attackerItemDefinition.id, …, "defense_intercept")` and returns custom **`attackerMessage` / `roomMessage`**.
+**Example items:** **P2P File Sharing** (`shortId: "p2p-file-sharing"`) — `scope: ["modifier"]`, `targeting: { sourcePlugins: ["item-shops"] }`, **`onDefenseTriggered`** calls `giveItem(defender, attackerItemDefinition.id, …, "defense_intercept")` and returns custom **`attackerMessage` / `roomMessage`**. **Rubber Band** (`shortId: "rubber-band"`) — same defense shape; **`onDefenseTriggered`** redirects **`payload.blockedModifier`** onto **`attackerUserId`** via **`game.reboundModifier(attackerUserId, blockedModifier)`**.

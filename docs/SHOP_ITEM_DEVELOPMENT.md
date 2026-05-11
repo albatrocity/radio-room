@@ -49,7 +49,7 @@ npm run create-item -w @repo/plugin-item-shops
 ### Item behavior patterns
 
 - **Timed modifier:** use `timedModifierEffect` in `items/shared/behaviorHelpers.ts` (system messages for who was affected use `resolveItemUseActorDisplayName` for `actor` / `target` inside `applyTargetedTimedModifier`)
-- **Passive defense:** use `usePassiveDefenseItem` and `definition.defense` (`scope`: `modifier` and/or `queue`). Add optional **`onDefenseTriggered`** on the item (see `createItem` / `items/p2p-file-sharing`) — core calls it **after** consuming a matching stack; put side effects (e.g. give the defender a copy) or message overrides there. See ADR 0053.
+- **Passive defense:** use `usePassiveDefenseItem` and `definition.defense` (`scope`: `modifier` and/or `queue`). Add optional **`onDefenseTriggered`** on the item (see `createItem` / `items/p2p-file-sharing` for intercept + copy, `items/rubber-band` for redirecting **`payload.blockedModifier`** onto the attacker via **`game.reboundModifier(attackerUserId, blockedModifier)`**) — core calls it **after** consuming a matching stack; put side effects or message overrides there. See ADR 0053.
 - **Custom behavior:** generated async `use` handler stub with `ItemShopsBehaviorDeps`
 - **Room messages naming the actor:** when a `use` handler calls `sendSystemMessage` with the inventory owner’s name, use **`resolveItemUseActorDisplayName(deps, userId)`** from `items/shared/resolveItemUseActorDisplayName.ts` so the **`anonymous_actions`** timed modifier (Ski Mask) is respected. It reads `deps.game.getUserState(userId)`; in tests, **`applyTimedModifier` is mocked**, so mirror modifier state by mocking **`getUserState`** when asserting anonymous copy.
 

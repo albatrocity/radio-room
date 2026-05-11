@@ -524,6 +524,20 @@ export interface GameSessionPluginAPI {
     /** User who caused the application (e.g. item user), for defense events. */
     actorUserId?: string,
   ): Promise<ApplyModifierResult>
+  /**
+   * Re-apply a modifier (typically `DefenseTriggeredPayload.blockedModifier`)
+   * to another user, **bypassing passive modifier defense**. Intended for
+   * defense items that redirect an incoming effect (e.g. Rubber Band).
+   *
+   * `startAt` is reset to `Date.now()` and `endAt` is recomputed from the
+   * modifier's original duration. `stackBehavior: "stack"` uses the same
+   * tail-off logic as `applyTimedModifier`.
+   */
+  reboundModifier(
+    userId: string,
+    modifier: Omit<GameStateModifier, "id" | "source">,
+    options?: { actorUserId?: string },
+  ): Promise<ApplyModifierResult>
   /** Remove a modifier instance. Returns whether it was found and removed. */
   removeModifier(userId: string, modifierId: string): Promise<boolean>
 

@@ -11,6 +11,7 @@ import { hummusVeggies } from "./hummus-veggies"
 import { jokerPedal } from "./joker-pedal"
 import { sampleHold } from "./sample-hold"
 import { p2pFileSharing } from "./p2p-file-sharing"
+import { rubberBand } from "./rubber-band"
 import { disguise } from "./disguise"
 import { scratchedCd } from "./scratched-cd"
 import { tubeOverdrive } from "./tube-overdrive"
@@ -48,6 +49,7 @@ export const items = {
   gravityBong,
   disguise,
   p2pFileSharing,
+  rubberBand,
 } as const
 
 /**

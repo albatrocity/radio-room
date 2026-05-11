@@ -66,7 +66,13 @@ export class DefenseService {
       attackerItemDef = await this.inventory?.getItemDefinition(roomId, incoming.itemDefinitionId)
     }
 
-    return this.mergeDefenseTriggered(roomId, blocked, actorUserId, attackerItemDef ?? undefined)
+    return this.mergeDefenseTriggered(
+      roomId,
+      blocked,
+      actorUserId,
+      attackerItemDef ?? undefined,
+      incoming,
+    )
   }
 
   /**
@@ -86,7 +92,7 @@ export class DefenseService {
       return queueTargetingMatches(spec.targeting, intent)
     })
     if (!blocked) return null
-    return this.mergeDefenseTriggered(roomId, blocked, actorUserId, undefined)
+    return this.mergeDefenseTriggered(roomId, blocked, actorUserId, undefined, undefined)
   }
 
   private async mergeDefenseTriggered(
@@ -94,10 +100,12 @@ export class DefenseService {
     blocked: DefenseBlockInfo,
     actorUserId: string | undefined,
     attackerItemDefinition: ItemDefinition | undefined,
+    blockedModifier?: Omit<GameStateModifier, "id" | "source">,
   ): Promise<DefenseBlockInfo> {
     const triggered = await this.tryInvokeDefenseTriggered(roomId, blocked, {
       actorUserId,
       attackerItemDefinition,
+      blockedModifier,
     })
     if (
       !triggered ||
@@ -120,6 +128,7 @@ export class DefenseService {
     extra: {
       actorUserId?: string
       attackerItemDefinition?: ItemDefinition
+      blockedModifier?: Omit<GameStateModifier, "id" | "source">
     },
   ): Promise<DefenseTriggeredResult | null> {
     const invSvc = this.inventory
@@ -148,6 +157,7 @@ export class DefenseService {
       ...(extra.attackerItemDefinition != null
         ? { attackerItemDefinition: extra.attackerItemDefinition }
         : {}),
+      ...(extra.blockedModifier != null ? { blockedModifier: extra.blockedModifier } : {}),
     }
 
     return registry.invokeOnDefenseTriggered(roomId, defenseDef.sourcePlugin, payload)

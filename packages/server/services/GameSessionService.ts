@@ -365,19 +365,23 @@ export class GameSessionService {
     userId: string,
     sourcePlugin: string,
     incoming: Omit<GameStateModifier, "id" | "source">,
-    actorUserId?: string,
+    options?: { actorUserId?: string; skipPassiveDefenseCheck?: boolean },
   ): Promise<ApplyModifierResult> {
     const session = await this.getActiveSession(roomId)
     if (!session) return { ok: false, reason: "no_active_session" }
 
+    const actorUserId = options?.actorUserId
     const defenseSvc = new DefenseService(this.context)
-    const blocked = await defenseSvc.checkModifierDefense(
-      roomId,
-      userId,
-      sourcePlugin,
-      incoming,
-      actorUserId,
-    )
+    const blocked =
+      options?.skipPassiveDefenseCheck === true
+        ? null
+        : await defenseSvc.checkModifierDefense(
+            roomId,
+            userId,
+            sourcePlugin,
+            incoming,
+            actorUserId,
+          )
     if (blocked) {
       const provisionalModifier: GameStateModifier = {
         ...incoming,

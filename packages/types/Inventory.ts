@@ -1,3 +1,4 @@
+import type { GameStateModifier } from "./GameSession"
 import type { ItemRarity } from "./ShoppingSession"
 import type { LucideIconName } from "./LucideIconKey"
 
@@ -157,6 +158,13 @@ export interface DefenseTriggeredPayload {
   /** Item whose effect was blocked, when the modifier carried `itemDefinitionId`. */
   attackerItemDefinition?: ItemDefinition
   defenseItemDefinition: ItemDefinition
+  /**
+   * When a **modifier** defense blocked this application: the modifier that
+   * would have been applied (no `id` / `source`). Plugins may re-apply it to
+   * another user (e.g. Rubber Band) using `applyTimedModifier` with
+   * `skipPassiveDefenseCheck` to avoid recursion.
+   */
+  blockedModifier?: Omit<GameStateModifier, "id" | "source">
 }
 
 /**

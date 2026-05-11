@@ -41,7 +41,7 @@ In `packages/plugin-item-shops/items/index.ts`:
 |--------|-----|
 | Single timed **flag** on targeted user (pedal-style) | `timedModifierEffect()` from `items/shared/behaviorHelpers.ts` — pass `modifierName`, `effects` (each with `durationMs`), `intent`, `successMessage`, `describe`, optional `visibility: "self"` to hide effect bars from other users. |
 | Custom timed effects (multiple effects or non-flag) | `applyTargetedTimedModifier()` with a full `TargetedTimedModifierSpec` (`effects` as `GameStateEffectWithMeta[]`, optional `visibility`). |
-| Equipped defense item that should not “activate” | `usePassiveDefenseItem` + `definition.defense` — see `items/warranty/index.ts` (modifier/queue) or `items/p2p-file-sharing/index.ts` (`modifier` scope + optional `onDefenseTriggered`). |
+| Equipped defense item that should not “activate” | `usePassiveDefenseItem` + `definition.defense` — see `items/warranty/index.ts` (modifier/queue), `items/p2p-file-sharing/index.ts` (intercept + copy), or `items/rubber-band/index.ts` (bounce `blockedModifier` onto attacker with `skipPassiveDefenseCheck`). |
 | Bespoke logic | Async `use` handler: `(deps, userId, definition, callContext) => Promise<ItemUseResult>` with `{ success, consumed, message }`. Read `callContext` with narrow typing (see `empty-fridge`, `scratched-cd`). |
 
 **Room `sendSystemMessage` and the actor’s name:** always attribute the inventory actor with `await resolveItemUseActorDisplayName(deps, userId)` (or the relevant user id) — never interpolate raw `getUsersByIds` usernames for room-visible copy. That respects the **`anonymous_actions`** timed modifier (Ski Mask). Timed modifiers from `timedModifierEffect` already resolve actor/target names this way inside `applyTargetedTimedModifier`. The `npm run create-item` custom-handler scaffold imports the helper, resolves `displayName` for the actor, and reminds you to use it in any `sendSystemMessage`.
@@ -79,5 +79,5 @@ Run: `npm test -w @repo/plugin-item-shops`
 - `items/shared/behaviorHelpers.ts` — `timedModifierEffect`, `applyTargetedTimedModifier`, `usePassiveDefenseItem`
 - `items/shared/resolveItemUseActorDisplayName.ts` — room-visible actor label (Ski Mask / `anonymous_actions`)
 - `items/shared/testHelpers.ts` — mocks and `expectApplyTimedModifierForPedal`
-- Examples: `items/boost-pedal`, `items/warranty`, `items/p2p-file-sharing`, `items/empty-fridge`, `items/scratched-cd`
+- Examples: `items/boost-pedal`, `items/warranty`, `items/p2p-file-sharing`, `items/rubber-band`, `items/empty-fridge`, `items/scratched-cd`
 - Shops: `shops/sweetwater/index.ts`, `shops/green-room/index.ts`, `shops/index.ts`

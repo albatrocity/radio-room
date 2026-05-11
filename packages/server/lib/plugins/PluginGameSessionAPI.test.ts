@@ -186,4 +186,33 @@ describe("PluginGameSessionAPI.applyTimedModifier", () => {
 
     expect(result).toEqual({ ok: true, modifierId: "custom-id" })
   })
+
+  test("reboundModifier calls service.applyModifier with skipPassiveDefenseCheck and recomputed duration", async () => {
+    setUserState([])
+    const originalStart = NOW - 30_000
+    const originalEnd = NOW - 30_000 + 60_000
+    await api.reboundModifier(
+      USER_ID,
+      {
+        name: "boost",
+        effects: [{ type: "flag", name: "grow", value: true }],
+        startAt: originalStart,
+        endAt: originalEnd,
+        stackBehavior: "replace",
+      },
+      { actorUserId: "actor-1" },
+    )
+    expect(mockService.applyModifier).toHaveBeenCalledWith(
+      ROOM_ID,
+      USER_ID,
+      PLUGIN_NAME,
+      expect.objectContaining({
+        name: "boost",
+        stackBehavior: "replace",
+        startAt: NOW,
+        endAt: NOW + 60_000,
+      }),
+      { actorUserId: "actor-1", skipPassiveDefenseCheck: true },
+    )
+  })
 })

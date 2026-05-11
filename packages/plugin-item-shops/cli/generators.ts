@@ -163,7 +163,9 @@ function buildItemFile(answers: ItemWizardAnswers): string {
     imports.push(`import { usePassiveDefenseItem } from "../shared/behaviorHelpers"`)
   } else if (answers.behaviorKind === "customHandler") {
     imports.push(`import type { ItemDefinition, ItemUseResult } from "@repo/types"`)
-    imports.push(`import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"`)
+    imports.push(
+      `import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"`,
+    )
     imports.push(`import { type ItemShopsBehaviorDeps, createItem } from "../shared/types"`)
   }
 
@@ -229,7 +231,9 @@ function buildItemFile(answers: ItemWizardAnswers): string {
     lines.push(`    _callContext?: unknown,`)
     lines.push(`  ): Promise<ItemUseResult> => {`)
     lines.push(`    const displayName = await resolveItemUseActorDisplayName(deps, userId)`)
-    lines.push(`    // Room \`sendSystemMessage\` lines must use \`displayName\`, not raw usernames.`)
+    lines.push(
+      `    // Room \`sendSystemMessage\` lines must use \`displayName\`, not raw usernames.`,
+    )
     lines.push(
       `    return { success: false, consumed: false, message: \`TODO: implement custom behavior (\${displayName} / \${definition.name}).\` }`,
     )

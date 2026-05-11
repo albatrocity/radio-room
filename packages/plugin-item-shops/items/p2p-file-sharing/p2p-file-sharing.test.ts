@@ -38,15 +38,17 @@ describe("p2p-file-sharing", () => {
         roomId: "room-1",
         inventory: { giveItem },
         api: {
-          getUsersByIds: vi.fn().mockImplementation(async (ids: string[]) =>
-            ids.map((id) =>
-              id === "atk-1"
-                ? { username: "Attacker" }
-                : id === "def-1"
-                  ? { username: "Defender" }
-                  : { username: id },
+          getUsersByIds: vi
+            .fn()
+            .mockImplementation(async (ids: string[]) =>
+              ids.map((id) =>
+                id === "atk-1"
+                  ? { username: "Attacker" }
+                  : id === "def-1"
+                    ? { username: "Defender" }
+                    : { username: id },
+              ),
             ),
-          ),
         },
       },
       game: {
@@ -81,7 +83,13 @@ describe("p2p-file-sharing", () => {
       defenseItemDefinition,
     })
 
-    expect(giveItem).toHaveBeenCalledWith("def-1", "item-shops:foo", 1, undefined, "defense_intercept")
+    expect(giveItem).toHaveBeenCalledWith(
+      "def-1",
+      "item-shops:foo",
+      1,
+      undefined,
+      "defense_intercept",
+    )
   })
 
   it("cross-user item use blocked by modifier defense consumes the attacker stack (core removes when consumed)", async () => {

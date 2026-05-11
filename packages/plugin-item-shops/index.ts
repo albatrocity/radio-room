@@ -106,12 +106,11 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       }
 
       const message = `Hey, you left your ${itemName}. We're closing up for the night but we'll get it back to you soon.`
-      await this.context.api.sendUserSystemMessage(
-        this.context.roomId,
-        userId,
-        message,
-        { type: "alert", status: "info", title: "Message from the Green Room" },
-      )
+      await this.context.api.sendUserSystemMessage(this.context.roomId, userId, message, {
+        type: "alert",
+        status: "info",
+        title: "Message from the Green Room",
+      })
 
       const definitionId = stack.definitionId
       const roomId = this.context.roomId
@@ -128,12 +127,11 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           )
           if (!returned) return
           const followUp = `hey here's your ${itemName} back`
-          await this.context.api.sendUserSystemMessage(
-            roomId,
-            userId,
-            followUp,
-            { type: "alert", status: "info", title: "Message from the Green Room" },
-          )
+          await this.context.api.sendUserSystemMessage(roomId, userId, followUp, {
+            type: "alert",
+            status: "info",
+            title: "Message from the Green Room",
+          })
         },
       })
 
@@ -397,7 +395,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         }
       }
       if (!(await this.shopping.isActive())) {
-        return { success: false, message: "Start a shopping round first (toolbar → Start shopping)." }
+        return {
+          success: false,
+          message: "Start a shopping round first (toolbar → Start shopping).",
+        }
       }
       const eligible = getEligibleShops(config)
       if (eligible.length === 0) {
