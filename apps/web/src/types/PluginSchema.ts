@@ -50,6 +50,15 @@ export interface PluginSchemaElement {
   showWhen?: ShowWhenCondition | ShowWhenCondition[]
 }
 
+/** Optional form fields for plugin actions (mirrors @repo/types). */
+export interface PluginActionFormField {
+  name: string
+  label: string
+  type: "select" | "user-select" | "string"
+  required?: boolean
+  options?: { value: string; label: string }[]
+}
+
 /**
  * Plugin action element - for action buttons in the form layout
  */
@@ -70,6 +79,7 @@ export interface PluginActionElement {
    * If an array is provided, ALL conditions must be true (AND logic).
    */
   showWhen?: ShowWhenCondition | ShowWhenCondition[]
+  formFields?: PluginActionFormField[]
 }
 
 /**

@@ -25,6 +25,7 @@ export type StudioBridgeCommand =
       userId: string
       pluginName: string
       action: string
+      params?: Record<string, unknown>
     }
   | {
       kind: "REMOVE_FROM_QUEUE"
@@ -76,7 +77,12 @@ export async function dispatchStudioBridgeCommand(
       return { success: true }
     }
     case "EXECUTE_PLUGIN_ACTION": {
-      await studioActions.executeBridgePluginAction(cmd.userId, cmd.pluginName, cmd.action)
+      await studioActions.executeBridgePluginAction(
+        cmd.userId,
+        cmd.pluginName,
+        cmd.action,
+        cmd.params,
+      )
       return { success: true }
     }
     case "REMOVE_FROM_QUEUE": {

@@ -400,7 +400,11 @@ function wireSocketHandlers(io: IOServer): void {
 
     socket.on(
       "EXECUTE_PLUGIN_ACTION",
-      async (data: { pluginName?: string; action?: string }) => {
+      async (data: {
+        pluginName?: string
+        action?: string
+        params?: Record<string, unknown>
+      }) => {
         const roomId = socket.data.roomId as string | undefined
         const userId = socket.data.userId as string | undefined
         if (!roomId || !userId || !data?.pluginName || !data?.action) {
@@ -416,6 +420,7 @@ function wireSocketHandlers(io: IOServer): void {
           userId,
           pluginName: data.pluginName,
           action: data.action,
+          ...(data.params !== undefined ? { params: data.params } : {}),
         })
         socket.emit("event", {
           type: "PLUGIN_ACTION_RESULT",

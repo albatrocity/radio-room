@@ -687,6 +687,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
   async executeAction(
     action: string,
     _initiator?: PluginActionInitiator,
+    _params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }> {
     if (action === "resetCompetitiveLeaderboard") {
       return this.resetCompetitiveLeaderboard()
