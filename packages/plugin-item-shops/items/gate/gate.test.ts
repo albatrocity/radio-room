@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 import { userFactory } from "@repo/factories"
-import { GATE_FLAG } from "@repo/plugin-base"
+import { GATE_FLAG } from "../textEffects/textEffectFlags"
 import { gate } from "./index"
 import {
   createMockDefinition,

@@ -44,19 +44,38 @@ export const textEffectSchema = z.discriminatedUnion("type", [
     /** Maps to font stacks in `textEffectStyles` on the web client. */
     value: z.enum(["comicSans"]),
   }),
-   z.object({
+  z.object({
     type: z.literal("color"),
-    /** Maps to color in `textEffectStyles` on the web client. */
-    value: z.enum([
-      "orange",
-      "purple",
+    /** Chakra v3 palette — pairs with `token` for semantic colors (see theming/colors). */
+    palette: z.enum([
+      "gray",
       "red",
+      "pink",
+      "purple",
+      "cyan",
       "blue",
-      "yellow",
+      "teal",
       "green",
+      "yellow",
+      "orange",
     ]),
+    /**
+     * Semantic token within the palette; Chakra resolves light/dark.
+     * Defaults to `solid` when omitted.
+     */
+    token: z
+      .enum([
+        "subtle",
+        "muted",
+        "emphasized",
+        "solid",
+        "fg",
+        "contrast",
+        "focusRing",
+        "border",
+      ])
+      .optional(),
   }),
-
 ])
 export type TextEffect = z.infer<typeof textEffectSchema>
 

@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest"
 import { userFactory } from "@repo/factories"
-import { GROW_FLAG } from "@repo/plugin-base"
+import { GROW_FLAG } from "../textEffects/textEffectFlags"
 import { boostPedal } from "./index"
 import {
   createMockDefinition,

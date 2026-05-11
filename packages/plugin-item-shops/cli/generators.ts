@@ -11,16 +11,7 @@ export async function generateItemScaffold(
   const itemFile = join(itemDir, "index.ts")
   const testFile = join(itemDir, `${answers.shortId}.test.ts`)
   const itemsIndexPath = join(packageDir, "items", "index.ts")
-  const gameLogicTextStacksPath = join(packageDir, "..", "game-logic", "src", "textEffectStacks.ts")
-  const pluginBaseFlagsPath = join(
-    packageDir,
-    "..",
-    "plugin-base",
-    "helpers",
-    "textTransform",
-    "flags.ts",
-  )
-  const pluginBaseIndexPath = join(packageDir, "..", "plugin-base", "index.ts")
+  const textEffectFlagsPath = join(packageDir, "items", "textEffects", "textEffectFlags.ts")
 
   await mkdir(itemDir, { recursive: true })
 
@@ -35,20 +26,8 @@ export async function generateItemScaffold(
 
   const newFlags = answers.timedModifier?.newFlags ?? []
   if (newFlags.length > 0) {
-    const updatedTextStacks = await appendGameLogicFlags(gameLogicTextStacksPath, newFlags)
-    if (updatedTextStacks) changedFiles.push(gameLogicTextStacksPath)
-
-    const updatedPluginBaseFlags = await appendPluginBaseFlagsReExport(
-      pluginBaseFlagsPath,
-      newFlags,
-    )
-    if (updatedPluginBaseFlags) changedFiles.push(pluginBaseFlagsPath)
-
-    const updatedPluginBaseIndex = await appendPluginBaseIndexReExport(
-      pluginBaseIndexPath,
-      newFlags,
-    )
-    if (updatedPluginBaseIndex) changedFiles.push(pluginBaseIndexPath)
+    const updatedTextEffectFlags = await appendTextEffectFlags(textEffectFlagsPath, newFlags)
+    if (updatedTextEffectFlags) changedFiles.push(textEffectFlagsPath)
   }
 
   if (answers.shops.sweetwater != null) {
@@ -156,7 +135,7 @@ function buildItemFile(answers: ItemWizardAnswers): string {
       .filter((value): value is string => Boolean(value))
     const uniqueFlagImports = [...new Set(flagImports)]
     if (uniqueFlagImports.length > 0) {
-      imports.push(`import { ${uniqueFlagImports.join(", ")} } from "@repo/plugin-base"`)
+      imports.push(`import { ${uniqueFlagImports.join(", ")} } from "../textEffects/textEffectFlags"`)
     }
     imports.push(`import { timedModifierEffect } from "../shared/behaviorHelpers"`)
   } else if (answers.behaviorKind === "passiveDefense") {
@@ -273,7 +252,7 @@ function buildTimedEffectLiteral(effect: TimedModifierEffectConfig): string {
   return `{ type: "${effect.type}", target: "${target}", value: ${value}${baseIcon}, intent: "${effect.intent}"${duration} }`
 }
 
-async function appendGameLogicFlags(
+async function appendTextEffectFlags(
   path: string,
   declarations: NewFlagDeclaration[],
 ): Promise<boolean> {
@@ -283,43 +262,9 @@ async function appendGameLogicFlags(
     const line = `export const ${declaration.constName} = "${declaration.value}"`
     if (!content.includes(line)) {
       content = content.replace(
-        'export const COMIC_SANS_FLAG = "comic_sans"',
-        `export const COMIC_SANS_FLAG = "comic_sans"\n${line}`,
+        'export const SNOOZE_FLAG = "snooze"',
+        `export const SNOOZE_FLAG = "snooze"\n${line}`,
       )
-      changed = true
-    }
-  }
-  if (changed) await writeFile(path, content, "utf8")
-  return changed
-}
-
-async function appendPluginBaseFlagsReExport(
-  path: string,
-  declarations: NewFlagDeclaration[],
-): Promise<boolean> {
-  let content = await readFile(path, "utf8")
-  let changed = false
-  for (const declaration of declarations) {
-    const exportLine = `  ${declaration.constName},`
-    if (!content.includes(exportLine)) {
-      content = content.replace("  COMIC_SANS_FLAG,", `  COMIC_SANS_FLAG,\n${exportLine}`)
-      changed = true
-    }
-  }
-  if (changed) await writeFile(path, content, "utf8")
-  return changed
-}
-
-async function appendPluginBaseIndexReExport(
-  path: string,
-  declarations: NewFlagDeclaration[],
-): Promise<boolean> {
-  let content = await readFile(path, "utf8")
-  let changed = false
-  for (const declaration of declarations) {
-    const exportLine = `  ${declaration.constName},`
-    if (!content.includes(exportLine)) {
-      content = content.replace("  COMIC_SANS_FLAG,", `  COMIC_SANS_FLAG,\n${exportLine}`)
       changed = true
     }
   }

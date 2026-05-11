@@ -8,11 +8,24 @@ import {
   stubRoomUsers,
 } from "../shared/testHelpers"
 import { coffeePedal } from "."
-import { COFFEE_FLAG } from "@repo/plugin-base"
+import { COFFEE_FLAG } from "../textEffects/textEffectFlags"
 
 describe("coffee-pedal", () => {
   it("registers the expected shortId", () => {
     expect(coffeePedal.shortId).toBe("coffee-pedal")
+  })
+
+  it("attaches a word-phase textEffect that maps z/Z to !", () => {
+    const kind = coffeePedal.textEffect
+    expect(kind?.phase).toBe("word")
+    if (kind?.phase !== "word") return
+    expect(
+      kind.transform(
+        "buzz",
+        { [COFFEE_FLAG]: 1 },
+        { wordIndex: 0, wordCount: 1, allWords: ["buzz"] },
+      ),
+    ).toBe("bu!!")
   })
 
   it("calls applyTimedModifier with interface blur flag", async () => {

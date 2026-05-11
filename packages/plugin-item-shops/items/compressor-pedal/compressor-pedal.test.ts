@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 import { userFactory } from "@repo/factories"
-import { SHRINK_FLAG } from "@repo/plugin-base"
+import { SHRINK_FLAG } from "../textEffects/textEffectFlags"
 import { compressorPedal } from "./index"
 import {
   createMockDefinition,

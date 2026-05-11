@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 import { userFactory } from "@repo/factories"
-import { SCRAMBLE_FLAG } from "@repo/plugin-base"
+import { SCRAMBLE_FLAG } from "../textEffects/textEffectFlags"
 import { sampleHold } from "./index"
 import {
   createMockDefinition,

@@ -1,11 +1,7 @@
 import { z } from "zod"
 import type { ItemShopsShopCatalogEntry, ShopBuyContext } from "@repo/plugin-base/helpers"
-import {
-  BasePlugin,
-  applyTextEffects,
-  countTextEffectStacks,
-  ShoppingSessionHelper,
-} from "@repo/plugin-base"
+import { BasePlugin, applyTextEffects, ShoppingSessionHelper } from "@repo/plugin-base"
+import { countFlagStacks } from "@repo/game-logic"
 import {
   type ChatMessage,
   type ItemDefinition,
@@ -20,7 +16,7 @@ import {
 } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import packageJson from "./package.json"
-import { ITEM_CATALOG, ITEM_USE_BEHAVIORS } from "./items/index"
+import { ITEM_CATALOG, ITEM_USE_BEHAVIORS, TEXT_EFFECT_KINDS } from "./items/index"
 import { SHOP_CATALOG } from "./shops"
 import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
 
@@ -527,8 +523,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     const state = await this.game.getUserState(message.user.userId)
     if (!state) return null
 
-    const stacks = countTextEffectStacks(state.modifiers, Date.now())
-    const transformed = applyTextEffects(message.content, stacks)
+    const stacks = countFlagStacks(state.modifiers, Date.now())
+    const transformed = applyTextEffects(message.content, stacks, TEXT_EFFECT_KINDS)
     if (!transformed) return null
 
     return {

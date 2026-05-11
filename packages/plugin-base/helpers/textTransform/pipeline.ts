@@ -1,101 +1,111 @@
-import type { TextEffect, TextSegment } from "@repo/types"
+import type { TextSegment } from "@repo/types"
 import { buildSegments, tokenizeWords } from "../chatTransform"
-import {
-  applyGateTransform,
-  applyScrambleTransform,
-  echoCount,
-  netSizeShift,
-  resolveBaseSize,
-  resolveEchoSize,
-  applySnoozeTransform,
-  applyCoffeeTransform,
-} from "./effects"
-import type { TextEffectStacks } from "./flags"
+import type { TextEffectKind, TextEffectStacks, WordContext } from "./types"
 
 export interface AppliedTextEffects {
   content: string
   contentSegments: TextSegment[]
 }
 
-type SizeValue = Extract<TextEffect, { type: "size" }>["value"]
-
-function sizeEffects(value: SizeValue): TextEffect[] {
-  return [{ type: "size", value }]
+function isKindActive(kind: TextEffectKind, stacks: TextEffectStacks): boolean {
+  if (typeof kind.activeWhen === "string") {
+    return (stacks[kind.activeWhen] ?? 0) > 0
+  }
+  return kind.activeWhen(stacks)
 }
 
-const COMIC_SANS_EFFECT: TextEffect = { type: "font", value: "comicSans" }
-
-function withComicSans(
-  effects: TextEffect[] | undefined,
+function filterActiveKinds(
+  kinds: readonly TextEffectKind[],
   stacks: TextEffectStacks,
-): TextEffect[] | undefined {
-  if (stacks.comicSans <= 0) return effects
-  if (!effects?.length) return [COMIC_SANS_EFFECT]
-  return [...effects, COMIC_SANS_EFFECT]
+): TextEffectKind[] {
+  return kinds.filter((k) => isKindActive(k, stacks))
+}
+
+function sortByOrder(a: TextEffectKind, b: TextEffectKind): number {
+  return (a.order ?? 0) - (b.order ?? 0)
+}
+
+function warnSegmentConflict(kindId: string): void {
+  if (typeof console !== "undefined" && console.warn) {
+    console.warn(
+      `[applyTextEffects] Multiple segment kinds produced output for the same word; using last registered non-null result (${kindId}).`,
+    )
+  }
 }
 
 /**
- * Apply text effects (scramble + size shift + cascading echoes + optional gate
- * masking) to a chat message `content` string. Returns `null` when no effects
- * are active so callers can skip the message untouched.
- *
- * Algorithm:
- * 0. If `scramble` stacks are active, scramble alpha letters via
- *    {@link applyScrambleTransform} — at 1x within each word, at 2x pooled
- *    across the message preserving word lengths, at 3x+ also randomising word
- *    count and lengths. The transformed string drives the subsequent steps.
- * 1. Tokenize the (possibly scrambled) input into words + trailing whitespace.
- * 2. For each word, optionally apply {@link applyGateTransform} when `gate` stacks
- *    are active (lowercase letters → visible `_` via Markdown `\_` escapes for chat).
- * 3. Emit one base segment (with size effect if shifted) and
- *    `echoCount(stacks)` cascading echo segments — each one step smaller than
- *    the previous, capped at `3xs`.
- * 4. Reassemble `content` and `contentSegments` via `buildSegments` so the
- *    plain string and styled segments stay consistent.
- * 5. When `comicSans` stacks are active, append a `font` effect to each word
- *    segment (and echoes) for Comic Sans rendering in the client.
+ * Apply registered text effect kinds to chat message content.
+ * Returns `null` when no kinds are active so callers can skip the message untouched.
  */
 export function applyTextEffects(
   content: string,
   stacks: TextEffectStacks,
+  kinds: readonly TextEffectKind[],
 ): AppliedTextEffects | null {
-  const echoes = echoCount(stacks)
-  const shift = netSizeShift(stacks)
-  const gate = stacks.gate > 0
-  const snooze = stacks.snooze > 0
-  const scramble = stacks.scramble > 0
-  const coffee = stacks.coffee > 0
-  if (
-    echoes === 0 &&
-    shift === 0 &&
-    !gate &&
-    !scramble &&
-    !snooze &&
-    !coffee &&
-    stacks.comicSans <= 0
-  )
-    return null
+  const active = filterActiveKinds(kinds, stacks)
+  if (active.length === 0) return null
 
-  const baseSize = resolveBaseSize(stacks)
-  const transformed = scramble ? applyScrambleTransform(content, stacks.scramble) : content
+  const contentKinds = active.filter((k): k is Extract<TextEffectKind, { phase: "content" }> => k.phase === "content").sort(sortByOrder)
+
+  let transformed = content
+  for (const k of contentKinds) {
+    transformed = k.transform(transformed, stacks)
+  }
+
   const tokens = tokenizeWords(transformed)
+  const allWords = tokens.filter((t) => t.word !== "").map((t) => t.word)
+  const wordCount = allWords.length
+
+  let wordOrdinal = 0
+
+  const wordKinds = active.filter((k): k is Extract<TextEffectKind, { phase: "word" }> => k.phase === "word").sort(sortByOrder)
+  const segmentKinds = active.filter((k): k is Extract<TextEffectKind, { phase: "segment" }> => k.phase === "segment").sort(sortByOrder)
+  const decorateKinds = active.filter((k): k is Extract<TextEffectKind, { phase: "decorate" }> => k.phase === "decorate").sort(sortByOrder)
+  const multiplyKinds = active.filter((k): k is Extract<TextEffectKind, { phase: "multiply" }> => k.phase === "multiply").sort(sortByOrder)
+
   return buildSegments(tokens, (token) => {
     if (!token.word) return []
-    let word = token.word
-    if (snooze) word = applySnoozeTransform(word)
-    if (coffee) word = applyCoffeeTransform(word)
-    if (gate) word = applyGateTransform(word)
-    const baseSegment: TextSegment = { text: word }
-    const baseEffects = baseSize ? sizeEffects(baseSize) : undefined
-    baseSegment.effects = withComicSans(baseEffects, stacks)
-    const segments: TextSegment[] = [baseSegment]
 
-    for (let i = 1; i <= echoes; i++) {
-      segments.push({
-        text: ` ${word}`,
-        effects: withComicSans(sizeEffects(resolveEchoSize(stacks, i)), stacks),
-      })
+    const ctx: WordContext = {
+      wordIndex: wordOrdinal,
+      wordCount,
+      allWords,
     }
-    return segments
+    wordOrdinal += 1
+
+    let word = token.word
+    for (const k of wordKinds) {
+      word = k.transform(word, stacks, ctx)
+    }
+
+    let segments: TextSegment[] | null = null
+    for (const k of segmentKinds) {
+      const built = k.build(word, stacks, ctx)
+      if (built != null) {
+        if (segments != null) {
+          warnSegmentConflict(String(k.activeWhen))
+        } else {
+          segments = built
+        }
+      }
+    }
+    if (segments == null) {
+      segments = [{ text: word }]
+    }
+
+    for (const seg of segments) {
+      const merged = [...(seg.effects ?? [])]
+      for (const dk of decorateKinds) {
+        merged.push(...dk.effects(stacks, ctx))
+      }
+      seg.effects = merged.length ? merged : undefined
+    }
+
+    let acc = segments
+    for (const mk of multiplyKinds) {
+      acc = [...acc, ...mk.buildExtras(acc, stacks, ctx, word)]
+    }
+
+    return acc
   })
 }

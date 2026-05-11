@@ -1,4 +1,4 @@
-import { GROW_FLAG } from "@repo/plugin-base"
+import { GROW_FLAG } from "../textEffects/textEffectFlags"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
 

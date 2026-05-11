@@ -1,6 +1,15 @@
-import { SCRAMBLE_FLAG } from "@repo/plugin-base"
+import type { TextEffectKind } from "@repo/plugin-base"
+import { applyScrambleTransform } from "@repo/plugin-base"
+import { SCRAMBLE_FLAG } from "../textEffects/textEffectFlags"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
+
+const scrambleTextEffect: TextEffectKind = {
+  phase: "content",
+  activeWhen: SCRAMBLE_FLAG,
+  transform: (content, stacks) =>
+    applyScrambleTransform(content, stacks[SCRAMBLE_FLAG] ?? 0),
+}
 
 export const sampleHold = createItem({
   shortId: "sample-hold",
@@ -25,4 +34,5 @@ export const sampleHold = createItem({
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} is feeling lal mxide up...` : `${target} is feeling all mxied up from ${actor}'s Sample & Hold Pedal`,
   }),
+  textEffect: scrambleTextEffect,
 })

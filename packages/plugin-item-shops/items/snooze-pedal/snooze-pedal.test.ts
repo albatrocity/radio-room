@@ -7,7 +7,7 @@ import {
   invokeUse,
   stubRoomUsers,
 } from "../shared/testHelpers"
-import { SNOOZE_FLAG } from "@repo/plugin-base"
+import { SNOOZE_FLAG } from "../textEffects/textEffectFlags"
 import { snoozePedal } from "."
 
 describe("snooze-pedal", () => {

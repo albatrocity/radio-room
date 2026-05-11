@@ -1,6 +1,14 @@
-import { COMIC_SANS_FLAG } from "@repo/plugin-base"
+import type { TextEffectKind } from "@repo/plugin-base"
+import { COMIC_SANS_FLAG } from "../textEffects/textEffectFlags"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
+
+const comicSansTextEffect: TextEffectKind = {
+  phase: "decorate",
+  activeWhen: COMIC_SANS_FLAG,
+  order: 1,
+  effects: () => [{ type: "font", value: "comicSans" }],
+}
 
 export const jokerPedal = createItem({
   shortId: "joker-pedal",
@@ -26,4 +34,5 @@ export const jokerPedal = createItem({
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} is talking kinda funny...` : `${target} is talking kinda funny...`,
   }),
+  textEffect: comicSansTextEffect,
 })

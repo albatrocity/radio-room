@@ -1,4 +1,4 @@
-import { ECHO_FLAG } from "@repo/plugin-base"
+import { ECHO_FLAG } from "../textEffects/textEffectFlags"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
 
