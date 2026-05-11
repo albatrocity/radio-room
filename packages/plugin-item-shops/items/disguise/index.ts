@@ -21,6 +21,7 @@ export const disguise = createItem({
   },
   use: timedModifierEffect({
     modifierName: "disguise",
+    visibility: "self",
     effects: [
       {
         type: "flag",

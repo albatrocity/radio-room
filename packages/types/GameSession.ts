@@ -138,6 +138,12 @@ export interface GameStateModifier {
    * `ItemDefinition.id`. Used to resolve an icon after per-effect `icon` values.
    */
   itemDefinitionId?: string
+  /**
+   * Visibility scope for this modifier’s UI indicators (effect bars, etc.).
+   * - `"public"` (default when omitted): visible to all users in the room
+   * - `"self"`: only visible to the user who has the modifier
+   */
+  visibility?: "public" | "self"
 }
 
 // ============================================================================

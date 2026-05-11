@@ -34,6 +34,7 @@ describe("disguise", () => {
       flag: ANONYMOUS_ACTIONS_FLAG,
       intent: "neutral",
       durationMs: 5 * 60 * 1000,
+      visibility: "self",
     })
 
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(

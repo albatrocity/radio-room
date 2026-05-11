@@ -85,6 +85,30 @@ effects: [
 - Each effect in `effects` **must** include **`durationMs`** (`GameStateEffectWithMeta`). It is consumed when applying the modifier and **not** stored on the persisted modifier.
 - If resolved durations differ across effects, the helper applies **one `applyTimedModifier` call per duration group**. Modifier names become `${modifierName}__${durationMs}` when more than one group exists so stacking semantics stay per bucket.
 
+### Modifier visibility (`visibility`)
+
+Timed modifiers default to **public** (everyone sees the effect bar / tooltip for that user’s row in the listener list). Set **`visibility: "self"`** on `timedModifierEffect` to persist `visibility: "self"` on `GameStateModifier`: the web client hides those modifiers when rendering **another** user’s `UserEffectBars` (your own row still shows them).
+
+Use `"self"` when showing the bar would leak private state (e.g. anonymity / disguise-style effects).
+
+```ts
+use: timedModifierEffect({
+  modifierName: "disguise",
+  visibility: "self",
+  effects: [
+    {
+      type: "flag",
+      name: ANONYMOUS_ACTIONS_FLAG,
+      value: true,
+      intent: "neutral",
+      durationMs: 5 * 60 * 1000,
+    },
+  ],
+  successMessage: "…",
+  describe: () => `Someone went anonymous`,
+})
+```
+
 ## Creating Shops
 
 Use the shop generator:

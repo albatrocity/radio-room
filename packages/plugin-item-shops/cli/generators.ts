@@ -205,6 +205,9 @@ function buildItemFile(answers: ItemWizardAnswers): string {
   if (answers.behaviorKind === "timedModifier" && answers.timedModifier) {
     lines.push(`  use: timedModifierEffect({`)
     lines.push(`    modifierName: "${escapeDoubleQuotes(answers.timedModifier.modifierName)}",`)
+    if (answers.timedModifier.visibility === "self") {
+      lines.push(`    visibility: "self",`)
+    }
     lines.push(`    effects: [`)
     for (const effect of answers.timedModifier.effects) {
       lines.push(`      ${buildTimedEffectLiteral(effect)},`)

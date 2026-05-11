@@ -426,6 +426,9 @@ export class GameSessionService {
         if (incoming.icon && !existing.icon) {
           existing.icon = incoming.icon
         }
+        if (incoming.visibility === "self" && existing.visibility !== "self") {
+          existing.visibility = "self"
+        }
         // Don't push the new modifier - we extended the existing one
         await this.persistModifiers(roomId, session.id, userId, modifiers)
         await this.touchParticipant(roomId, session.id, userId)

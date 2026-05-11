@@ -7,6 +7,8 @@ export type TargetedTimedModifierSpec = {
   effects: GameStateEffectWithMeta[]
   successMessage: string
   describe: (p: { isSelf: boolean; actor: string; target: string }) => string
+  /** UI visibility scope. Defaults to public (omit). */
+  visibility?: "public" | "self"
 }
 
 export type ApplyTargetedTimedModifierParams = {
@@ -42,6 +44,7 @@ export async function applyTargetedTimedModifier(
         effects: group.effects,
         stackBehavior: "stack",
         itemDefinitionId: definition.id,
+        ...(spec.visibility === "self" ? { visibility: "self" as const } : {}),
       },
       userId,
     )
@@ -91,6 +94,8 @@ export type TimedModifierEffectConfig = {
   successMessage: string
   /** Generates the system message describing who is affected. */
   describe: (p: { isSelf: boolean; actor: string; target: string }) => string
+  /** UI visibility scope. Defaults to public when omitted. */
+  visibility?: "public" | "self"
 }
 
 /**
@@ -125,6 +130,7 @@ export function timedModifierEffect(config: TimedModifierEffectConfig): ItemUseH
         }),
         successMessage: config.successMessage,
         describe: config.describe,
+        visibility: config.visibility,
       },
     })
 }

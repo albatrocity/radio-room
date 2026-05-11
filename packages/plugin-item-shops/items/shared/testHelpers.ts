@@ -128,6 +128,7 @@ export function expectApplyTimedModifierForPedal(
     flag: string
     intent: GameStateEffectIntent
     durationMs: number
+    visibility?: "public" | "self"
   },
 ): void {
   expect(deps.game.applyTimedModifier).toHaveBeenCalledWith(
@@ -135,6 +136,7 @@ export function expectApplyTimedModifierForPedal(
     options.durationMs,
     expect.objectContaining({
       name: options.modifierName,
+      ...(options.visibility ? { visibility: options.visibility } : {}),
       effects: [
         expect.objectContaining({
           type: "flag",
