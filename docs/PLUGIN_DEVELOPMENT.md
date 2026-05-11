@@ -801,13 +801,18 @@ getConfigSchema(): PluginConfigSchema {
 | `confirmMessage` | `string` | No       | If provided, shows confirmation dialog before executing          |
 | `confirmText`    | `string` | No       | Text for the confirmation button (default: "Confirm")            |
 | `showWhen`       | `object` | No       | Conditional visibility (same as field `showWhen`)                |
+| `formFields`     | `array`  | No       | Optional fields shown in a popover before run; values are passed as `params` to `executeAction` |
 
 ### Handling Actions
 
-Override the `executeAction` method to handle action button clicks:
+Override the `executeAction` method to handle action button clicks. When `formFields` are defined, the admin UI collects values and sends them as the third argument (`params`):
 
 ```typescript
-async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+async executeAction(
+  action: string,
+  initiator?: PluginActionInitiator,
+  params?: Record<string, unknown>,
+): Promise<{ success: boolean; message?: string }> {
   switch (action) {
     case "resetLeaderboards":
       return this.resetLeaderboards()
@@ -817,7 +822,11 @@ async executeAction(action: string): Promise<{ success: boolean; message?: strin
       return { success: false, message: `Unknown action: ${action}` }
   }
 }
+```
 
+Simple actions without forms omit `params`. Form field types are `select` (static `options`), `user-select` (same `options` prepended before live room users), and `string`.
+
+```typescript
 private async resetLeaderboards(): Promise<{ success: boolean; message?: string }> {
   if (!this.context) {
     return { success: false, message: "Plugin not initialized" }

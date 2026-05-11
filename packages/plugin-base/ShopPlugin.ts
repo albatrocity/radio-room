@@ -161,6 +161,7 @@ export abstract class ShopPlugin<TConfig = any> extends BasePlugin<TConfig> {
   async executeAction(
     action: string,
     initiator?: PluginActionInitiator,
+    params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }> {
     const buyShortId = this.shop?.matchBuyAction(action, this.buyActionPrefix)
     if (buyShortId) {
@@ -169,7 +170,7 @@ export abstract class ShopPlugin<TConfig = any> extends BasePlugin<TConfig> {
     if (this.restockActionId && action === this.restockActionId) {
       return this.adminRestock()
     }
-    return super.executeAction(action, initiator)
+    return super.executeAction(action, initiator, params)
   }
 
   /**

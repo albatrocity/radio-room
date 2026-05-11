@@ -287,6 +287,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
   async executeAction(
     action: string,
     initiator?: PluginActionInitiator,
+    _params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }> {
     if (action === "resetLeaderboard") {
       return this.resetLeaderboard()

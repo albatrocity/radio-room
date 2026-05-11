@@ -155,13 +155,14 @@ export async function executeBridgePluginAction(
   userId: string,
   pluginName: string,
   action: string,
+  params?: Record<string, unknown>,
 ): Promise<{ success: boolean; message?: string }> {
   const { registry, room } = getStudio()
   const initiator: PluginActionInitiator = {
     userId,
     username: room.users.get(userId)?.username ?? userId,
   }
-  return registry.executePluginAction(room.roomId, pluginName, action, initiator)
+  return registry.executePluginAction(room.roomId, pluginName, action, initiator, params)
 }
 
 export async function giveItemDirect(

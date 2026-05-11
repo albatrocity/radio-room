@@ -235,7 +235,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
       inventory: {
         getInventory: (userId) => this.context!.inventory.getInventory(userId),
-        getItemDefinition: (definitionId) => this.context!.inventory.getItemDefinition(definitionId),
+        getItemDefinition: (definitionId) =>
+          this.context!.inventory.getItemDefinition(definitionId),
         removeItem: (userId, itemId, quantity) =>
           this.context!.inventory.removeItem(userId, itemId, quantity),
         giveItem: (userId, definitionId, quantity, metadata, source) =>
@@ -300,6 +301,31 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         },
         {
           type: "action",
+          action: "giveItemToUsers",
+          label: "Give item to user(s)",
+          showWhen: { field: "enabled", value: true },
+          formFields: [
+            {
+              name: "itemShortId",
+              label: "Item",
+              type: "select",
+              required: true,
+              options: ITEM_CATALOG.map((e) => ({
+                value: e.definition.shortId,
+                label: e.definition.name,
+              })),
+            },
+            {
+              name: "userId",
+              label: "Recipient",
+              type: "user-select",
+              required: true,
+              options: [{ value: "__all__", label: "All users" }],
+            },
+          ],
+        },
+        {
+          type: "action",
           action: "endShoppingSessions",
           label: "End all shopping sessions",
           variant: "outline",
@@ -359,11 +385,86 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   async executeAction(
     action: string,
     initiator?: PluginActionInitiator,
+    params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }> {
     if (!this.context) {
       return { success: false, message: "Plugin not initialized" }
     }
     const config = await this.getConfig()
+    if (action === "giveItemToUsers") {
+      if (!config?.enabled) {
+        return { success: false, message: "Item Shops are disabled." }
+      }
+      const session = await this.context.game.getActiveSession()
+      if (!session) {
+        return { success: false, message: "No active game session." }
+      }
+      const itemShortId =
+        typeof params?.itemShortId === "string" ? params.itemShortId.trim() : ""
+      const userIdParam = typeof params?.userId === "string" ? params.userId.trim() : ""
+      if (!itemShortId || !userIdParam) {
+        return { success: false, message: "Select an item and recipient." }
+      }
+      const known = ITEM_CATALOG.some((e) => e.definition.shortId === itemShortId)
+      if (!known) {
+        return { success: false, message: `Unknown item: ${itemShortId}` }
+      }
+      const defId = this.shopping.getDefinitionId(itemShortId)
+      const itemName =
+        ITEM_CATALOG.find((e) => e.definition.shortId === itemShortId)?.definition.name ??
+        itemShortId
+
+      if (userIdParam === "__all__") {
+        const users = await this.context.api.getUsers(this.context.roomId)
+        let ok = 0
+        let failed = 0
+        for (const u of users) {
+          const row = await this.context.inventory.giveItem(
+            u.userId,
+            defId,
+            1,
+            undefined,
+            "plugin",
+          )
+          if (row) ok++
+          else failed++
+        }
+        if (users.length === 0) {
+          return { success: false, message: "No users in this room." }
+        }
+        return {
+          success: failed === 0 && ok > 0,
+          message:
+            ok === 0
+              ? "Could not grant items (inventory may be full)."
+              : failed > 0
+                ? `Granted ${itemName} to ${ok} user(s); ${failed} could not receive it (inventory full?).`
+                : `Granted ${itemName} to ${ok} user(s).`,
+        }
+      }
+
+      const inRoom = await this.context.api.getUsers(this.context.roomId)
+      if (!inRoom.some((u) => u.userId === userIdParam)) {
+        return { success: false, message: "Selected user is not in this room." }
+      }
+      const row = await this.context.inventory.giveItem(
+        userIdParam,
+        defId,
+        1,
+        undefined,
+        "plugin",
+      )
+      if (!row) {
+        return {
+          success: false,
+          message: "Could not grant item (inventory may be full).",
+        }
+      }
+      return {
+        success: true,
+        message: `Granted ${itemName}.`,
+      }
+    }
     if (action === "startShoppingSession") {
       if (!config?.enabled) {
         return { success: false, message: "Item Shops are disabled." }
@@ -404,7 +505,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         }
       }
       if (!(await this.shopping.isActive())) {
-        return { success: false, message: "Start a shopping round first (toolbar → Start shopping)." }
+        return {
+          success: false,
+          message: "Start a shopping round first (toolbar → Start shopping).",
+        }
       }
       const eligible = getEligibleShops(config)
       if (eligible.length === 0) {
@@ -464,7 +568,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       }
       return { success: result.success, message: result.message }
     }
-    return super.executeAction(action, initiator)
+    return super.executeAction(action, initiator, params)
   }
 
   async onItemUsed(
