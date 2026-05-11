@@ -3,6 +3,7 @@ import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 import type {
   DefenseTriggeredPayload,
   DefenseTriggeredResult,
+  InventoryItem,
   ItemDefinition,
   ItemUseResult,
   PluginContext,
@@ -16,6 +17,11 @@ export type ItemShopsBehaviorDeps = {
   pluginName: string
   context: PluginContext
   game: GameSessionPluginAPI
+  /**
+   * The inventory stack row for the current `USE` dispatch. Omitted in tests
+   * that call handlers directly unless provided.
+   */
+  activeInventoryItem?: InventoryItem
 }
 
 export type ItemUseHandler = (

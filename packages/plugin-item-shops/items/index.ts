@@ -10,6 +10,7 @@ import { emptyFridge } from "./empty-fridge"
 import { gate } from "./gate"
 import { hummusVeggies } from "./hummus-veggies"
 import { jokerPedal } from "./joker-pedal"
+import { marsEgg } from "./mars-egg"
 import { sampleHold } from "./sample-hold"
 import { p2pFileSharing } from "./p2p-file-sharing"
 import { rubberBand } from "./rubber-band"
@@ -49,6 +50,7 @@ export const items = {
   snoozePedal,
   coffeePedal,
   gravityBong,
+  marsEgg,
   disguise,
   p2pFileSharing,
   rubberBand,

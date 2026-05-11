@@ -589,6 +589,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         pluginName: this.name,
         context: this.context,
         game: this.game,
+        activeInventoryItem: _item,
       },
       userId,
       definition,
@@ -638,6 +639,13 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
     const [user] = await this.context.api.getUsersByIds([userId])
     const username = user?.username?.trim() || userId
+
+    if (!definition.tradeable) {
+      return {
+        success: false,
+        message: `${definition.name} cannot be sold back to shops.`,
+      }
+    }
 
     const result = await this.shopping.sell(userId, item, definition)
     if (!result.success) {

@@ -3,6 +3,7 @@ import type {
   ArtifactsPluginAPI,
   GameSessionPluginAPI,
   GameStateEffectIntent,
+  InventoryItem,
   ItemDefinition,
   PluginAPI,
   PluginContext,
@@ -106,18 +107,37 @@ export function stubRoomUsers(deps: ItemShopsBehaviorDeps, users: User[]): void 
   )
 }
 
+export function createMockInventoryStack(
+  definition: ItemDefinition,
+  overrides?: Partial<InventoryItem>,
+): InventoryItem {
+  return {
+    itemId: "mock-item-1",
+    definitionId: definition.id,
+    sourcePlugin: definition.sourcePlugin,
+    quantity: 1,
+    acquiredAt: Date.now(),
+    ...overrides,
+  }
+}
+
 export async function invokeUse(
   item: Item,
   deps: ItemShopsBehaviorDeps,
   userId: string,
   definition: ItemDefinition,
   callContext?: unknown,
+  activeStack?: Partial<InventoryItem>,
 ) {
   const handler = item.use
   if (!handler) {
     throw new Error(`Item ${item.shortId} has no use handler`)
   }
-  return handler(deps, userId, definition, callContext)
+  const mergedDeps: ItemShopsBehaviorDeps =
+    activeStack !== undefined
+      ? { ...deps, activeInventoryItem: createMockInventoryStack(definition, activeStack) }
+      : deps
+  return handler(mergedDeps, userId, definition, callContext)
 }
 
 export function expectApplyTimedModifierForPedal(
