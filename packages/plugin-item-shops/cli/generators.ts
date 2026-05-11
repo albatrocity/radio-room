@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import type { ItemWizardAnswers, NewFlagDeclaration, TimedModifierEffectConfig } from "./prompts"
+import type { ItemWizardAnswers, TimedModifierEffectConfig } from "./prompts"
 
 export async function generateItemScaffold(
   packageDir: string,
@@ -11,16 +11,6 @@ export async function generateItemScaffold(
   const itemFile = join(itemDir, "index.ts")
   const testFile = join(itemDir, `${answers.shortId}.test.ts`)
   const itemsIndexPath = join(packageDir, "items", "index.ts")
-  const gameLogicTextStacksPath = join(packageDir, "..", "game-logic", "src", "textEffectStacks.ts")
-  const pluginBaseFlagsPath = join(
-    packageDir,
-    "..",
-    "plugin-base",
-    "helpers",
-    "textTransform",
-    "flags.ts",
-  )
-  const pluginBaseIndexPath = join(packageDir, "..", "plugin-base", "index.ts")
 
   await mkdir(itemDir, { recursive: true })
 
@@ -32,24 +22,6 @@ export async function generateItemScaffold(
 
   const updatedItemsIndex = await updateItemsIndex(itemsIndexPath, answers)
   if (updatedItemsIndex) changedFiles.push(itemsIndexPath)
-
-  const newFlags = answers.timedModifier?.newFlags ?? []
-  if (newFlags.length > 0) {
-    const updatedTextStacks = await appendGameLogicFlags(gameLogicTextStacksPath, newFlags)
-    if (updatedTextStacks) changedFiles.push(gameLogicTextStacksPath)
-
-    const updatedPluginBaseFlags = await appendPluginBaseFlagsReExport(
-      pluginBaseFlagsPath,
-      newFlags,
-    )
-    if (updatedPluginBaseFlags) changedFiles.push(pluginBaseFlagsPath)
-
-    const updatedPluginBaseIndex = await appendPluginBaseIndexReExport(
-      pluginBaseIndexPath,
-      newFlags,
-    )
-    if (updatedPluginBaseIndex) changedFiles.push(pluginBaseIndexPath)
-  }
 
   if (answers.shops.sweetwater != null) {
     const path = join(packageDir, "shops", "sweetwater", "index.ts")
@@ -148,17 +120,29 @@ async function appendStartupGuyItem(
 
 function buildItemFile(answers: ItemWizardAnswers): string {
   const imports: string[] = []
+  const localFlagDecls: string[] = []
   const lines: string[] = []
 
   if (answers.behaviorKind === "timedModifier" && answers.timedModifier) {
-    const flagImports = answers.timedModifier.effects
+    const newFlagConstNames = new Set(
+      answers.timedModifier.newFlags.map((flag) => flag.constName),
+    )
+    const referencedFlags = answers.timedModifier.effects
       .map((effect) => effect.flagConstName)
       .filter((value): value is string => Boolean(value))
-    const uniqueFlagImports = [...new Set(flagImports)]
-    if (uniqueFlagImports.length > 0) {
-      imports.push(`import { ${uniqueFlagImports.join(", ")} } from "@repo/plugin-base"`)
+    const sharedFlagImports = Array.from(
+      new Set(referencedFlags.filter((name) => !newFlagConstNames.has(name))),
+    )
+    if (sharedFlagImports.length > 0) {
+      imports.push(
+        `import { ${sharedFlagImports.join(", ")} } from "../textEffects/sizeShift"`,
+      )
     }
     imports.push(`import { timedModifierEffect } from "../shared/behaviorHelpers"`)
+
+    for (const flag of answers.timedModifier.newFlags) {
+      localFlagDecls.push(`const ${flag.constName} = "${flag.value}"`)
+    }
   } else if (answers.behaviorKind === "passiveDefense") {
     imports.push(`import { usePassiveDefenseItem } from "../shared/behaviorHelpers"`)
   } else if (answers.behaviorKind === "customHandler") {
@@ -171,6 +155,9 @@ function buildItemFile(answers: ItemWizardAnswers): string {
   }
 
   lines.push(...imports, "")
+  if (localFlagDecls.length > 0) {
+    lines.push(...localFlagDecls, "")
+  }
   lines.push(`export const ${answers.variableName} = createItem({`)
   lines.push(`  shortId: "${answers.shortId}",`)
   lines.push(`  definition: {`)
@@ -271,58 +258,4 @@ function buildTimedEffectLiteral(effect: TimedModifierEffectConfig): string {
   const target = effect.target ?? "score"
   const value = effect.value ?? (effect.type === "multiplier" ? 1 : 0)
   return `{ type: "${effect.type}", target: "${target}", value: ${value}${baseIcon}, intent: "${effect.intent}"${duration} }`
-}
-
-async function appendGameLogicFlags(
-  path: string,
-  declarations: NewFlagDeclaration[],
-): Promise<boolean> {
-  let content = await readFile(path, "utf8")
-  let changed = false
-  for (const declaration of declarations) {
-    const line = `export const ${declaration.constName} = "${declaration.value}"`
-    if (!content.includes(line)) {
-      content = content.replace(
-        'export const COMIC_SANS_FLAG = "comic_sans"',
-        `export const COMIC_SANS_FLAG = "comic_sans"\n${line}`,
-      )
-      changed = true
-    }
-  }
-  if (changed) await writeFile(path, content, "utf8")
-  return changed
-}
-
-async function appendPluginBaseFlagsReExport(
-  path: string,
-  declarations: NewFlagDeclaration[],
-): Promise<boolean> {
-  let content = await readFile(path, "utf8")
-  let changed = false
-  for (const declaration of declarations) {
-    const exportLine = `  ${declaration.constName},`
-    if (!content.includes(exportLine)) {
-      content = content.replace("  COMIC_SANS_FLAG,", `  COMIC_SANS_FLAG,\n${exportLine}`)
-      changed = true
-    }
-  }
-  if (changed) await writeFile(path, content, "utf8")
-  return changed
-}
-
-async function appendPluginBaseIndexReExport(
-  path: string,
-  declarations: NewFlagDeclaration[],
-): Promise<boolean> {
-  let content = await readFile(path, "utf8")
-  let changed = false
-  for (const declaration of declarations) {
-    const exportLine = `  ${declaration.constName},`
-    if (!content.includes(exportLine)) {
-      content = content.replace("  COMIC_SANS_FLAG,", `  COMIC_SANS_FLAG,\n${exportLine}`)
-      changed = true
-    }
-  }
-  if (changed) await writeFile(path, content, "utf8")
-  return changed
 }

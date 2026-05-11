@@ -1,6 +1,15 @@
-import { COMIC_SANS_FLAG } from "@repo/plugin-base"
+import type { TextEffectKind } from "@repo/plugin-base"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
+
+const JOKER_FLAG = "joker"
+
+const jokerTextEffect: TextEffectKind = {
+  phase: "decorate",
+  activeWhen: JOKER_FLAG,
+  order: 1,
+  effects: () => [{ type: "font", value: "comicSans" }],
+}
 
 export const jokerPedal = createItem({
   shortId: "joker-pedal",
@@ -20,10 +29,11 @@ export const jokerPedal = createItem({
   use: timedModifierEffect({
     modifierName: "joker_pedal",
     effects: [
-      { type: "flag", name: COMIC_SANS_FLAG, value: true, intent: "negative", durationMs: 300_000 },
+      { type: "flag", name: JOKER_FLAG, value: true, intent: "negative", durationMs: 300_000 },
     ],
     successMessage: "Joker Pedal engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} is talking kinda funny...` : `${target} is talking kinda funny...`,
   }),
+  textEffect: jokerTextEffect,
 })

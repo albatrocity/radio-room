@@ -1,6 +1,14 @@
-import { GATE_FLAG } from "@repo/plugin-base"
+import type { TextEffectKind } from "@repo/plugin-base"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
+
+const GATE_FLAG = "gate"
+
+const gateTextEffect: TextEffectKind = {
+  phase: "word",
+  activeWhen: GATE_FLAG,
+  transform: (word) => word.replace(/[a-z]/g, "\\_"),
+}
 
 export const gate = createItem({
   shortId: "gate",
@@ -25,4 +33,5 @@ export const gate = createItem({
     successMessage: "Gate engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) => (isSelf ? `${actor} IS GATED AND HAS TO SPEAK UP TO BE HEARD.` : `${target} IS GATED BY ${actor}'s GATE PEDAL. SPEAK LOUDLY TO BE HEARD.`),
   }),
+  textEffect: gateTextEffect,
 })

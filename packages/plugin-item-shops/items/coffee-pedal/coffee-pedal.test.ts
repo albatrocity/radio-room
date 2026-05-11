@@ -8,14 +8,26 @@ import {
   stubRoomUsers,
 } from "../shared/testHelpers"
 import { coffeePedal } from "."
-import { COFFEE_FLAG } from "@repo/plugin-base"
 
 describe("coffee-pedal", () => {
   it("registers the expected shortId", () => {
     expect(coffeePedal.shortId).toBe("coffee-pedal")
   })
 
-  it("calls applyTimedModifier with interface blur flag", async () => {
+  it("attaches a word-phase textEffect that maps z/Z to !", () => {
+    const kind = coffeePedal.textEffect
+    expect(kind?.phase).toBe("word")
+    if (kind?.phase !== "word") return
+    expect(
+      kind.transform(
+        "buzz",
+        { coffee: 1 },
+        { wordIndex: 0, wordCount: 1, allWords: ["buzz"] },
+      ),
+    ).toBe("bu!!")
+  })
+
+  it("calls applyTimedModifier with the coffee flag", async () => {
     const deps = createMockDeps()
     const actor = userFactory.build()
     stubRoomUsers(deps, [actor])
@@ -29,7 +41,7 @@ describe("coffee-pedal", () => {
     expect(result.success).toBe(true)
     expectApplyTimedModifierForPedal(deps, actor.userId, {
       modifierName: "coffee",
-      flag: COFFEE_FLAG,
+      flag: "coffee",
       intent: "positive",
       durationMs: 300000,
     })
