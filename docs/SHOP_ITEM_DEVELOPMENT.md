@@ -57,7 +57,7 @@ npm run create-item -w @repo/plugin-item-shops
 `GameStateEffectWithMeta` supports multiple effect kinds on a single modifier, and the item CLI now supports generating multi-effect modifiers.
 
 - **flag** - Boolean flag in user game state
-  - **Cross-folder (shared) flags** — written by one item and read elsewhere — live as named exports in **`items/textEffects/sizeShift.ts`** (`GROW_FLAG`, `SHRINK_FLAG`, `ECHO_FLAG`, `COMIC_SANS_FLAG`). Import them from there in item definitions.
+  - **Cross-folder (shared) flags** — written by one item and read elsewhere — live as named exports in **`items/textEffects/sizeShift.ts`** (`GROW_FLAG`, `SHRINK_FLAG`, `ECHO_FLAG`). Import them from there in item definitions.
   - **Self-contained flags** — where one item is both the only writer and the only reader (typically via its own `TextEffectKind`) — are declared as a local `const FOO_FLAG = "foo"` at the top of the item file. No central registry entry. The item wizard inlines newly-created flags this way.
   - **`countFlagStacks(modifiers, now)`** from `@repo/game-logic` folds active modifiers into **`Record<string, number>`** stack counts (one per modifier per distinct flag name).
   - **`applyTextEffects(content, stacks, TEXT_EFFECT_KINDS)`** from `@repo/plugin-base` runs item-defined **`TextEffectKind`** handlers (see below).
@@ -149,6 +149,8 @@ export const highlightLongestTextEffect: TextEffectKind = {
   },
 }
 ```
+
+**Applying a font family.** Emit `{ type: "font", value: <family> }` from a `decorate` or `segment` phase kind. Whole-message fonts use `decorate` (every word inherits); per-word or per-letter fonts use `segment` with **`WordContext`**. Echo segments automatically inherit **non-`size`** effects from the base word segment, so fonts (and colors from decorate) propagate without wiring echo to item-specific flags. Available values today: `comicSans`, `monospace`, `serif`, `papyrus` — extend the enum in **`packages/types/ChatMessage.ts`** and add a CSS stack in **`packages/game-logic/src/textEffectStyles.ts`** (`fontFamilyFor`).
 
 ### Timed modifier durations (`timedModifierEffect`)
 

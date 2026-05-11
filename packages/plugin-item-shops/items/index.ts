@@ -75,9 +75,9 @@ export function getItemCatalogEntry(shortId: string): ItemCatalogEntry | undefin
 
 /**
  * Ordered pipeline for `applyTextEffects`. Item-owned kinds (`coffee`, `snooze`,
- * `gate`, `scramble`, `comicSans`) are collected automatically from `items[*].textEffect`.
+ * `gate`, `scramble`, `joker`, …) are collected automatically from `items[*].textEffect`.
  * Cross-cutting kinds that read flags from multiple items (`sizeShift` reads
- * grow+shrink, `echo` reads grow+shrink+echo+comic_sans) live in
+ * grow+shrink, `echo` reads echo + inherits non-size effects from base segments) live in
  * `items/textEffects/sizeShift.ts` and are appended explicitly.
  */
 export const TEXT_EFFECT_KINDS: readonly TextEffectKind[] = (() => {

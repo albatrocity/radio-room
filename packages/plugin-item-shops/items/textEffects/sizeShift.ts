@@ -20,7 +20,6 @@ import {
 export const GROW_FLAG = "grow"
 export const SHRINK_FLAG = "shrink"
 export const ECHO_FLAG = "echo"
-export const COMIC_SANS_FLAG = "comic_sans"
 
 function clampNetShift(shift: number): number {
   if (shift > MAX_SIZE_SHIFT) return MAX_SIZE_SHIFT
@@ -56,15 +55,16 @@ export const sizeShiftTextEffect: TextEffectKind = {
 export const echoTextEffect: TextEffectKind = {
   phase: "multiply",
   activeWhen: ECHO_FLAG,
-  buildExtras: (_base, stacks, _ctx, word): TextSegment[] => {
+  buildExtras: (base, stacks, _ctx, word): TextSegment[] => {
     const n = echoCount(stacks)
     const net = netSizeShift(stacks)
+    const inherited: TextEffect[] = (base[0]?.effects ?? []).filter((e) => e.type !== "size")
     const out: TextSegment[] = []
     for (let i = 1; i <= n; i++) {
-      const effects: TextEffect[] = [{ type: "size", value: textSizeFromNetShift(net - i) }]
-      if ((stacks[COMIC_SANS_FLAG] ?? 0) > 0) {
-        effects.push({ type: "font", value: "comicSans" })
-      }
+      const effects: TextEffect[] = [
+        { type: "size", value: textSizeFromNetShift(net - i) },
+        ...inherited,
+      ]
       out.push({ text: ` ${word}`, effects })
     }
     return out

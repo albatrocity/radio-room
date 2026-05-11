@@ -42,7 +42,7 @@ export const textEffectSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("font"),
     /** Maps to font stacks in `textEffectStyles` on the web client. */
-    value: z.enum(["comicSans"]),
+    value: z.enum(["comicSans", "monospace", "serif", "papyrus", "cursive"]),
   }),
   z.object({
     type: z.literal("color"),
@@ -64,16 +64,7 @@ export const textEffectSchema = z.discriminatedUnion("type", [
      * Defaults to `solid` when omitted.
      */
     token: z
-      .enum([
-        "subtle",
-        "muted",
-        "emphasized",
-        "solid",
-        "fg",
-        "contrast",
-        "focusRing",
-        "border",
-      ])
+      .enum(["subtle", "muted", "emphasized", "solid", "fg", "contrast", "focusRing", "border"])
       .optional(),
   }),
 ])

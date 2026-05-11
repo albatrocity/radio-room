@@ -72,7 +72,6 @@ const FLAG_OPTIONS = [
   "GROW_FLAG",
   "SHRINK_FLAG",
   "ECHO_FLAG",
-  "COMIC_SANS_FLAG",
 ] as const
 
 type PromptContext = {

@@ -120,7 +120,7 @@ describe("countFlagStacks", () => {
     expect(countFlagStacks(modifiers, now)).toEqual({ scramble: 2 })
   })
 
-  test("counts comic_sans flag stacks", () => {
+  test("counts arbitrary flag stacks (e.g. joker)", () => {
     const now = 1000
     const modifiers: GameStateModifier[] = [
       {
@@ -130,10 +130,10 @@ describe("countFlagStacks", () => {
         stackBehavior: "stack",
         startAt: 0,
         endAt: 2000,
-        effects: [{ type: "flag", name: "comic_sans", value: true }],
+        effects: [{ type: "flag", name: "joker", value: true }],
       },
     ]
-    expect(countFlagStacks(modifiers, now)).toEqual({ comic_sans: 1 })
+    expect(countFlagStacks(modifiers, now)).toEqual({ joker: 1 })
   })
 })
 
@@ -166,14 +166,14 @@ describe("applyTextEffects gate", () => {
   })
 })
 
-describe("applyTextEffects comicSans", () => {
-  test("comicSans-only adds font effect to word segments", () => {
+describe("applyTextEffects font decorate", () => {
+  test("font-only adds font effect to word segments", () => {
     const comicKind: TextEffectKind = {
       phase: "decorate",
-      activeWhen: "comic_sans",
+      activeWhen: "joker",
       effects: () => [{ type: "font", value: "comicSans" }],
     }
-    const result = applyTextEffects("hello", { comic_sans: 1 }, [comicKind])
+    const result = applyTextEffects("hello", { joker: 1 }, [comicKind])
     expect(result).not.toBeNull()
     expect(result!.content).toBe("hello")
     const withFont = result!.contentSegments.filter((s) => s.effects?.some((e) => e.type === "font"))

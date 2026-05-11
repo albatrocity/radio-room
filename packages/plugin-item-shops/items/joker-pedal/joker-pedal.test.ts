@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest"
 import { userFactory } from "@repo/factories"
-import { COMIC_SANS_FLAG } from "../textEffects/sizeShift"
 import { jokerPedal } from "./index"
 import {
   createMockDefinition,
@@ -11,7 +10,7 @@ import {
 } from "../shared/testHelpers"
 
 describe("jokerPedal", () => {
-  test("calls applyTimedModifier with joker_pedal / comic sans flag", async () => {
+  test("calls applyTimedModifier with joker_pedal / joker flag", async () => {
     const deps = createMockDeps()
     const actor = userFactory.build()
     stubRoomUsers(deps, [actor])
@@ -25,7 +24,7 @@ describe("jokerPedal", () => {
     expect(result.success).toBe(true)
     expectApplyTimedModifierForPedal(deps, actor.userId, {
       modifierName: "joker_pedal",
-      flag: COMIC_SANS_FLAG,
+      flag: "joker",
       intent: "negative",
       durationMs: 300_000,
     })
