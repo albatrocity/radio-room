@@ -45,7 +45,7 @@ export const items = {
   snoozePedal,
   coffeePedal,
   gravityBong,
-  skiMask: disguise,
+  disguise,
 } as const
 
 /**
