@@ -1,4 +1,6 @@
+import { marsEggSellbackValue } from "@repo/plugin-item-shops/mars-egg-sellback"
 import type { GameStateModifier } from "@repo/types/GameSession"
+import type { InventoryItem, ItemDefinition } from "@repo/types/Inventory"
 import type { QueueItem } from "@repo/types/Queue"
 import type { RoomMeta } from "@repo/types/Room"
 import type { User } from "@repo/types/User"
@@ -85,8 +87,20 @@ export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) 
   const maxSlots = snap.activeSession?.config.maxInventorySlots ?? DEFAULT_MAX_INVENTORY_SLOTS
   const session = snap.activeSession
   const state = snap.userStates[userId] ?? null
-  const items = snap.inventories[userId] ?? []
+  const rawItems = snap.inventories[userId] ?? []
   const currentShopInstance = snap.shoppingByUser[userId] ?? null
+
+  const defById = new Map<string, ItemDefinition>(snap.itemDefinitions.map((d) => [d.id, d]))
+  const items: InventoryItem[] =
+    session && rawItems.length > 0
+      ? rawItems.map((item) => {
+          const def = defById.get(item.definitionId)
+          if (def?.sourcePlugin === "item-shops" && def.shortId === "mars-egg") {
+            return { ...item, sellbackValue: marsEggSellbackValue(item, def) }
+          }
+          return item
+        })
+      : rawItems
 
   return {
     session,

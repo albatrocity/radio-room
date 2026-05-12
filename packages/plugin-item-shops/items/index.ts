@@ -24,7 +24,11 @@ import { snoozePedal } from "./snooze-pedal"
 import { coffeePedal } from "./coffee-pedal"
 import { gravityBong } from "./gravity-bong"
 import { echoTextEffect, sizeShiftTextEffect } from "./textEffects/sizeShift"
-import type { ItemUseHandler, DefenseTriggeredHandler } from "./shared/types"
+import type {
+  ItemUseHandler,
+  DefenseTriggeredHandler,
+  ItemSellbackValueHandler,
+} from "./shared/types"
 
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
@@ -90,6 +94,20 @@ function buildItemDefenseTriggeredBehaviors(): Record<string, DefenseTriggeredHa
 /** Registry of `shortId` → `onDefenseTriggered` handler (post-consume side effects / messaging). */
 export const ITEM_DEFENSE_TRIGGERED_BEHAVIORS: Record<string, DefenseTriggeredHandler> =
   buildItemDefenseTriggeredBehaviors()
+
+function buildItemSellbackValueBehaviors(): Record<string, ItemSellbackValueHandler> {
+  const out: Record<string, ItemSellbackValueHandler> = {}
+  for (const i of Object.values(items)) {
+    if (i.sellbackValue) {
+      out[i.shortId] = i.sellbackValue
+    }
+  }
+  return out
+}
+
+/** Registry of `shortId` → sellback override (per-stack coin amount when selling). */
+export const ITEM_SELLBACK_VALUE_BEHAVIORS: Record<string, ItemSellbackValueHandler> =
+  buildItemSellbackValueBehaviors()
 
 export function getItemCatalogEntry(shortId: string): ItemCatalogEntry | undefined {
   return ITEM_CATALOG.find((e) => e.definition.shortId === shortId)

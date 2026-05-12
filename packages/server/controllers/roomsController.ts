@@ -24,6 +24,7 @@ import {
   RoomScheduleSnapshotDTO,
   ITEM_SHOPS_PLUGIN_NAME,
   ITEM_SHOPS_SESSION_STORAGE_KEYS,
+  type InventoryItem,
   type ItemDefinition,
   type ShoppingSessionInstance,
 } from "@repo/types"
@@ -472,12 +473,41 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
 
     currentShopInstance = enrichCurrentShopInstanceWithOfferRarity(currentShopInstance, itemDefinitions)
 
+    const definitionById = new Map<string, ItemDefinition>(
+      itemDefinitions.map((d: ItemDefinition) => [d.id, d]),
+    )
+    const registry = socket.context.pluginRegistry as
+      | {
+          invokeGetSellbackValues?: (
+            roomId: string,
+            items: InventoryItem[],
+            definitionById: Map<string, ItemDefinition>,
+          ) => Promise<Record<string, number>>
+        }
+      | undefined
+
+    let inventoryPayload = inv
+    if (inv && registry?.invokeGetSellbackValues) {
+      const sellbackValues = await registry.invokeGetSellbackValues(
+        socket.data.roomId,
+        inv.items,
+        definitionById,
+      )
+      inventoryPayload = {
+        ...inv,
+        items: inv.items.map((i: InventoryItem) => {
+          const v = sellbackValues[i.itemId]
+          return v != null ? { ...i, sellbackValue: v } : i
+        }),
+      }
+    }
+
     socket.emit("event", {
       type: "USER_GAME_STATE",
       data: {
         session,
         state,
-        inventory: inv,
+        inventory: inventoryPayload,
         itemDefinitions,
         currentShopInstance,
       },

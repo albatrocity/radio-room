@@ -118,6 +118,8 @@ export interface InventoryItem {
   quantity: number
   /** Unix epoch (ms) when the user acquired the (top of the) stack. */
   acquiredAt: number
+  /** Plugin-computed sellback coins (overrides shop buyback rate). Set only on wire payloads (e.g. USER_GAME_STATE). */
+  sellbackValue?: number
   /** Plugin-specific metadata (kept opaque to core). */
   metadata?: Record<string, unknown>
 }
