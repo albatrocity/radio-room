@@ -94,13 +94,16 @@ function InventoryRow({
   const isItemShopsItem = item.sourcePlugin === ITEM_SHOPS_PLUGIN_NAME
   const shopVisitOpen = gameState?.currentShopInstance != null
   const showSellButton = sellable && (!isItemShopsItem || shopVisitOpen)
-  const sellButtonLabel =
-    isItemShopsItem && shopVisitOpen && definition && gameState?.currentShopInstance
-      ? (() => {
-          const q = quoteItemShopsSellCoins(gameState.currentShopInstance, definition)
-          return q != null ? `Sell (${q})` : "Sell"
-        })()
-      : "Sell"
+  const sellButtonLabel = (() => {
+    if (isItemShopsItem && shopVisitOpen && definition && gameState?.currentShopInstance) {
+      if (item.sellbackValue != null) {
+        return `Sell (${item.sellbackValue})`
+      }
+      const q = quoteItemShopsSellCoins(gameState.currentShopInstance, definition)
+      return q != null ? `Sell (${q})` : "Sell"
+    }
+    return "Sell"
+  })()
   const IconGlyph = icon ? getIcon(icon) : undefined
 
   const [pending, setPending] = useState<PendingAction>(null)

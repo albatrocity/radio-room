@@ -1,4 +1,4 @@
-import type { StoredArtifactPublic } from "@repo/types"
+import type { StoredArtifactPublic } from "@repo/types/Artifacts"
 import type { ChatMessage } from "@repo/types/ChatMessage"
 import type { GameSession, UserGameState } from "@repo/types/GameSession"
 import type { InventoryItem, ItemDefinition } from "@repo/types/Inventory"

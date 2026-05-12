@@ -26,6 +26,7 @@ import {
   ITEM_CATALOG,
   ITEM_USE_BEHAVIORS,
   ITEM_DEFENSE_TRIGGERED_BEHAVIORS,
+  ITEM_SELLBACK_VALUE_BEHAVIORS,
   TEXT_EFFECT_KINDS,
 } from "./items/index"
 import { SHOP_CATALOG } from "./shops"
@@ -589,11 +590,34 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         pluginName: this.name,
         context: this.context,
         game: this.game,
+        activeInventoryItem: _item,
       },
       userId,
       definition,
       callContext,
     )
+  }
+
+  async getSellbackValues(
+    items: InventoryItem[],
+    definitionById: Map<string, ItemDefinition>,
+  ): Promise<Record<string, number>> {
+    if (!this.context) {
+      return {}
+    }
+    const config = await this.getConfig()
+    if (!config?.enabled) {
+      return {}
+    }
+    const out: Record<string, number> = {}
+    for (const item of items) {
+      const def = definitionById.get(item.definitionId)
+      if (!def || def.sourcePlugin !== this.name) continue
+      const handler = ITEM_SELLBACK_VALUE_BEHAVIORS[def.shortId]
+      if (!handler) continue
+      out[item.itemId] = handler(item, def)
+    }
+    return out
   }
 
   async onDefenseTriggered(
@@ -638,6 +662,49 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
     const [user] = await this.context.api.getUsersByIds([userId])
     const username = user?.username?.trim() || userId
+
+    if (!definition.tradeable) {
+      return {
+        success: false,
+        message: `${definition.name} cannot be sold back to shops.`,
+      }
+    }
+
+    const customSellback = ITEM_SELLBACK_VALUE_BEHAVIORS[definition.shortId]
+    if (customSellback) {
+      const active = await this.shopping.isActive()
+      if (!active) {
+        return { success: false, message: "No shopping session is open right now." }
+      }
+      const inst = await this.shopping.getInstance(userId)
+      if (!inst) {
+        return { success: false, message: "You can only sell while your shop visit is open." }
+      }
+      const session = await this.context.game.getActiveSession()
+      if (!session) {
+        return { success: false, message: "No active game session." }
+      }
+
+      const refund = Math.max(0, Math.floor(customSellback(item, definition)))
+      const removed = await this.context.inventory.removeItem(userId, item.itemId, 1)
+      if (!removed) {
+        return { success: false, message: `Could not remove ${definition.name} from inventory.` }
+      }
+      if (refund > 0) {
+        await this.game.addScore(userId, "coin", refund, `${this.name}:sale`)
+      }
+
+      await this.context.api.sendSystemMessage(
+        this.context.roomId,
+        `${username} sold a ${definition.name} back for ${refund} coins.`,
+      )
+
+      return {
+        success: true,
+        message: `Sold ${definition.name} for ${refund} coins.`,
+        refund,
+      }
+    }
 
     const result = await this.shopping.sell(userId, item, definition)
     if (!result.success) {

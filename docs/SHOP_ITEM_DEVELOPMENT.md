@@ -53,6 +53,10 @@ npm run create-item -w @repo/plugin-item-shops
 - **Custom behavior:** generated async `use` handler stub with `ItemShopsBehaviorDeps`
 - **Room messages naming the actor:** when a `use` handler calls `sendSystemMessage` with the inventory owner’s name, use **`resolveItemUseActorDisplayName(deps, userId)`** from `items/shared/resolveItemUseActorDisplayName.ts` so the **`anonymous_actions`** timed modifier (Ski Mask) is respected. It reads `deps.game.getUserState(userId)`; in tests, **`applyTimedModifier` is mocked**, so mirror modifier state by mocking **`getUserState`** when asserting anonymous copy.
 
+### Custom sellback value (per-stack)
+
+Some items need a **sellback** coin amount that depends on the **inventory stack** (e.g. time held via `acquiredAt`), not the shop’s `listedBuybackRate`. Put the pure function in a small module (e.g. **`items/mars-egg/sellbackValue.ts`**) and pass it as **`sellbackValue`** in **`createItem`**. The plugin exposes **`getSellbackValues`**; the server attaches **`sellbackValue`** on each `InventoryItem` in **`USER_GAME_STATE`**, and **`onItemSold`** uses the same handler so the client **Sell (N)** label matches the coins credited. **Game Studio / studio-bridge** can import **`@repo/plugin-item-shops/mars-egg-sellback`** (package export) so preview uses the same math without duplicating constants.
+
 ### Effect Types
 
 `GameStateEffectWithMeta` supports multiple effect kinds on a single modifier, and the item CLI now supports generating multi-effect modifiers.
@@ -224,10 +228,10 @@ Start simple and keep callbacks deterministic. If logic grows, extract helper fu
 
 Optional hooks on **`ShopCatalogEntry`** (`ItemShopsShopCatalogEntry`). Import **`ShopSessionContext`** from `@repo/plugin-base/helpers` (canonical definition: `@repo/game-logic/shopping-session-catalog`).
 
-| Hook             | When called                                                                                                                                              | Typical use                                      |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Hook             | When called                                                                                                                                            | Typical use                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | `onSessionStart` | After the Item Shops plugin finishes `ShoppingSessionHelper.startSession`, once per shop in that round’s **eligible** rotation (same subset as offers) | Welcome broadcast, shop-specific setup           |
-| `onSessionEnd`   | Before the round is torn down: admin **End all shopping sessions**, or **Start new shopping session** while a round is already active                   | “Closing” behaviors, delayed inventory callbacks |
+| `onSessionEnd`   | Before the round is torn down: admin **End all shopping sessions**, or **Start new shopping session** while a round is already active                  | “Closing” behaviors, delayed inventory callbacks |
 
 **`ShopSessionContext` APIs:**
 

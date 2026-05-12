@@ -1008,6 +1008,15 @@ export interface Plugin {
     definition: ItemDefinition,
     context?: unknown,
   ): Promise<ItemSellResult>
+
+  /**
+   * Optional: compute per-stack sellback coin amounts for inventory payloads
+   * (e.g. USER_GAME_STATE). Merge maps from all plugins by `itemId`.
+   */
+  getSellbackValues?(
+    items: InventoryItem[],
+    definitionById: Map<string, ItemDefinition>,
+  ): Promise<Record<string, number>>
 }
 
 /**

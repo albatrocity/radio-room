@@ -777,6 +777,35 @@ export class PluginRegistry {
   }
 
   /**
+   * Collect per-item sellback values from plugins that implement `getSellbackValues`.
+   */
+  async invokeGetSellbackValues(
+    roomId: string,
+    items: InventoryItem[],
+    definitionById: Map<string, ItemDefinition>,
+  ): Promise<Record<string, number>> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return {}
+
+    const merged: Record<string, number> = {}
+    for (const instance of Array.from(roomPlugins.values())) {
+      const { plugin } = instance
+      if (typeof plugin.getSellbackValues !== "function") continue
+      try {
+        const partial = await plugin.getSellbackValues(items, definitionById)
+        for (const [itemId, value] of Object.entries(partial)) {
+          if (typeof value === "number" && Number.isFinite(value)) {
+            merged[itemId] = value
+          }
+        }
+      } catch (error) {
+        console.error(`[PluginRegistry] Error in getSellbackValues for ${plugin.name}:`, error)
+      }
+    }
+    return merged
+  }
+
+  /**
    * Format plugin data as markdown for an individual item.
    * Calls formatPluginDataMarkdown on all plugins that have data for the item.
    *
