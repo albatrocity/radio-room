@@ -228,10 +228,10 @@ Start simple and keep callbacks deterministic. If logic grows, extract helper fu
 
 Optional hooks on **`ShopCatalogEntry`** (`ItemShopsShopCatalogEntry`). Import **`ShopSessionContext`** from `@repo/plugin-base/helpers` (canonical definition: `@repo/game-logic/shopping-session-catalog`).
 
-| Hook             | When called                                                                                                                                              | Typical use                                      |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Hook             | When called                                                                                                                                            | Typical use                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | `onSessionStart` | After the Item Shops plugin finishes `ShoppingSessionHelper.startSession`, once per shop in that round’s **eligible** rotation (same subset as offers) | Welcome broadcast, shop-specific setup           |
-| `onSessionEnd`   | Before the round is torn down: admin **End all shopping sessions**, or **Start new shopping session** while a round is already active                   | “Closing” behaviors, delayed inventory callbacks |
+| `onSessionEnd`   | Before the round is torn down: admin **End all shopping sessions**, or **Start new shopping session** while a round is already active                  | “Closing” behaviors, delayed inventory callbacks |
 
 **`ShopSessionContext` APIs:**
 
