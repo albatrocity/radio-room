@@ -1,4 +1,4 @@
-# 0053. Text Effect Kind Pattern + Flag Stack Map
+# 0054. Text Effect Kind Pattern + Flag Stack Map
 
 **Date:** 2026-05-11  
 **Status:** Accepted

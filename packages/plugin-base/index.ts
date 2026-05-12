@@ -33,6 +33,8 @@ export {
   tokenizeWords,
   buildSegments,
   type TokenizedWord,
+  ANONYMOUS_ACTIONS_FLAG,
+  hasAnonymousActions,
   INTERFACE_BLUR_FLAG,
   INTERFACE_SATURATE_FLAG,
   countInterfaceBlurStacks,

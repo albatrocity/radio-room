@@ -44,7 +44,7 @@ function resolveModifierIndicatorIcon(
       if (fromItem) return fromItem
     }
   }
-  return getIcon("star")!
+  return getIcon("Star")!
 }
 
 export function UserModifiersList({ modifiers, definitionMap }: UserModifiersListProps) {

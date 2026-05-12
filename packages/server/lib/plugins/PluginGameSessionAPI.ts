@@ -101,13 +101,7 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
     options?: { actorUserId?: string },
   ): Promise<ApplyModifierResult> {
     if (!this.service) return { ok: false, reason: "no_active_session" }
-    return this.service.applyModifier(
-      this.roomId,
-      userId,
-      this.pluginName,
-      modifier,
-      options?.actorUserId,
-    )
+    return this.service.applyModifier(this.roomId, userId, this.pluginName, modifier, options)
   }
 
   async applyTimedModifier(
@@ -117,22 +111,7 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
     actorUserId?: string,
   ): Promise<ApplyModifierResult> {
     const now = Date.now()
-    let endAt = now + durationMs
-
-    // For `stack` behavior, accumulate remaining time from the longest-lived
-    // active same-name modifier so repeated applications visibly tail off:
-    // existing stacks keep their `endAt`, the new stack carries the extra time.
-    if (modifier.stackBehavior === "stack") {
-      const state = await this.getUserState(userId)
-      const sameName = (state?.modifiers ?? []).filter(
-        (m) => m.name === modifier.name && m.startAt <= now && m.endAt > now,
-      )
-      if (sameName.length > 0) {
-        const latestEndAt = Math.max(...sameName.map((m) => m.endAt))
-        endAt = latestEndAt + durationMs
-      }
-    }
-
+    const endAt = await this.computeTimedEndAt(userId, modifier, durationMs, now)
     return this.applyModifier(
       userId,
       {
@@ -142,6 +121,46 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
       },
       { actorUserId },
     )
+  }
+
+  async reboundModifier(
+    userId: string,
+    modifier: Omit<GameStateModifier, "id" | "source">,
+    options?: { actorUserId?: string },
+  ): Promise<ApplyModifierResult> {
+    if (!this.service) return { ok: false, reason: "no_active_session" }
+    const now = Date.now()
+    const durationMs = Math.max(1, modifier.endAt - modifier.startAt)
+    const endAt = await this.computeTimedEndAt(userId, modifier, durationMs, now)
+    return this.service.applyModifier(
+      this.roomId,
+      userId,
+      this.pluginName,
+      { ...modifier, startAt: now, endAt },
+      { actorUserId: options?.actorUserId, skipPassiveDefenseCheck: true },
+    )
+  }
+
+  /**
+   * For `stackBehavior: "stack"`, accumulate remaining time from the
+   * longest-lived active same-name modifier so repeated applications visibly
+   * tail off: existing stacks keep their `endAt`; the new stack carries the
+   * extra time.
+   */
+  private async computeTimedEndAt(
+    userId: string,
+    modifier: Pick<GameStateModifier, "name" | "stackBehavior">,
+    durationMs: number,
+    now: number,
+  ): Promise<number> {
+    if (modifier.stackBehavior !== "stack") return now + durationMs
+    const state = await this.getUserState(userId)
+    const sameName = (state?.modifiers ?? []).filter(
+      (m) => m.name === modifier.name && m.startAt <= now && m.endAt > now,
+    )
+    if (sameName.length === 0) return now + durationMs
+    const latestEndAt = Math.max(...sameName.map((m) => m.endAt))
+    return latestEndAt + durationMs
   }
 
   async removeModifier(userId: string, modifierId: string): Promise<boolean> {

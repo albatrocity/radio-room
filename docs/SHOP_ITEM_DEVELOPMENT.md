@@ -48,13 +48,17 @@ npm run create-item -w @repo/plugin-item-shops
 
 ### Item behavior patterns
 
-- **Timed modifier:** use `timedModifierEffect` in `items/shared/behaviorHelpers.ts`
-- **Passive defense:** use `usePassiveDefenseItem` and `definition.defense`
+- **Timed modifier:** use `timedModifierEffect` in `items/shared/behaviorHelpers.ts` (system messages for who was affected use `resolveItemUseActorDisplayName` for `actor` / `target` inside `applyTargetedTimedModifier`)
+- **Passive defense:** use `usePassiveDefenseItem` and `definition.defense` (`scope`: `modifier` and/or `queue`). Add optional **`onDefenseTriggered`** on the item (see `createItem` / `items/p2p-file-sharing` for intercept + copy, `items/rubber-band` for redirecting **`payload.blockedModifier`** onto the attacker via **`game.reboundModifier(attackerUserId, blockedModifier)`**) — core calls it **after** consuming a matching stack; put side effects or message overrides there. See ADR 0053.
 - **Custom behavior:** generated async `use` handler stub with `ItemShopsBehaviorDeps`
+- **Room messages naming the actor:** when a `use` handler calls `sendSystemMessage` with the inventory owner’s name, use **`resolveItemUseActorDisplayName(deps, userId)`** from `items/shared/resolveItemUseActorDisplayName.ts` so the **`anonymous_actions`** timed modifier (Ski Mask) is respected. It reads `deps.game.getUserState(userId)`; in tests, **`applyTimedModifier` is mocked**, so mirror modifier state by mocking **`getUserState`** when asserting anonymous copy.
 
 ### Effect Types
 
 `GameStateEffectWithMeta` supports multiple effect kinds on a single modifier, and the item CLI now supports generating multi-effect modifiers.
+
+- **`anonymous_actions`** (`ANONYMOUS_ACTIONS_FLAG` in `@repo/game-logic` / `@repo/plugin-base`) is used by Item Shops for **room-visible attribution**, not chat transforms: while active, item behaviors that call **`resolveItemUseActorDisplayName`** (`items/shared/resolveItemUseActorDisplayName.ts`) return **`"Someone"`** for `sendSystemMessage` copy instead of the actor’s username (e.g. Ski Mask before another item that announces who acted).
+- Full-screen / overlay UI flags (e.g. stackable blur) use shared stack helpers such as `countInterfaceBlurStacks` plus web helpers in `apps/web/src/lib/screenEffects.ts` and `ModifierBlurLayer`
 
 - **flag** - Boolean flag in user game state
   - **Cross-folder (shared) flags** — written by one item and read elsewhere — live as named exports in **`items/textEffects/sizeShift.ts`** (`GROW_FLAG`, `SHRINK_FLAG`, `ECHO_FLAG`). Import them from there in item definitions.
@@ -157,6 +161,30 @@ export const highlightLongestTextEffect: TextEffectKind = {
 - Each effect in `effects` **must** include **`durationMs`** (`GameStateEffectWithMeta`). It is consumed when applying the modifier and **not** stored on the persisted modifier.
 - If resolved durations differ across effects, the helper applies **one `applyTimedModifier` call per duration group**. Modifier names become `${modifierName}__${durationMs}` when more than one group exists so stacking semantics stay per bucket.
 
+### Modifier visibility (`visibility`)
+
+Timed modifiers default to **public** (everyone sees the effect bar / tooltip for that user’s row in the listener list). Set **`visibility: "self"`** on `timedModifierEffect` to persist `visibility: "self"` on `GameStateModifier`: the web client hides those modifiers when rendering **another** user’s `UserEffectBars` (your own row still shows them).
+
+Use `"self"` when showing the bar would leak private state (e.g. anonymity / disguise-style effects).
+
+```ts
+use: timedModifierEffect({
+  modifierName: "disguise",
+  visibility: "self",
+  effects: [
+    {
+      type: "flag",
+      name: ANONYMOUS_ACTIONS_FLAG,
+      value: true,
+      intent: "neutral",
+      durationMs: 5 * 60 * 1000,
+    },
+  ],
+  successMessage: "…",
+  describe: () => `Someone went anonymous`,
+})
+```
+
 ## Creating Shops
 
 Use the shop generator:
@@ -228,6 +256,7 @@ npm test -w @repo/plugin-item-shops
 ## Useful References
 
 - `packages/plugin-item-shops/items/shared/behaviorHelpers.ts`
+- `packages/plugin-item-shops/items/shared/resolveItemUseActorDisplayName.ts`
 - `packages/plugin-item-shops/items/shared/testHelpers.ts`
 - `packages/plugin-item-shops/shops/sweetwater/index.ts` (advanced `onBuy` timers/messages)
 - `packages/plugin-item-shops/shops/green-room/index.ts` (`onBuy` + `onSessionEnd`)

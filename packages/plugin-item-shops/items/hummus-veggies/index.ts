@@ -1,4 +1,5 @@
 import type { ItemDefinition, ItemUseResult } from "@repo/types"
+import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
 export const hummusVeggies = createItem({
@@ -47,17 +48,18 @@ export const hummusVeggies = createItem({
         return {
           success: false,
           consumed: true,
-          message: `Blocked by ${result.blockingItemName}. Your item was lost with use.`,
+          message:
+            result.attackerMessage ??
+            `Blocked by ${result.blockingItemName}. Your item was lost with use.`,
         }
       }
       return { success: false, consumed: false, message: result.message }
     }
 
-    const [user] = await context.api.getUsersByIds([userId])
-    const username = user?.username?.trim() || userId
+    const displayName = await resolveItemUseActorDisplayName(deps, userId)
     await context.api.sendSystemMessage(
       context.roomId,
-      `Yum! ${username} ate Hummus & Veggies and promoted a track!`,
+      `Yum! ${displayName} ate Hummus & Veggies and promoted a track!`,
     )
 
     return {

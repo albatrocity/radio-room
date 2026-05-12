@@ -1,4 +1,5 @@
 import type { ItemUseResult } from "@repo/types"
+import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
 import { createItem } from "../shared/types"
 
 export const merchCashBox = createItem({
@@ -58,10 +59,10 @@ export const merchCashBox = createItem({
       return { success: false, consumed: false, message: "Could not store coins." }
     }
 
-    const [actor] = await context.api.getUsersByIds([userId])
+    const displayName = await resolveItemUseActorDisplayName(deps, userId)
     await context.api.sendSystemMessage(
       context.roomId,
-      `${actor?.username ?? "Someone"} locked ${coinAmount.toLocaleString()} coins in the Merch Cash Box.`,
+      `${displayName} locked ${coinAmount.toLocaleString()} coins in the Merch Cash Box.`,
     )
 
     return { success: true, consumed: true, message: "Coins stored safely." }

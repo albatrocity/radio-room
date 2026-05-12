@@ -8,6 +8,8 @@ import { BasePlugin, applyTextEffects, ShoppingSessionHelper } from "@repo/plugi
 import { countFlagStacks } from "@repo/game-logic"
 import {
   type ChatMessage,
+  type DefenseTriggeredPayload,
+  type DefenseTriggeredResult,
   type ItemDefinition,
   type ItemSellResult,
   type ItemUseResult,
@@ -20,7 +22,12 @@ import {
 } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import packageJson from "./package.json"
-import { ITEM_CATALOG, ITEM_USE_BEHAVIORS, TEXT_EFFECT_KINDS } from "./items/index"
+import {
+  ITEM_CATALOG,
+  ITEM_USE_BEHAVIORS,
+  ITEM_DEFENSE_TRIGGERED_BEHAVIORS,
+  TEXT_EFFECT_KINDS,
+} from "./items/index"
 import { SHOP_CATALOG } from "./shops"
 import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
 
@@ -399,8 +406,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!session) {
         return { success: false, message: "No active game session." }
       }
-      const itemShortId =
-        typeof params?.itemShortId === "string" ? params.itemShortId.trim() : ""
+      const itemShortId = typeof params?.itemShortId === "string" ? params.itemShortId.trim() : ""
       const userIdParam = typeof params?.userId === "string" ? params.userId.trim() : ""
       if (!itemShortId || !userIdParam) {
         return { success: false, message: "Select an item and recipient." }
@@ -419,13 +425,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         let ok = 0
         let failed = 0
         for (const u of users) {
-          const row = await this.context.inventory.giveItem(
-            u.userId,
-            defId,
-            1,
-            undefined,
-            "plugin",
-          )
+          const row = await this.context.inventory.giveItem(u.userId, defId, 1, undefined, "plugin")
           if (row) ok++
           else failed++
         }
@@ -447,13 +447,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!inRoom.some((u) => u.userId === userIdParam)) {
         return { success: false, message: "Selected user is not in this room." }
       }
-      const row = await this.context.inventory.giveItem(
-        userIdParam,
-        defId,
-        1,
-        undefined,
-        "plugin",
-      )
+      const row = await this.context.inventory.giveItem(userIdParam, defId, 1, undefined, "plugin")
       if (!row) {
         return {
           success: false,
@@ -599,6 +593,32 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       userId,
       definition,
       callContext,
+    )
+  }
+
+  async onDefenseTriggered(
+    payload: DefenseTriggeredPayload,
+  ): Promise<DefenseTriggeredResult | null> {
+    if (!this.context) {
+      return null
+    }
+    const config = await this.getConfig()
+    if (!config?.enabled) {
+      return null
+    }
+
+    const handler = ITEM_DEFENSE_TRIGGERED_BEHAVIORS[payload.defenseItemDefinition.shortId]
+    if (!handler) {
+      return null
+    }
+
+    return handler(
+      {
+        pluginName: this.name,
+        context: this.context,
+        game: this.game,
+      },
+      payload,
     )
   }
 

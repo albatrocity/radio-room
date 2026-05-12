@@ -32,6 +32,11 @@ async function main(): Promise<void> {
   }
   console.log()
   console.log(chalk.cyan("Next steps:"))
+  console.log(
+    chalk.gray(
+      "- Room `sendSystemMessage` lines that name the actor must use `resolveItemUseActorDisplayName` (custom scaffold resolves `displayName`).",
+    ),
+  )
   console.log(chalk.gray("- Review generated behavior and tailor system messages if needed."))
   console.log(chalk.gray("- Add or expand tests in the generated test file."))
   console.log(chalk.gray("- Run: npm test -w @repo/plugin-item-shops"))

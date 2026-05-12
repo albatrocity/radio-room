@@ -2,6 +2,7 @@ import { expect, vi } from "vitest"
 import type {
   ArtifactsPluginAPI,
   GameSessionPluginAPI,
+  GameStateEffectIntent,
   ItemDefinition,
   PluginAPI,
   PluginContext,
@@ -72,7 +73,7 @@ export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): Item
         removeItem: vi.fn().mockResolvedValue(true),
         giveItem: vi.fn().mockResolvedValue(null),
       },
-    } as PluginContext,
+    } as unknown as PluginContext,
     game: createMockGame(),
     ...overrides,
   }
@@ -125,8 +126,9 @@ export function expectApplyTimedModifierForPedal(
   options: {
     modifierName: string
     flag: string
-    intent: "positive" | "negative"
+    intent: GameStateEffectIntent
     durationMs: number
+    visibility?: "public" | "self"
   },
 ): void {
   expect(deps.game.applyTimedModifier).toHaveBeenCalledWith(
@@ -134,6 +136,7 @@ export function expectApplyTimedModifierForPedal(
     options.durationMs,
     expect.objectContaining({
       name: options.modifierName,
+      ...(options.visibility ? { visibility: options.visibility } : {}),
       effects: [
         expect.objectContaining({
           type: "flag",

@@ -31,6 +31,7 @@ export {
   countInterfaceBlurStacks,
   countInterfaceSaturateStacks,
 } from "./interfaceEffects"
+export { ANONYMOUS_ACTIONS_FLAG, hasAnonymousActions } from "@repo/game-logic"
 export {
   NORMAL_INDEX,
   MAX_SIZE_SHIFT,

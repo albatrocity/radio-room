@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest"
 import { userFactory } from "@repo/factories"
-import type { QueueItem } from "@repo/types"
+import { ANONYMOUS_ACTIONS_FLAG } from "@repo/plugin-base"
+import type { QueueItem, UserGameState } from "@repo/types"
 import { scratchedCd } from "./index"
 import {
   createMockDefinition,
@@ -29,6 +30,54 @@ describe("scratchedCd", () => {
 
     expect(result.success).toBe(true)
     expect(deps.context.api.skipTrack).toHaveBeenCalledWith("room-1", "t-spotify-1")
+    expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
+      "room-1",
+      expect.stringContaining(user.username ?? ""),
+    )
+  })
+
+  test("attributes skip anonymously when anonymous_actions flag is active", async () => {
+    const deps = createMockDeps()
+    const user = userFactory.build({ username: "alice" })
+    stubRoomUsers(deps, [user])
+    vi.mocked(deps.context.api.getNowPlaying).mockResolvedValue({
+      title: "Song",
+      mediaSource: { type: "spotify", trackId: "t-spotify-1" },
+      addedAt: Date.now(),
+    } as unknown as QueueItem)
+    const now = Date.now()
+    const anonymousState: UserGameState = {
+      userId: user.userId,
+      attributes: {
+        score: 0,
+        coin: 0,
+      },
+      modifiers: [
+        {
+          id: "m1",
+          name: "disguise",
+          source: "item-shops",
+          stackBehavior: "stack",
+          startAt: now - 1000,
+          endAt: now + 60_000,
+          effects: [{ type: "flag", name: ANONYMOUS_ACTIONS_FLAG, value: true }],
+        },
+      ],
+    }
+    vi.mocked(deps.game.getUserState).mockResolvedValue(anonymousState)
+
+    const result = await invokeUse(
+      scratchedCd,
+      deps,
+      user.userId,
+      createMockDefinition("scratched-cd", { name: "Scratched CD" }),
+    )
+
+    expect(result.success).toBe(true)
+    expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
+      "room-1",
+      "Someone used a Scratched CD and skipped the current track!",
+    )
   })
 
   test("fails when nothing is playing", async () => {

@@ -6,6 +6,7 @@ export {
 export { evaluateModifiers, pruneExpiredModifiers } from "./modifierEvaluation"
 export { getActiveFlags } from "./getActiveFlags"
 export { countFlagStacks } from "./textEffectStacks"
+export { ANONYMOUS_ACTIONS_FLAG, hasAnonymousActions } from "./anonymousActionsFlag"
 export {
   INTERFACE_BLUR_FLAG,
   INTERFACE_SATURATE_FLAG,

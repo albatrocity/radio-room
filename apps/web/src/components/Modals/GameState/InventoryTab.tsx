@@ -128,7 +128,10 @@ function InventoryRow({
     setPending({ itemId: item.itemId, action })
 
     subscribeById(subscriptionId, {
-      send: (event: { type: string; data?: { success: boolean; message?: string } }) => {
+      send: (event: {
+        type: string
+        data?: { success: boolean; title?: string; message?: string }
+      }) => {
         if (event.type !== "INVENTORY_ACTION_RESULT" || !event.data) return
         unsubscribeById(subscriptionId)
         if (subscriptionIdRef.current === subscriptionId) {
@@ -140,7 +143,9 @@ function InventoryRow({
           typeof event.data.message === "string" &&
           event.data.message.toLowerCase().includes("blocked")
         toaster.create({
-          title: event.data.success ? "Success" : blocked ? "Blocked" : "Error",
+          title:
+            event.data.title ??
+            (event.data.success ? "Success" : blocked ? "Blocked" : "Error"),
           description:
             event.data.message || (event.data.success ? "Action completed" : "Action failed"),
           type: event.data.success ? "success" : blocked ? "warning" : "error",

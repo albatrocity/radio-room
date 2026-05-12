@@ -1,7 +1,13 @@
 import { memo, useMemo, type CSSProperties } from "react"
 import { Badge, Box } from "@chakra-ui/react"
 import type { GameStateModifier, ItemDefinition } from "@repo/types"
-import { useNow, useUserItemDefinitions, useUserModifiers, useUserState } from "../hooks/useActors"
+import {
+  useCurrentUser,
+  useNow,
+  useUserItemDefinitions,
+  useUserModifiers,
+  useUserState,
+} from "../hooks/useActors"
 import { Tooltip } from "./ui/tooltip"
 import { UserModifiersList } from "./UserModifiersList"
 
@@ -86,11 +92,21 @@ export function UserEffectBars({
   overflowBadge = false,
 }: UserEffectBarsProps) {
   const selfState = useUserState()
+  const currentUser = useCurrentUser()
   const definitions = useUserItemDefinitions()
   const otherModifiers = useUserModifiers(userId)
   const modifiers: GameStateModifier[] | undefined = userId
     ? otherModifiers
     : selfState?.modifiers ?? undefined
+
+  /** Hide `visibility: "self"` modifiers when rendering another user's row (not your own). */
+  const isViewingOtherUser =
+    userId != null && userId !== currentUser?.userId
+  const modifiersForUi = useMemo(() => {
+    if (!modifiers || modifiers.length === 0) return modifiers
+    if (!isViewingOtherUser) return modifiers
+    return modifiers.filter((m) => m.visibility !== "self")
+  }, [modifiers, isViewingOtherUser])
 
   const definitionMap = useMemo(() => {
     const map = new Map<string, ItemDefinition>()
@@ -101,10 +117,10 @@ export function UserEffectBars({
   }, [definitions])
 
   const bars = useMemo<EffectBarSpec[]>(() => {
-    if (!modifiers || modifiers.length === 0) return []
+    if (!modifiersForUi || modifiersForUi.length === 0) return []
     const now = Date.now()
     const list: EffectBarSpec[] = []
-    for (const m of modifiers) {
+    for (const m of modifiersForUi) {
       if (m.startAt > now || m.endAt <= now || m.endAt <= m.startAt) continue
       m.effects.forEach((effect, i) => {
         if (effect.intent) {
@@ -118,7 +134,7 @@ export function UserEffectBars({
       })
     }
     return list
-  }, [modifiers])
+  }, [modifiersForUi])
 
   if (bars.length === 0) return null
 
@@ -131,7 +147,7 @@ export function UserEffectBars({
     <Tooltip
       content={
         tooltip ? (
-          <UserModifiersList definitionMap={definitionMap} modifiers={modifiers ?? []} />
+          <UserModifiersList definitionMap={definitionMap} modifiers={modifiersForUi ?? []} />
         ) : null
       }
     >
