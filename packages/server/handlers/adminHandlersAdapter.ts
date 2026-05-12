@@ -4,6 +4,7 @@ import { HandlerConnections, AppContext } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import { pubUserJoined } from "../operations/sockets/users"
+import { getRoomUsers, removeOnlineUser } from "../operations/data"
 
 /**
  * Socket.io adapter for the AdminService
@@ -67,7 +68,9 @@ export class AdminHandlers {
       return
     }
 
-    if (result.socketId) {
+    const liveSocket = result.socketId ? io.sockets.sockets.get(result.socketId) : null
+
+    if (result.socketId && liveSocket) {
       // Send message notification to the kicked user (direct message to specific socket)
       io.to(result.socketId).emit("event", {
         type: "MESSAGE_RECEIVED",
@@ -97,8 +100,30 @@ export class AdminHandlers {
         })
       }
 
-      if (io.sockets.sockets.get(result.socketId)) {
-        io.sockets.sockets.get(result.socketId)?.disconnect()
+      // Disconnect triggers the auth disconnect handler which removes the user
+      // from `online_users` and broadcasts `USER_LEFT`.
+      liveSocket.disconnect()
+    } else {
+      // Phantom user cleanup: no live socket exists (either because the kicked
+      // user already left or because they are a duplicate-LOGIN phantom whose
+      // original socket has already disconnected). Manually remove them from
+      // Redis and broadcast USER_LEFT so the listener list updates.
+      await removeOnlineUser({
+        context: socket.context,
+        roomId: socket.data.roomId,
+        userId: user.userId,
+      })
+
+      if (socket.context.systemEvents) {
+        const users = await getRoomUsers({
+          context: socket.context,
+          roomId: socket.data.roomId,
+        })
+        await socket.context.systemEvents.emit(socket.data.roomId, "USER_LEFT", {
+          roomId: socket.data.roomId,
+          user,
+          users,
+        })
       }
     }
   }

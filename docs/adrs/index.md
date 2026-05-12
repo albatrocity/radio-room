@@ -60,6 +60,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0052](0052-global-artifacts-api.md) | Global artifacts API (`context.artifacts`) | Accepted |
 | [0053](0053-targeted-item-use-defense-intercept.md) | Defense `onDefenseTriggered` callbacks after passive block (modifier/queue) | Accepted |
 | [0054](0054-text-effect-kind-pattern.md) | Text Effect Kind Pattern + flag stack map | Accepted |
+| [0055](0055-per-socket-login-serialization.md) | Per-Socket LOGIN Serialization | Accepted |
 
 ## Creating a New ADR
 

@@ -33,8 +33,24 @@ export function createAuthController(socket: SocketWithContext, io: Server): voi
   })
 
   /**
-   * User login event
+   * Per-socket LOGIN serialization.
+   *
+   * The auth state machine in the web client re-fires `LOGIN` from several
+   * places (state entry on `connecting`, re-entry on `SOCKET_ONLINE`, and the
+   * `after: 3000` retry timer) and Socket.IO callbacks for the same socket run
+   * concurrently in Node's event loop. Without serialization, two concurrent
+   * `LOGIN` callbacks both observe `socket.request.session.user === undefined`
+   * and each call `generateId()` + `generateAnonName()`, creating a second
+   * "phantom" user record that is added to the room's `online_users` set but
+   * never associated with `socket.data.userId`. That phantom survives the
+   * socket disconnect (because `disconnect()` only removes the userId in
+   * `socket.data`) and cannot be kicked.
+   *
+   * Serializing per-socket guarantees that the second `LOGIN` sees the session
+   * populated by the first and resolves the existing `userId` instead of
+   * creating a duplicate anonymous user. See ADR 0055.
    */
+  let loginQueue: Promise<unknown> = Promise.resolve()
   socket.on(
     "LOGIN",
     async ({
@@ -48,7 +64,11 @@ export function createAuthController(socket: SocketWithContext, io: Server): voi
       password?: string
       roomId: string
     }) => {
-      await handlers.login(connections, { username, userId, password, roomId })
+      const next = loginQueue.then(() =>
+        handlers.login(connections, { username, userId, password, roomId }),
+      )
+      loginQueue = next.catch(() => {})
+      await next
     },
   )
 

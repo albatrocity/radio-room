@@ -15,6 +15,8 @@ vi.mock("../operations/data/pluginConfigs", () => ({
 }))
 vi.mock("../operations/data", () => ({
   findRoom: vi.fn().mockResolvedValue(null),
+  getRoomUsers: vi.fn().mockResolvedValue([]),
+  removeOnlineUser: vi.fn().mockResolvedValue(undefined),
 }))
 
 describe("AdminHandlers", () => {
@@ -191,6 +193,43 @@ describe("AdminHandlers", () => {
       })
       expect(mockGet).toHaveBeenCalledWith("socket123")
       expect(mockDisconnect).toHaveBeenCalled()
+    })
+
+    test("cleans up Redis and emits USER_LEFT for phantom user (no live socket)", async () => {
+      const phantomUser = userFactory.build({
+        userId: "phantom-user-id",
+        username: "Anonymous Pig",
+      })
+
+      const { removeOnlineUser, getRoomUsers } = await import("../operations/data")
+      ;(removeOnlineUser as ReturnType<typeof vi.fn>).mockClear()
+      ;(getRoomUsers as ReturnType<typeof vi.fn>).mockResolvedValueOnce([])
+
+      // adminService returns a socketId for the phantom, but io.sockets.sockets.get
+      // returns undefined because the original socket is gone.
+      adminService.kickUser.mockResolvedValueOnce({
+        socketId: "dead-socket",
+        message: { content: "Kicked", type: "system" },
+        error: null,
+      })
+      mockIo.sockets.sockets.get = vi.fn().mockReturnValue(undefined)
+
+      await adminHandlers.kickUser({ socket: mockSocket, io: mockIo }, phantomUser as User)
+
+      expect(removeOnlineUser).toHaveBeenCalledWith({
+        context: mockSocket.context,
+        roomId: "room123",
+        userId: "phantom-user-id",
+      })
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room123",
+        "USER_LEFT",
+        {
+          roomId: "room123",
+          user: phantomUser,
+          users: [],
+        },
+      )
     })
   })
 
