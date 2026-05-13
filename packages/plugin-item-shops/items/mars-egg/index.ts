@@ -7,7 +7,7 @@ export const marsEgg = createItem({
   shortId: "mars-egg",
   definition: {
     name: "Mars Egg",
-    description: "Appreciates in value the longer you hold it. Sell to collect coins.",
+    description: "Good morning! I love you. I got you this big, weird egg. Just like love, it appreciates in value the longer you hold it... and you can sell it to collect coins!",
     stackable: false,
     maxStack: 1,
     tradeable: true,
