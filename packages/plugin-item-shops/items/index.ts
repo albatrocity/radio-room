@@ -58,6 +58,7 @@ export const items = {
   disguise,
   p2pFileSharing,
   rubberBand,
+  carrots,
 } as const
 
 /**
