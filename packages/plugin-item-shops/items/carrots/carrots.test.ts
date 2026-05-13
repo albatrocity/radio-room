@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { applyTextEffects } from "@repo/plugin-base"
+import { echoTextEffect } from "../textEffects/sizeShift"
 import { redLetterTextEffect } from "../tomatoes"
 import { carrots, orangeLetterTextEffect, ORANGE_LETTER_FLAG } from "."
 
@@ -50,5 +51,27 @@ describe("orangeLetterTextEffect", () => {
     const oSeg = result!.contentSegments.find((s) => s.text === "o")
     expect(iSeg?.effects).toEqual([{ type: "color", palette: "orange", token: "border" }])
     expect(oSeg?.effects).toEqual([{ type: "color", palette: "red", token: "border" }])
+  })
+
+  it("echo preserves per-letter colors on the repeated word (segment before multiply)", () => {
+    const result = applyTextEffects(
+      "lion",
+      { [ORANGE_LETTER_FLAG]: 1, red_letter: 1, echo: 1 },
+      [orangeLetterTextEffect, redLetterTextEffect, echoTextEffect],
+    )
+    expect(result).not.toBeNull()
+    expect(result!.content).toMatch(/^lion lion$/)
+    const orangeOnI = result!.contentSegments.filter(
+      (s) =>
+        s.text === "i" &&
+        s.effects?.some((e) => e.type === "color" && e.palette === "orange"),
+    )
+    const redOnO = result!.contentSegments.filter(
+      (s) =>
+        s.text === "o" &&
+        s.effects?.some((e) => e.type === "color" && e.palette === "red"),
+    )
+    expect(orangeOnI.length).toBe(2)
+    expect(redOnO.length).toBe(2)
   })
 })
