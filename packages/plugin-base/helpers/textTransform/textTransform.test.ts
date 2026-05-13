@@ -353,24 +353,78 @@ describe("WordContext decorate targeting", () => {
   })
 })
 
-describe("Segment phase first-wins", () => {
-  test("first registered segment kind wins when both return non-null", () => {
+describe("Segment phase composes (refine pipeline)", () => {
+  test("later segment kind refines each piece from earlier kinds", () => {
     const spy = vi.spyOn(console, "warn").mockImplementation(() => {})
     const a: TextEffectKind = {
       phase: "segment",
       activeWhen: "seg_a",
       order: 0,
-      build: () => [{ text: "A" }],
+      build: (w) => {
+        if (w === "word") return [{ text: "wo" }, { text: "rd" }]
+        return null
+      },
     }
     const b: TextEffectKind = {
       phase: "segment",
       activeWhen: "seg_b",
       order: 1,
-      build: () => [{ text: "B" }],
+      build: (w) => {
+        if (w === "wo") return [{ text: "w" }, { text: "o" }]
+        if (w === "rd") return [{ text: "r" }, { text: "d" }]
+        return null
+      },
     }
     const result = applyTextEffects("word", { seg_a: 1, seg_b: 1 }, [a, b])
-    expect(result!.content).toBe("A")
-    expect(spy).toHaveBeenCalled()
+    expect(result!.content).toBe("word")
+    expect(result!.contentSegments.map((s) => s.text).join("")).toBe("word")
+    expect(spy).not.toHaveBeenCalled()
     spy.mockRestore()
+  })
+
+  test("child segments inherit parent effects when a later kind splits further", () => {
+    const first: TextEffectKind = {
+      phase: "segment",
+      activeWhen: "seg_first",
+      build: () => [{ text: "ab", effects: [{ type: "font", value: "monospace" }] }],
+    }
+    const second: TextEffectKind = {
+      phase: "segment",
+      activeWhen: "seg_second",
+      build: (w) => {
+        if (w === "ab") return [{ text: "a" }, { text: "b", effects: [{ type: "color", palette: "red", token: "solid" }] }]
+        return null
+      },
+    }
+    const result = applyTextEffects("ab", { seg_first: 1, seg_second: 1 }, [first, second])
+    expect(result).not.toBeNull()
+    const aSeg = result!.contentSegments.find((s) => s.text === "a")
+    const bSeg = result!.contentSegments.find((s) => s.text === "b")
+    expect(aSeg?.effects).toEqual([{ type: "font", value: "monospace" }])
+    expect(bSeg?.effects).toEqual([
+      { type: "font", value: "monospace" },
+      { type: "color", palette: "red", token: "solid" },
+    ])
+  })
+
+  test("null from a later kind leaves the segment unchanged", () => {
+    const first: TextEffectKind = {
+      phase: "segment",
+      activeWhen: "seg_first",
+      build: () => [{ text: "x" }, { text: "yz", effects: [{ type: "font", value: "serif" }] }],
+    }
+    const second: TextEffectKind = {
+      phase: "segment",
+      activeWhen: "seg_second",
+      build: (w) => (w === "yz" ? [{ text: "y" }, { text: "z" }] : null),
+    }
+    const result = applyTextEffects("xyz", { seg_first: 1, seg_second: 1 }, [first, second])
+    expect(result).not.toBeNull()
+    const xSeg = result!.contentSegments.find((s) => s.text === "x")
+    const ySeg = result!.contentSegments.find((s) => s.text === "y")
+    const zSeg = result!.contentSegments.find((s) => s.text === "z")
+    expect(xSeg?.effects).toBeUndefined()
+    expect(ySeg?.effects).toEqual([{ type: "font", value: "serif" }])
+    expect(zSeg?.effects).toEqual([{ type: "font", value: "serif" }])
   })
 })

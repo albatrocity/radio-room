@@ -25,12 +25,43 @@ function sortByOrder(a: TextEffectKind, b: TextEffectKind): number {
   return (a.order ?? 0) - (b.order ?? 0)
 }
 
-function warnSegmentConflict(kindId: string): void {
-  if (typeof console !== "undefined" && console.warn) {
-    console.warn(
-      `[applyTextEffects] Multiple segment kinds produced output for the same word; using last registered non-null result (${kindId}).`,
-    )
+function refineSegmentsWithKind(
+  segments: TextSegment[],
+  k: Extract<TextEffectKind, { phase: "segment" }>,
+  stacks: TextEffectStacks,
+  ctx: WordContext,
+): TextSegment[] {
+  const refined: TextSegment[] = []
+  for (const seg of segments) {
+    const subSegs = k.build(seg.text, stacks, ctx)
+    if (subSegs != null && subSegs.length > 0) {
+      for (const sub of subSegs) {
+        const mergedEffects = [...(seg.effects ?? []), ...(sub.effects ?? [])]
+        sub.effects = mergedEffects.length > 0 ? mergedEffects : undefined
+      }
+      refined.push(...subSegs)
+    } else {
+      refined.push(seg)
+    }
   }
+  return refined
+}
+
+function runSegmentPipeline(
+  segmentKinds: Extract<TextEffectKind, { phase: "segment" }>[],
+  word: string,
+  stacks: TextEffectStacks,
+  ctx: WordContext,
+): TextSegment[] {
+  let segments: TextSegment[] | null = null
+  for (const k of segmentKinds) {
+    if (segments == null) {
+      segments = k.build(word, stacks, ctx)
+    } else {
+      segments = refineSegmentsWithKind(segments, k, stacks, ctx)
+    }
+  }
+  return segments ?? [{ text: word }]
 }
 
 /**
@@ -78,20 +109,7 @@ export function applyTextEffects(
       word = k.transform(word, stacks, ctx)
     }
 
-    let segments: TextSegment[] | null = null
-    for (const k of segmentKinds) {
-      const built = k.build(word, stacks, ctx)
-      if (built != null) {
-        if (segments != null) {
-          warnSegmentConflict(String(k.activeWhen))
-        } else {
-          segments = built
-        }
-      }
-    }
-    if (segments == null) {
-      segments = [{ text: word }]
-    }
+    let segments = runSegmentPipeline(segmentKinds, word, stacks, ctx)
 
     for (const seg of segments) {
       const merged = [...(seg.effects ?? [])]

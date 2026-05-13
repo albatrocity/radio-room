@@ -29,6 +29,7 @@ Chat text mutations for item-shop pedals mixed concerns: fixed flag stack counti
 
 ## References
 
+- [ADR 0056 — Segment phase pipeline merge](0056-segment-phase-pipeline-merge.md) (how multiple `segment` kinds compose in `applyTextEffects`)
 - [ADR 0042 — Game Sessions and Inventory](0042-game-sessions-and-inventory.md)
 - [ADR 0044 — Plugin Chat Message Transform + Text Segments](0044-plugin-chat-message-transform-and-text-segments.md)
 - [ADR 0046 — Derived Modifier Flags](0046-derived-modifier-flags.md)

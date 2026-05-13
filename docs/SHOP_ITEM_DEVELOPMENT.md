@@ -93,6 +93,8 @@ effects: [
 
 Kinds are registered in **`TEXT_EFFECT_KINDS`** in `packages/plugin-item-shops/items/index.ts`. Each kind picks a **phase**, **activation** (`activeWhen`: flag name or `(stacks) => boolean`), and **scope** (whole message vs per-word; use **`WordContext`** to target a single word).
 
+**Multiple `segment` kinds:** They compose in registration/`order` sequence: the first active segment kind splits the word; each later active segment kind runs on every segment’s `text` and may subdivide further, prepending the parent segment’s effects onto each child. Returning `null` for a substring leaves that segment unchanged. See [ADR 0056](adrs/0056-segment-phase-pipeline-merge.md).
+
 **Example 1 — word mutation (Coffee Pedal pattern)**
 
 Self-contained items declare their flag as a local `const` and pair it with their `TextEffectKind` in the same file. The flag is wired to the timed modifier via `timedModifierEffect` below; nothing outside this file needs the constant.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { applyTextEffects } from "@repo/plugin-base"
+import { redLetterTextEffect } from "../tomatoes"
 import { carrots, orangeLetterTextEffect, ORANGE_LETTER_FLAG } from "."
 
 describe("carrots", () => {
@@ -20,7 +21,7 @@ describe("orangeLetterTextEffect", () => {
     const result = applyTextEffects("hi", { [ORANGE_LETTER_FLAG]: 1 }, [orangeLetterTextEffect])
     expect(result).not.toBeNull()
     const iSegment = result!.contentSegments.find((s) => s.text === "i")
-    expect(iSegment?.effects).toEqual([{ type: "color", palette: "orange", token: "fg" }])
+    expect(iSegment?.effects).toEqual([{ type: "color", palette: "orange", token: "border" }])
   })
 
   it("colors uppercase I in orange", () => {
@@ -28,12 +29,26 @@ describe("orangeLetterTextEffect", () => {
     expect(result).not.toBeNull()
     expect(result!.content).toBe("I am")
     const iSegment = result!.contentSegments.find((s) => s.text === "I")
-    expect(iSegment?.effects).toEqual([{ type: "color", palette: "orange", token: "fg" }])
+    expect(iSegment?.effects).toEqual([{ type: "color", palette: "orange", token: "border" }])
   })
 
   it("uses stronger token with higher stack count", () => {
     const result = applyTextEffects("hi", { [ORANGE_LETTER_FLAG]: 3 }, [orangeLetterTextEffect])
     const iSegment = result!.contentSegments.find((s) => s.text === "i")
-    expect(iSegment?.effects).toEqual([{ type: "color", palette: "orange", token: "emphasized" }])
+    expect(iSegment?.effects).toEqual([{ type: "color", palette: "orange", token: "solid" }])
+  })
+
+  it("composes with tomatoes red-letter effect on the same word", () => {
+    const result = applyTextEffects(
+      "lion",
+      { [ORANGE_LETTER_FLAG]: 1, red_letter: 1 },
+      [orangeLetterTextEffect, redLetterTextEffect],
+    )
+    expect(result).not.toBeNull()
+    expect(result!.content).toBe("lion")
+    const iSeg = result!.contentSegments.find((s) => s.text === "i")
+    const oSeg = result!.contentSegments.find((s) => s.text === "o")
+    expect(iSeg?.effects).toEqual([{ type: "color", palette: "orange", token: "border" }])
+    expect(oSeg?.effects).toEqual([{ type: "color", palette: "red", token: "border" }])
   })
 })
