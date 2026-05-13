@@ -3,22 +3,22 @@ import { createItem } from "../shared/types"
 import type { TextEffectKind } from "@repo/plugin-base"
 import type { TextSegment } from "@repo/types"
 
-export const ORANGE_LETTER_FLAG = "orange_letter"
+const RED_LETTER_FLAG = "red_letter"
 
 const TOKEN_BY_STACK = { 1: "border", 2: "focusRing", 3: "solid" } as const
 
-export const orangeLetterTextEffect: TextEffectKind = {
+export const RedLetterTextEffect: TextEffectKind = {
   phase: "segment",
-  activeWhen: ORANGE_LETTER_FLAG,
+  activeWhen: RED_LETTER_FLAG,
   build: (word, stacks) => {
-    const count = Math.min(3, Math.max(1, stacks[ORANGE_LETTER_FLAG] ?? 0)) as 1 | 2 | 3
+    const count = Math.min(3, Math.max(1, stacks[RED_LETTER_FLAG] ?? 0)) as 1 | 2 | 3
     const token = TOKEN_BY_STACK[count]
     const out: TextSegment[] = []
     let buf = ""
     for (const ch of word) {
-      if (ch === "i" || ch === "I") {
+      if (ch === "o" || ch === "O") {
         if (buf) out.push({ text: buf })
-        out.push({ text: ch, effects: [{ type: "color", palette: "orange", token }] })
+        out.push({ text: ch, effects: [{ type: "color", palette: "red", token }] })
         buf = ""
       } else {
         buf += ch
@@ -29,34 +29,33 @@ export const orangeLetterTextEffect: TextEffectKind = {
   },
 }
 
-export const carrots = createItem({
-  shortId: "carrots",
+
+
+
+
+
+
+export const tomatoes = createItem({
+  shortId: "tomatoes",
   definition: {
-    name: "Carrots",
-    description: "They're good for your I's!",
+    name: "Tomatoes",
+    description: "'O' goodness! They are so ripe and red",
     stackable: true,
     maxStack: 3,
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 20,
-    icon: "Carrot",
+    coinValue: 15,
+    icon: "Circle",
     rarity: "common",
   },
   use: timedModifierEffect({
-    modifierName: "carrots",
+    modifierName: "tomatoes",
     effects: [
-      {
-        type: "flag",
-        name: ORANGE_LETTER_FLAG,
-        value: true,
-        intent: "neutral",
-        durationMs: 300000,
-      },
+      { type: "flag", name: RED_LETTER_FLAG, value: true, intent: "neutral", durationMs: 300000 },
     ],
-    successMessage: "Carrots activated. It was lost with use.",
+    successMessage: "Tomatoes activated. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} used Carrots on themselves` : `${actor} used Carrots on ${target}`,
+      isSelf ? `${actor} used Tomatoes on themselves` : `${actor} used Tomatoes on ${target}`,
   }),
-  textEffect: orangeLetterTextEffect,
 })

@@ -137,6 +137,32 @@ export const orangeLetterTextEffect: TextEffectKind = {
     return out.length ? out : null
   },
 }
+
+
+const RED_LETTER_FLAG = "red_letter"
+
+export const RedLetterTextEffect: TextEffectKind = {
+  phase: "segment",
+  activeWhen: RED_LETTER_FLAG,
+  build: (word, stacks) => {
+    const count = Math.min(3, Math.max(1, stacks[RED_LETTER_FLAG] ?? 0)) as 1 | 2 | 3
+    const token = TOKEN_BY_STACK[count]
+    const out: TextSegment[] = []
+    let buf = ""
+    for (const ch of word) {
+      if (ch === "o" || ch === "O") {
+        if (buf) out.push({ text: buf })
+        out.push({ text: ch, effects: [{ type: "color", palette: "red", token }] })
+        buf = ""
+      } else {
+        buf += ch
+      }
+    }
+    if (buf) out.push({ text: buf })
+    return out.length ? out : null
+  },
+}
+
 ```
 
 **Example 3 — content-scoped word picking (`WordContext`)**

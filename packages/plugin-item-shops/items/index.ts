@@ -60,6 +60,7 @@ export const items = {
   p2pFileSharing,
   rubberBand,
   carrots,
+  tomatoes,
 } as const
 
 /**
