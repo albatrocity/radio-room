@@ -16,7 +16,7 @@ export const orangeLetterTextEffect: TextEffectKind = {
     const out: TextSegment[] = []
     let buf = ""
     for (const ch of word) {
-      if (ch === "i" || ch === "I") {
+      if (ch === "i" || ch === "I" || ch === "l" || ch === "1") {
         if (buf) out.push({ text: buf })
         out.push({ text: ch, effects: [{ type: "color", palette: "orange", token }] })
         buf = ""
@@ -33,7 +33,7 @@ export const carrots = createItem({
   shortId: "carrots",
   definition: {
     name: "Carrots",
-    description: "They're good for your I's!",
+    description: "From the garden. They're good for your I's!",
     stackable: true,
     maxStack: 3,
     tradeable: true,

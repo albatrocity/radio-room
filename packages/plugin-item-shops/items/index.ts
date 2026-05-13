@@ -11,6 +11,7 @@ import { compressorPedal } from "./compressor-pedal"
 import { emptyFridge } from "./empty-fridge"
 import { gate } from "./gate"
 import { hummusVeggies } from "./hummus-veggies"
+import { lychees } from "./lychees"
 import { jokerPedal } from "./joker-pedal"
 import { marsEgg } from "./mars-egg"
 import { sampleHold } from "./sample-hold"
@@ -65,6 +66,7 @@ export const items = {
   tomatoes,
   greenPeas,
   lychees,
+  cucumberSlices,
 } as const
 
 /**
