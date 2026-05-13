@@ -5,6 +5,7 @@ import { fuzzPedal } from "./fuzz-pedal"
 import { boostPedal } from "./boost-pedal"
 import { buyout } from "./buyout"
 import { carrots } from "./carrots"
+import { greenPeas } from "./green-peas"
 import { tomatoes } from "./tomatoes"
 import { cateredMeal } from "./catered-meal"
 import { compressorPedal } from "./compressor-pedal"
@@ -31,6 +32,7 @@ import type {
   DefenseTriggeredHandler,
   ItemSellbackValueHandler,
 } from "./shared/types"
+import { greenPeas } from "./green-peas"
 
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
@@ -62,6 +64,7 @@ export const items = {
   rubberBand,
   carrots,
   tomatoes,
+  greenPeas,
 } as const
 
 /**

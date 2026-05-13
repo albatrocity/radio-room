@@ -12,6 +12,7 @@ export const FARMERS_MARKET_SHOP: ItemShopsShopCatalogEntry = {
   availableItems: [
     { shortId: items.carrots.shortId, coinValue: 15 },
     { shortId: items.tomatoes.shortId, coinValue: 15 },
+    { shortId: items.greenPeas.shortId, coinValue: 15 },
   ],
   listedBuybackRate: 0.5,
   unlistedBuybackRate: 0.25,
