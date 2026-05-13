@@ -139,9 +139,9 @@ export const orangeLetterTextEffect: TextEffectKind = {
 }
 
 
-const RED_LETTER_FLAG = "red_letter"
+export const RED_LETTER_FLAG = "red_letter"
 
-export const RedLetterTextEffect: TextEffectKind = {
+export const redLetterTextEffect: TextEffectKind = {
   phase: "segment",
   activeWhen: RED_LETTER_FLAG,
   build: (word, stacks) => {

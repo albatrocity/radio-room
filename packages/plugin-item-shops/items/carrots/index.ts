@@ -54,9 +54,9 @@ export const carrots = createItem({
         durationMs: 300000,
       },
     ],
-    successMessage: "Carrots activated. It was lost with use.",
+    successMessage: "Crunch! Carrots eaten!",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} used Carrots on themselves` : `${actor} used Carrots on ${target}`,
+      isSelf ? `${actor} ate Carrots and improved their I' sight!` : `${actor} used Carrots on ${target} and improved their I' sight!`,
   }),
   textEffect: orangeLetterTextEffect,
 })

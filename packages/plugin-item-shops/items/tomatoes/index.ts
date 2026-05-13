@@ -7,7 +7,7 @@ const RED_LETTER_FLAG = "red_letter"
 
 const TOKEN_BY_STACK = { 1: "border", 2: "focusRing", 3: "solid" } as const
 
-export const RedLetterTextEffect: TextEffectKind = {
+export const redLetterTextEffect: TextEffectKind = {
   phase: "segment",
   activeWhen: RED_LETTER_FLAG,
   build: (word, stacks) => {
@@ -30,16 +30,11 @@ export const RedLetterTextEffect: TextEffectKind = {
 }
 
 
-
-
-
-
-
 export const tomatoes = createItem({
   shortId: "tomatoes",
   definition: {
     name: "Tomatoes",
-    description: "'O' goodness! They are so ripe and red",
+    description: "'O' goodness! So ripe and red!",
     stackable: true,
     maxStack: 3,
     tradeable: true,
@@ -58,4 +53,5 @@ export const tomatoes = createItem({
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} used Tomatoes on themselves` : `${actor} used Tomatoes on ${target}`,
   }),
+  textEffect: redLetterTextEffect
 })
