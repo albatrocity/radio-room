@@ -14,6 +14,10 @@ import {
  * any item that wants to react to them. Because writer and readers live in
  * different folders, the named constant exists to prevent string drift.
  *
+ * **`echoTextEffect`** (multiply phase) appends a leading space plus a copy of each
+ * base word segment per echo tier, carrying that segment's non-`size` effects so
+ * per-letter `segment` colors compose with delay/echo.
+ *
  * Self-contained flags (where one item is both sole writer and sole reader)
  * are inlined as string literals at their item file and have no constant here.
  */
@@ -55,17 +59,24 @@ export const sizeShiftTextEffect: TextEffectKind = {
 export const echoTextEffect: TextEffectKind = {
   phase: "multiply",
   activeWhen: ECHO_FLAG,
-  buildExtras: (base, stacks, _ctx, word): TextSegment[] => {
+  buildExtras: (base, stacks, _ctx, _word): TextSegment[] => {
     const n = echoCount(stacks)
+    if (n <= 0 || base.length === 0) return []
     const net = netSizeShift(stacks)
-    const inherited: TextEffect[] = (base[0]?.effects ?? []).filter((e) => e.type !== "size")
     const out: TextSegment[] = []
     for (let i = 1; i <= n; i++) {
-      const effects: TextEffect[] = [
-        { type: "size", value: textSizeFromNetShift(net - i) },
-        ...inherited,
-      ]
-      out.push({ text: ` ${word}`, effects })
+      const sizeEffect: TextEffect = {
+        type: "size",
+        value: textSizeFromNetShift(net - i),
+      }
+      out.push({ text: " ", effects: [sizeEffect] })
+      for (const seg of base) {
+        const inherited = (seg.effects ?? []).filter((e) => e.type !== "size")
+        out.push({
+          text: seg.text,
+          effects: [sizeEffect, ...inherited],
+        })
+      }
     }
     return out
   },
