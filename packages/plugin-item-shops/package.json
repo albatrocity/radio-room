@@ -2,6 +2,7 @@
   "name": "@repo/plugin-item-shops",
   "version": "1.0.0",
   "description": "Item shops with per-user shopping sessions for Listening Room",
+  "type": "module",
   "main": "index.ts",
   "types": "index.ts",
   "exports": {
