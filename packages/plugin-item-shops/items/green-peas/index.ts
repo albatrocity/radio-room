@@ -5,7 +5,9 @@ import type { TextSegment } from "@repo/types"
 
 const GREEN_LETTER_FLAG = "greenpeas"
 
-const TOKEN_BY_STACK = { 1: "fg", 2: "focusRing", 3: "solid" } as const
+const TOKEN_BY_STACK = { 1: "muted", 2: "emphasized", 3: "border" } as const
+
+
 
 export const GreenLetterTextEffect: TextEffectKind = {
   phase: "segment",

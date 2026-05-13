@@ -6,7 +6,7 @@ import type { TextSegment } from "@repo/types"
 
 export const CUCUMBER_FLAG = "cucumber"
 
-const TOKEN_BY_STACK = { 1: "muted", 2: "emphasized", 3: "border" } as const
+const TOKEN_BY_STACK = { 1: "fg", 2: "focusRing", 3: "solid" } as const
 
 export const CucumberTextEffect: TextEffectKind = {
   phase: "segment",
