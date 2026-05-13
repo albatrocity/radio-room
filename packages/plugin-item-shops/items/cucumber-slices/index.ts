@@ -6,7 +6,7 @@ import type { TextSegment } from "@repo/types"
 
 export const CUCUMBER_FLAG = "cucumber"
 
-const TOKEN_BY_STACK = { 1: "subtle", 2: "muted", 3: "emphasized" } as const
+const TOKEN_BY_STACK = { 1: "muted", 2: "emphasized", 3: "border" } as const
 
 export const CucumberTextEffect: TextEffectKind = {
   phase: "segment",
@@ -17,7 +17,7 @@ export const CucumberTextEffect: TextEffectKind = {
     const out: TextSegment[] = []
     let buf = ""
     for (const ch of word) {
-      if (ch === "c" || ch === "C" || ch === "u" || ch === "U") {
+      if (ch === "c" || ch === "C" ) {
         if (buf) out.push({ text: buf })
         out.push({ text: ch, effects: [{ type: "color", palette: "green", token }] })
         buf = ""
@@ -37,7 +37,7 @@ export const cucumberSlices = createItem({
   shortId: "cucumber-slices",
   definition: {
     name: "Cucumber Slices",
-    description: "C these? They are light green! U like?",
+    description: "C these? Light green!",
     stackable: true,
     maxStack: 2,
     tradeable: true,

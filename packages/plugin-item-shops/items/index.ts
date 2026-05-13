@@ -14,8 +14,10 @@ import { hummusVeggies } from "./hummus-veggies"
 import { lychees } from "./lychees"
 import { jokerPedal } from "./joker-pedal"
 import { marsEgg } from "./mars-egg"
+import { cucumberSlices } from "./cucumber-slices"
 import { sampleHold } from "./sample-hold"
 import { p2pFileSharing } from "./p2p-file-sharing"
+import { blueberries } from "./blueberries"
 import { rubberBand } from "./rubber-band"
 import { disguise } from "./disguise"
 import { scratchedCd } from "./scratched-cd"
@@ -67,6 +69,7 @@ export const items = {
   greenPeas,
   lychees,
   cucumberSlices,
+  blueberries,
 } as const
 
 /**
