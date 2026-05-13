@@ -5,7 +5,7 @@ import type { TextSegment } from "@repo/types"
 
 const GREEN_LETTER_FLAG = "greenpeas"
 
-const TOKEN_BY_STACK = { 1: "border", 2: "focusRing", 3: "solid" } as const
+const TOKEN_BY_STACK = { 1: "fg", 2: "focusRing", 3: "solid" } as const
 
 export const GreenLetterTextEffect: TextEffectKind = {
   phase: "segment",
@@ -29,11 +29,6 @@ export const GreenLetterTextEffect: TextEffectKind = {
   },
 }
 
-
-
-
-
-
 export const greenPeas = createItem({
   shortId: "green-peas",
   definition: {
@@ -51,7 +46,7 @@ export const greenPeas = createItem({
   use: timedModifierEffect({
     modifierName: "green-peas",
     effects: [
-      { type: "flag", name: GREENPEAS_FLAG, value: true, intent: "neutral", durationMs: 300000 },
+      { type: "flag", name: GREEN_LETTER_FLAG, value: true, intent: "neutral", durationMs: 300000 },
     ],
     successMessage: "Green Peas activated. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
