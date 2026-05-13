@@ -3,8 +3,6 @@ import { createItem } from "../shared/types"
 import type { TextEffectKind } from "@repo/plugin-base"
 import type { TextSegment } from "@repo/types"
 
-
-
 export const ORANGE_LETTER_FLAG = "orange_letter"
 
 const TOKEN_BY_STACK = { 1: "fg", 2: "solid", 3: "emphasized" } as const
@@ -16,7 +14,7 @@ export const orangeLetterTextEffect: TextEffectKind = {
     const count = Math.min(3, Math.max(1, stacks[ORANGE_LETTER_FLAG] ?? 0)) as 1 | 2 | 3
     const token = TOKEN_BY_STACK[count]
     const out: TextSegment[] = []
-    let buf = "[Iil1!]"
+    let buf = ""
     for (const ch of word) {
       if (ch === "i" || ch === "I") {
         if (buf) out.push({ text: buf })
@@ -48,10 +46,17 @@ export const carrots = createItem({
   use: timedModifierEffect({
     modifierName: "carrots",
     effects: [
-      { type: "flag", name: ORANGE_LETTER_FLAG, value: true, intent: "neutral", durationMs: 300000 },
+      {
+        type: "flag",
+        name: ORANGE_LETTER_FLAG,
+        value: true,
+        intent: "neutral",
+        durationMs: 300000,
+      },
     ],
     successMessage: "Carrots activated. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
       isSelf ? `${actor} used Carrots on themselves` : `${actor} used Carrots on ${target}`,
   }),
+  textEffect: orangeLetterTextEffect,
 })
