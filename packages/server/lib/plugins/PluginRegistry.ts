@@ -1,6 +1,8 @@
 import {
   AppContext,
   ChatMessage,
+  DefenseTriggeredPayload,
+  DefenseTriggeredResult,
   InventoryItem,
   ItemDefinition,
   ItemSellResult,
@@ -647,6 +649,7 @@ export class PluginRegistry {
     pluginName: string,
     action: string,
     initiator?: PluginActionInitiator,
+    params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }> {
     const roomPlugins = this.roomPlugins.get(roomId)
     if (!roomPlugins) {
@@ -664,7 +667,7 @@ export class PluginRegistry {
     }
 
     try {
-      return await plugin.executeAction(action, initiator)
+      return await plugin.executeAction(action, initiator, params)
     } catch (error) {
       console.error(
         `[PluginRegistry] Error executing action ${action} for plugin ${pluginName}:`,
@@ -710,6 +713,36 @@ export class PluginRegistry {
   }
 
   /**
+   * After core consumed a matching passive defense, dispatch to the owning
+   * plugin's `onDefenseTriggered` (side effects / message overrides). Returns
+   * `null` when unimplemented or the plugin is not loaded.
+   */
+  async invokeOnDefenseTriggered(
+    roomId: string,
+    pluginName: string,
+    payload: DefenseTriggeredPayload,
+  ): Promise<DefenseTriggeredResult | null> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return null
+
+    const instance = roomPlugins.get(pluginName)
+    if (!instance) return null
+
+    const { plugin } = instance
+    if (typeof plugin.onDefenseTriggered !== "function") return null
+
+    try {
+      return await plugin.onDefenseTriggered(payload)
+    } catch (error) {
+      console.error(
+        `[PluginRegistry] Error in onDefenseTriggered for plugin ${pluginName}:`,
+        error,
+      )
+      return { attackerMessage: `Error: ${error}` }
+    }
+  }
+
+  /**
    * Dispatch an inventory sell-back to the source plugin's `onItemSold`
    * handler. Returns `null` when the plugin is not loaded for the room or
    * doesn't implement the handler -- the inventory controller surfaces a
@@ -741,6 +774,35 @@ export class PluginRegistry {
       )
       return { success: false, message: `Error selling item: ${error}` }
     }
+  }
+
+  /**
+   * Collect per-item sellback values from plugins that implement `getSellbackValues`.
+   */
+  async invokeGetSellbackValues(
+    roomId: string,
+    items: InventoryItem[],
+    definitionById: Map<string, ItemDefinition>,
+  ): Promise<Record<string, number>> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return {}
+
+    const merged: Record<string, number> = {}
+    for (const instance of Array.from(roomPlugins.values())) {
+      const { plugin } = instance
+      if (typeof plugin.getSellbackValues !== "function") continue
+      try {
+        const partial = await plugin.getSellbackValues(items, definitionById)
+        for (const [itemId, value] of Object.entries(partial)) {
+          if (typeof value === "number" && Number.isFinite(value)) {
+            merged[itemId] = value
+          }
+        }
+      } catch (error) {
+        console.error(`[PluginRegistry] Error in getSellbackValues for ${plugin.name}:`, error)
+      }
+    }
+    return merged
   }
 
   /**

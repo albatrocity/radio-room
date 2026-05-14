@@ -74,6 +74,7 @@ export interface PluginAttributeDefinition {
  *
  * Any variant may set optional `icon` (e.g. Lucide name in the web `ICON_MAP`) for UI.
  */
+export type GameStateEffectIntent = "positive" | "negative" | "neutral"
 export type GameStateEffect =
   | { type: "multiplier"; target: GameAttributeName; value: number }
   | { type: "additive"; target: GameAttributeName; value: number }
@@ -83,7 +84,7 @@ export type GameStateEffect =
 
 export type GameStateEffectWithMeta = GameStateEffect & {
   icon?: LucideIconName
-  intent?: "positive" | "negative" | "neutral"
+  intent?: GameStateEffectIntent
   /**
    * Per-effect duration (ms) when applying via item helpers (`timedModifierEffect`).
    * Item behaviors must set this for timed modifiers; it is stripped before persistence so evaluation only sees standard effect shapes.
@@ -100,14 +101,25 @@ export type ModifierStackBehavior = "replace" | "stack" | "extend"
 export type ApplyModifierResult =
   | { ok: true; modifierId: string }
   | { ok: false; reason: "no_active_session" }
-  | { ok: false; reason: "defense_blocked"; blockingItemName: string }
+  | {
+      ok: false
+      reason: "defense_blocked"
+      blockingItemName: string
+      /** When the defense plugin returned custom copy via `onDefenseTriggered`. */
+      attackerMessage?: string
+    }
 
 /**
  * Result of `DJService.moveTrackByPosition` / `PluginAPI.moveTrackByPosition`.
  */
 export type MoveTrackResult =
   | { success: true }
-  | { success: false; reason: "defense_blocked"; blockingItemName: string }
+  | {
+      success: false
+      reason: "defense_blocked"
+      blockingItemName: string
+      attackerMessage?: string
+    }
   | { success: false; reason: "error"; message: string }
 
 export interface GameStateModifier {
@@ -137,6 +149,12 @@ export interface GameStateModifier {
    * `ItemDefinition.id`. Used to resolve an icon after per-effect `icon` values.
    */
   itemDefinitionId?: string
+  /**
+   * Visibility scope for this modifier’s UI indicators (effect bars, etc.).
+   * - `"public"` (default when omitted): visible to all users in the room
+   * - `"self"`: only visible to the user who has the modifier
+   */
+  visibility?: "public" | "self"
 }
 
 // ============================================================================

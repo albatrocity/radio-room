@@ -2,6 +2,8 @@ import { expect, vi } from "vitest"
 import type {
   ArtifactsPluginAPI,
   GameSessionPluginAPI,
+  GameStateEffectIntent,
+  InventoryItem,
   ItemDefinition,
   PluginAPI,
   PluginContext,
@@ -72,7 +74,7 @@ export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): Item
         removeItem: vi.fn().mockResolvedValue(true),
         giveItem: vi.fn().mockResolvedValue(null),
       },
-    } as PluginContext,
+    } as unknown as PluginContext,
     game: createMockGame(),
     ...overrides,
   }
@@ -105,18 +107,37 @@ export function stubRoomUsers(deps: ItemShopsBehaviorDeps, users: User[]): void 
   )
 }
 
+export function createMockInventoryStack(
+  definition: ItemDefinition,
+  overrides?: Partial<InventoryItem>,
+): InventoryItem {
+  return {
+    itemId: "mock-item-1",
+    definitionId: definition.id,
+    sourcePlugin: definition.sourcePlugin,
+    quantity: 1,
+    acquiredAt: Date.now(),
+    ...overrides,
+  }
+}
+
 export async function invokeUse(
   item: Item,
   deps: ItemShopsBehaviorDeps,
   userId: string,
   definition: ItemDefinition,
   callContext?: unknown,
+  activeStack?: Partial<InventoryItem>,
 ) {
   const handler = item.use
   if (!handler) {
     throw new Error(`Item ${item.shortId} has no use handler`)
   }
-  return handler(deps, userId, definition, callContext)
+  const mergedDeps: ItemShopsBehaviorDeps =
+    activeStack !== undefined
+      ? { ...deps, activeInventoryItem: createMockInventoryStack(definition, activeStack) }
+      : deps
+  return handler(mergedDeps, userId, definition, callContext)
 }
 
 export function expectApplyTimedModifierForPedal(
@@ -125,8 +146,9 @@ export function expectApplyTimedModifierForPedal(
   options: {
     modifierName: string
     flag: string
-    intent: "positive" | "negative"
+    intent: GameStateEffectIntent
     durationMs: number
+    visibility?: "public" | "self"
   },
 ): void {
   expect(deps.game.applyTimedModifier).toHaveBeenCalledWith(
@@ -134,6 +156,7 @@ export function expectApplyTimedModifierForPedal(
     options.durationMs,
     expect.objectContaining({
       name: options.modifierName,
+      ...(options.visibility ? { visibility: options.visibility } : {}),
       effects: [
         expect.objectContaining({
           type: "flag",

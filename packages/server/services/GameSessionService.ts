@@ -365,13 +365,23 @@ export class GameSessionService {
     userId: string,
     sourcePlugin: string,
     incoming: Omit<GameStateModifier, "id" | "source">,
-    actorUserId?: string,
+    options?: { actorUserId?: string; skipPassiveDefenseCheck?: boolean },
   ): Promise<ApplyModifierResult> {
     const session = await this.getActiveSession(roomId)
     if (!session) return { ok: false, reason: "no_active_session" }
 
+    const actorUserId = options?.actorUserId
     const defenseSvc = new DefenseService(this.context)
-    const blocked = await defenseSvc.checkModifierDefense(roomId, userId, sourcePlugin, incoming)
+    const blocked =
+      options?.skipPassiveDefenseCheck === true
+        ? null
+        : await defenseSvc.checkModifierDefense(
+            roomId,
+            userId,
+            sourcePlugin,
+            incoming,
+            actorUserId,
+          )
     if (blocked) {
       const provisionalModifier: GameStateModifier = {
         ...incoming,
@@ -396,15 +406,23 @@ export class GameSessionService {
             : []
         const attackerName = actorUser?.username?.trim() || sourcePlugin
         const targetName = targetUser?.username?.trim() || userId
+        const defaultRoomLine = `${attackerName} attacked ${targetName}, but ${blocked.itemName} blocked it.`
+        const roomLine = blocked.onTriggered?.roomMessage ?? defaultRoomLine
         await this.context.systemEvents.emit(roomId, "MESSAGE_RECEIVED", {
           roomId,
-          message: systemMessage(
-            `${attackerName} attacked ${targetName}, but ${blocked.itemName} blocked it.`,
-            { type: "alert", status: "warning", title: "Blocked" },
-          ),
+          message: systemMessage(roomLine, {
+            type: "alert",
+            status: "warning",
+            title: "Blocked",
+          }),
         })
       }
-      return { ok: false, reason: "defense_blocked", blockingItemName: blocked.itemName }
+      return {
+        ok: false,
+        reason: "defense_blocked",
+        blockingItemName: blocked.itemName,
+        attackerMessage: blocked.onTriggered?.attackerMessage,
+      }
     }
 
     const state = await this.getUserState(roomId, userId)
@@ -425,6 +443,9 @@ export class GameSessionService {
         }
         if (incoming.icon && !existing.icon) {
           existing.icon = incoming.icon
+        }
+        if (incoming.visibility === "self" && existing.visibility !== "self") {
+          existing.visibility = "self"
         }
         // Don't push the new modifier - we extended the existing one
         await this.persistModifiers(roomId, session.id, userId, modifiers)

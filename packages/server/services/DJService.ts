@@ -706,7 +706,7 @@ export class DJService {
       const ownerId = queueItem.addedBy?.userId ?? ""
       const intent = delta > 0 ? ("negative" as const) : ("positive" as const)
       const defenseSvc = new DefenseService(this.context)
-      const blocked = await defenseSvc.checkQueueDefense(roomId, ownerId, intent)
+      const blocked = await defenseSvc.checkQueueDefense(roomId, ownerId, intent, actorUserId)
       if (blocked) {
         const sessionId = await defenseSvc.getActiveSessionId(roomId)
         await defenseSvc.emitEffectBlocked({
@@ -726,18 +726,22 @@ export class DJService {
           const attackerName = actorUser?.username?.trim() || "Someone"
           const targetName = ownerUser?.username?.trim() || ownerId
           const actionWord = intent === "negative" ? "demote" : "promote"
+          const defaultRoomLine = `${attackerName} tried to ${actionWord} ${targetName}'s queued track, but ${blocked.itemName} blocked it.`
+          const roomLine = blocked.onTriggered?.roomMessage ?? defaultRoomLine
           await this.context.systemEvents.emit(roomId, "MESSAGE_RECEIVED", {
             roomId,
-            message: systemMessage(
-              `${attackerName} tried to ${actionWord} ${targetName}'s queued track, but ${blocked.itemName} blocked it.`,
-              { type: "alert", status: "warning", title: "Blocked" },
-            ),
+            message: systemMessage(roomLine, {
+              type: "alert",
+              status: "warning",
+              title: "Blocked",
+            }),
           })
         }
         return {
           success: false as const,
           reason: "defense_blocked" as const,
           blockingItemName: blocked.itemName,
+          attackerMessage: blocked.onTriggered?.attackerMessage,
         }
       }
     }

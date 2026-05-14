@@ -48,13 +48,21 @@ npm run create-item -w @repo/plugin-item-shops
 
 ### Item behavior patterns
 
-- **Timed modifier:** use `timedModifierEffect` in `items/shared/behaviorHelpers.ts`
-- **Passive defense:** use `usePassiveDefenseItem` and `definition.defense`
+- **Timed modifier:** use `timedModifierEffect` in `items/shared/behaviorHelpers.ts` (system messages for who was affected use `resolveItemUseActorDisplayName` for `actor` / `target` inside `applyTargetedTimedModifier`)
+- **Passive defense:** use `usePassiveDefenseItem` and `definition.defense` (`scope`: `modifier` and/or `queue`). Add optional **`onDefenseTriggered`** on the item (see `createItem` / `items/p2p-file-sharing` for intercept + copy, `items/rubber-band` for redirecting **`payload.blockedModifier`** onto the attacker via **`game.reboundModifier(attackerUserId, blockedModifier)`**) — core calls it **after** consuming a matching stack; put side effects or message overrides there. See ADR 0053.
 - **Custom behavior:** generated async `use` handler stub with `ItemShopsBehaviorDeps`
+- **Room messages naming the actor:** when a `use` handler calls `sendSystemMessage` with the inventory owner’s name, use **`resolveItemUseActorDisplayName(deps, userId)`** from `items/shared/resolveItemUseActorDisplayName.ts` so the **`anonymous_actions`** timed modifier (Ski Mask) is respected. It reads `deps.game.getUserState(userId)`; in tests, **`applyTimedModifier` is mocked**, so mirror modifier state by mocking **`getUserState`** when asserting anonymous copy.
+
+### Custom sellback value (per-stack)
+
+Some items need a **sellback** coin amount that depends on the **inventory stack** (e.g. time held via `acquiredAt`), not the shop’s `listedBuybackRate`. Put the pure function in a small module (e.g. **`items/mars-egg/sellbackValue.ts`**) and pass it as **`sellbackValue`** in **`createItem`**. The plugin exposes **`getSellbackValues`**; the server attaches **`sellbackValue`** on each `InventoryItem` in **`USER_GAME_STATE`**, and **`onItemSold`** uses the same handler so the client **Sell (N)** label matches the coins credited. **Game Studio / studio-bridge** can import **`@repo/plugin-item-shops/mars-egg-sellback`** (package export) so preview uses the same math without duplicating constants.
 
 ### Effect Types
 
 `GameStateEffectWithMeta` supports multiple effect kinds on a single modifier, and the item CLI now supports generating multi-effect modifiers.
+
+- **`anonymous_actions`** (`ANONYMOUS_ACTIONS_FLAG` in `@repo/game-logic` / `@repo/plugin-base`) is used by Item Shops for **room-visible attribution**, not chat transforms: while active, item behaviors that call **`resolveItemUseActorDisplayName`** (`items/shared/resolveItemUseActorDisplayName.ts`) return **`"Someone"`** for `sendSystemMessage` copy instead of the actor’s username (e.g. Ski Mask before another item that announces who acted).
+- Full-screen / overlay UI flags (e.g. stackable blur) use shared stack helpers such as `countInterfaceBlurStacks` plus web helpers in `apps/web/src/lib/screenEffects.ts` and `ModifierBlurLayer`
 
 - **flag** - Boolean flag in user game state
   - **Cross-folder (shared) flags** — written by one item and read elsewhere — live as named exports in **`items/textEffects/sizeShift.ts`** (`GROW_FLAG`, `SHRINK_FLAG`, `ECHO_FLAG`). Import them from there in item definitions.
@@ -157,6 +165,30 @@ export const highlightLongestTextEffect: TextEffectKind = {
 - Each effect in `effects` **must** include **`durationMs`** (`GameStateEffectWithMeta`). It is consumed when applying the modifier and **not** stored on the persisted modifier.
 - If resolved durations differ across effects, the helper applies **one `applyTimedModifier` call per duration group**. Modifier names become `${modifierName}__${durationMs}` when more than one group exists so stacking semantics stay per bucket.
 
+### Modifier visibility (`visibility`)
+
+Timed modifiers default to **public** (everyone sees the effect bar / tooltip for that user’s row in the listener list). Set **`visibility: "self"`** on `timedModifierEffect` to persist `visibility: "self"` on `GameStateModifier`: the web client hides those modifiers when rendering **another** user’s `UserEffectBars` (your own row still shows them).
+
+Use `"self"` when showing the bar would leak private state (e.g. anonymity / disguise-style effects).
+
+```ts
+use: timedModifierEffect({
+  modifierName: "disguise",
+  visibility: "self",
+  effects: [
+    {
+      type: "flag",
+      name: ANONYMOUS_ACTIONS_FLAG,
+      value: true,
+      intent: "neutral",
+      durationMs: 5 * 60 * 1000,
+    },
+  ],
+  successMessage: "…",
+  describe: () => `Someone went anonymous`,
+})
+```
+
 ## Creating Shops
 
 Use the shop generator:
@@ -192,6 +224,25 @@ npm run create-shop -w @repo/plugin-item-shops
 
 Start simple and keep callbacks deterministic. If logic grows, extract helper functions and add focused tests.
 
+### Session lifecycle hooks (`onSessionStart` / `onSessionEnd`)
+
+Optional hooks on **`ShopCatalogEntry`** (`ItemShopsShopCatalogEntry`). Import **`ShopSessionContext`** from `@repo/plugin-base/helpers` (canonical definition: `@repo/game-logic/shopping-session-catalog`).
+
+| Hook             | When called                                                                                                                                            | Typical use                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `onSessionStart` | After the Item Shops plugin finishes `ShoppingSessionHelper.startSession`, once per shop in that round’s **eligible** rotation (same subset as offers) | Welcome broadcast, shop-specific setup           |
+| `onSessionEnd`   | Before the round is torn down: admin **End all shopping sessions**, or **Start new shopping session** while a round is already active                  | “Closing” behaviors, delayed inventory callbacks |
+
+**`ShopSessionContext` APIs:**
+
+- **`pluginName`** — Owning plugin id (Item Shops); pair with inventory stacks’ `sourcePlugin` when filtering.
+- **Timers** — `startTimer`, `getTimer`, `clearTimer` (timer ids are scoped per shop by the plugin).
+- **Messages** — `sendSystemMessage`, `sendUserSystemMessage`.
+- **State** — `getState`, `setState`, `deleteState`, **`getAllStateKeys`** (keys in this shop’s in-memory store, often user ids written from `onBuy`).
+- **Inventory** — `getInventory`, `getItemDefinition`, `removeItem`, `giveItem` (same behavior as `PluginContext.inventory`).
+
+**Room game session:** Hooks are **not** run on **`GAME_SESSION_ENDED`**. The plugin clears shop-scoped timers and state and removes item-shops-owned stacks via its game-session handler without calling `onSessionEnd`.
+
 ## Testing Guidance
 
 - Item and shop tests use Vitest in this package.
@@ -209,6 +260,7 @@ npm test -w @repo/plugin-item-shops
 ## Useful References
 
 - `packages/plugin-item-shops/items/shared/behaviorHelpers.ts`
+- `packages/plugin-item-shops/items/shared/resolveItemUseActorDisplayName.ts`
 - `packages/plugin-item-shops/items/shared/testHelpers.ts`
-- `packages/plugin-item-shops/shops/sweetwater/index.ts` (advanced timers/messages)
-- `packages/plugin-item-shops/shops/green-room/index.ts` (minimal `onBuy`)
+- `packages/plugin-item-shops/shops/sweetwater/index.ts` (advanced `onBuy` timers/messages)
+- `packages/plugin-item-shops/shops/green-room/index.ts` (`onBuy` + `onSessionEnd`)

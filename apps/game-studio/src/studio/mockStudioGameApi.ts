@@ -119,11 +119,22 @@ export class MockStudioGameSessionApi implements GameSessionPluginAPI {
     modifier: Omit<GameStateModifier, "id" | "source">,
     options?: { actorUserId?: string },
   ): Promise<ApplyModifierResult> {
+    return this.applyModifierInternal(userId, modifier, options, false)
+  }
+
+  private async applyModifierInternal(
+    userId: string,
+    modifier: Omit<GameStateModifier, "id" | "source">,
+    options: { actorUserId?: string } | undefined,
+    skipPassiveDefenseCheck: boolean,
+  ): Promise<ApplyModifierResult> {
     const session = this.room.activeSession
     if (!session) return { ok: false, reason: "no_active_session" }
     this.room.ensureParticipant(userId)
 
-    const blocked = checkModifierDefenseStudio(this.room, userId, this.pluginName, modifier)
+    const blocked = skipPassiveDefenseCheck
+      ? null
+      : checkModifierDefenseStudio(this.room, userId, this.pluginName, modifier)
     if (blocked) {
       const provisionalModifier: GameStateModifier = {
         ...modifier,
@@ -213,26 +224,45 @@ export class MockStudioGameSessionApi implements GameSessionPluginAPI {
     actorUserId?: string,
   ): Promise<ApplyModifierResult> {
     const now = Date.now()
-    let endAt = now + durationMs
-    if (modifier.stackBehavior === "stack") {
-      const state = (await this.getUserState(userId)) ?? null
-      const sameName = (state?.modifiers ?? []).filter(
-        (m) => m.name === modifier.name && m.startAt <= now && m.endAt > now,
-      )
-      if (sameName.length > 0) {
-        const latestEndAt = Math.max(...sameName.map((m) => m.endAt))
-        endAt = latestEndAt + durationMs
-      }
-    }
-    return this.applyModifier(
+    const endAt = await this.computeTimedEndAt(userId, modifier, durationMs, now)
+    return this.applyModifierInternal(
       userId,
-      {
-        ...modifier,
-        startAt: now,
-        endAt,
-      },
+      { ...modifier, startAt: now, endAt },
       { actorUserId },
+      false,
     )
+  }
+
+  async reboundModifier(
+    userId: string,
+    modifier: Omit<GameStateModifier, "id" | "source">,
+    options?: { actorUserId?: string },
+  ): Promise<ApplyModifierResult> {
+    const now = Date.now()
+    const durationMs = Math.max(1, modifier.endAt - modifier.startAt)
+    const endAt = await this.computeTimedEndAt(userId, modifier, durationMs, now)
+    return this.applyModifierInternal(
+      userId,
+      { ...modifier, startAt: now, endAt },
+      { actorUserId: options?.actorUserId },
+      true,
+    )
+  }
+
+  private async computeTimedEndAt(
+    userId: string,
+    modifier: Pick<GameStateModifier, "name" | "stackBehavior">,
+    durationMs: number,
+    now: number,
+  ): Promise<number> {
+    if (modifier.stackBehavior !== "stack") return now + durationMs
+    const state = (await this.getUserState(userId)) ?? null
+    const sameName = (state?.modifiers ?? []).filter(
+      (m) => m.name === modifier.name && m.startAt <= now && m.endAt > now,
+    )
+    if (sameName.length === 0) return now + durationMs
+    const latestEndAt = Math.max(...sameName.map((m) => m.endAt))
+    return latestEndAt + durationMs
   }
 
   async removeModifier(userId: string, modifierId: string): Promise<boolean> {

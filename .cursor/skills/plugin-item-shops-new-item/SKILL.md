@@ -12,7 +12,7 @@ Gather answers before editing:
 
 1. **Display name** and **shortId** (kebab-case, unique; becomes folder name `items/<shortId>/`).
 2. **Behavior category**
-   - Timed chat modifier on a user (self or other): which **flag** from `@repo/plugin-base` (e.g. `GROW_FLAG`), **intent** (`positive` | `negative`), **modifierName** (stable string for game state).
+   - Timed chat modifier on a user (self or other): which **flag** from `@repo/plugin-base` (e.g. `GROW_FLAG`), **intent** (`positive` | `negative`), **modifierName** (stable string for game state), **visibility** (default public, or `"self"` so effect bars are hidden from other users’ listener rows — see `timedModifierEffect` / `GameStateModifier.visibility`).
    - Passive defense (blocks debuffs): **defense** rules on the definition — mirror `items/warranty/index.ts`.
    - Room/API action (skip track, queue move, etc.): which **PluginContext.api** methods and **callContext** shape (`targetUserId`, `targetQueueItemId`, …).
 3. **Definition**: **description**, **icon** (Lucide-style name string used by the client, e.g. `chevrons-up`), **rarity** (`common` | `uncommon` | `rare` | `legendary`), **coinValue** (catalog default), **stackable** / **maxStack** / **tradeable** / **consumable**, **requiresTarget** if any (`"self"` | `"user"` | `"queueItem"` — see `@repo/types` `ItemDefinition`).
@@ -39,10 +39,12 @@ In `packages/plugin-item-shops/items/index.ts`:
 
 | Pattern | Use |
 |--------|-----|
-| Single timed **flag** on targeted user (pedal-style) | `timedModifierEffect()` from `items/shared/behaviorHelpers.ts` — pass `modifierName`, `effects` (each with `durationMs`), `intent`, `successMessage`, `describe`. |
-| Custom timed effects (multiple effects or non-flag) | `applyTargetedTimedModifier()` with a full `TargetedTimedModifierSpec` (`effects` as `GameStateEffectWithMeta[]`). |
-| Equipped defense item that should not “activate” | `usePassiveDefenseItem` + `definition.defense` — see `items/warranty/index.ts`. |
+| Single timed **flag** on targeted user (pedal-style) | `timedModifierEffect()` from `items/shared/behaviorHelpers.ts` — pass `modifierName`, `effects` (each with `durationMs`), `intent`, `successMessage`, `describe`, optional `visibility: "self"` to hide effect bars from other users. |
+| Custom timed effects (multiple effects or non-flag) | `applyTargetedTimedModifier()` with a full `TargetedTimedModifierSpec` (`effects` as `GameStateEffectWithMeta[]`, optional `visibility`). |
+| Equipped defense item that should not “activate” | `usePassiveDefenseItem` + `definition.defense` — see `items/warranty/index.ts` (modifier/queue), `items/p2p-file-sharing/index.ts` (intercept + copy), or `items/rubber-band/index.ts` (bounce `blockedModifier` onto attacker with `skipPassiveDefenseCheck`). |
 | Bespoke logic | Async `use` handler: `(deps, userId, definition, callContext) => Promise<ItemUseResult>` with `{ success, consumed, message }`. Read `callContext` with narrow typing (see `empty-fridge`, `scratched-cd`). |
+
+**Room `sendSystemMessage` and the actor’s name:** always attribute the inventory actor with `await resolveItemUseActorDisplayName(deps, userId)` (or the relevant user id) — never interpolate raw `getUsersByIds` usernames for room-visible copy. That respects the **`anonymous_actions`** timed modifier (Ski Mask). Timed modifiers from `timedModifierEffect` already resolve actor/target names this way inside `applyTargetedTimedModifier`. The `npm run create-item` custom-handler scaffold imports the helper, resolves `displayName` for the actor, and reminds you to use it in any `sendSystemMessage`.
 
 Target user for modifiers: `callContext` may include `targetUserId`; default target is the actor (`behaviorHelpers`).
 
@@ -64,7 +66,7 @@ Run: `npm test -w @repo/plugin-item-shops`
 
 ```
 - [ ] Discovery complete (name, shortId, behavior, icon, rarity, economy, shops)
-- [ ] items/<shortId>/index.ts with createItem (+ defense or use handler)
+- [ ] items/<shortId>/index.ts with createItem (+ defense or use handler); any `sendSystemMessage` naming the actor uses `resolveItemUseActorDisplayName`
 - [ ] items/<shortId>/<shortId>.test.ts
 - [ ] items/index.ts import + items registry
 - [ ] Shop(s) updated with shortId + coinValue
@@ -75,6 +77,7 @@ Run: `npm test -w @repo/plugin-item-shops`
 
 - `items/shared/types.ts` — `createItem`, `ItemUseHandler`, `ItemShopsBehaviorDeps`
 - `items/shared/behaviorHelpers.ts` — `timedModifierEffect`, `applyTargetedTimedModifier`, `usePassiveDefenseItem`
+- `items/shared/resolveItemUseActorDisplayName.ts` — room-visible actor label (Ski Mask / `anonymous_actions`)
 - `items/shared/testHelpers.ts` — mocks and `expectApplyTimedModifierForPedal`
-- Examples: `items/boost-pedal`, `items/warranty`, `items/empty-fridge`, `items/scratched-cd`
+- Examples: `items/boost-pedal`, `items/warranty`, `items/p2p-file-sharing`, `items/rubber-band`, `items/empty-fridge`, `items/scratched-cd`
 - Shops: `shops/sweetwater/index.ts`, `shops/green-room/index.ts`, `shops/index.ts`

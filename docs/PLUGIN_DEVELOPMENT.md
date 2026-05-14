@@ -801,13 +801,18 @@ getConfigSchema(): PluginConfigSchema {
 | `confirmMessage` | `string` | No       | If provided, shows confirmation dialog before executing          |
 | `confirmText`    | `string` | No       | Text for the confirmation button (default: "Confirm")            |
 | `showWhen`       | `object` | No       | Conditional visibility (same as field `showWhen`)                |
+| `formFields`     | `array`  | No       | Optional fields shown in a popover before run; values are passed as `params` to `executeAction` |
 
 ### Handling Actions
 
-Override the `executeAction` method to handle action button clicks:
+Override the `executeAction` method to handle action button clicks. When `formFields` are defined, the admin UI collects values and sends them as the third argument (`params`):
 
 ```typescript
-async executeAction(action: string): Promise<{ success: boolean; message?: string }> {
+async executeAction(
+  action: string,
+  initiator?: PluginActionInitiator,
+  params?: Record<string, unknown>,
+): Promise<{ success: boolean; message?: string }> {
   switch (action) {
     case "resetLeaderboards":
       return this.resetLeaderboards()
@@ -817,7 +822,11 @@ async executeAction(action: string): Promise<{ success: boolean; message?: strin
       return { success: false, message: `Unknown action: ${action}` }
   }
 }
+```
 
+Simple actions without forms omit `params`. Form field types are `select` (static `options`), `user-select` (same `options` prepended before live room users), and `string`.
+
+```typescript
 private async resetLeaderboards(): Promise<{ success: boolean; message?: string }> {
   if (!this.context) {
     return { success: false, message: "Plugin not initialized" }
@@ -1557,8 +1566,9 @@ this.game.registerAttributes([
 | `registerAttributes(defs)`                     | Registers `PluginAttributeDefinition[]` (fire-and-forget).                                                                                                                               |
 | `addScore(userId, attribute, amount, reason?)` | Adds to an attribute; applies active **multiplier** / **additive** modifiers; returns new value. **Lock** effects block changes.                                                         |
 | `setScore(userId, attribute, value, reason?)`  | Sets absolute value (ignores multiplier/additive on that write path).                                                                                                                    |
-| `applyModifier(userId, modifier, options?)`     | Returns `ApplyModifierResult`: on success `{ ok: true, modifierId }`; on failure `{ ok: false, reason: "no_active_session" \| "defense_blocked", blockingItemName? }`. Optional `options.actorUserId` attributes the initiator for defense events. Omit `id` and `source` from `modifier`. |
-| `applyTimedModifier(userId, durationMs, modifier, actorUserId?)` | Same as `applyModifier`, but sets `startAt = Date.now()` and `endAt = startAt + durationMs`. Optional `actorUserId` is forwarded as `applyModifier`’s `actorUserId`.                                                        |
+| `applyModifier(userId, modifier, options?)`     | Returns `ApplyModifierResult`: on success `{ ok: true, modifierId }`; on failure `{ ok: false, reason: "no_active_session" \| "defense_blocked", blockingItemName?, attackerMessage? }`. Optional `options.actorUserId` attributes the initiator for defense events and `onDefenseTriggered`. Omit `id` and `source` from `modifier`. |
+| `applyTimedModifier(userId, durationMs, modifier, actorUserId?)` | Same as `applyModifier`, but sets `startAt = Date.now()` and `endAt = startAt + durationMs`. Optional `actorUserId` is forwarded as `applyModifier`’s `actorUserId`. |
+| `reboundModifier(userId, modifier, options?)`   | Re-apply a modifier (typically `DefenseTriggeredPayload.blockedModifier`) to another user, **bypassing passive modifier defense**. Recomputes `startAt`/`endAt` from `Date.now()` + the modifier's original duration. Intended for defense items that redirect incoming effects (e.g. Rubber Band). |
 | `removeModifier(userId, modifierId)`           | Removes one modifier instance.                                                                                                                                                           |
 | `getUserState(userId)`                         | Full `UserGameState` or `null` if no active session.                                                                                                                                     |
 | `getLeaderboard(leaderboardId)`                | Hydrated rows (`GameLeaderboardEntry[]`) for a `LeaderboardConfig.id`.                                                                                                                   |
@@ -1663,7 +1673,7 @@ if (!applied.ok) {
 }
 ```
 
-For queue actions, `PluginAPI.moveTrackByPosition(...)` returns `MoveTrackResult`: on success `{ success: true }`; on failure `{ success: false, reason: "error", message }` or, when a passive defense item blocks the move, `{ success: false, reason: "defense_blocked", blockingItemName }`. Item handlers should treat `defense_blocked` like modifier defense (typically consume the attacking item and message the user).
+For queue actions, `PluginAPI.moveTrackByPosition(...)` returns `MoveTrackResult`: on success `{ success: true }`; on failure `{ success: false, reason: "error", message }` or, when a passive defense item blocks the move, `{ success: false, reason: "defense_blocked", blockingItemName, attackerMessage? }`. Item handlers should treat `defense_blocked` like modifier defense (typically consume the attacking item and message the user).
 
 #### Actor attribution
 
@@ -1671,6 +1681,7 @@ When the initiating user matters (for audits / event payloads), pass the actor:
 
 - `this.game.applyModifier(userId, modifier, { actorUserId })`
 - `this.game.applyTimedModifier(userId, durationMs, modifier, actorUserId)`
+- `this.game.reboundModifier(attackerUserId, blockedModifier, { actorUserId })` — only inside `onDefenseTriggered`, to redirect an incoming effect to the attacker without re-triggering passive defense.
 - `this.context.api.moveTrackByPosition(roomId, metadataTrackId, delta, actorUserId)`
 
 For item-triggered effects, this should be the **user using the item** (not the plugin name).
@@ -1685,9 +1696,13 @@ Payload summary:
 - `targetUserId` (the defended target)
 - `actorUserId?` (initiator, when known)
 - `blockType`: `"modifier"` or `"queue"`
-- `modifier?` (for modifier blocks)
+- `modifier?` (for modifier blocks; includes `itemDefinitionId` when the attacking item set it)
 - `queue?` (`metadataTrackId`, `delta`, `intent`) for queue blocks
 - `blockedBy` (`itemDefinitionId`, `itemId`, `defenderUserId`, `itemName`)
+
+### Handling defense triggers (`onDefenseTriggered`)
+
+Optional. After **`DefenseService`** matches and **consumes** one quantity from a passive defense (`modifier` or `queue` scope), core calls **`onDefenseTriggered(payload)`** on the plugin that **owns the defense item**. For modifier blocks, **`payload.blockedModifier`** carries the modifier that would have been applied (no `id` / `source`). Return **`null`** for default messaging and no extra side effects. Return **`{ attackerMessage?, roomMessage? }`** to override the attacker-facing line (surfaced on `ApplyModifierResult` / `MoveTrackResult` when applicable) and/or the room **`MESSAGE_RECEIVED`** line after a block. Item shops route by `payload.defenseItemDefinition.shortId` via per-item handlers (see ADR 0053). Examples: **P2P File Sharing** — `scope: ["modifier"]`, `onDefenseTriggered` awards a copy via `giveItem(..., "defense_intercept")`; **Rubber Band** — redirects `blockedModifier` onto `attackerUserId` via `this.game.reboundModifier(attackerUserId, blockedModifier)`.
 
 ### Handling item use (`onItemUsed`)
 
@@ -1725,6 +1740,8 @@ async onItemUsed(
 `BasePlugin` provides a default implementation that returns “not handled”; override only when you define items.
 
 For **`effects` of type `"flag"`**, derive booleans with **`getActiveFlags(userState.modifiers, Date.now())`** from **`@repo/game-logic`** (see [ADR 0046](adrs/0046-derived-modifier-flags.md)). For items with **`requiresTarget: "user"`**, the socket passes **`callContext`** as **`{ targetUserId?: string }`** — validate the user is still in the room before applying effects to them.
+
+Item Shops items that post room **`sendSystemMessage`** lines naming the actor should use **`resolveItemUseActorDisplayName`** (see [Item Shops development](SHOP_ITEM_DEVELOPMENT.md)) so the **`anonymous_actions`** flag (Ski Mask) hides the username in that copy. Other plugins can reuse the same pattern with `getUserState` + **`hasAnonymousActions`** / **`ANONYMOUS_ACTIONS_FLAG`** from **`@repo/game-logic`** / **`@repo/plugin-base`**.
 
 ### Handling item sell-back (`onItemSold`)
 
@@ -1802,6 +1819,18 @@ Plugins that sell items for in-game `coin` (e.g. Music Shop) can compose a **`Sh
 **`ShopPlugin`:** For a typical coin shop, you can extend **`ShopPlugin<TConfig>`** from `@repo/plugin-base` instead of hand-wiring `ShopHelper`, `executeAction`, `onItemSold`, and stock-related plugin events. It composes `ShopHelper` internally; subclasses provide `shopItems`, `isShopEnabled`, and `isSellingItems`, and may override hooks for item behaviour. See [ADR 0047: ShopPlugin base class](adrs/0047-shop-plugin-base-class.md). Prefer raw **`ShopHelper`** when you need to compose multiple helpers or avoid a shop-specific base class.
 
 **`ShoppingSessionHelper` (per-user sessions):** If you need **per-listener random shop instances** (ephemeral “rounds” with a few weighted offers) instead of **global per-item stock** for the whole room, use **`ShoppingSessionHelper`** from `@repo/plugin-base/helpers` and extend `BasePlugin` (not `ShopPlugin`). The built-in **Item Shops** plugin (`@repo/plugin-item-shops`) is the reference implementation. See [ADR 0049: Item Shops and Shopping Sessions](adrs/0049-item-shops-and-shopping-sessions.md).
+
+**Shopping round lifecycle (`ShopCatalogEntry` / item shops):** Each shop definition may implement optional callbacks alongside `onBuy`:
+
+| Hook              | When (Item Shops plugin)                                                                 | Context type           |
+| ----------------- | ---------------------------------------------------------------------------------------- | ---------------------- |
+| `onBuy`           | After a successful purchase                                                              | `ShopBuyContext`       |
+| `onSessionStart`  | After `startSession` completes, once per shop in that round’s **eligible** catalog subset | `ShopSessionContext`   |
+| `onSessionEnd`    | When a shopping **round** ends (admin ends sessions or starts a new round while active)   | `ShopSessionContext`   |
+
+**`ShopSessionContext`** (from `@repo/plugin-base/helpers`, defined in `@repo/game-logic`) includes `roomId`, `shopId`, **`pluginName`** (use when filtering inventory by `sourcePlugin`), timer helpers (`startTimer`, `getTimer`, `clearTimer`), **`sendSystemMessage`** / **`sendUserSystemMessage`**, shop-scoped state (`getState`, `setState`, `deleteState`, **`getAllStateKeys`**), and **`inventory`** (`getInventory`, `getItemDefinition`, `removeItem`, `giveItem`). These lifecycle hooks are **not** invoked on room **`GAME_SESSION_ENDED`** — the Item Shops plugin clears shop timers and in-memory shop state on game session end and strips inventory separately.
+
+See [SHOP_ITEM_DEVELOPMENT.md](SHOP_ITEM_DEVELOPMENT.md) for shop authoring in `@repo/plugin-item-shops`.
 
 ### `ShopItem`
 

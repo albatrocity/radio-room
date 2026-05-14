@@ -72,11 +72,12 @@ export class StudioPluginRegistry {
     pluginName: string,
     action: string,
     initiator?: import("@repo/types").PluginActionInitiator,
+    params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }> {
     const instance = this.get(roomId, pluginName)
     if (!instance?.executeAction) {
       return { success: false, message: "Unknown action" }
     }
-    return instance.executeAction(action, initiator)
+    return instance.executeAction(action, initiator, params)
   }
 }

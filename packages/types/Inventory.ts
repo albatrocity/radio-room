@@ -1,3 +1,4 @@
+import type { GameStateModifier } from "./GameSession"
 import type { ItemRarity } from "./ShoppingSession"
 import type { LucideIconName } from "./LucideIconKey"
 
@@ -117,6 +118,8 @@ export interface InventoryItem {
   quantity: number
   /** Unix epoch (ms) when the user acquired the (top of the) stack. */
   acquiredAt: number
+  /** Plugin-computed sellback coins (overrides shop buyback rate). Set only on wire payloads (e.g. USER_GAME_STATE). */
+  sellbackValue?: number
   /** Plugin-specific metadata (kept opaque to core). */
   metadata?: Record<string, unknown>
 }
@@ -140,8 +143,42 @@ export interface ItemUseResult {
   success: boolean
   /** When `true`, the core decrements quantity by 1 (and removes empty stacks). */
   consumed: boolean
-  /** Optional user-facing feedback (toast / chat alert). */
+  /** Optional toast/alert title (defaults to "Success", "Error", or auto-detected from message). */
+  title?: string
+  /** Optional user-facing feedback (toast / chat alert body). */
   message?: string
+}
+
+/**
+ * Payload for `RoomPlugin.onDefenseTriggered` after core has matched and
+ * consumed one quantity from a passive defense stack (`modifier` or `queue`
+ * scope). Optional fields depend on what the server knows about the initiator.
+ */
+export interface DefenseTriggeredPayload {
+  roomId: string
+  defenderUserId: string
+  /** User who applied the modifier or queue action, when known. */
+  attackerUserId?: string
+  /** Item whose effect was blocked, when the modifier carried `itemDefinitionId`. */
+  attackerItemDefinition?: ItemDefinition
+  defenseItemDefinition: ItemDefinition
+  /**
+   * When a **modifier** defense blocked this application: the modifier that
+   * would have been applied (no `id` / `source`). Plugins may re-apply it to
+   * another user (e.g. Rubber Band) using `applyTimedModifier` with
+   * `skipPassiveDefenseCheck` to avoid recursion.
+   */
+  blockedModifier?: Omit<GameStateModifier, "id" | "source">
+}
+
+/**
+ * Optional overrides for default defense messaging. Omitted fields use core
+ * defaults (`GAME_EFFECT_BLOCKED` room line, attacker-facing copy from
+ * `ApplyModifierResult` / `MoveTrackResult`).
+ */
+export interface DefenseTriggeredResult {
+  attackerMessage?: string
+  roomMessage?: string
 }
 
 /**
@@ -158,4 +195,9 @@ export interface ItemSellResult {
 }
 
 /** Source attribution for `INVENTORY_ITEM_ACQUIRED`. */
-export type InventoryAcquisitionSource = "plugin" | "trade" | "purchase" | "admin"
+export type InventoryAcquisitionSource =
+  | "plugin"
+  | "trade"
+  | "purchase"
+  | "admin"
+  | "defense_intercept"

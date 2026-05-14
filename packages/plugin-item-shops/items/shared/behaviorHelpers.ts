@@ -1,4 +1,5 @@
 import type { GameStateEffectWithMeta, ItemDefinition, ItemUseResult } from "@repo/types"
+import { resolveItemUseActorDisplayName } from "./resolveItemUseActorDisplayName"
 import type { ItemShopsBehaviorDeps, ItemUseHandler } from "./types"
 
 export type TargetedTimedModifierSpec = {
@@ -6,6 +7,8 @@ export type TargetedTimedModifierSpec = {
   effects: GameStateEffectWithMeta[]
   successMessage: string
   describe: (p: { isSelf: boolean; actor: string; target: string }) => string
+  /** UI visibility scope. Defaults to public (omit). */
+  visibility?: "public" | "self"
 }
 
 export type ApplyTargetedTimedModifierParams = {
@@ -41,6 +44,7 @@ export async function applyTargetedTimedModifier(
         effects: group.effects,
         stackBehavior: "stack",
         itemDefinitionId: definition.id,
+        ...(spec.visibility === "self" ? { visibility: "self" as const } : {}),
       },
       userId,
     )
@@ -50,17 +54,18 @@ export async function applyTargetedTimedModifier(
         return {
           success: false,
           consumed: true,
-          message: `Blocked by ${applied.blockingItemName}. Your item was lost with use.`,
+          title: "Intercepted",
+          message:
+            applied.attackerMessage ??
+            `Blocked by ${applied.blockingItemName}. Your item was lost with use.`,
         }
       }
       return { success: false, consumed: false, message: "Could not apply effect." }
     }
   }
 
-  const [actor] = await context.api.getUsersByIds([userId])
-  const [target] = await context.api.getUsersByIds([targetUserId])
-  const actorName = actor?.username?.trim() || userId
-  const targetName = target?.username?.trim() || targetUserId
+  const actorName = await resolveItemUseActorDisplayName(deps, userId)
+  const targetName = await resolveItemUseActorDisplayName(deps, targetUserId)
   const isSelf = targetUserId === userId
   const who = spec.describe({ isSelf, actor: actorName, target: targetName })
   const durationSummary = formatDurationSummary(groups.map((g) => g.durationMs))
@@ -92,6 +97,8 @@ export type TimedModifierEffectConfig = {
   successMessage: string
   /** Generates the system message describing who is affected. */
   describe: (p: { isSelf: boolean; actor: string; target: string }) => string
+  /** UI visibility scope. Defaults to public when omitted. */
+  visibility?: "public" | "self"
 }
 
 /**
@@ -126,6 +133,7 @@ export function timedModifierEffect(config: TimedModifierEffectConfig): ItemUseH
         }),
         successMessage: config.successMessage,
         describe: config.describe,
+        visibility: config.visibility,
       },
     })
 }

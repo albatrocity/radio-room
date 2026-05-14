@@ -94,31 +94,35 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
   /**
    * Execute a plugin action
    */
-  socket.on("EXECUTE_PLUGIN_ACTION", async (data: { pluginName: string; action: string }) => {
-    const { pluginName, action } = data
+  socket.on(
+    "EXECUTE_PLUGIN_ACTION",
+    async (data: { pluginName: string; action: string; params?: Record<string, unknown> }) => {
+      const { pluginName, action, params } = data
 
-    if (!socket.context.pluginRegistry) {
+      if (!socket.context.pluginRegistry) {
+        socket.emit("event", {
+          type: "PLUGIN_ACTION_RESULT",
+          data: { success: false, message: "Plugin registry not available" },
+        })
+        return
+      }
+
+      const result = await socket.context.pluginRegistry.executePluginAction(
+        socket.data.roomId,
+        pluginName,
+        action,
+        socket.data.userId
+          ? { userId: socket.data.userId, username: socket.data.username }
+          : undefined,
+        params,
+      )
+
       socket.emit("event", {
         type: "PLUGIN_ACTION_RESULT",
-        data: { success: false, message: "Plugin registry not available" },
+        data: result,
       })
-      return
-    }
-
-    const result = await socket.context.pluginRegistry.executePluginAction(
-      socket.data.roomId,
-      pluginName,
-      action,
-      socket.data.userId
-        ? { userId: socket.data.userId, username: socket.data.username }
-        : undefined,
-    )
-
-    socket.emit("event", {
-      type: "PLUGIN_ACTION_RESULT",
-      data: result,
-    })
-  })
+    },
+  )
 
   // TODO: Implement trigger events
   // socket.on("GET_TRIGGER_EVENTS", async () => {

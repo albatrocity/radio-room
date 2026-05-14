@@ -29,6 +29,7 @@ export type TimedModifierConfig = {
   successMessage: string
   effects: TimedModifierEffectConfig[]
   newFlags: NewFlagDeclaration[]
+  visibility?: "public" | "self"
 }
 
 export type PassiveDefenseConfig = {
@@ -216,7 +217,21 @@ async function promptTimedModifier(
     addAnother = await confirm({ message: "Add another effect?", default: false })
   }
 
-  return { modifierName, successMessage, effects, newFlags }
+  const visibility = await select<"public" | "self">({
+    message: "Modifier visibility (effect bars in listener list):",
+    choices: [
+      { value: "public", name: "public (visible to everyone)" },
+      { value: "self", name: "self (only visible to owner)" },
+    ],
+  })
+
+  return {
+    modifierName,
+    successMessage,
+    effects,
+    newFlags,
+    visibility: visibility === "public" ? undefined : visibility,
+  }
 }
 
 async function promptTimedModifierEffect(params: {

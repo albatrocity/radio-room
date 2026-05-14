@@ -22,6 +22,8 @@ import type {
   UserGameState,
 } from "./GameSession"
 import type {
+  DefenseTriggeredPayload,
+  DefenseTriggeredResult,
   InventoryAcquisitionSource,
   InventoryItem,
   ItemDefinition,
@@ -88,6 +90,19 @@ export interface PluginSchemaElement {
 }
 
 /**
+ * Optional form fields collected in the admin UI before running a plugin action.
+ * For `user-select`, `options` are prepended to the live room user list.
+ */
+export interface PluginActionFormField {
+  name: string
+  label: string
+  type: "select" | "user-select" | "string"
+  required?: boolean
+  /** Static options. For `user-select`, prepended before room users. */
+  options?: { value: string; label: string }[]
+}
+
+/**
  * Plugin action element - for action buttons in the form layout
  */
 export interface PluginActionElement {
@@ -107,6 +122,8 @@ export interface PluginActionElement {
    * If an array is provided, ALL conditions must be true (AND logic).
    */
   showWhen?: ShowWhenCondition | ShowWhenCondition[]
+  /** Optional fields shown before execute (admin plugin settings UI). */
+  formFields?: PluginActionFormField[]
 }
 
 /**
@@ -522,6 +539,20 @@ export interface GameSessionPluginAPI {
     /** User who caused the application (e.g. item user), for defense events. */
     actorUserId?: string,
   ): Promise<ApplyModifierResult>
+  /**
+   * Re-apply a modifier (typically `DefenseTriggeredPayload.blockedModifier`)
+   * to another user, **bypassing passive modifier defense**. Intended for
+   * defense items that redirect an incoming effect (e.g. Rubber Band).
+   *
+   * `startAt` is reset to `Date.now()` and `endAt` is recomputed from the
+   * modifier's original duration. `stackBehavior: "stack"` uses the same
+   * tail-off logic as `applyTimedModifier`.
+   */
+  reboundModifier(
+    userId: string,
+    modifier: Omit<GameStateModifier, "id" | "source">,
+    options?: { actorUserId?: string },
+  ): Promise<ApplyModifierResult>
   /** Remove a modifier instance. Returns whether it was found and removed. */
   removeModifier(userId: string, modifierId: string): Promise<boolean>
 
@@ -775,10 +806,11 @@ export interface Plugin {
    *
    * @param action - The action identifier from PluginActionElement
    * @param initiator - Present when the action was triggered from the admin plugin config UI
+   * @param params - When the action defines `formFields`, collected field values from the admin UI
    * @returns Result with success status and optional message
    *
    * @example
-   * async executeAction(action: string, initiator?: PluginActionInitiator): Promise<{ success: boolean; message?: string }> {
+   * async executeAction(action: string, initiator?: PluginActionInitiator, params?: Record<string, unknown>): Promise<{ success: boolean; message?: string }> {
    *   if (action === 'resetLeaderboards') {
    *     await this.clearAllLeaderboards()
    *     return { success: true, message: 'Leaderboards reset successfully' }
@@ -789,6 +821,7 @@ export interface Plugin {
   executeAction?(
     action: string,
     initiator?: PluginActionInitiator,
+    params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }>
 
   /**
@@ -946,6 +979,16 @@ export interface Plugin {
   ): Promise<ItemUseResult>
 
   /**
+   * Optional handler after core matched and **consumed** one quantity from a
+   * passive defense item (`modifier` or `queue` scope). Use for side effects
+   * (e.g. award a copy to the defender) and/or optional message overrides.
+   * Return `null` to keep default messaging; return `{ attackerMessage?, roomMessage? }`
+   * to override attacker-facing or room system copy. If the handler throws,
+   * core still keeps the defense consumed and falls back to defaults.
+   */
+  onDefenseTriggered?(payload: DefenseTriggeredPayload): Promise<DefenseTriggeredResult | null>
+
+  /**
    * Optional handler invoked when a user sells an inventory item back to the
    * owning plugin (typically a shop). Plugins handle the sale themselves --
    * remove the item, credit the user with coins, restock if applicable --
@@ -965,6 +1008,15 @@ export interface Plugin {
     definition: ItemDefinition,
     context?: unknown,
   ): Promise<ItemSellResult>
+
+  /**
+   * Optional: compute per-stack sellback coin amounts for inventory payloads
+   * (e.g. USER_GAME_STATE). Merge maps from all plugins by `itemId`.
+   */
+  getSellbackValues?(
+    items: InventoryItem[],
+    definitionById: Map<string, ItemDefinition>,
+  ): Promise<Record<string, number>>
 }
 
 /**

@@ -441,6 +441,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
   async executeAction(
     action: string,
     _initiator?: PluginActionInitiator,
+    _params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }> {
     if (action === "resetLeaderboards") {
       return this.resetLeaderboards()

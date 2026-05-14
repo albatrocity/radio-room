@@ -1,9 +1,15 @@
 import { z } from "zod"
-import type { ItemShopsShopCatalogEntry, ShopBuyContext } from "@repo/plugin-base/helpers"
+import type {
+  ItemShopsShopCatalogEntry,
+  ShopBuyContext,
+  ShopSessionContext,
+} from "@repo/plugin-base/helpers"
 import { BasePlugin, applyTextEffects, ShoppingSessionHelper } from "@repo/plugin-base"
 import { countFlagStacks } from "@repo/game-logic"
 import {
   type ChatMessage,
+  type DefenseTriggeredPayload,
+  type DefenseTriggeredResult,
   type ItemDefinition,
   type ItemSellResult,
   type ItemUseResult,
@@ -16,15 +22,17 @@ import {
 } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import packageJson from "./package.json"
-import { ITEM_CATALOG, ITEM_USE_BEHAVIORS, TEXT_EFFECT_KINDS } from "./items/index"
+import {
+  ITEM_CATALOG,
+  ITEM_USE_BEHAVIORS,
+  ITEM_DEFENSE_TRIGGERED_BEHAVIORS,
+  ITEM_SELLBACK_VALUE_BEHAVIORS,
+  TEXT_EFFECT_KINDS,
+} from "./items/index"
 import { SHOP_CATALOG } from "./shops"
 import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
-
-const GREEN_ROOM_SHOP_ID = "green-room"
-const GREEN_ROOM_RETURN_MS = 5 * 60 * 1000
-const GREEN_ROOM_RETURN_PREFIX = "greenRoomReturn:"
 
 function getEligibleShops(config: ItemShopsConfig): ItemShopsShopCatalogEntry[] {
   const knownIds = new Set(SHOP_CATALOG.map((s) => s.shopId))
@@ -61,89 +69,16 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   private async handleGameSessionEnded(
     _data: SystemEventPayload<"GAME_SESSION_ENDED">,
   ): Promise<void> {
-    this.disposeGreenRoomReturnTimers()
-    this.clearShopTimersAndState()
+    this.clearShopTimersAndStateForGameEnd()
     await this.shopping.clearSessionRound()
     await this.stripOwnedItemsFromAllUsers()
   }
 
-  private disposeGreenRoomReturnTimers(): void {
-    for (const timer of this.getAllTimers()) {
-      if (timer.id.startsWith(GREEN_ROOM_RETURN_PREFIX)) {
-        this.clearTimer(timer.id)
-      }
-    }
-  }
-
-  private async processGreenRoomDepartures(): Promise<void> {
-    if (!this.context) return
-    const greenRoomStore = this.shopStateStores.get(GREEN_ROOM_SHOP_ID)
-    if (!greenRoomStore || greenRoomStore.size === 0) return
-
-    const userIds = Array.from(greenRoomStore.keys())
-    for (const userId of userIds) {
-      const inv = await this.context.inventory.getInventory(userId)
-      const stacks = inv.items.filter((s) => s.sourcePlugin === this.name && s.quantity > 0)
-      if (stacks.length === 0) {
-        greenRoomStore.delete(userId)
-        continue
-      }
-
-      const stack = stacks[Math.floor(Math.random() * stacks.length)]!
-      const definition = await this.context.inventory.getItemDefinition(stack.definitionId)
-      const itemName = definition?.name ?? "item"
-
-      const removed = await this.context.inventory.removeItem(userId, stack.itemId, 1)
-      if (!removed) {
-        greenRoomStore.delete(userId)
-        continue
-      }
-
-      const message = `Hey, you left your ${itemName}. We're closing up for the night but we'll get it back to you soon.`
-      await this.context.api.sendUserSystemMessage(
-        this.context.roomId,
-        userId,
-        message,
-        { type: "alert", status: "info", title: "Message from the Green Room" },
-      )
-
-      const definitionId = stack.definitionId
-      const roomId = this.context.roomId
-      this.startTimer(`${GREEN_ROOM_RETURN_PREFIX}${userId}:${Date.now()}`, {
-        duration: GREEN_ROOM_RETURN_MS,
-        callback: async () => {
-          if (!this.context) return
-          const returned = await this.context.inventory.giveItem(
-            userId,
-            definitionId,
-            1,
-            undefined,
-            "purchase",
-          )
-          if (!returned) return
-          const followUp = `hey here's your ${itemName} back`
-          await this.context.api.sendUserSystemMessage(
-            roomId,
-            userId,
-            followUp,
-            { type: "alert", status: "info", title: "Message from the Green Room" },
-          )
-        },
-      })
-
-      greenRoomStore.delete(userId)
-    }
-
-    if (greenRoomStore.size === 0) {
-      this.shopStateStores.delete(GREEN_ROOM_SHOP_ID)
-    }
-  }
-
-  private shopTimerPrefix(shopId: string): string {
-    return `shop:${shopId}:`
-  }
-
-  private clearShopTimersAndState(): void {
+  /**
+   * Clears shop-scoped timers and in-memory shop state. Used on room game session end only
+   * (does not run shopping-round `onSessionEnd` hooks — inventory is stripped separately).
+   */
+  private clearShopTimersAndStateForGameEnd(): void {
     for (const shop of SHOP_CATALOG) {
       const prefix = this.shopTimerPrefix(shop.shopId)
       for (const timer of this.getAllTimers()) {
@@ -151,9 +86,42 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           this.clearTimer(timer.id)
         }
       }
-      shop.onSessionEnd?.()
     }
     this.shopStateStores.clear()
+  }
+
+  /**
+   * Before ending or replacing a shopping round: run per-shop `onSessionEnd`.
+   * Does not clear shop state stores globally — shops without hooks (e.g. Sweetwater timers) keep state.
+   * Drops empty per-shop maps after a hook runs (e.g. Green Room clears its visitor keys).
+   */
+  private async invokeShoppingRoundSessionEndHooks(): Promise<void> {
+    if (!this.context) return
+    for (const shop of SHOP_CATALOG) {
+      if (!shop.onSessionEnd) continue
+      const ctx = this.createShopSessionContext(shop)
+      await shop.onSessionEnd(ctx)
+      const store = this.shopStateStores.get(shop.shopId)
+      if (store && store.size === 0) {
+        this.shopStateStores.delete(shop.shopId)
+      }
+    }
+  }
+
+  /** After `startSession`: optional per-shop `onSessionStart` for shops in this round's rotation. */
+  private async invokeShoppingRoundSessionStartHooks(
+    eligible: readonly ItemShopsShopCatalogEntry[],
+  ): Promise<void> {
+    if (!this.context) return
+    for (const shop of eligible) {
+      if (!shop.onSessionStart) continue
+      const ctx = this.createShopSessionContext(shop)
+      await shop.onSessionStart(ctx)
+    }
+  }
+
+  private shopTimerPrefix(shopId: string): string {
+    return `shop:${shopId}:`
   }
 
   private async resolveBuyerUsername(initiator: PluginActionInitiator): Promise<string> {
@@ -233,6 +201,59 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     return ctx
   }
 
+  private createShopSessionContext(shop: ItemShopsShopCatalogEntry): ShopSessionContext {
+    const timerPrefix = this.shopTimerPrefix(shop.shopId)
+    const stateStore = this.getShopStateStore(shop.shopId)
+
+    const ctx: ShopSessionContext = {
+      roomId: this.context!.roomId,
+      shopId: shop.shopId,
+      pluginName: this.name,
+
+      startTimer: (id, config) => {
+        this.startTimer(timerPrefix + id, config)
+      },
+      getTimer: <T = unknown>(id: string) => {
+        const timer = this.getTimer<T>(timerPrefix + id)
+        return timer ? { id: timer.id, data: timer.data as T | undefined } : null
+      },
+      clearTimer: (id) => this.clearTimer(timerPrefix + id),
+
+      sendSystemMessage: async (message, meta, mentions) => {
+        await this.context!.api.sendSystemMessage(this.context!.roomId, message, meta, mentions)
+      },
+
+      sendUserSystemMessage: async (targetUserId, message, meta) => {
+        await this.context!.api.sendUserSystemMessage(
+          this.context!.roomId,
+          targetUserId,
+          message,
+          meta,
+        )
+      },
+
+      getState: <T>(key: string) => stateStore.get(key) as T | undefined,
+      setState: <T>(key: string, value: T) => {
+        stateStore.set(key, value)
+      },
+      deleteState: (key) => {
+        stateStore.delete(key)
+      },
+      getAllStateKeys: () => Array.from(stateStore.keys()),
+
+      inventory: {
+        getInventory: (userId) => this.context!.inventory.getInventory(userId),
+        getItemDefinition: (definitionId) =>
+          this.context!.inventory.getItemDefinition(definitionId),
+        removeItem: (userId, itemId, quantity) =>
+          this.context!.inventory.removeItem(userId, itemId, quantity),
+        giveItem: (userId, definitionId, quantity, metadata, source) =>
+          this.context!.inventory.giveItem(userId, definitionId, quantity, metadata, source),
+      },
+    }
+    return ctx
+  }
+
   private async handleUserJoined(data: SystemEventPayload<"USER_JOINED">): Promise<void> {
     if (!this.context) return
     const config = await this.getConfig()
@@ -285,6 +306,31 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           confirmMessage: "Start a new shopping session for everyone in the room?",
           confirmText: "Start",
           showWhen: { field: "enabled", value: true },
+        },
+        {
+          type: "action",
+          action: "giveItemToUsers",
+          label: "Give item to user(s)",
+          showWhen: { field: "enabled", value: true },
+          formFields: [
+            {
+              name: "itemShortId",
+              label: "Item",
+              type: "select",
+              required: true,
+              options: ITEM_CATALOG.map((e) => ({
+                value: e.definition.shortId,
+                label: e.definition.name,
+              })),
+            },
+            {
+              name: "userId",
+              label: "Recipient",
+              type: "user-select",
+              required: true,
+              options: [{ value: "__all__", label: "All users" }],
+            },
+          ],
         },
         {
           type: "action",
@@ -347,11 +393,73 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   async executeAction(
     action: string,
     initiator?: PluginActionInitiator,
+    params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }> {
     if (!this.context) {
       return { success: false, message: "Plugin not initialized" }
     }
     const config = await this.getConfig()
+    if (action === "giveItemToUsers") {
+      if (!config?.enabled) {
+        return { success: false, message: "Item Shops are disabled." }
+      }
+      const session = await this.context.game.getActiveSession()
+      if (!session) {
+        return { success: false, message: "No active game session." }
+      }
+      const itemShortId = typeof params?.itemShortId === "string" ? params.itemShortId.trim() : ""
+      const userIdParam = typeof params?.userId === "string" ? params.userId.trim() : ""
+      if (!itemShortId || !userIdParam) {
+        return { success: false, message: "Select an item and recipient." }
+      }
+      const known = ITEM_CATALOG.some((e) => e.definition.shortId === itemShortId)
+      if (!known) {
+        return { success: false, message: `Unknown item: ${itemShortId}` }
+      }
+      const defId = this.shopping.getDefinitionId(itemShortId)
+      const itemName =
+        ITEM_CATALOG.find((e) => e.definition.shortId === itemShortId)?.definition.name ??
+        itemShortId
+
+      if (userIdParam === "__all__") {
+        const users = await this.context.api.getUsers(this.context.roomId)
+        let ok = 0
+        let failed = 0
+        for (const u of users) {
+          const row = await this.context.inventory.giveItem(u.userId, defId, 1, undefined, "plugin")
+          if (row) ok++
+          else failed++
+        }
+        if (users.length === 0) {
+          return { success: false, message: "No users in this room." }
+        }
+        return {
+          success: failed === 0 && ok > 0,
+          message:
+            ok === 0
+              ? "Could not grant items (inventory may be full)."
+              : failed > 0
+                ? `Granted ${itemName} to ${ok} user(s); ${failed} could not receive it (inventory full?).`
+                : `Granted ${itemName} to ${ok} user(s).`,
+        }
+      }
+
+      const inRoom = await this.context.api.getUsers(this.context.roomId)
+      if (!inRoom.some((u) => u.userId === userIdParam)) {
+        return { success: false, message: "Selected user is not in this room." }
+      }
+      const row = await this.context.inventory.giveItem(userIdParam, defId, 1, undefined, "plugin")
+      if (!row) {
+        return {
+          success: false,
+          message: "Could not grant item (inventory may be full).",
+        }
+      }
+      return {
+        success: true,
+        message: `Granted ${itemName}.`,
+      }
+    }
     if (action === "startShoppingSession") {
       if (!config?.enabled) {
         return { success: false, message: "Item Shops are disabled." }
@@ -363,9 +471,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           message: "Select at least one shop in Item Shops settings (Shops in rotation).",
         }
       }
-      await this.processGreenRoomDepartures()
+      await this.invokeShoppingRoundSessionEndHooks()
       const users = await this.context.api.getUsers(this.context.roomId)
       await this.shopping.startSession(users, eligible)
+      await this.invokeShoppingRoundSessionStartHooks(eligible)
       await this.emit("SHOPPING_SESSION_STARTED", { roomId: this.context.roomId })
       return { success: true, message: "Shopping session started." }
     }
@@ -373,7 +482,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!config?.enabled) {
         return { success: false, message: "Item Shops are disabled." }
       }
-      await this.processGreenRoomDepartures()
+      await this.invokeShoppingRoundSessionEndHooks()
       await this.shopping.clearSessionRound()
       await this.emit("SHOPPING_SESSION_ENDED", { roomId: this.context.roomId })
       return { success: true, message: "All shopping sessions ended." }
@@ -391,7 +500,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         }
       }
       if (!(await this.shopping.isActive())) {
-        return { success: false, message: "Start a shopping round first (toolbar → Start shopping)." }
+        return {
+          success: false,
+          message: "Start a shopping round first (toolbar → Start shopping).",
+        }
       }
       const eligible = getEligibleShops(config)
       if (eligible.length === 0) {
@@ -451,7 +563,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       }
       return { success: result.success, message: result.message }
     }
-    return super.executeAction(action, initiator)
+    return super.executeAction(action, initiator, params)
   }
 
   async onItemUsed(
@@ -478,10 +590,59 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         pluginName: this.name,
         context: this.context,
         game: this.game,
+        activeInventoryItem: _item,
       },
       userId,
       definition,
       callContext,
+    )
+  }
+
+  async getSellbackValues(
+    items: InventoryItem[],
+    definitionById: Map<string, ItemDefinition>,
+  ): Promise<Record<string, number>> {
+    if (!this.context) {
+      return {}
+    }
+    const config = await this.getConfig()
+    if (!config?.enabled) {
+      return {}
+    }
+    const out: Record<string, number> = {}
+    for (const item of items) {
+      const def = definitionById.get(item.definitionId)
+      if (!def || def.sourcePlugin !== this.name) continue
+      const handler = ITEM_SELLBACK_VALUE_BEHAVIORS[def.shortId]
+      if (!handler) continue
+      out[item.itemId] = handler(item, def)
+    }
+    return out
+  }
+
+  async onDefenseTriggered(
+    payload: DefenseTriggeredPayload,
+  ): Promise<DefenseTriggeredResult | null> {
+    if (!this.context) {
+      return null
+    }
+    const config = await this.getConfig()
+    if (!config?.enabled) {
+      return null
+    }
+
+    const handler = ITEM_DEFENSE_TRIGGERED_BEHAVIORS[payload.defenseItemDefinition.shortId]
+    if (!handler) {
+      return null
+    }
+
+    return handler(
+      {
+        pluginName: this.name,
+        context: this.context,
+        game: this.game,
+      },
+      payload,
     )
   }
 
@@ -501,6 +662,49 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
     const [user] = await this.context.api.getUsersByIds([userId])
     const username = user?.username?.trim() || userId
+
+    if (!definition.tradeable) {
+      return {
+        success: false,
+        message: `${definition.name} cannot be sold back to shops.`,
+      }
+    }
+
+    const customSellback = ITEM_SELLBACK_VALUE_BEHAVIORS[definition.shortId]
+    if (customSellback) {
+      const active = await this.shopping.isActive()
+      if (!active) {
+        return { success: false, message: "No shopping session is open right now." }
+      }
+      const inst = await this.shopping.getInstance(userId)
+      if (!inst) {
+        return { success: false, message: "You can only sell while your shop visit is open." }
+      }
+      const session = await this.context.game.getActiveSession()
+      if (!session) {
+        return { success: false, message: "No active game session." }
+      }
+
+      const refund = Math.max(0, Math.floor(customSellback(item, definition)))
+      const removed = await this.context.inventory.removeItem(userId, item.itemId, 1)
+      if (!removed) {
+        return { success: false, message: `Could not remove ${definition.name} from inventory.` }
+      }
+      if (refund > 0) {
+        await this.game.addScore(userId, "coin", refund, `${this.name}:sale`)
+      }
+
+      await this.context.api.sendSystemMessage(
+        this.context.roomId,
+        `${username} sold a ${definition.name} back for ${refund} coins.`,
+      )
+
+      return {
+        success: true,
+        message: `Sold ${definition.name} for ${refund} coins.`,
+        refund,
+      }
+    }
 
     const result = await this.shopping.sell(userId, item, definition)
     if (!result.success) {

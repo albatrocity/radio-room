@@ -8,6 +8,7 @@ import {
   Heading,
   HStack,
   Input,
+  NativeSelect,
   NumberInput,
   Popover,
   RadioGroup,
@@ -28,10 +29,21 @@ import type {
   PluginSchemaElement,
   PluginFieldType,
   PluginActionElement,
+  PluginActionFormField,
 } from "../../../types/PluginSchema"
 import type { CompositeTemplate } from "../../../types/PluginComponent"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
+import { useUsers } from "../../../hooks/useActors"
+import type { User } from "../../../types/User"
 import { toaster } from "../../ui/toaster"
+
+function emptyPluginActionFormState(fields: PluginActionFormField[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const f of fields) {
+    out[f.name] = ""
+  }
+  return out
+}
 
 interface PluginConfigFormProps {
   schema: PluginConfigSchema
@@ -480,8 +492,17 @@ function renderSchemaElement(
   return null
 }
 
+function collectSelectOptions(field: PluginActionFormField, users: User[]) {
+  const staticOpts = field.options ?? []
+  const userOpts =
+    field.type === "user-select"
+      ? users.map((u) => ({ value: u.userId, label: u.username ?? u.userId }))
+      : []
+  return [...staticOpts, ...userOpts]
+}
+
 /**
- * Action button component with optional confirmation popover
+ * Action button component with optional confirmation popover or form fields
  */
 function ActionButton({
   element,
@@ -490,66 +511,170 @@ function ActionButton({
   element: PluginActionElement
   pluginName: string
 }) {
+  const users = useUsers()
+  const formFields = element.formFields
+  const hasForm = !!(formFields?.length)
+
   const [isLoading, setIsLoading] = useState(false)
+  const [formPopoverOpen, setFormPopoverOpen] = useState(false)
+  const [formValues, setFormValues] = useState<Record<string, string>>({})
   const subscriptionIdRef = React.useRef<string | null>(null)
 
-  const executeAction = () => {
-    setIsLoading(true)
+  const runAction = React.useCallback(
+    (params?: Record<string, unknown>) => {
+      setIsLoading(true)
 
-    // Create a unique subscription ID
-    const subscriptionId = `plugin-action-${element.action}-${Date.now()}`
-    subscriptionIdRef.current = subscriptionId
+      const subscriptionId = `plugin-action-${element.action}-${Date.now()}`
+      subscriptionIdRef.current = subscriptionId
 
-    // Subscribe to the result event
-    subscribeById(subscriptionId, {
-      send: (event: { type: string; data?: { success: boolean; message?: string } }) => {
-        if (event.type === "PLUGIN_ACTION_RESULT" && event.data) {
+      subscribeById(subscriptionId, {
+        send: (event: { type: string; data?: { success: boolean; message?: string } }) => {
+          if (event.type === "PLUGIN_ACTION_RESULT" && event.data) {
+            setIsLoading(false)
+            unsubscribeById(subscriptionId)
+            subscriptionIdRef.current = null
+
+            if (event.data.success) {
+              toaster.create({
+                title: "Success",
+                description: event.data.message || "Action completed successfully",
+                type: "success",
+              })
+              setFormPopoverOpen(false)
+            } else {
+              toaster.create({
+                title: "Error",
+                description: event.data.message || "Action failed",
+                type: "error",
+              })
+            }
+          }
+        },
+      })
+
+      emitToSocket("EXECUTE_PLUGIN_ACTION", {
+        pluginName,
+        action: element.action,
+        ...(params != null && Object.keys(params).length > 0 ? { params } : {}),
+      })
+
+      setTimeout(() => {
+        if (subscriptionIdRef.current === subscriptionId) {
           setIsLoading(false)
           unsubscribeById(subscriptionId)
           subscriptionIdRef.current = null
-
-          if (event.data.success) {
-            toaster.create({
-              title: "Success",
-              description: event.data.message || "Action completed successfully",
-              type: "success",
-            })
-          } else {
-            toaster.create({
-              title: "Error",
-              description: event.data.message || "Action failed",
-              type: "error",
-            })
-          }
+          toaster.create({
+            title: "Timeout",
+            description: "Action timed out",
+            type: "error",
+          })
         }
-      },
-    })
+      }, 10000)
+    },
+    [element.action, pluginName],
+  )
 
-    // Execute the action
-    emitToSocket("EXECUTE_PLUGIN_ACTION", {
-      pluginName,
-      action: element.action,
-    })
-
-    // Timeout after 10 seconds
-    setTimeout(() => {
-      if (subscriptionIdRef.current === subscriptionId) {
-        setIsLoading(false)
-        unsubscribeById(subscriptionId)
-        subscriptionIdRef.current = null
+  const submitForm = () => {
+    const fields = formFields ?? []
+    const params: Record<string, unknown> = {}
+    for (const f of fields) {
+      const raw = formValues[f.name] ?? ""
+      const v = typeof raw === "string" ? raw.trim() : String(raw)
+      if (f.required && !v) {
         toaster.create({
-          title: "Timeout",
-          description: "Action timed out",
+          title: "Missing information",
+          description: `Please fill in "${f.label}".`,
           type: "error",
         })
+        return
       }
-    }, 10000)
+      params[f.name] = v
+    }
+    runAction(params)
   }
 
   const buttonVariant = element.variant === "destructive" ? "outline" : element.variant || "solid"
   const buttonColorPalette = element.variant === "destructive" ? "red" : undefined
 
-  // If confirmation is required, wrap in a popover
+  if (hasForm && formFields) {
+    return (
+      <Popover.Root
+        open={formPopoverOpen}
+        onOpenChange={(e) => {
+          setFormPopoverOpen(e.open)
+          if (e.open && formFields?.length) {
+            setFormValues(emptyPluginActionFormState(formFields))
+          }
+        }}
+      >
+        <Popover.Trigger asChild>
+          <Button variant={buttonVariant} colorPalette={buttonColorPalette} loading={isLoading}>
+            {element.label}
+          </Button>
+        </Popover.Trigger>
+        <Popover.Positioner>
+          <Popover.Content>
+            <Popover.Arrow />
+            <Popover.CloseTrigger asChild position="absolute" top="1" right="1">
+              <CloseButton size="sm" />
+            </Popover.CloseTrigger>
+            <Popover.Body>
+              <Stack gap={3}>
+                {element.confirmMessage ? (
+                  <Text fontSize="sm">{element.confirmMessage}</Text>
+                ) : null}
+                {formFields.map((field) => (
+                  <Field.Root key={field.name}>
+                    <Field.Label fontSize="sm">{field.label}</Field.Label>
+                    {field.type === "string" ? (
+                      <Input
+                        size="sm"
+                        value={formValues[field.name] ?? ""}
+                        onChange={(e) =>
+                          setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))
+                        }
+                      />
+                    ) : (
+                      <NativeSelect.Root size="sm">
+                        <NativeSelect.Field
+                          value={formValues[field.name] ?? ""}
+                          onChange={(e) =>
+                            setFormValues((prev) => ({
+                              ...prev,
+                              [field.name]: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">Select…</option>
+                          {collectSelectOptions(field, users).map((o) => (
+                            <option key={`${field.name}-${o.value}`} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </NativeSelect.Field>
+                        <NativeSelect.Indicator />
+                      </NativeSelect.Root>
+                    )}
+                  </Field.Root>
+                ))}
+              </Stack>
+            </Popover.Body>
+            <Popover.Footer justifyContent="flex-end" display="flex">
+              <Button
+                colorPalette={element.variant === "destructive" ? "red" : undefined}
+                onClick={submitForm}
+                loading={isLoading}
+              >
+                {element.confirmText || "Run"}
+              </Button>
+            </Popover.Footer>
+          </Popover.Content>
+        </Popover.Positioner>
+      </Popover.Root>
+    )
+  }
+
+  // Confirmation only (no form fields)
   if (element.confirmMessage) {
     return (
       <Popover.Root>
@@ -568,7 +693,7 @@ function ActionButton({
               <Text>{element.confirmMessage}</Text>
             </Popover.Body>
             <Popover.Footer justifyContent="flex-end" display="flex">
-              <Button colorPalette="red" onClick={executeAction} loading={isLoading}>
+              <Button colorPalette="red" onClick={() => runAction()} loading={isLoading}>
                 {element.confirmText || "Confirm"}
               </Button>
             </Popover.Footer>
@@ -578,12 +703,11 @@ function ActionButton({
     )
   }
 
-  // No confirmation required, just a simple button
   return (
     <Button
       variant={buttonVariant}
       colorPalette={buttonColorPalette}
-      onClick={executeAction}
+      onClick={() => runAction()}
       loading={isLoading}
     >
       {element.label}

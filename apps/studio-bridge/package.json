@@ -11,6 +11,7 @@
     "check-types": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@repo/plugin-item-shops": "*",
     "@repo/types": "*",
     "cors": "^2.8.5",
     "express": "^4.21.2",
