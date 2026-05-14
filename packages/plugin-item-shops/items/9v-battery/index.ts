@@ -1,5 +1,6 @@
 import type { InventoryItem, ItemDefinition, ItemUseResult } from "@repo/types"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
+import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
 
 async function resolveItemDefinition(
   inventory: ItemShopsBehaviorDeps["context"]["inventory"],
@@ -57,8 +58,7 @@ async function useNineVoltBattery(
     }
   }
 
-  const [actor] = await context.api.getUsersByIds([userId])
-  const username = actor?.username?.trim() || userId
+  const username = await resolveItemUseActorDisplayName(deps, userId)
   const label = pick.def.name ?? "an item"
   await context.api.sendSystemMessage(
     context.roomId,
