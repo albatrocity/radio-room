@@ -12,7 +12,9 @@ import {
   getRoomOnlineUsers,
   getRoomCurrent,
   getUser,
+  getUsersByIds,
 } from "../operations/data"
+import { isRoomAdmin } from "../operations/data/admins"
 import { checkUserChallenge } from "../operations/userChallenge"
 import * as scheduling from "../services/SchedulingService"
 import { RoomSnapshot } from "@repo/types/Room"
@@ -542,6 +544,93 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
     socket.emit("event", {
       type: "ROOM_GAME_STATE",
       data: snapshot,
+    })
+  })
+
+  /**
+   * Room admins only: snapshot of every session participant's game state and
+   * inventory. Responds with `ALL_LISTENER_GAME_STATES` on this socket only.
+   */
+  socket.on("GET_ALL_LISTENER_GAME_STATES", async () => {
+    const room = await findRoomData({ context: socket.context, roomId: socket.data.roomId })
+    if (!room) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: { status: 404, error: "Not Found", message: "Room not found." },
+      })
+      return
+    }
+
+    const allowed = await isRoomAdmin({
+      context: socket.context,
+      roomId: socket.data.roomId,
+      userId: socket.data.userId,
+      roomCreator: room.creator,
+    })
+    if (!allowed) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: { status: 403, error: "Forbidden", message: "You are not a room admin." },
+      })
+      return
+    }
+
+    const gameSessions = socket.context.gameSessions
+    const inventory = socket.context.inventory
+
+    if (!gameSessions || !inventory) {
+      socket.emit("event", {
+        type: "ALL_LISTENER_GAME_STATES",
+        data: {
+          session: null,
+          listeners: [],
+          itemDefinitions: [],
+        },
+      })
+      return
+    }
+
+    const session = await gameSessions.getActiveSession(socket.data.roomId)
+    const itemDefinitions = await inventory.getAllItemDefinitions(socket.data.roomId)
+
+    if (!session) {
+      socket.emit("event", {
+        type: "ALL_LISTENER_GAME_STATES",
+        data: {
+          session: null,
+          listeners: [],
+          itemDefinitions,
+        },
+      })
+      return
+    }
+
+    const userIds = await gameSessions.getParticipantUserIds(socket.data.roomId)
+    const users = await getUsersByIds({ context: socket.context, userIds })
+    const usernameById = new Map(users.map((u) => [u.userId, u.username]))
+
+    const listeners = await Promise.all(
+      userIds.map(async (userId: string) => {
+        const [state, inv] = await Promise.all([
+          gameSessions.getUserState(socket.data.roomId, userId),
+          inventory.getInventory(socket.data.roomId, userId),
+        ])
+        return {
+          userId,
+          username: usernameById.get(userId)?.trim() || userId,
+          state,
+          inventory: inv,
+        }
+      }),
+    )
+
+    socket.emit("event", {
+      type: "ALL_LISTENER_GAME_STATES",
+      data: {
+        session,
+        listeners,
+        itemDefinitions,
+      },
     })
   })
 

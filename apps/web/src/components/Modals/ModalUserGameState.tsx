@@ -15,6 +15,8 @@ import {
   useUserGameStateLoading,
   useUserGameStateError,
   refreshUserGameState,
+  useIsAdmin,
+  useAdminListenerSend,
 } from "../../hooks/useActors"
 import { useGameStateNewPluginTabs } from "../GameStateNewPluginTabsProvider"
 import { getIcon } from "../PluginComponents/icons"
@@ -26,6 +28,7 @@ import {
   GameStatePluginTabContents,
 } from "./GameState"
 import StoredItemsTab from "./GameState/StoredItemsTab"
+import AdminListenersTab from "./GameState/AdminListenersTab"
 import { UserModifiersList } from "../UserModifiersList"
 
 function formatNumber(n: number): string {
@@ -36,6 +39,9 @@ const TROPHY_ICON = getIcon("trophy")
 const COINS_ICON = getIcon("coins")
 const PACKAGE_ICON = getIcon("package")
 const STORED_ICON = getIcon("Archive")
+const USERS_ICON = getIcon("Users")
+
+const ADMIN_LISTENERS_TAB = "admin"
 
 /** Stable fallbacks — `?? []` / `?? {}` in render create new references every paint and break effect deps / context (see Maximum update depth in studio-bridge preview). */
 const EMPTY_INVENTORY_ITEMS: InventoryItem[] = []
@@ -45,6 +51,8 @@ const EMPTY_ATTRIBUTES = {} as Record<GameAttributeName, number>
 function ModalUserGameState() {
   const modalSend = useModalsSend()
   const isOpen = useIsModalOpen("gameState")
+  const isAdmin = useIsAdmin()
+  const sendAdminListener = useAdminListenerSend()
   const { pluginTabs, unseenPluginTabIds, markPluginTabViewed } = useGameStateNewPluginTabs()
   const [gameStateTab, setGameStateTab] = useState("inventory")
 
@@ -57,6 +65,17 @@ function ModalUserGameState() {
       refreshUserGameState()
     }
   }, [isOpen])
+
+  useEffect(() => {
+    if (isOpen && isAdmin && gameStateTab === ADMIN_LISTENERS_TAB) {
+      sendAdminListener({ type: "ACTIVATE" })
+      return () => {
+        sendAdminListener({ type: "DEACTIVATE" })
+      }
+    }
+    sendAdminListener({ type: "DEACTIVATE" })
+    return undefined
+  }, [isOpen, isAdmin, gameStateTab, sendAdminListener])
 
   const definitionMap = useMemo(() => {
     const map = new Map<string, ItemDefinition>()
@@ -104,11 +123,14 @@ function ModalUserGameState() {
     if (showStoredTab) {
       ids.add("stored")
     }
+    if (isAdmin) {
+      ids.add(ADMIN_LISTENERS_TAB)
+    }
     for (const t of pluginTabs) {
       ids.add(t.id)
     }
     return ids
-  }, [pluginTabs, showStoredTab])
+  }, [pluginTabs, showStoredTab, isAdmin])
 
   useEffect(() => {
     if (!validTabValues.has(gameStateTab)) {
@@ -210,6 +232,12 @@ function ModalUserGameState() {
                   </Tabs.Trigger>
                 ) : null}
                 <GameStatePluginTabTriggers tabs={pluginTabs} unseenTabIds={unseenPluginTabIds} />
+                {isAdmin ? (
+                  <Tabs.Trigger value={ADMIN_LISTENERS_TAB}>
+                    {USERS_ICON ? <SvgIcon icon={USERS_ICON} mr={1} /> : null}
+                    All listeners
+                  </Tabs.Trigger>
+                ) : null}
               </Tabs.List>
 
               <Tabs.Content value="inventory">
@@ -230,6 +258,12 @@ function ModalUserGameState() {
               ) : null}
 
               <GameStatePluginTabContents tabs={pluginTabs} />
+
+              {isAdmin ? (
+                <Tabs.Content value={ADMIN_LISTENERS_TAB}>
+                  <AdminListenersTab />
+                </Tabs.Content>
+              ) : null}
             </Tabs.Root>
           )}
         </Stack>

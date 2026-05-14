@@ -8,6 +8,7 @@ import type { User } from "@repo/types/User"
 
 import type { BridgeSnapshot } from "./types.js"
 import {
+  buildAllListenerGameStatesPayload,
   buildInitPayload,
   buildRoomGameStateSnapshot,
   buildRoomMeta,
@@ -234,6 +235,26 @@ function wireSocketHandlers(io: IOServer): void {
       socket.emit("event", {
         type: "ROOM_GAME_STATE",
         data: buildRoomGameStateSnapshot(snap),
+      })
+    })
+
+    socket.on("GET_ALL_LISTENER_GAME_STATES", () => {
+      const roomId = socket.data.roomId as string | undefined
+      const snap = getBridgeSnapshot()
+      if (!roomId || !snap || snap.roomId !== roomId) {
+        socket.emit("event", {
+          type: "ALL_LISTENER_GAME_STATES",
+          data: {
+            session: null,
+            listeners: [],
+            itemDefinitions: [],
+          },
+        })
+        return
+      }
+      socket.emit("event", {
+        type: "ALL_LISTENER_GAME_STATES",
+        data: buildAllListenerGameStatesPayload(snap),
       })
     })
 
