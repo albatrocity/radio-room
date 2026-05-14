@@ -17,7 +17,7 @@ export const BlueberryTextEffect: TextEffectKind = {
     const out: TextSegment[] = []
     let buf = ""
     for (const ch of word) {
-      if (ch === "." || ch === "," || ch === ":" || ch === "!") {
+      if (ch === "." || ch === "," || ch === ":" || ch === "!" || ch === "?") {
         if (buf) out.push({ text: buf })
         out.push({ text: ch, effects: [{ type: "color", palette: "blue", token }] })
         buf = ""
@@ -44,18 +44,18 @@ export const blueberries = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 15,
+    coinValue: 5,
     icon: "HandCoins",
     rarity: "common",
   },
   use: timedModifierEffect({
     modifierName: "blueberries",
     effects: [
-      { type: "flag", name: BLUE_LETTER_FLAG, value: true, intent: "positive", durationMs: 300000 },
+      { type: "flag", name: BLUE_LETTER_FLAG, value: true, intent: "positive", durationMs: 600000 },
     ],
     successMessage: "Blueberries activated. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} used Blueberries on themselves` : `${actor} used Blueberries on ${target}`,
+      isSelf ? `${actor} ate some Blueberries!` : `${actor} fed some Blueberries to ${target}!`,
   }),
   textEffect: BlueberryTextEffect
 })

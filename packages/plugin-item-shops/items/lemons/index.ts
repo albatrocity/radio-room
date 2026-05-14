@@ -16,7 +16,7 @@ export const LemonsTextEffect: TextEffectKind = {
     const out: TextSegment[] = []
     let buf = ""
     for (const ch of word) {
-      if (ch === "c" || ch === "C" ) {
+      if (ch === "a" || ch === "A" || ch === "d" || ch === "D" ) {
         if (buf) out.push({ text: buf })
         out.push({ text: ch, effects: [{ type: "color", palette: "yellow", token }] })
         buf = ""
@@ -50,11 +50,11 @@ export const lemons = createItem({
   use: timedModifierEffect({
     modifierName: "lemons",
     effects: [
-      { type: "flag", name: LEMONS_FLAG, value: true, intent: "neutral", durationMs: 300000 },
+      { type: "flag", name: LEMONS_FLAG, value: true, intent: "neutral", durationMs: 600000 },
     ],
     successMessage: "Lemons activated. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} used Lemons on themselves` : `${actor} used Lemons on ${target}`,
+      isSelf ? `${actor} ate some Lemons!` : `${actor} fed ${target} some Lemons!`,
   }),
   textEffect:LemonsTextEffect
 })

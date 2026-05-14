@@ -39,7 +39,7 @@ export const carrots = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 20,
+    coinValue: 5,
     icon: "Carrot",
     rarity: "common",
   },
@@ -51,12 +51,12 @@ export const carrots = createItem({
         name: ORANGE_LETTER_FLAG,
         value: true,
         intent: "neutral",
-        durationMs: 300000,
+        durationMs: 600000,
       },
     ],
     successMessage: "Crunch! Carrots eaten!",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} ate Carrots and improved their I' sight!` : `${actor} used Carrots on ${target} and improved their I' sight!`,
+      isSelf ? `${actor} ate Carrots and improved their 'I' sight!` : `${actor} used Carrots on ${target} and improved their 'I' sight!`,
   }),
   textEffect: orangeLetterTextEffect,
 })

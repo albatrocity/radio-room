@@ -39,18 +39,18 @@ export const lychees = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 15,
+    coinValue: 5,
     icon: "Laugh",
     rarity: "common",
   },
   use: timedModifierEffect({
     modifierName: "lychees",
     effects: [
-      { type: "flag", name: PINK_LETTER_FLAG, value: true, intent: "neutral", durationMs: 300000 },
+      { type: "flag", name: PINK_LETTER_FLAG, value: true, intent: "neutral", durationMs: 600000 },
     ],
     successMessage: "Lychees activated. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} used Lychees on themselves` : `${actor} used Lychees on ${target}`,
+      isSelf ? `${actor} ate some Lychees!` : `${actor} fed ${target} some Lychees!`,
   }),
   textEffect: PinkLetterTextEffect
 })

@@ -5,7 +5,7 @@ import type { TextSegment } from "@repo/types"
 
 const GREEN_LETTER_FLAG = "greenpeas"
 
-const TOKEN_BY_STACK = { 1: "muted", 2: "emphasized", 3: "border" } as const
+const TOKEN_BY_STACK = { 1: "emphasized", 2: "emphasized", 3: "border" } as const
 
 
 
@@ -41,18 +41,18 @@ export const greenPeas = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 15,
+    coinValue: 5,
     icon: "HandCoins",
     rarity: "common",
   },
   use: timedModifierEffect({
     modifierName: "green-peas",
     effects: [
-      { type: "flag", name: GREEN_LETTER_FLAG, value: true, intent: "neutral", durationMs: 300000 },
+      { type: "flag", name: GREEN_LETTER_FLAG, value: true, intent: "neutral", durationMs: 600000 },
     ],
     successMessage: "Green Peas activated. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} used Green Peas on themselves` : `${actor} used Green Peas on ${target}`,
+      isSelf ? `${actor} ate some Green Peas!` : `${actor} fed ${target} some Green Peas!`,
   }),
   textEffect: GreenLetterTextEffect
 })

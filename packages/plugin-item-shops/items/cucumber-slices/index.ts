@@ -43,18 +43,18 @@ export const cucumberSlices = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 15,
+    coinValue: 5,
     icon: "Slice",
     rarity: "common",
   },
   use: timedModifierEffect({
     modifierName: "cucumber-slices",
     effects: [
-      { type: "flag", name: CUCUMBER_FLAG, value: true, intent: "neutral", durationMs: 300000 },
+      { type: "flag", name: CUCUMBER_FLAG, value: true, intent: "neutral", durationMs: 600000 },
     ],
     successMessage: "Cucumber Slices activated. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
-      isSelf ? `${actor} used Cucumber Slices on themselves` : `${actor} used Cucumber Slices on ${target}`,
+      isSelf ? `${actor} ate some Cucumber Slices!` : `${actor} fed ${target} some Cucumber Slices!`,
   }),
   textEffect: CucumberTextEffect
 })
