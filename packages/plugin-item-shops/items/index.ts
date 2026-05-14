@@ -8,6 +8,7 @@ import { carrots } from "./carrots"
 import { tomatoes } from "./tomatoes"
 import { cateredMeal } from "./catered-meal"
 import { compressorPedal } from "./compressor-pedal"
+import { lemons } from "./lemons"
 import { emptyFridge } from "./empty-fridge"
 import { gate } from "./gate"
 import { hummusVeggies } from "./hummus-veggies"
@@ -70,6 +71,7 @@ export const items = {
   lychees,
   cucumberSlices,
   blueberries,
+  lemons,
 } as const
 
 /**
