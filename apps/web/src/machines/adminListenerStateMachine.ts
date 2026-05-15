@@ -25,7 +25,7 @@ export interface AllListenerGameStatesPayload {
   itemDefinitions: ItemDefinition[]
 }
 
-interface AdminListenerStateContext {
+export interface AdminListenerStateContext {
   subscriptionId: string | null
   payload: AllListenerGameStatesPayload | null
   error: string | null

@@ -35,11 +35,11 @@ function formatNumber(n: number): string {
   return new Intl.NumberFormat().format(n)
 }
 
-const TROPHY_ICON = getIcon("trophy")
-const COINS_ICON = getIcon("coins")
-const PACKAGE_ICON = getIcon("package")
+const TROPHY_ICON = getIcon("Trophy")
+const COINS_ICON = getIcon("Coins")
+const PACKAGE_ICON = getIcon("Backpack")
 const STORED_ICON = getIcon("Archive")
-const USERS_ICON = getIcon("Users")
+const EYE_ICON = getIcon("Eye")
 
 const ADMIN_LISTENERS_TAB = "admin"
 
@@ -86,7 +86,10 @@ function ModalUserGameState() {
   }, [payload?.itemDefinitions])
 
   const enabledAttributes = payload?.session?.config.enabledAttributes ?? []
-  const attributes = (payload?.state?.attributes ?? EMPTY_ATTRIBUTES) as Record<GameAttributeName, number>
+  const attributes = (payload?.state?.attributes ?? EMPTY_ATTRIBUTES) as Record<
+    GameAttributeName,
+    number
+  >
   const inventoryEnabled = payload?.session?.config.inventoryEnabled ?? false
   /** Empty inventory must not use a fresh `[]` from payload each snapshot (bridge/API often do `?? []`). */
   const rawInventoryItems = payload?.inventory?.items
@@ -234,8 +237,8 @@ function ModalUserGameState() {
                 <GameStatePluginTabTriggers tabs={pluginTabs} unseenTabIds={unseenPluginTabIds} />
                 {isAdmin ? (
                   <Tabs.Trigger value={ADMIN_LISTENERS_TAB}>
-                    {USERS_ICON ? <SvgIcon icon={USERS_ICON} mr={1} /> : null}
-                    All listeners
+                    {EYE_ICON ? <SvgIcon icon={EYE_ICON} mr={1} /> : null}
+                    Big Brother
                   </Tabs.Trigger>
                 ) : null}
               </Tabs.List>
