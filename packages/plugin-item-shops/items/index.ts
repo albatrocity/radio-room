@@ -23,6 +23,7 @@ import { merchCashBox } from "./merch-cash-box"
 import { snoozePedal } from "./snooze-pedal"
 import { coffeePedal } from "./coffee-pedal"
 import { gravityBong } from "./gravity-bong"
+import { nineVoltBattery } from "./9v-battery"
 import { echoTextEffect, sizeShiftTextEffect } from "./textEffects/sizeShift"
 import type {
   ItemUseHandler,
@@ -57,6 +58,7 @@ export const items = {
   marsEgg,
   disguise,
   p2pFileSharing,
+  nineVoltBattery,
   rubberBand,
 } as const
 
