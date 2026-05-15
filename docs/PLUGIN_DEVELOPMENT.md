@@ -16,6 +16,7 @@ This guide explains how to create plugins for Listening Room. Plugins extend roo
 - [Room Export](#room-export)
 - [Storage API](#storage-api)
 - [Game Sessions & Inventory](#game-sessions--inventory)
+- [User Personas](#user-personas)
 - [Shop Helper](#shop-helper)
 - [Game State Tabs](#game-state-tabs)
 - [Timer API](#timer-api)
@@ -35,6 +36,7 @@ This guide explains how to create plugins for Listening Room. Plugins extend roo
                             │   ├─ storage: PluginStorage
                             │   ├─ game: GameSessionPluginAPI (room-scoped)
                             │   ├─ inventory: InventoryPluginAPI (room-scoped)
+                            │   ├─ personas: PersonasPluginAPI (room-scoped)
                             │   ├─ lifecycle: Event handlers
                             │   └─ roomId: string
                             │
@@ -72,6 +74,7 @@ This guide explains how to create plugins for Listening Room. Plugins extend roo
 4. **Type-Safe**: Full TypeScript support with Zod schema validation
 5. **Sandboxed Storage**: Redis storage namespaced by plugin and room
 6. **Optional Global Game State**: Core services expose `context.game` (sessions, score/coin, modifiers, leaderboards) and `context.inventory` (cross-plugin items). Use these when you want shared economy or UI across plugins; keep plugin-local sorted sets when scores should stay private to one plugin.
+7. **User Personas**: Core `context.personas` exposes session identity labels (VIP, Judge, etc.) with badges in the listener list and chat. See [User Personas](#user-personas) and [ADR 0056](adrs/0056-user-personas-system.md).
 
 ## Quick Start
 
@@ -792,15 +795,15 @@ getConfigSchema(): PluginConfigSchema {
 
 ### Action Element Properties
 
-| Property         | Type     | Required | Description                                                      |
-| ---------------- | -------- | -------- | ---------------------------------------------------------------- |
-| `type`           | `string` | Yes      | Must be `"action"`                                               |
-| `action`         | `string` | Yes      | Unique identifier passed to `executeAction()`                    |
-| `label`          | `string` | Yes      | Button label text                                                |
-| `variant`        | `string` | No       | Button style: `"solid"`, `"outline"`, `"ghost"`, `"destructive"` |
-| `confirmMessage` | `string` | No       | If provided, shows confirmation dialog before executing          |
-| `confirmText`    | `string` | No       | Text for the confirmation button (default: "Confirm")            |
-| `showWhen`       | `object` | No       | Conditional visibility (same as field `showWhen`)                |
+| Property         | Type     | Required | Description                                                                                     |
+| ---------------- | -------- | -------- | ----------------------------------------------------------------------------------------------- |
+| `type`           | `string` | Yes      | Must be `"action"`                                                                              |
+| `action`         | `string` | Yes      | Unique identifier passed to `executeAction()`                                                   |
+| `label`          | `string` | Yes      | Button label text                                                                               |
+| `variant`        | `string` | No       | Button style: `"solid"`, `"outline"`, `"ghost"`, `"destructive"`                                |
+| `confirmMessage` | `string` | No       | If provided, shows confirmation dialog before executing                                         |
+| `confirmText`    | `string` | No       | Text for the confirmation button (default: "Confirm")                                           |
+| `showWhen`       | `object` | No       | Conditional visibility (same as field `showWhen`)                                               |
 | `formFields`     | `array`  | No       | Optional fields shown in a popover before run; values are passed as `params` to `executeAction` |
 
 ### Handling Actions
@@ -1558,20 +1561,20 @@ this.game.registerAttributes([
 
 ### Game session API (`this.game`)
 
-| Method                                         | Description                                                                                                                                                                              |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `getActiveSession()`                           | Current `GameSession` or `null`.                                                                                                                                                         |
-| `startSession(config)`                         | Starts a session; ends any existing active session for the room. Pass at least `{ name: string }`; other fields get defaults (`enabledAttributes`, leaderboards, inventory flags, etc.). |
-| `endSession()`                                 | Ends the active session; returns `GameSessionResults` or `null`.                                                                                                                         |
-| `registerAttributes(defs)`                     | Registers `PluginAttributeDefinition[]` (fire-and-forget).                                                                                                                               |
-| `addScore(userId, attribute, amount, reason?)` | Adds to an attribute; applies active **multiplier** / **additive** modifiers; returns new value. **Lock** effects block changes.                                                         |
-| `setScore(userId, attribute, value, reason?)`  | Sets absolute value (ignores multiplier/additive on that write path).                                                                                                                    |
-| `applyModifier(userId, modifier, options?)`     | Returns `ApplyModifierResult`: on success `{ ok: true, modifierId }`; on failure `{ ok: false, reason: "no_active_session" \| "defense_blocked", blockingItemName?, attackerMessage? }`. Optional `options.actorUserId` attributes the initiator for defense events and `onDefenseTriggered`. Omit `id` and `source` from `modifier`. |
-| `applyTimedModifier(userId, durationMs, modifier, actorUserId?)` | Same as `applyModifier`, but sets `startAt = Date.now()` and `endAt = startAt + durationMs`. Optional `actorUserId` is forwarded as `applyModifier`’s `actorUserId`. |
-| `reboundModifier(userId, modifier, options?)`   | Re-apply a modifier (typically `DefenseTriggeredPayload.blockedModifier`) to another user, **bypassing passive modifier defense**. Recomputes `startAt`/`endAt` from `Date.now()` + the modifier's original duration. Intended for defense items that redirect incoming effects (e.g. Rubber Band). |
-| `removeModifier(userId, modifierId)`           | Removes one modifier instance.                                                                                                                                                           |
-| `getUserState(userId)`                         | Full `UserGameState` or `null` if no active session.                                                                                                                                     |
-| `getLeaderboard(leaderboardId)`                | Hydrated rows (`GameLeaderboardEntry[]`) for a `LeaderboardConfig.id`.                                                                                                                   |
+| Method                                                           | Description                                                                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getActiveSession()`                                             | Current `GameSession` or `null`.                                                                                                                                                                                                                                                                                                      |
+| `startSession(config)`                                           | Starts a session; ends any existing active session for the room. Pass at least `{ name: string }`; other fields get defaults (`enabledAttributes`, leaderboards, inventory flags, etc.).                                                                                                                                              |
+| `endSession()`                                                   | Ends the active session; returns `GameSessionResults` or `null`.                                                                                                                                                                                                                                                                      |
+| `registerAttributes(defs)`                                       | Registers `PluginAttributeDefinition[]` (fire-and-forget).                                                                                                                                                                                                                                                                            |
+| `addScore(userId, attribute, amount, reason?)`                   | Adds to an attribute; applies active **multiplier** / **additive** modifiers; returns new value. **Lock** effects block changes.                                                                                                                                                                                                      |
+| `setScore(userId, attribute, value, reason?)`                    | Sets absolute value (ignores multiplier/additive on that write path).                                                                                                                                                                                                                                                                 |
+| `applyModifier(userId, modifier, options?)`                      | Returns `ApplyModifierResult`: on success `{ ok: true, modifierId }`; on failure `{ ok: false, reason: "no_active_session" \| "defense_blocked", blockingItemName?, attackerMessage? }`. Optional `options.actorUserId` attributes the initiator for defense events and `onDefenseTriggered`. Omit `id` and `source` from `modifier`. |
+| `applyTimedModifier(userId, durationMs, modifier, actorUserId?)` | Same as `applyModifier`, but sets `startAt = Date.now()` and `endAt = startAt + durationMs`. Optional `actorUserId` is forwarded as `applyModifier`’s `actorUserId`.                                                                                                                                                                  |
+| `reboundModifier(userId, modifier, options?)`                    | Re-apply a modifier (typically `DefenseTriggeredPayload.blockedModifier`) to another user, **bypassing passive modifier defense**. Recomputes `startAt`/`endAt` from `Date.now()` + the modifier's original duration. Intended for defense items that redirect incoming effects (e.g. Rubber Band).                                   |
+| `removeModifier(userId, modifierId)`                             | Removes one modifier instance.                                                                                                                                                                                                                                                                                                        |
+| `getUserState(userId)`                                           | Full `UserGameState` or `null` if no active session.                                                                                                                                                                                                                                                                                  |
+| `getLeaderboard(leaderboardId)`                                  | Hydrated rows (`GameLeaderboardEntry[]`) for a `LeaderboardConfig.id`.                                                                                                                                                                                                                                                                |
 
 **Modifiers** support `stackBehavior`: `"replace"` | `"stack"` | `"extend"`, plus optional `maxStacks`. Effects include `multiplier`, `additive`, `set`, `lock`, and `flag` on targets — see `@repo/types` (`GameStateModifier`, `GameStateEffect`, `GameStateEffectWithMeta`). Per-effect metadata may include optional **`icon`** (e.g. Lucide name for UIs) and **`intent`** (`"positive"` \| `"negative"` \| `"neutral"`) for styling (e.g. modifier lists).
 
@@ -1609,6 +1612,58 @@ this.inventory.registerItemDefinitions([
 | `hasItem(userId, definitionId, minQuantity?)`                   | Convenience check.                                                                                     |
 | `getItemDefinition(definitionId)`                               | Async lookup.                                                                                          |
 | `getAllItemDefinitions()`                                       | All definitions registered for the room.                                                               |
+
+### User personas (`this.personas`)
+
+Personas are **identity labels** ("who is this person?") — not gameplay modifiers. Platform **VIP** is assigned by room admins; plugins register and assign their own labels. See [ADR 0056](adrs/0056-user-personas-system.md).
+
+**Personas vs modifiers:** use a persona for roles like Judge or Host; use `this.game.applyModifier` for timed effects like Cursed or Double Points.
+
+Register definitions when your plugin is enabled (`register()`). `cleanup()` automatically unregisters your definitions and removes active assignments.
+
+```typescript
+await super.register(context)
+
+await this.personas.registerPersonas([
+  {
+    id: "judge",
+    label: "Judge",
+    icon: "Gavel",
+    exclusive: true, // at most one judge in the room
+    decoratesUser: true, // adds icon next to name in user list
+    decoratesChatMessage: true, // adds icon next to name in chat message
+    assignableByAdmin: true, // ability to toggle via admin listener ellipsis menu
+  },
+])
+
+this.on("MESSAGE_RECEIVED", async ({ message }) => {
+  const judges = await this.personas.getUsersWithPersona("judge")
+  // ...
+})
+```
+
+| Method                                   | Description                                                                                 |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `registerPersonas(defs)`                 | Register definitions for this plugin (`id` is short; stored as `plugin:{pluginName}:{id}`). |
+| `unregisterPersonas()`                   | Called automatically from `BasePlugin.cleanup()`; removes definitions and assignments.      |
+| `getRoomPersonas()`                      | All definitions in the room (platform + every plugin).                                      |
+| `assign(userId, personaId, assignedBy?)` | Assign **your** persona to a user.                                                          |
+| `remove(userId, personaId)`              | Remove **your** persona from a user.                                                        |
+| `getUserPersonas(userId)`                | Raw assignments (any source).                                                               |
+| `getUserPersonasHydrated(userId)`        | Assignments with `label` / `icon` for UI.                                                   |
+| `getUsersWithPersona(personaId)`         | Online user ids holding the persona (short or full id).                                     |
+
+**Definition flags (optional):**
+
+| Flag                   | Description                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `assignableByAdmin`    | Room admins can assign/remove from the listener ellipsis menu (`TOGGLE_PERSONA`). |
+| `decoratesUser`        | Show an icon badge in the listener list when assigned.                            |
+| `decoratesChatMessage` | Show an icon badge next to the username in chat when assigned.                    |
+
+Decoration is independent of `assignableByAdmin` — a plugin can show badges for personas it assigns itself without exposing them in the admin menu.
+
+Clients receive `user.personas` (including decoration flags when hydrated) on the listener list and via `PERSONA_ASSIGNED` / `PERSONA_REMOVED`. Assignable definitions are sent on login `INIT` as `assignablePersonas` and refreshed via `PERSONA_DEFINITIONS_UPDATED` when plugins enable/disable.
 
 ### Defense items (passive interception)
 
@@ -1822,11 +1877,11 @@ Plugins that sell items for in-game `coin` (e.g. Music Shop) can compose a **`Sh
 
 **Shopping round lifecycle (`ShopCatalogEntry` / item shops):** Each shop definition may implement optional callbacks alongside `onBuy`:
 
-| Hook              | When (Item Shops plugin)                                                                 | Context type           |
-| ----------------- | ---------------------------------------------------------------------------------------- | ---------------------- |
-| `onBuy`           | After a successful purchase                                                              | `ShopBuyContext`       |
-| `onSessionStart`  | After `startSession` completes, once per shop in that round’s **eligible** catalog subset | `ShopSessionContext`   |
-| `onSessionEnd`    | When a shopping **round** ends (admin ends sessions or starts a new round while active)   | `ShopSessionContext`   |
+| Hook             | When (Item Shops plugin)                                                                  | Context type         |
+| ---------------- | ----------------------------------------------------------------------------------------- | -------------------- |
+| `onBuy`          | After a successful purchase                                                               | `ShopBuyContext`     |
+| `onSessionStart` | After `startSession` completes, once per shop in that round’s **eligible** catalog subset | `ShopSessionContext` |
+| `onSessionEnd`   | When a shopping **round** ends (admin ends sessions or starts a new round while active)   | `ShopSessionContext` |
 
 **`ShopSessionContext`** (from `@repo/plugin-base/helpers`, defined in `@repo/game-logic`) includes `roomId`, `shopId`, **`pluginName`** (use when filtering inventory by `sourcePlugin`), timer helpers (`startTimer`, `getTimer`, `clearTimer`), **`sendSystemMessage`** / **`sendUserSystemMessage`**, shop-scoped state (`getState`, `setState`, `deleteState`, **`getAllStateKeys`**), and **`inventory`** (`getInventory`, `getItemDefinition`, `removeItem`, `giveItem`). These lifecycle hooks are **not** invoked on room **`GAME_SESSION_ENDED`** — the Item Shops plugin clears shop timers and in-memory shop state on game session end and strips inventory separately.
 
@@ -1856,13 +1911,13 @@ interface ShopItem {
 | `getStock(shortId)` / `getAllStock()`                        | Read current stock.                                                                                                                   |
 | `setStock`, `decrementStock`, `incrementStock`, `restockAll` | Stock mutations (atomic where it matters).                                                                                            |
 | `purchase(initiator, shortId, price)`                        | Atomic buy: stock check → coin debit → `giveItem`, with refunds on any failure.                                                       |
-| `purchaseCatalogItem(initiator, shortId)`                    | Same as `purchase` using the item’s catalog `coinValue` (common case for fixed prices).                                            |
-| `matchBuyAction(action, buyPrefix?)`                        | Returns the `shortId` if `action` matches the generated buy action for an item (default prefix `buy`, e.g. `buySkipToken`).            |
+| `purchaseCatalogItem(initiator, shortId)`                    | Same as `purchase` using the item’s catalog `coinValue` (common case for fixed prices).                                               |
+| `matchBuyAction(action, buyPrefix?)`                         | Returns the `shortId` if `action` matches the generated buy action for an item (default prefix `buy`, e.g. `buySkipToken`).           |
 | `sell(initiator, itemId, options?)`                          | Sell-back: validates ownership + source plugin → `removeItem` → coin credit → restock.                                                |
 | `generateComponents(options?)`                               | Build declarative UI for every item (heading + description + buy button). Suitable for placing inside a `tab` component's `children`. |
 | `getStoreKeys()`                                             | Default store keys to expose to the frontend (`<shortIdCamel>Stock`).                                                                 |
-| `getComponentState()`                                        | Stock snapshot for `getComponentState` (per-item stock keys).                                                                          |
-| `getComponentStateWithSellPrice(quoteShortId)`              | Stock snapshot plus a `sellPrice` field from `getSellPrice(quoteShortId)` (e.g. for `STOCK_CHANGED` / UI).                           |
+| `getComponentState()`                                        | Stock snapshot for `getComponentState` (per-item stock keys).                                                                         |
+| `getComponentStateWithSellPrice(quoteShortId)`               | Stock snapshot plus a `sellPrice` field from `getSellPrice(quoteShortId)` (e.g. for `STOCK_CHANGED` / UI).                            |
 
 ### Usage
 
@@ -1870,11 +1925,7 @@ Define items in a static catalog using `ShopCatalogEntry`, then convert to `Shop
 
 ```typescript
 // types.ts
-import {
-  buildShopItemsFromCatalog,
-  type ShopCatalogEntry,
-  type ShopItem,
-} from "@repo/plugin-base"
+import { buildShopItemsFromCatalog, type ShopCatalogEntry, type ShopItem } from "@repo/plugin-base"
 
 export const CATALOG: readonly ShopCatalogEntry[] = [
   {

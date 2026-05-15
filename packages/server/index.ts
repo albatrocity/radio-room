@@ -276,8 +276,12 @@ export class RadioRoomServer {
     this.context.gameSessions = gameSessions
     this.context.inventory = new InventoryService(this.context)
     this.context.artifacts = new PluginArtifactsAPI(this.context)
+    const { PersonaService } = await import("./services/PersonaService")
+    this.context.personas = new PersonaService(this.context)
     gameSessions.start()
-    console.log("GameSessionService, InventoryService, and PluginArtifactsAPI initialized")
+    console.log(
+      "GameSessionService, InventoryService, PluginArtifactsAPI, and PersonaService initialized",
+    )
 
     // Register any plugins that were queued via registerAdapters()
     // We pass the factory function so PluginRegistry can create new instances per room

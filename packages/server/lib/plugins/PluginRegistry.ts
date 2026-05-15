@@ -22,10 +22,11 @@ import {
 } from "@repo/types"
 import { Server } from "socket.io"
 import { PluginAPIImpl } from "./PluginAPI"
-import { PluginStorageImpl } from "./PluginStorage"
-import { PluginLifecycleImpl } from "./PluginLifecycle"
 import { PluginGameSessionAPI } from "./PluginGameSessionAPI"
 import { PluginInventoryAPI } from "./PluginInventoryAPI"
+import { PluginPersonasAPI } from "./PluginPersonasAPI"
+import { PluginStorageImpl } from "./PluginStorage"
+import { PluginLifecycleImpl } from "./PluginLifecycle"
 
 /**
  * Plugin factory function - creates a new plugin instance
@@ -109,6 +110,11 @@ export class PluginRegistry {
       throw new Error("[PluginRegistry] AppContext.artifacts is not initialised")
     }
 
+    const personas = this.context.personas
+    if (!personas) {
+      throw new Error("[PluginRegistry] AppContext.personas is not initialised")
+    }
+
     const pluginContext: PluginContext = {
       roomId,
       api: scopedApi,
@@ -117,6 +123,7 @@ export class PluginRegistry {
       game: new PluginGameSessionAPI(this.context, pluginName, roomId),
       inventory: new PluginInventoryAPI(this.context, pluginName, roomId),
       artifacts,
+      personas: new PluginPersonasAPI(this.context, pluginName, roomId),
       getRoom: async () => {
         const { findRoom } = await import("../../operations/data")
         const room = await findRoom({ context: this.context, roomId })

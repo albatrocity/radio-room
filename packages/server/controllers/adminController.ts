@@ -39,6 +39,13 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
   })
 
   /**
+   * Toggle an admin-assignable persona for a user (admin-only)
+   */
+  socket.on("TOGGLE_PERSONA", async (data: { userId: string; personaId: string }) => {
+    await handlers.togglePersona(connections, data)
+  })
+
+  /**
    * Update room settings
    */
   socket.on("SET_ROOM_SETTINGS", async (settings: Partial<Room>) => {

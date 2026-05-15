@@ -143,7 +143,12 @@ export async function getRoomUsers({ context, roomId }: GetRoomUsersParams) {
       return userData
     })
     const allUsers = await Promise.all(reads)
-    return filter(allUsers, isTruthy)
+    const online = filter(allUsers, isTruthy)
+    if (context.personas) {
+      const { hydrateUsersWithPersonas } = await import("./personas")
+      return hydrateUsersWithPersonas({ context, roomId, users: online })
+    }
+    return online
   } catch (e) {
     console.log("ERROR FROM data/users/getRoomUsers", roomId)
     console.error(e)

@@ -281,6 +281,40 @@ export class AdminHandlers {
   }
 
   /**
+   * Toggle an admin-assignable persona for a user (admin-only)
+   */
+  togglePersona = async (
+    { io, socket }: HandlerConnections,
+    { userId, personaId }: { userId: User["userId"]; personaId: string },
+  ) => {
+    const { context } = socket
+
+    const result = await this.adminService.togglePersona(
+      socket.data.roomId,
+      socket.data.userId,
+      userId,
+      personaId,
+    )
+
+    if (result.error) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
+      return
+    }
+
+    if (result.user) {
+      pubUserJoined({
+        io,
+        roomId: socket.data.roomId,
+        data: { user: result.user, users: result.users },
+        context,
+      })
+    }
+  }
+
+  /**
    * Designate or remove a user as room admin (creator-only)
    */
   designateAdmin = async ({ io, socket }: HandlerConnections, userId: User["userId"]) => {

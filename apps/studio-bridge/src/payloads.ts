@@ -8,6 +8,7 @@ import type {
 import type { InventoryItem, ItemDefinition } from "@repo/types/Inventory"
 import type { QueueItem } from "@repo/types/Queue"
 import type { RoomMeta } from "@repo/types/Room"
+import { toAdminAssignablePersonas } from "@repo/types"
 import type { User } from "@repo/types/User"
 import type { BridgeSnapshot } from "./types.js"
 
@@ -205,5 +206,16 @@ export function buildInitPayload(snap: BridgeSnapshot, self: User) {
     accessToken: null as string | null,
     isNewUser: false,
     activeGameSession: snap.activeSession,
+    assignablePersonas: toAdminAssignablePersonas([
+      {
+        id: "vip",
+        label: "VIP",
+        icon: "Star",
+        source: "platform",
+        assignableByAdmin: true,
+        decoratesUser: true,
+        decoratesChatMessage: true,
+      },
+    ]),
   }
 }

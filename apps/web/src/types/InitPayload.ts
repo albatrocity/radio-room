@@ -1,4 +1,4 @@
-import type { GameSession } from "@repo/types"
+import type { AdminAssignablePersona, GameSession } from "@repo/types"
 import { ChatMessage } from "./ChatMessage"
 import { QueueItem } from "./Queue"
 import { Reaction } from "./Reaction"
@@ -18,4 +18,5 @@ export type InitPayload = {
     track: Record<string, Reaction[]>
   }
   users: User[]
+  assignablePersonas?: AdminAssignablePersona[]
 }
