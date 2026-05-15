@@ -27,6 +27,11 @@ import {
   refreshUserGameState,
   type UserGameStatePayload,
 } from "../actors/userGameStateActor"
+import {
+  adminListenerStateActor,
+  refreshAdminListenerState,
+  type AllListenerGameStatesPayload,
+} from "../actors/adminListenerStateActor"
 import { roomGameStateActor } from "../actors/roomGameStateActor"
 import { sharedTickerActor } from "../actors/sharedTickerActor"
 import type { GameStateModifier } from "@repo/types"
@@ -77,6 +82,7 @@ const sendToBookmarks = boundSendRef(bookmarkedChatActor)
 const sendToChatScrollTarget = boundSendRef(chatScrollTargetActor)
 const sendToMetadataPreference = boundSendRef(metadataPreferenceActor)
 const sendToLobby = boundSendRef(lobbyActor)
+const sendToAdminListener = boundSendRef(adminListenerStateActor)
 
 // ============================================================================
 // Auth Hooks
@@ -461,6 +467,30 @@ export const useUserInventory = () => {
 export const useUserItemDefinitions = () => {
   return useSelector(userGameStateActor, (s) => s.context.payload?.itemDefinitions ?? [])
 }
+
+// ============================================================================
+// Admin listener snapshot (all participants — admin tab only)
+// ============================================================================
+
+export { refreshAdminListenerState }
+export type { AllListenerGameStatesPayload }
+
+export const useAdminListenerPayload = () => {
+  return useSelector(adminListenerStateActor, (s) => s.context.payload)
+}
+
+export const useAdminListenerLoading = () => {
+  return useSelector(
+    adminListenerStateActor,
+    (s) => s.matches("loading") || s.matches("refreshing"),
+  )
+}
+
+export const useAdminListenerError = () => {
+  return useSelector(adminListenerStateActor, (s) => s.context.error)
+}
+
+export const useAdminListenerSend = () => sendToAdminListener
 
 // ============================================================================
 // Room Game State Hooks
