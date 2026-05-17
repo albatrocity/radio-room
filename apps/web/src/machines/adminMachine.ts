@@ -37,6 +37,11 @@ export type AdminEvent =
       type: "DESIGNATE_ADMIN"
       userId: string
     }
+  | {
+      type: "TOGGLE_PERSONA"
+      userId: string
+      personaId: string
+    }
   | DeleteRoomEvent
 
 interface AdminContext {
@@ -93,6 +98,10 @@ export const adminMachine = setup({
     designateAdmin: ({ event }) => {
       if (event.type !== "DESIGNATE_ADMIN") return
       emitToSocket("DESIGNATE_ADMIN", event.userId)
+    },
+    togglePersona: ({ event }) => {
+      if (event.type !== "TOGGLE_PERSONA") return
+      emitToSocket("TOGGLE_PERSONA", { userId: event.userId, personaId: event.personaId })
     },
     setSettings: ({ event }) => {
       if (event.type !== "SET_SETTINGS") return
@@ -159,6 +168,7 @@ export const adminMachine = setup({
         DELETE_ROOM: { target: ".deleting", guard: "isRoomCreator" },
         DEPUTIZE_DJ: { actions: ["deputizeDj"], guard: "isAdmin" },
         DESIGNATE_ADMIN: { actions: ["designateAdmin"], guard: "isRoomCreator" },
+        TOGGLE_PERSONA: { actions: ["togglePersona"], guard: "isAdmin" },
       },
       initial: "ready",
       states: {

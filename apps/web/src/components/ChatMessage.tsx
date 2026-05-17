@@ -24,6 +24,8 @@ import { chatMessageRecipe } from "../theme/chatMessageRecipe"
 
 import type { TextSegment } from "@repo/types"
 import { useIsAdmin, useBookmarks, useBookmarksSend, useChatSend } from "../hooks/useActors"
+import { getChatPersonaBadges } from "../lib/userPersonas"
+import { PersonaBadge } from "./PersonaBadge"
 
 export interface ChatMessageProps {
   content: string
@@ -61,6 +63,7 @@ const ChatMessage = ({
   const showFloatingTimestamp = (!showUsername && hovered) || (isBookmarked && !showUsername)
 
   const isMention = mentions.indexOf(currentUserId) > -1
+  const chatPersonaBadges = getChatPersonaBadges(user)
 
   const recipe = useSlotRecipe({ recipe: chatMessageRecipe })
   const styles = recipe({
@@ -106,7 +109,16 @@ const ChatMessage = ({
     >
       {showUsername && (
         <Flex css={styles.header}>
-          <Text css={styles.username}>{user.username}</Text>
+          <HStack gap={1} minW={0}>
+            {chatPersonaBadges.map((persona) => (
+              <PersonaBadge
+                key={persona.personaId}
+                persona={persona}
+                color={persona.personaId === "vip" ? "yellow.400" : undefined}
+              />
+            ))}
+            <Text css={styles.username}>{user.username}</Text>
+          </HStack>
           <Spacer />
           <HStack css={styles.headerActions}>
             {currentIsAdmin && (

@@ -11,22 +11,28 @@ import {
   VStack,
   useSlotRecipe,
   Flex,
+  Menu,
+  Portal,
 } from "@chakra-ui/react"
 import { Tooltip } from "./ui/tooltip"
 import {
   LuCrown,
+  LuEllipsisVertical,
   LuEye,
   LuHeadphones,
   LuMessageCircle,
   LuMic,
   LuMusic,
   LuPencil,
-  LuX,
 } from "react-icons/lu"
+import type { AdminAssignablePersona } from "@repo/types"
 import { User } from "../types/User"
 import { PluginArea } from "./PluginComponents"
 import { listItemUserRecipe } from "../theme/listItemUserRecipe"
 import { UserEffectBars } from "./UserEffectBars"
+import { getUserListPersonaBadges, userHasPersona } from "../lib/userPersonas"
+import { PersonaBadge } from "./PersonaBadge"
+import { getIcon } from "./PluginComponents/icons"
 
 const statusIcon = (user: User) => {
   if (user.isDj) {
@@ -59,6 +65,8 @@ interface ListItemUserProps {
   onKickUser?: (userId: string) => void
   onDeputizeDj?: (userId: string) => void
   onDesignateAdmin?: (userId: string) => void
+  assignablePersonas?: AdminAssignablePersona[]
+  onTogglePersona?: (userId: string, personaId: string) => void
   showStatus?: boolean
   userTyping: boolean
   isAdmin?: boolean
@@ -72,6 +80,8 @@ const ListItemUser = ({
   onKickUser,
   onDeputizeDj,
   onDesignateAdmin,
+  assignablePersonas = [],
+  onTogglePersona,
   userTyping,
   showStatus = true,
   isAdmin = false,
@@ -79,6 +89,12 @@ const ListItemUser = ({
 }: ListItemUserProps) => {
   const recipe = useSlotRecipe({ recipe: listItemUserRecipe })
   const styles = recipe({ isDj: user.isDj, isTyping: userTyping })
+  const listPersonaBadges = getUserListPersonaBadges(user)
+  const isSelf = user.userId === get("userId", currentUser)
+  const showAdminMenu =
+    !isSelf &&
+    currentUser?.isAdmin &&
+    (onKickUser || onDesignateAdmin || onTogglePersona || assignablePersonas.length > 0)
 
   return (
     <List.Item key={user.userId} css={styles.root} gap={1}>
@@ -110,6 +126,13 @@ const ListItemUser = ({
                 </Box>
               </Tooltip>
             )}
+            {listPersonaBadges.map((persona) => (
+              <PersonaBadge
+                key={persona.personaId}
+                persona={persona}
+                color={persona.personaId === "vip" ? "yellow.400" : undefined}
+              />
+            ))}
 
             <PluginArea
               area="userListItem"
@@ -130,7 +153,7 @@ const ListItemUser = ({
           </HStack>
 
           <HStack css={styles.actions}>
-            {user.userId === get("userId", currentUser) && (
+            {isSelf && (
               <IconButton
                 variant="plain"
                 aria-label="Edit Username"
@@ -142,7 +165,7 @@ const ListItemUser = ({
                 <LuPencil />
               </IconButton>
             )}
-            {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && (
+            {currentUser?.isAdmin && !isSelf && (
               <Tooltip
                 positioning={{ placement: "top" }}
                 content={user.isDeputyDj ? "Remove DJ privileges" : "Deputize DJ"}
@@ -159,38 +182,67 @@ const ListItemUser = ({
                 </IconButton>
               </Tooltip>
             )}
-            {onDesignateAdmin && !isEqual(user?.userId, currentUser?.userId) && (
-              <Tooltip
-                positioning={{ placement: "top" }}
-                content={user.isAdmin ? "Remove admin privileges" : "Make admin"}
-              >
-                <IconButton
-                  size="xs"
-                  variant={user.isAdmin ? "subtle" : "ghost"}
-                  aria-label="Designate Admin"
-                  onClick={() => {
-                    onDesignateAdmin(user.userId)
-                  }}
-                >
-                  <Icon as={LuCrown} />
-                </IconButton>
-              </Tooltip>
-            )}
-            {currentUser?.isAdmin && !isEqual(user?.userId, currentUser?.userId) && !isAdmin && (
-              <IconButton
-                size="xs"
-                variant="ghost"
-                aria-label="Kick User"
-                onClick={() => onKickUser?.(user.userId)}
-              >
-                <LuX />
-              </IconButton>
+            {showAdminMenu && (
+              <Menu.Root>
+                <Menu.Trigger asChild>
+                  <IconButton size="xs" variant="ghost" aria-label="User actions">
+                    <Icon as={LuEllipsisVertical} />
+                  </IconButton>
+                </Menu.Trigger>
+                <Portal>
+                  <Menu.Positioner>
+                    <Menu.Content>
+                      {onDesignateAdmin && (
+                        <Menu.Item
+                          value="admin"
+                          onClick={() => onDesignateAdmin(user.userId)}
+                        >
+                          <Icon as={LuCrown} boxSize={4} />
+                          {user.isAdmin ? "Remove admin" : "Make admin"}
+                        </Menu.Item>
+                      )}
+                      {onTogglePersona &&
+                        assignablePersonas.map((def) => {
+                          const has = userHasPersona(user, def.personaId)
+                          const MenuIcon = getIcon(def.icon ?? "Star")
+                          return (
+                            <Menu.Item
+                              key={def.personaId}
+                              value={def.personaId}
+                              color={has ? "fg.muted" : undefined}
+                              onClick={() => onTogglePersona(user.userId, def.personaId)}
+                            >
+                              {MenuIcon ? <Icon as={MenuIcon} boxSize={4} /> : null}
+                              {has ? `Remove ${def.label}` : `Make ${def.label}`}
+                            </Menu.Item>
+                          )
+                        })}
+                      {onKickUser && !isAdmin && (
+                        <Menu.Item
+                          value="kick"
+                          color="fg.error"
+                          onClick={() => onKickUser(user.userId)}
+                        >
+                          Kick
+                        </Menu.Item>
+                      )}
+                    </Menu.Content>
+                  </Menu.Positioner>
+                </Portal>
+              </Menu.Root>
             )}
           </HStack>
         </HStack>
       </VStack>
     </List.Item>
   )
+}
+
+function personasEqual(a?: User["personas"], b?: User["personas"]): boolean {
+  if (a === b) return true
+  if (!a || !b) return !a && !b
+  if (a.length !== b.length) return false
+  return a.every((p, i) => p.personaId === b[i]?.personaId)
 }
 
 // Custom comparison to ensure re-render when user properties change
@@ -202,12 +254,16 @@ function arePropsEqual(prevProps: ListItemUserProps, nextProps: ListItemUserProp
     prevProps.user.isDeputyDj === nextProps.user.isDeputyDj &&
     prevProps.user.isAdmin === nextProps.user.isAdmin &&
     prevProps.user.status === nextProps.user.status &&
+    personasEqual(prevProps.user.personas, nextProps.user.personas) &&
     prevProps.currentUser?.userId === nextProps.currentUser?.userId &&
     prevProps.currentUser?.isAdmin === nextProps.currentUser?.isAdmin &&
     prevProps.userTyping === nextProps.userTyping &&
     prevProps.showStatus === nextProps.showStatus &&
     prevProps.isAdmin === nextProps.isAdmin &&
-    prevProps.isRoomCreator === nextProps.isRoomCreator
+    prevProps.isRoomCreator === nextProps.isRoomCreator &&
+    prevProps.onDesignateAdmin === nextProps.onDesignateAdmin &&
+    prevProps.onTogglePersona === nextProps.onTogglePersona &&
+    prevProps.assignablePersonas === nextProps.assignablePersonas
   )
 }
 

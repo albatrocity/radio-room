@@ -1,4 +1,5 @@
-import { AppContext, GameSession } from "@repo/types"
+import { AppContext, GameSession, toAdminAssignablePersonas } from "@repo/types"
+import type { PersonaService } from "./PersonaService"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import { isNullish, uniqueBy } from "remeda"
@@ -244,6 +245,17 @@ export class AuthService {
       console.error("[AuthService] Failed to load active game session for init:", err)
     }
 
+    let assignablePersonas: ReturnType<typeof toAdminAssignablePersonas> = []
+    const personaSvc = this.context.personas as PersonaService | undefined
+    if (personaSvc) {
+      try {
+        const definitions = await personaSvc.getRoomDefinitions(roomId)
+        assignablePersonas = toAdminAssignablePersonas(definitions)
+      } catch (err) {
+        console.error("[AuthService] Failed to load assignable personas for init:", err)
+      }
+    }
+
     // Get access token for room creator to enable authenticated features (search, liked tracks, etc.)
     // Use the first metadata source (primary) for auth token
     let accessToken: string | undefined = undefined
@@ -281,6 +293,7 @@ export class AuthService {
         accessToken, // Only set for room creator with metadata source
         isNewUser: isNew,
         activeGameSession,
+        assignablePersonas,
         ...(streamHealthStatus ? { streamHealthStatus } : {}),
         ...(webrtcStreamHealthStatus ? { webrtcStreamHealthStatus } : {}),
       },

@@ -4,6 +4,7 @@ import type {
   GameSessionPluginAPI,
   InventoryItem,
   InventoryPluginAPI,
+  PersonasPluginAPI,
   ItemDefinition,
   ItemUseResult,
   Plugin,
@@ -310,6 +311,16 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
       throw new Error(`[${this.name}] context not initialised; call super.register first`)
     }
     return this.context.inventory
+  }
+
+  /**
+   * Convenience accessor for the personas API.
+   */
+  protected get personas(): PersonasPluginAPI {
+    if (!this.context) {
+      throw new Error(`[${this.name}] context not initialised; call super.register first`)
+    }
+    return this.context.personas
   }
 
   /**
@@ -685,6 +696,13 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     // Cleanup storage (removes all keys for this plugin in this room)
     if (this.context.storage) {
       await (this.context.storage as any).cleanup?.()
+    }
+
+    // Unregister plugin personas and strip assignments
+    try {
+      await this.context.personas.unregisterPersonas()
+    } catch (err) {
+      console.error(`[${this.name}] Failed to unregister personas:`, err)
     }
 
     // Call custom cleanup hook if defined

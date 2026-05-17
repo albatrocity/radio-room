@@ -7,7 +7,7 @@ import { useStickToBottom } from "use-stick-to-bottom"
 
 import { chatScrollTargetActor } from "../actors/chatScrollTargetActor"
 import { scrollFollowMachine } from "../machines/scrollFollowMachine"
-import { useCurrentUser, useSortedChatMessages } from "../hooks/useActors"
+import { useCurrentUser, useListeners, useSortedChatMessages } from "../hooks/useActors"
 import { ChatMessage as Message } from "../types/ChatMessage"
 import { User } from "../types/User"
 import ChatMessage from "./ChatMessage"
@@ -17,11 +17,13 @@ import ScrollShadowViewport from "./ScrollShadowViewport"
 const InnerItem = React.memo(
   ({
     message,
+    displayUser,
     sameUserAsLastMessage,
     sameUserAsNextMessage,
     currentUserId,
   }: {
     message: Message
+    displayUser: User
     sameUserAsLastMessage: boolean
     sameUserAsNextMessage: boolean
     currentUserId: User["userId"]
@@ -32,6 +34,7 @@ const InnerItem = React.memo(
       <ChatMessage
         key={message.timestamp}
         {...message}
+        user={displayUser}
         currentUserId={currentUserId}
         showUsername={!sameUserAsLastMessage}
         anotherUserMessage={sameUserAsNextMessage}
@@ -42,6 +45,7 @@ const InnerItem = React.memo(
 function ChatWindow() {
   const [state, send] = useMachine(scrollFollowMachine)
   const messages = useSortedChatMessages()
+  const listeners = useListeners()
   const currentUser = useCurrentUser()
   const scrollTargetTimestamp = useSelector(chatScrollTargetActor, (s) => s.context.targetTimestamp)
   const scrollRequestId = useSelector(chatScrollTargetActor, (s) => s.context.requestId)
@@ -110,6 +114,8 @@ function ChatWindow() {
                   message.user.userId === messages[virtualRow.index - 1]?.user.userId
                 const sameUserAsNextMessage =
                   message.user.userId === messages[virtualRow.index + 1]?.user.userId
+                const displayUser =
+                  listeners.find((u) => u.userId === message.user.userId) ?? message.user
 
                 return (
                   <Box
@@ -125,6 +131,7 @@ function ChatWindow() {
                     <InnerItem
                       currentUserId={currentUser.userId}
                       message={message}
+                      displayUser={displayUser}
                       sameUserAsLastMessage={sameUserAsLastMessage}
                       sameUserAsNextMessage={sameUserAsNextMessage}
                     />

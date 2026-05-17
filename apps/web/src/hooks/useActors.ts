@@ -219,6 +219,10 @@ export const useDj = () => {
   return useSelector(usersActor, (s) => s.context.dj)
 }
 
+export const useAssignablePersonas = () => {
+  return useSelector(usersActor, (s) => s.context.assignablePersonas)
+}
+
 export const useUsersSend = () => sendToUsers
 
 // ============================================================================

@@ -2,6 +2,7 @@ import { AppContext, GameSession, GameSessionConfig, GameSessionResults } from "
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import type { GameSessionService } from "./GameSessionService"
+import type { PersonaService } from "./PersonaService"
 import { omit } from "remeda"
 import {
   clearQueue,
@@ -116,6 +117,91 @@ export class AdminService {
     })
 
     return { socketId, eventType, message, user, users, error: null }
+  }
+
+  /**
+   * Toggle an admin-assignable persona for a user (room admin action).
+   */
+  async togglePersona(
+    roomId: string,
+    callerUserId: string,
+    targetUserId: string,
+    personaId: string,
+  ) {
+    const { error } = await this.getAuthedRoom(roomId, callerUserId)
+    if (error) {
+      return { error, user: null, users: [] }
+    }
+
+    if (targetUserId === callerUserId) {
+      return {
+        error: {
+          status: 400,
+          error: "Bad Request",
+          message: "Cannot change your own persona assignments.",
+        },
+        user: null,
+        users: [],
+      }
+    }
+
+    const personaSvc = this.context.personas as PersonaService | undefined
+    if (!personaSvc) {
+      return {
+        error: {
+          status: 503,
+          error: "Service Unavailable",
+          message: "Personas are not available on this server.",
+        },
+        user: null,
+        users: [],
+      }
+    }
+
+    const definitions = await personaSvc.getRoomDefinitions(roomId)
+    const definition = definitions.find((d) => d.id === personaId)
+    if (!definition?.assignableByAdmin) {
+      return {
+        error: {
+          status: 400,
+          error: "Bad Request",
+          message: "This persona cannot be assigned by admins.",
+        },
+        user: null,
+        users: [],
+      }
+    }
+
+    const hasPersona = await personaSvc.userHasPersona(roomId, targetUserId, personaId)
+    if (hasPersona) {
+      const result = await personaSvc.removePersona({ roomId, userId: targetUserId, personaId })
+      return { error: null, user: result.user, users: result.users }
+    }
+
+    const result = await personaSvc.assignPersona({
+      roomId,
+      userId: targetUserId,
+      personaId,
+      assignedBy: callerUserId,
+    })
+
+    if (!result.assigned) {
+      return {
+        error: {
+          status: 400,
+          error: "Bad Request",
+          message: "Failed to assign persona.",
+        },
+        user: null,
+        users: [],
+      }
+    }
+
+    return {
+      error: null,
+      user: result.user,
+      users: result.users,
+    }
   }
 
   /**
