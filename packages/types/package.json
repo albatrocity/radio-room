@@ -7,7 +7,7 @@
   "types": "./index.ts",
   "exports": {
     ".": "./index.ts",
-    "./*": "./*"
+    "./*": "./*.ts"
   },
   "scripts": {
     "test": "true"
