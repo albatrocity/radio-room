@@ -24,7 +24,7 @@ export function toast(options: ToastOptions) {
   const closable = options.isClosable ?? true
 
   return toaster.create({
-    id: options.id,
+    ...(options.id != null ? { id: options.id } : {}),
     title: options.title,
     description: options.description,
     type,
