@@ -15,6 +15,8 @@ import {
   useUserGameStateLoading,
   useUserGameStateError,
   refreshUserGameState,
+  useIsAdmin,
+  useAdminListenerSend,
 } from "../../hooks/useActors"
 import { useGameStateNewPluginTabs } from "../GameStateNewPluginTabsProvider"
 import { getIcon } from "../PluginComponents/icons"
@@ -26,16 +28,20 @@ import {
   GameStatePluginTabContents,
 } from "./GameState"
 import StoredItemsTab from "./GameState/StoredItemsTab"
+import AdminListenersTab from "./GameState/AdminListenersTab"
 import { UserModifiersList } from "../UserModifiersList"
 
 function formatNumber(n: number): string {
   return new Intl.NumberFormat().format(n)
 }
 
-const TROPHY_ICON = getIcon("trophy")
-const COINS_ICON = getIcon("coins")
-const PACKAGE_ICON = getIcon("package")
+const TROPHY_ICON = getIcon("Trophy")
+const COINS_ICON = getIcon("Coins")
+const PACKAGE_ICON = getIcon("Backpack")
 const STORED_ICON = getIcon("Archive")
+const EYE_ICON = getIcon("Eye")
+
+const ADMIN_LISTENERS_TAB = "admin"
 
 /** Stable fallbacks — `?? []` / `?? {}` in render create new references every paint and break effect deps / context (see Maximum update depth in studio-bridge preview). */
 const EMPTY_INVENTORY_ITEMS: InventoryItem[] = []
@@ -45,6 +51,8 @@ const EMPTY_ATTRIBUTES = {} as Record<GameAttributeName, number>
 function ModalUserGameState() {
   const modalSend = useModalsSend()
   const isOpen = useIsModalOpen("gameState")
+  const isAdmin = useIsAdmin()
+  const sendAdminListener = useAdminListenerSend()
   const { pluginTabs, unseenPluginTabIds, markPluginTabViewed } = useGameStateNewPluginTabs()
   const [gameStateTab, setGameStateTab] = useState("inventory")
 
@@ -58,6 +66,17 @@ function ModalUserGameState() {
     }
   }, [isOpen])
 
+  useEffect(() => {
+    if (isOpen && isAdmin && gameStateTab === ADMIN_LISTENERS_TAB) {
+      sendAdminListener({ type: "ACTIVATE" })
+      return () => {
+        sendAdminListener({ type: "DEACTIVATE" })
+      }
+    }
+    sendAdminListener({ type: "DEACTIVATE" })
+    return undefined
+  }, [isOpen, isAdmin, gameStateTab, sendAdminListener])
+
   const definitionMap = useMemo(() => {
     const map = new Map<string, ItemDefinition>()
     for (const def of payload?.itemDefinitions ?? EMPTY_ITEM_DEFINITIONS) {
@@ -67,7 +86,10 @@ function ModalUserGameState() {
   }, [payload?.itemDefinitions])
 
   const enabledAttributes = payload?.session?.config.enabledAttributes ?? []
-  const attributes = (payload?.state?.attributes ?? EMPTY_ATTRIBUTES) as Record<GameAttributeName, number>
+  const attributes = (payload?.state?.attributes ?? EMPTY_ATTRIBUTES) as Record<
+    GameAttributeName,
+    number
+  >
   const inventoryEnabled = payload?.session?.config.inventoryEnabled ?? false
   /** Empty inventory must not use a fresh `[]` from payload each snapshot (bridge/API often do `?? []`). */
   const rawInventoryItems = payload?.inventory?.items
@@ -104,11 +126,14 @@ function ModalUserGameState() {
     if (showStoredTab) {
       ids.add("stored")
     }
+    if (isAdmin) {
+      ids.add(ADMIN_LISTENERS_TAB)
+    }
     for (const t of pluginTabs) {
       ids.add(t.id)
     }
     return ids
-  }, [pluginTabs, showStoredTab])
+  }, [pluginTabs, showStoredTab, isAdmin])
 
   useEffect(() => {
     if (!validTabValues.has(gameStateTab)) {
@@ -210,6 +235,12 @@ function ModalUserGameState() {
                   </Tabs.Trigger>
                 ) : null}
                 <GameStatePluginTabTriggers tabs={pluginTabs} unseenTabIds={unseenPluginTabIds} />
+                {isAdmin ? (
+                  <Tabs.Trigger value={ADMIN_LISTENERS_TAB}>
+                    {EYE_ICON ? <SvgIcon icon={EYE_ICON} mr={1} /> : null}
+                    Big Brother
+                  </Tabs.Trigger>
+                ) : null}
               </Tabs.List>
 
               <Tabs.Content value="inventory">
@@ -230,6 +261,12 @@ function ModalUserGameState() {
               ) : null}
 
               <GameStatePluginTabContents tabs={pluginTabs} />
+
+              {isAdmin ? (
+                <Tabs.Content value={ADMIN_LISTENERS_TAB}>
+                  <AdminListenersTab />
+                </Tabs.Content>
+              ) : null}
             </Tabs.Root>
           )}
         </Stack>

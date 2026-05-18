@@ -8,6 +8,7 @@ import type { User } from "@repo/types/User"
 
 import type { BridgeSnapshot } from "./types.js"
 import {
+  buildAllListenerGameStatesPayload,
   buildInitPayload,
   buildRoomGameStateSnapshot,
   buildRoomMeta,
@@ -32,6 +33,7 @@ import {
   stubStudioBridgeRoom,
 } from "./stubRoom.js"
 import { bridgePluginSchemasForApi } from "./stubPluginSchemas.js"
+import { applyUserUpdateToSnapshot, toggleVipOnUser, userHasVip } from "./personas.js"
 
 const PORT = Number(process.env.STUDIO_BRIDGE_PORT ?? process.env.PORT ?? 3099)
 
@@ -190,6 +192,91 @@ function wireSocketHandlers(io: IOServer): void {
       },
     )
 
+    socket.on(
+      "TOGGLE_PERSONA",
+      (data: { userId: string; personaId: string } | undefined) => {
+        const roomId = socket.data.roomId as string | undefined
+        const callerId = socket.data.userId as string | undefined
+        const snap = getBridgeSnapshot()
+        const targetUserId = data?.userId
+        const personaId = data?.personaId
+        if (
+          !roomId ||
+          !callerId ||
+          !snap ||
+          snap.roomId !== roomId ||
+          typeof targetUserId !== "string" ||
+          typeof personaId !== "string"
+        ) {
+          return
+        }
+        if (personaId !== "vip") {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 400,
+              error: "Bad Request",
+              message: "Only the VIP persona is supported in studio-bridge.",
+            },
+          })
+          return
+        }
+        const caller = snap.users.find((u) => u.userId === callerId)
+        if (!caller?.isAdmin) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 403,
+              error: "Forbidden",
+              message: "Only room admins can toggle personas.",
+            },
+          })
+          return
+        }
+        const { snap: nextSnap, user } = applyUserUpdateToSnapshot(
+          snap,
+          targetUserId,
+          toggleVipOnUser,
+        )
+        if (!user) return
+        setBridgeSnapshot(nextSnap)
+        const personaEvent = userHasVip(user) ? "PERSONA_ASSIGNED" : "PERSONA_REMOVED"
+        const roomPath = roomSocketPath(roomId)
+        io.to(roomPath).emit("event", {
+          type: personaEvent,
+          data: {
+            roomId,
+            userId: targetUserId,
+            personaId: "vip",
+            user,
+            users: nextSnap.users,
+          },
+        })
+        io.to(roomPath).emit("event", {
+          type: "USER_JOINED",
+          data: { roomId, user, users: nextSnap.users },
+        })
+      },
+    )
+
+    socket.on("DESIGNATE_ADMIN", (targetUserId: string) => {
+      const roomId = socket.data.roomId as string | undefined
+      const snap = getBridgeSnapshot()
+      if (!roomId || !snap || snap.roomId !== roomId || typeof targetUserId !== "string") {
+        return
+      }
+      const { snap: nextSnap, user } = applyUserUpdateToSnapshot(snap, targetUserId, (u) => ({
+        ...u,
+        isAdmin: !u.isAdmin,
+      }))
+      if (!user) return
+      setBridgeSnapshot(nextSnap)
+      io.to(roomSocketPath(roomId)).emit("event", {
+        type: "USER_JOINED",
+        data: { roomId, user, users: nextSnap.users },
+      })
+    })
+
     socket.on("VIEW_AS_USER", (payload: { userId?: string; username?: string }) => {
       const roomId = socket.data.roomId as string | undefined
       const snap = getBridgeSnapshot()
@@ -234,6 +321,26 @@ function wireSocketHandlers(io: IOServer): void {
       socket.emit("event", {
         type: "ROOM_GAME_STATE",
         data: buildRoomGameStateSnapshot(snap),
+      })
+    })
+
+    socket.on("GET_ALL_LISTENER_GAME_STATES", () => {
+      const roomId = socket.data.roomId as string | undefined
+      const snap = getBridgeSnapshot()
+      if (!roomId || !snap || snap.roomId !== roomId) {
+        socket.emit("event", {
+          type: "ALL_LISTENER_GAME_STATES",
+          data: {
+            session: null,
+            listeners: [],
+            itemDefinitions: [],
+          },
+        })
+        return
+      }
+      socket.emit("event", {
+        type: "ALL_LISTENER_GAME_STATES",
+        data: buildAllListenerGameStatesPayload(snap),
       })
     })
 

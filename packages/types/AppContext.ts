@@ -28,6 +28,8 @@ export interface AppContext {
   inventory?: any // Typed as InventoryService in server code
   /** Global stored artifacts API (cross-room Redis-backed storage). */
   artifacts?: ArtifactsPluginAPI
+  /** Room-scoped user personas (VIP, plugin-defined labels). Typed as PersonaService in server code. */
+  personas?: any
   systemEvents?: SystemEvents
   /** Base URL for the API (e.g., "https://api.example.com"). Used for generating absolute URLs. */
   apiUrl?: string

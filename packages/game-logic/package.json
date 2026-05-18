@@ -10,7 +10,8 @@
     ".": "./src/index.ts",
     "./shopping-session-catalog": "./src/shoppingSessionCatalog.ts",
     "./text-effect-stacks": "./src/textEffectStacks.ts",
-    "./interface-modifier-stacks": "./src/interfaceModifierStacks.ts"
+    "./interface-modifier-stacks": "./src/interfaceModifierStacks.ts",
+    "./chat-buffer-stacks": "./src/chatBufferStacks.ts"
   },
   "scripts": {
     "test": "true",

@@ -1,8 +1,14 @@
 import { marsEggSellbackValue } from "@repo/plugin-item-shops/mars-egg-sellback"
-import type { GameStateModifier } from "@repo/types/GameSession"
+import type {
+  GameAttributeName,
+  GameSession,
+  GameStateModifier,
+  UserGameState,
+} from "@repo/types/GameSession"
 import type { InventoryItem, ItemDefinition } from "@repo/types/Inventory"
 import type { QueueItem } from "@repo/types/Queue"
 import type { RoomMeta } from "@repo/types/Room"
+import { toAdminAssignablePersonas } from "@repo/types"
 import type { User } from "@repo/types/User"
 import type { BridgeSnapshot } from "./types.js"
 
@@ -77,7 +83,7 @@ function metaDisplayStringsFromQueueHead(
 export function buildRoomMeta(snap: BridgeSnapshot): Partial<RoomMeta> {
   const head = snap.queue[0]
   return {
-    stationMeta: {},
+    stationMeta: { bitrate: "" },
     nowPlaying: head ?? null,
     ...metaDisplayStringsFromQueueHead(head),
   }
@@ -117,6 +123,59 @@ export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) 
   }
 }
 
+const EMPTY_ATTRS = {} as Record<GameAttributeName, number>
+
+/** Admin tab: all users in the bridge snapshot with session-scoped state/inventory. */
+export function buildAllListenerGameStatesPayload(snap: BridgeSnapshot) {
+  const session = snap.activeSession
+  const maxSlots = session?.config.maxInventorySlots ?? DEFAULT_MAX_INVENTORY_SLOTS
+  if (!session) {
+    return {
+      session: null as GameSession | null,
+      listeners: [] as Array<{
+        userId: string
+        username: string
+        state: UserGameState
+        inventory: { userId: string; items: InventoryItem[]; maxSlots: number }
+      }>,
+      itemDefinitions: snap.itemDefinitions,
+    }
+  }
+
+  const defById = new Map<string, ItemDefinition>(snap.itemDefinitions.map((d) => [d.id, d]))
+
+  const listeners = snap.users.map((u) => {
+    const userId = u.userId
+    const state =
+      snap.userStates[userId] ??
+      ({ userId, attributes: EMPTY_ATTRS, modifiers: [], flags: {} } satisfies UserGameState)
+    const rawItems = snap.inventories[userId] ?? []
+    const items: InventoryItem[] =
+      rawItems.length > 0
+        ? rawItems.map((item) => {
+            const def = defById.get(item.definitionId)
+            if (def?.sourcePlugin === "item-shops" && def.shortId === "mars-egg") {
+              return { ...item, sellbackValue: marsEggSellbackValue(item, def) }
+            }
+            return item
+          })
+        : rawItems
+
+    return {
+      userId,
+      username: u.username?.trim() || userId,
+      state,
+      inventory: { userId, items, maxSlots },
+    }
+  })
+
+  return {
+    session,
+    listeners,
+    itemDefinitions: snap.itemDefinitions,
+  }
+}
+
 /** INIT payload aligned with `AuthService.login` → `initData` (subset used by web authMachine). */
 export function buildInitPayload(snap: BridgeSnapshot, self: User) {
   const pluginConfigs = snap.pluginConfigs
@@ -147,5 +206,16 @@ export function buildInitPayload(snap: BridgeSnapshot, self: User) {
     accessToken: null as string | null,
     isNewUser: false,
     activeGameSession: snap.activeSession,
+    assignablePersonas: toAdminAssignablePersonas([
+      {
+        id: "vip",
+        label: "VIP",
+        icon: "Star",
+        source: "platform",
+        assignableByAdmin: true,
+        decoratesUser: true,
+        decoratesChatMessage: true,
+      },
+    ]),
   }
 }

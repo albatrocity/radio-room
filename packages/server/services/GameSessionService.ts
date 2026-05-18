@@ -573,6 +573,17 @@ export class GameSessionService {
     return { sessionId: session.id, modifiersByUserId }
   }
 
+  /**
+   * User IDs in the active session's participants set (users who have touched
+   * session state at least once). Empty array when no active session.
+   */
+  async getParticipantUserIds(roomId: string): Promise<string[]> {
+    const session = await this.getActiveSession(roomId)
+    if (!session) return []
+    const ids = await this.context.redis.pubClient.sMembers(participantsKey(roomId, session.id))
+    return ids as string[]
+  }
+
   async getLeaderboard(
     roomId: string,
     leaderboardId: string,

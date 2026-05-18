@@ -62,6 +62,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0054](0054-text-effect-kind-pattern.md) | Text Effect Kind Pattern + flag stack map | Accepted |
 | [0055](0055-per-socket-login-serialization.md) | Per-Socket LOGIN Serialization | Accepted |
 | [0056](0056-segment-phase-pipeline-merge.md) | Segment phase pipeline merge in `applyTextEffects` | Accepted |
+| [0057](0057-user-personas-system.md) | User Personas System (VIP + plugin labels) | Accepted |
 
 ## Creating a New ADR
 

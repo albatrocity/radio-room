@@ -7,7 +7,7 @@ export const tubeOverdrive = createItem({
   definition: {
     name: "Tube Overdrive",
     description:
-      "Pushes the room UI into heavy saturation for a limited time — colors feel hotter and more vivid. Use on yourself or others; stacks crank it further.",
+      "Pushes the room UI into heavy saturation for a limited time — colors feel hotter and more vivid. Use on yourself or others.",
     stackable: true,
     maxStack: 3,
     tradeable: true,

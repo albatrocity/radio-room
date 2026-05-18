@@ -121,4 +121,31 @@ describe("p2p-file-sharing", () => {
       attacker.userId,
     )
   })
+
+  it("self-use is not intercepted by modifier defense (core skips when actor is target)", async () => {
+    const deps = createMockDeps()
+    const user = userFactory.build()
+    stubRoomUsers(deps, [user])
+    vi.mocked(deps.game.applyTimedModifier).mockResolvedValue({
+      ok: true,
+      modifierId: "mod-self",
+    })
+    const def = createMockDefinition(boostPedal.shortId, {
+      name: boostPedal.catalogEntry.definition.name,
+      icon: boostPedal.catalogEntry.definition.icon,
+    })
+
+    const result = await invokeUse(boostPedal, deps, user.userId, def, {
+      targetUserId: user.userId,
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.consumed).toBe(true)
+    expect(deps.game.applyTimedModifier).toHaveBeenCalledWith(
+      user.userId,
+      expect.any(Number),
+      expect.objectContaining({ itemDefinitionId: def.id }),
+      user.userId,
+    )
+  })
 })

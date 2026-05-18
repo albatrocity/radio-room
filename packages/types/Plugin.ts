@@ -37,6 +37,7 @@ import type {
   StoredArtifact,
   StoredArtifactPublic,
 } from "./Artifacts"
+import type { PersonaDefinition, UserPersona, UserPersonaAssignment } from "./Persona"
 
 // ============================================================================
 // Plugin Configuration Schema Types
@@ -619,6 +620,32 @@ export interface InventoryPluginAPI {
   getAllItemDefinitions(): Promise<ItemDefinition[]>
 }
 
+// ============================================================================
+// Personas API (exposed on PluginContext.personas)
+// ============================================================================
+
+/** Plugin-facing personas API. Operates on the plugin's room. */
+export interface PersonasPluginAPI {
+  /** Register persona definitions owned by this plugin (ids are auto-prefixed). */
+  registerPersonas(
+    definitions: (Omit<PersonaDefinition, "source" | "id"> & { id: string })[],
+  ): Promise<void>
+  /** Remove this plugin's persona definitions and strip active assignments. */
+  unregisterPersonas(): Promise<void>
+  /** All persona definitions in the room (platform + plugins). */
+  getRoomPersonas(): Promise<PersonaDefinition[]>
+  /** Assign a persona defined by this plugin (`id` is the short id, not prefixed). */
+  assign(userId: string, personaId: string, assignedBy?: string): Promise<void>
+  /** Remove a persona defined by this plugin from a user. */
+  remove(userId: string, personaId: string): Promise<void>
+  /** All persona assignments on a user (any source). */
+  getUserPersonas(userId: string): Promise<UserPersonaAssignment[]>
+  /** Hydrated personas for display (label, icon). */
+  getUserPersonasHydrated(userId: string): Promise<UserPersona[]>
+  /** User ids currently holding a persona (full persona id, including plugin prefix). */
+  getUsersWithPersona(personaId: string): Promise<string[]>
+}
+
 /**
  * Context provided to each plugin instance
  */
@@ -633,6 +660,8 @@ export interface PluginContext {
   inventory: InventoryPluginAPI
   /** Global artifact storage (cross-room, survives sessions). */
   artifacts: ArtifactsPluginAPI
+  /** Room personas (identity labels; register/assign plugin-owned personas). */
+  personas: PersonasPluginAPI
   getRoom: () => Promise<Room | null>
   appContext: AppContext
 }

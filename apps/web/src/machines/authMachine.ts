@@ -11,7 +11,7 @@ import { Reaction } from "../types/Reaction"
 import { PlaylistItem } from "../types/PlaylistItem"
 import { ChatMessage } from "../types/ChatMessage"
 import { RoomMeta } from "../types/Room"
-import { toast } from "../lib/toasts"
+import { CONNECTION_STATUS_TOAST_ID, toast } from "../lib/toasts"
 
 export interface AuthContext {
   currentUser?: User
@@ -311,7 +311,7 @@ export const authMachine = setup({
         status: "warning",
         duration: null,
         isClosable: false,
-        id: "connection-status",
+        id: CONNECTION_STATUS_TOAST_ID,
       })
     },
     showReconnectingToast: ({ event }) => {
@@ -322,7 +322,7 @@ export const authMachine = setup({
           status: "info",
           duration: 2000,
           isClosable: false,
-          id: "connection-status",
+          id: CONNECTION_STATUS_TOAST_ID,
         })
       }
     },
@@ -333,7 +333,7 @@ export const authMachine = setup({
         status: "success",
         duration: 3000,
         isClosable: true,
-        id: "connection-status",
+        id: CONNECTION_STATUS_TOAST_ID,
       })
     },
     showReconnectFailedToast: () => {
@@ -343,7 +343,7 @@ export const authMachine = setup({
         status: "error",
         duration: null,
         isClosable: true,
-        id: "connection-status",
+        id: CONNECTION_STATUS_TOAST_ID,
       })
     },
     showNukeSuccessToast: () => {

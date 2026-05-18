@@ -52,11 +52,11 @@ async function greenRoomOnSessionEnd(ctx: ShopSessionContext): Promise<void> {
           "purchase",
         )
         if (!returned) return
-        await ctx.sendUserSystemMessage(
-          userId,
-          `hey here's your ${itemName} back`,
-          { type: "alert", status: "info", title: "Message from the Green Room" },
-        )
+        await ctx.sendUserSystemMessage(userId, `hey here's your ${itemName} back`, {
+          type: "alert",
+          status: "info",
+          title: "Message from the Green Room",
+        })
       },
     })
 
@@ -75,7 +75,7 @@ export const GREEN_ROOM_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: items.buyout.shortId, coinValue: 25 },
     { shortId: items.vanCubby.shortId, coinValue: 80 },
     { shortId: items.gravityBong.shortId, coinValue: 50 },
-    { shortId: items.marsEgg.shortId, coinValue: 32 },
+    { shortId: items.privateBathroom.shortId, coinValue: 25 },
   ],
   listedBuybackRate: 0.1,
   unlistedBuybackRate: 0,

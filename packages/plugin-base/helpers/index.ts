@@ -31,6 +31,12 @@ export {
   countInterfaceBlurStacks,
   countInterfaceSaturateStacks,
 } from "./interfaceEffects"
+export {
+  CHAT_BUFFER_FLAG,
+  CHAT_BUFFER_MS_PER_STACK,
+  countChatBufferStacks,
+  getChatSendDelayMs,
+} from "./chatBuffer"
 export { ANONYMOUS_ACTIONS_FLAG, hasAnonymousActions } from "@repo/game-logic"
 export {
   NORMAL_INDEX,

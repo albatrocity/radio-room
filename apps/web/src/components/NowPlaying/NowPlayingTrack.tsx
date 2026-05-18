@@ -131,12 +131,13 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   const albumElementProps = usePluginElementProps(nowPlaying?.pluginData, "album")
   const artworkElementProps = usePluginElementProps(nowPlaying?.pluginData, "artwork")
 
+  const djUser = dj ?? nowPlaying?.addedBy ?? null
   const djUsername = useMemo(
     () =>
-      dj
-        ? users.find(({ userId }) => userId === dj.userId)?.username ?? dj?.username ?? null
+      djUser
+        ? users.find(({ userId }) => userId === djUser.userId)?.username ?? djUser?.username ?? null
         : null,
-    [users, dj],
+    [users, djUser],
   )
 
   const titleDisplay =
@@ -212,7 +213,7 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
               </Text>
             )}
 
-            <AddedByInfo dj={dj} djUsername={djUsername} addedAt={addedAt} />
+            <AddedByInfo dj={djUser} djUsername={djUsername} addedAt={addedAt} />
 
             <Box colorPalette="primary" color="colorPalette.contrast">
               <PluginArea area="nowPlayingInfo" />

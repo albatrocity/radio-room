@@ -3,6 +3,7 @@ import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 import { analogDelayPedal } from "./analog-delay-pedal"
 import { fuzzPedal } from "./fuzz-pedal"
 import { boostPedal } from "./boost-pedal"
+import { bufferPedal } from "./buffer-pedal"
 import { buyout } from "./buyout"
 import { carrots } from "./carrots"
 import { tomatoes } from "./tomatoes"
@@ -29,6 +30,8 @@ import { merchCashBox } from "./merch-cash-box"
 import { snoozePedal } from "./snooze-pedal"
 import { coffeePedal } from "./coffee-pedal"
 import { gravityBong } from "./gravity-bong"
+import { nineVoltBattery } from "./9v-battery"
+import { privateBathroom } from "./private-bathroom"
 import { echoTextEffect, sizeShiftTextEffect } from "./textEffects/sizeShift"
 import type {
   ItemUseHandler,
@@ -48,6 +51,7 @@ export const items = {
   tubeOverdrive,
   compressorPedal,
   boostPedal,
+  bufferPedal,
   gate,
   sampleHold,
   jokerPedal,
@@ -64,6 +68,7 @@ export const items = {
   marsEgg,
   disguise,
   p2pFileSharing,
+  nineVoltBattery,
   rubberBand,
   carrots,
   tomatoes,
@@ -72,6 +77,7 @@ export const items = {
   cucumberSlices,
   blueberries,
   lemons,
+  privateBathroom,
 } as const
 
 /**

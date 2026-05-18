@@ -1,5 +1,6 @@
 import { setup, assign } from "xstate"
 import { sortBy, uniqBy, reject, find } from "lodash/fp"
+import type { AdminAssignablePersona } from "@repo/types"
 import { User } from "../types/User"
 import { subscribeById, unsubscribeById } from "../actors/socketActor"
 
@@ -11,6 +12,7 @@ export interface UsersContext {
   listeners: User[]
   dj: User | null
   users: User[]
+  assignablePersonas: AdminAssignablePersona[]
   subscriptionId: string | null
 }
 
@@ -20,9 +22,15 @@ type UsersEvent =
   | { type: "USER_JOINED"; data: { users: User[] } }
   | { type: "USER_LEFT"; data: { users: User[] } }
   | { type: "KICK_USER"; data: { users: User[] } }
+  | { type: "PERSONA_ASSIGNED"; data: { users: User[] } }
+  | { type: "PERSONA_REMOVED"; data: { users: User[] } }
+  | {
+      type: "PERSONA_DEFINITIONS_UPDATED"
+      data: { assignablePersonas: AdminAssignablePersona[] }
+    }
   | { type: "SET_USERS"; data: { users: User[] } }
   | { type: "SET_DATA"; data: { users: User[] } }
-  | { type: "INIT"; data: { users: User[] } }
+  | { type: "INIT"; data: { users: User[]; assignablePersonas?: AdminAssignablePersona[] } }
 
 // ============================================================================
 // Machine
@@ -69,10 +77,22 @@ export const usersMachine = setup({
         return null
       },
     }),
+    setAssignablePersonas: assign({
+      assignablePersonas: ({ event }) => {
+        if (event.type === "INIT" && event.data.assignablePersonas) {
+          return event.data.assignablePersonas
+        }
+        if (event.type === "PERSONA_DEFINITIONS_UPDATED") {
+          return event.data.assignablePersonas
+        }
+        return []
+      },
+    }),
     resetUsers: assign({
       users: () => [],
       listeners: () => [],
       dj: () => null,
+      assignablePersonas: () => [],
       subscriptionId: () => null,
     }),
   },
@@ -83,6 +103,7 @@ export const usersMachine = setup({
     users: [],
     dj: null,
     listeners: [],
+    assignablePersonas: [],
     subscriptionId: null,
   },
   states: {
@@ -110,6 +131,15 @@ export const usersMachine = setup({
         KICK_USER: {
           actions: ["setUsers"],
         },
+        PERSONA_ASSIGNED: {
+          actions: ["setUsers"],
+        },
+        PERSONA_REMOVED: {
+          actions: ["setUsers"],
+        },
+        PERSONA_DEFINITIONS_UPDATED: {
+          actions: ["setAssignablePersonas"],
+        },
         SET_USERS: {
           actions: ["setUsers"],
         },
@@ -117,7 +147,7 @@ export const usersMachine = setup({
           actions: ["setUsers"],
         },
         INIT: {
-          actions: ["setUsers"],
+          actions: ["setUsers", "setAssignablePersonas"],
         },
       },
     },

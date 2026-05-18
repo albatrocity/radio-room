@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { userPersonaSchema } from "./Persona"
 
 // =============================================================================
 // User Schema & Type
@@ -14,6 +15,8 @@ export const userSchema = z.object({
   isDj: z.boolean().optional(),
   isDeputyDj: z.boolean().optional(),
   status: z.enum(["participating", "listening"]).optional(),
+  /** Session identity labels (VIP, plugin personas); hydrated at read time. */
+  personas: z.array(userPersonaSchema).optional(),
 })
 
 export type User = z.infer<typeof userSchema>

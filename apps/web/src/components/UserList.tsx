@@ -11,6 +11,7 @@ import {
   useDj,
   useListeners,
   useAdminSend,
+  useAssignablePersonas,
   useRoomCreator,
   useIsRoomCreator,
 } from "../hooks/useActors"
@@ -31,6 +32,7 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
   const adminSend = useAdminSend()
   const currentUser = useCurrentUser()
   const listeners = useListeners()
+  const assignablePersonas = useAssignablePersonas()
   const creator = useRoomCreator()
   const isCurrentUserRoomCreator = useIsRoomCreator()
   const dj = useDj()
@@ -60,6 +62,14 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
     (userId: User["userId"]) => adminSend({ type: "DESIGNATE_ADMIN", userId }),
     [adminSend],
   )
+
+  const handleTogglePersona = useCallback(
+    (userId: User["userId"], personaId: string) =>
+      adminSend({ type: "TOGGLE_PERSONA", userId, personaId }),
+    [adminSend],
+  )
+
+  const isAdmin = !!currentUser?.isAdmin
 
   // Memoize the filtered listeners list
   const otherListeners = useMemo(
@@ -120,9 +130,11 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
               userTyping={isTyping(x)}
               currentUser={currentUser}
               onEditUser={onEditUser}
-              onKickUser={handleKickUser}
+              onKickUser={isAdmin ? handleKickUser : undefined}
               onDeputizeDj={handleDeputizeDj}
               onDesignateAdmin={isCurrentUserRoomCreator ? handleDesignateAdmin : undefined}
+              assignablePersonas={isAdmin ? assignablePersonas : undefined}
+              onTogglePersona={isAdmin ? handleTogglePersona : undefined}
             />
           ))}
         </List.Root>

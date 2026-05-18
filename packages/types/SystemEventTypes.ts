@@ -101,6 +101,27 @@ export type SystemEventHandlers = {
 
   USER_KICKED: (data: { roomId: string; user: User; reason?: string }) => Promise<void> | void
 
+  PERSONA_ASSIGNED: (data: {
+    roomId: string
+    userId: string
+    personaId: string
+    user: User
+    users?: User[]
+  }) => Promise<void> | void
+
+  PERSONA_REMOVED: (data: {
+    roomId: string
+    userId: string
+    personaId: string
+    user: User
+    users?: User[]
+  }) => Promise<void> | void
+
+  PERSONA_DEFINITIONS_UPDATED: (data: {
+    roomId: string
+    assignablePersonas: { personaId: string; label: string; icon?: string }[]
+  }) => Promise<void> | void
+
   // Room events
   ROOM_DELETED: (data: { roomId: string }) => Promise<void> | void
 

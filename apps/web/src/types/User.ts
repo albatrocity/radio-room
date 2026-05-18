@@ -1,3 +1,5 @@
+import type { UserPersona } from "@repo/types"
+
 export interface User {
   userId: string
   username?: string
@@ -5,4 +7,5 @@ export interface User {
   isDj?: boolean
   isDeputyDj?: boolean
   status?: "participating" | "listening"
+  personas?: UserPersona[]
 }
