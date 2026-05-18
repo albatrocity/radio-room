@@ -186,12 +186,23 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
 
     let needsMetaRefresh = false
 
+    const matches: Partial<Record<GuessProperty, boolean>> = {}
+    for (const prop of propsToTry) {
+      matches[prop] = messageMatchesTarget(
+        message.content,
+        targets[prop],
+        config.fuzzyThreshold,
+      )
+    }
+
+    if (propsToTry.some((p) => matches[p] && revealedAll[`revealed:${p}`])) {
+      return
+    }
+
     for (const prop of propsToTry) {
       const field = `revealed:${prop}`
       if (revealedAll[field]) continue
-
-      const target = targets[prop]
-      if (!messageMatchesTarget(message.content, target, config.fuzzyThreshold)) continue
+      if (!matches[prop]) continue
 
       const revealedBy: RevealByPayload = {
         userId: message.user.userId,
@@ -200,7 +211,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
       }
 
       const didSet = await this.revealRoundProperty(rk, prop, revealedBy)
-      if (!didSet) continue
+      if (!didSet) return
       revealedAll[field] = JSON.stringify(revealedBy)
 
       const elapsed = Date.now() - startedAt
