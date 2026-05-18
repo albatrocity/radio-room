@@ -3,6 +3,7 @@ import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 import { analogDelayPedal } from "./analog-delay-pedal"
 import { fuzzPedal } from "./fuzz-pedal"
 import { boostPedal } from "./boost-pedal"
+import { bufferPedal } from "./buffer-pedal"
 import { buyout } from "./buyout"
 import { cateredMeal } from "./catered-meal"
 import { compressorPedal } from "./compressor-pedal"
@@ -43,6 +44,7 @@ export const items = {
   tubeOverdrive,
   compressorPedal,
   boostPedal,
+  bufferPedal,
   gate,
   sampleHold,
   jokerPedal,

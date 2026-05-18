@@ -13,6 +13,12 @@ export {
   countInterfaceBlurStacks,
   countInterfaceSaturateStacks,
 } from "./interfaceModifierStacks"
+export {
+  CHAT_BUFFER_FLAG,
+  CHAT_BUFFER_MS_PER_STACK,
+  countChatBufferStacks,
+  getChatSendDelayMs,
+} from "./chatBufferStacks"
 export * from "./shoppingSessionCatalog"
 export { textEffectStyles, type TextEffectStyleObject } from "./textEffectStyles"
 export { shuffleQueueItems } from "./shuffleQueueItems"

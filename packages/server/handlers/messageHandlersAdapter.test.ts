@@ -1,4 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from "vitest"
+import { CHAT_BUFFER_FLAG } from "@repo/game-logic"
 import { MessageHandlers } from "../handlers/messageHandlersAdapter"
 import { MessageService } from "../services/MessageService"
 import { makeSocketWithBroadcastMocks } from "../lib/testHelpers"
@@ -110,6 +111,51 @@ describe("MessageHandlers", () => {
         mentions: [],
         timestamp: "2023-01-01T00:00:00.000Z",
       }, expect.any(Object))
+    })
+
+    test("delays send when user has stacked chat_buffer modifiers", async () => {
+      vi.useFakeTimers()
+      const now = 1_700_000_000_000
+      vi.setSystemTime(now)
+
+      mockSocket.context.gameSessions = {
+        getUserState: vi.fn().mockResolvedValue({
+          userId: "1",
+          attributes: { score: 0, coin: 0 },
+          modifiers: [
+            {
+              id: "buf-1",
+              name: "buffer_pedal",
+              source: "item-shops",
+              stackBehavior: "stack",
+              startAt: now - 1000,
+              endAt: now + 300_000,
+              effects: [{ type: "flag", name: CHAT_BUFFER_FLAG, value: true, intent: "negative" }],
+            },
+            {
+              id: "buf-2",
+              name: "buffer_pedal",
+              source: "item-shops",
+              stackBehavior: "stack",
+              startAt: now - 1000,
+              endAt: now + 300_000,
+              effects: [{ type: "flag", name: CHAT_BUFFER_FLAG, value: true, intent: "negative" }],
+            },
+          ],
+        }),
+      }
+
+      const sendPromise = messageHandlers.newMessage(
+        { socket: mockSocket as any, io: mockIo as any },
+        "Hello world",
+      )
+
+      expect(sendMessage).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(2000)
+      await sendPromise
+
+      expect(sendMessage).toHaveBeenCalled()
+      vi.useRealTimers()
     })
   })
 
