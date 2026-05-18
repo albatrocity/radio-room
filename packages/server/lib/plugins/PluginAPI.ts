@@ -128,7 +128,7 @@ export class PluginAPIImpl implements PluginAPI {
       return
     }
 
-    const nextItem = await popNextFromQueue({ context: this.context, roomId })
+    const nextItem: QueueItem | null = await popNextFromQueue({ context: this.context, roomId })
 
     // App queue is authoritative, but with nothing queued fall back to Spotify skip.
     if (!nextItem) {
@@ -236,15 +236,11 @@ export class PluginAPIImpl implements PluginAPI {
     roomId: string,
     metadataTrackId: string,
     options?: { addedBy?: QueueItemAttribution; runPluginValidation?: boolean },
-  ): Promise<
-    | { success: true; queuedItem: QueueItem }
-    | { success: false; message: string }
-  > {
-    const attribution: QueueItemAttribution =
-      options?.addedBy ?? {
-        type: "plugin",
-        pluginName: this.pluginName ?? "unknown-plugin",
-      }
+  ): Promise<{ success: true; queuedItem: QueueItem } | { success: false; message: string }> {
+    const attribution: QueueItemAttribution = options?.addedBy ?? {
+      type: "plugin",
+      pluginName: this.pluginName ?? "unknown-plugin",
+    }
 
     const { DJService } = await import("../../services/DJService")
     const djService = new DJService(this.context)

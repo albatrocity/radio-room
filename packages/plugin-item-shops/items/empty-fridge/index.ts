@@ -1,4 +1,4 @@
-import type { ItemDefinition, ItemUseResult } from "@repo/types"
+import type { ItemDefinition, ItemUseResult, QueueItem, User } from "@repo/types"
 import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
@@ -36,6 +36,14 @@ export const emptyFridge = createItem({
       return { success: false, consumed: false, message: "Select a track to demote." }
     }
 
+    const targetedItem = await context.api
+      .getQueue(context.roomId)
+      .then((queue) => queue.find((item) => item.track.id === targetQueueItemId))
+
+    if (!targetedItem) {
+      return { success: false, consumed: false, message: "Targeted track not found in queue." }
+    }
+
     const result = await context.api.moveTrackByPosition(
       context.roomId,
       targetQueueItemId,
@@ -56,11 +64,15 @@ export const emptyFridge = createItem({
       return { success: false, consumed: false, message: result.message }
     }
 
+    const [attackedUser] = targetedItem.addedBy
+      ? await deps.context.api.getUsersByIds([targetedItem.addedBy?.userId])
+      : [undefined]
+
     const displayName = await resolveItemUseActorDisplayName(deps, userId)
-    await context.api.sendSystemMessage(
-      context.roomId,
-      `${displayName} used Empty Fridge to demote a track!`,
-    )
+
+    const message = makeMessage(displayName, attackedUser, targetedItem, userId)
+
+    await context.api.sendSystemMessage(context.roomId, message)
 
     return {
       success: true,
@@ -69,3 +81,20 @@ export const emptyFridge = createItem({
     }
   },
 })
+
+function makeMessage(
+  displayName: string,
+  attackedUser: User | undefined,
+  targetedItem: QueueItem,
+  userId: string,
+): string {
+  if (attackedUser) {
+    if (attackedUser.userId === userId) {
+      return `${displayName} used Empty Fridge to demote their own track, "${targetedItem.track.title}"!`
+    }
+
+    return `${displayName} used Empty Fridge to demote ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
+  }
+
+  return `${displayName} used Empty Fridge to demote a track, "${targetedItem.track.title}"!`
+}

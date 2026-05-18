@@ -1,4 +1,4 @@
-import type { ItemDefinition, ItemUseResult } from "@repo/types"
+import type { ItemDefinition, ItemUseResult, QueueItem, User } from "@repo/types"
 import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
@@ -36,6 +36,14 @@ export const hummusVeggies = createItem({
       return { success: false, consumed: false, message: "Select a track to promote." }
     }
 
+    const targetedItem = await context.api
+      .getQueue(context.roomId)
+      .then((queue) => queue.find((item) => item.track.id === targetQueueItemId))
+
+    if (!targetedItem) {
+      return { success: false, consumed: false, message: "Targeted track not found in queue." }
+    }
+
     const result = await context.api.moveTrackByPosition(
       context.roomId,
       targetQueueItemId,
@@ -56,11 +64,15 @@ export const hummusVeggies = createItem({
       return { success: false, consumed: false, message: result.message }
     }
 
+    const [attackedUser] = targetedItem.addedBy
+      ? await deps.context.api.getUsersByIds([targetedItem.addedBy?.userId])
+      : [undefined]
+
     const displayName = await resolveItemUseActorDisplayName(deps, userId)
-    await context.api.sendSystemMessage(
-      context.roomId,
-      `Yum! ${displayName} ate Hummus & Veggies and promoted a track!`,
-    )
+
+    const message = makeMessage(displayName, attackedUser, targetedItem, userId)
+
+    await context.api.sendSystemMessage(context.roomId, message)
 
     return {
       success: true,
@@ -69,3 +81,20 @@ export const hummusVeggies = createItem({
     }
   },
 })
+
+function makeMessage(
+  displayName: string,
+  attackedUser: User | undefined,
+  targetedItem: QueueItem,
+  userId: string,
+): string {
+  if (attackedUser) {
+    if (attackedUser.userId === userId) {
+      return `Yum! ${displayName} ate Hummus & Veggies and promoted their own track, "${targetedItem.track.title}"!`
+    }
+
+    return `Yum! ${displayName} ate Hummus & Veggies and promoted ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
+  }
+
+  return `Yum! ${displayName} ate Hummus & Veggies and promoted a track, "${targetedItem.track.title}"!`
+}

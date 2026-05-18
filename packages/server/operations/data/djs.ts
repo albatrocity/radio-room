@@ -272,7 +272,7 @@ export async function getQueue({ roomId, context }: { roomId: string; context: A
 
     const trackIds = await context.redis.pubClient.zRange(queueOrderKey(roomId), 0, -1)
 
-    const queueItems = await Promise.all(
+    const queueItems: QueueItem[] | null[] = await Promise.all(
       trackIds.map(async (trackId) => {
         try {
           const value = await context.redis.pubClient.get(`room:${roomId}:queued_track:${trackId}`)
