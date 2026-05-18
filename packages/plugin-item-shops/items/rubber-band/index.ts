@@ -42,7 +42,7 @@ const rubberBandOnDefenseTriggered: DefenseTriggeredHandler = async (
   }
 
   return {
-    attackerMessage: `${defenseName}: the effect hit you instead of ${roomDefenderName}.`,
+    attackerMessage: `${defenseName}: ${roomDefenderName} is rubber and you are glue. Effect bounced back onto you!`,
     roomMessage: `${roomDefenderName}'s ${defenseName} bounced ${roomAttackerName}'s "${itemLabel}" back onto ${roomAttackerName}.`,
   }
 }
@@ -52,7 +52,7 @@ export const rubberBand = createItem({
   definition: {
     name: "Rubber Band",
     description:
-      "When another player uses an item-shops effect on you, this is spent and the effect applies to them instead.",
+      "YOU ARE RUBBER. THEY ARE GLUE. WHATEVER EFFECTS THEY USE BOUNCE OFF OF YOU... AND STICK TO THEM >:)",
     stackable: true,
     maxStack: 3,
     tradeable: true,

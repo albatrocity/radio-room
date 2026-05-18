@@ -45,7 +45,7 @@ export const p2pFileSharing = createItem({
   shortId: "p2p-file-sharing",
   definition: {
     name: "P2P File Sharing",
-    description: "Blocks the next incoming item effect and adds the item to your inventory.",
+    description: "HA HA. STEAL THE NEXT ITEM USED ON YOU, IGNORE ITS EFFECTS AND KEEP IT FOR YOURSELF >:)",
     stackable: true,
     maxStack: 3,
     tradeable: true,

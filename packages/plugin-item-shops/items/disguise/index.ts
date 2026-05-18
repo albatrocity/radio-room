@@ -8,7 +8,7 @@ export const disguise = createItem({
   shortId: "disguise",
   definition: {
     name: "Disguise",
-    description: "Protects your identity when using items for a limited time.",
+    description: "HEY YOU! OH SORRY, I THOUGHT YOU WERE SOMEONE ELSE... HIDE YOUR USERNAME WHEN USING ITEMS FOR A LIMITED TIME.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
@@ -30,7 +30,7 @@ export const disguise = createItem({
         durationMs: FIVE_MIN_MS,
       },
     ],
-    successMessage: "You donned a disguise. It was lost with use.",
-    describe: () => `Someone went anonymous`,
+    successMessage: "You donned a disguise. You hardly recognize yourself! It was lost with use.",
+    describe: () => `Someone put on a disguise and became unrecognizable.`,
   }),
 })

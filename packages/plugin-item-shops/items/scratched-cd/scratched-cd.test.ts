@@ -76,7 +76,7 @@ describe("scratchedCd", () => {
     expect(result.success).toBe(true)
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
-      "Someone used a Scratched CD and skipped the current track!",
+      "Someone put in a Scratched CD and skipped the current track!",
     )
   })
 

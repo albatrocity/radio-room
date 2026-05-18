@@ -93,6 +93,8 @@ effects: [
 
 Kinds are registered in **`TEXT_EFFECT_KINDS`** in `packages/plugin-item-shops/items/index.ts`. Each kind picks a **phase**, **activation** (`activeWhen`: flag name or `(stacks) => boolean`), and **scope** (whole message vs per-word; use **`WordContext`** to target a single word).
 
+**Multiple `segment` kinds:** They compose in registration/`order` sequence: the first active segment kind splits the word; each later active segment kind runs on every segment’s `text` and may subdivide further, prepending the parent segment’s effects onto each child. Returning `null` for a substring leaves that segment unchanged. See [ADR 0056](adrs/0056-segment-phase-pipeline-merge.md).
+
 **Example 1 — word mutation (Coffee Pedal pattern)**
 
 Self-contained items declare their flag as a local `const` and pair it with their `TextEffectKind` in the same file. The flag is wired to the timed modifier via `timedModifierEffect` below; nothing outside this file needs the constant.
@@ -137,6 +139,32 @@ export const orangeLetterTextEffect: TextEffectKind = {
     return out.length ? out : null
   },
 }
+
+
+export const RED_LETTER_FLAG = "red_letter"
+
+export const redLetterTextEffect: TextEffectKind = {
+  phase: "segment",
+  activeWhen: RED_LETTER_FLAG,
+  build: (word, stacks) => {
+    const count = Math.min(3, Math.max(1, stacks[RED_LETTER_FLAG] ?? 0)) as 1 | 2 | 3
+    const token = TOKEN_BY_STACK[count]
+    const out: TextSegment[] = []
+    let buf = ""
+    for (const ch of word) {
+      if (ch === "o" || ch === "O") {
+        if (buf) out.push({ text: buf })
+        out.push({ text: ch, effects: [{ type: "color", palette: "red", token }] })
+        buf = ""
+      } else {
+        buf += ch
+      }
+    }
+    if (buf) out.push({ text: buf })
+    return out.length ? out : null
+  },
+}
+
 ```
 
 **Example 3 — content-scoped word picking (`WordContext`)**
@@ -158,7 +186,7 @@ export const highlightLongestTextEffect: TextEffectKind = {
 }
 ```
 
-**Applying a font family.** Emit `{ type: "font", value: <family> }` from a `decorate` or `segment` phase kind. Whole-message fonts use `decorate` (every word inherits); per-word or per-letter fonts use `segment` with **`WordContext`**. Echo segments automatically inherit **non-`size`** effects from the base word segment, so fonts (and colors from decorate) propagate without wiring echo to item-specific flags. Available values today: `comicSans`, `monospace`, `serif`, `papyrus` — extend the enum in **`packages/types/ChatMessage.ts`** and add a CSS stack in **`packages/game-logic/src/textEffectStyles.ts`** (`fontFamilyFor`).
+**Applying a font family.** Emit `{ type: "font", value: <family> }` from a `decorate` or `segment` phase kind. Whole-message fonts use `decorate` (every word inherits); per-word or per-letter fonts use `segment` with **`WordContext`**. **`echoTextEffect`** (Analog Delay, etc.) mirrors each base word segment after segmentation, so each echoed letter keeps the same non-`size` effects as the original (fonts, per-letter colors). Available values today: `comicSans`, `monospace`, `serif`, `papyrus` — extend the enum in **`packages/types/ChatMessage.ts`** and add a CSS stack in **`packages/game-logic/src/textEffectStyles.ts`** (`fontFamilyFor`).
 
 ### Timed modifier durations (`timedModifierEffect`)
 

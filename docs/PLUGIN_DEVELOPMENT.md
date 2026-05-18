@@ -74,7 +74,7 @@ This guide explains how to create plugins for Listening Room. Plugins extend roo
 4. **Type-Safe**: Full TypeScript support with Zod schema validation
 5. **Sandboxed Storage**: Redis storage namespaced by plugin and room
 6. **Optional Global Game State**: Core services expose `context.game` (sessions, score/coin, modifiers, leaderboards) and `context.inventory` (cross-plugin items). Use these when you want shared economy or UI across plugins; keep plugin-local sorted sets when scores should stay private to one plugin.
-7. **User Personas**: Core `context.personas` exposes session identity labels (VIP, Judge, etc.) with badges in the listener list and chat. See [User Personas](#user-personas) and [ADR 0056](adrs/0056-user-personas-system.md).
+7. **User Personas**: Core `context.personas` exposes session identity labels (VIP, Judge, etc.) with badges in the listener list and chat. See [User Personas](#user-personas) and [ADR 0057](adrs/0057-user-personas-system.md).
 
 ## Quick Start
 
@@ -1615,7 +1615,7 @@ this.inventory.registerItemDefinitions([
 
 ### User personas (`this.personas`)
 
-Personas are **identity labels** ("who is this person?") — not gameplay modifiers. Platform **VIP** is assigned by room admins; plugins register and assign their own labels. See [ADR 0056](adrs/0056-user-personas-system.md).
+Personas are **identity labels** ("who is this person?") — not gameplay modifiers. Platform **VIP** is assigned by room admins; plugins register and assign their own labels. See [ADR 0057](adrs/0057-user-personas-system.md).
 
 **Personas vs modifiers:** use a persona for roles like Judge or Host; use `this.game.applyModifier` for timed effects like Cursed or Double Points.
 

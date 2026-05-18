@@ -5,15 +5,21 @@ import { fuzzPedal } from "./fuzz-pedal"
 import { boostPedal } from "./boost-pedal"
 import { bufferPedal } from "./buffer-pedal"
 import { buyout } from "./buyout"
+import { carrots } from "./carrots"
+import { tomatoes } from "./tomatoes"
 import { cateredMeal } from "./catered-meal"
 import { compressorPedal } from "./compressor-pedal"
+import { lemons } from "./lemons"
 import { emptyFridge } from "./empty-fridge"
 import { gate } from "./gate"
 import { hummusVeggies } from "./hummus-veggies"
+import { lychees } from "./lychees"
 import { jokerPedal } from "./joker-pedal"
 import { marsEgg } from "./mars-egg"
+import { cucumberSlices } from "./cucumber-slices"
 import { sampleHold } from "./sample-hold"
 import { p2pFileSharing } from "./p2p-file-sharing"
+import { blueberries } from "./blueberries"
 import { rubberBand } from "./rubber-band"
 import { disguise } from "./disguise"
 import { scratchedCd } from "./scratched-cd"
@@ -32,6 +38,7 @@ import type {
   DefenseTriggeredHandler,
   ItemSellbackValueHandler,
 } from "./shared/types"
+import { greenPeas } from "./green-peas"
 
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
@@ -63,6 +70,13 @@ export const items = {
   p2pFileSharing,
   nineVoltBattery,
   rubberBand,
+  carrots,
+  tomatoes,
+  greenPeas,
+  lychees,
+  cucumberSlices,
+  blueberries,
+  lemons,
   privateBathroom,
 } as const
 

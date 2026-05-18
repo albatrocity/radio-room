@@ -6,7 +6,7 @@ export const gravityBong = createItem({
   shortId: "gravity-bong",
   definition: {
     name: "Gravity Bong",
-    description: "Shuffles the queue",
+    description: "*cough cough* Hey dude, you want a hit of this thing? Shuffles entire queue.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
@@ -33,7 +33,7 @@ export const gravityBong = createItem({
     const displayName = await resolveItemUseActorDisplayName(deps, userId)
     await deps.context.api.sendSystemMessage(
       deps.context.roomId,
-      `${displayName} used ${definition.name} and shuffled the queue!`,
+      `*cough cough* Woah... ${displayName} took a huge rip of the ${definition.name} and shuffled the queue!`,
     )
 
     return { success: true, consumed: true, message: "Queue shuffled!" }

@@ -3,9 +3,9 @@ import { items } from "../../items"
 
 export const SPY_WORLD_SHOP: ItemShopsShopCatalogEntry = {
   shopId: "spy-world",
-  name: "Spy World",
+  name: "SPY WORLD",
   openingMessage:
-    "Welcome to {{shopName}} — discretion is our specialty. Off-the-record essentials only.",
+    "THE EYE IN THE SKY IS WATCHING... TAKE REFUGE IN {{shopName}}",
   availableItems: [
     { shortId: items.disguise.shortId, coinValue: 30 },
     { shortId: items.p2pFileSharing.shortId, coinValue: 30 },

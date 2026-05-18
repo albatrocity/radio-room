@@ -6,7 +6,7 @@ export const hummusVeggies = createItem({
   shortId: "hummus-veggies",
   definition: {
     name: "Hummus & Veggies",
-    description: "Move any song up 1 position in the queue.",
+    description: "Hey, not bad. Move any song up 1 position in the queue.",
     stackable: true,
     maxStack: 3,
     tradeable: true,

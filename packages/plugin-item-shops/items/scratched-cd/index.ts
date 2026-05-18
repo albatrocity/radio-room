@@ -6,7 +6,7 @@ export const scratchedCd = createItem({
   shortId: "scratched-cd",
   definition: {
     name: "Scratched CD",
-    description: "Skip the currently playing song instantly.",
+    description: "It's in pretty bad shape. You can't even read the name of the artist clearly. Skips whatever song is currently playing.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
@@ -39,7 +39,7 @@ export const scratchedCd = createItem({
     const displayName = await resolveItemUseActorDisplayName(deps, userId)
     await context.api.sendSystemMessage(
       context.roomId,
-      `${displayName} used a ${definition.name} and skipped the current track!`,
+      `${displayName} put in a ${definition.name} and skipped the current track!`,
     )
     return { success: true, consumed: true, message: "Used Scratched CD. It was lost with use." }
   },

@@ -27,12 +27,31 @@ export type AddItemDrawerProps = {
   onOpenChange: (open: boolean) => void
 }
 
+function shortIdFromAvailable(available: string | { shortId: string }): string {
+  return typeof available === "string" ? available : available.shortId
+}
+
 export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) {
   const { ITEM_CATALOG, SHOP_CATALOG } = studioActions.catalogExports()
 
   const catalogMap = useMemo(
     () => new Map(ITEM_CATALOG.map((entry) => [entry.definition.shortId, entry])),
     [ITEM_CATALOG],
+  )
+
+  const listedInAnyShopShortIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const shop of SHOP_CATALOG) {
+      for (const available of shop.availableItems) {
+        ids.add(shortIdFromAvailable(available))
+      }
+    }
+    return ids
+  }, [SHOP_CATALOG])
+
+  const unlistedCatalogEntries = useMemo(
+    () => ITEM_CATALOG.filter((e) => !listedInAnyShopShortIds.has(e.definition.shortId)),
+    [ITEM_CATALOG, listedInAnyShopShortIds],
   )
 
   const defaultUserId = useMemo(
@@ -133,8 +152,7 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
                           <Stack key={shop.shopId} gap="2">
                             <Stack gap="4" separator={<Separator />}>
                               {shop.availableItems.map((available) => {
-                                const shortId =
-                                  typeof available === "string" ? available : available.shortId
+                                const shortId = shortIdFromAvailable(available)
                                 const cat = catalogMap.get(shortId)
                                 const label = cat?.definition.name ?? shortId
                                 const desc = cat?.definition.description
@@ -169,6 +187,59 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
                         </Card.Body>
                       </Card.Root>
                     ))}
+
+                    <Card.Root>
+                      <Card.Header>
+                        <Heading size="lg" color="fg.muted">
+                          Unlisted
+                        </Heading>
+                        <Text fontSize="xs" color="fg.muted">
+                          Items not listed in any shop.
+                        </Text>
+                      </Card.Header>
+                      <Card.Body>
+                        {unlistedCatalogEntries.length === 0 ? (
+                          <Text fontSize="sm" color="fg.muted">
+                            Every catalog item appears in at least one shop.
+                          </Text>
+                        ) : (
+                          <Stack gap="2">
+                            <Stack gap="4" separator={<Separator />}>
+                              {unlistedCatalogEntries.map((cat) => {
+                                const shortId = cat.definition.shortId
+                                const label = cat.definition.name ?? shortId
+                                const desc = cat.definition.description
+                                return (
+                                  <HStack key={shortId} justify="space-between" align="flex-start">
+                                    <Stack gap="1" flex="1" minW="0">
+                                      <Text fontSize="sm" fontWeight="medium">
+                                        {label}
+                                      </Text>
+                                      {desc ? (
+                                        <Text fontSize="xs" color="fg.muted">
+                                          {desc}
+                                        </Text>
+                                      ) : null}
+                                    </Stack>
+                                    <Button
+                                      size="xs"
+                                      variant="surface"
+                                      onClick={() =>
+                                        void toastAction(`Give ${label}`, () =>
+                                          studioActions.giveItemDirect(giveRecipient, shortId),
+                                        )
+                                      }
+                                    >
+                                      Give
+                                    </Button>
+                                  </HStack>
+                                )
+                              })}
+                            </Stack>
+                          </Stack>
+                        )}
+                      </Card.Body>
+                    </Card.Root>
                   </Stack>
                 </Tabs.Content>
 

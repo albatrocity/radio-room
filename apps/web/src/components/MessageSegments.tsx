@@ -9,7 +9,9 @@ type InlinePiece = { effects?: TextEffect[]; text: string }
 type Row = { type: "inline"; items: InlinePiece[] } | { type: "image"; src: string; alt: string }
 
 function segmentsToRows(segments: TextSegment[]): Row[] {
-  const pieces: Array<{ type: "inline"; piece: InlinePiece } | { type: "image"; src: string; alt: string }> = []
+  const pieces: Array<
+    { type: "inline"; piece: InlinePiece } | { type: "image"; src: string; alt: string }
+  > = []
 
   for (const seg of segments) {
     for (const chunk of splitMarkdownImages(seg.text)) {
@@ -49,17 +51,14 @@ export function MessageSegments({ segments }: { segments: TextSegment[] }) {
     <Stack gap={0.5} align="stretch" w="100%" minW={0}>
       {rows.map((row, i) =>
         row.type === "inline" ? (
-          <Box
-            key={i}
-            display="flex"
-            flexWrap="wrap"
-            alignItems="baseline"
-            justifyContent="flex-start"
-            gap={0.5}
-          >
+          <Box key={i}>
             {row.items.map((item, j) => (
-              <Box as="span" key={j} css={textEffectStyles(item.effects)} verticalAlign="baseline">
-                <ParsedEmojiMessage content={item.text} inlineParagraphs />
+              <Box as="span" key={j} css={textEffectStyles(item.effects)}>
+                {/^\s+$/.test(item.text) ? (
+                  item.text
+                ) : (
+                  <ParsedEmojiMessage content={item.text} inlineParagraphs />
+                )}
               </Box>
             ))}
           </Box>
