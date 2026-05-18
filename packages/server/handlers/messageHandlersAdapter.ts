@@ -1,7 +1,10 @@
+import { getChatSendDelayMs } from "@repo/game-logic"
 import { HandlerConnections } from "@repo/types/HandlerConnections"
 import { MessageService } from "../services/MessageService"
 import sendMessage from "../lib/sendMessage"
+import { expirableChatMessage } from "../lib/systemMessage"
 import { AppContext } from "@repo/types"
+import type { GameSessionService } from "../services/GameSessionService"
 
 /**
  * Message payload - supports both simple string and object format
@@ -17,11 +20,19 @@ export type MessagePayload =
  * Socket.io adapter for the MessageService
  * This layer is thin and just connects Socket.io events to our business logic service
  */
+async function resolveChatSendDelayMs(
+  context: AppContext,
+  roomId: string,
+  userId: string,
+): Promise<number> {
+  const gameSessions = context.gameSessions as GameSessionService | undefined
+  if (!gameSessions) return 0
+  const state = await gameSessions.getUserState(roomId, userId)
+  return getChatSendDelayMs(state?.modifiers, Date.now())
+}
+
 export class MessageHandlers {
-  constructor(
-    private messageService: MessageService,
-    private context: AppContext,
-  ) {}
+  constructor(private messageService: MessageService) {}
 
   /**
    * Handle a new message event from Socket.io
@@ -31,14 +42,39 @@ export class MessageHandlers {
     const { roomId, userId, username } = socket.data
 
     if (!roomId) {
-      console.warn("[MessageHandler] SEND_MESSAGE dropped: no roomId on socket (client should re-LOGIN after reconnect)", {
-        socketId: socket.id,
-      })
+      console.warn(
+        "[MessageHandler] SEND_MESSAGE dropped: no roomId on socket (client should re-LOGIN after reconnect)",
+        {
+          socketId: socket.id,
+        },
+      )
       return
     }
 
     // Normalize the message payload
     const content = typeof message === "string" ? message : message.content
+
+    const sendDelayMs = await resolveChatSendDelayMs(socket.context, roomId, userId)
+    if (sendDelayMs > 0) {
+      const preview = expirableChatMessage(
+        { userId, username: username ?? userId },
+        content,
+        sendDelayMs,
+        {
+          contentSegments: [
+            {
+              text: content,
+              effects: [{ type: "color", palette: "gray", token: "muted" }],
+            },
+          ],
+        },
+      )
+      socket.emit("event", {
+        type: "MESSAGE_RECEIVED",
+        data: { roomId, message: preview },
+      })
+      await new Promise((resolve) => setTimeout(resolve, sendDelayMs))
+    }
 
     const result = await this.messageService.processNewMessage(roomId, userId, username, content)
 
@@ -112,5 +148,5 @@ export class MessageHandlers {
  */
 export function createMessageHandlers(context: AppContext) {
   const messageService = new MessageService(context)
-  return new MessageHandlers(messageService, context)
+  return new MessageHandlers(messageService)
 }

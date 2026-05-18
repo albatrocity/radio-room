@@ -14,4 +14,8 @@ export type ChatMessage = {
     type?: "alert" | null
     title?: string | null
   }
+  /** Unix epoch (ms) when this message should be hidden (ephemeral / sender-only previews). */
+  expiresAt?: number
+  /** Unix epoch (ms) when this ephemeral message was created (pairs with expiresAt for progress bar). */
+  createdAt?: number
 }

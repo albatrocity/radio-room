@@ -1,4 +1,4 @@
-import React, { memo, useState, useCallback } from "react"
+import React, { memo, useState, useCallback, useMemo } from "react"
 import {
   Box,
   Flex,
@@ -26,6 +26,7 @@ import type { TextSegment } from "@repo/types"
 import { useIsAdmin, useBookmarks, useBookmarksSend, useChatSend } from "../hooks/useActors"
 import { getChatPersonaBadges } from "../lib/userPersonas"
 import { PersonaBadge } from "./PersonaBadge"
+import { ExpiryBar } from "./ExpiryBar"
 
 export interface ChatMessageProps {
   content: string
@@ -36,6 +37,10 @@ export interface ChatMessageProps {
   currentUserId: string
   showUsername?: boolean
   anotherUserMessage?: boolean
+  /** When set, message is a sender-only preview until this time (ms since epoch). */
+  expiresAt?: number
+  /** When set, used for progress bar timing (pairs with expiresAt). */
+  createdAt?: number
 }
 
 const ChatMessage = ({
@@ -47,7 +52,15 @@ const ChatMessage = ({
   currentUserId,
   showUsername = false,
   anotherUserMessage = false,
+  expiresAt,
+  createdAt: createdAtProp,
 }: ChatMessageProps) => {
+  // Use createdAt prop if available (for expirable messages), otherwise parse from timestamp
+  const createdAt = useMemo(
+    () => createdAtProp ?? new Date(timestamp).getTime(),
+    [createdAtProp, timestamp],
+  )
+
   const currentIsAdmin = useIsAdmin()
   const chatSend = useChatSend()
   const bookmarkSend = useBookmarksSend()
@@ -188,13 +201,25 @@ const ChatMessage = ({
         </Box>
       </Wrap>
 
-      <ReactionCounter
-        reactTo={{ type: "message", id: timestamp }}
-        showAddButton={alwaysShowReactionPicker || hovered}
-        buttonColorScheme="primary"
-        buttonVariant="ghost"
-        reactionVariant="reactionBright"
-      />
+      {expiresAt != null && !Number.isNaN(createdAt) && expiresAt > createdAt && (
+        <ExpiryBar
+          startAt={createdAt}
+          endAt={expiresAt}
+          color="gray.500"
+          orientation="horizontal"
+          height="3px"
+        />
+      )}
+
+      {expiresAt == null && (
+        <ReactionCounter
+          reactTo={{ type: "message", id: timestamp }}
+          showAddButton={alwaysShowReactionPicker || hovered}
+          buttonColorScheme="primary"
+          buttonVariant="ghost"
+          reactionVariant="reactionBright"
+        />
+      )}
 
       <ConfirmationDialog
         open={isDeleteDialogOpen}

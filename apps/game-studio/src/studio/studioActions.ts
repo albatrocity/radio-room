@@ -1,5 +1,6 @@
 import type { ChatMessage, Emoji, PluginActionInitiator, ReactionSubject, User } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
+import { getChatSendDelayMs } from "@repo/game-logic"
 import { BasePlugin } from "@repo/plugin-base"
 import { SHOP_CATALOG, ITEM_CATALOG } from "@repo/plugin-item-shops"
 import { cloneSampleQueueItem, getSampleQueueTemplates } from "./studioSampleQueue"
@@ -8,6 +9,7 @@ import { STUDIO_PREVIEW_VIEW_AS_USER_KEY, STUDIO_SESSION_AFTER_RESET_KEY } from 
 import { clearPersistedSnapshot, detachStudioPersistence } from "./studioPersistence"
 import { getStudio } from "./studioEnvironment"
 import { readShoppingInstance } from "./studioShoppingRead"
+import { pruneUserModifiers } from "./userStateHelpers"
 
 /** Lets studio-bridge notify Listening Room tabs after sandbox queue mutation (fire-and-forget). */
 async function notifyBridgeQueueRemoveResult(
@@ -269,6 +271,32 @@ export async function sendChatAsUser(userId: string, content: string): Promise<v
   const { room, itemShopsPlugin } = getStudio()
   const user = room.users.get(userId)
   if (!user) return
+
+  const now = Date.now()
+  const rawState = room.getUserState(userId)
+  const sendDelayMs = rawState
+    ? getChatSendDelayMs(pruneUserModifiers(rawState, now).modifiers, now)
+    : 0
+
+  if (sendDelayMs > 0) {
+    const createdAt = Date.now()
+    const preview: ChatMessage = {
+      content,
+      timestamp: new Date(createdAt).toISOString(),
+      user,
+      expiresAt: createdAt + sendDelayMs,
+      createdAt,
+      contentSegments: [
+        {
+          text: content,
+          effects: [{ type: "color", palette: "gray", token: "muted" }],
+        },
+      ],
+    }
+    room.appendChat(preview)
+    await new Promise((resolve) => setTimeout(resolve, sendDelayMs))
+  }
+
   let message: ChatMessage = {
     content,
     timestamp: new Date().toISOString(),

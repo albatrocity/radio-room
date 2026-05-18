@@ -145,22 +145,44 @@ export const usePasswordError = () => {
 // Stable empty array for selector fallback
 const EMPTY_MESSAGES: ChatMessage[] = []
 
-// Cache for sorted messages
+// Cache for sorted messages (invalidated when messages change or expiry bucket ticks)
 let cachedMessages: ChatMessage[] = EMPTY_MESSAGES
 let cachedSorted: ChatMessage[] = EMPTY_MESSAGES
+let cachedExpiryBucket = -1
+let cachedHasExpirable = false
 
 export const useChatMessages = () => {
   return useSelector(chatActor, (s) => s.context.messages ?? EMPTY_MESSAGES)
 }
 
 export const useSortedChatMessages = () => {
+  const now = useSelector(sharedTickerActor, (s) => s.context.now)
+  const expiryBucket = Math.floor(now / 1000)
+
   return useSelector(chatActor, (s) => {
     const messages = s.context.messages ?? EMPTY_MESSAGES
-    // Only re-sort if the messages array reference has changed
+
+    // Recalculate when messages change
     if (messages !== cachedMessages) {
       cachedMessages = messages
-      cachedSorted = [...messages].sort(sortByTimestamp)
+      cachedExpiryBucket = expiryBucket
+      cachedHasExpirable = messages.some((m) => m.expiresAt != null)
+      cachedSorted = cachedHasExpirable
+        ? [...messages].filter((m) => m.expiresAt == null || m.expiresAt > now).sort(sortByTimestamp)
+        : [...messages].sort(sortByTimestamp)
+      return cachedSorted
     }
+
+    // Only recalculate on tick if there are expirable messages to expire
+    if (cachedHasExpirable && expiryBucket !== cachedExpiryBucket) {
+      cachedExpiryBucket = expiryBucket
+      cachedSorted = [...messages]
+        .filter((m) => m.expiresAt == null || m.expiresAt > now)
+        .sort(sortByTimestamp)
+      // Update flag in case all expirable messages are now gone
+      cachedHasExpirable = cachedSorted.some((m) => m.expiresAt != null)
+    }
+
     return cachedSorted
   })
 }

@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest"
 import { userFactory } from "@repo/factories"
+import { CHAT_BUFFER_FLAG } from "@repo/plugin-base"
 import { SHRINK_FLAG } from "../textEffects/sizeShift"
 import { privateBathroom } from "./index"
 import {
@@ -52,7 +53,7 @@ describe("privateBathroom", () => {
     expect(deps.game.removeModifier).toHaveBeenCalledWith(actor.userId, "mod-shrink")
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
-      expect.stringContaining("slipped into the Private Bathroom"),
+      expect.stringContaining("escaped to the oasis of a Private Bathroom"),
     )
   })
 
@@ -93,7 +94,7 @@ describe("privateBathroom", () => {
     expect(deps.game.removeModifier).toHaveBeenCalledWith(target.userId, "mod-gate")
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
-      expect.stringMatching(/ushered .* into the Private Bathroom/),
+      expect.stringMatching(/directed .* to the Private Bathroom/),
     )
   })
 
@@ -114,6 +115,38 @@ describe("privateBathroom", () => {
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(false)
     expect(deps.game.removeModifier).not.toHaveBeenCalled()
+  })
+
+  test("clears buffer_pedal chat_buffer debuff", async () => {
+    const deps = createMockDeps()
+    const actor = userFactory.build()
+    stubRoomUsers(deps, [actor])
+
+    vi.mocked(deps.game.getUserState).mockResolvedValue({
+      userId: actor.userId,
+      attributes: { score: 0, coin: 0 },
+      modifiers: [
+        {
+          id: "mod-buffer",
+          name: "buffer_pedal",
+          source: "item-shops",
+          stackBehavior: "stack",
+          startAt: 0,
+          endAt: Date.now() + 300_000,
+          effects: [{ type: "flag", name: CHAT_BUFFER_FLAG, value: true, intent: "negative" }],
+        },
+      ],
+    })
+
+    const result = await invokeUse(
+      privateBathroom,
+      deps,
+      actor.userId,
+      createMockDefinition(privateBathroom.shortId),
+    )
+
+    expect(result.success).toBe(true)
+    expect(deps.game.removeModifier).toHaveBeenCalledWith(actor.userId, "mod-buffer")
   })
 
   test("fails without consuming when there are no negative effects", async () => {
