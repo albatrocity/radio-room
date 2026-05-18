@@ -5,7 +5,8 @@ export const warranty = createItem({
   shortId: "warranty",
   definition: {
     name: "Warranty",
-    description: "Because anything can happen. Holding this prevents debuffs from the next attack. Lost on use.",
+    description:
+      "Because anything can happen. Holding this prevents negative effects from the next attack. Lost after defense is triggered.",
     stackable: true,
     maxStack: 3,
     tradeable: true,

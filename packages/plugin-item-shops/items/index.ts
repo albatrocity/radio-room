@@ -24,6 +24,7 @@ import { snoozePedal } from "./snooze-pedal"
 import { coffeePedal } from "./coffee-pedal"
 import { gravityBong } from "./gravity-bong"
 import { nineVoltBattery } from "./9v-battery"
+import { privateBathroom } from "./private-bathroom"
 import { echoTextEffect, sizeShiftTextEffect } from "./textEffects/sizeShift"
 import type {
   ItemUseHandler,
@@ -60,6 +61,7 @@ export const items = {
   p2pFileSharing,
   nineVoltBattery,
   rubberBand,
+  privateBathroom,
 } as const
 
 /**
