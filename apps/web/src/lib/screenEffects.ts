@@ -183,7 +183,7 @@ export const INTERFACE_BLUR_PER_STACK_PX = 2
 export const INTERFACE_BLUR_MAX_PX = 14
 
 /** Base `saturate()` % at one stack (`INTERFACE_SATURATE_FLAG`). */
-export const INTERFACE_SATURATE_BASE_PERCENT = 220
+export const INTERFACE_SATURATE_BASE_PERCENT = 260
 
 /** Extra `saturate()` % per additional stack (until cap). */
 export const INTERFACE_SATURATE_PER_EXTRA_STACK_PERCENT = 40
@@ -202,8 +202,7 @@ export function interfaceBlurPx(stackCount: number): number {
 export function interfaceSaturatePercent(stackCount: number): number {
   if (stackCount <= 0) return 100
   return Math.min(
-    INTERFACE_SATURATE_BASE_PERCENT +
-      (stackCount - 1) * INTERFACE_SATURATE_PER_EXTRA_STACK_PERCENT,
+    INTERFACE_SATURATE_BASE_PERCENT + (stackCount - 1) * INTERFACE_SATURATE_PER_EXTRA_STACK_PERCENT,
     INTERFACE_SATURATE_MAX_PERCENT,
   )
 }
@@ -219,7 +218,9 @@ export type InterfaceModifierBackdropParams = {
  * Full-viewport overlay using `backdrop-filter`: optional blur + optional saturation.
  * Pair with `position: fixed`; `pointer-events: none` keeps the UI interactive.
  */
-export function interfaceModifierBackdropStyle(params: InterfaceModifierBackdropParams): CSSProperties {
+export function interfaceModifierBackdropStyle(
+  params: InterfaceModifierBackdropParams,
+): CSSProperties {
   const { blurPx, saturateStackCount } = params
   const filters: string[] = []
   if (blurPx > 0) {
