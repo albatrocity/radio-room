@@ -166,7 +166,8 @@ describe("MessageHandlers", () => {
           roomId: "room1",
           message: expect.objectContaining({
             content: "Hello world",
-            expiresAt: now + 2000 + 500,
+            createdAt: now,
+            expiresAt: now + 2000,
             user: expect.objectContaining({ userId: "1", username: "Homer" }),
           }),
         },

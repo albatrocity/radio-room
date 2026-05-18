@@ -91,6 +91,8 @@ export const chatMessageSchema = z.object({
   meta: chatMessageMetaSchema.optional(),
   /** Unix epoch (ms) when this message should be hidden (ephemeral / sender-only previews). */
   expiresAt: z.number().optional(),
+  /** Unix epoch (ms) when this ephemeral message was created (pairs with expiresAt for progress bar). */
+  createdAt: z.number().optional(),
 })
 
 export type ChatMessage = z.infer<typeof chatMessageSchema>

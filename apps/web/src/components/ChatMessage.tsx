@@ -1,4 +1,4 @@
-import React, { memo, useState, useCallback } from "react"
+import React, { memo, useState, useCallback, useMemo } from "react"
 import {
   Box,
   Flex,
@@ -23,9 +23,10 @@ import Timestamp from "./Timestamp"
 import { chatMessageRecipe } from "../theme/chatMessageRecipe"
 
 import type { TextSegment } from "@repo/types"
-import { useIsAdmin, useBookmarks, useBookmarksSend, useChatSend, useNow } from "../hooks/useActors"
+import { useIsAdmin, useBookmarks, useBookmarksSend, useChatSend } from "../hooks/useActors"
 import { getChatPersonaBadges } from "../lib/userPersonas"
 import { PersonaBadge } from "./PersonaBadge"
+import { ExpiryBar } from "./ExpiryBar"
 
 export interface ChatMessageProps {
   content: string
@@ -38,6 +39,8 @@ export interface ChatMessageProps {
   anotherUserMessage?: boolean
   /** When set, message is a sender-only preview until this time (ms since epoch). */
   expiresAt?: number
+  /** When set, used for progress bar timing (pairs with expiresAt). */
+  createdAt?: number
 }
 
 const ChatMessage = ({
@@ -50,10 +53,13 @@ const ChatMessage = ({
   showUsername = false,
   anotherUserMessage = false,
   expiresAt,
+  createdAt: createdAtProp,
 }: ChatMessageProps) => {
-  const now = useNow()
-  const secondsUntilSend =
-    expiresAt != null ? Math.max(0, Math.ceil((expiresAt - now) / 1000)) : null
+  // Use createdAt prop if available (for expirable messages), otherwise parse from timestamp
+  const createdAt = useMemo(
+    () => createdAtProp ?? new Date(timestamp).getTime(),
+    [createdAtProp, timestamp],
+  )
 
   const currentIsAdmin = useIsAdmin()
   const chatSend = useChatSend()
@@ -150,11 +156,6 @@ const ChatMessage = ({
                 <Icon as={LuBookmark} />
               </IconButton>
             )}
-            {secondsUntilSend != null && secondsUntilSend > 0 && (
-              <Text fontSize="2xs" color="secondaryText" opacity={0.8} aria-live="polite">
-                {secondsUntilSend}s
-              </Text>
-            )}
             <Timestamp value={timestamp} />
           </HStack>
         </Flex>
@@ -193,17 +194,22 @@ const ChatMessage = ({
                     <Icon as={LuBookmark} css={styles.bookmarkIcon} />
                   </IconButton>
                 )}
-                {secondsUntilSend != null && secondsUntilSend > 0 && (
-                  <Text fontSize="2xs" color="secondaryText" opacity={0.8} aria-live="polite">
-                    {secondsUntilSend}s
-                  </Text>
-                )}
                 <Timestamp value={timestamp} />
               </HStack>
             )}
           </Stack>
         </Box>
       </Wrap>
+
+      {expiresAt != null && !Number.isNaN(createdAt) && expiresAt > createdAt && (
+        <ExpiryBar
+          startAt={createdAt}
+          endAt={expiresAt}
+          color="gray.500"
+          orientation="horizontal"
+          height="3px"
+        />
+      )}
 
       {expiresAt == null && (
         <ReactionCounter

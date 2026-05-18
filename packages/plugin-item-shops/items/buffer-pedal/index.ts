@@ -7,7 +7,7 @@ export const bufferPedal = createItem({
   definition: {
     name: "Buffer Pedal",
     description:
-      "Delays chat messages before they send. Each stack adds 1 more second. Use on yourself or others.",
+      "Delays chat messages before they send. Each usage increases the delay by 1 second. Use on yourself or others.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
@@ -31,7 +31,7 @@ export const bufferPedal = createItem({
     successMessage: "Buffer Pedal engaged. It was lost with use.",
     describe: ({ isSelf, actor, target }) =>
       isSelf
-        ? `${actor}'s messages are running through a Buffer Pedal.`
-        : `${actor} routed ${target}'s chat through a Buffer Pedal.`,
+        ? `${actor}'s messages are running through a Buffer Pedal. Delivery will be delayed.`
+        : `${actor} routed ${target}'s chat through a Buffer Pedal. Delivery will be delayed.`,
   }),
 })

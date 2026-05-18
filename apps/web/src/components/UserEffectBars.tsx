@@ -1,13 +1,13 @@
-import { memo, useMemo, type CSSProperties } from "react"
+import { useMemo } from "react"
 import { Badge, Box } from "@chakra-ui/react"
 import type { GameStateModifier, ItemDefinition } from "@repo/types"
 import {
   useCurrentUser,
-  useNow,
   useUserItemDefinitions,
   useUserModifiers,
   useUserState,
 } from "../hooks/useActors"
+import { ExpiryBar, type ExpiryBarOrientation } from "./ExpiryBar"
 import { Tooltip } from "./ui/tooltip"
 import { UserModifiersList } from "./UserModifiersList"
 
@@ -28,31 +28,7 @@ function intentColor(intent: Intent): string {
   return "gray.500"
 }
 
-/** Shared flex slot sizing for vertical vs horizontal bar layout (data-attribute styling). */
-const orientationSlotCss = {
-  '&[data-orientation="horizontal"]': { width: "100%", minH: 0 },
-  '&[data-orientation="vertical"]': { height: "100%", minW: 0 },
-}
-
-/** Fill layer: dimension driven by `--effect-fill` (0–1), orientation selects axis + transition. */
-const effectBarFillCss = {
-  position: "absolute" as const,
-  bottom: 0,
-  left: 0,
-  '&[data-orientation="horizontal"]': {
-    top: 0,
-    width: "calc(var(--effect-fill) * 100%)",
-    transition: "width 1s linear",
-  },
-  '&[data-orientation="vertical"]': {
-    right: 0,
-    height: "calc(var(--effect-fill) * 100%)",
-    transition: "height 1s linear",
-  },
-  transition: "width 0.3s linear, height 0.3s linear",
-}
-
-export type UserEffectBarsOrientation = "vertical" | "horizontal"
+export type UserEffectBarsOrientation = ExpiryBarOrientation
 
 interface UserEffectBarsProps {
   /**
@@ -162,8 +138,17 @@ export function UserEffectBars({
         {Array.from({ length: MAX_BARS }).map((_, i) => {
           const bar = visible[i]
           if (bar) {
-            const { key, ...barProps } = bar
-            return <EffectBar key={key} orientation={orientation} slotIndex={i} {...barProps} />
+            const { key, intent, startAt, endAt } = bar
+            return (
+              <ExpiryBar
+                key={key}
+                flex="1 1 0"
+                startAt={startAt}
+                endAt={endAt}
+                color={intentColor(intent)}
+                orientation={orientation}
+              />
+            )
           }
           return <EmptySlot key={`empty-${i}`} orientation={orientation} slotIndex={i} />
         })}
@@ -194,48 +179,18 @@ function EmptySlot({
   orientation: UserEffectBarsOrientation
   slotIndex: number
 }) {
-  return <Box flex="1 1 0" aria-hidden data-orientation={orientation} css={orientationSlotCss} />
-}
-
-interface EffectBarProps {
-  orientation: UserEffectBarsOrientation
-  slotIndex: number
-  startAt: number
-  endAt: number
-  intent: Intent
-}
-
-const EffectBar = memo(function EffectBar({
-  orientation,
-  slotIndex: _slotIndex,
-  startAt,
-  endAt,
-  intent,
-}: EffectBarProps) {
-  const now = useNow()
-  const duration = endAt - startAt
-  const fraction = duration <= 0 ? 0 : Math.max(0, Math.min(1, (endAt - now) / duration))
-
+  const isHorizontal = orientation === "horizontal"
   return (
     <Box
-      position="relative"
       flex="1 1 0"
-      overflow="hidden"
+      aria-hidden
       data-orientation={orientation}
-      css={orientationSlotCss}
-    >
-      <Box
-        bg={intentColor(intent)}
-        data-orientation={orientation}
-        style={
-          {
-            "--effect-fill": String(fraction),
-          } as CSSProperties
-        }
-        css={effectBarFillCss}
-      />
-    </Box>
+      width={isHorizontal ? "100%" : undefined}
+      minHeight={isHorizontal ? "0" : undefined}
+      height={!isHorizontal ? "100%" : undefined}
+      minWidth={!isHorizontal ? "0" : undefined}
+    />
   )
-})
+}
 
 export default UserEffectBars

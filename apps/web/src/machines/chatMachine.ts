@@ -144,10 +144,15 @@ export const chatMachine = setup({
     }),
     addMessage: assign({
       messages: ({ context, event }) => {
-        if (event.type === "MESSAGE_RECEIVED") {
-          return uniqBy("timestamp", [...context.messages, event.data.message])
-        }
-        return context.messages
+        if (event.type !== "MESSAGE_RECEIVED") return context.messages
+        const incoming = event.data.message
+        const base =
+          incoming.expiresAt == null
+            ? context.messages.filter(
+                (m) => !(m.expiresAt != null && m.user.userId === incoming.user.userId),
+              )
+            : context.messages
+        return uniqBy("timestamp", [...base, incoming])
       },
     }),
     removeMessage: assign({

@@ -15,20 +15,20 @@ const systemMessage = (content: string, meta?: {}, mentions?: ChatMessage["menti
   return newMessage
 }
 
-/** Ephemeral line delivered only to the target socket; client hides after `expiresAt`. */
+/** Ephemeral line delivered only to the target socket; client hides after `expiresInMs`. */
 export function expirableChatMessage(
   user: { userId: string; username: string; id?: string },
   content: string,
-  expiresAt: number,
+  expiresInMs: number,
   options?: {
     contentSegments?: TextSegment[]
     meta?: ChatMessage["meta"]
     mentions?: ChatMessage["mentions"]
   },
 ): ChatMessage {
-  // Use ISO timestamp for proper date parsing (required for sorting).
-  // Millisecond precision is sufficient for uniqueness since preview messages
-  // are per-user and sequential (only one pending message at a time).
+  // Capture createdAt and calculate expiresAt from the same base for accurate progress bar timing
+  const createdAt = Date.now()
+  const expiresAt = createdAt + expiresInMs
   return {
     user: {
       userId: user.userId,
@@ -37,9 +37,10 @@ export function expirableChatMessage(
     },
     content,
     expiresAt,
+    createdAt,
     contentSegments: options?.contentSegments,
     meta: options?.meta,
-    timestamp: new Date().toISOString(),
+    timestamp: new Date(createdAt).toISOString(),
     mentions: options?.mentions,
   }
 }

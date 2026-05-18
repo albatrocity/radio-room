@@ -22,6 +22,7 @@ const InnerItem = React.memo(
     sameUserAsNextMessage,
     currentUserId,
     expiresAt,
+    createdAt,
   }: {
     message: Message
     displayUser: User
@@ -29,6 +30,7 @@ const InnerItem = React.memo(
     sameUserAsNextMessage: boolean
     currentUserId: User["userId"]
     expiresAt?: number
+    createdAt?: number
   }) =>
     message.user.userId === "system" ? (
       <SystemMessage key={message.timestamp} {...message} />
@@ -41,6 +43,7 @@ const InnerItem = React.memo(
         showUsername={!sameUserAsLastMessage}
         anotherUserMessage={sameUserAsNextMessage}
         expiresAt={expiresAt}
+        createdAt={createdAt}
       />
     ),
 )
@@ -138,6 +141,7 @@ function ChatWindow() {
                       sameUserAsLastMessage={sameUserAsLastMessage}
                       sameUserAsNextMessage={sameUserAsNextMessage}
                       expiresAt={message.expiresAt}
+                      createdAt={message.createdAt}
                     />
                   </Box>
                 )

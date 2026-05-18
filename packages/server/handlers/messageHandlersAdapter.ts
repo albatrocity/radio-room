@@ -6,10 +6,6 @@ import { expirableChatMessage } from "../lib/systemMessage"
 import { AppContext } from "@repo/types"
 import type { GameSessionService } from "../services/GameSessionService"
 
-/** Extra ms after server delay before the client hides the buffered preview.
- * Accounts for network latency; 1Hz ticker granularity adds ~0-1s naturally. */
-const BUFFER_PREVIEW_EXPIRY_BUFFER_MS = 500
-
 /**
  * Message payload - supports both simple string and object format
  * Images are uploaded via HTTP and their markdown is included in the content
@@ -63,7 +59,7 @@ export class MessageHandlers {
       const preview = expirableChatMessage(
         { userId, username: username ?? userId },
         content,
-        Date.now() + sendDelayMs + BUFFER_PREVIEW_EXPIRY_BUFFER_MS,
+        sendDelayMs,
         {
           contentSegments: [
             {
