@@ -50,6 +50,10 @@ export class DefenseService {
     incoming: Omit<GameStateModifier, "id" | "source">,
     actorUserId?: string,
   ): Promise<DefenseBlockInfo | null> {
+    if (actorUserId != null && actorUserId === targetUserId) {
+      return null
+    }
+
     const modifier: GameStateModifier = {
       ...incoming,
       id: "",
