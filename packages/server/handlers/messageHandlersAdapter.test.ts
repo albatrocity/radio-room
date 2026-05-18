@@ -15,7 +15,13 @@ import sendMessage from "../lib/sendMessage"
 import { User } from "@repo/types"
 
 describe("MessageHandlers", () => {
-  let mockSocket: any, mockIo: any, broadcastEmit: any, toEmit: any, toBroadcast: any, roomSpy: any
+  let mockSocket: any,
+    mockIo: any,
+    socketEmit: any,
+    broadcastEmit: any,
+    toEmit: any,
+    toBroadcast: any,
+    roomSpy: any
   const mockTypingUsers: User[] = []
   const mockRoomPath = "/rooms/room1"
   let messageService: MessageService
@@ -26,6 +32,7 @@ describe("MessageHandlers", () => {
     ;({
       socket: mockSocket,
       io: mockIo,
+      emit: socketEmit,
       broadcastEmit,
       toEmit,
       toBroadcast,
@@ -150,7 +157,20 @@ describe("MessageHandlers", () => {
         "Hello world",
       )
 
+      await vi.advanceTimersByTimeAsync(0)
+
       expect(sendMessage).not.toHaveBeenCalled()
+      expect(socketEmit).toHaveBeenCalledWith("event", {
+        type: "MESSAGE_RECEIVED",
+        data: {
+          roomId: "room1",
+          message: expect.objectContaining({
+            content: "Hello world",
+            expiresAt: now + 2000 + 500,
+            user: expect.objectContaining({ userId: "1", username: "Homer" }),
+          }),
+        },
+      })
       await vi.advanceTimersByTimeAsync(2000)
       await sendPromise
 

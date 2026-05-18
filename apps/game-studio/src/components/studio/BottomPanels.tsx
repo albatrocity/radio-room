@@ -24,7 +24,13 @@ export function BottomPanels({ room }: BottomPanelsProps) {
       .reverse()
   }, [room.snapshotEpoch, room.events, eventFilter])
 
-  const recentChat = useMemo(() => room.chat.slice(-200).reverse(), [room.snapshotEpoch, room.chat])
+  const recentChat = useMemo(() => {
+    const now = Date.now()
+    return room.chat
+      .filter((m) => m.expiresAt == null || m.expiresAt > now)
+      .slice(-200)
+      .reverse()
+  }, [room.snapshotEpoch, room.chat])
 
   return (
     <Stack gap="4">

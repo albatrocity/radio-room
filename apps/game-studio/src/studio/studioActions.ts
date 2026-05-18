@@ -267,6 +267,10 @@ export async function advanceNowPlaying(): Promise<void> {
   }
 }
 
+/** Extra ms after studio delay before hiding the buffered preview.
+ * Accounts for network latency; 1Hz ticker granularity adds ~0-1s naturally. */
+const BUFFER_PREVIEW_EXPIRY_BUFFER_MS = 500
+
 export async function sendChatAsUser(userId: string, content: string): Promise<void> {
   const { room, itemShopsPlugin } = getStudio()
   const user = room.users.get(userId)
@@ -277,7 +281,21 @@ export async function sendChatAsUser(userId: string, content: string): Promise<v
   const sendDelayMs = rawState
     ? getChatSendDelayMs(pruneUserModifiers(rawState, now).modifiers, now)
     : 0
+
   if (sendDelayMs > 0) {
+    const preview: ChatMessage = {
+      content,
+      timestamp: new Date().toISOString(),
+      user,
+      expiresAt: Date.now() + sendDelayMs + BUFFER_PREVIEW_EXPIRY_BUFFER_MS,
+      contentSegments: [
+        {
+          text: content,
+          effects: [{ type: "color", palette: "gray", token: "muted" }],
+        },
+      ],
+    }
+    room.appendChat(preview)
     await new Promise((resolve) => setTimeout(resolve, sendDelayMs))
   }
 

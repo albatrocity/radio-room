@@ -15,7 +15,7 @@ export const bufferPedal = createItem({
     requiresTarget: "user",
     coinValue: 30,
     icon: "Timer",
-    rarity: "uncommon",
+    rarity: "rare",
   },
   use: timedModifierEffect({
     modifierName: "buffer_pedal",

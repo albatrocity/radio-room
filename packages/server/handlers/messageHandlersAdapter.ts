@@ -2,8 +2,13 @@ import { getChatSendDelayMs } from "@repo/game-logic"
 import { HandlerConnections } from "@repo/types/HandlerConnections"
 import { MessageService } from "../services/MessageService"
 import sendMessage from "../lib/sendMessage"
+import { expirableChatMessage } from "../lib/systemMessage"
 import { AppContext } from "@repo/types"
 import type { GameSessionService } from "../services/GameSessionService"
+
+/** Extra ms after server delay before the client hides the buffered preview.
+ * Accounts for network latency; 1Hz ticker granularity adds ~0-1s naturally. */
+const BUFFER_PREVIEW_EXPIRY_BUFFER_MS = 500
 
 /**
  * Message payload - supports both simple string and object format
@@ -41,9 +46,12 @@ export class MessageHandlers {
     const { roomId, userId, username } = socket.data
 
     if (!roomId) {
-      console.warn("[MessageHandler] SEND_MESSAGE dropped: no roomId on socket (client should re-LOGIN after reconnect)", {
-        socketId: socket.id,
-      })
+      console.warn(
+        "[MessageHandler] SEND_MESSAGE dropped: no roomId on socket (client should re-LOGIN after reconnect)",
+        {
+          socketId: socket.id,
+        },
+      )
       return
     }
 
@@ -52,6 +60,23 @@ export class MessageHandlers {
 
     const sendDelayMs = await resolveChatSendDelayMs(socket.context, roomId, userId)
     if (sendDelayMs > 0) {
+      const preview = expirableChatMessage(
+        { userId, username: username ?? userId },
+        content,
+        Date.now() + sendDelayMs + BUFFER_PREVIEW_EXPIRY_BUFFER_MS,
+        {
+          contentSegments: [
+            {
+              text: content,
+              effects: [{ type: "color", palette: "gray", token: "muted" }],
+            },
+          ],
+        },
+      )
+      socket.emit("event", {
+        type: "MESSAGE_RECEIVED",
+        data: { roomId, message: preview },
+      })
       await new Promise((resolve) => setTimeout(resolve, sendDelayMs))
     }
 

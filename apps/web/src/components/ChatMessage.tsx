@@ -23,7 +23,7 @@ import Timestamp from "./Timestamp"
 import { chatMessageRecipe } from "../theme/chatMessageRecipe"
 
 import type { TextSegment } from "@repo/types"
-import { useIsAdmin, useBookmarks, useBookmarksSend, useChatSend } from "../hooks/useActors"
+import { useIsAdmin, useBookmarks, useBookmarksSend, useChatSend, useNow } from "../hooks/useActors"
 import { getChatPersonaBadges } from "../lib/userPersonas"
 import { PersonaBadge } from "./PersonaBadge"
 
@@ -36,6 +36,8 @@ export interface ChatMessageProps {
   currentUserId: string
   showUsername?: boolean
   anotherUserMessage?: boolean
+  /** When set, message is a sender-only preview until this time (ms since epoch). */
+  expiresAt?: number
 }
 
 const ChatMessage = ({
@@ -47,7 +49,12 @@ const ChatMessage = ({
   currentUserId,
   showUsername = false,
   anotherUserMessage = false,
+  expiresAt,
 }: ChatMessageProps) => {
+  const now = useNow()
+  const secondsUntilSend =
+    expiresAt != null ? Math.max(0, Math.ceil((expiresAt - now) / 1000)) : null
+
   const currentIsAdmin = useIsAdmin()
   const chatSend = useChatSend()
   const bookmarkSend = useBookmarksSend()
@@ -143,6 +150,11 @@ const ChatMessage = ({
                 <Icon as={LuBookmark} />
               </IconButton>
             )}
+            {secondsUntilSend != null && secondsUntilSend > 0 && (
+              <Text fontSize="2xs" color="secondaryText" opacity={0.8} aria-live="polite">
+                {secondsUntilSend}s
+              </Text>
+            )}
             <Timestamp value={timestamp} />
           </HStack>
         </Flex>
@@ -181,6 +193,11 @@ const ChatMessage = ({
                     <Icon as={LuBookmark} css={styles.bookmarkIcon} />
                   </IconButton>
                 )}
+                {secondsUntilSend != null && secondsUntilSend > 0 && (
+                  <Text fontSize="2xs" color="secondaryText" opacity={0.8} aria-live="polite">
+                    {secondsUntilSend}s
+                  </Text>
+                )}
                 <Timestamp value={timestamp} />
               </HStack>
             )}
@@ -188,13 +205,15 @@ const ChatMessage = ({
         </Box>
       </Wrap>
 
-      <ReactionCounter
-        reactTo={{ type: "message", id: timestamp }}
-        showAddButton={alwaysShowReactionPicker || hovered}
-        buttonColorScheme="primary"
-        buttonVariant="ghost"
-        reactionVariant="reactionBright"
-      />
+      {expiresAt == null && (
+        <ReactionCounter
+          reactTo={{ type: "message", id: timestamp }}
+          showAddButton={alwaysShowReactionPicker || hovered}
+          buttonColorScheme="primary"
+          buttonVariant="ghost"
+          reactionVariant="reactionBright"
+        />
+      )}
 
       <ConfirmationDialog
         open={isDeleteDialogOpen}
