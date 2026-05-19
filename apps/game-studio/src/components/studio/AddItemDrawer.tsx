@@ -13,6 +13,7 @@ import {
   Tabs,
   Text,
 } from "@chakra-ui/react"
+import { resolveItemRarity, resolveShopItemPrice } from "@repo/plugin-base/helpers"
 import { Archive, ShoppingBag } from "lucide-react"
 import { useMemo, useState } from "react"
 import * as studioActions from "../../studio/studioActions"
@@ -20,6 +21,7 @@ import { readShoppingInstance } from "../../studio/studioShoppingRead"
 import type { StudioRoom } from "../../studio/studioRoom"
 import { toaster } from "../ui/toaster"
 import { ArtifactsDrawerTab } from "./ArtifactsDrawerTab"
+import { ItemMetaLine } from "./ItemMetaLine"
 
 export type AddItemDrawerProps = {
   room: StudioRoom
@@ -156,12 +158,17 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
                                 const cat = catalogMap.get(shortId)
                                 const label = cat?.definition.name ?? shortId
                                 const desc = cat?.definition.description
+                                const rarity = cat
+                                  ? resolveItemRarity(cat.definition)
+                                  : "common"
+                                const price = resolveShopItemPrice(shop, shortId, catalogMap)
                                 return (
                                   <HStack key={shortId} justify="space-between" align="flex-start">
                                     <Stack gap="1" flex="1" minW="0">
                                       <Text fontSize="sm" fontWeight="medium">
                                         {label}
                                       </Text>
+                                      <ItemMetaLine rarity={rarity} price={price} />
                                       {desc ? (
                                         <Text fontSize="xs" color="fg.muted">
                                           {desc}
@@ -209,12 +216,15 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
                                 const shortId = cat.definition.shortId
                                 const label = cat.definition.name ?? shortId
                                 const desc = cat.definition.description
+                                const rarity = resolveItemRarity(cat.definition)
+                                const price = cat.definition.coinValue ?? 0
                                 return (
                                   <HStack key={shortId} justify="space-between" align="flex-start">
                                     <Stack gap="1" flex="1" minW="0">
                                       <Text fontSize="sm" fontWeight="medium">
                                         {label}
                                       </Text>
+                                      <ItemMetaLine rarity={rarity} price={price} />
                                       {desc ? (
                                         <Text fontSize="xs" color="fg.muted">
                                           {desc}
@@ -306,15 +316,16 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
                                   >
                                     <Stack gap="1" align="flex-start" flex="1" minW="0">
                                       <Text fontWeight="medium">{offer.name}</Text>
+                                      <ItemMetaLine
+                                        rarity={offer.rarity}
+                                        price={offer.price}
+                                        suffix={offer.available ? "available" : "sold"}
+                                      />
                                       {offer.description ? (
                                         <Text fontSize="xs" color="fg.muted">
                                           {offer.description}
                                         </Text>
                                       ) : null}
-                                      <Text fontSize="xs" color="fg.muted">
-                                        {offer.price} coins ·{" "}
-                                        {offer.available ? "available" : "sold"}
-                                      </Text>
                                     </Stack>
                                     <Button
                                       size="xs"
