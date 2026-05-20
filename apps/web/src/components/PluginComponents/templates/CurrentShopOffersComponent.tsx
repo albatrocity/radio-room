@@ -1,4 +1,4 @@
-import { Box, Center, Heading, HStack, Table, Text, VStack } from "@chakra-ui/react"
+import { Box, Center, Heading, HStack, Stack, Table, Text, VStack } from "@chakra-ui/react"
 import { getItemRarityColorPalette, itemRarityIconColor } from "../../../lib/itemRarityPalette"
 import type { CurrentShopOffersComponentProps } from "../../../types/PluginComponent"
 import { useUserGameState } from "../../Modals/UserGameStateContext"
@@ -17,7 +17,7 @@ function formatBuybackPercent(rate: number): string {
   return `${Math.round(pct * 10) / 10}%`
 }
 
-const COINS_ICON = getIcon("coins")
+const COINS_ICON = getIcon("Coins")
 
 /**
  * Renders the current user's `currentShopInstance` from room game state.
@@ -73,8 +73,9 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
           <Table.Row>
             <Table.ColumnHeader w="52px" aria-label="Icon" />
             <Table.ColumnHeader>Item</Table.ColumnHeader>
-            <Table.ColumnHeader textAlign="end">Price</Table.ColumnHeader>
-            <Table.ColumnHeader textAlign="end" w="min-content" />
+            <Table.ColumnHeader textAlign="end" w="min-content">
+              Price
+            </Table.ColumnHeader>
           </Table.Row>
         </Table.Header>
         <Table.Body>
@@ -116,24 +117,32 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                     </Text>
                   </VStack>
                 </Table.Cell>
-                <Table.Cell verticalAlign="middle" textAlign="end">
-                  <HStack gap={0.5}>
-                    <Text fontWeight="medium">{row.price}</Text>
-                    {COINS_ICON && <SvgIcon color="secondaryText/50" icon={COINS_ICON} />}
-                  </HStack>
-                </Table.Cell>
 
                 <Table.Cell verticalAlign="middle" textAlign="end">
-                  <ButtonTemplateComponent
-                    label="Buy"
-                    action={action}
-                    pluginName={pluginName}
-                    variant="solid"
-                    size="sm"
-                    confirmMessage={`Spend ${row.price} coins on ${row.name}?`}
-                    confirmText="Buy"
-                    disabled={cannotAfford || outOfStock}
-                  />
+                  <Stack
+                    direction={["column", "row"]}
+                    align="center"
+                    justify="end"
+                    gap={2}
+                    flexShrink={0}
+                  >
+                    <HStack gap={1}>
+                      {COINS_ICON && (
+                        <SvgIcon boxSize="0.8rem" color="secondaryText" icon={COINS_ICON} />
+                      )}
+                      <Text fontWeight="medium">{row.price}</Text>
+                    </HStack>
+                    <ButtonTemplateComponent
+                      label="Buy"
+                      action={action}
+                      pluginName={pluginName}
+                      variant="solid"
+                      size="sm"
+                      confirmMessage={`Spend ${row.price} coins on ${row.name}?`}
+                      confirmText="Buy"
+                      disabled={cannotAfford || outOfStock}
+                    />
+                  </Stack>
                 </Table.Cell>
               </Table.Row>
             )

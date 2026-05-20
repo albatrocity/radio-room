@@ -28,7 +28,13 @@ export function InventoryUseTargetPopover({
   }
 
   return (
-    <Popover.Root open={open} onOpenChange={(e) => setOpen(e.open)} lazyMount>
+    <Popover.Root
+      open={open}
+      onOpenChange={(e) => setOpen(e.open)}
+      lazyMount
+      portalled={false}
+      positioning={{ placement: "bottom-end", strategy: "fixed" }}
+    >
       <Popover.Trigger asChild>{children}</Popover.Trigger>
       <Popover.Positioner>
         <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }} minW="220px" p={2}>

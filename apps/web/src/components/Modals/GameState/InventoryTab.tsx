@@ -19,12 +19,9 @@ import { quoteItemShopsSellCoins } from "../../../lib/itemShopsSellQuote"
 import { getIcon } from "../../PluginComponents/icons"
 import { toaster } from "../../ui/toaster"
 import { useUserGameState } from "../UserGameStateContext"
-import { InventoryUseTargetPopover } from "./TargetUserPicker"
-import { InventoryUseQueueItemPicker } from "./QueueItemPicker"
-import { InventoryItemStoragePopover } from "./InventoryItemPicker"
-import { CoinAmountStoragePopover } from "./CoinAmountPicker"
+import { InventoryUseButton } from "./InventoryUseButton"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
-import { getItemRarityColorPalette } from "../../../lib/itemRarityPalette"
+import { getItemRarityColorPalette, itemRarityIconColor } from "../../../lib/itemRarityPalette"
 
 interface InventoryTabProps {
   items: InventoryItem[]
@@ -48,7 +45,7 @@ interface InventoryRowProps {
  */
 const inventorySlotFrameProps = {
   align: "center" as const,
-  gap: 2,
+  gap: 4,
   borderWidth: "1px",
   borderColor: "primary.muted",
   borderRadius: "md",
@@ -91,10 +88,6 @@ function InventoryRow({
   const itemIconColor = definition?.rarity
     ? getItemRarityColorPalette(definition.rarity)
     : "fg.muted"
-  const requiresTargetUser = definition?.requiresTarget === "user"
-  const requiresTargetQueueItem = definition?.requiresTarget === "queueItem"
-  const requiresInventoryItem = definition?.requiresTarget === "inventoryItem"
-  const requiresCoinAmount = definition?.requiresTarget === "coinAmount"
   const isItemShopsItem = item.sourcePlugin === ITEM_SHOPS_PLUGIN_NAME
   const shopVisitOpen = gameState?.currentShopInstance != null
   const showSellButton = sellable && (!isItemShopsItem || shopVisitOpen)
@@ -104,7 +97,14 @@ function InventoryRow({
         return `Sell (${item.sellbackValue})`
       }
       const q = quoteItemShopsSellCoins(gameState.currentShopInstance, definition)
-      return q != null ? `Sell (${q})` : "Sell"
+      return q != null ? (
+        <Text>
+          Sell for <Icon as={getIcon("Coins")} boxSize="0.8rem" />
+          {q}
+        </Text>
+      ) : (
+        "Sell"
+      )
     }
     return "Sell"
   })()
@@ -190,9 +190,16 @@ function InventoryRow({
 
   return (
     <HStack {...inventorySlotFrameProps}>
-      <VStack minW="6rem" align="center" justify="center" h="100%">
+      <VStack align="center" justify="center" h="100%" minW="4rem">
         {IconGlyph ? (
-          <Icon as={IconGlyph} boxSize={7} color={itemIconColor} flexShrink={0} aria-hidden />
+          <Icon
+            as={IconGlyph}
+            boxSize={7}
+            colorPalette={itemIconColor}
+            color={itemRarityIconColor}
+            flexShrink={0}
+            aria-hidden
+          />
         ) : (
           <Box boxSize={7} flexShrink={0} aria-hidden />
         )}
@@ -215,75 +222,18 @@ function InventoryRow({
           </Text>
         )}
       </VStack>
-      <HStack gap={2} flexShrink={0}>
-        {consumable &&
-          (requiresTargetQueueItem ? (
-            <InventoryUseQueueItemPicker
-              onPick={(targetQueueItemId) => dispatch("use", { targetQueueItemId })}
-            >
-              <Button
-                size="xs"
-                variant="solid"
-                colorPalette="action"
-                loading={pending?.itemId === item.itemId && pending.action === "use"}
-              >
-                Use
-              </Button>
-            </InventoryUseQueueItemPicker>
-          ) : requiresTargetUser ? (
-            <InventoryUseTargetPopover onPick={(targetUserId) => dispatch("use", { targetUserId })}>
-              <Button
-                size="xs"
-                variant="solid"
-                colorPalette="action"
-                loading={pending?.itemId === item.itemId && pending.action === "use"}
-              >
-                Use
-              </Button>
-            </InventoryUseTargetPopover>
-          ) : requiresInventoryItem ? (
-            <InventoryItemStoragePopover
-              excludingItemId={item.itemId}
-              items={allItems}
-              definitionMap={definitionMap}
-              onConfirm={(targetInventoryItemId, password) =>
-                dispatch("use", { targetInventoryItemId, password })
-              }
-            >
-              <Button
-                size="xs"
-                variant="solid"
-                colorPalette="action"
-                loading={pending?.itemId === item.itemId && pending.action === "use"}
-              >
-                Use
-              </Button>
-            </InventoryItemStoragePopover>
-          ) : requiresCoinAmount ? (
-            <CoinAmountStoragePopover
-              maxCoins={Math.max(0, Math.floor(coinBalance))}
-              onConfirm={(coinAmount, password) => dispatch("use", { coinAmount, password })}
-            >
-              <Button
-                size="xs"
-                variant="solid"
-                colorPalette="action"
-                loading={pending?.itemId === item.itemId && pending.action === "use"}
-              >
-                Use
-              </Button>
-            </CoinAmountStoragePopover>
-          ) : (
-            <Button
-              size="xs"
-              variant="solid"
-              colorPalette="action"
-              loading={pending?.itemId === item.itemId && pending.action === "use"}
-              onClick={() => dispatch("use")}
-            >
-              Use
-            </Button>
-          ))}
+      <Stack direction="column" gap={2} flexShrink={0}>
+        {consumable && (
+          <InventoryUseButton
+            itemId={item.itemId}
+            requiresTarget={definition?.requiresTarget}
+            allItems={allItems}
+            definitionMap={definitionMap}
+            coinBalance={coinBalance}
+            useLoading={pending?.itemId === item.itemId && pending.action === "use"}
+            onUse={(extra) => dispatch("use", extra)}
+          />
+        )}
         {showSellButton && (
           <Button
             size="xs"
@@ -291,10 +241,11 @@ function InventoryRow({
             loading={pending?.itemId === item.itemId && pending.action === "sell"}
             onClick={() => dispatch("sell")}
           >
+            {/* <Icon as={getIcon("Coins")} boxSize="0.8rem" /> */}
             {sellButtonLabel}
           </Button>
         )}
-      </HStack>
+      </Stack>
     </HStack>
   )
 }

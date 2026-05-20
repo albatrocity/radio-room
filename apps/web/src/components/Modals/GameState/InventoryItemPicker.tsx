@@ -74,7 +74,13 @@ export function InventoryItemStoragePopover({
       : ""
 
   return (
-    <Popover.Root open={open} onOpenChange={handleOpenChange} lazyMount>
+    <Popover.Root
+      open={open}
+      onOpenChange={handleOpenChange}
+      lazyMount
+      portalled={false}
+      positioning={{ placement: "bottom-end", strategy: "fixed" }}
+    >
       <Popover.Trigger asChild>{children}</Popover.Trigger>
       <Popover.Positioner>
         <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }} minW="260px" p={3}>

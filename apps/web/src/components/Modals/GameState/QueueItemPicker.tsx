@@ -28,7 +28,13 @@ export function InventoryUseQueueItemPicker({
   }
 
   return (
-    <Popover.Root open={open} onOpenChange={(e) => setOpen(e.open)} lazyMount>
+    <Popover.Root
+      open={open}
+      onOpenChange={(e) => setOpen(e.open)}
+      lazyMount
+      portalled={false}
+      positioning={{ placement: "bottom-end", strategy: "fixed" }}
+    >
       <Popover.Trigger asChild>{children}</Popover.Trigger>
       <Popover.Positioner>
         <Popover.Content
