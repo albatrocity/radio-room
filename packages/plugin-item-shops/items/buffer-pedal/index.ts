@@ -7,7 +7,7 @@ export const bufferPedal = createItem({
   definition: {
     name: "Buffer Pedal",
     description:
-      "Delays chat messages before they send. Each usage increases the delay by 1 second. Use on yourself or others.",
+      "Delays chat messages before they                            send. Each usage increases the delay by 1 second. Use on yourself or others.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
@@ -15,7 +15,7 @@ export const bufferPedal = createItem({
     requiresTarget: "user",
     coinValue: 30,
     icon: "Timer",
-    rarity: "rare",
+    rarity: "uncommon",
   },
   use: timedModifierEffect({
     modifierName: "buffer_pedal",

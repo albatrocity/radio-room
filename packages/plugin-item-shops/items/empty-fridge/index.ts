@@ -2,11 +2,11 @@ import type { ItemDefinition, ItemUseResult, QueueItem, User } from "@repo/types
 import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
-export const emptyFridge = createItem({
-  shortId: "empty-fridge",
+export const repulsiveSeltzer = createItem({
+  shortId: "repulsive-seltzer",
   definition: {
-    name: "Empty Fridge",
-    description: "Bummer. Move any song down 1 position in the queue.",
+    name: "Repulsive Seltzer",
+    description: "Salami Lavender?? Who's designing these flavors? Move any song down 1 position in the queue.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
@@ -14,7 +14,7 @@ export const emptyFridge = createItem({
     requiresTarget: "queueItem",
     coinValue: 20,
     icon: "Refrigerator",
-    rarity: "rare",
+    rarity: "uncommon",
   },
   /**
    * @param deps - Plugin API and room context.
@@ -90,11 +90,11 @@ function makeMessage(
 ): string {
   if (attackedUser) {
     if (attackedUser.userId === userId) {
-      return `${displayName} used Empty Fridge to demote their own track, "${targetedItem.track.title}"!`
+      return `Yuck! ${displayName} drank a Repulsive Seltzer to demote their own track, "${targetedItem.track.title}"!`
     }
 
-    return `${displayName} used Empty Fridge to demote ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
+    return `Yuck! ${displayName} drank a Repulsive Seltzer to demote ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
   }
 
-  return `${displayName} used Empty Fridge to demote a track, "${targetedItem.track.title}"!`
+  return `Yuck! ${displayName} drank a Repulsive Seltzer to demote a track, "${targetedItem.track.title}"!`
 }

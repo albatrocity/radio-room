@@ -21,9 +21,9 @@ export const gate = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 50,
+    coinValue: 35,
     icon: "Fence",
-    rarity: "uncommon",
+    rarity: "rare",
   },
   use: timedModifierEffect({
     modifierName: "gate",

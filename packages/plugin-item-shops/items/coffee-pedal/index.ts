@@ -22,7 +22,7 @@ export const coffeePedal = createItem({
     requiresTarget: "user",
     coinValue: 15,
     icon: "Coffee",
-    rarity: "rare",
+    rarity: "uncommon",
   },
   use: timedModifierEffect({
     modifierName: "coffee",

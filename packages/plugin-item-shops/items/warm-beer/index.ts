@@ -12,9 +12,9 @@ export const warmBeer = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "queueItem",
-    coinValue: 15,
+    coinValue: 25,
     icon: "Beer",
-    rarity: "rare",
+    rarity: "common",
   },
   /**
    * @param deps - Plugin API and room context.
@@ -90,11 +90,11 @@ function makeMessage(
 ): string {
   if (attackedUser) {
     if (attackedUser.userId === userId) {
-      return `Yum! ${displayName} ate Hummus & Veggies and promoted their own track, "${targetedItem.track.title}"!`
+      return `Slurp! ${displayName} cracked a Warm Beer and promoted their own track, "${targetedItem.track.title}"!`
     }
 
-    return `Yum! ${displayName} ate Hummus & Veggies and promoted ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
+    return `Slurp! ${displayName} cracked a Warm Beer and promoted ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
   }
 
-  return `Yum! ${displayName} ate Hummus & Veggies and promoted a track, "${targetedItem.track.title}"!`
+  return `Slurp! ${displayName} cracked a Warm Beer and promoted a track, "${targetedItem.track.title}"!`
 }

@@ -13,9 +13,9 @@ export const coldBeer = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "queueItem",
-    coinValue: 25,
+    coinValue: 40,
     icon: "Beer",
-    rarity: "uncommon",
+    rarity: "rare",
   },
   /**
    * @param deps - Plugin API and room context.

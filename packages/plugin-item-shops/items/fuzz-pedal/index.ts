@@ -15,7 +15,7 @@ export const fuzzPedal = createItem({
     requiresTarget: "user",
     coinValue: 25,
     icon: "ZodiacAquarius",
-    rarity: "uncommon",
+    rarity: "rare",
   },
   use: timedModifierEffect({
     modifierName: "interface_blur",

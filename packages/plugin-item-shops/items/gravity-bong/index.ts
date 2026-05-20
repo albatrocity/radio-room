@@ -11,7 +11,7 @@ export const gravityBong = createItem({
     maxStack: 3,
     tradeable: true,
     consumable: true,
-    coinValue: 50,
+    coinValue: 100,
     icon: "Shuffle",
     rarity: "legendary",
   },
