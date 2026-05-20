@@ -1,6 +1,6 @@
 import { Button } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition } from "@repo/types"
-import { InventoryUseTargetPopover } from "./TargetUserPicker"
+import { InventoryTargetUserPopover } from "./TargetUserPicker"
 import { InventoryUseQueueItemPicker } from "./QueueItemPicker"
 import { InventoryItemStoragePopover } from "./InventoryItemPicker"
 import { CoinAmountStoragePopover } from "./CoinAmountPicker"
@@ -28,6 +28,7 @@ function useTriggerButton(loading: boolean, onClick?: () => void) {
   return (
     <Button
       size="xs"
+      width="full"
       variant="solid"
       colorPalette="action"
       loading={loading}
@@ -50,17 +51,15 @@ export function InventoryUseButton({
   switch (requiresTarget) {
     case "queueItem":
       return (
-        <InventoryUseQueueItemPicker
-          onPick={(targetQueueItemId) => onUse({ targetQueueItemId })}
-        >
+        <InventoryUseQueueItemPicker onPick={(targetQueueItemId) => onUse({ targetQueueItemId })}>
           {useTriggerButton(useLoading)}
         </InventoryUseQueueItemPicker>
       )
     case "user":
       return (
-        <InventoryUseTargetPopover onPick={(targetUserId) => onUse({ targetUserId })}>
+        <InventoryTargetUserPopover onPick={(targetUserId) => onUse({ targetUserId })}>
           {useTriggerButton(useLoading)}
-        </InventoryUseTargetPopover>
+        </InventoryTargetUserPopover>
       )
     case "inventoryItem":
       return (
