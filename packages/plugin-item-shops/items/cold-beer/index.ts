@@ -1,20 +1,21 @@
+import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 import type { ItemDefinition, ItemUseResult, QueueItem, User } from "@repo/types"
 import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
-import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
-export const warmBeer = createItem({
-  shortId: "warm-beer",
+
+export const coldBeer = createItem({
+  shortId: "cold-beer",
   definition: {
-    name: "Warm Beer",
-    description: "Hey, not bad. Move any song up 1 position in the queue.",
-    stackable: true,
-    maxStack: 3,
+    name: "Cold Beer",
+    description: "Now that's refreshing! Move any song up +2 in the queue.",
+    stackable: false,
+    maxStack: 1,
     tradeable: true,
     consumable: true,
     requiresTarget: "queueItem",
-    coinValue: 15,
+    coinValue: 25,
     icon: "Beer",
-    rarity: "rare",
+    rarity: "uncommon",
   },
   /**
    * @param deps - Plugin API and room context.
@@ -47,7 +48,7 @@ export const warmBeer = createItem({
     const result = await context.api.moveTrackByPosition(
       context.roomId,
       targetQueueItemId,
-      -1,
+      -2,
       userId,
     )
 
@@ -90,11 +91,13 @@ function makeMessage(
 ): string {
   if (attackedUser) {
     if (attackedUser.userId === userId) {
-      return `Yum! ${displayName} ate Hummus & Veggies and promoted their own track, "${targetedItem.track.title}"!`
+      return `Slurp! ${displayName} cracked a Cold Beer and promoted their own track, "${targetedItem.track.title}"!`
     }
 
-    return `Yum! ${displayName} ate Hummus & Veggies and promoted ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
+    return `Slurp! ${displayName} cracked a Cold Beer and promoted ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
   }
 
-  return `Yum! ${displayName} ate Hummus & Veggies and promoted a track, "${targetedItem.track.title}"!`
+  return `Slurp! ${displayName} cracked a Cold Beer and promoted a track, "${targetedItem.track.title}"!`
 }
+
+

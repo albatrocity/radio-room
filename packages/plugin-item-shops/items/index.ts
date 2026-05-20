@@ -12,7 +12,7 @@ import { compressorPedal } from "./compressor-pedal"
 import { lemons } from "./lemons"
 import { emptyFridge } from "./empty-fridge"
 import { gate } from "./gate"
-import { hummusVeggies } from "./hummus-veggies"
+import { warmBeer } from "./hummus-veggies"
 import { lychees } from "./lychees"
 import { jokerPedal } from "./joker-pedal"
 import { marsEgg } from "./mars-egg"
@@ -55,7 +55,7 @@ export const items = {
   gate,
   sampleHold,
   jokerPedal,
-  hummusVeggies,
+  warmBeer,
   emptyFridge,
   cateredMeal,
   warranty,
@@ -78,6 +78,7 @@ export const items = {
   blueberries,
   lemons,
   privateBathroom,
+  coldBeer,
 } as const
 
 /**
