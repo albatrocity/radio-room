@@ -24,6 +24,7 @@ import { InventoryUseQueueItemPicker } from "./QueueItemPicker"
 import { InventoryItemStoragePopover } from "./InventoryItemPicker"
 import { CoinAmountStoragePopover } from "./CoinAmountPicker"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
+import { getItemRarityColorPalette } from "../../../lib/itemRarityPalette"
 
 interface InventoryTabProps {
   items: InventoryItem[]
@@ -87,6 +88,9 @@ function InventoryRow({
   const tradeable = definition?.tradeable ?? false
   const coinValue = definition?.coinValue ?? 0
   const sellable = tradeable && coinValue > 0
+  const itemIconColor = definition?.rarity
+    ? getItemRarityColorPalette(definition.rarity)
+    : "fg.muted"
   const requiresTargetUser = definition?.requiresTarget === "user"
   const requiresTargetQueueItem = definition?.requiresTarget === "queueItem"
   const requiresInventoryItem = definition?.requiresTarget === "inventoryItem"
@@ -188,11 +192,13 @@ function InventoryRow({
     <HStack {...inventorySlotFrameProps}>
       <VStack minW="6rem" align="center" justify="center" h="100%">
         {IconGlyph ? (
-          <Icon as={IconGlyph} boxSize={7} color="fg.muted" flexShrink={0} aria-hidden />
+          <Icon as={IconGlyph} boxSize={7} color={itemIconColor} flexShrink={0} aria-hidden />
         ) : (
           <Box boxSize={7} flexShrink={0} aria-hidden />
         )}
-        {definition != null && <ItemRarityTag rarity={resolveItemRarity(definition)} />}
+        {definition != null && (
+          <ItemRarityTag size={["xs", "sm"]} rarity={resolveItemRarity(definition)} />
+        )}
       </VStack>
       <VStack align="start" gap={0} flex="1" minW={0}>
         <HStack gap={2} flexWrap="wrap">
