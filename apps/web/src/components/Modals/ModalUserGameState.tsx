@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { HStack, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { HStack, ScrollArea, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
 import type {
   GameAttributeName,
   InventoryItem,
@@ -30,6 +30,7 @@ import {
 import StoredItemsTab from "./GameState/StoredItemsTab"
 import AdminListenersTab from "./GameState/AdminListenersTab"
 import { UserModifiersList } from "../UserModifiersList"
+import ScrollShadowViewport from "../ScrollShadowViewport"
 
 function formatNumber(n: number): string {
   return new Intl.NumberFormat().format(n)
@@ -55,6 +56,7 @@ function ModalUserGameState() {
   const sendAdminListener = useAdminListenerSend()
   const { pluginTabs, unseenPluginTabIds, markPluginTabViewed } = useGameStateNewPluginTabs()
   const [gameStateTab, setGameStateTab] = useState("inventory")
+  const tabScrollRef = useRef<HTMLDivElement>(null)
 
   const payload = useUserGameStatePayload()
   const loading = useUserGameStateLoading()
@@ -223,25 +225,35 @@ function ModalUserGameState() {
               variant="line"
               colorPalette="action"
             >
-              <Tabs.List>
-                <Tabs.Trigger value="inventory">
-                  {PACKAGE_ICON ? <SvgIcon icon={PACKAGE_ICON} mr={1} /> : null}
-                  Inventory
-                </Tabs.Trigger>
-                {showStoredTab ? (
-                  <Tabs.Trigger value="stored">
-                    {STORED_ICON ? <SvgIcon icon={STORED_ICON} mr={1} /> : null}
-                    Stored Items
-                  </Tabs.Trigger>
-                ) : null}
-                <GameStatePluginTabTriggers tabs={pluginTabs} unseenTabIds={unseenPluginTabIds} />
-                {isAdmin ? (
-                  <Tabs.Trigger value={ADMIN_LISTENERS_TAB}>
-                    {EYE_ICON ? <SvgIcon icon={EYE_ICON} mr={1} /> : null}
-                    Big Brother
-                  </Tabs.Trigger>
-                ) : null}
-              </Tabs.List>
+              <ScrollArea.Root width="full" size="xs">
+                <ScrollShadowViewport ref={tabScrollRef} orientation="horizontal">
+                  <ScrollArea.Content>
+                    <Tabs.List flexWrap="nowrap">
+                      <Tabs.Trigger value="inventory" flexWrap="nowrap">
+                        {PACKAGE_ICON ? <SvgIcon icon={PACKAGE_ICON} mr={1} /> : null}
+                        Inventory
+                      </Tabs.Trigger>
+                      {showStoredTab ? (
+                        <Tabs.Trigger value="stored" whiteSpace="nowrap">
+                          {STORED_ICON ? <SvgIcon icon={STORED_ICON} mr={1} /> : null}
+                          Stored Items
+                        </Tabs.Trigger>
+                      ) : null}
+                      <GameStatePluginTabTriggers
+                        tabs={pluginTabs}
+                        unseenTabIds={unseenPluginTabIds}
+                      />
+                      {isAdmin ? (
+                        <Tabs.Trigger value={ADMIN_LISTENERS_TAB} whiteSpace="nowrap">
+                          {EYE_ICON ? <SvgIcon icon={EYE_ICON} mr={1} /> : null}
+                          Big Brother
+                        </Tabs.Trigger>
+                      ) : null}
+                    </Tabs.List>
+                  </ScrollArea.Content>
+                </ScrollShadowViewport>
+                <ScrollArea.Scrollbar orientation="horizontal" />
+              </ScrollArea.Root>
 
               <Tabs.Content value="inventory">
                 <GameStateInventoryContent

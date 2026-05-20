@@ -1,11 +1,12 @@
 import { Box, Center, Heading, HStack, Table, Text, VStack } from "@chakra-ui/react"
+import { getItemRarityColorPalette, itemRarityIconColor } from "../../../lib/itemRarityPalette"
 import type { CurrentShopOffersComponentProps } from "../../../types/PluginComponent"
 import { useUserGameState } from "../../Modals/UserGameStateContext"
 import { usePluginComponentContext } from "../context"
 import { getIcon } from "../icons"
 import { SvgIcon } from "../../ui/svg-icon"
 import { ButtonTemplateComponent } from "./ButtonComponent"
-import { ItemRarityTag } from "../ItemRarity"
+import { ItemRarityTag } from "../ItemRarityTag"
 
 type Props = CurrentShopOffersComponentProps
 
@@ -90,10 +91,21 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                   <VStack>
                     <Center width="full" height="full">
                       {IconComponent ? (
-                        <SvgIcon icon={IconComponent} boxSize={5} color="fg.muted" aria-hidden />
+                        <Box
+                          colorPalette={
+                            row.rarity ? getItemRarityColorPalette(row.rarity) : undefined
+                          }
+                        >
+                          <SvgIcon
+                            icon={IconComponent}
+                            boxSize={5}
+                            color={row.rarity ? itemRarityIconColor : "fg.muted"}
+                            aria-hidden
+                          />
+                        </Box>
                       ) : null}
                     </Center>
-                    {row.rarity && <ItemRarityTag rarity={row.rarity} />}
+                    {row.rarity && <ItemRarityTag size={["xs", "sm"]} rarity={row.rarity} />}
                   </VStack>
                 </Table.Cell>
                 <Table.Cell verticalAlign="middle">

@@ -23,7 +23,7 @@ import { InventoryUseTargetPopover } from "./TargetUserPicker"
 import { InventoryUseQueueItemPicker } from "./QueueItemPicker"
 import { InventoryItemStoragePopover } from "./InventoryItemPicker"
 import { CoinAmountStoragePopover } from "./CoinAmountPicker"
-import { ItemRarityTag } from "../../PluginComponents/ItemRarity"
+import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
 
 interface InventoryTabProps {
   items: InventoryItem[]
@@ -147,8 +147,7 @@ function InventoryRow({
           event.data.message.toLowerCase().includes("blocked")
         toaster.create({
           title:
-            event.data.title ??
-            (event.data.success ? "Success" : blocked ? "Blocked" : "Error"),
+            event.data.title ?? (event.data.success ? "Success" : blocked ? "Blocked" : "Error"),
           description:
             event.data.message || (event.data.success ? "Action completed" : "Action failed"),
           type: event.data.success ? "success" : blocked ? "warning" : "error",

@@ -1,4 +1,8 @@
 import { Box, Center, Table, Text, VStack } from "@chakra-ui/react"
+import {
+  getItemRarityColorPalette,
+  itemRarityIconColor,
+} from "../../../lib/itemRarityPalette"
 import type {
   ShopOfferTableComponentProps,
   ShopOfferTableRow,
@@ -9,7 +13,7 @@ import { getIcon } from "../icons"
 import { SvgIcon } from "../../ui/svg-icon"
 import { AnimatedShopQty } from "./AnimatedShopQty"
 import { ButtonTemplateComponent } from "./ButtonComponent"
-import { ItemRarityTag } from "../ItemRarity"
+import { ItemRarityTag } from "../ItemRarityTag"
 
 function ShopOfferTableRowView({
   row,
@@ -34,7 +38,18 @@ function ShopOfferTableRowView({
       <Table.Cell verticalAlign="middle" w="52px">
         <Center width="full" height="full">
           {IconComponent ? (
-            <SvgIcon icon={IconComponent} boxSize={5} color="fg.muted" aria-hidden />
+            <Box
+              colorPalette={
+                row.itemRarity ? getItemRarityColorPalette(row.itemRarity) : undefined
+              }
+            >
+              <SvgIcon
+                icon={IconComponent}
+                boxSize={5}
+                color={row.itemRarity ? itemRarityIconColor : "fg.muted"}
+                aria-hidden
+              />
+            </Box>
           ) : null}
           {row.itemRarity && <ItemRarityTag rarity={row.itemRarity} />}
         </Center>

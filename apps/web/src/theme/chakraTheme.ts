@@ -5,6 +5,7 @@ import type { AppTheme } from "../types/AppTheme"
 import { listItemUserRecipe } from "./listItemUserRecipe"
 import { playlistItemRecipe } from "./playlistItemRecipe"
 import { chatMessageRecipe } from "./chatMessageRecipe"
+import { tagRecipe } from "./tagRecipe"
 
 // Color shades we use
 const SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const
@@ -243,6 +244,7 @@ const config = defineConfig({
       listItemUser: listItemUserRecipe,
       playlistItem: playlistItemRecipe,
       chatMessage: chatMessageRecipe,
+      tag: tagRecipe,
     },
   },
   globalCss: {

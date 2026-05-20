@@ -38,6 +38,7 @@ export function GameStatePluginTabTriggers({
             value={entry.id}
             position="relative"
             pr={showNew ? 2 : undefined}
+            whiteSpace="nowrap"
           >
             <HStack gap={1} align="center">
               {TabIcon ? <Icon as={TabIcon} /> : null}
