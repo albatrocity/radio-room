@@ -74,7 +74,7 @@ export const GREEN_ROOM_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: items.cateredMeal.shortId, coinValue: 25 },
     { shortId: items.buyout.shortId, coinValue: 25 },
     { shortId: items.vanCubby.shortId, coinValue: 80 },
-    { shortId: items.gravityBong.shortId, coinValue: 50 },
+    // { shortId: items.gravityBong.shortId, coinValue: 50 },
     { shortId: items.privateBathroom.shortId, coinValue: 25 },
   ],
   listedBuybackRate: 0.1,
