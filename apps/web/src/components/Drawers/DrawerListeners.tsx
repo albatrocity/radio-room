@@ -1,5 +1,4 @@
-import React from "react"
-import { Box } from "@chakra-ui/react"
+import { Box, ScrollArea } from "@chakra-ui/react"
 
 import UserList from "../UserList"
 import Drawer from "../Drawer"
@@ -9,6 +8,7 @@ import {
   useIsModalOpen,
   useCurrentRoomHasAudio,
 } from "../../hooks/useActors"
+import ScrollShadowViewport from "../ScrollShadowViewport"
 
 function DrawerListeners() {
   const listeners = useListeners()
@@ -25,11 +25,15 @@ function DrawerListeners() {
       size={["sm", "lg"]}
       onClose={() => hideListeners()}
     >
-      <Box p="sm" overflow="auto" h="100%">
-        <div>
-          <UserList showHeading={false} showStatus={hasAudio} onEditUser={handleEditUser} />
-        </div>
-      </Box>
+      <ScrollArea.Root>
+        <ScrollShadowViewport>
+          <Box p="sm">
+            <div>
+              <UserList showHeading={false} showStatus={hasAudio} onEditUser={handleEditUser} />
+            </div>
+          </Box>
+        </ScrollShadowViewport>
+      </ScrollArea.Root>
     </Drawer>
   )
 }

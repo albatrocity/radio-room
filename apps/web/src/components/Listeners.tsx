@@ -1,9 +1,10 @@
 import React, { memo, useCallback } from "react"
-import { Box, Button } from "@chakra-ui/react"
+import { Box, Button, ScrollArea } from "@chakra-ui/react"
 
 import UserList from "./UserList"
 import { User } from "../types/User"
 import { useListeners, useCurrentRoomHasAudio } from "../hooks/useActors"
+import ScrollShadowViewport from "./ScrollShadowViewport"
 
 interface ListenersProps {
   onViewListeners: (showListeners: boolean) => void
@@ -26,9 +27,14 @@ const Listeners = ({ onViewListeners, onEditUser }: ListenersProps) => {
         </Box>
       </Box>
       <Box hideBelow="md" h="100%" overflow="hidden">
-        <Box overflow="auto" className="list-overflow" p={3} h="100%">
-          <UserList onEditUser={onEditUser} showStatus={hasAudio} />
-        </Box>
+        <ScrollArea.Root size="sm">
+          <ScrollShadowViewport>
+            <Box className="list-overflow" p={3}>
+              <UserList onEditUser={onEditUser} showStatus={hasAudio} />
+            </Box>
+          </ScrollShadowViewport>
+          <ScrollArea.Scrollbar orientation="vertical" />
+        </ScrollArea.Root>
       </Box>
     </Box>
   )
