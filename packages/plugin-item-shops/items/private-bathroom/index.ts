@@ -16,7 +16,7 @@ export const privateBathroom = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 20,
+    coinValue: 25,
     icon: "Bath",
     rarity: "uncommon",
   },
