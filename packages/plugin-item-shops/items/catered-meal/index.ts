@@ -5,14 +5,14 @@ export const cateredMeal = createItem({
   shortId: "catered-meal",
   definition: {
     name: "Catered Meal",
-    description: "Looks like some kind of pasta. Protects a track from being demoted, once.",
+    description: "Looks like some kind of pasta. Protects one of your tracks from being demoted in the queue, once.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
     consumable: false,
-    coinValue: 75,
+    coinValue: 25,
     icon: "HandPlatter",
-    rarity: "rare",
+    rarity: "common",
     defense: {
       targeting: { intents: ["negative"] },
       scope: ["queue"],

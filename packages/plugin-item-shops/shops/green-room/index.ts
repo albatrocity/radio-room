@@ -36,7 +36,7 @@ async function greenRoomOnSessionEnd(ctx: ShopSessionContext): Promise<void> {
 
     await ctx.sendUserSystemMessage(
       userId,
-      `Hey, you left your ${itemName}. We're closing up for the night but we'll get it back to you soon.`,
+      `Hey, is this ${itemName} yours? You left it in the green room. We're closing up for the night but we'll get it back to you soon.`,
       { type: "alert", status: "info", title: "Message from the Green Room" },
     )
 
@@ -69,13 +69,19 @@ export const GREEN_ROOM_SHOP: ItemShopsShopCatalogEntry = {
   name: "Green Room",
   openingMessage: "{{shopName}} is downstairs. There should be some stuff in the fridge for you.",
   availableItems: [
-    { shortId: items.hummusVeggies.shortId, coinValue: 10 },
-    { shortId: items.emptyFridge.shortId, coinValue: 10 },
+    { shortId: items.warmBeer.shortId, coinValue: 20 },
+    { shortId: items.coldBeer.shortId, coinValue: 40 },
+    { shortId: items.disguise.shortId, coinValue: 20},
+    { shortId: items.repulsiveSeltzer.shortId, coinValue: 30 },
     { shortId: items.cateredMeal.shortId, coinValue: 25 },
-    { shortId: items.buyout.shortId, coinValue: 25 },
+    { shortId: items.buyout.shortId, coinValue: 35 },
     { shortId: items.vanCubby.shortId, coinValue: 80 },
-    // { shortId: items.gravityBong.shortId, coinValue: 50 },
-    { shortId: items.privateBathroom.shortId, coinValue: 25 },
+    { shortId: items.scratchedCd.shortId, coinValue: 75 },
+    { shortId: items.gravityBong.shortId, coinValue: 100 },
+    { shortId: items.privateBathroom.shortId, coinValue: 20 },
+    { shortId: items.merchCashBox.shortId, coinValue: 25 },
+    { shortId: items.marsEgg.shortId, coinValue: 80 },
+
   ],
   listedBuybackRate: 0.1,
   unlistedBuybackRate: 0,

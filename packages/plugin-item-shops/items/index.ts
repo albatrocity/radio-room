@@ -10,12 +10,13 @@ import { tomatoes } from "./tomatoes"
 import { cateredMeal } from "./catered-meal"
 import { compressorPedal } from "./compressor-pedal"
 import { lemons } from "./lemons"
-import { emptyFridge } from "./empty-fridge"
+import { repulsiveSeltzer } from "./repulsive-seltzer"
 import { gate } from "./gate"
-import { hummusVeggies } from "./hummus-veggies"
+import { warmBeer } from "./warm-beer"
 import { lychees } from "./lychees"
 import { jokerPedal } from "./joker-pedal"
 import { marsEgg } from "./mars-egg"
+import { coldBeer } from "./cold-beer"
 import { cucumberSlices } from "./cucumber-slices"
 import { sampleHold } from "./sample-hold"
 import { p2pFileSharing } from "./p2p-file-sharing"
@@ -55,8 +56,8 @@ export const items = {
   gate,
   sampleHold,
   jokerPedal,
-  hummusVeggies,
-  emptyFridge,
+  warmBeer,
+  repulsiveSeltzer,
   cateredMeal,
   warranty,
   buyout,
@@ -78,6 +79,7 @@ export const items = {
   blueberries,
   lemons,
   privateBathroom,
+  coldBeer,
 } as const
 
 /**

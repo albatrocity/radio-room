@@ -15,15 +15,15 @@ export const gate = createItem({
   definition: {
     name: "Gate",
     description:
-      "REPLACES LOWERCASE LETTERS WITH __________",
+      "SPEAK UP! REPLACES LOWERCASE LETTERS WITH __________",
     stackable: true,
     maxStack: 3,
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 50,
+    coinValue: 35,
     icon: "Fence",
-    rarity: "uncommon",
+    rarity: "rare",
   },
   use: timedModifierEffect({
     modifierName: "gate",

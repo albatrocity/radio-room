@@ -2,25 +2,25 @@ import type { ItemDefinition, ItemUseResult, QueueItem, User } from "@repo/types
 import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
-export const emptyFridge = createItem({
-  shortId: "empty-fridge",
+export const warmBeer = createItem({
+  shortId: "warm-beer",
   definition: {
-    name: "Empty Fridge",
-    description: "Bummer. Move any song down 1 position in the queue.",
+    name: "Warm Beer",
+    description: "Hey, not bad. Move any song up 1 position in the queue.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
     consumable: true,
     requiresTarget: "queueItem",
-    coinValue: 20,
-    icon: "Refrigerator",
-    rarity: "rare",
+    coinValue: 25,
+    icon: "Beer",
+    rarity: "common",
   },
   /**
    * @param deps - Plugin API and room context.
    * @param userId - User activating the item.
    * @param _definition - Resolved item definition (unused).
-   * @param callContext - Must include `targetQueueItemId` when demoting.
+   * @param callContext - Must include `targetQueueItemId` when promoting.
    */
   use: async (
     deps: ItemShopsBehaviorDeps,
@@ -33,7 +33,7 @@ export const emptyFridge = createItem({
       ?.targetQueueItemId
 
     if (!targetQueueItemId) {
-      return { success: false, consumed: false, message: "Select a track to demote." }
+      return { success: false, consumed: false, message: "Select a track to promote." }
     }
 
     const targetedItem = await context.api
@@ -47,7 +47,7 @@ export const emptyFridge = createItem({
     const result = await context.api.moveTrackByPosition(
       context.roomId,
       targetQueueItemId,
-      1,
+      -1,
       userId,
     )
 
@@ -77,7 +77,7 @@ export const emptyFridge = createItem({
     return {
       success: true,
       consumed: true,
-      message: "Track demoted!",
+      message: "Track promoted!",
     }
   },
 })
@@ -90,11 +90,11 @@ function makeMessage(
 ): string {
   if (attackedUser) {
     if (attackedUser.userId === userId) {
-      return `${displayName} used Empty Fridge to demote their own track, "${targetedItem.track.title}"!`
+      return `Slurp! ${displayName} cracked a Warm Beer and promoted their own track, "${targetedItem.track.title}"!`
     }
 
-    return `${displayName} used Empty Fridge to demote ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
+    return `Slurp! ${displayName} cracked a Warm Beer and promoted ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
   }
 
-  return `${displayName} used Empty Fridge to demote a track, "${targetedItem.track.title}"!`
+  return `Slurp! ${displayName} cracked a Warm Beer and promoted a track, "${targetedItem.track.title}"!`
 }

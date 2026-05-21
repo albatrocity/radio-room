@@ -1,19 +1,20 @@
+import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 import type { ItemDefinition, ItemUseResult, QueueItem, User } from "@repo/types"
 import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
-import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
-export const hummusVeggies = createItem({
-  shortId: "hummus-veggies",
+
+export const coldBeer = createItem({
+  shortId: "cold-beer",
   definition: {
-    name: "Hummus & Veggies",
-    description: "Hey, not bad. Move any song up 1 position in the queue.",
-    stackable: true,
-    maxStack: 3,
+    name: "Cold Beer",
+    description: "Now that's refreshing! Move any song up +2 in the queue.",
+    stackable: false,
+    maxStack: 1,
     tradeable: true,
     consumable: true,
     requiresTarget: "queueItem",
-    coinValue: 20,
-    icon: "Salad",
+    coinValue: 40,
+    icon: "Beer",
     rarity: "rare",
   },
   /**
@@ -47,7 +48,7 @@ export const hummusVeggies = createItem({
     const result = await context.api.moveTrackByPosition(
       context.roomId,
       targetQueueItemId,
-      -1,
+      -2,
       userId,
     )
 
@@ -90,11 +91,13 @@ function makeMessage(
 ): string {
   if (attackedUser) {
     if (attackedUser.userId === userId) {
-      return `Yum! ${displayName} ate Hummus & Veggies and promoted their own track, "${targetedItem.track.title}"!`
+      return `Slurp! ${displayName} cracked a Cold Beer and promoted their own track, "${targetedItem.track.title}"!`
     }
 
-    return `Yum! ${displayName} ate Hummus & Veggies and promoted ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
+    return `Slurp! ${displayName} cracked a Cold Beer and promoted ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
   }
 
-  return `Yum! ${displayName} ate Hummus & Veggies and promoted a track, "${targetedItem.track.title}"!`
+  return `Slurp! ${displayName} cracked a Cold Beer and promoted a track, "${targetedItem.track.title}"!`
 }
+
+

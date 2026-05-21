@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest"
 import { metadataSourceTrackFactory, queueItemFactory, userFactory } from "@repo/factories"
-import { hummusVeggies } from "./index"
+import { warmBeer } from "./index"
 import {
   createMockDefinition,
   createMockDeps,
@@ -24,15 +24,15 @@ function stubQueueTarget(
   return queueItem
 }
 
-describe("hummusVeggies", () => {
+describe("warmBeer", () => {
   test("promotes track with delta -1", async () => {
     const deps = createMockDeps()
     const user = userFactory.build()
     stubRoomUsers(deps, [user])
     stubQueueTarget(deps, "meta-track-1")
-    const def = createMockDefinition("hummus-veggies")
+    const def = createMockDefinition("warm-beer")
 
-    const result = await invokeUse(hummusVeggies, deps, user.userId, def, {
+    const result = await invokeUse(warmBeer, deps, user.userId, def, {
       targetQueueItemId: "meta-track-1",
     })
 
@@ -47,12 +47,7 @@ describe("hummusVeggies", () => {
 
   test("fails without targetQueueItemId", async () => {
     const deps = createMockDeps()
-    const result = await invokeUse(
-      hummusVeggies,
-      deps,
-      "u1",
-      createMockDefinition("hummus-veggies"),
-    )
+    const result = await invokeUse(warmBeer, deps, "u1", createMockDefinition("warm-beer"))
     expect(result.success).toBe(false)
     expect(result.message).toMatch(/Select a track/i)
   })
@@ -63,13 +58,9 @@ describe("hummusVeggies", () => {
     stubRoomUsers(deps, [user])
     vi.mocked(deps.context.api.getQueue).mockResolvedValue([])
 
-    const result = await invokeUse(
-      hummusVeggies,
-      deps,
-      user.userId,
-      createMockDefinition("hummus-veggies"),
-      { targetQueueItemId: "missing-track" },
-    )
+    const result = await invokeUse(warmBeer, deps, user.userId, createMockDefinition("warm-beer"), {
+      targetQueueItemId: "missing-track",
+    })
 
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(false)
@@ -88,15 +79,9 @@ describe("hummusVeggies", () => {
       blockingItemName: "Catered Meal",
     })
 
-    const result = await invokeUse(
-      hummusVeggies,
-      deps,
-      user.userId,
-      createMockDefinition("hummus-veggies"),
-      {
-        targetQueueItemId: "q1",
-      },
-    )
+    const result = await invokeUse(warmBeer, deps, user.userId, createMockDefinition("warm-beer"), {
+      targetQueueItemId: "q1",
+    })
 
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(true)
@@ -115,15 +100,9 @@ describe("hummusVeggies", () => {
       message: "Cannot move",
     })
 
-    const result = await invokeUse(
-      hummusVeggies,
-      deps,
-      user.userId,
-      createMockDefinition("hummus-veggies"),
-      {
-        targetQueueItemId: "q1",
-      },
-    )
+    const result = await invokeUse(warmBeer, deps, user.userId, createMockDefinition("warm-beer"), {
+      targetQueueItemId: "q1",
+    })
 
     expect(result.success).toBe(false)
     expect(result.message).toBe("Cannot move")
@@ -136,13 +115,13 @@ describe("hummusVeggies", () => {
     stubRoomUsers(deps, [actor, victim])
     stubQueueTarget(deps, "meta-track-1", { title: "Stairway to Heaven", addedBy: victim })
 
-    await invokeUse(hummusVeggies, deps, actor.userId, createMockDefinition("hummus-veggies"), {
+    await invokeUse(warmBeer, deps, actor.userId, createMockDefinition("warm-beer"), {
       targetQueueItemId: "meta-track-1",
     })
 
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
-      'Yum! alice ate Hummus & Veggies and promoted bob\'s track, "Stairway to Heaven"!',
+      'Slurp! alice cracked a Warm Beer and promoted bob\'s track, "Stairway to Heaven"!',
     )
   })
 
@@ -152,13 +131,13 @@ describe("hummusVeggies", () => {
     stubRoomUsers(deps, [actor])
     stubQueueTarget(deps, "meta-track-1", { title: "My Song", addedBy: actor })
 
-    await invokeUse(hummusVeggies, deps, actor.userId, createMockDefinition("hummus-veggies"), {
+    await invokeUse(warmBeer, deps, actor.userId, createMockDefinition("warm-beer"), {
       targetQueueItemId: "meta-track-1",
     })
 
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
-      'Yum! alice ate Hummus & Veggies and promoted their own track, "My Song"!',
+      'Slurp! alice cracked a Warm Beer and promoted their own track, "My Song"!',
     )
   })
 
@@ -168,13 +147,13 @@ describe("hummusVeggies", () => {
     stubRoomUsers(deps, [actor])
     stubQueueTarget(deps, "meta-track-1", { title: "Mystery Track", addedBy: undefined })
 
-    await invokeUse(hummusVeggies, deps, actor.userId, createMockDefinition("hummus-veggies"), {
+    await invokeUse(warmBeer, deps, actor.userId, createMockDefinition("warm-beer"), {
       targetQueueItemId: "meta-track-1",
     })
 
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
-      'Yum! alice ate Hummus & Veggies and promoted a track, "Mystery Track"!',
+      'Slurp! alice cracked a Warm Beer and promoted a track, "Mystery Track"!',
     )
   })
 })

@@ -13,9 +13,9 @@ export const tubeOverdrive = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 27,
+    coinValue: 20,
     icon: "Gauge",
-    rarity: "uncommon",
+    rarity: "common",
   },
   use: timedModifierEffect({
     modifierName: "interface_saturate",

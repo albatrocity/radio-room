@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest"
 import { metadataSourceTrackFactory, queueItemFactory, userFactory } from "@repo/factories"
-import { emptyFridge } from "./index"
+import { repulsiveSeltzer } from "./index"
 import {
   createMockDefinition,
   createMockDeps,
@@ -24,7 +24,7 @@ function stubQueueTarget(
   return queueItem
 }
 
-describe("emptyFridge", () => {
+describe("repulsiveSeltzer", () => {
   test("demotes track with delta +1", async () => {
     const deps = createMockDeps()
     const user = userFactory.build()
@@ -32,10 +32,10 @@ describe("emptyFridge", () => {
     stubQueueTarget(deps, "meta-track-2")
 
     const result = await invokeUse(
-      emptyFridge,
+      repulsiveSeltzer,
       deps,
       user.userId,
-      createMockDefinition("empty-fridge"),
+      createMockDefinition("repulsive-seltzer"),
       {
         targetQueueItemId: "meta-track-2",
       },
@@ -61,9 +61,15 @@ describe("emptyFridge", () => {
       blockingItemName: "Catered Meal",
     })
 
-    const result = await invokeUse(emptyFridge, deps, user.userId, createMockDefinition("empty-fridge"), {
-      targetQueueItemId: "meta-track-2",
-    })
+    const result = await invokeUse(
+      repulsiveSeltzer,
+      deps,
+      user.userId,
+      createMockDefinition("repulsive-seltzer"),
+      {
+        targetQueueItemId: "meta-track-2",
+      },
+    )
 
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(true)
@@ -73,7 +79,12 @@ describe("emptyFridge", () => {
 
   test("fails without targetQueueItemId", async () => {
     const deps = createMockDeps()
-    const result = await invokeUse(emptyFridge, deps, "u1", createMockDefinition("empty-fridge"))
+    const result = await invokeUse(
+      repulsiveSeltzer,
+      deps,
+      "u1",
+      createMockDefinition("repulsive-seltzer"),
+    )
     expect(result.success).toBe(false)
     expect(result.message).toMatch(/Select a track/i)
   })
@@ -84,9 +95,15 @@ describe("emptyFridge", () => {
     stubRoomUsers(deps, [user])
     vi.mocked(deps.context.api.getQueue).mockResolvedValue([])
 
-    const result = await invokeUse(emptyFridge, deps, user.userId, createMockDefinition("empty-fridge"), {
-      targetQueueItemId: "missing-track",
-    })
+    const result = await invokeUse(
+      repulsiveSeltzer,
+      deps,
+      user.userId,
+      createMockDefinition("repulsive-seltzer"),
+      {
+        targetQueueItemId: "missing-track",
+      },
+    )
 
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(false)
@@ -101,13 +118,19 @@ describe("emptyFridge", () => {
     stubRoomUsers(deps, [actor, victim])
     stubQueueTarget(deps, "meta-track-2", { title: "Bohemian Rhapsody", addedBy: victim })
 
-    await invokeUse(emptyFridge, deps, actor.userId, createMockDefinition("empty-fridge"), {
-      targetQueueItemId: "meta-track-2",
-    })
+    await invokeUse(
+      repulsiveSeltzer,
+      deps,
+      actor.userId,
+      createMockDefinition("repulsive-seltzer"),
+      {
+        targetQueueItemId: "meta-track-2",
+      },
+    )
 
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
-      'alice used Empty Fridge to demote bob\'s track, "Bohemian Rhapsody"!',
+      'Yuck! alice drank a Repulsive Seltzer to demote bob\'s track, "Bohemian Rhapsody"!',
     )
   })
 
@@ -117,13 +140,19 @@ describe("emptyFridge", () => {
     stubRoomUsers(deps, [actor])
     stubQueueTarget(deps, "meta-track-2", { title: "My Song", addedBy: actor })
 
-    await invokeUse(emptyFridge, deps, actor.userId, createMockDefinition("empty-fridge"), {
-      targetQueueItemId: "meta-track-2",
-    })
+    await invokeUse(
+      repulsiveSeltzer,
+      deps,
+      actor.userId,
+      createMockDefinition("repulsive-seltzer"),
+      {
+        targetQueueItemId: "meta-track-2",
+      },
+    )
 
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
-      'alice used Empty Fridge to demote their own track, "My Song"!',
+      'Yuck! alice drank a Repulsive Seltzer to demote their own track, "My Song"!',
     )
   })
 
@@ -133,13 +162,19 @@ describe("emptyFridge", () => {
     stubRoomUsers(deps, [actor])
     stubQueueTarget(deps, "meta-track-2", { title: "Mystery Track", addedBy: undefined })
 
-    await invokeUse(emptyFridge, deps, actor.userId, createMockDefinition("empty-fridge"), {
-      targetQueueItemId: "meta-track-2",
-    })
+    await invokeUse(
+      repulsiveSeltzer,
+      deps,
+      actor.userId,
+      createMockDefinition("repulsive-seltzer"),
+      {
+        targetQueueItemId: "meta-track-2",
+      },
+    )
 
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
-      'alice used Empty Fridge to demote a track, "Mystery Track"!',
+      'Yuck! alice drank a Repulsive Seltzer to demote a track, "Mystery Track"!',
     )
   })
 })

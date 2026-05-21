@@ -11,7 +11,7 @@ export const scratchedCd = createItem({
     maxStack: 3,
     tradeable: true,
     consumable: true,
-    coinValue: 100,
+    coinValue: 75,
     icon: "Disc2",
     rarity: "rare",
   },
