@@ -27,7 +27,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0019](0019-pin-react-18-types-monorepo-wide.md) | Pin React 18 Type Packages Monorepo-Wide | Accepted |
 | [0020](0020-plugin-preset-validation-in-repo-utils.md) | Plugin Preset Validation in `@repo/utils` | Accepted |
 | [0021](0021-room-attached-show-and-segment-activation.md) | Room-attached Show and Segment Activation | Accepted |
-| [0022](0022-rest-guest-authentication.md) | REST guest authentication (listening-room HTTP) | Accepted |
+| [0022](0022-rest-guest-authentication.md) | REST guest authentication (listening-room HTTP) | Partially superseded by [0058](0058-client-session-localstorage.md) |
 | [0023](0023-publish-playlists-use-room-creator-oauth.md) | Publish playlists use room creator OAuth | Accepted |
 | [0024](0024-post-show-publish-and-archive-flow.md) | Post-show publish and archive flow | Accepted |
 | [0025](0025-local-remote-rust-daemon.md) | local-remote: Rust daemon + local control UI | Accepted |
@@ -63,6 +63,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0055](0055-per-socket-login-serialization.md) | Per-Socket LOGIN Serialization | Accepted |
 | [0056](0056-segment-phase-pipeline-merge.md) | Segment phase pipeline merge in `applyTextEffects` | Accepted |
 | [0057](0057-user-personas-system.md) | User Personas System (VIP + plugin labels) | Accepted |
+| [0058](0058-client-session-localstorage.md) | Client session persistence in localStorage (`clientSession`) | Accepted |
 
 ## Creating a New ADR
 

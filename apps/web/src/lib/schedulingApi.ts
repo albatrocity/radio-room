@@ -1,6 +1,7 @@
 import ky from "ky"
 import type { ShowDTO, ShowFilters } from "@repo/types"
-import { RADIO_SESSION_HEADER, SESSION_ID } from "../constants"
+import { RADIO_SESSION_HEADER } from "../constants"
+import { getStoredUserId } from "./clientSession"
 
 const API_URL = import.meta.env.VITE_API_URL
 
@@ -34,7 +35,7 @@ export async function fetchShow(
   options?: { roomId?: string },
 ): Promise<ShowDTO> {
   const headers: Record<string, string> = {}
-  const sid = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(SESSION_ID) : null
+  const sid = getStoredUserId()
   if (sid) headers[RADIO_SESSION_HEADER] = sid
 
   const res = await api.get(`api/scheduling/shows/${id}`, {
