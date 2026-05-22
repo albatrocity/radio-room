@@ -50,11 +50,10 @@ Other `sessionStorage` uses (room creation wizard, OAuth redirect paths, theme, 
 
 - **`localStorage` is per-origin, not per-device.** Instagram in-app browser vs mobile Safari, or desktop vs phone, still get different ids. No change to that without a separate handoff feature.
 - **Clearing site data** still resets identity; that is acceptable for anonymous guests.
-- **ADR 0022** still describes `sessionStorage` historically; new work should refer to this ADR and `clientSession` for where `X-Radio-Session-Id` values come from.
+- [ADR 0022](0022-rest-guest-authentication.md) is **partially superseded** by this ADR for client storage only; its REST dual-auth pattern remains authoritative.
 
 ### Follow-up (optional, not required by this ADR)
 
-- Update [ADR 0022](0022-rest-guest-authentication.md) prose to say `localStorage` / `clientSession` instead of `sessionStorage` if we want the index to stay strictly accurate.
 - Session handoff across browser contexts remains a future product decision.
 
 ## References
