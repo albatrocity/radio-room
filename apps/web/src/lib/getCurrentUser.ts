@@ -1,26 +1,23 @@
-import {
-  SESSION_ID,
-  SESSION_USERNAME,
-  SESSION_PASSWORD,
-  SESSION_ADMIN,
-} from "../constants"
 import { AuthContext } from "../machines/authMachine"
+import {
+  clearStoredUser,
+  getStoredIsAdmin,
+  getStoredPassword,
+  getStoredUserId,
+  getStoredUsername,
+  setStoredUserId,
+  setStoredUsername,
+} from "./clientSession"
 
 export function getCurrentUser(un?: string) {
-  const storedId = sessionStorage.getItem(SESSION_ID)
-  const isNewUser = !storedId
-  // Convert null to undefined for consistency
-  const userId = storedId || undefined
-  const isAdmin = sessionStorage.getItem(SESSION_ADMIN) === "true"
-
-  const storedUsername = sessionStorage.getItem(SESSION_USERNAME)
-  const username = un ?? (storedUsername || undefined)
-  const storedPassword = sessionStorage.getItem(SESSION_PASSWORD)
-  const password = storedPassword || undefined
+  const userId = getStoredUserId() ?? undefined
+  const isAdmin = getStoredIsAdmin()
+  const username = un ?? (getStoredUsername() ?? undefined)
+  const password = getStoredPassword() ?? undefined
 
   return {
     currentUser: { username, userId, password, isAdmin },
-    isNewUser: isNewUser,
+    isNewUser: !userId,
     isAdmin,
     password,
   }
@@ -29,10 +26,10 @@ export function getCurrentUser(un?: string) {
 export function saveCurrentUser({
   currentUser,
 }: Pick<AuthContext, "currentUser">) {
-  const userId = currentUser?.userId ?? sessionStorage.getItem(SESSION_ID)
+  const userId = currentUser?.userId ?? getStoredUserId() ?? undefined
   if (userId) {
-    sessionStorage.setItem(SESSION_USERNAME, currentUser?.username ?? "")
-    sessionStorage.setItem(SESSION_ID, userId)
+    setStoredUsername(currentUser?.username ?? "")
+    setStoredUserId(userId)
   }
 
   return {
@@ -43,6 +40,5 @@ export function saveCurrentUser({
 }
 
 export function clearCurrentUser() {
-  sessionStorage.removeItem(SESSION_USERNAME)
-  sessionStorage.removeItem(SESSION_ID)
+  clearStoredUser()
 }
