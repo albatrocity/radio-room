@@ -20,6 +20,8 @@ export interface AudioContext {
   subscriptionId: string | null
   /** Live/radio: media element is ready while user is still stopped (LOADED/PLAY arrived before TOGGLE). */
   streamBufferReady: boolean
+  /** User requested play while still offline (e.g. username submit before INIT). */
+  playOnReady: boolean
 }
 
 type AudioEvent =
@@ -70,6 +72,7 @@ const defaultContext: AudioContext = {
   participationStatus: "participating",
   subscriptionId: null,
   streamBufferReady: false,
+  playOnReady: false,
 }
 
 export const audioMachine = setup({
@@ -194,8 +197,13 @@ export const audioMachine = setup({
     resetAudio: assign(() => defaultContext),
     setStreamBufferReady: assign({ streamBufferReady: true }),
     clearStreamBufferReady: assign({ streamBufferReady: false }),
+    setPlayOnReady: assign({ playOnReady: true }),
+    clearPlayOnReady: assign({ playOnReady: false }),
   },
   guards: {
+    shouldAutoPlayFromReady: ({ context }) => context.playOnReady,
+    shouldAutoPlayFromReadyWithBuffer: ({ context }) =>
+      context.playOnReady && context.streamBufferReady,
     volumeAboveZero: ({ event }) => {
       if (event.type === "CHANGE_VOLUME") {
         return parseFloat(String(event.volume)) > 0
@@ -301,11 +309,21 @@ export const audioMachine = setup({
                   on: {
                     STOP: {
                       target: "stopped",
-                      actions: ["stopListening", "participate", "clearStreamBufferReady"],
+                      actions: [
+                        "stopListening",
+                        "participate",
+                        "clearStreamBufferReady",
+                        "clearPlayOnReady",
+                      ],
                     },
                     TOGGLE: {
                       target: "stopped",
-                      actions: ["stopListening", "participate", "clearStreamBufferReady"],
+                      actions: [
+                        "stopListening",
+                        "participate",
+                        "clearStreamBufferReady",
+                        "clearPlayOnReady",
+                      ],
                     },
                     TRACK_CHANGED: {
                       actions: ["setMeta"],
@@ -324,11 +342,23 @@ export const audioMachine = setup({
                   },
                 },
                 stopped: {
+                  always: [
+                    {
+                      target: "playing.loaded",
+                      guard: "shouldAutoPlayFromReadyWithBuffer",
+                      actions: ["listen", "startListening", "clearPlayOnReady"],
+                    },
+                    {
+                      target: "playing",
+                      guard: "shouldAutoPlayFromReady",
+                      actions: ["listen", "startListening", "clearPlayOnReady"],
+                    },
+                  ],
                   on: {
                     // Idempotent cleanup when swapping transport or unmounting a player while
                     // already stopped (e.g. WebRTC signaled LOADED but user never pressed play).
                     STOP: {
-                      actions: ["clearStreamBufferReady"],
+                      actions: ["clearStreamBufferReady", "clearPlayOnReady"],
                     },
                     LOADED: {
                       actions: ["setStreamBufferReady"],
@@ -340,11 +370,11 @@ export const audioMachine = setup({
                       {
                         target: "playing.loaded",
                         guard: "isStreamBufferReady",
-                        actions: ["listen", "startListening"],
+                        actions: ["listen", "startListening", "clearPlayOnReady"],
                       },
                       {
                         target: "playing",
-                        actions: ["listen", "startListening"],
+                        actions: ["listen", "startListening", "clearPlayOnReady"],
                       },
                     ],
                     TRACK_CHANGED: {
@@ -402,6 +432,9 @@ export const audioMachine = setup({
         offline: {
           entry: ["clearStreamBufferReady"],
           on: {
+            TOGGLE: {
+              actions: ["setPlayOnReady"],
+            },
             STREAM_HEALTH_CHANGED: {
               actions: ["applyStreamHealth"],
             },

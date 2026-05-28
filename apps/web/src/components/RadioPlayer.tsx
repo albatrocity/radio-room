@@ -7,7 +7,7 @@ import ReactionCounter from "./ReactionCounter"
 import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import { useHotkeys } from "react-hotkeys-hook"
-import PlayStateIcon from "./PlayStateIcon"
+import PlayPauseButton from "./PlayPauseButton"
 import AdminControls from "./AdminControls"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import { useIsAdmin } from "../hooks/useActors"
@@ -52,15 +52,17 @@ const RadioPlayer = ({
   })
 
   useEffect(() => {
-    if (!!player.current && !player.current?.howler?.playing() && !playing) {
-      if (player.current.howlerState() === "loaded") {
-        player.current.howler?.stop()
-      }
+    const ref = player.current
+    if (ref && !ref.howler?.playing() && !playing && ref.howlerState() === "loaded") {
+      ref.howler?.stop()
     }
+  }, [playing])
+
+  useEffect(() => {
     return () => {
       player.current?.howler?.unload()
     }
-  }, [playing, player.current])
+  }, [])
 
   const handleError = useCallback(() => {
     if (playing && player.current) {
@@ -99,14 +101,11 @@ const RadioPlayer = ({
                   <Icon boxSize={5} as={LuListMusic} />
                 </IconButton>
               )}
-              <IconButton
-                size="md"
-                aria-label={playing ? "Stop" : "Play"}
-                variant="ghost"
+              <PlayPauseButton
+                playing={playing}
+                loading={loading}
                 onClick={() => onPlayPause()}
-              >
-                <PlayStateIcon loading={loading} playing={playing} />
-              </IconButton>
+              />
               {!isAdmin && (
                 <IconButton
                   size="md"

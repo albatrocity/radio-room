@@ -15,12 +15,21 @@ import { useCurrentRoom } from "../hooks/useActors"
 interface Props {
   onClose: () => void
   onSubmit: (username?: string) => void
+  /** Called synchronously before `onSubmit` (e.g. start audio while user-gesture is active). */
+  onBeforeSubmit?: () => void
   currentUser: User
   open?: boolean
   isOpen?: boolean
 }
 
-const FormUsername = ({ onClose, onSubmit, currentUser, open, isOpen }: Props) => {
+const FormUsername = ({
+  onClose,
+  onSubmit,
+  onBeforeSubmit,
+  currentUser,
+  open,
+  isOpen,
+}: Props) => {
   const room = useCurrentRoom()
   // Support both legacy isOpen and new open prop
   const isDialogOpen = open ?? isOpen ?? false
@@ -33,6 +42,7 @@ const FormUsername = ({ onClose, onSubmit, currentUser, open, isOpen }: Props) =
           return onClose()
         }
         setSubmitting(false)
+        onBeforeSubmit?.()
         onSubmit(values.username || currentUser.username)
       }}
     >
