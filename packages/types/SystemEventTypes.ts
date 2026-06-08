@@ -327,6 +327,21 @@ export type SystemEventHandlers = {
     item: InventoryItem
     quantity: number
   }) => Promise<void> | void
+
+  // ==========================================================================
+  // Playback state events
+  // ==========================================================================
+
+  /**
+   * Fired when playback state transitions (playing ↔ paused/stopped).
+   * Sources: PlaybackController callbacks, trackAdvanceJob polling for external changes.
+   * Deduplicated by the handlePlaybackStateChange operation.
+   */
+  PLAYBACK_STATE_CHANGED: (data: {
+    roomId: string
+    state: "playing" | "paused" | "stopped"
+    trackId: string | null
+  }) => Promise<void> | void
 }
 
 /**

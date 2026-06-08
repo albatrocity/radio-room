@@ -357,6 +357,34 @@ function CheckboxGroupField({ meta, value, onChange }: FieldProps) {
   )
 }
 
+function epochToDatetimeLocal(epochMs: number | null | undefined): string {
+  if (epochMs == null || !Number.isFinite(epochMs)) return ""
+  const d = new Date(epochMs)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function datetimeLocalToEpoch(localStr: string): number | null {
+  if (!localStr) return null
+  const d = new Date(localStr)
+  return Number.isNaN(d.getTime()) ? null : d.getTime()
+}
+
+function DatetimeField({ meta, value, onChange }: FieldProps) {
+  const displayValue = epochToDatetimeLocal(value as number | null)
+
+  return (
+    <>
+      <Field.Label>{meta.label}</Field.Label>
+      <Input
+        type="datetime-local"
+        value={displayValue}
+        onChange={(e) => onChange(datetimeLocalToEpoch(e.target.value))}
+      />
+    </>
+  )
+}
+
 /**
  * Render a form field based on its type
  */
@@ -388,6 +416,8 @@ function renderField(
       return <StringArrayField {...props} />
     case "checkbox-group":
       return <CheckboxGroupField {...props} />
+    case "datetime":
+      return <DatetimeField {...props} />
     default:
       return <StringField {...props} />
   }

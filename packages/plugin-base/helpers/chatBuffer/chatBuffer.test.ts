@@ -1,10 +1,6 @@
 import { describe, expect, test } from "vitest"
 import type { GameStateModifier } from "@repo/types"
-import {
-  CHAT_BUFFER_FLAG,
-  countChatBufferStacks,
-  getChatSendDelayMs,
-} from "./index"
+import { CHAT_BUFFER_FLAG, countChatBufferStacks, getChatSendDelayMs } from "./index"
 
 describe("countChatBufferStacks", () => {
   const now = 1_700_000_000_000

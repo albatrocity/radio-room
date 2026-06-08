@@ -76,7 +76,9 @@ export function applyTextEffects(
   const active = filterActiveKinds(kinds, stacks)
   if (active.length === 0) return null
 
-  const contentKinds = active.filter((k): k is Extract<TextEffectKind, { phase: "content" }> => k.phase === "content").sort(sortByOrder)
+  const contentKinds = active
+    .filter((k): k is Extract<TextEffectKind, { phase: "content" }> => k.phase === "content")
+    .sort(sortByOrder)
 
   let transformed = content
   for (const k of contentKinds) {
@@ -89,10 +91,18 @@ export function applyTextEffects(
 
   let wordOrdinal = 0
 
-  const wordKinds = active.filter((k): k is Extract<TextEffectKind, { phase: "word" }> => k.phase === "word").sort(sortByOrder)
-  const segmentKinds = active.filter((k): k is Extract<TextEffectKind, { phase: "segment" }> => k.phase === "segment").sort(sortByOrder)
-  const decorateKinds = active.filter((k): k is Extract<TextEffectKind, { phase: "decorate" }> => k.phase === "decorate").sort(sortByOrder)
-  const multiplyKinds = active.filter((k): k is Extract<TextEffectKind, { phase: "multiply" }> => k.phase === "multiply").sort(sortByOrder)
+  const wordKinds = active
+    .filter((k): k is Extract<TextEffectKind, { phase: "word" }> => k.phase === "word")
+    .sort(sortByOrder)
+  const segmentKinds = active
+    .filter((k): k is Extract<TextEffectKind, { phase: "segment" }> => k.phase === "segment")
+    .sort(sortByOrder)
+  const decorateKinds = active
+    .filter((k): k is Extract<TextEffectKind, { phase: "decorate" }> => k.phase === "decorate")
+    .sort(sortByOrder)
+  const multiplyKinds = active
+    .filter((k): k is Extract<TextEffectKind, { phase: "multiply" }> => k.phase === "multiply")
+    .sort(sortByOrder)
 
   return buildSegments(tokens, (token) => {
     if (!token.word) return []

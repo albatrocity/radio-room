@@ -521,12 +521,12 @@ export class RadioRoomServer {
     playbackController.adapter.register({
       name: playbackController.name,
       authentication: playbackController.authentication,
-      onPlay: this.onPlay.bind(this),
-      onPause: this.onPause.bind(this),
-      onPlaybackQueueChange: this.onPlaybackQueueChange.bind(this),
-      onChangeTrack: this.onChangeTrack.bind(this),
-      onPlaybackPositionChange: this.onPlaybackPositionChange.bind(this),
-      onPlaybackStateChange: this.onPlaybackStateChange.bind(this),
+      onPlay: () => {},
+      onPause: () => {},
+      onPlaybackQueueChange: () => {},
+      onChangeTrack: () => {},
+      onPlaybackPositionChange: () => {},
+      onPlaybackStateChange: () => {},
       onError: (error) => {
         console.error(`Error in playback controller ${playbackController}`, error)
       },

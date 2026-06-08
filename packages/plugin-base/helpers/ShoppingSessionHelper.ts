@@ -114,17 +114,12 @@ export class ShoppingSessionHelper {
     const shop = pool[Math.floor(Math.random() * pool.length)]!
     const shortIds = this.sampleOfferShortIds(shop, 3)
     const instance = buildShoppingInstance(shop, shortIds, this.catalogMap, openedAt)
-    const displayMessage = (shop.openingMessage ?? "{{shopName}} is now open for business!").replace(
-      /\{\{shopName\}\}/g,
-      shop.name,
-    )
+    const displayMessage = (
+      shop.openingMessage ?? "{{shopName}} is now open for business!"
+    ).replace(/\{\{shopName\}\}/g, shop.name)
     instance.openingMessage = displayMessage
     await this.persistInstance(userId, instance)
-    await this.context.api.sendUserSystemMessage(
-      this.context.roomId,
-      userId,
-      displayMessage,
-    )
+    await this.context.api.sendUserSystemMessage(this.context.roomId, userId, displayMessage)
   }
 
   /**
@@ -132,7 +127,9 @@ export class ShoppingSessionHelper {
    * full catalog so older callers keep working; callers that need strict empty handling should
    * guard before calling.
    */
-  private resolveAssignmentPool(eligibleShops?: readonly ShopCatalogEntry[]): readonly ShopCatalogEntry[] {
+  private resolveAssignmentPool(
+    eligibleShops?: readonly ShopCatalogEntry[],
+  ): readonly ShopCatalogEntry[] {
     if (eligibleShops === undefined) {
       return this.shopCatalog
     }
@@ -228,7 +225,11 @@ export class ShoppingSessionHelper {
   /**
    * Sell back from inventory when a shop instance is open for this user.
    */
-  async sell(userId: string, item: InventoryItem, definition: ItemDefinition): Promise<ShopTransactionResult> {
+  async sell(
+    userId: string,
+    item: InventoryItem,
+    definition: ItemDefinition,
+  ): Promise<ShopTransactionResult> {
     if (!(await this.isActive())) {
       return { success: false, message: "No shopping session is open right now." }
     }

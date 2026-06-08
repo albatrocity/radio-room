@@ -27,12 +27,23 @@ export function CountdownTemplateComponent({ startKey, duration }: CountdownComp
       ? new Date(startValue).getTime()
       : Date.now()
 
-  // Resolve duration - can be a number or a config path like "config.timeLimit"
-  let resolvedDuration = typeof duration === "number" ? duration : 0
-  if (typeof duration === "string" && duration.startsWith("config.")) {
-    const configKey = duration.substring(7)
-    const configValue = config[configKey]
-    resolvedDuration = typeof configValue === "number" ? configValue : 0
+  // Resolve duration - can be:
+  // 1. A number literal
+  // 2. A config path like "config.timeLimit"
+  // 3. A store key like "perTrackWindowMs"
+  let resolvedDuration = 0
+  if (typeof duration === "number") {
+    resolvedDuration = duration
+  } else if (typeof duration === "string") {
+    if (duration.startsWith("config.")) {
+      const configKey = duration.substring(7)
+      const configValue = config[configKey]
+      resolvedDuration = typeof configValue === "number" ? configValue : 0
+    } else {
+      // Bare string: look up in store
+      const storeValue = store[duration]
+      resolvedDuration = typeof storeValue === "number" ? storeValue : 0
+    }
   }
 
   // Use start time as key to force remount when track changes

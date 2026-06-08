@@ -18,8 +18,6 @@ describe("formatValue duration", () => {
 
 describe("interpolateTemplate sessionMs:duration", () => {
   test("matches loyalty-style placeholders", () => {
-    expect(
-      interpolateTemplate("{{sessionMs:duration}}", { sessionMs: 2500 }),
-    ).toBe("3 seconds")
+    expect(interpolateTemplate("{{sessionMs:duration}}", { sessionMs: 2500 })).toBe("3 seconds")
   })
 })
