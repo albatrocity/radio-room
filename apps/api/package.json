@@ -25,6 +25,7 @@
     "@repo/plugin-playlist-democracy": "*",
     "@repo/plugin-queue-hygiene": "*",
     "@repo/plugin-special-words": "*",
+    "@repo/plugin-time-cop": "*",
     "@repo/server": "*",
     "@socket.io/redis-adapter": "^8.3.0",
     "@spotify/web-api-ts-sdk": "^1.2.0",

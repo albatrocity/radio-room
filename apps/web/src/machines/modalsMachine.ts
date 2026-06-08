@@ -33,6 +33,7 @@ export type Event =
   | { type: "EDIT_MUSIC_SHOP" }
   | { type: "EDIT_LOYALTY_PROGRAM" }
   | { type: "EDIT_ITEM_SHOPS" }
+  | { type: "EDIT_TIME_COP" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
@@ -120,6 +121,7 @@ export const modalsMachine = setup({
             EDIT_MUSIC_SHOP: "music_shop",
             EDIT_LOYALTY_PROGRAM: "loyalty_program",
             EDIT_ITEM_SHOPS: "item_shops",
+            EDIT_TIME_COP: "time_cop",
           },
         },
         playlist_democracy: {
@@ -158,6 +160,11 @@ export const modalsMachine = setup({
           },
         },
         item_shops: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        time_cop: {
           on: {
             BACK: "overview",
           },
