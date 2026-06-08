@@ -74,6 +74,7 @@ export function getComponentSchema(): PluginComponentSchema {
           { field: "enabled", value: true },
           { field: "isPaused", value: false },
           { field: "currentTrackSkipCanceled", value: false },
+          { field: "trackExceedsBudget", value: true },
         ],
         content: [
           { type: "text", content: "Time Cop: " },
@@ -92,8 +93,11 @@ export function getComponentSchema(): PluginComponentSchema {
         showWhen: [
           { field: "enabled", value: true },
           { field: "isPaused", value: true },
+          { field: "trackExceedsBudget", value: true },
         ],
-        content: [{ type: "text", content: "Time Cop paused — {{pausedRemainingMs:duration}} remaining" }],
+        content: [
+          { type: "text", content: "Time Cop paused — {{pausedRemainingMs:duration}} remaining" },
+        ],
         variant: "info",
       },
       // Admin-only "Let it play" button
@@ -102,6 +106,8 @@ export function getComponentSchema(): PluginComponentSchema {
         type: "button",
         area: "nowPlayingInfo",
         label: "Let it play",
+        variant: "link",
+        size: "sm",
         icon: "Heart",
         action: "cancelCurrentTrackSkip",
         adminOnly: true,
@@ -109,6 +115,7 @@ export function getComponentSchema(): PluginComponentSchema {
           { field: "enabled", value: true },
           { field: "currentTrackSkipCanceled", value: false },
           { field: "isPaused", value: false },
+          { field: "trackExceedsBudget", value: true },
         ],
       },
       // "Saved" badge after admin cancels a skip
@@ -128,6 +135,7 @@ export function getComponentSchema(): PluginComponentSchema {
       "currentTrackSkipCanceled",
       "isPaused",
       "pausedRemainingMs",
+      "trackExceedsBudget",
     ],
   }
 }

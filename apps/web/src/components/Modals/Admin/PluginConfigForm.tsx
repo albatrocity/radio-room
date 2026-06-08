@@ -430,6 +430,7 @@ function DatetimeField({ meta, value, onChange }: FieldProps) {
         value={dateValue ? [dateValue] : []}
         onValueChange={handleDateChange}
         closeOnSelect
+        timeZone={getLocalTimeZone()}
       >
         <DatePicker.Label>{meta.label}</DatePicker.Label>
         <DatePicker.Control>

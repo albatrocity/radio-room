@@ -10,7 +10,11 @@ import type {
   User,
 } from "@repo/types"
 
-function createMockQueueItem(trackId: string, playedAt?: number): QueueItem {
+function createMockQueueItem(
+  trackId: string,
+  playedAt?: number,
+  duration?: number,
+): QueueItem {
   return {
     title: `Track ${trackId}`,
     mediaSource: { type: "spotify", trackId },
@@ -19,6 +23,7 @@ function createMockQueueItem(trackId: string, playedAt?: number): QueueItem {
       title: `Track ${trackId}`,
       artists: [{ title: "Test Artist" }],
       album: { title: "Test Album" },
+      duration: duration ?? 180_000,
     },
     addedAt: Date.now(),
     addedBy: { userId: "user1", username: "User 1" },
@@ -239,14 +244,15 @@ describe("TimeCopPlugin", () => {
   })
 
   describe("getComponentState", () => {
-    const enabledConfig: TimeCopConfig = {
-      enabled: true,
-      endTime: Date.now() + 300_000,
-      minPlaybackMs: 30_000,
-      warnOnOverrun: true,
-    }
+    let enabledConfig: TimeCopConfig
 
     beforeEach(async () => {
+      enabledConfig = {
+        enabled: true,
+        endTime: Date.now() + 300_000,
+        minPlaybackMs: 30_000,
+        warnOnOverrun: true,
+      }
       await plugin.register(mockContext)
     })
 
@@ -258,6 +264,7 @@ describe("TimeCopPlugin", () => {
       expect(state.enabled).toBe(false)
       expect(state.isPaused).toBe(false)
       expect(state.currentTrackSkipCanceled).toBe(false)
+      expect(state.trackExceedsBudget).toBe(false)
     })
 
     test("returns active state when plugin is active with now playing", async () => {
@@ -270,6 +277,32 @@ describe("TimeCopPlugin", () => {
       expect(state.enabled).toBe(true)
       expect(state.trackStartTime).toBeDefined()
       expect(state.perTrackWindowMs).toBeDefined()
+    })
+
+    test("returns trackExceedsBudget false when track duration fits within window", async () => {
+      vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
+      // 5 min remaining / 2 tracks = 150s window; track is 60s
+      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(
+        createMockQueueItem("track1", Date.now(), 60_000),
+      )
+      vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+
+      const state = await plugin.getComponentState()
+
+      expect(state.trackExceedsBudget).toBe(false)
+    })
+
+    test("returns trackExceedsBudget true when track duration exceeds window", async () => {
+      vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
+      // 5 min remaining / 2 tracks = 150s window; track is 5 min
+      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(
+        createMockQueueItem("track1", Date.now(), 300_000),
+      )
+      vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+
+      const state = await plugin.getComponentState()
+
+      expect(state.trackExceedsBudget).toBe(true)
     })
   })
 
@@ -303,6 +336,39 @@ describe("TimeCopPlugin", () => {
       expect(mockContext.api.sendSystemMessage).toHaveBeenCalledWith(
         "test-room",
         expect.stringContaining("Time Cop activated"),
+        expect.any(Object),
+      )
+    })
+
+    test("formats activation time in configured timezone", async () => {
+      const endTime = new Date("2026-06-08T20:15:00Z").getTime()
+      const configWithTz: TimeCopConfig = {
+        enabled: true,
+        endTime,
+        endTimeZone: "America/Chicago",
+        minPlaybackMs: 30_000,
+        warnOnOverrun: true,
+      }
+
+      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
+      const configChangedHandler = handlers[0]
+
+      await configChangedHandler({
+        roomId: "test-room",
+        pluginName: "time-cop",
+        config: configWithTz,
+        previousConfig: {
+          enabled: false,
+          endTime: null,
+          endTimeZone: null,
+          minPlaybackMs: 30_000,
+          warnOnOverrun: true,
+        },
+      })
+
+      expect(mockContext.api.sendSystemMessage).toHaveBeenCalledWith(
+        "test-room",
+        expect.stringContaining("3:15 PM"),
         expect.any(Object),
       )
     })

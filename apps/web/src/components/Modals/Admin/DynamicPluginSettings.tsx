@@ -1,6 +1,7 @@
 import React, { useMemo } from "react"
 import { Formik } from "formik"
 import { DialogBody, DialogFooter, Text, Spinner, Center, VStack } from "@chakra-ui/react"
+import { getLocalTimeZone } from "@internationalized/date"
 import { useModalsSend, useSettings, useAdminSend } from "../../../hooks/useActors"
 import { usePluginSchemas } from "../../../hooks/usePluginSchemas"
 import PluginConfigForm from "./PluginConfigForm"
@@ -103,7 +104,15 @@ export default function DynamicPluginSettings({ pluginName }: DynamicPluginSetti
             <PluginConfigForm
               schema={pluginSchema.configSchema!}
               values={values}
-              onChange={(field, value) => setFieldValue(field, value)}
+              onChange={(field, value) => {
+                setFieldValue(field, value)
+                if (pluginName === "time-cop" && field === "endTime") {
+                  setFieldValue(
+                    "endTimeZone",
+                    value != null ? getLocalTimeZone() : null,
+                  )
+                }
+              }}
               pluginName={pluginName}
             />
           </DialogBody>

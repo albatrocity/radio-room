@@ -24,8 +24,21 @@ export { timeCopConfigSchema, defaultTimeCopConfig, defaultTimeCopState, isActiv
 const STATE_KEY = "state"
 const MIN_TIMER_MS = 5_000
 
-function formatTime(epochMs: number): string {
-  return new Date(epochMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+function formatTime(epochMs: number, timeZone?: string | null): string {
+  return new Date(epochMs).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(timeZone ? { timeZone } : {}),
+  })
+}
+
+function trackExceedsBudget(
+  nowPlaying: QueueItem | null,
+  perTrackWindowMs: number | null,
+): boolean {
+  if (perTrackWindowMs == null || !nowPlaying) return false
+  const trackDuration = nowPlaying.track?.duration ?? 0
+  return trackDuration > perTrackWindowMs
 }
 
 export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
@@ -63,17 +76,20 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
         trackStartTime: null,
         perTrackWindowMs: null,
         pausedRemainingMs: null,
+        trackExceedsBudget: false,
       }
     }
 
     const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
     const perTrackWindowMs = await this.computeWindow(config!)
+    const exceedsBudget = trackExceedsBudget(nowPlaying, perTrackWindowMs)
 
     console.log(`[${this.name}] getComponentState active`, {
       hasNowPlaying: !!nowPlaying,
       nowPlayingMediaTrackId: nowPlaying?.mediaSource?.trackId,
       nowPlayingPlayedAt: nowPlaying?.playedAt,
       perTrackWindowMs,
+      trackExceedsBudget: exceedsBudget,
     })
 
     return {
@@ -83,6 +99,7 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
       trackStartTime: nowPlaying?.playedAt ?? null,
       perTrackWindowMs,
       pausedRemainingMs: this.state.pausedRemainingMs,
+      trackExceedsBudget: exceedsBudget,
     }
   }
 
@@ -232,6 +249,7 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
       isPaused: this.state.isPaused,
       pausedRemainingMs: this.state.pausedRemainingMs,
       currentTrackSkipCanceled: this.state.currentTrackSkipCanceled,
+      trackExceedsBudget: trackExceedsBudget(nowPlaying, perTrackWindowMs),
     })
   }
 
@@ -469,7 +487,7 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
 
     await this.context!.api.sendSystemMessage(
       this.context!.roomId,
-      `⏰ Time Cop activated. Targeting ${formatTime(config.endTime!)}. ${remainingTracks} track(s) remaining.`,
+      `⏰ Time Cop activated. Targeting ${formatTime(config.endTime!, config.endTimeZone)}. ${remainingTracks} track(s) remaining.`,
       { type: "alert", status: "info" },
     )
 

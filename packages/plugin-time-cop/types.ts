@@ -11,6 +11,8 @@ export const timeCopConfigSchema = z
   .object({
     enabled: z.boolean().default(false),
     endTime: z.number().int().nullable().default(null), // epoch ms
+    /** IANA timezone used when endTime was set (for display in system messages). */
+    endTimeZone: z.string().nullable().default(null),
     minPlaybackMs: z.number().int().min(5_000).max(300_000).default(30_000),
     warnOnOverrun: z.boolean().default(true),
   })
@@ -44,6 +46,7 @@ export type TimeCopConfig = z.infer<typeof timeCopConfigSchema>
 export const defaultTimeCopConfig: TimeCopConfig = {
   enabled: false,
   endTime: null,
+  endTimeZone: null,
   minPlaybackMs: 30_000, // 30 seconds minimum playback
   warnOnOverrun: true,
 }

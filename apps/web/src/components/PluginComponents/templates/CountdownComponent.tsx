@@ -46,10 +46,10 @@ export function CountdownTemplateComponent({ startKey, duration }: CountdownComp
     }
   }
 
-  // Use start time as key to force remount when track changes
+  // Key by both start and duration to force remount when track or budget changes
   return (
     <CountdownTimerDisplay
-      key={start}
+      key={`${start}-${resolvedDuration}`}
       start={start}
       duration={resolvedDuration}
       textColor={textColor}
