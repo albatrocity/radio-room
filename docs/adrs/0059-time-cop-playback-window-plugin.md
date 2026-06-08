@@ -1,4 +1,6 @@
-# 0059. Time Cop Playback Window Plugin
+# 0059. Queue Pacer Playback Window Plugin
+
+> **Note:** Originally implemented as "Time Cop" (`time-cop`). Renamed to Queue Pacer (`queue-pacer`).
 
 **Date:** 2026-06-08  
 **Status:** Accepted
@@ -18,7 +20,7 @@ Key requirements:
 
 ## Decision
 
-Implement a **`@repo/plugin-time-cop`** plugin following the existing plugin architecture ([ADR 0006](0006-plugin-system-for-room-features.md)).
+Implement a **`@repo/plugin-queue-pacer`** plugin following the existing plugin architecture ([ADR 0006](0006-plugin-system-for-room-features.md)).
 
 ### Configuration
 
@@ -89,7 +91,7 @@ Declarative components via `getComponentSchema()`:
 
 ## References
 
-- Plugin: [`packages/plugin-time-cop/`](../../packages/plugin-time-cop/)
+- Plugin: [`packages/plugin-queue-pacer/`](../../packages/plugin-queue-pacer/)
 - Pause event: [ADR 0060](0060-playback-state-changed-system-event.md)
 - Plugin system: [ADR 0006](0006-plugin-system-for-room-features.md)
 - Domain event pattern: [ADR 0014](0014-emit-domain-events-from-operations-only.md)

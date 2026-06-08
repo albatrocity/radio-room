@@ -106,7 +106,7 @@ export default function DynamicPluginSettings({ pluginName }: DynamicPluginSetti
               values={values}
               onChange={(field, value) => {
                 setFieldValue(field, value)
-                if (pluginName === "time-cop" && field === "endTime") {
+                if (pluginName === "queue-pacer" && field === "endTime") {
                   setFieldValue(
                     "endTimeZone",
                     value != null ? getLocalTimeZone() : null,

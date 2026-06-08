@@ -49,6 +49,7 @@ function pluralize(word: string, count: number): string {
  *
  * Available formatters:
  * - `duration`: Converts milliseconds to human-readable; values are **rounded up** to whole seconds first (e.g., 2500 ms → "3 seconds", 60000 ms → "1 minute")
+ * - `mmss`: Compact m:ss from milliseconds (e.g., 83000 ms → "1:23")
  * - `percentage`: Adds % suffix (e.g., "50%")
  * - `pluralize:countField`: Pluralizes the value based on another field's count
  *
@@ -80,6 +81,15 @@ export function formatValue(
         return `${totalSeconds} second${totalSeconds !== 1 ? "s" : ""}`
       }
       return String(value)
+    case "mmss": {
+      if (typeof value === "number") {
+        const totalSeconds = Math.ceil(value / 1000)
+        const minutes = Math.floor(totalSeconds / 60)
+        const seconds = totalSeconds % 60
+        return `${minutes}:${String(seconds).padStart(2, "0")}`
+      }
+      return String(value)
+    }
     case "percentage":
       return `${value}%`
     case "pluralize":

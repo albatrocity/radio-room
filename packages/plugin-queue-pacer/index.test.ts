@@ -1,6 +1,6 @@
 import { describe, expect, test, vi, beforeEach, afterEach } from "vitest"
-import { TimeCopPlugin, isActive } from "./index"
-import { timeCopConfigSchema, type TimeCopConfig } from "./types"
+import { QueuePacerPlugin, isActive } from "./index"
+import { queuePacerConfigSchema, type QueuePacerConfig } from "./types"
 import type {
   PluginContext,
   PluginAPI,
@@ -122,12 +122,12 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
   } as any
 }
 
-describe("TimeCopPlugin", () => {
-  let plugin: TimeCopPlugin
+describe("QueuePacerPlugin", () => {
+  let plugin: QueuePacerPlugin
   let mockContext: PluginContext
 
   beforeEach(() => {
-    plugin = new TimeCopPlugin()
+    plugin = new QueuePacerPlugin()
     mockContext = createMockContext()
     vi.useFakeTimers()
     vi.setSystemTime(new Date("2026-06-08T12:00:00Z"))
@@ -169,7 +169,7 @@ describe("TimeCopPlugin", () => {
 
   describe("Zod validation", () => {
     test("accepts valid disabled config", () => {
-      const result = timeCopConfigSchema.safeParse({
+      const result = queuePacerConfigSchema.safeParse({
         enabled: false,
         endTime: null,
         minPlaybackMs: 30000,
@@ -180,7 +180,7 @@ describe("TimeCopPlugin", () => {
 
     test("accepts valid enabled config with future endTime", () => {
       const futureTime = Date.now() + 120_000
-      const result = timeCopConfigSchema.safeParse({
+      const result = queuePacerConfigSchema.safeParse({
         enabled: true,
         endTime: futureTime,
         minPlaybackMs: 30000,
@@ -190,7 +190,7 @@ describe("TimeCopPlugin", () => {
     })
 
     test("rejects enabled config without endTime", () => {
-      const result = timeCopConfigSchema.safeParse({
+      const result = queuePacerConfigSchema.safeParse({
         enabled: true,
         endTime: null,
         minPlaybackMs: 30000,
@@ -201,7 +201,7 @@ describe("TimeCopPlugin", () => {
 
     test("rejects enabled config with past endTime", () => {
       const pastTime = Date.now() - 60_000
-      const result = timeCopConfigSchema.safeParse({
+      const result = queuePacerConfigSchema.safeParse({
         enabled: true,
         endTime: pastTime,
         minPlaybackMs: 30000,
@@ -213,7 +213,7 @@ describe("TimeCopPlugin", () => {
 
   describe("registration", () => {
     test("registers with correct name and version", () => {
-      expect(plugin.name).toBe("time-cop")
+      expect(plugin.name).toBe("queue-pacer")
       expect(plugin.version).toBeDefined()
     })
 
@@ -244,7 +244,7 @@ describe("TimeCopPlugin", () => {
   })
 
   describe("getComponentState", () => {
-    let enabledConfig: TimeCopConfig
+    let enabledConfig: QueuePacerConfig
 
     beforeEach(async () => {
       enabledConfig = {
@@ -290,6 +290,19 @@ describe("TimeCopPlugin", () => {
       const state = await plugin.getComponentState()
 
       expect(state.trackExceedsBudget).toBe(false)
+      expect(state.skipAmountMs).toBe(0)
+    })
+
+    test("returns skipAmountMs 0 when track duration fits within window", async () => {
+      vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
+      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(
+        createMockQueueItem("track1", Date.now(), 60_000),
+      )
+      vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+
+      const state = await plugin.getComponentState()
+
+      expect(state.skipAmountMs).toBe(0)
     })
 
     test("returns trackExceedsBudget true when track duration exceeds window", async () => {
@@ -303,11 +316,26 @@ describe("TimeCopPlugin", () => {
       const state = await plugin.getComponentState()
 
       expect(state.trackExceedsBudget).toBe(true)
+      // 5 min track - 150s window = 150s skip
+      expect(state.skipAmountMs).toBe(150_000)
+      expect(state.hasQueuedTracksBehind).toBe(true)
+    })
+
+    test("returns hasQueuedTracksBehind false when queue is empty", async () => {
+      vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
+      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(
+        createMockQueueItem("track1", Date.now(), 300_000),
+      )
+      vi.mocked(mockContext.api.getQueue).mockResolvedValue([])
+
+      const state = await plugin.getComponentState()
+
+      expect(state.hasQueuedTracksBehind).toBe(false)
     })
   })
 
   describe("activation via CONFIG_CHANGED", () => {
-    const enabledConfig: TimeCopConfig = {
+    const enabledConfig: QueuePacerConfig = {
       enabled: true,
       endTime: Date.now() + 300_000,
       minPlaybackMs: 30_000,
@@ -327,7 +355,7 @@ describe("TimeCopPlugin", () => {
 
       await configChangedHandler({
         roomId: "test-room",
-        pluginName: "time-cop",
+        pluginName: "queue-pacer",
         config: enabledConfig,
         previousConfig: { enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true },
       })
@@ -335,14 +363,14 @@ describe("TimeCopPlugin", () => {
       expect(mockContext.api.emit).toHaveBeenCalledWith("ACTIVATED", expect.any(Object))
       expect(mockContext.api.sendSystemMessage).toHaveBeenCalledWith(
         "test-room",
-        expect.stringContaining("Time Cop activated"),
+        expect.stringContaining("Queue Pacer activated"),
         expect.any(Object),
       )
     })
 
     test("formats activation time in configured timezone", async () => {
       const endTime = new Date("2026-06-08T20:15:00Z").getTime()
-      const configWithTz: TimeCopConfig = {
+      const configWithTz: QueuePacerConfig = {
         enabled: true,
         endTime,
         endTimeZone: "America/Chicago",
@@ -355,7 +383,7 @@ describe("TimeCopPlugin", () => {
 
       await configChangedHandler({
         roomId: "test-room",
-        pluginName: "time-cop",
+        pluginName: "queue-pacer",
         config: configWithTz,
         previousConfig: {
           enabled: false,
@@ -379,7 +407,7 @@ describe("TimeCopPlugin", () => {
 
       await configChangedHandler({
         roomId: "test-room",
-        pluginName: "time-cop",
+        pluginName: "queue-pacer",
         config: { enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true },
         previousConfig: enabledConfig,
       })
@@ -394,7 +422,7 @@ describe("TimeCopPlugin", () => {
   })
 
   describe("fetchMeta gating", () => {
-    const enabledConfig: TimeCopConfig = {
+    const enabledConfig: QueuePacerConfig = {
       enabled: true,
       endTime: Date.now() + 300_000,
       minPlaybackMs: 30_000,
@@ -414,7 +442,7 @@ describe("TimeCopPlugin", () => {
 
       await configChangedHandler({
         roomId: "test-room",
-        pluginName: "time-cop",
+        pluginName: "queue-pacer",
         config: enabledConfig,
         previousConfig: { enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true },
       })
@@ -426,7 +454,7 @@ describe("TimeCopPlugin", () => {
       )
       expect(mockContext.api.setPluginConfig).toHaveBeenCalledWith(
         "test-room",
-        "time-cop",
+        "queue-pacer",
         expect.objectContaining({ enabled: false }),
       )
     })
@@ -449,14 +477,14 @@ describe("TimeCopPlugin", () => {
       )
       expect(mockContext.api.setPluginConfig).toHaveBeenCalledWith(
         "test-room",
-        "time-cop",
+        "queue-pacer",
         expect.objectContaining({ enabled: false }),
       )
     })
   })
 
   describe("TRACK_CHANGED re-arms timer", () => {
-    const enabledConfig: TimeCopConfig = {
+    const enabledConfig: QueuePacerConfig = {
       enabled: true,
       endTime: Date.now() + 300_000,
       minPlaybackMs: 30_000,
@@ -484,7 +512,7 @@ describe("TimeCopPlugin", () => {
   })
 
   describe("timer skip behavior", () => {
-    const enabledConfig: TimeCopConfig = {
+    const enabledConfig: QueuePacerConfig = {
       enabled: true,
       endTime: Date.now() + 10_000, // Very short time
       minPlaybackMs: 5_000,
@@ -505,7 +533,7 @@ describe("TimeCopPlugin", () => {
 
       await configChangedHandler({
         roomId: "test-room",
-        pluginName: "time-cop",
+        pluginName: "queue-pacer",
         config: enabledConfig,
         previousConfig: { enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true },
       })
@@ -525,7 +553,7 @@ describe("TimeCopPlugin", () => {
 
       await configChangedHandler({
         roomId: "test-room",
-        pluginName: "time-cop",
+        pluginName: "queue-pacer",
         config: enabledConfig,
         previousConfig: { enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true },
       })
@@ -538,7 +566,7 @@ describe("TimeCopPlugin", () => {
   })
 
   describe("PLAYBACK_STATE_CHANGED pause/resume", () => {
-    const enabledConfig: TimeCopConfig = {
+    const enabledConfig: QueuePacerConfig = {
       enabled: true,
       endTime: Date.now() + 300_000,
       minPlaybackMs: 30_000,
@@ -554,7 +582,7 @@ describe("TimeCopPlugin", () => {
       const configHandlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
       await configHandlers[0]({
         roomId: "test-room",
-        pluginName: "time-cop",
+        pluginName: "queue-pacer",
         config: enabledConfig,
         previousConfig: { enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true },
       })
@@ -596,7 +624,7 @@ describe("TimeCopPlugin", () => {
   })
 
   describe("cancelCurrentTrackSkip action", () => {
-    const enabledConfig: TimeCopConfig = {
+    const enabledConfig: QueuePacerConfig = {
       enabled: true,
       endTime: Date.now() + 300_000,
       minPlaybackMs: 30_000,
@@ -612,7 +640,7 @@ describe("TimeCopPlugin", () => {
       const configHandlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
       await configHandlers[0]({
         roomId: "test-room",
-        pluginName: "time-cop",
+        pluginName: "queue-pacer",
         config: enabledConfig,
         previousConfig: { enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true },
       })

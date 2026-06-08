@@ -9,19 +9,20 @@ import type {
 } from "@repo/types"
 import { BasePlugin } from "@repo/plugin-base"
 import {
-  timeCopConfigSchema,
-  defaultTimeCopConfig,
-  defaultTimeCopState,
+  queuePacerConfigSchema,
+  defaultQueuePacerConfig,
+  defaultQueuePacerState,
   isActive,
-  type TimeCopConfig,
-  type TimeCopState,
+  type QueuePacerConfig,
+  type QueuePacerState,
 } from "./types"
 import { getConfigSchema, getComponentSchema } from "./schema"
 
-export type { TimeCopConfig, TimeCopState } from "./types"
-export { timeCopConfigSchema, defaultTimeCopConfig, defaultTimeCopState, isActive } from "./types"
+export type { QueuePacerConfig, QueuePacerState } from "./types"
+export { queuePacerConfigSchema, defaultQueuePacerConfig, defaultQueuePacerState, isActive } from "./types"
 
 const STATE_KEY = "state"
+const LEGACY_PLUGIN_NAME = "time-cop"
 const MIN_TIMER_MS = 5_000
 
 function formatTime(epochMs: number, timeZone?: string | null): string {
@@ -41,15 +42,25 @@ function trackExceedsBudget(
   return trackDuration > perTrackWindowMs
 }
 
-export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
-  name = "time-cop"
+function computeSkipAmountMs(
+  nowPlaying: QueueItem | null,
+  perTrackWindowMs: number | null,
+): number {
+  if (perTrackWindowMs == null || !nowPlaying) return 0
+  const trackDuration = nowPlaying.track?.duration ?? 0
+  if (trackDuration <= perTrackWindowMs) return 0
+  return trackDuration - perTrackWindowMs
+}
+
+export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
+  name = "queue-pacer"
   version = "1.0.0"
   description = "Finish the queue by a target end time with dynamic per-track playback windows."
 
-  static readonly configSchema = timeCopConfigSchema
-  static readonly defaultConfig = defaultTimeCopConfig
+  static readonly configSchema = queuePacerConfigSchema
+  static readonly defaultConfig = defaultQueuePacerConfig
 
-  private state: TimeCopState = { ...defaultTimeCopState }
+  private state: QueuePacerState = { ...defaultQueuePacerState }
 
   getConfigSchema(): PluginConfigSchema {
     return getConfigSchema()
@@ -77,12 +88,17 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
         perTrackWindowMs: null,
         pausedRemainingMs: null,
         trackExceedsBudget: false,
+        skipAmountMs: 0,
+        hasQueuedTracksBehind: false,
       }
     }
 
     const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
+    const queue = await this.context!.api.getQueue(this.context!.roomId)
+    const hasQueuedTracksBehind = queue.length > 0
     const perTrackWindowMs = await this.computeWindow(config!)
     const exceedsBudget = trackExceedsBudget(nowPlaying, perTrackWindowMs)
+    const skipAmountMs = computeSkipAmountMs(nowPlaying, perTrackWindowMs)
 
     console.log(`[${this.name}] getComponentState active`, {
       hasNowPlaying: !!nowPlaying,
@@ -90,6 +106,8 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
       nowPlayingPlayedAt: nowPlaying?.playedAt,
       perTrackWindowMs,
       trackExceedsBudget: exceedsBudget,
+      skipAmountMs,
+      hasQueuedTracksBehind,
     })
 
     return {
@@ -100,6 +118,8 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
       perTrackWindowMs,
       pausedRemainingMs: this.state.pausedRemainingMs,
       trackExceedsBudget: exceedsBudget,
+      skipAmountMs,
+      hasQueuedTracksBehind,
     }
   }
 
@@ -112,6 +132,7 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
     this.on("ROOM_SETTINGS_UPDATED", this.handleRoomSettingsUpdated.bind(this))
     this.onConfigChange(this.handleConfigChange.bind(this))
 
+    await this.migrateFromLegacyPlugin()
     await this.rehydrateState()
 
     const config = await this.getConfig()
@@ -133,13 +154,26 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
     return { success: false, message: "Unknown action" }
   }
 
+  private async migrateFromLegacyPlugin(): Promise<void> {
+    const current = await this.getConfig()
+    if (current != null) return
+
+    const legacy = await this.context!.api.getPluginConfig(
+      this.context!.roomId,
+      LEGACY_PLUGIN_NAME,
+    )
+    if (legacy) {
+      await this.context!.api.setPluginConfig(this.context!.roomId, this.name, legacy)
+    }
+  }
+
   private async rehydrateState(): Promise<void> {
     const storedState = await this.context!.storage.get(STATE_KEY)
     if (storedState) {
       try {
-        this.state = { ...defaultTimeCopState, ...JSON.parse(storedState) }
+        this.state = { ...defaultQueuePacerState, ...JSON.parse(storedState) }
       } catch {
-        this.state = { ...defaultTimeCopState }
+        this.state = { ...defaultQueuePacerState }
       }
     }
 
@@ -153,7 +187,7 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
     await this.context!.storage.set(STATE_KEY, JSON.stringify(this.state))
   }
 
-  private async computeWindow(config: TimeCopConfig): Promise<number | null> {
+  private async computeWindow(config: QueuePacerConfig): Promise<number | null> {
     if (!config.endTime) return null
 
     const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
@@ -170,7 +204,7 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
         const overrunMs = (config.minPlaybackMs - naive) * remainingTracks
         await this.context!.api.sendSystemMessage(
           this.context!.roomId,
-          `⏰ Time Cop: Queue will overrun end time by ~${Math.ceil(overrunMs / 60_000)} minute(s) at minimum playback.`,
+          `⏰ Queue Pacer: Queue will overrun end time by ~${Math.ceil(overrunMs / 60_000)} minute(s) at minimum playback.`,
           { type: "alert", status: "warning" },
         )
       }
@@ -241,15 +275,20 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
 
     await this.persistState()
 
+    const queue = await this.context!.api.getQueue(this.context!.roomId)
+    const hasQueuedTracksBehind = queue.length > 0
+
     await this.context!.api.emit("WINDOW_RECOMPUTED", {
       trackStartTime: playedAt,
       perTrackWindowMs,
-      remainingTracks: (await this.context!.api.getQueue(this.context!.roomId)).length + 1,
+      remainingTracks: queue.length + 1,
       currentTrackId: trackId,
       isPaused: this.state.isPaused,
       pausedRemainingMs: this.state.pausedRemainingMs,
       currentTrackSkipCanceled: this.state.currentTrackSkipCanceled,
       trackExceedsBudget: trackExceedsBudget(nowPlaying, perTrackWindowMs),
+      skipAmountMs: computeSkipAmountMs(nowPlaying, perTrackWindowMs),
+      hasQueuedTracksBehind,
     })
   }
 
@@ -403,11 +442,11 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
     if (!config?.enabled) return
 
     if (data.room.fetchMeta === false) {
-      console.log(`[${this.name}] fetchMeta turned off, disabling Time Cop`)
+      console.log(`[${this.name}] fetchMeta turned off, disabling Queue Pacer`)
 
       await this.context!.api.sendSystemMessage(
         this.context!.roomId,
-        "⏰ Time Cop disabled because Track Detection was turned off.",
+        "⏰ Queue Pacer disabled because Track Detection was turned off.",
         { type: "alert", status: "warning" },
       )
 
@@ -426,8 +465,8 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
   }): Promise<void> {
     if (!this.context) return
 
-    const config = data.config as TimeCopConfig
-    const previousConfig = data.previousConfig as TimeCopConfig | null
+    const config = data.config as QueuePacerConfig
+    const previousConfig = data.previousConfig as QueuePacerConfig | null
     const wasActive = isActive(previousConfig)
     const isNowActive = isActive(config)
 
@@ -456,7 +495,7 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
     }
   }
 
-  private async onActivation(config: TimeCopConfig): Promise<void> {
+  private async onActivation(config: QueuePacerConfig): Promise<void> {
     console.log(`[${this.name}] onActivation called`, {
       roomId: this.context!.roomId,
       enabled: config.enabled,
@@ -469,7 +508,7 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
       console.log(`[${this.name}] Cannot activate: fetchMeta is off`)
       await this.context!.api.sendSystemMessage(
         this.context!.roomId,
-        "⏰ Time Cop cannot be enabled while Track Detection is off.",
+        "⏰ Queue Pacer cannot be enabled while Track Detection is off.",
         { type: "alert", status: "error" },
       )
 
@@ -487,7 +526,7 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
 
     await this.context!.api.sendSystemMessage(
       this.context!.roomId,
-      `⏰ Time Cop activated. Targeting ${formatTime(config.endTime!, config.endTimeZone)}. ${remainingTracks} track(s) remaining.`,
+      `⏰ Queue Pacer activated. Targeting ${formatTime(config.endTime!, config.endTimeZone)}. ${remainingTracks} track(s) remaining.`,
       { type: "alert", status: "info" },
     )
 
@@ -504,10 +543,10 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
     console.log(`[${this.name}] Deactivated for room ${this.context!.roomId}`)
 
     this.clearAllTimers()
-    this.state = { ...defaultTimeCopState }
+    this.state = { ...defaultQueuePacerState }
     await this.persistState()
 
-    await this.context!.api.sendSystemMessage(this.context!.roomId, "⏰ Time Cop deactivated.", {
+    await this.context!.api.sendSystemMessage(this.context!.roomId, "⏰ Queue Pacer deactivated.", {
       type: "alert",
       status: "info",
     })
@@ -531,7 +570,7 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
 
     const config = await this.getConfig()
     if (!isActive(config)) {
-      return { success: false, message: "Time Cop is not active" }
+      return { success: false, message: "Queue Pacer is not active" }
     }
 
     if (!this.state.currentTrackId) {
@@ -552,8 +591,8 @@ export class TimeCopPlugin extends BasePlugin<TimeCopConfig> {
   }
 }
 
-export function createTimeCopPlugin(configOverrides?: Partial<TimeCopConfig>): Plugin {
-  return new TimeCopPlugin(configOverrides)
+export function createQueuePacerPlugin(configOverrides?: Partial<QueuePacerConfig>): Plugin {
+  return new QueuePacerPlugin(configOverrides)
 }
 
-export default createTimeCopPlugin
+export default createQueuePacerPlugin

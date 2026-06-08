@@ -29,7 +29,7 @@ function resourceUriFromQueueItem(item: {
  *
  * 1. **State probe** (all Spotify rooms): Detect external play/pause changes
  *    (e.g., user pauses on their phone) and emit SYSTEM:PLAYBACK_STATE_CHANGED.
- *    This enables pause-aware plugins like Time Cop.
+ *    This enables pause-aware plugins like Queue Pacer.
  *
  * 2. **Track advance** (app-controlled rooms only): When the current track is
  *    near its end, pop the next item from the queue and start it via Web API.

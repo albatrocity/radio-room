@@ -215,7 +215,12 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
 
             <AddedByInfo dj={djUser} djUsername={djUsername} addedAt={addedAt} />
 
-            <Box colorPalette="primary" color="colorPalette.contrast">
+            <Box
+              colorPalette="primary"
+              color="colorPalette.contrast"
+              position="relative"
+              zIndex={1}
+            >
               <PluginArea area="nowPlayingInfo" />
             </Box>
 

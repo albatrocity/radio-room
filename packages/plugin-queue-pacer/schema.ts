@@ -1,15 +1,15 @@
 import { z } from "zod"
 import type { PluginConfigSchema, PluginComponentSchema } from "@repo/types"
-import { timeCopConfigSchema } from "./types"
+import { queuePacerConfigSchema } from "./types"
 
 /**
  * Configuration schema for dynamic form generation in admin UI.
  */
 export function getConfigSchema(): PluginConfigSchema {
   return {
-    jsonSchema: z.toJSONSchema(timeCopConfigSchema),
+    jsonSchema: z.toJSONSchema(queuePacerConfigSchema),
     layout: [
-      { type: "heading", content: "Time Cop" },
+      { type: "heading", content: "Queue Pacer" },
       {
         type: "text-block",
         variant: "info",
@@ -24,14 +24,14 @@ export function getConfigSchema(): PluginConfigSchema {
     fieldMeta: {
       enabled: {
         type: "boolean",
-        label: "Enable Time Cop",
+        label: "Enable Queue Pacer",
         description:
           "When enabled, tracks that overrun their computed playback window will be skipped automatically.",
       },
       endTime: {
         type: "datetime",
         label: "Show ends at",
-        description: "Time Cop divides the remaining time across the remaining tracks.",
+        description: "Queue Pacer divides the remaining time across the remaining tracks.",
         showWhen: { field: "enabled", value: true },
       },
       minPlaybackMs: {
@@ -57,52 +57,54 @@ export function getConfigSchema(): PluginConfigSchema {
  * Component schema for declarative UI components.
  *
  * Components:
- * - Countdown for the current track (visible to all when active and not paused)
- * - Paused state indicator (replaces countdown when paused)
+ * - Skip-amount message for the current track (visible when track exceeds budget)
+ * - Paused state indicator (replaces message when paused)
  * - "Let it play" button (admin-only, cancels current track skip)
  * - "Saved" badge (shown after admin cancels a skip)
  */
 export function getComponentSchema(): PluginComponentSchema {
   return {
     components: [
-      // Countdown for the current track, visible to all
+      // Skip-amount badge for the current track, visible to all
       {
-        id: "time-cop-countdown",
-        type: "text-block",
+        id: "queue-pacer-countdown",
+        type: "badge",
         area: "nowPlayingInfo",
         showWhen: [
           { field: "enabled", value: true },
           { field: "isPaused", value: false },
           { field: "currentTrackSkipCanceled", value: false },
           { field: "trackExceedsBudget", value: true },
+          { field: "hasQueuedTracksBehind", value: true },
         ],
-        content: [
-          { type: "text", content: "Time Cop: " },
-          {
-            type: "component",
-            name: "countdown",
-            props: { startKey: "trackStartTime", duration: "perTrackWindowMs" },
-          },
-        ],
+        label: "-{{skipAmountMs:mmss}}",
+        icon: "ClockFading",
+        tooltip:
+          "The last {{skipAmountMs:mmss}} of this track will be skipped so we can make it through the queue. Budget of {{perTrackWindowMs:mmss}} per track.",
       },
       // Paused state replaces the live countdown
       {
-        id: "time-cop-paused",
+        id: "queue-pacer-paused",
         type: "text-block",
         area: "nowPlayingInfo",
         showWhen: [
           { field: "enabled", value: true },
           { field: "isPaused", value: true },
           { field: "trackExceedsBudget", value: true },
+          { field: "hasQueuedTracksBehind", value: true },
         ],
         content: [
-          { type: "text", content: "Time Cop paused — {{pausedRemainingMs:duration}} remaining" },
+          {
+            type: "text",
+            content: "Queue Pacer paused — {{pausedRemainingMs:duration}} remaining",
+          },
         ],
         variant: "info",
+        size: "xs",
       },
       // Admin-only "Let it play" button
       {
-        id: "time-cop-cancel-skip",
+        id: "queue-pacer-cancel-skip",
         type: "button",
         area: "nowPlayingInfo",
         label: "Let it play",
@@ -116,11 +118,12 @@ export function getComponentSchema(): PluginComponentSchema {
           { field: "currentTrackSkipCanceled", value: false },
           { field: "isPaused", value: false },
           { field: "trackExceedsBudget", value: true },
+          { field: "hasQueuedTracksBehind", value: true },
         ],
       },
       // "Saved" badge after admin cancels a skip
       {
-        id: "time-cop-saved-badge",
+        id: "queue-pacer-saved-badge",
         type: "badge",
         area: "nowPlayingBadge",
         showWhen: { field: "currentTrackSkipCanceled", value: true },
@@ -136,6 +139,8 @@ export function getComponentSchema(): PluginComponentSchema {
       "isPaused",
       "pausedRemainingMs",
       "trackExceedsBudget",
+      "skipAmountMs",
+      "hasQueuedTracksBehind",
     ],
   }
 }

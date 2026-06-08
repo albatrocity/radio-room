@@ -5,7 +5,7 @@
 
 ## Context
 
-Plugins need to react to playback state transitions (playing ↔ paused/stopped). The primary use case is pause-aware features like Time Cop ([ADR 0059](0059-time-cop-playback-window-plugin.md)), which must freeze countdown timers when playback pauses and resume them when playback resumes.
+Plugins need to react to playback state transitions (playing ↔ paused/stopped). The primary use case is pause-aware features like Queue Pacer ([ADR 0059](0059-time-cop-playback-window-plugin.md)), which must freeze countdown timers when playback pauses and resume them when playback resumes.
 
 The `PlaybackController` adapter interface already defines lifecycle callbacks (`onPlay`, `onPause`, `onPlaybackStateChange`), but they were effectively no-ops:
 
@@ -50,7 +50,7 @@ Additionally, adapter callbacks only fire when **our app** calls the adapter's `
 
 ### Positive
 
-- **Pause-aware plugins**: Time Cop and future plugins can subscribe to `PLAYBACK_STATE_CHANGED` for pause/resume awareness.
+- **Pause-aware plugins**: Queue Pacer and future plugins can subscribe to `PLAYBACK_STATE_CHANGED` for pause/resume awareness.
 - **External pause detection**: Host pausing on their phone/desktop now emits the event (with ~1s detection latency from polling).
 - **Deduplication**: Redis-backed dedupe prevents event storms from multiple sources (adapter callbacks + polling) firing on the same state change.
 - **Clean separation**: Callback wiring lives in `AdapterService` (per-room, has `roomId` in scope); the operation owns event emission per [ADR 0014](0014-emit-domain-events-from-operations-only.md).
@@ -65,4 +65,4 @@ Additionally, adapter callbacks only fire when **our app** calls the adapter's `
 - Operation: [`packages/server/operations/playback/handlePlaybackStateChange.ts`](../../packages/server/operations/playback/handlePlaybackStateChange.ts)
 - Callback wiring: [`packages/server/services/AdapterService.ts`](../../packages/server/services/AdapterService.ts)
 - Polling extension: [`packages/adapter-spotify/lib/trackAdvanceJob.ts`](../../packages/adapter-spotify/lib/trackAdvanceJob.ts)
-- Consumer: Time Cop plugin ([ADR 0059](0059-time-cop-playback-window-plugin.md))
+- Consumer: Queue Pacer plugin ([ADR 0059](0059-time-cop-playback-window-plugin.md))

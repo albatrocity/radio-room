@@ -1,13 +1,13 @@
 import { z } from "zod"
 
 /**
- * Zod schema for Time Cop plugin configuration.
+ * Zod schema for Queue Pacer plugin configuration.
  *
  * The `superRefine` validation ensures that when enabled:
  * - endTime must be provided
  * - endTime must be at least 1 minute in the future
  */
-export const timeCopConfigSchema = z
+export const queuePacerConfigSchema = z
   .object({
     enabled: z.boolean().default(false),
     endTime: z.number().int().nullable().default(null), // epoch ms
@@ -22,7 +22,7 @@ export const timeCopConfigSchema = z
       ctx.addIssue({
         path: ["endTime"],
         code: z.ZodIssueCode.custom,
-        message: "End time is required when Time Cop is enabled",
+        message: "End time is required when Queue Pacer is enabled",
       })
       return
     }
@@ -36,14 +36,14 @@ export const timeCopConfigSchema = z
   })
 
 /**
- * Configuration for the Time Cop plugin.
+ * Configuration for the Queue Pacer plugin.
  */
-export type TimeCopConfig = z.infer<typeof timeCopConfigSchema>
+export type QueuePacerConfig = z.infer<typeof queuePacerConfigSchema>
 
 /**
  * Default configuration values.
  */
-export const defaultTimeCopConfig: TimeCopConfig = {
+export const defaultQueuePacerConfig: QueuePacerConfig = {
   enabled: false,
   endTime: null,
   endTimeZone: null,
@@ -52,10 +52,10 @@ export const defaultTimeCopConfig: TimeCopConfig = {
 }
 
 /**
- * Runtime state for the Time Cop plugin.
+ * Runtime state for the Queue Pacer plugin.
  * Lives in plugin storage at key `state`. Independent of config.
  */
-export type TimeCopState = {
+export type QueuePacerState = {
   currentTrackId: string | null
   currentDeadline: number | null // epoch ms
   currentTrackSkipCanceled: boolean
@@ -66,7 +66,7 @@ export type TimeCopState = {
 /**
  * Default runtime state.
  */
-export const defaultTimeCopState: TimeCopState = {
+export const defaultQueuePacerState: QueuePacerState = {
   currentTrackId: null,
   currentDeadline: null,
   currentTrackSkipCanceled: false,
@@ -75,16 +75,16 @@ export const defaultTimeCopState: TimeCopState = {
 }
 
 /**
- * Grace period after endTime during which Time Cop is still considered active.
+ * Grace period after endTime during which Queue Pacer is still considered active.
  * Allows the last track to complete even if it runs slightly over.
  */
 const GRACE_PERIOD_MS = 60_000
 
 /**
- * Helper to determine if Time Cop is active (enabled with a valid future endTime).
+ * Helper to determine if Queue Pacer is active (enabled with a valid future endTime).
  * Uses a 60-second grace period after endTime to allow the last track to complete.
  */
-export function isActive(config: TimeCopConfig | null): boolean {
+export function isActive(config: QueuePacerConfig | null): boolean {
   if (!config?.enabled) return false
   if (config.endTime == null) return false
   return Date.now() < config.endTime + GRACE_PERIOD_MS

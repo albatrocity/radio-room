@@ -84,7 +84,7 @@ export function PluginArea({
   }
 
   return (
-    <Stack direction={direction} gap={spacing} color={color}>
+    <Stack direction={direction} gap={spacing} color={color} align={direction === "row" ? "center" : undefined}>
       {pluginsForArea.map(({ pluginName, config, storeKeys, components }) => (
         <PluginComponentProvider
           key={pluginName}

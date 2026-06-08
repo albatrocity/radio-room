@@ -16,6 +16,30 @@ describe("formatValue duration", () => {
   })
 })
 
+describe("formatValue mmss", () => {
+  test("formats milliseconds as m:ss", () => {
+    expect(formatValue(83_000, "mmss")).toBe("1:23")
+    expect(formatValue(60_000, "mmss")).toBe("1:00")
+    expect(formatValue(59_000, "mmss")).toBe("0:59")
+    expect(formatValue(1_000, "mmss")).toBe("0:01")
+  })
+
+  test("rounds up partial seconds", () => {
+    expect(formatValue(83_001, "mmss")).toBe("1:24")
+  })
+})
+
+describe("interpolateTemplate skipAmountMs:mmss", () => {
+  test("interpolates skip amount in compact time format", () => {
+    expect(
+      interpolateTemplate(
+        "The last {{skipAmountMs:mmss}} of this track will be skipped",
+        { skipAmountMs: 83_000 },
+      ),
+    ).toBe("The last 1:23 of this track will be skipped")
+  })
+})
+
 describe("interpolateTemplate sessionMs:duration", () => {
   test("matches loyalty-style placeholders", () => {
     expect(interpolateTemplate("{{sessionMs:duration}}", { sessionMs: 2500 })).toBe("3 seconds")
