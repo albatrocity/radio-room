@@ -6,6 +6,7 @@ import NowPlaying from "./NowPlaying"
 import {
   useAuthState,
   useIsStationOnline,
+  useIsPlaying,
   useStationMeta,
   useCurrentTrackId,
   useCurrentRoom,
@@ -30,6 +31,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
   const isUnauthorized = authState === "unauthorized"
 
   const isOnline = useIsStationOnline()
+  const isPlaying = useIsPlaying()
   const meta = useStationMeta()
   const trackId = useCurrentTrackId()
   const { listeningTransport, isHybrid, hybridReady, webrtcExperimentalStatus } =
@@ -37,10 +39,18 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
 
   const showPlayer = useMemo(() => {
     if (!hasAudio || !room) return false
-    if (!isHybrid) return isOnline
-    if (listeningTransport === "shoutcast") return isOnline
-    return webrtcExperimentalStatus !== "offline"
-  }, [hasAudio, room, isHybrid, listeningTransport, isOnline, webrtcExperimentalStatus])
+    if (!isHybrid) return isOnline || isPlaying
+    if (listeningTransport === "shoutcast") return isOnline || isPlaying
+    return webrtcExperimentalStatus !== "offline" || isPlaying
+  }, [
+    hasAudio,
+    room,
+    isHybrid,
+    listeningTransport,
+    isOnline,
+    isPlaying,
+    webrtcExperimentalStatus,
+  ])
 
   /** Stream rooms only: fallback playlist opener when the stream player strip is hidden. Jukebox rooms use {@link JukeboxControls} only — never combine both or you duplicate Library/Reactions rows (same layout as {@link RadioControls}). */
   const showPlaylistOnly = hasAudio && !showPlayer && hasPlaylist

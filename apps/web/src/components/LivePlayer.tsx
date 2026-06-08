@@ -6,7 +6,7 @@ import ReactionCounter from "./ReactionCounter"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
-import PlayStateIcon from "./PlayStateIcon"
+import PlayPauseButton from "./PlayPauseButton"
 import AdminControls from "./AdminControls"
 import {
   useAudioSend,
@@ -118,14 +118,11 @@ const LivePlayer = ({
                   <Icon boxSize={5} as={LuListMusic} />
                 </IconButton>
               )}
-              <IconButton
-                size="md"
-                aria-label={playing ? "Stop" : "Play"}
-                variant="ghost"
+              <PlayPauseButton
+                playing={playing}
+                loading={loading}
                 onClick={handlePlayPause}
-              >
-                <PlayStateIcon loading={loading} playing={playing} />
-              </IconButton>
+              />
               {!isAdmin && (
                 <IconButton
                   size="md"
