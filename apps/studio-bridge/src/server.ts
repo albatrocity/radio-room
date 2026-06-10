@@ -65,20 +65,57 @@ function applyViewAsToSocket(socket: Socket, snap: BridgeSnapshot, newUser: User
   })
 }
 
+type StudioCommandAck = {
+  success?: boolean
+  message?: string
+  pollId?: string
+  optionId?: string
+  isSwap?: boolean
+  totalVotes?: number | null
+  voteReason?: "POLL_CLOSED" | "POLL_NOT_FOUND" | "INVALID_OPTION" | "UNAUTHORIZED"
+  poll?: BridgeSnapshot["activePoll"]
+  closedPoll?: BridgeSnapshot["activePoll"]
+  results?: { pollId: string; totalVotes: number; optionTallies: Record<string, number>; winners: string[]; closedAt: number }
+  deletedPollId?: string
+}
+
+type StudioEmitWithAck = {
+  emit: (ev: string, payload: unknown, ack?: (response: unknown) => void) => void
+}
+
 /** Forward Room UI actions to the first connected Game Studio tab (same machine). */
 async function forwardRoomUiCommandToStudio(
   io: IOServer,
   roomId: string,
   command: Record<string, unknown>,
 ): Promise<boolean> {
+  const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, command)
+  return ack != null
+}
+
+async function forwardRoomUiCommandToStudioWithAck(
+  io: IOServer,
+  roomId: string,
+  command: Record<string, unknown>,
+): Promise<StudioCommandAck | null> {
   const path = studioControlRoomPath(roomId)
   const sockets = await io.in(path).fetchSockets()
-  if (sockets.length === 0) return false
-  sockets[0]!.emit("event", {
-    type: "STUDIO_BRIDGE_COMMAND",
-    data: command,
+  if (sockets.length === 0) return null
+
+  return new Promise((resolve) => {
+    const toGameStudio = sockets[0]! as unknown as StudioEmitWithAck
+    toGameStudio.emit(
+      "event",
+      { type: "STUDIO_BRIDGE_COMMAND", data: command },
+      (response: unknown) => {
+        resolve((response ?? null) as StudioCommandAck | null)
+      },
+    )
   })
-  return true
+}
+
+function studioNotConnectedMessage(): string {
+  return "Game Studio is not connected to the bridge. Run `make game-studio` and keep that tab open."
 }
 
 function broadcastRefresh(io: IOServer, roomId: string): void {
@@ -561,6 +598,277 @@ function wireSocketHandlers(io: IOServer): void {
         })
       },
     )
+
+    socket.on("CAST_POLL_VOTE", async (data: { pollId?: string; optionId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      const pollId = typeof data?.pollId === "string" ? data.pollId : undefined
+      const optionId = typeof data?.optionId === "string" ? data.optionId : undefined
+
+      if (!roomId || !userId || !pollId || !optionId) {
+        socket.emit("event", {
+          type: "POLL_VOTE_FAILED",
+          data: { pollId: pollId ?? "", reason: "UNAUTHORIZED" },
+        })
+        return
+      }
+
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "CAST_POLL_VOTE",
+        roomId,
+        userId,
+        pollId,
+        optionId,
+      })
+
+      if (!ack) {
+        socket.emit("event", {
+          type: "POLL_VOTE_FAILED",
+          data: { pollId, reason: "POLL_NOT_FOUND" },
+        })
+        return
+      }
+
+      if (!ack.success) {
+        socket.emit("event", {
+          type: "POLL_VOTE_FAILED",
+          data: { pollId, reason: ack.voteReason ?? "POLL_NOT_FOUND" },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "POLL_VOTE_CONFIRMED",
+        data: {
+          pollId: ack.pollId ?? pollId,
+          optionId: ack.optionId ?? optionId,
+          isSwap: ack.isSwap === true,
+        },
+      })
+
+      if (ack.isSwap !== true) {
+        io.to(roomSocketPath(roomId)).emit("event", {
+          type: "POLL_VOTE_CAST",
+          data: {
+            roomId,
+            pollId: ack.pollId ?? pollId,
+            totalVotes: ack.totalVotes ?? null,
+          },
+        })
+      }
+    })
+
+    socket.on("CREATE_POLL", async (data: {
+      question?: string
+      options?: { label: string }[]
+      settings?: { hideRunningTotal?: boolean }
+    }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      const snap = getBridgeSnapshot()
+
+      if (!roomId || !userId || !snap || snap.roomId !== roomId) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 401,
+            error: "Unauthorized",
+            message: "You must be logged in to a room to create a poll.",
+          },
+        })
+        return
+      }
+
+      const roomUser = snap.users.find((u) => u.userId === userId)
+      if (!roomUser?.isAdmin) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 403,
+            error: "Forbidden",
+            message: "You are not a room admin.",
+          },
+        })
+        return
+      }
+
+      const question = typeof data?.question === "string" ? data.question : ""
+      const options = Array.isArray(data?.options) ? data.options : []
+
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "CREATE_POLL",
+        roomId,
+        userId,
+        question,
+        options,
+        ...(data?.settings !== undefined ? { settings: data.settings } : {}),
+      })
+
+      if (!ack) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 503,
+            error: "Studio bridge",
+            message: studioNotConnectedMessage(),
+          },
+        })
+        return
+      }
+
+      if (!ack.success || !ack.poll) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: ack.message?.includes("already active") ? 409 : 400,
+            error: ack.message?.includes("already active") ? "Conflict" : "Bad Request",
+            message: ack.message ?? "Could not create poll.",
+          },
+        })
+        return
+      }
+
+      io.to(roomSocketPath(roomId)).emit("event", {
+        type: "POLL_PUBLISHED",
+        data: { roomId, poll: ack.poll },
+      })
+    })
+
+    socket.on("CLOSE_POLL", async (data: { pollId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      const pollId = typeof data?.pollId === "string" ? data.pollId : undefined
+      const snap = getBridgeSnapshot()
+
+      if (!roomId || !userId || !pollId || !snap || snap.roomId !== roomId) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 401,
+            error: "Unauthorized",
+            message: "You must be logged in to a room to close a poll.",
+          },
+        })
+        return
+      }
+
+      const roomUser = snap.users.find((u) => u.userId === userId)
+      if (!roomUser?.isAdmin) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 403,
+            error: "Forbidden",
+            message: "You are not a room admin.",
+          },
+        })
+        return
+      }
+
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "CLOSE_POLL",
+        roomId,
+        userId,
+        pollId,
+      })
+
+      if (!ack) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 503,
+            error: "Studio bridge",
+            message: studioNotConnectedMessage(),
+          },
+        })
+        return
+      }
+
+      if (!ack.success || !ack.closedPoll || !ack.results) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 400,
+            error: "Bad Request",
+            message: ack.message ?? "Could not close poll.",
+          },
+        })
+        return
+      }
+
+      io.to(roomSocketPath(roomId)).emit("event", {
+        type: "POLL_CLOSED",
+        data: { roomId, poll: ack.closedPoll, results: ack.results },
+      })
+    })
+
+    socket.on("DELETE_POLL", async (data: { pollId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      const pollId = typeof data?.pollId === "string" ? data.pollId : undefined
+      const snap = getBridgeSnapshot()
+
+      if (!roomId || !userId || !pollId || !snap || snap.roomId !== roomId) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 401,
+            error: "Unauthorized",
+            message: "You must be logged in to a room to delete a poll.",
+          },
+        })
+        return
+      }
+
+      const roomUser = snap.users.find((u) => u.userId === userId)
+      if (!roomUser?.isAdmin) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 403,
+            error: "Forbidden",
+            message: "You are not a room admin.",
+          },
+        })
+        return
+      }
+
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "DELETE_POLL",
+        roomId,
+        userId,
+        pollId,
+      })
+
+      if (!ack) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 503,
+            error: "Studio bridge",
+            message: studioNotConnectedMessage(),
+          },
+        })
+        return
+      }
+
+      if (!ack.success) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 404,
+            error: "Not Found",
+            message: ack.message ?? "Poll not found.",
+          },
+        })
+        return
+      }
+
+      io.to(roomSocketPath(roomId)).emit("event", {
+        type: "POLL_DELETED",
+        data: { roomId, pollId: ack.deletedPollId ?? pollId },
+      })
+    })
 
     socket.on("GET_STORED_ARTIFACTS", () => {
       const snap = getBridgeSnapshot()

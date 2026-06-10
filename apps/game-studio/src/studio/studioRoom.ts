@@ -6,6 +6,10 @@ import type {
   GameSessionStatus,
   InventoryItem,
   ItemDefinition,
+  Poll,
+  PollHistoryEntry,
+  PollOption,
+  PollResults,
   QueueItem,
   Reaction,
   StoredArtifact,
@@ -50,6 +54,11 @@ export class StudioRoom {
 
   /** Global sandbox artifact storage (mirrors production Redis-backed artifacts). */
   storedArtifacts: StoredArtifact[] = []
+
+  activePoll: Poll | null = null
+  pollHistory: PollHistoryEntry[] = []
+  /** userId -> optionId */
+  pollVotes = new Map<string, string>()
 
   /** Bumped on every `notify()` so `useSyncExternalStore` can subscribe to room mutations. */
   snapshotEpoch = 0
@@ -227,8 +236,103 @@ export class StudioRoom {
     return true
   }
 
+  setActivePoll(poll: Poll | null): void {
+    this.activePoll = poll
+    if (poll) {
+      this.pollVotes.clear()
+    }
+    this.notify()
+  }
+
+  addPollVote(userId: string, optionId: string): void {
+    this.pollVotes.set(userId, optionId)
+    this.notify()
+  }
+
+  clearPollVotes(): void {
+    this.pollVotes.clear()
+    this.notify()
+  }
+
+  closePoll(): PollHistoryEntry | null {
+    const poll = this.activePoll
+    if (!poll || poll.status !== "open") return null
+
+    const closedAt = Date.now()
+    const votes = Object.fromEntries(this.pollVotes)
+    const results = reducePollVotesToResults({
+      pollId: poll.id,
+      options: poll.options,
+      votes,
+      closedAt,
+    })
+    const closedPoll: Poll = { ...poll, status: "closed", closedAt }
+    const entry: PollHistoryEntry = { poll: closedPoll, results }
+
+    this.pollHistory.unshift(entry)
+    this.activePoll = null
+    this.pollVotes.clear()
+    this.notify()
+    return entry
+  }
+
+  deletePoll(pollId: string): boolean {
+    if (this.activePoll?.id === pollId) {
+      this.activePoll = null
+      this.pollVotes.clear()
+      this.notify()
+      return true
+    }
+
+    const idx = this.pollHistory.findIndex((entry) => entry.poll.id === pollId)
+    if (idx === -1) return false
+    this.pollHistory.splice(idx, 1)
+    this.notify()
+    return true
+  }
+
   /** Snapshot reference used by useSyncExternalStore (mutate in place + notify). */
   getExternalSnapshot(): this {
     return this
+  }
+}
+
+/** Mirrors `packages/server/operations/data/polls.ts` `reduceVotesToResults`. */
+function reducePollVotesToResults({
+  pollId,
+  options,
+  votes,
+  closedAt,
+}: {
+  pollId: string
+  options: PollOption[]
+  votes: Record<string, string>
+  closedAt: number
+}): PollResults {
+  const optionTallies: Record<string, number> = {}
+  for (const option of options) {
+    optionTallies[option.id] = 0
+  }
+
+  for (const optionId of Object.values(votes)) {
+    if (optionId in optionTallies) {
+      optionTallies[optionId] += 1
+    }
+  }
+
+  const totalVotes = Object.values(votes).length
+  let winners: string[] = []
+
+  if (totalVotes > 0) {
+    const maxCount = Math.max(...Object.values(optionTallies))
+    winners = options.filter((o) => optionTallies[o.id] === maxCount).map((o) => o.id)
+  }
+
+  return {
+    pollId,
+    totalVotes,
+    optionTallies,
+    winners,
+    closedAt,
   }
 }

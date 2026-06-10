@@ -5,6 +5,7 @@ import type { StudioRoom } from "../../studio/studioRoom"
 import { formatChatBody } from "../../lib/formatChatMessage"
 import { type ReactNode, useMemo, useState } from "react"
 import { MessageSegments } from "./MessageSegments"
+import { PollPanel } from "./PollPanel"
 import { StoredArtifactsPanel } from "./StoredArtifactsPanel"
 
 export type BottomPanelsProps = {
@@ -79,6 +80,10 @@ export function BottomPanels({ room }: BottomPanelsProps) {
           </Stack>
         </PanelShell>
       </Stack>
+
+      <PanelShell title="Polls">
+        <PollPanel room={room} />
+      </PanelShell>
 
       <PanelShell title="Chat">
         <Stack gap="2">

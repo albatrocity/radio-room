@@ -1,5 +1,12 @@
-import type { ChatMessage, Emoji, PluginActionInitiator, ReactionSubject, User } from "@repo/types"
-import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
+import type {
+  ChatMessage,
+  Emoji,
+  PluginActionInitiator,
+  Poll,
+  ReactionSubject,
+  User,
+} from "@repo/types"
+import { ITEM_SHOPS_PLUGIN_NAME, POLL_OPTION_LIMITS } from "@repo/types"
 import { getChatSendDelayMs } from "@repo/game-logic"
 import { BasePlugin } from "@repo/plugin-base"
 import { SHOP_CATALOG, ITEM_CATALOG } from "@repo/plugin-item-shops"
@@ -497,6 +504,137 @@ export function resetStudioSandbox(): void {
   sessionStorage.setItem(STUDIO_SESSION_AFTER_RESET_KEY, "1")
   sessionStorage.removeItem(STUDIO_PREVIEW_VIEW_AS_USER_KEY)
   window.location.reload()
+}
+
+const STUDIO_POLL_ADMIN_ID = "studio-admin"
+
+export type CreateStudioPollInput = {
+  question: string
+  options: { label: string }[]
+  hideRunningTotal?: boolean
+}
+
+export function createStudioPoll({
+  question,
+  options,
+  hideRunningTotal = false,
+}: CreateStudioPollInput):
+  | { ok: true; poll: Poll }
+  | { ok: false; message: string } {
+  const { room } = getStudio()
+  const trimmedQuestion = question.trim()
+
+  if (!trimmedQuestion) {
+    return { ok: false, message: "Enter a poll question." }
+  }
+  if (trimmedQuestion.length > 280) {
+    return { ok: false, message: "Question must be 280 characters or fewer." }
+  }
+
+  const labels = options.map((o) => o.label.trim()).filter(Boolean)
+  if (labels.length < POLL_OPTION_LIMITS.min) {
+    return {
+      ok: false,
+      message: `A poll needs at least ${POLL_OPTION_LIMITS.min} options.`,
+    }
+  }
+  if (labels.some((l) => l.length > 120)) {
+    return { ok: false, message: "Each option must be 120 characters or fewer." }
+  }
+  if (room.activePoll?.status === "open") {
+    return {
+      ok: false,
+      message: "Another poll is already active. Close it before publishing a new one.",
+    }
+  }
+
+  const now = Date.now()
+  const poll: Poll = {
+    id: newId(),
+    roomId: room.roomId,
+    question: trimmedQuestion,
+    options: labels.map((label) => ({ id: newId(), label })),
+    status: "open",
+    settings: { hideRunningTotal },
+    createdAt: now,
+    createdBy: STUDIO_POLL_ADMIN_ID,
+    publishedAt: now,
+    closedAt: null,
+    closesAt: null,
+  }
+
+  room.setActivePoll(poll)
+  room.logEvent("POLL_PUBLISHED", { roomId: room.roomId, poll })
+  return { ok: true, poll }
+}
+
+export function closeStudioPoll():
+  | { ok: true; pollId: string }
+  | { ok: false; message: string } {
+  const { room } = getStudio()
+  const entry = room.closePoll()
+  if (!entry) {
+    return { ok: false, message: "No open poll to close." }
+  }
+
+  room.logEvent("POLL_CLOSED", {
+    roomId: room.roomId,
+    poll: entry.poll,
+    results: entry.results,
+  })
+  return { ok: true, pollId: entry.poll.id }
+}
+
+export function deleteStudioPoll(
+  pollId: string,
+): { ok: true } | { ok: false; message: string } {
+  const { room } = getStudio()
+  if (!pollId.trim()) {
+    return { ok: false, message: "Poll id is required." }
+  }
+
+  const removed = room.deletePoll(pollId)
+  if (!removed) {
+    return { ok: false, message: "Poll not found." }
+  }
+
+  room.logEvent("POLL_DELETED", { roomId: room.roomId, pollId })
+  return { ok: true }
+}
+
+export type CastStudioPollVoteResult =
+  | { ok: true; isFirstVote: boolean; totalVotes: number | null }
+  | { ok: false; reason: "POLL_CLOSED" | "POLL_NOT_FOUND" | "INVALID_OPTION" }
+
+export function castStudioPollVote(
+  userId: string,
+  optionId: string,
+): CastStudioPollVoteResult {
+  const { room } = getStudio()
+  const poll = room.activePoll
+
+  if (!poll || poll.status !== "open") {
+    return { ok: false, reason: poll ? "POLL_CLOSED" : "POLL_NOT_FOUND" }
+  }
+
+  if (!poll.options.some((o) => o.id === optionId)) {
+    return { ok: false, reason: "INVALID_OPTION" }
+  }
+
+  const isFirstVote = !room.pollVotes.has(userId)
+  room.addPollVote(userId, optionId)
+
+  const totalVotes = poll.settings.hideRunningTotal ? null : room.pollVotes.size
+
+  if (isFirstVote) {
+    room.logEvent("POLL_VOTE_CAST", {
+      roomId: room.roomId,
+      pollId: poll.id,
+      totalVotes,
+    })
+  }
+
+  return { ok: true, isFirstVote, totalVotes }
 }
 
 /** Immediately run pending plugin timer callbacks (sandbox dev aid — e.g. Sweetwater follow-ups). */
