@@ -15,6 +15,7 @@ export type Event =
   | { type: "VIEW_LISTENERS" }
   | { type: "VIEW_SCHEDULE" }
   | { type: "VIEW_GAME_STATE" }
+  | { type: "VIEW_POLL_HISTORY" }
   | { type: "CLOSE" }
   | { type: "CREATE_ROOM" }
   | { type: "BACK" }
@@ -83,6 +84,9 @@ export const modalsMachine = setup({
     VIEW_GAME_STATE: {
       target: ".gameState",
     },
+    VIEW_POLL_HISTORY: {
+      target: ".pollHistory",
+    },
     CLOSE: {
       target: ".closed",
     },
@@ -97,6 +101,7 @@ export const modalsMachine = setup({
     help: {},
     schedule: {},
     gameState: {},
+    pollHistory: {},
     createRoom: {},
     settings: {
       entry: ["fetchSettings"],

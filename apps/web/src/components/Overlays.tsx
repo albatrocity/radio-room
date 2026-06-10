@@ -14,6 +14,7 @@ import ModalUserGameState from "./Modals/ModalUserGameState"
 import ScreenEffectsProvider from "./ScreenEffectsProvider"
 import { ModifierBlurLayer } from "./ModifierBlurLayer"
 import DrawerSchedule from "./Drawers/DrawerSchedule"
+import PollHistoryModal from "./Poll/PollHistoryModal"
 
 function Overlays() {
   return (
@@ -31,6 +32,7 @@ function Overlays() {
       <ModalEditUsername />
       <ModalPassword />
       <ModalUserGameState />
+      <PollHistoryModal />
 
       {/* Timed modifier stacks (e.g. interface blur) */}
       <ModifierBlurLayer />

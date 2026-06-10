@@ -19,10 +19,10 @@ todos:
     status: completed
   - id: phase6-actor
     content: Phase 6 — pollActor + pollMachine with ACTIVATE/DEACTIVATE and hooks; handles vote swap UX
-    status: pending
+    status: completed
   - id: phase7-pollcard
     content: Phase 7 — PollCard above chat with expanded/collapsed/hidden modes (LRU-capped localStorage), scrollable list when options > 8, anime.js animations (mount, vote confirm, vote tick, close reveal — no confetti)
-    status: pending
+    status: completed
   - id: phase8-admin-ui
     content: Phase 8 — Admin authoring UI with dynamic option list (no max), hideRunningTotal toggle, client-side draft autosave via pollDraftPreference.ts
     status: pending

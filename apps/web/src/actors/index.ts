@@ -175,6 +175,16 @@ export {
 // Chat scroll target (viewport jump to timestamp)
 export { chatScrollTargetActor } from "./chatScrollTargetActor"
 
+// Poll Actor
+export {
+  pollActor,
+  getActivePoll,
+  getMyPollVote,
+  getPollHistory,
+  getPollTotalVotes,
+  getLastPollChange,
+} from "./pollActor"
+
 // Room Lifecycle
 export {
   initializeRoom,

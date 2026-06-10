@@ -8,6 +8,7 @@ import socket from "../lib/socket"
 import { getErrorMessage } from "../lib/errors"
 import { findRoom, RoomFindResponse } from "../lib/serverApi"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
+import { getLastPollChange } from "../actors/pollActor"
 import { audioActor } from "../actors/audioActor"
 import { chatActor } from "../actors/chatActor"
 import { playlistActor } from "../actors/playlistActor"
@@ -246,6 +247,7 @@ export const roomFetchMachine = setup({
         id: context.id,
         lastMessageTime,
         lastPlaylistItemTime,
+        lastPollChange: getLastPollChange(),
       })
     },
     assignRoomDeleted: assign(() => {

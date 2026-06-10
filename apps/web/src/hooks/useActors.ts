@@ -43,6 +43,7 @@ import { bookmarkedChatActor } from "../actors/bookmarkedChatActor"
 import { chatScrollTargetActor } from "../actors/chatScrollTargetActor"
 import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
 import { lobbyActor } from "../actors/lobbyActor"
+import { pollActor } from "../actors/pollActor"
 import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { MetadataSourceType, QueueItem } from "../types/Queue"
 
@@ -83,6 +84,7 @@ const sendToChatScrollTarget = boundSendRef(chatScrollTargetActor)
 const sendToMetadataPreference = boundSendRef(metadataPreferenceActor)
 const sendToLobby = boundSendRef(lobbyActor)
 const sendToAdminListener = boundSendRef(adminListenerStateActor)
+const sendToPoll = boundSendRef(pollActor)
 
 // ============================================================================
 // Auth Hooks
@@ -648,6 +650,36 @@ export const usePreferredMetadataSource = (): MetadataSourceType | undefined => 
 }
 
 export const useMetadataPreferenceSend = () => sendToMetadataPreference
+
+// ============================================================================
+// Poll Hooks
+// ============================================================================
+
+export const useActivePoll = () => {
+  return useSelector(pollActor, (s) => s.context.activePoll)
+}
+
+export const useMyPollVote = () => {
+  return useSelector(pollActor, (s) => s.context.myVote)
+}
+
+export const usePollHistory = () => {
+  return useSelector(pollActor, (s) => s.context.history)
+}
+
+export const usePollTotalVotes = () => {
+  return useSelector(pollActor, (s) => s.context.totalVotes)
+}
+
+export const useRevealResults = () => {
+  return useSelector(pollActor, (s) => s.context.revealResults)
+}
+
+export const useVotePending = () => {
+  return useSelector(pollActor, (s) => s.context.votePending)
+}
+
+export const usePollSend = () => sendToPoll
 
 // ============================================================================
 // Lobby Hooks
