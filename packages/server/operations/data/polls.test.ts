@@ -6,10 +6,13 @@ import {
   addPollToIndex,
   clearActivePollId,
   deletePollKeys,
+  getActivePoll,
   getActivePollId,
   getLiveTotalVotes,
   getMyVote,
   getPoll,
+  getPollHistoryEntries,
+  getPollHistorySince,
   getResultsSnapshot,
   listPollIds,
   reduceVotesToResults,
@@ -309,5 +312,124 @@ describe("polls data layer", () => {
     expect(await getPoll({ context, roomId: "room-1", pollId: "poll-1" })).toBeNull()
     expect(await getMyVote({ context, roomId: "room-1", pollId: "poll-1", userId: "u1" })).toBeNull()
     expect(await getResultsSnapshot({ context, roomId: "room-1", pollId: "poll-1" })).toBeNull()
+  })
+
+  describe("snapshot read helpers", () => {
+    it("getActivePoll returns the open poll pointed to by active_id", async () => {
+      const poll = makePoll({ id: "poll-active" })
+      await writePoll({ context, poll })
+      await setActivePollId({ context, roomId: "room-1", pollId: poll.id })
+
+      expect(await getActivePoll({ context, roomId: "room-1" })).toEqual(poll)
+    })
+
+    it("getActivePoll returns null when active poll is closed", async () => {
+      const poll = makePoll({ id: "poll-active", status: "closed", closedAt: 9_000 })
+      await writePoll({ context, poll })
+      await setActivePollId({ context, roomId: "room-1", pollId: poll.id })
+
+      expect(await getActivePoll({ context, roomId: "room-1" })).toBeNull()
+    })
+
+    it("getPollHistoryEntries returns closed polls with results, newest first", async () => {
+      const closedOld = makePoll({
+        id: "poll-old",
+        status: "closed",
+        publishedAt: 1_000,
+        closedAt: 2_000,
+      })
+      const closedNew = makePoll({
+        id: "poll-new",
+        status: "closed",
+        publishedAt: 3_000,
+        closedAt: 4_000,
+      })
+      const openPoll = makePoll({ id: "poll-open", status: "open", publishedAt: 5_000 })
+
+      await writePoll({ context, poll: closedOld })
+      await writePoll({ context, poll: closedNew })
+      await writePoll({ context, poll: openPoll })
+      await addPollToIndex({ context, roomId: "room-1", pollId: closedOld.id, publishedAt: 1_000 })
+      await addPollToIndex({ context, roomId: "room-1", pollId: closedNew.id, publishedAt: 3_000 })
+      await addPollToIndex({ context, roomId: "room-1", pollId: openPoll.id, publishedAt: 5_000 })
+
+      await writeResultsSnapshot({
+        context,
+        roomId: "room-1",
+        pollId: closedOld.id,
+        results: {
+          pollId: closedOld.id,
+          totalVotes: 0,
+          optionTallies: { "opt-a": 0, "opt-b": 0 },
+          winners: [],
+          closedAt: 2_000,
+        },
+      })
+      await writeResultsSnapshot({
+        context,
+        roomId: "room-1",
+        pollId: closedNew.id,
+        results: {
+          pollId: closedNew.id,
+          totalVotes: 1,
+          optionTallies: { "opt-a": 1, "opt-b": 0 },
+          winners: ["opt-a"],
+          closedAt: 4_000,
+        },
+      })
+
+      const history = await getPollHistoryEntries({ context, roomId: "room-1", limit: 20 })
+
+      expect(history.map((entry) => entry.poll.id)).toEqual(["poll-new", "poll-old"])
+      expect(history[0].results.totalVotes).toBe(1)
+    })
+
+    it("getPollHistorySince returns only polls closed after the timestamp", async () => {
+      const closedOld = makePoll({
+        id: "poll-old",
+        status: "closed",
+        publishedAt: 1_000,
+        closedAt: 2_000,
+      })
+      const closedNew = makePoll({
+        id: "poll-new",
+        status: "closed",
+        publishedAt: 3_000,
+        closedAt: 4_000,
+      })
+
+      await writePoll({ context, poll: closedOld })
+      await writePoll({ context, poll: closedNew })
+      await addPollToIndex({ context, roomId: "room-1", pollId: closedOld.id, publishedAt: 1_000 })
+      await addPollToIndex({ context, roomId: "room-1", pollId: closedNew.id, publishedAt: 3_000 })
+      await writeResultsSnapshot({
+        context,
+        roomId: "room-1",
+        pollId: closedOld.id,
+        results: {
+          pollId: closedOld.id,
+          totalVotes: 0,
+          optionTallies: { "opt-a": 0, "opt-b": 0 },
+          winners: [],
+          closedAt: 2_000,
+        },
+      })
+      await writeResultsSnapshot({
+        context,
+        roomId: "room-1",
+        pollId: closedNew.id,
+        results: {
+          pollId: closedNew.id,
+          totalVotes: 1,
+          optionTallies: { "opt-a": 1, "opt-b": 0 },
+          winners: ["opt-a"],
+          closedAt: 4_000,
+        },
+      })
+
+      const since = await getPollHistorySince({ context, roomId: "room-1", since: 3_000 })
+
+      expect(since.map((entry) => entry.poll.id)).toEqual(["poll-new"])
+    })
   })
 })

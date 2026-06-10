@@ -43,6 +43,7 @@ import generateId from "../lib/generateId"
 import generateAnonName from "../lib/generateAnonName"
 import systemMessage from "../lib/systemMessage"
 import { THREE_HOURS } from "../lib/constants"
+import { loadPollInitData } from "../operations/polls/loadPollSnapshot"
 
 /**
  * A service that handles authentication operations without Socket.io dependencies
@@ -273,6 +274,12 @@ export class AuthService {
       }
     }
 
+    const pollInit = await loadPollInitData({
+      context: this.context,
+      roomId,
+      userId,
+    })
+
     return {
       initData: {
         users: newUsers,
@@ -294,6 +301,9 @@ export class AuthService {
         isNewUser: isNew,
         activeGameSession,
         assignablePersonas,
+        activePoll: pollInit.activePoll,
+        pollHistory: pollInit.pollHistory,
+        ...(pollInit.myVote ? { myVote: pollInit.myVote } : {}),
         ...(streamHealthStatus ? { streamHealthStatus } : {}),
         ...(webrtcStreamHealthStatus ? { webrtcStreamHealthStatus } : {}),
       },

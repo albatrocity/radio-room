@@ -8,6 +8,7 @@ import {
   isRoomAdmin,
 } from "../operations/data"
 import { readRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
+import { loadPollRoomDataSince } from "../operations/polls/loadPollSnapshot"
 
 /**
  * A service that handles Room-related operations without Socket.io dependencies
@@ -67,11 +68,19 @@ export class RoomService {
       scheduleSnapshot = await readRoomScheduleSnapshot(this.context, roomId)
     }
 
+    const pollData = await loadPollRoomDataSince({
+      context: this.context,
+      roomId: room.id,
+      since: snapshot.lastPollChange,
+    })
+
     return {
       room: isAdmin ? room : removeSensitiveRoomAttributes(room),
       messages,
       playlist,
       scheduleSnapshot,
+      activePoll: pollData.activePoll,
+      pollHistorySince: pollData.pollHistorySince,
     }
   }
 }

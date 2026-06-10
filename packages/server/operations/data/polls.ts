@@ -2,6 +2,7 @@ import {
   AppContext,
   pollSchema,
   type Poll,
+  type PollHistoryEntry,
   type PollOption,
   type PollResults,
 } from "@repo/types"
@@ -374,4 +375,93 @@ export async function getResultsSnapshot({
   } catch {
     return null
   }
+}
+
+// =============================================================================
+// Read helpers (INIT / ROOM_DATA snapshots)
+// =============================================================================
+
+export async function getActivePoll({
+  context,
+  roomId,
+}: {
+  context: AppContext
+  roomId: string
+}): Promise<Poll | null> {
+  const pollId = await getActivePollId({ context, roomId })
+  if (!pollId) {
+    return null
+  }
+
+  const poll = await getPoll({ context, roomId, pollId })
+  if (!poll || poll.status !== "open") {
+    return null
+  }
+
+  return poll
+}
+
+export async function getPollHistoryEntries({
+  context,
+  roomId,
+  limit = 20,
+}: {
+  context: AppContext
+  roomId: string
+  limit?: number
+}): Promise<PollHistoryEntry[]> {
+  const pollIds = await listPollIds({ context, roomId, limit: 100 })
+  const entries: PollHistoryEntry[] = []
+
+  for (const pollId of pollIds) {
+    const poll = await getPoll({ context, roomId, pollId })
+    if (!poll || poll.status !== "closed") {
+      continue
+    }
+
+    const results = await getResultsSnapshot({ context, roomId, pollId })
+    if (!results) {
+      continue
+    }
+
+    entries.push({ poll, results })
+    if (entries.length >= limit) {
+      break
+    }
+  }
+
+  return entries
+}
+
+export async function getPollHistorySince({
+  context,
+  roomId,
+  since,
+}: {
+  context: AppContext
+  roomId: string
+  since: number
+}): Promise<PollHistoryEntry[]> {
+  if (!since || since <= 0) {
+    return []
+  }
+
+  const pollIds = await listPollIds({ context, roomId, limit: 100 })
+  const entries: PollHistoryEntry[] = []
+
+  for (const pollId of pollIds) {
+    const poll = await getPoll({ context, roomId, pollId })
+    if (!poll || poll.status !== "closed" || poll.closedAt == null || poll.closedAt <= since) {
+      continue
+    }
+
+    const results = await getResultsSnapshot({ context, roomId, pollId })
+    if (!results) {
+      continue
+    }
+
+    entries.push({ poll, results })
+  }
+
+  return entries
 }

@@ -1,4 +1,5 @@
 import type { AdminAssignablePersona, GameSession } from "@repo/types"
+import type { MyPollVote, Poll, PollHistoryEntry } from "@repo/types/Poll"
 import { ChatMessage } from "./ChatMessage"
 import { QueueItem } from "./Queue"
 import { Reaction } from "./Reaction"
@@ -19,4 +20,7 @@ export type InitPayload = {
   }
   users: User[]
   assignablePersonas?: AdminAssignablePersona[]
+  activePoll?: Poll | null
+  myVote?: MyPollVote | null
+  pollHistory?: PollHistoryEntry[]
 }

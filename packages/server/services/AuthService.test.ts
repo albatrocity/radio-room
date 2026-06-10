@@ -20,8 +20,14 @@ import {
 import { onListeningUserDisconnected } from "../operations/room/listeningTransportStats"
 import systemMessage from "../lib/systemMessage"
 
+const loadPollInitDataMock = vi.hoisted(() => vi.fn())
+
 // Mock the operations that interact with Redis
 vi.mock("../operations/data")
+
+vi.mock("../operations/polls/loadPollSnapshot", () => ({
+  loadPollInitData: loadPollInitDataMock,
+}))
 
 vi.mock("../operations/room/listeningTransportStats", () => ({
   onListeningUserDisconnected: vi.fn(),
@@ -54,6 +60,11 @@ describe("AuthService", () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+    loadPollInitDataMock.mockResolvedValue({
+      activePoll: null,
+      myVote: null,
+      pollHistory: [],
+    })
 
     mockContext = {
       redis: {
@@ -248,6 +259,56 @@ describe("AuthService", () => {
       expect(result.newUser).toBeDefined()
       expect(result.newUsers).toBeDefined()
       expect(result.initData).toBeDefined()
+      expect(loadPollInitDataMock).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        userId: "user123",
+      })
+      expect(result.initData?.activePoll).toBeNull()
+      expect(result.initData?.pollHistory).toEqual([])
+      expect(result.initData?.myVote).toBeUndefined()
+    })
+
+    test("includes poll init fields when user has voted", async () => {
+      vi.mocked(findRoom).mockResolvedValueOnce(mockRoom)
+      vi.mocked(getUser).mockResolvedValueOnce(
+        userFactory.build({
+          userId: "user123",
+          username: "Homer",
+        }),
+      )
+      loadPollInitDataMock.mockResolvedValueOnce({
+        activePoll: {
+          id: "poll-1",
+          roomId: "room123",
+          question: "Q?",
+          options: [
+            { id: "a", label: "A" },
+            { id: "b", label: "B" },
+          ],
+          status: "open",
+          settings: { hideRunningTotal: false },
+          createdAt: 1,
+          createdBy: "admin123",
+          publishedAt: 2,
+          closedAt: null,
+          closesAt: null,
+        },
+        myVote: { pollId: "poll-1", optionId: "a", votedAt: 0 },
+        pollHistory: [],
+      })
+
+      const result = await authService.login({
+        incomingUserId: "user123",
+        incomingUsername: "Homer",
+        password: "secret",
+        roomId: "room123",
+        socketId: "socket123",
+        sessionUser: undefined,
+      })
+
+      expect(result.initData?.activePoll?.id).toBe("poll-1")
+      expect(result.initData?.myVote).toEqual({ pollId: "poll-1", optionId: "a", votedAt: 0 })
     })
 
     test("auto-deputizes user when deputizeOnJoin is true", async () => {

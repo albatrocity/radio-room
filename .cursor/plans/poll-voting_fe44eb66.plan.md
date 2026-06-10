@@ -3,7 +3,7 @@ name: poll-voting
 overview: Add admin-created room polls with one current vote per user (swap allowed, no revoke), per-option counts hidden until close, optional hide-running-total. Implemented as a core feature with a simple Redis model — single `HSET` for vote insert-or-swap, immutable `:results` snapshot on close — no Lua / MULTI complexity.
 todos:
   - id: phase1-types
-    content: "Phase 1 — Types and events: Poll.ts (status `\"open\" | \"closed\"`, settings.hideRunningTotal, no max options), SystemEventTypes additions, InitPayload + RoomSnapshot extensions"
+    content: 'Phase 1 — Types and events: Poll.ts (status `"open" | "closed"`, settings.hideRunningTotal, no max options), SystemEventTypes additions, InitPayload + RoomSnapshot extensions'
     status: completed
   - id: phase2-data
     content: Phase 2 — Redis data layer; single-HSET vote, reduceVotesToResults pure helper, writeResultsSnapshot
@@ -13,10 +13,10 @@ todos:
     status: completed
   - id: phase4-handlers
     content: Phase 4 — Socket handlers + controller wiring; private POLL_VOTE_CONFIRMED (with `isSwap`) and POLL_VOTE_FAILED to caller
-    status: pending
+    status: completed
   - id: phase5-snapshot
     content: Phase 5 — INIT and ROOM_DATA snapshot extensions for activePoll, myVote (from `:votes`), pollHistory (from `:results`)
-    status: pending
+    status: completed
   - id: phase6-actor
     content: Phase 6 — pollActor + pollMachine with ACTIVATE/DEACTIVATE and hooks; handles vote swap UX
     status: pending
@@ -103,7 +103,7 @@ Insert and swap are the same `HSET`. Idempotent. No tally counter to drift; per-
 ## Key risks (full plan has more detail)
 
 - `:results` write must succeed before `POLL_CLOSED` emits — operation does it in that order; failure returns error and event is not emitted.
-- `hideRunningTotal` still leaks vote *timing* via event existence — documented in ADR.
+- `hideRunningTotal` still leaks vote _timing_ via event existence — documented in ADR.
 - Concurrent same-user swaps from two tabs: last-writer-wins; INIT reflects truth on reload.
 - LRU index race in `pollDisplayPreference`: eventual consistency, documented.
 - `HGETALL` on close scales fine to thousands of votes; HSCAN escape hatch for million-voter polls (not in scope).
