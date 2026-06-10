@@ -25,7 +25,7 @@ todos:
     status: completed
   - id: phase8-admin-ui
     content: Phase 8 — Admin authoring UI with dynamic option list (no max), hideRunningTotal toggle, client-side draft autosave via pollDraftPreference.ts
-    status: pending
+    status: completed
   - id: phase9-adr
     content: Phase 9 — ADR 0059, index update, studio-bridge stub
     status: pending
