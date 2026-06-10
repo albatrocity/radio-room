@@ -182,4 +182,6 @@ export type RoomSnapshot = {
   id: string
   lastMessageTime: number
   lastPlaylistItemTime: number
+  /** Timestamp of the most recent poll publish or close; used for incremental ROOM_DATA sync. */
+  lastPollChange?: number
 }

@@ -30,6 +30,7 @@ import type {
   InventoryItem,
   ItemUseResult,
 } from "./Inventory"
+import type { Poll, PollResults } from "./Poll"
 
 /**
  * System event handler signatures
@@ -327,6 +328,27 @@ export type SystemEventHandlers = {
     item: InventoryItem
     quantity: number
   }) => Promise<void> | void
+
+  // ==========================================================================
+  // Poll events
+  // ==========================================================================
+
+  POLL_PUBLISHED: (data: { roomId: string; poll: Poll }) => Promise<void> | void
+
+  POLL_VOTE_CAST: (data: {
+    roomId: string
+    pollId: string
+    /** Null when poll.settings.hideRunningTotal is true. */
+    totalVotes: number | null
+  }) => Promise<void> | void
+
+  POLL_CLOSED: (data: {
+    roomId: string
+    poll: Poll
+    results: PollResults
+  }) => Promise<void> | void
+
+  POLL_DELETED: (data: { roomId: string; pollId: string }) => Promise<void> | void
 }
 
 /**

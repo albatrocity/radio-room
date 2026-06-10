@@ -4,13 +4,13 @@ overview: Add admin-created room polls with one current vote per user (swap allo
 todos:
   - id: phase1-types
     content: "Phase 1 — Types and events: Poll.ts (status `\"open\" | \"closed\"`, settings.hideRunningTotal, no max options), SystemEventTypes additions, InitPayload + RoomSnapshot extensions"
-    status: pending
+    status: completed
   - id: phase2-data
     content: Phase 2 — Redis data layer; single-HSET vote, reduceVotesToResults pure helper, writeResultsSnapshot
-    status: pending
+    status: completed
   - id: phase3-operations
     content: Phase 3 — Operations (createPoll always publishes, castVote insert-or-swap, closePoll snapshots `:results`, deletePoll). POLL_VOTE_CAST emitted only on first vote.
-    status: pending
+    status: completed
   - id: phase4-handlers
     content: Phase 4 — Socket handlers + controller wiring; private POLL_VOTE_CONFIRMED (with `isSwap`) and POLL_VOTE_FAILED to caller
     status: pending
