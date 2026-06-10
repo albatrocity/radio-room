@@ -33,9 +33,17 @@ import {
   stubStudioBridgeRoom,
 } from "./stubRoom.js"
 import { bridgePluginSchemasForApi } from "./stubPluginSchemas.js"
+import { buildStubActivePoll } from "./stubPoll.js"
 import { applyUserUpdateToSnapshot, toggleVipOnUser, userHasVip } from "./personas.js"
 
 const PORT = Number(process.env.STUDIO_BRIDGE_PORT ?? process.env.PORT ?? 3099)
+
+/** When `pollPreview=1` on the Socket.IO handshake query, LOGIN includes a stub active poll. */
+function pollPreviewEnabled(socket: Socket): boolean {
+  const q = socket.handshake.query.pollPreview ?? socket.handshake.query.polls
+  const raw = Array.isArray(q) ? q[0] : q
+  return raw === "1" || raw === "true"
+}
 
 /** Stable ISO time for stub room docs (avoids a new Room identity every emit). */
 function bridgeRoomTimestampIso(): string {
@@ -185,10 +193,22 @@ function wireSocketHandlers(io: IOServer): void {
 
         socket.join(roomSocketPath(payload.roomId))
 
+        const initData = buildInitPayload(snap, user)
+        if (pollPreviewEnabled(socket) && !initData.activePoll) {
+          initData.activePoll = buildStubActivePoll(payload.roomId)
+        }
+
         socket.emit("event", {
           type: "INIT",
-          data: buildInitPayload(snap, user),
+          data: initData,
         })
+
+        if (initData.activePoll && pollPreviewEnabled(socket)) {
+          socket.emit("event", {
+            type: "POLL_PUBLISHED",
+            data: { roomId: payload.roomId, poll: initData.activePoll },
+          })
+        }
       },
     )
 

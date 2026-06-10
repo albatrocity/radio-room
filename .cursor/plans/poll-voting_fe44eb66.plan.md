@@ -28,7 +28,7 @@ todos:
     status: completed
   - id: phase9-adr
     content: Phase 9 — ADR 0059, index update, studio-bridge stub
-    status: pending
+    status: completed
 isProject: false
 ---
 
