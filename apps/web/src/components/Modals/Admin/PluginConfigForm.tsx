@@ -1,9 +1,10 @@
-import React, { useId, useMemo, useState } from "react"
+import React, { useId, useState } from "react"
 import {
   Box,
   Button,
   Checkbox,
   CheckboxGroup,
+  DatePicker,
   Field,
   Heading,
   HStack,
@@ -11,6 +12,7 @@ import {
   NativeSelect,
   NumberInput,
   Popover,
+  Portal,
   RadioGroup,
   Stack,
   Tag,
@@ -20,6 +22,9 @@ import {
   useDisclosure,
   CloseButton,
 } from "@chakra-ui/react"
+import { LuCalendar } from "react-icons/lu"
+import { CalendarDateTime, getLocalTimeZone } from "@internationalized/date"
+import type { DateValue } from "@internationalized/date"
 import Picker from "@emoji-mart/react"
 import data from "@emoji-mart/data"
 import { interpolateTemplate, interpolateCompositeTemplate } from "@repo/utils"
@@ -357,6 +362,199 @@ function CheckboxGroupField({ meta, value, onChange }: FieldProps) {
   )
 }
 
+function epochToCalendarDateTime(epochMs: number | null | undefined): CalendarDateTime | undefined {
+  if (epochMs == null || !Number.isFinite(epochMs)) return undefined
+  const d = new Date(epochMs)
+  return new CalendarDateTime(
+    d.getFullYear(),
+    d.getMonth() + 1,
+    d.getDate(),
+    d.getHours(),
+    d.getMinutes(),
+  )
+}
+
+function calendarDateTimeToEpoch(cdt: DateValue | null | undefined): number | null {
+  if (!cdt) return null
+  const tz = getLocalTimeZone()
+  const date = cdt.toDate(tz)
+  return date.getTime()
+}
+
+function DatetimeField({ meta, value, onChange }: FieldProps) {
+  const dateValue = epochToCalendarDateTime(value as number | null)
+  const [timeValue, setTimeValue] = useState(() => {
+    if (dateValue) {
+      const pad = (n: number) => String(n).padStart(2, "0")
+      return `${pad(dateValue.hour)}:${pad(dateValue.minute)}`
+    }
+    return "12:00"
+  })
+
+  const handleDateChange = (details: { value: DateValue[] }) => {
+    const selected = details.value[0]
+    if (!selected) {
+      onChange(null)
+      return
+    }
+    const [hours, minutes] = timeValue.split(":").map(Number)
+    const withTime = new CalendarDateTime(
+      selected.year,
+      selected.month,
+      selected.day,
+      hours || 0,
+      minutes || 0,
+    )
+    onChange(calendarDateTimeToEpoch(withTime))
+  }
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = e.target.value
+    setTimeValue(newTime)
+    if (dateValue) {
+      const [hours, minutes] = newTime.split(":").map(Number)
+      const withTime = new CalendarDateTime(
+        dateValue.year,
+        dateValue.month,
+        dateValue.day,
+        hours || 0,
+        minutes || 0,
+      )
+      onChange(calendarDateTimeToEpoch(withTime))
+    }
+  }
+
+  return (
+    <VStack align="stretch" gap={2}>
+      <DatePicker.Root
+        value={dateValue ? [dateValue] : []}
+        onValueChange={handleDateChange}
+        closeOnSelect
+        timeZone={getLocalTimeZone()}
+      >
+        <DatePicker.Label>{meta.label}</DatePicker.Label>
+        <DatePicker.Control>
+          <DatePicker.Input />
+          <DatePicker.Trigger>
+            <LuCalendar />
+          </DatePicker.Trigger>
+        </DatePicker.Control>
+        <Portal>
+          <DatePicker.Positioner>
+            <DatePicker.Content>
+              <DatePicker.View view="day">
+                <DatePicker.Context>
+                  {(api) => (
+                    <>
+                      <DatePicker.ViewControl>
+                        <DatePicker.PrevTrigger />
+                        <DatePicker.ViewTrigger>
+                          <DatePicker.RangeText />
+                        </DatePicker.ViewTrigger>
+                        <DatePicker.NextTrigger />
+                      </DatePicker.ViewControl>
+                      <DatePicker.Table>
+                        <DatePicker.TableHead>
+                          <DatePicker.TableRow>
+                            {api.weekDays.map((weekDay, i) => (
+                              <DatePicker.TableHeader key={i}>
+                                {weekDay.narrow}
+                              </DatePicker.TableHeader>
+                            ))}
+                          </DatePicker.TableRow>
+                        </DatePicker.TableHead>
+                        <DatePicker.TableBody>
+                          {api.weeks.map((week, i) => (
+                            <DatePicker.TableRow key={i}>
+                              {week.map((day, j) => (
+                                <DatePicker.TableCell key={j} value={day}>
+                                  <DatePicker.TableCellTrigger>
+                                    {day.day}
+                                  </DatePicker.TableCellTrigger>
+                                </DatePicker.TableCell>
+                              ))}
+                            </DatePicker.TableRow>
+                          ))}
+                        </DatePicker.TableBody>
+                      </DatePicker.Table>
+                    </>
+                  )}
+                </DatePicker.Context>
+              </DatePicker.View>
+              <DatePicker.View view="month">
+                <DatePicker.Context>
+                  {(api) => (
+                    <>
+                      <DatePicker.ViewControl>
+                        <DatePicker.PrevTrigger />
+                        <DatePicker.ViewTrigger>
+                          <DatePicker.RangeText />
+                        </DatePicker.ViewTrigger>
+                        <DatePicker.NextTrigger />
+                      </DatePicker.ViewControl>
+                      <DatePicker.Table>
+                        <DatePicker.TableBody>
+                          {api.getMonthsGrid({ columns: 4, format: "short" }).map((months, i) => (
+                            <DatePicker.TableRow key={i}>
+                              {months.map((month, j) => (
+                                <DatePicker.TableCell key={j} value={month.value}>
+                                  <DatePicker.TableCellTrigger>
+                                    {month.label}
+                                  </DatePicker.TableCellTrigger>
+                                </DatePicker.TableCell>
+                              ))}
+                            </DatePicker.TableRow>
+                          ))}
+                        </DatePicker.TableBody>
+                      </DatePicker.Table>
+                    </>
+                  )}
+                </DatePicker.Context>
+              </DatePicker.View>
+              <DatePicker.View view="year">
+                <DatePicker.Context>
+                  {(api) => (
+                    <>
+                      <DatePicker.ViewControl>
+                        <DatePicker.PrevTrigger />
+                        <DatePicker.ViewTrigger>
+                          <DatePicker.RangeText />
+                        </DatePicker.ViewTrigger>
+                        <DatePicker.NextTrigger />
+                      </DatePicker.ViewControl>
+                      <DatePicker.Table>
+                        <DatePicker.TableBody>
+                          {api.getYearsGrid({ columns: 4 }).map((years, i) => (
+                            <DatePicker.TableRow key={i}>
+                              {years.map((year, j) => (
+                                <DatePicker.TableCell key={j} value={year.value}>
+                                  <DatePicker.TableCellTrigger>
+                                    {year.label}
+                                  </DatePicker.TableCellTrigger>
+                                </DatePicker.TableCell>
+                              ))}
+                            </DatePicker.TableRow>
+                          ))}
+                        </DatePicker.TableBody>
+                      </DatePicker.Table>
+                    </>
+                  )}
+                </DatePicker.Context>
+              </DatePicker.View>
+            </DatePicker.Content>
+          </DatePicker.Positioner>
+        </Portal>
+      </DatePicker.Root>
+      <HStack>
+        <Text fontSize="sm" color="fg.muted" flexShrink={0}>
+          Time:
+        </Text>
+        <Input type="time" value={timeValue} onChange={handleTimeChange} size="sm" width="auto" />
+      </HStack>
+    </VStack>
+  )
+}
+
 /**
  * Render a form field based on its type
  */
@@ -388,6 +586,8 @@ function renderField(
       return <StringArrayField {...props} />
     case "checkbox-group":
       return <CheckboxGroupField {...props} />
+    case "datetime":
+      return <DatetimeField {...props} />
     default:
       return <StringField {...props} />
   }

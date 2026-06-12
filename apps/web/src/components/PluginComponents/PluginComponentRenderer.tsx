@@ -14,7 +14,7 @@ import {
 } from "@chakra-ui/react"
 import { interpolateTemplate, interpolatePropsRecursively } from "@repo/utils"
 import { pluginComponentMachine } from "../../machines/pluginComponentMachine"
-import { useCurrentRoom } from "../../hooks/useActors"
+import { useCurrentRoom, useIsAdmin } from "../../hooks/useActors"
 import { PluginComponentContext } from "./context"
 import { TEMPLATE_COMPONENT_MAP } from "./templates"
 import type { PluginComponentDefinition, PluginModalComponent } from "../../types/PluginComponent"
@@ -79,6 +79,12 @@ interface PluginComponentRendererProps {
  */
 export function PluginComponentRenderer({ component }: PluginComponentRendererProps) {
   const { config, store, itemContext, pluginName } = React.useContext(PluginComponentContext)!
+  const isAdmin = useIsAdmin()
+
+  // Hide adminOnly buttons from non-admins
+  if (component.type === "button" && "adminOnly" in component && component.adminOnly && !isAdmin) {
+    return null
+  }
 
   // Check showWhen condition
   if (component.showWhen) {

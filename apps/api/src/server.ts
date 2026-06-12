@@ -20,6 +20,7 @@ import createQueueHygienePlugin from "@repo/plugin-queue-hygiene"
 import createGuessTheTunePlugin from "@repo/plugin-guess-the-tune"
 import createItemShopsPlugin from "@repo/plugin-item-shops"
 import createLoyaltyProgramPlugin from "@repo/plugin-loyalty-program"
+import createQueuePacerPlugin from "@repo/plugin-queue-pacer"
 import { authHandler } from "@repo/auth/server"
 import { requireAdmin } from "@repo/auth/middleware"
 
@@ -79,6 +80,7 @@ async function main() {
       createGuessTheTunePlugin,
       createItemShopsPlugin,
       createLoyaltyProgramPlugin,
+      createQueuePacerPlugin,
     ],
   })
 

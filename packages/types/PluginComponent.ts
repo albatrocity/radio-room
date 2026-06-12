@@ -144,6 +144,8 @@ export interface ButtonComponentProps {
   size?: "sm" | "md" | "lg"
   /** When true, the button is non-interactive. */
   disabled?: boolean
+  /** When true, only room admins see this button (server must still enforce in executeAction). */
+  adminOnly?: boolean
 }
 
 /**

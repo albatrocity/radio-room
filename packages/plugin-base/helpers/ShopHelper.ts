@@ -466,7 +466,9 @@ export class ShopHelper {
   async getComponentState(): Promise<Record<string, number>> {
     const state: Record<string, number> = {}
     for (const item of this.items) {
-      state[shopStockStoreKey(item.definition.shortId)] = await this.getStock(item.definition.shortId)
+      state[shopStockStoreKey(item.definition.shortId)] = await this.getStock(
+        item.definition.shortId,
+      )
     }
     return state
   }

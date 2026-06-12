@@ -1,4 +1,4 @@
-# 0059. Poll Voting as a Core Feature
+# 0061. Poll Voting as a Core Feature
 
 **Date:** 2026-06-10
 **Status:** Accepted

@@ -176,7 +176,9 @@ describe("applyTextEffects font decorate", () => {
     const result = applyTextEffects("hello", { joker: 1 }, [comicKind])
     expect(result).not.toBeNull()
     expect(result!.content).toBe("hello")
-    const withFont = result!.contentSegments.filter((s) => s.effects?.some((e) => e.type === "font"))
+    const withFont = result!.contentSegments.filter((s) =>
+      s.effects?.some((e) => e.type === "font"),
+    )
     expect(withFont.length).toBeGreaterThan(0)
     expect(
       withFont.every((s) => s.effects?.some((e) => e.type === "font" && e.value === "comicSans")),
@@ -211,9 +213,7 @@ describe("applyScrambleTransform stack 1 (within-word)", () => {
     for (const { index, ch } of nonAlphaIndices(input)) {
       expect(out[index]).toBe(ch)
     }
-    expect(sortedChars(alphaCharsOf(out).join(""))).toBe(
-      sortedChars(alphaCharsOf(input).join("")),
-    )
+    expect(sortedChars(alphaCharsOf(out).join(""))).toBe(sortedChars(alphaCharsOf(input).join("")))
   })
 
   test("returns content unchanged with stacks <= 0", () => {
@@ -243,17 +243,15 @@ describe("applyScrambleTransform stack 2 (pool, preserve word lengths)", () => {
     for (const { index, ch } of nonAlphaIndices(input)) {
       expect(out[index]).toBe(ch)
     }
-    expect(sortedChars(alphaCharsOf(out).join(""))).toBe(
-      sortedChars(alphaCharsOf(input).join("")),
-    )
+    expect(sortedChars(alphaCharsOf(out).join(""))).toBe(sortedChars(alphaCharsOf(input).join("")))
   })
 })
 
 describe("applyScrambleTransform stack 3+ (random word count and lengths)", () => {
   beforeEach(() => {
     seedRandom([
-      0.05, 0.42, 0.81, 0.17, 0.63, 0.29, 0.74, 0.11, 0.55, 0.93, 0.36, 0.62,
-      0.18, 0.71, 0.04, 0.88,
+      0.05, 0.42, 0.81, 0.17, 0.63, 0.29, 0.74, 0.11, 0.55, 0.93, 0.36, 0.62, 0.18, 0.71, 0.04,
+      0.88,
     ])
   })
   afterEach(() => {
@@ -263,9 +261,7 @@ describe("applyScrambleTransform stack 3+ (random word count and lengths)", () =
   test("preserves total alpha multiset", () => {
     const input = "hello world"
     const out = applyScrambleTransform(input, 3)
-    expect(sortedChars(alphaCharsOf(out).join(""))).toBe(
-      sortedChars(alphaCharsOf(input).join("")),
-    )
+    expect(sortedChars(alphaCharsOf(out).join(""))).toBe(sortedChars(alphaCharsOf(input).join("")))
   })
 
   test("emits one or more space-separated words", () => {
@@ -392,7 +388,11 @@ describe("Segment phase composes (refine pipeline)", () => {
       phase: "segment",
       activeWhen: "seg_second",
       build: (w) => {
-        if (w === "ab") return [{ text: "a" }, { text: "b", effects: [{ type: "color", palette: "red", token: "solid" }] }]
+        if (w === "ab")
+          return [
+            { text: "a" },
+            { text: "b", effects: [{ type: "color", palette: "red", token: "solid" }] },
+          ]
         return null
       },
     }

@@ -1,5 +1,6 @@
 import { AppContext, PlaybackController, MetadataSource, MediaSource } from "@repo/types"
 import { findRoom } from "../operations/data"
+import { handlePlaybackStateChange } from "../operations/playback/handlePlaybackStateChange"
 
 /**
  * Service configuration registry
@@ -111,10 +112,16 @@ export class AdapterService {
       onAuthorizationCompleted: () => {},
       onAuthorizationFailed: (error) =>
         console.error("Playback controller authorization failed:", error),
-      onPlay: () => {},
-      onPause: () => {},
+      onPlay: () => {
+        void handlePlaybackStateChange({ context: this.context, roomId, state: "playing" })
+      },
+      onPause: () => {
+        void handlePlaybackStateChange({ context: this.context, roomId, state: "paused" })
+      },
       onChangeTrack: () => {},
-      onPlaybackStateChange: () => {},
+      onPlaybackStateChange: (state) => {
+        void handlePlaybackStateChange({ context: this.context, roomId, state })
+      },
       onPlaybackQueueChange: () => {},
       onPlaybackPositionChange: () => {},
       onError: (error) => console.error("Playback controller error:", error),

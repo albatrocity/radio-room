@@ -59,6 +59,7 @@ export type PluginFieldType =
   | "url" // URL input with validation
   | "string-array" // Array of strings (e.g., list of words)
   | "checkbox-group" // Multi-select: value is string[]; use `options` in field meta
+  | "datetime" // Datetime picker (stored in epoch ms)
 
 /** Condition for conditional visibility */
 export interface ShowWhenCondition {

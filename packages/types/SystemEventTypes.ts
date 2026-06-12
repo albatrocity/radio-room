@@ -25,11 +25,7 @@ import type {
   GameStateChange,
   GameStateModifier,
 } from "./GameSession"
-import type {
-  InventoryAcquisitionSource,
-  InventoryItem,
-  ItemUseResult,
-} from "./Inventory"
+import type { InventoryAcquisitionSource, InventoryItem, ItemUseResult } from "./Inventory"
 import type { Poll, PollResults } from "./Poll"
 
 /**
@@ -330,6 +326,19 @@ export type SystemEventHandlers = {
   }) => Promise<void> | void
 
   // ==========================================================================
+  // Playback state events
+  // ==========================================================================
+
+  /**
+   * Fired when playback state transitions (playing ↔ paused/stopped).
+   * Sources: PlaybackController callbacks, trackAdvanceJob polling for external changes.
+   * Deduplicated by the handlePlaybackStateChange operation.
+   */
+  PLAYBACK_STATE_CHANGED: (data: {
+    roomId: string
+    state: "playing" | "paused" | "stopped"
+    trackId: string | null
+  }) => Promise<void> | void
   // Poll events
   // ==========================================================================
 
@@ -342,11 +351,7 @@ export type SystemEventHandlers = {
     totalVotes: number | null
   }) => Promise<void> | void
 
-  POLL_CLOSED: (data: {
-    roomId: string
-    poll: Poll
-    results: PollResults
-  }) => Promise<void> | void
+  POLL_CLOSED: (data: { roomId: string; poll: Poll; results: PollResults }) => Promise<void> | void
 
   POLL_DELETED: (data: { roomId: string; pollId: string }) => Promise<void> | void
 }

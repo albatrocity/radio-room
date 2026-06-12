@@ -1,5 +1,5 @@
 import React from "react"
-import { Badge, HStack, Text } from "@chakra-ui/react"
+import { Badge, Box, HStack, Text } from "@chakra-ui/react"
 import { Tooltip } from "../../ui/tooltip"
 import { interpolateTemplate, interpolateCompositeTemplate } from "@repo/utils"
 import { getIcon } from "../icons"
@@ -67,7 +67,11 @@ export function BadgeTemplateComponent({
 
   if (tooltip) {
     const tooltipText = interpolateTemplate(tooltip, { config })
-    return <Tooltip content={tooltipText}>{badge}</Tooltip>
+    return (
+      <Box as="span" position="relative" zIndex={1} display="inline-block">
+        <Tooltip content={tooltipText}>{badge}</Tooltip>
+      </Box>
+    )
   }
 
   return badge

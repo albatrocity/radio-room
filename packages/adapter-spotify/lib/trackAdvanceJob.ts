@@ -25,8 +25,14 @@ function resourceUriFromQueueItem(item: {
 }
 
 /**
- * App-controlled playback: when the current Spotify track is near its end,
- * pop the next item from the app's ordered queue and start it via Web API.
+ * Spotify playback job with two responsibilities:
+ *
+ * 1. **State probe** (all Spotify rooms): Detect external play/pause changes
+ *    (e.g., user pauses on their phone) and emit SYSTEM:PLAYBACK_STATE_CHANGED.
+ *    This enables pause-aware plugins like Queue Pacer.
+ *
+ * 2. **Track advance** (app-controlled rooms only): When the current track is
+ *    near its end, pop the next item from the queue and start it via Web API.
  *
  * Shoutcast/metadata detection remains authoritative for Now Playing UI.
  */
@@ -41,7 +47,7 @@ export function createTrackAdvanceJob(params: {
 
   return {
     name: `track-advance-${roomId}`,
-    description: `App-controlled Spotify playback advance for room ${roomId}`,
+    description: `Spotify state probe and app-controlled playback advance for room ${roomId}`,
     cron: "*/1 * * * * *", // Match narrow end window (1s); 3s polls often missed the final second
     enabled: true,
     runAt: Date.now(),
@@ -57,9 +63,13 @@ export function createTrackAdvanceJob(params: {
           getQueueWithDispatched,
         } = await import("@repo/server/operations/data")
         const { isAppControlledPlayback } = await import("@repo/server/lib/roomTypeHelpers")
+        const {
+          handlePlaybackStateChange,
+          playbackStateFromIsPlaying,
+        } = await import("@repo/server/operations/playback/handlePlaybackStateChange")
 
         const room = await findRoom({ context, roomId })
-        if (!isAppControlledPlayback(room)) {
+        if (!room) {
           return
         }
 
@@ -88,7 +98,33 @@ export function createTrackAdvanceJob(params: {
         })
 
         const playback = await spotifyApi.player.getPlaybackState()
-        if (!playback?.item || !playback.is_playing) {
+        if (!playback) {
+          return
+        }
+
+        // =====================================================================
+        // State probe: detect external play/pause and emit PLAYBACK_STATE_CHANGED
+        // Runs for ALL rooms with a Spotify PlaybackController
+        // =====================================================================
+        const isPlaying = playback.is_playing === true
+        const trackId =
+          playback.item && "id" in playback.item ? (playback.item.id as string) : null
+
+        await handlePlaybackStateChange({
+          context,
+          roomId,
+          state: playbackStateFromIsPlaying(isPlaying),
+          trackId,
+        })
+
+        // =====================================================================
+        // Track advance: only for app-controlled playback rooms
+        // =====================================================================
+        if (!isAppControlledPlayback(room)) {
+          return
+        }
+
+        if (!playback.item || !isPlaying) {
           return
         }
 
