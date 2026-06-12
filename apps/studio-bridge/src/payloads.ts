@@ -217,5 +217,7 @@ export function buildInitPayload(snap: BridgeSnapshot, self: User) {
         decoratesChatMessage: true,
       },
     ]),
+    activePoll: snap.activePoll ?? null,
+    pollHistory: snap.pollHistory ?? [],
   }
 }

@@ -7,6 +7,7 @@ import TypingIndicator from "./TypingIndicator"
 import PopoverPreferences from "./PopoverPreferences"
 import ButtonGameState from "./ButtonGameState"
 import ChatWindow from "./ChatWindow"
+import PollCard from "./Poll/PollCard"
 
 import { chatScrollTargetActor } from "../actors/chatScrollTargetActor"
 import { useCurrentUser, useChatMessages, useAuthState, useChatSend } from "../hooks/useActors"
@@ -61,8 +62,11 @@ const Chat = () => {
       }}
     >
       <GridItem height="100%" width="100%" area={"chat"} overflowX="visible" minHeight={0}>
-        <Box h="100%" w="100%" className="messages-container">
-          {messages.length > 0 && <ChatWindow />}
+        <Box h="100%" w="100%" className="messages-container" display="flex" flexDirection="column">
+          <PollCard />
+          <Box flex={1} minH={0} overflow="hidden">
+            {messages.length > 0 && <ChatWindow />}
+          </Box>
         </Box>
       </GridItem>
       <GridItem px={2} py={2} area={"input"} boxShadow="inner">

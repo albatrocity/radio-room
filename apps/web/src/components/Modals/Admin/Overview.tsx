@@ -5,6 +5,7 @@ import {
   useModalsSend,
   useAdminSend,
   useHasActiveGameSession,
+  useActivePoll,
 } from "../../../hooks/useActors"
 import {
   Box,
@@ -53,6 +54,8 @@ function Overview() {
   const { schemas, isLoading } = usePluginSchemas()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const hasActiveGameSession = useHasActiveGameSession()
+  const activePoll = useActivePoll()
+  const hasActiveOpenPoll = activePoll?.status === "open"
 
   const hasPassword = !!settings.password
   const hasSettings = !!settings.extraInfo || !!settings.artwork || !!settings.radioMetaUrl
@@ -197,6 +200,22 @@ function Overview() {
                 Game sessions
                 <HStack>
                   {hasActiveGameSession && <ActiveIndicator />}
+                  <LuChevronRight />
+                </HStack>
+              </Button>
+              <Button
+                colorPalette="action"
+                variant="subtle"
+                borderRadius="none"
+                w="100%"
+                textAlign="left"
+                fontWeight="400"
+                justifyContent="space-between"
+                onClick={() => send({ type: "EDIT_POLLS" })}
+              >
+                Polls
+                <HStack>
+                  {hasActiveOpenPoll && <ActiveIndicator />}
                   <LuChevronRight />
                 </HStack>
               </Button>

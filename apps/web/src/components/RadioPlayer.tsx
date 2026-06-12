@@ -6,6 +6,7 @@ import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
 import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
+import ButtonPolls from "./ButtonPolls"
 import { useHotkeys } from "react-hotkeys-hook"
 import PlayPauseButton from "./PlayPauseButton"
 import AdminControls from "./AdminControls"
@@ -143,6 +144,7 @@ const RadioPlayer = ({
             <Box hideFrom="sm">
               <HStack>
                 {isAdmin && <AdminControls buttonColorScheme="action" buttonVariant="subtle" />}
+                <ButtonPolls showText={false} />
                 <ButtonAddToQueue showText={false} />
                 <ButtonSchedule showText={false} />
                 <ButtonListeners variant="ghost" padding={0} />

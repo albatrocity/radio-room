@@ -1,3 +1,4 @@
+import type { Poll, PollResults } from "@repo/types"
 import * as studioActions from "./studioActions"
 import { getStudio } from "./studioEnvironment"
 
@@ -41,9 +42,32 @@ export type StudioBridgeCommand =
       artifactId: string
       password: string
     }
+  | { kind: "CAST_POLL_VOTE"; roomId: string; userId: string; pollId: string; optionId: string }
+  | { kind: "CLOSE_POLL"; roomId: string; userId: string; pollId: string }
+  | {
+      kind: "CREATE_POLL"
+      roomId: string
+      userId: string
+      question: string
+      options: { label: string }[]
+      settings?: { hideRunningTotal?: boolean }
+    }
+  | { kind: "DELETE_POLL"; roomId: string; userId: string; pollId: string }
 
-/** Returned to studio-bridge when it uses Socket.IO ack (e.g. stored-artifact retrieve). */
-export type StudioBridgeCommandResult = { success: boolean; message?: string }
+/** Returned to studio-bridge when it uses Socket.IO ack. */
+export type StudioBridgeCommandResult = {
+  success: boolean
+  message?: string
+  pollId?: string
+  optionId?: string
+  isSwap?: boolean
+  totalVotes?: number | null
+  voteReason?: "POLL_CLOSED" | "POLL_NOT_FOUND" | "INVALID_OPTION" | "UNAUTHORIZED"
+  poll?: Poll
+  closedPoll?: Poll
+  results?: PollResults
+  deletedPollId?: string
+}
 
 export async function dispatchStudioBridgeCommand(
   cmd: StudioBridgeCommand,
@@ -93,6 +117,56 @@ export async function dispatchStudioBridgeCommand(
     }
     case "RETRIEVE_STORED_ARTIFACT": {
       return studioActions.retrieveArtifact(cmd.artifactId, cmd.password, cmd.userId)
+    }
+    case "CAST_POLL_VOTE": {
+      if (room.activePoll?.id !== cmd.pollId) {
+        return { success: false, voteReason: "POLL_NOT_FOUND" }
+      }
+      const result = studioActions.castStudioPollVote(cmd.userId, cmd.optionId)
+      if (!result.ok) {
+        return { success: false, voteReason: result.reason }
+      }
+      return {
+        success: true,
+        pollId: cmd.pollId,
+        optionId: cmd.optionId,
+        isSwap: !result.isFirstVote,
+        totalVotes: result.totalVotes,
+      }
+    }
+    case "CLOSE_POLL": {
+      if (!room.activePoll || room.activePoll.id !== cmd.pollId) {
+        return { success: false, message: "Poll not found." }
+      }
+      const result = studioActions.closeStudioPoll()
+      if (!result.ok) {
+        return { success: false, message: result.message }
+      }
+      const entry = room.pollHistory.find((e) => e.poll.id === result.pollId)
+      return {
+        success: true,
+        pollId: result.pollId,
+        closedPoll: entry?.poll,
+        results: entry?.results,
+      }
+    }
+    case "CREATE_POLL": {
+      const result = studioActions.createStudioPoll({
+        question: cmd.question,
+        options: cmd.options,
+        hideRunningTotal: cmd.settings?.hideRunningTotal,
+      })
+      if (!result.ok) {
+        return { success: false, message: result.message }
+      }
+      return { success: true, poll: result.poll }
+    }
+    case "DELETE_POLL": {
+      const result = studioActions.deleteStudioPoll(cmd.pollId)
+      if (!result.ok) {
+        return { success: false, message: result.message }
+      }
+      return { success: true, deletedPollId: cmd.pollId }
     }
   }
 }
