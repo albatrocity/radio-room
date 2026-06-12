@@ -6,6 +6,7 @@ import { ChatMessage } from "@repo/types/ChatMessage"
 import { QueueItem } from "@repo/types/Queue"
 
 const mockIsRoomAdmin = vi.hoisted(() => vi.fn())
+const loadPollRoomDataSinceMock = vi.hoisted(() => vi.fn())
 
 // Mock dependencies
 vi.mock("../operations/data", () => ({
@@ -14,6 +15,10 @@ vi.mock("../operations/data", () => ({
   getRoomPlaylistSince: vi.fn(),
   removeSensitiveRoomAttributes: vi.fn((room) => ({ ...room, sensitive: false })),
   isRoomAdmin: mockIsRoomAdmin,
+}))
+
+vi.mock("../operations/polls/loadPollSnapshot", () => ({
+  loadPollRoomDataSince: loadPollRoomDataSinceMock,
 }))
 
 // Import mocked dependencies
@@ -49,6 +54,11 @@ describe("RoomService", () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+    loadPollRoomDataSinceMock.mockResolvedValue({
+      activePoll: null,
+      totalVotes: null,
+      pollHistorySince: [],
+    })
     mockContext = appContextFactory.build()
     roomService = new RoomService(mockContext)
 
@@ -147,11 +157,20 @@ describe("RoomService", () => {
         since: mockSnapshot.lastPlaylistItemTime,
       })
 
+      expect(loadPollRoomDataSinceMock).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        since: mockSnapshot.lastPollChange,
+      })
+
       expect(result).toEqual({
         room: mockRoom,
         messages: mockMessages,
         playlist: mockPlaylist,
         scheduleSnapshot: null,
+        activePoll: null,
+        totalVotes: null,
+        pollHistorySince: [],
       })
 
       expect(removeSensitiveRoomAttributes).not.toHaveBeenCalled()
@@ -185,7 +204,47 @@ describe("RoomService", () => {
         messages: mockMessages,
         playlist: mockPlaylist,
         scheduleSnapshot: null,
+        activePoll: null,
+        totalVotes: null,
+        pollHistorySince: [],
       })
+    })
+
+    test("includes poll snapshot fields from loadPollRoomDataSince", async () => {
+      const activePoll = {
+        id: "poll-1",
+        roomId: "room123",
+        question: "Q?",
+        options: [
+          { id: "a", label: "A" },
+          { id: "b", label: "B" },
+        ],
+        status: "open" as const,
+        settings: { hideRunningTotal: false },
+        createdAt: 1,
+        createdBy: "admin123",
+        publishedAt: 2,
+        closedAt: null,
+        closesAt: null,
+      }
+      loadPollRoomDataSinceMock.mockResolvedValueOnce({
+        activePoll,
+        totalVotes: 0,
+        pollHistorySince: [],
+      })
+
+      const result = await roomService.getLatestRoomData("room123", "user123", {
+        ...mockSnapshot,
+        lastPollChange: 1_500,
+      })
+
+      expect(loadPollRoomDataSinceMock).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        since: 1_500,
+      })
+      expect(result?.activePoll).toEqual(activePoll)
+      expect(result?.pollHistorySince).toEqual([])
     })
   })
 })

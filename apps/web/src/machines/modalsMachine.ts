@@ -15,6 +15,7 @@ export type Event =
   | { type: "VIEW_LISTENERS" }
   | { type: "VIEW_SCHEDULE" }
   | { type: "VIEW_GAME_STATE" }
+  | { type: "VIEW_POLL_HISTORY" }
   | { type: "CLOSE" }
   | { type: "CREATE_ROOM" }
   | { type: "BACK" }
@@ -25,6 +26,7 @@ export type Event =
   | { type: "EDIT_PASSWORD" }
   | { type: "EDIT_SCHEDULE" }
   | { type: "EDIT_GAME_SESSIONS" }
+  | { type: "EDIT_POLLS" }
   | { type: "EDIT_PLAYLIST_DEMOCRACY" }
   | { type: "EDIT_SPECIAL_WORDS" }
   | { type: "EDIT_ABSENT_DJ" }
@@ -84,6 +86,9 @@ export const modalsMachine = setup({
     VIEW_GAME_STATE: {
       target: ".gameState",
     },
+    VIEW_POLL_HISTORY: {
+      target: ".pollHistory",
+    },
     CLOSE: {
       target: ".closed",
     },
@@ -98,6 +103,7 @@ export const modalsMachine = setup({
     help: {},
     schedule: {},
     gameState: {},
+    pollHistory: {},
     createRoom: {},
     settings: {
       entry: ["fetchSettings"],
@@ -112,6 +118,7 @@ export const modalsMachine = setup({
             EDIT_PASSWORD: "password",
             EDIT_SCHEDULE: "schedule",
             EDIT_GAME_SESSIONS: "game_sessions",
+            EDIT_POLLS: "polls",
             // Plugin rows in Overview use EDIT_{NAME} (see toEventName); each needs a transition + substate below.
             EDIT_PLAYLIST_DEMOCRACY: "playlist_democracy",
             EDIT_SPECIAL_WORDS: "special_words",
@@ -200,6 +207,11 @@ export const modalsMachine = setup({
           },
         },
         game_sessions: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        polls: {
           on: {
             BACK: "overview",
           },

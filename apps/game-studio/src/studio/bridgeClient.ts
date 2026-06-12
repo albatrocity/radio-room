@@ -3,6 +3,8 @@ import type {
   GameSession,
   InventoryItem,
   ItemDefinition,
+  Poll,
+  PollHistoryEntry,
   QueueItem,
   ShoppingSessionInstance,
   StoredArtifactPublic,
@@ -34,6 +36,8 @@ export type StudioBridgeSnapshot = {
   pluginConfigs: Record<string, Record<string, unknown>>
   shoppingByUser: Record<string, ShoppingSessionInstance | null>
   storedArtifacts: StoredArtifactPublic[]
+  activePoll?: Poll | null
+  pollHistory?: PollHistoryEntry[]
 }
 
 export function serializeStudioRoom(room: StudioRoom): StudioBridgeSnapshot {
@@ -71,6 +75,8 @@ export function serializeStudioRoom(room: StudioRoom): StudioBridgeSnapshot {
     pluginConfigs,
     shoppingByUser,
     storedArtifacts,
+    activePoll: room.activePoll,
+    pollHistory: room.pollHistory,
   }
 }
 

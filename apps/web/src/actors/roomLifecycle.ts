@@ -23,6 +23,7 @@ import { roomGameStateActor } from "./roomGameStateActor"
 import { metadataSourceAuthActor } from "./metadataSourceAuthActor"
 import { soundEffectsActor } from "./soundEffectsActor"
 import { screenEffectsActor } from "./screenEffectsActor"
+import { pollActor } from "./pollActor"
 
 import {
   getPersistedRoomState,
@@ -94,6 +95,7 @@ export function initializeRoom(roomId: string): void {
   metadataSourceAuthActor.send({ type: "ACTIVATE" })
   soundEffectsActor.send({ type: "ACTIVATE" })
   screenEffectsActor.send({ type: "ACTIVATE" })
+  pollActor.send({ type: "ACTIVATE" })
 
   // Start fetching room data
   fetchRoom(roomId)
@@ -144,6 +146,7 @@ export function teardownRoom(): void {
   metadataSourceAuthActor.send({ type: "DEACTIVATE" })
   soundEffectsActor.send({ type: "DEACTIVATE" })
   screenEffectsActor.send({ type: "DEACTIVATE" })
+  pollActor.send({ type: "DEACTIVATE" })
 
   currentRoomId = null
   isInitialized = false

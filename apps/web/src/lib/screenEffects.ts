@@ -172,6 +172,31 @@ export function getEffectDuration(effect: ScreenEffectName, customDuration?: num
   return customDuration || DEFAULT_EFFECT_DURATIONS[effect] || 1000
 }
 
+/** Client-only room edge glow when a poll is published (not an animate.css ScreenEffectName). */
+export type ClientPollEffectName = "pollPulse"
+
+export const POLL_PULSE_DURATION_MS = 600
+
+export function applyPollPulse(
+  element: HTMLElement,
+  duration = POLL_PULSE_DURATION_MS,
+): Promise<void> {
+  if (typeof element.animate !== "function") {
+    return Promise.resolve()
+  }
+  return element
+    .animate(
+      [
+        { boxShadow: "0 0 0 0 rgba(99, 102, 241, 0)" },
+        { boxShadow: "0 0 28px 6px rgba(99, 102, 241, 0.35)" },
+        { boxShadow: "0 0 0 0 rgba(99, 102, 241, 0)" },
+      ],
+      { duration, easing: "ease-out", fill: "forwards" },
+    )
+    .finished.then(() => undefined)
+    .catch(() => undefined)
+}
+
 // ============================================================================
 // Interface viewport modifiers (blur + saturation stacks — see `@repo/game-logic`)
 // ============================================================================

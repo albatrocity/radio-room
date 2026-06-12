@@ -44,6 +44,9 @@ export function formatRoomExportAsMarkdown(
   // Chat
   sections.push(formatChat(data, pluginRegistry, roomId))
 
+  // Polls
+  sections.push(formatPolls(data))
+
   // Queue
   if (data.queue.length > 0) {
     sections.push(formatQueue(data, pluginRegistry, roomId))
@@ -100,6 +103,7 @@ function formatYamlFrontmatterAndIntro(
   const tracks = data.playlist.length
   const messages = data.chat.length
   const visitors = data.userHistory?.length ?? 0
+  const polls = data.polls.length
 
   const tidalUrl = fm?.tidalPlaylist?.trim()
   const spotifyUrl = fm?.spotifyPlaylist?.trim()
@@ -118,6 +122,7 @@ function formatYamlFrontmatterAndIntro(
   yamlLines.push(`  tracks: ${tracks}`)
   yamlLines.push(`  messages: ${messages}`)
   yamlLines.push(`  visitors: ${visitors}`)
+  yamlLines.push(`  polls: ${polls}`)
   yamlLines.push("---")
 
   const introLines: string[] = [...yamlLines, ""]
@@ -131,7 +136,7 @@ function formatYamlFrontmatterAndIntro(
     introLines.push("")
   }
   introLines.push(
-    `_${tracks} tracks played • ${messages} messages • ${visitors} unique visitors_`,
+    `_${tracks} tracks played • ${messages} messages • ${visitors} unique visitors • ${polls} poll${polls === 1 ? "" : "s"}_`,
   )
   introLines.push("")
   introLines.push("---")
@@ -300,6 +305,35 @@ function formatChat(
   return lines.join("\n\n")
 }
 
+function formatPolls(data: RoomExportData): string {
+  if (data.polls.length === 0) {
+    return "## Polls\n\n*No polls*"
+  }
+
+  const lines = ["## Polls", ""]
+
+  for (const entry of data.polls) {
+    const { poll, results } = entry
+    lines.push(`### ${escapeMarkdown(poll.question)}`)
+    lines.push("")
+    lines.push(
+      `*Closed ${formatTime(results.closedAt)} • ${results.totalVotes} vote${results.totalVotes === 1 ? "" : "s"}*`,
+    )
+    lines.push("")
+
+    for (const option of poll.options) {
+      const count = results.optionTallies[option.id] || 0
+      const pct = results.totalVotes > 0 ? Math.round((count / results.totalVotes) * 100) : 0
+      const isWinner = results.winners.includes(option.id)
+      const marker = isWinner ? " 🏆" : ""
+      lines.push(`- **${escapeMarkdown(option.label)}**: ${count} (${pct}%)${marker}`)
+    }
+    lines.push("")
+  }
+
+  return lines.join("\n")
+}
+
 function formatQueue(
   data: RoomExportData,
   pluginRegistry: PluginRegistry | undefined,
@@ -344,6 +378,10 @@ function formatFooter(data: RoomExportData): string {
 
   if (data.queue.length > 0) {
     stats.push(`${data.queue.length} tracks queued`)
+  }
+
+  if (data.polls.length > 0) {
+    stats.push(`${data.polls.length} poll${data.polls.length === 1 ? "" : "s"}`)
   }
 
   return `*${stats.join(" • ")}*`

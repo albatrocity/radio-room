@@ -66,6 +66,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0058](0058-client-session-localstorage.md) | Client session persistence in localStorage (`clientSession`) | Accepted |
 | [0059](0059-time-cop-playback-window-plugin.md) | Queue Pacer Playback Window Plugin | Accepted |
 | [0060](0060-playback-state-changed-system-event.md) | SYSTEM:PLAYBACK_STATE_CHANGED event | Accepted |
+| [0061](0061-poll-voting-as-core-feature.md) | Poll voting as a core feature (not a plugin) | Accepted |
 
 ## Creating a New ADR
 

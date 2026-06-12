@@ -17,6 +17,7 @@ import {
   getRoomUserHistory,
   getUsersByIds,
 } from "../operations/data"
+import { getPollHistoryEntries } from "../operations/data/polls"
 import {
   getListeningTransportCounts,
   shouldSnapshotListeningTransports,
@@ -100,7 +101,8 @@ export class ExportService {
     playlistOverride?: QueueItem[],
   ): Promise<RoomExportData> {
     // Fetch all data in parallel (including user history IDs)
-    const [room, playlist, messages, users, queue, reactions, userHistoryIds] = await Promise.all([
+    const [room, playlist, messages, users, queue, reactions, userHistoryIds, pollHistory] =
+      await Promise.all([
       findRoom({ context: this.context, roomId }),
       playlistOverride !== undefined
         ? Promise.resolve(playlistOverride)
@@ -110,6 +112,7 @@ export class ExportService {
       getQueue({ context: this.context, roomId }),
       getAllRoomReactions({ context: this.context, roomId }),
       getRoomUserHistory({ context: this.context, roomId }),
+      getPollHistoryEntries({ context: this.context, roomId, limit: 100 }),
     ])
 
     if (!room) {
@@ -143,6 +146,7 @@ export class ExportService {
       chat: messages,
       queue,
       reactions: reactions || { message: {}, track: {} },
+      polls: pollHistory,
       ...(listeningTransportSnapshot ? { listeningTransportSnapshot } : {}),
     }
   }

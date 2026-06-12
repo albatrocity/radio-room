@@ -25,11 +25,8 @@ import type {
   GameStateChange,
   GameStateModifier,
 } from "./GameSession"
-import type {
-  InventoryAcquisitionSource,
-  InventoryItem,
-  ItemUseResult,
-} from "./Inventory"
+import type { InventoryAcquisitionSource, InventoryItem, ItemUseResult } from "./Inventory"
+import type { Poll, PollResults } from "./Poll"
 
 /**
  * System event handler signatures
@@ -342,6 +339,21 @@ export type SystemEventHandlers = {
     state: "playing" | "paused" | "stopped"
     trackId: string | null
   }) => Promise<void> | void
+  // Poll events
+  // ==========================================================================
+
+  POLL_PUBLISHED: (data: { roomId: string; poll: Poll }) => Promise<void> | void
+
+  POLL_VOTE_CAST: (data: {
+    roomId: string
+    pollId: string
+    /** Null when poll.settings.hideRunningTotal is true. */
+    totalVotes: number | null
+  }) => Promise<void> | void
+
+  POLL_CLOSED: (data: { roomId: string; poll: Poll; results: PollResults }) => Promise<void> | void
+
+  POLL_DELETED: (data: { roomId: string; pollId: string }) => Promise<void> | void
 }
 
 /**
