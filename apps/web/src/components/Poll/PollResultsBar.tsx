@@ -50,7 +50,7 @@ export function PollResultsBar({
           h="100%"
           w="var(--pct, 0%)"
           bg="colorPalette.solid"
-          colorPalette="blue"
+          colorPalette="primary"
           borderRadius="full"
           transition="width 180ms ease"
         />

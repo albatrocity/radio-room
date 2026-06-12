@@ -63,6 +63,7 @@ describe("AuthService", () => {
     loadPollInitDataMock.mockResolvedValue({
       activePoll: null,
       myVote: null,
+      totalVotes: null,
       pollHistory: [],
     })
 
@@ -295,6 +296,7 @@ describe("AuthService", () => {
           closesAt: null,
         },
         myVote: { pollId: "poll-1", optionId: "a", votedAt: 0 },
+        totalVotes: 5,
         pollHistory: [],
       })
 

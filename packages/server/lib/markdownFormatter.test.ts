@@ -34,6 +34,7 @@ function minimalExport(overrides: Partial<RoomExportData> = {}): RoomExportData 
     chat: [{}, {}, {}] as any,
     queue: [],
     reactions: { message: {}, track: {} },
+    polls: [],
     ...overrides,
   }
 }
@@ -57,7 +58,8 @@ describe("formatRoomExportAsMarkdown frontmatter", () => {
     expect(md).toContain("  tracks: 2")
     expect(md).toContain("  messages: 3")
     expect(md).toContain("  visitors: 2")
-    expect(md).toContain("_2 tracks played • 3 messages • 2 unique visitors_")
+    expect(md).toContain("  polls: 0")
+    expect(md).toContain("_2 tracks played • 3 messages • 2 unique visitors • 0 polls_")
     expect(md).toContain("*Exported on")
     expect(md).not.toContain("# Magic Machine")
   })
@@ -93,5 +95,50 @@ describe("formatRoomExportAsMarkdown frontmatter", () => {
     expect(md).toContain(`spotifyPlaylist: "${spotify}"`)
     expect(md).toContain(`- [Tidal playlist](${tidal})`)
     expect(md).toContain(`- [Spotify playlist](${spotify})`)
+  })
+
+  it("formats closed polls with tallies and winners", () => {
+    const md = formatRoomExportAsMarkdown(
+      minimalExport({
+        polls: [
+          {
+            poll: {
+              id: "poll-1",
+              roomId: "room_1",
+              question: "Best genre?",
+              options: [
+                { id: "opt-a", label: "Rock" },
+                { id: "opt-b", label: "Jazz" },
+              ],
+              status: "closed",
+              settings: { hideRunningTotal: false },
+              createdAt: 1_000,
+              createdBy: "admin-1",
+              publishedAt: 2_000,
+              closedAt: 9_000,
+              closesAt: null,
+            },
+            results: {
+              pollId: "poll-1",
+              totalVotes: 10,
+              optionTallies: { "opt-a": 7, "opt-b": 3 },
+              winners: ["opt-a"],
+              closedAt: 9_000,
+            },
+          },
+        ],
+      }),
+      [],
+      undefined,
+      "room_1",
+    )
+
+    expect(md).toContain("## Polls")
+    expect(md).toContain("### Best genre?")
+    expect(md).toContain("10 votes")
+    expect(md).toContain("**Rock**: 7 (70%) 🏆")
+    expect(md).toContain("**Jazz**: 3 (30%)")
+    expect(md).toContain("  polls: 1")
+    expect(md).toContain("1 poll")
   })
 })

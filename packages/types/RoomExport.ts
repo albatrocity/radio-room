@@ -4,6 +4,7 @@ import type { User } from "./User"
 import type { QueueItem } from "./Queue"
 import type { ChatMessage } from "./ChatMessage"
 import type { ReactionStore } from "./Reaction"
+import type { PollHistoryEntry } from "./Poll"
 
 // =============================================================================
 // Export Format Schema & Type
@@ -73,6 +74,12 @@ export interface RoomExportData {
    * All reactions organized by type and subject ID
    */
   reactions: ReactionStore
+
+  /**
+   * Poll history with results (closed polls only).
+   * Includes question, options, vote tallies, and winners.
+   */
+  polls: PollHistoryEntry[]
 
   /**
    * Snapshot of how many users were counted as listening via each transport

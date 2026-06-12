@@ -6,6 +6,7 @@ import ReactionCounter from "./ReactionCounter"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
+import ButtonPolls from "./ButtonPolls"
 import PlayPauseButton from "./PlayPauseButton"
 import AdminControls from "./AdminControls"
 import {
@@ -160,6 +161,7 @@ const LivePlayer = ({
             <Box hideFrom="sm">
               <HStack>
                 {isAdmin && <AdminControls buttonColorScheme="action" buttonVariant="subtle" />}
+                <ButtonPolls showText={false} />
                 <ButtonAddToQueue showText={false} />
                 <ButtonListeners variant="ghost" padding={0} />
               </HStack>

@@ -31,6 +31,7 @@ type PollEvent =
       data: {
         activePoll?: Poll | null
         myVote?: MyPollVote | null
+        totalVotes?: number | null
         pollHistory?: PollHistoryEntry[]
       }
     }
@@ -38,6 +39,7 @@ type PollEvent =
       type: "ROOM_DATA"
       data: {
         activePoll?: Poll | null
+        totalVotes?: number | null
         pollHistorySince?: PollHistoryEntry[]
       }
     }
@@ -61,9 +63,11 @@ const VOTE_FAILURE_MESSAGES: Record<string, string> = {
   UNAUTHORIZED: "You must be logged in to vote.",
 }
 
-function initialTotalVotes(poll: Poll | null): number | null {
+function initialTotalVotes(poll: Poll | null, providedTotal?: number | null): number | null {
   if (!poll) return null
-  return poll.settings.hideRunningTotal ? null : 0
+  if (poll.settings.hideRunningTotal) return null
+  // Use provided total from INIT/ROOM_DATA if available, otherwise default to 0
+  return providedTotal ?? 0
 }
 
 function mergeHistory(
@@ -120,7 +124,7 @@ export const pollMachine = setup({
         myVote: event.data.myVote ?? null,
         rollbackVote: null,
         votePending: false,
-        totalVotes: initialTotalVotes(activePoll),
+        totalVotes: initialTotalVotes(activePoll, event.data.totalVotes),
         revealResults: null,
         history: event.data.pollHistory ?? [],
       }
@@ -131,7 +135,7 @@ export const pollMachine = setup({
       if ("activePoll" in event.data) {
         const activePoll = event.data.activePoll ?? null
         updates.activePoll = activePoll
-        updates.totalVotes = initialTotalVotes(activePoll)
+        updates.totalVotes = initialTotalVotes(activePoll, event.data.totalVotes)
         if (!activePoll) {
           updates.myVote = null
           updates.rollbackVote = null

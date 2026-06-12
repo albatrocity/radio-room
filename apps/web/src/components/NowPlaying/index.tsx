@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { Box, Heading, VStack } from "@chakra-ui/react"
+import { Box, Heading, HStack, VStack } from "@chakra-ui/react"
 
 import {
   useUsers,
@@ -15,6 +15,7 @@ import { NowPlayingLoading } from "./NowPlayingLoading"
 import { NowPlayingEmpty } from "./NowPlayingEmpty"
 import { NowPlayingTrack } from "./NowPlayingTrack"
 import ButtonAddToQueue from "../ButtonAddToQueue"
+import ButtonPolls from "../ButtonPolls"
 import { PluginArea } from "../PluginComponents"
 
 interface NowPlayingProps {
@@ -94,7 +95,10 @@ function NowPlaying({ meta }: NowPlayingProps) {
         <PluginArea area="nowPlaying" />
 
         <Box hideBelow="sm" colorPalette="primary">
-          <ButtonAddToQueue variant="subtle" />
+          <HStack>
+            <ButtonAddToQueue variant="subtle" />
+            <ButtonPolls variant="subtle" />
+          </HStack>
         </Box>
       </VStack>
     </Box>

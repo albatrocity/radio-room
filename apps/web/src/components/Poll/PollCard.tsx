@@ -1,6 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
-  Badge,
   Box,
   Button,
   CloseButton,
@@ -10,32 +9,36 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react"
-import { LuMinus, LuSquare } from "react-icons/lu"
+import { LuMaximize2, LuMinus } from "react-icons/lu"
 import type { PollOption } from "@repo/types/Poll"
+import { useMachine } from "@xstate/react"
 import {
   useActivePoll,
   useCurrentRoom,
   useIsAdmin,
-  useModalsSend,
   useMyPollVote,
   usePollSend,
   usePollTotalVotes,
   useRevealResults,
   useVotePending,
 } from "../../hooks/useActors"
-import { usePollDisplayMode } from "../../hooks/usePollDisplayMode"
 import { useAnimationsEnabled } from "../../hooks/useReducedMotion"
 import { useAnimeScope } from "../../animations/useAnimeScope"
 import { runPollMountAnimation } from "../../animations/pollMountAnimation"
 import { runPollRevealAnimation } from "../../animations/pollRevealAnimation"
-import { runVoteTickAnimation } from "../../animations/voteTickAnimation"
 import { applyPollPulse, findTargetElement } from "../../lib/screenEffects"
+import { getPollDisplayMode } from "../../lib/pollDisplayPreference"
 import { emitToSocket } from "../../actors/socketActor"
 import { pollActor } from "../../actors/pollActor"
-import { PollOptionButton } from "./PollOptionButton"
+import {
+  pollCardDisplayMachine,
+  REVEAL_DURATION_MS,
+  type PollCardDisplayState,
+} from "../../machines/pollCardDisplayMachine"
+import { ExpiryBar } from "../ExpiryBar"
 import { PollResultsBar } from "./PollResultsBar"
+import { PollVotingSection } from "./PollVotingSection"
 
-const REVEAL_MS = 10_000
 const SCROLLABLE_OPTION_THRESHOLD = 8
 
 function truncateQuestion(question: string, max = 50) {
@@ -49,26 +52,46 @@ function PollCard() {
   const totalVotes = usePollTotalVotes()
   const votePending = useVotePending()
   const pollSend = usePollSend()
-  const modalSend = useModalsSend()
   const room = useCurrentRoom()
   const isAdmin = useIsAdmin()
   const animationsEnabled = useAnimationsEnabled()
-  const { mode, setMode } = usePollDisplayMode(room?.id, poll?.id)
+
+  const pollSendRef = useRef(pollSend)
+  pollSendRef.current = pollSend
+
+  const machine = useMemo(
+    () =>
+      pollCardDisplayMachine.provide({
+        actions: {
+          onRevealTimeout: () => pollSendRef.current({ type: "CLEAR_REVEAL" }),
+        },
+      }),
+    [],
+  )
+
+  const [state, send] = useMachine(machine, {
+    input: {
+      roomId: "",
+      pollId: null,
+      initialMode: "expanded",
+    },
+  })
+
+  const displayState = (state.value ?? "boot") as PollCardDisplayState
+  const revealStartedAt = state.context?.revealStartedAt ?? null
 
   const cardRef = useRef<HTMLDivElement>(null)
-  const totalRef = useRef<HTMLSpanElement>(null)
-  const prevTotalRef = useRef<number | null>(null)
-  const [revealOverride, setRevealOverride] = useState(false)
   const [confirmOptionId, setConfirmOptionId] = useState<string | null>(null)
-  const [pulseHidden, setPulseHidden] = useState(false)
   const barRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const countRefs = useRef<Map<string, HTMLSpanElement>>(new Map())
+  const prevPollIdRef = useRef<string | null>(null)
 
   useAnimeScope(cardRef, animationsEnabled)
 
   const isRevealing = poll?.status === "closed" && revealResults != null
-  const effectiveMode = revealOverride || isRevealing ? "expanded" : mode
   const scrollable = (poll?.options.length ?? 0) > SCROLLABLE_OPTION_THRESHOLD
+  const showFullResults =
+    isRevealing && (displayState === "revealing" || displayState === "expanded")
 
   const sortedRevealOptions = useMemo(() => {
     if (!poll || !revealResults) return []
@@ -84,6 +107,31 @@ function PollCard() {
 
   const winnerIds = useMemo(() => new Set(revealResults?.winners ?? []), [revealResults])
   const isTie = winnerIds.size > 1
+
+  useLayoutEffect(() => {
+    if (!room?.id || !poll?.id) return
+    send({
+      type: "HYDRATE",
+      roomId: room.id,
+      pollId: poll.id,
+      mode: getPollDisplayMode(room.id, poll.id),
+    })
+  }, [room?.id, poll?.id, send])
+
+  useEffect(() => {
+    if (!poll?.id || poll.status !== "open") {
+      if (!poll?.id) prevPollIdRef.current = null
+      return
+    }
+    if (prevPollIdRef.current !== null && poll.id !== prevPollIdRef.current) {
+      send({ type: "NEW_POLL_PUBLISHED", pollId: poll.id })
+    }
+    prevPollIdRef.current = poll.id
+  }, [poll?.id, poll?.status, send])
+
+  useEffect(() => {
+    if (isRevealing) send({ type: "POLL_CLOSED" })
+  }, [isRevealing, send])
 
   useEffect(() => {
     if (!poll || !animationsEnabled || !cardRef.current) return
@@ -108,55 +156,24 @@ function PollCard() {
   }, [poll?.id, animationsEnabled, pollSend, poll])
 
   useEffect(() => {
-    if (!isRevealing) return
-    setRevealOverride(true)
-    const timer = window.setTimeout(() => {
-      pollSend({ type: "CLEAR_REVEAL" })
-      setRevealOverride(false)
-    }, REVEAL_MS)
-    return () => window.clearTimeout(timer)
-  }, [isRevealing, pollSend])
-
-  useEffect(() => {
-    if (!isRevealing || !animationsEnabled || !cardRef.current || !revealResults) return
+    if (!showFullResults || !animationsEnabled || !cardRef.current || !revealResults) return
     const key = `${poll!.id}:reveal`
     if (pollActor.getSnapshot().context.seenAnimations.has(key)) return
 
-    const bars = sortedRevealOptions.map(({ option, count, pct }) => ({
-      el: barRefs.current.get(option.id)!,
-      finalPct: pct,
-      finalCount: count,
-      countEl: countRefs.current.get(option.id) ?? null,
-    })).filter((b) => b.el)
+    const bars = sortedRevealOptions
+      .map(({ option, count, pct }) => ({
+        el: barRefs.current.get(option.id)!,
+        finalPct: pct,
+        finalCount: count,
+        countEl: countRefs.current.get(option.id) ?? null,
+      }))
+      .filter((b) => b.el)
 
     const cleanup = runPollRevealAnimation(cardRef.current, bars, null, () => {
       pollSend({ type: "MARK_ANIMATION_SEEN", data: { key } })
     })
     return cleanup
-  }, [isRevealing, animationsEnabled, revealResults, sortedRevealOptions, poll, pollSend])
-
-  useEffect(() => {
-    if (totalVotes == null || totalRef.current == null) {
-      prevTotalRef.current = totalVotes
-      return
-    }
-    if (
-      animationsEnabled &&
-      prevTotalRef.current != null &&
-      totalVotes !== prevTotalRef.current &&
-      !votePending
-    ) {
-      const span = document.createElement("span")
-      span.textContent = String(totalVotes)
-      const cleanup = runVoteTickAnimation(totalRef.current, span, () => {
-        if (totalRef.current) totalRef.current.textContent = String(totalVotes)
-      })
-      prevTotalRef.current = totalVotes
-      return cleanup
-    }
-    prevTotalRef.current = totalVotes
-    if (totalRef.current) totalRef.current.textContent = String(totalVotes)
-  }, [totalVotes, animationsEnabled, votePending])
+  }, [showFullResults, animationsEnabled, revealResults, sortedRevealOptions, poll, pollSend])
 
   useEffect(() => {
     if (!votePending && myVote?.optionId) {
@@ -165,13 +182,6 @@ function PollCard() {
       return () => window.clearTimeout(t)
     }
   }, [votePending, myVote?.optionId])
-
-  useEffect(() => {
-    if (totalVotes == null) return
-    setPulseHidden(true)
-    const t = window.setTimeout(() => setPulseHidden(false), 1000)
-    return () => window.clearTimeout(t)
-  }, [totalVotes])
 
   const handleVote = useCallback(
     (option: PollOption) => {
@@ -186,34 +196,13 @@ function PollCard() {
     emitToSocket("CLOSE_POLL", { pollId: poll.id })
   }, [poll])
 
-  if (!poll) return null
-
-  const votedLabel = myVote
-    ? poll.options.find((o) => o.id === myVote.optionId)?.label
-    : undefined
-
-  if (effectiveMode === "hidden") {
-    return (
-      <Box position="sticky" top={0} zIndex={3} px={2} pt={2} pointerEvents="none">
-        <Button
-          size="sm"
-          position="absolute"
-          right={3}
-          bottom={3}
-          pointerEvents="auto"
-          aria-label="Show poll"
-          onClick={() => setMode("expanded")}
-          transform={pulseHidden ? "scale(1.05)" : "scale(1)"}
-          transition={animationsEnabled ? "transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1)" : "none"}
-        >
-          Polls 🗳️
-          {totalVotes != null ? ` · ${totalVotes}` : ""}
-        </Button>
-      </Box>
-    )
+  if (!poll || !state.context || displayState === "dismissed" || displayState === "boot") {
+    return null
   }
 
-  if (effectiveMode === "collapsed") {
+  const votedLabel = myVote ? poll.options.find((o) => o.id === myVote.optionId)?.label : undefined
+
+  if (displayState === "collapsed") {
     return (
       <Box position="sticky" top={0} zIndex={3} px={2} pt={2}>
         <HStack
@@ -224,36 +213,32 @@ function PollCard() {
           bg="bg"
           shadow="sm"
           cursor="pointer"
-          onClick={() => setMode("expanded")}
+          onClick={() => send({ type: "EXPAND" })}
           data-poll-card
         >
           <Text fontSize="sm" flex={1}>
             Poll: {truncateQuestion(poll.question)}
-            {totalVotes != null ? ` · ${totalVotes} votes` : ""}
-            {votedLabel ? " · You voted ✓" : ""}
+            {isRevealing ? " · Results" : ""}
+            {!isRevealing && totalVotes != null ? ` · ${totalVotes} votes` : ""}
+            {!isRevealing && votedLabel ? " · You voted ✓" : ""}
           </Text>
-          {isAdmin && poll.status === "open" && (
-            <Button size="xs" variant="outline" onClick={(e) => { e.stopPropagation(); handleClosePoll() }}>
-              Close
-            </Button>
-          )}
           <IconButton
             aria-label="Expand poll"
             size="xs"
             variant="ghost"
             onClick={(e) => {
               e.stopPropagation()
-              setMode("expanded")
+              send({ type: "EXPAND" })
             }}
           >
-            <LuSquare />
+            <LuMaximize2 />
           </IconButton>
           <CloseButton
             size="xs"
-            aria-label="Hide poll"
+            aria-label="Dismiss poll"
             onClick={(e) => {
               e.stopPropagation()
-              setMode("hidden")
+              send({ type: "DISMISS" })
             }}
           />
         </HStack>
@@ -286,19 +271,19 @@ function PollCard() {
               aria-label="Collapse poll"
               size="sm"
               variant="ghost"
-              onClick={() => setMode("collapsed")}
+              onClick={() => send({ type: "COLLAPSE" })}
             >
               <LuMinus />
             </IconButton>
             <CloseButton
               size="sm"
-              aria-label="Hide poll"
-              onClick={() => setMode("hidden")}
+              aria-label="Dismiss poll"
+              onClick={() => send({ type: "DISMISS" })}
             />
           </HStack>
         </HStack>
 
-        {isRevealing && revealResults ? (
+        {showFullResults && revealResults ? (
           <Stack gap={3}>
             <VStack
               align="stretch"
@@ -323,53 +308,27 @@ function PollCard() {
                 />
               ))}
             </VStack>
-            <HStack justify="space-between">
-              <Text fontSize="sm" color="fg.muted">
-                Total: {revealResults.totalVotes} votes
-              </Text>
-              <Button size="sm" variant="outline" onClick={() => modalSend({ type: "VIEW_POLL_HISTORY" })}>
-                View history
-              </Button>
-            </HStack>
+            <Text fontSize="sm" color="fg.muted">
+              Total: {revealResults.totalVotes} votes
+            </Text>
+            {revealStartedAt && (
+              <ExpiryBar
+                startAt={revealStartedAt}
+                endAt={revealStartedAt + REVEAL_DURATION_MS}
+                color="primary.solid"
+                height="3px"
+              />
+            )}
           </Stack>
         ) : (
-          <Stack gap={3}>
-            <VStack
-              align="stretch"
-              gap={2}
-              maxH={scrollable ? "60vh" : undefined}
-              overflowY={scrollable ? "auto" : undefined}
-            >
-              {poll.options.map((option) => {
-                const selected = myVote?.optionId === option.id
-                return (
-                  <PollOptionButton
-                    key={option.id}
-                    label={option.label}
-                    selected={selected}
-                    disabled={votePending}
-                    showConfirmAnimation={confirmOptionId === option.id}
-                    onClick={() => handleVote(option)}
-                  />
-                )
-              })}
-            </VStack>
-            {myVote && votedLabel && (
-              <Badge colorPalette="blue" alignSelf="flex-start">
-                You voted for {votedLabel}
-              </Badge>
-            )}
-            {totalVotes != null && (
-              <Text fontSize="sm" color="fg.muted">
-                <span ref={totalRef}>{totalVotes}</span> vote{totalVotes === 1 ? "" : "s"} cast
-              </Text>
-            )}
-            {poll.settings.hideRunningTotal && totalVotes == null && (
-              <Text fontSize="sm" color="fg.muted">
-                Vote total hidden until close
-              </Text>
-            )}
-          </Stack>
+          <PollVotingSection
+            poll={poll}
+            myVote={myVote}
+            totalVotes={totalVotes}
+            votePending={votePending}
+            confirmOptionId={confirmOptionId}
+            onVote={handleVote}
+          />
         )}
       </Box>
     </Box>

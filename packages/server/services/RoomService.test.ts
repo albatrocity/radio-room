@@ -56,6 +56,7 @@ describe("RoomService", () => {
     vi.resetAllMocks()
     loadPollRoomDataSinceMock.mockResolvedValue({
       activePoll: null,
+      totalVotes: null,
       pollHistorySince: [],
     })
     mockContext = appContextFactory.build()
@@ -168,6 +169,7 @@ describe("RoomService", () => {
         playlist: mockPlaylist,
         scheduleSnapshot: null,
         activePoll: null,
+        totalVotes: null,
         pollHistorySince: [],
       })
 
@@ -203,6 +205,7 @@ describe("RoomService", () => {
         playlist: mockPlaylist,
         scheduleSnapshot: null,
         activePoll: null,
+        totalVotes: null,
         pollHistorySince: [],
       })
     })
@@ -226,6 +229,7 @@ describe("RoomService", () => {
       }
       loadPollRoomDataSinceMock.mockResolvedValueOnce({
         activePoll,
+        totalVotes: 0,
         pollHistorySince: [],
       })
 

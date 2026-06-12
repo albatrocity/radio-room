@@ -80,6 +80,7 @@ export class RoomService {
       playlist,
       scheduleSnapshot,
       activePoll: pollData.activePoll,
+      totalVotes: pollData.totalVotes,
       pollHistorySince: pollData.pollHistorySince,
     }
   }

@@ -22,5 +22,6 @@ export type InitPayload = {
   assignablePersonas?: AdminAssignablePersona[]
   activePoll?: Poll | null
   myVote?: MyPollVote | null
+  totalVotes?: number | null
   pollHistory?: PollHistoryEntry[]
 }

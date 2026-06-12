@@ -3,6 +3,7 @@ import { LuListMusic } from "react-icons/lu"
 
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import ButtonAddToQueue from "./ButtonAddToQueue"
+import ButtonPolls from "./ButtonPolls"
 import ButtonListeners from "./ButtonListeners"
 import ReactionCounter from "./ReactionCounter"
 import AdminControls from "./AdminControls"
@@ -51,6 +52,7 @@ export default function JukeboxControls({ trackId, hasPlaylist, onShowPlaylist }
             <Box hideFrom="sm">
               <HStack>
                 {isAdmin && <AdminControls buttonColorScheme="action" />}
+                <ButtonPolls showText={false} variant="bright" />
                 <ButtonAddToQueue variant="bright" showText={!isAdmin} />
                 <ButtonListeners variant="bright" />
               </HStack>

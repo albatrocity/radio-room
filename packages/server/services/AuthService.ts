@@ -302,6 +302,7 @@ export class AuthService {
         activeGameSession,
         assignablePersonas,
         activePoll: pollInit.activePoll,
+        totalVotes: pollInit.totalVotes,
         pollHistory: pollInit.pollHistory,
         ...(pollInit.myVote ? { myVote: pollInit.myVote } : {}),
         ...(streamHealthStatus ? { streamHealthStatus } : {}),

@@ -66,6 +66,35 @@ describe("pollMachine", () => {
     expect(snap.context.totalVotes).toBe(0)
   })
 
+  it("hydrates from INIT with server-provided totalVotes", () => {
+    actor.send({
+      type: "INIT",
+      data: {
+        activePoll: basePoll(),
+        myVote: { pollId: "poll-1", optionId: "opt-a", votedAt: 0 },
+        totalVotes: 42,
+        pollHistory: [],
+      },
+    })
+
+    const snap = actor.getSnapshot()
+    expect(snap.context.totalVotes).toBe(42)
+  })
+
+  it("respects hideRunningTotal even when totalVotes is provided", () => {
+    actor.send({
+      type: "INIT",
+      data: {
+        activePoll: basePoll({ settings: { hideRunningTotal: true } }),
+        totalVotes: 42,
+        pollHistory: [],
+      },
+    })
+
+    const snap = actor.getSnapshot()
+    expect(snap.context.totalVotes).toBeNull()
+  })
+
   it("hydrates from INIT without myVote", () => {
     actor.send({
       type: "INIT",
