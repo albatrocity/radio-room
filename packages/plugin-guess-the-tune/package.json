@@ -21,6 +21,7 @@
     "vitest": "^4.0.13"
   },
   "dependencies": {
+    "@repo/game-logic": "*",
     "@repo/plugin-base": "*",
     "@repo/types": "*",
     "@repo/utils": "*",

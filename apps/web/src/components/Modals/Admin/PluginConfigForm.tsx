@@ -713,7 +713,7 @@ function ActionButton({
 }) {
   const users = useUsers()
   const formFields = element.formFields
-  const hasForm = !!(formFields?.length)
+  const hasForm = !!formFields?.length
 
   const [isLoading, setIsLoading] = useState(false)
   const [formPopoverOpen, setFormPopoverOpen] = useState(false)

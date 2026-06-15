@@ -121,6 +121,26 @@ export interface IconComponentProps {
 }
 
 /**
+ * Chakra `colorPalette` values for plugin buttons.
+ * Prefer theme palettes (`primary`, `secondary`, `action`) for branded UI;
+ * use semantic palettes (`red`, `green`, etc.) for status/destructive actions.
+ */
+export type PluginButtonColorPalette =
+  | "primary"
+  | "secondary"
+  | "action"
+  | "gray"
+  | "red"
+  | "orange"
+  | "yellow"
+  | "green"
+  | "teal"
+  | "blue"
+  | "cyan"
+  | "purple"
+  | "pink"
+
+/**
  * Props for the button template component.
  *
  * A button may either open a modal (`opensModal`) or invoke a plugin action
@@ -141,7 +161,9 @@ export interface ButtonComponentProps {
   /** Confirmation button label (defaults to "Confirm"). */
   confirmText?: string
   variant?: "solid" | "ghost" | "outline" | "link"
-  size?: "sm" | "md" | "lg"
+  size?: "xs" | "sm" | "md" | "lg"
+  /** Chakra color palette (see `PluginButtonColorPalette`). */
+  colorPalette?: PluginButtonColorPalette
   /** When true, the button is non-interactive. */
   disabled?: boolean
   /** When true, only room admins see this button (server must still enforce in executeAction). */

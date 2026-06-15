@@ -3,7 +3,7 @@ import { HandlerConnections } from "@repo/types/HandlerConnections"
 import { MessageService } from "../services/MessageService"
 import sendMessage from "../lib/sendMessage"
 import { expirableChatMessage } from "../lib/systemMessage"
-import { AppContext } from "@repo/types"
+import { AppContext, isChatMessageTransformDrop } from "@repo/types"
 import type { GameSessionService } from "../services/GameSessionService"
 
 /**
@@ -87,12 +87,16 @@ export class MessageHandlers {
     }
 
     const registry = socket.context.pluginRegistry
-    const messageToSend = registry
+    const transformResult = registry
       ? await registry.transformChatMessage(roomId, result.message)
       : result.message
 
+    if (isChatMessageTransformDrop(transformResult)) {
+      return
+    }
+
     // Send the message (broadcasts via SystemEvents)
-    await sendMessage(io, roomId, messageToSend, socket.context)
+    await sendMessage(io, roomId, transformResult, socket.context)
   }
 
   /**

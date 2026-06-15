@@ -120,6 +120,25 @@ describe("MessageHandlers", () => {
       }, expect.any(Object))
     })
 
+    test("skips sendMessage when transformChatMessage returns drop", async () => {
+      mockSocket.context.pluginRegistry = {
+        transformChatMessage: vi.fn().mockResolvedValue({ drop: true, reason: "spoiler" }),
+      }
+
+      await messageHandlers.newMessage(
+        { socket: mockSocket as any, io: mockIo as any },
+        "Hello world",
+      )
+
+      expect(mockSocket.context.pluginRegistry.transformChatMessage).toHaveBeenCalled()
+      expect(sendMessage).not.toHaveBeenCalled()
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room1",
+        "TYPING_CHANGED",
+        { roomId: "room1", typing: mockTypingUsers },
+      )
+    })
+
     test("delays send when user has stacked chat_buffer modifiers", async () => {
       vi.useFakeTimers()
       const now = 1_700_000_000_000

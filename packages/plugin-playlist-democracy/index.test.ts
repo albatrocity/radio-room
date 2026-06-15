@@ -88,6 +88,7 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
     getReactions: vi.fn().mockResolvedValue([]),
     getUsers: vi.fn().mockResolvedValue([]),
     getUsersByIds: vi.fn().mockResolvedValue([]),
+    isRoomAdmin: vi.fn().mockResolvedValue(true),
     getQueue: vi.fn().mockResolvedValue([]),
     skipTrack: vi.fn().mockResolvedValue(undefined),
     sendSystemMessage: vi.fn().mockResolvedValue(undefined),

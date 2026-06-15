@@ -47,6 +47,11 @@ export class MockStudioPluginApi implements PluginAPI {
     })
   }
 
+  async isRoomAdmin(_roomId: string, userId: string): Promise<boolean> {
+    const user = this.room.users.get(userId)
+    return Boolean(user?.isAdmin)
+  }
+
   async skipTrack(_roomId: string, trackId: string): Promise<void> {
     const np = this.room.queue[0]
     if (np?.mediaSource.trackId === trackId) {

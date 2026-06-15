@@ -32,6 +32,7 @@ export function ButtonTemplateComponent({
   confirmText,
   variant = "ghost",
   size = "sm",
+  colorPalette,
   disabled,
   pluginName,
 }: ButtonTemplateComponentProps) {
@@ -111,6 +112,7 @@ export function ButtonTemplateComponent({
     <Button
       size={size}
       variant={variant as never}
+      colorPalette={colorPalette}
       loading={isLoading}
       disabled={disabled}
       onClick={handleClick}
@@ -125,10 +127,10 @@ export function ButtonTemplateComponent({
       <Popover.Root open={confirmOpen} onOpenChange={(e) => setConfirmOpen(e.open)}>
         <Popover.Trigger asChild>{buttonNode}</Popover.Trigger>
         <Popover.Positioner>
-          <Popover.Content>
+          <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }} color="fg">
             <Popover.Arrow />
             <Popover.Body>
-              <Text>{confirmMessage}</Text>
+              <Text fontSize="sm">{confirmMessage}</Text>
             </Popover.Body>
             <Popover.Footer justifyContent="flex-end" display="flex">
               <Button variant="plain" size="sm" onClick={() => setConfirmOpen(false)}>

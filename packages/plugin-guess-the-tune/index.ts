@@ -6,16 +6,19 @@ import type {
   PluginComponentSchema,
   SystemEventPayload,
   ChatMessage,
+  ChatMessageTransformResult,
   PluginAugmentationData,
   PluginElementKey,
   PluginElementProps,
   PluginObscureBypassRole,
   PluginTextElementKey,
+  PluginUserReveals,
   QueueItem,
   RoomExportData,
   PluginExportAugmentation,
 } from "@repo/types"
 import { queueItemStableKey } from "@repo/types"
+import { isInclusiveMode, type ParticipationMode } from "@repo/game-logic"
 import { BasePlugin } from "@repo/plugin-base"
 import { interpolateTemplate } from "@repo/utils"
 import packageJson from "./package.json"
@@ -32,12 +35,23 @@ export type { GuessTheTuneConfig } from "./types"
 export { guessTheTuneConfigSchema, defaultGuessTheTuneConfig } from "./types"
 
 const USER_SCORES_KEY = "user-scores"
+const USER_REVEALS_CAP = 200
 
 function roundKey(stable: string): string {
   return `round:${stable}`
 }
 
+function roundUserKey(stable: string, userId: string): string {
+  return `roundUser:${stable}:${userId}`
+}
+
+function roundUserIndexKey(stable: string): string {
+  return `roundUserIndex:${stable}`
+}
+
 const TEXT_KEYS = ["title", "artist", "album"] as const satisfies readonly PluginTextElementKey[]
+
+type RevealByPayload = NonNullable<PluginElementProps["revealedBy"]>
 
 export interface GuessTheTuneComponentState extends Record<string, unknown> {
   usersLeaderboard: { score: number; value: string; username: string }[]
@@ -50,6 +64,8 @@ export interface GuessTheTuneEvents {
     username?: string
     points: number
     multiplier: number
+    mode: ParticipationMode
+    revealedBy: RevealByPayload
     usersLeaderboard: { score: number; value: string; username: string }[]
   }
   LEADERBOARD_RESET: {
@@ -91,8 +107,6 @@ export function propsInPlay(
   if (config.matchAlbum && targets.album.trim()) props.push("album")
   return props
 }
-
-type RevealByPayload = NonNullable<PluginElementProps["revealedBy"]>
 
 export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
   name = "guess-the-tune"
@@ -141,6 +155,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
 
     const stable = queueItemStableKey(data.track)
     const rk = roundKey(stable)
+    await this.clearRoundUserState(stable)
     await this.context.storage.del(rk)
     await this.context.storage.hset(rk, "startedAt", String(Date.now()))
 
@@ -150,20 +165,41 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
     }
   }
 
+  async transformChatMessage(
+    _roomId: string,
+    message: ChatMessage,
+  ): Promise<ChatMessageTransformResult> {
+    const config = await this.getConfig()
+    if (!config?.enabled || !isInclusiveMode(config.mode)) return null
+
+    const awarded = await this.handleInclusiveGuess(message, config)
+    if (awarded) {
+      return { drop: true, reason: "guess-the-tune-match" }
+    }
+    return null
+  }
+
   private async onMessageReceived(data: SystemEventPayload<"MESSAGE_RECEIVED">): Promise<void> {
     const config = await this.getConfig()
     if (!config?.enabled || !this.context) return
+    if (isInclusiveMode(config.mode)) return
 
     const { message } = data
     if (this.isSystemMessage(message)) return
 
+    await this.handleCompetitiveGuess(message, config)
+  }
+
+  private async handleCompetitiveGuess(
+    message: ChatMessage,
+    config: GuessTheTuneConfig,
+  ): Promise<void> {
+    if (!this.context) return
+
     const np = await this.context.api.getNowPlaying(this.context.roomId)
     if (!np?.track) return
 
-    if (
-      config.ignoreOwnQueueSubmissions &&
-      np.addedBy?.userId === message.user.userId
-    ) {
+    if (config.ignoreOwnQueueSubmissions && np.addedBy?.userId === message.user.userId) {
       return
     }
 
@@ -178,26 +214,16 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
 
     const propsToTry = propsInPlay(config, targets)
 
-    const basePoints: Record<GuessProperty, number> = {
-      title: config.pointsTitle,
-      artist: config.pointsArtist,
-      album: config.pointsAlbum,
-    }
-
-    let needsMetaRefresh = false
-
     const matches: Partial<Record<GuessProperty, boolean>> = {}
     for (const prop of propsToTry) {
-      matches[prop] = messageMatchesTarget(
-        message.content,
-        targets[prop],
-        config.fuzzyThreshold,
-      )
+      matches[prop] = messageMatchesTarget(message.content, targets[prop], config.fuzzyThreshold)
     }
 
     if (propsToTry.some((p) => matches[p] && revealedAll[`revealed:${p}`])) {
       return
     }
+
+    let needsMetaRefresh = false
 
     for (const prop of propsToTry) {
       const field = `revealed:${prop}`
@@ -208,59 +234,189 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
         userId: message.user.userId,
         username: message.user.username ?? "",
         at: Date.now(),
+        source: "chat",
       }
 
       const didSet = await this.revealRoundProperty(rk, prop, revealedBy)
       if (!didSet) return
       revealedAll[field] = JSON.stringify(revealedBy)
 
-      const elapsed = Date.now() - startedAt
-      const mult = elapsed <= config.speedMultiplierWindowSec * 1000 ? config.speedMultiplier : 1
-      const points = Math.floor(basePoints[prop] * mult)
-
-      await this.context.storage.zincrby(USER_SCORES_KEY, points, message.user.userId)
-
-      await this.context.game.addScore(message.user.userId, "score", points, "guess-the-tune")
-      await this.context.game.addScore(message.user.userId, "coin", points, "guess-the-tune")
-
-      const multiplierSuffix = mult > 1 ? ` (${mult}× speed bonus)` : ""
-
-      const body = interpolateTemplate(config.messageTemplate ?? "", {
-        username: message.user.username ?? message.user.userId,
-        propertyLabel: propertyLabel(prop),
-        points: String(points),
-        multiplierSuffix,
-      })
-
-      await this.context.api.sendSystemMessage(this.context.roomId, body)
-
-      const state = await this.getComponentState()
-
-      await this.emit<GuessTheTuneEvents["PROPERTY_REVEALED"]>("PROPERTY_REVEALED", {
-        property: prop,
+      needsMetaRefresh = await this.awardCorrectGuess({
+        prop,
         userId: message.user.userId,
         username: message.user.username ?? undefined,
-        points,
-        multiplier: mult,
-        usersLeaderboard: state.usersLeaderboard,
+        config,
+        startedAt,
+        mode: "competitive",
+        revealedBy,
       })
-
-      if (config.soundEffectOnMatch) {
-        await this.context.api.queueSoundEffect({
-          url: config.soundEffectOnMatchUrl ?? "",
-          volume: 0.3,
-        })
-      }
-
-      needsMetaRefresh = true
     }
 
     if (needsMetaRefresh) {
-      const fresh = await this.context.api.getNowPlaying(this.context.roomId)
-      if (fresh) {
-        await this.context.api.updatePlaylistTrack(this.context.roomId, fresh)
+      await this.refreshNowPlayingAugmentation()
+    }
+  }
+
+  /** Inclusive (PvG) path — runs in transformChatMessage before broadcast. Returns whether any prop was awarded. */
+  private async handleInclusiveGuess(
+    message: ChatMessage,
+    config: GuessTheTuneConfig,
+  ): Promise<boolean> {
+    if (!this.context) return false
+    if (this.isSystemMessage(message)) return false
+
+    const np = await this.context.api.getNowPlaying(this.context.roomId)
+    if (!np?.track) return false
+
+    if (config.ignoreOwnQueueSubmissions && np.addedBy?.userId === message.user.userId) {
+      return false
+    }
+
+    const stable = queueItemStableKey(np)
+    const rk = roundKey(stable)
+    const userRk = roundUserKey(stable, message.user.userId)
+    const startedAtStr = await this.context.storage.hget(rk, "startedAt")
+    if (!startedAtStr) return false
+
+    const startedAt = Number(startedAtStr)
+    const targets = trackStrings(np.track)
+    const globalRevealed: Record<string, string> = { ...(await this.context.storage.hgetall(rk)) }
+    const userRevealed: Record<string, string> = { ...(await this.context.storage.hgetall(userRk)) }
+
+    const propsToTry = propsInPlay(config, targets)
+
+    const matches: Partial<Record<GuessProperty, boolean>> = {}
+    for (const prop of propsToTry) {
+      matches[prop] = messageMatchesTarget(message.content, targets[prop], config.fuzzyThreshold)
+    }
+
+    if (propsToTry.some((p) => matches[p] && globalRevealed[`revealed:${p}`])) {
+      return false
+    }
+
+    let anyAwarded = false
+    let needsMetaRefresh = false
+
+    for (const prop of propsToTry) {
+      if (globalRevealed[`revealed:${prop}`]) continue
+      if (userRevealed[`revealed:${prop}`]) continue
+      if (!matches[prop]) continue
+
+      const revealedBy: RevealByPayload = {
+        userId: message.user.userId,
+        username: message.user.username ?? "",
+        at: Date.now(),
+        source: "chat",
+      }
+
+      const didSet = await this.revealUserRoundProperty(
+        stable,
+        message.user.userId,
+        prop,
+        revealedBy,
+      )
+      if (!didSet) continue
+      userRevealed[`revealed:${prop}`] = JSON.stringify(revealedBy)
+
+      const awarded = await this.awardCorrectGuess({
+        prop,
+        userId: message.user.userId,
+        username: message.user.username ?? undefined,
+        config,
+        startedAt,
+        mode: "inclusive",
+        revealedBy,
+      })
+      if (awarded) {
+        anyAwarded = true
+        needsMetaRefresh = true
       }
     }
+
+    if (needsMetaRefresh) {
+      await this.refreshNowPlayingAugmentation()
+    }
+
+    return anyAwarded
+  }
+
+  private async awardCorrectGuess(params: {
+    prop: GuessProperty
+    userId: string
+    username?: string
+    config: GuessTheTuneConfig
+    startedAt: number
+    mode: ParticipationMode
+    revealedBy: RevealByPayload
+  }): Promise<boolean> {
+    if (!this.context) return false
+
+    const { prop, userId, username, config, startedAt, mode, revealedBy } = params
+
+    const basePoints: Record<GuessProperty, number> = {
+      title: config.pointsTitle,
+      artist: config.pointsArtist,
+      album: config.pointsAlbum,
+    }
+
+    const elapsed = Date.now() - startedAt
+    const mult = elapsed <= config.speedMultiplierWindowSec * 1000 ? config.speedMultiplier : 1
+    const points = Math.floor(basePoints[prop] * mult)
+
+    await this.context.storage.zincrby(USER_SCORES_KEY, points, userId)
+    await this.context.game.addScore(userId, "score", points, "guess-the-tune")
+    await this.context.game.addScore(userId, "coin", points, "guess-the-tune")
+
+    const multiplierSuffix = mult > 1 ? ` (${mult}× speed bonus)` : ""
+
+    const body = interpolateTemplate(config.messageTemplate ?? "", {
+      username: username ?? userId,
+      propertyLabel: propertyLabel(prop),
+      points: String(points),
+      multiplierSuffix,
+    })
+
+    await this.context.api.sendSystemMessage(this.context.roomId, body)
+
+    const state = await this.getComponentState()
+
+    await this.emit<GuessTheTuneEvents["PROPERTY_REVEALED"]>("PROPERTY_REVEALED", {
+      property: prop,
+      userId,
+      username,
+      points,
+      multiplier: mult,
+      mode,
+      revealedBy,
+      usersLeaderboard: state.usersLeaderboard,
+    })
+
+    if (config.soundEffectOnMatch) {
+      await this.context.api.queueSoundEffect({
+        url: config.soundEffectOnMatchUrl ?? "",
+        volume: 0.3,
+      })
+    }
+
+    return true
+  }
+
+  private async refreshNowPlayingAugmentation(): Promise<void> {
+    if (!this.context) return
+    const fresh = await this.context.api.getNowPlaying(this.context.roomId)
+    if (fresh) {
+      await this.context.api.updatePlaylistTrack(this.context.roomId, fresh)
+    }
+  }
+
+  private async clearRoundUserState(stable: string): Promise<void> {
+    if (!this.context) return
+    const indexKey = roundUserIndexKey(stable)
+    const userIds = await this.context.storage.zrange(indexKey, 0, -1)
+    for (const userId of userIds) {
+      await this.context.storage.del(roundUserKey(stable, userId))
+    }
+    await this.context.storage.del(indexKey)
   }
 
   async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
@@ -331,6 +487,22 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
     return this.context.storage.hsetnx(rk, field, JSON.stringify(revealedBy))
   }
 
+  private async revealUserRoundProperty(
+    stable: string,
+    userId: string,
+    prop: GuessProperty,
+    revealedBy: RevealByPayload,
+  ): Promise<boolean> {
+    if (!this.context) return false
+    const userRk = roundUserKey(stable, userId)
+    const field = `revealed:${prop}`
+    const didSet = await this.context.storage.hsetnx(userRk, field, JSON.stringify(revealedBy))
+    if (didSet) {
+      await this.context.storage.zadd(roundUserIndexKey(stable), revealedBy.at, userId)
+    }
+    return didSet
+  }
+
   private resolveAdminRevealLabel(initiator?: PluginActionInitiator): string {
     const username = initiator?.username?.trim()
     if (username) return username
@@ -351,10 +523,33 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
     }
   }
 
+  private async requireRoomAdmin(
+    initiator?: PluginActionInitiator,
+  ): Promise<
+    | { ok: true }
+    | { ok: false; result: { success: false; message: string } }
+  > {
+    if (!this.context) {
+      return { ok: false, result: { success: false, message: "Plugin not initialized" } }
+    }
+    const userId = initiator?.userId?.trim()
+    if (!userId) {
+      return { ok: false, result: { success: false, message: "Admin required" } }
+    }
+    const isAdmin = await this.context.api.isRoomAdmin(this.context.roomId, userId)
+    if (!isAdmin) {
+      return { ok: false, result: { success: false, message: "Admin required" } }
+    }
+    return { ok: true }
+  }
+
   private async adminRevealProperty(
     prop: GuessProperty,
     initiator?: PluginActionInitiator,
   ): Promise<{ success: boolean; message?: string }> {
+    const adminCheck = await this.requireRoomAdmin(initiator)
+    if (!adminCheck.ok) return adminCheck.result
+
     if (!this.context) {
       return { success: false, message: "Plugin not initialized" }
     }
@@ -413,6 +608,9 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
   private async adminRevealAll(
     initiator?: PluginActionInitiator,
   ): Promise<{ success: boolean; message?: string }> {
+    const adminCheck = await this.requireRoomAdmin(initiator)
+    if (!adminCheck.ok) return adminCheck.result
+
     if (!this.context) {
       return { success: false, message: "Plugin not initialized" }
     }
@@ -566,8 +764,69 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
       obscureBypassRoles: bypassRoles,
     }
 
-    return { elementProps }
+    const result: PluginAugmentationData = { elementProps }
+
+    if (isInclusiveMode(config.mode)) {
+      const userReveals = await this.loadUserRevealsForRound(stable)
+      if (userReveals && Object.keys(userReveals).length > 0) {
+        result.userReveals = userReveals
+      }
+    }
+
+    return result
   }
+
+  private async loadUserRevealsForRound(stable: string): Promise<PluginUserReveals | undefined> {
+    if (!this.context) return undefined
+
+    const userIds = await this.context.storage.zrange(roundUserIndexKey(stable), 0, -1)
+    if (userIds.length === 0) return undefined
+
+    const entries: Array<{
+      userId: string
+      reveals: PluginUserReveals[string]
+      latestAt: number
+    }> = []
+
+    for (const userId of userIds) {
+      const raw = await this.context.storage.hgetall(roundUserKey(stable, userId))
+      const reveals = parseUserRevealFields(raw)
+      if (Object.keys(reveals).length === 0) continue
+
+      const latestAt = Math.max(...Object.values(reveals).map((r) => r?.at ?? 0), 0)
+      entries.push({ userId, reveals, latestAt })
+    }
+
+    if (entries.length === 0) return undefined
+
+    entries.sort((a, b) => b.latestAt - a.latestAt)
+    const capped = entries.slice(0, USER_REVEALS_CAP)
+
+    const userReveals: PluginUserReveals = {}
+    for (const { userId, reveals } of capped) {
+      userReveals[userId] = reveals
+    }
+    return userReveals
+  }
+}
+
+function parseUserRevealFields(raw: Record<string, string>): PluginUserReveals[string] {
+  const reveals: PluginUserReveals[string] = {}
+
+  for (const key of TEXT_KEYS) {
+    const rev = raw[`revealed:${key}`]
+    if (!rev) continue
+    try {
+      const parsed = JSON.parse(rev) as PluginElementProps["revealedBy"]
+      if (parsed?.userId != null) {
+        reveals[key] = parsed
+      }
+    } catch {
+      // ignore malformed entries
+    }
+  }
+
+  return reveals
 }
 
 export function createGuessTheTunePlugin(configOverrides?: Partial<GuessTheTuneConfig>): Plugin {

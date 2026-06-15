@@ -1,16 +1,16 @@
 import { useMemo } from "react"
-import type {
-  PluginElementKey,
-  PluginElementProps,
-  PluginObscureBypassRole,
-} from "@repo/types"
+import type { PluginElementKey } from "@repo/types"
 
 import {
   useIsAdmin,
   useIsRoomCreator,
   useCanAddToQueue,
   usePluginConfigs,
+  useCurrentUser,
 } from "./useActors"
+import { resolvePluginElementProps } from "./resolvePluginElementProps"
+import type { ResolvedPluginElementProps } from "./resolvePluginElementProps"
+import type { PluginObscureBypassRole } from "@repo/types"
 
 /**
  * Roles the current viewer has, for resolving {@link PluginElementProps.obscureBypassRoles}.
@@ -32,58 +32,20 @@ function usePluginObscureViewerRoles(): PluginObscureBypassRole[] {
   }, [isAdmin, isCreator, isDj])
 }
 
-function mergeRawElementProps(
-  pluginData: Record<string, unknown> | undefined,
-  element: PluginElementKey,
-  enabledPlugins: Set<string>,
-): PluginElementProps {
-  if (!pluginData) return {}
-
-  const bypass = new Set<PluginObscureBypassRole>()
-  let revealedBy: PluginElementProps["revealedBy"]
-  let anyObscured = false
-  let placeholder: string | undefined
-
-  const names = Object.keys(pluginData).sort()
-  for (const pluginName of names) {
-    if (!enabledPlugins.has(pluginName)) continue
-    const data = pluginData[pluginName] as Record<string, unknown> | undefined
-    const ep = data?.elementProps as Partial<Record<PluginElementKey, PluginElementProps>> | undefined
-    const slice = ep?.[element]
-    if (!slice) continue
-
-    if (slice.obscureBypassRoles?.length) {
-      for (const r of slice.obscureBypassRoles) bypass.add(r)
-    }
-    if (slice.placeholder != null) placeholder = slice.placeholder
-    if (slice.revealedBy) revealedBy = slice.revealedBy
-    if (slice.obscured === true) anyObscured = true
-  }
-
-  const obscured = Boolean(anyObscured && !revealedBy)
-
-  return {
-    obscured,
-    obscureBypassRoles: bypass.size ? Array.from(bypass) : undefined,
-    revealedBy: revealedBy ?? undefined,
-    placeholder,
-  }
-}
-
-export interface ResolvedPluginElementProps extends PluginElementProps {
-  /** Final obscured flag after applying viewer bypass roles */
-  obscured: boolean
-}
+export type { ResolvedPluginElementProps } from "./resolvePluginElementProps"
 
 /**
  * Merges `elementProps` from all plugins under `pluginData` and resolves
  * {@link PluginElementProps.obscureBypassRoles} against the current viewer.
+ * Applies {@link PluginAugmentationData.userReveals} for the current user when present.
  */
 export function usePluginElementProps(
   pluginData: Record<string, unknown> | undefined,
   element: PluginElementKey,
 ): ResolvedPluginElementProps {
   const viewerRoles = usePluginObscureViewerRoles()
+  const currentUser = useCurrentUser()
+  const viewerUserId = currentUser?.userId
   const pluginConfigs = usePluginConfigs()
   const enabledPlugins = useMemo(() => {
     const enabled = new Set<string>()
@@ -98,15 +60,16 @@ export function usePluginElementProps(
     return enabled
   }, [pluginConfigs])
 
-  return useMemo(() => {
-    const raw = mergeRawElementProps(pluginData, element, enabledPlugins)
-    const bypass =
-      raw.obscured &&
-      raw.obscureBypassRoles?.some((r) => viewerRoles.includes(r))
-
-    return {
-      ...raw,
-      obscured: Boolean(raw.obscured && !bypass),
-    }
-  }, [pluginData, element, viewerRoles, enabledPlugins])
+  return useMemo(
+    () =>
+      resolvePluginElementProps({
+        pluginData,
+        element,
+        viewerUserId,
+        viewerRoles,
+        enabledPlugins,
+        pluginConfigs,
+      }),
+    [pluginData, element, viewerRoles, enabledPlugins, viewerUserId, pluginConfigs],
+  )
 }

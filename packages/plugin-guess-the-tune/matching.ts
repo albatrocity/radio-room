@@ -192,7 +192,10 @@ function tokenMatchesTargetWord(
 ): boolean {
   if (!candidate.length || !targetWord.length) return false
   if (candidate.length === 1 && targetWord.length < 3) return false
-  if (treatAsSingleWordTitle && candidate.length < minCandidateLengthForSingleWordTarget(targetWord)) {
+  if (
+    treatAsSingleWordTitle &&
+    candidate.length < minCandidateLengthForSingleWordTarget(targetWord)
+  ) {
     return false
   }
 

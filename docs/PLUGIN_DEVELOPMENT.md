@@ -374,9 +374,17 @@ async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidati
 }
 ```
 
-#### `transformChatMessage(roomId, message): Promise<ChatMessage | null>` (optional)
+#### `transformChatMessage(roomId, message): Promise<ChatMessageTransformResult>` (optional)
 
-Transform a chat message **after** it is parsed (mentions, Mustache) but **before** it is broadcast and persisted. Plugins are called **in order**; each receives the previous plugin’s result. Return `null` to leave the message unchanged. Fail-open on errors and timeouts (500ms), like `validateQueueRequest`.
+Transform a chat message **after** it is parsed (mentions, Mustache) but **before** it is broadcast and persisted. Plugins are called **in order**; each receives the previous plugin’s result. Return type is `ChatMessageTransformResult`:
+
+| Return value | Effect |
+| ------------ | ------ |
+| `null` | Leave the message unchanged (pass through to the next plugin). |
+| `ChatMessage` | Use this message as input for the next plugin (and for send if no later plugin changes it). |
+| `{ drop: true, reason?: string }` | **Skip** persistence and broadcast for this user message. `sendMessage` is not called; the drop is silent on the wire. Plugins may still send separate system messages. Short-circuits the plugin chain. |
+
+Fail-open on errors and timeouts (500ms per plugin), like `validateQueueRequest`. Use `{ drop: true }` when a message would spoil hidden room state in inclusive participation modes (see [ADR 0062](adrs/0062-participation-mode-pvp-vs-pvg.md)). Matching and scoring for inclusive mode SHOULD happen in this hook so the drop decision is atomic with the award.
 
 To express per-span presentation (e.g. smaller text on part of a line), set **`message.contentSegments`** (typed `TextSegment[]` with declarative `TextEffect`s) and keep **`message.content`** as a matching plain string. See [ADR 0044](adrs/0044-plugin-chat-message-transform-and-text-segments.md). Helpers: `tokenizeWords` / `buildSegments` in `@repo/plugin-base/helpers`.
 
@@ -1307,6 +1315,45 @@ async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
   }
 }
 ```
+
+### `PluginAugmentationData` shape
+
+Augmentation methods return `PluginAugmentationData`, merged into `QueueItem.pluginData[pluginName]` on the client. Common fields:
+
+| Field | Description |
+| ----- | ----------- |
+| `elementProps` | Per-element now playing hints keyed by `title`, `artist`, `album`, or `artwork` (`PluginElementProps`: `obscured`, `placeholder`, `revealedBy`, `obscureBypassRoles`). See [ADR 0039](adrs/0039-plugin-element-properties-for-now-playing.md). |
+| `userReveals` | Per-user reveal overrides for **inclusive** participation modes ([ADR 0062](adrs/0062-participation-mode-pvp-vs-pvg.md)): map of `userId` → partial `title` / `artist` / `album` → `revealedBy`. Broadcast to all clients; the web client applies **only the current viewer’s row** when resolving `elementProps` (`usePluginElementProps` / `resolvePluginElementProps`). Plugins SHOULD cap payload size (e.g. 200 most recent users). Room-level `elementProps` may stay obscured while `userReveals` carries per-viewer overrides. |
+| `styles` | Legacy inline style hints for now playing text (prefer `elementProps` for new work). |
+| Other keys | Plugin-specific data (e.g. `skipped`, leaderboard hints). |
+
+Example with obscured fields and per-user reveals (Guess the Tune inclusive mode):
+
+```typescript
+async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
+  // ... load round state ...
+
+  return {
+    elementProps: {
+      title: { obscured: true, placeholder: "???" },
+      artist: { obscured: true, placeholder: "???" },
+      album: { obscured: true, placeholder: "???" },
+      artwork: { obscured: true },
+    },
+    userReveals: {
+      "user-a": {
+        title: { userId: "user-a", username: "Alice", at: Date.now(), source: "chat" },
+      },
+      "user-b": {
+        artist: { userId: "user-b", username: "Bob", at: Date.now(), source: "chat" },
+        album: { userId: "user-b", username: "Bob", at: Date.now(), source: "chat" },
+      },
+    },
+  }
+}
+```
+
+Admin-only plugin actions that mutate room state SHOULD verify `await this.context.api.isRoomAdmin(roomId, initiator.userId)` server-side even when the UI uses `adminOnly: true` on buttons ([ADR 0062](adrs/0062-participation-mode-pvp-vs-pvg.md)).
 
 ## Room Export
 

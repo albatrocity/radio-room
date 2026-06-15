@@ -22,3 +22,11 @@ export {
 export * from "./shoppingSessionCatalog"
 export { textEffectStyles, type TextEffectStyleObject } from "./textEffectStyles"
 export { shuffleQueueItems } from "./shuffleQueueItems"
+export {
+  PARTICIPATION_MODES,
+  isCompetitiveMode,
+  isInclusiveMode,
+  participationModeFieldMeta,
+  participationModeSchema,
+  type ParticipationMode,
+} from "./participationMode"
