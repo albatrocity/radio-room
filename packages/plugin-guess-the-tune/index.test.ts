@@ -17,6 +17,10 @@ function roundKey(stable: string): string {
   return `round:${stable}`
 }
 
+function roundUserKey(stable: string, userId: string): string {
+  return `roundUser:${stable}:${userId}`
+}
+
 function createNowPlaying(overrides?: {
   title?: string
   artist?: string
@@ -53,11 +57,14 @@ function createChatMessage(content: string, userId: string, username?: string): 
 /** In-memory hash storage for round reveal state. */
 function createInMemoryStorage(): PluginStorage & {
   hashes: Map<string, Record<string, string>>
+  zsets: Map<string, Map<string, number>>
 } {
   const hashes = new Map<string, Record<string, string>>()
+  const zsets = new Map<string, Map<string, number>>()
 
   return {
     hashes,
+    zsets,
     get: vi.fn().mockResolvedValue(null),
     set: vi.fn().mockResolvedValue(undefined),
     inc: vi.fn().mockResolvedValue(1),
@@ -68,10 +75,20 @@ function createInMemoryStorage(): PluginStorage & {
     exists: vi.fn().mockResolvedValue(false),
     mget: vi.fn().mockResolvedValue([]),
     pipeline: vi.fn().mockResolvedValue([]),
-    zadd: vi.fn().mockResolvedValue(undefined),
+    zadd: vi.fn(async (key: string, score: number, value: string) => {
+      const z = zsets.get(key) ?? new Map<string, number>()
+      z.set(value, score)
+      zsets.set(key, z)
+    }),
     zrem: vi.fn().mockResolvedValue(undefined),
     zincrby: vi.fn().mockResolvedValue(0),
-    zrange: vi.fn().mockResolvedValue([]),
+    zrange: vi.fn(async (key: string, start: number, stop: number) => {
+      const z = zsets.get(key)
+      if (!z) return []
+      const entries = [...z.entries()].sort((a, b) => a[1] - b[1]).map(([member]) => member)
+      const end = stop < 0 ? entries.length + stop + 1 : stop + 1
+      return entries.slice(start, end)
+    }),
     zrangeWithScores: vi.fn().mockResolvedValue([]),
     zrangebyscore: vi.fn().mockResolvedValue([]),
     zremrangebyscore: vi.fn().mockResolvedValue(undefined),
@@ -106,6 +123,7 @@ function createMockContext(roomId = "room1"): PluginContext & {
     getReactions: vi.fn().mockResolvedValue([]),
     getUsers: vi.fn().mockResolvedValue([]),
     getUsersByIds: vi.fn().mockResolvedValue([]),
+    isRoomAdmin: vi.fn().mockResolvedValue(true),
     skipTrack: vi.fn().mockResolvedValue(undefined),
     sendSystemMessage: vi.fn().mockResolvedValue(undefined),
     sendUserSystemMessage: vi.fn().mockResolvedValue(undefined),
@@ -309,6 +327,7 @@ describe("propsInPlay", () => {
 describe("GuessTheTunePlugin onMessageReceived", () => {
   const enabledConfig: Partial<GuessTheTuneConfig> = {
     enabled: true,
+    mode: "competitive",
     soundEffectOnMatch: false,
     fuzzyThreshold: 0.35,
   }
@@ -429,5 +448,256 @@ describe("GuessTheTunePlugin onMessageReceived", () => {
     expect(revealed["revealed:album"]).toBeUndefined()
     expect(revealed["revealed:artist"]).toBeUndefined()
     expect(vi.mocked(mockContext.storage.zincrby)).not.toHaveBeenCalled()
+  })
+})
+
+describe("GuessTheTunePlugin transformChatMessage (inclusive mode)", () => {
+  const inclusiveConfig: Partial<GuessTheTuneConfig> = {
+    enabled: true,
+    mode: "inclusive",
+    soundEffectOnMatch: false,
+    fuzzyThreshold: 0.35,
+  }
+
+  let plugin: GuessTheTunePlugin
+  let mockContext: ReturnType<typeof createMockContext>
+
+  beforeEach(() => {
+    plugin = new GuessTheTunePlugin(inclusiveConfig)
+    mockContext = createMockContext()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-01-01T12:00:00.000Z"))
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
+  it("two users guessing the same prop both earn points and get per-user reveals", async () => {
+    const np = createNowPlaying({
+      title: "Yesterday",
+      artist: "The Beatles",
+      album: "Help!",
+    })
+    const stable = queueItemStableKey(np)
+    await setupActiveRound(mockContext, np)
+    await plugin.register(mockContext)
+
+    const first = await plugin.transformChatMessage!(
+      mockContext.roomId,
+      createChatMessage("yesterday", "u1", "Alice"),
+    )
+    expect(first).toEqual({ drop: true, reason: "guess-the-tune-match" })
+
+    const u1Revealed = await mockContext.storage.hgetall(roundUserKey(stable, "u1"))
+    expect(u1Revealed["revealed:title"]).toBeTruthy()
+    expect(await mockContext.storage.hgetall(roundKey(stable))).not.toHaveProperty("revealed:title")
+
+    const zincrbyAfterFirst = vi.mocked(mockContext.storage.zincrby).mock.calls.length
+
+    const second = await plugin.transformChatMessage!(
+      mockContext.roomId,
+      createChatMessage("yesterday", "u2", "Bob"),
+    )
+    expect(second).toEqual({ drop: true, reason: "guess-the-tune-match" })
+
+    const u2Revealed = await mockContext.storage.hgetall(roundUserKey(stable, "u2"))
+    expect(u2Revealed["revealed:title"]).toBeTruthy()
+    expect(vi.mocked(mockContext.storage.zincrby).mock.calls.length).toBeGreaterThan(
+      zincrbyAfterFirst,
+    )
+    expect(vi.mocked(mockContext.api.sendSystemMessage).mock.calls.length).toBe(2)
+  })
+
+  it("does not drop chat when the message does not match", async () => {
+    const np = createNowPlaying()
+    await setupActiveRound(mockContext, np)
+    await plugin.register(mockContext)
+
+    const result = await plugin.transformChatMessage!(
+      mockContext.roomId,
+      createChatMessage("hello world", "u1"),
+    )
+    expect(result).toBeNull()
+    expect(vi.mocked(mockContext.storage.zincrby)).not.toHaveBeenCalled()
+  })
+
+  it("MESSAGE_RECEIVED handler is inactive in inclusive mode", async () => {
+    const np = createNowPlaying({ title: "Yesterday", artist: "The Beatles", album: "Help!" })
+    await setupActiveRound(mockContext, np)
+    await plugin.register(mockContext)
+
+    await emitMessage(mockContext, createChatMessage("yesterday", "u1"))
+
+    expect(vi.mocked(mockContext.storage.zincrby)).not.toHaveBeenCalled()
+  })
+})
+
+describe("GuessTheTunePlugin augmentNowPlaying userReveals (inclusive mode)", () => {
+  const inclusiveConfig: Partial<GuessTheTuneConfig> = {
+    enabled: true,
+    mode: "inclusive",
+    soundEffectOnMatch: false,
+    fuzzyThreshold: 0.35,
+  }
+
+  let plugin: GuessTheTunePlugin
+  let mockContext: ReturnType<typeof createMockContext>
+
+  beforeEach(() => {
+    plugin = new GuessTheTunePlugin(inclusiveConfig)
+    mockContext = createMockContext()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-01-01T12:00:00.000Z"))
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
+  it("includes per-user reveals in augmentation while room-level slots stay obscured", async () => {
+    const np = createNowPlaying({
+      title: "Yesterday",
+      artist: "The Beatles",
+      album: "Help!",
+    })
+    const stable = queueItemStableKey(np)
+    await setupActiveRound(mockContext, np)
+    await plugin.register(mockContext)
+
+    await plugin.transformChatMessage!(
+      mockContext.roomId,
+      createChatMessage("yesterday", "u1", "Alice"),
+    )
+    await plugin.transformChatMessage!(
+      mockContext.roomId,
+      createChatMessage("yesterday", "u2", "Bob"),
+    )
+
+    const aug = await plugin.augmentNowPlaying(np)
+
+    expect(aug.elementProps?.title?.obscured).toBe(true)
+    expect(aug.userReveals?.u1?.title).toMatchObject({
+      userId: "u1",
+      username: "Alice",
+    })
+    expect(aug.userReveals?.u2?.title).toMatchObject({
+      userId: "u2",
+      username: "Bob",
+    })
+    expect(await mockContext.storage.hgetall(roundKey(stable))).not.toHaveProperty("revealed:title")
+  })
+
+  it("omits userReveals in competitive mode", async () => {
+    const competitivePlugin = new GuessTheTunePlugin({
+      enabled: true,
+      mode: "competitive",
+      soundEffectOnMatch: false,
+      fuzzyThreshold: 0.35,
+    })
+    const np = createNowPlaying({ title: "Yesterday", artist: "The Beatles", album: "Help!" })
+    await setupActiveRound(mockContext, np)
+    await competitivePlugin.register(mockContext)
+
+    await emitMessage(mockContext, createChatMessage("yesterday", "u1", "Alice"))
+
+    const aug = await competitivePlugin.augmentNowPlaying(np)
+
+    expect(aug.elementProps?.title?.obscured).toBe(false)
+    expect(aug.userReveals).toBeUndefined()
+  })
+})
+
+describe("GuessTheTunePlugin admin reveal actions", () => {
+  const enabledConfig: Partial<GuessTheTuneConfig> = {
+    enabled: true,
+    mode: "inclusive",
+    soundEffectOnMatch: false,
+    fuzzyThreshold: 0.35,
+  }
+
+  let plugin: GuessTheTunePlugin
+  let mockContext: ReturnType<typeof createMockContext>
+
+  beforeEach(() => {
+    plugin = new GuessTheTunePlugin(enabledConfig)
+    mockContext = createMockContext()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-01-01T12:00:00.000Z"))
+    vi.mocked(mockContext.api.isRoomAdmin).mockResolvedValue(true)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
+  it("rejects non-admin initiators", async () => {
+    vi.mocked(mockContext.api.isRoomAdmin).mockResolvedValue(false)
+    const np = createNowPlaying({ title: "Yesterday", artist: "The Beatles", album: "Help!" })
+    await setupActiveRound(mockContext, np)
+    await plugin.register(mockContext)
+
+    const result = await plugin.executeAction("revealTitle", {
+      userId: "u1",
+      username: "Bob",
+    })
+
+    expect(result).toEqual({ success: false, message: "Admin required" })
+    expect(vi.mocked(mockContext.api.sendSystemMessage)).not.toHaveBeenCalled()
+  })
+
+  it("admin reveal is global in inclusive mode", async () => {
+    const np = createNowPlaying({ title: "Yesterday", artist: "The Beatles", album: "Help!" })
+    const stable = queueItemStableKey(np)
+    await setupActiveRound(mockContext, np)
+    await plugin.register(mockContext)
+
+    await plugin.transformChatMessage!(
+      mockContext.roomId,
+      createChatMessage("yesterday", "u1", "Alice"),
+    )
+
+    const result = await plugin.executeAction("revealArtist", {
+      userId: "admin1",
+      username: "Admin",
+    })
+
+    expect(result.success).toBe(true)
+    const globalRound = await mockContext.storage.hgetall(roundKey(stable))
+    expect(globalRound["revealed:artist"]).toBeTruthy()
+    expect(JSON.parse(globalRound["revealed:artist"]!).source).toBe("admin")
+
+    const aug = await plugin.augmentNowPlaying(np)
+    expect(aug.elementProps?.artist?.obscured).toBe(false)
+    expect(aug.userReveals?.u1?.title).toBeTruthy()
+  })
+
+  it("admin reveal is global in competitive mode", async () => {
+    const competitivePlugin = new GuessTheTunePlugin({
+      enabled: true,
+      mode: "competitive",
+      soundEffectOnMatch: false,
+      fuzzyThreshold: 0.35,
+    })
+    const np = createNowPlaying({ title: "Yesterday", artist: "The Beatles", album: "Help!" })
+    const stable = queueItemStableKey(np)
+    await setupActiveRound(mockContext, np)
+    await competitivePlugin.register(mockContext)
+
+    const result = await competitivePlugin.executeAction("revealTitle", {
+      userId: "admin1",
+      username: "Admin",
+    })
+
+    expect(result.success).toBe(true)
+    const globalRound = await mockContext.storage.hgetall(roundKey(stable))
+    expect(globalRound["revealed:title"]).toBeTruthy()
+
+    const aug = await competitivePlugin.augmentNowPlaying(np)
+    expect(aug.elementProps?.title?.obscured).toBe(false)
+    expect(aug.userReveals).toBeUndefined()
   })
 })

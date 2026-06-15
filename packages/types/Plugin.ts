@@ -265,6 +265,11 @@ export interface PluginAPI {
   getUsers(roomId: string, params?: { status?: "listening" | "participating" }): Promise<User[]>
   /** Look up users by their IDs (includes users who have left the room) */
   getUsersByIds(userIds: string[]): Promise<User[]>
+  /**
+   * Whether the user is a room admin (creator or member of `room:{id}:admins`).
+   * Plugins should use this for defense-in-depth on admin-only `executeAction` handlers.
+   */
+  isRoomAdmin(roomId: string, userId: string): Promise<boolean>
   skipTrack(roomId: string, trackId: string): Promise<void>
   sendSystemMessage(
     roomId: string,
@@ -718,6 +723,15 @@ export interface PluginElementProps {
 }
 
 /**
+ * Per-user reveal overrides broadcast in {@link PluginAugmentationData.userReveals}.
+ * Clients consult only the current viewer's row (see ADR 0062).
+ */
+export type PluginUserReveals = Record<
+  string,
+  Partial<Record<PluginTextElementKey, NonNullable<PluginElementProps["revealedBy"]>>>
+>
+
+/**
  * Plugin data returned from augmentation methods.
  * Can include style hints and any plugin-specific metadata.
  */
@@ -729,6 +743,11 @@ export interface PluginAugmentationData {
    * Merged per-plugin under `QueueItem.pluginData[pluginName]`.
    */
   elementProps?: Partial<Record<PluginElementKey, PluginElementProps>>
+  /**
+   * Per-user reveal overrides for inclusive participation modes (ADR 0062).
+   * Broadcast to all clients; each viewer applies only their own row in the UI.
+   */
+  userReveals?: PluginUserReveals
   /** Any other plugin-specific data */
   [key: string]: any
 }
@@ -751,6 +770,31 @@ export interface QueueValidationParams {
  * Result of a queue validation check
  */
 export type QueueValidationResult = { allowed: true } | { allowed: false; reason: string }
+
+/**
+ * Sentinel returned from {@link Plugin.transformChatMessage} to skip persistence and broadcast.
+ * System messages may still be sent separately by the plugin.
+ *
+ * @see [ADR 0062](../docs/adrs/0062-participation-mode-pvp-vs-pvg.md)
+ */
+export interface ChatMessageTransformDrop {
+  drop: true
+  reason?: string
+}
+
+/** Return value from {@link Plugin.transformChatMessage}. */
+export type ChatMessageTransformResult = ChatMessage | null | ChatMessageTransformDrop
+
+export function isChatMessageTransformDrop(
+  result: ChatMessageTransformResult | undefined,
+): result is ChatMessageTransformDrop {
+  return (
+    result != null &&
+    typeof result === "object" &&
+    "drop" in result &&
+    (result as ChatMessageTransformDrop).drop === true
+  )
+}
 
 /**
  * Helper to create an "allowed" queue validation response.
@@ -885,12 +929,17 @@ export interface Plugin {
    * Transform a chat message before it is persisted and broadcast.
    * Called sequentially for each enabled plugin in the room; each sees the
    * previous plugin's result. Return `null` or `undefined` to leave the message
-   * unchanged. Fail-open on errors/timeouts (like `validateQueueRequest`).
+   * unchanged. Return `{ drop: true }` to skip persistence and broadcast
+   * (system messages may still be sent separately). Fail-open on errors/timeouts
+   * (like `validateQueueRequest`).
    *
    * @param roomId - Room id
    * @param message - The fully parsed message (after mentions / Mustache)
    */
-  transformChatMessage?(roomId: string, message: ChatMessage): Promise<ChatMessage | null>
+  transformChatMessage?(
+    roomId: string,
+    message: ChatMessage,
+  ): Promise<ChatMessageTransformResult>
 
   /**
    * Optional method to augment playlist items with plugin-specific metadata.

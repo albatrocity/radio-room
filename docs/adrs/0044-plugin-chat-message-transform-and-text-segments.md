@@ -9,7 +9,7 @@ Plugins could subscribe to `MESSAGE_RECEIVED` only after a message was finalized
 
 ## Decision
 
-1. Add **`Plugin.transformChatMessage(roomId, message): Promise<ChatMessage | null>`**, invoked sequentially by **`PluginRegistry.transformChatMessage`** from **`messageHandlersAdapter.newMessage`** immediately before **`sendMessage`**. Returning `null` leaves the message unchanged. Errors and per-plugin timeouts use **fail-open** semantics (500ms timeout), matching queue validation.
+1. Add **`Plugin.transformChatMessage(roomId, message): Promise<ChatMessageTransformResult>`**, invoked sequentially by **`PluginRegistry.transformChatMessage`** from **`messageHandlersAdapter.newMessage`** immediately before **`sendMessage`**. Returning `null` leaves the message unchanged. Returning **`{ drop: true }`** skips persistence and broadcast (see [ADR 0062](0062-participation-mode-pvp-vs-pvg.md)). Errors and per-plugin timeouts use **fail-open** semantics (500ms timeout), matching queue validation.
 2. Extend **`ChatMessage`** with **`contentSegments?: TextSegment[]`** and a typed **`TextEffect`** discriminated union (initial variant: `{ type: "size", value: "small" | "normal" | "large" }`). **`content`** remains the canonical plain string and must stay in sync for persistence and exports.
 3. The web client prefers **`contentSegments`** when present and maps effects to styles in **`apps/web/src/lib/textEffects.ts`** (declarative, similar in spirit to screen effects for animations).
 4. **`@repo/plugin-base/helpers/chatTransform.ts`** provides **`tokenizeWords`** and **`buildSegments`** so plugins can build segments without custom parsers.
@@ -31,6 +31,7 @@ Plugins could subscribe to `MESSAGE_RECEIVED` only after a message was finalized
 
 - [ADR 0006 — Plugin System](0006-plugin-system-for-room-features.md)
 - [ADR 0008 — SystemEvents and Broadcasters](0008-system-events-and-broadcaster-pattern.md)
+- [ADR 0062 — Participation mode (drop sentinel)](0062-participation-mode-pvp-vs-pvg.md)
 - `packages/server/lib/sendMessage.ts`
 - `packages/server/lib/plugins/PluginRegistry.ts`
 - `packages/server/handlers/messageHandlersAdapter.ts`

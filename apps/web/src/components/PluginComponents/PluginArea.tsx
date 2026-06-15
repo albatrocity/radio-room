@@ -1,5 +1,5 @@
 import React, { useMemo } from "react"
-import { Stack } from "@chakra-ui/react"
+import { Stack, Wrap } from "@chakra-ui/react"
 import { PluginComponentProvider, PluginComponentRenderer } from "./PluginComponentRenderer"
 import { usePluginSchemas } from "../../hooks/usePluginSchemas"
 import { usePluginConfigs } from "../../hooks/useActors"
@@ -84,7 +84,12 @@ export function PluginArea({
   }
 
   return (
-    <Stack direction={direction} gap={spacing} color={color} align={direction === "row" ? "center" : undefined}>
+    <Wrap
+      direction={direction}
+      gap={spacing}
+      color={color}
+      align={direction === "row" ? "center" : undefined}
+    >
       {pluginsForArea.map(({ pluginName, config, storeKeys, components }) => (
         <PluginComponentProvider
           key={pluginName}
@@ -102,6 +107,6 @@ export function PluginArea({
             ))}
         </PluginComponentProvider>
       ))}
-    </Stack>
+    </Wrap>
   )
 }

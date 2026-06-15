@@ -1,10 +1,91 @@
 import { z } from "zod"
+import { participationModeFieldMeta } from "@repo/game-logic"
 import type { PluginConfigSchema, PluginComponentSchema, PluginActionElement } from "@repo/types"
 import { guessTheTuneConfigSchema } from "./types"
+
+const REVEAL_TITLE_CONFIRM =
+  "Show the real track title in Now Playing for all listeners? This does not award points."
+const REVEAL_ARTIST_CONFIRM =
+  "Show the real artist name in Now Playing for all listeners? This does not award points."
+const REVEAL_ALBUM_CONFIRM =
+  "Show the real album title in Now Playing for all listeners? This does not award points."
+const REVEAL_ALL_CONFIRM =
+  "Reveal every obscured title, artist, and album field that applies to the current track? No points are awarded."
 
 export function getComponentSchema(): PluginComponentSchema {
   return {
     components: [
+      {
+        id: "guess-tune-reveal-title",
+        type: "button",
+        area: "nowPlayingInfo",
+        label: "Reveal title",
+        variant: "solid",
+        size: "xs",
+        colorPalette: "action",
+        action: "revealTitle",
+        adminOnly: true,
+        confirmMessage: REVEAL_TITLE_CONFIRM,
+        confirmText: "Reveal title",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "matchTitle", value: true },
+          { field: "item.titleObscured", value: true },
+        ],
+      },
+      {
+        id: "guess-tune-reveal-artist",
+        type: "button",
+        area: "nowPlayingInfo",
+        label: "Reveal artist",
+        variant: "solid",
+        size: "xs",
+        colorPalette: "action",
+        action: "revealArtist",
+        adminOnly: true,
+        confirmMessage: REVEAL_ARTIST_CONFIRM,
+        confirmText: "Reveal artist",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "matchArtist", value: true },
+          { field: "item.artistObscured", value: true },
+        ],
+      },
+      {
+        id: "guess-tune-reveal-album",
+        type: "button",
+        area: "nowPlayingInfo",
+        label: "Reveal album",
+        variant: "solid",
+        size: "xs",
+        colorPalette: "action",
+        action: "revealAlbum",
+        adminOnly: true,
+        confirmMessage: REVEAL_ALBUM_CONFIRM,
+        confirmText: "Reveal album",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "matchAlbum", value: true },
+          { field: "item.albumObscured", value: true },
+        ],
+      },
+      {
+        id: "guess-tune-reveal-all",
+        type: "button",
+        area: "nowPlayingInfo",
+        label: "Reveal all",
+        variant: "solid",
+        size: "xs",
+        colorPalette: "action",
+        action: "revealAll",
+        adminOnly: true,
+        confirmMessage: REVEAL_ALL_CONFIRM,
+        confirmText: "Reveal all",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "item.anyObscured", value: true },
+        ],
+      },
       {
         id: "guess-tune-leaderboard-button",
         type: "button",
@@ -60,8 +141,7 @@ export function getConfigSchema(): PluginConfigSchema {
     action: "revealTitle",
     label: "Reveal track title for everyone",
     variant: "outline",
-    confirmMessage:
-      "Show the real track title in Now Playing for all listeners? This does not award points.",
+    confirmMessage: REVEAL_TITLE_CONFIRM,
     confirmText: "Reveal title",
     showWhen: { field: "enabled", value: true },
   } satisfies PluginActionElement
@@ -71,8 +151,7 @@ export function getConfigSchema(): PluginConfigSchema {
     action: "revealArtist",
     label: "Reveal artist for everyone",
     variant: "outline",
-    confirmMessage:
-      "Show the real artist name in Now Playing for all listeners? This does not award points.",
+    confirmMessage: REVEAL_ARTIST_CONFIRM,
     confirmText: "Reveal artist",
     showWhen: { field: "enabled", value: true },
   } satisfies PluginActionElement
@@ -82,8 +161,7 @@ export function getConfigSchema(): PluginConfigSchema {
     action: "revealAlbum",
     label: "Reveal album for everyone",
     variant: "outline",
-    confirmMessage:
-      "Show the real album title in Now Playing for all listeners? This does not award points.",
+    confirmMessage: REVEAL_ALBUM_CONFIRM,
     confirmText: "Reveal album",
     showWhen: { field: "enabled", value: true },
   } satisfies PluginActionElement
@@ -93,8 +171,7 @@ export function getConfigSchema(): PluginConfigSchema {
     action: "revealAll",
     label: "Reveal all obscured fields",
     variant: "outline",
-    confirmMessage:
-      "Reveal every obscured title, artist, and album field that applies to the current track? No points are awarded.",
+    confirmMessage: REVEAL_ALL_CONFIRM,
     confirmText: "Reveal all",
     showWhen: { field: "enabled", value: true },
   } satisfies PluginActionElement
@@ -104,8 +181,7 @@ export function getConfigSchema(): PluginConfigSchema {
     action: "resetLeaderboard",
     label: "Reset leaderboard",
     variant: "destructive",
-    confirmMessage:
-      "Reset all Guess the Tune scores? This cannot be undone.",
+    confirmMessage: "Reset all Guess the Tune scores? This cannot be undone.",
     confirmText: "Reset leaderboard",
     showWhen: { field: "enabled", value: true },
   } satisfies PluginActionElement
@@ -121,6 +197,7 @@ export function getConfigSchema(): PluginConfigSchema {
         variant: "info",
       },
       "enabled",
+      "mode",
       "matchTitle",
       "matchArtist",
       "matchAlbum",
@@ -146,7 +223,12 @@ export function getConfigSchema(): PluginConfigSchema {
       enabled: {
         type: "boolean",
         label: "Enable Guess the Tune",
-        description: "When enabled, now playing fields can be obscured and chat guesses score points.",
+        description:
+          "When enabled, now playing fields can be obscured and chat guesses score points.",
+      },
+      mode: {
+        ...participationModeFieldMeta,
+        showWhen: { field: "enabled", value: true },
       },
       matchTitle: {
         type: "boolean",
@@ -166,17 +248,26 @@ export function getConfigSchema(): PluginConfigSchema {
       pointsTitle: {
         type: "number",
         label: "Points — title",
-        showWhen: [{ field: "enabled", value: true }, { field: "matchTitle", value: true }],
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "matchTitle", value: true },
+        ],
       },
       pointsArtist: {
         type: "number",
         label: "Points — artist",
-        showWhen: [{ field: "enabled", value: true }, { field: "matchArtist", value: true }],
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "matchArtist", value: true },
+        ],
       },
       pointsAlbum: {
         type: "number",
         label: "Points — album",
-        showWhen: [{ field: "enabled", value: true }, { field: "matchAlbum", value: true }],
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "matchAlbum", value: true },
+        ],
       },
       speedMultiplier: {
         type: "number",
@@ -231,8 +322,7 @@ export function getConfigSchema(): PluginConfigSchema {
       messageTemplate: {
         type: "string",
         label: "System message template",
-        description:
-          "Variables: {{username}}, {{propertyLabel}}, {{points}}, {{multiplierSuffix}}",
+        description: "Variables: {{username}}, {{propertyLabel}}, {{points}}, {{multiplierSuffix}}",
         showWhen: { field: "enabled", value: true },
       },
     },

@@ -1,6 +1,8 @@
 import {
   AppContext,
   ChatMessage,
+  ChatMessageTransformDrop,
+  ChatMessageTransformResult,
   DefenseTriggeredPayload,
   DefenseTriggeredResult,
   InventoryItem,
@@ -19,6 +21,7 @@ import {
   PluginMarkdownContext,
   QueueValidationParams,
   QueueValidationResult,
+  isChatMessageTransformDrop,
 } from "@repo/types"
 import { Server } from "socket.io"
 import { PluginAPIImpl } from "./PluginAPI"
@@ -308,8 +311,12 @@ export class PluginRegistry {
    * Run `transformChatMessage` on all plugins in the room that implement it.
    * Plugins are called in map iteration order; each receives the output of the
    * previous. Fail-open on errors and timeouts (same 500ms as queue validation).
+   * When any plugin returns `{ drop: true }`, remaining plugins are skipped.
    */
-  async transformChatMessage(roomId: string, message: ChatMessage): Promise<ChatMessage> {
+  async transformChatMessage(
+    roomId: string,
+    message: ChatMessage,
+  ): Promise<ChatMessage | ChatMessageTransformDrop> {
     const roomPluginMap = this.roomPlugins.get(roomId)
 
     if (!roomPluginMap || roomPluginMap.size === 0) {
@@ -330,13 +337,17 @@ export class PluginRegistry {
       try {
         const next = await Promise.race([
           plugin.transformChatMessage!(roomId, current),
-          new Promise<ChatMessage | null>((_, reject) =>
+          new Promise<ChatMessageTransformResult>((_, reject) =>
             setTimeout(
               () => reject(new Error("timeout")),
               PluginRegistry.VALIDATION_TIMEOUT_MS,
             ),
           ),
         ])
+
+        if (isChatMessageTransformDrop(next)) {
+          return next
+        }
 
         if (next != null) {
           current = next

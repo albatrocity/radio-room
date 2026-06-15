@@ -1,7 +1,9 @@
 import { z } from "zod"
+import { participationModeSchema } from "@repo/game-logic"
 
 export const guessTheTuneConfigSchema = z.object({
   enabled: z.boolean().default(false),
+  mode: participationModeSchema,
   matchTitle: z.boolean().default(true),
   matchArtist: z.boolean().default(true),
   matchAlbum: z.boolean().default(true),
@@ -30,6 +32,7 @@ export type GuessTheTuneConfig = z.infer<typeof guessTheTuneConfigSchema>
 
 export const defaultGuessTheTuneConfig: GuessTheTuneConfig = {
   enabled: false,
+  mode: "inclusive",
   matchTitle: true,
   matchArtist: true,
   matchAlbum: true,

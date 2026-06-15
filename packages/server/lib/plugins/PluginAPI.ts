@@ -92,6 +92,18 @@ export class PluginAPIImpl implements PluginAPI {
     return getUsersByIds({ context: this.context, userIds })
   }
 
+  async isRoomAdmin(roomId: string, userId: string): Promise<boolean> {
+    const { findRoom, isRoomAdmin } = await import("../../operations/data")
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) return false
+    return isRoomAdmin({
+      context: this.context,
+      roomId,
+      userId,
+      roomCreator: room.creator,
+    })
+  }
+
   async skipTrack(roomId: string, trackId: string): Promise<void> {
     // Verify the track is still playing before skipping
     const nowPlaying = await this.getNowPlaying(roomId)

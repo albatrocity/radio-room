@@ -24,6 +24,7 @@ import { usePluginStyles } from "../../hooks/usePluginStyles"
 import { usePluginElementProps } from "../../hooks/usePluginElementProps"
 import { usePreferredMetadataSource } from "../../hooks/useActors"
 import { MetadataSourceType } from "../../types/Queue"
+import { guessTheTuneNowPlayingItemContext } from "../../lib/guessTheTunePluginItemContext"
 import type { PluginElementProps } from "@repo/types"
 
 type RevealedBy = NonNullable<PluginElementProps["revealedBy"]>
@@ -131,6 +132,11 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   const albumElementProps = usePluginElementProps(nowPlaying?.pluginData, "album")
   const artworkElementProps = usePluginElementProps(nowPlaying?.pluginData, "artwork")
 
+  const nowPlayingInfoItemContext = useMemo(
+    () => guessTheTuneNowPlayingItemContext(nowPlaying?.pluginData),
+    [nowPlaying?.pluginData],
+  )
+
   const djUser = dj ?? nowPlaying?.addedBy ?? null
   const djUsername = useMemo(
     () =>
@@ -221,7 +227,7 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
               position="relative"
               zIndex={1}
             >
-              <PluginArea area="nowPlayingInfo" />
+              <PluginArea area="nowPlayingInfo" itemContext={nowPlayingInfoItemContext} />
             </Box>
 
             <MetadataSourceInfo metadataSource={activeMetadataSource} />

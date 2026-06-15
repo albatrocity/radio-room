@@ -1,6 +1,7 @@
 import type { z } from "zod"
 import type {
   ChatMessage,
+  ChatMessageTransformResult,
   GameSessionPluginAPI,
   InventoryItem,
   InventoryPluginAPI,
@@ -346,7 +347,10 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    * Optional chat transform. Default: no change (return `null`).
    * @see `PluginRegistry.transformChatMessage`
    */
-  async transformChatMessage(_roomId: string, _message: ChatMessage): Promise<ChatMessage | null> {
+  async transformChatMessage(
+    _roomId: string,
+    _message: ChatMessage,
+  ): Promise<ChatMessageTransformResult> {
     return null
   }
 
