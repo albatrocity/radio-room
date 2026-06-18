@@ -156,7 +156,8 @@ function DjFeatures() {
                   <Checkbox.Label>Show queue count</Checkbox.Label>
                 </Checkbox.Root>
                 <Field.HelperText>
-                  Display the number of songs in the queue on the "Add to queue" button.
+                  Display the number of songs in the queue on the "Add to queue" button. Room admins
+                  always see it.
                 </Field.HelperText>
               </Field.Root>
 
@@ -188,7 +189,8 @@ function DjFeatures() {
                   <Checkbox.Label>Show queued tracks</Checkbox.Label>
                 </Checkbox.Root>
                 <Field.HelperText>
-                  Display the list of upcoming queued tracks in the playlist drawer.
+                  Display the list of upcoming queued tracks in the playlist drawer. Room admins
+                  always see it.
                 </Field.HelperText>
               </Field.Root>
             </VStack>

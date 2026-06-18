@@ -6,6 +6,7 @@ import {
   HStack,
   Badge,
   Separator,
+  Text,
   VStack,
   ScrollArea,
 } from "@chakra-ui/react"
@@ -131,7 +132,8 @@ function QueuedTracksSection() {
   const canResumeOrEmptyControls = isAppControlled && (isRoomCreator || isAdmin)
   const canReorder = useCanReorderQueue()
 
-  const showQueueTracks = room?.showQueueTracks !== false
+  const showQueueTracks = isAdmin || room?.showQueueTracks !== false
+  const queueTracksHiddenFromListeners = isAdmin && room?.showQueueTracks === false
 
   const orderedKeys = useMemo(
     () => queue.filter((item) => !item.locked).map((item) => toCanonicalKey(item)),
@@ -317,6 +319,11 @@ function QueuedTracksSection() {
             <Heading size="sm" color="primaryText">
               Queue
             </Heading>
+            {queueTracksHiddenFromListeners && (
+              <Text fontSize="xs" color="fg.muted">
+                Hidden from listeners
+              </Text>
+            )}
             <Badge
               colorPalette="primary"
               variant="solid"
