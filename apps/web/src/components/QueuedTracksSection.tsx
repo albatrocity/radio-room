@@ -367,6 +367,17 @@ function QueuedTracksSection() {
 
   const badgeCount = virtualRowCount
 
+  const showMusicPlayDisabled =
+    playbackTogglePending ||
+    (spotifyPlaybackState !== "playing" && queue.length === 0)
+
+  const showMusicPlaybackTooltip =
+    spotifyPlaybackState === "playing"
+      ? "Pause show music playback on Spotify"
+      : queue.length === 0
+        ? "Nothing in the queue to play"
+        : "Resume show music or start the next queued track"
+
   return (
     <Box
       background="primary.subtle/20"
@@ -414,29 +425,24 @@ function QueuedTracksSection() {
               </Checkbox.Root>
             )}
             {canResumeOrEmptyControls && (
-              <Tooltip
-                content={
-                  spotifyPlaybackState === "playing"
-                    ? "Pause show music playback on Spotify"
-                    : "Resume show music or start the next queued track"
-                }
-                positioning={{ placement: "top" }}
-              >
-                <IconButton
-                  aria-label={
-                    spotifyPlaybackState === "playing"
-                      ? "Pause show music playback"
-                      : "Play show music"
-                  }
-                  variant="outline"
-                  colorPalette="primary"
-                  size="xs"
-                  onClick={handleTogglePlayback}
-                  loading={playbackTogglePending}
-                  disabled={playbackTogglePending}
-                >
-                  {spotifyPlaybackState === "playing" ? <LuPause /> : <LuPlay />}
-                </IconButton>
+              <Tooltip content={showMusicPlaybackTooltip} positioning={{ placement: "top" }}>
+                <Box as="span" display="inline-flex">
+                  <IconButton
+                    aria-label={
+                      spotifyPlaybackState === "playing"
+                        ? "Pause show music playback"
+                        : "Play show music"
+                    }
+                    variant="outline"
+                    colorPalette="primary"
+                    size="xs"
+                    onClick={handleTogglePlayback}
+                    loading={playbackTogglePending}
+                    disabled={showMusicPlayDisabled}
+                  >
+                    {spotifyPlaybackState === "playing" ? <LuPause /> : <LuPlay />}
+                  </IconButton>
+                </Box>
               </Tooltip>
             )}
             <ButtonAddToQueue variant="solid" colorPalette="primary" size="xs" showCount={false} />
