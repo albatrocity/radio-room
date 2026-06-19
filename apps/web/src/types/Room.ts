@@ -44,6 +44,8 @@ export type Room = {
   // Queue display settings (default true)
   showQueueCount?: boolean
   showQueueTracks?: boolean
+  /** App-controlled only. When false, admins advance manually; default true. */
+  queueAutoAdvance?: boolean
   // Chat settings
   /** When true, non-admin listeners may upload images in chat; room admins may always upload. */
   allowChatImages?: boolean

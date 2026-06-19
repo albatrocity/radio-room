@@ -90,7 +90,7 @@ function DjFeatures() {
                   <Field.HelperText>
                     Spotify-controlled adds tracks to the Spotify queue (default). App-controlled
                     keeps order in the room queue only; the app starts the next track when the
-                    current one ends.
+                    current one ends unless auto-advance is turned off in the queue panel.
                   </Field.HelperText>
                 </Field.Root>
               ) : null}

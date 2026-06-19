@@ -243,6 +243,59 @@ describe("activateRoomSegment", () => {
     })
   })
 
+  it("merges queueAutoAdvance from roomSettingsOverride into saveRoom", async () => {
+    m.findShowById.mockResolvedValueOnce({
+      id: "show-1",
+      segments: [
+        {
+          segmentId: "seg-1",
+          segment: {
+            id: "seg-1",
+            title: "Talk break",
+            pluginPreset: null,
+            roomSettingsOverride: { queueAutoAdvance: false },
+            duration: 5,
+            status: "ready",
+            description: null,
+            isRecurring: false,
+            createdBy: "u1",
+            assignedTo: null,
+            assignee: null,
+            createdAt: "",
+            updatedAt: "",
+          },
+        },
+      ],
+    })
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: null, queueAutoAdvance: true }))
+      .mockResolvedValueOnce(
+        baseRoom({
+          activeSegmentId: "seg-1",
+          queueAutoAdvance: false,
+        }),
+      )
+
+    await activateRoomSegment({
+      context,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "skip",
+    })
+
+    expect(m.saveRoom).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context,
+        room: expect.objectContaining({
+          activeSegmentId: "seg-1",
+          queueAutoAdvance: false,
+        }),
+      }),
+    )
+  })
+
   it("passes deputyBulkAction to applySegmentDeputyBulkAction", async () => {
     m.findShowById.mockResolvedValueOnce({
       id: "show-1",

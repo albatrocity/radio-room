@@ -62,7 +62,7 @@ export function createTrackAdvanceJob(params: {
           setDispatchedTrack,
           getQueueWithDispatched,
         } = await import("@repo/server/operations/data")
-        const { isAppControlledPlayback } = await import("@repo/server/lib/roomTypeHelpers")
+        const { isAppControlledPlayback, isQueueAutoAdvanceEnabled } = await import("@repo/server/lib/roomTypeHelpers")
         const {
           handlePlaybackStateChange,
           playbackStateFromIsPlaying,
@@ -121,6 +121,10 @@ export function createTrackAdvanceJob(params: {
         // Track advance: only for app-controlled playback rooms
         // =====================================================================
         if (!isAppControlledPlayback(room)) {
+          return
+        }
+
+        if (!isQueueAutoAdvanceEnabled(room)) {
           return
         }
 

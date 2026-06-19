@@ -134,8 +134,12 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
     await handlers.reorderQueue(connections, payload)
   })
 
-  socket.on("RESUME_PLAYBACK", async () => {
-    await handlers.resumePlayback(connections)
+  socket.on("TOGGLE_PLAYBACK", async () => {
+    await handlers.togglePlayback(connections)
+  })
+
+  socket.on("GET_PLAYBACK_STATE", async () => {
+    await handlers.getPlaybackState(connections)
   })
 }
 

@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest"
-import { hasListenableStream, isHybridRadioRoom } from "./roomTypeHelpers"
+import {
+  hasListenableStream,
+  isHybridRadioRoom,
+  isQueueAutoAdvanceEnabled,
+} from "./roomTypeHelpers"
 
 describe("hasListenableStream", () => {
   it("returns true for radio rooms", () => {
@@ -29,5 +33,18 @@ describe("isHybridRadioRoom", () => {
     expect(isHybridRadioRoom({ type: "radio", liveIngestEnabled: false })).toBe(false)
     expect(isHybridRadioRoom({ type: "live", liveIngestEnabled: true })).toBe(false)
     expect(isHybridRadioRoom(null)).toBe(false)
+  })
+})
+
+describe("isQueueAutoAdvanceEnabled", () => {
+  it("defaults to true when unset", () => {
+    expect(isQueueAutoAdvanceEnabled({})).toBe(true)
+    expect(isQueueAutoAdvanceEnabled(null)).toBe(true)
+    expect(isQueueAutoAdvanceEnabled(undefined)).toBe(true)
+  })
+
+  it("returns false only when explicitly disabled", () => {
+    expect(isQueueAutoAdvanceEnabled({ queueAutoAdvance: false })).toBe(false)
+    expect(isQueueAutoAdvanceEnabled({ queueAutoAdvance: true })).toBe(true)
   })
 })

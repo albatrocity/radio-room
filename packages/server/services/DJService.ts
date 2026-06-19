@@ -25,6 +25,7 @@ import { queueItemFactory } from "@repo/factories"
 import { AdapterService } from "./AdapterService"
 import { DefenseService } from "./DefenseService"
 import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
+import { shouldAdvanceToNextQueueItem } from "../lib/playbackHelpers"
 
 function isSameMultiset(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false
@@ -564,9 +565,9 @@ export class DJService {
   }
 
   /**
-   * App-controlled: resume Spotify playback (unpause). Room creator or room admin only.
+   * App-controlled: read Spotify playback state for admin UI (play/pause toggle).
    */
-  async resumePlayback(roomId: string, userId: string) {
+  async getPlaybackState(roomId: string, userId: string) {
     const room = await findRoom({ context: this.context, roomId })
     if (!room) {
       return { success: false as const, message: "Room not found" }
@@ -585,7 +586,7 @@ export class DJService {
       roomCreator: room.creator,
     })
     if (!allowed) {
-      return { success: false as const, message: "Not authorized to resume playback" }
+      return { success: false as const, message: "Not authorized to read playback state" }
     }
 
     const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
@@ -593,17 +594,106 @@ export class DJService {
       return { success: false as const, message: "No playback controller configured for this room" }
     }
 
+    const getPlayback = playbackController.api.getPlayback
+    if (!getPlayback) {
+      return { success: false as const, message: "Playback controller does not support reading state" }
+    }
+
     try {
-      await playbackController.api.play()
+      const playback = await getPlayback()
+      const trackId =
+        playback.track && typeof playback.track === "object" && "id" in playback.track
+          ? String((playback.track as { id: string }).id)
+          : null
+      return {
+        success: true as const,
+        state: playback.state,
+        trackId,
+      }
     } catch (e) {
-      console.error("[DJService.resumePlayback] play failed:", e)
+      console.error("[DJService.getPlaybackState] getPlayback failed:", e)
       return {
         success: false as const,
-        message: "Failed to resume playback on Spotify",
+        message: "Failed to read playback state from Spotify",
+      }
+    }
+  }
+
+  /**
+   * App-controlled: pause when playing; when paused, resume mid-track or start the next
+   * queued track if the previous song has finished. Room creator or room admin only.
+   */
+  async togglePlayback(roomId: string, userId: string) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "This action is only available in app-controlled playback mode",
       }
     }
 
-    return { success: true as const }
+    const allowed = await isRoomAdmin({
+      context: this.context,
+      roomId,
+      userId,
+      roomCreator: room.creator,
+    })
+    if (!allowed) {
+      return { success: false as const, message: "Not authorized to control playback" }
+    }
+
+    const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
+    if (!playbackController) {
+      return { success: false as const, message: "No playback controller configured for this room" }
+    }
+
+    const api = playbackController.api
+    const getPlayback = api.getPlayback
+    if (!getPlayback) {
+      return { success: false as const, message: "Playback controller does not support reading state" }
+    }
+
+    try {
+      const playback = await getPlayback()
+
+      if (playback.state === "playing") {
+        await api.pause()
+        return { success: true as const, state: "paused" as const, action: "paused" as const }
+      }
+
+      const queue = await getQueue({ context: this.context, roomId })
+      if (
+        shouldAdvanceToNextQueueItem(playback, queue, {
+          queueAutoAdvance: room.queueAutoAdvance !== false,
+        })
+      ) {
+        const nextItem = queue.find((item) => !item.locked)
+        if (nextItem) {
+          const playResult = await this.playQueuedTrack(roomId, userId, nextItem.track.id)
+          if (!playResult.success) {
+            return playResult
+          }
+          return {
+            success: true as const,
+            state: "playing" as const,
+            action: "advanced" as const,
+            trackTitle: playResult.trackTitle,
+          }
+        }
+      }
+
+      await api.play()
+      return { success: true as const, state: "playing" as const, action: "resumed" as const }
+    } catch (e) {
+      console.error("[DJService.togglePlayback] failed:", e)
+      return {
+        success: false as const,
+        message: "Failed to control playback on Spotify",
+      }
+    }
   }
 
   /**

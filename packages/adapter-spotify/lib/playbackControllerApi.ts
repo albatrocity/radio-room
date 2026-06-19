@@ -170,14 +170,22 @@ export async function makeApi({
         return {
           state: "paused" as const,
           track: null,
+          progressMs: null,
+          durationMs: null,
         }
       }
 
-      const { is_playing, item } = playback
+      const { is_playing, item, progress_ms } = playback
+      const durationMs =
+        item && typeof item === "object" && "duration_ms" in item
+          ? (item as { duration_ms?: number }).duration_ms ?? null
+          : null
 
       return {
         state: is_playing ? "playing" : "paused",
         track: item ? trackItemSchema.parse(item) : null,
+        progressMs: progress_ms ?? null,
+        durationMs,
       }
     },
   }

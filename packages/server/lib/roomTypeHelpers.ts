@@ -25,3 +25,10 @@ export function isAppControlledPlayback(
 ): boolean {
   return room?.playbackMode === "app-controlled"
 }
+
+/** App-controlled rooms only. Default true when unset. */
+export function isQueueAutoAdvanceEnabled(
+  room: Pick<Room, "queueAutoAdvance"> | null | undefined,
+): boolean {
+  return room?.queueAutoAdvance !== false
+}
