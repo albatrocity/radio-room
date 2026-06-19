@@ -602,25 +602,61 @@ export class DJHandlers {
     }
   }
 
-  resumePlayback = async ({ socket }: HandlerConnections) => {
+  togglePlayback = async ({ socket }: HandlerConnections) => {
     try {
       const { roomId, userId } = socket.data
-      const result = await this.djService.resumePlayback(roomId, userId)
+      const result = await this.djService.togglePlayback(roomId, userId)
 
       if (!result.success) {
         socket.emit("event", {
-          type: "RESUME_PLAYBACK_FAILURE",
+          type: "TOGGLE_PLAYBACK_FAILURE",
           data: { message: result.message },
         })
         return
       }
 
-      socket.emit("event", { type: "RESUME_PLAYBACK_SUCCESS" })
-    } catch (error: any) {
-      console.error("Error resuming playback:", error)
       socket.emit("event", {
-        type: "RESUME_PLAYBACK_FAILURE",
-        data: { message: error?.message || "Failed to resume playback" },
+        type: "TOGGLE_PLAYBACK_SUCCESS",
+        data: {
+          state: result.state,
+          action: result.action,
+          trackTitle: "trackTitle" in result ? result.trackTitle : undefined,
+        },
+      })
+    } catch (error: any) {
+      console.error("Error toggling playback:", error)
+      socket.emit("event", {
+        type: "TOGGLE_PLAYBACK_FAILURE",
+        data: { message: error?.message || "Failed to control playback" },
+      })
+    }
+  }
+
+  getPlaybackState = async ({ socket }: HandlerConnections) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.djService.getPlaybackState(roomId, userId)
+
+      if (!result.success) {
+        socket.emit("event", {
+          type: "GET_PLAYBACK_STATE_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "PLAYBACK_STATE",
+        data: {
+          state: result.state,
+          trackId: result.trackId,
+        },
+      })
+    } catch (error: any) {
+      console.error("Error reading playback state:", error)
+      socket.emit("event", {
+        type: "GET_PLAYBACK_STATE_FAILURE",
+        data: { message: error?.message || "Failed to read playback state" },
       })
     }
   }

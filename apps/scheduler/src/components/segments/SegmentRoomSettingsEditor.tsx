@@ -39,6 +39,12 @@ const ROWS: {
     helper: "Display the list of upcoming queued tracks in the playlist drawer.",
   },
   {
+    key: "queueAutoAdvance",
+    label: "Queue auto-advance",
+    helper:
+      "When enabled in app-controlled playback, the next queued track starts automatically at song end.",
+  },
+  {
     key: "fetchMeta",
     label: "Track detection",
     helper:

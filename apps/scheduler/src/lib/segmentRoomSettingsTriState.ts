@@ -10,6 +10,7 @@ const KEYS = [
   "deputizeOnJoin",
   "showQueueCount",
   "showQueueTracks",
+  "queueAutoAdvance",
   "fetchMeta",
   "announceNowPlaying",
 ] as const
@@ -31,6 +32,7 @@ export function overrideToAllTriStates(
     deputizeOnJoin: overrideToTriState(override, "deputizeOnJoin"),
     showQueueCount: overrideToTriState(override, "showQueueCount"),
     showQueueTracks: overrideToTriState(override, "showQueueTracks"),
+    queueAutoAdvance: overrideToTriState(override, "queueAutoAdvance"),
     fetchMeta: overrideToTriState(override, "fetchMeta"),
     announceNowPlaying: overrideToTriState(override, "announceNowPlaying"),
   }

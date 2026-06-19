@@ -23,6 +23,8 @@ The legacy app queue used a Redis **SET** plus JSON blobs; member order was unde
 
 5. **Queue payloads over the wire**: After dispatch (advance job or explicit Play), the popped item still appears in **`QUEUE_CHANGED`** as the first queue row with **`locked: true`** until Shoutcast matches now-playing and dispatched Redis state is cleared — clients do not need a separate dispatched concept or extra event.
 
+6. **`Room.queueAutoAdvance`** (default **true** when unset): Gates the track advance job in app-controlled mode. When **false**, the job does not pop or start the next track at song end; room admins advance manually via **`PLAY_QUEUED_TRACK`** (per-row Play control) or **`TOGGLE_PLAYBACK`** (queue-header play/pause, which resumes mid-track or starts the next queued item when the previous song has finished). Segment **`roomSettingsOverride`** may set this on activation. Plugin-driven **`skipTrack`** is unaffected.
+
 ## Consequences
 
 - **Game-ready ordering**: Reordering is future `ZADD` score updates without storage migration.

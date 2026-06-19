@@ -28,6 +28,7 @@ function patchRoomFromSegmentOverride(override: SegmentRoomSettingsOverride | nu
   if (override.deputizeOnJoin !== undefined) p.deputizeOnJoin = override.deputizeOnJoin
   if (override.showQueueCount !== undefined) p.showQueueCount = override.showQueueCount
   if (override.showQueueTracks !== undefined) p.showQueueTracks = override.showQueueTracks
+  if (override.queueAutoAdvance !== undefined) p.queueAutoAdvance = override.queueAutoAdvance
   if (override.fetchMeta !== undefined) p.fetchMeta = override.fetchMeta
   if (override.announceNowPlaying !== undefined) p.announceNowPlaying = override.announceNowPlaying
   if (override.playbackMode !== undefined) p.playbackMode = override.playbackMode

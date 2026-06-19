@@ -56,13 +56,14 @@ describe("DJController", () => {
       expect(mockSocket.on).toHaveBeenCalledWith("REMOVE_FROM_QUEUE", expect.any(Function))
       expect(mockSocket.on).toHaveBeenCalledWith("PLAY_QUEUED_TRACK", expect.any(Function))
       expect(mockSocket.on).toHaveBeenCalledWith("REORDER_QUEUE", expect.any(Function))
-      expect(mockSocket.on).toHaveBeenCalledWith("RESUME_PLAYBACK", expect.any(Function))
+      expect(mockSocket.on).toHaveBeenCalledWith("TOGGLE_PLAYBACK", expect.any(Function))
+      expect(mockSocket.on).toHaveBeenCalledWith("GET_PLAYBACK_STATE", expect.any(Function))
     })
 
-    test("should register exactly 14 socket events", () => {
+    test("should register exactly 15 socket events", () => {
       createDJController(mockSocket, mockIo)
 
-      expect(mockSocket.on).toHaveBeenCalledTimes(14)
+      expect(mockSocket.on).toHaveBeenCalledTimes(15)
     })
   })
 
@@ -119,7 +120,7 @@ describe("DJController", () => {
       createDJController(mockSocket, mockIo)
 
       // Verify that handlers were registered - if they were, the closure is working
-      expect(socketEventHandlers.size).toBe(14)
+      expect(socketEventHandlers.size).toBe(15)
     })
   })
 
@@ -131,7 +132,7 @@ describe("DJController", () => {
 
       createDJController(mockSocket, mockIo)
 
-      expect(mockSocket.on).toHaveBeenCalledTimes(14)
+      expect(mockSocket.on).toHaveBeenCalledTimes(15)
     })
 
     test("shows handler reuse through closure", () => {
@@ -141,7 +142,7 @@ describe("DJController", () => {
       createDJController(mockSocket, mockIo)
 
       // All events are registered using the same handler instance
-      expect(socketEventHandlers.size).toBe(14)
+      expect(socketEventHandlers.size).toBe(15)
     })
   })
 })

@@ -66,6 +66,8 @@ export type Room = {
   // Queue display settings (default true)
   showQueueCount?: boolean
   showQueueTracks?: boolean
+  /** App-controlled only. When false, admins advance manually; default true. */
+  queueAutoAdvance?: boolean
   // Chat settings
   /** When true, non-admin listeners may upload images in chat; room admins may always upload. */
   allowChatImages?: boolean
@@ -102,6 +104,7 @@ export interface StoredRoom
     | "metadataSourceIds"
     | "showQueueCount"
     | "showQueueTracks"
+    | "queueAutoAdvance"
     | "allowChatImages"
     | "showSchedulePublic"
     | "announceActiveSegment"
@@ -116,6 +119,7 @@ export interface StoredRoom
   persistent?: Bool
   showQueueCount?: Bool
   showQueueTracks?: Bool
+  queueAutoAdvance?: Bool
   allowChatImages?: Bool
   showSchedulePublic?: Bool
   announceActiveSegment?: Bool

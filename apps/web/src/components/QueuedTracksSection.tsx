@@ -1,7 +1,6 @@
-import { useMemo, useRef, useCallback, memo } from "react"
+import { useMemo, useRef, useCallback, memo, useState, useEffect } from "react"
 import {
   Box,
-  Button,
   Heading,
   HStack,
   Badge,
@@ -9,6 +8,8 @@ import {
   Text,
   VStack,
   ScrollArea,
+  Checkbox,
+  IconButton,
 } from "@chakra-ui/react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react"
@@ -17,6 +18,7 @@ import { isSortable } from "@dnd-kit/react/sortable"
 import { move } from "@dnd-kit/helpers"
 import { canonicalQueueTrackKey, type QueueItem as SharedQueueItem } from "@repo/types/Queue"
 import { GripVertical } from "lucide-react"
+import { LuPlay, LuPause } from "react-icons/lu"
 import { QueueItem } from "../types/Queue"
 import {
   useQueueList,
@@ -30,10 +32,13 @@ import socket from "../lib/socket"
 import { toast } from "../lib/toasts"
 import PlaylistItem from "./PlaylistItem"
 import ButtonAddToQueue from "./ButtonAddToQueue"
+import { Tooltip } from "./ui/tooltip"
 import type { Room } from "../types/Room"
 
 const ITEM_HEIGHT = 70
 const MAX_LIST_HEIGHT = 200
+
+type SpotifyPlaybackState = "playing" | "paused" | "stopped"
 
 export const ROOM_QUEUE_SORTABLE_GROUP = "room-queue"
 
@@ -132,6 +137,85 @@ function QueuedTracksSection() {
   const canResumeOrEmptyControls = isAppControlled && (isRoomCreator || isAdmin)
   const canReorder = useCanReorderQueue()
 
+  const [spotifyPlaybackState, setSpotifyPlaybackState] = useState<SpotifyPlaybackState | null>(
+    null,
+  )
+  const [playbackTogglePending, setPlaybackTogglePending] = useState(false)
+
+  useEffect(() => {
+    if (!canResumeOrEmptyControls) return
+
+    const onEvent = (payload: {
+      type?: string
+      data?: {
+        state?: SpotifyPlaybackState
+        message?: string
+        action?: string
+        trackTitle?: string
+      }
+    }) => {
+      if (payload.type === "PLAYBACK_STATE" && payload.data?.state) {
+        setSpotifyPlaybackState(payload.data.state)
+      }
+      if (payload.type === "PLAYBACK_STATE_CHANGED" && payload.data?.state) {
+        setSpotifyPlaybackState(payload.data.state)
+      }
+      if (payload.type === "GET_PLAYBACK_STATE_FAILURE") {
+        setSpotifyPlaybackState(null)
+      }
+      if (payload.type === "TOGGLE_PLAYBACK_SUCCESS") {
+        setPlaybackTogglePending(false)
+        if (payload.data?.state) {
+          setSpotifyPlaybackState(payload.data.state)
+        }
+        if (payload.data?.action === "advanced" && payload.data.trackTitle) {
+          toast({
+            title: "Now playing",
+            description: payload.data.trackTitle,
+            type: "success",
+            duration: 3000,
+          })
+        }
+      }
+      if (payload.type === "TOGGLE_PLAYBACK_FAILURE") {
+        setPlaybackTogglePending(false)
+        toast({
+          title: "Couldn't control playback",
+          description: payload.data?.message,
+          type: "error",
+          duration: 4000,
+        })
+      }
+    }
+
+    socket.on("event", onEvent)
+    emitToSocket("GET_PLAYBACK_STATE", {})
+
+    return () => {
+      socket.off("event", onEvent)
+    }
+  }, [canResumeOrEmptyControls])
+
+  const handleTogglePlayback = useCallback(() => {
+    setPlaybackTogglePending(true)
+    let timeoutId: number
+    const onEvent = (payload: { type?: string }) => {
+      if (
+        payload.type === "TOGGLE_PLAYBACK_SUCCESS" ||
+        payload.type === "TOGGLE_PLAYBACK_FAILURE"
+      ) {
+        socket.off("event", onEvent)
+        window.clearTimeout(timeoutId)
+      }
+    }
+    socket.on("event", onEvent)
+    timeoutId = window.setTimeout(() => {
+      socket.off("event", onEvent)
+      setPlaybackTogglePending(false)
+    }, 10000)
+    emitToSocket("TOGGLE_PLAYBACK", {})
+  }, [])
+
   const showQueueTracks = isAdmin || room?.showQueueTracks !== false
   const queueTracksHiddenFromListeners = isAdmin && room?.showQueueTracks === false
 
@@ -172,32 +256,10 @@ function QueuedTracksSection() {
     [orderedKeys],
   )
 
-  const handleResumePlayback = useCallback(() => {
-    let timeoutId: number
-    const onEvent = (payload: { type?: string; data?: { message?: string } }) => {
-      if (payload.type === "RESUME_PLAYBACK_SUCCESS") {
-        socket.off("event", onEvent)
-        window.clearTimeout(timeoutId)
-        toast({
-          title: "Playback resumed",
-          type: "success",
-          duration: 3000,
-        })
-      }
-      if (payload.type === "RESUME_PLAYBACK_FAILURE") {
-        socket.off("event", onEvent)
-        window.clearTimeout(timeoutId)
-        toast({
-          title: "Couldn't resume playback",
-          description: payload.data?.message,
-          type: "error",
-          duration: 4000,
-        })
-      }
-    }
-    socket.on("event", onEvent)
-    timeoutId = window.setTimeout(() => socket.off("event", onEvent), 10000)
-    emitToSocket("RESUME_PLAYBACK", {})
+  const queueAutoAdvance = room?.queueAutoAdvance !== false
+
+  const handleQueueAutoAdvanceChange = useCallback((checked: boolean) => {
+    emitToSocket("SET_ROOM_SETTINGS", { queueAutoAdvance: checked })
   }, [])
 
   const virtualRowCount = queue.length
@@ -334,17 +396,51 @@ function QueuedTracksSection() {
               {badgeCount}
             </Badge>
           </HStack>
-          {canResumeOrEmptyControls && (
-            <Button
-              variant="outline"
-              colorPalette="primary"
-              size="xs"
-              onClick={handleResumePlayback}
-            >
-              Resume
-            </Button>
-          )}
-          <ButtonAddToQueue variant="solid" colorPalette="primary" size="xs" showCount={false} />
+          <HStack gap={2} justify="end">
+            {canResumeOrEmptyControls && (
+              <Checkbox.Root
+                checked={queueAutoAdvance}
+                onCheckedChange={(details) => {
+                  handleQueueAutoAdvanceChange(details.checked === true)
+                }}
+                size="sm"
+                title="When off, the next queued track won't start automatically at song end"
+              >
+                <Checkbox.HiddenInput />
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                <Checkbox.Label fontSize="xs">Auto-advance</Checkbox.Label>
+              </Checkbox.Root>
+            )}
+            {canResumeOrEmptyControls && (
+              <Tooltip
+                content={
+                  spotifyPlaybackState === "playing"
+                    ? "Pause show music playback on Spotify"
+                    : "Resume show music or start the next queued track"
+                }
+                positioning={{ placement: "top" }}
+              >
+                <IconButton
+                  aria-label={
+                    spotifyPlaybackState === "playing"
+                      ? "Pause show music playback"
+                      : "Play show music"
+                  }
+                  variant="outline"
+                  colorPalette="primary"
+                  size="xs"
+                  onClick={handleTogglePlayback}
+                  loading={playbackTogglePending}
+                  disabled={playbackTogglePending}
+                >
+                  {spotifyPlaybackState === "playing" ? <LuPause /> : <LuPlay />}
+                </IconButton>
+              </Tooltip>
+            )}
+            <ButtonAddToQueue variant="solid" colorPalette="primary" size="xs" showCount={false} />
+          </HStack>
         </HStack>
         {virtualRowCount > 0 ? (
           <Box w="100%">
