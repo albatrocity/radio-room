@@ -35,12 +35,17 @@ export function runVoteTickAnimation(
   void tl.then(() => {
     if (cancelled) return
     completed = true
+    // oldEl stays in the DOM; reset animated inline styles so the updated count stays visible
+    oldEl.style.opacity = ""
+    oldEl.style.transform = ""
     onComplete()
   })
 
   return () => {
     cancelled = true
     tl.revert()
+    oldEl.style.opacity = ""
+    oldEl.style.transform = ""
     if (!completed) onComplete()
   }
 }
