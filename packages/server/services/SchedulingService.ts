@@ -280,9 +280,12 @@ export async function reorderShowSegments(showId: string, segmentIds: string[]) 
       .from(showSegment)
       .where(eq(showSegment.showId, showId))
 
-    const overrideBySegmentId = new Map(
-      existing.map((r) => [r.segmentId, r.durationOverride ?? null]),
-    )
+    const overridePools = new Map<string, (number | null)[]>()
+    for (const row of existing) {
+      const pool = overridePools.get(row.segmentId) ?? []
+      pool.push(row.durationOverride ?? null)
+      overridePools.set(row.segmentId, pool)
+    }
 
     await tx.delete(showSegment).where(eq(showSegment.showId, showId))
 
@@ -295,7 +298,7 @@ export async function reorderShowSegments(showId: string, segmentIds: string[]) 
           showId,
           segmentId,
           position: index,
-          durationOverride: overrideBySegmentId.get(segmentId) ?? null,
+          durationOverride: overridePools.get(segmentId)?.shift() ?? null,
         })),
       )
       .returning()

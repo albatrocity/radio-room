@@ -109,7 +109,6 @@ function ShowDetailPage() {
   }
 
   function handleAddSegmentToShowEnd(segmentId: string) {
-    if (currentSegmentIds.includes(segmentId)) return
     reorderSegments.mutate({
       showId,
       segmentIds: [...currentSegmentIds, segmentId],
@@ -142,8 +141,6 @@ function ShowDetailPage() {
 
     // Drag from segment browser list → timeline (empty list: root droppable; with rows: sortable targets)
     if (data && "source" in data && data.source === "segment-browser" && draggedSegment) {
-      if (currentSegmentIds.includes(draggedSegment.id)) return
-
       if (String(target.id) === "timeline") {
         reorderSegments.mutate({
           showId,
@@ -397,7 +394,6 @@ function ShowDetailPage() {
                   </Box>
                   <Box w={{ base: "100%", lg: "320px" }} flexShrink={0}>
                     <SegmentBrowser
-                      excludeSegmentIds={currentSegmentIds}
                       onAddSegmentToShowEnd={handleAddSegmentToShowEnd}
                       isAddToShowPending={reorderSegments.isPending}
                     />

@@ -33,12 +33,18 @@ function buildOptimisticShowSegments(
   segmentIds: string[],
 ): ShowSegmentDTO[] | null {
   const prevSegments = previousShow.segments ?? []
-  const bySegmentId = new Map(prevSegments.map((s) => [s.segmentId, s]))
+  const placementsBySegmentId = new Map<string, ShowSegmentDTO[]>()
+  for (const placement of prevSegments) {
+    const pool = placementsBySegmentId.get(placement.segmentId) ?? []
+    pool.push(placement)
+    placementsBySegmentId.set(placement.segmentId, pool)
+  }
 
   const next: ShowSegmentDTO[] = []
   for (let index = 0; index < segmentIds.length; index++) {
     const segmentId = segmentIds[index]
-    const existing = bySegmentId.get(segmentId)
+    const pool = placementsBySegmentId.get(segmentId)
+    const existing = pool?.shift()
     if (existing) {
       next.push({ ...existing, position: index })
       continue
@@ -46,7 +52,7 @@ function buildOptimisticShowSegments(
     const fromCache = findSegmentDtoInCache(queryClient, segmentId)
     if (!fromCache) return null
     next.push({
-      id: `optimistic-${segmentId}`,
+      id: `optimistic-${segmentId}-${index}`,
       segmentId,
       position: index,
       durationOverride: null,
