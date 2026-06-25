@@ -1,0 +1,22 @@
+{
+  "name": "@repo/spotify-catalog",
+  "version": "1.0.0",
+  "description": "Spotify catalog search (client-credentials) and track normalization",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@repo/types": "*",
+    "@spotify/web-api-ts-sdk": "^1.2.0",
+    "zod": "^4.4.2"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.13"
+  }
+}

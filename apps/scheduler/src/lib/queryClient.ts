@@ -28,4 +28,8 @@ export const queryKeys = {
     all: ["scheduling", "admins"] as const,
     list: () => ["scheduling", "admins", "list"] as const,
   },
+  spotifySearch: {
+    all: ["spotify", "search"] as const,
+    query: (q: string) => ["spotify", "search", q] as const,
+  },
 } as const

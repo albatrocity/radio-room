@@ -28,7 +28,7 @@
     "node": ">=22.16.0"
   },
   "dependencies": {
-    "@repo/adapter-spotify": "*",
+    "@repo/spotify-catalog": "*",
     "@repo/game-logic": "*",
     "@repo/auth": "*",
     "@repo/db": "*",

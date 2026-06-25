@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express"
 import type { AppContext, SetShowSegmentTracksRequest, TagType } from "@repo/types"
+import { searchSpotifyCatalog, SpotifyAppCredentialsError } from "@repo/spotify-catalog"
 import * as scheduling from "../services/SchedulingService"
 import {
   finalizeShowPublish,
@@ -276,11 +277,10 @@ export function createSchedulingRouter(): Router {
         res.status(400).json({ error: "q query parameter is required" })
         return
       }
-      const catalog = await import("@repo/adapter-spotify/lib/catalogSearch")
-      const tracks = await catalog.searchSpotifyCatalog(q)
+      const tracks = await searchSpotifyCatalog(q)
       res.json({ tracks })
     } catch (error) {
-      if (error instanceof Error && error.name === "SpotifyAppCredentialsError") {
+      if (error instanceof SpotifyAppCredentialsError) {
         res.status(503).json({ error: error.message })
         return
       }

@@ -31,8 +31,9 @@ const SHOW_TIMELINE_SORTABLE_GROUP = "show-timeline"
 interface ShowTimelineProps {
   segments: ShowSegmentDTO[]
   showStartTime: string
-  onRemove?: (segmentId: string) => void
+  onRemove?: (showSegmentId: string) => void
   onDurationCommit?: (segmentId: string, durationOverride: number | null) => void
+  onEditTracks?: (showSegment: ShowSegmentDTO) => void
   /** When true, no drag/drop, duration edits, remove, or assignee changes. */
   readOnly?: boolean
 }
@@ -48,6 +49,7 @@ export function ShowTimeline({
   showStartTime,
   onRemove,
   onDurationCommit,
+  onEditTracks,
   readOnly = false,
 }: ShowTimelineProps) {
   const { ref, isDropTarget: isTimelineRootDropTarget } = useDroppable({ id: "timeline" })
@@ -104,14 +106,15 @@ export function ShowTimeline({
           <Timeline.Root>
             {segments.map((showSeg, index) => (
               <TimelineItem
-                key={showSeg.segmentId}
+                key={showSeg.id}
                 showSegment={showSeg}
                 index={index}
                 estimatedStart={startTimes[index]!}
                 onRemove={readOnly ? undefined : onRemove}
                 onDurationCommit={readOnly ? undefined : onDurationCommit}
+                onEditTracks={onEditTracks}
                 readOnly={readOnly}
-                segmentBrowserRowHighlight={segmentBrowserRowHighlightId === showSeg.segmentId}
+                segmentBrowserRowHighlight={segmentBrowserRowHighlightId === showSeg.id}
               />
             ))}
           </Timeline.Root>
@@ -135,25 +138,28 @@ function TimelineItem({
   estimatedStart,
   onRemove,
   onDurationCommit,
+  onEditTracks,
   readOnly,
   segmentBrowserRowHighlight,
 }: {
   showSegment: ShowSegmentDTO
   index: number
   estimatedStart: Date
-  onRemove?: (segmentId: string) => void
+  onRemove?: (showSegmentId: string) => void
   onDurationCommit?: (segmentId: string, durationOverride: number | null) => void
+  onEditTracks?: (showSegment: ShowSegmentDTO) => void
   readOnly?: boolean
   segmentBrowserRowHighlight?: boolean
 }) {
   const { ref, handleRef, isDragging, isDropTarget } = useSortable({
-    id: showSegment.segmentId,
+    id: showSegment.id,
     index,
     group: SHOW_TIMELINE_SORTABLE_GROUP,
     disabled: readOnly,
   })
 
   const seg = showSegment.segment
+  const trackCount = showSegment.tracks?.length ?? 0
   const rowDropActive = isDropTarget || segmentBrowserRowHighlight
 
   const [durationDraft, setDurationDraft] = useState(() => displayMinutesForInput(showSegment))
@@ -265,6 +271,21 @@ function TimelineItem({
                 </Wrap>
               </HStack>
             )}
+
+            {onEditTracks && (
+              <Button
+                size="xs"
+                variant="outline"
+                alignSelf="flex-start"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEditTracks(showSegment)
+                }}
+              >
+                Edit tracks ({trackCount})
+              </Button>
+            )}
           </Stack>
         </Timeline.Description>
       </Timeline.Content>
@@ -280,7 +301,7 @@ function TimelineItem({
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation()
-                onRemove(showSegment.segmentId)
+                onRemove(showSegment.id)
               }}
             >
               <Trash2 size={14} />

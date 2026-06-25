@@ -1,10 +1,10 @@
 import { SpotifyApi } from "@spotify/web-api-ts-sdk"
 import type { MetadataSourceTrack } from "@repo/types"
-import { trackItemSchema } from "./schemas"
+import { trackItemSchema } from "./trackItemSchema"
 import {
   getSpotifyClientCredentialsToken,
   SpotifyAppCredentialsError,
-} from "./operations/getSpotifyClientCredentialsToken"
+} from "./getSpotifyClientCredentialsToken"
 
 export { SpotifyAppCredentialsError }
 

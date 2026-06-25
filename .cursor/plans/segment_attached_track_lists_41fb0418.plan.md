@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: scheduler-track-picker
     content: Add SegmentTrackPicker drawer (search + dnd reorder) wired from a per-row "Edit tracks (N)" button in ShowTimeline
-    status: pending
+    status: completed
   - id: placement-identity
     content: Thread showSegmentId (placement id) through snapshot, ACTIVATE_SEGMENT, activateRoomSegment, room.activeShowSegmentId, and RoomSchedulePanel key/highlight
     status: pending
@@ -108,6 +108,8 @@ flowchart TD
 - In the show detail timeline [ShowTimeline.tsx](apps/scheduler/src/components/shows/ShowTimeline.tsx): render an **"Edit tracks (N)"** button on every placement row that opens a new `SegmentTrackPicker` drawer (N = current attached track count). The picker and the `PUT` target are keyed by the placement id (`showSegment.id`). Note: the timeline currently keys rows and the dnd sortable by `segmentId` (e.g. `key={showSeg.segmentId}`, `useSortable({ id: showSegment.segmentId })`), which breaks when a segment is placed twice; switch these to `showSegment.id` as part of this work.
 - New `SegmentTrackPicker` drawer: debounced search input -> `GET /spotify/search`, add results to an ordered list, reorder via the already-present `@dnd-kit/react`, remove rows, Save -> `PUT /show-segments/:id/tracks`.
 - Add API client functions + a `useShowSegmentTracks` hook (TanStack Query), following [apps/scheduler/src/lib/api.ts](apps/scheduler/src/lib/api.ts) and existing hooks.
+
+**Notes (2026-06-25):** `SegmentTrackPicker` drawer + `useSaveShowSegmentTracks` / `useSpotifyTrackSearch`. Timeline reorder/remove now uses placement ids (`showSegment.id`) so duplicate segment placements work for DnD; published shows open the drawer read-only (view tracks, no search/save).
 
 ## 5. Placement-based activation identity (`packages/server` + `apps/web`)
 

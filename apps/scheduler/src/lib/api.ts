@@ -14,7 +14,10 @@ import type {
   SchedulingAdminUserDTO,
   RoomExportDTO,
   RoomExportPlaylistLinks,
+  ShowSegmentTrackDTO,
+  SetShowSegmentTracksRequest,
 } from "@repo/types"
+import type { MetadataSourceTrack } from "@repo/types/MetadataSource"
 import type { QueueItem } from "@repo/types/Queue"
 
 const API_URL = import.meta.env.VITE_API_URL || ""
@@ -125,6 +128,28 @@ export async function updateShowSegmentDuration(
   await api.patch(`api/scheduling/shows/${showId}/segments/${segmentId}`, {
     json: { durationOverride },
   })
+}
+
+export async function searchSpotifyTracks(query: string): Promise<MetadataSourceTrack[]> {
+  const res = await api.get("api/scheduling/spotify/search", {
+    searchParams: { q: query },
+  })
+  const data = await res.json<{ tracks: MetadataSourceTrack[] }>()
+  return data.tracks
+}
+
+export async function setShowSegmentTracks(
+  showSegmentId: string,
+  tracks: MetadataSourceTrack[],
+): Promise<ShowSegmentTrackDTO[]> {
+  const body: SetShowSegmentTracksRequest = {
+    tracks: tracks.map((trackPayload) => ({ trackPayload })),
+  }
+  const res = await api.put(`api/scheduling/show-segments/${showSegmentId}/tracks`, {
+    json: body,
+  })
+  const data = await res.json<{ tracks: ShowSegmentTrackDTO[] }>()
+  return data.tracks
 }
 
 // ---------------------------------------------------------------------------
