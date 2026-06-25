@@ -4,10 +4,10 @@ overview: Let scheduler admins curate an ordered, searchable track list per segm
 todos:
   - id: db
     content: Add show_segment_track table and migration in packages/db
-    status: pending
+    status: completed
   - id: types
     content: Add ShowSegmentTrackDTO and tracks[] on ShowSegmentDTO in packages/types/Scheduling.ts
-    status: pending
+    status: completed
   - id: spotify-search
     content: Add client-credentials Spotify token helper in adapter-spotify and GET /api/scheduling/spotify/search route
     status: pending
@@ -84,10 +84,14 @@ flowchart TD
 - Add Drizzle relations (`showSegment` -> many `showSegmentTrack`).
 - Generate a new migration (next number after `0006`) via the repo's drizzle workflow.
 
+**Notes (2026-06-25):** Migration `0007_cloudy_thanos.sql`. Added `created_at` / `updated_at` on `show_segment_track` (plan listed "timestamps" vaguely; omitted `playedAt`/`addedAt`/`tidalTrackId` from `room_playlist_track` since segment tracks are pre-curated, not post-show playback rows).
+
 ## 2. Types (`packages/types/Scheduling.ts`)
 
 - Add `tracks?: ShowSegmentTrackDTO[]` to `ShowSegmentDTO`.
 - New `ShowSegmentTrackDTO` (position, title, source ids, payload).
+
+**Notes (2026-06-25):** `ShowSegmentTrackDTO` includes `createdAt`/`updatedAt` ISO strings and `trackPayload: MetadataSourceTrack | null` (typed import from `./MetadataSource`).
 
 ## 3. Server: scheduling CRUD + search
 

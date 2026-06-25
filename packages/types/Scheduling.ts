@@ -1,5 +1,6 @@
 import type { PluginPreset } from "./PluginPreset"
 import type { GameSessionConfig } from "./GameSession"
+import type { MetadataSourceTrack } from "./MetadataSource"
 
 // ---------------------------------------------------------------------------
 // Segment room settings (applied on activation in listening room)
@@ -74,6 +75,20 @@ export interface RoomPlaylistTrackDTO {
   mediaSourceTrackId: string | null
 }
 
+/** Ordered track attached to a show-segment placement (curated in scheduler). */
+export interface ShowSegmentTrackDTO {
+  id: string
+  position: number
+  title: string
+  mediaSourceType: string | null
+  mediaSourceTrackId: string | null
+  spotifyTrackId: string | null
+  /** Full search result from scheduler; used for display and injection. */
+  trackPayload: MetadataSourceTrack | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface ShowDTO {
   id: string
   title: string
@@ -132,6 +147,8 @@ export interface ShowSegmentDTO {
   /** Per-show override in minutes; effective = durationOverride ?? segment.duration */
   durationOverride: number | null
   segment: SegmentDTO
+  /** Ordered tracks curated for this placement in the scheduler. */
+  tracks?: ShowSegmentTrackDTO[]
 }
 
 export interface ShowSummaryDTO {

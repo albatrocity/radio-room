@@ -166,6 +166,31 @@ export const roomPlaylistTrack = pgTable(
   ],
 )
 
+/** Ordered tracks attached to a show-segment placement (curated in scheduler). */
+export const showSegmentTrack = pgTable(
+  "show_segment_track",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    showSegmentId: text("show_segment_id")
+      .notNull()
+      .references(() => showSegment.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    title: text("title").notNull().default(""),
+    mediaSourceType: text("media_source_type"),
+    mediaSourceTrackId: text("media_source_track_id"),
+    spotifyTrackId: text("spotify_track_id"),
+    trackPayload: jsonb("track_payload"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("show_segment_track_show_segment_id_idx").on(table.showSegmentId),
+    unique("show_segment_track_position_unique").on(table.showSegmentId, table.position),
+  ],
+)
+
 // ---------------------------------------------------------------------------
 // Relations
 // ---------------------------------------------------------------------------
@@ -203,9 +228,17 @@ export const tagRelations = relations(tag, ({ many }) => ({
   showTags: many(showTag),
 }))
 
-export const showSegmentRelations = relations(showSegment, ({ one }) => ({
+export const showSegmentRelations = relations(showSegment, ({ one, many }) => ({
   show: one(show, { fields: [showSegment.showId], references: [show.id] }),
   segment: one(segment, { fields: [showSegment.segmentId], references: [segment.id] }),
+  tracks: many(showSegmentTrack),
+}))
+
+export const showSegmentTrackRelations = relations(showSegmentTrack, ({ one }) => ({
+  showSegment: one(showSegment, {
+    fields: [showSegmentTrack.showSegmentId],
+    references: [showSegment.id],
+  }),
 }))
 
 export const segmentTagRelations = relations(segmentTag, ({ one }) => ({
