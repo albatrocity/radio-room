@@ -21,6 +21,7 @@ export function buildRoomScheduleSnapshotPayload(show: ShowRowForSnapshot): Room
     const durationMinutes = (ss.durationOverride ?? seg.duration) ?? 0
     const pluginPreset = (seg.pluginPreset as PluginPreset | null | undefined) ?? null
     return {
+      showSegmentId: ss.id,
       segmentId: ss.segmentId,
       position: ss.position,
       durationOverride: ss.durationOverride,

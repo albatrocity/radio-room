@@ -51,6 +51,7 @@ export function withDefaults(
     public: true,
     showId: undefined,
     activeSegmentId: undefined,
+    activeShowSegmentId: undefined,
     ...roomDetails,
     deputizeOnJoin: roomDetails.deputizeOnJoin || false,
   }

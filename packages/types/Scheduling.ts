@@ -160,6 +160,8 @@ export interface ShowSummaryDTO {
 
 /** Segment slice stored in room schedule snapshot (Redis + socket). */
 export interface RoomScheduleSnapshotSegmentDTO {
+  /** Placement id (`show_segment.id`); disambiguates duplicate segment instances on one show */
+  showSegmentId: string
   segmentId: string
   position: number
   durationOverride: number | null

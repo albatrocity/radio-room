@@ -51,6 +51,7 @@ export type Room = {
   allowChatImages?: boolean
   showId?: string | null
   activeSegmentId?: string | null
+  activeShowSegmentId?: string | null
   showSchedulePublic?: boolean
   announceActiveSegment?: boolean
   public?: boolean

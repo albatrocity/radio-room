@@ -75,6 +75,8 @@ export type Room = {
   showId?: string | null
   /** Currently active segment within the attached show */
   activeSegmentId?: string | null
+  /** Placement id (`show_segment.id`) for the active segment; disambiguates duplicate segment instances */
+  activeShowSegmentId?: string | null
   /** When true, non-admins see the show timeline in the room sidebar */
   showSchedulePublic?: boolean
   /** When true, segment activation posts a system chat message with the segment title */

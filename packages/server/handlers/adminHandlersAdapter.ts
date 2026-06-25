@@ -133,13 +133,14 @@ export class AdminHandlers {
    */
   activateSegment = async (
     { socket }: HandlerConnections,
-    data: { segmentId: string; presetMode: PresetApplyMode },
+    data: { segmentId: string; showSegmentId?: string; presetMode: PresetApplyMode },
   ) => {
     const result = await activateRoomSegment({
       context: socket.context,
       roomId: socket.data.roomId,
       userId: socket.data.userId,
       segmentId: data.segmentId,
+      showSegmentId: data.showSegmentId,
       presetMode: data.presetMode,
     })
 

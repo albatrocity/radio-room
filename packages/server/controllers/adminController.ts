@@ -57,7 +57,11 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
    */
   socket.on(
     "SET_ACTIVE_SEGMENT",
-    async (data: { segmentId: string; presetMode: "merge" | "replace" | "skip" }) => {
+    async (data: {
+      segmentId: string
+      showSegmentId?: string
+      presetMode: "merge" | "replace" | "skip"
+    }) => {
       await handlers.activateSegment(connections, data)
     },
   )

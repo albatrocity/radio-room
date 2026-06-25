@@ -42,9 +42,10 @@ export async function activateRoomSegment(params: {
   roomId: string
   userId: string
   segmentId: string
+  showSegmentId?: string | null
   presetMode: PresetApplyMode
 }): Promise<{ ok: true; room: Room } | { ok: false; error: ErrorBody }> {
-  const { context, roomId, userId, segmentId, presetMode } = params
+  const { context, roomId, userId, segmentId, showSegmentId, presetMode } = params
 
   const room = await findRoom({ context, roomId })
   if (!room) {
@@ -75,7 +76,10 @@ export async function activateRoomSegment(params: {
     return { ok: false, error: { status: 404, error: "Not Found", message: "Show not found." } }
   }
 
-  const showRow = show.segments?.find((s) => s.segmentId === segmentId)
+  const showSegments = show.segments ?? []
+  const showRow = showSegmentId
+    ? showSegments.find((s) => s.id === showSegmentId)
+    : showSegments.find((s) => s.segmentId === segmentId)
   if (!showRow) {
     return {
       ok: false,
@@ -86,6 +90,20 @@ export async function activateRoomSegment(params: {
       },
     }
   }
+
+  if (showSegmentId && showRow.segmentId !== segmentId) {
+    return {
+      ok: false,
+      error: {
+        status: 400,
+        error: "Bad Request",
+        message: "Segment placement does not match the requested segment.",
+      },
+    }
+  }
+
+  const resolvedSegmentId = showRow.segmentId
+  const resolvedShowSegmentId = showRow.id
 
   const segment = showRow.segment as SegmentDTO
   const preset = segment.pluginPreset
@@ -108,7 +126,12 @@ export async function activateRoomSegment(params: {
   const previousRoom = room
   const base = omit(room, ["spotifyError", "radioError"] as const)
   const overridePatch = patchRoomFromSegmentOverride(segment.roomSettingsOverride)
-  const mergedRoom: Room = { ...base, ...overridePatch, activeSegmentId: segmentId }
+  const mergedRoom: Room = {
+    ...base,
+    ...overridePatch,
+    activeSegmentId: resolvedSegmentId,
+    activeShowSegmentId: resolvedShowSegmentId,
+  }
 
   await saveRoom({
     context,
@@ -122,7 +145,11 @@ export async function activateRoomSegment(params: {
       previousFetchMeta: previousRoom.fetchMeta,
       newFetchMeta: mergedRoom.fetchMeta,
     })
-  } else if (isStreamingMode(mergedRoom) && previousRoom.activeSegmentId !== segmentId) {
+  } else if (
+    isStreamingMode(mergedRoom) &&
+    (previousRoom.activeShowSegmentId !== resolvedShowSegmentId ||
+      previousRoom.activeSegmentId !== resolvedSegmentId)
+  ) {
     await enterStreamingMode(context, roomId)
   }
 
@@ -136,7 +163,7 @@ export async function activateRoomSegment(params: {
     await context.systemEvents.emit(roomId, "SEGMENT_ACTIVATED", {
       roomId,
       showId: room.showId,
-      segmentId,
+      segmentId: resolvedSegmentId,
       segmentTitle: segment.title,
     })
   }
@@ -241,7 +268,7 @@ export async function activateRoomSegment(params: {
       await gameSessions.endSession(roomId)
 
       if (presetMode !== "skip" && gamePreset) {
-        await gameSessions.startSession(roomId, { ...gamePreset, segmentId })
+        await gameSessions.startSession(roomId, { ...gamePreset, segmentId: resolvedSegmentId })
       }
     } catch (e) {
       console.error("[activateRoomSegment] game session sync failed:", e)

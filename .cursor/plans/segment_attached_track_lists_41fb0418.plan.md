@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: placement-identity
     content: Thread showSegmentId (placement id) through snapshot, ACTIVATE_SEGMENT, activateRoomSegment, room.activeShowSegmentId, and RoomSchedulePanel key/highlight
-    status: pending
+    status: completed
   - id: activation-signal
     content: Emit targeted SEGMENT_TRACKS_AVAILABLE on activation when the placement has tracks
     status: pending
@@ -119,6 +119,8 @@ This makes activation handle a segment placed multiple times in one show, and is
 - **Snapshot**: include `showSegmentId: ss.id` per row in `buildRoomScheduleSnapshotPayload` ([scheduleRedisSnapshot.ts](packages/server/operations/scheduleRedisSnapshot.ts)) and add it to the segment entry type in `RoomScheduleSnapshotDTO` ([packages/types/Scheduling.ts](packages/types/Scheduling.ts)). Carry it through `snapshotToShowDTO` ([apps/web/src/lib/snapshotToShow.ts](apps/web/src/lib/snapshotToShow.ts)).
 - **Activation contract**: `ACTIVATE_SEGMENT` / `SET_ACTIVE_SEGMENT` payload gains `showSegmentId`; pass it through [adminMachine.ts](apps/web/src/machines/adminMachine.ts), [adminController.ts](packages/server/controllers/adminController.ts), and [adminHandlersAdapter.ts](packages/server/handlers/adminHandlersAdapter.ts). `activateRoomSegment` accepts `showSegmentId`, looks up the placement by `ss.id` (not first-by-segmentId), and sets both `activeSegmentId` and `activeShowSegmentId`. Keep backward compatibility: if only `segmentId` arrives (stale client/snapshot), fall back to the first placement.
 - **Web panel** ([RoomSchedulePanel.tsx](apps/web/src/components/RoomSchedulePanel.tsx)): key rows by `showSegmentId`, highlight Active by `room.activeShowSegmentId === ss.id`, and send `showSegmentId` on Activate.
+
+**Notes (2026-06-25):** Implemented as written. `snapshotToShowDTO` falls back to `${showId}:${segmentId}` when `showSegmentId` is missing on legacy snapshots. Clear-active-segment in admin Schedule settings clears both `activeSegmentId` and `activeShowSegmentId`. Streaming-mode re-entry on activation also compares `activeShowSegmentId` so switching between duplicate placements triggers display refresh.
 
 ## 6. Queue injection (`packages/server` + `apps/web`)
 

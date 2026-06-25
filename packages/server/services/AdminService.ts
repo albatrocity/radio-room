@@ -286,6 +286,7 @@ export class AdminService {
     }
     if ("showId" in values && values.showId === null) {
       delete (newSettings as { activeSegmentId?: string | null }).activeSegmentId
+      delete (newSettings as { activeShowSegmentId?: string | null }).activeShowSegmentId
     }
 
     if ("showId" in values) {
@@ -335,10 +336,13 @@ export class AdminService {
 
     const scheduleFieldsToClear: string[] = []
     if ("showId" in values && values.showId === null) {
-      scheduleFieldsToClear.push("showId", "activeSegmentId")
+      scheduleFieldsToClear.push("showId", "activeSegmentId", "activeShowSegmentId")
     }
     if ("activeSegmentId" in values && values.activeSegmentId === null) {
-      scheduleFieldsToClear.push("activeSegmentId")
+      scheduleFieldsToClear.push("activeSegmentId", "activeShowSegmentId")
+    }
+    if ("activeShowSegmentId" in values && values.activeShowSegmentId === null) {
+      scheduleFieldsToClear.push("activeShowSegmentId")
     }
     if (scheduleFieldsToClear.length > 0) {
       await hDelRoomDetailsFields({

@@ -65,6 +65,7 @@ export default function RoomSchedulePanel() {
 
   const [activateDialogOpen, setActivateDialogOpen] = useState(false)
   const [pendingSegmentId, setPendingSegmentId] = useState<string | null>(null)
+  const [pendingShowSegmentId, setPendingShowSegmentId] = useState<string | null>(null)
   const [pendingTitle, setPendingTitle] = useState("")
 
   const [notesOpen, setNotesOpen] = useState(false)
@@ -79,25 +80,30 @@ export default function RoomSchedulePanel() {
 
   const visible = !!showId && (isAdmin || room?.showSchedulePublic === true)
 
-  const activateSegmentImmediate = (segmentId: string) => {
+  const activateSegmentImmediate = (ss: ShowSegmentDTO) => {
     adminSend({
       type: "ACTIVATE_SEGMENT",
-      data: { segmentId, presetMode: "skip" },
+      data: {
+        segmentId: ss.segmentId,
+        showSegmentId: ss.id,
+        presetMode: "skip",
+      },
     })
   }
 
-  const openPresetDialog = (segmentId: string, title: string) => {
-    setPendingSegmentId(segmentId)
-    setPendingTitle(title)
+  const openPresetDialog = (ss: ShowSegmentDTO) => {
+    setPendingSegmentId(ss.segmentId)
+    setPendingShowSegmentId(ss.id)
+    setPendingTitle(ss.segment?.title ?? "")
     setActivateDialogOpen(true)
   }
 
   const onActivateClick = (ss: ShowSegmentDTO) => {
     const seg = ss.segment
     if (segmentHasSavedPluginPreset(seg)) {
-      openPresetDialog(ss.segmentId, seg?.title ?? "")
+      openPresetDialog(ss)
     } else {
-      activateSegmentImmediate(ss.segmentId)
+      activateSegmentImmediate(ss)
     }
   }
 
@@ -105,10 +111,15 @@ export default function RoomSchedulePanel() {
     if (!pendingSegmentId) return
     adminSend({
       type: "ACTIVATE_SEGMENT",
-      data: { segmentId: pendingSegmentId, presetMode },
+      data: {
+        segmentId: pendingSegmentId,
+        showSegmentId: pendingShowSegmentId ?? undefined,
+        presetMode,
+      },
     })
     setActivateDialogOpen(false)
     setPendingSegmentId(null)
+    setPendingShowSegmentId(null)
     setPendingTitle("")
   }
 
@@ -234,10 +245,10 @@ export default function RoomSchedulePanel() {
             </Text>
             <VStack align="stretch" gap={1} maxH="220px" overflowY="auto">
               {segments.map((ss, i) => {
-                const active = room?.activeSegmentId === ss.segmentId
+                const active = room?.activeShowSegmentId === ss.id
                 return (
                   <HStack
-                    key={ss.segmentId}
+                    key={ss.id}
                     justify="space-between"
                     gap={2}
                     py={1}
@@ -290,6 +301,7 @@ export default function RoomSchedulePanel() {
           if (!e.open) {
             setActivateDialogOpen(false)
             setPendingSegmentId(null)
+            setPendingShowSegmentId(null)
             setPendingTitle("")
           }
         }}

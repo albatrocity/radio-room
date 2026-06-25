@@ -24,7 +24,11 @@ export type AdminEvent =
     }
   | {
       type: "ACTIVATE_SEGMENT"
-      data: { segmentId: string; presetMode: "merge" | "replace" | "skip" }
+      data: {
+        segmentId: string
+        showSegmentId?: string
+        presetMode: "merge" | "replace" | "skip"
+      }
     }
   | {
       type: "CLEAR_PLAYLIST"

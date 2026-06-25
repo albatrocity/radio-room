@@ -40,6 +40,7 @@ describe("buildRoomScheduleSnapshotPayload", () => {
     expect(snap.showTitle).toBe("Evening")
     expect(snap.startTime).toBe("2026-04-01T20:00:00.000Z")
     expect(snap.segments).toHaveLength(2)
+    expect(snap.segments[0].showSegmentId).toBe("join-1")
     expect(snap.segments[0].segmentId).toBe("seg-a")
     expect(snap.segments[0].durationMinutes).toBe(20)
     expect(snap.segments[0].durationOverride).toBe(20)

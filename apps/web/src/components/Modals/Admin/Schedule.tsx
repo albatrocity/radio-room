@@ -196,7 +196,10 @@ export default function Schedule() {
                   size="sm"
                   alignSelf="flex-start"
                   onClick={() =>
-                    send({ type: "SET_SETTINGS", data: { activeSegmentId: null } } as any)
+                    send({
+                      type: "SET_SETTINGS",
+                      data: { activeSegmentId: null, activeShowSegmentId: null },
+                    } as any)
                   }
                 >
                   Clear active segment
