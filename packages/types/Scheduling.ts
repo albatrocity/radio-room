@@ -249,6 +249,13 @@ export interface CreateTagRequest {
   type: TagType
 }
 
+/** Body for PUT /api/scheduling/show-segments/:id/tracks */
+export interface SetShowSegmentTracksRequest {
+  tracks: Array<{
+    trackPayload: MetadataSourceTrack
+  }>
+}
+
 // ---------------------------------------------------------------------------
 // Query parameters
 // ---------------------------------------------------------------------------

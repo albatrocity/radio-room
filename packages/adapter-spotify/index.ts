@@ -15,6 +15,11 @@ export { createSpotifyServiceAuthAdapter } from "./lib/serviceAuth"
 export { createPlayerQueryJob } from "./lib/playerQueryJob"
 export { createQueueSyncJob } from "./lib/queueSyncJob"
 export { createTrackAdvanceJob } from "./lib/trackAdvanceJob"
+export { searchSpotifyCatalog, SpotifyAppCredentialsError } from "./lib/catalogSearch"
+export {
+  getSpotifyClientCredentialsToken,
+  clearSpotifyClientCredentialsTokenCache,
+} from "./lib/operations/getSpotifyClientCredentialsToken"
 
 // Export the MediaSource adapter
 export const mediaSource: MediaSourceAdapter = spotifyMediaSource

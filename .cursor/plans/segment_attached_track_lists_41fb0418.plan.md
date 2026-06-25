@@ -10,10 +10,10 @@ todos:
     status: completed
   - id: spotify-search
     content: Add client-credentials Spotify token helper in adapter-spotify and GET /api/scheduling/spotify/search route
-    status: pending
+    status: completed
   - id: scheduling-crud
     content: Load/persist show_segment_track in SchedulingService + PUT tracks route
-    status: pending
+    status: completed
   - id: scheduler-track-picker
     content: Add SegmentTrackPicker drawer (search + dnd reorder) wired from a per-row "Edit tracks (N)" button in ShowTimeline
     status: pending
@@ -100,6 +100,8 @@ flowchart TD
   - `PUT /api/scheduling/show-segments/:id/tracks` (body: ordered track list) for curation.
   - `GET /api/scheduling/spotify/search?q=` for track search (behind existing `requireAdmin`).
 - New app-token helper in `packages/adapter-spotify` (e.g. `getSpotifyClientCredentialsToken()`), mirroring the fetch in [packages/adapter-spotify/lib/operations/refreshSpotifyAccessToken.ts](packages/adapter-spotify/lib/operations/refreshSpotifyAccessToken.ts) but `grant_type=client_credentials`, with in-memory caching until expiry. Search via `SpotifyApi.withAccessToken` (pass a `market`, e.g. `US`, since client-credentials results can otherwise look unavailable). Normalize to `MetadataSourceTrack[]` using the existing `trackItemSchema`. Returns a clear error if `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` are unset.
+
+**Notes (2026-06-25):** `searchSpotifyCatalog` in `lib/catalogSearch.ts`; routes `PUT /show-segments/:id/tracks` and `GET /spotify/search`. Server uses dynamic import of `catalogSearch` to avoid a static circular dep with `@repo/adapter-spotify`. Added `SetShowSegmentTracksRequest` to types. `findShowById` always includes `tracks` on each placement (empty array when none).
 
 ## 4. Scheduler UI (`apps/scheduler`)
 
