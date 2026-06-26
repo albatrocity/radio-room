@@ -11,6 +11,7 @@ import {
   CloseButton,
   VStack,
   Box,
+  Portal,
 } from "@chakra-ui/react"
 import { interpolateTemplate, interpolatePropsRecursively } from "@repo/utils"
 import { pluginComponentMachine } from "../../machines/pluginComponentMachine"
@@ -216,22 +217,24 @@ export function PluginComponentProvider({
             size={modal.size || "md"}
             placement="center"
           >
-            <DialogBackdrop />
-            <DialogPositioner>
-              <DialogContent>
-                <DialogHeader>{interpolatedTitle}</DialogHeader>
-                <DialogCloseTrigger asChild position="absolute" top="2" right="2">
-                  <CloseButton size="sm" />
-                </DialogCloseTrigger>
-                <DialogBody pb={6}>
-                  <VStack align="stretch" gap={4}>
-                    {modal.children.map((child) => (
-                      <PluginComponentRenderer key={child.id} component={child} />
-                    ))}
-                  </VStack>
-                </DialogBody>
-              </DialogContent>
-            </DialogPositioner>
+            <Portal>
+              <DialogBackdrop />
+              <DialogPositioner>
+                <DialogContent>
+                  <DialogHeader>{interpolatedTitle}</DialogHeader>
+                  <DialogCloseTrigger asChild position="absolute" top="2" right="2">
+                    <CloseButton size="sm" />
+                  </DialogCloseTrigger>
+                  <DialogBody pb={6}>
+                    <VStack align="stretch" gap={4}>
+                      {modal.children.map((child) => (
+                        <PluginComponentRenderer key={child.id} component={child} />
+                      ))}
+                    </VStack>
+                  </DialogBody>
+                </DialogContent>
+              </DialogPositioner>
+            </Portal>
           </DialogRoot>
         )
       })}
