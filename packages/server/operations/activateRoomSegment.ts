@@ -44,7 +44,10 @@ export async function activateRoomSegment(params: {
   segmentId: string
   showSegmentId?: string | null
   presetMode: PresetApplyMode
-}): Promise<{ ok: true; room: Room } | { ok: false; error: ErrorBody }> {
+}): Promise<
+  | { ok: true; room: Room; segmentTitle: string; showSegmentId: string }
+  | { ok: false; error: ErrorBody }
+> {
   const { context, roomId, userId, segmentId, showSegmentId, presetMode } = params
 
   const room = await findRoom({ context, roomId })
@@ -275,5 +278,5 @@ export async function activateRoomSegment(params: {
     }
   }
 
-  return { ok: true, room: updatedRoom }
+  return { ok: true, room: updatedRoom, segmentTitle: segment.title, showSegmentId: resolvedShowSegmentId }
 }

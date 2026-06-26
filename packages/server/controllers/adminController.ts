@@ -67,6 +67,16 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
   )
 
   /**
+   * Inject scheduler-curated segment tracks into the queue (admin only).
+   */
+  socket.on(
+    "INJECT_SEGMENT_TRACKS",
+    async (data: { showSegmentId: string; placement: "top" | "bottom" }) => {
+      await handlers.injectSegmentTracks(connections, data)
+    },
+  )
+
+  /**
    * Clear the room's playlist
    */
   socket.on("CLEAR_PLAYLIST", async () => {

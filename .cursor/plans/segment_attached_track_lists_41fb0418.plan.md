@@ -22,13 +22,13 @@ todos:
     status: completed
   - id: activation-signal
     content: Emit targeted SEGMENT_TRACKS_AVAILABLE on activation when the placement has tracks
-    status: pending
+    status: completed
   - id: inject-op
     content: Add INJECT_SEGMENT_TRACKS event + injectSegmentTracksToQueue operation (top/bottom ordered, both playback modes)
-    status: pending
+    status: completed
   - id: web-prompt
     content: Add Top/Bottom/Skip dialog in web RoomSchedulePanel/adminMachine
-    status: pending
+    status: completed
   - id: sync-docs
     content: Update studio-bridge events and add an ADR + index entry
     status: pending
@@ -136,6 +136,8 @@ This makes activation handle a segment placed multiple times in one show, and is
   - **Re-activation is stateless**: every activation re-prompts; dedup makes re-injection near-idempotent.
   - Emits `QUEUE_CHANGED`.
 - Web: in [RoomSchedulePanel.tsx](apps/web/src/components/RoomSchedulePanel.tsx) / [adminMachine.ts](apps/web/src/machines/adminMachine.ts), on `SEGMENT_TRACKS_AVAILABLE` show a Top / Bottom / Skip dialog (same ad-hoc `DialogRoot` pattern already used for the preset merge/replace/skip dialog); hide the **Top** option when `allowTop` is false. On choice (non-skip) send `INJECT_SEGMENT_TRACKS { showSegmentId, placement }`.
+
+**Notes (2026-06-25):** `SEGMENT_TRACKS_AVAILABLE` is emitted from `adminHandlersAdapter.activateSegment` (targeted `socket.emit`, not SystemEvents). Added `suppressQueueChanged` on `DJService.queueSongAs` so bulk inject emits one `QUEUE_CHANGED`. Top placement reorders via a single `setQueue` after batch enqueue (app-controlled only). Handler returns `SEGMENT_TRACKS_INJECTED` with `{ added, skipped }` for a success toast.
 
 ## 7. Keep studio-bridge + docs in sync
 

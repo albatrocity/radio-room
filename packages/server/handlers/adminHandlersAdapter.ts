@@ -1,5 +1,8 @@
 import { AdminService } from "../services/AdminService"
 import { activateRoomSegment, type PresetApplyMode } from "../operations/activateRoomSegment"
+import { injectSegmentTracksToQueue } from "../operations/injectSegmentTracksToQueue"
+import * as scheduling from "../services/SchedulingService"
+import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
 import { HandlerConnections, AppContext } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
@@ -149,7 +152,88 @@ export class AdminHandlers {
         type: "ERROR_OCCURRED",
         data: result.error,
       })
+      return
     }
+
+    const showSegmentId = result.showSegmentId ?? result.room.activeShowSegmentId
+    if (showSegmentId) {
+      const tracks = await scheduling.findShowSegmentTracks(showSegmentId)
+      if (tracks.length > 0) {
+        socket.emit("event", {
+          type: "SEGMENT_TRACKS_AVAILABLE",
+          data: {
+            showSegmentId,
+            segmentTitle: result.segmentTitle,
+            count: tracks.length,
+            allowTop: isAppControlledPlayback(result.room),
+          },
+        })
+      }
+    }
+  }
+
+  /**
+   * Inject scheduler-curated segment tracks into the room queue (admin only).
+   */
+  injectSegmentTracks = async (
+    { socket }: HandlerConnections,
+    data: { showSegmentId: string; placement: "top" | "bottom" },
+  ) => {
+    const room = await (await import("../operations/data")).findRoom({
+      context: socket.context,
+      roomId: socket.data.roomId,
+    })
+    if (!room?.showId) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: {
+          status: 400,
+          error: "Bad Request",
+          message: "This room has no show attached.",
+        },
+      })
+      return
+    }
+
+    const show = await scheduling.findShowById(room.showId)
+    const placementRow = show?.segments?.find((s) => s.id === data.showSegmentId)
+    if (!placementRow) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: {
+          status: 400,
+          error: "Bad Request",
+          message: "Segment placement not found on this show.",
+        },
+      })
+      return
+    }
+
+    const result = await injectSegmentTracksToQueue({
+      context: socket.context,
+      roomId: socket.data.roomId,
+      userId: socket.data.userId,
+      showSegmentId: data.showSegmentId,
+      placement: data.placement,
+      segmentTitle: placementRow.segment.title,
+    })
+
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
+      return
+    }
+
+    socket.emit("event", {
+      type: "SEGMENT_TRACKS_INJECTED",
+      data: {
+        showSegmentId: data.showSegmentId,
+        added: result.added,
+        skipped: result.skipped,
+      },
+    })
   }
 
   /**

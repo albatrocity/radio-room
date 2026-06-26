@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Badge,
   Box,
@@ -25,6 +25,7 @@ import {
 import type { ShowSegmentDTO } from "@repo/types"
 import { LuFileText } from "react-icons/lu"
 import { fetchRoom } from "../actors/roomActor"
+import { subscribeById, unsubscribeById } from "../actors/socketActor"
 import {
   useAdminSend,
   useCurrentRoom,
@@ -32,6 +33,7 @@ import {
   useRoomScheduleSnapshot,
 } from "../hooks/useActors"
 import { fetchShow } from "../lib/schedulingApi"
+import { toast } from "../lib/toasts"
 import { snapshotToShowDTO } from "../lib/snapshotToShow"
 import {
   formatDurationMinutes,
@@ -48,6 +50,13 @@ function segmentHasSavedPluginPreset(segment: ShowSegmentDTO["segment"] | undefi
 }
 
 type NotesTarget = { segmentId: string; title: string }
+
+type SegmentTracksPrompt = {
+  showSegmentId: string
+  segmentTitle: string
+  count: number
+  allowTop: boolean
+}
 
 type ShowNotesCache = {
   cacheKey: string
@@ -68,6 +77,8 @@ export default function RoomSchedulePanel() {
   const [pendingShowSegmentId, setPendingShowSegmentId] = useState<string | null>(null)
   const [pendingTitle, setPendingTitle] = useState("")
 
+  const [tracksPrompt, setTracksPrompt] = useState<SegmentTracksPrompt | null>(null)
+
   const [notesOpen, setNotesOpen] = useState(false)
   const [notesTarget, setNotesTarget] = useState<NotesTarget | null>(null)
   const [notesStatus, setNotesStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
@@ -79,6 +90,28 @@ export default function RoomSchedulePanel() {
   const isSmallScreen = useBreakpointValue({ base: true, md: false }) ?? false
 
   const visible = !!showId && (isAdmin || room?.showSchedulePublic === true)
+
+  useEffect(() => {
+    if (!isAdmin || !room?.id) return
+    const subscriptionId = `room-schedule-tracks-${room.id}`
+    subscribeById(subscriptionId, {
+      send: (event) => {
+        if (event.type === "SEGMENT_TRACKS_AVAILABLE") {
+          setTracksPrompt(event.data as SegmentTracksPrompt)
+        }
+        if (event.type === "SEGMENT_TRACKS_INJECTED") {
+          const data = event.data as { added: number; skipped: number }
+          toast({
+            title: "Segment tracks added",
+            description: `${data.added} added${data.skipped ? `, ${data.skipped} skipped` : ""}`,
+            status: "success",
+            duration: 4000,
+          })
+        }
+      },
+    })
+    return () => unsubscribeById(subscriptionId)
+  }, [isAdmin, room?.id])
 
   const activateSegmentImmediate = (ss: ShowSegmentDTO) => {
     adminSend({
@@ -121,6 +154,15 @@ export default function RoomSchedulePanel() {
     setPendingSegmentId(null)
     setPendingShowSegmentId(null)
     setPendingTitle("")
+  }
+
+  const sendInject = (placement: "top" | "bottom") => {
+    if (!tracksPrompt) return
+    adminSend({
+      type: "INJECT_SEGMENT_TRACKS",
+      data: { showSegmentId: tracksPrompt.showSegmentId, placement },
+    })
+    setTracksPrompt(null)
   }
 
   const closeNotes = useCallback(() => {
@@ -339,6 +381,47 @@ export default function RoomSchedulePanel() {
                 Cancel
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </DialogPositioner>
+      </DialogRoot>
+
+      <DialogRoot
+        open={tracksPrompt !== null}
+        onOpenChange={(e) => {
+          if (!e.open) setTracksPrompt(null)
+        }}
+        placement="center"
+      >
+        <DialogBackdrop />
+        <DialogPositioner>
+          <DialogContent>
+            <DialogHeader fontWeight="semibold">Add segment tracks to queue?</DialogHeader>
+            <DialogCloseTrigger asChild position="absolute" top="2" right="2">
+              <CloseButton size="sm" />
+            </DialogCloseTrigger>
+            <DialogBody>
+              <Text fontSize="sm" mb={3}>
+                <strong>{tracksPrompt?.segmentTitle}</strong> has {tracksPrompt?.count ?? 0} attached
+                track{(tracksPrompt?.count ?? 0) === 1 ? "" : "s"}.
+              </Text>
+              <VStack gap={2} align="stretch">
+                {tracksPrompt?.allowTop ? (
+                  <Button colorPalette="blue" onClick={() => sendInject("top")}>
+                    Add to top of queue
+                  </Button>
+                ) : null}
+                <Button
+                  colorPalette={tracksPrompt?.allowTop ? undefined : "blue"}
+                  variant={tracksPrompt?.allowTop ? "outline" : "solid"}
+                  onClick={() => sendInject("bottom")}
+                >
+                  Add to bottom of queue
+                </Button>
+                <Button variant="ghost" onClick={() => setTracksPrompt(null)}>
+                  Skip
+                </Button>
+              </VStack>
+            </DialogBody>
           </DialogContent>
         </DialogPositioner>
       </DialogRoot>
