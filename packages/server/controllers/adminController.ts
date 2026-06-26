@@ -57,8 +57,22 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
    */
   socket.on(
     "SET_ACTIVE_SEGMENT",
-    async (data: { segmentId: string; presetMode: "merge" | "replace" | "skip" }) => {
+    async (data: {
+      segmentId: string
+      showSegmentId?: string
+      presetMode: "merge" | "replace" | "skip"
+    }) => {
       await handlers.activateSegment(connections, data)
+    },
+  )
+
+  /**
+   * Inject scheduler-curated segment tracks into the queue (admin only).
+   */
+  socket.on(
+    "INJECT_SEGMENT_TRACKS",
+    async (data: { showSegmentId: string; placement: "top" | "bottom" }) => {
+      await handlers.injectSegmentTracks(connections, data)
     },
   )
 

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express"
-import type { AppContext, TagType } from "@repo/types"
+import type { AppContext, SetShowSegmentTracksRequest, TagType } from "@repo/types"
+import { searchSpotifyCatalog, SpotifyAppCredentialsError } from "@repo/spotify-catalog"
 import * as scheduling from "../services/SchedulingService"
 import {
   finalizeShowPublish,
@@ -233,6 +234,58 @@ export function createSchedulingRouter(): Router {
     } catch (error) {
       console.error("Error updating show segment duration:", error)
       res.status(500).json({ error: "Failed to update segment duration" })
+    }
+  })
+
+  router.put("/show-segments/:id/tracks", async (req: Request, res: Response) => {
+    try {
+      const body = req.body as { tracks?: unknown }
+      if (!body || !Array.isArray(body.tracks)) {
+        res.status(400).json({ error: "tracks must be an array" })
+        return
+      }
+      for (const entry of body.tracks) {
+        if (
+          !entry ||
+          typeof entry !== "object" ||
+          !("trackPayload" in entry) ||
+          !(entry as { trackPayload?: { id?: unknown } }).trackPayload ||
+          typeof (entry as { trackPayload: { id?: unknown } }).trackPayload.id !== "string"
+        ) {
+          res.status(400).json({ error: "each track must include trackPayload with id" })
+          return
+        }
+      }
+      const tracks = await scheduling.setShowSegmentTracks(req.params.id, {
+        tracks: body.tracks as SetShowSegmentTracksRequest["tracks"],
+      })
+      if (tracks === null) {
+        res.status(404).json({ error: "Show segment placement not found" })
+        return
+      }
+      res.json({ tracks })
+    } catch (error) {
+      console.error("Error saving show segment tracks:", error)
+      res.status(500).json({ error: "Failed to save show segment tracks" })
+    }
+  })
+
+  router.get("/spotify/search", async (req: Request, res: Response) => {
+    try {
+      const q = req.query.q
+      if (typeof q !== "string" || !q.trim()) {
+        res.status(400).json({ error: "q query parameter is required" })
+        return
+      }
+      const tracks = await searchSpotifyCatalog(q)
+      res.json({ tracks })
+    } catch (error) {
+      if (error instanceof SpotifyAppCredentialsError) {
+        res.status(503).json({ error: error.message })
+        return
+      }
+      console.error("Error searching Spotify catalog:", error)
+      res.status(500).json({ error: "Failed to search tracks" })
     }
   })
 

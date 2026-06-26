@@ -9,8 +9,9 @@ export function snapshotToShowDTO(snapshot: RoomScheduleSnapshotDTO | null): Sho
     const title = inner?.title ?? ""
     const pluginPreset = inner?.pluginPreset ?? null
     const durationMinutes = s.durationMinutes ?? 0
+    const placementId = s.showSegmentId ?? `${snapshot.showId}:${s.segmentId}`
     return {
-      id: `${snapshot.showId}:${s.segmentId}`,
+      id: placementId,
       segmentId: s.segmentId,
       position: s.position ?? 0,
       durationOverride: s.durationOverride ?? null,

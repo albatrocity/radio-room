@@ -91,6 +91,7 @@ describe("activateRoomSegment", () => {
       id: "show-1",
       segments: [
         {
+          id: "placement-1",
           segmentId: "seg-1",
           segment: {
             id: "seg-1",
@@ -153,7 +154,15 @@ describe("activateRoomSegment", () => {
       presetMode: "skip",
     })
     expect(r.ok).toBe(true)
-    expect(m.saveRoom).toHaveBeenCalled()
+    expect(m.saveRoom).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context,
+        room: expect.objectContaining({
+          activeSegmentId: "seg-1",
+          activeShowSegmentId: "placement-1",
+        }),
+      }),
+    )
     expect(emit).toHaveBeenCalledWith(
       "r1",
       "SEGMENT_ACTIVATED",
@@ -181,6 +190,7 @@ describe("activateRoomSegment", () => {
       id: "show-1",
       segments: [
         {
+          id: "placement-1",
           segmentId: "seg-1",
           segment: {
             id: "seg-1",
@@ -225,6 +235,7 @@ describe("activateRoomSegment", () => {
         context,
         room: expect.objectContaining({
           activeSegmentId: "seg-1",
+          activeShowSegmentId: "placement-1",
           deputizeOnJoin: true,
           fetchMeta: false,
         }),
@@ -248,6 +259,7 @@ describe("activateRoomSegment", () => {
       id: "show-1",
       segments: [
         {
+          id: "placement-1",
           segmentId: "seg-1",
           segment: {
             id: "seg-1",
@@ -290,6 +302,7 @@ describe("activateRoomSegment", () => {
         context,
         room: expect.objectContaining({
           activeSegmentId: "seg-1",
+          activeShowSegmentId: "placement-1",
           queueAutoAdvance: false,
         }),
       }),
@@ -301,6 +314,7 @@ describe("activateRoomSegment", () => {
       id: "show-1",
       segments: [
         {
+          id: "placement-1",
           segmentId: "seg-1",
           segment: {
             id: "seg-1",
@@ -431,5 +445,86 @@ describe("activateRoomSegment", () => {
     })
 
     expect(vi.mocked(enterStreamingMode)).not.toHaveBeenCalled()
+  })
+
+  it("activates a specific placement when showSegmentId is provided", async () => {
+    const segmentPayload = {
+      id: "seg-1",
+      title: "Guess the Tune",
+      pluginPreset: null,
+      roomSettingsOverride: null,
+      duration: 5,
+      status: "ready" as const,
+      description: null,
+      isRecurring: false,
+      createdBy: "u1",
+      assignedTo: null,
+      assignee: null,
+      createdAt: "",
+      updatedAt: "",
+    }
+    m.findShowById.mockResolvedValueOnce({
+      id: "show-1",
+      segments: [
+        { id: "placement-1", segmentId: "seg-1", segment: segmentPayload },
+        { id: "placement-2", segmentId: "seg-1", segment: segmentPayload },
+      ],
+    })
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(
+        baseRoom({
+          activeSegmentId: "seg-1",
+          activeShowSegmentId: "placement-1",
+          announceActiveSegment: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        baseRoom({
+          activeSegmentId: "seg-1",
+          activeShowSegmentId: "placement-2",
+          announceActiveSegment: false,
+        }),
+      )
+
+    const r = await activateRoomSegment({
+      context,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      showSegmentId: "placement-2",
+      presetMode: "skip",
+    })
+
+    expect(r.ok).toBe(true)
+    expect(m.saveRoom).toHaveBeenCalledWith(
+      expect.objectContaining({
+        room: expect.objectContaining({
+          activeSegmentId: "seg-1",
+          activeShowSegmentId: "placement-2",
+        }),
+      }),
+    )
+  })
+
+  it("rejects when showSegmentId does not match segmentId", async () => {
+    m.findShowById.mockResolvedValueOnce({
+      id: "show-1",
+      segments: [{ id: "placement-1", segmentId: "seg-1", segment: { id: "seg-1", title: "A" } }],
+    })
+    m.findRoom.mockReset()
+    m.findRoom.mockResolvedValueOnce(baseRoom({ showId: "show-1" }))
+
+    const r = await activateRoomSegment({
+      context,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-other",
+      showSegmentId: "placement-1",
+      presetMode: "skip",
+    })
+
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error.status).toBe(400)
   })
 })

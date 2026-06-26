@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@repo/server": "*",
+    "@repo/spotify-catalog": "*",
     "@repo/utils": "*",
     "@spotify/web-api-ts-sdk": "^1.2.0",
     "express": "^5.1.0",

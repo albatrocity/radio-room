@@ -24,4 +24,12 @@ export type BridgeSnapshot = {
   /** Optional — when set, included on socket INIT (overrides query-param stub). */
   activePoll?: Poll | null
   pollHistory?: PollHistoryEntry[]
+  /** Attached show id for schedule panel preview. */
+  showId?: string | null
+  /** When set with `showId`, drives `SEGMENT_TRACKS_AVAILABLE` after `SET_ACTIVE_SEGMENT`. */
+  segmentTracksStub?: {
+    showSegmentId: string
+    segmentTitle: string
+    count: number
+  } | null
 }

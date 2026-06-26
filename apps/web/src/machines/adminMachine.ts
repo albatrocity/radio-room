@@ -24,7 +24,15 @@ export type AdminEvent =
     }
   | {
       type: "ACTIVATE_SEGMENT"
-      data: { segmentId: string; presetMode: "merge" | "replace" | "skip" }
+      data: {
+        segmentId: string
+        showSegmentId?: string
+        presetMode: "merge" | "replace" | "skip"
+      }
+    }
+  | {
+      type: "INJECT_SEGMENT_TRACKS"
+      data: { showSegmentId: string; placement: "top" | "bottom" }
     }
   | {
       type: "CLEAR_PLAYLIST"
@@ -111,6 +119,10 @@ export const adminMachine = setup({
       if (event.type !== "ACTIVATE_SEGMENT") return
       emitToSocket("SET_ACTIVE_SEGMENT", event.data)
     },
+    injectSegmentTracks: ({ event }) => {
+      if (event.type !== "INJECT_SEGMENT_TRACKS") return
+      emitToSocket("INJECT_SEGMENT_TRACKS", event.data)
+    },
     clearPlaylist: () => {
       emitToSocket("CLEAR_PLAYLIST", {})
     },
@@ -164,6 +176,7 @@ export const adminMachine = setup({
         },
         SET_SETTINGS: { actions: ["setSettings", "notify"], guard: "isAdmin" },
         ACTIVATE_SEGMENT: { actions: ["activateSegment"], guard: "isAdmin" },
+        INJECT_SEGMENT_TRACKS: { actions: ["injectSegmentTracks"], guard: "isAdmin" },
         CLEAR_PLAYLIST: { actions: ["clearPlaylist"], guard: "isAdmin" },
         DELETE_ROOM: { target: ".deleting", guard: "isRoomCreator" },
         DEPUTIZE_DJ: { actions: ["deputizeDj"], guard: "isAdmin" },

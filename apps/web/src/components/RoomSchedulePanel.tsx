@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Badge,
   Box,
@@ -25,6 +25,7 @@ import {
 import type { ShowSegmentDTO } from "@repo/types"
 import { LuFileText } from "react-icons/lu"
 import { fetchRoom } from "../actors/roomActor"
+import { subscribeById, unsubscribeById } from "../actors/socketActor"
 import {
   useAdminSend,
   useCurrentRoom,
@@ -32,6 +33,7 @@ import {
   useRoomScheduleSnapshot,
 } from "../hooks/useActors"
 import { fetchShow } from "../lib/schedulingApi"
+import { toast } from "../lib/toasts"
 import { snapshotToShowDTO } from "../lib/snapshotToShow"
 import {
   formatDurationMinutes,
@@ -49,6 +51,13 @@ function segmentHasSavedPluginPreset(segment: ShowSegmentDTO["segment"] | undefi
 
 type NotesTarget = { segmentId: string; title: string }
 
+type SegmentTracksPrompt = {
+  showSegmentId: string
+  segmentTitle: string
+  count: number
+  allowTop: boolean
+}
+
 type ShowNotesCache = {
   cacheKey: string
   bySegmentId: Map<string, string | null>
@@ -65,7 +74,10 @@ export default function RoomSchedulePanel() {
 
   const [activateDialogOpen, setActivateDialogOpen] = useState(false)
   const [pendingSegmentId, setPendingSegmentId] = useState<string | null>(null)
+  const [pendingShowSegmentId, setPendingShowSegmentId] = useState<string | null>(null)
   const [pendingTitle, setPendingTitle] = useState("")
+
+  const [tracksPrompt, setTracksPrompt] = useState<SegmentTracksPrompt | null>(null)
 
   const [notesOpen, setNotesOpen] = useState(false)
   const [notesTarget, setNotesTarget] = useState<NotesTarget | null>(null)
@@ -79,25 +91,52 @@ export default function RoomSchedulePanel() {
 
   const visible = !!showId && (isAdmin || room?.showSchedulePublic === true)
 
-  const activateSegmentImmediate = (segmentId: string) => {
+  useEffect(() => {
+    if (!isAdmin || !room?.id) return
+    const subscriptionId = `room-schedule-tracks-${room.id}`
+    subscribeById(subscriptionId, {
+      send: (event) => {
+        if (event.type === "SEGMENT_TRACKS_AVAILABLE") {
+          setTracksPrompt(event.data as SegmentTracksPrompt)
+        }
+        if (event.type === "SEGMENT_TRACKS_INJECTED") {
+          const data = event.data as { added: number; skipped: number }
+          toast({
+            title: "Segment tracks added",
+            description: `${data.added} added${data.skipped ? `, ${data.skipped} skipped` : ""}`,
+            status: "success",
+            duration: 4000,
+          })
+        }
+      },
+    })
+    return () => unsubscribeById(subscriptionId)
+  }, [isAdmin, room?.id])
+
+  const activateSegmentImmediate = (ss: ShowSegmentDTO) => {
     adminSend({
       type: "ACTIVATE_SEGMENT",
-      data: { segmentId, presetMode: "skip" },
+      data: {
+        segmentId: ss.segmentId,
+        showSegmentId: ss.id,
+        presetMode: "skip",
+      },
     })
   }
 
-  const openPresetDialog = (segmentId: string, title: string) => {
-    setPendingSegmentId(segmentId)
-    setPendingTitle(title)
+  const openPresetDialog = (ss: ShowSegmentDTO) => {
+    setPendingSegmentId(ss.segmentId)
+    setPendingShowSegmentId(ss.id)
+    setPendingTitle(ss.segment?.title ?? "")
     setActivateDialogOpen(true)
   }
 
   const onActivateClick = (ss: ShowSegmentDTO) => {
     const seg = ss.segment
     if (segmentHasSavedPluginPreset(seg)) {
-      openPresetDialog(ss.segmentId, seg?.title ?? "")
+      openPresetDialog(ss)
     } else {
-      activateSegmentImmediate(ss.segmentId)
+      activateSegmentImmediate(ss)
     }
   }
 
@@ -105,11 +144,25 @@ export default function RoomSchedulePanel() {
     if (!pendingSegmentId) return
     adminSend({
       type: "ACTIVATE_SEGMENT",
-      data: { segmentId: pendingSegmentId, presetMode },
+      data: {
+        segmentId: pendingSegmentId,
+        showSegmentId: pendingShowSegmentId ?? undefined,
+        presetMode,
+      },
     })
     setActivateDialogOpen(false)
     setPendingSegmentId(null)
+    setPendingShowSegmentId(null)
     setPendingTitle("")
+  }
+
+  const sendInject = (placement: "top" | "bottom") => {
+    if (!tracksPrompt) return
+    adminSend({
+      type: "INJECT_SEGMENT_TRACKS",
+      data: { showSegmentId: tracksPrompt.showSegmentId, placement },
+    })
+    setTracksPrompt(null)
   }
 
   const closeNotes = useCallback(() => {
@@ -234,10 +287,10 @@ export default function RoomSchedulePanel() {
             </Text>
             <VStack align="stretch" gap={1} maxH="220px" overflowY="auto">
               {segments.map((ss, i) => {
-                const active = room?.activeSegmentId === ss.segmentId
+                const active = room?.activeShowSegmentId === ss.id
                 return (
                   <HStack
-                    key={ss.segmentId}
+                    key={ss.id}
                     justify="space-between"
                     gap={2}
                     py={1}
@@ -290,6 +343,7 @@ export default function RoomSchedulePanel() {
           if (!e.open) {
             setActivateDialogOpen(false)
             setPendingSegmentId(null)
+            setPendingShowSegmentId(null)
             setPendingTitle("")
           }
         }}
@@ -327,6 +381,47 @@ export default function RoomSchedulePanel() {
                 Cancel
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </DialogPositioner>
+      </DialogRoot>
+
+      <DialogRoot
+        open={tracksPrompt !== null}
+        onOpenChange={(e) => {
+          if (!e.open) setTracksPrompt(null)
+        }}
+        placement="center"
+      >
+        <DialogBackdrop />
+        <DialogPositioner>
+          <DialogContent>
+            <DialogHeader fontWeight="semibold">Add segment tracks to queue?</DialogHeader>
+            <DialogCloseTrigger asChild position="absolute" top="2" right="2">
+              <CloseButton size="sm" />
+            </DialogCloseTrigger>
+            <DialogBody>
+              <Text fontSize="sm" mb={3}>
+                <strong>{tracksPrompt?.segmentTitle}</strong> has {tracksPrompt?.count ?? 0} attached
+                track{(tracksPrompt?.count ?? 0) === 1 ? "" : "s"}.
+              </Text>
+              <VStack gap={2} align="stretch">
+                {tracksPrompt?.allowTop ? (
+                  <Button colorPalette="blue" onClick={() => sendInject("top")}>
+                    Add to top of queue
+                  </Button>
+                ) : null}
+                <Button
+                  colorPalette={tracksPrompt?.allowTop ? undefined : "blue"}
+                  variant={tracksPrompt?.allowTop ? "outline" : "solid"}
+                  onClick={() => sendInject("bottom")}
+                >
+                  Add to bottom of queue
+                </Button>
+                <Button variant="ghost" onClick={() => setTracksPrompt(null)}>
+                  Skip
+                </Button>
+              </VStack>
+            </DialogBody>
           </DialogContent>
         </DialogPositioner>
       </DialogRoot>

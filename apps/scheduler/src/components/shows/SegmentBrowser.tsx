@@ -9,7 +9,6 @@ import { SegmentBrowserCard } from "./SegmentBrowserCard"
 const showDetailRouteApi = getRouteApi("/shows/$showId")
 
 interface SegmentBrowserProps {
-  excludeSegmentIds?: string[]
   /** Appends a segment to the end of the show timeline (used for mobile quick-add). */
   onAddSegmentToShowEnd?: (segmentId: string) => void
   isAddToShowPending?: boolean
@@ -59,7 +58,6 @@ function mergeSegmentBrowserSearch(
 }
 
 export function SegmentBrowser({
-  excludeSegmentIds = [],
   onAddSegmentToShowEnd,
   isAddToShowPending,
 }: SegmentBrowserProps) {
@@ -81,8 +79,6 @@ export function SegmentBrowser({
   }
 
   const { data: segments = [] } = useSegments(filters)
-
-  const visibleSegments = segments.filter((s) => !excludeSegmentIds.includes(s.id))
 
   function updateSearch(patch: Parameters<typeof mergeSegmentBrowserSearch>[1]) {
     navigate({
@@ -223,12 +219,12 @@ export function SegmentBrowser({
       </VStack>
 
       <VStack gap={2} align="stretch" maxH="60vh" bg="bg.panel" p="4" overflowY="auto">
-        {visibleSegments.length === 0 ? (
+        {segments.length === 0 ? (
           <Text fontSize="sm" color="fg.muted" textAlign="center" p={4}>
             No segments match your filters
           </Text>
         ) : (
-          visibleSegments.map((seg) => (
+          segments.map((seg) => (
             <SegmentBrowserCard
               key={seg.id}
               segment={seg}

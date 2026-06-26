@@ -1,5 +1,6 @@
 import type { Room } from "@repo/types/Room"
 import type { BridgeSnapshot } from "./types.js"
+import { getRoomActivation } from "./activationState.js"
 
 /** Stable ISO timestamp for HTTP GET before any `/sync` (avoids new identity every request). */
 const BRIDGE_PRE_SYNC_ISO = "1970-01-01T00:00:00.000Z"
@@ -13,6 +14,8 @@ export function stubStudioBridgeRoom(
   const title = snap
     ? `Game Studio — ${snap.users.length} player(s)`
     : "Game Studio (start sandbox in Game Studio tab)"
+
+  const activation = getRoomActivation(roomId)
 
   return {
     id: roomId,
@@ -34,6 +37,9 @@ export function stubStudioBridgeRoom(
     showQueueTracks: true,
     allowChatImages: false,
     public: true,
+    showId: snap?.showId ?? undefined,
+    activeSegmentId: activation?.activeSegmentId,
+    activeShowSegmentId: activation?.activeShowSegmentId,
   }
 }
 

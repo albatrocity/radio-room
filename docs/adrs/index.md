@@ -68,6 +68,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0060](0060-playback-state-changed-system-event.md) | SYSTEM:PLAYBACK_STATE_CHANGED event | Accepted |
 | [0061](0061-poll-voting-as-core-feature.md) | Poll voting as a core feature (not a plugin) | Accepted |
 | [0062](0062-participation-mode-pvp-vs-pvg.md) | Participation mode (competitive vs inclusive) for game plugins | Accepted |
+| [0063](0063-segment-attached-track-lists.md) | Segment-attached track lists and scheduler catalog search | Accepted |
 
 ## Creating a New ADR
 

@@ -1,4 +1,4 @@
-import { db, show, segment, tag, showSegment, segmentTag, showTag, user, roomPlaylistTrack } from "@repo/db"
+import { db, show, segment, tag, showSegment, segmentTag, showTag, user, roomPlaylistTrack, showSegmentTrack } from "@repo/db"
 import { eq, and, or, isNull, ilike, gte, lte, inArray, sql, exists, notExists } from "drizzle-orm"
 import type {
   SchedulingAdminUserDTO,
@@ -12,7 +12,10 @@ import type {
   TagType,
   RoomExportPlaylistLinks,
   RoomPlaylistTrackDTO,
+  ShowSegmentTrackDTO,
+  SetShowSegmentTracksRequest,
 } from "@repo/types"
+import type { MetadataSourceTrack } from "@repo/types/MetadataSource"
 
 export class SchedulingBadRequestError extends Error {
   constructor(message: string) {
@@ -107,12 +110,29 @@ function mapRoomPlaylistTrackRow(t: typeof roomPlaylistTrack.$inferSelect): Room
   }
 }
 
+function mapShowSegmentTrackRow(t: typeof showSegmentTrack.$inferSelect): ShowSegmentTrackDTO {
+  return {
+    id: t.id,
+    position: t.position,
+    title: t.title,
+    mediaSourceType: t.mediaSourceType,
+    mediaSourceTrackId: t.mediaSourceTrackId,
+    spotifyTrackId: t.spotifyTrackId,
+    trackPayload: (t.trackPayload as MetadataSourceTrack | null) ?? null,
+    createdAt: t.createdAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString(),
+  }
+}
+
 export async function findShowById(id: string) {
   const row = await db.query.show.findFirst({
     where: eq(show.id, id),
     with: {
       showSegments: {
-        with: { segment: { with: segmentRelationalWith } },
+        with: {
+          segment: { with: segmentRelationalWith },
+          tracks: { orderBy: (t, { asc }) => [asc(t.position)] },
+        },
         orderBy: (ss, { asc }) => [asc(ss.position)],
       },
       showTags: { with: { tag: true } },
@@ -136,6 +156,7 @@ export async function findShowById(id: string) {
       position: ss.position,
       durationOverride: ss.durationOverride ?? null,
       segment: mapSegmentRow(ss.segment),
+      tracks: ss.tracks.map(mapShowSegmentTrackRow),
     })),
     roomExport: roomExportRow
       ? {
@@ -259,9 +280,12 @@ export async function reorderShowSegments(showId: string, segmentIds: string[]) 
       .from(showSegment)
       .where(eq(showSegment.showId, showId))
 
-    const overrideBySegmentId = new Map(
-      existing.map((r) => [r.segmentId, r.durationOverride ?? null]),
-    )
+    const overridePools = new Map<string, (number | null)[]>()
+    for (const row of existing) {
+      const pool = overridePools.get(row.segmentId) ?? []
+      pool.push(row.durationOverride ?? null)
+      overridePools.set(row.segmentId, pool)
+    }
 
     await tx.delete(showSegment).where(eq(showSegment.showId, showId))
 
@@ -274,7 +298,7 @@ export async function reorderShowSegments(showId: string, segmentIds: string[]) 
           showId,
           segmentId,
           position: index,
-          durationOverride: overrideBySegmentId.get(segmentId) ?? null,
+          durationOverride: overridePools.get(segmentId)?.shift() ?? null,
         })),
       )
       .returning()
@@ -304,6 +328,62 @@ export async function findShowIdsBySegmentId(segmentId: string): Promise<string[
     .from(showSegment)
     .where(eq(showSegment.segmentId, segmentId))
   return [...new Set(rows.map((r) => r.showId))]
+}
+
+// ---------------------------------------------------------------------------
+// Show-segment tracks (scheduler curation)
+// ---------------------------------------------------------------------------
+
+export async function findShowSegmentTracks(showSegmentId: string): Promise<ShowSegmentTrackDTO[]> {
+  const rows = await db.query.showSegmentTrack.findMany({
+    where: eq(showSegmentTrack.showSegmentId, showSegmentId),
+    orderBy: (t, { asc }) => [asc(t.position)],
+  })
+  return rows.map(mapShowSegmentTrackRow)
+}
+
+export async function setShowSegmentTracks(
+  showSegmentId: string,
+  data: SetShowSegmentTracksRequest,
+): Promise<ShowSegmentTrackDTO[] | null> {
+  const placement = await db.query.showSegment.findFirst({
+    where: eq(showSegment.id, showSegmentId),
+    columns: { id: true },
+  })
+  if (!placement) return null
+
+  const now = new Date()
+
+  return db.transaction(async (tx) => {
+    await tx.delete(showSegmentTrack).where(eq(showSegmentTrack.showSegmentId, showSegmentId))
+
+    if (data.tracks.length === 0) {
+      return []
+    }
+
+    const rows = await tx
+      .insert(showSegmentTrack)
+      .values(
+        data.tracks.map((entry, index) => {
+          const payload = entry.trackPayload
+          const title = payload.title?.trim() || "Untitled"
+          return {
+            showSegmentId,
+            position: index,
+            title,
+            mediaSourceType: "spotify",
+            mediaSourceTrackId: payload.id,
+            spotifyTrackId: payload.id,
+            trackPayload: payload,
+            createdAt: now,
+            updatedAt: now,
+          }
+        }),
+      )
+      .returning()
+
+    return rows.map(mapShowSegmentTrackRow)
+  })
 }
 
 // ---------------------------------------------------------------------------

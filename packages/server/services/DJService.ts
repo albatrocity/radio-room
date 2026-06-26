@@ -135,10 +135,11 @@ export class DJService {
     roomId: string,
     attribution: QueueItemAttribution,
     metadataTrackId: QueueItem["track"]["id"],
-    options?: { runPluginValidation?: boolean },
+    options?: { runPluginValidation?: boolean; suppressQueueChanged?: boolean },
   ) {
     const addedBy = attributionToAddedBy(attribution)
     const runValidation = options?.runPluginValidation ?? false
+    const suppressQueueChanged = options?.suppressQueueChanged ?? false
 
     const queue = await getQueue({ context: this.context, roomId })
 
@@ -258,7 +259,7 @@ export class DJService {
       }
     }
 
-    if (this.context.systemEvents) {
+    if (this.context.systemEvents && !suppressQueueChanged) {
       const updatedQueue = isAppControlledPlayback(room)
         ? await getQueueWithDispatched({ context: this.context, roomId })
         : await getQueue({ context: this.context, roomId })

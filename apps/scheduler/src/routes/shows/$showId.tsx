@@ -19,7 +19,7 @@ import { move } from "@dnd-kit/helpers"
 
 type DragEndPayload = Parameters<DragEndEvent>[0]
 import { ArrowLeft } from "lucide-react"
-import type { SegmentDTO, ShowStatus } from "@repo/types"
+import type { SegmentDTO, ShowSegmentDTO, ShowStatus } from "@repo/types"
 import {
   useShow,
   useUpdateShow,
@@ -31,6 +31,7 @@ import { useSyncPublishPlaylist } from "../../hooks/usePublishShow"
 import { formatDurationMinutes, totalEstimatedMinutes } from "../../lib/showDuration"
 import { EditShowModal } from "../../components/shows/EditShowModal"
 import { ShowTimeline } from "../../components/shows/ShowTimeline"
+import { SegmentTrackPicker } from "../../components/shows/SegmentTrackPicker"
 import { SegmentBrowser } from "../../components/shows/SegmentBrowser"
 import { SegmentBrowserCard } from "../../components/shows/SegmentBrowserCard"
 import { StreamingPlaylistButtons } from "../../components/shows/StreamingPlaylistButtons"
@@ -88,19 +89,26 @@ function ShowDetailPage() {
   const syncPublish = useSyncPublishPlaylist(showId)
   const navigate = useNavigate()
   const [editDetailsOpen, setEditDetailsOpen] = useState(false)
+  const [trackPickerTarget, setTrackPickerTarget] = useState<ShowSegmentDTO | null>(null)
 
   const currentSegmentIds = useMemo(
     () => (show?.segments ?? []).map((s) => s.segmentId),
     [show?.segments],
   )
 
-  function handleRemoveSegment(segmentId: string) {
-    const newIds = currentSegmentIds.filter((id) => id !== segmentId)
+  const currentPlacementIds = useMemo(
+    () => (show?.segments ?? []).map((s) => s.id),
+    [show?.segments],
+  )
+
+  function handleRemovePlacement(showSegmentId: string) {
+    const newIds = (show?.segments ?? [])
+      .filter((s) => s.id !== showSegmentId)
+      .map((s) => s.segmentId)
     reorderSegments.mutate({ showId, segmentIds: newIds })
   }
 
   function handleAddSegmentToShowEnd(segmentId: string) {
-    if (currentSegmentIds.includes(segmentId)) return
     reorderSegments.mutate({
       showId,
       segmentIds: [...currentSegmentIds, segmentId],
@@ -133,8 +141,6 @@ function ShowDetailPage() {
 
     // Drag from segment browser list → timeline (empty list: root droppable; with rows: sortable targets)
     if (data && "source" in data && data.source === "segment-browser" && draggedSegment) {
-      if (currentSegmentIds.includes(draggedSegment.id)) return
-
       if (String(target.id) === "timeline") {
         reorderSegments.mutate({
           showId,
@@ -161,10 +167,12 @@ function ShowDetailPage() {
 
     // Reordering within timeline (sortable items — not a segment-browser list drag)
     if (!data || !("source" in data) || data.source !== "segment-browser") {
-      const newIds = move(currentSegmentIds, event)
-      const orderChanged = newIds.some((id, i) => id !== currentSegmentIds[i])
+      const newPlacementIds = move(currentPlacementIds, event)
+      const orderChanged = newPlacementIds.some((id, i) => id !== currentPlacementIds[i])
       if (orderChanged) {
-        reorderSegments.mutate({ showId, segmentIds: newIds })
+        const byPlacementId = new Map((show.segments ?? []).map((s) => [s.id, s.segmentId]))
+        const newSegmentIds = newPlacementIds.map((id) => byPlacementId.get(id)!)
+        reorderSegments.mutate({ showId, segmentIds: newSegmentIds })
       }
     }
   }
@@ -370,6 +378,7 @@ function ShowDetailPage() {
                 readOnly
                 segments={show.segments ?? []}
                 showStartTime={show.startTime}
+                onEditTracks={setTrackPickerTarget}
               />
             ) : (
               <DragDropProvider onDragEnd={handleDragEnd}>
@@ -378,13 +387,13 @@ function ShowDetailPage() {
                     <ShowTimeline
                       segments={show.segments ?? []}
                       showStartTime={show.startTime}
-                      onRemove={handleRemoveSegment}
+                      onRemove={handleRemovePlacement}
                       onDurationCommit={handleDurationCommit}
+                      onEditTracks={setTrackPickerTarget}
                     />
                   </Box>
                   <Box w={{ base: "100%", lg: "320px" }} flexShrink={0}>
                     <SegmentBrowser
-                      excludeSegmentIds={currentSegmentIds}
                       onAddSegmentToShowEnd={handleAddSegmentToShowEnd}
                       isAddToShowPending={reorderSegments.isPending}
                     />
@@ -421,6 +430,16 @@ function ShowDetailPage() {
                 show={show}
               />
             )}
+
+            <SegmentTrackPicker
+              showId={showId}
+              showSegmentId={trackPickerTarget?.id ?? ""}
+              segmentTitle={trackPickerTarget?.segment.title ?? ""}
+              initialTracks={trackPickerTarget?.tracks ?? []}
+              open={trackPickerTarget !== null}
+              readOnly={isPublished}
+              onClose={() => setTrackPickerTarget(null)}
+            />
           </Box>
         </Flex>
       </Box>
