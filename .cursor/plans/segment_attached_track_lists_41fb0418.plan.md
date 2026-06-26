@@ -31,7 +31,7 @@ todos:
     status: completed
   - id: sync-docs
     content: Update studio-bridge events and add an ADR + index entry
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -143,6 +143,8 @@ This makes activation handle a segment placed multiple times in one show, and is
 
 - Add the new socket events to [apps/studio-bridge/src/server.ts](apps/studio-bridge/src/server.ts) (per AGENTS.md) so Game Studio preview stays consistent.
 - Write a new ADR in `docs/adrs/` (next number) covering segment-attached track lists + client-credentials (app-token) scheduler search, and update the ADR index.
+
+**Notes (2026-06-25):** ADR [0063](docs/adrs/0063-segment-attached-track-lists.md). Bridge stubs `SET_ACTIVE_SEGMENT` / `INJECT_SEGMENT_TRACKS` and emits matching responses; optional `segmentTracksStub` on `BridgeSnapshot` drives `SEGMENT_TRACKS_AVAILABLE` in sandbox. Game Studio queue mutation for inject is not forwarded (preview reports stub `added` count only).
 
 ## Out of scope / notes
 

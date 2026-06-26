@@ -27,6 +27,7 @@ import {
   queueHeadTrackId,
   setBridgeSnapshot,
 } from "./snapshotStore.js"
+import { setRoomActivation } from "./activationState.js"
 import {
   BRIDGE_PRE_SYNC_ISO,
   stubRoomForRoomData,
@@ -413,6 +414,141 @@ function wireSocketHandlers(io: IOServer): void {
         },
       })
     })
+
+    socket.on(
+      "SET_ACTIVE_SEGMENT",
+      (data: { segmentId?: string; showSegmentId?: string; presetMode?: string }) => {
+        const roomId = socket.data.roomId as string | undefined
+        const userId = socket.data.userId as string | undefined
+        const snap = getBridgeSnapshot()
+        const segmentId = typeof data?.segmentId === "string" ? data.segmentId : undefined
+
+        if (!roomId || !userId || !segmentId || !snap || snap.roomId !== roomId) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 400,
+              error: "Bad Request",
+              message: "Not in a room or missing segment.",
+            },
+          })
+          return
+        }
+
+        const roomUser = snap.users.find((u) => u.userId === userId)
+        if (!roomUser?.isAdmin) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 403,
+              error: "Forbidden",
+              message: "You are not a room admin.",
+            },
+          })
+          return
+        }
+
+        const showSegmentId =
+          typeof data.showSegmentId === "string" ? data.showSegmentId : undefined
+        setRoomActivation(roomId, {
+          activeSegmentId: segmentId,
+          activeShowSegmentId: showSegmentId,
+        })
+
+        const room = stubStudioBridgeRoom(roomId, snap, bridgeRoomTimestampIso())
+        io.to(roomSocketPath(roomId)).emit("event", {
+          type: "ROOM_SETTINGS_UPDATED",
+          data: {
+            roomId,
+            room,
+            pluginConfigs: snap.pluginConfigs,
+          },
+        })
+
+        const stub = snap.segmentTracksStub
+        if (
+          stub &&
+          stub.count > 0 &&
+          (!showSegmentId || stub.showSegmentId === showSegmentId)
+        ) {
+          socket.emit("event", {
+            type: "SEGMENT_TRACKS_AVAILABLE",
+            data: {
+              showSegmentId: stub.showSegmentId,
+              segmentTitle: stub.segmentTitle,
+              count: stub.count,
+              allowTop: room.playbackMode === "app-controlled",
+            },
+          })
+        }
+      },
+    )
+
+    socket.on(
+      "INJECT_SEGMENT_TRACKS",
+      (data: { showSegmentId?: string; placement?: "top" | "bottom" }) => {
+        const roomId = socket.data.roomId as string | undefined
+        const userId = socket.data.userId as string | undefined
+        const snap = getBridgeSnapshot()
+        const showSegmentId =
+          typeof data?.showSegmentId === "string" ? data.showSegmentId : undefined
+        const placement = data?.placement
+
+        if (
+          !roomId ||
+          !userId ||
+          !showSegmentId ||
+          (placement !== "top" && placement !== "bottom") ||
+          !snap ||
+          snap.roomId !== roomId
+        ) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 400,
+              error: "Bad Request",
+              message: "Invalid segment track injection request.",
+            },
+          })
+          return
+        }
+
+        const roomUser = snap.users.find((u) => u.userId === userId)
+        if (!roomUser?.isAdmin) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 403,
+              error: "Forbidden",
+              message: "You are not a room admin.",
+            },
+          })
+          return
+        }
+
+        const room = stubStudioBridgeRoom(roomId, snap, bridgeRoomTimestampIso())
+        if (placement === "top" && room.playbackMode !== "app-controlled") {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 400,
+              error: "Bad Request",
+              message: "Top placement is only available in app-controlled playback mode.",
+            },
+          })
+          return
+        }
+
+        socket.emit("event", {
+          type: "SEGMENT_TRACKS_INJECTED",
+          data: {
+            showSegmentId,
+            added: snap.segmentTracksStub?.count ?? 0,
+            skipped: 0,
+          },
+        })
+      },
+    )
 
     socket.on(
       "GET_LATEST_ROOM_DATA",
