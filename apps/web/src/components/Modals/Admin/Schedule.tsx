@@ -56,7 +56,7 @@ export default function Schedule() {
       initialValues={{
         showId: settings.showId ?? "",
         showSchedulePublic: settings.showSchedulePublic === true,
-        announceActiveSegment: settings.announceActiveSegment !== false,
+        announceActiveSegment: settings.announceActiveSegment === true,
       }}
       enableReinitialize
       validate={() => ({})}

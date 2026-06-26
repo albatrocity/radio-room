@@ -171,7 +171,7 @@ export async function activateRoomSegment(params: {
     })
   }
 
-  if (room.announceActiveSegment !== false) {
+  if (room.announceActiveSegment === true) {
     const message = systemMessage(`Active segment: ${segment.title}`, {
       status: "info",
       type: "alert",

@@ -66,7 +66,7 @@ const defaultContext: SettingsContext = {
   announceUsernameChanges: true,
   announceNowPlaying: true,
   allowChatImages: false,
-  announceActiveSegment: true,
+  announceActiveSegment: false,
   showSchedulePublic: false,
   public: true,
   showId: undefined,

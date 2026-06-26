@@ -1,3 +1,4 @@
+import { isCompetitiveMode, type ParticipationMode } from "@repo/game-logic"
 import type {
   PluginElementKey,
   PluginElementProps,
@@ -5,6 +6,8 @@ import type {
   PluginTextElementKey,
   PluginUserReveals,
 } from "@repo/types"
+
+const GUESS_THE_TUNE_PLUGIN = "guess-the-tune"
 
 export interface ResolvedPluginElementProps extends PluginElementProps {
   /** Final obscured flag after applying viewer bypass roles */
@@ -73,6 +76,26 @@ function mergeRawElementProps(
   }
 }
 
+/** PvG per-user reveals stay visible but omit "Identified by" credit lines in Now Playing. */
+function stripInclusiveUserCredits(
+  props: ResolvedPluginElementProps,
+  pluginData: Record<string, unknown> | undefined,
+  pluginConfigs: Record<string, unknown> | undefined,
+  enabledPlugins: Set<string>,
+): ResolvedPluginElementProps {
+  if (!enabledPlugins.has(GUESS_THE_TUNE_PLUGIN)) return props
+
+  const gtt = pluginConfigs?.[GUESS_THE_TUNE_PLUGIN] as { mode?: ParticipationMode } | undefined
+  const gttData = pluginData?.[GUESS_THE_TUNE_PLUGIN] as
+    | { userReveals?: PluginUserReveals }
+    | undefined
+  // Default mode is inclusive (PvG); stored configs may omit `mode`.
+  const inPvg = !isCompetitiveMode(gtt?.mode) || Boolean(gttData?.userReveals)
+  if (!inPvg) return props
+  if (!props.revealedBy || props.revealedBy.source === "admin") return props
+  return { ...props, revealedBy: undefined }
+}
+
 function applyObscureBypass(
   raw: PluginElementProps,
   viewerRoles: PluginObscureBypassRole[],
@@ -132,5 +155,10 @@ export function resolvePluginElementProps({
   }
 
   const raw = mergeRawElementProps(pluginData, element, enabledPlugins, viewerUserId)
-  return applyObscureBypass(raw, viewerRoles)
+  return stripInclusiveUserCredits(
+    applyObscureBypass(raw, viewerRoles),
+    pluginData,
+    pluginConfigs,
+    enabledPlugins,
+  )
 }

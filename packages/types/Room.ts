@@ -47,8 +47,8 @@ export type Room = {
   liveHlsUrl?: string
   /**
    * Spotify playback delegation for rooms with a PlaybackController (typically radio).
-   * `spotify-controlled` (default): tracks go to Spotify's queue; app queue mirrors Spotify.
-   * `app-controlled`: app queue is authoritative; advance job starts the next track via Web API.
+   * `spotify-controlled`: tracks go to Spotify's queue; app queue mirrors Spotify (default when unset on existing rooms).
+   * `app-controlled`: app queue is authoritative; advance job starts the next track via Web API (default for new radio rooms at creation).
    */
   playbackMode?: "spotify-controlled" | "app-controlled"
   // New adapter-based configuration

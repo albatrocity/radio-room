@@ -413,7 +413,7 @@ export function parseRoom(room: StoredRoom): Room {
     // Chat settings default to false when undefined
     allowChatImages: room.allowChatImages === "true",
     showSchedulePublic: room.showSchedulePublic === "true",
-    announceActiveSegment: room.announceActiveSegment !== "false",
+    announceActiveSegment: room.announceActiveSegment === "true",
     public: room.public !== "false",
     liveIngestEnabled:
       (room as unknown as { liveIngestEnabled?: string }).liveIngestEnabled === "true",

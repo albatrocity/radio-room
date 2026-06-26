@@ -30,7 +30,7 @@ function DjFeatures() {
         // Queue display settings default to true
         showQueueCount: room?.showQueueCount !== false,
         showQueueTracks: room?.showQueueTracks !== false,
-        playbackMode: room?.playbackMode ?? SPOTIFY_CONTROLLED,
+        playbackMode: room?.playbackMode ?? (room?.type === "radio" ? APP_CONTROLLED : SPOTIFY_CONTROLLED),
       }}
       enableReinitialize
       validate={() => {

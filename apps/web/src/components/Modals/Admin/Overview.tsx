@@ -62,7 +62,9 @@ function Overview() {
   const hasChatSettings = settings.announceNowPlaying ?? settings.announceUsernameChanges
   const hasDjSettings = settings.deputizeOnJoin
   const hasScheduleSettings =
-    !!settings.showId || !!settings.showSchedulePublic || settings.announceActiveSegment === false
+    !!settings.showId ||
+    settings.showSchedulePublic === true ||
+    settings.announceActiveSegment === true
 
   // Check if a plugin is active based on its 'enabled' config
   const isPluginActive = (pluginName: string): boolean => {

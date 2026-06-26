@@ -1,7 +1,7 @@
 # 0040. App-Controlled Spotify Playback and Ordered Redis Queue
 
 **Date:** 2026-05-03  
-**Status:** Accepted
+**Status:** Accepted (creation default for radio superseded by [0064](0064-radio-app-controlled-playback-default.md))
 
 ## Context
 

@@ -20,7 +20,7 @@ export const roomFactory = Factory.define<Room>(({ sequence }) => ({
   announceUsernameChanges: false,
   persistent: false,
   showSchedulePublic: false,
-  announceActiveSegment: true,
+  announceActiveSegment: false,
 }))
 
 export const liveRoomFactory = roomFactory.params({

@@ -47,12 +47,13 @@ export function withDefaults(
     announceUsernameChanges: true,
     allowChatImages: false,
     showSchedulePublic: false,
-    announceActiveSegment: true,
+    announceActiveSegment: false,
     public: true,
     showId: undefined,
     activeSegmentId: undefined,
     activeShowSegmentId: undefined,
     ...roomDetails,
     deputizeOnJoin: roomDetails.deputizeOnJoin || false,
+    ...(roomDetails.type === "radio" ? { playbackMode: "app-controlled" as const } : {}),
   }
 }
