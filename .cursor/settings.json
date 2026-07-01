@@ -2,6 +2,9 @@
   "plugins": {
     "redis-development": {
       "enabled": true
+    },
+    "neon-postgres": {
+      "enabled": true
     }
   }
 }
