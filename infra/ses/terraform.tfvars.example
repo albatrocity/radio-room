@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars and fill in values (terraform.tfvars is gitignored).
+
+aws_region  = "us-east-1"
+aws_profile = "listening-room"
+
+# Root domain hosted on Netlify DNS
+domain = "listeningroom.club"
+
+# Creates mail.listeningroom.club for MAIL FROM (MX + SPF records)
+mail_from_subdomain = "mail"
+
+# Must match NEWSLETTER_FROM in the app
+newsletter_from_address = "news@listeningroom.club"
+
+# API must be deployed and reachable before apply (SNS auto-confirms this subscription)
+webhook_url = "https://api.listeningroom.club/api/newsletter/webhooks/ses"
+
+# Netlify personal access token (or export NETLIFY_API_TOKEN / TF_VAR_netlify_api_token)
+# netlify_api_token = "nfp_..."
+
+# Optional: set if data source lookup by domain name does not work
+# netlify_dns_zone_id = "6600abcdef1234567890abcd"

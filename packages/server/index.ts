@@ -46,6 +46,13 @@ import { getImage } from "./operations/data"
 import { upload, uploadImages, uploadArtwork } from "./controllers/imageController"
 import { getPublicReadyShowById, getPublicReadyShows } from "./routes/publicSchedulingRoutes"
 import { createSchedulingRouter, getSchedulingShowByIdHandler } from "./routes/schedulingRouter"
+import {
+  confirmNewsletterHandler,
+  createNewsletterRouter,
+  handleSesSnsWebhook,
+  subscribeNewsletterHandler,
+  unsubscribeNewsletterHandler,
+} from "./routes/newsletterRouter"
 import { schedulingShowReadAuth } from "./middleware/schedulingShowReadAuth"
 import { clearRoomOnlineUsers } from "./operations/data"
 import { SocketWithContext } from "./lib/socketWithContext"
@@ -157,6 +164,11 @@ export class RadioRoomServer {
             "https://www.listen.show",
             "https://listeningroom.club",
             "https://www.listeningroom.club",
+            ...(process.env.NEWSLETTER_SUBSCRIBE_ORIGINS
+              ? process.env.NEWSLETTER_SUBSCRIBE_ORIGINS.split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : []),
             ...(process.env.SCHEDULER_URL ? [process.env.SCHEDULER_URL] : []),
             ...LOCAL_REMOTE_CORS_ORIGINS,
           ],
@@ -167,6 +179,14 @@ export class RadioRoomServer {
     if (config.platformAuthHandler) {
       this.app.all(config.platformAuthHandler.path, config.platformAuthHandler.handler)
     }
+
+    // SES bounce/complaint notifications arrive via SNS, which uses
+    // Content-Type: text/plain; parse the raw body in the handler.
+    this.app.post(
+      "/api/newsletter/webhooks/ses",
+      express.text({ type: "*/*" }),
+      handleSesSnsWebhook,
+    )
 
     this.app
       .use(express.json())
@@ -228,6 +248,13 @@ export class RadioRoomServer {
       .get("/api/scheduling/shows/:id", schedulingShowReadAuth, getSchedulingShowByIdHandler)
       // Scheduling API (admin-only)
       .use("/api/scheduling", requireAdmin ?? noopMiddleware, createSchedulingRouter())
+      // Newsletter public routes
+      .post("/api/newsletter/subscribe", subscribeNewsletterHandler)
+      .get("/api/newsletter/confirm", confirmNewsletterHandler)
+      .get("/api/newsletter/unsubscribe", unsubscribeNewsletterHandler)
+      .post("/api/newsletter/unsubscribe", unsubscribeNewsletterHandler)
+      // Newsletter API (admin-only)
+      .use("/api/newsletter", requireAdmin ?? noopMiddleware, createNewsletterRouter())
 
     // Create HTTP server from Express app, but don't start listening yet
     this.httpServer = createHttpServer(this.app)
@@ -378,6 +405,18 @@ export class RadioRoomServer {
     }
     this.context.jobs.push(roomsJob)
     console.log("Registered system job: rooms")
+
+    const newsletterJobHandler = (await import("./jobs/newsletter/index")).default
+    const newsletterJob = {
+      name: "newsletter-scheduled",
+      description: "Sends newsletter issues scheduled beyond Resend's 30-day window",
+      cron: "0 * * * * *",
+      enabled: true,
+      runAt: Date.now(),
+      handler: newsletterJobHandler,
+    }
+    this.context.jobs.push(newsletterJob)
+    console.log("Registered system job: newsletter-scheduled")
   }
 
   /**

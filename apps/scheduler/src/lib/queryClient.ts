@@ -32,4 +32,10 @@ export const queryKeys = {
     all: ["spotify", "search"] as const,
     query: (q: string) => ["spotify", "search", q] as const,
   },
+  newsletter: {
+    all: ["newsletter"] as const,
+    issues: () => ["newsletter", "issues"] as const,
+    issue: (id: string) => ["newsletter", "issues", id] as const,
+    subscribers: () => ["newsletter", "subscribers"] as const,
+  },
 } as const
