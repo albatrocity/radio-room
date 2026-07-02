@@ -1,12 +1,13 @@
 import { Box, VStack, Text, Link as ChakraLink, Spacer, Button, ScrollArea } from "@chakra-ui/react"
 import { Link, useRouterState } from "@tanstack/react-router"
-import { LayoutGrid, CalendarDays, LogOut } from "lucide-react"
+import { LayoutGrid, CalendarDays, LogOut, Mail } from "lucide-react"
 import { authClient } from "@repo/auth/client"
 import { ThemePreferenceControl } from "./ThemePreferenceControl"
 
 const navItems = [
   { to: "/segments" as const, label: "Segments", icon: LayoutGrid },
   { to: "/shows" as const, label: "Shows", icon: CalendarDays },
+  { to: "/newsletter" as const, label: "Newsletter", icon: Mail },
 ]
 
 export type NavSidebarContentProps = {

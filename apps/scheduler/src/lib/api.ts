@@ -16,6 +16,11 @@ import type {
   RoomExportPlaylistLinks,
   ShowSegmentTrackDTO,
   SetShowSegmentTracksRequest,
+  NewsletterIssueDTO,
+  CreateNewsletterIssueRequest,
+  UpdateNewsletterIssueRequest,
+  ScheduleNewsletterIssueRequest,
+  NewsletterSubscribersSummary,
 } from "@repo/types"
 import type { MetadataSourceTrack } from "@repo/types/MetadataSource"
 import type { QueueItem } from "@repo/types/Queue"
@@ -215,4 +220,73 @@ export async function createTag(body: CreateTagRequest): Promise<TagDTO> {
 
 export async function deleteTag(id: string): Promise<void> {
   await api.delete(`api/scheduling/tags/${id}`)
+}
+
+// ---------------------------------------------------------------------------
+// Newsletter
+// ---------------------------------------------------------------------------
+
+export async function fetchNewsletterIssues(): Promise<NewsletterIssueDTO[]> {
+  const res = await api.get("api/newsletter/issues")
+  const data = await res.json<{ issues: NewsletterIssueDTO[] }>()
+  return data.issues
+}
+
+export async function fetchNewsletterIssue(id: string): Promise<NewsletterIssueDTO> {
+  const res = await api.get(`api/newsletter/issues/${id}`)
+  const data = await res.json<{ issue: NewsletterIssueDTO }>()
+  return data.issue
+}
+
+export async function createNewsletterIssue(
+  body: CreateNewsletterIssueRequest,
+): Promise<NewsletterIssueDTO> {
+  const res = await api.post("api/newsletter/issues", { json: body })
+  const data = await res.json<{ issue: NewsletterIssueDTO }>()
+  return data.issue
+}
+
+export async function updateNewsletterIssue(
+  id: string,
+  body: UpdateNewsletterIssueRequest,
+): Promise<NewsletterIssueDTO> {
+  const res = await api.put(`api/newsletter/issues/${id}`, { json: body })
+  const data = await res.json<{ issue: NewsletterIssueDTO }>()
+  return data.issue
+}
+
+export async function deleteNewsletterIssue(id: string): Promise<void> {
+  await api.delete(`api/newsletter/issues/${id}`)
+}
+
+export async function previewNewsletterIssue(id: string): Promise<string> {
+  const res = await api.post(`api/newsletter/issues/${id}/preview`)
+  const data = await res.json<{ html: string }>()
+  return data.html
+}
+
+export async function sendNewsletterIssue(id: string): Promise<NewsletterIssueDTO> {
+  const res = await api.post(`api/newsletter/issues/${id}/send`)
+  const data = await res.json<{ issue: NewsletterIssueDTO }>()
+  return data.issue
+}
+
+export async function scheduleNewsletterIssue(
+  id: string,
+  body: ScheduleNewsletterIssueRequest,
+): Promise<NewsletterIssueDTO> {
+  const res = await api.post(`api/newsletter/issues/${id}/schedule`, { json: body })
+  const data = await res.json<{ issue: NewsletterIssueDTO }>()
+  return data.issue
+}
+
+export async function cancelNewsletterIssue(id: string): Promise<NewsletterIssueDTO> {
+  const res = await api.post(`api/newsletter/issues/${id}/cancel`)
+  const data = await res.json<{ issue: NewsletterIssueDTO }>()
+  return data.issue
+}
+
+export async function fetchNewsletterSubscribers(): Promise<NewsletterSubscribersSummary> {
+  const res = await api.get("api/newsletter/subscribers")
+  return res.json<NewsletterSubscribersSummary>()
 }

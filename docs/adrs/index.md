@@ -70,6 +70,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0062](0062-participation-mode-pvp-vs-pvg.md) | Participation mode (competitive vs inclusive) for game plugins | Accepted |
 | [0063](0063-segment-attached-track-lists.md) | Segment-attached track lists and scheduler catalog search | Accepted |
 | [0064](0064-radio-app-controlled-playback-default.md) | App-controlled playback default for new radio rooms | Accepted |
+| [0065](0065-email-newsletter-via-resend.md) | Email newsletter via Resend (subscribers, broadcasts, webhooks) | Superseded by [0066](0066-email-newsletter-via-amazon-ses.md) |
+| [0066](0066-email-newsletter-via-amazon-ses.md) | Email newsletter via Amazon SES (own-list send, SNS suppression, Redis scheduling) | Accepted |
 
 ## Creating a New ADR
 
