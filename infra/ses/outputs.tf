@@ -8,6 +8,11 @@ output "mail_from_domain" {
   value       = local.mail_from_domain
 }
 
+output "dmarc_record" {
+  description = "DMARC TXT record value published at _dmarc.<domain>."
+  value       = local.dmarc_value
+}
+
 output "dkim_tokens" {
   description = "SES DKIM tokens (also published as Netlify CNAME records)."
   value       = aws_sesv2_email_identity.domain.dkim_signing_attributes[0].tokens

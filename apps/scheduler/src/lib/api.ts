@@ -259,12 +259,6 @@ export async function deleteNewsletterIssue(id: string): Promise<void> {
   await api.delete(`api/newsletter/issues/${id}`)
 }
 
-export async function previewNewsletterIssue(id: string): Promise<string> {
-  const res = await api.post(`api/newsletter/issues/${id}/preview`)
-  const data = await res.json<{ html: string }>()
-  return data.html
-}
-
 export async function sendNewsletterIssue(id: string): Promise<NewsletterIssueDTO> {
   const res = await api.post(`api/newsletter/issues/${id}/send`)
   const data = await res.json<{ issue: NewsletterIssueDTO }>()

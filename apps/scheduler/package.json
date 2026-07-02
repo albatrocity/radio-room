@@ -14,8 +14,10 @@
     "@dnd-kit/react": "^0.3.2",
     "@emotion/react": "^11.14.0",
     "@repo/auth": "*",
+    "@repo/email": "*",
     "@repo/types": "*",
     "@repo/utils": "*",
+    "@react-email/render": "^1.0.4",
     "@tanstack/react-form": "^1.12.3",
     "@tanstack/react-query": "^5.80.6",
     "@tanstack/react-router": "^1.169.1",
@@ -29,6 +31,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "vite": "^7.2.4",
+    "web-streams-polyfill": "^4.1.0",
     "zod": "^4.4.2"
   },
   "devDependencies": {

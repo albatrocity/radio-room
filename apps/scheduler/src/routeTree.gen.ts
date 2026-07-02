@@ -14,6 +14,7 @@ import { Route as NewsletterRouteImport } from './routes/newsletter'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ShowsIndexRouteImport } from './routes/shows/index'
+import { Route as NewsletterIndexRouteImport } from './routes/newsletter/index'
 import { Route as ShowsShowIdRouteImport } from './routes/shows/$showId'
 import { Route as NewsletterIssueIdRouteImport } from './routes/newsletter/$issueId'
 import { Route as ShowsShowIdPublishRouteImport } from './routes/shows/$showId.publish'
@@ -44,6 +45,11 @@ const ShowsIndexRoute = ShowsIndexRouteImport.update({
   path: '/shows/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NewsletterIndexRoute = NewsletterIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => NewsletterRoute,
+} as any)
 const ShowsShowIdRoute = ShowsShowIdRouteImport.update({
   id: '/shows/$showId',
   path: '/shows/$showId',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/segments': typeof SegmentsRoute
   '/newsletter/$issueId': typeof NewsletterIssueIdRoute
   '/shows/$showId': typeof ShowsShowIdRouteWithChildren
+  '/newsletter/': typeof NewsletterIndexRoute
   '/shows/': typeof ShowsIndexRoute
   '/shows/$showId/publish': typeof ShowsShowIdPublishRouteWithChildren
   '/shows/$showId/publish/playlist': typeof ShowsShowIdPublishPlaylistRoute
@@ -80,10 +87,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/newsletter': typeof NewsletterRouteWithChildren
   '/segments': typeof SegmentsRoute
   '/newsletter/$issueId': typeof NewsletterIssueIdRoute
   '/shows/$showId': typeof ShowsShowIdRouteWithChildren
+  '/newsletter': typeof NewsletterIndexRoute
   '/shows': typeof ShowsIndexRoute
   '/shows/$showId/publish': typeof ShowsShowIdPublishRouteWithChildren
   '/shows/$showId/publish/playlist': typeof ShowsShowIdPublishPlaylistRoute
@@ -96,6 +103,7 @@ export interface FileRoutesById {
   '/segments': typeof SegmentsRoute
   '/newsletter/$issueId': typeof NewsletterIssueIdRoute
   '/shows/$showId': typeof ShowsShowIdRouteWithChildren
+  '/newsletter/': typeof NewsletterIndexRoute
   '/shows/': typeof ShowsIndexRoute
   '/shows/$showId/publish': typeof ShowsShowIdPublishRouteWithChildren
   '/shows/$showId/publish/playlist': typeof ShowsShowIdPublishPlaylistRoute
@@ -109,6 +117,7 @@ export interface FileRouteTypes {
     | '/segments'
     | '/newsletter/$issueId'
     | '/shows/$showId'
+    | '/newsletter/'
     | '/shows/'
     | '/shows/$showId/publish'
     | '/shows/$showId/publish/playlist'
@@ -116,10 +125,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
-    | '/newsletter'
     | '/segments'
     | '/newsletter/$issueId'
     | '/shows/$showId'
+    | '/newsletter'
     | '/shows'
     | '/shows/$showId/publish'
     | '/shows/$showId/publish/playlist'
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/segments'
     | '/newsletter/$issueId'
     | '/shows/$showId'
+    | '/newsletter/'
     | '/shows/'
     | '/shows/$showId/publish'
     | '/shows/$showId/publish/playlist'
@@ -182,6 +192,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShowsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/newsletter/': {
+      id: '/newsletter/'
+      path: '/'
+      fullPath: '/newsletter/'
+      preLoaderRoute: typeof NewsletterIndexRouteImport
+      parentRoute: typeof NewsletterRoute
+    }
     '/shows/$showId': {
       id: '/shows/$showId'
       path: '/shows/$showId'
@@ -215,10 +232,12 @@ declare module '@tanstack/react-router' {
 
 interface NewsletterRouteChildren {
   NewsletterIssueIdRoute: typeof NewsletterIssueIdRoute
+  NewsletterIndexRoute: typeof NewsletterIndexRoute
 }
 
 const NewsletterRouteChildren: NewsletterRouteChildren = {
   NewsletterIssueIdRoute: NewsletterIssueIdRoute,
+  NewsletterIndexRoute: NewsletterIndexRoute,
 }
 
 const NewsletterRouteWithChildren = NewsletterRoute._addFileChildren(

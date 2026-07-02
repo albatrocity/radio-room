@@ -82,7 +82,10 @@ export function createNewsletterRouter(): Router {
 
   router.post("/issues/:id/preview", async (req, res) => {
     try {
-      res.json({ html: await newsletter.previewIssue(req.params.id) })
+      const { subject, bodyMarkdown } = req.body ?? {}
+      res.json({
+        html: await newsletter.previewIssue(req.params.id, { subject, bodyMarkdown }),
+      })
     } catch (error) {
       handleNewsletterError(res, error)
     }

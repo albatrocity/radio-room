@@ -20,3 +20,7 @@ webhook_url = "https://api.listeningroom.club/api/newsletter/webhooks/ses"
 
 # Optional: set if data source lookup by domain name does not work
 # netlify_dns_zone_id = "6600abcdef1234567890abcd"
+
+# DMARC: start at "none" (monitor only). Optionally receive aggregate reports.
+# dmarc_policy      = "none"
+# dmarc_rua_address = "dmarc@listeningroom.club"

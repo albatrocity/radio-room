@@ -1,15 +1,21 @@
 import { render } from "@react-email/render"
 import { marked } from "marked"
 import sanitizeHtml from "sanitize-html"
+import "./markdownRenderer"
 import { NewsletterEmail } from "./templates/NewsletterEmail"
 import { ConfirmEmail } from "./templates/ConfirmEmail"
 
 const MARKDOWN_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
-  allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2"]),
+  allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2", "h3", "h4", "h5", "h6"]),
   allowedAttributes: {
     ...sanitizeHtml.defaults.allowedAttributes,
-    img: ["src", "alt", "title", "width", "height"],
-    a: ["href", "name", "target", "rel"],
+    "*": ["class", "style"],
+    img: ["src", "alt", "title", "width", "height", "class", "style"],
+    a: ["href", "name", "target", "rel", "class", "style"],
+    code: ["class", "style"],
+    th: ["align", "class", "style"],
+    td: ["align", "class", "style"],
+    table: ["class", "style"],
   },
 }
 

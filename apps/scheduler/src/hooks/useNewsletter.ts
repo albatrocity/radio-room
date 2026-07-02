@@ -7,7 +7,6 @@ import {
   fetchNewsletterIssue,
   fetchNewsletterIssues,
   fetchNewsletterSubscribers,
-  previewNewsletterIssue,
   scheduleNewsletterIssue,
   sendNewsletterIssue,
   updateNewsletterIssue,
@@ -104,19 +103,6 @@ export function useDeleteNewsletterIssue() {
     onError: async (e) => {
       toaster.create({
         title: "Delete failed",
-        description: await errorBodyMessage(e),
-        type: "error",
-      })
-    },
-  })
-}
-
-export function usePreviewNewsletterIssue(id: string) {
-  return useMutation({
-    mutationFn: () => previewNewsletterIssue(id),
-    onError: async (e) => {
-      toaster.create({
-        title: "Preview failed",
         description: await errorBodyMessage(e),
         type: "error",
       })

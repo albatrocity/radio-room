@@ -44,6 +44,23 @@ variable "netlify_dns_zone_id" {
   default     = null
 }
 
+variable "dmarc_policy" {
+  description = "DMARC policy (p= tag). Use 'none' to monitor only; tighten to 'quarantine'/'reject' once you trust alignment."
+  type        = string
+  default     = "none"
+
+  validation {
+    condition     = contains(["none", "quarantine", "reject"], var.dmarc_policy)
+    error_message = "dmarc_policy must be one of: none, quarantine, reject."
+  }
+}
+
+variable "dmarc_rua_address" {
+  description = "Email address for DMARC aggregate (rua) reports. When null, the DMARC record omits rua/fo (no reports requested)."
+  type        = string
+  default     = null
+}
+
 variable "iam_user_name" {
   description = "IAM user name for the SES sender credentials used by Heroku."
   type        = string

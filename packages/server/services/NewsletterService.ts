@@ -71,7 +71,14 @@ function getAppUrl(): string {
 let sesClient: SESv2Client | null = null
 function getSesClient(): SESv2Client {
   if (!sesClient) {
-    sesClient = new SESv2Client({ region: getAwsRegion() })
+    const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim()
+    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim()
+    sesClient = new SESv2Client({
+      region: getAwsRegion(),
+      ...(accessKeyId && secretAccessKey
+        ? { credentials: { accessKeyId, secretAccessKey } }
+        : {}),
+    })
   }
   return sesClient
 }
@@ -287,12 +294,15 @@ export async function deleteIssue(id: string, context?: AppContext): Promise<voi
   await db.delete(newsletterIssue).where(eq(newsletterIssue.id, id))
 }
 
-export async function previewIssue(id: string): Promise<string> {
+export async function previewIssue(
+  id: string,
+  overrides?: { subject?: string; bodyMarkdown?: string },
+): Promise<string> {
   const issue = await requireIssue(id)
   // Preview uses a placeholder unsubscribe link (not tied to a real subscriber).
   return renderNewsletter({
-    subject: issue.subject,
-    bodyMarkdown: issue.bodyMarkdown,
+    subject: overrides?.subject ?? issue.subject,
+    bodyMarkdown: overrides?.bodyMarkdown ?? issue.bodyMarkdown,
     unsubscribeUrl: `${getApiUrl()}/api/newsletter/unsubscribe?token=preview`,
   })
 }

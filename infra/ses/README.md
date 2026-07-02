@@ -10,7 +10,7 @@ Self-contained Terraform for the Listening Room newsletter email footprint on **
 |----------|---------|
 | `aws_sesv2_email_identity` | Domain identity with Easy DKIM |
 | `aws_sesv2_email_identity_mail_from_attributes` | Custom MAIL FROM (`mail.<domain>`) |
-| `netlify_dns_record` × 5 | 3 DKIM CNAMEs, MAIL FROM MX, MAIL FROM SPF TXT |
+| `netlify_dns_record` × 6 | 3 DKIM CNAMEs, MAIL FROM MX, MAIL FROM SPF TXT, DMARC TXT |
 | `aws_sns_topic` + policy | Bounce/complaint event bus |
 | `aws_sns_topic_subscription` | HTTPS → `/api/newsletter/webhooks/ses` |
 | `aws_ses_identity_notification_topic` × 2 | Bounce + Complaint → SNS |
@@ -97,6 +97,8 @@ Removes AWS resources and the five Netlify DNS records managed by this module. D
 | `aws_profile` | no | CLI profile name (e.g. `listening-room`); omit to use default credential chain |
 | `mail_from_subdomain` | no | Default `mail` |
 | `netlify_dns_zone_id` | no | Skip zone lookup if set |
+| `dmarc_policy` | no | `none` (default), `quarantine`, or `reject` |
+| `dmarc_rua_address` | no | Address for DMARC aggregate reports; omitted when unset |
 
 ## State
 

@@ -8,19 +8,20 @@ import {
   HStack,
   Input,
   Spinner,
-  Tabs,
   Text,
   AbsoluteCenter,
 } from "@chakra-ui/react"
 import {
   useCancelNewsletterIssue,
   useNewsletterIssue,
-  usePreviewNewsletterIssue,
+  useNewsletterSubscribers,
   useScheduleNewsletterIssue,
   useSendNewsletterIssue,
   useUpdateNewsletterIssue,
 } from "../../hooks/useNewsletter"
 import { MarkdownEditor } from "../../components/publish/MarkdownEditor"
+import { NewsletterEmailPreview } from "../../components/newsletter/NewsletterEmailPreview"
+import { SendNewsletterConfirmDialog } from "../../components/newsletter/SendNewsletterConfirmDialog"
 import { ManagedOverflowContainer } from "../../components/layout/ManagedOverflowContainer"
 import { PageContent } from "../../components/layout/PageContent"
 
@@ -34,14 +35,13 @@ function NewsletterComposerPage() {
   const [subject, setSubject] = useState("")
   const [bodyMarkdown, setBodyMarkdown] = useState("")
   const [scheduledAt, setScheduledAt] = useState("")
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState("edit")
+  const [sendConfirmOpen, setSendConfirmOpen] = useState(false)
 
   const save = useUpdateNewsletterIssue(issueId)
   const send = useSendNewsletterIssue(issueId)
   const schedule = useScheduleNewsletterIssue(issueId)
   const cancel = useCancelNewsletterIssue(issueId)
-  const preview = usePreviewNewsletterIssue(issueId)
+  const { data: subscribers } = useNewsletterSubscribers()
 
   useEffect(() => {
     if (!issue) return
@@ -58,16 +58,10 @@ function NewsletterComposerPage() {
     await save.mutateAsync({ subject, bodyMarkdown })
   }
 
-  async function handlePreview() {
-    await handleSave()
-    const html = await preview.mutateAsync()
-    setPreviewHtml(html)
-    setActiveTab("preview")
-  }
-
   async function handleSend() {
     await handleSave()
     await send.mutateAsync()
+    setSendConfirmOpen(false)
   }
 
   async function handleSchedule() {
@@ -120,27 +114,13 @@ function NewsletterComposerPage() {
             disabled={!isEditable}
           />
           <HStack gap={2} flexWrap="wrap" mb={3}>
-            <Button
-              size="sm"
-              onClick={handleSave}
-              loading={save.isPending}
-              disabled={!isEditable}
-            >
+            <Button size="sm" onClick={handleSave} loading={save.isPending} disabled={!isEditable}>
               Save draft
             </Button>
             <Button
               size="sm"
-              variant="outline"
-              onClick={handlePreview}
-              loading={preview.isPending}
-            >
-              Preview
-            </Button>
-            <Button
-              size="sm"
               colorPalette="blue"
-              onClick={handleSend}
-              loading={send.isPending}
+              onClick={() => setSendConfirmOpen(true)}
               disabled={!isEditable}
             >
               Send now
@@ -179,43 +159,52 @@ function NewsletterComposerPage() {
           </Text>
         </Box>
 
-        <Tabs.Root
-          value={activeTab}
-          onValueChange={(d) => setActiveTab(d.value)}
+        <Flex
+          direction={{ base: "column", lg: "row" }}
+          gap={4}
           flex="1"
           minH={0}
-          display="flex"
-          flexDirection="column"
+          minW={0}
+          align="stretch"
         >
-          <Tabs.List mb={3}>
-            <Tabs.Trigger value="edit">Edit</Tabs.Trigger>
-            <Tabs.Trigger value="preview">Preview</Tabs.Trigger>
-          </Tabs.List>
-          <Tabs.Content value="edit" flex="1" minH={0} display="flex" flexDirection="column">
+          <Box flex="1" minH={0} minW={0} display="flex" flexDirection="column">
             {isEditable ? (
-              <MarkdownEditor value={bodyMarkdown} onChange={setBodyMarkdown} />
+              <MarkdownEditor
+                variant="editor-only"
+                value={bodyMarkdown}
+                onChange={setBodyMarkdown}
+              />
             ) : (
               <Box flex="1" overflow="auto" p={4} borderWidth="1px" borderRadius="md">
                 <Text whiteSpace="pre-wrap">{bodyMarkdown || "(empty)"}</Text>
               </Box>
             )}
-          </Tabs.Content>
-          <Tabs.Content value="preview" flex="1" minH={0}>
-            <Box
-              as="iframe"
-              title="Email preview"
-              srcDoc={previewHtml ?? "<p>Click Preview to render the email.</p>"}
-              w="100%"
-              h="100%"
-              minH="400px"
-              borderWidth="1px"
-              borderColor="border.muted"
-              borderRadius="md"
-              bg="white"
-            />
-          </Tabs.Content>
-        </Tabs.Root>
+          </Box>
+          <Box
+            flex="1"
+            minW={0}
+            borderWidth="1px"
+            borderColor="border.muted"
+            borderRadius="md"
+            overflow="hidden"
+            bg="white"
+            display="flex"
+            flexDirection="column"
+            minH={{ base: "400px", lg: "0" }}
+          >
+            <NewsletterEmailPreview subject={subject} bodyMarkdown={bodyMarkdown} />
+          </Box>
+        </Flex>
       </Flex>
+
+      <SendNewsletterConfirmDialog
+        open={sendConfirmOpen}
+        onClose={() => setSendConfirmOpen(false)}
+        subject={subject}
+        activeSubscriberCount={subscribers?.counts.active}
+        isSending={save.isPending || send.isPending}
+        onConfirm={handleSend}
+      />
     </ManagedOverflowContainer>
   )
 }

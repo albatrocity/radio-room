@@ -2,6 +2,7 @@ locals {
   mail_from_domain = "${var.mail_from_subdomain}.${var.domain}"
   netlify_zone_id  = coalesce(var.netlify_dns_zone_id, one(data.netlify_dns_zone.primary[*].id))
   ses_feedback_mx  = "feedback-smtp.${var.aws_region}.amazonses.com"
+  dmarc_value      = var.dmarc_rua_address != null ? "v=DMARC1; p=${var.dmarc_policy}; rua=mailto:${var.dmarc_rua_address}; fo=1" : "v=DMARC1; p=${var.dmarc_policy}"
 }
 
 # ---------------------------------------------------------------------------
@@ -26,8 +27,8 @@ resource "aws_sesv2_email_identity" "domain" {
 }
 
 resource "aws_sesv2_email_identity_mail_from_attributes" "domain" {
-  email_identity   = aws_sesv2_email_identity.domain.email_identity
-  mail_from_domain = local.mail_from_domain
+  email_identity         = aws_sesv2_email_identity.domain.email_identity
+  mail_from_domain       = local.mail_from_domain
   behavior_on_mx_failure = "USE_DEFAULT_VALUE"
 }
 
@@ -57,6 +58,13 @@ resource "netlify_dns_record" "mail_from_spf" {
   type     = "TXT"
   hostname = local.mail_from_domain
   value    = "v=spf1 include:amazonses.com ~all"
+}
+
+resource "netlify_dns_record" "dmarc" {
+  zone_id  = local.netlify_zone_id
+  type     = "TXT"
+  hostname = "_dmarc.${var.domain}"
+  value    = local.dmarc_value
 }
 
 # ---------------------------------------------------------------------------
