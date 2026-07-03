@@ -9,7 +9,7 @@ const m = vi.hoisted(() => ({
   findShowSegmentTracks: vi.fn(),
   getQueue: vi.fn(),
   setQueue: vi.fn(),
-  getQueueWithDispatched: vi.fn(),
+  buildQueueChangedData: vi.fn(),
   queueSongAs: vi.fn(),
 }))
 
@@ -25,7 +25,7 @@ vi.mock("./data", () => ({
 }))
 
 vi.mock("./data/djs", () => ({
-  getQueueWithDispatched: m.getQueueWithDispatched,
+  buildQueueChangedData: m.buildQueueChangedData,
 }))
 
 vi.mock("../services/DJService", () => ({
@@ -74,10 +74,11 @@ describe("injectSegmentTracksToQueue", () => {
       { track: { id: "t1" } },
       { track: { id: "t2" } },
     ])
-    m.getQueueWithDispatched.mockResolvedValue([
-      { track: { id: "t1" } },
-      { track: { id: "t2" } },
-    ])
+    m.buildQueueChangedData.mockResolvedValue({
+      roomId: "r1",
+      queue: [{ track: { id: "t1" } }, { track: { id: "t2" } }],
+      splitKey: null,
+    })
   })
 
   it("rejects top placement for spotify-controlled rooms", async () => {

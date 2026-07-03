@@ -116,6 +116,12 @@ describe("DJHandlers", () => {
       reorderQueue: vi.fn().mockResolvedValue({
         success: true,
       }),
+      setQueueSplit: vi.fn().mockResolvedValue({
+        success: true,
+      }),
+      removeQueueSplit: vi.fn().mockResolvedValue({
+        success: true,
+      }),
     }
 
     // Mock the AdapterService
@@ -500,6 +506,56 @@ describe("DJHandlers", () => {
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
         type: "REORDER_QUEUE_FAILURE",
         data: { message: "Not authorized" },
+      })
+    })
+  })
+
+  describe("setQueueSplit", () => {
+    test("calls djService.setQueueSplit with belowKey", async () => {
+      await djHandlers.setQueueSplit(
+        { socket: mockSocket, io: mockIo },
+        { belowKey: "spotify:track-b" },
+      )
+
+      expect(djService.setQueueSplit).toHaveBeenCalledWith("room1", "1", "spotify:track-b")
+    })
+
+    test("emits SET_QUEUE_SPLIT_SUCCESS when service succeeds", async () => {
+      djService.setQueueSplit.mockResolvedValueOnce({ success: true })
+
+      await djHandlers.setQueueSplit(
+        { socket: mockSocket, io: mockIo },
+        { belowKey: "spotify:track-b" },
+      )
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", { type: "SET_QUEUE_SPLIT_SUCCESS" })
+    })
+
+    test("emits SET_QUEUE_SPLIT_FAILURE when payload is invalid", async () => {
+      await djHandlers.setQueueSplit({ socket: mockSocket, io: mockIo }, { belowKey: "" })
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "SET_QUEUE_SPLIT_FAILURE",
+        data: { message: "Invalid payload" },
+      })
+      expect(djService.setQueueSplit).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("removeQueueSplit", () => {
+    test("calls djService.removeQueueSplit", async () => {
+      await djHandlers.removeQueueSplit({ socket: mockSocket, io: mockIo })
+
+      expect(djService.removeQueueSplit).toHaveBeenCalledWith("room1", "1")
+    })
+
+    test("emits REMOVE_QUEUE_SPLIT_SUCCESS when service succeeds", async () => {
+      djService.removeQueueSplit.mockResolvedValueOnce({ success: true })
+
+      await djHandlers.removeQueueSplit({ socket: mockSocket, io: mockIo })
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "REMOVE_QUEUE_SPLIT_SUCCESS",
       })
     })
   })

@@ -7,7 +7,7 @@ import { HandlerConnections, AppContext } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import { pubUserJoined } from "../operations/sockets/users"
-import { getRoomUsers, removeOnlineUser } from "../operations/data"
+import { getRoomUsers, removeOnlineUser, buildQueueChangedData, findRoom } from "../operations/data"
 
 /**
  * Socket.io adapter for the AdminService
@@ -461,10 +461,13 @@ export class AdminHandlers {
 
     // Emit via SystemEvents so broadcasters receive QUEUE_CHANGED
     if (socket.context.systemEvents) {
-      await socket.context.systemEvents.emit(socket.data.roomId, "QUEUE_CHANGED", {
+      const room = await findRoom({ context: socket.context, roomId: socket.data.roomId })
+      const payload = await buildQueueChangedData({
         roomId: socket.data.roomId,
-        queue: [],
+        context: socket.context,
+        appControlled: isAppControlledPlayback(room),
       })
+      await socket.context.systemEvents.emit(socket.data.roomId, "QUEUE_CHANGED", payload)
     }
   }
 

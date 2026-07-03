@@ -3,7 +3,7 @@ import type { Room } from "@repo/types/Room"
 import { findShowSegmentTracks } from "../services/SchedulingService"
 import { DJService } from "../services/DJService"
 import { findRoom, getQueue, isRoomAdmin, setQueue } from "./data"
-import { getQueueWithDispatched } from "./data/djs"
+import { buildQueueChangedData } from "./data/djs"
 import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
 
 export type SegmentTrackInjectionPlacement = "top" | "bottom"
@@ -16,10 +16,12 @@ export type InjectSegmentTracksResult =
 
 async function emitQueueChanged(context: AppContext, roomId: string, room: Room): Promise<void> {
   if (!context.systemEvents) return
-  const queue = isAppControlledPlayback(room)
-    ? await getQueueWithDispatched({ context, roomId })
-    : await getQueue({ context, roomId })
-  await context.systemEvents.emit(roomId, "QUEUE_CHANGED", { roomId, queue })
+  const payload = await buildQueueChangedData({
+    roomId,
+    context,
+    appControlled: isAppControlledPlayback(room),
+  })
+  await context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
 }
 
 export async function injectSegmentTracksToQueue(params: {

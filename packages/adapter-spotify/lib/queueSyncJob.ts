@@ -40,7 +40,9 @@ export function createQueueSyncJob(params: {
     handler: async ({ api }: { api: JobApi; context: AppContext }) => {
       try {
         // Dynamic imports to avoid circular dependencies
-        const { findRoom, getQueue, removeFromQueue } = await import("@repo/server/operations/data")
+        const { findRoom, getQueue, removeFromQueue, buildQueueChangedData } = await import(
+          "@repo/server/operations/data"
+        )
         const { isAppControlledPlayback } = await import("@repo/server/lib/roomTypeHelpers")
         const { AdapterService } = await import("@repo/server/services/AdapterService")
 
@@ -100,11 +102,12 @@ export function createQueueSyncJob(params: {
 
         // Emit QUEUE_CHANGED event
         if (context.systemEvents) {
-          const updatedQueue = await getQueue({ context, roomId })
-          await context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+          const payload = await buildQueueChangedData({
             roomId,
-            queue: updatedQueue,
+            context,
+            appControlled: false,
           })
+          await context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
         }
 
         console.log(

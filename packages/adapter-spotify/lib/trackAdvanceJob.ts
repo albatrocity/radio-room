@@ -56,11 +56,11 @@ export function createTrackAdvanceJob(params: {
         const { findRoom } = await import("@repo/server/operations/data")
         const {
           addToQueue,
+          buildQueueChangedData,
           clearDispatchedTrack,
           popNextFromQueue,
           getDispatchedTrack,
           setDispatchedTrack,
-          getQueueWithDispatched,
         } = await import("@repo/server/operations/data")
         const { isAppControlledPlayback, isQueueAutoAdvanceEnabled } = await import("@repo/server/lib/roomTypeHelpers")
         const {
@@ -170,13 +170,14 @@ export function createTrackAdvanceJob(params: {
           return
         }
 
-        const updatedQueue = await getQueueWithDispatched({ context, roomId })
+        const updatedQueue = await buildQueueChangedData({
+          roomId,
+          context,
+          appControlled: true,
+        })
 
         if (context.systemEvents) {
-          await context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
-            roomId,
-            queue: updatedQueue,
-          })
+          await context.systemEvents.emit(roomId, "QUEUE_CHANGED", updatedQueue)
         }
       } catch (error: unknown) {
         const err = error as { status?: number; message?: string }

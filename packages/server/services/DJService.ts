@@ -6,9 +6,12 @@ import { MetadataSource, MetadataSourceTrack } from "@repo/types"
 import {
   addDj,
   addToQueue,
+  buildQueueChangedData,
+  clearQueueSplit,
   findRoom,
   getDjs,
   getQueue,
+  getNormalizedQueueSplit,
   getQueueWithDispatched,
   getUser,
   isDj,
@@ -18,6 +21,7 @@ import {
   clearDispatchedTrack,
   setDispatchedTrack,
   setQueue,
+  setQueueSplit as persistQueueSplit,
   updateUserAttributes,
 } from "../operations/data"
 import systemMessage from "../lib/systemMessage"
@@ -243,6 +247,31 @@ export class DJService {
 
     await addToQueue({ context: this.context, roomId, item: queuedItem })
 
+    if (isAppControlledPlayback(room)) {
+      const belowKey = await getNormalizedQueueSplit({ context: this.context, roomId })
+      if (belowKey) {
+        const updatedQueue = await getQueue({ context: this.context, roomId })
+        const addedKey = canonicalQueueTrackKey(queuedItem)
+        const withoutAdded = updatedQueue.filter(
+          (item) => canonicalQueueTrackKey(item) !== addedKey,
+        )
+        const belowIndex = withoutAdded.findIndex(
+          (item) => canonicalQueueTrackKey(item) === belowKey,
+        )
+        if (belowIndex >= 0) {
+          await setQueue({
+            roomId,
+            items: [
+              ...withoutAdded.slice(0, belowIndex),
+              queuedItem,
+              ...withoutAdded.slice(belowIndex),
+            ],
+            context: this.context,
+          })
+        }
+      }
+    }
+
     // Spotify-native queue (default). App-controlled: Redis-only queue; advance job / explicit Play start Spotify.
     if (!isAppControlledPlayback(room)) {
       try {
@@ -260,13 +289,12 @@ export class DJService {
     }
 
     if (this.context.systemEvents && !suppressQueueChanged) {
-      const updatedQueue = isAppControlledPlayback(room)
-        ? await getQueueWithDispatched({ context: this.context, roomId })
-        : await getQueue({ context: this.context, roomId })
-      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+      const payload = await buildQueueChangedData({
         roomId,
-        queue: updatedQueue,
+        context: this.context,
+        appControlled: isAppControlledPlayback(room),
       })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
     }
 
     return {
@@ -399,11 +427,89 @@ export class DJService {
     await setQueue({ roomId, items, context: this.context })
 
     if (this.context.systemEvents) {
-      const updatedQueue = await getQueueWithDispatched({ context: this.context, roomId })
-      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+      const payload = await buildQueueChangedData({
         roomId,
-        queue: updatedQueue,
+        context: this.context,
+        appControlled: true,
       })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
+    }
+
+    return { success: true as const }
+  }
+
+  /**
+   * Set the queue split anchor (app-controlled, room admins only). Emits QUEUE_CHANGED via systemEvents.
+   */
+  async setQueueSplit(roomId: string, userId: string, belowKey: string) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "Queue split is only available in app-controlled playback mode",
+      }
+    }
+
+    const allowed = await this.userCanReorderQueueInRoom(roomId, userId)
+    if (!allowed) {
+      return { success: false as const, message: "Not authorized to set the queue split" }
+    }
+
+    const queue = await getQueue({ context: this.context, roomId })
+    const index = queue.findIndex((item) => canonicalQueueTrackKey(item) === belowKey)
+    if (index < 0) {
+      return { success: false as const, message: "Invalid queue split position" }
+    }
+    if (index === 0) {
+      await clearQueueSplit({ context: this.context, roomId })
+    } else {
+      await persistQueueSplit({ context: this.context, roomId, belowKey })
+    }
+
+    if (this.context.systemEvents) {
+      const payload = await buildQueueChangedData({
+        roomId,
+        context: this.context,
+        appControlled: true,
+      })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
+    }
+
+    return { success: true as const }
+  }
+
+  /**
+   * Remove the queue split (app-controlled, room admins only). Emits QUEUE_CHANGED via systemEvents.
+   */
+  async removeQueueSplit(roomId: string, userId: string) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "Queue split is only available in app-controlled playback mode",
+      }
+    }
+
+    const allowed = await this.userCanReorderQueueInRoom(roomId, userId)
+    if (!allowed) {
+      return { success: false as const, message: "Not authorized to remove the queue split" }
+    }
+
+    await clearQueueSplit({ context: this.context, roomId })
+
+    if (this.context.systemEvents) {
+      const payload = await buildQueueChangedData({
+        roomId,
+        context: this.context,
+        appControlled: true,
+      })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
     }
 
     return { success: true as const }
@@ -470,11 +576,12 @@ export class DJService {
     await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
 
     if (this.context.systemEvents) {
-      const updatedQueue = await getQueueWithDispatched({ context: this.context, roomId })
-      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+      const payload = await buildQueueChangedData({
         roomId,
-        queue: updatedQueue,
+        context: this.context,
+        appControlled: true,
       })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
     }
 
     const title = queueItem.track.title || queueItem.title || "Track"
@@ -552,11 +659,12 @@ export class DJService {
     }
 
     if (this.context.systemEvents) {
-      const updatedQueue = await getQueueWithDispatched({ context: this.context, roomId })
-      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+      const payload = await buildQueueChangedData({
         roomId,
-        queue: updatedQueue,
+        context: this.context,
+        appControlled: true,
       })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
     }
 
     return {
@@ -703,8 +811,12 @@ export class DJService {
    */
   private async emitQueueChanged(roomId: string): Promise<void> {
     if (!this.context.systemEvents) return
-    const queue = await getQueueWithDispatched({ context: this.context, roomId })
-    await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", { roomId, queue })
+    const payload = await buildQueueChangedData({
+      roomId,
+      context: this.context,
+      appControlled: true,
+    })
+    await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
   }
 
   /**

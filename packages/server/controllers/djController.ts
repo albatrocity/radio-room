@@ -134,6 +134,14 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
     await handlers.reorderQueue(connections, payload)
   })
 
+  socket.on("SET_QUEUE_SPLIT", async (payload: { belowKey: string }) => {
+    await handlers.setQueueSplit(connections, payload)
+  })
+
+  socket.on("REMOVE_QUEUE_SPLIT", async () => {
+    await handlers.removeQueueSplit(connections)
+  })
+
   socket.on("TOGGLE_PLAYBACK", async () => {
     await handlers.togglePlayback(connections)
   })

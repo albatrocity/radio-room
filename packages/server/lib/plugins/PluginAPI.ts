@@ -117,7 +117,7 @@ export class PluginAPIImpl implements PluginAPI {
       findRoom,
       popNextFromQueue,
       setDispatchedTrack,
-      getQueueWithDispatched,
+      buildQueueChangedData,
       clearDispatchedTrack,
     } = await import("../../operations/data")
     const { isAppControlledPlayback } = await import("../roomTypeHelpers")
@@ -167,11 +167,12 @@ export class PluginAPIImpl implements PluginAPI {
     }
 
     if (this.context.systemEvents) {
-      const updatedQueue = await getQueueWithDispatched({ context: this.context, roomId })
-      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+      const payload = await buildQueueChangedData({
         roomId,
-        queue: updatedQueue,
+        context: this.context,
+        appControlled: true,
       })
+      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
     }
   }
 

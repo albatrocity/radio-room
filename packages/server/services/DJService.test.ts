@@ -8,11 +8,14 @@ import { canonicalQueueTrackKey } from "@repo/types/Queue"
 vi.mock("../operations/data", () => ({
   addDj: vi.fn(),
   addToQueue: vi.fn(),
+  buildQueueChangedData: vi.fn(),
   clearDispatchedTrack: vi.fn(),
+  clearQueueSplit: vi.fn(),
   findRoom: vi.fn(),
   getDispatchedTrack: vi.fn(),
   getDjs: vi.fn(),
   getQueue: vi.fn(),
+  getNormalizedQueueSplit: vi.fn(),
   getQueueWithDispatched: vi.fn(),
   getUser: vi.fn(),
   isDj: vi.fn(),
@@ -20,6 +23,7 @@ vi.mock("../operations/data", () => ({
   removeDj: vi.fn(),
   removeFromQueue: vi.fn(),
   setQueue: vi.fn(),
+  setQueueSplit: vi.fn(),
   setDispatchedTrack: vi.fn(),
   updateUserAttributes: vi.fn(),
 }))
@@ -39,11 +43,14 @@ import systemMessage from "../lib/systemMessage"
 import {
   addDj,
   addToQueue,
+  buildQueueChangedData,
   clearDispatchedTrack,
+  clearQueueSplit,
   findRoom,
   getDispatchedTrack,
   getDjs,
   getQueue,
+  getNormalizedQueueSplit,
   getQueueWithDispatched,
   getUser,
   isDj,
@@ -51,6 +58,7 @@ import {
   removeDj,
   removeFromQueue,
   setQueue,
+  setQueueSplit,
   setDispatchedTrack,
   updateUserAttributes,
 } from "../operations/data"
@@ -85,10 +93,18 @@ describe("DJService", () => {
     vi.mocked(getQueueWithDispatched).mockImplementation(async (params) => {
       return vi.mocked(getQueue)(params) as Promise<QueueItem[]>
     })
+    vi.mocked(buildQueueChangedData).mockImplementation(async ({ roomId, appControlled }) => ({
+      roomId,
+      queue: appControlled
+        ? await vi.mocked(getQueueWithDispatched)({ context: mockContext, roomId })
+        : await vi.mocked(getQueue)({ context: mockContext, roomId }),
+      splitKey: null,
+    }))
 
     // Setup default mocks
     vi.mocked(getUser).mockResolvedValue(mockUser)
     vi.mocked(getQueue).mockResolvedValue([])
+    vi.mocked(getNormalizedQueueSplit).mockResolvedValue(null)
     vi.mocked(updateUserAttributes).mockResolvedValue({
       user: mockUser,
       users: [mockUser],
@@ -774,7 +790,112 @@ describe("DJService", () => {
       expect(mockContext.systemEvents?.emit).toHaveBeenCalledWith("room123", "QUEUE_CHANGED", {
         roomId: "room123",
         queue: [itemB, itemA],
+        splitKey: null,
       })
+    })
+  })
+
+  describe("queue split", () => {
+    const appControlledRoom = roomFactory.build({
+      id: "room123",
+      creator: "creator1",
+      playbackMode: "app-controlled",
+    })
+
+    const itemA = queueItemFactory.build({
+      mediaSource: { type: "spotify", trackId: "track-a" },
+      track: metadataSourceTrackFactory.build({ id: "track-a", title: "A" }),
+    })
+    const itemB = queueItemFactory.build({
+      mediaSource: { type: "spotify", trackId: "track-b" },
+      track: metadataSourceTrackFactory.build({ id: "track-b", title: "B" }),
+    })
+
+    test("setQueueSplit rejects when not app-controlled", async () => {
+      vi.mocked(findRoom).mockResolvedValue(
+        roomFactory.build({ playbackMode: "spotify-controlled" }),
+      )
+
+      const result = await djService.setQueueSplit(
+        "room123",
+        "user123",
+        canonicalQueueTrackKey(itemB),
+      )
+
+      expect(result).toEqual({
+        success: false,
+        message: "Queue split is only available in app-controlled playback mode",
+      })
+      expect(setQueueSplit).not.toHaveBeenCalled()
+    })
+
+    test("setQueueSplit rejects when user is not authorized", async () => {
+      vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+      vi.mocked(getQueue).mockResolvedValue([itemA, itemB])
+      vi.mocked(isRoomAdmin).mockResolvedValue(false)
+
+      const result = await djService.setQueueSplit(
+        "room123",
+        "user123",
+        canonicalQueueTrackKey(itemB),
+      )
+
+      expect(result).toEqual({
+        success: false,
+        message: "Not authorized to set the queue split",
+      })
+    })
+
+    test("setQueueSplit persists anchor and emits QUEUE_CHANGED when valid", async () => {
+      vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+      vi.mocked(getQueue).mockResolvedValue([itemA, itemB])
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+
+      const belowKey = canonicalQueueTrackKey(itemB)
+      const result = await djService.setQueueSplit("room123", "user123", belowKey)
+
+      expect(result).toEqual({ success: true })
+      expect(setQueueSplit).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        belowKey,
+      })
+      expect(mockContext.systemEvents?.emit).toHaveBeenCalledWith(
+        "room123",
+        "QUEUE_CHANGED",
+        expect.objectContaining({ roomId: "room123", splitKey: null }),
+      )
+    })
+
+    test("setQueueSplit at index 0 clears split instead of persisting", async () => {
+      vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+      vi.mocked(getQueue).mockResolvedValue([itemA, itemB])
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+
+      const result = await djService.setQueueSplit(
+        "room123",
+        "user123",
+        canonicalQueueTrackKey(itemA),
+      )
+
+      expect(result).toEqual({ success: true })
+      expect(clearQueueSplit).toHaveBeenCalledWith({ context: mockContext, roomId: "room123" })
+      expect(setQueueSplit).not.toHaveBeenCalled()
+    })
+
+    test("removeQueueSplit clears anchor and emits QUEUE_CHANGED", async () => {
+      vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+
+      const result = await djService.removeQueueSplit("room123", "user123")
+
+      expect(result).toEqual({ success: true })
+      expect(clearQueueSplit).toHaveBeenCalledWith({ context: mockContext, roomId: "room123" })
+      expect(mockContext.systemEvents?.emit).toHaveBeenCalledWith(
+        "room123",
+        "QUEUE_CHANGED",
+        expect.objectContaining({ roomId: "room123" }),
+      )
     })
   })
 
@@ -906,6 +1027,62 @@ describe("DJService", () => {
 
         expect(result).toEqual({ success: false, message: "rate limited" })
         expect(addToQueue).not.toHaveBeenCalled()
+      })
+
+      test("app-controlled with split: inserts new track immediately before split anchor", async () => {
+        vi.mocked(addToQueue).mockResolvedValue(undefined)
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+
+        const mockTrack = metadataSourceTrackFactory.build({
+          id: "track-new",
+          title: "New Track",
+          urls: [{ type: "resource", url: "spotify:track:new", id: "url-new" }],
+        })
+        const itemA = queueItemFactory.build({
+          mediaSource: { type: "spotify", trackId: "track-a" },
+          track: metadataSourceTrackFactory.build({ id: "track-a", title: "A" }),
+        })
+        const itemB = queueItemFactory.build({
+          mediaSource: { type: "spotify", trackId: "track-b" },
+          track: metadataSourceTrackFactory.build({ id: "track-b", title: "B" }),
+        })
+        const queuedItem = queueItemFactory.build({
+          track: mockTrack,
+          mediaSource: { type: "spotify", trackId: "track-new" },
+          metadataSource: { type: "spotify", trackId: "track-new" },
+        })
+
+        vi.mocked(getQueue)
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([itemA, itemB, queuedItem])
+        vi.mocked(getNormalizedQueueSplit).mockResolvedValue(
+          canonicalQueueTrackKey(itemB),
+        )
+        vi.mocked(addToQueue).mockImplementation(async ({ item }) => {
+          Object.assign(queuedItem, item)
+        })
+
+        // @ts-ignore — testing private property
+        djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue({
+          api: { findById: vi.fn().mockResolvedValue(mockTrack) },
+        })
+        // @ts-ignore
+        djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+          api: { addToQueue: vi.fn() },
+        })
+
+        const result = await djService.queueSongAs(
+          "room123",
+          { type: "user", userId: "user123", username: "Homer" },
+          "track-new",
+        )
+
+        expect(result.success).toBe(true)
+        expect(setQueue).toHaveBeenCalledWith({
+          context: mockContext,
+          roomId: "room123",
+          items: [itemA, expect.objectContaining({ track: mockTrack }), itemB],
+        })
       })
     })
 

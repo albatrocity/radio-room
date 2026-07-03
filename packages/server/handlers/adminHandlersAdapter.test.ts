@@ -6,6 +6,13 @@ import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import { roomFactory, userFactory } from "@repo/factories"
 
+const dataMocks = vi.hoisted(() => ({
+  findRoom: vi.fn(),
+  getRoomUsers: vi.fn(),
+  removeOnlineUser: vi.fn(),
+  buildQueueChangedData: vi.fn(),
+}))
+
 // Mock dependencies
 vi.mock("../services/AdminService")
 vi.mock("../operations/data/pluginConfigs", () => ({
@@ -14,9 +21,10 @@ vi.mock("../operations/data/pluginConfigs", () => ({
   setPluginConfig: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock("../operations/data", () => ({
-  findRoom: vi.fn().mockResolvedValue(null),
-  getRoomUsers: vi.fn().mockResolvedValue([]),
-  removeOnlineUser: vi.fn().mockResolvedValue(undefined),
+  findRoom: dataMocks.findRoom,
+  getRoomUsers: dataMocks.getRoomUsers,
+  removeOnlineUser: dataMocks.removeOnlineUser,
+  buildQueueChangedData: dataMocks.buildQueueChangedData,
 }))
 
 describe("AdminHandlers", () => {
@@ -80,6 +88,15 @@ describe("AdminHandlers", () => {
     }
 
     adminHandlers = new AdminHandlers(adminService)
+
+    dataMocks.findRoom.mockResolvedValue(mockRoom)
+    dataMocks.getRoomUsers.mockResolvedValue([])
+    dataMocks.removeOnlineUser.mockResolvedValue(undefined)
+    dataMocks.buildQueueChangedData.mockResolvedValue({
+      roomId: "room123",
+      queue: [],
+      splitKey: null,
+    })
   })
 
   test("should be defined", () => {
@@ -294,7 +311,7 @@ describe("AdminHandlers", () => {
       expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
         "room123",
         "QUEUE_CHANGED",
-        { roomId: "room123", queue: [] },
+        { roomId: "room123", queue: [], splitKey: null },
       )
     })
 
