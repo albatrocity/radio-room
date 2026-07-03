@@ -91,7 +91,28 @@ export class MemoryRedisClient {
     const sorted = [...zset.entries()].sort((a, b) =>
       opts?.REV ? b[1] - a[1] : a[1] - b[1],
     )
-    const end = stop < 0 ? sorted.length + stop : stop + 1
-    return sorted.slice(start, end).map(([member]) => member)
+    const len = sorted.length
+    if (len === 0) return []
+
+    // Redis ZRANGE: start/stop are inclusive; negative stop counts from the end.
+    let from = start < 0 ? len + start : start
+    let to = stop < 0 ? len + stop : stop
+    if (from >= len || to < 0) return []
+    from = Math.max(0, from)
+    to = Math.min(to, len - 1)
+    if (from > to) return []
+
+    return sorted.slice(from, to + 1).map(([member]) => member)
+  }
+
+  async zRank(key: string, member: string): Promise<number | null> {
+    const zset = this.zsets.get(key)
+    if (!zset || !zset.has(member)) return null
+    const sorted = [...zset.entries()].sort((a, b) => a[1] - b[1])
+    return sorted.findIndex(([m]) => m === member)
+  }
+
+  async zCard(key: string): Promise<number> {
+    return this.zsets.get(key)?.size ?? 0
   }
 }

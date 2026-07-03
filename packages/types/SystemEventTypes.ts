@@ -62,7 +62,11 @@ export type SystemEventHandlers = {
   }) => Promise<void> | void
 
   // Queue events
-  QUEUE_CHANGED: (data: { roomId: string; queue: QueueItem[] }) => Promise<void> | void
+  QUEUE_CHANGED: (data: {
+    roomId: string
+    queue: QueueItem[]
+    splitKey?: string | null
+  }) => Promise<void> | void
 
   // Event for when additional metadata arrives for an existing track (from secondary MetadataSources)
   TRACK_METADATA_UPDATED: (data: {

@@ -197,6 +197,7 @@ export function buildInitPayload(snap: BridgeSnapshot, self: User) {
     passwordRequired: false,
     playlist: [] as unknown[],
     queue: snap.queue,
+    splitKey: snap.splitKey ?? null,
     reactions: {
       message: {} as Record<string, unknown[]>,
       track: {} as Record<string, unknown[]>,

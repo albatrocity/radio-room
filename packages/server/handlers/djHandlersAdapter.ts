@@ -573,6 +573,58 @@ export class DJHandlers {
     }
   }
 
+  setQueueSplit = async (
+    { socket }: HandlerConnections,
+    { belowKey }: { belowKey: string },
+  ) => {
+    try {
+      const { roomId, userId } = socket.data
+      if (typeof belowKey !== "string" || belowKey.length === 0) {
+        socket.emit("event", {
+          type: "SET_QUEUE_SPLIT_FAILURE",
+          data: { message: "Invalid payload" },
+        })
+        return
+      }
+      const result = await this.djService.setQueueSplit(roomId, userId, belowKey)
+      if (!result.success) {
+        socket.emit("event", {
+          type: "SET_QUEUE_SPLIT_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+      socket.emit("event", { type: "SET_QUEUE_SPLIT_SUCCESS" })
+    } catch (error: any) {
+      console.error("Error setting queue split:", error)
+      socket.emit("event", {
+        type: "SET_QUEUE_SPLIT_FAILURE",
+        data: { message: error?.message || "Failed to set queue split" },
+      })
+    }
+  }
+
+  removeQueueSplit = async ({ socket }: HandlerConnections) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.djService.removeQueueSplit(roomId, userId)
+      if (!result.success) {
+        socket.emit("event", {
+          type: "REMOVE_QUEUE_SPLIT_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+      socket.emit("event", { type: "REMOVE_QUEUE_SPLIT_SUCCESS" })
+    } catch (error: any) {
+      console.error("Error removing queue split:", error)
+      socket.emit("event", {
+        type: "REMOVE_QUEUE_SPLIT_FAILURE",
+        data: { message: error?.message || "Failed to remove queue split" },
+      })
+    }
+  }
+
   playQueuedTrack = async ({ socket }: HandlerConnections, { trackId }: { trackId: string }) => {
     try {
       const { roomId, userId } = socket.data

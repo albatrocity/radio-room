@@ -19,6 +19,11 @@ export function dispatchedTrackKey(roomId: string) {
   return `room:${roomId}:dispatched_track`
 }
 
+/** Canonical key of the first track below the queue split divider (reserved lower section). */
+export function queueSplitStorageKey(roomId: string) {
+  return `room:${roomId}:queue_split`
+}
+
 const DISPATCHED_TTL_SEC = 60
 
 /** Atomic pop lowest-score member from ZSET (same semantics as ZPOPMIN). */
@@ -161,6 +166,118 @@ export async function clearDispatchedTrack({
   }
 }
 
+export async function getQueueSplit({
+  roomId,
+  context,
+}: {
+  roomId: string
+  context: AppContext
+}): Promise<string | null> {
+  try {
+    const raw = await context.redis.pubClient.get(queueSplitStorageKey(roomId))
+    if (!raw) return null
+    return raw
+  } catch (e) {
+    console.error("[getQueueSplit]", roomId, e)
+    return null
+  }
+}
+
+export async function setQueueSplit({
+  roomId,
+  context,
+  belowKey,
+}: {
+  roomId: string
+  context: AppContext
+  belowKey: string
+}) {
+  try {
+    await context.redis.pubClient.set(queueSplitStorageKey(roomId), belowKey)
+  } catch (e) {
+    console.error("[setQueueSplit]", roomId, belowKey, e)
+  }
+}
+
+export async function clearQueueSplit({
+  roomId,
+  context,
+}: {
+  roomId: string
+  context: AppContext
+}) {
+  try {
+    await context.redis.pubClient.unlink(queueSplitStorageKey(roomId))
+  } catch (e) {
+    console.error("[clearQueueSplit]", roomId, e)
+  }
+}
+
+/**
+ * Return the split anchor when it still points at a track with at least one track above it.
+ * Clears stale split state when the anchor is missing or has reached queue head (index 0).
+ */
+export async function getNormalizedQueueSplit({
+  roomId,
+  context,
+}: {
+  roomId: string
+  context: AppContext
+}): Promise<string | null> {
+  const belowKey = await getQueueSplit({ roomId, context })
+  if (!belowKey) return null
+
+  const queue = await getQueue({ roomId, context })
+  const index = queue.findIndex((item) => canonicalQueueTrackKey(item) === belowKey)
+
+  if (index < 1) {
+    await clearQueueSplit({ roomId, context })
+    return null
+  }
+
+  return belowKey
+}
+
+/**
+ * When the split anchor track is removed, re-point the split to the next track below
+ * (or clear if the anchor was the last track). Must run before ZREM on queue_order.
+ */
+export async function reanchorQueueSplitOnRemoval({
+  roomId,
+  context,
+  removedKey,
+}: {
+  roomId: string
+  context: AppContext
+  removedKey: string
+}) {
+  try {
+    await ensureQueueMigrated({ roomId, context })
+    const splitKey = await getQueueSplit({ roomId, context })
+    if (!splitKey || splitKey !== removedKey) {
+      return
+    }
+
+    const client = context.redis.pubClient
+    const orderKey = queueOrderKey(roomId)
+    const rank = await client.zRank(orderKey, removedKey)
+    if (rank == null) {
+      await clearQueueSplit({ roomId, context })
+      return
+    }
+
+    const successors = await client.zRange(orderKey, rank + 1, rank + 1)
+    const successor = successors[0]
+    if (successor) {
+      await setQueueSplit({ roomId, context, belowKey: successor })
+    } else {
+      await clearQueueSplit({ roomId, context })
+    }
+  } catch (e) {
+    console.error("[reanchorQueueSplitOnRemoval]", roomId, removedKey, e)
+  }
+}
+
 export async function addDj({
   roomId,
   userId,
@@ -261,6 +378,7 @@ export async function removeFromQueue({
   context: AppContext
 }) {
   await ensureQueueMigrated({ roomId, context })
+  await reanchorQueueSplitOnRemoval({ roomId, context, removedKey: trackId })
   await context.redis.pubClient.zRem(queueOrderKey(roomId), trackId)
   await context.redis.pubClient.unlink(`room:${roomId}:queued_track:${trackId}`)
   return null
@@ -315,6 +433,25 @@ export async function getQueueWithDispatched({
     return [{ ...dispatched, locked: true }, ...queue]
   }
   return queue
+}
+
+/** Wire payload for INIT / QUEUE_CHANGED — queue snapshot plus normalized split anchor. */
+export async function buildQueueChangedData({
+  roomId,
+  context,
+  appControlled,
+}: {
+  roomId: string
+  context: AppContext
+  appControlled: boolean
+}): Promise<{ roomId: string; queue: QueueItem[]; splitKey: string | null }> {
+  const splitKey = appControlled
+    ? await getNormalizedQueueSplit({ roomId, context })
+    : null
+  const queue = appControlled
+    ? await getQueueWithDispatched({ roomId, context })
+    : await getQueue({ roomId, context })
+  return { roomId, queue, splitKey }
 }
 
 /**
@@ -438,6 +575,7 @@ export async function clearQueue({ roomId, context }: { roomId: string; context:
     )
     await context.redis.pubClient.unlink(orderKey)
     await context.redis.pubClient.unlink(legacyQueueSetKey(roomId))
+    await clearQueueSplit({ roomId, context })
     return []
   } catch (e) {
     console.log("ERROR FROM data/djs/clearQueue", roomId)

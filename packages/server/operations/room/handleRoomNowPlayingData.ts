@@ -14,6 +14,7 @@ import {
 import type { MetadataSourceType } from "@repo/types/TrackSource"
 import {
   addTrackToRoomPlaylist,
+  buildQueueChangedData,
   clearDispatchedTrack,
   clearRoomCurrent,
   findRoom,
@@ -256,24 +257,24 @@ export default async function handleRoomNowPlayingData({
 
     // Emit QUEUE_CHANGED event after removing track
     if (context.systemEvents) {
-      const updatedQueue = isAppControlledPlayback(room)
-        ? await getQueueWithDispatched({ context, roomId })
-        : await getQueue({ context, roomId })
-      await context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+      const payload = await buildQueueChangedData({
         roomId,
-        queue: updatedQueue,
+        context,
+        appControlled: isAppControlledPlayback(room),
       })
+      await context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
     }
   }
 
   if (queueMatchSource === "dispatched") {
     await clearDispatchedTrack({ context, roomId })
     if (context.systemEvents && isAppControlledPlayback(room)) {
-      const updatedQueue = await getQueueWithDispatched({ context, roomId })
-      await context.systemEvents.emit(roomId, "QUEUE_CHANGED", {
+      const payload = await buildQueueChangedData({
         roomId,
-        queue: updatedQueue,
+        context,
+        appControlled: true,
       })
+      await context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
     }
   }
 }

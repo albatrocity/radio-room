@@ -31,7 +31,7 @@ vi.mock("../../operations/data", () => ({
   findRoom: vi.fn(),
   popNextFromQueue: vi.fn(),
   setDispatchedTrack: vi.fn(),
-  getQueueWithDispatched: vi.fn(),
+  buildQueueChangedData: vi.fn(),
   clearDispatchedTrack: vi.fn(),
 }))
 
@@ -44,7 +44,7 @@ import {
   findRoom,
   popNextFromQueue,
   setDispatchedTrack,
-  getQueueWithDispatched,
+  buildQueueChangedData,
   clearDispatchedTrack,
 } from "../../operations/data"
 
@@ -127,7 +127,11 @@ describe("PluginAPIImpl.skipTrack", () => {
     const nextItem = queueItemFactory.build({ track: nextTrack })
 
     vi.mocked(popNextFromQueue).mockResolvedValue(nextItem)
-    vi.mocked(getQueueWithDispatched).mockResolvedValue([nextItem])
+    vi.mocked(buildQueueChangedData).mockResolvedValue({
+      roomId,
+      queue: [nextItem],
+      splitKey: null,
+    })
 
     await api.skipTrack(roomId, trackId)
 
@@ -142,6 +146,7 @@ describe("PluginAPIImpl.skipTrack", () => {
     expect(mockContext.systemEvents?.emit).toHaveBeenCalledWith(roomId, "QUEUE_CHANGED", {
       roomId,
       queue: [nextItem],
+      splitKey: null,
     })
   })
 

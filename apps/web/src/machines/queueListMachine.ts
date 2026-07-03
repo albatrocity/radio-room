@@ -8,6 +8,7 @@ import { subscribeById, unsubscribeById } from "../actors/socketActor"
 
 export interface QueueListContext {
   queue: QueueItem[]
+  splitKey: string | null
   subscriptionId: string | null
 }
 
@@ -16,9 +17,9 @@ type QueueListEvent =
   | { type: "DEACTIVATE" }
   | {
       type: "INIT"
-      data: { queue?: QueueItem[] }
+      data: { queue?: QueueItem[]; splitKey?: string | null }
     }
-  | { type: "QUEUE_CHANGED"; data: { queue: QueueItem[] } }
+  | { type: "QUEUE_CHANGED"; data: { queue: QueueItem[]; splitKey?: string | null } }
 
 // ============================================================================
 // Machine
@@ -44,12 +45,16 @@ export const queueListMachine = setup({
     },
     applySocketQueue: assign(({ event }) => {
       if (event.type === "INIT" || event.type === "QUEUE_CHANGED") {
-        return { queue: event.data.queue ?? [] }
+        return {
+          queue: event.data.queue ?? [],
+          splitKey: event.data.splitKey ?? null,
+        }
       }
       return {}
     }),
     resetQueue: assign({
       queue: () => [],
+      splitKey: () => null,
       subscriptionId: () => null,
     }),
   },
@@ -58,6 +63,7 @@ export const queueListMachine = setup({
   initial: "idle",
   context: {
     queue: [],
+    splitKey: null,
     subscriptionId: null,
   },
   states: {

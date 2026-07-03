@@ -217,6 +217,10 @@ export const useQueueList = (): QueueItem[] => {
   return useSelector(queueListActor, (s) => s.context.queue)
 }
 
+export const useQueueSplitKey = (): string | null => {
+  return useSelector(queueListActor, (s) => s.context.splitKey)
+}
+
 export const useQueueCount = () => {
   return useSelector(queueListActor, (s) => s.context.queue.length)
 }

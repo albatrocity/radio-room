@@ -72,6 +72,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0064](0064-radio-app-controlled-playback-default.md) | App-controlled playback default for new radio rooms | Accepted |
 | [0065](0065-email-newsletter-via-resend.md) | Email newsletter via Resend (subscribers, broadcasts, webhooks) | Superseded by [0066](0066-email-newsletter-via-amazon-ses.md) |
 | [0066](0066-email-newsletter-via-amazon-ses.md) | Email newsletter via Amazon SES (own-list send, SNS suppression, Redis scheduling) | Accepted |
+| [0067](0067-queue-split-reserved-segment.md) | Queue split for reserved lower segment (app-controlled) | Accepted |
 
 ## Creating a New ADR
 

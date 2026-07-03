@@ -38,6 +38,8 @@ export type StudioBridgeSnapshot = {
   storedArtifacts: StoredArtifactPublic[]
   activePoll?: Poll | null
   pollHistory?: PollHistoryEntry[]
+  /** App-controlled queue split anchor (canonical key of first track below divider). */
+  splitKey?: string | null
 }
 
 export function serializeStudioRoom(room: StudioRoom): StudioBridgeSnapshot {

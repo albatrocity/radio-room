@@ -30,6 +30,7 @@ import {
   setRoomPollingPaused,
   getQueue,
   getQueueWithDispatched,
+  getNormalizedQueueSplit,
   isRoomAdmin,
   addUserToRoomHistory,
 } from "../operations/data"
@@ -231,6 +232,9 @@ export class AuthService {
     const queue = isAppControlledPlayback(room)
       ? await getQueueWithDispatched({ context: this.context, roomId })
       : await getQueue({ context: this.context, roomId })
+    const splitKey = isAppControlledPlayback(room)
+      ? await getNormalizedQueueSplit({ context: this.context, roomId })
+      : null
     const streamHealthStatus =
       room.type === "live" ? await getStreamHealthStatus(this.context, roomId) : null
     const webrtcStreamHealthStatus = isHybridRadioRoom(room)
@@ -288,6 +292,7 @@ export class AuthService {
         passwordRequired: !isNullish(room?.password),
         playlist,
         queue,
+        splitKey,
         reactions: allReactions,
         pluginConfigs,
         user: {
