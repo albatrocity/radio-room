@@ -16,6 +16,7 @@ function fingerprintSnapshot(s: BridgeSnapshot): string {
     roomId: s.roomId,
     chat: s.chat,
     queue: s.queue,
+    splitKey: s.splitKey ?? null,
     users: s.users,
     userStates: s.userStates,
     inventories: s.inventories,
@@ -67,8 +68,9 @@ export function queueHeadTrackId(s: BridgeSnapshot | null): string | null {
   return id ?? null
 }
 
-/** True when the ordered queue (length or any position’s track id) differs. */
+/** True when the ordered queue (length or any position’s track id) or split anchor differs. */
 export function queueChanged(prev: BridgeSnapshot, next: BridgeSnapshot): boolean {
+  if ((prev.splitKey ?? null) !== (next.splitKey ?? null)) return true
   if (prev.queue.length !== next.queue.length) return true
   for (let i = 0; i < prev.queue.length; i++) {
     const a = prev.queue[i]?.mediaSource?.trackId ?? null

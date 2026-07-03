@@ -5,6 +5,8 @@ import type { Socket } from "socket.io"
 import type { Server as IOServer } from "socket.io"
 import { Server } from "socket.io"
 import type { User } from "@repo/types/User"
+import { canonicalQueueTrackKey } from "@repo/types/Queue"
+import type { QueueItem } from "@repo/types/Queue"
 
 import type { BridgeSnapshot } from "./types.js"
 import {
@@ -50,6 +52,35 @@ function pollPreviewEnabled(socket: Socket): boolean {
 function bridgeRoomTimestampIso(): string {
   const ms = getLastSyncEpochMs()
   return ms > 0 ? new Date(ms).toISOString() : BRIDGE_PRE_SYNC_ISO
+}
+
+function normalizeSplitKey(
+  queue: QueueItem[],
+  splitKey: string | null | undefined,
+): string | null {
+  if (!splitKey) return null
+  const playable = queue.filter((item) => !item.locked)
+  const index = playable.findIndex((item) => canonicalQueueTrackKey(item) === splitKey)
+  if (index <= 0) return null
+  return splitKey
+}
+
+function withNormalizedSplitKey(snap: BridgeSnapshot): BridgeSnapshot {
+  return {
+    ...snap,
+    splitKey: normalizeSplitKey(snap.queue, snap.splitKey),
+  }
+}
+
+function emitQueueChanged(io: IOServer, roomId: string, snap: BridgeSnapshot): void {
+  io.to(roomSocketPath(roomId)).emit("event", {
+    type: "QUEUE_CHANGED",
+    data: {
+      roomId,
+      queue: snap.queue,
+      splitKey: snap.splitKey ?? null,
+    },
+  })
 }
 
 /** Updates socket identity and pushes INIT + USER_GAME_STATE (same contract as socket VIEW_AS_USER). */
@@ -162,10 +193,7 @@ function broadcastRefresh(io: IOServer, roomId: string): void {
   }
 
   if (sameRoom && prevSnap && queueChanged(prevSnap, snap)) {
-    io.to(roomPath).emit("event", {
-      type: "QUEUE_CHANGED",
-      data: { roomId, queue: snap.queue },
-    })
+    emitQueueChanged(io, roomId, snap)
   }
 
   void io.in(roomPath).fetchSockets().then((sockets) => {
@@ -698,6 +726,67 @@ function wireSocketHandlers(io: IOServer): void {
       /** Success/failure is emitted by Game Studio via POST `/preview/queue-remove-result`. */
     })
 
+    socket.on("SET_QUEUE_SPLIT", async (data: { belowKey?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      const belowKey = typeof data?.belowKey === "string" ? data.belowKey : undefined
+      const snap = getBridgeSnapshot()
+      if (!roomId || !userId || !belowKey || !snap || snap.roomId !== roomId) {
+        socket.emit("event", {
+          type: "SET_QUEUE_SPLIT_FAILURE",
+          data: { message: "Not in a room or missing split position." },
+        })
+        return
+      }
+      const roomUser = snap.users.find((u) => u.userId === userId)
+      if (!roomUser?.isAdmin) {
+        socket.emit("event", {
+          type: "SET_QUEUE_SPLIT_FAILURE",
+          data: { message: "Not authorized to set the queue split" },
+        })
+        return
+      }
+      const playable = snap.queue.filter((item) => !item.locked)
+      const index = playable.findIndex((item) => canonicalQueueTrackKey(item) === belowKey)
+      if (index < 0) {
+        socket.emit("event", {
+          type: "SET_QUEUE_SPLIT_FAILURE",
+          data: { message: "Invalid queue split position" },
+        })
+        return
+      }
+      const nextSplitKey = index === 0 ? null : belowKey
+      const nextSnap = withNormalizedSplitKey({ ...snap, splitKey: nextSplitKey })
+      setBridgeSnapshot(nextSnap)
+      socket.emit("event", { type: "SET_QUEUE_SPLIT_SUCCESS" })
+      emitQueueChanged(io, roomId, nextSnap)
+    })
+
+    socket.on("REMOVE_QUEUE_SPLIT", async () => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      const snap = getBridgeSnapshot()
+      if (!roomId || !userId || !snap || snap.roomId !== roomId) {
+        socket.emit("event", {
+          type: "REMOVE_QUEUE_SPLIT_FAILURE",
+          data: { message: "Not in a room." },
+        })
+        return
+      }
+      const roomUser = snap.users.find((u) => u.userId === userId)
+      if (!roomUser?.isAdmin) {
+        socket.emit("event", {
+          type: "REMOVE_QUEUE_SPLIT_FAILURE",
+          data: { message: "Not authorized to remove the queue split" },
+        })
+        return
+      }
+      const nextSnap = withNormalizedSplitKey({ ...snap, splitKey: null })
+      setBridgeSnapshot(nextSnap)
+      socket.emit("event", { type: "REMOVE_QUEUE_SPLIT_SUCCESS" })
+      emitQueueChanged(io, roomId, nextSnap)
+    })
+
     socket.on(
       "EXECUTE_PLUGIN_ACTION",
       async (data: {
@@ -1171,7 +1260,15 @@ app.post("/sync", (req, res) => {
     res.status(400).json({ error: "Invalid BridgeSnapshot body" })
     return
   }
-  setBridgeSnapshot(parsed)
+  const prev = getBridgeSnapshot()
+  const merged: BridgeSnapshot =
+    parsed.splitKey !== undefined
+      ? parsed
+      : {
+          ...parsed,
+          splitKey: prev?.roomId === parsed.roomId ? (prev.splitKey ?? null) : null,
+        }
+  setBridgeSnapshot(withNormalizedSplitKey(merged))
   res.status(204).end()
   if (io) {
     broadcastRefresh(io, parsed.roomId)

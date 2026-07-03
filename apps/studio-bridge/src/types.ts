@@ -32,4 +32,6 @@ export type BridgeSnapshot = {
     segmentTitle: string
     count: number
   } | null
+  /** App-controlled queue split anchor (canonical key of first track below divider). */
+  splitKey?: string | null
 }

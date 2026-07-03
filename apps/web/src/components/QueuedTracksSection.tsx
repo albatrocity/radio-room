@@ -1,6 +1,7 @@
-import { useMemo, useRef, useCallback, memo, useState, useEffect } from "react"
+import { useMemo, useRef, useCallback, memo, useState, useEffect, Fragment } from "react"
 import {
   Box,
+  Button,
   Heading,
   HStack,
   Badge,
@@ -10,6 +11,7 @@ import {
   ScrollArea,
   Checkbox,
   IconButton,
+  Group,
 } from "@chakra-ui/react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react"
@@ -18,10 +20,18 @@ import { isSortable } from "@dnd-kit/react/sortable"
 import { move } from "@dnd-kit/helpers"
 import { canonicalQueueTrackKey, type QueueItem as SharedQueueItem } from "@repo/types/Queue"
 import { GripVertical } from "lucide-react"
-import { LuPlay, LuPause } from "react-icons/lu"
+import {
+  LuPlay,
+  LuPause,
+  LuX,
+  LuSquareSplitVertical,
+  LuArrowUpToLine,
+  LuArrowUp,
+} from "react-icons/lu"
 import { QueueItem } from "../types/Queue"
 import {
   useQueueList,
+  useQueueSplitKey,
   useCurrentRoom,
   useIsAdmin,
   useIsRoomCreator,
@@ -41,10 +51,126 @@ const MAX_LIST_HEIGHT = 200
 type SpotifyPlaybackState = "playing" | "paused" | "stopped"
 
 export const ROOM_QUEUE_SORTABLE_GROUP = "room-queue"
+export const QUEUE_SPLIT_DIVIDER_ID = "queue-split-divider"
 
 function toCanonicalKey(item: QueueItem): string {
   return canonicalQueueTrackKey(item as unknown as SharedQueueItem)
 }
+
+function buildSortableOrder(
+  orderedKeys: string[],
+  splitKey: string | null,
+  includeDivider: boolean,
+): string[] {
+  if (!includeDivider || !splitKey) return orderedKeys
+  const splitIndex = orderedKeys.indexOf(splitKey)
+  if (splitIndex === -1) return orderedKeys
+  return [
+    ...orderedKeys.slice(0, splitIndex),
+    QUEUE_SPLIT_DIVIDER_ID,
+    ...orderedKeys.slice(splitIndex),
+  ]
+}
+
+function listenForSocketAck(
+  successType: string,
+  failureType: string,
+  onFailure: (message?: string) => void,
+) {
+  let timeoutId: number
+  const onEvent = (payload: { type?: string; data?: { message?: string } }) => {
+    if (payload.type === successType) {
+      socket.off("event", onEvent)
+      window.clearTimeout(timeoutId)
+    }
+    if (payload.type === failureType) {
+      socket.off("event", onEvent)
+      window.clearTimeout(timeoutId)
+      onFailure(payload.data?.message)
+    }
+  }
+  socket.on("event", onEvent)
+  timeoutId = window.setTimeout(() => socket.off("event", onEvent), 10000)
+}
+
+const QueueSplitDivider = memo(function QueueSplitDivider({
+  onRemove,
+  dragHandleRef,
+  isDragging,
+}: {
+  onRemove?: () => void
+  dragHandleRef?: (element: Element | null) => void
+  isDragging?: boolean
+}) {
+  return (
+    <HStack
+      gap={2}
+      w="100%"
+      py={1}
+      px={2}
+      borderRadius="md"
+      borderWidth="1px"
+      borderStyle="dashed"
+      borderColor="primary.emphasized"
+      bg="primary.subtle/30"
+      opacity={isDragging ? 0.5 : 1}
+      aria-label="Queue split"
+    >
+      {dragHandleRef ? (
+        <Box
+          ref={dragHandleRef}
+          cursor="grab"
+          color="fg.muted"
+          flexShrink={0}
+          aria-label="Move queue split"
+        >
+          <GripVertical size={18} />
+        </Box>
+      ) : null}
+      <HStack width="100%" color="primary.solid">
+        <Separator borderColor="primary.solid" flex="1" />
+        <LuArrowUp />
+        <Text fontSize="2xs" color="primary.solid">
+          Queue split — new tracks go above
+        </Text>
+        <LuArrowUp />
+        <Separator borderColor="primary.solid" flex="1" />
+      </HStack>
+      {onRemove ? (
+        <IconButton
+          aria-label="Remove queue split"
+          variant="ghost"
+          size="xs"
+          colorPalette="primary"
+          onClick={onRemove}
+        >
+          <LuX />
+        </IconButton>
+      ) : null}
+    </HStack>
+  )
+})
+
+const SortableQueueSplitDivider = memo(function SortableQueueSplitDivider({
+  index,
+  onRemove,
+}: {
+  index: number
+  onRemove: () => void
+}) {
+  const { ref, handleRef, isDragging } = useSortable({
+    id: QUEUE_SPLIT_DIVIDER_ID,
+    index,
+    group: ROOM_QUEUE_SORTABLE_GROUP,
+    data: { type: "queue-split-divider" as const },
+  })
+
+  return (
+    <Box ref={ref} w="100%">
+      <QueueSplitDivider onRemove={onRemove} dragHandleRef={handleRef} isDragging={isDragging} />
+    </Box>
+  )
+})
 
 const LockedQueueRow = memo(function LockedQueueRow({
   item,
@@ -129,6 +255,7 @@ function QueueDragPreview({
 
 function QueuedTracksSection() {
   const queue: QueueItem[] = useQueueList()
+  const splitKey = useQueueSplitKey()
   const room = useCurrentRoom()
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const isAdmin = useIsAdmin()
@@ -224,36 +351,100 @@ function QueuedTracksSection() {
     [queue],
   )
 
+  const sortableOrder = useMemo(
+    () => buildSortableOrder(orderedKeys, splitKey, canReorder),
+    [orderedKeys, splitKey, canReorder],
+  )
+
   const hasSortableItems = orderedKeys.length > 0
+  const showAddSplit = canReorder && isAppControlled && !splitKey && orderedKeys.length >= 2
+
+  const handleRemoveSplit = useCallback(() => {
+    listenForSocketAck("REMOVE_QUEUE_SPLIT_SUCCESS", "REMOVE_QUEUE_SPLIT_FAILURE", (message) => {
+      toast({
+        title: "Couldn't remove queue split",
+        description: message,
+        type: "error",
+        duration: 4000,
+      })
+    })
+    emitToSocket("REMOVE_QUEUE_SPLIT", {})
+  }, [])
+
+  const handleAddSplit = useCallback(() => {
+    const belowKey = orderedKeys[1]
+    if (!belowKey) return
+    listenForSocketAck("SET_QUEUE_SPLIT_SUCCESS", "SET_QUEUE_SPLIT_FAILURE", (message) => {
+      toast({
+        title: "Couldn't add queue split",
+        description: message,
+        type: "error",
+        duration: 4000,
+      })
+    })
+    emitToSocket("SET_QUEUE_SPLIT", { belowKey })
+  }, [orderedKeys])
 
   const handleDragEnd = useCallback(
     (event: { canceled?: boolean } & Parameters<typeof move>[1]) => {
       if (event.canceled) return
-      const newKeys = move(orderedKeys, event)
-      if (JSON.stringify(newKeys) === JSON.stringify(orderedKeys)) return
 
-      let timeoutId: number
-      const onEvent = (payload: { type?: string; data?: { message?: string } }) => {
-        if (payload.type === "REORDER_QUEUE_SUCCESS") {
-          socket.off("event", onEvent)
-          window.clearTimeout(timeoutId)
+      const sourceId = String(event.operation?.source?.id ?? "")
+
+      if (sourceId === QUEUE_SPLIT_DIVIDER_ID) {
+        const newOrder = move(sortableOrder, event) as string[]
+        if (JSON.stringify(newOrder) === JSON.stringify(sortableOrder)) return
+
+        const dividerIndex = newOrder.indexOf(QUEUE_SPLIT_DIVIDER_ID)
+        const belowKey = newOrder[dividerIndex + 1]
+
+        if (dividerIndex <= 0 || !belowKey || belowKey === QUEUE_SPLIT_DIVIDER_ID) {
+          listenForSocketAck(
+            "REMOVE_QUEUE_SPLIT_SUCCESS",
+            "REMOVE_QUEUE_SPLIT_FAILURE",
+            (message) => {
+              toast({
+                title: "Couldn't remove queue split",
+                description: message,
+                type: "error",
+                duration: 4000,
+              })
+            },
+          )
+          emitToSocket("REMOVE_QUEUE_SPLIT", {})
+          return
         }
-        if (payload.type === "REORDER_QUEUE_FAILURE") {
-          socket.off("event", onEvent)
-          window.clearTimeout(timeoutId)
+
+        if (belowKey === splitKey) return
+
+        listenForSocketAck("SET_QUEUE_SPLIT_SUCCESS", "SET_QUEUE_SPLIT_FAILURE", (message) => {
           toast({
-            title: "Couldn't reorder queue",
-            description: payload.data?.message,
+            title: "Couldn't move queue split",
+            description: message,
             type: "error",
             duration: 4000,
           })
-        }
+        })
+        emitToSocket("SET_QUEUE_SPLIT", { belowKey })
+        return
       }
-      socket.on("event", onEvent)
-      timeoutId = window.setTimeout(() => socket.off("event", onEvent), 10000)
-      emitToSocket("REORDER_QUEUE", { orderedKeys: newKeys as string[] })
+
+      const newKeys = (move(sortableOrder, event) as string[]).filter(
+        (id) => id !== QUEUE_SPLIT_DIVIDER_ID,
+      )
+      if (JSON.stringify(newKeys) === JSON.stringify(orderedKeys)) return
+
+      listenForSocketAck("REORDER_QUEUE_SUCCESS", "REORDER_QUEUE_FAILURE", (message) => {
+        toast({
+          title: "Couldn't reorder queue",
+          description: message,
+          type: "error",
+          duration: 4000,
+        })
+      })
+      emitToSocket("REORDER_QUEUE", { orderedKeys: newKeys })
     },
-    [orderedKeys],
+    [sortableOrder, orderedKeys, splitKey],
   )
 
   const queueAutoAdvance = room?.queueAutoAdvance !== false
@@ -291,23 +482,31 @@ function QueuedTracksSection() {
   const virtualItems = virtualizer.getVirtualItems()
 
   const playbackMode = room?.playbackMode
+  const dividerSortableIndex = sortableOrder.indexOf(QUEUE_SPLIT_DIVIDER_ID)
 
   const sortableList =
     queue.length > 0 ? (
       <VStack gap={2} w="100%" align="stretch" pb={2}>
-        {queue.map((item, i) => {
+        {queue.map((item) => {
           const key = toCanonicalKey(item)
           if (item.locked) {
             return <LockedQueueRow key={key} item={item} playbackMode={playbackMode} />
           }
-          const sortableIndex = queue.slice(0, i).filter((x) => !x.locked).length
+          const showSplitAbove = splitKey === key
           return (
-            <SortableQueueRow
-              key={key}
-              item={item}
-              index={sortableIndex}
-              playbackMode={playbackMode}
-            />
+            <Fragment key={key}>
+              {showSplitAbove && canReorder && dividerSortableIndex !== -1 ? (
+                <SortableQueueSplitDivider
+                  index={dividerSortableIndex}
+                  onRemove={handleRemoveSplit}
+                />
+              ) : null}
+              <SortableQueueRow
+                item={item}
+                index={sortableOrder.indexOf(key)}
+                playbackMode={playbackMode}
+              />
+            </Fragment>
           )
         })}
       </VStack>
@@ -332,6 +531,9 @@ function QueuedTracksSection() {
               transform={`translateY(${virtualRow.start}px)`}
             >
               <VStack pb={2} gap={2} w="100%" align="stretch">
+                {splitKey === toCanonicalKey(item) ? (
+                  <QueueSplitDivider onRemove={canReorder ? handleRemoveSplit : undefined} />
+                ) : null}
                 <PlaylistItem item={item} isQueueItem playbackMode={playbackMode} />
                 {virtualRow.index < virtualRowCount - 1 && (
                   <Separator borderColor="secondaryBorder" opacity={0.5} />
@@ -353,6 +555,9 @@ function QueuedTracksSection() {
           {(source) => {
             if (!source || !isSortable(source)) return null
             const sid = String(source.id)
+            if (sid === QUEUE_SPLIT_DIVIDER_ID) {
+              return <QueueSplitDivider isDragging />
+            }
             const rowItem = queue.find((q) => !q.locked && toCanonicalKey(q) === sid)
             if (!rowItem) return null
             return <QueueDragPreview item={rowItem} playbackMode={playbackMode} />
@@ -368,15 +573,14 @@ function QueuedTracksSection() {
   const badgeCount = virtualRowCount
 
   const showMusicPlayDisabled =
-    playbackTogglePending ||
-    (spotifyPlaybackState !== "playing" && queue.length === 0)
+    playbackTogglePending || (spotifyPlaybackState !== "playing" && queue.length === 0)
 
   const showMusicPlaybackTooltip =
     spotifyPlaybackState === "playing"
       ? "Pause show music playback on Spotify"
       : queue.length === 0
-        ? "Nothing in the queue to play"
-        : "Resume show music or start the next queued track"
+      ? "Nothing in the queue to play"
+      : "Resume show music or start the next queued track"
 
   return (
     <Box
@@ -444,6 +648,11 @@ function QueuedTracksSection() {
                   </IconButton>
                 </Box>
               </Tooltip>
+            )}
+            {showAddSplit && (
+              <Button variant="outline" colorPalette="primary" size="xs" onClick={handleAddSplit}>
+                <LuSquareSplitVertical />
+              </Button>
             )}
             <ButtonAddToQueue variant="solid" colorPalette="primary" size="xs" showCount={false} />
           </HStack>
