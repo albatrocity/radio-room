@@ -650,9 +650,17 @@ function QueuedTracksSection() {
               </Tooltip>
             )}
             {showAddSplit && (
-              <Button variant="outline" colorPalette="primary" size="xs" onClick={handleAddSplit}>
-                <LuSquareSplitVertical />
-              </Button>
+              <Tooltip content="Add queue split" positioning={{ placement: "top" }}>
+                <Button
+                  variant="outline"
+                  colorPalette="primary"
+                  size="xs"
+                  onClick={handleAddSplit}
+                  aria-label="Add queue split"
+                >
+                  <LuSquareSplitVertical />
+                </Button>
+              </Tooltip>
             )}
             <ButtonAddToQueue variant="solid" colorPalette="primary" size="xs" showCount={false} />
           </HStack>
