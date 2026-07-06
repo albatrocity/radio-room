@@ -1,695 +1,25 @@
-import React, { useId, useState } from "react"
-import {
-  Box,
-  Button,
-  Checkbox,
-  CheckboxGroup,
-  DatePicker,
-  Field,
-  Heading,
-  HStack,
-  Input,
-  NativeSelect,
-  NumberInput,
-  Popover,
-  Portal,
-  RadioGroup,
-  Stack,
-  Tag,
-  Text,
-  VStack,
-  Wrap,
-  useDisclosure,
-  CloseButton,
-} from "@chakra-ui/react"
-import { LuCalendar } from "react-icons/lu"
-import { CalendarDateTime, getLocalTimeZone } from "@internationalized/date"
-import type { DateValue } from "@internationalized/date"
-import Picker from "@emoji-mart/react"
-import data from "@emoji-mart/data"
-import { interpolateTemplate, interpolateCompositeTemplate } from "@repo/utils"
-import type {
-  PluginConfigSchema,
-  PluginFieldMeta,
-  PluginSchemaElement,
-  PluginFieldType,
-  PluginActionElement,
-  PluginActionFormField,
-} from "../../../types/PluginSchema"
-import type { CompositeTemplate } from "../../../types/PluginComponent"
+import React, { useState } from "react"
+import { Button, CloseButton, Field, Input, NativeSelect, Popover, Stack, Text } from "@chakra-ui/react"
+import { PluginConfigForm as SharedPluginConfigForm } from "@repo/plugin-config-ui"
+import type { PluginConfigFormProps as SharedProps } from "@repo/plugin-config-ui"
+import type { PluginActionElement, PluginActionFormField } from "@repo/types/Plugin"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
 import { useUsers } from "../../../hooks/useActors"
 import type { User } from "../../../types/User"
 import { toaster } from "../../ui/toaster"
 
-function emptyPluginActionFormState(fields: PluginActionFormField[]): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const f of fields) {
-    out[f.name] = ""
-  }
-  return out
-}
-
 interface PluginConfigFormProps {
-  schema: PluginConfigSchema
+  schema: SharedProps["schema"]
   values: Record<string, unknown>
   onChange: (field: string, value: unknown) => void
-  /** Parent field value for conditional visibility */
   allValues?: Record<string, unknown>
-  /** Plugin name - required for executing actions */
   pluginName?: string
 }
 
-/**
- * Check if an element should be visible based on its showWhen condition(s).
- * If an array is provided, ALL conditions must be true (AND logic).
- */
-function shouldShow(
-  showWhen: { field: string; value: unknown } | { field: string; value: unknown }[] | undefined,
-  allValues: Record<string, unknown>,
-): boolean {
-  if (!showWhen) return true
-
-  // Handle array of conditions (AND logic)
-  if (Array.isArray(showWhen)) {
-    return showWhen.every((condition) => allValues[condition.field] === condition.value)
-  }
-
-  // Handle single condition
-  return allValues[showWhen.field] === showWhen.value
-}
-
-/**
- * Convert stored value to display value based on field type
- */
-function toDisplayValue(value: unknown, meta: PluginFieldMeta): unknown {
-  if (meta.type === "duration" && typeof value === "number") {
-    // Convert from storage unit to display unit
-    if (meta.storageUnit === "milliseconds" && meta.displayUnit === "seconds") {
-      return value / 1000
-    }
-    if (meta.storageUnit === "milliseconds" && meta.displayUnit === "minutes") {
-      return value / 60000
-    }
-  }
-  return value
-}
-
-/**
- * Convert display value to storage value based on field type
- */
-function toStorageValue(value: unknown, meta: PluginFieldMeta): unknown {
-  if (meta.type === "duration" && typeof value === "number") {
-    // Convert from display unit to storage unit
-    if (meta.storageUnit === "milliseconds" && meta.displayUnit === "seconds") {
-      return value * 1000
-    }
-    if (meta.storageUnit === "milliseconds" && meta.displayUnit === "minutes") {
-      return value * 60000
-    }
-  }
-  return value
-}
-
-/**
- * Get enum options from JSON Schema
- */
-function getEnumOptions(jsonSchema: Record<string, unknown>, fieldName: string): string[] {
-  const properties = jsonSchema.properties as Record<string, any> | undefined
-  if (!properties || !properties[fieldName]) return []
-  return properties[fieldName].enum || []
-}
-
-// ============================================================================
-// Field Renderers
-// ============================================================================
-
-interface FieldProps {
-  fieldName: string
-  meta: PluginFieldMeta
-  value: unknown
-  onChange: (value: unknown) => void
-  jsonSchema: Record<string, unknown>
-}
-
-function BooleanField({ meta, value, onChange }: FieldProps) {
-  return (
-    <Checkbox.Root checked={value as boolean} onCheckedChange={(e) => onChange(e.checked)}>
-      <Checkbox.HiddenInput />
-      <Checkbox.Control>
-        <Checkbox.Indicator />
-      </Checkbox.Control>
-      <Checkbox.Label>{meta.label}</Checkbox.Label>
-    </Checkbox.Root>
-  )
-}
-
-function StringField({ meta, value, onChange }: FieldProps) {
-  return (
-    <>
-      <Field.Label>{meta.label}</Field.Label>
-      <Input
-        value={(value as string) || ""}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={meta.placeholder}
-      />
-    </>
-  )
-}
-
-function NumberField({ meta, value, onChange }: FieldProps) {
-  const displayValue = toDisplayValue(value, meta)
-  const suffix = meta.type === "percentage" ? "%" : ""
-  const label =
-    meta.type === "duration" && meta.displayUnit
-      ? `${meta.label} (${meta.displayUnit})`
-      : meta.label
-
-  return (
-    <>
-      <Field.Label>
-        {label}
-        {suffix && ` (${suffix})`}
-      </Field.Label>
-      <NumberInput.Root
-        value={String(displayValue as number)}
-        onValueChange={(details) => {
-          const storageVal = toStorageValue(details.valueAsNumber, meta)
-          onChange(storageVal)
-        }}
-      >
-        <NumberInput.Input />
-      </NumberInput.Root>
-    </>
-  )
-}
-
-function EnumField({ fieldName, meta, value, onChange, jsonSchema }: FieldProps) {
-  const options = getEnumOptions(jsonSchema, fieldName)
-
-  return (
-    <>
-      <Field.Label>{meta.label}</Field.Label>
-      <RadioGroup.Root value={value as string} onValueChange={(e) => onChange(e.value)}>
-        <Stack direction="column" gap={2}>
-          {options.map((option) => (
-            <RadioGroup.Item key={option} value={option}>
-              <RadioGroup.ItemHiddenInput />
-              <RadioGroup.ItemControl />
-              <RadioGroup.ItemText>{meta.enumLabels?.[option] || option}</RadioGroup.ItemText>
-            </RadioGroup.Item>
-          ))}
-        </Stack>
-      </RadioGroup.Root>
-    </>
-  )
-}
-
-function EmojiField({ meta, value, onChange }: FieldProps) {
-  const { open, onOpen, onClose } = useDisclosure()
-
-  return (
-    <>
-      <Field.Label>{meta.label}</Field.Label>
-      <Popover.Root lazyMount open={open} onOpenChange={(e) => !e.open && onClose()} autoFocus>
-        <Popover.Trigger asChild>
-          <Button onClick={onOpen} variant="outline" justifyContent="flex-start" width="full">
-            <HStack>
-              <Box fontSize="2xl">
-                {/* @ts-ignore - em-emoji is a custom element */}
-                <em-emoji shortcodes={`:${value}:`} />
-              </Box>
-              <Text>:{value as string}:</Text>
-            </HStack>
-          </Button>
-        </Popover.Trigger>
-        <Popover.Positioner>
-          <Popover.Content width="full">
-            <Popover.Arrow />
-            <Popover.Body
-              css={{
-                "& em-emoji-picker": { "--shadow": "0" },
-                overflow: "hidden",
-              }}
-            >
-              <Picker
-                data={data}
-                height="200px"
-                onEmojiSelect={(emoji: any) => {
-                  onChange(emoji.id)
-                  onClose()
-                }}
-                previewPosition="none"
-              />
-            </Popover.Body>
-          </Popover.Content>
-        </Popover.Positioner>
-      </Popover.Root>
-    </>
-  )
-}
-
-function StringArrayField({ meta, value, onChange }: FieldProps) {
-  const [inputValue, setInputValue] = React.useState("")
-  const items = (value as string[]) || []
-
-  const addItems = (newItems: string[]) => {
-    const trimmed = newItems.map((i) => i.trim()).filter((i) => i && !items.includes(i))
-    if (trimmed.length > 0) {
-      onChange([...items, ...trimmed])
-    }
-  }
-
-  const addItem = () => {
-    if (inputValue.trim() && !items.includes(inputValue.trim())) {
-      onChange([...items, inputValue.trim()])
-      setInputValue("")
-    }
-  }
-
-  const removeItem = (item: string) => {
-    onChange(items.filter((i) => i !== item))
-  }
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const pasted = e.clipboardData.getData("text").trim()
-    e.preventDefault()
-    if (pasted.includes(",")) {
-      const newItems = pasted.split(",")
-      addItems(newItems)
-      setInputValue("")
-    } else {
-      // Single word paste - set trimmed value
-      setInputValue(pasted)
-    }
-  }
-
-  return (
-    <>
-      <Field.Label>{meta.label}</Field.Label>
-      <HStack>
-        <Input
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value.trim())}
-          placeholder={meta.placeholder}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault()
-              addItem()
-            }
-          }}
-          onPaste={handlePaste}
-        />
-        <Button onClick={addItem} size="sm">
-          Add
-        </Button>
-      </HStack>
-      {items.length > 0 && (
-        <Wrap mt={2}>
-          {items.map((item) => (
-            <Tag.Root key={item} size="md" colorPalette="blue">
-              <Tag.Label>{item}</Tag.Label>
-              <Tag.EndElement>
-                <Tag.CloseTrigger onClick={() => removeItem(item)} />
-              </Tag.EndElement>
-            </Tag.Root>
-          ))}
-        </Wrap>
-      )}
-    </>
-  )
-}
-
-function safeIdFragment(s: string): string {
-  return s.replace(/[^a-zA-Z0-9_-]/g, "-")
-}
-
-function CheckboxGroupField({ meta, value, onChange }: FieldProps) {
-  const selected = Array.isArray(value) ? (value as string[]) : []
-  const options = meta.options ?? []
-  /** Field context maps every checkbox to the same `ids.control` for the hidden input; override per item. */
-  const idPrefix = useId().replace(/:/g, "")
-
-  return (
-    <>
-      <Field.Label>{meta.label}</Field.Label>
-      <CheckboxGroup value={selected} onValueChange={(nextValue) => onChange(nextValue)}>
-        <VStack align="stretch" gap={2}>
-          {options.map((opt) => {
-            const frag = safeIdFragment(opt.value)
-            return (
-              <Checkbox.Root
-                key={opt.value}
-                value={opt.value}
-                ids={{
-                  root: `${idPrefix}-root-${frag}`,
-                  hiddenInput: `${idPrefix}-input-${frag}`,
-                  control: `${idPrefix}-control-${frag}`,
-                  label: `${idPrefix}-label-${frag}`,
-                }}
-              >
-                <Checkbox.HiddenInput />
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
-                <Checkbox.Label>{opt.label}</Checkbox.Label>
-              </Checkbox.Root>
-            )
-          })}
-        </VStack>
-      </CheckboxGroup>
-    </>
-  )
-}
-
-function epochToCalendarDateTime(epochMs: number | null | undefined): CalendarDateTime | undefined {
-  if (epochMs == null || !Number.isFinite(epochMs)) return undefined
-  const d = new Date(epochMs)
-  return new CalendarDateTime(
-    d.getFullYear(),
-    d.getMonth() + 1,
-    d.getDate(),
-    d.getHours(),
-    d.getMinutes(),
-  )
-}
-
-function calendarDateTimeToEpoch(cdt: DateValue | null | undefined): number | null {
-  if (!cdt) return null
-  const tz = getLocalTimeZone()
-  const date = cdt.toDate(tz)
-  return date.getTime()
-}
-
-function DatetimeField({ meta, value, onChange }: FieldProps) {
-  const dateValue = epochToCalendarDateTime(value as number | null)
-  const [timeValue, setTimeValue] = useState(() => {
-    if (dateValue) {
-      const pad = (n: number) => String(n).padStart(2, "0")
-      return `${pad(dateValue.hour)}:${pad(dateValue.minute)}`
-    }
-    return "12:00"
-  })
-
-  const handleDateChange = (details: { value: DateValue[] }) => {
-    const selected = details.value[0]
-    if (!selected) {
-      onChange(null)
-      return
-    }
-    const [hours, minutes] = timeValue.split(":").map(Number)
-    const withTime = new CalendarDateTime(
-      selected.year,
-      selected.month,
-      selected.day,
-      hours || 0,
-      minutes || 0,
-    )
-    onChange(calendarDateTimeToEpoch(withTime))
-  }
-
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTime = e.target.value
-    setTimeValue(newTime)
-    if (dateValue) {
-      const [hours, minutes] = newTime.split(":").map(Number)
-      const withTime = new CalendarDateTime(
-        dateValue.year,
-        dateValue.month,
-        dateValue.day,
-        hours || 0,
-        minutes || 0,
-      )
-      onChange(calendarDateTimeToEpoch(withTime))
-    }
-  }
-
-  return (
-    <VStack align="stretch" gap={2}>
-      <DatePicker.Root
-        value={dateValue ? [dateValue] : []}
-        onValueChange={handleDateChange}
-        closeOnSelect
-        timeZone={getLocalTimeZone()}
-      >
-        <DatePicker.Label>{meta.label}</DatePicker.Label>
-        <DatePicker.Control>
-          <DatePicker.Input />
-          <DatePicker.Trigger>
-            <LuCalendar />
-          </DatePicker.Trigger>
-        </DatePicker.Control>
-        <Portal>
-          <DatePicker.Positioner>
-            <DatePicker.Content>
-              <DatePicker.View view="day">
-                <DatePicker.Context>
-                  {(api) => (
-                    <>
-                      <DatePicker.ViewControl>
-                        <DatePicker.PrevTrigger />
-                        <DatePicker.ViewTrigger>
-                          <DatePicker.RangeText />
-                        </DatePicker.ViewTrigger>
-                        <DatePicker.NextTrigger />
-                      </DatePicker.ViewControl>
-                      <DatePicker.Table>
-                        <DatePicker.TableHead>
-                          <DatePicker.TableRow>
-                            {api.weekDays.map((weekDay, i) => (
-                              <DatePicker.TableHeader key={i}>
-                                {weekDay.narrow}
-                              </DatePicker.TableHeader>
-                            ))}
-                          </DatePicker.TableRow>
-                        </DatePicker.TableHead>
-                        <DatePicker.TableBody>
-                          {api.weeks.map((week, i) => (
-                            <DatePicker.TableRow key={i}>
-                              {week.map((day, j) => (
-                                <DatePicker.TableCell key={j} value={day}>
-                                  <DatePicker.TableCellTrigger>
-                                    {day.day}
-                                  </DatePicker.TableCellTrigger>
-                                </DatePicker.TableCell>
-                              ))}
-                            </DatePicker.TableRow>
-                          ))}
-                        </DatePicker.TableBody>
-                      </DatePicker.Table>
-                    </>
-                  )}
-                </DatePicker.Context>
-              </DatePicker.View>
-              <DatePicker.View view="month">
-                <DatePicker.Context>
-                  {(api) => (
-                    <>
-                      <DatePicker.ViewControl>
-                        <DatePicker.PrevTrigger />
-                        <DatePicker.ViewTrigger>
-                          <DatePicker.RangeText />
-                        </DatePicker.ViewTrigger>
-                        <DatePicker.NextTrigger />
-                      </DatePicker.ViewControl>
-                      <DatePicker.Table>
-                        <DatePicker.TableBody>
-                          {api.getMonthsGrid({ columns: 4, format: "short" }).map((months, i) => (
-                            <DatePicker.TableRow key={i}>
-                              {months.map((month, j) => (
-                                <DatePicker.TableCell key={j} value={month.value}>
-                                  <DatePicker.TableCellTrigger>
-                                    {month.label}
-                                  </DatePicker.TableCellTrigger>
-                                </DatePicker.TableCell>
-                              ))}
-                            </DatePicker.TableRow>
-                          ))}
-                        </DatePicker.TableBody>
-                      </DatePicker.Table>
-                    </>
-                  )}
-                </DatePicker.Context>
-              </DatePicker.View>
-              <DatePicker.View view="year">
-                <DatePicker.Context>
-                  {(api) => (
-                    <>
-                      <DatePicker.ViewControl>
-                        <DatePicker.PrevTrigger />
-                        <DatePicker.ViewTrigger>
-                          <DatePicker.RangeText />
-                        </DatePicker.ViewTrigger>
-                        <DatePicker.NextTrigger />
-                      </DatePicker.ViewControl>
-                      <DatePicker.Table>
-                        <DatePicker.TableBody>
-                          {api.getYearsGrid({ columns: 4 }).map((years, i) => (
-                            <DatePicker.TableRow key={i}>
-                              {years.map((year, j) => (
-                                <DatePicker.TableCell key={j} value={year.value}>
-                                  <DatePicker.TableCellTrigger>
-                                    {year.label}
-                                  </DatePicker.TableCellTrigger>
-                                </DatePicker.TableCell>
-                              ))}
-                            </DatePicker.TableRow>
-                          ))}
-                        </DatePicker.TableBody>
-                      </DatePicker.Table>
-                    </>
-                  )}
-                </DatePicker.Context>
-              </DatePicker.View>
-            </DatePicker.Content>
-          </DatePicker.Positioner>
-        </Portal>
-      </DatePicker.Root>
-      <HStack>
-        <Text fontSize="sm" color="fg.muted" flexShrink={0}>
-          Time:
-        </Text>
-        <Input type="time" value={timeValue} onChange={handleTimeChange} size="sm" width="auto" />
-      </HStack>
-    </VStack>
-  )
-}
-
-/**
- * Render a form field based on its type
- */
-function renderField(
-  fieldName: string,
-  meta: PluginFieldMeta,
-  value: unknown,
-  onChange: (value: unknown) => void,
-  jsonSchema: Record<string, unknown>,
-): React.ReactNode {
-  const props: FieldProps = { fieldName, meta, value, onChange, jsonSchema }
-
-  switch (meta.type) {
-    case "boolean":
-      return <BooleanField {...props} />
-    case "string":
-    case "url":
-    case "color":
-      return <StringField {...props} />
-    case "number":
-    case "percentage":
-    case "duration":
-      return <NumberField {...props} />
-    case "enum":
-      return <EnumField {...props} />
-    case "emoji":
-      return <EmojiField {...props} />
-    case "string-array":
-      return <StringArrayField {...props} />
-    case "checkbox-group":
-      return <CheckboxGroupField {...props} />
-    case "datetime":
-      return <DatetimeField {...props} />
-    default:
-      return <StringField {...props} />
-  }
-}
-
-/**
- * Renders a simple composite template component (for config forms).
- * Only supports basic components like emoji - no complex plugin components.
- */
-function renderConfigFormTemplateComponent(
-  name: string,
-  props: Record<string, string>,
-  key: string,
-): React.ReactNode {
-  if (name === "emoji") {
-    return (
-      <Box as="span" key={key} display="inline-block" verticalAlign="middle">
-        {/* @ts-ignore - em-emoji is a custom element from emoji-mart */}
-        <em-emoji shortcodes={props.shortcodes || props.id} />
-      </Box>
-    )
-  }
-
-  // Fallback for unknown components
-  return (
-    <Text as="span" key={key} color="red.500">
-      [Unknown: {name}]
-    </Text>
-  )
-}
-
-/**
- * Renders content that can be either a string or CompositeTemplate
- */
-function renderContent(
-  content: string | CompositeTemplate,
-  allValues: Record<string, unknown>,
-): React.ReactNode {
-  // If it's a string, use simple template interpolation
-  if (typeof content === "string") {
-    return <span dangerouslySetInnerHTML={{ __html: interpolateTemplate(content, allValues) }} />
-  }
-
-  // If it's a CompositeTemplate, interpolate and render components
-  const interpolated = interpolateCompositeTemplate(content, allValues)
-
-  return (
-    <>
-      {interpolated.map((part, index) => {
-        const key =
-          part.type === "text"
-            ? `text-${index}-${part.content.substring(0, 20)}`
-            : `component-${index}-${part.name}`
-
-        if (part.type === "text") {
-          return <React.Fragment key={key}>{part.content}</React.Fragment>
-        } else if (part.type === "component") {
-          return renderConfigFormTemplateComponent(part.name, part.props, key)
-        }
-        return null
-      })}
-    </>
-  )
-}
-
-/**
- * Render a schema element (text block or heading)
- */
-function renderSchemaElement(
-  element: PluginSchemaElement,
-  index: number,
-  allValues: Record<string, unknown>,
-): React.ReactNode {
-  // Check conditional visibility for schema elements
-  if (!shouldShow(element.showWhen, allValues)) {
-    return null
-  }
-
-  if (element.type === "heading") {
-    return (
-      <Heading key={`heading-${index}`} as="h3" size="md" mb={2}>
-        {renderContent(element.content, allValues)}
-      </Heading>
-    )
-  }
-
-  if (element.type === "text-block") {
-    const bgColor =
-      element.variant === "warning"
-        ? "critical"
-        : element.variant === "example"
-        ? "secondaryBg"
-        : "secondaryBg"
-
-    return (
-      <Box key={`text-${index}`} p={3} borderRadius="md" bg={bgColor}>
-        <Text fontSize="sm">{renderContent(element.content, allValues)}</Text>
-      </Box>
-    )
-  }
-
-  return null
+function emptyPluginActionFormState(fields: PluginActionFormField[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const f of fields) out[f.name] = ""
+  return out
 }
 
 function collectSelectOptions(field: PluginActionFormField, users: User[]) {
@@ -702,7 +32,8 @@ function collectSelectOptions(field: PluginActionFormField, users: User[]) {
 }
 
 /**
- * Action button component with optional confirmation popover or form fields
+ * App-specific action button. Runs plugin actions over the socket and reports via toaster —
+ * the coupling that keeps this in `apps/web`. Injected into the shared renderer as `renderAction`.
  */
 function ActionButton({
   element,
@@ -723,7 +54,6 @@ function ActionButton({
   const runAction = React.useCallback(
     (params?: Record<string, unknown>) => {
       setIsLoading(true)
-
       const subscriptionId = `plugin-action-${element.action}-${Date.now()}`
       subscriptionIdRef.current = subscriptionId
 
@@ -733,7 +63,6 @@ function ActionButton({
             setIsLoading(false)
             unsubscribeById(subscriptionId)
             subscriptionIdRef.current = null
-
             if (event.data.success) {
               toaster.create({
                 title: "Success",
@@ -763,11 +92,7 @@ function ActionButton({
           setIsLoading(false)
           unsubscribeById(subscriptionId)
           subscriptionIdRef.current = null
-          toaster.create({
-            title: "Timeout",
-            description: "Action timed out",
-            type: "error",
-          })
+          toaster.create({ title: "Timeout", description: "Action timed out", type: "error" })
         }
       }, 10000)
     },
@@ -802,9 +127,7 @@ function ActionButton({
         open={formPopoverOpen}
         onOpenChange={(e) => {
           setFormPopoverOpen(e.open)
-          if (e.open && formFields?.length) {
-            setFormValues(emptyPluginActionFormState(formFields))
-          }
+          if (e.open && formFields?.length) setFormValues(emptyPluginActionFormState(formFields))
         }}
       >
         <Popover.Trigger asChild>
@@ -820,9 +143,7 @@ function ActionButton({
             </Popover.CloseTrigger>
             <Popover.Body>
               <Stack gap={3}>
-                {element.confirmMessage ? (
-                  <Text fontSize="sm">{element.confirmMessage}</Text>
-                ) : null}
+                {element.confirmMessage ? <Text fontSize="sm">{element.confirmMessage}</Text> : null}
                 {formFields.map((field) => (
                   <Field.Root key={field.name}>
                     <Field.Label fontSize="sm">{field.label}</Field.Label>
@@ -839,10 +160,7 @@ function ActionButton({
                         <NativeSelect.Field
                           value={formValues[field.name] ?? ""}
                           onChange={(e) =>
-                            setFormValues((prev) => ({
-                              ...prev,
-                              [field.name]: e.target.value,
-                            }))
+                            setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))
                           }
                         >
                           <option value="">Select…</option>
@@ -874,7 +192,6 @@ function ActionButton({
     )
   }
 
-  // Confirmation only (no form fields)
   if (element.confirmMessage) {
     return (
       <Popover.Root>
@@ -916,34 +233,9 @@ function ActionButton({
 }
 
 /**
- * Render an action element
- */
-function renderActionElement(
-  element: PluginActionElement,
-  index: number,
-  allValues: Record<string, unknown>,
-  pluginName?: string,
-): React.ReactNode {
-  // Check conditional visibility
-  if (!shouldShow(element.showWhen, allValues)) {
-    return null
-  }
-
-  if (!pluginName) {
-    console.warn("PluginConfigForm: pluginName is required to render action buttons")
-    return null
-  }
-
-  return (
-    <Box key={`action-${index}`}>
-      <ActionButton element={element} pluginName={pluginName} />
-    </Box>
-  )
-}
-
-/**
- * A dynamic form renderer that maps semantic field types to Chakra UI components.
- * Renders plugin configuration forms based on the schema definition.
+ * Web adapter over the shared `@repo/plugin-config-ui` renderer. Injects the socket-backed
+ * `ActionButton` so action layout elements work in the room admin; field/layout rendering
+ * (including the new `object-array` type) lives in the shared package.
  */
 export default function PluginConfigForm({
   schema,
@@ -952,51 +244,19 @@ export default function PluginConfigForm({
   allValues,
   pluginName,
 }: PluginConfigFormProps) {
-  const effectiveValues = allValues || values
-
   return (
-    <VStack gap={6} align="stretch">
-      {schema.layout.map((item, index) => {
-        // Handle string items (field names)
-        if (typeof item === "string") {
-          const meta = schema.fieldMeta[item]
-          if (!meta) {
-            console.warn(`No fieldMeta found for field: ${item}`)
-            return null
-          }
-
-          // Check conditional visibility
-          if (!shouldShow(meta.showWhen, effectiveValues)) {
-            return null
-          }
-
-          return (
-            <Field.Root key={item}>
-              {renderField(
-                item,
-                meta,
-                values[item],
-                (value) => onChange(item, value),
-                schema.jsonSchema,
-              )}
-              {meta.description && <Field.HelperText>{meta.description}</Field.HelperText>}
-            </Field.Root>
-          )
+    <SharedPluginConfigForm
+      schema={schema}
+      values={values}
+      onChange={onChange}
+      allValues={allValues}
+      renderAction={(element) => {
+        if (!pluginName) {
+          console.warn("PluginConfigForm: pluginName is required to render action buttons")
+          return null
         }
-
-        // Handle action elements
-        if (item.type === "action") {
-          return renderActionElement(
-            item as PluginActionElement,
-            index,
-            effectiveValues,
-            pluginName,
-          )
-        }
-
-        // Handle schema elements (text blocks, headings)
-        return renderSchemaElement(item as PluginSchemaElement, index, effectiveValues)
-      })}
-    </VStack>
+        return <ActionButton element={element as PluginActionElement} pluginName={pluginName} />
+      }}
+    />
   )
 }

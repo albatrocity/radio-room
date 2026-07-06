@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { getPluginSchemas } from "../lib/serverApi"
-import type { PluginSchemaInfo } from "../types/PluginSchema"
+import type { PluginSchemaInfo } from "@repo/types/Plugin"
 
 interface UsePluginSchemasResult {
   schemas: PluginSchemaInfo[]

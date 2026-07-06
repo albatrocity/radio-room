@@ -219,8 +219,9 @@ export class PluginAPIImpl implements PluginAPI {
   }
 
   async getPluginConfig(roomId: string, pluginName: string): Promise<any | null> {
-    const { getPluginConfig } = await import("../../operations/data/pluginConfigs")
-    return await getPluginConfig({ context: this.context, roomId, pluginName })
+    // Plugin runtime sees the MERGED config (public + private/server-only fields, ADR 0068).
+    const { getMergedPluginConfig } = await import("../../operations/data/pluginConfigs")
+    return await getMergedPluginConfig({ context: this.context, roomId, pluginName })
   }
 
   async setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void> {
