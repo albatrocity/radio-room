@@ -570,9 +570,10 @@ describe("QuizSessionsPlugin lifecycle", () => {
   })
 
   describe("hot-potato persona", () => {
-    it("registers an exclusive persona on init when configured", async () => {
+    it("registers an exclusive persona in PvP (competitive) mode", async () => {
       const { plugin, context, personas } = setup({
         enabled: true,
+        mode: "competitive",
         winnerLabel: "Hot Seat",
         winnerIcon: "Crown",
       })
@@ -585,6 +586,22 @@ describe("QuizSessionsPlugin lifecycle", () => {
           exclusive: true,
           decoratesUser: true,
           decoratesChatMessage: true,
+        }),
+      ])
+    })
+
+    it("registers a non-exclusive persona in PvG (inclusive) mode", async () => {
+      const { plugin, context, personas } = setup({
+        enabled: true,
+        mode: "inclusive",
+        winnerLabel: "Quiz Star",
+      })
+      await plugin.register(context)
+      expect(personas.registerPersonas).toHaveBeenCalledWith([
+        expect.objectContaining({
+          id: "winner",
+          label: "Quiz Star",
+          exclusive: false,
         }),
       ])
     })
@@ -615,6 +632,33 @@ describe("QuizSessionsPlugin lifecycle", () => {
         userId: "u1",
         personaId: "winner",
       })
+    })
+
+    it("assigns the persona to every correct guesser in PvG without removing prior holders", async () => {
+      const ctx = setup({
+        enabled: true,
+        mode: "inclusive",
+        questions: QUESTIONS,
+        winnerLabel: "Quiz Star",
+      })
+      await ctx.plugin.register(ctx.context)
+      await ctx.plugin.executeAction("startSession", ADMIN)
+      ctx.personas.assign.mockClear()
+      ctx.personas.remove.mockClear()
+
+      await ctx.plugin.transformChatMessage(
+        ROOM,
+        chatMessage("blue monday", { userId: "u1", username: "Alice" }),
+      )
+      await ctx.plugin.transformChatMessage(
+        ROOM,
+        chatMessage("blue monday", { userId: "u2", username: "Bob" }),
+      )
+
+      expect(ctx.personas.assign).toHaveBeenCalledTimes(2)
+      expect(ctx.personas.assign).toHaveBeenNthCalledWith(1, "u1", "winner", "quiz-sessions")
+      expect(ctx.personas.assign).toHaveBeenNthCalledWith(2, "u2", "winner", "quiz-sessions")
+      expect(ctx.personas.remove).not.toHaveBeenCalled()
     })
 
     it("does not clear the persona on question advance (persists until reassigned)", async () => {

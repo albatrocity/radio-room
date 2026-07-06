@@ -41,7 +41,7 @@ const WINNERS_KEY = "winners"
 const answeredKey = (questionId: string): string => `answered:${questionId}`
 /** Timer id for the auto-advance countdown after a correct answer. */
 const AUTO_ADVANCE_TIMER = "auto-advance"
-/** Short id (per-plugin) of the exclusive winner persona (ADR 0057). */
+/** Short id (per-plugin) of the winner persona (ADR 0057). */
 const WINNER_PERSONA_ID = "winner"
 
 type ActionResult = { success: boolean; message?: string }
@@ -459,9 +459,8 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       leaderboard,
     })
 
-    // Hot-potato: hand the exclusive persona to the latest correct guesser. The
-    // `exclusive` flag evicts the previous holder; we never remove it on advance,
-    // so it stays on this user until someone else answers correctly (ADR 0057).
+    // Winner persona: PvP assigns exclusively (hot potato); PvG assigns to every
+    // correct guesser without evicting prior holders (ADR 0057).
     const personaId = this.activePersonaId(session)
     if (personaId) {
       await this.personas.assign(userId, personaId, this.name)
@@ -493,18 +492,21 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     return session.personaIds[session.activePersonaIndex] ?? null
   }
 
-  /** Register or unregister the hot-potato persona based on current config. */
+  /** Register or unregister the winner persona based on current config. */
   private async syncPersonas(config: QuizSessionsConfig | null): Promise<void> {
     if (!this.context) return
     const label = config?.winnerLabel?.trim()
     if (config?.enabled && label) {
       const icon = config.winnerIcon?.trim()
+      // PvP (competitive): exclusive — badge moves to the latest correct guesser.
+      // PvG (inclusive): non-exclusive — every correct guesser keeps the badge.
+      const exclusive = !isInclusiveMode(config.mode)
       await this.personas.registerPersonas([
         {
           id: WINNER_PERSONA_ID,
           label,
           ...(icon ? { icon } : {}),
-          exclusive: true,
+          exclusive,
           decoratesUser: true,
           decoratesChatMessage: true,
         },

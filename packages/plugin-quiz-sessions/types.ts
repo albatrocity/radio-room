@@ -34,13 +34,13 @@ export const quizSessionsConfigSchema = z.object({
   coinReward: z.number().int().min(0).default(10),
   correctAnswerTemplate: z.string().default("{{username}} answered correctly! +{{coins}} coins"),
   /**
-   * Hot-potato persona label. When non-empty (and enabled), an `exclusive`
-   * persona is registered and assigned to the latest correct guesser — it
-   * persists on that user until someone else answers correctly (ADR 0057).
-   * Empty = no hot-potato persona.
+   * Winner persona label. When non-empty (and enabled), a persona is registered
+   * and assigned on each correct answer. In PvP (competitive) mode it is
+   * exclusive — the badge moves to the latest guesser. In PvG (inclusive) mode
+   * it is non-exclusive — every correct guesser keeps the badge. Empty = disabled.
    */
   winnerLabel: z.string().default(""),
-  /** Lucide icon name for the hot-potato persona badge. */
+  /** Lucide icon name for the winner persona badge. */
   winnerIcon: z.string().default("Crown"),
   /** Private question bank (see `quizConfigQuestionSchema`). Never broadcast. */
   questions: z.array(quizConfigQuestionSchema).default([]),

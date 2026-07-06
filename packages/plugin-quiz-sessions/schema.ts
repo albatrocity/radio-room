@@ -186,7 +186,7 @@ export function getConfigSchema(): PluginConfigSchema {
         type: "string",
         label: "Winner persona",
         description:
-          "Badge label assigned to the latest correct guesser. It stays on them until someone else answers correctly. Leave empty to disable.",
+          "Badge for correct guessers. PvP: moves to the latest guesser (exclusive). PvG: every correct guesser keeps it. Leave empty to disable.",
         placeholder: "In the Hot Seat",
         showWhen: { field: "enabled", value: true },
       },
@@ -199,8 +199,6 @@ export function getConfigSchema(): PluginConfigSchema {
       questions: {
         type: "object-array",
         label: "Question bank",
-        description:
-          "Authored here and stored privately (ADR 0068) — accepted answers are never broadcast to guests.",
         scope: "private",
         itemLabel: "Question",
         minItems: 0,
