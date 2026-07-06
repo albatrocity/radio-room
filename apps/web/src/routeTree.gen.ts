@@ -22,6 +22,7 @@ import { Route as SplatRouteImport } from './routes/$'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RoomsCreateRouteImport } from './routes/rooms/create'
 import { Route as RoomsRoomIdRouteImport } from './routes/rooms/$roomId'
+import { Route as NewsletterConfirmedRouteImport } from './routes/newsletter/confirmed'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -88,6 +89,11 @@ const RoomsRoomIdRoute = RoomsRoomIdRouteImport.update({
   path: '/rooms/$roomId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NewsletterConfirmedRoute = NewsletterConfirmedRouteImport.update({
+  id: '/newsletter/confirmed',
+  path: '/newsletter/confirmed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/logout': typeof LogoutRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/newsletter/confirmed': typeof NewsletterConfirmedRoute
   '/rooms/$roomId': typeof RoomsRoomIdRoute
   '/rooms/create': typeof RoomsCreateRoute
 }
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/logout': typeof LogoutRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/newsletter/confirmed': typeof NewsletterConfirmedRoute
   '/rooms/$roomId': typeof RoomsRoomIdRoute
   '/rooms/create': typeof RoomsCreateRoute
 }
@@ -132,6 +140,7 @@ export interface FileRoutesById {
   '/logout': typeof LogoutRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/newsletter/confirmed': typeof NewsletterConfirmedRoute
   '/rooms/$roomId': typeof RoomsRoomIdRoute
   '/rooms/create': typeof RoomsCreateRoute
 }
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
     | '/logout'
     | '/privacy'
     | '/register'
+    | '/newsletter/confirmed'
     | '/rooms/$roomId'
     | '/rooms/create'
   fileRoutesByTo: FileRoutesByTo
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
     | '/logout'
     | '/privacy'
     | '/register'
+    | '/newsletter/confirmed'
     | '/rooms/$roomId'
     | '/rooms/create'
   id:
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '/logout'
     | '/privacy'
     | '/register'
+    | '/newsletter/confirmed'
     | '/rooms/$roomId'
     | '/rooms/create'
   fileRoutesById: FileRoutesById
@@ -195,6 +207,7 @@ export interface RootRouteChildren {
   LogoutRoute: typeof LogoutRoute
   PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
+  NewsletterConfirmedRoute: typeof NewsletterConfirmedRoute
   RoomsRoomIdRoute: typeof RoomsRoomIdRoute
   RoomsCreateRoute: typeof RoomsCreateRoute
 }
@@ -292,6 +305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RoomsRoomIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/newsletter/confirmed': {
+      id: '/newsletter/confirmed'
+      path: '/newsletter/confirmed'
+      fullPath: '/newsletter/confirmed'
+      preLoaderRoute: typeof NewsletterConfirmedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -307,6 +327,7 @@ const rootRouteChildren: RootRouteChildren = {
   LogoutRoute: LogoutRoute,
   PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
+  NewsletterConfirmedRoute: NewsletterConfirmedRoute,
   RoomsRoomIdRoute: RoomsRoomIdRoute,
   RoomsCreateRoute: RoomsCreateRoute,
 }
