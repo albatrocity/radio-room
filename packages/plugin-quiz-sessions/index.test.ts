@@ -302,6 +302,35 @@ describe("QuizSessionsPlugin lifecycle", () => {
       })
       expect(result.success).toBe(false)
     })
+
+    it("parses a comma-separated acceptedAnswers string from the admin form", async () => {
+      const { plugin, context, storage } = setup({ enabled: true, questions: QUESTIONS })
+      await plugin.register(context)
+      await plugin.executeAction("startSession", ADMIN)
+
+      const result = await plugin.executeAction("addQuestion", ADMIN, {
+        text: "Bonus?",
+        acceptedAnswers: " yes , Yes ,, no ,yes",
+      })
+      expect(result.success).toBe(true)
+      // Trimmed, empties dropped, case-insensitive de-dupe (first spelling wins).
+      expect(readSession(storage).questions[2]).toMatchObject({
+        text: "Bonus?",
+        acceptedAnswers: ["yes", "no"],
+      })
+    })
+
+    it("rejects a comma-separated string with no non-empty answers", async () => {
+      const { plugin, context } = setup({ enabled: true, questions: QUESTIONS })
+      await plugin.register(context)
+      await plugin.executeAction("startSession", ADMIN)
+
+      const result = await plugin.executeAction("addQuestion", ADMIN, {
+        text: "Bonus?",
+        acceptedAnswers: " , ,, ",
+      })
+      expect(result.success).toBe(false)
+    })
   })
 
   describe("endSession", () => {

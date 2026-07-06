@@ -37,6 +37,12 @@ import {
 } from "./stubRoom.js"
 import { bridgePluginSchemasForApi } from "./stubPluginSchemas.js"
 import { buildStubActivePoll } from "./stubPoll.js"
+import {
+  QUIZ_PREVIEW_PLUGIN,
+  buildStubQuizComponentState,
+  buildStubQuizSessionStarted,
+  runStubQuizAction,
+} from "./stubQuiz.js"
 import { applyUserUpdateToSnapshot, toggleVipOnUser, userHasVip } from "./personas.js"
 
 const PORT = Number(process.env.STUDIO_BRIDGE_PORT ?? process.env.PORT ?? 3099)
@@ -44,6 +50,13 @@ const PORT = Number(process.env.STUDIO_BRIDGE_PORT ?? process.env.PORT ?? 3099)
 /** When `pollPreview=1` on the Socket.IO handshake query, LOGIN includes a stub active poll. */
 function pollPreviewEnabled(socket: Socket): boolean {
   const q = socket.handshake.query.pollPreview ?? socket.handshake.query.polls
+  const raw = Array.isArray(q) ? q[0] : q
+  return raw === "1" || raw === "true"
+}
+
+/** When `quizPreview=1` on the Socket.IO handshake query, LOGIN emits a stub quiz SESSION_STARTED. */
+function quizPreviewEnabled(socket: Socket): boolean {
+  const q = socket.handshake.query.quizPreview ?? socket.handshake.query.quiz
   const raw = Array.isArray(q) ? q[0] : q
   return raw === "1" || raw === "true"
 }
@@ -274,6 +287,11 @@ function wireSocketHandlers(io: IOServer): void {
             type: "POLL_PUBLISHED",
             data: { roomId: payload.roomId, poll: initData.activePoll },
           })
+        }
+
+        if (quizPreviewEnabled(socket)) {
+          const started = buildStubQuizSessionStarted(payload.roomId)
+          socket.emit("event", started)
         }
       },
     )
@@ -803,6 +821,19 @@ function wireSocketHandlers(io: IOServer): void {
           })
           return
         }
+        // The bridge fakes quiz-sessions (the real plugin does not run in the sandbox):
+        // drive the in-memory preview session and broadcast PLUGIN:quiz-sessions:* events.
+        if (data.pluginName === QUIZ_PREVIEW_PLUGIN) {
+          const { success, message, events } = runStubQuizAction(roomId, data.action, data.params)
+          for (const ev of events) {
+            io.to(roomSocketPath(roomId)).emit("event", ev)
+          }
+          socket.emit("event", {
+            type: "PLUGIN_ACTION_RESULT",
+            data: { success, message },
+          })
+          return
+        }
         const forwarded = await forwardRoomUiCommandToStudio(io, roomId, {
           kind: "EXECUTE_PLUGIN_ACTION",
           roomId,
@@ -1217,6 +1248,24 @@ app.post("/logout", (_req, res) => {
 
 app.get("/api/plugins", (_req, res) => {
   res.status(200).json({ plugins: bridgePluginSchemasForApi })
+})
+
+/** Late-joiner hydration for all plugin component stores (`pluginComponentMachine`). */
+app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
+  const roomId = req.params.roomId
+  res.status(200).json({
+    states: {
+      [QUIZ_PREVIEW_PLUGIN]: buildStubQuizComponentState(roomId),
+    },
+  })
+})
+
+/** Late-joiner hydration for a single plugin's component store. Unknown plugins hydrate empty. */
+app.get("/api/rooms/:roomId/plugins/:pluginName/components", (req, res) => {
+  const { roomId, pluginName } = req.params
+  const state =
+    pluginName === QUIZ_PREVIEW_PLUGIN ? buildStubQuizComponentState(roomId) : {}
+  res.status(200).json({ state })
 })
 
 /** Must be registered before `/rooms/:roomId` — otherwise `/rooms/all` is captured as roomId `"all"`. */

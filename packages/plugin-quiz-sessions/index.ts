@@ -251,9 +251,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     if (!session) return { success: false, message: "No active quiz session." }
 
     const text = typeof params?.text === "string" ? params.text.trim() : ""
-    const acceptedAnswers = Array.isArray(params?.acceptedAnswers)
-      ? params.acceptedAnswers.filter((a): a is string => typeof a === "string")
-      : []
+    const acceptedAnswers = parseAcceptedAnswers(params?.acceptedAnswers)
 
     if (!text || acceptedAnswers.length === 0) {
       return { success: false, message: "A question needs text and at least one accepted answer." }
@@ -588,6 +586,30 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
 
 function notInitialized(): ActionResult {
   return { success: false, message: "Plugin not initialized" }
+}
+
+/**
+ * Normalize the `acceptedAnswers` action param into a trimmed, de-duplicated,
+ * non-empty string array. Accepts either a real array (programmatic callers) or
+ * a comma-separated string (the admin UI form field, whose inputs are strings).
+ */
+function parseAcceptedAnswers(raw: unknown): string[] {
+  const parts = Array.isArray(raw)
+    ? raw.filter((a): a is string => typeof a === "string")
+    : typeof raw === "string"
+      ? raw.split(",")
+      : []
+  const seen = new Set<string>()
+  const answers: string[] = []
+  for (const part of parts) {
+    const trimmed = part.trim()
+    if (!trimmed) continue
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    answers.push(trimmed)
+  }
+  return answers
 }
 
 export function createQuizSessionsPlugin(configOverrides?: Partial<QuizSessionsConfig>): Plugin {

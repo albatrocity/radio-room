@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { participationModeFieldMeta } from "@repo/game-logic"
-import type { PluginComponentSchema, PluginConfigSchema } from "@repo/types"
+import type { PluginActionElement, PluginComponentSchema, PluginConfigSchema } from "@repo/types"
 import { quizSessionsConfigSchema } from "./types"
 
 /**
@@ -43,6 +43,76 @@ export function getComponentSchema(): PluginComponentSchema {
   }
 }
 
+/**
+ * Session lifecycle controls. Rendered as socket-backed buttons by the admin
+ * plugin settings UI (`renderAction` → `EXECUTE_PLUGIN_ACTION`), the same path
+ * guess-the-tune uses. There is no bespoke quiz admin modal — authoring is the
+ * `questions` config field (ADR 0068) and these actions drive the live session.
+ */
+const startSessionAction = {
+  type: "action",
+  action: "startSession",
+  label: "Start quiz",
+  variant: "solid",
+  showWhen: { field: "enabled", value: true },
+} satisfies PluginActionElement
+
+const advanceQuestionAction = {
+  type: "action",
+  action: "advanceQuestion",
+  label: "Advance question",
+  variant: "outline",
+  showWhen: { field: "enabled", value: true },
+} satisfies PluginActionElement
+
+const endSessionAction = {
+  type: "action",
+  action: "endSession",
+  label: "End quiz",
+  variant: "destructive",
+  confirmMessage: "End the current quiz session and post final standings to chat?",
+  confirmText: "End quiz",
+  showWhen: { field: "enabled", value: true },
+} satisfies PluginActionElement
+
+const updateRewardAction = {
+  type: "action",
+  action: "updateReward",
+  label: "Set coin reward",
+  variant: "outline",
+  showWhen: { field: "enabled", value: true },
+  formFields: [
+    {
+      name: "coinReward",
+      label: "Coins per correct answer",
+      type: "string",
+      required: true,
+    },
+  ],
+} satisfies PluginActionElement
+
+const addQuestionAction = {
+  type: "action",
+  action: "addQuestion",
+  label: "Add question (live)",
+  variant: "outline",
+  showWhen: { field: "enabled", value: true },
+  formFields: [
+    {
+      name: "text",
+      label: "Question",
+      type: "string",
+      required: true,
+    },
+    {
+      name: "acceptedAnswers",
+      label: "Accepted answers (comma-separated)",
+      type: "string",
+      required: true,
+    },
+  ],
+} satisfies PluginActionElement
+
 export function getConfigSchema(): PluginConfigSchema {
   return {
     jsonSchema: z.toJSONSchema(quizSessionsConfigSchema),
@@ -63,6 +133,18 @@ export function getConfigSchema(): PluginConfigSchema {
       "winnerLabel",
       "winnerIcon",
       "questions",
+      { type: "heading", content: "Session controls" },
+      {
+        type: "text-block",
+        content:
+          "Save your changes before starting a quiz — a new session is seeded from the saved question bank. Advancing past the last question ends the quiz.",
+        variant: "info",
+      },
+      startSessionAction,
+      advanceQuestionAction,
+      addQuestionAction,
+      endSessionAction,
+      updateRewardAction,
     ],
     fieldMeta: {
       enabled: {

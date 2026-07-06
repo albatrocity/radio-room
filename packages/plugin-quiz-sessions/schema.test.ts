@@ -46,4 +46,45 @@ describe("quiz-sessions config schema", () => {
     })
     expect(parsed.questions).toEqual([{ text: "", acceptedAnswers: [] }])
   })
+
+  it("exposes session-lifecycle action buttons gated on enabled", () => {
+    const actions = getConfigSchema().layout.filter(
+      (el): el is Extract<typeof el, { type: "action" }> =>
+        typeof el === "object" && (el as { type?: string }).type === "action",
+    )
+    expect(actions.map((a) => a.action)).toEqual([
+      "startSession",
+      "advanceQuestion",
+      "addQuestion",
+      "endSession",
+      "updateReward",
+    ])
+    for (const action of actions) {
+      expect(action.showWhen).toEqual({ field: "enabled", value: true })
+    }
+  })
+
+  it("gives End quiz a confirm step and Set coin reward a coinReward form field", () => {
+    const actions = getConfigSchema().layout.filter(
+      (el): el is Extract<typeof el, { type: "action" }> =>
+        typeof el === "object" && (el as { type?: string }).type === "action",
+    )
+    const end = actions.find((a) => a.action === "endSession")
+    expect(end?.variant).toBe("destructive")
+    expect(end?.confirmMessage).toBeTruthy()
+
+    const reward = actions.find((a) => a.action === "updateReward")
+    expect(reward?.formFields?.map((f) => f.name)).toEqual(["coinReward"])
+    expect(reward?.formFields?.[0]?.required).toBe(true)
+  })
+
+  it("gives Add question (live) text + comma-separated answers form fields", () => {
+    const actions = getConfigSchema().layout.filter(
+      (el): el is Extract<typeof el, { type: "action" }> =>
+        typeof el === "object" && (el as { type?: string }).type === "action",
+    )
+    const add = actions.find((a) => a.action === "addQuestion")
+    expect(add?.formFields?.map((f) => f.name)).toEqual(["text", "acceptedAnswers"])
+    expect(add?.formFields?.every((f) => f.required)).toBe(true)
+  })
 })
