@@ -131,6 +131,7 @@ export const modalsMachine = setup({
             EDIT_ITEM_SHOPS: "item_shops",
             EDIT_QUEUE_PACER: "queue_pacer",
             EDIT_QUIZ_SESSIONS: "quiz_sessions",
+            EDIT_VOLUME_MANAGER: "volume_manager",
           },
         },
         playlist_democracy: {
@@ -229,6 +230,11 @@ export const modalsMachine = setup({
           },
         },
         quiz_sessions: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        volume_manager: {
           on: {
             BACK: "overview",
           },

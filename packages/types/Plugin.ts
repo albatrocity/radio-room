@@ -400,6 +400,18 @@ export interface PluginAPI {
   ): Promise<{ success: true } | { success: false; message: string }>
 
   /**
+   * Set playback volume on the room's active PlaybackController device (0-100).
+   * Returns failure when no controller is configured or volume control is unsupported.
+   */
+  setPlaybackVolume(
+    roomId: string,
+    volumePercent: number,
+  ): Promise<{ success: true } | { success: false; message: string }>
+
+  /** Whether the room's PlaybackController supports volume control. */
+  supportsVolumeControl(roomId: string): Promise<boolean>
+
+  /**
    * Emit a custom plugin event.
    *
    * Events are automatically namespaced as `PLUGIN:{pluginName}:{eventName}`
@@ -791,6 +803,16 @@ export interface QueueValidationParams {
 export type QueueValidationResult = { allowed: true } | { allowed: false; reason: string }
 
 /**
+ * Parameters for the beforePlayQueuedTrack plugin hook.
+ * Invoked immediately before app-controlled playTrack(uri) calls.
+ */
+export interface BeforePlayQueuedTrackParams {
+  roomId: string
+  item: QueueItem
+  reason: "auto-advance" | "manual" | "plugin-skip"
+}
+
+/**
  * Sentinel returned from {@link Plugin.transformChatMessage} to skip persistence and broadcast.
  * System messages may still be sent separately by the plugin.
  *
@@ -943,6 +965,13 @@ export interface Plugin {
    * }
    */
   validateQueueRequest?(params: QueueValidationParams): Promise<QueueValidationResult>
+
+  /**
+   * Called immediately before app-controlled playTrack(uri) in core play paths.
+   * Plugins may perform side effects (e.g. set volume) before playback starts.
+   * Fail-open on errors/timeouts (like validateQueueRequest).
+   */
+  beforePlayQueuedTrack?(params: BeforePlayQueuedTrackParams): Promise<void>
 
   /**
    * Transform a chat message before it is persisted and broadcast.

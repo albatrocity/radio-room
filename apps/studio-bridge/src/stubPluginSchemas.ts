@@ -71,4 +71,33 @@ export const bridgePluginSchemasForApi = [
       storeKeys: ["activeQuestion", "leaderboard", "lastCorrectAnswer"],
     },
   },
+  {
+    name: "volume-manager",
+    version: "0.0.0-bridge",
+    description: "Volume Manager (bridge preview stub — use production API for admin schema).",
+    defaultConfig: {
+      enabled: true,
+      volume: 100,
+      setOnTrackStart: false,
+      startVolume: 100,
+    },
+    componentSchema: {
+      components: [
+        {
+          id: "volume-slider",
+          type: "slider",
+          area: "nowPlayingInfo",
+          dataKey: "volume",
+          icon: "Volume2",
+          min: 0,
+          max: 100,
+          step: 1,
+          action: "setVolume",
+          adminOnly: true,
+          showWhen: { field: "enabled", value: true },
+        },
+      ],
+      storeKeys: ["volume"],
+    },
+  },
 ]

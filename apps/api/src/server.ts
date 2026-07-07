@@ -22,6 +22,7 @@ import createItemShopsPlugin from "@repo/plugin-item-shops"
 import createLoyaltyProgramPlugin from "@repo/plugin-loyalty-program"
 import createQueuePacerPlugin from "@repo/plugin-queue-pacer"
 import createQuizSessionsPlugin from "@repo/plugin-quiz-sessions"
+import createVolumeManagerPlugin from "@repo/plugin-volume-manager"
 import { authHandler } from "@repo/auth/server"
 import { requireAdmin } from "@repo/auth/middleware"
 
@@ -83,6 +84,7 @@ async function main() {
       createLoyaltyProgramPlugin,
       createQueuePacerPlugin,
       createQuizSessionsPlugin,
+      createVolumeManagerPlugin,
     ],
   })
 

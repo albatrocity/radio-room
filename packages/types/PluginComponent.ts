@@ -61,6 +61,7 @@ export type TemplateComponentName =
   | "shop-offer-table"
   | "current-shop-offers"
   | "quiz-question-card"
+  | "slider"
 
 /**
  * Props for the username template component.
@@ -370,6 +371,29 @@ export interface QuizQuestionCardComponentProps {
 }
 
 /**
+ * Props for the slider template component.
+ *
+ * Reads its value from the plugin store via `dataKey`. On commit, dispatches
+ * `EXECUTE_PLUGIN_ACTION` with `params` containing the new volume (0-100).
+ */
+export interface SliderComponentProps {
+  /** Store key for the current value (e.g. `"volume"`). */
+  dataKey: string
+  label?: string
+  /** Icon shown instead of `label` when present (e.g. a speaker icon for a volume slider). */
+  icon?: LucideIconName
+  min?: number
+  max?: number
+  step?: number
+  /** Plugin action identifier - dispatched via `EXECUTE_PLUGIN_ACTION`. */
+  action: string
+  /** Param name sent in EXECUTE_PLUGIN_ACTION params. Defaults to `dataKey`. */
+  paramKey?: string
+  /** When true, only room admins see this slider. */
+  adminOnly?: boolean
+}
+
+/**
  * Type-safe mapping of component names to their props.
  */
 export interface TemplateComponentPropsMap {
@@ -392,6 +416,7 @@ export interface TemplateComponentPropsMap {
   "shop-offer-table": ShopOfferTableComponentProps
   "current-shop-offers": CurrentShopOffersComponentProps
   "quiz-question-card": QuizQuestionCardComponentProps
+  slider: SliderComponentProps
 }
 
 // ============================================================================
@@ -475,6 +500,7 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "shop-offer-table" } & ShopOfferTableComponentProps)
   | (PluginComponentMetadata & { type: "current-shop-offers" } & CurrentShopOffersComponentProps)
   | (PluginComponentMetadata & { type: "quiz-question-card" } & QuizQuestionCardComponentProps)
+  | (PluginComponentMetadata & { type: "slider" } & SliderComponentProps)
   | PluginModalComponent // Modal is special - it contains children
   | PluginTabComponent // Tab is a container for game state modal tabs
 

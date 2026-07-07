@@ -158,6 +158,12 @@ export class PluginAPIImpl implements PluginAPI {
       return
     }
 
+    await this.context.pluginRegistry?.runBeforePlayQueuedTrack({
+      roomId,
+      item: nextItem,
+      reason: "plugin-skip",
+    })
+
     try {
       await playbackController.api.playTrack(uri)
     } catch (e) {
@@ -312,6 +318,42 @@ export class PluginAPIImpl implements PluginAPI {
     const { DJService } = await import("../../services/DJService")
     const djService = new DJService(this.context)
     return await djService.shuffleQueue(roomId)
+  }
+
+  async setPlaybackVolume(
+    roomId: string,
+    volumePercent: number,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    const clamped = Math.round(Math.max(0, Math.min(100, volumePercent)))
+
+    const { AdapterService } = await import("../../services/AdapterService")
+    const adapterService = new AdapterService(this.context)
+    const playbackController = await adapterService.getRoomPlaybackController(roomId)
+
+    if (!playbackController) {
+      return { success: false, message: "No playback controller configured for this room" }
+    }
+
+    const setVolume = playbackController.api.setVolume
+    if (!setVolume) {
+      return { success: false, message: "Playback controller does not support volume control" }
+    }
+
+    try {
+      await setVolume(clamped)
+      return { success: true }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to set playback volume"
+      console.error("[PluginAPI] setPlaybackVolume failed:", error)
+      return { success: false, message }
+    }
+  }
+
+  async supportsVolumeControl(roomId: string): Promise<boolean> {
+    const { AdapterService } = await import("../../services/AdapterService")
+    const adapterService = new AdapterService(this.context)
+    const playbackController = await adapterService.getRoomPlaybackController(roomId)
+    return Boolean(playbackController?.api.setVolume)
   }
 
   /**

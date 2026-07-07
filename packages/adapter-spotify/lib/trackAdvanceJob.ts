@@ -161,6 +161,12 @@ export function createTrackAdvanceJob(params: {
 
         await setDispatchedTrack({ context, roomId, item: nextItem })
 
+        await context.pluginRegistry?.runBeforePlayQueuedTrack({
+          roomId,
+          item: nextItem,
+          reason: "auto-advance",
+        })
+
         try {
           await playTrack(uri)
         } catch (error: unknown) {
