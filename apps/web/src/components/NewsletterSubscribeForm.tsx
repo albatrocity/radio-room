@@ -26,7 +26,7 @@ async function getSubscribeErrorMessage(error: unknown): Promise<string> {
 export default function NewsletterSubscribeForm({ source = "web" }: Props) {
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -35,8 +35,12 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
     setIsSubmitting(true)
 
     try {
-      await subscribeNewsletter({ email: email.trim(), source })
-      setIsSuccess(true)
+      const result = await subscribeNewsletter({ email: email.trim(), source })
+      setSuccessMessage(
+        result.alreadySubscribed
+          ? "You're already subscribed to the newsletter."
+          : "Check your email to confirm your subscription.",
+      )
     } catch (submitError) {
       setError(await getSubscribeErrorMessage(submitError))
     } finally {
@@ -58,8 +62,8 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
         Subscribe to the newsletter
       </Text>
 
-      {isSuccess ? (
-        <Text>Check your email to confirm your subscription.</Text>
+      {successMessage ? (
+        <Text>{successMessage}</Text>
       ) : (
         <form onSubmit={handleSubmit}>
           <Flex gap={3} direction={{ base: "column", sm: "row" }} align={{ sm: "flex-end" }}>

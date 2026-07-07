@@ -65,6 +65,11 @@ export interface SubscribeNewsletterRequest {
   source?: string
 }
 
+export interface SubscribeNewsletterResponse {
+  ok: true
+  alreadySubscribed: boolean
+}
+
 export interface NewsletterPreviewResponse {
   html: string
 }

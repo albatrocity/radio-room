@@ -1,5 +1,5 @@
 import ky from "ky"
-import type { RoomScheduleSnapshotDTO, SubscribeNewsletterRequest } from "@repo/types"
+import type { RoomScheduleSnapshotDTO, SubscribeNewsletterRequest, SubscribeNewsletterResponse } from "@repo/types"
 import { RADIO_SESSION_HEADER } from "../constants"
 import { getStoredUserId } from "./clientSession"
 import { Room, RoomSetup } from "../types/Room"
@@ -112,7 +112,7 @@ export async function getPluginComponentState(
 // =============================================================================
 
 export async function subscribeNewsletter(body: SubscribeNewsletterRequest) {
-  return api.post("api/newsletter/subscribe", { json: body }).json<{ ok: true }>()
+  return api.post("api/newsletter/subscribe", { json: body }).json<SubscribeNewsletterResponse>()
 }
 
 // =============================================================================
