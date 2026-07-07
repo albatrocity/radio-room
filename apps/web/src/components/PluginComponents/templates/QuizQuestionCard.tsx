@@ -1,9 +1,30 @@
 import { useEffect, useState } from "react"
 import { Badge, Box, HStack, IconButton, Text, VStack } from "@chakra-ui/react"
+import { ClassNames, css, keyframes } from "@emotion/react"
 import { LuBrain, LuMaximize2, LuMinus } from "react-icons/lu"
 import { useCurrentUser } from "../../../hooks/useActors"
+import { useAnimationsEnabled } from "../../../hooks/useReducedMotion"
 import { usePluginComponentContext } from "../context"
 import type { QuizQuestionCardComponentProps } from "../../../types/PluginComponent"
+
+const QUIZ_QUESTION_PULSE_MS = 400
+
+/** Quick scale + ring pulse when a new question becomes active. */
+const kfQuizQuestionPulse = keyframes`
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: var(--chakra-shadows-sm);
+  }
+  50% {
+    transform: scale(1.012);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--chakra-colors-primary-solid) 40%, transparent);
+  }
+`
+
+const quizQuestionPulseAnim = css`
+  animation: ${kfQuizQuestionPulse} ${QUIZ_QUESTION_PULSE_MS}ms ease-out;
+  will-change: transform, box-shadow;
+`
 
 /** Broadcast-safe question shape (mirrors the plugin's `PublicQuizQuestion`). */
 interface ActiveQuestion {
@@ -42,6 +63,7 @@ export function QuizQuestionCardTemplateComponent({
   const { store } = usePluginComponentContext()
   const currentUser = useCurrentUser()
   const myUserId = currentUser?.userId
+  const animationsEnabled = useAnimationsEnabled()
 
   const question = (store[questionKey] as ActiveQuestion | null | undefined) ?? null
   const lastCorrect = (store[lastCorrectKey] as CorrectNotice | null | undefined) ?? null
@@ -70,53 +92,66 @@ export function QuizQuestionCardTemplateComponent({
 
   return (
     <Box width="full" px={2} pt={2}>
-      <Box borderWidth="1px" borderRadius="lg" bg="bg" shadow="sm" px={4} py={collapsed ? 2 : 3}>
-        <HStack justify="space-between" align="center" gap={2}>
-          <HStack gap={2} minW={0} flex={1}>
-            <Box color="primary.solid" flexShrink={0}>
-              <LuBrain />
-            </Box>
-            {collapsed ? (
-              <Text fontSize="sm" truncate>
-                Quiz · {progress}
-              </Text>
-            ) : (
-              <Text fontSize="xs" color="fg.muted">
-                {progress}
-              </Text>
-            )}
-          </HStack>
-          <IconButton
-            aria-label={collapsed ? "Expand quiz question" : "Collapse quiz question"}
-            size="xs"
-            variant="ghost"
-            onClick={() => setCollapsed((c) => !c)}
+      <ClassNames>
+        {({ css: cx }) => (
+          <Box
+            key={question.id}
+            className={animationsEnabled ? cx(quizQuestionPulseAnim) : undefined}
+            borderWidth="1px"
+            borderRadius="lg"
+            bg="bg"
+            shadow="sm"
+            px={4}
+            py={collapsed ? 2 : 3}
           >
-            {collapsed ? <LuMaximize2 /> : <LuMinus />}
-          </IconButton>
-        </HStack>
+            <HStack justify="space-between" align="center" gap={2}>
+              <HStack gap={2} minW={0} flex={1}>
+                <Box color="primary.solid" flexShrink={0}>
+                  <LuBrain />
+                </Box>
+                {collapsed ? (
+                  <Text fontSize="sm" truncate>
+                    Quiz · {progress}
+                  </Text>
+                ) : (
+                  <Text fontSize="xs" color="fg.muted">
+                    {progress}
+                  </Text>
+                )}
+              </HStack>
+              <IconButton
+                aria-label={collapsed ? "Expand quiz question" : "Collapse quiz question"}
+                size="xs"
+                variant="ghost"
+                onClick={() => setCollapsed((c) => !c)}
+              >
+                {collapsed ? <LuMaximize2 /> : <LuMinus />}
+              </IconButton>
+            </HStack>
 
-        {!collapsed && (
-          <VStack align="stretch" gap={2} mt={2}>
-            <Text fontWeight="semibold" fontSize="md">
-              {question.text}
-            </Text>
-            {revealedAnswer ? (
-              <Badge colorPalette="green" alignSelf="flex-start">
-                Answer: {revealedAnswer}
-              </Badge>
-            ) : youGotIt ? (
-              <Badge colorPalette="green" alignSelf="flex-start">
-                You got it! ✓
-              </Badge>
-            ) : (
-              <Text fontSize="sm" color="fg.muted">
-                {hint}
-              </Text>
+            {!collapsed && (
+              <VStack align="stretch" gap={2} mt={2}>
+                <Text fontWeight="semibold" fontSize="md">
+                  {question.text}
+                </Text>
+                {revealedAnswer ? (
+                  <Badge colorPalette="green" alignSelf="flex-start">
+                    Answer: {revealedAnswer}
+                  </Badge>
+                ) : youGotIt ? (
+                  <Badge colorPalette="green" alignSelf="flex-start">
+                    You got it! ✓
+                  </Badge>
+                ) : (
+                  <Text fontSize="sm" color="fg.muted">
+                    {hint}
+                  </Text>
+                )}
+              </VStack>
             )}
-          </VStack>
+          </Box>
         )}
-      </Box>
+      </ClassNames>
     </Box>
   )
 }
