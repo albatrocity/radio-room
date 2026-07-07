@@ -19,7 +19,7 @@ For detailed documentation, see:
 
 - **[ADR Index](docs/adrs/index.md)** - Architectural Decision Records
 - **[Backend Development](docs/BACKEND_DEVELOPMENT.md)** - SystemEvents, Broadcaster pattern, server architecture
-- **[Plugin Development](docs/PLUGIN_DEVELOPMENT.md)** - Creating plugins, event system, UI components, storage API
+- **[Plugin Development](docs/PLUGIN_DEVELOPMENT.md)** - Creating plugins (index with links to focused guides: events, UI components, storage, game sessions, etc.)
 - **[Web Client](apps/web/README.md)** - XState actors, Socket.IO integration, React patterns
 - **[Game Studio](apps/game-studio/README.md)** - Local sandbox for plugin/game UI; pair with `studio-bridge`
 
