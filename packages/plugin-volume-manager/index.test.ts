@@ -228,4 +228,45 @@ describe("VolumeManagerPlugin", () => {
     )
     expect(mockContext.api.emit).toHaveBeenCalledWith("VOLUME_CHANGED", { volume: 55 })
   })
+
+  test("syncs config and UI when Spotify volume changes externally", async () => {
+    vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue({
+      enabled: true,
+      volume: 100,
+      setOnTrackStart: false,
+      startVolume: 100,
+    })
+
+    const handlers = mockContext._lifecycleHandlers.get("PLAYBACK_VOLUME_CHANGED")!
+    await handlers[0]({
+      roomId: "test-room",
+      volumePercent: 42,
+    })
+
+    expect(mockContext.api.setPlaybackVolume).not.toHaveBeenCalled()
+    expect(mockContext.api.setPluginConfig).toHaveBeenCalledWith(
+      "test-room",
+      "volume-manager",
+      expect.objectContaining({ volume: 42 }),
+    )
+    expect(mockContext.api.emit).toHaveBeenCalledWith("VOLUME_CHANGED", { volume: 42 })
+  })
+
+  test("ignores PLAYBACK_VOLUME_CHANGED when plugin is disabled", async () => {
+    vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue({
+      enabled: false,
+      volume: 100,
+      setOnTrackStart: false,
+      startVolume: 100,
+    })
+
+    const handlers = mockContext._lifecycleHandlers.get("PLAYBACK_VOLUME_CHANGED")!
+    await handlers[0]({
+      roomId: "test-room",
+      volumePercent: 42,
+    })
+
+    expect(mockContext.api.setPluginConfig).not.toHaveBeenCalled()
+    expect(mockContext.api.emit).not.toHaveBeenCalled()
+  })
 })

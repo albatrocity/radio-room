@@ -343,6 +343,16 @@ export type SystemEventHandlers = {
     state: "playing" | "paused" | "stopped"
     trackId: string | null
   }) => Promise<void> | void
+
+  /**
+   * Fired when Spotify device volume changes (external or app-initiated).
+   * Sources: trackAdvanceJob polling `device.volume_percent`.
+   * Deduplicated by the handlePlaybackVolumeChange operation.
+   */
+  PLAYBACK_VOLUME_CHANGED: (data: {
+    roomId: string
+    volumePercent: number
+  }) => Promise<void> | void
   // Poll events
   // ==========================================================================
 

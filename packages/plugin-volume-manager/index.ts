@@ -53,6 +53,7 @@ export class VolumeManagerPlugin extends BasePlugin<VolumeManagerConfig> {
     await super.register(context)
 
     this.on("TRACK_CHANGED", this.handleTrackChanged.bind(this))
+    this.on("PLAYBACK_VOLUME_CHANGED", this.handlePlaybackVolumeChanged.bind(this))
     this.onConfigChange(this.handleConfigChange.bind(this))
   }
 
@@ -76,6 +77,27 @@ export class VolumeManagerPlugin extends BasePlugin<VolumeManagerConfig> {
     _data: SystemEventPayload<"TRACK_CHANGED">,
   ): Promise<void> {
     await this.applyStartVolumeIfEnabled()
+  }
+
+  private async handlePlaybackVolumeChanged(
+    data: SystemEventPayload<"PLAYBACK_VOLUME_CHANGED">,
+  ): Promise<void> {
+    const config = await this.getConfig()
+    if (!config?.enabled) {
+      return
+    }
+
+    const volume = clampVolumePercent(data.volumePercent)
+    if (config.volume === volume) {
+      return
+    }
+
+    await this.context!.api.setPluginConfig(this.context!.roomId, this.name, {
+      ...config,
+      volume,
+    })
+
+    await this.emit("VOLUME_CHANGED", { volume })
   }
 
   private async handleConfigChange(data: {

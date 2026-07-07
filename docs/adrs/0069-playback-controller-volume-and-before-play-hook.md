@@ -45,6 +45,10 @@ Add `slider` to `TemplateComponentName`. Props: `dataKey`, `min`, `max`, `step`,
 
 `@repo/plugin-volume-manager`: config `enabled`, `volume`, `setOnTrackStart`, `startVolume`; admin-only slider in `nowPlayingInfo` area; `beforePlayQueuedTrack` + `TRACK_CHANGED` apply `startVolume`; `onConfigChange` applies live `volume` only; `executeAction("setVolume")` for slider.
 
+### 6. External volume sync via `PLAYBACK_VOLUME_CHANGED`
+
+Add `PLAYBACK_VOLUME_CHANGED` to `SystemEventTypes`. `trackAdvanceJob` polls `device.volume_percent` from `getPlaybackState()` every 1s and emits via `handlePlaybackVolumeChange` (Redis dedup, 2% threshold). Volume Manager listens with `this.on("PLAYBACK_VOLUME_CHANGED")`, updates plugin config, and emits `PLUGIN:volume-manager:VOLUME_CHANGED` to sync the UI slider when Spotify volume changes externally (phone/desktop).
+
 ## Consequences
 
 ### Positive
