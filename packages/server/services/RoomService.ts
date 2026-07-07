@@ -33,6 +33,7 @@ export class RoomService {
 
     return {
       room: isAdmin ? room : removeSensitiveRoomAttributes(room),
+      isAdmin,
     }
   }
 

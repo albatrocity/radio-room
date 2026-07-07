@@ -51,4 +51,5 @@ export type {
   ShopOfferTableRow,
   ShopOfferTableComponentProps,
   CurrentShopOffersComponentProps,
+  QuizQuestionCardComponentProps,
 } from "@repo/types"

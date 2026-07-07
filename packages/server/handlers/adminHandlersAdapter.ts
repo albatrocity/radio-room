@@ -34,9 +34,13 @@ export class AdminHandlers {
       return
     }
 
-    // Fetch all plugin configs
-    const { getAllPluginConfigs } = await import("../operations/data/pluginConfigs")
-    const pluginConfigs = await getAllPluginConfigs({
+    // Admin-gated pull (ADR 0068 §2): this handler is guarded by
+    // adminService.getRoomSettings and emits only to the requesting socket, so
+    // it is safe to return MERGED configs (public + server-only private fields)
+    // here. This primes the admin editor with existing private values (e.g.
+    // quiz accepted answers). Room-wide pushes still use getAllPluginConfigs.
+    const { getAllMergedPluginConfigs } = await import("../operations/data/pluginConfigs")
+    const pluginConfigs = await getAllMergedPluginConfigs({
       context: socket.context,
       roomId: socket.data.roomId,
     })
@@ -244,16 +248,27 @@ export class AdminHandlers {
     const { findRoom } = await import("../operations/data")
     const previousRoom = await findRoom({ context: socket.context, roomId: socket.data.roomId })
 
-    // Capture previous plugin configs before updating
-    const previousPluginConfigs: Record<string, any> = {}
+    // Capture previous plugin configs before updating.
+    // - `previousPublicConfigs`: broadcast-safe view, used for CONFIG_CHANGED payloads.
+    // - `previousMergedConfigs`: public + private, used only for server-side change
+    //   detection so a private-only change still notifies plugins (ADR 0068).
+    const previousPublicConfigs: Record<string, any> = {}
+    const previousMergedConfigs: Record<string, any> = {}
     const pluginConfigs = (values as any).pluginConfigs
 
     if (pluginConfigs) {
-      const { getPluginConfig, setPluginConfig } = await import("../operations/data/pluginConfigs")
+      const { getPluginConfig, getMergedPluginConfig, setPluginConfig } = await import(
+        "../operations/data/pluginConfigs"
+      )
 
       // First, fetch all previous configs
       for (const pluginName of Object.keys(pluginConfigs)) {
-        previousPluginConfigs[pluginName] = await getPluginConfig({
+        previousPublicConfigs[pluginName] = await getPluginConfig({
+          context: socket.context,
+          roomId: socket.data.roomId,
+          pluginName,
+        })
+        previousMergedConfigs[pluginName] = await getMergedPluginConfig({
           context: socket.context,
           roomId: socket.data.roomId,
           pluginName,
@@ -308,6 +323,26 @@ export class AdminHandlers {
       })
     }
 
+    // Re-prime the requesting admin's editor with the MERGED config (public +
+    // private) via the same admin-gated, per-socket pull as GET_ROOM_SETTINGS.
+    // The room-wide ROOM_SETTINGS_UPDATED above carries public fields only, so
+    // without this the admin's just-saved private values (e.g. quiz questions)
+    // would appear stale until they reopen settings (ADR 0068 §2).
+    if (pluginConfigs) {
+      const { getAllMergedPluginConfigs } = await import("../operations/data/pluginConfigs")
+      const mergedPluginConfigs = await getAllMergedPluginConfigs({
+        context: socket.context,
+        roomId: socket.data.roomId,
+      })
+      io.to(socket.id).emit("event", {
+        type: "ROOM_SETTINGS",
+        data: {
+          room: result.room,
+          pluginConfigs: mergedPluginConfigs,
+        },
+      })
+    }
+
     // Emit configChanged events for updated plugin configs
     if (socket.context.pluginRegistry && result.room && pluginConfigs) {
       try {
@@ -326,20 +361,31 @@ export class AdminHandlers {
         )
         console.log("[AdminHandler] syncRoomPlugins completed")
 
-        // Now emit configChanged events after plugins are initialized
-        for (const [pluginName, newConfig] of Object.entries(pluginConfigs)) {
-          const previousConfig = previousPluginConfigs[pluginName]
+        // Now emit configChanged events after plugins are initialized.
+        // CONFIG_CHANGED is broadcast to room clients by RoomBroadcaster, so its
+        // payload MUST carry only public fields. Change detection uses the merged
+        // (public + private) config so private-only edits still notify plugins,
+        // which read their full config server-side via getConfig() (ADR 0068).
+        const { getMergedPluginConfig } = await import("../operations/data/pluginConfigs")
+        for (const pluginName of Object.keys(pluginConfigs)) {
+          const previousMerged = previousMergedConfigs[pluginName]
+          const newMerged = await getMergedPluginConfig({
+            context: socket.context,
+            roomId: socket.data.roomId,
+            pluginName,
+          })
 
-          // Only emit if config actually changed
-          if (JSON.stringify(newConfig) !== JSON.stringify(previousConfig)) {
+          // Only emit if config actually changed (including private fields)
+          if (JSON.stringify(newMerged) !== JSON.stringify(previousMerged)) {
             console.log(`[AdminHandler] Emitting CONFIG_CHANGED for ${pluginName}`)
 
             if (socket.context.systemEvents) {
               await socket.context.systemEvents.emit(socket.data.roomId, "CONFIG_CHANGED", {
                 roomId: socket.data.roomId,
                 pluginName,
-                config: newConfig as Record<string, unknown>,
-                previousConfig: previousConfig as Record<string, unknown>,
+                // Public-only payload (broadcast-safe).
+                config: (updatedPluginConfigs[pluginName] ?? {}) as Record<string, unknown>,
+                previousConfig: previousPublicConfigs[pluginName] as Record<string, unknown>,
               })
             }
           }

@@ -1,8 +1,14 @@
 import { Box, Button, Fieldset, HStack, Input, Text, Textarea } from "@chakra-ui/react"
 import { useForm } from "@tanstack/react-form"
 import { useCreateSegment } from "../../hooks/useSegments"
-import type { PluginPreset, SegmentRoomSettingsOverride, SegmentStatus } from "@repo/types"
+import type {
+  PluginPreset,
+  SegmentPrivatePluginContent,
+  SegmentRoomSettingsOverride,
+  SegmentStatus,
+} from "@repo/types"
 import { TagCombobox } from "../tags/TagCombobox"
+import { SegmentPluginConfigEditor } from "./SegmentPluginConfigEditor"
 import { SegmentPluginPresetEditor } from "./SegmentPluginPresetEditor"
 import { SegmentRoomSettingsEditor } from "./SegmentRoomSettingsEditor"
 import {
@@ -32,6 +38,7 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
       status: "draft" as SegmentStatus,
       tagIds: [] as string[],
       pluginPreset: null as PluginPreset | null,
+      privatePluginContent: null as SegmentPrivatePluginContent | null,
       roomSettingsOverride: null as SegmentRoomSettingsOverride | null,
     },
     onSubmit: async ({ value }) => {
@@ -49,6 +56,7 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
         status: value.status,
         tagIds: value.tagIds,
         pluginPreset: value.pluginPreset,
+        privatePluginContent: value.privatePluginContent,
         roomSettingsOverride: value.roomSettingsOverride,
       })
       onClose()
@@ -155,6 +163,24 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
                         onValueChange={field.handleChange}
                         insideOverlay
                       />
+                    )}
+                  </form.Field>
+                </Box>
+                <Box mb={4}>
+                  <form.Field name="pluginPreset">
+                    {(presetField) => (
+                      <form.Field name="privatePluginContent">
+                        {(privateField) => (
+                          <SegmentPluginConfigEditor
+                            pluginPreset={presetField.state.value}
+                            privatePluginContent={privateField.state.value}
+                            onChange={({ pluginPreset, privatePluginContent }) => {
+                              presetField.handleChange(pluginPreset)
+                              privateField.handleChange(privatePluginContent)
+                            }}
+                          />
+                        )}
+                      </form.Field>
                     )}
                   </form.Field>
                 </Box>

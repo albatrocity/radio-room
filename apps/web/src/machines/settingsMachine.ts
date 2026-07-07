@@ -111,14 +111,36 @@ export const settingsMachine = setup({
     },
     setPluginConfigs: assign(({ context, event }) => {
       if (event.type === "INIT" && event.data.pluginConfigs) {
-        return { pluginConfigs: event.data.pluginConfigs }
+        // INIT is public-only room hydration — merge over existing per-plugin
+        // config so a reconnect doesn't wipe admin-fetched private fields (ADR 0068).
+        const merged: Record<string, Record<string, unknown>> = { ...context.pluginConfigs }
+        for (const [name, publicConfig] of Object.entries(event.data.pluginConfigs)) {
+          merged[name] = { ...(context.pluginConfigs[name] ?? {}), ...publicConfig }
+        }
+        return { pluginConfigs: merged }
       }
       return context
     }),
     setValues: assign(({ context, event }) => {
       if (event.type === "ROOM_SETTINGS" || event.type === "ROOM_SETTINGS_UPDATED") {
-        // Get plugin configs from the event, preserving existing if not provided
-        const pluginConfigs = event.data.pluginConfigs ?? context.pluginConfigs
+        // Plugin config secrecy (ADR 0068): `ROOM_SETTINGS` is the admin-gated,
+        // per-socket MERGED pull (public + private), so it is authoritative and
+        // replaces stored configs. `ROOM_SETTINGS_UPDATED` is a room-wide PUBLIC
+        // broadcast — merge its public fields over the existing per-plugin config
+        // so admin-fetched private fields (e.g. quiz questions/accepted answers)
+        // are preserved rather than wiped by the public-only payload.
+        let pluginConfigs = context.pluginConfigs
+        if (event.data.pluginConfigs) {
+          if (event.type === "ROOM_SETTINGS") {
+            pluginConfigs = event.data.pluginConfigs
+          } else {
+            const merged: Record<string, Record<string, unknown>> = { ...context.pluginConfigs }
+            for (const [name, publicConfig] of Object.entries(event.data.pluginConfigs)) {
+              merged[name] = { ...(context.pluginConfigs[name] ?? {}), ...publicConfig }
+            }
+            pluginConfigs = merged
+          }
+        }
 
         const newContext = {
           title: event.data.room.title,

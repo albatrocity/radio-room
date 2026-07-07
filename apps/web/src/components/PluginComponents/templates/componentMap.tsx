@@ -16,6 +16,7 @@ import { CountdownTemplateComponent } from "./CountdownComponent"
 import { GameAttributeTemplateComponent } from "./GameAttributeComponent"
 import { ShopOfferTableTemplateComponent } from "./ShopOfferTableComponent"
 import { CurrentShopOffersTemplateComponent } from "./CurrentShopOffersComponent"
+import { QuizQuestionCardTemplateComponent } from "./QuizQuestionCard"
 
 /**
  * Strongly-typed map of built-in template component names to React components.
@@ -43,6 +44,7 @@ export const TEMPLATE_COMPONENT_MAP: {
   "game-attribute": GameAttributeTemplateComponent,
   "shop-offer-table": ShopOfferTableTemplateComponent,
   "current-shop-offers": CurrentShopOffersTemplateComponent,
+  "quiz-question-card": QuizQuestionCardTemplateComponent,
 }
 
 /**

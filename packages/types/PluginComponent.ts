@@ -31,6 +31,7 @@ export type PluginComponentArea =
   | "userListItem" // Next to each user in the user list
   | "userList" // Top/bottom of the user list
   | "gameStateTab" // Tab content in the user's game state modal
+  | "aboveChat" // Above the chat window, alongside the poll card
 
 // ============================================================================
 // Template Component System
@@ -59,6 +60,7 @@ export type TemplateComponentName =
   | "item-badge"
   | "shop-offer-table"
   | "current-shop-offers"
+  | "quiz-question-card"
 
 /**
  * Props for the username template component.
@@ -352,6 +354,22 @@ export interface ShopOfferTableComponentProps {
 export type CurrentShopOffersComponentProps = {}
 
 /**
+ * Props for the quiz-question-card template component (Quiz Sessions plugin).
+ *
+ * The card reads live quiz state from the plugin store; props only tune which
+ * store keys it reads and the guest-facing hint. Intended for `area: "aboveChat"`.
+ * Renders nothing when there is no active question.
+ */
+export interface QuizQuestionCardComponentProps {
+  /** Store key holding the active `PublicQuizQuestion` (or null). Default `"activeQuestion"`. */
+  questionKey?: string
+  /** Store key holding the last correct-answer notice `{ userId, questionId }`. Default `"lastCorrectAnswer"`. */
+  lastCorrectKey?: string
+  /** Hint shown to guests who have not answered the active question yet. */
+  hint?: string
+}
+
+/**
  * Type-safe mapping of component names to their props.
  */
 export interface TemplateComponentPropsMap {
@@ -373,6 +391,7 @@ export interface TemplateComponentPropsMap {
   "item-badge": ItemBadgeComponentProps
   "shop-offer-table": ShopOfferTableComponentProps
   "current-shop-offers": CurrentShopOffersComponentProps
+  "quiz-question-card": QuizQuestionCardComponentProps
 }
 
 // ============================================================================
@@ -455,6 +474,7 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "item-badge" } & ItemBadgeComponentProps)
   | (PluginComponentMetadata & { type: "shop-offer-table" } & ShopOfferTableComponentProps)
   | (PluginComponentMetadata & { type: "current-shop-offers" } & CurrentShopOffersComponentProps)
+  | (PluginComponentMetadata & { type: "quiz-question-card" } & QuizQuestionCardComponentProps)
   | PluginModalComponent // Modal is special - it contains children
   | PluginTabComponent // Tab is a container for game state modal tabs
 

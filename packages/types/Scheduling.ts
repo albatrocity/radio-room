@@ -30,6 +30,13 @@ export type SegmentStatus = "draft" | "ready" | "archived"
 export type TagType = "segment" | "show"
 export type RoomExportStatus = "draft" | "published"
 
+/**
+ * Server-only private plugin config authored in the scheduler, keyed by plugin
+ * name. Fanned out to the room `:private` key on segment activation; NEVER
+ * placed in `RoomScheduleSnapshotSegmentDTO` or any broadcast surface (ADR 0068).
+ */
+export type SegmentPrivatePluginContent = Record<string, Record<string, unknown>>
+
 // ---------------------------------------------------------------------------
 // Entity DTOs (API responses)
 // ---------------------------------------------------------------------------
@@ -122,6 +129,12 @@ export interface SegmentDTO {
    * `id` may be omitted; one is generated at activation time.
    */
   gameSessionPreset?: (Partial<GameSessionConfig> & { name: string }) | null
+  /**
+   * Server-only private plugin content authored in the scheduler (ADR 0068).
+   * Present on the admin segment DTO for editing; excluded from the schedule
+   * snapshot and every broadcast surface.
+   */
+  privatePluginContent?: SegmentPrivatePluginContent | null
   roomSettingsOverride: SegmentRoomSettingsOverride | null
   status: SegmentStatus
   createdBy: string
@@ -226,6 +239,7 @@ export interface CreateSegmentRequest {
   duration?: number | null
   pluginPreset?: PluginPreset | null
   gameSessionPreset?: (Partial<GameSessionConfig> & { name: string }) | null
+  privatePluginContent?: SegmentPrivatePluginContent | null
   roomSettingsOverride?: SegmentRoomSettingsOverride | null
   status?: SegmentStatus
   tagIds?: string[]
@@ -239,6 +253,7 @@ export interface UpdateSegmentRequest {
   duration?: number | null
   pluginPreset?: PluginPreset | null
   gameSessionPreset?: (Partial<GameSessionConfig> & { name: string }) | null
+  privatePluginContent?: SegmentPrivatePluginContent | null
   roomSettingsOverride?: SegmentRoomSettingsOverride | null
   status?: SegmentStatus
   tagIds?: string[]

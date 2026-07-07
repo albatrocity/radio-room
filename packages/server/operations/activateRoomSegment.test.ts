@@ -16,6 +16,7 @@ const m = vi.hoisted(() => ({
   persistMessage: vi.fn(),
   getPluginConfig: vi.fn(),
   setPluginConfig: vi.fn(),
+  setPluginPrivateConfig: vi.fn(),
   deleteAllPluginConfigs: vi.fn(),
   getAllPluginConfigs: vi.fn(),
 }))
@@ -37,6 +38,7 @@ vi.mock("./data/messages", () => ({
 vi.mock("./data/pluginConfigs", () => ({
   getPluginConfig: m.getPluginConfig,
   setPluginConfig: m.setPluginConfig,
+  setPluginPrivateConfig: m.setPluginPrivateConfig,
   deleteAllPluginConfigs: m.deleteAllPluginConfigs,
   getAllPluginConfigs: m.getAllPluginConfigs,
 }))
@@ -505,6 +507,82 @@ describe("activateRoomSegment", () => {
         }),
       }),
     )
+  })
+
+  it("fans out private plugin content to :private and emits CONFIG_CHANGED without leaking it", async () => {
+    m.findShowById.mockReset().mockResolvedValueOnce({
+      id: "show-1",
+      segments: [
+        {
+          id: "placement-1",
+          segmentId: "seg-1",
+          segment: {
+            id: "seg-1",
+            title: "Quiz",
+            pluginPreset: {
+              presetName: "Quiz night",
+              exportedAt: "2026-07-06T00:00:00.000Z",
+              version: 1,
+              pluginConfigs: { "quiz-sessions": { enabled: true, mode: "inclusive" } },
+            },
+            privatePluginContent: {
+              "quiz-sessions": {
+                questions: [{ text: "Capital of France?", acceptedAnswers: ["Paris"] }],
+              },
+            },
+            roomSettingsOverride: null,
+            duration: 5,
+            status: "ready",
+            description: null,
+            isRecurring: false,
+            createdBy: "u1",
+            assignedTo: null,
+            assignee: null,
+            createdAt: "",
+            updatedAt: "",
+          },
+        },
+      ],
+    })
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: null, announceActiveSegment: false }))
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: "seg-1", announceActiveSegment: false }))
+    m.getAllPluginConfigs.mockResolvedValue({ "quiz-sessions": { enabled: true, mode: "inclusive" } })
+
+    const r = await activateRoomSegment({
+      context,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "merge",
+    })
+    expect(r.ok).toBe(true)
+
+    // Private content is written to the server-only `:private` key via the
+    // dedicated private writer (never routed through the public `:config`).
+    expect(m.setPluginPrivateConfig).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context,
+        roomId: "r1",
+        pluginName: "quiz-sessions",
+        config: { questions: [{ text: "Capital of France?", acceptedAnswers: ["Paris"] }] },
+      }),
+    )
+
+    // The quiz receives CONFIG_CHANGED so it can self-start from merged config.
+    expect(emit).toHaveBeenCalledWith(
+      "r1",
+      "CONFIG_CHANGED",
+      expect.objectContaining({ pluginName: "quiz-sessions" }),
+    )
+
+    // Private content never appears on any broadcast surface.
+    const roomSettingsCall = emit.mock.calls.find((c) => c[1] === "ROOM_SETTINGS_UPDATED")
+    expect(roomSettingsCall).toBeTruthy()
+    expect(JSON.stringify(roomSettingsCall![2])).not.toContain("acceptedAnswers")
+    const configChangedCall = emit.mock.calls.find((c) => c[1] === "CONFIG_CHANGED")
+    expect(JSON.stringify(configChangedCall![2])).not.toContain("acceptedAnswers")
   })
 
   it("rejects when showSegmentId does not match segmentId", async () => {

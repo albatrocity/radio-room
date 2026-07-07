@@ -26,6 +26,7 @@
     "@repo/plugin-queue-hygiene": "*",
     "@repo/plugin-special-words": "*",
     "@repo/plugin-queue-pacer": "*",
+    "@repo/plugin-quiz-sessions": "*",
     "@repo/server": "*",
     "@socket.io/redis-adapter": "^8.3.0",
     "@spotify/web-api-ts-sdk": "^1.2.0",

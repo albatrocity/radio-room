@@ -54,6 +54,14 @@ export const segment = pgTable("segment", {
   /** Approximate duration in minutes (nullable). */
   duration: integer("duration"),
   pluginPreset: jsonb("plugin_preset"),
+  /**
+   * Server-only private plugin config authored in the scheduler, keyed by plugin
+   * name (e.g. quiz accepted answers). Fanned out to the room `:private` key on
+   * activation; NEVER included in the schedule snapshot or any broadcast (ADR 0068).
+   */
+  privatePluginContent: jsonb("private_plugin_content"),
+  /** Optional game session to auto-start on activation (see gameSessionPreset in @repo/types). */
+  gameSessionPreset: jsonb("game_session_preset"),
   /** Partial room booleans applied on segment activation (see SegmentRoomSettingsOverride in @repo/types). */
   roomSettingsOverride: jsonb("room_settings_override"),
   status: segmentStatusEnum("status").notNull().default("draft"),
