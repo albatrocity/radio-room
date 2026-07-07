@@ -57,8 +57,8 @@ function renderPluginComponent(
   // Interpolate config + store values in props using shared utility
   const interpolatedProps = interpolatePropsRecursively(templateProps, interpolationContext)
 
-  // Buttons need to know which plugin owns them so they can dispatch actions.
-  if (type === "button" && pluginName) {
+  // Buttons and sliders need to know which plugin owns them so they can dispatch actions.
+  if ((type === "button" || type === "slider") && pluginName) {
     return <TemplateComponent {...interpolatedProps} pluginName={pluginName} />
   }
 
@@ -82,8 +82,13 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
   const { config, store, itemContext, pluginName } = React.useContext(PluginComponentContext)!
   const isAdmin = useIsAdmin()
 
-  // Hide adminOnly buttons from non-admins
-  if (component.type === "button" && "adminOnly" in component && component.adminOnly && !isAdmin) {
+  // Hide adminOnly buttons and sliders from non-admins
+  if (
+    (component.type === "button" || component.type === "slider") &&
+    "adminOnly" in component &&
+    component.adminOnly &&
+    !isAdmin
+  ) {
     return null
   }
 
@@ -115,7 +120,8 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
   const blockLayout =
     component.type === "shop-offer-table" ||
     component.type === "current-shop-offers" ||
-    component.type === "quiz-question-card"
+    component.type === "quiz-question-card" ||
+    component.type === "slider"
 
   return (
     <Box
@@ -123,6 +129,7 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
       data-plugin-component-id={component.id}
       display={blockLayout ? "block" : "inline-block"}
       width={blockLayout ? "full" : undefined}
+      flexBasis={blockLayout ? "100%" : undefined}
     >
       {renderPluginComponent(component, config, store, pluginName)}
     </Box>

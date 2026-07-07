@@ -19,6 +19,7 @@ import {
   RoomExportData,
   PluginExportAugmentation,
   PluginMarkdownContext,
+  BeforePlayQueuedTrackParams,
   QueueValidationParams,
   QueueValidationResult,
   isChatMessageTransformDrop,
@@ -301,6 +302,46 @@ export class PluginRegistry {
     }
 
     return { allowed: true }
+  }
+
+  /**
+   * Run beforePlayQueuedTrack on all plugins that implement it.
+   * Called immediately before app-controlled playTrack(uri).
+   * Fail-open on errors/timeouts.
+   */
+  async runBeforePlayQueuedTrack(params: BeforePlayQueuedTrackParams): Promise<void> {
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+
+    if (!roomPluginMap || roomPluginMap.size === 0) {
+      return
+    }
+
+    const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.beforePlayQueuedTrack === "function",
+    )
+
+    if (pluginsWithHook.length === 0) {
+      return
+    }
+
+    for (const [pluginName, { plugin }] of pluginsWithHook) {
+      try {
+        await Promise.race([
+          plugin.beforePlayQueuedTrack!(params),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+      } catch (error) {
+        console.warn(
+          `[PluginRegistry] beforePlayQueuedTrack ${pluginName} failed (continuing):`,
+          error,
+        )
+      }
+    }
   }
 
   // ============================================================================

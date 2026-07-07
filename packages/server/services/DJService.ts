@@ -646,6 +646,12 @@ export class DJService {
       return { success: false as const, message: "Playback controller does not support starting tracks" }
     }
 
+    await this.context.pluginRegistry?.runBeforePlayQueuedTrack({
+      roomId,
+      item: queueItem,
+      reason: "manual",
+    })
+
     try {
       await playTrack(uri)
     } catch (e) {

@@ -226,8 +226,14 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
               color="colorPalette.contrast"
               position="relative"
               zIndex={1}
+              width="100%"
             >
-              <PluginArea area="nowPlayingInfo" itemContext={nowPlayingInfoItemContext} />
+              <PluginArea
+                area="nowPlayingInfo"
+                direction="column"
+                color="colorPalette.contrast"
+                itemContext={nowPlayingInfoItemContext}
+              />
             </Box>
 
             <MetadataSourceInfo metadataSource={activeMetadataSource} />

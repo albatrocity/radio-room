@@ -6,6 +6,15 @@ import {
 import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk"
 import { trackItemSchema } from "./schemas"
 
+function clampVolumePercent(volumePercent: number): number {
+  return Math.round(Math.max(0, Math.min(100, volumePercent)))
+}
+
+function isSpotifyEmptyBodySuccess(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return message.includes("JSON") || message.includes("Unexpected")
+}
+
 export async function makeApi({
   token,
   clientId,
@@ -161,6 +170,18 @@ export async function makeApi({
       const queue = await getQueue(api)
       await config.onPlaybackQueueChange?.(queue)
       return queue
+    },
+    async setVolume(volumePercent) {
+      const api = await getSpotifyApi()
+      const device = await getNowPlayingDevice(api)
+
+      try {
+        await api.player.setPlaybackVolume(clampVolumePercent(volumePercent), device.id)
+      } catch (error: unknown) {
+        if (!isSpotifyEmptyBodySuccess(error)) {
+          throw error
+        }
+      }
     },
     async getPlayback() {
       const api = await getSpotifyApi()
