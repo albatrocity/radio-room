@@ -51,6 +51,38 @@ describe("buildRoomScheduleSnapshotPayload", () => {
     expect(snap.segments[1].durationOverride).toBeNull()
   })
 
+  it("excludes privatePluginContent from the snapshot segment (ADR 0068 secrecy boundary)", () => {
+    const show = {
+      id: "show-1",
+      title: "Quiz night",
+      startTime: "2026-04-01T20:00:00.000Z",
+      segments: [
+        {
+          id: "join-1",
+          segmentId: "seg-quiz",
+          position: 0,
+          durationOverride: null,
+          segment: {
+            title: "Quiz",
+            duration: 10,
+            pluginPreset: { pluginConfigs: { "quiz-sessions": { enabled: true } } },
+            // Server-only: must never reach the (publicly-read) schedule snapshot.
+            privatePluginContent: {
+              "quiz-sessions": { questions: [{ text: "Q?", acceptedAnswers: ["secret answer"] }] },
+            },
+          },
+        },
+      ],
+    } as unknown as ShowRowForSnapshot
+
+    const snap = buildRoomScheduleSnapshotPayload(show)
+
+    const segment = snap.segments[0].segment as Record<string, unknown>
+    expect(segment).not.toHaveProperty("privatePluginContent")
+    expect(Object.keys(segment)).toEqual(["title", "pluginPreset"])
+    expect(JSON.stringify(snap)).not.toContain("secret answer")
+  })
+
   it("uses segment duration when override is null", () => {
     const show = {
       id: "s",

@@ -91,28 +91,6 @@ const updateRewardAction = {
   ],
 } satisfies PluginActionElement
 
-const addQuestionAction = {
-  type: "action",
-  action: "addQuestion",
-  label: "Add question (live)",
-  variant: "outline",
-  showWhen: { field: "enabled", value: true },
-  formFields: [
-    {
-      name: "text",
-      label: "Question",
-      type: "string",
-      required: true,
-    },
-    {
-      name: "acceptedAnswers",
-      label: "Accepted answers (comma-separated)",
-      type: "string",
-      required: true,
-    },
-  ],
-} satisfies PluginActionElement
-
 export function getConfigSchema(): PluginConfigSchema {
   return {
     jsonSchema: z.toJSONSchema(quizSessionsConfigSchema),
@@ -137,12 +115,11 @@ export function getConfigSchema(): PluginConfigSchema {
       {
         type: "text-block",
         content:
-          "Save your changes before starting a quiz — a new session is seeded from the saved question bank. Advancing past the last question ends the quiz.",
+          "A quiz reads the question bank above live: edit questions here during a show and saved changes apply to the running quiz immediately. Start seeds a new run from the current bank (end the current quiz first). Advancing past the last question ends the quiz.",
         variant: "info",
       },
       startSessionAction,
       advanceQuestionAction,
-      addQuestionAction,
       endSessionAction,
       updateRewardAction,
     ],

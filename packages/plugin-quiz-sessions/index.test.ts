@@ -170,7 +170,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
   })
 
   describe("startSession", () => {
-    it("seeds a session from the private config question bank (not action params)", async () => {
+    it("starts a runtime-only session from the private config question bank (no question copy)", async () => {
       const { plugin, context, api, storage } = setup({ enabled: true, questions: QUESTIONS })
       await plugin.register(context)
 
@@ -178,16 +178,28 @@ describe("QuizSessionsPlugin lifecycle", () => {
       expect(result.success).toBe(true)
 
       const session = readSession(storage)
-      expect(session.questions.map((q) => q.text)).toEqual(QUESTIONS.map((q) => q.text))
-      expect(session.questions[0]!.acceptedAnswers).toEqual(["Blue Monday"])
-      expect(session.questions[0]!.id).toBeTypeOf("string")
+      // The question bank is read live from config — never copied into the session.
+      expect(session).not.toHaveProperty("questions")
       expect(session.activeQuestionIndex).toBe(0)
       expect(session.mode).toBe(defaultQuizSessionsConfig.mode)
+      expect(session.revealedAnswers).toEqual({})
+      // Secrecy: no accepted answer is ever persisted in the session record.
+      expect(JSON.stringify(session)).not.toContain("Blue Monday")
 
       expect(api.sendSystemMessage).toHaveBeenCalledWith(
         ROOM,
         expect.stringContaining("Quiz started"),
       )
+    })
+
+    it("refuses to start a second session while one is running", async () => {
+      const { plugin, context } = setup({ enabled: true, questions: QUESTIONS })
+      await plugin.register(context)
+      await plugin.executeAction("startSession", ADMIN)
+
+      const result = await plugin.executeAction("startSession", ADMIN)
+      expect(result.success).toBe(false)
+      expect(result.message).toContain("already running")
     })
 
     it("emits SESSION_STARTED with a public first question that omits accepted answers", async () => {
@@ -275,61 +287,85 @@ describe("QuizSessionsPlugin lifecycle", () => {
     })
   })
 
-  describe("addQuestion", () => {
-    it("appends a question to the active session", async () => {
-      const { plugin, context, storage } = setup({ enabled: true, questions: QUESTIONS })
-      await plugin.register(context)
-      await plugin.executeAction("startSession", ADMIN)
+  describe("live question editing (config is source of truth)", () => {
+    it("matches against the edited question bank without restarting the session", async () => {
+      const ctx = setup({ enabled: true, mode: "inclusive", questions: QUESTIONS, coinReward: 10 })
+      await ctx.plugin.register(ctx.context)
+      await ctx.plugin.executeAction("startSession", ADMIN)
+      const sessionId = readSession(ctx.storage).id
 
-      const result = await plugin.executeAction("addQuestion", ADMIN, {
-        text: "Bonus?",
-        acceptedAnswers: ["yes"],
-      })
-      expect(result.success).toBe(true)
-      const session = readSession(storage)
-      expect(session.questions).toHaveLength(3)
-      expect(session.questions[2]).toMatchObject({ text: "Bonus?", acceptedAnswers: ["yes"] })
+      // Admin edits the active question's accepted answers mid-show (new config).
+      ctx.api.getPluginConfig = vi.fn(async () => ({
+        ...defaultQuizSessionsConfig,
+        enabled: true,
+        mode: "inclusive" as const,
+        coinReward: 10,
+        questions: [
+          { text: "What song is this?", acceptedAnswers: ["Bizarre Love Triangle"] },
+          ...QUESTIONS.slice(1),
+        ],
+      }))
+      ctx.game.addScore.mockClear()
+
+      // The old answer no longer matches; the freshly-edited one does.
+      const stale = await ctx.plugin.transformChatMessage(
+        ROOM,
+        chatMessage("blue monday", { userId: "u1" }),
+      )
+      expect(stale).toBeNull()
+      const fresh = await ctx.plugin.transformChatMessage(
+        ROOM,
+        chatMessage("bizarre love triangle", { userId: "u1" }),
+      )
+      expect(fresh).toEqual({ drop: true, reason: "quiz-sessions-match" })
+      expect(ctx.game.addScore).toHaveBeenCalledWith("u1", "coin", 10, "quiz-sessions")
+      // Same session throughout — no restart.
+      expect(readSession(ctx.storage).id).toBe(sessionId)
     })
 
-    it("rejects a question missing text or answers", async () => {
-      const { plugin, context } = setup({ enabled: true, questions: QUESTIONS })
-      await plugin.register(context)
-      await plugin.executeAction("startSession", ADMIN)
+    it("refreshes the active card when the question bank changes (CONFIG_CHANGED)", async () => {
+      const ctx = setup({ enabled: true, mode: "inclusive", questions: QUESTIONS })
+      await ctx.plugin.register(ctx.context)
+      await ctx.plugin.executeAction("startSession", ADMIN)
+      ctx.api.emit.mockClear()
 
-      const result = await plugin.executeAction("addQuestion", ADMIN, {
-        text: "",
-        acceptedAnswers: [],
-      })
-      expect(result.success).toBe(false)
+      ctx.api.getPluginConfig = vi.fn(async () => ({
+        ...defaultQuizSessionsConfig,
+        enabled: true,
+        mode: "inclusive" as const,
+        questions: [{ text: "Edited question?", acceptedAnswers: ["x"] }, ...QUESTIONS.slice(1)],
+      }))
+
+      const handlers = ctx.lifecycleHandlers.get("CONFIG_CHANGED") ?? []
+      for (const handler of handlers) {
+        await handler({ roomId: ROOM, pluginName: "quiz-sessions", config: {}, previousConfig: { enabled: true } })
+      }
+
+      const advanced = lastEmittedEvent(ctx.api, "QUESTION_ADVANCED")
+      expect(advanced!.activeQuestion.text).toBe("Edited question?")
+      expect(advanced!.activeQuestion).not.toHaveProperty("acceptedAnswers")
     })
 
-    it("parses a comma-separated acceptedAnswers string from the admin form", async () => {
-      const { plugin, context, storage } = setup({ enabled: true, questions: QUESTIONS })
-      await plugin.register(context)
-      await plugin.executeAction("startSession", ADMIN)
+    it("clamps the active index when the current question is deleted", async () => {
+      const ctx = setup({ enabled: true, mode: "inclusive", questions: QUESTIONS })
+      await ctx.plugin.register(ctx.context)
+      await ctx.plugin.executeAction("startSession", ADMIN)
+      await ctx.plugin.executeAction("advanceQuestion", ADMIN) // active index 1
 
-      const result = await plugin.executeAction("addQuestion", ADMIN, {
-        text: "Bonus?",
-        acceptedAnswers: " yes , Yes ,, no ,yes",
-      })
-      expect(result.success).toBe(true)
-      // Trimmed, empties dropped, case-insensitive de-dupe (first spelling wins).
-      expect(readSession(storage).questions[2]).toMatchObject({
-        text: "Bonus?",
-        acceptedAnswers: ["yes", "no"],
-      })
-    })
+      // Delete everything after the first question.
+      ctx.api.getPluginConfig = vi.fn(async () => ({
+        ...defaultQuizSessionsConfig,
+        enabled: true,
+        mode: "inclusive" as const,
+        questions: [QUESTIONS[0]!],
+      }))
 
-    it("rejects a comma-separated string with no non-empty answers", async () => {
-      const { plugin, context } = setup({ enabled: true, questions: QUESTIONS })
-      await plugin.register(context)
-      await plugin.executeAction("startSession", ADMIN)
+      const handlers = ctx.lifecycleHandlers.get("CONFIG_CHANGED") ?? []
+      for (const handler of handlers) {
+        await handler({ roomId: ROOM, pluginName: "quiz-sessions", config: {}, previousConfig: { enabled: true } })
+      }
 
-      const result = await plugin.executeAction("addQuestion", ADMIN, {
-        text: "Bonus?",
-        acceptedAnswers: " , ,, ",
-      })
-      expect(result.success).toBe(false)
+      expect(readSession(ctx.storage).activeQuestionIndex).toBe(0)
     })
   })
 
@@ -411,7 +447,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       expect(game.addScore).toHaveBeenCalledWith("u1", "score", 10, "quiz-sessions")
 
       const session = readSession(storage)
-      const qid = session.questions[0]!.id
+      const qid = `${session.id}:0`
 
       const correct = emittedEvent(api, "CORRECT_ANSWER")
       expect(correct).toMatchObject({ userId: "u1", mode: "competitive", answer: "Blue Monday" })
@@ -424,8 +460,9 @@ describe("QuizSessionsPlugin lifecycle", () => {
 
       expect(api.sendSystemMessage).toHaveBeenCalledWith(ROOM, expect.stringContaining("+10 coins"))
 
-      expect(session.winnersPerQuestion[qid]).toEqual(["u1"])
-      expect(session.questions[0]!.revealedAnswer).toBe("Blue Monday")
+      // Runtime keyed by question index (the config bank is not copied).
+      expect(session.winnersPerQuestion["0"]).toEqual(["u1"])
+      expect(session.revealedAnswers["0"]).toBe("Blue Monday")
     })
 
     it("ignores a later correct guess once the question is won", async () => {
@@ -543,9 +580,11 @@ describe("QuizSessionsPlugin lifecycle", () => {
     })
   })
 
-  describe("scoring requires an active game session", () => {
-    it("still detects the answer but awards 0 coins with no active game session", async () => {
+  describe("coin reward announcement (independent of game session)", () => {
+    it("announces the configured reward and attempts the award even with no active game session", async () => {
       const ctx = setup({ enabled: true, mode: "inclusive", questions: QUESTIONS, coinReward: 10 })
+      // No active game session: addScore no-ops server-side, but the reward is
+      // still the configured amount (regression: {{coins}} used to render 0).
       ctx.game.getActiveSession.mockResolvedValue(null)
       await ctx.plugin.register(ctx.context)
       await ctx.plugin.executeAction("startSession", ADMIN)
@@ -558,12 +597,12 @@ describe("QuizSessionsPlugin lifecycle", () => {
       )
 
       expect(result).toEqual({ drop: true, reason: "quiz-sessions-match" })
-      expect(ctx.game.addScore).not.toHaveBeenCalled()
+      expect(ctx.game.addScore).toHaveBeenCalledWith("u1", "coin", 10, "quiz-sessions")
+      expect(ctx.game.addScore).toHaveBeenCalledWith("u1", "score", 10, "quiz-sessions")
       expect(ctx.api.sendSystemMessage).toHaveBeenCalledWith(
         ROOM,
-        expect.stringContaining("+0 coins"),
+        expect.stringContaining("+10 coins"),
       )
-      // leaderboard still tracks the correct answer
       const lb = lastEmittedEvent(ctx.api, "LEADERBOARD_UPDATED")
       expect(lb!.leaderboard).toEqual([{ score: 1, value: "u1", username: "u1" }])
     })
@@ -686,6 +725,62 @@ describe("QuizSessionsPlugin lifecycle", () => {
     })
   })
 
+  describe("self-start from config (segment activation / enable)", () => {
+    async function fireConfigChanged(
+      handlers: Map<string, Function[]>,
+      previousConfig: Record<string, unknown>,
+    ): Promise<void> {
+      const list = handlers.get("CONFIG_CHANGED") ?? []
+      for (const handler of list) {
+        await handler({ roomId: ROOM, pluginName: "quiz-sessions", config: {}, previousConfig })
+      }
+    }
+
+    it("starts a session when the quiz transitions to enabled with questions", async () => {
+      const ctx = setup({ enabled: true, mode: "inclusive", questions: QUESTIONS })
+      await ctx.plugin.register(ctx.context)
+      ctx.api.emit.mockClear()
+
+      await fireConfigChanged(ctx.lifecycleHandlers, { enabled: false })
+
+      const session = readSession(ctx.storage)
+      expect(session.activeQuestionIndex).toBe(0)
+      expect(session).not.toHaveProperty("questions")
+      expect(emittedEvent(ctx.api, "SESSION_STARTED")).toBeTruthy()
+    })
+
+    it("does not start when config was already enabled (unrelated save)", async () => {
+      const ctx = setup({ enabled: true, questions: QUESTIONS })
+      await ctx.plugin.register(ctx.context)
+
+      await fireConfigChanged(ctx.lifecycleHandlers, { enabled: true })
+
+      expect(() => readSession(ctx.storage)).toThrow()
+    })
+
+    it("does not clobber a running session on re-enable", async () => {
+      const ctx = setup({ enabled: true, questions: QUESTIONS })
+      await ctx.plugin.register(ctx.context)
+      await ctx.plugin.executeAction("startSession", ADMIN)
+      const first = readSession(ctx.storage)
+      ctx.api.emit.mockClear()
+
+      await fireConfigChanged(ctx.lifecycleHandlers, { enabled: false })
+
+      expect(readSession(ctx.storage).id).toBe(first.id)
+      expect(emittedEvent(ctx.api, "SESSION_STARTED")).toBeFalsy()
+    })
+
+    it("does nothing when enabled with an empty question bank", async () => {
+      const ctx = setup({ enabled: true, questions: [] })
+      await ctx.plugin.register(ctx.context)
+
+      await fireConfigChanged(ctx.lifecycleHandlers, { enabled: false })
+
+      expect(() => readSession(ctx.storage)).toThrow()
+    })
+  })
+
   describe("auto-advance", () => {
     it("advances after the delay when enabled (PvP)", async () => {
       const ctx = setup({
@@ -798,6 +893,8 @@ describe("QuizSessionsPlugin lifecycle", () => {
       expect(state.activeQuestion?.index).toBe(0)
       expect(state.activeQuestion?.text).toBe(QUESTIONS[0]!.text)
       expect(state.activeQuestion).not.toHaveProperty("acceptedAnswers")
+      // Secrecy: no accepted answer ever appears anywhere in the broadcast state.
+      expect(JSON.stringify(state)).not.toContain("Blue Monday")
       expect(state.leaderboard).toEqual([{ score: 1, value: "u1", username: "u1" }])
       expect(state.lastCorrectAnswer).toBeNull()
     })

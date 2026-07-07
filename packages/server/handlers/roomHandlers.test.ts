@@ -23,6 +23,9 @@ const mockIsRoomAdmin = vi.hoisted(() =>
     userId === roomCreator ? true : false,
   ),
 )
+const mockGetAllMergedPluginConfigs = vi.hoisted(() =>
+  vi.fn(async () => ({ "quiz-sessions": { enabled: true, questions: [{ text: "Q" }] } })),
+)
 
 vi.mock("../operations/data", () => ({
   findRoom: mockFindRoom,
@@ -30,6 +33,7 @@ vi.mock("../operations/data", () => ({
   getRoomPlaylistSince: mockGetRoomPlaylistSince,
   removeSensitiveRoomAttributes: mockRemoveSensitiveRoomAttributes,
   isRoomAdmin: mockIsRoomAdmin,
+  getAllMergedPluginConfigs: mockGetAllMergedPluginConfigs,
 }))
 
 // Import after mocking
@@ -61,7 +65,7 @@ describe("roomHandlers", () => {
 
   // Add tests for getRoomSettings and getLatestRoomData
   describe("getRoomSettings", () => {
-    test("should emit ROOM_SETTINGS event with full room data for admin", async () => {
+    test("should emit ROOM_SETTINGS event with full room data + MERGED plugin configs for admin", async () => {
       const room = roomFactory.build({ creator: "user123" })
       mockFindRoom.mockResolvedValue(room)
 
@@ -70,7 +74,10 @@ describe("roomHandlers", () => {
       expect(mockIo.to).toHaveBeenCalledWith(mockSocket.id)
       expect(mockIo.to().emit).toHaveBeenCalledWith("event", {
         type: "ROOM_SETTINGS",
-        data: { room },
+        data: {
+          room,
+          pluginConfigs: { "quiz-sessions": { enabled: true, questions: [{ text: "Q" }] } },
+        },
       })
     })
 

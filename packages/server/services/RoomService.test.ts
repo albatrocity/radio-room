@@ -98,6 +98,7 @@ describe("RoomService", () => {
 
       expect(result).toEqual({
         room: mockRoom,
+        isAdmin: true,
       })
 
       expect(removeSensitiveRoomAttributes).not.toHaveBeenCalled()

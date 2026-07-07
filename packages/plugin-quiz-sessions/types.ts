@@ -10,8 +10,9 @@ import { participationModeSchema, type ParticipationMode } from "@repo/game-logi
  *
  * The bank is a `private` `object-array` config field (ADR 0068): authored through
  * the normal schema form but stored in the server-only `:private` Redis key and
- * never broadcast. Runtime code reads it via `getConfig()` (merged) and generates
- * `QuizQuestion.id` / tracks `revealedAnswer` when seeding a session.
+ * never broadcast. Runtime code reads it live via `getConfig()` (merged) on every
+ * access — the session never copies it — so admin edits during a show take effect
+ * immediately. Questions are addressed by their position (index) in the bank.
  */
 export const quizConfigQuestionSchema = z.object({
   text: z.string().default(""),
@@ -64,19 +65,16 @@ export const defaultQuizSessionsConfig: QuizSessionsConfig = {
 // Server-side data model (plugin storage — never broadcast wholesale)
 // ============================================================================
 
-export interface QuizQuestion {
-  id: string
-  text: string
-  /** Exact (case-insensitive, trimmed) accepted answers. Secret — server-side only. */
-  acceptedAnswers: string[]
-  /** Set once the answer becomes public (correct guess in PvP, or admin advance). */
-  revealedAnswer?: string
-}
-
+/**
+ * Runtime state for a running quiz. The question bank itself is NOT copied here —
+ * it is read live from the plugin's (private) config on every access, so admin
+ * edits in the settings modal during a show take effect immediately (ADR 0068).
+ * The session only tracks per-run progress and per-question runtime, keyed by the
+ * question's position (index) in the live bank.
+ */
 export interface QuizSession {
   id: string
-  questions: QuizQuestion[]
-  /** -1 = not started; 0..N-1 = active question. */
+  /** -1 = not started; 0..N-1 = active question (index into the live config bank). */
   activeQuestionIndex: number
   mode: ParticipationMode
   autoAdvance: boolean
@@ -86,8 +84,10 @@ export interface QuizSession {
   personaIds: string[]
   activePersonaIndex: number
   startedAt: number
-  /** questionId -> userIds who answered correctly. */
+  /** question index (as string) -> userIds who answered correctly. */
   winnersPerQuestion: Record<string, string[]>
+  /** question index (as string) -> revealed answer (PvP correct guess). */
+  revealedAnswers: Record<string, string>
 }
 
 // ============================================================================

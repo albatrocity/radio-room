@@ -146,13 +146,6 @@ export function runStubQuizAction(
       state.active = false
       return { success: true, message: "Quiz ended (preview stub).", events: [sessionEndedEvent()] }
     }
-    case "addQuestion": {
-      return {
-        success: true,
-        message: "Question added (preview stub — not persisted).",
-        events: [],
-      }
-    }
     case "updateReward": {
       return { success: true, message: "Coin reward updated (preview stub).", events: [] }
     }

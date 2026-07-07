@@ -16,8 +16,8 @@ import {
   quizSessionsConfigSchema,
   defaultQuizSessionsConfig,
   type QuizSessionsConfig,
+  type QuizConfigQuestion,
   type QuizSession,
-  type QuizQuestion,
   type QuizLeaderboardEntry,
   type PublicQuizQuestion,
   type QuizSessionsEvents,
@@ -35,10 +35,10 @@ export { isAcceptedAnswer, normalizeAnswer } from "./matching"
 const SESSION_KEY = "session"
 /** ZSET userId -> correct-answer count. Populated by the scoring path. */
 const LEADERBOARD_KEY = "leaderboard"
-/** HASH questionId -> winning userId. Atomic first-correct claim in PvP mode. */
+/** HASH question index -> winning userId. Atomic first-correct claim (PvP). Cleared per session. */
 const WINNERS_KEY = "winners"
-/** HASH userId -> "1" for a question. Atomic per-user dedup in PvG mode. */
-const answeredKey = (questionId: string): string => `answered:${questionId}`
+/** HASH `${index}:${userId}` -> "1". Atomic per-user dedup (PvG). Cleared per session. */
+const ANSWERED_KEY = "answered"
 /** Timer id for the auto-advance countdown after a correct answer. */
 const AUTO_ADVANCE_TIMER = "auto-advance"
 /** Short id (per-plugin) of the winner persona (ADR 0057). */
@@ -80,8 +80,9 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     const session = await this.loadSession()
     if (!session) return empty
 
+    const questions = await this.loadQuestions()
     return {
-      activeQuestion: this.toPublicQuestion(session, session.activeQuestionIndex),
+      activeQuestion: this.toPublicQuestion(questions, session, session.activeQuestionIndex),
       leaderboard: await this.buildLeaderboard(),
       lastCorrectAnswer: null,
     }
@@ -95,9 +96,64 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     // Register/unregister the hot-potato persona to track enable/disable + label
     // edits (ADR 0057). BasePlugin.cleanup() unregisters on teardown.
     await this.syncPersonas(await this.getConfig())
-    this.onConfigChange(async () => {
-      await this.syncPersonas(await this.getConfig())
+    this.onConfigChange(async (data) => {
+      const config = await this.getConfig()
+      await this.syncPersonas(config)
+      await this.maybeSelfStart(config, data.previousConfig)
+      // Live authoring: an admin editing the question bank in the settings modal
+      // writes the room's (private) config and fires CONFIG_CHANGED. Re-broadcast
+      // the active question so the card reflects edited text / new totals mid-show.
+      if (config) await this.refreshActiveCard(config)
     })
+  }
+
+  /**
+   * Self-start a session from config (ADR 0068 §5) — the path used by segment
+   * activation and by an admin enabling the quiz in room settings. Fires only on
+   * the disabled→enabled transition, with questions authored and no session
+   * already running, so it never restarts on an unrelated save or clobbers a
+   * live quiz. The deliberate admin "Start quiz" action bypasses this guard.
+   */
+  private async maybeSelfStart(
+    config: QuizSessionsConfig | null,
+    previousConfig: Record<string, unknown> | undefined,
+  ): Promise<void> {
+    if (!this.context || !config?.enabled) return
+    const wasEnabled = (previousConfig as { enabled?: unknown } | undefined)?.enabled === true
+    if (wasEnabled) return
+    if ((config.questions ?? []).length === 0) return
+    if (await this.loadSession()) return
+    await this.startSessionFromConfig(config)
+  }
+
+  /**
+   * Re-broadcast the active question after a config change so live edits to the
+   * (private) question bank show up on the card without waiting for the next
+   * advance. If the bank shrank below the active index (admin deleted the current
+   * question), clamp so the card doesn't point past the end. The public question
+   * id is session-scoped, so re-emitting the same question is idempotent on the
+   * client (no remount, no clobbering of the per-user "You got it!" state).
+   */
+  private async refreshActiveCard(config: QuizSessionsConfig): Promise<void> {
+    if (!this.context) return
+    const session = await this.loadSession()
+    if (!session) return
+
+    const questions = config.questions ?? []
+    if (questions.length === 0) return
+
+    const clampedIndex = Math.min(session.activeQuestionIndex, questions.length - 1)
+    if (clampedIndex !== session.activeQuestionIndex) {
+      session.activeQuestionIndex = clampedIndex
+      await this.saveSession(session)
+    }
+
+    const question = this.toPublicQuestion(questions, session, session.activeQuestionIndex)
+    if (question) {
+      await this.emit<QuizSessionsEvents["QUESTION_ADVANCED"]>("QUESTION_ADVANCED", {
+        activeQuestion: question,
+      })
+    }
   }
 
   async executeAction(
@@ -110,8 +166,6 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
         return this.startSession(initiator)
       case "advanceQuestion":
         return this.advanceQuestion(initiator)
-      case "addQuestion":
-        return this.addQuestion(initiator, params)
       case "endSession":
         return this.endSession(initiator)
       case "updateReward":
@@ -140,25 +194,36 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       return { success: false, message: "Quiz Sessions is disabled." }
     }
 
-    const bank = config.questions ?? []
-    if (bank.length === 0) {
+    // One session per room: edits to a running quiz happen live via the settings
+    // modal; a fresh run requires ending the current one first.
+    if (await this.loadSession()) {
+      return { success: false, message: "A quiz is already running. End it before starting a new one." }
+    }
+
+    return this.startSessionFromConfig(config)
+  }
+
+  /**
+   * Seed and start a session from the (private) authored question bank in merged
+   * config — shared by the admin `startSession` action and config-driven
+   * self-start (`maybeSelfStart`). Callers gate admin/enable; this only seeds.
+   */
+  private async startSessionFromConfig(config: QuizSessionsConfig): Promise<ActionResult> {
+    if (!this.context) return notInitialized()
+
+    const questions = config.questions ?? []
+    if (questions.length === 0) {
       return {
         success: false,
         message: "No questions authored. Add questions in the plugin settings first.",
       }
     }
 
-    const questions: QuizQuestion[] = bank.map((q) => ({
-      id: randomUUID(),
-      text: q.text,
-      acceptedAnswers: q.acceptedAnswers,
-    }))
-
     const winnerEnabled = config.winnerLabel.trim().length > 0
 
+    // Runtime only — the question bank is read live from config, never copied.
     const session: QuizSession = {
       id: randomUUID(),
-      questions,
       activeQuestionIndex: 0,
       mode: config.mode,
       autoAdvance: config.autoAdvance,
@@ -168,11 +233,13 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       activePersonaIndex: winnerEnabled ? 0 : -1,
       startedAt: Date.now(),
       winnersPerQuestion: {},
+      revealedAnswers: {},
     }
 
     this.clearTimer(AUTO_ADVANCE_TIMER)
     await this.context.storage.del(LEADERBOARD_KEY)
     await this.context.storage.del(WINNERS_KEY)
+    await this.context.storage.del(ANSWERED_KEY)
     await this.saveSession(session)
 
     await this.context.api.sendSystemMessage(
@@ -181,7 +248,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     )
 
     await this.emit<QuizSessionsEvents["SESSION_STARTED"]>("SESSION_STARTED", {
-      activeQuestion: this.toPublicQuestion(session, 0),
+      activeQuestion: this.toPublicQuestion(questions, session, 0),
       leaderboard: [],
       lastCorrectAnswer: null,
     })
@@ -198,26 +265,30 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     const session = await this.loadSession()
     if (!session) return { success: false, message: "No active quiz session." }
 
-    return this.performAdvance(session)
+    return this.performAdvance(session, await this.loadQuestions())
   }
 
   /**
    * Advance/end without admin gating — shared by the admin action and the
    * auto-advance timer. Clears any pending auto-advance timer first so a manual
-   * advance can't be double-fired by the countdown.
+   * advance can't be double-fired by the countdown. `questions` is the live
+   * (config) bank, so mid-show edits change the end-of-quiz boundary.
    */
-  private async performAdvance(session: QuizSession): Promise<ActionResult> {
+  private async performAdvance(
+    session: QuizSession,
+    questions: QuizConfigQuestion[],
+  ): Promise<ActionResult> {
     if (!this.context) return notInitialized()
     this.clearTimer(AUTO_ADVANCE_TIMER)
 
-    if (session.activeQuestionIndex >= session.questions.length - 1) {
+    if (session.activeQuestionIndex >= questions.length - 1) {
       return this.finishSession(session)
     }
 
     session.activeQuestionIndex += 1
     await this.saveSession(session)
 
-    const question = this.toPublicQuestion(session, session.activeQuestionIndex)
+    const question = this.toPublicQuestion(questions, session, session.activeQuestionIndex)
     if (question) {
       await this.emit<QuizSessionsEvents["QUESTION_ADVANCED"]>("QUESTION_ADVANCED", {
         activeQuestion: question,
@@ -235,32 +306,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
   private async autoAdvance(fromQuestionIndex: number): Promise<void> {
     const session = await this.loadSession()
     if (!session || session.activeQuestionIndex !== fromQuestionIndex) return
-    await this.performAdvance(session)
-  }
-
-  /** Append a question to the active session (live authoring during a running quiz). */
-  private async addQuestion(
-    initiator?: PluginActionInitiator,
-    params?: Record<string, unknown>,
-  ): Promise<ActionResult> {
-    const admin = await this.requireRoomAdmin(initiator)
-    if (!admin.ok) return admin.result
-    if (!this.context) return notInitialized()
-
-    const session = await this.loadSession()
-    if (!session) return { success: false, message: "No active quiz session." }
-
-    const text = typeof params?.text === "string" ? params.text.trim() : ""
-    const acceptedAnswers = parseAcceptedAnswers(params?.acceptedAnswers)
-
-    if (!text || acceptedAnswers.length === 0) {
-      return { success: false, message: "A question needs text and at least one accepted answer." }
-    }
-
-    session.questions.push({ id: randomUUID(), text, acceptedAnswers })
-    await this.saveSession(session)
-
-    return { success: true, message: "Question added to the active quiz." }
+    await this.performAdvance(session, await this.loadQuestions())
   }
 
   /** Post the leaderboard to chat, clear state, and emit SESSION_ENDED. */
@@ -344,19 +390,20 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     if (this.isSystemMessage(message)) return null
 
     const session = await this.loadSession()
-    const question = this.activeQuestion(session)
-    if (!session || !question) return null
-    if (!isAcceptedAnswer(message.content, question.acceptedAnswers)) return null
+    const questions = config.questions ?? []
+    const active = this.resolveActiveQuestion(questions, session)
+    if (!session || !active) return null
+    if (!isAcceptedAnswer(message.content, active.question.acceptedAnswers)) return null
 
     // Atomic per-user dedup: only the first correct guess from this user scores,
     // but every correct guess is dropped so the answer never reaches chat.
     const firstTime = await this.context.storage.hsetnx(
-      answeredKey(question.id),
-      message.user.userId,
+      ANSWERED_KEY,
+      `${active.index}:${message.user.userId}`,
       "1",
     )
     if (firstTime) {
-      await this.awardCorrect({ config, session, question, message, mode: "inclusive" })
+      await this.awardCorrect({ config, session, questions, index: active.index, message, mode: "inclusive" })
       await this.saveSession(session)
     }
 
@@ -375,29 +422,42 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     if (this.isSystemMessage(message)) return
 
     const session = await this.loadSession()
-    const question = this.activeQuestion(session)
-    if (!session || !question) return
-    if (!isAcceptedAnswer(message.content, question.acceptedAnswers)) return
+    const questions = config.questions ?? []
+    const active = this.resolveActiveQuestion(questions, session)
+    if (!session || !active) return
+    if (!isAcceptedAnswer(message.content, active.question.acceptedAnswers)) return
 
     // Atomic first-winner claim guards against concurrent correct guesses.
-    const claimed = await this.context.storage.hsetnx(WINNERS_KEY, question.id, message.user.userId)
+    const claimed = await this.context.storage.hsetnx(
+      WINNERS_KEY,
+      String(active.index),
+      message.user.userId,
+    )
     if (!claimed) return
 
-    question.revealedAnswer = question.acceptedAnswers[0] ?? ""
+    const answer = active.question.acceptedAnswers[0] ?? ""
+    session.revealedAnswers[String(active.index)] = answer
     await this.awardCorrect({
       config,
       session,
-      question,
+      questions,
+      index: active.index,
       message,
       mode: "competitive",
-      answer: question.revealedAnswer,
+      answer,
     })
     await this.saveSession(session)
   }
 
-  private activeQuestion(session: QuizSession | null): QuizQuestion | null {
+  /** Resolve the live active question (from the config bank) for the session. */
+  private resolveActiveQuestion(
+    questions: QuizConfigQuestion[],
+    session: QuizSession | null,
+  ): { index: number; question: QuizConfigQuestion } | null {
     if (!session || session.activeQuestionIndex < 0) return null
-    return session.questions[session.activeQuestionIndex] ?? null
+    const question = questions[session.activeQuestionIndex]
+    if (!question) return null
+    return { index: session.activeQuestionIndex, question }
   }
 
   private isSystemMessage(message: ChatMessage): boolean {
@@ -412,28 +472,30 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
   private async awardCorrect(params: {
     config: QuizSessionsConfig
     session: QuizSession
-    question: QuizQuestion
+    questions: QuizConfigQuestion[]
+    index: number
     message: ChatMessage
     mode: ParticipationMode
     answer?: string
   }): Promise<void> {
     if (!this.context) return
-    const { config, session, question, message, mode, answer } = params
+    const { config, session, questions, index, message, mode, answer } = params
     const userId = message.user.userId
     const username = message.user.username ?? undefined
+    const questionId = this.questionId(session, index)
 
-    // Coins/score land only when a game session is active (ADR 0042); reflect
-    // the actual award in the announcement. Awarding "score" feeds the global
-    // game-session leaderboard alongside the quiz's own session leaderboard.
-    const activeGame = await this.context.game.getActiveSession()
-    const coins = activeGame ? session.coinReward : 0
+    // Announce (and attempt to award) the configured coin reward. `addScore`
+    // no-ops gracefully when no game session is running (ADR 0042), so the
+    // chat message reflects the reward regardless. Awarding "score" feeds the
+    // global game-session leaderboard alongside the quiz's own leaderboard.
+    const coins = session.coinReward
     if (coins > 0) {
       await this.context.game.addScore(userId, "coin", coins, this.name)
       await this.context.game.addScore(userId, "score", coins, this.name)
     }
 
     await this.context.storage.zincrby(LEADERBOARD_KEY, 1, userId)
-    ;(session.winnersPerQuestion[question.id] ??= []).push(userId)
+    ;(session.winnersPerQuestion[String(index)] ??= []).push(userId)
 
     await this.context.api.sendSystemMessage(
       this.context.roomId,
@@ -446,12 +508,12 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     await this.emit<QuizSessionsEvents["CORRECT_ANSWER"]>("CORRECT_ANSWER", {
       userId,
       username,
-      questionId: question.id,
+      questionId,
       mode,
       ...(answer !== undefined ? { answer } : {}),
       // Refresh the card (picks up a PvP `revealedAnswer`; no reveal in PvG).
-      activeQuestion: this.toPublicQuestion(session, session.activeQuestionIndex),
-      lastCorrectAnswer: { userId, questionId: question.id },
+      activeQuestion: this.toPublicQuestion(questions, session, index),
+      lastCorrectAnswer: { userId, questionId },
     })
 
     const leaderboard = await this.buildLeaderboard()
@@ -541,17 +603,38 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     await this.context.storage.del(SESSION_KEY)
     await this.context.storage.del(LEADERBOARD_KEY)
     await this.context.storage.del(WINNERS_KEY)
+    await this.context.storage.del(ANSWERED_KEY)
   }
 
-  private toPublicQuestion(session: QuizSession, index: number): PublicQuizQuestion | null {
-    const question = session.questions[index]
+  /** Read the live (private) question bank from merged config. */
+  private async loadQuestions(): Promise<QuizConfigQuestion[]> {
+    const config = await this.getConfig()
+    return config?.questions ?? []
+  }
+
+  /**
+   * Session-scoped public id for a question position. Scoping by session id keeps
+   * the client's per-question "You got it!" state from bleeding across sessions
+   * that reuse the same index (index 0 of a new quiz != index 0 of the old one).
+   */
+  private questionId(session: QuizSession, index: number): string {
+    return `${session.id}:${index}`
+  }
+
+  private toPublicQuestion(
+    questions: QuizConfigQuestion[],
+    session: QuizSession,
+    index: number,
+  ): PublicQuizQuestion | null {
+    const question = questions[index]
     if (!question) return null
+    const revealedAnswer = session.revealedAnswers[String(index)]
     return {
-      id: question.id,
+      id: this.questionId(session, index),
       text: question.text,
       index,
-      total: session.questions.length,
-      revealedAnswer: question.revealedAnswer,
+      total: questions.length,
+      ...(revealedAnswer !== undefined ? { revealedAnswer } : {}),
     }
   }
 
@@ -588,30 +671,6 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
 
 function notInitialized(): ActionResult {
   return { success: false, message: "Plugin not initialized" }
-}
-
-/**
- * Normalize the `acceptedAnswers` action param into a trimmed, de-duplicated,
- * non-empty string array. Accepts either a real array (programmatic callers) or
- * a comma-separated string (the admin UI form field, whose inputs are strings).
- */
-function parseAcceptedAnswers(raw: unknown): string[] {
-  const parts = Array.isArray(raw)
-    ? raw.filter((a): a is string => typeof a === "string")
-    : typeof raw === "string"
-      ? raw.split(",")
-      : []
-  const seen = new Set<string>()
-  const answers: string[] = []
-  for (const part of parts) {
-    const trimmed = part.trim()
-    if (!trimmed) continue
-    const key = trimmed.toLowerCase()
-    if (seen.has(key)) continue
-    seen.add(key)
-    answers.push(trimmed)
-  }
-  return answers
 }
 
 export function createQuizSessionsPlugin(configOverrides?: Partial<QuizSessionsConfig>): Plugin {

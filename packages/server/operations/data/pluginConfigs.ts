@@ -162,6 +162,36 @@ export async function setPluginConfig(params: {
 }
 
 /**
+ * Write PRIVATE (server-only) plugin config fields directly to the `:private`
+ * key, bypassing schema-based routing. Used by the segment activation fan-out
+ * (ADR 0068 §5), where the values are already known to be private content.
+ *
+ * This is a MERGE (like {@link setPluginConfig}'s private path): fields absent
+ * from `config` are preserved. It NEVER touches `:config`, so it cannot leak a
+ * value onto a broadcast surface even if the schema is unavailable.
+ */
+export async function setPluginPrivateConfig(params: {
+  context: AppContext
+  roomId: string
+  pluginName: string
+  config: Record<string, unknown>
+}): Promise<void> {
+  const { context, roomId, pluginName, config } = params
+  try {
+    const existing = (await getPluginPrivateConfig({ context, roomId, pluginName })) ?? {}
+    const merged = { ...existing, ...config }
+    if (Object.keys(merged).length === 0) return
+    await context.redis.pubClient.set(privateKey(roomId, pluginName), JSON.stringify(merged))
+  } catch (error) {
+    console.error(
+      `[PluginConfig] Error setting private config for ${pluginName} in room ${roomId}:`,
+      error,
+    )
+    throw error
+  }
+}
+
+/**
  * Delete all plugin configurations (public + private) for a room.
  * Called when a room is deleted.
  */

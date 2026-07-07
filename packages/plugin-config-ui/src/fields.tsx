@@ -195,7 +195,7 @@ function StringArrayField({ meta, value, onChange }: FieldProps) {
       <HStack>
         <Input
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value.trim())}
+          onChange={(e) => setInputValue(e.target.value)}
           placeholder={meta.placeholder}
           onKeyDown={(e) => {
             if (e.key === "Enter") {

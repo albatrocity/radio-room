@@ -21,6 +21,8 @@ import type {
   UpdateNewsletterIssueRequest,
   ScheduleNewsletterIssueRequest,
   NewsletterSubscribersSummary,
+  PluginSchemaInfo,
+  PluginSchemasResponse,
 } from "@repo/types"
 import type { MetadataSourceTrack } from "@repo/types/MetadataSource"
 import type { QueueItem } from "@repo/types/Queue"
@@ -189,6 +191,22 @@ export async function updateSegment(id: string, body: UpdateSegmentRequest): Pro
 
 export async function deleteSegment(id: string): Promise<void> {
   await api.delete(`api/scheduling/segments/${id}`)
+}
+
+// ---------------------------------------------------------------------------
+// Plugin schemas (segment plugin-config authoring)
+// ---------------------------------------------------------------------------
+
+/**
+ * Public plugin schema catalog (`GET /api/plugins`). Schemas are broadcast-safe
+ * (they carry field definitions, not room config values), so no admin gate is
+ * needed here — the private *content* an admin authors on a segment rides on the
+ * admin-only segment GET/PUT instead (ADR 0068).
+ */
+export async function fetchPluginSchemas(): Promise<PluginSchemaInfo[]> {
+  const res = await api.get("api/plugins")
+  const data = await res.json<PluginSchemasResponse>()
+  return data.plugins
 }
 
 // ---------------------------------------------------------------------------

@@ -323,6 +323,26 @@ export class AdminHandlers {
       })
     }
 
+    // Re-prime the requesting admin's editor with the MERGED config (public +
+    // private) via the same admin-gated, per-socket pull as GET_ROOM_SETTINGS.
+    // The room-wide ROOM_SETTINGS_UPDATED above carries public fields only, so
+    // without this the admin's just-saved private values (e.g. quiz questions)
+    // would appear stale until they reopen settings (ADR 0068 §2).
+    if (pluginConfigs) {
+      const { getAllMergedPluginConfigs } = await import("../operations/data/pluginConfigs")
+      const mergedPluginConfigs = await getAllMergedPluginConfigs({
+        context: socket.context,
+        roomId: socket.data.roomId,
+      })
+      io.to(socket.id).emit("event", {
+        type: "ROOM_SETTINGS",
+        data: {
+          room: result.room,
+          pluginConfigs: mergedPluginConfigs,
+        },
+      })
+    }
+
     // Emit configChanged events for updated plugin configs
     if (socket.context.pluginRegistry && result.room && pluginConfigs) {
       try {

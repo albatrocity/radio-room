@@ -2,11 +2,13 @@ import { describe, test, expect, vi, beforeEach } from "vitest"
 import { RoomHandlers } from "./roomHandlersAdapter"
 import { RoomService } from "../services/RoomService"
 import { makeSocketWithBroadcastMocks } from "../lib/testHelpers"
+import { getAllPluginConfigs, getAllMergedPluginConfigs } from "../operations/data/pluginConfigs"
 
 // Mock dependencies
 vi.mock("../services/RoomService")
 vi.mock("../operations/data/pluginConfigs", () => ({
-  getAllPluginConfigs: vi.fn().mockResolvedValue({}),
+  getAllPluginConfigs: vi.fn(),
+  getAllMergedPluginConfigs: vi.fn(),
 }))
 
 // Test suite for RoomHandlers
@@ -15,7 +17,8 @@ describe("RoomHandlers", () => {
   let roomService: RoomService
   let roomHandlers: RoomHandlers
 
-  const mockRoomSettings = { setting1: "value1", setting2: "value2" }
+  const mockRoom = { setting1: "value1", setting2: "value2" }
+  const mockRoomSettings = { room: mockRoom, isAdmin: false }
   const mockRoomData = { data1: "value1", data2: "value2" }
 
   beforeEach(() => {
@@ -28,6 +31,10 @@ describe("RoomHandlers", () => {
       roomId: "room1",
       userId: "1",
     }))
+
+    // resetAllMocks() above clears module-mock return values, so re-establish them.
+    ;(getAllPluginConfigs as any).mockResolvedValue({ pub: { enabled: true } })
+    ;(getAllMergedPluginConfigs as any).mockResolvedValue({ pub: { enabled: true, secret: "x" } })
 
     // Mock the RoomService methods
     roomService = {
@@ -45,15 +52,32 @@ describe("RoomHandlers", () => {
       expect(roomService.getRoomSettings).toHaveBeenCalledWith("room1", "1")
     })
 
-    test("emits ROOM_SETTINGS event with the correct data", async () => {
+    test("emits ROOM_SETTINGS with PUBLIC plugin configs for non-admins", async () => {
       await roomHandlers.getRoomSettings({ socket: mockSocket, io: mockIo })
 
       expect(mockIo.to).toHaveBeenCalledWith(mockSocket.id)
       expect(toEmit).toHaveBeenCalledWith("event", {
         type: "ROOM_SETTINGS",
         data: {
-          ...mockRoomSettings,
-          pluginConfigs: undefined,
+          room: mockRoom,
+          pluginConfigs: { pub: { enabled: true } },
+        },
+      })
+    })
+
+    test("emits ROOM_SETTINGS with MERGED plugin configs for admins (ADR 0068 §2)", async () => {
+      ;(roomService.getRoomSettings as any).mockResolvedValueOnce({
+        room: mockRoom,
+        isAdmin: true,
+      })
+
+      await roomHandlers.getRoomSettings({ socket: mockSocket, io: mockIo })
+
+      expect(toEmit).toHaveBeenCalledWith("event", {
+        type: "ROOM_SETTINGS",
+        data: {
+          room: mockRoom,
+          pluginConfigs: { pub: { enabled: true, secret: "x" } },
         },
       })
     })
