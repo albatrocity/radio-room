@@ -15,8 +15,18 @@ export class MemoryRedisClient {
     this.strings.set(key, value)
   }
 
-  async del(key: string): Promise<void> {
-    this.strings.delete(key)
+  async del(key: string | string[]): Promise<void> {
+    for (const k of Array.isArray(key) ? key : [key]) {
+      this.strings.delete(k)
+    }
+  }
+
+  async keys(pattern: string): Promise<string[]> {
+    // Support Redis glob `*` (matches any run of characters).
+    const regex = new RegExp(
+      "^" + pattern.split("*").map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$",
+    )
+    return [...this.strings.keys()].filter((k) => regex.test(k))
   }
 
   async unlink(key: string): Promise<void> {

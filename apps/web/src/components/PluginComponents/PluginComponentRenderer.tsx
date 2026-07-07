@@ -112,7 +112,10 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
   // Wrap the component with data attributes for screen effect targeting
   // Note: We use display="inline-block" instead of "contents" because
   // CSS animations require an element that generates a box.
-  const blockLayout = component.type === "shop-offer-table" || component.type === "current-shop-offers"
+  const blockLayout =
+    component.type === "shop-offer-table" ||
+    component.type === "current-shop-offers" ||
+    component.type === "quiz-question-card"
 
   return (
     <Box

@@ -15,6 +15,7 @@
     "@react-icons/all-files": "^4.1.0",
     "@repo/auth": "*",
     "@repo/game-logic": "*",
+    "@repo/plugin-config-ui": "*",
     "@repo/types": "*",
     "@repo/utils": "*",
     "@tanstack/react-router": "^1.169.1",

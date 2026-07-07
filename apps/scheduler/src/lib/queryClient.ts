@@ -32,6 +32,9 @@ export const queryKeys = {
     all: ["spotify", "search"] as const,
     query: (q: string) => ["spotify", "search", q] as const,
   },
+  pluginSchemas: {
+    all: ["plugin-schemas"] as const,
+  },
   newsletter: {
     all: ["newsletter"] as const,
     issues: () => ["newsletter", "issues"] as const,

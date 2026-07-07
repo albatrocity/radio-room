@@ -8,6 +8,7 @@ import PopoverPreferences from "./PopoverPreferences"
 import ButtonGameState from "./ButtonGameState"
 import ChatWindow from "./ChatWindow"
 import PollCard from "./Poll/PollCard"
+import { PluginArea } from "./PluginComponents/PluginArea"
 
 import { chatScrollTargetActor } from "../actors/chatScrollTargetActor"
 import { useCurrentUser, useChatMessages, useAuthState, useChatSend } from "../hooks/useActors"
@@ -64,6 +65,7 @@ const Chat = () => {
       <GridItem height="100%" width="100%" area={"chat"} overflowX="visible" minHeight={0}>
         <Box h="100%" w="100%" className="messages-container" display="flex" flexDirection="column">
           <PollCard />
+          <PluginArea area="aboveChat" direction="column" />
           <Box flex={1} minH={0} overflow="hidden">
             {messages.length > 0 && <ChatWindow />}
           </Box>

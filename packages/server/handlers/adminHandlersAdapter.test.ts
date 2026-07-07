@@ -17,7 +17,9 @@ const dataMocks = vi.hoisted(() => ({
 vi.mock("../services/AdminService")
 vi.mock("../operations/data/pluginConfigs", () => ({
   getAllPluginConfigs: vi.fn().mockResolvedValue({}),
+  getAllMergedPluginConfigs: vi.fn().mockResolvedValue({}),
   getPluginConfig: vi.fn().mockResolvedValue(null),
+  getMergedPluginConfig: vi.fn().mockResolvedValue(null),
   setPluginConfig: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock("../operations/data", () => ({

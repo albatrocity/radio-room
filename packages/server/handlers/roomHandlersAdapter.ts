@@ -20,17 +20,24 @@ export class RoomHandlers {
       return
     }
 
-    // Fetch all plugin configs
-    const { getAllPluginConfigs } = await import("../operations/data/pluginConfigs")
-    const pluginConfigs = await getAllPluginConfigs({
-      context: socket.context,
-      roomId: socket.data.roomId,
-    })
+    // Admin-gated pull (ADR 0068 §2): this is a per-socket emit (io.to(socket.id)),
+    // so returning MERGED plugin configs (public + server-only private fields) to an
+    // admin is safe here and primes the settings editor with existing private values
+    // (e.g. quiz questions/accepted answers). Non-admins only ever receive PUBLIC
+    // configs. Because the client treats ROOM_SETTINGS as the authoritative merged
+    // pull (it replaces stored configs), a public-only payload here would wipe an
+    // admin's previously-fetched private fields on modal reopen.
+    const { getAllPluginConfigs, getAllMergedPluginConfigs } = await import(
+      "../operations/data/pluginConfigs"
+    )
+    const pluginConfigs = result.isAdmin
+      ? await getAllMergedPluginConfigs({ context: socket.context, roomId: socket.data.roomId })
+      : await getAllPluginConfigs({ context: socket.context, roomId: socket.data.roomId })
 
     io.to(socket.id).emit("event", {
       type: "ROOM_SETTINGS",
       data: {
-        ...result,
+        room: result.room,
         pluginConfigs,
       },
     })

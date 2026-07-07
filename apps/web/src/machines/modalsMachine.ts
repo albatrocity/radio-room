@@ -36,6 +36,7 @@ export type Event =
   | { type: "EDIT_LOYALTY_PROGRAM" }
   | { type: "EDIT_ITEM_SHOPS" }
   | { type: "EDIT_QUEUE_PACER" }
+  | { type: "EDIT_QUIZ_SESSIONS" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
@@ -129,6 +130,7 @@ export const modalsMachine = setup({
             EDIT_LOYALTY_PROGRAM: "loyalty_program",
             EDIT_ITEM_SHOPS: "item_shops",
             EDIT_QUEUE_PACER: "queue_pacer",
+            EDIT_QUIZ_SESSIONS: "quiz_sessions",
           },
         },
         playlist_democracy: {
@@ -222,6 +224,11 @@ export const modalsMachine = setup({
           },
         },
         message_triggers: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        quiz_sessions: {
           on: {
             BACK: "overview",
           },

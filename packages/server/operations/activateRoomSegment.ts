@@ -10,6 +10,7 @@ import { persistMessage } from "./data/messages"
 import {
   getPluginConfig,
   setPluginConfig,
+  setPluginPrivateConfig,
   deleteAllPluginConfigs,
   getAllPluginConfigs,
 } from "./data/pluginConfigs"
@@ -215,20 +216,69 @@ export async function activateRoomSegment(params: {
     }
   }
 
+  // Fan out server-only private plugin content to the room `:private` key
+  // (ADR 0068 §5). Written before CONFIG_CHANGED so a plugin that self-starts on
+  // config change (e.g. quiz-sessions reading its question bank) sees the merged
+  // public + private config. Never placed on any broadcast surface; invalid
+  // entries are skipped-and-logged rather than aborting a live show.
+  const privateContent = segment.privatePluginContent ?? null
+  const privatePluginNames: string[] = []
+  if (presetMode !== "skip" && privateContent && typeof privateContent === "object") {
+    for (const [pluginName, fields] of Object.entries(privateContent)) {
+      if (!fields || typeof fields !== "object") {
+        console.warn(`[activateRoomSegment] skipping invalid private content for ${pluginName}`)
+        continue
+      }
+      try {
+        await setPluginPrivateConfig({
+          context,
+          roomId,
+          pluginName,
+          config: fields as Record<string, unknown>,
+        })
+        privatePluginNames.push(pluginName)
+        pluginsTouched = true
+      } catch (e) {
+        console.error(`[activateRoomSegment] failed to apply private content for ${pluginName}:`, e)
+      }
+    }
+  }
+
   const updatedRoom = (await findRoom({ context, roomId }))!
   const updatedPluginConfigs = await getAllPluginConfigs({ context, roomId })
 
-  if (pluginsTouched && preset && context.pluginRegistry) {
+  if (pluginsTouched && context.pluginRegistry) {
     try {
       await context.pluginRegistry.syncRoomPlugins(roomId, updatedRoom, previousRoom)
-      for (const [pluginName, newConfig] of Object.entries(preset.pluginConfigs)) {
-        const previousConfig = previousPluginConfigs[pluginName]
-        if (JSON.stringify(newConfig) !== JSON.stringify(previousConfig) && context.systemEvents) {
+
+      // Notify plugins whose config changed so they can react (e.g. quiz
+      // self-start). Union of preset plugins whose PUBLIC config changed and
+      // plugins that received private content this activation. The payload
+      // carries only the public view; plugins re-read merged config via
+      // getConfig(), so private fields are never broadcast in CONFIG_CHANGED.
+      const changedPlugins: string[] = [...privatePluginNames]
+      if (preset) {
+        for (const [pluginName, newConfig] of Object.entries(preset.pluginConfigs)) {
+          const previousConfig = previousPluginConfigs[pluginName]
+          if (
+            JSON.stringify(newConfig) !== JSON.stringify(previousConfig) &&
+            !changedPlugins.includes(pluginName)
+          ) {
+            changedPlugins.push(pluginName)
+          }
+        }
+      }
+      if (context.systemEvents) {
+        for (const pluginName of changedPlugins) {
+          const newConfig = (preset?.pluginConfigs[pluginName] ??
+            updatedPluginConfigs[pluginName] ??
+            {}) as Record<string, unknown>
+          const previousConfig = (previousPluginConfigs[pluginName] ?? {}) as Record<string, unknown>
           await context.systemEvents.emit(roomId, "CONFIG_CHANGED", {
             roomId,
             pluginName,
-            config: newConfig as Record<string, unknown>,
-            previousConfig: (previousConfig ?? {}) as Record<string, unknown>,
+            config: newConfig,
+            previousConfig,
           })
         }
       }

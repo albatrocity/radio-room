@@ -3,7 +3,7 @@ import type { RoomScheduleSnapshotDTO, SubscribeNewsletterRequest, SubscribeNews
 import { RADIO_SESSION_HEADER } from "../constants"
 import { getStoredUserId } from "./clientSession"
 import { Room, RoomSetup } from "../types/Room"
-import type { PluginSchemasResponse, PluginSchemaInfo } from "../types/PluginSchema"
+import type { PluginSchemasResponse, PluginSchemaInfo } from "@repo/types/Plugin"
 import type { PluginComponentStores, PluginComponentState } from "../types/PluginComponent"
 
 const API_URL = import.meta.env.VITE_API_URL

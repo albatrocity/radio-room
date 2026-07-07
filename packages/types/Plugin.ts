@@ -60,6 +60,7 @@ export type PluginFieldType =
   | "string-array" // Array of strings (e.g., list of words)
   | "checkbox-group" // Multi-select: value is string[]; use `options` in field meta
   | "datetime" // Datetime picker (stored in epoch ms)
+  | "object-array" // Repeatable group: value is Record<string, unknown>[]; see `itemFields`
 
 /** Condition for conditional visibility */
 export interface ShowWhenCondition {
@@ -149,6 +150,19 @@ export interface PluginFieldMeta {
   enumLabels?: Record<string, string>
   /** For `checkbox-group`: value/label pairs (e.g. shop id + display name) */
   options?: { value: string; label: string }[]
+  /** Field scope. `private` fields are server-only and never broadcast (ADR 0068). Defaults to `public`. */
+  scope?: "public" | "private"
+  /**
+   * For `object-array`: ordered sub-fields rendered per row. Each sub-field's `meta`
+   * is a full `PluginFieldMeta` (may nest further, though v1 renders scalar/string-array items).
+   */
+  itemFields?: { name: string; meta: PluginFieldMeta }[]
+  /** For `object-array`: singular noun for the add button and row header (e.g. "Question"). */
+  itemLabel?: string
+  /** For `object-array`: minimum number of rows required (validation hint). */
+  minItems?: number
+  /** For `object-array`: maximum number of rows allowed. */
+  maxItems?: number
 }
 
 /**
@@ -174,6 +188,11 @@ export interface PluginSchemaInfo {
   defaultConfig?: Record<string, unknown>
   configSchema?: PluginConfigSchema
   componentSchema?: PluginComponentSchema
+}
+
+/** Response from `GET /api/plugins`. */
+export interface PluginSchemasResponse {
+  plugins: PluginSchemaInfo[]
 }
 
 /**

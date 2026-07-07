@@ -16,6 +16,7 @@ import { useForm } from "@tanstack/react-form"
 import { useSegment, useUpdateSegment, useDeleteSegment } from "../../hooks/useSegments"
 import type { SegmentDTO, SegmentStatus } from "@repo/types"
 import { TagCombobox } from "../tags/TagCombobox"
+import { SegmentPluginConfigEditor } from "./SegmentPluginConfigEditor"
 import { SegmentPluginPresetEditor } from "./SegmentPluginPresetEditor"
 import { SegmentRoomSettingsEditor } from "./SegmentRoomSettingsEditor"
 
@@ -41,6 +42,8 @@ function segmentToFormDefaults(segment: SegmentDTO) {
     status: segment.status,
     tagIds: segment.tags?.map((t) => t.id) ?? [],
     pluginPreset: segment.pluginPreset,
+    // Admin segment GET is role-gated and returns private content for editing (ADR 0068 §2).
+    privatePluginContent: segment.privatePluginContent ?? null,
     roomSettingsOverride: segment.roomSettingsOverride ?? null,
   }
 }
@@ -72,6 +75,7 @@ function SegmentDetailForm({ segment, onClose }: SegmentDetailFormProps) {
         status: value.status,
         tagIds: value.tagIds,
         pluginPreset: value.pluginPreset,
+        privatePluginContent: value.privatePluginContent,
         roomSettingsOverride: value.roomSettingsOverride,
       })
       onClose()
@@ -187,6 +191,23 @@ function SegmentDetailForm({ segment, onClose }: SegmentDetailFormProps) {
             )}
           </form.Field>
         </Box>
+
+        <form.Field name="pluginPreset">
+          {(presetField) => (
+            <form.Field name="privatePluginContent">
+              {(privateField) => (
+                <SegmentPluginConfigEditor
+                  pluginPreset={presetField.state.value}
+                  privatePluginContent={privateField.state.value}
+                  onChange={({ pluginPreset, privatePluginContent }) => {
+                    presetField.handleChange(pluginPreset)
+                    privateField.handleChange(privatePluginContent)
+                  }}
+                />
+              )}
+            </form.Field>
+          )}
+        </form.Field>
 
         <form.Field name="pluginPreset">
           {(field) => (
