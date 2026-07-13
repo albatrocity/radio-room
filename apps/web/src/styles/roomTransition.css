@@ -40,10 +40,12 @@
   from {
     transform: scale(1);
     opacity: 1;
+    filter: blur(0);
   }
   to {
     transform: scale(28);
     opacity: 1;
+    filter: blur(1px);
   }
 }
 
