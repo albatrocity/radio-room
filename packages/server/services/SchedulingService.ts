@@ -270,38 +270,84 @@ export async function deleteShow(id: string) {
   return row ?? null
 }
 
+/**
+ * Replace the ordered set of segment placements for a show.
+ *
+ * Existing placements are reused (matched to the new order by `segmentId`,
+ * FIFO when a segment appears multiple times) so their `show_segment.id`
+ * survives. This is essential because attached tracks (`show_segment_track`)
+ * cascade-delete with the placement id; deleting and re-inserting placements
+ * would silently drop curated tracks on every reorder.
+ */
 export async function reorderShowSegments(showId: string, segmentIds: string[]) {
   return db.transaction(async (tx) => {
     const existing = await tx
       .select({
+        id: showSegment.id,
         segmentId: showSegment.segmentId,
         durationOverride: showSegment.durationOverride,
       })
       .from(showSegment)
       .where(eq(showSegment.showId, showId))
 
-    const overridePools = new Map<string, (number | null)[]>()
+    // FIFO pool of reusable placement ids per segment id.
+    const reusablePools = new Map<string, string[]>()
     for (const row of existing) {
-      const pool = overridePools.get(row.segmentId) ?? []
-      pool.push(row.durationOverride ?? null)
-      overridePools.set(row.segmentId, pool)
+      const pool = reusablePools.get(row.segmentId) ?? []
+      pool.push(row.id)
+      reusablePools.set(row.segmentId, pool)
     }
 
-    await tx.delete(showSegment).where(eq(showSegment.showId, showId))
+    // Decide, for each target position, whether we reuse an existing placement
+    // (preserving its tracks) or create a brand new one.
+    const reusedIds: (string | null)[] = segmentIds.map((segmentId) => {
+      const pool = reusablePools.get(segmentId)
+      return pool?.shift() ?? null
+    })
+
+    const keptIds = new Set(reusedIds.filter((id): id is string => id !== null))
+    const removedIds = existing.map((r) => r.id).filter((id) => !keptIds.has(id))
+
+    // Remove placements that are no longer present (their tracks cascade away).
+    if (removedIds.length > 0) {
+      await tx.delete(showSegment).where(inArray(showSegment.id, removedIds))
+    }
 
     if (segmentIds.length === 0) return []
 
-    const rows = await tx
-      .insert(showSegment)
-      .values(
-        segmentIds.map((segmentId, index) => ({
+    // Positions have a unique (showId, position) constraint, so shift kept rows
+    // out of the target range before assigning final positions to avoid
+    // transient collisions.
+    const POSITION_OFFSET = 1_000_000
+    for (const id of keptIds) {
+      await tx
+        .update(showSegment)
+        .set({ position: sql`${showSegment.position} + ${POSITION_OFFSET}` })
+        .where(eq(showSegment.id, id))
+    }
+
+    for (let index = 0; index < segmentIds.length; index++) {
+      const reusedId = reusedIds[index]
+      if (reusedId) {
+        await tx
+          .update(showSegment)
+          .set({ position: index })
+          .where(eq(showSegment.id, reusedId))
+      } else {
+        await tx.insert(showSegment).values({
           showId,
-          segmentId,
+          segmentId: segmentIds[index],
           position: index,
-          durationOverride: overridePools.get(segmentId)?.shift() ?? null,
-        })),
-      )
-      .returning()
+          durationOverride: null,
+        })
+      }
+    }
+
+    const rows = await tx
+      .select()
+      .from(showSegment)
+      .where(eq(showSegment.showId, showId))
+      .orderBy(showSegment.position)
 
     return rows
   })

@@ -88,7 +88,8 @@ export function PluginArea({
       direction={direction}
       gap={spacing}
       color={color}
-      align={direction === "row" ? "center" : undefined}
+      width="100%"
+      align={direction === "row" ? "center" : "stretch"}
     >
       {pluginsForArea.map(({ pluginName, config, storeKeys, components }) => (
         <PluginComponentProvider

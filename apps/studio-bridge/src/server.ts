@@ -43,6 +43,11 @@ import {
   buildStubQuizSessionStarted,
   runStubQuizAction,
 } from "./stubQuiz.js"
+import {
+  VOLUME_MANAGER_PLUGIN,
+  buildStubVolumeComponentState,
+  runStubVolumeAction,
+} from "./stubVolumeManager.js"
 import { applyUserUpdateToSnapshot, toggleVipOnUser, userHasVip } from "./personas.js"
 
 const PORT = Number(process.env.STUDIO_BRIDGE_PORT ?? process.env.PORT ?? 3099)
@@ -834,6 +839,21 @@ function wireSocketHandlers(io: IOServer): void {
           })
           return
         }
+        if (data.pluginName === VOLUME_MANAGER_PLUGIN) {
+          const { success, message, events } = runStubVolumeAction(
+            roomId,
+            data.action,
+            data.params,
+          )
+          for (const ev of events) {
+            io.to(roomSocketPath(roomId)).emit("event", ev)
+          }
+          socket.emit("event", {
+            type: "PLUGIN_ACTION_RESULT",
+            data: { success, message },
+          })
+          return
+        }
         const forwarded = await forwardRoomUiCommandToStudio(io, roomId, {
           kind: "EXECUTE_PLUGIN_ACTION",
           roomId,
@@ -1256,6 +1276,7 @@ app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
   res.status(200).json({
     states: {
       [QUIZ_PREVIEW_PLUGIN]: buildStubQuizComponentState(roomId),
+      [VOLUME_MANAGER_PLUGIN]: buildStubVolumeComponentState(roomId),
     },
   })
 })
@@ -1264,7 +1285,11 @@ app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
 app.get("/api/rooms/:roomId/plugins/:pluginName/components", (req, res) => {
   const { roomId, pluginName } = req.params
   const state =
-    pluginName === QUIZ_PREVIEW_PLUGIN ? buildStubQuizComponentState(roomId) : {}
+    pluginName === QUIZ_PREVIEW_PLUGIN
+      ? buildStubQuizComponentState(roomId)
+      : pluginName === VOLUME_MANAGER_PLUGIN
+        ? buildStubVolumeComponentState(roomId)
+        : {}
   res.status(200).json({ state })
 })
 

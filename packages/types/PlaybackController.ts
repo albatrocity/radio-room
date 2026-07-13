@@ -36,6 +36,8 @@ export interface PlaybackControllerApi {
   addToQueue: (mediaId: string, position?: number) => Promise<PlaybackControllerQueueItem[]>
   removeFromQueue?: (mediaId: string) => Promise<PlaybackControllerQueueItem[]>
   clearQueue?: () => Promise<PlaybackControllerQueueItem[]>
+  /** Set device volume (0-100). Optional: not all controllers support it. */
+  setVolume?: (volumePercent: number) => Promise<void>
 }
 
 export type PlaybackControllerLifecycleCallbacks = {

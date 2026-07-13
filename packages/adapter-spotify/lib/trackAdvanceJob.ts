@@ -117,6 +117,15 @@ export function createTrackAdvanceJob(params: {
           trackId,
         })
 
+        // Volume sync: detect external volume changes from Spotify device
+        const volumePercent = playback.device?.volume_percent
+        if (volumePercent !== undefined && volumePercent !== null) {
+          const { handlePlaybackVolumeChange } = await import(
+            "@repo/server/operations/playback/handlePlaybackVolumeChange"
+          )
+          await handlePlaybackVolumeChange({ context, roomId, volumePercent })
+        }
+
         // =====================================================================
         // Track advance: only for app-controlled playback rooms
         // =====================================================================
@@ -160,6 +169,12 @@ export function createTrackAdvanceJob(params: {
         }
 
         await setDispatchedTrack({ context, roomId, item: nextItem })
+
+        await context.pluginRegistry?.runBeforePlayQueuedTrack({
+          roomId,
+          item: nextItem,
+          reason: "auto-advance",
+        })
 
         try {
           await playTrack(uri)

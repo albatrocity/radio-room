@@ -73,7 +73,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0065](0065-email-newsletter-via-resend.md) | Email newsletter via Resend (subscribers, broadcasts, webhooks) | Superseded by [0066](0066-email-newsletter-via-amazon-ses.md) |
 | [0066](0066-email-newsletter-via-amazon-ses.md) | Email newsletter via Amazon SES (own-list send, SNS suppression, Redis scheduling) | Accepted |
 | [0067](0067-queue-split-reserved-segment.md) | Queue split for reserved lower segment (app-controlled) | Accepted |
-| [0068](0068-private-scoped-plugin-config-fields.md) | Private-scoped plugin config fields + shared schema-driven authoring | Accepted |
+| [0068](0068-private-scoped-plugin-config-fields.md) | Private-scoped plugin config fields and shared schema-driven authoring | Accepted |
+| [0069](0069-playback-controller-volume-and-before-play-hook.md) | Playback Controller volume and beforePlayQueuedTrack hook | Accepted |
 
 ## Creating a New ADR
 

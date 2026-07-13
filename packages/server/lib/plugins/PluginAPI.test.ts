@@ -12,8 +12,9 @@ import { Server } from "socket.io"
 const adapterApiMocks = vi.hoisted(() => {
   const skipToNextTrack = vi.fn()
   const playTrack = vi.fn()
+  const setVolume = vi.fn()
   const getRoomPlaybackController = vi.fn().mockResolvedValue({
-    api: { skipToNextTrack, playTrack },
+    api: { skipToNextTrack, playTrack, setVolume },
   })
   class MockAdapterService {
     getRoomPlaybackController = getRoomPlaybackController
@@ -22,6 +23,7 @@ const adapterApiMocks = vi.hoisted(() => {
     MockAdapterService,
     skipToNextTrack,
     playTrack,
+    setVolume,
     getRoomPlaybackController,
   }
 })
@@ -201,5 +203,72 @@ describe("PluginAPIImpl.skipTrack", () => {
     vi.mocked(findRoom).mockResolvedValue(null)
 
     await expect(api.skipTrack(roomId, trackId)).rejects.toThrow("Room not found")
+  })
+})
+
+describe("PluginAPIImpl.setPlaybackVolume", () => {
+  let api: PluginAPIImpl
+  let mockContext: AppContext
+  const roomId = "room-1"
+  const { setVolume, getRoomPlaybackController } = adapterApiMocks
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    adapterApiMocks.getRoomPlaybackController.mockResolvedValue({
+      api: { setVolume },
+    })
+    setVolume.mockResolvedValue(undefined)
+    mockContext = appContextFactory.build()
+    api = new PluginAPIImpl(mockContext, {} as Server)
+  })
+
+  test("clamps and calls controller setVolume", async () => {
+    const result = await api.setPlaybackVolume(roomId, 150.4)
+
+    expect(result).toEqual({ success: true })
+    expect(setVolume).toHaveBeenCalledWith(100)
+  })
+
+  test("returns failure when controller missing", async () => {
+    getRoomPlaybackController.mockResolvedValue(null)
+
+    const result = await api.setPlaybackVolume(roomId, 50)
+
+    expect(result).toEqual({
+      success: false,
+      message: "No playback controller configured for this room",
+    })
+  })
+
+  test("returns failure when volume unsupported", async () => {
+    getRoomPlaybackController.mockResolvedValue({ api: {} })
+
+    const result = await api.setPlaybackVolume(roomId, 50)
+
+    expect(result).toEqual({
+      success: false,
+      message: "Playback controller does not support volume control",
+    })
+  })
+})
+
+describe("PluginAPIImpl.supportsVolumeControl", () => {
+  let api: PluginAPIImpl
+  const roomId = "room-1"
+  const { setVolume, getRoomPlaybackController } = adapterApiMocks
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    api = new PluginAPIImpl(appContextFactory.build(), {} as Server)
+  })
+
+  test("returns true when setVolume is available", async () => {
+    getRoomPlaybackController.mockResolvedValue({ api: { setVolume } })
+    await expect(api.supportsVolumeControl(roomId)).resolves.toBe(true)
+  })
+
+  test("returns false when controller missing", async () => {
+    getRoomPlaybackController.mockResolvedValue(null)
+    await expect(api.supportsVolumeControl(roomId)).resolves.toBe(false)
   })
 })
