@@ -32,8 +32,12 @@ export function NewsletterEmail({ subject, bodyHtml, unsubscribeUrl }: Newslette
       <Head>
         <meta name="color-scheme" content="light dark" />
         <meta name="supported-color-schemes" content="light dark" />
-        <style>{buildEmailDarkModeCss()}</style>
-        <style>{buildEmailContentResetCss()}</style>
+        <style
+          dangerouslySetInnerHTML={{ __html: buildEmailDarkModeCss() }}
+        />
+        <style
+          dangerouslySetInnerHTML={{ __html: buildEmailContentResetCss() }}
+        />
       </Head>
       <Preview>{subject}</Preview>
       <Body className="email-body" style={main}>

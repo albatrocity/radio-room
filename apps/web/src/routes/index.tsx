@@ -5,6 +5,7 @@ import PublicPageLayout from "../components/PublicPageLayout"
 import Lobby from "../components/Lobby/Lobby"
 import AppToasts from "../components/AppToasts"
 import NewsletterSubscribeForm from "../components/NewsletterSubscribeForm"
+import { Box } from "@chakra-ui/react"
 
 export const Route = createFileRoute("/")({
   component: IndexPage,
@@ -15,7 +16,9 @@ function IndexPage() {
     <PublicPageLayout>
       <AppToasts />
       <Lobby />
-      <NewsletterSubscribeForm />
+      <Box maxW="600px">
+        <NewsletterSubscribeForm />
+      </Box>
     </PublicPageLayout>
   )
 }

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Box, Button, Field, Flex, Input, Text } from "@chakra-ui/react"
+import { Box, Button, Field, Flex, Input, Stack, Text, VStack } from "@chakra-ui/react"
 import { HTTPError } from "ky"
 
 import { subscribeNewsletter } from "../lib/serverApi"
@@ -49,18 +49,26 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
   }
 
   return (
-    <Box
+    <Stack
       as="section"
+      direction="column"
       p={4}
       bg="secondaryBg"
       layerStyle="themeTransition"
       textStyle="footer"
       borderRadius="md"
       aria-labelledby="newsletter-subscribe-heading"
+      gap={2}
     >
-      <Text id="newsletter-subscribe-heading" fontWeight="semibold" mb={3}>
-        Subscribe to the newsletter
-      </Text>
+      <VStack align="flex-start" gap={0}>
+        <Text fontSize="large" id="newsletter-subscribe-heading" fontWeight="semibold">
+          Subscribe to the newsletter
+        </Text>
+        <Text fontSize="sm">
+          About 2 emails per month: a reminder before the show, a summary after the show.
+          Unsubscribe anytime.
+        </Text>
+      </VStack>
 
       {successMessage ? (
         <Text>{successMessage}</Text>
@@ -68,23 +76,28 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
         <form onSubmit={handleSubmit}>
           <Flex gap={3} direction={{ base: "column", sm: "row" }} align={{ sm: "flex-end" }}>
             <Field.Root flex="1" invalid={!!error}>
-              <Field.Label>Email address</Field.Label>
               <Input
                 type="email"
                 name="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
+                placeholder="Email address"
                 required
               />
               {error && <Field.ErrorText>{error}</Field.ErrorText>}
             </Field.Root>
-            <Button type="submit" loading={isSubmitting} alignSelf={{ sm: "flex-end" }}>
+            <Button
+              type="submit"
+              colorScheme="action"
+              loading={isSubmitting}
+              alignSelf={{ sm: "flex-end" }}
+            >
               Subscribe
             </Button>
           </Flex>
         </form>
       )}
-    </Box>
+    </Stack>
   )
 }

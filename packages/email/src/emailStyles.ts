@@ -123,6 +123,7 @@ export function buildEmailContentResetCss(): string {
     .email-content ol:first-child,
     .email-content blockquote:first-child,
     .email-content pre:first-child { margin-top: 0; }
+    .email-content ul > li > p:only-child { margin: 0 !important; }
     .email-content img { max-width: 100%; height: auto; display: block; }
   `.trim()
 }

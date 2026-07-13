@@ -105,10 +105,17 @@ services:
       - "8001:8001"
     volumes:
       # Mount entire app directory so TanStack Router's .tanstack/tmp/ and src/
-      # share the same filesystem (avoids EXDEV rename errors in Docker)
-      - ./apps/scheduler:/app/apps/scheduler
+      # share the same filesystem (avoids EXDEV rename errors in Docker).
+      # :delegated improves bind-mount consistency on Docker Desktop (macOS/Windows).
+      - ./apps/scheduler:/app/apps/scheduler:delegated
+      # Sync workspace packages so edits to @repo/* hot-reload (otherwise image copy is stale).
+      - ./packages:/app/packages:delegated
     environment:
       - NODE_ENV=development
+      # Vite reads VITE_DOCKER in vite.config.ts (Chokidar polling for bind mounts).
+      - VITE_DOCKER=1
+      # Standard env for file watchers on Docker volumes (belt-and-suspenders with server.watch.usePolling).
+      - CHOKIDAR_USEPOLLING=true
       # Use loopback (127.0.0.1) for VITE_API_URL so it matches Spotify redirect URIs and stays same-site with the web/scheduler apps when you open them at http://127.0.0.1:* (not localhost).
       - VITE_API_URL=${VITE_API_URL:-http://127.0.0.1:3000}
       - VITE_WEB_URL=${VITE_WEB_URL:-http://127.0.0.1:8000}
