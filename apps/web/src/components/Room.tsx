@@ -19,7 +19,9 @@ import {
   useListeners,
   useModalsSend,
   useHasQueueItems,
+  useNowPlaying,
 } from "../hooks/useActors"
+import { setCurrentArtworkUrl } from "../hooks/useDynamicTheme"
 import { HybridListeningTransportProvider } from "../hooks/useHybridListeningTransport"
 
 const Room = ({ id }: { id: string }) => {
@@ -33,12 +35,25 @@ const Room = ({ id }: { id: string }) => {
   const listeners = useListeners()
   const playlistSend = usePlaylistSend()
   const modalSend = useModalsSend()
+  const nowPlaying = useNowPlaying()
 
   useEffect(() => {
     if (isNewUser && isAuthenticated) {
       modalSend({ type: "EDIT_USERNAME" })
     }
   }, [isNewUser, isAuthenticated, modalSend])
+
+  useEffect(() => {
+    const firstImage = nowPlaying?.track?.album?.images?.[0]
+    const url =
+      typeof firstImage === "object" && firstImage?.url
+        ? firstImage.url
+        : typeof firstImage === "string"
+          ? firstImage
+          : null
+    setCurrentArtworkUrl(url)
+    return () => setCurrentArtworkUrl(null)
+  }, [nowPlaying])
 
   return (
     <Box w="100%" h="100%" data-screen-effect-target="room">

@@ -9,6 +9,7 @@ import {
   usePreferredMetadataSource,
 } from "../../hooks/useActors"
 import { getNextShowTime } from "../../lib/dates"
+import { setCurrentArtworkUrl } from "../../hooks/useDynamicTheme"
 import { Logo } from "../ui/logo"
 import { LobbyRoom } from "../../machines/lobbyMachine"
 import RoomPublicMeta from "../RoomPublicMeta"
@@ -29,6 +30,11 @@ export default function Lobby() {
         : item.track
     return track.album?.images?.find((img) => img.type === "image" && img.url)?.url
   }, [room?.nowPlaying, preferredSource])
+
+  useEffect(() => {
+    setCurrentArtworkUrl(artworkUrl ?? null)
+    return () => setCurrentArtworkUrl(null)
+  }, [artworkUrl])
 
   // Connect to lobby on mount, disconnect on unmount
   useEffect(() => {

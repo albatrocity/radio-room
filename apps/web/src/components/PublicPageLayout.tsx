@@ -1,17 +1,28 @@
 import React from "react"
-import { Box, Grid, GridItem, Heading, Link as ChakraLink, Wrap, HStack } from "@chakra-ui/react"
+import {
+  Box,
+  Grid,
+  GridItem,
+  Link as ChakraLink,
+  Wrap,
+  HStack,
+  Popover,
+  IconButton,
+  Icon,
+  Text,
+} from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
+import { LuPalette } from "react-icons/lu"
 
 import Layout from "./layout"
 import NewsletterSubscribeForm from "./NewsletterSubscribeForm"
+import FormTheme from "./FormTheme"
 
 type Props = {
   children: React.ReactNode
 }
 
 export default function PublicPageLayout({ children }: Props) {
-  const isHome = window.location.pathname === "/"
-
   return (
     <Layout fill>
       <Grid templateRows="1fr auto" h="100vh">
@@ -22,7 +33,25 @@ export default function PublicPageLayout({ children }: Props) {
         </GridItem>
         <GridItem as="footer" textStyle="footer">
           <HStack bg="secondaryBg" p={4} justify="space-between">
-            <Wrap gap={4}>
+            <Wrap gap={4} align="center">
+              <Popover.Root lazyMount positioning={{ placement: "top-start" }}>
+                <Popover.Trigger asChild>
+                  <IconButton aria-label="Theme" variant="ghost" size="sm" colorPalette="action">
+                    <Icon as={LuPalette} />
+                  </IconButton>
+                </Popover.Trigger>
+                <Popover.Positioner>
+                  <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }}>
+                    <Popover.Header fontWeight="bold">
+                      <Text>Theme</Text>
+                    </Popover.Header>
+                    <Popover.Arrow />
+                    <Popover.Body>
+                      <FormTheme />
+                    </Popover.Body>
+                  </Popover.Content>
+                </Popover.Positioner>
+              </Popover.Root>
               <ChakraLink asChild>
                 <Link to="/privacy">Privacy Policy</Link>
               </ChakraLink>
