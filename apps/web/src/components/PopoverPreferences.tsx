@@ -67,7 +67,7 @@ const PopoverPreferences = (props: Props) => {
         <IconButton aria-label="Settings" variant="ghost" size="md">
           <Logo
             primaryColor={{ base: "black", _dark: "colorPalette.contrast" }}
-            secondaryColor={{ base: "action.solid", _dark: "secondary.solid" }}
+            secondaryColor={{ base: "action.solid", _dark: "primary.subtle" }}
           />
         </IconButton>
       </Popover.Trigger>
