@@ -60,7 +60,12 @@ export default function Lobby() {
               <RouterLink
                 to="/rooms/$roomId"
                 params={{ roomId: room?.id }}
-                style={{ display: "flex", height: "100%", maxWidth: "100%", width: "100%" }}
+                style={{
+                  display: "flex",
+                  height: "100%",
+                  maxWidth: "100%",
+                  textAlign: "center",
+                }}
               >
                 <Logo
                   primaryColor="black"

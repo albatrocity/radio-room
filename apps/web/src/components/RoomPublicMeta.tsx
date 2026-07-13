@@ -30,12 +30,12 @@ export default function RoomPublicMeta({ title, extraInfo, id, userCount = 0, no
 
       {/* Now Playing */}
       {nowPlaying && (
-        <Box p={2} bg="bg.subtle" borderRadius="md">
+        <Box p={2} bg="colorPalette.emphasized" borderRadius="md">
           <TrackDisplay item={nowPlaying} />
         </Box>
       )}
 
-      <Button asChild>
+      <Button asChild borderColor="colorPalette.fg">
         <Link to="/rooms/$roomId" params={{ roomId: id }}>
           Join
         </Link>

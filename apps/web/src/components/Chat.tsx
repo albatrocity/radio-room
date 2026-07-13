@@ -20,10 +20,7 @@ const Chat = () => {
   const chatSend = useChatSend()
   const messages = useChatMessages()
   const imagePreviewRef = useRef<HTMLDivElement>(null)
-  const pendingScrollTarget = useSelector(
-    chatScrollTargetActor,
-    (s) => s.context.targetTimestamp,
-  )
+  const pendingScrollTarget = useSelector(chatScrollTargetActor, (s) => s.context.targetTimestamp)
 
   const currentUserId = currentUser?.userId
 
@@ -78,7 +75,7 @@ const Chat = () => {
           </Box>
           {/* Image previews will be portaled here from ChatInput */}
           <Box ref={imagePreviewRef} />
-          <HStack zIndex={2} w="100%" gap={0} align="center">
+          <HStack zIndex={2} w="100%" gap={1} align="center" justifyContent="center">
             <ButtonGameState />
             <PopoverPreferences />
             <ChatInput
