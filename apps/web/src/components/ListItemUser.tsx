@@ -134,21 +134,23 @@ const ListItemUser = ({
               />
             ))}
 
-            <PluginArea
-              area="userListItem"
-              itemContext={{
-                userId: user.userId,
-                isDeputyDj: user.isDeputyDj,
-                isDj: user.isDj,
-                isAdmin: user.isAdmin,
-              }}
-              direction="row"
-              spacing={1}
-            />
             <Box>
-              <Text css={styles.username} lineClamp={2}>
-                {user.username || "anonymous"}
-              </Text>
+              <PluginArea
+                area="userListItem"
+                itemContext={{
+                  userId: user.userId,
+                  isDeputyDj: user.isDeputyDj,
+                  isDj: user.isDj,
+                  isAdmin: user.isAdmin,
+                }}
+                direction="row"
+                spacing={1}
+              />
+              <Box>
+                <Text css={styles.username} lineClamp={2}>
+                  {user.username || "anonymous"}
+                </Text>
+              </Box>
             </Box>
           </HStack>
 
@@ -193,10 +195,7 @@ const ListItemUser = ({
                   <Menu.Positioner>
                     <Menu.Content>
                       {onDesignateAdmin && (
-                        <Menu.Item
-                          value="admin"
-                          onClick={() => onDesignateAdmin(user.userId)}
-                        >
+                        <Menu.Item value="admin" onClick={() => onDesignateAdmin(user.userId)}>
                           <Icon as={LuCrown} boxSize={4} />
                           {user.isAdmin ? "Remove admin" : "Make admin"}
                         </Menu.Item>

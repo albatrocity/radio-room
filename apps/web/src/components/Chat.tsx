@@ -75,7 +75,14 @@ const Chat = () => {
           </Box>
           {/* Image previews will be portaled here from ChatInput */}
           <Box ref={imagePreviewRef} />
-          <HStack zIndex={2} w="100%" gap={1} align="center" justifyContent="center">
+          <HStack
+            zIndex={2}
+            w="100%"
+            gap={1}
+            align="center"
+            justifyContent="center"
+            colorPalette="action"
+          >
             <ButtonGameState />
             <PopoverPreferences />
             <ChatInput

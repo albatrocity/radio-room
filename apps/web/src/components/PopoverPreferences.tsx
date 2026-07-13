@@ -64,8 +64,11 @@ const PopoverPreferences = (props: Props) => {
   return (
     <Popover.Root lazyMount>
       <Popover.Trigger asChild>
-        <IconButton aria-label="Settings" variant="ghost" colorPalette="action" size="md">
-          <Logo primaryColor="black" secondaryColor="action.solid" />
+        <IconButton aria-label="Settings" variant="ghost" size="md">
+          <Logo
+            primaryColor={{ base: "black", _dark: "colorPalette.contrast" }}
+            secondaryColor={{ base: "action.solid", _dark: "secondary.solid" }}
+          />
         </IconButton>
       </Popover.Trigger>
       <Popover.Positioner>

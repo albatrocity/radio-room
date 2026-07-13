@@ -15,6 +15,24 @@ const SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const
 const MIN_CONTRAST_RATIO = 4.5
 
 /**
+ * Minimum contrast between subtle surface shades (100/900) and the app
+ * surfaces they sit on (white / primary.900). Lower than WCAG text contrast;
+ * just enough for a perceptible background tint.
+ */
+export const SURFACE_MIN_CONTRAST = 1.25
+
+const WHITE: RGB = [255, 255, 255]
+
+/**
+ * Parse a hex color string to RGB.
+ */
+function parseHex(hex: string): RGB {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  if (!result) return [0, 0, 0]
+  return [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
+}
+
+/**
  * Convert RGB to HSL color space.
  */
 function rgbToHsl([r, g, b]: RGB): [number, number, number] {
@@ -209,13 +227,6 @@ function ensureContrast(color: RGB, reference: RGB, minRatio: number = MIN_CONTR
  * - contrast (50/200) should have good contrast with solid (500/800)
  */
 export function validatePaletteContrast(palette: ColorHues): ColorHues {
-  // Parse hex colors back to RGB for contrast calculations
-  const parseHex = (hex: string): RGB => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-    if (!result) return [0, 0, 0]
-    return [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
-  }
-
   const solid = parseHex(palette[500])
   const contrast = parseHex(palette[50])
 
@@ -246,6 +257,34 @@ export function validatePaletteContrast(palette: ColorHues): ColorHues {
   return palette
 }
 
+/**
+ * Ensure subtle surface shades (100 / 900) are distinguishable from the app
+ * surfaces they sit on: white in light mode, and the given dark surface
+ * (typically primary.900 / appBg) in dark mode.
+ *
+ * When skipDark is true, only shade 100 is adjusted (used for primary, which
+ * *is* the dark reference surface).
+ */
+export function ensureSurfaceContrast(
+  palette: ColorHues,
+  darkSurface: RGB,
+  options: { skipDark?: boolean } = {},
+): ColorHues {
+  const shade100 = parseHex(palette[100])
+  if (getContrastRatio(shade100, WHITE) < SURFACE_MIN_CONTRAST) {
+    palette[100] = rgbToHex(ensureContrast(shade100, WHITE, SURFACE_MIN_CONTRAST))
+  }
+
+  if (!options.skipDark) {
+    const shade900 = parseHex(palette[900])
+    if (getContrastRatio(shade900, darkSurface) < SURFACE_MIN_CONTRAST) {
+      palette[900] = rgbToHex(ensureContrast(shade900, darkSurface, SURFACE_MIN_CONTRAST))
+    }
+  }
+
+  return palette
+}
+
 export interface DynamicPalette {
   primary: ColorHues
   secondary: ColorHues
@@ -266,6 +305,15 @@ export function generateDynamicPalette(colors: RGB[]): DynamicPalette {
   const primary = validatePaletteContrast(generateShades(primaryBase))
   const secondary = validatePaletteContrast(generateShades(secondaryBase))
   const action = validatePaletteContrast(generateShades(actionBase))
+
+  // Capture the dark app surface (primary.900 / appBg) before mutating shades
+  const darkSurface = parseHex(primary[900])
+
+  // Subtle backgrounds (shade 100/900) must stand out from white / primary.900.
+  // Primary only gets the light-surface check — it IS the dark reference.
+  ensureSurfaceContrast(primary, darkSurface, { skipDark: true })
+  ensureSurfaceContrast(secondary, darkSurface)
+  ensureSurfaceContrast(action, darkSurface)
 
   return { primary, secondary, action }
 }
