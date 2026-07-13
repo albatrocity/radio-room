@@ -14,7 +14,7 @@ import { setCurrentArtworkUrl } from "../../hooks/useDynamicTheme"
 import { Logo } from "../ui/logo"
 import { LobbyRoom } from "../../machines/lobbyMachine"
 import RoomPublicMeta from "../RoomPublicMeta"
-import { runLogoEnterAnimation } from "../../animations/logoEnterAnimation"
+import { initializeRoom } from "../../actors/roomLifecycle"
 
 export default function Lobby() {
   const rooms = useLobbyRooms()
@@ -24,8 +24,6 @@ export default function Lobby() {
   const room = rooms[0]
   const navigate = useNavigate()
   const animationsEnabled = useAnimationsEnabled()
-  const rootRef = useRef<HTMLDivElement>(null)
-  const logoRef = useRef<HTMLDivElement>(null)
   const transitioningRef = useRef(false)
 
   const artworkUrl = useMemo(() => {
@@ -54,24 +52,19 @@ export default function Lobby() {
   const handleJoin = useCallback(
     (roomId: string | undefined) => {
       if (!roomId || transitioningRef.current) return
-
-      const navigateToRoom = () => {
-        void navigate({ to: "/rooms/$roomId", params: { roomId } })
-      }
-
-      if (!animationsEnabled || !logoRef.current || !rootRef.current) {
-        navigateToRoom()
-        return
-      }
-
+      initializeRoom(roomId) // warm socket/fetch/auth so the room is populated sooner
       transitioningRef.current = true
-      runLogoEnterAnimation(logoRef.current, rootRef.current, navigateToRoom)
+      void navigate({
+        to: "/rooms/$roomId",
+        params: { roomId },
+        viewTransition: animationsEnabled, // true -> startViewTransition; false -> plain nav
+      })
     },
     [animationsEnabled, navigate],
   )
 
   return (
-    <Container ref={rootRef} h="100%" maxW="xl">
+    <Container h="100%" maxW="xl">
       <Grid templateRows="1fr auto" gap={4} className="lobby-container" h="100%">
         <GridItem width="fit-content" flexGrow={1} h="100%" w="100%">
           <VStack h="100%" w="100%">
@@ -99,7 +92,7 @@ export default function Lobby() {
                     textAlign: "center",
                   }}
                 >
-                  <Box ref={logoRef} h="100%" display="flex" maxW="100%">
+                  <Box className="room-hero-logo" h="100%" display="flex" maxW="100%">
                     <Logo
                       primaryColor="black"
                       secondaryColor="action.solid"
@@ -110,7 +103,7 @@ export default function Lobby() {
                   </Box>
                 </RouterLink>
               ) : (
-                <Box ref={logoRef} h="100%" display="flex" maxW="100%">
+                <Box className="room-hero-logo" h="100%" display="flex" maxW="100%">
                   <Logo
                     primaryColor="black"
                     secondaryColor="action.solid"
