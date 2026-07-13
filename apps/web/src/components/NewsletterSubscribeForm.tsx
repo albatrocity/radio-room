@@ -3,6 +3,7 @@ import { Box, Button, Field, Flex, Input, Stack, Text, VStack } from "@chakra-ui
 import { HTTPError } from "ky"
 
 import { subscribeNewsletter } from "../lib/serverApi"
+import { Tooltip } from "./ui/tooltip"
 
 type Props = {
   source?: string
@@ -51,24 +52,21 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
   return (
     <Stack
       as="section"
-      direction="column"
-      p={4}
-      bg="secondaryBg"
+      direction="row"
+      align="center"
       layerStyle="themeTransition"
-      textStyle="footer"
-      borderRadius="md"
       aria-labelledby="newsletter-subscribe-heading"
       gap={2}
+      textStyle="footer"
     >
-      <VStack align="flex-start" gap={0}>
-        <Text fontSize="large" id="newsletter-subscribe-heading" fontWeight="semibold">
-          Subscribe to the newsletter
-        </Text>
-        <Text fontSize="sm">
-          About 2 emails per month: a reminder before the show, a summary after the show.
-          Unsubscribe anytime.
-        </Text>
-      </VStack>
+      <Tooltip
+        content="About 2 emails per month: a reminder before the show, a summary after the show.
+          Unsubscribe anytime."
+      >
+        <Box>
+          <Text id="newsletter-subscribe-heading">Newsletter</Text>
+        </Box>
+      </Tooltip>
 
       {successMessage ? (
         <Text>{successMessage}</Text>
@@ -88,6 +86,7 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
               {error && <Field.ErrorText>{error}</Field.ErrorText>}
             </Field.Root>
             <Button
+              size="sm"
               type="submit"
               colorScheme="action"
               loading={isSubmitting}
