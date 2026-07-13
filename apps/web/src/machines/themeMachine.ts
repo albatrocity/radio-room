@@ -20,13 +20,13 @@ export const themeMachine = setup({
       sessionStorage.setItem("theme", context.theme)
     },
     loadTheme: assign({
-      theme: () => sessionStorage.getItem("theme") || "default",
+      theme: () => sessionStorage.getItem("theme") || "dynamic",
     }),
   },
 }).createMachine({
   id: "theme",
   context: {
-    theme: "default",
+    theme: "dynamic",
   },
   entry: ["loadTheme"],
   on: {

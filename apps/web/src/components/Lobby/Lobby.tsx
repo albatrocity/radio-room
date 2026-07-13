@@ -93,9 +93,13 @@ function LobbyContent({ room }: { room: LobbyRoom | undefined }) {
   return (
     <Box colorPalette="action">
       {!room && isReady && (
-        <Text>
+        <Text color="colorPalette.subtle" textAlign="center">
           Listening Room is offline. The next show is {nextShowTime}. Check out the{" "}
-          <Link textDecoration="underline" href="https://archive.listeningroom.club">
+          <Link
+            textDecoration="underline"
+            color="colorPalette.emphasized"
+            href="https://archive.listeningroom.club"
+          >
             archive
           </Link>{" "}
           for past shows.

@@ -5,19 +5,17 @@ import {
   GridItem,
   Link as ChakraLink,
   Wrap,
-  HStack,
   Popover,
   IconButton,
-  Icon,
   Text,
   Stack,
 } from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
-import { LuPalette } from "react-icons/lu"
 
 import Layout from "./layout"
 import NewsletterSubscribeForm from "./NewsletterSubscribeForm"
 import FormTheme from "./FormTheme"
+import { Logo } from "./ui/logo"
 
 type Props = {
   children: React.ReactNode
@@ -25,7 +23,7 @@ type Props = {
 
 export default function PublicPageLayout({ children }: Props) {
   return (
-    <Layout fill>
+    <Layout fill dynamicFallbackToDefault>
       <Grid templateRows="1fr auto" h="100vh" bg="primary.solid" layerStyle="themeTransition">
         <GridItem>
           <Box as="main" p={4} flex={1} height="100%">
@@ -44,11 +42,11 @@ export default function PublicPageLayout({ children }: Props) {
                 <Popover.Trigger asChild>
                   <IconButton
                     aria-label="Theme"
-                    variant="ghost"
-                    size="sm"
+                    variant="plain"
+                    size="md"
                     color="colorPalette.solid"
                   >
-                    <Icon as={LuPalette} />
+                    <Logo primaryColor="actionBg" secondaryColor="actionBgDark" />
                   </IconButton>
                 </Popover.Trigger>
                 <Popover.Positioner>

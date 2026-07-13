@@ -90,7 +90,7 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
               />
               {error && <Field.ErrorText>{error}</Field.ErrorText>}
             </Field.Root>
-            <Button size="sm" type="submit" colorScheme="action" loading={isSubmitting}>
+            <Button size="sm" type="submit" variant="solid" loading={isSubmitting}>
               Subscribe
             </Button>
           </Stack>

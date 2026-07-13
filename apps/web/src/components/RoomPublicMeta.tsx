@@ -16,12 +16,12 @@ export default function RoomPublicMeta({ title, extraInfo, id, userCount = 0, no
   return (
     <VStack>
       <HStack gap={2}>
-        <Heading size="md" color="colorPalette.emphasized">
+        <Heading size="md" color="colorPalette.subtle">
           {title}
         </Heading>
-        <HStack gap={1} color="fg.muted">
-          <LuUsers size={14} color="colorPalette.emphasized" />
-          <Text color="colorPalette.emphasized" fontSize="sm">
+        <HStack gap={1} color="colorPalette.subtle">
+          <LuUsers size={14} />
+          <Text color="colorPalette.subtle" fontSize="sm">
             {userCount} {userCount === 1 ? "listener" : "listeners"}
           </Text>
         </HStack>
@@ -30,12 +30,12 @@ export default function RoomPublicMeta({ title, extraInfo, id, userCount = 0, no
 
       {/* Now Playing */}
       {nowPlaying && (
-        <Box p={2} bg="colorPalette.emphasized" borderRadius="md">
+        <Box p={2} bg="colorPalette.subtle" borderRadius="md">
           <TrackDisplay item={nowPlaying} />
         </Box>
       )}
 
-      <Button asChild borderColor="colorPalette.fg">
+      <Button asChild borderColor="colorPalette.focusRing">
         <Link to="/rooms/$roomId" params={{ roomId: id }}>
           Join
         </Link>
