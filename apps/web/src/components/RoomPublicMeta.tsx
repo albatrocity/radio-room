@@ -16,10 +16,12 @@ export default function RoomPublicMeta({ title, extraInfo, id, userCount = 0, no
   return (
     <VStack>
       <HStack gap={2}>
-        <Heading size="md">{title}</Heading>
+        <Heading size="md" color="colorPalette.emphasized">
+          {title}
+        </Heading>
         <HStack gap={1} color="fg.muted">
-          <LuUsers size={14} />
-          <Text fontSize="sm">
+          <LuUsers size={14} color="colorPalette.emphasized" />
+          <Text color="colorPalette.emphasized" fontSize="sm">
             {userCount} {userCount === 1 ? "listener" : "listeners"}
           </Text>
         </HStack>

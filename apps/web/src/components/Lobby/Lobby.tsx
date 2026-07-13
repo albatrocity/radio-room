@@ -60,10 +60,10 @@ export default function Lobby() {
               <RouterLink
                 to="/rooms/$roomId"
                 params={{ roomId: room?.id }}
-                style={{ display: "flex", height: "100%", maxWidth: "100%" }}
+                style={{ display: "flex", height: "100%", maxWidth: "100%", width: "100%" }}
               >
                 <Logo
-                  primaryColor="primary.solid"
+                  primaryColor="black"
                   secondaryColor="action.solid"
                   h="100%"
                   w="auto"
@@ -86,7 +86,7 @@ function LobbyContent({ room }: { room: LobbyRoom | undefined }) {
   const isReady = useIsLobbyReady()
 
   return (
-    <Box>
+    <Box colorPalette="action">
       {!room && isReady && (
         <Text>
           Listening Room is offline. The next show is {nextShowTime}. Check out the{" "}

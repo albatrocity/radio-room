@@ -51,8 +51,9 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
 
   return (
     <Stack
+      width="100%"
       as="section"
-      direction="row"
+      direction={{ base: "column", sm: "row" }}
       align="center"
       layerStyle="themeTransition"
       aria-labelledby="newsletter-subscribe-heading"
@@ -64,7 +65,9 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
           Unsubscribe anytime."
       >
         <Box>
-          <Text id="newsletter-subscribe-heading">Newsletter</Text>
+          <Text color="colorPalette.solid" id="newsletter-subscribe-heading">
+            Newsletter
+          </Text>
         </Box>
       </Tooltip>
 
@@ -72,8 +75,8 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
         <Text>{successMessage}</Text>
       ) : (
         <form onSubmit={handleSubmit}>
-          <Flex gap={3} direction={{ base: "column", sm: "row" }} align={{ sm: "flex-end" }}>
-            <Field.Root flex="1" invalid={!!error}>
+          <Stack gap={3} direction="row" align="center" justifyContent="center">
+            <Field.Root invalid={!!error}>
               <Input
                 type="email"
                 name="email"
@@ -82,19 +85,15 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
                 autoComplete="email"
                 placeholder="Email address"
                 required
+                borderColor="colorPalette.solid"
+                _placeholder={{ color: "colorPalette.emphasized" }}
               />
               {error && <Field.ErrorText>{error}</Field.ErrorText>}
             </Field.Root>
-            <Button
-              size="sm"
-              type="submit"
-              colorScheme="action"
-              loading={isSubmitting}
-              alignSelf={{ sm: "flex-end" }}
-            >
+            <Button size="sm" type="submit" colorScheme="action" loading={isSubmitting}>
               Subscribe
             </Button>
-          </Flex>
+          </Stack>
         </form>
       )}
     </Stack>

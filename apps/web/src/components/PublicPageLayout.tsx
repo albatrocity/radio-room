@@ -10,6 +10,7 @@ import {
   IconButton,
   Icon,
   Text,
+  Stack,
 } from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
 import { LuPalette } from "react-icons/lu"
@@ -25,25 +26,35 @@ type Props = {
 export default function PublicPageLayout({ children }: Props) {
   return (
     <Layout fill>
-      <Grid templateRows="1fr auto" h="100vh">
+      <Grid templateRows="1fr auto" h="100vh" bg="primary.solid" layerStyle="themeTransition">
         <GridItem>
           <Box as="main" p={4} flex={1} height="100%">
             {children}
           </Box>
         </GridItem>
-        <GridItem as="footer" textStyle="footer">
-          <HStack bg="secondaryBg" p={4} justify="space-between">
-            <Wrap gap={4} align="center">
+        <GridItem as="footer" textStyle="footer" colorPalette="action">
+          <Stack
+            bg="actionBgDark"
+            p={4}
+            direction={{ base: "column", sm: "row" }}
+            justify="space-between"
+          >
+            <Wrap width={{ base: "100%", md: "50%" }} gap={4} align="center">
               <Popover.Root lazyMount positioning={{ placement: "top-start" }}>
                 <Popover.Trigger asChild>
-                  <IconButton aria-label="Theme" variant="ghost" size="sm" colorPalette="action">
+                  <IconButton
+                    aria-label="Theme"
+                    variant="ghost"
+                    size="sm"
+                    color="colorPalette.solid"
+                  >
                     <Icon as={LuPalette} />
                   </IconButton>
                 </Popover.Trigger>
                 <Popover.Positioner>
                   <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }}>
                     <Popover.Header fontWeight="bold">
-                      <Text>Theme</Text>
+                      <Text color="colorPalette.solid">Theme</Text>
                     </Popover.Header>
                     <Popover.Arrow />
                     <Popover.Body>
@@ -66,8 +77,11 @@ export default function PublicPageLayout({ children }: Props) {
                 </ChakraLink>
               )}
             </Wrap>
-            <NewsletterSubscribeForm />
-          </HStack>
+
+            <Box>
+              <NewsletterSubscribeForm />
+            </Box>
+          </Stack>
         </GridItem>
       </Grid>
     </Layout>
