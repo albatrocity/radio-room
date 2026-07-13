@@ -135,8 +135,8 @@ export function createNewsletterRouter(): Router {
 export async function subscribeNewsletterHandler(req: Request, res: Response) {
   try {
     const { email, source } = req.body ?? {}
-    await newsletter.subscribe(email, source)
-    res.json({ ok: true })
+    const result = await newsletter.subscribe(email, source)
+    res.json({ ok: true, alreadySubscribed: result.alreadySubscribed })
   } catch (error) {
     handleNewsletterError(res, error)
   }

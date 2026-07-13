@@ -443,7 +443,10 @@ export async function listSubscribers(): Promise<NewsletterSubscribersSummary> {
   }
 }
 
-export async function subscribe(email: string, source?: string): Promise<void> {
+export async function subscribe(
+  email: string,
+  source?: string,
+): Promise<{ alreadySubscribed: boolean }> {
   const normalizedEmail = email.trim().toLowerCase()
   if (!normalizedEmail || !normalizedEmail.includes("@")) {
     throw new NewsletterBadRequestError("Valid email is required")
@@ -454,7 +457,7 @@ export async function subscribe(email: string, source?: string): Promise<void> {
   })
 
   if (existing?.status === "active" && existing.wantsEmail) {
-    return
+    return { alreadySubscribed: true }
   }
 
   if (existing) {
@@ -506,6 +509,8 @@ export async function subscribe(email: string, source?: string): Promise<void> {
       },
     }),
   )
+
+  return { alreadySubscribed: false }
 }
 
 export async function confirmSubscription(token: string, email: string): Promise<SubscriberDTO> {
