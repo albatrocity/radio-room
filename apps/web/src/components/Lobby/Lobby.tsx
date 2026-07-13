@@ -1,6 +1,6 @@
-import { useEffect, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { Box, Grid, GridItem, Text, Spinner, VStack, Link, Container } from "@chakra-ui/react"
-import { Link as RouterLink } from "@tanstack/react-router"
+import { Link as RouterLink, useNavigate } from "@tanstack/react-router"
 import {
   useLobbyRooms,
   useIsLobbyLoading,
@@ -8,11 +8,13 @@ import {
   useLobbySend,
   usePreferredMetadataSource,
 } from "../../hooks/useActors"
+import { useAnimationsEnabled } from "../../hooks/useReducedMotion"
 import { getNextShowTime } from "../../lib/dates"
 import { setCurrentArtworkUrl } from "../../hooks/useDynamicTheme"
 import { Logo } from "../ui/logo"
 import { LobbyRoom } from "../../machines/lobbyMachine"
 import RoomPublicMeta from "../RoomPublicMeta"
+import { runLogoEnterAnimation } from "../../animations/logoEnterAnimation"
 
 export default function Lobby() {
   const rooms = useLobbyRooms()
@@ -20,6 +22,11 @@ export default function Lobby() {
   const send = useLobbySend()
   const preferredSource = usePreferredMetadataSource()
   const room = rooms[0]
+  const navigate = useNavigate()
+  const animationsEnabled = useAnimationsEnabled()
+  const rootRef = useRef<HTMLDivElement>(null)
+  const logoRef = useRef<HTMLDivElement>(null)
+  const transitioningRef = useRef(false)
 
   const artworkUrl = useMemo(() => {
     if (!room?.nowPlaying) return undefined
@@ -44,8 +51,27 @@ export default function Lobby() {
     }
   }, [send])
 
+  const handleJoin = useCallback(
+    (roomId: string | undefined) => {
+      if (!roomId || transitioningRef.current) return
+
+      const navigateToRoom = () => {
+        void navigate({ to: "/rooms/$roomId", params: { roomId } })
+      }
+
+      if (!animationsEnabled || !logoRef.current || !rootRef.current) {
+        navigateToRoom()
+        return
+      }
+
+      transitioningRef.current = true
+      runLogoEnterAnimation(logoRef.current, rootRef.current, navigateToRoom)
+    },
+    [animationsEnabled, navigate],
+  )
+
   return (
-    <Container h="100%" maxW="xl">
+    <Container ref={rootRef} h="100%" maxW="xl">
       <Grid templateRows="1fr auto" gap={4} className="lobby-container" h="100%">
         <GridItem width="fit-content" flexGrow={1} h="100%" w="100%">
           <VStack h="100%" w="100%">
@@ -56,27 +82,50 @@ export default function Lobby() {
               display="flex"
               alignItems="center"
               justifyContent="center"
+              overflow="visible"
             >
-              <RouterLink
-                to="/rooms/$roomId"
-                params={{ roomId: room?.id }}
-                style={{
-                  display: "flex",
-                  height: "100%",
-                  maxWidth: "100%",
-                  textAlign: "center",
-                }}
-              >
-                <Logo
-                  primaryColor="black"
-                  secondaryColor="action.solid"
-                  h="100%"
-                  w="auto"
-                  artworkUrl={artworkUrl}
-                />
-              </RouterLink>
+              {room?.id ? (
+                <RouterLink
+                  to="/rooms/$roomId"
+                  params={{ roomId: room.id }}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleJoin(room.id)
+                  }}
+                  style={{
+                    display: "flex",
+                    height: "100%",
+                    maxWidth: "100%",
+                    textAlign: "center",
+                  }}
+                >
+                  <Box ref={logoRef} h="100%" display="flex" maxW="100%">
+                    <Logo
+                      primaryColor="black"
+                      secondaryColor="action.solid"
+                      h="100%"
+                      w="auto"
+                      artworkUrl={artworkUrl}
+                    />
+                  </Box>
+                </RouterLink>
+              ) : (
+                <Box ref={logoRef} h="100%" display="flex" maxW="100%">
+                  <Logo
+                    primaryColor="black"
+                    secondaryColor="action.solid"
+                    h="100%"
+                    w="auto"
+                    artworkUrl={artworkUrl}
+                  />
+                </Box>
+              )}
             </Box>
-            {isLoading ? <Spinner /> : <LobbyContent room={room} />}
+            {isLoading ? (
+              <Spinner />
+            ) : (
+              <LobbyContent room={room} onJoin={() => handleJoin(room?.id)} />
+            )}
           </VStack>
         </GridItem>
       </Grid>
@@ -84,7 +133,13 @@ export default function Lobby() {
   )
 }
 
-function LobbyContent({ room }: { room: LobbyRoom | undefined }) {
+function LobbyContent({
+  room,
+  onJoin,
+}: {
+  room: LobbyRoom | undefined
+  onJoin: () => void
+}) {
   const nextShowTime = useMemo(() => {
     return getNextShowTime(new Date())
   }, [])
@@ -105,7 +160,7 @@ function LobbyContent({ room }: { room: LobbyRoom | undefined }) {
           for past shows.
         </Text>
       )}
-      {room && <RoomPublicMeta {...room} />}
+      {room && <RoomPublicMeta {...room} onJoin={onJoin} />}
     </Box>
   )
 }

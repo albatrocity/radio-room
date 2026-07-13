@@ -10,9 +10,17 @@ type Props = Omit<Room, "password"> & {
   userCount?: number
   nowPlaying?: QueueItem | null
   creatorName?: string
+  onJoin?: () => void
 }
 
-export default function RoomPublicMeta({ title, extraInfo, id, userCount = 0, nowPlaying }: Props) {
+export default function RoomPublicMeta({
+  title,
+  extraInfo,
+  id,
+  userCount = 0,
+  nowPlaying,
+  onJoin,
+}: Props) {
   return (
     <VStack>
       <HStack gap={2}>
@@ -36,7 +44,18 @@ export default function RoomPublicMeta({ title, extraInfo, id, userCount = 0, no
       )}
 
       <Button asChild borderColor="colorPalette.focusRing">
-        <Link to="/rooms/$roomId" params={{ roomId: id }}>
+        <Link
+          to="/rooms/$roomId"
+          params={{ roomId: id }}
+          onClick={
+            onJoin
+              ? (e) => {
+                  e.preventDefault()
+                  onJoin()
+                }
+              : undefined
+          }
+        >
           Join
         </Link>
       </Button>
