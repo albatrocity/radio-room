@@ -79,14 +79,14 @@ const TrackDisplay = memo(function TrackDisplay({ item, size = "sm" }: Props) {
         )}
         <Stack direction="column" gap={0} flex={1} minW={0}>
           <LinkOverlay target="_blank" href={externalUrl}>
-            <Text fontWeight="medium" fontSize="sm" truncate>
+            <Text fontWeight="medium" fontSize="sm" truncate color="colorPalette.fg">
               {preferredTrack.title}
             </Text>
           </LinkOverlay>
           {preferredTrack.artists && preferredTrack.artists.length > 0 && (
-            <HStack color="fg.muted" fontSize="xs" separator={<StackSeparator />}>
+            <HStack fontSize="xs" separator={<StackSeparator />}>
               {preferredTrack.artists.map((a) => (
-                <Text key={a.id} as="span" truncate>
+                <Text key={a.id} as="span" truncate color="colorPalette.fg">
                   {a.title}
                 </Text>
               ))}
