@@ -15,11 +15,24 @@ const SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const
 const MIN_CONTRAST_RATIO = 4.5
 
 /**
- * Minimum contrast between subtle surface shades (100/900) and the app
- * surfaces they sit on (white / primary.900). Lower than WCAG text contrast;
- * just enough for a perceptible background tint.
+ * Minimum contrast for dark surface shades (800/900) vs primary.900.
+ * Light chrome (50/100) uses a milder target and leans on saturation instead,
+ * so Dynamic panels don't go muddy/dark.
  */
-export const SURFACE_MIN_CONTRAST = 1.25
+export const SURFACE_MIN_CONTRAST = 1.4
+
+/** Milder separation for light chrome tints on white — chroma does the heavy lifting. */
+const LIGHT_SURFACE_MIN_CONTRAST = 1.2
+
+/** Keep light surface shades visibly tinted (HSL saturation %). */
+const MIN_LIGHT_SURFACE_SATURATION = 55
+/** Shade 50 (colorPalette.contrast) gets a bit more chroma for chrome panels. */
+const MIN_CONTRAST_SURFACE_SATURATION = 62
+
+/** Cap lightness so light chrome stays a pastel tint, not muddy mid-gray. */
+const MAX_LIGHT_SURFACE_LIGHTNESS = 90
+/** Shade 50 stays higher-key than subtle (100). */
+const MAX_CONTRAST_SURFACE_LIGHTNESS = 94
 
 const WHITE: RGB = [255, 255, 255]
 
@@ -143,7 +156,7 @@ function getContrastRatio(color1: RGB, color2: RGB): number {
  */
 const LIGHTNESS_MAP: Record<number, number> = {
   50: 95,
-  100: 90,
+  100: 88,
   200: 80,
   300: 70,
   400: 60,
@@ -156,12 +169,13 @@ const LIGHTNESS_MAP: Record<number, number> = {
 
 /**
  * Saturation adjustments for each shade level.
- * Light shades are desaturated, dark shades are slightly more saturated.
+ * Light chrome shades stay more chromatic so Dynamic panels read like static themes
+ * (e.g. Grape secondary.50) rather than washed-out gray.
  */
 const SATURATION_ADJUSTMENTS: Record<number, number> = {
-  50: 0.3,
-  100: 0.5,
-  200: 0.7,
+  50: 0.65,
+  100: 0.65,
+  200: 0.75,
   300: 0.85,
   400: 0.95,
   500: 1.0,
@@ -223,46 +237,39 @@ function ensureContrast(color: RGB, reference: RGB, minRatio: number = MIN_CONTR
 }
 
 /**
- * Validate and adjust a palette to ensure proper contrast between key pairs:
- * - contrast (50/200) should have good contrast with solid (500/800)
+ * Validate and adjust a palette so solid fills stay readable against contrast text,
+ * without destroying light chrome shades (50/100) used as panel backgrounds.
+ *
+ * Chakra maps colorPalette.contrast → shade 50 in light mode (text on solid) AND
+ * we use shade 50 as light chrome (secondaryBg / colorPalette.contrast surfaces).
+ * So when 500 is too light for light-on-dark text, darken 500 — never shade 50/100.
  */
 export function validatePaletteContrast(palette: ColorHues): ColorHues {
   const solid = parseHex(palette[500])
   const contrast = parseHex(palette[50])
 
-  // Check if contrast shade has sufficient contrast with solid
-  const contrastRatio = getContrastRatio(contrast, solid)
-
-  if (contrastRatio < MIN_CONTRAST_RATIO) {
-    // Adjust the contrast color (50 shade) to ensure legibility
-    const adjustedContrast = ensureContrast(contrast, solid)
-    palette[50] = rgbToHex(adjustedContrast)
-
-    // Also adjust 100 shade if needed
-    const shade100 = parseHex(palette[100])
-    const adjustedShade100 = ensureContrast(shade100, solid)
-    palette[100] = rgbToHex(adjustedShade100)
+  if (getContrastRatio(contrast, solid) < MIN_CONTRAST_RATIO) {
+    // Darken solid against the light contrast shade (ref is light → ensureContrast darkens)
+    palette[500] = rgbToHex(ensureContrast(solid, contrast))
   }
 
-  // Also ensure dark mode contrast (200 vs 800)
+  // Dark mode: contrast text (200) on solid (800)
   const darkSolid = parseHex(palette[800])
   const darkContrast = parseHex(palette[200])
-  const darkContrastRatio = getContrastRatio(darkContrast, darkSolid)
-
-  if (darkContrastRatio < MIN_CONTRAST_RATIO) {
-    const adjustedDarkContrast = ensureContrast(darkContrast, darkSolid)
-    palette[200] = rgbToHex(adjustedDarkContrast)
+  if (getContrastRatio(darkContrast, darkSolid) < MIN_CONTRAST_RATIO) {
+    palette[800] = rgbToHex(ensureContrast(darkSolid, darkContrast))
   }
 
   return palette
 }
 
 /**
- * Ensure subtle surface shades (100 / 900) are distinguishable from the app
- * surfaces they sit on: white in light mode, and the given dark surface
- * (typically primary.900 / appBg) in dark mode.
+ * Ensure surface / chrome shades are distinguishable from the app surfaces they
+ * sit on:
+ * - Light: shade 50 (contrast) and 100 (subtle) vs white — prefer chroma over darkening
+ * - Dark: shade 800 (muted) and 900 (subtle) vs darkSurface (primary.900 / appBg)
  *
- * When skipDark is true, only shade 100 is adjusted (used for primary, which
+ * When skipDark is true, only light shades are adjusted (used for primary, which
  * *is* the dark reference surface).
  */
 export function ensureSurfaceContrast(
@@ -270,19 +277,42 @@ export function ensureSurfaceContrast(
   darkSurface: RGB,
   options: { skipDark?: boolean } = {},
 ): ColorHues {
-  const shade100 = parseHex(palette[100])
-  if (getContrastRatio(shade100, WHITE) < SURFACE_MIN_CONTRAST) {
-    palette[100] = rgbToHex(ensureContrast(shade100, WHITE, SURFACE_MIN_CONTRAST))
-  }
+  palette[50] = rgbToHex(
+    polishLightSurface(parseHex(palette[50]), {
+      maxLightness: MAX_CONTRAST_SURFACE_LIGHTNESS,
+      minSaturation: MIN_CONTRAST_SURFACE_SATURATION,
+    }),
+  )
+  palette[100] = rgbToHex(
+    polishLightSurface(parseHex(palette[100]), {
+      maxLightness: MAX_LIGHT_SURFACE_LIGHTNESS,
+      minSaturation: MIN_LIGHT_SURFACE_SATURATION,
+    }),
+  )
 
   if (!options.skipDark) {
-    const shade900 = parseHex(palette[900])
-    if (getContrastRatio(shade900, darkSurface) < SURFACE_MIN_CONTRAST) {
-      palette[900] = rgbToHex(ensureContrast(shade900, darkSurface, SURFACE_MIN_CONTRAST))
+    for (const shade of [800, 900] as const) {
+      const color = parseHex(palette[shade])
+      if (getContrastRatio(color, darkSurface) < SURFACE_MIN_CONTRAST) {
+        palette[shade] = rgbToHex(ensureContrast(color, darkSurface, SURFACE_MIN_CONTRAST))
+      }
     }
   }
 
   return palette
+}
+
+/**
+ * Light chrome visibility: force a high-key pastel. Do not darken for white
+ * contrast — that crushed Dynamic secondary.50 into olive panels that shared
+ * ChatInput's secondaryBg and killed placeholder contrast.
+ */
+function polishLightSurface(
+  color: RGB,
+  opts: { maxLightness: number; minSaturation: number },
+): RGB {
+  const [h, s] = rgbToHsl(color)
+  return hslToRgb([h, Math.max(s, opts.minSaturation), opts.maxLightness])
 }
 
 export interface DynamicPalette {
@@ -309,8 +339,8 @@ export function generateDynamicPalette(colors: RGB[]): DynamicPalette {
   // Capture the dark app surface (primary.900 / appBg) before mutating shades
   const darkSurface = parseHex(primary[900])
 
-  // Subtle backgrounds (shade 100/900) must stand out from white / primary.900.
-  // Primary only gets the light-surface check — it IS the dark reference.
+  // Surface/chrome shades (50/100 vs white, 800/900 vs primary.900) must read
+  // as visible tints. Primary only gets the light checks — it IS the dark ref.
   ensureSurfaceContrast(primary, darkSurface, { skipDark: true })
   ensureSurfaceContrast(secondary, darkSurface)
   ensureSurfaceContrast(action, darkSurface)
@@ -320,41 +350,76 @@ export function generateDynamicPalette(colors: RGB[]): DynamicPalette {
 
 /**
  * Assign colors to primary, secondary, and action roles.
- * - Primary: Most prominent/dominant color (used for backgrounds)
- * - Secondary: Neutral or muted color (used for UI elements)
- * - Action: Most vibrant color (used for interactive elements)
+ * - Action: Most vibrant color (interactive elements)
+ * - Primary: Next most vibrant (dominant / app surfaces)
+ * - Secondary: Chromatic chrome color — preferred candidate from artwork if
+ *   saturated enough, otherwise a hue-shifted derivation of primary. Never the
+ *   "least vibrant" swatch (that collapses Dynamic UI chrome to gray).
  */
 function getColorRoles(colors: RGB[]): [RGB, RGB, RGB] {
   if (colors.length === 0) {
-    // Fallback to neutral gray
     const neutral: RGB = [128, 128, 128]
     return [neutral, neutral, neutral]
   }
 
   if (colors.length === 1) {
-    return [colors[0], colors[0], colors[0]]
-  }
-
-  if (colors.length === 2) {
-    return [colors[0], colors[1], colors[0]]
+    const primary = colors[0]
+    return [primary, deriveSecondary(primary), primary]
   }
 
   // Score colors for vibrancy and use that to determine roles
   const scored = colors.map((color) => ({
     color,
     vibrancy: getVibrancy(color),
-    lightness: rgbToHsl(color)[2],
   }))
 
   // Sort by vibrancy descending
   scored.sort((a, b) => b.vibrancy - a.vibrancy)
 
-  // Most vibrant for action, medium for primary, least for secondary
   const action = scored[0].color
   const primary = scored.length > 1 ? scored[1].color : scored[0].color
-  const secondary = scored.length > 2 ? scored[2].color : desaturateColor(primary, 0.5)
+  const candidate = scored.length > 2 ? scored[2].color : undefined
+  const secondary = deriveSecondary(primary, candidate)
 
   return [primary, secondary, action]
+}
+
+/** Minimum HSL saturation so secondary chrome stays chromatic like static themes. */
+const MIN_SECONDARY_SATURATION = 35
+
+/**
+ * Build a secondary base color that stays visibly tinted.
+ * Uses an artwork candidate when it clears the saturation floor; otherwise
+ * hue-shifts primary (~30°) with a moderated but floored saturation.
+ */
+function deriveSecondary(primary: RGB, candidate?: RGB): RGB {
+  if (candidate) {
+    const [, candidateSat] = rgbToHsl(candidate)
+    if (candidateSat >= MIN_SECONDARY_SATURATION) {
+      return ensureMinSaturation(desaturateColor(candidate, 0.85), MIN_SECONDARY_SATURATION)
+    }
+  }
+
+  return shiftHue(primary, 30, 0.75, MIN_SECONDARY_SATURATION)
+}
+
+/**
+ * Rotate hue and apply a saturation multiplier with a floor.
+ */
+function shiftHue(color: RGB, degrees: number, satMult: number, minSat: number): RGB {
+  const [h, s, l] = rgbToHsl(color)
+  const newH = (h + degrees + 360) % 360
+  const newS = Math.max(minSat, Math.min(100, s * satMult))
+  return hslToRgb([newH, newS, l])
+}
+
+/**
+ * Raise saturation to at least minSat without changing hue or lightness.
+ */
+function ensureMinSaturation(color: RGB, minSat: number): RGB {
+  const [h, s, l] = rgbToHsl(color)
+  if (s >= minSat) return color
+  return hslToRgb([h, minSat, l])
 }
 
 /**

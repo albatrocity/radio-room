@@ -29,7 +29,6 @@ const MAX_FILE_SIZE = 4 * 1024 * 1024 // 4MB per image
 const MAX_FILES = 5
 
 const borderColor = "var(--chakra-colors-secondary-border, #ccc)"
-const inputBackground = "var(--chakra-colors-secondary-bg, #f5f5f5)"
 
 const isHeicFile = (file: File) =>
   file.type === "image/heic" ||
@@ -442,6 +441,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
               placeholder={
                 !isAuthenticated ? "" : !isAuthInitialized ? "Syncing session…" : "Say something..."
               }
+              _placeholder={{ color: "colorPalette.solid" }}
               w="100%"
               resize="none"
               minH="36px"
@@ -454,7 +454,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
               borderStyle="solid"
               borderColor={borderColor}
               borderRadius="4px"
-              bg={inputBackground}
+              bg={{ base: "colorPalette.contrast", _dark: "colorPalette.muted" }}
               css={{
                 fieldSizing: "content",
               }}

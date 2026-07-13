@@ -249,7 +249,7 @@ const config = defineConfig({
   },
   globalCss: {
     body: {
-      bg: { base: "white", _dark: "secondary.900" },
+      bg: { base: "white", _dark: "primary.900" },
     },
     button: {
       colorPalette: "action",
