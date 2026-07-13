@@ -66,16 +66,17 @@ export default function Lobby() {
   return (
     <Container h="100%" maxW="xl">
       <Grid templateRows="1fr auto" gap={4} className="lobby-container" h="100%">
-        <GridItem width="fit-content" flexGrow={1} h="100%" w="100%">
+        <GridItem flexGrow={1} h="100%" w="100%" minW={0}>
           <VStack h="100%" w="100%">
             <Box
               flex="1"
               minH={0}
+              minW={0}
               w="100%"
               display="flex"
               alignItems="center"
               justifyContent="center"
-              overflow="visible"
+              overflow="hidden"
             >
               {room?.id ? (
                 <RouterLink
@@ -87,28 +88,55 @@ export default function Lobby() {
                   }}
                   style={{
                     display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     height: "100%",
+                    width: "100%",
                     maxWidth: "100%",
+                    minWidth: 0,
+                    minHeight: 0,
                     textAlign: "center",
                   }}
                 >
-                  <Box className="room-hero-logo" h="100%" display="flex" maxW="100%">
+                  <Box
+                    className="room-hero-logo"
+                    h="100%"
+                    w="100%"
+                    maxW="100%"
+                    minW={0}
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                  >
                     <Logo
                       primaryColor="black"
                       secondaryColor="action.solid"
                       h="100%"
                       w="auto"
+                      maxH="100%"
+                      maxW="100%"
                       artworkUrl={artworkUrl}
                     />
                   </Box>
                 </RouterLink>
               ) : (
-                <Box className="room-hero-logo" h="100%" display="flex" maxW="100%">
+                <Box
+                  className="room-hero-logo"
+                  h="100%"
+                  w="100%"
+                  maxW="100%"
+                  minW={0}
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                >
                   <Logo
                     primaryColor="black"
                     secondaryColor="action.solid"
                     h="100%"
                     w="auto"
+                    maxH="100%"
+                    maxW="100%"
                     artworkUrl={artworkUrl}
                   />
                 </Box>
