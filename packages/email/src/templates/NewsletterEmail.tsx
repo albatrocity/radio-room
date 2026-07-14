@@ -5,6 +5,7 @@ import {
   Heading,
   Hr,
   Html,
+  Img,
   Link,
   Preview,
   Section,
@@ -21,12 +22,19 @@ export type NewsletterEmailProps = {
   subject: string
   bodyHtml: string
   unsubscribeUrl: string
+  /** Public CDN URL for the brand mark (PNG). When omitted, only the text title is shown. */
+  logoUrl?: string
 }
 
 const { colors, fonts, sizes, spacing, lineHeight, layout } = EMAIL_STYLES
 const light = colors.light
 
-export function NewsletterEmail({ subject, bodyHtml, unsubscribeUrl }: NewsletterEmailProps) {
+export function NewsletterEmail({
+  subject,
+  bodyHtml,
+  unsubscribeUrl,
+  logoUrl,
+}: NewsletterEmailProps) {
   return (
     <Html>
       <Head>
@@ -42,6 +50,15 @@ export function NewsletterEmail({ subject, bodyHtml, unsubscribeUrl }: Newslette
       <Preview>{subject}</Preview>
       <Body className="email-body" style={main}>
         <Container className="email-container" style={container}>
+          {logoUrl ? (
+            <Img
+              src={logoUrl}
+              width="48"
+              height="52"
+              alt="Listening Room"
+              style={logo}
+            />
+          ) : null}
           <Heading className="email-brand-heading" style={brandHeading}>
             Listening Room
           </Heading>
@@ -78,6 +95,11 @@ const container = {
   marginBottom: spacing.containerBottom,
   maxWidth: layout.maxWidth,
   borderRadius: layout.borderRadius,
+}
+
+const logo = {
+  display: "block",
+  margin: "0 0 12px",
 }
 
 const brandHeading = {
