@@ -52,7 +52,8 @@ export function NewsletterEmail({
           </Section>
           <Hr className="email-hr" style={hr} />
           <Text className="email-muted" style={footer}>
-            You are receiving this because you subscribed to Listening Room updates.{" "}
+            You are receiving this because you subscribed to{" "}
+            <Link href="https://listeningroom.club">Listening Room</Link> updates.{" "}
             <Link href={unsubscribeUrl} className="email-link" style={linkStyle}>
               Unsubscribe
             </Link>
