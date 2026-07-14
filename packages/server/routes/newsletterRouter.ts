@@ -3,6 +3,7 @@ import https from "https"
 import type { AppContext } from "@repo/types"
 import MessageValidator from "sns-validator"
 import * as newsletter from "../services/NewsletterService"
+import { createPresignedUpload } from "../services/AssetUploadService"
 import {
   NewsletterBadRequestError,
   NewsletterNotFoundError,
@@ -120,6 +121,15 @@ export function createNewsletterRouter(): Router {
   router.get("/subscribers", async (_req, res) => {
     try {
       res.json(await newsletter.listSubscribers())
+    } catch (error) {
+      handleNewsletterError(res, error)
+    }
+  })
+
+  router.post("/uploads/presign", async (req, res) => {
+    try {
+      const { filename, contentType } = req.body ?? {}
+      res.json(await createPresignedUpload({ filename, contentType }))
     } catch (error) {
       handleNewsletterError(res, error)
     }

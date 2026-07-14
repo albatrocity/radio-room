@@ -68,6 +68,15 @@ function getAppUrl(): string {
   return (process.env.APP_URL || "http://127.0.0.1:8000").replace(/\/$/, "")
 }
 
+/** Public CDN URL for the newsletter brand mark (PNG emailed via `<Img>`). */
+function getNewsletterLogoUrl(): string | undefined {
+  const explicit = process.env.NEWSLETTER_LOGO_URL?.trim()
+  if (explicit) return explicit
+  const cdn = process.env.ASSET_CDN_BASE_URL?.trim()?.replace(/\/$/, "")
+  if (cdn) return `${cdn}/assets/logo.png`
+  return undefined
+}
+
 let sesClient: SESv2Client | null = null
 function getSesClient(): SESv2Client {
   if (!sesClient) {
@@ -304,6 +313,7 @@ export async function previewIssue(
     subject: overrides?.subject ?? issue.subject,
     bodyMarkdown: overrides?.bodyMarkdown ?? issue.bodyMarkdown,
     unsubscribeUrl: `${getApiUrl()}/api/newsletter/unsubscribe?token=preview`,
+    logoUrl: getNewsletterLogoUrl(),
   })
 }
 
@@ -330,6 +340,7 @@ async function sendIssueToSubscribers(issueId: string): Promise<NewsletterIssueD
         subject: issue.subject,
         bodyMarkdown: issue.bodyMarkdown,
         unsubscribeUrl,
+        logoUrl: getNewsletterLogoUrl(),
       })
       await sendViaSes({
         to: recipient.email,

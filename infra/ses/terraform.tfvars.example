@@ -1,7 +1,7 @@
 # Copy to terraform.tfvars and fill in values (terraform.tfvars is gitignored).
 
 aws_region  = "us-east-1"
-aws_profile = "listening-room"
+aws_profile = "lr-prod"
 
 # Root domain hosted on Netlify DNS
 domain = "listeningroom.club"

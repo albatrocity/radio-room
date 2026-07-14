@@ -83,3 +83,14 @@ export interface NewsletterSubscribersSummary {
     unsubscribed: number
   }
 }
+
+export interface PresignNewsletterUploadRequest {
+  filename: string
+  contentType: string
+}
+
+export interface PresignNewsletterUploadResponse {
+  uploadUrl: string
+  publicUrl: string
+  key: string
+}
