@@ -34,7 +34,11 @@ export default function RoomPublicMeta({
           </Text>
         </HStack>
       </HStack>
-      {extraInfo && <ParsedEmojiMessage content={extraInfo} />}
+      {extraInfo && (
+        <Text color="colorPalette.contrast">
+          <ParsedEmojiMessage content={extraInfo} />
+        </Text>
+      )}
 
       {/* Now Playing */}
       {nowPlaying && (
