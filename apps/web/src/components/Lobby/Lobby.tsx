@@ -154,13 +154,7 @@ export default function Lobby() {
   )
 }
 
-function LobbyContent({
-  room,
-  onJoin,
-}: {
-  room: LobbyRoom | undefined
-  onJoin: () => void
-}) {
+function LobbyContent({ room, onJoin }: { room: LobbyRoom | undefined; onJoin: () => void }) {
   const nextShowTime = useMemo(() => {
     return getNextShowTime(new Date())
   }, [])
@@ -178,7 +172,20 @@ function LobbyContent({
           >
             archive
           </Link>{" "}
-          for past shows.
+          for past shows
+          {import.meta.env.VITE_VOICEMAIL_NUMBER && (
+            <>
+              , and{" "}
+              <Link
+                textDecoration="underline"
+                color="colorPalette.emphasized"
+                href={`tel:${import.meta.env.VITE_VOICEMAIL_NUMBER}`}
+              >
+                leave us a voicemail
+              </Link>
+            </>
+          )}
+          .
         </Text>
       )}
       {room && <RoomPublicMeta {...room} onJoin={onJoin} />}
