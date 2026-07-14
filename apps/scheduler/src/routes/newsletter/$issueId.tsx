@@ -18,6 +18,7 @@ import {
   useScheduleNewsletterIssue,
   useSendNewsletterIssue,
   useUpdateNewsletterIssue,
+  useUploadNewsletterImage,
 } from "../../hooks/useNewsletter"
 import { MarkdownEditor } from "../../components/publish/MarkdownEditor"
 import { NewsletterEmailPreview } from "../../components/newsletter/NewsletterEmailPreview"
@@ -42,6 +43,7 @@ function NewsletterComposerPage() {
   const schedule = useScheduleNewsletterIssue(issueId)
   const cancel = useCancelNewsletterIssue(issueId)
   const { data: subscribers } = useNewsletterSubscribers()
+  const uploadImages = useUploadNewsletterImage()
 
   useEffect(() => {
     if (!issue) return
@@ -173,6 +175,7 @@ function NewsletterComposerPage() {
                 variant="editor-only"
                 value={bodyMarkdown}
                 onChange={setBodyMarkdown}
+                uploadImages={uploadImages}
               />
             ) : (
               <Box flex="1" overflow="auto" p={4} borderWidth="1px" borderRadius="md">

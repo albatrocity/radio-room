@@ -10,6 +10,15 @@ type Props = {
 
 const PREVIEW_UNSUBSCRIBE_URL = "#unsubscribe-preview"
 
+function resolvePreviewLogoUrl(): string | undefined {
+  const cdn = (import.meta.env.VITE_ASSET_CDN_BASE_URL as string | undefined)?.trim()?.replace(
+    /\/$/,
+    "",
+  )
+  if (cdn) return `${cdn}/assets/logo.png`
+  return undefined
+}
+
 function useDebounced<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -25,6 +34,7 @@ export function NewsletterEmailPreview({ subject, bodyMarkdown }: Props) {
   const debouncedBody = useDebounced(bodyMarkdown, 300)
   const [html, setHtml] = useState("")
   const [isRendering, setIsRendering] = useState(true)
+  const logoUrl = resolvePreviewLogoUrl()
 
   useEffect(() => {
     let cancelled = false
@@ -36,6 +46,7 @@ export function NewsletterEmailPreview({ subject, bodyMarkdown }: Props) {
         subject: debouncedSubject,
         bodyHtml,
         unsubscribeUrl: PREVIEW_UNSUBSCRIBE_URL,
+        logoUrl,
       }),
     )
       .then((result) => {
@@ -54,7 +65,7 @@ export function NewsletterEmailPreview({ subject, bodyMarkdown }: Props) {
     return () => {
       cancelled = true
     }
-  }, [debouncedSubject, debouncedBody])
+  }, [debouncedSubject, debouncedBody, logoUrl])
 
   if (!html && isRendering) {
     return (

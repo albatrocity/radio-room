@@ -5,7 +5,7 @@ variable "aws_region" {
 }
 
 variable "aws_profile" {
-  description = "AWS CLI profile for SSO or credentials (e.g. listening-room). When null, uses the default credential chain (AWS_PROFILE env var, instance role, etc.)."
+  description = "AWS CLI profile for SSO or credentials (e.g. lr-prod). When null, uses the default credential chain (AWS_PROFILE env var, instance role, etc.)."
   type        = string
   default     = null
 }

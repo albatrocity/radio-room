@@ -1,0 +1,30 @@
+# Copy to terraform.tfvars and fill in values (terraform.tfvars is gitignored).
+
+aws_region  = "us-east-1"
+aws_profile = "lr-prod"
+
+# Root domain hosted on Netlify DNS
+domain = "listeningroom.club"
+
+# Creates cdn.listeningroom.club → CloudFront
+cdn_subdomain = "cdn"
+
+# Must be globally unique across AWS
+bucket_name = "listening-room-assets"
+
+# Existing IAM user from infra/ses (apply ses first)
+iam_user_name = "listening-room-newsletter-sender"
+
+# Origins allowed to PUT via browser presigned URLs
+cors_allowed_origins = [
+  "http://127.0.0.1:8001",
+  "http://localhost:8001",
+  # Add the production scheduler origin, e.g.:
+  # "https://scheduler.listeningroom.club",
+]
+
+# Netlify personal access token (or export NETLIFY_API_TOKEN / TF_VAR_netlify_api_token)
+# netlify_api_token = "nfp_..."
+
+# Optional: set if data source lookup by domain name does not work
+# netlify_dns_zone_id = "6600abcdef1234567890abcd"

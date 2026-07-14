@@ -22,9 +22,9 @@ Application code lives in `@repo/server` ([NewsletterService.ts](../../packages/
 
 1. **AWS member account** with SSO configured. Log in before running Terraform:
    ```bash
-   aws sso login --profile listening-room
+   aws sso login --profile lr-prod
    ```
-   Set `aws_profile = "listening-room"` in `terraform.tfvars` so apply always targets the dedicated account (not your personal one).
+   Set `aws_profile = "lr-prod"` in `terraform.tfvars` so apply always targets the dedicated account (not your personal one).
 2. **Netlify DNS** hosting the domain (personal access token: [Netlify user settings → Applications](https://app.netlify.com/user/applications)).
 3. **API deployed** with the newsletter webhook route live at `webhook_url` before `terraform apply` (SNS confirms the HTTPS subscription by POSTing to your app).
 4. **Terraform** 1.0+ or OpenTofu 1.0+.
@@ -37,7 +37,7 @@ cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars (domain, webhook_url, newsletter_from_address)
 
 export TF_VAR_netlify_api_token="nfp_..."   # or set in terraform.tfvars
-aws sso login --profile listening-room
+aws sso login --profile lr-prod
 terraform init
 terraform plan
 terraform apply
@@ -94,7 +94,7 @@ Removes AWS resources and the five Netlify DNS records managed by this module. D
 | `webhook_url` | yes | HTTPS SNS endpoint |
 | `netlify_api_token` | yes* | Netlify PAT (*or `NETLIFY_API_TOKEN` / `TF_VAR_netlify_api_token`) |
 | `aws_region` | no | Default `us-east-1` |
-| `aws_profile` | no | CLI profile name (e.g. `listening-room`); omit to use default credential chain |
+| `aws_profile` | no | CLI profile name (e.g. `lr-prod`); omit to use default credential chain |
 | `mail_from_subdomain` | no | Default `mail` |
 | `netlify_dns_zone_id` | no | Skip zone lookup if set |
 | `dmarc_policy` | no | `none` (default), `quarantine`, or `reject` |

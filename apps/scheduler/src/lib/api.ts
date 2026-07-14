@@ -21,6 +21,8 @@ import type {
   UpdateNewsletterIssueRequest,
   ScheduleNewsletterIssueRequest,
   NewsletterSubscribersSummary,
+  PresignNewsletterUploadRequest,
+  PresignNewsletterUploadResponse,
   PluginSchemaInfo,
   PluginSchemasResponse,
 } from "@repo/types"
@@ -301,4 +303,11 @@ export async function cancelNewsletterIssue(id: string): Promise<NewsletterIssue
 export async function fetchNewsletterSubscribers(): Promise<NewsletterSubscribersSummary> {
   const res = await api.get("api/newsletter/subscribers")
   return res.json<NewsletterSubscribersSummary>()
+}
+
+export async function presignNewsletterUpload(
+  body: PresignNewsletterUploadRequest,
+): Promise<PresignNewsletterUploadResponse> {
+  const res = await api.post("api/newsletter/uploads/presign", { json: body })
+  return res.json<PresignNewsletterUploadResponse>()
 }

@@ -28,6 +28,7 @@ export async function renderNewsletter(input: {
   subject: string
   bodyMarkdown: string
   unsubscribeUrl: string
+  logoUrl?: string
 }): Promise<string> {
   const bodyHtml = markdownToSanitizedHtml(input.bodyMarkdown)
   return render(
@@ -35,6 +36,7 @@ export async function renderNewsletter(input: {
       subject: input.subject,
       bodyHtml,
       unsubscribeUrl: input.unsubscribeUrl,
+      logoUrl: input.logoUrl,
     }),
   )
 }

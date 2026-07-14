@@ -28,7 +28,9 @@
     "node": ">=22.16.0"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.700.0",
     "@aws-sdk/client-sesv2": "^3.700.0",
+    "@aws-sdk/s3-request-presigner": "^3.700.0",
     "@repo/spotify-catalog": "*",
     "@repo/game-logic": "*",
     "@repo/auth": "*",
