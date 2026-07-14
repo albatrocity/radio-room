@@ -40,6 +40,8 @@ export interface LobbyRoomAdded {
   creator: string
   artwork?: string
   passwordRequired?: boolean
+  nowPlaying?: QueueItem | null
+  userCount?: number
 }
 
 export interface LobbyContext {
