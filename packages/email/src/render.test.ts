@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { markdownToSanitizedHtml, renderNewsletter } from "./render"
+import { markdownToSanitizedHtml, renderConfirmEmail, renderNewsletter } from "./render"
 
 describe("markdownToSanitizedHtml", () => {
   it("adds inline styles and email classes to headings and paragraphs", () => {
@@ -44,5 +44,18 @@ describe("renderNewsletter", () => {
 
     expect(html).not.toContain('alt="Listening Room"')
     expect(html).toContain("Listening Room")
+  })
+})
+
+describe("renderConfirmEmail", () => {
+  it("includes the CDN logo when logoUrl is provided", async () => {
+    const logoUrl = "https://cdn.example.com/assets/logo.png"
+    const html = await renderConfirmEmail({
+      confirmUrl: "https://example.com/confirm",
+      logoUrl,
+    })
+
+    expect(html).toContain(`src="${logoUrl}"`)
+    expect(html).toContain('alt="Listening Room"')
   })
 })

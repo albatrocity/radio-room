@@ -41,6 +41,9 @@ export async function renderNewsletter(input: {
   )
 }
 
-export async function renderConfirmEmail(input: { confirmUrl: string }): Promise<string> {
-  return render(ConfirmEmail({ confirmUrl: input.confirmUrl }))
+export async function renderConfirmEmail(input: {
+  confirmUrl: string
+  logoUrl?: string
+}): Promise<string> {
+  return render(ConfirmEmail({ confirmUrl: input.confirmUrl, logoUrl: input.logoUrl }))
 }
