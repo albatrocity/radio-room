@@ -55,7 +55,7 @@ export default function PublicPageLayout({ children }: Props) {
                     color="colorPalette.solid"
                   >
                     <Logo
-                      primaryColor={{ base: "black", _dark: "colorPalette.contrast" }}
+                      primaryColor={{ base: "colorPalette.solid", _dark: "colorPalette.contrast" }}
                       secondaryColor="actionBgDark"
                     />
                   </IconButton>
