@@ -74,6 +74,9 @@ export default function PublicPageLayout({ children }: Props) {
                   Contact
                 </ChakraLink>
               )}
+              <Text fontSize="xs" color="colorPalette.fg">
+                Branding by Collin Rausch
+              </Text>
             </Wrap>
 
             <Box>
