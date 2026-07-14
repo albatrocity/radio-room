@@ -163,11 +163,11 @@ function LobbyContent({ room, onJoin }: { room: LobbyRoom | undefined; onJoin: (
   return (
     <Box colorPalette="action">
       {!room && isReady && (
-        <Text color="colorPalette.subtle" textAlign="center">
+        <Text color="colorPalette.contrast" textAlign="center">
           Listening Room is offline. The next show is {nextShowTime}. Check out the{" "}
           <Link
             textDecoration="underline"
-            color="colorPalette.emphasized"
+            color="colorPalette.contrast"
             href="https://archive.listeningroom.club"
           >
             archive
@@ -178,7 +178,7 @@ function LobbyContent({ room, onJoin }: { room: LobbyRoom | undefined; onJoin: (
               , and{" "}
               <Link
                 textDecoration="underline"
-                color="colorPalette.emphasized"
+                color="colorPalette.contrast"
                 href={`tel:${import.meta.env.VITE_VOICEMAIL_NUMBER}`}
               >
                 leave us a voicemail
