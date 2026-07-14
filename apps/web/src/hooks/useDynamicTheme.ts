@@ -3,10 +3,13 @@
  *
  * Extracts colors from album artwork and applies them as CSS custom properties
  * when the "dynamic" theme is selected.
+ *
+ * Artwork URL is provided via a shared store so both Lobby and Room can drive
+ * color extraction.
  */
 
 import { useEffect, useRef, useSyncExternalStore } from "react"
-import { useCurrentTheme, useNowPlaying } from "./useActors"
+import { useCurrentTheme } from "./useActors"
 import { extractColors, getDistinctColors } from "../lib/colorExtractor"
 import { generateDynamicPalette, type DynamicPalette } from "../lib/paletteGenerator"
 import type { ColorHues } from "../types/AppTheme"
@@ -19,6 +22,37 @@ const SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const
 
 // Color categories
 const CATEGORIES = ["primary", "secondary", "action"] as const
+
+// ============================================================================
+// Shared Artwork URL Store
+// ============================================================================
+
+type ArtworkListener = () => void
+
+let currentArtworkUrl: string | null = null
+const artworkListeners = new Set<ArtworkListener>()
+
+export function setCurrentArtworkUrl(url: string | null): void {
+  if (url === currentArtworkUrl) return
+  currentArtworkUrl = url
+  artworkListeners.forEach((listener) => listener())
+}
+
+function subscribeArtwork(listener: ArtworkListener): () => void {
+  artworkListeners.add(listener)
+  return () => artworkListeners.delete(listener)
+}
+
+function getArtworkSnapshot(): string | null {
+  return currentArtworkUrl
+}
+
+/**
+ * Hook to access the current artwork URL used for dynamic theme extraction.
+ */
+export function useCurrentArtworkUrl(): string | null {
+  return useSyncExternalStore(subscribeArtwork, getArtworkSnapshot, getArtworkSnapshot)
+}
 
 // ============================================================================
 // Shared Palette Store
@@ -49,31 +83,6 @@ function getSnapshot(): DynamicPalette | null {
  */
 export function useDynamicPalette(): DynamicPalette | null {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
-}
-
-/**
- * Get the album artwork URL from the now playing track.
- */
-function getArtworkUrl(nowPlaying: ReturnType<typeof useNowPlaying>): string | null {
-  if (!nowPlaying) return null
-
-  const track = nowPlaying.track
-
-  if (!track?.album?.images?.length) return null
-
-  const firstImage = track.album.images[0]
-
-  // New adapter format has { type, url, id }
-  if (typeof firstImage === "object" && firstImage.url) {
-    return firstImage.url
-  }
-
-  // Old Spotify format has direct URL
-  if (typeof firstImage === "string") {
-    return firstImage
-  }
-
-  return null
 }
 
 /**
@@ -118,14 +127,12 @@ function clearPalette(): void {
  */
 export function useDynamicTheme(): void {
   const currentTheme = useCurrentTheme()
-  const nowPlaying = useNowPlaying()
+  const artworkUrl = useCurrentArtworkUrl()
   const lastArtworkRef = useRef<string | null>(null)
   const isDynamic = currentTheme === "dynamic"
 
   // Extract colors whenever artwork changes (for preview and active use)
   useEffect(() => {
-    const artworkUrl = getArtworkUrl(nowPlaying)
-
     // Skip if no artwork or same artwork as before
     if (!artworkUrl || artworkUrl === lastArtworkRef.current) {
       return
@@ -155,7 +162,7 @@ export function useDynamicTheme(): void {
         applyPalette(palette)
       }
     })
-  }, [nowPlaying, currentTheme])
+  }, [artworkUrl, currentTheme])
 
   // Apply/remove CSS variables when theme changes
   useEffect(() => {

@@ -31,6 +31,7 @@ import { setAvailableSources } from "../actors"
 import { MetadataSourceType } from "../types/Queue"
 import { useAnimationPreference } from "../hooks/useReducedMotion"
 import { useHybridListeningTransport } from "../hooks/useHybridListeningTransport"
+import { Logo } from "./ui/logo"
 
 type Props = {}
 
@@ -63,8 +64,11 @@ const PopoverPreferences = (props: Props) => {
   return (
     <Popover.Root lazyMount>
       <Popover.Trigger asChild>
-        <IconButton aria-label="Settings" variant="ghost" colorPalette="action">
-          <Icon as={LuSettings} />
+        <IconButton aria-label="Settings" variant="ghost" size="md">
+          <Logo
+            primaryColor={{ base: "black", _dark: "colorPalette.contrast" }}
+            secondaryColor={{ base: "action.solid", _dark: "primary.subtle" }}
+          />
         </IconButton>
       </Popover.Trigger>
       <Popover.Positioner>

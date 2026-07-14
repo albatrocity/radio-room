@@ -75,6 +75,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0067](0067-queue-split-reserved-segment.md) | Queue split for reserved lower segment (app-controlled) | Accepted |
 | [0068](0068-private-scoped-plugin-config-fields.md) | Private-scoped plugin config fields and shared schema-driven authoring | Accepted |
 | [0069](0069-playback-controller-volume-and-before-play-hook.md) | Playback Controller volume and beforePlayQueuedTrack hook | Accepted |
+| [0070](0070-route-transitions-via-view-transitions-api.md) | Route transitions via View Transitions API | Accepted |
 
 ## Creating a New ADR
 

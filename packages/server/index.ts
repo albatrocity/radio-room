@@ -324,7 +324,7 @@ export class RadioRoomServer {
     )
     const broadcasterRegistry = new BroadcasterRegistry()
     broadcasterRegistry.register(new RoomBroadcaster(this.io))
-    broadcasterRegistry.register(new LobbyBroadcaster(this.io))
+    broadcasterRegistry.register(new LobbyBroadcaster(this.io, this.context))
     console.log("BroadcasterRegistry initialized")
 
     // Initialize SystemEvents (unified event emission layer)

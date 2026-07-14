@@ -76,8 +76,7 @@ function Overview() {
   const configurablePlugins = schemas.filter((p) => p.configSchema)
 
   // Check if there are any plugin configs to export
-  const hasPluginConfigs =
-    settings.pluginConfigs && Object.keys(settings.pluginConfigs).length > 0
+  const hasPluginConfigs = settings.pluginConfigs && Object.keys(settings.pluginConfigs).length > 0
 
   const handleExportPreset = () => {
     const presetName = settings.title ? `${settings.title} Preset` : "Plugin Preset"
@@ -135,13 +134,12 @@ function Overview() {
     <Box>
       <DialogBody>
         <VStack align="left" gap={6}>
-          <VStack align="left" gap={2}>
+          <VStack align="left" gap={2} colorPalette="action">
             <Heading as="h4" size="sm" textAlign="left">
               Content & Auth
             </Heading>
             <VStack w="100%" align="left" gap="1px">
               <Button
-                colorPalette="action"
                 variant="subtle"
                 borderRadius="lg"
                 borderBottomRadius="none"
@@ -158,7 +156,6 @@ function Overview() {
                 </HStack>
               </Button>
               <Button
-                colorPalette="action"
                 variant="subtle"
                 borderRadius="none"
                 w="100%"
@@ -174,7 +171,6 @@ function Overview() {
                 </HStack>
               </Button>
               <Button
-                colorPalette="action"
                 variant="subtle"
                 borderRadius="none"
                 w="100%"
@@ -190,7 +186,6 @@ function Overview() {
                 </HStack>
               </Button>
               <Button
-                colorPalette="action"
                 variant="subtle"
                 borderRadius="none"
                 w="100%"
@@ -206,7 +201,6 @@ function Overview() {
                 </HStack>
               </Button>
               <Button
-                colorPalette="action"
                 variant="subtle"
                 borderRadius="none"
                 w="100%"
@@ -222,7 +216,6 @@ function Overview() {
                 </HStack>
               </Button>
               <Button
-                colorPalette="action"
                 variant="subtle"
                 borderRadius="none"
                 w="100%"
@@ -238,7 +231,6 @@ function Overview() {
                 </HStack>
               </Button>
               <Button
-                colorPalette="action"
                 variant="subtle"
                 borderRadius="lg"
                 borderTopRadius="none"
@@ -261,7 +253,7 @@ function Overview() {
             <Heading as="h4" size="sm" textAlign="left">
               Plugins
             </Heading>
-            <VStack w="100%" align="left" gap="1px">
+            <VStack w="100%" align="left" gap="1px" colorPalette="action">
               {isLoading ? (
                 <HStack py={2} px={4}>
                   <Spinner size="sm" />
@@ -274,7 +266,6 @@ function Overview() {
                 configurablePlugins.map((plugin, index) => (
                   <Button
                     key={plugin.name}
-                    colorPalette="action"
                     variant="subtle"
                     w="100%"
                     textAlign="left"
@@ -300,7 +291,7 @@ function Overview() {
             </VStack>
           </VStack>
 
-          <VStack align="left" gap={2}>
+          <VStack align="left" gap={2} colorPalette="action">
             <Heading as="h4" size="sm" textAlign="left">
               Presets
             </Heading>
@@ -310,7 +301,6 @@ function Overview() {
             </Text>
             <HStack w="100%" gap={2}>
               <Button
-                colorPalette="action"
                 variant="subtle"
                 borderRadius="lg"
                 flex={1}
@@ -320,13 +310,7 @@ function Overview() {
                 <LuDownload />
                 Export
               </Button>
-              <Button
-                colorPalette="action"
-                variant="subtle"
-                borderRadius="lg"
-                flex={1}
-                onClick={handleImportClick}
-              >
+              <Button variant="subtle" borderRadius="lg" flex={1} onClick={handleImportClick}>
                 <LuUpload />
                 Import
               </Button>

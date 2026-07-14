@@ -1,0 +1,67 @@
+/* Promote the lobby hero logo into its own transition group */
+.room-hero-logo {
+  view-transition-name: room-logo;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Match lobby (primary.solid) behind the scaling/fading room snapshot —
+     without this the default VT canvas shows white/body through */
+  ::view-transition {
+    background-color: var(--chakra-colors-primary-solid);
+  }
+
+  /* Rest of the lobby (root minus the logo) fades out fast */
+  ::view-transition-old(root) {
+    animation: rr-lobby-out 300ms ease-in both;
+  }
+
+  /* Room revealed underneath as the new snapshot: scales up and fades in */
+  ::view-transition-new(root) {
+    transform-origin: center center;
+    animation: rr-room-in 1000ms cubic-bezier(0.45, 0.02, 0.2, 1) both;
+  }
+
+  /* Logo zooms into its aperture and dissolves */
+  ::view-transition-group(room-logo) {
+    animation-duration: 700ms;
+  }
+
+  ::view-transition-old(room-logo) {
+    transform-origin: 36% 30%; /* logo aperture in the SVG viewBox */
+    animation: rr-logo-zoom 700ms cubic-bezier(0.6, 0, 0.9, 0.3) both;
+  }
+
+  ::view-transition-new(room-logo) {
+    display: none; /* room has no logo */
+  }
+}
+
+@keyframes rr-logo-zoom {
+  from {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+  to {
+    transform: scale(28);
+    opacity: 1;
+    filter: blur(1px);
+  }
+}
+
+@keyframes rr-lobby-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes rr-room-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

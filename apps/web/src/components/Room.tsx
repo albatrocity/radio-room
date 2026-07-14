@@ -19,7 +19,9 @@ import {
   useListeners,
   useModalsSend,
   useHasQueueItems,
+  useNowPlaying,
 } from "../hooks/useActors"
+import { setCurrentArtworkUrl } from "../hooks/useDynamicTheme"
 import { HybridListeningTransportProvider } from "../hooks/useHybridListeningTransport"
 
 const Room = ({ id }: { id: string }) => {
@@ -33,12 +35,25 @@ const Room = ({ id }: { id: string }) => {
   const listeners = useListeners()
   const playlistSend = usePlaylistSend()
   const modalSend = useModalsSend()
+  const nowPlaying = useNowPlaying()
 
   useEffect(() => {
     if (isNewUser && isAuthenticated) {
       modalSend({ type: "EDIT_USERNAME" })
     }
   }, [isNewUser, isAuthenticated, modalSend])
+
+  useEffect(() => {
+    const firstImage = nowPlaying?.track?.album?.images?.[0]
+    const url =
+      typeof firstImage === "object" && firstImage?.url
+        ? firstImage.url
+        : typeof firstImage === "string"
+        ? firstImage
+        : null
+    setCurrentArtworkUrl(url)
+    return () => setCurrentArtworkUrl(null)
+  }, [nowPlaying])
 
   return (
     <Box w="100%" h="100%" data-screen-effect-target="room">
@@ -48,58 +63,58 @@ const Room = ({ id }: { id: string }) => {
             h="100%"
             className="room"
             templateAreas={[
-            `"alert alert"
+              `"alert alert"
           "header header"
       "chat chat"
       "sidebar sidebar"`,
-            `
+              `
     "alert alert"
     "header header"
     "chat sidebar"
     `,
-            `
+              `
           "alert alert alert"
           "header chat sidebar"`,
-          ]}
-          gridTemplateRows={["auto auto 1fr", "auto auto 1fr auto", "auto 1fr"]}
-          gridTemplateColumns={[
-            "1fr auto",
-            "1fr auto",
-            `${xs} 1fr auto`,
-            `${md} 1fr auto`,
-            `${md} 1fr auto`,
-            `${xl} 1fr auto`,
-          ]}
-        >
-          <KeyboardShortcuts />
-          <GridItem area="alert">
-            <RoomError />
-          </GridItem>
-          <GridItem
-            area="header"
-            height={["auto", "100%"]}
-            minWidth={["none", "xs"]}
-            flexGrow={0}
-            flexShrink={1}
+            ]}
+            gridTemplateRows={["auto auto 1fr", "auto auto 1fr auto", "auto 1fr"]}
+            gridTemplateColumns={[
+              "1fr auto",
+              "1fr auto",
+              `${xs} 1fr auto`,
+              `${md} 1fr auto`,
+              `${md} 1fr auto`,
+              `${xl} 1fr auto`,
+            ]}
           >
-            <PlayerUi
-              onShowPlaylist={() => playlistSend({ type: "TOGGLE_PLAYLIST" })}
-              hasPlaylist={playlist.length > 0 || hasQueueItems}
-              listenerCount={listeners.length}
-            />
-          </GridItem>
+            <KeyboardShortcuts />
+            <GridItem area="alert">
+              <RoomError />
+            </GridItem>
+            <GridItem
+              area="header"
+              height={["auto", "100%"]}
+              minWidth={["none", "xs"]}
+              flexGrow={0}
+              flexShrink={1}
+            >
+              <PlayerUi
+                onShowPlaylist={() => playlistSend({ type: "TOGGLE_PLAYLIST" })}
+                hasPlaylist={playlist.length > 0 || hasQueueItems}
+                listenerCount={listeners.length}
+              />
+            </GridItem>
 
-          <GridItem area="chat" minHeight={0}>
-            {currentUser && <Chat />}
-          </GridItem>
-          <GridItem area="sidebar" h="100%" minH={0} overflow="hidden">
-            {currentUser && (
-              <Box hideBelow="sm" h="100%">
-                <Sidebar />
-              </Box>
-            )}
-          </GridItem>
-        </Grid>
+            <GridItem area="chat" minHeight={0}>
+              {currentUser && <Chat />}
+            </GridItem>
+            <GridItem area="sidebar" h="100%" minH={0} overflow="hidden">
+              {currentUser && (
+                <Box hideBelow="sm" h="100%" colorPalette="action">
+                  <Sidebar />
+                </Box>
+              )}
+            </GridItem>
+          </Grid>
 
           <Overlays />
         </GameStateNewPluginTabsProvider>

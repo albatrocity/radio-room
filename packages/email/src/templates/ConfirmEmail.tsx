@@ -5,6 +5,7 @@ import {
   Head,
   Heading,
   Html,
+  Img,
   Preview,
   Section,
   Text,
@@ -13,15 +14,20 @@ import * as React from "react"
 
 export type ConfirmEmailProps = {
   confirmUrl: string
+  /** Public CDN URL for the brand mark (PNG). When omitted, only the heading is shown. */
+  logoUrl?: string
 }
 
-export function ConfirmEmail({ confirmUrl }: ConfirmEmailProps) {
+export function ConfirmEmail({ confirmUrl, logoUrl }: ConfirmEmailProps) {
   return (
     <Html>
       <Head />
       <Preview>Confirm your Listening Room newsletter subscription</Preview>
       <Body style={main}>
         <Container style={container}>
+          {logoUrl ? (
+            <Img src={logoUrl} width="48" height="52" alt="Listening Room" style={logo} />
+          ) : null}
           <Heading style={heading}>Confirm your subscription</Heading>
           <Text style={text}>
             Thanks for signing up for Listening Room updates. Click the button below to confirm your
@@ -54,6 +60,11 @@ const container = {
   marginBottom: "64px",
   maxWidth: "600px",
   borderRadius: "8px",
+}
+
+const logo = {
+  display: "block",
+  margin: "0 0 12px",
 }
 
 const heading = {

@@ -12,7 +12,7 @@ import type { Broadcaster } from "./Broadcaster"
  * ```typescript
  * const registry = new BroadcasterRegistry()
  * registry.register(new RoomBroadcaster(io))
- * registry.register(new LobbyBroadcaster(io))
+ * registry.register(new LobbyBroadcaster(io, context))
  *
  * // Later, in SystemEvents:
  * registry.broadcast(roomId, "TRACK_CHANGED", data)

@@ -31,7 +31,8 @@ const Sidebar = () => {
       minW={"250px"}
       h="100%"
       className="sidebar"
-      background="secondaryBg"
+      colorPalette="secondary"
+      bg={{ base: "colorPalette.contrast", _dark: "colorPalette.muted" }}
       layerStyle="themeTransition"
       borderLeftWidth={1}
       borderLeftColor="secondaryBorder"

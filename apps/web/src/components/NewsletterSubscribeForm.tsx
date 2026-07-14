@@ -3,6 +3,7 @@ import { Box, Button, Field, Flex, Input, Stack, Text, VStack } from "@chakra-ui
 import { HTTPError } from "ky"
 
 import { subscribeNewsletter } from "../lib/serverApi"
+import { Tooltip } from "./ui/tooltip"
 
 type Props = {
   source?: string
@@ -50,32 +51,32 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
 
   return (
     <Stack
+      width="100%"
       as="section"
-      direction="column"
-      p={4}
-      bg="secondaryBg"
+      direction={{ base: "column", sm: "row" }}
+      align="center"
       layerStyle="themeTransition"
-      textStyle="footer"
-      borderRadius="md"
       aria-labelledby="newsletter-subscribe-heading"
       gap={2}
+      textStyle="footer"
     >
-      <VStack align="flex-start" gap={0}>
-        <Text fontSize="large" id="newsletter-subscribe-heading" fontWeight="semibold">
-          Subscribe to the newsletter
-        </Text>
-        <Text fontSize="sm">
-          About 2 emails per month: a reminder before the show, a summary after the show.
-          Unsubscribe anytime.
-        </Text>
-      </VStack>
+      <Tooltip
+        content="About 2 emails per month: a reminder before the show, a summary after the show.
+          Unsubscribe anytime."
+      >
+        <Box>
+          <Text color="colorPalette.solid" id="newsletter-subscribe-heading">
+            Newsletter
+          </Text>
+        </Box>
+      </Tooltip>
 
       {successMessage ? (
         <Text>{successMessage}</Text>
       ) : (
         <form onSubmit={handleSubmit}>
-          <Flex gap={3} direction={{ base: "column", sm: "row" }} align={{ sm: "flex-end" }}>
-            <Field.Root flex="1" invalid={!!error}>
+          <Stack gap={3} direction="row" align="center" justifyContent="center">
+            <Field.Root invalid={!!error}>
               <Input
                 type="email"
                 name="email"
@@ -84,18 +85,15 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
                 autoComplete="email"
                 placeholder="Email address"
                 required
+                borderColor="colorPalette.solid"
+                _placeholder={{ color: "colorPalette.emphasized" }}
               />
               {error && <Field.ErrorText>{error}</Field.ErrorText>}
             </Field.Root>
-            <Button
-              type="submit"
-              colorScheme="action"
-              loading={isSubmitting}
-              alignSelf={{ sm: "flex-end" }}
-            >
+            <Button size="sm" type="submit" variant="solid" loading={isSubmitting}>
               Subscribe
             </Button>
-          </Flex>
+          </Stack>
         </form>
       )}
     </Stack>

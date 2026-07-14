@@ -503,7 +503,10 @@ export async function subscribe(
   })
 
   const confirmUrl = `${getApiUrl()}/api/newsletter/confirm?token=${encodeURIComponent(token)}&email=${encodeURIComponent(normalizedEmail)}`
-  const html = await renderConfirmEmail({ confirmUrl })
+  const html = await renderConfirmEmail({
+    confirmUrl,
+    logoUrl: getNewsletterLogoUrl(),
+  })
   const client = getSesClient()
   await client.send(
     new SendEmailCommand({
