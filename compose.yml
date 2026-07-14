@@ -22,6 +22,8 @@ services:
       - CHOKIDAR_USEPOLLING=true
       # Use 127.0.0.1 (loopback) instead of localhost per Spotify's requirements
       - VITE_API_URL=${VITE_API_URL:-http://127.0.0.1:3000}
+      - VITE_VOICEMAIL_NUMBER=${VITE_VOICEMAIL_NUMBER:-}
+      - VITE_CONTACT_EMAIL=${VITE_CONTACT_EMAIL:-}
       # Internal Docker network URL for Vite proxy (server-side)
       - API_INTERNAL_URL=http://api:3000
     restart: unless-stopped
