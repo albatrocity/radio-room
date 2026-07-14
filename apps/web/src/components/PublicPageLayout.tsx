@@ -1,27 +1,35 @@
 import React from "react"
 import {
   Box,
+  Flex,
   Grid,
   GridItem,
+  HStack,
+  Icon,
   Link as ChakraLink,
   Wrap,
   Popover,
   IconButton,
   Text,
   Stack,
+  Switch,
 } from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
+import { LuMoon } from "react-icons/lu"
 
 import Layout from "./layout"
 import NewsletterSubscribeForm from "./NewsletterSubscribeForm"
 import FormTheme from "./FormTheme"
 import { Logo } from "./ui/logo"
+import { useColorMode } from "./ui/color-mode"
 
 type Props = {
   children: React.ReactNode
 }
 
 export default function PublicPageLayout({ children }: Props) {
+  const { colorMode, toggleColorMode } = useColorMode()
+
   return (
     <Layout fill dynamicFallbackToDefault>
       <Grid templateRows="1fr auto" h="100vh" bg="primary.solid" layerStyle="themeTransition">
@@ -46,13 +54,37 @@ export default function PublicPageLayout({ children }: Props) {
                     size="md"
                     color="colorPalette.solid"
                   >
-                    <Logo primaryColor="actionBg" secondaryColor="actionBgDark" />
+                    <Logo
+                      primaryColor={{ base: "black", _dark: "colorPalette.contrast" }}
+                      secondaryColor="actionBgDark"
+                    />
                   </IconButton>
                 </Popover.Trigger>
                 <Popover.Positioner>
-                  <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }}>
+                  <Popover.Content colorPalette="action" css={{ "--popover-bg": "{colors.appBg}" }}>
                     <Popover.Header fontWeight="bold">
-                      <Text color="colorPalette.solid">Theme</Text>
+                      <HStack align="center">
+                        <Flex grow={1}>
+                          <Text
+                            color={{ base: "colorPalette.solid", _dark: "colorPalette.contrast" }}
+                          >
+                            Theme
+                          </Text>
+                        </Flex>
+                        <HStack align="center">
+                          <Icon as={LuMoon} aria-label="Dark Mode" />
+                          <Switch.Root
+                            id="publicDarkMode"
+                            onCheckedChange={toggleColorMode}
+                            checked={colorMode === "dark"}
+                          >
+                            <Switch.HiddenInput />
+                            <Switch.Control>
+                              <Switch.Thumb />
+                            </Switch.Control>
+                          </Switch.Root>
+                        </HStack>
+                      </HStack>
                     </Popover.Header>
                     <Popover.Arrow />
                     <Popover.Body>
