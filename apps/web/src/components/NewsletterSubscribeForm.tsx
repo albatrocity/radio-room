@@ -65,7 +65,11 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
           Unsubscribe anytime."
       >
         <Box>
-          <Text color="colorPalette.solid" id="newsletter-subscribe-heading">
+          <Text
+            color={{ base: "colorPalette.solid", _dark: "colorPalette.contrast" }}
+            id="newsletter-subscribe-heading"
+            cursor="help"
+          >
             Newsletter
           </Text>
         </Box>
@@ -85,13 +89,19 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
                 autoComplete="email"
                 placeholder="Email address"
                 required
-                borderColor="colorPalette.solid"
+                borderColor={{ base: "colorPalette.solid", _dark: "colorPalette.subtle" }}
                 color="colorPalette.contrast"
                 _placeholder={{ color: "colorPalette.emphasized" }}
               />
               {error && <Field.ErrorText>{error}</Field.ErrorText>}
             </Field.Root>
-            <Button size="sm" type="submit" variant="solid" loading={isSubmitting}>
+            <Button
+              size="sm"
+              type="submit"
+              variant={{ base: "solid", _dark: "surface" }}
+              loading={isSubmitting}
+              color={{ base: "actionBgDark", _dark: "colorPalette.contrast" }}
+            >
               Subscribe
             </Button>
           </Stack>
