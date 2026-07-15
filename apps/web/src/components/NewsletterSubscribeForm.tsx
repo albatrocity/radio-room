@@ -59,6 +59,7 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
       aria-labelledby="newsletter-subscribe-heading"
       gap={2}
       textStyle="footer"
+      justifyContent="center"
     >
       <Tooltip
         content="About 2 emails per month: a reminder before the show, a summary after the show.
@@ -76,7 +77,9 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
       </Tooltip>
 
       {successMessage ? (
-        <Text>{successMessage}</Text>
+        <Text fontSize="xs" color={{ base: "colorPalette.solid", _dark: "colorPalette.contrast" }}>
+          {successMessage}
+        </Text>
       ) : (
         <form onSubmit={handleSubmit}>
           <Stack gap={3} direction="row" align="center" justifyContent="center">

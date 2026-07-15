@@ -44,6 +44,7 @@ export default function PublicPageLayout({ children }: Props) {
             p={4}
             direction={{ base: "column", sm: "row" }}
             justify="space-between"
+            align="center"
           >
             <Wrap width={{ base: "100%", md: "50%" }} gap={4} align="center">
               <Popover.Root lazyMount positioning={{ placement: "top-start" }}>
