@@ -86,6 +86,7 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
                 placeholder="Email address"
                 required
                 borderColor="colorPalette.solid"
+                color="colorPalette.contrast"
                 _placeholder={{ color: "colorPalette.emphasized" }}
               />
               {error && <Field.ErrorText>{error}</Field.ErrorText>}
