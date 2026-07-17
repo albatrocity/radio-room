@@ -112,19 +112,29 @@ export function createSpotifyAuthRoutes(context: AppContext) {
     res.clearCookie(stateKey)
 
     try {
-      // Exchange code for tokens
-      const tokenResponse = await fetch("https://accounts.spotify.com/api/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: "Basic " + Buffer.from(clientId + ":" + clientSecret).toString("base64"),
-        },
-        body: new URLSearchParams({
-          code,
-          redirect_uri: redirectUri,
-          grant_type: "authorization_code",
-        }),
-      })
+      // Exchange code for tokens. Spotify occasionally returns 5xx
+      // (temporarily_unavailable) during incidents; the code is not consumed
+      // in that case, so retry with a short backoff before giving up.
+      let tokenResponse!: globalThis.Response
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        tokenResponse = await fetch("https://accounts.spotify.com/api/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: "Basic " + Buffer.from(clientId + ":" + clientSecret).toString("base64"),
+          },
+          body: new URLSearchParams({
+            code,
+            redirect_uri: redirectUri,
+            grant_type: "authorization_code",
+          }),
+        })
+        if (tokenResponse.status < 500 || attempt === 3) break
+        console.warn(
+          `[Spotify Auth] Token exchange returned ${tokenResponse.status}, retrying (attempt ${attempt}/3)`,
+        )
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1000))
+      }
 
       const tokenData = (await tokenResponse.json()) as {
         access_token?: string
