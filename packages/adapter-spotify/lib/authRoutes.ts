@@ -127,13 +127,40 @@ export function createSpotifyAuthRoutes(context: AppContext) {
       })
 
       const tokenData = (await tokenResponse.json()) as {
+        access_token?: string
+        refresh_token?: string
+        expires_in?: number
+        token_type?: string
+        scope?: string
+        error?: string
+        error_description?: string
+      }
+
+      if (!tokenResponse.ok || !tokenData.access_token) {
+        // Spotify returns e.g. { error: "invalid_grant" } with a 400 when the
+        // code was already used (double callback) or redirect_uri mismatches.
+        console.error(
+          "[Spotify Auth] Token exchange failed:",
+          tokenResponse.status,
+          tokenData.error,
+          tokenData.error_description,
+        )
+        const appUrl = process.env.APP_URL || ""
+        res.redirect(
+          `${appUrl}${redirect ?? "/"}?` +
+            querystring.stringify({
+              error: `spotify_${tokenData.error ?? "token_exchange_failed"}`,
+              message: tokenData.error_description ?? "Spotify authentication failed. Please try again.",
+            }),
+        )
+        return
+      }
+
+      const { access_token, refresh_token, expires_in } = tokenData as {
         access_token: string
         refresh_token: string
         expires_in: number
-        token_type: string
-        scope: string
       }
-      const { access_token, refresh_token, expires_in } = tokenData
 
       // Get user info from Spotify
       const spotifyApi = SpotifyApi.withAccessToken(clientId, {
