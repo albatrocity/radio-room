@@ -13,7 +13,6 @@ import {
 } from "@repo/types"
 import { Server } from "socket.io"
 import { getRoomPath } from "../getRoomPath"
-
 /**
  * Implementation of the Plugin API
  * Provides safe, high-level methods for plugins to interact with the system

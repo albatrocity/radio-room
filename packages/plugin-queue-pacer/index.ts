@@ -61,6 +61,8 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
   static readonly defaultConfig = defaultQueuePacerConfig
 
   private state: QueuePacerState = { ...defaultQueuePacerState }
+  /** Track id currently being skipped; blocks re-arm until TRACK_CHANGED. */
+  private skipInFlightTrackId: string | null = null
 
   getConfigSchema(): PluginConfigSchema {
     return getConfigSchema()
@@ -244,6 +246,13 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
     }
 
     const trackId = nowPlaying.mediaSource.trackId
+    if (this.skipInFlightTrackId === trackId) {
+      console.log(
+        `[${this.name}] armCurrentTrack: skip in flight for ${trackId}, ignoring re-arm`,
+      )
+      return
+    }
+
     console.log(`[${this.name}] armCurrentTrack: arming track`, {
       trackId,
       metadataTrackId: nowPlaying.track.id,
@@ -259,6 +268,7 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
     }
 
     this.clearTimer(`track:${this.state.currentTrackId}`)
+    this.clearTimer(`track:${trackId}`)
     this.state.currentTrackId = trackId
     this.state.currentDeadline = deadline
 
@@ -306,6 +316,11 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
       return
     }
 
+    if (this.skipInFlightTrackId === trackId) {
+      console.log(`[${this.name}] Skip already in flight for ${trackId}, ignoring duplicate timer`)
+      return
+    }
+
     const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
     const nowPlayingMediaTrackId = nowPlaying?.mediaSource?.trackId
     console.log(`[${this.name}] handleTimerFire: nowPlaying check`, {
@@ -340,11 +355,17 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
     }
 
     console.log(`[${this.name}] Skipping track ${trackId}`)
+
+    // Block QUEUE_CHANGED re-arm / duplicate timer fires while nowPlaying metadata lags.
+    this.skipInFlightTrackId = trackId
+    this.clearTimer(`track:${trackId}`)
+
     try {
       await this.context!.api.skipTrack(this.context!.roomId, trackId)
       console.log(`[${this.name}] skipTrack call completed`)
     } catch (err) {
       console.error(`[${this.name}] skipTrack error:`, err)
+      this.skipInFlightTrackId = null
     }
 
     await this.context!.api.emit("TRACK_SKIPPED", {
@@ -360,6 +381,7 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
     const config = await this.getConfig()
     if (!isActive(config)) return
 
+    this.skipInFlightTrackId = null
     this.state.currentTrackSkipCanceled = false
     this.state.isPaused = false
     this.state.pausedRemainingMs = null
@@ -543,6 +565,7 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
     console.log(`[${this.name}] Deactivated for room ${this.context!.roomId}`)
 
     this.clearAllTimers()
+    this.skipInFlightTrackId = null
     this.state = { ...defaultQueuePacerState }
     await this.persistState()
 

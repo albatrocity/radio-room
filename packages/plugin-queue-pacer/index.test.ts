@@ -545,6 +545,82 @@ describe("QueuePacerPlugin", () => {
       expect(mockContext.api.emit).toHaveBeenCalledWith("TRACK_SKIPPED", expect.any(Object))
     })
 
+    test("does not double-skip when QUEUE_CHANGED re-enters while nowPlaying is still the skipped track", async () => {
+      // Mirrors PluginAPI.skipTrack: QUEUE_CHANGED is emitted after popping the next
+      // track, but Redis nowPlaying still shows the skipped track until TRACK_CHANGED.
+      const track1Start = Date.now() - 120_000
+      const track1 = createMockQueueItem("track1", track1Start, 180_000)
+      const track2 = createMockQueueItem("track2")
+      const track3 = createMockQueueItem("track3")
+
+      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(track1)
+      vi.mocked(mockContext.api.getQueue).mockResolvedValue([track2, track3])
+
+      vi.mocked(mockContext.api.skipTrack).mockImplementation(async () => {
+        vi.mocked(mockContext.api.getQueue).mockResolvedValue([track3])
+        const queueHandlers = (mockContext as any)._lifecycleHandlers.get("QUEUE_CHANGED")
+        await queueHandlers[0]({
+          roomId: "test-room",
+          queue: [track3],
+        })
+        // nowPlaying intentionally remains track1 (stale metadata lag)
+      })
+
+      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
+      await handlers[0]({
+        roomId: "test-room",
+        pluginName: "queue-pacer",
+        config: enabledConfig,
+        previousConfig: { enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true },
+      })
+
+      // With the in-flight guard, QUEUE_CHANGED during skip must not schedule another timer,
+      // so runAllTimersAsync completes after the single skip.
+      await vi.runAllTimersAsync()
+
+      expect(mockContext.api.skipTrack).toHaveBeenCalledTimes(1)
+      expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
+
+      // Advance past MIN_TIMER_MS — must not re-skip track1 while nowPlaying is stale
+      await vi.advanceTimersByTimeAsync(6_000)
+
+      const skipCalls = vi.mocked(mockContext.api.skipTrack).mock.calls.map((c) => c[1])
+
+      expect(skipCalls.filter((id) => id === "track1").length).toBe(1)
+      expect(mockContext.api.skipTrack).toHaveBeenCalledTimes(1)
+
+      // TRACK_CHANGED for the dispatched next track should clear the guard and arm track2
+      const track2Playing = createMockQueueItem("track2", Date.now(), 180_000)
+      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(track2Playing)
+      vi.mocked(mockContext.api.getQueue).mockResolvedValue([track3])
+      const trackHandlers = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")
+      await trackHandlers[0]({
+        roomId: "test-room",
+        track: track2Playing,
+      })
+
+      expect(mockContext.api.emit).toHaveBeenCalledWith(
+        "WINDOW_RECOMPUTED",
+        expect.objectContaining({ currentTrackId: "track2" }),
+      )
+    })
+
+    test("ignores duplicate timer fire while skip is in flight", async () => {
+      const track1 = createMockQueueItem("track1", Date.now(), 180_000)
+      const track2 = createMockQueueItem("track2")
+
+      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(track1)
+      vi.mocked(mockContext.api.getQueue).mockResolvedValue([track2])
+      vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
+
+      await plugin.register(mockContext)
+      ;(plugin as any).skipInFlightTrackId = "track1"
+
+      await (plugin as any).handleTimerFire("track1")
+
+      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+    })
+
     test("does not skip last track (emits LET_IT_FINISH)", async () => {
       vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([]) // Empty queue - last track
