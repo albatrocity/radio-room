@@ -161,6 +161,22 @@ export class AdapterService {
         },
       },
       ...lifecycle,
+      // Prefer the bridge Web Playback SDK device when the daemon has advertised one
+      // Key shape matches spotifyDeviceKey() in @repo/adapter-bridge/protocol
+      getPreferredDeviceId:
+        serviceName === "spotify"
+          ? async () => {
+              try {
+                return (
+                  (await this.context.redis.pubClient.get(
+                    `bridge:${roomId}:spotify_device`,
+                  )) ?? null
+                )
+              } catch {
+                return null
+              }
+            }
+          : undefined,
     })
 
     if (serviceName === room.playbackControllerId) {

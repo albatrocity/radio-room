@@ -1,0 +1,117 @@
+import type { AppContext } from "@repo/types"
+import type { BridgeEvent } from "./protocol"
+import {
+  BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
+  spotifyTokenKey,
+} from "./protocol"
+
+/**
+ * Refresh the room creator's Spotify access token and publish it for the
+ * bridge daemon's Web Playback SDK host.
+ */
+export async function provisionSpotifyTokenForRoom(params: {
+  context: AppContext
+  roomId: string
+}): Promise<string | null> {
+  const { context, roomId } = params
+
+  const { findRoom } = await import("@repo/server/operations/data")
+  const room = await findRoom({ context, roomId })
+  if (!room?.creator) {
+    console.warn(`[bridge-spotify-token] no room/creator for ${roomId}`)
+    return null
+  }
+
+  const { createSpotifyServiceAuthAdapter } = await import("@repo/adapter-spotify")
+  const authAdapter = createSpotifyServiceAuthAdapter(context)
+  const refreshAuth = authAdapter.refreshAuth
+  if (!refreshAuth) {
+    console.warn(`[bridge-spotify-token] refreshAuth not available`)
+    return null
+  }
+
+  let accessToken: string | undefined
+  try {
+    const refreshed = await refreshAuth(room.creator)
+    accessToken = refreshed.accessToken
+  } catch (e) {
+    // Fall back to stored token if refresh fails (e.g. already fresh / rate limit)
+    console.warn(`[bridge-spotify-token] refresh failed for ${roomId}, trying stored:`, e)
+    const auth = await context.data?.getUserServiceAuth?.({
+      userId: room.creator,
+      serviceName: "spotify",
+    })
+    accessToken = auth?.accessToken
+  }
+
+  if (!accessToken) {
+    console.warn(`[bridge-spotify-token] no Spotify token available for room ${roomId}`)
+    return null
+  }
+
+  await context.redis.pubClient.set(spotifyTokenKey(roomId), accessToken, {
+    EX: BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
+  })
+  console.log(`[bridge-spotify-token] provisioned token for room ${roomId}`)
+  return accessToken
+}
+
+const wiredRooms = new Set<string>()
+
+/**
+ * Subscribe to TOKEN_REQUEST events and provision on demand.
+ * Also provisions once immediately so the daemon can start without waiting.
+ * Idempotent per roomId (safe to call from onRoomCreated + registerBridgeForRoom).
+ */
+export function wireSpotifyTokenProvisioning(params: {
+  context: AppContext
+  roomId: string
+  onEvent: (listener: (event: BridgeEvent) => void) => () => void
+}): () => void {
+  const { context, roomId, onEvent } = params
+
+  if (wiredRooms.has(roomId)) {
+    // Still refresh the token so a reconnecting daemon finds a fresh key
+    void provisionSpotifyTokenForRoom({ context, roomId }).catch((e) => {
+      console.warn(`[bridge-spotify-token] re-provision failed for ${roomId}:`, e)
+    })
+    return () => {}
+  }
+  wiredRooms.add(roomId)
+
+  void provisionSpotifyTokenForRoom({ context, roomId }).catch((e) => {
+    console.warn(`[bridge-spotify-token] initial provision failed for ${roomId}:`, e)
+  })
+
+  return onEvent((event) => {
+    if (event.type !== "TOKEN_REQUEST" || event.service !== "spotify") return
+    console.log(`[bridge-spotify-token] TOKEN_REQUEST received for room ${roomId}`)
+    void provisionSpotifyTokenForRoom({ context, roomId }).catch((e) => {
+      console.error(`[bridge-spotify-token] TOKEN_REQUEST provision failed for ${roomId}:`, e)
+    })
+  })
+}
+
+export function dropSpotifyTokenProvisioning(roomId: string): void {
+  wiredRooms.delete(roomId)
+}
+
+const lastEnsureAttempt = new Map<string, number>()
+
+/** Ensure a token key exists (used by the advance job as a pub/sub backup). */
+export async function ensureSpotifyTokenProvisioned(params: {
+  context: AppContext
+  roomId: string
+}): Promise<void> {
+  const { context, roomId } = params
+  const ttl = await context.redis.pubClient.ttl(spotifyTokenKey(roomId))
+  // -2 = missing, -1 = no expiry; refresh when missing or near expiry
+  if (ttl !== -2 && !(ttl >= 0 && ttl < 120)) return
+
+  const now = Date.now()
+  const last = lastEnsureAttempt.get(roomId) ?? 0
+  if (now - last < 15_000) return
+  lastEnsureAttempt.set(roomId, now)
+
+  await provisionSpotifyTokenForRoom({ context, roomId })
+}

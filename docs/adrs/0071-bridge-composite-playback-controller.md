@@ -1,7 +1,7 @@
 # 0071. Bridge Composite Playback Controller and Mac Daemon
 
 **Date:** 2026-07-20
-**Status:** Accepted
+**Status:** Partially superseded by [0072](0072-spotify-web-playback-sdk-device.md) (Spotify Connect device: Spotify.app → optional Web Playback SDK in bridge Chrome)
 
 ## Context
 
@@ -16,7 +16,7 @@ Existing ADRs that constrain this work: [0005](0005-adapter-pattern-for-media-se
 1. **Opt-in composite controller** — New package `@repo/adapter-bridge` registers a `PlaybackController` named `"bridge"`. Rooms opt in via `playbackControllerId: "bridge"` (radio/live only). Media source remains `shoutcast` or `rtmp`. Bridge rooms must use `playbackMode: "app-controlled"`.
 
 2. **Routing by `mediaSource.type`** — `playTrack` / pause / seek / volume route by the track's media source:
-   - `spotify` → existing Spotify PlaybackController (Spotify Connect / Spotify.app)
+   - `spotify` → existing Spotify PlaybackController (Spotify Connect). Device target is Spotify.app by default; when the daemon opts in, prefer the Web Playback SDK device in bridge Chrome ([0072](0072-spotify-web-playback-sdk-device.md)).
    - `tidal` | `youtube` | `local` → Redis RPC to a Mac daemon
 
 3. **Mac daemon (`apps/bridge-daemon`)** — Headless Node process on the DJ Mac. Drives dedicated Chrome via CDP (YouTube IFrame host page; Tidal via CDP on the spike-chosen host), local files via Navidrome search + mpv JSON IPC. Publishes `SYSTEM:NOW_PLAYING_CHANGED` and writes Audio Hijack Now Playing.txt. Explicit connect/disconnect with Redis presence heartbeat. One room at a time, switchable at runtime.

@@ -54,7 +54,7 @@ export class StaticHost {
     })
 
     this.port = await listenPrefer(this.server, this.preferredPort)
-    console.log(`[youtube] Host page at ${this.baseUrl}/youtube.html`)
+    console.log(`[static-host] Serving ${this.baseUrl}/ (youtube.html, spotify.html, …)`)
     return this.baseUrl
   }
 

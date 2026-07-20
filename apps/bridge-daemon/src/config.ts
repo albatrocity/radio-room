@@ -6,7 +6,9 @@ import { join } from "node:path"
 export const bridgeDaemonConfigSchema = z.object({
   redisUrl: z.string().default("redis://127.0.0.1:6379"),
   defaultRoomId: z.string().optional(),
-  services: z.array(z.enum(["youtube", "tidal", "local"])).default(["youtube", "local"]),
+  services: z
+    .array(z.enum(["youtube", "tidal", "local", "spotify"]))
+    .default(["youtube", "local"]),
   chrome: z
     .object({
       executablePath: z

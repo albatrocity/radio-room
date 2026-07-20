@@ -18,6 +18,8 @@ export {
   bridgeResponseSchema,
   bridgeEventSchema,
   lastEndedKey,
+  spotifyTokenKey,
+  spotifyDeviceKey,
 } from "./lib/protocol"
 export type { BridgeRequest, BridgeResponse, BridgeEvent, BridgeSource } from "./lib/protocol"
 export {
@@ -27,6 +29,7 @@ export {
   presenceKey,
   BRIDGE_RPC_TIMEOUT_MS,
   BRIDGE_PRESENCE_TTL_SEC,
+  BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
 } from "./lib/protocol"
 export { parseBridgeMediaId } from "./lib/parseBridgeMediaId"
 export { youtubeMetadataSource, createYoutubeMetadataApi } from "./lib/youtubeMetadata"
@@ -97,6 +100,15 @@ export const playbackController: PlaybackControllerAdapter = {
     const capability = getOrCreateCapabilityCache(redis, roomId)
     await capability.start()
 
+    // Ensure Spotify SDK token provisioning is live even if the controller
+    // was cached from a prior register without the wire-up.
+    const { wireSpotifyTokenProvisioning } = await import("./lib/spotifyTokenProvisioner")
+    wireSpotifyTokenProvisioning({
+      context,
+      roomId,
+      onEvent: (listener) => capability.onEvent(listener),
+    })
+
     const activeSource = new ActiveSourceStore(redis, roomId)
     const job = createBridgeAdvanceJob({
       context,
@@ -130,6 +142,8 @@ export const playbackController: PlaybackControllerAdapter = {
       await rpc.stop()
       roomRpcClients.delete(roomId)
     }
+    const { dropSpotifyTokenProvisioning } = await import("./lib/spotifyTokenProvisioner")
+    dropSpotifyTokenProvisioning(roomId)
     dropCapabilityCache(roomId)
   },
 }
@@ -157,6 +171,13 @@ export async function registerBridgeForRoom(params: {
   const activeSource = new ActiveSourceStore(redis, roomId)
   const capability = getOrCreateCapabilityCache(redis, roomId)
   await capability.start()
+
+  const { wireSpotifyTokenProvisioning } = await import("./lib/spotifyTokenProvisioner")
+  wireSpotifyTokenProvisioning({
+    context,
+    roomId,
+    onEvent: (listener) => capability.onEvent(listener),
+  })
 
   const { AdapterService } = await import("@repo/server/services/AdapterService")
   const adapterService = new AdapterService(context)

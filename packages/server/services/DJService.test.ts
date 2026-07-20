@@ -601,7 +601,7 @@ describe("DJService", () => {
 
       expect(result).toEqual({
         success: false,
-        message: expect.stringContaining("Something went wrong"),
+        message: "Search failed: Search failed",
         error: mockError,
       })
     })

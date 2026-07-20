@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Listening Room Bridge — Spotify</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        background: #121212;
+        color: #b3b3b3;
+        margin: 24px;
+      }
+      #status {
+        white-space: pre-wrap;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Listening Room Bridge</h1>
+    <p>Spotify Web Playback SDK device host. Keep this tab open while the bridge is connected.</p>
+    <div id="status">Loading SDK…</div>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script>
+      ;(function () {
+        var statusEl = document.getElementById("status")
+        function setStatus(msg) {
+          statusEl.textContent = msg
+          console.log("[spotify-sdk]", msg)
+        }
+
+        window.onSpotifyWebPlaybackSDKReady = function () {
+          if (typeof window.__bridgeSpotifyBoot !== "function") {
+            setStatus("Waiting for bridge daemon bridge…")
+            var tries = 0
+            var t = setInterval(function () {
+              tries++
+              if (typeof window.__bridgeSpotifyBoot === "function") {
+                clearInterval(t)
+                window.__bridgeSpotifyBoot()
+              } else if (tries > 50) {
+                clearInterval(t)
+                setStatus("Bridge daemon did not attach (__bridgeSpotifyBoot missing)")
+              }
+            }, 200)
+            return
+          }
+          window.__bridgeSpotifyBoot()
+        }
+
+        window.__spotifyCreatePlayer = function () {
+          var player = new Spotify.Player({
+            name: "Listening Room Bridge",
+            getOAuthToken: function (cb) {
+              if (typeof window.__bridgeGetSpotifyToken !== "function") {
+                setStatus("Token bridge missing")
+                cb("")
+                return
+              }
+              window
+                .__bridgeGetSpotifyToken()
+                .then(function (token) {
+                  cb(token || "")
+                })
+                .catch(function (err) {
+                  setStatus("Token error: " + (err && err.message ? err.message : err))
+                  cb("")
+                })
+            },
+            volume: 1.0,
+          })
+
+          player.addListener("ready", function (state) {
+            setStatus("Ready — device_id=" + state.device_id)
+            // Browser autoplay policy: activate after connect so the device
+            // can accept Web API transfer/play without a human gesture.
+            try {
+              if (typeof player.activateElement === "function") {
+                player.activateElement()
+              }
+            } catch (e) {
+              console.warn("[spotify-sdk] activateElement failed", e)
+            }
+            if (typeof window.__bridgeSpotifyReady === "function") {
+              window.__bridgeSpotifyReady(state.device_id)
+            }
+          })
+
+          player.addListener("not_ready", function (state) {
+            setStatus("Not ready — device_id=" + state.device_id)
+            if (typeof window.__bridgeSpotifyNotReady === "function") {
+              window.__bridgeSpotifyNotReady(state.device_id)
+            }
+          })
+
+          player.addListener("initialization_error", function (e) {
+            setStatus("initialization_error: " + e.message)
+            if (typeof window.__bridgeSpotifyError === "function") {
+              window.__bridgeSpotifyError("initialization_error", e.message)
+            }
+          })
+          player.addListener("authentication_error", function (e) {
+            setStatus("authentication_error: " + e.message)
+            if (typeof window.__bridgeSpotifyError === "function") {
+              window.__bridgeSpotifyError("authentication_error", e.message)
+            }
+          })
+          player.addListener("account_error", function (e) {
+            setStatus("account_error: " + e.message)
+            if (typeof window.__bridgeSpotifyError === "function") {
+              window.__bridgeSpotifyError("account_error", e.message)
+            }
+          })
+          player.addListener("playback_error", function (e) {
+            setStatus("playback_error: " + e.message)
+          })
+
+          player.connect().then(function (ok) {
+            if (!ok) setStatus("player.connect() returned false")
+          })
+
+          window.__spotifyPlayer = player
+          return true
+        }
+      })()
+    </script>
+  </body>
+</html>

@@ -45,6 +45,11 @@ export type PlaybackControllerLifecycleCallbacks = {
   authentication: AdapterAuthentication
   /** Room id when registering a room-scoped controller instance (e.g. bridge). */
   roomId?: string
+  /**
+   * Optional preferred Spotify Connect device id (e.g. bridge Web Playback SDK).
+   * When absent or unavailable, adapters fall back to the active device.
+   */
+  getPreferredDeviceId?: () => Promise<string | null>
   onRegistered?: (params: { api: PlaybackControllerApi; name: string }) => void
   onAuthenticationCompleted?: (response?: PlaybackControllerAuthenticationResponse) => void
   onAuthenticationFailed?: (error: Error) => void

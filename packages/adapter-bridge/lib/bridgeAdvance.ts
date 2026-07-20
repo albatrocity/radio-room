@@ -223,6 +223,14 @@ export function createBridgeAdvanceJob(params: {
           return
         }
 
+        // Keep Spotify SDK token fresh even if TOKEN_REQUEST pub/sub was missed
+        try {
+          const { ensureSpotifyTokenProvisioned } = await import("./spotifyTokenProvisioner")
+          await ensureSpotifyTokenProvisioned({ context, roomId })
+        } catch {
+          /* ignore — SDK host is optional */
+        }
+
         // 1) Durable ENDED key (written by daemon) — does not depend on pub/sub
         const endedRaw = await context.redis.pubClient.get(lastEndedKey(roomId))
         if (endedRaw) {

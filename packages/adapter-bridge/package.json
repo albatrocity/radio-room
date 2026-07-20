@@ -23,6 +23,7 @@
     "vitest": "^4.0.13"
   },
   "dependencies": {
+    "@repo/adapter-spotify": "*",
     "@repo/server": "*",
     "@repo/utils": "*",
     "redis": "^4.7.0",

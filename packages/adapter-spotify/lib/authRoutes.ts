@@ -56,7 +56,7 @@ export function createSpotifyAuthRoutes(context: AppContext) {
     }
 
     const scope =
-      "user-read-private user-read-email playlist-modify-public playlist-modify-private user-read-playback-state user-modify-playback-state user-read-currently-playing user-library-read user-library-modify"
+      "user-read-private user-read-email playlist-modify-public playlist-modify-private user-read-playback-state user-modify-playback-state user-read-currently-playing user-library-read user-library-modify streaming"
 
     console.log("[Spotify Auth] Redirect URI being used:", redirectUri)
     console.log("[Spotify Auth] Client ID:", clientId?.substring(0, 8) + "...")

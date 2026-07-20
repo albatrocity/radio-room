@@ -9,7 +9,6 @@ const START_WATCHDOG_MS = 12_000
 export class YoutubeDriver implements Driver {
   readonly source = "youtube" as const
   private page: Page | null = null
-  private host = new StaticHost()
   private endedCbs: Array<(trackId: string, reason?: string) => void> = []
   private stateCbs: Array<(state: DriverState) => void> = []
   private currentTrackId: string | null = null
@@ -18,7 +17,10 @@ export class YoutubeDriver implements Driver {
   private bridgeExposed = false
   private endedForTrackId: string | null = null
 
-  constructor(private readonly chrome: ChromeManager) {}
+  constructor(
+    private readonly chrome: ChromeManager,
+    private readonly host: StaticHost,
+  ) {}
 
   async start(): Promise<void> {
     const baseUrl = await this.host.start()
@@ -57,7 +59,7 @@ export class YoutubeDriver implements Driver {
       await this.page.evaluate("window.__stop && window.__stop()").catch(() => {})
     }
     this.currentTrackId = null
-    await this.host.stop().catch(() => {})
+    // StaticHost is session-owned; do not stop it here.
   }
 
   async healthy(): Promise<boolean> {

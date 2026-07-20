@@ -50,7 +50,7 @@ Edit `~/.config/listening-room-bridge/config.json`:
 {
   "redisUrl": "redis://127.0.0.1:6379",
   "defaultRoomId": "YOUR_ROOM_ID",
-  "services": ["youtube", "local"],
+  "services": ["youtube", "local", "spotify"],
   "chrome": {
     "executablePath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "debuggingPort": 9222
@@ -64,6 +64,8 @@ Edit `~/.config/listening-room-bridge/config.json`:
   "nowPlayingPath": "/Users/YOU/path/to/Now Playing.txt"
 }
 ```
+
+**Spotify Web Playback SDK (opt-in):** Include `"spotify"` in `services` to host a Connect device in bridge Chrome (see [ADR 0072](adrs/0072-spotify-web-playback-sdk-device.md)). The room creator must **re-link Spotify** once so the OAuth token includes the `streaming` scope. Without `"spotify"` in services, behavior stays on Spotify.app. SDK audio is ~256kbps AAC (fine for a transcoded stream).
 
 The daemon always writes Audio Hijack’s labeled format (same as local-remote):
 
@@ -114,7 +116,7 @@ First Chrome launch uses a dedicated profile under `~/.config/listening-room-bri
 
 ## 6. Audio Hijack
 
-- Capture: Chrome (bridge profile), Spotify, and mpv if using local
+- Capture: Chrome (bridge profile) for YouTube (+ Spotify when SDK device is enabled); mpv if using local. With `"spotify"` in daemon `services`, you can drop the Spotify.app tile.
 - Metadata: **Track Source** = the daemon’s Now Playing.txt (Other Source…). Turn off application metadata detection.
 - **Title Format** in AH (e.g. `{title} | {artist} | {album}`) controls the stream string; the file itself must use `Title:` / `Artist:` / `Album:` lines
 - Volume: per-driver via Volume Manager plugin (v1); optional AH Volume-block scripting is not required
@@ -125,7 +127,9 @@ First Chrome launch uses a dedicated profile under `~/.config/listening-room-bri
 2. Search for a track — results should show **source badges** (Spotify / YouTube / …)
 3. Queue a **YouTube** result; press Play on the queue row
 4. Confirm Chrome plays the video; Now Playing.txt updates; room Now Playing shows title + thumbnail
-5. Queue a Spotify track; confirm Spotify.app plays and Now Playing.txt still updates
+5. Queue a Spotify track:
+   - **With SDK device** (`"spotify"` in services): quit Spotify.app; confirm audio plays in the bridge Chrome tab and Now Playing.txt updates. Daemon logs should show `[spotify-device] ready device_id=…`.
+   - **Without SDK device**: confirm Spotify.app plays as before
 6. (Optional) Queue a local Navidrome track; confirm mpv audio and artwork (data URI)
 7. Empty the queue and trigger a democracy skip / scratched-cd — active daemon source should **stop**
 8. Volume Manager slider should change volume on the active driver
@@ -146,6 +150,8 @@ Post-show publish still creates Spotify/Tidal playlists from `metadataSources` I
 | Double Now Playing | Turn off local-remote NP for this room |
 | Stream metadata is ` \| \| ` | File must be `Title:`/`Artist:`/`Album:` lines (not `{title} \| {artist}`). Put the pipe format in AH Title Format. |
 | YouTube “Video unavailable” hangs | Reconnect daemon (error/watchdog → ENDED → auto-advance). Some videos can’t embed; they’ll skip. |
+| Spotify SDK `TOKEN_REQUEST` loops / auth failed | Restart API so bridge `onRoomCreated` wires token provisioning; re-link Spotify for `streaming` scope (refresh alone does not add scopes); Premium required; check API logs for `[bridge-spotify-token]` |
+| Spotify still needs Spotify.app | Remove `"spotify"` from daemon `services` to use legacy Connect, or verify `bridge:{room}:spotify_device` exists in Redis |
 
 ## Out of scope (this build)
 

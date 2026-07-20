@@ -346,10 +346,12 @@ export class DJService {
         data,
       }
     } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e)
       return {
         success: false,
-        message:
-          "Something went wrong when trying to search for tracks. You might need to log in to Spotify's OAuth",
+        message: detail
+          ? `Search failed: ${detail}`
+          : "Something went wrong when trying to search for tracks",
         error: e,
       }
     }

@@ -50,6 +50,11 @@ export const bridgeEventSchema = z.discriminatedUnion("type", [
     services: z.array(z.string()),
   }),
   z.object({ type: z.literal("DISCONNECTING") }),
+  /** Daemon asks the API to write a fresh Spotify access token for the SDK device host. */
+  z.object({
+    type: z.literal("TOKEN_REQUEST"),
+    service: z.literal("spotify"),
+  }),
 ])
 export type BridgeEvent = z.infer<typeof bridgeEventSchema>
 
@@ -74,6 +79,25 @@ export function lastEndedKey(roomId: string) {
   return `bridge:${roomId}:last_ended`
 }
 
+/** Spotify Web Playback SDK access token (written by API, read by daemon). */
+export function spotifyTokenKey(roomId: string) {
+  return `bridge:${roomId}:spotify_token`
+}
+
+/** Spotify Web Playback SDK Connect device id (written by daemon on SDK ready). */
+export function spotifyDeviceKey(roomId: string) {
+  return `bridge:${roomId}:spotify_device`
+}
+
+/**
+ * Must match `new Spotify.Player({ name })` in apps/bridge-daemon/static/spotify.html.
+ * The SDK `ready` device_id often differs from the id in GET /me/player/devices;
+ * resolve by this name when ids diverge.
+ */
+export const BRIDGE_SPOTIFY_DEVICE_NAME = "Listening Room Bridge"
+
 export const BRIDGE_RPC_TIMEOUT_MS = 8000
 export const BRIDGE_PRESENCE_TTL_SEC = 10
 export const BRIDGE_LAST_ENDED_TTL_SEC = 60
+/** Slightly under Spotify's typical 1h access-token lifetime. */
+export const BRIDGE_SPOTIFY_TOKEN_TTL_SEC = 50 * 60

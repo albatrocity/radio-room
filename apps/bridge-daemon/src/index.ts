@@ -16,6 +16,8 @@ import { NowPlayingPublisher } from "./nowPlaying"
 import { Presence } from "./presence"
 import { Router } from "./router"
 import { RpcServer } from "./rpcServer"
+import { StaticHost } from "./staticHost"
+import { SpotifyDeviceHost } from "./spotifyDevice"
 
 type Session = {
   roomId: string
@@ -24,6 +26,8 @@ type Session = {
   rpc: RpcServer
   drivers: Map<string, Driver>
   chrome: ChromeManager | null
+  staticHost: StaticHost | null
+  spotifyDevice: SpotifyDeviceHost | null
 }
 
 let session: Session | null = null
@@ -40,11 +44,22 @@ async function connect(roomId: string, config: BridgeDaemonConfig) {
 
   const drivers = new Map<string, Driver>()
   let chrome: ChromeManager | null = null
+  let staticHost: StaticHost | null = null
   let localDriver: LocalDriver | null = null
+  let spotifyDevice: SpotifyDeviceHost | null = null
+
+  const needsChrome =
+    config.services.includes("youtube") || config.services.includes("spotify")
+
+  if (needsChrome) {
+    chrome = new ChromeManager(config.chrome)
+    staticHost = new StaticHost()
+    await staticHost.start()
+  }
 
   if (config.services.includes("youtube")) {
-    chrome = new ChromeManager(config.chrome)
-    const yt = new YoutubeDriver(chrome)
+    if (!chrome || !staticHost) throw new Error("Chrome/StaticHost required for youtube")
+    const yt = new YoutubeDriver(chrome, staticHost)
     await yt.start()
     drivers.set("youtube", yt)
   }
@@ -70,6 +85,18 @@ async function connect(roomId: string, config: BridgeDaemonConfig) {
     }
   }
 
+  // Spotify SDK device is opt-in via services; not a Driver / not in CAPABILITIES
+  if (config.services.includes("spotify")) {
+    if (!chrome || !staticHost) throw new Error("Chrome/StaticHost required for spotify")
+    spotifyDevice = new SpotifyDeviceHost(chrome, staticHost, redis as any, roomId)
+    try {
+      await spotifyDevice.start()
+    } catch (e) {
+      console.warn("[spotify-device] start failed — SDK device unavailable:", e)
+      spotifyDevice = null
+    }
+  }
+
   const nowPlayingPath = config.nowPlayingPath ?? defaultNowPlayingPath()
   const nowPlaying = new NowPlayingPublisher(redis as any, nowPlayingPath, config.nowPlayingFormat)
   const presence = new Presence(redis as any, roomId)
@@ -79,9 +106,21 @@ async function connect(roomId: string, config: BridgeDaemonConfig) {
   await presence.start(Array.from(drivers.keys()))
   await rpc.start()
 
-  session = { roomId, redis: redis as any, presence, rpc, drivers, chrome }
+  session = {
+    roomId,
+    redis: redis as any,
+    presence,
+    rpc,
+    drivers,
+    chrome,
+    staticHost,
+    spotifyDevice,
+  }
   console.log(`Connected to room ${roomId}`)
-  console.log(`  services: ${Array.from(drivers.keys()).join(", ") || "(none)"}`)
+  console.log(`  drivers: ${Array.from(drivers.keys()).join(", ") || "(none)"}`)
+  if (spotifyDevice) {
+    console.log(`  spotify SDK device: starting (see [spotify-device] logs)`)
+  }
   console.log(`  Now Playing file: ${nowPlayingPath}`)
   console.log(`  Config: ${configPath()}`)
 }
@@ -95,9 +134,11 @@ async function disconnect() {
   session = null
   await s.presence.disconnecting()
   await s.rpc.stop()
+  await s.spotifyDevice?.stop().catch(() => {})
   for (const d of Array.from(s.drivers.values())) {
     await d.stop().catch(() => {})
   }
+  await s.staticHost?.stop().catch(() => {})
   await s.chrome?.close().catch(() => {})
   await s.redis.quit().catch(() => {})
   console.log(`Disconnected from room ${s.roomId}`)
@@ -110,6 +151,10 @@ async function status() {
   }
   console.log(`Status: connected to room ${session.roomId}`)
   console.log(`  drivers: ${Array.from(session.drivers.keys()).join(", ")}`)
+  const deviceId = session.spotifyDevice?.getDeviceId()
+  if (session.spotifyDevice) {
+    console.log(`  spotify SDK device: ${deviceId ?? "(waiting for ready)"}`)
+  }
 }
 
 const program = new Command()
