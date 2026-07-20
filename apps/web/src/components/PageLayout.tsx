@@ -30,6 +30,7 @@ export default function PageLayout({ children }: Props) {
   const authSend = useAuthSend()
   const currentUser = useCurrentUser()
   const { data: platformSession } = authClient.useSession()
+  const isPlatformAdmin = platformSession?.user.role === "admin"
   const isHome = window.location.pathname === "/"
 
   useEffect(() => {
@@ -96,22 +97,24 @@ export default function PageLayout({ children }: Props) {
                     <Link to="/login">Login</Link>
                   </Button>
                 )}
-                <Box>
-                  <Box hideBelow="sm">
-                    <Button onClick={() => modalSend({ type: "CREATE_ROOM" })}>
-                      <LuPlus />
-                      Create a Room
-                    </Button>
+                {isPlatformAdmin && (
+                  <Box>
+                    <Box hideBelow="sm">
+                      <Button onClick={() => modalSend({ type: "CREATE_ROOM" })}>
+                        <LuPlus />
+                        Create a Room
+                      </Button>
+                    </Box>
+                    <Box hideFrom="sm">
+                      <IconButton
+                        onClick={() => modalSend({ type: "CREATE_ROOM" })}
+                        aria-label="Create a Room"
+                      >
+                        <LuPlus />
+                      </IconButton>
+                    </Box>
                   </Box>
-                  <Box hideFrom="sm">
-                    <IconButton
-                      onClick={() => modalSend({ type: "CREATE_ROOM" })}
-                      aria-label="Create a Room"
-                    >
-                      <LuPlus />
-                    </IconButton>
-                  </Box>
-                </Box>
+                )}
               </HStack>
             </HStack>
           </GridItem>

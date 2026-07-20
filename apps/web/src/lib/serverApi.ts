@@ -18,7 +18,7 @@ const api = ky.create({
   retry: 2,
 })
 
-export type RoomCreationResponse = { room: Room }
+export type RoomCreationResponse = { room: Room; spotifyLinked?: boolean }
 export type RoomFindResponse = {
   room: Room | null
   scheduleSnapshot?: RoomScheduleSnapshotDTO | null
@@ -26,12 +26,10 @@ export type RoomFindResponse = {
 export type RoomsResponse = { rooms: Room[] }
 export type CreateRoomParams = {
   room: RoomSetup
-  challenge: string
-  userId: string
 }
 
-export async function createRoom({ room, challenge, userId }: CreateRoomParams) {
-  return api.post(`rooms`, { json: { ...room, userId, challenge } }).json<RoomCreationResponse>()
+export async function createRoom({ room }: CreateRoomParams) {
+  return api.post(`rooms`, { json: { ...room } }).json<RoomCreationResponse>()
 }
 
 export async function findRoom(id: Room["id"]) {

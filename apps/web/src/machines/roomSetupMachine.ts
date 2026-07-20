@@ -6,8 +6,6 @@ import { createRoom as apiCreateRoom, RoomCreationResponse } from "../lib/server
 import { RoomSetup } from "../types/Room"
 
 interface RoomSetupContext {
-  userId: string | null
-  challenge: string | null
   error: string | null
   room: RoomSetup | null
 }
@@ -23,7 +21,7 @@ type RoomSetupEvent =
     }
   | {
       type: "SET_REQUIREMENTS"
-      data: Pick<RoomSetupContext, "challenge" | "userId"> & { room: RoomSetup }
+      data: { room: RoomSetup }
     }
 
 const createRoomLogic = fromPromise<RoomCreationResponse, RoomSetupContext>(
@@ -52,8 +50,6 @@ const createRoomLogic = fromPromise<RoomCreationResponse, RoomSetupContext>(
         mediaSourceId,
         ...(ctx.room?.showId ? { showId: ctx.room.showId } : {}),
       },
-      challenge: ctx.challenge ?? "",
-      userId: ctx.userId ?? "",
     })
     return res
   },
@@ -68,7 +64,7 @@ export const roomSetupMachine = setup({
     createRoomRequest: createRoomLogic,
   },
   actions: {
-    setError: assign(({ context, event }) => {
+    setError: assign(({ event }) => {
       if (event.type !== "xstate.error.actor.createRoomRequest") return {}
       // Clear the creation flag on error so user can retry
       sessionStorage.removeItem("roomCreationInProgress")
@@ -80,13 +76,13 @@ export const roomSetupMachine = setup({
         error: String(event.error),
       }
     }),
-    setRoom: ({ context, event }) => {
+    setRoom: ({ event }) => {
       if (event.type !== "xstate.done.actor.createRoomRequest") {
         return
       }
       saveCurrentUser({
         currentUser: {
-          userId: event.output.room?.creator ?? context.userId ?? "",
+          userId: event.output.room?.creator ?? "",
           isAdmin: true,
         },
       })
@@ -101,29 +97,26 @@ export const roomSetupMachine = setup({
       sessionStorage.removeItem("createRoomLiveIngestEnabled")
       sessionStorage.removeItem("createRoomLiveWhepUrl")
       sessionStorage.removeItem("createRoomLiveHlsUrl")
+      sessionStorage.removeItem("createRoomPublic")
       sessionStorage.removeItem("roomCreationInProgress")
       window.location.href = `/rooms/${event.output.room.id}`
     },
     setRequirements: assign(({ event }) => {
       if (event.type !== "SET_REQUIREMENTS") return {}
       return {
-        userId: event.data.userId,
-        challenge: event.data.challenge,
         room: event.data.room,
       }
     }),
   },
   guards: {
     hasRequirements: ({ context }) => {
-      return !!context.challenge && !!context.userId
+      return !!context.room
     },
   },
 }).createMachine({
   id: "roomSetup",
   initial: "initial",
   context: {
-    userId: null,
-    challenge: null,
     error: null,
     room: null,
   },

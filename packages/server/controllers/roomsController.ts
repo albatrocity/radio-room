@@ -15,7 +15,7 @@ import {
   getUsersByIds,
 } from "../operations/data"
 import { isRoomAdmin } from "../operations/data/admins"
-import { checkUserChallenge } from "../operations/userChallenge"
+import { ensureCreatorSpotifyAuth } from "../operations/ensureCreatorSpotifyAuth"
 import * as scheduling from "../services/SchedulingService"
 import { RoomSnapshot } from "@repo/types/Room"
 import { SocketWithContext } from "../lib/socketWithContext"
@@ -135,8 +135,6 @@ export async function create(req: Request, res: Response) {
     type,
     radioMetaUrl,
     radioListenUrl,
-    challenge,
-    userId,
     radioProtocol,
     deputizeOnJoin,
     playbackControllerId: requestedPlaybackControllerId,
@@ -153,10 +151,15 @@ export async function create(req: Request, res: Response) {
   console.log("radioListenUrl", radioListenUrl)
 
   const { context } = req
+  const platformUser = (req as any).platformUser as { id: string } | undefined
+  const userId = platformUser?.id
+
+  if (!userId) {
+    res.statusCode = 401
+    return res.send({ error: "Unauthorized", status: 401 })
+  }
 
   try {
-    await checkUserChallenge({ challenge, userId, context })
-
     let showId: string | undefined
     if (requestedShowId != null && requestedShowId !== "") {
       const attachedShow = await scheduling.findShowById(String(requestedShowId))
@@ -211,6 +214,14 @@ export async function create(req: Request, res: Response) {
     })
     await saveRoom({ context, room })
 
+    // Reuse Spotify tokens already on the creator (or copy from Express session identity).
+    // Missing Spotify must not fail room creation (ADR 0071).
+    const spotifyLinked = await ensureCreatorSpotifyAuth({
+      context,
+      creatorUserId: userId,
+      sessionUserId: req.session?.user?.userId,
+    })
+
     if (showId) {
       try {
         await scheduling.syncShowRoomPointer({ roomId: id, nextShowId: showId })
@@ -229,16 +240,24 @@ export async function create(req: Request, res: Response) {
     }
 
     // Notify the playback controller adapter that a room was created
-    // This allows the adapter to register any necessary jobs (e.g., polling)
+    // This allows the adapter to register any necessary jobs (e.g., polling).
+    // Soft-fail: room is already persisted; missing Spotify tokens must not fail create.
     if (playbackControllerId) {
       const adapter = context.adapters.playbackControllerModules.get(playbackControllerId)
       if (adapter?.onRoomCreated) {
-        await adapter.onRoomCreated({
-          roomId: id,
-          userId,
-          roomType: type,
-          context,
-        })
+        try {
+          await adapter.onRoomCreated({
+            roomId: id,
+            userId,
+            roomType: type,
+            context,
+          })
+        } catch (e) {
+          console.error(
+            `[createRoom] playbackController onRoomCreated failed for ${playbackControllerId}:`,
+            e,
+          )
+        }
       }
     }
 
@@ -247,16 +266,20 @@ export async function create(req: Request, res: Response) {
     if (mediaSourceId) {
       const adapter = context.adapters.mediaSourceModules.get(mediaSourceId)
       if (adapter?.onRoomCreated) {
-        await adapter.onRoomCreated({
-          roomId: id,
-          userId,
-          roomType: type,
-          context,
-        })
+        try {
+          await adapter.onRoomCreated({
+            roomId: id,
+            userId,
+            roomType: type,
+            context,
+          })
+        } catch (e) {
+          console.error(`[createRoom] mediaSource onRoomCreated failed for ${mediaSourceId}:`, e)
+        }
       }
     }
 
-    res.send({ room })
+    res.send({ room, spotifyLinked })
   } catch (e) {
     console.log("Error creating room:", e)
     res.statusCode = e === "Unauthorized" ? 401 : 400
@@ -289,13 +312,14 @@ export async function findRoom(req: Request, res: Response) {
 
 export async function findRooms(req: Request, res: Response) {
   const { context } = req
-  if (!req.session.user?.userId) {
+  const platformUser = (req as any).platformUser as { id: string } | undefined
+  if (!platformUser?.id) {
     return res.status(401).send({
       error: "Unauthorized",
     })
   }
 
-  const userId = req.session.user.userId
+  const userId = platformUser.id
 
   // Filter all rooms by creator (using string coercion for type safety)
   const allRooms = await getAllRooms({ context })
@@ -353,6 +377,8 @@ export async function findAllRooms(req: Request, res: Response) {
 
 export async function deleteRoom(req: Request, res: Response) {
   const { context } = req
+  const platformUser = (req as any).platformUser as { id: string } | undefined
+
   if (!req.params.id) {
     res.statusCode = 400
     return res.send({
@@ -361,9 +387,17 @@ export async function deleteRoom(req: Request, res: Response) {
     })
   }
 
+  if (!platformUser?.id) {
+    res.statusCode = 401
+    return res.send({
+      success: false,
+      error: "Unauthorized",
+    })
+  }
+
   const room = await findRoomData({ context, roomId: req.params.id })
 
-  if (!room || room.creator !== req.session.user?.userId) {
+  if (!room || room.creator !== platformUser.id) {
     res.statusCode = 401
     return res.send({
       success: false,
