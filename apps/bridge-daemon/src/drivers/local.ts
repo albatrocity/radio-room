@@ -26,6 +26,50 @@ function md5(s: string) {
   return createHash("md5").update(s).digest("hex")
 }
 
+/** Basename without extension — used when tags have no title. */
+export function titleFromFilename(path: string | undefined | null): string | undefined {
+  if (!path?.trim()) return undefined
+  const base = path.split(/[/\\]/).filter(Boolean).pop()
+  if (!base) return undefined
+  const withoutExt = base.replace(/\.[^./\\]+$/, "")
+  const title = (withoutExt || base).trim()
+  return title || undefined
+}
+
+function isPlaceholderTitle(title: string | undefined | null, trackId?: string): boolean {
+  const t = (title ?? "").trim()
+  if (!t) return true
+  if (t.toLowerCase() === "unknown") return true
+  if (trackId && t === trackId) return true
+  return false
+}
+
+function isPlaceholderArtist(artist: string | undefined | null): boolean {
+  const a = (artist ?? "").trim()
+  if (!a) return true
+  if (a.toLowerCase() === "unknown" || a.toLowerCase() === "local") return true
+  return false
+}
+
+type NavidromeSong = {
+  id?: string
+  title?: string
+  artist?: string
+  artistId?: string
+  album?: string
+  albumId?: string
+  path?: string
+  duration?: number
+  track?: number
+  discNumber?: number
+}
+
+export function resolveLocalDisplayTitle(song: NavidromeSong): string {
+  const id = song.id != null ? String(song.id) : undefined
+  if (!isPlaceholderTitle(song.title, id)) return String(song.title).trim()
+  return titleFromFilename(song.path) ?? (song.title?.trim() || id || "Unknown")
+}
+
 function resolveMpvPath(configured: string): string {
   if (configured.includes("/") && existsSync(configured)) return configured
   const candidates = [
@@ -82,6 +126,9 @@ export class LocalDriver implements Driver {
   private reqId = 1
   private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
   private pollTimer: NodeJS.Timeout | null = null
+  /** Suppress end-file from loadfile replace / stop — only natural EOF should advance. */
+  private ignoreEndFileUntil = 0
+  private endedForTrackId: string | null = null
 
   constructor(
     private readonly navidrome: BridgeDaemonConfig["navidrome"],
@@ -186,17 +233,33 @@ export class LocalDriver implements Driver {
       if (msg.request_id != null && this.pending.has(msg.request_id)) {
         const p = this.pending.get(msg.request_id)!
         this.pending.delete(msg.request_id)
-        if (msg.error) p.reject(new Error(String(msg.error)))
-        else p.resolve(msg.data)
+        // mpv uses error: "success" for OK replies (the field is always present)
+        if (msg.error && msg.error !== "success") {
+          p.reject(new Error(String(msg.error)))
+        } else {
+          p.resolve(msg.data)
+        }
       }
       if (msg.event === "end-file") {
-        const id = this.currentTrackId
-        this.state = { ...this.state, state: "stopped", progressMs: null }
-        if (id) for (const cb of this.endedCbs) cb(id)
+        this.handleEndFile(msg)
       }
     } catch {
       /* ignore */
     }
+  }
+
+  private handleEndFile(msg: { reason?: string }) {
+    const id = this.currentTrackId
+    this.state = { ...this.state, state: "stopped", progressMs: null }
+
+    // loadfile replace / stop emit end-file with reason "stop" (or during our ignore window)
+    if (Date.now() < this.ignoreEndFileUntil) return
+    const reason = msg.reason ?? "unknown"
+    if (reason !== "eof" && reason !== "error") return
+    if (!id || this.endedForTrackId === id) return
+
+    this.endedForTrackId = id
+    for (const cb of this.endedCbs) cb(id, reason === "error" ? "error" : "natural")
   }
 
   private send(command: unknown[]): Promise<unknown> {
@@ -245,6 +308,7 @@ export class LocalDriver implements Driver {
   async stop(): Promise<void> {
     if (this.pollTimer) clearInterval(this.pollTimer)
     this.pollTimer = null
+    this.ignoreEndFileUntil = Date.now() + 2000
     try {
       await this.send(["stop"])
     } catch {
@@ -271,6 +335,78 @@ export class LocalDriver implements Driver {
     return `${this.navidrome.url}/rest/stream.view?id=${encodeURIComponent(id)}&${this.authParams()}`
   }
 
+  private async fetchCoverDataUri(songId: string): Promise<string | undefined> {
+    try {
+      const coverUrl = `${this.navidrome.url}/rest/getCoverArt.view?id=${encodeURIComponent(songId)}&size=256&${this.authParams()}`
+      const coverRes = await fetch(coverUrl)
+      if (!coverRes.ok) return undefined
+      const buf = Buffer.from(await coverRes.arrayBuffer())
+      const ct = coverRes.headers.get("content-type") ?? "image/jpeg"
+      return `data:${ct};base64,${buf.toString("base64")}`
+    } catch {
+      return undefined
+    }
+  }
+
+  private async mapSong(song: NavidromeSong): Promise<MetadataSourceTrack> {
+    const id = String(song.id ?? "")
+    const coverDataUri = id ? await this.fetchCoverDataUri(id) : undefined
+    const images = coverDataUri
+      ? [{ type: "image" as const, url: coverDataUri, id }]
+      : []
+    const artistTitle = isPlaceholderArtist(song.artist) ? "" : String(song.artist).trim()
+
+    return {
+      id,
+      title: resolveLocalDisplayTitle(song),
+      urls: [{ type: "resource", url: `local:${id}`, id }],
+      artists: artistTitle
+        ? [{ id: String(song.artistId ?? ""), title: artistTitle, urls: [] }]
+        : [],
+      album: {
+        ...emptyAlbum(images),
+        id: String(song.albumId ?? ""),
+        title: song.album ?? "",
+      },
+      duration: (song.duration ?? 0) * 1000,
+      explicit: false,
+      trackNumber: song.track ?? 0,
+      discNumber: song.discNumber ?? 0,
+      popularity: 0,
+      images,
+    }
+  }
+
+  async findById(id: string): Promise<MetadataSourceTrack | null> {
+    if (!this.navidrome.username || !id) return null
+    const url = `${this.navidrome.url}/rest/getSong.view?id=${encodeURIComponent(id)}&${this.authParams()}`
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const data = (await res.json()) as any
+    const song = data?.["subsonic-response"]?.song as NavidromeSong | undefined
+    if (!song?.id) return null
+    return this.mapSong(song)
+  }
+
+  /**
+   * Fill gaps for Now Playing / playTrack when the platform sent id stubs
+   * (title=id, artist=Local) or empty tags.
+   */
+  async resolvePlayMeta(
+    trackId: string,
+    incoming?: { title?: string; artist?: string; album?: string },
+  ): Promise<{ title: string; artist: string; album: string }> {
+    const track = await this.findById(trackId)
+    const title = !isPlaceholderTitle(incoming?.title, trackId)
+      ? String(incoming!.title).trim()
+      : track?.title || trackId
+    const artist = !isPlaceholderArtist(incoming?.artist)
+      ? String(incoming!.artist).trim()
+      : track?.artists?.[0]?.title ?? ""
+    const album = (incoming?.album ?? "").trim() || track?.album?.title || ""
+    return { title, artist, album }
+  }
+
   async search(query: string): Promise<MetadataSourceTrack[]> {
     if (!this.navidrome.username) return []
     const url = `${this.navidrome.url}/rest/search3.view?query=${encodeURIComponent(query)}&songCount=20&${this.authParams()}`
@@ -278,50 +414,19 @@ export class LocalDriver implements Driver {
     if (!res.ok) throw new Error(`Navidrome search failed: ${res.status}`)
     const data = (await res.json()) as any
     const songs = data?.["subsonic-response"]?.searchResult3?.song ?? []
-    const list = Array.isArray(songs) ? songs : songs ? [songs] : []
+    const list: NavidromeSong[] = Array.isArray(songs) ? songs : songs ? [songs] : []
 
     const results: MetadataSourceTrack[] = []
     for (const song of list) {
-      let coverDataUri: string | undefined
-      try {
-        const coverUrl = `${this.navidrome.url}/rest/getCoverArt.view?id=${encodeURIComponent(song.id)}&size=256&${this.authParams()}`
-        const coverRes = await fetch(coverUrl)
-        if (coverRes.ok) {
-          const buf = Buffer.from(await coverRes.arrayBuffer())
-          const ct = coverRes.headers.get("content-type") ?? "image/jpeg"
-          coverDataUri = `data:${ct};base64,${buf.toString("base64")}`
-        }
-      } catch {
-        /* no art */
-      }
-
-      const images = coverDataUri
-        ? [{ type: "image" as const, url: coverDataUri, id: song.id }]
-        : []
-
-      results.push({
-        id: String(song.id),
-        title: song.title ?? "Unknown",
-        urls: [{ type: "resource", url: `local:${song.id}`, id: String(song.id) }],
-        artists: [{ id: String(song.artistId ?? ""), title: song.artist ?? "Unknown", urls: [] }],
-        album: {
-          ...emptyAlbum(images),
-          id: String(song.albumId ?? ""),
-          title: song.album ?? "",
-        },
-        duration: (song.duration ?? 0) * 1000,
-        explicit: false,
-        trackNumber: song.track ?? 0,
-        discNumber: song.discNumber ?? 0,
-        popularity: 0,
-        images,
-      })
+      results.push(await this.mapSong(song))
     }
     return results
   }
 
   async load(trackId: string): Promise<void> {
     if (!this.socket) await this.start()
+    this.ignoreEndFileUntil = Date.now() + 2000
+    this.endedForTrackId = null
     this.currentTrackId = trackId
     const url = this.streamUrl(trackId)
     await this.send(["loadfile", url, "replace"])

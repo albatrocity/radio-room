@@ -1,4 +1,5 @@
 import type { Driver, DriverState } from "./drivers/Driver"
+import { LocalDriver } from "./drivers/local"
 import type { NowPlayingPublisher } from "./nowPlaying"
 import type { Presence } from "./presence"
 
@@ -53,17 +54,23 @@ export class Router {
       await this.active.pause().catch(() => {})
     }
 
-    this.meta.set(params.trackId, {
-      title: params.title,
-      artist: params.artist,
-      album: params.album,
-    })
+    let title = params.title
+    let artist = params.artist
+    let album = params.album
+    if (driver instanceof LocalDriver) {
+      const resolved = await driver.resolvePlayMeta(params.trackId, {
+        title,
+        artist,
+        album,
+      })
+      title = resolved.title
+      artist = resolved.artist
+      album = resolved.album
+    }
 
-    await driver.load(params.trackId, {
-      title: params.title,
-      artist: params.artist,
-      album: params.album,
-    })
+    this.meta.set(params.trackId, { title, artist, album })
+
+    await driver.load(params.trackId, { title, artist, album })
     if (params.volumePercent != null) {
       await driver.setVolume(params.volumePercent)
     }
@@ -71,9 +78,9 @@ export class Router {
     this.active = driver
 
     await this.nowPlaying.publish(this.roomId, {
-      title: params.title,
-      artist: params.artist,
-      album: params.album,
+      title,
+      artist,
+      album,
       mediaSource: { type: params.source, trackId: params.trackId },
     })
   }

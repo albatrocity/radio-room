@@ -14,6 +14,7 @@ export const bridgeRequestSchema = z.object({
     "getPlayback",
     "setVolume",
     "search",
+    "getTrack",
     "notifyNowPlaying",
   ]),
   params: z.record(z.string(), z.unknown()).default({}),

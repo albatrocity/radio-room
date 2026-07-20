@@ -35,10 +35,22 @@ export function createLocalMetadataApi(deps: {
       return searchViaDaemon([params.title, artist].filter(Boolean).join(" "))
     },
     async findById(id: string) {
-      // Prefer live search hit; otherwise synthesize a playable local resource stub
-      const results = await searchViaDaemon(id)
-      const hit = results.find((t) => t.id === id)
-      if (hit) return hit
+      const roomId = deps.roomId
+      if (roomId) {
+        const rpc = deps.getRpcForRoom(roomId)
+        if (rpc && (await rpc.isPresent())) {
+          try {
+            const track = (await rpc.call("getTrack", {
+              source: "local",
+              trackId: id,
+            })) as MetadataSourceTrack | null
+            if (track?.id) return track
+          } catch {
+            /* fall through to stub */
+          }
+        }
+      }
+      // Last resort stub so queue hydration can still play; daemon resolves title on play
       return {
         id,
         title: id,

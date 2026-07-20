@@ -110,6 +110,10 @@ export class RpcServer {
         if (String(p.source) !== "local" || !this.localDriver) return []
         return this.localDriver.search(String(p.query ?? ""))
       }
+      case "getTrack": {
+        if (String(p.source) !== "local" || !this.localDriver) return null
+        return this.localDriver.findById(String(p.trackId ?? p.id ?? ""))
+      }
       case "notifyNowPlaying":
         await this.router.notifyNowPlaying({
           title: p.title != null ? String(p.title) : undefined,
