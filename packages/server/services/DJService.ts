@@ -119,12 +119,13 @@ export class DJService {
     userId: string,
     username: string,
     trackId: QueueItem["track"]["id"],
+    mediaSourceType?: string,
   ) {
     return this.queueSongAs(
       roomId,
       { type: "user", userId, username },
       trackId,
-      { runPluginValidation: true },
+      { runPluginValidation: true, mediaSourceType },
     )
   }
 
@@ -139,11 +140,17 @@ export class DJService {
     roomId: string,
     attribution: QueueItemAttribution,
     metadataTrackId: QueueItem["track"]["id"],
-    options?: { runPluginValidation?: boolean; suppressQueueChanged?: boolean },
+    options?: {
+      runPluginValidation?: boolean
+      suppressQueueChanged?: boolean
+      /** Metadata/media source that owns this track id (spotify, youtube, …). */
+      mediaSourceType?: string
+    },
   ) {
     const addedBy = attributionToAddedBy(attribution)
     const runValidation = options?.runPluginValidation ?? false
     const suppressQueueChanged = options?.suppressQueueChanged ?? false
+    const sourceType = options?.mediaSourceType ?? "spotify"
 
     const queue = await getQueue({ context: this.context, roomId })
 
@@ -197,27 +204,51 @@ export class DJService {
       }
     }
 
-    const metadataSource = await this.adapterService.getUserMetadataSource(roomId, room.creator)
+    let resolvedSource = sourceType
+    let metadataSource = options?.mediaSourceType
+      ? await this.adapterService.getMetadataSourceForUser(
+          roomId,
+          room.creator,
+          options.mediaSourceType,
+        )
+      : await this.adapterService.getUserMetadataSource(roomId, room.creator)
 
-    if (!metadataSource) {
-      return {
-        success: false as const,
-        message: "No metadata source configured for this room",
+    let track: MetadataSourceTrack | null = null
+
+    if (metadataSource) {
+      try {
+        track = await metadataSource.api.findById(metadataTrackId)
+      } catch (error) {
+        return {
+          success: false as const,
+          message: "Failed to fetch track information",
+          error,
+        }
       }
     }
 
-    let track: MetadataSourceTrack | null
-
-    try {
-      track = await metadataSource.api.findById(metadataTrackId)
-      if (!track) {
-        return { success: false as const, message: "Track not found" }
+    if (!track) {
+      const all = await this.adapterService.getRoomMetadataSources(roomId)
+      for (const [name, src] of all) {
+        try {
+          track = await src.api.findById(metadataTrackId)
+          if (track) {
+            resolvedSource = name
+            metadataSource = src
+            break
+          }
+        } catch {
+          /* try next */
+        }
       }
-    } catch (error) {
+    }
+
+    if (!track) {
       return {
         success: false as const,
-        message: "Failed to fetch track information",
-        error,
+        message: metadataSource
+          ? "Track not found"
+          : "No metadata source configured for this room",
       }
     }
 
@@ -232,11 +263,11 @@ export class DJService {
     const queuedItem = queueItemFactory.build({
       track,
       mediaSource: {
-        type: "spotify",
+        type: resolvedSource as any,
         trackId: track.id,
       },
       metadataSource: {
-        type: "spotify",
+        type: resolvedSource as any,
         trackId: track.id,
       },
       addedBy,
@@ -660,7 +691,7 @@ export class DJService {
       await addToQueue({ context: this.context, roomId, item: queueItem })
       return {
         success: false as const,
-        message: "Failed to start playback on Spotify",
+        message: "Failed to start playback",
       }
     }
 

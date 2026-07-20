@@ -43,6 +43,8 @@ export interface PlaybackControllerApi {
 export type PlaybackControllerLifecycleCallbacks = {
   name: string
   authentication: AdapterAuthentication
+  /** Room id when registering a room-scoped controller instance (e.g. bridge). */
+  roomId?: string
   onRegistered?: (params: { api: PlaybackControllerApi; name: string }) => void
   onAuthenticationCompleted?: (response?: PlaybackControllerAuthenticationResponse) => void
   onAuthenticationFailed?: (error: Error) => void

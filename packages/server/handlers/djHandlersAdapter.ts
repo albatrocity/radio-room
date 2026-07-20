@@ -55,11 +55,22 @@ export class DJHandlers {
   /**
    * Add a song to the queue
    */
-  queueSong = async ({ socket, io }: HandlerConnections, id: QueueItem["track"]["id"]) => {
+  queueSong = async (
+    { socket, io }: HandlerConnections,
+    payload: QueueItem["track"]["id"] | { trackId: string; source?: string },
+  ) => {
     try {
       const { userId, username, roomId } = socket.data
+      const trackId = typeof payload === "string" ? payload : payload.trackId
+      const mediaSourceType = typeof payload === "string" ? undefined : payload.source
 
-      const result = await this.djService.queueSong(roomId, userId, username, id)
+      const result = await this.djService.queueSong(
+        roomId,
+        userId,
+        username,
+        trackId,
+        mediaSourceType,
+      )
 
       if (!result.success) {
         socket.emit("event", {
@@ -243,61 +254,68 @@ export class DJHandlers {
   }
 
   /**
-   * Search for tracks using the room creator's metadata source
-   * This allows guests without Spotify auth to search using the room's credentials
+   * Search for tracks across all room metadata sources (fan-out).
+   * Bridge rooms apply cross-source dedup by mediaSourcePriority.
    */
   searchForTrack = async ({ socket }: HandlerConnections, { query }: { query: string }) => {
     const { roomId } = socket.data
 
-    // Get the room to find the creator
     const { findRoom } = await import("../operations/data")
     const room = await findRoom({ context: this.context, roomId })
 
     if (!room) {
       socket.emit("event", {
         type: "TRACK_SEARCH_RESULTS_FAILURE",
-        data: {
-          message: "Room not found",
-        },
+        data: { message: "Room not found" },
       })
       return
     }
 
-    // Use the room creator's metadata source so guests can search
-    const metadataSource = await this.adapterService.getUserMetadataSource(roomId, room.creator)
-
-    if (!metadataSource) {
+    const sources = await this.adapterService.getRoomMetadataSources(roomId)
+    if (sources.size === 0) {
       socket.emit("event", {
         type: "TRACK_SEARCH_RESULTS_FAILURE",
-        data: {
-          message: "No metadata source configured for this room",
-        },
+        data: { message: "No metadata source configured for this room" },
       })
       return
     }
 
-    const result = await this.djService.searchForTrack(metadataSource, query)
+    const settled = await Promise.allSettled(
+      [...sources.entries()].map(async ([name, src]) => {
+        const result = await this.djService.searchForTrack(src, query)
+        if (!result.success) throw new Error(result.message)
+        return (result.data ?? []).map((track) => ({
+          ...track,
+          source: name,
+        }))
+      }),
+    )
 
-    if (result.success) {
-      // Wrap the results in the format the frontend expects
-      socket.emit("event", {
-        type: "TRACK_SEARCH_RESULTS",
-        data: {
-          items: result.data || [], // Frontend expects { items: [...] }
-          total: result.data?.length || 0,
-          offset: 0,
-          limit: 20,
-        },
-      })
-    } else {
-      socket.emit("event", {
-        type: "TRACK_SEARCH_RESULTS_FAILURE",
-        data: {
-          message: result.message,
-          error: result.error,
-        },
-      })
+    let items = settled.flatMap((r, i) => {
+      if (r.status === "fulfilled") return r.value
+      const name = [...sources.keys()][i]
+      console.warn(`[search] ${name} failed:`, r.reason)
+      return []
+    })
+
+    // Cross-source dedup for bridge rooms (or when priority configured)
+    const priority =
+      (room as any).mediaSourcePriority ??
+      (room.playbackControllerId === "bridge" ? ["spotify", "tidal"] : null)
+    if (priority) {
+      const { dedupeSearchResultsByPriority } = await import("@repo/utils")
+      items = dedupeSearchResultsByPriority(items, priority)
     }
+
+    socket.emit("event", {
+      type: "TRACK_SEARCH_RESULTS",
+      data: {
+        items,
+        total: items.length,
+        offset: 0,
+        limit: 20,
+      },
+    })
   }
 
   /**

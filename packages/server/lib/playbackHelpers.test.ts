@@ -23,6 +23,20 @@ describe("shouldAdvanceToNextQueueItem", () => {
     ).toBe(false)
   })
 
+  it("returns false when paused mid-track even without track context", () => {
+    expect(
+      shouldAdvanceToNextQueueItem(
+        {
+          state: "paused",
+          track: null,
+          progressMs: 60_000,
+          durationMs: 180_000,
+        },
+        queue,
+      ),
+    ).toBe(false)
+  })
+
   it("returns true when paused with no track context and queue has items", () => {
     expect(
       shouldAdvanceToNextQueueItem({ state: "paused", track: null, progressMs: null }, queue),

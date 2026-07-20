@@ -33,8 +33,15 @@ export interface MetadataSourceTrack extends MetadataSourceExternalResource {
 }
 
 // Source type unions
-export type MediaSourceType = "spotify" | "shoutcast" | "applemusic"
-export type MetadataSourceType = "spotify" | "tidal" | "applemusic"
+export type MediaSourceType =
+  | "spotify"
+  | "shoutcast"
+  | "applemusic"
+  | "tidal"
+  | "youtube"
+  | "local"
+  | "rtmp"
+export type MetadataSourceType = "spotify" | "tidal" | "applemusic" | "youtube" | "local"
 
 // Source objects with explicit typing
 export interface MediaSourceInfo {

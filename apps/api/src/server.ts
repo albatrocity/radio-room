@@ -1,4 +1,4 @@
-import { createServer, registerAdapters, createOAuthPlaceholder } from "@repo/server"
+import { createServer, registerAdapters, createOAuthPlaceholder, noAuth } from "@repo/server"
 import {
   playbackController,
   metadataSource as spotifyMetadataSource,
@@ -11,6 +11,11 @@ import {
   createTidalAuthRoutes,
   createTidalServiceAuthAdapter,
 } from "@repo/adapter-tidal"
+import {
+  playbackController as bridgePlaybackController,
+  youtubeMetadataSource,
+  localMetadataSource,
+} from "@repo/adapter-bridge"
 import { mediaSource as shoutcastMediaSource } from "@repo/media-source-shoutcast"
 import { mediaSource as rtmpMediaSource } from "@repo/media-source-rtmp"
 import createPlaylistDemocracyPlugin from "@repo/plugin-playlist-democracy"
@@ -47,7 +52,6 @@ async function main() {
   const spotifyOAuth = createOAuthPlaceholder(process.env.SPOTIFY_CLIENT_ID ?? "")
   const tidalOAuth = createOAuthPlaceholder(process.env.TIDAL_CLIENT_ID ?? "")
 
-  // Register all adapters and plugins declaratively
   await registerAdapters(server, {
     serviceAuth: [
       { name: "spotify", factory: createSpotifyServiceAuthAdapter },
@@ -56,11 +60,14 @@ async function main() {
 
     playbackControllers: [
       { name: "spotify", module: playbackController, authentication: spotifyOAuth },
+      { name: "bridge", module: bridgePlaybackController, authentication: noAuth },
     ],
 
     metadataSources: [
       { name: "spotify", module: spotifyMetadataSource, authentication: spotifyOAuth },
       { name: "tidal", module: tidalMetadataSource, authentication: tidalOAuth },
+      { name: "youtube", module: youtubeMetadataSource, authentication: noAuth },
+      { name: "local", module: localMetadataSource, authentication: noAuth },
     ],
 
     mediaSources: [

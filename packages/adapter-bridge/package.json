@@ -1,0 +1,31 @@
+{
+  "name": "@repo/adapter-bridge",
+  "version": "1.0.0",
+  "description": "Composite PlaybackController + YouTube/local MetadataSources for Listening Room bridge",
+  "type": "module",
+  "main": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./protocol": "./lib/protocol.ts"
+  },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/types": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.0.13"
+  },
+  "dependencies": {
+    "@repo/server": "*",
+    "@repo/utils": "*",
+    "redis": "^4.7.0",
+    "zod": "^4.4.2"
+  }
+}

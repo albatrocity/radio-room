@@ -1,0 +1,35 @@
+{
+  "name": "bridge-daemon",
+  "version": "1.0.0",
+  "description": "Listening Room Mac bridge daemon — CDP + mpv playback, Redis RPC",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "connect": "tsx src/index.ts connect",
+    "disconnect": "tsx src/index.ts disconnect",
+    "status": "tsx src/index.ts status",
+    "build": "echo 'bridge-daemon runs via tsx'",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@repo/adapter-bridge": "*",
+    "@repo/types": "*",
+    "commander": "^13.1.0",
+    "puppeteer-core": "^24.8.2",
+    "redis": "^4.7.0",
+    "zod": "^4.4.2"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "@types/node": "^22.15.21",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.13"
+  },
+  "engines": {
+    "node": ">=22.16.0"
+  }
+}

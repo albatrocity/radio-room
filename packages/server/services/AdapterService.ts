@@ -48,23 +48,80 @@ export class AdapterService {
    * Creates and caches a room-specific instance with dynamic token fetching
    */
   async getRoomPlaybackController(roomId: string): Promise<PlaybackController | null> {
-    // Check cache first
     if (this.roomPlaybackControllers.has(roomId)) {
       return this.roomPlaybackControllers.get(roomId)!
     }
 
     const room = await findRoom({ context: this.context, roomId })
-
     if (!room || !room.playbackControllerId) {
       return null
     }
 
-    const serviceName = room.playbackControllerId
-    const adapterModule = this.context.adapters.playbackControllerModules.get(serviceName)
+    return this.getRoomPlaybackControllerByService(roomId, room.playbackControllerId)
+  }
 
+  /**
+   * Get (or create) a PlaybackController for a specific service for a room.
+   * Used by the bridge composite to obtain the Spotify delegate without recursion.
+   */
+  async getRoomPlaybackControllerByService(
+    roomId: string,
+    serviceName: string,
+  ): Promise<PlaybackController | null> {
+    const cacheKey = serviceName === "bridge" ? roomId : `${roomId}:pc:${serviceName}`
+    if (serviceName !== "bridge" && this.roomPlaybackControllers.has(cacheKey)) {
+      return this.roomPlaybackControllers.get(cacheKey)!
+    }
+    // Primary room controller cache is keyed by roomId only for the room's configured controller
+    if (serviceName === "bridge" && this.roomPlaybackControllers.has(roomId)) {
+      return this.roomPlaybackControllers.get(roomId)!
+    }
+
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return null
+    }
+
+    const adapterModule = this.context.adapters.playbackControllerModules.get(serviceName)
     if (!adapterModule) {
       console.error(`No adapter module found for playback controller: ${serviceName}`)
       return null
+    }
+
+    const lifecycle = {
+      onRegistered: () => {},
+      onAuthenticationCompleted: () => {},
+      onAuthenticationFailed: (error: Error) =>
+        console.error("Playback controller authentication failed:", error),
+      onAuthorizationCompleted: () => {},
+      onAuthorizationFailed: (error: Error) =>
+        console.error("Playback controller authorization failed:", error),
+      onPlay: () => {
+        void handlePlaybackStateChange({ context: this.context, roomId, state: "playing" })
+      },
+      onPause: () => {
+        void handlePlaybackStateChange({ context: this.context, roomId, state: "paused" })
+      },
+      onChangeTrack: () => {},
+      onPlaybackStateChange: (state: "playing" | "paused" | "stopped") => {
+        void handlePlaybackStateChange({ context: this.context, roomId, state })
+      },
+      onPlaybackQueueChange: () => {},
+      onPlaybackPositionChange: () => {},
+      onError: (error: Error) => console.error("Playback controller error:", error),
+    }
+
+    // Bridge: no OAuth clientId; room-scoped wiring via registerBridgeForRoom
+    if (serviceName === "bridge") {
+      const { registerBridgeForRoom } = await import("@repo/adapter-bridge")
+      const playbackController = await registerBridgeForRoom({
+        roomId,
+        context: this.context,
+        authentication: { type: "none" },
+        lifecycle,
+      })
+      this.roomPlaybackControllers.set(roomId, playbackController)
+      return playbackController
     }
 
     const serviceConfig = getServiceConfig(serviceName)
@@ -73,19 +130,17 @@ export class AdapterService {
       return null
     }
 
-    // Create a room-specific adapter instance with dynamic token fetching
     const playbackController = await adapterModule.register({
       name: serviceName,
+      roomId,
       authentication: {
         type: "oauth",
         clientId: serviceConfig.clientId,
         token: {
-          accessToken: "", // Not used
+          accessToken: "",
           refreshToken: "",
         },
         getStoredTokens: async () => {
-          // This function is called on each API operation to get fresh tokens
-          // for the room creator
           if (!this.context.data?.getUserServiceAuth) {
             throw new Error("getUserServiceAuth not available in context")
           }
@@ -105,30 +160,14 @@ export class AdapterService {
           }
         },
       },
-      onRegistered: () => {},
-      onAuthenticationCompleted: () => {},
-      onAuthenticationFailed: (error) =>
-        console.error("Playback controller authentication failed:", error),
-      onAuthorizationCompleted: () => {},
-      onAuthorizationFailed: (error) =>
-        console.error("Playback controller authorization failed:", error),
-      onPlay: () => {
-        void handlePlaybackStateChange({ context: this.context, roomId, state: "playing" })
-      },
-      onPause: () => {
-        void handlePlaybackStateChange({ context: this.context, roomId, state: "paused" })
-      },
-      onChangeTrack: () => {},
-      onPlaybackStateChange: (state) => {
-        void handlePlaybackStateChange({ context: this.context, roomId, state })
-      },
-      onPlaybackQueueChange: () => {},
-      onPlaybackPositionChange: () => {},
-      onError: (error) => console.error("Playback controller error:", error),
+      ...lifecycle,
     })
 
-    // Cache the instance
-    this.roomPlaybackControllers.set(roomId, playbackController)
+    if (serviceName === room.playbackControllerId) {
+      this.roomPlaybackControllers.set(roomId, playbackController)
+    } else {
+      this.roomPlaybackControllers.set(cacheKey, playbackController)
+    }
 
     return playbackController
   }
@@ -174,12 +213,61 @@ export class AdapterService {
       }
 
       const serviceConfig = getServiceConfig(sourceId)
-      if (!serviceConfig.clientId) {
+      const needsOAuthClient =
+        sourceId !== "youtube" && sourceId !== "local" && sourceId !== "bridge"
+      if (needsOAuthClient && !serviceConfig.clientId) {
         console.error(`No client ID configured for service: ${getServiceName(sourceId)}`)
         continue
       }
 
       try {
+        // YouTube uses API key (env); local uses bridge RPC — both use type: none auth
+        if (sourceId === "youtube" || sourceId === "local") {
+          const metadataSource = await adapterModule.register({
+            name: sourceId,
+            url: "",
+            authentication: { type: "none" },
+            registerJob: async (job) => {
+              if (this.context.jobService) {
+                await this.context.jobService.scheduleJob(job)
+              }
+              return job
+            },
+            onRegistered: () => {},
+            onAuthenticationCompleted: () => {},
+            onAuthenticationFailed: () => {},
+            onSearchResults: () => {},
+            onError: (error) => console.error(`Metadata source ${sourceId} error:`, error),
+          })
+
+          // For local: re-wire with room RPC if bridge is available
+          if (sourceId === "local") {
+            try {
+              const { getBridgeRpcClient, registerLocalMetadataForRoom } = await import(
+                "@repo/adapter-bridge"
+              )
+              const rpc = getBridgeRpcClient(roomId)
+              if (rpc) {
+                const wired = registerLocalMetadataForRoom({
+                  roomId,
+                  context: this.context,
+                  rpc,
+                  authentication: { type: "none" },
+                })
+                this.roomMetadataSources.set(cacheKey, wired)
+                sources.set(sourceId, wired)
+                continue
+              }
+            } catch {
+              /* fall through to module instance */
+            }
+          }
+
+          this.roomMetadataSources.set(cacheKey, metadataSource)
+          sources.set(sourceId, metadataSource)
+          continue
+        }
+
         // Create a room-specific metadata source instance with dynamic token fetching
         const metadataSource = await adapterModule.register({
           name: sourceId,
@@ -380,6 +468,40 @@ export class AdapterService {
     if (!adapterModule) {
       console.error(`No adapter module found for metadata source: ${sourceType}`)
       return null
+    }
+
+    // YouTube (API key) and local (daemon RPC) need no per-user OAuth
+    if (sourceType === "youtube" || sourceType === "local") {
+      try {
+        if (sourceType === "local") {
+          const { getBridgeRpcClient, registerLocalMetadataForRoom } = await import(
+            "@repo/adapter-bridge"
+          )
+          const rpc = getBridgeRpcClient(roomId)
+          if (rpc) {
+            return registerLocalMetadataForRoom({
+              roomId,
+              context: this.context,
+              rpc,
+              authentication: { type: "none" },
+            })
+          }
+        }
+        return await adapterModule.register({
+          name: sourceType,
+          url: "",
+          authentication: { type: "none" },
+          registerJob: () => Promise.resolve({} as any),
+          onRegistered: () => {},
+          onAuthenticationCompleted: () => {},
+          onAuthenticationFailed: () => {},
+          onSearchResults: () => {},
+          onError: () => {},
+        })
+      } catch (error) {
+        console.error(`Error creating metadata source for ${sourceType}:`, error)
+        return null
+      }
     }
 
     // Get user's credentials from Redis

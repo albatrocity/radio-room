@@ -51,12 +51,16 @@ export function shouldAdvanceToNextQueueItem(
     return false
   }
 
-  if (!playback.track) {
-    return true
-  }
-
   const duration = playback.durationMs
   const progress = playback.progressMs ?? 0
+
+  if (!playback.track) {
+    // Controllers that omit track (e.g. bridge before stub) should still resume mid-stream.
+    if (isMidTrackPause(progress, duration)) {
+      return false
+    }
+    return true
+  }
 
   if (isMidTrackPause(progress, duration)) {
     return false

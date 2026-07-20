@@ -148,13 +148,13 @@ export async function searchTracks(
     const encodedQuery = encodeURIComponent(query)
     console.log(`[Tidal Search] Trying directHits for: "${query}"`)
 
-    // Directly fetch the directHits relationship which returns actual tracks
+    // Relationship primary data is already the hits; include=tracks is not allowed on this endpoint.
     const directHitsResponse = await tidalFetch<{
       data?: Array<{ id: string; type: string }>
       included?: Array<{ id: string; type: string }>
     }>(
       client,
-      `/searchSuggestions/${encodedQuery}/relationships/directHits?countryCode=${client.countryCode}&include=tracks`,
+      `/searchSuggestions/${encodedQuery}/relationships/directHits?countryCode=${client.countryCode}`,
     )
 
     console.log(`[Tidal Search] directHits response keys:`, Object.keys(directHitsResponse))

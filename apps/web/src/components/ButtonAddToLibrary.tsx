@@ -41,10 +41,15 @@ export default function ButtonAddToLibrary() {
       return { trackId: undefined, targetService: preferredSource }
     }
 
-    // No preference set - use primary metadata source
+    // No preference set - use primary metadata source only if library-capable
+    const primaryType = nowPlaying.metadataSource?.type as MetadataSourceType | undefined
+    const libraryCapable = primaryType === "spotify" || primaryType === "tidal"
+    if (!libraryCapable) {
+      return { trackId: undefined, targetService: undefined }
+    }
     return {
       trackId: nowPlaying.metadataSource?.trackId,
-      targetService: nowPlaying.metadataSource?.type as MetadataSourceType | undefined,
+      targetService: primaryType,
     }
   }, [nowPlaying, preferredSource])
 

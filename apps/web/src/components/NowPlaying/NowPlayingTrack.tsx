@@ -74,11 +74,11 @@ function getCoverUrl(release: any, room: Partial<Room> | null): string | null {
 }
 
 function getExternalUrl(release: any): string | null {
-  return (
-    (release as any)?.external_urls?.spotify ||
-    release?.urls?.find((u: any) => u.type === "resource")?.url ||
-    null
-  )
+  const spotify = (release as any)?.external_urls?.spotify
+  if (typeof spotify === "string" && spotify.startsWith("http")) return spotify
+  const resource = release?.urls?.find((u: any) => u.type === "resource")?.url
+  if (typeof resource === "string" && /^https?:\/\//i.test(resource)) return resource
+  return null
 }
 
 /**
@@ -431,6 +431,10 @@ function MetadataSourceInfo({ metadataSource }: MetadataSourceInfoProps) {
         return LuMusic
       case "tidal":
         return LuWaves
+      case "youtube":
+        return LuMusic
+      case "local":
+        return LuMusic
       default:
         return null
     }
@@ -442,6 +446,10 @@ function MetadataSourceInfo({ metadataSource }: MetadataSourceInfoProps) {
         return "Spotify"
       case "tidal":
         return "Tidal"
+      case "youtube":
+        return "YouTube"
+      case "local":
+        return "Local library"
       default:
         return type
     }

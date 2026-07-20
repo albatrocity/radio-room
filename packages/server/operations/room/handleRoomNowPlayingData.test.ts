@@ -285,3 +285,138 @@ describe("handleRoomNowPlayingData — artworkStreamingOnly", () => {
     expect(meta.artwork).not.toBe("room.png")
   })
 })
+
+describe("handleRoomNowPlayingData — bridge/shoutcast same-play dedup", () => {
+  const emit = vi.fn()
+  const context = {
+    systemEvents: { emit },
+    redis: {
+      pubClient: { get: vi.fn(), publish: vi.fn() },
+      subClient: {},
+    },
+  } as unknown as AppContext
+
+  const shoutcastSubmission = {
+    trackId: "shoutcast-hash",
+    sourceType: "shoutcast" as const,
+    title: "Melt!",
+    artist: "Modern Love Child",
+    album: "Album",
+    stationMeta: { title: "Melt! | Modern Love Child | Album", bitrate: "128" },
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    m.setRoomCurrent.mockResolvedValue(undefined)
+    m.addTrackToRoomPlaylist.mockResolvedValue(undefined)
+    m.getQueue.mockResolvedValue([])
+    m.getDispatchedTrack.mockResolvedValue(null)
+    m.clearDispatchedTrack.mockResolvedValue(undefined)
+    m.writeJsonToHset.mockResolvedValue(undefined)
+    emit.mockResolvedValue(undefined)
+  })
+
+  it("does not add a second playlist row when ICY re-submits after queue-stamped catalog mediaSource", async () => {
+    m.findRoom.mockResolvedValue(
+      baseRoom({
+        fetchMeta: true,
+        type: "radio",
+        playbackControllerId: "bridge",
+        playbackMode: "app-controlled",
+      }),
+    )
+    m.getRoomCurrent.mockResolvedValue({
+      stationMeta: { title: "Melt! | Modern Love Child | Album" },
+      nowPlaying: {
+        title: "Melt!",
+        track: {
+          id: "spotify-id",
+          title: "Melt!",
+          artists: [{ id: "a", title: "Modern Love Child", urls: [] }],
+          album: {
+            id: "",
+            title: "Album",
+            urls: [],
+            artists: [],
+            releaseDate: "",
+            releaseDatePrecision: "year",
+            totalTracks: 0,
+            label: "",
+            images: [],
+          },
+          duration: 0,
+          trackNumber: 0,
+          discNumber: 0,
+          explicit: false,
+          popularity: 0,
+          urls: [],
+        },
+        mediaSource: { type: "spotify", trackId: "spotify-id" },
+        addedAt: 1,
+        addedBy: { userId: "u1", username: "dj" },
+      },
+    })
+
+    const result = await handleRoomNowPlayingData({
+      context,
+      roomId: "r1",
+      submission: shoutcastSubmission,
+    })
+
+    expect(result).toBeNull()
+    expect(m.addTrackToRoomPlaylist).not.toHaveBeenCalled()
+    expect(m.setRoomCurrent).not.toHaveBeenCalled()
+  })
+
+  it("does not fuzzy-dedupe when current is also shoutcast (title match alone is not enough)", async () => {
+    m.findRoom.mockResolvedValue(
+      baseRoom({
+        fetchMeta: true,
+        type: "radio",
+        playbackControllerId: "bridge",
+        playbackMode: "app-controlled",
+      }),
+    )
+    // Different trackId, both shoutcast → must not collapse via catalog→stream fuzzy path
+    m.getRoomCurrent
+      .mockResolvedValueOnce({
+        stationMeta: { title: "Other Song | Other Artist | Album" },
+        nowPlaying: {
+          title: "Melt!",
+          track: {
+            id: "other-hash",
+            title: "Melt!",
+            artists: [{ id: "a", title: "Modern Love Child", urls: [] }],
+            album: {
+              id: "",
+              title: "Album",
+              urls: [],
+              artists: [],
+              releaseDate: "",
+              releaseDatePrecision: "year",
+              totalTracks: 0,
+              label: "",
+              images: [],
+            },
+            duration: 0,
+            trackNumber: 0,
+            discNumber: 0,
+            explicit: false,
+            popularity: 0,
+            urls: [],
+          },
+          mediaSource: { type: "shoutcast", trackId: "other-hash" },
+          addedAt: 1,
+        },
+      })
+      .mockResolvedValueOnce({ title: "Melt!" })
+
+    await handleRoomNowPlayingData({
+      context,
+      roomId: "r1",
+      submission: shoutcastSubmission,
+    })
+
+    expect(m.addTrackToRoomPlaylist).toHaveBeenCalled()
+  })
+})

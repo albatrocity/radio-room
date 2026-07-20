@@ -36,7 +36,11 @@ export const queueMachine = setup({
     }),
     sendToQueue: ({ event }) => {
       if (event.type === "SEND_TO_QUEUE") {
-        emitToSocket("QUEUE_SONG", event.track.id)
+        const source = (event.track as { source?: string }).source
+        emitToSocket(
+          "QUEUE_SONG",
+          source ? { trackId: event.track.id, source } : event.track.id,
+        )
       }
     },
     notifyQueued: ({ context }) => {

@@ -59,7 +59,7 @@ function enrichCurrentShopInstanceWithOfferRarity(
 
 /**
  * Get available metadata sources for a user based on their linked services
- * Always includes "spotify", adds "tidal" if user has it linked
+ * Always includes "spotify", adds "tidal" if linked, "youtube" when API key is set
  */
 async function getAvailableMetadataSourcesForUser(
   context: AppContext,
@@ -77,7 +77,29 @@ async function getAvailableMetadataSourcesForUser(
     // Tidal not linked, that's fine
   }
 
+  if (process.env.YOUTUBE_API_KEY) {
+    sources.push("youtube")
+  }
+
   return sources
+}
+
+/** Ensure bridge rooms search fan-out includes YouTube (+ local when requested). */
+function ensureBridgeMetadataSources(
+  playbackControllerId: string | undefined,
+  metadataSourceIds: string[] | undefined,
+): string[] | undefined {
+  if (playbackControllerId !== "bridge" || !metadataSourceIds) {
+    return metadataSourceIds
+  }
+  const next = [...metadataSourceIds]
+  if (process.env.YOUTUBE_API_KEY && !next.includes("youtube")) {
+    next.push("youtube")
+  }
+  if (!next.includes("local")) {
+    next.push("local")
+  }
+  return next
 }
 
 function configureAdaptersForRoomType(params: {
@@ -105,16 +127,18 @@ function configureAdaptersForRoomType(params: {
       mediaSourceConfig,
     }
   } else if (type === "radio") {
+    const resolvedPlayback = playbackControllerId || "spotify"
     return {
-      playbackControllerId: playbackControllerId || "spotify",
-      metadataSourceIds: metadataSourceIds,
+      playbackControllerId: resolvedPlayback,
+      metadataSourceIds: ensureBridgeMetadataSources(resolvedPlayback, metadataSourceIds),
       mediaSourceId: mediaSourceId || "shoutcast",
       mediaSourceConfig: mediaSourceConfig || (radioMetaUrl ? { url: radioMetaUrl } : undefined),
     }
   } else if (type === "live") {
+    const resolvedPlayback = playbackControllerId || "spotify"
     return {
-      playbackControllerId: playbackControllerId || "spotify",
-      metadataSourceIds: metadataSourceIds,
+      playbackControllerId: resolvedPlayback,
+      metadataSourceIds: ensureBridgeMetadataSources(resolvedPlayback, metadataSourceIds),
       mediaSourceId: mediaSourceId || "rtmp",
       mediaSourceConfig,
     }
@@ -123,7 +147,7 @@ function configureAdaptersForRoomType(params: {
   // Default fallback
   return {
     playbackControllerId,
-    metadataSourceIds,
+    metadataSourceIds: ensureBridgeMetadataSources(playbackControllerId, metadataSourceIds),
     mediaSourceId,
     mediaSourceConfig,
   }

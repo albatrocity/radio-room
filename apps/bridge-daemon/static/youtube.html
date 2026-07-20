@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>Listening Room YouTube Host</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #000;
+        overflow: hidden;
+      }
+      #player {
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="player"></div>
+    <script>
+      window.__ytReady = false
+      window.__ytEnded = false
+      window.__ytState = { state: "stopped", progressMs: null, durationMs: null, volumePercent: 100 }
+      window.__endedCallbacks = []
+
+      function fireEnded(reason) {
+        if (window.__ytEnded) return
+        window.__ytEnded = true
+        window.__ytState.state = "stopped"
+        var id = window.__currentVideoId
+        console.warn("[youtube] ended:", reason, "videoId=", id)
+        window.__endedCallbacks.forEach(function (cb) {
+          try {
+            cb(id)
+          } catch (e) {}
+        })
+      }
+
+      function onYouTubeIframeAPIReady() {
+        window.player = new YT.Player("player", {
+          height: "100%",
+          width: "100%",
+          host: "https://www.youtube.com",
+          playerVars: {
+            autoplay: 1,
+            controls: 1,
+            modestbranding: 1,
+            rel: 0,
+            playsinline: 1,
+            // Required for Error 153 — must match the HTTP origin serving this page
+            origin: window.location.origin,
+          },
+          events: {
+            onReady: function () {
+              window.__ytReady = true
+              // Ensure the iframe YouTube creates sends a referrer
+              var iframe = document.querySelector("#player iframe")
+              if (iframe) {
+                iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin")
+              }
+            },
+            onStateChange: function (event) {
+              // 0 = ended, 1 = playing, 2 = paused, 3 = buffering, 5 = cued
+              if (event.data === 0) {
+                fireEnded("natural")
+              } else if (event.data === 1) {
+                window.__ytEnded = false
+                window.__ytState.state = "playing"
+              } else if (event.data === 2) {
+                window.__ytState.state = "paused"
+              } else if (event.data === 3) {
+                window.__ytState.state = "playing"
+              }
+              try {
+                const d = player.getDuration()
+                const t = player.getCurrentTime()
+                window.__ytState.durationMs = d ? Math.round(d * 1000) : null
+                window.__ytState.progressMs = t != null ? Math.round(t * 1000) : null
+                window.__ytState.volumePercent = player.getVolume()
+              } catch (e) {}
+            },
+            onError: function (event) {
+              // 2 invalid param, 5 HTML5 error, 100 not found, 101/150 embed restricted
+              var code = event && event.data
+              fireEnded("error-" + code)
+            },
+          },
+        })
+      }
+
+      window.__loadVideo = function (videoId) {
+        window.__currentVideoId = videoId
+        window.__ytEnded = false
+        window.__ytState.state = "stopped"
+        window.__ytState.progressMs = 0
+        window.__ytState.durationMs = null
+        if (window.player && window.__ytReady) {
+          window.player.loadVideoById(videoId)
+        } else {
+          window.__pendingVideoId = videoId
+          var iv = setInterval(function () {
+            if (window.player && window.__ytReady) {
+              clearInterval(iv)
+              window.player.loadVideoById(window.__pendingVideoId)
+            }
+          }, 100)
+        }
+      }
+
+      window.__play = function () {
+        if (!window.player) return
+        try {
+          var s = window.player.getPlayerState()
+          // 0 ended, -1 unstarted, 5 cued → reload; 2 paused → resume
+          if ((s === 0 || s === -1 || s === 5) && window.__currentVideoId) {
+            window.player.loadVideoById(window.__currentVideoId)
+          } else {
+            window.player.playVideo()
+          }
+          window.__ytState.state = "playing"
+        } catch (e) {
+          console.error("[youtube] __play failed", e)
+        }
+      }
+      window.__pause = function () {
+        if (!window.player) return
+        try {
+          window.player.pauseVideo()
+          window.__ytState.state = "paused"
+        } catch (e) {
+          console.error("[youtube] __pause failed", e)
+        }
+      }
+      window.__stop = function () {
+        if (window.player) window.player.stopVideo()
+        window.__ytState.state = "stopped"
+      }
+      window.__seekTo = function (ms) {
+        if (window.player) window.player.seekTo(ms / 1000, true)
+      }
+      window.__setVolume = function (v) {
+        if (window.player) window.player.setVolume(v)
+        window.__ytState.volumePercent = v
+      }
+      window.__getState = function () {
+        try {
+          if (window.player && window.__ytReady) {
+            var ps = window.player.getPlayerState()
+            if (ps === 1 || ps === 3) window.__ytState.state = "playing"
+            else if (ps === 2) window.__ytState.state = "paused"
+            else if (ps === 0 || ps === -1 || ps === 5) window.__ytState.state = "stopped"
+            const d = player.getDuration()
+            const t = player.getCurrentTime()
+            window.__ytState.durationMs = d ? Math.round(d * 1000) : null
+            window.__ytState.progressMs = t != null ? Math.round(t * 1000) : null
+            window.__ytState.volumePercent = player.getVolume()
+          }
+        } catch (e) {}
+        return Object.assign({ trackId: window.__currentVideoId || null }, window.__ytState)
+      }
+      window.__onEnded = function (cb) {
+        window.__endedCallbacks.push(cb)
+      }
+    </script>
+    <script src="https://www.youtube.com/iframe_api"></script>
+  </body>
+</html>

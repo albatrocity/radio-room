@@ -175,16 +175,24 @@ export default async function handleRoomNowPlayingData({
 
   const trackDj = queuedTrack?.addedBy
 
+  // Prefer search-time queue item track (artwork/urls) over raw ICY fallback
+  const hydratedTrack = queuedTrack?.track ?? track
+  const hydratedMetadataSource = queuedTrack?.metadataSource ?? metadataSource
+  const hydratedMetadataSources = {
+    ...metadataSources,
+    ...queuedTrack?.metadataSources,
+  }
+
   // Construct QueueItem
   const nowPlaying: QueueItem = {
-    title: track.title,
-    track,
-    mediaSource: {
+    title: hydratedTrack.title,
+    track: hydratedTrack,
+    mediaSource: queuedTrack?.mediaSource ?? {
       type: submission.sourceType,
       trackId: submission.trackId,
     },
-    metadataSource,
-    metadataSources,
+    metadataSource: hydratedMetadataSource,
+    metadataSources: hydratedMetadataSources,
     addedAt: queuedTrack?.addedAt ?? Date.now(),
     addedBy: trackDj,
     addedDuring: queuedTrack ? "queue" : "nowPlaying",
@@ -279,6 +287,17 @@ export default async function handleRoomNowPlayingData({
   }
 }
 
+const STREAM_MEDIA_SOURCE_TYPES = new Set(["shoutcast", "rtmp"])
+const CATALOG_MEDIA_SOURCE_TYPES = new Set(["spotify", "tidal", "youtube", "local"])
+
+function isStreamMediaSourceType(type: string | undefined): boolean {
+  return !!type && STREAM_MEDIA_SOURCE_TYPES.has(type)
+}
+
+function isCatalogMediaSourceType(type: string | undefined): boolean {
+  return !!type && CATALOG_MEDIA_SOURCE_TYPES.has(type)
+}
+
 /**
  * Check if the incoming submission is the same as currently playing.
  */
@@ -295,12 +314,45 @@ function isSameTrack(
     current.nowPlaying.mediaSource.type === submission.sourceType &&
     current.nowPlaying.mediaSource.trackId === submission.trackId
 
-  // For stream-backed rooms, also verify station title
-  if (hasListenableStream(room) && submission.stationMeta?.title && current?.stationMeta?.title) {
-    return sameMediaSource && current.stationMeta.title === submission.stationMeta.title
+  if (sameMediaSource) {
+    // For stream-backed rooms, also verify station title when both sides have it
+    if (hasListenableStream(room) && submission.stationMeta?.title && current?.stationMeta?.title) {
+      return current.stationMeta.title === submission.stationMeta.title
+    }
+    return true
   }
 
-  return sameMediaSource
+  // Bridge/app-controlled: queue stamps catalog mediaSource (spotify/youtube/…) while
+  // Shoutcast/ICY later re-submits as shoutcast/rtmp. Only this cross-source case is
+  // collapsed — never fuzzy-match two catalog plays or two stream plays by title alone.
+  if (
+    !isCatalogMediaSourceType(current.nowPlaying.mediaSource.type) ||
+    !isStreamMediaSourceType(submission.sourceType)
+  ) {
+    return false
+  }
+
+  if (
+    submission.stationMeta?.title &&
+    current.stationMeta?.title &&
+    current.stationMeta.title === submission.stationMeta.title
+  ) {
+    return true
+  }
+
+  const currentTitle = current.nowPlaying.track?.title?.toLowerCase().trim()
+  const submissionTitle = submission.title?.toLowerCase().trim()
+  if (!currentTitle || !submissionTitle || currentTitle !== submissionTitle) {
+    return false
+  }
+
+  const currentArtist =
+    current.nowPlaying.track?.artists?.[0]?.title?.toLowerCase().trim() || ""
+  const submissionArtist = (submission.artist ?? "").toLowerCase().trim()
+  if (!currentArtist || !submissionArtist) {
+    return true
+  }
+  return currentArtist === submissionArtist
 }
 
 type FindQueuedTrackParams = {

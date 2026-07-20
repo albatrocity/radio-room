@@ -11,7 +11,7 @@ export function getConfigSchema(): PluginConfigSchema {
         type: "text-block",
         variant: "info",
         content:
-          "Control Spotify playback volume on the room creator's active device. Use Current volume for immediate changes (e.g. segment talk ducking). Use Start each track at with Reset volume at each track start for per-track resets.",
+          "Control playback volume on the room creator's active device (Spotify Connect or bridge drivers). Use Current volume for immediate changes (e.g. segment talk ducking). Use Start each track at with Reset volume at each track start for per-track resets.",
       },
       "enabled",
       "volume",
