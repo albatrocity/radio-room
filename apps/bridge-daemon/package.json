@@ -8,9 +8,11 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "serve": "tsx src/index.ts serve",
     "connect": "tsx src/index.ts connect",
     "disconnect": "tsx src/index.ts disconnect",
     "status": "tsx src/index.ts status",
+    "rooms": "tsx src/index.ts rooms",
     "build": "echo 'bridge-daemon runs via tsx'",
     "test": "vitest run --passWithNoTests"
   },

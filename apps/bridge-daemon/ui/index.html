@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Listening Room Bridge</title>
+    <style>
+      :root {
+        color-scheme: dark light;
+        font-family: system-ui, sans-serif;
+        line-height: 1.4;
+      }
+      body {
+        max-width: 52rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 0.25rem;
+      }
+      h2 {
+        font-size: 1.1rem;
+        margin: 0;
+      }
+      fieldset {
+        border: 1px solid #8884;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        padding: 1rem;
+      }
+      legend {
+        padding: 0 0.35rem;
+      }
+      label {
+        display: block;
+        margin: 0.5rem 0 0.2rem;
+        font-weight: 600;
+      }
+      input[type="text"],
+      input[type="number"],
+      input[type="password"] {
+        width: 100%;
+        max-width: 36rem;
+        padding: 0.45rem 0.5rem;
+        box-sizing: border-box;
+      }
+      .row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 0.75rem;
+      }
+      .checks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        margin-top: 0.5rem;
+      }
+      .checks label {
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0;
+      }
+      button {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+      }
+      button.primary {
+        font-weight: 600;
+      }
+      #status {
+        font-family: ui-monospace, monospace;
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        background: #8882;
+        padding: 0.75rem;
+        border-radius: 6px;
+      }
+      .hint {
+        font-size: 0.9rem;
+        opacity: 0.85;
+        margin: 0.25rem 0 0.5rem;
+      }
+      .err {
+        color: #c33;
+        margin-top: 0.5rem;
+      }
+      .ok {
+        color: #2a7;
+        margin-top: 0.5rem;
+      }
+      .room-list {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0;
+        max-width: 40rem;
+      }
+      .room-list li {
+        margin-bottom: 0.4rem;
+      }
+      .room-list button {
+        width: 100%;
+        text-align: left;
+        font: inherit;
+        padding: 0.55rem 0.65rem;
+        border: 1px solid #8884;
+        border-radius: 6px;
+        background: #8881;
+        cursor: pointer;
+      }
+      .room-list button:hover {
+        background: #8883;
+      }
+      .room-list button.active {
+        outline: 2px solid #4a8;
+      }
+      .room-list .meta {
+        font-size: 0.85rem;
+        opacity: 0.8;
+        margin-top: 0.15rem;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.1rem 0.4rem;
+        border-radius: 4px;
+        background: #4a85;
+        margin-left: 0.35rem;
+      }
+      .badge.warn {
+        background: #a841;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 1rem;
+        max-width: 36rem;
+      }
+      @media (max-width: 640px) {
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Listening Room Bridge</h1>
+    <p class="hint">Local control UI — config is saved to <code>~/.config/listening-room-bridge/config.json</code>.</p>
+
+    <fieldset>
+      <legend>Session</legend>
+      <div id="status">Loading…</div>
+      <div class="row">
+        <button type="button" id="btnRefreshStatus">Refresh status</button>
+        <button type="button" id="btnDisconnect">Disconnect</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Rooms</legend>
+      <p class="hint">
+        Rooms discovered from Redis (<code>rooms</code> set). Prefer rooms marked
+        <span class="badge">bridge</span>. Connect switches the active room.
+      </p>
+      <div class="row">
+        <button type="button" id="btnRefreshRooms">Refresh rooms</button>
+        <label style="margin: 0; font-weight: 500">
+          <input type="checkbox" id="bridgeOnly" /> Bridge rooms only
+        </label>
+      </div>
+      <ul class="room-list" id="roomList"></ul>
+      <div id="roomsError" class="err" hidden></div>
+      <label for="manualRoomId">Or paste room id</label>
+      <div class="row">
+        <input type="text" id="manualRoomId" placeholder="room id" style="flex: 1; max-width: 28rem" />
+        <button type="button" class="primary" id="btnConnectManual">Connect</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Connection</legend>
+      <label for="redisUrl">Redis URL</label>
+      <input type="text" id="redisUrl" autocomplete="off" />
+      <label for="httpListen">HTTP listen (this UI)</label>
+      <input type="text" id="httpListen" autocomplete="off" />
+      <label for="defaultRoomId">Default room id</label>
+      <input type="text" id="defaultRoomId" autocomplete="off" />
+    </fieldset>
+
+    <fieldset>
+      <legend>Services</legend>
+      <p class="hint">Drivers / hosts started on connect. Spotify = Web Playback SDK device in Chrome.</p>
+      <div class="checks">
+        <label><input type="checkbox" id="svcYoutube" value="youtube" /> youtube</label>
+        <label><input type="checkbox" id="svcLocal" value="local" /> local</label>
+        <label><input type="checkbox" id="svcTidal" value="tidal" /> tidal</label>
+        <label><input type="checkbox" id="svcSpotify" value="spotify" /> spotify (SDK device)</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Chrome</legend>
+      <label for="chromeExe">Executable path</label>
+      <input type="text" id="chromeExe" />
+      <label for="chromeUserData">User data dir (optional)</label>
+      <input type="text" id="chromeUserData" placeholder="default under ~/.config/listening-room-bridge/" />
+      <label for="chromePort">Debugging port</label>
+      <input type="number" id="chromePort" min="1" max="65535" />
+    </fieldset>
+
+    <fieldset>
+      <legend>Tidal</legend>
+      <label for="tidalExe">Executable path</label>
+      <input type="text" id="tidalExe" />
+      <label for="tidalPort">Debugging port</label>
+      <input type="number" id="tidalPort" min="1" max="65535" />
+    </fieldset>
+
+    <fieldset>
+      <legend>Navidrome / mpv (local)</legend>
+      <div class="grid2">
+        <div>
+          <label for="navUrl">Navidrome URL</label>
+          <input type="text" id="navUrl" />
+        </div>
+        <div>
+          <label for="mpvPath">mpv path</label>
+          <input type="text" id="mpvPath" />
+        </div>
+        <div>
+          <label for="navUser">Username</label>
+          <input type="text" id="navUser" autocomplete="username" />
+        </div>
+        <div>
+          <label for="navPass">Password</label>
+          <input type="password" id="navPass" autocomplete="current-password" />
+        </div>
+      </div>
+      <label for="mpvSocket">mpv socket path (optional)</label>
+      <input type="text" id="mpvSocket" />
+    </fieldset>
+
+    <fieldset>
+      <legend>Now Playing</legend>
+      <label for="nowPlayingPath">Now Playing.txt path</label>
+      <input type="text" id="nowPlayingPath" placeholder="default under ~/.config/listening-room-bridge/" />
+      <p class="hint">File always uses Audio Hijack <code>Title:</code> / <code>Artist:</code> / <code>Album:</code> lines.</p>
+    </fieldset>
+
+    <div class="row">
+      <button type="button" class="primary" id="btnSave">Save config</button>
+      <button type="button" id="btnReload">Reload from disk</button>
+    </div>
+    <div id="formMsg" hidden></div>
+
+    <script>
+      ;(function () {
+        var roomsCache = []
+        var statusRoomId = null
+
+        function $(id) {
+          return document.getElementById(id)
+        }
+
+        function setMsg(text, ok) {
+          var el = $("formMsg")
+          el.hidden = !text
+          el.className = ok ? "ok" : "err"
+          el.textContent = text || ""
+        }
+
+        function servicesFromForm() {
+          var out = []
+          if ($("svcYoutube").checked) out.push("youtube")
+          if ($("svcLocal").checked) out.push("local")
+          if ($("svcTidal").checked) out.push("tidal")
+          if ($("svcSpotify").checked) out.push("spotify")
+          return out
+        }
+
+        function applyConfig(c) {
+          $("redisUrl").value = c.redisUrl || ""
+          $("httpListen").value = c.httpListen || ""
+          $("defaultRoomId").value = c.defaultRoomId || ""
+          var svcs = c.services || []
+          $("svcYoutube").checked = svcs.indexOf("youtube") >= 0
+          $("svcLocal").checked = svcs.indexOf("local") >= 0
+          $("svcTidal").checked = svcs.indexOf("tidal") >= 0
+          $("svcSpotify").checked = svcs.indexOf("spotify") >= 0
+          var chrome = c.chrome || {}
+          $("chromeExe").value = chrome.executablePath || ""
+          $("chromeUserData").value = chrome.userDataDir || ""
+          $("chromePort").value = chrome.debuggingPort != null ? chrome.debuggingPort : 9222
+          var tidal = c.tidal || {}
+          $("tidalExe").value = tidal.executablePath || ""
+          $("tidalPort").value = tidal.debuggingPort != null ? tidal.debuggingPort : 9223
+          var nav = c.navidrome || {}
+          $("navUrl").value = nav.url || ""
+          $("navUser").value = nav.username || ""
+          $("navPass").value = nav.password || ""
+          var mpv = c.mpv || {}
+          $("mpvPath").value = mpv.path || ""
+          $("mpvSocket").value = mpv.socketPath || ""
+          $("nowPlayingPath").value = c.nowPlayingPath || ""
+        }
+
+        function collectConfig() {
+          var userData = $("chromeUserData").value.trim()
+          var socket = $("mpvSocket").value.trim()
+          var np = $("nowPlayingPath").value.trim()
+          var defaultRoom = $("defaultRoomId").value.trim()
+          return {
+            redisUrl: $("redisUrl").value.trim(),
+            httpListen: $("httpListen").value.trim(),
+            defaultRoomId: defaultRoom || undefined,
+            services: servicesFromForm(),
+            chrome: {
+              executablePath: $("chromeExe").value.trim(),
+              userDataDir: userData || undefined,
+              debuggingPort: Number($("chromePort").value) || 9222,
+            },
+            tidal: {
+              executablePath: $("tidalExe").value.trim(),
+              debuggingPort: Number($("tidalPort").value) || 9223,
+            },
+            navidrome: {
+              url: $("navUrl").value.trim(),
+              username: $("navUser").value,
+              password: $("navPass").value,
+            },
+            mpv: {
+              path: $("mpvPath").value.trim() || "mpv",
+              socketPath: socket || undefined,
+            },
+            nowPlayingPath: np || undefined,
+          }
+        }
+
+        async function api(path, opts) {
+          var res = await fetch(path, opts)
+          var data = await res.json().catch(function () {
+            return { ok: false, error: "Invalid response" }
+          })
+          if (!res.ok || data.ok === false) {
+            throw new Error(data.error || res.statusText || "Request failed")
+          }
+          return data
+        }
+
+        async function refreshStatus() {
+          var data = await api("/api/status")
+          statusRoomId = data.roomId || null
+          var lines = [
+            "connected: " + (data.connected ? "yes" : "no"),
+            "room: " + (data.roomId || "—"),
+            "drivers: " + ((data.drivers && data.drivers.length && data.drivers.join(", ")) || "—"),
+          ]
+          if (data.spotifyDeviceId) {
+            lines.push("spotify device: " + data.spotifyDeviceId)
+          } else if (data.connected) {
+            lines.push("spotify device: —")
+          }
+          $("status").textContent = lines.join("\n")
+          renderRooms()
+        }
+
+        function renderRooms() {
+          var list = $("roomList")
+          list.innerHTML = ""
+          var bridgeOnly = $("bridgeOnly").checked
+          var shown = roomsCache.filter(function (r) {
+            return !bridgeOnly || r.bridgeReady
+          })
+          if (!shown.length) {
+            var empty = document.createElement("li")
+            empty.className = "hint"
+            empty.textContent = roomsCache.length
+              ? "No rooms match the filter."
+              : "No rooms found (is Redis reachable and the API running?)."
+            list.appendChild(empty)
+            return
+          }
+          shown.forEach(function (r) {
+            var li = document.createElement("li")
+            var btn = document.createElement("button")
+            btn.type = "button"
+            if (statusRoomId && statusRoomId === r.id) btn.classList.add("active")
+            var title = document.createElement("div")
+            title.textContent = r.title
+            if (r.bridgeReady) {
+              var badge = document.createElement("span")
+              badge.className = "badge"
+              badge.textContent = "bridge"
+              title.appendChild(badge)
+            } else {
+              var warn = document.createElement("span")
+              warn.className = "badge warn"
+              warn.textContent = r.playbackControllerId || "no controller"
+              title.appendChild(warn)
+            }
+            var meta = document.createElement("div")
+            meta.className = "meta"
+            meta.textContent =
+              r.type +
+              " · " +
+              (r.playbackMode || "—") +
+              (r.public === false ? " · private" : "") +
+              " · " +
+              r.id
+            btn.appendChild(title)
+            btn.appendChild(meta)
+            btn.addEventListener("click", function () {
+              void connectRoom(r.id)
+            })
+            li.appendChild(btn)
+            list.appendChild(li)
+          })
+        }
+
+        async function refreshRooms() {
+          $("roomsError").hidden = true
+          try {
+            var data = await api("/api/rooms")
+            roomsCache = data.rooms || []
+            renderRooms()
+          } catch (e) {
+            roomsCache = []
+            renderRooms()
+            $("roomsError").hidden = false
+            $("roomsError").textContent = e.message || String(e)
+          }
+        }
+
+        async function connectRoom(roomId) {
+          setMsg("", true)
+          try {
+            await api("/api/connect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ roomId: roomId }),
+            })
+            $("defaultRoomId").value = roomId
+            $("manualRoomId").value = roomId
+            setMsg("Connected to " + roomId, true)
+            await refreshStatus()
+          } catch (e) {
+            setMsg(e.message || String(e), false)
+          }
+        }
+
+        async function loadConfig() {
+          var data = await api("/api/config")
+          applyConfig(data.config)
+        }
+
+        $("btnSave").addEventListener("click", function () {
+          void (async function () {
+            try {
+              var body = collectConfig()
+              await api("/api/config", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              })
+              setMsg("Config saved. Reconnect the room if services/Redis changed.", true)
+              await refreshRooms()
+            } catch (e) {
+              setMsg(e.message || String(e), false)
+            }
+          })()
+        })
+
+        $("btnReload").addEventListener("click", function () {
+          void loadConfig()
+            .then(function () {
+              setMsg("Reloaded from disk", true)
+            })
+            .catch(function (e) {
+              setMsg(e.message || String(e), false)
+            })
+        })
+
+        $("btnRefreshStatus").addEventListener("click", function () {
+          void refreshStatus().catch(function (e) {
+            $("status").textContent = "Error: " + (e.message || e)
+          })
+        })
+
+        $("btnDisconnect").addEventListener("click", function () {
+          void api("/api/disconnect", { method: "POST" })
+            .then(function () {
+              setMsg("Disconnected", true)
+              return refreshStatus()
+            })
+            .catch(function (e) {
+              setMsg(e.message || String(e), false)
+            })
+        })
+
+        $("btnRefreshRooms").addEventListener("click", function () {
+          void refreshRooms()
+        })
+        $("bridgeOnly").addEventListener("change", renderRooms)
+
+        $("btnConnectManual").addEventListener("click", function () {
+          var id = $("manualRoomId").value.trim()
+          if (!id) {
+            setMsg("Enter a room id", false)
+            return
+          }
+          void connectRoom(id)
+        })
+
+        void (async function boot() {
+          try {
+            await loadConfig()
+            await refreshStatus()
+            await refreshRooms()
+          } catch (e) {
+            $("status").textContent = "Error: " + (e.message || e)
+          }
+        })()
+
+        setInterval(function () {
+          void refreshStatus().catch(function () {})
+        }, 5000)
+      })()
+    </script>
+  </body>
+</html>

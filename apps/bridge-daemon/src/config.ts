@@ -3,9 +3,14 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 
+/** Default localhost control UI (distinct from StaticHost :18765 and local-remote :9876). */
+export const DEFAULT_HTTP_LISTEN = "127.0.0.1:18766"
+
 export const bridgeDaemonConfigSchema = z.object({
   redisUrl: z.string().default("redis://127.0.0.1:6379"),
   defaultRoomId: z.string().optional(),
+  /** Local HTTP control UI bind address (`host:port`). */
+  httpListen: z.string().default(DEFAULT_HTTP_LISTEN),
   services: z
     .array(z.enum(["youtube", "tidal", "local", "spotify"]))
     .default(["youtube", "local"]),

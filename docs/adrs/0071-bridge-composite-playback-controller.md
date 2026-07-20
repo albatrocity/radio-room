@@ -29,7 +29,7 @@ Existing ADRs that constrain this work: [0005](0005-adapter-pattern-for-media-se
 
 7. **Volume** — Per-driver `setVolume` with apply-on-`playTrack` for v1 ([0069](0069-playback-controller-volume-and-before-play-hook.md)). Audio Hijack Volume-block scripting remains a future optional upgrade.
 
-8. **Packaging** — Phases 1–3: monorepo CLI daemon. Electron supervisor shell (Phase 4) is deferred.
+8. **Packaging** — Phases 1–3: monorepo CLI daemon. Electron supervisor shell (Phase 4) is deferred. Localhost control UI + Redis room discovery shipped as [0073](0073-bridge-daemon-local-control-ui.md).
 
 9. **Tidal host** — Tidal **desktop app** launched with `--remote-debugging-port` (CDP), not a Chrome tab, provided it exposes the same playback control surface.
 

@@ -106,11 +106,24 @@ Restart the API after env / adapter registration changes so `@repo/adapter-bridg
 
 ## 5. Start the daemon
 
+**Recommended:** local control UI (room picker + full config editor):
+
 ```bash
-npm run connect -w bridge-daemon -- --room YOUR_ROOM_ID
+npm run serve -w bridge-daemon
+# open http://127.0.0.1:18766/
 ```
 
-Leave this process running. You should see connected drivers listed.
+Pick a room marked **bridge** (listed from Redis — no copy/paste). Edit `redisUrl`, services, Chrome/Tidal/Navidrome/mpv paths, Now Playing path, etc., then **Save config**. Connect/disconnect from the Session / Rooms sections.
+
+CLI alternatives:
+
+```bash
+npm run rooms -w bridge-daemon          # list rooms from Redis
+npm run connect -w bridge-daemon -- --room YOUR_ROOM_ID
+npm run connect -w bridge-daemon -- --room YOUR_ROOM_ID --ui   # connect + UI
+```
+
+Leave the process running. You should see connected drivers listed.
 
 First Chrome launch uses a dedicated profile under `~/.config/listening-room-bridge/chrome-profile`. Sign into **YouTube Premium** in that window (avoids ads on the broadcast).
 
@@ -155,6 +168,6 @@ Post-show publish still creates Spotify/Tidal playlists from `metadataSources` I
 
 ## Out of scope (this build)
 
-- Phase 4 Electron `.dmg` / auto-update (deferred)
+- Phase 4 Electron `.dmg` / auto-update (deferred; localhost UI is ADR 0073)
 - Audio Hijack Volume-block scripting (per-driver volume first)
 - Scheduler segment tracks for YouTube/local

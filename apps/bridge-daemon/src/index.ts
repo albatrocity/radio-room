@@ -18,6 +18,7 @@ import { Router } from "./router"
 import { RpcServer } from "./rpcServer"
 import { StaticHost } from "./staticHost"
 import { SpotifyDeviceHost } from "./spotifyDevice"
+import { startConfigServer } from "./configServer"
 
 type Session = {
   roomId: string
@@ -31,13 +32,25 @@ type Session = {
 }
 
 let session: Session | null = null
+/** Latest config used for connect (updated when UI saves). */
+let activeConfig: BridgeDaemonConfig = loadConfig()
 
-async function connect(roomId: string, config: BridgeDaemonConfig) {
+function getStatus() {
+  return {
+    connected: !!session,
+    roomId: session?.roomId ?? null,
+    drivers: session ? Array.from(session.drivers.keys()) : [],
+    spotifyDeviceId: session?.spotifyDevice?.getDeviceId() ?? null,
+  }
+}
+
+async function connect(roomId: string, config: BridgeDaemonConfig = activeConfig) {
   if (session) {
     console.log(`Already connected to room ${session.roomId}; disconnecting first…`)
     await disconnect()
   }
 
+  activeConfig = config
   const redis = createClient({ url: config.redisUrl })
   redis.on("error", (err) => console.error("[redis]", err))
   await redis.connect()
@@ -116,6 +129,12 @@ async function connect(roomId: string, config: BridgeDaemonConfig) {
     staticHost,
     spotifyDevice,
   }
+
+  if (roomId !== config.defaultRoomId) {
+    saveConfig({ ...config, defaultRoomId: roomId })
+    activeConfig = { ...config, defaultRoomId: roomId }
+  }
+
   console.log(`Connected to room ${roomId}`)
   console.log(`  drivers: ${Array.from(drivers.keys()).join(", ") || "(none)"}`)
   if (spotifyDevice) {
@@ -145,42 +164,82 @@ async function disconnect() {
 }
 
 async function status() {
-  if (!session) {
+  const s = getStatus()
+  if (!s.connected) {
     console.log("Status: disconnected")
     return
   }
-  console.log(`Status: connected to room ${session.roomId}`)
-  console.log(`  drivers: ${Array.from(session.drivers.keys()).join(", ")}`)
-  const deviceId = session.spotifyDevice?.getDeviceId()
-  if (session.spotifyDevice) {
-    console.log(`  spotify SDK device: ${deviceId ?? "(waiting for ready)"}`)
+  console.log(`Status: connected to room ${s.roomId}`)
+  console.log(`  drivers: ${s.drivers.join(", ")}`)
+  if (s.spotifyDeviceId || activeConfig.services.includes("spotify")) {
+    console.log(`  spotify SDK device: ${s.spotifyDeviceId ?? "(waiting for ready)"}`)
   }
+}
+
+function installSignalHandlers() {
+  const shutdown = () => {
+    void disconnect().then(() => process.exit(0))
+  }
+  process.on("SIGINT", shutdown)
+  process.on("SIGTERM", shutdown)
+}
+
+function startUiServer() {
+  const config = loadConfig()
+  activeConfig = config
+  return startConfigServer(config.httpListen, {
+    getStatus,
+    connect: async (roomId) => {
+      const cfg = loadConfig()
+      activeConfig = cfg
+      await connect(roomId, cfg)
+    },
+    disconnect,
+    onConfigSaved: (cfg) => {
+      activeConfig = cfg
+      console.log(`[config-ui] saved ${configPath()}`)
+    },
+  })
 }
 
 const program = new Command()
 program.name("bridge-daemon").description("Listening Room media bridge daemon")
 
 program
+  .command("serve")
+  .description("Start local config UI (room picker + settings); optionally auto-connect")
+  .option("-r, --room <roomId>", "Room id to connect on startup")
+  .option("--no-open", "Do not print the UI URL prominently")
+  .action(async (opts: { room?: string }) => {
+    activeConfig = loadConfig()
+    startUiServer()
+    const roomId = opts.room ?? activeConfig.defaultRoomId
+    if (roomId) {
+      try {
+        await connect(roomId, activeConfig)
+      } catch (e) {
+        console.warn("[serve] auto-connect failed:", e)
+      }
+    } else {
+      console.log("No default room — pick one in the UI")
+    }
+    installSignalHandlers()
+  })
+
+program
   .command("connect")
   .option("-r, --room <roomId>", "Room id to connect to")
-  .action(async (opts: { room?: string }) => {
-    const config = loadConfig()
-    const roomId = opts.room ?? config.defaultRoomId
+  .option("--ui", "Also start the local config UI")
+  .action(async (opts: { room?: string; ui?: boolean }) => {
+    activeConfig = loadConfig()
+    const roomId = opts.room ?? activeConfig.defaultRoomId
     if (!roomId) {
-      console.error("Pass --room <id> or set defaultRoomId in config.json")
+      console.error("Pass --room <id>, set defaultRoomId, or run: npm run serve -w bridge-daemon")
       process.exit(1)
     }
-    if (opts.room && opts.room !== config.defaultRoomId) {
-      saveConfig({ ...config, defaultRoomId: opts.room })
-    }
-    await connect(roomId, config)
-    // Keep process alive
-    process.on("SIGINT", () => {
-      void disconnect().then(() => process.exit(0))
-    })
-    process.on("SIGTERM", () => {
-      void disconnect().then(() => process.exit(0))
-    })
+    if (opts.ui) startUiServer()
+    await connect(roomId, activeConfig)
+    installSignalHandlers()
   })
 
 program.command("disconnect").action(async () => {
@@ -190,6 +249,27 @@ program.command("disconnect").action(async () => {
 
 program.command("status").action(async () => {
   await status()
+  process.exit(0)
+})
+
+program.command("rooms").description("List rooms from Redis (same discovery as the UI)").action(async () => {
+  const { listRoomsFromRedis } = await import("./listRooms")
+  const config = loadConfig()
+  const redis = createClient({ url: config.redisUrl })
+  await redis.connect()
+  try {
+    const rooms = await listRoomsFromRedis(redis as any)
+    if (!rooms.length) {
+      console.log("(no rooms)")
+      return
+    }
+    for (const r of rooms) {
+      const mark = r.bridgeReady ? "[bridge]" : `[${r.playbackControllerId || "?"}]`
+      console.log(`${mark} ${r.title}  ${r.id}  (${r.type})`)
+    }
+  } finally {
+    await redis.quit()
+  }
   process.exit(0)
 })
 
