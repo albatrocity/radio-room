@@ -691,6 +691,7 @@ export class DJHandlers {
           state: result.state,
           action: result.action,
           trackTitle: "trackTitle" in result ? result.trackTitle : undefined,
+          canResume: "canResume" in result ? result.canResume : undefined,
         },
       })
     } catch (error: any) {
@@ -720,6 +721,7 @@ export class DJHandlers {
         data: {
           state: result.state,
           trackId: result.trackId,
+          canResume: result.canResume,
         },
       })
     } catch (error: any) {

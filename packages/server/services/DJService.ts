@@ -29,7 +29,7 @@ import { queueItemFactory } from "@repo/factories"
 import { AdapterService } from "./AdapterService"
 import { DefenseService } from "./DefenseService"
 import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
-import { shouldAdvanceToNextQueueItem } from "../lib/playbackHelpers"
+import { canResumeCurrentTrack, shouldAdvanceToNextQueueItem } from "../lib/playbackHelpers"
 
 function isSameMultiset(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false
@@ -755,6 +755,7 @@ export class DJService {
         success: true as const,
         state: playback.state,
         trackId,
+        canResume: canResumeCurrentTrack(playback),
       }
     } catch (e) {
       console.error("[DJService.getPlaybackState] getPlayback failed:", e)
@@ -807,7 +808,12 @@ export class DJService {
 
       if (playback.state === "playing") {
         await api.pause()
-        return { success: true as const, state: "paused" as const, action: "paused" as const }
+        return {
+          success: true as const,
+          state: "paused" as const,
+          action: "paused" as const,
+          canResume: canResumeCurrentTrack({ ...playback, state: "paused" }),
+        }
       }
 
       const queue = await getQueue({ context: this.context, roomId })
@@ -827,12 +833,18 @@ export class DJService {
             state: "playing" as const,
             action: "advanced" as const,
             trackTitle: playResult.trackTitle,
+            canResume: true,
           }
         }
       }
 
       await api.play()
-      return { success: true as const, state: "playing" as const, action: "resumed" as const }
+      return {
+        success: true as const,
+        state: "playing" as const,
+        action: "resumed" as const,
+        canResume: true,
+      }
     } catch (e) {
       console.error("[DJService.togglePlayback] failed:", e)
       return {

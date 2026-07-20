@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import {
   shouldAdvanceToNextQueueItem,
+  canResumeCurrentTrack,
   PLAYBACK_END_THRESHOLD_MS,
   MID_TRACK_RESUME_MIN_MS,
 } from "./playbackHelpers"
@@ -66,6 +67,16 @@ describe("shouldAdvanceToNextQueueItem", () => {
     ).toBe(false)
   })
 
+  it("returns true when progress reset to 0 after natural end (resume the queue)", () => {
+    expect(
+      shouldAdvanceToNextQueueItem(
+        { state: "paused", track: { id: "t1" }, progressMs: 0, durationMs: 180_000 },
+        queue,
+        { queueAutoAdvance: true },
+      ),
+    ).toBe(true)
+  })
+
   it("returns true when auto-advance is off and progress reset to 0 after natural end", () => {
     expect(
       shouldAdvanceToNextQueueItem(
@@ -91,13 +102,63 @@ describe("shouldAdvanceToNextQueueItem", () => {
     ).toBe(false)
   })
 
-  it("returns false when auto-advance is on and progress reset to 0 (resume finished track)", () => {
+  it("returns true when bridge idle stub has no duration (unplayable / empty)", () => {
     expect(
       shouldAdvanceToNextQueueItem(
-        { state: "paused", track: { id: "t1" }, progressMs: 0, durationMs: 180_000 },
+        {
+          state: "stopped",
+          track: { id: "youtube" },
+          progressMs: null,
+          durationMs: null,
+        },
         queue,
-        { queueAutoAdvance: true },
       ),
+    ).toBe(true)
+  })
+})
+
+describe("canResumeCurrentTrack", () => {
+  it("returns true while playing", () => {
+    expect(
+      canResumeCurrentTrack({
+        state: "playing",
+        track: { id: "t1" },
+        progressMs: 60_000,
+        durationMs: 180_000,
+      }),
+    ).toBe(true)
+  })
+
+  it("returns true when paused mid-track", () => {
+    expect(
+      canResumeCurrentTrack({
+        state: "paused",
+        track: { id: "t1" },
+        progressMs: 60_000,
+        durationMs: 180_000,
+      }),
+    ).toBe(true)
+  })
+
+  it("returns false when paused at progress 0 after finish", () => {
+    expect(
+      canResumeCurrentTrack({
+        state: "paused",
+        track: { id: "t1" },
+        progressMs: 0,
+        durationMs: 180_000,
+      }),
+    ).toBe(false)
+  })
+
+  it("returns false when paused near end", () => {
+    expect(
+      canResumeCurrentTrack({
+        state: "paused",
+        track: { id: "t1" },
+        progressMs: 180_000 - PLAYBACK_END_THRESHOLD_MS,
+        durationMs: 180_000,
+      }),
     ).toBe(false)
   })
 })

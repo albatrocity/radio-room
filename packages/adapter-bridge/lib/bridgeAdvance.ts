@@ -60,8 +60,10 @@ export function createBridgeAdvanceJob(params: {
   playTrack: (mediaUri: string) => Promise<void>
   getPlaybackApi: () => Promise<PlaybackControllerApi | null>
   capability: BridgeCapabilityCache
+  /** Clear Redis active source when the queue idles so Play starts the next item cleanly. */
+  clearActiveSource?: () => Promise<void>
 }): JobRegistration {
-  const { context, roomId, playTrack, getPlaybackApi, capability } = params
+  const { context, roomId, playTrack, getPlaybackApi, capability, clearActiveSource } = params
 
   let advancing = false
   let lastAdvanceAt = 0
@@ -135,6 +137,11 @@ export function createBridgeAdvanceJob(params: {
         try {
           const api = await getPlaybackApi()
           await api?.pause?.()
+        } catch {
+          /* ignore */
+        }
+        try {
+          await clearActiveSource?.()
         } catch {
           /* ignore */
         }

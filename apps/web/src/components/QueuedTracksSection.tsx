@@ -267,6 +267,8 @@ function QueuedTracksSection() {
   const [spotifyPlaybackState, setSpotifyPlaybackState] = useState<SpotifyPlaybackState | null>(
     null,
   )
+  /** Mid-track pause can be resumed even when the Redis queue is empty. */
+  const [playbackCanResume, setPlaybackCanResume] = useState(false)
   const [playbackTogglePending, setPlaybackTogglePending] = useState(false)
 
   useEffect(() => {
@@ -279,21 +281,31 @@ function QueuedTracksSection() {
         message?: string
         action?: string
         trackTitle?: string
+        canResume?: boolean
       }
     }) => {
       if (payload.type === "PLAYBACK_STATE" && payload.data?.state) {
         setSpotifyPlaybackState(payload.data.state)
+        setPlaybackCanResume(payload.data.canResume === true)
       }
       if (payload.type === "PLAYBACK_STATE_CHANGED" && payload.data?.state) {
         setSpotifyPlaybackState(payload.data.state)
+        // State-only event — refresh canResume (mid-track vs finished)
+        emitToSocket("GET_PLAYBACK_STATE", {})
       }
       if (payload.type === "GET_PLAYBACK_STATE_FAILURE") {
         setSpotifyPlaybackState(null)
+        setPlaybackCanResume(false)
       }
       if (payload.type === "TOGGLE_PLAYBACK_SUCCESS") {
         setPlaybackTogglePending(false)
         if (payload.data?.state) {
           setSpotifyPlaybackState(payload.data.state)
+        }
+        if (typeof payload.data?.canResume === "boolean") {
+          setPlaybackCanResume(payload.data.canResume)
+        } else if (payload.data?.state === "playing") {
+          setPlaybackCanResume(true)
         }
         if (payload.data?.action === "advanced" && payload.data.trackTitle) {
           toast({
@@ -573,14 +585,17 @@ function QueuedTracksSection() {
   const badgeCount = virtualRowCount
 
   const showMusicPlayDisabled =
-    playbackTogglePending || (spotifyPlaybackState !== "playing" && queue.length === 0)
+    playbackTogglePending ||
+    (spotifyPlaybackState !== "playing" && queue.length === 0 && !playbackCanResume)
 
   const showMusicPlaybackTooltip =
     spotifyPlaybackState === "playing"
       ? "Pause show music playback on Spotify"
-      : queue.length === 0
-      ? "Nothing in the queue to play"
-      : "Resume show music or start the next queued track"
+      : queue.length === 0 && !playbackCanResume
+        ? "Nothing in the queue to play"
+        : queue.length === 0
+          ? "Resume show music"
+          : "Resume show music or start the next queued track"
 
   return (
     <Box

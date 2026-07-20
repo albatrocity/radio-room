@@ -420,7 +420,12 @@ describe("DJService", () => {
 
       const result = await djService.togglePlayback("room123", "user123")
 
-      expect(result).toEqual({ success: true, state: "paused", action: "paused" })
+      expect(result).toEqual({
+        success: true,
+        state: "paused",
+        action: "paused",
+        canResume: true,
+      })
       expect(pause).toHaveBeenCalled()
     })
 
@@ -442,7 +447,12 @@ describe("DJService", () => {
 
       const result = await djService.togglePlayback("room123", "user123")
 
-      expect(result).toEqual({ success: true, state: "playing", action: "resumed" })
+      expect(result).toEqual({
+        success: true,
+        state: "playing",
+        action: "resumed",
+        canResume: true,
+      })
       expect(play).toHaveBeenCalled()
     })
 
@@ -463,6 +473,43 @@ describe("DJService", () => {
       const getPlayback = vi.fn().mockResolvedValue({
         state: "paused" as const,
         track: { id: "t1" },
+        progressMs: 0,
+        durationMs: 180_000,
+      })
+      const play = vi.fn().mockResolvedValue(undefined)
+      const playTrack = vi.fn().mockResolvedValue(undefined)
+      // @ts-ignore
+      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+        api: { getPlayback, pause: vi.fn(), play, playTrack },
+      })
+
+      const result = await djService.togglePlayback("room123", "user123")
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.action).toBe("advanced")
+      }
+      expect(playTrack).toHaveBeenCalled()
+      expect(play).not.toHaveBeenCalled()
+    })
+
+    test("starts next queue item when auto-advance is on and prior track ended at progress 0", async () => {
+      const item = queueItemFactory.build({
+        track: {
+          ...queueItemFactory.build().track,
+          urls: [{ type: "resource" as const, url: "spotify:track:abc" }],
+        },
+        addedBy: { userId: "user123", username: "Host" },
+      })
+      vi.mocked(findRoom).mockResolvedValue({
+        ...room,
+        queueAutoAdvance: true,
+      })
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+      vi.mocked(getQueue).mockResolvedValue([item])
+      const getPlayback = vi.fn().mockResolvedValue({
+        state: "paused" as const,
+        track: { id: "song-a" },
         progressMs: 0,
         durationMs: 180_000,
       })

@@ -12,7 +12,10 @@ export type PlaybackSnapshot = {
 }
 
 export type ShouldAdvanceOptions = {
-  /** When false, Play prefers the next queue item unless clearly mid-track paused. */
+  /**
+   * Reserved for callers; mid-track detection is the only resume gate.
+   * Finished tracks (including Spotify progress reset to 0) always prefer the queue.
+   */
   queueAutoAdvance?: boolean
 }
 
@@ -26,55 +29,37 @@ function isMidTrackPause(progressMs: number, durationMs: number | null | undefin
   )
 }
 
-function isNearTrackEnd(progressMs: number, durationMs: number | null | undefined): boolean {
-  if (durationMs == null || durationMs <= 0) {
-    return false
+/**
+ * True when the controller still has a mid-track position that Play should resume
+ * (vs starting the next queue item / staying idle).
+ */
+export function canResumeCurrentTrack(playback: PlaybackSnapshot): boolean {
+  if (playback.state === "playing") {
+    return true
   }
-  return progressMs >= durationMs - PLAYBACK_END_THRESHOLD_MS
+  return isMidTrackPause(playback.progressMs ?? 0, playback.durationMs)
 }
 
 /**
- * When Spotify is not playing, decide whether Play should start the next queue item
- * instead of resuming the current (finished) track.
+ * When playback is not playing, decide whether Play should start the next queue item
+ * instead of resuming the current controller track.
  *
- * After a natural track end Spotify often resets `progress_ms` to 0 while keeping the
- * same item — so end detection cannot rely on progress alone near the start.
+ * Resume only when clearly paused mid-track. Otherwise advance — including when Spotify
+ * keeps the prior item with `progress_ms` reset to 0 after a natural end, or when a
+ * bridge source is idle/unplayable (stub track, no duration).
  */
 export function shouldAdvanceToNextQueueItem(
   playback: PlaybackSnapshot,
   queue: { locked?: boolean }[],
-  options: ShouldAdvanceOptions = {},
+  _options: ShouldAdvanceOptions = {},
 ): boolean {
-  const queueAutoAdvance = options.queueAutoAdvance !== false
-
   if (playback.state === "playing" || queue.length === 0) {
     return false
   }
 
-  const duration = playback.durationMs
-  const progress = playback.progressMs ?? 0
-
-  if (!playback.track) {
-    // Controllers that omit track (e.g. bridge before stub) should still resume mid-stream.
-    if (isMidTrackPause(progress, duration)) {
-      return false
-    }
-    return true
-  }
-
-  if (isMidTrackPause(progress, duration)) {
+  if (canResumeCurrentTrack(playback)) {
     return false
   }
 
-  if (isNearTrackEnd(progress, duration)) {
-    return true
-  }
-
-  // Manual-advance mode: idle Spotify with queue items should start the next track,
-  // including when the previous song ended and progress was reset to 0.
-  if (!queueAutoAdvance) {
-    return true
-  }
-
-  return false
+  return true
 }

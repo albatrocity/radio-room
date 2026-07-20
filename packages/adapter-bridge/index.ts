@@ -97,6 +97,7 @@ export const playbackController: PlaybackControllerAdapter = {
     const capability = getOrCreateCapabilityCache(redis, roomId)
     await capability.start()
 
+    const activeSource = new ActiveSourceStore(redis, roomId)
     const job = createBridgeAdvanceJob({
       context,
       roomId,
@@ -108,6 +109,7 @@ export const playbackController: PlaybackControllerAdapter = {
         return fresh?.api ?? controller.api
       },
       capability,
+      clearActiveSource: () => activeSource.clear(),
     })
 
     // Always replace so ENDED/stuck handlers stay bound to a live capability + playTrack
