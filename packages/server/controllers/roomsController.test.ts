@@ -1,16 +1,12 @@
 import { create, findRooms, deleteRoom } from "../controllers/roomsController"
-import { checkUserChallenge } from "../operations/userChallenge"
 import { saveRoom } from "../operations/data"
 import * as scheduling from "../services/SchedulingService"
 import { vi, describe, it, expect, beforeEach } from "vitest"
 import { appContextFactory, platformUserFactory } from "@repo/factories"
 import { Request, Response } from "express"
 
-const mockCheckUserChallenge = vi.hoisted(() => vi.fn())
+const mockEnsureCreatorSpotifyAuth = vi.hoisted(() => vi.fn().mockResolvedValue(false))
 
-vi.mock("../operations/userChallenge", () => ({
-  checkUserChallenge: mockCheckUserChallenge,
-}))
 vi.mock("../operations/createRoom", async (importOriginal) => {
   const mod = await importOriginal<object>()
   return {
@@ -20,6 +16,9 @@ vi.mock("../operations/createRoom", async (importOriginal) => {
   }
 })
 vi.mock("../operations/data")
+vi.mock("../operations/ensureCreatorSpotifyAuth", () => ({
+  ensureCreatorSpotifyAuth: mockEnsureCreatorSpotifyAuth,
+}))
 vi.mock("../services/SchedulingService", () => ({
   findShowById: vi.fn(),
   syncShowRoomPointer: vi.fn().mockResolvedValue(undefined),
@@ -29,18 +28,20 @@ describe("create", () => {
   let mockContext: any
   let mockRequest: Partial<Request>
   let mockResponse: Partial<Response>
+  let platformUser: ReturnType<typeof platformUserFactory.build>
 
   beforeEach(() => {
     mockContext = appContextFactory.build()
+    platformUser = platformUserFactory.build()
     vi.clearAllMocks()
+    mockEnsureCreatorSpotifyAuth.mockResolvedValue(false)
 
-    // Create mock request
     mockRequest = {
       body: {},
       context: mockContext,
+      platformUser,
     } as any
 
-    // Create mock response
     mockResponse = {
       statusCode: 200,
       send: vi.fn(),
@@ -48,69 +49,53 @@ describe("create", () => {
     } as any
   })
 
-  it("should check user challenge", async () => {
-    mockRequest.body = {
-      challenge: "challenge",
-      userId: "userId",
-      title: "Green Room",
-      type: "jukebox",
-    }
-
-    await create(mockRequest as Request, mockResponse as Response)
-    
-    expect(checkUserChallenge).toHaveBeenCalledWith({
-      challenge: "challenge",
-      userId: "userId",
+  it("returns 401 when platformUser is missing", async () => {
+    mockRequest = {
+      body: {
+        title: "Green Room",
+        type: "jukebox",
+      },
       context: mockContext,
-    })
-  })
-
-  it("return 401 if challenge doesn't match", async () => {
-    mockRequest.body = {
-      challenge: "challenge",
-      userId: "userId",
-      title: "Green Room",
-      type: "jukebox",
-    }
-
-    mockCheckUserChallenge.mockRejectedValue("Unauthorized")
+    } as any
 
     await create(mockRequest as Request, mockResponse as Response)
-    
+
     expect(mockResponse.statusCode).toBe(401)
+    expect(saveRoom).not.toHaveBeenCalled()
   })
 
-  it("writes to redis", async () => {
+  it("writes to redis with platformUser.id as creator", async () => {
     mockRequest.body = {
-      challenge: "challenge",
-      userId: "userId",
       title: "Green Room",
       type: "jukebox",
     }
 
-    mockCheckUserChallenge.mockResolvedValue(1)
-
     await create(mockRequest as Request, mockResponse as Response)
-    
+
+    expect(mockEnsureCreatorSpotifyAuth).toHaveBeenCalledWith({
+      context: mockContext,
+      creatorUserId: platformUser.id,
+      sessionUserId: undefined,
+    })
     expect(saveRoom).toHaveBeenCalledWith({
       context: mockContext,
       room: expect.objectContaining({
         title: "Green Room",
-        creator: "userId",
+        creator: platformUser.id,
         type: "jukebox",
       }),
+    })
+    expect(mockResponse.send).toHaveBeenCalledWith({
+      room: expect.objectContaining({ creator: platformUser.id }),
+      spotifyLinked: false,
     })
   })
 
   it("creates a live room with rtmp media source", async () => {
     mockRequest.body = {
-      challenge: "challenge",
-      userId: "userId",
       title: "Live Room",
       type: "live",
     }
-
-    mockCheckUserChallenge.mockResolvedValue(1)
 
     await create(mockRequest as Request, mockResponse as Response)
 
@@ -118,7 +103,7 @@ describe("create", () => {
       context: mockContext,
       room: expect.objectContaining({
         title: "Live Room",
-        creator: "userId",
+        creator: platformUser.id,
         type: "live",
         mediaSourceId: "rtmp",
       }),
@@ -132,13 +117,10 @@ describe("create", () => {
     } as any)
 
     mockRequest.body = {
-      challenge: "challenge",
-      userId: "userId",
       title: "Green Room",
       type: "jukebox",
       showId: "show-1",
     }
-    mockCheckUserChallenge.mockResolvedValue(1)
 
     await create(mockRequest as Request, mockResponse as Response)
 
@@ -146,6 +128,7 @@ describe("create", () => {
       context: mockContext,
       room: expect.objectContaining({
         showId: "show-1",
+        creator: platformUser.id,
       }),
     })
   })
@@ -157,13 +140,10 @@ describe("create", () => {
     } as any)
 
     mockRequest.body = {
-      challenge: "challenge",
-      userId: "userId",
       title: "Green Room",
       type: "jukebox",
       showId: "show-1",
     }
-    mockCheckUserChallenge.mockResolvedValue(1)
 
     await create(mockRequest as Request, mockResponse as Response)
 
@@ -191,8 +171,6 @@ describe("admin-gated routes", () => {
       const platformUser = platformUserFactory.build()
       const mockRequest = {
         body: {
-          challenge: "challenge",
-          userId: "userId",
           title: "Admin Room",
           type: "jukebox",
         },
@@ -200,35 +178,49 @@ describe("admin-gated routes", () => {
         platformUser,
       } as any
 
-      mockCheckUserChallenge.mockResolvedValue(1)
       await create(mockRequest as Request, mockResponse as Response)
-      expect(saveRoom).toHaveBeenCalled()
+      expect(saveRoom).toHaveBeenCalledWith({
+        context: mockContext,
+        room: expect.objectContaining({
+          creator: platformUser.id,
+          title: "Admin Room",
+        }),
+      })
     })
   })
 
   describe("findRooms (GET /rooms) with admin gate", () => {
-    it("returns 401 when session user is missing", async () => {
+    it("returns 401 when platformUser is missing", async () => {
       const mockRequest = {
         context: mockContext,
-        session: {},
       } as any
 
       await findRooms(mockRequest as Request, mockResponse as Response)
       expect(mockResponse.status).toHaveBeenCalledWith(401)
     })
 
-    it("returns rooms when session user exists", async () => {
-      const { getAllRooms } = await import("../operations/data")
-      ;(getAllRooms as any).mockResolvedValue([])
+    it("returns rooms created by platformUser", async () => {
+      const platformUser = platformUserFactory.build()
+      const { getAllRooms, parseRoom, removeSensitiveRoomAttributes } = await import(
+        "../operations/data"
+      )
+      ;(getAllRooms as any).mockResolvedValue([
+        { id: "mine", creator: platformUser.id, title: "Mine" },
+        { id: "other", creator: "someone-else", title: "Other" },
+      ])
+      ;(parseRoom as any).mockImplementation((r: unknown) => r)
+      ;(removeSensitiveRoomAttributes as any).mockImplementation((r: unknown) => r)
 
       const mockRequest = {
         context: mockContext,
-        session: { user: { userId: "admin-user-1" } },
-        platformUser: platformUserFactory.build(),
+        platformUser,
       } as any
 
       await findRooms(mockRequest as Request, mockResponse as Response)
       expect(mockResponse.status).toHaveBeenCalledWith(200)
+      expect(mockResponse.send).toHaveBeenCalledWith({
+        rooms: [{ id: "mine", creator: platformUser.id, title: "Mine" }],
+      })
     })
   })
 
@@ -237,28 +229,50 @@ describe("admin-gated routes", () => {
       const mockRequest = {
         context: mockContext,
         params: {},
-        session: { user: { userId: "admin-user-1" } },
         platformUser: platformUserFactory.build(),
       } as any
 
       await deleteRoom(mockRequest as Request, mockResponse as Response)
-      expect(mockRequest.context).toBeDefined()
       expect(mockResponse.statusCode).toBe(400)
     })
 
-    it("returns 401 when room creator does not match session user", async () => {
+    it("returns 401 when room creator does not match platformUser", async () => {
       const { findRoom: findRoomData } = await import("../operations/data")
       ;(findRoomData as any).mockResolvedValue({ id: "room1", creator: "other-user" })
 
       const mockRequest = {
         context: mockContext,
         params: { id: "room1" },
-        session: { user: { userId: "admin-user-1" } },
         platformUser: platformUserFactory.build(),
       } as any
 
       await deleteRoom(mockRequest as Request, mockResponse as Response)
       expect(mockResponse.statusCode).toBe(401)
+    })
+
+    it("deletes when room creator matches platformUser", async () => {
+      const platformUser = platformUserFactory.build()
+      const { findRoom: findRoomData, deleteRoom: deleteRoomData } = await import(
+        "../operations/data"
+      )
+      ;(findRoomData as any).mockResolvedValue({ id: "room1", creator: platformUser.id })
+      ;(deleteRoomData as any).mockResolvedValue(undefined)
+
+      const mockRequest = {
+        context: mockContext,
+        params: { id: "room1" },
+        platformUser,
+      } as any
+
+      await deleteRoom(mockRequest as Request, mockResponse as Response)
+      expect(deleteRoomData).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room1",
+      })
+      expect(mockResponse.send).toHaveBeenCalledWith({
+        success: true,
+        roomId: "room1",
+      })
     })
   })
 })

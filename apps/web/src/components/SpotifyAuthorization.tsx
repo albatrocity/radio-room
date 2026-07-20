@@ -24,7 +24,7 @@ export default function SpotifyAuthorization() {
       const redirectPath = sessionStorage.getItem("postSpotifyAuthRedirect") ?? "/"
       sessionStorage.removeItem("postSpotifyAuthRedirect")
 
-      // Preserve userId and challenge params if present (needed for room creation)
+      // Forward OAuth callback params (tokens are already stored server-side under userId)
       const redirectUrl = new URL(redirectPath, window.location.origin)
       if (userId) redirectUrl.searchParams.set("userId", userId)
       if (challenge) redirectUrl.searchParams.set("challenge", challenge)

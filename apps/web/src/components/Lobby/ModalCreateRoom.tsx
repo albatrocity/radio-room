@@ -16,7 +16,7 @@ export default function ModalCreateRoom({}: Props) {
   const modalSend = useModalsSend()
   const isCreateRoomModalOpen = useIsModalOpen("createRoom")
   const [formState, formSend] = useMachine(createRoomFormMachine)
-  const nextLabel = formState.matches("settings") ? "Login & Create" : "Next"
+  const nextLabel = formState.matches("settings") ? "Create" : "Next"
   const loading = formState.matches("creating")
 
   const handleNext = () => {
@@ -60,7 +60,7 @@ export default function ModalCreateRoom({}: Props) {
           {loading && (
             <Center>
               <VStack gap={4}>
-                <Text as="p">Redirecting you to Spotify</Text>
+                <Text as="p">Setting up your room...</Text>
                 <Spinner />
               </VStack>
             </Center>
@@ -68,8 +68,8 @@ export default function ModalCreateRoom({}: Props) {
           {formState.matches("selectType") && (
             <VStack alignItems="flex-start" gap={4}>
               <Text as="p">
-                Creating a room requires a Spotify Premium account to grab meta data and control a
-                queue.
+                Choose a room type. Jukebox rooms can link Spotify after creation for queue control
+                and metadata.
               </Text>
               <RoomTypeSelect
                 onSelect={(type) => {

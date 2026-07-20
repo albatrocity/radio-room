@@ -74,63 +74,72 @@ export class AdapterService {
     }
 
     // Create a room-specific adapter instance with dynamic token fetching
-    const playbackController = await adapterModule.register({
-      name: serviceName,
-      authentication: {
-        type: "oauth",
-        clientId: serviceConfig.clientId,
-        token: {
-          accessToken: "", // Not used
-          refreshToken: "",
+    try {
+      const playbackController = await adapterModule.register({
+        name: serviceName,
+        authentication: {
+          type: "oauth",
+          clientId: serviceConfig.clientId,
+          token: {
+            accessToken: "", // Not used
+            refreshToken: "",
+          },
+          getStoredTokens: async () => {
+            // This function is called on each API operation to get fresh tokens
+            // for the room creator
+            if (!this.context.data?.getUserServiceAuth) {
+              throw new Error("getUserServiceAuth not available in context")
+            }
+
+            const auth = await this.context.data.getUserServiceAuth({
+              userId: room.creator,
+              serviceName,
+            })
+
+            if (!auth || !auth.accessToken) {
+              throw new Error(`No auth tokens found for room creator ${room.creator}`)
+            }
+
+            return {
+              accessToken: auth.accessToken,
+              refreshToken: auth.refreshToken,
+            }
+          },
         },
-        getStoredTokens: async () => {
-          // This function is called on each API operation to get fresh tokens
-          // for the room creator
-          if (!this.context.data?.getUserServiceAuth) {
-            throw new Error("getUserServiceAuth not available in context")
-          }
-
-          const auth = await this.context.data.getUserServiceAuth({
-            userId: room.creator,
-            serviceName,
-          })
-
-          if (!auth || !auth.accessToken) {
-            throw new Error(`No auth tokens found for room creator ${room.creator}`)
-          }
-
-          return {
-            accessToken: auth.accessToken,
-            refreshToken: auth.refreshToken,
-          }
+        onRegistered: () => {},
+        onAuthenticationCompleted: () => {},
+        onAuthenticationFailed: (error) =>
+          console.error("Playback controller authentication failed:", error),
+        onAuthorizationCompleted: () => {},
+        onAuthorizationFailed: (error) =>
+          console.error("Playback controller authorization failed:", error),
+        onPlay: () => {
+          void handlePlaybackStateChange({ context: this.context, roomId, state: "playing" })
         },
-      },
-      onRegistered: () => {},
-      onAuthenticationCompleted: () => {},
-      onAuthenticationFailed: (error) =>
-        console.error("Playback controller authentication failed:", error),
-      onAuthorizationCompleted: () => {},
-      onAuthorizationFailed: (error) =>
-        console.error("Playback controller authorization failed:", error),
-      onPlay: () => {
-        void handlePlaybackStateChange({ context: this.context, roomId, state: "playing" })
-      },
-      onPause: () => {
-        void handlePlaybackStateChange({ context: this.context, roomId, state: "paused" })
-      },
-      onChangeTrack: () => {},
-      onPlaybackStateChange: (state) => {
-        void handlePlaybackStateChange({ context: this.context, roomId, state })
-      },
-      onPlaybackQueueChange: () => {},
-      onPlaybackPositionChange: () => {},
-      onError: (error) => console.error("Playback controller error:", error),
-    })
+        onPause: () => {
+          void handlePlaybackStateChange({ context: this.context, roomId, state: "paused" })
+        },
+        onChangeTrack: () => {},
+        onPlaybackStateChange: (state) => {
+          void handlePlaybackStateChange({ context: this.context, roomId, state })
+        },
+        onPlaybackQueueChange: () => {},
+        onPlaybackPositionChange: () => {},
+        onError: (error) => console.error("Playback controller error:", error),
+      })
 
-    // Cache the instance
-    this.roomPlaybackControllers.set(roomId, playbackController)
+      // Cache the instance
+      this.roomPlaybackControllers.set(roomId, playbackController)
 
-    return playbackController
+      return playbackController
+    } catch (error) {
+      // Spotify (and other OAuth controllers) may not be linked yet — callers treat null as unavailable
+      console.warn(
+        `[AdapterService] Playback controller unavailable for room ${roomId} (${serviceName}):`,
+        error instanceof Error ? error.message : error,
+      )
+      return null
+    }
   }
 
   /**

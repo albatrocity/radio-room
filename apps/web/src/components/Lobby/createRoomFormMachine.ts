@@ -93,15 +93,9 @@ export const createRoomFormMachine = setup({
         }
       }
     },
-    redirectToLogin: ({ event }) => {
+    navigateToCreatePage: ({ event }) => {
       if (event.type === "NEXT") {
-        // Store redirect path for after OAuth completes
-        sessionStorage.setItem("postSpotifyAuthRedirect", "/rooms/create")
-
-        // Redirect to Spotify OAuth flow
-        window.location.href = `${
-          import.meta.env.VITE_API_URL
-        }/auth/spotify/login?redirect=/callback`
+        window.location.href = "/rooms/create"
       }
     },
   },
@@ -134,7 +128,7 @@ export const createRoomFormMachine = setup({
       on: {
         BACK: "selectType",
         NEXT: {
-          actions: ["storeRoomSettings", "redirectToLogin"],
+          actions: ["storeRoomSettings", "navigateToCreatePage"],
           target: "creating",
         },
         SET_SETTINGS: {

@@ -1,83 +1,88 @@
-import React, { useEffect, useRef } from "react"
+import React, { useEffect } from "react"
 import { Center, Heading, Spinner, VStack } from "@chakra-ui/react"
-import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import Div100vh from "react-div-100vh"
 import { useMachine } from "@xstate/react"
 import { roomSetupMachine } from "../../machines/roomSetupMachine"
 import { StationProtocol } from "../../types/StationProtocol"
 import { authClient } from "@repo/auth/client"
+import type { RoomSetup } from "../../types/Room"
 
 export const Route = createFileRoute("/rooms/create")({
   component: CreateRoomPage,
 })
 
+function readRoomSetupFromSessionStorage(): RoomSetup {
+  return {
+    type: (sessionStorage.getItem("createRoomType") as RoomSetup["type"]) ?? "jukebox",
+    title: sessionStorage.getItem("createRoomTitle") ?? "My Room",
+    radioMetaUrl: sessionStorage.getItem("createRoomradioMetaUrl") ?? undefined,
+    radioListenUrl: sessionStorage.getItem("createRoomRadioListenUrl") ?? undefined,
+    deputizeOnJoin: sessionStorage.getItem("createRoomDeputizeOnJoin") === "true",
+    public: sessionStorage.getItem("createRoomPublic") !== "false",
+    radioProtocol:
+      (sessionStorage.getItem("createRoomRadioProtocol") as StationProtocol) ?? "shoutcastv2",
+    showId: sessionStorage.getItem("createRoomShowId") ?? undefined,
+    liveIngestEnabled: sessionStorage.getItem("createRoomLiveIngestEnabled") === "true",
+    liveWhepUrl: sessionStorage.getItem("createRoomLiveWhepUrl") ?? undefined,
+    liveHlsUrl: sessionStorage.getItem("createRoomLiveHlsUrl") ?? undefined,
+  }
+}
+
 function CreateRoomPage() {
   const navigate = useNavigate()
-  const searchParams = useSearch({ from: "/rooms/create" })
-  const challenge = (searchParams as any).challenge
-  const userId = (searchParams as any).userId
   const { data: session, isPending } = authClient.useSession()
-
-  const hasStartedCreation = useRef(false)
+  const isAdmin = session?.user.role === "admin"
 
   const [_state, send] = useMachine(roomSetupMachine)
 
   useEffect(() => {
-    if (!isPending && !session) {
+    if (isPending) return
+    if (!session || !isAdmin) {
       navigate({
         to: "/login",
         replace: true,
       })
     }
-  }, [isPending, session, navigate])
+  }, [isPending, session, isAdmin, navigate])
 
   useEffect(() => {
-    if (hasStartedCreation.current) {
-      console.log("[CreateRoom] Already started creation (ref), skipping")
-      return
-    }
+    if (isPending || !session || !isAdmin) return
 
-    const creationInProgress = sessionStorage.getItem("roomCreationInProgress")
-    if (creationInProgress === challenge) {
-      console.log("[CreateRoom] Already started creation (sessionStorage), skipping")
-      return
-    }
-
-    if (!challenge || !userId) {
+    const title = sessionStorage.getItem("createRoomTitle")
+    const type = sessionStorage.getItem("createRoomType")
+    if (!title || !type) {
       navigate({
         to: "/",
         replace: true,
-        state: (s) => ({ ...s, toast: "Missing challenge or userId" }),
+        state: (s) => ({ ...s, toast: "Missing room settings. Start create from the lobby." }),
       })
       return
     }
 
-    hasStartedCreation.current = true
-    sessionStorage.setItem("roomCreationInProgress", challenge)
-    console.log("[CreateRoom] Starting room creation for user:", userId)
-
-    send({
-      type: "SET_REQUIREMENTS",
-      data: {
-        challenge,
-        userId,
-        room: {
-          type: sessionStorage.getItem("createRoomType") ?? "jukebox",
-          title: sessionStorage.getItem("createRoomTitle") ?? "My Room",
-          radioMetaUrl: sessionStorage.getItem("createRoomradioMetaUrl") ?? undefined,
-          radioListenUrl: sessionStorage.getItem("createRoomRadioListenUrl"),
-          deputizeOnJoin: sessionStorage.getItem("createRoomDeputizeOnJoin") === "true",
-          public: sessionStorage.getItem("createRoomPublic") !== "false",
-          radioProtocol:
-            (sessionStorage.getItem("createRoomRadioProtocol") as StationProtocol) ?? "shoutcastv2",
-          showId: sessionStorage.getItem("createRoomShowId") ?? undefined,
-          liveIngestEnabled: sessionStorage.getItem("createRoomLiveIngestEnabled") === "true",
-          liveWhepUrl: sessionStorage.getItem("createRoomLiveWhepUrl") ?? undefined,
-          liveHlsUrl: sessionStorage.getItem("createRoomLiveHlsUrl") ?? undefined,
+    // Defer so React Strict Mode's first mount cleanup cancels before we POST
+    let cancelled = false
+    const frame = requestAnimationFrame(() => {
+      if (cancelled) return
+      if (sessionStorage.getItem("roomCreationInProgress") === "true") {
+        console.log("[CreateRoom] Creation already in progress, skipping")
+        return
+      }
+      sessionStorage.setItem("roomCreationInProgress", "true")
+      console.log("[CreateRoom] Starting room creation for platform admin:", session.user.id)
+      send({
+        type: "SET_REQUIREMENTS",
+        data: {
+          room: readRoomSetupFromSessionStorage(),
         },
-      },
+      })
     })
-  }, [challenge, userId, send, navigate])
+
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(frame)
+    }
+  }, [isPending, session, isAdmin, send, navigate])
 
   return (
     <Div100vh>
