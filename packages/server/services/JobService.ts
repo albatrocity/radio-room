@@ -36,16 +36,24 @@ export class JobService {
         return
       }
 
-      // Check if job is already scheduled - if so, skip
+      // Check if job is already scheduled - replace handler so re-registration works
       if (this.scheduledJobs.has(job.name)) {
-        console.log(`Job ${job.name} is already scheduled, skipping duplicate registration`)
-        return
+        const existing = this.scheduledJobs.get(job.name)
+        existing?.stop()
+        this.scheduledJobs.delete(job.name)
+        const idx = this.context.jobs.findIndex((j) => j.name === job.name)
+        if (idx >= 0) this.context.jobs.splice(idx, 1)
+        console.log(`Job ${job.name} was already scheduled — replacing with new handler`)
       }
 
       // Add job to context.jobs array if not already present
       const existingJob = this.context.jobs.find((j) => j.name === job.name)
       if (!existingJob) {
         this.context.jobs.push(job)
+      } else {
+        // Replace registration in place (fresh handler)
+        const idx = this.context.jobs.findIndex((j) => j.name === job.name)
+        if (idx >= 0) this.context.jobs[idx] = job
       }
 
       console.log(`Scheduling job: ${job.name} (${job.description}) with cron: ${job.cron}`)

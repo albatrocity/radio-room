@@ -33,7 +33,7 @@
         console.warn("[youtube] ended:", reason, "videoId=", id)
         window.__endedCallbacks.forEach(function (cb) {
           try {
-            cb(id)
+            cb(id, reason || "natural")
           } catch (e) {}
         })
       }

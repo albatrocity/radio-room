@@ -36,6 +36,10 @@ export function createBridgePlaybackApi(deps: {
         await pauseSource(prev)
       }
 
+      // Mark active source before playback so probes/ENDED target the right driver
+      // even if the embed fails immediately.
+      await activeSource.set(source)
+
       const lastVolume = await activeSource.getLastVolume()
       const meta = (await getPlayMeta?.()) ?? {}
 
@@ -61,8 +65,6 @@ export function createBridgePlaybackApi(deps: {
           album: meta.album,
         })
       }
-
-      await activeSource.set(source)
     },
 
     async getPlayback() {

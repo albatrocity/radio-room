@@ -17,6 +17,6 @@ export interface Driver {
   seekTo(ms: number): Promise<void>
   setVolume(percent: number): Promise<void>
   getState(): Promise<DriverState>
-  onEnded(cb: (trackId: string) => void): void
+  onEnded(cb: (trackId: string, reason?: string) => void): void
   onStateChange(cb: (state: DriverState) => void): void
 }

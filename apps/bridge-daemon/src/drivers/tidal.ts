@@ -14,7 +14,7 @@ export class TidalDriver implements Driver {
   private browser: Browser | null = null
   private page: Page | null = null
   private child: ChildProcess | null = null
-  private endedCbs: Array<(trackId: string) => void> = []
+  private endedCbs: Array<(trackId: string, reason?: string) => void> = []
   private stateCbs: Array<(state: DriverState) => void> = []
   private currentTrackId: string | null = null
   private state: DriverState = {
@@ -158,7 +158,7 @@ export class TidalDriver implements Driver {
     return { ...this.state, trackId: this.currentTrackId }
   }
 
-  onEnded(cb: (trackId: string) => void): void {
+  onEnded(cb: (trackId: string, reason?: string) => void): void {
     this.endedCbs.push(cb)
   }
 

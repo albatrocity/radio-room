@@ -6,6 +6,8 @@ type RedisLike = RedisClientType<any, any, any>
 export type CapabilityListener = (services: Set<string>) => void
 export type BridgeEventListener = (event: BridgeEvent) => void
 
+type LastEnded = { trackId: string; source: string; reason?: string; at: number }
+
 /**
  * Subscribes to BRIDGE events and presence for a room.
  * Exposes available services for search fan-out and UI.
@@ -17,6 +19,7 @@ export class BridgeCapabilityCache {
   private capabilityListeners = new Set<CapabilityListener>()
   private eventListeners = new Set<BridgeEventListener>()
   private lastState: Extract<BridgeEvent, { type: "STATE" }> | null = null
+  private lastEnded: LastEnded | null = null
 
   constructor(
     private readonly redis: RedisLike,
@@ -33,6 +36,26 @@ export class BridgeCapabilityCache {
 
   getLastState() {
     return this.lastState
+  }
+
+  /** Peek pending ENDED without clearing (for diagnostics). */
+  peekLastEnded(): LastEnded | null {
+    return this.lastEnded
+  }
+
+  /**
+   * Consume a recent ENDED event for the advance job.
+   * Returns null if none, or if older than maxAgeMs.
+   */
+  consumeLastEnded(maxAgeMs = 30_000): LastEnded | null {
+    const ended = this.lastEnded
+    if (!ended) return null
+    if (Date.now() - ended.at > maxAgeMs) {
+      this.lastEnded = null
+      return null
+    }
+    this.lastEnded = null
+    return ended
   }
 
   onCapabilities(listener: CapabilityListener): () => void {
@@ -57,7 +80,13 @@ export class BridgeCapabilityCache {
         return
       }
       const result = bridgeEventSchema.safeParse(parsed)
-      if (!result.success) return
+      if (!result.success) {
+        console.warn(
+          `[bridge-capability] invalid event for ${this.roomId}:`,
+          result.error.message,
+        )
+        return
+      }
       const event = result.data
       for (const listener of Array.from(this.eventListeners)) listener(event)
 
@@ -71,6 +100,16 @@ export class BridgeCapabilityCache {
         for (const listener of Array.from(this.capabilityListeners)) listener(this.services)
       } else if (event.type === "STATE") {
         this.lastState = event
+      } else if (event.type === "ENDED") {
+        this.lastEnded = {
+          trackId: event.trackId,
+          source: event.source,
+          reason: event.reason,
+          at: Date.now(),
+        }
+        console.log(
+          `[bridge-capability] ENDED source=${event.source} trackId=${event.trackId} reason=${event.reason ?? "none"} room=${this.roomId}`,
+        )
       }
     })
 

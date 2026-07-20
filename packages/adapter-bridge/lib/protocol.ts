@@ -41,6 +41,8 @@ export const bridgeEventSchema = z.discriminatedUnion("type", [
     type: z.literal("ENDED"),
     source: z.string(),
     trackId: z.string(),
+    /** natural | error-* | watchdog — unplayable reasons trigger a chat notice */
+    reason: z.string().optional(),
   }),
   z.object({
     type: z.literal("CAPABILITIES"),
@@ -66,5 +68,11 @@ export function presenceKey(roomId: string) {
   return `bridge:${roomId}:presence`
 }
 
+/** Durable ENDED signal — pub/sub alone is unreliable across Docker/host Redis clients. */
+export function lastEndedKey(roomId: string) {
+  return `bridge:${roomId}:last_ended`
+}
+
 export const BRIDGE_RPC_TIMEOUT_MS = 8000
 export const BRIDGE_PRESENCE_TTL_SEC = 10
+export const BRIDGE_LAST_ENDED_TTL_SEC = 60

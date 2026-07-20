@@ -13,7 +13,12 @@ import { createBridgeAdvanceJob } from "./lib/bridgeAdvance"
 import { createBridgePlaybackApi } from "./lib/playbackControllerApi"
 import { BridgeRpcClient } from "./lib/rpcClient"
 
-export { bridgeRequestSchema, bridgeResponseSchema, bridgeEventSchema } from "./lib/protocol"
+export {
+  bridgeRequestSchema,
+  bridgeResponseSchema,
+  bridgeEventSchema,
+  lastEndedKey,
+} from "./lib/protocol"
 export type { BridgeRequest, BridgeResponse, BridgeEvent, BridgeSource } from "./lib/protocol"
 export {
   requestChannel,
@@ -97,14 +102,20 @@ export const playbackController: PlaybackControllerAdapter = {
       roomId,
       userId,
       playTrack: (uri) => controller.api.playTrack(uri),
-      getPlaybackApi: async () => controller.api,
+      getPlaybackApi: async () => {
+        // Re-resolve so we don't close over a stale controller after reconnect
+        const fresh = await adapterService.getRoomPlaybackController(roomId)
+        return fresh?.api ?? controller.api
+      },
       capability,
     })
 
-    if (!context.jobs.find((j) => j.name === job.name)) {
-      await context.jobService.scheduleJob(job)
-      console.log(`[bridge] Registered ${job.name}`)
-    }
+    // Always replace so ENDED/stuck handlers stay bound to a live capability + playTrack
+    context.jobService.disableJob(job.name)
+    const idx = context.jobs.findIndex((j) => j.name === job.name)
+    if (idx >= 0) context.jobs.splice(idx, 1)
+    await context.jobService.scheduleJob(job)
+    console.log(`[bridge] Registered ${job.name}`)
   },
 
   onRoomDeleted: async ({ roomId, context }) => {

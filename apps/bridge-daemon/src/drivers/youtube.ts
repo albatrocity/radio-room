@@ -10,7 +10,7 @@ export class YoutubeDriver implements Driver {
   readonly source = "youtube" as const
   private page: Page | null = null
   private host = new StaticHost()
-  private endedCbs: Array<(trackId: string) => void> = []
+  private endedCbs: Array<(trackId: string, reason?: string) => void> = []
   private stateCbs: Array<(state: DriverState) => void> = []
   private currentTrackId: string | null = null
   private pollTimer: NodeJS.Timeout | null = null
@@ -27,9 +27,12 @@ export class YoutubeDriver implements Driver {
     this.page = await this.chrome.getOrCreatePage("youtube")
 
     if (!this.bridgeExposed) {
-      await this.page.exposeFunction("__bridgeEnded", (trackId: string) => {
-        this.notifyEnded(trackId)
-      })
+      await this.page.exposeFunction(
+        "__bridgeEnded",
+        (trackId: string, reason?: string) => {
+          this.notifyEnded(trackId, reason)
+        },
+      )
       this.bridgeExposed = true
     }
 
@@ -41,7 +44,7 @@ export class YoutubeDriver implements Driver {
 
     await this.page.evaluate(() => {
       // @ts-expect-error page context
-      window.__onEnded((id) => window.__bridgeEnded(id))
+      window.__onEnded((id, reason) => window.__bridgeEnded(id, reason))
     })
     this.pollTimer = setInterval(() => void this.emitState(), 1000)
   }
@@ -115,7 +118,7 @@ export class YoutubeDriver implements Driver {
     return { ...state, trackId: this.currentTrackId }
   }
 
-  onEnded(cb: (trackId: string) => void): void {
+  onEnded(cb: (trackId: string, reason?: string) => void): void {
     this.endedCbs.push(cb)
   }
 
@@ -123,14 +126,15 @@ export class YoutubeDriver implements Driver {
     this.stateCbs.push(cb)
   }
 
-  private notifyEnded(trackId: string | null | undefined) {
+  private notifyEnded(trackId: string | null | undefined, reason?: string) {
     const id = trackId || this.currentTrackId
     if (!id) return
     if (this.endedForTrackId === id) return
     this.endedForTrackId = id
     this.clearStartWatchdog()
-    console.warn(`[youtube] unplayable/ended trackId=${id}`)
-    for (const cb of this.endedCbs) cb(id)
+    const endedReason = reason ?? "natural"
+    console.warn(`[youtube] ended trackId=${id} reason=${endedReason}`)
+    for (const cb of this.endedCbs) cb(id, endedReason)
   }
 
   private armStartWatchdog(trackId: string) {
@@ -144,9 +148,9 @@ export class YoutubeDriver implements Driver {
           console.warn(
             `[youtube] start watchdog: never reached playing for ${trackId} (state=${state.state})`,
           )
-          this.notifyEnded(trackId)
+          this.notifyEnded(trackId, "watchdog")
         } catch {
-          this.notifyEnded(trackId)
+          this.notifyEnded(trackId, "watchdog")
         }
       })()
     }, START_WATCHDOG_MS)

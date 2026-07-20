@@ -1,7 +1,9 @@
 import type { RedisClientType } from "redis"
 import {
+  BRIDGE_LAST_ENDED_TTL_SEC,
   BRIDGE_PRESENCE_TTL_SEC,
   eventChannel,
+  lastEndedKey,
   presenceKey,
   type BridgeEvent,
 } from "@repo/adapter-bridge/protocol"
@@ -27,6 +29,22 @@ export class Presence {
   }
 
   async publish(event: BridgeEvent): Promise<void> {
+    // Durable ENDED for the advance job (pub/sub can miss across process boundaries)
+    if (event.type === "ENDED") {
+      await this.redis.set(
+        lastEndedKey(this.roomId),
+        JSON.stringify({
+          trackId: event.trackId,
+          source: event.source,
+          reason: event.reason,
+          at: Date.now(),
+        }),
+        { EX: BRIDGE_LAST_ENDED_TTL_SEC },
+      )
+      console.log(
+        `[presence] wrote last_ended source=${event.source} trackId=${event.trackId} reason=${event.reason ?? "none"}`,
+      )
+    }
     await this.redis.publish(eventChannel(this.roomId), JSON.stringify(event))
   }
 

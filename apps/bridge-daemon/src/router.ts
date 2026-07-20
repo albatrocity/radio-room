@@ -13,11 +13,12 @@ export class Router {
     private readonly roomId: string,
   ) {
     for (const driver of Array.from(drivers.values())) {
-      driver.onEnded((trackId: string) => {
+      driver.onEnded((trackId: string, reason?: string) => {
         void this.presence.publish({
           type: "ENDED",
           source: driver.source,
           trackId,
+          reason,
         })
       })
       driver.onStateChange((state: DriverState) => {

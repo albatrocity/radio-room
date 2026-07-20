@@ -70,7 +70,7 @@ export class LocalDriver implements Driver {
   private mpv: ChildProcess | null = null
   private socket: Socket | null = null
   private socketPath: string
-  private endedCbs: Array<(trackId: string) => void> = []
+  private endedCbs: Array<(trackId: string, reason?: string) => void> = []
   private stateCbs: Array<(state: DriverState) => void> = []
   private currentTrackId: string | null = null
   private state: DriverState = {
@@ -349,7 +349,7 @@ export class LocalDriver implements Driver {
     return { ...this.state, trackId: this.currentTrackId }
   }
 
-  onEnded(cb: (trackId: string) => void): void {
+  onEnded(cb: (trackId: string, reason?: string) => void): void {
     this.endedCbs.push(cb)
   }
 
