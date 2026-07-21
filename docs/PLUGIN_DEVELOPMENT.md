@@ -51,5 +51,5 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 - [ADR 0006: Plugin system](adrs/0006-plugin-system-for-room-features.md)
 - [ADR 0042: Game sessions and inventory](adrs/0042-game-sessions-and-inventory.md)
 - [ADR 0057: User personas](adrs/0057-user-personas-system.md)
-- [ADR 0072: Quick Access admin panels](adrs/0072-quick-access-admin-panels.md) — opt-in room FloatingPanels for curated config actions
+- [ADR 0074: Quick Access admin panels](adrs/0074-quick-access-admin-panels.md) — opt-in room FloatingPanels for curated config actions
 - [Backend Development](BACKEND_DEVELOPMENT.md) — server architecture, SystemEvents, broadcasters

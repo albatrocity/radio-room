@@ -58,7 +58,7 @@ function QuickAccessMenuItems({
   )
 }
 
-/** Admin Quick Access plugin picker — portalled menu overlay (ADR 0072). */
+/** Admin Quick Access plugin picker — portalled menu overlay (ADR 0074). */
 export default function QuickAccessMenu({ buttonColorScheme, buttonVariant = "subtle" }: Props) {
   const pluginConfigs = usePluginConfigs()
   const panels = useQuickAccessPanels()

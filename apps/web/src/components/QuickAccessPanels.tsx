@@ -190,7 +190,7 @@ function MobilePanel({ pluginName }: { pluginName: string }) {
 }
 
 /**
- * Host for admin Quick Access FloatingPanels / mobile dialogs (ADR 0072).
+ * Host for admin Quick Access FloatingPanels / mobile dialogs (ADR 0074).
  * Mount once from Overlays so multiple AdminControls mounts share one panel tree.
  * Stability comes from memo(Overlays), same pattern as memo(Sidebar) for schedule notes.
  */

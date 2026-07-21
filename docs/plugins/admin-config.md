@@ -185,7 +185,7 @@ getConfigSchema(): PluginConfigSchema {
 
 ### Quick Access Panels
 
-Opt run-of-show actions into the room **Quick Access** menu (admin-only FloatingPanels) by listing their action names on the schema (see [ADR 0072](../adrs/0072-quick-access-admin-panels.md)):
+Opt run-of-show actions into the room **Quick Access** menu (admin-only FloatingPanels) by listing their action names on the schema (see [ADR 0074](../adrs/0074-quick-access-admin-panels.md)):
 
 ```typescript
 getConfigSchema(): PluginConfigSchema {

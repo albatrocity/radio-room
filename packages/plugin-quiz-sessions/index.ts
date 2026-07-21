@@ -22,14 +22,15 @@ import {
   type PublicQuizQuestion,
   type QuizSessionsEvents,
   type QuizSessionsComponentState,
+  type QuizAutoAdvanceDeadline,
 } from "./types"
 import { getComponentSchema, getConfigSchema } from "./schema"
 import { formatLeaderboardChat, formatCorrectAnswerChat } from "./formatters"
-import { isAcceptedAnswer } from "./matching"
+import { isAcceptedAnswer, matchAcceptedAnswer } from "./matching"
 
 export type { QuizSessionsConfig } from "./types"
 export { quizSessionsConfigSchema, defaultQuizSessionsConfig } from "./types"
-export { isAcceptedAnswer, normalizeAnswer } from "./matching"
+export { isAcceptedAnswer, matchAcceptedAnswer, normalizeAnswer } from "./matching"
 
 /** Single active session per room (mirrors poll/game-session constraint). */
 const SESSION_KEY = "session"
@@ -74,6 +75,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       activeQuestion: null,
       leaderboard: [],
       lastCorrectAnswer: null,
+      autoAdvanceDeadline: null,
     }
     if (!this.context) return empty
 
@@ -85,6 +87,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       activeQuestion: this.toPublicQuestion(questions, session, session.activeQuestionIndex),
       leaderboard: await this.buildLeaderboard(),
       lastCorrectAnswer: null,
+      autoAdvanceDeadline: this.activeAutoAdvanceDeadline(session),
     }
   }
 
@@ -152,6 +155,8 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     if (question) {
       await this.emit<QuizSessionsEvents["QUESTION_ADVANCED"]>("QUESTION_ADVANCED", {
         activeQuestion: question,
+        // Config refresh must not clear an in-flight countdown.
+        autoAdvanceDeadline: this.activeAutoAdvanceDeadline(session),
       })
     }
   }
@@ -197,7 +202,10 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     // One session per room: edits to a running quiz happen live via the settings
     // modal; a fresh run requires ending the current one first.
     if (await this.loadSession()) {
-      return { success: false, message: "A quiz is already running. End it before starting a new one." }
+      return {
+        success: false,
+        message: "A quiz is already running. End it before starting a new one.",
+      }
     }
 
     return this.startSessionFromConfig(config)
@@ -234,6 +242,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       startedAt: Date.now(),
       winnersPerQuestion: {},
       revealedAnswers: {},
+      autoAdvanceDeadline: null,
     }
 
     this.clearTimer(AUTO_ADVANCE_TIMER)
@@ -251,6 +260,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       activeQuestion: this.toPublicQuestion(questions, session, 0),
       leaderboard: [],
       lastCorrectAnswer: null,
+      autoAdvanceDeadline: null,
     })
 
     return { success: true, message: `Quiz started with ${questions.length} questions.` }
@@ -280,6 +290,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
   ): Promise<ActionResult> {
     if (!this.context) return notInitialized()
     this.clearTimer(AUTO_ADVANCE_TIMER)
+    session.autoAdvanceDeadline = null
 
     if (session.activeQuestionIndex >= questions.length - 1) {
       return this.finishSession(session)
@@ -292,6 +303,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     if (question) {
       await this.emit<QuizSessionsEvents["QUESTION_ADVANCED"]>("QUESTION_ADVANCED", {
         activeQuestion: question,
+        autoAdvanceDeadline: null,
       })
     }
 
@@ -330,6 +342,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
   private async finishSession(session: QuizSession): Promise<ActionResult> {
     if (!this.context) return notInitialized()
     this.clearTimer(AUTO_ADVANCE_TIMER)
+    session.autoAdvanceDeadline = null
 
     const leaderboard = await this.buildLeaderboard()
     await this.context.api.sendSystemMessage(
@@ -343,6 +356,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       activeQuestion: null,
       leaderboard,
       lastCorrectAnswer: null,
+      autoAdvanceDeadline: null,
     })
 
     return { success: true, message: "Quiz ended." }
@@ -403,7 +417,14 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       "1",
     )
     if (firstTime) {
-      await this.awardCorrect({ config, session, questions, index: active.index, message, mode: "inclusive" })
+      await this.awardCorrect({
+        config,
+        session,
+        questions,
+        index: active.index,
+        message,
+        mode: "inclusive",
+      })
       await this.saveSession(session)
     }
 
@@ -425,7 +446,8 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     const questions = config.questions ?? []
     const active = this.resolveActiveQuestion(questions, session)
     if (!session || !active) return
-    if (!isAcceptedAnswer(message.content, active.question.acceptedAnswers)) return
+    const answer = matchAcceptedAnswer(message.content, active.question.acceptedAnswers)
+    if (!answer) return
 
     // Atomic first-winner claim guards against concurrent correct guesses.
     const claimed = await this.context.storage.hsetnx(
@@ -435,7 +457,6 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     )
     if (!claimed) return
 
-    const answer = active.question.acceptedAnswers[0] ?? ""
     session.revealedAnswers[String(active.index)] = answer
     await this.awardCorrect({
       config,
@@ -505,6 +526,10 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       }),
     )
 
+    // Kick off the auto-advance countdown once per question (before CORRECT_ANSWER
+    // so the ExpiryBar window rides on the same store update).
+    const autoAdvanceDeadline = this.beginAutoAdvance(session)
+
     await this.emit<QuizSessionsEvents["CORRECT_ANSWER"]>("CORRECT_ANSWER", {
       userId,
       username,
@@ -514,11 +539,29 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       // Refresh the card (picks up a PvP `revealedAnswer`; no reveal in PvG).
       activeQuestion: this.toPublicQuestion(questions, session, index),
       lastCorrectAnswer: { userId, questionId },
+      autoAdvanceDeadline,
     })
 
     const leaderboard = await this.buildLeaderboard()
     await this.emit<QuizSessionsEvents["LEADERBOARD_UPDATED"]>("LEADERBOARD_UPDATED", {
       leaderboard,
+    })
+
+    if (config.soundEffectOnCorrect) {
+      const url = config.soundEffectOnCorrectUrl ?? ""
+      if (mode === "inclusive") {
+        await this.context.api.queueSoundEffect({ url, volume: 0.3, userId })
+      } else {
+        await this.context.api.queueSoundEffect({ url, volume: 0.3 })
+      }
+    }
+
+    await this.context.api.queueScreenEffect({
+      target: "plugin",
+      targetId: "quiz-question-card",
+      effect: "tada",
+      duration: 1000,
+      ...(mode === "inclusive" ? { recipientUserId: userId } : {}),
     })
 
     // Winner persona: PvP assigns exclusively (hot potato); PvG assigns to every
@@ -531,21 +574,38 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
         personaId,
       })
     }
-
-    // Kick off the auto-advance countdown once per question (guarded so a second
-    // PvG scorer doesn't reset the timer).
-    this.scheduleAutoAdvance(session)
   }
 
-  /** Start the auto-advance timer if enabled and not already counting down. */
-  private scheduleAutoAdvance(session: QuizSession): void {
-    if (!session.autoAdvance || session.autoAdvanceDelayMs <= 0) return
-    if (this.getTimer(AUTO_ADVANCE_TIMER)) return
+  /**
+   * Start the auto-advance timer if enabled and not already counting down.
+   * Mutates `session.autoAdvanceDeadline` when a new timer starts.
+   */
+  private beginAutoAdvance(session: QuizSession): QuizAutoAdvanceDeadline | null {
+    if (!session.autoAdvance || session.autoAdvanceDelayMs <= 0) {
+      session.autoAdvanceDeadline = null
+      return null
+    }
+    if (this.getTimer(AUTO_ADVANCE_TIMER)) {
+      return this.activeAutoAdvanceDeadline(session)
+    }
+    const startAt = Date.now()
+    const endAt = startAt + session.autoAdvanceDelayMs
+    session.autoAdvanceDeadline = { startAt, endAt }
     const fromQuestionIndex = session.activeQuestionIndex
     this.startTimer(AUTO_ADVANCE_TIMER, {
       duration: session.autoAdvanceDelayMs,
       callback: () => this.autoAdvance(fromQuestionIndex),
     })
+    return session.autoAdvanceDeadline
+  }
+
+  /** Deadline still in the future, or null if idle/expired. */
+  private activeAutoAdvanceDeadline(
+    session: QuizSession,
+  ): QuizAutoAdvanceDeadline | null {
+    const deadline = session.autoAdvanceDeadline
+    if (!deadline || deadline.endAt <= Date.now()) return null
+    return deadline
   }
 
   /** Short id of the session's active hot-potato persona, or `null`. */

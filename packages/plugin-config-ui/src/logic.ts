@@ -101,7 +101,7 @@ export function getItemJsonSchema(
 }
 
 /**
- * Resolve Quick Access action elements from a config schema (ADR 0072).
+ * Resolve Quick Access action elements from a config schema (ADR 0074).
  * Returns `type: "action"` layout items whose `action` is listed in `quickAccess`,
  * ordered by the `quickAccess` array. Unknown action names are skipped.
  */

@@ -65,6 +65,7 @@ export function buildStubQuizComponentState(roomId: string): Record<string, unkn
     activeQuestion: state.active ? publicQuestion(state.index) : null,
     leaderboard: STUB_LEADERBOARD,
     lastCorrectAnswer: null,
+    autoAdvanceDeadline: null,
   }
 }
 
@@ -86,6 +87,7 @@ export function buildStubQuizSessionStarted(roomId: string): StubQuizEvent {
     activeQuestion: publicQuestion(0),
     leaderboard: [],
     lastCorrectAnswer: null,
+    autoAdvanceDeadline: null,
   })
 }
 
@@ -94,6 +96,7 @@ function sessionEndedEvent(): StubQuizEvent {
     activeQuestion: null,
     leaderboard: STUB_LEADERBOARD,
     lastCorrectAnswer: null,
+    autoAdvanceDeadline: null,
     results: { leaderboard: STUB_LEADERBOARD },
   })
 }
@@ -120,6 +123,7 @@ export function runStubQuizAction(
             activeQuestion: publicQuestion(0),
             leaderboard: [],
             lastCorrectAnswer: null,
+            autoAdvanceDeadline: null,
           }),
         ],
       }
@@ -136,7 +140,12 @@ export function runStubQuizAction(
       return {
         success: true,
         message: `Advanced to question ${state.index + 1}.`,
-        events: [event("QUESTION_ADVANCED", { activeQuestion: publicQuestion(state.index) })],
+        events: [
+          event("QUESTION_ADVANCED", {
+            activeQuestion: publicQuestion(state.index),
+            autoAdvanceDeadline: null,
+          }),
+        ],
       }
     }
     case "endSession": {

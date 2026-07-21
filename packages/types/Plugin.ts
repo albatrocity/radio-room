@@ -177,7 +177,7 @@ export interface PluginConfigSchema {
   /** Field-specific UI hints not captured in JSON Schema */
   fieldMeta: Record<string, PluginFieldMeta>
   /**
-   * Action names from `layout` to surface in room Quick Access admin panels (ADR 0072).
+   * Action names from `layout` to surface in room Quick Access admin panels (ADR 0074).
    * Each entry must match a `type: "action"` layout element's `action` id.
    */
   quickAccess?: string[]
@@ -440,14 +440,19 @@ export interface PluginAPI {
   emit<T extends Record<string, unknown>>(eventName: string, data: T): Promise<void>
 
   /**
-   * Queue a sound effect to be played on all clients in the room.
+   * Queue a sound effect to be played on clients in the room.
    *
    * Sound effects are played one at a time in order. If a sound is already
    * playing, the new sound will be added to a queue.
    *
+   * When `userId` is omitted, the effect is broadcast to all clients in the
+   * room. When `userId` is set, it is emitted only to that user's connected
+   * socket (ADR 0072). If the user has no connected socket, the call is a no-op.
+   *
    * @param params - Sound effect parameters
    * @param params.url - URL to the sound effect audio file
    * @param params.volume - Volume level (0.0 to 1.0, defaults to 1.0)
+   * @param params.userId - Optional recipient; omit for room-wide playback
    *
    * @example
    * ```typescript
@@ -455,12 +460,18 @@ export interface PluginAPI {
    *   url: "https://example.com/sounds/ding.mp3",
    *   volume: 0.8,
    * })
+   * // Play only for one user:
+   * await this.context.api.queueSoundEffect({
+   *   url: "https://example.com/sounds/ding.mp3",
+   *   volume: 0.3,
+   *   userId: "user-123",
+   * })
    * ```
    */
-  queueSoundEffect(params: { url: string; volume?: number }): Promise<void>
+  queueSoundEffect(params: { url: string; volume?: number; userId?: string }): Promise<void>
 
   /**
-   * Queue a screen effect (CSS animation) to be played on all clients in the room.
+   * Queue a screen effect (CSS animation) on a UI target in the room.
    *
    * Screen effects are played one at a time in order. If an effect is already
    * playing, the new effect will be added to a queue.
@@ -468,11 +479,17 @@ export interface PluginAPI {
    * Available effects (from animate.css attention seekers):
    * bounce, flash, pulse, rubberBand, shakeX, shakeY, headShake, swing, tada, wobble, jello, heartBeat
    *
+   * When `recipientUserId` is omitted, the effect is broadcast to all clients.
+   * When set, it is emitted only to that user's connected socket (ADR 0073).
+   * This is delivery scoping — orthogonal to `target: "user"`, which selects
+   * which DOM node (user list row) to animate.
+   *
    * @param params - Screen effect parameters
-   * @param params.target - What to animate: 'room', 'nowPlaying', 'message', or 'plugin'
-   * @param params.targetId - For 'message': timestamp or "latest". For 'plugin': componentId
+   * @param params.target - What to animate: 'room', 'nowPlaying', 'message', 'plugin', or 'user'
+   * @param params.targetId - For 'message': timestamp or "latest". For 'plugin': componentId. For 'user': userId
    * @param params.effect - The animation effect name
    * @param params.duration - Optional custom duration in milliseconds
+   * @param params.recipientUserId - Optional client delivery scope; omit for room-wide
    *
    * @example
    * ```typescript
@@ -488,11 +505,13 @@ export interface PluginAPI {
    *   effect: "pulse",
    * })
    *
-   * // Bounce the most recent chat message
+   * // Celebrate a plugin card for one user only
    * await this.context.api.queueScreenEffect({
-   *   target: "message",
-   *   targetId: "latest",
-   *   effect: "bounce",
+   *   target: "plugin",
+   *   targetId: "quiz-question-card",
+   *   effect: "tada",
+   *   duration: 500,
+   *   recipientUserId: "user-123",
    * })
    * ```
    */
@@ -501,6 +520,7 @@ export interface PluginAPI {
     targetId?: string
     effect: ScreenEffectName
     duration?: number
+    recipientUserId?: string
   }): Promise<void>
 }
 

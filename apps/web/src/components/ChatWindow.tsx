@@ -1,7 +1,7 @@
 import { Box, Button, Icon, ScrollArea } from "@chakra-ui/react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useMachine, useSelector } from "@xstate/react"
-import React, { useEffect } from "react"
+import React, { useEffect, useLayoutEffect } from "react"
 import { LuArrowDown } from "react-icons/lu"
 import { useStickToBottom } from "use-stick-to-bottom"
 
@@ -13,6 +13,9 @@ import { User } from "../types/User"
 import ChatMessage from "./ChatMessage"
 import SystemMessage from "./SystemMessage"
 import ScrollShadowViewport from "./ScrollShadowViewport"
+
+/** Match `use-stick-to-bottom`'s STICK_TO_BOTTOM_OFFSET_PX. */
+const NEAR_BOTTOM_PX = 70
 
 const InnerItem = React.memo(
   ({
@@ -76,6 +79,34 @@ function ChatWindow() {
   useEffect(() => {
     send({ type: isAtBottom ? "ATTACH" : "DETACH" })
   }, [isAtBottom, send])
+
+  // `use-stick-to-bottom` only ResizeObserves content height. When aboveChat
+  // (quiz card, poll, etc.) grows, the viewport shrinks without a content
+  // resize — stickiness is lost. Re-pin when the viewport shrinks and the
+  // user was already near the bottom; leave history readers alone.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    let prevHeight = el.clientHeight
+    const observer = new ResizeObserver(() => {
+      const nextHeight = el.clientHeight
+      const delta = prevHeight - nextHeight
+      prevHeight = nextHeight
+      if (delta <= 0) return
+
+      // After shrink, distanceFromBottom grows by ~delta. Recover pre-shrink
+      // distance so a multi-line card (delta > NEAR_BOTTOM_PX) still re-pins.
+      const distanceAfter = el.scrollHeight - el.scrollTop - nextHeight
+      const wasNearBottom = distanceAfter - delta <= NEAR_BOTTOM_PX
+      if (wasNearBottom) {
+        void scrollToBottom({ animation: "instant" })
+      }
+    })
+
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [scrollRef, scrollToBottom])
 
   useEffect(() => {
     if (!scrollTargetTimestamp || messages.length === 0) {
