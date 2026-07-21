@@ -442,6 +442,30 @@ describe("QuizSessionsPlugin lifecycle", () => {
       return ctx
     }
 
+    it("reveals the matched accepted answer, not always the first option", async () => {
+      const ctx = setup({
+        enabled: true,
+        mode: "competitive",
+        questions: [
+          { text: "What song is this?", acceptedAnswers: ["Blue Monday", "Ceremony"] },
+        ],
+        coinReward: 10,
+      })
+      await ctx.plugin.register(ctx.context)
+      await ctx.plugin.executeAction("startSession", ADMIN)
+      ctx.api.emit.mockClear()
+
+      await emitMessage(ctx.lifecycleHandlers, "  ceremony ", {
+        userId: "u1",
+        username: "Alice",
+      })
+
+      const correct = emittedEvent(ctx.api, "CORRECT_ANSWER")
+      expect(correct).toMatchObject({ answer: "Ceremony" })
+      expect(correct!.activeQuestion.revealedAnswer).toBe("Ceremony")
+      expect(readSession(ctx.storage).revealedAnswers["0"]).toBe("Ceremony")
+    })
+
     it("awards the first correct guesser, reveals the answer, and announces it", async () => {
       const { plugin, api, storage, game, lifecycleHandlers } = await startCompetitive()
 
@@ -475,7 +499,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
         target: "plugin",
         targetId: "quiz-question-card",
         effect: "tada",
-        duration: 500,
+        duration: 1000,
       })
 
       // Runtime keyed by question index (the config bank is not copied).
@@ -575,7 +599,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
         target: "plugin",
         targetId: "quiz-question-card",
         effect: "tada",
-        duration: 500,
+        duration: 1000,
         recipientUserId: "u1",
       })
     })

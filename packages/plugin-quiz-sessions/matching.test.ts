@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { isAcceptedAnswer, normalizeAnswer } from "./matching"
+import { isAcceptedAnswer, matchAcceptedAnswer, normalizeAnswer } from "./matching"
 
 describe("normalizeAnswer", () => {
   it("trims and lowercases", () => {
@@ -8,6 +8,22 @@ describe("normalizeAnswer", () => {
 
   it("collapses to empty for whitespace-only input", () => {
     expect(normalizeAnswer("   ")).toBe("")
+  })
+})
+
+describe("matchAcceptedAnswer", () => {
+  const answers = ["Paris", "City of Light"]
+
+  it("returns the authored accepted answer that matched", () => {
+    expect(matchAcceptedAnswer("city of light", answers)).toBe("City of Light")
+  })
+
+  it("preserves authored casing when the guess differs only by case", () => {
+    expect(matchAcceptedAnswer("  pARIS  ", answers)).toBe("Paris")
+  })
+
+  it("returns undefined when nothing matches", () => {
+    expect(matchAcceptedAnswer("London", answers)).toBeUndefined()
   })
 })
 

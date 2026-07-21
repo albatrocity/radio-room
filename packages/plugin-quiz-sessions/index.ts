@@ -25,11 +25,11 @@ import {
 } from "./types"
 import { getComponentSchema, getConfigSchema } from "./schema"
 import { formatLeaderboardChat, formatCorrectAnswerChat } from "./formatters"
-import { isAcceptedAnswer } from "./matching"
+import { isAcceptedAnswer, matchAcceptedAnswer } from "./matching"
 
 export type { QuizSessionsConfig } from "./types"
 export { quizSessionsConfigSchema, defaultQuizSessionsConfig } from "./types"
-export { isAcceptedAnswer, normalizeAnswer } from "./matching"
+export { isAcceptedAnswer, matchAcceptedAnswer, normalizeAnswer } from "./matching"
 
 /** Single active session per room (mirrors poll/game-session constraint). */
 const SESSION_KEY = "session"
@@ -435,7 +435,8 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     const questions = config.questions ?? []
     const active = this.resolveActiveQuestion(questions, session)
     if (!session || !active) return
-    if (!isAcceptedAnswer(message.content, active.question.acceptedAnswers)) return
+    const answer = matchAcceptedAnswer(message.content, active.question.acceptedAnswers)
+    if (!answer) return
 
     // Atomic first-winner claim guards against concurrent correct guesses.
     const claimed = await this.context.storage.hsetnx(
@@ -445,7 +446,6 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     )
     if (!claimed) return
 
-    const answer = active.question.acceptedAnswers[0] ?? ""
     session.revealedAnswers[String(active.index)] = answer
     await this.awardCorrect({
       config,
