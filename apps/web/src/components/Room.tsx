@@ -93,7 +93,9 @@ const Room = ({ id }: { id: string }) => {
             <GridItem
               area="header"
               height={["auto", "100%"]}
+              minH={0}
               minWidth={["none", "xs"]}
+              overflow="hidden"
               flexGrow={0}
               flexShrink={1}
             >

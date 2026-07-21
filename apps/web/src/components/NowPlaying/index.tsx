@@ -67,11 +67,19 @@ function NowPlaying({ meta }: NowPlayingProps) {
       alignContent="center"
       alignItems="center"
       justifyContent="center"
-      flexGrow={1}
-      height="100%"
+      flex="1 1 auto"
+      minH={0}
+      overflow="hidden"
       layerStyle="themeTransition"
     >
-      <VStack gap={4} justify="space-between" height="100%" width="100%">
+      <VStack
+        gap={4}
+        justify="space-between"
+        height="100%"
+        width="100%"
+        minH={0}
+        overflow="hidden"
+      >
         {displayState === "loading" && <NowPlayingLoading />}
 
         {displayState === "waiting" && <NowPlayingLoading message="Getting Now Playing data..." />}
@@ -81,7 +89,7 @@ function NowPlaying({ meta }: NowPlayingProps) {
         )}
 
         {displayState === "streamingNoTrack" && (
-          <VStack gap={2} px={4} alignContent="flex-start">
+          <VStack gap={2} px={4} alignContent="flex-start" flexShrink={0}>
             <Heading w="100%" as="h2" size="lg" color="whiteAlpha.900" textAlign="left">
               {room?.title ?? "Live"}
             </Heading>
@@ -92,9 +100,11 @@ function NowPlaying({ meta }: NowPlayingProps) {
           <NowPlayingTrack meta={meta} room={room} users={users} />
         )}
 
-        <PluginArea area="nowPlaying" />
+        <Box flexShrink={0} w="100%">
+          <PluginArea area="nowPlaying" />
+        </Box>
 
-        <Box hideBelow="sm" colorPalette="primary">
+        <Box hideBelow="sm" colorPalette="primary" flexShrink={0}>
           <HStack>
             <ButtonAddToQueue variant="subtle" />
             <ButtonPolls variant="subtle" />

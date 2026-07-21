@@ -42,8 +42,7 @@ interface NowPlayingTransportProps {
 export function NowPlayingTransport({ room }: NowPlayingTransportProps) {
   const isAdmin = useIsAdmin()
   const isRoomCreator = useIsRoomCreator()
-  const canControl =
-    room?.playbackMode === "app-controlled" && (isAdmin || isRoomCreator)
+  const canControl = room?.playbackMode === "app-controlled" && (isAdmin || isRoomCreator)
 
   if (!canControl) return null
 
@@ -172,7 +171,10 @@ function NowPlayingTransportInner() {
         setHasProgress(false)
         progressAnchorRef.current = null
       }
-      if (payload.type === "SEEK_PLAYBACK_SUCCESS" && typeof payload.data?.positionMs === "number") {
+      if (
+        payload.type === "SEEK_PLAYBACK_SUCCESS" &&
+        typeof payload.data?.positionMs === "number"
+      ) {
         const pos = payload.data.positionMs
         const now = Date.now()
         progressAnchorRef.current = { progressMs: pos, atMs: now }
@@ -320,7 +322,7 @@ function NowPlayingTransportInner() {
       )}
 
       {supportsVolume && (
-        <Tooltip content="Broadcast volume (show output, not your headphones)">
+        <Tooltip content="Broadcast volume">
           <Box w="100%">
             <HStack gap={3} w="100%" align="center">
               <Box flexShrink={0} color="primary.contrast/70" aria-hidden>
