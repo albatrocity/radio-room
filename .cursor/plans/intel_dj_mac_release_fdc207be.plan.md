@@ -4,7 +4,7 @@ overview: "Ship one self-contained Intel (x86_64) DJ Mac artifact: Rust local-re
 todos:
   - id: phase1-bundle
     content: "Phase 1: esbuild bundle bridge-daemon (daemon.cjs + static assets + env overrides); JSON API remains on localhost; operator HTML UI not the primary surface"
-    status: pending
+    status: cancelled
   - id: phase2-supervisor-proxy
     content: "Phase 2: local-remote bridge supervisor + /api/bridge/* reverse proxy to child"
     status: pending
@@ -13,13 +13,13 @@ todos:
     status: pending
   - id: phase3-pack
     content: "Phase 3: pack-dj-mac.sh — x86_64 Rust + Node x64 + assemble/zip"
-    status: pending
+    status: cancelled
   - id: phase4-docs
     content: "Phase 4: ADR + docs (single UI URL, AH wiring, Navidrome external)"
-    status: pending
+    status: cancelled
   - id: phase5-ci
     content: "Phase 5 (optional): GitHub Actions release zip"
-    status: pending
+    status: cancelled
 isProject: false
 ---
 
@@ -45,11 +45,11 @@ flowchart TB
   bd --> chrome[Chrome CDP]
 ```
 
-| Surface | Port | Who uses it |
-|---------|------|-------------|
-| Consolidated settings + soundboard | **9876** | DJ (only bookmarked URL) |
-| Bridge JSON API | 18766 localhost | local-remote proxy only (not documented for operators) |
-| Chrome host pages | 18765 | Chrome tabs (not human operators) |
+| Surface                            | Port            | Who uses it                                            |
+| ---------------------------------- | --------------- | ------------------------------------------------------ |
+| Consolidated settings + soundboard | **9876**        | DJ (only bookmarked URL)                               |
+| Bridge JSON API                    | 18766 localhost | local-remote proxy only (not documented for operators) |
+| Chrome host pages                  | 18765           | Chrome tabs (not human operators)                      |
 
 **Rejected (Option A):** two UIs (`:9876` + `:18766`) with a “open bridge UI” link.
 
@@ -82,12 +82,12 @@ Paths resolve relative to the `local-remote` executable.
 
 ### Retained from local-remote today
 
-| Surface | Where | Status |
-|---------|--------|--------|
-| Redis / room filter / platform API URL | `/` settings | Retained |
-| **OSC + segment id → Farrago path mapping** (add/remove rows, tile picker, OSC test) | `/` settings | **Retained** |
-| **Farrago soundboard** (sets/tiles play/stop, WS live updates) | `/soundboard` | **Retained** (same origin `:9876`) |
-| local-remote Now Playing watcher | `/` settings | Retained but **auto-off when bridge enabled** (bridge owns the file) |
+| Surface                                                                              | Where         | Status                                                               |
+| ------------------------------------------------------------------------------------ | ------------- | -------------------------------------------------------------------- |
+| Redis / room filter / platform API URL                                               | `/` settings  | Retained                                                             |
+| **OSC + segment id → Farrago path mapping** (add/remove rows, tile picker, OSC test) | `/` settings  | **Retained**                                                         |
+| **Farrago soundboard** (sets/tiles play/stop, WS live updates)                       | `/soundboard` | **Retained** (same origin `:9876`)                                   |
+| local-remote Now Playing watcher                                                     | `/` settings  | Retained but **auto-off when bridge enabled** (bridge owns the file) |
 
 ### Added from bridge-daemon config / session UI
 
@@ -106,14 +106,14 @@ Bridge’s standalone `ui/index.html` on `:18766` is an optional escape hatch on
 
 New Axum routes in [apps/local-remote/daemon/src/api.rs](apps/local-remote/daemon/src/api.rs) that forward to the child (reqwest or hyper client):
 
-| local-remote | child |
-|--------------|-------|
-| `GET/PUT /api/bridge/config` | `/api/config` |
-| `GET /api/bridge/status` | `/api/status` |
-| `GET /api/bridge/rooms` | `/api/rooms` |
-| `POST /api/bridge/connect` | `/api/connect` |
-| `POST /api/bridge/disconnect` | `/api/disconnect` |
-| `POST /api/bridge/restart` | supervisor-local (kill + respawn child) |
+| local-remote                  | child                                   |
+| ----------------------------- | --------------------------------------- |
+| `GET/PUT /api/bridge/config`  | `/api/config`                           |
+| `GET /api/bridge/status`      | `/api/status`                           |
+| `GET /api/bridge/rooms`       | `/api/rooms`                            |
+| `POST /api/bridge/connect`    | `/api/connect`                          |
+| `POST /api/bridge/disconnect` | `/api/disconnect`                       |
+| `POST /api/bridge/restart`    | supervisor-local (kill + respawn child) |
 
 If the child is down, proxy returns `503` with supervisor `lastError`. Do not require the DJ to hit `:18766`.
 
@@ -163,13 +163,13 @@ If the child is down, proxy returns `503` with supervisor `lastError`. Do not re
 
 ## Risks
 
-| Risk | Mitigation |
-|------|------------|
-| Proxy latency / child not ready on first paint | UI polls status; disable bridge controls until `running` |
-| Duplicate Redis URL fields in UI | Show Redis once at top (local-remote); bridge Connection fieldset omits redisUrl or shows read-only “from above” |
-| Escape-hatch `:18766` confuses ops | README: do not bookmark; product never links it |
-| Large UI merge in one HTML file | Accept for v1 (matches local-remote pattern); split later if needed |
-| esbuild CJS asset paths | Phase 1 helper + smoke test |
+| Risk                                           | Mitigation                                                                                                       |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Proxy latency / child not ready on first paint | UI polls status; disable bridge controls until `running`                                                         |
+| Duplicate Redis URL fields in UI               | Show Redis once at top (local-remote); bridge Connection fieldset omits redisUrl or shows read-only “from above” |
+| Escape-hatch `:18766` confuses ops             | README: do not bookmark; product never links it                                                                  |
+| Large UI merge in one HTML file                | Accept for v1 (matches local-remote pattern); split later if needed                                              |
+| esbuild CJS asset paths                        | Phase 1 helper + smoke test                                                                                      |
 
 ## Non-goals
 

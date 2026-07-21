@@ -7,6 +7,7 @@ import {
   spotifyTokenKey,
 } from "@repo/adapter-bridge/protocol"
 import type { ChromeManager } from "./chrome"
+import type { DriverState } from "./drivers/Driver"
 import type { StaticHost } from "./staticHost"
 
 type RedisLike = RedisClientType<any, any, any>
@@ -81,6 +82,63 @@ export class SpotifyDeviceHost {
 
   getDeviceId(): string | null {
     return this.deviceId
+  }
+
+  /**
+   * Read live transport state from the Web Playback SDK (local to the DJ Mac).
+   * Prefer this over Spotify Web API polling from the API container.
+   */
+  async getPlaybackState(): Promise<DriverState> {
+    if (!this.page || this.page.isClosed()) {
+      return { state: "stopped", progressMs: null, durationMs: null, trackId: null }
+    }
+
+    try {
+      const snapshot = await this.page.evaluate(async () => {
+        // @ts-expect-error page context
+        const player = window.__spotifyPlayer
+        if (!player || typeof player.getCurrentState !== "function") {
+          return null
+        }
+        const state = await player.getCurrentState()
+        if (!state) {
+          return null
+        }
+        let volumePercent: number | null = null
+        try {
+          if (typeof player.getVolume === "function") {
+            const v = await player.getVolume()
+            if (typeof v === "number") {
+              volumePercent = Math.round(Math.max(0, Math.min(100, v * 100)))
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+        return {
+          paused: !!state.paused,
+          position: typeof state.position === "number" ? state.position : null,
+          duration: typeof state.duration === "number" ? state.duration : null,
+          trackId: state.track_window?.current_track?.id ?? null,
+          volumePercent,
+        }
+      })
+
+      if (!snapshot) {
+        return { state: "stopped", progressMs: null, durationMs: null, trackId: null }
+      }
+
+      return {
+        state: snapshot.paused ? "paused" : "playing",
+        progressMs: snapshot.position,
+        durationMs: snapshot.duration,
+        trackId: snapshot.trackId,
+        volumePercent: snapshot.volumePercent,
+      }
+    } catch (e) {
+      console.warn("[spotify-device] getPlaybackState failed:", e)
+      return { state: "stopped", progressMs: null, durationMs: null, trackId: null }
+    }
   }
 
   private async onReady(deviceId: string) {

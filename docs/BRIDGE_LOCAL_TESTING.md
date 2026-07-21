@@ -145,7 +145,7 @@ First Chrome launch uses a dedicated profile under `~/.config/listening-room-bri
    - **Without SDK device**: confirm Spotify.app plays as before
 6. (Optional) Queue a local Navidrome track; confirm mpv audio and artwork (data URI)
 7. Empty the queue and trigger a democracy skip / scratched-cd — active daemon source should **stop**
-8. Volume Manager slider should change volume on the active driver
+8. As room admin, use the **Now Playing scrubber** to seek within the track and the **broadcast volume** slider (built-in, not Volume Manager) to change driver volume
 
 ## 8. Export / publish
 

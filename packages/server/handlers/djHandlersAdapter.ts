@@ -722,6 +722,10 @@ export class DJHandlers {
           state: result.state,
           trackId: result.trackId,
           canResume: result.canResume,
+          progressMs: result.progressMs,
+          durationMs: result.durationMs,
+          volumePercent: result.volumePercent,
+          supportsVolume: result.supportsVolume,
         },
       })
     } catch (error: any) {
@@ -729,6 +733,64 @@ export class DJHandlers {
       socket.emit("event", {
         type: "GET_PLAYBACK_STATE_FAILURE",
         data: { message: error?.message || "Failed to read playback state" },
+      })
+    }
+  }
+
+  seekPlayback = async (
+    { socket }: HandlerConnections,
+    { positionMs }: { positionMs: number },
+  ) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.djService.seekPlayback(roomId, userId, positionMs)
+
+      if (!result.success) {
+        socket.emit("event", {
+          type: "SEEK_PLAYBACK_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "SEEK_PLAYBACK_SUCCESS",
+        data: { positionMs: result.positionMs },
+      })
+    } catch (error: any) {
+      console.error("Error seeking playback:", error)
+      socket.emit("event", {
+        type: "SEEK_PLAYBACK_FAILURE",
+        data: { message: error?.message || "Failed to seek playback" },
+      })
+    }
+  }
+
+  setPlaybackVolume = async (
+    { socket }: HandlerConnections,
+    { volumePercent }: { volumePercent: number },
+  ) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.djService.setPlaybackVolume(roomId, userId, volumePercent)
+
+      if (!result.success) {
+        socket.emit("event", {
+          type: "SET_PLAYBACK_VOLUME_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "SET_PLAYBACK_VOLUME_SUCCESS",
+        data: { volumePercent: result.volumePercent },
+      })
+    } catch (error: any) {
+      console.error("Error setting playback volume:", error)
+      socket.emit("event", {
+        type: "SET_PLAYBACK_VOLUME_FAILURE",
+        data: { message: error?.message || "Failed to set playback volume" },
       })
     }
   }

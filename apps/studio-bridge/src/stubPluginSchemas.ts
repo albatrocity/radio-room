@@ -82,21 +82,7 @@ export const bridgePluginSchemasForApi = [
       startVolume: 100,
     },
     componentSchema: {
-      components: [
-        {
-          id: "volume-slider",
-          type: "slider",
-          area: "nowPlayingInfo",
-          dataKey: "volume",
-          icon: "Volume2",
-          min: 0,
-          max: 100,
-          step: 1,
-          action: "setVolume",
-          adminOnly: true,
-          showWhen: { field: "enabled", value: true },
-        },
-      ],
+      components: [],
       storeKeys: ["volume"],
     },
   },

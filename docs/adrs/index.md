@@ -83,6 +83,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0075](0075-bridge-composite-playback-controller.md) | Bridge composite playback controller and Mac daemon | Partially superseded by [0076](0076-spotify-web-playback-sdk-device.md) |
 | [0076](0076-spotify-web-playback-sdk-device.md) | Spotify Web Playback SDK device in bridge Chrome | Accepted |
 | [0077](0077-bridge-daemon-local-control-ui.md) | Bridge daemon local control UI (room discovery + config) | Accepted |
+| [0078](0078-now-playing-seek-and-volume-transport.md) | Now Playing seek and volume transport controls | Accepted |
 
 ## Creating a New ADR
 

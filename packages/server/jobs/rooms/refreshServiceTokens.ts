@@ -14,9 +14,12 @@ export async function refreshServiceTokens(context: AppContext, roomId: string) 
 
   // Determine which services this room uses
   const servicesToRefresh: string[] = []
-  
+
   if (room.playbackControllerId) {
-    servicesToRefresh.push(room.playbackControllerId)
+    // Bridge rooms still authenticate Spotify for the Connect/SDK delegate
+    servicesToRefresh.push(
+      room.playbackControllerId === "bridge" ? "spotify" : room.playbackControllerId,
+    )
   }
   
   // Add all metadata sources that aren't already in the list

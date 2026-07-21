@@ -1,4 +1,10 @@
-import { AppContext, PlaybackController, MetadataSource, MediaSource } from "@repo/types"
+import {
+  AppContext,
+  PlaybackController,
+  MetadataSource,
+  MediaSource,
+  StoredTokens,
+} from "@repo/types"
 import { findRoom } from "../operations/data"
 import { handlePlaybackStateChange } from "../operations/playback/handlePlaybackStateChange"
 
@@ -37,6 +43,8 @@ function getServiceConfig(adapterId: string): { clientId: string } {
 export class AdapterService {
   private context: AppContext
   private roomPlaybackControllers: Map<string, PlaybackController> = new Map()
+  /** Tracks which service is cached under the primary `roomId` key (not `:pc:` delegates). */
+  private roomPrimaryPlaybackService: Map<string, string> = new Map()
   private roomMetadataSources: Map<string, MetadataSource> = new Map()
 
   constructor(context: AppContext) {
@@ -44,17 +52,96 @@ export class AdapterService {
   }
 
   /**
+   * Drop cached playback controllers for a room (primary + `:pc:` delegates).
+   * Call when `playbackControllerId` changes at runtime.
+   */
+  clearRoomPlaybackControllerCache(roomId: string) {
+    this.roomPlaybackControllers.delete(roomId)
+    this.roomPrimaryPlaybackService.delete(roomId)
+    for (const key of Array.from(this.roomPlaybackControllers.keys())) {
+      if (key.startsWith(`${roomId}:pc:`)) {
+        this.roomPlaybackControllers.delete(key)
+      }
+    }
+  }
+
+  /**
+   * Load room-creator OAuth tokens, refreshing when expired or near expiry.
+   * Used by playback controllers (and mirrors metadata-source refresh behavior).
+   */
+  private async getCreatorServiceTokensWithRefresh(params: {
+    creatorUserId: string
+    serviceName: string
+    /** Skip expiresAt check and always refresh (e.g. after Spotify 401). */
+    force?: boolean
+  }): Promise<StoredTokens> {
+    const { creatorUserId, serviceName, force = false } = params
+
+    if (!this.context.data?.getUserServiceAuth) {
+      throw new Error("getUserServiceAuth not available in context")
+    }
+
+    const auth = await this.context.data.getUserServiceAuth({
+      userId: creatorUserId,
+      serviceName,
+    })
+
+    if (!auth || !auth.accessToken) {
+      throw new Error(`No auth tokens found for room creator ${creatorUserId}`)
+    }
+
+    // Missing expiresAt → treat as stale so we don't keep serving dead access tokens.
+    const expiresAt = auth.expiresAt ?? 0
+    const isExpired = expiresAt === 0 || Date.now() > expiresAt - 5 * 60 * 1000
+
+    if (force || isExpired) {
+      console.log(
+        `[AdapterService] Token for ${serviceName} ${force ? "force-" : ""}refreshing...`,
+      )
+      const serviceAuthAdapter = this.context.adapters.serviceAuth.get(serviceName)
+      if (serviceAuthAdapter?.refreshAuth) {
+        try {
+          const refreshed = await serviceAuthAdapter.refreshAuth(creatorUserId)
+          console.log(`[AdapterService] Token refreshed for ${serviceName}`)
+          return {
+            accessToken: refreshed.accessToken,
+            refreshToken: refreshed.refreshToken,
+            metadata: auth.metadata as Record<string, unknown> | undefined,
+          }
+        } catch (refreshError) {
+          console.error(`[AdapterService] Failed to refresh ${serviceName} token:`, refreshError)
+          // Fall through and return stored tokens; the API call may still fail.
+        }
+      }
+    }
+
+    return {
+      accessToken: auth.accessToken,
+      refreshToken: auth.refreshToken,
+      metadata: auth.metadata as Record<string, unknown> | undefined,
+    }
+  }
+
+  /**
    * Get the PlaybackController for a room (uses room creator's credentials)
    * Creates and caches a room-specific instance with dynamic token fetching
    */
   async getRoomPlaybackController(roomId: string): Promise<PlaybackController | null> {
-    if (this.roomPlaybackControllers.has(roomId)) {
-      return this.roomPlaybackControllers.get(roomId)!
-    }
-
     const room = await findRoom({ context: this.context, roomId })
     if (!room || !room.playbackControllerId) {
       return null
+    }
+
+    const cachedService = this.roomPrimaryPlaybackService.get(roomId)
+    if (
+      this.roomPlaybackControllers.has(roomId) &&
+      cachedService === room.playbackControllerId
+    ) {
+      return this.roomPlaybackControllers.get(roomId)!
+    }
+
+    if (this.roomPlaybackControllers.has(roomId) && cachedService !== room.playbackControllerId) {
+      this.clearRoomPlaybackControllerCache(roomId)
     }
 
     return this.getRoomPlaybackControllerByService(roomId, room.playbackControllerId)
@@ -72,14 +159,20 @@ export class AdapterService {
     if (serviceName !== "bridge" && this.roomPlaybackControllers.has(cacheKey)) {
       return this.roomPlaybackControllers.get(cacheKey)!
     }
-    // Primary room controller cache is keyed by roomId only for the room's configured controller
-    if (serviceName === "bridge" && this.roomPlaybackControllers.has(roomId)) {
-      return this.roomPlaybackControllers.get(roomId)!
-    }
 
     const room = await findRoom({ context: this.context, roomId })
     if (!room) {
       return null
+    }
+
+    // Primary room controller cache is keyed by roomId only for the room's configured controller
+    if (
+      serviceName === "bridge" &&
+      room.playbackControllerId === "bridge" &&
+      this.roomPlaybackControllers.has(roomId) &&
+      this.roomPrimaryPlaybackService.get(roomId) === "bridge"
+    ) {
+      return this.roomPlaybackControllers.get(roomId)!
     }
 
     const adapterModule = this.context.adapters.playbackControllerModules.get(serviceName)
@@ -121,6 +214,7 @@ export class AdapterService {
         lifecycle,
       })
       this.roomPlaybackControllers.set(roomId, playbackController)
+      this.roomPrimaryPlaybackService.set(roomId, "bridge")
       return playbackController
     }
 
@@ -143,23 +237,17 @@ export class AdapterService {
             refreshToken: "",
           },
           getStoredTokens: async () => {
-            if (!this.context.data?.getUserServiceAuth) {
-              throw new Error("getUserServiceAuth not available in context")
-            }
-
-            const auth = await this.context.data.getUserServiceAuth({
-              userId: room.creator,
+            return this.getCreatorServiceTokensWithRefresh({
+              creatorUserId: room.creator,
               serviceName,
             })
-
-            if (!auth || !auth.accessToken) {
-              throw new Error(`No auth tokens found for room creator ${room.creator}`)
-            }
-
-            return {
-              accessToken: auth.accessToken,
-              refreshToken: auth.refreshToken,
-            }
+          },
+          refreshTokens: async () => {
+            return this.getCreatorServiceTokensWithRefresh({
+              creatorUserId: room.creator,
+              serviceName,
+              force: true,
+            })
           },
         },
         ...lifecycle,
@@ -183,6 +271,7 @@ export class AdapterService {
 
       if (serviceName === room.playbackControllerId) {
         this.roomPlaybackControllers.set(roomId, playbackController)
+        this.roomPrimaryPlaybackService.set(roomId, serviceName)
       } else {
         this.roomPlaybackControllers.set(cacheKey, playbackController)
       }

@@ -24,6 +24,8 @@ export interface PlaybackControllerApi {
     track: PlaybackControllerQueueItem | null
     progressMs?: number | null
     durationMs?: number | null
+    /** Device/driver volume 0–100 when known. */
+    volumePercent?: number | null
   }>
   play: () => Promise<void>
   /** Start playback of a specific track URI on the active device (e.g. Spotify resource URI). */

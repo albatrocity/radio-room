@@ -149,6 +149,14 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
   socket.on("GET_PLAYBACK_STATE", async () => {
     await handlers.getPlaybackState(connections)
   })
+
+  socket.on("SEEK_PLAYBACK", async (payload: { positionMs: number }) => {
+    await handlers.seekPlayback(connections, payload)
+  })
+
+  socket.on("SET_PLAYBACK_VOLUME", async (payload: { volumePercent: number }) => {
+    await handlers.setPlaybackVolume(connections, payload)
+  })
 }
 
 /**

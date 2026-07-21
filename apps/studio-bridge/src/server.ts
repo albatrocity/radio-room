@@ -47,6 +47,9 @@ import {
   VOLUME_MANAGER_PLUGIN,
   buildStubVolumeComponentState,
   runStubVolumeAction,
+  stubGetPlaybackState,
+  stubSeekPlayback,
+  stubSetPlaybackVolume,
 } from "./stubVolumeManager.js"
 import { applyUserUpdateToSnapshot, toggleVipOnUser, userHasVip } from "./personas.js"
 
@@ -874,6 +877,70 @@ function wireSocketHandlers(io: IOServer): void {
         })
       },
     )
+
+    socket.on("GET_PLAYBACK_STATE", () => {
+      const roomId = socket.data.roomId as string | undefined
+      if (!roomId) {
+        socket.emit("event", {
+          type: "GET_PLAYBACK_STATE_FAILURE",
+          data: { message: "Not in a room" },
+        })
+        return
+      }
+      socket.emit("event", {
+        type: "PLAYBACK_STATE",
+        data: stubGetPlaybackState(roomId),
+      })
+    })
+
+    socket.on("SEEK_PLAYBACK", (payload: { positionMs?: number }) => {
+      const roomId = socket.data.roomId as string | undefined
+      if (!roomId || typeof payload?.positionMs !== "number") {
+        socket.emit("event", {
+          type: "SEEK_PLAYBACK_FAILURE",
+          data: { message: "Invalid seek request" },
+        })
+        return
+      }
+      const result = stubSeekPlayback(roomId, payload.positionMs)
+      if (!result.success) {
+        socket.emit("event", {
+          type: "SEEK_PLAYBACK_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+      socket.emit("event", {
+        type: "SEEK_PLAYBACK_SUCCESS",
+        data: { positionMs: result.positionMs },
+      })
+    })
+
+    socket.on("SET_PLAYBACK_VOLUME", (payload: { volumePercent?: number }) => {
+      const roomId = socket.data.roomId as string | undefined
+      if (!roomId || typeof payload?.volumePercent !== "number") {
+        socket.emit("event", {
+          type: "SET_PLAYBACK_VOLUME_FAILURE",
+          data: { message: "Invalid volume request" },
+        })
+        return
+      }
+      const result = stubSetPlaybackVolume(roomId, payload.volumePercent)
+      if (!result.success) {
+        socket.emit("event", {
+          type: "SET_PLAYBACK_VOLUME_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+      for (const ev of result.events) {
+        io.to(roomSocketPath(roomId)).emit("event", ev)
+      }
+      socket.emit("event", {
+        type: "SET_PLAYBACK_VOLUME_SUCCESS",
+        data: { volumePercent: result.volumePercent },
+      })
+    })
 
     socket.on("CAST_POLL_VOTE", async (data: { pollId?: string; optionId?: string }) => {
       const roomId = socket.data.roomId as string | undefined

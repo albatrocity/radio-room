@@ -1,20 +1,43 @@
 /**
- * Volume Manager preview stubs for Game Studio → Listening Room.
+ * Volume + playback transport stubs for Game Studio → Listening Room (ADR 0078).
  *
- * The bridge does not run the real `@repo/plugin-volume-manager` plugin or
- * Spotify PlaybackController, so it fakes the slider store (`volume`) and
- * `EXECUTE_PLUGIN_ACTION` → `PLUGIN:volume-manager:VOLUME_CHANGED` flow.
+ * The bridge does not run a real PlaybackController. It fakes:
+ * - Built-in `GET_PLAYBACK_STATE` / `SEEK_PLAYBACK` / `SET_PLAYBACK_VOLUME`
+ * - Legacy Volume Manager `EXECUTE_PLUGIN_ACTION` → `PLUGIN:volume-manager:VOLUME_CHANGED`
+ *   (plugin Now Playing slider removed; action kept for config/admin previews)
  */
 
 export const VOLUME_MANAGER_PLUGIN = "volume-manager"
 
 const DEFAULT_VOLUME = 100
+const DEFAULT_DURATION_MS = 180_000
 
-/** Per-room live volume for the slider preview. */
-const volumeByRoom = new Map<string, number>()
+type TransportState = {
+  volume: number
+  progressMs: number
+  durationMs: number
+  state: "playing" | "paused" | "stopped"
+}
+
+/** Per-room transport preview state. */
+const transportByRoom = new Map<string, TransportState>()
+
+function transportFor(roomId: string): TransportState {
+  let t = transportByRoom.get(roomId)
+  if (!t) {
+    t = {
+      volume: DEFAULT_VOLUME,
+      progressMs: 30_000,
+      durationMs: DEFAULT_DURATION_MS,
+      state: "playing",
+    }
+    transportByRoom.set(roomId, t)
+  }
+  return t
+}
 
 function volumeFor(roomId: string): number {
-  return volumeByRoom.get(roomId) ?? DEFAULT_VOLUME
+  return transportFor(roomId).volume
 }
 
 export function buildStubVolumeComponentState(roomId: string): Record<string, unknown> {
@@ -48,10 +71,64 @@ export function runStubVolumeAction(
   }
 
   const volume = Math.round(Math.max(0, Math.min(100, raw)))
-  volumeByRoom.set(roomId, volume)
+  const t = transportFor(roomId)
+  t.volume = volume
 
   return {
     success: true,
+    events: [volumeChangedEvent(roomId, volume)],
+  }
+}
+
+export function stubGetPlaybackState(roomId: string): {
+  state: "playing" | "paused" | "stopped"
+  trackId: string
+  canResume: boolean
+  progressMs: number
+  durationMs: number
+  volumePercent: number
+  supportsVolume: true
+} {
+  const t = transportFor(roomId)
+  return {
+    state: t.state,
+    trackId: "studio-bridge-track",
+    canResume: t.state !== "stopped",
+    progressMs: t.progressMs,
+    durationMs: t.durationMs,
+    volumePercent: t.volume,
+    supportsVolume: true,
+  }
+}
+
+export function stubSeekPlayback(
+  roomId: string,
+  positionMs: number,
+): { success: true; positionMs: number } | { success: false; message: string } {
+  if (!Number.isFinite(positionMs) || positionMs < 0) {
+    return { success: false, message: "Invalid seek position" }
+  }
+  const t = transportFor(roomId)
+  const clamped = Math.min(Math.round(positionMs), t.durationMs)
+  t.progressMs = clamped
+  return { success: true, positionMs: clamped }
+}
+
+export function stubSetPlaybackVolume(
+  roomId: string,
+  volumePercent: number,
+):
+  | { success: true; volumePercent: number; events: StubVolumeEvent[] }
+  | { success: false; message: string } {
+  if (!Number.isFinite(volumePercent)) {
+    return { success: false, message: "Invalid volume" }
+  }
+  const volume = Math.round(Math.max(0, Math.min(100, volumePercent)))
+  const t = transportFor(roomId)
+  t.volume = volume
+  return {
+    success: true,
+    volumePercent: volume,
     events: [volumeChangedEvent(roomId, volume)],
   }
 }

@@ -28,6 +28,18 @@ import { refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot
 import systemMessage from "../lib/systemMessage"
 import { isStreamingMode, streamingDisplayChanged } from "../lib/streamingMode"
 import * as scheduling from "./SchedulingService"
+import { AdapterService } from "./AdapterService"
+
+function withBridgeMetadataSources(metadataSourceIds: string[] | undefined): string[] {
+  const next = [...(metadataSourceIds ?? [])]
+  if (process.env.YOUTUBE_API_KEY && !next.includes("youtube")) {
+    next.push("youtube")
+  }
+  if (!next.includes("local")) {
+    next.push("local")
+  }
+  return next
+}
 
 /**
  * A service that handles admin operations without Socket.io dependencies
@@ -294,8 +306,37 @@ export class AdminService {
       ;(newSettings as Room).persistent = !!(sid && String(sid).length > 0)
     }
 
+    const previousPlaybackControllerId = room.playbackControllerId
+    const requestedPlaybackControllerId =
+      "playbackControllerId" in values ? values.playbackControllerId : undefined
+    const playbackControllerChanging =
+      requestedPlaybackControllerId !== undefined &&
+      requestedPlaybackControllerId !== previousPlaybackControllerId &&
+      (room.type === "radio" || room.type === "live")
+
+    if (playbackControllerChanging) {
+      ;(newSettings as Room).playbackControllerId = requestedPlaybackControllerId
+      if (requestedPlaybackControllerId === "bridge") {
+        ;(newSettings as Room).playbackMode = "app-controlled"
+        ;(newSettings as Room).metadataSourceIds = withBridgeMetadataSources(room.metadataSourceIds)
+      }
+    } else if ("playbackControllerId" in values && room.type === "jukebox") {
+      // Jukebox always uses Spotify; ignore client overrides.
+      delete (newSettings as { playbackControllerId?: string }).playbackControllerId
+    }
+
     // Save room settings FIRST so handleRoomNowPlayingData sees the correct fetchMeta value
     await saveRoom({ context: this.context, room: newSettings })
+
+    if (playbackControllerChanging && requestedPlaybackControllerId) {
+      await this.rewirePlaybackController({
+        roomId,
+        roomType: room.type,
+        creatorUserId: room.creator,
+        previousPlaybackControllerId,
+        nextPlaybackControllerId: requestedPlaybackControllerId,
+      })
+    }
 
     if (
       room.type === "radio" &&
@@ -374,6 +415,56 @@ export class AdminService {
     }
 
     return { room: updatedRoom, error: null }
+  }
+
+  /**
+   * Tear down the previous playback-controller adapter jobs and register the new one.
+   * Soft-fails so a settings save is not rolled back if wiring throws.
+   */
+  private async rewirePlaybackController(params: {
+    roomId: string
+    roomType: Room["type"]
+    creatorUserId: string
+    previousPlaybackControllerId?: string
+    nextPlaybackControllerId: string
+  }) {
+    const {
+      roomId,
+      roomType,
+      creatorUserId,
+      previousPlaybackControllerId,
+      nextPlaybackControllerId,
+    } = params
+
+    try {
+      if (previousPlaybackControllerId) {
+        const previous = this.context.adapters.playbackControllerModules.get(
+          previousPlaybackControllerId,
+        )
+        if (previous?.onRoomDeleted) {
+          await previous.onRoomDeleted({ roomId, context: this.context })
+        }
+      }
+
+      // Best-effort: drop caches on a fresh service instance. Long-lived AdapterService
+      // instances (e.g. DJService) also invalidate when room.playbackControllerId changes.
+      new AdapterService(this.context).clearRoomPlaybackControllerCache(roomId)
+
+      const next = this.context.adapters.playbackControllerModules.get(nextPlaybackControllerId)
+      if (next?.onRoomCreated) {
+        await next.onRoomCreated({
+          roomId,
+          userId: creatorUserId,
+          roomType,
+          context: this.context,
+        })
+      }
+    } catch (e) {
+      console.error(
+        `[setRoomSettings] Failed to rewire playback controller ${previousPlaybackControllerId} → ${nextPlaybackControllerId}:`,
+        e,
+      )
+    }
   }
 
   /**

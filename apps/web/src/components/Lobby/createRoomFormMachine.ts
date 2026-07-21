@@ -22,6 +22,7 @@ export const createRoomFormMachine = setup({
           type: "live" as const,
           radioListenUrl: DEFAULT_LIVE_WHEP_URL,
           radioMetaUrl: DEFAULT_LIVE_HLS_URL,
+          playbackControllerId: "spotify" as const,
         }
       }
       if (nextType === "jukebox") {
@@ -30,6 +31,7 @@ export const createRoomFormMachine = setup({
           radioListenUrl: undefined,
           radioMetaUrl: undefined,
           radioProtocol: undefined,
+          playbackControllerId: undefined,
         }
       }
       if (nextType === "radio") {
@@ -38,6 +40,7 @@ export const createRoomFormMachine = setup({
           radioMetaUrl: "http://live.rcast.net:8678",
           radioListenUrl: "https://stream1.rcast.net/66341",
           radioProtocol: "shoutcastv2",
+          playbackControllerId: "spotify" as const,
         }
       }
       return { type: nextType }
@@ -60,6 +63,14 @@ export const createRoomFormMachine = setup({
         sessionStorage.setItem("createRoomShowId", context.showId)
       } else {
         sessionStorage.removeItem("createRoomShowId")
+      }
+      if (context.type === "radio" || context.type === "live") {
+        sessionStorage.setItem(
+          "createRoomPlaybackControllerId",
+          context.playbackControllerId ?? "spotify",
+        )
+      } else {
+        sessionStorage.removeItem("createRoomPlaybackControllerId")
       }
       if (context.type === "radio") {
         sessionStorage.setItem("createRoomRadioProtocol", context.radioProtocol ?? "shoutcastv2")

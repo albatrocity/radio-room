@@ -54,6 +54,8 @@ export function withDefaults(
     activeShowSegmentId: undefined,
     ...roomDetails,
     deputizeOnJoin: roomDetails.deputizeOnJoin || false,
-    ...(roomDetails.type === "radio" ? { playbackMode: "app-controlled" as const } : {}),
+    ...(roomDetails.type === "radio" || roomDetails.playbackControllerId === "bridge"
+      ? { playbackMode: "app-controlled" as const }
+      : {}),
   }
 }

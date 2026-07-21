@@ -69,29 +69,48 @@ export function createBridgePlaybackApi(deps: {
 
     async getPlayback() {
       const source = await activeSource.get()
+      if (!source) {
+        return { state: "stopped", track: null }
+      }
+
+      // Prefer daemon-local state (SDK getCurrentState / driver). Avoids polling
+      // Spotify Web API from the API container on every admin scrubber refresh.
+      try {
+        const result = (await rpc.call("getPlayback", { source })) as {
+          state: PlaybackState
+          trackId?: string | null
+          progressMs?: number | null
+          durationMs?: number | null
+          volumePercent?: number | null
+        }
+        // Spotify SDK answer is authoritative (including stopped) so we don't
+        // fall through to Web API polling from the API container.
+        if (result && (source === "spotify" || result.state !== "stopped")) {
+          const trackId = result.trackId || (result.state === "stopped" ? null : source)
+          const lastVolume = await activeSource.getLastVolume()
+          const volumePercent =
+            typeof result.volumePercent === "number" ? result.volumePercent : lastVolume
+          return {
+            state: result.state,
+            // Stub track keeps togglePlayback from advancing mid-track on pause.
+            track: trackId ? ({ id: trackId } as MetadataSourceTrack) : null,
+            progressMs: result.progressMs ?? null,
+            durationMs: result.durationMs ?? null,
+            volumePercent,
+          }
+        }
+      } catch (e) {
+        console.warn(`[bridge] getPlayback RPC failed for ${source}:`, e)
+      }
+
+      // Fallback: Spotify Web API only when the daemon RPC itself failed
+      // (no SDK device / daemon down).
       if (source === "spotify") {
         const delegate = await getSpotifyDelegate()
         if (!delegate) return { state: "stopped" as PlaybackState, track: null }
         return delegate.getPlayback()
       }
-      if (source) {
-        const result = (await rpc.call("getPlayback", {})) as {
-          state: PlaybackState
-          trackId?: string | null
-          progressMs?: number | null
-          durationMs?: number | null
-        }
-        // togglePlayback uses shouldAdvanceToNextQueueItem, which treats missing track as
-        // "idle → start next queue item". Always return a stub track while a bridge source
-        // is active so mid-track pause resumes via play() instead of advancing.
-        const trackId = result.trackId || source
-        return {
-          state: result.state,
-          track: { id: trackId } as MetadataSourceTrack,
-          progressMs: result.progressMs ?? null,
-          durationMs: result.durationMs ?? null,
-        }
-      }
+
       return { state: "stopped", track: null }
     },
 

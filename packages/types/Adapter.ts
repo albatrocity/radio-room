@@ -18,6 +18,11 @@ export type AdapterAuthentication =
         refreshToken: string
       }
       getStoredTokens: () => Promise<StoredTokens>
+      /**
+       * Force a token refresh (e.g. after Spotify returns 401 Bad or expired token).
+       * Optional: adapters that omit this cannot recover mid-request from revoked access tokens.
+       */
+      refreshTokens?: () => Promise<StoredTokens>
       clientId: string
     }
 

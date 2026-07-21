@@ -30,18 +30,26 @@ export async function provisionSpotifyTokenForRoom(params: {
     return null
   }
 
+  // Prefer a still-fresh stored token. Always-refreshing races with other
+  // refreshers when Spotify rotates refresh tokens.
+  const stored = await context.data?.getUserServiceAuth?.({
+    userId: room.creator,
+    serviceName: "spotify",
+  })
+  const expiresAt = stored?.expiresAt ?? 0
+  const stillFresh = expiresAt > Date.now() + 5 * 60 * 1000
+
   let accessToken: string | undefined
-  try {
-    const refreshed = await refreshAuth(room.creator)
-    accessToken = refreshed.accessToken
-  } catch (e) {
-    // Fall back to stored token if refresh fails (e.g. already fresh / rate limit)
-    console.warn(`[bridge-spotify-token] refresh failed for ${roomId}, trying stored:`, e)
-    const auth = await context.data?.getUserServiceAuth?.({
-      userId: room.creator,
-      serviceName: "spotify",
-    })
-    accessToken = auth?.accessToken
+  if (stillFresh && stored?.accessToken) {
+    accessToken = stored.accessToken
+  } else {
+    try {
+      const refreshed = await refreshAuth(room.creator)
+      accessToken = refreshed.accessToken
+    } catch (e) {
+      console.warn(`[bridge-spotify-token] refresh failed for ${roomId}, trying stored:`, e)
+      accessToken = stored?.accessToken
+    }
   }
 
   if (!accessToken) {

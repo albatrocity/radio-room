@@ -28,9 +28,35 @@ describe("provisionSpotifyTokenForRoom", () => {
     vi.clearAllMocks()
   })
 
-  it("refreshes and SETs the token key with EX", async () => {
+  it("uses a still-fresh stored token without refreshing", async () => {
     findRoom.mockResolvedValue({ creator: "user-1" })
-    refreshAuth.mockResolvedValue({ accessToken: "atok", refreshToken: "rtok", expiresAt: 1 })
+    getUserServiceAuth.mockResolvedValue({
+      accessToken: "stored-fresh",
+      refreshToken: "rtok",
+      expiresAt: Date.now() + 3600_000,
+    })
+
+    const token = await provisionSpotifyTokenForRoom({ context, roomId: "room-1" })
+
+    expect(token).toBe("stored-fresh")
+    expect(refreshAuth).not.toHaveBeenCalled()
+    expect(set).toHaveBeenCalledWith(spotifyTokenKey("room-1"), "stored-fresh", {
+      EX: BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
+    })
+  })
+
+  it("refreshes and SETs the token key with EX when stored token is stale", async () => {
+    findRoom.mockResolvedValue({ creator: "user-1" })
+    getUserServiceAuth.mockResolvedValue({
+      accessToken: "old",
+      refreshToken: "rtok",
+      expiresAt: Date.now() + 60_000, // within 5-minute window
+    })
+    refreshAuth.mockResolvedValue({
+      accessToken: "atok",
+      refreshToken: "rtok",
+      expiresAt: Date.now() + 3600_000,
+    })
 
     const token = await provisionSpotifyTokenForRoom({ context, roomId: "room-1" })
 
@@ -43,8 +69,8 @@ describe("provisionSpotifyTokenForRoom", () => {
 
   it("falls back to stored token when refresh fails", async () => {
     findRoom.mockResolvedValue({ creator: "user-1" })
-    refreshAuth.mockRejectedValue(new Error("refresh failed"))
     getUserServiceAuth.mockResolvedValue({ accessToken: "stored" })
+    refreshAuth.mockRejectedValue(new Error("refresh failed"))
 
     const token = await provisionSpotifyTokenForRoom({ context, roomId: "room-1" })
 
@@ -58,7 +84,16 @@ describe("provisionSpotifyTokenForRoom", () => {
 describe("wireSpotifyTokenProvisioning", () => {
   it("provisions on TOKEN_REQUEST", async () => {
     findRoom.mockResolvedValue({ creator: "user-1" })
-    refreshAuth.mockResolvedValue({ accessToken: "atok", refreshToken: "rtok", expiresAt: 1 })
+    getUserServiceAuth.mockResolvedValue({
+      accessToken: "atok",
+      refreshToken: "rtok",
+      expiresAt: Date.now() + 3600_000,
+    })
+    refreshAuth.mockResolvedValue({
+      accessToken: "atok",
+      refreshToken: "rtok",
+      expiresAt: Date.now() + 3600_000,
+    })
 
     const context = {
       redis: { pubClient: { set } },
@@ -68,7 +103,7 @@ describe("wireSpotifyTokenProvisioning", () => {
     let listener: ((e: { type: "TOKEN_REQUEST"; service: "spotify" }) => void) | null = null
     wireSpotifyTokenProvisioning({
       context,
-      roomId: "room-1",
+      roomId: "room-wire-1",
       onEvent: (l) => {
         listener = l as typeof listener
         return () => {}
@@ -81,7 +116,7 @@ describe("wireSpotifyTokenProvisioning", () => {
 
     listener!({ type: "TOKEN_REQUEST", service: "spotify" })
     await vi.waitFor(() =>
-      expect(set).toHaveBeenCalledWith(spotifyTokenKey("room-1"), "atok", {
+      expect(set).toHaveBeenCalledWith(spotifyTokenKey("room-wire-1"), "atok", {
         EX: BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
       }),
     )

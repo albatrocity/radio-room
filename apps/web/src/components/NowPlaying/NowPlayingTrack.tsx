@@ -26,6 +26,7 @@ import { usePreferredMetadataSource } from "../../hooks/useActors"
 import { MetadataSourceType } from "../../types/Queue"
 import { guessTheTuneNowPlayingItemContext } from "../../lib/guessTheTunePluginItemContext"
 import type { PluginElementProps } from "@repo/types"
+import { NowPlayingTransport } from "./NowPlayingTransport"
 
 type RevealedBy = NonNullable<PluginElementProps["revealedBy"]>
 
@@ -240,6 +241,8 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
           </VStack>
         </Stack>
       </LinkBox>
+
+      <NowPlayingTransport room={room} />
     </VStack>
   )
 }

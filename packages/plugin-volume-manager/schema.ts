@@ -11,7 +11,7 @@ export function getConfigSchema(): PluginConfigSchema {
         type: "text-block",
         variant: "info",
         content:
-          "Control playback volume on the room creator's active device (Spotify Connect or bridge drivers). Use Current volume for immediate changes (e.g. segment talk ducking). Use Start each track at with Reset volume at each track start for per-track resets.",
+          "Control playback volume on the room creator's active device (Spotify Connect or bridge drivers). Live volume is adjusted from the Now Playing broadcast volume control (admins). Use Current volume / Start each track at here for segment presets and per-track resets.",
       },
       "enabled",
       "volume",
@@ -51,22 +51,10 @@ export function getConfigSchema(): PluginConfigSchema {
 }
 
 export function getComponentSchema(): PluginComponentSchema {
+  // Live volume UI is built into Now Playing (ADR 0078). Keep storeKeys so
+  // startVolume / segment config and PLAYBACK_VOLUME_CHANGED sync still work.
   return {
-    components: [
-      {
-        id: "volume-slider",
-        type: "slider",
-        area: "nowPlayingInfo",
-        dataKey: "volume",
-        icon: "Volume2",
-        min: 0,
-        max: 100,
-        step: 1,
-        action: "setVolume",
-        adminOnly: true,
-        showWhen: { field: "enabled", value: true },
-      },
-    ],
+    components: [],
     storeKeys: ["volume"],
   }
 }

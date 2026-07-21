@@ -4,16 +4,16 @@ overview: Add admin-only seek and live volume controls to Now Playing for app-co
 todos:
   - id: adr-types-volume
     content: ADR 0074 + extend getPlayback with volumePercent (Spotify + bridge)
-    status: pending
+    status: completed
   - id: dj-socket-handlers
     content: DJService seek/volume + SEEK_PLAYBACK / SET_PLAYBACK_VOLUME handlers + tests
-    status: pending
+    status: completed
   - id: now-playing-ui
     content: NowPlayingTransport scrubber + volume in NowPlayingTrack
-    status: pending
+    status: completed
   - id: volume-manager-studio
     content: Hide volume-manager slider; studio-bridge stubs; BRIDGE_LOCAL_TESTING note
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -84,22 +84,22 @@ sequenceDiagram
 
 ### Server
 
-| Piece | Change |
-|-------|--------|
-| [`DJService`](packages/server/services/DJService.ts) | `seekPlayback(roomId, userId, positionMs)`, `setPlaybackVolume(roomId, userId, percent)`; same auth/mode gates as `togglePlayback`. Clamp volume 0–100; reject seek when no active track / negative position. |
-| [`getPlaybackState`](packages/server/services/DJService.ts) | Also return `progressMs`, `durationMs`, `volumePercent` (from controller or Redis `last_volume` for bridge), `supportsVolume: !!api.setVolume`. |
-| [`djHandlersAdapter`](packages/server/handlers/djHandlersAdapter.ts) + [`djController`](packages/server/controllers/djController.ts) | Register `SEEK_PLAYBACK`, `SET_PLAYBACK_VOLUME`; success/failure event shapes. |
-| [`PlaybackControllerApi.getPlayback`](packages/types/PlaybackController.ts) | Optional `volumePercent?: number \| null` on the return type. |
-| Bridge `getPlayback` | Pass through driver `volumePercent` (today stripped). Spotify: read `device.volume_percent` from Web API state. |
-| On successful `setVolume` | Call existing `handlePlaybackVolumeChange` so volume-manager / Redis stay in sync. |
+| Piece                                                                                                                                | Change                                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`DJService`](packages/server/services/DJService.ts)                                                                                 | `seekPlayback(roomId, userId, positionMs)`, `setPlaybackVolume(roomId, userId, percent)`; same auth/mode gates as `togglePlayback`. Clamp volume 0–100; reject seek when no active track / negative position. |
+| [`getPlaybackState`](packages/server/services/DJService.ts)                                                                          | Also return `progressMs`, `durationMs`, `volumePercent` (from controller or Redis `last_volume` for bridge), `supportsVolume: !!api.setVolume`.                                                               |
+| [`djHandlersAdapter`](packages/server/handlers/djHandlersAdapter.ts) + [`djController`](packages/server/controllers/djController.ts) | Register `SEEK_PLAYBACK`, `SET_PLAYBACK_VOLUME`; success/failure event shapes.                                                                                                                                |
+| [`PlaybackControllerApi.getPlayback`](packages/types/PlaybackController.ts)                                                          | Optional `volumePercent?: number \| null` on the return type.                                                                                                                                                 |
+| Bridge `getPlayback`                                                                                                                 | Pass through driver `volumePercent` (today stripped). Spotify: read `device.volume_percent` from Web API state.                                                                                               |
+| On successful `setVolume`                                                                                                            | Call existing `handlePlaybackVolumeChange` so volume-manager / Redis stay in sync.                                                                                                                            |
 
 ### Client
 
-| Piece | Change |
-|-------|--------|
-| New `NowPlayingTransport.tsx` (sibling under `NowPlaying/`) | Admin-only when `playbackMode === "app-controlled"`. Scrubber (seek on release) + volume slider (reuse `createSliderMachine`). Poll `GET_PLAYBACK_STATE` ~1s while mounted; interpolate progress locally while `state === "playing"` between polls. Hide scrubber if `durationMs` missing; hide volume if `!supportsVolume`. |
-| [`NowPlayingTrack.tsx`](apps/web/src/components/NowPlaying/NowPlayingTrack.tsx) | Render `<NowPlayingTransport />` above or below `PluginArea nowPlayingInfo` (outside `LinkBox` so slider clicks don’t navigate). |
-| Toasts | Failure toasts for seek/volume, matching queue playback errors. |
+| Piece                                                                           | Change                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| New `NowPlayingTransport.tsx` (sibling under `NowPlaying/`)                     | Admin-only when `playbackMode === "app-controlled"`. Scrubber (seek on release) + volume slider (reuse `createSliderMachine`). Poll `GET_PLAYBACK_STATE` ~1s while mounted; interpolate progress locally while `state === "playing"` between polls. Hide scrubber if `durationMs` missing; hide volume if `!supportsVolume`. |
+| [`NowPlayingTrack.tsx`](apps/web/src/components/NowPlaying/NowPlayingTrack.tsx) | Render `<NowPlayingTransport />` above or below `PluginArea nowPlayingInfo` (outside `LinkBox` so slider clicks don’t navigate).                                                                                                                                                                                             |
+| Toasts                                                                          | Failure toasts for seek/volume, matching queue playback errors.                                                                                                                                                                                                                                                              |
 
 ### Volume-manager coexistence
 
@@ -146,12 +146,12 @@ Hide plugin slider; stub studio-bridge events; smoke-test notes in [`docs/BRIDGE
 
 ## Risks and tradeoffs
 
-| Risk | Mitigation |
-|------|------------|
-| Poll latency / jumpy scrubber | Local interpolation while playing; re-sync on poll; optimistic seek |
-| Bridge `getPlayback` without volume | Fall back to Redis `last_volume` / last successful set |
-| Dual volume UIs | Hide volume-manager slider |
-| Seek near track end races advance job | Same as Spotify today; accept ~1s job tick; no special lock in v1 |
+| Risk                                  | Mitigation                                                          |
+| ------------------------------------- | ------------------------------------------------------------------- |
+| Poll latency / jumpy scrubber         | Local interpolation while playing; re-sync on poll; optimistic seek |
+| Bridge `getPlayback` without volume   | Fall back to Redis `last_volume` / last successful set              |
+| Dual volume UIs                       | Hide volume-manager slider                                          |
+| Seek near track end races advance job | Same as Spotify today; accept ~1s job tick; no special lock in v1   |
 
 ## Open questions
 

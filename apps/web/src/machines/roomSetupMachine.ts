@@ -28,7 +28,8 @@ const createRoomLogic = fromPromise<RoomCreationResponse, RoomSetupContext>(
   async ({ input: ctx }) => {
     const roomType = ctx.room?.type ?? "jukebox"
 
-    const playbackControllerId = roomType === "jukebox" ? "spotify" : undefined
+    const playbackControllerId =
+      roomType === "jukebox" ? "spotify" : (ctx.room?.playbackControllerId ?? "spotify")
     const metadataSourceIds = roomType === "jukebox" ? ["spotify"] : undefined
     const mediaSourceId =
       roomType === "radio" ? "shoutcast" : roomType === "live" ? "rtmp" : undefined
@@ -72,6 +73,7 @@ export const roomSetupMachine = setup({
       sessionStorage.removeItem("createRoomLiveIngestEnabled")
       sessionStorage.removeItem("createRoomLiveWhepUrl")
       sessionStorage.removeItem("createRoomLiveHlsUrl")
+      sessionStorage.removeItem("createRoomPlaybackControllerId")
       return {
         error: String(event.error),
       }
@@ -98,6 +100,7 @@ export const roomSetupMachine = setup({
       sessionStorage.removeItem("createRoomLiveWhepUrl")
       sessionStorage.removeItem("createRoomLiveHlsUrl")
       sessionStorage.removeItem("createRoomPublic")
+      sessionStorage.removeItem("createRoomPlaybackControllerId")
       sessionStorage.removeItem("roomCreationInProgress")
       window.location.href = `/rooms/${event.output.room.id}`
     },

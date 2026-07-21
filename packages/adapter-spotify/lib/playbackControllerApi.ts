@@ -178,7 +178,16 @@ export async function makeApi({
     },
     async seekTo(position) {
       const api = await getSpotifyApi()
-      await api.player.seekToPosition(position)
+      const device = await resolveTargetDevice(api)
+
+      try {
+        await api.player.seekToPosition(position, device.id)
+      } catch (error: unknown) {
+        // Spotify returns 204 No Content on success; the SDK still tries to JSON-parse the body.
+        if (!isSpotifyEmptyBodySuccess(error)) {
+          throw error
+        }
+      }
       await config.onPlaybackPositionChange?.(position)
     },
     async skipToNextTrack() {
@@ -266,13 +275,18 @@ export async function makeApi({
           track: null,
           progressMs: null,
           durationMs: null,
+          volumePercent: null,
         }
       }
 
-      const { is_playing, item, progress_ms } = playback
+      const { is_playing, item, progress_ms, device } = playback
       const durationMs =
         item && typeof item === "object" && "duration_ms" in item
           ? (item as { duration_ms?: number }).duration_ms ?? null
+          : null
+      const volumePercent =
+        device && typeof device === "object" && typeof device.volume_percent === "number"
+          ? device.volume_percent
           : null
 
       return {
@@ -280,6 +294,7 @@ export async function makeApi({
         track: item ? trackItemSchema.parse(item) : null,
         progressMs: progress_ms ?? null,
         durationMs,
+        volumePercent,
       }
     },
   }

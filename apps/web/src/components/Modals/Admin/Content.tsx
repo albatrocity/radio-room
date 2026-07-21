@@ -25,6 +25,7 @@ import {
   useAdminSend,
 } from "../../../hooks/useActors"
 import RadioProtocolSelect from "../../RadioProtocolSelect"
+import PlaybackControllerSelect from "../../PlaybackControllerSelect"
 import { uploadArtwork } from "../../../lib/serverApi"
 
 function Content() {
@@ -75,6 +76,7 @@ function Content() {
         liveIngestEnabled: settings.liveIngestEnabled ?? false,
         liveWhepUrl: settings.liveWhepUrl ?? "",
         liveHlsUrl: settings.liveHlsUrl ?? "",
+        playbackControllerId: settings.playbackControllerId ?? "spotify",
       }}
       enableReinitialize
       validate={() => {
@@ -138,6 +140,13 @@ function Content() {
                   When disabled, the room is only accessible via its direct URL.
                 </Field.HelperText>
               </Field.Root>
+
+              {(settings.type === "radio" || settings.type === "live") && (
+                <PlaybackControllerSelect
+                  name="playbackControllerId"
+                  value={values.playbackControllerId}
+                />
+              )}
 
               {settings.type === "radio" && (
                 <>

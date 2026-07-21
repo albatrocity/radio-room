@@ -59,6 +59,21 @@ function attributionToAddedBy(
 const APP_CONTROLLED_ONLY_MESSAGE =
   "Operation only available in app-controlled playback mode"
 
+type PlaybackStateSuccess = {
+  success: true
+  state: "playing" | "paused" | "stopped"
+  trackId: string | null
+  canResume: boolean
+  progressMs: number | null
+  durationMs: number | null
+  volumePercent: number | null
+  supportsVolume: boolean
+}
+
+/** Short TTL so admin scrubber polls don't hammer Spotify / bridge RPC. */
+const PLAYBACK_STATE_CACHE_TTL_MS = 2500
+const playbackStateCache = new Map<string, { at: number; value: PlaybackStateSuccess }>()
+
 /**
  * A service that handles DJ-related operations without Socket.io dependencies
  */
@@ -747,23 +762,164 @@ export class DJService {
       return { success: false as const, message: "Playback controller does not support reading state" }
     }
 
+    const cached = playbackStateCache.get(roomId)
+    if (cached && Date.now() - cached.at < PLAYBACK_STATE_CACHE_TTL_MS) {
+      return cached.value
+    }
+
     try {
       const playback = await getPlayback()
       const trackId =
         playback.track && typeof playback.track === "object" && "id" in playback.track
           ? String((playback.track as { id: string }).id)
           : null
-      return {
-        success: true as const,
+      const volumePercent =
+        typeof playback.volumePercent === "number" ? playback.volumePercent : null
+      const value: PlaybackStateSuccess = {
+        success: true,
         state: playback.state,
         trackId,
         canResume: canResumeCurrentTrack(playback),
+        progressMs: playback.progressMs ?? null,
+        durationMs: playback.durationMs ?? null,
+        volumePercent,
+        supportsVolume: Boolean(playbackController.api.setVolume),
       }
+      playbackStateCache.set(roomId, { at: Date.now(), value })
+      return value
     } catch (e) {
       console.error("[DJService.getPlaybackState] getPlayback failed:", e)
       return {
         success: false as const,
-        message: "Failed to read playback state from Spotify",
+        message: "Failed to read playback state",
+      }
+    }
+  }
+
+  /**
+   * App-controlled: seek within the current track. Room creator or room admin only.
+   */
+  async seekPlayback(roomId: string, userId: string, positionMs: number) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "This action is only available in app-controlled playback mode",
+      }
+    }
+
+    const allowed = await isRoomAdmin({
+      context: this.context,
+      roomId,
+      userId,
+      roomCreator: room.creator,
+    })
+    if (!allowed) {
+      return { success: false as const, message: "Not authorized to control playback" }
+    }
+
+    if (!Number.isFinite(positionMs) || positionMs < 0) {
+      return { success: false as const, message: "Invalid seek position" }
+    }
+
+    const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
+    if (!playbackController) {
+      return { success: false as const, message: "No playback controller configured for this room" }
+    }
+
+    try {
+      const playback = await playbackController.api.getPlayback()
+      if (!playback.track) {
+        return { success: false as const, message: "Nothing is currently playing" }
+      }
+
+      const clamped =
+        playback.durationMs != null && playback.durationMs > 0
+          ? Math.min(Math.round(positionMs), playback.durationMs)
+          : Math.round(positionMs)
+
+      await playbackController.api.seekTo(clamped)
+      playbackStateCache.delete(roomId)
+      return {
+        success: true as const,
+        positionMs: clamped,
+      }
+    } catch (e) {
+      console.error("[DJService.seekPlayback] failed:", e)
+      return {
+        success: false as const,
+        message: "Failed to seek playback",
+      }
+    }
+  }
+
+  /**
+   * App-controlled: set broadcast/device volume (0–100). Room creator or room admin only.
+   */
+  async setPlaybackVolume(roomId: string, userId: string, volumePercent: number) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "This action is only available in app-controlled playback mode",
+      }
+    }
+
+    const allowed = await isRoomAdmin({
+      context: this.context,
+      roomId,
+      userId,
+      roomCreator: room.creator,
+    })
+    if (!allowed) {
+      return { success: false as const, message: "Not authorized to control playback" }
+    }
+
+    if (!Number.isFinite(volumePercent)) {
+      return { success: false as const, message: "Invalid volume" }
+    }
+
+    const clamped = Math.round(Math.max(0, Math.min(100, volumePercent)))
+
+    const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
+    if (!playbackController) {
+      return { success: false as const, message: "No playback controller configured for this room" }
+    }
+
+    const setVolume = playbackController.api.setVolume
+    if (!setVolume) {
+      return {
+        success: false as const,
+        message: "Playback controller does not support volume control",
+      }
+    }
+
+    try {
+      await setVolume(clamped)
+      const { handlePlaybackVolumeChange } = await import(
+        "../operations/playback/handlePlaybackVolumeChange"
+      )
+      await handlePlaybackVolumeChange({
+        context: this.context,
+        roomId,
+        volumePercent: clamped,
+      })
+      playbackStateCache.delete(roomId)
+      return {
+        success: true as const,
+        volumePercent: clamped,
+      }
+    } catch (e) {
+      console.error("[DJService.setPlaybackVolume] failed:", e)
+      return {
+        success: false as const,
+        message: "Failed to set playback volume",
       }
     }
   }

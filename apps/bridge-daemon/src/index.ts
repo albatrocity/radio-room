@@ -113,7 +113,7 @@ async function connect(roomId: string, config: BridgeDaemonConfig = activeConfig
   const nowPlayingPath = config.nowPlayingPath ?? defaultNowPlayingPath()
   const nowPlaying = new NowPlayingPublisher(redis as any, nowPlayingPath, config.nowPlayingFormat)
   const presence = new Presence(redis as any, roomId)
-  const router = new Router(drivers, presence, nowPlaying, roomId)
+  const router = new Router(drivers, presence, nowPlaying, roomId, spotifyDevice)
   const rpc = new RpcServer(redis as any, roomId, router, localDriver)
 
   await presence.start(Array.from(drivers.keys()))

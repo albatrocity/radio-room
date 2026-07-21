@@ -2,6 +2,14 @@ import type { Driver, DriverState } from "./drivers/Driver"
 import { LocalDriver } from "./drivers/local"
 import type { NowPlayingPublisher } from "./nowPlaying"
 import type { Presence } from "./presence"
+import type { SpotifyDeviceHost } from "./spotifyDevice"
+
+const STOPPED: DriverState = {
+  state: "stopped",
+  progressMs: null,
+  durationMs: null,
+  trackId: null,
+}
 
 export class Router {
   private active: Driver | null = null
@@ -12,6 +20,7 @@ export class Router {
     private readonly presence: Presence,
     private readonly nowPlaying: NowPlayingPublisher,
     private readonly roomId: string,
+    private readonly spotifyDevice: SpotifyDeviceHost | null = null,
   ) {
     for (const driver of Array.from(drivers.values())) {
       driver.onEnded((trackId: string, reason?: string) => {
@@ -116,11 +125,29 @@ export class Router {
     await d?.setVolume(percent)
   }
 
-  async getPlayback(): Promise<DriverState> {
-    if (!this.active) {
-      return { state: "stopped", progressMs: null, durationMs: null, trackId: null }
+  async getPlayback(source?: string): Promise<DriverState> {
+    if (source === "spotify") {
+      if (!this.spotifyDevice) return STOPPED
+      return this.spotifyDevice.getPlaybackState()
     }
-    return this.active.getState()
+
+    if (source) {
+      const driver = this.drivers.get(source)
+      if (!driver) return STOPPED
+      return driver.getState()
+    }
+
+    if (this.active) {
+      return this.active.getState()
+    }
+
+    // Spotify is not a Driver; when nothing else is active, surface SDK state if live.
+    if (this.spotifyDevice) {
+      const sdk = await this.spotifyDevice.getPlaybackState()
+      if (sdk.state !== "stopped") return sdk
+    }
+
+    return STOPPED
   }
 
   async notifyNowPlaying(meta: { title?: string; artist?: string; album?: string }): Promise<void> {
