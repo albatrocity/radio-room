@@ -50,44 +50,113 @@ export function NowPlayingTransport({ room }: NowPlayingTransportProps) {
   return <NowPlayingTransportInner />
 }
 
+/** Snap only when server and local estimates diverge by more than this. */
+const PROGRESS_SNAP_DRIFT_MS = 2000
+
 function NowPlayingTransportInner() {
   const [playbackState, setPlaybackState] = useState<PlaybackTransportState | null>(null)
-  const [serverProgressMs, setServerProgressMs] = useState<number | null>(null)
   const [durationMs, setDurationMs] = useState<number | null>(null)
   const [volumePercent, setVolumePercent] = useState(100)
   const [supportsVolume, setSupportsVolume] = useState(false)
   const [displayProgressMs, setDisplayProgressMs] = useState(0)
   const [isSeekDragging, setIsSeekDragging] = useState(false)
+  const [hasProgress, setHasProgress] = useState(false)
 
   const progressAnchorRef = useRef<{ progressMs: number; atMs: number } | null>(null)
   const isSeekDraggingRef = useRef(false)
+  const playbackStateRef = useRef<PlaybackTransportState | null>(null)
+  const durationMsRef = useRef<number | null>(null)
+  const displayProgressRef = useRef(0)
 
-  const applyPlaybackState = useCallback((data: PlaybackStatePayload) => {
-    if (data.state) setPlaybackState(data.state)
-    if (typeof data.durationMs === "number") setDurationMs(data.durationMs)
-    else if (data.durationMs === null) setDurationMs(null)
-
-    if (typeof data.progressMs === "number") {
-      setServerProgressMs(data.progressMs)
-      if (!isSeekDraggingRef.current) {
-        progressAnchorRef.current = { progressMs: data.progressMs, atMs: Date.now() }
-        setDisplayProgressMs(data.progressMs)
-      }
-    } else if (data.progressMs === null) {
-      setServerProgressMs(null)
-      if (!isSeekDraggingRef.current) {
-        progressAnchorRef.current = null
-        setDisplayProgressMs(0)
-      }
-    }
-
-    if (typeof data.volumePercent === "number") {
-      setVolumePercent(data.volumePercent)
-    }
-    if (typeof data.supportsVolume === "boolean") {
-      setSupportsVolume(data.supportsVolume)
-    }
+  const setDisplayProgress = useCallback((ms: number) => {
+    displayProgressRef.current = ms
+    setDisplayProgressMs(ms)
   }, [])
+
+  /**
+   * Reconcile a server progress sample with the local clock.
+   * While playing, keep interpolating smoothly and only snap on large drift
+   * (seek, track change). Small lag from cache/network must not yank the bar.
+   */
+  const reconcileServerProgress = useCallback(
+    (serverProgress: number, nextState?: PlaybackTransportState | null) => {
+      const now = Date.now()
+      const playing = (nextState ?? playbackStateRef.current) === "playing"
+      const duration = durationMsRef.current
+      const clampedServer =
+        duration != null && duration > 0
+          ? Math.min(serverProgress, duration)
+          : Math.max(0, serverProgress)
+
+      if (!playing) {
+        progressAnchorRef.current = { progressMs: clampedServer, atMs: now }
+        setDisplayProgress(clampedServer)
+        setHasProgress(true)
+        return
+      }
+
+      const anchor = progressAnchorRef.current
+      if (!anchor) {
+        progressAnchorRef.current = { progressMs: clampedServer, atMs: now }
+        setDisplayProgress(clampedServer)
+        setHasProgress(true)
+        return
+      }
+
+      const localEstimate = anchor.progressMs + (now - anchor.atMs)
+      const drift = clampedServer - localEstimate
+
+      // Track restart / large external seek: hard snap
+      const looksLikeTrackRestart = clampedServer < 1500 && localEstimate > 8000
+      if (Math.abs(drift) > PROGRESS_SNAP_DRIFT_MS || looksLikeTrackRestart) {
+        progressAnchorRef.current = { progressMs: clampedServer, atMs: now }
+        setDisplayProgress(clampedServer)
+        setHasProgress(true)
+        return
+      }
+
+      // Stay on the smooth local clock; re-base so the next ticks continue from here
+      progressAnchorRef.current = { progressMs: localEstimate, atMs: now }
+      setHasProgress(true)
+    },
+    [setDisplayProgress],
+  )
+
+  const applyPlaybackState = useCallback(
+    (data: PlaybackStatePayload) => {
+      if (data.state) {
+        playbackStateRef.current = data.state
+        setPlaybackState(data.state)
+      }
+      if (typeof data.durationMs === "number") {
+        durationMsRef.current = data.durationMs
+        setDurationMs(data.durationMs)
+      } else if (data.durationMs === null) {
+        durationMsRef.current = null
+        setDurationMs(null)
+      }
+
+      if (typeof data.progressMs === "number") {
+        if (!isSeekDraggingRef.current) {
+          reconcileServerProgress(data.progressMs, data.state)
+        }
+      } else if (data.progressMs === null) {
+        if (!isSeekDraggingRef.current) {
+          progressAnchorRef.current = null
+          setDisplayProgress(0)
+          setHasProgress(false)
+        }
+      }
+
+      if (typeof data.volumePercent === "number") {
+        setVolumePercent(data.volumePercent)
+      }
+      if (typeof data.supportsVolume === "boolean") {
+        setSupportsVolume(data.supportsVolume)
+      }
+    },
+    [reconcileServerProgress, setDisplayProgress],
+  )
 
   useEffect(() => {
     const onEvent = (payload: { type?: string; data?: PlaybackStatePayload }) => {
@@ -95,16 +164,22 @@ function NowPlayingTransportInner() {
         applyPlaybackState(payload.data)
       }
       if (payload.type === "GET_PLAYBACK_STATE_FAILURE") {
+        playbackStateRef.current = null
         setPlaybackState(null)
-        setServerProgressMs(null)
+        durationMsRef.current = null
         setDurationMs(null)
         setSupportsVolume(false)
+        setHasProgress(false)
+        progressAnchorRef.current = null
       }
       if (payload.type === "SEEK_PLAYBACK_SUCCESS" && typeof payload.data?.positionMs === "number") {
         const pos = payload.data.positionMs
-        setServerProgressMs(pos)
-        progressAnchorRef.current = { progressMs: pos, atMs: Date.now() }
-        if (!isSeekDraggingRef.current) setDisplayProgressMs(pos)
+        const now = Date.now()
+        progressAnchorRef.current = { progressMs: pos, atMs: now }
+        if (!isSeekDraggingRef.current) {
+          setDisplayProgress(pos)
+          setHasProgress(true)
+        }
       }
       if (payload.type === "SEEK_PLAYBACK_FAILURE") {
         toast({
@@ -131,6 +206,7 @@ function NowPlayingTransportInner() {
         emitToSocket("GET_PLAYBACK_STATE", {})
       }
       if (payload.type === "PLAYBACK_STATE_CHANGED" && payload.data?.state) {
+        playbackStateRef.current = payload.data.state
         setPlaybackState(payload.data.state)
         emitToSocket("GET_PLAYBACK_STATE", {})
       }
@@ -139,7 +215,6 @@ function NowPlayingTransportInner() {
     socket.on("event", onEvent)
     emitToSocket("GET_PLAYBACK_STATE", {})
     // Progress is interpolated locally while playing; poll only to re-anchor.
-    // Avoid 1Hz Spotify Web API / token refresh storms (ADR 0078).
     const pollId = window.setInterval(() => {
       emitToSocket("GET_PLAYBACK_STATE", {})
     }, 5000)
@@ -148,25 +223,24 @@ function NowPlayingTransportInner() {
       socket.off("event", onEvent)
       window.clearInterval(pollId)
     }
-  }, [applyPlaybackState])
+  }, [applyPlaybackState, setDisplayProgress])
 
-  // Local progress interpolation while playing (paused while scrubbing)
+  // Local progress clock while playing — fills gaps between sparse server samples
   useEffect(() => {
     if (playbackState !== "playing" || isSeekDragging) return
-    if (serverProgressMs == null || durationMs == null || durationMs <= 0) return
+    if (!hasProgress || durationMs == null || durationMs <= 0) return
 
     const tick = () => {
       const anchor = progressAnchorRef.current
       if (!anchor) return
-      const elapsed = Date.now() - anchor.atMs
-      const next = Math.min(durationMs, anchor.progressMs + elapsed)
-      setDisplayProgressMs(next)
+      const next = Math.min(durationMs, anchor.progressMs + (Date.now() - anchor.atMs))
+      setDisplayProgress(next)
     }
 
     tick()
-    const id = window.setInterval(tick, 250)
+    const id = window.setInterval(tick, 200)
     return () => window.clearInterval(id)
-  }, [playbackState, isSeekDragging, serverProgressMs, durationMs])
+  }, [playbackState, isSeekDragging, hasProgress, durationMs, setDisplayProgress])
 
   const commitVolume = useCallback((value: number) => {
     emitToSocket("SET_PLAYBACK_VOLUME", { volumePercent: value })
@@ -181,19 +255,19 @@ function NowPlayingTransportInner() {
     volumeSend({ type: "SYNC_EXTERNAL", value: volumePercent })
   }, [volumePercent, volumeSend])
 
-  const showScrubber = durationMs != null && durationMs > 0
+  const showScrubber = durationMs != null && durationMs > 0 && hasProgress
   const scrubMax = durationMs ?? 1
   const scrubValue = Math.min(displayProgressMs, scrubMax)
 
   const handleSeekDrag = (details: { value: number[] }) => {
     isSeekDraggingRef.current = true
     setIsSeekDragging(true)
-    setDisplayProgressMs(details.value[0] ?? 0)
+    setDisplayProgress(details.value[0] ?? 0)
   }
 
   const handleSeekRelease = (details: { value: number[] }) => {
     const positionMs = Math.round(details.value[0] ?? 0)
-    setDisplayProgressMs(positionMs)
+    setDisplayProgress(positionMs)
     progressAnchorRef.current = { progressMs: positionMs, atMs: Date.now() }
     isSeekDraggingRef.current = false
     setIsSeekDragging(false)
@@ -220,7 +294,7 @@ function NowPlayingTransportInner() {
             value={[scrubValue]}
             min={0}
             max={scrubMax}
-            step={1000}
+            step={100}
             onValueChange={handleSeekDrag}
             onValueChangeEnd={handleSeekRelease}
             variant="solid"

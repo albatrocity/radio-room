@@ -30,7 +30,7 @@ Play/pause already exists as first-class Socket events (`TOGGLE_PLAYBACK` / `GET
 
 ### Negative / trade-offs
 
-- Client polls `GET_PLAYBACK_STATE` (~5s) for scrubber re-anchor; local interpolation fills between polls. Bridge Spotify reads SDK `getCurrentState` via daemon RPC (not Spotify Web API every poll).
+- Client polls `GET_PLAYBACK_STATE` (~5s) for scrubber re-anchor; a local progress clock fills between polls and only snaps on large drift (seek / track change). Bridge Spotify reads SDK `getCurrentState` via daemon RPC (not Spotify Web API every poll).
 - Seek near track end can still race the advance job (same as Spotify Connect today).
 - Volume Manager’s Now Playing slider is gone; rooms that relied only on the plugin UI must use the built-in control.
 
