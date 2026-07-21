@@ -21,7 +21,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0013](0013-track-identity-media-and-metadata-sources.md) | Track Identity via Explicit Media and Metadata Sources | Accepted |
 | [0014](0014-emit-domain-events-from-operations-only.md) | Emit Domain Events from Operations Only | Accepted |
 | [0015](0015-postgresql-for-persistent-user-data.md) | PostgreSQL for Persistent User Data | Accepted |
-| [0016](0016-better-auth-with-drizzle-for-platform-authentication.md) | Better-Auth with Drizzle for Platform Authentication | Accepted |
+| [0016](0016-better-auth-with-drizzle-for-platform-authentication.md) | Better-Auth with Drizzle for Platform Authentication | Partially superseded by [0071](0071-admin-platform-identity-for-room-creation.md) |
 | [0017](0017-scheduling-app-for-show-programming.md) | Scheduling App for Show Programming | Accepted |
 | [0018](0018-url-search-params-for-entity-filters.md) | URL Search Params for Entity Filters (Scheduler) | Accepted |
 | [0019](0019-pin-react-18-types-monorepo-wide.md) | Pin React 18 Type Packages Monorepo-Wide | Accepted |
@@ -76,9 +76,13 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0068](0068-private-scoped-plugin-config-fields.md) | Private-scoped plugin config fields and shared schema-driven authoring | Accepted |
 | [0069](0069-playback-controller-volume-and-before-play-hook.md) | Playback Controller volume and beforePlayQueuedTrack hook | Accepted |
 | [0070](0070-route-transitions-via-view-transitions-api.md) | Route transitions via View Transitions API | Accepted |
-| [0071](0071-bridge-composite-playback-controller.md) | Bridge composite playback controller and Mac daemon | Partially superseded by [0072](0072-spotify-web-playback-sdk-device.md) |
-| [0072](0072-spotify-web-playback-sdk-device.md) | Spotify Web Playback SDK device in bridge Chrome | Accepted |
-| [0073](0073-bridge-daemon-local-control-ui.md) | Bridge daemon local control UI (room discovery + config) | Accepted |
+| [0071](0071-admin-platform-identity-for-room-creation.md) | Admin platform identity for room creation (no Spotify create gate) | Accepted |
+| [0072](0072-plugin-user-targeted-sound-effects.md) | Plugin user-targeted sound effects (optional `userId` on `queueSoundEffect`) | Accepted |
+| [0073](0073-plugin-user-targeted-screen-effects.md) | Plugin user-targeted screen effects (optional `recipientUserId` on `queueScreenEffect`) | Accepted |
+| [0074](0074-quick-access-admin-panels.md) | Quick Access admin panels for plugin actions | Accepted |
+| [0075](0075-bridge-composite-playback-controller.md) | Bridge composite playback controller and Mac daemon | Partially superseded by [0076](0076-spotify-web-playback-sdk-device.md) |
+| [0076](0076-spotify-web-playback-sdk-device.md) | Spotify Web Playback SDK device in bridge Chrome | Accepted |
+| [0077](0077-bridge-daemon-local-control-ui.md) | Bridge daemon local control UI (room discovery + config) | Accepted |
 
 ## Creating a New ADR
 

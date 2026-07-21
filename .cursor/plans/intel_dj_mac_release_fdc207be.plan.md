@@ -72,7 +72,7 @@ flowchart LR
 - `features.bridge` in [apps/local-remote/daemon/src/config.rs](apps/local-remote/daemon/src/config.rs): `enabled`, `autoConnect`, `controlUiUrl` (default `http://127.0.0.1:18766/`), optional `nodePath`/`daemonPath` overrides (default relative: `../runtime/node`, `../bridge-daemon/daemon.cjs`), `restartMaxBackoffSec`.
 - New `apps/local-remote/daemon/src/bridge_supervisor.rs`: tokio task — spawn child (`kill_on_drop`), inject `BRIDGE_REDIS_URL` from local-remote `redisUrl`, poll `GET /api/status`, restart with exponential backoff, SIGTERM→SIGKILL on shutdown; status snapshot in [apps/local-remote/daemon/src/state.rs](apps/local-remote/daemon/src/state.rs).
 - Wire into [apps/local-remote/daemon/src/main.rs](apps/local-remote/daemon/src/main.rs) (spawn + graceful shutdown) and [apps/local-remote/daemon/src/api.rs](apps/local-remote/daemon/src/api.rs) (`/api/status` gains `bridge: {...}`; `POST /api/bridge/restart`).
-- UI fieldset in [apps/local-remote/ui/index.html](apps/local-remote/ui/index.html): enable toggle, status, link to `:18766`, warning that bridge owns Now Playing (auto-disable `features.nowPlaying` when enabling bridge — the ADR 0071 double-publish rule).
+- UI fieldset in [apps/local-remote/ui/index.html](apps/local-remote/ui/index.html): enable toggle, status, link to `:18766`, warning that bridge owns Now Playing (auto-disable `features.nowPlaying` when enabling bridge — the ADR 0075 double-publish rule).
 - **Done:** enabling bridge in the UI starts the child; killing local-remote leaves no orphan `node`; port-conflict on `:18766` surfaces `lastError` instead of a crash loop.
 
 ### Phase 3 — Intel pack script (single artifact)
@@ -84,7 +84,7 @@ flowchart LR
 - **Done:** `npm run pack:dj-mac` on the arm64 build Mac produces a zip; `file` reports both binaries as `x86_64`; unzipped folder runs on the Intel Mac with only Chrome/AH/mpv installed.
 
 ### Phase 4 — Docs + ADR
-- New ADR `docs/adrs/0074-dj-mac-combined-release.md` (confirm next number at implement time): Rust supervisor + bundled Node daemon, single x64 artifact, Electron rejected; update packaging bullet in [docs/adrs/0071-bridge-composite-playback-controller.md](docs/adrs/0071-bridge-composite-playback-controller.md), note in ADR 0073, row in [docs/adrs/index.md](docs/adrs/index.md).
+- New ADR `docs/adrs/0078-dj-mac-combined-release.md` (confirm next number at implement time): Rust supervisor + bundled Node daemon, single x64 artifact, Electron rejected; update packaging bullet in [docs/adrs/0075-bridge-composite-playback-controller.md](docs/adrs/0075-bridge-composite-playback-controller.md), note in ADR 0077, row in [docs/adrs/index.md](docs/adrs/index.md).
 - Update [docs/BRIDGE_LOCAL_TESTING.md](docs/BRIDGE_LOCAL_TESTING.md) (dev vs release artifact) and [apps/local-remote/README.md](apps/local-remote/README.md) (bridge feature).
 - **Done:** a new operator can install from the zip + wire AH without the monorepo.
 

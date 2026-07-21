@@ -57,7 +57,8 @@ export const playbackController: PlaybackControllerAdapter = {
 
   onRoomCreated: async ({ roomId, userId, roomType, context }) => {
     // Register queue sync (Spotify-mirrored) and track advance (app-controlled) jobs.
-    // Each handler no-ops when the room's playbackMode does not apply.
+    // Each handler no-ops when the room's playbackMode does not apply, or when Spotify
+    // is not linked yet (tokens are fetched lazily when jobs run / playTrack is called).
     console.log(`Spotify PlaybackController: Setting up queue jobs for ${roomType} room ${roomId}`)
 
     if (context.jobService) {
@@ -71,24 +72,24 @@ export const playbackController: PlaybackControllerAdapter = {
         console.log(`Registered queue sync job for room ${roomId}`)
       }
 
-      const adapterService = new AdapterService(context)
-      const playbackController = await adapterService.getRoomPlaybackController(roomId)
-
-      if (playbackController) {
-        const trackAdvanceJob = createTrackAdvanceJob({
-          context,
-          roomId,
-          userId,
-          playTrack: (uri) => playbackController.api.playTrack(uri),
-        })
-        if (!context.jobs.find((j) => j.name === trackAdvanceJob.name)) {
-          await context.jobService.scheduleJob(trackAdvanceJob)
-          console.log(`Registered track advance job for room ${roomId}`)
-        }
-      } else {
-        console.warn(
-          `[Spotify PlaybackController] No playback controller for room ${roomId}; track advance job not registered`,
-        )
+      // Do not call getRoomPlaybackController here — register eagerly requires Spotify
+      // tokens, which are optional until post-create linking (ADR 0071).
+      const trackAdvanceJob = createTrackAdvanceJob({
+        context,
+        roomId,
+        userId,
+        playTrack: async (uri) => {
+          const adapterService = new AdapterService(context)
+          const playbackController = await adapterService.getRoomPlaybackController(roomId)
+          if (!playbackController?.api?.playTrack) {
+            throw new Error(`No Spotify playback controller for room ${roomId}`)
+          }
+          return playbackController.api.playTrack(uri)
+        },
+      })
+      if (!context.jobs.find((j) => j.name === trackAdvanceJob.name)) {
+        await context.jobService.scheduleJob(trackAdvanceJob)
+        console.log(`Registered track advance job for room ${roomId}`)
       }
     }
   },

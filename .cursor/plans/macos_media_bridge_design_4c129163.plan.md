@@ -27,7 +27,7 @@ todos:
     content: "Phase 4: Electron menu-bar supervisor shell (attach-or-launch, health, session toggles) + absorb local-remote duties"
     status: cancelled
   - id: phase4-local-ui
-    content: "Phase 4 interim: local HTTP control UI + Redis room discovery + full config editing (ADR 0073); Electron packaging still deferred"
+    content: "Phase 4 interim: local HTTP control UI + Redis room discovery + full config editing (ADR 0077); Electron packaging still deferred"
     status: completed
 isProject: false
 ---
@@ -633,7 +633,7 @@ Daemon config: `audioHijack: { sessionName, volumeBlockName }` (defaults e.g. `"
 - **Phase 2 - Tidal + Spotify composition**: Tidal driver on the spike-chosen host; Spotify delegation with active-source pause coordination; Spotify now-playing via `notifyNowPlaying` (6.8).
 - **Phase 3 - Search fan-out + policy + export**: parallel multi-source search with source tags, web UI badges, **cross-source dedup with configurable `mediaSourcePriority` (5.1, shared `findBestMatch` util)**, room-level service policy settings, YouTube search placement finalized (server-side Data API recommended), non-embeddable video policy; **studio parity**: youtube/local sample queue items in game-studio + studio-bridge, generic stamping in `mockStudioPluginApi.addToQueue` (section 9); **export**: skip-count UX in the scheduler publish playlist step, optional export-time `searchByParams` backfill for missing Spotify/Tidal IDs (8.3).
 - **Phase 4 - Electron supervisor shell + packaging (section 12)**: menu-bar app wrapping the daemon core (attach-or-launch, health UI + notifications, session toggles, bundled Navidrome/mpv); signed/notarized `.dmg` + `electron-updater`; absorb `local-remote` (config UI, Farrago OSC/soundboard); retire the AppleScript now-playing watcher.
-  - **Notes (2026-07-20):** Electron packaging remains deferred. Shipped interim operator surface: localhost HTTP UI + Redis room list + full `config.json` editing (`bridge-daemon serve`, ADR 0073) — same pattern as local-remote, not a public API.
+  - **Notes (2026-07-20):** Electron packaging remains deferred. Shipped interim operator surface: localhost HTTP UI + Redis room list + full `config.json` editing (`bridge-daemon serve`, ADR 0077) — same pattern as local-remote, not a public API.
 
 ## 12. Packaging, install, and updates
 

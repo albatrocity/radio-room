@@ -1,11 +1,11 @@
-# 0072. Spotify Web Playback SDK Device in Bridge Chrome
+# 0076. Spotify Web Playback SDK Device in Bridge Chrome
 
 **Date:** 2026-07-20
 **Status:** Accepted
 
 ## Context
 
-Bridge rooms ([0071](0071-bridge-composite-playback-controller.md)) drive Spotify via the Spotify Web API against whatever Connect device is active — typically Spotify.app on the DJ Mac. That Connect session times out when idle, producing unrecoverable "No active device found" / can't-resume errors. Only a human clicking play in Spotify.app revives the session.
+Bridge rooms ([0075](0075-bridge-composite-playback-controller.md)) drive Spotify via the Spotify Web API against whatever Connect device is active — typically Spotify.app on the DJ Mac. That Connect session times out when idle, producing unrecoverable "No active device found" / can't-resume errors. Only a human clicking play in Spotify.app revives the session.
 
 Audio Hijack also needs a separate capture tile for Spotify.app alongside Chrome (YouTube) and optionally TIDAL/mpv.
 
@@ -39,5 +39,5 @@ Hosting a Spotify **Web Playback SDK** player in the daemon's existing Chrome pr
 
 ## See also
 
-- [0071](0071-bridge-composite-playback-controller.md)
+- [0075](0075-bridge-composite-playback-controller.md)
 - [docs/BRIDGE_LOCAL_TESTING.md](../BRIDGE_LOCAL_TESTING.md)

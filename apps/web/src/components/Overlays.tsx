@@ -1,4 +1,4 @@
-import React from "react"
+import { memo } from "react"
 import { Box } from "@chakra-ui/react"
 
 import DrawerBookmarks from "./Drawers/DrawerBookmarks"
@@ -15,7 +15,13 @@ import ScreenEffectsProvider from "./ScreenEffectsProvider"
 import { ModifierBlurLayer } from "./ModifierBlurLayer"
 import DrawerSchedule from "./Drawers/DrawerSchedule"
 import PollHistoryModal from "./Poll/PollHistoryModal"
+import QuickAccessPanels from "./QuickAccessPanels"
 
+/**
+ * Memoized so room-level re-renders (nowPlaying, listeners, etc.) do not tear down
+ * overlay trees. Sidebar is already memoized for the same reason — schedule notes
+ * FloatingPanels rely on that stability.
+ */
 function Overlays() {
   return (
     <div>
@@ -33,6 +39,7 @@ function Overlays() {
       <ModalPassword />
       <ModalUserGameState />
       <PollHistoryModal />
+      <QuickAccessPanels />
 
       {/* Timed modifier stacks (e.g. interface blur) */}
       <ModifierBlurLayer />
@@ -42,4 +49,4 @@ function Overlays() {
   )
 }
 
-export default Overlays
+export default memo(Overlays)

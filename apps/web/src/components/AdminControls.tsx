@@ -9,10 +9,10 @@ import {
   BoxProps,
   RecipeProps,
 } from "@chakra-ui/react"
-import { LuArrowLeft, LuSettings, LuBookmark } from "react-icons/lu"
-import { Link } from "@tanstack/react-router"
+import { LuSettings, LuBookmark } from "react-icons/lu"
 
 import { useBookmarks, useModalsSend } from "../hooks/useActors"
+import QuickAccessMenu from "./QuickAccessMenu"
 
 type ButtonVariant = RecipeProps<"button">["variant"]
 
@@ -57,6 +57,12 @@ function AdminPanel({ buttonColorScheme, buttonVariant = "bright", width, ...res
               <Icon as={LuSettings} />
             </IconButton>
           </Box>
+
+          <QuickAccessMenu
+            buttonColorScheme={buttonColorScheme}
+            buttonVariant={buttonVariant}
+          />
+
           <Box hideBelow="sm">
             <Button
               size="xs"

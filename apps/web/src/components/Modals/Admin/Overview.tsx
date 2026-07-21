@@ -26,26 +26,9 @@ import DestructiveActions from "./DestructiveActions"
 import ButtonRoomAuthSpotify from "../../ButtonRoomAuthSpotify"
 import ButtonRoomAuthTidal from "../../ButtonRoomAuthTidal"
 import { exportPreset, importPreset } from "../../../lib/pluginPresets"
+import { toPluginDisplayName } from "../../../lib/pluginDisplayName"
+import { toPluginSettingsEventType } from "../../../lib/pluginSettingsEvent"
 import { toaster } from "../../ui/toaster"
-
-/**
- * Convert plugin name to a display-friendly title
- * e.g., "playlist-democracy" -> "Playlist Democracy"
- */
-function toDisplayName(name: string): string {
-  return name
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ")
-}
-
-/**
- * Convert plugin name to event name for modal state machine
- * e.g., "playlist-democracy" -> "EDIT_PLAYLIST_DEMOCRACY"
- */
-function toEventName(name: string): string {
-  return `EDIT_${name.replace(/-/g, "_").toUpperCase()}`
-}
 
 function Overview() {
   const send = useModalsSend()
@@ -278,9 +261,9 @@ function Overview() {
                     borderBottomRadius={
                       index === configurablePlugins.length - 1 ? undefined : "none"
                     }
-                    onClick={() => send({ type: toEventName(plugin.name) } as any)}
+                    onClick={() => send({ type: toPluginSettingsEventType(plugin.name) } as any)}
                   >
-                    {toDisplayName(plugin.name)}
+                    {toPluginDisplayName(plugin.name)}
                     <HStack>
                       {isPluginActive(plugin.name) && <ActiveIndicator />}
                       <LuChevronRight />

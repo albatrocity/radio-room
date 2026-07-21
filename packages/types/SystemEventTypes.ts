@@ -195,6 +195,8 @@ export type SystemEventHandlers = {
     roomId: string
     url: string
     volume: number
+    /** Present only on user-targeted emits (ADR 0072); room broadcasts omit it. */
+    userId?: string
   }) => Promise<void> | void
 
   // Screen effect events
@@ -204,6 +206,8 @@ export type SystemEventHandlers = {
     targetId?: string // timestamp for messages, componentId for plugins, or "latest"
     effect: ScreenEffectName
     duration?: number // optional custom duration in ms
+    /** Present only on recipient-targeted emits (ADR 0073); room broadcasts omit it. */
+    recipientUserId?: string
   }) => Promise<void> | void
 
   // ==========================================================================

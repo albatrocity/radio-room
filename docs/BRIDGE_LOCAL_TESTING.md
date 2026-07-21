@@ -65,7 +65,7 @@ Edit `~/.config/listening-room-bridge/config.json`:
 }
 ```
 
-**Spotify Web Playback SDK (opt-in):** Include `"spotify"` in `services` to host a Connect device in bridge Chrome (see [ADR 0072](adrs/0072-spotify-web-playback-sdk-device.md)). The room creator must **re-link Spotify** once so the OAuth token includes the `streaming` scope. Without `"spotify"` in services, behavior stays on Spotify.app. SDK audio is ~256kbps AAC (fine for a transcoded stream).
+**Spotify Web Playback SDK (opt-in):** Include `"spotify"` in `services` to host a Connect device in bridge Chrome (see [ADR 0076](adrs/0076-spotify-web-playback-sdk-device.md)). The room creator must **re-link Spotify** once so the OAuth token includes the `streaming` scope. Without `"spotify"` in services, behavior stays on Spotify.app. SDK audio is ~256kbps AAC (fine for a transcoded stream).
 
 The daemon always writes Audio Hijack’s labeled format (same as local-remote):
 
@@ -168,6 +168,6 @@ Post-show publish still creates Spotify/Tidal playlists from `metadataSources` I
 
 ## Out of scope (this build)
 
-- Phase 4 Electron `.dmg` / auto-update (deferred; localhost UI is ADR 0073)
+- Phase 4 Electron `.dmg` / auto-update (deferred; localhost UI is ADR 0077)
 - Audio Hijack Volume-block scripting (per-driver volume first)
 - Scheduler segment tracks for YouTube/local

@@ -68,7 +68,7 @@ export const bridgePluginSchemasForApi = [
           ],
         },
       ],
-      storeKeys: ["activeQuestion", "leaderboard", "lastCorrectAnswer"],
+      storeKeys: ["activeQuestion", "leaderboard", "lastCorrectAnswer", "autoAdvanceDeadline"],
     },
   },
   {

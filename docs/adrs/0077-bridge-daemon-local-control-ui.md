@@ -1,11 +1,11 @@
-# 0073. Bridge Daemon Local Control UI (Room Discovery + Config)
+# 0077. Bridge Daemon Local Control UI (Room Discovery + Config)
 
 **Date:** 2026-07-20  
 **Status:** Accepted
 
 ## Context
 
-Operators previously had to copy room ids into `bridge-daemon connect --room …` and edit `~/.config/listening-room-bridge/config.json` by hand. The design plan’s Phase 4 Electron menu-bar shell ([0071](0071-bridge-composite-playback-controller.md) §8 packaging) remains deferred. Meanwhile we need the same operator ergonomics that [0025](0025-local-remote-rust-daemon.md) provides for `local-remote`: a localhost control plane for config and session control.
+Operators previously had to copy room ids into `bridge-daemon connect --room …` and edit `~/.config/listening-room-bridge/config.json` by hand. The design plan’s Phase 4 Electron menu-bar shell ([0075](0075-bridge-composite-playback-controller.md) §8 packaging) remains deferred. Meanwhile we need the same operator ergonomics that [0025](0025-local-remote-rust-daemon.md) provides for `local-remote`: a localhost control plane for config and session control.
 
 ## Decision
 

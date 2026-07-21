@@ -1,4 +1,9 @@
-import type { PluginFieldMeta, ShowWhenCondition } from "@repo/types/Plugin"
+import type {
+  PluginActionElement,
+  PluginConfigSchema,
+  PluginFieldMeta,
+  ShowWhenCondition,
+} from "@repo/types/Plugin"
 
 /**
  * Check if an element should be visible based on its showWhen condition(s).
@@ -93,4 +98,42 @@ export function getItemJsonSchema(
   const properties = jsonSchema.properties as Record<string, any> | undefined
   const items = properties?.[arrayFieldName]?.items
   return items && typeof items === "object" ? (items as Record<string, unknown>) : {}
+}
+
+/**
+ * Resolve Quick Access action elements from a config schema (ADR 0074).
+ * Returns `type: "action"` layout items whose `action` is listed in `quickAccess`,
+ * ordered by the `quickAccess` array. Unknown action names are skipped.
+ */
+export function getQuickAccessActions(schema: PluginConfigSchema): PluginActionElement[] {
+  const names = schema.quickAccess
+  if (!names?.length) return []
+
+  const byAction = new Map<string, PluginActionElement>()
+  for (const item of schema.layout) {
+    if (typeof item === "object" && item.type === "action") {
+      byAction.set(item.action, item)
+    }
+  }
+
+  const result: PluginActionElement[] = []
+  for (const name of names) {
+    const action = byAction.get(name)
+    if (action) result.push(action)
+  }
+  return result
+}
+
+/**
+ * Build a config schema whose `layout` is only the Quick Access actions (for panel rendering).
+ */
+export function getQuickAccessSchema(schema: PluginConfigSchema): PluginConfigSchema | null {
+  const actions = getQuickAccessActions(schema)
+  if (actions.length === 0) return null
+  return {
+    jsonSchema: schema.jsonSchema,
+    fieldMeta: schema.fieldMeta,
+    layout: actions,
+    quickAccess: schema.quickAccess,
+  }
 }

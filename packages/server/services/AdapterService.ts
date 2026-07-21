@@ -130,62 +130,72 @@ export class AdapterService {
       return null
     }
 
-    const playbackController = await adapterModule.register({
-      name: serviceName,
-      roomId,
-      authentication: {
-        type: "oauth",
-        clientId: serviceConfig.clientId,
-        token: {
-          accessToken: "",
-          refreshToken: "",
-        },
-        getStoredTokens: async () => {
-          if (!this.context.data?.getUserServiceAuth) {
-            throw new Error("getUserServiceAuth not available in context")
-          }
-
-          const auth = await this.context.data.getUserServiceAuth({
-            userId: room.creator,
-            serviceName,
-          })
-
-          if (!auth || !auth.accessToken) {
-            throw new Error(`No auth tokens found for room creator ${room.creator}`)
-          }
-
-          return {
-            accessToken: auth.accessToken,
-            refreshToken: auth.refreshToken,
-          }
-        },
-      },
-      ...lifecycle,
-      // Prefer the bridge Web Playback SDK device when the daemon has advertised one
-      // Key shape matches spotifyDeviceKey() in @repo/adapter-bridge/protocol
-      getPreferredDeviceId:
-        serviceName === "spotify"
-          ? async () => {
-              try {
-                return (
-                  (await this.context.redis.pubClient.get(
-                    `bridge:${roomId}:spotify_device`,
-                  )) ?? null
-                )
-              } catch {
-                return null
-              }
+    // Create a room-specific adapter instance with dynamic token fetching
+    try {
+      const playbackController = await adapterModule.register({
+        name: serviceName,
+        roomId,
+        authentication: {
+          type: "oauth",
+          clientId: serviceConfig.clientId,
+          token: {
+            accessToken: "",
+            refreshToken: "",
+          },
+          getStoredTokens: async () => {
+            if (!this.context.data?.getUserServiceAuth) {
+              throw new Error("getUserServiceAuth not available in context")
             }
-          : undefined,
-    })
 
-    if (serviceName === room.playbackControllerId) {
-      this.roomPlaybackControllers.set(roomId, playbackController)
-    } else {
-      this.roomPlaybackControllers.set(cacheKey, playbackController)
+            const auth = await this.context.data.getUserServiceAuth({
+              userId: room.creator,
+              serviceName,
+            })
+
+            if (!auth || !auth.accessToken) {
+              throw new Error(`No auth tokens found for room creator ${room.creator}`)
+            }
+
+            return {
+              accessToken: auth.accessToken,
+              refreshToken: auth.refreshToken,
+            }
+          },
+        },
+        ...lifecycle,
+        // Prefer the bridge Web Playback SDK device when the daemon has advertised one
+        // Key shape matches spotifyDeviceKey() in @repo/adapter-bridge/protocol
+        getPreferredDeviceId:
+          serviceName === "spotify"
+            ? async () => {
+                try {
+                  return (
+                    (await this.context.redis.pubClient.get(
+                      `bridge:${roomId}:spotify_device`,
+                    )) ?? null
+                  )
+                } catch {
+                  return null
+                }
+              }
+            : undefined,
+      })
+
+      if (serviceName === room.playbackControllerId) {
+        this.roomPlaybackControllers.set(roomId, playbackController)
+      } else {
+        this.roomPlaybackControllers.set(cacheKey, playbackController)
+      }
+
+      return playbackController
+    } catch (error) {
+      // Spotify (and other OAuth controllers) may not be linked yet — callers treat null as unavailable
+      console.warn(
+        `[AdapterService] Playback controller unavailable for room ${roomId} (${serviceName}):`,
+        error instanceof Error ? error.message : error,
+      )
+      return null
     }
-
-    return playbackController
   }
 
   /**

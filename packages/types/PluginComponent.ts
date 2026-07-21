@@ -366,6 +366,11 @@ export interface QuizQuestionCardComponentProps {
   questionKey?: string
   /** Store key holding the last correct-answer notice `{ userId, questionId }`. Default `"lastCorrectAnswer"`. */
   lastCorrectKey?: string
+  /**
+   * Store key holding `{ startAt, endAt }` for the auto-advance ExpiryBar.
+   * Default `"autoAdvanceDeadline"`.
+   */
+  autoAdvanceKey?: string
   /** Hint shown to guests who have not answered the active question yet. */
   hint?: string
 }

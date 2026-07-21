@@ -1,7 +1,7 @@
 # 0016. Better-Auth with Drizzle for Platform Authentication
 
 **Date:** 2026-03-27
-**Status:** Accepted
+**Status:** Partially superseded by [0071](0071-admin-platform-identity-for-room-creation.md)
 
 ## Context
 
@@ -42,6 +42,8 @@ The system maintains two independent authentication layers:
 
 Platform auth does not leak into room-level concerns. The `isCreator` check (`userId === room.creator`) and designated room-admin logic remain in Redis/Socket.IO. The `requireAdmin` Express middleware gates HTTP routes (`POST /rooms`, `GET /rooms`, `DELETE /rooms/:id`) without touching the Socket.IO `LOGIN` handler.
 
+**Partial supersession ([0071](0071-admin-platform-identity-for-room-creation.md)):** Spotify OAuth is no longer part of room creation identity. New rooms set `room.creator` to the Better Auth platform user ID of the creating admin. HTTP list/delete match on that id. Socket.IO still does not call Better Auth; in-room admin continues to use `userId === room.creator` (or designated room admins).
+
 ### Packages
 
 - **`@repo/db`**: Drizzle ORM schema, client, and migrations. Shared across the monorepo.
@@ -54,7 +56,7 @@ Platform auth does not leak into room-level concerns. The `isCreator` check (`us
 
 ### Streaming Service OAuth
 
-Spotify and Tidal OAuth (per [ADR 0012](0012-server-side-oauth-no-client-tokens.md)) remains completely separate. These flows link streaming service credentials to a room creator for playback and metadata operations. They are not used for platform identity.
+Spotify and Tidal OAuth (per [ADR 0012](0012-server-side-oauth-no-client-tokens.md)) remains completely separate. These flows link streaming service credentials to a room creator for playback and metadata operations. They are not used for platform identity. They are also not required to create a room ([ADR 0071](0071-admin-platform-identity-for-room-creation.md)); linking is optional and post-create.
 
 ## Consequences
 
