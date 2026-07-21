@@ -39,7 +39,7 @@ export function getComponentSchema(): PluginComponentSchema {
         ],
       },
     ],
-    storeKeys: ["activeQuestion", "leaderboard", "lastCorrectAnswer"],
+    storeKeys: ["activeQuestion", "leaderboard", "lastCorrectAnswer", "autoAdvanceDeadline"],
   }
 }
 

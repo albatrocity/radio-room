@@ -5,6 +5,7 @@ import { LuBrain, LuMaximize2, LuMinus } from "react-icons/lu"
 import { useCurrentUser } from "../../../hooks/useActors"
 import { useAnimationsEnabled } from "../../../hooks/useReducedMotion"
 import { usePluginComponentContext } from "../context"
+import { ExpiryBar } from "../../ExpiryBar"
 import type { QuizQuestionCardComponentProps } from "../../../types/PluginComponent"
 
 const QUIZ_QUESTION_PULSE_MS = 400
@@ -42,6 +43,12 @@ interface CorrectNotice {
   questionId: string
 }
 
+/** Auto-advance countdown window for the ExpiryBar. */
+interface AutoAdvanceDeadline {
+  startAt: number
+  endAt: number
+}
+
 /**
  * Quiz question card — renders the active quiz question above the chat window.
  *
@@ -54,10 +61,14 @@ interface CorrectNotice {
  * - PvG (inclusive): no answer is broadcast; each client shows a private
  *   "You got it!" badge derived from `lastCorrectAnswer` matching the current
  *   user, tracked per question id so it survives re-renders and store churn.
+ *
+ * When auto-advance is counting down, an ExpiryBar drains at the bottom of the
+ * card (same pattern as PollCard reveal timing).
  */
 export function QuizQuestionCardTemplateComponent({
   questionKey = "activeQuestion",
   lastCorrectKey = "lastCorrectAnswer",
+  autoAdvanceKey = "autoAdvanceDeadline",
   hint = "Type your answer in chat",
 }: QuizQuestionCardComponentProps) {
   const { store } = usePluginComponentContext()
@@ -67,6 +78,7 @@ export function QuizQuestionCardTemplateComponent({
 
   const question = (store[questionKey] as ActiveQuestion | null | undefined) ?? null
   const lastCorrect = (store[lastCorrectKey] as CorrectNotice | null | undefined) ?? null
+  const deadline = (store[autoAdvanceKey] as AutoAdvanceDeadline | null | undefined) ?? null
 
   const [collapsed, setCollapsed] = useState(false)
   const [answeredQuestionIds, setAnsweredQuestionIds] = useState<Set<string>>(() => new Set())
@@ -89,6 +101,7 @@ export function QuizQuestionCardTemplateComponent({
   const revealedAnswer = question.revealedAnswer?.trim()
   const youGotIt = answeredQuestionIds.has(question.id)
   const progress = `Question ${question.index + 1} of ${question.total}`
+  const showExpiryBar = deadline != null && deadline.endAt > Date.now()
 
   return (
     <Box width="full" px={2} pt={2}>
@@ -101,53 +114,63 @@ export function QuizQuestionCardTemplateComponent({
             borderRadius="lg"
             bg="bg"
             shadow="sm"
-            px={4}
-            py={collapsed ? 2 : 3}
+            overflow="hidden"
           >
-            <HStack justify="space-between" align="center" gap={2}>
-              <HStack gap={2} minW={0} flex={1}>
-                <Box color="primary.solid" flexShrink={0}>
-                  <LuBrain />
-                </Box>
-                {collapsed ? (
-                  <Text fontSize="sm" truncate>
-                    Quiz · {progress}
-                  </Text>
-                ) : (
-                  <Text fontSize="xs" color="fg.muted">
-                    {progress}
-                  </Text>
-                )}
+            <Box px={4} pt={collapsed ? 2 : 3} pb={showExpiryBar ? 2 : collapsed ? 2 : 3}>
+              <HStack justify="space-between" align="center" gap={2}>
+                <HStack gap={2} minW={0} flex={1}>
+                  <Box color="primary.solid" flexShrink={0}>
+                    <LuBrain />
+                  </Box>
+                  {collapsed ? (
+                    <Text fontSize="sm" truncate>
+                      Quiz · {progress}
+                    </Text>
+                  ) : (
+                    <Text fontSize="xs" color="fg.muted">
+                      {progress}
+                    </Text>
+                  )}
+                </HStack>
+                <IconButton
+                  aria-label={collapsed ? "Expand quiz question" : "Collapse quiz question"}
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => setCollapsed((c) => !c)}
+                >
+                  {collapsed ? <LuMaximize2 /> : <LuMinus />}
+                </IconButton>
               </HStack>
-              <IconButton
-                aria-label={collapsed ? "Expand quiz question" : "Collapse quiz question"}
-                size="xs"
-                variant="ghost"
-                onClick={() => setCollapsed((c) => !c)}
-              >
-                {collapsed ? <LuMaximize2 /> : <LuMinus />}
-              </IconButton>
-            </HStack>
 
-            {!collapsed && (
-              <VStack align="stretch" gap={2} mt={2}>
-                <Text fontWeight="semibold" fontSize="md">
-                  {question.text}
-                </Text>
-                {revealedAnswer ? (
-                  <Badge colorPalette="green" alignSelf="flex-start" size="lg">
-                    Answer: {revealedAnswer}
-                  </Badge>
-                ) : youGotIt ? (
-                  <Badge colorPalette="green" alignSelf="flex-start">
-                    You got it! ✓
-                  </Badge>
-                ) : (
-                  <Text fontSize="sm" color="fg.muted">
-                    {hint}
+              {!collapsed && (
+                <VStack align="stretch" gap={2} mt={2}>
+                  <Text fontWeight="semibold" fontSize="md">
+                    {question.text}
                   </Text>
-                )}
-              </VStack>
+                  {revealedAnswer ? (
+                    <Badge colorPalette="green" alignSelf="flex-start" size="lg">
+                      Answer: {revealedAnswer}
+                    </Badge>
+                  ) : youGotIt ? (
+                    <Badge colorPalette="green" alignSelf="flex-start">
+                      You got it! ✓
+                    </Badge>
+                  ) : (
+                    <Text fontSize="sm" color="fg.muted">
+                      {hint}
+                    </Text>
+                  )}
+                </VStack>
+              )}
+            </Box>
+
+            {showExpiryBar && (
+              <ExpiryBar
+                startAt={deadline.startAt}
+                endAt={deadline.endAt}
+                color="primary.solid"
+                height="3px"
+              />
             )}
           </Box>
         )}

@@ -95,6 +95,11 @@ export interface QuizSession {
   winnersPerQuestion: Record<string, string[]>
   /** question index (as string) -> revealed answer (PvP correct guess). */
   revealedAnswers: Record<string, string>
+  /**
+   * Active auto-advance countdown window (for the card ExpiryBar). Set when the
+   * first correct answer schedules the timer; cleared on advance/end.
+   */
+  autoAdvanceDeadline: QuizAutoAdvanceDeadline | null
 }
 
 // ============================================================================
@@ -131,13 +136,19 @@ export interface QuizCorrectNotice {
   questionId: string
 }
 
+/** Epoch window for the auto-advance countdown (drives the card ExpiryBar). */
+export interface QuizAutoAdvanceDeadline {
+  startAt: number
+  endAt: number
+}
+
 // ============================================================================
 // Frontend plugin events (PLUGIN:quiz-sessions:*)
 // ============================================================================
 
 /**
  * All payloads carry the component store keys the frontend cares about
- * (`activeQuestion`, `leaderboard`, `lastCorrectAnswer`) so
+ * (`activeQuestion`, `leaderboard`, `lastCorrectAnswer`, `autoAdvanceDeadline`) so
  * `pluginComponentMachine` can update the card/leaderboard directly from events
  * (see `getComponentSchema().storeKeys`).
  */
@@ -147,9 +158,15 @@ export interface QuizSessionsEvents {
     leaderboard: QuizLeaderboardEntry[]
     /** Clears any stale "You got it!" state from a previous session. */
     lastCorrectAnswer: null
+    autoAdvanceDeadline: null
   }
   QUESTION_ADVANCED: {
     activeQuestion: PublicQuizQuestion
+    /**
+     * `null` after a real advance/end clears the ExpiryBar. Config-driven card
+     * refresh may re-emit the active deadline so late edits do not wipe it.
+     */
+    autoAdvanceDeadline: QuizAutoAdvanceDeadline | null
   }
   CORRECT_ANSWER: {
     userId: string
@@ -162,6 +179,8 @@ export interface QuizSessionsEvents {
     activeQuestion: PublicQuizQuestion | null
     /** Drives the per-user "You got it!" indicator. */
     lastCorrectAnswer: QuizCorrectNotice
+    /** Present when auto-advance is counting down after a correct answer. */
+    autoAdvanceDeadline: QuizAutoAdvanceDeadline | null
   }
   LEADERBOARD_UPDATED: {
     leaderboard: QuizLeaderboardEntry[]
@@ -173,6 +192,7 @@ export interface QuizSessionsEvents {
     /** Final standings for the game-state tab. */
     leaderboard: QuizLeaderboardEntry[]
     lastCorrectAnswer: null
+    autoAdvanceDeadline: null
   }
   PERSONA_ASSIGNED: {
     userId: string
@@ -184,4 +204,5 @@ export interface QuizSessionsComponentState extends Record<string, unknown> {
   activeQuestion: PublicQuizQuestion | null
   leaderboard: QuizLeaderboardEntry[]
   lastCorrectAnswer: QuizCorrectNotice | null
+  autoAdvanceDeadline: QuizAutoAdvanceDeadline | null
 }
