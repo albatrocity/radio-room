@@ -79,6 +79,13 @@ function TrackSearch({
   )
   const showSourceTabs = metadataSourceIds.length >= 2
 
+  useEffect(() => {
+    if (sourceFilter === "all") return
+    if (!showSourceTabs || !metadataSourceIds.includes(sourceFilter)) {
+      setSourceFilter("all")
+    }
+  }, [metadataSourceIds, showSourceTabs, sourceFilter])
+
   const results = state.context.results as TrackWithSource[]
   const filteredResults = useMemo(() => {
     if (sourceFilter === "all") return results

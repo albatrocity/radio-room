@@ -30,6 +30,9 @@ import { isStreamingMode, streamingDisplayChanged } from "../lib/streamingMode"
 import * as scheduling from "./SchedulingService"
 import { AdapterService } from "./AdapterService"
 
+/** Sources auto-attached when a room uses the bridge playback controller. */
+const BRIDGE_METADATA_SOURCES = ["youtube", "local"] as const
+
 function withBridgeMetadataSources(metadataSourceIds: string[] | undefined): string[] {
   const next = [...(metadataSourceIds ?? [])]
   if (process.env.YOUTUBE_API_KEY && !next.includes("youtube")) {
@@ -39,6 +42,14 @@ function withBridgeMetadataSources(metadataSourceIds: string[] | undefined): str
     next.push("local")
   }
   return next
+}
+
+/** Drop bridge-only metadata sources when leaving the bridge controller. Keeps Spotify/Tidal/etc. */
+function withoutBridgeMetadataSources(metadataSourceIds: string[] | undefined): string[] {
+  const next = (metadataSourceIds ?? []).filter(
+    (id) => !(BRIDGE_METADATA_SOURCES as readonly string[]).includes(id),
+  )
+  return next.length > 0 ? next : ["spotify"]
 }
 
 /**
@@ -319,6 +330,11 @@ export class AdminService {
       if (requestedPlaybackControllerId === "bridge") {
         ;(newSettings as Room).playbackMode = "app-controlled"
         ;(newSettings as Room).metadataSourceIds = withBridgeMetadataSources(room.metadataSourceIds)
+      } else if (previousPlaybackControllerId === "bridge") {
+        // Leaving bridge: stop searching YouTube/Library (auto-added for bridge only).
+        ;(newSettings as Room).metadataSourceIds = withoutBridgeMetadataSources(
+          room.metadataSourceIds,
+        )
       }
     } else if ("playbackControllerId" in values && room.type === "jukebox") {
       // Jukebox always uses Spotify; ignore client overrides.
