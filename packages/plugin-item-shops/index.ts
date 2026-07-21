@@ -365,6 +365,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           showWhen: { field: "enabled", value: true },
         },
       },
+      quickAccess: ["startShoppingSession", "endShoppingSessions"],
     }
   }
 

@@ -200,5 +200,6 @@ export function getConfigSchema(): PluginConfigSchema {
         ],
       },
     },
+    quickAccess: ["startSession", "advanceQuestion", "endSession"],
   }
 }
