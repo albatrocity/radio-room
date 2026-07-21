@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "type": "module",
   "dependencies": {
-    "@chakra-ui/react": "^3.2.0",
+    "@chakra-ui/react": "^3.36.1",
     "@emotion/react": "^11.14.0",
     "@repo/factories": "*",
     "@repo/game-logic": "*",
