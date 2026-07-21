@@ -135,7 +135,7 @@ export function QuizQuestionCardTemplateComponent({
                   {question.text}
                 </Text>
                 {revealedAnswer ? (
-                  <Badge colorPalette="green" alignSelf="flex-start">
+                  <Badge colorPalette="green" alignSelf="flex-start" size="lg">
                     Answer: {revealedAnswer}
                   </Badge>
                 ) : youGotIt ? (

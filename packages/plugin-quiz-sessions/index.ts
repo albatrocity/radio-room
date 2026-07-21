@@ -197,7 +197,10 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     // One session per room: edits to a running quiz happen live via the settings
     // modal; a fresh run requires ending the current one first.
     if (await this.loadSession()) {
-      return { success: false, message: "A quiz is already running. End it before starting a new one." }
+      return {
+        success: false,
+        message: "A quiz is already running. End it before starting a new one.",
+      }
     }
 
     return this.startSessionFromConfig(config)
@@ -403,7 +406,14 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       "1",
     )
     if (firstTime) {
-      await this.awardCorrect({ config, session, questions, index: active.index, message, mode: "inclusive" })
+      await this.awardCorrect({
+        config,
+        session,
+        questions,
+        index: active.index,
+        message,
+        mode: "inclusive",
+      })
       await this.saveSession(session)
     }
 
@@ -534,7 +544,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       target: "plugin",
       targetId: "quiz-question-card",
       effect: "tada",
-      duration: 500,
+      duration: 1000,
       ...(mode === "inclusive" ? { recipientUserId: userId } : {}),
     })
 
