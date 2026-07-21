@@ -1,102 +1,180 @@
 ---
 name: Intel DJ Mac Release
-overview: "Ship one self-contained release folder for the Intel DJ Mac: the Rust local-remote binary (x86_64) supervises a bundled Node x64 runtime running a prebuilt bridge-daemon, with Audio Hijack starting/stopping only local-remote."
+overview: "Ship one self-contained Intel (x86_64) DJ Mac artifact: Rust local-remote is the only AH-started process and the only operator UI (:9876). It supervises a bundled Node bridge-daemon child and proxies bridge config/session/rooms APIs into that single UI."
 todos:
   - id: phase1-bundle
-    content: "Phase 1: esbuild bundle bridge-daemon (daemon.cjs + assets + env overrides) runnable on stock Node"
+    content: "Phase 1: esbuild bundle bridge-daemon (daemon.cjs + static assets + env overrides); JSON API remains on localhost; operator HTML UI not the primary surface"
     status: pending
-  - id: phase2-supervisor
-    content: "Phase 2: local-remote bridge supervisor (config, spawn/health/restart, UI fieldset)"
+  - id: phase2-supervisor-proxy
+    content: "Phase 2: local-remote bridge supervisor + /api/bridge/* reverse proxy to child"
+    status: pending
+  - id: phase2b-consolidated-ui
+    content: "Phase 2b: fold bridge session/rooms/services/chrome/tidal/local/NP controls into local-remote ui/index.html"
     status: pending
   - id: phase3-pack
-    content: "Phase 3: pack-dj-mac.sh — x86_64 Rust build + Node x64 download + assemble/zip"
+    content: "Phase 3: pack-dj-mac.sh — x86_64 Rust + Node x64 + assemble/zip"
     status: pending
   - id: phase4-docs
-    content: "Phase 4: ADR + index + BRIDGE_LOCAL_TESTING + local-remote README updates"
+    content: "Phase 4: ADR + docs (single UI URL, AH wiring, Navidrome external)"
     status: pending
   - id: phase5-ci
-    content: "Phase 5 (optional): GitHub Actions workflow producing the zip as a release asset"
+    content: "Phase 5 (optional): GitHub Actions release zip"
     status: pending
 isProject: false
 ---
 
-# Combined DJ Mac Release (Intel x86_64)
+# Combined DJ Mac Release (Intel x86_64) — Option B consolidated UI
 
 ## Goal
 
-One zip/folder installed on the **Intel** DJ Mac (no dev tools): Audio Hijack session scripts start/stop `local-remote` (Rust), which spawns and supervises a **bundled Node x64 runtime** running a **prebuilt `bridge-daemon`**. Config stays in existing browser UIs (`:9876` local-remote, `:18766` bridge). No Electron; no Rust port of the daemon.
+One zip for the **Intel** DJ Mac. Audio Hijack start/stop runs **only** `local-remote`. Operators use **one browser UI** at `http://127.0.0.1:9876/` for OSC, soundboard, Now Playing policy, **and** bridge session/rooms/services/Chrome/Tidal/local config.
 
-**Hard requirement:** all binaries are **x86_64-apple-darwin**. Build machine is Apple silicon, so both builds cross-compile:
-- Rust: `rustup target add x86_64-apple-darwin` + existing `build:intel` script in [apps/local-remote/package.json](apps/local-remote/package.json)
-- Node runtime: download official `node-v22.x-darwin-x64.tar.gz` (pinned version + SHA256)
-- `daemon.cjs` (esbuild) and `puppeteer-core` are pure JS — architecture-independent
+Under the hood: two processes (Rust supervisor + Node bridge-daemon). No second settings tab the DJ must open. No Electron; no Rust port of CDP drivers.
+
+**Hard requirement:** binaries are **x86_64-apple-darwin** (cross-build from Apple silicon).
+
+## Operator model (Option B)
+
+```mermaid
+flowchart TB
+  ah[AudioHijack] -->|start/stop| lr[localRemote :9876]
+  browser[Browser] -->|single UI| lr
+  lr -->|proxy /api/bridge/*| bd[bridgeDaemon API :18766]
+  lr -->|spawn/supervise| bd
+  bd -->|static host only| static[:18765 youtube/spotify.html]
+  bd --> chrome[Chrome CDP]
+```
+
+| Surface | Port | Who uses it |
+|---------|------|-------------|
+| Consolidated settings + soundboard | **9876** | DJ (only bookmarked URL) |
+| Bridge JSON API | 18766 localhost | local-remote proxy only (not documented for operators) |
+| Chrome host pages | 18765 | Chrome tabs (not human operators) |
+
+**Rejected (Option A):** two UIs (`:9876` + `:18766`) with a “open bridge UI” link.
 
 ## Artifact layout
 
 ```
-listening-room-dj-mac/           (zip: listening-room-dj-mac-<ver>-darwin-x64.zip)
-├── local-remote                 # Rust binary, x86_64
-├── runtime/node                 # official Node 22 darwin-x64
+listening-room-dj-mac/           (zip: …-darwin-x64.zip)
+├── local-remote                 # Rust x86_64 — AH entrypoint + sole operator UI
+├── runtime/node                 # Node 22 darwin-x64
 ├── bridge-daemon/
-│   ├── daemon.cjs               # esbuild CJS bundle (entry: serve)
-│   ├── package.json             # { "type": "commonjs" }
-│   ├── ui/  static/             # control UI + youtube/spotify host pages
+│   ├── daemon.cjs
+│   ├── package.json
+│   ├── static/                  # required (Chrome pages)
+│   ├── ui/                      # optional escape hatch; not linked from product UI
 │   └── node_modules/puppeteer-core/
-└── README.txt                   # install + AH wiring
+└── README.txt
 ```
 
-Paths inside the supervisor resolve **relative to the `local-remote` executable** so the folder is relocatable.
+Paths resolve relative to the `local-remote` executable.
 
-## Architecture
+## Config model
 
-```mermaid
-flowchart LR
-    ah[AudioHijack session scripts] -->|start/stop| lr[localRemote Rust x64 :9876]
-    lr -->|"spawn runtime/node daemon.cjs serve"| bd[bridgeDaemon Node :18766]
-    lr -->|"poll /api/status, restart w/ backoff"| bd
-    lr -->|SIGTERM on shutdown| bd
-    bd --> chrome[Chrome CDP externally installed]
-    bd --> redis[(Redis BRIDGE:*)]
-    lr --> redis2[(Redis SYSTEM:*)]
-```
+- **local-remote** remains source of truth for `redisUrl` and `roomId` (show filter / OSC). Injected into the child as `BRIDGE_REDIS_URL` / `BRIDGE_DEFAULT_ROOM_ID`.
+- **Bridge-specific settings** (services, chrome, tidal, navidrome, mpv, nowPlayingPath, defaultRoomId for bridge connect) stay in `~/.config/listening-room-bridge/config.json`, edited **only through the consolidated UI**, which `PUT`s via the proxy to the child’s existing `/api/config`.
+- When `features.bridge.enabled` is true: auto-disable local-remote `features.nowPlaying` (bridge owns Now Playing.txt). UI shows a single Now Playing path control that maps to the bridge config field.
+
+## Consolidated UI contents (guarantees)
+
+**Additive** to the existing local-remote page — do not remove OSC / segment-map / soundboard surfaces.
+
+### Retained from local-remote today
+
+| Surface | Where | Status |
+|---------|--------|--------|
+| Redis / room filter / platform API URL | `/` settings | Retained |
+| **OSC + segment id → Farrago path mapping** (add/remove rows, tile picker, OSC test) | `/` settings | **Retained** |
+| **Farrago soundboard** (sets/tiles play/stop, WS live updates) | `/soundboard` | **Retained** (same origin `:9876`) |
+| local-remote Now Playing watcher | `/` settings | Retained but **auto-off when bridge enabled** (bridge owns the file) |
+
+### Added from bridge-daemon config / session UI
+
+Editable via `:9876` (proxied `PUT /api/bridge/config` → child’s `~/.config/listening-room-bridge/config.json`):
+
+1. **Bridge** — enable, running/error status, restart; autoConnect
+2. **Session** — connect / disconnect / drivers / spotify device id
+3. **Rooms** — discover + connect (no room-id paste required)
+4. **`services` list** — checkboxes for `youtube` / `local` / `tidal` / `spotify` (the array in bridge `config.json`)
+5. **Other important bridge fields** — `defaultRoomId`, Chrome (`executablePath`, `userDataDir`, `debuggingPort`), Tidal paths/ports, Navidrome url/user/pass, mpv path/socket, `nowPlayingPath`
+6. Redis for the bridge child is **not** a second editable field — injected from local-remote’s `redisUrl` (`BRIDGE_REDIS_URL`)
+
+Bridge’s standalone `ui/index.html` on `:18766` is an optional escape hatch only; product UI never links to it.
+
+## API surface (local-remote)
+
+New Axum routes in [apps/local-remote/daemon/src/api.rs](apps/local-remote/daemon/src/api.rs) that forward to the child (reqwest or hyper client):
+
+| local-remote | child |
+|--------------|-------|
+| `GET/PUT /api/bridge/config` | `/api/config` |
+| `GET /api/bridge/status` | `/api/status` |
+| `GET /api/bridge/rooms` | `/api/rooms` |
+| `POST /api/bridge/connect` | `/api/connect` |
+| `POST /api/bridge/disconnect` | `/api/disconnect` |
+| `POST /api/bridge/restart` | supervisor-local (kill + respawn child) |
+
+If the child is down, proxy returns `503` with supervisor `lastError`. Do not require the DJ to hit `:18766`.
 
 ## Phases
 
 ### Phase 1 — Bundle bridge-daemon for stock Node
-- New `apps/bridge-daemon/scripts/bundle.mjs`: esbuild `src/index.ts` → `dist-bundle/daemon.cjs` (CJS, `packages: "bundle"`, externalize `puppeteer-core`), copy `ui/`, `static/`, and `node_modules/puppeteer-core/`; write `{ "type": "commonjs" }` package.json. Wire as the workspace `build` script.
-- Asset-path helper (`src/assetPaths.ts`): resolve `ui`/`static` via `BRIDGE_UI_HTML` / `BRIDGE_STATIC_DIR` env or relative to the bundle (`__dirname` in CJS); use it in [apps/bridge-daemon/src/configServer.ts](apps/bridge-daemon/src/configServer.ts) and [apps/bridge-daemon/src/staticHost.ts](apps/bridge-daemon/src/staticHost.ts) (both currently use `import.meta.url`, which is empty in a CJS bundle).
-- Env overrides in [apps/bridge-daemon/src/config.ts](apps/bridge-daemon/src/config.ts) `loadConfig()`: `BRIDGE_REDIS_URL`, `BRIDGE_DEFAULT_ROOM_ID`, `BRIDGE_MPV_PATH`.
-- **Done:** `./node dist-bundle/daemon.cjs serve` on a stock Node (no tsx/monorepo) serves `:18766`, lists rooms from Redis, static host serves `spotify.html`/`youtube.html`.
 
-### Phase 2 — local-remote bridge supervisor (Rust)
-- `features.bridge` in [apps/local-remote/daemon/src/config.rs](apps/local-remote/daemon/src/config.rs): `enabled`, `autoConnect`, `controlUiUrl` (default `http://127.0.0.1:18766/`), optional `nodePath`/`daemonPath` overrides (default relative: `../runtime/node`, `../bridge-daemon/daemon.cjs`), `restartMaxBackoffSec`.
-- New `apps/local-remote/daemon/src/bridge_supervisor.rs`: tokio task — spawn child (`kill_on_drop`), inject `BRIDGE_REDIS_URL` from local-remote `redisUrl`, poll `GET /api/status`, restart with exponential backoff, SIGTERM→SIGKILL on shutdown; status snapshot in [apps/local-remote/daemon/src/state.rs](apps/local-remote/daemon/src/state.rs).
-- Wire into [apps/local-remote/daemon/src/main.rs](apps/local-remote/daemon/src/main.rs) (spawn + graceful shutdown) and [apps/local-remote/daemon/src/api.rs](apps/local-remote/daemon/src/api.rs) (`/api/status` gains `bridge: {...}`; `POST /api/bridge/restart`).
-- UI fieldset in [apps/local-remote/ui/index.html](apps/local-remote/ui/index.html): enable toggle, status, link to `:18766`, warning that bridge owns Now Playing (auto-disable `features.nowPlaying` when enabling bridge — the ADR 0075 double-publish rule).
-- **Done:** enabling bridge in the UI starts the child; killing local-remote leaves no orphan `node`; port-conflict on `:18766` surfaces `lastError` instead of a crash loop.
+- `apps/bridge-daemon/scripts/bundle.mjs` → `dist-bundle/daemon.cjs` (CJS, externalize `puppeteer-core`), copy `static/` (+ `ui/` for escape hatch), `puppeteer-core`.
+- Asset-path helper for CJS (`BRIDGE_STATIC_DIR` / relative `__dirname`) in configServer + staticHost.
+- Env overrides: `BRIDGE_REDIS_URL`, `BRIDGE_DEFAULT_ROOM_ID`, `BRIDGE_MPV_PATH`.
+- Keep JSON API on `httpListen` (default `127.0.0.1:18766`). Operator HTML on that port is **not** the product surface; optional later flag to skip serving `ui/index.html` if useful.
+- **Done:** stock Node runs `daemon.cjs serve`; `/api/status` and `/api/rooms` work; static host serves Chrome pages.
 
-### Phase 3 — Intel pack script (single artifact)
-- `scripts/pack-dj-mac.sh` + root script `pack:dj-mac`:
-  1. `rustup target add x86_64-apple-darwin` (idempotent); `npm run build:intel -w local-remote`; copy `daemon/target/x86_64-apple-darwin/release/local-remote`
-  2. Download pinned `node-v22.16.0-darwin-x64.tar.xz`, verify SHA256, extract `bin/node` → `runtime/node`
-  3. Run Phase 1 bundle → `bridge-daemon/`
-  4. Assemble `dist/listening-room-dj-mac/`, write `README.txt` (install path, AH start/stop script snippets, `xattr -dr com.apple.quarantine` note for unsigned binaries), zip as `…-darwin-x64.zip`
-- **Done:** `npm run pack:dj-mac` on the arm64 build Mac produces a zip; `file` reports both binaries as `x86_64`; unzipped folder runs on the Intel Mac with only Chrome/AH/mpv installed.
+### Phase 2 — Supervisor + reverse proxy
+
+- `features.bridge` in [apps/local-remote/daemon/src/config.rs](apps/local-remote/daemon/src/config.rs): `enabled`, `autoConnect`, `nodePath`/`daemonPath` (defaults relative), `childApiBase` default `http://127.0.0.1:18766`, backoff.
+- `bridge_supervisor.rs`: spawn, health poll, restart, shutdown kill; status in `state.rs`.
+- Wire `main.rs` + proxy routes in `api.rs` (table above).
+- On enable: force `features.nowPlaying.enabled = false` when saving config (double-publish guard).
+- **Done:** enabling bridge starts child; `/api/bridge/status` works from `:9876`; Ctrl+C / AH stop leaves no orphan Node.
+
+### Phase 2b — Consolidated UI (v1 requirement)
+
+- Port bridge fieldsets into [apps/local-remote/ui/index.html](apps/local-remote/ui/index.html); all fetches go to `/api/bridge/*` on the same origin.
+- Room list + connect/disconnect live in this page (no “open bridge UI” CTA).
+- Title/branding: e.g. “Listening Room DJ Mac” (or keep local-remote with a Bridge section) — call: rename page title to **Listening Room DJ Mac**, keep binary name `local-remote` for AH script stability.
+- **Done:** a DJ can configure Redis, OSC, soundboard, enable bridge, pick a room, and edit Chrome/services without leaving `:9876`.
+
+### Phase 3 — Intel pack script
+
+- `scripts/pack-dj-mac.sh` + `npm run pack:dj-mac`:
+  1. `cargo build --release --target x86_64-apple-darwin` for local-remote
+  2. Pin-download Node **darwin-x64** + SHA256 → `runtime/node`
+  3. Phase 1 bundle → `bridge-daemon/`
+  4. Assemble zip + `README.txt` (AH snippets, quarantine note, “open http://127.0.0.1:9876/ only”)
+- **Done:** zip runs on Intel Mac; only bookmark is `:9876`.
 
 ### Phase 4 — Docs + ADR
-- New ADR `docs/adrs/0078-dj-mac-combined-release.md` (confirm next number at implement time): Rust supervisor + bundled Node daemon, single x64 artifact, Electron rejected; update packaging bullet in [docs/adrs/0075-bridge-composite-playback-controller.md](docs/adrs/0075-bridge-composite-playback-controller.md), note in ADR 0077, row in [docs/adrs/index.md](docs/adrs/index.md).
-- Update [docs/BRIDGE_LOCAL_TESTING.md](docs/BRIDGE_LOCAL_TESTING.md) (dev vs release artifact) and [apps/local-remote/README.md](apps/local-remote/README.md) (bridge feature).
-- **Done:** a new operator can install from the zip + wire AH without the monorepo.
 
-### Phase 5 (optional fast-follow) — CI workflow
-- `.github/workflows/pack-dj-mac.yml` on `macos-14`: rustup x64 target, `npm ci`, `npm run pack:dj-mac`, upload zip as release asset. No signing secrets for v1 (quarantine note covers Gatekeeper).
+- New ADR (next free number): combined x64 artifact; **Option B single operator UI**; Node child supervised; Electron / true merge rejected.
+- Update bridge packaging ADRs + [docs/BRIDGE_LOCAL_TESTING.md](docs/BRIDGE_LOCAL_TESTING.md) + [apps/local-remote/README.md](apps/local-remote/README.md).
+- Explicit: **Navidrome and mpv are not bundled** — install separately if using local library; Chrome/Spotify/TIDAL/AH external.
+
+### Phase 5 (optional) — CI
+
+- `macos-14` workflow: rustup x64 target, pack, upload release zip.
 
 ## Risks
-- **esbuild CJS `import.meta` breakage** — Phase 1 asset helper + env overrides; smoke-test the bundle under stock Node before packing.
-- **Orphan Node child after AH force-kill** — `kill_on_drop` + process-group kill; document `pkill -f daemon.cjs` recovery.
-- **Rust x64 cross-compile linker issues on arm64 host** — standard macOS toolchain handles `--target x86_64-apple-darwin` natively (no external linker needed); `build:intel` already exists.
-- **Config drift (two config files)** — local-remote injects `BRIDGE_REDIS_URL`; bridge keeps its own `~/.config/listening-room-bridge/config.json` for everything else (no migration).
+
+| Risk | Mitigation |
+|------|------------|
+| Proxy latency / child not ready on first paint | UI polls status; disable bridge controls until `running` |
+| Duplicate Redis URL fields in UI | Show Redis once at top (local-remote); bridge Connection fieldset omits redisUrl or shows read-only “from above” |
+| Escape-hatch `:18766` confuses ops | README: do not bookmark; product never links it |
+| Large UI merge in one HTML file | Accept for v1 (matches local-remote pattern); split later if needed |
+| esbuild CJS asset paths | Phase 1 helper + smoke test |
 
 ## Non-goals
-- Electron, notarized `.dmg`, auto-update (manual zip replace for v1)
-- Porting bridge-daemon to Rust; bundling Chrome/Spotify/AH/Navidrome; arm64 build (add later as a second pack target if ever needed)
+
+- Electron / menu bar
+- True single-process merge (Option C)
+- Bundling Navidrome, mpv, Chrome, Spotify, AH
+- Notarized dmg / auto-update (manual zip replace)
+- arm64 artifact (add later if needed)
