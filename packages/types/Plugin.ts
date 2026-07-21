@@ -435,14 +435,19 @@ export interface PluginAPI {
   emit<T extends Record<string, unknown>>(eventName: string, data: T): Promise<void>
 
   /**
-   * Queue a sound effect to be played on all clients in the room.
+   * Queue a sound effect to be played on clients in the room.
    *
    * Sound effects are played one at a time in order. If a sound is already
    * playing, the new sound will be added to a queue.
    *
+   * When `userId` is omitted, the effect is broadcast to all clients in the
+   * room. When `userId` is set, it is emitted only to that user's connected
+   * socket (ADR 0072). If the user has no connected socket, the call is a no-op.
+   *
    * @param params - Sound effect parameters
    * @param params.url - URL to the sound effect audio file
    * @param params.volume - Volume level (0.0 to 1.0, defaults to 1.0)
+   * @param params.userId - Optional recipient; omit for room-wide playback
    *
    * @example
    * ```typescript
@@ -450,9 +455,15 @@ export interface PluginAPI {
    *   url: "https://example.com/sounds/ding.mp3",
    *   volume: 0.8,
    * })
+   * // Play only for one user:
+   * await this.context.api.queueSoundEffect({
+   *   url: "https://example.com/sounds/ding.mp3",
+   *   volume: 0.3,
+   *   userId: "user-123",
+   * })
    * ```
    */
-  queueSoundEffect(params: { url: string; volume?: number }): Promise<void>
+  queueSoundEffect(params: { url: string; volume?: number; userId?: string }): Promise<void>
 
   /**
    * Queue a screen effect (CSS animation) to be played on all clients in the room.

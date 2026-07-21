@@ -390,11 +390,42 @@ export class PluginAPIImpl implements PluginAPI {
   }
 
   /**
-   * Queue a sound effect to be played on all clients in the room.
+   * Queue a sound effect. Omit `userId` for room-wide playback; set `userId`
+   * to emit only to that user's socket (ADR 0072).
    */
-  async queueSoundEffect(params: { url: string; volume?: number }): Promise<void> {
+  async queueSoundEffect(params: {
+    url: string
+    volume?: number
+    userId?: string
+  }): Promise<void> {
     if (!this.roomId) {
       console.warn("[PluginAPI] Cannot queue sound effect: room context not set")
+      return
+    }
+
+    const volume = params.volume ?? 1.0
+    const payload = {
+      roomId: this.roomId,
+      url: params.url,
+      volume,
+      ...(params.userId !== undefined ? { userId: params.userId } : {}),
+    }
+
+    // User-targeted: private socket emit (same delivery model as sendUserSystemMessage).
+    if (params.userId) {
+      const { getRoomUsers } = await import("../../operations/data")
+      const users = await getRoomUsers({ context: this.context, roomId: this.roomId })
+      const user = users.find((u) => u.userId === params.userId)
+      if (!user?.id) {
+        console.warn(
+          `[PluginAPI] queueSoundEffect: no connected socket for userId ${params.userId} in room ${this.roomId}`,
+        )
+        return
+      }
+      this.io.to(user.id).emit("event", {
+        type: "SOUND_EFFECT_QUEUED",
+        data: payload,
+      })
       return
     }
 
@@ -403,11 +434,7 @@ export class PluginAPIImpl implements PluginAPI {
       return
     }
 
-    await this.context.systemEvents.emit(this.roomId, "SOUND_EFFECT_QUEUED", {
-      roomId: this.roomId,
-      url: params.url,
-      volume: params.volume ?? 1.0,
-    })
+    await this.context.systemEvents.emit(this.roomId, "SOUND_EFFECT_QUEUED", payload)
   }
 
   /**

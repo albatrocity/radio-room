@@ -277,7 +277,11 @@ export class MockStudioPluginApi implements PluginAPI {
     this.room.notify()
   }
 
-  async queueSoundEffect(params: { url: string; volume?: number }): Promise<void> {
+  async queueSoundEffect(params: {
+    url: string
+    volume?: number
+    userId?: string
+  }): Promise<void> {
     this.room.logEvent("SOUND_EFFECT", params)
   }
 

@@ -521,6 +521,15 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       leaderboard,
     })
 
+    if (config.soundEffectOnCorrect) {
+      const url = config.soundEffectOnCorrectUrl ?? ""
+      if (mode === "inclusive") {
+        await this.context.api.queueSoundEffect({ url, volume: 0.3, userId })
+      } else {
+        await this.context.api.queueSoundEffect({ url, volume: 0.3 })
+      }
+    }
+
     // Winner persona: PvP assigns exclusively (hot potato); PvG assigns to every
     // correct guesser without evicting prior holders (ADR 0057).
     const personaId = this.activePersonaId(session)

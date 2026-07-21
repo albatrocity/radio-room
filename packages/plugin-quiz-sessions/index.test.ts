@@ -79,6 +79,7 @@ function setup(configOverrides: Partial<QuizSessionsConfig> = {}) {
     getUsersByIds: vi.fn(async (ids: string[]) => ids.map((id) => ({ userId: id, username: id }))),
     getPluginConfig: vi.fn(async () => config),
     emit: vi.fn(async () => {}),
+    queueSoundEffect: vi.fn(async () => {}),
   }
 
   const game = {
@@ -434,6 +435,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       await ctx.plugin.executeAction("startSession", ADMIN)
       ctx.api.emit.mockClear()
       ctx.api.sendSystemMessage.mockClear()
+      ctx.api.queueSoundEffect.mockClear()
       ctx.game.addScore.mockClear()
       return ctx
     }
@@ -460,9 +462,24 @@ describe("QuizSessionsPlugin lifecycle", () => {
 
       expect(api.sendSystemMessage).toHaveBeenCalledWith(ROOM, expect.stringContaining("+10 coins"))
 
+      // PvP: sound plays room-wide (no userId).
+      expect(api.queueSoundEffect).toHaveBeenCalledWith({
+        url: "https://ross-brown.s3.amazonaws.com/broadcast/correct.mp3",
+        volume: 0.3,
+      })
+
       // Runtime keyed by question index (the config bank is not copied).
       expect(session.winnersPerQuestion["0"]).toEqual(["u1"])
       expect(session.revealedAnswers["0"]).toBe("Blue Monday")
+    })
+
+    it("does not play sound when soundEffectOnCorrect is disabled", async () => {
+      const { api, lifecycleHandlers } = await startCompetitive({ soundEffectOnCorrect: false })
+
+      await emitMessage(lifecycleHandlers, "Blue Monday", { userId: "u1", username: "Alice" })
+
+      expect(emittedEvent(api, "CORRECT_ANSWER")).toBeDefined()
+      expect(api.queueSoundEffect).not.toHaveBeenCalled()
     })
 
     it("ignores a later correct guess once the question is won", async () => {
@@ -470,9 +487,11 @@ describe("QuizSessionsPlugin lifecycle", () => {
 
       await emitMessage(lifecycleHandlers, "Blue Monday", { userId: "u1", username: "Alice" })
       game.addScore.mockClear()
+      api.queueSoundEffect.mockClear()
 
       await emitMessage(lifecycleHandlers, "Blue Monday", { userId: "u2", username: "Bob" })
       expect(game.addScore).not.toHaveBeenCalled()
+      expect(api.queueSoundEffect).not.toHaveBeenCalled()
     })
 
     it("ignores wrong guesses", async () => {
@@ -506,6 +525,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       await ctx.plugin.executeAction("startSession", ADMIN)
       ctx.api.emit.mockClear()
       ctx.api.sendSystemMessage.mockClear()
+      ctx.api.queueSoundEffect.mockClear()
       ctx.game.addScore.mockClear()
       return ctx
     }
@@ -527,13 +547,33 @@ describe("QuizSessionsPlugin lifecycle", () => {
       // PvG is spoiler-safe: the card refresh carries no revealed answer.
       expect(correct!.activeQuestion.revealedAnswer).toBeUndefined()
       expect(correct!.lastCorrectAnswer.userId).toBe("u1")
+
+      // PvG: sound plays only for the guesser.
+      expect(api.queueSoundEffect).toHaveBeenCalledWith({
+        url: "https://ross-brown.s3.amazonaws.com/broadcast/correct.mp3",
+        volume: 0.3,
+        userId: "u1",
+      })
+    })
+
+    it("does not play sound when soundEffectOnCorrect is disabled", async () => {
+      const { plugin, api } = await startInclusive({ soundEffectOnCorrect: false })
+
+      await plugin.transformChatMessage(
+        ROOM,
+        chatMessage("blue monday", { userId: "u1", username: "Alice" }),
+      )
+
+      expect(emittedEvent(api, "CORRECT_ANSWER")).toBeDefined()
+      expect(api.queueSoundEffect).not.toHaveBeenCalled()
     })
 
     it("rejects a duplicate correct guess from the same user but still drops it", async () => {
-      const { plugin, game } = await startInclusive()
+      const { plugin, game, api } = await startInclusive()
 
       await plugin.transformChatMessage(ROOM, chatMessage("blue monday", { userId: "u1" }))
       game.addScore.mockClear()
+      api.queueSoundEffect.mockClear()
 
       const result = await plugin.transformChatMessage(
         ROOM,
@@ -541,6 +581,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       )
       expect(result).toEqual({ drop: true, reason: "quiz-sessions-match" })
       expect(game.addScore).not.toHaveBeenCalled()
+      expect(api.queueSoundEffect).not.toHaveBeenCalled()
     })
 
     it("lets multiple users each score independently", async () => {

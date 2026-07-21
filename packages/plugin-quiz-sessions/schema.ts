@@ -108,6 +108,8 @@ export function getConfigSchema(): PluginConfigSchema {
       "autoAdvance",
       "autoAdvanceDelaySec",
       "correctAnswerTemplate",
+      "soundEffectOnCorrect",
+      "soundEffectOnCorrectUrl",
       "winnerLabel",
       "winnerIcon",
       "questions",
@@ -158,6 +160,21 @@ export function getConfigSchema(): PluginConfigSchema {
         label: "Correct-answer message template",
         description: "Variables: {{username}}, {{coins}}. Never include the answer (PvG spoiler).",
         showWhen: { field: "enabled", value: true },
+      },
+      soundEffectOnCorrect: {
+        type: "boolean",
+        label: "Play sound on correct answer",
+        description:
+          "PvP: plays for everyone. PvG: plays only for the player who guessed correctly.",
+        showWhen: { field: "enabled", value: true },
+      },
+      soundEffectOnCorrectUrl: {
+        type: "url",
+        label: "Sound effect URL",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "soundEffectOnCorrect", value: true },
+        ],
       },
       winnerLabel: {
         type: "string",

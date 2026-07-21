@@ -34,6 +34,11 @@ export const quizSessionsConfigSchema = z.object({
   autoAdvanceDelaySec: z.number().int().min(0).default(10),
   coinReward: z.number().int().min(0).default(10),
   correctAnswerTemplate: z.string().default("{{username}} answered correctly! +{{coins}} coins"),
+  soundEffectOnCorrect: z.boolean().default(true),
+  soundEffectOnCorrectUrl: z
+    .url()
+    .optional()
+    .default("https://ross-brown.s3.amazonaws.com/broadcast/correct.mp3"),
   /**
    * Winner persona label. When non-empty (and enabled), a persona is registered
    * and assigned on each correct answer. In PvP (competitive) mode it is
@@ -56,6 +61,8 @@ export const defaultQuizSessionsConfig: QuizSessionsConfig = {
   autoAdvanceDelaySec: 10,
   coinReward: 10,
   correctAnswerTemplate: "{{username}} answered correctly! +{{coins}} coins",
+  soundEffectOnCorrect: true,
+  soundEffectOnCorrectUrl: "https://ross-brown.s3.amazonaws.com/broadcast/correct.mp3",
   winnerLabel: "",
   winnerIcon: "Crown",
   questions: [],

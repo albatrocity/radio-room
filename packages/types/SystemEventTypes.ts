@@ -195,6 +195,8 @@ export type SystemEventHandlers = {
     roomId: string
     url: string
     volume: number
+    /** Present only on user-targeted emits (ADR 0072); room broadcasts omit it. */
+    userId?: string
   }) => Promise<void> | void
 
   // Screen effect events
