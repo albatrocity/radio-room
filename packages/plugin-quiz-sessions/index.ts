@@ -530,6 +530,14 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       }
     }
 
+    await this.context.api.queueScreenEffect({
+      target: "plugin",
+      targetId: "quiz-question-card",
+      effect: "tada",
+      duration: 500,
+      ...(mode === "inclusive" ? { recipientUserId: userId } : {}),
+    })
+
     // Winner persona: PvP assigns exclusively (hot potato); PvG assigns to every
     // correct guesser without evicting prior holders (ADR 0057).
     const personaId = this.activePersonaId(session)

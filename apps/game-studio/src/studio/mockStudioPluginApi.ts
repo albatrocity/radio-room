@@ -290,6 +290,7 @@ export class MockStudioPluginApi implements PluginAPI {
     targetId?: string
     effect: ScreenEffectName
     duration?: number
+    recipientUserId?: string
   }): Promise<void> {
     this.room.logEvent("SCREEN_EFFECT", _params)
   }

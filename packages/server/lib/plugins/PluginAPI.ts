@@ -438,16 +438,48 @@ export class PluginAPIImpl implements PluginAPI {
   }
 
   /**
-   * Queue a screen effect (CSS animation) to be played on all clients in the room.
+   * Queue a screen effect (CSS animation). Omit `recipientUserId` for room-wide
+   * delivery; set it to emit only to that user's socket (ADR 0073).
+   * `recipientUserId` is delivery scoping — orthogonal to `target: "user"`.
    */
   async queueScreenEffect(params: {
     target: ScreenEffectTarget
     targetId?: string
     effect: ScreenEffectName
     duration?: number
+    recipientUserId?: string
   }): Promise<void> {
     if (!this.roomId) {
       console.warn("[PluginAPI] Cannot queue screen effect: room context not set")
+      return
+    }
+
+    const payload = {
+      roomId: this.roomId,
+      target: params.target,
+      targetId: params.targetId,
+      effect: params.effect,
+      duration: params.duration,
+      ...(params.recipientUserId !== undefined
+        ? { recipientUserId: params.recipientUserId }
+        : {}),
+    }
+
+    // Recipient-targeted: private socket emit (same delivery model as queueSoundEffect).
+    if (params.recipientUserId) {
+      const { getRoomUsers } = await import("../../operations/data")
+      const users = await getRoomUsers({ context: this.context, roomId: this.roomId })
+      const user = users.find((u) => u.userId === params.recipientUserId)
+      if (!user?.id) {
+        console.warn(
+          `[PluginAPI] queueScreenEffect: no connected socket for recipientUserId ${params.recipientUserId} in room ${this.roomId}`,
+        )
+        return
+      }
+      this.io.to(user.id).emit("event", {
+        type: "SCREEN_EFFECT_QUEUED",
+        data: payload,
+      })
       return
     }
 
@@ -456,12 +488,6 @@ export class PluginAPIImpl implements PluginAPI {
       return
     }
 
-    await this.context.systemEvents.emit(this.roomId, "SCREEN_EFFECT_QUEUED", {
-      roomId: this.roomId,
-      target: params.target,
-      targetId: params.targetId,
-      effect: params.effect,
-      duration: params.duration,
-    })
+    await this.context.systemEvents.emit(this.roomId, "SCREEN_EFFECT_QUEUED", payload)
   }
 }

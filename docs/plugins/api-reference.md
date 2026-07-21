@@ -41,21 +41,29 @@ await this.context.api.sendSystemMessage(roomId, "Message text", {
 
 ### Sound Effects
 
-Play audio sound effects in the room. Sound effects are queued and played one at a time on all connected clients.
+Play audio sound effects in the room. Sound effects are queued and played one at a time.
 
 ```typescript
 await this.context.api.queueSoundEffect({
   url: "https://example.com/sounds/notification.mp3",
   volume: 0.5, // 0.0 to 1.0, defaults to 1.0
 })
+
+// Play only for one user (ADR 0072)
+await this.context.api.queueSoundEffect({
+  url: "https://example.com/sounds/ding.mp3",
+  volume: 0.3,
+  userId: "user-123",
+})
 ```
 
 **Parameters:**
 
-| Parameter | Type     | Required | Description                                 |
-| --------- | -------- | -------- | ------------------------------------------- |
-| `url`     | `string` | Yes      | URL to the audio file (mp3, wav, ogg, etc)  |
-| `volume`  | `number` | No       | Volume level from 0.0 to 1.0 (default: 1.0) |
+| Parameter | Type     | Required | Description                                                                 |
+| --------- | -------- | -------- | --------------------------------------------------------------------------- |
+| `url`     | `string` | Yes      | URL to the audio file (mp3, wav, ogg, etc)                                  |
+| `volume`  | `number` | No       | Volume level from 0.0 to 1.0 (default: 1.0)                                 |
+| `userId`  | `string` | No       | When set, play only on that user's client; omit for room-wide (ADR 0072)   |
 
 **Example: Play sound on special event**
 
@@ -76,7 +84,7 @@ private async onReactionAdded(data: { roomId: string; reaction: any }): Promise<
 
 **Notes:**
 
-- Sound effects play on all clients in the room simultaneously
+- Omit `userId` to play on all clients; set `userId` for per-client delivery
 - Multiple sound effects are queued and played sequentially (one at a time)
 - Audio files must be accessible via HTTPS and support CORS
 - Sound effect volume is capped at the user's current volume setting (sound effects will never be louder than the radio)
@@ -85,7 +93,7 @@ private async onReactionAdded(data: { roomId: string; reaction: any }): Promise<
 
 ### Screen Effects
 
-Play CSS animations (from animate.css) on UI elements in the room. Screen effects are queued and played one at a time on all connected clients.
+Play CSS animations (from animate.css) on UI elements in the room. Screen effects are queued and played one at a time.
 
 ```typescript
 await this.context.api.queueScreenEffect({
@@ -97,12 +105,15 @@ await this.context.api.queueScreenEffect({
 
 **Parameters:**
 
-| Parameter  | Type                 | Required | Description                                                                            |
-| ---------- | -------------------- | -------- | -------------------------------------------------------------------------------------- |
-| `target`   | `ScreenEffectTarget` | Yes      | What to animate: `room`, `nowPlaying`, `message`, `plugin`, or `user`                  |
-| `targetId` | `string`             | No       | For `message`: timestamp or `"latest"`. For `plugin`: component ID. For `user`: userId |
-| `effect`   | `ScreenEffectName`   | Yes      | Animation name (see available effects below)                                           |
-| `duration` | `number`             | No       | Custom duration in milliseconds (default varies by effect)                             |
+| Parameter          | Type                 | Required | Description                                                                                          |
+| ------------------ | -------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| `target`           | `ScreenEffectTarget` | Yes      | What to animate: `room`, `nowPlaying`, `message`, `plugin`, or `user`                               |
+| `targetId`         | `string`             | No       | For `message`: timestamp or `"latest"`. For `plugin`: component ID. For `user`: userId              |
+| `effect`           | `ScreenEffectName`   | Yes      | Animation name (see available effects below)                                                         |
+| `duration`         | `number`             | No       | Custom duration in milliseconds (default varies by effect)                                           |
+| `recipientUserId`  | `string`             | No       | When set, deliver only to that user's client; omit for room-wide (ADR 0073)                         |
+
+**`recipientUserId` vs `target: "user"`:** `recipientUserId` controls **which client receives** the event. `target: "user"` selects **which DOM node** to animate (the user list row). They are independent — you can animate a plugin card for one recipient, or animate a user row for everyone.
 
 **Target Types:**
 
@@ -132,6 +143,18 @@ private async onWordDetected(word: string, message: ChatMessage): Promise<void> 
     effect: "pulse",
   })
 }
+```
+
+**Example: Animate a plugin component for one user only**
+
+```typescript
+await this.context!.api.queueScreenEffect({
+  target: "plugin",
+  targetId: "quiz-question-card",
+  effect: "tada",
+  duration: 500,
+  recipientUserId: userId,
+})
 ```
 
 **Example: Animate a chat message**
@@ -176,7 +199,7 @@ await this.context!.api.queueScreenEffect({
 
 **Notes:**
 
-- Screen effects play on all clients in the room simultaneously
+- Omit `recipientUserId` to play on all clients; set it for per-client delivery
 - Multiple screen effects are queued and played sequentially (one at a time)
 - Users can disable animations via the "Reduce Motion" preference in settings
 - The system also respects the OS-level `prefers-reduced-motion` setting

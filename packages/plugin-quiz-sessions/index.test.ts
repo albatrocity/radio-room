@@ -80,6 +80,7 @@ function setup(configOverrides: Partial<QuizSessionsConfig> = {}) {
     getPluginConfig: vi.fn(async () => config),
     emit: vi.fn(async () => {}),
     queueSoundEffect: vi.fn(async () => {}),
+    queueScreenEffect: vi.fn(async () => {}),
   }
 
   const game = {
@@ -436,6 +437,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       ctx.api.emit.mockClear()
       ctx.api.sendSystemMessage.mockClear()
       ctx.api.queueSoundEffect.mockClear()
+      ctx.api.queueScreenEffect.mockClear()
       ctx.game.addScore.mockClear()
       return ctx
     }
@@ -468,6 +470,14 @@ describe("QuizSessionsPlugin lifecycle", () => {
         volume: 0.3,
       })
 
+      // PvP: card animation plays room-wide (no recipientUserId).
+      expect(api.queueScreenEffect).toHaveBeenCalledWith({
+        target: "plugin",
+        targetId: "quiz-question-card",
+        effect: "tada",
+        duration: 500,
+      })
+
       // Runtime keyed by question index (the config bank is not copied).
       expect(session.winnersPerQuestion["0"]).toEqual(["u1"])
       expect(session.revealedAnswers["0"]).toBe("Blue Monday")
@@ -480,6 +490,8 @@ describe("QuizSessionsPlugin lifecycle", () => {
 
       expect(emittedEvent(api, "CORRECT_ANSWER")).toBeDefined()
       expect(api.queueSoundEffect).not.toHaveBeenCalled()
+      // Screen effect still runs (not gated on the sound toggle).
+      expect(api.queueScreenEffect).toHaveBeenCalled()
     })
 
     it("ignores a later correct guess once the question is won", async () => {
@@ -488,10 +500,12 @@ describe("QuizSessionsPlugin lifecycle", () => {
       await emitMessage(lifecycleHandlers, "Blue Monday", { userId: "u1", username: "Alice" })
       game.addScore.mockClear()
       api.queueSoundEffect.mockClear()
+      api.queueScreenEffect.mockClear()
 
       await emitMessage(lifecycleHandlers, "Blue Monday", { userId: "u2", username: "Bob" })
       expect(game.addScore).not.toHaveBeenCalled()
       expect(api.queueSoundEffect).not.toHaveBeenCalled()
+      expect(api.queueScreenEffect).not.toHaveBeenCalled()
     })
 
     it("ignores wrong guesses", async () => {
@@ -526,6 +540,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       ctx.api.emit.mockClear()
       ctx.api.sendSystemMessage.mockClear()
       ctx.api.queueSoundEffect.mockClear()
+      ctx.api.queueScreenEffect.mockClear()
       ctx.game.addScore.mockClear()
       return ctx
     }
@@ -554,6 +569,15 @@ describe("QuizSessionsPlugin lifecycle", () => {
         volume: 0.3,
         userId: "u1",
       })
+
+      // PvG: card animation plays only for the guesser.
+      expect(api.queueScreenEffect).toHaveBeenCalledWith({
+        target: "plugin",
+        targetId: "quiz-question-card",
+        effect: "tada",
+        duration: 500,
+        recipientUserId: "u1",
+      })
     })
 
     it("does not play sound when soundEffectOnCorrect is disabled", async () => {
@@ -566,6 +590,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
 
       expect(emittedEvent(api, "CORRECT_ANSWER")).toBeDefined()
       expect(api.queueSoundEffect).not.toHaveBeenCalled()
+      expect(api.queueScreenEffect).toHaveBeenCalled()
     })
 
     it("rejects a duplicate correct guess from the same user but still drops it", async () => {
@@ -574,6 +599,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       await plugin.transformChatMessage(ROOM, chatMessage("blue monday", { userId: "u1" }))
       game.addScore.mockClear()
       api.queueSoundEffect.mockClear()
+      api.queueScreenEffect.mockClear()
 
       const result = await plugin.transformChatMessage(
         ROOM,
@@ -582,6 +608,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       expect(result).toEqual({ drop: true, reason: "quiz-sessions-match" })
       expect(game.addScore).not.toHaveBeenCalled()
       expect(api.queueSoundEffect).not.toHaveBeenCalled()
+      expect(api.queueScreenEffect).not.toHaveBeenCalled()
     })
 
     it("lets multiple users each score independently", async () => {

@@ -78,6 +78,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0070](0070-route-transitions-via-view-transitions-api.md) | Route transitions via View Transitions API | Accepted |
 | [0071](0071-admin-platform-identity-for-room-creation.md) | Admin platform identity for room creation (no Spotify create gate) | Accepted |
 | [0072](0072-plugin-user-targeted-sound-effects.md) | Plugin user-targeted sound effects (optional `userId` on `queueSoundEffect`) | Accepted |
+| [0073](0073-plugin-user-targeted-screen-effects.md) | Plugin user-targeted screen effects (optional `recipientUserId` on `queueScreenEffect`) | Accepted |
 
 ## Creating a New ADR
 
