@@ -1,15 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useMachine } from "@xstate/react"
-import { Box, HStack, Slider, Text, VStack } from "@chakra-ui/react"
-import { LuVolume2 } from "react-icons/lu"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { HStack, Slider, Text, VStack } from "@chakra-ui/react"
 
 import { emitToSocket } from "../../actors/socketActor"
 import { useIsAdmin, useIsRoomCreator } from "../../hooks/useActors"
 import socket from "../../lib/socket"
 import { toast } from "../../lib/toasts"
-import { createSliderMachine } from "../../machines/sliderMachine"
-import { SvgIcon } from "../ui/svg-icon"
-import { Tooltip } from "../ui/tooltip"
 import type { Room } from "../../types/Room"
 
 type PlaybackTransportState = "playing" | "paused" | "stopped"
@@ -18,8 +13,6 @@ interface PlaybackStatePayload {
   state?: PlaybackTransportState
   progressMs?: number | null
   durationMs?: number | null
-  volumePercent?: number | null
-  supportsVolume?: boolean
   canResume?: boolean
   message?: string
   positionMs?: number
@@ -37,7 +30,8 @@ interface NowPlayingTransportProps {
 }
 
 /**
- * Admin-only seek scrubber + broadcast volume for app-controlled rooms (ADR 0078).
+ * Admin-only seek scrubber for app-controlled rooms (ADR 0078 / 0079).
+ * Broadcast volume lives in the Volume Manager plugin.
  */
 export function NowPlayingTransport({ room }: NowPlayingTransportProps) {
   const isAdmin = useIsAdmin()
@@ -55,8 +49,6 @@ const PROGRESS_SNAP_DRIFT_MS = 2000
 function NowPlayingTransportInner() {
   const [playbackState, setPlaybackState] = useState<PlaybackTransportState | null>(null)
   const [durationMs, setDurationMs] = useState<number | null>(null)
-  const [volumePercent, setVolumePercent] = useState(100)
-  const [supportsVolume, setSupportsVolume] = useState(false)
   const [displayProgressMs, setDisplayProgressMs] = useState(0)
   const [isSeekDragging, setIsSeekDragging] = useState(false)
   const [hasProgress, setHasProgress] = useState(false)
@@ -146,13 +138,6 @@ function NowPlayingTransportInner() {
           setHasProgress(false)
         }
       }
-
-      if (typeof data.volumePercent === "number") {
-        setVolumePercent(data.volumePercent)
-      }
-      if (typeof data.supportsVolume === "boolean") {
-        setSupportsVolume(data.supportsVolume)
-      }
     },
     [reconcileServerProgress, setDisplayProgress],
   )
@@ -167,7 +152,6 @@ function NowPlayingTransportInner() {
         setPlaybackState(null)
         durationMsRef.current = null
         setDurationMs(null)
-        setSupportsVolume(false)
         setHasProgress(false)
         progressAnchorRef.current = null
       }
@@ -186,21 +170,6 @@ function NowPlayingTransportInner() {
       if (payload.type === "SEEK_PLAYBACK_FAILURE") {
         toast({
           title: "Couldn't seek",
-          description: payload.data?.message,
-          type: "error",
-          duration: 4000,
-        })
-        emitToSocket("GET_PLAYBACK_STATE", {})
-      }
-      if (
-        payload.type === "SET_PLAYBACK_VOLUME_SUCCESS" &&
-        typeof payload.data?.volumePercent === "number"
-      ) {
-        setVolumePercent(payload.data.volumePercent)
-      }
-      if (payload.type === "SET_PLAYBACK_VOLUME_FAILURE") {
-        toast({
-          title: "Couldn't set volume",
           description: payload.data?.message,
           type: "error",
           duration: 4000,
@@ -244,19 +213,6 @@ function NowPlayingTransportInner() {
     return () => window.clearInterval(id)
   }, [playbackState, isSeekDragging, hasProgress, durationMs, setDisplayProgress])
 
-  const commitVolume = useCallback((value: number) => {
-    emitToSocket("SET_PLAYBACK_VOLUME", { volumePercent: value })
-  }, [])
-
-  const volumeMachine = useMemo(() => createSliderMachine(commitVolume), [commitVolume])
-  const [volumeState, volumeSend] = useMachine(volumeMachine, {
-    input: { initialValue: volumePercent },
-  })
-
-  useEffect(() => {
-    volumeSend({ type: "SYNC_EXTERNAL", value: volumePercent })
-  }, [volumePercent, volumeSend])
-
   const showScrubber = durationMs != null && durationMs > 0 && hasProgress
   const scrubMax = durationMs ?? 1
   const scrubValue = Math.min(displayProgressMs, scrubMax)
@@ -276,12 +232,12 @@ function NowPlayingTransportInner() {
     emitToSocket("SEEK_PLAYBACK", { positionMs })
   }
 
-  if (!showScrubber && !supportsVolume) return null
+  if (!showScrubber) return null
 
   return (
     <VStack
       align="stretch"
-      gap={2}
+      gap={1}
       w="100%"
       mt={3}
       pt={2}
@@ -289,81 +245,33 @@ function NowPlayingTransportInner() {
       borderColor="primary.contrast/15"
       onClick={(e) => e.stopPropagation()}
     >
-      {showScrubber && (
-        <VStack align="stretch" gap={1} w="100%">
-          <Slider.Root
-            aria-label={["Seek"]}
-            value={[scrubValue]}
-            min={0}
-            max={scrubMax}
-            step={100}
-            onValueChange={handleSeekDrag}
-            onValueChangeEnd={handleSeekRelease}
-            variant="solid"
-            colorPalette="action"
-            w="100%"
-          >
-            <Slider.Control>
-              <Slider.Track>
-                <Slider.Range />
-              </Slider.Track>
-              <Slider.Thumbs boxSize={3.5} />
-            </Slider.Control>
-          </Slider.Root>
-          <HStack justify="space-between" w="100%">
-            <Text fontSize="2xs" color="primary.contrast/60" fontVariantNumeric="tabular-nums">
-              {formatMs(scrubValue)}
-            </Text>
-            <Text fontSize="2xs" color="primary.contrast/60" fontVariantNumeric="tabular-nums">
-              {formatMs(scrubMax)}
-            </Text>
-          </HStack>
-        </VStack>
-      )}
-
-      {supportsVolume && (
-        <Tooltip content="Broadcast volume">
-          <Box w="100%">
-            <HStack gap={3} w="100%" align="center">
-              <Box flexShrink={0} color="primary.contrast/70" aria-hidden>
-                <SvgIcon icon={LuVolume2} boxSize={4} />
-              </Box>
-              <Slider.Root
-                aria-label={["Broadcast volume"]}
-                value={[volumeState.context.displayValue]}
-                min={0}
-                max={100}
-                step={1}
-                onValueChange={(details) => {
-                  volumeSend({ type: "DRAG", value: details.value[0] ?? 0 })
-                }}
-                onValueChangeEnd={(details) => {
-                  volumeSend({ type: "RELEASE", value: details.value[0] ?? 0 })
-                }}
-                variant="solid"
-                colorPalette="action"
-                flex="1"
-              >
-                <Slider.Control>
-                  <Slider.Track>
-                    <Slider.Range />
-                  </Slider.Track>
-                  <Slider.Thumbs boxSize={3.5} />
-                </Slider.Control>
-              </Slider.Root>
-              <Text
-                fontSize="xs"
-                color="primary.contrast/60"
-                minW="2.5rem"
-                textAlign="right"
-                fontVariantNumeric="tabular-nums"
-              >
-                {Math.round(volumeState.context.displayValue)}%
-              </Text>
-            </HStack>
-          </Box>
-        </Tooltip>
-      )}
+      <Slider.Root
+        aria-label={["Seek"]}
+        value={[scrubValue]}
+        min={0}
+        max={scrubMax}
+        step={100}
+        onValueChange={handleSeekDrag}
+        onValueChangeEnd={handleSeekRelease}
+        variant="solid"
+        colorPalette="action"
+        w="100%"
+      >
+        <Slider.Control>
+          <Slider.Track>
+            <Slider.Range />
+          </Slider.Track>
+          <Slider.Thumbs boxSize={3.5} />
+        </Slider.Control>
+      </Slider.Root>
+      <HStack justify="space-between" w="100%">
+        <Text fontSize="2xs" color="primary.contrast/60" fontVariantNumeric="tabular-nums">
+          {formatMs(scrubValue)}
+        </Text>
+        <Text fontSize="2xs" color="primary.contrast/60" fontVariantNumeric="tabular-nums">
+          {formatMs(scrubMax)}
+        </Text>
+      </HStack>
     </VStack>
   )
 }

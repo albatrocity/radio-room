@@ -1,7 +1,7 @@
 # 0078. Now Playing Seek and Volume Transport Controls
 
 **Date:** 2026-07-21
-**Status:** Accepted
+**Status:** Partially superseded by [0079](0079-volume-ui-via-volume-manager-plugin.md)
 
 ## Context
 
