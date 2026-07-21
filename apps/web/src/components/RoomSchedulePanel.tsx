@@ -414,7 +414,6 @@ export default function RoomSchedulePanel() {
                         <IconButton
                           size="xs"
                           variant={notesPanelOpen ? "subtle" : "ghost"}
-                          colorPalette={notesPanelOpen ? "blue" : undefined}
                           aria-label={notesPanelOpen ? "Segment notes open" : "View segment notes"}
                           aria-pressed={notesPanelOpen}
                           onClick={() => {
