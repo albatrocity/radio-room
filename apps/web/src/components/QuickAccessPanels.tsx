@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo } from "react"
 import {
   CloseButton,
   DialogBackdrop,
@@ -14,97 +14,37 @@ import {
   useBreakpointValue,
   VStack,
 } from "@chakra-ui/react"
-import { useSelector } from "@xstate/react"
 import { getQuickAccessSchema } from "@repo/plugin-config-ui"
 import { LuMaximize2, LuMinus, LuSettings, LuSquare, LuX } from "react-icons/lu"
-import {
-  getQuickAccessPanels,
-  quickAccessPanelsActor,
-} from "../actors/quickAccessPanelsActor"
 import {
   useIsAdmin,
   useModalsSend,
   usePluginConfigs,
+  useQuickAccessPanels,
   useQuickAccessPanelsSend,
 } from "../hooks/useActors"
 import { usePluginSchemas } from "../hooks/usePluginSchemas"
 import { toPluginDisplayName } from "../lib/pluginDisplayName"
 import { toPluginSettingsEventType } from "../lib/pluginSettingsEvent"
-import { QUICK_ACCESS_DEFAULT_SIZE } from "../machines/quickAccessPanelsMachine"
+import { listEnabledQuickAccessPlugins } from "../lib/quickAccessPlugins"
 import type { Event as ModalsEvent } from "../machines/modalsMachine"
 import PluginConfigForm from "./Modals/Admin/PluginConfigForm"
 
-function useOpenPluginSettings(pluginName: string) {
-  const modalSend = useModalsSend()
-  return () => {
-    modalSend({ type: toPluginSettingsEventType(pluginName) } as ModalsEvent)
-  }
+const PANEL_DEFAULT_SIZE = { width: 320, height: 360 }
+
+function cascadePosition(index: number) {
+  const offset = index * 28
+  return { x: 48 + offset, y: 72 + offset }
 }
 
-/**
- * Stable open-set fingerprint. Geometry-only SET_GEOMETRY updates must not change this,
- * so the host can re-render without remounting/re-rendering FloatingPanel roots.
- */
-function selectOpenPluginNamesKey(state: {
-  context: { panels: Record<string, { open?: boolean } | undefined> }
-}): string {
-  return Object.entries(state.context.panels)
-    .filter(([, panel]) => panel?.open === true)
-    .map(([name]) => name)
-    .sort()
-    .join("\0")
-}
-
-function PanelBody({
-  pluginName,
-  configSchema,
-  values,
-}: {
-  pluginName: string
-  configSchema: NonNullable<ReturnType<typeof getQuickAccessSchema>>
-  values: Record<string, unknown>
-}) {
-  return (
-    <PluginConfigForm
-      schema={configSchema}
-      values={values}
-      allValues={values}
-      onChange={() => {}}
-      pluginName={pluginName}
-    />
-  )
-}
-
-/**
- * Self-contained desktop panel. Only takes `pluginName` so React.memo can skip re-renders
- * when Room/Overlays update (nowPlaying, listeners, etc.).
- *
- * RoomSchedulePanel's FloatingPanels stay interactive because they live under memo(Sidebar).
- * Quick Access mounts from Overlays (not memoized), so without this isolation zag's
- * drag/resize/minimize state is torn down by constant parent re-renders.
- */
-const DesktopPanel = memo(function DesktopPanel({ pluginName }: { pluginName: string }) {
-  const send = useQuickAccessPanelsSend()
-  const openPluginSettings = useOpenPluginSettings(pluginName)
+function useQuickAccessPanelModel(pluginName: string) {
   const pluginConfigs = usePluginConfigs()
   const { schemas } = usePluginSchemas()
+  const modalSend = useModalsSend()
 
   const pluginSchema = schemas.find((schema) => schema.name === pluginName)
   const configSchema =
     pluginSchema?.configSchema && getQuickAccessSchema(pluginSchema.configSchema)
-
-  // Mount-only geometry — never read live actor size/position back into FloatingPanel props.
-  const initialGeometryRef = useRef<{
-    position: { x: number; y: number }
-    size: { width: number; height: number }
-  } | null>(null)
-  if (initialGeometryRef.current === null) {
-    const panel = getQuickAccessPanels()[pluginName]
-    initialGeometryRef.current = {
-      position: panel?.position ?? { x: 48, y: 72 },
-      size: panel?.size ?? { ...QUICK_ACCESS_DEFAULT_SIZE },
-    }
-  }
 
   if (!configSchema || !pluginSchema) return null
 
@@ -113,6 +53,25 @@ const DesktopPanel = memo(function DesktopPanel({ pluginName }: { pluginName: st
     ...(pluginSchema.defaultConfig ?? {}),
     ...(pluginConfigs?.[pluginName] ?? {}),
   }
+  const openSettings = () => {
+    modalSend({ type: toPluginSettingsEventType(pluginName) } as ModalsEvent)
+  }
+
+  return { title, values, configSchema, openSettings }
+}
+
+function DesktopPanel({
+  pluginName,
+  defaultPosition,
+}: {
+  pluginName: string
+  defaultPosition: { x: number; y: number }
+}) {
+  const send = useQuickAccessPanelsSend()
+  const model = useQuickAccessPanelModel(pluginName)
+  if (!model) return null
+
+  const { title, values, configSchema, openSettings } = model
 
   return (
     <FloatingPanel.Root
@@ -120,15 +79,9 @@ const DesktopPanel = memo(function DesktopPanel({ pluginName }: { pluginName: st
       onOpenChange={(e) => {
         if (!e.open) send({ type: "CLOSE", pluginName })
       }}
-      defaultPosition={initialGeometryRef.current.position}
-      defaultSize={initialGeometryRef.current.size}
+      defaultPosition={defaultPosition}
+      defaultSize={PANEL_DEFAULT_SIZE}
       allowOverflow={false}
-      onPositionChangeEnd={(details) => {
-        send({ type: "SET_GEOMETRY", pluginName, position: details.position })
-      }}
-      onSizeChangeEnd={(details) => {
-        send({ type: "SET_GEOMETRY", pluginName, size: details.size })
-      }}
     >
       <FloatingPanel.Positioner>
         <FloatingPanel.Content>
@@ -141,7 +94,7 @@ const DesktopPanel = memo(function DesktopPanel({ pluginName }: { pluginName: st
                 size="xs"
                 variant="ghost"
                 aria-label={`Open ${title} settings`}
-                onClick={openPluginSettings}
+                onClick={openSettings}
               >
                 <Icon as={LuSettings} />
               </IconButton>
@@ -168,32 +121,27 @@ const DesktopPanel = memo(function DesktopPanel({ pluginName }: { pluginName: st
             </FloatingPanel.Control>
           </FloatingPanel.Header>
           <FloatingPanel.Body>
-            <PanelBody pluginName={pluginName} configSchema={configSchema} values={values} />
+            <PluginConfigForm
+              schema={configSchema}
+              values={values}
+              allValues={values}
+              onChange={() => {}}
+              pluginName={pluginName}
+            />
           </FloatingPanel.Body>
           <FloatingPanel.ResizeTriggers />
         </FloatingPanel.Content>
       </FloatingPanel.Positioner>
     </FloatingPanel.Root>
   )
-})
+}
 
-const MobilePanel = memo(function MobilePanel({ pluginName }: { pluginName: string }) {
+function MobilePanel({ pluginName }: { pluginName: string }) {
   const send = useQuickAccessPanelsSend()
-  const openPluginSettings = useOpenPluginSettings(pluginName)
-  const pluginConfigs = usePluginConfigs()
-  const { schemas } = usePluginSchemas()
+  const model = useQuickAccessPanelModel(pluginName)
+  if (!model) return null
 
-  const pluginSchema = schemas.find((schema) => schema.name === pluginName)
-  const configSchema =
-    pluginSchema?.configSchema && getQuickAccessSchema(pluginSchema.configSchema)
-
-  if (!configSchema || !pluginSchema) return null
-
-  const title = toPluginDisplayName(pluginName)
-  const values = {
-    ...(pluginSchema.defaultConfig ?? {}),
-    ...(pluginConfigs?.[pluginName] ?? {}),
-  }
+  const { title, values, configSchema, openSettings } = model
 
   return (
     <DialogRoot
@@ -217,7 +165,7 @@ const MobilePanel = memo(function MobilePanel({ pluginName }: { pluginName: stri
             position="absolute"
             top="2"
             right="10"
-            onClick={openPluginSettings}
+            onClick={openSettings}
           >
             <Icon as={LuSettings} />
           </IconButton>
@@ -226,51 +174,52 @@ const MobilePanel = memo(function MobilePanel({ pluginName }: { pluginName: stri
           </DialogCloseTrigger>
           <DialogBody>
             <VStack align="stretch" gap={4}>
-              <PanelBody pluginName={pluginName} configSchema={configSchema} values={values} />
+              <PluginConfigForm
+                schema={configSchema}
+                values={values}
+                allValues={values}
+                onChange={() => {}}
+                pluginName={pluginName}
+              />
             </VStack>
           </DialogBody>
         </DialogContent>
       </DialogPositioner>
     </DialogRoot>
   )
-})
+}
 
 /**
  * Host for admin Quick Access FloatingPanels / mobile dialogs (ADR 0072).
  * Mount once from Overlays so multiple AdminControls mounts share one panel tree.
+ * Stability comes from memo(Overlays), same pattern as memo(Sidebar) for schedule notes.
  */
 export default function QuickAccessPanels() {
   const isAdmin = useIsAdmin()
-  const openKey = useSelector(quickAccessPanelsActor, selectOpenPluginNamesKey)
+  const panels = useQuickAccessPanels()
   const send = useQuickAccessPanelsSend()
   const pluginConfigs = usePluginConfigs()
   const { schemas, isLoading: schemasLoading } = usePluginSchemas()
   const isSmallScreen = useBreakpointValue({ base: true, md: false }) ?? false
 
-  const enabledQuickAccessKey = useMemo(() => {
-    return schemas
-      .filter((plugin) => {
-        const schema = plugin.configSchema
-        if (!schema?.quickAccess?.length) return false
-        if (!getQuickAccessSchema(schema)) return false
-        return pluginConfigs?.[plugin.name]?.enabled === true
-      })
-      .map((plugin) => plugin.name)
-      .sort()
-      .join("\0")
-  }, [schemas, pluginConfigs])
+  const enabledPlugins = useMemo(
+    () => listEnabledQuickAccessPlugins(schemas, pluginConfigs),
+    [schemas, pluginConfigs],
+  )
+
+  const enabledPluginNames = useMemo(
+    () => enabledPlugins.map((plugin) => plugin.name),
+    [enabledPlugins],
+  )
 
   useEffect(() => {
     if (!isAdmin || schemasLoading || schemas.length === 0) return
-    send({
-      type: "PRUNE",
-      enabledPluginNames: enabledQuickAccessKey ? enabledQuickAccessKey.split("\0") : [],
-    })
-  }, [isAdmin, schemasLoading, schemas.length, enabledQuickAccessKey, send])
+    send({ type: "PRUNE", enabledPluginNames })
+  }, [isAdmin, schemasLoading, schemas.length, enabledPluginNames, send])
 
   const openNames = useMemo(
-    () => (openKey ? openKey.split("\0") : []),
-    [openKey],
+    () => Object.entries(panels).filter(([, panel]) => panel.open).map(([name]) => name),
+    [panels],
   )
 
   if (!isAdmin || openNames.length === 0) return null
@@ -287,8 +236,12 @@ export default function QuickAccessPanels() {
 
   return (
     <>
-      {openNames.map((pluginName) => (
-        <DesktopPanel key={pluginName} pluginName={pluginName} />
+      {openNames.map((pluginName, index) => (
+        <DesktopPanel
+          key={pluginName}
+          pluginName={pluginName}
+          defaultPosition={cascadePosition(index)}
+        />
       ))}
     </>
   )

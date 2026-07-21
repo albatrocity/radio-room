@@ -42,44 +42,32 @@ describe("quickAccessPanelsMachine", () => {
     sessionStorage.clear()
   })
 
-  it("hydrates open panels and geometry from sessionStorage on ACTIVATE", () => {
-    saveQuickAccessPanels(ROOM, {
-      "quiz-sessions": {
-        open: true,
-        position: { x: 100, y: 120 },
-        size: { width: 400, height: 500 },
-      },
-    })
+  it("hydrates open panels from sessionStorage on ACTIVATE (ignores legacy geometry)", () => {
+    sessionStorage.setItem(
+      `quickAccessPanels:${ROOM}`,
+      JSON.stringify({
+        "quiz-sessions": {
+          open: true,
+          position: { x: 100, y: 120 },
+          size: { width: 400, height: 500 },
+        },
+      }),
+    )
 
     const actor = createActor(quickAccessPanelsMachine).start()
     actor.send({ type: "ACTIVATE", roomId: ROOM })
 
-    expect(actor.getSnapshot().context.panels["quiz-sessions"]).toEqual({
-      open: true,
-      position: { x: 100, y: 120 },
-      size: { width: 400, height: 500 },
-    })
+    expect(actor.getSnapshot().context.panels["quiz-sessions"]).toEqual({ open: true })
     actor.stop()
   })
 
-  it("persists toggle open/close and retains geometry on close", () => {
+  it("persists toggle open/close without geometry", () => {
     const actor = createActor(quickAccessPanelsMachine).start()
     actor.send({ type: "ACTIVATE", roomId: ROOM })
     actor.send({ type: "TOGGLE", pluginName: "item-shops" })
-    actor.send({
-      type: "SET_GEOMETRY",
-      pluginName: "item-shops",
-      position: { x: 10, y: 20 },
-      size: { width: 300, height: 350 },
-    })
     actor.send({ type: "CLOSE", pluginName: "item-shops" })
 
-    const stored = loadQuickAccessPanels(ROOM)
-    expect(stored["item-shops"]).toEqual({
-      open: false,
-      position: { x: 10, y: 20 },
-      size: { width: 300, height: 350 },
-    })
+    expect(loadQuickAccessPanels(ROOM)["item-shops"]).toEqual({ open: false })
     actor.stop()
   })
 
@@ -93,5 +81,14 @@ describe("quickAccessPanelsMachine", () => {
     expect(Object.keys(actor.getSnapshot().context.panels)).toEqual(["quiz-sessions"])
     expect(loadQuickAccessPanels(ROOM)["item-shops"]).toBeUndefined()
     actor.stop()
+  })
+
+  it("saveQuickAccessPanels strips geometry from stored JSON", () => {
+    saveQuickAccessPanels(ROOM, {
+      "quiz-sessions": { open: true },
+    })
+    expect(JSON.parse(sessionStorage.getItem(`quickAccessPanels:${ROOM}`)!)).toEqual({
+      "quiz-sessions": { open: true },
+    })
   })
 })

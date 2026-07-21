@@ -12,15 +12,15 @@ Component-schema `adminOnly` buttons (e.g. Guess the Tune in `nowPlayingInfo`) a
 ## Decision
 
 1. **Opt-in list on the config schema.** `PluginConfigSchema` may include `quickAccess?: string[]` — action name strings that must match `layout` items with `type: "action"`. Order in `quickAccess` is the panel order. Unknown names are skipped.
-2. **Actions only (v1).** Quick Access panels render those action buttons (including `showWhen` and optional `formFields`) via the existing web `PluginConfigForm` + `EXECUTE_PLUGIN_ACTION` path. Config field editing stays in Settings.
+2. **Actions only (v1).** Quick Access panels render those action buttons (including `showWhen` and optional `formFields`) via the existing web `PluginConfigForm` + `EXECUTE_PLUGIN_ACTION` path. Config field editing stays in Settings (panels can deep-link there).
 3. **Enabled filter.** The Quick Access menu lists a plugin only when it has a non-empty resolvable `quickAccess` list **and** `pluginConfigs[name].enabled === true` (same convention as Settings overview).
-4. **Client-only surface.** Open state and desktop FloatingPanel position/size are stored in sessionStorage per room (`quickAccessPanels:{roomId}`). Mobile uses a Dialog and does not persist geometry. Closing a panel retains geometry for reopen; disabling a plugin prunes its record.
-5. **Shared open state.** Because `AdminControls` mounts in multiple places, a room-scoped XState actor owns the panel map; a single host in Overlays renders panels.
+4. **Client-only open set.** Which panels are open is stored in sessionStorage per room (`quickAccessPanels:{roomId}`). Desktop FloatingPanels use ephemeral default position/size (cascaded on open); geometry is not persisted. Mobile uses a Dialog. Disabling a plugin prunes its open record.
+5. **Shared open state.** Because `AdminControls` mounts in multiple places, a room-scoped XState actor owns the open map; a single host in memoized `Overlays` renders panels (same stability pattern as schedule-note FloatingPanels under `memo(Sidebar)`).
 
 ## Consequences
 
 - Plugin authors curate run-of-show actions once in `getConfigSchema` without a second component-schema area.
-- Admins can keep multiple plugin panels open across reloads within a session.
+- Admins can keep multiple plugin panels open across reloads within a session; panel placement resets each open.
 - Trade-off: enabling/disabling a plugin still requires Settings (or another surface); Quick Access deliberately does not edit config.
 - Future work could add scalar config fields to panels; public config is replace-on-write, so any such path must save the full merged plugin config.
 

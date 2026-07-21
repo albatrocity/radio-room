@@ -213,7 +213,7 @@ getConfigSchema(): PluginConfigSchema {
 }
 ```
 
-The menu only lists plugins that declare `quickAccess` **and** have `enabled: true` in room config. Panels are actions-only (no config field editing). Open state and desktop panel position/size persist in sessionStorage per room.
+The menu only lists plugins that declare `quickAccess` **and** have `enabled: true` in room config. Panels are actions-only (no config field editing). Which panels are open persists in sessionStorage per room; desktop position/size is ephemeral.
 
 ### Handling Actions
 

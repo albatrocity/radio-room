@@ -10,7 +10,6 @@ import {
   RecipeProps,
   Text,
 } from "@chakra-ui/react"
-import { getQuickAccessSchema } from "@repo/plugin-config-ui"
 import { LuCheck, LuPanelTop, LuZap } from "react-icons/lu"
 import {
   usePluginConfigs,
@@ -19,6 +18,7 @@ import {
 } from "../hooks/useActors"
 import { usePluginSchemas } from "../hooks/usePluginSchemas"
 import { toPluginDisplayName } from "../lib/pluginDisplayName"
+import { listEnabledQuickAccessPlugins } from "../lib/quickAccessPlugins"
 
 type ButtonVariant = RecipeProps<"button">["variant"]
 
@@ -65,14 +65,10 @@ export default function QuickAccessMenu({ buttonColorScheme, buttonVariant = "su
   const quickAccessSend = useQuickAccessPanelsSend()
   const { schemas } = usePluginSchemas()
 
-  const quickAccessPlugins = useMemo(() => {
-    return schemas.filter((plugin) => {
-      const schema = plugin.configSchema
-      if (!schema?.quickAccess?.length) return false
-      if (!getQuickAccessSchema(schema)) return false
-      return pluginConfigs?.[plugin.name]?.enabled === true
-    })
-  }, [schemas, pluginConfigs])
+  const quickAccessPlugins = useMemo(
+    () => listEnabledQuickAccessPlugins(schemas, pluginConfigs),
+    [schemas, pluginConfigs],
+  )
 
   if (quickAccessPlugins.length === 0) return null
 

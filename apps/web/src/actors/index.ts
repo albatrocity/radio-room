@@ -186,11 +186,7 @@ export {
 } from "./pollActor"
 
 // Quick Access Panels Actor
-export {
-  quickAccessPanelsActor,
-  getQuickAccessPanels,
-  getOpenQuickAccessPluginNames,
-} from "./quickAccessPanelsActor"
+export { quickAccessPanelsActor } from "./quickAccessPanelsActor"
 
 // Room Lifecycle
 export {
