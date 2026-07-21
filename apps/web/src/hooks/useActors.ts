@@ -44,6 +44,7 @@ import { chatScrollTargetActor } from "../actors/chatScrollTargetActor"
 import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
 import { lobbyActor } from "../actors/lobbyActor"
 import { pollActor } from "../actors/pollActor"
+import { quickAccessPanelsActor } from "../actors/quickAccessPanelsActor"
 import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { MetadataSourceType, QueueItem } from "../types/Queue"
 
@@ -85,6 +86,7 @@ const sendToMetadataPreference = boundSendRef(metadataPreferenceActor)
 const sendToLobby = boundSendRef(lobbyActor)
 const sendToAdminListener = boundSendRef(adminListenerStateActor)
 const sendToPoll = boundSendRef(pollActor)
+const sendToQuickAccessPanels = boundSendRef(quickAccessPanelsActor)
 
 // ============================================================================
 // Auth Hooks
@@ -684,6 +686,16 @@ export const useVotePending = () => {
 }
 
 export const usePollSend = () => sendToPoll
+
+// ============================================================================
+// Quick Access Panels Hooks
+// ============================================================================
+
+export const useQuickAccessPanels = () => {
+  return useSelector(quickAccessPanelsActor, (s) => s.context.panels)
+}
+
+export const useQuickAccessPanelsSend = () => sendToQuickAccessPanels
 
 // ============================================================================
 // Lobby Hooks

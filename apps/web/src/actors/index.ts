@@ -185,6 +185,9 @@ export {
   getLastPollChange,
 } from "./pollActor"
 
+// Quick Access Panels Actor
+export { quickAccessPanelsActor } from "./quickAccessPanelsActor"
+
 // Room Lifecycle
 export {
   initializeRoom,

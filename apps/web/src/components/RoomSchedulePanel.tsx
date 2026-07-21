@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogPositioner,
   DialogRoot,
-  Drawer as ChakraDrawer,
+  FloatingPanel,
   Heading,
   HStack,
   Icon,
@@ -23,7 +23,7 @@ import {
   useBreakpointValue,
 } from "@chakra-ui/react"
 import type { ShowSegmentDTO } from "@repo/types"
-import { LuFileText } from "react-icons/lu"
+import { LuFileText, LuMaximize2, LuMinus, LuSquare, LuX } from "react-icons/lu"
 import { fetchRoom } from "../actors/roomActor"
 import { subscribeById, unsubscribeById } from "../actors/socketActor"
 import {
@@ -51,6 +51,17 @@ function segmentHasSavedPluginPreset(segment: ShowSegmentDTO["segment"] | undefi
 
 type NotesTarget = { segmentId: string; title: string }
 
+type NotesLoadStatus = "idle" | "loading" | "ready" | "error"
+
+type OpenNotesPanel = {
+  segmentId: string
+  title: string
+  status: Exclude<NotesLoadStatus, "idle">
+  markdown: string | null
+  error: string | null
+  defaultPosition: { x: number; y: number }
+}
+
 type SegmentTracksPrompt = {
   showSegmentId: string
   segmentTitle: string
@@ -61,6 +72,49 @@ type SegmentTracksPrompt = {
 type ShowNotesCache = {
   cacheKey: string
   bySegmentId: Map<string, string | null>
+}
+
+const PANEL_DEFAULT_SIZE = { width: 360, height: 480 }
+
+function notesBody({
+  status,
+  markdown,
+  error,
+  onRetry,
+}: {
+  status: NotesLoadStatus
+  markdown: string | null
+  error: string | null
+  onRetry: () => void
+}) {
+  return (
+    <>
+      {status === "loading" && (
+        <HStack py={4}>
+          <Spinner size="sm" />
+          <Text fontSize="sm">Loading notes…</Text>
+        </HStack>
+      )}
+      {status === "error" && error && (
+        <VStack align="stretch" gap={3} py={2}>
+          <Text fontSize="sm" color="red.500">
+            {error}
+          </Text>
+          <Button size="sm" variant="outline" onClick={onRetry}>
+            Retry
+          </Button>
+        </VStack>
+      )}
+      {status === "ready" &&
+        (markdown != null && markdown.trim() !== "" ? (
+          <SegmentNotesMarkdown content={markdown} />
+        ) : (
+          <Text fontSize="sm" color="fg.muted">
+            No notes for this segment.
+          </Text>
+        ))}
+    </>
+  )
 }
 
 export default function RoomSchedulePanel() {
@@ -79,11 +133,15 @@ export default function RoomSchedulePanel() {
 
   const [tracksPrompt, setTracksPrompt] = useState<SegmentTracksPrompt | null>(null)
 
+  // Mobile: single full-screen dialog
   const [notesOpen, setNotesOpen] = useState(false)
   const [notesTarget, setNotesTarget] = useState<NotesTarget | null>(null)
-  const [notesStatus, setNotesStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
+  const [notesStatus, setNotesStatus] = useState<NotesLoadStatus>("idle")
   const [notesMarkdown, setNotesMarkdown] = useState<string | null>(null)
   const [notesError, setNotesError] = useState<string | null>(null)
+
+  // Desktop: independent floating panels
+  const [openPanels, setOpenPanels] = useState<OpenNotesPanel[]>([])
 
   const notesCacheRef = useRef<ShowNotesCache | null>(null)
 
@@ -165,7 +223,31 @@ export default function RoomSchedulePanel() {
     setTracksPrompt(null)
   }
 
-  const closeNotes = useCallback(() => {
+  const fetchNotesMarkdown = useCallback(
+    async (segmentId: string, bustCache: boolean): Promise<string | null> => {
+      if (!showId || !room?.id) {
+        throw new Error("Room or show not available")
+      }
+      const cacheKey = `${showId}:${scheduleSnapshot?.updatedAt ?? ""}`
+      if (bustCache) {
+        notesCacheRef.current = null
+      }
+      let map =
+        notesCacheRef.current?.cacheKey === cacheKey ? notesCacheRef.current.bySegmentId : null
+      if (!map) {
+        const dto = await fetchShow(showId, { roomId: room.id })
+        map = new Map<string, string | null>()
+        for (const ss of dto.segments ?? []) {
+          map.set(ss.segmentId, ss.segment?.description ?? null)
+        }
+        notesCacheRef.current = { cacheKey, bySegmentId: map }
+      }
+      return map.get(segmentId) ?? null
+    },
+    [room?.id, showId, scheduleSnapshot?.updatedAt],
+  )
+
+  const closeMobileNotes = useCallback(() => {
     setNotesOpen(false)
     setNotesTarget(null)
     setNotesStatus("idle")
@@ -173,28 +255,14 @@ export default function RoomSchedulePanel() {
     setNotesError(null)
   }, [])
 
-  const loadNotesForTarget = useCallback(
+  const loadMobileNotes = useCallback(
     async (target: NotesTarget, bustCache: boolean) => {
-      if (!showId || !room?.id) return
       setNotesStatus("loading")
       setNotesError(null)
       setNotesMarkdown(null)
-      const cacheKey = `${showId}:${scheduleSnapshot?.updatedAt ?? ""}`
       try {
-        if (bustCache) {
-          notesCacheRef.current = null
-        }
-        let map =
-          notesCacheRef.current?.cacheKey === cacheKey ? notesCacheRef.current.bySegmentId : null
-        if (!map) {
-          const dto = await fetchShow(showId, { roomId: room.id })
-          map = new Map<string, string | null>()
-          for (const ss of dto.segments ?? []) {
-            map.set(ss.segmentId, ss.segment?.description ?? null)
-          }
-          notesCacheRef.current = { cacheKey, bySegmentId: map }
-        }
-        setNotesMarkdown(map.get(target.segmentId) ?? null)
+        const markdown = await fetchNotesMarkdown(target.segmentId, bustCache)
+        setNotesMarkdown(markdown)
         setNotesStatus("ready")
       } catch (e) {
         const message = e instanceof Error ? e.message : "Failed to load notes"
@@ -202,24 +270,77 @@ export default function RoomSchedulePanel() {
         setNotesStatus("error")
       }
     },
-    [room?.id, showId, scheduleSnapshot?.updatedAt],
+    [fetchNotesMarkdown],
   )
+
+  const updatePanel = useCallback(
+    (segmentId: string, patch: Partial<Pick<OpenNotesPanel, "status" | "markdown" | "error">>) => {
+      setOpenPanels((prev) =>
+        prev.map((panel) => (panel.segmentId === segmentId ? { ...panel, ...patch } : panel)),
+      )
+    },
+    [],
+  )
+
+  const loadPanelNotes = useCallback(
+    async (segmentId: string, bustCache: boolean) => {
+      updatePanel(segmentId, { status: "loading", error: null, markdown: null })
+      try {
+        const markdown = await fetchNotesMarkdown(segmentId, bustCache)
+        updatePanel(segmentId, { status: "ready", markdown, error: null })
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Failed to load notes"
+        updatePanel(segmentId, { status: "error", error: message, markdown: null })
+      }
+    },
+    [fetchNotesMarkdown, updatePanel],
+  )
+
+  const closePanel = useCallback((segmentId: string) => {
+    setOpenPanels((prev) => prev.filter((panel) => panel.segmentId !== segmentId))
+  }, [])
 
   const openSegmentNotes = useCallback(
     (segmentId: string, title: string) => {
       if (!showId || !room?.id) return
-      setNotesTarget({ segmentId, title })
-      setNotesOpen(true)
-      void loadNotesForTarget({ segmentId, title }, false)
+
+      if (isSmallScreen) {
+        setNotesTarget({ segmentId, title })
+        setNotesOpen(true)
+        void loadMobileNotes({ segmentId, title }, false)
+        return
+      }
+
+      if (openPanels.some((panel) => panel.segmentId === segmentId)) {
+        return
+      }
+      setOpenPanels((prev) => {
+        if (prev.some((panel) => panel.segmentId === segmentId)) {
+          return prev
+        }
+        const n = prev.length
+        return [
+          ...prev,
+          {
+            segmentId,
+            title,
+            status: "loading",
+            markdown: null,
+            error: null,
+            defaultPosition: { x: 24 + n * 24, y: 80 + n * 24 },
+          },
+        ]
+      })
+      void loadPanelNotes(segmentId, false)
     },
-    [loadNotesForTarget, room?.id, showId],
+    [isSmallScreen, loadMobileNotes, loadPanelNotes, openPanels, room?.id, showId],
   )
 
-  const retryNotes = useCallback(() => {
+  const retryMobileNotes = useCallback(() => {
     if (notesTarget) {
-      void loadNotesForTarget(notesTarget, true)
+      void loadMobileNotes(notesTarget, true)
     }
-  }, [loadNotesForTarget, notesTarget])
+  }, [loadMobileNotes, notesTarget])
 
   if (!visible || !showId) {
     return null
@@ -231,35 +352,6 @@ export default function RoomSchedulePanel() {
   const waitingForSnapshot = !show && !!showId
 
   const notesTitle = notesTarget?.title ?? ""
-
-  const notesBodyInner = (
-    <>
-      {notesStatus === "loading" && (
-        <HStack py={4}>
-          <Spinner size="sm" />
-          <Text fontSize="sm">Loading notes…</Text>
-        </HStack>
-      )}
-      {notesStatus === "error" && notesError && (
-        <VStack align="stretch" gap={3} py={2}>
-          <Text fontSize="sm" color="red.500">
-            {notesError}
-          </Text>
-          <Button size="sm" variant="outline" onClick={retryNotes}>
-            Retry
-          </Button>
-        </VStack>
-      )}
-      {notesStatus === "ready" &&
-        (notesMarkdown != null && notesMarkdown.trim() !== "" ? (
-          <SegmentNotesMarkdown content={notesMarkdown} />
-        ) : (
-          <Text fontSize="sm" color="fg.muted">
-            No notes for this segment.
-          </Text>
-        ))}
-    </>
-  )
 
   return (
     <Box px={4} py={3} borderBottomWidth={1} borderBottomColor="secondaryBorder" w="100%">
@@ -288,6 +380,9 @@ export default function RoomSchedulePanel() {
             <VStack align="stretch" gap={1} maxH="220px" overflowY="auto">
               {segments.map((ss, i) => {
                 const active = room?.activeShowSegmentId === ss.id
+                const notesPanelOpen = isSmallScreen
+                  ? notesOpen && notesTarget?.segmentId === ss.segmentId
+                  : openPanels.some((panel) => panel.segmentId === ss.segmentId)
                 return (
                   <HStack
                     key={ss.id}
@@ -315,12 +410,19 @@ export default function RoomSchedulePanel() {
                       <Text lineClamp={2}>{ss.segment?.title ?? ""}</Text>
                     </VStack>
                     {isAdmin && (
-                      <HStack gap={1} shrink={0}>
+                      <HStack gap={1} flexShrink={0}>
                         <IconButton
                           size="xs"
-                          variant="ghost"
-                          aria-label="View segment notes"
-                          onClick={() => openSegmentNotes(ss.segmentId, ss.segment?.title ?? "")}
+                          variant={notesPanelOpen ? "subtle" : "ghost"}
+                          aria-label={notesPanelOpen ? "Segment notes open" : "View segment notes"}
+                          aria-pressed={notesPanelOpen}
+                          onClick={() => {
+                            if (notesPanelOpen) {
+                              closePanel(ss.segmentId)
+                            } else {
+                              openSegmentNotes(ss.segmentId, ss.segment?.title ?? "")
+                            }
+                          }}
                         >
                           <Icon as={LuFileText} />
                         </IconButton>
@@ -401,8 +503,8 @@ export default function RoomSchedulePanel() {
             </DialogCloseTrigger>
             <DialogBody>
               <Text fontSize="sm" mb={3}>
-                <strong>{tracksPrompt?.segmentTitle}</strong> has {tracksPrompt?.count ?? 0} attached
-                track{(tracksPrompt?.count ?? 0) === 1 ? "" : "s"}.
+                <strong>{tracksPrompt?.segmentTitle}</strong> has {tracksPrompt?.count ?? 0}{" "}
+                attached track{(tracksPrompt?.count ?? 0) === 1 ? "" : "s"}.
               </Text>
               <VStack gap={2} align="stretch">
                 {tracksPrompt?.allowTop ? (
@@ -430,7 +532,7 @@ export default function RoomSchedulePanel() {
         <DialogRoot
           open={notesOpen}
           onOpenChange={(e) => {
-            if (!e.open) closeNotes()
+            if (!e.open) closeMobileNotes()
           }}
           placement="center"
         >
@@ -455,10 +557,15 @@ export default function RoomSchedulePanel() {
                 <Heading as="h2" size="sm" mb={3}>
                   {notesTitle}
                 </Heading>
-                {notesBodyInner}
+                {notesBody({
+                  status: notesStatus,
+                  markdown: notesMarkdown,
+                  error: notesError,
+                  onRetry: retryMobileNotes,
+                })}
               </DialogBody>
               <DialogFooter flexShrink={0}>
-                <Button variant="ghost" onClick={closeNotes}>
+                <Button variant="ghost" onClick={closeMobileNotes}>
                   Close
                 </Button>
               </DialogFooter>
@@ -466,33 +573,59 @@ export default function RoomSchedulePanel() {
           </DialogPositioner>
         </DialogRoot>
       ) : (
-        <ChakraDrawer.Root
-          open={notesOpen}
-          onOpenChange={(e) => {
-            if (!e.open) closeNotes()
-          }}
-          placement="start"
-          modal={false}
-          preventScroll={false}
-          closeOnInteractOutside
-        >
-          <ChakraDrawer.Positioner>
-            <ChakraDrawer.Content maxW="md" minW="280px">
-              <ChakraDrawer.Header>
-                <ChakraDrawer.Title>Segment notes</ChakraDrawer.Title>
-                <ChakraDrawer.CloseTrigger asChild>
-                  <CloseButton size="sm" />
-                </ChakraDrawer.CloseTrigger>
-              </ChakraDrawer.Header>
-              <ChakraDrawer.Body flex="1" overflowY="auto">
-                <Heading as="h2" size="sm" mb={3}>
-                  {notesTitle}
-                </Heading>
-                {notesBodyInner}
-              </ChakraDrawer.Body>
-            </ChakraDrawer.Content>
-          </ChakraDrawer.Positioner>
-        </ChakraDrawer.Root>
+        openPanels.map((panel) => (
+          <FloatingPanel.Root
+            key={panel.segmentId}
+            open
+            onOpenChange={(e) => {
+              if (!e.open) closePanel(panel.segmentId)
+            }}
+            defaultPosition={panel.defaultPosition}
+            defaultSize={PANEL_DEFAULT_SIZE}
+            allowOverflow={false}
+          >
+            <FloatingPanel.Positioner>
+              <FloatingPanel.Content>
+                <FloatingPanel.Header>
+                  <FloatingPanel.DragTrigger>
+                    <FloatingPanel.Title>{panel.title || "Segment notes"}</FloatingPanel.Title>
+                  </FloatingPanel.DragTrigger>
+                  <FloatingPanel.Control>
+                    <FloatingPanel.StageTrigger stage="minimized" asChild>
+                      <IconButton size="xs" variant="ghost" aria-label="Minimize">
+                        <Icon as={LuMinus} />
+                      </IconButton>
+                    </FloatingPanel.StageTrigger>
+                    <FloatingPanel.StageTrigger stage="maximized" asChild>
+                      <IconButton size="xs" variant="ghost" aria-label="Maximize">
+                        <Icon as={LuMaximize2} />
+                      </IconButton>
+                    </FloatingPanel.StageTrigger>
+                    <FloatingPanel.StageTrigger stage="default" asChild>
+                      <IconButton size="xs" variant="ghost" aria-label="Restore">
+                        <Icon as={LuSquare} />
+                      </IconButton>
+                    </FloatingPanel.StageTrigger>
+                    <FloatingPanel.CloseTrigger asChild>
+                      <IconButton size="xs" variant="ghost" aria-label="Close notes">
+                        <Icon as={LuX} />
+                      </IconButton>
+                    </FloatingPanel.CloseTrigger>
+                  </FloatingPanel.Control>
+                </FloatingPanel.Header>
+                <FloatingPanel.Body>
+                  {notesBody({
+                    status: panel.status,
+                    markdown: panel.markdown,
+                    error: panel.error,
+                    onRetry: () => void loadPanelNotes(panel.segmentId, true),
+                  })}
+                </FloatingPanel.Body>
+                <FloatingPanel.ResizeTriggers />
+              </FloatingPanel.Content>
+            </FloatingPanel.Positioner>
+          </FloatingPanel.Root>
+        ))
       )}
     </Box>
   )

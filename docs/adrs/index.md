@@ -79,6 +79,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0071](0071-admin-platform-identity-for-room-creation.md) | Admin platform identity for room creation (no Spotify create gate) | Accepted |
 | [0072](0072-plugin-user-targeted-sound-effects.md) | Plugin user-targeted sound effects (optional `userId` on `queueSoundEffect`) | Accepted |
 | [0073](0073-plugin-user-targeted-screen-effects.md) | Plugin user-targeted screen effects (optional `recipientUserId` on `queueScreenEffect`) | Accepted |
+| [0074](0074-quick-access-admin-panels.md) | Quick Access admin panels for plugin actions | Accepted |
 
 ## Creating a New ADR
 

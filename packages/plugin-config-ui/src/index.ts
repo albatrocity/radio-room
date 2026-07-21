@@ -10,4 +10,6 @@ export {
   updateRow,
   moveRow,
   getItemJsonSchema,
+  getQuickAccessActions,
+  getQuickAccessSchema,
 } from "./logic"

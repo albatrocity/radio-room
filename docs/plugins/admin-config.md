@@ -183,6 +183,38 @@ getConfigSchema(): PluginConfigSchema {
 | `showWhen`       | `object` | No       | Conditional visibility (same as field `showWhen`)                                               |
 | `formFields`     | `array`  | No       | Optional fields shown in a popover before run; values are passed as `params` to `executeAction` |
 
+### Quick Access Panels
+
+Opt run-of-show actions into the room **Quick Access** menu (admin-only FloatingPanels) by listing their action names on the schema (see [ADR 0074](../adrs/0074-quick-access-admin-panels.md)):
+
+```typescript
+getConfigSchema(): PluginConfigSchema {
+  return {
+    jsonSchema: z.toJSONSchema(myConfigSchema),
+    layout: [
+      "enabled",
+      {
+        type: "action",
+        action: "startSession",
+        label: "Start session",
+        showWhen: { field: "enabled", value: true },
+      },
+      {
+        type: "action",
+        action: "endSession",
+        label: "End session",
+        showWhen: { field: "enabled", value: true },
+      },
+    ],
+    fieldMeta: { /* ... */ },
+    // Action names from layout — order is panel order
+    quickAccess: ["startSession", "endSession"],
+  }
+}
+```
+
+The menu only lists plugins that declare `quickAccess` **and** have `enabled: true` in room config. Panels are actions-only (no config field editing). Which panels are open persists in sessionStorage per room; desktop position/size is ephemeral.
+
 ### Handling Actions
 
 Override the `executeAction` method to handle action button clicks. When `formFields` are defined, the admin UI collects values and sends them as the third argument (`params`):

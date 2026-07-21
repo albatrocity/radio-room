@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import type { PluginFieldMeta } from "@repo/types/Plugin"
+import type { PluginActionElement, PluginConfigSchema, PluginFieldMeta } from "@repo/types/Plugin"
 import {
   shouldShow,
   emptyRow,
@@ -8,6 +8,8 @@ import {
   updateRow,
   moveRow,
   getItemJsonSchema,
+  getQuickAccessActions,
+  getQuickAccessSchema,
 } from "./logic"
 
 describe("shouldShow (nested scope)", () => {
@@ -101,5 +103,47 @@ describe("getItemJsonSchema (nested enum resolution)", () => {
   it("returns empty object when items are not described", () => {
     expect(getItemJsonSchema({ properties: { questions: {} } }, "questions")).toEqual({})
     expect(getItemJsonSchema({}, "missing")).toEqual({})
+  })
+})
+
+describe("getQuickAccessActions", () => {
+  const startAction: PluginActionElement = {
+    type: "action",
+    action: "startSession",
+    label: "Start",
+  }
+  const advanceAction: PluginActionElement = {
+    type: "action",
+    action: "advanceQuestion",
+    label: "Advance",
+  }
+  const endAction: PluginActionElement = {
+    type: "action",
+    action: "endSession",
+    label: "End",
+  }
+
+  const schema: PluginConfigSchema = {
+    jsonSchema: {},
+    layout: ["enabled", startAction, advanceAction, endAction],
+    fieldMeta: {
+      enabled: { type: "boolean", label: "Enable" },
+    },
+    quickAccess: ["advanceQuestion", "startSession", "missingAction"],
+  }
+
+  it("returns empty array when quickAccess is missing or empty", () => {
+    expect(getQuickAccessActions({ ...schema, quickAccess: undefined })).toEqual([])
+    expect(getQuickAccessActions({ ...schema, quickAccess: [] })).toEqual([])
+  })
+
+  it("returns actions in quickAccess order and skips unknown names", () => {
+    expect(getQuickAccessActions(schema)).toEqual([advanceAction, startAction])
+  })
+
+  it("builds a filtered schema for panel rendering", () => {
+    const filtered = getQuickAccessSchema(schema)
+    expect(filtered?.layout).toEqual([advanceAction, startAction])
+    expect(getQuickAccessSchema({ ...schema, quickAccess: ["nope"] })).toBeNull()
   })
 })
