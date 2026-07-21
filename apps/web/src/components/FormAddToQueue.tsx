@@ -1,19 +1,16 @@
 import { Stack, Text } from "@chakra-ui/react"
 import TrackSearch from "./TrackSearch"
-import { SingleValue } from "chakra-react-select"
 import { MetadataSourceTrack } from "@repo/types"
 
 type Props = {
   onAddToQueue: (track: MetadataSourceTrack) => void
   isDisabled?: boolean
-  onDropdownOpenChange: (isOpen: boolean) => void
+  onSearchActiveChange?: (isActive: boolean) => void
 }
 
-const FormAddToQueue = ({ onAddToQueue, isDisabled, onDropdownOpenChange }: Props) => {
-  const handleSelect = (track: SingleValue<MetadataSourceTrack>) => {
-    if (track) {
-      onAddToQueue(track)
-    }
+const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Props) => {
+  const handleSelect = (track: MetadataSourceTrack) => {
+    onAddToQueue(track)
   }
 
   return (
@@ -26,7 +23,7 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onDropdownOpenChange }: Prop
         onChoose={handleSelect}
         placeholder="Search for a track"
         disabled={isDisabled}
-        onDropdownOpenChange={onDropdownOpenChange}
+        onSearchActiveChange={onSearchActiveChange}
         autoFocus
       />
     </Stack>

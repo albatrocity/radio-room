@@ -17,7 +17,7 @@ import {
 
 function ModalAddToQueue() {
   const modalSend = useModalsSend()
-  const [open, setOpen] = useState(false)
+  const [searchActive, setSearchActive] = useState(false)
   const { addToQueue, state } = useAddToQueue()
   const isAddingToQueue = useIsModalOpen("queue")
   const isMetadataSourceAuthenticated = useIsMetadataSourceAuthenticated()
@@ -45,14 +45,16 @@ function ModalAddToQueue() {
     }
   }, [isAddingToQueue, isAdmin, primaryMetadataSourceId, currentUser?.userId, metadataAuthSend])
 
+  useEffect(() => {
+    if (!isAddingToQueue) {
+      setSearchActive(false)
+    }
+  }, [isAddingToQueue])
+
   const canViewSavedTracks = isAdmin && isMetadataSourceAuthenticated
 
   const isLoading = state.matches("loading")
   const loadingItem = isLoading ? state.context.queuedTrack : undefined
-
-  function handleOpenDropdown(isOpen: boolean) {
-    setOpen(isOpen)
-  }
 
   return (
     <Modal
@@ -65,34 +67,27 @@ function ModalAddToQueue() {
       }
     >
       <Stack direction="column" gap={8}>
-        <Box zIndex={2}>
+        <Box>
           <FormAddToQueue
             onAddToQueue={addToQueue}
             isDisabled={isLoading}
-            onDropdownOpenChange={handleOpenDropdown}
+            onSearchActiveChange={setSearchActive}
           />
         </Box>
-        {canViewSavedTracks && (
-          <Box>
-            <Box
-              position="absolute"
-              top={0}
-              left={0}
-              zIndex={1}
-              h="100%"
-              w="100%"
-              pointerEvents={open ? "auto" : "none"}
+        {canViewSavedTracks && !searchActive && (
+          <Box
+            opacity={searchActive ? 0.1 : isLoading ? 0.5 : 1}
+            transition="opacity 0.2s"
+            pointerEvents={searchActive ? "none" : "auto"}
+          >
+            <Heading as="h4" size="sm" mb={2}>
+              Your recently liked tracks
+            </Heading>
+            <SavedTracks
+              isDisabled={isLoading || searchActive}
+              loadingItem={loadingItem}
+              onClick={searchActive ? undefined : addToQueue}
             />
-            <Box opacity={open ? 0.1 : isLoading ? 0.5 : 1} transition="opacity 0.2s">
-              <Heading as="h4" size="sm" mb={2}>
-                Your recently liked tracks
-              </Heading>
-              <SavedTracks
-                isDisabled={isLoading || open}
-                loadingItem={loadingItem}
-                onClick={open ? undefined : addToQueue}
-              />
-            </Box>
           </Box>
         )}
       </Stack>
