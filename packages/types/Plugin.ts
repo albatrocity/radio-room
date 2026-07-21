@@ -176,6 +176,11 @@ export interface PluginConfigSchema {
   layout: (string | PluginSchemaElement | PluginActionElement)[]
   /** Field-specific UI hints not captured in JSON Schema */
   fieldMeta: Record<string, PluginFieldMeta>
+  /**
+   * Action names from `layout` to surface in room Quick Access admin panels (ADR 0072).
+   * Each entry must match a `type: "action"` layout element's `action` id.
+   */
+  quickAccess?: string[]
 }
 
 /**

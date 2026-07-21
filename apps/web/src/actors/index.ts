@@ -185,6 +185,13 @@ export {
   getLastPollChange,
 } from "./pollActor"
 
+// Quick Access Panels Actor
+export {
+  quickAccessPanelsActor,
+  getQuickAccessPanels,
+  getOpenQuickAccessPluginNames,
+} from "./quickAccessPanelsActor"
+
 // Room Lifecycle
 export {
   initializeRoom,

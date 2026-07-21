@@ -37,8 +37,15 @@ export type Event =
   | { type: "EDIT_ITEM_SHOPS" }
   | { type: "EDIT_QUEUE_PACER" }
   | { type: "EDIT_QUIZ_SESSIONS" }
+  | { type: "EDIT_VOLUME_MANAGER" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
+
+/** Jump to a settings section from any top-level modal state (admin only). */
+const openSettingsSection = (target: string) => ({
+  target: `.settings.${target}`,
+  guard: "isAdmin" as const,
+})
 
 export const modalsMachine = setup({
   types: {
@@ -71,6 +78,26 @@ export const modalsMachine = setup({
       target: ".settings",
       guard: "isAdmin",
     },
+    // Deep-link into settings sections / plugin pages (e.g. Quick Access → plugin config)
+    EDIT_CONTENT: openSettingsSection("content"),
+    EDIT_CHAT: openSettingsSection("chat"),
+    EDIT_DJ: openSettingsSection("dj"),
+    EDIT_SPOTIFY: openSettingsSection("spotify"),
+    EDIT_PASSWORD: openSettingsSection("password"),
+    EDIT_SCHEDULE: openSettingsSection("schedule"),
+    EDIT_GAME_SESSIONS: openSettingsSection("game_sessions"),
+    EDIT_POLLS: openSettingsSection("polls"),
+    EDIT_PLAYLIST_DEMOCRACY: openSettingsSection("playlist_democracy"),
+    EDIT_SPECIAL_WORDS: openSettingsSection("special_words"),
+    EDIT_ABSENT_DJ: openSettingsSection("absent_dj"),
+    EDIT_QUEUE_HYGIENE: openSettingsSection("queue_hygiene"),
+    EDIT_GUESS_THE_TUNE: openSettingsSection("guess_the_tune"),
+    EDIT_MUSIC_SHOP: openSettingsSection("music_shop"),
+    EDIT_LOYALTY_PROGRAM: openSettingsSection("loyalty_program"),
+    EDIT_ITEM_SHOPS: openSettingsSection("item_shops"),
+    EDIT_QUEUE_PACER: openSettingsSection("queue_pacer"),
+    EDIT_QUIZ_SESSIONS: openSettingsSection("quiz_sessions"),
+    EDIT_VOLUME_MANAGER: openSettingsSection("volume_manager"),
     VIEW_HELP: {
       target: ".help",
     },
@@ -109,31 +136,30 @@ export const modalsMachine = setup({
     settings: {
       entry: ["fetchSettings"],
       initial: "overview",
+      on: {
+        // Allow jumping between settings pages from any settings substate
+        EDIT_CONTENT: ".content",
+        EDIT_CHAT: ".chat",
+        EDIT_DJ: ".dj",
+        EDIT_SPOTIFY: ".spotify",
+        EDIT_PASSWORD: ".password",
+        EDIT_SCHEDULE: ".schedule",
+        EDIT_GAME_SESSIONS: ".game_sessions",
+        EDIT_POLLS: ".polls",
+        EDIT_PLAYLIST_DEMOCRACY: ".playlist_democracy",
+        EDIT_SPECIAL_WORDS: ".special_words",
+        EDIT_ABSENT_DJ: ".absent_dj",
+        EDIT_QUEUE_HYGIENE: ".queue_hygiene",
+        EDIT_GUESS_THE_TUNE: ".guess_the_tune",
+        EDIT_MUSIC_SHOP: ".music_shop",
+        EDIT_LOYALTY_PROGRAM: ".loyalty_program",
+        EDIT_ITEM_SHOPS: ".item_shops",
+        EDIT_QUEUE_PACER: ".queue_pacer",
+        EDIT_QUIZ_SESSIONS: ".quiz_sessions",
+        EDIT_VOLUME_MANAGER: ".volume_manager",
+      },
       states: {
-        overview: {
-          on: {
-            EDIT_CONTENT: "content",
-            EDIT_CHAT: "chat",
-            EDIT_DJ: "dj",
-            EDIT_SPOTIFY: "spotify",
-            EDIT_PASSWORD: "password",
-            EDIT_SCHEDULE: "schedule",
-            EDIT_GAME_SESSIONS: "game_sessions",
-            EDIT_POLLS: "polls",
-            // Plugin rows in Overview use EDIT_{NAME} (see toEventName); each needs a transition + substate below.
-            EDIT_PLAYLIST_DEMOCRACY: "playlist_democracy",
-            EDIT_SPECIAL_WORDS: "special_words",
-            EDIT_ABSENT_DJ: "absent_dj",
-            EDIT_QUEUE_HYGIENE: "queue_hygiene",
-            EDIT_GUESS_THE_TUNE: "guess_the_tune",
-            EDIT_MUSIC_SHOP: "music_shop",
-            EDIT_LOYALTY_PROGRAM: "loyalty_program",
-            EDIT_ITEM_SHOPS: "item_shops",
-            EDIT_QUEUE_PACER: "queue_pacer",
-            EDIT_QUIZ_SESSIONS: "quiz_sessions",
-            EDIT_VOLUME_MANAGER: "volume_manager",
-          },
-        },
+        overview: {},
         playlist_democracy: {
           on: {
             BACK: "overview",

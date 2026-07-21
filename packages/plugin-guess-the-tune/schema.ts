@@ -326,5 +326,6 @@ export function getConfigSchema(): PluginConfigSchema {
         showWhen: { field: "enabled", value: true },
       },
     },
+    quickAccess: ["revealTitle", "revealArtist", "revealAlbum", "revealAll", "resetLeaderboard"],
   }
 }
