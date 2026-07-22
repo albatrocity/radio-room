@@ -794,6 +794,62 @@ export class DJHandlers {
       })
     }
   }
+
+  linkMediaBridge = async ({ socket }: HandlerConnections) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.djService.linkMediaBridge(roomId, userId)
+
+      if (!result.success) {
+        socket.emit("event", {
+          type: "LINK_MEDIA_BRIDGE_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "LINK_MEDIA_BRIDGE_SUCCESS",
+        data: { daemonId: result.daemonId, roomId: result.roomId },
+      })
+    } catch (error: any) {
+      console.error("Error linking Media Bridge:", error)
+      socket.emit("event", {
+        type: "LINK_MEDIA_BRIDGE_FAILURE",
+        data: { message: error?.message || "Failed to link Media Bridge" },
+      })
+    }
+  }
+
+  getMediaBridgeStatus = async ({ socket }: HandlerConnections) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.djService.getMediaBridgeStatus(roomId, userId)
+
+      if (!result.success) {
+        socket.emit("event", {
+          type: "MEDIA_BRIDGE_STATUS_CHANGED",
+          data: { roomId, connected: false, message: result.message },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "MEDIA_BRIDGE_STATUS_CHANGED",
+        data: { roomId: result.roomId, connected: result.connected },
+      })
+    } catch (error: any) {
+      console.error("Error getting Media Bridge status:", error)
+      socket.emit("event", {
+        type: "MEDIA_BRIDGE_STATUS_CHANGED",
+        data: {
+          roomId: socket.data.roomId,
+          connected: false,
+          message: error?.message || "Failed to get Media Bridge status",
+        },
+      })
+    }
+  }
 }
 
 /**

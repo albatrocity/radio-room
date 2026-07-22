@@ -85,6 +85,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0077](0077-bridge-daemon-local-control-ui.md) | Bridge daemon local control UI (room discovery + config) | Accepted |
 | [0078](0078-now-playing-seek-and-volume-transport.md) | Now Playing seek and volume transport controls | Partially superseded by [0079](0079-volume-ui-via-volume-manager-plugin.md) |
 | [0079](0079-volume-ui-via-volume-manager-plugin.md) | Live volume UI via Volume Manager plugin | Accepted |
+| [0080](0080-media-bridge-link-via-redis-pubsub.md) | Media Bridge link via Redis Pub/Sub | Accepted |
+| [0081](0081-media-bridge-connection-status-to-clients.md) | Media Bridge connection status to clients | Accepted |
 
 ## Creating a New ADR
 

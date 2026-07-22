@@ -6,8 +6,9 @@ import {
 } from "./protocol"
 
 /**
- * Refresh the room creator's Spotify access token and publish it for the
- * bridge daemon's Web Playback SDK host.
+ * Copy the room creator's current Spotify access token into the bridge mailbox.
+ * Same auth record search/playback use (`user:{creator}:auth:spotify`) — Redis
+ * `bridge:{roomId}:spotify_token` is only how the daemon receives it.
  */
 export async function provisionSpotifyTokenForRoom(params: {
   context: AppContext
@@ -30,8 +31,8 @@ export async function provisionSpotifyTokenForRoom(params: {
     return null
   }
 
-  // Prefer a still-fresh stored token. Always-refreshing races with other
-  // refreshers when Spotify rotates refresh tokens.
+  // Same freshness rules as other Spotify API paths: reuse if still fresh,
+  // otherwise refreshAuth (coalesced) so we don't fight search/playback.
   const stored = await context.data?.getUserServiceAuth?.({
     userId: room.creator,
     serviceName: "spotify",
@@ -60,7 +61,7 @@ export async function provisionSpotifyTokenForRoom(params: {
   await context.redis.pubClient.set(spotifyTokenKey(roomId), accessToken, {
     EX: BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
   })
-  console.log(`[bridge-spotify-token] provisioned token for room ${roomId}`)
+  console.log(`[bridge-spotify-token] provisioned creator token for room ${roomId}`)
   return accessToken
 }
 

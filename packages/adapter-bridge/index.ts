@@ -12,25 +12,44 @@ import {
 import { createBridgeAdvanceJob } from "./lib/bridgeAdvance"
 import { createBridgePlaybackApi } from "./lib/playbackControllerApi"
 import { BridgeRpcClient } from "./lib/rpcClient"
+import {
+  dropMediaBridgeStatusWire,
+  wireMediaBridgeStatusBroadcast,
+} from "./lib/wireMediaBridgeStatus"
 
 export {
   bridgeRequestSchema,
   bridgeResponseSchema,
   bridgeEventSchema,
+  bridgeControlMessageSchema,
+  bridgeDaemonPresenceSchema,
   lastEndedKey,
   spotifyTokenKey,
   spotifyDeviceKey,
 } from "./lib/protocol"
-export type { BridgeRequest, BridgeResponse, BridgeEvent, BridgeSource } from "./lib/protocol"
+export type {
+  BridgeRequest,
+  BridgeResponse,
+  BridgeEvent,
+  BridgeSource,
+  BridgeControlMessage,
+  BridgeDaemonPresence,
+} from "./lib/protocol"
 export {
   requestChannel,
   responseChannel,
   eventChannel,
+  controlChannel,
   presenceKey,
+  daemonPresenceKey,
+  daemonsSetKey,
   BRIDGE_RPC_TIMEOUT_MS,
   BRIDGE_PRESENCE_TTL_SEC,
+  BRIDGE_DAEMON_PRESENCE_TTL_SEC,
   BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
 } from "./lib/protocol"
+export { requestBridgeLink, listOnlineBridgeDaemons } from "./lib/requestBridgeLink"
+export type { RequestBridgeLinkResult } from "./lib/requestBridgeLink"
 export { parseBridgeMediaId } from "./lib/parseBridgeMediaId"
 export { youtubeMetadataSource, createYoutubeMetadataApi } from "./lib/youtubeMetadata"
 export { localMetadataSource, registerLocalMetadataForRoom } from "./lib/localMetadata"
@@ -99,6 +118,7 @@ export const playbackController: PlaybackControllerAdapter = {
     const redis = context.redis.pubClient
     const capability = getOrCreateCapabilityCache(redis, roomId)
     await capability.start()
+    wireMediaBridgeStatusBroadcast({ context, roomId, capability })
 
     // Ensure Spotify SDK token provisioning is live even if the controller
     // was cached from a prior register without the wire-up.
@@ -144,6 +164,7 @@ export const playbackController: PlaybackControllerAdapter = {
     }
     const { dropSpotifyTokenProvisioning } = await import("./lib/spotifyTokenProvisioner")
     dropSpotifyTokenProvisioning(roomId)
+    dropMediaBridgeStatusWire(roomId)
     dropCapabilityCache(roomId)
   },
 }
@@ -171,6 +192,7 @@ export async function registerBridgeForRoom(params: {
   const activeSource = new ActiveSourceStore(redis, roomId)
   const capability = getOrCreateCapabilityCache(redis, roomId)
   await capability.start()
+  wireMediaBridgeStatusBroadcast({ context, roomId, capability })
 
   const { wireSpotifyTokenProvisioning } = await import("./lib/spotifyTokenProvisioner")
   wireSpotifyTokenProvisioning({

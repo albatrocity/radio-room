@@ -942,6 +942,25 @@ function wireSocketHandlers(io: IOServer): void {
       })
     })
 
+    socket.on("LINK_MEDIA_BRIDGE", () => {
+      // Sandbox has no Redis bridge daemon — simulate success for UI wiring.
+      socket.emit("event", {
+        type: "LINK_MEDIA_BRIDGE_SUCCESS",
+        data: { daemonId: "studio-bridge", roomId: socket.data.roomId ?? null },
+      })
+      socket.emit("event", {
+        type: "MEDIA_BRIDGE_STATUS_CHANGED",
+        data: { roomId: socket.data.roomId, connected: true },
+      })
+    })
+
+    socket.on("GET_MEDIA_BRIDGE_STATUS", () => {
+      socket.emit("event", {
+        type: "MEDIA_BRIDGE_STATUS_CHANGED",
+        data: { roomId: socket.data.roomId, connected: false },
+      })
+    })
+
     socket.on("CAST_POLL_VOTE", async (data: { pollId?: string; optionId?: string }) => {
       const roomId = socket.data.roomId as string | undefined
       const userId = socket.data.userId as string | undefined

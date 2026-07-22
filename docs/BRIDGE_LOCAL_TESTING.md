@@ -106,24 +106,30 @@ Restart the API after env / adapter registration changes so `@repo/adapter-bridg
 
 ## 5. Start the daemon
 
-**Recommended:** local control UI (room picker + full config editor):
+**Recommended:** local control UI + **Redis standby** (required for **Link to Media Bridge** from the web app — [ADR 0080](adrs/0080-media-bridge-link-via-redis-pubsub.md)):
 
 ```bash
 npm run serve -w bridge-daemon
 # open http://127.0.0.1:18766/
 ```
 
-Pick a room marked **bridge** (listed from Redis — no copy/paste). Edit `redisUrl`, services, Chrome/Tidal/Navidrome/mpv paths, Now Playing path, etc., then **Save config**. Connect/disconnect from the Session / Rooms sections.
+`serve` keeps a Redis connection and listens on `BRIDGE:CONTROL` even before a room is connected. From any admin browser (not only the DJ Mac), open the bridge room → Admin → **Link to Media Bridge**. That publishes a Redis link request; the standby daemon connects and ACKs.
+
+If no daemon is in standby, the button shows: *No Media Bridge is online…* Start `serve` with `redisUrl` aimed at the same Redis as the API.
+
+Pick a room marked **bridge** in the local UI (listed from Redis — no copy/paste), or use the web **Link** button. Edit `redisUrl`, services, Chrome/Tidal/Navidrome/mpv paths, Now Playing path, etc., then **Save config**. Connect/disconnect from the Session / Rooms sections.
 
 CLI alternatives:
 
 ```bash
 npm run rooms -w bridge-daemon          # list rooms from Redis
 npm run connect -w bridge-daemon -- --room YOUR_ROOM_ID
-npm run connect -w bridge-daemon -- --room YOUR_ROOM_ID --ui   # connect + UI
+npm run connect -w bridge-daemon -- --room YOUR_ROOM_ID --ui   # connect + UI + standby
 ```
 
-Leave the process running. You should see connected drivers listed.
+Note: plain `connect` **without** `--ui` does **not** listen for web Link requests.
+
+Leave the process running. You should see connected drivers listed (and `[standby] listening on BRIDGE:CONTROL`).
 
 First Chrome launch uses a dedicated profile under `~/.config/listening-room-bridge/chrome-profile`. Sign into **YouTube Premium** in that window (avoids ads on the broadcast).
 
@@ -164,6 +170,7 @@ Post-show publish still creates Spotify/Tidal playlists from `metadataSources` I
 | Stream metadata is ` \| \| ` | File must be `Title:`/`Artist:`/`Album:` lines (not `{title} \| {artist}`). Put the pipe format in AH Title Format. |
 | YouTube “Video unavailable” hangs | Reconnect daemon (error/watchdog → ENDED → auto-advance). Some videos can’t embed; they’ll skip. |
 | Spotify SDK `TOKEN_REQUEST` loops / auth failed | Restart API so bridge `onRoomCreated` wires token provisioning; re-link Spotify for `streaming` scope (refresh alone does not add scopes); Premium required; check API logs for `[bridge-spotify-token]` |
+| Spotify SDK stuck on “Connecting…” / CORS on `track-playback` | Daemon relaunches bridge Chrome with site-isolation off + CDP preflight fix. Look for `[chrome] Launched … (bridge profile, SDK flags)` and `fulfilling track-playback CORS preflight`, then `ready device_id=`. |
 | Spotify still needs Spotify.app | Remove `"spotify"` from daemon `services` to use legacy Connect, or verify `bridge:{room}:spotify_device` exists in Redis |
 
 ## Out of scope (this build)

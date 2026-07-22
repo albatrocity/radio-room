@@ -27,3 +27,10 @@ Operators previously had to copy room ids into `bridge-daemon connect --room …
 - Room list only includes rooms present in the connected Redis (correct for local Docker; operators must point `redisUrl` at production Redis to see prod rooms).
 - Changing `httpListen` requires restarting `serve` to rebind.
 - Bind is localhost-only by default; do not expose the control UI on a public interface.
+- **Room link from Listening Room web** uses Redis `BRIDGE:CONTROL` ([ADR 0080](0080-media-bridge-link-via-redis-pubsub.md)), not this localhost HTTP API. The local UI remains for config and on-box room picking.
+
+## See also
+
+- [0080](0080-media-bridge-link-via-redis-pubsub.md) — admin Link to Media Bridge over Redis
+- [0075](0075-bridge-composite-playback-controller.md) — bridge playback controller
+

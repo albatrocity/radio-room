@@ -925,6 +925,105 @@ export class DJService {
   }
 
   /**
+   * Ask an online Media Bridge daemon to connect to this room (Redis BRIDGE:CONTROL).
+   * Room admin + playbackControllerId === "bridge" only.
+   */
+  async linkMediaBridge(roomId: string, userId: string) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+
+    const allowed = await isRoomAdmin({
+      context: this.context,
+      roomId,
+      userId,
+      roomCreator: room.creator,
+    })
+    if (!allowed) {
+      return { success: false as const, message: "Not authorized to link Media Bridge" }
+    }
+
+    if (room.playbackControllerId !== "bridge") {
+      return {
+        success: false as const,
+        message: "This room is not configured to use the Media Bridge",
+      }
+    }
+
+    try {
+      const { requestBridgeLink } = await import("@repo/adapter-bridge")
+      const result = await requestBridgeLink({
+        redis: this.context.redis.pubClient as any,
+        roomId,
+      })
+      if (!result.ok) {
+        return { success: false as const, message: result.error }
+      }
+      try {
+        const { publishMediaBridgeStatus } = await import(
+          "@repo/server/operations/bridge/publishMediaBridgeStatus"
+        )
+        await publishMediaBridgeStatus({
+          context: this.context,
+          roomId,
+          connected: true,
+        })
+      } catch (e) {
+        console.warn("[DJService.linkMediaBridge] status publish failed:", e)
+      }
+      return {
+        success: true as const,
+        daemonId: result.daemonId,
+        roomId: result.roomId,
+      }
+    } catch (e) {
+      console.error("[DJService.linkMediaBridge] failed:", e)
+      return {
+        success: false as const,
+        message: "Failed to link Media Bridge",
+      }
+    }
+  }
+
+  /**
+   * Room-scoped Media Bridge presence (daemon connected to this room).
+   */
+  async getMediaBridgeStatus(roomId: string, userId: string) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+
+    const allowed = await isRoomAdmin({
+      context: this.context,
+      roomId,
+      userId,
+      roomCreator: room.creator,
+    })
+    if (!allowed) {
+      return { success: false as const, message: "Not authorized" }
+    }
+
+    if (room.playbackControllerId !== "bridge") {
+      return {
+        success: true as const,
+        connected: false,
+        roomId,
+      }
+    }
+
+    const { readMediaBridgeConnected } = await import(
+      "@repo/server/operations/bridge/publishMediaBridgeStatus"
+    )
+    const connected = await readMediaBridgeConnected({
+      context: this.context,
+      roomId,
+    })
+    return { success: true as const, connected, roomId }
+  }
+
+  /**
    * App-controlled: pause when playing; when paused, resume mid-track or start the next
    * queued track if the previous song has finished. Room creator or room admin only.
    */

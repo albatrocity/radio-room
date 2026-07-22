@@ -45,11 +45,16 @@ export class StaticHost {
       }
 
       const body = readFileSync(filePath)
-      res.writeHead(200, {
+      const headers: Record<string, string> = {
         "Content-Type": MIME[extname(filePath)] ?? "application/octet-stream",
         "Referrer-Policy": "strict-origin-when-cross-origin",
         "Cache-Control": "no-store",
-      })
+      }
+      // Web Playback SDK iframe needs encrypted-media + autoplay (Chrome Feature Policy).
+      if (rel.endsWith("spotify.html") || rel === "/spotify.html") {
+        headers["Permissions-Policy"] = "encrypted-media=*, autoplay=*"
+      }
+      res.writeHead(200, headers)
       res.end(body)
     })
 
@@ -63,8 +68,14 @@ export class StaticHost {
     this.server = null
     this.port = null
     if (!server) return
+    // Drop keep-alive Chrome tabs immediately so close() does not hang.
+    server.closeAllConnections?.()
     await new Promise<void>((resolve) => {
-      server.close(() => resolve())
+      const timer = setTimeout(() => resolve(), 2000)
+      server.close(() => {
+        clearTimeout(timer)
+        resolve()
+      })
     })
   }
 }

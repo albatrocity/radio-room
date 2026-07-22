@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { z } from "zod"
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
@@ -9,6 +10,8 @@ export const DEFAULT_HTTP_LISTEN = "127.0.0.1:18766"
 export const bridgeDaemonConfigSchema = z.object({
   redisUrl: z.string().default("redis://127.0.0.1:6379"),
   defaultRoomId: z.string().optional(),
+  /** Stable id for Redis standby presence / LINK_ACK (generated once). */
+  daemonId: z.string().optional(),
   /** Local HTTP control UI bind address (`host:port`). */
   httpListen: z.string().default(DEFAULT_HTTP_LISTEN),
   services: z
@@ -72,6 +75,14 @@ export function loadConfig(): BridgeDaemonConfig {
   }
   const raw = JSON.parse(readFileSync(path, "utf8"))
   return bridgeDaemonConfigSchema.parse(raw)
+}
+
+/** Ensure daemonId exists and is persisted for standby presence. */
+export function ensureDaemonId(config: BridgeDaemonConfig): BridgeDaemonConfig {
+  if (config.daemonId) return config
+  const next = { ...config, daemonId: randomUUID() }
+  saveConfig(next)
+  return next
 }
 
 export function saveConfig(config: BridgeDaemonConfig): void {

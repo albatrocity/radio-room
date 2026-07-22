@@ -1,4 +1,4 @@
-import type { Page } from "puppeteer-core"
+import type { CDPSession, Page } from "puppeteer-core"
 import type { RedisClientType } from "redis"
 import {
   BRIDGE_SPOTIFY_DEVICE_NAME,
@@ -26,6 +26,10 @@ export class SpotifyDeviceHost {
   private deviceId: string | null = null
   private bridgesExposed = false
   private stopped = false
+  private authRecoveryInFlight = false
+  /** Coalesce concurrent getOAuthToken / TOKEN_REQUEST polls. */
+  private tokenFetchInFlight: Promise<string> | null = null
+  private fetchSession: CDPSession | null = null
 
   constructor(
     private readonly chrome: ChromeManager,
@@ -40,15 +44,23 @@ export class SpotifyDeviceHost {
     const url = `${baseUrl}/spotify.html`
     this.page = await this.chrome.getOrCreatePage("spotify")
     await this.attachBridges()
+    await this.installTrackPlaybackCorsFix()
 
+    await this.page.bringToFront().catch(() => {})
     await this.page.goto(url, { waitUntil: "domcontentloaded" })
+    await this.page.bringToFront().catch(() => {})
+    // Synthetic focus so autoplay / SDK client-token paths are less likely to stall.
+    await this.page
+      .click("body")
+      .catch(() => this.page?.mouse.click(8, 8).catch(() => {}))
+
     // If SDK was already ready before expose, kick boot
     await this.page
       .evaluate(() => {
         // @ts-expect-error page context
         if (window.Spotify && typeof window.__spotifyCreatePlayer === "function") {
           // @ts-expect-error page context
-          window.__bridgeSpotifyBoot?.()
+          window.onSpotifyWebPlaybackSDKReady?.()
         }
       })
       .catch(() => {})
@@ -63,6 +75,7 @@ export class SpotifyDeviceHost {
     this.stopped = true
     if (this.watchdog) clearInterval(this.watchdog)
     this.watchdog = null
+    await this.teardownTrackPlaybackCorsFix()
     try {
       await this.redis.del(spotifyDeviceKey(this.roomId))
     } catch {
@@ -204,13 +217,152 @@ export class SpotifyDeviceHost {
     return readyId
   }
 
-  private async fetchAccessToken(): Promise<string> {
-    const key = spotifyTokenKey(this.roomId)
-    let token = await this.redis.get(key)
-    if (token) {
-      console.log(`[spotify-device] using cached token (${token.length} chars) for room ${this.roomId}`)
-      return token
+  /**
+   * Spotify's api.spotify.com CORS is inconsistent for the Web Playback SDK
+   * iframe (sdk.scdn.co): OPTIONS often omits `authorization`, and some
+   * responses omit ACAO in the browser path. Patch both stages via CDP.
+   *
+   * Requires Chrome launched with site-isolation disabled so the sdk.scdn.co
+   * iframe shares the page target (see ChromeManager flags).
+   */
+  private async installTrackPlaybackCorsFix(): Promise<void> {
+    if (!this.page || this.fetchSession) return
+    const client = await this.page.createCDPSession()
+    this.fetchSession = client
+
+    await client.send("Fetch.enable", {
+      patterns: [
+        { urlPattern: "*://api.spotify.com/*", requestStage: "Request" },
+        { urlPattern: "*://api.spotify.com/*", requestStage: "Response" },
+      ],
+    })
+
+    client.on("Fetch.requestPaused", (event) => {
+      void this.onSpotifyApiFetchPaused(client, event)
+    })
+    console.log("[spotify-device] CDP CORS fix enabled for api.spotify.com (request+response)")
+  }
+
+  private async onSpotifyApiFetchPaused(
+    client: CDPSession,
+    event: {
+      requestId: string
+      request: { url: string; method: string; headers: Record<string, string> }
+      responseStatusCode?: number
+      responseHeaders?: Array<{ name: string; value: string }>
+    },
+  ): Promise<void> {
+    const { requestId, request } = event
+    try {
+      // Response stage: ensure the SDK can read the body.
+      if (typeof event.responseStatusCode === "number") {
+        const status = event.responseStatusCode
+        // Don't rewrite redirect responses.
+        if (status >= 300 && status < 400) {
+          await client.send("Fetch.continueResponse", { requestId })
+          return
+        }
+        const origin =
+          request.headers["Origin"] ||
+          request.headers["origin"] ||
+          "https://sdk.scdn.co"
+        const headers = [...(event.responseHeaders ?? [])]
+        const lower = new Set(headers.map((h) => h.name.toLowerCase()))
+        if (!lower.has("access-control-allow-origin")) {
+          headers.push({ name: "Access-Control-Allow-Origin", value: origin })
+        }
+        if (!lower.has("access-control-allow-credentials")) {
+          headers.push({ name: "Access-Control-Allow-Credentials", value: "true" })
+        }
+        // CDP requires responseCode when headers are overridden.
+        await client.send("Fetch.continueResponse", {
+          requestId,
+          responseCode: status,
+          responseHeaders: headers,
+        })
+        return
+      }
+
+      if (request.method === "OPTIONS") {
+        const origin =
+          request.headers["Origin"] ||
+          request.headers["origin"] ||
+          "https://sdk.scdn.co"
+        const requested =
+          request.headers["Access-Control-Request-Headers"] ||
+          request.headers["access-control-request-headers"] ||
+          "authorization,content-type,accept,client-token,origin"
+        console.log(
+          `[spotify-device] fulfilling Spotify API CORS preflight ${request.url.replace(/^https?:\/\/api\.spotify\.com/, "")}`,
+        )
+        await client.send("Fetch.fulfillRequest", {
+          requestId,
+          responseCode: 204,
+          responseHeaders: [
+            { name: "Access-Control-Allow-Origin", value: origin },
+            { name: "Access-Control-Allow-Credentials", value: "true" },
+            { name: "Access-Control-Allow-Methods", value: "GET,POST,PUT,DELETE,OPTIONS" },
+            { name: "Access-Control-Allow-Headers", value: requested },
+            { name: "Access-Control-Max-Age", value: "86400" },
+            { name: "Content-Length", value: "0" },
+          ],
+        })
+        return
+      }
+
+      // Pause response too so we can inject ACAO if Spotify omits it.
+      await client.send("Fetch.continueRequest", {
+        requestId,
+        interceptResponse: true,
+      })
+    } catch (e) {
+      console.warn("[spotify-device] Fetch intercept error:", e)
+      try {
+        if (typeof event.responseStatusCode === "number") {
+          await client.send("Fetch.continueResponse", { requestId })
+        } else {
+          await client.send("Fetch.continueRequest", { requestId })
+        }
+      } catch {
+        /* ignore */
+      }
     }
+  }
+
+  private async teardownTrackPlaybackCorsFix(): Promise<void> {
+    if (!this.fetchSession) return
+    try {
+      await this.fetchSession.send("Fetch.disable")
+    } catch {
+      /* ignore */
+    }
+    try {
+      await this.fetchSession.detach()
+    } catch {
+      /* ignore */
+    }
+    this.fetchSession = null
+  }
+
+  /**
+   * Ask the API for the room creator's current Spotify access token (same store
+   * search/playback use). Redis is only a short-lived mailbox — never reuse a
+   * cached copy without a fresh TOKEN_REQUEST, or search can refresh while the
+   * SDK keeps a revoked token.
+   */
+  private async fetchAccessToken(_opts?: { forceRefresh?: boolean }): Promise<string> {
+    if (this.tokenFetchInFlight) return this.tokenFetchInFlight
+
+    this.tokenFetchInFlight = this.requestTokenFromApi().finally(() => {
+      this.tokenFetchInFlight = null
+    })
+    return this.tokenFetchInFlight
+  }
+
+  private async requestTokenFromApi(): Promise<string> {
+    const key = spotifyTokenKey(this.roomId)
+    // Drop mailbox so we cannot observe a pre-request stale value.
+    await this.redis.del(key).catch(() => {})
 
     await this.redis.publish(
       eventChannel(this.roomId),
@@ -220,16 +372,16 @@ export class SpotifyDeviceHost {
 
     for (let i = 0; i < TOKEN_POLL_ATTEMPTS; i++) {
       await new Promise((r) => setTimeout(r, TOKEN_POLL_MS))
-      token = await this.redis.get(key)
+      const token = await this.redis.get(key)
       if (token) {
         console.log(
-          `[spotify-device] token arrived after TOKEN_REQUEST (${token.length} chars) room=${this.roomId}`,
+          `[spotify-device] token from API (${token.length} chars) room=${this.roomId}`,
         )
         return token
       }
     }
     console.error(
-      `[spotify-device] TOKEN_REQUEST timed out for room ${this.roomId} — is the API running with bridge onRoomCreated for this room?`,
+      `[spotify-device] TOKEN_REQUEST timed out for room ${this.roomId} — is the API running with bridge token provisioning for this room?`,
     )
     throw new Error("Spotify access token not available (TOKEN_REQUEST timed out)")
   }
@@ -240,8 +392,10 @@ export class SpotifyDeviceHost {
       if (!this.page || this.page.isClosed()) {
         console.warn("[spotify-device] page closed — recreating")
         this.bridgesExposed = false
+        await this.teardownTrackPlaybackCorsFix()
         this.page = await this.chrome.getOrCreatePage("spotify")
         await this.attachBridges()
+        await this.installTrackPlaybackCorsFix()
         await this.page.goto(url, { waitUntil: "domcontentloaded" })
         return
       }
@@ -267,8 +421,29 @@ export class SpotifyDeviceHost {
     }
   }
 
+  private async recoverFromAuthError(url: string): Promise<void> {
+    if (this.stopped || this.authRecoveryInFlight || !this.page || this.page.isClosed()) return
+    this.authRecoveryInFlight = true
+    try {
+      console.warn(
+        "[spotify-device] authentication_error — re-requesting creator token from API and reloading SDK page",
+      )
+      this.deviceId = null
+      await this.redis.del(spotifyDeviceKey(this.roomId)).catch(() => {})
+      await this.fetchAccessToken().catch((e) => {
+        console.error("[spotify-device] token re-request before reload failed:", e)
+      })
+      await this.page.goto(url, { waitUntil: "domcontentloaded" }).catch(() => {})
+    } finally {
+      this.authRecoveryInFlight = false
+    }
+  }
+
   private async attachBridges(): Promise<void> {
     if (!this.page || this.bridgesExposed) return
+    const baseUrl = await this.host.start()
+    const url = `${baseUrl}/spotify.html`
+
     await this.page.exposeFunction("__bridgeGetSpotifyToken", () => this.fetchAccessToken())
     await this.page.exposeFunction("__bridgeSpotifyReady", (deviceId: string) => {
       void this.onReady(deviceId)
@@ -284,6 +459,7 @@ export class SpotifyDeviceHost {
           console.error(
             "[spotify-device] Hint: room creator must re-link Spotify so the token includes the `streaming` scope (Premium required).",
           )
+          void this.recoverFromAuthError(url)
         }
       },
     )
@@ -291,7 +467,7 @@ export class SpotifyDeviceHost {
       void this.page
         ?.evaluate(() => {
           // @ts-expect-error page context
-          return window.__spotifyCreatePlayer?.()
+          return window.onSpotifyWebPlaybackSDKReady?.()
         })
         .catch((e) => console.error("[spotify-device] boot failed:", e))
     })

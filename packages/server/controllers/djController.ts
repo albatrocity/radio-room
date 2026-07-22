@@ -157,6 +157,14 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
   socket.on("SET_PLAYBACK_VOLUME", async (payload: { volumePercent: number }) => {
     await handlers.setPlaybackVolume(connections, payload)
   })
+
+  socket.on("LINK_MEDIA_BRIDGE", async () => {
+    await handlers.linkMediaBridge(connections)
+  })
+
+  socket.on("GET_MEDIA_BRIDGE_STATUS", async () => {
+    await handlers.getMediaBridgeStatus(connections)
+  })
 }
 
 /**

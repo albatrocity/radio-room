@@ -19,39 +19,38 @@
   <body>
     <h1>Listening Room Bridge</h1>
     <p>Spotify Web Playback SDK device host. Keep this tab open while the bridge is connected.</p>
-    <div id="status">Loading SDK…</div>
-    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <div id="status">Waiting for bridge…</div>
     <script>
       ;(function () {
         var statusEl = document.getElementById("status")
+        var warmedToken = null
+        var connectTimer = null
+
         function setStatus(msg) {
           statusEl.textContent = msg
           console.log("[spotify-sdk]", msg)
         }
 
-        window.onSpotifyWebPlaybackSDKReady = function () {
-          if (typeof window.__bridgeSpotifyBoot !== "function") {
-            setStatus("Waiting for bridge daemon bridge…")
-            var tries = 0
-            var t = setInterval(function () {
-              tries++
-              if (typeof window.__bridgeSpotifyBoot === "function") {
-                clearInterval(t)
-                window.__bridgeSpotifyBoot()
-              } else if (tries > 50) {
-                clearInterval(t)
-                setStatus("Bridge daemon did not attach (__bridgeSpotifyBoot missing)")
-              }
-            }, 200)
-            return
+        function clearConnectTimer() {
+          if (connectTimer) {
+            clearTimeout(connectTimer)
+            connectTimer = null
           }
-          window.__bridgeSpotifyBoot()
         }
 
         window.__spotifyCreatePlayer = function () {
+          if (typeof Spotify === "undefined" || !Spotify.Player) {
+            setStatus("Spotify SDK not loaded")
+            return false
+          }
+
           var player = new Spotify.Player({
             name: "Listening Room Bridge",
             getOAuthToken: function (cb) {
+              if (warmedToken) {
+                cb(warmedToken)
+                return
+              }
               if (typeof window.__bridgeGetSpotifyToken !== "function") {
                 setStatus("Token bridge missing")
                 cb("")
@@ -60,7 +59,8 @@
               window
                 .__bridgeGetSpotifyToken()
                 .then(function (token) {
-                  cb(token || "")
+                  warmedToken = token || ""
+                  cb(warmedToken)
                 })
                 .catch(function (err) {
                   setStatus("Token error: " + (err && err.message ? err.message : err))
@@ -71,9 +71,8 @@
           })
 
           player.addListener("ready", function (state) {
+            clearConnectTimer()
             setStatus("Ready — device_id=" + state.device_id)
-            // Browser autoplay policy: activate after connect so the device
-            // can accept Web API transfer/play without a human gesture.
             try {
               if (typeof player.activateElement === "function") {
                 player.activateElement()
@@ -94,19 +93,27 @@
           })
 
           player.addListener("initialization_error", function (e) {
+            clearConnectTimer()
             setStatus("initialization_error: " + e.message)
             if (typeof window.__bridgeSpotifyError === "function") {
               window.__bridgeSpotifyError("initialization_error", e.message)
             }
           })
           player.addListener("authentication_error", function (e) {
-            setStatus("authentication_error: " + e.message)
+            clearConnectTimer()
+            warmedToken = null
+            setStatus(
+              "authentication_error: " +
+                e.message +
+                "\n(Re-link Spotify on the room creator if streaming scope is missing.)",
+            )
             if (typeof window.__bridgeSpotifyError === "function") {
               window.__bridgeSpotifyError("authentication_error", e.message)
             }
           })
           player.addListener("account_error", function (e) {
-            setStatus("account_error: " + e.message)
+            clearConnectTimer()
+            setStatus("account_error: " + e.message + " (Premium required for Web Playback SDK)")
             if (typeof window.__bridgeSpotifyError === "function") {
               window.__bridgeSpotifyError("account_error", e.message)
             }
@@ -115,14 +122,71 @@
             setStatus("playback_error: " + e.message)
           })
 
+          setStatus("Connecting Spotify player…")
+          connectTimer = setTimeout(function () {
+            setStatus(
+              "Still connecting after 20s.\n" +
+                "Token is usually fine if search works — this is often Chrome blocking the SDK iframe (sdk.scdn.co).\n" +
+                "Quit the bridge Chrome completely (not just the tab), restart bridge-daemon serve, and retry.\n" +
+                "CORS on api.spotify.com/track-playback means the SDK failed to get a client-token.",
+            )
+          }, 20000)
+
           player.connect().then(function (ok) {
-            if (!ok) setStatus("player.connect() returned false")
+            if (!ok) {
+              clearConnectTimer()
+              setStatus("player.connect() returned false")
+            }
           })
 
           window.__spotifyPlayer = player
           return true
         }
+
+        window.__bridgeSpotifyBoot = window.__bridgeSpotifyBoot || null
+
+        window.onSpotifyWebPlaybackSDKReady = function () {
+          function run() {
+            if (typeof window.__bridgeGetSpotifyToken !== "function") {
+              setStatus("Waiting for bridge daemon…")
+              var tries = 0
+              var t = setInterval(function () {
+                tries++
+                if (typeof window.__bridgeGetSpotifyToken === "function") {
+                  clearInterval(t)
+                  boot()
+                } else if (tries > 50) {
+                  clearInterval(t)
+                  setStatus("Bridge daemon did not attach (__bridgeGetSpotifyToken missing)")
+                }
+              }, 200)
+              return
+            }
+            boot()
+          }
+
+          function boot() {
+            setStatus("Fetching Spotify token…")
+            window
+              .__bridgeGetSpotifyToken()
+              .then(function (token) {
+                warmedToken = token || ""
+                if (!warmedToken) {
+                  setStatus("Empty Spotify token from API")
+                  return
+                }
+                setStatus("Creating Spotify player…")
+                window.__spotifyCreatePlayer()
+              })
+              .catch(function (err) {
+                setStatus("Token error: " + (err && err.message ? err.message : err))
+              })
+          }
+
+          run()
+        }
       })()
     </script>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
   </body>
 </html>

@@ -1,6 +1,7 @@
 import React from "react"
-import { Field, NativeSelect } from "@chakra-ui/react"
+import { Field, NativeSelect, Stack } from "@chakra-ui/react"
 import FieldSelect from "./Fields/FieldSelect"
+import LinkMediaBridgeButton from "./LinkMediaBridgeButton"
 
 export type PlaybackControllerOption = "spotify" | "bridge"
 
@@ -39,30 +40,36 @@ export default function PlaybackControllerSelect(props: Props) {
   const controlledOnChange = "onChange" in props ? props.onChange : undefined
 
   return (
-    <Field.Root>
-      <Field.Label htmlFor={props.name ?? "playbackControllerId"}>Playback controller</Field.Label>
-      {controlledOnChange ? (
-        <NativeSelect.Root>
-          <NativeSelect.Field
-            name={props.name ?? "playbackControllerId"}
-            value={props.value || "spotify"}
-            onChange={(e) => controlledOnChange(e.target.value as PlaybackControllerOption)}
-          >
+    <Stack>
+      <Field.Root>
+        <Field.Label htmlFor={props.name ?? "playbackControllerId"}>
+          Playback controller
+        </Field.Label>
+        {controlledOnChange ? (
+          <NativeSelect.Root>
+            <NativeSelect.Field
+              name={props.name ?? "playbackControllerId"}
+              value={props.value || "spotify"}
+              onChange={(e) => controlledOnChange(e.target.value as PlaybackControllerOption)}
+            >
+              <Options />
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        ) : (
+          <FieldSelect name={props.name!}>
             <Options />
-          </NativeSelect.Field>
-          <NativeSelect.Indicator />
-        </NativeSelect.Root>
-      ) : (
-        <FieldSelect name={props.name!}>
-          <Options />
-        </FieldSelect>
-      )}
-      {showHelper && (
-        <Field.HelperText>
-          Spotify Connect drives playback via the Spotify Web API. Media Bridge uses the Listening
-          Room bridge daemon on a DJ Mac (Spotify Web Playback SDK, YouTube, local files, etc.).
-        </Field.HelperText>
-      )}
-    </Field.Root>
+          </FieldSelect>
+        )}
+        {showHelper && (
+          <Field.HelperText>
+            Spotify Connect drives playback via the Spotify Web API. Media Bridge uses the Listening
+            Room bridge daemon on a DJ Mac (Spotify Web Playback SDK, YouTube, local files, etc.).
+          </Field.HelperText>
+        )}
+      </Field.Root>
+
+      <LinkMediaBridgeButton buttonColorScheme="primary" buttonVariant="outline" />
+    </Stack>
   )
 }

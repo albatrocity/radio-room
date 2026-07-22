@@ -52,6 +52,13 @@ export type SystemEventHandlers = {
     error?: string
   }) => Promise<void> | void
 
+  /** DJ Mac Media Bridge daemon connected to this room (room-scoped presence). */
+  MEDIA_BRIDGE_STATUS_CHANGED: (data: {
+    roomId: string
+    connected: boolean
+    services?: string[]
+  }) => Promise<void> | void
+
   PLAYLIST_TRACK_ADDED: (data: { roomId: string; track: QueueItem }) => Promise<void> | void
 
   PLAYLIST_TRACK_UPDATED: (data: { roomId: string; track: QueueItem }) => Promise<void> | void

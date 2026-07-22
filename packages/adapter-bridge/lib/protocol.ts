@@ -99,5 +99,53 @@ export const BRIDGE_SPOTIFY_DEVICE_NAME = "Listening Room Bridge"
 export const BRIDGE_RPC_TIMEOUT_MS = 8000
 export const BRIDGE_PRESENCE_TTL_SEC = 10
 export const BRIDGE_LAST_ENDED_TTL_SEC = 60
+/** Standby daemon presence while `serve` / `connect --ui` is running (ADR 0080). */
+export const BRIDGE_DAEMON_PRESENCE_TTL_SEC = 15
 /** Slightly under Spotify's typical 1h access-token lifetime. */
 export const BRIDGE_SPOTIFY_TOKEN_TTL_SEC = 50 * 60
+
+/** Global (not room-scoped) control channel for Media Bridge link handshake. */
+export function controlChannel() {
+  return "BRIDGE:CONTROL"
+}
+
+export function daemonPresenceKey(daemonId: string) {
+  return `bridge:daemon:${daemonId}:presence`
+}
+
+export function daemonsSetKey() {
+  return "bridge:daemons"
+}
+
+export const bridgeDaemonPresenceSchema = z.object({
+  daemonId: z.string(),
+  hostname: z.string().optional(),
+  connectedRoomId: z.string().nullable(),
+  updatedAt: z.number(),
+})
+export type BridgeDaemonPresence = z.infer<typeof bridgeDaemonPresenceSchema>
+
+export const bridgeControlMessageSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("LINK_REQUEST"),
+    requestId: z.string(),
+    roomId: z.string(),
+    ts: z.number(),
+  }),
+  z.object({
+    type: z.literal("LINK_ACK"),
+    requestId: z.string(),
+    roomId: z.string(),
+    ok: z.literal(true),
+    daemonId: z.string(),
+  }),
+  z.object({
+    type: z.literal("LINK_NACK"),
+    requestId: z.string(),
+    roomId: z.string(),
+    ok: z.literal(false),
+    error: z.string(),
+    daemonId: z.string(),
+  }),
+])
+export type BridgeControlMessage = z.infer<typeof bridgeControlMessageSchema>
