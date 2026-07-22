@@ -28,6 +28,7 @@ import { MetadataSourceType } from "../../types/Queue"
 import { guessTheTuneNowPlayingItemContext } from "../../lib/guessTheTunePluginItemContext"
 import type { PluginElementProps } from "@repo/types"
 import { NowPlayingTransport } from "./NowPlayingTransport"
+import { getTrackExternalUrl } from "../../lib/getTrackExternalUrl"
 
 type RevealedBy = NonNullable<PluginElementProps["revealedBy"]>
 
@@ -75,14 +76,6 @@ function getCoverUrl(release: any, room: Partial<Room> | null): string | null {
   return null
 }
 
-function getExternalUrl(release: any): string | null {
-  const spotify = (release as any)?.external_urls?.spotify
-  if (typeof spotify === "string" && spotify.startsWith("http")) return spotify
-  const resource = release?.urls?.find((u: any) => u.type === "resource")?.url
-  if (typeof resource === "string" && /^https?:\/\//i.test(resource)) return resource
-  return null
-}
-
 /**
  * Get the track data for the user's preferred metadata source,
  * falling back to the default track data if preferred source isn't available
@@ -120,7 +113,7 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   const release = preferredTrack || nowPlaying?.track
 
   const coverUrl = getCoverUrl(release, room)
-  const externalUrl = getExternalUrl(release)
+  const externalUrl = getTrackExternalUrl(release)
   const artworkSize = [24, "100%", "100%"]
 
   // Handle both old format (release_date) and new format (releaseDate)

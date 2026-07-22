@@ -13,6 +13,7 @@ import { LuMusic } from "react-icons/lu"
 import { QueueItem } from "@repo/types"
 import { getPreferredTrack } from "../types/PlaylistItem"
 import { usePreferredMetadataSource } from "../hooks/useActors"
+import { getTrackExternalUrl } from "../lib/getTrackExternalUrl"
 
 type Props = {
   item: QueueItem
@@ -41,11 +42,7 @@ const TrackDisplay = memo(function TrackDisplay({ item, size = "sm" }: Props) {
     return preferredTrack?.album?.images?.find((img) => img.type === "image" && img.url)?.url
   }, [preferredTrack?.album?.images])
 
-  // Get external URL from preferred track
-  const externalUrl = useMemo(
-    () => preferredTrack?.urls?.find((url) => url.type === "resource")?.url,
-    [preferredTrack?.urls],
-  )
+  const externalUrl = useMemo(() => getTrackExternalUrl(preferredTrack), [preferredTrack])
 
   const boxSize = size === "sm" ? "40px" : "48px"
 

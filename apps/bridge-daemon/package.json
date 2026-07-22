@@ -20,6 +20,7 @@
     "@repo/adapter-bridge": "*",
     "@repo/types": "*",
     "commander": "^13.1.0",
+    "music-metadata": "^11.14.0",
     "puppeteer-core": "^24.8.2",
     "redis": "^4.7.0",
     "zod": "^4.4.2"

@@ -7,6 +7,12 @@ import type { MetadataSourceTrack } from "@repo/types"
 import type { BridgeDaemonConfig } from "../config"
 import { configDir } from "../config"
 import type { Driver, DriverState } from "./Driver"
+import {
+  collectPublicUrlCandidates,
+  pickPublicUrl,
+  readPublicUrlCandidatesFromFile,
+  resolveSongFilePath,
+} from "./publicUrlTags"
 
 function emptyAlbum(images: MetadataSourceTrack["images"] = []): MetadataSourceTrack["album"] {
   return {
@@ -62,6 +68,10 @@ type NavidromeSong = {
   duration?: number
   track?: number
   discNumber?: number
+  /** OpenSubsonic: comment tag (may be a lone URL). */
+  comment?: string
+  /** OpenSubsonic: MusicBrainz recording id. */
+  musicBrainzId?: string
 }
 
 export function resolveLocalDisplayTitle(song: NavidromeSong): string {
@@ -348,6 +358,20 @@ export class LocalDriver implements Driver {
     }
   }
 
+  private async resolvePublicUrl(song: NavidromeSong): Promise<string | undefined> {
+    const filePath = resolveSongFilePath(this.navidrome.musicFolder, song.path)
+    const fromFile = filePath ? await readPublicUrlCandidatesFromFile(filePath) : {}
+    // API comment/mbid fill gaps; file tags win for the same token.
+    const candidates = {
+      ...collectPublicUrlCandidates({
+        comment: song.comment,
+        musicBrainzId: song.musicBrainzId,
+      }),
+      ...fromFile,
+    }
+    return pickPublicUrl(candidates, this.navidrome.publicUrlTagPriority)
+  }
+
   private async mapSong(song: NavidromeSong): Promise<MetadataSourceTrack> {
     const id = String(song.id ?? "")
     const coverDataUri = id ? await this.fetchCoverDataUri(id) : undefined
@@ -355,11 +379,15 @@ export class LocalDriver implements Driver {
       ? [{ type: "image" as const, url: coverDataUri, id }]
       : []
     const artistTitle = isPlaceholderArtist(song.artist) ? "" : String(song.artist).trim()
+    const publicUrl = await this.resolvePublicUrl(song)
 
     return {
       id,
       title: resolveLocalDisplayTitle(song),
-      urls: [{ type: "resource", url: `local:${id}`, id }],
+      urls: [
+        { type: "resource", url: `local:${id}`, id },
+        ...(publicUrl ? [{ type: "resource" as const, url: publicUrl, id: "external" }] : []),
+      ],
       artists: artistTitle
         ? [{ id: String(song.artistId ?? ""), title: artistTitle, urls: [] }]
         : [],
@@ -429,8 +457,19 @@ export class LocalDriver implements Driver {
     this.endedForTrackId = null
     this.currentTrackId = trackId
     const url = this.streamUrl(trackId)
+    console.log(
+      `[local] loadfile trackId=${trackId} via ${this.navidrome.url} (mpv → system audio; Audio Hijack must capture mpv)`,
+    )
     await this.send(["loadfile", url, "replace"])
     await this.send(["set_property", "pause", false])
+    // Surface immediate load failures (bad auth / missing file) instead of silent EOF later.
+    try {
+      const path = await this.send(["get_property", "path"])
+      const duration = await this.send(["get_property", "duration"]).catch(() => null)
+      console.log(`[local] playing path=${path} durationSec=${duration}`)
+    } catch (err) {
+      console.warn(`[local] load may have failed:`, err instanceof Error ? err.message : err)
+    }
     this.state = { ...this.state, state: "playing", trackId }
   }
 

@@ -58,12 +58,41 @@ Edit `~/.config/listening-room-bridge/config.json`:
   "navidrome": {
     "url": "http://127.0.0.1:4533",
     "username": "your-navidrome-user",
-    "password": "your-navidrome-password"
+    "password": "your-navidrome-password",
+    "musicFolder": "/Users/YOU/Music/Library",
+    "publicUrlTagPriority": [
+      "wcom", "wpay", "woaf", "woas", "wxxx", "woar",
+      "purchaseurl", "bandcamp", "url", "website",
+      "comment", "musicbrainz"
+    ]
   },
   "mpv": { "path": "/opt/homebrew/bin/mpv" },
   "nowPlayingPath": "/Users/YOU/path/to/Now Playing.txt"
 }
 ```
+
+**Local track links (purchase / source URL):** Set `navidrome.musicFolder` to the same absolute MusicFolder Navidrome scans. The daemon reads URL tags from each file and adds the first valid public `http(s)` URL to the track metadata (so Now Playing artwork/title can open Bandcamp, etc.). Opaque `local:{id}` stays for bridge identity.
+
+Recommended tags for library managers:
+
+| Prefer | Tag | Example |
+|--------|-----|---------|
+| Best (MP3) | ID3 **WCOM** (commercial / buy) | Bandcamp album or track URL |
+| Best (FLAC) | Vorbis **`PURCHASEURL`** or **`BANDCAMP`** | same |
+| Also fine | **WXXX** with description `Bandcamp`, **WOAF**, **WPAY** | |
+| Artist site | **WOAR** / Vorbis **WEBSITE** | Lower priority by default |
+| Fragile | Comment field containing only a URL | Used only if nothing else matches |
+
+`publicUrlTagPriority` controls which tag wins when several are present. Default is purchase-oriented (`wcom` first). To prefer official artist pages after testing:
+
+```json
+"publicUrlTagPriority": [
+  "woar", "website", "wcom", "wpay", "woaf", "woas", "wxxx",
+  "purchaseurl", "bandcamp", "url", "comment", "musicbrainz"
+]
+```
+
+Tokens: `wcom`, `wpay`, `woaf`, `woas`, `wxxx`, `woar`, `purchaseurl`, `bandcamp`, `url`, `website`, `comment`, `musicbrainz`. Omit the array to use the default. Without `musicFolder`, file tags are skipped (OpenSubsonic comment / MusicBrainz id can still supply a URL).
 
 **Spotify Web Playback SDK (opt-in):** Include `"spotify"` in `services` to host a Connect device in bridge Chrome (see [ADR 0076](adrs/0076-spotify-web-playback-sdk-device.md)). The room creator must **re-link Spotify** once so the OAuth token includes the `streaming` scope. Without `"spotify"` in services, behavior stays on Spotify.app. SDK audio is ~256kbps AAC (fine for a transcoded stream).
 
@@ -135,10 +164,12 @@ First Chrome launch uses a dedicated profile under `~/.config/listening-room-bri
 
 ## 6. Audio Hijack
 
-- Capture: Chrome (bridge profile) for YouTube (+ Spotify when SDK device is enabled); mpv if using local. With `"spotify"` in daemon `services`, you can drop the Spotify.app tile.
+- Capture: Chrome (bridge profile) for YouTube (+ Spotify when SDK device is enabled); **and mpv if using local**. Local library audio does **not** go through Chrome — the daemon plays Navidrome streams in **mpv**, so the room broadcast only includes it if AH (or Loopback feeding AH) captures the mpv process into the same mix as Chrome.
 - Metadata: **Track Source** = the daemon’s Now Playing.txt (Other Source…). Turn off application metadata detection.
 - **Title Format** in AH (e.g. `{title} | {artist} | {album}`) controls the stream string; the file itself must use `Title:` / `Artist:` / `Album:` lines
 - Volume: per-driver via Volume Manager plugin (v1); optional AH Volume-block scripting is not required
+
+**Quick check:** while a local track is playing, look at daemon logs for `[local] loadfile` / `[local] playing durationSec=…`. If that appears and Now Playing updates, mpv is playing — missing stream audio is almost always capture routing, not Navidrome.
 
 ## 7. Smoke test checklist
 
@@ -165,6 +196,7 @@ Post-show publish still creates Spotify/Tidal playlists from `metadataSources` I
 | `Bridge daemon not connected` | Daemon `connect` running; same `redisUrl` / room id; presence key TTL |
 | No artwork for YouTube | Queue-item hydration; thumbnail URL CORS for dynamic theme |
 | Local search empty | Navidrome creds; daemon includes `local`; RPC `search` |
+| Local track plays in UI / Now Playing but no stream audio | Audio Hijack is not capturing **mpv** (only Chrome). Add an Application source for `mpv`, or route mpv into the same Loopback device as Chrome. Confirm daemon log `[local] playing durationSec=…`. Spotify/YouTube can still work because they use Chrome. |
 | Tidal won’t start | App path; CDP port 9223 free; login inside Tidal app |
 | Double Now Playing | Turn off local-remote NP for this room |
 | Stream metadata is ` \| \| ` | File must be `Title:`/`Artist:`/`Album:` lines (not `{title} \| {artist}`). Put the pipe format in AH Title Format. |

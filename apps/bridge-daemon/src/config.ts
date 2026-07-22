@@ -3,6 +3,10 @@ import { z } from "zod"
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
+import {
+  DEFAULT_PUBLIC_URL_TAG_PRIORITY,
+  PUBLIC_URL_TAG_TOKENS,
+} from "./drivers/publicUrlTagPriority"
 
 /** Default localhost control UI (distinct from StaticHost :18765 and local-remote :9876). */
 export const DEFAULT_HTTP_LISTEN = "127.0.0.1:18766"
@@ -45,8 +49,25 @@ export const bridgeDaemonConfigSchema = z.object({
       url: z.string().default("http://127.0.0.1:4533"),
       username: z.string().default(""),
       password: z.string().default(""),
+      /**
+       * Absolute path to the same MusicFolder Navidrome scans.
+       * Required to read purchase/source URLs from audio file tags.
+       */
+      musicFolder: z.string().optional(),
+      /**
+       * Order of tag sources when choosing a guest-facing track URL.
+       * See docs/BRIDGE_LOCAL_TESTING.md.
+       */
+      publicUrlTagPriority: z
+        .array(z.enum(PUBLIC_URL_TAG_TOKENS))
+        .default([...DEFAULT_PUBLIC_URL_TAG_PRIORITY]),
     })
-    .default({ url: "http://127.0.0.1:4533", username: "", password: "" }),
+    .default({
+      url: "http://127.0.0.1:4533",
+      username: "",
+      password: "",
+      publicUrlTagPriority: [...DEFAULT_PUBLIC_URL_TAG_PRIORITY],
+    }),
   mpv: z
     .object({
       path: z.string().default("mpv"),

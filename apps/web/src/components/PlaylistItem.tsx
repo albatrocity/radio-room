@@ -31,6 +31,7 @@ import { toast } from "../lib/toasts"
 import { playlistItemRecipe } from "../theme/playlistItemRecipe"
 import type { Room } from "../types/Room"
 import { usePluginElementProps } from "../hooks/usePluginElementProps"
+import { getTrackExternalUrl } from "../lib/getTrackExternalUrl"
 
 const shimmerCss = {
   "@keyframes playlistItemShimmer": {
@@ -170,11 +171,7 @@ const PlaylistItem = memo(function PlaylistItem({
     [users, item.addedBy],
   )
 
-  // Get external URL from preferred track
-  const externalUrl = useMemo(
-    () => preferredTrack?.urls?.find((url) => url.type === "resource")?.url,
-    [preferredTrack?.urls],
-  )
+  const externalUrl = useMemo(() => getTrackExternalUrl(preferredTrack), [preferredTrack])
 
   // Check if track was skipped by playlist-democracy plugin
   const isSkipped = item.pluginData?.["playlist-democracy"]?.skipped === true
