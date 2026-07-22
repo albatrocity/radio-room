@@ -187,6 +187,11 @@ export {
 
 // Quick Access Panels Actor
 export { quickAccessPanelsActor } from "./quickAccessPanelsActor"
+export {
+  mediaBridgeActor,
+  linkMediaBridge,
+  isMediaBridgeConnected,
+} from "./mediaBridgeActor"
 
 // Room Lifecycle
 export {

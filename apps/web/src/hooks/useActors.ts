@@ -45,6 +45,7 @@ import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
 import { lobbyActor } from "../actors/lobbyActor"
 import { pollActor } from "../actors/pollActor"
 import { quickAccessPanelsActor } from "../actors/quickAccessPanelsActor"
+import { mediaBridgeActor } from "../actors/mediaBridgeActor"
 import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { MetadataSourceType, QueueItem } from "../types/Queue"
 
@@ -87,6 +88,7 @@ const sendToLobby = boundSendRef(lobbyActor)
 const sendToAdminListener = boundSendRef(adminListenerStateActor)
 const sendToPoll = boundSendRef(pollActor)
 const sendToQuickAccessPanels = boundSendRef(quickAccessPanelsActor)
+const sendToMediaBridge = boundSendRef(mediaBridgeActor)
 
 // ============================================================================
 // Auth Hooks
@@ -696,6 +698,20 @@ export const useQuickAccessPanels = () => {
 }
 
 export const useQuickAccessPanelsSend = () => sendToQuickAccessPanels
+
+// ============================================================================
+// Media Bridge Hooks
+// ============================================================================
+
+export const useMediaBridgeConnected = () => {
+  return useSelector(mediaBridgeActor, (s) => s.matches({ active: "connected" }))
+}
+
+export const useMediaBridgeLinking = () => {
+  return useSelector(mediaBridgeActor, (s) => s.matches({ active: "linking" }))
+}
+
+export const useMediaBridgeSend = () => sendToMediaBridge
 
 // ============================================================================
 // Lobby Hooks
