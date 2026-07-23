@@ -19,7 +19,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 
 | Guide | Topics |
 | ----- | ------ |
-| [Admin Configuration](plugins/admin-config.md) | Config schema, field types, layout, action buttons, Quick Access panels (`quickAccess`) |
+| [Admin Configuration](plugins/admin-config.md) | Config schema, field types, layout, action buttons, Quick Access (`quickAccess`), config import (`configImport` / `parseConfigImportRows`) |
 | [Plugin Components](plugins/components.md) | Declarative UI, areas, templates, game state tabs |
 
 ### Behavior & Data
@@ -52,4 +52,5 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 - [ADR 0042: Game sessions and inventory](adrs/0042-game-sessions-and-inventory.md)
 - [ADR 0057: User personas](adrs/0057-user-personas-system.md)
 - [ADR 0074: Quick Access admin panels](adrs/0074-quick-access-admin-panels.md) — opt-in room FloatingPanels for curated config actions
+- [ADR 0075: Plugin config import actions](adrs/0075-plugin-config-import-actions.md) — schema `configImport`, plugin-owned paste parsers, web execute vs scheduler dry-run API
 - [Backend Development](BACKEND_DEVELOPMENT.md) — server architecture, SystemEvents, broadcasters

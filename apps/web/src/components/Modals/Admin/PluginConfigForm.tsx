@@ -1,8 +1,26 @@
 import React, { useState } from "react"
-import { Button, CloseButton, Field, Input, NativeSelect, Popover, Stack, Text } from "@chakra-ui/react"
+import {
+  Button,
+  CloseButton,
+  Dialog,
+  Field,
+  HStack,
+  Input,
+  NativeSelect,
+  Popover,
+  Portal,
+  Stack,
+  Text,
+  Textarea,
+  VStack,
+} from "@chakra-ui/react"
 import { PluginConfigForm as SharedPluginConfigForm } from "@repo/plugin-config-ui"
 import type { PluginConfigFormProps as SharedProps } from "@repo/plugin-config-ui"
-import type { PluginActionElement, PluginActionFormField } from "@repo/types/Plugin"
+import type {
+  ConfigImportMode,
+  PluginActionElement,
+  PluginActionFormField,
+} from "@repo/types/Plugin"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
 import { useUsers } from "../../../hooks/useActors"
 import type { User } from "../../../types/User"
@@ -31,6 +49,11 @@ function collectSelectOptions(field: PluginActionFormField, users: User[]) {
   return [...staticOpts, ...userOpts]
 }
 
+function modeButtonLabel(mode: ConfigImportMode, action: string): string {
+  const noun = action.toLowerCase().includes("question") ? "questions" : "items"
+  return mode === "replace" ? `Replace ${noun}` : `Append ${noun}`
+}
+
 /**
  * App-specific action button. Runs plugin actions over the socket and reports via toaster —
  * the coupling that keeps this in `apps/web`. Injected into the shared renderer as `renderAction`.
@@ -45,14 +68,18 @@ function ActionButton({
   const users = useUsers()
   const formFields = element.formFields
   const hasForm = !!formFields?.length
+  const isConfigImport = !!element.configImport
+  const hasTextarea = formFields?.some((f) => f.type === "textarea") ?? false
+  const useDialog = isConfigImport || hasTextarea
 
   const [isLoading, setIsLoading] = useState(false)
   const [formPopoverOpen, setFormPopoverOpen] = useState(false)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
+  const [confirmReplace, setConfirmReplace] = useState(false)
   const subscriptionIdRef = React.useRef<string | null>(null)
 
   const runAction = React.useCallback(
-    (params?: Record<string, unknown>) => {
+    (params?: Record<string, unknown>, onSuccess?: () => void) => {
       setIsLoading(true)
       const subscriptionId = `plugin-action-${element.action}-${Date.now()}`
       subscriptionIdRef.current = subscriptionId
@@ -70,6 +97,8 @@ function ActionButton({
                 type: "success",
               })
               setFormPopoverOpen(false)
+              setConfirmReplace(false)
+              onSuccess?.()
             } else {
               toaster.create({
                 title: "Error",
@@ -99,7 +128,7 @@ function ActionButton({
     [element.action, pluginName],
   )
 
-  const submitForm = () => {
+  const collectFormParams = (): Record<string, unknown> | null => {
     const fields = formFields ?? []
     const params: Record<string, unknown> = {}
     for (const f of fields) {
@@ -111,15 +140,170 @@ function ActionButton({
           description: `Please fill in "${f.label}".`,
           type: "error",
         })
+        return null
+      }
+      params[f.name] = typeof raw === "string" ? raw : v
+    }
+    return params
+  }
+
+  const submitForm = (mode?: ConfigImportMode) => {
+    const params = collectFormParams()
+    if (!params) return
+
+    if (isConfigImport && mode) {
+      if (mode === "replace" && !confirmReplace) {
+        setConfirmReplace(true)
         return
       }
-      params[f.name] = v
+      params.mode = mode
     }
-    runAction(params)
+
+    runAction(params, () => {
+      setFormValues(emptyPluginActionFormState(formFields ?? []))
+      setConfirmReplace(false)
+    })
   }
 
   const buttonVariant = element.variant === "destructive" ? "outline" : element.variant || "solid"
   const buttonColorPalette = element.variant === "destructive" ? "red" : undefined
+  const modes: ConfigImportMode[] = element.configImport?.modes?.length
+    ? element.configImport.modes
+    : ["append"]
+
+  const renderFormFields = () =>
+    (formFields ?? []).map((field) => (
+      <Field.Root key={field.name}>
+        <Field.Label fontSize="sm">{field.label}</Field.Label>
+        {field.type === "textarea" ? (
+          <Textarea
+            size="sm"
+            rows={field.rows ?? 14}
+            placeholder={field.placeholder}
+            fontFamily="mono"
+            value={formValues[field.name] ?? ""}
+            onChange={(e) => {
+              setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))
+              setConfirmReplace(false)
+            }}
+          />
+        ) : field.type === "string" ? (
+          <Input
+            size="sm"
+            placeholder={field.placeholder}
+            value={formValues[field.name] ?? ""}
+            onChange={(e) => setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
+          />
+        ) : (
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={formValues[field.name] ?? ""}
+              onChange={(e) => setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
+            >
+              <option value="">Select…</option>
+              {collectSelectOptions(field, users).map((o) => (
+                <option key={`${field.name}-${o.value}`} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        )}
+      </Field.Root>
+    ))
+
+  if (hasForm && formFields && useDialog) {
+    return (
+      <>
+        <Button
+          variant={buttonVariant}
+          colorPalette={buttonColorPalette}
+          loading={isLoading}
+          onClick={() => {
+            setFormValues(emptyPluginActionFormState(formFields))
+            setConfirmReplace(false)
+            setFormPopoverOpen(true)
+          }}
+        >
+          {element.label}
+        </Button>
+        <Dialog.Root
+          open={formPopoverOpen}
+          onOpenChange={(e) => {
+            setFormPopoverOpen(e.open)
+            if (!e.open) setConfirmReplace(false)
+          }}
+          placement="center"
+          scrollBehavior="inside"
+          size="lg"
+        >
+          <Portal>
+            <Dialog.Backdrop />
+            <Dialog.Positioner>
+              <Dialog.Content>
+                <Dialog.Header>
+                  <Dialog.Title>{element.label}</Dialog.Title>
+                </Dialog.Header>
+                <Dialog.CloseTrigger asChild position="absolute" top="2" right="2">
+                  <CloseButton size="sm" />
+                </Dialog.CloseTrigger>
+                <Dialog.Body>
+                  <VStack align="stretch" gap={3}>
+                    {isConfigImport ? (
+                      <Text fontSize="sm" color="fg.muted">
+                        Paste blocks separated by a blank line. Question text first, then answers as{" "}
+                        <Text as="span" fontFamily="mono">
+                          - answer
+                        </Text>{" "}
+                        lines.
+                      </Text>
+                    ) : null}
+                    {element.confirmMessage && !isConfigImport ? (
+                      <Text fontSize="sm">{element.confirmMessage}</Text>
+                    ) : null}
+                    {renderFormFields()}
+                    {confirmReplace ? (
+                      <Text fontSize="sm" color="fg.muted">
+                        Replace the entire question bank? This cannot be undone from this dialog.
+                      </Text>
+                    ) : null}
+                  </VStack>
+                </Dialog.Body>
+                <Dialog.Footer>
+                  <HStack gap={2} justify="flex-end" width="100%" flexWrap="wrap">
+                    {isConfigImport
+                      ? modes.map((mode) => (
+                          <Button
+                            key={mode}
+                            variant={mode === "replace" ? "outline" : "solid"}
+                            colorPalette={mode === "replace" ? "red" : undefined}
+                            loading={isLoading}
+                            onClick={() => submitForm(mode)}
+                          >
+                            {confirmReplace && mode === "replace"
+                              ? "Confirm replace"
+                              : modeButtonLabel(mode, element.action)}
+                          </Button>
+                        ))
+                      : (
+                          <Button
+                            colorPalette={element.variant === "destructive" ? "red" : undefined}
+                            onClick={() => submitForm()}
+                            loading={isLoading}
+                          >
+                            {element.confirmText || "Run"}
+                          </Button>
+                        )}
+                  </HStack>
+                </Dialog.Footer>
+              </Dialog.Content>
+            </Dialog.Positioner>
+          </Portal>
+        </Dialog.Root>
+      </>
+    )
+  }
 
   if (hasForm && formFields) {
     return (
@@ -144,43 +328,13 @@ function ActionButton({
             <Popover.Body>
               <Stack gap={3}>
                 {element.confirmMessage ? <Text fontSize="sm">{element.confirmMessage}</Text> : null}
-                {formFields.map((field) => (
-                  <Field.Root key={field.name}>
-                    <Field.Label fontSize="sm">{field.label}</Field.Label>
-                    {field.type === "string" ? (
-                      <Input
-                        size="sm"
-                        value={formValues[field.name] ?? ""}
-                        onChange={(e) =>
-                          setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))
-                        }
-                      />
-                    ) : (
-                      <NativeSelect.Root size="sm">
-                        <NativeSelect.Field
-                          value={formValues[field.name] ?? ""}
-                          onChange={(e) =>
-                            setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))
-                          }
-                        >
-                          <option value="">Select…</option>
-                          {collectSelectOptions(field, users).map((o) => (
-                            <option key={`${field.name}-${o.value}`} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </NativeSelect.Field>
-                        <NativeSelect.Indicator />
-                      </NativeSelect.Root>
-                    )}
-                  </Field.Root>
-                ))}
+                {renderFormFields()}
               </Stack>
             </Popover.Body>
             <Popover.Footer justifyContent="flex-end" display="flex">
               <Button
                 colorPalette={element.variant === "destructive" ? "red" : undefined}
-                onClick={submitForm}
+                onClick={() => submitForm()}
                 loading={isLoading}
               >
                 {element.confirmText || "Run"}
