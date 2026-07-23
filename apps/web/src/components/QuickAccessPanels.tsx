@@ -14,7 +14,7 @@ import {
   useBreakpointValue,
   VStack,
 } from "@chakra-ui/react"
-import { getQuickAccessSchema } from "@repo/plugin-config-ui"
+import { getQuickAccessSchema } from "@repo/plugin-config-ui/logic"
 import { LuMaximize2, LuMinus, LuSettings, LuSquare, LuX } from "react-icons/lu"
 import {
   useIsAdmin,
