@@ -9,6 +9,10 @@ import type {
 import type { CompositeTemplate } from "@repo/types/PluginComponent"
 import { shouldShow } from "./logic"
 import { renderField } from "./fields"
+import {
+  ConfigImportActionButton,
+  type ApplyConfigImportFn,
+} from "./ConfigImportActionButton"
 
 export interface PluginConfigFormProps {
   schema: PluginConfigSchema
@@ -18,14 +22,24 @@ export interface PluginConfigFormProps {
   allValues?: Record<string, unknown>
   /**
    * Host-provided renderer for `action` layout elements. Actions require app context
-   * (socket, toaster, room users) so they are injected rather than baked in. When
-   * omitted (e.g. the scheduler, which authors config but does not run live actions),
-   * action elements are skipped.
+   * (socket, toaster, room users) so they are injected rather than baked in.
+   * When omitted, only `configImport` actions render (via {@link applyConfigImport}).
    */
   renderAction?: (element: PluginActionElement, allValues: Record<string, unknown>) => React.ReactNode
+  /**
+   * Authoring-host path for `configImport` actions when `renderAction` is omitted (ADR 0075).
+   * Dry-run parse+merge; result is written through `onChange`.
+   */
+  applyConfigImport?: ApplyConfigImportFn
+  /** Optional error surface for config-import failures (e.g. toaster). */
+  onConfigImportError?: (message: string) => void
+  /** Optional success surface after a config-import apply (e.g. toaster). */
+  onConfigImportSuccess?: (message: string) => void
   /** Optional override for composite-template component parts. Defaults to an emoji renderer. */
   renderTemplateComponent?: (name: string, props: Record<string, string>, key: string) => React.ReactNode
 }
+
+export type { ApplyConfigImportFn }
 
 function defaultTemplateComponent(name: string, props: Record<string, string>, key: string): React.ReactNode {
   if (name === "emoji") {
@@ -103,6 +117,9 @@ export function PluginConfigForm({
   onChange,
   allValues,
   renderAction,
+  applyConfigImport,
+  onConfigImportError,
+  onConfigImportSuccess,
   renderTemplateComponent = defaultTemplateComponent,
 }: PluginConfigFormProps) {
   const effectiveValues = allValues || values
@@ -124,9 +141,32 @@ export function PluginConfigForm({
 
         if (item.type === "action") {
           const element = item as PluginActionElement
-          if (!renderAction) return null
           if (!shouldShow(element.showWhen, effectiveValues)) return null
-          return <Box key={`action-${index}`}>{renderAction(element, effectiveValues)}</Box>
+
+          if (renderAction) {
+            return <Box key={`action-${index}`}>{renderAction(element, effectiveValues)}</Box>
+          }
+
+          // Authoring hosts: only configImport actions (dry-run via applyConfigImport).
+          if (element.configImport && applyConfigImport) {
+            const targetField = element.configImport.targetField
+            return (
+              <Box key={`action-${index}`}>
+                <ConfigImportActionButton
+                  element={element}
+                  existingValue={effectiveValues[targetField]}
+                  applyConfigImport={applyConfigImport}
+                  onApplied={(field, value, message) => {
+                    onChange(field, value)
+                    if (message) onConfigImportSuccess?.(message)
+                  }}
+                  onError={onConfigImportError}
+                />
+              </Box>
+            )
+          }
+
+          return null
         }
 
         return renderSchemaElement(

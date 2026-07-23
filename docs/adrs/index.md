@@ -80,6 +80,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0072](0072-plugin-user-targeted-sound-effects.md) | Plugin user-targeted sound effects (optional `userId` on `queueSoundEffect`) | Accepted |
 | [0073](0073-plugin-user-targeted-screen-effects.md) | Plugin user-targeted screen effects (optional `recipientUserId` on `queueScreenEffect`) | Accepted |
 | [0074](0074-quick-access-admin-panels.md) | Quick Access admin panels for plugin actions | Accepted |
+| [0075](0075-plugin-config-import-actions.md) | Schema-declared plugin config import actions (plugin-owned parsers) | Accepted |
 
 ## Creating a New ADR
 

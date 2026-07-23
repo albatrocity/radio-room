@@ -622,6 +622,25 @@ export class PluginRegistry {
   }
 
   /**
+   * Dry-run a `configImport` action (ADR 0075): parse + merge without writing Redis.
+   * Uses a temporary plugin instance from the factory (no room context required).
+   */
+  previewConfigImport(
+    pluginName: string,
+    input: { action: string; rawText: string; mode: string; existingValue?: unknown },
+  ): { success: boolean; value?: unknown; message?: string; count?: number } {
+    const factory = this.pluginFactories.get(pluginName)
+    if (!factory) {
+      return { success: false, message: `Plugin ${pluginName} not found` }
+    }
+    const instance = factory()
+    if (!instance.applyConfigImport) {
+      return { success: false, message: `Plugin ${pluginName} does not support config import` }
+    }
+    return instance.applyConfigImport(input)
+  }
+
+  /**
    * Get component state for a plugin in a specific room.
    * Used to hydrate component stores when users join.
    */

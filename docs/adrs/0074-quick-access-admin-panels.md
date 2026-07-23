@@ -29,4 +29,5 @@ Component-schema `adminOnly` buttons (e.g. Guess the Tune in `nowPlayingInfo`) a
 - [ADR 0004](0004-state-machines-for-ui-and-socket-events.md) — UI state machines
 - [ADR 0006](0006-plugin-system-for-room-features.md) — plugin system
 - [ADR 0068](0068-private-scoped-plugin-config-fields.md) — schema-driven config authoring
+- [ADR 0075](0075-plugin-config-import-actions.md) — config import actions (may mutate config from paste)
 - [`docs/plugins/admin-config.md`](../plugins/admin-config.md) — config schema authoring guide

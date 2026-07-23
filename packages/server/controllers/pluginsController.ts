@@ -1,4 +1,5 @@
 import { Request, Response } from "express"
+import type { ConfigImportMode, PluginConfigImportRequest } from "@repo/types"
 
 /**
  * Get all registered plugin schemas.
@@ -35,6 +36,50 @@ export async function getPluginSchema(req: Request, res: Response) {
   }
 
   res.json(schema)
+}
+
+/**
+ * Dry-run a schema `configImport` action (ADR 0075).
+ * Parses + merges against `existingValue` without writing room config.
+ */
+export async function previewPluginConfigImport(req: Request, res: Response) {
+  const { pluginName } = req.params
+  const { context } = req
+  const { pluginRegistry } = context
+
+  if (!pluginRegistry) {
+    return res.status(500).json({ error: "Plugin registry not available" })
+  }
+  if (!pluginName) {
+    return res.status(400).json({ error: "Plugin name is required" })
+  }
+
+  const body = (req.body ?? {}) as Partial<PluginConfigImportRequest>
+  const action = typeof body.action === "string" ? body.action : ""
+  const rawText = typeof body.rawText === "string" ? body.rawText : ""
+  const mode = body.mode as ConfigImportMode | undefined
+
+  if (!action || !rawText || (mode !== "append" && mode !== "replace")) {
+    return res.status(400).json({
+      error: "Body must include action, rawText, and mode ('append' | 'replace')",
+    })
+  }
+
+  if (!pluginRegistry.getPluginSchema(pluginName)) {
+    return res.status(404).json({ error: `Plugin ${pluginName} not found` })
+  }
+
+  const result = pluginRegistry.previewConfigImport(pluginName, {
+    action,
+    rawText,
+    mode,
+    existingValue: body.existingValue,
+  })
+
+  if (!result.success) {
+    return res.status(400).json(result)
+  }
+  return res.json(result)
 }
 
 /**

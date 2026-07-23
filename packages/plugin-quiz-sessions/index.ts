@@ -27,6 +27,7 @@ import {
 import { getComponentSchema, getConfigSchema } from "./schema"
 import { formatLeaderboardChat, formatCorrectAnswerChat } from "./formatters"
 import { isAcceptedAnswer, matchAcceptedAnswer } from "./matching"
+import { parseQuizQuestionsImport } from "./importParse"
 
 export type { QuizSessionsConfig } from "./types"
 export { quizSessionsConfigSchema, defaultQuizSessionsConfig } from "./types"
@@ -176,8 +177,32 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       case "updateReward":
         return this.updateReward(initiator, params)
       default:
-        return { success: false, message: `Unknown action: ${action}` }
+        return super.executeAction(action, initiator, params)
     }
+  }
+
+  protected parseConfigImportRows(action: string, rawText: string) {
+    if (action !== "importQuestions") {
+      return { ok: false as const, message: `No config import parser for action: ${action}` }
+    }
+    const rows = parseQuizQuestionsImport(rawText)
+    return { ok: true as const, rows }
+  }
+
+  applyConfigImport(input: {
+    action: string
+    rawText: string
+    mode: string
+    existingValue?: unknown
+  }) {
+    const result = super.applyConfigImport(input)
+    if (!result.success || result.count == null) return result
+    const count = result.count
+    const message =
+      input.mode === "replace"
+        ? `Replaced with ${count} question${count === 1 ? "" : "s"}`
+        : `Appended ${count} question${count === 1 ? "" : "s"}`
+    return { ...result, message }
   }
 
   // ==========================================================================
