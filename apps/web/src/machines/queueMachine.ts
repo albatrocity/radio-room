@@ -37,20 +37,16 @@ export const queueMachine = setup({
     sendToQueue: ({ event }) => {
       if (event.type === "SEND_TO_QUEUE") {
         const source = (event.track as { source?: string }).source
-        emitToSocket(
-          "QUEUE_SONG",
-          source ? { trackId: event.track.id, source } : event.track.id,
-        )
+        emitToSocket("QUEUE_SONG", source ? { trackId: event.track.id, source } : event.track.id)
       }
     },
     notifyQueued: ({ context }) => {
       toast({
         title: `Added to Queue`,
-        description: `${context.queuedTrack?.title} will play sometime soon`,
+        description: `${context.queuedTrack?.title} has been added to the queue`,
         status: "success",
         duration: 4000,
         isClosable: true,
-        position: "top",
       })
     },
     notifyQueueFailure: ({ event }) => {
@@ -61,7 +57,6 @@ export const queueMachine = setup({
           status: "error",
           duration: 4000,
           isClosable: true,
-          position: "top",
         })
       }
     },
