@@ -78,6 +78,9 @@ function setup(configOverrides: Partial<QuizSessionsConfig> = {}) {
     sendSystemMessage: vi.fn(async () => {}),
     getUsersByIds: vi.fn(async (ids: string[]) => ids.map((id) => ({ userId: id, username: id }))),
     getPluginConfig: vi.fn(async () => config),
+    setPluginConfig: vi.fn(async (_roomId: string, _name: string, next: QuizSessionsConfig) => {
+      Object.assign(config, next)
+    }),
     emit: vi.fn(async () => {}),
     queueSoundEffect: vi.fn(async () => {}),
     queueScreenEffect: vi.fn(async () => {}),
@@ -1071,5 +1074,85 @@ describe("QuizSessionsPlugin lifecycle", () => {
     await plugin.register(context)
     const result = await plugin.executeAction("bogus", ADMIN)
     expect(result).toEqual({ success: false, message: "Unknown action: bogus" })
+  })
+
+  describe("importQuestions (configImport)", () => {
+    const PASTE = `New Q?
+
+- yes
+- yeah
+`
+
+    it("appends parsed questions onto the private bank", async () => {
+      const existing = [{ text: "Old", acceptedAnswers: ["a"] }]
+      const { plugin, context, api } = setup({ enabled: true, questions: existing })
+      await plugin.register(context)
+
+      const result = await plugin.executeAction("importQuestions", ADMIN, {
+        rawText: PASTE,
+        mode: "append",
+      })
+
+      expect(result.success).toBe(true)
+      expect(result.message).toMatch(/Appended 1 question/)
+      expect(api.setPluginConfig).toHaveBeenCalled()
+      const saved = api.setPluginConfig.mock.calls[0]![2] as QuizSessionsConfig
+      expect(saved.questions).toEqual([
+        { text: "Old", acceptedAnswers: ["a"] },
+        { text: "New Q?", acceptedAnswers: ["yes", "yeah"] },
+      ])
+    })
+
+    it("replaces the question bank", async () => {
+      const { plugin, context, api } = setup({
+        enabled: true,
+        questions: [{ text: "Old", acceptedAnswers: ["a"] }],
+      })
+      await plugin.register(context)
+
+      const result = await plugin.executeAction("importQuestions", ADMIN, {
+        rawText: PASTE,
+        mode: "replace",
+      })
+
+      expect(result.success).toBe(true)
+      expect(result.message).toMatch(/Replaced with 1 question/)
+      const saved = api.setPluginConfig.mock.calls[0]![2] as QuizSessionsConfig
+      expect(saved.questions).toEqual([{ text: "New Q?", acceptedAnswers: ["yes", "yeah"] }])
+    })
+
+    it("rejects invalid mode and non-admins", async () => {
+      const { plugin, context, api } = setup({ enabled: true, questions: [] })
+      await plugin.register(context)
+
+      expect(
+        await plugin.executeAction("importQuestions", ADMIN, { rawText: PASTE, mode: "merge" }),
+      ).toMatchObject({ success: false })
+
+      api.isRoomAdmin.mockResolvedValueOnce(false)
+      expect(
+        await plugin.executeAction("importQuestions", { userId: "guest" }, {
+          rawText: PASTE,
+          mode: "append",
+        }),
+      ).toEqual({ success: false, message: "Admin required" })
+    })
+
+    it("dry-runs applyConfigImport without setPluginConfig", () => {
+      const { plugin, api } = setup({
+        enabled: true,
+        questions: [{ text: "Old", acceptedAnswers: ["a"] }],
+      })
+      const result = plugin.applyConfigImport({
+        action: "importQuestions",
+        rawText: PASTE,
+        mode: "append",
+        existingValue: [{ text: "Old", acceptedAnswers: ["a"] }],
+      })
+      expect(result.success).toBe(true)
+      expect(result.count).toBe(1)
+      expect(result.value).toHaveLength(2)
+      expect(api.setPluginConfig).not.toHaveBeenCalled()
+    })
   })
 })

@@ -17,7 +17,14 @@ export * from "./MediaSource"
 export * from "./MetadataSource"
 export * from "./PlaybackController"
 export * from "./Plugin"
-export type { PluginActionElement, PluginActionFormField } from "./Plugin"
+export type {
+  PluginActionElement,
+  PluginActionFormField,
+  PluginActionConfigImport,
+  ConfigImportMode,
+  PluginConfigImportRequest,
+  PluginConfigImportResponse,
+} from "./Plugin"
 export * from "./PluginComponent"
 export * from "./Queue"
 export * from "./PubSub"

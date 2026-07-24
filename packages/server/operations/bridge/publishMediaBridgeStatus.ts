@@ -2,7 +2,7 @@ import type { AppContext } from "@repo/types"
 import { presenceKey } from "@repo/adapter-bridge/protocol"
 
 /**
- * Broadcast Media Bridge room-connection status to room clients (ADR 0080 / 0081).
+ * Broadcast Media Bridge room-connection status to room clients (ADR 0082 / 0083).
  */
 export async function publishMediaBridgeStatus(params: {
   context: AppContext

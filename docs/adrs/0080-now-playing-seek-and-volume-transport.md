@@ -1,7 +1,7 @@
-# 0078. Now Playing Seek and Volume Transport Controls
+# 0080. Now Playing Seek and Volume Transport Controls
 
 **Date:** 2026-07-21
-**Status:** Partially superseded by [0079](0079-volume-ui-via-volume-manager-plugin.md)
+**Status:** Partially superseded by [0081](0081-volume-ui-via-volume-manager-plugin.md)
 
 ## Context
 
@@ -37,5 +37,5 @@ Play/pause already exists as first-class Socket events (`TOGGLE_PLAYBACK` / `GET
 ## See also
 
 - [0069](0069-playback-controller-volume-and-before-play-hook.md) — `setVolume` + Volume Manager
-- [0075](0075-bridge-composite-playback-controller.md) / [0076](0076-spotify-web-playback-sdk-device.md) — bridge playback
+- [0077](0077-bridge-composite-playback-controller.md) / [0078](0078-spotify-web-playback-sdk-device.md) — bridge playback
 - `packages/server/services/DJService.ts`, `apps/web/src/components/NowPlaying/NowPlayingTransport.tsx`

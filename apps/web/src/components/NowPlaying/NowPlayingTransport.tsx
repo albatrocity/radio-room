@@ -30,7 +30,7 @@ interface NowPlayingTransportProps {
 }
 
 /**
- * Admin-only seek scrubber for app-controlled rooms (ADR 0078 / 0079).
+ * Admin-only seek scrubber for app-controlled rooms (ADR 0080 / 0081).
  * Broadcast volume lives in the Volume Manager plugin.
  */
 export function NowPlayingTransport({ room }: NowPlayingTransportProps) {

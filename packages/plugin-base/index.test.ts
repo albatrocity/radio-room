@@ -785,4 +785,89 @@ describe("BasePlugin", () => {
       })
     })
   })
+
+  describe("configImport (ADR 0075)", () => {
+    class ImportPlugin extends BasePlugin<{ items: { name: string }[] }> {
+      name = "import-plugin"
+      version = "1.0.0"
+
+      getConfigSchema() {
+        return {
+          jsonSchema: {},
+          layout: [
+            {
+              type: "action" as const,
+              action: "importItems",
+              label: "Import",
+              formFields: [{ name: "rawText", label: "Paste", type: "textarea" as const }],
+              configImport: {
+                targetField: "items",
+                modes: ["append", "replace"] as ("append" | "replace")[],
+              },
+            },
+          ],
+          fieldMeta: {
+            items: { type: "object-array" as const, label: "Items" },
+          },
+        }
+      }
+
+      protected parseConfigImportRows(_action: string, rawText: string) {
+        const rows = rawText
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .map((name) => ({ name }))
+        return { ok: true as const, rows }
+      }
+    }
+
+    test("applyConfigImport appends and replaces without setPluginConfig", () => {
+      const plugin = new ImportPlugin()
+      const appended = plugin.applyConfigImport({
+        action: "importItems",
+        rawText: "b\nc",
+        mode: "append",
+        existingValue: [{ name: "a" }],
+      })
+      expect(appended).toMatchObject({
+        success: true,
+        count: 2,
+        value: [{ name: "a" }, { name: "b" }, { name: "c" }],
+      })
+
+      const replaced = plugin.applyConfigImport({
+        action: "importItems",
+        rawText: "z",
+        mode: "replace",
+        existingValue: [{ name: "a" }],
+      })
+      expect(replaced.value).toEqual([{ name: "z" }])
+    })
+
+    test("executeAction persists via setPluginConfig for admins", async () => {
+      const plugin = new ImportPlugin()
+      const setPluginConfig = vi.fn(async () => {})
+      const context = {
+        roomId: "room-1",
+        api: {
+          isRoomAdmin: vi.fn(async () => true),
+          getPluginConfig: vi.fn(async () => ({ items: [{ name: "a" }] })),
+          setPluginConfig,
+        },
+        storage: {},
+        lifecycle: { on: vi.fn(), off: vi.fn() },
+      } as unknown as PluginContext
+
+      await plugin.register(context)
+      const result = await plugin.executeAction("importItems", { userId: "admin" }, {
+        rawText: "b",
+        mode: "append",
+      })
+      expect(result.success).toBe(true)
+      expect(setPluginConfig).toHaveBeenCalledWith("room-1", "import-plugin", {
+        items: [{ name: "a" }, { name: "b" }],
+      })
+    })
+  })
 })

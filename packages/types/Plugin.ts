@@ -99,10 +99,33 @@ export interface PluginSchemaElement {
 export interface PluginActionFormField {
   name: string
   label: string
-  type: "select" | "user-select" | "string"
+  type: "select" | "user-select" | "string" | "textarea"
   required?: boolean
   /** Static options. For `user-select`, prepended before room users. */
   options?: { value: string; label: string }[]
+  /** Placeholder for `string` / `textarea` fields. */
+  placeholder?: string
+  /** Preferred rows for `textarea` (host may clamp). */
+  rows?: number
+}
+
+/** How a config-import action merges parsed rows onto the target field (ADR 0075). */
+export type ConfigImportMode = "append" | "replace"
+
+/**
+ * Declares that an action mutates a config field from pasted input.
+ * Parsing stays in the plugin (`parseConfigImportRows`); this metadata drives UI + merge.
+ */
+export interface PluginActionConfigImport {
+  /** Config field to mutate (typically an object-array). */
+  targetField: string
+  /**
+   * Dialog submit buttons to show. Defaults to `["append"]` when omitted.
+   * Chosen mode is sent as `params.mode`.
+   */
+  modes?: ConfigImportMode[]
+  /** `formFields` name holding the paste text. Defaults to `"rawText"`. */
+  sourceParam?: string
 }
 
 /**
@@ -127,6 +150,28 @@ export interface PluginActionElement {
   showWhen?: ShowWhenCondition | ShowWhenCondition[]
   /** Optional fields shown before execute (admin plugin settings UI). */
   formFields?: PluginActionFormField[]
+  /**
+   * When set, this action imports pasted text into a config field (ADR 0075).
+   * Web: `executeAction` persists. Authoring hosts: dry-run API returns the merged value.
+   */
+  configImport?: PluginActionConfigImport
+}
+
+/** Request body for `POST /api/plugins/:pluginName/config-import` (dry-run; no Redis write). */
+export interface PluginConfigImportRequest {
+  action: string
+  rawText: string
+  mode: ConfigImportMode
+  /** Current value of `configImport.targetField` (array or undefined). */
+  existingValue?: unknown
+}
+
+/** Response from config-import dry-run or a successful live import message payload. */
+export interface PluginConfigImportResponse {
+  success: boolean
+  value?: unknown
+  message?: string
+  count?: number
 }
 
 /**
@@ -963,6 +1008,17 @@ export interface Plugin {
     initiator?: PluginActionInitiator,
     params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }>
+
+  /**
+   * Dry-run parse + merge for a `configImport` action (ADR 0075). No Redis write.
+   * Used by `POST /api/plugins/:pluginName/config-import`.
+   */
+  applyConfigImport?(input: {
+    action: string
+    rawText: string
+    mode: string
+    existingValue?: unknown
+  }): PluginConfigImportResponse
 
   /**
    * Validate a queue request before it is processed.

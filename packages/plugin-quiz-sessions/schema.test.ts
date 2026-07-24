@@ -53,6 +53,7 @@ describe("quiz-sessions config schema", () => {
         typeof el === "object" && (el as { type?: string }).type === "action",
     )
     expect(actions.map((a) => a.action)).toEqual([
+      "importQuestions",
       "startSession",
       "advanceQuestion",
       "endSession",
@@ -61,6 +62,21 @@ describe("quiz-sessions config schema", () => {
     for (const action of actions) {
       expect(action.showWhen).toEqual({ field: "enabled", value: true })
     }
+  })
+
+  it("declares importQuestions as a configImport action with append/replace modes", () => {
+    const actions = getConfigSchema().layout.filter(
+      (el): el is Extract<typeof el, { type: "action" }> =>
+        typeof el === "object" && (el as { type?: string }).type === "action",
+    )
+    const importAction = actions.find((a) => a.action === "importQuestions")
+    expect(importAction?.configImport).toEqual({
+      targetField: "questions",
+      modes: ["append", "replace"],
+      sourceParam: "rawText",
+    })
+    expect(importAction?.formFields?.[0]?.type).toBe("textarea")
+    expect(getConfigSchema().quickAccess).toContain("importQuestions")
   })
 
   it("gives End quiz a confirm step and Set coin reward a coinReward form field", () => {

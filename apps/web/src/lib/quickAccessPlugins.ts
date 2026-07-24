@@ -1,4 +1,4 @@
-import { getQuickAccessSchema } from "@repo/plugin-config-ui"
+import { getQuickAccessSchema } from "@repo/plugin-config-ui/logic"
 import type { PluginSchemaInfo } from "@repo/types/Plugin"
 
 /**

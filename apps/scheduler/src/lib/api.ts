@@ -25,6 +25,9 @@ import type {
   PresignNewsletterUploadResponse,
   PluginSchemaInfo,
   PluginSchemasResponse,
+  PluginConfigImportRequest,
+  PluginConfigImportResponse,
+  ConfigImportMode,
 } from "@repo/types"
 import type { MetadataSourceTrack } from "@repo/types/MetadataSource"
 import type { QueueItem } from "@repo/types/Queue"
@@ -210,6 +213,29 @@ export async function fetchPluginSchemas(): Promise<PluginSchemaInfo[]> {
   const data = await res.json<PluginSchemasResponse>()
   return data.plugins
 }
+
+/**
+ * Dry-run a plugin `configImport` action (ADR 0075). Admin-gated; does not write room Redis.
+ */
+export async function previewPluginConfigImport(
+  pluginName: string,
+  body: PluginConfigImportRequest,
+): Promise<PluginConfigImportResponse> {
+  const res = await api.post(`api/plugins/${encodeURIComponent(pluginName)}/config-import`, {
+    json: body,
+    throwHttpErrors: false,
+  })
+  const data = await res.json<PluginConfigImportResponse & { error?: string }>()
+  if (!res.ok) {
+    return {
+      success: false,
+      message: data.message || data.error || `Import failed (${res.status})`,
+    }
+  }
+  return data
+}
+
+export type { ConfigImportMode }
 
 // ---------------------------------------------------------------------------
 // Scheduling admins (assignee picker)

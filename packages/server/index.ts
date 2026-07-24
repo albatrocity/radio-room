@@ -37,6 +37,7 @@ import { createMessageController } from "./controllers/messageController"
 import {
   getPluginSchemas,
   getPluginSchema,
+  previewPluginConfigImport,
   getPluginComponentStates,
   getPluginComponentState,
 } from "./controllers/pluginsController"
@@ -210,6 +211,11 @@ export class RadioRoomServer {
       // Plugin schema endpoints
       .get("/api/plugins", getPluginSchemas)
       .get("/api/plugins/:pluginName/schema", getPluginSchema)
+      .post(
+        "/api/plugins/:pluginName/config-import",
+        requireAdmin ?? noopMiddleware,
+        previewPluginConfigImport,
+      )
       // Plugin component state endpoints
       .get("/api/rooms/:roomId/plugins/components", getPluginComponentStates)
       .get("/api/rooms/:roomId/plugins/:pluginName/components", getPluginComponentState)

@@ -1,13 +1,13 @@
-# 0080. Media Bridge Link via Redis Pub/Sub
+# 0082. Media Bridge Link via Redis Pub/Sub
 
 **Date:** 2026-07-22
 **Status:** Accepted
 
 ## Context
 
-Admins need to attach a DJ-Mac Media Bridge daemon to a bridge-powered room without copying room ids into the CLI. The operator clicking **Link to Media Bridge** in the Listening Room web UI is usually **not** on the DJ Mac, so browser → `127.0.0.1` control API probing is unreliable ([ADR 0077](0077-bridge-daemon-local-control-ui.md) localhost UI remains for on-box config only).
+Admins need to attach a DJ-Mac Media Bridge daemon to a bridge-powered room without copying room ids into the CLI. The operator clicking **Link to Media Bridge** in the Listening Room web UI is usually **not** on the DJ Mac, so browser → `127.0.0.1` control API probing is unreliable ([ADR 0079](0079-bridge-daemon-local-control-ui.md) localhost UI remains for on-box config only).
 
-The API and daemon already share Redis for room-scoped RPC and presence ([ADR 0075](0075-bridge-composite-playback-controller.md)).
+The API and daemon already share Redis for room-scoped RPC and presence ([ADR 0077](0077-bridge-composite-playback-controller.md)).
 
 ## Decision
 
@@ -33,6 +33,6 @@ The API and daemon already share Redis for room-scoped RPC and presence ([ADR 00
 
 ## See also
 
-- [0075](0075-bridge-composite-playback-controller.md) / [0077](0077-bridge-daemon-local-control-ui.md)
+- [0077](0077-bridge-composite-playback-controller.md) / [0079](0079-bridge-daemon-local-control-ui.md)
 - `docs/BRIDGE_LOCAL_TESTING.md`
-- [0081](0081-media-bridge-connection-status-to-clients.md) — client status surface
+- [0083](0083-media-bridge-connection-status-to-clients.md) — client status surface

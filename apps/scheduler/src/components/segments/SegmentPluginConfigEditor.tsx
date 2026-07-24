@@ -2,12 +2,15 @@ import { useMemo } from "react"
 import { Box, HStack, Spinner, Text, VStack } from "@chakra-ui/react"
 import { PluginConfigForm } from "@repo/plugin-config-ui"
 import type {
+  ConfigImportMode,
   PluginConfigSchema,
   PluginPreset,
   PluginSchemaInfo,
   SegmentPrivatePluginContent,
 } from "@repo/types"
 import { usePluginSchemas } from "../../hooks/usePluginSchemas"
+import { previewPluginConfigImport } from "../../lib/api"
+import { toaster } from "../ui/toaster"
 
 const PRESET_DEFAULT_NAME = "Segment plugin preset"
 
@@ -75,8 +78,8 @@ function normalizePrivate(content: SegmentPrivatePluginContent): SegmentPrivateP
  * (server-only). Coexists with the raw-JSON preset importer — both bind to the same
  * `pluginPreset` form state, so neither clobbers the other.
  *
- * `renderAction` is intentionally omitted: the scheduler authors config but does not
- * run live plugin actions, so action layout elements (e.g. quiz "Start quiz") are skipped.
+ * Live session actions (e.g. quiz "Start quiz") are skipped. `configImport` actions
+ * use a dry-run API (ADR 0075) so paste parsers stay in the plugin package.
  */
 export function SegmentPluginConfigEditor({
   pluginPreset,
@@ -193,6 +196,20 @@ export function SegmentPluginConfigEditor({
                     schema={info.configSchema}
                     values={displayValues}
                     onChange={(field, value) => handleFieldChange(info, field, value)}
+                    applyConfigImport={async ({ action, rawText, mode, existingValue }) =>
+                      previewPluginConfigImport(info.name, {
+                        action,
+                        rawText,
+                        mode: mode as ConfigImportMode,
+                        existingValue,
+                      })
+                    }
+                    onConfigImportError={(message) => {
+                      toaster.create({ title: "Import failed", description: message, type: "error" })
+                    }}
+                    onConfigImportSuccess={(message) => {
+                      toaster.create({ title: message, type: "success" })
+                    }}
                   />
                 ) : null}
               </Box>

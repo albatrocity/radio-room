@@ -6,7 +6,8 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./logic": "./src/logic.ts"
   },
   "scripts": {
     "test": "vitest run --passWithNoTests",
@@ -22,7 +23,9 @@
     "@internationalized/date": "^3.5.0",
     "@repo/types": "*",
     "@repo/utils": "*",
-    "react-icons": "^5.4.0"
+    "@xstate/react": "^4.1.3",
+    "react-icons": "^5.4.0",
+    "xstate": "^5.18.2"
   },
   "peerDependencies": {
     "@chakra-ui/react": "^3.36.1",
@@ -34,6 +37,6 @@
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
     "typescript": "^5.7.3",
-    "vitest": "^4.0.13"
+    "vitest": "^4.1.10"
   }
 }

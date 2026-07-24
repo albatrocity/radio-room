@@ -9,6 +9,7 @@ import type {
   ItemDefinition,
   ItemUseResult,
   Plugin,
+  PluginActionElement,
   PluginActionInitiator,
   PluginContext,
   PluginAugmentationData,
@@ -16,6 +17,8 @@ import type {
   PluginConfigSchema,
   PluginComponentSchema,
   PluginComponentState,
+  ConfigImportMode,
+  PluginConfigImportResponse,
   QueueItem,
   SystemEventPayload,
 } from "@repo/types"
@@ -764,8 +767,148 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
   async augmentNowPlaying?(item: QueueItem): Promise<PluginAugmentationData>
 
   /**
+   * Look up a layout action by name when it declares `configImport` (ADR 0075).
+   */
+  protected findConfigImportAction(action: string): PluginActionElement | null {
+    const layout = this.getConfigSchema?.()?.layout
+    if (!layout) return null
+    for (const item of layout) {
+      if (typeof item === "string") continue
+      if (item.type !== "action") continue
+      const el = item as PluginActionElement
+      if (el.action === action && el.configImport) return el
+    }
+    return null
+  }
+
+  /**
+   * Parse pasted text into config rows for a `configImport` action.
+   * Plugins that declare `configImport` must override this.
+   */
+  protected parseConfigImportRows(
+    action: string,
+    _rawText: string,
+  ): { ok: true; rows: Record<string, unknown>[] } | { ok: false; message: string } {
+    return { ok: false, message: `No config import parser for action: ${action}` }
+  }
+
+  /** Merge parsed rows onto an existing array field value. */
+  protected mergeConfigImportRows(
+    existing: unknown,
+    rows: Record<string, unknown>[],
+    mode: ConfigImportMode,
+  ): Record<string, unknown>[] {
+    const current = Array.isArray(existing) ? (existing as Record<string, unknown>[]) : []
+    return mode === "replace" ? rows : [...current, ...rows]
+  }
+
+  /**
+   * Parse + merge for a `configImport` action without touching Redis.
+   * Used by the dry-run HTTP API and by {@link runConfigImportAction}.
+   */
+  applyConfigImport(input: {
+    action: string
+    rawText: string
+    mode: string
+    existingValue?: unknown
+  }): PluginConfigImportResponse {
+    const element = this.findConfigImportAction(input.action)
+    if (!element?.configImport) {
+      return { success: false, message: `Unknown config import action: ${input.action}` }
+    }
+
+    const allowed = element.configImport.modes?.length
+      ? element.configImport.modes
+      : (["append"] as ConfigImportMode[])
+    const mode = input.mode as ConfigImportMode
+    if (!allowed.includes(mode)) {
+      return { success: false, message: `Invalid import mode: ${input.mode}` }
+    }
+
+    const rawText = typeof input.rawText === "string" ? input.rawText : ""
+    if (!rawText.trim()) {
+      return { success: false, message: "Paste is empty." }
+    }
+
+    const parsed = this.parseConfigImportRows(input.action, rawText)
+    if (!parsed.ok) return { success: false, message: parsed.message }
+    if (parsed.rows.length === 0) {
+      return { success: false, message: "No items found in paste." }
+    }
+
+    const value = this.mergeConfigImportRows(input.existingValue, parsed.rows, mode)
+    const count = parsed.rows.length
+    const message =
+      mode === "replace"
+        ? `Replaced with ${count} item${count === 1 ? "" : "s"}`
+        : `Appended ${count} item${count === 1 ? "" : "s"}`
+
+    return { success: true, value, count, message }
+  }
+
+  /**
+   * Live room path: admin-gated parse + merge + `setPluginConfig` for a `configImport` action.
+   */
+  protected async runConfigImportAction(
+    action: string,
+    initiator?: PluginActionInitiator,
+    params?: Record<string, unknown>,
+  ): Promise<{ success: boolean; message?: string }> {
+    const admin = await this.requireRoomAdminForAction(initiator)
+    if (!admin.ok) return admin.result
+    if (!this.context) {
+      return { success: false, message: "Plugin not initialized" }
+    }
+
+    const element = this.findConfigImportAction(action)
+    if (!element?.configImport) {
+      return { success: false, message: `Unknown config import action: ${action}` }
+    }
+
+    const sourceParam = element.configImport.sourceParam ?? "rawText"
+    const rawText = typeof params?.[sourceParam] === "string" ? (params[sourceParam] as string) : ""
+    const mode = typeof params?.mode === "string" ? params.mode : ""
+
+    const config = (await this.getConfig()) as Record<string, unknown> | null
+    const existingValue = config?.[element.configImport.targetField]
+    const applied = this.applyConfigImport({
+      action,
+      rawText,
+      mode,
+      existingValue,
+    })
+    if (!applied.success) {
+      return { success: false, message: applied.message }
+    }
+
+    const nextConfig = { ...(config ?? {}), [element.configImport.targetField]: applied.value }
+    await this.context.api.setPluginConfig(this.context.roomId, this.name, nextConfig)
+    return { success: true, message: applied.message }
+  }
+
+  protected async requireRoomAdminForAction(
+    initiator?: PluginActionInitiator,
+  ): Promise<
+    { ok: true } | { ok: false; result: { success: boolean; message?: string } }
+  > {
+    if (!this.context) {
+      return { ok: false, result: { success: false, message: "Plugin not initialized" } }
+    }
+    const userId = initiator?.userId?.trim()
+    if (!userId) {
+      return { ok: false, result: { success: false, message: "Admin required" } }
+    }
+    const isAdmin = await this.context.api.isRoomAdmin(this.context.roomId, userId)
+    if (!isAdmin) {
+      return { ok: false, result: { success: false, message: "Admin required" } }
+    }
+    return { ok: true }
+  }
+
+  /**
    * Execute a plugin action triggered from the admin config UI.
    * Override this method to handle custom actions defined in getConfigSchema().
+   * Default handles `configImport` actions via {@link runConfigImportAction}.
    *
    * @param action - The action identifier from PluginActionElement
    * @param initiator - When invoked from the admin room socket, the acting user (server-derived; not from the client payload)
@@ -779,15 +922,18 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    *     await this.clearAllLeaderboards()
    *     return { success: true, message: 'Leaderboards reset successfully' }
    *   }
-   *   return { success: false, message: 'Unknown action' }
+   *   return super.executeAction(action, initiator, params)
    * }
    * ```
    */
   async executeAction(
     action: string,
-    _initiator?: PluginActionInitiator,
-    _params?: Record<string, unknown>,
+    initiator?: PluginActionInitiator,
+    params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }> {
+    if (this.findConfigImportAction(action)) {
+      return this.runConfigImportAction(action, initiator, params)
+    }
     return { success: false, message: `Unknown action: ${action}` }
   }
 }

@@ -16,7 +16,7 @@
     "@repo/types": "*",
     "@repo/typescript-config": "*",
     "@types/express": "^5.0.0",
-    "vitest": "^4.0.13"
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@repo/server": "*",

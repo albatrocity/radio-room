@@ -1,7 +1,7 @@
 /**
  * Media Bridge Actor
  *
- * Room-scoped status for DJ Mac Media Bridge link (ADR 0080 / 0081).
+ * Room-scoped status for DJ Mac Media Bridge link (ADR 0082 / 0083).
  * Send ACTIVATE on room enter, DEACTIVATE on leave.
  */
 

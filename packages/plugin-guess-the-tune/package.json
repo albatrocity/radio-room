@@ -18,7 +18,7 @@
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
-    "vitest": "^4.0.13"
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@repo/game-logic": "*",

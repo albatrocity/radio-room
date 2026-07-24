@@ -181,7 +181,41 @@ getConfigSchema(): PluginConfigSchema {
 | `confirmMessage` | `string` | No       | If provided, shows confirmation dialog before executing                                         |
 | `confirmText`    | `string` | No       | Text for the confirmation button (default: "Confirm")                                           |
 | `showWhen`       | `object` | No       | Conditional visibility (same as field `showWhen`)                                               |
-| `formFields`     | `array`  | No       | Optional fields shown in a popover before run; values are passed as `params` to `executeAction` |
+| `formFields`     | `array`  | No       | Optional fields shown before run; values are passed as `params` to `executeAction`              |
+| `configImport`   | `object` | No       | Declares a paste→config-field import (ADR 0075); see [Config import actions](#config-import-actions) |
+
+`formFields[].type` may be `"string"`, `"select"`, `"user-select"`, or `"textarea"`. Textarea (and any `configImport` action) opens a Dialog instead of a Popover.
+
+### Config import actions
+
+Use `configImport` when an admin should paste bulk content into a config field (typically an `object-array`). **Parsing stays in the plugin** — override `parseConfigImportRows` on `BasePlugin`. Do not put plugin-specific paste grammars in `@repo/utils`.
+
+```typescript
+{
+  type: "action",
+  action: "importQuestions",
+  label: "Import questions",
+  formFields: [{
+    name: "rawText",
+    label: "Questions",
+    type: "textarea",
+    required: true,
+    rows: 16,
+  }],
+  configImport: {
+    targetField: "questions",
+    modes: ["append", "replace"], // dialog footer buttons; default ["append"]
+    sourceParam: "rawText",
+  },
+}
+```
+
+| Host | Behavior |
+|------|----------|
+| **Web** (Settings + Quick Access) | `EXECUTE_PLUGIN_ACTION` → `executeAction` / `runConfigImportAction` (parse + `setPluginConfig`) |
+| **Scheduler** (segment editor) | Dry-run `POST /api/plugins/:name/config-import` → form `onChange` (no Redis write until segment save) |
+
+`BasePlugin.executeAction` handles `configImport` actions by default when you fall through with `super.executeAction(...)`. Override `parseConfigImportRows(action, rawText)` to return `{ ok: true, rows }` or `{ ok: false, message }`. Chosen mode is sent as `params.mode`.
 
 ### Quick Access Panels
 
@@ -213,7 +247,7 @@ getConfigSchema(): PluginConfigSchema {
 }
 ```
 
-The menu only lists plugins that declare `quickAccess` **and** have `enabled: true` in room config. Panels are actions-only (no config field editing). Which panels are open persists in sessionStorage per room; desktop position/size is ephemeral.
+The menu only lists plugins that declare `quickAccess` **and** have `enabled: true` in room config. Panels are actions-only (no arbitrary config field editing). A `configImport` action may still mutate config via `executeAction` (ADR 0075). Which panels are open persists in sessionStorage per room; desktop position/size is ephemeral.
 
 ### Handling Actions
 

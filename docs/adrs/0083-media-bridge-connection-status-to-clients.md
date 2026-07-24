@@ -1,11 +1,11 @@
-# 0081. Media Bridge Connection Status to Clients
+# 0083. Media Bridge Connection Status to Clients
 
 **Date:** 2026-07-22
 **Status:** Accepted
 
 ## Context
 
-Admins need to see whether the DJ Mac Media Bridge is already connected to the current room before (or after) using **Link to Media Bridge** ([ADR 0080](0080-media-bridge-link-via-redis-pubsub.md)). Room-scoped Redis presence already exists (`bridge:{roomId}:presence`); it was not surfaced to the web client.
+Admins need to see whether the DJ Mac Media Bridge is already connected to the current room before (or after) using **Link to Media Bridge** ([ADR 0082](0082-media-bridge-link-via-redis-pubsub.md)). Room-scoped Redis presence already exists (`bridge:{roomId}:presence`); it was not surfaced to the web client.
 
 ## Decision
 
@@ -21,5 +21,5 @@ Admins need to see whether the DJ Mac Media Bridge is already connected to the c
 
 ## See also
 
-- [0080](0080-media-bridge-link-via-redis-pubsub.md)
+- [0082](0082-media-bridge-link-via-redis-pubsub.md)
 - `apps/web/src/machines/mediaBridgeMachine.ts`

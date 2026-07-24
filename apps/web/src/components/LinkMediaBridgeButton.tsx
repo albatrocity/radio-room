@@ -16,8 +16,8 @@ type Props = {
 }
 
 /**
- * Admin control: ask an online Media Bridge daemon to connect to this room (ADR 0080).
- * Status via mediaBridgeActor (ADR 0081).
+ * Admin control: ask an online Media Bridge daemon to connect to this room (ADR 0082).
+ * Status via mediaBridgeActor (ADR 0083).
  */
 export default function LinkMediaBridgeButton({
   buttonColorScheme,

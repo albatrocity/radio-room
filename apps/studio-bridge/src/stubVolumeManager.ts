@@ -1,5 +1,5 @@
 /**
- * Volume + playback transport stubs for Game Studio → Listening Room (ADR 0078).
+ * Volume + playback transport stubs for Game Studio → Listening Room (ADR 0080).
  *
  * The bridge does not run a real PlaybackController. It fakes:
  * - Built-in `GET_PLAYBACK_STATE` / `SEEK_PLAYBACK` / `SET_PLAYBACK_VOLUME`

@@ -91,6 +91,29 @@ const updateRewardAction = {
   ],
 } satisfies PluginActionElement
 
+const importQuestionsAction = {
+  type: "action",
+  action: "importQuestions",
+  label: "Import questions",
+  variant: "outline",
+  showWhen: { field: "enabled", value: true },
+  formFields: [
+    {
+      name: "rawText",
+      label: "Questions",
+      type: "textarea",
+      required: true,
+      rows: 16,
+      placeholder: "Question text?\n\n- answer 1\n- answer 2",
+    },
+  ],
+  configImport: {
+    targetField: "questions",
+    modes: ["append", "replace"],
+    sourceParam: "rawText",
+  },
+} satisfies PluginActionElement
+
 export function getConfigSchema(): PluginConfigSchema {
   return {
     jsonSchema: z.toJSONSchema(quizSessionsConfigSchema),
@@ -113,6 +136,7 @@ export function getConfigSchema(): PluginConfigSchema {
       "winnerLabel",
       "winnerIcon",
       "questions",
+      importQuestionsAction,
       { type: "heading", content: "Session controls" },
       {
         type: "text-block",
@@ -217,6 +241,6 @@ export function getConfigSchema(): PluginConfigSchema {
         ],
       },
     },
-    quickAccess: ["startSession", "advanceQuestion", "endSession"],
+    quickAccess: ["startSession", "advanceQuestion", "endSession", "importQuestions"],
   }
 }

@@ -99,7 +99,7 @@ export const BRIDGE_SPOTIFY_DEVICE_NAME = "Listening Room Bridge"
 export const BRIDGE_RPC_TIMEOUT_MS = 8000
 export const BRIDGE_PRESENCE_TTL_SEC = 10
 export const BRIDGE_LAST_ENDED_TTL_SEC = 60
-/** Standby daemon presence while `serve` / `connect --ui` is running (ADR 0080). */
+/** Standby daemon presence while `serve` / `connect --ui` is running (ADR 0082). */
 export const BRIDGE_DAEMON_PRESENCE_TTL_SEC = 15
 /** Slightly under Spotify's typical 1h access-token lifetime. */
 export const BRIDGE_SPOTIFY_TOKEN_TTL_SEC = 50 * 60

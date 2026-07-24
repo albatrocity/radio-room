@@ -94,7 +94,7 @@ Recommended tags for library managers:
 
 Tokens: `wcom`, `wpay`, `woaf`, `woas`, `wxxx`, `woar`, `purchaseurl`, `bandcamp`, `url`, `website`, `comment`, `musicbrainz`. Omit the array to use the default. Without `musicFolder`, file tags are skipped (OpenSubsonic comment / MusicBrainz id can still supply a URL).
 
-**Spotify Web Playback SDK (opt-in):** Include `"spotify"` in `services` to host a Connect device in bridge Chrome (see [ADR 0076](adrs/0076-spotify-web-playback-sdk-device.md)). The room creator must **re-link Spotify** once so the OAuth token includes the `streaming` scope. Without `"spotify"` in services, behavior stays on Spotify.app. SDK audio is ~256kbps AAC (fine for a transcoded stream).
+**Spotify Web Playback SDK (opt-in):** Include `"spotify"` in `services` to host a Connect device in bridge Chrome (see [ADR 0078](adrs/0078-spotify-web-playback-sdk-device.md)). The room creator must **re-link Spotify** once so the OAuth token includes the `streaming` scope. Without `"spotify"` in services, behavior stays on Spotify.app. SDK audio is ~256kbps AAC (fine for a transcoded stream).
 
 The daemon always writes Audio Hijack’s labeled format (same as local-remote):
 
@@ -135,7 +135,7 @@ Restart the API after env / adapter registration changes so `@repo/adapter-bridg
 
 ## 5. Start the daemon
 
-**Recommended:** local control UI + **Redis standby** (required for **Link to Media Bridge** from the web app — [ADR 0080](adrs/0080-media-bridge-link-via-redis-pubsub.md)):
+**Recommended:** local control UI + **Redis standby** (required for **Link to Media Bridge** from the web app — [ADR 0082](adrs/0082-media-bridge-link-via-redis-pubsub.md)):
 
 ```bash
 npm run serve -w bridge-daemon
@@ -207,6 +207,6 @@ Post-show publish still creates Spotify/Tidal playlists from `metadataSources` I
 
 ## Out of scope (this build)
 
-- Phase 4 Electron `.dmg` / auto-update (deferred; localhost UI is ADR 0077)
+- Phase 4 Electron `.dmg` / auto-update (deferred; localhost UI is ADR 0079)
 - Audio Hijack Volume-block scripting (per-driver volume first)
 - Scheduler segment tracks for YouTube/local
