@@ -1,3 +1,4 @@
+use crate::bridge_supervisor::{BridgeSupervisor, BridgeSupervisorSnapshot};
 use crate::config::Config;
 use crate::farrago::{FarragoBoard, FarragoBoardSnapshot};
 use rosc::OscType;
@@ -25,6 +26,8 @@ pub struct StatusSnapshot {
     pub last_osc_at_ms: Option<u128>,
     pub last_farrago_ping_at_ms: Option<u128>,
     pub now_playing: NowPlayingSnapshot,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bridge: Option<BridgeSupervisorSnapshot>,
 }
 
 pub struct AppState {
@@ -39,6 +42,9 @@ pub struct AppState {
     pub last_farrago_ping_at_ms: RwLock<Option<u128>>,
     pub farrago_board: RwLock<FarragoBoard>,
     pub reconnect: Notify,
+    /// Wake bridge supervisor after config changes (enable/disable/paths).
+    pub bridge_apply: Notify,
+    pub bridge_supervisor: Arc<BridgeSupervisor>,
     /// Fires whenever the Farrago board state changes. WebSocket clients subscribe to this.
     pub board_changed: broadcast::Sender<()>,
     /// Wakes the play-state monitor when a tile play command is sent.
@@ -65,6 +71,8 @@ impl AppState {
             last_farrago_ping_at_ms: RwLock::new(None),
             farrago_board: RwLock::new(FarragoBoard::default()),
             reconnect: Notify::new(),
+            bridge_apply: Notify::new(),
+            bridge_supervisor: BridgeSupervisor::new(),
             board_changed: board_tx,
             play_started: Notify::new(),
             now_playing_title: RwLock::new(None),
@@ -98,7 +106,17 @@ impl AppState {
                 album: self.now_playing_album.read().ok().and_then(|g| g.clone()),
                 last_updated_at_ms: self.now_playing_updated_at_ms.read().ok().and_then(|g| *g),
             },
+            bridge: None,
         }
+    }
+
+    pub async fn snapshot_with_bridge(&self) -> StatusSnapshot {
+        let mut snap = self.snapshot();
+        let Some(cfg) = self.config.read().ok().map(|c| c.clone()) else {
+            return snap;
+        };
+        snap.bridge = Some(self.bridge_supervisor.snapshot(&cfg).await);
+        snap
     }
 
     pub fn set_redis_connected(&self, ok: bool) {

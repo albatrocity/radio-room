@@ -2,10 +2,23 @@
 
 Steps to run the bridge adapter + Mac daemon against your Docker Listening Room stack.
 
+## DJ Mac handoff (production-shaped)
+
+On a **build Mac** with the monorepo, produce one zip — no Rust/npm on the DJ Mac ([ADR 0084](adrs/0084-dj-mac-single-zip-supervised-bridge.md)):
+
+```bash
+npm run pack:dj-mac
+# → dist/listening-room-dj-mac-darwin-x64.zip
+```
+
+AirDrop → unzip/replace → if Gatekeeper blocks: `xattr -dr com.apple.quarantine listening-room-dj-mac`. Audio Hijack starts **only** `local-remote`. Operator UI: **http://127.0.0.1:9876/** (enable **Media Bridge** there). Configs live outside the zip under `~/Library/Application Support/local-remote/` and `~/.config/listening-room-bridge/`.
+
+The sections below are for **dev from source** (`npm run serve -w bridge-daemon`). Prefer the pack on the real DJ Mac.
+
 ## Prerequisites
 
 - Docker Compose stack running (API, Redis, web, Postgres as you usually do)
-- Node 22+
+- Node 22+ (dev from source only; the DJ Mac pack bundles Node)
 - Google Chrome installed at `/Applications/Google Chrome.app`
 - (Optional local library) [Navidrome](https://www.navidrome.org/) + [mpv](https://mpv.io/) (`brew install navidrome mpv`)
 - (Optional Tidal) TIDAL desktop app installed
@@ -135,18 +148,20 @@ Restart the API after env / adapter registration changes so `@repo/adapter-bridg
 
 ## 5. Start the daemon
 
-**Recommended:** local control UI + **Redis standby** (required for **Link to Media Bridge** from the web app — [ADR 0082](adrs/0082-media-bridge-link-via-redis-pubsub.md)):
+**DJ Mac (packed):** start `local-remote` from the zip, open **http://127.0.0.1:9876/**, enable **Media Bridge**, save. Session / rooms / services are on that page (proxied). Child escape hatch: `http://127.0.0.1:18766/`.
+
+**Dev from source — recommended:** local control UI + **Redis standby** (required for **Link to Media Bridge** from the web app — [ADR 0082](adrs/0082-media-bridge-link-via-redis-pubsub.md)):
 
 ```bash
 npm run serve -w bridge-daemon
-# open http://127.0.0.1:18766/
+# open http://127.0.0.1:18766/  (or use consolidated UI via local-remote + features.bridge)
 ```
 
 `serve` keeps a Redis connection and listens on `BRIDGE:CONTROL` even before a room is connected. From any admin browser (not only the DJ Mac), open the bridge room → Admin → **Link to Media Bridge**. That publishes a Redis link request; the standby daemon connects and ACKs.
 
-If no daemon is in standby, the button shows: *No Media Bridge is online…* Start `serve` with `redisUrl` aimed at the same Redis as the API.
+If no daemon is in standby, the button shows: *No Media Bridge is online…* Start `serve` (or packed local-remote with bridge enabled) with Redis aimed at the same Redis as the API.
 
-Pick a room marked **bridge** in the local UI (listed from Redis — no copy/paste), or use the web **Link** button. Edit `redisUrl`, services, Chrome/Tidal/Navidrome/mpv paths, Now Playing path, etc., then **Save config**. Connect/disconnect from the Session / Rooms sections.
+Pick a room marked **bridge** in the local UI (listed from Redis — no copy/paste), or use the web **Link** button. Edit services, Chrome/Tidal/Navidrome/mpv paths, Now Playing path, etc., then **Save**. Connect/disconnect from the Session / Rooms sections.
 
 CLI alternatives:
 

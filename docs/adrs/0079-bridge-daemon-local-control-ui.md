@@ -1,7 +1,7 @@
 # 0079. Bridge Daemon Local Control UI (Room Discovery + Config)
 
 **Date:** 2026-07-20  
-**Status:** Accepted
+**Status:** Partially superseded by [0084](0084-dj-mac-single-zip-supervised-bridge.md)
 
 ## Context
 
@@ -12,7 +12,7 @@ Operators previously had to copy room ids into `bridge-daemon connect --room …
 1. **Local HTTP control UI** — `apps/bridge-daemon` serves a single-page UI (default `http://127.0.0.1:18766/`) via `bridge-daemon serve` (or `connect --ui`). JSON API: `GET/PUT /api/config`, `GET /api/status`, `GET /api/rooms`, `POST /api/connect`, `POST /api/disconnect`.
 2. **Full config surface** — The UI edits all fields in the daemon Zod schema (`redisUrl`, `httpListen`, `defaultRoomId`, `services`, `chrome`, `tidal`, `navidrome`, `mpv`, `nowPlayingPath`), persisted to the existing config path.
 3. **Room discovery via Redis** — `GET /api/rooms` (and CLI `bridge-daemon rooms`) reads the platform `rooms` set and `room:{id}:details` hashes over the configured `redisUrl`. Bridge rooms (`playbackControllerId === "bridge"`) are sorted first and badged. No new public HTTP API on the Listening Room API is required (contrast [0029](0029-public-scheduling-read-for-local-remote.md) for scheduling).
-4. **Electron packaging** — Remains deferred; this UI is the Phase 1–3 operator surface and a precursor to any future supervisor shell.
+4. **Electron packaging** — Remains deferred. For DJ Mac shipping, the primary operator surface is the consolidated local-remote UI at `:9876` with `/api/bridge/*` proxy ([0084](0084-dj-mac-single-zip-supervised-bridge.md)); this `:18766` UI remains as a child escape hatch and for `npm run serve` during development.
 
 ## Consequences
 

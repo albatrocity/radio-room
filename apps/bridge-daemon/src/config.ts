@@ -89,13 +89,25 @@ export function configPath(): string {
   return join(configDir(), "config.json")
 }
 
+/** Env overrides used when local-remote supervises a packed daemon. */
+function applyEnvOverrides(config: BridgeDaemonConfig): BridgeDaemonConfig {
+  const next = { ...config }
+  const redis = process.env.BRIDGE_REDIS_URL?.trim()
+  if (redis) next.redisUrl = redis
+  const room = process.env.BRIDGE_DEFAULT_ROOM_ID?.trim()
+  if (room) next.defaultRoomId = room
+  const mpv = process.env.BRIDGE_MPV_PATH?.trim()
+  if (mpv) next.mpv = { ...next.mpv, path: mpv }
+  return next
+}
+
 export function loadConfig(): BridgeDaemonConfig {
   const path = configPath()
   if (!existsSync(path)) {
-    return bridgeDaemonConfigSchema.parse({})
+    return applyEnvOverrides(bridgeDaemonConfigSchema.parse({}))
   }
   const raw = JSON.parse(readFileSync(path, "utf8"))
-  return bridgeDaemonConfigSchema.parse(raw)
+  return applyEnvOverrides(bridgeDaemonConfigSchema.parse(raw))
 }
 
 /** Ensure daemonId exists and is persisted for standby presence. */

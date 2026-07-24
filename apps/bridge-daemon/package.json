@@ -14,6 +14,7 @@
     "status": "tsx src/index.ts status",
     "rooms": "tsx src/index.ts rooms",
     "build": "echo 'bridge-daemon runs via tsx'",
+    "bundle": "node scripts/bundle.mjs",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@repo/typescript-config": "*",
     "@types/node": "^22.15.21",
+    "esbuild": "^0.25.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^4.0.13"

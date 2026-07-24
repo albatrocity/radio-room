@@ -1,9 +1,7 @@
 import { createServer, type Server } from "node:http"
 import { readFileSync, existsSync } from "node:fs"
-import { dirname, extname, join } from "node:path"
-import { fileURLToPath } from "node:url"
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import { extname, join } from "node:path"
+import { staticDir } from "./paths"
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -31,7 +29,7 @@ export class StaticHost {
   async start(): Promise<string> {
     if (this.server && this.port != null) return this.baseUrl
 
-    const root = join(__dirname, "../static")
+    const root = staticDir()
 
     this.server = createServer((req, res) => {
       const urlPath = (req.url ?? "/").split("?")[0] || "/"

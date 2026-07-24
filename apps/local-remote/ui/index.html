@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>local-remote</title>
+    <title>Listening Room DJ Mac</title>
     <style>
       :root {
         color-scheme: dark light;
@@ -17,6 +17,10 @@
       }
       h1 {
         font-size: 1.5rem;
+      }
+      h2 {
+        font-size: 1.15rem;
+        margin: 1.5rem 0 0.5rem;
       }
       fieldset {
         border: 1px solid #8884;
@@ -34,6 +38,7 @@
       }
       input[type="text"],
       input[type="number"],
+      input[type="password"],
       select {
         width: 100%;
         max-width: 36rem;
@@ -50,13 +55,91 @@
         padding: 0.5rem 1rem;
         cursor: pointer;
       }
-      #status {
+      button.primary {
+        font-weight: 600;
+      }
+      #status,
+      #bridgeSessionStatus {
         font-family: ui-monospace, monospace;
         font-size: 0.85rem;
         white-space: pre-wrap;
         background: #8882;
         padding: 0.75rem;
         border-radius: 6px;
+      }
+      .checks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        margin-top: 0.5rem;
+      }
+      .checks label {
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0;
+      }
+      .ok {
+        color: #2a7;
+        margin-top: 0.5rem;
+      }
+      .room-list {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0;
+        max-width: 40rem;
+      }
+      .room-list li {
+        margin-bottom: 0.4rem;
+      }
+      .room-list button {
+        width: 100%;
+        text-align: left;
+        font: inherit;
+        padding: 0.55rem 0.65rem;
+        border: 1px solid #8884;
+        border-radius: 6px;
+        background: #8881;
+        cursor: pointer;
+      }
+      .room-list button:hover {
+        background: #8883;
+      }
+      .room-list button.active {
+        outline: 2px solid #4a8;
+      }
+      .room-list .meta {
+        font-size: 0.85rem;
+        opacity: 0.8;
+        margin-top: 0.15rem;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.1rem 0.4rem;
+        border-radius: 4px;
+        background: #4a85;
+        margin-left: 0.35rem;
+      }
+      .badge.warn {
+        background: #a841;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 1rem;
+        max-width: 36rem;
+      }
+      @media (max-width: 640px) {
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+      }
+      #bridgePanels[data-disabled="true"] {
+        opacity: 0.55;
+        pointer-events: none;
       }
       .maps {
         margin-top: 0.5rem;
@@ -136,13 +219,11 @@
     </style>
   </head>
   <body>
-    <h1>local-remote</h1>
+    <h1>Listening Room DJ Mac</h1>
     <p>
-      Connect to the platform Redis, listen for <code>SYSTEM:*</code> events, and send
-      <strong>OSC</strong> over UDP when <code>SEGMENT_ACTIVATED</code> matches your room and segment
-      map (e.g. trigger a <a href="https://rogueamoeba.com/support/manuals/farrago/?page=osc">Farrago</a>
-      tile). Open the <a href="/soundboard">Farrago soundboard</a> for a tile grid (requires soundboard +
-      OSC below).
+      Single control plane for this Mac: Redis / OSC / Farrago soundboard, plus Media Bridge
+      (supervised Node child). Bookmark <code>http://127.0.0.1:9876/</code> only.
+      Open the <a href="/soundboard">Farrago soundboard</a> on the same origin.
     </p>
 
     <fieldset>
@@ -260,23 +341,155 @@
     </fieldset>
 
     <fieldset>
-      <legend>Now Playing (macOS)</legend>
+      <legend>Now Playing (macOS watcher)</legend>
       <p class="hint">
-        Watches the macOS Now Playing center for track changes. Publishes metadata to Redis
-        (<code>SYSTEM:NOW_PLAYING_CHANGED</code>) and writes a <code>Now Playing.txt</code> file
-        that Audio Hijack can read for stream overlay metadata.
+        Watches the macOS Now Playing center. When <strong>Media Bridge</strong> is enabled below,
+        this watcher is forced off so the bridge owns <code>Now Playing.txt</code> (no double publish).
       </p>
       <div class="row">
         <input id="nowPlayingEnabled" type="checkbox" />
         <label for="nowPlayingEnabled" style="margin: 0">Enabled</label>
       </div>
-      <label for="nowPlayingFilePath">Now Playing file path</label>
+      <label for="nowPlayingFilePath">Now Playing file path (local-remote watcher)</label>
       <input id="nowPlayingFilePath" type="text" placeholder="~/Now Playing.txt" />
-      <p class="hint">
-        Written on each track change. Audio Hijack's Live Stream block reads this via
-        <strong>Other Source…</strong> for the stream overlay.
+      <p class="hint" id="nowPlayingBridgeHint" hidden>
+        Media Bridge is enabled — use the bridge <strong>Now Playing path</strong> below for Audio Hijack.
       </p>
     </fieldset>
+
+    <h2>Media Bridge</h2>
+    <p class="hint">
+      Supervised child process (bundled Node + <code>bridge-daemon</code>). Redis URL for the child is
+      injected from <strong>Connection</strong> above. Bridge-specific settings save to
+      <code>~/.config/listening-room-bridge/config.json</code>.
+    </p>
+
+    <fieldset>
+      <legend>Supervisor</legend>
+      <div class="row">
+        <input id="bridgeEnabled" type="checkbox" />
+        <label for="bridgeEnabled" style="margin: 0">Enable Media Bridge child</label>
+      </div>
+      <div class="row" style="margin-top: 0.5rem">
+        <input id="bridgeAutoConnect" type="checkbox" />
+        <label for="bridgeAutoConnect" style="margin: 0">Auto-connect after child is healthy (uses Room ID above)</label>
+      </div>
+      <p class="hint">
+        Paths default to <code>runtime/node</code> and <code>bridge-daemon/daemon.cjs</code> next to this binary (pack layout).
+      </p>
+      <div id="bridgeSupervisorStatus" class="hint">Supervisor: —</div>
+      <div class="row" style="margin-top: 0.75rem">
+        <button type="button" id="bridgeRestart">Restart bridge child</button>
+      </div>
+    </fieldset>
+
+    <div id="bridgePanels" data-disabled="true">
+      <fieldset>
+        <legend>Session</legend>
+        <div id="bridgeSessionStatus">Enable Media Bridge and save to load session…</div>
+        <div class="row">
+          <button type="button" id="bridgeRefreshStatus">Refresh status</button>
+          <button type="button" id="bridgeDisconnect">Disconnect</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Rooms</legend>
+        <p class="hint">
+          Rooms from Redis. Prefer <span class="badge">bridge</span>. Or use Admin →
+          <strong>Link to Media Bridge</strong> in the web app.
+        </p>
+        <div class="row">
+          <button type="button" id="bridgeRefreshRooms">Refresh rooms</button>
+          <label style="margin: 0; font-weight: 500">
+            <input type="checkbox" id="bridgeOnly" /> Bridge rooms only
+          </label>
+        </div>
+        <ul class="room-list" id="bridgeRoomList"></ul>
+        <div id="bridgeRoomsError" class="err" hidden></div>
+        <label for="bridgeManualRoomId">Or paste room id</label>
+        <div class="row">
+          <input type="text" id="bridgeManualRoomId" placeholder="room id" style="flex: 1; max-width: 28rem" />
+          <button type="button" class="primary" id="bridgeConnectManual">Connect</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Bridge connection defaults</legend>
+        <label for="bridgeDefaultRoomId">Default room id</label>
+        <input type="text" id="bridgeDefaultRoomId" autocomplete="off" />
+        <label for="bridgeHttpListen">Child HTTP listen (escape hatch UI)</label>
+        <input type="text" id="bridgeHttpListen" autocomplete="off" placeholder="127.0.0.1:18766" />
+      </fieldset>
+
+      <fieldset>
+        <legend>Services</legend>
+        <p class="hint">Drivers started on connect. Spotify = Web Playback SDK device in Chrome.</p>
+        <div class="checks">
+          <label><input type="checkbox" id="svcYoutube" value="youtube" /> youtube</label>
+          <label><input type="checkbox" id="svcLocal" value="local" /> local</label>
+          <label><input type="checkbox" id="svcTidal" value="tidal" /> tidal</label>
+          <label><input type="checkbox" id="svcSpotify" value="spotify" /> spotify (SDK device)</label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Chrome</legend>
+        <label for="chromeExe">Executable path</label>
+        <input type="text" id="chromeExe" />
+        <label for="chromeUserData">User data dir (optional)</label>
+        <input type="text" id="chromeUserData" placeholder="default under ~/.config/listening-room-bridge/" />
+        <label for="chromePort">Debugging port</label>
+        <input type="number" id="chromePort" min="1" max="65535" />
+      </fieldset>
+
+      <fieldset>
+        <legend>Tidal</legend>
+        <label for="tidalExe">Executable path</label>
+        <input type="text" id="tidalExe" />
+        <label for="tidalPort">Debugging port</label>
+        <input type="number" id="tidalPort" min="1" max="65535" />
+      </fieldset>
+
+      <fieldset>
+        <legend>Navidrome / mpv (local)</legend>
+        <div class="grid2">
+          <div>
+            <label for="navUrl">Navidrome URL</label>
+            <input type="text" id="navUrl" />
+          </div>
+          <div>
+            <label for="mpvPath">mpv path</label>
+            <input type="text" id="mpvPath" />
+          </div>
+          <div>
+            <label for="navUser">Username</label>
+            <input type="text" id="navUser" autocomplete="username" />
+          </div>
+          <div>
+            <label for="navPass">Password</label>
+            <input type="password" id="navPass" autocomplete="current-password" />
+          </div>
+        </div>
+        <label for="navMusicFolder">Music folder (absolute path, same as Navidrome MusicFolder)</label>
+        <input type="text" id="navMusicFolder" placeholder="/Users/YOU/Music/Library" />
+        <label for="mpvSocket">mpv socket path (optional)</label>
+        <input type="text" id="mpvSocket" />
+      </fieldset>
+
+      <fieldset>
+        <legend>Bridge Now Playing.txt</legend>
+        <label for="bridgeNowPlayingPath">Path for Audio Hijack</label>
+        <input type="text" id="bridgeNowPlayingPath" placeholder="default under ~/.config/listening-room-bridge/" />
+        <p class="hint">File uses <code>Title:</code> / <code>Artist:</code> / <code>Album:</code> lines.</p>
+      </fieldset>
+
+      <div class="row" style="margin: 0.5rem 0 1rem">
+        <button type="button" class="primary" id="bridgeSaveConfig">Save bridge config</button>
+        <button type="button" id="bridgeReloadConfig">Reload bridge config</button>
+      </div>
+      <div id="bridgeFormMsg" hidden></div>
+    </div>
 
     <div class="row" style="margin: 1rem 0">
       <button type="button" id="save">Save &amp; apply</button>
@@ -502,6 +715,18 @@
         return arr.join(", ");
       }
 
+      function syncBridgeUiState() {
+        const on = $("bridgeEnabled").checked;
+        $("bridgePanels").dataset.disabled = on ? "false" : "true";
+        $("nowPlayingBridgeHint").hidden = !on;
+        if (on) {
+          $("nowPlayingEnabled").checked = false;
+          $("nowPlayingEnabled").disabled = true;
+        } else {
+          $("nowPlayingEnabled").disabled = false;
+        }
+      }
+
       function cfgToForm(c) {
         $("redisUrl").value = c.redisUrl || "";
         $("roomId").value = c.roomId || "";
@@ -519,6 +744,9 @@
             : "";
         $("nowPlayingEnabled").checked = !!c.features?.nowPlaying?.enabled;
         $("nowPlayingFilePath").value = c.features?.nowPlaying?.nowPlayingFilePath || "";
+        $("bridgeEnabled").checked = !!c.features?.bridge?.enabled;
+        $("bridgeAutoConnect").checked = !!c.features?.bridge?.autoConnect;
+        syncBridgeUiState();
       }
 
       function formToCfg(base) {
@@ -540,19 +768,247 @@
         const sbp = Number($("soundboardOscListenPort").value);
         c.features.soundboard.oscListenPort = Number.isFinite(sbp) ? sbp : 0;
         c.features.nowPlaying = c.features.nowPlaying || {};
-        c.features.nowPlaying.enabled = $("nowPlayingEnabled").checked;
+        c.features.nowPlaying.enabled = $("bridgeEnabled").checked
+          ? false
+          : $("nowPlayingEnabled").checked;
         const npPath = $("nowPlayingFilePath").value.trim();
         if (npPath) c.features.nowPlaying.nowPlayingFilePath = npPath;
+        c.features.bridge = c.features.bridge || {};
+        c.features.bridge.enabled = $("bridgeEnabled").checked;
+        c.features.bridge.autoConnect = $("bridgeAutoConnect").checked;
+        if (!c.features.bridge.nodePath) c.features.bridge.nodePath = "runtime/node";
+        if (!c.features.bridge.daemonPath) c.features.bridge.daemonPath = "bridge-daemon/daemon.cjs";
+        if (!c.features.bridge.childApiBase) {
+          c.features.bridge.childApiBase = "http://127.0.0.1:18766";
+        }
         return c;
       }
 
       let lastConfig = null;
+      let bridgeLoadedConfig = null;
+      let bridgeRoomsCache = [];
+      let bridgeStatusRoomId = null;
+
+      function setBridgeMsg(text, ok) {
+        const el = $("bridgeFormMsg");
+        el.hidden = !text;
+        el.className = ok ? "ok" : "err";
+        el.textContent = text || "";
+      }
+
+      async function bridgeApi(path, opts) {
+        const res = await fetch(path, opts);
+        const data = await res.json().catch(() => ({
+          ok: false,
+          error: "Invalid response",
+        }));
+        if (!res.ok || data.ok === false) {
+          throw new Error(data.error || res.statusText || "Request failed");
+        }
+        return data;
+      }
+
+      function applyBridgeConfig(c) {
+        bridgeLoadedConfig = c || null;
+        $("bridgeDefaultRoomId").value = c.defaultRoomId || "";
+        $("bridgeHttpListen").value = c.httpListen || "";
+        const svcs = c.services || [];
+        $("svcYoutube").checked = svcs.indexOf("youtube") >= 0;
+        $("svcLocal").checked = svcs.indexOf("local") >= 0;
+        $("svcTidal").checked = svcs.indexOf("tidal") >= 0;
+        $("svcSpotify").checked = svcs.indexOf("spotify") >= 0;
+        const chrome = c.chrome || {};
+        $("chromeExe").value = chrome.executablePath || "";
+        $("chromeUserData").value = chrome.userDataDir || "";
+        $("chromePort").value = chrome.debuggingPort != null ? chrome.debuggingPort : 9222;
+        const tidal = c.tidal || {};
+        $("tidalExe").value = tidal.executablePath || "";
+        $("tidalPort").value = tidal.debuggingPort != null ? tidal.debuggingPort : 9223;
+        const nav = c.navidrome || {};
+        $("navUrl").value = nav.url || "";
+        $("navUser").value = nav.username || "";
+        $("navPass").value = nav.password || "";
+        $("navMusicFolder").value = nav.musicFolder || "";
+        const mpv = c.mpv || {};
+        $("mpvPath").value = mpv.path || "";
+        $("mpvSocket").value = mpv.socketPath || "";
+        $("bridgeNowPlayingPath").value = c.nowPlayingPath || "";
+      }
+
+      function collectBridgeConfig() {
+        const userData = $("chromeUserData").value.trim();
+        const socket = $("mpvSocket").value.trim();
+        const np = $("bridgeNowPlayingPath").value.trim();
+        const defaultRoom = $("bridgeDefaultRoomId").value.trim();
+        const musicFolder = $("navMusicFolder").value.trim();
+        const prevNav = (bridgeLoadedConfig && bridgeLoadedConfig.navidrome) || {};
+        const navidrome = {
+          url: $("navUrl").value.trim(),
+          username: $("navUser").value,
+          password: $("navPass").value,
+        };
+        if (musicFolder) navidrome.musicFolder = musicFolder;
+        if (prevNav.publicUrlTagPriority) {
+          navidrome.publicUrlTagPriority = prevNav.publicUrlTagPriority;
+        }
+        const services = [];
+        if ($("svcYoutube").checked) services.push("youtube");
+        if ($("svcLocal").checked) services.push("local");
+        if ($("svcTidal").checked) services.push("tidal");
+        if ($("svcSpotify").checked) services.push("spotify");
+        return {
+          redisUrl: $("redisUrl").value.trim(),
+          httpListen: $("bridgeHttpListen").value.trim() || "127.0.0.1:18766",
+          defaultRoomId: defaultRoom || undefined,
+          daemonId: bridgeLoadedConfig && bridgeLoadedConfig.daemonId,
+          services,
+          chrome: {
+            executablePath: $("chromeExe").value.trim(),
+            userDataDir: userData || undefined,
+            debuggingPort: Number($("chromePort").value) || 9222,
+          },
+          tidal: {
+            executablePath: $("tidalExe").value.trim(),
+            debuggingPort: Number($("tidalPort").value) || 9223,
+          },
+          navidrome,
+          mpv: {
+            path: $("mpvPath").value.trim() || "mpv",
+            socketPath: socket || undefined,
+          },
+          nowPlayingPath: np || undefined,
+        };
+      }
+
+      function renderBridgeRooms() {
+        const list = $("bridgeRoomList");
+        list.innerHTML = "";
+        const bridgeOnly = $("bridgeOnly").checked;
+        const shown = bridgeRoomsCache.filter((r) => !bridgeOnly || r.bridgeReady);
+        if (!shown.length) {
+          const empty = document.createElement("li");
+          empty.className = "hint";
+          empty.textContent = bridgeRoomsCache.length
+            ? "No rooms match the filter."
+            : "No rooms found (is Redis reachable and the API running?).";
+          list.appendChild(empty);
+          return;
+        }
+        shown.forEach((r) => {
+          const li = document.createElement("li");
+          const btn = document.createElement("button");
+          btn.type = "button";
+          if (bridgeStatusRoomId && bridgeStatusRoomId === r.id) btn.classList.add("active");
+          const title = document.createElement("div");
+          title.textContent = r.title;
+          if (r.bridgeReady) {
+            const badge = document.createElement("span");
+            badge.className = "badge";
+            badge.textContent = "bridge";
+            title.appendChild(badge);
+          } else {
+            const warn = document.createElement("span");
+            warn.className = "badge warn";
+            warn.textContent = r.playbackControllerId || "no controller";
+            title.appendChild(warn);
+          }
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent =
+            r.type +
+            " · " +
+            (r.playbackMode || "—") +
+            (r.public === false ? " · private" : "") +
+            " · " +
+            r.id;
+          btn.appendChild(title);
+          btn.appendChild(meta);
+          btn.addEventListener("click", () => {
+            void connectBridgeRoom(r.id);
+          });
+          li.appendChild(btn);
+          list.appendChild(li);
+        });
+      }
+
+      async function refreshBridgeSession() {
+        if (!$("bridgeEnabled").checked) return;
+        try {
+          const data = await bridgeApi("/api/bridge/status");
+          bridgeStatusRoomId = data.roomId || null;
+          const lines = [
+            "connected: " + (data.connected ? "yes" : "no"),
+            "room: " + (data.roomId || "—"),
+            "drivers: " +
+              ((data.drivers && data.drivers.length && data.drivers.join(", ")) || "—"),
+          ];
+          if (data.spotifyDeviceId) {
+            lines.push("spotify device: " + data.spotifyDeviceId);
+          } else if (data.connected) {
+            lines.push("spotify device: —");
+          }
+          $("bridgeSessionStatus").textContent = lines.join("\n");
+          renderBridgeRooms();
+        } catch (e) {
+          $("bridgeSessionStatus").textContent = "Error: " + (e.message || e);
+        }
+      }
+
+      async function refreshBridgeRooms() {
+        if (!$("bridgeEnabled").checked) return;
+        $("bridgeRoomsError").hidden = true;
+        try {
+          const data = await bridgeApi("/api/bridge/rooms");
+          bridgeRoomsCache = data.rooms || [];
+          renderBridgeRooms();
+        } catch (e) {
+          bridgeRoomsCache = [];
+          renderBridgeRooms();
+          $("bridgeRoomsError").hidden = false;
+          $("bridgeRoomsError").textContent = e.message || String(e);
+        }
+      }
+
+      async function connectBridgeRoom(roomId) {
+        setBridgeMsg("", true);
+        try {
+          await bridgeApi("/api/bridge/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ roomId }),
+          });
+          $("bridgeDefaultRoomId").value = roomId;
+          $("bridgeManualRoomId").value = roomId;
+          setBridgeMsg("Connected to " + roomId, true);
+          await refreshBridgeSession();
+        } catch (e) {
+          setBridgeMsg(e.message || String(e), false);
+        }
+      }
+
+      async function loadBridgeConfig() {
+        if (!$("bridgeEnabled").checked) return;
+        const data = await bridgeApi("/api/bridge/config");
+        applyBridgeConfig(data.config);
+      }
 
       async function refreshStatus() {
         try {
           const r = await fetch("/api/status");
           const s = await r.json();
           $("status").textContent = JSON.stringify(s, null, 2);
+          const br = s.bridge;
+          if (br) {
+            $("bridgeSupervisorStatus").textContent =
+              "Supervisor: " +
+              (br.enabled ? "enabled" : "disabled") +
+              (br.running ? ", running" : ", not running") +
+              (br.pid != null ? " (pid " + br.pid + ")" : "") +
+              (br.lastError ? " — " + br.lastError : "");
+          }
+          if ($("bridgeEnabled").checked && br && br.running) {
+            void refreshBridgeSession().catch(() => {});
+          }
         } catch (e) {
           $("status").textContent = String(e);
         }
@@ -567,7 +1023,18 @@
         }
         lastConfig = await r.json();
         cfgToForm(lastConfig);
+        if ($("bridgeEnabled").checked) {
+          try {
+            await loadBridgeConfig();
+            await refreshBridgeRooms();
+            await refreshBridgeSession();
+          } catch (e) {
+            setBridgeMsg(e.message || String(e), false);
+          }
+        }
       }
+
+      $("bridgeEnabled").onchange = syncBridgeUiState;
 
       $("save").onclick = async () => {
         $("msg").textContent = "";
@@ -596,12 +1063,85 @@
         lastConfig = JSON.parse(t);
         cfgToForm(lastConfig);
         $("msg").textContent = "Saved.";
+        if (lastConfig.features?.bridge?.enabled) {
+          setTimeout(() => {
+            void loadBridgeConfig()
+              .then(() => refreshBridgeRooms())
+              .then(() => refreshBridgeSession())
+              .catch((e) => setBridgeMsg(e.message || String(e), false));
+          }, 800);
+        }
         setTimeout(() => {
           if ($("msg").textContent === "Saved.") $("msg").textContent = "";
         }, 2000);
       };
 
       $("reload").onclick = reload;
+
+      $("bridgeSaveConfig").onclick = async () => {
+        setBridgeMsg("", true);
+        try {
+          const body = collectBridgeConfig();
+          await bridgeApi("/api/bridge/config", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          setBridgeMsg("Bridge config saved. Reconnect if services/Redis changed.", true);
+          await refreshBridgeRooms();
+        } catch (e) {
+          setBridgeMsg(e.message || String(e), false);
+        }
+      };
+
+      $("bridgeReloadConfig").onclick = () => {
+        void loadBridgeConfig()
+          .then(() => setBridgeMsg("Reloaded bridge config", true))
+          .catch((e) => setBridgeMsg(e.message || String(e), false));
+      };
+
+      $("bridgeRefreshStatus").onclick = () => {
+        void refreshBridgeSession().catch((e) => {
+          $("bridgeSessionStatus").textContent = "Error: " + (e.message || e);
+        });
+      };
+
+      $("bridgeDisconnect").onclick = () => {
+        void bridgeApi("/api/bridge/disconnect", { method: "POST" })
+          .then(() => {
+            setBridgeMsg("Disconnected", true);
+            return refreshBridgeSession();
+          })
+          .catch((e) => setBridgeMsg(e.message || String(e), false));
+      };
+
+      $("bridgeRefreshRooms").onclick = () => {
+        void refreshBridgeRooms();
+      };
+      $("bridgeOnly").onchange = renderBridgeRooms;
+
+      $("bridgeConnectManual").onclick = () => {
+        const id = $("bridgeManualRoomId").value.trim();
+        if (!id) {
+          setBridgeMsg("Enter a room id", false);
+          return;
+        }
+        void connectBridgeRoom(id);
+      };
+
+      $("bridgeRestart").onclick = () => {
+        void fetch("/api/bridge/restart", { method: "POST" })
+          .then(async (r) => {
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok || j.ok === false) throw new Error(j.error || r.statusText);
+            setBridgeMsg("Bridge child restart requested", true);
+            setTimeout(() => {
+              void refreshStatus();
+              void refreshBridgeSession().catch(() => {});
+            }, 1000);
+          })
+          .catch((e) => setBridgeMsg(e.message || String(e), false));
+      };
 
       function setSchedulingHint(text, isError) {
         const el = $("schedulingPickerHint");

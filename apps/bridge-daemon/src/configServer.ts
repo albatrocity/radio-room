@@ -1,7 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import { readFileSync } from "node:fs"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
 import { createClient, type RedisClientType } from "redis"
 import {
   bridgeDaemonConfigSchema,
@@ -11,6 +9,7 @@ import {
   type BridgeDaemonConfig,
 } from "./config"
 import { listRoomsFromRedis } from "./listRooms"
+import { uiHtmlPath } from "./paths"
 
 type RedisLike = RedisClientType<any, any, any>
 
@@ -26,9 +25,6 @@ export type ConfigServerHandlers = {
   /** Reload in-memory config after a save (caller may restart session). */
   onConfigSaved: (config: BridgeDaemonConfig) => void
 }
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const UI_HTML_PATH = join(__dirname, "..", "ui", "index.html")
 
 function sendJson(res: ServerResponse, status: number, body: unknown) {
   const data = JSON.stringify(body)
@@ -106,7 +102,7 @@ async function handleRequest(
   const method = req.method ?? "GET"
 
   if (method === "GET" && (path === "/" || path === "/index.html")) {
-    const html = readFileSync(UI_HTML_PATH, "utf8")
+    const html = readFileSync(uiHtmlPath(), "utf8")
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
     res.end(html)
     return

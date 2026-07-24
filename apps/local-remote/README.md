@@ -2,14 +2,40 @@
 
 Local daemon that connects to the **same Redis** as the Listening Room platform, subscribes to **`SYSTEM:*`** pub/sub channels, and sends **OSC (Open Sound Control)** over **UDP** when **`SEGMENT_ACTIVATED`** matches your room and segment map—useful for triggering tiles in [Farrago](https://rogueamoeba.com/support/manuals/farrago/?page=osc) or any OSC listener.
 
-## Requirements
+On the **DJ Mac**, this binary is also the sole Audio Hijack entrypoint: it can supervise a packed **Media Bridge** Node child and expose bridge controls on the same UI ([ADR 0084](../../docs/adrs/0084-dj-mac-single-zip-supervised-bridge.md)).
+
+## DJ Mac distribution (no toolchain on the DJ Mac)
+
+Build on a Mac that has the monorepo + Rust (cross-compile to Intel):
+
+```bash
+npm run pack:dj-mac
+# → dist/listening-room-dj-mac-darwin-x64.zip
+```
+
+AirDrop the zip → unzip/replace the folder → clear quarantine once if Gatekeeper blocks:
+
+```bash
+xattr -dr com.apple.quarantine listening-room-dj-mac
+```
+
+Start **`local-remote` only** (Audio Hijack start/stop). Bookmark **http://127.0.0.1:9876/** — OSC, soundboard (`/soundboard`), and Media Bridge session/rooms/services live there. Enable **Media Bridge** in the UI so the supervisor spawns `runtime/node` + `bridge-daemon/daemon.cjs`.
+
+Configs survive zip replace:
+
+- `~/Library/Application Support/local-remote/config.json`
+- `~/.config/listening-room-bridge/config.json`
+
+Do **not** install Rust/npm/tsx on the DJ Mac or run `npm run serve` there for production use.
+
+## Requirements (dev / from source)
 
 - [Rust](https://rustup.rs/) (stable), `cargo` on your `PATH`
 - Network access to the remote Redis used by the platform
 - **TLS Redis (`rediss://`):** If you see `invalid peer certificate: UnknownIssuer`, append **`/#insecure`** to the URL (e.g. `rediss://:password@host:port/#insecure`). That disables TLS certificate verification—use only when you trust the network path (see redis-rs docs). Prefer fixing trust (correct CA bundle) in production when possible.
 - For Farrago on the same Mac: enable **OSC Input** and note the **UDP port** (Settings → Controllers)
 
-## Run
+## Run (from source)
 
 From the monorepo root:
 
@@ -104,10 +130,14 @@ curl -s -X POST http://127.0.0.1:9876/api/osc-test \
 
 ## Build release binary
 
+Native (current arch) binary only:
+
 ```bash
 npm run build --workspace=local-remote
 # output: dist/local-remote (macOS/Linux; on Windows use dist/local-remote.exe and adjust the `cp` line in package.json if needed)
 ```
+
+For the **Intel DJ Mac pack** (local-remote + Node + bridge-daemon), use `npm run pack:dj-mac` from the monorepo root instead.
 
 Workspace npm scripts pass **`--target-dir daemon/target`** so outputs land under `apps/local-remote/daemon/target/` even when `CARGO_TARGET_DIR` is set globally.
 

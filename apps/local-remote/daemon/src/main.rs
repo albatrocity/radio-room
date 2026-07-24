@@ -1,4 +1,5 @@
 mod api;
+mod bridge_supervisor;
 mod config;
 mod events;
 mod farrago;
@@ -54,16 +55,23 @@ async fn main() -> anyhow::Result<()> {
         now_playing::run_now_playing_watcher(np_state).await;
     });
 
+    let bridge_state = state.clone();
+    tokio::spawn(async move {
+        bridge_supervisor::run_bridge_supervisor(bridge_state).await;
+    });
+
     let app: Router = api::build_router(state.clone());
 
     let listener = TcpListener::bind(&listen)
         .await
         .with_context(|| format!("bind HTTP {listen}"))?;
-    info!("local-remote UI + API: http://{listen}/");
+    info!("Listening Room DJ Mac UI + API: http://{listen}/");
 
-    let shutdown = async {
+    let shutdown_state = state.clone();
+    let shutdown = async move {
         let _ = signal::ctrl_c().await;
         info!("shutdown signal received");
+        shutdown_state.bridge_supervisor.stop().await;
     };
 
     axum::serve(listener, app)
