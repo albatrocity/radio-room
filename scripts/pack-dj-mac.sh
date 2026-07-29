@@ -242,6 +242,9 @@ Optional — other services
 3. Start local-remote (Terminal smoke-test or Audio Hijack).
 4. Open http://127.0.0.1:9876/
 5. Set Redis URL (same Redis as the Listening Room platform).
+   Production TLS with a self-signed / private CA often needs:
+     rediss://:PASSWORD@HOST:PORT/#insecure
+   (same /#insecure flag local-remote already documents).
 6. Enable Media Bridge → Save & apply (spawns bundled Node child).
 7. Fill Chrome / services / Navidrome / mpv / Now Playing path.
 8. Connect to a bridge room here, or use Admin → Link to Media Bridge

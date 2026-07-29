@@ -1,4 +1,3 @@
-import { createClient } from "redis"
 import { Command } from "commander"
 import {
   loadConfig,
@@ -8,6 +7,7 @@ import {
   ensureDaemonId,
   type BridgeDaemonConfig,
 } from "./config"
+import { createBridgeRedisClient, type BridgeRedisClient } from "./redisClient"
 import { ChromeManager } from "./chrome"
 import { YoutubeDriver } from "./drivers/youtube"
 import { LocalDriver } from "./drivers/local"
@@ -24,7 +24,7 @@ import { StandbyControl } from "./standbyControl"
 
 type Session = {
   roomId: string
-  redis: ReturnType<typeof createClient>
+  redis: BridgeRedisClient
   /** When true, disconnect must not quit redis (owned by standby). */
   sharedRedis: boolean
   presence: Presence
@@ -38,7 +38,7 @@ type Session = {
 let session: Session | null = null
 /** Latest config used for connect (updated when UI saves). */
 let activeConfig: BridgeDaemonConfig = loadConfig()
-let standbyRedis: ReturnType<typeof createClient> | null = null
+let standbyRedis: BridgeRedisClient | null = null
 let standby: StandbyControl | null = null
 
 function getStatus() {
@@ -58,10 +58,10 @@ async function startStandby(config: BridgeDaemonConfig = activeConfig) {
   activeConfig = withId
   if (!withId.daemonId) throw new Error("daemonId missing after ensureDaemonId")
 
-  const redis = createClient({ url: withId.redisUrl })
+  const redis = createBridgeRedisClient(withId.redisUrl)
   redis.on("error", (err) => console.error("[standby redis]", err))
   await redis.connect()
-  standbyRedis = redis as any
+  standbyRedis = redis
 
   standby = new StandbyControl(redis as any, withId.daemonId, {
     getConnectedRoomId: () => session?.roomId ?? null,
@@ -105,7 +105,7 @@ async function connect(roomId: string, config: BridgeDaemonConfig = activeConfig
   const redis =
     standbyRedis ??
     (() => {
-      const client = createClient({ url: activeConfig.redisUrl })
+      const client = createBridgeRedisClient(activeConfig.redisUrl)
       client.on("error", (err) => console.error("[redis]", err))
       return client
     })()
@@ -289,16 +289,24 @@ program
   .option("--no-open", "Do not print the UI URL prominently")
   .action(async (opts: { room?: string }) => {
     activeConfig = ensureDaemonId(loadConfig())
-    await startStandby(activeConfig)
+    // Bind HTTP first so local-remote health checks succeed even if Redis is slow/failing.
     startUiServer()
+    try {
+      await startStandby(activeConfig)
+    } catch (e) {
+      console.error(
+        "[serve] Redis standby failed — UI is up; fix redisUrl (for self-signed TLS use /#insecure) and restart the bridge child:",
+        e,
+      )
+    }
     const roomId = opts.room ?? activeConfig.defaultRoomId
-    if (roomId) {
+    if (roomId && standby) {
       try {
         await connect(roomId, activeConfig)
       } catch (e) {
         console.warn("[serve] auto-connect failed:", e)
       }
-    } else {
+    } else if (!roomId) {
       console.log("No default room — pick one in the UI or use Link to Media Bridge from the web app")
     }
     installSignalHandlers()
@@ -336,7 +344,7 @@ program.command("status").action(async () => {
 program.command("rooms").description("List rooms from Redis (same discovery as the UI)").action(async () => {
   const { listRoomsFromRedis } = await import("./listRooms")
   const config = loadConfig()
-  const redis = createClient({ url: config.redisUrl })
+  const redis = createBridgeRedisClient(config.redisUrl)
   await redis.connect()
   try {
     const rooms = await listRoomsFromRedis(redis as any)

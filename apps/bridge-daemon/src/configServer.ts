@@ -1,6 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import { readFileSync } from "node:fs"
-import { createClient, type RedisClientType } from "redis"
 import {
   bridgeDaemonConfigSchema,
   configPath,
@@ -10,8 +9,7 @@ import {
 } from "./config"
 import { listRoomsFromRedis } from "./listRooms"
 import { uiHtmlPath } from "./paths"
-
-type RedisLike = RedisClientType<any, any, any>
+import { createBridgeRedisClient, type RedisLike } from "./redisClient"
 
 export type ConfigServerHandlers = {
   getStatus: () => {
@@ -48,7 +46,7 @@ async function withRedis<T>(
   redisUrl: string,
   fn: (redis: RedisLike) => Promise<T>,
 ): Promise<T> {
-  const redis = createClient({ url: redisUrl })
+  const redis = createBridgeRedisClient(redisUrl)
   redis.on("error", (err) => console.error("[config-server redis]", err))
   await redis.connect()
   try {
