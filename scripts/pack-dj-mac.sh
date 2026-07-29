@@ -99,40 +99,170 @@ cat > "${OUT_DIR}/README.txt" <<'EOF'
 Listening Room — DJ Mac pack (Intel x86_64)
 ===========================================
 
-This folder is the only artifact you need on the DJ Mac.
+This folder is the Listening Room runtime for the DJ Mac.
 Audio Hijack should start/stop ONLY `local-remote` (this binary).
+Do not install Xcode, Rust, or Node/npm on the DJ Mac for this app.
 
-Operator UI (bookmark this):
-  http://127.0.0.1:9876/
+What's in this folder
+---------------------
+  local-remote              ← AH entrypoint + control UI on :9876
+  runtime/node              ← bundled Node (used only as a child process)
+  bridge-daemon/            ← Media Bridge (spawned by local-remote)
+  README.txt                ← this file
 
-Soundboard (same origin):
-  http://127.0.0.1:9876/soundboard
 
-Escape hatch (bridge child UI; not required day-to-day):
-  http://127.0.0.1:18766/
+1. Where to put this folder
+--------------------------
+Best guess (stable, easy to find, survives Desktop cleanup):
 
-First run
----------
-1. If macOS blocks the binary after AirDrop/unzip, clear quarantine once:
-     xattr -dr com.apple.quarantine "/path/to/listening-room-dj-mac"
-2. Start `local-remote` (or let Audio Hijack start it).
-3. Open http://127.0.0.1:9876/
-4. Set Redis URL (same as the platform).
-5. Enable **Media Bridge**, Save & apply — local-remote spawns the bundled Node child.
-6. Configure Chrome / services / Navidrome / mpv in the Media Bridge sections.
-7. Connect to a bridge room (or use Admin → Link to Media Bridge in the web app).
+  ~/Applications/listening-room-dj-mac/
 
-Configs survive zip replace (do not put secrets in this folder):
+Examples that also work:
+  /Applications/listening-room-dj-mac/     (needs admin to write)
+  ~/Music/listening-room-dj-mac/
+  ~/Desktop/listening-room-dj-mac/        (fine for testing; easy to lose)
+
+Keep the whole folder together — `local-remote` looks for
+`runtime/node` and `bridge-daemon/daemon.cjs` next to itself.
+Do not move only the binary out of the folder.
+
+After AirDrop: unzip, then move/rename the folder into place.
+On updates: replace the folder contents (or the whole folder), then
+re-run the quarantine clear below if macOS blocks launch again.
+
+
+2. macOS permissions (required for first launch)
+-----------------------------------------------
+The binaries are not notarized. After AirDrop / download / unzip,
+macOS marks them as quarantined and may refuse to run them.
+
+A) Clear quarantine on the whole folder (do this once after each replace):
+
+  xattr -dr com.apple.quarantine ~/Applications/listening-room-dj-mac
+
+  (Use the real path if you put the folder somewhere else.)
+
+B) If double-click / Terminal still says the app "cannot be opened"
+   because it is from an unidentified developer:
+
+  1. Right-click (or Control-click) `local-remote` → Open → Open
+     (first launch via right-click Open often clears the block), OR
+  2. System Settings → Privacy & Security
+  3. Look for a message about `local-remote` being blocked
+  4. Click "Open Anyway" (you may need to confirm again)
+
+C) Make sure the binary is executable (usually already set):
+
+  chmod +x ~/Applications/listening-room-dj-mac/local-remote
+  chmod +x ~/Applications/listening-room-dj-mac/runtime/node
+
+D) Smoke-test from Terminal before wiring Audio Hijack:
+
+  cd ~/Applications/listening-room-dj-mac
+  ./local-remote
+
+  Then open: http://127.0.0.1:9876/
+  Stop with Ctrl-C when done testing.
+
+E) Optional Privacy prompts (only if you use these features):
+  - Automation / AppleEvents — if the macOS Now Playing *watcher*
+    in local-remote is enabled (not needed when Media Bridge owns NP).
+  - If macOS prompts for Terminal or `local-remote` controlling other
+    apps, allow it for the features you use.
+
+You should NOT need a second permission dance for `runtime/node` if
+it lives inside the same folder you already cleared with xattr.
+
+
+3. Install companion apps (not in this zip)
+-------------------------------------------
+Install these separately on the DJ Mac. Paths below are the usual
+defaults — set them in the Media Bridge section of the UI if different.
+
+Required for typical bridge shows
+  Google Chrome
+    Install: https://www.google.com/chrome/
+    Default path used by the bridge:
+      /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+
+  Audio Hijack (Rogue Amoeba)
+    Install: usual .dmg → /Applications/Audio Hijack.app
+    Session should capture: Chrome (bridge profile), and mpv if you
+    play local library tracks. Metadata: point Track Source at the
+    bridge Now Playing.txt (Other Source…), not app auto-detect.
+
+Optional — local library
+  Homebrew (if you want brew installs): https://brew.sh
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    On Intel Macs, brew usually lives at /usr/local/bin/brew
+
+  mpv
+    brew install mpv
+    Typical path (Intel Homebrew): /usr/local/bin/mpv
+    Typical path (Apple Silicon brew on a different machine): /opt/homebrew/bin/mpv
+    Put the path in Media Bridge → mpv path in the UI.
+
+  Navidrome
+    brew install navidrome
+    Or download a release and run as a user service / LaunchAgent.
+    Default web UI: http://127.0.0.1:4533
+    Point MusicFolder at your library (e.g. ~/Music/Library) and use
+    the same absolute path in the Media Bridge "music folder" field.
+
+Optional — other services
+  Spotify.app — /Applications/Spotify.app
+    (Often unused when bridge Spotify SDK device is enabled in Chrome.)
+  TIDAL.app — /Applications/TIDAL.app
+    (Only if you enable the tidal service; CDP port defaults to 9223.)
+  Farrago — /Applications/Farrago.app
+    (Only for OSC soundboard / segment triggers via local-remote.)
+
+
+4. Wire Audio Hijack to this pack
+---------------------------------
+1. In Audio Hijack, add an On Launch / schedule action that runs:
+
+     ~/Applications/listening-room-dj-mac/local-remote
+
+   Use the full path to YOUR folder. Do not point AH at runtime/node
+   or at bridge-daemon.
+
+2. Capture audio sources into the same mix as the stream:
+   - Google Chrome (the instance the bridge launches)
+   - mpv (if using Navidrome/local tracks)
+
+3. For stream titles: Other Source… → the bridge Now Playing.txt path
+   (configured in the UI; often under ~/.config/listening-room-bridge/).
+
+
+5. First-run checklist
+----------------------
+1. Place folder (section 1) and clear quarantine (section 2).
+2. Install Chrome (+ mpv/Navidrome/etc. as needed) — section 3.
+3. Start local-remote (Terminal smoke-test or Audio Hijack).
+4. Open http://127.0.0.1:9876/
+5. Set Redis URL (same Redis as the Listening Room platform).
+6. Enable Media Bridge → Save & apply (spawns bundled Node child).
+7. Fill Chrome / services / Navidrome / mpv / Now Playing path.
+8. Connect to a bridge room here, or use Admin → Link to Media Bridge
+   in the web app.
+
+Bookmarks
+  Operator UI:     http://127.0.0.1:9876/
+  Soundboard:      http://127.0.0.1:9876/soundboard
+  Bridge escape:   http://127.0.0.1:18766/   (optional)
+
+Configs survive zip replace (keep secrets out of this folder):
   ~/Library/Application Support/local-remote/config.json
   ~/.config/listening-room-bridge/config.json
 
-Updates
--------
-Rebuild on the Apple Silicon / build Mac with `npm run pack:dj-mac`, AirDrop the new zip,
-unzip and replace this folder, then restart local-remote / Audio Hijack.
 
-Not included (install separately on the DJ Mac as needed):
-  Google Chrome, Spotify, TIDAL, Navidrome, mpv, Audio Hijack
+6. Updates
+----------
+On the build Mac: npm run pack:dj-mac
+AirDrop the new zip → unzip → replace this folder → run xattr again
+if Gatekeeper blocks → restart AH / local-remote.
+Config files above are left alone.
 EOF
 
 # --- 5. Zip ---
