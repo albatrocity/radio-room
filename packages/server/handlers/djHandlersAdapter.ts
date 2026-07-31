@@ -280,8 +280,38 @@ export class DJHandlers {
       return
     }
 
+    // Bridge rooms: policy ∩ daemon CAPABILITIES (skip disabled drivers like YouTube)
+    let sourceEntries = [...sources.entries()]
+    if (room.playbackControllerId === "bridge") {
+      try {
+        const { getOrCreateCapabilityCache } = await import("@repo/adapter-bridge")
+        const { filterMetadataSourcesByBridgeCapability } = await import("@repo/utils")
+        const capability = getOrCreateCapabilityCache(this.context.redis.pubClient, roomId)
+        await capability.start()
+        const allowed = new Set(
+          filterMetadataSourcesByBridgeCapability({
+            metadataSourceIds: sourceEntries.map(([name]) => name),
+            bridgeConnected: capability.isConnected(),
+            capabilitiesKnown: capability.hasReceivedCapabilities(),
+            availableServices: capability.getAvailableServices(),
+          }),
+        )
+        sourceEntries = sourceEntries.filter(([name]) => allowed.has(name))
+      } catch (e) {
+        console.warn("[search] bridge capability filter failed; using full policy set:", e)
+      }
+    }
+
+    if (sourceEntries.length === 0) {
+      socket.emit("event", {
+        type: "TRACK_SEARCH_RESULTS_FAILURE",
+        data: { message: "No metadata source available for search" },
+      })
+      return
+    }
+
     const settled = await Promise.allSettled(
-      [...sources.entries()].map(async ([name, src]) => {
+      sourceEntries.map(async ([name, src]) => {
         const result = await this.djService.searchForTrack(src, query)
         if (!result.success) throw new Error(result.message)
         return (result.data ?? []).map((track) => ({
@@ -293,7 +323,7 @@ export class DJHandlers {
 
     let items = settled.flatMap((r, i) => {
       if (r.status === "fulfilled") return r.value
-      const name = [...sources.keys()][i]
+      const name = sourceEntries[i]?.[0]
       console.warn(`[search] ${name} failed:`, r.reason)
       return []
     })
@@ -839,7 +869,11 @@ export class DJHandlers {
 
       socket.emit("event", {
         type: "MEDIA_BRIDGE_STATUS_CHANGED",
-        data: { roomId: result.roomId, connected: result.connected },
+        data: {
+          roomId: result.roomId,
+          connected: result.connected,
+          services: "services" in result ? result.services : undefined,
+        },
       })
     } catch (error: any) {
       console.error("Error getting Media Bridge status:", error)

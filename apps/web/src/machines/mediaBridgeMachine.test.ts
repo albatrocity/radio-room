@@ -26,8 +26,12 @@ describe("mediaBridgeMachine", () => {
     expect(emitToSocket).toHaveBeenCalledWith("GET_MEDIA_BRIDGE_STATUS", {})
     expect(actor.getSnapshot().matches({ active: "unknown" })).toBe(true)
 
-    actor.send({ type: "MEDIA_BRIDGE_STATUS_CHANGED", data: { connected: true } })
+    actor.send({
+      type: "MEDIA_BRIDGE_STATUS_CHANGED",
+      data: { connected: true, services: ["tidal", "local"] },
+    })
     expect(actor.getSnapshot().matches({ active: "connected" })).toBe(true)
+    expect(actor.getSnapshot().context.services).toEqual(["tidal", "local"])
 
     actor.send({ type: "DEACTIVATE" })
     expect(actor.getSnapshot().matches("idle")).toBe(true)

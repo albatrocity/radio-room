@@ -33,6 +33,14 @@ import { AdapterService } from "./AdapterService"
 /** Sources auto-attached when a room uses the bridge playback controller. */
 const BRIDGE_METADATA_SOURCES = ["youtube", "local"] as const
 
+const ALLOWED_METADATA_SOURCE_IDS = new Set([
+  "spotify",
+  "tidal",
+  "youtube",
+  "local",
+  "applemusic",
+])
+
 function withBridgeMetadataSources(metadataSourceIds: string[] | undefined): string[] {
   const next = [...(metadataSourceIds ?? [])]
   if (process.env.YOUTUBE_API_KEY && !next.includes("youtube")) {
@@ -50,6 +58,30 @@ function withoutBridgeMetadataSources(metadataSourceIds: string[] | undefined): 
     (id) => !(BRIDGE_METADATA_SOURCES as readonly string[]).includes(id),
   )
   return next.length > 0 ? next : ["spotify"]
+}
+
+/**
+ * Normalize room metadataSourceIds for bridge rooms (ADR 0087):
+ * Spotify always required; unknown ids dropped; youtube omitted without API key.
+ */
+export function normalizeBridgeMetadataSourceIds(
+  metadataSourceIds: string[] | undefined,
+): string[] {
+  const next: string[] = []
+  for (const id of metadataSourceIds ?? []) {
+    if (!ALLOWED_METADATA_SOURCE_IDS.has(id)) continue
+    if (id === "youtube" && !process.env.YOUTUBE_API_KEY) {
+      console.warn(
+        "[AdminService] dropping youtube from metadataSourceIds — YOUTUBE_API_KEY not set",
+      )
+      continue
+    }
+    if (!next.includes(id)) next.push(id)
+  }
+  if (!next.includes("spotify")) {
+    next.unshift("spotify")
+  }
+  return next
 }
 
 /**
@@ -329,7 +361,13 @@ export class AdminService {
       ;(newSettings as Room).playbackControllerId = requestedPlaybackControllerId
       if (requestedPlaybackControllerId === "bridge") {
         ;(newSettings as Room).playbackMode = "app-controlled"
-        ;(newSettings as Room).metadataSourceIds = withBridgeMetadataSources(room.metadataSourceIds)
+        // Prefer submitted policy when the Content form includes toggles; otherwise seed defaults.
+        const bridgeSources =
+          "metadataSourceIds" in values && Array.isArray(values.metadataSourceIds)
+            ? values.metadataSourceIds
+            : withBridgeMetadataSources(room.metadataSourceIds)
+        ;(newSettings as Room).metadataSourceIds =
+          normalizeBridgeMetadataSourceIds(bridgeSources)
       } else if (previousPlaybackControllerId === "bridge") {
         // Leaving bridge: stop searching YouTube/Library (auto-added for bridge only).
         ;(newSettings as Room).metadataSourceIds = withoutBridgeMetadataSources(
@@ -339,6 +377,19 @@ export class AdminService {
     } else if ("playbackControllerId" in values && room.type === "jukebox") {
       // Jukebox always uses Spotify; ignore client overrides.
       delete (newSettings as { playbackControllerId?: string }).playbackControllerId
+    }
+
+    // Room policy toggles while already on bridge (do not re-seed withBridge defaults)
+    const effectivePlaybackControllerId =
+      (newSettings as Room).playbackControllerId ?? room.playbackControllerId
+    if (
+      !playbackControllerChanging &&
+      "metadataSourceIds" in values &&
+      effectivePlaybackControllerId === "bridge"
+    ) {
+      ;(newSettings as Room).metadataSourceIds = normalizeBridgeMetadataSourceIds(
+        values.metadataSourceIds,
+      )
     }
 
     // Save room settings FIRST so handleRoomNowPlayingData sees the correct fetchMeta value

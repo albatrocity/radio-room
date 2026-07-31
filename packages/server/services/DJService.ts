@@ -964,10 +964,20 @@ export class DJService {
         const { publishMediaBridgeStatus } = await import(
           "@repo/server/operations/bridge/publishMediaBridgeStatus"
         )
+        let services: string[] | undefined
+        try {
+          const { getOrCreateCapabilityCache } = await import("@repo/adapter-bridge")
+          const capability = getOrCreateCapabilityCache(this.context.redis.pubClient, roomId)
+          await capability.start()
+          services = Array.from(capability.getAvailableServices())
+        } catch {
+          /* optional */
+        }
         await publishMediaBridgeStatus({
           context: this.context,
           roomId,
           connected: true,
+          services,
         })
       } catch (e) {
         console.warn("[DJService.linkMediaBridge] status publish failed:", e)
@@ -995,13 +1005,9 @@ export class DJService {
       return { success: false as const, message: "Room not found" }
     }
 
-    const allowed = await isRoomAdmin({
-      context: this.context,
-      roomId,
-      userId,
-      roomCreator: room.creator,
-    })
-    if (!allowed) {
+    // Read-only presence for any room member (search tabs / capability UX).
+    // Link remains admin-gated in linkMediaBridge.
+    if (!userId) {
       return { success: false as const, message: "Not authorized" }
     }
 
@@ -1009,6 +1015,7 @@ export class DJService {
       return {
         success: true as const,
         connected: false,
+        services: undefined as string[] | undefined,
         roomId,
       }
     }
@@ -1020,7 +1027,21 @@ export class DJService {
       context: this.context,
       roomId,
     })
-    return { success: true as const, connected, roomId }
+
+    let services: string[] | undefined
+    try {
+      const { getOrCreateCapabilityCache } = await import("@repo/adapter-bridge")
+      const capability = getOrCreateCapabilityCache(this.context.redis.pubClient, roomId)
+      await capability.start()
+      // Only expose services after CAPABILITIES — empty array means "none enabled"
+      if (capability.hasReceivedCapabilities()) {
+        services = Array.from(capability.getAvailableServices())
+      }
+    } catch (e) {
+      console.warn("[DJService.getMediaBridgeStatus] capability read failed:", e)
+    }
+
+    return { success: true as const, connected, services, roomId }
   }
 
   /**

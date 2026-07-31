@@ -54,7 +54,11 @@ export { parseBridgeMediaId } from "./lib/parseBridgeMediaId"
 export { youtubeMetadataSource, createYoutubeMetadataApi } from "./lib/youtubeMetadata"
 export { localMetadataSource, registerLocalMetadataForRoom } from "./lib/localMetadata"
 export { BridgeRpcClient } from "./lib/rpcClient"
-export { getOrCreateCapabilityCache } from "./lib/capability"
+export {
+  getOrCreateCapabilityCache,
+  dropCapabilityCache,
+  BridgeCapabilityCache,
+} from "./lib/capability"
 
 const roomRpcClients = new Map<string, BridgeRpcClient>()
 

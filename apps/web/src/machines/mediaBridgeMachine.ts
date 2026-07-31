@@ -8,6 +8,8 @@ export interface MediaBridgeContext {
   subscriptionId: string | null
   lastError: string | null
   daemonId: string | null
+  /** Daemon CAPABILITIES services when known; null until first status with services. */
+  services: string[] | null
 }
 
 type MediaBridgeEvent =
@@ -17,7 +19,13 @@ type MediaBridgeEvent =
   | { type: "POLL" }
   | {
       type: "MEDIA_BRIDGE_STATUS_CHANGED"
-      data?: { connected?: boolean; roomId?: string; message?: string; daemonId?: string }
+      data?: {
+        connected?: boolean
+        roomId?: string
+        message?: string
+        daemonId?: string
+        services?: string[]
+      }
     }
   | {
       type: "LINK_MEDIA_BRIDGE_SUCCESS"
@@ -34,6 +42,7 @@ const defaultContext: MediaBridgeContext = {
   subscriptionId: null,
   lastError: null,
   daemonId: null,
+  services: null,
 }
 
 const statusPollLogic = fromCallback<MediaBridgeEvent>(({ sendBack }) => {
@@ -71,6 +80,12 @@ export const mediaBridgeMachine = setup({
       if (event.type !== "LINK_MEDIA_BRIDGE_SUCCESS") return {}
       return { daemonId: event.data?.daemonId ?? null, lastError: null }
     }),
+    assignServicesFromStatus: assign(({ event }) => {
+      if (event.type !== "MEDIA_BRIDGE_STATUS_CHANGED") return {}
+      if (event.data?.services === undefined) return {}
+      return { services: event.data.services }
+    }),
+    clearServices: assign({ services: null }),
     assignLinkFailure: assign(({ event }) => {
       if (event.type !== "LINK_MEDIA_BRIDGE_FAILURE") return {}
       return {
@@ -131,8 +146,16 @@ export const mediaBridgeMachine = setup({
         unknown: {
           on: {
             MEDIA_BRIDGE_STATUS_CHANGED: [
-              { target: "connected", guard: "isConnectedStatus" },
-              { target: "disconnected", guard: "isDisconnectedStatus" },
+              {
+                target: "connected",
+                guard: "isConnectedStatus",
+                actions: ["assignServicesFromStatus"],
+              },
+              {
+                target: "disconnected",
+                guard: "isDisconnectedStatus",
+                actions: ["clearServices"],
+              },
             ],
             LINK: { target: "linking", actions: ["clearError", "requestLink"] },
           },
@@ -140,7 +163,11 @@ export const mediaBridgeMachine = setup({
         disconnected: {
           on: {
             MEDIA_BRIDGE_STATUS_CHANGED: [
-              { target: "connected", guard: "isConnectedStatus" },
+              {
+                target: "connected",
+                guard: "isConnectedStatus",
+                actions: ["assignServicesFromStatus"],
+              },
             ],
             LINK: { target: "linking", actions: ["clearError", "requestLink"] },
           },
@@ -148,7 +175,12 @@ export const mediaBridgeMachine = setup({
         connected: {
           on: {
             MEDIA_BRIDGE_STATUS_CHANGED: [
-              { target: "disconnected", guard: "isDisconnectedStatus" },
+              {
+                target: "disconnected",
+                guard: "isDisconnectedStatus",
+                actions: ["clearServices"],
+              },
+              { actions: ["assignServicesFromStatus"] },
             ],
           },
         },
@@ -160,11 +192,19 @@ export const mediaBridgeMachine = setup({
             },
             LINK_MEDIA_BRIDGE_FAILURE: {
               target: "disconnected",
-              actions: ["assignLinkFailure", "notifyLinkFailure"],
+              actions: ["assignLinkFailure", "notifyLinkFailure", "clearServices"],
             },
             MEDIA_BRIDGE_STATUS_CHANGED: [
-              { target: "connected", guard: "isConnectedStatus" },
-              { target: "disconnected", guard: "isDisconnectedStatus" },
+              {
+                target: "connected",
+                guard: "isConnectedStatus",
+                actions: ["assignServicesFromStatus"],
+              },
+              {
+                target: "disconnected",
+                guard: "isDisconnectedStatus",
+                actions: ["clearServices"],
+              },
             ],
           },
         },

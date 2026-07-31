@@ -15,8 +15,13 @@ import {
 import { useSocketMachine } from "../hooks/useSocketMachine"
 import { trackSearchMachine } from "../machines/trackSearchMachine"
 import { createDebouncedInputMachine } from "../machines/debouncedInputMachine"
-import { useCurrentRoom } from "../hooks/useActors"
+import {
+  useCurrentRoom,
+  useMediaBridgeConnected,
+  useMediaBridgeServices,
+} from "../hooks/useActors"
 import { MetadataSourceTrack } from "@repo/types"
+import { filterMetadataSourcesByBridgeCapability } from "@repo/utils"
 import TrackItem from "./TrackItem"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
@@ -50,6 +55,8 @@ function TrackSearch({
 }: Props) {
   const listboxId = useId()
   const room = useCurrentRoom()
+  const bridgeConnected = useMediaBridgeConnected()
+  const bridgeServices = useMediaBridgeServices()
   const [state, send] = useSocketMachine(trackSearchMachine)
   const [sourceFilter, setSourceFilter] = useState<string>("all")
   const [activeIndex, setActiveIndex] = useState(-1)
@@ -73,10 +80,23 @@ function TrackSearch({
   const searchValue = inputState.context.value ?? ""
   const hasQuery = searchValue.trim() !== ""
 
-  const metadataSourceIds = useMemo(
-    () => (room?.metadataSourceIds ?? []).filter(Boolean),
-    [room?.metadataSourceIds],
-  )
+  const metadataSourceIds = useMemo(() => {
+    const policy = (room?.metadataSourceIds ?? []).filter(Boolean)
+    if (room?.playbackControllerId !== "bridge") return policy
+    // When services are known (including empty), intersect with CAPABILITIES
+    const capabilitiesKnown = bridgeServices !== null
+    return filterMetadataSourcesByBridgeCapability({
+      metadataSourceIds: policy,
+      bridgeConnected,
+      capabilitiesKnown,
+      availableServices: bridgeServices ?? [],
+    })
+  }, [
+    room?.metadataSourceIds,
+    room?.playbackControllerId,
+    bridgeConnected,
+    bridgeServices,
+  ])
   const showSourceTabs = metadataSourceIds.length >= 2
 
   useEffect(() => {

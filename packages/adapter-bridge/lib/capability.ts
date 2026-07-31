@@ -15,6 +15,8 @@ type LastEnded = { trackId: string; source: string; reason?: string; at: number 
 export class BridgeCapabilityCache {
   private services = new Set<string>()
   private connected = false
+  /** True after CAPABILITIES for this session; cleared on DISCONNECTING. */
+  private capabilitiesKnown = false
   private sub: RedisLike | null = null
   private capabilityListeners = new Set<CapabilityListener>()
   private eventListeners = new Set<BridgeEventListener>()
@@ -32,6 +34,10 @@ export class BridgeCapabilityCache {
 
   isConnected(): boolean {
     return this.connected
+  }
+
+  hasReceivedCapabilities(): boolean {
+    return this.capabilitiesKnown
   }
 
   getLastState() {
@@ -93,10 +99,12 @@ export class BridgeCapabilityCache {
       if (event.type === "CAPABILITIES") {
         this.services = new Set(event.services)
         this.connected = true
+        this.capabilitiesKnown = true
         for (const listener of Array.from(this.capabilityListeners)) listener(this.services)
       } else if (event.type === "DISCONNECTING") {
         this.connected = false
         this.services = new Set()
+        this.capabilitiesKnown = false
         for (const listener of Array.from(this.capabilityListeners)) listener(this.services)
       } else if (event.type === "STATE") {
         this.lastState = event

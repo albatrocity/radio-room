@@ -1,5 +1,5 @@
 import { Formik } from "formik"
-import React, { useCallback, useRef, useState } from "react"
+import React, { useCallback, useEffect, useRef, useState } from "react"
 import {
   Box,
   Button,
@@ -26,7 +26,33 @@ import {
 } from "../../../hooks/useActors"
 import RadioProtocolSelect from "../../RadioProtocolSelect"
 import PlaybackControllerSelect from "../../PlaybackControllerSelect"
+import BridgeMediaSourcesSettings, {
+  normalizeBridgeMediaSourcePolicy,
+  seedBridgeMediaSourcePolicy,
+} from "../../BridgeMediaSourcesSettings"
 import { uploadArtwork } from "../../../lib/serverApi"
+
+/** When the form switches onto Media Bridge, seed default bridge metadata sources. */
+function BridgeMediaSourceFormSync({
+  playbackControllerId,
+  metadataSourceIds,
+  setFieldValue,
+}: {
+  playbackControllerId: string
+  metadataSourceIds: string[]
+  setFieldValue: (field: string, value: string[]) => void
+}) {
+  const prevControllerRef = useRef(playbackControllerId)
+
+  useEffect(() => {
+    if (playbackControllerId === "bridge" && prevControllerRef.current !== "bridge") {
+      setFieldValue("metadataSourceIds", seedBridgeMediaSourcePolicy(metadataSourceIds))
+    }
+    prevControllerRef.current = playbackControllerId
+  }, [playbackControllerId, metadataSourceIds, setFieldValue])
+
+  return null
+}
 
 function Content() {
   const room = useCurrentRoom()
@@ -77,6 +103,7 @@ function Content() {
         liveWhepUrl: settings.liveWhepUrl ?? "",
         liveHlsUrl: settings.liveHlsUrl ?? "",
         playbackControllerId: settings.playbackControllerId ?? "spotify",
+        metadataSourceIds: normalizeBridgeMediaSourcePolicy(room?.metadataSourceIds),
       }}
       enableReinitialize
       validate={() => {
@@ -84,11 +111,20 @@ function Content() {
         return errors
       }}
       onSubmit={(values) => {
-        send({ type: "SET_SETTINGS", data: values } as any)
+        const data =
+          values.playbackControllerId === "bridge"
+            ? values
+            : (({ metadataSourceIds: _omit, ...rest }) => rest)(values)
+        send({ type: "SET_SETTINGS", data } as any)
       }}
     >
       {({ values, handleChange, handleBlur, handleSubmit, setTouched, setFieldValue, initialValues, dirty }) => (
         <form onSubmit={handleSubmit}>
+          <BridgeMediaSourceFormSync
+            playbackControllerId={values.playbackControllerId}
+            metadataSourceIds={values.metadataSourceIds}
+            setFieldValue={setFieldValue}
+          />
           <DialogBody>
             <VStack gap={6}>
               <Field.Root>
@@ -147,6 +183,14 @@ function Content() {
                   value={values.playbackControllerId}
                 />
               )}
+
+              {(settings.type === "radio" || settings.type === "live") &&
+                values.playbackControllerId === "bridge" && (
+                  <BridgeMediaSourcesSettings
+                    value={values.metadataSourceIds}
+                    onChange={(ids) => setFieldValue("metadataSourceIds", ids)}
+                  />
+                )}
 
               {settings.type === "radio" && (
                 <>

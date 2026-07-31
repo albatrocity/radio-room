@@ -711,6 +711,11 @@ export const useMediaBridgeLinking = () => {
   return useSelector(mediaBridgeActor, (s) => s.matches({ active: "linking" }))
 }
 
+/** Daemon CAPABILITIES services when known; null until status includes services. */
+export const useMediaBridgeServices = (): string[] | null => {
+  return useSelector(mediaBridgeActor, (s) => s.context.services)
+}
+
 export const useMediaBridgeSend = () => sendToMediaBridge
 
 // ============================================================================
