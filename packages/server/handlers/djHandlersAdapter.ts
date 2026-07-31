@@ -307,6 +307,9 @@ export class DJHandlers {
       items = dedupeSearchResultsByPriority(items, priority)
     }
 
+    const { rankSearchResultsByRelevance } = await import("@repo/utils")
+    items = rankSearchResultsByRelevance(query, items)
+
     socket.emit("event", {
       type: "TRACK_SEARCH_RESULTS",
       data: {
