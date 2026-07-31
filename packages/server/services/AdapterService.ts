@@ -342,6 +342,7 @@ export class AdapterService {
             name: sourceId,
             url: "",
             authentication: { type: "none" },
+            cache: this.context.cache,
             registerJob: async (job) => {
               if (this.context.jobService) {
                 await this.context.jobService.scheduleJob(job)
@@ -445,6 +446,7 @@ export class AdapterService {
               }
             },
           },
+          cache: this.context.cache,
           registerJob: async (job) => {
             if (this.context.jobService) {
               await this.context.jobService.scheduleJob(job)
@@ -542,6 +544,7 @@ export class AdapterService {
             }
           },
         },
+        cache: this.context.cache,
         registerJob: () => Promise.resolve({} as any),
         onRegistered: () => {},
         onAuthenticationCompleted: () => {},
@@ -606,6 +609,7 @@ export class AdapterService {
           name: sourceType,
           url: "",
           authentication: { type: "none" },
+          cache: this.context.cache,
           registerJob: () => Promise.resolve({} as any),
           onRegistered: () => {},
           onAuthenticationCompleted: () => {},
@@ -662,6 +666,7 @@ export class AdapterService {
             }
           },
         },
+        cache: this.context.cache,
         registerJob: () => Promise.resolve({} as any),
         onRegistered: () => {},
         onAuthenticationCompleted: () => {},

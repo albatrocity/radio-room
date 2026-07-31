@@ -91,6 +91,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0083](0083-media-bridge-connection-status-to-clients.md) | Media Bridge connection status to clients | Accepted |
 | [0084](0084-dj-mac-single-zip-supervised-bridge.md) | DJ Mac single-zip distribution with supervised Media Bridge | Accepted |
 | [0085](0085-multi-source-search-relevance-ranking.md) | Multi-source DJ search relevance ranking | Accepted |
+| [0086](0086-metadata-search-result-cache.md) | Metadata search result cache (SimpleCache + YouTube first) | Accepted |
 
 ## Creating a New ADR
 

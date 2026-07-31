@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { AdapterAuthentication, AdapterConfig } from "./Adapter"
 import { JobRegistration } from "./JobRegistration"
+import type { SimpleCache } from "./SimpleCache"
 
 // =============================================================================
 // MetadataSource URL Schema & Type
@@ -71,6 +72,8 @@ export type MetadataSourceAdapterConfig = MetadataSourceLifecycleCallbacks &
     name: string
     url: string
     registerJob: (job: JobRegistration) => Promise<JobRegistration>
+    /** Optional TTL cache for adapters that opt into search-result caching. */
+    cache?: SimpleCache
   }
 
 export type MetadataSource = {

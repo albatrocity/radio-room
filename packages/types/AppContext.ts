@@ -9,11 +9,14 @@ import type {
 } from "./ServiceAuthentication"
 import type { SystemEvents } from "./SystemEvents"
 import type { ArtifactsPluginAPI } from "./Artifacts"
+import type { SimpleCache } from "./SimpleCache"
 
 export type { RedisClientType } from "redis"
 
 export interface AppContext {
   redis: RedisContext
+  /** TTL-backed string cache (Redis in production). */
+  cache?: SimpleCache
   adapters: AdapterRegistry
   jobs: JobRegistration[]
   jobService?: {

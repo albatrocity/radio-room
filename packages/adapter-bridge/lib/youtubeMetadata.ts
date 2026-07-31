@@ -4,8 +4,13 @@ import type {
   MetadataSourceApi,
   MetadataSourceSearchParameters,
   MetadataSourceTrack,
+  SimpleCache,
 } from "@repo/types"
+import { withCachedMetadataSearch } from "@repo/utils"
 import { emptyAlbum, emptyArtist } from "./trackHelpers"
+
+/** YouTube search.list is expensive (~100 units); cache enriched results for a day. */
+export const YOUTUBE_SEARCH_CACHE_TTL_SEC = 24 * 60 * 60
 
 function parseIsoDuration(iso: string): number {
   const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
@@ -70,7 +75,63 @@ async function youtubeGetJson(pathAndQuery: string, apiKey: string): Promise<any
   return res.json()
 }
 
-export function createYoutubeMetadataApi(apiKey: string): MetadataSourceApi {
+async function fetchYoutubeSearch(query: string, apiKey: string): Promise<MetadataSourceTrack[]> {
+  console.log(`[YouTube Search] Searching for: "${query}"`)
+  try {
+    const data = await youtubeGetJson(
+      `search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(query)}`,
+      apiKey,
+    )
+    const items = (data.items ?? [])
+      .map(mapSearchItem)
+      .filter(Boolean) as MetadataSourceTrack[]
+
+    const ids = items.map((t) => t.id).join(",")
+    if (!ids) {
+      console.log(`[YouTube Search] ✗ No results for: "${query}"`)
+      return items
+    }
+
+    try {
+      const details = await youtubeGetJson(
+        `videos?part=contentDetails,status&id=${ids}`,
+        apiKey,
+      )
+      const byId = new Map<string, any>()
+      for (const v of details.items ?? []) {
+        byId.set(v.id, v)
+      }
+      const mapped = items
+        .filter((t) => {
+          const d = byId.get(t.id)
+          if (!d) return true
+          // Drop non-embeddable when status present
+          if (d.status?.embeddable === false) return false
+          return true
+        })
+        .map((t) => {
+          const d = byId.get(t.id)
+          const duration = d?.contentDetails?.duration
+            ? parseIsoDuration(d.contentDetails.duration)
+            : t.duration
+          return { ...t, duration }
+        })
+      console.log(`[YouTube Search] ✓ Found ${mapped.length} videos for: "${query}"`)
+      return mapped
+    } catch (e) {
+      console.warn("[youtube-metadata] videos.list failed, returning search-only:", e)
+      return items
+    }
+  } catch (e) {
+    console.error(`[YouTube Search] ✗ Failed for "${query}":`, (e as Error).message)
+    throw e
+  }
+}
+
+export function createYoutubeMetadataApi(
+  apiKey: string,
+  cache?: SimpleCache,
+): MetadataSourceApi {
   return {
     async search(query: string) {
       if (!query.trim()) return []
@@ -78,56 +139,13 @@ export function createYoutubeMetadataApi(apiKey: string): MetadataSourceApi {
         console.warn("[youtube-metadata] search skipped — YOUTUBE_API_KEY not set")
         return []
       }
-      console.log(`[YouTube Search] Searching for: "${query}"`)
-      try {
-        const data = await youtubeGetJson(
-          `search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(query)}`,
-          apiKey,
-        )
-        const items = (data.items ?? [])
-          .map(mapSearchItem)
-          .filter(Boolean) as MetadataSourceTrack[]
-
-        const ids = items.map((t) => t.id).join(",")
-        if (!ids) {
-          console.log(`[YouTube Search] ✗ No results for: "${query}"`)
-          return items
-        }
-
-        try {
-          const details = await youtubeGetJson(
-            `videos?part=contentDetails,status&id=${ids}`,
-            apiKey,
-          )
-          const byId = new Map<string, any>()
-          for (const v of details.items ?? []) {
-            byId.set(v.id, v)
-          }
-          const mapped = items
-            .filter((t) => {
-              const d = byId.get(t.id)
-              if (!d) return true
-              // Drop non-embeddable when status present
-              if (d.status?.embeddable === false) return false
-              return true
-            })
-            .map((t) => {
-              const d = byId.get(t.id)
-              const duration = d?.contentDetails?.duration
-                ? parseIsoDuration(d.contentDetails.duration)
-                : t.duration
-              return { ...t, duration }
-            })
-          console.log(`[YouTube Search] ✓ Found ${mapped.length} videos for: "${query}"`)
-          return mapped
-        } catch (e) {
-          console.warn("[youtube-metadata] videos.list failed, returning search-only:", e)
-          return items
-        }
-      } catch (e) {
-        console.error(`[YouTube Search] ✗ Failed for "${query}":`, (e as Error).message)
-        throw e
-      }
+      return withCachedMetadataSearch({
+        cache,
+        sourceId: "youtube",
+        query,
+        ttlSeconds: YOUTUBE_SEARCH_CACHE_TTL_SEC,
+        fetch: () => fetchYoutubeSearch(query, apiKey),
+      })
     },
 
     async searchByParams(params: MetadataSourceSearchParameters) {
@@ -167,7 +185,7 @@ export const youtubeMetadataSource: MetadataSourceAdapter = {
         "[youtube-metadata] YOUTUBE_API_KEY not set; YouTube search will fail until configured",
       )
     }
-    const api = createYoutubeMetadataApi(apiKey)
+    const api = createYoutubeMetadataApi(apiKey, config.cache)
     await config.onRegistered?.({ name: config.name })
     return {
       name: config.name,
