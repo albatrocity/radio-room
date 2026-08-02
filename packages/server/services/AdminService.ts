@@ -84,6 +84,26 @@ export function normalizeBridgeMetadataSourceIds(
   return next
 }
 
+export type MetadataSourceAccessMode = "open" | "restricted"
+
+/**
+ * Normalize bridge metadataSourceAccess (ADR 0088): only enabled source ids; unknown modes → open.
+ */
+export function normalizeMetadataSourceAccess(
+  access: Record<string, string> | undefined,
+  enabledSourceIds: string[],
+): Record<string, MetadataSourceAccessMode> {
+  const enabled = new Set(enabledSourceIds)
+  const next: Record<string, MetadataSourceAccessMode> = {}
+  for (const id of enabledSourceIds) {
+    const mode = access?.[id]
+    next[id] = mode === "restricted" ? "restricted" : "open"
+  }
+  // Drop keys not in enabled (ignore extras on input by only iterating enabled)
+  void enabled
+  return next
+}
+
 /**
  * A service that handles admin operations without Socket.io dependencies
  */
@@ -366,13 +386,23 @@ export class AdminService {
           "metadataSourceIds" in values && Array.isArray(values.metadataSourceIds)
             ? values.metadataSourceIds
             : withBridgeMetadataSources(room.metadataSourceIds)
-        ;(newSettings as Room).metadataSourceIds =
-          normalizeBridgeMetadataSourceIds(bridgeSources)
+        const normalizedIds = normalizeBridgeMetadataSourceIds(bridgeSources)
+        ;(newSettings as Room).metadataSourceIds = normalizedIds
+        const accessInput =
+          "metadataSourceAccess" in values && values.metadataSourceAccess
+            ? values.metadataSourceAccess
+            : room.metadataSourceAccess
+        ;(newSettings as Room).metadataSourceAccess = normalizeMetadataSourceAccess(
+          accessInput,
+          normalizedIds,
+        )
       } else if (previousPlaybackControllerId === "bridge") {
         // Leaving bridge: stop searching YouTube/Library (auto-added for bridge only).
         ;(newSettings as Room).metadataSourceIds = withoutBridgeMetadataSources(
           room.metadataSourceIds,
         )
+        // Access baseline is bridge-only (ADR 0088).
+        ;(newSettings as Room).metadataSourceAccess = {}
       }
     } else if ("playbackControllerId" in values && room.type === "jukebox") {
       // Jukebox always uses Spotify; ignore client overrides.
@@ -390,6 +420,26 @@ export class AdminService {
       ;(newSettings as Room).metadataSourceIds = normalizeBridgeMetadataSourceIds(
         values.metadataSourceIds,
       )
+    }
+
+    if (effectivePlaybackControllerId === "bridge") {
+      const enabledIds =
+        (newSettings as Room).metadataSourceIds ??
+        room.metadataSourceIds ??
+        []
+      if ("metadataSourceAccess" in values || "metadataSourceIds" in values) {
+        const accessInput =
+          "metadataSourceAccess" in values
+            ? values.metadataSourceAccess
+            : ((newSettings as Room).metadataSourceAccess ?? room.metadataSourceAccess)
+        ;(newSettings as Room).metadataSourceAccess = normalizeMetadataSourceAccess(
+          accessInput as Record<string, string> | undefined,
+          enabledIds,
+        )
+      }
+    } else if (!playbackControllerChanging && "metadataSourceAccess" in values) {
+      // Non-bridge: ignore client-submitted access maps
+      delete (newSettings as { metadataSourceAccess?: unknown }).metadataSourceAccess
     }
 
     // Save room settings FIRST so handleRoomNowPlayingData sees the correct fetchMeta value

@@ -462,6 +462,12 @@ export interface PluginAPI {
   supportsVolumeControl(roomId: string): Promise<boolean>
 
   /**
+   * List metadata sources available to the room (policy ∩ bridge CAPABILITIES).
+   * Not filtered per-user — use for plugin config / grant discovery (ADR 0088).
+   */
+  listMetadataSources(roomId: string): Promise<{ id: string; label: string }[]>
+
+  /**
    * Emit a custom plugin event.
    *
    * Events are automatically namespaced as `PLUGIN:{pluginName}:{eventName}`
@@ -865,6 +871,8 @@ export interface QueueValidationParams {
   userId: string
   username: string
   trackId: string
+  /** Metadata source that owns the track id (spotify, youtube, local, …). */
+  mediaSourceType?: string
 }
 
 /**
@@ -1046,6 +1054,18 @@ export interface Plugin {
    * }
    */
   validateQueueRequest?(params: QueueValidationParams): Promise<QueueValidationResult>
+
+  /**
+   * Grant a user access to a restricted metadata source (ADR 0088).
+   * Called when evaluating search/queue access for bridge rooms.
+   * Any plugin returning `"grant"` wins; errors/timeouts count as `"abstain"` (fail-closed).
+   */
+  grantMetadataSourceAccess?(params: {
+    roomId: string
+    userId: string
+    sourceId: string
+    action: "search" | "queue"
+  }): Promise<"grant" | "abstain">
 
   /**
    * Called immediately before app-controlled playTrack(uri) in core play paths.

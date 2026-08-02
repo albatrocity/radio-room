@@ -37,6 +37,10 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
     await handlers.searchForTrack(connections, query)
   })
 
+  socket.on("GET_EFFECTIVE_METADATA_SOURCES", async () => {
+    await handlers.getEffectiveMetadataSources(connections)
+  })
+
   /**
    * Legacy event name for backward compatibility
    * @deprecated Use "SEARCH_TRACK" instead

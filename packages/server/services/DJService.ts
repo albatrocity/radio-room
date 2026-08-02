@@ -188,12 +188,35 @@ export class DJService {
       }
     }
 
+    const room = await findRoom({ context: this.context, roomId })
+
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+
+    // ADR 0088: bridge restricted sources require admin or plugin grant
+    if (attribution.type === "user" && this.context.metadataSourceAccess) {
+      const canAccess = await this.context.metadataSourceAccess.canAccess({
+        roomId,
+        userId: attribution.userId,
+        sourceId: sourceType,
+        action: "queue",
+      })
+      if (!canAccess) {
+        return {
+          success: false as const,
+          message: `You do not have access to queue from ${sourceType}`,
+        }
+      }
+    }
+
     if (runValidation && this.context.pluginRegistry) {
       const validationResult = await this.context.pluginRegistry.validateQueueRequest({
         roomId,
         userId: addedBy.userId,
         username: addedBy.username,
         trackId: metadataTrackId,
+        mediaSourceType: sourceType,
       })
 
       if (!validationResult.allowed) {
@@ -202,12 +225,6 @@ export class DJService {
           message: validationResult.reason ?? "Queue request was rejected",
         }
       }
-    }
-
-    const room = await findRoom({ context: this.context, roomId })
-
-    if (!room) {
-      return { success: false as const, message: "Room not found" }
     }
 
     const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
@@ -264,6 +281,26 @@ export class DJService {
         message: metadataSource
           ? "Track not found"
           : "No metadata source configured for this room",
+      }
+    }
+
+    // Re-check after fallback resolution (source may differ from the requested type)
+    if (
+      attribution.type === "user" &&
+      this.context.metadataSourceAccess &&
+      resolvedSource !== sourceType
+    ) {
+      const canAccessResolved = await this.context.metadataSourceAccess.canAccess({
+        roomId,
+        userId: attribution.userId,
+        sourceId: resolvedSource,
+        action: "queue",
+      })
+      if (!canAccessResolved) {
+        return {
+          success: false as const,
+          message: `You do not have access to queue from ${resolvedSource}`,
+        }
       }
     }
 

@@ -20,6 +20,7 @@ import {
   useMediaBridgeConnected,
   useMediaBridgeServices,
 } from "../hooks/useActors"
+import { emitToSocket, subscribeById, unsubscribeById } from "../actors"
 import { MetadataSourceTrack } from "@repo/types"
 import { filterMetadataSourcesByBridgeCapability } from "@repo/utils"
 import TrackItem from "./TrackItem"
@@ -61,6 +62,8 @@ function TrackSearch({
   const [sourceFilter, setSourceFilter] = useState<string>("all")
   const [activeIndex, setActiveIndex] = useState(-1)
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([])
+  /** Server per-user list (ADR 0088); null until first EFFECTIVE_METADATA_SOURCES / INIT. */
+  const [effectiveSourceIds, setEffectiveSourceIds] = useState<string[] | null>(null)
 
   const handleSearchChange = useCallback(
     (value: string) => {
@@ -80,10 +83,9 @@ function TrackSearch({
   const searchValue = inputState.context.value ?? ""
   const hasQuery = searchValue.trim() !== ""
 
-  const metadataSourceIds = useMemo(() => {
+  const fallbackSourceIds = useMemo(() => {
     const policy = (room?.metadataSourceIds ?? []).filter(Boolean)
     if (room?.playbackControllerId !== "bridge") return policy
-    // When services are known (including empty), intersect with CAPABILITIES
     const capabilitiesKnown = bridgeServices !== null
     return filterMetadataSourcesByBridgeCapability({
       metadataSourceIds: policy,
@@ -97,6 +99,32 @@ function TrackSearch({
     bridgeConnected,
     bridgeServices,
   ])
+
+  useEffect(() => {
+    const subscriptionId = `track-search-effective-sources-${Date.now()}`
+    subscribeById(subscriptionId, {
+      send: (event: { type: string; data?: { metadataSourceIds?: string[]; effectiveMetadataSourceIds?: string[] } }) => {
+        if (event.type === "EFFECTIVE_METADATA_SOURCES" && Array.isArray(event.data?.metadataSourceIds)) {
+          setEffectiveSourceIds(event.data.metadataSourceIds)
+        }
+        if (event.type === "INIT" && Array.isArray(event.data?.effectiveMetadataSourceIds)) {
+          setEffectiveSourceIds(event.data.effectiveMetadataSourceIds)
+        }
+        if (event.type === "ROOM_SETTINGS_UPDATED") {
+          emitToSocket("GET_EFFECTIVE_METADATA_SOURCES", {})
+        }
+      },
+    })
+    emitToSocket("GET_EFFECTIVE_METADATA_SOURCES", {})
+    return () => unsubscribeById(subscriptionId)
+  }, [
+    room?.metadataSourceIds,
+    room?.metadataSourceAccess,
+    room?.playbackControllerId,
+    bridgeServices,
+  ])
+
+  const metadataSourceIds = effectiveSourceIds ?? fallbackSourceIds
   const showSourceTabs = metadataSourceIds.length >= 2
 
   useEffect(() => {

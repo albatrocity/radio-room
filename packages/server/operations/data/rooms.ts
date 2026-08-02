@@ -77,7 +77,7 @@ export async function saveRoom({ context, room }: SaveRoomParams) {
   try {
     await addRoomToRoomList({ context, roomId: room.id })
 
-    // Ensure mediaSourceConfig and metadataSourceIds are JSON-stringified before saving
+    // Ensure mediaSourceConfig / metadataSourceIds / metadataSourceAccess are JSON-stringified
     const roomToSave = {
       ...room,
       ...(room.mediaSourceConfig
@@ -85,6 +85,9 @@ export async function saveRoom({ context, room }: SaveRoomParams) {
         : {}),
       ...(room.metadataSourceIds
         ? { metadataSourceIds: JSON.stringify(room.metadataSourceIds) }
+        : {}),
+      ...(room.metadataSourceAccess
+        ? { metadataSourceAccess: JSON.stringify(room.metadataSourceAccess) }
         : {}),
     }
 
@@ -424,6 +427,9 @@ export function parseRoom(room: StoredRoom): Room {
     ...(room.radioError ? { radioError: safeParse(room.radioError) } : {}),
     ...(room.mediaSourceConfig ? { mediaSourceConfig: safeParse(room.mediaSourceConfig) } : {}),
     ...(room.metadataSourceIds ? { metadataSourceIds: safeParse(room.metadataSourceIds) } : {}),
+    ...(room.metadataSourceAccess
+      ? { metadataSourceAccess: safeParse(room.metadataSourceAccess) }
+      : {}),
   }
 }
 

@@ -312,9 +312,13 @@ export class RadioRoomServer {
     this.context.artifacts = new PluginArtifactsAPI(this.context)
     const { PersonaService } = await import("./services/PersonaService")
     this.context.personas = new PersonaService(this.context)
+    const { MetadataSourceAccessService } = await import(
+      "./services/MetadataSourceAccessService"
+    )
+    this.context.metadataSourceAccess = new MetadataSourceAccessService(this.context)
     gameSessions.start()
     console.log(
-      "GameSessionService, InventoryService, PluginArtifactsAPI, and PersonaService initialized",
+      "GameSessionService, InventoryService, PluginArtifactsAPI, PersonaService, and MetadataSourceAccessService initialized",
     )
 
     // Register any plugins that were queued via registerAdapters()

@@ -15,6 +15,7 @@ export * from "./JobRegistration"
 export * from "./LucideIconKey"
 export * from "./MediaSource"
 export * from "./MetadataSource"
+export * from "./MetadataSourceAccess"
 export * from "./PlaybackController"
 export * from "./Plugin"
 export type {

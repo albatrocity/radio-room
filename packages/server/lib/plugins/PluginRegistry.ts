@@ -305,6 +305,59 @@ export class PluginRegistry {
   }
 
   /**
+   * Aggregate plugin grants for a restricted metadata source (ADR 0088).
+   * Any `"grant"` wins. Errors/timeouts count as abstain (fail-closed).
+   */
+  async grantMetadataSourceAccess(params: {
+    roomId: string
+    userId: string
+    sourceId: string
+    action: "search" | "queue"
+  }): Promise<boolean> {
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+
+    if (!roomPluginMap || roomPluginMap.size === 0) {
+      return false
+    }
+
+    const pluginsWithGrant = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.grantMetadataSourceAccess === "function",
+    )
+
+    if (pluginsWithGrant.length === 0) {
+      return false
+    }
+
+    for (const [pluginName, { plugin }] of pluginsWithGrant) {
+      try {
+        const result = await Promise.race([
+          plugin.grantMetadataSourceAccess!(params),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+
+        if (result === "grant") {
+          console.log(
+            `[PluginRegistry] Metadata source access granted by ${pluginName} (${params.sourceId}/${params.action})`,
+          )
+          return true
+        }
+      } catch (error) {
+        console.warn(
+          `[PluginRegistry] grantMetadataSourceAccess ${pluginName} failed (abstain):`,
+          error,
+        )
+      }
+    }
+
+    return false
+  }
+
+  /**
    * Run beforePlayQueuedTrack on all plugins that implement it.
    * Called immediately before app-controlled playTrack(uri).
    * Fail-open on errors/timeouts.

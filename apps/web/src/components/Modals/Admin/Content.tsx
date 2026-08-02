@@ -28,11 +28,13 @@ import RadioProtocolSelect from "../../RadioProtocolSelect"
 import PlaybackControllerSelect from "../../PlaybackControllerSelect"
 import BridgeMediaSourcesSettings, {
   normalizeBridgeMediaSourcePolicy,
+  normalizeMetadataSourceAccessMap,
   seedBridgeMediaSourcePolicy,
+  type MetadataSourceAccessMap,
 } from "../../BridgeMediaSourcesSettings"
 import { uploadArtwork } from "../../../lib/serverApi"
 
-/** When the form switches onto Media Bridge, seed default bridge metadata sources. */
+/** When the form switches onto Media Bridge, seed default bridge metadata sources + access. */
 function BridgeMediaSourceFormSync({
   playbackControllerId,
   metadataSourceIds,
@@ -40,13 +42,15 @@ function BridgeMediaSourceFormSync({
 }: {
   playbackControllerId: string
   metadataSourceIds: string[]
-  setFieldValue: (field: string, value: string[]) => void
+  setFieldValue: (field: string, value: string[] | MetadataSourceAccessMap) => void
 }) {
   const prevControllerRef = useRef(playbackControllerId)
 
   useEffect(() => {
     if (playbackControllerId === "bridge" && prevControllerRef.current !== "bridge") {
-      setFieldValue("metadataSourceIds", seedBridgeMediaSourcePolicy(metadataSourceIds))
+      const seeded = seedBridgeMediaSourcePolicy(metadataSourceIds)
+      setFieldValue("metadataSourceIds", seeded)
+      setFieldValue("metadataSourceAccess", normalizeMetadataSourceAccessMap({}, seeded))
     }
     prevControllerRef.current = playbackControllerId
   }, [playbackControllerId, metadataSourceIds, setFieldValue])
@@ -104,6 +108,10 @@ function Content() {
         liveHlsUrl: settings.liveHlsUrl ?? "",
         playbackControllerId: settings.playbackControllerId ?? "spotify",
         metadataSourceIds: normalizeBridgeMediaSourcePolicy(room?.metadataSourceIds),
+        metadataSourceAccess: normalizeMetadataSourceAccessMap(
+          room?.metadataSourceAccess,
+          normalizeBridgeMediaSourcePolicy(room?.metadataSourceIds),
+        ),
       }}
       enableReinitialize
       validate={() => {
@@ -114,7 +122,11 @@ function Content() {
         const data =
           values.playbackControllerId === "bridge"
             ? values
-            : (({ metadataSourceIds: _omit, ...rest }) => rest)(values)
+            : (({
+                metadataSourceIds: _ids,
+                metadataSourceAccess: _access,
+                ...rest
+              }) => rest)(values)
         send({ type: "SET_SETTINGS", data } as any)
       }}
     >
@@ -189,6 +201,8 @@ function Content() {
                   <BridgeMediaSourcesSettings
                     value={values.metadataSourceIds}
                     onChange={(ids) => setFieldValue("metadataSourceIds", ids)}
+                    access={values.metadataSourceAccess}
+                    onAccessChange={(access) => setFieldValue("metadataSourceAccess", access)}
                   />
                 )}
 

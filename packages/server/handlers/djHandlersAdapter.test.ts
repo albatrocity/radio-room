@@ -104,7 +104,7 @@ describe("DJHandlers", () => {
       }),
       searchForTrack: vi.fn().mockResolvedValue({
         success: true,
-        data: { tracks: [{ id: "track123", name: "Test Track" }] },
+        data: [{ id: "track123", title: "Test Track", artist: "A", urls: [] }],
       }),
       savePlaylist: vi.fn().mockResolvedValue({
         success: true,
@@ -127,6 +127,9 @@ describe("DJHandlers", () => {
     // Mock the AdapterService
     adapterService = {
       getRoomMetadataSource: vi.fn().mockResolvedValue(mockMetadataSource),
+      getRoomMetadataSources: vi
+        .fn()
+        .mockResolvedValue(new Map([["spotify", mockMetadataSource]])),
       getUserMetadataSource: vi.fn().mockResolvedValue(mockMetadataSource),
       getRoomPlaybackController: vi.fn().mockResolvedValue({}),
       getRoomMediaSource: vi.fn().mockResolvedValue({}),
@@ -188,7 +191,13 @@ describe("DJHandlers", () => {
     test("calls queueSong with correct parameters", async () => {
       await djHandlers.queueSong({ socket: mockSocket, io: mockIo }, "track123")
 
-      expect(djService.queueSong).toHaveBeenCalledWith("room1", "1", "Homer", "track123")
+      expect(djService.queueSong).toHaveBeenCalledWith(
+        "room1",
+        "1",
+        "Homer",
+        "track123",
+        undefined,
+      )
     })
 
     test("emits SONG_QUEUED event on success", async () => {
@@ -253,15 +262,11 @@ describe("DJHandlers", () => {
     })
 
     test("emits TRACK_SEARCH_RESULTS event on success", async () => {
-      const mockTracks = [{ id: "track123", name: "Test Track" }]
+      const mockTracks = [{ id: "track123", title: "Test Track", artist: "A", urls: [] }]
 
-      // DJService returns raw data that the handler will wrap
-      const mockServiceData = { tracks: mockTracks }
-
-      // Override mock to return specific data
       djService.searchForTrack.mockResolvedValueOnce({
         success: true,
-        data: mockServiceData,
+        data: mockTracks,
       })
 
       await djHandlers.searchForTrack(
@@ -271,12 +276,11 @@ describe("DJHandlers", () => {
         },
       )
 
-      // Handler wraps result.data in { items: ..., total: ..., offset: ..., limit: ... }
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
         type: "TRACK_SEARCH_RESULTS",
         data: {
-          items: mockServiceData,
-          total: 0, // Handler uses result.data.length which is undefined for object, defaults to 0
+          items: [{ ...mockTracks[0], source: "spotify" }],
+          total: 1,
           offset: 0,
           limit: 20,
         },
@@ -284,11 +288,7 @@ describe("DJHandlers", () => {
     })
 
     test("emits TRACK_SEARCH_RESULTS_FAILURE event when metadata source is not configured", async () => {
-      // Mock DJService to return failure
-      djService.searchForTrack.mockResolvedValueOnce({
-        success: false,
-        message: "No metadata source configured for this room",
-      })
+      adapterService.getRoomMetadataSources.mockResolvedValueOnce(new Map())
 
       await djHandlers.searchForTrack(
         { socket: mockSocket, io: mockIo },
@@ -305,14 +305,10 @@ describe("DJHandlers", () => {
       })
     })
 
-    test("emits TRACK_SEARCH_RESULTS_FAILURE event on failure", async () => {
-      const mockError = new Error("Search failed")
-
-      // Override mock to simulate failure
+    test("emits TRACK_SEARCH_RESULTS with empty items when source search fails", async () => {
       djService.searchForTrack.mockResolvedValueOnce({
         success: false,
         message: "Search failed",
-        error: mockError,
       })
 
       await djHandlers.searchForTrack(
@@ -323,10 +319,12 @@ describe("DJHandlers", () => {
       )
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
-        type: "TRACK_SEARCH_RESULTS_FAILURE",
+        type: "TRACK_SEARCH_RESULTS",
         data: {
-          message: "Search failed",
-          error: mockError,
+          items: [],
+          total: 0,
+          offset: 0,
+          limit: 20,
         },
       })
     })

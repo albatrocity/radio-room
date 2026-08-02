@@ -29,4 +29,5 @@ Bridge rooms search across Spotify, Tidal, YouTube, and local library. Daemon CA
 
 - [0077. Bridge composite playback controller](0077-bridge-composite-playback-controller.md)
 - [0086. Metadata search result cache](0086-metadata-search-result-cache.md)
+- [0088. Metadata source access grants](0088-metadata-source-access-grants.md)
 - [`apps/web/src/components/BridgeMediaSourcesSettings.tsx`](../../apps/web/src/components/BridgeMediaSourcesSettings.tsx)

@@ -18,6 +18,8 @@ const LABELS: Record<ToggleableSource | "spotify", string> = {
   local: "Library (local)",
 }
 
+export type MetadataSourceAccessMap = Record<string, "open" | "restricted">
+
 export function normalizeBridgeMediaSourcePolicy(ids: unknown): string[] {
   const list = Array.isArray(ids)
     ? ids.filter((id): id is string => typeof id === "string" && id.length > 0)
@@ -34,24 +36,45 @@ export function seedBridgeMediaSourcePolicy(ids: unknown): string[] {
   return next
 }
 
+export function normalizeMetadataSourceAccessMap(
+  access: unknown,
+  enabledIds: string[],
+): MetadataSourceAccessMap {
+  const raw =
+    access && typeof access === "object" && !Array.isArray(access)
+      ? (access as Record<string, unknown>)
+      : {}
+  const next: MetadataSourceAccessMap = {}
+  for (const id of enabledIds) {
+    next[id] = raw[id] === "restricted" ? "restricted" : "open"
+  }
+  return next
+}
+
 type Props = {
   value: string[]
   onChange: (ids: string[]) => void
+  access: MetadataSourceAccessMap
+  onAccessChange: (access: MetadataSourceAccessMap) => void
 }
 
 /**
- * Room policy toggles for Media Bridge metadata sources (ADR 0087).
- * Effective search = metadataSourceIds ∩ daemon CAPABILITIES.
- *
- * Controlled Formik field — parent saves via Content form submit.
+ * Room policy + access baseline for Media Bridge metadata sources (ADR 0087 / 0088).
+ * Controlled Formik fields — parent saves via Content form submit.
  */
-export default function BridgeMediaSourcesSettings({ value, onChange }: Props) {
+export default function BridgeMediaSourcesSettings({
+  value,
+  onChange,
+  access,
+  onAccessChange,
+}: Props) {
   const currentUser = useCurrentUser()
   const bridgeConnected = useMediaBridgeConnected()
   const bridgeServices = useMediaBridgeServices()
   const [tidalLinked, setTidalLinked] = useState(false)
 
   const policy = normalizeBridgeMediaSourcePolicy(value)
+  const accessMap = normalizeMetadataSourceAccessMap(access, policy)
   const capabilitiesKnown = bridgeServices !== null
 
   const handleAuthEvent = useCallback(
@@ -88,7 +111,16 @@ export default function BridgeMediaSourcesSettings({ value, onChange }: Props) {
     if (enabled) next.add(sourceId)
     else next.delete(sourceId)
 
-    onChange(Array.from(next))
+    const nextIds = Array.from(next)
+    onChange(nextIds)
+    onAccessChange(normalizeMetadataSourceAccessMap(accessMap, nextIds))
+  }
+
+  const setSourceRestricted = (sourceId: string, restricted: boolean) => {
+    onAccessChange({
+      ...accessMap,
+      [sourceId]: restricted ? "restricted" : "open",
+    })
   }
 
   const unavailableOnBridge = (sourceId: ToggleableSource): boolean => {
@@ -96,25 +128,49 @@ export default function BridgeMediaSourcesSettings({ value, onChange }: Props) {
     return !bridgeServices.includes(sourceId)
   }
 
+  const renderAccessControl = (sourceId: string) => (
+    // Own Field.Root — nesting under the enable checkbox's Field steals clicks (Zag field context).
+    <Field.Root ml={6} onClick={(e) => e.stopPropagation()}>
+      <Checkbox.Root
+        name={`metadataSourceAccess-${sourceId}`}
+        checked={accessMap[sourceId] === "restricted"}
+        onCheckedChange={(details) => {
+          setSourceRestricted(sourceId, !!details.checked)
+        }}
+        size="sm"
+      >
+        <Checkbox.HiddenInput />
+        <Checkbox.Control>
+          <Checkbox.Indicator />
+        </Checkbox.Control>
+        <Checkbox.Label>Admins + plugin grants only</Checkbox.Label>
+      </Checkbox.Root>
+    </Field.Root>
+  )
+
   return (
     <VStack align="stretch" gap={3}>
       <Field.Root>
         <Field.Label>Media sources</Field.Label>
         <Field.HelperText>
-          Choose which sources this room searches. The Media Bridge must also have the service
-          enabled for it to appear in Add to Queue.
+          Choose which sources this room searches. Mark a source as admins + plugin grants only to
+          hide it from DJs unless a plugin grants access (e.g. persona or inventory item). The Media
+          Bridge must also have the service enabled for it to appear in Add to Queue.
         </Field.HelperText>
       </Field.Root>
 
-      <Field.Root>
-        <Checkbox.Root checked disabled name="metadataSource-spotify">
-          <Checkbox.HiddenInput />
-          <Checkbox.Control>
-            <Checkbox.Indicator />
-          </Checkbox.Control>
-          <Checkbox.Label>{LABELS.spotify} (always on)</Checkbox.Label>
-        </Checkbox.Root>
-      </Field.Root>
+      <VStack align="stretch" gap={1}>
+        <Field.Root>
+          <Checkbox.Root checked disabled name="metadataSource-spotify">
+            <Checkbox.HiddenInput />
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            <Checkbox.Label>{LABELS.spotify} (always on)</Checkbox.Label>
+          </Checkbox.Root>
+        </Field.Root>
+        {renderAccessControl("spotify")}
+      </VStack>
 
       {TOGGLEABLE_SOURCES.map((sourceId) => {
         const checked = policy.includes(sourceId)
@@ -123,35 +179,38 @@ export default function BridgeMediaSourcesSettings({ value, onChange }: Props) {
         const disabled = tidalNeedsAuth && !checked
 
         return (
-          <Field.Root key={sourceId}>
-            <Checkbox.Root
-              name={`metadataSource-${sourceId}`}
-              checked={checked}
-              disabled={disabled}
-              onCheckedChange={(details) => {
-                setSourceEnabled(sourceId, !!details.checked)
-              }}
-            >
-              <Checkbox.HiddenInput />
-              <Checkbox.Control>
-                <Checkbox.Indicator />
-              </Checkbox.Control>
-              <Checkbox.Label>{LABELS[sourceId]}</Checkbox.Label>
-            </Checkbox.Root>
-            {tidalNeedsAuth && (
-              <Field.HelperText>
-                Link Tidal under Authentication (Overview) before enabling for this room.
-              </Field.HelperText>
-            )}
-            {unavailable && checked && (
-              <Field.HelperText>
-                Not available on the Media Bridge right now — room opt-in is kept.
-              </Field.HelperText>
-            )}
-            {unavailable && !checked && (
-              <Field.HelperText>Not available on the Media Bridge right now.</Field.HelperText>
-            )}
-          </Field.Root>
+          <VStack key={sourceId} align="stretch" gap={1}>
+            <Field.Root>
+              <Checkbox.Root
+                name={`metadataSource-${sourceId}`}
+                checked={checked}
+                disabled={disabled}
+                onCheckedChange={(details) => {
+                  setSourceEnabled(sourceId, !!details.checked)
+                }}
+              >
+                <Checkbox.HiddenInput />
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                <Checkbox.Label>{LABELS[sourceId]}</Checkbox.Label>
+              </Checkbox.Root>
+              {tidalNeedsAuth && (
+                <Field.HelperText>
+                  Link Tidal under Authentication (Overview) before enabling for this room.
+                </Field.HelperText>
+              )}
+              {unavailable && checked && (
+                <Field.HelperText>
+                  Not available on the Media Bridge right now — room opt-in is kept.
+                </Field.HelperText>
+              )}
+              {unavailable && !checked && (
+                <Field.HelperText>Not available on the Media Bridge right now.</Field.HelperText>
+              )}
+            </Field.Root>
+            {checked && renderAccessControl(sourceId)}
+          </VStack>
         )
       })}
     </VStack>

@@ -254,6 +254,33 @@ export class DJHandlers {
   }
 
   /**
+   * Return per-user effective metadata source ids for search UI tabs (ADR 0088).
+   */
+  getEffectiveMetadataSources = async ({ socket }: HandlerConnections) => {
+    const { roomId, userId } = socket.data
+    if (!this.context.metadataSourceAccess) {
+      const { findRoom } = await import("../operations/data")
+      const room = await findRoom({ context: this.context, roomId })
+      socket.emit("event", {
+        type: "EFFECTIVE_METADATA_SOURCES",
+        data: { metadataSourceIds: room?.metadataSourceIds ?? [] },
+      })
+      return
+    }
+
+    const metadataSourceIds =
+      await this.context.metadataSourceAccess.getEffectiveSourceIdsForUser(
+        roomId,
+        userId,
+        "search",
+      )
+    socket.emit("event", {
+      type: "EFFECTIVE_METADATA_SOURCES",
+      data: { metadataSourceIds },
+    })
+  }
+
+  /**
    * Search for tracks across all room metadata sources (fan-out).
    * Bridge rooms apply cross-source dedup by mediaSourcePriority.
    */
@@ -280,9 +307,20 @@ export class DJHandlers {
       return
     }
 
-    // Bridge rooms: policy ∩ daemon CAPABILITIES (skip disabled drivers like YouTube)
+    // Per-user effective sources: policy ∩ CAPABILITIES ∩ access (ADR 0087/0088)
     let sourceEntries = [...sources.entries()]
-    if (room.playbackControllerId === "bridge") {
+    if (this.context.metadataSourceAccess) {
+      const { userId } = socket.data
+      const accessible = new Set(
+        await this.context.metadataSourceAccess.getEffectiveSourceIdsForUser(
+          roomId,
+          userId,
+          "search",
+        ),
+      )
+      sourceEntries = sourceEntries.filter(([name]) => accessible.has(name))
+    } else if (room.playbackControllerId === "bridge") {
+      // Fallback when access service not wired (tests): capability filter only
       try {
         const { getOrCreateCapabilityCache } = await import("@repo/adapter-bridge")
         const { filterMetadataSourcesByBridgeCapability } = await import("@repo/utils")

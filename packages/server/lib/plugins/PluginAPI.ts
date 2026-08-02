@@ -355,6 +355,16 @@ export class PluginAPIImpl implements PluginAPI {
     return Boolean(playbackController?.api.setVolume)
   }
 
+  async listMetadataSources(roomId: string): Promise<{ id: string; label: string }[]> {
+    const { MetadataSourceAccessService } = await import(
+      "../../services/MetadataSourceAccessService"
+    )
+    const access =
+      (this.context as { metadataSourceAccess?: InstanceType<typeof MetadataSourceAccessService> })
+        .metadataSourceAccess ?? new MetadataSourceAccessService(this.context)
+    return access.listMetadataSources(roomId)
+  }
+
   /**
    * Emit a custom plugin event.
    * Events are namespaced as PLUGIN:{pluginName}:{eventName}

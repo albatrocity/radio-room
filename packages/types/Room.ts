@@ -54,6 +54,11 @@ export type Room = {
   // New adapter-based configuration
   playbackControllerId?: string
   metadataSourceIds?: string[]
+  /**
+   * Bridge rooms only (ADR 0088). Per-source access baseline:
+   * `open` (or omitted) = anyone who can queue; `restricted` = admins + plugin grants.
+   */
+  metadataSourceAccess?: Record<string, "open" | "restricted">
   mediaSourceId?: string
   mediaSourceConfig?: { url: string }
   createdAt: string
@@ -104,6 +109,7 @@ export interface StoredRoom
     | "persistent"
     | "mediaSourceConfig"
     | "metadataSourceIds"
+    | "metadataSourceAccess"
     | "showQueueCount"
     | "showQueueTracks"
     | "queueAutoAdvance"
@@ -131,6 +137,7 @@ export interface StoredRoom
   radioError?: string
   mediaSourceConfig?: string
   metadataSourceIds?: string // JSON stringified array
+  metadataSourceAccess?: string // JSON stringified Record<sourceId, "open" | "restricted">
 }
 
 // =============================================================================

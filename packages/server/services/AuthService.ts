@@ -284,6 +284,20 @@ export class AuthService {
       userId,
     })
 
+    let effectiveMetadataSourceIds: string[] | undefined
+    if (this.context.metadataSourceAccess) {
+      try {
+        effectiveMetadataSourceIds =
+          await this.context.metadataSourceAccess.getEffectiveSourceIdsForUser(
+            roomId,
+            userId,
+            "search",
+          )
+      } catch (err) {
+        console.error("[AuthService] Failed to load effective metadata sources for init:", err)
+      }
+    }
+
     return {
       initData: {
         users: newUsers,
@@ -306,6 +320,7 @@ export class AuthService {
         isNewUser: isNew,
         activeGameSession,
         assignablePersonas,
+        effectiveMetadataSourceIds,
         activePoll: pollInit.activePoll,
         totalVotes: pollInit.totalVotes,
         pollHistory: pollInit.pollHistory,

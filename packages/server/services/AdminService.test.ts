@@ -1,5 +1,9 @@
 import { describe, expect, test, vi, beforeEach } from "vitest"
-import { AdminService, normalizeBridgeMetadataSourceIds } from "./AdminService"
+import {
+  AdminService,
+  normalizeBridgeMetadataSourceIds,
+  normalizeMetadataSourceAccess,
+} from "./AdminService"
 import { AppContext } from "@repo/types"
 
 // Mock dependencies
@@ -376,6 +380,83 @@ describe("AdminService", () => {
       vi.unstubAllEnvs()
     })
 
+    test("clears metadataSourceAccess when leaving bridge", async () => {
+      const bridgeRoom = roomFactory.build({
+        id: "room123",
+        type: "radio",
+        creator: "admin123",
+        playbackControllerId: "bridge",
+        metadataSourceIds: ["spotify", "youtube", "local"],
+        metadataSourceAccess: { spotify: "open", youtube: "restricted", local: "restricted" },
+        fetchMeta: false,
+      })
+      const updated = {
+        ...bridgeRoom,
+        playbackControllerId: "spotify",
+        metadataSourceIds: ["spotify"],
+        metadataSourceAccess: {},
+      }
+
+      vi.mocked(findRoom)
+        .mockResolvedValueOnce(bridgeRoom)
+        .mockResolvedValueOnce(updated)
+
+      await adminService.setRoomSettings("room123", "admin123", {
+        playbackControllerId: "spotify",
+      })
+
+      expect(saveRoom).toHaveBeenCalledWith({
+        context: mockContext,
+        room: expect.objectContaining({
+          playbackControllerId: "spotify",
+          metadataSourceAccess: {},
+        }),
+      })
+    })
+
+    test("persists metadataSourceAccess restricted modes while on bridge", async () => {
+      const bridgeRoom = roomFactory.build({
+        id: "room123",
+        type: "radio",
+        creator: "admin123",
+        playbackControllerId: "bridge",
+        metadataSourceIds: ["spotify", "youtube", "local"],
+        metadataSourceAccess: { spotify: "open", youtube: "open", local: "open" },
+        fetchMeta: false,
+      })
+      const updated = {
+        ...bridgeRoom,
+        metadataSourceAccess: { spotify: "open", youtube: "restricted", local: "open" },
+      }
+
+      vi.stubEnv("YOUTUBE_API_KEY", "test-key")
+      vi.mocked(findRoom)
+        .mockResolvedValueOnce(bridgeRoom)
+        .mockResolvedValueOnce(updated)
+
+      await adminService.setRoomSettings("room123", "admin123", {
+        metadataSourceIds: ["spotify", "youtube", "local"],
+        metadataSourceAccess: {
+          spotify: "open",
+          youtube: "restricted",
+          local: "open",
+          orphan: "restricted",
+        },
+      })
+
+      expect(saveRoom).toHaveBeenCalledWith({
+        context: mockContext,
+        room: expect.objectContaining({
+          metadataSourceAccess: {
+            spotify: "open",
+            youtube: "restricted",
+            local: "open",
+          },
+        }),
+      })
+      vi.unstubAllEnvs()
+    })
+
     test("removes youtube and local metadata sources when leaving bridge", async () => {
       const bridgeRoom = roomFactory.build({
         id: "room123",
@@ -514,6 +595,21 @@ describe("AdminService", () => {
         "local",
       ])
       vi.unstubAllEnvs()
+    })
+  })
+
+  describe("normalizeMetadataSourceAccess", () => {
+    test("keeps only enabled ids and coerces unknown modes to open", () => {
+      expect(
+        normalizeMetadataSourceAccess(
+          { spotify: "open", youtube: "restricted", local: "nope", ghost: "restricted" },
+          ["spotify", "youtube", "local"],
+        ),
+      ).toEqual({
+        spotify: "open",
+        youtube: "restricted",
+        local: "open",
+      })
     })
   })
 

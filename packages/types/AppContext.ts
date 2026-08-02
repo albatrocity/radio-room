@@ -33,6 +33,8 @@ export interface AppContext {
   artifacts?: ArtifactsPluginAPI
   /** Room-scoped user personas (VIP, plugin-defined labels). Typed as PersonaService in server code. */
   personas?: any
+  /** Bridge metadata source access evaluation (ADR 0088). Typed as MetadataSourceAccessService in server code. */
+  metadataSourceAccess?: any
   systemEvents?: SystemEvents
   /** Base URL for the API (e.g., "https://api.example.com"). Used for generating absolute URLs. */
   apiUrl?: string
