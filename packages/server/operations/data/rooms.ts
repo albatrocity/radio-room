@@ -375,6 +375,10 @@ type RemoveUserRoomsSpotifyErrorParams = {
   userId: string
 }
 
+/**
+ * Clear sticky `spotifyError` on all rooms created by this user and broadcast
+ * ROOM_SETTINGS_UPDATED so RoomError banners dismiss without rejoin.
+ */
 export async function removeUserRoomsSpotifyError({
   context,
   userId,
@@ -382,8 +386,9 @@ export async function removeUserRoomsSpotifyError({
   const userCreatedRooms = await getUserRooms({ context, userId })
 
   await Promise.all(
-    userCreatedRooms.map((room) => {
-      return context.redis.pubClient.hDel(`room:${room.id}:details`, "spotifyError")
+    userCreatedRooms.map(async (room) => {
+      await context.redis.pubClient.hDel(`room:${room.id}:details`, "spotifyError")
+      await emitRoomSettingsUpdated({ context, roomId: room.id })
     }),
   )
 }

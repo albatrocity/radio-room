@@ -734,6 +734,10 @@ export class DJHandlers {
         new Error(authErrors[0]?.message ?? "Metadata source authentication failed"),
         authErrors.map((e) => e.source).join(","),
       )
+    } else if (room.spotifyError) {
+      // Heal sticky banner after a successful search with valid tokens
+      const { removeUserRoomsSpotifyError } = await import("../operations/data/rooms")
+      await removeUserRoomsSpotifyError({ context: this.context, userId: room.creator })
     }
 
     socket.emit("event", {

@@ -4,6 +4,7 @@ import { AppContext } from "@repo/types"
 import { SpotifyApi } from "@spotify/web-api-ts-sdk"
 import generateRandomString from "./generateRandomString"
 import { storeUserServiceAuth } from "@repo/server/operations/data/serviceAuthentications"
+import { removeUserRoomsSpotifyError } from "@repo/server/operations/data/rooms"
 import { storeUserChallenge } from "@repo/server/operations/userChallenge"
 
 const stateKey = "spotify_auth_state"
@@ -224,6 +225,13 @@ export function createSpotifyAuthRoutes(context: AppContext) {
           expiresAt: Date.now() + expires_in * 1000,
         },
       })
+
+      // Dismiss room "Spotify disconnected" banners now that tokens are valid again
+      try {
+        await removeUserRoomsSpotifyError({ context, userId })
+      } catch (clearErr) {
+        console.warn("[Spotify Auth] Failed to clear room spotifyError:", clearErr)
+      }
 
       // Save user to Redis (if needed for backward compatibility)
       const userKey = `user:${userId}`

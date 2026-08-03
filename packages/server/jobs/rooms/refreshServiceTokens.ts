@@ -1,5 +1,5 @@
 import { AppContext } from "@repo/types"
-import { findRoom, updateRoom, delRoomKey } from "../../operations/data"
+import { findRoom, updateRoom } from "../../operations/data"
 import { getUserServiceAuth } from "../../operations/data/serviceAuthentications"
 
 /**
@@ -82,15 +82,14 @@ async function refreshServiceTokensForUser(
       if (serviceAuthAdapter.refreshAuth) {
         await serviceAuthAdapter.refreshAuth(userId)
         
-        // Clear any error flags if refresh was successful
-        if (roomId) {
-          await updateRoom({
-            context,
-            roomId,
-            room: {
-              [`${serviceName}Error`]: undefined,
-            } as any,
-          })
+        // Clear sticky auth error banners if refresh was successful
+        if (roomId && serviceName === "spotify") {
+          const { removeUserRoomsSpotifyError } = await import("../../operations/data/rooms")
+          await removeUserRoomsSpotifyError({ context, userId })
+        } else if (roomId) {
+          await context.redis.pubClient.hDel(`room:${roomId}:details`, `${serviceName}Error`)
+          const { emitRoomSettingsUpdated } = await import("../../operations/data/rooms")
+          await emitRoomSettingsUpdated({ context, roomId })
         }
         
         console.log(`Successfully refreshed ${serviceName} tokens for user ${userId}`)
