@@ -23,6 +23,9 @@ export function stubStudioBridgeRoom(
     type: "jukebox",
     /** Preview queue as authoritative (matches sandbox); avoids Spotify-delegated queue UX in studio-room. */
     playbackMode: "app-controlled",
+    /** Stub multi-source Add-to-Queue / browse (see stubMetadataCatalog). */
+    playbackControllerId: "bridge",
+    metadataSourceIds: ["spotify", "local"],
     title,
     fetchMeta: false,
     extraInfo: undefined,

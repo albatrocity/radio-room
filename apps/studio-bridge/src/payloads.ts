@@ -220,5 +220,11 @@ export function buildInitPayload(snap: BridgeSnapshot, self: User) {
     ]),
     activePoll: snap.activePoll ?? null,
     pollHistory: snap.pollHistory ?? [],
+    // Stub multi-source search/browse hydrate (see stubMetadataCatalog)
+    effectiveMetadataSourceIds: ["spotify", "local"],
+    browseableSourceIds: ["local"],
+    browseSourceCapabilities: {
+      local: { entryMode: "index" as const, albumSearch: true },
+    },
   }
 }
