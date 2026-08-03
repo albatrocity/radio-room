@@ -1,4 +1,5 @@
 import { DJService } from "../services/DJService"
+import { MediaBridgeService } from "../services/MediaBridgeService"
 import { QueueItem, HandlerConnections, AppContext, User } from "@repo/types"
 import sendMessage from "../lib/sendMessage"
 import { pubUserJoined } from "../operations/sockets/users"
@@ -18,12 +19,14 @@ import { searchTracksAcrossSources } from "../operations/dj/searchTracks"
  */
 export class DJHandlers {
   private readonly adapterService: AdapterService
+  private readonly mediaBridgeService: MediaBridgeService
 
   constructor(
     private readonly djService: DJService,
     private readonly context: AppContext,
   ) {
     this.adapterService = new AdapterService(context)
+    this.mediaBridgeService = new MediaBridgeService(context)
   }
 
   /**
@@ -932,7 +935,7 @@ export class DJHandlers {
   linkMediaBridge = async ({ socket }: HandlerConnections) => {
     try {
       const { roomId, userId } = socket.data
-      const result = await this.djService.linkMediaBridge(roomId, userId)
+      const result = await this.mediaBridgeService.linkMediaBridge(roomId, userId)
 
       if (!result.success) {
         socket.emit("event", {
@@ -958,7 +961,7 @@ export class DJHandlers {
   getMediaBridgeStatus = async ({ socket }: HandlerConnections) => {
     try {
       const { roomId, userId } = socket.data
-      const result = await this.djService.getMediaBridgeStatus(roomId, userId)
+      const result = await this.mediaBridgeService.getMediaBridgeStatus(roomId, userId)
 
       if (!result.success) {
         socket.emit("event", {
