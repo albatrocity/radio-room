@@ -46,6 +46,8 @@ import { lobbyActor } from "../actors/lobbyActor"
 import { pollActor } from "../actors/pollActor"
 import { quickAccessPanelsActor } from "../actors/quickAccessPanelsActor"
 import { mediaBridgeActor } from "../actors/mediaBridgeActor"
+import { effectiveMetadataSourcesActor } from "../actors/effectiveMetadataSourcesActor"
+import type { MetadataBrowseCapabilities } from "@repo/types"
 import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { MetadataSourceType, QueueItem } from "../types/Queue"
 
@@ -717,6 +719,23 @@ export const useMediaBridgeServices = (): string[] | null => {
 }
 
 export const useMediaBridgeSend = () => sendToMediaBridge
+
+// ============================================================================
+// Effective metadata sources (ADR 0088 / 0089 / 0090)
+// ============================================================================
+
+/** Per-user effective search source ids; null until first server payload. */
+export const useEffectiveMetadataSourceIds = (): string[] | null => {
+  return useSelector(effectiveMetadataSourcesActor, (s) => s.context.metadataSourceIds)
+}
+
+export const useBrowseableMetadataSourceIds = (): string[] | null => {
+  return useSelector(effectiveMetadataSourcesActor, (s) => s.context.browseableSourceIds)
+}
+
+export const useBrowseSourceCapabilities = (): Record<string, MetadataBrowseCapabilities> => {
+  return useSelector(effectiveMetadataSourcesActor, (s) => s.context.browseSourceCapabilities)
+}
 
 // ============================================================================
 // Lobby Hooks

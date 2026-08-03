@@ -11,10 +11,16 @@ import {
 } from "@chakra-ui/react"
 import TrackSearch from "./TrackSearch"
 import CatalogBrowse, { type CatalogBrowseNavigation } from "./CatalogBrowse"
-import type { MetadataBrowseCapabilities, MetadataSourceTrack } from "@repo/types"
+import type { MetadataSourceTrack } from "@repo/types"
 import { filterMetadataSourcesByBridgeCapability } from "@repo/utils"
-import { emitToSocket, subscribeById, unsubscribeById } from "../actors"
-import { useCurrentRoom, useMediaBridgeConnected, useMediaBridgeServices } from "../hooks/useActors"
+import {
+  useBrowseableMetadataSourceIds,
+  useBrowseSourceCapabilities,
+  useCurrentRoom,
+  useEffectiveMetadataSourceIds,
+  useMediaBridgeConnected,
+  useMediaBridgeServices,
+} from "../hooks/useActors"
 import { metadataSourceLabel } from "../lib/metadataSourceLabels"
 
 type Props = {
@@ -29,12 +35,10 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
   const room = useCurrentRoom()
   const bridgeConnected = useMediaBridgeConnected()
   const bridgeServices = useMediaBridgeServices()
+  const effectiveSourceIds = useEffectiveMetadataSourceIds()
+  const browseableSourceIds = useBrowseableMetadataSourceIds()
+  const browseSourceCapabilities = useBrowseSourceCapabilities()
   const [mode, setMode] = useState<Mode>("search")
-  const [effectiveSourceIds, setEffectiveSourceIds] = useState<string[] | null>(null)
-  const [browseableSourceIds, setBrowseableSourceIds] = useState<string[] | null>(null)
-  const [browseSourceCapabilities, setBrowseSourceCapabilities] = useState<
-    Record<string, MetadataBrowseCapabilities>
-  >({})
   const [browseNav, setBrowseNav] = useState<CatalogBrowseNavigation | null>(null)
   const [sourceFilter, setSourceFilter] = useState("all")
 
@@ -51,55 +55,6 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
   }, [room?.metadataSourceIds, room?.playbackControllerId, bridgeConnected, bridgeServices])
 
   const metadataSourceIds = effectiveSourceIds ?? fallbackSourceIds
-
-  useEffect(() => {
-    const subscriptionId = `form-add-to-queue-browse-${Date.now()}`
-    subscribeById(subscriptionId, {
-      send: (event: {
-        type: string
-        data?: {
-          metadataSourceIds?: string[]
-          effectiveMetadataSourceIds?: string[]
-          browseableSourceIds?: string[]
-          browseSourceCapabilities?: Record<string, MetadataBrowseCapabilities>
-        }
-      }) => {
-        if (event.type === "EFFECTIVE_METADATA_SOURCES") {
-          if (Array.isArray(event.data?.metadataSourceIds)) {
-            setEffectiveSourceIds(event.data.metadataSourceIds)
-          }
-          if (Array.isArray(event.data?.browseableSourceIds)) {
-            setBrowseableSourceIds(event.data.browseableSourceIds)
-          }
-          if (event.data?.browseSourceCapabilities) {
-            setBrowseSourceCapabilities(event.data.browseSourceCapabilities)
-          }
-        }
-        if (event.type === "INIT") {
-          if (Array.isArray(event.data?.effectiveMetadataSourceIds)) {
-            setEffectiveSourceIds(event.data.effectiveMetadataSourceIds)
-          }
-          if (Array.isArray(event.data?.browseableSourceIds)) {
-            setBrowseableSourceIds(event.data.browseableSourceIds)
-          }
-          if (event.data?.browseSourceCapabilities) {
-            setBrowseSourceCapabilities(event.data.browseSourceCapabilities)
-          }
-        }
-        if (event.type === "ROOM_SETTINGS_UPDATED") {
-          emitToSocket("GET_EFFECTIVE_METADATA_SOURCES", {})
-        }
-      },
-    })
-    emitToSocket("GET_EFFECTIVE_METADATA_SOURCES", {})
-    return () => unsubscribeById(subscriptionId)
-  }, [
-    room?.metadataSourceIds,
-    room?.metadataSourceAccess,
-    room?.playbackControllerId,
-    bridgeConnected,
-    bridgeServices,
-  ])
 
   const canBrowse = (browseableSourceIds?.length ?? 0) > 0
 

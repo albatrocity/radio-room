@@ -193,6 +193,11 @@ export {
   isMediaBridgeConnected,
 } from "./mediaBridgeActor"
 
+export {
+  effectiveMetadataSourcesActor,
+  refreshEffectiveMetadataSources,
+} from "./effectiveMetadataSourcesActor"
+
 // Room Lifecycle
 export {
   initializeRoom,

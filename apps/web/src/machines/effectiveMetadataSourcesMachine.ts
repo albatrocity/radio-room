@@ -1,0 +1,119 @@
+import { setup, assign } from "xstate"
+import type { MetadataBrowseCapabilities } from "@repo/types"
+import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
+
+export interface EffectiveMetadataSourcesContext {
+  subscriptionId: string | null
+  /** Per-user effective search sources; null until first server payload. */
+  metadataSourceIds: string[] | null
+  browseableSourceIds: string[] | null
+  browseSourceCapabilities: Record<string, MetadataBrowseCapabilities>
+}
+
+type EffectiveMetadataSourcesEvent =
+  | { type: "ACTIVATE" }
+  | { type: "DEACTIVATE" }
+  | { type: "REFRESH" }
+  | {
+      type: "EFFECTIVE_METADATA_SOURCES"
+      data?: {
+        metadataSourceIds?: string[]
+        browseableSourceIds?: string[]
+        browseSourceCapabilities?: Record<string, MetadataBrowseCapabilities>
+      }
+    }
+  | {
+      type: "INIT"
+      data?: {
+        effectiveMetadataSourceIds?: string[]
+        browseableSourceIds?: string[]
+        browseSourceCapabilities?: Record<string, MetadataBrowseCapabilities>
+      }
+    }
+  | { type: "ROOM_SETTINGS_UPDATED"; data?: unknown }
+  | { type: "MEDIA_BRIDGE_STATUS_CHANGED"; data?: unknown }
+
+let subscriptionCounter = 0
+
+const defaultContext: EffectiveMetadataSourcesContext = {
+  subscriptionId: null,
+  metadataSourceIds: null,
+  browseableSourceIds: null,
+  browseSourceCapabilities: {},
+}
+
+export const effectiveMetadataSourcesMachine = setup({
+  types: {
+    context: {} as EffectiveMetadataSourcesContext,
+    events: {} as EffectiveMetadataSourcesEvent,
+  },
+  actions: {
+    subscribe: assign(({ self }) => {
+      const id = `effectiveMetadataSources-${self.id}-${++subscriptionCounter}`
+      subscribeById(id, {
+        send: (event) => self.send(event as EffectiveMetadataSourcesEvent),
+      })
+      return { subscriptionId: id }
+    }),
+    unsubscribe: ({ context }) => {
+      if (context.subscriptionId) {
+        unsubscribeById(context.subscriptionId)
+      }
+    },
+    fetchEffective: () => {
+      emitToSocket("GET_EFFECTIVE_METADATA_SOURCES", {})
+    },
+    assignFromEffectiveEvent: assign(({ event }) => {
+      if (event.type !== "EFFECTIVE_METADATA_SOURCES") return {}
+      return {
+        ...(Array.isArray(event.data?.metadataSourceIds)
+          ? { metadataSourceIds: event.data.metadataSourceIds }
+          : {}),
+        ...(Array.isArray(event.data?.browseableSourceIds)
+          ? { browseableSourceIds: event.data.browseableSourceIds }
+          : {}),
+        ...(event.data?.browseSourceCapabilities
+          ? { browseSourceCapabilities: event.data.browseSourceCapabilities }
+          : {}),
+      }
+    }),
+    assignFromInit: assign(({ event }) => {
+      if (event.type !== "INIT") return {}
+      return {
+        ...(Array.isArray(event.data?.effectiveMetadataSourceIds)
+          ? { metadataSourceIds: event.data.effectiveMetadataSourceIds }
+          : {}),
+        ...(Array.isArray(event.data?.browseableSourceIds)
+          ? { browseableSourceIds: event.data.browseableSourceIds }
+          : {}),
+        ...(event.data?.browseSourceCapabilities
+          ? { browseSourceCapabilities: event.data.browseSourceCapabilities }
+          : {}),
+      }
+    }),
+    resetContext: assign(() => defaultContext),
+  },
+}).createMachine({
+  id: "effectiveMetadataSources",
+  initial: "idle",
+  context: defaultContext,
+  states: {
+    idle: {
+      on: {
+        ACTIVATE: "active",
+      },
+    },
+    active: {
+      entry: ["subscribe", "fetchEffective"],
+      exit: ["unsubscribe", "resetContext"],
+      on: {
+        DEACTIVATE: "idle",
+        REFRESH: { actions: ["fetchEffective"] },
+        EFFECTIVE_METADATA_SOURCES: { actions: ["assignFromEffectiveEvent"] },
+        INIT: { actions: ["assignFromInit"] },
+        ROOM_SETTINGS_UPDATED: { actions: ["fetchEffective"] },
+        MEDIA_BRIDGE_STATUS_CHANGED: { actions: ["fetchEffective"] },
+      },
+    },
+  },
+})

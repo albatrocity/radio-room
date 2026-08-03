@@ -26,6 +26,7 @@ import { screenEffectsActor } from "./screenEffectsActor"
 import { pollActor } from "./pollActor"
 import { quickAccessPanelsActor } from "./quickAccessPanelsActor"
 import { mediaBridgeActor } from "./mediaBridgeActor"
+import { effectiveMetadataSourcesActor } from "./effectiveMetadataSourcesActor"
 
 import {
   getPersistedRoomState,
@@ -100,6 +101,7 @@ export function initializeRoom(roomId: string): void {
   pollActor.send({ type: "ACTIVATE" })
   quickAccessPanelsActor.send({ type: "ACTIVATE", roomId })
   mediaBridgeActor.send({ type: "ACTIVATE" })
+  effectiveMetadataSourcesActor.send({ type: "ACTIVATE" })
 
   // Start fetching room data
   fetchRoom(roomId)
@@ -153,6 +155,7 @@ export function teardownRoom(): void {
   pollActor.send({ type: "DEACTIVATE" })
   quickAccessPanelsActor.send({ type: "DEACTIVATE" })
   mediaBridgeActor.send({ type: "DEACTIVATE" })
+  effectiveMetadataSourcesActor.send({ type: "DEACTIVATE" })
 
   currentRoomId = null
   isInitialized = false
