@@ -26,7 +26,9 @@ export default function RoomError() {
         {error && (
           <HStack>
             <Text>{errorMessage}</Text>
-            {error?.status === 401 && isAdmin && <ButtonRoomAuthSpotify hideText />}
+            {error?.status === 401 && isAdmin && (
+              <ButtonRoomAuthSpotify hideText forceRelink />
+            )}
             {error?.status === 404 && (
               <Text>
                 Try{" "}

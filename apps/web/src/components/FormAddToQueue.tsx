@@ -48,12 +48,7 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
       capabilitiesKnown,
       availableServices: bridgeServices ?? [],
     })
-  }, [
-    room?.metadataSourceIds,
-    room?.playbackControllerId,
-    bridgeConnected,
-    bridgeServices,
-  ])
+  }, [room?.metadataSourceIds, room?.playbackControllerId, bridgeConnected, bridgeServices])
 
   const metadataSourceIds = effectiveSourceIds ?? fallbackSourceIds
 
@@ -155,9 +150,7 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
   }, [mode, browseableSourceIds, metadataSourceIds])
 
   const showSourceSelect =
-    mode === "browse"
-      ? (browseableSourceIds?.length ?? 0) >= 2
-      : metadataSourceIds.length >= 2
+    mode === "browse" ? (browseableSourceIds?.length ?? 0) >= 2 : metadataSourceIds.length >= 2
 
   const handleSelect = (track: MetadataSourceTrack) => {
     onAddToQueue(track)
@@ -258,7 +251,7 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
           onChoose={handleSelect}
           onOpenBrowse={canBrowse ? handleOpenBrowse : undefined}
           sourceFilter={sourceFilter}
-          placeholder="Search for a track"
+          placeholder="Search for an artist, album, or track"
           disabled={isDisabled}
           onSearchActiveChange={mode === "search" ? onSearchActiveChange : undefined}
           autoFocus={mode === "search"}
@@ -270,9 +263,7 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
           <CatalogBrowse
             browseableSourceIds={browseableSourceIds ?? []}
             browseSourceCapabilities={browseSourceCapabilities}
-            sourceId={
-              sourceFilter === "all" ? (browseableSourceIds?.[0] ?? "") : sourceFilter
-            }
+            sourceId={sourceFilter === "all" ? browseableSourceIds?.[0] ?? "" : sourceFilter}
             onSourceIdChange={setSourceFilter}
             initialNavigation={browseNav}
             onNavigationApplied={clearBrowseNav}

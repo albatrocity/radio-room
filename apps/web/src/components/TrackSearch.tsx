@@ -21,6 +21,7 @@ import { takeTopByTitleRelevance } from "@repo/utils"
 import type { MetadataSourceTrack } from "@repo/types"
 import { metadataSourceLabel } from "../lib/metadataSourceLabels"
 import EntityThumb from "./EntityThumb"
+import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
 import TrackItem from "./TrackItem"
 import type { CatalogBrowseNavigation } from "./CatalogBrowse"
 
@@ -158,6 +159,12 @@ function TrackSearch({
   const isLoading = state.matches("loading")
   const showResults = hasQuery
   const showEntityTabs = Boolean(onOpenBrowse)
+  const authErrors = state.context.authErrors ?? []
+  const authErrorSources = useMemo(() => {
+    const sources = authErrors.map((e) => e.source).filter(Boolean)
+    if (sourceFilter === "all") return sources
+    return sources.filter((s) => s === sourceFilter)
+  }, [authErrors, sourceFilter])
   const hasAnyResults =
     filteredResults.length > 0 || entityArtists.length > 0 || entityAlbums.length > 0
   const activeOptionId =
@@ -341,9 +348,13 @@ function TrackSearch({
         autoComplete="off"
       />
 
+      {showResults && authErrorSources.length > 0 && (
+        <MetadataSourceAuthAlert sources={authErrorSources} />
+      )}
+
       {showResults && (
         <Box>
-          {isLoading && !hasAnyResults ? (
+          {isLoading && !hasAnyResults && authErrorSources.length === 0 ? (
             <Center py={6}>
               <Spinner size="sm" />
             </Center>

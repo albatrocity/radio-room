@@ -20,6 +20,7 @@ import type {
 import { useSocketMachine } from "../hooks/useSocketMachine"
 import { catalogBrowseMachine } from "../machines/catalogBrowseMachine"
 import EntityThumb from "./EntityThumb"
+import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
 import TrackItem from "./TrackItem"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
@@ -302,7 +303,13 @@ function CatalogBrowse({
         />
       )}
 
-      {state.matches("failure") && (
+      {state.matches("failure") && state.context.error?.status === 401 && (
+        <MetadataSourceAuthAlert
+          sources={[state.context.error.source ?? sourceId].filter(Boolean)}
+        />
+      )}
+
+      {state.matches("failure") && state.context.error?.status !== 401 && (
         <Text color="red.500" fontSize="sm">
           {state.context.error?.message ?? "Browse failed"}
         </Text>

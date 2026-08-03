@@ -1,6 +1,10 @@
 import { DJService } from "../services/DJService"
 import { QueueItem, HandlerConnections, AppContext, User, MetadataSource } from "@repo/types"
-import { metadataSourceSupportsBrowse, resolveBrowseCapabilities } from "@repo/utils"
+import {
+  isMetadataSourceAuthFailure,
+  metadataSourceSupportsBrowse,
+  resolveBrowseCapabilities,
+} from "@repo/utils"
 import type { MetadataBrowseCapabilities } from "@repo/types"
 import sendMessage from "../lib/sendMessage"
 import { pubUserJoined } from "../operations/sockets/users"
@@ -255,6 +259,28 @@ export class DJHandlers {
     }
   }
 
+  private async publishMetadataAuthError(
+    roomId: string,
+    creatorUserId: string,
+    error: unknown,
+    source?: string,
+  ) {
+    if (!isMetadataSourceAuthFailure(error)) return
+    const message =
+      error instanceof Error ? error.message : String(error ?? "Authentication failed")
+    const { pubMetadataSourceError } = await import("../operations/room/handleRoomNowPlayingData")
+    await pubMetadataSourceError({
+      context: this.context,
+      userId: creatorUserId,
+      roomId,
+      error: {
+        status: 401,
+        message,
+        reason: source,
+      },
+    })
+  }
+
   /**
    * Effective search sources that also expose catalog browse (ADR 0089 / 0090).
    */
@@ -377,9 +403,17 @@ export class DJHandlers {
       })
     } catch (error: any) {
       console.error("Error browsing artists:", error)
+      const { findRoom } = await import("../operations/data")
+      const room = await findRoom({ context: this.context, roomId })
+      if (room) {
+        await this.publishMetadataAuthError(roomId, room.creator, error, payload.source)
+      }
       socket.emit("event", {
         type: "BROWSE_ARTISTS_FAILURE",
-        data: { message: error?.message || "Failed to browse artists" },
+        data: {
+          message: error?.message || "Failed to browse artists",
+          ...(isMetadataSourceAuthFailure(error) ? { status: 401, source: payload.source } : {}),
+        },
       })
     }
   }
@@ -420,9 +454,17 @@ export class DJHandlers {
       })
     } catch (error: any) {
       console.error("Error browsing albums:", error)
+      const { findRoom } = await import("../operations/data")
+      const room = await findRoom({ context: this.context, roomId })
+      if (room) {
+        await this.publishMetadataAuthError(roomId, room.creator, error, payload.source)
+      }
       socket.emit("event", {
         type: "BROWSE_ALBUMS_FAILURE",
-        data: { message: error?.message || "Failed to browse albums" },
+        data: {
+          message: error?.message || "Failed to browse albums",
+          ...(isMetadataSourceAuthFailure(error) ? { status: 401, source: payload.source } : {}),
+        },
       })
     }
   }
@@ -466,9 +508,17 @@ export class DJHandlers {
       })
     } catch (error: any) {
       console.error("Error browsing artist:", error)
+      const { findRoom } = await import("../operations/data")
+      const room = await findRoom({ context: this.context, roomId })
+      if (room) {
+        await this.publishMetadataAuthError(roomId, room.creator, error, payload.source)
+      }
       socket.emit("event", {
         type: "BROWSE_ARTIST_FAILURE",
-        data: { message: error?.message || "Failed to browse artist" },
+        data: {
+          message: error?.message || "Failed to browse artist",
+          ...(isMetadataSourceAuthFailure(error) ? { status: 401, source: payload.source } : {}),
+        },
       })
     }
   }
@@ -516,9 +566,17 @@ export class DJHandlers {
       })
     } catch (error: any) {
       console.error("Error browsing album:", error)
+      const { findRoom } = await import("../operations/data")
+      const room = await findRoom({ context: this.context, roomId })
+      if (room) {
+        await this.publishMetadataAuthError(roomId, room.creator, error, payload.source)
+      }
       socket.emit("event", {
         type: "BROWSE_ALBUM_FAILURE",
-        data: { message: error?.message || "Failed to browse album" },
+        data: {
+          message: error?.message || "Failed to browse album",
+          ...(isMetadataSourceAuthFailure(error) ? { status: 401, source: payload.source } : {}),
+        },
       })
     }
   }
@@ -602,10 +660,16 @@ export class DJHandlers {
       }),
     )
 
+    const authErrors: { source: string; status: number; message: string }[] = []
     let items = settled.flatMap((r, i) => {
       if (r.status === "fulfilled") return r.value
-      const name = sourceEntries[i]?.[0]
+      const name = sourceEntries[i]?.[0] ?? "unknown"
       console.warn(`[search] ${name} failed:`, r.reason)
+      if (isMetadataSourceAuthFailure(r.reason)) {
+        const message =
+          r.reason instanceof Error ? r.reason.message : String(r.reason ?? "Authentication failed")
+        authErrors.push({ source: name, status: 401, message })
+      }
       return []
     })
 
@@ -647,11 +711,29 @@ export class DJHandlers {
           }
         }),
       )
-      for (const r of entitySettled) {
-        if (r.status !== "fulfilled") continue
-        artists = artists.concat(r.value.artists as Array<Record<string, unknown>>)
-        albums = albums.concat(r.value.albums as Array<Record<string, unknown>>)
-      }
+      entitySettled.forEach((r, i) => {
+        if (r.status === "fulfilled") {
+          artists = artists.concat(r.value.artists as Array<Record<string, unknown>>)
+          albums = albums.concat(r.value.albums as Array<Record<string, unknown>>)
+          return
+        }
+        const name = sourceEntries[i]?.[0]
+        // Entity-only auth failure (track search succeeded for this source).
+        if (name && isMetadataSourceAuthFailure(r.reason) && !authErrors.some((e) => e.source === name)) {
+          const message =
+            r.reason instanceof Error ? r.reason.message : String(r.reason ?? "Authentication failed")
+          authErrors.push({ source: name, status: 401, message })
+        }
+      })
+    }
+
+    if (authErrors.length > 0) {
+      await this.publishMetadataAuthError(
+        roomId,
+        room.creator,
+        new Error(authErrors[0]?.message ?? "Metadata source authentication failed"),
+        authErrors.map((e) => e.source).join(","),
+      )
     }
 
     socket.emit("event", {
@@ -663,6 +745,7 @@ export class DJHandlers {
         limit: 20,
         artists,
         albums,
+        ...(authErrors.length > 0 ? { authErrors } : {}),
       },
     })
   }

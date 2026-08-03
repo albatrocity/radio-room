@@ -15,6 +15,9 @@ vi.mock("../operations/sockets/users", () => ({
 vi.mock("../lib/sendMessage", () => ({
   default: vi.fn(),
 }))
+vi.mock("../operations/room/handleRoomNowPlayingData", () => ({
+  pubMetadataSourceError: vi.fn().mockResolvedValue(undefined),
+}))
 vi.mock("../operations/data", async () => {
   const actual = await vi.importActual("../operations/data")
   return {
@@ -33,6 +36,7 @@ vi.mock("../operations/data", async () => {
 import sendMessage from "../lib/sendMessage"
 import { pubUserJoined } from "../operations/sockets/users"
 import * as dataOps from "../operations/data"
+import { pubMetadataSourceError } from "../operations/room/handleRoomNowPlayingData"
 
 describe("DJHandlers", () => {
   let mockSocket: any
@@ -331,6 +335,43 @@ describe("DJHandlers", () => {
           albums: [],
         },
       })
+      expect(pubMetadataSourceError).not.toHaveBeenCalled()
+    })
+
+    test("includes authErrors and publishes metadata auth error on expired token", async () => {
+      const message =
+        "Search failed: Bad or expired token. This can happen if the user revoked a token or the access token has expired. You should re-authenticate the user."
+      djService.searchForTrack.mockResolvedValueOnce({
+        success: false,
+        message,
+      })
+
+      await djHandlers.searchForTrack(
+        { socket: mockSocket, io: mockIo },
+        {
+          query: "test",
+        },
+      )
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "TRACK_SEARCH_RESULTS",
+        data: {
+          items: [],
+          total: 0,
+          offset: 0,
+          limit: 20,
+          artists: [],
+          albums: [],
+          authErrors: [{ source: "spotify", status: 401, message }],
+        },
+      })
+      expect(pubMetadataSourceError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          roomId: "room1",
+          userId: "1",
+          error: expect.objectContaining({ status: 401, reason: "spotify" }),
+        }),
+      )
     })
   })
 

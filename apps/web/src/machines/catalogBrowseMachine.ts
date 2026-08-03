@@ -9,6 +9,8 @@ import { emitToSocket } from "../actors/socketActor"
 type RequestError = {
   message: string
   error?: unknown
+  status?: number
+  source?: string
 }
 
 export interface CatalogBrowseContext {
