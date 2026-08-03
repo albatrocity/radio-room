@@ -4,6 +4,7 @@ import { addDj, getDjs, removeDj } from "../data/djs"
 import { getRoomUsers } from "../data/users"
 import { writeJsonToHset } from "../data/utils"
 import systemMessage from "../../lib/systemMessage"
+import { publishDeputyDjChanged } from "../dj/publishDeputyDjChanged"
 
 /**
  * Apply bulk deputy-DJ changes when a segment is activated.
@@ -18,6 +19,8 @@ export async function applySegmentDeputyBulkAction(params: {
   const { context, roomId, action } = params
   if (action !== "deputize_all" && action !== "dedeputize_all") return
 
+  const changedUserIds: string[] = []
+
   if (action === "dedeputize_all") {
     const djIds = await getDjs({ context, roomId })
     for (const userId of djIds) {
@@ -27,6 +30,7 @@ export async function applySegmentDeputyBulkAction(params: {
         setKey: `user:${userId}`,
         attributes: { isDeputyDj: false },
       })
+      changedUserIds.push(userId)
     }
   } else {
     const users = await getRoomUsers({ context, roomId })
@@ -38,7 +42,13 @@ export async function applySegmentDeputyBulkAction(params: {
         setKey: `user:${userId}`,
         attributes: { isDeputyDj: true },
       })
+      changedUserIds.push(userId)
     }
+  }
+
+  const isDeputyDj = action === "deputize_all"
+  for (const userId of changedUserIds) {
+    await publishDeputyDjChanged({ context, roomId, userId, isDeputyDj })
   }
 
   const users = await getRoomUsers({ context, roomId })

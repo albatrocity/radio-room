@@ -40,6 +40,9 @@ vi.mock("./AdapterService", () => ({
 vi.mock("../operations/playback/handlePlaybackVolumeChange", () => ({
   handlePlaybackVolumeChange: vi.fn().mockResolvedValue({ emitted: true }),
 }))
+vi.mock("../operations/dj/publishDeputyDjChanged", () => ({
+  publishDeputyDjChanged: vi.fn().mockResolvedValue(undefined),
+}))
 
 // Import mocked dependencies
 import systemMessage from "../lib/systemMessage"
@@ -72,6 +75,7 @@ import {
   roomFactory,
   userFactory,
 } from "@repo/factories"
+import { publishDeputyDjChanged } from "../operations/dj/publishDeputyDjChanged"
 
 describe("DJService", () => {
   let djService: DJService
@@ -161,6 +165,13 @@ describe("DJService", () => {
           type: "system",
         }),
       })
+
+      expect(publishDeputyDjChanged).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        userId: "user123",
+        isDeputyDj: true,
+      })
     })
 
     test("removes user as DJ when already a DJ", async () => {
@@ -192,6 +203,13 @@ describe("DJService", () => {
           content: expect.stringContaining("no longer"),
           type: "system",
         }),
+      })
+
+      expect(publishDeputyDjChanged).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        userId: "user123",
+        isDeputyDj: false,
       })
     })
   })

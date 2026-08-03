@@ -13,6 +13,7 @@ Plugins subscribe to system events using SCREAMING_SNAKE_CASE names.
 | `MESSAGE_RECEIVED`      | `{ roomId, message: ChatMessage }`               | Chat message sent                  |
 | `USER_JOINED`           | `{ roomId, user: User }`                         | User joined room                   |
 | `USER_LEFT`             | `{ roomId, user: User }`                         | User left room                     |
+| `DEPUTY_DJ_CHANGED`     | `{ roomId, userId, isDeputyDj }`                 | Deputy DJ status toggled (or per-user during bulk) |
 | `CONFIG_CHANGED`        | `{ roomId, pluginName, config, previousConfig }` | Plugin config updated              |
 | `ROOM_SETTINGS_UPDATED` | `{ roomId, room: Room }`                         | Room settings changed              |
 | `ROOM_DELETED`          | `{ roomId }`                                     | Room was deleted                   |

@@ -38,6 +38,7 @@ export type Event =
   | { type: "EDIT_QUEUE_PACER" }
   | { type: "EDIT_QUIZ_SESSIONS" }
   | { type: "EDIT_VOLUME_MANAGER" }
+  | { type: "EDIT_ROUND_ROBIN_DJ" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
@@ -98,6 +99,7 @@ export const modalsMachine = setup({
     EDIT_QUEUE_PACER: openSettingsSection("queue_pacer"),
     EDIT_QUIZ_SESSIONS: openSettingsSection("quiz_sessions"),
     EDIT_VOLUME_MANAGER: openSettingsSection("volume_manager"),
+    EDIT_ROUND_ROBIN_DJ: openSettingsSection("round_robin_dj"),
     VIEW_HELP: {
       target: ".help",
     },
@@ -261,6 +263,11 @@ export const modalsMachine = setup({
           },
         },
         volume_manager: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        round_robin_dj: {
           on: {
             BACK: "overview",
           },

@@ -30,6 +30,7 @@ import { AdapterService } from "./AdapterService"
 import { DefenseService } from "./DefenseService"
 import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
 import { canResumeCurrentTrack, shouldAdvanceToNextQueueItem } from "../lib/playbackHelpers"
+import { publishDeputyDjChanged } from "../operations/dj/publishDeputyDjChanged"
 
 function isSameMultiset(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false
@@ -113,6 +114,13 @@ export class DJService {
       userId,
       attributes: { isDeputyDj },
       roomId,
+    })
+
+    await publishDeputyDjChanged({
+      context: this.context,
+      roomId,
+      userId,
+      isDeputyDj,
     })
 
     return {
