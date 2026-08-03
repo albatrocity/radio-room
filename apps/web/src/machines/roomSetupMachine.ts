@@ -30,7 +30,9 @@ const createRoomLogic = fromPromise<RoomCreationResponse, RoomSetupContext>(
 
     const playbackControllerId =
       roomType === "jukebox" ? "spotify" : (ctx.room?.playbackControllerId ?? "spotify")
-    const metadataSourceIds = roomType === "jukebox" ? ["spotify"] : undefined
+    // Non-bridge: Spotify (+ optional tidal via server). Bridge: omit so server seeds youtube/local.
+    const metadataSourceIds =
+      playbackControllerId === "bridge" ? undefined : ["spotify"]
     const mediaSourceId =
       roomType === "radio" ? "shoutcast" : roomType === "live" ? "rtmp" : undefined
 

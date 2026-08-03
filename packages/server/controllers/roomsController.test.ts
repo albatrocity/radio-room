@@ -110,6 +110,61 @@ describe("create", () => {
     })
   })
 
+  it("does not attach YouTube on Spotify Connect radio create even when API key is set", async () => {
+    const prev = process.env.YOUTUBE_API_KEY
+    process.env.YOUTUBE_API_KEY = "test-key"
+    try {
+      mockRequest.body = {
+        title: "Connect Radio",
+        type: "radio",
+        playbackControllerId: "spotify",
+        // Simulate a client that still sends youtube on non-bridge create
+        metadataSourceIds: ["spotify", "youtube"],
+      }
+
+      await create(mockRequest as Request, mockResponse as Response)
+
+      expect(saveRoom).toHaveBeenCalledWith({
+        context: mockContext,
+        room: expect.objectContaining({
+          type: "radio",
+          playbackControllerId: "spotify",
+          metadataSourceIds: ["spotify"],
+        }),
+      })
+    } finally {
+      if (prev === undefined) delete process.env.YOUTUBE_API_KEY
+      else process.env.YOUTUBE_API_KEY = prev
+    }
+  })
+
+  it("seeds YouTube and local when creating a Media Bridge radio room", async () => {
+    const prev = process.env.YOUTUBE_API_KEY
+    process.env.YOUTUBE_API_KEY = "test-key"
+    try {
+      mockRequest.body = {
+        title: "Bridge Radio",
+        type: "radio",
+        playbackControllerId: "bridge",
+        metadataSourceIds: ["spotify"],
+      }
+
+      await create(mockRequest as Request, mockResponse as Response)
+
+      expect(saveRoom).toHaveBeenCalledWith({
+        context: mockContext,
+        room: expect.objectContaining({
+          type: "radio",
+          playbackControllerId: "bridge",
+          metadataSourceIds: expect.arrayContaining(["spotify", "youtube", "local"]),
+        }),
+      })
+    } finally {
+      if (prev === undefined) delete process.env.YOUTUBE_API_KEY
+      else process.env.YOUTUBE_API_KEY = prev
+    }
+  })
+
   it("persists showId when show is ready", async () => {
     vi.mocked(scheduling.findShowById).mockResolvedValue({
       id: "show-1",
