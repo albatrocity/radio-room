@@ -68,6 +68,45 @@ export function isEligible(state: RoundRobinState, userId: string): boolean {
   return getEligibleUserIds(state).includes(userId)
 }
 
+/** Alias: may enqueue into the room queue right now. */
+export const canEnqueueNow = isEligible
+
+/**
+ * May select a track to hold (sequential + defer option):
+ * - Locked rounds: out-of-turn deputies who have not queued yet (until their turn)
+ * - Open discovery: deputies who already queued this round (held for next round)
+ */
+export function canHold(
+  state: RoundRobinState,
+  userId: string,
+  deferEnabled: boolean,
+): boolean {
+  if (!deferEnabled) return false
+  if (state.mode !== "sequential") return false
+  if (state.phase === "roundComplete") return false
+  if (!state.participants.includes(userId)) return false
+  if (canEnqueueNow(state, userId)) return false
+
+  const alreadyQueued = state.queuedThisRound.includes(userId)
+
+  if (state.orderLocked) {
+    // Out-of-turn hold — must still have a turn left this round
+    return !alreadyQueued
+  }
+
+  // First-round discovery: second pick is held for the upcoming locked round
+  return alreadyQueued
+}
+
+/** Search/queue grants: current turn or may hold early. */
+export function canAccessSources(
+  state: RoundRobinState,
+  userId: string,
+  deferEnabled: boolean,
+): boolean {
+  return canEnqueueNow(state, userId) || canHold(state, userId, deferEnabled)
+}
+
 function allParticipantsQueued(state: RoundRobinState): boolean {
   if (state.participants.length === 0) return false
   return state.participants.every((id) => state.queuedThisRound.includes(id))

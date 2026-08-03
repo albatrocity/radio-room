@@ -3,6 +3,8 @@ import {
   addDeputy,
   advanceRound,
   applyAdminRobin,
+  canAccessSources,
+  canHold,
   clearAdminRobin,
   createInitialState,
   getEligibleUserIds,
@@ -149,6 +151,36 @@ describe("round-robin state", () => {
       const t = applyAdminRobin(state, "c")
       expect(getEligibleUserIds(t.state)).toEqual(["c"])
       expect(t.state.order[t.state.currentIndex]).toBe("c")
+    })
+  })
+
+  describe("canHold / canAccessSources", () => {
+    it("allows hold for out-of-turn deputies when locked and defer enabled", () => {
+      let state = createInitialState("sequential", ["a", "b", "c"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      state = recordSuccessfulQueue(state, "b", true).state
+      state = recordSuccessfulQueue(state, "c", true).state
+      // round 2 locked, current a
+      expect(canHold(state, "b", true)).toBe(true)
+      expect(canHold(state, "a", true)).toBe(false)
+      expect(canHold(state, "b", false)).toBe(false)
+      expect(canAccessSources(state, "b", true)).toBe(true)
+      expect(canAccessSources(state, "a", true)).toBe(true)
+    })
+
+    it("does not allow hold during open discovery before the first queue", () => {
+      const state = createInitialState("sequential", ["a", "b"])
+      expect(state.orderLocked).toBe(false)
+      expect(canHold(state, "a", true)).toBe(false)
+    })
+
+    it("allows hold for next round after queuing during open discovery", () => {
+      let state = createInitialState("sequential", ["a", "b"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      expect(state.orderLocked).toBe(false)
+      expect(canHold(state, "a", true)).toBe(true)
+      expect(canHold(state, "b", true)).toBe(false) // b has not queued yet — should enqueue live
+      expect(canAccessSources(state, "a", true)).toBe(true)
     })
   })
 })

@@ -40,19 +40,23 @@ async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidati
 
 Use these helper functions from `@repo/types` for consistent, type-safe responses:
 
-| Function                     | Returns                      | Description                                  |
-| ---------------------------- | ---------------------------- | -------------------------------------------- |
-| `allowQueueRequest()`        | `{ allowed: true }`          | Allow the queue request to proceed           |
-| `rejectQueueRequest(reason)` | `{ allowed: false, reason }` | Block the request with a user-facing message |
+| Function                       | Returns                            | Description                                                  |
+| ------------------------------ | ---------------------------------- | ------------------------------------------------------------ |
+| `allowQueueRequest()`          | `{ allowed: true }`                | Allow the queue request to proceed                           |
+| `rejectQueueRequest(reason)`   | `{ allowed: false, reason }`       | Block the request with a user-facing message                 |
+| `deferQueueRequest(message)`   | `{ deferred: true, message }`      | Accept selection without enqueueing (client info toast)      |
 
 ```typescript
-import { allowQueueRequest, rejectQueueRequest } from "@repo/types"
+import { allowQueueRequest, rejectQueueRequest, deferQueueRequest } from "@repo/types"
 
 // Allow the request
 return allowQueueRequest()
 
 // Reject with a message shown to the user
 return rejectQueueRequest("You added the last song. Wait for another DJ to add one.")
+
+// Hold until later (e.g. Round Robin early selection)
+return deferQueueRequest("Song saved — it will be added when it's your turn")
 ```
 
 ### QueueValidationParams
@@ -73,22 +77,23 @@ Metadata source **access** (restricted sources / plugin grants) is evaluated bef
 
 Queue validation uses **fail-open** semantics to ensure core functionality isn't blocked by plugin failures:
 
-| Plugin Behavior                      | Result                                |
-| ------------------------------------ | ------------------------------------- |
-| Returns `allowQueueRequest()`        | ✅ Allowed (continues to next plugin) |
-| Returns `rejectQueueRequest(reason)` | ❌ **Blocked** (stops processing)     |
-| Throws an error                      | ✅ Allowed (error logged)             |
-| Times out (>500ms)                   | ✅ Allowed (timeout logged)           |
-| Doesn't implement method             | ✅ Allowed (skipped)                  |
+| Plugin Behavior                      | Result                                           |
+| ------------------------------------ | ------------------------------------------------ |
+| Returns `allowQueueRequest()`        | Allowed (continues to next plugin)               |
+| Returns `rejectQueueRequest(reason)` | **Blocked** (stops processing)                   |
+| Returns `deferQueueRequest(message)` | **Deferred** (stops processing; no enqueue)      |
+| Throws an error                      | Allowed (error logged)                           |
+| Times out (>500ms)                   | Allowed (timeout logged)                         |
+| Doesn't implement method             | Allowed (skipped)                                |
 
-**Important**: Only an explicit `rejectQueueRequest()` will block the enqueue. All error conditions allow the request to proceed, ensuring users can always add songs even if a plugin misbehaves.
+**Important**: Only an explicit `rejectQueueRequest()` or `deferQueueRequest()` stops the enqueue. All error conditions allow the request to proceed, ensuring users can always add songs even if a plugin misbehaves. Deferred results emit `SONG_QUEUE_HELD` to the client (info toast) instead of `SONG_QUEUE_FAILURE`.
 
 ### Multiple Plugins
 
 If multiple plugins implement `validateQueueRequest`:
 
 1. Plugins are called sequentially
-2. The **first rejection wins** - remaining plugins are not called
+2. The **first rejection or defer wins** — remaining plugins are not called
 3. If all plugins allow, the request proceeds
 
 ### Example: Rate Limiting Plugin

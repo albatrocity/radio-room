@@ -255,7 +255,12 @@ export class PluginAPIImpl implements PluginAPI {
   async addToTrackQueue(
     roomId: string,
     metadataTrackId: string,
-    options?: { addedBy?: QueueItemAttribution; runPluginValidation?: boolean },
+    options?: {
+      addedBy?: QueueItemAttribution
+      runPluginValidation?: boolean
+      mediaSourceType?: string
+      suppressQueueChanged?: boolean
+    },
   ): Promise<{ success: true; queuedItem: QueueItem } | { success: false; message: string }> {
     const attribution: QueueItemAttribution = options?.addedBy ?? {
       type: "plugin",
@@ -266,9 +271,14 @@ export class PluginAPIImpl implements PluginAPI {
     const djService = new DJService(this.context)
     const result = await djService.queueSongAs(roomId, attribution, metadataTrackId, {
       runPluginValidation: options?.runPluginValidation ?? false,
+      mediaSourceType: options?.mediaSourceType,
+      suppressQueueChanged: options?.suppressQueueChanged,
     })
 
     if (result.success) {
+      if ("deferred" in result && result.deferred) {
+        return { success: false, message: result.message }
+      }
       return { success: true, queuedItem: result.queuedItem }
     }
     return { success: false, message: result.message }

@@ -24,6 +24,7 @@ export function getConfigSchema(): PluginConfigSchema {
       "enabled",
       "mode",
       "autoAdvanceRounds",
+      "deferOutOfTurnQueues",
       advanceRoundAction,
     ],
     fieldMeta: {
@@ -49,6 +50,16 @@ export function getConfigSchema(): PluginConfigSchema {
         description:
           "When every deputy has queued once, automatically start the next round. Turn off to require Advance round.",
         showWhen: { field: "enabled", value: true },
+      },
+      deferOutOfTurnQueues: {
+        type: "boolean",
+        label: "Allow early song selection",
+        description:
+          "Deputies may pick a song before their turn (held until their turn). During the first open round, a second pick is held for next round. Sequential mode only.",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "mode", value: "sequential" },
+        ],
       },
     },
     quickAccess: ["advanceRound"],

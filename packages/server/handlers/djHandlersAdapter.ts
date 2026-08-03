@@ -93,6 +93,16 @@ export class DJHandlers {
         return
       }
 
+      if ("deferred" in result && result.deferred) {
+        socket.emit("event", {
+          type: "SONG_QUEUE_HELD",
+          data: {
+            message: result.message,
+          },
+        })
+        return
+      }
+
       socket.emit("event", {
         type: "SONG_QUEUED",
         data: result.queuedItem,

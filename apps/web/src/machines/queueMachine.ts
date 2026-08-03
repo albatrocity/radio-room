@@ -12,6 +12,7 @@ export interface QueueContext {
 type QueueEvent =
   | { type: "SEND_TO_QUEUE"; track: MetadataSourceTrack }
   | { type: "SONG_QUEUED" }
+  | { type: "SONG_QUEUE_HELD"; data?: { message: string } }
   | { type: "SONG_QUEUE_FAILURE"; data?: { message: string } }
 
 // NOTE: This machine requires socket events. Use with useSocketMachine hook.
@@ -49,6 +50,19 @@ export const queueMachine = setup({
         isClosable: true,
       })
     },
+    notifyQueueHeld: ({ event, context }) => {
+      if (event.type === "SONG_QUEUE_HELD") {
+        toast({
+          title: "Song saved for your turn",
+          description:
+            event.data?.message ||
+            `${context.queuedTrack?.title ?? "Your song"} will be added when it's your turn`,
+          status: "info",
+          duration: 5000,
+          isClosable: true,
+        })
+      }
+    },
     notifyQueueFailure: ({ event }) => {
       if (event.type === "SONG_QUEUE_FAILURE") {
         toast({
@@ -80,6 +94,7 @@ export const queueMachine = setup({
     loading: {
       on: {
         SONG_QUEUED: { target: "idle", actions: ["notifyQueued"] },
+        SONG_QUEUE_HELD: { target: "idle", actions: ["notifyQueueHeld"] },
         SONG_QUEUE_FAILURE: {
           target: "idle",
           actions: ["notifyQueueFailure"],

@@ -51,13 +51,16 @@ export class SystemEvents implements ISystemEvents {
     roomId: string,
     event: K,
     data: SystemEventPayload<K>,
+    options?: { skipPlugins?: boolean },
   ): Promise<void> {
     try {
       // 1. Emit to Redis PubSub for cross-server communication
       await this.emitToPubSub(event, data)
 
       // 2. Emit to Plugin System for in-process handlers
-      await this.emitToPlugins(roomId, event, data)
+      if (!options?.skipPlugins) {
+        await this.emitToPlugins(roomId, event, data)
+      }
 
       // 3. Emit to Broadcasters for socket channel delivery
       this.emitToBroadcasters(roomId, event, data)

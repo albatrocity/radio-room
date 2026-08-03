@@ -69,6 +69,10 @@ function setup(configOverrides: Partial<RoundRobinDjConfig> = {}) {
     emit: vi.fn(async () => {}),
     queueSoundEffect: vi.fn(async () => {}),
     queueScreenEffect: vi.fn(async () => {}),
+    addToTrackQueue: vi.fn(async () => ({
+      success: true as const,
+      queuedItem: { track: { id: "held" } } as QueueItem,
+    })),
   }
 
   const personas = {
@@ -188,7 +192,7 @@ describe("RoundRobinDjPlugin", () => {
       username: "B",
       trackId: "t1",
     })
-    expect(deny.allowed).toBe(false)
+    expect("allowed" in deny && deny.allowed).toBe(false)
 
     const allow = await plugin.validateQueueRequest({
       roomId: ROOM,
@@ -196,7 +200,7 @@ describe("RoundRobinDjPlugin", () => {
       username: "A",
       trackId: "t1",
     })
-    expect(allow.allowed).toBe(true)
+    expect("allowed" in allow && allow.allowed).toBe(true)
 
     const admin = await plugin.validateQueueRequest({
       roomId: ROOM,
@@ -204,7 +208,169 @@ describe("RoundRobinDjPlugin", () => {
       username: "Admin",
       trackId: "t1",
     })
-    expect(admin.allowed).toBe(true)
+    expect("allowed" in admin && admin.allowed).toBe(true)
+  })
+
+  it("defers out-of-turn selection when deferOutOfTurnQueues is enabled", async () => {
+    const { plugin, context, storage, api } = setup({
+      enabled: true,
+      mode: "sequential",
+      deferOutOfTurnQueues: true,
+    })
+    await plugin.register(context)
+
+    const locked = createInitialState("sequential", ["a", "b"])
+    locked.order = ["a", "b"]
+    locked.orderLocked = true
+    locked.phase = "locked"
+    locked.round = 2
+    await storage.set(STATE_KEY, JSON.stringify(locked))
+
+    const result = await plugin.validateQueueRequest({
+      roomId: ROOM,
+      userId: "b",
+      username: "B",
+      trackId: "track-b",
+      mediaSourceType: "youtube",
+    })
+    expect(result).toEqual({
+      deferred: true,
+      message: "Song saved — it will be added when it's your turn",
+    })
+    expect(await storage.get("hold:b")).toContain("track-b")
+    expect(api.sendUserSystemMessage).toHaveBeenCalled()
+
+    expect(
+      await plugin.grantMetadataSourceAccess({
+        roomId: ROOM,
+        userId: "b",
+        sourceId: "youtube",
+        action: "queue",
+      }),
+    ).toBe("grant")
+  })
+
+  it("holds a second discovery-round pick for the next round", async () => {
+    const { plugin, context, storage } = setup({
+      enabled: true,
+      mode: "sequential",
+      deferOutOfTurnQueues: true,
+    })
+    await plugin.register(context)
+
+    const open = createInitialState("sequential", ["a", "b"])
+    open.order = ["a"]
+    open.queuedThisRound = ["a"]
+    await storage.set(STATE_KEY, JSON.stringify(open))
+
+    const result = await plugin.validateQueueRequest({
+      roomId: ROOM,
+      userId: "a",
+      username: "A",
+      trackId: "track-a2",
+      mediaSourceType: "spotify",
+    })
+    expect(result).toEqual({
+      deferred: true,
+      message: "Song saved — it will be added on your turn next round",
+    })
+    expect(await storage.get("hold:a")).toContain("track-a2")
+  })
+
+  it("flushes a held track when the previous deputy queues", async () => {
+    const { plugin, context, storage, api, lifecycleHandlers } = setup({
+      enabled: true,
+      mode: "sequential",
+      deferOutOfTurnQueues: true,
+      autoAdvanceRounds: true,
+    })
+    await plugin.register(context)
+
+    const locked = createInitialState("sequential", ["a", "b"])
+    locked.order = ["a", "b"]
+    locked.orderLocked = true
+    locked.phase = "locked"
+    locked.round = 2
+    await storage.set(STATE_KEY, JSON.stringify(locked))
+    await storage.set(
+      "hold:b",
+      JSON.stringify({
+        trackId: "held-b",
+        mediaSourceType: "spotify",
+        username: "B",
+        heldAt: Date.now(),
+      }),
+    )
+
+    const item = {
+      addedAt: Date.now(),
+      addedBy: { userId: "a", username: "A" },
+      mediaSource: { type: "spotify", trackId: "t-a" },
+      track: { id: "t-a", title: "A", artists: [], album: { title: "" } },
+    } as unknown as QueueItem
+
+    await emit(lifecycleHandlers, "QUEUE_CHANGED", { roomId: ROOM, queue: [item] })
+
+    expect(api.addToTrackQueue).toHaveBeenCalledWith(
+      ROOM,
+      "held-b",
+      expect.objectContaining({
+        addedBy: { type: "user", userId: "b", username: "B" },
+        runPluginValidation: false,
+        mediaSourceType: "spotify",
+        suppressQueueChanged: true,
+      }),
+    )
+    expect(await storage.get("hold:b")).toBeNull()
+    const state = JSON.parse((await storage.get(STATE_KEY))!)
+    // Both deputies queued → auto-advance starts the next round
+    expect(state.round).toBe(3)
+    expect(state.queuedThisRound).toEqual([])
+    expect(state.order[state.currentIndex]).toBe("a")
+  })
+
+  it("keeps the hold and turn when flush enqueue fails", async () => {
+    const { plugin, context, storage, api, lifecycleHandlers } = setup({
+      enabled: true,
+      mode: "sequential",
+      deferOutOfTurnQueues: true,
+    })
+    await plugin.register(context)
+
+    const locked = createInitialState("sequential", ["a", "b"])
+    locked.order = ["a", "b"]
+    locked.orderLocked = true
+    locked.phase = "locked"
+    locked.round = 2
+    await storage.set(STATE_KEY, JSON.stringify(locked))
+    await storage.set(
+      "hold:b",
+      JSON.stringify({
+        trackId: "held-b",
+        mediaSourceType: "youtube",
+        username: "B",
+        heldAt: Date.now(),
+      }),
+    )
+
+    api.addToTrackQueue.mockResolvedValueOnce({
+      success: false,
+      message: "Track not found",
+    })
+
+    const item = {
+      addedAt: Date.now(),
+      addedBy: { userId: "a", username: "A" },
+      mediaSource: { type: "spotify", trackId: "t-a" },
+      track: { id: "t-a", title: "A", artists: [], album: { title: "" } },
+    } as unknown as QueueItem
+
+    await emit(lifecycleHandlers, "QUEUE_CHANGED", { roomId: ROOM, queue: [item] })
+
+    expect(await storage.get("hold:b")).toContain("held-b")
+    const state = JSON.parse((await storage.get(STATE_KEY))!)
+    expect(state.queuedThisRound).toEqual(["a"])
+    expect(state.order[state.currentIndex]).toBe("b")
   })
 
   it("grants metadata access only to eligible deputies", async () => {

@@ -39,6 +39,18 @@ function isSameMultiset(a: string[], b: string[]): boolean {
   return sa.every((v, i) => v === sb[i])
 }
 
+function queueChangedPayloadsEqual(
+  a: { queue: QueueItem[]; splitKey: string | null },
+  b: { queue: QueueItem[]; splitKey: string | null },
+): boolean {
+  if (a.splitKey !== b.splitKey) return false
+  if (a.queue.length !== b.queue.length) return false
+  return a.queue.every((item, i) => {
+    const other = b.queue[i]
+    return other != null && canonicalQueueTrackKey(item) === canonicalQueueTrackKey(other)
+  })
+}
+
 /**
  * Coerce a {@link QueueItemAttribution} into a `QueueItem.addedBy`-shaped value.
  *
@@ -227,7 +239,15 @@ export class DJService {
         mediaSourceType: sourceType,
       })
 
-      if (!validationResult.allowed) {
+      if ("deferred" in validationResult && validationResult.deferred) {
+        return {
+          success: true as const,
+          deferred: true as const,
+          message: validationResult.message,
+        }
+      }
+
+      if ("allowed" in validationResult && !validationResult.allowed) {
         return {
           success: false as const,
           message: validationResult.reason ?? "Queue request was rejected",
@@ -380,12 +400,28 @@ export class DJService {
     }
 
     if (this.context.systemEvents && !suppressQueueChanged) {
+      const appControlled = isAppControlledPlayback(room)
       const payload = await buildQueueChangedData({
         roomId,
         context: this.context,
-        appControlled: isAppControlledPlayback(room),
+        appControlled,
       })
       await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
+
+      // Plugins may enqueue further tracks during QUEUE_CHANGED (e.g. round-robin
+      // hold flush). Broadcasters run after plugins with this snapshot, so without
+      // a refresh clients can briefly (or lastingly) see a queue that predates
+      // those adds — held songs appear missing or stuck at an older end position.
+      const refreshed = await buildQueueChangedData({
+        roomId,
+        context: this.context,
+        appControlled,
+      })
+      if (!queueChangedPayloadsEqual(payload, refreshed)) {
+        await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", refreshed, {
+          skipPlugins: true,
+        })
+      }
     }
 
     return {

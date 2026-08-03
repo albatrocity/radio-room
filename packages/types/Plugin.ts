@@ -382,7 +382,17 @@ export interface PluginAPI {
   addToTrackQueue(
     roomId: string,
     metadataTrackId: string,
-    options?: { addedBy?: QueueItemAttribution; runPluginValidation?: boolean },
+    options?: {
+      addedBy?: QueueItemAttribution
+      runPluginValidation?: boolean
+      /** Metadata/media source that owns this track id (spotify, youtube, …). */
+      mediaSourceType?: string
+      /**
+       * When true, skip emitting QUEUE_CHANGED after the add. Use when the caller
+       * will broadcast a single fresh snapshot (e.g. cascading hold flushes).
+       */
+      suppressQueueChanged?: boolean
+    },
   ): Promise<
     | { success: true; queuedItem: QueueItem }
     | { success: false; message: string }
@@ -898,9 +908,21 @@ export interface QueueValidationParams {
 }
 
 /**
- * Result of a queue validation check
+ * Result of a queue validation check.
+ * - `allowed: true` — proceed with enqueue
+ * - `allowed: false` — block with a user-facing reason
+ * - `deferred: true` — accept the selection but do not enqueue yet (e.g. hold until turn)
  */
-export type QueueValidationResult = { allowed: true } | { allowed: false; reason: string }
+export type QueueValidationResult =
+  | { allowed: true }
+  | { allowed: false; reason: string }
+  | { deferred: true; message: string }
+
+export function isDeferredQueueRequest(
+  result: QueueValidationResult,
+): result is { deferred: true; message: string } {
+  return "deferred" in result && result.deferred === true
+}
 
 /**
  * Parameters for the beforePlayQueuedTrack plugin hook.
@@ -958,6 +980,15 @@ export const allowQueueRequest = (): QueueValidationResult => ({ allowed: true }
 export const rejectQueueRequest = (reason: string): QueueValidationResult => ({
   allowed: false,
   reason,
+})
+
+/**
+ * Helper to defer a queue request: the client gets a success-style confirmation,
+ * but the track is not added to the room queue (plugin holds it until later).
+ */
+export const deferQueueRequest = (message: string): QueueValidationResult => ({
+  deferred: true,
+  message,
 })
 
 /**
