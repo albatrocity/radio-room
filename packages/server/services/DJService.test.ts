@@ -1315,19 +1315,26 @@ describe("DJService", () => {
         vi.mocked(addToQueue).mockResolvedValue(undefined)
         vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
         vi.mocked(getNormalizedQueueSplit).mockResolvedValue(null)
+        vi.mocked(getQueue).mockResolvedValue([])
 
         const mockTrack = metadataSourceTrackFactory.build({
           id: "track-a",
           urls: [{ type: "resource", url: "spotify:track:a", id: "url1" }],
         })
+        const heldTrack = metadataSourceTrackFactory.build({
+          id: "track-held",
+          urls: [{ type: "resource", url: "spotify:track:held", id: "url-held" }],
+        })
         const heldItem = queueItemFactory.build({
           mediaSource: { type: "spotify", trackId: "track-held" },
-          track: metadataSourceTrackFactory.build({ id: "track-held", title: "Held" }),
+          track: heldTrack,
         })
 
         // @ts-ignore — testing private property
         djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue({
-          api: { findById: vi.fn().mockResolvedValue(mockTrack) },
+          api: {
+            findById: vi.fn(async (id: string) => (id === "track-held" ? heldTrack : mockTrack)),
+          },
         })
         // @ts-ignore
         djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
@@ -1346,6 +1353,19 @@ describe("DJService", () => {
             splitKey: null,
           })
 
+        const emit = mockContext.systemEvents!.emit as ReturnType<typeof vi.fn>
+        emit.mockImplementation(async (roomId: string, event: string) => {
+          if (event === "QUEUE_CHANGED" && emit.mock.calls.length === 1) {
+            // Simulate round-robin hold flush during plugin handling
+            await djService.queueSongAs(
+              roomId,
+              { type: "user", userId: "user456", username: "Marge" },
+              "track-held",
+              { suppressQueueChanged: true },
+            )
+          }
+        })
+
         const result = await djService.queueSongAs(
           "room123",
           { type: "user", userId: "user123", username: "Homer" },
@@ -1353,20 +1373,58 @@ describe("DJService", () => {
         )
 
         expect(result.success).toBe(true)
-        expect(mockContext.systemEvents?.emit).toHaveBeenCalledTimes(2)
-        expect(mockContext.systemEvents?.emit).toHaveBeenNthCalledWith(
+        expect(buildQueueChangedData).toHaveBeenCalledTimes(2)
+        expect(emit).toHaveBeenCalledTimes(2)
+        expect(emit).toHaveBeenNthCalledWith(
           1,
           "room123",
           "QUEUE_CHANGED",
           expect.objectContaining({ queue: [itemA] }),
         )
-        expect(mockContext.systemEvents?.emit).toHaveBeenNthCalledWith(
+        expect(emit).toHaveBeenNthCalledWith(
           2,
           "room123",
           "QUEUE_CHANGED",
           expect.objectContaining({ queue: [itemA, heldItem] }),
           { skipPlugins: true },
         )
+      })
+
+      test("does not rebuild QUEUE_CHANGED when plugins leave the queue unchanged", async () => {
+        vi.mocked(addToQueue).mockResolvedValue(undefined)
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+        vi.mocked(getNormalizedQueueSplit).mockResolvedValue(null)
+        vi.mocked(getQueue).mockResolvedValue([])
+
+        const mockTrack = metadataSourceTrackFactory.build({
+          id: "track-a",
+          urls: [{ type: "resource", url: "spotify:track:a", id: "url1" }],
+        })
+
+        // @ts-ignore
+        djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue({
+          api: { findById: vi.fn().mockResolvedValue(mockTrack) },
+        })
+        // @ts-ignore
+        djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+          api: { addToQueue: vi.fn() },
+        })
+
+        vi.mocked(buildQueueChangedData).mockResolvedValue({
+          roomId: "room123",
+          queue: [itemA],
+          splitKey: null,
+        })
+
+        const result = await djService.queueSongAs(
+          "room123",
+          { type: "user", userId: "user123", username: "Homer" },
+          "track-a",
+        )
+
+        expect(result.success).toBe(true)
+        expect(buildQueueChangedData).toHaveBeenCalledTimes(1)
+        expect(mockContext.systemEvents?.emit).toHaveBeenCalledTimes(1)
       })
 
       test("app-controlled with split: inserts new track immediately before split anchor", async () => {

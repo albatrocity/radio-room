@@ -57,6 +57,20 @@ function queueChangedPayloadsEqual(
 }
 
 /**
+ * Rooms where a `suppressQueueChanged` enqueue succeeded during QUEUE_CHANGED
+ * plugin handling. Outer `queueSongAs` refreshes the client snapshot only then.
+ */
+const roomsWithSuppressedQueueMutation = new Set<string>()
+
+export function markQueueMutatedDuringPlugins(roomId: string): void {
+  roomsWithSuppressedQueueMutation.add(roomId)
+}
+
+function takeSuppressedQueueMutation(roomId: string): boolean {
+  return roomsWithSuppressedQueueMutation.delete(roomId)
+}
+
+/**
  * Coerce a {@link QueueItemAttribution} into a `QueueItem.addedBy`-shaped value.
  *
  * Plugin attributions are stored under a sentinel `userId` of `plugin:<pluginName>`,
@@ -404,7 +418,10 @@ export class DJService {
       }
     }
 
-    if (this.context.systemEvents && !suppressQueueChanged) {
+    if (suppressQueueChanged) {
+      // Nested add from a QUEUE_CHANGED plugin handler (e.g. round-robin hold flush).
+      markQueueMutatedDuringPlugins(roomId)
+    } else if (this.context.systemEvents) {
       const appControlled = isAppControlledPlayback(room)
       const payload = await buildQueueChangedData({
         roomId,
@@ -413,19 +430,21 @@ export class DJService {
       })
       await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
 
-      // Plugins may enqueue further tracks during QUEUE_CHANGED (e.g. round-robin
-      // hold flush). Broadcasters run after plugins with this snapshot, so without
-      // a refresh clients can briefly (or lastingly) see a queue that predates
-      // those adds — held songs appear missing or stuck at an older end position.
-      const refreshed = await buildQueueChangedData({
-        roomId,
-        context: this.context,
-        appControlled,
-      })
-      if (!queueChangedPayloadsEqual(payload, refreshed)) {
-        await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", refreshed, {
-          skipPlugins: true,
+      // Plugins may enqueue further tracks during QUEUE_CHANGED with
+      // suppressQueueChanged (e.g. round-robin hold flush). Refresh only when
+      // that happened so clients see the final queue without a second Redis
+      // build on every ordinary enqueue.
+      if (takeSuppressedQueueMutation(roomId)) {
+        const refreshed = await buildQueueChangedData({
+          roomId,
+          context: this.context,
+          appControlled,
         })
+        if (!queueChangedPayloadsEqual(payload, refreshed)) {
+          await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", refreshed, {
+            skipPlugins: true,
+          })
+        }
       }
     }
 

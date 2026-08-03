@@ -137,6 +137,16 @@ async function emit(
   }
 }
 
+/** Tests that poke Redis/storage directly must clear the plugin's state cache (P5). */
+async function writeState(
+  plugin: RoundRobinDjPlugin,
+  storage: ReturnType<typeof createInMemoryStorage>,
+  state: unknown,
+): Promise<void> {
+  await storage.set(STATE_KEY, JSON.stringify(state))
+  ;(plugin as unknown as { stateCache: undefined }).stateCache = undefined
+}
+
 describe("RoundRobinDjPlugin", () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -149,6 +159,7 @@ describe("RoundRobinDjPlugin", () => {
 
     expect(lifecycleHandlers.has("QUEUE_CHANGED")).toBe(true)
     expect(lifecycleHandlers.has("DEPUTY_DJ_CHANGED")).toBe(true)
+    expect(lifecycleHandlers.has("DEPUTY_BULK_APPLIED")).toBe(true)
     expect(lifecycleHandlers.has("USER_LEFT")).toBe(true)
     expect(lifecycleHandlers.has("USER_JOINED")).toBe(true)
     expect(lifecycleHandlers.has("PERSONA_ASSIGNED")).toBe(true)
@@ -198,7 +209,7 @@ describe("RoundRobinDjPlugin", () => {
     locked.orderLocked = true
     locked.phase = "locked"
     locked.round = 2
-    await storage.set(STATE_KEY, JSON.stringify(locked))
+    await writeState(plugin, storage, locked)
 
     const deny = await plugin.validateQueueRequest({
       roomId: ROOM,
@@ -238,7 +249,7 @@ describe("RoundRobinDjPlugin", () => {
     locked.orderLocked = true
     locked.phase = "locked"
     locked.round = 2
-    await storage.set(STATE_KEY, JSON.stringify(locked))
+    await writeState(plugin, storage, locked)
 
     const result = await plugin.validateQueueRequest({
       roomId: ROOM,
@@ -275,7 +286,7 @@ describe("RoundRobinDjPlugin", () => {
     const open = createInitialState("sequential", ["a", "b"])
     open.order = ["a"]
     open.queuedThisRound = ["a"]
-    await storage.set(STATE_KEY, JSON.stringify(open))
+    await writeState(plugin, storage, open)
 
     const result = await plugin.validateQueueRequest({
       roomId: ROOM,
@@ -305,7 +316,7 @@ describe("RoundRobinDjPlugin", () => {
     locked.orderLocked = true
     locked.phase = "locked"
     locked.round = 2
-    await storage.set(STATE_KEY, JSON.stringify(locked))
+    await writeState(plugin, storage, locked)
     await storage.set(
       "hold:b",
       JSON.stringify({
@@ -356,7 +367,7 @@ describe("RoundRobinDjPlugin", () => {
     locked.orderLocked = true
     locked.phase = "locked"
     locked.round = 2
-    await storage.set(STATE_KEY, JSON.stringify(locked))
+    await writeState(plugin, storage, locked)
     await storage.set(
       "hold:b",
       JSON.stringify({
@@ -393,7 +404,7 @@ describe("RoundRobinDjPlugin", () => {
 
     const state = createInitialState("nonSequential", ["a", "b"])
     state.queuedThisRound = ["a"]
-    await storage.set(STATE_KEY, JSON.stringify(state))
+    await writeState(plugin, storage, state)
 
     expect(
       await plugin.grantMetadataSourceAccess({
@@ -436,8 +447,11 @@ describe("RoundRobinDjPlugin", () => {
   })
 
   it("adds and removes deputies via DEPUTY_DJ_CHANGED", async () => {
-    const { plugin, context, storage, lifecycleHandlers } = setup({ enabled: true })
+    const { plugin, context, storage, lifecycleHandlers, personas } = setup({ enabled: true })
     await plugin.register(context)
+    personas.assign.mockClear()
+    personas.remove.mockClear()
+    personas.getUsersWithPersona.mockClear()
 
     await emit(lifecycleHandlers, "DEPUTY_DJ_CHANGED", {
       roomId: ROOM,
@@ -447,6 +461,10 @@ describe("RoundRobinDjPlugin", () => {
     let state = JSON.parse((await storage.get(STATE_KEY))!)
     expect(state.participants).toContain("c")
 
+    // Coalesced roster sync runs on the next macrotask
+    await vi.advanceTimersByTimeAsync(0)
+    expect(personas.assign).toHaveBeenCalledWith("c", "robin")
+
     await emit(lifecycleHandlers, "DEPUTY_DJ_CHANGED", {
       roomId: ROOM,
       userId: "c",
@@ -454,6 +472,93 @@ describe("RoundRobinDjPlugin", () => {
     })
     state = JSON.parse((await storage.get(STATE_KEY))!)
     expect(state.participants).not.toContain("c")
+    await vi.advanceTimersByTimeAsync(0)
+    expect(personas.remove).toHaveBeenCalledWith("c", "robin")
+  })
+
+  it("reconciles roster once on DEPUTY_BULK_APPLIED after per-user events", async () => {
+    const { plugin, context, storage, lifecycleHandlers, personas, api } = setup({
+      enabled: true,
+    })
+    await plugin.register(context)
+    personas.assign.mockClear()
+    personas.getUsersWithPersona.mockClear()
+    api.emit.mockClear()
+
+    api.getUsers.mockResolvedValue([
+      { userId: "a", username: "A", isDeputyDj: true },
+      { userId: "b", username: "B", isDeputyDj: true },
+      { userId: "c", username: "C", isDeputyDj: true },
+    ] as User[])
+
+    await emit(lifecycleHandlers, "DEPUTY_DJ_CHANGED", {
+      roomId: ROOM,
+      userId: "c",
+      isDeputyDj: true,
+    })
+    await emit(lifecycleHandlers, "DEPUTY_DJ_CHANGED", {
+      roomId: ROOM,
+      userId: "d",
+      isDeputyDj: true,
+    })
+
+    const assignsBeforeBulk = personas.assign.mock.calls.length
+
+    await emit(lifecycleHandlers, "DEPUTY_BULK_APPLIED", {
+      roomId: ROOM,
+      action: "deputize_all",
+    })
+
+    // Bulk cancels the coalesced timer — no N-fold sync from DEPUTY_DJ_CHANGED
+    await vi.advanceTimersByTimeAsync(0)
+    expect(personas.assign.mock.calls.length).toBe(assignsBeforeBulk + 1)
+
+    const state = JSON.parse((await storage.get(STATE_KEY))!)
+    expect(state.participants.sort()).toEqual(["a", "b", "c"])
+    expect(api.emit).toHaveBeenCalledWith(
+      "QUEUE_STATUS",
+      expect.objectContaining({
+        participantUserIds: expect.arrayContaining(["a", "b", "c"]),
+      }),
+    )
+  })
+
+  it("skips Robin assign/remove when eligibility is unchanged", async () => {
+    const { plugin, context, personas } = setup({ enabled: true, mode: "nonSequential" })
+    await plugin.register(context)
+    personas.assign.mockClear()
+    personas.remove.mockClear()
+    personas.getUsersWithPersona.mockClear()
+
+    const robin = (plugin as unknown as { robin: { sync: (s: unknown) => Promise<void> } }).robin
+    const state = createInitialState("nonSequential", ["a", "b"])
+    await robin.sync(state)
+    await robin.sync(state)
+    expect(personas.getUsersWithPersona).not.toHaveBeenCalled()
+    expect(personas.assign).not.toHaveBeenCalled()
+    expect(personas.remove).not.toHaveBeenCalled()
+  })
+
+  it("reuses cached state across grantMetadataSourceAccess calls", async () => {
+    const { plugin, context, storage } = setup({ enabled: true, mode: "nonSequential" })
+    await plugin.register(context)
+    storage.get.mockClear()
+
+    await plugin.grantMetadataSourceAccess({
+      roomId: ROOM,
+      userId: "b",
+      sourceId: "youtube",
+      action: "search",
+    })
+    await plugin.grantMetadataSourceAccess({
+      roomId: ROOM,
+      userId: "a",
+      sourceId: "youtube",
+      action: "search",
+    })
+
+    const stateReads = storage.get.mock.calls.filter(([key]) => key === STATE_KEY)
+    expect(stateReads.length).toBeLessThanOrEqual(1)
   })
 
   it("removes participants on USER_LEFT", async () => {
@@ -506,7 +611,7 @@ describe("RoundRobinDjPlugin", () => {
     state.order = ["a", "b"]
     state.orderLocked = true
     state.phase = "roundComplete"
-    await storage.set(STATE_KEY, JSON.stringify(state))
+    await writeState(plugin, storage, state)
 
     const denied = await plugin.executeAction("advanceRound", { userId: "a", username: "A" })
     expect(denied.success).toBe(false)

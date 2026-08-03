@@ -98,6 +98,18 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     getPersonas: () => this.personas,
   })
 
+  /** In-memory RR state; `undefined` = not loaded. Invalidated on every write. */
+  private stateCache: RoundRobinState | null | undefined = undefined
+  /** In-memory merged config; `undefined` = not loaded. */
+  private configCache: RoundRobinDjConfig | null | undefined = undefined
+
+  /** Nesting depth for persistAndSync (hold flush may re-enter). */
+  private persistDepth = 0
+
+  /** Coalesce DEPUTY_DJ_CHANGED persona/publish work to one macrotask. */
+  private deputySyncTimer: ReturnType<typeof setTimeout> | null = null
+  private pendingTurnStartedFor: string[] = []
+
   getConfigSchema(): PluginConfigSchema {
     return getConfigSchema()
   }
@@ -107,7 +119,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   }
 
   async getComponentState(): Promise<PluginComponentState> {
-    const config = await this.getConfig()
+    const config = await this.getCachedConfig()
     if (!config?.enabled) {
       return { ...EMPTY_QUEUE_STATUS_STORE }
     }
@@ -120,13 +132,14 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
     this.on("QUEUE_CHANGED", (data) => this.onQueueChanged(data))
     this.on("DEPUTY_DJ_CHANGED", (data) => this.onDeputyDjChanged(data))
+    this.on("DEPUTY_BULK_APPLIED", (data) => this.onDeputyBulkApplied(data))
     this.on("USER_LEFT", (data) => this.onUserLeft(data))
     this.on("USER_JOINED", (data) => this.onUserJoined(data))
     this.on("PERSONA_ASSIGNED", (data) => this.onPersonaAssigned(data))
     this.on("PERSONA_REMOVED", (data) => this.onPersonaRemoved(data))
     this.onConfigChange((data) => this.handleConfigChange(data))
 
-    const config = await this.getConfig()
+    const config = await this.getCachedConfig()
     if (config?.enabled) {
       await this.onPluginEnabled(config)
     }
@@ -148,7 +161,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
         return { success: false, message: "Admin required" }
       }
 
-      const config = await this.getConfig()
+      const config = await this.getCachedConfig()
       if (!config?.enabled) {
         return { success: false, message: "Round Robin DJ is not enabled" }
       }
@@ -172,7 +185,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   }
 
   async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {
-    const config = await this.getConfig()
+    const config = await this.getCachedConfig()
     if (!config?.enabled) return allowQueueRequest()
 
     const isAdmin = await this.context!.api.isRoomAdmin(params.roomId, params.userId)
@@ -214,7 +227,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   async grantMetadataSourceAccess(
     params: MetadataSourceAccessGrantParams,
   ): Promise<MetadataSourceAccessGrantResult> {
-    const config = await this.getConfig()
+    const config = await this.getCachedConfig()
     if (!config?.enabled) return "abstain"
 
     const isAdmin = await this.context!.api.isRoomAdmin(params.roomId, params.userId)
@@ -242,6 +255,8 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
     const config = data.config as RoundRobinDjConfig
     const previousConfig = data.previousConfig as RoundRobinDjConfig | null
+    this.configCache = config
+
     const wasEnabled = previousConfig?.enabled === true
     const isEnabled = config?.enabled === true
 
@@ -304,12 +319,15 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
   private async onPluginDisabled(): Promise<void> {
     if (!this.context) return
+    this.cancelScheduledDeputyRosterSync()
     const state = await this.loadState()
     if (state) await this.holds.clearHoldsForUsers(state.participants)
     await this.robin.clearAssignments()
     await this.personas.unregisterPersonas()
     this.robin.reset()
     await this.context.storage.del(STATE_KEY)
+    this.stateCache = null
+    this.configCache = { ...defaultRoundRobinDjConfig, enabled: false }
     await this.publishQueueStatus(null, { ...defaultRoundRobinDjConfig, enabled: false })
     await this.context.api.sendSystemMessage(this.context.roomId, "Round Robin DJ disabled", {
       type: "alert",
@@ -326,7 +344,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     queue: QueueItem[]
   }): Promise<void> {
     if (!this.context) return
-    const config = await this.getConfig()
+    const config = await this.getCachedConfig()
     if (!config?.enabled) return
 
     // Detect live enqueues via most-recent addedAt within 5s (same heuristic as queue-hygiene).
@@ -361,7 +379,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     isDeputyDj: boolean
   }): Promise<void> {
     if (!this.context) return
-    const config = await this.getConfig()
+    const config = await this.getCachedConfig()
     if (!config?.enabled) return
 
     const state = await this.loadState()
@@ -370,17 +388,63 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     if (data.isDeputyDj) {
       const next = addDeputy(state, data.userId)
       await this.saveState(next)
-      await this.robin.sync(next)
     } else {
       await this.holds.clearHold(data.userId)
       const transition = removeUser(state, data.userId)
-      await this.persistAndSync(transition, config)
+      await this.saveState(transition.state)
+      this.pendingTurnStartedFor.push(...transition.turnStartedFor)
     }
+
+    // Coalesce Robin sync + QUEUE_STATUS; bulk handler cancels and reconciles once.
+    this.scheduleDeputyRosterSync()
+  }
+
+  private async onDeputyBulkApplied(data: {
+    roomId: string
+    action: "deputize_all" | "dedeputize_all"
+  }): Promise<void> {
+    if (!this.context) return
+    const config = await this.getCachedConfig()
+    if (!config?.enabled) return
+
+    this.cancelScheduledDeputyRosterSync()
+    this.pendingTurnStartedFor = []
+
+    if (data.action === "dedeputize_all") {
+      const state = await this.loadState()
+      if (!state) return
+      await this.holds.clearHoldsForUsers(state.participants)
+      const next = createInitialState(config.mode, [])
+      next.round = state.round
+      await this.saveState(next)
+      await this.robin.sync(next)
+      await this.publishQueueStatus(next, config)
+      return
+    }
+
+    const deputies = await this.currentDeputyIds()
+    let state = (await this.loadState()) ?? createInitialState(config.mode, [])
+
+    for (const userId of [...state.participants]) {
+      if (!deputies.includes(userId)) {
+        await this.holds.clearHold(userId)
+        state = removeUser(state, userId).state
+      }
+    }
+    for (const userId of deputies) {
+      state = addDeputy(state, userId)
+    }
+
+    await this.saveState(state)
+    await this.robin.sync(state)
+    await this.holds.flushHoldForCurrentTurn(state, config)
+    const latest = (await this.loadState()) ?? state
+    await this.publishQueueStatus(latest, config)
   }
 
   private async onUserLeft(data: { roomId: string; user: User }): Promise<void> {
     if (!this.context) return
-    const config = await this.getConfig()
+    const config = await this.getCachedConfig()
     if (!config?.enabled) return
 
     const state = await this.loadState()
@@ -394,7 +458,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
   private async onUserJoined(data: { roomId: string; user: User }): Promise<void> {
     if (!this.context) return
-    const config = await this.getConfig()
+    const config = await this.getCachedConfig()
     if (!config?.enabled) return
     if (!data.user.isDeputyDj) return
 
@@ -405,6 +469,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     const next = addDeputy(state, data.user.userId)
     await this.saveState(next)
     await this.robin.sync(next)
+    await this.publishQueueStatus(next, config)
   }
 
   private async onPersonaAssigned(data: {
@@ -413,7 +478,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     personaId: string
   }): Promise<void> {
     if (!this.context) return
-    const config = await this.getConfig()
+    const config = await this.getCachedConfig()
     if (!config?.enabled) return
 
     const fullId = `plugin:${this.name}:${ROBIN_PERSONA_ID}`
@@ -443,7 +508,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     personaId: string
   }): Promise<void> {
     if (!this.context) return
-    const config = await this.getConfig()
+    const config = await this.getCachedConfig()
     if (!config?.enabled) return
 
     const fullId = `plugin:${this.name}:${ROBIN_PERSONA_ID}`
@@ -460,25 +525,40 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     await this.saveState(next)
     await this.robin.sync(next)
     await this.holds.flushHoldForCurrentTurn(next, config)
+    const latest = (await this.loadState()) ?? next
+    await this.publishQueueStatus(latest, config)
   }
 
   // ==========================================================================
   // Persistence + turn sync
   // ==========================================================================
 
+  private async getCachedConfig(): Promise<RoundRobinDjConfig | null> {
+    if (this.configCache !== undefined) return this.configCache
+    this.configCache = await this.getConfig()
+    return this.configCache
+  }
+
   private async loadState(): Promise<RoundRobinState | null> {
     if (!this.context) return null
+    if (this.stateCache !== undefined) return this.stateCache
     const raw = await this.context.storage.get(STATE_KEY)
-    if (!raw) return null
+    if (!raw) {
+      this.stateCache = null
+      return null
+    }
     try {
-      return JSON.parse(raw) as RoundRobinState
+      this.stateCache = JSON.parse(raw) as RoundRobinState
+      return this.stateCache
     } catch {
+      this.stateCache = null
       return null
     }
   }
 
   private async saveState(state: RoundRobinState): Promise<void> {
     if (!this.context) return
+    this.stateCache = state
     await this.context.storage.set(STATE_KEY, JSON.stringify(state))
   }
 
@@ -521,12 +601,52 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     transition: StateTransition,
     config: RoundRobinDjConfig,
   ): Promise<void> {
-    await this.saveState(transition.state)
-    await this.robin.sync(transition.state)
-    await this.notifyTurnStarted(transition.turnStartedFor)
-    await this.holds.flushHoldForCurrentTurn(transition.state, config)
-    // Flush may advance state via nested persistAndSync; reload so clients see the final snapshot.
-    const latest = (await this.loadState()) ?? transition.state
+    this.persistDepth += 1
+    try {
+      await this.saveState(transition.state)
+      await this.notifyTurnStarted(transition.turnStartedFor)
+      // Hold flush may re-enter applySuccessfulQueue → persistAndSync. Only the
+      // outermost pass syncs Robin + publishes QUEUE_STATUS against final state.
+      await this.holds.flushHoldForCurrentTurn(transition.state, config)
+      if (this.persistDepth === 1) {
+        const latest = (await this.loadState()) ?? transition.state
+        await this.robin.sync(latest)
+        await this.publishQueueStatus(latest, config)
+      }
+    } finally {
+      this.persistDepth -= 1
+    }
+  }
+
+  private scheduleDeputyRosterSync(): void {
+    if (this.deputySyncTimer != null) return
+    this.deputySyncTimer = setTimeout(() => {
+      this.deputySyncTimer = null
+      void this.runCoalescedDeputySync()
+    }, 0)
+  }
+
+  private cancelScheduledDeputyRosterSync(): void {
+    if (this.deputySyncTimer == null) return
+    clearTimeout(this.deputySyncTimer)
+    this.deputySyncTimer = null
+  }
+
+  private async runCoalescedDeputySync(): Promise<void> {
+    if (!this.context) return
+    const config = await this.getCachedConfig()
+    if (!config?.enabled) return
+
+    const state = await this.loadState()
+    if (!state) return
+
+    const turnStarted = [...new Set(this.pendingTurnStartedFor)]
+    this.pendingTurnStartedFor = []
+
+    await this.robin.sync(state)
+    await this.notifyTurnStarted(turnStarted)
+    await this.holds.flushHoldForCurrentTurn(state, config)
+    const latest = (await this.loadState()) ?? state
     await this.publishQueueStatus(latest, config)
   }
 

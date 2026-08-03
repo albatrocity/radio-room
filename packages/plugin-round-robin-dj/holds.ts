@@ -52,9 +52,7 @@ export class HoldStore {
   }
 
   async clearHoldsForUsers(userIds: string[]): Promise<void> {
-    for (const userId of userIds) {
-      await this.clearHold(userId)
-    }
+    await Promise.all(userIds.map((userId) => this.clearHold(userId)))
   }
 
   /**
