@@ -918,8 +918,9 @@ export type QueueValidationResult =
   | { allowed: false; reason: string }
   | { deferred: true; message: string }
 
+/** True for validateQueueRequest deferrals and queueSongAs `{ success, deferred: true }` results. */
 export function isDeferredQueueRequest(
-  result: QueueValidationResult,
+  result: QueueValidationResult | { deferred?: boolean; message?: string },
 ): result is { deferred: true; message: string } {
   return "deferred" in result && result.deferred === true
 }

@@ -35,14 +35,14 @@ import {
   canHold,
   clearAdminRobin,
   createInitialState,
-  getEligibleUserIds,
   isEligible,
   recordSuccessfulQueue,
   rejectionReason,
   removeUser,
-  shouldUseExclusiveRobin,
   type StateTransition,
 } from "./state"
+import { HoldStore } from "./holds"
+import { RobinPersonaSync } from "./personas"
 
 export type { RoundRobinDjConfig, RoundRobinState, HeldQueueTrack } from "./types"
 export { roundRobinDjConfigSchema, defaultRoundRobinDjConfig, ROBIN_PERSONA_ID } from "./types"
@@ -62,8 +62,6 @@ export {
   shouldUseExclusiveRobin,
 } from "./state"
 
-const HOLD_KEY_PREFIX = "hold"
-
 /**
  * Round Robin DJ Plugin
  *
@@ -79,9 +77,15 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   static readonly configSchema = roundRobinDjConfigSchema as any
   static readonly defaultConfig = defaultRoundRobinDjConfig
 
-  private robinExclusive: boolean | null = null
-  /** Prevents nested QUEUE_CHANGED from double-recording a flush we apply ourselves. */
-  private recordingFlushFor: Set<string> = new Set()
+  private readonly holds = new HoldStore({
+    getContext: () => this.context,
+    applySuccessfulQueue: (userId, config) => this.applySuccessfulQueue(userId, config),
+  })
+
+  private readonly robin = new RobinPersonaSync({
+    getContext: () => this.context,
+    getPersonas: () => this.personas,
+  })
 
   getConfigSchema(): PluginConfigSchema {
     return getConfigSchema()
@@ -158,7 +162,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     }
 
     if (canHold(state, params.userId, config.deferOutOfTurnQueues)) {
-      await this.saveHold(params.userId, {
+      await this.holds.saveHold(params.userId, {
         trackId: params.trackId,
         mediaSourceType: params.mediaSourceType ?? "spotify",
         username: params.username,
@@ -233,10 +237,10 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     if (modeChanged) {
       const deputies = await this.currentDeputyIds()
       const prev = (await this.loadState()) ?? createInitialState(config.mode, deputies)
-      await this.clearHoldsForUsers(prev.participants)
+      await this.holds.clearHoldsForUsers(prev.participants)
       const state = applyModeChange(prev, config.mode, deputies)
       await this.saveState(state)
-      await this.syncRobinPersonas(state)
+      await this.robin.sync(state)
       await this.context.api.sendSystemMessage(
         this.context.roomId,
         `Round Robin: switched to ${config.mode === "sequential" ? "sequential" : "non-sequential"} mode`,
@@ -249,7 +253,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
       config.deferOutOfTurnQueues === false
     ) {
       const state = await this.loadState()
-      if (state) await this.clearHoldsForUsers(state.participants)
+      if (state) await this.holds.clearHoldsForUsers(state.participants)
     }
   }
 
@@ -258,7 +262,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     const deputies = await this.currentDeputyIds()
     const state = createInitialState(config.mode, deputies)
     await this.saveState(state)
-    await this.syncRobinPersonas(state)
+    await this.robin.sync(state)
     await this.context.api.sendSystemMessage(
       this.context.roomId,
       `Round Robin DJ enabled (${config.mode === "sequential" ? "sequential" : "non-sequential"}). Deputies take turns queueing.`,
@@ -269,10 +273,10 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   private async onPluginDisabled(): Promise<void> {
     if (!this.context) return
     const state = await this.loadState()
-    if (state) await this.clearHoldsForUsers(state.participants)
-    await this.clearRobinAssignments()
+    if (state) await this.holds.clearHoldsForUsers(state.participants)
+    await this.robin.clearAssignments()
     await this.personas.unregisterPersonas()
-    this.robinExclusive = null
+    this.robin.reset()
     await this.context.storage.del(STATE_KEY)
     await this.context.api.sendSystemMessage(this.context.roomId, "Round Robin DJ disabled", {
       type: "alert",
@@ -292,6 +296,8 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     const config = await this.getConfig()
     if (!config?.enabled) return
 
+    // Detect live enqueues via most-recent addedAt within 5s (same heuristic as queue-hygiene).
+    // Hold flush records turns via applySuccessfulQueue — QUEUE_CHANGED may be suppressed.
     const sorted = [...data.queue].sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0))
     const mostRecent = sorted[0]
     if (!mostRecent?.addedBy?.userId || !mostRecent.addedAt) return
@@ -305,31 +311,15 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     if (!state.participants.includes(userId)) return
     if (state.queuedThisRound.includes(userId)) return
 
-    // Flush path records the turn itself; ignore the nested QUEUE_CHANGED it triggers.
-    if (this.recordingFlushFor.has(userId)) return
+    // Flush path records the turn itself; ignore QUEUE_CHANGED while that flush runs.
+    if (this.holds.isRecordingFlushFor(userId)) return
 
     // Only advance turns for users who were eligible (admins who bypass still may be deputies)
     if (!isEligible(state, userId)) return
 
     // Real enqueue supersedes any hold
-    await this.clearHold(userId)
-
-    const transition = recordSuccessfulQueue(state, userId, config.autoAdvanceRounds)
-    await this.persistAndSync(transition, config)
-
-    if (transition.roundCompleted && !transition.roundAdvanced) {
-      await this.context.api.sendSystemMessage(
-        this.context.roomId,
-        "Round Robin: round complete — waiting for an admin to advance",
-        { type: "alert", status: "info" },
-      )
-    } else if (transition.roundAdvanced) {
-      await this.context.api.sendSystemMessage(
-        this.context.roomId,
-        `Round Robin: round ${transition.state.round} started`,
-        { type: "alert", status: "info" },
-      )
-    }
+    await this.holds.clearHold(userId)
+    await this.applySuccessfulQueue(userId, config, state)
   }
 
   private async onDeputyDjChanged(data: {
@@ -347,9 +337,9 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     if (data.isDeputyDj) {
       const next = addDeputy(state, data.userId)
       await this.saveState(next)
-      await this.syncRobinPersonas(next)
+      await this.robin.sync(next)
     } else {
-      await this.clearHold(data.userId)
+      await this.holds.clearHold(data.userId)
       const transition = removeUser(state, data.userId)
       await this.persistAndSync(transition, config)
     }
@@ -364,7 +354,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     if (!state) return
     if (!state.participants.includes(data.user.userId)) return
 
-    await this.clearHold(data.user.userId)
+    await this.holds.clearHold(data.user.userId)
     const transition = removeUser(state, data.user.userId)
     await this.persistAndSync(transition, config)
   }
@@ -381,7 +371,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
     const next = addDeputy(state, data.user.userId)
     await this.saveState(next)
-    await this.syncRobinPersonas(next)
+    await this.robin.sync(next)
   }
 
   private async onPersonaAssigned(data: {
@@ -429,123 +419,18 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     const state = await this.loadState()
     if (!state) return
     if (state.adminForcedUserId !== data.userId) {
-      await this.syncRobinPersonas(state)
+      await this.robin.sync(state)
       return
     }
 
     const next = clearAdminRobin(state)
     await this.saveState(next)
-    await this.syncRobinPersonas(next)
-    await this.flushHoldForCurrentTurn(next, config)
+    await this.robin.sync(next)
+    await this.holds.flushHoldForCurrentTurn(next, config)
   }
 
   // ==========================================================================
-  // Holds
-  // ==========================================================================
-
-  private holdKey(userId: string): string {
-    return `${HOLD_KEY_PREFIX}:${userId}`
-  }
-
-  private async loadHold(userId: string): Promise<HeldQueueTrack | null> {
-    if (!this.context) return null
-    const raw = await this.context.storage.get(this.holdKey(userId))
-    if (!raw) return null
-    try {
-      return JSON.parse(raw) as HeldQueueTrack
-    } catch {
-      return null
-    }
-  }
-
-  private async saveHold(userId: string, hold: HeldQueueTrack): Promise<void> {
-    if (!this.context) return
-    await this.context.storage.set(this.holdKey(userId), JSON.stringify(hold))
-  }
-
-  private async clearHold(userId: string): Promise<void> {
-    if (!this.context) return
-    await this.context.storage.del(this.holdKey(userId))
-  }
-
-  private async clearHoldsForUsers(userIds: string[]): Promise<void> {
-    for (const userId of userIds) {
-      await this.clearHold(userId)
-    }
-  }
-
-  /**
-   * If the current turn holder has a pending track, enqueue it and advance their turn.
-   *
-   * Uses `runPluginValidation: false` so we do not re-enter `deferQueueRequest` (the hold
-   * was already accepted). Clears the hold only after a successful add, then records the
-   * turn locally — nested QUEUE_CHANGED is ignored via `recordingFlushFor`.
-   */
-  private async flushHoldForCurrentTurn(
-    state: RoundRobinState,
-    config: RoundRobinDjConfig,
-  ): Promise<void> {
-    if (!this.context) return
-    const eligible = getEligibleUserIds(state)
-    if (eligible.length !== 1) return
-
-    const userId = eligible[0]!
-    const hold = await this.loadHold(userId)
-    if (!hold) return
-
-    this.recordingFlushFor.add(userId)
-    try {
-      const result = await this.context.api.addToTrackQueue(this.context.roomId, hold.trackId, {
-        addedBy: { type: "user", userId, username: hold.username },
-        // Do not re-run validators: deferOutOfTurnQueues would hold again, and other
-        // plugins (e.g. queue-hygiene) can reject right after the previous deputy queued.
-        runPluginValidation: false,
-        mediaSourceType: hold.mediaSourceType,
-        // Avoid nested QUEUE_CHANGED during the previous deputy's emit; DJService
-        // rebroadcasts a fresh snapshot after plugins return so the held track
-        // lands at the live end of the queue on the client.
-        suppressQueueChanged: true,
-      })
-
-      if (!result.success) {
-        await this.context.api.sendUserSystemMessage(
-          this.context.roomId,
-          userId,
-          `Round Robin: could not add your held song (${result.message}). Try adding again on your turn.`,
-          { type: "alert", status: "error" },
-        )
-        return
-      }
-
-      await this.clearHold(userId)
-
-      // Advance RR state even if QUEUE_CHANGED is missed or nested awkwardly.
-      const latest = (await this.loadState()) ?? state
-      if (!latest.queuedThisRound.includes(userId)) {
-        const transition = recordSuccessfulQueue(latest, userId, config.autoAdvanceRounds)
-        await this.persistAndSync(transition, config)
-
-        if (transition.roundCompleted && !transition.roundAdvanced) {
-          await this.context.api.sendSystemMessage(
-            this.context.roomId,
-            "Round Robin: round complete — waiting for an admin to advance",
-            { type: "alert", status: "info" },
-          )
-        } else if (transition.roundAdvanced) {
-          await this.context.api.sendSystemMessage(
-            this.context.roomId,
-            `Round Robin: round ${transition.state.round} started`,
-            { type: "alert", status: "info" },
-          )
-        }
-      }
-    } finally {
-      this.recordingFlushFor.delete(userId)
-    }
-  }
-
-  // ==========================================================================
-  // Persistence + persona sync
+  // Persistence + turn sync
   // ==========================================================================
 
   private async loadState(): Promise<RoundRobinState | null> {
@@ -564,76 +449,55 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     await this.context.storage.set(STATE_KEY, JSON.stringify(state))
   }
 
+  /**
+   * Shared turn persistence for live enqueues and hold flush.
+   * No-ops if the user is already recorded for this round.
+   */
+  private async applySuccessfulQueue(
+    userId: string,
+    config: RoundRobinDjConfig,
+    knownState?: RoundRobinState,
+  ): Promise<void> {
+    const state = knownState ?? (await this.loadState())
+    if (!state) return
+    if (state.queuedThisRound.includes(userId)) return
+
+    const transition = recordSuccessfulQueue(state, userId, config.autoAdvanceRounds)
+    await this.persistAndSync(transition, config)
+    await this.announceRoundTransition(transition)
+  }
+
+  private async announceRoundTransition(transition: StateTransition): Promise<void> {
+    if (!this.context) return
+    if (transition.roundCompleted && !transition.roundAdvanced) {
+      await this.context.api.sendSystemMessage(
+        this.context.roomId,
+        "Round Robin: round complete — waiting for an admin to advance",
+        { type: "alert", status: "info" },
+      )
+    } else if (transition.roundAdvanced) {
+      await this.context.api.sendSystemMessage(
+        this.context.roomId,
+        `Round Robin: round ${transition.state.round} started`,
+        { type: "alert", status: "info" },
+      )
+    }
+  }
+
   private async persistAndSync(
     transition: StateTransition,
     config: RoundRobinDjConfig,
   ): Promise<void> {
     await this.saveState(transition.state)
-    await this.syncRobinPersonas(transition.state)
+    await this.robin.sync(transition.state)
     await this.notifyTurnStarted(transition.turnStartedFor)
-    await this.flushHoldForCurrentTurn(transition.state, config)
+    await this.holds.flushHoldForCurrentTurn(transition.state, config)
   }
 
   private async currentDeputyIds(): Promise<string[]> {
     if (!this.context) return []
     const users = await this.context.api.getUsers(this.context.roomId)
     return users.filter((u) => u.isDeputyDj).map((u) => u.userId)
-  }
-
-  private async syncRobinPersonas(state: RoundRobinState): Promise<void> {
-    if (!this.context) return
-
-    const exclusive = shouldUseExclusiveRobin(state)
-    if (this.robinExclusive !== exclusive) {
-      await this.personas.registerPersonas([
-        {
-          id: ROBIN_PERSONA_ID,
-          label: "Robin",
-          icon: "Bird",
-          exclusive,
-          assignableByAdmin: true,
-          decoratesUser: true,
-          decoratesChatMessage: true,
-        },
-      ])
-      this.robinExclusive = exclusive
-    } else if (this.robinExclusive === null) {
-      await this.personas.registerPersonas([
-        {
-          id: ROBIN_PERSONA_ID,
-          label: "Robin",
-          icon: "Bird",
-          exclusive,
-          assignableByAdmin: true,
-          decoratesUser: true,
-          decoratesChatMessage: true,
-        },
-      ])
-      this.robinExclusive = exclusive
-    }
-
-    const eligible = new Set(getEligibleUserIds(state))
-    const holders = await this.personas.getUsersWithPersona(ROBIN_PERSONA_ID)
-
-    for (const userId of holders) {
-      if (!eligible.has(userId)) {
-        await this.personas.remove(userId, ROBIN_PERSONA_ID)
-      }
-    }
-
-    for (const userId of eligible) {
-      if (!holders.includes(userId)) {
-        await this.personas.assign(userId, ROBIN_PERSONA_ID)
-      }
-    }
-  }
-
-  private async clearRobinAssignments(): Promise<void> {
-    if (!this.context) return
-    const holders = await this.personas.getUsersWithPersona(ROBIN_PERSONA_ID)
-    for (const userId of holders) {
-      await this.personas.remove(userId, ROBIN_PERSONA_ID)
-    }
   }
 
   private async notifyTurnStarted(userIds: string[]): Promise<void> {

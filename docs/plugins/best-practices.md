@@ -150,6 +150,12 @@ See the [Queue Hygiene Plugin](../../packages/plugin-queue-hygiene) for a queue 
 - Consecutive track prevention
 - Admin exemption logic
 
+See the [Round Robin DJ Plugin](../../packages/plugin-round-robin-dj) ([ADR 0091](../adrs/0091-round-robin-dj-plugin.md)) for deferred queue / hold flush and personas:
+
+- `deferQueueRequest` + held-track flush via `addToTrackQueue({ suppressQueueChanged: true })` ([Queue Validation](queue-validation.md))
+- Exclusive Robin persona sync ([User Personas](user-personas.md))
+- Deputy eligibility and `DEPUTY_DJ_CHANGED`
+
 For **cross-plugin score, coin, modifiers, leaderboards, and inventory**, see [Game Sessions & Inventory](game-sessions.md#game-sessions--inventory) and [ADR 0042](../adrs/0042-game-sessions-and-inventory.md).
 
 

@@ -96,6 +96,25 @@ If multiple plugins implement `validateQueueRequest`:
 2. The **first rejection or defer wins** — remaining plugins are not called
 3. If all plugins allow, the request proceeds
 
+### Cascading queue adds during `QUEUE_CHANGED`
+
+Plugins may call `api.addToTrackQueue` from a `QUEUE_CHANGED` handler (e.g. Round Robin flushing a held track when the previous deputy queues). Two APIs keep clients and plugins consistent:
+
+| API | Where | Role |
+|-----|--------|------|
+| `addToTrackQueue(..., { suppressQueueChanged: true })` | `PluginAPI` | Add to the Redis/playback queue **without** emitting `QUEUE_CHANGED` for that add |
+| `systemEvents.emit(..., { skipPlugins: true })` | Core (`DJService.queueSongAs`) | After plugins finish handling the *original* `QUEUE_CHANGED`, rebroadcast a **fresh** queue snapshot to Redis + Socket.IO without re-entering plugins |
+
+**Contract:**
+
+1. User (or plugin) enqueue builds a `QUEUE_CHANGED` payload and emits it (plugins + broadcasters).
+2. During plugin handlers, cascading adds should use `suppressQueueChanged: true` so each flush does not nest another full emit.
+3. When those handlers return, if the queue differs from the original snapshot, core re-emits `QUEUE_CHANGED` with `{ skipPlugins: true }` so clients see held/cascaded tracks at the live end of the queue.
+
+Without (2)+(3), broadcasters can deliver the pre-flush snapshot *after* nested updates, so clients briefly (or lastingly) miss flushed tracks. Batch enqueue (e.g. segment track injection) also uses `suppressQueueChanged` on intermediate adds, then emits once.
+
+Reference implementation: `@repo/plugin-round-robin-dj` hold flush + `DJService.queueSongAs` refresh path. Emit options: [BACKEND_DEVELOPMENT.md — SystemEvents](../BACKEND_DEVELOPMENT.md#systemevents).
+
 ### Example: Rate Limiting Plugin
 
 ```typescript

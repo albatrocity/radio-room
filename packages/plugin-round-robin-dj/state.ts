@@ -2,7 +2,7 @@ import type { RoundRobinMode, RoundRobinState } from "./types"
 
 export type StateTransition = {
   state: RoundRobinState
-  /** Users who newly became solely eligible (for “your turn” nudges). */
+  /** Sole-eligible nudge targets from `singleNewEligible` (“your turn”). */
   turnStartedFor: string[]
   roundAdvanced: boolean
   roundCompleted: boolean
@@ -187,6 +187,27 @@ function advanceSequentialIndex(state: RoundRobinState): RoundRobinState {
 }
 
 /**
+ * “Your turn” nudge targets after a transition.
+ *
+ * When exactly one deputy is eligible afterward:
+ * - If they are not `excludeUserId`, always nudge them (sole turn / last remaining).
+ * - If they are `excludeUserId` (or exclude is omitted), nudge only when that
+ *   sole eligibility is new (`!beforeEligible.has(sole)`).
+ */
+export function singleNewEligible(
+  beforeEligible: ReadonlySet<string>,
+  afterEligible: readonly string[],
+  excludeUserId?: string,
+): string[] {
+  if (afterEligible.length !== 1) return []
+  const sole = afterEligible[0]!
+  if (excludeUserId !== undefined && sole !== excludeUserId) {
+    return [sole]
+  }
+  return beforeEligible.has(sole) ? [] : [sole]
+}
+
+/**
  * Record a successful queue add by a deputy. Caller must verify eligibility first
  * (or tolerate no-op when not eligible).
  */
@@ -224,21 +245,9 @@ export function recordSuccessfulQueue(
   const completed = maybeCompleteRound(next, autoAdvanceRounds)
   next = completed.state
 
-  const afterEligible = getEligibleUserIds(next)
-  const turnStartedFor =
-    afterEligible.length === 1 && !beforeEligible.has(afterEligible[0]!)
-      ? afterEligible
-      : afterEligible.filter((id) => !beforeEligible.has(id) && afterEligible.length === 1)
-
-  // Prefer notifying when we land on a single eligible user (sequential turn)
-  const notify =
-    afterEligible.length === 1 && afterEligible[0] !== userId
-      ? afterEligible
-      : turnStartedFor
-
   return {
     state: next,
-    turnStartedFor: notify,
+    turnStartedFor: singleNewEligible(beforeEligible, getEligibleUserIds(next), userId),
     roundAdvanced: completed.roundAdvanced,
     roundCompleted: completed.roundCompleted,
   }
@@ -267,7 +276,7 @@ export function removeUser(state: RoundRobinState, userId: string): StateTransit
     return { state, turnStartedFor: [], roundAdvanced: false, roundCompleted: false }
   }
 
-  const beforeEligible = getEligibleUserIds(state)
+  const beforeEligible = new Set(getEligibleUserIds(state))
   const next = clone(state)
   next.participants = next.participants.filter((id) => id !== userId)
   next.order = next.order.filter((id) => id !== userId)
@@ -290,13 +299,12 @@ export function removeUser(state: RoundRobinState, userId: string): StateTransit
     next.currentIndex = 0
   }
 
-  const afterEligible = getEligibleUserIds(next)
-  const turnStartedFor =
-    afterEligible.length === 1 && !beforeEligible.includes(afterEligible[0]!)
-      ? afterEligible
-      : []
-
-  return { state: next, turnStartedFor, roundAdvanced: false, roundCompleted: false }
+  return {
+    state: next,
+    turnStartedFor: singleNewEligible(beforeEligible, getEligibleUserIds(next)),
+    roundAdvanced: false,
+    roundCompleted: false,
+  }
 }
 
 /**

@@ -7,6 +7,8 @@
 | ---------------------------------------------- | -------------------------------- |
 | `getNowPlaying(roomId)`                        | Get current track                |
 | `getUsers(roomId)`                             | Get users in room                |
+| `getQueue(roomId)`                             | Get room queue                   |
+| `addToTrackQueue(roomId, trackId, options?)`   | Enqueue a track (see below)      |
 | `getReactions(params)`                         | Get reactions for track/message  |
 | `skipTrack(roomId, trackId)`                   | Skip current track               |
 | `sendSystemMessage(roomId, message, options?)` | Send system chat message         |
@@ -17,18 +19,40 @@
 | `queueSoundEffect(params)`                     | Play a sound effect in the room  |
 | `queueScreenEffect(params)`                    | Play a CSS animation in the room |
 
+### `addToTrackQueue`
+
+```typescript
+await this.context.api.addToTrackQueue(roomId, metadataTrackId, {
+  addedBy: { type: "user", userId, username }, // or omit to attribute to this plugin
+  runPluginValidation: false, // default false — skip other plugins' validateQueueRequest
+  mediaSourceType: "spotify",
+  suppressQueueChanged: true, // skip QUEUE_CHANGED for this add (cascading flushes)
+})
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `addedBy` | calling plugin | User or plugin attribution on the queue item |
+| `runPluginValidation` | `false` | When `true`, run `validateQueueRequest` hooks (may allow / reject / defer) |
+| `mediaSourceType` | inferred / `"spotify"` | Catalog source for the track id |
+| `suppressQueueChanged` | `false` | When `true`, do not emit `QUEUE_CHANGED` after the add — use for cascading adds during an existing `QUEUE_CHANGED` handler; core may rebroadcast a fresh snapshot afterward ([queue-validation cascading adds](queue-validation.md#cascading-queue-adds-during-queue_changed)) |
+
 ### Game & inventory APIs (`PluginContext`)
 
 Available as **`context.game`** and **`context.inventory`** (and **`this.game`** / **`this.inventory`** on `BasePlugin`). Full reference: [Game Sessions & Inventory](game-sessions.md#game-sessions--inventory); types: `GameSessionPluginAPI`, `InventoryPluginAPI` in `@repo/types`.
 
 ### Queue Validation Helpers
 
-Helper functions exported from `@repo/types` for use in `validateQueueRequest`:
+Helper functions exported from `@repo/types` for use in `validateQueueRequest`. Full guide: [Queue Validation](queue-validation.md).
 
-| Function                             | Returns                      | Description                        |
-| ------------------------------------ | ---------------------------- | ---------------------------------- |
-| `allowQueueRequest()`                | `{ allowed: true }`          | Allow the queue request to proceed |
-| `rejectQueueRequest(reason: string)` | `{ allowed: false, reason }` | Block with user-facing message     |
+| Function                               | Returns                         | Description                                      |
+| -------------------------------------- | ------------------------------- | ------------------------------------------------ |
+| `allowQueueRequest()`                  | `{ allowed: true }`             | Allow the queue request to proceed               |
+| `rejectQueueRequest(reason: string)`   | `{ allowed: false, reason }`    | Block with user-facing message                   |
+| `deferQueueRequest(message: string)`   | `{ deferred: true, message }`   | Accept selection without enqueueing (info toast) |
+| `isDeferredQueueRequest(result)`       | type guard                      | True when result is a deferred outcome           |
+
+Reference for defer/hold + cascading `suppressQueueChanged`: `@repo/plugin-round-robin-dj` and [Queue Validation — cascading adds](queue-validation.md#cascading-queue-adds-during-queue_changed).
 
 ### System Message Options
 

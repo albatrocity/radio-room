@@ -1,5 +1,10 @@
 import { shuffleQueueItems } from "@repo/game-logic"
-import { AppContext, MoveTrackResult, QueueItemAttribution } from "@repo/types"
+import {
+  AppContext,
+  MoveTrackResult,
+  QueueItemAttribution,
+  isDeferredQueueRequest,
+} from "@repo/types"
 import { User } from "@repo/types/User"
 import { QueueItem, canonicalQueueTrackKey } from "@repo/types/Queue"
 import { MetadataSource, MetadataSourceTrack } from "@repo/types"
@@ -239,7 +244,7 @@ export class DJService {
         mediaSourceType: sourceType,
       })
 
-      if ("deferred" in validationResult && validationResult.deferred) {
+      if (isDeferredQueueRequest(validationResult)) {
         return {
           success: true as const,
           deferred: true as const,

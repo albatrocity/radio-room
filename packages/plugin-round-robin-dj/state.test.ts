@@ -12,6 +12,7 @@ import {
   recordSuccessfulQueue,
   removeUser,
   shouldUseExclusiveRobin,
+  singleNewEligible,
 } from "./state"
 
 describe("round-robin state", () => {
@@ -151,6 +152,45 @@ describe("round-robin state", () => {
       const t = applyAdminRobin(state, "c")
       expect(getEligibleUserIds(t.state)).toEqual(["c"])
       expect(t.state.order[t.state.currentIndex]).toBe("c")
+    })
+  })
+
+  describe("turnStartedFor / singleNewEligible", () => {
+    it("nudges the next sequential deputy after a locked turn", () => {
+      let state = createInitialState("sequential", ["a", "b"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      state = recordSuccessfulQueue(state, "b", true).state
+      // round 2 locked — a's turn
+      const t = recordSuccessfulQueue(state, "a", true)
+      expect(t.turnStartedFor).toEqual(["b"])
+    })
+
+    it("nudges the last remaining non-sequential deputy even if they were already eligible", () => {
+      let state = createInitialState("nonSequential", ["a", "b"])
+      const t = recordSuccessfulQueue(state, "a", true)
+      expect(t.turnStartedFor).toEqual(["b"])
+    })
+
+    it("does not nudge during open discovery while multiple deputies remain", () => {
+      const state = createInitialState("sequential", ["a", "b", "c"])
+      const t = recordSuccessfulQueue(state, "a", true)
+      expect(t.turnStartedFor).toEqual([])
+    })
+
+    it("nudges first locked-order deputy when discovery auto-advances", () => {
+      let state = createInitialState("sequential", ["a", "b"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      const t = recordSuccessfulQueue(state, "b", true)
+      expect(t.roundAdvanced).toBe(true)
+      expect(t.turnStartedFor).toEqual(["a"])
+    })
+
+    it("singleNewEligible: sole non-excluded → nudge; sole excluded only if new", () => {
+      expect(singleNewEligible(new Set(["a", "b"]), ["b"], "a")).toEqual(["b"])
+      expect(singleNewEligible(new Set(["a"]), ["a"], "a")).toEqual([])
+      expect(singleNewEligible(new Set(), ["a"], "a")).toEqual(["a"])
+      expect(singleNewEligible(new Set(["a"]), ["b"])).toEqual(["b"])
+      expect(singleNewEligible(new Set(["a", "b"]), ["a", "b"], "a")).toEqual([])
     })
   })
 

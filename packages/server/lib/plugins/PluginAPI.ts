@@ -11,6 +11,7 @@ import {
   ChatMessage,
   ScreenEffectTarget,
   ScreenEffectName,
+  isDeferredQueueRequest,
 } from "@repo/types"
 import { Server } from "socket.io"
 import { getRoomPath } from "../getRoomPath"
@@ -276,7 +277,7 @@ export class PluginAPIImpl implements PluginAPI {
     })
 
     if (result.success) {
-      if ("deferred" in result && result.deferred) {
+      if (isDeferredQueueRequest(result)) {
         return { success: false, message: result.message }
       }
       return { success: true, queuedItem: result.queuedItem }

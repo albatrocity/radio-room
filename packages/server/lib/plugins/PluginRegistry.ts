@@ -23,6 +23,7 @@ import {
   QueueValidationParams,
   QueueValidationResult,
   isChatMessageTransformDrop,
+  isDeferredQueueRequest,
 } from "@repo/types"
 import { Server } from "socket.io"
 import { PluginAPIImpl } from "./PluginAPI"
@@ -286,7 +287,7 @@ export class PluginRegistry {
           ),
         ])
 
-        if ("deferred" in result && result.deferred) {
+        if (isDeferredQueueRequest(result)) {
           console.log(
             `[PluginRegistry] Queue request deferred by ${pluginName}: ${result.message}`,
           )
