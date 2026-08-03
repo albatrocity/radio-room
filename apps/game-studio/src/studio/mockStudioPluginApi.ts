@@ -2,6 +2,7 @@ import { shuffleQueueItems } from "@repo/game-logic"
 import { queueItemFactory } from "@repo/factories/queueItem"
 import type {
   ChatMessage,
+  MetadataSourceAccessAction,
   MoveTrackResult,
   PluginAPI,
   QueueItem,
@@ -11,6 +12,7 @@ import type {
   ScreenEffectTarget,
   User,
 } from "@repo/types"
+import { labelForMetadataSource } from "@repo/types"
 import type { ReactionSubject } from "@repo/types"
 import type { MockPluginLifecycle } from "./mockLifecycle"
 import type { StudioRoom } from "./studioRoom"
@@ -269,6 +271,45 @@ export class MockStudioPluginApi implements PluginAPI {
     this.room.logEvent("QUEUE_SHUFFLE", { count: shuffledRest.length })
     this.room.notify()
     return { success: true }
+  }
+
+  async setPlaybackVolume(
+    _roomId: string,
+    _volumePercent: number,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    return { success: false, message: "Not implemented in Game Studio" }
+  }
+
+  async supportsVolumeControl(_roomId: string): Promise<boolean> {
+    return false
+  }
+
+  /** Studio stub catalog — not filtered by bridge CAPABILITIES. */
+  async listMetadataSources(_roomId: string): Promise<{ id: string; label: string }[]> {
+    return ["spotify", "youtube", "local"].map((id) => ({
+      id,
+      label: labelForMetadataSource(id),
+    }))
+  }
+
+  /** Studio treats all catalog sources as open for the requested action. */
+  async canAccessMetadataSource(params: {
+    roomId: string
+    userId: string
+    sourceId: string
+    action: MetadataSourceAccessAction
+  }): Promise<boolean> {
+    const sources = await this.listMetadataSources(params.roomId)
+    return sources.some((s) => s.id === params.sourceId)
+  }
+
+  async getEffectiveMetadataSourceIds(
+    roomId: string,
+    _userId: string,
+    _action: MetadataSourceAccessAction,
+  ): Promise<string[]> {
+    const sources = await this.listMetadataSources(roomId)
+    return sources.map((s) => s.id)
   }
 
   async emit<T extends Record<string, unknown>>(eventName: string, data: T): Promise<void> {

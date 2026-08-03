@@ -22,6 +22,10 @@ import { SocketWithContext } from "../lib/socketWithContext"
 import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
 import { resolveItemRarity } from "@repo/game-logic"
 import {
+  ensureBridgeMetadataSources as ensureBridgeMetadataSourcesBase,
+  stripBridgeOnlyMetadataSources,
+} from "@repo/utils"
+import {
   AppContext,
   RoomScheduleSnapshotDTO,
   ITEM_SHOPS_PLUGIN_NAME,
@@ -58,8 +62,8 @@ function enrichCurrentShopInstanceWithOfferRarity(
 }
 
 /**
- * Get available metadata sources for a user based on their linked services
- * Always includes "spotify", adds "tidal" if user has it linked
+ * Baseline metadata sources from the creator's linked services.
+ * YouTube/local are Media Bridge–only (ADR 0087) — seeded via ensureBridgeMetadataSources.
  */
 async function getAvailableMetadataSourcesForUser(
   context: AppContext,
@@ -78,6 +82,34 @@ async function getAvailableMetadataSourcesForUser(
   }
 
   return sources
+}
+
+/** Ensure bridge rooms search fan-out includes YouTube (+ local when requested). */
+function ensureBridgeMetadataSources(
+  playbackControllerId: string | undefined,
+  metadataSourceIds: string[] | undefined,
+): string[] | undefined {
+  return ensureBridgeMetadataSourcesBase(playbackControllerId, metadataSourceIds, {
+    youtubeAvailable: Boolean(process.env.YOUTUBE_API_KEY),
+  })
+}
+
+/**
+ * Resolve metadataSourceIds for the playback controller: seed bridge defaults, or strip
+ * bridge-only sources (youtube/local) for Spotify Connect / other non-bridge controllers.
+ */
+function resolveMetadataSourceIdsForPlayback(
+  playbackControllerId: string | undefined,
+  metadataSourceIds: string[] | undefined,
+): string[] {
+  if (playbackControllerId === "bridge") {
+    return (
+      ensureBridgeMetadataSources(playbackControllerId, metadataSourceIds ?? ["spotify"]) ?? [
+        "spotify",
+      ]
+    )
+  }
+  return stripBridgeOnlyMetadataSources(metadataSourceIds)
 }
 
 function configureAdaptersForRoomType(params: {
@@ -100,21 +132,26 @@ function configureAdaptersForRoomType(params: {
   if (type === "jukebox") {
     return {
       playbackControllerId: playbackControllerId || "spotify",
-      metadataSourceIds: metadataSourceIds,
+      metadataSourceIds: resolveMetadataSourceIdsForPlayback(
+        playbackControllerId || "spotify",
+        metadataSourceIds,
+      ),
       mediaSourceId: mediaSourceId || "spotify",
       mediaSourceConfig,
     }
   } else if (type === "radio") {
+    const resolvedPlayback = playbackControllerId || "spotify"
     return {
-      playbackControllerId: playbackControllerId || "spotify",
-      metadataSourceIds: metadataSourceIds,
+      playbackControllerId: resolvedPlayback,
+      metadataSourceIds: resolveMetadataSourceIdsForPlayback(resolvedPlayback, metadataSourceIds),
       mediaSourceId: mediaSourceId || "shoutcast",
       mediaSourceConfig: mediaSourceConfig || (radioMetaUrl ? { url: radioMetaUrl } : undefined),
     }
   } else if (type === "live") {
+    const resolvedPlayback = playbackControllerId || "spotify"
     return {
-      playbackControllerId: playbackControllerId || "spotify",
-      metadataSourceIds: metadataSourceIds,
+      playbackControllerId: resolvedPlayback,
+      metadataSourceIds: resolveMetadataSourceIdsForPlayback(resolvedPlayback, metadataSourceIds),
       mediaSourceId: mediaSourceId || "rtmp",
       mediaSourceConfig,
     }
@@ -123,7 +160,7 @@ function configureAdaptersForRoomType(params: {
   // Default fallback
   return {
     playbackControllerId,
-    metadataSourceIds,
+    metadataSourceIds: resolveMetadataSourceIdsForPlayback(playbackControllerId, metadataSourceIds),
     mediaSourceId,
     mediaSourceConfig,
   }

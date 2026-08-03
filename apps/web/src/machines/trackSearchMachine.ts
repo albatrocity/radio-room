@@ -1,5 +1,5 @@
 import { assign, setup } from "xstate"
-import { MetadataSourceTrack } from "@repo/types"
+import type { MetadataBrowseAlbum, MetadataBrowseArtist, MetadataSourceTrack } from "@repo/types"
 import { emitToSocket } from "../actors/socketActor"
 
 type RequestError = {
@@ -7,8 +7,20 @@ type RequestError = {
   error?: any
 }
 
+export type SearchBrowseArtist = MetadataBrowseArtist & { source?: string }
+export type SearchBrowseAlbum = MetadataBrowseAlbum & { source?: string }
+
+export type SearchAuthError = {
+  source: string
+  status: number
+  message: string
+}
+
 export interface TrackSearchContext {
   results: MetadataSourceTrack[]
+  artists: SearchBrowseArtist[]
+  albums: SearchBrowseAlbum[]
+  authErrors: SearchAuthError[]
   error: RequestError | null
   total: number
   offset: number
@@ -23,6 +35,9 @@ type TrackSearchEvent =
       type: "TRACK_SEARCH_RESULTS"
       data: {
         items: MetadataSourceTrack[]
+        artists?: SearchBrowseArtist[]
+        albums?: SearchBrowseAlbum[]
+        authErrors?: SearchAuthError[]
         total: number
         offset: number
         next?: string
@@ -48,17 +63,22 @@ export const trackSearchMachine = setup({
       if (event.type !== "TRACK_SEARCH_RESULTS") return {}
       return {
         results: event.data.items || [],
+        artists: event.data.artists || [],
+        albums: event.data.albums || [],
+        authErrors: event.data.authErrors || [],
         total: event.data.total || 0,
         offset: event.data.offset || 0,
         nextUrl: event.data.next,
         prevUrl: event.data.previous,
         limit: event.data.limit || 0,
+        error: null,
       }
     }),
     setError: assign(({ event }) => {
       if (event.type !== "TRACK_SEARCH_RESULTS_FAILURE") return {}
       return {
         error: event.data,
+        authErrors: [],
       }
     }),
   },
@@ -67,6 +87,9 @@ export const trackSearchMachine = setup({
   initial: "idle",
   context: {
     results: [],
+    artists: [],
+    albums: [],
+    authErrors: [],
     error: null,
     total: 0,
     offset: 0,

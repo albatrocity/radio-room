@@ -27,7 +27,8 @@
     "dev": "turbo run dev",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "lint": "turbo run lint",
-    "test": "turbo run test --continue=always"
+    "test": "turbo run test --continue=always",
+    "pack:dj-mac": "./scripts/pack-dj-mac.sh"
   },
   "author": "",
   "license": "ISC",

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@repo/types": "*",
+    "fuse.js": "^7.1.0",
     "zod": "^4.4.2"
   }
 }

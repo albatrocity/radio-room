@@ -8,7 +8,15 @@ import { z } from "zod"
 // MediaSource Schema & Types
 // =============================================================================
 
-export const mediaSourceTypeSchema = z.enum(["spotify", "shoutcast", "rtmp", "applemusic"])
+export const mediaSourceTypeSchema = z.enum([
+  "spotify",
+  "shoutcast",
+  "rtmp",
+  "applemusic",
+  "tidal",
+  "youtube",
+  "local",
+])
 export type MediaSourceType = z.infer<typeof mediaSourceTypeSchema>
 
 export const mediaSourceInfoSchema = z.object({
@@ -21,7 +29,13 @@ export type MediaSourceInfo = z.infer<typeof mediaSourceInfoSchema>
 // MetadataSource Schema & Types
 // =============================================================================
 
-export const metadataSourceTypeSchema = z.enum(["spotify", "tidal", "applemusic"])
+export const metadataSourceTypeSchema = z.enum([
+  "spotify",
+  "tidal",
+  "applemusic",
+  "youtube",
+  "local",
+])
 export type MetadataSourceType = z.infer<typeof metadataSourceTypeSchema>
 
 export const metadataSourceInfoSchema = z.object({

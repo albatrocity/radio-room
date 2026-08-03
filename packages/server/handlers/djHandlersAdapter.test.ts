@@ -15,6 +15,9 @@ vi.mock("../operations/sockets/users", () => ({
 vi.mock("../lib/sendMessage", () => ({
   default: vi.fn(),
 }))
+vi.mock("../operations/room/handleRoomNowPlayingData", () => ({
+  pubMetadataSourceError: vi.fn().mockResolvedValue(undefined),
+}))
 vi.mock("../operations/data", async () => {
   const actual = await vi.importActual("../operations/data")
   return {
@@ -33,6 +36,7 @@ vi.mock("../operations/data", async () => {
 import sendMessage from "../lib/sendMessage"
 import { pubUserJoined } from "../operations/sockets/users"
 import * as dataOps from "../operations/data"
+import { pubMetadataSourceError } from "../operations/room/handleRoomNowPlayingData"
 
 describe("DJHandlers", () => {
   let mockSocket: any
@@ -104,7 +108,7 @@ describe("DJHandlers", () => {
       }),
       searchForTrack: vi.fn().mockResolvedValue({
         success: true,
-        data: { tracks: [{ id: "track123", name: "Test Track" }] },
+        data: [{ id: "track123", title: "Test Track", artist: "A", urls: [] }],
       }),
       savePlaylist: vi.fn().mockResolvedValue({
         success: true,
@@ -127,6 +131,9 @@ describe("DJHandlers", () => {
     // Mock the AdapterService
     adapterService = {
       getRoomMetadataSource: vi.fn().mockResolvedValue(mockMetadataSource),
+      getRoomMetadataSources: vi
+        .fn()
+        .mockResolvedValue(new Map([["spotify", mockMetadataSource]])),
       getUserMetadataSource: vi.fn().mockResolvedValue(mockMetadataSource),
       getRoomPlaybackController: vi.fn().mockResolvedValue({}),
       getRoomMediaSource: vi.fn().mockResolvedValue({}),
@@ -188,7 +195,13 @@ describe("DJHandlers", () => {
     test("calls queueSong with correct parameters", async () => {
       await djHandlers.queueSong({ socket: mockSocket, io: mockIo }, "track123")
 
-      expect(djService.queueSong).toHaveBeenCalledWith("room1", "1", "Homer", "track123")
+      expect(djService.queueSong).toHaveBeenCalledWith(
+        "room1",
+        "1",
+        "Homer",
+        "track123",
+        undefined,
+      )
     })
 
     test("emits SONG_QUEUED event on success", async () => {
@@ -253,15 +266,11 @@ describe("DJHandlers", () => {
     })
 
     test("emits TRACK_SEARCH_RESULTS event on success", async () => {
-      const mockTracks = [{ id: "track123", name: "Test Track" }]
+      const mockTracks = [{ id: "track123", title: "Test Track", artist: "A", urls: [] }]
 
-      // DJService returns raw data that the handler will wrap
-      const mockServiceData = { tracks: mockTracks }
-
-      // Override mock to return specific data
       djService.searchForTrack.mockResolvedValueOnce({
         success: true,
-        data: mockServiceData,
+        data: mockTracks,
       })
 
       await djHandlers.searchForTrack(
@@ -271,24 +280,21 @@ describe("DJHandlers", () => {
         },
       )
 
-      // Handler wraps result.data in { items: ..., total: ..., offset: ..., limit: ... }
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
         type: "TRACK_SEARCH_RESULTS",
         data: {
-          items: mockServiceData,
-          total: 0, // Handler uses result.data.length which is undefined for object, defaults to 0
+          items: [{ ...mockTracks[0], source: "spotify" }],
+          total: 1,
           offset: 0,
           limit: 20,
+          artists: [],
+          albums: [],
         },
       })
     })
 
     test("emits TRACK_SEARCH_RESULTS_FAILURE event when metadata source is not configured", async () => {
-      // Mock DJService to return failure
-      djService.searchForTrack.mockResolvedValueOnce({
-        success: false,
-        message: "No metadata source configured for this room",
-      })
+      adapterService.getRoomMetadataSources.mockResolvedValueOnce(new Map())
 
       await djHandlers.searchForTrack(
         { socket: mockSocket, io: mockIo },
@@ -305,14 +311,10 @@ describe("DJHandlers", () => {
       })
     })
 
-    test("emits TRACK_SEARCH_RESULTS_FAILURE event on failure", async () => {
-      const mockError = new Error("Search failed")
-
-      // Override mock to simulate failure
+    test("emits TRACK_SEARCH_RESULTS with empty items when source search fails", async () => {
       djService.searchForTrack.mockResolvedValueOnce({
         success: false,
         message: "Search failed",
-        error: mockError,
       })
 
       await djHandlers.searchForTrack(
@@ -323,12 +325,53 @@ describe("DJHandlers", () => {
       )
 
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
-        type: "TRACK_SEARCH_RESULTS_FAILURE",
+        type: "TRACK_SEARCH_RESULTS",
         data: {
-          message: "Search failed",
-          error: mockError,
+          items: [],
+          total: 0,
+          offset: 0,
+          limit: 20,
+          artists: [],
+          albums: [],
         },
       })
+      expect(pubMetadataSourceError).not.toHaveBeenCalled()
+    })
+
+    test("includes authErrors and publishes metadata auth error on expired token", async () => {
+      const message =
+        "Search failed: Bad or expired token. This can happen if the user revoked a token or the access token has expired. You should re-authenticate the user."
+      djService.searchForTrack.mockResolvedValueOnce({
+        success: false,
+        message,
+      })
+
+      await djHandlers.searchForTrack(
+        { socket: mockSocket, io: mockIo },
+        {
+          query: "test",
+        },
+      )
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "TRACK_SEARCH_RESULTS",
+        data: {
+          items: [],
+          total: 0,
+          offset: 0,
+          limit: 20,
+          artists: [],
+          albums: [],
+          authErrors: [{ source: "spotify", status: 401, message }],
+        },
+      })
+      expect(pubMetadataSourceError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          roomId: "room1",
+          userId: "1",
+          error: expect.objectContaining({ status: 401, reason: "spotify" }),
+        }),
+      )
     })
   })
 
@@ -557,6 +600,177 @@ describe("DJHandlers", () => {
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
         type: "REMOVE_QUEUE_SPLIT_SUCCESS",
       })
+    })
+  })
+
+  describe("catalog browse", () => {
+    let listArtists: ReturnType<typeof vi.fn>
+    let listAlbums: ReturnType<typeof vi.fn>
+    let getArtist: ReturnType<typeof vi.fn>
+    let getAlbum: ReturnType<typeof vi.fn>
+    let browseableLocal: MetadataSource
+
+    beforeEach(() => {
+      listArtists = vi.fn().mockResolvedValue({
+        items: [{ id: "a1", title: "Artist One" }],
+        total: 1,
+      })
+      listAlbums = vi.fn().mockResolvedValue({
+        items: [{ id: "al1", title: "Album One", artists: [] }],
+        total: 1,
+      })
+      getArtist = vi.fn().mockResolvedValue({
+        artist: { id: "a1", title: "Artist One" },
+        albums: [{ id: "al1", title: "Album", artists: [] }],
+      })
+      getAlbum = vi.fn().mockResolvedValue({
+        album: { id: "al1", title: "Album", artists: [] },
+        tracks: [{ id: "t1", title: "Track", urls: [], artists: [], album: {}, duration: 0 }],
+      })
+      browseableLocal = {
+        name: "local",
+        authentication: { type: "none" },
+        api: {
+          search: async () => [],
+          searchByParams: async () => [],
+          findById: async () => null,
+          listArtists,
+          listAlbums,
+          getArtist,
+          getAlbum,
+          getBrowseCapabilities: () => ({ entryMode: "index", albumSearch: true }),
+        },
+      } as unknown as MetadataSource
+
+      adapterService.getRoomMetadataSources.mockResolvedValue(
+        new Map([
+          ["spotify", mockMetadataSource],
+          ["local", browseableLocal],
+        ]),
+      )
+    })
+
+    test("getEffectiveMetadataSources includes browseableSourceIds", async () => {
+      await djHandlers.getEffectiveMetadataSources({ socket: mockSocket, io: mockIo })
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "EFFECTIVE_METADATA_SOURCES",
+        data: {
+          metadataSourceIds: ["spotify"],
+          browseableSourceIds: [],
+          browseSourceCapabilities: {},
+        },
+      })
+    })
+
+    test("getEffectiveMetadataSources marks local as browseable when effective", async () => {
+      vi.spyOn(dataOps, "findRoom").mockResolvedValueOnce({
+        id: "room1",
+        metadataSourceIds: ["spotify", "local"],
+      } as any)
+
+      await djHandlers.getEffectiveMetadataSources({ socket: mockSocket, io: mockIo })
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "EFFECTIVE_METADATA_SOURCES",
+        data: {
+          metadataSourceIds: ["spotify", "local"],
+          browseableSourceIds: ["local"],
+          browseSourceCapabilities: {
+            local: { entryMode: "index", albumSearch: true },
+          },
+        },
+      })
+    })
+
+    test("browseArtists returns items for browseable source", async () => {
+      await djHandlers.browseArtists(
+        { socket: mockSocket, io: mockIo },
+        { source: "local", query: "art" },
+      )
+
+      expect(listArtists).toHaveBeenCalledWith({
+        query: "art",
+        offset: undefined,
+        limit: undefined,
+      })
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "BROWSE_ARTISTS_RESULTS",
+        data: {
+          source: "local",
+          items: [{ id: "a1", title: "Artist One" }],
+          total: 1,
+        },
+      })
+    })
+
+    test("browseArtists fails when source does not support browse", async () => {
+      await djHandlers.browseArtists({ socket: mockSocket, io: mockIo }, { source: "spotify" })
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "BROWSE_ARTISTS_FAILURE",
+        data: { message: "Metadata source does not support browse" },
+      })
+    })
+
+    test("browseAlbums returns items for browseable source", async () => {
+      await djHandlers.browseAlbums(
+        { socket: mockSocket, io: mockIo },
+        { source: "local", query: "alb" },
+      )
+
+      expect(listAlbums).toHaveBeenCalledWith({
+        query: "alb",
+        offset: undefined,
+        limit: undefined,
+      })
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "BROWSE_ALBUMS_RESULTS",
+        data: {
+          source: "local",
+          items: [{ id: "al1", title: "Album One", artists: [] }],
+          total: 1,
+        },
+      })
+    })
+
+    test("browseAlbum tags tracks with source", async () => {
+      await djHandlers.browseAlbum(
+        { socket: mockSocket, io: mockIo },
+        { source: "local", albumId: "al1" },
+      )
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "BROWSE_ALBUM_RESULTS",
+        data: {
+          source: "local",
+          album: { id: "al1", title: "Album", artists: [] },
+          tracks: [
+            expect.objectContaining({
+              id: "t1",
+              source: "local",
+            }),
+          ],
+        },
+      })
+    })
+
+    test("browseArtist denies when access service rejects", async () => {
+      mockContext.metadataSourceAccess = {
+        canAccess: vi.fn().mockResolvedValue(false),
+        getEffectiveSourceIdsForUser: vi.fn(),
+      } as any
+
+      await djHandlers.browseArtist(
+        { socket: mockSocket, io: mockIo },
+        { source: "local", artistId: "a1" },
+      )
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "BROWSE_ARTIST_FAILURE",
+        data: { message: "You do not have access to this metadata source" },
+      })
+      expect(getArtist).not.toHaveBeenCalled()
     })
   })
 })

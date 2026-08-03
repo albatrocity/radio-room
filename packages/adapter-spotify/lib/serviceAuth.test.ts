@@ -360,6 +360,45 @@ describe("createSpotifyServiceAuthAdapter", () => {
 
       expect(mockGetUserServiceAuth).toHaveBeenCalledTimes(3)
     })
+
+    test("should coalesce concurrent refreshAuth calls for the same user", async () => {
+      mockGetUserServiceAuth.mockResolvedValue({
+        accessToken: "old",
+        refreshToken: "refresh-1",
+        expiresAt: Date.now() - 1000,
+      })
+      mockStoreUserServiceAuth.mockResolvedValue(undefined)
+
+      let resolveRefresh!: (value: {
+        accessToken: string
+        refreshToken: string
+        expiresIn: number
+      }) => void
+      vi.mocked(refreshOp.refreshSpotifyAccessToken).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveRefresh = resolve
+          }),
+      )
+
+      const p1 = spotifyAuthAdapter.refreshAuth("user-coalesce")
+      const p2 = spotifyAuthAdapter.refreshAuth("user-coalesce")
+
+      await vi.waitFor(() => {
+        expect(refreshOp.refreshSpotifyAccessToken).toHaveBeenCalledTimes(1)
+      })
+
+      resolveRefresh({
+        accessToken: "new-access-token",
+        refreshToken: "new-refresh-token",
+        expiresIn: 3600,
+      })
+
+      const [r1, r2] = await Promise.all([p1, p2])
+      expect(r1.accessToken).toBe("new-access-token")
+      expect(r2.accessToken).toBe("new-access-token")
+      expect(refreshOp.refreshSpotifyAccessToken).toHaveBeenCalledTimes(1)
+    })
   })
 })
 

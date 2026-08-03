@@ -4,6 +4,7 @@ import React from "react"
 import { Room } from "../../types/Room"
 import { StationProtocol } from "../../types/StationProtocol"
 import { DEFAULT_LIVE_HLS_URL, DEFAULT_LIVE_WHEP_URL } from "../../lib/liveStreamDefaults"
+import PlaybackControllerSelect from "../PlaybackControllerSelect"
 
 type Props = {
   onChange: (settings: Partial<Room>) => void
@@ -13,6 +14,10 @@ type Props = {
 export default function FormRadioSettings({ onChange, settings }: Props) {
   return (
     <VStack gap={4} w="100%">
+      <PlaybackControllerSelect
+        value={settings?.playbackControllerId ?? "spotify"}
+        onChange={(playbackControllerId) => onChange({ playbackControllerId })}
+      />
       <Field.Root>
         <Field.Label htmlFor="radioListenUrl">Radio URL</Field.Label>
         <Input

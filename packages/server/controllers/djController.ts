@@ -37,6 +37,32 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
     await handlers.searchForTrack(connections, query)
   })
 
+  socket.on("GET_EFFECTIVE_METADATA_SOURCES", async () => {
+    await handlers.getEffectiveMetadataSources(connections)
+  })
+
+  socket.on(
+    "BROWSE_ARTISTS",
+    async (payload: { source: string; query?: string; offset?: number; limit?: number }) => {
+      await handlers.browseArtists(connections, payload)
+    },
+  )
+
+  socket.on(
+    "BROWSE_ALBUMS",
+    async (payload: { source: string; query?: string; offset?: number; limit?: number }) => {
+      await handlers.browseAlbums(connections, payload)
+    },
+  )
+
+  socket.on("BROWSE_ARTIST", async (payload: { source: string; artistId: string }) => {
+    await handlers.browseArtist(connections, payload)
+  })
+
+  socket.on("BROWSE_ALBUM", async (payload: { source: string; albumId: string }) => {
+    await handlers.browseAlbum(connections, payload)
+  })
+
   /**
    * Legacy event name for backward compatibility
    * @deprecated Use "SEARCH_TRACK" instead
@@ -148,6 +174,22 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
 
   socket.on("GET_PLAYBACK_STATE", async () => {
     await handlers.getPlaybackState(connections)
+  })
+
+  socket.on("SEEK_PLAYBACK", async (payload: { positionMs: number }) => {
+    await handlers.seekPlayback(connections, payload)
+  })
+
+  socket.on("SET_PLAYBACK_VOLUME", async (payload: { volumePercent: number }) => {
+    await handlers.setPlaybackVolume(connections, payload)
+  })
+
+  socket.on("LINK_MEDIA_BRIDGE", async () => {
+    await handlers.linkMediaBridge(connections)
+  })
+
+  socket.on("GET_MEDIA_BRIDGE_STATUS", async () => {
+    await handlers.getMediaBridgeStatus(connections)
   })
 }
 

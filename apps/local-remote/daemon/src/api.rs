@@ -1,11 +1,13 @@
+use crate::bridge_supervisor::proxy_to_child;
 use crate::config::{save, Config};
 use crate::farrago::FarragoBoardSnapshot;
 use crate::osc_send::{default_args_to_osc, run_osc_connection_test, send_osc_datagram};
 use crate::state::{SharedState, StatusSnapshot};
+use axum::body::Bytes;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::State;
-use axum::http::StatusCode;
-use axum::response::{Html, IntoResponse, Json};
+use axum::extract::{RawQuery, State};
+use axum::http::{HeaderMap, Method, StatusCode};
+use axum::response::{Html, IntoResponse, Json, Response};
 use axum::routing::{get, post};
 use axum::Router;
 use rosc::OscType;
@@ -32,6 +34,15 @@ pub fn build_router(state: SharedState) -> Router {
         .route("/api/soundboard/play", post(post_soundboard_play))
         .route("/api/soundboard/stop", post(post_soundboard_stop))
         .route("/api/soundboard/ws", get(ws_soundboard))
+        .route(
+            "/api/bridge/config",
+            get(bridge_proxy_get).put(bridge_proxy_put),
+        )
+        .route("/api/bridge/status", get(bridge_proxy_get))
+        .route("/api/bridge/rooms", get(bridge_proxy_get))
+        .route("/api/bridge/connect", post(bridge_proxy_post))
+        .route("/api/bridge/disconnect", post(bridge_proxy_post))
+        .route("/api/bridge/restart", post(bridge_restart))
         .with_state(state)
         .layer(
             CorsLayer::new()
@@ -157,6 +168,7 @@ async fn put_config(
     State(state): State<SharedState>,
     Json(body): Json<Config>,
 ) -> impl IntoResponse {
+    let body = body.with_bridge_now_playing_guard();
     if let Err(e) = body.validate() {
         return (
             StatusCode::BAD_REQUEST,
@@ -181,11 +193,162 @@ async fn put_config(
         *w = body.clone();
     }
     state.reconnect.notify_one();
+    state.bridge_apply.notify_one();
     Json(body).into_response()
 }
 
 async fn get_status(State(state): State<SharedState>) -> Json<StatusSnapshot> {
-    Json(state.snapshot())
+    Json(state.snapshot_with_bridge().await)
+}
+
+async fn child_base(state: &SharedState) -> Result<String, Response> {
+    let (enabled, child_api_base, cfg_clone) = {
+        let cfg = state.config.read().map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "ok": false, "error": "config lock poisoned" })),
+            )
+                .into_response()
+        })?;
+        (
+            cfg.features.bridge.enabled,
+            cfg.features.bridge.child_api_base.clone(),
+            cfg.clone(),
+        )
+    };
+    if !enabled {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "ok": false,
+                "error": "Media Bridge child is disabled (enable features.bridge)"
+            })),
+        )
+            .into_response());
+    }
+    if !state
+        .bridge_supervisor
+        .running
+        .load(std::sync::atomic::Ordering::SeqCst)
+    {
+        let snap = state.bridge_supervisor.snapshot(&cfg_clone).await;
+        let detail = snap
+            .last_error
+            .unwrap_or_else(|| "Media Bridge child is not running yet".into());
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "ok": false, "error": detail })),
+        )
+            .into_response());
+    }
+    Ok(child_api_base)
+}
+
+async fn bridge_proxy(
+    state: SharedState,
+    method: Method,
+    child_path: &str,
+    query: Option<&str>,
+    body: Option<Bytes>,
+) -> Response {
+    let base = match child_base(&state).await {
+        Ok(b) => b,
+        Err(r) => return r,
+    };
+    let path = match query {
+        Some(q) if !q.is_empty() => format!("{child_path}?{q}"),
+        _ => child_path.to_string(),
+    };
+    let req_method = match method {
+        Method::GET => reqwest::Method::GET,
+        Method::PUT => reqwest::Method::PUT,
+        Method::POST => reqwest::Method::POST,
+        _ => {
+            return (
+                StatusCode::METHOD_NOT_ALLOWED,
+                Json(serde_json::json!({ "ok": false, "error": "method not allowed" })),
+            )
+                .into_response();
+        }
+    };
+    match proxy_to_child(
+        &base,
+        req_method,
+        &path,
+        body.map(|b| b.to_vec()),
+    )
+    .await
+    {
+        Ok((status, ctype, bytes)) => {
+            let mut headers = HeaderMap::new();
+            if let Ok(v) = ctype.parse() {
+                headers.insert(axum::http::header::CONTENT_TYPE, v);
+            }
+            (
+                StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY),
+                headers,
+                bytes,
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+        )
+            .into_response(),
+    }
+}
+
+async fn bridge_proxy_get(
+    State(state): State<SharedState>,
+    uri: axum::http::Uri,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let child_path = match uri.path() {
+        "/api/bridge/config" => "/api/config",
+        "/api/bridge/status" => "/api/status",
+        "/api/bridge/rooms" => "/api/rooms",
+        other => other,
+    };
+    bridge_proxy(state, Method::GET, child_path, query.as_deref(), None).await
+}
+
+async fn bridge_proxy_put(
+    State(state): State<SharedState>,
+    body: Bytes,
+) -> Response {
+    bridge_proxy(
+        state,
+        Method::PUT,
+        "/api/config",
+        None,
+        Some(body),
+    )
+    .await
+}
+
+async fn bridge_proxy_post(
+    State(state): State<SharedState>,
+    uri: axum::http::Uri,
+    body: Bytes,
+) -> Response {
+    let child_path = match uri.path() {
+        "/api/bridge/connect" => "/api/connect",
+        "/api/bridge/disconnect" => "/api/disconnect",
+        other => other,
+    };
+    bridge_proxy(state, Method::POST, child_path, None, Some(body)).await
+}
+
+async fn bridge_restart(State(state): State<SharedState>) -> Response {
+    match state.bridge_supervisor.restart(&state).await {
+        Ok(()) => Json(serde_json::json!({ "ok": true })).into_response(),
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({ "ok": false, "error": e.to_string() })),
+        )
+            .into_response(),
+    }
 }
 
 fn soundboard_send_guard(cfg: &Config) -> Result<(), String> {

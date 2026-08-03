@@ -27,6 +27,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 | Guide | Topics |
 | ----- | ------ |
 | [Queue Validation](plugins/queue-validation.md) | Intercepting enqueue requests, fail-open semantics |
+| [Metadata Source Access](plugins/metadata-source-access.md) | Restricted sources, plugin grants, `listMetadataSources` / `canAccessMetadataSource` / `getEffectiveMetadataSourceIds`; browse / Search entities use `search` access ([ADR 0089](adrs/0089-metadata-source-content-browse.md), [ADR 0090](adrs/0090-hybrid-metadata-catalog-browse.md)) |
 | [Data & Export](plugins/data-and-export.md) | Playlist/now-playing augmentation, room exports |
 | [Timer API](plugins/timers.md) | Built-in timer management, countdown patterns |
 
@@ -51,6 +52,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 - [ADR 0006: Plugin system](adrs/0006-plugin-system-for-room-features.md)
 - [ADR 0042: Game sessions and inventory](adrs/0042-game-sessions-and-inventory.md)
 - [ADR 0057: User personas](adrs/0057-user-personas-system.md)
+- [ADR 0088: Metadata source access grants](adrs/0088-metadata-source-access-grants.md)
 - [ADR 0074: Quick Access admin panels](adrs/0074-quick-access-admin-panels.md) — opt-in room FloatingPanels for curated config actions
 - [ADR 0075: Plugin config import actions](adrs/0075-plugin-config-import-actions.md) — schema `configImport`, plugin-owned paste parsers, web execute vs scheduler dry-run API
 - [Backend Development](BACKEND_DEVELOPMENT.md) — server architecture, SystemEvents, broadcasters

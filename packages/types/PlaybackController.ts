@@ -24,6 +24,8 @@ export interface PlaybackControllerApi {
     track: PlaybackControllerQueueItem | null
     progressMs?: number | null
     durationMs?: number | null
+    /** Device/driver volume 0–100 when known. */
+    volumePercent?: number | null
   }>
   play: () => Promise<void>
   /** Start playback of a specific track URI on the active device (e.g. Spotify resource URI). */
@@ -43,6 +45,13 @@ export interface PlaybackControllerApi {
 export type PlaybackControllerLifecycleCallbacks = {
   name: string
   authentication: AdapterAuthentication
+  /** Room id when registering a room-scoped controller instance (e.g. bridge). */
+  roomId?: string
+  /**
+   * Optional preferred Spotify Connect device id (e.g. bridge Web Playback SDK).
+   * When absent or unavailable, adapters fall back to the active device.
+   */
+  getPreferredDeviceId?: () => Promise<string | null>
   onRegistered?: (params: { api: PlaybackControllerApi; name: string }) => void
   onAuthenticationCompleted?: (response?: PlaybackControllerAuthenticationResponse) => void
   onAuthenticationFailed?: (error: Error) => void

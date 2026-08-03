@@ -1,5 +1,12 @@
-import { AppContext, ServiceAuthenticationAdapter } from "@repo/types"
+import { AppContext, ServiceAuthenticationAdapter, ServiceAuthenticationTokens } from "@repo/types"
 import { refreshSpotifyAccessToken } from "./operations/refreshSpotifyAccessToken"
+
+/**
+ * Coalesce concurrent Spotify refreshAuth calls per user.
+ * Spotify may rotate refresh tokens; parallel refreshes race and produce intermittent
+ * "Bad or expired token" failures (bridge TOKEN_REQUEST + 1Hz getPlayback + jobs).
+ */
+const refreshInFlight = new Map<string, Promise<ServiceAuthenticationTokens>>()
 
 /**
  * Spotify Service Authentication Adapter
@@ -49,49 +56,58 @@ export function createSpotifyServiceAuthAdapter(context: AppContext): ServiceAut
     },
 
     async refreshAuth(userId: string) {
-      if (!context.data?.getUserServiceAuth || !context.data?.storeUserServiceAuth) {
-        throw new Error("Data operations not available in context")
+      const existing = refreshInFlight.get(userId)
+      if (existing) {
+        return existing
       }
 
-      const auth = await context.data.getUserServiceAuth({
-        userId,
-        serviceName: "spotify",
+      const promise = (async (): Promise<ServiceAuthenticationTokens> => {
+        if (!context.data?.getUserServiceAuth || !context.data?.storeUserServiceAuth) {
+          throw new Error("Data operations not available in context")
+        }
+
+        const auth = await context.data.getUserServiceAuth({
+          userId,
+          serviceName: "spotify",
+        })
+
+        if (!auth?.refreshToken) {
+          throw new Error("No refresh token available")
+        }
+
+        const clientId = process.env.SPOTIFY_CLIENT_ID
+        const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
+
+        if (!clientId || !clientSecret) {
+          throw new Error("Spotify client credentials not configured")
+        }
+
+        const refreshed = await refreshSpotifyAccessToken(auth.refreshToken, clientId, clientSecret)
+
+        const newTokens = {
+          accessToken: refreshed.accessToken,
+          refreshToken: refreshed.refreshToken,
+          expiresAt: Date.now() + refreshed.expiresIn * 1000,
+        }
+
+        await context.data.storeUserServiceAuth({
+          userId,
+          serviceName: "spotify",
+          tokens: newTokens,
+        })
+
+        context.redis.pubClient.publish(
+          "SPOTIFY:USER_ACCESS_TOKEN_REFRESHED",
+          JSON.stringify({ userId, accessToken: refreshed.accessToken }),
+        )
+
+        return newTokens
+      })().finally(() => {
+        refreshInFlight.delete(userId)
       })
 
-      if (!auth?.refreshToken) {
-        throw new Error("No refresh token available")
-      }
-
-      const clientId = process.env.SPOTIFY_CLIENT_ID
-      const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
-
-      if (!clientId || !clientSecret) {
-        throw new Error("Spotify client credentials not configured")
-      }
-
-      // Call Spotify's token refresh endpoint
-      const refreshed = await refreshSpotifyAccessToken(auth.refreshToken, clientId, clientSecret)
-
-      // Store the new tokens
-      const newTokens = {
-        accessToken: refreshed.accessToken,
-        refreshToken: refreshed.refreshToken,
-        expiresAt: Date.now() + refreshed.expiresIn * 1000,
-      }
-
-      await context.data.storeUserServiceAuth({
-        userId,
-        serviceName: "spotify",
-        tokens: newTokens,
-      })
-
-      // Publish token refresh to notify connected clients
-      context.redis.pubClient.publish(
-        "SPOTIFY:USER_ACCESS_TOKEN_REFRESHED",
-        JSON.stringify({ userId, accessToken: refreshed.accessToken }),
-      )
-
-      return newTokens
+      refreshInFlight.set(userId, promise)
+      return promise
     },
   }
 }

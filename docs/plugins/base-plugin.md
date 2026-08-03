@@ -133,9 +133,15 @@ async executeAction(action: string): Promise<{ success: boolean; message?: strin
 
 #### `validateQueueRequest(params): Promise<QueueValidationResult>` (optional)
 
-Intercept queue requests before they're processed. Use this to implement rate limiting, duplicate detection, or other queue access policies.
+Intercept queue requests before they're processed. Use this to implement rate limiting, duplicate detection, or other queue access policies. `params.mediaSourceType` is set when known.
 
 See [Queue Validation](queue-validation.md#queue-validation) for full documentation.
+
+#### `grantMetadataSourceAccess(params): Promise<"grant" | "abstain">` (optional)
+
+Grant a user access to a **restricted** metadata source on bridge rooms (search/queue). Any `"grant"` wins; errors/timeouts abstain (fail-closed). Discover source ids via `this.context.api.listMetadataSources(roomId)`.
+
+See [Metadata Source Access](metadata-source-access.md).
 
 ```typescript
 async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {

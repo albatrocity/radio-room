@@ -39,7 +39,12 @@ export async function cleanupRoom(context: AppContext, roomId: string) {
   // Pause polling jobs for non-persistent rooms that have been empty for 15+ minutes
   // This reduces unnecessary API calls to Spotify, etc.
   if (!room.persistent) {
-    await checkAndPauseIdleRoomPolling(context, roomId, room.mediaSourceId)
+    await checkAndPauseIdleRoomPolling(
+      context,
+      roomId,
+      room.mediaSourceId,
+      room.playbackControllerId,
+    )
   }
 }
 
@@ -51,6 +56,7 @@ async function checkAndPauseIdleRoomPolling(
   context: AppContext,
   roomId: string,
   mediaSourceId: string | undefined,
+  playbackControllerId?: string | null,
 ) {
   // Skip if already paused
   const alreadyPaused = await isRoomPollingPaused({ context, roomId })
@@ -83,6 +89,8 @@ async function checkAndPauseIdleRoomPolling(
     console.log(`[cleanupRoom] Disabled polling job: ${jobName}`)
   }
 
+  await pauseBridgeJobsIfNeeded({ context, roomId, playbackControllerId })
+
   // Mark the room as having polling paused
   await setRoomPollingPaused({ context, roomId, paused: true })
 }
@@ -97,4 +105,19 @@ function getMediaSourceJobName(mediaSourceId: string, roomId: string): string {
     return `spotify-player-${roomId}`
   }
   return `${mediaSourceId}-${roomId}`
+}
+
+/** Pause bridge advance job when room uses bridge playback controller. */
+async function pauseBridgeJobsIfNeeded(params: {
+  context: AppContext
+  roomId: string
+  playbackControllerId?: string | null
+}) {
+  const { context, roomId, playbackControllerId } = params
+  if (playbackControllerId !== "bridge") return
+  const jobName = `bridge-player-${roomId}`
+  if (context.jobService) {
+    context.jobService.disableJob(jobName)
+    console.log(`[cleanupRooms] Paused ${jobName}`)
+  }
 }

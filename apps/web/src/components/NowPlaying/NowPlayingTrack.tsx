@@ -11,6 +11,7 @@ import {
   Icon,
   Box,
   Image,
+  ScrollArea,
 } from "@chakra-ui/react"
 import { format } from "date-fns"
 
@@ -25,7 +26,9 @@ import { usePluginElementProps } from "../../hooks/usePluginElementProps"
 import { usePreferredMetadataSource } from "../../hooks/useActors"
 import { MetadataSourceType } from "../../types/Queue"
 import { guessTheTuneNowPlayingItemContext } from "../../lib/guessTheTunePluginItemContext"
-import type { PluginElementProps } from "@repo/types"
+import { labelForMetadataSource, type PluginElementProps } from "@repo/types"
+import { NowPlayingTransport } from "./NowPlayingTransport"
+import { getTrackExternalUrl } from "../../lib/getTrackExternalUrl"
 
 type RevealedBy = NonNullable<PluginElementProps["revealedBy"]>
 
@@ -73,14 +76,6 @@ function getCoverUrl(release: any, room: Partial<Room> | null): string | null {
   return null
 }
 
-function getExternalUrl(release: any): string | null {
-  return (
-    (release as any)?.external_urls?.spotify ||
-    release?.urls?.find((u: any) => u.type === "resource")?.url ||
-    null
-  )
-}
-
 /**
  * Get the track data for the user's preferred metadata source,
  * falling back to the default track data if preferred source isn't available
@@ -118,7 +113,7 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   const release = preferredTrack || nowPlaying?.track
 
   const coverUrl = getCoverUrl(release, room)
-  const externalUrl = getExternalUrl(release)
+  const externalUrl = getTrackExternalUrl(release)
   const artworkSize = [24, "100%", "100%"]
 
   // Handle both old format (release_date) and new format (releaseDate)
@@ -155,92 +150,104 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   const addedAt = new Date(nowPlaying?.addedAt ?? 0).toString()
 
   return (
-    <VStack align="start" gap={4} w="100%" data-screen-effect-target="nowPlaying">
-      <LinkBox width="100%">
-        <Stack direction={["row", "column"]} gap={5} justify="center" flexGrow={1}>
-          {coverUrl && (
-            <Box position="relative" width={artworkSize} height={artworkSize}>
-              <Box position="absolute">
-                <PluginArea area="nowPlayingArt" color="primaryBg" />
-              </Box>
-              <Box position="relative" overflow="hidden" height="100%" width="100%">
-                {artworkElementProps.obscured ? (
-                  <Image
-                    src={OBSCURED_ARTWORK_PLACEHOLDER}
-                    alt=""
-                    height="100%"
-                    width="100%"
-                    objectFit="cover"
-                    draggable={false}
-                  />
-                ) : (
-                  <AlbumArtwork coverUrl={coverUrl} />
+    <ScrollArea.Root flex="1 1 auto" minH={0} w="100%" size="sm" variant="hover">
+      <ScrollArea.Viewport>
+        <ScrollArea.Content>
+          <VStack align="start" gap={4} w="100%" data-screen-effect-target="nowPlaying">
+            <LinkBox width="100%">
+              <Stack direction={["row", "column"]} gap={5} justify="center">
+                {coverUrl && (
+                  <Box position="relative" width={artworkSize} height={artworkSize} flexShrink={0}>
+                    <Box position="absolute">
+                      <PluginArea area="nowPlayingArt" color="primaryBg" />
+                    </Box>
+                    <Box position="relative" overflow="hidden" height="100%" width="100%">
+                      {artworkElementProps.obscured ? (
+                        <Image
+                          src={OBSCURED_ARTWORK_PLACEHOLDER}
+                          alt=""
+                          height="100%"
+                          width="100%"
+                          objectFit="cover"
+                          draggable={false}
+                        />
+                      ) : (
+                        <AlbumArtwork coverUrl={coverUrl} />
+                      )}
+                    </Box>
+                  </Box>
                 )}
-              </Box>
-            </Box>
-          )}
-          <VStack align="start" gap={0}>
-            <ObscuredTitleBlock
-              obscured={titleElementProps.obscured}
-              placeholder={titleElementProps.placeholder}
-              revealedBy={titleElementProps.revealedBy}
-              externalUrl={externalUrl}
-              pluginStyles={titleStyles}
-            >
-              {titleDisplay}
-            </ObscuredTitleBlock>
+                <VStack align="start" gap={0} minW={0} w="100%">
+                  <ObscuredTitleBlock
+                    obscured={titleElementProps.obscured}
+                    placeholder={titleElementProps.placeholder}
+                    revealedBy={titleElementProps.revealedBy}
+                    externalUrl={externalUrl}
+                    pluginStyles={titleStyles}
+                  >
+                    {titleDisplay}
+                  </ObscuredTitleBlock>
 
-            <PluginArea area="nowPlayingBadge" />
+                  <PluginArea area="nowPlayingBadge" />
 
-            {artist && (
-              <ObscuredTextBlock
-                obscured={artistElementProps.obscured}
-                placeholder={artistElementProps.placeholder}
-                revealedBy={artistElementProps.revealedBy}
-                asHeading
-              >
-                {artist}
-              </ObscuredTextBlock>
-            )}
+                  {artist && (
+                    <ObscuredTextBlock
+                      obscured={artistElementProps.obscured}
+                      placeholder={artistElementProps.placeholder}
+                      revealedBy={artistElementProps.revealedBy}
+                      asHeading
+                    >
+                      {artist}
+                    </ObscuredTextBlock>
+                  )}
 
-            {album && (
-              <ObscuredTextBlock
-                obscured={albumElementProps.obscured}
-                placeholder={albumElementProps.placeholder}
-                revealedBy={albumElementProps.revealedBy}
-              >
-                {album}
-              </ObscuredTextBlock>
-            )}
+                  {album && (
+                    <ObscuredTextBlock
+                      obscured={albumElementProps.obscured}
+                      placeholder={albumElementProps.placeholder}
+                      revealedBy={albumElementProps.revealedBy}
+                    >
+                      {album}
+                    </ObscuredTextBlock>
+                  )}
 
-            {releaseDate && (
-              <Text as="span" color="primary.contrast/50" fontSize="xs">
-                Released {safeDate(releaseDate)}
-              </Text>
-            )}
+                  {releaseDate && (
+                    <Text as="span" color="primary.contrast/50" fontSize="xs">
+                      Released {safeDate(releaseDate)}
+                    </Text>
+                  )}
 
-            <AddedByInfo dj={djUser} djUsername={djUsername} addedAt={addedAt} />
+                  <AddedByInfo dj={djUser} djUsername={djUsername} addedAt={addedAt} />
 
-            <Box
-              colorPalette="primary"
-              color="colorPalette.contrast"
-              position="relative"
-              zIndex={1}
-              width="100%"
-            >
-              <PluginArea
-                area="nowPlayingInfo"
-                direction="column"
-                color="colorPalette.contrast"
-                itemContext={nowPlayingInfoItemContext}
-              />
-            </Box>
+                  <Box
+                    colorPalette="primary"
+                    color="colorPalette.contrast"
+                    position="relative"
+                    zIndex={1}
+                    width="100%"
+                  >
+                    <PluginArea
+                      area="nowPlayingInfo"
+                      direction="column"
+                      color="colorPalette.contrast"
+                      itemContext={nowPlayingInfoItemContext}
+                    />
+                  </Box>
 
-            <MetadataSourceInfo metadataSource={activeMetadataSource} />
+                  <MetadataSourceInfo metadataSource={activeMetadataSource} />
+                </VStack>
+              </Stack>
+            </LinkBox>
+
+            <NowPlayingTransport room={room} />
           </VStack>
-        </Stack>
-      </LinkBox>
-    </VStack>
+        </ScrollArea.Content>
+      </ScrollArea.Viewport>
+      <ScrollArea.Scrollbar>
+        <ScrollArea.Thumb />
+      </ScrollArea.Scrollbar>
+      <ScrollArea.Corner />
+    </ScrollArea.Root>
   )
 }
 
@@ -431,19 +438,12 @@ function MetadataSourceInfo({ metadataSource }: MetadataSourceInfoProps) {
         return LuMusic
       case "tidal":
         return LuWaves
+      case "youtube":
+        return LuMusic
+      case "local":
+        return LuMusic
       default:
         return null
-    }
-  }
-
-  const getSourceName = (type: string) => {
-    switch (type) {
-      case "spotify":
-        return "Spotify"
-      case "tidal":
-        return "Tidal"
-      default:
-        return type
     }
   }
 
@@ -457,7 +457,7 @@ function MetadataSourceInfo({ metadataSource }: MetadataSourceInfoProps) {
       <HStack gap={1}>
         {SourceIcon && <Icon as={SourceIcon} color="primary.contrast/50" boxSize={3} />}
         <Text color="primary.contrast/50" fontSize="2xs" as="span">
-          {getSourceName(metadataSource.type)}
+          {labelForMetadataSource(metadataSource.type)}
         </Text>
       </HStack>
     </HStack>

@@ -1,82 +1,418 @@
-import React, { useMemo, useCallback } from "react"
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { useMachine } from "@xstate/react"
+import {
+  Badge,
+  Box,
+  Button,
+  Center,
+  HStack,
+  Input,
+  ScrollArea,
+  Spinner,
+  Tabs,
+  Text,
+  VStack,
+} from "@chakra-ui/react"
 
 import { useSocketMachine } from "../hooks/useSocketMachine"
 import { trackSearchMachine } from "../machines/trackSearchMachine"
-import { Box, InputProps, Text } from "@chakra-ui/react"
-
-import { Select, SingleValue } from "chakra-react-select"
-
-import { MetadataSourceTrack } from "@repo/types"
-import TrackItem from "./TrackItem"
 import { createDebouncedInputMachine } from "../machines/debouncedInputMachine"
+import { takeTopByTitleRelevance } from "@repo/utils"
+import type { MetadataSourceTrack } from "@repo/types"
+import { metadataSourceLabel } from "../lib/metadataSourceLabels"
+import EntityThumb from "./EntityThumb"
+import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
+import TrackItem from "./TrackItem"
+import type { CatalogBrowseNavigation } from "./CatalogBrowse"
+
+type TrackWithSource = MetadataSourceTrack & { source?: string }
 
 type Props = {
-  onChoose: (item: SingleValue<MetadataSourceTrack>) => void
-  onDropdownOpenChange?: (isOpen: boolean) => void
-} & InputProps
+  onChoose: (item: MetadataSourceTrack) => void
+  onOpenBrowse?: (nav: CatalogBrowseNavigation) => void
+  /** Controlled source filter (`all` or a metadata source id). */
+  sourceFilter?: string
+  /** True while the search input has a non-empty query (for dimming sibling UI). */
+  onSearchActiveChange?: (isActive: boolean) => void
+  placeholder?: string
+  disabled?: boolean
+  autoFocus?: boolean
+}
 
-function TrackSearch({ onChoose, onDropdownOpenChange }: Props) {
+function TrackSearch({
+  onChoose,
+  onOpenBrowse,
+  sourceFilter = "all",
+  onSearchActiveChange,
+  placeholder = "Search for a track",
+  disabled = false,
+  autoFocus = true,
+}: Props) {
+  const listboxId = useId()
   const [state, send] = useSocketMachine(trackSearchMachine)
-  
-  const handleSearchChange = useCallback((value: string) => {
-    if (value && value !== "") {
-      send({ type: "FETCH_RESULTS", value })
-    }
-  }, [send])
-  
+  const [resultTab, setResultTab] = useState<"tracks" | "artists" | "albums">("tracks")
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      if (value && value !== "") {
+        send({ type: "FETCH_RESULTS", value })
+      }
+    },
+    [send],
+  )
+
   const debounceMachine = useMemo(
     () => createDebouncedInputMachine(handleSearchChange),
-    [handleSearchChange]
+    [handleSearchChange],
   )
-  
+
   const [inputState, inputSend] = useMachine(debounceMachine)
-  const results = state.context.results
-  const isMenuOpen =
-    state.matches("idle") && results.length > 0 && inputState.context.searchValue !== ""
+  const searchValue = inputState.context.value ?? ""
+  const hasQuery = searchValue.trim() !== ""
+
+  const results = state.context.results as TrackWithSource[]
+  const filteredResults = useMemo(() => {
+    if (sourceFilter === "all") return results
+    return results.filter((track) => track.source === sourceFilter)
+  }, [results, sourceFilter])
+
+  const query = searchValue.trim()
+  const { artists: entityArtists, albums: entityAlbums } = useMemo(() => {
+    const artistsRaw = state.context.artists ?? []
+    const albumsRaw = state.context.albums ?? []
+    const artistsFiltered =
+      sourceFilter === "all"
+        ? artistsRaw
+        : artistsRaw.filter((a) => a.source === sourceFilter)
+    const albumsFiltered =
+      sourceFilter === "all"
+        ? albumsRaw
+        : albumsRaw.filter((a) => a.source === sourceFilter)
+
+    if (sourceFilter === "all") {
+      return {
+        artists: takeTopByTitleRelevance(query, artistsFiltered, 5),
+        albums: takeTopByTitleRelevance(query, albumsFiltered, 5),
+      }
+    }
+    return { artists: artistsFiltered, albums: albumsFiltered }
+  }, [state.context.artists, state.context.albums, sourceFilter, query])
+
+  useEffect(() => {
+    onSearchActiveChange?.(hasQuery)
+  }, [hasQuery, onSearchActiveChange])
+
+  useEffect(() => {
+    setActiveIndex(-1)
+    setResultTab("tracks")
+  }, [sourceFilter, query])
+
+  useEffect(() => {
+    if (activeIndex < 0) return
+    optionRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" })
+  }, [activeIndex])
+
+  const chooseTrack = useCallback(
+    (track: TrackWithSource) => {
+      onChoose(track)
+      setActiveIndex(-1)
+    },
+    [onChoose],
+  )
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (disabled || resultTab !== "tracks") return
+
+    if (event.key === "ArrowDown") {
+      if (!hasQuery || filteredResults.length === 0) return
+      event.preventDefault()
+      setActiveIndex((prev) => (prev < filteredResults.length - 1 ? prev + 1 : 0))
+      return
+    }
+
+    if (event.key === "ArrowUp") {
+      if (!hasQuery || filteredResults.length === 0) return
+      event.preventDefault()
+      setActiveIndex((prev) => (prev > 0 ? prev - 1 : filteredResults.length - 1))
+      return
+    }
+
+    if (event.key === "Enter") {
+      if (activeIndex < 0 || activeIndex >= filteredResults.length) return
+      event.preventDefault()
+      const track = filteredResults[activeIndex]
+      if (track) chooseTrack(track)
+      return
+    }
+
+    if (event.key === "Escape") {
+      if (activeIndex >= 0) {
+        event.preventDefault()
+        event.stopPropagation()
+        setActiveIndex(-1)
+      }
+    }
+  }
+
+  const isLoading = state.matches("loading")
+  const showResults = hasQuery
+  const showEntityTabs = Boolean(onOpenBrowse)
+  const authErrors = state.context.authErrors ?? []
+  const authErrorSources = useMemo(() => {
+    const sources = authErrors.map((e) => e.source).filter(Boolean)
+    if (sourceFilter === "all") return sources
+    return sources.filter((s) => s === sourceFilter)
+  }, [authErrors, sourceFilter])
+  const hasAnyResults =
+    filteredResults.length > 0 || entityArtists.length > 0 || entityAlbums.length > 0
+  const activeOptionId =
+    resultTab === "tracks" && activeIndex >= 0 && filteredResults[activeIndex]
+      ? `${listboxId}-option-${activeIndex}`
+      : undefined
+
+  const tracksList = (
+    <VStack
+      id={listboxId}
+      role="listbox"
+      aria-label="Track search results"
+      align="stretch"
+      gap={0}
+      w="100%"
+    >
+      {filteredResults.length === 0 && !isLoading ? (
+        <Text fontSize="sm" color="fg.muted" py={2} px={2}>
+          No tracks found
+          {sourceFilter !== "all" ? ` in ${metadataSourceLabel(sourceFilter)}` : ""}.
+        </Text>
+      ) : (
+        filteredResults.map((track, index) => {
+          const isActive = index === activeIndex
+          return (
+            <Button
+              key={`${track.source ?? "unknown"}-${track.id}-${index}`}
+              ref={(el: HTMLButtonElement | null) => {
+                optionRefs.current[index] = el
+              }}
+              id={`${listboxId}-option-${index}`}
+              role="option"
+              aria-selected={isActive}
+              type="button"
+              variant="ghost"
+              disabled={disabled}
+              justifyContent="flex-start"
+              h="auto"
+              w="100%"
+              minW={0}
+              overflow="hidden"
+              p={2}
+              textAlign="left"
+              borderRadius="md"
+              bg={isActive ? "actionBgLite" : "transparent"}
+              _hover={{ bg: "actionBgLite" }}
+              onMouseEnter={() => setActiveIndex(index)}
+              onClick={() => chooseTrack(track)}
+            >
+              <TrackItem {...track} />
+            </Button>
+          )
+        })
+      )}
+    </VStack>
+  )
+
+  const artistsList = (
+    <VStack align="stretch" gap={0} w="100%">
+      {entityArtists.length === 0 && !isLoading ? (
+        <Text fontSize="sm" color="fg.muted" py={2} px={2}>
+          No artists found.
+        </Text>
+      ) : (
+        entityArtists.map((artist) => (
+          <Button
+            key={`artist-${artist.source}-${artist.id}`}
+            type="button"
+            variant="ghost"
+            disabled={disabled || !onOpenBrowse}
+            justifyContent="flex-start"
+            h="auto"
+            w="100%"
+            p={2}
+            textAlign="left"
+            borderRadius="md"
+            _hover={{ bg: "actionBgLite" }}
+            onClick={() =>
+              onOpenBrowse?.({
+                source: artist.source ?? "spotify",
+                artistId: artist.id,
+                artistTitle: artist.title,
+              })
+            }
+          >
+            <HStack justify="space-between" w="100%" minW={0} gap={2}>
+              <HStack gap={2} minW={0} flex={1}>
+                <EntityThumb images={artist.images} shape="circle" alt="" />
+                <Text fontWeight="medium" truncate>
+                  {artist.title}
+                </Text>
+              </HStack>
+              {artist.source && (
+                <Badge size="sm" variant="subtle" flexShrink={0}>
+                  {metadataSourceLabel(artist.source)}
+                </Badge>
+              )}
+            </HStack>
+          </Button>
+        ))
+      )}
+    </VStack>
+  )
+
+  const albumsList = (
+    <VStack align="stretch" gap={0} w="100%">
+      {entityAlbums.length === 0 && !isLoading ? (
+        <Text fontSize="sm" color="fg.muted" py={2} px={2}>
+          No albums found.
+        </Text>
+      ) : (
+        entityAlbums.map((album) => (
+          <Button
+            key={`album-${album.source}-${album.id}`}
+            type="button"
+            variant="ghost"
+            disabled={disabled || !onOpenBrowse}
+            justifyContent="flex-start"
+            h="auto"
+            w="100%"
+            p={2}
+            textAlign="left"
+            borderRadius="md"
+            _hover={{ bg: "actionBgLite" }}
+            onClick={() =>
+              onOpenBrowse?.({
+                source: album.source ?? "spotify",
+                albumId: album.id,
+                albumTitle: album.title,
+                artistId: album.artists?.[0]?.id,
+                artistTitle: album.artists?.[0]?.title,
+              })
+            }
+          >
+            <HStack justify="space-between" w="100%" minW={0} gap={2}>
+              <HStack gap={2} minW={0} flex={1}>
+                <EntityThumb images={album.images} shape="square" alt="" />
+                <VStack align="start" gap={0} minW={0}>
+                  <Text fontWeight="medium" truncate>
+                    {album.title}
+                  </Text>
+                  {album.artists?.[0]?.title && (
+                    <Text fontSize="xs" color="fg.muted" truncate>
+                      {album.artists[0].title}
+                    </Text>
+                  )}
+                </VStack>
+              </HStack>
+              {album.source && (
+                <Badge size="sm" variant="subtle" flexShrink={0}>
+                  {metadataSourceLabel(album.source)}
+                </Badge>
+              )}
+            </HStack>
+          </Button>
+        ))
+      )}
+    </VStack>
+  )
 
   return (
-    <Box>
-      {state.matches("failure") && <Text color="red">{state.context.error?.message}</Text>}
+    <VStack align="stretch" gap={3} w="100%">
+      {state.matches("failure") && (
+        <Text color="red.500" fontSize="sm">
+          {state.context.error?.message ?? "Search failed"}
+        </Text>
+      )}
 
-      <Select
-        placeholder={"Search for a track"}
-        options={results}
-        menuIsOpen={isMenuOpen}
-        filterOption={() => true}
-        isLoading={state.matches("loading")}
-        autoFocus={true}
-        closeMenuOnSelect={true}
-        components={{
-          DropdownIndicator: null,
-          Option: ({ data, innerRef, innerProps, isFocused }) => (
-            <Box
-              ref={innerRef}
-              {...innerProps}
-              bg="transparent"
-              data-focused={isFocused || undefined}
-              css={{
-                "&[data-focused]": {
-                  bg: "actionBgLite",
-                },
-              }}
-            >
-              <TrackItem {...data} />
-            </Box>
-          ),
-        }}
-        onInputChange={(value) => {
-          inputSend({ type: "SET_VALUE", value })
-        }}
-        onChange={(value) => {
-          onChoose(value)
-        }}
-        onMenuOpen={() => onDropdownOpenChange?.(true)}
-        onMenuClose={() => onDropdownOpenChange?.(false)}
-        openMenuOnFocus={false}
-        openMenuOnClick={false}
+      <Input
+        placeholder={placeholder}
+        value={searchValue}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        onChange={(e) => inputSend({ type: "SET_VALUE", value: e.target.value })}
+        onKeyDown={handleKeyDown}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={showResults}
+        aria-controls={listboxId}
+        aria-activedescendant={activeOptionId}
+        autoComplete="off"
       />
-    </Box>
+
+      {showResults && authErrorSources.length > 0 && (
+        <MetadataSourceAuthAlert sources={authErrorSources} />
+      )}
+
+      {showResults && (
+        <Box>
+          {isLoading && !hasAnyResults && authErrorSources.length === 0 ? (
+            <Center py={6}>
+              <Spinner size="sm" />
+            </Center>
+          ) : showEntityTabs ? (
+            <Tabs.Root
+              value={resultTab}
+              onValueChange={(details) => {
+                setResultTab(details.value as "tracks" | "artists" | "albums")
+                setActiveIndex(-1)
+              }}
+              variant="line"
+              colorPalette="action"
+              size="sm"
+            >
+              <Tabs.List>
+                <Tabs.Trigger value="tracks">Tracks</Tabs.Trigger>
+                <Tabs.Trigger value="artists">Artists</Tabs.Trigger>
+                <Tabs.Trigger value="albums">Albums</Tabs.Trigger>
+              </Tabs.List>
+              <ScrollArea.Root maxH="320px" size="sm" variant="hover" w="100%" mt={2}>
+                <ScrollArea.Viewport>
+                  <ScrollArea.Content>
+                    <Tabs.Content value="tracks" pt={0}>
+                      {tracksList}
+                    </Tabs.Content>
+                    <Tabs.Content value="artists" pt={0}>
+                      {artistsList}
+                    </Tabs.Content>
+                    <Tabs.Content value="albums" pt={0}>
+                      {albumsList}
+                    </Tabs.Content>
+                  </ScrollArea.Content>
+                </ScrollArea.Viewport>
+                <ScrollArea.Scrollbar>
+                  <ScrollArea.Thumb />
+                </ScrollArea.Scrollbar>
+                <ScrollArea.Corner />
+              </ScrollArea.Root>
+            </Tabs.Root>
+          ) : (
+            <ScrollArea.Root maxH="320px" size="sm" variant="hover" w="100%">
+              <ScrollArea.Viewport>
+                <ScrollArea.Content>{tracksList}</ScrollArea.Content>
+              </ScrollArea.Viewport>
+              <ScrollArea.Scrollbar>
+                <ScrollArea.Thumb />
+              </ScrollArea.Scrollbar>
+              <ScrollArea.Corner />
+            </ScrollArea.Root>
+          )}
+          {isLoading && hasAnyResults && (
+            <Center py={2}>
+              <Spinner size="xs" />
+            </Center>
+          )}
+        </Box>
+      )}
+    </VStack>
   )
 }
 

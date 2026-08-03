@@ -27,7 +27,56 @@ import {
 import { refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
 import systemMessage from "../lib/systemMessage"
 import { isStreamingMode, streamingDisplayChanged } from "../lib/streamingMode"
+import {
+  normalizeBridgeMetadataSourceIds as normalizeBridgeMetadataSourceIdsBase,
+  seedBridgeMetadataSources,
+  stripBridgeOnlyMetadataSources,
+} from "@repo/utils"
 import * as scheduling from "./SchedulingService"
+import { AdapterService } from "./AdapterService"
+
+function youtubeApiKeyAvailable(): boolean {
+  return Boolean(process.env.YOUTUBE_API_KEY)
+}
+
+/**
+ * Normalize room metadataSourceIds for bridge rooms (ADR 0087).
+ * Thin wrapper around `@repo/utils` with `YOUTUBE_API_KEY` from the environment.
+ */
+export function normalizeBridgeMetadataSourceIds(
+  metadataSourceIds: string[] | undefined,
+): string[] {
+  const youtubeAvailable = youtubeApiKeyAvailable()
+  if (
+    !youtubeAvailable &&
+    (metadataSourceIds ?? []).includes("youtube")
+  ) {
+    console.warn(
+      "[AdminService] dropping youtube from metadataSourceIds — YOUTUBE_API_KEY not set",
+    )
+  }
+  return normalizeBridgeMetadataSourceIdsBase(metadataSourceIds, { youtubeAvailable })
+}
+
+export type MetadataSourceAccessMode = "open" | "restricted"
+
+/**
+ * Normalize bridge metadataSourceAccess (ADR 0088): only enabled source ids; unknown modes → open.
+ */
+export function normalizeMetadataSourceAccess(
+  access: Record<string, string> | undefined,
+  enabledSourceIds: string[],
+): Record<string, MetadataSourceAccessMode> {
+  const enabled = new Set(enabledSourceIds)
+  const next: Record<string, MetadataSourceAccessMode> = {}
+  for (const id of enabledSourceIds) {
+    const mode = access?.[id]
+    next[id] = mode === "restricted" ? "restricted" : "open"
+  }
+  // Drop keys not in enabled (ignore extras on input by only iterating enabled)
+  void enabled
+  return next
+}
 
 /**
  * A service that handles admin operations without Socket.io dependencies
@@ -294,8 +343,93 @@ export class AdminService {
       ;(newSettings as Room).persistent = !!(sid && String(sid).length > 0)
     }
 
+    const previousPlaybackControllerId = room.playbackControllerId
+    const requestedPlaybackControllerId =
+      "playbackControllerId" in values ? values.playbackControllerId : undefined
+    const playbackControllerChanging =
+      requestedPlaybackControllerId !== undefined &&
+      requestedPlaybackControllerId !== previousPlaybackControllerId &&
+      (room.type === "radio" || room.type === "live")
+
+    if (playbackControllerChanging) {
+      ;(newSettings as Room).playbackControllerId = requestedPlaybackControllerId
+      if (requestedPlaybackControllerId === "bridge") {
+        ;(newSettings as Room).playbackMode = "app-controlled"
+        // Prefer submitted policy when the Content form includes toggles; otherwise seed defaults.
+        const bridgeSources =
+          "metadataSourceIds" in values && Array.isArray(values.metadataSourceIds)
+            ? values.metadataSourceIds
+            : seedBridgeMetadataSources(room.metadataSourceIds, {
+                youtubeAvailable: youtubeApiKeyAvailable(),
+              })
+        const normalizedIds = normalizeBridgeMetadataSourceIds(bridgeSources)
+        ;(newSettings as Room).metadataSourceIds = normalizedIds
+        const accessInput =
+          "metadataSourceAccess" in values && values.metadataSourceAccess
+            ? values.metadataSourceAccess
+            : room.metadataSourceAccess
+        ;(newSettings as Room).metadataSourceAccess = normalizeMetadataSourceAccess(
+          accessInput,
+          normalizedIds,
+        )
+      } else if (previousPlaybackControllerId === "bridge") {
+        // Leaving bridge: stop searching YouTube/Library (auto-added for bridge only).
+        ;(newSettings as Room).metadataSourceIds = stripBridgeOnlyMetadataSources(
+          room.metadataSourceIds,
+        )
+        // Access baseline is bridge-only (ADR 0088).
+        ;(newSettings as Room).metadataSourceAccess = {}
+      }
+    } else if ("playbackControllerId" in values && room.type === "jukebox") {
+      // Jukebox always uses Spotify; ignore client overrides.
+      delete (newSettings as { playbackControllerId?: string }).playbackControllerId
+    }
+
+    // Room policy toggles while already on bridge (do not re-seed withBridge defaults)
+    const effectivePlaybackControllerId =
+      (newSettings as Room).playbackControllerId ?? room.playbackControllerId
+    if (
+      !playbackControllerChanging &&
+      "metadataSourceIds" in values &&
+      effectivePlaybackControllerId === "bridge"
+    ) {
+      ;(newSettings as Room).metadataSourceIds = normalizeBridgeMetadataSourceIds(
+        values.metadataSourceIds,
+      )
+    }
+
+    if (effectivePlaybackControllerId === "bridge") {
+      const enabledIds =
+        (newSettings as Room).metadataSourceIds ??
+        room.metadataSourceIds ??
+        []
+      if ("metadataSourceAccess" in values || "metadataSourceIds" in values) {
+        const accessInput =
+          "metadataSourceAccess" in values
+            ? values.metadataSourceAccess
+            : ((newSettings as Room).metadataSourceAccess ?? room.metadataSourceAccess)
+        ;(newSettings as Room).metadataSourceAccess = normalizeMetadataSourceAccess(
+          accessInput as Record<string, string> | undefined,
+          enabledIds,
+        )
+      }
+    } else if (!playbackControllerChanging && "metadataSourceAccess" in values) {
+      // Non-bridge: ignore client-submitted access maps
+      delete (newSettings as { metadataSourceAccess?: unknown }).metadataSourceAccess
+    }
+
     // Save room settings FIRST so handleRoomNowPlayingData sees the correct fetchMeta value
     await saveRoom({ context: this.context, room: newSettings })
+
+    if (playbackControllerChanging && requestedPlaybackControllerId) {
+      await this.rewirePlaybackController({
+        roomId,
+        roomType: room.type,
+        creatorUserId: room.creator,
+        previousPlaybackControllerId,
+        nextPlaybackControllerId: requestedPlaybackControllerId,
+      })
+    }
 
     if (
       room.type === "radio" &&
@@ -374,6 +508,56 @@ export class AdminService {
     }
 
     return { room: updatedRoom, error: null }
+  }
+
+  /**
+   * Tear down the previous playback-controller adapter jobs and register the new one.
+   * Soft-fails so a settings save is not rolled back if wiring throws.
+   */
+  private async rewirePlaybackController(params: {
+    roomId: string
+    roomType: Room["type"]
+    creatorUserId: string
+    previousPlaybackControllerId?: string
+    nextPlaybackControllerId: string
+  }) {
+    const {
+      roomId,
+      roomType,
+      creatorUserId,
+      previousPlaybackControllerId,
+      nextPlaybackControllerId,
+    } = params
+
+    try {
+      if (previousPlaybackControllerId) {
+        const previous = this.context.adapters.playbackControllerModules.get(
+          previousPlaybackControllerId,
+        )
+        if (previous?.onRoomDeleted) {
+          await previous.onRoomDeleted({ roomId, context: this.context })
+        }
+      }
+
+      // Best-effort: drop caches on a fresh service instance. Long-lived AdapterService
+      // instances (e.g. DJService) also invalidate when room.playbackControllerId changes.
+      new AdapterService(this.context).clearRoomPlaybackControllerCache(roomId)
+
+      const next = this.context.adapters.playbackControllerModules.get(nextPlaybackControllerId)
+      if (next?.onRoomCreated) {
+        await next.onRoomCreated({
+          roomId,
+          userId: creatorUserId,
+          roomType,
+          context: this.context,
+        })
+      }
+    } catch (e) {
+      console.error(
+        `[setRoomSettings] Failed to rewire playback controller ${previousPlaybackControllerId} → ${nextPlaybackControllerId}:`,
+        e,
+      )
+    }
   }
 
   /**

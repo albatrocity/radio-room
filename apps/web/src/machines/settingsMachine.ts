@@ -32,6 +32,7 @@ export type SettingsContext = Pick<
   | "showSchedulePublic"
   | "announceActiveSegment"
   | "public"
+  | "playbackControllerId"
 > & {
   /** Generic plugin configs keyed by plugin name */
   pluginConfigs: Record<string, Record<string, unknown>>
@@ -86,6 +87,7 @@ const defaultContext: SettingsContext = {
   liveIngestEnabled: false,
   liveWhepUrl: "",
   liveHlsUrl: "",
+  playbackControllerId: undefined,
   pluginConfigs: {},
   subscriptionId: null,
 }
@@ -167,6 +169,7 @@ export const settingsMachine = setup({
           showSchedulePublic: event.data.room.showSchedulePublic,
           announceActiveSegment: event.data.room.announceActiveSegment,
           public: event.data.room.public,
+          playbackControllerId: event.data.room.playbackControllerId,
           pluginConfigs,
         }
         return newContext

@@ -62,6 +62,8 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
       }}
       direction="column"
       height="100%"
+      minH={0}
+      overflow="hidden"
       background="primary.solid"
       layerStyle="themeTransition"
     >

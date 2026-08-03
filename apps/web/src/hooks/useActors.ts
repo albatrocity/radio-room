@@ -45,6 +45,9 @@ import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
 import { lobbyActor } from "../actors/lobbyActor"
 import { pollActor } from "../actors/pollActor"
 import { quickAccessPanelsActor } from "../actors/quickAccessPanelsActor"
+import { mediaBridgeActor } from "../actors/mediaBridgeActor"
+import { effectiveMetadataSourcesActor } from "../actors/effectiveMetadataSourcesActor"
+import type { MetadataBrowseCapabilities } from "@repo/types"
 import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { MetadataSourceType, QueueItem } from "../types/Queue"
 
@@ -87,6 +90,7 @@ const sendToLobby = boundSendRef(lobbyActor)
 const sendToAdminListener = boundSendRef(adminListenerStateActor)
 const sendToPoll = boundSendRef(pollActor)
 const sendToQuickAccessPanels = boundSendRef(quickAccessPanelsActor)
+const sendToMediaBridge = boundSendRef(mediaBridgeActor)
 
 // ============================================================================
 // Auth Hooks
@@ -696,6 +700,42 @@ export const useQuickAccessPanels = () => {
 }
 
 export const useQuickAccessPanelsSend = () => sendToQuickAccessPanels
+
+// ============================================================================
+// Media Bridge Hooks
+// ============================================================================
+
+export const useMediaBridgeConnected = () => {
+  return useSelector(mediaBridgeActor, (s) => s.matches({ active: "connected" }))
+}
+
+export const useMediaBridgeLinking = () => {
+  return useSelector(mediaBridgeActor, (s) => s.matches({ active: "linking" }))
+}
+
+/** Daemon CAPABILITIES services when known; null until status includes services. */
+export const useMediaBridgeServices = (): string[] | null => {
+  return useSelector(mediaBridgeActor, (s) => s.context.services)
+}
+
+export const useMediaBridgeSend = () => sendToMediaBridge
+
+// ============================================================================
+// Effective metadata sources (ADR 0088 / 0089 / 0090)
+// ============================================================================
+
+/** Per-user effective search source ids; null until first server payload. */
+export const useEffectiveMetadataSourceIds = (): string[] | null => {
+  return useSelector(effectiveMetadataSourcesActor, (s) => s.context.metadataSourceIds)
+}
+
+export const useBrowseableMetadataSourceIds = (): string[] | null => {
+  return useSelector(effectiveMetadataSourcesActor, (s) => s.context.browseableSourceIds)
+}
+
+export const useBrowseSourceCapabilities = (): Record<string, MetadataBrowseCapabilities> => {
+  return useSelector(effectiveMetadataSourcesActor, (s) => s.context.browseSourceCapabilities)
+}
 
 // ============================================================================
 // Lobby Hooks

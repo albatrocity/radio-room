@@ -59,12 +59,15 @@ return rejectQueueRequest("You added the last song. Wait for another DJ to add o
 
 The `params` object contains:
 
-| Field      | Type     | Description                           |
-| ---------- | -------- | ------------------------------------- |
-| `roomId`   | `string` | The room where the request originated |
-| `userId`   | `string` | The user attempting to queue a song   |
-| `username` | `string` | The user's display name               |
-| `trackId`  | `string` | The track being queued                |
+| Field             | Type     | Description                                              |
+| ----------------- | -------- | -------------------------------------------------------- |
+| `roomId`          | `string` | The room where the request originated                    |
+| `userId`          | `string` | The user attempting to queue a song                      |
+| `username`        | `string` | The user's display name                                  |
+| `trackId`         | `string` | The track being queued                                   |
+| `mediaSourceType` | `string?`| Metadata source for the track (`spotify`, `youtube`, …) |
+
+Metadata source **access** (restricted sources / plugin grants) is evaluated before this hook. See [Metadata Source Access](metadata-source-access.md).
 
 ### Fail-Open Semantics
 

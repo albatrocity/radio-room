@@ -29,7 +29,7 @@ import { queueItemFactory } from "@repo/factories"
 import { AdapterService } from "./AdapterService"
 import { DefenseService } from "./DefenseService"
 import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
-import { shouldAdvanceToNextQueueItem } from "../lib/playbackHelpers"
+import { canResumeCurrentTrack, shouldAdvanceToNextQueueItem } from "../lib/playbackHelpers"
 
 function isSameMultiset(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false
@@ -58,6 +58,21 @@ function attributionToAddedBy(
 
 const APP_CONTROLLED_ONLY_MESSAGE =
   "Operation only available in app-controlled playback mode"
+
+type PlaybackStateSuccess = {
+  success: true
+  state: "playing" | "paused" | "stopped"
+  trackId: string | null
+  canResume: boolean
+  progressMs: number | null
+  durationMs: number | null
+  volumePercent: number | null
+  supportsVolume: boolean
+}
+
+/** Short TTL so admin scrubber polls don't hammer Spotify / bridge RPC. */
+const PLAYBACK_STATE_CACHE_TTL_MS = 2500
+const playbackStateCache = new Map<string, { at: number; value: PlaybackStateSuccess }>()
 
 /**
  * A service that handles DJ-related operations without Socket.io dependencies
@@ -119,12 +134,13 @@ export class DJService {
     userId: string,
     username: string,
     trackId: QueueItem["track"]["id"],
+    mediaSourceType?: string,
   ) {
     return this.queueSongAs(
       roomId,
       { type: "user", userId, username },
       trackId,
-      { runPluginValidation: true },
+      { runPluginValidation: true, mediaSourceType },
     )
   }
 
@@ -139,11 +155,17 @@ export class DJService {
     roomId: string,
     attribution: QueueItemAttribution,
     metadataTrackId: QueueItem["track"]["id"],
-    options?: { runPluginValidation?: boolean; suppressQueueChanged?: boolean },
+    options?: {
+      runPluginValidation?: boolean
+      suppressQueueChanged?: boolean
+      /** Metadata/media source that owns this track id (spotify, youtube, …). */
+      mediaSourceType?: string
+    },
   ) {
     const addedBy = attributionToAddedBy(attribution)
     const runValidation = options?.runPluginValidation ?? false
     const suppressQueueChanged = options?.suppressQueueChanged ?? false
+    const sourceType = options?.mediaSourceType ?? "spotify"
 
     const queue = await getQueue({ context: this.context, roomId })
 
@@ -166,12 +188,35 @@ export class DJService {
       }
     }
 
+    const room = await findRoom({ context: this.context, roomId })
+
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+
+    // ADR 0088: bridge restricted sources require admin or plugin grant
+    if (attribution.type === "user" && this.context.metadataSourceAccess) {
+      const canAccess = await this.context.metadataSourceAccess.canAccess({
+        roomId,
+        userId: attribution.userId,
+        sourceId: sourceType,
+        action: "queue",
+      })
+      if (!canAccess) {
+        return {
+          success: false as const,
+          message: `You do not have access to queue from ${sourceType}`,
+        }
+      }
+    }
+
     if (runValidation && this.context.pluginRegistry) {
       const validationResult = await this.context.pluginRegistry.validateQueueRequest({
         roomId,
         userId: addedBy.userId,
         username: addedBy.username,
         trackId: metadataTrackId,
+        mediaSourceType: sourceType,
       })
 
       if (!validationResult.allowed) {
@@ -180,12 +225,6 @@ export class DJService {
           message: validationResult.reason ?? "Queue request was rejected",
         }
       }
-    }
-
-    const room = await findRoom({ context: this.context, roomId })
-
-    if (!room) {
-      return { success: false as const, message: "Room not found" }
     }
 
     const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
@@ -197,27 +236,71 @@ export class DJService {
       }
     }
 
-    const metadataSource = await this.adapterService.getUserMetadataSource(roomId, room.creator)
+    let resolvedSource = sourceType
+    let metadataSource = options?.mediaSourceType
+      ? await this.adapterService.getMetadataSourceForUser(
+          roomId,
+          room.creator,
+          options.mediaSourceType,
+        )
+      : await this.adapterService.getUserMetadataSource(roomId, room.creator)
 
-    if (!metadataSource) {
-      return {
-        success: false as const,
-        message: "No metadata source configured for this room",
+    let track: MetadataSourceTrack | null = null
+
+    if (metadataSource) {
+      try {
+        track = await metadataSource.api.findById(metadataTrackId)
+      } catch (error) {
+        return {
+          success: false as const,
+          message: "Failed to fetch track information",
+          error,
+        }
       }
     }
 
-    let track: MetadataSourceTrack | null
-
-    try {
-      track = await metadataSource.api.findById(metadataTrackId)
-      if (!track) {
-        return { success: false as const, message: "Track not found" }
+    if (!track) {
+      const all = await this.adapterService.getRoomMetadataSources(roomId)
+      for (const [name, src] of all) {
+        try {
+          track = await src.api.findById(metadataTrackId)
+          if (track) {
+            resolvedSource = name
+            metadataSource = src
+            break
+          }
+        } catch {
+          /* try next */
+        }
       }
-    } catch (error) {
+    }
+
+    if (!track) {
       return {
         success: false as const,
-        message: "Failed to fetch track information",
-        error,
+        message: metadataSource
+          ? "Track not found"
+          : "No metadata source configured for this room",
+      }
+    }
+
+    // Re-check after fallback resolution (source may differ from the requested type)
+    if (
+      attribution.type === "user" &&
+      this.context.metadataSourceAccess &&
+      resolvedSource !== sourceType
+    ) {
+      const canAccessResolved = await this.context.metadataSourceAccess.canAccess({
+        roomId,
+        userId: attribution.userId,
+        sourceId: resolvedSource,
+        action: "queue",
+      })
+      if (!canAccessResolved) {
+        return {
+          success: false as const,
+          message: `You do not have access to queue from ${resolvedSource}`,
+        }
       }
     }
 
@@ -232,11 +315,11 @@ export class DJService {
     const queuedItem = queueItemFactory.build({
       track,
       mediaSource: {
-        type: "spotify",
+        type: resolvedSource as any,
         trackId: track.id,
       },
       metadataSource: {
-        type: "spotify",
+        type: resolvedSource as any,
         trackId: track.id,
       },
       addedBy,
@@ -315,10 +398,12 @@ export class DJService {
         data,
       }
     } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e)
       return {
         success: false,
-        message:
-          "Something went wrong when trying to search for tracks. You might need to log in to Spotify's OAuth",
+        message: detail
+          ? `Search failed: ${detail}`
+          : "Something went wrong when trying to search for tracks",
         error: e,
       }
     }
@@ -660,7 +745,7 @@ export class DJService {
       await addToQueue({ context: this.context, roomId, item: queueItem })
       return {
         success: false as const,
-        message: "Failed to start playback on Spotify",
+        message: "Failed to start playback",
       }
     }
 
@@ -714,22 +799,164 @@ export class DJService {
       return { success: false as const, message: "Playback controller does not support reading state" }
     }
 
+    const cached = playbackStateCache.get(roomId)
+    if (cached && Date.now() - cached.at < PLAYBACK_STATE_CACHE_TTL_MS) {
+      return cached.value
+    }
+
     try {
       const playback = await getPlayback()
       const trackId =
         playback.track && typeof playback.track === "object" && "id" in playback.track
           ? String((playback.track as { id: string }).id)
           : null
-      return {
-        success: true as const,
+      const volumePercent =
+        typeof playback.volumePercent === "number" ? playback.volumePercent : null
+      const value: PlaybackStateSuccess = {
+        success: true,
         state: playback.state,
         trackId,
+        canResume: canResumeCurrentTrack(playback),
+        progressMs: playback.progressMs ?? null,
+        durationMs: playback.durationMs ?? null,
+        volumePercent,
+        supportsVolume: Boolean(playbackController.api.setVolume),
       }
+      playbackStateCache.set(roomId, { at: Date.now(), value })
+      return value
     } catch (e) {
       console.error("[DJService.getPlaybackState] getPlayback failed:", e)
       return {
         success: false as const,
-        message: "Failed to read playback state from Spotify",
+        message: "Failed to read playback state",
+      }
+    }
+  }
+
+  /**
+   * App-controlled: seek within the current track. Room creator or room admin only.
+   */
+  async seekPlayback(roomId: string, userId: string, positionMs: number) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "This action is only available in app-controlled playback mode",
+      }
+    }
+
+    const allowed = await isRoomAdmin({
+      context: this.context,
+      roomId,
+      userId,
+      roomCreator: room.creator,
+    })
+    if (!allowed) {
+      return { success: false as const, message: "Not authorized to control playback" }
+    }
+
+    if (!Number.isFinite(positionMs) || positionMs < 0) {
+      return { success: false as const, message: "Invalid seek position" }
+    }
+
+    const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
+    if (!playbackController) {
+      return { success: false as const, message: "No playback controller configured for this room" }
+    }
+
+    try {
+      const playback = await playbackController.api.getPlayback()
+      if (!playback.track) {
+        return { success: false as const, message: "Nothing is currently playing" }
+      }
+
+      const clamped =
+        playback.durationMs != null && playback.durationMs > 0
+          ? Math.min(Math.round(positionMs), playback.durationMs)
+          : Math.round(positionMs)
+
+      await playbackController.api.seekTo(clamped)
+      playbackStateCache.delete(roomId)
+      return {
+        success: true as const,
+        positionMs: clamped,
+      }
+    } catch (e) {
+      console.error("[DJService.seekPlayback] failed:", e)
+      return {
+        success: false as const,
+        message: "Failed to seek playback",
+      }
+    }
+  }
+
+  /**
+   * App-controlled: set broadcast/device volume (0–100). Room creator or room admin only.
+   */
+  async setPlaybackVolume(roomId: string, userId: string, volumePercent: number) {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found" }
+    }
+    if (!isAppControlledPlayback(room)) {
+      return {
+        success: false as const,
+        message: "This action is only available in app-controlled playback mode",
+      }
+    }
+
+    const allowed = await isRoomAdmin({
+      context: this.context,
+      roomId,
+      userId,
+      roomCreator: room.creator,
+    })
+    if (!allowed) {
+      return { success: false as const, message: "Not authorized to control playback" }
+    }
+
+    if (!Number.isFinite(volumePercent)) {
+      return { success: false as const, message: "Invalid volume" }
+    }
+
+    const clamped = Math.round(Math.max(0, Math.min(100, volumePercent)))
+
+    const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
+    if (!playbackController) {
+      return { success: false as const, message: "No playback controller configured for this room" }
+    }
+
+    const setVolume = playbackController.api.setVolume
+    if (!setVolume) {
+      return {
+        success: false as const,
+        message: "Playback controller does not support volume control",
+      }
+    }
+
+    try {
+      await setVolume(clamped)
+      const { handlePlaybackVolumeChange } = await import(
+        "../operations/playback/handlePlaybackVolumeChange"
+      )
+      await handlePlaybackVolumeChange({
+        context: this.context,
+        roomId,
+        volumePercent: clamped,
+      })
+      playbackStateCache.delete(roomId)
+      return {
+        success: true as const,
+        volumePercent: clamped,
+      }
+    } catch (e) {
+      console.error("[DJService.setPlaybackVolume] failed:", e)
+      return {
+        success: false as const,
+        message: "Failed to set playback volume",
       }
     }
   }
@@ -776,7 +1003,12 @@ export class DJService {
 
       if (playback.state === "playing") {
         await api.pause()
-        return { success: true as const, state: "paused" as const, action: "paused" as const }
+        return {
+          success: true as const,
+          state: "paused" as const,
+          action: "paused" as const,
+          canResume: canResumeCurrentTrack({ ...playback, state: "paused" }),
+        }
       }
 
       const queue = await getQueue({ context: this.context, roomId })
@@ -796,12 +1028,18 @@ export class DJService {
             state: "playing" as const,
             action: "advanced" as const,
             trackTitle: playResult.trackTitle,
+            canResume: true,
           }
         }
       }
 
       await api.play()
-      return { success: true as const, state: "playing" as const, action: "resumed" as const }
+      return {
+        success: true as const,
+        state: "playing" as const,
+        action: "resumed" as const,
+        canResume: true,
+      }
     } catch (e) {
       console.error("[DJService.togglePlayback] failed:", e)
       return {

@@ -14,9 +14,12 @@ import {
 export default function ButtonRoomAuthSpotify({
   hideText = false,
   serviceName = "spotify",
+  /** Show link CTA even when status says authenticated (e.g. expired token mid-session). */
+  forceRelink = false,
 }: {
   hideText?: boolean
   serviceName?: string
+  forceRelink?: boolean
 }) {
   const currentUser = useCurrentUser()
   const location = useLocation()
@@ -39,30 +42,33 @@ export default function ButtonRoomAuthSpotify({
   }, [currentUser?.userId, serviceName, metadataSend, location.pathname])
 
   const serviceDisplayName = serviceName.charAt(0).toUpperCase() + serviceName.slice(1)
+  const showLink = forceRelink || (!isLoading && !isAuthenticated)
 
   return (
     <Box>
-      {isLoading && <Spinner size="sm" />}
-      {!isLoading && !isAuthenticated && (
+      {isLoading && !forceRelink && <Spinner size="sm" />}
+      {showLink && (
         <VStack align="flex-start">
-          <Button asChild>
+          <Button asChild size="sm" colorPalette="action">
             <Link
               href={`${import.meta.env.VITE_API_URL}/auth/${serviceName}/login?userId=${
                 currentUser?.userId
               }&redirect=${encodeURIComponent(location.pathname)}`}
             >
               {serviceName === "spotify" && <Icon as={LuMusic} />}
-              Link {serviceDisplayName}
+              {forceRelink || isAuthenticated ? `Re-link ${serviceDisplayName}` : `Link ${serviceDisplayName}`}
             </Link>
           </Button>
           {!hideText && (
-            <Text fontSize="sm" mt={2} color="blackAlpha.700">
-              Link your {serviceDisplayName} account to pull artwork and release info
+            <Text fontSize="sm" mt={2} color="fg.muted">
+              {forceRelink
+                ? `Your ${serviceDisplayName} session expired. Re-link to search and browse again.`
+                : `Link your ${serviceDisplayName} account to pull artwork and release info`}
             </Text>
           )}
         </VStack>
       )}
-      {isAuthenticated && (
+      {!forceRelink && !isLoading && isAuthenticated && (
         <HStack gap={2}>
           <Icon as={LuCheck} color="primary" _dark={{ color: "secondaryText" }} />
           <Text fontSize="sm">Your {serviceDisplayName} account is linked to this room.</Text>

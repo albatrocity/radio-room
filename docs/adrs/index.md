@@ -82,6 +82,20 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0074](0074-quick-access-admin-panels.md) | Quick Access admin panels for plugin actions | Accepted |
 | [0075](0075-plugin-config-import-actions.md) | Schema-declared plugin config import actions (plugin-owned parsers) | Accepted |
 | [0076](0076-admin-ui-code-splitting-for-non-admins.md) | Role-gated admin UI code splitting so non-admins do not download settings/config form | Accepted |
+| [0077](0077-bridge-composite-playback-controller.md) | Bridge composite playback controller and Mac daemon | Partially superseded by [0078](0078-spotify-web-playback-sdk-device.md) |
+| [0078](0078-spotify-web-playback-sdk-device.md) | Spotify Web Playback SDK device in bridge Chrome | Accepted |
+| [0079](0079-bridge-daemon-local-control-ui.md) | Bridge daemon local control UI (room discovery + config) | Partially superseded by [0084](0084-dj-mac-single-zip-supervised-bridge.md) |
+| [0080](0080-now-playing-seek-and-volume-transport.md) | Now Playing seek and volume transport controls | Partially superseded by [0081](0081-volume-ui-via-volume-manager-plugin.md) |
+| [0081](0081-volume-ui-via-volume-manager-plugin.md) | Live volume UI via Volume Manager plugin | Accepted |
+| [0082](0082-media-bridge-link-via-redis-pubsub.md) | Media Bridge link via Redis Pub/Sub | Accepted |
+| [0083](0083-media-bridge-connection-status-to-clients.md) | Media Bridge connection status to clients | Accepted |
+| [0084](0084-dj-mac-single-zip-supervised-bridge.md) | DJ Mac single-zip distribution with supervised Media Bridge | Accepted |
+| [0085](0085-multi-source-search-relevance-ranking.md) | Multi-source DJ search relevance ranking | Accepted |
+| [0086](0086-metadata-search-result-cache.md) | Metadata search result cache (SimpleCache + YouTube first) | Accepted |
+| [0087](0087-room-bridge-media-source-policy.md) | Room-level Media Bridge source policy (metadataSourceIds toggles) | Accepted |
+| [0088](0088-metadata-source-access-grants.md) | Metadata source access (room baseline + plugin grants) | Accepted |
+| [0089](0089-metadata-source-content-browse.md) | Metadata source content browse (artists → albums → tracks) | Partially superseded by [0090](0090-hybrid-metadata-catalog-browse.md) |
+| [0090](0090-hybrid-metadata-catalog-browse.md) | Hybrid metadata catalog browse (search-entry + Search entity rows) | Accepted |
 
 ## Creating a New ADR
 

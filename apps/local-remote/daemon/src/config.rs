@@ -57,6 +57,50 @@ pub struct Features {
     /// macOS Now Playing watcher: publishes track metadata to Redis and writes Now Playing.txt.
     #[serde(default)]
     pub now_playing: NowPlayingFeature,
+    /// Supervise packed bridge-daemon (Node child) and proxy `/api/bridge/*`.
+    #[serde(default)]
+    pub bridge: BridgeFeature,
+}
+
+fn default_bridge_child_api_base() -> String {
+    "http://127.0.0.1:18766".to_string()
+}
+
+/// Relative to the `local-remote` executable directory when not absolute.
+fn default_bridge_node_path() -> String {
+    "runtime/node".to_string()
+}
+
+fn default_bridge_daemon_path() -> String {
+    "bridge-daemon/daemon.cjs".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BridgeFeature {
+    #[serde(default)]
+    pub enabled: bool,
+    /// After child is healthy, POST /api/connect using roomId (or child's defaultRoomId).
+    #[serde(default)]
+    pub auto_connect: bool,
+    #[serde(default = "default_bridge_node_path")]
+    pub node_path: String,
+    #[serde(default = "default_bridge_daemon_path")]
+    pub daemon_path: String,
+    #[serde(default = "default_bridge_child_api_base")]
+    pub child_api_base: String,
+}
+
+impl Default for BridgeFeature {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            auto_connect: false,
+            node_path: default_bridge_node_path(),
+            daemon_path: default_bridge_daemon_path(),
+            child_api_base: default_bridge_child_api_base(),
+        }
+    }
 }
 
 fn default_now_playing_file_path() -> String {
@@ -177,7 +221,24 @@ impl Config {
                 anyhow::bail!("features.soundboard.oscListenPort must be non-zero when soundboard is enabled");
             }
         }
+        let br = &self.features.bridge;
+        if br.enabled {
+            if br.child_api_base.trim().is_empty() {
+                anyhow::bail!("features.bridge.childApiBase must be set when bridge is enabled");
+            }
+            if br.node_path.trim().is_empty() || br.daemon_path.trim().is_empty() {
+                anyhow::bail!("features.bridge.nodePath and daemonPath must be set when bridge is enabled");
+            }
+        }
         Ok(())
+    }
+
+    /// When bridge owns Now Playing.txt, disable the local-remote macOS watcher.
+    pub fn with_bridge_now_playing_guard(mut self) -> Self {
+        if self.features.bridge.enabled {
+            self.features.now_playing.enabled = false;
+        }
+        self
     }
 }
 

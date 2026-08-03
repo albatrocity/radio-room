@@ -26,6 +26,8 @@ function readRoomSetupFromSessionStorage(): RoomSetup {
     liveIngestEnabled: sessionStorage.getItem("createRoomLiveIngestEnabled") === "true",
     liveWhepUrl: sessionStorage.getItem("createRoomLiveWhepUrl") ?? undefined,
     liveHlsUrl: sessionStorage.getItem("createRoomLiveHlsUrl") ?? undefined,
+    playbackControllerId:
+      sessionStorage.getItem("createRoomPlaybackControllerId") ?? undefined,
   }
 }
 

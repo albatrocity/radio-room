@@ -10,11 +10,13 @@ import {
   AppContext,
   CreateServerConfig,
   PlaybackControllerAdapterConfig,
+  SimpleCache,
   User,
   Plugin,
 } from "@repo/types"
 import { createAppContext, initializeRedisContext } from "./lib/context"
 import { createContextMiddleware } from "./lib/contextMiddleware"
+import { createRedisSimpleCache } from "./lib/redisSimpleCache"
 import { JobService } from "./services/JobService"
 
 import { bindPubSubHandlers } from "./pubSub/handlers"
@@ -93,7 +95,7 @@ export class RadioRoomServer {
   private readonly httpServer: ReturnType<typeof createHttpServer>
   private readonly _onStart: () => void = () => {}
   private readonly playbackControllers: CreateServerConfig["playbackControllers"]
-  private readonly cacheImplementation: CreateServerConfig["cacheImplementation"]
+  readonly cache: SimpleCache
   private readonly context: AppContext
   private readonly jobService: JobService
   private pluginRegistry: PluginRegistry
@@ -109,18 +111,16 @@ export class RadioRoomServer {
     },
   ) {
     this.playbackControllers = config.playbackControllers ?? []
-    this.cacheImplementation = config.cacheImplementation ?? {
-      get: async () => "null",
-      set: async () => undefined,
-      clear: async () => undefined,
-      delete: async () => undefined,
-    }
 
     // Create context with adapters and jobs
     this.context = createAppContext({
       redisUrl: config.REDIS_URL ?? "redis://localhost:6379",
       apiUrl: config.API_URL,
     })
+
+    this.cache =
+      config.cacheImplementation ?? createRedisSimpleCache(this.context.redis.pubClient)
+    this.context.cache = this.cache
 
     // Initialize JobService
     this.jobService = new JobService(this.context)
@@ -312,9 +312,13 @@ export class RadioRoomServer {
     this.context.artifacts = new PluginArtifactsAPI(this.context)
     const { PersonaService } = await import("./services/PersonaService")
     this.context.personas = new PersonaService(this.context)
+    const { MetadataSourceAccessService } = await import(
+      "./services/MetadataSourceAccessService"
+    )
+    this.context.metadataSourceAccess = new MetadataSourceAccessService(this.context)
     gameSessions.start()
     console.log(
-      "GameSessionService, InventoryService, PluginArtifactsAPI, and PersonaService initialized",
+      "GameSessionService, InventoryService, PluginArtifactsAPI, PersonaService, and MetadataSourceAccessService initialized",
     )
 
     // Register any plugins that were queued via registerAdapters()

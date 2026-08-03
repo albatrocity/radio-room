@@ -1,0 +1,460 @@
+import React, { useEffect, useMemo, useRef, useState } from "react"
+import {
+  Box,
+  Button,
+  Center,
+  HStack,
+  Input,
+  ScrollArea,
+  Spinner,
+  Tabs,
+  Text,
+  VStack,
+} from "@chakra-ui/react"
+import type {
+  MetadataBrowseAlbum,
+  MetadataBrowseArtist,
+  MetadataBrowseCapabilities,
+  MetadataSourceTrack,
+} from "@repo/types"
+import { useSocketMachine } from "../hooks/useSocketMachine"
+import { catalogBrowseMachine } from "../machines/catalogBrowseMachine"
+import EntityThumb from "./EntityThumb"
+import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
+import TrackItem from "./TrackItem"
+
+type TrackWithSource = MetadataSourceTrack & { source?: string }
+
+export type CatalogBrowseNavigation = {
+  source: string
+  artistId?: string
+  albumId?: string
+  artistTitle?: string
+  albumTitle?: string
+}
+
+type BrowseLevel = "root" | "artistAlbums" | "tracks"
+type RootKind = "artists" | "albums"
+
+type Props = {
+  browseableSourceIds: string[]
+  browseSourceCapabilities?: Record<string, MetadataBrowseCapabilities>
+  /** Controlled catalog source (selected in parent). */
+  sourceId: string
+  onSourceIdChange?: (sourceId: string) => void
+  initialNavigation?: CatalogBrowseNavigation | null
+  onNavigationApplied?: () => void
+  onChoose: (track: MetadataSourceTrack) => void
+  disabled?: boolean
+}
+
+function CatalogBrowse({
+  browseableSourceIds,
+  browseSourceCapabilities = {},
+  sourceId,
+  onSourceIdChange,
+  initialNavigation = null,
+  onNavigationApplied,
+  onChoose,
+  disabled = false,
+}: Props) {
+  const [state, send] = useSocketMachine(catalogBrowseMachine)
+  const [level, setLevel] = useState<BrowseLevel>("root")
+  const [rootKind, setRootKind] = useState<RootKind>("artists")
+  const [filter, setFilter] = useState("")
+  const [selectedArtist, setSelectedArtist] = useState<MetadataBrowseArtist | null>(null)
+  const [selectedAlbum, setSelectedAlbum] = useState<MetadataBrowseAlbum | null>(null)
+  const skipNextFilterFetch = useRef(true)
+  const appliedNavKey = useRef<string | null>(null)
+
+  const caps = browseSourceCapabilities[sourceId] ?? {
+    entryMode: "index" as const,
+    albumSearch: false,
+  }
+  const albumSearch = caps.albumSearch
+  const searchEntry = caps.entryMode === "search"
+
+  const loadRoot = (nextSource: string, kind: RootKind, query?: string) => {
+    if (kind === "albums") {
+      send({
+        type: "FETCH_ALBUMS",
+        source: nextSource,
+        query: query || undefined,
+        limit: 50,
+      })
+    } else {
+      send({
+        type: "FETCH_ARTISTS",
+        source: nextSource,
+        query: query || undefined,
+      })
+    }
+  }
+
+  // Source / capability change → reset to root (unless deep-link will apply)
+  useEffect(() => {
+    if (!sourceId) return
+    if (initialNavigation?.source === sourceId && appliedNavKey.current !== JSON.stringify(initialNavigation)) {
+      return
+    }
+    setLevel("root")
+    setRootKind("artists")
+    setSelectedArtist(null)
+    setSelectedAlbum(null)
+    setFilter("")
+    skipNextFilterFetch.current = true
+    if (searchEntry) {
+      // Wait for query
+      return
+    }
+    loadRoot(sourceId, "artists")
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional reset on source/caps
+  }, [sourceId, searchEntry, albumSearch])
+
+  // Debounced root filter
+  useEffect(() => {
+    if (!sourceId || level !== "root") return
+    if (skipNextFilterFetch.current) {
+      skipNextFilterFetch.current = false
+      return
+    }
+    if (searchEntry && !filter.trim()) return
+    const handle = window.setTimeout(() => {
+      loadRoot(sourceId, rootKind, filter.trim() || undefined)
+    }, 250)
+    return () => window.clearTimeout(handle)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, sourceId, level, rootKind, searchEntry])
+
+  // Deep-link from Search
+  useEffect(() => {
+    if (!initialNavigation) return
+    const key = JSON.stringify(initialNavigation)
+    if (appliedNavKey.current === key) return
+    appliedNavKey.current = key
+
+    const { source, artistId, albumId, artistTitle, albumTitle } = initialNavigation
+    if (!browseableSourceIds.includes(source)) {
+      onNavigationApplied?.()
+      return
+    }
+    onSourceIdChange?.(source)
+    setFilter("")
+    skipNextFilterFetch.current = true
+
+    if (albumId) {
+      setSelectedArtist(
+        artistId ? { id: artistId, title: artistTitle ?? artistId } : null,
+      )
+      setSelectedAlbum({
+        id: albumId,
+        title: albumTitle ?? albumId,
+        artists: [],
+      })
+      setLevel("tracks")
+      send({ type: "FETCH_ALBUM", source, albumId })
+    } else if (artistId) {
+      setSelectedArtist({ id: artistId, title: artistTitle ?? artistId })
+      setSelectedAlbum(null)
+      setLevel("artistAlbums")
+      send({ type: "FETCH_ARTIST", source, artistId })
+    }
+    onNavigationApplied?.()
+  }, [initialNavigation, browseableSourceIds, send, onNavigationApplied, onSourceIdChange])
+
+  const isLoading =
+    state.matches("loadingArtists") ||
+    state.matches("loadingAlbums") ||
+    state.matches("loadingArtist") ||
+    state.matches("loadingAlbum")
+
+  const artists = state.context.artists
+  const rootAlbums = state.context.rootAlbums
+  const artistAlbums = state.context.albums
+  const tracks = state.context.tracks as TrackWithSource[]
+
+  const breadcrumb = useMemo(() => {
+    const crumbs: { label: string; onClick?: () => void }[] = []
+    if (level === "root") {
+      crumbs.push({ label: rootKind === "albums" ? "Albums" : "Artists" })
+      return crumbs
+    }
+    crumbs.push({
+      label: selectedArtist ? "Artists" : "Albums",
+      onClick: () => {
+        setLevel("root")
+        setSelectedArtist(null)
+        setSelectedAlbum(null)
+        setRootKind(selectedArtist ? "artists" : "albums")
+        skipNextFilterFetch.current = true
+        if (!searchEntry || filter.trim()) {
+          loadRoot(sourceId, selectedArtist ? "artists" : "albums", filter.trim() || undefined)
+        }
+      },
+    })
+    if (selectedArtist && (level === "artistAlbums" || level === "tracks")) {
+      crumbs.push({
+        label: selectedArtist.title,
+        onClick:
+          level === "artistAlbums"
+            ? undefined
+            : () => {
+                setLevel("artistAlbums")
+                setSelectedAlbum(null)
+                send({ type: "FETCH_ARTIST", source: sourceId, artistId: selectedArtist.id })
+              },
+      })
+    }
+    if (selectedAlbum && level === "tracks") {
+      crumbs.push({ label: selectedAlbum.title })
+    }
+    return crumbs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [level, rootKind, selectedArtist, selectedAlbum, sourceId, searchEntry, filter, send])
+
+  const openArtist = (artist: MetadataBrowseArtist) => {
+    if (!sourceId || disabled) return
+    setSelectedArtist(artist)
+    setSelectedAlbum(null)
+    setLevel("artistAlbums")
+    send({ type: "FETCH_ARTIST", source: sourceId, artistId: artist.id })
+  }
+
+  const openAlbum = (album: MetadataBrowseAlbum) => {
+    if (!sourceId || disabled) return
+    setSelectedAlbum(album)
+    setLevel("tracks")
+    send({ type: "FETCH_ALBUM", source: sourceId, albumId: album.id })
+  }
+
+  const albumsForList = level === "artistAlbums" ? artistAlbums : rootAlbums
+  const showEmptySearchHint = searchEntry && level === "root" && !filter.trim()
+
+  return (
+    <VStack align="stretch" gap={3} w="100%">
+      {albumSearch && level === "root" && (
+        <Tabs.Root
+          value={rootKind}
+          onValueChange={(details) => {
+            const kind = details.value as RootKind
+            setRootKind(kind)
+            skipNextFilterFetch.current = true
+            setFilter("")
+            if (!searchEntry) {
+              loadRoot(sourceId, kind)
+            }
+          }}
+          variant="line"
+          colorPalette="action"
+          size="sm"
+        >
+          <Tabs.List>
+            <Tabs.Trigger value="artists">Artists</Tabs.Trigger>
+            <Tabs.Trigger value="albums">Albums</Tabs.Trigger>
+          </Tabs.List>
+        </Tabs.Root>
+      )}
+
+      <HStack gap={1} flexWrap="wrap" fontSize="sm">
+        {breadcrumb.map((crumb, i) => (
+          <HStack key={`${crumb.label}-${i}`} gap={1}>
+            {i > 0 && (
+              <Text color="fg.muted" aria-hidden>
+                /
+              </Text>
+            )}
+            {crumb.onClick ? (
+              <Button
+                type="button"
+                variant="plain"
+                size="xs"
+                colorPalette="action"
+                onClick={crumb.onClick}
+                px={1}
+                minW={0}
+                h="auto"
+              >
+                {crumb.label}
+              </Button>
+            ) : (
+              <Text fontWeight={i === breadcrumb.length - 1 ? "semibold" : "normal"}>
+                {crumb.label}
+              </Text>
+            )}
+          </HStack>
+        ))}
+      </HStack>
+
+      {level === "root" && (
+        <Input
+          placeholder={
+            searchEntry
+              ? rootKind === "albums"
+                ? "Search albums"
+                : "Search artists"
+              : rootKind === "albums"
+                ? "Filter albums"
+                : "Filter artists"
+          }
+          value={filter}
+          disabled={disabled}
+          onChange={(e) => setFilter(e.target.value)}
+          size="sm"
+        />
+      )}
+
+      {state.matches("failure") && state.context.error?.status === 401 && (
+        <MetadataSourceAuthAlert
+          sources={[state.context.error.source ?? sourceId].filter(Boolean)}
+        />
+      )}
+
+      {state.matches("failure") && state.context.error?.status !== 401 && (
+        <Text color="red.500" fontSize="sm">
+          {state.context.error?.message ?? "Browse failed"}
+        </Text>
+      )}
+
+      {showEmptySearchHint ? (
+        <Text fontSize="sm" color="fg.muted" py={4}>
+          Search for artists or albums to browse this catalog.
+        </Text>
+      ) : (
+        <Box>
+          {isLoading &&
+          ((level === "root" && rootKind === "artists" && artists.length === 0) ||
+            (level === "root" && rootKind === "albums" && rootAlbums.length === 0) ||
+            (level === "artistAlbums" && artistAlbums.length === 0) ||
+            (level === "tracks" && tracks.length === 0)) ? (
+            <Center py={6}>
+              <Spinner size="sm" />
+            </Center>
+          ) : (
+            <ScrollArea.Root maxH="320px" size="sm" variant="hover" w="100%">
+              <ScrollArea.Viewport>
+                <ScrollArea.Content>
+                  <VStack align="stretch" gap={0} w="100%">
+                    {level === "root" &&
+                      rootKind === "artists" &&
+                      (artists.length === 0 ? (
+                        <Text fontSize="sm" color="fg.muted" py={2}>
+                          No artists found.
+                        </Text>
+                      ) : (
+                        artists.map((artist) => (
+                          <Button
+                            key={artist.id}
+                            type="button"
+                            variant="ghost"
+                            disabled={disabled}
+                            justifyContent="flex-start"
+                            h="auto"
+                            w="100%"
+                            p={2}
+                            textAlign="left"
+                            borderRadius="md"
+                            _hover={{ bg: "actionBgLite" }}
+                            onClick={() => openArtist(artist)}
+                          >
+                            <HStack gap={2} minW={0} w="100%">
+                              <EntityThumb images={artist.images} shape="circle" />
+                              <VStack align="start" gap={0} minW={0}>
+                                <Text fontWeight="medium" truncate>
+                                  {artist.title}
+                                </Text>
+                                {artist.albumCount != null && (
+                                  <Text fontSize="xs" color="fg.muted">
+                                    {artist.albumCount} album{artist.albumCount === 1 ? "" : "s"}
+                                  </Text>
+                                )}
+                              </VStack>
+                            </HStack>
+                          </Button>
+                        ))
+                      ))}
+
+                    {((level === "root" && rootKind === "albums") || level === "artistAlbums") &&
+                      (albumsForList.length === 0 ? (
+                        <Text fontSize="sm" color="fg.muted" py={2}>
+                          No albums found.
+                        </Text>
+                      ) : (
+                        albumsForList.map((album) => (
+                          <Button
+                            key={album.id}
+                            type="button"
+                            variant="ghost"
+                            disabled={disabled}
+                            justifyContent="flex-start"
+                            h="auto"
+                            w="100%"
+                            p={2}
+                            textAlign="left"
+                            borderRadius="md"
+                            _hover={{ bg: "actionBgLite" }}
+                            onClick={() => openAlbum(album)}
+                          >
+                            <HStack gap={2} minW={0} w="100%">
+                              <EntityThumb images={album.images} shape="square" />
+                              <VStack align="start" gap={0} minW={0}>
+                                <Text fontWeight="medium" truncate>
+                                  {album.title}
+                                </Text>
+                                <Text fontSize="xs" color="fg.muted" truncate>
+                                  {[
+                                    album.artists?.[0]?.title,
+                                    album.year,
+                                    album.trackCount != null ? `${album.trackCount} tracks` : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </Text>
+                              </VStack>
+                            </HStack>
+                          </Button>
+                        ))
+                      ))}
+
+                    {level === "tracks" &&
+                      (tracks.length === 0 ? (
+                        <Text fontSize="sm" color="fg.muted" py={2}>
+                          No tracks found.
+                        </Text>
+                      ) : (
+                        tracks.map((track, index) => (
+                          <Button
+                            key={`${track.source ?? sourceId}-${track.id}-${index}`}
+                            type="button"
+                            variant="ghost"
+                            disabled={disabled}
+                            justifyContent="flex-start"
+                            h="auto"
+                            w="100%"
+                            minW={0}
+                            overflow="hidden"
+                            p={2}
+                            textAlign="left"
+                            borderRadius="md"
+                            _hover={{ bg: "actionBgLite" }}
+                            onClick={() => onChoose(track)}
+                          >
+                            <TrackItem {...track} />
+                          </Button>
+                        ))
+                      ))}
+                  </VStack>
+                </ScrollArea.Content>
+              </ScrollArea.Viewport>
+              <ScrollArea.Scrollbar>
+                <ScrollArea.Thumb />
+              </ScrollArea.Scrollbar>
+              <ScrollArea.Corner />
+            </ScrollArea.Root>
+          )}
+        </Box>
+      )}
+    </VStack>
+  )
+}
+
+export default CatalogBrowse

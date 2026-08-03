@@ -54,6 +54,8 @@ async function handleMetadataSourceError({ io, message, context }: ContextPubSub
       "spotifyError",
       JSON.stringify(error),
     )
+    // Broadcast so RoomError / clients pick up spotifyError without rejoin
+    await emitRoomSettingsUpdated({ context, roomId })
   }
 }
 

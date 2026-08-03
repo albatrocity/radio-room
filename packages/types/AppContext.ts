@@ -9,11 +9,14 @@ import type {
 } from "./ServiceAuthentication"
 import type { SystemEvents } from "./SystemEvents"
 import type { ArtifactsPluginAPI } from "./Artifacts"
+import type { SimpleCache } from "./SimpleCache"
 
 export type { RedisClientType } from "redis"
 
 export interface AppContext {
   redis: RedisContext
+  /** TTL-backed string cache (Redis in production). */
+  cache?: SimpleCache
   adapters: AdapterRegistry
   jobs: JobRegistration[]
   jobService?: {
@@ -30,6 +33,8 @@ export interface AppContext {
   artifacts?: ArtifactsPluginAPI
   /** Room-scoped user personas (VIP, plugin-defined labels). Typed as PersonaService in server code. */
   personas?: any
+  /** Bridge metadata source access evaluation (ADR 0088). Typed as MetadataSourceAccessService in server code. */
+  metadataSourceAccess?: any
   systemEvents?: SystemEvents
   /** Base URL for the API (e.g., "https://api.example.com"). Used for generating absolute URLs. */
   apiUrl?: string

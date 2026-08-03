@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { AdapterAuthentication, AdapterConfig } from "./Adapter"
 import { JobRegistration } from "./JobRegistration"
+import type { SimpleCache } from "./SimpleCache"
 
 // =============================================================================
 // MetadataSource URL Schema & Type
@@ -71,6 +72,8 @@ export type MetadataSourceAdapterConfig = MetadataSourceLifecycleCallbacks &
     name: string
     url: string
     registerJob: (job: JobRegistration) => Promise<JobRegistration>
+    /** Optional TTL cache for adapters that opt into search-result caching. */
+    cache?: SimpleCache
   }
 
 export type MetadataSource = {
@@ -87,6 +90,66 @@ export type MetadataSourceSearchParameters = Pick<
   MetadataSourceTrack,
   "title" | "artists" | "album" | "id"
 >
+
+// =============================================================================
+// MetadataSource Browse (optional catalog navigation)
+// =============================================================================
+
+export const metadataBrowseArtistSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  albumCount: z.number().optional(),
+  images: z.array(metadataSourceUrlSchema).optional(),
+})
+export type MetadataBrowseArtist = z.infer<typeof metadataBrowseArtistSchema>
+
+export const metadataBrowseAlbumSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  artists: z.array(metadataSourceExternalResourceSchema),
+  year: z.string().optional(),
+  trackCount: z.number().optional(),
+  images: z.array(metadataSourceUrlSchema).optional(),
+})
+export type MetadataBrowseAlbum = z.infer<typeof metadataBrowseAlbumSchema>
+
+export type MetadataListArtistsParams = {
+  query?: string
+  offset?: number
+  limit?: number
+}
+
+export type MetadataListArtistsResult = {
+  items: MetadataBrowseArtist[]
+  total?: number
+}
+
+/** Same paging/filter shape as listArtists; reused for album root listing (ADR 0090). */
+export type MetadataListAlbumsParams = MetadataListArtistsParams
+
+export type MetadataListAlbumsResult = {
+  items: MetadataBrowseAlbum[]
+  total?: number
+}
+
+export type MetadataGetArtistResult = {
+  artist: MetadataBrowseArtist
+  albums: MetadataBrowseAlbum[]
+}
+
+export type MetadataGetAlbumResult = {
+  album: MetadataBrowseAlbum
+  tracks: MetadataSourceTrack[]
+}
+
+/** How Browse UI should enter the catalog for this source (ADR 0090). */
+export type MetadataBrowseEntryMode = "index" | "search"
+
+export type MetadataBrowseCapabilities = {
+  entryMode: MetadataBrowseEntryMode
+  /** True when listAlbums is implemented (Artists | Albums root). */
+  albumSearch: boolean
+}
 
 export interface MetadataSourceApi {
   search: (query: string) => Promise<MetadataSourceTrack[]>
@@ -106,6 +169,12 @@ export interface MetadataSourceApi {
   checkSavedTracks?: (trackIds: string[]) => Promise<boolean[]>
   addToLibrary?: (trackIds: string[]) => Promise<void>
   removeFromLibrary?: (trackIds: string[]) => Promise<void>
+  /** Optional catalog browse: Artists → Albums → Tracks (ADR 0089 / 0090). */
+  listArtists?: (params?: MetadataListArtistsParams) => Promise<MetadataListArtistsResult>
+  listAlbums?: (params?: MetadataListAlbumsParams) => Promise<MetadataListAlbumsResult>
+  getArtist?: (artistId: string) => Promise<MetadataGetArtistResult | null>
+  getAlbum?: (albumId: string) => Promise<MetadataGetAlbumResult | null>
+  getBrowseCapabilities?: () => MetadataBrowseCapabilities
 }
 
 export interface MetadataSourceError {

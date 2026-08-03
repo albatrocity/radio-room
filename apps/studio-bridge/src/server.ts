@@ -44,9 +44,21 @@ import {
   runStubQuizAction,
 } from "./stubQuiz.js"
 import {
+  buildEffectiveMetadataSourcesEvent,
+  requireBrowseableSource,
+  stubBrowseAlbum,
+  stubBrowseAlbums,
+  stubBrowseArtist,
+  stubBrowseArtists,
+  stubSearchTracks,
+} from "./stubMetadataCatalog.js"
+import {
   VOLUME_MANAGER_PLUGIN,
   buildStubVolumeComponentState,
   runStubVolumeAction,
+  stubGetPlaybackState,
+  stubSeekPlayback,
+  stubSetPlaybackVolume,
 } from "./stubVolumeManager.js"
 import { applyUserUpdateToSnapshot, toggleVipOnUser, userHasVip } from "./personas.js"
 
@@ -874,6 +886,186 @@ function wireSocketHandlers(io: IOServer): void {
         })
       },
     )
+
+    socket.on("GET_PLAYBACK_STATE", () => {
+      const roomId = socket.data.roomId as string | undefined
+      if (!roomId) {
+        socket.emit("event", {
+          type: "GET_PLAYBACK_STATE_FAILURE",
+          data: { message: "Not in a room" },
+        })
+        return
+      }
+      socket.emit("event", {
+        type: "PLAYBACK_STATE",
+        data: stubGetPlaybackState(roomId),
+      })
+    })
+
+    socket.on("SEEK_PLAYBACK", (payload: { positionMs?: number }) => {
+      const roomId = socket.data.roomId as string | undefined
+      if (!roomId || typeof payload?.positionMs !== "number") {
+        socket.emit("event", {
+          type: "SEEK_PLAYBACK_FAILURE",
+          data: { message: "Invalid seek request" },
+        })
+        return
+      }
+      const result = stubSeekPlayback(roomId, payload.positionMs)
+      if (!result.success) {
+        socket.emit("event", {
+          type: "SEEK_PLAYBACK_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+      socket.emit("event", {
+        type: "SEEK_PLAYBACK_SUCCESS",
+        data: { positionMs: result.positionMs },
+      })
+    })
+
+    socket.on("SET_PLAYBACK_VOLUME", (payload: { volumePercent?: number }) => {
+      const roomId = socket.data.roomId as string | undefined
+      if (!roomId || typeof payload?.volumePercent !== "number") {
+        socket.emit("event", {
+          type: "SET_PLAYBACK_VOLUME_FAILURE",
+          data: { message: "Invalid volume request" },
+        })
+        return
+      }
+      const result = stubSetPlaybackVolume(roomId, payload.volumePercent)
+      if (!result.success) {
+        socket.emit("event", {
+          type: "SET_PLAYBACK_VOLUME_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+      for (const ev of result.events) {
+        io.to(roomSocketPath(roomId)).emit("event", ev)
+      }
+      socket.emit("event", {
+        type: "SET_PLAYBACK_VOLUME_SUCCESS",
+        data: { volumePercent: result.volumePercent },
+      })
+    })
+
+    socket.on("LINK_MEDIA_BRIDGE", () => {
+      // Sandbox has no Redis bridge daemon — simulate success for UI wiring.
+      socket.emit("event", {
+        type: "LINK_MEDIA_BRIDGE_SUCCESS",
+        data: { daemonId: "studio-bridge", roomId: socket.data.roomId ?? null },
+      })
+      socket.emit("event", {
+        type: "MEDIA_BRIDGE_STATUS_CHANGED",
+        data: {
+          roomId: socket.data.roomId,
+          connected: true,
+          services: ["spotify", "local", "youtube"],
+        },
+      })
+    })
+
+    socket.on("GET_MEDIA_BRIDGE_STATUS", () => {
+      // Preview as connected so Add-to-Queue capability filtering sees stub services.
+      socket.emit("event", {
+        type: "MEDIA_BRIDGE_STATUS_CHANGED",
+        data: {
+          roomId: socket.data.roomId,
+          connected: true,
+          services: ["spotify", "local", "youtube"],
+        },
+      })
+    })
+
+    socket.on("GET_EFFECTIVE_METADATA_SOURCES", () => {
+      socket.emit("event", buildEffectiveMetadataSourcesEvent())
+    })
+
+    socket.on(
+      "BROWSE_ARTISTS",
+      (payload: { source?: string; query?: string; offset?: number; limit?: number }) => {
+        const source = typeof payload?.source === "string" ? payload.source : ""
+        const deny = requireBrowseableSource(source)
+        if (deny) {
+          socket.emit("event", {
+            type: "BROWSE_ARTISTS_FAILURE",
+            data: { message: deny },
+          })
+          return
+        }
+        socket.emit("event", stubBrowseArtists(payload?.query))
+      },
+    )
+
+    socket.on(
+      "BROWSE_ALBUMS",
+      (payload: { source?: string; query?: string; offset?: number; limit?: number }) => {
+        const source = typeof payload?.source === "string" ? payload.source : ""
+        const deny = requireBrowseableSource(source)
+        if (deny) {
+          socket.emit("event", {
+            type: "BROWSE_ALBUMS_FAILURE",
+            data: { message: deny },
+          })
+          return
+        }
+        socket.emit("event", stubBrowseAlbums(payload?.query))
+      },
+    )
+
+    socket.on("BROWSE_ARTIST", (payload: { source?: string; artistId?: string }) => {
+      const source = typeof payload?.source === "string" ? payload.source : ""
+      const deny = requireBrowseableSource(source)
+      if (deny) {
+        socket.emit("event", {
+          type: "BROWSE_ARTIST_FAILURE",
+          data: { message: deny },
+        })
+        return
+      }
+      if (!payload?.artistId) {
+        socket.emit("event", {
+          type: "BROWSE_ARTIST_FAILURE",
+          data: { message: "artistId is required" },
+        })
+        return
+      }
+      socket.emit("event", stubBrowseArtist(payload.artistId))
+    })
+
+    socket.on("BROWSE_ALBUM", (payload: { source?: string; albumId?: string }) => {
+      const source = typeof payload?.source === "string" ? payload.source : ""
+      const deny = requireBrowseableSource(source)
+      if (deny) {
+        socket.emit("event", {
+          type: "BROWSE_ALBUM_FAILURE",
+          data: { message: deny },
+        })
+        return
+      }
+      if (!payload?.albumId) {
+        socket.emit("event", {
+          type: "BROWSE_ALBUM_FAILURE",
+          data: { message: "albumId is required" },
+        })
+        return
+      }
+      socket.emit("event", stubBrowseAlbum(payload.albumId))
+    })
+
+    socket.on("SEARCH_TRACK", (payload: { query?: string }) => {
+      const query = typeof payload?.query === "string" ? payload.query : ""
+      if (!query.trim()) {
+        socket.emit("event", {
+          type: "TRACK_SEARCH_RESULTS_FAILURE",
+          data: { message: "Query is required" },
+        })
+        return
+      }
+      socket.emit("event", stubSearchTracks(query))
+    })
 
     socket.on("CAST_POLL_VOTE", async (data: { pollId?: string; optionId?: string }) => {
       const roomId = socket.data.roomId as string | undefined

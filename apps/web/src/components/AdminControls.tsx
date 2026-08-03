@@ -58,11 +58,7 @@ function AdminPanel({ buttonColorScheme, buttonVariant = "bright", width, ...res
             </IconButton>
           </Box>
 
-          <QuickAccessMenu
-            buttonColorScheme={buttonColorScheme}
-            buttonVariant={buttonVariant}
-          />
-
+          <QuickAccessMenu buttonColorScheme={buttonColorScheme} buttonVariant={buttonVariant} />
           <Box hideBelow="sm">
             <Button
               size="xs"

@@ -187,6 +187,16 @@ export {
 
 // Quick Access Panels Actor
 export { quickAccessPanelsActor } from "./quickAccessPanelsActor"
+export {
+  mediaBridgeActor,
+  linkMediaBridge,
+  isMediaBridgeConnected,
+} from "./mediaBridgeActor"
+
+export {
+  effectiveMetadataSourcesActor,
+  refreshEffectiveMetadataSources,
+} from "./effectiveMetadataSourcesActor"
 
 // Room Lifecycle
 export {

@@ -1,4 +1,10 @@
-import { AppContext, PlaybackController, MetadataSource, MediaSource } from "@repo/types"
+import {
+  AppContext,
+  PlaybackController,
+  MetadataSource,
+  MediaSource,
+  StoredTokens,
+} from "@repo/types"
 import { findRoom } from "../operations/data"
 import { handlePlaybackStateChange } from "../operations/playback/handlePlaybackStateChange"
 
@@ -37,6 +43,8 @@ function getServiceConfig(adapterId: string): { clientId: string } {
 export class AdapterService {
   private context: AppContext
   private roomPlaybackControllers: Map<string, PlaybackController> = new Map()
+  /** Tracks which service is cached under the primary `roomId` key (not `:pc:` delegates). */
+  private roomPrimaryPlaybackService: Map<string, string> = new Map()
   private roomMetadataSources: Map<string, MetadataSource> = new Map()
 
   constructor(context: AppContext) {
@@ -44,27 +52,170 @@ export class AdapterService {
   }
 
   /**
+   * Drop cached playback controllers for a room (primary + `:pc:` delegates).
+   * Call when `playbackControllerId` changes at runtime.
+   */
+  clearRoomPlaybackControllerCache(roomId: string) {
+    this.roomPlaybackControllers.delete(roomId)
+    this.roomPrimaryPlaybackService.delete(roomId)
+    for (const key of Array.from(this.roomPlaybackControllers.keys())) {
+      if (key.startsWith(`${roomId}:pc:`)) {
+        this.roomPlaybackControllers.delete(key)
+      }
+    }
+  }
+
+  /**
+   * Load room-creator OAuth tokens, refreshing when expired or near expiry.
+   * Used by playback controllers (and mirrors metadata-source refresh behavior).
+   */
+  private async getCreatorServiceTokensWithRefresh(params: {
+    creatorUserId: string
+    serviceName: string
+    /** Skip expiresAt check and always refresh (e.g. after Spotify 401). */
+    force?: boolean
+  }): Promise<StoredTokens> {
+    const { creatorUserId, serviceName, force = false } = params
+
+    if (!this.context.data?.getUserServiceAuth) {
+      throw new Error("getUserServiceAuth not available in context")
+    }
+
+    const auth = await this.context.data.getUserServiceAuth({
+      userId: creatorUserId,
+      serviceName,
+    })
+
+    if (!auth || !auth.accessToken) {
+      throw new Error(`No auth tokens found for room creator ${creatorUserId}`)
+    }
+
+    // Missing expiresAt → treat as stale so we don't keep serving dead access tokens.
+    const expiresAt = auth.expiresAt ?? 0
+    const isExpired = expiresAt === 0 || Date.now() > expiresAt - 5 * 60 * 1000
+
+    if (force || isExpired) {
+      console.log(
+        `[AdapterService] Token for ${serviceName} ${force ? "force-" : ""}refreshing...`,
+      )
+      const serviceAuthAdapter = this.context.adapters.serviceAuth.get(serviceName)
+      if (serviceAuthAdapter?.refreshAuth) {
+        try {
+          const refreshed = await serviceAuthAdapter.refreshAuth(creatorUserId)
+          console.log(`[AdapterService] Token refreshed for ${serviceName}`)
+          return {
+            accessToken: refreshed.accessToken,
+            refreshToken: refreshed.refreshToken,
+            metadata: auth.metadata as Record<string, unknown> | undefined,
+          }
+        } catch (refreshError) {
+          console.error(`[AdapterService] Failed to refresh ${serviceName} token:`, refreshError)
+          // Fall through and return stored tokens; the API call may still fail.
+        }
+      }
+    }
+
+    return {
+      accessToken: auth.accessToken,
+      refreshToken: auth.refreshToken,
+      metadata: auth.metadata as Record<string, unknown> | undefined,
+    }
+  }
+
+  /**
    * Get the PlaybackController for a room (uses room creator's credentials)
    * Creates and caches a room-specific instance with dynamic token fetching
    */
   async getRoomPlaybackController(roomId: string): Promise<PlaybackController | null> {
-    // Check cache first
-    if (this.roomPlaybackControllers.has(roomId)) {
-      return this.roomPlaybackControllers.get(roomId)!
-    }
-
     const room = await findRoom({ context: this.context, roomId })
-
     if (!room || !room.playbackControllerId) {
       return null
     }
 
-    const serviceName = room.playbackControllerId
-    const adapterModule = this.context.adapters.playbackControllerModules.get(serviceName)
+    const cachedService = this.roomPrimaryPlaybackService.get(roomId)
+    if (
+      this.roomPlaybackControllers.has(roomId) &&
+      cachedService === room.playbackControllerId
+    ) {
+      return this.roomPlaybackControllers.get(roomId)!
+    }
 
+    if (this.roomPlaybackControllers.has(roomId) && cachedService !== room.playbackControllerId) {
+      this.clearRoomPlaybackControllerCache(roomId)
+    }
+
+    return this.getRoomPlaybackControllerByService(roomId, room.playbackControllerId)
+  }
+
+  /**
+   * Get (or create) a PlaybackController for a specific service for a room.
+   * Used by the bridge composite to obtain the Spotify delegate without recursion.
+   */
+  async getRoomPlaybackControllerByService(
+    roomId: string,
+    serviceName: string,
+  ): Promise<PlaybackController | null> {
+    const cacheKey = serviceName === "bridge" ? roomId : `${roomId}:pc:${serviceName}`
+    if (serviceName !== "bridge" && this.roomPlaybackControllers.has(cacheKey)) {
+      return this.roomPlaybackControllers.get(cacheKey)!
+    }
+
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return null
+    }
+
+    // Primary room controller cache is keyed by roomId only for the room's configured controller
+    if (
+      serviceName === "bridge" &&
+      room.playbackControllerId === "bridge" &&
+      this.roomPlaybackControllers.has(roomId) &&
+      this.roomPrimaryPlaybackService.get(roomId) === "bridge"
+    ) {
+      return this.roomPlaybackControllers.get(roomId)!
+    }
+
+    const adapterModule = this.context.adapters.playbackControllerModules.get(serviceName)
     if (!adapterModule) {
       console.error(`No adapter module found for playback controller: ${serviceName}`)
       return null
+    }
+
+    const lifecycle = {
+      onRegistered: () => {},
+      onAuthenticationCompleted: () => {},
+      onAuthenticationFailed: (error: Error) =>
+        console.error("Playback controller authentication failed:", error),
+      onAuthorizationCompleted: () => {},
+      onAuthorizationFailed: (error: Error) =>
+        console.error("Playback controller authorization failed:", error),
+      onPlay: () => {
+        void handlePlaybackStateChange({ context: this.context, roomId, state: "playing" })
+      },
+      onPause: () => {
+        void handlePlaybackStateChange({ context: this.context, roomId, state: "paused" })
+      },
+      onChangeTrack: () => {},
+      onPlaybackStateChange: (state: "playing" | "paused" | "stopped") => {
+        void handlePlaybackStateChange({ context: this.context, roomId, state })
+      },
+      onPlaybackQueueChange: () => {},
+      onPlaybackPositionChange: () => {},
+      onError: (error: Error) => console.error("Playback controller error:", error),
+    }
+
+    // Bridge: no OAuth clientId; room-scoped wiring via registerBridgeForRoom
+    if (serviceName === "bridge") {
+      const { registerBridgeForRoom } = await import("@repo/adapter-bridge")
+      const playbackController = await registerBridgeForRoom({
+        roomId,
+        context: this.context,
+        authentication: { type: "none" },
+        lifecycle,
+      })
+      this.roomPlaybackControllers.set(roomId, playbackController)
+      this.roomPrimaryPlaybackService.set(roomId, "bridge")
+      return playbackController
     }
 
     const serviceConfig = getServiceConfig(serviceName)
@@ -77,59 +228,53 @@ export class AdapterService {
     try {
       const playbackController = await adapterModule.register({
         name: serviceName,
+        roomId,
         authentication: {
           type: "oauth",
           clientId: serviceConfig.clientId,
           token: {
-            accessToken: "", // Not used
+            accessToken: "",
             refreshToken: "",
           },
           getStoredTokens: async () => {
-            // This function is called on each API operation to get fresh tokens
-            // for the room creator
-            if (!this.context.data?.getUserServiceAuth) {
-              throw new Error("getUserServiceAuth not available in context")
-            }
-
-            const auth = await this.context.data.getUserServiceAuth({
-              userId: room.creator,
+            return this.getCreatorServiceTokensWithRefresh({
+              creatorUserId: room.creator,
               serviceName,
             })
-
-            if (!auth || !auth.accessToken) {
-              throw new Error(`No auth tokens found for room creator ${room.creator}`)
-            }
-
-            return {
-              accessToken: auth.accessToken,
-              refreshToken: auth.refreshToken,
-            }
+          },
+          refreshTokens: async () => {
+            return this.getCreatorServiceTokensWithRefresh({
+              creatorUserId: room.creator,
+              serviceName,
+              force: true,
+            })
           },
         },
-        onRegistered: () => {},
-        onAuthenticationCompleted: () => {},
-        onAuthenticationFailed: (error) =>
-          console.error("Playback controller authentication failed:", error),
-        onAuthorizationCompleted: () => {},
-        onAuthorizationFailed: (error) =>
-          console.error("Playback controller authorization failed:", error),
-        onPlay: () => {
-          void handlePlaybackStateChange({ context: this.context, roomId, state: "playing" })
-        },
-        onPause: () => {
-          void handlePlaybackStateChange({ context: this.context, roomId, state: "paused" })
-        },
-        onChangeTrack: () => {},
-        onPlaybackStateChange: (state) => {
-          void handlePlaybackStateChange({ context: this.context, roomId, state })
-        },
-        onPlaybackQueueChange: () => {},
-        onPlaybackPositionChange: () => {},
-        onError: (error) => console.error("Playback controller error:", error),
+        ...lifecycle,
+        // Prefer the bridge Web Playback SDK device when the daemon has advertised one
+        // Key shape matches spotifyDeviceKey() in @repo/adapter-bridge/protocol
+        getPreferredDeviceId:
+          serviceName === "spotify"
+            ? async () => {
+                try {
+                  return (
+                    (await this.context.redis.pubClient.get(
+                      `bridge:${roomId}:spotify_device`,
+                    )) ?? null
+                  )
+                } catch {
+                  return null
+                }
+              }
+            : undefined,
       })
 
-      // Cache the instance
-      this.roomPlaybackControllers.set(roomId, playbackController)
+      if (serviceName === room.playbackControllerId) {
+        this.roomPlaybackControllers.set(roomId, playbackController)
+        this.roomPrimaryPlaybackService.set(roomId, serviceName)
+      } else {
+        this.roomPlaybackControllers.set(cacheKey, playbackController)
+      }
 
       return playbackController
     } catch (error) {
@@ -183,12 +328,62 @@ export class AdapterService {
       }
 
       const serviceConfig = getServiceConfig(sourceId)
-      if (!serviceConfig.clientId) {
+      const needsOAuthClient =
+        sourceId !== "youtube" && sourceId !== "local" && sourceId !== "bridge"
+      if (needsOAuthClient && !serviceConfig.clientId) {
         console.error(`No client ID configured for service: ${getServiceName(sourceId)}`)
         continue
       }
 
       try {
+        // YouTube uses API key (env); local uses bridge RPC — both use type: none auth
+        if (sourceId === "youtube" || sourceId === "local") {
+          const metadataSource = await adapterModule.register({
+            name: sourceId,
+            url: "",
+            authentication: { type: "none" },
+            cache: this.context.cache,
+            registerJob: async (job) => {
+              if (this.context.jobService) {
+                await this.context.jobService.scheduleJob(job)
+              }
+              return job
+            },
+            onRegistered: () => {},
+            onAuthenticationCompleted: () => {},
+            onAuthenticationFailed: () => {},
+            onSearchResults: () => {},
+            onError: (error) => console.error(`Metadata source ${sourceId} error:`, error),
+          })
+
+          // For local: re-wire with room RPC if bridge is available
+          if (sourceId === "local") {
+            try {
+              const { getBridgeRpcClient, registerLocalMetadataForRoom } = await import(
+                "@repo/adapter-bridge"
+              )
+              const rpc = getBridgeRpcClient(roomId)
+              if (rpc) {
+                const wired = registerLocalMetadataForRoom({
+                  roomId,
+                  context: this.context,
+                  rpc,
+                  authentication: { type: "none" },
+                })
+                this.roomMetadataSources.set(cacheKey, wired)
+                sources.set(sourceId, wired)
+                continue
+              }
+            } catch {
+              /* fall through to module instance */
+            }
+          }
+
+          this.roomMetadataSources.set(cacheKey, metadataSource)
+          sources.set(sourceId, metadataSource)
+          continue
+        }
+
         // Create a room-specific metadata source instance with dynamic token fetching
         const metadataSource = await adapterModule.register({
           name: sourceId,
@@ -251,6 +446,7 @@ export class AdapterService {
               }
             },
           },
+          cache: this.context.cache,
           registerJob: async (job) => {
             if (this.context.jobService) {
               await this.context.jobService.scheduleJob(job)
@@ -348,6 +544,7 @@ export class AdapterService {
             }
           },
         },
+        cache: this.context.cache,
         registerJob: () => Promise.resolve({} as any),
         onRegistered: () => {},
         onAuthenticationCompleted: () => {},
@@ -389,6 +586,41 @@ export class AdapterService {
     if (!adapterModule) {
       console.error(`No adapter module found for metadata source: ${sourceType}`)
       return null
+    }
+
+    // YouTube (API key) and local (daemon RPC) need no per-user OAuth
+    if (sourceType === "youtube" || sourceType === "local") {
+      try {
+        if (sourceType === "local") {
+          const { getBridgeRpcClient, registerLocalMetadataForRoom } = await import(
+            "@repo/adapter-bridge"
+          )
+          const rpc = getBridgeRpcClient(roomId)
+          if (rpc) {
+            return registerLocalMetadataForRoom({
+              roomId,
+              context: this.context,
+              rpc,
+              authentication: { type: "none" },
+            })
+          }
+        }
+        return await adapterModule.register({
+          name: sourceType,
+          url: "",
+          authentication: { type: "none" },
+          cache: this.context.cache,
+          registerJob: () => Promise.resolve({} as any),
+          onRegistered: () => {},
+          onAuthenticationCompleted: () => {},
+          onAuthenticationFailed: () => {},
+          onSearchResults: () => {},
+          onError: () => {},
+        })
+      } catch (error) {
+        console.error(`Error creating metadata source for ${sourceType}:`, error)
+        return null
+      }
     }
 
     // Get user's credentials from Redis
@@ -434,6 +666,7 @@ export class AdapterService {
             }
           },
         },
+        cache: this.context.cache,
         registerJob: () => Promise.resolve({} as any),
         onRegistered: () => {},
         onAuthenticationCompleted: () => {},

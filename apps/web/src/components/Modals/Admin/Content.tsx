@@ -1,5 +1,5 @@
 import { Formik } from "formik"
-import React, { useCallback, useRef, useState } from "react"
+import React, { useCallback, useEffect, useRef, useState } from "react"
 import {
   Box,
   Button,
@@ -25,7 +25,38 @@ import {
   useAdminSend,
 } from "../../../hooks/useActors"
 import RadioProtocolSelect from "../../RadioProtocolSelect"
+import PlaybackControllerSelect from "../../PlaybackControllerSelect"
+import BridgeMediaSourcesSettings, {
+  normalizeBridgeMediaSourcePolicy,
+  normalizeMetadataSourceAccessMap,
+  seedBridgeMediaSourcePolicy,
+  type MetadataSourceAccessMap,
+} from "../../BridgeMediaSourcesSettings"
 import { uploadArtwork } from "../../../lib/serverApi"
+
+/** When the form switches onto Media Bridge, seed default bridge metadata sources + access. */
+function BridgeMediaSourceFormSync({
+  playbackControllerId,
+  metadataSourceIds,
+  setFieldValue,
+}: {
+  playbackControllerId: string
+  metadataSourceIds: string[]
+  setFieldValue: (field: string, value: string[] | MetadataSourceAccessMap) => void
+}) {
+  const prevControllerRef = useRef(playbackControllerId)
+
+  useEffect(() => {
+    if (playbackControllerId === "bridge" && prevControllerRef.current !== "bridge") {
+      const seeded = seedBridgeMediaSourcePolicy(metadataSourceIds)
+      setFieldValue("metadataSourceIds", seeded)
+      setFieldValue("metadataSourceAccess", normalizeMetadataSourceAccessMap({}, seeded))
+    }
+    prevControllerRef.current = playbackControllerId
+  }, [playbackControllerId, metadataSourceIds, setFieldValue])
+
+  return null
+}
 
 function Content() {
   const room = useCurrentRoom()
@@ -75,6 +106,12 @@ function Content() {
         liveIngestEnabled: settings.liveIngestEnabled ?? false,
         liveWhepUrl: settings.liveWhepUrl ?? "",
         liveHlsUrl: settings.liveHlsUrl ?? "",
+        playbackControllerId: settings.playbackControllerId ?? "spotify",
+        metadataSourceIds: normalizeBridgeMediaSourcePolicy(room?.metadataSourceIds),
+        metadataSourceAccess: normalizeMetadataSourceAccessMap(
+          room?.metadataSourceAccess,
+          normalizeBridgeMediaSourcePolicy(room?.metadataSourceIds),
+        ),
       }}
       enableReinitialize
       validate={() => {
@@ -82,11 +119,24 @@ function Content() {
         return errors
       }}
       onSubmit={(values) => {
-        send({ type: "SET_SETTINGS", data: values } as any)
+        const data =
+          values.playbackControllerId === "bridge"
+            ? values
+            : (({
+                metadataSourceIds: _ids,
+                metadataSourceAccess: _access,
+                ...rest
+              }) => rest)(values)
+        send({ type: "SET_SETTINGS", data } as any)
       }}
     >
       {({ values, handleChange, handleBlur, handleSubmit, setTouched, setFieldValue, initialValues, dirty }) => (
         <form onSubmit={handleSubmit}>
+          <BridgeMediaSourceFormSync
+            playbackControllerId={values.playbackControllerId}
+            metadataSourceIds={values.metadataSourceIds}
+            setFieldValue={setFieldValue}
+          />
           <DialogBody>
             <VStack gap={6}>
               <Field.Root>
@@ -138,6 +188,23 @@ function Content() {
                   When disabled, the room is only accessible via its direct URL.
                 </Field.HelperText>
               </Field.Root>
+
+              {(settings.type === "radio" || settings.type === "live") && (
+                <PlaybackControllerSelect
+                  name="playbackControllerId"
+                  value={values.playbackControllerId}
+                />
+              )}
+
+              {(settings.type === "radio" || settings.type === "live") &&
+                values.playbackControllerId === "bridge" && (
+                  <BridgeMediaSourcesSettings
+                    value={values.metadataSourceIds}
+                    onChange={(ids) => setFieldValue("metadataSourceIds", ids)}
+                    access={values.metadataSourceAccess}
+                    onAccessChange={(access) => setFieldValue("metadataSourceAccess", access)}
+                  />
+                )}
 
               {settings.type === "radio" && (
                 <>

@@ -41,6 +41,8 @@ export type Room = {
   announceUsernameChanges?: boolean
   announceNowPlaying?: boolean
   metadataSourceIds?: string[]
+  /** Bridge only: per-source open | restricted (ADR 0088). */
+  metadataSourceAccess?: Record<string, "open" | "restricted">
   // Queue display settings (default true)
   showQueueCount?: boolean
   showQueueTracks?: boolean

@@ -3,6 +3,7 @@ import React from "react"
 
 import { DEFAULT_LIVE_HLS_URL, DEFAULT_LIVE_WHEP_URL } from "../../lib/liveStreamDefaults"
 import { Room } from "../../types/Room"
+import PlaybackControllerSelect from "../PlaybackControllerSelect"
 
 type Props = {
   onChange: (settings: Partial<Room>) => void
@@ -17,6 +18,10 @@ export default function FormLiveSettings({ onChange, settings }: Props) {
         with LL-HLS as a fallback. Track metadata is forwarded from your music player via the
         local-remote daemon.
       </Text>
+      <PlaybackControllerSelect
+        value={settings?.playbackControllerId ?? "spotify"}
+        onChange={(playbackControllerId) => onChange({ playbackControllerId })}
+      />
       <Field.Root>
         <Field.Label htmlFor="radioListenUrl">WebRTC WHEP URL</Field.Label>
         <Input

@@ -1,8 +1,17 @@
 import { DJService } from "../services/DJService"
+import { MediaBridgeService } from "../services/MediaBridgeService"
 import { QueueItem, HandlerConnections, AppContext, User } from "@repo/types"
 import sendMessage from "../lib/sendMessage"
 import { pubUserJoined } from "../operations/sockets/users"
 import { AdapterService } from "../services/AdapterService"
+import {
+  browseAlbum as browseAlbumOp,
+  browseAlbums as browseAlbumsOp,
+  browseArtist as browseArtistOp,
+  browseArtists as browseArtistsOp,
+  getEffectiveMetadataSources as getEffectiveMetadataSourcesOp,
+} from "../operations/dj/browseCatalog"
+import { searchTracksAcrossSources } from "../operations/dj/searchTracks"
 
 /**
  * Socket.io adapter for the DJService
@@ -10,12 +19,14 @@ import { AdapterService } from "../services/AdapterService"
  */
 export class DJHandlers {
   private readonly adapterService: AdapterService
+  private readonly mediaBridgeService: MediaBridgeService
 
   constructor(
     private readonly djService: DJService,
     private readonly context: AppContext,
   ) {
     this.adapterService = new AdapterService(context)
+    this.mediaBridgeService = new MediaBridgeService(context)
   }
 
   /**
@@ -55,11 +66,22 @@ export class DJHandlers {
   /**
    * Add a song to the queue
    */
-  queueSong = async ({ socket, io }: HandlerConnections, id: QueueItem["track"]["id"]) => {
+  queueSong = async (
+    { socket, io }: HandlerConnections,
+    payload: QueueItem["track"]["id"] | { trackId: string; source?: string },
+  ) => {
     try {
       const { userId, username, roomId } = socket.data
+      const trackId = typeof payload === "string" ? payload : payload.trackId
+      const mediaSourceType = typeof payload === "string" ? undefined : payload.source
 
-      const result = await this.djService.queueSong(roomId, userId, username, id)
+      const result = await this.djService.queueSong(
+        roomId,
+        userId,
+        username,
+        trackId,
+        mediaSourceType,
+      )
 
       if (!result.success) {
         socket.emit("event", {
@@ -243,61 +265,194 @@ export class DJHandlers {
   }
 
   /**
-   * Search for tracks using the room creator's metadata source
-   * This allows guests without Spotify auth to search using the room's credentials
+   * Return per-user effective metadata source ids for search UI tabs (ADR 0088)
+   * and browseableSourceIds for catalog browse (ADR 0089).
    */
-  searchForTrack = async ({ socket }: HandlerConnections, { query }: { query: string }) => {
-    const { roomId } = socket.data
+  getEffectiveMetadataSources = async ({ socket }: HandlerConnections) => {
+    const { roomId, userId } = socket.data
+    const data = await getEffectiveMetadataSourcesOp({
+      context: this.context,
+      adapterService: this.adapterService,
+      roomId,
+      userId,
+    })
+    socket.emit("event", {
+      type: "EFFECTIVE_METADATA_SOURCES",
+      data,
+    })
+  }
 
-    // Get the room to find the creator
-    const { findRoom } = await import("../operations/data")
-    const room = await findRoom({ context: this.context, roomId })
-
-    if (!room) {
+  browseArtists = async (
+    { socket }: HandlerConnections,
+    payload: { source: string; query?: string; offset?: number; limit?: number },
+  ) => {
+    const { roomId, userId } = socket.data
+    const result = await browseArtistsOp({
+      context: this.context,
+      adapterService: this.adapterService,
+      roomId,
+      userId,
+      ...payload,
+    })
+    if (!result.ok) {
       socket.emit("event", {
-        type: "TRACK_SEARCH_RESULTS_FAILURE",
-        data: {
-          message: "Room not found",
-        },
-      })
-      return
-    }
-
-    // Use the room creator's metadata source so guests can search
-    const metadataSource = await this.adapterService.getUserMetadataSource(roomId, room.creator)
-
-    if (!metadataSource) {
-      socket.emit("event", {
-        type: "TRACK_SEARCH_RESULTS_FAILURE",
-        data: {
-          message: "No metadata source configured for this room",
-        },
-      })
-      return
-    }
-
-    const result = await this.djService.searchForTrack(metadataSource, query)
-
-    if (result.success) {
-      // Wrap the results in the format the frontend expects
-      socket.emit("event", {
-        type: "TRACK_SEARCH_RESULTS",
-        data: {
-          items: result.data || [], // Frontend expects { items: [...] }
-          total: result.data?.length || 0,
-          offset: 0,
-          limit: 20,
-        },
-      })
-    } else {
-      socket.emit("event", {
-        type: "TRACK_SEARCH_RESULTS_FAILURE",
+        type: "BROWSE_ARTISTS_FAILURE",
         data: {
           message: result.message,
-          error: result.error,
+          ...(result.authFailure
+            ? { status: result.authFailure.status, source: result.authFailure.source }
+            : {}),
         },
       })
+      return
     }
+    socket.emit("event", {
+      type: "BROWSE_ARTISTS_RESULTS",
+      data: {
+        source: result.source,
+        items: result.items,
+        total: result.total,
+      },
+    })
+  }
+
+  browseAlbums = async (
+    { socket }: HandlerConnections,
+    payload: { source: string; query?: string; offset?: number; limit?: number },
+  ) => {
+    const { roomId, userId } = socket.data
+    const result = await browseAlbumsOp({
+      context: this.context,
+      adapterService: this.adapterService,
+      roomId,
+      userId,
+      ...payload,
+    })
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "BROWSE_ALBUMS_FAILURE",
+        data: {
+          message: result.message,
+          ...(result.authFailure
+            ? { status: result.authFailure.status, source: result.authFailure.source }
+            : {}),
+        },
+      })
+      return
+    }
+    socket.emit("event", {
+      type: "BROWSE_ALBUMS_RESULTS",
+      data: {
+        source: result.source,
+        items: result.items,
+        total: result.total,
+      },
+    })
+  }
+
+  browseArtist = async (
+    { socket }: HandlerConnections,
+    payload: { source: string; artistId: string },
+  ) => {
+    const { roomId, userId } = socket.data
+    const result = await browseArtistOp({
+      context: this.context,
+      adapterService: this.adapterService,
+      roomId,
+      userId,
+      ...payload,
+    })
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "BROWSE_ARTIST_FAILURE",
+        data: {
+          message: result.message,
+          ...(result.authFailure
+            ? { status: result.authFailure.status, source: result.authFailure.source }
+            : {}),
+        },
+      })
+      return
+    }
+    socket.emit("event", {
+      type: "BROWSE_ARTIST_RESULTS",
+      data: {
+        source: result.source,
+        artist: result.artist,
+        albums: result.albums,
+      },
+    })
+  }
+
+  browseAlbum = async (
+    { socket }: HandlerConnections,
+    payload: { source: string; albumId: string },
+  ) => {
+    const { roomId, userId } = socket.data
+    const result = await browseAlbumOp({
+      context: this.context,
+      adapterService: this.adapterService,
+      roomId,
+      userId,
+      ...payload,
+    })
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "BROWSE_ALBUM_FAILURE",
+        data: {
+          message: result.message,
+          ...(result.authFailure
+            ? { status: result.authFailure.status, source: result.authFailure.source }
+            : {}),
+        },
+      })
+      return
+    }
+    socket.emit("event", {
+      type: "BROWSE_ALBUM_RESULTS",
+      data: {
+        source: result.source,
+        album: result.album,
+        tracks: result.tracks,
+      },
+    })
+  }
+
+  /**
+   * Search for tracks across all room metadata sources (fan-out).
+   * Bridge rooms apply cross-source dedup by mediaSourcePriority.
+   */
+  searchForTrack = async ({ socket }: HandlerConnections, { query }: { query: string }) => {
+    const { roomId, userId } = socket.data
+    const result = await searchTracksAcrossSources({
+      context: this.context,
+      adapterService: this.adapterService,
+      roomId,
+      userId,
+      query,
+      searchSource: (src, q) => this.djService.searchForTrack(src, q),
+    })
+
+    if (!result.success) {
+      socket.emit("event", {
+        type: "TRACK_SEARCH_RESULTS_FAILURE",
+        data: { message: result.message },
+      })
+      return
+    }
+
+    socket.emit("event", {
+      type: "TRACK_SEARCH_RESULTS",
+      data: {
+        items: result.items,
+        total: result.total,
+        offset: result.offset,
+        limit: result.limit,
+        artists: result.artists,
+        albums: result.albums,
+        ...(result.authErrors ? { authErrors: result.authErrors } : {}),
+      },
+    })
   }
 
   /**
@@ -673,6 +828,7 @@ export class DJHandlers {
           state: result.state,
           action: result.action,
           trackTitle: "trackTitle" in result ? result.trackTitle : undefined,
+          canResume: "canResume" in result ? result.canResume : undefined,
         },
       })
     } catch (error: any) {
@@ -702,6 +858,11 @@ export class DJHandlers {
         data: {
           state: result.state,
           trackId: result.trackId,
+          canResume: result.canResume,
+          progressMs: result.progressMs,
+          durationMs: result.durationMs,
+          volumePercent: result.volumePercent,
+          supportsVolume: result.supportsVolume,
         },
       })
     } catch (error: any) {
@@ -709,6 +870,124 @@ export class DJHandlers {
       socket.emit("event", {
         type: "GET_PLAYBACK_STATE_FAILURE",
         data: { message: error?.message || "Failed to read playback state" },
+      })
+    }
+  }
+
+  seekPlayback = async (
+    { socket }: HandlerConnections,
+    { positionMs }: { positionMs: number },
+  ) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.djService.seekPlayback(roomId, userId, positionMs)
+
+      if (!result.success) {
+        socket.emit("event", {
+          type: "SEEK_PLAYBACK_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "SEEK_PLAYBACK_SUCCESS",
+        data: { positionMs: result.positionMs },
+      })
+    } catch (error: any) {
+      console.error("Error seeking playback:", error)
+      socket.emit("event", {
+        type: "SEEK_PLAYBACK_FAILURE",
+        data: { message: error?.message || "Failed to seek playback" },
+      })
+    }
+  }
+
+  setPlaybackVolume = async (
+    { socket }: HandlerConnections,
+    { volumePercent }: { volumePercent: number },
+  ) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.djService.setPlaybackVolume(roomId, userId, volumePercent)
+
+      if (!result.success) {
+        socket.emit("event", {
+          type: "SET_PLAYBACK_VOLUME_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "SET_PLAYBACK_VOLUME_SUCCESS",
+        data: { volumePercent: result.volumePercent },
+      })
+    } catch (error: any) {
+      console.error("Error setting playback volume:", error)
+      socket.emit("event", {
+        type: "SET_PLAYBACK_VOLUME_FAILURE",
+        data: { message: error?.message || "Failed to set playback volume" },
+      })
+    }
+  }
+
+  linkMediaBridge = async ({ socket }: HandlerConnections) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.mediaBridgeService.linkMediaBridge(roomId, userId)
+
+      if (!result.success) {
+        socket.emit("event", {
+          type: "LINK_MEDIA_BRIDGE_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "LINK_MEDIA_BRIDGE_SUCCESS",
+        data: { daemonId: result.daemonId, roomId: result.roomId },
+      })
+    } catch (error: any) {
+      console.error("Error linking Media Bridge:", error)
+      socket.emit("event", {
+        type: "LINK_MEDIA_BRIDGE_FAILURE",
+        data: { message: error?.message || "Failed to link Media Bridge" },
+      })
+    }
+  }
+
+  getMediaBridgeStatus = async ({ socket }: HandlerConnections) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.mediaBridgeService.getMediaBridgeStatus(roomId, userId)
+
+      if (!result.success) {
+        socket.emit("event", {
+          type: "MEDIA_BRIDGE_STATUS_CHANGED",
+          data: { roomId, connected: false, message: result.message },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "MEDIA_BRIDGE_STATUS_CHANGED",
+        data: {
+          roomId: result.roomId,
+          connected: result.connected,
+          services: "services" in result ? result.services : undefined,
+        },
+      })
+    } catch (error: any) {
+      console.error("Error getting Media Bridge status:", error)
+      socket.emit("event", {
+        type: "MEDIA_BRIDGE_STATUS_CHANGED",
+        data: {
+          roomId: socket.data.roomId,
+          connected: false,
+          message: error?.message || "Failed to get Media Bridge status",
+        },
       })
     }
   }

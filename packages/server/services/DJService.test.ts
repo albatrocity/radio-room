@@ -37,6 +37,9 @@ vi.mock("./AdapterService", () => ({
     getRoomMetadataSource: vi.fn(),
   })),
 }))
+vi.mock("../operations/playback/handlePlaybackVolumeChange", () => ({
+  handlePlaybackVolumeChange: vi.fn().mockResolvedValue({ emitted: true }),
+}))
 
 // Import mocked dependencies
 import systemMessage from "../lib/systemMessage"
@@ -420,7 +423,12 @@ describe("DJService", () => {
 
       const result = await djService.togglePlayback("room123", "user123")
 
-      expect(result).toEqual({ success: true, state: "paused", action: "paused" })
+      expect(result).toEqual({
+        success: true,
+        state: "paused",
+        action: "paused",
+        canResume: true,
+      })
       expect(pause).toHaveBeenCalled()
     })
 
@@ -442,7 +450,12 @@ describe("DJService", () => {
 
       const result = await djService.togglePlayback("room123", "user123")
 
-      expect(result).toEqual({ success: true, state: "playing", action: "resumed" })
+      expect(result).toEqual({
+        success: true,
+        state: "playing",
+        action: "resumed",
+        canResume: true,
+      })
       expect(play).toHaveBeenCalled()
     })
 
@@ -463,6 +476,43 @@ describe("DJService", () => {
       const getPlayback = vi.fn().mockResolvedValue({
         state: "paused" as const,
         track: { id: "t1" },
+        progressMs: 0,
+        durationMs: 180_000,
+      })
+      const play = vi.fn().mockResolvedValue(undefined)
+      const playTrack = vi.fn().mockResolvedValue(undefined)
+      // @ts-ignore
+      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+        api: { getPlayback, pause: vi.fn(), play, playTrack },
+      })
+
+      const result = await djService.togglePlayback("room123", "user123")
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.action).toBe("advanced")
+      }
+      expect(playTrack).toHaveBeenCalled()
+      expect(play).not.toHaveBeenCalled()
+    })
+
+    test("starts next queue item when auto-advance is on and prior track ended at progress 0", async () => {
+      const item = queueItemFactory.build({
+        track: {
+          ...queueItemFactory.build().track,
+          urls: [{ type: "resource" as const, url: "spotify:track:abc" }],
+        },
+        addedBy: { userId: "user123", username: "Host" },
+      })
+      vi.mocked(findRoom).mockResolvedValue({
+        ...room,
+        queueAutoAdvance: true,
+      })
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+      vi.mocked(getQueue).mockResolvedValue([item])
+      const getPlayback = vi.fn().mockResolvedValue({
+        state: "paused" as const,
+        track: { id: "song-a" },
         progressMs: 0,
         durationMs: 180_000,
       })
@@ -519,6 +569,193 @@ describe("DJService", () => {
     })
   })
 
+  describe("getPlaybackState", () => {
+    const room = roomFactory.build({
+      creator: "user123",
+      playbackMode: "app-controlled",
+      playbackControllerId: "spotify",
+    })
+
+    test("returns progress, duration, volume, and supportsVolume", async () => {
+      vi.mocked(findRoom).mockResolvedValue(room)
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+      const getPlayback = vi.fn().mockResolvedValue({
+        state: "playing" as const,
+        track: { id: "t1" },
+        progressMs: 12_000,
+        durationMs: 180_000,
+        volumePercent: 72,
+      })
+      // @ts-ignore
+      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+        api: { getPlayback, setVolume: vi.fn() },
+      })
+
+      const result = await djService.getPlaybackState("room123", "user123")
+
+      expect(result).toEqual({
+        success: true,
+        state: "playing",
+        trackId: "t1",
+        canResume: true,
+        progressMs: 12_000,
+        durationMs: 180_000,
+        volumePercent: 72,
+        supportsVolume: true,
+      })
+    })
+
+    test("supportsVolume is false when setVolume is missing", async () => {
+      vi.mocked(findRoom).mockResolvedValue(room)
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+      const getPlayback = vi.fn().mockResolvedValue({
+        state: "paused" as const,
+        track: { id: "t1" },
+        progressMs: 0,
+        durationMs: 180_000,
+      })
+      // @ts-ignore
+      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+        api: { getPlayback },
+      })
+
+      const result = await djService.getPlaybackState("room123", "user123")
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.supportsVolume).toBe(false)
+        expect(result.volumePercent).toBeNull()
+      }
+    })
+  })
+
+  describe("seekPlayback", () => {
+    const room = roomFactory.build({
+      creator: "user123",
+      playbackMode: "app-controlled",
+      playbackControllerId: "spotify",
+    })
+
+    test("rejects when user is not admin", async () => {
+      vi.mocked(findRoom).mockResolvedValue(room)
+      vi.mocked(isRoomAdmin).mockResolvedValue(false)
+
+      const result = await djService.seekPlayback("room123", "user123", 30_000)
+
+      expect(result.success).toBe(false)
+    })
+
+    test("rejects negative position", async () => {
+      vi.mocked(findRoom).mockResolvedValue(room)
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+
+      const result = await djService.seekPlayback("room123", "user123", -1)
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.message).toMatch(/invalid seek/i)
+      }
+    })
+
+    test("seeks and clamps to duration", async () => {
+      vi.mocked(findRoom).mockResolvedValue(room)
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+      const seekTo = vi.fn().mockResolvedValue(undefined)
+      const getPlayback = vi.fn().mockResolvedValue({
+        state: "playing" as const,
+        track: { id: "t1" },
+        progressMs: 0,
+        durationMs: 180_000,
+      })
+      // @ts-ignore
+      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+        api: { getPlayback, seekTo },
+      })
+
+      const result = await djService.seekPlayback("room123", "user123", 200_000)
+
+      expect(result).toEqual({ success: true, positionMs: 180_000 })
+      expect(seekTo).toHaveBeenCalledWith(180_000)
+    })
+
+    test("rejects when nothing is playing", async () => {
+      vi.mocked(findRoom).mockResolvedValue(room)
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+      const seekTo = vi.fn()
+      const getPlayback = vi.fn().mockResolvedValue({
+        state: "stopped" as const,
+        track: null,
+        progressMs: null,
+        durationMs: null,
+      })
+      // @ts-ignore
+      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+        api: { getPlayback, seekTo },
+      })
+
+      const result = await djService.seekPlayback("room123", "user123", 5_000)
+
+      expect(result.success).toBe(false)
+      expect(seekTo).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("setPlaybackVolume", () => {
+    const room = roomFactory.build({
+      creator: "user123",
+      playbackMode: "app-controlled",
+      playbackControllerId: "spotify",
+    })
+
+    test("rejects when user is not admin", async () => {
+      vi.mocked(findRoom).mockResolvedValue(room)
+      vi.mocked(isRoomAdmin).mockResolvedValue(false)
+
+      const result = await djService.setPlaybackVolume("room123", "user123", 50)
+
+      expect(result.success).toBe(false)
+    })
+
+    test("clamps and sets volume", async () => {
+      const { handlePlaybackVolumeChange } = await import(
+        "../operations/playback/handlePlaybackVolumeChange"
+      )
+      vi.mocked(findRoom).mockResolvedValue(room)
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+      const setVolume = vi.fn().mockResolvedValue(undefined)
+      // @ts-ignore
+      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+        api: { setVolume, getPlayback: vi.fn() },
+      })
+
+      const result = await djService.setPlaybackVolume("room123", "user123", 150.4)
+
+      expect(result).toEqual({ success: true, volumePercent: 100 })
+      expect(setVolume).toHaveBeenCalledWith(100)
+      expect(handlePlaybackVolumeChange).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        volumePercent: 100,
+      })
+    })
+
+    test("rejects when controller lacks setVolume", async () => {
+      vi.mocked(findRoom).mockResolvedValue(room)
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+      // @ts-ignore
+      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+        api: { getPlayback: vi.fn() },
+      })
+
+      const result = await djService.setPlaybackVolume("room123", "user123", 50)
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.message).toMatch(/does not support volume/i)
+      }
+    })
+  })
+
   describe("searchForTrack", () => {
     test("returns search results when successful", async () => {
       // Mock metadata source with search API
@@ -554,7 +791,7 @@ describe("DJService", () => {
 
       expect(result).toEqual({
         success: false,
-        message: expect.stringContaining("Something went wrong"),
+        message: "Search failed: Search failed",
         error: mockError,
       })
     })

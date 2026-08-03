@@ -15,6 +15,14 @@ function isSpotifyEmptyBodySuccess(error: unknown): boolean {
   return message.includes("JSON") || message.includes("Unexpected")
 }
 
+/** Must match Spotify.Player name in apps/bridge-daemon/static/spotify.html */
+const BRIDGE_SPOTIFY_DEVICE_NAME = "Listening Room Bridge"
+
+function isDeviceNotFoundError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return message.includes("Device not found") || message.includes("404")
+}
+
 export async function makeApi({
   token,
   clientId,
@@ -56,10 +64,75 @@ export async function makeApi({
     expiresIn: accessToken.expires_in,
   })
 
+  /**
+   * Prefer the bridge SDK device when advertised; wake it via transferPlayback.
+   *
+   * The Web Playback SDK `ready` device_id frequently differs from the id in
+   * GET /me/player/devices for the same player — match by Connect name when
+   * the preferred id is missing/stale. Transfer by preferred id only as a last
+   * resort when the device is not listed yet.
+   */
+  async function resolveTargetDevice(api: SpotifyApi): Promise<{ id: string }> {
+    try {
+      const preferredId = (await config.getPreferredDeviceId?.()) ?? null
+      if (!preferredId) {
+        return getNowPlayingDevice(api)
+      }
+
+      const { devices } = await api.player.getAvailableDevices()
+      const byId = devices.find((d) => d.id === preferredId)
+      const byName = devices.find((d) => d.name === BRIDGE_SPOTIFY_DEVICE_NAME)
+      const target = byId ?? byName
+
+      if (target?.id) {
+        if (!byId && byName?.id && byName.id !== preferredId) {
+          console.log(
+            `[spotify] preferred id ${preferredId} ≠ listed "${BRIDGE_SPOTIFY_DEVICE_NAME}" ${byName.id}; using listed`,
+          )
+        }
+        if (!target.is_active) {
+          try {
+            await api.player.transferPlayback([target.id], false)
+          } catch (error: unknown) {
+            if (!isSpotifyEmptyBodySuccess(error)) {
+              console.warn(
+                `[spotify] transfer to ${target.id} failed; targeting anyway:`,
+                error,
+              )
+            }
+          }
+        }
+        return { id: target.id }
+      }
+
+      try {
+        await api.player.transferPlayback([preferredId], false)
+        console.log(
+          `[spotify] preferred device ${preferredId} not listed; transferred by id`,
+        )
+        return { id: preferredId }
+      } catch (error: unknown) {
+        if (isSpotifyEmptyBodySuccess(error)) {
+          return { id: preferredId }
+        }
+        if (isDeviceNotFoundError(error)) {
+          console.warn(
+            `[spotify] preferred device ${preferredId} not found (404); falling back`,
+          )
+        } else {
+          throw error
+        }
+      }
+    } catch (e) {
+      console.warn("[spotify] preferred device resolution failed; falling back:", e)
+    }
+    return getNowPlayingDevice(api)
+  }
+
   const api: PlaybackControllerApi = {
     async play() {
       const api = await getSpotifyApi()
-      const device = await getNowPlayingDevice(api)
+      const device = await resolveTargetDevice(api)
 
       try {
         await api.player.startResumePlayback(device.id)
@@ -74,7 +147,7 @@ export async function makeApi({
     },
     async playTrack(mediaId) {
       const api = await getSpotifyApi()
-      const device = await getNowPlayingDevice(api)
+      const device = await resolveTargetDevice(api)
 
       try {
         await api.player.startResumePlayback(device.id, undefined, [mediaId], undefined, 0)
@@ -91,7 +164,7 @@ export async function makeApi({
     },
     async pause() {
       const api = await getSpotifyApi()
-      const device = await getNowPlayingDevice(api)
+      const device = await resolveTargetDevice(api)
 
       try {
         await api.player.pausePlayback(device.id)
@@ -105,12 +178,21 @@ export async function makeApi({
     },
     async seekTo(position) {
       const api = await getSpotifyApi()
-      await api.player.seekToPosition(position)
+      const device = await resolveTargetDevice(api)
+
+      try {
+        await api.player.seekToPosition(position, device.id)
+      } catch (error: unknown) {
+        // Spotify returns 204 No Content on success; the SDK still tries to JSON-parse the body.
+        if (!isSpotifyEmptyBodySuccess(error)) {
+          throw error
+        }
+      }
       await config.onPlaybackPositionChange?.(position)
     },
     async skipToNextTrack() {
       const api = await getSpotifyApi()
-      const device = await getNowPlayingDevice(api)
+      const device = await resolveTargetDevice(api)
 
       try {
         await api.player.skipToNext(device.id)
@@ -133,7 +215,7 @@ export async function makeApi({
     },
     async skipToPreviousTrack() {
       const api = await getSpotifyApi()
-      const device = await getNowPlayingDevice(api)
+      const device = await resolveTargetDevice(api)
 
       await api.player.skipToPrevious(device.id)
 
@@ -173,7 +255,7 @@ export async function makeApi({
     },
     async setVolume(volumePercent) {
       const api = await getSpotifyApi()
-      const device = await getNowPlayingDevice(api)
+      const device = await resolveTargetDevice(api)
 
       try {
         await api.player.setPlaybackVolume(clampVolumePercent(volumePercent), device.id)
@@ -193,13 +275,18 @@ export async function makeApi({
           track: null,
           progressMs: null,
           durationMs: null,
+          volumePercent: null,
         }
       }
 
-      const { is_playing, item, progress_ms } = playback
+      const { is_playing, item, progress_ms, device } = playback
       const durationMs =
         item && typeof item === "object" && "duration_ms" in item
           ? (item as { duration_ms?: number }).duration_ms ?? null
+          : null
+      const volumePercent =
+        device && typeof device === "object" && typeof device.volume_percent === "number"
+          ? device.volume_percent
           : null
 
       return {
@@ -207,6 +294,7 @@ export async function makeApi({
         track: item ? trackItemSchema.parse(item) : null,
         progressMs: progress_ms ?? null,
         durationMs,
+        volumePercent,
       }
     },
   }
