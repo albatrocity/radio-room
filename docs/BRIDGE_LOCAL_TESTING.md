@@ -11,6 +11,8 @@ npm run pack:dj-mac
 # → dist/listening-room-dj-mac-darwin-x64.zip
 ```
 
+`pack:dj-mac` runs `npm run bundle -w bridge-daemon`, which writes **gitignored** `apps/bridge-daemon/dist-bundle/` (`daemon.cjs`, static/ui, package.json). Do not commit that folder; regenerate via pack or `npm run bundle -w bridge-daemon` when you need the artifact locally.
+
 AirDrop → unzip/replace → if Gatekeeper blocks: `xattr -dr com.apple.quarantine listening-room-dj-mac`. Audio Hijack starts **only** `local-remote`. Operator UI: **http://127.0.0.1:9876/** (enable **Media Bridge** there). Configs live outside the zip under `~/Library/Application Support/local-remote/` and `~/.config/listening-room-bridge/`.
 
 The sections below are for **dev from source** (`npm run serve -w bridge-daemon`). Prefer the pack on the real DJ Mac.
