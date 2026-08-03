@@ -262,6 +262,10 @@ export class LocalDriver implements Driver {
       [
         `--input-ipc-server=${this.socketPath}`,
         "--idle=yes",
+        // Never auto-advance to a next playlist entry (album siblings / autoload).
+        // The Listening Room queue is the only source of the next track.
+        "--keep-open=always",
+        "--script-opts-append=autoload-disabled=yes",
         "--force-window=no",
         "--no-video",
         "--quiet",
@@ -668,6 +672,8 @@ export class LocalDriver implements Driver {
       `[local] loadfile trackId=${trackId} via ${this.navidrome.url} (mpv → system audio; Audio Hijack must capture mpv)`,
     )
     await this.send(["loadfile", url, "replace"])
+    // Drop any auto-appended playlist entries (e.g. user autoload.lua) so only this track plays.
+    await this.send(["playlist-clear"]).catch(() => undefined)
     await this.send(["set_property", "pause", false])
     // Surface immediate load failures (bad auth / missing file) instead of silent EOF later.
     try {
