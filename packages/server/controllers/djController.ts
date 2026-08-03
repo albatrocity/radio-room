@@ -41,6 +41,21 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
     await handlers.getEffectiveMetadataSources(connections)
   })
 
+  socket.on(
+    "BROWSE_ARTISTS",
+    async (payload: { source: string; query?: string; offset?: number; limit?: number }) => {
+      await handlers.browseArtists(connections, payload)
+    },
+  )
+
+  socket.on("BROWSE_ARTIST", async (payload: { source: string; artistId: string }) => {
+    await handlers.browseArtist(connections, payload)
+  })
+
+  socket.on("BROWSE_ALBUM", async (payload: { source: string; albumId: string }) => {
+    await handlers.browseAlbum(connections, payload)
+  })
+
   /**
    * Legacy event name for backward compatibility
    * @deprecated Use "SEARCH_TRACK" instead

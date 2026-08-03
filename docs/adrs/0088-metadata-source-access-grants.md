@@ -37,6 +37,7 @@ Personas are identity labels only ([ADR 0057](0057-user-personas-system.md)); th
 
 ## See also
 
+- [0089. Metadata source content browse](0089-metadata-source-content-browse.md) (browse reuses `search` access)
 - [0057. User Personas System](0057-user-personas-system.md)
 - [0087. Room-level Media Bridge source policy](0087-room-bridge-media-source-policy.md)
 - [0006. Plugin system for room features](0006-plugin-system-for-room-features.md)

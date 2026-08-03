@@ -557,4 +557,143 @@ describe("DJHandlers", () => {
       })
     })
   })
+
+  describe("catalog browse", () => {
+    let listArtists: ReturnType<typeof vi.fn>
+    let getArtist: ReturnType<typeof vi.fn>
+    let getAlbum: ReturnType<typeof vi.fn>
+    let browseableLocal: MetadataSource
+
+    beforeEach(() => {
+      listArtists = vi.fn().mockResolvedValue({
+        items: [{ id: "a1", title: "Artist One" }],
+        total: 1,
+      })
+      getArtist = vi.fn().mockResolvedValue({
+        artist: { id: "a1", title: "Artist One" },
+        albums: [{ id: "al1", title: "Album", artists: [] }],
+      })
+      getAlbum = vi.fn().mockResolvedValue({
+        album: { id: "al1", title: "Album", artists: [] },
+        tracks: [{ id: "t1", title: "Track", urls: [], artists: [], album: {}, duration: 0 }],
+      })
+      browseableLocal = {
+        name: "local",
+        authentication: { type: "none" },
+        api: {
+          search: async () => [],
+          searchByParams: async () => [],
+          findById: async () => null,
+          listArtists,
+          getArtist,
+          getAlbum,
+        },
+      } as unknown as MetadataSource
+
+      adapterService.getRoomMetadataSources.mockResolvedValue(
+        new Map([
+          ["spotify", mockMetadataSource],
+          ["local", browseableLocal],
+        ]),
+      )
+    })
+
+    test("getEffectiveMetadataSources includes browseableSourceIds", async () => {
+      await djHandlers.getEffectiveMetadataSources({ socket: mockSocket, io: mockIo })
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "EFFECTIVE_METADATA_SOURCES",
+        data: {
+          metadataSourceIds: ["spotify"],
+          browseableSourceIds: [],
+        },
+      })
+    })
+
+    test("getEffectiveMetadataSources marks local as browseable when effective", async () => {
+      vi.spyOn(dataOps, "findRoom").mockResolvedValueOnce({
+        id: "room1",
+        metadataSourceIds: ["spotify", "local"],
+      } as any)
+
+      await djHandlers.getEffectiveMetadataSources({ socket: mockSocket, io: mockIo })
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "EFFECTIVE_METADATA_SOURCES",
+        data: {
+          metadataSourceIds: ["spotify", "local"],
+          browseableSourceIds: ["local"],
+        },
+      })
+    })
+
+    test("browseArtists returns items for browseable source", async () => {
+      await djHandlers.browseArtists(
+        { socket: mockSocket, io: mockIo },
+        { source: "local", query: "art" },
+      )
+
+      expect(listArtists).toHaveBeenCalledWith({
+        query: "art",
+        offset: undefined,
+        limit: undefined,
+      })
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "BROWSE_ARTISTS_RESULTS",
+        data: {
+          source: "local",
+          items: [{ id: "a1", title: "Artist One" }],
+          total: 1,
+        },
+      })
+    })
+
+    test("browseArtists fails when source does not support browse", async () => {
+      await djHandlers.browseArtists({ socket: mockSocket, io: mockIo }, { source: "spotify" })
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "BROWSE_ARTISTS_FAILURE",
+        data: { message: "Metadata source does not support browse" },
+      })
+    })
+
+    test("browseAlbum tags tracks with source", async () => {
+      await djHandlers.browseAlbum(
+        { socket: mockSocket, io: mockIo },
+        { source: "local", albumId: "al1" },
+      )
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "BROWSE_ALBUM_RESULTS",
+        data: {
+          source: "local",
+          album: { id: "al1", title: "Album", artists: [] },
+          tracks: [
+            expect.objectContaining({
+              id: "t1",
+              source: "local",
+            }),
+          ],
+        },
+      })
+    })
+
+    test("browseArtist denies when access service rejects", async () => {
+      mockContext.metadataSourceAccess = {
+        canAccess: vi.fn().mockResolvedValue(false),
+        getEffectiveSourceIdsForUser: vi.fn(),
+      } as any
+
+      await djHandlers.browseArtist(
+        { socket: mockSocket, io: mockIo },
+        { source: "local", artistId: "a1" },
+      )
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "BROWSE_ARTIST_FAILURE",
+        data: { message: "You do not have access to this metadata source" },
+      })
+      expect(getArtist).not.toHaveBeenCalled()
+    })
+  })
 })

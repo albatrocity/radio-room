@@ -103,7 +103,14 @@ function TrackSearch({
   useEffect(() => {
     const subscriptionId = `track-search-effective-sources-${Date.now()}`
     subscribeById(subscriptionId, {
-      send: (event: { type: string; data?: { metadataSourceIds?: string[]; effectiveMetadataSourceIds?: string[] } }) => {
+      send: (event: {
+        type: string
+        data?: {
+          metadataSourceIds?: string[]
+          effectiveMetadataSourceIds?: string[]
+          browseableSourceIds?: string[]
+        }
+      }) => {
         if (event.type === "EFFECTIVE_METADATA_SOURCES" && Array.isArray(event.data?.metadataSourceIds)) {
           setEffectiveSourceIds(event.data.metadataSourceIds)
         }

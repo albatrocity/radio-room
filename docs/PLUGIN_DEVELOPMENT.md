@@ -27,7 +27,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 | Guide | Topics |
 | ----- | ------ |
 | [Queue Validation](plugins/queue-validation.md) | Intercepting enqueue requests, fail-open semantics |
-| [Metadata Source Access](plugins/metadata-source-access.md) | Restricted sources, plugin grants, `listMetadataSources` |
+| [Metadata Source Access](plugins/metadata-source-access.md) | Restricted sources, plugin grants, `listMetadataSources`; browse uses `search` access ([ADR 0089](adrs/0089-metadata-source-content-browse.md)) |
 | [Data & Export](plugins/data-and-export.md) | Playlist/now-playing augmentation, room exports |
 | [Timer API](plugins/timers.md) | Built-in timer management, countdown patterns |
 

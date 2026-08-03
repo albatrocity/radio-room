@@ -1,5 +1,6 @@
 import { DJService } from "../services/DJService"
-import { QueueItem, HandlerConnections, AppContext, User } from "@repo/types"
+import { QueueItem, HandlerConnections, AppContext, User, MetadataSource } from "@repo/types"
+import { metadataSourceSupportsBrowse } from "@repo/utils"
 import sendMessage from "../lib/sendMessage"
 import { pubUserJoined } from "../operations/sockets/users"
 import { AdapterService } from "../services/AdapterService"
@@ -254,30 +255,215 @@ export class DJHandlers {
   }
 
   /**
-   * Return per-user effective metadata source ids for search UI tabs (ADR 0088).
+   * Effective search sources that also expose catalog browse (ADR 0089).
+   */
+  private async resolveBrowseableSourceIds(
+    roomId: string,
+    metadataSourceIds: string[],
+  ): Promise<string[]> {
+    if (metadataSourceIds.length === 0) return []
+    const sources = await this.adapterService.getRoomMetadataSources(roomId)
+    return metadataSourceIds.filter((id) => {
+      const src = sources.get(id)
+      return src ? metadataSourceSupportsBrowse(src.api) : false
+    })
+  }
+
+  /**
+   * Resolve a single metadata source for browse after search access check (ADR 0088/0089).
+   */
+  private async resolveBrowseSource(
+    roomId: string,
+    userId: string,
+    source: string,
+  ): Promise<
+    | { ok: true; metadataSource: MetadataSource }
+    | { ok: false; message: string }
+  > {
+    if (!source) {
+      return { ok: false, message: "source is required" }
+    }
+
+    if (this.context.metadataSourceAccess) {
+      const allowed = await this.context.metadataSourceAccess.canAccess({
+        roomId,
+        userId,
+        sourceId: source,
+        action: "search",
+      })
+      if (!allowed) {
+        return { ok: false, message: "You do not have access to this metadata source" }
+      }
+    }
+
+    const sources = await this.adapterService.getRoomMetadataSources(roomId)
+    const metadataSource = sources.get(source)
+    if (!metadataSource) {
+      return { ok: false, message: "Metadata source not available" }
+    }
+    if (!metadataSourceSupportsBrowse(metadataSource.api)) {
+      return { ok: false, message: "Metadata source does not support browse" }
+    }
+    return { ok: true, metadataSource }
+  }
+
+  /**
+   * Return per-user effective metadata source ids for search UI tabs (ADR 0088)
+   * and browseableSourceIds for catalog browse (ADR 0089).
    */
   getEffectiveMetadataSources = async ({ socket }: HandlerConnections) => {
     const { roomId, userId } = socket.data
+    let metadataSourceIds: string[]
     if (!this.context.metadataSourceAccess) {
       const { findRoom } = await import("../operations/data")
       const room = await findRoom({ context: this.context, roomId })
-      socket.emit("event", {
-        type: "EFFECTIVE_METADATA_SOURCES",
-        data: { metadataSourceIds: room?.metadataSourceIds ?? [] },
-      })
-      return
+      metadataSourceIds = room?.metadataSourceIds ?? []
+    } else {
+      metadataSourceIds =
+        await this.context.metadataSourceAccess.getEffectiveSourceIdsForUser(
+          roomId,
+          userId,
+          "search",
+        )
     }
 
-    const metadataSourceIds =
-      await this.context.metadataSourceAccess.getEffectiveSourceIdsForUser(
-        roomId,
-        userId,
-        "search",
-      )
+    const browseableSourceIds = await this.resolveBrowseableSourceIds(roomId, metadataSourceIds)
     socket.emit("event", {
       type: "EFFECTIVE_METADATA_SOURCES",
-      data: { metadataSourceIds },
+      data: { metadataSourceIds, browseableSourceIds },
     })
+  }
+
+  browseArtists = async (
+    { socket }: HandlerConnections,
+    payload: { source: string; query?: string; offset?: number; limit?: number },
+  ) => {
+    const { roomId, userId } = socket.data
+    try {
+      const resolved = await this.resolveBrowseSource(roomId, userId, payload.source)
+      if (!resolved.ok) {
+        socket.emit("event", {
+          type: "BROWSE_ARTISTS_FAILURE",
+          data: { message: resolved.message },
+        })
+        return
+      }
+      const result = await resolved.metadataSource.api.listArtists!({
+        query: payload.query,
+        offset: payload.offset,
+        limit: payload.limit,
+      })
+      socket.emit("event", {
+        type: "BROWSE_ARTISTS_RESULTS",
+        data: {
+          source: payload.source,
+          items: result.items,
+          total: result.total,
+        },
+      })
+    } catch (error: any) {
+      console.error("Error browsing artists:", error)
+      socket.emit("event", {
+        type: "BROWSE_ARTISTS_FAILURE",
+        data: { message: error?.message || "Failed to browse artists" },
+      })
+    }
+  }
+
+  browseArtist = async (
+    { socket }: HandlerConnections,
+    payload: { source: string; artistId: string },
+  ) => {
+    const { roomId, userId } = socket.data
+    try {
+      const resolved = await this.resolveBrowseSource(roomId, userId, payload.source)
+      if (!resolved.ok) {
+        socket.emit("event", {
+          type: "BROWSE_ARTIST_FAILURE",
+          data: { message: resolved.message },
+        })
+        return
+      }
+      if (!payload.artistId) {
+        socket.emit("event", {
+          type: "BROWSE_ARTIST_FAILURE",
+          data: { message: "artistId is required" },
+        })
+        return
+      }
+      const result = await resolved.metadataSource.api.getArtist!(payload.artistId)
+      if (!result) {
+        socket.emit("event", {
+          type: "BROWSE_ARTIST_FAILURE",
+          data: { message: "Artist not found" },
+        })
+        return
+      }
+      socket.emit("event", {
+        type: "BROWSE_ARTIST_RESULTS",
+        data: {
+          source: payload.source,
+          artist: result.artist,
+          albums: result.albums,
+        },
+      })
+    } catch (error: any) {
+      console.error("Error browsing artist:", error)
+      socket.emit("event", {
+        type: "BROWSE_ARTIST_FAILURE",
+        data: { message: error?.message || "Failed to browse artist" },
+      })
+    }
+  }
+
+  browseAlbum = async (
+    { socket }: HandlerConnections,
+    payload: { source: string; albumId: string },
+  ) => {
+    const { roomId, userId } = socket.data
+    try {
+      const resolved = await this.resolveBrowseSource(roomId, userId, payload.source)
+      if (!resolved.ok) {
+        socket.emit("event", {
+          type: "BROWSE_ALBUM_FAILURE",
+          data: { message: resolved.message },
+        })
+        return
+      }
+      if (!payload.albumId) {
+        socket.emit("event", {
+          type: "BROWSE_ALBUM_FAILURE",
+          data: { message: "albumId is required" },
+        })
+        return
+      }
+      const result = await resolved.metadataSource.api.getAlbum!(payload.albumId)
+      if (!result) {
+        socket.emit("event", {
+          type: "BROWSE_ALBUM_FAILURE",
+          data: { message: "Album not found" },
+        })
+        return
+      }
+      const tracks = result.tracks.map((track) => ({
+        ...track,
+        source: payload.source,
+      }))
+      socket.emit("event", {
+        type: "BROWSE_ALBUM_RESULTS",
+        data: {
+          source: payload.source,
+          album: result.album,
+          tracks,
+        },
+      })
+    } catch (error: any) {
+      console.error("Error browsing album:", error)
+      socket.emit("event", {
+        type: "BROWSE_ALBUM_FAILURE",
+        data: { message: error?.message || "Failed to browse album" },
+      })
+    }
   }
 
   /**

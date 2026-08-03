@@ -91,6 +91,49 @@ export type MetadataSourceSearchParameters = Pick<
   "title" | "artists" | "album" | "id"
 >
 
+// =============================================================================
+// MetadataSource Browse (optional catalog navigation)
+// =============================================================================
+
+export const metadataBrowseArtistSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  albumCount: z.number().optional(),
+  images: z.array(metadataSourceUrlSchema).optional(),
+})
+export type MetadataBrowseArtist = z.infer<typeof metadataBrowseArtistSchema>
+
+export const metadataBrowseAlbumSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  artists: z.array(metadataSourceExternalResourceSchema),
+  year: z.string().optional(),
+  trackCount: z.number().optional(),
+  images: z.array(metadataSourceUrlSchema).optional(),
+})
+export type MetadataBrowseAlbum = z.infer<typeof metadataBrowseAlbumSchema>
+
+export type MetadataListArtistsParams = {
+  query?: string
+  offset?: number
+  limit?: number
+}
+
+export type MetadataListArtistsResult = {
+  items: MetadataBrowseArtist[]
+  total?: number
+}
+
+export type MetadataGetArtistResult = {
+  artist: MetadataBrowseArtist
+  albums: MetadataBrowseAlbum[]
+}
+
+export type MetadataGetAlbumResult = {
+  album: MetadataBrowseAlbum
+  tracks: MetadataSourceTrack[]
+}
+
 export interface MetadataSourceApi {
   search: (query: string) => Promise<MetadataSourceTrack[]>
   searchByParams: (params: MetadataSourceSearchParameters) => Promise<MetadataSourceTrack[]>
@@ -109,6 +152,10 @@ export interface MetadataSourceApi {
   checkSavedTracks?: (trackIds: string[]) => Promise<boolean[]>
   addToLibrary?: (trackIds: string[]) => Promise<void>
   removeFromLibrary?: (trackIds: string[]) => Promise<void>
+  /** Optional catalog browse: Artists → Albums → Tracks (ADR 0089). */
+  listArtists?: (params?: MetadataListArtistsParams) => Promise<MetadataListArtistsResult>
+  getArtist?: (artistId: string) => Promise<MetadataGetArtistResult | null>
+  getAlbum?: (albumId: string) => Promise<MetadataGetAlbumResult | null>
 }
 
 export interface MetadataSourceError {

@@ -3,7 +3,15 @@ import { spawn, type ChildProcess, execFileSync } from "node:child_process"
 import { createConnection, type Socket } from "node:net"
 import { existsSync, mkdirSync, unlinkSync } from "node:fs"
 import { join } from "node:path"
-import type { MetadataSourceTrack } from "@repo/types"
+import type {
+  MetadataBrowseAlbum,
+  MetadataBrowseArtist,
+  MetadataGetAlbumResult,
+  MetadataGetArtistResult,
+  MetadataListArtistsParams,
+  MetadataListArtistsResult,
+  MetadataSourceTrack,
+} from "@repo/types"
 import type { BridgeDaemonConfig } from "../config"
 import { configDir } from "../config"
 import type { Driver, DriverState } from "./Driver"
@@ -68,10 +76,68 @@ type NavidromeSong = {
   duration?: number
   track?: number
   discNumber?: number
+  coverArt?: string
   /** OpenSubsonic: comment tag (may be a lone URL). */
   comment?: string
   /** OpenSubsonic: MusicBrainz recording id. */
   musicBrainzId?: string
+}
+
+type NavidromeArtist = {
+  id?: string
+  name?: string
+  albumCount?: number
+  coverArt?: string
+}
+
+type NavidromeAlbum = {
+  id?: string
+  name?: string
+  artist?: string
+  artistId?: string
+  year?: number
+  songCount?: number
+  coverArt?: string
+}
+
+/** Flatten Subsonic artist indexes into browse artists (pure; testable). */
+export function mapNavidromeArtists(
+  indexes: Array<{ artist?: NavidromeArtist | NavidromeArtist[] } | undefined> | undefined,
+  query?: string,
+): MetadataBrowseArtist[] {
+  const raw = Array.isArray(indexes) ? indexes : []
+  const artists: MetadataBrowseArtist[] = []
+  for (const idx of raw) {
+    const list = idx?.artist
+    const arr = Array.isArray(list) ? list : list ? [list] : []
+    for (const a of arr) {
+      if (!a?.id) continue
+      artists.push({
+        id: String(a.id),
+        title: String(a.name ?? a.id).trim() || String(a.id),
+        albumCount: typeof a.albumCount === "number" ? a.albumCount : undefined,
+      })
+    }
+  }
+  artists.sort((x, y) => x.title.localeCompare(y.title, undefined, { sensitivity: "base" }))
+  const q = query?.trim().toLowerCase()
+  if (!q) return artists
+  return artists.filter((a) => a.title.toLowerCase().includes(q))
+}
+
+/** Map Subsonic ID3 album stub to browse album (no cover fetch). */
+export function mapNavidromeBrowseAlbum(album: NavidromeAlbum): MetadataBrowseAlbum | null {
+  if (!album?.id) return null
+  const artistTitle = album.artist?.trim() ?? ""
+  return {
+    id: String(album.id),
+    title: String(album.name ?? album.id).trim() || String(album.id),
+    artists: artistTitle
+      ? [{ id: String(album.artistId ?? ""), title: artistTitle, urls: [] }]
+      : [],
+    year: album.year != null ? String(album.year) : undefined,
+    trackCount: typeof album.songCount === "number" ? album.songCount : undefined,
+  }
 }
 
 export function resolveLocalDisplayTitle(song: NavidromeSong): string {
@@ -449,6 +515,73 @@ export class LocalDriver implements Driver {
       results.push(await this.mapSong(song))
     }
     return results
+  }
+
+  async listArtists(params?: MetadataListArtistsParams): Promise<MetadataListArtistsResult> {
+    if (!this.navidrome.username) return { items: [], total: 0 }
+    const url = `${this.navidrome.url}/rest/getArtists.view?${this.authParams()}`
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Navidrome getArtists failed: ${res.status}`)
+    const data = (await res.json()) as any
+    const indexes = data?.["subsonic-response"]?.artists?.index
+    let items = mapNavidromeArtists(
+      Array.isArray(indexes) ? indexes : indexes ? [indexes] : [],
+      params?.query,
+    )
+    const total = items.length
+    const offset = Math.max(0, params?.offset ?? 0)
+    const limit = params?.limit != null ? Math.max(0, params.limit) : undefined
+    if (offset > 0 || limit != null) {
+      items = items.slice(offset, limit != null ? offset + limit : undefined)
+    }
+    return { items, total }
+  }
+
+  async getArtist(artistId: string): Promise<MetadataGetArtistResult | null> {
+    if (!this.navidrome.username || !artistId) return null
+    const url = `${this.navidrome.url}/rest/getArtist.view?id=${encodeURIComponent(artistId)}&${this.authParams()}`
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const data = (await res.json()) as any
+    const artist = data?.["subsonic-response"]?.artist as
+      | (NavidromeArtist & { album?: NavidromeAlbum | NavidromeAlbum[] })
+      | undefined
+    if (!artist?.id) return null
+    const albumRaw = artist.album
+    const albumList = Array.isArray(albumRaw) ? albumRaw : albumRaw ? [albumRaw] : []
+    const albums = albumList
+      .map((a) => mapNavidromeBrowseAlbum(a))
+      .filter((a): a is MetadataBrowseAlbum => a != null)
+    return {
+      artist: {
+        id: String(artist.id),
+        title: String(artist.name ?? artist.id).trim() || String(artist.id),
+        albumCount: typeof artist.albumCount === "number" ? artist.albumCount : albums.length,
+      },
+      albums,
+    }
+  }
+
+  async getAlbum(albumId: string): Promise<MetadataGetAlbumResult | null> {
+    if (!this.navidrome.username || !albumId) return null
+    const url = `${this.navidrome.url}/rest/getAlbum.view?id=${encodeURIComponent(albumId)}&${this.authParams()}`
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const data = (await res.json()) as any
+    const album = data?.["subsonic-response"]?.album as
+      | (NavidromeAlbum & { song?: NavidromeSong | NavidromeSong[] })
+      | undefined
+    if (!album?.id) return null
+    const mappedAlbum = mapNavidromeBrowseAlbum(album)
+    if (!mappedAlbum) return null
+    const songRaw = album.song
+    const songs = Array.isArray(songRaw) ? songRaw : songRaw ? [songRaw] : []
+    const tracks: MetadataSourceTrack[] = []
+    for (const song of songs) {
+      tracks.push(await this.mapSong(song))
+    }
+    mappedAlbum.trackCount = tracks.length
+    return { album: mappedAlbum, tracks }
   }
 
   async load(trackId: string): Promise<void> {

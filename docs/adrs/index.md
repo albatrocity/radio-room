@@ -94,6 +94,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0086](0086-metadata-search-result-cache.md) | Metadata search result cache (SimpleCache + YouTube first) | Accepted |
 | [0087](0087-room-bridge-media-source-policy.md) | Room-level Media Bridge source policy (metadataSourceIds toggles) | Accepted |
 | [0088](0088-metadata-source-access-grants.md) | Metadata source access (room baseline + plugin grants) | Accepted |
+| [0089](0089-metadata-source-content-browse.md) | Metadata source content browse (artists → albums → tracks) | Accepted |
 
 ## Creating a New ADR
 

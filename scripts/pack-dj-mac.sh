@@ -86,6 +86,11 @@ mkdir -p "${OUT_DIR}/runtime" "${OUT_DIR}/bridge-daemon"
 cp "$LR_BIN" "${OUT_DIR}/local-remote"
 chmod +x "${OUT_DIR}/local-remote"
 
+mkdir -p "${OUT_DIR}/audiohijack"
+cp "${ROOT}/scripts/audiohijack/start-local-remote.js" \
+   "${ROOT}/scripts/audiohijack/quit-local-remote.js" \
+   "${OUT_DIR}/audiohijack/"
+
 cp "$NODE_BIN" "${OUT_DIR}/runtime/node"
 chmod +x "${OUT_DIR}/runtime/node"
 
@@ -108,6 +113,7 @@ What's in this folder
   local-remote              ← AH entrypoint + control UI on :9876
   runtime/node              ← bundled Node (used only as a child process)
   bridge-daemon/            ← Media Bridge (spawned by local-remote)
+  audiohijack/              ← paste into AH Script Library (start/quit)
   README.txt                ← this file
 
 
@@ -220,12 +226,20 @@ Optional — other services
 
 4. Wire Audio Hijack to this pack
 ---------------------------------
-1. In Audio Hijack, add an On Launch / schedule action that runs:
+1. In Audio Hijack → Window → Script Library → User Scripts, create two
+   scripts and paste the contents from this repo (or from the pack’s
+   `audiohijack/` folder if present):
 
+     start-local-remote.js   → Session Start automation
+     quit-local-remote.js    → Session End automation
+
+   They launch/quit ONLY:
      ~/Applications/listening-room-dj-mac/local-remote
 
-   Use the full path to YOUR folder. Do not point AH at runtime/node
-   or at bridge-daemon.
+   (backgrounded so AH does not hang; quit sends SIGINT for a clean
+   Media Bridge child shutdown). Do not point AH at runtime/node or
+   bridge-daemon. If your pack lives elsewhere, edit the path in both
+   scripts.
 
 2. Capture audio sources into the same mix as the stream:
    - Google Chrome (the instance the bridge launches)

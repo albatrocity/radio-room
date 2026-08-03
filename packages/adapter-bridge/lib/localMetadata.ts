@@ -1,4 +1,8 @@
 import type {
+  MetadataGetAlbumResult,
+  MetadataGetArtistResult,
+  MetadataListArtistsParams,
+  MetadataListArtistsResult,
   MetadataSourceAdapter,
   MetadataSourceAdapterConfig,
   MetadataSourceApi,
@@ -9,7 +13,7 @@ import { BridgeRpcClient } from "./rpcClient"
 import { emptyAlbum, emptyArtist } from "./trackHelpers"
 
 /**
- * Local metadata source — search is RPC to the connected bridge daemon.
+ * Local metadata source — search/browse is RPC to the connected bridge daemon.
  * findById synthesizes a minimal track when daemon is absent (queue hydration).
  */
 export function createLocalMetadataApi(deps: {
@@ -17,13 +21,19 @@ export function createLocalMetadataApi(deps: {
   /** Room id closed over at register time when available; otherwise RPC uses first present room. */
   roomId?: string
 }): MetadataSourceApi {
-  async function searchViaDaemon(query: string): Promise<MetadataSourceTrack[]> {
+  async function withRpc<T>(fn: (rpc: BridgeRpcClient, roomId: string) => Promise<T>, fallback: T): Promise<T> {
     const roomId = deps.roomId
-    if (!roomId) return []
+    if (!roomId) return fallback
     const rpc = deps.getRpcForRoom(roomId)
-    if (!rpc || !(await rpc.isPresent())) return []
-    const result = (await rpc.call("search", { query, source: "local" })) as MetadataSourceTrack[]
-    return Array.isArray(result) ? result : []
+    if (!rpc || !(await rpc.isPresent())) return fallback
+    return fn(rpc, roomId)
+  }
+
+  async function searchViaDaemon(query: string): Promise<MetadataSourceTrack[]> {
+    return withRpc(async (rpc) => {
+      const result = (await rpc.call("search", { query, source: "local" })) as MetadataSourceTrack[]
+      return Array.isArray(result) ? result : []
+    }, [])
   }
 
   return {
@@ -35,21 +45,18 @@ export function createLocalMetadataApi(deps: {
       return searchViaDaemon([params.title, artist].filter(Boolean).join(" "))
     },
     async findById(id: string) {
-      const roomId = deps.roomId
-      if (roomId) {
-        const rpc = deps.getRpcForRoom(roomId)
-        if (rpc && (await rpc.isPresent())) {
-          try {
-            const track = (await rpc.call("getTrack", {
-              source: "local",
-              trackId: id,
-            })) as MetadataSourceTrack | null
-            if (track?.id) return track
-          } catch {
-            /* fall through to stub */
-          }
+      const fromDaemon = await withRpc(async (rpc) => {
+        try {
+          const track = (await rpc.call("getTrack", {
+            source: "local",
+            trackId: id,
+          })) as MetadataSourceTrack | null
+          return track?.id ? track : null
+        } catch {
+          return null
         }
-      }
+      }, null)
+      if (fromDaemon) return fromDaemon
       // Last resort stub so queue hydration can still play; daemon resolves title on play
       return {
         id,
@@ -64,6 +71,33 @@ export function createLocalMetadataApi(deps: {
         popularity: 0,
         images: [],
       }
+    },
+    async listArtists(params?: MetadataListArtistsParams): Promise<MetadataListArtistsResult> {
+      return withRpc(async (rpc) => {
+        const result = (await rpc.call("listArtists", {
+          source: "local",
+          query: params?.query,
+          offset: params?.offset,
+          limit: params?.limit,
+        })) as MetadataListArtistsResult
+        return result?.items ? result : { items: [], total: 0 }
+      }, { items: [], total: 0 })
+    },
+    async getArtist(artistId: string): Promise<MetadataGetArtistResult | null> {
+      return withRpc(async (rpc) => {
+        return (await rpc.call("getArtist", {
+          source: "local",
+          artistId,
+        })) as MetadataGetArtistResult | null
+      }, null)
+    },
+    async getAlbum(albumId: string): Promise<MetadataGetAlbumResult | null> {
+      return withRpc(async (rpc) => {
+        return (await rpc.call("getAlbum", {
+          source: "local",
+          albumId,
+        })) as MetadataGetAlbumResult | null
+      }, null)
     },
   }
 }

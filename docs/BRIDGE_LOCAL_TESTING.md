@@ -196,8 +196,9 @@ First Chrome launch uses a dedicated profile under `~/.config/listening-room-bri
    - **With SDK device** (`"spotify"` in services): quit Spotify.app; confirm audio plays in the bridge Chrome tab and Now Playing.txt updates. Daemon logs should show `[spotify-device] ready device_id=…`.
    - **Without SDK device**: confirm Spotify.app plays as before
 6. (Optional) Queue a local Navidrome track; confirm mpv audio and artwork (data URI)
-7. Empty the queue and trigger a democracy skip / scratched-cd — active daemon source should **stop**
-8. As room admin, use the **Now Playing scrubber** to seek within the track; with Volume Manager enabled, use its **broadcast volume** slider in Now Playing to change driver volume
+7. (Optional) **Browse Library**: Add to Queue → **Browse** → Artists → album → track; queue one track (`source: local`). Requires `local` in daemon services + room policy ([ADR 0089](adrs/0089-metadata-source-content-browse.md)).
+8. Empty the queue and trigger a democracy skip / scratched-cd — active daemon source should **stop**
+9. As room admin, use the **Now Playing scrubber** to seek within the track; with Volume Manager enabled, use its **broadcast volume** slider in Now Playing to change driver volume
 
 ## 8. Export / publish
 
@@ -211,6 +212,7 @@ Post-show publish still creates Spotify/Tidal playlists from `metadataSources` I
 | `Bridge daemon not connected` | Daemon `connect` running; same `redisUrl` / room id; presence key TTL |
 | No artwork for YouTube | Queue-item hydration; thumbnail URL CORS for dynamic theme |
 | Local search empty | Navidrome creds; daemon includes `local`; RPC `search` |
+| Browse tab missing / empty artists | Room has `local` effective for search; daemon CAPABILITIES include `local`; RPC `listArtists` / Navidrome `getArtists` |
 | Local track plays in UI / Now Playing but no stream audio | Audio Hijack is not capturing **mpv** (only Chrome). Add an Application source for `mpv`, or route mpv into the same Loopback device as Chrome. Confirm daemon log `[local] playing durationSec=…`. Spotify/YouTube can still work because they use Chrome. |
 | Tidal won’t start | App path; CDP port 9223 free; login inside Tidal app |
 | Double Now Playing | Turn off local-remote NP for this room |

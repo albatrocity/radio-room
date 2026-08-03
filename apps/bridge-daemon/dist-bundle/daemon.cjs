@@ -50569,6 +50569,37 @@ function isPlaceholderArtist(artist) {
   if (a.toLowerCase() === "unknown" || a.toLowerCase() === "local") return true;
   return false;
 }
+function mapNavidromeArtists(indexes, query) {
+  const raw = Array.isArray(indexes) ? indexes : [];
+  const artists = [];
+  for (const idx of raw) {
+    const list = idx?.artist;
+    const arr = Array.isArray(list) ? list : list ? [list] : [];
+    for (const a of arr) {
+      if (!a?.id) continue;
+      artists.push({
+        id: String(a.id),
+        title: String(a.name ?? a.id).trim() || String(a.id),
+        albumCount: typeof a.albumCount === "number" ? a.albumCount : void 0
+      });
+    }
+  }
+  artists.sort((x, y) => x.title.localeCompare(y.title, void 0, { sensitivity: "base" }));
+  const q = query?.trim().toLowerCase();
+  if (!q) return artists;
+  return artists.filter((a) => a.title.toLowerCase().includes(q));
+}
+function mapNavidromeBrowseAlbum(album) {
+  if (!album?.id) return null;
+  const artistTitle = album.artist?.trim() ?? "";
+  return {
+    id: String(album.id),
+    title: String(album.name ?? album.id).trim() || String(album.id),
+    artists: artistTitle ? [{ id: String(album.artistId ?? ""), title: artistTitle, urls: [] }] : [],
+    year: album.year != null ? String(album.year) : void 0,
+    trackCount: typeof album.songCount === "number" ? album.songCount : void 0
+  };
+}
 function resolveLocalDisplayTitle(song) {
   const id = song.id != null ? String(song.id) : void 0;
   if (!isPlaceholderTitle(song.title, id)) return String(song.title).trim();
@@ -50886,6 +50917,64 @@ var LocalDriver = class {
     }
     return results;
   }
+  async listArtists(params) {
+    if (!this.navidrome.username) return { items: [], total: 0 };
+    const url2 = `${this.navidrome.url}/rest/getArtists.view?${this.authParams()}`;
+    const res = await fetch(url2);
+    if (!res.ok) throw new Error(`Navidrome getArtists failed: ${res.status}`);
+    const data = await res.json();
+    const indexes = data?.["subsonic-response"]?.artists?.index;
+    let items = mapNavidromeArtists(
+      Array.isArray(indexes) ? indexes : indexes ? [indexes] : [],
+      params?.query
+    );
+    const total = items.length;
+    const offset = Math.max(0, params?.offset ?? 0);
+    const limit = params?.limit != null ? Math.max(0, params.limit) : void 0;
+    if (offset > 0 || limit != null) {
+      items = items.slice(offset, limit != null ? offset + limit : void 0);
+    }
+    return { items, total };
+  }
+  async getArtist(artistId) {
+    if (!this.navidrome.username || !artistId) return null;
+    const url2 = `${this.navidrome.url}/rest/getArtist.view?id=${encodeURIComponent(artistId)}&${this.authParams()}`;
+    const res = await fetch(url2);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const artist = data?.["subsonic-response"]?.artist;
+    if (!artist?.id) return null;
+    const albumRaw = artist.album;
+    const albumList = Array.isArray(albumRaw) ? albumRaw : albumRaw ? [albumRaw] : [];
+    const albums = albumList.map((a) => mapNavidromeBrowseAlbum(a)).filter((a) => a != null);
+    return {
+      artist: {
+        id: String(artist.id),
+        title: String(artist.name ?? artist.id).trim() || String(artist.id),
+        albumCount: typeof artist.albumCount === "number" ? artist.albumCount : albums.length
+      },
+      albums
+    };
+  }
+  async getAlbum(albumId) {
+    if (!this.navidrome.username || !albumId) return null;
+    const url2 = `${this.navidrome.url}/rest/getAlbum.view?id=${encodeURIComponent(albumId)}&${this.authParams()}`;
+    const res = await fetch(url2);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const album = data?.["subsonic-response"]?.album;
+    if (!album?.id) return null;
+    const mappedAlbum = mapNavidromeBrowseAlbum(album);
+    if (!mappedAlbum) return null;
+    const songRaw = album.song;
+    const songs = Array.isArray(songRaw) ? songRaw : songRaw ? [songRaw] : [];
+    const tracks = [];
+    for (const song of songs) {
+      tracks.push(await this.mapSong(song));
+    }
+    mappedAlbum.trackCount = tracks.length;
+    return { album: mappedAlbum, tracks };
+  }
   async load(trackId) {
     if (!this.socket) await this.start();
     this.ignoreEndFileUntil = Date.now() + 2e3;
@@ -51159,6 +51248,9 @@ var bridgeRequestSchema = external_exports.object({
     "setVolume",
     "search",
     "getTrack",
+    "listArtists",
+    "getArtist",
+    "getAlbum",
     "notifyNowPlaying"
   ]),
   params: external_exports.record(external_exports.string(), external_exports.unknown()).default({})
@@ -51522,6 +51614,22 @@ var RpcServer = class {
       case "getTrack": {
         if (String(p.source) !== "local" || !this.localDriver) return null;
         return this.localDriver.findById(String(p.trackId ?? p.id ?? ""));
+      }
+      case "listArtists": {
+        if (String(p.source) !== "local" || !this.localDriver) return { items: [], total: 0 };
+        return this.localDriver.listArtists({
+          query: p.query != null ? String(p.query) : void 0,
+          offset: p.offset != null ? Number(p.offset) : void 0,
+          limit: p.limit != null ? Number(p.limit) : void 0
+        });
+      }
+      case "getArtist": {
+        if (String(p.source) !== "local" || !this.localDriver) return null;
+        return this.localDriver.getArtist(String(p.artistId ?? p.id ?? ""));
+      }
+      case "getAlbum": {
+        if (String(p.source) !== "local" || !this.localDriver) return null;
+        return this.localDriver.getAlbum(String(p.albumId ?? p.id ?? ""));
       }
       case "notifyNowPlaying":
         await this.router.notifyNowPlaying({

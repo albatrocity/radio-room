@@ -96,3 +96,7 @@ async validateQueueRequest(params: QueueValidationParams) {
 ## Room admin UI
 
 Admins set **Admins + plugin grants only** per enabled source under Content → Media sources (bridge playback controller). That writes `metadataSourceAccess` on the room.
+
+## Catalog browse
+
+Optional `MetadataSourceApi` methods `listArtists` / `getArtist` / `getAlbum` power Add to Queue **Browse** (artists → albums → tracks). Browse is gated by the same **`search`** action as text search—no separate grant. Clients learn which sources support browse via `browseableSourceIds` on `EFFECTIVE_METADATA_SOURCES` / INIT ([ADR 0089](../adrs/0089-metadata-source-content-browse.md)). v1 implements browse for the local (Navidrome) source only.

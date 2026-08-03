@@ -285,6 +285,7 @@ export class AuthService {
     })
 
     let effectiveMetadataSourceIds: string[] | undefined
+    let browseableSourceIds: string[] | undefined
     if (this.context.metadataSourceAccess) {
       try {
         effectiveMetadataSourceIds =
@@ -293,6 +294,18 @@ export class AuthService {
             userId,
             "search",
           )
+        if (effectiveMetadataSourceIds?.length) {
+          const { AdapterService } = await import("./AdapterService")
+          const { metadataSourceSupportsBrowse } = await import("@repo/utils")
+          const adapterService = new AdapterService(this.context)
+          const sources = await adapterService.getRoomMetadataSources(roomId)
+          browseableSourceIds = effectiveMetadataSourceIds.filter((id) => {
+            const src = sources.get(id)
+            return src ? metadataSourceSupportsBrowse(src.api) : false
+          })
+        } else {
+          browseableSourceIds = []
+        }
       } catch (err) {
         console.error("[AuthService] Failed to load effective metadata sources for init:", err)
       }
@@ -321,6 +334,7 @@ export class AuthService {
         activeGameSession,
         assignablePersonas,
         effectiveMetadataSourceIds,
+        browseableSourceIds,
         activePoll: pollInit.activePoll,
         totalVotes: pollInit.totalVotes,
         pollHistory: pollInit.pollHistory,

@@ -114,6 +114,22 @@ export class RpcServer {
         if (String(p.source) !== "local" || !this.localDriver) return null
         return this.localDriver.findById(String(p.trackId ?? p.id ?? ""))
       }
+      case "listArtists": {
+        if (String(p.source) !== "local" || !this.localDriver) return { items: [], total: 0 }
+        return this.localDriver.listArtists({
+          query: p.query != null ? String(p.query) : undefined,
+          offset: p.offset != null ? Number(p.offset) : undefined,
+          limit: p.limit != null ? Number(p.limit) : undefined,
+        })
+      }
+      case "getArtist": {
+        if (String(p.source) !== "local" || !this.localDriver) return null
+        return this.localDriver.getArtist(String(p.artistId ?? p.id ?? ""))
+      }
+      case "getAlbum": {
+        if (String(p.source) !== "local" || !this.localDriver) return null
+        return this.localDriver.getAlbum(String(p.albumId ?? p.id ?? ""))
+      }
       case "notifyNowPlaying":
         await this.router.notifyNowPlaying({
           title: p.title != null ? String(p.title) : undefined,
