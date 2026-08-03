@@ -86,4 +86,80 @@ export const bridgePluginSchemasForApi = [
       storeKeys: ["volume"],
     },
   },
+  {
+    name: "round-robin-dj",
+    version: "0.0.0-bridge",
+    description: "Round Robin DJ (bridge preview stub — use production API for admin schema).",
+    defaultConfig: {
+      enabled: true,
+      mode: "sequential",
+      autoAdvanceRounds: true,
+      deferOutOfTurnQueues: true,
+    },
+    componentSchema: {
+      components: [
+        {
+          id: "rr-your-turn",
+          type: "text-block",
+          area: "addToQueue",
+          status: "success",
+          alertVariant: "subtle",
+          size: "sm",
+          fontWeight: "semibold",
+          content: "It's your turn to add a track to the queue",
+          showWhen: [
+            { field: "enabled", value: true },
+            { field: "eligibleUserIds", includes: "viewer.userId" },
+          ],
+        },
+        {
+          id: "rr-hold-next-round",
+          type: "text-block",
+          area: "addToQueue",
+          status: "info",
+          alertVariant: "subtle",
+          size: "sm",
+          fontWeight: "medium",
+          content:
+            "You've already added a track for this round, but you can select one for the next round.",
+          showWhen: [
+            { field: "enabled", value: true },
+            { field: "holdForNextRoundUserIds", includes: "viewer.userId" },
+          ],
+        },
+        {
+          id: "rr-other-turn",
+          type: "text-block",
+          area: "addToQueue",
+          status: "warning",
+          alertVariant: "subtle",
+          size: "sm",
+          fontWeight: "medium",
+          content: [
+            { type: "text", content: "It's " },
+            {
+              type: "component",
+              name: "username",
+              props: { userId: "{{currentTurnUserId}}" },
+            },
+            { type: "text", content: "'s turn" },
+          ],
+          showWhen: [
+            { field: "enabled", value: true },
+            { field: "hasSingleTurn", value: true },
+            { field: "participantUserIds", includes: "viewer.userId" },
+            { field: "eligibleUserIds", notIncludes: "viewer.userId" },
+            { field: "holdForNextRoundUserIds", notIncludes: "viewer.userId" },
+          ],
+        },
+      ],
+      storeKeys: [
+        "eligibleUserIds",
+        "holdForNextRoundUserIds",
+        "currentTurnUserId",
+        "hasSingleTurn",
+        "participantUserIds",
+      ],
+    },
+  },
 ]

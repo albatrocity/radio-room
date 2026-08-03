@@ -156,6 +156,10 @@ describe("RoundRobinDjPlugin", () => {
     const schema = plugin.getConfigSchema()
     expect(schema.quickAccess).toEqual(["advanceRound"])
     expect(schema.layout.some((i) => typeof i === "object" && i.type === "action")).toBe(true)
+
+    const components = plugin.getComponentSchema()
+    expect(components.components.every((c) => c.area === "addToQueue")).toBe(true)
+    expect(components.storeKeys).toContain("eligibleUserIds")
   })
 
   it("seeds state from deputies on enable", async () => {
@@ -172,6 +176,16 @@ describe("RoundRobinDjPlugin", () => {
       expect.stringContaining("Round Robin DJ enabled"),
       expect.any(Object),
     )
+    expect(api.emit).toHaveBeenCalledWith(
+      "QUEUE_STATUS",
+      expect.objectContaining({
+        eligibleUserIds: expect.arrayContaining(["a", "b"]),
+        participantUserIds: expect.arrayContaining(["a", "b"]),
+      }),
+    )
+
+    const componentState = await plugin.getComponentState()
+    expect(componentState.eligibleUserIds).toEqual(expect.arrayContaining(["a", "b"]))
   })
 
   it("rejects out-of-turn queue requests and allows admins", async () => {

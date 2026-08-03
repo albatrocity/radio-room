@@ -3,6 +3,8 @@ import type {
   MetadataSourceAccessGrantResult,
   Plugin,
   PluginActionInitiator,
+  PluginComponentSchema,
+  PluginComponentState,
   PluginConfigSchema,
   PluginContext,
   QueueItem,
@@ -15,6 +17,10 @@ import { allowQueueRequest, deferQueueRequest, rejectQueueRequest } from "@repo/
 import { BasePlugin } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import {
+  buildQueueStatusStore,
+  EMPTY_QUEUE_STATUS_STORE,
+} from "./componentState"
+import {
   defaultRoundRobinDjConfig,
   PLUGIN_NAME,
   ROBIN_PERSONA_ID,
@@ -24,7 +30,7 @@ import {
   type RoundRobinDjConfig,
   type RoundRobinState,
 } from "./types"
-import { getConfigSchema } from "./schema"
+import { getComponentSchema, getConfigSchema } from "./schema"
 import {
   addDeputy,
   advanceRound,
@@ -61,6 +67,11 @@ export {
   advanceRound,
   shouldUseExclusiveRobin,
 } from "./state"
+export {
+  buildQueueStatusStore,
+  EMPTY_QUEUE_STATUS_STORE,
+  type RoundRobinQueueStatusStore,
+} from "./componentState"
 
 /**
  * Round Robin DJ Plugin
@@ -89,6 +100,19 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
   getConfigSchema(): PluginConfigSchema {
     return getConfigSchema()
+  }
+
+  getComponentSchema(): PluginComponentSchema {
+    return getComponentSchema()
+  }
+
+  async getComponentState(): Promise<PluginComponentState> {
+    const config = await this.getConfig()
+    if (!config?.enabled) {
+      return { ...EMPTY_QUEUE_STATUS_STORE }
+    }
+    const state = await this.loadState()
+    return buildQueueStatusStore(state, config)
   }
 
   async register(context: PluginContext): Promise<void> {
@@ -241,11 +265,18 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
       const state = applyModeChange(prev, config.mode, deputies)
       await this.saveState(state)
       await this.robin.sync(state)
+      await this.publishQueueStatus(state, config)
       await this.context.api.sendSystemMessage(
         this.context.roomId,
         `Round Robin: switched to ${config.mode === "sequential" ? "sequential" : "non-sequential"} mode`,
         { type: "alert", status: "info" },
       )
+    } else if (
+      previousConfig?.deferOutOfTurnQueues !== config.deferOutOfTurnQueues
+    ) {
+      // Defer toggle changes hold-for-next eligibility without rewriting turn state.
+      const state = await this.loadState()
+      await this.publishQueueStatus(state, config)
     }
 
     if (
@@ -263,6 +294,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     const state = createInitialState(config.mode, deputies)
     await this.saveState(state)
     await this.robin.sync(state)
+    await this.publishQueueStatus(state, config)
     await this.context.api.sendSystemMessage(
       this.context.roomId,
       `Round Robin DJ enabled (${config.mode === "sequential" ? "sequential" : "non-sequential"}). Deputies take turns queueing.`,
@@ -278,6 +310,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     await this.personas.unregisterPersonas()
     this.robin.reset()
     await this.context.storage.del(STATE_KEY)
+    await this.publishQueueStatus(null, { ...defaultRoundRobinDjConfig, enabled: false })
     await this.context.api.sendSystemMessage(this.context.roomId, "Round Robin DJ disabled", {
       type: "alert",
       status: "info",
@@ -492,6 +525,16 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     await this.robin.sync(transition.state)
     await this.notifyTurnStarted(transition.turnStartedFor)
     await this.holds.flushHoldForCurrentTurn(transition.state, config)
+    // Flush may advance state via nested persistAndSync; reload so clients see the final snapshot.
+    const latest = (await this.loadState()) ?? transition.state
+    await this.publishQueueStatus(latest, config)
+  }
+
+  private async publishQueueStatus(
+    state: RoundRobinState | null,
+    config: Pick<RoundRobinDjConfig, "enabled" | "deferOutOfTurnQueues">,
+  ): Promise<void> {
+    await this.emit("QUEUE_STATUS", buildQueueStatusStore(state, config))
   }
 
   private async currentDeputyIds(): Promise<string[]> {

@@ -97,6 +97,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0089](0089-metadata-source-content-browse.md) | Metadata source content browse (artists → albums → tracks) | Partially superseded by [0090](0090-hybrid-metadata-catalog-browse.md) |
 | [0090](0090-hybrid-metadata-catalog-browse.md) | Hybrid metadata catalog browse (search-entry + Search entity rows) | Accepted |
 | [0091](0091-round-robin-dj-plugin.md) | Round Robin DJ plugin (turn eligibility, Robin persona, DEPUTY_DJ_CHANGED) | Accepted |
+| [0092](0092-plugin-showwhen-membership-and-add-to-queue-area.md) | Plugin showWhen membership operators and `addToQueue` area | Accepted |
 
 ## Creating a New ADR
 

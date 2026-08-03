@@ -100,13 +100,15 @@ getComponentSchema(): PluginComponentSchema {
 | `userList`        | User list section                    | No                     |
 | `userListItem`    | Per-user in list                     | Yes (user data)        |
 | `gameStateTab`    | Tab content in user game state modal | No                     |
+| `aboveChat`       | Above the chat window                | No                     |
+| `addToQueue`      | Above the search form in Add to Queue | No (use `viewer.*`)   |
 
 ### Component Types
 
 | Type               | Description                | Key Props                                                       |
 | ------------------ | -------------------------- | --------------------------------------------------------------- |
 | `text`             | Inline text                | `content`, `variant`                                            |
-| `text-block`       | Block text                 | `content`, `variant`                                            |
+| `text-block`       | Block text / Alert         | `content`, `variant`, `status?`, `alertVariant?`, `fontWeight?`, `showIndicator?`, `size` |
 | `heading`          | Section heading            | `content`, `level`                                              |
 | `emoji`            | Emoji display              | `emoji`, `size`                                                 |
 | `icon`             | Icon display               | `icon`, `size`, `color`                                         |
@@ -160,6 +162,37 @@ Use the `item.` prefix to check item context values:
   ],
 }
 ```
+
+#### Viewer Context and Membership Operators
+
+Plugin component stores are room-wide. For per-viewer visibility (e.g. Add to Queue entitlement copy), use the `viewer.*` prefix and optional membership operators on `showWhen`:
+
+| Path / operator | Meaning |
+| --------------- | ------- |
+| `viewer.userId` | Current viewing user's id |
+| `viewer.isAdmin` | Whether the viewer is a room admin |
+| `{ field, includes: "viewer.userId" }` | `field` (array in config/store) contains the viewer id |
+| `{ field, notIncludes: "viewer.userId" }` | `field` does not contain the viewer id |
+
+When `includes` or `notIncludes` is set, equality `value` is ignored. Membership paths may also be `item.*` or bare config/store keys.
+
+```typescript
+{
+  id: "your-turn",
+  type: "text-block",
+  area: "addToQueue",
+  status: "success",           // Chakra Alert status (info | warning | success | error)
+  alertVariant: "subtle",      // subtle | surface | outline | solid
+  fontWeight: "semibold",
+  content: "It's your turn",
+  showWhen: [
+    { field: "enabled", value: true },
+    { field: "eligibleUserIds", includes: "viewer.userId" },
+  ],
+}
+```
+
+When `status` is set, `text-block` renders as a Chakra `Alert` (colored background + optional indicator). Without `status`, the legacy `variant` (`info` / `warning` / `example`) only tweaks a light background.
 
 #### Example: Competitive Mode Icon
 

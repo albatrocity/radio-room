@@ -3,6 +3,7 @@ import { Box, Heading, Stack } from "@chakra-ui/react"
 
 import FormAddToQueue from "../FormAddToQueue"
 import Modal from "../Modal"
+import { PluginArea } from "../PluginComponents"
 import SavedTracks from "../SavedTracks"
 import useAddToQueue from "../useAddToQueue"
 import {
@@ -67,6 +68,7 @@ function ModalAddToQueue() {
       }
     >
       <Stack direction="column" gap={8}>
+        <PluginArea area="addToQueue" direction="column" />
         <Box>
           <FormAddToQueue
             onAddToQueue={addToQueue}

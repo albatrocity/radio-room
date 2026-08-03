@@ -32,6 +32,7 @@ export type PluginComponentArea =
   | "userList" // Top/bottom of the user list
   | "gameStateTab" // Tab content in the user's game state modal
   | "aboveChat" // Above the chat window, alongside the poll card
+  | "addToQueue" // Above the search form in the Add to Queue modal
 
 // ============================================================================
 // Template Component System
@@ -86,14 +87,28 @@ export interface TextComponentProps {
 /**
  * Props for text-block component (matches PluginSchemaElement text-block).
  * Renders styled text content with optional visual variants.
+ *
+ * When `status` is set, the web client renders a Chakra `Alert` (color/background
+ * from status + `alertVariant`). Without `status`, `variant` controls a light background only.
  */
 export interface TextBlockComponentProps {
   /** Content to display - string with {{placeholders}} or CompositeTemplate */
   content: string | CompositeTemplate
-  /** Visual variant for the text block */
+  /** Visual variant for plain (non-Alert) text blocks */
   variant?: "info" | "warning" | "example"
+  /**
+   * When set, render as a Chakra Alert with this semantic status
+   * (colors background, indicator, and text).
+   */
+  status?: "info" | "warning" | "success" | "error"
+  /** Chakra Alert visual style when `status` is set. Defaults to `subtle`. */
+  alertVariant?: "subtle" | "surface" | "outline" | "solid"
+  /** Show the Alert status indicator icon. Defaults to true when `status` is set. */
+  showIndicator?: boolean
   /** Font size */
   size?: "xs" | "sm" | "md" | "lg"
+  /** Font weight for the text content */
+  fontWeight?: "normal" | "medium" | "semibold" | "bold"
 }
 
 /**

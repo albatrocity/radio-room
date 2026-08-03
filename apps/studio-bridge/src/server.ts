@@ -53,6 +53,10 @@ import {
   stubSearchTracks,
 } from "./stubMetadataCatalog.js"
 import {
+  ROUND_ROBIN_PREVIEW_PLUGIN,
+  buildStubRoundRobinComponentState,
+} from "./stubRoundRobin.js"
+import {
   VOLUME_MANAGER_PLUGIN,
   buildStubVolumeComponentState,
   runStubVolumeAction,
@@ -1469,6 +1473,7 @@ app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
     states: {
       [QUIZ_PREVIEW_PLUGIN]: buildStubQuizComponentState(roomId),
       [VOLUME_MANAGER_PLUGIN]: buildStubVolumeComponentState(roomId),
+      [ROUND_ROBIN_PREVIEW_PLUGIN]: buildStubRoundRobinComponentState(roomId),
     },
   })
 })
@@ -1481,7 +1486,9 @@ app.get("/api/rooms/:roomId/plugins/:pluginName/components", (req, res) => {
       ? buildStubQuizComponentState(roomId)
       : pluginName === VOLUME_MANAGER_PLUGIN
         ? buildStubVolumeComponentState(roomId)
-        : {}
+        : pluginName === ROUND_ROBIN_PREVIEW_PLUGIN
+          ? buildStubRoundRobinComponentState(roomId)
+          : {}
   res.status(200).json({ state })
 })
 

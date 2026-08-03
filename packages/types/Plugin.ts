@@ -63,10 +63,25 @@ export type PluginFieldType =
   | "datetime" // Datetime picker (stored in epoch ms)
   | "object-array" // Repeatable group: value is Record<string, unknown>[]; see `itemFields`
 
-/** Condition for conditional visibility */
+/**
+ * Condition for conditional visibility.
+ *
+ * Equality (default): `field` resolves to a value compared with `value`.
+ * Membership: when `includes` or `notIncludes` is set, `field` must resolve to an
+ * array and the resolved member path must / must not be in that array (`value` is ignored).
+ *
+ * Field / path prefixes:
+ * - `item.*` — per-row item context
+ * - `viewer.*` — current viewing user (e.g. `viewer.userId`)
+ * - bare name — plugin config, then component store
+ */
 export interface ShowWhenCondition {
   field: string
-  value: unknown
+  value?: unknown
+  /** Path to a value that must be present in the array at `field` (e.g. `viewer.userId`) */
+  includes?: string
+  /** Path to a value that must be absent from the array at `field` */
+  notIncludes?: string
 }
 
 /**

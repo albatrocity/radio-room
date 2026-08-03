@@ -134,11 +134,6 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
 
   return (
     <Stack direction="column" gap={2} textStyle="body">
-      <Text as="p" fontSize="sm">
-        Selecting a song will send it to the room creator's play queue, where they can choose to
-        leave it in, reorder it, or remove it completely.
-      </Text>
-
       {(canBrowse || showSourceSelect) && (
         <HStack gap={3} align="center" justify="space-between" flexWrap="wrap">
           {canBrowse ? (

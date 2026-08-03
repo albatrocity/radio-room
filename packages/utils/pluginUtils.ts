@@ -3,118 +3,114 @@
  * Used by both server-side rendering and frontend frameworks.
  */
 
+import type { ShowWhenCondition } from "@repo/types"
 import { interpolateTemplate } from "./templateInterpolation"
+
+export type { ShowWhenCondition }
 
 // ============================================================================
 // Condition Checking
 // ============================================================================
 
+export type ShowWhenViewerContext = Record<string, unknown>
+
 /**
- * A showWhen condition specifying when an element should be visible.
+ * Resolve a showWhen field / membership path against config, store, item, and viewer.
+ *
+ * Prefixes:
+ * - `item.*` — item context
+ * - `viewer.*` — viewing user context
+ * - bare name — config, then store
  */
-export interface ShowWhenCondition {
-  field: string
-  value: unknown
+export function resolveShowWhenPath(
+  path: string,
+  config: Record<string, unknown>,
+  store: Record<string, unknown>,
+  itemContext?: Record<string, unknown>,
+  viewerContext?: ShowWhenViewerContext,
+): unknown {
+  if (path.startsWith("item.")) {
+    return itemContext?.[path.slice(5)]
+  }
+  if (path.startsWith("viewer.")) {
+    return viewerContext?.[path.slice(7)]
+  }
+  return config[path] ?? store[path]
 }
 
 /**
  * Check if a single showWhen condition is met.
- * Checks config first, then store/context values, then item context.
- *
- * Field prefixes:
- * - `item.field` - Check the item context (e.g., per-user data)
- * - `field` - Check config, then store
  *
  * @example
  * ```typescript
- * // Single condition
  * checkShowWhenCondition(
  *   { field: "enabled", value: true },
- *   { enabled: true },  // config
- *   {}                  // store
+ *   { enabled: true },
+ *   {}
  * ) // → true
  *
- * // Check store when not in config
  * checkShowWhenCondition(
- *   { field: "showCountdown", value: true },
- *   {},                       // config
- *   { showCountdown: true }   // store
- * ) // → true
- *
- * // Check item context (e.g., user data)
- * checkShowWhenCondition(
- *   { field: "item.isDeputyDj", value: true },
- *   {},                       // config
- *   {},                       // store
- *   { isDeputyDj: true }      // itemContext
+ *   { field: "eligibleUserIds", includes: "viewer.userId" },
+ *   {},
+ *   { eligibleUserIds: ["u1"] },
+ *   undefined,
+ *   { userId: "u1" }
  * ) // → true
  * ```
- *
- * @param condition - The condition to check
- * @param config - Plugin configuration values
- * @param store - Plugin component store values
- * @param itemContext - Optional item-level context (e.g., user data for userListItem)
- * @returns Whether the condition is met
  */
 export function checkShowWhenCondition(
   condition: ShowWhenCondition,
   config: Record<string, unknown>,
   store: Record<string, unknown>,
   itemContext?: Record<string, unknown>,
+  viewerContext?: ShowWhenViewerContext,
 ): boolean {
-  // Handle item.field syntax for item context
-  if (condition.field.startsWith("item.")) {
-    const itemField = condition.field.slice(5) // Remove "item." prefix
-    const actualValue = itemContext?.[itemField]
-    return actualValue === condition.value
+  const actualValue = resolveShowWhenPath(
+    condition.field,
+    config,
+    store,
+    itemContext,
+    viewerContext,
+  )
+
+  if (condition.includes !== undefined) {
+    const member = resolveShowWhenPath(
+      condition.includes,
+      config,
+      store,
+      itemContext,
+      viewerContext,
+    )
+    return Array.isArray(actualValue) && actualValue.includes(member)
   }
 
-  const actualValue = config[condition.field] ?? store[condition.field]
+  if (condition.notIncludes !== undefined) {
+    const member = resolveShowWhenPath(
+      condition.notIncludes,
+      config,
+      store,
+      itemContext,
+      viewerContext,
+    )
+    return Array.isArray(actualValue) && !actualValue.includes(member)
+  }
+
   return actualValue === condition.value
 }
 
 /**
  * Check if all showWhen conditions are met (AND logic).
- *
- * @example
- * ```typescript
- * // Multiple conditions (all must be true)
- * checkShowWhenConditions(
- *   [
- *     { field: "enabled", value: true },
- *     { field: "thresholdType", value: "percentage" }
- *   ],
- *   { enabled: true, thresholdType: "percentage" },
- *   {}
- * ) // → true
- *
- * // With item context
- * checkShowWhenConditions(
- *   [
- *     { field: "competitiveModeEnabled", value: true },
- *     { field: "item.isDeputyDj", value: true }
- *   ],
- *   { competitiveModeEnabled: true },
- *   {},
- *   { isDeputyDj: true }
- * ) // → true
- * ```
- *
- * @param conditions - Single condition or array of conditions
- * @param config - Plugin configuration values
- * @param store - Plugin component store values
- * @param itemContext - Optional item-level context
- * @returns Whether all conditions are met
  */
 export function checkShowWhenConditions(
   conditions: ShowWhenCondition | ShowWhenCondition[],
   config: Record<string, unknown>,
   store: Record<string, unknown>,
   itemContext?: Record<string, unknown>,
+  viewerContext?: ShowWhenViewerContext,
 ): boolean {
   const conditionsArray = Array.isArray(conditions) ? conditions : [conditions]
   return conditionsArray.every((condition) =>
-    checkShowWhenCondition(condition, config, store, itemContext),
+    checkShowWhenCondition(condition, config, store, itemContext, viewerContext),
   )
 }
 
@@ -131,34 +127,6 @@ export function checkShowWhenConditions(
  * the placeholder paths used in templates. For example, to support
  * `{{config.fieldName}}` placeholders, pass `{ config: {...} }`. Store
  * values can be placed at the top level for `{{storeKey}}` references.
- *
- * @example
- * ```typescript
- * // Config values nested under "config" key
- * interpolatePropsRecursively(
- *   { label: "React with {{config.reactionType}}" },
- *   { config: { reactionType: "+1" } }
- * )
- * // → { label: "React with +1" }
- *
- * // Mixed: top-level store values + nested config
- * interpolatePropsRecursively(
- *   { label: "Sell ({{sellPrice}} coins, base {{config.basePrice}})" },
- *   { sellPrice: 50, config: { basePrice: 100 } }
- * )
- * // → { label: "Sell (50 coins, base 100)" }
- *
- * // Arrays (e.g., CompositeTemplate)
- * interpolatePropsRecursively(
- *   {
- *     content: [
- *       { type: "text", content: "Value: {{config.value}}" }
- *     ]
- *   },
- *   { config: { value: 42 } }
- * )
- * // → { content: [{ type: "text", content: "Value: 42" }] }
- * ```
  *
  * @param props - Object with properties to interpolate
  * @param values - Values to use for interpolation (supports nested paths)

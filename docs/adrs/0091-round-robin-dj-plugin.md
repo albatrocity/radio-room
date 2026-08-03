@@ -36,5 +36,6 @@ Individual deputize/undepetize previously emitted only socket `START/END_DEPUTY_
 - [0006. Plugin system](0006-plugin-system-for-room-features.md)
 - [0057. User personas](0057-user-personas-system.md)
 - [0088. Metadata source access grants](0088-metadata-source-access-grants.md)
+- [0092. Plugin showWhen membership and `addToQueue` area](0092-plugin-showwhen-membership-and-add-to-queue-area.md) — Add to Queue entitlement messages
 - [`packages/plugin-round-robin-dj/`](../../packages/plugin-round-robin-dj/)
 - [`packages/server/operations/dj/publishDeputyDjChanged.ts`](../../packages/server/operations/dj/publishDeputyDjChanged.ts)

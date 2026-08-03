@@ -13,9 +13,13 @@ import {
   Box,
   Portal,
 } from "@chakra-ui/react"
-import { interpolateTemplate, interpolatePropsRecursively } from "@repo/utils"
+import {
+  checkShowWhenConditions,
+  interpolateTemplate,
+  interpolatePropsRecursively,
+} from "@repo/utils"
 import { pluginComponentMachine } from "../../machines/pluginComponentMachine"
-import { useCurrentRoom, useIsAdmin } from "../../hooks/useActors"
+import { useCurrentRoom, useCurrentUser, useIsAdmin } from "../../hooks/useActors"
 import { PluginComponentContext } from "./context"
 import { TEMPLATE_COMPONENT_MAP } from "./templates"
 import type { PluginComponentDefinition, PluginModalComponent } from "../../types/PluginComponent"
@@ -81,6 +85,14 @@ interface PluginComponentRendererProps {
 export function PluginComponentRenderer({ component }: PluginComponentRendererProps) {
   const { config, store, itemContext, pluginName } = React.useContext(PluginComponentContext)!
   const isAdmin = useIsAdmin()
+  const currentUser = useCurrentUser()
+  const viewerContext = useMemo(
+    () => ({
+      userId: currentUser?.userId,
+      isAdmin,
+    }),
+    [currentUser?.userId, isAdmin],
+  )
 
   // Hide adminOnly buttons and sliders from non-admins
   if (
@@ -92,26 +104,11 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
     return null
   }
 
-  // Check showWhen condition
-  if (component.showWhen) {
-    const conditions = Array.isArray(component.showWhen) ? component.showWhen : [component.showWhen]
-
-    // All conditions must be true (AND logic)
-    // Using inline check to handle item.* fields correctly
-    const allConditionsMet = conditions.every((condition) => {
-      let actualValue: unknown
-      if (condition.field.startsWith("item.")) {
-        const itemField = condition.field.slice(5)
-        actualValue = itemContext?.[itemField]
-      } else {
-        actualValue = config[condition.field] ?? store[condition.field]
-      }
-      return actualValue === condition.value
-    })
-
-    if (!allConditionsMet) {
-      return null
-    }
+  if (
+    component.showWhen &&
+    !checkShowWhenConditions(component.showWhen, config, store, itemContext, viewerContext)
+  ) {
+    return null
   }
 
   // Wrap the component with data attributes for screen effect targeting
@@ -121,7 +118,8 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
     component.type === "shop-offer-table" ||
     component.type === "current-shop-offers" ||
     component.type === "quiz-question-card" ||
-    component.type === "slider"
+    component.type === "slider" ||
+    (component.type === "text-block" && "status" in component && !!component.status)
 
   return (
     <Box
