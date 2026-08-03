@@ -152,12 +152,14 @@ describe("MetadataSourceAccessService", () => {
       id: roomId,
       creator: "admin",
       playbackControllerId: "bridge",
-      metadataSourceIds: ["spotify", "youtube"],
+      metadataSourceIds: ["spotify", "youtube", "local"],
     } as any)
 
     await expect(service.listMetadataSources(roomId)).resolves.toEqual([
       { id: "spotify", label: "Spotify" },
       { id: "youtube", label: "YouTube" },
+      { id: "local", label: "Library (local)" },
     ])
   })
 })
+

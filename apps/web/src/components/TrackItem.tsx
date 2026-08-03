@@ -1,15 +1,8 @@
 import { Box, HStack, Image, Text, Badge } from "@chakra-ui/react"
 import React from "react"
-import { MetadataSourceTrack } from "@repo/types"
+import { labelForMetadataSource, MetadataSourceTrack } from "@repo/types"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
-
-const SOURCE_LABELS: Record<string, string> = {
-  spotify: "Spotify",
-  tidal: "Tidal",
-  youtube: "YouTube",
-  local: "Library",
-}
 
 const TrackItem = ({ title, album, artists, source }: TrackWithSource) => {
   const image = album.images.find((img) => img.type === "image")
@@ -24,7 +17,7 @@ const TrackItem = ({ title, album, artists, source }: TrackWithSource) => {
           </Text>
           {source && (
             <Badge size="sm" variant="subtle" flexShrink={0}>
-              {SOURCE_LABELS[source] ?? source}
+              {labelForMetadataSource(source)}
             </Badge>
           )}
         </HStack>

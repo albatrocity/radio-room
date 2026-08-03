@@ -1,10 +1,8 @@
-const SOURCE_LABELS: Record<string, string> = {
-  spotify: "Spotify",
-  tidal: "Tidal",
-  youtube: "YouTube",
-  local: "Library",
+import { labelForMetadataSource } from "@repo/types"
+
+/** Web alias for {@link labelForMetadataSource} (`@repo/types` is the single label map). */
+export function metadataSourceLabel(sourceId: string): string {
+  return labelForMetadataSource(sourceId)
 }
 
-export function metadataSourceLabel(sourceId: string): string {
-  return SOURCE_LABELS[sourceId] ?? sourceId.charAt(0).toUpperCase() + sourceId.slice(1)
-}
+export { labelForMetadataSource }

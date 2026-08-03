@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react"
 import { Checkbox, Field, VStack } from "@chakra-ui/react"
+import { labelForMetadataSource } from "@repo/types"
 
 import {
   useCurrentUser,
@@ -10,13 +11,6 @@ import { emitToSocket, subscribeById, unsubscribeById } from "../actors"
 
 const TOGGLEABLE_SOURCES = ["youtube", "tidal", "local"] as const
 type ToggleableSource = (typeof TOGGLEABLE_SOURCES)[number]
-
-const LABELS: Record<ToggleableSource | "spotify", string> = {
-  spotify: "Spotify",
-  youtube: "YouTube",
-  tidal: "Tidal",
-  local: "Library (local)",
-}
 
 export type MetadataSourceAccessMap = Record<string, "open" | "restricted">
 
@@ -166,7 +160,7 @@ export default function BridgeMediaSourcesSettings({
             <Checkbox.Control>
               <Checkbox.Indicator />
             </Checkbox.Control>
-            <Checkbox.Label>{LABELS.spotify} (always on)</Checkbox.Label>
+            <Checkbox.Label>{labelForMetadataSource("spotify")} (always on)</Checkbox.Label>
           </Checkbox.Root>
         </Field.Root>
         {renderAccessControl("spotify")}
@@ -193,7 +187,7 @@ export default function BridgeMediaSourcesSettings({
                 <Checkbox.Control>
                   <Checkbox.Indicator />
                 </Checkbox.Control>
-                <Checkbox.Label>{LABELS[sourceId]}</Checkbox.Label>
+                <Checkbox.Label>{labelForMetadataSource(sourceId)}</Checkbox.Label>
               </Checkbox.Root>
               {tidalNeedsAuth && (
                 <Field.HelperText>

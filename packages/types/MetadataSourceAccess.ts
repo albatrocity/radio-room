@@ -33,5 +33,7 @@ export const METADATA_SOURCE_LABELS: Record<string, string> = {
 }
 
 export function labelForMetadataSource(sourceId: string): string {
-  return METADATA_SOURCE_LABELS[sourceId] ?? sourceId
+  if (METADATA_SOURCE_LABELS[sourceId]) return METADATA_SOURCE_LABELS[sourceId]
+  if (!sourceId) return sourceId
+  return sourceId.charAt(0).toUpperCase() + sourceId.slice(1)
 }

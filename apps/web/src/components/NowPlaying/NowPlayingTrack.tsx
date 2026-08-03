@@ -26,7 +26,7 @@ import { usePluginElementProps } from "../../hooks/usePluginElementProps"
 import { usePreferredMetadataSource } from "../../hooks/useActors"
 import { MetadataSourceType } from "../../types/Queue"
 import { guessTheTuneNowPlayingItemContext } from "../../lib/guessTheTunePluginItemContext"
-import type { PluginElementProps } from "@repo/types"
+import { labelForMetadataSource, type PluginElementProps } from "@repo/types"
 import { NowPlayingTransport } from "./NowPlayingTransport"
 import { getTrackExternalUrl } from "../../lib/getTrackExternalUrl"
 
@@ -447,21 +447,6 @@ function MetadataSourceInfo({ metadataSource }: MetadataSourceInfoProps) {
     }
   }
 
-  const getSourceName = (type: string) => {
-    switch (type) {
-      case "spotify":
-        return "Spotify"
-      case "tidal":
-        return "Tidal"
-      case "youtube":
-        return "YouTube"
-      case "local":
-        return "Local library"
-      default:
-        return type
-    }
-  }
-
   const SourceIcon = getSourceIcon(metadataSource.type)
 
   return (
@@ -472,7 +457,7 @@ function MetadataSourceInfo({ metadataSource }: MetadataSourceInfoProps) {
       <HStack gap={1}>
         {SourceIcon && <Icon as={SourceIcon} color="primary.contrast/50" boxSize={3} />}
         <Text color="primary.contrast/50" fontSize="2xs" as="span">
-          {getSourceName(metadataSource.type)}
+          {labelForMetadataSource(metadataSource.type)}
         </Text>
       </HStack>
     </HStack>
