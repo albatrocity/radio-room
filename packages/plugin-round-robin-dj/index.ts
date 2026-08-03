@@ -32,7 +32,6 @@ import {
 } from "./types"
 import { getComponentSchema, getConfigSchema } from "./schema"
 import {
-  addDeputy,
   advanceRound,
   applyAdminRobin,
   applyModeChange,
@@ -49,6 +48,7 @@ import {
 } from "./state"
 import { HoldStore } from "./holds"
 import { RobinPersonaSync } from "./personas"
+import { DeputyRosterLifecycle } from "./roster"
 
 export type { RoundRobinDjConfig, RoundRobinState, HeldQueueTrack } from "./types"
 export { roundRobinDjConfigSchema, defaultRoundRobinDjConfig, ROBIN_PERSONA_ID } from "./types"
@@ -98,6 +98,17 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     getPersonas: () => this.personas,
   })
 
+  private readonly roster = new DeputyRosterLifecycle({
+    getContext: () => this.context,
+    getCachedConfig: () => this.getCachedConfig(),
+    loadState: () => this.loadState(),
+    saveState: (state) => this.saveState(state),
+    holds: this.holds,
+    currentDeputyIds: () => this.currentDeputyIds(),
+    finalizeAfterStateChange: (state, config, options) =>
+      this.finalizeAfterStateChange(state, config, options),
+  })
+
   /** In-memory RR state; `undefined` = not loaded. Invalidated on every write. */
   private stateCache: RoundRobinState | null | undefined = undefined
   /** In-memory merged config; `undefined` = not loaded. */
@@ -105,10 +116,6 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
   /** Nesting depth for persistAndSync (hold flush may re-enter). */
   private persistDepth = 0
-
-  /** Coalesce DEPUTY_DJ_CHANGED persona/publish work to one macrotask. */
-  private deputySyncTimer: ReturnType<typeof setTimeout> | null = null
-  private pendingTurnStartedFor: string[] = []
 
   getConfigSchema(): PluginConfigSchema {
     return getConfigSchema()
@@ -131,8 +138,8 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     await super.register(context)
 
     this.on("QUEUE_CHANGED", (data) => this.onQueueChanged(data))
-    this.on("DEPUTY_DJ_CHANGED", (data) => this.onDeputyDjChanged(data))
-    this.on("DEPUTY_BULK_APPLIED", (data) => this.onDeputyBulkApplied(data))
+    this.on("DEPUTY_DJ_CHANGED", (data) => this.roster.onDeputyDjChanged(data))
+    this.on("DEPUTY_BULK_APPLIED", (data) => this.roster.onDeputyBulkApplied(data))
     this.on("USER_LEFT", (data) => this.onUserLeft(data))
     this.on("USER_JOINED", (data) => this.onUserJoined(data))
     this.on("PERSONA_ASSIGNED", (data) => this.onPersonaAssigned(data))
@@ -279,8 +286,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
       await this.holds.clearHoldsForUsers(prev.participants)
       const state = applyModeChange(prev, config.mode, deputies)
       await this.saveState(state)
-      await this.robin.sync(state)
-      await this.publishQueueStatus(state, config)
+      await this.syncRobinAndPublish(state, config)
       await this.context.api.sendSystemMessage(
         this.context.roomId,
         `Round Robin: switched to ${config.mode === "sequential" ? "sequential" : "non-sequential"} mode`,
@@ -308,8 +314,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     const deputies = await this.currentDeputyIds()
     const state = createInitialState(config.mode, deputies)
     await this.saveState(state)
-    await this.robin.sync(state)
-    await this.publishQueueStatus(state, config)
+    await this.syncRobinAndPublish(state, config)
     await this.context.api.sendSystemMessage(
       this.context.roomId,
       `Round Robin DJ enabled (${config.mode === "sequential" ? "sequential" : "non-sequential"}). Deputies take turns queueing.`,
@@ -319,7 +324,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
   private async onPluginDisabled(): Promise<void> {
     if (!this.context) return
-    this.cancelScheduledDeputyRosterSync()
+    this.roster.cancelScheduledSync()
     const state = await this.loadState()
     if (state) await this.holds.clearHoldsForUsers(state.participants)
     await this.robin.clearAssignments()
@@ -373,75 +378,6 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     await this.applySuccessfulQueue(userId, config, state)
   }
 
-  private async onDeputyDjChanged(data: {
-    roomId: string
-    userId: string
-    isDeputyDj: boolean
-  }): Promise<void> {
-    if (!this.context) return
-    const config = await this.getCachedConfig()
-    if (!config?.enabled) return
-
-    const state = await this.loadState()
-    if (!state) return
-
-    if (data.isDeputyDj) {
-      const next = addDeputy(state, data.userId)
-      await this.saveState(next)
-    } else {
-      await this.holds.clearHold(data.userId)
-      const transition = removeUser(state, data.userId)
-      await this.saveState(transition.state)
-      this.pendingTurnStartedFor.push(...transition.turnStartedFor)
-    }
-
-    // Coalesce Robin sync + QUEUE_STATUS; bulk handler cancels and reconciles once.
-    this.scheduleDeputyRosterSync()
-  }
-
-  private async onDeputyBulkApplied(data: {
-    roomId: string
-    action: "deputize_all" | "dedeputize_all"
-  }): Promise<void> {
-    if (!this.context) return
-    const config = await this.getCachedConfig()
-    if (!config?.enabled) return
-
-    this.cancelScheduledDeputyRosterSync()
-    this.pendingTurnStartedFor = []
-
-    if (data.action === "dedeputize_all") {
-      const state = await this.loadState()
-      if (!state) return
-      await this.holds.clearHoldsForUsers(state.participants)
-      const next = createInitialState(config.mode, [])
-      next.round = state.round
-      await this.saveState(next)
-      await this.robin.sync(next)
-      await this.publishQueueStatus(next, config)
-      return
-    }
-
-    const deputies = await this.currentDeputyIds()
-    let state = (await this.loadState()) ?? createInitialState(config.mode, [])
-
-    for (const userId of [...state.participants]) {
-      if (!deputies.includes(userId)) {
-        await this.holds.clearHold(userId)
-        state = removeUser(state, userId).state
-      }
-    }
-    for (const userId of deputies) {
-      state = addDeputy(state, userId)
-    }
-
-    await this.saveState(state)
-    await this.robin.sync(state)
-    await this.holds.flushHoldForCurrentTurn(state, config)
-    const latest = (await this.loadState()) ?? state
-    await this.publishQueueStatus(latest, config)
-  }
-
   private async onUserLeft(data: { roomId: string; user: User }): Promise<void> {
     if (!this.context) return
     const config = await this.getCachedConfig()
@@ -462,14 +398,8 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     if (!config?.enabled) return
     if (!data.user.isDeputyDj) return
 
-    const state = await this.loadState()
-    if (!state) return
-    if (state.participants.includes(data.user.userId)) return
-
-    const next = addDeputy(state, data.user.userId)
-    await this.saveState(next)
-    await this.robin.sync(next)
-    await this.publishQueueStatus(next, config)
+    // Same coalesced path as DEPUTY_DJ_CHANGED (R4).
+    await this.roster.addDeputyAndSchedule(data.user.userId)
   }
 
   private async onPersonaAssigned(data: {
@@ -523,10 +453,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
     const next = clearAdminRobin(state)
     await this.saveState(next)
-    await this.robin.sync(next)
-    await this.holds.flushHoldForCurrentTurn(next, config)
-    const latest = (await this.loadState()) ?? next
-    await this.publishQueueStatus(latest, config)
+    await this.finalizeAfterStateChange(next, config)
   }
 
   // ==========================================================================
@@ -597,6 +524,37 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     }
   }
 
+  /**
+   * After a state write: optional turn nudge, optional hold flush, then Robin + QUEUE_STATUS.
+   * Used by roster coalesce/bulk and persona-remove. Nested hold flush uses {@link persistAndSync}.
+   */
+  private async finalizeAfterStateChange(
+    state: RoundRobinState,
+    config: RoundRobinDjConfig,
+    options?: { turnStartedFor?: string[]; flush?: boolean },
+  ): Promise<void> {
+    if (options?.turnStartedFor?.length) {
+      await this.notifyTurnStarted(options.turnStartedFor)
+    }
+    if (options?.flush !== false) {
+      await this.holds.flushHoldForCurrentTurn(state, config)
+    }
+    await this.syncRobinAndPublish(state, config)
+  }
+
+  private async syncRobinAndPublish(
+    state: RoundRobinState | null,
+    config: Pick<RoundRobinDjConfig, "enabled" | "deferOutOfTurnQueues">,
+  ): Promise<void> {
+    if (!state) {
+      await this.publishQueueStatus(null, config)
+      return
+    }
+    const latest = (await this.loadState()) ?? state
+    await this.robin.sync(latest)
+    await this.publishQueueStatus(latest, config)
+  }
+
   private async persistAndSync(
     transition: StateTransition,
     config: RoundRobinDjConfig,
@@ -609,45 +567,11 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
       // outermost pass syncs Robin + publishes QUEUE_STATUS against final state.
       await this.holds.flushHoldForCurrentTurn(transition.state, config)
       if (this.persistDepth === 1) {
-        const latest = (await this.loadState()) ?? transition.state
-        await this.robin.sync(latest)
-        await this.publishQueueStatus(latest, config)
+        await this.syncRobinAndPublish(transition.state, config)
       }
     } finally {
       this.persistDepth -= 1
     }
-  }
-
-  private scheduleDeputyRosterSync(): void {
-    if (this.deputySyncTimer != null) return
-    this.deputySyncTimer = setTimeout(() => {
-      this.deputySyncTimer = null
-      void this.runCoalescedDeputySync()
-    }, 0)
-  }
-
-  private cancelScheduledDeputyRosterSync(): void {
-    if (this.deputySyncTimer == null) return
-    clearTimeout(this.deputySyncTimer)
-    this.deputySyncTimer = null
-  }
-
-  private async runCoalescedDeputySync(): Promise<void> {
-    if (!this.context) return
-    const config = await this.getCachedConfig()
-    if (!config?.enabled) return
-
-    const state = await this.loadState()
-    if (!state) return
-
-    const turnStarted = [...new Set(this.pendingTurnStartedFor)]
-    this.pendingTurnStartedFor = []
-
-    await this.robin.sync(state)
-    await this.notifyTurnStarted(turnStarted)
-    await this.holds.flushHoldForCurrentTurn(state, config)
-    const latest = (await this.loadState()) ?? state
-    await this.publishQueueStatus(latest, config)
   }
 
   private async publishQueueStatus(

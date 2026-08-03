@@ -573,6 +573,21 @@ describe("RoundRobinDjPlugin", () => {
     expect(state.participants).toEqual(["b"])
   })
 
+  it("adds join-while-deputy via the same coalesced roster path as DEPUTY_DJ_CHANGED", async () => {
+    const { plugin, context, storage, lifecycleHandlers, personas } = setup({ enabled: true })
+    await plugin.register(context)
+    personas.assign.mockClear()
+
+    await emit(lifecycleHandlers, "USER_JOINED", {
+      roomId: ROOM,
+      user: { userId: "c", username: "C", isDeputyDj: true },
+    })
+    expect(JSON.parse((await storage.get(STATE_KEY))!).participants).toContain("c")
+
+    await vi.advanceTimersByTimeAsync(0)
+    expect(personas.assign).toHaveBeenCalledWith("c", "robin")
+  })
+
   it("applies admin Robin designation from PERSONA_ASSIGNED", async () => {
     const { plugin, context, storage, lifecycleHandlers, personas } = setup({
       enabled: true,

@@ -58,11 +58,12 @@ function queueChangedPayloadsEqual(
 
 /**
  * Rooms where a `suppressQueueChanged` enqueue succeeded during QUEUE_CHANGED
- * plugin handling. Outer `queueSongAs` refreshes the client snapshot only then.
+ * plugin handling. Outer `queueSongAs` refreshes the client snapshot only then
+ * (dirty flag — not an unconditional rebuild on every enqueue).
  */
 const roomsWithSuppressedQueueMutation = new Set<string>()
 
-export function markQueueMutatedDuringPlugins(roomId: string): void {
+function markQueueMutatedDuringPlugins(roomId: string): void {
   roomsWithSuppressedQueueMutation.add(roomId)
 }
 

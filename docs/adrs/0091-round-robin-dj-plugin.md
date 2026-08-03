@@ -29,6 +29,7 @@ Individual deputize/undepetize previously emitted only socket `START/END_DEPUTY_
 - Bridge rooms with restricted sources can unlock search/queue for the current Robin/eligible set (and early selectors when deferred) without core mapping persona → privilege.
 - Clients may still show Add-to-Queue for all deputies; out-of-turn requests reject or hold (`SONG_QUEUE_HELD`) depending on config.
 - Extra SystemEvent traffic on bulk deputize (one `DEPUTY_DJ_CHANGED` per user) is acceptable for show-sized rooms.
+- `@repo/plugin-round-robin-dj` coalesces per-user `DEPUTY_DJ_CHANGED` (and join-while-deputy via `USER_JOINED`) onto one macrotask for Robin/`QUEUE_STATUS` sync, and reconciles the roster once on `DEPUTY_BULK_APPLIED` so bulk segment activate does not N× persona sync.
 - `QueueValidationResult` may be `{ deferred: true }` so plugins can accept a selection without enqueueing.
 
 ## See also

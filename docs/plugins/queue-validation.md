@@ -108,8 +108,8 @@ Plugins may call `api.addToTrackQueue` from a `QUEUE_CHANGED` handler (e.g. Roun
 **Contract:**
 
 1. User (or plugin) enqueue builds a `QUEUE_CHANGED` payload and emits it (plugins + broadcasters).
-2. During plugin handlers, cascading adds should use `suppressQueueChanged: true` so each flush does not nest another full emit.
-3. When those handlers return, if the queue differs from the original snapshot, core re-emits `QUEUE_CHANGED` with `{ skipPlugins: true }` so clients see held/cascaded tracks at the live end of the queue.
+2. During plugin handlers, cascading adds should use `suppressQueueChanged: true` so each flush does not nest another full emit. A successful suppressed add marks the room “dirty” inside `DJService.queueSongAs`.
+3. When those handlers return, core rebuilds and re-emits `QUEUE_CHANGED` with `{ skipPlugins: true }` **only if** a suppressed add marked the room dirty (and the refreshed snapshot still differs). Ordinary enqueues with no cascading add do **not** pay a second Redis rebuild.
 
 Without (2)+(3), broadcasters can deliver the pre-flush snapshot *after* nested updates, so clients briefly (or lastingly) miss flushed tracks. Batch enqueue (e.g. segment track injection) also uses `suppressQueueChanged` on intermediate adds, then emits once.
 
