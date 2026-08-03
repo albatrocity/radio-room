@@ -1,6 +1,7 @@
 import { DJService } from "../services/DJService"
 import { QueueItem, HandlerConnections, AppContext, User, MetadataSource } from "@repo/types"
-import { metadataSourceSupportsBrowse } from "@repo/utils"
+import { metadataSourceSupportsBrowse, resolveBrowseCapabilities } from "@repo/utils"
+import type { MetadataBrowseCapabilities } from "@repo/types"
 import sendMessage from "../lib/sendMessage"
 import { pubUserJoined } from "../operations/sockets/users"
 import { AdapterService } from "../services/AdapterService"
@@ -255,18 +256,28 @@ export class DJHandlers {
   }
 
   /**
-   * Effective search sources that also expose catalog browse (ADR 0089).
+   * Effective search sources that also expose catalog browse (ADR 0089 / 0090).
    */
-  private async resolveBrowseableSourceIds(
+  private async resolveBrowseMetadata(
     roomId: string,
     metadataSourceIds: string[],
-  ): Promise<string[]> {
-    if (metadataSourceIds.length === 0) return []
+  ): Promise<{
+    browseableSourceIds: string[]
+    browseSourceCapabilities: Record<string, MetadataBrowseCapabilities>
+  }> {
+    if (metadataSourceIds.length === 0) {
+      return { browseableSourceIds: [], browseSourceCapabilities: {} }
+    }
     const sources = await this.adapterService.getRoomMetadataSources(roomId)
-    return metadataSourceIds.filter((id) => {
+    const browseableSourceIds: string[] = []
+    const browseSourceCapabilities: Record<string, MetadataBrowseCapabilities> = {}
+    for (const id of metadataSourceIds) {
       const src = sources.get(id)
-      return src ? metadataSourceSupportsBrowse(src.api) : false
-    })
+      if (!src || !metadataSourceSupportsBrowse(src.api)) continue
+      browseableSourceIds.push(id)
+      browseSourceCapabilities[id] = resolveBrowseCapabilities(src.api)
+    }
+    return { browseableSourceIds, browseSourceCapabilities }
   }
 
   /**
@@ -327,10 +338,13 @@ export class DJHandlers {
         )
     }
 
-    const browseableSourceIds = await this.resolveBrowseableSourceIds(roomId, metadataSourceIds)
+    const { browseableSourceIds, browseSourceCapabilities } = await this.resolveBrowseMetadata(
+      roomId,
+      metadataSourceIds,
+    )
     socket.emit("event", {
       type: "EFFECTIVE_METADATA_SOURCES",
-      data: { metadataSourceIds, browseableSourceIds },
+      data: { metadataSourceIds, browseableSourceIds, browseSourceCapabilities },
     })
   }
 
@@ -366,6 +380,49 @@ export class DJHandlers {
       socket.emit("event", {
         type: "BROWSE_ARTISTS_FAILURE",
         data: { message: error?.message || "Failed to browse artists" },
+      })
+    }
+  }
+
+  browseAlbums = async (
+    { socket }: HandlerConnections,
+    payload: { source: string; query?: string; offset?: number; limit?: number },
+  ) => {
+    const { roomId, userId } = socket.data
+    try {
+      const resolved = await this.resolveBrowseSource(roomId, userId, payload.source)
+      if (!resolved.ok) {
+        socket.emit("event", {
+          type: "BROWSE_ALBUMS_FAILURE",
+          data: { message: resolved.message },
+        })
+        return
+      }
+      if (typeof resolved.metadataSource.api.listAlbums !== "function") {
+        socket.emit("event", {
+          type: "BROWSE_ALBUMS_FAILURE",
+          data: { message: "Metadata source does not support album browse" },
+        })
+        return
+      }
+      const result = await resolved.metadataSource.api.listAlbums({
+        query: payload.query,
+        offset: payload.offset,
+        limit: payload.limit,
+      })
+      socket.emit("event", {
+        type: "BROWSE_ALBUMS_RESULTS",
+        data: {
+          source: payload.source,
+          items: result.items,
+          total: result.total,
+        },
+      })
+    } catch (error: any) {
+      console.error("Error browsing albums:", error)
+      socket.emit("event", {
+        type: "BROWSE_ALBUMS_FAILURE",
+        data: { message: error?.message || "Failed to browse albums" },
       })
     }
   }
@@ -564,6 +621,39 @@ export class DJHandlers {
     const { rankSearchResultsByRelevance } = await import("@repo/utils")
     items = rankSearchResultsByRelevance(query, items)
 
+    // Entity enrichment for browseable sources (ADR 0090) — same response as tracks
+    let artists: Array<Record<string, unknown>> = []
+    let albums: Array<Record<string, unknown>> = []
+    const trimmed = query.trim()
+    if (trimmed.length >= 2) {
+      const entitySettled = await Promise.allSettled(
+        sourceEntries.map(async ([name, src]) => {
+          if (!metadataSourceSupportsBrowse(src.api)) {
+            return { artists: [] as unknown[], albums: [] as unknown[] }
+          }
+          const [artistResult, albumResult] = await Promise.allSettled([
+            src.api.listArtists?.({ query: trimmed, limit: 5 }) ??
+              Promise.resolve({ items: [] }),
+            src.api.listAlbums?.({ query: trimmed, limit: 5 }) ??
+              Promise.resolve({ items: [] }),
+          ])
+          const artistItems =
+            artistResult.status === "fulfilled" ? (artistResult.value.items ?? []) : []
+          const albumItems =
+            albumResult.status === "fulfilled" ? (albumResult.value.items ?? []) : []
+          return {
+            artists: artistItems.map((a) => ({ ...a, source: name })),
+            albums: albumItems.map((a) => ({ ...a, source: name })),
+          }
+        }),
+      )
+      for (const r of entitySettled) {
+        if (r.status !== "fulfilled") continue
+        artists = artists.concat(r.value.artists as Array<Record<string, unknown>>)
+        albums = albums.concat(r.value.albums as Array<Record<string, unknown>>)
+      }
+    }
+
     socket.emit("event", {
       type: "TRACK_SEARCH_RESULTS",
       data: {
@@ -571,6 +661,8 @@ export class DJHandlers {
         total: items.length,
         offset: 0,
         limit: 20,
+        artists,
+        albums,
       },
     })
   }

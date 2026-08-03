@@ -1,5 +1,6 @@
 import { MetadataSourceApi, MetadataSourceLifecycleCallbacks } from "@repo/types"
 import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk"
+import { mapSpotifyAlbumTrack, mapSpotifyBrowseAlbum, mapSpotifyBrowseArtist } from "./browseMappers"
 import { trackItemSchema } from "./schemas"
 
 export async function makeApi({
@@ -118,6 +119,92 @@ export async function makeApi({
     async removeFromLibrary(trackIds: string[]) {
       const uris = trackIds.map((id) => `spotify:track:${id}`)
       await spotifyApi.makeRequest("DELETE", "me/library", { uris })
+    },
+
+    getBrowseCapabilities() {
+      return { entryMode: "search" as const, albumSearch: true }
+    },
+
+    async listArtists(params) {
+      const query = params?.query?.trim()
+      if (!query) return { items: [], total: 0 }
+      const limit = Math.min(Math.max(params?.limit ?? 20, 1), 50) as 20
+      const offset = Math.max(params?.offset ?? 0, 0)
+      const results = await spotifyApi.search(query, ["artist"], undefined, limit, offset)
+      const items = (results.artists?.items ?? []).map((a) => mapSpotifyBrowseArtist(a))
+      return { items, total: results.artists?.total }
+    },
+
+    async listAlbums(params) {
+      const query = params?.query?.trim()
+      if (!query) return { items: [], total: 0 }
+      const limit = Math.min(Math.max(params?.limit ?? 20, 1), 50) as 20
+      const offset = Math.max(params?.offset ?? 0, 0)
+      const results = await spotifyApi.search(query, ["album"], undefined, limit, offset)
+      const items = (results.albums?.items ?? []).map((a) => mapSpotifyBrowseAlbum(a))
+      return { items, total: results.albums?.total }
+    },
+
+    async getArtist(artistId) {
+      if (!artistId) return null
+      try {
+        const [artist, albumsPage] = await Promise.all([
+          spotifyApi.artists.get(artistId),
+          spotifyApi.artists.albums(artistId, "album,single", undefined, 50, 0),
+        ])
+        return {
+          artist: mapSpotifyBrowseArtist(artist),
+          albums: (albumsPage.items ?? []).map((a) => mapSpotifyBrowseAlbum(a)),
+        }
+      } catch (error) {
+        console.error("Error browsing Spotify artist:", error)
+        return null
+      }
+    },
+
+    async getAlbum(albumId) {
+      if (!albumId) return null
+      try {
+        const album = await spotifyApi.albums.get(albumId)
+        const browseAlbum = mapSpotifyBrowseAlbum(album)
+        const albumEnvelope = {
+          id: album.id,
+          name: album.name,
+          uri: album.uri,
+          images: album.images ?? [],
+          artists: (album.artists ?? []).map((a) => ({
+            id: a.id,
+            name: a.name,
+            uri: a.uri,
+          })),
+          release_date: album.release_date,
+          release_date_precision: album.release_date_precision as "day" | "month" | "year",
+          total_tracks: album.total_tracks,
+        }
+        const trackItems = album.tracks?.items ?? []
+        const tracks = trackItems.map((t) =>
+          mapSpotifyAlbumTrack(
+            {
+              id: t.id,
+              name: t.name,
+              uri: t.uri,
+              duration_ms: t.duration_ms,
+              explicit: t.explicit,
+              track_number: t.track_number,
+              disc_number: t.disc_number,
+              artists: t.artists.map((a) => ({ id: a.id, name: a.name, uri: a.uri })),
+              external_urls: t.external_urls,
+              preview_url: t.preview_url,
+            },
+            albumEnvelope,
+          ),
+        )
+        browseAlbum.trackCount = tracks.length
+        return { album: browseAlbum, tracks }
+      } catch (error) {
+        console.error("Error browsing Spotify album:", error)
+        return null
+      }
     },
   }
 

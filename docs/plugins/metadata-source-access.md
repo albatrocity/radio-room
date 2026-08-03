@@ -99,4 +99,8 @@ Admins set **Admins + plugin grants only** per enabled source under Content → 
 
 ## Catalog browse
 
-Optional `MetadataSourceApi` methods `listArtists` / `getArtist` / `getAlbum` power Add to Queue **Browse** (artists → albums → tracks). Browse is gated by the same **`search`** action as text search—no separate grant. Clients learn which sources support browse via `browseableSourceIds` on `EFFECTIVE_METADATA_SOURCES` / INIT ([ADR 0089](../adrs/0089-metadata-source-content-browse.md)). v1 implements browse for the local (Navidrome) source only.
+Optional `MetadataSourceApi` methods `listArtists` / `getArtist` / `getAlbum` (and optional `listAlbums` / `getBrowseCapabilities`) power Add to Queue **Browse** and Search artist/album rows that deep-link into Browse ([ADR 0089](../adrs/0089-metadata-source-content-browse.md), [ADR 0090](../adrs/0090-hybrid-metadata-catalog-browse.md)).
+
+- Browse is gated by the same **`search`** action as text search—no separate grant.
+- Clients learn browseability via `browseableSourceIds` and `browseSourceCapabilities` on `EFFECTIVE_METADATA_SOURCES` / INIT.
+- **Local** uses index-entry browse; **Spotify** uses search-entry browse. Text Search may return additive `artists` / `albums` on `TRACK_SEARCH_RESULTS`.

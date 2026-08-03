@@ -16,6 +16,7 @@ export const bridgeRequestSchema = z.object({
     "search",
     "getTrack",
     "listArtists",
+    "listAlbums",
     "getArtist",
     "getAlbum",
     "notifyNowPlaying",

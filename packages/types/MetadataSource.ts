@@ -124,6 +124,14 @@ export type MetadataListArtistsResult = {
   total?: number
 }
 
+/** Same paging/filter shape as listArtists; reused for album root listing (ADR 0090). */
+export type MetadataListAlbumsParams = MetadataListArtistsParams
+
+export type MetadataListAlbumsResult = {
+  items: MetadataBrowseAlbum[]
+  total?: number
+}
+
 export type MetadataGetArtistResult = {
   artist: MetadataBrowseArtist
   albums: MetadataBrowseAlbum[]
@@ -132,6 +140,15 @@ export type MetadataGetArtistResult = {
 export type MetadataGetAlbumResult = {
   album: MetadataBrowseAlbum
   tracks: MetadataSourceTrack[]
+}
+
+/** How Browse UI should enter the catalog for this source (ADR 0090). */
+export type MetadataBrowseEntryMode = "index" | "search"
+
+export type MetadataBrowseCapabilities = {
+  entryMode: MetadataBrowseEntryMode
+  /** True when listAlbums is implemented (Artists | Albums root). */
+  albumSearch: boolean
 }
 
 export interface MetadataSourceApi {
@@ -152,10 +169,12 @@ export interface MetadataSourceApi {
   checkSavedTracks?: (trackIds: string[]) => Promise<boolean[]>
   addToLibrary?: (trackIds: string[]) => Promise<void>
   removeFromLibrary?: (trackIds: string[]) => Promise<void>
-  /** Optional catalog browse: Artists → Albums → Tracks (ADR 0089). */
+  /** Optional catalog browse: Artists → Albums → Tracks (ADR 0089 / 0090). */
   listArtists?: (params?: MetadataListArtistsParams) => Promise<MetadataListArtistsResult>
+  listAlbums?: (params?: MetadataListAlbumsParams) => Promise<MetadataListAlbumsResult>
   getArtist?: (artistId: string) => Promise<MetadataGetArtistResult | null>
   getAlbum?: (albumId: string) => Promise<MetadataGetAlbumResult | null>
+  getBrowseCapabilities?: () => MetadataBrowseCapabilities
 }
 
 export interface MetadataSourceError {

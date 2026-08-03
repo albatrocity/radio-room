@@ -1,5 +1,5 @@
 import { assign, setup } from "xstate"
-import { MetadataSourceTrack } from "@repo/types"
+import type { MetadataBrowseAlbum, MetadataBrowseArtist, MetadataSourceTrack } from "@repo/types"
 import { emitToSocket } from "../actors/socketActor"
 
 type RequestError = {
@@ -7,8 +7,13 @@ type RequestError = {
   error?: any
 }
 
+export type SearchBrowseArtist = MetadataBrowseArtist & { source?: string }
+export type SearchBrowseAlbum = MetadataBrowseAlbum & { source?: string }
+
 export interface TrackSearchContext {
   results: MetadataSourceTrack[]
+  artists: SearchBrowseArtist[]
+  albums: SearchBrowseAlbum[]
   error: RequestError | null
   total: number
   offset: number
@@ -23,6 +28,8 @@ type TrackSearchEvent =
       type: "TRACK_SEARCH_RESULTS"
       data: {
         items: MetadataSourceTrack[]
+        artists?: SearchBrowseArtist[]
+        albums?: SearchBrowseAlbum[]
         total: number
         offset: number
         next?: string
@@ -48,6 +55,8 @@ export const trackSearchMachine = setup({
       if (event.type !== "TRACK_SEARCH_RESULTS") return {}
       return {
         results: event.data.items || [],
+        artists: event.data.artists || [],
+        albums: event.data.albums || [],
         total: event.data.total || 0,
         offset: event.data.offset || 0,
         nextUrl: event.data.next,
@@ -67,6 +76,8 @@ export const trackSearchMachine = setup({
   initial: "idle",
   context: {
     results: [],
+    artists: [],
+    albums: [],
     error: null,
     total: 0,
     offset: 0,

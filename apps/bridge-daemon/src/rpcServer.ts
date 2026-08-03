@@ -122,6 +122,14 @@ export class RpcServer {
           limit: p.limit != null ? Number(p.limit) : undefined,
         })
       }
+      case "listAlbums": {
+        if (String(p.source) !== "local" || !this.localDriver) return { items: [], total: 0 }
+        return this.localDriver.listAlbums({
+          query: p.query != null ? String(p.query) : undefined,
+          offset: p.offset != null ? Number(p.offset) : undefined,
+          limit: p.limit != null ? Number(p.limit) : undefined,
+        })
+      }
       case "getArtist": {
         if (String(p.source) !== "local" || !this.localDriver) return null
         return this.localDriver.getArtist(String(p.artistId ?? p.id ?? ""))

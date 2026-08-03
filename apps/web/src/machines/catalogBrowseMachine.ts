@@ -15,6 +15,8 @@ export interface CatalogBrowseContext {
   source: string | null
   artists: MetadataBrowseArtist[]
   artistsTotal: number | undefined
+  rootAlbums: MetadataBrowseAlbum[]
+  rootAlbumsTotal: number | undefined
   artist: MetadataBrowseArtist | null
   albums: MetadataBrowseAlbum[]
   album: MetadataBrowseAlbum | null
@@ -24,6 +26,7 @@ export interface CatalogBrowseContext {
 
 type CatalogBrowseEvent =
   | { type: "FETCH_ARTISTS"; source: string; query?: string }
+  | { type: "FETCH_ALBUMS"; source: string; query?: string; limit?: number }
   | { type: "FETCH_ARTIST"; source: string; artistId: string }
   | { type: "FETCH_ALBUM"; source: string; albumId: string }
   | {
@@ -31,6 +34,11 @@ type CatalogBrowseEvent =
       data: { source: string; items: MetadataBrowseArtist[]; total?: number }
     }
   | { type: "BROWSE_ARTISTS_FAILURE"; data: RequestError }
+  | {
+      type: "BROWSE_ALBUMS_RESULTS"
+      data: { source: string; items: MetadataBrowseAlbum[]; total?: number }
+    }
+  | { type: "BROWSE_ALBUMS_FAILURE"; data: RequestError }
   | {
       type: "BROWSE_ARTIST_RESULTS"
       data: {
@@ -64,6 +72,15 @@ export const catalogBrowseMachine = setup({
         })
       }
     },
+    sendListAlbums: ({ event }) => {
+      if (event.type === "FETCH_ALBUMS") {
+        emitToSocket("BROWSE_ALBUMS", {
+          source: event.source,
+          query: event.query,
+          limit: event.limit,
+        })
+      }
+    },
     sendGetArtist: ({ event }) => {
       if (event.type === "FETCH_ARTIST") {
         emitToSocket("BROWSE_ARTIST", {
@@ -86,6 +103,15 @@ export const catalogBrowseMachine = setup({
         source: event.data.source,
         artists: event.data.items ?? [],
         artistsTotal: event.data.total,
+        error: null,
+      }
+    }),
+    setRootAlbums: assign(({ event }) => {
+      if (event.type !== "BROWSE_ALBUMS_RESULTS") return {}
+      return {
+        source: event.data.source,
+        rootAlbums: event.data.items ?? [],
+        rootAlbumsTotal: event.data.total,
         error: null,
       }
     }),
@@ -112,6 +138,7 @@ export const catalogBrowseMachine = setup({
     setError: assign(({ event }) => {
       if (
         event.type !== "BROWSE_ARTISTS_FAILURE" &&
+        event.type !== "BROWSE_ALBUMS_FAILURE" &&
         event.type !== "BROWSE_ARTIST_FAILURE" &&
         event.type !== "BROWSE_ALBUM_FAILURE"
       ) {
@@ -128,6 +155,8 @@ export const catalogBrowseMachine = setup({
     source: null,
     artists: [],
     artistsTotal: undefined,
+    rootAlbums: [],
+    rootAlbumsTotal: undefined,
     artist: null,
     albums: [],
     album: null,
@@ -137,6 +166,10 @@ export const catalogBrowseMachine = setup({
   on: {
     FETCH_ARTISTS: {
       target: ".loadingArtists",
+      actions: ["clearError"],
+    },
+    FETCH_ALBUMS: {
+      target: ".loadingAlbums",
       actions: ["clearError"],
     },
     FETCH_ARTIST: {
@@ -159,6 +192,19 @@ export const catalogBrowseMachine = setup({
           actions: ["setArtists"],
         },
         BROWSE_ARTISTS_FAILURE: {
+          target: "failure",
+          actions: ["setError"],
+        },
+      },
+    },
+    loadingAlbums: {
+      entry: ["sendListAlbums"],
+      on: {
+        BROWSE_ALBUMS_RESULTS: {
+          target: "idle",
+          actions: ["setRootAlbums"],
+        },
+        BROWSE_ALBUMS_FAILURE: {
           target: "failure",
           actions: ["setError"],
         },

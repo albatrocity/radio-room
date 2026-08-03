@@ -283,6 +283,8 @@ describe("DJHandlers", () => {
           total: 1,
           offset: 0,
           limit: 20,
+          artists: [],
+          albums: [],
         },
       })
     })
@@ -325,6 +327,8 @@ describe("DJHandlers", () => {
           total: 0,
           offset: 0,
           limit: 20,
+          artists: [],
+          albums: [],
         },
       })
     })
@@ -560,6 +564,7 @@ describe("DJHandlers", () => {
 
   describe("catalog browse", () => {
     let listArtists: ReturnType<typeof vi.fn>
+    let listAlbums: ReturnType<typeof vi.fn>
     let getArtist: ReturnType<typeof vi.fn>
     let getAlbum: ReturnType<typeof vi.fn>
     let browseableLocal: MetadataSource
@@ -567,6 +572,10 @@ describe("DJHandlers", () => {
     beforeEach(() => {
       listArtists = vi.fn().mockResolvedValue({
         items: [{ id: "a1", title: "Artist One" }],
+        total: 1,
+      })
+      listAlbums = vi.fn().mockResolvedValue({
+        items: [{ id: "al1", title: "Album One", artists: [] }],
         total: 1,
       })
       getArtist = vi.fn().mockResolvedValue({
@@ -585,8 +594,10 @@ describe("DJHandlers", () => {
           searchByParams: async () => [],
           findById: async () => null,
           listArtists,
+          listAlbums,
           getArtist,
           getAlbum,
+          getBrowseCapabilities: () => ({ entryMode: "index", albumSearch: true }),
         },
       } as unknown as MetadataSource
 
@@ -606,6 +617,7 @@ describe("DJHandlers", () => {
         data: {
           metadataSourceIds: ["spotify"],
           browseableSourceIds: [],
+          browseSourceCapabilities: {},
         },
       })
     })
@@ -623,6 +635,9 @@ describe("DJHandlers", () => {
         data: {
           metadataSourceIds: ["spotify", "local"],
           browseableSourceIds: ["local"],
+          browseSourceCapabilities: {
+            local: { entryMode: "index", albumSearch: true },
+          },
         },
       })
     })
@@ -654,6 +669,27 @@ describe("DJHandlers", () => {
       expect(mockSocket.emit).toHaveBeenCalledWith("event", {
         type: "BROWSE_ARTISTS_FAILURE",
         data: { message: "Metadata source does not support browse" },
+      })
+    })
+
+    test("browseAlbums returns items for browseable source", async () => {
+      await djHandlers.browseAlbums(
+        { socket: mockSocket, io: mockIo },
+        { source: "local", query: "alb" },
+      )
+
+      expect(listAlbums).toHaveBeenCalledWith({
+        query: "alb",
+        offset: undefined,
+        limit: undefined,
+      })
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "BROWSE_ALBUMS_RESULTS",
+        data: {
+          source: "local",
+          items: [{ id: "al1", title: "Album One", artists: [] }],
+          total: 1,
+        },
       })
     })
 

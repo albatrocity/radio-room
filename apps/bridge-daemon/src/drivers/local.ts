@@ -8,9 +8,12 @@ import type {
   MetadataBrowseArtist,
   MetadataGetAlbumResult,
   MetadataGetArtistResult,
+  MetadataListAlbumsParams,
+  MetadataListAlbumsResult,
   MetadataListArtistsParams,
   MetadataListArtistsResult,
   MetadataSourceTrack,
+  MetadataSourceUrl,
 } from "@repo/types"
 import type { BridgeDaemonConfig } from "../config"
 import { configDir } from "../config"
@@ -100,10 +103,23 @@ type NavidromeAlbum = {
   coverArt?: string
 }
 
+export type CoverArtUrlFn = (coverArtId: string) => string
+
+/** Build browse `images` from a Subsonic coverArt id (URL only; no fetch). */
+export function coverArtImages(
+  coverArt: string | undefined,
+  coverArtUrl?: CoverArtUrlFn,
+): MetadataSourceUrl[] | undefined {
+  const id = coverArt?.trim()
+  if (!id || !coverArtUrl) return undefined
+  return [{ type: "image", url: coverArtUrl(id), id }]
+}
+
 /** Flatten Subsonic artist indexes into browse artists (pure; testable). */
 export function mapNavidromeArtists(
   indexes: Array<{ artist?: NavidromeArtist | NavidromeArtist[] } | undefined> | undefined,
   query?: string,
+  coverArtUrl?: CoverArtUrlFn,
 ): MetadataBrowseArtist[] {
   const raw = Array.isArray(indexes) ? indexes : []
   const artists: MetadataBrowseArtist[] = []
@@ -116,6 +132,7 @@ export function mapNavidromeArtists(
         id: String(a.id),
         title: String(a.name ?? a.id).trim() || String(a.id),
         albumCount: typeof a.albumCount === "number" ? a.albumCount : undefined,
+        images: coverArtImages(a.coverArt, coverArtUrl),
       })
     }
   }
@@ -125,8 +142,11 @@ export function mapNavidromeArtists(
   return artists.filter((a) => a.title.toLowerCase().includes(q))
 }
 
-/** Map Subsonic ID3 album stub to browse album (no cover fetch). */
-export function mapNavidromeBrowseAlbum(album: NavidromeAlbum): MetadataBrowseAlbum | null {
+/** Map Subsonic ID3 album stub to browse album (cover URL when coverArt present). */
+export function mapNavidromeBrowseAlbum(
+  album: NavidromeAlbum,
+  coverArtUrl?: CoverArtUrlFn,
+): MetadataBrowseAlbum | null {
   if (!album?.id) return null
   const artistTitle = album.artist?.trim() ?? ""
   return {
@@ -137,7 +157,19 @@ export function mapNavidromeBrowseAlbum(album: NavidromeAlbum): MetadataBrowseAl
       : [],
     year: album.year != null ? String(album.year) : undefined,
     trackCount: typeof album.songCount === "number" ? album.songCount : undefined,
+    images: coverArtImages(album.coverArt, coverArtUrl),
   }
+}
+
+/** Normalize Subsonic album list / search3 album payload to browse albums. */
+export function mapNavidromeAlbumList(
+  albums: NavidromeAlbum | NavidromeAlbum[] | undefined,
+  coverArtUrl?: CoverArtUrlFn,
+): MetadataBrowseAlbum[] {
+  const list = Array.isArray(albums) ? albums : albums ? [albums] : []
+  return list
+    .map((a) => mapNavidromeBrowseAlbum(a, coverArtUrl))
+    .filter((a): a is MetadataBrowseAlbum => a != null)
 }
 
 export function resolveLocalDisplayTitle(song: NavidromeSong): string {
@@ -407,6 +439,14 @@ export class LocalDriver implements Driver {
     return `u=${encodeURIComponent(username)}&t=${token}&s=${salt}&v=1.16.1&c=bridge&f=json`
   }
 
+  /** Stable cover URL builder for one browse response (shared auth salt). */
+  private coverArtUrlFn(): CoverArtUrlFn {
+    const auth = this.authParams()
+    const base = this.navidrome.url
+    return (coverArtId: string) =>
+      `${base}/rest/getCoverArt.view?id=${encodeURIComponent(coverArtId)}&size=128&${auth}`
+  }
+
   streamUrl(id: string): string {
     return `${this.navidrome.url}/rest/stream.view?id=${encodeURIComponent(id)}&${this.authParams()}`
   }
@@ -524,9 +564,11 @@ export class LocalDriver implements Driver {
     if (!res.ok) throw new Error(`Navidrome getArtists failed: ${res.status}`)
     const data = (await res.json()) as any
     const indexes = data?.["subsonic-response"]?.artists?.index
+    const coverArtUrl = this.coverArtUrlFn()
     let items = mapNavidromeArtists(
       Array.isArray(indexes) ? indexes : indexes ? [indexes] : [],
       params?.query,
+      coverArtUrl,
     )
     const total = items.length
     const offset = Math.max(0, params?.offset ?? 0)
@@ -535,6 +577,36 @@ export class LocalDriver implements Driver {
       items = items.slice(offset, limit != null ? offset + limit : undefined)
     }
     return { items, total }
+  }
+
+  async listAlbums(params?: MetadataListAlbumsParams): Promise<MetadataListAlbumsResult> {
+    if (!this.navidrome.username) return { items: [], total: 0 }
+    const query = params?.query?.trim()
+    const offset = Math.max(0, params?.offset ?? 0)
+    const limit = Math.min(Math.max(params?.limit ?? 50, 1), 50)
+    const coverArtUrl = this.coverArtUrlFn()
+
+    if (query) {
+      const url =
+        `${this.navidrome.url}/rest/search3.view?query=${encodeURIComponent(query)}` +
+        `&artistCount=0&albumCount=${limit}&songCount=0&${this.authParams()}`
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`Navidrome search3 albums failed: ${res.status}`)
+      const data = (await res.json()) as any
+      const albums = data?.["subsonic-response"]?.searchResult3?.album
+      const items = mapNavidromeAlbumList(albums, coverArtUrl)
+      return { items, total: items.length }
+    }
+
+    const url =
+      `${this.navidrome.url}/rest/getAlbumList2.view?type=alphabeticalByName` +
+      `&size=${limit}&offset=${offset}&${this.authParams()}`
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Navidrome getAlbumList2 failed: ${res.status}`)
+    const data = (await res.json()) as any
+    const albums = data?.["subsonic-response"]?.albumList2?.album
+    const items = mapNavidromeAlbumList(albums, coverArtUrl)
+    return { items, total: items.length }
   }
 
   async getArtist(artistId: string): Promise<MetadataGetArtistResult | null> {
@@ -547,16 +619,18 @@ export class LocalDriver implements Driver {
       | (NavidromeArtist & { album?: NavidromeAlbum | NavidromeAlbum[] })
       | undefined
     if (!artist?.id) return null
+    const coverArtUrl = this.coverArtUrlFn()
     const albumRaw = artist.album
     const albumList = Array.isArray(albumRaw) ? albumRaw : albumRaw ? [albumRaw] : []
     const albums = albumList
-      .map((a) => mapNavidromeBrowseAlbum(a))
+      .map((a) => mapNavidromeBrowseAlbum(a, coverArtUrl))
       .filter((a): a is MetadataBrowseAlbum => a != null)
     return {
       artist: {
         id: String(artist.id),
         title: String(artist.name ?? artist.id).trim() || String(artist.id),
         albumCount: typeof artist.albumCount === "number" ? artist.albumCount : albums.length,
+        images: coverArtImages(artist.coverArt, coverArtUrl),
       },
       albums,
     }
@@ -572,7 +646,7 @@ export class LocalDriver implements Driver {
       | (NavidromeAlbum & { song?: NavidromeSong | NavidromeSong[] })
       | undefined
     if (!album?.id) return null
-    const mappedAlbum = mapNavidromeBrowseAlbum(album)
+    const mappedAlbum = mapNavidromeBrowseAlbum(album, this.coverArtUrlFn())
     if (!mappedAlbum) return null
     const songRaw = album.song
     const songs = Array.isArray(songRaw) ? songRaw : songRaw ? [songRaw] : []

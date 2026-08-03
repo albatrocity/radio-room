@@ -48,6 +48,13 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
     },
   )
 
+  socket.on(
+    "BROWSE_ALBUMS",
+    async (payload: { source: string; query?: string; offset?: number; limit?: number }) => {
+      await handlers.browseAlbums(connections, payload)
+    },
+  )
+
   socket.on("BROWSE_ARTIST", async (payload: { source: string; artistId: string }) => {
     await handlers.browseArtist(connections, payload)
   })

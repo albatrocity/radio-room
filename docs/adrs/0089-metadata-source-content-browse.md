@@ -1,7 +1,7 @@
 # 0089. Metadata source content browse
 
 **Date:** 2026-08-02
-**Status:** Accepted
+**Status:** Partially superseded by [0090](0090-hybrid-metadata-catalog-browse.md)
 
 ## Context
 
@@ -25,6 +25,7 @@ Add to Queue today is free-text search across metadata sources ([ADR 0085](0085-
 
 ## See also
 
+- [0090. Hybrid metadata catalog browse](0090-hybrid-metadata-catalog-browse.md) (search-entry, listAlbums, Search entity rows)
 - [0005. Adapter Pattern for Media Services](0005-adapter-pattern-for-media-services.md)
 - [0013. Track Identity](0013-track-identity-media-and-metadata-sources.md)
 - [0087. Room Bridge Media Source Policy](0087-room-bridge-media-source-policy.md)

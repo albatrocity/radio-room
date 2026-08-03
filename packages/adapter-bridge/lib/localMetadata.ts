@@ -1,6 +1,8 @@
 import type {
   MetadataGetAlbumResult,
   MetadataGetArtistResult,
+  MetadataListAlbumsParams,
+  MetadataListAlbumsResult,
   MetadataListArtistsParams,
   MetadataListArtistsResult,
   MetadataSourceAdapter,
@@ -72,6 +74,9 @@ export function createLocalMetadataApi(deps: {
         images: [],
       }
     },
+    getBrowseCapabilities() {
+      return { entryMode: "index" as const, albumSearch: true }
+    },
     async listArtists(params?: MetadataListArtistsParams): Promise<MetadataListArtistsResult> {
       return withRpc(async (rpc) => {
         const result = (await rpc.call("listArtists", {
@@ -80,6 +85,17 @@ export function createLocalMetadataApi(deps: {
           offset: params?.offset,
           limit: params?.limit,
         })) as MetadataListArtistsResult
+        return result?.items ? result : { items: [], total: 0 }
+      }, { items: [], total: 0 })
+    },
+    async listAlbums(params?: MetadataListAlbumsParams): Promise<MetadataListAlbumsResult> {
+      return withRpc(async (rpc) => {
+        const result = (await rpc.call("listAlbums", {
+          source: "local",
+          query: params?.query,
+          offset: params?.offset,
+          limit: params?.limit,
+        })) as MetadataListAlbumsResult
         return result?.items ? result : { items: [], total: 0 }
       }, { items: [], total: 0 })
     },

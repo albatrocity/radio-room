@@ -286,6 +286,7 @@ export class AuthService {
 
     let effectiveMetadataSourceIds: string[] | undefined
     let browseableSourceIds: string[] | undefined
+    let browseSourceCapabilities: Record<string, { entryMode: "index" | "search"; albumSearch: boolean }> | undefined
     if (this.context.metadataSourceAccess) {
       try {
         effectiveMetadataSourceIds =
@@ -296,15 +297,22 @@ export class AuthService {
           )
         if (effectiveMetadataSourceIds?.length) {
           const { AdapterService } = await import("./AdapterService")
-          const { metadataSourceSupportsBrowse } = await import("@repo/utils")
+          const { metadataSourceSupportsBrowse, resolveBrowseCapabilities } = await import(
+            "@repo/utils"
+          )
           const adapterService = new AdapterService(this.context)
           const sources = await adapterService.getRoomMetadataSources(roomId)
-          browseableSourceIds = effectiveMetadataSourceIds.filter((id) => {
+          browseableSourceIds = []
+          browseSourceCapabilities = {}
+          for (const id of effectiveMetadataSourceIds) {
             const src = sources.get(id)
-            return src ? metadataSourceSupportsBrowse(src.api) : false
-          })
+            if (!src || !metadataSourceSupportsBrowse(src.api)) continue
+            browseableSourceIds.push(id)
+            browseSourceCapabilities[id] = resolveBrowseCapabilities(src.api)
+          }
         } else {
           browseableSourceIds = []
+          browseSourceCapabilities = {}
         }
       } catch (err) {
         console.error("[AuthService] Failed to load effective metadata sources for init:", err)
@@ -335,6 +343,7 @@ export class AuthService {
         assignablePersonas,
         effectiveMetadataSourceIds,
         browseableSourceIds,
+        browseSourceCapabilities,
         activePoll: pollInit.activePoll,
         totalVotes: pollInit.totalVotes,
         pollHistory: pollInit.pollHistory,
