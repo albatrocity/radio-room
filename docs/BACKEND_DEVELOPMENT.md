@@ -30,6 +30,20 @@ await context.systemEvents.emit(roomId, "TRACK_CHANGED", {
 })
 ```
 
+Fan-out order is **Redis PubSub → plugins → broadcasters**. Optional emit options:
+
+```typescript
+await context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload, {
+  skipPlugins: true, // PubSub + Socket.IO only; do not re-enter plugin handlers
+})
+```
+
+| Option | Effect |
+|--------|--------|
+| `skipPlugins: true` | Skip in-process plugin handlers; still publish to Redis and broadcasters |
+
+**Why `skipPlugins` exists:** Plugins may mutate domain state while handling an event (e.g. enqueue more tracks during `QUEUE_CHANGED`). The original emit’s payload was snapshotted *before* those handlers ran, so broadcasters would otherwise send a stale queue to clients after plugins return. Core code (notably `DJService.queueSongAs`) may rebuild the payload and re-emit with `{ skipPlugins: true }` so clients see the final snapshot without running plugin handlers twice. See [Queue Validation — Cascading queue adds](plugins/queue-validation.md#cascading-queue-adds-during-queue_changed).
+
 ### Event Types
 
 Events are defined in `packages/types/SystemEventTypes.ts`. Common events include:

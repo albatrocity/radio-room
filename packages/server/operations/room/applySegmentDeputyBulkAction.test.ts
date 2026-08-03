@@ -63,6 +63,16 @@ describe("applySegmentDeputyBulkAction", () => {
       setKey: "user:a",
       attributes: { isDeputyDj: false },
     })
+    expect(emit).toHaveBeenCalledWith("r1", "DEPUTY_DJ_CHANGED", {
+      roomId: "r1",
+      userId: "a",
+      isDeputyDj: false,
+    })
+    expect(emit).toHaveBeenCalledWith("r1", "DEPUTY_DJ_CHANGED", {
+      roomId: "r1",
+      userId: "b",
+      isDeputyDj: false,
+    })
     expect(emit).toHaveBeenCalledWith(
       "r1",
       "USER_JOINED",
@@ -112,7 +122,16 @@ describe("applySegmentDeputyBulkAction", () => {
       setKey: "user:u1",
       attributes: { isDeputyDj: true },
     })
-    expect(emit).toHaveBeenCalled()
+    expect(emit).toHaveBeenCalledWith("r1", "DEPUTY_DJ_CHANGED", {
+      roomId: "r1",
+      userId: "u1",
+      isDeputyDj: true,
+    })
+    expect(emit).toHaveBeenCalledWith("r1", "DEPUTY_DJ_CHANGED", {
+      roomId: "r1",
+      userId: "u2",
+      isDeputyDj: true,
+    })
   })
 
   it("deputize_all emits DEPUTY_BULK_APPLIED and MESSAGE_RECEIVED", async () => {

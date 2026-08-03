@@ -40,19 +40,23 @@ async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidati
 
 Use these helper functions from `@repo/types` for consistent, type-safe responses:
 
-| Function                     | Returns                      | Description                                  |
-| ---------------------------- | ---------------------------- | -------------------------------------------- |
-| `allowQueueRequest()`        | `{ allowed: true }`          | Allow the queue request to proceed           |
-| `rejectQueueRequest(reason)` | `{ allowed: false, reason }` | Block the request with a user-facing message |
+| Function                       | Returns                            | Description                                                  |
+| ------------------------------ | ---------------------------------- | ------------------------------------------------------------ |
+| `allowQueueRequest()`          | `{ allowed: true }`                | Allow the queue request to proceed                           |
+| `rejectQueueRequest(reason)`   | `{ allowed: false, reason }`       | Block the request with a user-facing message                 |
+| `deferQueueRequest(message)`   | `{ deferred: true, message }`      | Accept selection without enqueueing (client info toast)      |
 
 ```typescript
-import { allowQueueRequest, rejectQueueRequest } from "@repo/types"
+import { allowQueueRequest, rejectQueueRequest, deferQueueRequest } from "@repo/types"
 
 // Allow the request
 return allowQueueRequest()
 
 // Reject with a message shown to the user
 return rejectQueueRequest("You added the last song. Wait for another DJ to add one.")
+
+// Hold until later (e.g. Round Robin early selection)
+return deferQueueRequest("Song saved — it will be added when it's your turn")
 ```
 
 ### QueueValidationParams
@@ -73,23 +77,43 @@ Metadata source **access** (restricted sources / plugin grants) is evaluated bef
 
 Queue validation uses **fail-open** semantics to ensure core functionality isn't blocked by plugin failures:
 
-| Plugin Behavior                      | Result                                |
-| ------------------------------------ | ------------------------------------- |
-| Returns `allowQueueRequest()`        | ✅ Allowed (continues to next plugin) |
-| Returns `rejectQueueRequest(reason)` | ❌ **Blocked** (stops processing)     |
-| Throws an error                      | ✅ Allowed (error logged)             |
-| Times out (>500ms)                   | ✅ Allowed (timeout logged)           |
-| Doesn't implement method             | ✅ Allowed (skipped)                  |
+| Plugin Behavior                      | Result                                           |
+| ------------------------------------ | ------------------------------------------------ |
+| Returns `allowQueueRequest()`        | Allowed (continues to next plugin)               |
+| Returns `rejectQueueRequest(reason)` | **Blocked** (stops processing)                   |
+| Returns `deferQueueRequest(message)` | **Deferred** (stops processing; no enqueue)      |
+| Throws an error                      | Allowed (error logged)                           |
+| Times out (>500ms)                   | Allowed (timeout logged)                         |
+| Doesn't implement method             | Allowed (skipped)                                |
 
-**Important**: Only an explicit `rejectQueueRequest()` will block the enqueue. All error conditions allow the request to proceed, ensuring users can always add songs even if a plugin misbehaves.
+**Important**: Only an explicit `rejectQueueRequest()` or `deferQueueRequest()` stops the enqueue. All error conditions allow the request to proceed, ensuring users can always add songs even if a plugin misbehaves. Deferred results emit `SONG_QUEUE_HELD` to the client (info toast) instead of `SONG_QUEUE_FAILURE`.
 
 ### Multiple Plugins
 
 If multiple plugins implement `validateQueueRequest`:
 
 1. Plugins are called sequentially
-2. The **first rejection wins** - remaining plugins are not called
+2. The **first rejection or defer wins** — remaining plugins are not called
 3. If all plugins allow, the request proceeds
+
+### Cascading queue adds during `QUEUE_CHANGED`
+
+Plugins may call `api.addToTrackQueue` from a `QUEUE_CHANGED` handler (e.g. Round Robin flushing a held track when the previous deputy queues). Two APIs keep clients and plugins consistent:
+
+| API | Where | Role |
+|-----|--------|------|
+| `addToTrackQueue(..., { suppressQueueChanged: true })` | `PluginAPI` | Add to the Redis/playback queue **without** emitting `QUEUE_CHANGED` for that add |
+| `systemEvents.emit(..., { skipPlugins: true })` | Core (`DJService.queueSongAs`) | After plugins finish handling the *original* `QUEUE_CHANGED`, rebroadcast a **fresh** queue snapshot to Redis + Socket.IO without re-entering plugins |
+
+**Contract:**
+
+1. User (or plugin) enqueue builds a `QUEUE_CHANGED` payload and emits it (plugins + broadcasters).
+2. During plugin handlers, cascading adds should use `suppressQueueChanged: true` so each flush does not nest another full emit.
+3. When those handlers return, if the queue differs from the original snapshot, core re-emits `QUEUE_CHANGED` with `{ skipPlugins: true }` so clients see held/cascaded tracks at the live end of the queue.
+
+Without (2)+(3), broadcasters can deliver the pre-flush snapshot *after* nested updates, so clients briefly (or lastingly) miss flushed tracks. Batch enqueue (e.g. segment track injection) also uses `suppressQueueChanged` on intermediate adds, then emits once.
+
+Reference implementation: `@repo/plugin-round-robin-dj` hold flush + `DJService.queueSongAs` refresh path. Emit options: [BACKEND_DEVELOPMENT.md — SystemEvents](../BACKEND_DEVELOPMENT.md#systemevents).
 
 ### Example: Rate Limiting Plugin
 

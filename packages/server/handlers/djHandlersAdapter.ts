@@ -1,6 +1,12 @@
 import { DJService } from "../services/DJService"
 import { MediaBridgeService } from "../services/MediaBridgeService"
-import { QueueItem, HandlerConnections, AppContext, User } from "@repo/types"
+import {
+  QueueItem,
+  HandlerConnections,
+  AppContext,
+  User,
+  isDeferredQueueRequest,
+} from "@repo/types"
 import sendMessage from "../lib/sendMessage"
 import { pubUserJoined } from "../operations/sockets/users"
 import { AdapterService } from "../services/AdapterService"
@@ -86,6 +92,16 @@ export class DJHandlers {
       if (!result.success) {
         socket.emit("event", {
           type: "SONG_QUEUE_FAILURE",
+          data: {
+            message: result.message,
+          },
+        })
+        return
+      }
+
+      if (isDeferredQueueRequest(result)) {
+        socket.emit("event", {
+          type: "SONG_QUEUE_HELD",
           data: {
             message: result.message,
           },

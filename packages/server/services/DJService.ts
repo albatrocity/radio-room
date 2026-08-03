@@ -1,5 +1,10 @@
 import { shuffleQueueItems } from "@repo/game-logic"
-import { AppContext, MoveTrackResult, QueueItemAttribution } from "@repo/types"
+import {
+  AppContext,
+  MoveTrackResult,
+  QueueItemAttribution,
+  isDeferredQueueRequest,
+} from "@repo/types"
 import { User } from "@repo/types/User"
 import { QueueItem, canonicalQueueTrackKey } from "@repo/types/Queue"
 import { MetadataSource, MetadataSourceTrack } from "@repo/types"
@@ -30,12 +35,25 @@ import { AdapterService } from "./AdapterService"
 import { DefenseService } from "./DefenseService"
 import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
 import { canResumeCurrentTrack, shouldAdvanceToNextQueueItem } from "../lib/playbackHelpers"
+import { publishDeputyDjChanged } from "../operations/dj/publishDeputyDjChanged"
 
 function isSameMultiset(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false
   const sa = [...a].sort()
   const sb = [...b].sort()
   return sa.every((v, i) => v === sb[i])
+}
+
+function queueChangedPayloadsEqual(
+  a: { queue: QueueItem[]; splitKey: string | null },
+  b: { queue: QueueItem[]; splitKey: string | null },
+): boolean {
+  if (a.splitKey !== b.splitKey) return false
+  if (a.queue.length !== b.queue.length) return false
+  return a.queue.every((item, i) => {
+    const other = b.queue[i]
+    return other != null && canonicalQueueTrackKey(item) === canonicalQueueTrackKey(other)
+  })
 }
 
 /**
@@ -113,6 +131,13 @@ export class DJService {
       userId,
       attributes: { isDeputyDj },
       roomId,
+    })
+
+    await publishDeputyDjChanged({
+      context: this.context,
+      roomId,
+      userId,
+      isDeputyDj,
     })
 
     return {
@@ -219,7 +244,15 @@ export class DJService {
         mediaSourceType: sourceType,
       })
 
-      if (!validationResult.allowed) {
+      if (isDeferredQueueRequest(validationResult)) {
+        return {
+          success: true as const,
+          deferred: true as const,
+          message: validationResult.message,
+        }
+      }
+
+      if ("allowed" in validationResult && !validationResult.allowed) {
         return {
           success: false as const,
           message: validationResult.reason ?? "Queue request was rejected",
@@ -372,12 +405,28 @@ export class DJService {
     }
 
     if (this.context.systemEvents && !suppressQueueChanged) {
+      const appControlled = isAppControlledPlayback(room)
       const payload = await buildQueueChangedData({
         roomId,
         context: this.context,
-        appControlled: isAppControlledPlayback(room),
+        appControlled,
       })
       await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
+
+      // Plugins may enqueue further tracks during QUEUE_CHANGED (e.g. round-robin
+      // hold flush). Broadcasters run after plugins with this snapshot, so without
+      // a refresh clients can briefly (or lastingly) see a queue that predates
+      // those adds — held songs appear missing or stuck at an older end position.
+      const refreshed = await buildQueueChangedData({
+        roomId,
+        context: this.context,
+        appControlled,
+      })
+      if (!queueChangedPayloadsEqual(payload, refreshed)) {
+        await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", refreshed, {
+          skipPlugins: true,
+        })
+      }
     }
 
     return {

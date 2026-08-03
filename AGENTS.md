@@ -47,7 +47,7 @@ listening-room/
 │   ├── server/       # Core server logic (handlers, operations, services)
 │   ├── types/        # Shared TypeScript types
 │   ├── adapter-*/    # Media/metadata source adapters (Spotify, Tidal, Shoutcast, RTMP, Bridge)
-│   ├── plugin-*/     # Room plugins (playlist-democracy, special-words)
+│   ├── plugin-*/     # Room plugins (playlist-democracy, special-words, round-robin-dj)
 │   ├── plugin-base/  # Base class for plugins
 │   ├── factories/    # Test factories for mocking data
 │   ├── utils/        # Shared utilities
@@ -60,7 +60,7 @@ listening-room/
 
 - Internal packages use `@repo/` prefix (e.g., `@repo/server`, `@repo/types`)
 - Adapters: `@repo/adapter-{name}` (spotify, tidal, shoutcast, rtmp, bridge)
-- Plugins: `@repo/plugin-{name}` (playlist-democracy, special-words)
+- Plugins: `@repo/plugin-{name}` (playlist-democracy, special-words, round-robin-dj)
 
 ---
 

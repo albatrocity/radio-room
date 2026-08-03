@@ -153,6 +153,16 @@ export type SystemEventHandlers = {
     action: "deputize_all" | "dedeputize_all"
   }) => Promise<void> | void
 
+  /**
+   * Fired when a user's deputy DJ status changes (single toggle or per-user during bulk).
+   * Plugins that care about the deputy roster should prefer this over diffing USER_JOINED.
+   */
+  DEPUTY_DJ_CHANGED: (data: {
+    roomId: string
+    userId: string
+    isDeputyDj: boolean
+  }) => Promise<void> | void
+
   /** Attached show timeline changed; full snapshot included (see ADR 0028). */
   SHOW_SCHEDULE_UPDATED: (data: {
     roomId: string

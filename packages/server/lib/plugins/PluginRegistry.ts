@@ -23,6 +23,7 @@ import {
   QueueValidationParams,
   QueueValidationResult,
   isChatMessageTransformDrop,
+  isDeferredQueueRequest,
 } from "@repo/types"
 import { Server } from "socket.io"
 import { PluginAPIImpl } from "./PluginAPI"
@@ -273,7 +274,7 @@ export class PluginRegistry {
       return { allowed: true }
     }
 
-    // Call each validator sequentially - first rejection wins
+    // Call each validator sequentially — first deferred or rejection wins
     for (const [pluginName, { plugin }] of pluginsWithValidation) {
       try {
         const result = await Promise.race([
@@ -286,7 +287,14 @@ export class PluginRegistry {
           ),
         ])
 
-        if (!result.allowed) {
+        if (isDeferredQueueRequest(result)) {
+          console.log(
+            `[PluginRegistry] Queue request deferred by ${pluginName}: ${result.message}`,
+          )
+          return result
+        }
+
+        if ("allowed" in result && !result.allowed) {
           console.log(
             `[PluginRegistry] Queue request rejected by ${pluginName}: ${result.reason}`,
           )
