@@ -27,61 +27,35 @@ import {
 import { refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
 import systemMessage from "../lib/systemMessage"
 import { isStreamingMode, streamingDisplayChanged } from "../lib/streamingMode"
+import {
+  normalizeBridgeMetadataSourceIds as normalizeBridgeMetadataSourceIdsBase,
+  seedBridgeMetadataSources,
+  stripBridgeOnlyMetadataSources,
+} from "@repo/utils"
 import * as scheduling from "./SchedulingService"
 import { AdapterService } from "./AdapterService"
 
-/** Sources auto-attached when a room uses the bridge playback controller. */
-const BRIDGE_METADATA_SOURCES = ["youtube", "local"] as const
-
-const ALLOWED_METADATA_SOURCE_IDS = new Set([
-  "spotify",
-  "tidal",
-  "youtube",
-  "local",
-  "applemusic",
-])
-
-function withBridgeMetadataSources(metadataSourceIds: string[] | undefined): string[] {
-  const next = [...(metadataSourceIds ?? [])]
-  if (process.env.YOUTUBE_API_KEY && !next.includes("youtube")) {
-    next.push("youtube")
-  }
-  if (!next.includes("local")) {
-    next.push("local")
-  }
-  return next
-}
-
-/** Drop bridge-only metadata sources when leaving the bridge controller. Keeps Spotify/Tidal/etc. */
-function withoutBridgeMetadataSources(metadataSourceIds: string[] | undefined): string[] {
-  const next = (metadataSourceIds ?? []).filter(
-    (id) => !(BRIDGE_METADATA_SOURCES as readonly string[]).includes(id),
-  )
-  return next.length > 0 ? next : ["spotify"]
+function youtubeApiKeyAvailable(): boolean {
+  return Boolean(process.env.YOUTUBE_API_KEY)
 }
 
 /**
- * Normalize room metadataSourceIds for bridge rooms (ADR 0087):
- * Spotify always required; unknown ids dropped; youtube omitted without API key.
+ * Normalize room metadataSourceIds for bridge rooms (ADR 0087).
+ * Thin wrapper around `@repo/utils` with `YOUTUBE_API_KEY` from the environment.
  */
 export function normalizeBridgeMetadataSourceIds(
   metadataSourceIds: string[] | undefined,
 ): string[] {
-  const next: string[] = []
-  for (const id of metadataSourceIds ?? []) {
-    if (!ALLOWED_METADATA_SOURCE_IDS.has(id)) continue
-    if (id === "youtube" && !process.env.YOUTUBE_API_KEY) {
-      console.warn(
-        "[AdminService] dropping youtube from metadataSourceIds — YOUTUBE_API_KEY not set",
-      )
-      continue
-    }
-    if (!next.includes(id)) next.push(id)
+  const youtubeAvailable = youtubeApiKeyAvailable()
+  if (
+    !youtubeAvailable &&
+    (metadataSourceIds ?? []).includes("youtube")
+  ) {
+    console.warn(
+      "[AdminService] dropping youtube from metadataSourceIds — YOUTUBE_API_KEY not set",
+    )
   }
-  if (!next.includes("spotify")) {
-    next.unshift("spotify")
-  }
-  return next
+  return normalizeBridgeMetadataSourceIdsBase(metadataSourceIds, { youtubeAvailable })
 }
 
 export type MetadataSourceAccessMode = "open" | "restricted"
@@ -385,7 +359,9 @@ export class AdminService {
         const bridgeSources =
           "metadataSourceIds" in values && Array.isArray(values.metadataSourceIds)
             ? values.metadataSourceIds
-            : withBridgeMetadataSources(room.metadataSourceIds)
+            : seedBridgeMetadataSources(room.metadataSourceIds, {
+                youtubeAvailable: youtubeApiKeyAvailable(),
+              })
         const normalizedIds = normalizeBridgeMetadataSourceIds(bridgeSources)
         ;(newSettings as Room).metadataSourceIds = normalizedIds
         const accessInput =
@@ -398,7 +374,7 @@ export class AdminService {
         )
       } else if (previousPlaybackControllerId === "bridge") {
         // Leaving bridge: stop searching YouTube/Library (auto-added for bridge only).
-        ;(newSettings as Room).metadataSourceIds = withoutBridgeMetadataSources(
+        ;(newSettings as Room).metadataSourceIds = stripBridgeOnlyMetadataSources(
           room.metadataSourceIds,
         )
         // Access baseline is bridge-only (ADR 0088).

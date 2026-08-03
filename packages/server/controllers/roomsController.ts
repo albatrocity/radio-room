@@ -21,6 +21,7 @@ import { RoomSnapshot } from "@repo/types/Room"
 import { SocketWithContext } from "../lib/socketWithContext"
 import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
 import { resolveItemRarity } from "@repo/game-logic"
+import { ensureBridgeMetadataSources as ensureBridgeMetadataSourcesBase } from "@repo/utils"
 import {
   AppContext,
   RoomScheduleSnapshotDTO,
@@ -89,17 +90,9 @@ function ensureBridgeMetadataSources(
   playbackControllerId: string | undefined,
   metadataSourceIds: string[] | undefined,
 ): string[] | undefined {
-  if (playbackControllerId !== "bridge" || !metadataSourceIds) {
-    return metadataSourceIds
-  }
-  const next = [...metadataSourceIds]
-  if (process.env.YOUTUBE_API_KEY && !next.includes("youtube")) {
-    next.push("youtube")
-  }
-  if (!next.includes("local")) {
-    next.push("local")
-  }
-  return next
+  return ensureBridgeMetadataSourcesBase(playbackControllerId, metadataSourceIds, {
+    youtubeAvailable: Boolean(process.env.YOUTUBE_API_KEY),
+  })
 }
 
 function configureAdaptersForRoomType(params: {

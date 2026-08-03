@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react"
 import { Checkbox, Field, VStack } from "@chakra-ui/react"
 import { labelForMetadataSource } from "@repo/types"
+import {
+  normalizeBridgeMetadataSourceIds,
+  seedBridgeMetadataSources,
+} from "@repo/utils"
 
 import {
   useCurrentUser,
@@ -14,20 +18,24 @@ type ToggleableSource = (typeof TOGGLEABLE_SOURCES)[number]
 
 export type MetadataSourceAccessMap = Record<string, "open" | "restricted">
 
-export function normalizeBridgeMediaSourcePolicy(ids: unknown): string[] {
-  const list = Array.isArray(ids)
+function asStringIds(ids: unknown): string[] {
+  return Array.isArray(ids)
     ? ids.filter((id): id is string => typeof id === "string" && id.length > 0)
     : []
-  if (!list.includes("spotify")) list.unshift("spotify")
-  return list
 }
 
-/** Mirror server `withBridgeMetadataSources` for form seeding when switching to bridge. */
+/**
+ * Form display normalize (ADR 0087). Uses shared policy helper with
+ * `youtubeAvailable: true` so the YouTube toggle can appear; the server
+ * re-normalizes with `YOUTUBE_API_KEY` on save and may drop youtube.
+ */
+export function normalizeBridgeMediaSourcePolicy(ids: unknown): string[] {
+  return normalizeBridgeMetadataSourceIds(asStringIds(ids), { youtubeAvailable: true })
+}
+
+/** Seed defaults when switching Content form to Media Bridge (`@repo/utils`). */
 export function seedBridgeMediaSourcePolicy(ids: unknown): string[] {
-  const next = normalizeBridgeMediaSourcePolicy(ids)
-  if (!next.includes("youtube")) next.push("youtube")
-  if (!next.includes("local")) next.push("local")
-  return next
+  return seedBridgeMetadataSources(asStringIds(ids), { youtubeAvailable: true })
 }
 
 export function normalizeMetadataSourceAccessMap(
