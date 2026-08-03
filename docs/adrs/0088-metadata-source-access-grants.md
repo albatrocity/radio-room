@@ -23,6 +23,7 @@ Personas are identity labels only ([ADR 0057](0057-user-personas-system.md)); th
    - Grant hook errors/timeouts → abstain (fail-closed for grants; unlike queue-hygiene fail-open)
 4. **Plugin surfaces:**
    - `PluginAPI.listMetadataSources(roomId)` → catalog `{ id, label }[]` (policy ∩ CAPABILITIES, not per-user)
+   - `PluginAPI.canAccessMetadataSource({ roomId, userId, sourceId, action })` / `getEffectiveMetadataSourceIds(roomId, userId, action)` → read-only queries via `MetadataSourceAccessService`
    - `grantMetadataSourceAccess?({ roomId, userId, sourceId, action })` → `"grant" | "abstain"`; any grant wins
 5. **Personas** remain labels. Plugins may condition grants on persona membership they own; core never maps persona → service.
 6. **`QueueValidationParams.mediaSourceType`** is passed through so consumable grants can key off source after access allows.

@@ -38,6 +38,7 @@ import type {
   StoredArtifactPublic,
 } from "./Artifacts"
 import type { PersonaDefinition, UserPersona, UserPersonaAssignment } from "./Persona"
+import type { MetadataSourceAccessAction } from "./MetadataSourceAccess"
 
 // ============================================================================
 // Plugin Configuration Schema Types
@@ -466,6 +467,27 @@ export interface PluginAPI {
    * Not filtered per-user — use for plugin config / grant discovery (ADR 0088).
    */
   listMetadataSources(roomId: string): Promise<{ id: string; label: string }[]>
+
+  /**
+   * Whether a user may search/queue a metadata source under ADR 0088 rules
+   * (enabled set, admin bypass, open/restricted, plugin grants).
+   */
+  canAccessMetadataSource(params: {
+    roomId: string
+    userId: string
+    sourceId: string
+    action: MetadataSourceAccessAction
+  }): Promise<boolean>
+
+  /**
+   * Per-user effective metadata source ids for the given action (ADR 0088).
+   * Same evaluation as server search tabs / queue fan-out.
+   */
+  getEffectiveMetadataSourceIds(
+    roomId: string,
+    userId: string,
+    action: MetadataSourceAccessAction,
+  ): Promise<string[]>
 
   /**
    * Emit a custom plugin event.

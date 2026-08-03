@@ -18,6 +18,30 @@ const sources = await this.context!.api.listMetadataSources(this.context!.roomId
 
 Use returned `id` values in config schemas (admin picks a service) and in grant checks.
 
+## Querying access (read-only)
+
+Plugins can evaluate the same ADR 0088 rules the server uses for search/queue without reimplementing open/restricted + grants:
+
+```typescript
+const roomId = this.context!.roomId
+const userId = someUserId
+
+const canSearchYoutube = await this.context!.api.canAccessMetadataSource({
+  roomId,
+  userId,
+  sourceId: "youtube",
+  action: "search",
+})
+
+const searchableIds = await this.context!.api.getEffectiveMetadataSourceIds(
+  roomId,
+  userId,
+  "search",
+)
+```
+
+Use these for plugin UI, recipes, or side effects that depend on what the user can already reach. Prefer grants (`grantMetadataSourceAccess`) to *unlock* restricted sources; use these helpers to *observe* effective access.
+
 ## Granting access
 
 Implement `grantMetadataSourceAccess` on your plugin:

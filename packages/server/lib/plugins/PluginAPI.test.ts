@@ -272,3 +272,41 @@ describe("PluginAPIImpl.supportsVolumeControl", () => {
     await expect(api.supportsVolumeControl(roomId)).resolves.toBe(false)
   })
 })
+
+describe("PluginAPIImpl metadata source access queries", () => {
+  const roomId = "room-1"
+  const userId = "user-1"
+  const canAccess = vi.fn()
+  const getEffectiveSourceIdsForUser = vi.fn()
+  const listMetadataSources = vi.fn()
+
+  let api: PluginAPIImpl
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    const mockContext = appContextFactory.build({
+      metadataSourceAccess: {
+        canAccess,
+        getEffectiveSourceIdsForUser,
+        listMetadataSources,
+      },
+    } as Partial<AppContext>)
+    api = new PluginAPIImpl(mockContext, {} as Server)
+  })
+
+  test("canAccessMetadataSource delegates to MetadataSourceAccessService", async () => {
+    canAccess.mockResolvedValue(true)
+    const params = { roomId, userId, sourceId: "youtube", action: "search" as const }
+    await expect(api.canAccessMetadataSource(params)).resolves.toBe(true)
+    expect(canAccess).toHaveBeenCalledWith(params)
+  })
+
+  test("getEffectiveMetadataSourceIds delegates to getEffectiveSourceIdsForUser", async () => {
+    getEffectiveSourceIdsForUser.mockResolvedValue(["spotify", "local"])
+    await expect(api.getEffectiveMetadataSourceIds(roomId, userId, "queue")).resolves.toEqual([
+      "spotify",
+      "local",
+    ])
+    expect(getEffectiveSourceIdsForUser).toHaveBeenCalledWith(roomId, userId, "queue")
+  })
+})

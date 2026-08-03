@@ -1,5 +1,6 @@
 import {
   AppContext,
+  MetadataSourceAccessAction,
   MoveTrackResult,
   PluginAPI,
   QueueItem,
@@ -355,14 +356,38 @@ export class PluginAPIImpl implements PluginAPI {
     return Boolean(playbackController?.api.setVolume)
   }
 
-  async listMetadataSources(roomId: string): Promise<{ id: string; label: string }[]> {
+  private async getMetadataSourceAccess() {
     const { MetadataSourceAccessService } = await import(
       "../../services/MetadataSourceAccessService"
     )
-    const access =
+    return (
       (this.context as { metadataSourceAccess?: InstanceType<typeof MetadataSourceAccessService> })
         .metadataSourceAccess ?? new MetadataSourceAccessService(this.context)
+    )
+  }
+
+  async listMetadataSources(roomId: string): Promise<{ id: string; label: string }[]> {
+    const access = await this.getMetadataSourceAccess()
     return access.listMetadataSources(roomId)
+  }
+
+  async canAccessMetadataSource(params: {
+    roomId: string
+    userId: string
+    sourceId: string
+    action: MetadataSourceAccessAction
+  }): Promise<boolean> {
+    const access = await this.getMetadataSourceAccess()
+    return access.canAccess(params)
+  }
+
+  async getEffectiveMetadataSourceIds(
+    roomId: string,
+    userId: string,
+    action: MetadataSourceAccessAction,
+  ): Promise<string[]> {
+    const access = await this.getMetadataSourceAccess()
+    return access.getEffectiveSourceIdsForUser(roomId, userId, action)
   }
 
   /**
