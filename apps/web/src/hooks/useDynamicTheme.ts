@@ -138,14 +138,19 @@ export function useDynamicTheme(): void {
       return
     }
 
-    lastArtworkRef.current = artworkUrl
+    let cancelled = false
 
     // Extract colors and generate palette
     extractColors(artworkUrl, 8).then((extracted) => {
+      if (cancelled) return
+
       if (!extracted) {
         console.warn("Could not extract colors from artwork")
+        // Do not lock lastArtworkRef — allow retry when theme/artwork deps change
         return
       }
+
+      lastArtworkRef.current = artworkUrl
 
       // Combine dominant and palette colors, then get distinct ones
       const allColors = [extracted.dominant, ...extracted.palette]
@@ -162,6 +167,10 @@ export function useDynamicTheme(): void {
         applyPalette(palette)
       }
     })
+
+    return () => {
+      cancelled = true
+    }
   }, [artworkUrl, currentTheme])
 
   // Apply/remove CSS variables when theme changes

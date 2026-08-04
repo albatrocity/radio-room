@@ -17,21 +17,41 @@ export interface ExtractedColors {
 const colorThief = new ColorThief()
 
 /**
+ * Build the image URL used for canvas color extraction.
+ *
+ * HTTP(S) URLs get a cache-busting query param so CDNs don't serve a
+ * non-CORS-cached copy. Data and blob URLs must be left untouched — appending
+ * `?t=` corrupts base64 payloads (local metadata covers use data URIs).
+ *
+ * Uses `_cb` rather than `t` so Subsonic/Navidrome auth tokens (`t=`) are not
+ * overwritten when cover URLs already include that parameter.
+ */
+export function imageUrlForExtraction(url: string): string {
+  if (url.startsWith("data:") || url.startsWith("blob:")) {
+    return url
+  }
+
+  const separator = url.includes("?") ? "&" : "?"
+  return `${url}${separator}_cb=${Date.now()}`
+}
+
+/**
  * Load an image from a URL with CORS support.
  * Returns a promise that resolves with the loaded image element.
  */
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
-    img.crossOrigin = "anonymous"
+    // Data/blob URLs are same-origin for canvas; skipping crossOrigin avoids
+    // edge-case taint issues in some browsers.
+    if (!url.startsWith("data:") && !url.startsWith("blob:")) {
+      img.crossOrigin = "anonymous"
+    }
 
     img.onload = () => resolve(img)
     img.onerror = () => reject(new Error(`Failed to load image: ${url}`))
 
-    // Some CDNs require a cache-busting parameter for CORS
-    // Add timestamp to bypass potential caching issues
-    const separator = url.includes("?") ? "&" : "?"
-    img.src = `${url}${separator}t=${Date.now()}`
+    img.src = imageUrlForExtraction(url)
   })
 }
 
