@@ -105,7 +105,8 @@ const semanticColorTokens = generateSemanticColorTokens(themes)
 
 const buttonRecipe = defineRecipe({
   base: {
-    transition: "background-color 800ms ease-in-out, color 800ms ease-in-out",
+    transition:
+      "background-color var(--theme-color-transition-duration) var(--theme-color-transition-ease), color var(--theme-color-transition-duration) var(--theme-color-transition-ease)",
   },
   variants: {
     size: {
@@ -236,17 +237,17 @@ const config = defineConfig({
       themeTransition: {
         value: {
           transitionProperty: "background, background-color, color",
-          transitionDuration: "1s",
-          transitionTimingFunction: "ease-out",
+          transitionDuration: "var(--theme-color-transition-duration)",
+          transitionTimingFunction: "var(--theme-color-transition-ease)",
           "& *": {
             transitionProperty: "background, background-color, color",
-            transitionDuration: "1s",
-            transitionTimingFunction: "ease-out",
+            transitionDuration: "var(--theme-color-transition-duration)",
+            transitionTimingFunction: "var(--theme-color-transition-ease)",
           },
           "& p": {
             transitionProperty: "color",
-            transitionDuration: "1s",
-            transitionTimingFunction: "ease-out",
+            transitionDuration: "var(--theme-color-transition-duration)",
+            transitionTimingFunction: "var(--theme-color-transition-ease)",
           },
         },
       },
