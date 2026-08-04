@@ -11,6 +11,7 @@ import {
   FloatingPanel,
   Icon,
   IconButton,
+  Portal,
   useBreakpointValue,
   VStack,
 } from "@chakra-ui/react"
@@ -31,6 +32,16 @@ import type { Event as ModalsEvent } from "../machines/modalsMachine"
 import PluginConfigForm from "./Modals/Admin/PluginConfigForm"
 
 const PANEL_DEFAULT_SIZE = { width: 320, height: 360 }
+
+/**
+ * Chakra FloatingPanel defaults to zIndex.popover and bumps +100 when topmost,
+ * which paints above Dialog (also popover). Modal dialogs set body
+ * pointer-events:none, so the panel looks clickable but hits fall through.
+ * Keep panels in the overlay band so dialogs own the top layer.
+ */
+const PANEL_POSITIONER_CSS = {
+  "--floating-panel-z-index": "{zIndex.overlay}",
+} as const
 
 function cascadePosition(index: number) {
   const offset = index * 28
@@ -83,55 +94,57 @@ function DesktopPanel({
       defaultSize={PANEL_DEFAULT_SIZE}
       allowOverflow={false}
     >
-      <FloatingPanel.Positioner>
-        <FloatingPanel.Content>
-          <FloatingPanel.Header>
-            <FloatingPanel.DragTrigger>
-              <FloatingPanel.Title>{title}</FloatingPanel.Title>
-            </FloatingPanel.DragTrigger>
-            <FloatingPanel.Control>
-              <IconButton
-                size="xs"
-                variant="ghost"
-                aria-label={`Open ${title} settings`}
-                onClick={openSettings}
-              >
-                <Icon as={LuSettings} />
-              </IconButton>
-              <FloatingPanel.StageTrigger stage="minimized" asChild>
-                <IconButton size="xs" variant="ghost" aria-label="Minimize">
-                  <Icon as={LuMinus} />
+      <Portal>
+        <FloatingPanel.Positioner css={PANEL_POSITIONER_CSS}>
+          <FloatingPanel.Content>
+            <FloatingPanel.Header>
+              <FloatingPanel.DragTrigger>
+                <FloatingPanel.Title>{title}</FloatingPanel.Title>
+              </FloatingPanel.DragTrigger>
+              <FloatingPanel.Control>
+                <IconButton
+                  size="xs"
+                  variant="ghost"
+                  aria-label={`Open ${title} settings`}
+                  onClick={openSettings}
+                >
+                  <Icon as={LuSettings} />
                 </IconButton>
-              </FloatingPanel.StageTrigger>
-              <FloatingPanel.StageTrigger stage="maximized" asChild>
-                <IconButton size="xs" variant="ghost" aria-label="Maximize">
-                  <Icon as={LuMaximize2} />
-                </IconButton>
-              </FloatingPanel.StageTrigger>
-              <FloatingPanel.StageTrigger stage="default" asChild>
-                <IconButton size="xs" variant="ghost" aria-label="Restore">
-                  <Icon as={LuSquare} />
-                </IconButton>
-              </FloatingPanel.StageTrigger>
-              <FloatingPanel.CloseTrigger asChild>
-                <IconButton size="xs" variant="ghost" aria-label={`Close ${title}`}>
-                  <Icon as={LuX} />
-                </IconButton>
-              </FloatingPanel.CloseTrigger>
-            </FloatingPanel.Control>
-          </FloatingPanel.Header>
-          <FloatingPanel.Body>
-            <PluginConfigForm
-              schema={configSchema}
-              values={values}
-              allValues={values}
-              onChange={() => {}}
-              pluginName={pluginName}
-            />
-          </FloatingPanel.Body>
-          <FloatingPanel.ResizeTriggers />
-        </FloatingPanel.Content>
-      </FloatingPanel.Positioner>
+                <FloatingPanel.StageTrigger stage="minimized" asChild>
+                  <IconButton size="xs" variant="ghost" aria-label="Minimize">
+                    <Icon as={LuMinus} />
+                  </IconButton>
+                </FloatingPanel.StageTrigger>
+                <FloatingPanel.StageTrigger stage="maximized" asChild>
+                  <IconButton size="xs" variant="ghost" aria-label="Maximize">
+                    <Icon as={LuMaximize2} />
+                  </IconButton>
+                </FloatingPanel.StageTrigger>
+                <FloatingPanel.StageTrigger stage="default" asChild>
+                  <IconButton size="xs" variant="ghost" aria-label="Restore">
+                    <Icon as={LuSquare} />
+                  </IconButton>
+                </FloatingPanel.StageTrigger>
+                <FloatingPanel.CloseTrigger asChild>
+                  <IconButton size="xs" variant="ghost" aria-label={`Close ${title}`}>
+                    <Icon as={LuX} />
+                  </IconButton>
+                </FloatingPanel.CloseTrigger>
+              </FloatingPanel.Control>
+            </FloatingPanel.Header>
+            <FloatingPanel.Body>
+              <PluginConfigForm
+                schema={configSchema}
+                values={values}
+                allValues={values}
+                onChange={() => {}}
+                pluginName={pluginName}
+              />
+            </FloatingPanel.Body>
+            <FloatingPanel.ResizeTriggers />
+          </FloatingPanel.Content>
+        </FloatingPanel.Positioner>
+      </Portal>
     </FloatingPanel.Root>
   )
 }
@@ -152,39 +165,41 @@ function MobilePanel({ pluginName }: { pluginName: string }) {
       placement="center"
       size="full"
     >
-      <DialogBackdrop />
-      <DialogPositioner>
-        <DialogContent>
-          <DialogHeader fontWeight="semibold" pr={16}>
-            {title}
-          </DialogHeader>
-          <IconButton
-            size="sm"
-            variant="ghost"
-            aria-label={`Open ${title} settings`}
-            position="absolute"
-            top="2"
-            right="10"
-            onClick={openSettings}
-          >
-            <Icon as={LuSettings} />
-          </IconButton>
-          <DialogCloseTrigger asChild position="absolute" top="2" right="2">
-            <CloseButton size="sm" />
-          </DialogCloseTrigger>
-          <DialogBody>
-            <VStack align="stretch" gap={4}>
-              <PluginConfigForm
-                schema={configSchema}
-                values={values}
-                allValues={values}
-                onChange={() => {}}
-                pluginName={pluginName}
-              />
-            </VStack>
-          </DialogBody>
-        </DialogContent>
-      </DialogPositioner>
+      <Portal>
+        <DialogBackdrop />
+        <DialogPositioner>
+          <DialogContent>
+            <DialogHeader fontWeight="semibold" pr={16}>
+              {title}
+            </DialogHeader>
+            <IconButton
+              size="sm"
+              variant="ghost"
+              aria-label={`Open ${title} settings`}
+              position="absolute"
+              top="2"
+              right="10"
+              onClick={openSettings}
+            >
+              <Icon as={LuSettings} />
+            </IconButton>
+            <DialogCloseTrigger asChild position="absolute" top="2" right="2">
+              <CloseButton size="sm" />
+            </DialogCloseTrigger>
+            <DialogBody>
+              <VStack align="stretch" gap={4}>
+                <PluginConfigForm
+                  schema={configSchema}
+                  values={values}
+                  allValues={values}
+                  onChange={() => {}}
+                  pluginName={pluginName}
+                />
+              </VStack>
+            </DialogBody>
+          </DialogContent>
+        </DialogPositioner>
+      </Portal>
     </DialogRoot>
   )
 }

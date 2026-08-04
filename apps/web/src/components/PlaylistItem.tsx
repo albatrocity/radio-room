@@ -136,7 +136,7 @@ const PlaylistItem = memo(function PlaylistItem({
         socket.off("event", onEvent)
         window.clearTimeout(timeoutId)
         toast({
-          title: "Playing on Spotify",
+          title: `Playing ${preferredTrack?.title}`,
           type: "success",
           duration: 3000,
         })
@@ -197,166 +197,170 @@ const PlaylistItem = memo(function PlaylistItem({
         containerName: "playlist-item",
       }}
     >
-    <Stack
-      key={item.playedAt?.toString() || item.addedAt.toString()}
-      direction={["column", "row"]}
-      css={styles.root}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <LinkBox css={styles.trackInfo}>
-        <Stack direction="row">
-          {artThumb && (
-            <Box css={styles.artwork}>
-              {artworkElementProps.obscured ? (
-                <Box
-                  width="100%"
-                  height="100%"
-                  bg="colorPalette.muted"
-                  borderRadius="sm"
-                  css={shimmerCss}
-                />
-              ) : (
-                <Image loading="lazy" src={artThumb} />
-              )}
-            </Box>
-          )}
-          <Stack direction="column" css={styles.trackDetails}>
-            {preferredTrack && (
-              <HStack gap={1}>
-                <LinkOverlay target="_blank" href={externalUrl} m={0}>
-                  <Text css={{ ...styles.title, ...(titleElementProps.obscured ? shimmerCss : {}) }}>
-                    {titleElementProps.obscured
-                      ? titleElementProps.placeholder ?? "???"
-                      : preferredTrack.title}
-                  </Text>
-                </LinkOverlay>
-                {isSkipped && <Icon as={LuSkipForward} color="orange.400" boxSize={3} />}
-              </HStack>
-            )}
-            <HStack color="colorPalette.fg/70" fontSize="xs" separator={<StackSeparator />}>
-              {artistElementProps.obscured ? (
-                <Text as="span" css={{ ...styles.artist, ...shimmerCss }}>
-                  {artistElementProps.placeholder ?? "???"}
-                </Text>
-              ) : (
-                preferredTrack?.artists?.map((a) => (
-                  <Text key={a.id} as="span" css={styles.artist}>
-                    {a.title}
-                  </Text>
-                ))
-              )}
-            </HStack>
-          </Stack>
-        </Stack>
-      </LinkBox>
-
       <Stack
-        direction={["row", "column"]}
-        justifyContent={["space-between", "space-around"]}
-        css={styles.metadata}
+        key={item.playedAt?.toString() || item.addedAt.toString()}
+        direction={["column", "row"]}
+        css={styles.root}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
+        <LinkBox css={styles.trackInfo}>
+          <Stack direction="row">
+            {artThumb && (
+              <Box css={styles.artwork}>
+                {artworkElementProps.obscured ? (
+                  <Box
+                    width="100%"
+                    height="100%"
+                    bg="colorPalette.muted"
+                    borderRadius="sm"
+                    css={shimmerCss}
+                  />
+                ) : (
+                  <Image loading="lazy" src={artThumb} />
+                )}
+              </Box>
+            )}
+            <Stack direction="column" css={styles.trackDetails}>
+              {preferredTrack && (
+                <HStack gap={1}>
+                  <LinkOverlay target="_blank" href={externalUrl} m={0}>
+                    <Text
+                      css={{ ...styles.title, ...(titleElementProps.obscured ? shimmerCss : {}) }}
+                    >
+                      {titleElementProps.obscured
+                        ? titleElementProps.placeholder ?? "???"
+                        : preferredTrack.title}
+                    </Text>
+                  </LinkOverlay>
+                  {isSkipped && <Icon as={LuSkipForward} color="orange.400" boxSize={3} />}
+                </HStack>
+              )}
+              <HStack color="colorPalette.fg/70" fontSize="xs" separator={<StackSeparator />}>
+                {artistElementProps.obscured ? (
+                  <Text as="span" css={{ ...styles.artist, ...shimmerCss }}>
+                    {artistElementProps.placeholder ?? "???"}
+                  </Text>
+                ) : (
+                  preferredTrack?.artists?.map((a) => (
+                    <Text key={a.id} as="span" css={styles.artist}>
+                      {a.title}
+                    </Text>
+                  ))
+                )}
+              </HStack>
+            </Stack>
+          </Stack>
+        </LinkBox>
+
         <Stack
-          direction="row"
-          gap={2}
-          justifyContent="center"
-          alignItems="center"
-          flexWrap="wrap"
-          rowGap={1}
-          columnGap={2}
+          direction={["row", "column"]}
+          justifyContent={["space-between", "space-around"]}
+          css={styles.metadata}
         >
           <Stack
             direction="row"
             gap={2}
+            justifyContent="center"
             alignItems="center"
-            justifyContent="flex-end"
-            minW={0}
-            css={{
-              "@container playlist-item (max-width: 30rem)": {
-                flexDirection: "column",
-                alignItems: "flex-end",
-                gap: "0.125rem",
-              },
-            }}
+            flexWrap="wrap"
+            rowGap={1}
+            columnGap={2}
           >
-            <Text color="colorPalette.fg/70" fontSize="xs" textAlign="right">
-              {item.playedAt ? format(item.playedAt, "p") : format(item.addedAt, "p")}
-            </Text>
+            <Stack
+              direction="row"
+              gap={2}
+              alignItems="center"
+              justifyContent="flex-end"
+              minW={0}
+              css={{
+                "@container playlist-item (max-width: 30rem)": {
+                  flexDirection: "column",
+                  alignItems: "flex-end",
+                  gap: "0.125rem",
+                },
+              }}
+            >
+              <Text color="colorPalette.fg/70" fontSize="xs" textAlign="right">
+                {item.playedAt ? format(item.playedAt, "p") : format(item.addedAt, "p")}
+              </Text>
 
-            {!!item.addedBy && (
-              <Stack direction="row" gap={1} justifyContent="center" alignItems="center">
-                <Icon boxSize={3} color="colorPalette.fg/70" as={LuUser} />
-                <Text as="i" fontSize="xs" color="colorPalette.fg/70">
-                  Added by {djUsername}
-                </Text>
-              </Stack>
+              {!!item.addedBy && (
+                <Stack direction="row" gap={1} justifyContent="center" alignItems="center">
+                  <Icon boxSize={3} color="colorPalette.fg/70" as={LuUser} />
+                  <Text as="i" fontSize="xs" color="colorPalette.fg/70">
+                    Added by {djUsername}
+                  </Text>
+                </Stack>
+              )}
+            </Stack>
+
+            <PluginArea area="playlistItem" />
+            {isSkipped && (
+              <Text fontSize="2xs">
+                {skipData
+                  ? `Skipped: ${skipData.voteCount}/${skipData.requiredCount} votes`
+                  : undefined}
+              </Text>
+            )}
+
+            {/* Delete button for playlist history (admin only) */}
+            {isAdmin && item.playedAt && !isQueueItem && (
+              <IconButton
+                aria-label="Delete track from playlist"
+                size="xs"
+                variant="ghost"
+                colorPalette="red"
+                onClick={handleDeleteClick}
+                css={styles.deleteButton}
+              >
+                <LuTrash2 />
+              </IconButton>
+            )}
+            {canPlayQueuedTrackNow && (
+              <IconButton
+                aria-label="Play this track on Spotify"
+                size="xs"
+                variant="ghost"
+                colorPalette="primary"
+                onClick={handlePlayQueuedTrack}
+              >
+                <LuPlay />
+              </IconButton>
+            )}
+            {/* Queue removal: app-controlled removes in Redis; Spotify-controlled requests admin */}
+            {canActOnQueueItem && (
+              <IconButton
+                aria-label={
+                  isAppControlledQueue ? "Remove from queue" : "Request removal from queue"
+                }
+                size="xs"
+                variant="ghost"
+                colorPalette="orange"
+                onClick={isAppControlledQueue ? handleRemoveFromQueueDirect : handleRequestRemoval}
+              >
+                <LuX />
+              </IconButton>
             )}
           </Stack>
-
-          <PluginArea area="playlistItem" />
-          {isSkipped && (
-            <Text fontSize="2xs">
-              {skipData
-                ? `Skipped: ${skipData.voteCount}/${skipData.requiredCount} votes`
-                : undefined}
-            </Text>
-          )}
-
-          {/* Delete button for playlist history (admin only) */}
-          {isAdmin && item.playedAt && !isQueueItem && (
-            <IconButton
-              aria-label="Delete track from playlist"
-              size="xs"
-              variant="ghost"
-              colorPalette="red"
-              onClick={handleDeleteClick}
-              css={styles.deleteButton}
-            >
-              <LuTrash2 />
-            </IconButton>
-          )}
-          {canPlayQueuedTrackNow && (
-            <IconButton
-              aria-label="Play this track on Spotify"
-              size="xs"
-              variant="ghost"
-              colorPalette="primary"
-              onClick={handlePlayQueuedTrack}
-            >
-              <LuPlay />
-            </IconButton>
-          )}
-          {/* Queue removal: app-controlled removes in Redis; Spotify-controlled requests admin */}
-          {canActOnQueueItem && (
-            <IconButton
-              aria-label={isAppControlledQueue ? "Remove from queue" : "Request removal from queue"}
-              size="xs"
-              variant="ghost"
-              colorPalette="orange"
-              onClick={isAppControlledQueue ? handleRemoveFromQueueDirect : handleRequestRemoval}
-            >
-              <LuX />
-            </IconButton>
-          )}
         </Stack>
-      </Stack>
 
-      <ConfirmationDialog
-        open={isDeleteDialogOpen}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Track"
-        body={
-          <Text>
-            Are you sure you want to remove{" "}
-            <Text as="strong">{preferredTrack?.title || "this track"}</Text> from the playlist? This
-            will also remove it from room exports.
-          </Text>
-        }
-        confirmLabel="Delete"
-        isDangerous
-      />
-    </Stack>
+        <ConfirmationDialog
+          open={isDeleteDialogOpen}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Track"
+          body={
+            <Text>
+              Are you sure you want to remove{" "}
+              <Text as="strong">{preferredTrack?.title || "this track"}</Text> from the playlist?
+              This will also remove it from room exports.
+            </Text>
+          }
+          confirmLabel="Delete"
+          isDangerous
+        />
+      </Stack>
     </Box>
   )
 })

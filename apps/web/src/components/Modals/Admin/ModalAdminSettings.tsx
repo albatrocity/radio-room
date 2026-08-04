@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogCloseTrigger,
   CloseButton,
+  Portal,
 } from "@chakra-ui/react"
 import { LuArrowLeft } from "react-icons/lu"
 import Overview from "./Overview"
@@ -63,72 +64,74 @@ function ModalAdminSettings() {
       size={"md"}
       placement="center"
     >
-      <DialogBackdrop />
-      <DialogPositioner>
-        <DialogContent bg="appBg">
-          <DialogHeader>
-            <Header showBack={!matchesSettingsPath(state, "settings.overview")} onBack={onBack} />
-          </DialogHeader>
-          <DialogCloseTrigger asChild position="absolute" top="2" right="2">
-            <CloseButton size="sm" />
-          </DialogCloseTrigger>
+      <Portal>
+        <DialogBackdrop />
+        <DialogPositioner>
+          <DialogContent bg="appBg">
+            <DialogHeader>
+              <Header showBack={!matchesSettingsPath(state, "settings.overview")} onBack={onBack} />
+            </DialogHeader>
+            <DialogCloseTrigger asChild position="absolute" top="2" right="2">
+              <CloseButton size="sm" />
+            </DialogCloseTrigger>
 
-          <Collapsible.Root open={matchesSettingsPath(state, "settings.overview")}>
-            <Collapsible.Content>
-              <Overview />
-            </Collapsible.Content>
-          </Collapsible.Root>
-          <Collapsible.Root open={matchesSettingsPath(state, "settings.dj")}>
-            <Collapsible.Content>
-              <DjFeatures />
-            </Collapsible.Content>
-          </Collapsible.Root>
-          <Collapsible.Root open={matchesSettingsPath(state, "settings.content")}>
-            <Collapsible.Content>
-              <Content />
-            </Collapsible.Content>
-          </Collapsible.Root>
-          <Collapsible.Root open={matchesSettingsPath(state, "settings.chat")}>
-            <Collapsible.Content>
-              <Chat />
-            </Collapsible.Content>
-          </Collapsible.Root>
-          <Collapsible.Root open={matchesSettingsPath(state, "settings.password")}>
-            <Collapsible.Content>
-              <Password />
-            </Collapsible.Content>
-          </Collapsible.Root>
-          <Collapsible.Root open={matchesSettingsPath(state, "settings.schedule")}>
-            <Collapsible.Content>
-              <Schedule />
-            </Collapsible.Content>
-          </Collapsible.Root>
-          <Collapsible.Root open={matchesSettingsPath(state, "settings.game_sessions")}>
-            <Collapsible.Content>
-              <GameSessions />
-            </Collapsible.Content>
-          </Collapsible.Root>
-          <Collapsible.Root open={matchesSettingsPath(state, "settings.polls")}>
-            <Collapsible.Content>
-              <Polls />
-            </Collapsible.Content>
-          </Collapsible.Root>
+            <Collapsible.Root open={matchesSettingsPath(state, "settings.overview")}>
+              <Collapsible.Content>
+                <Overview />
+              </Collapsible.Content>
+            </Collapsible.Root>
+            <Collapsible.Root open={matchesSettingsPath(state, "settings.dj")}>
+              <Collapsible.Content>
+                <DjFeatures />
+              </Collapsible.Content>
+            </Collapsible.Root>
+            <Collapsible.Root open={matchesSettingsPath(state, "settings.content")}>
+              <Collapsible.Content>
+                <Content />
+              </Collapsible.Content>
+            </Collapsible.Root>
+            <Collapsible.Root open={matchesSettingsPath(state, "settings.chat")}>
+              <Collapsible.Content>
+                <Chat />
+              </Collapsible.Content>
+            </Collapsible.Root>
+            <Collapsible.Root open={matchesSettingsPath(state, "settings.password")}>
+              <Collapsible.Content>
+                <Password />
+              </Collapsible.Content>
+            </Collapsible.Root>
+            <Collapsible.Root open={matchesSettingsPath(state, "settings.schedule")}>
+              <Collapsible.Content>
+                <Schedule />
+              </Collapsible.Content>
+            </Collapsible.Root>
+            <Collapsible.Root open={matchesSettingsPath(state, "settings.game_sessions")}>
+              <Collapsible.Content>
+                <GameSessions />
+              </Collapsible.Content>
+            </Collapsible.Root>
+            <Collapsible.Root open={matchesSettingsPath(state, "settings.polls")}>
+              <Collapsible.Content>
+                <Polls />
+              </Collapsible.Content>
+            </Collapsible.Root>
 
-          {/* Dynamic plugin settings */}
-          {schemas
-            .filter((plugin) => plugin.configSchema)
-            .map((plugin) => (
-              <Collapsible.Root
-                key={plugin.name}
-                open={matchesSettingsPath(state, `settings.${toStateKey(plugin.name)}`)}
-              >
-                <Collapsible.Content>
-                  <DynamicPluginSettings pluginName={plugin.name} />
-                </Collapsible.Content>
-              </Collapsible.Root>
-            ))}
-        </DialogContent>
-      </DialogPositioner>
+            {/* Dynamic plugin settings */}
+            {schemas
+              .filter((plugin) => plugin.configSchema)
+              .map((plugin) => (
+                <Collapsible.Root
+                  key={plugin.name}
+                  open={matchesSettingsPath(state, `settings.${toStateKey(plugin.name)}`)}
+                >
+                  <Collapsible.Content>
+                    <DynamicPluginSettings pluginName={plugin.name} />
+                  </Collapsible.Content>
+                </Collapsible.Root>
+              ))}
+          </DialogContent>
+        </DialogPositioner>
+      </Portal>
     </DialogRoot>
   )
 }
