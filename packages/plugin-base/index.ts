@@ -58,6 +58,9 @@ export {
   type TextEffectStacks,
   type WordContext,
   type AppliedTextEffects,
+  HOT_LEADERBOARD_TOP_N,
+  fetchTopZsetEntries,
+  type ZsetEntry,
 } from "./helpers"
 
 export {

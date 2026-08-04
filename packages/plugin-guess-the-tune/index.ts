@@ -19,7 +19,7 @@ import type {
 } from "@repo/types"
 import { queueItemStableKey } from "@repo/types"
 import { isInclusiveMode, type ParticipationMode } from "@repo/game-logic"
-import { BasePlugin } from "@repo/plugin-base"
+import { BasePlugin, fetchTopZsetEntries, HOT_LEADERBOARD_TOP_N } from "@repo/plugin-base"
 import { interpolateTemplate } from "@repo/utils"
 import packageJson from "./package.json"
 import {
@@ -36,8 +36,6 @@ export { guessTheTuneConfigSchema, defaultGuessTheTuneConfig } from "./types"
 
 const USER_SCORES_KEY = "user-scores"
 const USER_REVEALS_CAP = 200
-/** Bounded leaderboard slice for hot socket events (full board via getComponentState). */
-const HOT_LEADERBOARD_TOP_N = 25
 
 function roundKey(stable: string): string {
   return `round:${stable}`
@@ -140,11 +138,12 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
   ): Promise<{ score: number; value: string; username: string }[]> {
     if (!this.context) return []
 
-    const raw =
+    const sorted =
       topN != null && topN > 0
-        ? await this.context.storage.zrangeWithScores(USER_SCORES_KEY, -topN, -1)
-        : await this.context.storage.zrangeWithScores(USER_SCORES_KEY, 0, -1)
-    const sorted = [...raw].sort((a, b) => b.score - a.score)
+        ? await fetchTopZsetEntries(this.context.storage, USER_SCORES_KEY, topN)
+        : [...(await this.context.storage.zrangeWithScores(USER_SCORES_KEY, 0, -1))].sort(
+            (a, b) => b.score - a.score,
+          )
     const userIds = sorted.map((e) => e.value)
     const users = await this.context.api.getUsersByIds(userIds)
     const userMap = new Map(users.map((u) => [u.userId, u.username]))

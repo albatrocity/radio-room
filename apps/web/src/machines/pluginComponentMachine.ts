@@ -87,7 +87,7 @@ const pluginSocketActor = fromCallback<PluginComponentEvent, { pluginName: strin
       },
     }
 
-    // Subscribe to socket actor using ID-based subscription
+    // No eventTypes allowlist: PLUGIN:{name}:* names are dynamic; filter in send() (ADR 0093).
     subscribeById(subscriptionId, subscriber)
 
     // Return cleanup function

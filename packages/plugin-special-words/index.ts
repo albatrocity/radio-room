@@ -9,7 +9,7 @@ import type {
   ChatMessage,
   User,
 } from "@repo/types"
-import { BasePlugin } from "@repo/plugin-base"
+import { BasePlugin, fetchTopZsetEntries, HOT_LEADERBOARD_TOP_N } from "@repo/plugin-base"
 import { interpolateTemplate } from "@repo/utils"
 import packageJson from "./package.json"
 import {
@@ -51,8 +51,6 @@ const WORDS_PER_USER_KEY = "words-per-user"
 const WORD_RANK_KEY = "word-rank"
 /** Running total of special-word hits (avoids summing the full user zset on the chat path). */
 const TOTAL_WORDS_KEY = "total-words-used"
-/** Bounded leaderboard slice for hot socket events (full board via getComponentState). */
-const HOT_LEADERBOARD_TOP_N = 25
 
 // ============================================================================
 // Event Types
@@ -262,18 +260,6 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     ])
   }
 
-  /**
-   * Top-N by score from an ascending Redis ZRANGE (highest scores are at the end).
-   */
-  private async fetchTopLeaderboard(
-    key: string,
-    topN: number,
-  ): Promise<{ score: number; value: string }[]> {
-    if (!this.context || topN <= 0) return []
-    const raw = await this.context.storage.zrangeWithScores(key, -topN, -1)
-    return [...raw].reverse()
-  }
-
   private async hydrateUsersLeaderboard(
     raw: { score: number; value: string }[],
   ): Promise<{ score: number; value: string; username: string }[]> {
@@ -346,8 +332,8 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       this.context.storage.zscore(USER_WORD_COUNT_KEY, userId),
       this.context.storage.zrevrank(USER_WORD_COUNT_KEY, userId),
       this.context.storage.zscore(`${WORDS_PER_USER_KEY}:${userId}`, normalizedWord),
-      this.fetchTopLeaderboard(USER_WORD_COUNT_KEY, HOT_LEADERBOARD_TOP_N),
-      this.fetchTopLeaderboard(WORD_RANK_KEY, HOT_LEADERBOARD_TOP_N),
+      fetchTopZsetEntries(this.context.storage, USER_WORD_COUNT_KEY, HOT_LEADERBOARD_TOP_N),
+      fetchTopZsetEntries(this.context.storage, WORD_RANK_KEY, HOT_LEADERBOARD_TOP_N),
       this.context.storage.zscore(WORD_RANK_KEY, normalizedWord),
       this.context.storage.zrevrank(WORD_RANK_KEY, normalizedWord),
       this.getTotalWordsUsed(),

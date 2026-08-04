@@ -10,7 +10,7 @@ import type {
   SystemEventPayload,
 } from "@repo/types"
 import { isInclusiveMode, type ParticipationMode } from "@repo/game-logic"
-import { BasePlugin } from "@repo/plugin-base"
+import { BasePlugin, fetchTopZsetEntries, HOT_LEADERBOARD_TOP_N } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import {
   quizSessionsConfigSchema,
@@ -37,8 +37,6 @@ export { isAcceptedAnswer, matchAcceptedAnswer, normalizeAnswer } from "./matchi
 const SESSION_KEY = "session"
 /** ZSET userId -> correct-answer count. Populated by the scoring path. */
 const LEADERBOARD_KEY = "leaderboard"
-/** Bounded leaderboard slice for hot award events (full board via getComponentState). */
-const HOT_LEADERBOARD_TOP_N = 25
 /** HASH question index -> winning userId. Atomic first-correct claim (PvP). Cleared per session. */
 const WINNERS_KEY = "winners"
 /** HASH `${index}:${userId}` -> "1". Atomic per-user dedup (PvG). Cleared per session. */
@@ -731,11 +729,12 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
    */
   private async buildLeaderboard(topN?: number): Promise<QuizLeaderboardEntry[]> {
     if (!this.context) return []
-    const raw =
+    const sorted =
       topN != null && topN > 0
-        ? await this.context.storage.zrangeWithScores(LEADERBOARD_KEY, -topN, -1)
-        : await this.context.storage.zrangeWithScores(LEADERBOARD_KEY, 0, -1)
-    const sorted = [...raw].sort((a, b) => b.score - a.score)
+        ? await fetchTopZsetEntries(this.context.storage, LEADERBOARD_KEY, topN)
+        : [...(await this.context.storage.zrangeWithScores(LEADERBOARD_KEY, 0, -1))].sort(
+            (a, b) => b.score - a.score,
+          )
     const users = await this.context.api.getUsersByIds(sorted.map((e) => e.value))
     const nameById = new Map(users.map((u) => [u.userId, u.username]))
     return sorted.map((entry) => ({

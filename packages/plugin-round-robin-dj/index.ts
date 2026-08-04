@@ -100,7 +100,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
   private readonly roster = new DeputyRosterLifecycle({
     getContext: () => this.context,
-    getCachedConfig: () => this.getCachedConfig(),
+    getCachedConfig: () => this.getConfig(),
     loadState: () => this.loadState(),
     saveState: (state) => this.saveState(state),
     holds: this.holds,
@@ -111,8 +111,6 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
   /** In-memory RR state; `undefined` = not loaded. Invalidated on every write. */
   private stateCache: RoundRobinState | null | undefined = undefined
-  /** In-memory merged config; `undefined` = not loaded. */
-  private configCache: RoundRobinDjConfig | null | undefined = undefined
 
   /** Nesting depth for persistAndSync (hold flush may re-enter). */
   private persistDepth = 0
@@ -126,7 +124,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   }
 
   async getComponentState(): Promise<PluginComponentState> {
-    const config = await this.getCachedConfig()
+    const config = await this.getConfig()
     if (!config?.enabled) {
       return { ...EMPTY_QUEUE_STATUS_STORE }
     }
@@ -146,7 +144,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     this.on("PERSONA_REMOVED", (data) => this.onPersonaRemoved(data))
     this.onConfigChange((data) => this.handleConfigChange(data))
 
-    const config = await this.getCachedConfig()
+    const config = await this.getConfig()
     if (config?.enabled) {
       await this.onPluginEnabled(config)
     }
@@ -168,7 +166,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
         return { success: false, message: "Admin required" }
       }
 
-      const config = await this.getCachedConfig()
+      const config = await this.getConfig()
       if (!config?.enabled) {
         return { success: false, message: "Round Robin DJ is not enabled" }
       }
@@ -192,7 +190,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   }
 
   async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {
-    const config = await this.getCachedConfig()
+    const config = await this.getConfig()
     if (!config?.enabled) return allowQueueRequest()
 
     const isAdmin = await this.context!.api.isRoomAdmin(params.roomId, params.userId)
@@ -234,7 +232,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   async grantMetadataSourceAccess(
     params: MetadataSourceAccessGrantParams,
   ): Promise<MetadataSourceAccessGrantResult> {
-    const config = await this.getCachedConfig()
+    const config = await this.getConfig()
     if (!config?.enabled) return "abstain"
 
     const isAdmin = await this.context!.api.isRoomAdmin(params.roomId, params.userId)
@@ -262,7 +260,6 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
     const config = data.config as RoundRobinDjConfig
     const previousConfig = data.previousConfig as RoundRobinDjConfig | null
-    this.configCache = config
 
     const wasEnabled = previousConfig?.enabled === true
     const isEnabled = config?.enabled === true
@@ -332,7 +329,6 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     this.robin.reset()
     await this.context.storage.del(STATE_KEY)
     this.stateCache = null
-    this.configCache = { ...defaultRoundRobinDjConfig, enabled: false }
     await this.publishQueueStatus(null, { ...defaultRoundRobinDjConfig, enabled: false })
     await this.context.api.sendSystemMessage(this.context.roomId, "Round Robin DJ disabled", {
       type: "alert",
@@ -349,7 +345,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     queue: QueueItem[]
   }): Promise<void> {
     if (!this.context) return
-    const config = await this.getCachedConfig()
+    const config = await this.getConfig()
     if (!config?.enabled) return
 
     // Detect live enqueues via most-recent addedAt within 5s (same heuristic as queue-hygiene).
@@ -380,7 +376,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
   private async onUserLeft(data: { roomId: string; user: User }): Promise<void> {
     if (!this.context) return
-    const config = await this.getCachedConfig()
+    const config = await this.getConfig()
     if (!config?.enabled) return
 
     const state = await this.loadState()
@@ -394,7 +390,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
 
   private async onUserJoined(data: { roomId: string; user: User }): Promise<void> {
     if (!this.context) return
-    const config = await this.getCachedConfig()
+    const config = await this.getConfig()
     if (!config?.enabled) return
     if (!data.user.isDeputyDj) return
 
@@ -408,7 +404,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     personaId: string
   }): Promise<void> {
     if (!this.context) return
-    const config = await this.getCachedConfig()
+    const config = await this.getConfig()
     if (!config?.enabled) return
 
     const fullId = `plugin:${this.name}:${ROBIN_PERSONA_ID}`
@@ -438,7 +434,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     personaId: string
   }): Promise<void> {
     if (!this.context) return
-    const config = await this.getCachedConfig()
+    const config = await this.getConfig()
     if (!config?.enabled) return
 
     const fullId = `plugin:${this.name}:${ROBIN_PERSONA_ID}`
@@ -459,12 +455,6 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   // ==========================================================================
   // Persistence + turn sync
   // ==========================================================================
-
-  private async getCachedConfig(): Promise<RoundRobinDjConfig | null> {
-    if (this.configCache !== undefined) return this.configCache
-    this.configCache = await this.getConfig()
-    return this.configCache
-  }
 
   private async loadState(): Promise<RoundRobinState | null> {
     if (!this.context) return null

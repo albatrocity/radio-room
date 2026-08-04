@@ -4,21 +4,8 @@ import { ReactionPayload } from "@repo/types/Reaction"
 import { ReactionSubject } from "@repo/types/ReactionSubject"
 import { User } from "@repo/types/User"
 import { Emoji } from "@repo/types/Emoji"
+import { pubUserStatusChanged } from "../operations/sockets/users"
 import { addReaction as addReactionOp, removeReaction as removeReactionOp } from "../operations/reactions"
-
-async function emitUserStatusChanged(
-  context: AppContext | undefined,
-  roomId: string,
-  user: User,
-  oldStatus?: string,
-) {
-  if (!context?.systemEvents) return
-  await context.systemEvents.emit(roomId, "USER_STATUS_CHANGED", {
-    roomId,
-    user,
-    oldStatus,
-  })
-}
 
 /**
  * Socket.io adapter for the ActivityService
@@ -44,7 +31,12 @@ export class ActivityHandlers {
       return
     }
 
-    await emitUserStatusChanged(socket.context, socket.data.roomId, result.user, "participating")
+    await pubUserStatusChanged({
+      roomId: socket.data.roomId,
+      user: result.user,
+      oldStatus: "participating",
+      context: socket.context,
+    })
   }
 
   setListeningAudioTransport = async (
@@ -61,7 +53,12 @@ export class ActivityHandlers {
       return
     }
 
-    await emitUserStatusChanged(socket.context, socket.data.roomId, result.user, "listening")
+    await pubUserStatusChanged({
+      roomId: socket.data.roomId,
+      user: result.user,
+      oldStatus: "listening",
+      context: socket.context,
+    })
   }
 
   /**
@@ -74,7 +71,12 @@ export class ActivityHandlers {
       return
     }
 
-    await emitUserStatusChanged(socket.context, socket.data.roomId, result.user, "listening")
+    await pubUserStatusChanged({
+      roomId: socket.data.roomId,
+      user: result.user,
+      oldStatus: "listening",
+      context: socket.context,
+    })
   }
 
   /**
@@ -94,17 +96,8 @@ export class ActivityHandlers {
    */
   removeReaction = async (
     { io, socket }: HandlerConnections,
-    {
-      emoji,
-      reactTo,
-      user,
-    }: {
-      emoji: Emoji
-      reactTo: ReactionSubject
-      user: User
-    },
+    { emoji, reactTo, user }: { emoji: Emoji; reactTo: ReactionSubject; user: User },
   ) => {
-    // Call operation (which broadcasts via SystemEvents to Redis PubSub, Socket.IO, and Plugins)
     await removeReactionOp({
       context: socket.context,
       roomId: socket.data.roomId,
@@ -116,7 +109,7 @@ export class ActivityHandlers {
 }
 
 /**
- * Factory function to create Activity handlers
+ * Factory function to create activity handlers
  */
 export function createActivityHandlers(context: AppContext) {
   const activityService = new ActivityService(context)

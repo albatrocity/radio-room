@@ -84,6 +84,8 @@ listening-room/
 | **Singleton Actors** | `apps/web/src/actors/` | XState actors managing domain state |
 | **Machines** | `apps/web/src/machines/` | XState machine definitions (logic only) |
 | **socketActor** | `apps/web/src/actors/socketActor.ts` | Central Socket.IO hub, broadcasts to actors |
+| **`subscribeById` allowlists** | `socketActor.subscribeById(id, { send, eventTypes? })` | Optional `eventTypes` filters which `SERVER_EVENT` types reach a subscriber ([ADR 0093](docs/adrs/0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md)); omit for unfiltered delivery. `SOCKET_ONLINE` / `SOCKET_OFFLINE` / `SOCKET_RECONNECTING` always fan out |
+| **Plugin component registry** | `apps/web/src/actors/pluginComponentRegistry.ts` + `PluginComponentsRoomProvider` | One `pluginComponentMachine` actor per `pluginName` per room; `teardownRoom` calls `teardownPluginComponentActors()` to clear the registry ([ADR 0093](docs/adrs/0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md)) |
 | **ACTIVATE/DEACTIVATE** | Room-scoped actors | Lifecycle pattern for room entry/exit |
 | **Room Type Helpers** | `apps/web/src/lib/roomTypeHelpers.ts` | Client-side room type predicates (mirrors backend helpers) |
 
@@ -164,6 +166,7 @@ Bridge is a **playback controller** (and YouTube/local metadata sources), not a 
 2. Create actor in `apps/web/src/actors/{name}Actor.ts`
 3. Export hooks from `apps/web/src/hooks/useActors.ts`
 4. If room-scoped, add ACTIVATE/DEACTIVATE handling
+5. When subscribing via `subscribeById`, pass `eventTypes` for the `SERVER_EVENT` types the machine handles (hot room machines should not use unfiltered subscriptions — see [ADR 0093](docs/adrs/0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md) and [apps/web/README.md](apps/web/README.md))
 
 ### Keeping Game Studio Updated
 

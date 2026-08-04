@@ -20,8 +20,6 @@ type ReactionDeltaPayload = {
     reactTo: ReactionSubject
     user: { userId: string } | string
   }
-  /** Full store (INIT / legacy). Prefer delta when absent. */
-  reactions?: ReactionsContext
 }
 
 type AllReactionsEvent =
@@ -48,7 +46,6 @@ function userIdOf(user: { userId: string } | string): string {
 }
 
 function patchAdd(store: ReactionsContext, data: ReactionDeltaPayload): ReactionsContext {
-  if (data.reactions) return data.reactions
   const { reaction } = data
   const type = reaction.reactTo.type
   const id = reaction.reactTo.id
@@ -70,7 +67,6 @@ function patchAdd(store: ReactionsContext, data: ReactionDeltaPayload): Reaction
 }
 
 function patchRemove(store: ReactionsContext, data: ReactionDeltaPayload): ReactionsContext {
-  if (data.reactions) return data.reactions
   const { reaction } = data
   const type = reaction.reactTo.type
   const id = reaction.reactTo.id

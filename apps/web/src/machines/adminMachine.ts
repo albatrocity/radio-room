@@ -1,9 +1,9 @@
-import { setup, assign, fromPromise } from "xstate"
+import { setup, fromPromise } from "xstate"
 
 import { toast } from "../lib/toasts"
 import { getIsAdmin, getCurrentUser } from "../actors/authActor"
 import { getCurrentRoom } from "../actors/roomActor"
-import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
+import { emitToSocket } from "../actors/socketActor"
 import { deleteRoom as deleteRoomData } from "../lib/serverApi"
 
 // ============================================================================
@@ -52,9 +52,7 @@ export type AdminEvent =
     }
   | DeleteRoomEvent
 
-interface AdminContext {
-  subscriptionId: string | null
-}
+interface AdminContext {}
 
 // ============================================================================
 // Actors
@@ -67,8 +65,6 @@ const deleteRoomLogic = fromPromise<void, { id: string }>(async ({ input }) => {
 // ============================================================================
 // Machine
 // ============================================================================
-
-let subscriptionCounter = 0
 
 export const adminMachine = setup({
   types: {
@@ -89,16 +85,6 @@ export const adminMachine = setup({
     },
   },
   actions: {
-    subscribe: assign(({ self }) => {
-      const id = `admin-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as AdminEvent) })
-      return { subscriptionId: id }
-    }),
-    unsubscribe: ({ context }) => {
-      if (context.subscriptionId) {
-        unsubscribeById(context.subscriptionId)
-      }
-    },
     deputizeDj: ({ event }) => {
       if (event.type !== "DEPUTIZE_DJ") return
       emitToSocket("DEPUTIZE_DJ", event.userId)
@@ -148,31 +134,23 @@ export const adminMachine = setup({
         status: "error",
       })
     },
-    reset: assign({
-      subscriptionId: () => null,
-    }),
   },
 }).createMachine({
   id: "admin",
   initial: "idle",
-  context: {
-    subscriptionId: null,
-  },
+  context: {},
   states: {
-    // Idle state - not subscribed to socket events
+    // Idle state - not activated for room
     idle: {
       on: {
         ACTIVATE: "active",
       },
     },
-    // Active state - subscribed to socket events
+    // Active state — emits admin actions only (no SERVER_EVENT handlers / socket sub)
     active: {
-      entry: ["subscribe"],
-      exit: ["unsubscribe"],
       on: {
         DEACTIVATE: {
           target: "idle",
-          actions: ["reset"],
         },
         SET_SETTINGS: { actions: ["setSettings", "notify"], guard: "isAdmin" },
         ACTIVATE_SEGMENT: { actions: ["activateSegment"], guard: "isAdmin" },

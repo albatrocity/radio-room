@@ -13,7 +13,7 @@
 
 import type { Room, RoomMeta } from "./Room"
 import type { QueueItem } from "./Queue"
-import type { ReactionPayload, ReactionStore } from "./Reaction"
+import type { ReactionPayload } from "./Reaction"
 import type { User } from "./User"
 import type { ChatMessage } from "./ChatMessage"
 import type { MetadataSourceTrack } from "./MetadataSource"
@@ -83,17 +83,15 @@ export type SystemEventHandlers = {
     track: MetadataSourceTrack
   }) => Promise<void> | void
 
-  // Reaction events
+  // Reaction events — add/remove are deltas only; full store arrives on INIT.
   REACTION_ADDED: (data: {
     roomId: string
     reaction: ReactionPayload
-    reactions?: ReactionStore
   }) => Promise<void> | void
 
   REACTION_REMOVED: (data: {
     roomId: string
     reaction: ReactionPayload
-    reactions?: ReactionStore
   }) => Promise<void> | void
 
   // User events

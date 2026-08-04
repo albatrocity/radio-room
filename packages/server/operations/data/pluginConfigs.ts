@@ -23,12 +23,20 @@ function pluginsIndexKey(roomId: string): string {
   return `room:${roomId}:plugins:index`
 }
 
+/**
+ * Sentinel member so an empty-but-migrated index still `EXISTS` and we do not
+ * re-run KEYS on every INIT for rooms with no plugin configs.
+ */
+const PLUGIN_INDEX_SENTINEL = "__index_ready__"
+
 async function rememberPluginInIndex(
   context: AppContext,
   roomId: string,
   pluginName: string,
 ): Promise<void> {
-  await context.redis.pubClient.sAdd(pluginsIndexKey(roomId), pluginName)
+  const key = pluginsIndexKey(roomId)
+  await context.redis.pubClient.sAdd(key, PLUGIN_INDEX_SENTINEL)
+  await context.redis.pubClient.sAdd(key, pluginName)
 }
 
 async function forgetPluginInIndex(
@@ -39,23 +47,31 @@ async function forgetPluginInIndex(
   await context.redis.pubClient.sRem(pluginsIndexKey(roomId), pluginName)
 }
 
-async function listPluginNames(context: AppContext, roomId: string): Promise<string[]> {
-  const indexed = await context.redis.pubClient.sMembers(pluginsIndexKey(roomId))
-  if (indexed.length > 0) return indexed
+async function ensurePluginIndexMigrated(context: AppContext, roomId: string): Promise<void> {
+  const indexKey = pluginsIndexKey(roomId)
+  const exists = await context.redis.pubClient.exists(indexKey)
+  if (exists) return
 
-  // Migration fallback: discover via KEYS once, then seed the index.
-  const keys = await context.redis.pubClient.keys(`room:${roomId}:plugins:*:config`)
-  const names: string[] = []
+  // One-time migration: discover via KEYS (public + private), then seed index + sentinel.
+  const keys = [
+    ...(await context.redis.pubClient.keys(`room:${roomId}:plugins:*:config`)),
+    ...(await context.redis.pubClient.keys(`room:${roomId}:plugins:*:private`)),
+  ]
+  const names = new Set<string>()
   for (const key of keys) {
-    const match = key.match(/room:.*:plugins:(.*):config/)
-    if (match?.[1]) names.push(match[1])
+    const match = key.match(/room:.*:plugins:(.*):(config|private)$/)
+    if (match?.[1] && match[1] !== PLUGIN_INDEX_SENTINEL) names.add(match[1])
   }
-  if (names.length > 0) {
-    for (const name of names) {
-      await rememberPluginInIndex(context, roomId, name)
-    }
+  await context.redis.pubClient.sAdd(indexKey, PLUGIN_INDEX_SENTINEL)
+  for (const name of names) {
+    await context.redis.pubClient.sAdd(indexKey, name)
   }
-  return names
+}
+
+async function listPluginNames(context: AppContext, roomId: string): Promise<string[]> {
+  await ensurePluginIndexMigrated(context, roomId)
+  const indexed = await context.redis.pubClient.sMembers(pluginsIndexKey(roomId))
+  return indexed.filter((name) => name !== PLUGIN_INDEX_SENTINEL)
 }
 
 /**
@@ -225,6 +241,7 @@ export async function setPluginPrivateConfig(params: {
     const merged = { ...existing, ...config }
     if (Object.keys(merged).length === 0) return
     await context.redis.pubClient.set(privateKey(roomId, pluginName), JSON.stringify(merged))
+    await rememberPluginInIndex(context, roomId, pluginName)
   } catch (error) {
     console.error(
       `[PluginConfig] Error setting private config for ${pluginName} in room ${roomId}:`,
@@ -308,17 +325,10 @@ export async function getAllMergedPluginConfigs(params: {
   const { context, roomId } = params
 
   try {
+    // Index includes public + private plugin names (migration seeds both).
     const pluginNames = await listPluginNames(context, roomId)
-    // Also discover private-only keys that might not be in the public index yet.
-    const privateKeys = await context.redis.pubClient.keys(`room:${roomId}:plugins:*:private`)
-    const names = new Set(pluginNames)
-    for (const key of privateKeys) {
-      const match = key.match(/room:.*:plugins:(.*):private/)
-      if (match?.[1]) names.add(match[1])
-    }
-
     const configs: Record<string, any> = {}
-    for (const pluginName of names) {
+    for (const pluginName of pluginNames) {
       const merged = await getMergedPluginConfig({ context, roomId, pluginName })
       if (merged != null) configs[pluginName] = merged
     }

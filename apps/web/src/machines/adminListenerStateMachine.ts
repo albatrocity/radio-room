@@ -57,7 +57,22 @@ export const adminListenerStateMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `adminListener-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as AdminListenerEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as AdminListenerEvent),
+        eventTypes: [
+          "ALL_LISTENER_GAME_STATES",
+          "ERROR_OCCURRED",
+          "GAME_STATE_CHANGED",
+          "INVENTORY_ITEM_ACQUIRED",
+          "INVENTORY_ITEM_REMOVED",
+          "INVENTORY_ITEM_USED",
+          "INVENTORY_ITEM_TRANSFERRED",
+          "USER_JOINED",
+          "USER_LEFT",
+          "GAME_SESSION_STARTED",
+          "GAME_SESSION_ENDED",
+        ],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

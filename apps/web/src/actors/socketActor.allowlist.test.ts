@@ -59,4 +59,63 @@ describe("subscribeById eventTypes allowlist", () => {
     expect(received).toContain("SOCKET_ONLINE")
     expect(received).not.toContain("MESSAGE_RECEIVED")
   })
+
+  it("accepts typical room-machine allowlists used by audio / game / bridge", () => {
+    const cases: { id: string; eventTypes: string[]; allow: string; deny: string }[] = [
+      {
+        id: "test-allowlist-audio-shape",
+        eventTypes: [
+          "INIT",
+          "TRACK_CHANGED",
+          "MEDIA_SOURCE_STATUS_CHANGED",
+          "STREAM_HEALTH_CHANGED",
+          "ROOM_SETTINGS_UPDATED",
+          "PLAYLIST_TRACK_UPDATED",
+        ],
+        allow: "TRACK_CHANGED",
+        deny: "MESSAGE_RECEIVED",
+      },
+      {
+        id: "test-allowlist-game-session-shape",
+        eventTypes: ["INIT", "GAME_SESSION_STARTED", "GAME_SESSION_ENDED", "USER_GAME_STATE"],
+        allow: "GAME_SESSION_STARTED",
+        deny: "QUEUE_CHANGED",
+      },
+      {
+        id: "test-allowlist-media-bridge-shape",
+        eventTypes: [
+          "MEDIA_BRIDGE_STATUS_CHANGED",
+          "LINK_MEDIA_BRIDGE_SUCCESS",
+          "LINK_MEDIA_BRIDGE_FAILURE",
+        ],
+        allow: "MEDIA_BRIDGE_STATUS_CHANGED",
+        deny: "INIT",
+      },
+      {
+        id: "test-allowlist-dj-shape",
+        eventTypes: [
+          "INIT",
+          "DEPUTY_BULK_APPLIED",
+          "START_DEPUTY_DJ_SESSION",
+          "END_DEPUTY_DJ_SESSION",
+        ],
+        allow: "START_DEPUTY_DJ_SESSION",
+        deny: "MESSAGE_RECEIVED",
+      },
+    ]
+
+    for (const c of cases) {
+      const received: string[] = []
+      ids.push(c.id)
+      subscribeById(c.id, {
+        send: (event) => received.push(event.type),
+        eventTypes: c.eventTypes,
+      })
+      socketActor.send({ type: "SERVER_EVENT", eventType: c.deny, data: {} })
+      socketActor.send({ type: "SERVER_EVENT", eventType: c.allow, data: {} })
+      expect(received).toEqual([c.allow])
+      unsubscribeById(c.id)
+      ids.pop()
+    }
+  })
 })

@@ -1,20 +1,15 @@
-import { AppContext, GameSession, toAdminAssignablePersonas } from "@repo/types"
-import type { PersonaService } from "./PersonaService"
+import { AppContext } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import { isNullish, uniqueBy } from "remeda"
 import {
   addOnlineUser,
   findRoom,
-  getAllRoomReactions,
-  getMessages,
   getRoomUsers,
   getUser,
   isDj,
   saveUser,
   removeOnlineUser,
-  getRoomPlaylist,
-  getRoomCurrent,
   updateUserAttributes,
   persistRoom,
   addDj,
@@ -23,28 +18,19 @@ import {
   persistUser,
   deleteUser,
   nukeUserRooms,
-  getAllPluginConfigs,
   setRoomLastEmptied,
   clearRoomLastEmptied,
   isRoomPollingPaused,
   setRoomPollingPaused,
-  getQueue,
-  getQueueWithDispatched,
-  getNormalizedQueueSplit,
   isRoomAdmin,
   addUserToRoomHistory,
 } from "../operations/data"
-import {
-  getStreamHealthStatus,
-  getWebrtcExperimentalStreamHealthStatus,
-} from "../operations/room/handleStreamHealth"
-import { isAppControlledPlayback, isHybridRadioRoom } from "../lib/roomTypeHelpers"
+import { buildRoomInitPayload } from "../operations/room/buildRoomInitPayload"
 import { onListeningUserDisconnected } from "../operations/room/listeningTransportStats"
 import generateId from "../lib/generateId"
 import generateAnonName from "../lib/generateAnonName"
 import systemMessage from "../lib/systemMessage"
 import { THREE_HOURS } from "../lib/constants"
-import { loadPollInitData } from "../operations/polls/loadPollSnapshot"
 
 /**
  * A service that handles authentication operations without Socket.io dependencies
@@ -223,157 +209,25 @@ export class AuthService {
     // remove expiration of user keys
     await persistUser({ context: this.context, userId })
 
-    // Bound playlist window for INIT (most recent N by score) — older history via drawers.
-    const INIT_PLAYLIST_COUNT = 200
-    const appControlled = isAppControlledPlayback(room)
-
-    const [
-      messages,
-      playlist,
-      meta,
-      allReactions,
-      pluginConfigs,
-      queue,
-      splitKey,
-      streamHealthStatus,
-      webrtcStreamHealthStatus,
-      activeGameSession,
-      assignablePersonas,
-      accessToken,
-      pollInit,
-      metadataAccess,
-    ] = await Promise.all([
-      getMessages({ context: this.context, roomId, offset: 0, size: 100 }),
-      getRoomPlaylist({
-        context: this.context,
-        roomId,
-        offset: -INIT_PLAYLIST_COUNT,
-        count: -1,
-      }),
-      getRoomCurrent({ context: this.context, roomId }),
-      getAllRoomReactions({ context: this.context, roomId }),
-      getAllPluginConfigs({ context: this.context, roomId }),
-      appControlled
-        ? getQueueWithDispatched({ context: this.context, roomId })
-        : getQueue({ context: this.context, roomId }),
-      appControlled
-        ? getNormalizedQueueSplit({ context: this.context, roomId })
-        : Promise.resolve(null),
-      room.type === "live" ? getStreamHealthStatus(this.context, roomId) : Promise.resolve(null),
-      isHybridRadioRoom(room)
-        ? getWebrtcExperimentalStreamHealthStatus(this.context, roomId)
-        : Promise.resolve(null),
-      (async (): Promise<GameSession | null> => {
-        try {
-          if (!this.context.gameSessions) return null
-          return await this.context.gameSessions.getActiveSession(roomId)
-        } catch (err) {
-          console.error("[AuthService] Failed to load active game session for init:", err)
-          return null
-        }
-      })(),
-      (async (): Promise<ReturnType<typeof toAdminAssignablePersonas>> => {
-        const personaSvc = this.context.personas as PersonaService | undefined
-        if (!personaSvc) return []
-        try {
-          const definitions = await personaSvc.getRoomDefinitions(roomId)
-          return toAdminAssignablePersonas(definitions)
-        } catch (err) {
-          console.error("[AuthService] Failed to load assignable personas for init:", err)
-          return []
-        }
-      })(),
-      (async (): Promise<string | undefined> => {
-        const primaryMetadataSource = room.metadataSourceIds?.[0]
-        if (!isAdmin || !primaryMetadataSource || !this.context.data?.getUserServiceAuth) {
-          return undefined
-        }
-        try {
-          const auth = await this.context.data.getUserServiceAuth({
-            userId,
-            serviceName: primaryMetadataSource,
-          })
-          console.log(`Retrieved ${primaryMetadataSource} access token for room creator ${userId}`)
-          return auth?.accessToken
-        } catch (error) {
-          console.error(`Failed to retrieve access token for room creator ${userId}:`, error)
-          return undefined
-        }
-      })(),
-      loadPollInitData({
-        context: this.context,
-        roomId,
-        userId,
-      }),
-      (async (): Promise<{
-        effectiveMetadataSourceIds?: string[]
-        browseableSourceIds?: string[]
-        browseSourceCapabilities?: Record<
-          string,
-          { entryMode: "index" | "search"; albumSearch: boolean }
-        >
-      }> => {
-        if (!this.context.metadataSourceAccess) return {}
-        try {
-          const effectiveMetadataSourceIds =
-            await this.context.metadataSourceAccess.getEffectiveSourceIdsForUser(
-              roomId,
-              userId,
-              "search",
-            )
-          if (!effectiveMetadataSourceIds?.length) {
-            return {
-              effectiveMetadataSourceIds: [],
-              browseableSourceIds: [],
-              browseSourceCapabilities: {},
-            }
-          }
-          const { AdapterService } = await import("./AdapterService")
-          const { metadataSourceSupportsBrowse, resolveBrowseCapabilities } = await import(
-            "@repo/utils"
-          )
-          const adapterService = new AdapterService(this.context)
-          const sources = await adapterService.getRoomMetadataSources(roomId)
-          const browseableSourceIds: string[] = []
-          const browseSourceCapabilities: Record<
-            string,
-            { entryMode: "index" | "search"; albumSearch: boolean }
-          > = {}
-          for (const id of effectiveMetadataSourceIds) {
-            const src = sources.get(id)
-            if (!src || !metadataSourceSupportsBrowse(src.api)) continue
-            browseableSourceIds.push(id)
-            browseSourceCapabilities[id] = resolveBrowseCapabilities(src.api)
-          }
-          return {
-            effectiveMetadataSourceIds,
-            browseableSourceIds,
-            browseSourceCapabilities,
-          }
-        } catch (err) {
-          console.error("[AuthService] Failed to load effective metadata sources for init:", err)
-          return {}
-        }
-      })(),
-    ])
-
-    const {
-      effectiveMetadataSourceIds,
-      browseableSourceIds,
-      browseSourceCapabilities,
-    } = metadataAccess
+    const initPayload = await buildRoomInitPayload({
+      context: this.context,
+      room,
+      roomId,
+      userId,
+      isAdmin,
+    })
 
     return {
       initData: {
         users: newUsers,
-        messages,
-        meta,
+        messages: initPayload.messages,
+        meta: initPayload.meta,
         passwordRequired: !isNullish(room?.password),
-        playlist,
-        queue,
-        splitKey,
-        reactions: allReactions,
-        pluginConfigs,
+        playlist: initPayload.playlist,
+        queue: initPayload.queue,
+        splitKey: initPayload.splitKey,
+        reactions: initPayload.reactions,
+        pluginConfigs: initPayload.pluginConfigs,
         user: {
           userId,
           username,
@@ -381,19 +235,23 @@ export class AuthService {
           isDeputyDj,
           isAdmin,
         },
-        accessToken, // Only set for room creator with metadata source
+        accessToken: initPayload.accessToken,
         isNewUser: isNew,
-        activeGameSession,
-        assignablePersonas,
-        effectiveMetadataSourceIds,
-        browseableSourceIds,
-        browseSourceCapabilities,
-        activePoll: pollInit.activePoll,
-        totalVotes: pollInit.totalVotes,
-        pollHistory: pollInit.pollHistory,
-        ...(pollInit.myVote ? { myVote: pollInit.myVote } : {}),
-        ...(streamHealthStatus ? { streamHealthStatus } : {}),
-        ...(webrtcStreamHealthStatus ? { webrtcStreamHealthStatus } : {}),
+        activeGameSession: initPayload.activeGameSession,
+        assignablePersonas: initPayload.assignablePersonas,
+        effectiveMetadataSourceIds: initPayload.effectiveMetadataSourceIds,
+        browseableSourceIds: initPayload.browseableSourceIds,
+        browseSourceCapabilities: initPayload.browseSourceCapabilities,
+        activePoll: initPayload.pollInit.activePoll,
+        totalVotes: initPayload.pollInit.totalVotes,
+        pollHistory: initPayload.pollInit.pollHistory,
+        ...(initPayload.pollInit.myVote ? { myVote: initPayload.pollInit.myVote } : {}),
+        ...(initPayload.streamHealthStatus
+          ? { streamHealthStatus: initPayload.streamHealthStatus }
+          : {}),
+        ...(initPayload.webrtcStreamHealthStatus
+          ? { webrtcStreamHealthStatus: initPayload.webrtcStreamHealthStatus }
+          : {}),
       },
       userData: {
         userId,

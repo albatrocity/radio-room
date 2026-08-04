@@ -54,7 +54,12 @@ export const djMachine = setup({
       const id = `dj-${self.id}-${++subscriptionCounter}`
       subscribeById(id, {
         send: (event) => self.send(event),
-        eventTypes: ["INIT", "DEPUTY_BULK_APPLIED"],
+        eventTypes: [
+          "INIT",
+          "DEPUTY_BULK_APPLIED",
+          "START_DEPUTY_DJ_SESSION",
+          "END_DEPUTY_DJ_SESSION",
+        ],
       })
       return { subscriptionId: id }
     }),

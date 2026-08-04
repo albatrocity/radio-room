@@ -41,7 +41,10 @@ export const metadataSourceAuthMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `metadataSourceAuth-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event) })
+      subscribeById(id, {
+        send: (event) => self.send(event),
+        eventTypes: ["INIT", "SERVICE_ACCESS_TOKEN_REFRESHED", "SERVICE_AUTHENTICATION_STATUS"],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

@@ -15,6 +15,8 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 | [Event System](plugins/events.md) | System events, game/inventory events, handler examples |
 | [Storage API](plugins/storage.md) | Redis namespacing, batch ops, sorted sets |
 
+**Config caching:** `BasePlugin.getConfig()` keeps the merged room config in memory and invalidates it on `CONFIG_CHANGED` for that plugin. Prefer `getConfig()` on chat/track hot paths instead of a subclass-local cache or calling Redis on every event.
+
 ### Admin & UI
 
 | Guide | Topics |

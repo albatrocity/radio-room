@@ -22,8 +22,9 @@ The application follows a **singleton actor** pattern where:
 
 1. **XState actors** manage all application state as single instances
 2. **Socket.IO** provides real-time communication with the server
-3. **`socketActor`** acts as the central event hub, broadcasting server events to subscribed actors
+3. **`socketActor`** acts as the central event hub, broadcasting server events to subscribed actors (optionally filtered by `eventTypes` allowlists — [ADR 0093](../../docs/adrs/0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md))
 4. **React components** consume state via hooks using `@xstate/react`'s `useSelector`
+5. **Plugin UI** shares one `pluginComponentMachine` per `pluginName` via `pluginComponentRegistry` / `PluginComponentsRoomProvider`
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -63,8 +64,9 @@ The application follows a **singleton actor** pattern where:
 src/
 ├── actors/           # Singleton XState actor instances
 │   ├── index.ts      # Central exports for all actors
-│   ├── socketActor.ts    # Socket.IO connection & event hub
+│   ├── socketActor.ts    # Socket.IO connection & event hub (subscribeById allowlists)
 │   ├── roomLifecycle.ts  # Room initialization/teardown coordination
+│   ├── pluginComponentRegistry.ts  # One pluginComponentMachine per pluginName
 │   ├── authActor.ts      # Authentication state
 │   ├── chatActor.ts      # Chat messages
 │   ├── playlistActor.ts  # Room playlist
@@ -83,6 +85,8 @@ src/
 │   └── useSocketMachine.ts   # Hook for component-local socket-connected machines
 │
 ├── components/       # React components
+│   ├── PluginComponents/ # PluginComponentsRoomProvider + templates
+│   └── ...
 ├── lib/              # Utilities and services
 │   ├── socket.ts         # Socket.IO client instance
 │   └── ...
@@ -156,10 +160,19 @@ export const chatMachine = setup({
     events: {} as ChatEvent,
   },
   actions: {
-    // Subscribe to socket events on activation
+    // Subscribe to socket events on activation (allowlist the events this machine handles)
     subscribe: assign(({ self }) => {
       const id = `chat-${self.id}`
-      subscribeById(id, { send: (event) => self.send(event as ChatEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as ChatEvent),
+        eventTypes: [
+          "INIT",
+          "ROOM_DATA",
+          "MESSAGE_RECEIVED",
+          "MESSAGE_DELETED",
+          "MESSAGES_CLEARED",
+        ],
+      })
       return { subscriptionId: id }
     }),
     // Unsubscribe on deactivation
@@ -202,33 +215,41 @@ The `socketActor` is the **central hub** for all socket communication:
 #### How It Works
 
 1. **Connection Management**: `socketActor` maintains the Socket.IO connection lifecycle
-2. **Event Broadcasting**: Server events are received and broadcast to all subscribed actors
+2. **Event Broadcasting**: Server events are received and broadcast to subscribers; each subscriber may pass an optional `eventTypes` allowlist so unrelated traffic is skipped ([ADR 0093](../../docs/adrs/0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md))
 3. **Subscription Pattern**: Actors subscribe using `subscribeById()` with unique IDs
 
 ```typescript
-// socketActor broadcasts SERVER_EVENT to all subscribers
+// socketActor broadcasts SERVER_EVENT to matching subscribers
 // Each actor receives events like { type: "MESSAGE_RECEIVED", data: {...} }
 
-// Subscribing (done in machine's entry action)
-subscribeById("chat-actor", { 
-  send: (event) => chatActor.send(event) 
+// Prefer an allowlist for room-scoped machines (omit eventTypes only when you truly need all events)
+subscribeById("chat-actor", {
+  send: (event) => chatActor.send(event),
+  eventTypes: [
+    "INIT",
+    "ROOM_DATA",
+    "MESSAGE_RECEIVED",
+    "MESSAGE_DELETED",
+    "MESSAGES_CLEARED",
+  ],
 })
 
 // Emitting to server
 emitToSocket("SEND_MESSAGE", { content: "Hello!" })
 ```
 
+`SOCKET_ONLINE` / `SOCKET_OFFLINE` / `SOCKET_RECONNECTING` always fan out via dedicated lifecycle helpers, even when `eventTypes` is set.
+
 #### Event Flow
 
 ```
-Server → Socket.IO → socketActor → broadcast → chatActor
-                                            → usersActor
-                                            → playlistActor
-                                            → ...
+Server → Socket.IO → socketActor → broadcast (filtered by eventTypes) → chatActor
+                                                                     → usersActor
+                                                                     → playlistActor
+                                                                     → ...
 
 chatActor → emitToSocket("SEND_MESSAGE") → socketActor → Socket.IO → Server
 ```
-
 ---
 
 ## Room Lifecycle
@@ -256,10 +277,10 @@ teardownRoom()
 
 // This:
 // 1. Deactivates all room actors (they unsubscribe and reset state)
-// 2. Stops auto-save
-// 3. Notifies server of disconnect
+// 2. Clears pluginComponentRegistry (stops shared plugin component actors)
+// 3. Stops auto-save
+// 4. Notifies server of disconnect
 ```
-
 ### ACTIVATE/DEACTIVATE Pattern
 
 All room-scoped actors support this pattern:
@@ -367,19 +388,25 @@ Actors are singletons but manage room-scoped state via activation:
 // When leaving, it sends DEACTIVATE to reset state
 ```
 
-### 2. ID-Based Socket Subscriptions
+### 2. ID-Based Socket Subscriptions with Event Allowlists
 
-Subscriptions use stable IDs for resilience:
+Subscriptions use stable IDs for resilience. Pass `eventTypes` so the hub only delivers events the machine handles:
 
 ```typescript
 // In machine entry action
 const id = `chat-${self.id}-${counter++}`
-subscribeById(id, { send: (e) => self.send(e) })
+subscribeById(id, {
+  send: (e) => self.send(e),
+  eventTypes: ["INIT", "MESSAGE_RECEIVED", "MESSAGE_DELETED", "MESSAGES_CLEARED"],
+})
 
 // Using unique IDs prevents duplicate subscriptions
 // and handles React StrictMode's double-mounting
 ```
 
+### 2b. Shared Plugin Component Actors
+
+`PluginComponentsRoomProvider` sets `roomId` and hosts plugin modals once per room. `pluginComponentRegistry` ensures **one** `pluginComponentMachine` (fetch + socket sub) per `pluginName`; `PluginArea` rows only scope `itemContext` + config. `teardownRoom` → `teardownPluginComponentActors()` stops and clears the registry.
 ### 3. Synchronous Subscription via Entry Actions
 
 Socket subscriptions happen in `entry` actions (synchronous) rather than `invoke` (asynchronous):

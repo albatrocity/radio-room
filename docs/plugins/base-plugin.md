@@ -79,7 +79,7 @@ await this.emit("WORD_DETECTED", {
 
 #### `getConfig(): Promise<TConfig | null>`
 
-Get the plugin's typed configuration for the current room.
+Get the plugin's typed configuration for the current room. Results are cached in memory until `CONFIG_CHANGED` for this plugin (avoids Redis on every hot-path call).
 
 ```typescript
 const config = await this.getConfig()

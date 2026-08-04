@@ -50,3 +50,8 @@ export {
   type WordContext,
   type AppliedTextEffects,
 } from "./textTransform"
+export {
+  HOT_LEADERBOARD_TOP_N,
+  fetchTopZsetEntries,
+  type ZsetEntry,
+} from "./leaderboard"
