@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest"
 import type { ChatMessage, Plugin } from "@repo/types"
+import { BasePlugin } from "@repo/plugin-base"
 import { PluginLifecycleImpl } from "./PluginLifecycle"
 import { PluginRegistry } from "./PluginRegistry"
 
@@ -65,5 +66,35 @@ describe("PluginRegistry.transformChatMessage", () => {
     const result = await registry.transformChatMessage("room1", createMessage("x"))
 
     expect(result).toEqual(expect.objectContaining({ content: "x-a-b" }))
+  })
+
+  it("skips BasePlugin inherited no-op transformChatMessage", async () => {
+    const registry = new PluginRegistry({} as never, {} as never)
+    const noopSpy = vi.spyOn(BasePlugin.prototype, "transformChatMessage")
+
+    class NoopPlugin extends BasePlugin {
+      name = "noop"
+      version = "1.0.0"
+      async register() {}
+    }
+
+    const roomPlugins = (registry as unknown as { roomPlugins: Map<string, Map<string, unknown>> })
+      .roomPlugins
+    roomPlugins.set("room1", new Map())
+    roomPlugins.get("room1")!.set("noop", {
+      plugin: new NoopPlugin(),
+      lifecycle: new PluginLifecycleImpl(),
+    })
+
+    seedRoomPlugin(registry, "room1", "real", async (_roomId, message) => ({
+      ...message,
+      content: `${message.content}-ok`,
+    }))
+
+    const result = await registry.transformChatMessage("room1", createMessage("hi"))
+
+    expect(result).toEqual(expect.objectContaining({ content: "hi-ok" }))
+    expect(noopSpy).not.toHaveBeenCalled()
+    noopSpy.mockRestore()
   })
 })

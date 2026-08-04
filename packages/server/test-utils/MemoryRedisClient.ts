@@ -61,6 +61,43 @@ export class MemoryRedisClient {
     return isNew ? 1 : 0
   }
 
+  async hSetNX(key: string, field: string, value: string): Promise<number> {
+    if (!this.hashes.has(key)) {
+      this.hashes.set(key, new Map())
+    }
+    const hash = this.hashes.get(key)!
+    if (hash.has(field)) return 0
+    hash.set(field, value)
+    return 1
+  }
+
+  async sAdd(key: string, member: string): Promise<number> {
+    if (!this.hashes.has(`__set__:${key}`)) {
+      this.hashes.set(`__set__:${key}`, new Map())
+    }
+    const set = this.hashes.get(`__set__:${key}`)!
+    if (set.has(member)) return 0
+    set.set(member, "1")
+    return 1
+  }
+
+  async sRem(key: string, member: string): Promise<number> {
+    const set = this.hashes.get(`__set__:${key}`)
+    if (!set?.has(member)) return 0
+    set.delete(member)
+    return 1
+  }
+
+  async sMembers(key: string): Promise<string[]> {
+    const set = this.hashes.get(`__set__:${key}`)
+    if (!set) return []
+    return [...set.keys()]
+  }
+
+  async mGet(keys: string[]): Promise<(string | null)[]> {
+    return keys.map((k) => this.strings.get(k) ?? null)
+  }
+
   async hGetAll(key: string): Promise<Record<string, string>> {
     const hash = this.hashes.get(key)
     if (!hash) return {}

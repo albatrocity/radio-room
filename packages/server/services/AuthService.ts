@@ -223,101 +223,145 @@ export class AuthService {
     // remove expiration of user keys
     await persistUser({ context: this.context, userId })
 
-    // Get initial data payload for user
-    const messages = await getMessages({ context: this.context, roomId, offset: 0, size: 100 })
-    const playlist = await getRoomPlaylist({ context: this.context, roomId })
-    const meta = await getRoomCurrent({ context: this.context, roomId })
-    const allReactions = await getAllRoomReactions({ context: this.context, roomId })
-    const pluginConfigs = await getAllPluginConfigs({ context: this.context, roomId })
-    const queue = isAppControlledPlayback(room)
-      ? await getQueueWithDispatched({ context: this.context, roomId })
-      : await getQueue({ context: this.context, roomId })
-    const splitKey = isAppControlledPlayback(room)
-      ? await getNormalizedQueueSplit({ context: this.context, roomId })
-      : null
-    const streamHealthStatus =
-      room.type === "live" ? await getStreamHealthStatus(this.context, roomId) : null
-    const webrtcStreamHealthStatus = isHybridRadioRoom(room)
-      ? await getWebrtcExperimentalStreamHealthStatus(this.context, roomId)
-      : null
+    // Bound playlist window for INIT (most recent N by score) — older history via drawers.
+    const INIT_PLAYLIST_COUNT = 200
+    const appControlled = isAppControlledPlayback(room)
 
-    let activeGameSession: GameSession | null = null
-    try {
-      if (this.context.gameSessions) {
-        activeGameSession = await this.context.gameSessions.getActiveSession(roomId)
-      }
-    } catch (err) {
-      console.error("[AuthService] Failed to load active game session for init:", err)
-    }
-
-    let assignablePersonas: ReturnType<typeof toAdminAssignablePersonas> = []
-    const personaSvc = this.context.personas as PersonaService | undefined
-    if (personaSvc) {
-      try {
-        const definitions = await personaSvc.getRoomDefinitions(roomId)
-        assignablePersonas = toAdminAssignablePersonas(definitions)
-      } catch (err) {
-        console.error("[AuthService] Failed to load assignable personas for init:", err)
-      }
-    }
-
-    // Get access token for room creator to enable authenticated features (search, liked tracks, etc.)
-    // Use the first metadata source (primary) for auth token
-    let accessToken: string | undefined = undefined
-    const primaryMetadataSource = room.metadataSourceIds?.[0]
-    if (isAdmin && primaryMetadataSource && this.context.data?.getUserServiceAuth) {
-      try {
-        const auth = await this.context.data.getUserServiceAuth({
-          userId,
-          serviceName: primaryMetadataSource,
-        })
-        accessToken = auth?.accessToken
-        console.log(`Retrieved ${primaryMetadataSource} access token for room creator ${userId}`)
-      } catch (error) {
-        console.error(`Failed to retrieve access token for room creator ${userId}:`, error)
-      }
-    }
-
-    const pollInit = await loadPollInitData({
-      context: this.context,
-      roomId,
-      userId,
-    })
-
-    let effectiveMetadataSourceIds: string[] | undefined
-    let browseableSourceIds: string[] | undefined
-    let browseSourceCapabilities: Record<string, { entryMode: "index" | "search"; albumSearch: boolean }> | undefined
-    if (this.context.metadataSourceAccess) {
-      try {
-        effectiveMetadataSourceIds =
-          await this.context.metadataSourceAccess.getEffectiveSourceIdsForUser(
-            roomId,
+    const [
+      messages,
+      playlist,
+      meta,
+      allReactions,
+      pluginConfigs,
+      queue,
+      splitKey,
+      streamHealthStatus,
+      webrtcStreamHealthStatus,
+      activeGameSession,
+      assignablePersonas,
+      accessToken,
+      pollInit,
+      metadataAccess,
+    ] = await Promise.all([
+      getMessages({ context: this.context, roomId, offset: 0, size: 100 }),
+      getRoomPlaylist({
+        context: this.context,
+        roomId,
+        offset: -INIT_PLAYLIST_COUNT,
+        count: -1,
+      }),
+      getRoomCurrent({ context: this.context, roomId }),
+      getAllRoomReactions({ context: this.context, roomId }),
+      getAllPluginConfigs({ context: this.context, roomId }),
+      appControlled
+        ? getQueueWithDispatched({ context: this.context, roomId })
+        : getQueue({ context: this.context, roomId }),
+      appControlled
+        ? getNormalizedQueueSplit({ context: this.context, roomId })
+        : Promise.resolve(null),
+      room.type === "live" ? getStreamHealthStatus(this.context, roomId) : Promise.resolve(null),
+      isHybridRadioRoom(room)
+        ? getWebrtcExperimentalStreamHealthStatus(this.context, roomId)
+        : Promise.resolve(null),
+      (async (): Promise<GameSession | null> => {
+        try {
+          if (!this.context.gameSessions) return null
+          return await this.context.gameSessions.getActiveSession(roomId)
+        } catch (err) {
+          console.error("[AuthService] Failed to load active game session for init:", err)
+          return null
+        }
+      })(),
+      (async (): Promise<ReturnType<typeof toAdminAssignablePersonas>> => {
+        const personaSvc = this.context.personas as PersonaService | undefined
+        if (!personaSvc) return []
+        try {
+          const definitions = await personaSvc.getRoomDefinitions(roomId)
+          return toAdminAssignablePersonas(definitions)
+        } catch (err) {
+          console.error("[AuthService] Failed to load assignable personas for init:", err)
+          return []
+        }
+      })(),
+      (async (): Promise<string | undefined> => {
+        const primaryMetadataSource = room.metadataSourceIds?.[0]
+        if (!isAdmin || !primaryMetadataSource || !this.context.data?.getUserServiceAuth) {
+          return undefined
+        }
+        try {
+          const auth = await this.context.data.getUserServiceAuth({
             userId,
-            "search",
-          )
-        if (effectiveMetadataSourceIds?.length) {
+            serviceName: primaryMetadataSource,
+          })
+          console.log(`Retrieved ${primaryMetadataSource} access token for room creator ${userId}`)
+          return auth?.accessToken
+        } catch (error) {
+          console.error(`Failed to retrieve access token for room creator ${userId}:`, error)
+          return undefined
+        }
+      })(),
+      loadPollInitData({
+        context: this.context,
+        roomId,
+        userId,
+      }),
+      (async (): Promise<{
+        effectiveMetadataSourceIds?: string[]
+        browseableSourceIds?: string[]
+        browseSourceCapabilities?: Record<
+          string,
+          { entryMode: "index" | "search"; albumSearch: boolean }
+        >
+      }> => {
+        if (!this.context.metadataSourceAccess) return {}
+        try {
+          const effectiveMetadataSourceIds =
+            await this.context.metadataSourceAccess.getEffectiveSourceIdsForUser(
+              roomId,
+              userId,
+              "search",
+            )
+          if (!effectiveMetadataSourceIds?.length) {
+            return {
+              effectiveMetadataSourceIds: [],
+              browseableSourceIds: [],
+              browseSourceCapabilities: {},
+            }
+          }
           const { AdapterService } = await import("./AdapterService")
           const { metadataSourceSupportsBrowse, resolveBrowseCapabilities } = await import(
             "@repo/utils"
           )
           const adapterService = new AdapterService(this.context)
           const sources = await adapterService.getRoomMetadataSources(roomId)
-          browseableSourceIds = []
-          browseSourceCapabilities = {}
+          const browseableSourceIds: string[] = []
+          const browseSourceCapabilities: Record<
+            string,
+            { entryMode: "index" | "search"; albumSearch: boolean }
+          > = {}
           for (const id of effectiveMetadataSourceIds) {
             const src = sources.get(id)
             if (!src || !metadataSourceSupportsBrowse(src.api)) continue
             browseableSourceIds.push(id)
             browseSourceCapabilities[id] = resolveBrowseCapabilities(src.api)
           }
-        } else {
-          browseableSourceIds = []
-          browseSourceCapabilities = {}
+          return {
+            effectiveMetadataSourceIds,
+            browseableSourceIds,
+            browseSourceCapabilities,
+          }
+        } catch (err) {
+          console.error("[AuthService] Failed to load effective metadata sources for init:", err)
+          return {}
         }
-      } catch (err) {
-        console.error("[AuthService] Failed to load effective metadata sources for init:", err)
-      }
-    }
+      })(),
+    ])
+
+    const {
+      effectiveMetadataSourceIds,
+      browseableSourceIds,
+      browseSourceCapabilities,
+    } = metadataAccess
 
     return {
       initData: {

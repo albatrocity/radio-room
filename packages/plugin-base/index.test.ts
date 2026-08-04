@@ -167,6 +167,47 @@ describe("BasePlugin", () => {
       expect(config?.enabled).toBe(false)
       expect(config?.value).toBe("hello")
     })
+
+    test("should cache config and invalidate on CONFIG_CHANGED", async () => {
+      class CachingPlugin extends BasePlugin<TestPluginConfig> {
+        name = "caching-plugin"
+        version = "1.0.0"
+        async register(context: PluginContext): Promise<void> {
+          await super.register(context)
+        }
+      }
+
+      const cachingPlugin = new CachingPlugin()
+      const mockConfig: TestPluginConfig = { enabled: true, value: "cached" }
+      vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(mockConfig)
+
+      await cachingPlugin.register(mockContext)
+      await (cachingPlugin as any).getConfig()
+      await (cachingPlugin as any).getConfig()
+      expect(mockContext.api.getPluginConfig).toHaveBeenCalledTimes(1)
+
+      const onMock = mockContext.lifecycle.on as ReturnType<typeof vi.fn>
+      const configChangedHandler = onMock.mock.calls.find(
+        (call) => call[0] === "CONFIG_CHANGED",
+      )?.[1] as ((data: unknown) => void | Promise<void>) | undefined
+      expect(configChangedHandler).toBeTypeOf("function")
+
+      await configChangedHandler!({
+        roomId: "test-room",
+        pluginName: "caching-plugin",
+        config: { enabled: false, value: "new" },
+        previousConfig: mockConfig,
+      })
+
+      vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue({
+        enabled: false,
+        value: "new",
+      })
+      const refreshed = await (cachingPlugin as any).getConfig()
+
+      expect(mockContext.api.getPluginConfig).toHaveBeenCalledTimes(2)
+      expect(refreshed).toEqual({ enabled: false, value: "new" })
+    })
   })
 
   describe("cleanup", () => {

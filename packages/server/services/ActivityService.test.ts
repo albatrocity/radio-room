@@ -1,12 +1,11 @@
 import { describe, expect, test, vi, beforeEach } from "vitest"
-import { reactionPayloadFactory, reactionStoreFactory } from "@repo/factories"
+import { reactionPayloadFactory } from "@repo/factories"
 import { ActivityService } from "./ActivityService"
 import { AppContext, ReactionSubject, Emoji } from "@repo/types"
 
 // Mock dependencies
 vi.mock("../operations/data", () => ({
   addReaction: vi.fn(),
-  getAllRoomReactions: vi.fn(),
   removeReaction: vi.fn(),
   updateUserAttributes: vi.fn(),
 }))
@@ -18,12 +17,7 @@ vi.mock("../operations/room/listeningTransportStats", () => ({
 }))
 
 // Import mocked dependencies
-import {
-  addReaction,
-  getAllRoomReactions,
-  removeReaction,
-  updateUserAttributes,
-} from "../operations/data"
+import { addReaction, removeReaction, updateUserAttributes } from "../operations/data"
 import { appContextFactory, userFactory } from "@repo/factories"
 
 describe("ActivityService", () => {
@@ -34,21 +28,15 @@ describe("ActivityService", () => {
     username: "Homer",
     status: "participating" as const,
   })
-  const mockUsers = [mockUser]
 
   beforeEach(() => {
     vi.resetAllMocks()
     mockContext = appContextFactory.build()
     activityService = new ActivityService(mockContext)
 
-    // Setup default mocks
     vi.mocked(updateUserAttributes).mockResolvedValue({
       user: mockUser,
-      users: mockUsers,
-    })
-    vi.mocked(getAllRoomReactions).mockResolvedValue({
-      message: {},
-      track: {},
+      users: [],
     })
   })
 
@@ -57,7 +45,7 @@ describe("ActivityService", () => {
   })
 
   describe("startListening", () => {
-    test("updates user status to listening", async () => {
+    test("updates user status to listening without hydrating full users list", async () => {
       const result = await activityService.startListening("room123", "user123")
 
       expect(updateUserAttributes).toHaveBeenCalledWith({
@@ -67,17 +55,18 @@ describe("ActivityService", () => {
           status: "listening",
         },
         roomId: "room123",
+        includeRoomUsers: false,
       })
 
       expect(result).toEqual({
         user: mockUser,
-        users: mockUsers,
+        users: [],
       })
     })
   })
 
   describe("stopListening", () => {
-    test("updates user status to participating", async () => {
+    test("updates user status to participating without hydrating full users list", async () => {
       const result = await activityService.stopListening("room123", "user123")
 
       expect(updateUserAttributes).toHaveBeenCalledWith({
@@ -87,11 +76,12 @@ describe("ActivityService", () => {
           status: "participating",
         },
         roomId: "room123",
+        includeRoomUsers: false,
       })
 
       expect(result).toEqual({
         user: mockUser,
-        users: mockUsers,
+        users: [],
       })
     })
   })
@@ -110,13 +100,7 @@ describe("ActivityService", () => {
       expect(addReaction).not.toHaveBeenCalled()
     })
 
-    test("adds reaction and returns updated reactions", async () => {
-      const mockReactions = reactionStoreFactory.build({
-        message: { "123": [{ emoji: "👍", user: mockUser.userId }] },
-        track: {},
-      })
-      vi.mocked(getAllRoomReactions).mockResolvedValueOnce(mockReactions)
-
+    test("adds reaction without reloading full reaction store", async () => {
       const reaction = reactionPayloadFactory.build({
         reactTo: {
           type: "message",
@@ -134,14 +118,7 @@ describe("ActivityService", () => {
         reactTo: reaction.reactTo,
       })
 
-      expect(getAllRoomReactions).toHaveBeenCalledWith({
-        context: mockContext,
-        roomId: "room123",
-      })
-
-      expect(result).toEqual({
-        reactions: mockReactions,
-      })
+      expect(result).toEqual({ ok: true })
     })
   })
 
@@ -162,13 +139,7 @@ describe("ActivityService", () => {
       expect(removeReaction).not.toHaveBeenCalled()
     })
 
-    test("removes reaction and returns updated reactions", async () => {
-      const mockReactions = {
-        message: {},
-        track: {},
-      }
-      vi.mocked(getAllRoomReactions).mockResolvedValueOnce(mockReactions)
-
+    test("removes reaction without reloading full reaction store", async () => {
       const reactTo: ReactionSubject = {
         type: "message",
         id: "123",
@@ -192,14 +163,7 @@ describe("ActivityService", () => {
         reactTo,
       })
 
-      expect(getAllRoomReactions).toHaveBeenCalledWith({
-        context: mockContext,
-        roomId: "room123",
-      })
-
-      expect(result).toEqual({
-        reactions: mockReactions,
-      })
+      expect(result).toEqual({ ok: true })
     })
   })
 })

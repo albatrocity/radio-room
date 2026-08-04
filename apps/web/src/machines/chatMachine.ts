@@ -116,7 +116,16 @@ export const chatMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `chat-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as MachineEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as MachineEvent),
+        eventTypes: [
+          "INIT",
+          "ROOM_DATA",
+          "MESSAGE_RECEIVED",
+          "MESSAGE_DELETED",
+          "MESSAGES_CLEARED",
+        ],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

@@ -29,7 +29,8 @@ interface PluginComponents {
 
 /**
  * Renders all plugin components for a specific area.
- * Each plugin gets its own PluginComponentProvider with an independent XState machine.
+ * Store/socket state comes from the room-level shared actor per pluginName
+ * (see PluginComponentsRoomProvider); this only scopes itemContext + config.
  *
  * @example
  * ```tsx
@@ -97,7 +98,6 @@ export function PluginArea({
           pluginName={pluginName}
           storeKeys={storeKeys}
           config={config}
-          components={components}
           textColor={color}
           itemContext={itemContext}
         >

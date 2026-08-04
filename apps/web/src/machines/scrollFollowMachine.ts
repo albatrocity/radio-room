@@ -19,7 +19,10 @@ export const scrollFollowMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `scrollFollow-${self.id}`
-      subscribeById(id, { send: (event) => self.send(event as ScrollFollowEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as ScrollFollowEvent),
+        eventTypes: ["MESSAGE_RECEIVED"],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

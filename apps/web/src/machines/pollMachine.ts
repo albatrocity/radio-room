@@ -108,7 +108,19 @@ export const pollMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `poll-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as PollEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as PollEvent),
+        eventTypes: [
+          "INIT",
+          "ROOM_DATA",
+          "POLL_PUBLISHED",
+          "POLL_VOTE_CAST",
+          "POLL_VOTE_CONFIRMED",
+          "POLL_VOTE_FAILED",
+          "POLL_CLOSED",
+          "POLL_DELETED",
+        ],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

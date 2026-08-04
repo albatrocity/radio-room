@@ -301,7 +301,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       const sessionId = readSession(ctx.storage).id
 
       // Admin edits the active question's accepted answers mid-show (new config).
-      ctx.api.getPluginConfig = vi.fn(async () => ({
+      const editedConfig = {
         ...defaultQuizSessionsConfig,
         enabled: true,
         mode: "inclusive" as const,
@@ -310,7 +310,17 @@ describe("QuizSessionsPlugin lifecycle", () => {
           { text: "What song is this?", acceptedAnswers: ["Bizarre Love Triangle"] },
           ...QUESTIONS.slice(1),
         ],
-      }))
+      }
+      ctx.api.getPluginConfig = vi.fn(async () => editedConfig)
+      // Invalidate BasePlugin config cache (production path emits CONFIG_CHANGED)
+      for (const handler of ctx.lifecycleHandlers.get("CONFIG_CHANGED") ?? []) {
+        await handler({
+          roomId: ROOM,
+          pluginName: "quiz-sessions",
+          config: editedConfig,
+          previousConfig: { enabled: true },
+        })
+      }
       ctx.game.addScore.mockClear()
 
       // The old answer no longer matches; the freshly-edited one does.
@@ -1059,10 +1069,19 @@ describe("QuizSessionsPlugin lifecycle", () => {
     await plugin.register(context)
     await plugin.executeAction("startSession", ADMIN)
     // Disable after starting.
-    context.api.getPluginConfig = vi.fn(async () => ({
+    const disabledConfig = {
       ...defaultQuizSessionsConfig,
       enabled: false,
-    }))
+    }
+    context.api.getPluginConfig = vi.fn(async () => disabledConfig)
+    for (const handler of lifecycleHandlers.get("CONFIG_CHANGED") ?? []) {
+      await handler({
+        roomId: ROOM,
+        pluginName: "quiz-sessions",
+        config: disabledConfig,
+        previousConfig: { enabled: true },
+      })
+    }
     game.addScore.mockClear()
 
     await emitMessage(lifecycleHandlers, "Blue Monday", { userId: "u1" })

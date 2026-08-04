@@ -49,8 +49,8 @@ export type PluginComponentEvent =
 const pluginSocketActor = fromCallback<PluginComponentEvent, { pluginName: string; storeKeys: string[] }>(
   ({ sendBack, input }) => {
     const { pluginName, storeKeys } = input
-    // Generate a unique subscription ID for this plugin instance
-    const subscriptionId = `plugin:${pluginName}:${Date.now()}`
+    // Stable ID so re-invoke / StrictMode remounts update the same subscriber slot
+    const subscriptionId = `plugin:${pluginName}`
 
     // Create a subscriber that receives events from socketActor and filters them
     const subscriber = {

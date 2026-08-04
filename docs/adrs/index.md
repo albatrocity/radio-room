@@ -98,6 +98,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0090](0090-hybrid-metadata-catalog-browse.md) | Hybrid metadata catalog browse (search-entry + Search entity rows) | Accepted |
 | [0091](0091-round-robin-dj-plugin.md) | Round Robin DJ plugin (turn eligibility, Robin persona, DEPUTY_DJ_CHANGED) | Accepted |
 | [0092](0092-plugin-showwhen-membership-and-add-to-queue-area.md) | Plugin showWhen membership operators and `addToQueue` area | Accepted |
+| [0093](0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md) | Client socket event allowlists + shared plugin component actors | Accepted |
 
 ## Creating a New ADR
 

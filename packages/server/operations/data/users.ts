@@ -227,6 +227,11 @@ type UpdateUserAttributesParams = {
   userId: string
   attributes: Partial<User>
   roomId?: string
+  /**
+   * When false, skip hydrating the full online-user list (status-only updates).
+   * Default true for join/leave-style callers that still need `users`.
+   */
+  includeRoomUsers?: boolean
 }
 
 export async function updateUserAttributes({
@@ -234,9 +239,14 @@ export async function updateUserAttributes({
   userId,
   attributes,
   roomId,
+  includeRoomUsers = true,
 }: UpdateUserAttributesParams) {
   try {
     await saveUser({ context, userId, attributes })
+    if (!includeRoomUsers) {
+      const user = await getUser({ context, userId })
+      return { user, users: [] as User[] }
+    }
     const users = roomId ? await getRoomUsers({ context, roomId }) : []
     const user = users.find((u) => u?.userId === userId)
     return { user, users }

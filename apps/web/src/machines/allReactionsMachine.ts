@@ -7,22 +7,85 @@ import { subscribeById, unsubscribeById } from "../actors/socketActor"
 // Types
 // ============================================================================
 
-export type ReactionsContext = Record<
-  ReactionSubject["type"],
-  Record<string, Reaction[]>
->
+export type ReactionsContext = Record<ReactionSubject["type"], Record<string, Reaction[]>>
 
 export interface AllReactionsContext {
   reactions: ReactionsContext
   subscriptionId: string | null
 }
 
+type ReactionDeltaPayload = {
+  reaction: {
+    emoji: { shortcodes: string } | string
+    reactTo: ReactionSubject
+    user: { userId: string } | string
+  }
+  /** Full store (INIT / legacy). Prefer delta when absent. */
+  reactions?: ReactionsContext
+}
+
 type AllReactionsEvent =
   | { type: "ACTIVATE" }
   | { type: "DEACTIVATE" }
-  | { type: "REACTION_ADDED"; data: { reactions: ReactionsContext } }
-  | { type: "REACTION_REMOVED"; data: { reactions: ReactionsContext } }
+  | { type: "REACTION_ADDED"; data: ReactionDeltaPayload }
+  | { type: "REACTION_REMOVED"; data: ReactionDeltaPayload }
   | { type: "INIT"; data: { reactions: ReactionsContext } }
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+function emptyStore(): ReactionsContext {
+  return { message: {}, track: {} }
+}
+
+function emojiCode(emoji: { shortcodes: string } | string): string {
+  return typeof emoji === "string" ? emoji : emoji.shortcodes
+}
+
+function userIdOf(user: { userId: string } | string): string {
+  return typeof user === "string" ? user : user.userId
+}
+
+function patchAdd(store: ReactionsContext, data: ReactionDeltaPayload): ReactionsContext {
+  if (data.reactions) return data.reactions
+  const { reaction } = data
+  const type = reaction.reactTo.type
+  const id = reaction.reactTo.id
+  const entry: Reaction = {
+    emoji: emojiCode(reaction.emoji),
+    user: userIdOf(reaction.user),
+  }
+  const existing = store[type]?.[id] ?? []
+  if (existing.some((r) => r.emoji === entry.emoji && r.user === entry.user)) {
+    return store
+  }
+  return {
+    ...store,
+    [type]: {
+      ...store[type],
+      [id]: [...existing, entry],
+    },
+  }
+}
+
+function patchRemove(store: ReactionsContext, data: ReactionDeltaPayload): ReactionsContext {
+  if (data.reactions) return data.reactions
+  const { reaction } = data
+  const type = reaction.reactTo.type
+  const id = reaction.reactTo.id
+  const emoji = emojiCode(reaction.emoji)
+  const userId = userIdOf(reaction.user)
+  const existing = store[type]?.[id] ?? []
+  const next = existing.filter((r) => !(r.emoji === emoji && r.user === userId))
+  return {
+    ...store,
+    [type]: {
+      ...store[type],
+      [id]: next,
+    },
+  }
+}
 
 // ============================================================================
 // Machine
@@ -38,7 +101,10 @@ export const allReactionsMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `reactions-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event) })
+      subscribeById(id, {
+        send: (event) => self.send(event),
+        eventTypes: ["REACTION_ADDED", "REACTION_REMOVED", "INIT"],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {
@@ -48,14 +114,26 @@ export const allReactionsMachine = setup({
     },
     setData: assign({
       reactions: ({ event }) => {
-        if ("data" in event && "reactions" in event.data) {
+        if (event.type === "INIT" && event.data.reactions) {
           return event.data.reactions
         }
-        return { message: {}, track: {} }
+        return emptyStore()
+      },
+    }),
+    applyAdded: assign({
+      reactions: ({ context, event }) => {
+        if (event.type !== "REACTION_ADDED") return context.reactions
+        return patchAdd(context.reactions, event.data)
+      },
+    }),
+    applyRemoved: assign({
+      reactions: ({ context, event }) => {
+        if (event.type !== "REACTION_REMOVED") return context.reactions
+        return patchRemove(context.reactions, event.data)
       },
     }),
     resetReactions: assign({
-      reactions: () => ({ message: {}, track: {} }),
+      reactions: () => emptyStore(),
       subscriptionId: () => null,
     }),
   },
@@ -63,20 +141,15 @@ export const allReactionsMachine = setup({
   id: "allReactions",
   initial: "idle",
   context: {
-    reactions: {
-      message: {},
-      track: {},
-    },
+    reactions: emptyStore(),
     subscriptionId: null,
   },
   states: {
-    // Idle state - not subscribed to socket events
     idle: {
       on: {
         ACTIVATE: "active",
       },
     },
-    // Active state - subscribed to socket events
     active: {
       entry: ["subscribe"],
       exit: ["unsubscribe"],
@@ -86,10 +159,10 @@ export const allReactionsMachine = setup({
           actions: ["resetReactions"],
         },
         REACTION_ADDED: {
-          actions: ["setData"],
+          actions: ["applyAdded"],
         },
         REACTION_REMOVED: {
-          actions: ["setData"],
+          actions: ["applyRemoved"],
         },
         INIT: {
           actions: ["setData"],

@@ -5,16 +5,12 @@ import { reactionPayloadFactory, reactionStoreFactory, userFactory } from "@repo
 
 // Mock dependencies
 vi.mock("../services/ActivityService")
-vi.mock("../operations/sockets/users", () => ({
-  pubUserJoined: vi.fn(),
-}))
 vi.mock("../operations/reactions", () => ({
   addReaction: vi.fn(),
   removeReaction: vi.fn(),
 }))
 
 // Import mocked dependencies
-import { pubUserJoined } from "../operations/sockets/users"
 import { addReaction as addReactionOp, removeReaction as removeReactionOp } from "../operations/reactions"
 
 describe("ActivityHandlers", () => {
@@ -96,18 +92,21 @@ describe("ActivityHandlers", () => {
       expect(activityService.startListening).toHaveBeenCalledWith("room123", "user123", "webrtc")
     })
 
-    test("calls pubUserJoined with user data", async () => {
+    test("emits USER_STATUS_CHANGED with the updated user", async () => {
       await activityHandlers.startListening({ socket: mockSocket, io: mockIo })
 
-      expect(pubUserJoined).toHaveBeenCalledWith({
-        io: mockIo,
-        roomId: "room123",
-        data: { user: mockUser, users: mockUsers },
-        context: mockSocket.context,
-      })
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room123",
+        "USER_STATUS_CHANGED",
+        {
+          roomId: "room123",
+          user: mockUser,
+          oldStatus: "participating",
+        },
+      )
     })
 
-    test("does not call pubUserJoined when no user is returned", async () => {
+    test("does not emit when no user is returned", async () => {
       activityService.startListening.mockResolvedValueOnce({
         user: null,
         users: [],
@@ -115,7 +114,7 @@ describe("ActivityHandlers", () => {
 
       await activityHandlers.startListening({ socket: mockSocket, io: mockIo })
 
-      expect(pubUserJoined).not.toHaveBeenCalled()
+      expect(mockSocket.context.systemEvents.emit).not.toHaveBeenCalled()
     })
   })
 
@@ -126,18 +125,21 @@ describe("ActivityHandlers", () => {
       expect(activityService.stopListening).toHaveBeenCalledWith("room123", "user123")
     })
 
-    test("calls pubUserJoined with user data", async () => {
+    test("emits USER_STATUS_CHANGED with the updated user", async () => {
       await activityHandlers.stopListening({ socket: mockSocket, io: mockIo })
 
-      expect(pubUserJoined).toHaveBeenCalledWith({
-        io: mockIo,
-        roomId: "room123",
-        data: { user: mockUser, users: mockUsers },
-        context: mockSocket.context,
-      })
+      expect(mockSocket.context.systemEvents.emit).toHaveBeenCalledWith(
+        "room123",
+        "USER_STATUS_CHANGED",
+        {
+          roomId: "room123",
+          user: mockUser,
+          oldStatus: "listening",
+        },
+      )
     })
 
-    test("does not call pubUserJoined when no user is returned", async () => {
+    test("does not emit when no user is returned", async () => {
       activityService.stopListening.mockResolvedValueOnce({
         user: null,
         users: [],
@@ -145,7 +147,7 @@ describe("ActivityHandlers", () => {
 
       await activityHandlers.stopListening({ socket: mockSocket, io: mockIo })
 
-      expect(pubUserJoined).not.toHaveBeenCalled()
+      expect(mockSocket.context.systemEvents.emit).not.toHaveBeenCalled()
     })
   })
 

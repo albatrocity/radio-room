@@ -52,7 +52,10 @@ export const djMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `dj-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event) })
+      subscribeById(id, {
+        send: (event) => self.send(event),
+        eventTypes: ["INIT", "DEPUTY_BULK_APPLIED"],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

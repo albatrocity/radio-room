@@ -174,11 +174,24 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
   }
 
   /**
+   * In-memory merged config. `undefined` = not loaded; invalidated on CONFIG_CHANGED.
+   * Avoids Redis getPluginConfig on every chat/track hot-path call to getConfig().
+   */
+  private configCache: TConfig | null | undefined = undefined
+
+  /**
    * Register the plugin for a room.
    * Call super.register(context) first to set up the context.
    */
   async register(context: PluginContext): Promise<void> {
     this.context = context
+    this.configCache = undefined
+    // Invalidate cache when this plugin's config changes (subclasses may also onConfigChange)
+    this.on("CONFIG_CHANGED", (data) => {
+      if (data.pluginName === this.name) {
+        this.configCache = undefined
+      }
+    })
     console.log(`[${this.name}] Registered for room ${context.roomId}`)
   }
 
@@ -666,24 +679,36 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    * Get the plugin's configuration for the current room.
    * Merges stored config with defaults: stored values take precedence.
    * Returns null if no context, or defaults if no stored config.
+   * Results are cached in-memory until CONFIG_CHANGED for this plugin.
    */
   protected async getConfig(): Promise<TConfig | null> {
     if (!this.context) return null
+    if (this.configCache !== undefined) return this.configCache
 
     const stored = await this.context.api.getPluginConfig(this.context.roomId, this.name)
     const defaults = this.getDefaultConfig() as TConfig | undefined
 
     // If no stored config and no defaults, return null
-    if (!stored && !defaults) return null
+    if (!stored && !defaults) {
+      this.configCache = null
+      return null
+    }
 
     // If no stored config, return defaults
-    if (!stored) return defaults ?? null
+    if (!stored) {
+      this.configCache = defaults ?? null
+      return this.configCache
+    }
 
     // If no defaults, return stored
-    if (!defaults) return stored as TConfig
+    if (!defaults) {
+      this.configCache = stored as TConfig
+      return this.configCache
+    }
 
     // Merge: stored config takes precedence over defaults
-    return { ...defaults, ...stored } as TConfig
+    this.configCache = { ...defaults, ...stored } as TConfig
+    return this.configCache
   }
 
   /**
@@ -699,6 +724,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
 
     // Clear all active timers
     this.clearAllTimers()
+    this.configCache = undefined
 
     // Cleanup storage (removes all keys for this plugin in this room)
     if (this.context.storage) {
@@ -936,4 +962,13 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     }
     return { success: false, message: `Unknown action: ${action}` }
   }
+}
+
+/**
+ * True when a plugin provides a real chat transform (not BasePlugin's inherited no-op).
+ * Plain objects / non-BasePlugin implementations with a transform method also qualify.
+ */
+export function pluginImplementsChatTransform(plugin: Plugin): boolean {
+  if (typeof plugin.transformChatMessage !== "function") return false
+  return plugin.transformChatMessage !== BasePlugin.prototype.transformChatMessage
 }

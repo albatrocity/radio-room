@@ -6,12 +6,34 @@ const ADVANCE_THRESHOLD_MS = 1000
 /** Consecutive no-media polls before treating as unplayable (backup if ENDED key missed). */
 const STUCK_NO_MEDIA_POLLS = 8
 
+/** Steady-state getPlayback interval when playback looks healthy. */
+const HEALTHY_PROBE_INTERVAL_MS = 3000
+/** Near end of track (or stuck/no-media watchdog) — tighten probes. */
+const NEAR_END_PROBE_INTERVAL_MS = 1000
+/** Initial backoff after an RPC failure; doubles up to MAX_PROBE_BACKOFF_MS. */
+const INITIAL_PROBE_BACKOFF_MS = 2000
+const MAX_PROBE_BACKOFF_MS = 30_000
+/** Treat remaining duration under this as "near end" for probe tightening. */
+const NEAR_END_PROBE_WINDOW_MS = 15_000
+
 function isNearEnd(progressMs: number | null | undefined, durationMs: number | null | undefined) {
   return (
     progressMs != null &&
     durationMs != null &&
     durationMs > 0 &&
     progressMs >= durationMs - ADVANCE_THRESHOLD_MS
+  )
+}
+
+function isApproachingEnd(
+  progressMs: number | null | undefined,
+  durationMs: number | null | undefined,
+) {
+  return (
+    progressMs != null &&
+    durationMs != null &&
+    durationMs > 0 &&
+    progressMs >= durationMs - NEAR_END_PROBE_WINDOW_MS
   )
 }
 
@@ -52,6 +74,9 @@ function formatTrackLabel(item: QueueItem) {
 /**
  * Bridge advance loop: ENDED via Redis key + pub/sub, plus getPlayback probe.
  * Job name: bridge-player-{roomId} (cleanupRooms / empty-room pause).
+ *
+ * Cron stays 1s so ENDED key/pubsub and near-end checks stay responsive;
+ * getPlayback RPC runs at a softer cadence when healthy (with backoff on failure).
  */
 export function createBridgeAdvanceJob(params: {
   context: AppContext
@@ -68,6 +93,11 @@ export function createBridgeAdvanceJob(params: {
   let advancing = false
   let lastAdvanceAt = 0
   let stuckNoMediaPolls = 0
+  let lastProbeAt = 0
+  let probeIntervalMs = HEALTHY_PROBE_INTERVAL_MS
+  let rpcFailureCount = 0
+  let lastKnownProgressMs: number | null = null
+  let lastKnownDurationMs: number | null = null
 
   async function announceCannotPlay(
     item: QueueItem | null | undefined,
@@ -134,6 +164,8 @@ export function createBridgeAdvanceJob(params: {
       if (!nextItem) {
         console.log(`[bridge-advance] queue empty for room ${roomId}`)
         stuckNoMediaPolls = 0
+        lastKnownProgressMs = null
+        lastKnownDurationMs = null
         try {
           const api = await getPlaybackApi()
           await api?.pause?.()
@@ -158,6 +190,11 @@ export function createBridgeAdvanceJob(params: {
 
       await setDispatchedTrack({ context, roomId, item: nextItem })
       stuckNoMediaPolls = 0
+      lastKnownProgressMs = null
+      lastKnownDurationMs = null
+      // New track: reset probe cadence so we can detect early stuck/no-media
+      probeIntervalMs = NEAR_END_PROBE_INTERVAL_MS
+      lastProbeAt = 0
 
       await context.pluginRegistry?.runBeforePlayQueuedTrack({
         roomId,
@@ -195,6 +232,25 @@ export function createBridgeAdvanceJob(params: {
       void advanceToNext("ended-event", event.reason)
     }
   })
+
+  function desiredProbeIntervalMs(): number {
+    if (rpcFailureCount > 0) {
+      return Math.min(
+        MAX_PROBE_BACKOFF_MS,
+        INITIAL_PROBE_BACKOFF_MS * 2 ** (rpcFailureCount - 1),
+      )
+    }
+    // Tighten while watching for stuck/no-media or when duration says we're near the end
+    if (stuckNoMediaPolls > 0) return NEAR_END_PROBE_INTERVAL_MS
+    if (isApproachingEnd(lastKnownProgressMs, lastKnownDurationMs)) {
+      return NEAR_END_PROBE_INTERVAL_MS
+    }
+    const lastState = capability.getLastState()
+    if (lastState && isApproachingEnd(lastState.progressMs, lastState.durationMs)) {
+      return NEAR_END_PROBE_INTERVAL_MS
+    }
+    return HEALTHY_PROBE_INTERVAL_MS
+  }
 
   return {
     name: `bridge-player-${roomId}`,
@@ -254,11 +310,44 @@ export function createBridgeAdvanceJob(params: {
           return
         }
 
+        // 3) Cheap near-end / volume checks from last STATE pub/sub (no RPC)
+        const lastState = capability.getLastState()
+        if (lastState?.volumePercent != null) {
+          await handlePlaybackVolumeChange({
+            context,
+            roomId,
+            volumePercent: lastState.volumePercent,
+          })
+        }
+
+        if (
+          lastState &&
+          (lastState.state === "playing" || lastState.state === "stopped") &&
+          isNearEnd(lastState.progressMs, lastState.durationMs)
+        ) {
+          await advanceToNext(lastState.state === "stopped" ? "state-ended" : "state-probe")
+          return
+        }
+
+        // 4) getPlayback probe — softer cadence when healthy; tighter near end / stuck
+        const now = Date.now()
+        probeIntervalMs = desiredProbeIntervalMs()
+        if (now - lastProbeAt < probeIntervalMs) {
+          return
+        }
+        lastProbeAt = now
+
         const api = await getPlaybackApi()
         if (!api) return
 
         try {
           const playback = await api.getPlayback()
+          rpcFailureCount = 0
+          lastKnownProgressMs =
+            typeof playback.progressMs === "number" ? playback.progressMs : lastKnownProgressMs
+          lastKnownDurationMs =
+            typeof playback.durationMs === "number" ? playback.durationMs : lastKnownDurationMs
+
           await handlePlaybackStateChange({
             context,
             roomId,
@@ -284,7 +373,7 @@ export function createBridgeAdvanceJob(params: {
             stuckNoMediaPolls += 1
             if (stuckNoMediaPolls >= STUCK_NO_MEDIA_POLLS) {
               console.warn(
-                `[bridge-advance] stuck no-media (${stuckNoMediaPolls}s, state=${playback.state}) — skipping`,
+                `[bridge-advance] stuck no-media (${stuckNoMediaPolls} polls, state=${playback.state}) — skipping`,
               )
               await advanceToNext("stuck-stopped")
               return
@@ -293,24 +382,8 @@ export function createBridgeAdvanceJob(params: {
             stuckNoMediaPolls = 0
           }
         } catch {
-          /* daemon/spotify unavailable */
-        }
-
-        const lastState = capability.getLastState()
-        if (lastState?.volumePercent != null) {
-          await handlePlaybackVolumeChange({
-            context,
-            roomId,
-            volumePercent: lastState.volumePercent,
-          })
-        }
-
-        if (
-          lastState &&
-          (lastState.state === "playing" || lastState.state === "stopped") &&
-          isNearEnd(lastState.progressMs, lastState.durationMs)
-        ) {
-          await advanceToNext(lastState.state === "stopped" ? "state-ended" : "state-probe")
+          /* daemon/spotify unavailable — exponential backoff on next probe */
+          rpcFailureCount += 1
         }
       } catch (e) {
         console.error(`[bridge-player-${roomId}] error:`, e)

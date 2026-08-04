@@ -49,6 +49,10 @@ export interface SpecialWordsComponentState extends Record<string, unknown> {
 const USER_WORD_COUNT_KEY = "user-word-count"
 const WORDS_PER_USER_KEY = "words-per-user"
 const WORD_RANK_KEY = "word-rank"
+/** Running total of special-word hits (avoids summing the full user zset on the chat path). */
+const TOTAL_WORDS_KEY = "total-words-used"
+/** Bounded leaderboard slice for hot socket events (full board via getComponentState). */
+const HOT_LEADERBOARD_TOP_N = 25
 
 // ============================================================================
 // Event Types
@@ -243,6 +247,8 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     if (!this.context) return
 
     const normalizedWord = this.normalizeWord(word)
+    // Backfill before first inc so pre-existing zset scores are not lost
+    await this.ensureTotalWordsCounter()
 
     await Promise.all([
       // Increment uses of any special word by this user
@@ -251,7 +257,52 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       this.context.storage.zincrby(WORD_RANK_KEY, 1, normalizedWord),
       // Increment how many times this word has been used by this user
       this.context.storage.zincrby(`${WORDS_PER_USER_KEY}:${userId}`, 1, normalizedWord),
+      // Running total for message templates (hot path must not sum the full zset)
+      this.context.storage.inc(TOTAL_WORDS_KEY, 1),
     ])
+  }
+
+  /**
+   * Top-N by score from an ascending Redis ZRANGE (highest scores are at the end).
+   */
+  private async fetchTopLeaderboard(
+    key: string,
+    topN: number,
+  ): Promise<{ score: number; value: string }[]> {
+    if (!this.context || topN <= 0) return []
+    const raw = await this.context.storage.zrangeWithScores(key, -topN, -1)
+    return [...raw].reverse()
+  }
+
+  private async hydrateUsersLeaderboard(
+    raw: { score: number; value: string }[],
+  ): Promise<{ score: number; value: string; username: string }[]> {
+    if (!this.context || raw.length === 0) {
+      return raw.map((entry) => ({ ...entry, username: entry.value }))
+    }
+    const users = await this.context.api.getUsersByIds(raw.map((entry) => entry.value))
+    const userMap = new Map(users.map((u) => [u.userId, u.username]))
+    return raw.map((entry) => ({
+      ...entry,
+      username: userMap.get(entry.value) ?? entry.value,
+    }))
+  }
+
+  private async ensureTotalWordsCounter(): Promise<void> {
+    if (!this.context) return
+    if (await this.context.storage.exists(TOTAL_WORDS_KEY)) return
+    // One-time backfill for rooms that accrued scores before TOTAL_WORDS_KEY existed
+    const all = await this.context.storage.zrangeWithScores(USER_WORD_COUNT_KEY, 0, -1)
+    const total = all.reduce((acc, curr) => acc + curr.score, 0)
+    await this.context.storage.set(TOTAL_WORDS_KEY, String(total))
+  }
+
+  private async getTotalWordsUsed(): Promise<number> {
+    if (!this.context) return 0
+    await this.ensureTotalWordsCounter()
+    const raw = await this.context.storage.get(TOTAL_WORDS_KEY)
+    const parsed = raw != null ? Number.parseInt(raw, 10) : 0
+    return Number.isFinite(parsed) ? parsed : 0
   }
 
   private async fetchWordStatistics(
@@ -290,27 +341,19 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       allWordsLeaderboard,
       thisWordCount,
       thisWordRank,
+      totalWordsUsed,
     ] = await Promise.all([
       this.context.storage.zscore(USER_WORD_COUNT_KEY, userId),
       this.context.storage.zrevrank(USER_WORD_COUNT_KEY, userId),
       this.context.storage.zscore(`${WORDS_PER_USER_KEY}:${userId}`, normalizedWord),
-      this.context.storage.zrangeWithScores(USER_WORD_COUNT_KEY, 0, -1),
-      this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1),
+      this.fetchTopLeaderboard(USER_WORD_COUNT_KEY, HOT_LEADERBOARD_TOP_N),
+      this.fetchTopLeaderboard(WORD_RANK_KEY, HOT_LEADERBOARD_TOP_N),
       this.context.storage.zscore(WORD_RANK_KEY, normalizedWord),
       this.context.storage.zrevrank(WORD_RANK_KEY, normalizedWord),
+      this.getTotalWordsUsed(),
     ])
 
-    // Hydrate user leaderboard with usernames (includes users who have left)
-    const userIds = rawUsersLeaderboard.map((entry) => entry.value)
-    const users = await this.context.api.getUsersByIds(userIds)
-    const userMap = new Map(users.map((u) => [u.userId, u.username]))
-
-    const usersLeaderboard = rawUsersLeaderboard.map((entry) => ({
-      ...entry,
-      username: userMap.get(entry.value) ?? entry.value, // Fallback to userId if user not found
-    }))
-
-    const totalWordsUsed = usersLeaderboard.reduce((acc, curr) => acc + curr.score, 0)
+    const usersLeaderboard = await this.hydrateUsersLeaderboard(rawUsersLeaderboard)
 
     return {
       userAllWordsCount: userAllWordsCount ?? 0,
@@ -478,6 +521,8 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       for (const word of allWords) {
         await this.context.storage.zrem(WORD_RANK_KEY, word)
       }
+
+      await this.context.storage.del(TOTAL_WORDS_KEY)
 
       console.log(`[${this.name}] Leaderboards reset for room ${this.context.roomId}`)
 

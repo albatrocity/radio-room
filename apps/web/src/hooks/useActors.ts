@@ -163,8 +163,20 @@ export const useChatMessages = () => {
   return useSelector(chatActor, (s) => s.context.messages ?? EMPTY_MESSAGES)
 }
 
+/**
+ * Whether any chat message currently has an expiresAt (ephemeral previews).
+ * Used to gate the 1Hz ticker subscription in useSortedChatMessages.
+ */
+export const useHasExpirableChatMessages = () => {
+  return useSelector(chatActor, (s) =>
+    (s.context.messages ?? EMPTY_MESSAGES).some((m) => m.expiresAt != null),
+  )
+}
+
 export const useSortedChatMessages = () => {
-  const now = useSelector(sharedTickerActor, (s) => s.context.now)
+  const hasExpirable = useHasExpirableChatMessages()
+  // Gate ticker: when nothing expires, selector returns a constant so ticks do not re-render.
+  const now = useSelector(sharedTickerActor, (s) => (hasExpirable ? s.context.now : 0))
   const expiryBucket = Math.floor(now / 1000)
 
   return useSelector(chatActor, (s) => {
@@ -209,6 +221,11 @@ export const useCurrentPlaylist = () => {
   return useSelector(playlistActor, (s) => s.context.playlist)
 }
 
+/** True when the playlist has at least one track (avoids subscribing to full playlist array). */
+export const useHasPlaylistTracks = () => {
+  return useSelector(playlistActor, (s) => s.context.playlist.length > 0)
+}
+
 export const usePlaylistActive = () => {
   return useSelector(playlistActor, (s) => s.matches({ active: "expanded" }))
 }
@@ -243,6 +260,25 @@ export const useQueueListSend = () => sendToQueueList
 
 export const useUsers = () => {
   return useSelector(usersActor, (s) => s.context.users)
+}
+
+export type MentionUserSlice = { userId: string; username: string }
+
+const mentionUsersEqual = (a: MentionUserSlice[], b: MentionUserSlice[]) =>
+  a.length === b.length &&
+  a.every((u, i) => u.userId === b[i]?.userId && u.username === b[i]?.username)
+
+/** Thin user slice for chat @-mentions (userId + username only). */
+export const useUsersForMentions = (): MentionUserSlice[] => {
+  return useSelector(
+    usersActor,
+    (s) =>
+      s.context.users.map((u) => ({
+        userId: u.userId,
+        username: u.username ?? "",
+      })),
+    mentionUsersEqual,
+  )
 }
 
 export const useListeners = () => {
@@ -296,6 +332,11 @@ export const useReactionsSend = () => sendToReactions
 
 export const useSettings = () => {
   return useSelector(settingsActor, (s) => s.context)
+}
+
+/** Whether guests may attach images in chat (settings slice only). */
+export const useAllowChatImages = () => {
+  return useSelector(settingsActor, (s) => s.context.allowChatImages === true)
 }
 
 export const useRoomTitle = () => {
@@ -639,7 +680,10 @@ export const useBookmarks = () => {
 
 export const useIsBookmarked = (messageTimestamp: string) => {
   return useSelector(bookmarkedChatActor, (s) =>
-    s.context.collection.some((msg: ChatMessage) => msg.timestamp === messageTimestamp),
+    s.context.collection.some(
+      (msg: ChatMessage & { id?: string }) =>
+        msg.id === messageTimestamp || msg.timestamp === messageTimestamp,
+    ),
   )
 }
 

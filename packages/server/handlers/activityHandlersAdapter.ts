@@ -4,8 +4,21 @@ import { ReactionPayload } from "@repo/types/Reaction"
 import { ReactionSubject } from "@repo/types/ReactionSubject"
 import { User } from "@repo/types/User"
 import { Emoji } from "@repo/types/Emoji"
-import { pubUserJoined } from "../operations/sockets/users"
 import { addReaction as addReactionOp, removeReaction as removeReactionOp } from "../operations/reactions"
+
+async function emitUserStatusChanged(
+  context: AppContext | undefined,
+  roomId: string,
+  user: User,
+  oldStatus?: string,
+) {
+  if (!context?.systemEvents) return
+  await context.systemEvents.emit(roomId, "USER_STATUS_CHANGED", {
+    roomId,
+    user,
+    oldStatus,
+  })
+}
 
 /**
  * Socket.io adapter for the ActivityService
@@ -18,7 +31,7 @@ export class ActivityHandlers {
    * Update user status to listening
    */
   startListening = async (
-    { socket, io }: HandlerConnections,
+    { socket }: HandlerConnections,
     payload?: { audioTransport?: "shoutcast" | "webrtc" },
   ) => {
     const result = await this.activityService.startListening(
@@ -31,16 +44,11 @@ export class ActivityHandlers {
       return
     }
 
-    pubUserJoined({
-      io,
-      roomId: socket.data.roomId,
-      data: { user: result.user, users: result.users },
-      context: socket.context,
-    })
+    await emitUserStatusChanged(socket.context, socket.data.roomId, result.user, "participating")
   }
 
   setListeningAudioTransport = async (
-    { socket, io }: HandlerConnections,
+    { socket }: HandlerConnections,
     payload: { audioTransport: "shoutcast" | "webrtc" },
   ) => {
     const result = await this.activityService.setListeningAudioTransport(
@@ -53,30 +61,20 @@ export class ActivityHandlers {
       return
     }
 
-    pubUserJoined({
-      io,
-      roomId: socket.data.roomId,
-      data: { user: result.user, users: result.users },
-      context: socket.context,
-    })
+    await emitUserStatusChanged(socket.context, socket.data.roomId, result.user, "listening")
   }
 
   /**
    * Update user status to participating
    */
-  stopListening = async ({ socket, io }: HandlerConnections) => {
+  stopListening = async ({ socket }: HandlerConnections) => {
     const result = await this.activityService.stopListening(socket.data.roomId, socket.data.userId)
 
     if (!result.user) {
       return
     }
 
-    pubUserJoined({
-      io,
-      roomId: socket.data.roomId,
-      data: { user: result.user, users: result.users },
-      context: socket.context,
-    })
+    await emitUserStatusChanged(socket.context, socket.data.roomId, result.user, "listening")
   }
 
   /**

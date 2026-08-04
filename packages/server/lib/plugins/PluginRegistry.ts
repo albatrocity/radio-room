@@ -26,12 +26,15 @@ import {
   isDeferredQueueRequest,
 } from "@repo/types"
 import { Server } from "socket.io"
+import { pluginImplementsChatTransform } from "@repo/plugin-base"
 import { PluginAPIImpl } from "./PluginAPI"
 import { PluginGameSessionAPI } from "./PluginGameSessionAPI"
 import { PluginInventoryAPI } from "./PluginInventoryAPI"
 import { PluginPersonasAPI } from "./PluginPersonasAPI"
 import { PluginStorageImpl } from "./PluginStorage"
 import { PluginLifecycleImpl } from "./PluginLifecycle"
+
+const DEBUG_PLUGIN_REGISTRY = process.env.DEBUG_PLUGIN_REGISTRY === "1"
 
 /**
  * Plugin factory function - creates a new plugin instance
@@ -222,13 +225,17 @@ export class PluginRegistry {
     const roomPluginMap = this.roomPlugins.get(roomId)
 
     if (!roomPluginMap || roomPluginMap.size === 0) {
-      console.log(`[PluginRegistry] No plugins found for room ${roomId}, skipping event ${event}`)
+      if (DEBUG_PLUGIN_REGISTRY) {
+        console.log(`[PluginRegistry] No plugins found for room ${roomId}, skipping event ${event}`)
+      }
       return
     }
 
-    console.log(
-      `[PluginRegistry] Emitting ${event} to ${roomPluginMap.size} plugin(s) in room ${roomId}`,
-    )
+    if (DEBUG_PLUGIN_REGISTRY) {
+      console.log(
+        `[PluginRegistry] Emitting ${event} to ${roomPluginMap.size} plugin(s) in room ${roomId}`,
+      )
+    }
 
     // Emit to all plugins in this room
     const promises = Array.from(roomPluginMap.values()).map(({ lifecycle }) =>
@@ -410,7 +417,7 @@ export class PluginRegistry {
   // ============================================================================
 
   /**
-   * Run `transformChatMessage` on all plugins in the room that implement it.
+   * Run `transformChatMessage` on plugins that override it (not BasePlugin's no-op).
    * Plugins are called in map iteration order; each receives the output of the
    * previous. Fail-open on errors and timeouts (same 500ms as queue validation).
    * When any plugin returns `{ drop: true }`, remaining plugins are skipped.
@@ -425,8 +432,8 @@ export class PluginRegistry {
       return message
     }
 
-    const pluginsWithTransform = Array.from(roomPluginMap.entries()).filter(
-      ([, { plugin }]) => typeof plugin.transformChatMessage === "function",
+    const pluginsWithTransform = Array.from(roomPluginMap.entries()).filter(([, { plugin }]) =>
+      pluginImplementsChatTransform(plugin),
     )
 
     if (pluginsWithTransform.length === 0) {

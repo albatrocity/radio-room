@@ -35,7 +35,10 @@ export const queueListMachine = setup({
   actions: {
     subscribe: assign(({ context, self }) => {
       const id = `queueList-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as QueueListEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as QueueListEvent),
+        eventTypes: ["INIT", "QUEUE_CHANGED"],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {
