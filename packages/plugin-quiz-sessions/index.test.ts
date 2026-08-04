@@ -478,6 +478,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       const correct = emittedEvent(ctx.api, "CORRECT_ANSWER")
       expect(correct).toMatchObject({ answer: "Ceremony" })
       expect(correct!.activeQuestion.revealedAnswer).toBe("Ceremony")
+      expect(correct!.activeQuestion.revealedByUsername).toBe("Alice")
       expect(readSession(ctx.storage).revealedAnswers["0"]).toBe("Ceremony")
     })
 
@@ -496,6 +497,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       expect(correct).toMatchObject({ userId: "u1", mode: "competitive", answer: "Blue Monday" })
       // Card refresh: PvP reveals the answer to everyone.
       expect(correct!.activeQuestion.revealedAnswer).toBe("Blue Monday")
+      expect(correct!.activeQuestion.revealedByUsername).toBe("Alice")
       expect(correct!.lastCorrectAnswer).toEqual({ userId: "u1", questionId: qid })
 
       const lb = lastEmittedEvent(api, "LEADERBOARD_UPDATED")
@@ -520,6 +522,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       // Runtime keyed by question index (the config bank is not copied).
       expect(session.winnersPerQuestion["0"]).toEqual(["u1"])
       expect(session.revealedAnswers["0"]).toBe("Blue Monday")
+      expect(session.revealedByUsernames["0"]).toBe("Alice")
     })
 
     it("does not play sound when soundEffectOnCorrect is disabled", async () => {

@@ -95,6 +95,8 @@ export interface QuizSession {
   winnersPerQuestion: Record<string, string[]>
   /** question index (as string) -> revealed answer (PvP correct guess). */
   revealedAnswers: Record<string, string>
+  /** question index (as string) -> username of the PvP guesser who revealed the answer. */
+  revealedByUsernames: Record<string, string>
   /**
    * Active auto-advance countdown window (for the card ExpiryBar). Set when the
    * first correct answer schedules the timer; cleared on advance/end.
@@ -113,6 +115,8 @@ export interface PublicQuizQuestion {
   total: number
   /** Present only when the answer is public (PvP correct guess or admin reveal). */
   revealedAnswer?: string
+  /** Username of the competitive guesser who revealed `revealedAnswer`. */
+  revealedByUsername?: string
 }
 
 export interface QuizLeaderboardEntry {

@@ -147,21 +147,35 @@ const buttonRecipe = defineRecipe({
         },
       },
       reactionBright: {
+        // Chip sits on chat/app bg — use fg (not solid-contrast) so count text stays readable.
         borderRadius: 6,
-        bg: "colorPalette.200/40",
-        color: "colorPalette.contrast",
+        bg: "colorPalette.muted",
+        color: "colorPalette.fg",
         padding: 0,
         height: "32px",
         minWidth: "32px",
-        borderColor: "colorPalette.solid/20",
+        borderColor: "colorPalette.emphasized",
         borderWidth: 1,
         _hover: {
-          bg: "colorPalette.200/60",
+          bg: "colorPalette.subtle",
+        },
+        "&[data-active]": {
+          bg: "colorPalette.solid",
+          color: "colorPalette.contrast",
+          borderColor: "colorPalette.solid",
         },
         _dark: {
-          bg: "colorPalette.800/30",
-          color: "colorPalette.contrast",
-          borderColor: "colorPalette.subtle/30",
+          bg: "colorPalette.muted",
+          color: "colorPalette.fg",
+          borderColor: "colorPalette.emphasized",
+          _hover: {
+            bg: "colorPalette.subtle",
+          },
+          "&[data-active]": {
+            bg: "colorPalette.solid",
+            color: "colorPalette.contrast",
+            borderColor: "colorPalette.solid",
+          },
         },
       },
     },

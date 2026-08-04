@@ -267,6 +267,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       startedAt: Date.now(),
       winnersPerQuestion: {},
       revealedAnswers: {},
+      revealedByUsernames: {},
       autoAdvanceDeadline: null,
     }
 
@@ -483,6 +484,9 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     if (!claimed) return
 
     session.revealedAnswers[String(active.index)] = answer
+    session.revealedByUsernames ??= {}
+    session.revealedByUsernames[String(active.index)] =
+      message.user.username?.trim() || message.user.userId
     await this.awardCorrect({
       config,
       session,
@@ -715,12 +719,16 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     const question = questions[index]
     if (!question) return null
     const revealedAnswer = session.revealedAnswers[String(index)]
+    const revealedByUsername = session.revealedByUsernames?.[String(index)]
     return {
       id: this.questionId(session, index),
       text: question.text,
       index,
       total: questions.length,
       ...(revealedAnswer !== undefined ? { revealedAnswer } : {}),
+      ...(revealedAnswer !== undefined && revealedByUsername
+        ? { revealedByUsername }
+        : {}),
     }
   }
 
