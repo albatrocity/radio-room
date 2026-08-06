@@ -134,6 +134,9 @@ const importCriteriaAction = {
     targetField: "criteria",
     modes: ["append", "replace"],
     sourceParam: "rawText",
+    itemNoun: "criteria",
+    helpText:
+      "One criterion per line. Examples: year 1977 · year-between 1970 1979 · artist Queen · title love · album Night · added-by ross · duration-gt 3:00 · duration-lt 5:00. Blank lines and # comments are ignored.",
   },
 } satisfies PluginActionElement
 

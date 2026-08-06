@@ -145,6 +145,16 @@ export interface PluginActionConfigImport {
   modes?: ConfigImportMode[]
   /** `formFields` name holding the paste text. Defaults to `"rawText"`. */
   sourceParam?: string
+  /**
+   * Short instructions shown above the paste textarea (plugin-owned grammar).
+   * When omitted, hosts show no format blurb (avoid hardcoding another plugin's paste format).
+   */
+  helpText?: string
+  /**
+   * Plural noun for Append/Replace buttons and confirm copy (e.g. "questions", "criteria").
+   * Defaults to `"items"`.
+   */
+  itemNoun?: string
 }
 
 /**

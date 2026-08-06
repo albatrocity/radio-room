@@ -111,6 +111,9 @@ const importQuestionsAction = {
     targetField: "questions",
     modes: ["append", "replace"],
     sourceParam: "rawText",
+    itemNoun: "questions",
+    helpText:
+      "Paste blocks separated by a blank line. Question text first, then answers as - answer lines.",
   },
 } satisfies PluginActionElement
 

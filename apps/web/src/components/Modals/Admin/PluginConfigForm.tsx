@@ -49,9 +49,8 @@ function collectSelectOptions(field: PluginActionFormField, users: User[]) {
   return [...staticOpts, ...userOpts]
 }
 
-function modeButtonLabel(mode: ConfigImportMode, action: string): string {
-  const noun = action.toLowerCase().includes("question") ? "questions" : "items"
-  return mode === "replace" ? `Replace ${noun}` : `Append ${noun}`
+function modeButtonLabel(mode: ConfigImportMode, itemNoun: string): string {
+  return mode === "replace" ? `Replace ${itemNoun}` : `Append ${itemNoun}`
 }
 
 type PluginActionResultData = {
@@ -184,6 +183,8 @@ function ActionButton({
   const modes: ConfigImportMode[] = element.configImport?.modes?.length
     ? element.configImport.modes
     : ["append"]
+  const itemNoun = element.configImport?.itemNoun?.trim() || "items"
+  const importHelpText = element.configImport?.helpText?.trim()
 
   const renderFormFields = () =>
     (formFields ?? []).map((field) => (
@@ -264,13 +265,9 @@ function ActionButton({
                 </Dialog.CloseTrigger>
                 <Dialog.Body>
                   <VStack align="stretch" gap={3}>
-                    {isConfigImport ? (
+                    {isConfigImport && importHelpText ? (
                       <Text fontSize="sm" color="fg.muted">
-                        Paste blocks separated by a blank line. Question text first, then answers as{" "}
-                        <Text as="span" fontFamily="mono">
-                          - answer
-                        </Text>{" "}
-                        lines.
+                        {importHelpText}
                       </Text>
                     ) : null}
                     {element.confirmMessage && !isConfigImport ? (
@@ -279,7 +276,7 @@ function ActionButton({
                     {renderFormFields()}
                     {confirmReplace ? (
                       <Text fontSize="sm" color="fg.muted">
-                        Replace the entire question bank? This cannot be undone from this dialog.
+                        Replace all existing {itemNoun}? This cannot be undone from this dialog.
                       </Text>
                     ) : null}
                   </VStack>
@@ -297,7 +294,7 @@ function ActionButton({
                           >
                             {confirmReplace && mode === "replace"
                               ? "Confirm replace"
-                              : modeButtonLabel(mode, element.action)}
+                              : modeButtonLabel(mode, itemNoun)}
                           </Button>
                         ))
                       : (

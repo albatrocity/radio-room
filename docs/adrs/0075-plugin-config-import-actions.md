@@ -29,6 +29,7 @@ Putting paste grammars (e.g. markdown Q&A blocks) in `@repo/utils` would break p
 
 - Future plugins reuse the shell by declaring `configImport` + overriding `parseConfigImportRows`; no per-plugin React modals.
 - Domain paste formats stay inside plugin packages; execute and dry-run share one parse implementation.
+- Optional `configImport` UI metadata (`helpText`, `itemNoun`) lets each plugin describe its paste grammar without hosts hardcoding quiz-vs-bingo copy.
 - Trade-off: authoring hosts need the dry-run HTTP endpoint (auth-gated like the plugin catalog) instead of bundling plugins.
 - Quick Access remains actions-only while still supporting config mutation through import actions.
 - Example (quiz): question text then `-`/`*` answer lines; blank lines ignored; a new question starts when non-bullet text follows answers.

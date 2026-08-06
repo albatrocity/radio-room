@@ -224,6 +224,8 @@ Use `configImport` when an admin should paste bulk content into a config field (
     targetField: "questions",
     modes: ["append", "replace"], // dialog footer buttons; default ["append"]
     sourceParam: "rawText",
+    itemNoun: "questions", // Append/Replace button labels
+    helpText: "Paste blocks separated by a blank line. Question text first, then - answer lines.",
   },
 }
 ```
@@ -235,6 +237,12 @@ Use `configImport` when an admin should paste bulk content into a config field (
 
 `BasePlugin.executeAction` handles `configImport` actions by default when you fall through with `super.executeAction(...)`. Override `parseConfigImportRows(action, rawText)` to return `{ ok: true, rows }` or `{ ok: false, message }`. Chosen mode is sent as `params.mode`.
 
+Optional `configImport` UI metadata:
+
+| Field | Purpose |
+|-------|---------|
+| `helpText` | Instructions above the paste textarea (plugin-owned grammar; do not hardcode in hosts) |
+| `itemNoun` | Plural noun for Append/Replace buttons (default `"items"`) |
 ### Quick Access Panels
 
 Opt run-of-show actions into the room **Quick Access** menu (admin-only FloatingPanels) by listing their action names on the schema (see [ADR 0074](../adrs/0074-quick-access-admin-panels.md)):
