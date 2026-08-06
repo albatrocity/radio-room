@@ -7,7 +7,7 @@ import { usePluginComponentContext } from "../context"
 type Props = BingoCardComponentProps
 
 /**
- * Renders the current user's Playlist Bingo card from `pluginUserState` (ADR 0094).
+ * Renders the current user's Playlist Bingo card from `pluginUserState` (ADR 0097).
  */
 export function BingoCardTemplateComponent(_props: Props) {
   const { pluginName } = usePluginComponentContext()!

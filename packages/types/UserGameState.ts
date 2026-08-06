@@ -7,7 +7,7 @@ import type { ShoppingSessionInstance } from "./ShoppingSession"
  * Payload for the socket-scoped `USER_GAME_STATE` / `GET_MY_GAME_STATE` response.
  *
  * Per-user plugin data lives in {@link pluginUserState}, keyed by plugin name.
- * Plugins contribute via `contributeToUserGameState` (ADR 0094).
+ * Plugins contribute via `contributeToUserGameState` (ADR 0097).
  */
 export interface UserGameStatePayload {
   session: GameSession | null

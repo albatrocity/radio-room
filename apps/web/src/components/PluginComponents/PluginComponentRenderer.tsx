@@ -1,28 +1,18 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react"
-import { useMachine } from "@xstate/react"
-import {
-  DialogRoot,
-  DialogBackdrop,
-  DialogPositioner,
-  DialogContent,
-  DialogHeader,
-  DialogBody,
-  DialogCloseTrigger,
-  CloseButton,
-  VStack,
-  Box,
-  Portal,
-} from "@chakra-ui/react"
+import React, { useMemo, useCallback } from "react"
+import { useSelector } from "@xstate/react"
+import { Box } from "@chakra-ui/react"
 import {
   checkShowWhenConditions,
-  interpolateTemplate,
   interpolatePropsRecursively,
 } from "@repo/utils"
-import { pluginComponentMachine } from "../../machines/pluginComponentMachine"
-import { useCurrentRoom, useCurrentUser, useIsAdmin } from "../../hooks/useActors"
-import { PluginComponentContext } from "./context"
+import { useCurrentUser, useIsAdmin } from "../../hooks/useActors"
+import {
+  ensurePluginComponentActor,
+  getPluginComponentActor,
+} from "../../actors/pluginComponentRegistry"
+import { PluginComponentContext, usePluginModalApi } from "./context"
 import { TEMPLATE_COMPONENT_MAP } from "./templates"
-import type { PluginComponentDefinition, PluginModalComponent } from "../../types/PluginComponent"
+import type { PluginComponentDefinition } from "../../types/PluginComponent"
 
 /**
  * Renders a single plugin component by delegating to its template component.
@@ -34,7 +24,7 @@ function renderPluginComponent(
   store: Record<string, unknown>,
   pluginName?: string,
 ) {
-  // Modals are rendered by the provider, not inline
+  // Modals are rendered by the room provider, not inline
   if (component.type === "modal") {
     return null
   }
@@ -136,7 +126,7 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
 }
 
 // ============================================================================
-// Provider & Modal Manager
+// Lightweight scope (shared actor store + per-row itemContext)
 // ============================================================================
 
 interface PluginComponentProviderProps {
@@ -144,7 +134,6 @@ interface PluginComponentProviderProps {
   pluginName: string
   storeKeys: string[]
   config: Record<string, unknown>
-  components: PluginComponentDefinition[]
   /** Text color for components */
   textColor?: string
   /** Item-level context for per-item areas */
@@ -152,102 +141,40 @@ interface PluginComponentProviderProps {
 }
 
 /**
- * Provides context for plugin components and manages modals.
- * Owns an XState machine instance for managing component state.
+ * Provides plugin component context for an area/row.
+ * Reads store from the room-level shared actor (no per-row machine).
  */
 export function PluginComponentProvider({
   children,
   pluginName,
   storeKeys,
   config,
-  components,
   textColor,
   itemContext,
 }: PluginComponentProviderProps) {
-  const room = useCurrentRoom()
-  const roomId = room?.id
-  const [openModals, setOpenModals] = useState<Set<string>>(new Set())
+  // Ensure actor exists even if room provider hasn't mounted schemas yet
+  ensurePluginComponentActor(pluginName, storeKeys)
+  const actor = getPluginComponentActor(pluginName)!
+  const store = useSelector(actor, (s) => s.context.store)
+  const { openModal: openPluginModal, closeModal: closePluginModal } = usePluginModalApi()
 
-  // Create machine instance for this plugin
-  const [state, send] = useMachine(pluginComponentMachine, {
-    input: {
-      pluginName,
-      storeKeys,
-    },
-  })
-
-  // Update machine context when roomId changes
-  useEffect(() => {
-    if (!roomId) return
-    send({ type: "SET_ROOM_ID", roomId })
-  }, [roomId, send])
-
-  // Memoize callbacks to prevent context value changes
-  const openModal = useCallback((modalId: string) => {
-    setOpenModals((prev) => new Set([...prev, modalId]))
-  }, [])
-
-  const closeModal = useCallback((modalId: string) => {
-    setOpenModals((prev) => {
-      const next = new Set(prev)
-      next.delete(modalId)
-      return next
-    })
-  }, [])
-
-  // Find all modal components
-  const modalComponents = useMemo(
-    () => components.filter((c): c is PluginModalComponent => c.type === "modal"),
-    [components],
+  const openModal = useCallback(
+    (modalId: string) => openPluginModal(pluginName, modalId),
+    [openPluginModal, pluginName],
   )
 
-  // Use store from machine state
-  const store = state.context.store
+  const closeModal = useCallback(
+    (modalId: string) => closePluginModal(pluginName, modalId),
+    [closePluginModal, pluginName],
+  )
 
-  // Memoize context value - callbacks are now stable
   const contextValue = useMemo(
     () => ({ store, config, openModal, closeModal, textColor, itemContext, pluginName }),
     [store, config, openModal, closeModal, textColor, itemContext, pluginName],
   )
 
   return (
-    <PluginComponentContext.Provider value={contextValue}>
-      {children}
-
-      {/* Render modal components */}
-      {modalComponents.map((modal) => {
-        const interpolatedTitle = interpolateTemplate(modal.title, { config })
-
-        return (
-          <DialogRoot
-            key={modal.id}
-            open={openModals.has(modal.id)}
-            onOpenChange={(e) => !e.open && closeModal(modal.id)}
-            size={modal.size || "md"}
-            placement="center"
-          >
-            <Portal>
-              <DialogBackdrop />
-              <DialogPositioner>
-                <DialogContent>
-                  <DialogHeader>{interpolatedTitle}</DialogHeader>
-                  <DialogCloseTrigger asChild position="absolute" top="2" right="2">
-                    <CloseButton size="sm" />
-                  </DialogCloseTrigger>
-                  <DialogBody pb={6}>
-                    <VStack align="stretch" gap={4}>
-                      {modal.children.map((child) => (
-                        <PluginComponentRenderer key={child.id} component={child} />
-                      ))}
-                    </VStack>
-                  </DialogBody>
-                </DialogContent>
-              </DialogPositioner>
-            </Portal>
-          </DialogRoot>
-        )
-      })}
-    </PluginComponentContext.Provider>
+    <PluginComponentContext.Provider value={contextValue}>{children}</PluginComponentContext.Provider>
   )
 }
 

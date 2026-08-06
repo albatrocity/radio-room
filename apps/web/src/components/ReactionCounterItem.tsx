@@ -46,8 +46,8 @@ const ReactionCounterItem = ({
           borderWidth={1}
           variant={variant}
           colorPalette={buttonColorScheme}
-          data-active={isCurrentUserActive}
-          data-dark-bg={darkBg}
+          data-active={isCurrentUserActive || undefined}
+          data-dark-bg={darkBg || undefined}
           {...buttonProps}
         >
           <HStack gap={1}>

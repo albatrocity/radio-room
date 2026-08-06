@@ -301,7 +301,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       const sessionId = readSession(ctx.storage).id
 
       // Admin edits the active question's accepted answers mid-show (new config).
-      ctx.api.getPluginConfig = vi.fn(async () => ({
+      const editedConfig = {
         ...defaultQuizSessionsConfig,
         enabled: true,
         mode: "inclusive" as const,
@@ -310,7 +310,17 @@ describe("QuizSessionsPlugin lifecycle", () => {
           { text: "What song is this?", acceptedAnswers: ["Bizarre Love Triangle"] },
           ...QUESTIONS.slice(1),
         ],
-      }))
+      }
+      ctx.api.getPluginConfig = vi.fn(async () => editedConfig)
+      // Invalidate BasePlugin config cache (production path emits CONFIG_CHANGED)
+      for (const handler of ctx.lifecycleHandlers.get("CONFIG_CHANGED") ?? []) {
+        await handler({
+          roomId: ROOM,
+          pluginName: "quiz-sessions",
+          config: editedConfig,
+          previousConfig: { enabled: true },
+        })
+      }
       ctx.game.addScore.mockClear()
 
       // The old answer no longer matches; the freshly-edited one does.
@@ -468,6 +478,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       const correct = emittedEvent(ctx.api, "CORRECT_ANSWER")
       expect(correct).toMatchObject({ answer: "Ceremony" })
       expect(correct!.activeQuestion.revealedAnswer).toBe("Ceremony")
+      expect(correct!.activeQuestion.revealedByUsername).toBe("Alice")
       expect(readSession(ctx.storage).revealedAnswers["0"]).toBe("Ceremony")
     })
 
@@ -486,6 +497,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       expect(correct).toMatchObject({ userId: "u1", mode: "competitive", answer: "Blue Monday" })
       // Card refresh: PvP reveals the answer to everyone.
       expect(correct!.activeQuestion.revealedAnswer).toBe("Blue Monday")
+      expect(correct!.activeQuestion.revealedByUsername).toBe("Alice")
       expect(correct!.lastCorrectAnswer).toEqual({ userId: "u1", questionId: qid })
 
       const lb = lastEmittedEvent(api, "LEADERBOARD_UPDATED")
@@ -510,6 +522,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       // Runtime keyed by question index (the config bank is not copied).
       expect(session.winnersPerQuestion["0"]).toEqual(["u1"])
       expect(session.revealedAnswers["0"]).toBe("Blue Monday")
+      expect(session.revealedByUsernames["0"]).toBe("Alice")
     })
 
     it("does not play sound when soundEffectOnCorrect is disabled", async () => {
@@ -1059,10 +1072,19 @@ describe("QuizSessionsPlugin lifecycle", () => {
     await plugin.register(context)
     await plugin.executeAction("startSession", ADMIN)
     // Disable after starting.
-    context.api.getPluginConfig = vi.fn(async () => ({
+    const disabledConfig = {
       ...defaultQuizSessionsConfig,
       enabled: false,
-    }))
+    }
+    context.api.getPluginConfig = vi.fn(async () => disabledConfig)
+    for (const handler of lifecycleHandlers.get("CONFIG_CHANGED") ?? []) {
+      await handler({
+        roomId: ROOM,
+        pluginName: "quiz-sessions",
+        config: disabledConfig,
+        previousConfig: { enabled: true },
+      })
+    }
     game.addScore.mockClear()
 
     await emitMessage(lifecycleHandlers, "Blue Monday", { userId: "u1" })

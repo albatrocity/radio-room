@@ -21,7 +21,7 @@ function formatBuybackPercent(rate: number): string {
 const COINS_ICON = getIcon("Coins")
 
 /**
- * Renders the current user's shop instance from `pluginUserState` (ADR 0094).
+ * Renders the current user's shop instance from `pluginUserState` (ADR 0097).
  * (Props are intentionally empty — data comes from `UserGameStateContext`.)
  */
 export function CurrentShopOffersTemplateComponent(_props: Props) {

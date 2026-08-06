@@ -18,6 +18,62 @@ function privateKey(roomId: string, pluginName: string): string {
   return `room:${roomId}:plugins:${pluginName}:private`
 }
 
+/** Index of plugin names with stored config for a room (avoids KEYS on INIT). */
+function pluginsIndexKey(roomId: string): string {
+  return `room:${roomId}:plugins:index`
+}
+
+/**
+ * Sentinel member so an empty-but-migrated index still `EXISTS` and we do not
+ * re-run KEYS on every INIT for rooms with no plugin configs.
+ */
+const PLUGIN_INDEX_SENTINEL = "__index_ready__"
+
+async function rememberPluginInIndex(
+  context: AppContext,
+  roomId: string,
+  pluginName: string,
+): Promise<void> {
+  const key = pluginsIndexKey(roomId)
+  await context.redis.pubClient.sAdd(key, PLUGIN_INDEX_SENTINEL)
+  await context.redis.pubClient.sAdd(key, pluginName)
+}
+
+async function forgetPluginInIndex(
+  context: AppContext,
+  roomId: string,
+  pluginName: string,
+): Promise<void> {
+  await context.redis.pubClient.sRem(pluginsIndexKey(roomId), pluginName)
+}
+
+async function ensurePluginIndexMigrated(context: AppContext, roomId: string): Promise<void> {
+  const indexKey = pluginsIndexKey(roomId)
+  const exists = await context.redis.pubClient.exists(indexKey)
+  if (exists) return
+
+  // One-time migration: discover via KEYS (public + private), then seed index + sentinel.
+  const keys = [
+    ...(await context.redis.pubClient.keys(`room:${roomId}:plugins:*:config`)),
+    ...(await context.redis.pubClient.keys(`room:${roomId}:plugins:*:private`)),
+  ]
+  const names = new Set<string>()
+  for (const key of keys) {
+    const match = key.match(/room:.*:plugins:(.*):(config|private)$/)
+    if (match?.[1] && match[1] !== PLUGIN_INDEX_SENTINEL) names.add(match[1])
+  }
+  await context.redis.pubClient.sAdd(indexKey, PLUGIN_INDEX_SENTINEL)
+  for (const name of names) {
+    await context.redis.pubClient.sAdd(indexKey, name)
+  }
+}
+
+async function listPluginNames(context: AppContext, roomId: string): Promise<string[]> {
+  await ensurePluginIndexMigrated(context, roomId)
+  const indexed = await context.redis.pubClient.sMembers(pluginsIndexKey(roomId))
+  return indexed.filter((name) => name !== PLUGIN_INDEX_SENTINEL)
+}
+
 /**
  * Resolve the set of PRIVATE field names for a plugin from its config schema.
  * Returns an empty set when no schema is available (fail-open only in the sense
@@ -126,6 +182,7 @@ export async function setPluginConfig(params: {
     if (config === null || config === undefined) {
       await context.redis.pubClient.del(cfgKey)
       await context.redis.pubClient.del(privKey)
+      await forgetPluginInIndex(context, roomId, pluginName)
       return
     }
 
@@ -134,6 +191,7 @@ export async function setPluginConfig(params: {
     if (privateFields.size === 0) {
       // No private fields declared: behaves exactly as before.
       await context.redis.pubClient.set(cfgKey, JSON.stringify(config))
+      await rememberPluginInIndex(context, roomId, pluginName)
       return
     }
 
@@ -148,6 +206,7 @@ export async function setPluginConfig(params: {
     }
 
     await context.redis.pubClient.set(cfgKey, JSON.stringify(publicConfig))
+    await rememberPluginInIndex(context, roomId, pluginName)
 
     // Merge incoming private fields over existing ones (preserve omitted secrets).
     const existingPrivate = (await getPluginPrivateConfig({ context, roomId, pluginName })) ?? {}
@@ -182,6 +241,7 @@ export async function setPluginPrivateConfig(params: {
     const merged = { ...existing, ...config }
     if (Object.keys(merged).length === 0) return
     await context.redis.pubClient.set(privateKey(roomId, pluginName), JSON.stringify(merged))
+    await rememberPluginInIndex(context, roomId, pluginName)
   } catch (error) {
     console.error(
       `[PluginConfig] Error setting private config for ${pluginName} in room ${roomId}:`,
@@ -204,6 +264,7 @@ export async function deleteAllPluginConfigs(params: {
     const keys = [
       ...(await context.redis.pubClient.keys(`room:${roomId}:plugins:*:config`)),
       ...(await context.redis.pubClient.keys(`room:${roomId}:plugins:*:private`)),
+      pluginsIndexKey(roomId),
     ]
     if (keys.length > 0) {
       await context.redis.pubClient.del(keys)
@@ -223,20 +284,22 @@ export async function getAllPluginConfigs(params: {
   roomId: string
 }): Promise<Record<string, any>> {
   const { context, roomId } = params
-  const pattern = `room:${roomId}:plugins:*:config`
 
   try {
-    const keys = await context.redis.pubClient.keys(pattern)
+    const pluginNames = await listPluginNames(context, roomId)
+    if (pluginNames.length === 0) return {}
+
+    const keys = pluginNames.map((name) => configKey(roomId, name))
+    const values = await context.redis.pubClient.mGet(keys)
     const configs: Record<string, any> = {}
 
-    for (const key of keys) {
-      const match = key.match(/room:.*:plugins:(.*):config/)
-      if (match) {
-        const pluginName = match[1]
-        const configString = await context.redis.pubClient.get(key)
-        if (configString) {
-          configs[pluginName] = JSON.parse(configString)
-        }
+    for (let i = 0; i < pluginNames.length; i++) {
+      const raw = values[i]
+      if (!raw) continue
+      try {
+        configs[pluginNames[i]!] = JSON.parse(raw)
+      } catch (e) {
+        console.error(`[PluginConfig] Error parsing config for ${pluginNames[i]}:`, e)
       }
     }
 
@@ -262,19 +325,8 @@ export async function getAllMergedPluginConfigs(params: {
   const { context, roomId } = params
 
   try {
-    const configKeys = await context.redis.pubClient.keys(`room:${roomId}:plugins:*:config`)
-    const privateKeys = await context.redis.pubClient.keys(`room:${roomId}:plugins:*:private`)
-
-    const pluginNames = new Set<string>()
-    for (const key of configKeys) {
-      const match = key.match(/room:.*:plugins:(.*):config/)
-      if (match) pluginNames.add(match[1])
-    }
-    for (const key of privateKeys) {
-      const match = key.match(/room:.*:plugins:(.*):private/)
-      if (match) pluginNames.add(match[1])
-    }
-
+    // Index includes public + private plugin names (migration seeds both).
+    const pluginNames = await listPluginNames(context, roomId)
     const configs: Record<string, any> = {}
     for (const pluginName of pluginNames) {
       const merged = await getMergedPluginConfig({ context, roomId, pluginName })

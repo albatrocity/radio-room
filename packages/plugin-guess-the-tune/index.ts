@@ -19,7 +19,7 @@ import type {
 } from "@repo/types"
 import { queueItemStableKey } from "@repo/types"
 import { isInclusiveMode, type ParticipationMode } from "@repo/game-logic"
-import { BasePlugin } from "@repo/plugin-base"
+import { BasePlugin, fetchTopZsetEntries, HOT_LEADERBOARD_TOP_N } from "@repo/plugin-base"
 import { interpolateTemplate } from "@repo/utils"
 import packageJson from "./package.json"
 import {
@@ -127,20 +127,31 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
   }
 
   async getComponentState(): Promise<GuessTheTuneComponentState> {
-    if (!this.context) return { usersLeaderboard: [] }
+    return { usersLeaderboard: await this.buildUsersLeaderboard() }
+  }
 
-    const raw = await this.context.storage.zrangeWithScores(USER_SCORES_KEY, 0, -1)
-    const sorted = [...raw].sort((a, b) => b.score - a.score)
+  /**
+   * @param topN - When set, only the top N scores (hot award path). Omit for full board.
+   */
+  private async buildUsersLeaderboard(
+    topN?: number,
+  ): Promise<{ score: number; value: string; username: string }[]> {
+    if (!this.context) return []
+
+    const sorted =
+      topN != null && topN > 0
+        ? await fetchTopZsetEntries(this.context.storage, USER_SCORES_KEY, topN)
+        : [...(await this.context.storage.zrangeWithScores(USER_SCORES_KEY, 0, -1))].sort(
+            (a, b) => b.score - a.score,
+          )
     const userIds = sorted.map((e) => e.value)
     const users = await this.context.api.getUsersByIds(userIds)
     const userMap = new Map(users.map((u) => [u.userId, u.username]))
 
-    const usersLeaderboard = sorted.map((entry) => ({
+    return sorted.map((entry) => ({
       ...entry,
       username: userMap.get(entry.value) ?? entry.value,
     }))
-
-    return { usersLeaderboard }
   }
 
   async register(context: PluginContext): Promise<void> {
@@ -378,7 +389,8 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
 
     await this.context.api.sendSystemMessage(this.context.roomId, body)
 
-    const state = await this.getComponentState()
+    // Top-N only on the award hot path; full board hydrates via getComponentState
+    const usersLeaderboard = await this.buildUsersLeaderboard(HOT_LEADERBOARD_TOP_N)
 
     await this.emit<GuessTheTuneEvents["PROPERTY_REVEALED"]>("PROPERTY_REVEALED", {
       property: prop,
@@ -388,7 +400,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
       multiplier: mult,
       mode,
       revealedBy,
-      usersLeaderboard: state.usersLeaderboard,
+      usersLeaderboard,
     })
 
     if (config.soundEffectOnMatch) {

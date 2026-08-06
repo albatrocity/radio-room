@@ -73,6 +73,7 @@ export function buildSessionConfig(
  * Key namespace overview (see ADR 0042):
  *
  *   room:{roomId}:game:active                        -> sessionId of active session
+ *   game:active_rooms                                -> SET of roomIds with an active session
  *   room:{roomId}:game:session:{sessionId}           -> JSON GameSession
  *   room:{roomId}:game:session:{sessionId}:user:{userId}:state -> JSON UserGameState
  *   room:{roomId}:game:session:{sessionId}:user:{userId}:modifiers -> JSON GameStateModifier[]
@@ -80,6 +81,9 @@ export function buildSessionConfig(
  *   room:{roomId}:game:session:{sessionId}:participants -> SET of userIds
  *   room:{roomId}:game:attribute-defs                 -> HASH "<plugin>:<name>" -> JSON
  */
+/** Global index of rooms with an active game session (avoids KEYS in the 1s ticker). */
+const ACTIVE_GAME_ROOMS_KEY = "game:active_rooms"
+
 function activeSessionKey(roomId: string): string {
   return `room:${roomId}:game:active`
 }
@@ -197,6 +201,7 @@ export class GameSessionService {
     const tx = this.context.redis.pubClient.multi()
     tx.set(sessionKey(roomId, session.id), JSON.stringify(session))
     tx.set(activeSessionKey(roomId), session.id)
+    tx.sAdd(ACTIVE_GAME_ROOMS_KEY, roomId)
     await tx.exec()
 
     if (this.context.systemEvents) {
@@ -227,6 +232,7 @@ export class GameSessionService {
     const tx = this.context.redis.pubClient.multi()
     tx.set(sessionKey(roomId, session.id), JSON.stringify(ended))
     tx.del(activeSessionKey(roomId))
+    tx.sRem(ACTIVE_GAME_ROOMS_KEY, roomId)
     await tx.exec()
 
     if (this.context.systemEvents) {
@@ -626,6 +632,7 @@ export class GameSessionService {
    */
   async cleanupRoom(roomId: string): Promise<void> {
     try {
+      await this.context.redis.pubClient.sRem(ACTIVE_GAME_ROOMS_KEY, roomId)
       const pattern = `room:${roomId}:game:*`
       const keys = await this.context.redis.pubClient.keys(pattern)
       if (keys.length > 0) {
@@ -790,33 +797,36 @@ export class GameSessionService {
   // ==========================================================================
 
   /**
-   * Scan all rooms with active sessions, remove expired modifiers, and emit
-   * `GAME_MODIFIER_REMOVED` for each. Errors per-room are logged and skipped
-   * so one bad room can't stall the whole tick.
+   * Scan rooms with active sessions (via `game:active_rooms` SET), remove expired
+   * modifiers, and emit `GAME_MODIFIER_REMOVED` for each. Errors per-room are
+   * logged and skipped so one bad room can't stall the whole tick.
    */
   private async tick(): Promise<void> {
-    const activeKeys = await this.context.redis.pubClient.keys("room:*:game:active")
-    if (activeKeys.length === 0) return
+    const roomIds = await this.context.redis.pubClient.sMembers(ACTIVE_GAME_ROOMS_KEY)
+    if (roomIds.length === 0) return
 
     const now = Date.now()
 
-    for (const activeKey of activeKeys) {
-      // activeKey = "room:{roomId}:game:active"
-      const roomId = activeKey.split(":")[1]
-      if (!roomId) continue
-
+    for (const roomId of roomIds) {
       try {
         const session = await this.getActiveSession(roomId)
-        if (!session) continue
+        if (!session) {
+          // Index drift: room listed but no active pointer — drop from SET.
+          await this.context.redis.pubClient.sRem(ACTIVE_GAME_ROOMS_KEY, roomId)
+          continue
+        }
 
         const userIds = await this.context.redis.pubClient.sMembers(
           participantsKey(roomId, session.id),
         )
+        if (userIds.length === 0) continue
 
-        for (const userId of userIds) {
-          const stateRaw = await this.context.redis.pubClient.get(
-            userStateKey(roomId, session.id, userId),
-          )
+        const stateKeys = userIds.map((userId) => userStateKey(roomId, session.id, userId))
+        const stateRaws = await this.context.redis.pubClient.mGet(stateKeys)
+
+        for (let i = 0; i < userIds.length; i++) {
+          const userId = userIds[i]!
+          const stateRaw = stateRaws[i]
           if (!stateRaw) continue
           let state: UserGameState
           try {

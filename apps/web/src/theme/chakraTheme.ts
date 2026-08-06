@@ -105,7 +105,8 @@ const semanticColorTokens = generateSemanticColorTokens(themes)
 
 const buttonRecipe = defineRecipe({
   base: {
-    transition: "background-color 800ms ease-in-out, color 800ms ease-in-out",
+    transition:
+      "background-color var(--theme-color-transition-duration) var(--theme-color-transition-ease), color var(--theme-color-transition-duration) var(--theme-color-transition-ease)",
   },
   variants: {
     size: {
@@ -147,21 +148,35 @@ const buttonRecipe = defineRecipe({
         },
       },
       reactionBright: {
+        // Chip sits on chat/app bg — use fg (not solid-contrast) so count text stays readable.
         borderRadius: 6,
-        bg: "colorPalette.200/40",
-        color: "colorPalette.contrast",
+        bg: "colorPalette.muted",
+        color: "colorPalette.fg",
         padding: 0,
         height: "32px",
         minWidth: "32px",
-        borderColor: "colorPalette.solid/20",
+        borderColor: "colorPalette.emphasized",
         borderWidth: 1,
         _hover: {
-          bg: "colorPalette.200/60",
+          bg: "colorPalette.subtle",
+        },
+        "&[data-active]": {
+          bg: "colorPalette.solid",
+          color: "colorPalette.contrast",
+          borderColor: "colorPalette.solid",
         },
         _dark: {
-          bg: "colorPalette.800/30",
-          color: "colorPalette.contrast",
-          borderColor: "colorPalette.subtle/30",
+          bg: "colorPalette.muted",
+          color: "colorPalette.fg",
+          borderColor: "colorPalette.emphasized",
+          _hover: {
+            bg: "colorPalette.subtle",
+          },
+          "&[data-active]": {
+            bg: "colorPalette.solid",
+            color: "colorPalette.contrast",
+            borderColor: "colorPalette.solid",
+          },
         },
       },
     },
@@ -222,17 +237,17 @@ const config = defineConfig({
       themeTransition: {
         value: {
           transitionProperty: "background, background-color, color",
-          transitionDuration: "1s",
-          transitionTimingFunction: "ease-out",
+          transitionDuration: "var(--theme-color-transition-duration)",
+          transitionTimingFunction: "var(--theme-color-transition-ease)",
           "& *": {
             transitionProperty: "background, background-color, color",
-            transitionDuration: "1s",
-            transitionTimingFunction: "ease-out",
+            transitionDuration: "var(--theme-color-transition-duration)",
+            transitionTimingFunction: "var(--theme-color-transition-ease)",
           },
           "& p": {
             transitionProperty: "color",
-            transitionDuration: "1s",
-            transitionTimingFunction: "ease-out",
+            transitionDuration: "var(--theme-color-transition-duration)",
+            transitionTimingFunction: "var(--theme-color-transition-ease)",
           },
         },
       },

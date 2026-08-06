@@ -380,7 +380,7 @@ function MyTabContent() {
 
 The context is `null` outside the game state modal, so components can render meaningful fallbacks when used elsewhere.
 
-Private per-user plugin data arrives in **`pluginUserState`** (keyed by plugin name). Read it with **`gs.getPluginState(pluginName)`** — see [Per-User State](per-user-state.md) and [ADR 0094](../adrs/0094-plugin-contribute-to-user-game-state.md).
+Private per-user plugin data arrives in **`pluginUserState`** (keyed by plugin name). Read it with **`gs.getPluginState(pluginName)`** — see [Per-User State](per-user-state.md) and [ADR 0097](../adrs/0097-plugin-contribute-to-user-game-state.md).
 
 For **Item Shops** sell previews, `getPluginState("item-shops")` yields `{ currentShopInstance }`. Persisted fields **`listedShortIds`**, optional **`listedPriceOverrides`**, and **`listedBuybackRate` / `unlistedBuybackRate`** match server sell-back math so the web client can quote refunds (e.g. `quoteItemShopsSellCoins`) without bundling the full shop catalog.
 

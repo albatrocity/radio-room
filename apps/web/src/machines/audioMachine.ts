@@ -83,7 +83,19 @@ export const audioMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `audio-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as AudioEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as AudioEvent),
+        eventTypes: [
+          "INIT",
+          "OFFLINE",
+          "ONLINE",
+          "TRACK_CHANGED",
+          "MEDIA_SOURCE_STATUS_CHANGED",
+          "STREAM_HEALTH_CHANGED",
+          "ROOM_SETTINGS_UPDATED",
+          "PLAYLIST_TRACK_UPDATED",
+        ],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

@@ -10,7 +10,7 @@
  * `GET_MY_GAME_STATE` from ACTIVATE can run before LOGIN attaches `roomId`.
  *
  * Plugins that implement `contributeToUserGameState` trigger refetch via the
- * room-wide `USER_GAME_STATE_INVALIDATED` event (ADR 0094).
+ * room-wide `USER_GAME_STATE_INVALIDATED` event (ADR 0097).
  */
 
 import type { UserGameStatePayload } from "@repo/types"
@@ -92,7 +92,24 @@ export const userGameStateMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `userGameState-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as UserGameStateEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as UserGameStateEvent),
+        eventTypes: [
+          "INIT",
+          "USER_GAME_STATE",
+          "USER_GAME_STATE_INVALIDATED",
+          "ERROR_OCCURRED",
+          "GAME_SESSION_STARTED",
+          "GAME_SESSION_ENDED",
+          "GAME_STATE_CHANGED",
+          "GAME_MODIFIER_APPLIED",
+          "GAME_MODIFIER_REMOVED",
+          "INVENTORY_ITEM_ACQUIRED",
+          "INVENTORY_ITEM_REMOVED",
+          "INVENTORY_ITEM_USED",
+          "INVENTORY_ITEM_TRANSFERRED",
+        ],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

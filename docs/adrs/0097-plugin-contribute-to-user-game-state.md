@@ -1,11 +1,11 @@
-# 0094. Plugin contributeToUserGameState for private per-user payloads
+# 0097. Plugin contributeToUserGameState for private per-user payloads
 
 **Date:** 2026-08-06
 **Status:** Accepted
 
 ## Context
 
-Item Shops ([ADR 0049](0049-item-shops-and-shopping-sessions.md)) and Playlist Bingo ([ADR 0093](0093-playlist-bingo-per-user-cards.md)) both need private per-user data on the socket-scoped `GET_MY_GAME_STATE` / `USER_GAME_STATE` payload. v1 hard-coded plugin storage reads in `roomsController` and listed plugin event names in `userGameStateMachine` for refetch. That coupled core to plugin names, storage key layouts, and enrichment logic.
+Item Shops ([ADR 0049](0049-item-shops-and-shopping-sessions.md)) and Playlist Bingo ([ADR 0096](0096-playlist-bingo-per-user-cards.md)) both need private per-user data on the socket-scoped `GET_MY_GAME_STATE` / `USER_GAME_STATE` payload. v1 hard-coded plugin storage reads in `roomsController` and listed plugin event names in `userGameStateMachine` for refetch. That coupled core to plugin names, storage key layouts, and enrichment logic.
 
 The room-wide plugin component store is unsuitable for secrets — it fans out to every client.
 
@@ -34,5 +34,5 @@ The room-wide plugin component store is unsuitable for secrets — it fans out t
 ## See also
 
 - [ADR 0049](0049-item-shops-and-shopping-sessions.md) — item shops (superseded delivery path)
-- [ADR 0093](0093-playlist-bingo-per-user-cards.md) — playlist bingo (superseded delivery path)
+- [ADR 0096](0096-playlist-bingo-per-user-cards.md) — playlist bingo (superseded delivery path)
 - [Per-User State guide](../plugins/per-user-state.md)

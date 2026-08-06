@@ -12,9 +12,9 @@ import {
   useIsAuthenticated,
   useAuthInitialized,
   useIsAdmin,
-  useUsers,
+  useUsersForMentions,
   useIsAnyModalOpen,
-  useSettings,
+  useAllowChatImages,
   useCurrentRoom,
 } from "../hooks/useActors"
 import { useMentionTrigger, type MentionUser } from "../hooks/useMentionTrigger"
@@ -53,15 +53,15 @@ interface Props {
 
 const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer }: Props) => {
   const currentUser = useCurrentUser()
-  const users = useUsers()
+  const users = useUsersForMentions()
   const isAuthenticated = useIsAuthenticated()
   const isAuthInitialized = useAuthInitialized()
   const modalActive = useIsAnyModalOpen()
-  const settings = useSettings()
+  const allowChatImages = useAllowChatImages()
   const room = useCurrentRoom()
   const isAdmin = useIsAdmin()
   // Room fetch (HTTP) often hydrates before socket ROOM_SETTINGS; use both so guests see the control after refresh.
-  const guestChatImagesAllowed = settings.allowChatImages === true || room?.allowChatImages === true
+  const guestChatImagesAllowed = allowChatImages || room?.allowChatImages === true
   const canUseChatImages = isAdmin || guestChatImagesAllowed
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)

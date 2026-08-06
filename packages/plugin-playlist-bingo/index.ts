@@ -393,7 +393,7 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
   }
 
   /**
-   * Private per-user bingo card for `USER_GAME_STATE` (ADR 0094).
+   * Private per-user bingo card for `USER_GAME_STATE` (ADR 0097).
    */
   async contributeToUserGameState(
     userId: string,

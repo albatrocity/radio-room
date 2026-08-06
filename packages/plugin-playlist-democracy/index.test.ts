@@ -122,6 +122,21 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
   } as any
 }
 
+async function emitConfigChanged(
+  mockContext: { _lifecycleHandlers: Map<string, Function[]> },
+  data: {
+    roomId: string
+    pluginName: string
+    config: Record<string, unknown>
+    previousConfig: Record<string, unknown>
+  },
+): Promise<void> {
+  const handlers = mockContext._lifecycleHandlers.get("CONFIG_CHANGED") ?? []
+  for (const handler of handlers) {
+    await handler(data)
+  }
+}
+
 describe("PlaylistDemocracyPlugin", () => {
   let plugin: PlaylistDemocracyPlugin
   let mockContext: PluginContext
@@ -173,10 +188,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should send system message when plugin is enabled", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "playlist-democracy",
         config: mockConfig,
@@ -191,10 +203,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should send system message when plugin is disabled", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "playlist-democracy",
         config: { ...mockConfig, enabled: false },
@@ -209,10 +218,7 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should include threshold details in enable message", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "playlist-democracy",
         config: mockConfig,
@@ -237,16 +243,13 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should send system message when rules change while enabled", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
       const updatedConfig = {
         ...mockConfig,
         thresholdValue: 75, // Changed from 50% to 75%
         timeLimit: 90000, // Changed from 60 to 90 seconds
       }
 
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "playlist-democracy",
         config: updatedConfig,
@@ -271,13 +274,10 @@ describe("PlaylistDemocracyPlugin", () => {
     })
 
     test("should not send message when rules unchanged", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
       vi.mocked(mockContext.api.sendSystemMessage).mockClear()
 
       // Same config, no changes
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "playlist-democracy",
         config: mockConfig,

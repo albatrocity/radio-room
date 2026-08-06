@@ -290,6 +290,6 @@ Frontends must implement these template names alongside existing ones (`leaderbo
 
 ### Private per-user plugin data
 
-For secrets that belong in the game-state modal (shop visits, bingo cards), implement `contributeToUserGameState` rather than putting them in the room-wide component store. See [Per-User State](per-user-state.md) and [ADR 0094](../adrs/0094-plugin-contribute-to-user-game-state.md).
+For secrets that belong in the game-state modal (shop visits, bingo cards), implement `contributeToUserGameState` rather than putting them in the room-wide component store. See [Per-User State](per-user-state.md) and [ADR 0097](../adrs/0097-plugin-contribute-to-user-game-state.md).
 
 ---

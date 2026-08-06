@@ -126,7 +126,16 @@ export const roomFetchMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `room-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as RoomFetchEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as RoomFetchEvent),
+        eventTypes: [
+          "ROOM_DELETED",
+          "SESSION_ENDED",
+          "SHOW_SCHEDULE_UPDATED",
+          "ROOM_SETTINGS_UPDATED",
+          "ROOM_DATA",
+        ],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

@@ -100,7 +100,10 @@ export const settingsMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `settings-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as SettingsEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as SettingsEvent),
+        eventTypes: ["INIT", "ROOM_SETTINGS", "ROOM_SETTINGS_UPDATED"],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

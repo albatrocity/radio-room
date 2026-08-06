@@ -30,13 +30,13 @@ We still want to **retain** `ShopHelper` and `ShopPlugin` for plugins that fit t
 
 5. **Price resolution**: each item has a base `coinValue` in the item catalog. Each shop’s `availableItems` entry may set an optional `coinValue` **override** for that shop. **Unlisted** sell-backs (item not in the shop’s `availableItems`) use the **catalog** `coinValue` only as the base.
 
-6. **User game state payload**: ~~`GET_MY_GAME_STATE` includes `currentShopInstance` (parsed from item-shops storage)~~ — **superseded by [ADR 0094](0094-plugin-contribute-to-user-game-state.md):** item-shops implements `contributeToUserGameState` and returns `{ currentShopInstance }` under `pluginUserState["item-shops"]`.
+6. **User game state payload**: ~~`GET_MY_GAME_STATE` includes `currentShopInstance` (parsed from item-shops storage)~~ — **superseded by [ADR 0097](0097-plugin-contribute-to-user-game-state.md):** item-shops implements `contributeToUserGameState` and returns `{ currentShopInstance }` under `pluginUserState["item-shops"]`.
 
 7. **Admin actions** in the plugin config modal: **Start new shopping session** and **End all shopping sessions** via `EXECUTE_PLUGIN_ACTION` (same pattern as existing admin restock).
 
 8. **Mid-session join**: on `USER_JOINED`, if `assignShopOnJoin` is true and a session is active, assign a new instance for that user (configurable; default `true`).
 
-9. **Plugin events** (namespaced `PLUGIN:item-shops:…`) ~~notify clients to refetch `GET_MY_GAME_STATE`~~ — **superseded by [ADR 0094](0094-plugin-contribute-to-user-game-state.md):** contributors auto-emit `USER_GAME_STATE_INVALIDATED`.
+9. **Plugin events** (namespaced `PLUGIN:item-shops:…`) ~~notify clients to refetch `GET_MY_GAME_STATE`~~ — **superseded by [ADR 0097](0097-plugin-contribute-to-user-game-state.md):** contributors auto-emit `USER_GAME_STATE_INVALIDATED`.
 10. **Document relationship to ADR 0043 / 0047**: game state tabs and `isSellingItems` remain in force. The **stock / purchase mechanics** of those ADRs apply to `ShopHelper` / `ShopPlugin` only; this ADR adds a second, shopping-session pattern that does not supersede 0043/0047 for other plugins.
 
 ## Consequences

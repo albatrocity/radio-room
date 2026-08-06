@@ -638,7 +638,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   }
 
   /**
-   * Private per-user shop visit for `USER_GAME_STATE` (ADR 0094).
+   * Private per-user shop visit for `USER_GAME_STATE` (ADR 0097).
    */
   async contributeToUserGameState(
     userId: string,

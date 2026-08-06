@@ -41,7 +41,10 @@ export const gameSessionMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `gameSession-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as GameSessionEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as GameSessionEvent),
+        eventTypes: ["INIT", "GAME_SESSION_STARTED", "GAME_SESSION_ENDED", "USER_GAME_STATE"],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

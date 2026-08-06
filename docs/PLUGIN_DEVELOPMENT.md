@@ -15,6 +15,8 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 | [Event System](plugins/events.md) | System events, game/inventory events, handler examples |
 | [Storage API](plugins/storage.md) | Redis namespacing, batch ops, sorted sets |
 
+**Config caching:** `BasePlugin.getConfig()` keeps the merged room config in memory and invalidates it on `CONFIG_CHANGED` for that plugin. Prefer `getConfig()` on chat/track hot paths instead of a subclass-local cache or calling Redis on every event.
+
 ### Admin & UI
 
 | Guide | Topics |
@@ -50,10 +52,10 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 ## Related Documentation
 
 - [Item Shops Development](SHOP_ITEM_DEVELOPMENT.md) — authoring items and shops in `@repo/plugin-item-shops`
-- Playlist Bingo — `@repo/plugin-playlist-bingo` (private cards via `contributeToUserGameState`; [ADR 0093](adrs/0093-playlist-bingo-per-user-cards.md), [ADR 0094](adrs/0094-plugin-contribute-to-user-game-state.md))
+- Playlist Bingo — `@repo/plugin-playlist-bingo` (private cards via `contributeToUserGameState`; [ADR 0096](adrs/0096-playlist-bingo-per-user-cards.md), [ADR 0097](adrs/0097-plugin-contribute-to-user-game-state.md))
 - [ADR 0006: Plugin system](adrs/0006-plugin-system-for-room-features.md)
 - [ADR 0042: Game sessions and inventory](adrs/0042-game-sessions-and-inventory.md)
-- [ADR 0094: Plugin contributeToUserGameState](adrs/0094-plugin-contribute-to-user-game-state.md)
+- [ADR 0097: Plugin contributeToUserGameState](adrs/0097-plugin-contribute-to-user-game-state.md)
 - [ADR 0057: User personas](adrs/0057-user-personas-system.md)
 - [ADR 0088: Metadata source access grants](adrs/0088-metadata-source-access-grants.md)
 - [ADR 0091: Round Robin DJ plugin](adrs/0091-round-robin-dj-plugin.md) — turn eligibility, Robin persona, `DEPUTY_DJ_CHANGED`

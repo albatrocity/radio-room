@@ -389,24 +389,36 @@ export async function getQueue({ roomId, context }: { roomId: string; context: A
     await ensureQueueMigrated({ roomId, context })
 
     const trackIds = await context.redis.pubClient.zRange(queueOrderKey(roomId), 0, -1)
+    if (trackIds.length === 0) return []
 
-    const queueItems: QueueItem[] | null[] = await Promise.all(
-      trackIds.map(async (trackId) => {
-        try {
-          const value = await context.redis.pubClient.get(`room:${roomId}:queued_track:${trackId}`)
-          if (!value) {
-            await context.redis.pubClient.zRem(queueOrderKey(roomId), trackId)
-            return null
-          }
-          return JSON.parse(value) as QueueItem
-        } catch (e) {
-          console.error(`Error fetching queued track ${trackId}:`, e)
-          return null
-        }
-      }),
+    const values = await context.redis.pubClient.mGet(
+      trackIds.map((trackId) => `room:${roomId}:queued_track:${trackId}`),
     )
 
-    return queueItems.filter((item): item is QueueItem => item !== null)
+    const queueItems: QueueItem[] = []
+    const missingIds: string[] = []
+    for (let i = 0; i < trackIds.length; i++) {
+      const trackId = trackIds[i]!
+      const value = values[i]
+      if (!value) {
+        missingIds.push(trackId)
+        continue
+      }
+      try {
+        queueItems.push(JSON.parse(value) as QueueItem)
+      } catch (e) {
+        console.error(`Error parsing queued track ${trackId}:`, e)
+        missingIds.push(trackId)
+      }
+    }
+
+    if (missingIds.length > 0) {
+      await Promise.all(
+        missingIds.map((trackId) => context.redis.pubClient.zRem(queueOrderKey(roomId), trackId)),
+      )
+    }
+
+    return queueItems
   } catch (e) {
     console.log("ERROR FROM data/djs/getQueue", roomId)
     console.error(e)

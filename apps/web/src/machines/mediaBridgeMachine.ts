@@ -61,7 +61,14 @@ export const mediaBridgeMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `mediaBridge-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as MediaBridgeEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as MediaBridgeEvent),
+        eventTypes: [
+          "MEDIA_BRIDGE_STATUS_CHANGED",
+          "LINK_MEDIA_BRIDGE_SUCCESS",
+          "LINK_MEDIA_BRIDGE_FAILURE",
+        ],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

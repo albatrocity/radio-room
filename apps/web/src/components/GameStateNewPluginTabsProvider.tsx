@@ -75,7 +75,7 @@ export function GameStateNewPluginTabsProvider({ children }: { children: ReactNo
     [send],
   )
 
-  // Generic plugin tab attention (ADR 0094) — plugins call
+  // Generic plugin tab attention (ADR 0097) — plugins call
   // `requestGameStateTabAttention`; no per-plugin event wiring here.
   const userIdRef = useRef(currentUserId)
   userIdRef.current = currentUserId

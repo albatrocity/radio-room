@@ -23,6 +23,27 @@ const SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const
 // Color categories
 const CATEGORIES = ["primary", "secondary", "action"] as const
 
+/** How long `html[data-theme-morphing]` stays set after applyPalette (matches 1s CSS morph). */
+const THEME_MORPH_MS = 1000
+
+let themeMorphTimeout: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Briefly lengthen theme color transitions while a new dynamic palette settles.
+ * Rearms if another apply lands mid-window.
+ */
+function beginThemeMorph(durationMs = THEME_MORPH_MS): void {
+  const root = document.documentElement
+  root.setAttribute("data-theme-morphing", "")
+  if (themeMorphTimeout != null) {
+    clearTimeout(themeMorphTimeout)
+  }
+  themeMorphTimeout = setTimeout(() => {
+    root.removeAttribute("data-theme-morphing")
+    themeMorphTimeout = null
+  }, durationMs)
+}
+
 // ============================================================================
 // Shared Artwork URL Store
 // ============================================================================
@@ -90,6 +111,7 @@ export function useDynamicPalette(): DynamicPalette | null {
  * Sets variables like: --chakra-colors-dynamic-primary-500
  */
 function applyPalette(palette: DynamicPalette): void {
+  beginThemeMorph()
   const root = document.documentElement
 
   for (const category of CATEGORIES) {

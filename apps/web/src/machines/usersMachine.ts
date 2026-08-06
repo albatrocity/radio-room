@@ -21,6 +21,7 @@ type UsersEvent =
   | { type: "DEACTIVATE" }
   | { type: "USER_JOINED"; data: { users: User[] } }
   | { type: "USER_LEFT"; data: { users: User[] } }
+  | { type: "USER_STATUS_CHANGED"; data: { user: User; oldStatus?: string } }
   | { type: "KICK_USER"; data: { users: User[] } }
   | { type: "PERSONA_ASSIGNED"; data: { users: User[] } }
   | { type: "PERSONA_REMOVED"; data: { users: User[] } }
@@ -31,6 +32,14 @@ type UsersEvent =
   | { type: "SET_USERS"; data: { users: User[] } }
   | { type: "SET_DATA"; data: { users: User[] } }
   | { type: "INIT"; data: { users: User[]; assignablePersonas?: AdminAssignablePersona[] } }
+
+function derivePresence(users: User[]) {
+  return {
+    users,
+    listeners: sortBy("connectedAt", uniqBy("userId", reject({ isDj: true }, users))),
+    dj: find({ isDj: true }, users) ?? null,
+  }
+}
 
 // ============================================================================
 // Machine
@@ -46,7 +55,21 @@ export const usersMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `users-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event) })
+      subscribeById(id, {
+        send: (event) => self.send(event),
+        eventTypes: [
+          "USER_JOINED",
+          "USER_LEFT",
+          "USER_STATUS_CHANGED",
+          "KICK_USER",
+          "PERSONA_ASSIGNED",
+          "PERSONA_REMOVED",
+          "PERSONA_DEFINITIONS_UPDATED",
+          "SET_USERS",
+          "SET_DATA",
+          "INIT",
+        ],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {
@@ -54,28 +77,20 @@ export const usersMachine = setup({
         unsubscribeById(context.subscriptionId)
       }
     },
-    setUsers: assign({
-      users: ({ event }) => {
-        if ("data" in event && "users" in event.data) {
-          return event.data.users
-        }
-        return []
-      },
-      listeners: ({ event }) => {
-        if ("data" in event && "users" in event.data) {
-          return sortBy(
-            "connectedAt",
-            uniqBy("userId", reject({ isDj: true }, event.data.users)),
-          )
-        }
-        return []
-      },
-      dj: ({ event }) => {
-        if ("data" in event && "users" in event.data) {
-          return find({ isDj: true }, event.data.users) ?? null
-        }
-        return null
-      },
+    setUsers: assign(({ event }) => {
+      if ("data" in event && "users" in event.data && event.data.users) {
+        return derivePresence(event.data.users)
+      }
+      return { users: [], listeners: [], dj: null }
+    }),
+    patchUserStatus: assign(({ context, event }) => {
+      if (event.type !== "USER_STATUS_CHANGED") return {}
+      const updated = event.data.user
+      const users = context.users.map((u) =>
+        u.userId === updated.userId ? { ...u, ...updated } : u,
+      )
+      const hasUser = users.some((u) => u.userId === updated.userId)
+      return derivePresence(hasUser ? users : [...users, updated])
     }),
     setAssignablePersonas: assign({
       assignablePersonas: ({ event }) => {
@@ -127,6 +142,9 @@ export const usersMachine = setup({
         },
         USER_LEFT: {
           actions: ["setUsers"],
+        },
+        USER_STATUS_CHANGED: {
+          actions: ["patchUserStatus"],
         },
         KICK_USER: {
           actions: ["setUsers"],

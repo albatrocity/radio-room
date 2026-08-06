@@ -54,7 +54,10 @@ export const screenEffectsMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `screenEffects-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as ScreenEffectsEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as ScreenEffectsEvent),
+        eventTypes: ["SCREEN_EFFECT_QUEUED"],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

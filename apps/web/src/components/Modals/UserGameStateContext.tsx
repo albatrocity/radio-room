@@ -20,7 +20,7 @@ export interface UserGameStateSnapshot {
   itemDefinitions: ItemDefinition[]
   /**
    * Private per-user bag from a plugin that implements
-   * `contributeToUserGameState` (ADR 0094).
+   * `contributeToUserGameState` (ADR 0097).
    */
   getPluginState: <T extends Record<string, unknown>>(pluginName: string) => T | null
   /** Convenience lookup for a single attribute (e.g. `coin`). */

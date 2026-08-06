@@ -627,7 +627,7 @@ export interface PluginAPI {
   /**
    * Badge a game-state modal tab (and the game session button) for one user
    * until they view that tab. Emits `PLUGIN_TAB_ATTENTION` to that user's
-   * socket only — never broadcasts room-wide (ADR 0094).
+   * socket only — never broadcasts room-wide (ADR 0097).
    *
    * Pass the schema tab `id` (e.g. `"bingo-tab"`). The implementation
    * namespaces it as `${pluginName}:${tabId}` to match client tab keys.
@@ -1338,7 +1338,7 @@ export interface Plugin {
    * Do **not** add a default on BasePlugin — `typeof === "function"` is the
    * contributor check.
    *
-   * @see ADR 0094
+   * @see ADR 0097
    */
   contributeToUserGameState?(
     userId: string,

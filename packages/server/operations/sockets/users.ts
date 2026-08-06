@@ -26,3 +26,26 @@ export async function pubUserJoined({
     })
   }
 }
+
+/**
+ * Emit a single-user status change (listening / participating / transport).
+ * Prefer this over USER_JOINED when the online set is unchanged.
+ */
+export async function pubUserStatusChanged({
+  roomId,
+  user,
+  oldStatus,
+  context,
+}: {
+  roomId: Room["id"]
+  user: User
+  oldStatus?: string
+  context: AppContext
+}) {
+  if (!context.systemEvents) return
+  await context.systemEvents.emit(roomId, "USER_STATUS_CHANGED", {
+    roomId,
+    user,
+    oldStatus,
+  })
+}

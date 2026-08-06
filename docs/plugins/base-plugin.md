@@ -81,11 +81,11 @@ If the plugin implements `contributeToUserGameState`, each `emit` also queues a 
 
 #### `contributeToUserGameState?(userId, ctx)` (optional — **no BasePlugin default**)
 
-Contribute private per-user data to `GET_MY_GAME_STATE` / `USER_GAME_STATE` under `pluginUserState[pluginName]`. BasePlugin intentionally does **not** provide a default — implementing the method opts the plugin into refetch invalidation. See [Per-User State](per-user-state.md) and [ADR 0094](../adrs/0094-plugin-contribute-to-user-game-state.md).
+Contribute private per-user data to `GET_MY_GAME_STATE` / `USER_GAME_STATE` under `pluginUserState[pluginName]`. BasePlugin intentionally does **not** provide a default — implementing the method opts the plugin into refetch invalidation. See [Per-User State](per-user-state.md) and [ADR 0097](../adrs/0097-plugin-contribute-to-user-game-state.md).
 
 #### `getConfig(): Promise<TConfig | null>`
 
-Get the plugin's typed configuration for the current room.
+Get the plugin's typed configuration for the current room. Results are cached in memory until `CONFIG_CHANGED` for this plugin (avoids Redis on every hot-path call).
 
 ```typescript
 const config = await this.getConfig()

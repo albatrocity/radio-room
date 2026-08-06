@@ -6,7 +6,7 @@ todos:
     content: "Phase 1: S3 lifecycle on uploads/, CloudFront exclude uploads/*, CORS for web"
     status: pending
   - id: adr-service-routes
-    content: "Phase 2: ADR 0096 + MusicUploadService + room REST presign/complete"
+    content: "Phase 2: ADR 0098 + MusicUploadService + room REST presign/complete"
     status: pending
   - id: plugin-package
     content: "Phase 3: @repo/plugin-music-upload persona, store sync, components, register"
@@ -32,7 +32,7 @@ Admins can designate room users as **Uploaders** (persona). Designated users get
 - Personas for durable roles ([ADR 0057](docs/adrs/0057-user-personas-system.md)) — **display/identity only**; authorize with `PersonaService` on the server
 - Declarative plugin UI + `showWhen` membership ([ADR 0092](docs/adrs/0092-plugin-showwhen-membership-and-add-to-queue-area.md)); file picker is **core React** (plugins cannot host `<input type="file">`)
 - Reuse AWS SDK / env pattern from [`AssetUploadService.ts`](packages/server/services/AssetUploadService.ts) and [`infra/cdn/`](infra/cdn/)
-- New ADR **0096** for the private-upload boundary (plugin policy vs core transport vs CDN exclusion)
+- New ADR **0098** for the private-upload boundary (plugin policy vs core transport vs CDN exclusion)
 
 ## Assumptions
 
@@ -49,7 +49,7 @@ Admins can designate room users as **Uploaders** (persona). Designated users get
 - Core: `MusicUploadService` + room-authenticated REST routes (presign + complete/fail)
 - Plugin: `@repo/plugin-music-upload` with Uploader persona, config, component store for uploader roster + uploading ids, badge + open-upload action
 - Web: core music upload UI (picker, progress, error) gated by persona / plugin store; wire progress start/complete to API so admins see status
-- ADR 0096 + plugin registration
+- ADR 0098 + plugin registration
 
 ## Non-goals
 
@@ -138,11 +138,11 @@ Files: [`infra/cdn/main.tf`](infra/cdn/main.tf), [`infra/cdn/variables.tf`](infr
 
 **Done means:** `terraform plan` shows lifecycle + policy/CORS changes; README documents the prefix contract.
 
-### Phase 2 — ADR 0096 + core upload service/routes
+### Phase 2 — ADR 0098 + core upload service/routes
 
 Intent: Document the boundary and implement server-side presign/complete without a public URL.
 
-Files: [`docs/adrs/0096-private-music-uploads-presign.md`](docs/adrs/0096-private-music-uploads-presign.md) (new), [`docs/adrs/index.md`](docs/adrs/index.md), new `packages/server/services/MusicUploadService.ts`, route module + mount in [`packages/server/index.ts`](packages/server/index.ts), types in [`packages/types`](packages/types), tests alongside service
+Files: [`docs/adrs/0098-private-music-uploads-presign.md`](docs/adrs/0098-private-music-uploads-presign.md) (new), [`docs/adrs/index.md`](docs/adrs/index.md), new `packages/server/services/MusicUploadService.ts`, route module + mount in [`packages/server/index.ts`](packages/server/index.ts), types in [`packages/types`](packages/types), tests alongside service
 
 - ADR: private prefix, persona auth at presign, plugin owns designation/UX state, core owns S3, no CDN for `uploads/`, revocation does not cancel PUT
 - Service: sanitize filename/username; build key; validate MIME/extension (audio + zip/rar/7z) + size; `getSignedUrl` PUT; Redis upload session

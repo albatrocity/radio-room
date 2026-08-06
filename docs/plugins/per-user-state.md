@@ -1,6 +1,6 @@
 # Per-User Plugin State
 
-Private per-user data (bingo cards, shop visits, etc.) must **not** go in the room-wide plugin component store — that store fans out to every client. Use `contributeToUserGameState` instead ([ADR 0094](../adrs/0094-plugin-contribute-to-user-game-state.md)).
+Private per-user data (bingo cards, shop visits, etc.) must **not** go in the room-wide plugin component store — that store fans out to every client. Use `contributeToUserGameState` instead ([ADR 0097](../adrs/0097-plugin-contribute-to-user-game-state.md)).
 
 ## When to use
 

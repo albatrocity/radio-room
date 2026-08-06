@@ -446,7 +446,7 @@ export class PluginAPIImpl implements PluginAPI {
       data: payload,
     })
 
-    // Contributors: one room-wide invalidation per event-loop turn (ADR 0094).
+    // Contributors: one room-wide invalidation per event-loop turn (ADR 0097).
     if (this.contributesUserGameState) {
       this.queueUserGameStateInvalidation()
     }

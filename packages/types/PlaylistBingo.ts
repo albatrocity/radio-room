@@ -1,5 +1,5 @@
 /**
- * Playlist Bingo per-user card delivery (ADR 0093 / 0094).
+ * Playlist Bingo per-user card delivery (ADR 0096 / 0097).
  * Storage keys and public card shape shared by plugin and web;
  * cards reach the client via `contributeToUserGameState` → `pluginUserState`.
  */

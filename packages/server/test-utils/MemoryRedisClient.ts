@@ -1,10 +1,11 @@
 /**
  * In-memory Redis mock for unit tests.
- * Supports strings, hashes, and sorted sets — enough to cover the data layer.
+ * Supports strings, hashes, sets, and sorted sets — enough to cover the data layer.
  */
 export class MemoryRedisClient {
   private strings = new Map<string, string>()
   private hashes = new Map<string, Map<string, string>>()
+  private sets = new Map<string, Set<string>>()
   private zsets = new Map<string, Map<string, number>>()
 
   async get(key: string): Promise<string | null> {
@@ -18,7 +19,17 @@ export class MemoryRedisClient {
   async del(key: string | string[]): Promise<void> {
     for (const k of Array.isArray(key) ? key : [key]) {
       this.strings.delete(k)
+      this.hashes.delete(k)
+      this.sets.delete(k)
+      this.zsets.delete(k)
     }
+  }
+
+  async exists(key: string): Promise<number> {
+    if (this.strings.has(key) || this.hashes.has(key) || this.sets.has(key) || this.zsets.has(key)) {
+      return 1
+    }
+    return 0
   }
 
   async keys(pattern: string): Promise<string[]> {
@@ -26,12 +37,19 @@ export class MemoryRedisClient {
     const regex = new RegExp(
       "^" + pattern.split("*").map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$",
     )
-    return [...this.strings.keys()].filter((k) => regex.test(k))
+    const all = new Set([
+      ...this.strings.keys(),
+      ...this.hashes.keys(),
+      ...this.sets.keys(),
+      ...this.zsets.keys(),
+    ])
+    return [...all].filter((k) => regex.test(k))
   }
 
   async unlink(key: string): Promise<void> {
     this.strings.delete(key)
     this.hashes.delete(key)
+    this.sets.delete(key)
     this.zsets.delete(key)
   }
 
@@ -59,6 +77,43 @@ export class MemoryRedisClient {
     const isNew = !hash.has(fieldOrEntries)
     hash.set(fieldOrEntries, value!)
     return isNew ? 1 : 0
+  }
+
+  async hSetNX(key: string, field: string, value: string): Promise<number> {
+    if (!this.hashes.has(key)) {
+      this.hashes.set(key, new Map())
+    }
+    const hash = this.hashes.get(key)!
+    if (hash.has(field)) return 0
+    hash.set(field, value)
+    return 1
+  }
+
+  async sAdd(key: string, member: string): Promise<number> {
+    if (!this.sets.has(key)) {
+      this.sets.set(key, new Set())
+    }
+    const set = this.sets.get(key)!
+    if (set.has(member)) return 0
+    set.add(member)
+    return 1
+  }
+
+  async sRem(key: string, member: string): Promise<number> {
+    const set = this.sets.get(key)
+    if (!set?.has(member)) return 0
+    set.delete(member)
+    return 1
+  }
+
+  async sMembers(key: string): Promise<string[]> {
+    const set = this.sets.get(key)
+    if (!set) return []
+    return [...set]
+  }
+
+  async mGet(keys: string[]): Promise<(string | null)[]> {
+    return keys.map((k) => this.strings.get(k) ?? null)
   }
 
   async hGetAll(key: string): Promise<Record<string, string>> {

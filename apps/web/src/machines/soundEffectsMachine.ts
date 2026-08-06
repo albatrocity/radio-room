@@ -45,7 +45,10 @@ export const soundEffectsMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `soundEffects-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as SoundEffectsEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as SoundEffectsEvent),
+        eventTypes: ["SOUND_EFFECT_QUEUED"],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {
