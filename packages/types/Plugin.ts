@@ -54,7 +54,7 @@ export type PluginFieldType =
   | "number" // Number input
   | "enum" // Radio group or select
   | "emoji" // Emoji picker
-  | "duration" // Duration input (stored in ms, displayed in seconds/minutes)
+  | "duration" // Duration input (stored in ms; displayed as seconds/minutes or mm:ss)
   | "percentage" // 0-100 with % suffix
   | "color" // Color picker
   | "url" // URL input with validation
@@ -67,6 +67,8 @@ export type PluginFieldType =
  * Condition for conditional visibility.
  *
  * Equality (default): `field` resolves to a value compared with `value`.
+ * One-of (admin config forms): when `value` is an array, the field matches if its
+ * resolved value is included in that array.
  * Membership: when `includes` or `notIncludes` is set, `field` must resolve to an
  * array and the resolved member path must / must not be in that array (`value` is ignored).
  *
@@ -77,6 +79,7 @@ export type PluginFieldType =
  */
 export interface ShowWhenCondition {
   field: string
+  /** Exact match, or one-of when an array (config forms). */
   value?: unknown
   /** Path to a value that must be present in the array at `field` (e.g. `viewer.userId`) */
   includes?: string
@@ -198,8 +201,8 @@ export interface PluginFieldMeta {
   label: string
   description?: string
   placeholder?: string
-  /** For duration: display unit (default: seconds) */
-  displayUnit?: "seconds" | "minutes"
+  /** For duration: display unit (default: seconds). `mm:ss` uses a clock text input. */
+  displayUnit?: "seconds" | "minutes" | "mm:ss"
   /** For duration: storage unit (default: milliseconds) */
   storageUnit?: "milliseconds" | "seconds"
   /**

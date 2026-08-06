@@ -37,6 +37,13 @@ describe("shouldShow (nested scope)", () => {
     expect(shouldShow({ field: "hasHint", value: true }, row)).toBe(true)
     expect(shouldShow({ field: "hasHint", value: true }, { ...row, hasHint: false })).toBe(false)
   })
+
+  it("treats an array value as one-of membership", () => {
+    const cond = { field: "type", value: ["durationGt", "durationLt"] }
+    expect(shouldShow(cond, { type: "durationGt" })).toBe(true)
+    expect(shouldShow(cond, { type: "durationLt" })).toBe(true)
+    expect(shouldShow(cond, { type: "releaseYearEq" })).toBe(false)
+  })
 })
 
 describe("object-array row operations", () => {

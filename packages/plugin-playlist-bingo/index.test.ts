@@ -210,10 +210,43 @@ describe("PlaylistBingoPlugin", () => {
       userId: "u1",
       tabId: "bingo-tab",
     })
+    // Default spaceCoverCoinReward is 0 — no coin award on cover-only.
+    expect(ctx.game.addScore).not.toHaveBeenCalled()
     // ROUND_UPDATED is the only room-wide emit after a cover (no CELLS_COVERED).
     const emitTypes = vi.mocked(ctx.api.emit).mock.calls.map((c) => c[0])
     expect(emitTypes).toContain("ROUND_UPDATED")
     expect(emitTypes).not.toContain("CELLS_COVERED")
+  })
+
+  it("awards spaceCoverCoinReward per newly covered space", async () => {
+    ;(plugin as any).getConfig = async () => ({
+      ...defaultPlaylistBingoConfig,
+      enabled: true,
+      mode: "competitive",
+      coinReward: 0,
+      spaceCoverCoinReward: 2,
+      category: "mixed",
+      criteria: makeCriteria(BINGO_FILLABLE_CELLS),
+      soundEffectOnBingo: false,
+    })
+    await plugin.executeAction("startRound", { userId: "admin" })
+    const card = JSON.parse(ctx.cards.get("u1")!)
+    const targets = card.cells.filter((c: { free?: boolean }) => !c.free).slice(0, 2)
+    for (const [i, cell] of targets.entries()) {
+      cell.criterion = { id: `t${i}`, type: "titleContains", value: "cover-me" }
+      cell.label = `cover ${i}`
+      cell.marked = false
+    }
+    ctx.cards.set("u1", JSON.stringify(card))
+
+    const track = queueItemFactory.build({
+      track: metadataSourceTrackFactory.build({ title: "please cover-me now" }),
+      title: "please cover-me now",
+    })
+    await (plugin as any).onPlaylistTrackAdded({ roomId: "room-1", track })
+
+    expect(ctx.game.addScore).toHaveBeenCalledWith("u1", "coin", 4, "playlist-bingo")
+    expect(ctx.game.addScore).toHaveBeenCalledWith("u1", "score", 4, "playlist-bingo")
   })
 
   it("contributeToUserGameState returns the user's card when round is active", async () => {

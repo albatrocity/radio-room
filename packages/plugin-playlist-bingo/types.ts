@@ -99,6 +99,8 @@ export const playlistBingoConfigSchema = z.object({
   enabled: z.boolean().default(false),
   mode: participationModeSchema,
   coinReward: z.number().int().min(0).default(200),
+  /** Coins awarded per newly covered space (0 = off). */
+  spaceCoverCoinReward: z.number().int().min(0).default(0),
   category: bingoCategorySchema.default("releaseYear"),
   yearStart: z.number().int().default(1960),
   yearEnd: z.number().int().default(1980),
@@ -122,6 +124,7 @@ export const defaultPlaylistBingoConfig: PlaylistBingoConfig = {
   enabled: false,
   mode: "inclusive",
   coinReward: 10,
+  spaceCoverCoinReward: 0,
   category: "releaseYear",
   yearStart: 1960,
   yearEnd: 1980,

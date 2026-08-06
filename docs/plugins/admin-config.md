@@ -73,8 +73,16 @@ fieldMeta: {
       { field: "advancedMode", value: true },
     ],
   },
+  // One-of: show when field matches any listed value
+  durationMs: {
+    type: "duration",
+    label: "Duration",
+    showWhen: { field: "type", value: ["durationGt", "durationLt"] },
+  },
 }
 ```
+
+For `object-array` item fields, `showWhen` resolves against the **row** (e.g. hide inputs until the row’s matcher `type` matches).
 
 ### Layout Elements
 
@@ -135,8 +143,18 @@ fieldMeta: {
     storageUnit: "milliseconds", // Store as milliseconds
     showWhen: { field: "enabled", value: true },
   },
+  // Clock-style input (allows typing `3:00`); still stored as milliseconds
+  trackDuration: {
+    type: "duration",
+    label: "Duration",
+    displayUnit: "mm:ss",
+    storageUnit: "milliseconds",
+    placeholder: "3:00",
+  },
 }
 ```
+
+`displayUnit` may be `"seconds"`, `"minutes"`, or `"mm:ss"`. Use `"mm:ss"` when admins should enter track-style times with a colon.
 
 
 ## Plugin Actions
@@ -188,7 +206,7 @@ getConfigSchema(): PluginConfigSchema {
 
 ### Config import actions
 
-Use `configImport` when an admin should paste bulk content into a config field (typically an `object-array`). **Parsing stays in the plugin** — override `parseConfigImportRows` on `BasePlugin`. Do not put plugin-specific paste grammars in `@repo/utils`.
+Use `configImport` when an admin should paste bulk content into a config field (typically an `object-array`). **Parsing stays in the plugin** — override `parseConfigImportRows` on `BasePlugin`. Do not put plugin-specific paste grammars in `@repo/utils`. Consumers today include Quiz Sessions (`importQuestions`) and Playlist Bingo (`importCriteria`).
 
 ```typescript
 {

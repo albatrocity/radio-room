@@ -17,6 +17,8 @@ import { isInclusiveMode } from "@repo/game-logic"
 import { BasePlugin } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import { buildCriterionPool, dealBingoCard, validatePoolForCategory } from "./card"
+import { fillCriteriaWithYears } from "./fillCriteria"
+import { parseBingoCriteriaImport } from "./importParse"
 import { matchesCriterion } from "./matching"
 import { getComponentSchema, getConfigSchema } from "./schema"
 import {
@@ -49,7 +51,11 @@ const KEYS = PLAYLIST_BINGO_STORAGE_KEYS
 const WINNER_PERSONA_ID = "winner"
 const PLUGIN_NAME = PLAYLIST_BINGO_PLUGIN_NAME
 
-type ActionResult = { success: boolean; message?: string }
+type ActionResult = {
+  success: boolean
+  message?: string
+  configPatch?: Record<string, unknown>
+}
 
 function notInitialized(): ActionResult {
   return { success: false, message: "Plugin not initialized" }
@@ -107,9 +113,18 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
         return this.endRound(initiator)
       case "setCategory":
         return this.setCategory(initiator, params)
+      case "fillMissingWithYears":
+        return this.fillMissingWithYears(initiator)
       default:
         return super.executeAction(action, initiator, params)
     }
+  }
+
+  protected parseConfigImportRows(action: string, rawText: string) {
+    if (action !== "importCriteria") {
+      return { ok: false as const, message: `No config import parser for action: ${action}` }
+    }
+    return parseBingoCriteriaImport(rawText)
   }
 
   // ==========================================================================
@@ -236,6 +251,36 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
     }
   }
 
+  private async fillMissingWithYears(initiator?: PluginActionInitiator): Promise<ActionResult> {
+    const admin = await this.requireRoomAdmin(initiator)
+    if (!admin.ok) return admin.result
+    if (!this.context) return notInitialized()
+
+    const config = (await this.getConfig()) ?? defaultPlaylistBingoConfig
+    const result = fillCriteriaWithYears({
+      criteria: config.criteria ?? [],
+      yearStart: config.yearStart,
+      yearEnd: config.yearEnd,
+    })
+    if (!result.ok) {
+      return { success: false, message: result.message }
+    }
+    if (result.added === 0) {
+      return { success: true, message: result.message }
+    }
+
+    await this.context.api.setPluginConfig(this.context.roomId, this.name, {
+      ...config,
+      criteria: result.criteria,
+    })
+    return {
+      success: true,
+      message: result.message,
+      // Sync open settings Formik — private criteria are not in ROOM_SETTINGS_UPDATED.
+      configPatch: { criteria: result.criteria },
+    }
+  }
+
   // ==========================================================================
   // Events
   // ==========================================================================
@@ -275,6 +320,11 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
       if (newlyCoveredLabels.length === 0) continue
 
       anyCardChanged = true
+      await this.awardSpaceCovers({
+        config,
+        userId,
+        coverCount: newlyCoveredLabels.length,
+      })
       await this.notifyCellsCovered(userId, newlyCoveredLabels)
 
       if (hasBingo(card.cells)) {
@@ -376,6 +426,20 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
     // Intentionally no room-wide CELLS_COVERED emit: that would fan out to every
     // client per covered user. Tab badging uses the user-targeted API above;
     // card data refreshes via ROUND_UPDATED → USER_GAME_STATE_INVALIDATED.
+  }
+
+  /** Award coins/score for newly covered spaces when `spaceCoverCoinReward` > 0. */
+  private async awardSpaceCovers(params: {
+    config: PlaylistBingoConfig
+    userId: string
+    coverCount: number
+  }): Promise<void> {
+    if (!this.context) return
+    const perSpace = params.config.spaceCoverCoinReward ?? 0
+    if (perSpace <= 0 || params.coverCount <= 0) return
+    const coins = perSpace * params.coverCount
+    await this.context.game.addScore(params.userId, "coin", coins, this.name)
+    await this.context.game.addScore(params.userId, "score", coins, this.name)
   }
 
   private async awardBingo(params: {

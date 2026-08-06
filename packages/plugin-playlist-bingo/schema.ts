@@ -97,6 +97,46 @@ const setCategoryAction = {
   ],
 } satisfies PluginActionElement
 
+const fillMissingWithYearsAction = {
+  type: "action",
+  action: "fillMissingWithYears",
+  label: "Fill missing with years",
+  variant: "outline",
+  confirmMessage:
+    "Append unique release years from Year range start/end (saved config) until 24 criteria?",
+  showWhen: [
+    { field: "enabled", value: true },
+    { field: "category", value: "mixed" },
+  ],
+} satisfies PluginActionElement
+
+const importCriteriaAction = {
+  type: "action",
+  action: "importCriteria",
+  label: "Import criteria",
+  variant: "outline",
+  showWhen: [
+    { field: "enabled", value: true },
+    { field: "category", value: "mixed" },
+  ],
+  formFields: [
+    {
+      name: "rawText",
+      label: "Criteria",
+      type: "textarea",
+      required: true,
+      rows: 16,
+      placeholder:
+        "year 1977\nyear-between 1970 1979\nartist Queen\ntitle love\nalbum Night\nadded-by ross\nduration-gt 3:00\nduration-lt 5:00",
+    },
+  ],
+  configImport: {
+    targetField: "criteria",
+    modes: ["append", "replace"],
+    sourceParam: "rawText",
+  },
+} satisfies PluginActionElement
+
 export function getConfigSchema(): PluginConfigSchema {
   return {
     jsonSchema: z.toJSONSchema(playlistBingoConfigSchema),
@@ -111,12 +151,15 @@ export function getConfigSchema(): PluginConfigSchema {
       "enabled",
       "mode",
       "coinReward",
+      "spaceCoverCoinReward",
       "category",
       "yearStart",
       "yearEnd",
       "decadeStart",
       "decadeEnd",
       "criteria",
+      fillMissingWithYearsAction,
+      importCriteriaAction,
       "bingoMessageTemplate",
       "soundEffectOnBingo",
       "soundEffectOnBingoUrl",
@@ -141,6 +184,12 @@ export function getConfigSchema(): PluginConfigSchema {
         label: "Coins on bingo",
         showWhen: { field: "enabled", value: true },
       },
+      spaceCoverCoinReward: {
+        type: "number",
+        label: "Coins per covered space",
+        description: "Awarded each time a space is marked on a player's card. 0 disables.",
+        showWhen: { field: "enabled", value: true },
+      },
       category: {
         type: "enum",
         label: "Category",
@@ -154,17 +203,21 @@ export function getConfigSchema(): PluginConfigSchema {
       yearStart: {
         type: "number",
         label: "Year range start",
+        description:
+          "Inclusive start for Release year rounds, and for Fill missing with years when Mixed.",
         showWhen: [
           { field: "enabled", value: true },
-          { field: "category", value: "releaseYear" },
+          { field: "category", value: ["releaseYear", "mixed"] },
         ],
       },
       yearEnd: {
         type: "number",
         label: "Year range end",
+        description:
+          "Inclusive end for Release year rounds, and for Fill missing with years when Mixed. Save config before filling.",
         showWhen: [
           { field: "enabled", value: true },
-          { field: "category", value: "releaseYear" },
+          { field: "category", value: ["releaseYear", "mixed"] },
         ],
       },
       decadeStart: {
@@ -215,26 +268,49 @@ export function getConfigSchema(): PluginConfigSchema {
           },
           {
             name: "year",
-            meta: { type: "number", label: "Year" },
+            meta: {
+              type: "number",
+              label: "Year",
+              showWhen: { field: "type", value: "releaseYearEq" },
+            },
           },
           {
             name: "startYear",
-            meta: { type: "number", label: "Start year" },
+            meta: {
+              type: "number",
+              label: "Start year",
+              showWhen: { field: "type", value: "releaseYearBetween" },
+            },
           },
           {
             name: "endYear",
-            meta: { type: "number", label: "End year" },
+            meta: {
+              type: "number",
+              label: "End year",
+              showWhen: { field: "type", value: "releaseYearBetween" },
+            },
           },
           {
             name: "value",
-            meta: { type: "string", label: "Text value" },
+            meta: {
+              type: "string",
+              label: "Text value",
+              showWhen: {
+                field: "type",
+                value: ["artistContains", "titleContains", "albumContains", "addedByContains"],
+              },
+            },
           },
           {
             name: "durationMs",
             meta: {
-              type: "number",
-              label: "Duration (ms)",
-              description: "e.g. 180000 for 3:00",
+              type: "duration",
+              label: "Duration",
+              description: "e.g. 3:00",
+              displayUnit: "mm:ss",
+              storageUnit: "milliseconds",
+              placeholder: "3:00",
+              showWhen: { field: "type", value: ["durationGt", "durationLt"] },
             },
           },
         ],
@@ -270,6 +346,6 @@ export function getConfigSchema(): PluginConfigSchema {
         showWhen: { field: "enabled", value: true },
       },
     },
-    quickAccess: ["startRound", "endRound"],
+    quickAccess: ["startRound", "endRound", "importCriteria"],
   }
 }

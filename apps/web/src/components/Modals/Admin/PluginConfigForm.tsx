@@ -54,6 +54,13 @@ function modeButtonLabel(mode: ConfigImportMode, action: string): string {
   return mode === "replace" ? `Replace ${noun}` : `Append ${noun}`
 }
 
+type PluginActionResultData = {
+  success: boolean
+  message?: string
+  /** Field updates to apply to the open config form (e.g. after fill/import). */
+  configPatch?: Record<string, unknown>
+}
+
 /**
  * App-specific action button. Runs plugin actions over the socket and reports via toaster —
  * the coupling that keeps this in `apps/web`. Injected into the shared renderer as `renderAction`.
@@ -61,9 +68,11 @@ function modeButtonLabel(mode: ConfigImportMode, action: string): string {
 function ActionButton({
   element,
   pluginName,
+  onConfigPatch,
 }: {
   element: PluginActionElement
   pluginName: string
+  onConfigPatch?: (patch: Record<string, unknown>) => void
 }) {
   const users = useUsers()
   const formFields = element.formFields
@@ -77,6 +86,8 @@ function ActionButton({
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [confirmReplace, setConfirmReplace] = useState(false)
   const subscriptionIdRef = React.useRef<string | null>(null)
+  const onConfigPatchRef = React.useRef(onConfigPatch)
+  onConfigPatchRef.current = onConfigPatch
 
   const runAction = React.useCallback(
     (params?: Record<string, unknown>, onSuccess?: () => void) => {
@@ -85,7 +96,7 @@ function ActionButton({
       subscriptionIdRef.current = subscriptionId
 
       subscribeById(subscriptionId, {
-        send: (event: { type: string; data?: { success: boolean; message?: string } }) => {
+        send: (event: { type: string; data?: PluginActionResultData }) => {
           if (event.type === "PLUGIN_ACTION_RESULT" && event.data) {
             setIsLoading(false)
             unsubscribeById(subscriptionId)
@@ -98,6 +109,9 @@ function ActionButton({
               })
               setFormPopoverOpen(false)
               setConfirmReplace(false)
+              if (event.data.configPatch) {
+                onConfigPatchRef.current?.(event.data.configPatch)
+              }
               onSuccess?.()
             } else {
               toaster.create({
@@ -409,7 +423,17 @@ export default function PluginConfigForm({
           console.warn("PluginConfigForm: pluginName is required to render action buttons")
           return null
         }
-        return <ActionButton element={element as PluginActionElement} pluginName={pluginName} />
+        return (
+          <ActionButton
+            element={element as PluginActionElement}
+            pluginName={pluginName}
+            onConfigPatch={(patch) => {
+              for (const [field, value] of Object.entries(patch)) {
+                onChange(field, value)
+              }
+            }}
+          />
+        )
       }}
     />
   )
