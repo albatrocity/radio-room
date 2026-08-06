@@ -61,10 +61,7 @@ function notInitialized(): ActionResult {
   return { success: false, message: "Plugin not initialized" }
 }
 
-function interpolate(
-  template: string,
-  vars: { username: string; coins: number },
-): string {
+function interpolate(template: string, vars: { username: string; coins: number }): string {
   return template
     .replace(/\{\{username\}\}/g, vars.username)
     .replace(/\{\{coins\}\}/g, String(vars.coins))
@@ -178,9 +175,11 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
       await this.requestBingoTabAttention(user.userId)
     }
 
-    const publicState = await this.publicState(
-      "Bingo round started — check the Bingo tab for your card.",
-    )
+    const startMessage =
+      "Bingo round started — open the Bingo tab for your card. Matching spaces cover automatically as songs play."
+    await this.context.api.sendSystemMessage(this.context.roomId, startMessage)
+
+    const publicState = await this.publicState(startMessage)
     await this.emit<PlaylistBingoEvents["ROUND_STARTED"]>("ROUND_STARTED", publicState)
 
     return { success: true, message: `Bingo round started (${config.category}).` }
@@ -197,9 +196,7 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
     }
 
     const winners = await this.listWinnerUserIds()
-    const users = winners.length
-      ? await this.context.api.getUsersByIds(winners)
-      : []
+    const users = winners.length ? await this.context.api.getUsersByIds(winners) : []
     const names = users.map((u) => u.username?.trim() || u.userId).join(", ")
     const message = winners.length
       ? `Bingo round ended. Winners: ${names}`
@@ -582,8 +579,7 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
       roundActive: round?.active === true,
       category,
       statusMessage:
-        statusMessage ??
-        (round?.active ? `Bingo round active (${category ?? "—"})` : null),
+        statusMessage ?? (round?.active ? `Bingo round active (${category ?? "—"})` : null),
     }
   }
 
@@ -605,9 +601,7 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
   }
 }
 
-export function createPlaylistBingoPlugin(
-  configOverrides?: Partial<PlaylistBingoConfig>,
-): Plugin {
+export function createPlaylistBingoPlugin(configOverrides?: Partial<PlaylistBingoConfig>): Plugin {
   return new PlaylistBingoPlugin(configOverrides)
 }
 

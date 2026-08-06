@@ -149,6 +149,10 @@ describe("PlaylistBingoPlugin", () => {
     expect(ctx.cards.size).toBe(1)
     const card = JSON.parse(ctx.cards.get("u1")!)
     expect(card.cells).toHaveLength(25)
+    expect(ctx.api.sendSystemMessage).toHaveBeenCalledWith(
+      "room-1",
+      expect.stringContaining("Bingo round started"),
+    )
   })
 
   it("requests bingo tab attention when a round starts", async () => {
