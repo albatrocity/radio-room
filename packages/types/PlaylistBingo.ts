@@ -5,6 +5,9 @@
 
 export const PLAYLIST_BINGO_PLUGIN_NAME = "playlist-bingo" as const
 
+/** Game-state modal tab id from the plugin component schema (`bingo-tab`). */
+export const PLAYLIST_BINGO_TAB_ID = "bingo-tab" as const
+
 export const PLAYLIST_BINGO_STORAGE_KEYS = {
   ROUND: "round",
   CARDS: "cards",

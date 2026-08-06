@@ -98,7 +98,7 @@ export type BingoCategory = z.infer<typeof bingoCategorySchema>
 export const playlistBingoConfigSchema = z.object({
   enabled: z.boolean().default(false),
   mode: participationModeSchema,
-  coinReward: z.number().int().min(0).default(10),
+  coinReward: z.number().int().min(0).default(200),
   category: bingoCategorySchema.default("releaseYear"),
   yearStart: z.number().int().default(1960),
   yearEnd: z.number().int().default(1980),
@@ -108,9 +108,7 @@ export const playlistBingoConfigSchema = z.object({
   criteria: z.array(bingoCriterionSchema).default([]),
   winnerLabel: z.string().default("Bingo Winner"),
   winnerIcon: z.string().default("Trophy"),
-  bingoMessageTemplate: z
-    .string()
-    .default("{{username}} got BINGO! +{{coins}} coins"),
+  bingoMessageTemplate: z.string().default("{{username}} got BINGO! +{{coins}} coins"),
   soundEffectOnBingo: z.boolean().default(true),
   soundEffectOnBingoUrl: z
     .url()
@@ -163,6 +161,12 @@ export type PlaylistBingoEvents = {
   ROUND_UPDATED: PlaylistBingoPublicState
   ROUND_ENDED: PlaylistBingoPublicState
   BINGO: { userId: string; username: string; mode: string } & Record<string, unknown>
+  /** Room-broadcast; clients filter by `userId`. Drives unread Bingo tab attention. */
+  CELLS_COVERED: {
+    userId: string
+    count: number
+    labels: string[]
+  } & Record<string, unknown>
 }
 
 export type PlaylistBingoComponentState = PlaylistBingoPublicState

@@ -46,6 +46,7 @@ function createMockContext() {
       ids.map((userId) => ({ userId, username: userId === "u1" ? "Alice" : userId })),
     ),
     sendSystemMessage: vi.fn(async () => {}),
+    sendUserSystemMessage: vi.fn(async () => {}),
     queueSoundEffect: vi.fn(async () => {}),
     queueScreenEffect: vi.fn(async () => {}),
     setPluginConfig: vi.fn(async () => {}),
@@ -174,6 +175,30 @@ describe("PlaylistBingoPlugin", () => {
     expect(round.active).toBe(false)
     expect(ctx.game.addScore).toHaveBeenCalled()
     expect(ctx.api.sendSystemMessage).toHaveBeenCalled()
+  })
+
+  it("sends a private message and CELLS_COVERED when spaces are marked", async () => {
+    await plugin.executeAction("startRound", { userId: "admin" })
+    const card = JSON.parse(ctx.cards.get("u1")!)
+    const target = card.cells.find((c: { free?: boolean }) => !c.free)!
+    target.criterion = { id: "t", type: "titleContains", value: "cover-me" }
+    target.label = "Title contains cover-me"
+    target.marked = false
+    ctx.cards.set("u1", JSON.stringify(card))
+
+    const track = queueItemFactory.build({
+      track: metadataSourceTrackFactory.build({ title: "please cover-me now" }),
+      title: "please cover-me now",
+    })
+    await (plugin as any).onPlaylistTrackAdded({ roomId: "room-1", track })
+
+    expect(ctx.api.sendUserSystemMessage).toHaveBeenCalledWith(
+      "room-1",
+      "u1",
+      expect.stringContaining("Title contains cover-me"),
+    )
+    // BasePlugin.emit → context.api.emit with namespaced type
+    expect(ctx.api.emit).toHaveBeenCalled()
   })
 
   it("PvG locks winner and keeps round active", async () => {

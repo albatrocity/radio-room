@@ -6,6 +6,7 @@ import type {
   ItemDefinition,
   StoredArtifactPublic,
 } from "@repo/types"
+import { PLAYLIST_BINGO_TAB_ID } from "@repo/types"
 import Modal from "../Modal"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../actors/socketActor"
 import {
@@ -142,6 +143,14 @@ function ModalUserGameState() {
       setGameStateTab("inventory")
     }
   }, [validTabValues, gameStateTab])
+
+  // Clear Bingo attention badge while the Bingo tab is open (including when new
+  // covers arrive mid-view via GET_MY_GAME_STATE refetch).
+  useEffect(() => {
+    if (isOpen && gameStateTab === PLAYLIST_BINGO_TAB_ID) {
+      markPluginTabViewed(PLAYLIST_BINGO_TAB_ID)
+    }
+  }, [isOpen, gameStateTab, payload?.bingoCard, markPluginTabViewed])
 
   const gameStateValue = useMemo<UserGameStateSnapshot>(() => {
     return {

@@ -270,6 +270,6 @@ export function getConfigSchema(): PluginConfigSchema {
         showWhen: { field: "enabled", value: true },
       },
     },
-    quickAccess: ["startRound", "endRound", "setCategory"],
+    quickAccess: ["startRound", "endRound"],
   }
 }

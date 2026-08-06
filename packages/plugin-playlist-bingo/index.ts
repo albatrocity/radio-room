@@ -261,17 +261,19 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
       }
       if (card.status === "locked" || card.status === "won") continue
 
-      let changed = false
+      const newlyCoveredLabels: string[] = []
       for (const cell of card.cells) {
         if (cell.marked || cell.free || cell.criterion.type === "free") continue
         if (matchesCriterion(track, cell.criterion)) {
           cell.marked = true
-          changed = true
+          newlyCoveredLabels.push(cell.label)
         }
       }
-      if (!changed) continue
+      if (newlyCoveredLabels.length === 0) continue
 
       anyCardChanged = true
+      await this.notifyCellsCovered(userId, newlyCoveredLabels)
+
       if (hasBingo(card.cells)) {
         const mode = config.mode
         if (isInclusiveMode(mode)) {
@@ -325,6 +327,26 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
     await this.saveCard(card)
     const publicState = await this.publicState()
     await this.emit<PlaylistBingoEvents["ROUND_UPDATED"]>("ROUND_UPDATED", publicState)
+  }
+
+  /**
+   * Private DM + `CELLS_COVERED` so the client can badge the Bingo tab / game button
+   * until the user opens that tab.
+   */
+  private async notifyCellsCovered(userId: string, labels: string[]): Promise<void> {
+    if (!this.context || labels.length === 0) return
+
+    const message =
+      labels.length === 1
+        ? `Bingo: "${labels[0]}" was covered on your card.`
+        : `Bingo: ${labels.length} spaces were covered on your card — ${labels.join(", ")}.`
+
+    await this.context.api.sendUserSystemMessage(this.context.roomId, userId, message)
+    await this.emit<PlaylistBingoEvents["CELLS_COVERED"]>("CELLS_COVERED", {
+      userId,
+      count: labels.length,
+      labels,
+    })
   }
 
   private async awardBingo(params: {
