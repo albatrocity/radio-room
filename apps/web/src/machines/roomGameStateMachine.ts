@@ -60,7 +60,17 @@ export const roomGameStateMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `roomGameState-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as RoomGameStateEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as RoomGameStateEvent),
+        eventTypes: [
+          "INIT",
+          "GAME_SESSION_STARTED",
+          "GAME_SESSION_ENDED",
+          "ROOM_GAME_STATE",
+          "GAME_MODIFIER_APPLIED",
+          "GAME_MODIFIER_REMOVED",
+        ],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

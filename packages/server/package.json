@@ -35,6 +35,7 @@
     "@repo/db": "*",
     "@repo/email": "*",
     "@repo/game-logic": "*",
+    "@repo/plugin-base": "*",
     "@repo/spotify-catalog": "*",
     "@repo/utils": "*",
     "@socket.io/redis-adapter": "^8.3.0",

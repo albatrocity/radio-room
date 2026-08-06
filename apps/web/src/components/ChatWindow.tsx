@@ -72,7 +72,7 @@ function ChatWindow() {
     count: messages.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 72,
-    overscan: 50,
+    overscan: 10,
     getItemKey: (index) => messages[index]?.timestamp ?? index,
   })
 

@@ -83,7 +83,26 @@ export const userGameStateMachine = setup({
   actions: {
     subscribe: assign(({ self }) => {
       const id = `userGameState-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as UserGameStateEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as UserGameStateEvent),
+        eventTypes: [
+          "INIT",
+          "USER_GAME_STATE",
+          "ERROR_OCCURRED",
+          "GAME_SESSION_STARTED",
+          "GAME_SESSION_ENDED",
+          "GAME_STATE_CHANGED",
+          "GAME_MODIFIER_APPLIED",
+          "GAME_MODIFIER_REMOVED",
+          "INVENTORY_ITEM_ACQUIRED",
+          "INVENTORY_ITEM_REMOVED",
+          "INVENTORY_ITEM_USED",
+          "INVENTORY_ITEM_TRANSFERRED",
+          ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_STARTED,
+          ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_ENDED,
+          ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_UPDATED,
+        ],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

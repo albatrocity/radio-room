@@ -76,7 +76,6 @@ export function GameStatePluginTabContents({ tabs }: GameStatePluginTabContentsP
             pluginName={entry.pluginName}
             storeKeys={entry.storeKeys}
             config={entry.config}
-            components={entry.components}
           >
             <VStack align="stretch" gap={3} pt={2}>
               {entry.tab.children.map((child) => (

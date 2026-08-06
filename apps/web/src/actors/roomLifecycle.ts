@@ -27,6 +27,7 @@ import { pollActor } from "./pollActor"
 import { quickAccessPanelsActor } from "./quickAccessPanelsActor"
 import { mediaBridgeActor } from "./mediaBridgeActor"
 import { effectiveMetadataSourcesActor } from "./effectiveMetadataSourcesActor"
+import { teardownPluginComponentActors } from "./pluginComponentRegistry"
 
 import {
   getPersistedRoomState,
@@ -156,6 +157,7 @@ export function teardownRoom(): void {
   quickAccessPanelsActor.send({ type: "DEACTIVATE" })
   mediaBridgeActor.send({ type: "DEACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "DEACTIVATE" })
+  teardownPluginComponentActors()
 
   currentRoomId = null
   isInitialized = false

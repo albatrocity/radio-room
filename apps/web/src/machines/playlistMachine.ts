@@ -38,7 +38,18 @@ export const playlistMachine = setup({
   actions: {
     subscribe: assign(({ context, self }) => {
       const id = `playlist-${self.id}-${++subscriptionCounter}`
-      subscribeById(id, { send: (event) => self.send(event as PlaylistEvent) })
+      subscribeById(id, {
+        send: (event) => self.send(event as PlaylistEvent),
+        eventTypes: [
+          "INIT",
+          "PLAYLIST",
+          "PLAYLIST_TRACK_ADDED",
+          "PLAYLIST_TRACK_UPDATED",
+          "PLAYLIST_TRACK_DELETED",
+          "ROOM_DATA",
+          "ROOM_SETTINGS_UPDATED",
+        ],
+      })
       return { subscriptionId: id }
     }),
     unsubscribe: ({ context }) => {

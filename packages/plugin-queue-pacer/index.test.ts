@@ -123,6 +123,21 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
   } as any
 }
 
+async function emitConfigChanged(
+  mockContext: { _lifecycleHandlers: Map<string, Function[]> },
+  data: {
+    roomId: string
+    pluginName: string
+    config: Record<string, unknown>
+    previousConfig: Record<string, unknown>
+  },
+): Promise<void> {
+  const handlers = mockContext._lifecycleHandlers.get("CONFIG_CHANGED") ?? []
+  for (const handler of handlers) {
+    await handler(data)
+  }
+}
+
 describe("QueuePacerPlugin", () => {
   let plugin: QueuePacerPlugin
   let mockContext: PluginContext
@@ -247,18 +262,23 @@ describe("QueuePacerPlugin", () => {
   describe("getComponentState", () => {
     let enabledConfig: QueuePacerConfig
 
-    beforeEach(async () => {
+    beforeEach(() => {
       enabledConfig = {
         enabled: true,
         endTime: Date.now() + 300_000,
         minPlaybackMs: 30_000,
         warnOnOverrun: true,
       }
-      await plugin.register(mockContext)
     })
 
     test("returns disabled state when plugin is not active", async () => {
-      vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue({ enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true })
+      vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue({
+        enabled: false,
+        endTime: null,
+        minPlaybackMs: 30000,
+        warnOnOverrun: true,
+      })
+      await plugin.register(mockContext)
 
       const state = await plugin.getComponentState()
 
@@ -272,6 +292,7 @@ describe("QueuePacerPlugin", () => {
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
       vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+      await plugin.register(mockContext)
 
       const state = await plugin.getComponentState()
 
@@ -287,6 +308,7 @@ describe("QueuePacerPlugin", () => {
         createMockQueueItem("track1", Date.now(), 60_000),
       )
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+      await plugin.register(mockContext)
 
       const state = await plugin.getComponentState()
 
@@ -300,6 +322,7 @@ describe("QueuePacerPlugin", () => {
         createMockQueueItem("track1", Date.now(), 60_000),
       )
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+      await plugin.register(mockContext)
 
       const state = await plugin.getComponentState()
 
@@ -313,6 +336,7 @@ describe("QueuePacerPlugin", () => {
         createMockQueueItem("track1", Date.now(), 300_000),
       )
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+      await plugin.register(mockContext)
 
       const state = await plugin.getComponentState()
 
@@ -328,6 +352,7 @@ describe("QueuePacerPlugin", () => {
         createMockQueueItem("track1", Date.now(), 300_000),
       )
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([])
+      await plugin.register(mockContext)
 
       const state = await plugin.getComponentState()
 
@@ -351,10 +376,7 @@ describe("QueuePacerPlugin", () => {
     })
 
     test("emits ACTIVATED when transitioning from disabled to enabled", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "queue-pacer",
         config: enabledConfig,
@@ -379,10 +401,7 @@ describe("QueuePacerPlugin", () => {
         warnOnOverrun: true,
       }
 
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "queue-pacer",
         config: configWithTz,
@@ -403,10 +422,7 @@ describe("QueuePacerPlugin", () => {
     })
 
     test("emits DEACTIVATED when transitioning from enabled to disabled", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "queue-pacer",
         config: { enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true },
@@ -430,18 +446,12 @@ describe("QueuePacerPlugin", () => {
       warnOnOverrun: true,
     }
 
-    beforeEach(async () => {
-      await plugin.register(mockContext)
-    })
-
     test("rejects activation when fetchMeta is off", async () => {
       vi.mocked(mockContext.getRoom).mockResolvedValue({ fetchMeta: false } as any)
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
+      await plugin.register(mockContext)
 
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "queue-pacer",
         config: enabledConfig,
@@ -462,6 +472,7 @@ describe("QueuePacerPlugin", () => {
 
     test("auto-disables when fetchMeta is turned off", async () => {
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
+      await plugin.register(mockContext)
 
       const handlers = (mockContext as any)._lifecycleHandlers.get("ROOM_SETTINGS_UPDATED")
       const roomSettingsHandler = handlers[0]
@@ -529,10 +540,7 @@ describe("QueuePacerPlugin", () => {
       vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
 
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "queue-pacer",
         config: enabledConfig,
@@ -566,8 +574,7 @@ describe("QueuePacerPlugin", () => {
         // nowPlaying intentionally remains track1 (stale metadata lag)
       })
 
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      await handlers[0]({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "queue-pacer",
         config: enabledConfig,
@@ -625,10 +632,7 @@ describe("QueuePacerPlugin", () => {
       vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([]) // Empty queue - last track
 
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "queue-pacer",
         config: enabledConfig,
@@ -656,8 +660,7 @@ describe("QueuePacerPlugin", () => {
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
       await plugin.register(mockContext)
 
-      const configHandlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      await configHandlers[0]({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "queue-pacer",
         config: enabledConfig,
@@ -714,8 +717,7 @@ describe("QueuePacerPlugin", () => {
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
       await plugin.register(mockContext)
 
-      const configHandlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      await configHandlers[0]({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "queue-pacer",
         config: enabledConfig,

@@ -110,6 +110,21 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
   } as any
 }
 
+async function emitConfigChanged(
+  mockContext: { _lifecycleHandlers: Map<string, Function[]> },
+  data: {
+    roomId: string
+    pluginName: string
+    config: Record<string, unknown>
+    previousConfig: Record<string, unknown>
+  },
+): Promise<void> {
+  const handlers = mockContext._lifecycleHandlers.get("CONFIG_CHANGED") ?? []
+  for (const handler of handlers) {
+    await handler(data)
+  }
+}
+
 describe("QueueHygienePlugin", () => {
   let plugin: QueueHygienePlugin
   let mockContext: PluginContext
@@ -437,10 +452,7 @@ describe("QueueHygienePlugin", () => {
     })
 
     test("should send system message when plugin is enabled", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "queue-hygiene",
         config: mockConfig,
@@ -455,10 +467,7 @@ describe("QueueHygienePlugin", () => {
     })
 
     test("should send system message when plugin is disabled", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "queue-hygiene",
         config: { ...mockConfig, enabled: false },
@@ -473,13 +482,10 @@ describe("QueueHygienePlugin", () => {
     })
 
     test("should not send message when config changes but enabled state unchanged", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
       vi.mocked(mockContext.api.sendSystemMessage).mockClear()
 
       // Change some config but keep enabled=true
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "queue-hygiene",
         config: { ...mockConfig, baseCooldownMs: 60000 },
@@ -490,12 +496,9 @@ describe("QueueHygienePlugin", () => {
     })
 
     test("should ignore config changes for other plugins", async () => {
-      const handlers = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")
-      const configChangedHandler = handlers[0]
-
       vi.mocked(mockContext.api.sendSystemMessage).mockClear()
 
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "some-other-plugin",
         config: { enabled: true },

@@ -4,7 +4,7 @@ import { ReactionPayload } from "@repo/types/Reaction"
 import { ReactionSubject } from "@repo/types/ReactionSubject"
 import { User } from "@repo/types/User"
 import { Emoji } from "@repo/types/Emoji"
-import { pubUserJoined } from "../operations/sockets/users"
+import { pubUserStatusChanged } from "../operations/sockets/users"
 import { addReaction as addReactionOp, removeReaction as removeReactionOp } from "../operations/reactions"
 
 /**
@@ -18,7 +18,7 @@ export class ActivityHandlers {
    * Update user status to listening
    */
   startListening = async (
-    { socket, io }: HandlerConnections,
+    { socket }: HandlerConnections,
     payload?: { audioTransport?: "shoutcast" | "webrtc" },
   ) => {
     const result = await this.activityService.startListening(
@@ -31,16 +31,16 @@ export class ActivityHandlers {
       return
     }
 
-    pubUserJoined({
-      io,
+    await pubUserStatusChanged({
       roomId: socket.data.roomId,
-      data: { user: result.user, users: result.users },
+      user: result.user,
+      oldStatus: "participating",
       context: socket.context,
     })
   }
 
   setListeningAudioTransport = async (
-    { socket, io }: HandlerConnections,
+    { socket }: HandlerConnections,
     payload: { audioTransport: "shoutcast" | "webrtc" },
   ) => {
     const result = await this.activityService.setListeningAudioTransport(
@@ -53,10 +53,10 @@ export class ActivityHandlers {
       return
     }
 
-    pubUserJoined({
-      io,
+    await pubUserStatusChanged({
       roomId: socket.data.roomId,
-      data: { user: result.user, users: result.users },
+      user: result.user,
+      oldStatus: "listening",
       context: socket.context,
     })
   }
@@ -64,17 +64,17 @@ export class ActivityHandlers {
   /**
    * Update user status to participating
    */
-  stopListening = async ({ socket, io }: HandlerConnections) => {
+  stopListening = async ({ socket }: HandlerConnections) => {
     const result = await this.activityService.stopListening(socket.data.roomId, socket.data.userId)
 
     if (!result.user) {
       return
     }
 
-    pubUserJoined({
-      io,
+    await pubUserStatusChanged({
       roomId: socket.data.roomId,
-      data: { user: result.user, users: result.users },
+      user: result.user,
+      oldStatus: "listening",
       context: socket.context,
     })
   }
@@ -96,17 +96,8 @@ export class ActivityHandlers {
    */
   removeReaction = async (
     { io, socket }: HandlerConnections,
-    {
-      emoji,
-      reactTo,
-      user,
-    }: {
-      emoji: Emoji
-      reactTo: ReactionSubject
-      user: User
-    },
+    { emoji, reactTo, user }: { emoji: Emoji; reactTo: ReactionSubject; user: User },
   ) => {
-    // Call operation (which broadcasts via SystemEvents to Redis PubSub, Socket.IO, and Plugins)
     await removeReactionOp({
       context: socket.context,
       roomId: socket.data.roomId,
@@ -118,7 +109,7 @@ export class ActivityHandlers {
 }
 
 /**
- * Factory function to create Activity handlers
+ * Factory function to create activity handlers
  */
 export function createActivityHandlers(context: AppContext) {
   const activityService = new ActivityService(context)

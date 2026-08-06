@@ -35,6 +35,8 @@ interface ActiveQuestion {
   total: number
   /** Present once the answer is public (PvP correct guess / admin reveal). */
   revealedAnswer?: string
+  /** Competitive guesser who revealed the answer (PvP only). */
+  revealedByUsername?: string
 }
 
 /** Last correct-answer notice used to light up the per-user "You got it!" state. */
@@ -57,7 +59,7 @@ interface AutoAdvanceDeadline {
  * renders nothing when there is no active question.
  *
  * Answer visibility is spoiler-safe:
- * - PvP (competitive): once won, `revealedAnswer` is broadcast to everyone.
+ * - PvP (competitive): once won, `revealedAnswer` (+ guesser username) is broadcast.
  * - PvG (inclusive): no answer is broadcast; each client shows a private
  *   "You got it!" badge derived from `lastCorrectAnswer` matching the current
  *   user, tracked per question id so it survives re-renders and store churn.
@@ -99,6 +101,7 @@ export function QuizQuestionCardTemplateComponent({
   if (!question) return null
 
   const revealedAnswer = question.revealedAnswer?.trim()
+  const revealedByUsername = question.revealedByUsername?.trim()
   const youGotIt = answeredQuestionIds.has(question.id)
   const progress = `Question ${question.index + 1} of ${question.total}`
   const showExpiryBar = deadline != null && deadline.endAt > Date.now()
@@ -150,6 +153,7 @@ export function QuizQuestionCardTemplateComponent({
                   {revealedAnswer ? (
                     <Badge colorPalette="green" alignSelf="flex-start" size="lg">
                       Answer: {revealedAnswer}
+                      {revealedByUsername ? ` · ${revealedByUsername}` : ""}
                     </Badge>
                   ) : youGotIt ? (
                     <Badge colorPalette="green" alignSelf="flex-start">

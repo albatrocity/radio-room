@@ -28,9 +28,25 @@ export interface SocketEvent {
  * Subscriber info stored by ID for resilient subscriptions.
  * Using ID-based subscriptions allows re-subscribing with the same ID
  * to just update the reference, making it resilient to React StrictMode.
+ *
+ * Optional `eventTypes` filters SERVER_EVENT delivery (SOCKET_* lifecycle
+ * events always fan out via dedicated broadcast helpers).
  */
 interface Subscriber {
   send: (event: { type: string; data?: any }) => void
+  eventTypes?: string[]
+}
+
+const LIFECYCLE_EVENT_TYPES = new Set([
+  "SOCKET_ONLINE",
+  "SOCKET_OFFLINE",
+  "SOCKET_RECONNECTING",
+])
+
+function subscriberAccepts(subscriber: Subscriber, eventType: string): boolean {
+  if (!subscriber.eventTypes || subscriber.eventTypes.length === 0) return true
+  if (LIFECYCLE_EVENT_TYPES.has(eventType)) return true
+  return subscriber.eventTypes.includes(eventType)
 }
 
 /** Payload for the next SOCKET_ONLINE broadcast (set on transition into `connected`) */
@@ -242,9 +258,9 @@ const socketMachine = setup({
     broadcastToSubscribers: ({ context, event }: { context: SocketContext; event: SocketMachineEvent }) => {
       if (event.type !== "SERVER_EVENT") return
 
-      // Broadcast the event to all subscribers
       Object.entries(context.subscribers).forEach(([id, subscriber]) => {
         if (!subscriber || typeof subscriber.send !== "function") return
+        if (!subscriberAccepts(subscriber, event.eventType)) return
         try {
           subscriber.send({ type: event.eventType, data: event.data })
         } catch (err) {
@@ -399,10 +415,14 @@ export const socketActor = createActor(socketMachine).start()
  *
  * @param id - Stable identifier for this subscription (e.g., machine ID)
  * @param subscriber - Object with a send method to receive events
+ * @param subscriber.eventTypes - Optional allowlist of SERVER_EVENT types
  */
 export function subscribeById(
   id: string,
-  subscriber: { send: (event: { type: string; data?: any }) => void },
+  subscriber: {
+    send: (event: { type: string; data?: any }) => void
+    eventTypes?: string[]
+  },
 ): void {
   if (!id || !subscriber) {
     console.error("[SocketActor] subscribeById called with invalid args:", id, subscriber)

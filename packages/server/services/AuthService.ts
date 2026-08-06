@@ -1,20 +1,15 @@
-import { AppContext, GameSession, toAdminAssignablePersonas } from "@repo/types"
-import type { PersonaService } from "./PersonaService"
+import { AppContext } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import { isNullish, uniqueBy } from "remeda"
 import {
   addOnlineUser,
   findRoom,
-  getAllRoomReactions,
-  getMessages,
   getRoomUsers,
   getUser,
   isDj,
   saveUser,
   removeOnlineUser,
-  getRoomPlaylist,
-  getRoomCurrent,
   updateUserAttributes,
   persistRoom,
   addDj,
@@ -23,28 +18,19 @@ import {
   persistUser,
   deleteUser,
   nukeUserRooms,
-  getAllPluginConfigs,
   setRoomLastEmptied,
   clearRoomLastEmptied,
   isRoomPollingPaused,
   setRoomPollingPaused,
-  getQueue,
-  getQueueWithDispatched,
-  getNormalizedQueueSplit,
   isRoomAdmin,
   addUserToRoomHistory,
 } from "../operations/data"
-import {
-  getStreamHealthStatus,
-  getWebrtcExperimentalStreamHealthStatus,
-} from "../operations/room/handleStreamHealth"
-import { isAppControlledPlayback, isHybridRadioRoom } from "../lib/roomTypeHelpers"
+import { buildRoomInitPayload } from "../operations/room/buildRoomInitPayload"
 import { onListeningUserDisconnected } from "../operations/room/listeningTransportStats"
 import generateId from "../lib/generateId"
 import generateAnonName from "../lib/generateAnonName"
 import systemMessage from "../lib/systemMessage"
 import { THREE_HOURS } from "../lib/constants"
-import { loadPollInitData } from "../operations/polls/loadPollSnapshot"
 
 /**
  * A service that handles authentication operations without Socket.io dependencies
@@ -223,113 +209,25 @@ export class AuthService {
     // remove expiration of user keys
     await persistUser({ context: this.context, userId })
 
-    // Get initial data payload for user
-    const messages = await getMessages({ context: this.context, roomId, offset: 0, size: 100 })
-    const playlist = await getRoomPlaylist({ context: this.context, roomId })
-    const meta = await getRoomCurrent({ context: this.context, roomId })
-    const allReactions = await getAllRoomReactions({ context: this.context, roomId })
-    const pluginConfigs = await getAllPluginConfigs({ context: this.context, roomId })
-    const queue = isAppControlledPlayback(room)
-      ? await getQueueWithDispatched({ context: this.context, roomId })
-      : await getQueue({ context: this.context, roomId })
-    const splitKey = isAppControlledPlayback(room)
-      ? await getNormalizedQueueSplit({ context: this.context, roomId })
-      : null
-    const streamHealthStatus =
-      room.type === "live" ? await getStreamHealthStatus(this.context, roomId) : null
-    const webrtcStreamHealthStatus = isHybridRadioRoom(room)
-      ? await getWebrtcExperimentalStreamHealthStatus(this.context, roomId)
-      : null
-
-    let activeGameSession: GameSession | null = null
-    try {
-      if (this.context.gameSessions) {
-        activeGameSession = await this.context.gameSessions.getActiveSession(roomId)
-      }
-    } catch (err) {
-      console.error("[AuthService] Failed to load active game session for init:", err)
-    }
-
-    let assignablePersonas: ReturnType<typeof toAdminAssignablePersonas> = []
-    const personaSvc = this.context.personas as PersonaService | undefined
-    if (personaSvc) {
-      try {
-        const definitions = await personaSvc.getRoomDefinitions(roomId)
-        assignablePersonas = toAdminAssignablePersonas(definitions)
-      } catch (err) {
-        console.error("[AuthService] Failed to load assignable personas for init:", err)
-      }
-    }
-
-    // Get access token for room creator to enable authenticated features (search, liked tracks, etc.)
-    // Use the first metadata source (primary) for auth token
-    let accessToken: string | undefined = undefined
-    const primaryMetadataSource = room.metadataSourceIds?.[0]
-    if (isAdmin && primaryMetadataSource && this.context.data?.getUserServiceAuth) {
-      try {
-        const auth = await this.context.data.getUserServiceAuth({
-          userId,
-          serviceName: primaryMetadataSource,
-        })
-        accessToken = auth?.accessToken
-        console.log(`Retrieved ${primaryMetadataSource} access token for room creator ${userId}`)
-      } catch (error) {
-        console.error(`Failed to retrieve access token for room creator ${userId}:`, error)
-      }
-    }
-
-    const pollInit = await loadPollInitData({
+    const initPayload = await buildRoomInitPayload({
       context: this.context,
+      room,
       roomId,
       userId,
+      isAdmin,
     })
-
-    let effectiveMetadataSourceIds: string[] | undefined
-    let browseableSourceIds: string[] | undefined
-    let browseSourceCapabilities: Record<string, { entryMode: "index" | "search"; albumSearch: boolean }> | undefined
-    if (this.context.metadataSourceAccess) {
-      try {
-        effectiveMetadataSourceIds =
-          await this.context.metadataSourceAccess.getEffectiveSourceIdsForUser(
-            roomId,
-            userId,
-            "search",
-          )
-        if (effectiveMetadataSourceIds?.length) {
-          const { AdapterService } = await import("./AdapterService")
-          const { metadataSourceSupportsBrowse, resolveBrowseCapabilities } = await import(
-            "@repo/utils"
-          )
-          const adapterService = new AdapterService(this.context)
-          const sources = await adapterService.getRoomMetadataSources(roomId)
-          browseableSourceIds = []
-          browseSourceCapabilities = {}
-          for (const id of effectiveMetadataSourceIds) {
-            const src = sources.get(id)
-            if (!src || !metadataSourceSupportsBrowse(src.api)) continue
-            browseableSourceIds.push(id)
-            browseSourceCapabilities[id] = resolveBrowseCapabilities(src.api)
-          }
-        } else {
-          browseableSourceIds = []
-          browseSourceCapabilities = {}
-        }
-      } catch (err) {
-        console.error("[AuthService] Failed to load effective metadata sources for init:", err)
-      }
-    }
 
     return {
       initData: {
         users: newUsers,
-        messages,
-        meta,
+        messages: initPayload.messages,
+        meta: initPayload.meta,
         passwordRequired: !isNullish(room?.password),
-        playlist,
-        queue,
-        splitKey,
-        reactions: allReactions,
-        pluginConfigs,
+        playlist: initPayload.playlist,
+        queue: initPayload.queue,
+        splitKey: initPayload.splitKey,
+        reactions: initPayload.reactions,
+        pluginConfigs: initPayload.pluginConfigs,
         user: {
           userId,
           username,
@@ -337,19 +235,23 @@ export class AuthService {
           isDeputyDj,
           isAdmin,
         },
-        accessToken, // Only set for room creator with metadata source
+        accessToken: initPayload.accessToken,
         isNewUser: isNew,
-        activeGameSession,
-        assignablePersonas,
-        effectiveMetadataSourceIds,
-        browseableSourceIds,
-        browseSourceCapabilities,
-        activePoll: pollInit.activePoll,
-        totalVotes: pollInit.totalVotes,
-        pollHistory: pollInit.pollHistory,
-        ...(pollInit.myVote ? { myVote: pollInit.myVote } : {}),
-        ...(streamHealthStatus ? { streamHealthStatus } : {}),
-        ...(webrtcStreamHealthStatus ? { webrtcStreamHealthStatus } : {}),
+        activeGameSession: initPayload.activeGameSession,
+        assignablePersonas: initPayload.assignablePersonas,
+        effectiveMetadataSourceIds: initPayload.effectiveMetadataSourceIds,
+        browseableSourceIds: initPayload.browseableSourceIds,
+        browseSourceCapabilities: initPayload.browseSourceCapabilities,
+        activePoll: initPayload.pollInit.activePoll,
+        totalVotes: initPayload.pollInit.totalVotes,
+        pollHistory: initPayload.pollInit.pollHistory,
+        ...(initPayload.pollInit.myVote ? { myVote: initPayload.pollInit.myVote } : {}),
+        ...(initPayload.streamHealthStatus
+          ? { streamHealthStatus: initPayload.streamHealthStatus }
+          : {}),
+        ...(initPayload.webrtcStreamHealthStatus
+          ? { webrtcStreamHealthStatus: initPayload.webrtcStreamHealthStatus }
+          : {}),
       },
       userData: {
         userId,

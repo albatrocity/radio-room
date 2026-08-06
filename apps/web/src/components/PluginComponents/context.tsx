@@ -27,3 +27,20 @@ export function usePluginComponentContext() {
   }
   return ctx
 }
+
+/** Room-level modal open/close API (shared across all PluginArea rows). */
+export interface PluginModalApi {
+  openModal: (pluginName: string, modalId: string) => void
+  closeModal: (pluginName: string, modalId: string) => void
+  isModalOpen: (pluginName: string, modalId: string) => boolean
+}
+
+export const PluginModalApiContext = createContext<PluginModalApi | null>(null)
+
+export function usePluginModalApi(): PluginModalApi {
+  const ctx = useContext(PluginModalApiContext)
+  if (!ctx) {
+    throw new Error("usePluginModalApi must be used within PluginComponentsRoomProvider")
+  }
+  return ctx
+}

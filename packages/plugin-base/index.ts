@@ -4,7 +4,12 @@
 // going through this barrel file, which would cause a load-order cycle.)
 // ============================================================================
 
-export { BasePlugin, type Timer, type TimerConfig } from "./BasePlugin"
+export {
+  BasePlugin,
+  pluginImplementsChatTransform,
+  type Timer,
+  type TimerConfig,
+} from "./BasePlugin"
 
 // ============================================================================
 // Composable helpers (importable directly from `@repo/plugin-base/helpers`).
@@ -53,6 +58,9 @@ export {
   type TextEffectStacks,
   type WordContext,
   type AppliedTextEffects,
+  HOT_LEADERBOARD_TOP_N,
+  fetchTopZsetEntries,
+  type ZsetEntry,
 } from "./helpers"
 
 export {

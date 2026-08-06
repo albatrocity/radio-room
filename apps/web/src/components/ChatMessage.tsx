@@ -23,7 +23,7 @@ import Timestamp from "./Timestamp"
 import { chatMessageRecipe } from "../theme/chatMessageRecipe"
 
 import type { TextSegment } from "@repo/types"
-import { useIsAdmin, useBookmarks, useBookmarksSend, useChatSend } from "../hooks/useActors"
+import { useIsAdmin, useIsBookmarked, useBookmarksSend, useChatSend } from "../hooks/useActors"
 import { getChatPersonaBadges } from "../lib/userPersonas"
 import { PersonaBadge } from "./PersonaBadge"
 import { ExpiryBar } from "./ExpiryBar"
@@ -64,8 +64,7 @@ const ChatMessage = ({
   const currentIsAdmin = useIsAdmin()
   const chatSend = useChatSend()
   const bookmarkSend = useBookmarksSend()
-  const bookmarks = useBookmarks()
-  const isBookmarked = bookmarks.find(({ id }) => id === timestamp)
+  const isBookmarked = useIsBookmarked(timestamp)
 
   const [hovered, setHovered] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)

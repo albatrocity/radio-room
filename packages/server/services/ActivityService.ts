@@ -6,7 +6,6 @@ import { Emoji } from "@repo/types/Emoji"
 import { REACTIONABLE_TYPES } from "../lib/constants"
 import {
   addReaction as addReactionData,
-  getAllRoomReactions,
   removeReaction as removeReactionData,
   updateUserAttributes,
 } from "../operations/data"
@@ -33,16 +32,15 @@ export class ActivityService {
   ) {
     await onListeningStarted(this.context, roomId, userId, audioTransport)
 
-    const result = await updateUserAttributes({
+    return updateUserAttributes({
       context: this.context,
       userId,
       attributes: {
         status: "listening",
       },
       roomId,
+      includeRoomUsers: false,
     })
-
-    return result
   }
 
   /**
@@ -51,16 +49,15 @@ export class ActivityService {
   async stopListening(roomId: string, userId: string) {
     await onListeningStopped(this.context, roomId, userId)
 
-    const result = await updateUserAttributes({
+    return updateUserAttributes({
       context: this.context,
       userId,
       attributes: {
         status: "participating",
       },
       roomId,
+      includeRoomUsers: false,
     })
-
-    return result
   }
 
   /**
@@ -78,11 +75,13 @@ export class ActivityService {
       userId,
       attributes: { status: "listening" },
       roomId,
+      includeRoomUsers: false,
     })
   }
 
   /**
-   * Add a reaction to a reactionable item
+   * Add a reaction to a reactionable item.
+   * Does not reload the full room reaction store — callers emit a delta.
    */
   async addReaction(roomId: string, reaction: ReactionPayload) {
     const { reactTo } = reaction
@@ -92,13 +91,12 @@ export class ActivityService {
     }
 
     await addReactionData({ context: this.context, roomId, reaction, reactTo })
-    const reactions = await getAllRoomReactions({ context: this.context, roomId })
-
-    return { reactions }
+    return { ok: true as const }
   }
 
   /**
-   * Remove a reaction from a reactionable item
+   * Remove a reaction from a reactionable item.
+   * Does not reload the full room reaction store — callers emit a delta.
    */
   async removeReaction(roomId: string, emoji: Emoji, reactTo: ReactionSubject, user: User) {
     if (REACTIONABLE_TYPES.indexOf(reactTo.type) === -1) {
@@ -112,8 +110,6 @@ export class ActivityService {
       reactTo,
     })
 
-    const reactions = await getAllRoomReactions({ context: this.context, roomId })
-
-    return { reactions }
+    return { ok: true as const }
   }
 }

@@ -98,6 +98,21 @@ describe("volumeManagerConfigSchema", () => {
   })
 })
 
+async function emitConfigChanged(
+  mockContext: { _lifecycleHandlers: Map<string, Function[]> },
+  data: {
+    roomId: string
+    pluginName: string
+    config: Record<string, unknown>
+    previousConfig: Record<string, unknown>
+  },
+): Promise<void> {
+  const handlers = mockContext._lifecycleHandlers.get("CONFIG_CHANGED") ?? []
+  for (const handler of handlers) {
+    await handler(data)
+  }
+}
+
 describe("VolumeManagerPlugin", () => {
   let plugin: VolumeManagerPlugin
   let mockContext: ReturnType<typeof createMockContext>
@@ -116,8 +131,7 @@ describe("VolumeManagerPlugin", () => {
       startVolume: 100,
     })
 
-    const handlers = mockContext._lifecycleHandlers.get("CONFIG_CHANGED")!
-    await handlers[0]({
+    await emitConfigChanged(mockContext, {
       roomId: "test-room",
       pluginName: "volume-manager",
       config: {
@@ -146,8 +160,7 @@ describe("VolumeManagerPlugin", () => {
       startVolume: 0,
     })
 
-    const handlers = mockContext._lifecycleHandlers.get("CONFIG_CHANGED")!
-    await handlers[0]({
+    await emitConfigChanged(mockContext, {
       roomId: "test-room",
       pluginName: "volume-manager",
       config: {

@@ -10,7 +10,7 @@ import type {
   SystemEventPayload,
 } from "@repo/types"
 import { isInclusiveMode, type ParticipationMode } from "@repo/game-logic"
-import { BasePlugin } from "@repo/plugin-base"
+import { BasePlugin, fetchTopZsetEntries, HOT_LEADERBOARD_TOP_N } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import {
   quizSessionsConfigSchema,
@@ -267,6 +267,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       startedAt: Date.now(),
       winnersPerQuestion: {},
       revealedAnswers: {},
+      revealedByUsernames: {},
       autoAdvanceDeadline: null,
     }
 
@@ -483,6 +484,9 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     if (!claimed) return
 
     session.revealedAnswers[String(active.index)] = answer
+    session.revealedByUsernames ??= {}
+    session.revealedByUsernames[String(active.index)] =
+      message.user.username?.trim() || message.user.userId
     await this.awardCorrect({
       config,
       session,
@@ -567,7 +571,8 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       autoAdvanceDeadline,
     })
 
-    const leaderboard = await this.buildLeaderboard()
+    // Top-N only on the award hot path; full board hydrates via getComponentState
+    const leaderboard = await this.buildLeaderboard(HOT_LEADERBOARD_TOP_N)
     await this.emit<QuizSessionsEvents["LEADERBOARD_UPDATED"]>("LEADERBOARD_UPDATED", {
       leaderboard,
     })
@@ -714,19 +719,30 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     const question = questions[index]
     if (!question) return null
     const revealedAnswer = session.revealedAnswers[String(index)]
+    const revealedByUsername = session.revealedByUsernames?.[String(index)]
     return {
       id: this.questionId(session, index),
       text: question.text,
       index,
       total: questions.length,
       ...(revealedAnswer !== undefined ? { revealedAnswer } : {}),
+      ...(revealedAnswer !== undefined && revealedByUsername
+        ? { revealedByUsername }
+        : {}),
     }
   }
 
-  private async buildLeaderboard(): Promise<QuizLeaderboardEntry[]> {
+  /**
+   * @param topN - When set, only the top N scores (hot award path). Omit for full board.
+   */
+  private async buildLeaderboard(topN?: number): Promise<QuizLeaderboardEntry[]> {
     if (!this.context) return []
-    const raw = await this.context.storage.zrangeWithScores(LEADERBOARD_KEY, 0, -1)
-    const sorted = [...raw].sort((a, b) => b.score - a.score)
+    const sorted =
+      topN != null && topN > 0
+        ? await fetchTopZsetEntries(this.context.storage, LEADERBOARD_KEY, topN)
+        : [...(await this.context.storage.zrangeWithScores(LEADERBOARD_KEY, 0, -1))].sort(
+            (a, b) => b.score - a.score,
+          )
     const users = await this.context.api.getUsersByIds(sorted.map((e) => e.value))
     const nameById = new Map(users.map((u) => [u.userId, u.username]))
     return sorted.map((entry) => ({

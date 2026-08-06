@@ -52,6 +52,12 @@ export const effectiveMetadataSourcesMachine = setup({
       const id = `effectiveMetadataSources-${self.id}-${++subscriptionCounter}`
       subscribeById(id, {
         send: (event) => self.send(event as EffectiveMetadataSourcesEvent),
+        eventTypes: [
+          "INIT",
+          "EFFECTIVE_METADATA_SOURCES",
+          "ROOM_SETTINGS_UPDATED",
+          "MEDIA_BRIDGE_STATUS_CHANGED",
+        ],
       })
       return { subscriptionId: id }
     }),

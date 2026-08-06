@@ -24,11 +24,10 @@ export async function ensurePlatformPersonaDefinitions({
   roomId: string
 }): Promise<void> {
   const key = definitionsKey(roomId)
-  const entries: Record<string, string> = {}
+  // Only seed missing platform fields — avoid rewriting the hash on every presence hydrate.
   for (const def of PLATFORM_PERSONA_DEFINITIONS) {
-    entries[def.id] = JSON.stringify(def)
+    await context.redis.pubClient.hSetNX(key, def.id, JSON.stringify(def))
   }
-  await context.redis.pubClient.hSet(key, entries)
 }
 
 export async function setPersonaDefinitions({
@@ -191,20 +190,10 @@ export async function clearUserPersonaAssignments({
   await context.redis.pubClient.del(assignmentsKey(roomId, userId))
 }
 
-export async function hydrateUserPersonas({
-  context,
-  roomId,
-  userId,
-}: {
-  context: AppContext
-  roomId: string
-  userId: string
-}): Promise<UserPersona[]> {
-  const [assignments, definitions] = await Promise.all([
-    getUserPersonaAssignments({ context, roomId, userId }),
-    getPersonaDefinitions({ context, roomId }),
-  ])
-  const defById = new Map(definitions.map((d) => [d.id, d]))
+function mapAssignmentsToPersonas(
+  assignments: UserPersonaAssignment[],
+  defById: Map<string, PersonaDefinition>,
+): UserPersona[] {
   return assignments
     .map((a) => {
       const def = defById.get(a.personaId)
@@ -220,6 +209,28 @@ export async function hydrateUserPersonas({
     .filter(isTruthy)
 }
 
+export async function hydrateUserPersonas({
+  context,
+  roomId,
+  userId,
+  definitions,
+}: {
+  context: AppContext
+  roomId: string
+  userId: string
+  /** When provided, skips a Redis definitions read (batch hydrate). */
+  definitions?: PersonaDefinition[]
+}): Promise<UserPersona[]> {
+  const [assignments, defs] = await Promise.all([
+    getUserPersonaAssignments({ context, roomId, userId }),
+    definitions
+      ? Promise.resolve(definitions)
+      : getPersonaDefinitions({ context, roomId }),
+  ])
+  const defById = new Map(defs.map((d) => [d.id, d]))
+  return mapAssignmentsToPersonas(assignments, defById)
+}
+
 export async function hydrateUsersWithPersonas({
   context,
   roomId,
@@ -230,9 +241,16 @@ export async function hydrateUsersWithPersonas({
   users: User[]
 }): Promise<User[]> {
   if (users.length === 0) return users
+  // Load definitions once for the whole room — not once per user.
+  const definitions = await getPersonaDefinitions({ context, roomId })
   const hydrated = await Promise.all(
     users.map(async (user) => {
-      const personas = await hydrateUserPersonas({ context, roomId, userId: user.userId })
+      const personas = await hydrateUserPersonas({
+        context,
+        roomId,
+        userId: user.userId,
+        definitions,
+      })
       if (personas.length === 0) {
         const { personas: _removed, ...rest } = user
         return rest as User
