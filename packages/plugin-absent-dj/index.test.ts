@@ -106,6 +106,21 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
   } as any
 }
 
+async function emitConfigChanged(
+  mockContext: { _lifecycleHandlers: Map<string, Function[]> },
+  data: {
+    roomId: string
+    pluginName: string
+    config: Record<string, unknown>
+    previousConfig: Record<string, unknown>
+  },
+): Promise<void> {
+  const handlers = mockContext._lifecycleHandlers.get("CONFIG_CHANGED") ?? []
+  for (const handler of handlers) {
+    await handler(data)
+  }
+}
+
 describe("AbsentDjPlugin", () => {
   let plugin: AbsentDjPlugin
   let mockContext: PluginContext
@@ -418,9 +433,7 @@ describe("AbsentDjPlugin", () => {
     })
 
     test("should send system message when plugin is enabled", async () => {
-      const configChangedHandler = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "absent-dj",
         config: mockConfig,
@@ -435,9 +448,7 @@ describe("AbsentDjPlugin", () => {
     })
 
     test("should send system message when plugin is disabled", async () => {
-      const configChangedHandler = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")[0]
-
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "absent-dj",
         config: { ...mockConfig, enabled: false },
@@ -453,7 +464,6 @@ describe("AbsentDjPlugin", () => {
 
     test("should clear timer when plugin is disabled", async () => {
       const trackChangedHandler = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")[0]
-      const configChangedHandler = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")[0]
 
       const track = createMockQueueItem("track1", "Test Song", {
         userId: "dj1",
@@ -469,7 +479,7 @@ describe("AbsentDjPlugin", () => {
       vi.advanceTimersByTime(15000)
 
       // Disable the plugin
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "absent-dj",
         config: { ...mockConfig, enabled: false },
@@ -485,8 +495,6 @@ describe("AbsentDjPlugin", () => {
     })
 
     test("should start timer for current track when enabled and DJ is absent", async () => {
-      const configChangedHandler = (mockContext as any)._lifecycleHandlers.get("CONFIG_CHANGED")[0]
-
       const nowPlaying = createMockQueueItem("track1", "Test Song", {
         userId: "dj1",
         username: "DJ One",
@@ -496,7 +504,7 @@ describe("AbsentDjPlugin", () => {
       // DJ is NOT in the room
       vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user2")])
 
-      await configChangedHandler({
+      await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
         pluginName: "absent-dj",
         config: mockConfig,

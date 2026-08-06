@@ -624,6 +624,8 @@ describe("DJService", () => {
     })
 
     test("supportsVolume is false when setVolume is missing", async () => {
+      // Distinct roomId so this does not hit the playback-state cache from the prior test.
+      const roomId = "room-no-volume"
       vi.mocked(findRoom).mockResolvedValue(room)
       vi.mocked(isRoomAdmin).mockResolvedValue(true)
       const getPlayback = vi.fn().mockResolvedValue({
@@ -637,7 +639,7 @@ describe("DJService", () => {
         api: { getPlayback },
       })
 
-      const result = await djService.getPlaybackState("room123", "user123")
+      const result = await djService.getPlaybackState(roomId, "user123")
 
       expect(result.success).toBe(true)
       if (result.success) {
