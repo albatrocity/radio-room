@@ -11,7 +11,7 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react"
-import type { InventoryItem, ItemDefinition } from "@repo/types"
+import type { InventoryItem, ItemDefinition, ItemShopsUserGameState } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
@@ -89,14 +89,17 @@ function InventoryRow({
     ? getItemRarityColorPalette(definition.rarity)
     : "fg.muted"
   const isItemShopsItem = item.sourcePlugin === ITEM_SHOPS_PLUGIN_NAME
-  const shopVisitOpen = gameState?.currentShopInstance != null
+  const shopInstance =
+    gameState?.getPluginState<ItemShopsUserGameState>(ITEM_SHOPS_PLUGIN_NAME)
+      ?.currentShopInstance ?? null
+  const shopVisitOpen = shopInstance != null
   const showSellButton = sellable && (!isItemShopsItem || shopVisitOpen)
   const sellButtonLabel = (() => {
-    if (isItemShopsItem && shopVisitOpen && definition && gameState?.currentShopInstance) {
+    if (isItemShopsItem && shopVisitOpen && definition && shopInstance) {
       if (item.sellbackValue != null) {
         return `Sell (${item.sellbackValue})`
       }
-      const q = quoteItemShopsSellCoins(gameState.currentShopInstance, definition)
+      const q = quoteItemShopsSellCoins(shopInstance, definition)
       return q != null ? (
         <Text>
           Sell for <Icon as={getIcon("Coins")} boxSize="0.8rem" />

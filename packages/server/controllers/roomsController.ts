@@ -20,7 +20,6 @@ import * as scheduling from "../services/SchedulingService"
 import { RoomSnapshot } from "@repo/types/Room"
 import { SocketWithContext } from "../lib/socketWithContext"
 import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
-import { resolveItemRarity } from "@repo/game-logic"
 import {
   ensureBridgeMetadataSources as ensureBridgeMetadataSourcesBase,
   stripBridgeOnlyMetadataSources,
@@ -28,41 +27,10 @@ import {
 import {
   AppContext,
   RoomScheduleSnapshotDTO,
-  ITEM_SHOPS_PLUGIN_NAME,
-  ITEM_SHOPS_SESSION_STORAGE_KEYS,
-  PLAYLIST_BINGO_PLUGIN_NAME,
-  PLAYLIST_BINGO_STORAGE_KEYS,
-  type BingoCard,
   type InventoryItem,
   type ItemDefinition,
-  type ShoppingSessionInstance,
 } from "@repo/types"
 import { readRoomScheduleSnapshot, refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
-import { PluginStorageImpl } from "../lib/plugins/PluginStorage"
-
-/**
- * Persisted shop instances may omit `offer.rarity` (created before the field existed).
- * Hydrate from room item definitions so the client always receives rarity for UI.
- */
-function enrichCurrentShopInstanceWithOfferRarity(
-  instance: ShoppingSessionInstance | null,
-  itemDefinitions: ItemDefinition[],
-): ShoppingSessionInstance | null {
-  if (!instance) return null
-  const byShortId = new Map<string, ItemDefinition>()
-  for (const def of itemDefinitions) {
-    if (def.sourcePlugin === ITEM_SHOPS_PLUGIN_NAME) {
-      byShortId.set(def.shortId, def)
-    }
-  }
-  return {
-    ...instance,
-    offers: instance.offers.map((offer) => ({
-      ...offer,
-      rarity: offer.rarity ?? resolveItemRarity(byShortId.get(offer.shortId) ?? {}),
-    })),
-  }
-}
 
 /**
  * Baseline metadata sources from the creator's linked services.
@@ -495,8 +463,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
           state: null,
           inventory: null,
           itemDefinitions: [],
-          currentShopInstance: null,
-          bingoCard: null,
+          pluginUserState: {},
         },
       })
       return
@@ -511,8 +478,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
           state: null,
           inventory: null,
           itemDefinitions: [],
-          currentShopInstance: null,
-          bingoCard: null,
+          pluginUserState: {},
         },
       })
       return
@@ -526,63 +492,6 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       ? await inventory.getAllItemDefinitions(socket.data.roomId)
       : []
 
-    let currentShopInstance: ShoppingSessionInstance | null = null
-    if (inventory) {
-      const storage = new PluginStorageImpl(
-        socket.context,
-        ITEM_SHOPS_PLUGIN_NAME,
-        socket.data.roomId,
-      )
-      const active = await storage.get(ITEM_SHOPS_SESSION_STORAGE_KEYS.ACTIVE)
-      if (active === "true") {
-        const raw = await storage.hget(
-          ITEM_SHOPS_SESSION_STORAGE_KEYS.INSTANCES,
-          socket.data.userId,
-        )
-        if (raw) {
-          try {
-            currentShopInstance = JSON.parse(raw) as ShoppingSessionInstance
-          } catch {
-            currentShopInstance = null
-          }
-        }
-      }
-    }
-
-    currentShopInstance = enrichCurrentShopInstanceWithOfferRarity(currentShopInstance, itemDefinitions)
-
-    let bingoCard: BingoCard | null = null
-    {
-      const bingoStorage = new PluginStorageImpl(
-        socket.context,
-        PLAYLIST_BINGO_PLUGIN_NAME,
-        socket.data.roomId,
-      )
-      const roundRaw = await bingoStorage.get(PLAYLIST_BINGO_STORAGE_KEYS.ROUND)
-      let roundActive = false
-      if (roundRaw) {
-        try {
-          const round = JSON.parse(roundRaw) as { active?: boolean }
-          roundActive = round.active === true
-        } catch {
-          roundActive = false
-        }
-      }
-      if (roundActive) {
-        const cardRaw = await bingoStorage.hget(
-          PLAYLIST_BINGO_STORAGE_KEYS.CARDS,
-          socket.data.userId,
-        )
-        if (cardRaw) {
-          try {
-            bingoCard = JSON.parse(cardRaw) as BingoCard
-          } catch {
-            bingoCard = null
-          }
-        }
-      }
-    }
-
     const definitionById = new Map<string, ItemDefinition>(
       itemDefinitions.map((d: ItemDefinition) => [d.id, d]),
     )
@@ -593,6 +502,11 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
             items: InventoryItem[],
             definitionById: Map<string, ItemDefinition>,
           ) => Promise<Record<string, number>>
+          invokeContributeToUserGameState?: (
+            roomId: string,
+            userId: string,
+            ctx: { itemDefinitions: ItemDefinition[] },
+          ) => Promise<Record<string, Record<string, unknown>>>
         }
       | undefined
 
@@ -612,6 +526,14 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       }
     }
 
+    const pluginUserState = registry?.invokeContributeToUserGameState
+      ? await registry.invokeContributeToUserGameState(
+          socket.data.roomId,
+          socket.data.userId,
+          { itemDefinitions },
+        )
+      : {}
+
     socket.emit("event", {
       type: "USER_GAME_STATE",
       data: {
@@ -619,8 +541,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
         state,
         inventory: inventoryPayload,
         itemDefinitions,
-        currentShopInstance,
-        bingoCard,
+        pluginUserState,
       },
     })
   })

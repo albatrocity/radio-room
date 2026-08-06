@@ -8,7 +8,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
-    "check-types": "tsc --noEmit -p tsconfig.json"
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
     "@repo/plugin-item-shops": "*",
@@ -22,6 +23,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.0"
   }
 }

@@ -1,6 +1,7 @@
 /**
- * Playlist Bingo per-user card delivery (ADR 0093).
- * Storage keys and public card shape shared by plugin, server GET_MY_GAME_STATE, and web.
+ * Playlist Bingo per-user card delivery (ADR 0093 / 0094).
+ * Storage keys and public card shape shared by plugin and web;
+ * cards reach the client via `contributeToUserGameState` → `pluginUserState`.
  */
 
 export const PLAYLIST_BINGO_PLUGIN_NAME = "playlist-bingo" as const

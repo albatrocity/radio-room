@@ -109,6 +109,11 @@ export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) 
         })
       : rawItems
 
+  const pluginUserState: Record<string, Record<string, unknown>> = {
+    "item-shops": { currentShopInstance },
+    "playlist-bingo": { card: bingoCard },
+  }
+
   return {
     session,
     state,
@@ -120,8 +125,7 @@ export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) 
         }
       : null,
     itemDefinitions: snap.itemDefinitions,
-    currentShopInstance,
-    bingoCard,
+    pluginUserState,
   }
 }
 

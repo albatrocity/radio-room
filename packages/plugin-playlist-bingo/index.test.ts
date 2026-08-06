@@ -47,10 +47,11 @@ function createMockContext() {
     ),
     sendSystemMessage: vi.fn(async () => {}),
     sendUserSystemMessage: vi.fn(async () => {}),
+    requestGameStateTabAttention: vi.fn(async () => {}),
     queueSoundEffect: vi.fn(async () => {}),
     queueScreenEffect: vi.fn(async () => {}),
     setPluginConfig: vi.fn(async () => {}),
-    emit: vi.fn(async () => {}),
+    emit: vi.fn(async (_eventName: string, _data?: Record<string, unknown>) => {}),
   }
 
   const game = {
@@ -150,6 +151,14 @@ describe("PlaylistBingoPlugin", () => {
     expect(card.cells).toHaveLength(25)
   })
 
+  it("requests bingo tab attention when a round starts", async () => {
+    await plugin.executeAction("startRound", { userId: "admin" })
+    expect(ctx.api.requestGameStateTabAttention).toHaveBeenCalledWith({
+      userId: "u1",
+      tabId: "bingo-tab",
+    })
+  })
+
   it("PvP ends round on first bingo", async () => {
     await plugin.executeAction("startRound", { userId: "admin" })
     const card = JSON.parse(ctx.cards.get("u1")!)
@@ -177,7 +186,7 @@ describe("PlaylistBingoPlugin", () => {
     expect(ctx.api.sendSystemMessage).toHaveBeenCalled()
   })
 
-  it("sends a private message and CELLS_COVERED when spaces are marked", async () => {
+  it("sends a private message and tab attention when spaces are marked", async () => {
     await plugin.executeAction("startRound", { userId: "admin" })
     const card = JSON.parse(ctx.cards.get("u1")!)
     const target = card.cells.find((c: { free?: boolean }) => !c.free)!
@@ -197,8 +206,25 @@ describe("PlaylistBingoPlugin", () => {
       "u1",
       expect.stringContaining("Title contains cover-me"),
     )
-    // BasePlugin.emit → context.api.emit with namespaced type
-    expect(ctx.api.emit).toHaveBeenCalled()
+    expect(ctx.api.requestGameStateTabAttention).toHaveBeenCalledWith({
+      userId: "u1",
+      tabId: "bingo-tab",
+    })
+    // ROUND_UPDATED is the only room-wide emit after a cover (no CELLS_COVERED).
+    const emitTypes = vi.mocked(ctx.api.emit).mock.calls.map((c) => c[0])
+    expect(emitTypes).toContain("ROUND_UPDATED")
+    expect(emitTypes).not.toContain("CELLS_COVERED")
+  })
+
+  it("contributeToUserGameState returns the user's card when round is active", async () => {
+    await plugin.executeAction("startRound", { userId: "admin" })
+    const bag = await plugin.contributeToUserGameState("u1", { itemDefinitions: [] })
+    expect(bag?.card).toMatchObject({ userId: "u1", status: "playing" })
+  })
+
+  it("contributeToUserGameState returns null card when round inactive", async () => {
+    const bag = await plugin.contributeToUserGameState("u1", { itemDefinitions: [] })
+    expect(bag).toEqual({ card: null })
   })
 
   it("PvG locks winner and keeps round active", async () => {

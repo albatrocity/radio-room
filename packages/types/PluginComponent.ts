@@ -365,14 +365,16 @@ export interface ShopOfferTableComponentProps {
 }
 
 /**
- * Renders the current user's shopping-session offers from `UserGameStateContext`
- * (`currentShopInstance`). No template props — avoids duplicating offer rows in the schema.
+ * Renders the current user's shopping-session offers from
+ * `UserGameStateContext.getPluginState(pluginName)` (`currentShopInstance`).
+ * No template props — avoids duplicating offer rows in the schema (ADR 0094).
  */
 export type CurrentShopOffersComponentProps = {}
 
 /**
- * Renders the current user's playlist bingo card from `UserGameStateContext`
- * (`bingoCard`). No template props — same pattern as `current-shop-offers` (ADR 0093).
+ * Renders the current user's playlist bingo card from
+ * `UserGameStateContext.getPluginState(pluginName)` (`card`).
+ * No template props — same pattern as `current-shop-offers` (ADR 0094).
  */
 export type BingoCardComponentProps = {}
 

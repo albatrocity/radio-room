@@ -86,7 +86,7 @@ export const bridgePluginSchemasForApi = [
           type: "tab",
           area: "gameStateTab",
           label: "Bingo",
-          icon: "Trophy",
+          icon: "Grid3x3",
           showWhen: { field: "enabled", value: true },
           children: [
             {

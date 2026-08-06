@@ -5,9 +5,10 @@ import type {
   ShopSessionContext,
 } from "@repo/plugin-base/helpers"
 import { BasePlugin, applyTextEffects, ShoppingSessionHelper } from "@repo/plugin-base"
-import { countFlagStacks } from "@repo/game-logic"
+import { countFlagStacks, resolveItemRarity } from "@repo/game-logic"
 import {
   type ChatMessage,
+  type ContributeToUserGameStateContext,
   type DefenseTriggeredPayload,
   type DefenseTriggeredResult,
   type ItemDefinition,
@@ -18,9 +19,10 @@ import {
   type PluginComponentSchema,
   type PluginConfigSchema,
   type InventoryItem,
+  type ShoppingSessionInstance,
   type SystemEventPayload,
 } from "@repo/types"
-import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
+import { ITEM_SHOPS_PLUGIN_NAME, ITEM_SHOPS_TAB_ID } from "@repo/types"
 import packageJson from "./package.json"
 import {
   ITEM_CATALOG,
@@ -266,6 +268,16 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     if (eligible.length === 0) return
     await this.shopping.assignInstanceForUserId(data.user.userId, Date.now(), eligible)
     await this.emit("SHOPPING_SESSION_UPDATED", { roomId: this.context.roomId })
+    await this.requestShopTabAttention(data.user.userId)
+  }
+
+  /** Badge the Item Shop game-state tab until the user opens it. */
+  private async requestShopTabAttention(userId: string): Promise<void> {
+    if (!this.context) return
+    await this.context.api.requestGameStateTabAttention({
+      userId,
+      tabId: ITEM_SHOPS_TAB_ID,
+    })
   }
 
   /** Remove every inventory stack owned by this plugin for all users currently in the room. */
@@ -373,7 +385,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     return {
       components: [
         {
-          id: "item-shops-tab",
+          id: ITEM_SHOPS_TAB_ID,
           type: "tab",
           area: "gameStateTab",
           label: "Item Shop",
@@ -477,6 +489,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       await this.shopping.startSession(users, eligible)
       await this.invokeShoppingRoundSessionStartHooks(eligible)
       await this.emit("SHOPPING_SESSION_STARTED", { roomId: this.context.roomId })
+      for (const u of users) {
+        await this.requestShopTabAttention(u.userId)
+      }
       return { success: true, message: "Shopping session started." }
     }
     if (action === "endShoppingSessions") {
@@ -518,6 +533,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       for (const u of users) {
         if (await this.shopping.getInstance(u.userId)) continue
         await this.shopping.assignInstanceForUserId(u.userId, Date.now(), eligible)
+        await this.requestShopTabAttention(u.userId)
         assigned++
       }
       if (assigned > 0) {
@@ -619,6 +635,47 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       out[item.itemId] = handler(item, def)
     }
     return out
+  }
+
+  /**
+   * Private per-user shop visit for `USER_GAME_STATE` (ADR 0094).
+   */
+  async contributeToUserGameState(
+    userId: string,
+    ctx: ContributeToUserGameStateContext,
+  ): Promise<Record<string, unknown> | null> {
+    if (!this.context || !this.shopping) return null
+
+    const active = await this.shopping.isActive()
+    if (!active) {
+      return { currentShopInstance: null }
+    }
+
+    const instance = await this.shopping.getInstance(userId)
+    return {
+      currentShopInstance: this.enrichOfferRarity(instance, ctx.itemDefinitions),
+    }
+  }
+
+  /** Hydrate legacy persisted offers that omit `rarity`. */
+  private enrichOfferRarity(
+    instance: ShoppingSessionInstance | null,
+    itemDefinitions: ItemDefinition[],
+  ): ShoppingSessionInstance | null {
+    if (!instance) return null
+    const byShortId = new Map<string, ItemDefinition>()
+    for (const def of itemDefinitions) {
+      if (def.sourcePlugin === this.name) {
+        byShortId.set(def.shortId, def)
+      }
+    }
+    return {
+      ...instance,
+      offers: instance.offers.map((offer) => ({
+        ...offer,
+        rarity: offer.rarity ?? resolveItemRarity(byShortId.get(offer.shortId) ?? {}),
+      })),
+    }
   }
 
   async onDefenseTriggered(

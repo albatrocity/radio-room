@@ -8,29 +8,16 @@
  * Send REFRESH when the modal opens to ensure fresh data.
  * Handles socket `INIT` (post-LOGIN) by requesting game state again — the initial
  * `GET_MY_GAME_STATE` from ACTIVATE can run before LOGIN attaches `roomId`.
+ *
+ * Plugins that implement `contributeToUserGameState` trigger refetch via the
+ * room-wide `USER_GAME_STATE_INVALIDATED` event (ADR 0094).
  */
 
-import type {
-  BingoCard,
-  GameSession,
-  ItemDefinition,
-  ShoppingSessionInstance,
-  UserGameState,
-  UserInventory,
-} from "@repo/types"
+import type { UserGameStatePayload } from "@repo/types"
 import { setup, assign } from "xstate"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
-import { ITEM_SHOPS_SOCKET_EVENTS } from "../lib/itemShopsPluginEvents"
-import { PLAYLIST_BINGO_SOCKET_EVENTS } from "../lib/playlistBingoPluginEvents"
 
-export interface UserGameStatePayload {
-  session: GameSession | null
-  state: UserGameState | null
-  inventory: UserInventory | null
-  itemDefinitions: ItemDefinition[]
-  currentShopInstance?: ShoppingSessionInstance | null
-  bingoCard?: BingoCard | null
-}
+export type { UserGameStatePayload }
 
 interface UserGameStateContext {
   subscriptionId: string | null
@@ -45,6 +32,7 @@ type UserGameStateEvent =
   /** After LOGIN the socket has `roomId`; re-fetch so GET_MY_GAME_STATE is not lost to the pre-login timing race. */
   | { type: "INIT"; data?: unknown }
   | { type: "USER_GAME_STATE"; data: UserGameStatePayload }
+  | { type: "USER_GAME_STATE_INVALIDATED"; data?: { roomId?: string; pluginName?: string } }
   | { type: "GAME_STATE_CHANGED"; data: { userId?: string } }
   | { type: "GAME_MODIFIER_APPLIED"; data: { userId?: string } }
   | { type: "GAME_MODIFIER_REMOVED"; data: { userId?: string } }
@@ -54,13 +42,6 @@ type UserGameStateEvent =
   | { type: "INVENTORY_ITEM_TRANSFERRED"; data: { userId?: string } }
   | { type: "GAME_SESSION_STARTED"; data: unknown }
   | { type: "GAME_SESSION_ENDED"; data: unknown }
-  | { type: typeof ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_STARTED; data: unknown }
-  | { type: typeof ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_ENDED; data: unknown }
-  | { type: typeof ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_UPDATED; data: unknown }
-  | { type: typeof PLAYLIST_BINGO_SOCKET_EVENTS.ROUND_STARTED; data: unknown }
-  | { type: typeof PLAYLIST_BINGO_SOCKET_EVENTS.ROUND_UPDATED; data: unknown }
-  | { type: typeof PLAYLIST_BINGO_SOCKET_EVENTS.ROUND_ENDED; data: unknown }
-  | { type: typeof PLAYLIST_BINGO_SOCKET_EVENTS.BINGO; data: unknown }
   | { type: "ERROR_OCCURRED"; data: { message?: string } }
 
 const EVENTS_THAT_TRIGGER_REFRESH = new Set([
@@ -73,14 +54,25 @@ const EVENTS_THAT_TRIGGER_REFRESH = new Set([
   "INVENTORY_ITEM_TRANSFERRED",
 ])
 
-const pluginRefetchHandlers = {
-  [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_STARTED]: { actions: ["requestGameState"] as const },
-  [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_ENDED]: { actions: ["requestGameState"] as const },
-  [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_UPDATED]: { actions: ["requestGameState"] as const },
-  [PLAYLIST_BINGO_SOCKET_EVENTS.ROUND_STARTED]: { actions: ["requestGameState"] as const },
-  [PLAYLIST_BINGO_SOCKET_EVENTS.ROUND_UPDATED]: { actions: ["requestGameState"] as const },
-  [PLAYLIST_BINGO_SOCKET_EVENTS.ROUND_ENDED]: { actions: ["requestGameState"] as const },
-  [PLAYLIST_BINGO_SOCKET_EVENTS.BINGO]: { actions: ["requestGameState"] as const },
+/** Trailing debounce so bursts of invalidation collapse into one refetch. */
+const REQUEST_DEBOUNCE_MS = 150
+let requestDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleRequestGameState() {
+  if (requestDebounceTimer) {
+    clearTimeout(requestDebounceTimer)
+  }
+  requestDebounceTimer = setTimeout(() => {
+    requestDebounceTimer = null
+    emitToSocket("GET_MY_GAME_STATE", {})
+  }, REQUEST_DEBOUNCE_MS)
+}
+
+function clearRequestDebounce() {
+  if (requestDebounceTimer) {
+    clearTimeout(requestDebounceTimer)
+    requestDebounceTimer = null
+  }
 }
 
 let subscriptionCounter = 0
@@ -107,9 +99,16 @@ export const userGameStateMachine = setup({
       if (context.subscriptionId) {
         unsubscribeById(context.subscriptionId)
       }
+      clearRequestDebounce()
     },
+    /** Immediate request (ACTIVATE / REFRESH / INIT) — no debounce. */
     requestGameState: () => {
+      clearRequestDebounce()
       emitToSocket("GET_MY_GAME_STATE", {})
+    },
+    /** Debounced request for socket-driven invalidation bursts. */
+    scheduleRequestGameState: () => {
+      scheduleRequestGameState()
     },
     setPayload: assign(({ event }) => {
       if (event.type !== "USER_GAME_STATE") return {}
@@ -120,8 +119,7 @@ export const userGameStateMachine = setup({
           state: d.state,
           inventory: d.inventory,
           itemDefinitions: d.itemDefinitions ?? [],
-          currentShopInstance: d.currentShopInstance ?? null,
-          bingoCard: d.bingoCard ?? null,
+          pluginUserState: d.pluginUserState ?? {},
         },
         error: null,
       }
@@ -132,8 +130,7 @@ export const userGameStateMachine = setup({
         state: null,
         inventory: null,
         itemDefinitions: [],
-        currentShopInstance: null,
-        bingoCard: null,
+        pluginUserState: {},
       }),
       error: () => null,
     }),
@@ -175,7 +172,9 @@ export const userGameStateMachine = setup({
           target: "ready",
           actions: ["setPayload"],
         },
-        ...pluginRefetchHandlers,
+        USER_GAME_STATE_INVALIDATED: {
+          actions: ["scheduleRequestGameState"],
+        },
         ERROR_OCCURRED: {
           target: "error",
           actions: ["setError"],
@@ -197,13 +196,15 @@ export const userGameStateMachine = setup({
         USER_GAME_STATE: {
           actions: ["setPayload"],
         },
+        USER_GAME_STATE_INVALIDATED: {
+          actions: ["scheduleRequestGameState"],
+        },
         GAME_SESSION_STARTED: {
           actions: ["requestGameState"],
         },
         GAME_SESSION_ENDED: {
           actions: ["clearPayload"],
         },
-        ...pluginRefetchHandlers,
         GAME_STATE_CHANGED: {
           actions: ["requestGameState"],
         },
@@ -241,7 +242,9 @@ export const userGameStateMachine = setup({
           target: "ready",
           actions: ["setPayload"],
         },
-        ...pluginRefetchHandlers,
+        USER_GAME_STATE_INVALIDATED: {
+          actions: ["scheduleRequestGameState"],
+        },
         ERROR_OCCURRED: {
           target: "error",
           actions: ["setError"],

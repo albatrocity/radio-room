@@ -11,7 +11,7 @@ export function getComponentSchema(): PluginComponentSchema {
         type: "tab",
         area: "gameStateTab",
         label: "Bingo",
-        icon: "Trophy",
+        icon: "Grid3x3",
         showWhen: { field: "enabled", value: true },
         children: [
           {

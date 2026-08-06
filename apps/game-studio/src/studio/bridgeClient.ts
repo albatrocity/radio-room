@@ -1,4 +1,5 @@
 import type {
+  BingoCard,
   ChatMessage,
   GameSession,
   InventoryItem,
@@ -12,6 +13,7 @@ import type {
   UserGameState,
 } from "@repo/types"
 import { io as ioClient, type Socket as IoClientSocket } from "socket.io-client"
+import { readBingoCard } from "./studioBingoRead"
 import { readShoppingInstance } from "./studioShoppingRead"
 import type { StudioRoom } from "./studioRoom"
 import {
@@ -35,6 +37,7 @@ export type StudioBridgeSnapshot = {
   itemDefinitions: ItemDefinition[]
   pluginConfigs: Record<string, Record<string, unknown>>
   shoppingByUser: Record<string, ShoppingSessionInstance | null>
+  bingoByUser?: Record<string, BingoCard | null>
   storedArtifacts: StoredArtifactPublic[]
   activePoll?: Poll | null
   pollHistory?: PollHistoryEntry[]
@@ -57,8 +60,10 @@ export function serializeStudioRoom(room: StudioRoom): StudioBridgeSnapshot {
     pluginConfigs[name] = cfg
   }
   const shoppingByUser: Record<string, ShoppingSessionInstance | null> = {}
+  const bingoByUser: Record<string, BingoCard | null> = {}
   for (const u of users) {
     shoppingByUser[u.userId] = readShoppingInstance(room, u.userId)
+    bingoByUser[u.userId] = readBingoCard(room, u.userId)
   }
 
   const storedArtifacts: StoredArtifactPublic[] = room.storedArtifacts.map(
@@ -76,6 +81,7 @@ export function serializeStudioRoom(room: StudioRoom): StudioBridgeSnapshot {
     itemDefinitions: [...room.definitions.values()],
     pluginConfigs,
     shoppingByUser,
+    bingoByUser,
     storedArtifacts,
     activePoll: room.activePoll,
     pollHistory: room.pollHistory,

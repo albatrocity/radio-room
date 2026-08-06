@@ -1,13 +1,12 @@
 import { createContext, useContext } from "react"
 import type {
-  BingoCard,
   GameAttributeName,
   GameSession,
   ItemDefinition,
-  ShoppingSessionInstance,
   UserGameState,
   UserInventory,
 } from "@repo/types"
+import { getPluginUserState } from "../../lib/getPluginUserState"
 
 /**
  * Snapshot of the current user's game state, exposed inside the
@@ -19,10 +18,11 @@ export interface UserGameStateSnapshot {
   state: UserGameState | null
   inventory: UserInventory | null
   itemDefinitions: ItemDefinition[]
-  /** Per-user shop instance from Item Shops (when a round is active). */
-  currentShopInstance: ShoppingSessionInstance | null
-  /** Per-user Playlist Bingo card (when a bingo round is active). */
-  bingoCard: BingoCard | null
+  /**
+   * Private per-user bag from a plugin that implements
+   * `contributeToUserGameState` (ADR 0094).
+   */
+  getPluginState: <T extends Record<string, unknown>>(pluginName: string) => T | null
   /** Convenience lookup for a single attribute (e.g. `coin`). */
   getAttribute: (attribute: GameAttributeName) => number
 }
@@ -37,3 +37,5 @@ export const UserGameStateContext = createContext<UserGameStateSnapshot | null>(
 export function useUserGameState(): UserGameStateSnapshot | null {
   return useContext(UserGameStateContext)
 }
+
+export { getPluginUserState }

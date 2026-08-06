@@ -36,6 +36,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 | Guide | Topics |
 | ----- | ------ |
 | [Game Sessions & Inventory](plugins/game-sessions.md) | Shared score/coin, modifiers, items, defense, `onItemUsed` |
+| [Per-User State](plugins/per-user-state.md) | `contributeToUserGameState`, `pluginUserState`, invalidation, tab attention |
 | [User Personas](plugins/user-personas.md) | Identity labels, badges, admin assignment |
 | [Shop Helper](plugins/shop-helper.md) | `ShopHelper`, `ShopPlugin`, coin shops, stock management |
 
@@ -49,9 +50,10 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 ## Related Documentation
 
 - [Item Shops Development](SHOP_ITEM_DEVELOPMENT.md) — authoring items and shops in `@repo/plugin-item-shops`
-- Playlist Bingo — `@repo/plugin-playlist-bingo` (private cards via `GET_MY_GAME_STATE`; [ADR 0093](adrs/0093-playlist-bingo-per-user-cards.md))
+- Playlist Bingo — `@repo/plugin-playlist-bingo` (private cards via `contributeToUserGameState`; [ADR 0093](adrs/0093-playlist-bingo-per-user-cards.md), [ADR 0094](adrs/0094-plugin-contribute-to-user-game-state.md))
 - [ADR 0006: Plugin system](adrs/0006-plugin-system-for-room-features.md)
 - [ADR 0042: Game sessions and inventory](adrs/0042-game-sessions-and-inventory.md)
+- [ADR 0094: Plugin contributeToUserGameState](adrs/0094-plugin-contribute-to-user-game-state.md)
 - [ADR 0057: User personas](adrs/0057-user-personas-system.md)
 - [ADR 0088: Metadata source access grants](adrs/0088-metadata-source-access-grants.md)
 - [ADR 0091: Round Robin DJ plugin](adrs/0091-round-robin-dj-plugin.md) — turn eligibility, Robin persona, `DEPUTY_DJ_CHANGED`

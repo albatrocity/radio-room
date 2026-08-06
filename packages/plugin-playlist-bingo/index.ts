@@ -1,5 +1,6 @@
 import type {
   BingoCard,
+  ContributeToUserGameStateContext,
   Plugin,
   PluginActionInitiator,
   PluginComponentSchema,
@@ -10,6 +11,7 @@ import type {
 import {
   PLAYLIST_BINGO_PLUGIN_NAME,
   PLAYLIST_BINGO_STORAGE_KEYS,
+  PLAYLIST_BINGO_TAB_ID,
 } from "@repo/types"
 import { isInclusiveMode } from "@repo/game-logic"
 import { BasePlugin } from "@repo/plugin-base"
@@ -158,6 +160,7 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
       if (!user.userId || user.userId === "system") continue
       const card = dealBingoCard(user.userId, config.category, snapshot)
       await this.saveCard(card)
+      await this.requestBingoTabAttention(user.userId)
     }
 
     const publicState = await this.publicState(
@@ -325,13 +328,40 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
 
     const card = dealBingoCard(userId, round.category, round.categorySnapshot)
     await this.saveCard(card)
+    await this.requestBingoTabAttention(userId)
     const publicState = await this.publicState()
     await this.emit<PlaylistBingoEvents["ROUND_UPDATED"]>("ROUND_UPDATED", publicState)
   }
 
+  /** Badge the Bingo game-state tab until the user opens it. */
+  private async requestBingoTabAttention(userId: string): Promise<void> {
+    if (!this.context) return
+    await this.context.api.requestGameStateTabAttention({
+      userId,
+      tabId: PLAYLIST_BINGO_TAB_ID,
+    })
+  }
+
   /**
-   * Private DM + `CELLS_COVERED` so the client can badge the Bingo tab / game button
-   * until the user opens that tab.
+   * Private per-user bingo card for `USER_GAME_STATE` (ADR 0094).
+   */
+  async contributeToUserGameState(
+    userId: string,
+    _ctx: ContributeToUserGameStateContext,
+  ): Promise<Record<string, unknown> | null> {
+    if (!this.context) return null
+    const round = await this.loadRound()
+    if (!round?.active) {
+      return { card: null }
+    }
+    const card = await this.loadCard(userId)
+    return { card }
+  }
+
+  /**
+   * Private DM + user-targeted tab attention so the client can badge the Bingo
+   * tab / game button until the user opens that tab. Does **not** room-broadcast
+   * (avoids N² refetch storms when many users' cells cover on one track).
    */
   private async notifyCellsCovered(userId: string, labels: string[]): Promise<void> {
     if (!this.context || labels.length === 0) return
@@ -342,11 +372,10 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
         : `Bingo: ${labels.length} spaces were covered on your card — ${labels.join(", ")}.`
 
     await this.context.api.sendUserSystemMessage(this.context.roomId, userId, message)
-    await this.emit<PlaylistBingoEvents["CELLS_COVERED"]>("CELLS_COVERED", {
-      userId,
-      count: labels.length,
-      labels,
-    })
+    await this.requestBingoTabAttention(userId)
+    // Intentionally no room-wide CELLS_COVERED emit: that would fan out to every
+    // client per covered user. Tab badging uses the user-targeted API above;
+    // card data refreshes via ROUND_UPDATED → USER_GAME_STATE_INVALIDATED.
   }
 
   private async awardBingo(params: {
@@ -458,6 +487,17 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
   private async saveRound(round: BingoRound): Promise<void> {
     if (!this.context) return
     await this.context.storage.set(KEYS.ROUND, JSON.stringify(round))
+  }
+
+  private async loadCard(userId: string): Promise<BingoCard | null> {
+    if (!this.context) return null
+    const raw = await this.context.storage.hget(KEYS.CARDS, userId)
+    if (!raw) return null
+    try {
+      return JSON.parse(raw) as BingoCard
+    } catch {
+      return null
+    }
   }
 
   private async saveCard(card: BingoCard): Promise<void> {

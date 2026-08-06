@@ -1,15 +1,19 @@
 import { Box, Grid, Text, VStack } from "@chakra-ui/react"
+import type { PlaylistBingoUserGameState } from "@repo/types"
 import type { BingoCardComponentProps } from "../../../types/PluginComponent"
 import { useUserGameState } from "../../Modals/UserGameStateContext"
+import { usePluginComponentContext } from "../context"
 
 type Props = BingoCardComponentProps
 
 /**
- * Renders the current user's Playlist Bingo card from room game state (ADR 0093).
+ * Renders the current user's Playlist Bingo card from `pluginUserState` (ADR 0094).
  */
 export function BingoCardTemplateComponent(_props: Props) {
+  const { pluginName } = usePluginComponentContext()!
   const gameState = useUserGameState()
-  const card = gameState?.bingoCard ?? null
+  const bag = gameState?.getPluginState<PlaylistBingoUserGameState>(pluginName) ?? null
+  const card = bag?.card ?? null
 
   if (!card) {
     return (

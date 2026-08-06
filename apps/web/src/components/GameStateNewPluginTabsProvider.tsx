@@ -8,13 +8,11 @@ import {
   type ReactNode,
 } from "react"
 import { useMachine } from "@xstate/react"
-import { PLAYLIST_BINGO_TAB_ID } from "@repo/types"
 import type { PluginTabEntry } from "./Modals/GameState"
 import { useCurrentRoom, useCurrentUser } from "../hooks/useActors"
 import { useGameStatePluginTabEntries } from "../hooks/useGameStatePluginTabEntries"
 import { gameStateNewPluginTabsMachine } from "../machines/gameStateNewPluginTabsMachine"
 import { subscribeById, unsubscribeById } from "../actors/socketActor"
-import { PLAYLIST_BINGO_SOCKET_EVENTS } from "../lib/playlistBingoPluginEvents"
 
 export interface GameStateNewPluginTabsContextValue {
   pluginTabs: PluginTabEntry[]
@@ -77,17 +75,33 @@ export function GameStateNewPluginTabsProvider({ children }: { children: ReactNo
     [send],
   )
 
-  // Playlist Bingo: badge Bingo tab + game button when cells are covered for this user.
+  // Generic plugin tab attention (ADR 0094) — plugins call
+  // `requestGameStateTabAttention`; no per-plugin event wiring here.
   const userIdRef = useRef(currentUserId)
   userIdRef.current = currentUserId
   useEffect(() => {
-    const subId = `bingo-cells-covered-${roomId ?? "none"}`
+    const subId = `plugin-tab-attention-${roomId ?? "none"}`
     subscribeById(subId, {
-      send: (ev: { type: string; data?: { userId?: string } }) => {
-        if (ev.type !== PLAYLIST_BINGO_SOCKET_EVENTS.CELLS_COVERED) return
-        if (!ev.data?.userId || ev.data.userId !== userIdRef.current) return
-        if (!currentTabIdSet.has(PLAYLIST_BINGO_TAB_ID)) return
-        send({ type: "TAB_ATTENTION", tabId: PLAYLIST_BINGO_TAB_ID })
+      send: (ev: {
+        type: string
+        data?: { userId?: string; tabId?: string; pluginName?: string }
+      }) => {
+        if (ev.type !== "PLUGIN_TAB_ATTENTION") return
+        const rawTabId = ev.data?.tabId
+        if (!rawTabId) return
+        if (ev.data?.userId && ev.data.userId !== userIdRef.current) return
+        // Tabs are keyed `${pluginName}:${schemaTabId}`; accept either form.
+        const namespaced =
+          ev.data?.pluginName && !rawTabId.includes(":")
+            ? `${ev.data.pluginName}:${rawTabId}`
+            : rawTabId
+        const tabId = currentTabIdSet.has(namespaced)
+          ? namespaced
+          : currentTabIdSet.has(rawTabId)
+            ? rawTabId
+            : null
+        if (!tabId) return
+        send({ type: "TAB_ATTENTION", tabId })
       },
     })
     return () => unsubscribeById(subId)

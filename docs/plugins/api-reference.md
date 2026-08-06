@@ -181,6 +181,17 @@ await this.context!.api.queueScreenEffect({
 })
 ```
 
+### Game-state tab attention
+
+Badge a game-state modal tab (and the game session button) for one user until they view it. Emits `PLUGIN_TAB_ATTENTION` to that user's socket only — never room-wide. See [Per-User State](per-user-state.md).
+
+```typescript
+await this.context.api.requestGameStateTabAttention({
+  userId,
+  tabId: "bingo-tab", // schema tab id; namespaced as `pluginName:tabId` on the wire
+})
+```
+
 **Example: Animate a chat message**
 
 ```typescript

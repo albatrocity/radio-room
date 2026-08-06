@@ -620,6 +620,16 @@ export interface PluginAPI {
     duration?: number
     recipientUserId?: string
   }): Promise<void>
+
+  /**
+   * Badge a game-state modal tab (and the game session button) for one user
+   * until they view that tab. Emits `PLUGIN_TAB_ATTENTION` to that user's
+   * socket only — never broadcasts room-wide (ADR 0094).
+   *
+   * Pass the schema tab `id` (e.g. `"bingo-tab"`). The implementation
+   * namespaces it as `${pluginName}:${tabId}` to match client tab keys.
+   */
+  requestGameStateTabAttention(params: { userId: string; tabId: string }): Promise<void>
 }
 
 /**
@@ -1314,6 +1324,23 @@ export interface Plugin {
     items: InventoryItem[],
     definitionById: Map<string, ItemDefinition>,
   ): Promise<Record<string, number>>
+
+  /**
+   * Optional: contribute private per-user data to `GET_MY_GAME_STATE` /
+   * `USER_GAME_STATE`. Return a bag merged under `pluginUserState[pluginName]`.
+   * Return `null`/`undefined`/empty object to contribute nothing.
+   *
+   * Implementing this method opts the plugin into automatic
+   * `USER_GAME_STATE_INVALIDATED` emissions whenever it calls `api.emit()`.
+   * Do **not** add a default on BasePlugin — `typeof === "function"` is the
+   * contributor check.
+   *
+   * @see ADR 0094
+   */
+  contributeToUserGameState?(
+    userId: string,
+    ctx: import("./UserGameState").ContributeToUserGameStateContext,
+  ): Promise<Record<string, unknown> | null | undefined>
 }
 
 /**

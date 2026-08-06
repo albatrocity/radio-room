@@ -22,6 +22,9 @@ import { getRoomPath } from "../getRoomPath"
 export class PluginAPIImpl implements PluginAPI {
   private pluginName: string | null = null
   private roomId: string | null = null
+  private contributesUserGameState = false
+  /** Rooms that already queued USER_GAME_STATE_INVALIDATED this event-loop turn. */
+  private static invalidationPending = new Set<string>()
 
   constructor(
     private readonly context: AppContext,
@@ -32,18 +35,27 @@ export class PluginAPIImpl implements PluginAPI {
    * Set the plugin context for namespacing events.
    * Called by PluginRegistry when creating the context for a plugin.
    */
-  setPluginContext(pluginName: string, roomId: string): void {
+  setPluginContext(
+    pluginName: string,
+    roomId: string,
+    options?: { contributesUserGameState?: boolean },
+  ): void {
     this.pluginName = pluginName
     this.roomId = roomId
+    this.contributesUserGameState = options?.contributesUserGameState === true
   }
 
   /**
    * Create a scoped API instance for a specific plugin and room.
    * This ensures emit() has the correct namespace.
    */
-  forPlugin(pluginName: string, roomId: string): PluginAPI {
+  forPlugin(
+    pluginName: string,
+    roomId: string,
+    options?: { contributesUserGameState?: boolean },
+  ): PluginAPI {
     const scoped = new PluginAPIImpl(this.context, this.io)
-    scoped.setPluginContext(pluginName, roomId)
+    scoped.setPluginContext(pluginName, roomId, options)
     return scoped
   }
 
@@ -432,6 +444,62 @@ export class PluginAPIImpl implements PluginAPI {
     this.io.to(getRoomPath(this.roomId)).emit("event", {
       type: namespacedEvent,
       data: payload,
+    })
+
+    // Contributors: one room-wide invalidation per event-loop turn (ADR 0094).
+    if (this.contributesUserGameState) {
+      this.queueUserGameStateInvalidation()
+    }
+  }
+
+  private queueUserGameStateInvalidation(): void {
+    if (!this.pluginName || !this.roomId) return
+    const roomId = this.roomId
+    const pluginName = this.pluginName
+    if (PluginAPIImpl.invalidationPending.has(roomId)) return
+    PluginAPIImpl.invalidationPending.add(roomId)
+    queueMicrotask(() => {
+      PluginAPIImpl.invalidationPending.delete(roomId)
+      this.io.to(getRoomPath(roomId)).emit("event", {
+        type: "USER_GAME_STATE_INVALIDATED",
+        data: { roomId, pluginName },
+      })
+    })
+  }
+
+  async requestGameStateTabAttention(params: {
+    userId: string
+    tabId: string
+  }): Promise<void> {
+    if (!this.pluginName || !this.roomId) {
+      console.warn("[PluginAPI] Cannot request tab attention: plugin context not set")
+      return
+    }
+
+    // Client game-state tabs are keyed as `${pluginName}:${schemaTabId}`
+    // (see useGameStatePluginTabEntries). Accept bare schema ids from plugins.
+    const tabId = params.tabId.includes(":")
+      ? params.tabId
+      : `${this.pluginName}:${params.tabId}`
+
+    const { getRoomUsers } = await import("../../operations/data")
+    const users = await getRoomUsers({ context: this.context, roomId: this.roomId })
+    const user = users.find((u) => u.userId === params.userId)
+    if (!user?.id) {
+      console.warn(
+        `[PluginAPI] requestGameStateTabAttention: no connected socket for userId ${params.userId} in room ${this.roomId}`,
+      )
+      return
+    }
+
+    this.io.to(user.id).emit("event", {
+      type: "PLUGIN_TAB_ATTENTION",
+      data: {
+        roomId: this.roomId,
+        pluginName: this.pluginName,
+        tabId,
+        userId: params.userId,
+      },
     })
   }
 

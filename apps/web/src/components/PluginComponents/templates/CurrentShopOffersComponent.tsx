@@ -1,4 +1,5 @@
 import { Box, Center, Heading, HStack, Stack, Table, Text, VStack } from "@chakra-ui/react"
+import type { ItemShopsUserGameState, ShoppingSessionInstance } from "@repo/types"
 import { getItemRarityColorPalette, itemRarityIconColor } from "../../../lib/itemRarityPalette"
 import type { CurrentShopOffersComponentProps } from "../../../types/PluginComponent"
 import { useUserGameState } from "../../Modals/UserGameStateContext"
@@ -20,13 +21,14 @@ function formatBuybackPercent(rate: number): string {
 const COINS_ICON = getIcon("Coins")
 
 /**
- * Renders the current user's `currentShopInstance` from room game state.
+ * Renders the current user's shop instance from `pluginUserState` (ADR 0094).
  * (Props are intentionally empty — data comes from `UserGameStateContext`.)
  */
 export function CurrentShopOffersTemplateComponent(_props: Props) {
   const { pluginName } = usePluginComponentContext()!
   const gameState = useUserGameState()
-  const instance = gameState?.currentShopInstance ?? null
+  const bag = gameState?.getPluginState<ItemShopsUserGameState>(pluginName) ?? null
+  const instance: ShoppingSessionInstance | null = bag?.currentShopInstance ?? null
 
   if (!instance) {
     return (
