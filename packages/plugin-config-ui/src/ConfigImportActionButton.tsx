@@ -80,7 +80,8 @@ export function ConfigImportActionButton({
 
   const modes: ConfigImportMode[] = configImport.modes?.length ? configImport.modes : ["append"]
   const textareaField = element.formFields?.find((f) => f.type === "textarea")
-  const itemNoun = element.action.toLowerCase().includes("question") ? "questions" : "items"
+  const itemNoun = configImport.itemNoun?.trim() || "items"
+  const helpText = configImport.helpText?.trim()
   const existingLen = Array.isArray(existingValue) ? existingValue.length : 0
 
   const buttonVariant = element.variant === "destructive" ? "outline" : element.variant || "solid"
@@ -138,13 +139,11 @@ export function ConfigImportActionButton({
               </Dialog.CloseTrigger>
               <Dialog.Body>
                 <VStack align="stretch" gap={3}>
-                  <Text fontSize="sm" color="fg.muted">
-                    Paste blocks separated by a blank line. Question text first, then answers as{" "}
-                    <Text as="span" fontFamily="mono">
-                      - answer
-                    </Text>{" "}
-                    lines.
-                  </Text>
+                  {helpText ? (
+                    <Text fontSize="sm" color="fg.muted">
+                      {helpText}
+                    </Text>
+                  ) : null}
                   <Field.Root>
                     <Field.Label fontSize="sm">{textareaField?.label ?? "Paste"}</Field.Label>
                     <Textarea

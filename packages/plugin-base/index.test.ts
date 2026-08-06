@@ -909,6 +909,9 @@ describe("BasePlugin", () => {
       expect(setPluginConfig).toHaveBeenCalledWith("room-1", "import-plugin", {
         items: [{ name: "a" }, { name: "b" }],
       })
+      expect(result).toMatchObject({
+        configPatch: { items: [{ name: "a" }, { name: "b" }] },
+      })
     })
   })
 })

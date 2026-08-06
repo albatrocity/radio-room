@@ -72,6 +72,36 @@ export const bridgePluginSchemasForApi = [
     },
   },
   {
+    name: "playlist-bingo",
+    version: "0.0.0-bridge",
+    description: "Playlist Bingo (bridge preview stub — use production API for admin schema).",
+    defaultConfig: {
+      enabled: true,
+      category: "releaseYear",
+    },
+    componentSchema: {
+      components: [
+        {
+          id: "bingo-tab",
+          type: "tab",
+          area: "gameStateTab",
+          label: "Bingo",
+          icon: "Grid3x3",
+          showWhen: { field: "enabled", value: true },
+          children: [
+            {
+              id: "bingo-card",
+              type: "bingo-card",
+              area: "gameStateTab",
+              showWhen: { field: "enabled", value: true },
+            },
+          ],
+        },
+      ],
+      storeKeys: ["roundActive", "category", "statusMessage"],
+    },
+  },
+  {
     name: "volume-manager",
     version: "0.0.0-bridge",
     description: "Volume Manager (bridge preview stub — use production API for admin schema).",

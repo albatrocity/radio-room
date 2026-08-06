@@ -39,6 +39,7 @@ export type Event =
   | { type: "EDIT_QUIZ_SESSIONS" }
   | { type: "EDIT_VOLUME_MANAGER" }
   | { type: "EDIT_ROUND_ROBIN_DJ" }
+  | { type: "EDIT_PLAYLIST_BINGO" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
@@ -100,6 +101,7 @@ export const modalsMachine = setup({
     EDIT_QUIZ_SESSIONS: openSettingsSection("quiz_sessions"),
     EDIT_VOLUME_MANAGER: openSettingsSection("volume_manager"),
     EDIT_ROUND_ROBIN_DJ: openSettingsSection("round_robin_dj"),
+    EDIT_PLAYLIST_BINGO: openSettingsSection("playlist_bingo"),
     VIEW_HELP: {
       target: ".help",
     },
@@ -268,6 +270,11 @@ export const modalsMachine = setup({
           },
         },
         round_robin_dj: {
+          on: {
+            BACK: "overview",
+          },
+        },
+        playlist_bingo: {
           on: {
             BACK: "overview",
           },

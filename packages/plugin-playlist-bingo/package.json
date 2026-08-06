@@ -1,0 +1,34 @@
+{
+  "name": "@repo/plugin-playlist-bingo",
+  "version": "1.0.0",
+  "description": "Playlist Bingo — private bingo cards marked from playlist tracks (year/decade/mixed criteria)",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types.ts"
+  },
+  "scripts": {
+    "test": "vitest run --reporter=dot",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/factories": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@repo/game-logic": "*",
+    "@repo/plugin-base": "*",
+    "@repo/types": "*",
+    "@repo/utils": "*",
+    "zod": "^4.4.2"
+  },
+  "peerDependencies": {
+    "zod": "^4.4.2"
+  }
+}

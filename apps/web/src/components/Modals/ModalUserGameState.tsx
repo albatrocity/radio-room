@@ -6,6 +6,7 @@ import type {
   ItemDefinition,
   StoredArtifactPublic,
 } from "@repo/types"
+import { getPluginUserState } from "../../lib/getPluginUserState"
 import Modal from "../Modal"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../actors/socketActor"
 import {
@@ -143,13 +144,24 @@ function ModalUserGameState() {
     }
   }, [validTabValues, gameStateTab])
 
+  // Clear attention badge while any plugin tab is open (including when
+  // mid-view updates arrive via GET_MY_GAME_STATE refetch).
+  const isPluginTabActive = pluginTabs.some((t) => t.id === gameStateTab)
+  useEffect(() => {
+    if (isOpen && isPluginTabActive) {
+      markPluginTabViewed(gameStateTab)
+    }
+  }, [isOpen, gameStateTab, isPluginTabActive, payload, markPluginTabViewed])
+
   const gameStateValue = useMemo<UserGameStateSnapshot>(() => {
+    const pluginUserState = payload?.pluginUserState ?? {}
     return {
       session: payload?.session ?? null,
       state: payload?.state ?? null,
       inventory: payload?.inventory ?? null,
       itemDefinitions: payload?.itemDefinitions ?? [],
-      currentShopInstance: payload?.currentShopInstance ?? null,
+      getPluginState: <T extends Record<string, unknown>>(pluginName: string) =>
+        getPluginUserState<T>(pluginUserState, pluginName),
       getAttribute: (attribute: GameAttributeName) => attributes[attribute] ?? 0,
     }
   }, [payload, attributes])

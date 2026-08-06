@@ -909,7 +909,13 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
 
     const nextConfig = { ...(config ?? {}), [element.configImport.targetField]: applied.value }
     await this.context.api.setPluginConfig(this.context.roomId, this.name, nextConfig)
-    return { success: true, message: applied.message }
+    // Include configPatch so open admin forms can sync (ADR 0068 private fields
+    // are not pushed via ROOM_SETTINGS_UPDATED).
+    return {
+      success: true,
+      message: applied.message,
+      configPatch: { [element.configImport.targetField]: applied.value },
+    }
   }
 
   protected async requireRoomAdminForAction(

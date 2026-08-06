@@ -49,9 +49,15 @@ function collectSelectOptions(field: PluginActionFormField, users: User[]) {
   return [...staticOpts, ...userOpts]
 }
 
-function modeButtonLabel(mode: ConfigImportMode, action: string): string {
-  const noun = action.toLowerCase().includes("question") ? "questions" : "items"
-  return mode === "replace" ? `Replace ${noun}` : `Append ${noun}`
+function modeButtonLabel(mode: ConfigImportMode, itemNoun: string): string {
+  return mode === "replace" ? `Replace ${itemNoun}` : `Append ${itemNoun}`
+}
+
+type PluginActionResultData = {
+  success: boolean
+  message?: string
+  /** Field updates to apply to the open config form (e.g. after fill/import). */
+  configPatch?: Record<string, unknown>
 }
 
 /**
@@ -61,9 +67,11 @@ function modeButtonLabel(mode: ConfigImportMode, action: string): string {
 function ActionButton({
   element,
   pluginName,
+  onConfigPatch,
 }: {
   element: PluginActionElement
   pluginName: string
+  onConfigPatch?: (patch: Record<string, unknown>) => void
 }) {
   const users = useUsers()
   const formFields = element.formFields
@@ -77,6 +85,8 @@ function ActionButton({
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [confirmReplace, setConfirmReplace] = useState(false)
   const subscriptionIdRef = React.useRef<string | null>(null)
+  const onConfigPatchRef = React.useRef(onConfigPatch)
+  onConfigPatchRef.current = onConfigPatch
 
   const runAction = React.useCallback(
     (params?: Record<string, unknown>, onSuccess?: () => void) => {
@@ -85,7 +95,7 @@ function ActionButton({
       subscriptionIdRef.current = subscriptionId
 
       subscribeById(subscriptionId, {
-        send: (event: { type: string; data?: { success: boolean; message?: string } }) => {
+        send: (event: { type: string; data?: PluginActionResultData }) => {
           if (event.type === "PLUGIN_ACTION_RESULT" && event.data) {
             setIsLoading(false)
             unsubscribeById(subscriptionId)
@@ -98,6 +108,9 @@ function ActionButton({
               })
               setFormPopoverOpen(false)
               setConfirmReplace(false)
+              if (event.data.configPatch) {
+                onConfigPatchRef.current?.(event.data.configPatch)
+              }
               onSuccess?.()
             } else {
               toaster.create({
@@ -170,6 +183,8 @@ function ActionButton({
   const modes: ConfigImportMode[] = element.configImport?.modes?.length
     ? element.configImport.modes
     : ["append"]
+  const itemNoun = element.configImport?.itemNoun?.trim() || "items"
+  const importHelpText = element.configImport?.helpText?.trim()
 
   const renderFormFields = () =>
     (formFields ?? []).map((field) => (
@@ -250,13 +265,9 @@ function ActionButton({
                 </Dialog.CloseTrigger>
                 <Dialog.Body>
                   <VStack align="stretch" gap={3}>
-                    {isConfigImport ? (
+                    {isConfigImport && importHelpText ? (
                       <Text fontSize="sm" color="fg.muted">
-                        Paste blocks separated by a blank line. Question text first, then answers as{" "}
-                        <Text as="span" fontFamily="mono">
-                          - answer
-                        </Text>{" "}
-                        lines.
+                        {importHelpText}
                       </Text>
                     ) : null}
                     {element.confirmMessage && !isConfigImport ? (
@@ -265,7 +276,7 @@ function ActionButton({
                     {renderFormFields()}
                     {confirmReplace ? (
                       <Text fontSize="sm" color="fg.muted">
-                        Replace the entire question bank? This cannot be undone from this dialog.
+                        Replace all existing {itemNoun}? This cannot be undone from this dialog.
                       </Text>
                     ) : null}
                   </VStack>
@@ -283,7 +294,7 @@ function ActionButton({
                           >
                             {confirmReplace && mode === "replace"
                               ? "Confirm replace"
-                              : modeButtonLabel(mode, element.action)}
+                              : modeButtonLabel(mode, itemNoun)}
                           </Button>
                         ))
                       : (
@@ -409,7 +420,17 @@ export default function PluginConfigForm({
           console.warn("PluginConfigForm: pluginName is required to render action buttons")
           return null
         }
-        return <ActionButton element={element as PluginActionElement} pluginName={pluginName} />
+        return (
+          <ActionButton
+            element={element as PluginActionElement}
+            pluginName={pluginName}
+            onConfigPatch={(patch) => {
+              for (const [field, value] of Object.entries(patch)) {
+                onChange(field, value)
+              }
+            }}
+          />
+        )
       }}
     />
   )

@@ -24,6 +24,7 @@ function fingerprintSnapshot(s: BridgeSnapshot): string {
     itemDefinitions: s.itemDefinitions,
     pluginConfigs: s.pluginConfigs,
     shoppingByUser: s.shoppingByUser,
+    bingoByUser: s.bingoByUser ?? {},
     storedArtifacts: s.storedArtifacts,
   })
 }

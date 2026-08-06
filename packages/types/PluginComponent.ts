@@ -62,6 +62,7 @@ export type TemplateComponentName =
   | "shop-offer-table"
   | "current-shop-offers"
   | "quiz-question-card"
+  | "bingo-card"
   | "slider"
 
 /**
@@ -364,10 +365,18 @@ export interface ShopOfferTableComponentProps {
 }
 
 /**
- * Renders the current user's shopping-session offers from `UserGameStateContext`
- * (`currentShopInstance`). No template props — avoids duplicating offer rows in the schema.
+ * Renders the current user's shopping-session offers from
+ * `UserGameStateContext.getPluginState(pluginName)` (`currentShopInstance`).
+ * No template props — avoids duplicating offer rows in the schema (ADR 0097).
  */
 export type CurrentShopOffersComponentProps = {}
+
+/**
+ * Renders the current user's playlist bingo card from
+ * `UserGameStateContext.getPluginState(pluginName)` (`card`).
+ * No template props — same pattern as `current-shop-offers` (ADR 0097).
+ */
+export type BingoCardComponentProps = {}
 
 /**
  * Props for the quiz-question-card template component (Quiz Sessions plugin).
@@ -436,6 +445,7 @@ export interface TemplateComponentPropsMap {
   "shop-offer-table": ShopOfferTableComponentProps
   "current-shop-offers": CurrentShopOffersComponentProps
   "quiz-question-card": QuizQuestionCardComponentProps
+  "bingo-card": BingoCardComponentProps
   slider: SliderComponentProps
 }
 
@@ -520,6 +530,7 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "shop-offer-table" } & ShopOfferTableComponentProps)
   | (PluginComponentMetadata & { type: "current-shop-offers" } & CurrentShopOffersComponentProps)
   | (PluginComponentMetadata & { type: "quiz-question-card" } & QuizQuestionCardComponentProps)
+  | (PluginComponentMetadata & { type: "bingo-card" } & BingoCardComponentProps)
   | (PluginComponentMetadata & { type: "slider" } & SliderComponentProps)
   | PluginModalComponent // Modal is special - it contains children
   | PluginTabComponent // Tab is a container for game state modal tabs

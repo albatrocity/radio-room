@@ -17,6 +17,7 @@ import { GameAttributeTemplateComponent } from "./GameAttributeComponent"
 import { ShopOfferTableTemplateComponent } from "./ShopOfferTableComponent"
 import { CurrentShopOffersTemplateComponent } from "./CurrentShopOffersComponent"
 import { QuizQuestionCardTemplateComponent } from "./QuizQuestionCard"
+import { BingoCardTemplateComponent } from "./BingoCardComponent"
 import { SliderTemplateComponent } from "./SliderComponent"
 
 /**
@@ -46,6 +47,7 @@ export const TEMPLATE_COMPONENT_MAP: {
   "shop-offer-table": ShopOfferTableTemplateComponent,
   "current-shop-offers": CurrentShopOffersTemplateComponent,
   "quiz-question-card": QuizQuestionCardTemplateComponent,
+  "bingo-card": BingoCardTemplateComponent,
   slider: SliderTemplateComponent,
 }
 

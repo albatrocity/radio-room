@@ -380,7 +380,11 @@ function MyTabContent() {
 
 The context is `null` outside the game state modal, so components can render meaningful fallbacks when used elsewhere.
 
-For **Item Shops**–style sell previews, the same payload includes **`currentShopInstance`** (`ShoppingSessionInstance` from `GET_MY_GAME_STATE` when a shopping round is active and the user has a visit). Persisted fields **`listedShortIds`**, optional **`listedPriceOverrides`**, and **`listedBuybackRate` / `unlistedBuybackRate`** match server sell-back math so the web client can quote refunds (e.g. `quoteItemShopsSellCoins` in `apps/web/src/lib/itemShopsSellQuote.ts`) without bundling the full shop catalog.
+Private per-user plugin data arrives in **`pluginUserState`** (keyed by plugin name). Read it with **`gs.getPluginState(pluginName)`** — see [Per-User State](per-user-state.md) and [ADR 0097](../adrs/0097-plugin-contribute-to-user-game-state.md).
+
+For **Item Shops** sell previews, `getPluginState("item-shops")` yields `{ currentShopInstance }`. Persisted fields **`listedShortIds`**, optional **`listedPriceOverrides`**, and **`listedBuybackRate` / `unlistedBuybackRate`** match server sell-back math so the web client can quote refunds (e.g. `quoteItemShopsSellCoins`) without bundling the full shop catalog.
+
+For **Playlist Bingo**, `getPluginState("playlist-bingo")` yields `{ card }` when a bingo round is active. The `bingo-card` and `current-shop-offers` templates both use `getPluginState` with the component's `pluginName`.
 
 ### Inventory actions
 
@@ -389,6 +393,6 @@ The built-in Inventory tab exposes per-item buttons:
 - **Use** – emitted as `USE_INVENTORY_ITEM { itemId, targetUserId? }`. Optional **`targetUserId`** is sent when the item’s definition has **`requiresTarget: "user"`** (target picker in the inventory tab). Passed through as **`callContext`** to `onItemUsed`. See [ADR 0045](../adrs/0045-inventory-item-targeting.md).
 - **Sell** – emitted as `SELL_INVENTORY_ITEM { itemId }`. Routes to the source plugin's `onItemSold` (typically `ShopHelper.sell`).
 
-The buttons render automatically based on the `ItemDefinition` flags: **Use** appears for `consumable` items, **Sell** appears for `tradeable` items with a positive `coinValue`. For **item-shops** items, the built-in tab only shows **Sell** while **`currentShopInstance`** is present (a shop visit is open); the button label can include the quoted coin refund using instance listing fields above. The server responds with `INVENTORY_ACTION_RESULT { success, message, refund? }`.
+The buttons render automatically based on the `ItemDefinition` flags: **Use** appears for `consumable` items, **Sell** appears for `tradeable` items with a positive `coinValue`. For **item-shops** items, the built-in tab only shows **Sell** while a shop visit is open (`getPluginState("item-shops")?.currentShopInstance`); the button label can include the quoted coin refund using instance listing fields above. The server responds with `INVENTORY_ACTION_RESULT { success, message, refund? }`.
 
 ---

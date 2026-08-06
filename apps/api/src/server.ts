@@ -27,6 +27,7 @@ import createItemShopsPlugin from "@repo/plugin-item-shops"
 import createLoyaltyProgramPlugin from "@repo/plugin-loyalty-program"
 import createQueuePacerPlugin from "@repo/plugin-queue-pacer"
 import createQuizSessionsPlugin from "@repo/plugin-quiz-sessions"
+import createPlaylistBingoPlugin from "@repo/plugin-playlist-bingo"
 import createRoundRobinDjPlugin from "@repo/plugin-round-robin-dj"
 import createVolumeManagerPlugin from "@repo/plugin-volume-manager"
 import { authHandler } from "@repo/auth/server"
@@ -92,6 +93,7 @@ async function main() {
       createLoyaltyProgramPlugin,
       createQueuePacerPlugin,
       createQuizSessionsPlugin,
+      createPlaylistBingoPlugin,
       createRoundRobinDjPlugin,
       createVolumeManagerPlugin,
     ],

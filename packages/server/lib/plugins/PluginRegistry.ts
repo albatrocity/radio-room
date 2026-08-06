@@ -110,8 +110,11 @@ export class PluginRegistry {
     const lifecycle = new PluginLifecycleImpl()
     const storage = new PluginStorageImpl(this.context, pluginName, roomId)
 
-    // Create a scoped API that knows the plugin name and roomId for event namespacing
-    const scopedApi = this.api.forPlugin(pluginName, roomId)
+    // Create a scoped API that knows the plugin name and roomId for event namespacing.
+    // Opt into USER_GAME_STATE_INVALIDATED when the plugin contributes per-user state.
+    const scopedApi = this.api.forPlugin(pluginName, roomId, {
+      contributesUserGameState: typeof plugin.contributeToUserGameState === "function",
+    })
 
     const artifacts = this.context.artifacts
     if (!artifacts) {
@@ -947,6 +950,48 @@ export class PluginRegistry {
       } catch (error) {
         console.error(`[PluginRegistry] Error in getSellbackValues for ${plugin.name}:`, error)
       }
+    }
+    return merged
+  }
+
+  /**
+   * Collect private per-user game-state contributions from plugins that
+   * implement `contributeToUserGameState`. Merged by plugin name; fail-open.
+   */
+  async invokeContributeToUserGameState(
+    roomId: string,
+    userId: string,
+    ctx: { itemDefinitions: ItemDefinition[] },
+  ): Promise<Record<string, Record<string, unknown>>> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return {}
+
+    const entries = Array.from(roomPlugins.entries()).filter(
+      ([, { plugin }]) => typeof plugin.contributeToUserGameState === "function",
+    )
+
+    const results = await Promise.all(
+      entries.map(async ([pluginName, { plugin }]) => {
+        try {
+          const bag = await plugin.contributeToUserGameState!(userId, ctx)
+          if (!bag || typeof bag !== "object" || Object.keys(bag).length === 0) {
+            return null
+          }
+          return [pluginName, bag] as const
+        } catch (error) {
+          console.error(
+            `[PluginRegistry] Error in contributeToUserGameState for ${pluginName}:`,
+            error,
+          )
+          return null
+        }
+      }),
+    )
+
+    const merged: Record<string, Record<string, unknown>> = {}
+    for (const entry of results) {
+      if (!entry) continue
+      merged[entry[0]] = entry[1]
     }
     return merged
   }

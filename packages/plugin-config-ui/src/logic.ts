@@ -13,15 +13,27 @@ import type {
  * this is the whole config; for `object-array` sub-fields it is the *row* object,
  * which is what makes nested conditional visibility work.
  */
+function matchesCondition(
+  condition: ShowWhenCondition,
+  values: Record<string, unknown>,
+): boolean {
+  const actual = values[condition.field]
+  // Array `value` means one-of (useful for object-array row fields keyed by enum type).
+  if (Array.isArray(condition.value)) {
+    return condition.value.includes(actual)
+  }
+  return actual === condition.value
+}
+
 export function shouldShow(
   showWhen: ShowWhenCondition | ShowWhenCondition[] | undefined,
   values: Record<string, unknown>,
 ): boolean {
   if (!showWhen) return true
   if (Array.isArray(showWhen)) {
-    return showWhen.every((c) => values[c.field] === c.value)
+    return showWhen.every((c) => matchesCondition(c, values))
   }
-  return values[showWhen.field] === showWhen.value
+  return matchesCondition(showWhen, values)
 }
 
 /** Build an empty row object from an object-array field's item sub-fields. */

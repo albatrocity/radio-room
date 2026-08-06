@@ -74,6 +74,9 @@ describe("quiz-sessions config schema", () => {
       targetField: "questions",
       modes: ["append", "replace"],
       sourceParam: "rawText",
+      itemNoun: "questions",
+      helpText:
+        "Paste blocks separated by a blank line. Question text first, then answers as - answer lines.",
     })
     expect(importAction?.formFields?.[0]?.type).toBe("textarea")
     expect(getConfigSchema().quickAccess).toContain("importQuestions")

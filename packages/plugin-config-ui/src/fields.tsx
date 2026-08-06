@@ -1,4 +1,4 @@
-import React, { useId, useState } from "react"
+import React, { useEffect, useId, useState } from "react"
 import {
   Box,
   Button,
@@ -27,6 +27,7 @@ import Picker from "@emoji-mart/react"
 import data from "@emoji-mart/data"
 import type { PluginFieldMeta } from "@repo/types/Plugin"
 import { shouldShow, emptyRow, addRow, removeRow, updateRow, moveRow, getItemJsonSchema } from "./logic"
+import { formatMsAsClock, parseClockDurationToMs } from "./durationClock"
 
 export interface FieldProps {
   fieldName: string
@@ -101,6 +102,45 @@ function NumberField({ meta, value, onChange }: FieldProps) {
       >
         <NumberInput.Input />
       </NumberInput.Root>
+    </>
+  )
+}
+
+/** Text input for track-style durations (`3:00`); stores milliseconds. */
+function DurationClockField({ meta, value, onChange }: FieldProps) {
+  const ms = typeof value === "number" && Number.isFinite(value) ? value : 0
+  const formatted = formatMsAsClock(ms)
+  const [draft, setDraft] = useState(formatted)
+  const [focused, setFocused] = useState(false)
+
+  useEffect(() => {
+    if (!focused) setDraft(formatted)
+  }, [formatted, focused])
+
+  return (
+    <>
+      <Field.Label>{meta.label} (m:ss)</Field.Label>
+      <Input
+        value={draft}
+        placeholder={meta.placeholder ?? "3:00"}
+        onFocus={() => setFocused(true)}
+        onChange={(e) => {
+          const next = e.target.value
+          setDraft(next)
+          const parsed = parseClockDurationToMs(next)
+          if (parsed != null) onChange(parsed)
+        }}
+        onBlur={() => {
+          setFocused(false)
+          const parsed = parseClockDurationToMs(draft)
+          if (parsed != null) {
+            onChange(parsed)
+            setDraft(formatMsAsClock(parsed))
+          } else {
+            setDraft(formatMsAsClock(ms))
+          }
+        }}
+      />
     </>
   )
 }
@@ -475,7 +515,9 @@ export function renderField(
       return <StringField {...props} />
     case "number":
     case "percentage":
+      return <NumberField {...props} />
     case "duration":
+      if (meta.displayUnit === "mm:ss") return <DurationClockField {...props} />
       return <NumberField {...props} />
     case "enum":
       return <EnumField {...props} />

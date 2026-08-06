@@ -37,6 +37,8 @@ export interface GameStateNewPluginTabsMachineContext {
 export type GameStateNewPluginTabsEvent =
   | { type: "PLUGIN_TABS_CHANGED"; ids: string[] }
   | { type: "TAB_VIEWED"; tabId: string }
+  /** Mark an existing tab as needing attention (e.g. bingo cell covered). */
+  | { type: "TAB_ATTENTION"; tabId: string }
   | { type: "ROOM_CHANGED"; roomId: string | null }
 
 export const gameStateNewPluginTabsMachine = setup({
@@ -116,6 +118,23 @@ export const gameStateNewPluginTabsMachine = setup({
         pendingIds: context.pendingIds.filter((id) => id !== event.tabId),
       }
     }),
+    addPendingTab: assign(({ context, event }) => {
+      if (event.type !== "TAB_ATTENTION") {
+        return {}
+      }
+      const tabId = event.tabId
+      if (!tabId || context.pendingIds.includes(tabId)) {
+        return {}
+      }
+      // Only badge tabs we have already observed (or will prune if tab disappears).
+      const observed = context.previousObservedIds
+      if (observed != null && observed.length > 0 && !observed.includes(tabId)) {
+        return {}
+      }
+      return {
+        pendingIds: sortIds([...context.pendingIds, tabId]),
+      }
+    }),
     /** Baseline must handle empty updates — otherwise PLUGIN_TABS_CHANGED [] is dropped and stale pending persists. */
     prunePendingToObservedTabs: assign(({ context, event }) => {
       if (event.type !== "PLUGIN_TABS_CHANGED") {
@@ -166,6 +185,9 @@ export const gameStateNewPluginTabsMachine = setup({
             actions: ["establishFromBaseline", "persistPending"],
           },
         ],
+        TAB_ATTENTION: {
+          actions: ["addPendingTab", "persistPending"],
+        },
       },
     },
     tracking: {
@@ -179,6 +201,9 @@ export const gameStateNewPluginTabsMachine = setup({
         },
         TAB_VIEWED: {
           actions: ["removePendingTab", "persistPending"],
+        },
+        TAB_ATTENTION: {
+          actions: ["addPendingTab", "persistPending"],
         },
       },
     },

@@ -28,6 +28,7 @@
     "@repo/plugin-special-words": "*",
     "@repo/plugin-queue-pacer": "*",
     "@repo/plugin-quiz-sessions": "*",
+    "@repo/plugin-playlist-bingo": "*",
     "@repo/plugin-round-robin-dj": "*",
     "@repo/plugin-volume-manager": "*",
     "@repo/server": "*",

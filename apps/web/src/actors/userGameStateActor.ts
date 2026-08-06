@@ -9,11 +9,14 @@
  */
 
 import { createActor } from "xstate"
-import type { GameSession, ItemDefinition, UserGameState, UserInventory } from "@repo/types"
-import {
-  userGameStateMachine,
-  type UserGameStatePayload,
-} from "../machines/userGameStateMachine"
+import type {
+  GameSession,
+  ItemDefinition,
+  UserGameState,
+  UserGameStatePayload,
+  UserInventory,
+} from "@repo/types"
+import { userGameStateMachine } from "../machines/userGameStateMachine"
 
 export const userGameStateActor = createActor(userGameStateMachine).start()
 

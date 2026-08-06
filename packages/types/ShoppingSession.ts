@@ -58,6 +58,9 @@ export interface ShoppingSessionInstance {
 /** Plugin name for storage + API wiring. */
 export const ITEM_SHOPS_PLUGIN_NAME = "item-shops" as const
 
+/** Game-state modal tab id from the plugin component schema (`item-shops-tab`). */
+export const ITEM_SHOPS_TAB_ID = "item-shops-tab" as const
+
 /**
  * Keys used in plugin storage (values are namespaced by room + plugin in Redis).
  * Keep in sync with `ShoppingSessionHelper` in @repo/plugin-base.

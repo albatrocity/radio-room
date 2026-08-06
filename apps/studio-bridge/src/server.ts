@@ -422,7 +422,7 @@ function wireSocketHandlers(io: IOServer): void {
             state: null,
             inventory: null,
             itemDefinitions: [],
-            currentShopInstance: null,
+            pluginUserState: {},
           },
         })
         return

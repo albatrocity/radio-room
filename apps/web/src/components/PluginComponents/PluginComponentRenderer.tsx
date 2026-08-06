@@ -108,6 +108,7 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
     component.type === "shop-offer-table" ||
     component.type === "current-shop-offers" ||
     component.type === "quiz-question-card" ||
+    component.type === "bingo-card" ||
     component.type === "slider" ||
     (component.type === "text-block" && "status" in component && !!component.status)
 
