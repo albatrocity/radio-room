@@ -62,6 +62,7 @@ export type TemplateComponentName =
   | "shop-offer-table"
   | "current-shop-offers"
   | "quiz-question-card"
+  | "bingo-card"
   | "slider"
 
 /**
@@ -370,6 +371,12 @@ export interface ShopOfferTableComponentProps {
 export type CurrentShopOffersComponentProps = {}
 
 /**
+ * Renders the current user's playlist bingo card from `UserGameStateContext`
+ * (`bingoCard`). No template props — same pattern as `current-shop-offers` (ADR 0093).
+ */
+export type BingoCardComponentProps = {}
+
+/**
  * Props for the quiz-question-card template component (Quiz Sessions plugin).
  *
  * The card reads live quiz state from the plugin store; props only tune which
@@ -436,6 +443,7 @@ export interface TemplateComponentPropsMap {
   "shop-offer-table": ShopOfferTableComponentProps
   "current-shop-offers": CurrentShopOffersComponentProps
   "quiz-question-card": QuizQuestionCardComponentProps
+  "bingo-card": BingoCardComponentProps
   slider: SliderComponentProps
 }
 
@@ -520,6 +528,7 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "shop-offer-table" } & ShopOfferTableComponentProps)
   | (PluginComponentMetadata & { type: "current-shop-offers" } & CurrentShopOffersComponentProps)
   | (PluginComponentMetadata & { type: "quiz-question-card" } & QuizQuestionCardComponentProps)
+  | (PluginComponentMetadata & { type: "bingo-card" } & BingoCardComponentProps)
   | (PluginComponentMetadata & { type: "slider" } & SliderComponentProps)
   | PluginModalComponent // Modal is special - it contains children
   | PluginTabComponent // Tab is a container for game state modal tabs

@@ -382,6 +382,8 @@ The context is `null` outside the game state modal, so components can render mea
 
 For **Item Shops**–style sell previews, the same payload includes **`currentShopInstance`** (`ShoppingSessionInstance` from `GET_MY_GAME_STATE` when a shopping round is active and the user has a visit). Persisted fields **`listedShortIds`**, optional **`listedPriceOverrides`**, and **`listedBuybackRate` / `unlistedBuybackRate`** match server sell-back math so the web client can quote refunds (e.g. `quoteItemShopsSellCoins` in `apps/web/src/lib/itemShopsSellQuote.ts`) without bundling the full shop catalog.
 
+For **Playlist Bingo**, the same payload includes **`bingoCard`** (the requesting user’s private card when a bingo round is active). See [ADR 0093](../adrs/0093-playlist-bingo-per-user-cards.md). The `bingo-card` template reads it from `UserGameStateContext` (same pattern as `current-shop-offers`).
+
 ### Inventory actions
 
 The built-in Inventory tab exposes per-item buttons:

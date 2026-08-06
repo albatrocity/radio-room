@@ -423,6 +423,7 @@ function wireSocketHandlers(io: IOServer): void {
             inventory: null,
             itemDefinitions: [],
             currentShopInstance: null,
+            bingoCard: null,
           },
         })
         return

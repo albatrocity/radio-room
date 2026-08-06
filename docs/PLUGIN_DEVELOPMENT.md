@@ -49,6 +49,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 ## Related Documentation
 
 - [Item Shops Development](SHOP_ITEM_DEVELOPMENT.md) — authoring items and shops in `@repo/plugin-item-shops`
+- Playlist Bingo — `@repo/plugin-playlist-bingo` (private cards via `GET_MY_GAME_STATE`; [ADR 0093](adrs/0093-playlist-bingo-per-user-cards.md))
 - [ADR 0006: Plugin system](adrs/0006-plugin-system-for-room-features.md)
 - [ADR 0042: Game sessions and inventory](adrs/0042-game-sessions-and-inventory.md)
 - [ADR 0057: User personas](adrs/0057-user-personas-system.md)

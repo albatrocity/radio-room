@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react"
 import type {
+  BingoCard,
   GameAttributeName,
   GameSession,
   ItemDefinition,
@@ -20,6 +21,8 @@ export interface UserGameStateSnapshot {
   itemDefinitions: ItemDefinition[]
   /** Per-user shop instance from Item Shops (when a round is active). */
   currentShopInstance: ShoppingSessionInstance | null
+  /** Per-user Playlist Bingo card (when a bingo round is active). */
+  bingoCard: BingoCard | null
   /** Convenience lookup for a single attribute (e.g. `coin`). */
   getAttribute: (attribute: GameAttributeName) => number
 }

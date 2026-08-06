@@ -95,6 +95,7 @@ export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) 
   const state = snap.userStates[userId] ?? null
   const rawItems = snap.inventories[userId] ?? []
   const currentShopInstance = snap.shoppingByUser[userId] ?? null
+  const bingoCard = snap.bingoByUser?.[userId] ?? null
 
   const defById = new Map<string, ItemDefinition>(snap.itemDefinitions.map((d) => [d.id, d]))
   const items: InventoryItem[] =
@@ -120,6 +121,7 @@ export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) 
       : null,
     itemDefinitions: snap.itemDefinitions,
     currentShopInstance,
+    bingoCard,
   }
 }
 

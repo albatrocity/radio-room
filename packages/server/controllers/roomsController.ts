@@ -30,6 +30,9 @@ import {
   RoomScheduleSnapshotDTO,
   ITEM_SHOPS_PLUGIN_NAME,
   ITEM_SHOPS_SESSION_STORAGE_KEYS,
+  PLAYLIST_BINGO_PLUGIN_NAME,
+  PLAYLIST_BINGO_STORAGE_KEYS,
+  type BingoCard,
   type InventoryItem,
   type ItemDefinition,
   type ShoppingSessionInstance,
@@ -493,6 +496,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
           inventory: null,
           itemDefinitions: [],
           currentShopInstance: null,
+          bingoCard: null,
         },
       })
       return
@@ -508,6 +512,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
           inventory: null,
           itemDefinitions: [],
           currentShopInstance: null,
+          bingoCard: null,
         },
       })
       return
@@ -546,6 +551,38 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
 
     currentShopInstance = enrichCurrentShopInstanceWithOfferRarity(currentShopInstance, itemDefinitions)
 
+    let bingoCard: BingoCard | null = null
+    {
+      const bingoStorage = new PluginStorageImpl(
+        socket.context,
+        PLAYLIST_BINGO_PLUGIN_NAME,
+        socket.data.roomId,
+      )
+      const roundRaw = await bingoStorage.get(PLAYLIST_BINGO_STORAGE_KEYS.ROUND)
+      let roundActive = false
+      if (roundRaw) {
+        try {
+          const round = JSON.parse(roundRaw) as { active?: boolean }
+          roundActive = round.active === true
+        } catch {
+          roundActive = false
+        }
+      }
+      if (roundActive) {
+        const cardRaw = await bingoStorage.hget(
+          PLAYLIST_BINGO_STORAGE_KEYS.CARDS,
+          socket.data.userId,
+        )
+        if (cardRaw) {
+          try {
+            bingoCard = JSON.parse(cardRaw) as BingoCard
+          } catch {
+            bingoCard = null
+          }
+        }
+      }
+    }
+
     const definitionById = new Map<string, ItemDefinition>(
       itemDefinitions.map((d: ItemDefinition) => [d.id, d]),
     )
@@ -583,6 +620,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
         inventory: inventoryPayload,
         itemDefinitions,
         currentShopInstance,
+        bingoCard,
       },
     })
   })

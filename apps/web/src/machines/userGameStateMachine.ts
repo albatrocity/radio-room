@@ -11,6 +11,7 @@
  */
 
 import type {
+  BingoCard,
   GameSession,
   ItemDefinition,
   ShoppingSessionInstance,
@@ -20,6 +21,7 @@ import type {
 import { setup, assign } from "xstate"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 import { ITEM_SHOPS_SOCKET_EVENTS } from "../lib/itemShopsPluginEvents"
+import { PLAYLIST_BINGO_SOCKET_EVENTS } from "../lib/playlistBingoPluginEvents"
 
 export interface UserGameStatePayload {
   session: GameSession | null
@@ -27,6 +29,7 @@ export interface UserGameStatePayload {
   inventory: UserInventory | null
   itemDefinitions: ItemDefinition[]
   currentShopInstance?: ShoppingSessionInstance | null
+  bingoCard?: BingoCard | null
 }
 
 interface UserGameStateContext {
@@ -54,6 +57,10 @@ type UserGameStateEvent =
   | { type: typeof ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_STARTED; data: unknown }
   | { type: typeof ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_ENDED; data: unknown }
   | { type: typeof ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_UPDATED; data: unknown }
+  | { type: typeof PLAYLIST_BINGO_SOCKET_EVENTS.ROUND_STARTED; data: unknown }
+  | { type: typeof PLAYLIST_BINGO_SOCKET_EVENTS.ROUND_UPDATED; data: unknown }
+  | { type: typeof PLAYLIST_BINGO_SOCKET_EVENTS.ROUND_ENDED; data: unknown }
+  | { type: typeof PLAYLIST_BINGO_SOCKET_EVENTS.BINGO; data: unknown }
   | { type: "ERROR_OCCURRED"; data: { message?: string } }
 
 const EVENTS_THAT_TRIGGER_REFRESH = new Set([
@@ -65,6 +72,16 @@ const EVENTS_THAT_TRIGGER_REFRESH = new Set([
   "INVENTORY_ITEM_USED",
   "INVENTORY_ITEM_TRANSFERRED",
 ])
+
+const pluginRefetchHandlers = {
+  [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_STARTED]: { actions: ["requestGameState"] as const },
+  [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_ENDED]: { actions: ["requestGameState"] as const },
+  [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_UPDATED]: { actions: ["requestGameState"] as const },
+  [PLAYLIST_BINGO_SOCKET_EVENTS.ROUND_STARTED]: { actions: ["requestGameState"] as const },
+  [PLAYLIST_BINGO_SOCKET_EVENTS.ROUND_UPDATED]: { actions: ["requestGameState"] as const },
+  [PLAYLIST_BINGO_SOCKET_EVENTS.ROUND_ENDED]: { actions: ["requestGameState"] as const },
+  [PLAYLIST_BINGO_SOCKET_EVENTS.BINGO]: { actions: ["requestGameState"] as const },
+}
 
 let subscriptionCounter = 0
 
@@ -104,6 +121,7 @@ export const userGameStateMachine = setup({
           inventory: d.inventory,
           itemDefinitions: d.itemDefinitions ?? [],
           currentShopInstance: d.currentShopInstance ?? null,
+          bingoCard: d.bingoCard ?? null,
         },
         error: null,
       }
@@ -115,6 +133,7 @@ export const userGameStateMachine = setup({
         inventory: null,
         itemDefinitions: [],
         currentShopInstance: null,
+        bingoCard: null,
       }),
       error: () => null,
     }),
@@ -156,15 +175,7 @@ export const userGameStateMachine = setup({
           target: "ready",
           actions: ["setPayload"],
         },
-        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_STARTED]: {
-          actions: ["requestGameState"],
-        },
-        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_ENDED]: {
-          actions: ["requestGameState"],
-        },
-        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_UPDATED]: {
-          actions: ["requestGameState"],
-        },
+        ...pluginRefetchHandlers,
         ERROR_OCCURRED: {
           target: "error",
           actions: ["setError"],
@@ -192,15 +203,7 @@ export const userGameStateMachine = setup({
         GAME_SESSION_ENDED: {
           actions: ["clearPayload"],
         },
-        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_STARTED]: {
-          actions: ["requestGameState"],
-        },
-        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_ENDED]: {
-          actions: ["requestGameState"],
-        },
-        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_UPDATED]: {
-          actions: ["requestGameState"],
-        },
+        ...pluginRefetchHandlers,
         GAME_STATE_CHANGED: {
           actions: ["requestGameState"],
         },
@@ -238,15 +241,7 @@ export const userGameStateMachine = setup({
           target: "ready",
           actions: ["setPayload"],
         },
-        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_STARTED]: {
-          actions: ["requestGameState"],
-        },
-        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_ENDED]: {
-          actions: ["requestGameState"],
-        },
-        [ITEM_SHOPS_SOCKET_EVENTS.SHOPPING_SESSION_UPDATED]: {
-          actions: ["requestGameState"],
-        },
+        ...pluginRefetchHandlers,
         ERROR_OCCURRED: {
           target: "error",
           actions: ["setError"],

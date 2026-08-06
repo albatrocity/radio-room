@@ -150,6 +150,7 @@ function ModalUserGameState() {
       inventory: payload?.inventory ?? null,
       itemDefinitions: payload?.itemDefinitions ?? [],
       currentShopInstance: payload?.currentShopInstance ?? null,
+      bingoCard: payload?.bingoCard ?? null,
       getAttribute: (attribute: GameAttributeName) => attributes[attribute] ?? 0,
     }
   }, [payload, attributes])

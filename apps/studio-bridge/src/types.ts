@@ -4,6 +4,7 @@ import type { GameSession, UserGameState } from "@repo/types/GameSession"
 import type { InventoryItem, ItemDefinition } from "@repo/types/Inventory"
 import type { Poll, PollHistoryEntry } from "@repo/types/Poll"
 import type { QueueItem } from "@repo/types/Queue"
+import type { BingoCard } from "@repo/types/PlaylistBingo"
 import type { ShoppingSessionInstance } from "@repo/types/ShoppingSession"
 import type { User } from "@repo/types/User"
 
@@ -19,6 +20,8 @@ export type BridgeSnapshot = {
   itemDefinitions: ItemDefinition[]
   pluginConfigs: Record<string, Record<string, unknown>>
   shoppingByUser: Record<string, ShoppingSessionInstance | null>
+  /** Optional per-user bingo cards for Playlist Bingo preview. */
+  bingoByUser?: Record<string, BingoCard | null>
   /** Password-free listing — mirrors `ArtifactsPluginAPI.getAll()` for Listening Room preview. */
   storedArtifacts: StoredArtifactPublic[]
   /** Optional — when set, included on socket INIT (overrides query-param stub). */
