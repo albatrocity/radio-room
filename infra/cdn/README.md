@@ -63,7 +63,7 @@ Reuse the same `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` from the SES sender
 
 ## CORS origins
 
-`cors_allowed_origins` defaults to local scheduler (`http://127.0.0.1:8001`, `http://localhost:8001`). **Add the production scheduler HTTPS origin** before enabling browser uploads in prod, otherwise presigned `PUT`s fail CORS.
+`cors_allowed_origins` must include every browser origin that PUTs via presigned URLs. Defaults are local scheduler (`http://127.0.0.1:8001`, `http://localhost:8001`) plus production (`https://scheduler.listeningroom.club`). A missing origin makes the browser OPTIONS preflight return **403** and the upload fail with “access control checks”.
 
 ## Logo asset
 

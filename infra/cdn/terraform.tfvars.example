@@ -19,8 +19,7 @@ iam_user_name = "listening-room-newsletter-sender"
 cors_allowed_origins = [
   "http://127.0.0.1:8001",
   "http://localhost:8001",
-  # Add the production scheduler origin, e.g.:
-  # "https://scheduler.listeningroom.club",
+  "https://scheduler.listeningroom.club",
 ]
 
 # Netlify personal access token (or export NETLIFY_API_TOKEN / TF_VAR_netlify_api_token)

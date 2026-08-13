@@ -42,6 +42,10 @@ function getS3Client(): S3Client {
     const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim()
     s3Client = new S3Client({
       region: getAwsRegion(),
+      // Default CRC32 checksums get hoisted onto presigned URLs as query params
+      // (x-amz-checksum-crc32=AAAAAA==) and break browser PUTs. Only sign a
+      // checksum when the caller explicitly asks for one.
+      requestChecksumCalculation: "WHEN_REQUIRED",
       ...(accessKeyId && secretAccessKey
         ? { credentials: { accessKeyId, secretAccessKey } }
         : {}),
