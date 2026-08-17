@@ -24,6 +24,8 @@ export {
   bridgeControlMessageSchema,
   bridgeDaemonPresenceSchema,
   lastEndedKey,
+  capabilitiesKey,
+  parseStoredBridgeCapabilities,
   spotifyTokenKey,
   spotifyDeviceKey,
 } from "./lib/protocol"

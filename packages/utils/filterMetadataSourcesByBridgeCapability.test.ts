@@ -15,7 +15,7 @@ describe("filterMetadataSourcesByBridgeCapability", () => {
     ).toEqual(["spotify", "tidal", "youtube"])
   })
 
-  it("drops local when connected but CAPABILITIES not yet known", () => {
+  it("keeps local when connected but CAPABILITIES not yet known", () => {
     expect(
       filterMetadataSourcesByBridgeCapability({
         metadataSourceIds: all,
@@ -23,7 +23,7 @@ describe("filterMetadataSourcesByBridgeCapability", () => {
         capabilitiesKnown: false,
         availableServices: [],
       }),
-    ).toEqual(["spotify", "tidal", "youtube"])
+    ).toEqual(all)
   })
 
   it("intersects tied sources when CAPABILITIES are known", () => {

@@ -109,6 +109,11 @@ export type ShopCatalogEntry = {
   availableItems: ShopAvailableItem[]
   listedBuybackRate: number
   unlistedBuybackRate: number
+  /**
+   * When set, this shop is only eligible for shopping-session assignment if the
+   * room's `playbackControllerId` matches (e.g. `"bridge"`).
+   */
+  requiresPlaybackControllerId?: string
   /** Called after a successful purchase. Use for shop-specific follow-up behaviors. */
   onBuy?: (ctx: ShopBuyContext) => void | Promise<void>
   /** Called after a shopping round starts for this shop (subset of eligible shops for the round). */

@@ -11,7 +11,10 @@ export type BridgeCapabilityTiedMetadataSource =
 /**
  * Room policy (`metadataSourceIds`) ∩ daemon capability for bridge rooms.
  *
- * - Daemon offline / capabilities unknown: keep server-side sources; drop `local`.
+ * - Daemon offline: keep server-side sources; drop `local`.
+ * - Daemon connected but CAPABILITIES not yet known (missed pub/sub after API
+ *   restart): keep the policy set, including `local`. Hiding Library here made
+ *   coupon/admin access look broken even when the daemon had the local driver.
  * - Daemon connected with known CAPABILITIES: keep tied sources only if listed;
  *   always keep non-tied sources (e.g. spotify) that are in policy.
  */
@@ -26,8 +29,12 @@ export function filterMetadataSourcesByBridgeCapability(params: {
   const services =
     availableServices instanceof Set ? availableServices : new Set(availableServices)
 
-  if (!bridgeConnected || !capabilitiesKnown) {
+  if (!bridgeConnected) {
     return metadataSourceIds.filter((id) => id !== "local")
+  }
+
+  if (!capabilitiesKnown) {
+    return metadataSourceIds
   }
 
   const tied = new Set<string>(BRIDGE_CAPABILITY_TIED_METADATA_SOURCES)

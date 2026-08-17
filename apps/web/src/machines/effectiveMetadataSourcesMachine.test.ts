@@ -61,4 +61,26 @@ describe("effectiveMetadataSourcesMachine", () => {
     expect(emitToSocket).toHaveBeenCalledWith("GET_EFFECTIVE_METADATA_SOURCES", {})
     actor.stop()
   })
+
+  it("refetches on inventory acquire/remove/use/transfer", () => {
+    const actor = createActor(effectiveMetadataSourcesMachine).start()
+    actor.send({ type: "ACTIVATE" })
+    vi.mocked(emitToSocket).mockClear()
+
+    actor.send({ type: "INVENTORY_ITEM_ACQUIRED", data: {} })
+    expect(emitToSocket).toHaveBeenCalledWith("GET_EFFECTIVE_METADATA_SOURCES", {})
+    vi.mocked(emitToSocket).mockClear()
+
+    actor.send({ type: "INVENTORY_ITEM_REMOVED", data: {} })
+    expect(emitToSocket).toHaveBeenCalledWith("GET_EFFECTIVE_METADATA_SOURCES", {})
+    vi.mocked(emitToSocket).mockClear()
+
+    actor.send({ type: "INVENTORY_ITEM_USED", data: {} })
+    expect(emitToSocket).toHaveBeenCalledWith("GET_EFFECTIVE_METADATA_SOURCES", {})
+    vi.mocked(emitToSocket).mockClear()
+
+    actor.send({ type: "INVENTORY_ITEM_TRANSFERRED", data: {} })
+    expect(emitToSocket).toHaveBeenCalledWith("GET_EFFECTIVE_METADATA_SOURCES", {})
+    actor.stop()
+  })
 })

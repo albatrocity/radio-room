@@ -14,6 +14,7 @@ import {
   useIsAdmin,
   useCurrentUser,
   useCurrentRoom,
+  refreshEffectiveMetadataSources,
 } from "../../hooks/useActors"
 
 function ModalAddToQueue() {
@@ -27,6 +28,13 @@ function ModalAddToQueue() {
   const currentUser = useCurrentUser()
   const room = useCurrentRoom()
   const hideEditForm = () => modalSend({ type: "CLOSE" })
+
+  // Re-evaluate plugin grants (e.g. Thrift Store Coupon) when the modal opens.
+  useEffect(() => {
+    if (isAddingToQueue) {
+      refreshEffectiveMetadataSources()
+    }
+  }, [isAddingToQueue])
 
   // Initialize auth check when modal opens (use primary metadata source)
   const primaryMetadataSourceId = room?.metadataSourceIds?.[0]

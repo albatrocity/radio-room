@@ -46,7 +46,10 @@ import { lobbyActor } from "../actors/lobbyActor"
 import { pollActor } from "../actors/pollActor"
 import { quickAccessPanelsActor } from "../actors/quickAccessPanelsActor"
 import { mediaBridgeActor } from "../actors/mediaBridgeActor"
-import { effectiveMetadataSourcesActor } from "../actors/effectiveMetadataSourcesActor"
+import {
+  effectiveMetadataSourcesActor,
+  refreshEffectiveMetadataSources,
+} from "../actors/effectiveMetadataSourcesActor"
 import type { MetadataBrowseCapabilities } from "@repo/types"
 import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { MetadataSourceType, QueueItem } from "../types/Queue"
@@ -772,6 +775,8 @@ export const useMediaBridgeSend = () => sendToMediaBridge
 export const useEffectiveMetadataSourceIds = (): string[] | null => {
   return useSelector(effectiveMetadataSourcesActor, (s) => s.context.metadataSourceIds)
 }
+
+export { refreshEffectiveMetadataSources }
 
 export const useBrowseableMetadataSourceIds = (): string[] | null => {
   return useSelector(effectiveMetadataSourcesActor, (s) => s.context.browseableSourceIds)

@@ -14,13 +14,18 @@ import {
   type ItemDefinition,
   type ItemSellResult,
   type ItemUseResult,
+  type MetadataSourceAccessGrantParams,
+  type MetadataSourceAccessGrantResult,
   type Plugin,
   type PluginActionInitiator,
   type PluginComponentSchema,
   type PluginConfigSchema,
   type InventoryItem,
+  type QueueValidationParams,
+  type QueueValidationResult,
   type ShoppingSessionInstance,
   type SystemEventPayload,
+  allowQueueRequest,
 } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME, ITEM_SHOPS_TAB_ID } from "@repo/types"
 import packageJson from "./package.json"
@@ -30,16 +35,35 @@ import {
   ITEM_DEFENSE_TRIGGERED_BEHAVIORS,
   ITEM_SELLBACK_VALUE_BEHAVIORS,
   TEXT_EFFECT_KINDS,
+  items,
 } from "./items/index"
 import { SHOP_CATALOG } from "./shops"
 import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
+const THRIFT_STORE_COUPON_SHORT_ID = items.thriftStoreCoupon.shortId
 
-function getEligibleShops(config: ItemShopsConfig): ItemShopsShopCatalogEntry[] {
+function couponDefinitionId(): string {
+  return `${PLUGIN_NAME}:${THRIFT_STORE_COUPON_SHORT_ID}`
+}
+
+/**
+ * Shops eligible for random assignment. `playbackControllerId` drops shops that
+ * declare `requiresPlaybackControllerId` when the room controller does not match.
+ */
+export function getEligibleShops(
+  config: ItemShopsConfig,
+  playbackControllerId?: string | null,
+): ItemShopsShopCatalogEntry[] {
   const knownIds = new Set(SHOP_CATALOG.map((s) => s.shopId))
   const selected = new Set(config.enabledShopIds.filter((id) => knownIds.has(id)))
-  return SHOP_CATALOG.filter((s) => selected.has(s.shopId))
+  return SHOP_CATALOG.filter((s) => {
+    if (!selected.has(s.shopId)) return false
+    if (s.requiresPlaybackControllerId && s.requiresPlaybackControllerId !== playbackControllerId) {
+      return false
+    }
+    return true
+  })
 }
 
 export type { ItemShopsConfig } from "./types"
@@ -264,11 +288,18 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     // Skip if user already has an assignment (e.g. page refresh during session)
     const existing = await this.shopping.getInstance(data.user.userId)
     if (existing) return
-    const eligible = getEligibleShops(config)
+    const eligible = await this.resolveEligibleShops(config)
     if (eligible.length === 0) return
     await this.shopping.assignInstanceForUserId(data.user.userId, Date.now(), eligible)
     await this.emit("SHOPPING_SESSION_UPDATED", { roomId: this.context.roomId })
     await this.requestShopTabAttention(data.user.userId)
+  }
+
+  private async resolveEligibleShops(
+    config: ItemShopsConfig,
+  ): Promise<ItemShopsShopCatalogEntry[]> {
+    const room = await this.context!.getRoom()
+    return getEligibleShops(config, room?.playbackControllerId)
   }
 
   /** Badge the Item Shop game-state tab until the user opens it. */
@@ -305,6 +336,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           type: "text-block",
           content:
             "Defines master items and shops in code. Start a shopping session to give each listener a random shop with 3 weighted offers. Items expire when the game session ends.",
+          variant: "info",
+        },
+        {
+          type: "text-block",
+          content:
+            "Thrift Store (and its Library coupon) only appears in Media Bridge rooms. Set Library to “Admins + plugin grants only” under Content → Media sources so the coupon is what unlocks a local queue.",
           variant: "info",
         },
         "enabled",
@@ -429,6 +466,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!known) {
         return { success: false, message: `Unknown item: ${itemShortId}` }
       }
+      if (itemShortId === THRIFT_STORE_COUPON_SHORT_ID) {
+        const room = await this.context.getRoom()
+        if (room?.playbackControllerId !== "bridge") {
+          return {
+            success: false,
+            message: "Thrift Store Coupon can only be given in Media Bridge rooms.",
+          }
+        }
+      }
       const defId = this.shopping.getDefinitionId(itemShortId)
       const itemName =
         ITEM_CATALOG.find((e) => e.definition.shortId === itemShortId)?.definition.name ??
@@ -477,7 +523,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!config?.enabled) {
         return { success: false, message: "Item Shops are disabled." }
       }
-      const eligible = getEligibleShops(config)
+      const eligible = await this.resolveEligibleShops(config)
       if (eligible.length === 0) {
         return {
           success: false,
@@ -521,7 +567,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           message: "Start a shopping round first (toolbar → Start shopping).",
         }
       }
-      const eligible = getEligibleShops(config)
+      const eligible = await this.resolveEligibleShops(config)
       if (eligible.length === 0) {
         return {
           success: false,
@@ -613,6 +659,47 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       definition,
       callContext,
     )
+  }
+
+  async grantMetadataSourceAccess(
+    params: MetadataSourceAccessGrantParams,
+  ): Promise<MetadataSourceAccessGrantResult> {
+    if (!this.context) return "abstain"
+    const config = await this.getConfig()
+    if (!config?.enabled) return "abstain"
+    if (params.sourceId !== "local") return "abstain"
+
+    const hasCoupon = await this.context.inventory.hasItem(params.userId, couponDefinitionId())
+    return hasCoupon ? "grant" : "abstain"
+  }
+
+  async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {
+    if (!this.context) return allowQueueRequest()
+    const config = await this.getConfig()
+    if (!config?.enabled) return allowQueueRequest()
+    if (params.mediaSourceType !== "local") return allowQueueRequest()
+
+    const isAdmin = await this.context.api.isRoomAdmin(params.roomId, params.userId)
+    if (isAdmin) return allowQueueRequest()
+
+    const room = await this.context.getRoom()
+    if (room?.metadataSourceAccess?.local !== "restricted") return allowQueueRequest()
+
+    const inv = await this.context.inventory.getInventory(params.userId)
+    const defId = couponDefinitionId()
+    const stack = inv.items.find((s) => s.definitionId === defId && s.quantity > 0)
+    if (!stack) return allowQueueRequest()
+
+    const removed = await this.context.inventory.removeItem(params.userId, stack.itemId, 1)
+    if (removed) {
+      await this.context.api.sendUserSystemMessage(
+        params.roomId,
+        params.userId,
+        "Thrift Store Coupon redeemed for a Library track.",
+        { type: "alert", status: "success" },
+      )
+    }
+    return allowQueueRequest()
   }
 
   async getSellbackValues(

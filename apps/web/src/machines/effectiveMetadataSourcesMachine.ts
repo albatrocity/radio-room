@@ -32,6 +32,10 @@ type EffectiveMetadataSourcesEvent =
     }
   | { type: "ROOM_SETTINGS_UPDATED"; data?: unknown }
   | { type: "MEDIA_BRIDGE_STATUS_CHANGED"; data?: unknown }
+  | { type: "INVENTORY_ITEM_ACQUIRED"; data?: unknown }
+  | { type: "INVENTORY_ITEM_REMOVED"; data?: unknown }
+  | { type: "INVENTORY_ITEM_USED"; data?: unknown }
+  | { type: "INVENTORY_ITEM_TRANSFERRED"; data?: unknown }
 
 let subscriptionCounter = 0
 
@@ -57,6 +61,10 @@ export const effectiveMetadataSourcesMachine = setup({
           "EFFECTIVE_METADATA_SOURCES",
           "ROOM_SETTINGS_UPDATED",
           "MEDIA_BRIDGE_STATUS_CHANGED",
+          "INVENTORY_ITEM_ACQUIRED",
+          "INVENTORY_ITEM_REMOVED",
+          "INVENTORY_ITEM_USED",
+          "INVENTORY_ITEM_TRANSFERRED",
         ],
       })
       return { subscriptionId: id }
@@ -119,6 +127,10 @@ export const effectiveMetadataSourcesMachine = setup({
         INIT: { actions: ["assignFromInit"] },
         ROOM_SETTINGS_UPDATED: { actions: ["fetchEffective"] },
         MEDIA_BRIDGE_STATUS_CHANGED: { actions: ["fetchEffective"] },
+        INVENTORY_ITEM_ACQUIRED: { actions: ["fetchEffective"] },
+        INVENTORY_ITEM_REMOVED: { actions: ["fetchEffective"] },
+        INVENTORY_ITEM_USED: { actions: ["fetchEffective"] },
+        INVENTORY_ITEM_TRANSFERRED: { actions: ["fetchEffective"] },
       },
     },
   },
