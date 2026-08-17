@@ -191,3 +191,31 @@ export async function checkLocalTrackPlaylistMembership(params: {
     return []
   }
 }
+
+/** List Navidrome playlists on the connected bridge daemon (admin shelf picker). */
+export async function listLocalPlaylists(params: {
+  rpc: BridgeRpcClient
+}): Promise<Array<{ id: string; name: string; songCount?: number }>> {
+  if (!(await params.rpc.isPresent())) return []
+  try {
+    const result = (await params.rpc.call("listPlaylists", {
+      source: "local",
+    })) as unknown
+    if (!Array.isArray(result)) return []
+    return result
+      .map((row) => {
+        if (!row || typeof row !== "object") return null
+        const r = row as Record<string, unknown>
+        const id = r.id != null ? String(r.id) : ""
+        if (!id) return null
+        return {
+          id,
+          name: r.name != null ? String(r.name) : id,
+          ...(typeof r.songCount === "number" ? { songCount: r.songCount } : {}),
+        }
+      })
+      .filter((x): x is { id: string; name: string; songCount?: number } => x != null)
+  } catch {
+    return []
+  }
+}

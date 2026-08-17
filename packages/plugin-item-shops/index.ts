@@ -39,14 +39,24 @@ import {
   items,
 } from "./items/index"
 import { SHOP_CATALOG } from "./shops"
-import { itemShopsConfigSchema, defaultItemShopsConfig, localLibraryPlaylistsFromConfig, type ItemShopsConfig } from "./types"
+import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
 import {
   isLocalLibraryGrantShortId,
   listHeldLocalLibraryGrants,
   pickGrantToConsume,
+  playlistMapFromGrantConfig,
   resolveLocalCatalogScope,
+  buildGrantCatalogEntries,
   type LocalCatalogScope,
 } from "./localLibraryGrants"
+import {
+  buildEffectiveItemCatalog,
+  buildEffectiveShopCatalog,
+  itemDefinitionAuthoringFieldMetas,
+  LOCAL_LIBRARY_GRANT_USE_MESSAGE,
+} from "./catalogFromConfig"
+import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
+import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
 
@@ -58,9 +68,10 @@ export function getEligibleShops(
   config: ItemShopsConfig,
   playbackControllerId?: string | null,
 ): ItemShopsShopCatalogEntry[] {
-  const knownIds = new Set(SHOP_CATALOG.map((s) => s.shopId))
+  const shopCatalog = buildEffectiveShopCatalog(config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS)
+  const knownIds = new Set(shopCatalog.map((s) => s.shopId))
   const selected = new Set(config.enabledShopIds.filter((id) => knownIds.has(id)))
-  return SHOP_CATALOG.filter((s) => {
+  return shopCatalog.filter((s) => {
     if (!selected.has(s.shopId)) return false
     if (s.requiresPlaybackControllerId && s.requiresPlaybackControllerId !== playbackControllerId) {
       return false
@@ -84,15 +95,41 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
   private shopping!: ShoppingSessionHelper
 
+  /** Config-driven grant catalog (Stickers / Coupon rows). */
+  private grantCatalog: ItemCatalogEntry[] = buildGrantCatalogEntries(DEFAULT_LOCAL_LIBRARY_GRANTS)
+
   /** Per-shop state stores for `onBuy` callbacks (keyed by shopId, then by arbitrary key). */
   private shopStateStores = new Map<string, Map<string, unknown>>()
 
   async register(context: import("@repo/types").PluginContext): Promise<void> {
     await super.register(context)
-    this.shopping = new ShoppingSessionHelper(this.name, context, ITEM_CATALOG, SHOP_CATALOG)
-    this.context!.inventory.registerItemDefinitions(ITEM_CATALOG.map((e) => e.definition))
+    const config = await this.getConfig()
+    const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
+    const itemCatalog = buildEffectiveItemCatalog(grants)
+    const shopCatalog = buildEffectiveShopCatalog(grants)
+    this.grantCatalog = buildGrantCatalogEntries(grants)
+    this.shopping = new ShoppingSessionHelper(this.name, context, itemCatalog, shopCatalog)
+    this.context!.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
     this.on("GAME_SESSION_ENDED", this.handleGameSessionEnded.bind(this))
     this.on("USER_JOINED", this.handleUserJoined.bind(this))
+    this.onConfigChange(async () => {
+      await this.applyLocalLibraryGrantConfig()
+    })
+  }
+
+  private async applyLocalLibraryGrantConfig(): Promise<void> {
+    if (!this.context || !this.shopping) return
+    const config = await this.getConfig()
+    const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
+    const itemCatalog = buildEffectiveItemCatalog(grants)
+    const shopCatalog = buildEffectiveShopCatalog(grants)
+    this.grantCatalog = buildGrantCatalogEntries(grants)
+    this.shopping.replaceCatalogs({ itemCatalog, shopCatalog })
+    this.context.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
+  }
+
+  private effectiveCatalogForGive(): ItemCatalogEntry[] {
+    return [...ITEM_CATALOG, ...this.grantCatalog]
   }
 
   private async handleGameSessionEnded(
@@ -344,16 +381,13 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         {
           type: "text-block",
           content:
-            "Thrift Store (Library Stickers + Coupon) only appears in Media Bridge rooms. Set Library to “Admins + plugin grants only” under Content → Media sources so inventory grants unlock Local search/queue. Paste Navidrome playlist ids below for shelf Stickers.",
+            "Thrift Store (Library Stickers + Coupon) only appears in Media Bridge rooms. Set Library to “Admins + plugin grants only” under Content → Media sources. Configure Local library grant SKUs below — playlist shelves need a Navidrome playlist id.",
           variant: "info",
         },
         "enabled",
         "enabledShopIds",
         "assignShopOnJoin",
-        "playlistIdBargainBin",
-        "playlistIdOutOfPrint",
-        "playlistIdLocalHeroes",
-        "playlistIdUnreleased",
+        "localLibraryGrants",
         {
           type: "action",
           action: "startShoppingSession",
@@ -374,10 +408,16 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
               label: "Item",
               type: "select",
               required: true,
-              options: ITEM_CATALOG.map((e) => ({
-                value: e.definition.shortId,
-                label: e.definition.name,
-              })),
+              options: [
+                ...ITEM_CATALOG.map((e) => ({
+                  value: e.definition.shortId,
+                  label: e.definition.name,
+                })),
+                ...DEFAULT_LOCAL_LIBRARY_GRANTS.map((g) => ({
+                  value: g.shortId,
+                  label: g.name,
+                })),
+              ],
             },
             {
               name: "userId",
@@ -420,29 +460,37 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
             "If a shopping round is active, give late joiners their own random shop instance.",
           showWhen: { field: "enabled", value: true },
         },
-        playlistIdBargainBin: {
-          type: "string",
-          label: "Navidrome playlist id — Bargain Bin",
-          description: "Playlist id for Bargain Bin Sticker shelf access.",
+        localLibraryGrants: {
+          type: "object-array",
+          label: "Local library grants",
+          description:
+            "Shop SKUs that unlock restricted Local search/queue. Full-library rows need no playlist; shelf rows need a Navidrome playlist id.",
+          itemLabel: "Grant",
           showWhen: { field: "enabled", value: true },
-        },
-        playlistIdOutOfPrint: {
-          type: "string",
-          label: "Navidrome playlist id — Out Of Print",
-          description: "Playlist id for Out Of Print Sticker shelf access.",
-          showWhen: { field: "enabled", value: true },
-        },
-        playlistIdLocalHeroes: {
-          type: "string",
-          label: "Navidrome playlist id — Local Heroes",
-          description: "Playlist id for Local Heroes Sticker shelf access.",
-          showWhen: { field: "enabled", value: true },
-        },
-        playlistIdUnreleased: {
-          type: "string",
-          label: "Navidrome playlist id — Unreleased",
-          description: "Playlist id for Unreleased Sticker shelf access.",
-          showWhen: { field: "enabled", value: true },
+          itemFields: [
+            ...itemDefinitionAuthoringFieldMetas(),
+            {
+              name: "scope",
+              meta: {
+                type: "enum",
+                label: "Access scope",
+                options: [
+                  { value: "playlist", label: "Playlist shelf" },
+                  { value: "library", label: "Full library" },
+                ],
+              },
+            },
+            {
+              name: "playlistId",
+              meta: {
+                type: "remote-select",
+                label: "Navidrome playlist",
+                description: "Required for playlist shelves. Loaded from the Media Bridge when connected.",
+                remoteSource: "bridgeLocalPlaylists",
+                showWhen: { field: "scope", value: "playlist" },
+              },
+            },
+          ],
         },
       },
       quickAccess: ["startShoppingSession", "endShoppingSessions"],
@@ -493,11 +541,11 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!itemShortId || !userIdParam) {
         return { success: false, message: "Select an item and recipient." }
       }
-      const known = ITEM_CATALOG.some((e) => e.definition.shortId === itemShortId)
+      const known = this.effectiveCatalogForGive().some((e) => e.definition.shortId === itemShortId)
       if (!known) {
         return { success: false, message: `Unknown item: ${itemShortId}` }
       }
-      if (isLocalLibraryGrantShortId(itemShortId)) {
+      if (isLocalLibraryGrantShortId(itemShortId, this.grantCatalog)) {
         const room = await this.context.getRoom()
         if (room?.playbackControllerId !== "bridge") {
           return {
@@ -508,8 +556,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       }
       const defId = this.shopping.getDefinitionId(itemShortId)
       const itemName =
-        ITEM_CATALOG.find((e) => e.definition.shortId === itemShortId)?.definition.name ??
-        itemShortId
+        this.effectiveCatalogForGive().find((e) => e.definition.shortId === itemShortId)?.definition
+          .name ?? itemShortId
 
       if (userIdParam === "__all__") {
         const users = await this.context.api.getUsers(this.context.roomId)
@@ -676,6 +724,13 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
     const handler = ITEM_USE_BEHAVIORS[definition.shortId]
     if (!handler) {
+      if (isLocalLibraryGrantShortId(definition.shortId, this.grantCatalog)) {
+        return {
+          success: false,
+          consumed: false,
+          message: LOCAL_LIBRARY_GRANT_USE_MESSAGE,
+        }
+      }
       return { success: false, consumed: false, message: `Unknown item: ${definition.shortId}` }
     }
 
@@ -730,10 +785,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     config: ItemShopsConfig,
   ): Promise<LocalCatalogScope> {
     const inv = await this.context!.inventory.getInventory(userId)
+    const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
     return resolveLocalCatalogScope({
       pluginName: this.name,
       items: inv.items,
-      localLibraryPlaylists: localLibraryPlaylistsFromConfig(config),
+      grantCatalog: buildGrantCatalogEntries(grants),
+      localLibraryPlaylists: playlistMapFromGrantConfig(grants),
     })
   }
 
@@ -749,14 +806,17 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     const room = await this.context.getRoom()
     if (room?.metadataSourceAccess?.local !== "restricted") return allowQueueRequest()
 
+    const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
+    const grantCatalog = buildGrantCatalogEntries(grants)
     const inv = await this.context.inventory.getInventory(params.userId)
     const held = listHeldLocalLibraryGrants({
       pluginName: this.name,
       items: inv.items,
+      grantCatalog,
     })
     if (held.length === 0) return allowQueueRequest()
 
-    const playlistMap = localLibraryPlaylistsFromConfig(config)
+    const playlistMap = playlistMapFromGrantConfig(grants)
     const shelfHeld = held.filter((h) => h.grant.scope === "playlist")
     const playlistIdsForMembership = shelfHeld
       .map((h) =>

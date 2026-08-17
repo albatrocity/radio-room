@@ -41,6 +41,10 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
     await handlers.getEffectiveMetadataSources(connections)
   })
 
+  socket.on("LIST_BRIDGE_LOCAL_PLAYLISTS", async () => {
+    await handlers.listBridgeLocalPlaylists(connections)
+  })
+
   socket.on(
     "BROWSE_ARTISTS",
     async (payload: { source: string; query?: string; offset?: number; limit?: number }) => {

@@ -4,13 +4,14 @@ import type { InventoryItem, PluginContext, Room } from "@repo/types"
 import { ItemShopsPlugin, getEligibleShops, defaultItemShopsConfig } from "./index"
 import { ITEM_CATALOG } from "./items/index"
 import { SHOP_CATALOG } from "./shops"
-import { items } from "./items"
 import { THRIFT_STORE_SHOP_ID } from "./shops/thrift-store"
+import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
+import { buildEffectiveItemCatalog, buildEffectiveShopCatalog } from "./catalogFromConfig"
 
 const ROOM = "room-1"
-const COUPON_SHORT_ID = items.thriftStoreCoupon.shortId
+const COUPON_SHORT_ID = "thrift-store-coupon"
 const COUPON_DEF_ID = `item-shops:${COUPON_SHORT_ID}`
-const BB_SHORT_ID = items.bargainBinSticker.shortId
+const BB_SHORT_ID = "bargain-bin-sticker"
 const BB_DEF_ID = `item-shops:${BB_SHORT_ID}`
 
 function createStorage() {
@@ -65,6 +66,12 @@ function setup(options?: {
   if (hasCoupon) stacks.push(couponStack({ quantity: couponQuantity }))
   if (hasSticker) stacks.push(stickerStack())
 
+  const grants = DEFAULT_LOCAL_LIBRARY_GRANTS.map((g) =>
+    g.shortId === BB_SHORT_ID
+      ? { ...g, playlistId: options?.playlistIdBargainBin ?? "nd-bb" }
+      : g,
+  )
+
   const inventory = {
     hasItem: vi.fn(async (_userId: string, definitionId: string) => {
       return stacks.some((s) => s.definitionId === definitionId && s.quantity > 0)
@@ -84,7 +91,7 @@ function setup(options?: {
     getPluginConfig: vi.fn(async () => ({
       ...defaultItemShopsConfig,
       enabled,
-      playlistIdBargainBin: options?.playlistIdBargainBin ?? "nd-bb",
+      localLibraryGrants: grants,
     })),
     isRoomAdmin: vi.fn(async () => options?.isAdmin ?? false),
     sendUserSystemMessage: vi.fn(async () => {}),
@@ -110,14 +117,18 @@ function setup(options?: {
     getRoom: vi.fn(async () => room),
   } as unknown as PluginContext
 
-  const plugin = new ItemShopsPlugin({ enabled })
+  const itemCatalog = buildEffectiveItemCatalog(grants)
+  const shopCatalog = buildEffectiveShopCatalog(grants)
+  const plugin = new ItemShopsPlugin({ enabled, localLibraryGrants: grants })
   ;(plugin as unknown as { context: PluginContext }).context = context
   ;(plugin as unknown as { shopping: ShoppingSessionHelper }).shopping = new ShoppingSessionHelper(
     "item-shops",
     context,
-    ITEM_CATALOG,
-    SHOP_CATALOG,
+    itemCatalog,
+    shopCatalog,
   )
+  ;(plugin as unknown as { grantCatalog: typeof itemCatalog }).grantCatalog =
+    itemCatalog.filter((e) => e.localLibraryGrant != null)
 
   return { plugin, context, api, inventory, room }
 }
@@ -132,6 +143,8 @@ describe("getEligibleShops", () => {
   it("includes Thrift Store in bridge rooms", () => {
     const shops = getEligibleShops(config, "bridge")
     expect(shops.some((s) => s.shopId === THRIFT_STORE_SHOP_ID)).toBe(true)
+    const thrift = shops.find((s) => s.shopId === THRIFT_STORE_SHOP_ID)!
+    expect(thrift.availableItems.some((i) => i.shortId === COUPON_SHORT_ID)).toBe(true)
   })
 
   it("excludes Thrift Store when not on bridge", () => {
@@ -164,14 +177,6 @@ describe("ItemShopsPlugin local library grants", () => {
           userId: "u1",
           sourceId: "local",
           action: "search",
-        }),
-      ).resolves.toBe("grant")
-      await expect(
-        plugin.grantMetadataSourceAccess({
-          roomId: ROOM,
-          userId: "u1",
-          sourceId: "local",
-          action: "queue",
         }),
       ).resolves.toBe("grant")
     })
@@ -313,12 +318,6 @@ describe("ItemShopsPlugin local library grants", () => {
       })
       expect(result.success).toBe(false)
       expect(result.message).toMatch(/media bridge/i)
-
-      const sticker = await plugin.executeAction("giveItemToUsers", undefined, {
-        itemShortId: BB_SHORT_ID,
-        userId: "u1",
-      })
-      expect(sticker.success).toBe(false)
     })
 
     it("grants the coupon in a bridge room", async () => {

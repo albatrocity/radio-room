@@ -40,15 +40,12 @@ import type {
   ItemSellbackValueHandler,
 } from "./shared/types"
 import { greenPeas } from "./green-peas"
-import { thriftStoreCoupon } from "./thrift-store-coupon"
-import { bargainBinSticker } from "./bargain-bin-sticker"
-import { outOfPrintSticker } from "./out-of-print-sticker"
-import { localHeroesSticker } from "./local-heroes-sticker"
-import { unreleasedSticker } from "./unreleased-sticker"
 
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
  * `../../items` depending on depth — then use `items.boostPedal.shortId`.
+ * Local library grant SKUs (Stickers / Coupon) are config-driven — see Item Shops
+ * `localLibraryGrants` and ADR 0098.
  */
 export const items = {
   scratchedCd,
@@ -85,11 +82,6 @@ export const items = {
   lemons,
   privateBathroom,
   coldBeer,
-  thriftStoreCoupon,
-  bargainBinSticker,
-  outOfPrintSticker,
-  localHeroesSticker,
-  unreleasedSticker,
 } as const
 
 /**

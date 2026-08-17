@@ -433,6 +433,20 @@ export class PluginAPIImpl implements PluginAPI {
     }
   }
 
+  async listLocalPlaylists(
+    roomId: string,
+  ): Promise<Array<{ id: string; name: string; songCount?: number }>> {
+    try {
+      const { getBridgeRpcClient, listLocalPlaylists } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) return []
+      return await listLocalPlaylists({ rpc })
+    } catch (e) {
+      console.warn("[PluginAPI] listLocalPlaylists failed:", e)
+      return []
+    }
+  }
+
   /**
    * Emit a custom plugin event.
    * Events are namespaced as PLUGIN:{pluginName}:{eventName}

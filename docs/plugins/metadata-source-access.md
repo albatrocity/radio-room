@@ -101,10 +101,10 @@ async grantMetadataSourceAccess(params) {
 
 ## Recipe: one-shot local library queue
 
-1. Sell/give inventory with `localLibraryGrant` (Thrift Store Coupon = full library; shelf Stickers = playlist-scoped — [ADR 0098](../adrs/0098-inventory-scoped-local-library-catalog-filters.md)).
+1. Configure Item Shops **Local library grants** (full-library and/or playlist shelves — [ADR 0098](../adrs/0098-inventory-scoped-local-library-catalog-filters.md)). Bind Navidrome playlists via the admin playlist picker when the Media Bridge is connected.
 2. `grantMetadataSourceAccess`: if the user holds a **resolved** grant (full library or mapped playlist id) and `sourceId` is `local` → `"grant"` for `search` and `queue`.
 3. Optional `resolveLocalLibraryCatalogFilter`: return `{ mode: "unrestricted" }` or `{ mode: "playlists", playlistIds }` so Local search/browse RPC can filter without exposing playlists in the client.
-4. `validateQueueRequest`: when `params.mediaSourceType` is `local` and Local is restricted, consume the preferred grant (shelf Sticker if the track is in that playlist, else full-library coupon). Prefer consuming only after access would allow the request.
+4. `validateQueueRequest`: when `params.mediaSourceType` is `local` and Local is restricted, consume the preferred grant (shelf if the track is in that playlist, else full-library). Prefer consuming only after access would allow the request.
 
 ```typescript
 async validateQueueRequest(params: QueueValidationParams) {
@@ -120,7 +120,7 @@ async validateQueueRequest(params: QueueValidationParams) {
 
 Admins set **Admins + plugin grants only** per enabled source under Content → Media sources (bridge playback controller). That writes `metadataSourceAccess` on the room.
 
-For playlist shelves, paste Navidrome playlist ids into Item Shops config (Bargain Bin / Out Of Print / Local Heroes / Unreleased). See ADR 0098 ops runbook.
+For playlist shelves, use Item Shops → Local library grants (`object-array`). Playlist rows use a `remote-select` fed by `LIST_BRIDGE_LOCAL_PLAYLISTS`. See ADR 0098 ops runbook.
 
 ## Catalog browse
 

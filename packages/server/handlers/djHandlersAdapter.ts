@@ -298,6 +298,41 @@ export class DJHandlers {
     })
   }
 
+  /**
+   * Admin-only: list Navidrome playlists from the connected Media Bridge (shelf config picker).
+   */
+  listBridgeLocalPlaylists = async ({ socket }: HandlerConnections) => {
+    const { roomId, userId } = socket.data
+    try {
+      const { findRoom, isRoomAdmin } = await import("../operations/data")
+      const room = await findRoom({ context: this.context, roomId })
+      if (!room) {
+        socket.emit("event", { type: "BRIDGE_LOCAL_PLAYLISTS", data: { playlists: [] } })
+        return
+      }
+      const admin = await isRoomAdmin({
+        context: this.context,
+        roomId,
+        userId,
+        roomCreator: room.creator,
+      })
+      if (!admin) {
+        socket.emit("event", { type: "BRIDGE_LOCAL_PLAYLISTS", data: { playlists: [] } })
+        return
+      }
+      const { getBridgeRpcClient, listLocalPlaylists } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      const playlists = rpc ? await listLocalPlaylists({ rpc }) : []
+      socket.emit("event", {
+        type: "BRIDGE_LOCAL_PLAYLISTS",
+        data: { playlists },
+      })
+    } catch (e) {
+      console.warn("[listBridgeLocalPlaylists] failed:", e)
+      socket.emit("event", { type: "BRIDGE_LOCAL_PLAYLISTS", data: { playlists: [] } })
+    }
+  }
+
   browseArtists = async (
     { socket }: HandlerConnections,
     payload: { source: string; query?: string; offset?: number; limit?: number },

@@ -32,15 +32,39 @@ const KEYS = ITEM_SHOPS_SESSION_STORAGE_KEYS
  */
 export class ShoppingSessionHelper {
   private catalogMap: Map<string, ItemCatalogEntry>
+  private itemCatalog: readonly ItemCatalogEntry[]
+  private shopCatalog: readonly ShopCatalogEntry[]
 
   constructor(
     private readonly pluginName: string,
     private readonly context: PluginContext,
-    private readonly itemCatalog: readonly ItemCatalogEntry[],
-    private readonly shopCatalog: readonly ShopCatalogEntry[],
+    itemCatalog: readonly ItemCatalogEntry[],
+    shopCatalog: readonly ShopCatalogEntry[],
     private readonly rarityWeights: Record<ItemRarity, number> = DEFAULT_RARITY_WEIGHTS,
   ) {
+    this.itemCatalog = itemCatalog
+    this.shopCatalog = shopCatalog
     this.catalogMap = buildItemCatalogMap(itemCatalog)
+  }
+
+  /**
+   * Replace in-memory item and/or shop catalogs (e.g. after config-driven grant SKUs change).
+   */
+  replaceCatalogs(params: {
+    itemCatalog?: readonly ItemCatalogEntry[]
+    shopCatalog?: readonly ShopCatalogEntry[]
+  }): void {
+    if (params.itemCatalog) {
+      this.itemCatalog = params.itemCatalog
+      this.catalogMap = buildItemCatalogMap(params.itemCatalog)
+    }
+    if (params.shopCatalog) {
+      this.shopCatalog = params.shopCatalog
+    }
+  }
+
+  getDefinitionId(shortId: string): string {
+    return `${this.pluginName}:${shortId}`
   }
 
   async isActive(): Promise<boolean> {
@@ -263,9 +287,5 @@ export class ShoppingSessionHelper {
       message: `Sold ${definition.name} for ${refund} coins.`,
       refund,
     }
-  }
-
-  getDefinitionId(shortId: string): string {
-    return `${this.pluginName}:${shortId}`
   }
 }

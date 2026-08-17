@@ -131,6 +131,34 @@ export class LocalDriver implements Driver {
     return this.playlistCache.playlistsContainingTrack(trackId, playlistIds)
   }
 
+  /**
+   * List Navidrome playlists (admin shelf picker). Returns id + name (+ songCount when present).
+   */
+  async listPlaylists(): Promise<Array<{ id: string; name: string; songCount?: number }>> {
+    if (!this.navidrome.username) return []
+    const url = `${this.navidrome.url}/rest/getPlaylists.view?${this.authParams()}`
+    const res = await fetch(url)
+    if (!res.ok) {
+      console.warn(`[LocalDriver] getPlaylists failed: ${res.status}`)
+      return []
+    }
+    const data = (await res.json()) as any
+    const raw = data?.["subsonic-response"]?.playlists?.playlist
+    const list = Array.isArray(raw) ? raw : raw ? [raw] : []
+    const out: Array<{ id: string; name: string; songCount?: number }> = []
+    for (const p of list) {
+      const id = p?.id != null ? String(p.id) : ""
+      if (!id) continue
+      out.push({
+        id,
+        name: String(p.name ?? id).trim() || id,
+        ...(typeof p.songCount === "number" ? { songCount: p.songCount } : {}),
+      })
+    }
+    out.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+    return out
+  }
+
   private async fetchCoverDataUri(songId: string): Promise<string | undefined> {
     try {
       const coverUrl = `${this.navidrome.url}/rest/getCoverArt.view?id=${encodeURIComponent(songId)}&size=256&${this.authParams()}`

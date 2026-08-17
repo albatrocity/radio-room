@@ -9,6 +9,7 @@ import {
   HStack,
   IconButton,
   Input,
+  NativeSelect,
   NumberInput,
   Popover,
   Portal,
@@ -35,6 +36,10 @@ export interface FieldProps {
   value: unknown
   onChange: (value: unknown) => void
   jsonSchema: Record<string, unknown>
+  /** Host loader for `remote-select` fields (keyed by `meta.remoteSource`). */
+  loadRemoteOptions?: (
+    remoteSource: string,
+  ) => Promise<{ value: string; label: string }[]>
 }
 
 function toDisplayValue(value: unknown, meta: PluginFieldMeta): unknown {
@@ -424,7 +429,14 @@ function DatetimeField({ meta, value, onChange }: FieldProps) {
  * Nested `showWhen` on sub-fields resolves against the *row* object, and nested
  * enum options resolve from `jsonSchema.properties[field].items`.
  */
-function ObjectArrayField({ fieldName, meta, value, onChange, jsonSchema }: FieldProps) {
+function ObjectArrayField({
+  fieldName,
+  meta,
+  value,
+  onChange,
+  jsonSchema,
+  loadRemoteOptions,
+}: FieldProps) {
   const rows = (Array.isArray(value) ? value : []) as Record<string, unknown>[]
   const itemFields = meta.itemFields ?? []
   const itemJsonSchema = getItemJsonSchema(jsonSchema, fieldName)
@@ -475,7 +487,14 @@ function ObjectArrayField({ fieldName, meta, value, onChange, jsonSchema }: Fiel
               if (!shouldShow(subMeta.showWhen, row)) return null
               return (
                 <Field.Root key={name}>
-                  {renderField(name, subMeta, row[name], (v) => onChange(updateRow(rows, index, name, v)), itemJsonSchema)}
+                  {renderField(
+                    name,
+                    subMeta,
+                    row[name],
+                    (v) => onChange(updateRow(rows, index, name, v)),
+                    itemJsonSchema,
+                    loadRemoteOptions,
+                  )}
                   {subMeta.description && <Field.HelperText>{subMeta.description}</Field.HelperText>}
                 </Field.Root>
               )
@@ -497,6 +516,73 @@ function ObjectArrayField({ fieldName, meta, value, onChange, jsonSchema }: Fiel
   )
 }
 
+function RemoteSelectField({ meta, value, onChange, loadRemoteOptions }: FieldProps) {
+  const [options, setOptions] = useState<{ value: string; label: string }[]>([])
+  const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const source = meta.remoteSource ?? ""
+
+  useEffect(() => {
+    let cancelled = false
+    if (!source || !loadRemoteOptions) {
+      setFailed(true)
+      return
+    }
+    setLoading(true)
+    setFailed(false)
+    void loadRemoteOptions(source)
+      .then((opts) => {
+        if (cancelled) return
+        setOptions(opts)
+        setFailed(opts.length === 0)
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [source, loadRemoteOptions])
+
+  if (failed || !loadRemoteOptions) {
+    return (
+      <StringField
+        fieldName=""
+        meta={{ ...meta, type: "string", placeholder: meta.placeholder ?? "Playlist id" }}
+        value={value}
+        onChange={onChange}
+        jsonSchema={{}}
+      />
+    )
+  }
+
+  const str = typeof value === "string" ? value : ""
+  return (
+    <VStack align="stretch" gap={1}>
+      <Field.Label>{meta.label}</Field.Label>
+      <NativeSelect.Root size="sm" disabled={loading}>
+        <NativeSelect.Field
+          value={str}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">{loading ? "Loading playlists…" : "Select a playlist"}</option>
+          {str && !options.some((o) => o.value === str) ? (
+            <option value={str}>{str} (current)</option>
+          ) : null}
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </NativeSelect.Field>
+      </NativeSelect.Root>
+    </VStack>
+  )
+}
+
 /** Render a form field based on its type. Recurses for `object-array`. */
 export function renderField(
   fieldName: string,
@@ -504,8 +590,9 @@ export function renderField(
   value: unknown,
   onChange: (value: unknown) => void,
   jsonSchema: Record<string, unknown>,
+  loadRemoteOptions?: FieldProps["loadRemoteOptions"],
 ): React.ReactNode {
-  const props: FieldProps = { fieldName, meta, value, onChange, jsonSchema }
+  const props: FieldProps = { fieldName, meta, value, onChange, jsonSchema, loadRemoteOptions }
   switch (meta.type) {
     case "boolean":
       return <BooleanField {...props} />
@@ -531,6 +618,8 @@ export function renderField(
       return <DatetimeField {...props} />
     case "object-array":
       return <ObjectArrayField {...props} />
+    case "remote-select":
+      return <RemoteSelectField {...props} />
     default:
       return <StringField {...props} />
   }

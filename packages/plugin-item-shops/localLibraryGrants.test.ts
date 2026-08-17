@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest"
 import {
+  buildGrantCatalogEntries,
   listHeldLocalLibraryGrants,
   pickGrantToConsume,
+  playlistMapFromGrantConfig,
   resolveLocalCatalogScope,
 } from "./localLibraryGrants"
-import { items } from "./items"
+import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
 
 const PLUGIN = "item-shops"
+const grantCatalog = buildGrantCatalogEntries(DEFAULT_LOCAL_LIBRARY_GRANTS)
 
 function stack(shortId: string, quantity = 1, itemId = `id-${shortId}`) {
   return {
@@ -19,57 +22,62 @@ function stack(shortId: string, quantity = 1, itemId = `id-${shortId}`) {
 }
 
 describe("localLibraryGrants", () => {
-  it("lists held grants from inventory", () => {
+  it("lists held grants from inventory against grant catalog", () => {
     const held = listHeldLocalLibraryGrants({
       pluginName: PLUGIN,
       items: [
-        stack(items.bargainBinSticker.shortId),
-        stack(items.thriftStoreCoupon.shortId),
-        stack(items.scratchedCd.shortId),
+        stack("bargain-bin-sticker"),
+        stack("thrift-store-coupon"),
+        stack("scratched-cd"),
       ],
+      grantCatalog,
     })
     expect(held.map((h) => h.shortId).sort()).toEqual(
-      [items.bargainBinSticker.shortId, items.thriftStoreCoupon.shortId].sort(),
+      ["bargain-bin-sticker", "thrift-store-coupon"].sort(),
     )
   })
 
   it("resolves unrestricted when any library-scope grant is held", () => {
+    const grants = DEFAULT_LOCAL_LIBRARY_GRANTS.map((g) =>
+      g.shortId === "bargain-bin-sticker" ? { ...g, playlistId: "pl-1" } : g,
+    )
     const scope = resolveLocalCatalogScope({
       pluginName: PLUGIN,
-      items: [
-        stack(items.bargainBinSticker.shortId),
-        stack(items.thriftStoreCoupon.shortId),
-      ],
-      localLibraryPlaylists: { "bargain-bin": "pl-1" },
+      items: [stack("bargain-bin-sticker"), stack("thrift-store-coupon")],
+      grantCatalog: buildGrantCatalogEntries(grants),
+      localLibraryPlaylists: playlistMapFromGrantConfig(grants),
     })
     expect(scope).toEqual({ mode: "unrestricted" })
   })
 
   it("unions mapped playlist ids for shelf stickers", () => {
+    const grants = DEFAULT_LOCAL_LIBRARY_GRANTS.map((g) => {
+      if (g.shortId === "bargain-bin-sticker") return { ...g, playlistId: "pl-bb" }
+      if (g.shortId === "local-heroes-sticker") return { ...g, playlistId: "pl-lh" }
+      return g
+    })
     const scope = resolveLocalCatalogScope({
       pluginName: PLUGIN,
       items: [
-        stack(items.bargainBinSticker.shortId),
-        stack(items.localHeroesSticker.shortId),
-        stack(items.unreleasedSticker.shortId),
+        stack("bargain-bin-sticker"),
+        stack("local-heroes-sticker"),
+        stack("unreleased-sticker"),
       ],
-      localLibraryPlaylists: {
-        "bargain-bin": "pl-bb",
-        "local-heroes": "pl-lh",
-        // unreleased unmapped → fail closed for that key
-      },
+      grantCatalog: buildGrantCatalogEntries(grants),
+      localLibraryPlaylists: playlistMapFromGrantConfig(grants),
     })
     expect(scope).toEqual({
       mode: "playlists",
       playlistIds: ["pl-bb", "pl-lh"],
-      playlistKeys: ["bargain-bin", "local-heroes"],
+      playlistKeys: ["bargain-bin-sticker", "local-heroes-sticker"],
     })
   })
 
   it("returns none when stickers have no mapped playlist ids", () => {
     const scope = resolveLocalCatalogScope({
       pluginName: PLUGIN,
-      items: [stack(items.bargainBinSticker.shortId)],
+      items: [stack("bargain-bin-sticker")],
+      grantCatalog,
       localLibraryPlaylists: {},
     })
     expect(scope).toEqual({ mode: "none" })
@@ -79,29 +87,31 @@ describe("localLibraryGrants", () => {
     const held = listHeldLocalLibraryGrants({
       pluginName: PLUGIN,
       items: [
-        stack(items.thriftStoreCoupon.shortId, 1, "coupon"),
-        stack(items.bargainBinSticker.shortId, 1, "bb"),
+        stack("thrift-store-coupon", 1, "coupon"),
+        stack("bargain-bin-sticker", 1, "bb"),
       ],
+      grantCatalog,
     })
     const pick = pickGrantToConsume({
       held,
-      trackInPlaylistKey: { "bargain-bin": true },
+      trackInPlaylistKey: { "bargain-bin-sticker": true },
     })
-    expect(pick?.shortId).toBe(items.bargainBinSticker.shortId)
+    expect(pick?.shortId).toBe("bargain-bin-sticker")
   })
 
   it("falls back to full-library coupon when track is not on a shelf", () => {
     const held = listHeldLocalLibraryGrants({
       pluginName: PLUGIN,
       items: [
-        stack(items.thriftStoreCoupon.shortId, 1, "coupon"),
-        stack(items.bargainBinSticker.shortId, 1, "bb"),
+        stack("thrift-store-coupon", 1, "coupon"),
+        stack("bargain-bin-sticker", 1, "bb"),
       ],
+      grantCatalog,
     })
     const pick = pickGrantToConsume({
       held,
-      trackInPlaylistKey: { "bargain-bin": false },
+      trackInPlaylistKey: { "bargain-bin-sticker": false },
     })
-    expect(pick?.shortId).toBe(items.thriftStoreCoupon.shortId)
+    expect(pick?.shortId).toBe("thrift-store-coupon")
   })
 })

@@ -5,46 +5,46 @@
 
 ## Context
 
-Media Bridge rooms can mark the Local (`local`) metadata source **restricted** so only admins and plugin grants may search or queue ([ADR 0088](0088-metadata-source-access-grants.md)). Item Shops already sells a Thrift Store Coupon that unlocks Local. Operators also want **curated shelves** (Bargain Bin, Out Of Print, Local Heroes, Unreleased) without editing ID3 tags or exposing Navidrome playlists as a user-facing browse/search mode.
+Media Bridge rooms can mark the Local (`local`) metadata source **restricted** so only admins and plugin grants may search or queue ([ADR 0088](0088-metadata-source-access-grants.md)). Operators want **curated shelves** without editing ID3 tags or exposing Navidrome playlists as a user-facing browse/search mode.
 
 [ADR 0089](0089-metadata-source-content-browse.md) kept genres/playlists out of **product** browse (artists → albums → tracks only). That constraint remains: listeners never search or browse “by playlist.” Playlists are operator tooling for **membership sets** that filter the same hierarchy.
 
+Hard-coded Stickers/Coupon SKUs forced code deploys for every shelf rename or new playlist. Admin-editable grant rows (with a bridge playlist picker) keep ops light while reusing the inventory/shop model.
+
 ## Decision
 
-1. **Catalog grant on items:** `ItemCatalogEntry.localLibraryGrant` is either `{ scope: "library" }` (full Local catalog) or `{ scope: "playlist"; playlistKey: string }` (abstract shelf key).
-2. **Config map:** Item Shops admin config maps each `playlistKey` to a Navidrome playlist id (`playlistIdBargainBin`, …). Unmapped keys contribute nothing (fail closed for that shelf).
-3. **Access:** Holding any resolved grant (full library **or** at least one mapped playlist) yields `grantMetadataSourceAccess` for `local`. Admins and `open` Local remain unfiltered and do not consume inventory.
-4. **Invisible filter on RPC:** When Local is restricted and the user has only playlist-scoped grants, search/browse/getTrack carry `playlistIds`. The bridge daemon caches `getPlaylist` membership (track/artist/album id sets, TTL ~45s) and:
+1. **Catalog grant on items:** `ItemCatalogEntry.localLibraryGrant` is either `{ scope: "library" }` (full Local catalog) or `{ scope: "playlist"; playlistKey: string }` (shelf key = item `shortId`).
+2. **Config-driven SKUs:** Item Shops `localLibraryGrants` is an `object-array` of rows built from shared `itemDefinitionAuthoringSchema` **extended** with `scope` + `playlistId`. Rows are registered as inventory definitions and auto-stocked on Thrift Store at runtime (`onConfigChange` refreshes catalog + shop stock). Defaults seed the former five shortIds (four shelves + full-library coupon) with empty playlist ids.
+3. **Access:** Holding any resolved grant (full library **or** at least one mapped playlist id) yields `grantMetadataSourceAccess` for `local`. Admins and `open` Local remain unfiltered and do not consume inventory. Unmapped playlist rows fail closed for that shelf.
+4. **Invisible filter on RPC:** When Local is restricted and the user has only playlist-scoped grants, search/browse/getTrack carry `playlistIds`. The bridge daemon caches `getPlaylist` membership (TTL ~45s) and:
    - **Search:** `search3` ∩ track set
-   - **Browse:** build artist/album indexes **from the playlist outward** (not full `getArtists` then filter)
+   - **Browse:** build artist/album indexes **from the playlist outward**
    - **Album detail:** omit tracks outside the set
-5. **Full-library grants** (coupon or admin): omit `playlistIds` — no playlist path.
-6. **Consume on queue:** Prefer a shelf Sticker whose playlist contains the track; otherwise redeem the full-library coupon. Shelf-only users cannot queue tracks outside their union (validation rejects).
+5. **Full-library grants** (config `scope: "library"` or admin): omit `playlistIds`.
+6. **Consume on queue:** Prefer a shelf grant whose playlist contains the track; otherwise redeem a full-library grant. Shelf-only users cannot queue tracks outside their union.
 7. **No client playlist vector:** Do not add playlist tabs, playlist search, or playlist ids on `EFFECTIVE_METADATA_SOURCES` / browse capabilities.
+8. **Admin playlist browser:** Bridge RPC `listPlaylists` (Subsonic `getPlaylists`) + admin socket `LIST_BRIDGE_LOCAL_PLAYLISTS` + config field type `remote-select` (`remoteSource: "bridgeLocalPlaylists"`). Falls back to a string id input when the bridge is offline.
 
 ## Consequences
 
-- Operators curate shelves in Navidrome’s UI; Listening Room only stores playlist ids.
+- Operators curate shelves in Navidrome and bind them in Item Shops without code changes.
 - Shelf browse cost scales with playlist size, not full library size.
 - ADR 0089’s “playlists out of scope” means **user-facing browse-by-playlist**; inventory-scoped membership filtering is in scope here.
-- Oversized playlists that mirror the whole library should use the legendary Coupon instead (or be split).
+- Removing a config row stops shop stock; Redis definitions / held stacks are not auto-deleted (game-end strip still clears item-shops inventory).
 
 ## Ops runbook
 
-1. In Navidrome, create playlists named for ops clarity (e.g. Bargain Bin, Out Of Print, Local Heroes, Unreleased). Keep them selective (hundreds–low thousands of tracks).
-2. Copy each playlist’s id from the ND UI / Subsonic API.
-3. In room admin → Item Shops, paste ids into:
-   - Navidrome playlist id — Bargain Bin
-   - Navidrome playlist id — Out Of Print
-   - Navidrome playlist id — Local Heroes
-   - Navidrome playlist id — Unreleased
-4. Set Content → Media sources → Library to **Admins + plugin grants only**.
-5. Stock/rotation: Thrift Store (bridge-only) sells the four Stickers plus Thrift Store Coupon (legendary full library) and Scratched CD.
+1. In Navidrome, create selective playlists (hundreds–low thousands of tracks).
+2. Room admin → Item Shops → enable → **Local library grants**:
+   - Add/edit rows (name, price, rarity, scope).
+   - For playlist shelves, pick a playlist from the dropdown (requires Media Bridge connected) or paste the id.
+   - Keep or edit the seeded Bargain Bin / Out Of Print / Local Heroes / Unreleased / Thrift Store Coupon rows.
+3. Set Content → Media sources → Library to **Admins + plugin grants only**.
+4. Thrift Store (bridge-only) stocks grant rows + Scratched CD.
 
 ## See also
 
 - [0088. Metadata source access grants](0088-metadata-source-access-grants.md)
 - [0089. Metadata source content browse](0089-metadata-source-content-browse.md)
-- [0049. Item shops and shopping sessions](0049-item-shops-and-shopping-sessions.md) (if present) / Item Shops plugin
 - [docs/plugins/metadata-source-access.md](../plugins/metadata-source-access.md)
 - [docs/BRIDGE_LOCAL_TESTING.md](../BRIDGE_LOCAL_TESTING.md)

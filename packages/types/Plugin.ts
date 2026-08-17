@@ -62,6 +62,11 @@ export type PluginFieldType =
   | "checkbox-group" // Multi-select: value is string[]; use `options` in field meta
   | "datetime" // Datetime picker (stored in epoch ms)
   | "object-array" // Repeatable group: value is Record<string, unknown>[]; see `itemFields`
+  /**
+   * Async options loaded by the host (e.g. bridge Navidrome playlists).
+   * Use `remoteSource` on field meta; falls back to string input when offline.
+   */
+  | "remote-select"
 
 /**
  * Condition for conditional visibility.
@@ -237,6 +242,11 @@ export interface PluginFieldMeta {
   minItems?: number
   /** For `object-array`: maximum number of rows allowed. */
   maxItems?: number
+  /**
+   * For `remote-select`: host-known source id (e.g. `"bridgeLocalPlaylists"`).
+   * The admin form loads options via socket / PluginAPI.
+   */
+  remoteSource?: string
 }
 
 /**
@@ -536,6 +546,12 @@ export interface PluginAPI {
     trackId: string
     playlistIds: string[]
   }): Promise<string[]>
+
+  /**
+   * List Navidrome playlists on the room's Media Bridge (admin config picker).
+   * Returns [] when offline / not bridge.
+   */
+  listLocalPlaylists(roomId: string): Promise<Array<{ id: string; name: string; songCount?: number }>>
 
   /**
    * Emit a custom plugin event.

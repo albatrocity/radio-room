@@ -159,6 +159,10 @@ export class RpcServer {
           parsePlaylistIds(p.playlistIds) ?? [],
         )
       }
+      case "listPlaylists": {
+        if (String(p.source) !== "local" || !this.localDriver) return []
+        return this.localDriver.listPlaylists()
+      }
       case "notifyNowPlaying":
         await this.router.notifyNowPlaying({
           title: p.title != null ? String(p.title) : undefined,

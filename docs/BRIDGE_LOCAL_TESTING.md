@@ -206,10 +206,10 @@ First Chrome launch uses a dedicated profile under `~/.config/listening-room-bri
 
 Restricted Local + inventory grants ([ADR 0098](adrs/0098-inventory-scoped-local-library-catalog-filters.md)):
 
-1. In Navidrome, create curated playlists (Bargain Bin / Out Of Print / Local Heroes / Unreleased) and copy their ids.
-2. Room admin → Item Shops → paste playlist ids; enable Item Shops; set Library to **Admins + plugin grants only**.
-3. Start a game session; give yourself a **Bargain Bin Sticker** (or buy from Thrift Store on a bridge room).
-4. Add to Queue → Library should appear; Browse/Search should only show artists/albums/tracks on that playlist. Queuing a matching track consumes the Sticker. A **Thrift Store Coupon** unlocks the full library (legendary).
+1. In Navidrome, create curated playlists; keep them selective.
+2. Room admin → Item Shops → enable → **Local library grants**: pick playlists from the dropdown (Media Bridge must be connected) or paste ids; set Library to **Admins + plugin grants only**.
+3. Start a game session; give yourself a shelf grant (or buy from Thrift Store on a bridge room).
+4. Add to Queue → Library should appear; Browse/Search should only show artists/albums/tracks on that playlist. Queuing a matching track consumes the grant. A full-library grant row unlocks the entire catalog.
 
 Playlists are never shown as a browse mode in the client.
 
