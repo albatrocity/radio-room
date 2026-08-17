@@ -18,7 +18,7 @@ describe("9v-battery", () => {
     const deps = createMockDeps()
     vi.mocked(deps.context.inventory.getInventory).mockResolvedValue({
       userId: "u1",
-      maxSlots: 20,
+      maxSlots: 20, maxCollectionSlots: 20,
       items: [
         {
           itemId: "item-batt",
@@ -67,7 +67,7 @@ describe("9v-battery", () => {
 
     vi.mocked(deps.context.inventory.getInventory).mockResolvedValue({
       userId: "u1",
-      maxSlots: 20,
+      maxSlots: 20, maxCollectionSlots: 20,
       items: [
         {
           itemId: "item-batt",
@@ -162,7 +162,7 @@ describe("9v-battery", () => {
 
     vi.mocked(deps.context.inventory.getInventory).mockResolvedValue({
       userId: "u1",
-      maxSlots: 20,
+      maxSlots: 20, maxCollectionSlots: 20,
       items: [
         {
           itemId: "item-batt",
@@ -271,7 +271,7 @@ describe("9v-battery", () => {
 
     vi.mocked(deps.context.inventory.getInventory).mockResolvedValue({
       userId: "u1",
-      maxSlots: 20,
+      maxSlots: 20, maxCollectionSlots: 20,
       items: [
         {
           itemId: "item-batt",

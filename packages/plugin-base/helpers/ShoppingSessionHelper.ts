@@ -17,6 +17,7 @@ import {
   buildItemCatalogMap,
   buildShoppingInstance,
   pickWeightedShortIds,
+  pickWeightedDistinctShortIds,
   resolveItemRarity,
   resolveShopItemPrice,
   resolveUnlistedSellBasePrice,
@@ -175,6 +176,9 @@ export class ShoppingSessionHelper {
     })
     if (candidates.length === 0) {
       return []
+    }
+    if (shop.distinctOffers) {
+      return pickWeightedDistinctShortIds(candidates, count)
     }
     return pickWeightedShortIds(candidates, count)
   }

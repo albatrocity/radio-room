@@ -14,7 +14,22 @@ import {
   isDeferredQueueRequest,
 } from "@repo/types"
 import { Server } from "socket.io"
+import { createHash } from "node:crypto"
 import { getRoomPath } from "../getRoomPath"
+
+function parseDataUri(dataUri: string): { mimeType: string; base64Data: string } | null {
+  const match = /^data:([^;,]+);base64,(.+)$/.exec(dataUri)
+  if (!match?.[1] || !match[2]) return null
+  return { mimeType: match[1], base64Data: match[2] }
+}
+
+/** Stable per-playlist image id, versioned by artwork content. */
+function playlistArtworkImageId(playlistId: string, base64Data: string): string {
+  const safeId = playlistId.replace(/[^a-zA-Z0-9_-]/g, "-")
+  const hash = createHash("md5").update(base64Data).digest("hex").slice(0, 8)
+  return `pl-cover-${safeId}-${hash}`
+}
+
 /**
  * Implementation of the Plugin API
  * Provides safe, high-level methods for plugins to interact with the system
@@ -443,6 +458,75 @@ export class PluginAPIImpl implements PluginAPI {
       return await listLocalPlaylists({ rpc })
     } catch (e) {
       console.warn("[PluginAPI] listLocalPlaylists failed:", e)
+      return []
+    }
+  }
+
+  /**
+   * Fetch playlist cover art from the daemon and park it in the room image store,
+   * returning served URLs. The image id embeds a content hash so swapped artwork
+   * gets a new URL despite the long-lived cache headers on the image route.
+   */
+  async getLocalPlaylistArtwork(
+    roomId: string,
+    playlistIds: string[],
+  ): Promise<Record<string, string>> {
+    const ids = [...new Set(playlistIds.map((id) => id.trim()).filter(Boolean))]
+    if (ids.length === 0) return {}
+    try {
+      const { getBridgeRpcClient, getLocalPlaylistCoverArt } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) return {}
+      const covers = await getLocalPlaylistCoverArt({ rpc, playlistIds: ids })
+      const { storeImage } = await import("../../operations/data")
+      const apiUrl = this.context.apiUrl || ""
+      const urls: Record<string, string> = {}
+      for (const [playlistId, dataUri] of Object.entries(covers)) {
+        const parsed = parseDataUri(dataUri)
+        if (!parsed) continue
+        const imageId = playlistArtworkImageId(playlistId, parsed.base64Data)
+        const stored = await storeImage({
+          roomId,
+          imageId,
+          base64Data: parsed.base64Data,
+          mimeType: parsed.mimeType,
+          context: this.context,
+        })
+        if (!stored.success) continue
+        urls[playlistId] = `${apiUrl}/api/rooms/${roomId}/images/${imageId}`
+      }
+      return urls
+    } catch (e) {
+      console.warn("[PluginAPI] getLocalPlaylistArtwork failed:", e)
+      return {}
+    }
+  }
+
+  async invalidateLocalLibraryCache(roomId: string): Promise<boolean> {
+    try {
+      const { getBridgeRpcClient, invalidateLocalLibraryCache } = await import(
+        "@repo/adapter-bridge"
+      )
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) return false
+      return await invalidateLocalLibraryCache({ rpc })
+    } catch (e) {
+      console.warn("[PluginAPI] invalidateLocalLibraryCache failed:", e)
+      return false
+    }
+  }
+
+  async listLocalPlaylistTracks(
+    roomId: string,
+    playlistId: string,
+  ): Promise<import("@repo/types").MetadataSourceTrack[]> {
+    try {
+      const { getBridgeRpcClient, listLocalPlaylistTracks } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) return []
+      return await listLocalPlaylistTracks({ rpc, playlistId })
+    } catch (e) {
+      console.warn("[PluginAPI] listLocalPlaylistTracks failed:", e)
       return []
     }
   }

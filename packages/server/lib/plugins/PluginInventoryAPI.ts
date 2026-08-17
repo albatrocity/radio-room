@@ -76,7 +76,7 @@ export class PluginInventoryAPI implements InventoryPluginAPI {
 
   async getInventory(userId: string): Promise<UserInventory> {
     if (!this.service) {
-      return { userId, items: [], maxSlots: 0 }
+      return { userId, items: [], maxSlots: 0, maxCollectionSlots: 0 }
     }
     return this.service.getInventory(this.roomId, userId)
   }

@@ -14,6 +14,11 @@ import { GameSessionService } from "./GameSessionService"
 // ============================================================================
 
 const DEFAULT_MAX_SLOTS = 3
+const DEFAULT_MAX_COLLECTION_SLOTS = 12
+
+function slotPoolOf(def: ItemDefinition | null | undefined): "inventory" | "collection" {
+  return def?.slotPool === "collection" ? "collection" : "inventory"
+}
 
 // ============================================================================
 // Redis key helpers
@@ -111,7 +116,8 @@ export class InventoryService {
     }
 
     const maxSlots = await this.resolveMaxSlots(roomId)
-    return { userId, items, maxSlots }
+    const maxCollectionSlots = await this.resolveMaxCollectionSlots(roomId)
+    return { userId, items, maxSlots, maxCollectionSlots }
   }
 
   async hasItem(
@@ -193,9 +199,14 @@ export class InventoryService {
       }
     }
 
-    // Need to allocate a new slot.
-    if (inv.items.length >= inv.maxSlots) {
-      console.warn(`[InventoryService] giveItem: ${userId} inventory full (${inv.maxSlots} slots)`)
+    // Need to allocate a new slot in the item's pool.
+    const pool = slotPoolOf(definition)
+    const used = await this.countPoolSlots(roomId, inv.items, pool)
+    const cap = pool === "collection" ? inv.maxCollectionSlots : inv.maxSlots
+    if (used >= cap) {
+      console.warn(
+        `[InventoryService] giveItem: ${userId} ${pool} full (${used}/${cap} slots)`,
+      )
       return null
     }
 
@@ -255,7 +266,10 @@ export class InventoryService {
       if (mergeSlot && definition.maxStack - mergeSlot.quantity >= quantity) return true
     }
 
-    return inv.items.length < inv.maxSlots
+    const pool = slotPoolOf(definition)
+    const used = await this.countPoolSlots(roomId, inv.items, pool)
+    const cap = pool === "collection" ? inv.maxCollectionSlots : inv.maxSlots
+    return used < cap
   }
 
   /**
@@ -462,6 +476,26 @@ export class InventoryService {
     if (!this.context.gameSessions) return DEFAULT_MAX_SLOTS
     const session = await this.context.gameSessions.getActiveSession(roomId)
     return session?.config.maxInventorySlots ?? DEFAULT_MAX_SLOTS
+  }
+
+  private async resolveMaxCollectionSlots(roomId: string): Promise<number> {
+    if (!this.context.gameSessions) return DEFAULT_MAX_COLLECTION_SLOTS
+    const session = await this.context.gameSessions.getActiveSession(roomId)
+    return session?.config.maxCollectionSlots ?? DEFAULT_MAX_COLLECTION_SLOTS
+  }
+
+  private async countPoolSlots(
+    roomId: string,
+    items: InventoryItem[],
+    pool: "inventory" | "collection",
+  ): Promise<number> {
+    const defs = await this.getAllItemDefinitions(roomId)
+    const byId = new Map(defs.map((d) => [d.id, d]))
+    let n = 0
+    for (const item of items) {
+      if (slotPoolOf(byId.get(item.definitionId)) === pool) n++
+    }
+    return n
   }
 
   private async assertTradingAllowed(roomId: string): Promise<boolean> {

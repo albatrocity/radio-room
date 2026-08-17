@@ -1,0 +1,48 @@
+# 0099. Physical Media personal libraries
+
+**Date:** 2026-08-17
+**Status:** Accepted
+
+## Context
+
+[ADR 0098](0098-inventory-scoped-local-library-catalog-filters.md) unlocked restricted Local (Navidrome) search/queue via inventory grants: playlist-scoped “burned CDs” and a full-library Library Card, stocked on a Thrift Store. That model treated local access as a flat coupon list. Operators now want **collectible Physical Media** (records, CDs, cassettes, 45s) that map 1:1 onto prefix-named Navidrome playlists, plus a separate consumable Library Card.
+
+Constraints:
+
+- Shopping session state is plugin-namespaced, so a new plugin cannot join Item Shops rotation without a core refactor. Physical Media stays in `plugin-item-shops` as an extraction-ready `localLibrary/` module.
+- [ADR 0089](0089-metadata-source-content-browse.md) still forbids user-facing browse-by-playlist. Listeners must not receive Navidrome playlist ids.
+- [ADR 0086](0086-metadata-search-result-cache.md) keys search as `metadata:search:v1:{sourceId}:{query}` with **no user or playlist component**. Local search is playlist-filtered per user; opting Local into that cache without adding scope to the key would leak one user’s filtered results to another.
+
+## Decision
+
+1. **Derivation:** Physical Media items are derived from Navidrome playlists whose names start with `[CD]`, `[LP]`, `[TAPE]`, or `[45]`. `shortId` is `pm-<playlistId>`. Default price/rarity come from `songCount`. Config is **overrides only** (`physicalMediaOverrides`); operators do not author full item definitions for records.
+2. **Rebuild:** Derived catalog rebuilds on plugin `register`, `MEDIA_BRIDGE_STATUS_CHANGED`, config change, and the admin `refreshLocalLibrary` action (which also invalidates the daemon playlist/cover caches).
+3. **Redemption:** `LocalLibraryGrant.redemption` is `"durable" | "perQueue"`. Physical Media is durable (unlimited queueing from that playlist for the game session). Library Card is `perQueue`. `pickGrantToConsume` never returns a durable grant. Holdings still strip on `GAME_SESSION_ENDED` (session-scoped durability).
+4. **Shops:** Thrift Store is replaced by **Record Store** (`record-store`, Physical Media + Scratched CD, `distinctOffers`, omitted from the effective catalog when no records derive) and **Public Library** (`public-library`, Library Card). Default `enabledShopIds` is computed from the **effective** catalog so dynamically contributed shops are included in new rooms. Existing rooms with `thrift-store` in `enabledShopIds` lose that shop until they enable `record-store`.
+5. **Client shelves:** `EFFECTIVE_METADATA_SOURCES` (and INIT) include `myMedia: { mediaKey, name, icon?, imageUrl? }[]` for the caller’s held playlist-scoped grants. `mediaKey` is the item `shortId`. Add-to-Queue CatalogBrowse gains a **Physical Media** root tab (`RootKind: "media"`).
+6. **BROWSE_MEDIA_ITEM:** The handler accepts only `mediaKey`. The server resolves it to a Navidrome playlist id from the **caller’s held grants** (`Plugin.resolveMyMediaShelf`) and then calls `listPlaylistTracks`. Never trust a client-supplied playlist id.
+7. **Cache-key guardrail:** Do **not** opt Local search into the ADR 0086 `metadata:search:v1:{sourceId}:{query}` cache unless the key also includes the playlist-scope (or user) component. Local search remains uncached until that is designed.
+8. **Cover art by URL, not by payload:** The daemon's `getPlaylistCoverArt` RPC returns data URIs; `PluginAPI.getLocalPlaylistArtwork` re-hosts them in the room image store under a content-hashed id (`pl-cover-<playlistId>-<hash>`) and hands back `/api/rooms/{roomId}/images/{imageId}` URLs. Only those URLs reach the wire, as `ItemDefinition.imageUrl`, `ShopOffer.imageUrl`, and `MyMediaShelf.imageUrl`. `imageUrl` takes precedence over `icon` everywhere items render; the Lucide icon stays as the fallback for records with no art. Content hashing means re-derivation is idempotent and new art busts the old URL.
+9. **Surface bridge failures instead of empty shelves:** `fetchLocalPlaylistTracks` returns `{ ok: true; tracks } | { ok: false; error }` so `browseMediaItem` can distinguish "record is empty" from "daemon never answered" and return a `BROWSE_MEDIA_ITEM_FAILURE` telling the listener to ask the host to reconnect the DJ Mac. Client browse suppresses "No tracks found" while in the failure state. `listLocalPlaylistTracks` keeps its empty-array-on-error shape for callers that cannot act on the reason.
+10. **Collection surfaces the shelf, not the slots:** The Collection area of the game-state inventory renders only when the caller holds a collection item, without empty slot placeholders (unlike `inventory` — [ADR 0100](0100-dual-inventory-slot-pools.md)). Each Physical Media row deep-links into Add to Queue → Browse → Physical Media with that shelf selected, via `modalsMachine`'s `EDIT_QUEUE.browseMediaKey`. Durable records have no "use" action, so the deep-link takes that slot.
+
+### What remains from ADR 0098
+
+Grant-on-item (`library` vs `playlist` scope), restricted-Local access via `grantMetadataSourceAccess`, invisible `playlistIds` filters on search/browse/getTrack, and the admin `listPlaylists` picker for extra config rows remain in force. §7 (“no client playlist vector”) is replaced by `myMedia` / `mediaKey` as specified above. Seeded Thrift Store SKUs and consume-on-queue for records are replaced by derivation + durable redemption.
+
+## Consequences
+
+- Collecting records uses the existing inventory/transfer/grant path; a later plugin extraction does not need a data migration if session-end still strips Item Shops items.
+- Prefix typos silently yield no item; operators should watch derived-item count after refresh.
+- Playlist cover art costs a Redis write per record per derivation, but keeps `USER_GAME_STATE` and shop payloads small. Track/album art in browse results still rides the wire as adapter-supplied urls.
+- Art is fetched only for playlists that parse as Physical Media, and only when the bridge is linked; an unlinked bridge yields icon-only records rather than a failed refresh.
+- Playlist membership cache is daemon-global (contents are user-independent). A future per-user playlist view would break that assumption.
+
+## See also
+
+- [0098. Inventory-scoped Local library catalog filters](0098-inventory-scoped-local-library-catalog-filters.md)
+- [0100. Dual inventory slot pools](0100-dual-inventory-slot-pools.md)
+- [0086. Metadata search result cache](0086-metadata-search-result-cache.md)
+- [0088. Metadata source access grants](0088-metadata-source-access-grants.md)
+- [0089. Metadata source content browse](0089-metadata-source-content-browse.md)
+- [`packages/plugin-item-shops/localLibrary/`](../../packages/plugin-item-shops/localLibrary/)

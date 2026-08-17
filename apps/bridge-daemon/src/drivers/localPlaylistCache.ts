@@ -1,8 +1,12 @@
 import type { MetadataBrowseAlbum, MetadataBrowseArtist } from "@repo/types"
 import type { CoverArtUrlFn } from "./localTypes"
 import { coverArtImages } from "./localBrowse"
+import { LruCache } from "./lruCache"
 
-export const PLAYLIST_CACHE_TTL_MS = 45_000
+/** Derived Physical Media playlists are session-stable product definitions. */
+export const PLAYLIST_CACHE_TTL_MS = 10 * 60 * 1000
+export const PLAYLIST_CACHE_MAX_ENTRIES = 256
+export const UNION_CACHE_MAX_ENTRIES = 64
 
 export type PlaylistMembership = {
   trackIds: Set<string>
@@ -13,16 +17,25 @@ export type PlaylistMembership = {
     string,
     { title: string; artistId: string; artistTitle: string; coverArt?: string }
   >
+  /** Full Subsonic getPlaylist entries (for listPlaylistTracks). */
+  entries: NavidromePlaylistEntry[]
   fetchedAt: number
 }
 
 export type NavidromePlaylistEntry = {
   id?: string
+  title?: string
   artist?: string
   artistId?: string
   album?: string
   albumId?: string
   coverArt?: string
+  duration?: number
+  track?: number
+  discNumber?: number
+  path?: string
+  comment?: string
+  musicBrainzId?: string
 }
 
 /** Build membership sets from a Subsonic getPlaylist entry list (pure). */
@@ -58,7 +71,7 @@ export function membershipFromPlaylistEntries(
     }
   }
 
-  return { trackIds, artists, albums, fetchedAt }
+  return { trackIds, artists, albums, entries, fetchedAt }
 }
 
 /** Union several membership snapshots (shared daemon cache across playlist ids). */
@@ -69,6 +82,7 @@ export function unionMembership(parts: PlaylistMembership[]): PlaylistMembership
     string,
     { title: string; artistId: string; artistTitle: string; coverArt?: string }
   >()
+  const entries: NavidromePlaylistEntry[] = []
   let fetchedAt = 0
   for (const p of parts) {
     for (const id of p.trackIds) trackIds.add(id)
@@ -78,9 +92,10 @@ export function unionMembership(parts: PlaylistMembership[]): PlaylistMembership
     for (const [id, album] of p.albums) {
       if (!albums.has(id)) albums.set(id, album)
     }
+    entries.push(...p.entries)
     fetchedAt = Math.max(fetchedAt, p.fetchedAt)
   }
-  return { trackIds, artists, albums, fetchedAt }
+  return { trackIds, artists, albums, entries, fetchedAt }
 }
 
 export function artistsFromMembership(
@@ -132,18 +147,24 @@ export function albumsFromMembership(
 }
 
 /**
- * In-memory TTL cache of Navidrome playlist membership (daemon-wide).
+ * In-memory TTL + LRU cache of Navidrome playlist membership (daemon-wide).
  */
 export class PlaylistMembershipCache {
-  private readonly cache = new Map<string, PlaylistMembership>()
+  private readonly cache: LruCache<PlaylistMembership>
+  private readonly unionCache: LruCache<PlaylistMembership>
 
   constructor(
     private readonly fetchEntries: (playlistId: string) => Promise<NavidromePlaylistEntry[]>,
     private readonly ttlMs: number = PLAYLIST_CACHE_TTL_MS,
-  ) {}
+    maxEntries: number = PLAYLIST_CACHE_MAX_ENTRIES,
+  ) {
+    this.cache = new LruCache(maxEntries)
+    this.unionCache = new LruCache(UNION_CACHE_MAX_ENTRIES)
+  }
 
   invalidate(): void {
     this.cache.clear()
+    this.unionCache.clear()
   }
 
   async get(playlistId: string): Promise<PlaylistMembership> {
@@ -162,22 +183,40 @@ export class PlaylistMembershipCache {
   }
 
   async getUnion(playlistIds: string[]): Promise<PlaylistMembership> {
-    const unique = [...new Set(playlistIds.map((p) => p.trim()).filter(Boolean))]
+    const unique = [...new Set(playlistIds.map((p) => p.trim()).filter(Boolean))].sort()
     if (unique.length === 0) return membershipFromPlaylistEntries([])
     const parts = await Promise.all(unique.map((id) => this.get(id)))
-    return unionMembership(parts)
+    const maxFetched = parts.reduce((m, p) => Math.max(m, p.fetchedAt), 0)
+    const unionKey = `${unique.join(",")}:${maxFetched}`
+    const cachedUnion = this.unionCache.get(unionKey)
+    if (cachedUnion) return cachedUnion
+    const union = unionMembership(parts)
+    this.unionCache.set(unionKey, union)
+    return union
   }
 
-  /** Which of `playlistIds` contain `trackId` (uses cache). */
-  async playlistsContainingTrack(trackId: string, playlistIds: string[]): Promise<string[]> {
+  /**
+   * Which of `playlistIds` contain `trackId` (uses cache). Fetches in parallel.
+   * When `firstMatch` is true, still fetches in parallel but returns after the
+   * first hit in input order (queue-time grant resolution only needs one).
+   */
+  async playlistsContainingTrack(
+    trackId: string,
+    playlistIds: string[],
+    options?: { firstMatch?: boolean },
+  ): Promise<string[]> {
     const tid = trackId.trim()
     if (!tid) return []
+    const unique = [...new Set(playlistIds.map((p) => p.trim()).filter(Boolean))]
+    if (unique.length === 0) return []
+    const parts = await Promise.all(
+      unique.map(async (id) => ({ id, membership: await this.get(id) })),
+    )
     const out: string[] = []
-    for (const raw of playlistIds) {
-      const id = raw.trim()
-      if (!id) continue
-      const m = await this.get(id)
-      if (m.trackIds.has(tid)) out.push(id)
+    for (const { id, membership } of parts) {
+      if (!membership.trackIds.has(tid)) continue
+      out.push(id)
+      if (options?.firstMatch) break
     }
     return out
   }

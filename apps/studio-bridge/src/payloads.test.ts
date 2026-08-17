@@ -22,6 +22,7 @@ function minimalSnap(overrides: Partial<BridgeSnapshot> = {}): BridgeSnapshot {
         mode: "freeplay",
         inventoryEnabled: true,
         maxInventorySlots: 10,
+        maxCollectionSlots: 12,
         allowTrading: false,
         allowSelling: true,
       },

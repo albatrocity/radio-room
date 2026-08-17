@@ -50,6 +50,7 @@ import {
   stubBrowseAlbums,
   stubBrowseArtist,
   stubBrowseArtists,
+  stubBrowseMediaItem,
   stubSearchTracks,
 } from "./stubMetadataCatalog.js"
 import {
@@ -1057,6 +1058,18 @@ function wireSocketHandlers(io: IOServer): void {
         return
       }
       socket.emit("event", stubBrowseAlbum(payload.albumId))
+    })
+
+    socket.on("BROWSE_MEDIA_ITEM", (payload: { mediaKey?: string }) => {
+      const mediaKey = typeof payload?.mediaKey === "string" ? payload.mediaKey : ""
+      if (!mediaKey) {
+        socket.emit("event", {
+          type: "BROWSE_MEDIA_ITEM_FAILURE",
+          data: { message: "mediaKey is required" },
+        })
+        return
+      }
+      socket.emit("event", stubBrowseMediaItem(mediaKey))
     })
 
     socket.on("SEARCH_TRACK", (payload: { query?: string }) => {

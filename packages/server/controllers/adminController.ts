@@ -104,9 +104,17 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
     await handlers.getGameSessionStatus(connections)
   })
 
-  socket.on("START_GAME_SESSION", async (data: { name: string; initialCoins?: number }) => {
+  socket.on(
+    "START_GAME_SESSION",
+    async (data: {
+      name: string
+      initialCoins?: number
+      maxInventorySlots?: number
+      maxCollectionSlots?: number
+    }) => {
     await handlers.startGameSession(connections, data)
-  })
+  },
+  )
 
   socket.on("END_GAME_SESSION", async () => {
     await handlers.endGameSession(connections)

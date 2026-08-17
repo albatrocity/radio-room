@@ -19,6 +19,7 @@ export const itemDefinitionAuthoringSchema = z.object({
   consumable: z.boolean().default(false),
   coinValue: z.number().int().nonnegative().optional(),
   rarity: itemRaritySchema.optional(),
+  slotPool: z.enum(["inventory", "collection"]).optional(),
 })
 
 export type ItemDefinitionAuthoring = z.infer<typeof itemDefinitionAuthoringSchema>

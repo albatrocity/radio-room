@@ -73,6 +73,11 @@ export interface ItemDefinition {
   description: string
   /** Optional emoji or icon name surfaced by the UI. */
   icon?: LucideIconName
+  /**
+   * Artwork URL rendered instead of `icon` when present (e.g. Physical Media
+   * cover art served from the room image store — ADR 0099).
+   */
+  imageUrl?: string
 
   /** When `true`, multiple acquisitions combine into a single stack. */
   stackable: boolean
@@ -88,6 +93,11 @@ export interface ItemDefinition {
    * Weighted shop sampling / UX (e.g. item shops). Undefined means `"common"`.
    */
   rarity?: ItemRarity
+  /**
+   * Which session slot pool this item occupies. `"inventory"` (default) is the
+   * consumable/tool bag; `"collection"` is durable holdings (Physical Media).
+   */
+  slotPool?: "inventory" | "collection"
   /**
    * When `"user"`, the inventory UI opens a target picker and sends `targetUserId`
    * with `USE_INVENTORY_ITEM`; plugins read it from `onItemUsed` `callContext`.
@@ -129,6 +139,8 @@ export interface UserInventory {
   items: InventoryItem[]
   /** Effective slot cap for this session (mirrors `GameSessionConfig.maxInventorySlots`). */
   maxSlots: number
+  /** Effective collection slot cap (mirrors `GameSessionConfig.maxCollectionSlots`). */
+  maxCollectionSlots: number
 }
 
 // ============================================================================

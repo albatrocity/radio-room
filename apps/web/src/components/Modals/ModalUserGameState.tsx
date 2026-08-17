@@ -99,6 +99,7 @@ function ModalUserGameState() {
   const inventoryItems =
     rawInventoryItems && rawInventoryItems.length > 0 ? rawInventoryItems : EMPTY_INVENTORY_ITEMS
   const maxSlots = payload?.inventory?.maxSlots ?? 0
+  const maxCollectionSlots = payload?.inventory?.maxCollectionSlots ?? 0
 
   const [storedArtifacts, setStoredArtifacts] = useState<StoredArtifactPublic[]>([])
 
@@ -274,6 +275,7 @@ function ModalUserGameState() {
                   inventoryEnabled={inventoryEnabled}
                   inventoryItems={inventoryItems}
                   maxSlots={maxSlots}
+                  maxCollectionSlots={maxCollectionSlots}
                   definitionMap={definitionMap}
                 />
               </Tabs.Content>

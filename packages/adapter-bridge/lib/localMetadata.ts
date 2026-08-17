@@ -219,3 +219,93 @@ export async function listLocalPlaylists(params: {
     return []
   }
 }
+
+/**
+ * Playlist cover art as data URIs keyed by playlist id (Physical Media artwork).
+ * Playlists without art are omitted.
+ */
+export async function getLocalPlaylistCoverArt(params: {
+  rpc: BridgeRpcClient
+  playlistIds: string[]
+}): Promise<Record<string, string>> {
+  const playlistIds = Array.from(
+    new Set(params.playlistIds.map((id) => id.trim()).filter(Boolean)),
+  )
+  if (playlistIds.length === 0) return {}
+  if (!(await params.rpc.isPresent())) return {}
+  try {
+    const result = (await params.rpc.call("getPlaylistCoverArt", {
+      source: "local",
+      playlistIds,
+    })) as unknown
+    if (!result || typeof result !== "object") return {}
+    const out: Record<string, string> = {}
+    for (const [id, dataUri] of Object.entries(result as Record<string, unknown>)) {
+      if (typeof dataUri === "string" && dataUri.startsWith("data:")) out[id] = dataUri
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+/** Drop daemon-side playlist membership and cover-art caches. */
+export async function invalidateLocalLibraryCache(params: {
+  rpc: BridgeRpcClient
+}): Promise<boolean> {
+  if (!(await params.rpc.isPresent())) return false
+  try {
+    const result = (await params.rpc.call("invalidatePlaylistCache", {
+      source: "local",
+    })) as unknown
+    return Boolean(result && typeof result === "object" && (result as { ok?: boolean }).ok)
+  } catch {
+    return false
+  }
+}
+
+export type LocalPlaylistTracksResult =
+  | { ok: true; tracks: MetadataSourceTrack[] }
+  | { ok: false; error: string }
+
+/**
+ * Mapping a whole shelf reads tags off disk and fetches cover art per album, so
+ * this call gets more headroom than the default RPC timeout.
+ */
+const PLAYLIST_TRACKS_TIMEOUT_MS = 20000
+
+/**
+ * Full track list for a Navidrome playlist (Physical Media shelf), keeping the
+ * failure reason so callers can tell "empty record" from "bridge not answering".
+ */
+export async function fetchLocalPlaylistTracks(params: {
+  rpc: BridgeRpcClient
+  playlistId: string
+}): Promise<LocalPlaylistTracksResult> {
+  if (!params.playlistId.trim()) return { ok: false, error: "playlistId is required" }
+  if (!(await params.rpc.isPresent())) {
+    return { ok: false, error: "Media Bridge is not connected" }
+  }
+  try {
+    const result = (await params.rpc.call(
+      "listPlaylistTracks",
+      { source: "local", playlistId: params.playlistId },
+      { timeoutMs: PLAYLIST_TRACKS_TIMEOUT_MS },
+    )) as unknown
+    if (!Array.isArray(result)) {
+      return { ok: false, error: "Media Bridge returned no track list" }
+    }
+    return { ok: true, tracks: result as MetadataSourceTrack[] }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+/** Fail-open variant for callers that treat an unavailable bridge as "no tracks". */
+export async function listLocalPlaylistTracks(params: {
+  rpc: BridgeRpcClient
+  playlistId: string
+}): Promise<MetadataSourceTrack[]> {
+  const result = await fetchLocalPlaylistTracks(params)
+  return result.ok ? result.tracks : []
+}

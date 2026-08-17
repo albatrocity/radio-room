@@ -67,6 +67,10 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
     await handlers.browseAlbum(connections, payload)
   })
 
+  socket.on("BROWSE_MEDIA_ITEM", async (payload: { mediaKey: string }) => {
+    await handlers.browseMediaItem(connections, payload)
+  })
+
   /**
    * Legacy event name for backward compatibility
    * @deprecated Use "SEARCH_TRACK" instead

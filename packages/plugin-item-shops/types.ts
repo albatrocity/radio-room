@@ -1,52 +1,19 @@
 import { z } from "zod"
-import { itemDefinitionAuthoringSchema } from "@repo/types"
 import { SHOP_CATALOG } from "./shops"
+import {
+  DEFAULT_LOCAL_LIBRARY_GRANTS,
+  localLibraryGrantConfigSchema,
+  physicalMediaOverrideSchema,
+} from "./localLibrary/config"
+import { defaultEnabledShopIds } from "./localLibrary/catalog"
 
-/** Grant-only fields composed onto {@link itemDefinitionAuthoringSchema}. */
-export const localLibraryGrantConfigSchema = itemDefinitionAuthoringSchema.extend({
-  scope: z.enum(["library", "playlist"]),
-  /** Navidrome playlist id when `scope` is `playlist`; ignored for `library`. */
-  playlistId: z.string().default(""),
-})
-
-export type LocalLibraryGrantConfig = z.infer<typeof localLibraryGrantConfigSchema>
-
-/**
- * Seeded former hard-coded Stickers + Coupon (same shortIds) so existing
- * inventories survive. Playlist ids start empty until ops configure them.
- */
-export const DEFAULT_LOCAL_LIBRARY_GRANTS: LocalLibraryGrantConfig[] = [
-  {
-    shortId: "bargain-bin-sticker",
-    name: "Bargain Bin Sticker",
-    description:
-      "Access to the Bargain Bin and the ability to queue one song from it: strange and unique tracks await.",
-    icon: "Sticker",
-    stackable: true,
-    maxStack: 5,
-    tradeable: true,
-    consumable: false,
-    coinValue: 15,
-    rarity: "common",
-    scope: "playlist",
-    playlistId: "",
-  },
-  {
-    shortId: "library-card",
-    name: "Library Card",
-    description:
-      "Somebody's old library card. Gives you complete access to the Library and the ability to queue one song from it.",
-    icon: "IdCard",
-    stackable: true,
-    maxStack: 3,
-    tradeable: true,
-    consumable: false,
-    coinValue: 100,
-    rarity: "legendary",
-    scope: "library",
-    playlistId: "",
-  },
-]
+export {
+  DEFAULT_LOCAL_LIBRARY_GRANTS,
+  localLibraryGrantConfigSchema,
+  physicalMediaOverrideSchema,
+  type LocalLibraryGrantConfig,
+  type PhysicalMediaOverride,
+} from "./localLibrary/config"
 
 export const itemShopsConfigSchema = z.object({
   enabled: z.boolean().default(false),
@@ -56,16 +23,20 @@ export const itemShopsConfigSchema = z.object({
   assignShopOnJoin: z.boolean().default(true),
   /**
    * Shops eligible for random assignment when starting or joining a shopping session.
-   * Stale ids not in `SHOP_CATALOG` are ignored at runtime (see `getEligibleShops` in the plugin).
+   * Stale ids not in the effective catalog are ignored at runtime (see `getEligibleShops`).
    */
-  enabledShopIds: z.array(z.string()).default(() => SHOP_CATALOG.map((s) => s.shopId)),
+  enabledShopIds: z.array(z.string()).default(() => defaultEnabledShopIds()),
   /**
-   * Config-driven Local library grant SKUs (full library or playlist shelf).
-   * Auto-stocked on Thrift Store when the room uses the Media Bridge.
+   * Extra operator-authored Local library grants (optional playlist shelves).
+   * Physical Media is derived from Navidrome; Library Card is a static item.
    */
   localLibraryGrants: z
     .array(localLibraryGrantConfigSchema)
     .default(() => [...DEFAULT_LOCAL_LIBRARY_GRANTS]),
+  /**
+   * Per-playlist overrides for derived Physical Media (name, price, rarity, icon).
+   */
+  physicalMediaOverrides: z.array(physicalMediaOverrideSchema).default([]),
 })
 
 export type ItemShopsConfig = z.infer<typeof itemShopsConfigSchema>
@@ -73,6 +44,7 @@ export type ItemShopsConfig = z.infer<typeof itemShopsConfigSchema>
 export const defaultItemShopsConfig: ItemShopsConfig = {
   enabled: false,
   assignShopOnJoin: true,
-  enabledShopIds: SHOP_CATALOG.map((s) => s.shopId),
+  enabledShopIds: defaultEnabledShopIds(),
   localLibraryGrants: [...DEFAULT_LOCAL_LIBRARY_GRANTS],
+  physicalMediaOverrides: [],
 }

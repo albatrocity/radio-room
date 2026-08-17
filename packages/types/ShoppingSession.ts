@@ -17,6 +17,8 @@ export interface ShopOffer {
   name: string
   description: string
   icon: LucideIconName
+  /** Artwork URL rendered instead of `icon` when present (e.g. record covers). */
+  imageUrl?: string
   price: number
   /** false after the user purchased the single available unit. */
   available: boolean

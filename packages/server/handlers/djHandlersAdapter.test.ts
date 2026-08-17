@@ -659,6 +659,7 @@ describe("DJHandlers", () => {
           metadataSourceIds: ["spotify"],
           browseableSourceIds: [],
           browseSourceCapabilities: {},
+          myMedia: [],
         },
       })
     })
@@ -679,6 +680,7 @@ describe("DJHandlers", () => {
           browseSourceCapabilities: {
             local: { entryMode: "index", albumSearch: true },
           },
+          myMedia: [],
         },
       })
     })

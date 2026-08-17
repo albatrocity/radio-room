@@ -156,6 +156,18 @@ export type MetadataBrowseCapabilities = {
   albumSearch: boolean
 }
 
+/**
+ * A Physical Media shelf in Add to Queue. `mediaKey` is the held item shortId
+ * (never a Navidrome playlist id — ADR 0099).
+ */
+export type MyMediaShelf = {
+  mediaKey: string
+  name: string
+  icon?: string
+  /** Cover artwork URL, preferred over `icon` when present. */
+  imageUrl?: string
+}
+
 export interface MetadataSourceApi {
   search: (
     query: string,

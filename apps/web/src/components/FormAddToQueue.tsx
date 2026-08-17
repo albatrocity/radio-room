@@ -20,6 +20,8 @@ import {
   useEffectiveMetadataSourceIds,
   useMediaBridgeConnected,
   useMediaBridgeServices,
+  useMyMedia,
+  useQueueBrowseMediaKey,
 } from "../hooks/useActors"
 import { metadataSourceLabel } from "../lib/metadataSourceLabels"
 
@@ -38,6 +40,8 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
   const effectiveSourceIds = useEffectiveMetadataSourceIds()
   const browseableSourceIds = useBrowseableMetadataSourceIds()
   const browseSourceCapabilities = useBrowseSourceCapabilities()
+  const myMedia = useMyMedia()
+  const queueBrowseMediaKey = useQueueBrowseMediaKey()
   const [mode, setMode] = useState<Mode>("search")
   const [browseNav, setBrowseNav] = useState<CatalogBrowseNavigation | null>(null)
   const [sourceFilter, setSourceFilter] = useState("all")
@@ -57,12 +61,21 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
   const metadataSourceIds = effectiveSourceIds ?? fallbackSourceIds
 
   const canBrowse = (browseableSourceIds?.length ?? 0) > 0
+  const canBrowseLocal = (browseableSourceIds ?? []).includes("local")
 
   useEffect(() => {
     if (!canBrowse && mode === "browse") {
       setMode("search")
     }
   }, [canBrowse, mode])
+
+  // Deep-link from the inventory Collection into a held Physical Media shelf.
+  useEffect(() => {
+    if (!queueBrowseMediaKey || !canBrowseLocal) return
+    setSourceFilter("local")
+    setBrowseNav({ source: "local", mediaKey: queueBrowseMediaKey })
+    setMode("browse")
+  }, [queueBrowseMediaKey, canBrowseLocal])
 
   useEffect(() => {
     if (mode === "browse") {
@@ -213,6 +226,7 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
           <CatalogBrowse
             browseableSourceIds={browseableSourceIds ?? []}
             browseSourceCapabilities={browseSourceCapabilities}
+            myMedia={myMedia}
             sourceId={sourceFilter === "all" ? browseableSourceIds?.[0] ?? "" : sourceFilter}
             onSourceIdChange={setSourceFilter}
             initialNavigation={browseNav}

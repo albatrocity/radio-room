@@ -1,4 +1,5 @@
 import { AppContext, GameSession, Room, toAdminAssignablePersonas } from "@repo/types"
+import type { MyMediaShelf } from "@repo/types"
 import type { PersonaService } from "../../services/PersonaService"
 import {
   getAllPluginConfigs,
@@ -42,6 +43,7 @@ export type RoomInitPayload = {
     string,
     { entryMode: "index" | "search"; albumSearch: boolean }
   >
+  myMedia?: MyMediaShelf[]
 }
 
 /**
@@ -137,43 +139,24 @@ export async function buildRoomInitPayload(params: {
         string,
         { entryMode: "index" | "search"; albumSearch: boolean }
       >
+      myMedia?: MyMediaShelf[]
     }> => {
       if (!context.metadataSourceAccess) return {}
       try {
-        const effectiveMetadataSourceIds =
-          await context.metadataSourceAccess.getEffectiveSourceIdsForUser(
-            roomId,
-            userId,
-            "search",
-          )
-        if (!effectiveMetadataSourceIds?.length) {
-          return {
-            effectiveMetadataSourceIds: [],
-            browseableSourceIds: [],
-            browseSourceCapabilities: {},
-          }
-        }
         const { AdapterService } = await import("../../services/AdapterService")
-        const { metadataSourceSupportsBrowse, resolveBrowseCapabilities } = await import(
-          "@repo/utils"
-        )
+        const { getEffectiveMetadataSources } = await import("../dj/browseCatalog")
         const adapterService = new AdapterService(context)
-        const sources = await adapterService.getRoomMetadataSources(roomId)
-        const browseableSourceIds: string[] = []
-        const browseSourceCapabilities: Record<
-          string,
-          { entryMode: "index" | "search"; albumSearch: boolean }
-        > = {}
-        for (const id of effectiveMetadataSourceIds) {
-          const src = sources.get(id)
-          if (!src || !metadataSourceSupportsBrowse(src.api)) continue
-          browseableSourceIds.push(id)
-          browseSourceCapabilities[id] = resolveBrowseCapabilities(src.api)
-        }
+        const data = await getEffectiveMetadataSources({
+          context,
+          adapterService,
+          roomId,
+          userId,
+        })
         return {
-          effectiveMetadataSourceIds,
-          browseableSourceIds,
-          browseSourceCapabilities,
+          effectiveMetadataSourceIds: data.metadataSourceIds,
+          browseableSourceIds: data.browseableSourceIds,
+          browseSourceCapabilities: data.browseSourceCapabilities,
+          myMedia: data.myMedia,
         }
       } catch (err) {
         console.error("[buildRoomInitPayload] Failed to load effective metadata sources:", err)

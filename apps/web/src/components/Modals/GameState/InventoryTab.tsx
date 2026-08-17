@@ -15,17 +15,19 @@ import type { InventoryItem, ItemDefinition, ItemShopsUserGameState } from "@rep
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
+import { useCanAddToQueue, useIsAdmin, useModalsSend, useMyMedia } from "../../../hooks/useActors"
 import { quoteItemShopsSellCoins } from "../../../lib/itemShopsSellQuote"
+import ItemArtwork from "../../ItemArtwork"
 import { getIcon } from "../../PluginComponents/icons"
 import { toaster } from "../../ui/toaster"
 import { useUserGameState } from "../UserGameStateContext"
 import { InventoryUseButton } from "./InventoryUseButton"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
-import { getItemRarityColorPalette, itemRarityIconColor } from "../../../lib/itemRarityPalette"
 
 interface InventoryTabProps {
   items: InventoryItem[]
   maxSlots: number
+  maxCollectionSlots: number
   definitionMap: Map<string, ItemDefinition>
   coinBalance: number
 }
@@ -36,6 +38,8 @@ interface InventoryRowProps {
   allItems: InventoryItem[]
   definitionMap: Map<string, ItemDefinition>
   coinBalance: number
+  /** Physical Media shelf key when this item can be browsed in Add to Queue. */
+  mediaKey?: string
 }
 
 /**
@@ -76,18 +80,16 @@ function InventoryRow({
   allItems,
   definitionMap,
   coinBalance,
+  mediaKey,
 }: InventoryRowProps) {
   const gameState = useUserGameState()
+  const modalSend = useModalsSend()
   const name = definition?.name ?? item.definitionId
   const description = definition?.description
-  const icon = definition?.icon
   const consumable = definition?.consumable ?? false
   const tradeable = definition?.tradeable ?? false
   const coinValue = definition?.coinValue ?? 0
   const sellable = tradeable && coinValue > 0
-  const itemIconColor = definition?.rarity
-    ? getItemRarityColorPalette(definition.rarity)
-    : "fg.muted"
   const isItemShopsItem = item.sourcePlugin === ITEM_SHOPS_PLUGIN_NAME
   const shopInstance =
     gameState?.getPluginState<ItemShopsUserGameState>(ITEM_SHOPS_PLUGIN_NAME)
@@ -111,7 +113,6 @@ function InventoryRow({
     }
     return "Sell"
   })()
-  const IconGlyph = icon ? getIcon(icon) : undefined
 
   const [pending, setPending] = useState<PendingAction>(null)
   const subscriptionIdRef = useRef<string | null>(null)
@@ -194,18 +195,12 @@ function InventoryRow({
   return (
     <HStack {...inventorySlotFrameProps}>
       <VStack align="center" justify="center" h="100%" minW="4rem">
-        {IconGlyph ? (
-          <Icon
-            as={IconGlyph}
-            boxSize={7}
-            colorPalette={itemIconColor}
-            color={itemRarityIconColor}
-            flexShrink={0}
-            aria-hidden
-          />
-        ) : (
-          <Box boxSize={7} flexShrink={0} aria-hidden />
-        )}
+        <ItemArtwork
+          imageUrl={definition?.imageUrl}
+          icon={definition?.icon}
+          rarity={definition?.rarity}
+          alt={name}
+        />
         {definition != null && (
           <ItemRarityTag size={["xs", "sm"]} rarity={resolveItemRarity(definition)} />
         )}
@@ -226,6 +221,17 @@ function InventoryRow({
         )}
       </VStack>
       <Stack direction="column" gap={2} flexShrink={0}>
+        {mediaKey && (
+          <Button
+            size="xs"
+            variant="solid"
+            colorPalette="action"
+            onClick={() => modalSend({ type: "EDIT_QUEUE", browseMediaKey: mediaKey })}
+          >
+            <Icon as={getIcon("ListMusic")} boxSize="0.9rem" />
+            Queue a track
+          </Button>
+        )}
         {consumable && (
           <InventoryUseButton
             itemId={item.itemId}
@@ -253,30 +259,54 @@ function InventoryRow({
   )
 }
 
-function InventoryTab({ items, maxSlots, definitionMap, coinBalance }: InventoryTabProps) {
-  const emptySlotCount = maxSlots > 0 ? Math.max(0, maxSlots - items.length) : 0
-  const showSlotGrid = maxSlots > 0
+function InventoryTab({
+  items,
+  maxSlots,
+  maxCollectionSlots,
+  definitionMap,
+  coinBalance,
+}: InventoryTabProps) {
+  const myMedia = useMyMedia()
+  const isAdmin = useIsAdmin()
+  const canAddToQueue = useCanAddToQueue()
+  // Browsing a record only helps if the viewer is allowed to queue from it.
+  const mediaKeys = new Set(isAdmin || canAddToQueue ? myMedia.map((shelf) => shelf.mediaKey) : [])
+  const inventoryItems = items.filter(
+    (item) => (definitionMap.get(item.definitionId)?.slotPool ?? "inventory") !== "collection",
+  )
+  const collectionItems = items.filter(
+    (item) => definitionMap.get(item.definitionId)?.slotPool === "collection",
+  )
+  const emptyInventory = maxSlots > 0 ? Math.max(0, maxSlots - inventoryItems.length) : 0
+  const showInventoryGrid = maxSlots > 0
+  // The collection only exists once something is in it, and unlike the inventory
+  // bag it never advertises empty shelf space.
+  const showCollection = collectionItems.length > 0
+  const mediaKeyForItem = (item: InventoryItem): string | undefined => {
+    const shortId = definitionMap.get(item.definitionId)?.shortId
+    return shortId && mediaKeys.has(shortId) ? shortId : undefined
+  }
 
   return (
     <Box>
       <HStack justify="space-between" align="baseline" mb={2}>
         <Heading size="sm">Inventory</Heading>
-        {showSlotGrid && (
+        {showInventoryGrid && (
           <Text fontSize="xs" color="fg.muted">
-            {items.length} / {maxSlots} slots
+            {inventoryItems.length} / {maxSlots} slots
           </Text>
         )}
       </HStack>
 
-      {!showSlotGrid && items.length === 0 && (
+      {!showInventoryGrid && inventoryItems.length === 0 && (
         <Text fontSize="sm" color="fg.muted">
           Your inventory is empty.
         </Text>
       )}
 
-      {(items.length > 0 || showSlotGrid) && (
+      {(inventoryItems.length > 0 || showInventoryGrid) && (
         <Stack gap={2}>
-          {items.map((item) => (
+          {inventoryItems.map((item) => (
             <InventoryRow
               key={item.itemId}
               item={item}
@@ -286,11 +316,37 @@ function InventoryTab({ items, maxSlots, definitionMap, coinBalance }: Inventory
               coinBalance={coinBalance}
             />
           ))}
-          {showSlotGrid &&
-            Array.from({ length: emptySlotCount }).map((_, i) => (
-              <EmptyInventorySlot key={`empty-${i}`} />
+          {showInventoryGrid &&
+            Array.from({ length: emptyInventory }).map((_, i) => (
+              <EmptyInventorySlot key={`empty-inv-${i}`} />
             ))}
         </Stack>
+      )}
+
+      {showCollection && (
+        <Box mt={6}>
+          <HStack justify="space-between" align="baseline" mb={2}>
+            <Heading size="sm">Collection</Heading>
+            {maxCollectionSlots > 0 && (
+              <Text fontSize="xs" color="fg.muted">
+                {collectionItems.length} / {maxCollectionSlots} slots
+              </Text>
+            )}
+          </HStack>
+          <Stack gap={2}>
+            {collectionItems.map((item) => (
+              <InventoryRow
+                key={item.itemId}
+                item={item}
+                definition={definitionMap.get(item.definitionId)}
+                allItems={items}
+                definitionMap={definitionMap}
+                coinBalance={coinBalance}
+                mediaKey={mediaKeyForItem(item)}
+              />
+            ))}
+          </Stack>
+        </Box>
       )}
     </Box>
   )

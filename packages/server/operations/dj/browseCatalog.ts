@@ -5,6 +5,7 @@ import type {
   MetadataBrowseCapabilities,
   MetadataSource,
   MetadataSourceTrack,
+  MyMediaShelf,
 } from "@repo/types"
 import {
   isMetadataSourceAuthFailure,
@@ -18,6 +19,13 @@ import { publishMetadataAuthError } from "./metadataAuthError"
 export type ResolveBrowseSourceResult =
   | { ok: true; metadataSource: MetadataSource }
   | { ok: false; message: string }
+
+/**
+ * Shown when a Physical Media shelf resolves but the daemon never answers — most
+ * often a DJ Mac daemon that is offline or running an older build.
+ */
+const BRIDGE_UNREACHABLE_MESSAGE =
+  "The Media Bridge didn't return this record's tracks. Ask the host to reconnect the DJ Mac daemon."
 
 export async function resolveBrowseMetadata(params: {
   adapterService: AdapterService
@@ -87,6 +95,7 @@ export async function getEffectiveMetadataSources(params: {
   metadataSourceIds: string[]
   browseableSourceIds: string[]
   browseSourceCapabilities: Record<string, MetadataBrowseCapabilities>
+  myMedia: MyMediaShelf[]
 }> {
   const { context, adapterService, roomId, userId } = params
   let metadataSourceIds: string[]
@@ -106,7 +115,11 @@ export async function getEffectiveMetadataSources(params: {
     roomId,
     metadataSourceIds,
   })
-  return { metadataSourceIds, ...browse }
+  const myMedia =
+    metadataSourceIds.includes("local") && context.pluginRegistry?.listMyMediaShelves
+      ? await context.pluginRegistry.listMyMediaShelves({ roomId, userId })
+      : []
+  return { metadataSourceIds, ...browse, myMedia }
 }
 
 type BrowseFailure = { ok: false; message: string; authFailure?: { status: 401; source: string } }
@@ -335,4 +348,76 @@ export async function browseAlbum(params: {
     },
   })
   return result
+}
+
+export async function browseMediaItem(params: {
+  context: AppContext
+  roomId: string
+  userId: string
+  mediaKey: string
+}): Promise<
+  | {
+      ok: true
+      source: "local"
+      mediaKey: string
+      name: string
+      tracks: Array<MetadataSourceTrack & { source: string }>
+    }
+  | BrowseFailure
+> {
+  const { context, roomId, userId, mediaKey } = params
+  const key = mediaKey?.trim() ?? ""
+  if (!key) {
+    return { ok: false, message: "mediaKey is required" }
+  }
+
+  if (context.metadataSourceAccess) {
+    const allowed = await context.metadataSourceAccess.canAccess({
+      roomId,
+      userId,
+      sourceId: "local",
+      action: "search",
+    })
+    if (!allowed) {
+      return { ok: false, message: "You do not have access to this metadata source" }
+    }
+  }
+
+  const resolved = context.pluginRegistry?.resolveMyMediaShelf
+    ? await context.pluginRegistry.resolveMyMediaShelf({ roomId, userId, mediaKey: key })
+    : null
+  if (!resolved) {
+    return { ok: false, message: "You don't have that item" }
+  }
+
+  try {
+    const { getBridgeRpcClient, fetchLocalPlaylistTracks } = await import("@repo/adapter-bridge")
+    const rpc = getBridgeRpcClient(roomId)
+    if (!rpc) {
+      return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
+    }
+    const listed = await fetchLocalPlaylistTracks({ rpc, playlistId: resolved.playlistId })
+    if (!listed.ok) {
+      console.warn(
+        `[browseMediaItem] listPlaylistTracks failed for ${resolved.playlistId}: ${listed.error}`,
+      )
+      return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
+    }
+    const tracks = listed.tracks.map((track) => ({
+      ...track,
+      source: "local",
+    }))
+    return {
+      ok: true,
+      source: "local",
+      mediaKey: resolved.shelf.mediaKey,
+      name: resolved.shelf.name,
+      tracks,
+    }
+  } catch (error: unknown) {
+    console.error("Failed to browse media item", error)
+    const message =
+      error instanceof Error && error.message ? error.message : "Failed to browse media item"
+    return { ok: false, message }
+  }
 }

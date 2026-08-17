@@ -16,6 +16,7 @@ import type {
   MetadataBrowseArtist,
   MetadataBrowseCapabilities,
   MetadataSourceTrack,
+  MyMediaShelf,
 } from "@repo/types"
 import { useSocketMachine } from "../hooks/useSocketMachine"
 import { catalogBrowseMachine } from "../machines/catalogBrowseMachine"
@@ -25,20 +26,30 @@ import TrackItem from "./TrackItem"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
 
+/** Adapt a shelf's cover art to the `EntityThumb` image list shape. */
+function shelfImages(shelf: MyMediaShelf) {
+  return shelf.imageUrl
+    ? [{ type: "image" as const, url: shelf.imageUrl, id: shelf.mediaKey }]
+    : undefined
+}
+
 export type CatalogBrowseNavigation = {
   source: string
   artistId?: string
   albumId?: string
   artistTitle?: string
   albumTitle?: string
+  /** Held Physical Media shelf to open directly (ADR 0099). */
+  mediaKey?: string
 }
 
 type BrowseLevel = "root" | "artistAlbums" | "tracks"
-type RootKind = "artists" | "albums"
+type RootKind = "artists" | "albums" | "media"
 
 type Props = {
   browseableSourceIds: string[]
   browseSourceCapabilities?: Record<string, MetadataBrowseCapabilities>
+  myMedia?: MyMediaShelf[]
   /** Controlled catalog source (selected in parent). */
   sourceId: string
   onSourceIdChange?: (sourceId: string) => void
@@ -51,6 +62,7 @@ type Props = {
 function CatalogBrowse({
   browseableSourceIds,
   browseSourceCapabilities = {},
+  myMedia = [],
   sourceId,
   onSourceIdChange,
   initialNavigation = null,
@@ -64,6 +76,7 @@ function CatalogBrowse({
   const [filter, setFilter] = useState("")
   const [selectedArtist, setSelectedArtist] = useState<MetadataBrowseArtist | null>(null)
   const [selectedAlbum, setSelectedAlbum] = useState<MetadataBrowseAlbum | null>(null)
+  const [selectedMedia, setSelectedMedia] = useState<MyMediaShelf | null>(null)
   const skipNextFilterFetch = useRef(true)
   const appliedNavKey = useRef<string | null>(null)
 
@@ -73,8 +86,11 @@ function CatalogBrowse({
   }
   const albumSearch = caps.albumSearch
   const searchEntry = caps.entryMode === "search"
+  const showMediaTab = sourceId === "local" && myMedia.length > 0
+  const showRootTabs = (albumSearch || showMediaTab) && level === "root"
 
   const loadRoot = (nextSource: string, kind: RootKind, query?: string) => {
+    if (kind === "media") return
     if (kind === "albums") {
       send({
         type: "FETCH_ALBUMS",
@@ -101,6 +117,7 @@ function CatalogBrowse({
     setRootKind("artists")
     setSelectedArtist(null)
     setSelectedAlbum(null)
+    setSelectedMedia(null)
     setFilter("")
     skipNextFilterFetch.current = true
     if (searchEntry) {
@@ -119,12 +136,26 @@ function CatalogBrowse({
       return
     }
     if (searchEntry && !filter.trim()) return
+    if (rootKind === "media") return
     const handle = window.setTimeout(() => {
       loadRoot(sourceId, rootKind, filter.trim() || undefined)
     }, 250)
     return () => window.clearTimeout(handle)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, sourceId, level, rootKind, searchEntry])
+
+  useEffect(() => {
+    if (rootKind === "media" && !showMediaTab) {
+      setRootKind("artists")
+      setLevel("root")
+      setSelectedMedia(null)
+      skipNextFilterFetch.current = true
+      if (sourceId && !searchEntry) {
+        loadRoot(sourceId, "artists")
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMediaTab, rootKind, sourceId, searchEntry])
 
   // Deep-link from Search
   useEffect(() => {
@@ -133,7 +164,7 @@ function CatalogBrowse({
     if (appliedNavKey.current === key) return
     appliedNavKey.current = key
 
-    const { source, artistId, albumId, artistTitle, albumTitle } = initialNavigation
+    const { source, artistId, albumId, artistTitle, albumTitle, mediaKey } = initialNavigation
     if (!browseableSourceIds.includes(source)) {
       onNavigationApplied?.()
       return
@@ -142,7 +173,18 @@ function CatalogBrowse({
     setFilter("")
     skipNextFilterFetch.current = true
 
-    if (albumId) {
+    if (mediaKey) {
+      const shelf = myMedia.find((s) => s.mediaKey === mediaKey) ?? {
+        mediaKey,
+        name: "Physical Media",
+      }
+      setRootKind("media")
+      setSelectedArtist(null)
+      setSelectedAlbum(null)
+      setSelectedMedia(shelf)
+      setLevel("tracks")
+      send({ type: "FETCH_MEDIA", mediaKey })
+    } else if (albumId) {
       setSelectedArtist(
         artistId ? { id: artistId, title: artistTitle ?? artistId } : null,
       )
@@ -160,13 +202,14 @@ function CatalogBrowse({
       send({ type: "FETCH_ARTIST", source, artistId })
     }
     onNavigationApplied?.()
-  }, [initialNavigation, browseableSourceIds, send, onNavigationApplied, onSourceIdChange])
+  }, [initialNavigation, browseableSourceIds, myMedia, send, onNavigationApplied, onSourceIdChange])
 
   const isLoading =
     state.matches("loadingArtists") ||
     state.matches("loadingAlbums") ||
     state.matches("loadingArtist") ||
-    state.matches("loadingAlbum")
+    state.matches("loadingAlbum") ||
+    state.matches("loadingMedia")
 
   const artists = state.context.artists
   const rootAlbums = state.context.rootAlbums
@@ -176,7 +219,25 @@ function CatalogBrowse({
   const breadcrumb = useMemo(() => {
     const crumbs: { label: string; onClick?: () => void }[] = []
     if (level === "root") {
-      crumbs.push({ label: rootKind === "albums" ? "Albums" : "Artists" })
+      crumbs.push({
+        label:
+          rootKind === "albums" ? "Albums" : rootKind === "media" ? "Physical Media" : "Artists",
+      })
+      return crumbs
+    }
+    if (selectedMedia) {
+      crumbs.push({
+        label: "Physical Media",
+        onClick: () => {
+          setLevel("root")
+          setRootKind("media")
+          setSelectedMedia(null)
+          setSelectedArtist(null)
+          setSelectedAlbum(null)
+          skipNextFilterFetch.current = true
+        },
+      })
+      crumbs.push({ label: selectedMedia.name })
       return crumbs
     }
     crumbs.push({
@@ -185,6 +246,7 @@ function CatalogBrowse({
         setLevel("root")
         setSelectedArtist(null)
         setSelectedAlbum(null)
+        setSelectedMedia(null)
         setRootKind(selectedArtist ? "artists" : "albums")
         skipNextFilterFetch.current = true
         if (!searchEntry || filter.trim()) {
@@ -210,7 +272,7 @@ function CatalogBrowse({
     }
     return crumbs
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [level, rootKind, selectedArtist, selectedAlbum, sourceId, searchEntry, filter, send])
+  }, [level, rootKind, selectedArtist, selectedAlbum, selectedMedia, sourceId, searchEntry, filter, send])
 
   const openArtist = (artist: MetadataBrowseArtist) => {
     if (!sourceId || disabled) return
@@ -227,12 +289,26 @@ function CatalogBrowse({
     send({ type: "FETCH_ALBUM", source: sourceId, albumId: album.id })
   }
 
+  const openMedia = (shelf: MyMediaShelf) => {
+    if (disabled) return
+    setSelectedMedia(shelf)
+    setSelectedArtist(null)
+    setSelectedAlbum(null)
+    setLevel("tracks")
+    send({ type: "FETCH_MEDIA", mediaKey: shelf.mediaKey })
+  }
+
   const albumsForList = level === "artistAlbums" ? artistAlbums : rootAlbums
-  const showEmptySearchHint = searchEntry && level === "root" && !filter.trim()
+  const showEmptySearchHint =
+    searchEntry && level === "root" && rootKind !== "media" && !filter.trim()
+  const mediaFilter = filter.trim().toLowerCase()
+  const mediaShelves = mediaFilter
+    ? myMedia.filter((s) => s.name.toLowerCase().includes(mediaFilter))
+    : myMedia
 
   return (
     <VStack align="stretch" gap={3} w="100%">
-      {albumSearch && level === "root" && (
+      {showRootTabs && (
         <Tabs.Root
           value={rootKind}
           onValueChange={(details) => {
@@ -240,6 +316,7 @@ function CatalogBrowse({
             setRootKind(kind)
             skipNextFilterFetch.current = true
             setFilter("")
+            setSelectedMedia(null)
             if (!searchEntry) {
               loadRoot(sourceId, kind)
             }
@@ -250,7 +327,8 @@ function CatalogBrowse({
         >
           <Tabs.List>
             <Tabs.Trigger value="artists">Artists</Tabs.Trigger>
-            <Tabs.Trigger value="albums">Albums</Tabs.Trigger>
+            {albumSearch && <Tabs.Trigger value="albums">Albums</Tabs.Trigger>}
+            {showMediaTab && <Tabs.Trigger value="media">Physical Media</Tabs.Trigger>}
           </Tabs.List>
         </Tabs.Root>
       )}
@@ -294,7 +372,9 @@ function CatalogBrowse({
                 : "Search artists"
               : rootKind === "albums"
                 ? "Filter albums"
-                : "Filter artists"
+                : rootKind === "media"
+                  ? "Filter your collection"
+                  : "Filter artists"
           }
           value={filter}
           disabled={disabled}
@@ -373,6 +453,49 @@ function CatalogBrowse({
                         ))
                       ))}
 
+                    {level === "root" &&
+                      rootKind === "media" &&
+                      (mediaShelves.length === 0 ? (
+                        <Text fontSize="sm" color="fg.muted" py={2}>
+                          No records in your collection.
+                        </Text>
+                      ) : (
+                        <>
+                          <Text fontSize="xs" color="fg.muted" px={2} py={1}>
+                            Yours until the game session ends.
+                          </Text>
+                          {mediaShelves.map((shelf) => (
+                            <Button
+                              key={shelf.mediaKey}
+                              type="button"
+                              variant="ghost"
+                              disabled={disabled}
+                              justifyContent="flex-start"
+                              h="auto"
+                              w="100%"
+                              p={2}
+                              textAlign="left"
+                              borderRadius="md"
+                              _hover={{ bg: "actionBgLite" }}
+                              onClick={() => openMedia(shelf)}
+                            >
+                              <HStack gap={2} minW={0} w="100%">
+                                <EntityThumb
+                                  images={shelfImages(shelf)}
+                                  shape="square"
+                                  alt={shelf.name}
+                                />
+                                <VStack align="start" gap={0} minW={0}>
+                                  <Text fontWeight="medium" truncate>
+                                    {shelf.name}
+                                  </Text>
+                                </VStack>
+                              </HStack>
+                            </Button>
+                          ))}
+                        </>
+                      ))}
+
                     {((level === "root" && rootKind === "albums") || level === "artistAlbums") &&
                       (albumsForList.length === 0 ? (
                         <Text fontSize="sm" color="fg.muted" py={2}>
@@ -417,9 +540,11 @@ function CatalogBrowse({
 
                     {level === "tracks" &&
                       (tracks.length === 0 ? (
-                        <Text fontSize="sm" color="fg.muted" py={2}>
-                          No tracks found.
-                        </Text>
+                        state.matches("failure") ? null : (
+                          <Text fontSize="sm" color="fg.muted" py={2}>
+                            No tracks found.
+                          </Text>
+                        )
                       ) : (
                         tracks.map((track, index) => (
                           <Button

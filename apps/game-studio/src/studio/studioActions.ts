@@ -96,6 +96,7 @@ export async function startStudioGameSession(): Promise<void> {
     name: "Sandbox session",
     initialValues: { coin: 25, score: 0 },
     maxInventorySlots: 12,
+    maxCollectionSlots: 12,
     allowSelling: true,
   })
   for (const uid of room.users.keys()) {

@@ -1,14 +1,20 @@
-import { setup } from "xstate"
+import { assign, setup } from "xstate"
 
 import { getIsAdmin } from "../actors/authActor"
 import { emitToSocket } from "../actors/socketActor"
 import { canAddToQueue as canDjAddToQueue } from "../actors/djActor"
 
-type Context = {}
+type Context = {
+  /**
+   * Physical Media shelf to open in Add to Queue → Browse (ADR 0099), set when
+   * the inventory deep-links into a held record.
+   */
+  queueBrowseMediaKey: string | null
+}
 
 export type Event =
   | { type: "EDIT_USERNAME" }
-  | { type: "EDIT_QUEUE" }
+  | { type: "EDIT_QUEUE"; browseMediaKey?: string }
   | { type: "EDIT_SETTINGS" }
   | { type: "VIEW_HELP" }
   | { type: "VIEW_BOOKMARKS" }
@@ -68,14 +74,22 @@ export const modalsMachine = setup({
     fetchSettings: () => {
       emitToSocket("GET_ROOM_SETTINGS", {})
     },
+    setQueueBrowseMediaKey: assign(({ event }) => ({
+      queueBrowseMediaKey: event.type === "EDIT_QUEUE" ? event.browseMediaKey ?? null : null,
+    })),
+    clearQueueBrowseMediaKey: assign({ queueBrowseMediaKey: null }),
   },
 }).createMachine({
   id: "modals",
   initial: "closed",
-  context: {},
+  context: { queueBrowseMediaKey: null },
   on: {
     EDIT_USERNAME: ".username",
-    EDIT_QUEUE: { target: ".queue", guard: "canAddToQueue" },
+    EDIT_QUEUE: {
+      target: ".queue",
+      guard: "canAddToQueue",
+      actions: "setQueueBrowseMediaKey",
+    },
     EDIT_SETTINGS: {
       target: ".settings",
       guard: "isAdmin",
@@ -123,6 +137,7 @@ export const modalsMachine = setup({
     },
     CLOSE: {
       target: ".closed",
+      actions: "clearQueueBrowseMediaKey",
     },
     CREATE_ROOM: ".createRoom",
     NUKE_USER: ".nukeUser",

@@ -39,6 +39,7 @@ import type {
 } from "./Artifacts"
 import type { PersonaDefinition, UserPersona, UserPersonaAssignment } from "./Persona"
 import type { MetadataSourceAccessAction } from "./MetadataSourceAccess"
+import type { MetadataSourceTrack, MyMediaShelf } from "./MetadataSource"
 
 // ============================================================================
 // Plugin Configuration Schema Types
@@ -552,6 +553,30 @@ export interface PluginAPI {
    * Returns [] when offline / not bridge.
    */
   listLocalPlaylists(roomId: string): Promise<Array<{ id: string; name: string; songCount?: number }>>
+
+  /**
+   * Cover artwork URLs for Navidrome playlists, keyed by playlist id. Art is
+   * cached in the room image store so wire payloads carry a short URL rather
+   * than a data URI (ADR 0099). Playlists without art are omitted.
+   */
+  getLocalPlaylistArtwork(
+    roomId: string,
+    playlistIds: string[],
+  ): Promise<Record<string, string>>
+
+  /**
+   * Drop the Media Bridge daemon's playlist membership + cover-art caches
+   * so the next browse/search refetches from Navidrome.
+   */
+  invalidateLocalLibraryCache(roomId: string): Promise<boolean>
+
+  /**
+   * Full track list for a Navidrome playlist (Physical Media shelf browse).
+   */
+  listLocalPlaylistTracks(
+    roomId: string,
+    playlistId: string,
+  ): Promise<MetadataSourceTrack[]>
 
   /**
    * Emit a custom plugin event.
@@ -1198,6 +1223,22 @@ export interface Plugin {
     | { mode: "playlists"; playlistIds: string[] }
     | "abstain"
   >
+
+  /**
+   * Physical Media shelves the user currently holds (ADR 0099).
+   * `mediaKey` is an inventory shortId — never a Navidrome playlist id.
+   */
+  listMyMediaShelves?(params: { roomId: string; userId: string }): Promise<MyMediaShelf[]>
+
+  /**
+   * Resolve a held `mediaKey` to a Navidrome playlist id for BROWSE_MEDIA_ITEM.
+   * Returns null if the caller does not hold that grant.
+   */
+  resolveMyMediaShelf?(params: {
+    roomId: string
+    userId: string
+    mediaKey: string
+  }): Promise<{ playlistId: string; shelf: MyMediaShelf } | null>
 
   /**
    * Called immediately before app-controlled playTrack(uri) in core play paths.

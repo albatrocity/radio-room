@@ -267,6 +267,8 @@ export interface GameSessionConfig {
   /** Inventory settings. */
   inventoryEnabled: boolean
   maxInventorySlots: number
+  /** Durable collection cap (Physical Media). Defaults with inventory slots. */
+  maxCollectionSlots: number
   allowTrading: boolean
   allowSelling: boolean
 }

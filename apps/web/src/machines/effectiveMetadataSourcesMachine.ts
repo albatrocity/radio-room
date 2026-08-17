@@ -1,5 +1,5 @@
 import { setup, assign } from "xstate"
-import type { MetadataBrowseCapabilities } from "@repo/types"
+import type { MetadataBrowseCapabilities, MyMediaShelf } from "@repo/types"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 
 export interface EffectiveMetadataSourcesContext {
@@ -8,6 +8,7 @@ export interface EffectiveMetadataSourcesContext {
   metadataSourceIds: string[] | null
   browseableSourceIds: string[] | null
   browseSourceCapabilities: Record<string, MetadataBrowseCapabilities>
+  myMedia: MyMediaShelf[]
 }
 
 type EffectiveMetadataSourcesEvent =
@@ -20,6 +21,7 @@ type EffectiveMetadataSourcesEvent =
         metadataSourceIds?: string[]
         browseableSourceIds?: string[]
         browseSourceCapabilities?: Record<string, MetadataBrowseCapabilities>
+        myMedia?: MyMediaShelf[]
       }
     }
   | {
@@ -28,6 +30,7 @@ type EffectiveMetadataSourcesEvent =
         effectiveMetadataSourceIds?: string[]
         browseableSourceIds?: string[]
         browseSourceCapabilities?: Record<string, MetadataBrowseCapabilities>
+        myMedia?: MyMediaShelf[]
       }
     }
   | { type: "ROOM_SETTINGS_UPDATED"; data?: unknown }
@@ -44,6 +47,7 @@ const defaultContext: EffectiveMetadataSourcesContext = {
   metadataSourceIds: null,
   browseableSourceIds: null,
   browseSourceCapabilities: {},
+  myMedia: [],
 }
 
 export const effectiveMetadataSourcesMachine = setup({
@@ -89,6 +93,7 @@ export const effectiveMetadataSourcesMachine = setup({
         ...(event.data?.browseSourceCapabilities
           ? { browseSourceCapabilities: event.data.browseSourceCapabilities }
           : {}),
+        ...(Array.isArray(event.data?.myMedia) ? { myMedia: event.data.myMedia } : {}),
       }
     }),
     assignFromInit: assign(({ event }) => {
@@ -103,6 +108,7 @@ export const effectiveMetadataSourcesMachine = setup({
         ...(event.data?.browseSourceCapabilities
           ? { browseSourceCapabilities: event.data.browseSourceCapabilities }
           : {}),
+        ...(Array.isArray(event.data?.myMedia) ? { myMedia: event.data.myMedia } : {}),
       }
     }),
     resetContext: assign(() => defaultContext),

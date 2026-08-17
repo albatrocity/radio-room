@@ -1,11 +1,11 @@
 import { Box, Center, Heading, HStack, Stack, Table, Text, VStack } from "@chakra-ui/react"
 import type { ItemShopsUserGameState, ShoppingSessionInstance } from "@repo/types"
-import { getItemRarityColorPalette, itemRarityIconColor } from "../../../lib/itemRarityPalette"
 import type { CurrentShopOffersComponentProps } from "../../../types/PluginComponent"
 import { useUserGameState } from "../../Modals/UserGameStateContext"
 import { usePluginComponentContext } from "../context"
 import { getIcon } from "../icons"
 import { SvgIcon } from "../../ui/svg-icon"
+import ItemArtwork from "../../ItemArtwork"
 import { ButtonTemplateComponent } from "./ButtonComponent"
 import { ItemRarityTag } from "../ItemRarityTag"
 
@@ -82,7 +82,6 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
         </Table.Header>
         <Table.Body>
           {instance.offers.map((row, index) => {
-            const IconComponent = getIcon(row.icon)
             const cannotAfford = gameState == null || gameState.getAttribute("coin") < row.price
             const outOfStock = !row.available
             const offerId = row.offerId ?? index
@@ -93,20 +92,13 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                 <Table.Cell verticalAlign="middle" w="52px">
                   <VStack>
                     <Center width="full" height="full">
-                      {IconComponent ? (
-                        <Box
-                          colorPalette={
-                            row.rarity ? getItemRarityColorPalette(row.rarity) : undefined
-                          }
-                        >
-                          <SvgIcon
-                            icon={IconComponent}
-                            boxSize={5}
-                            color={row.rarity ? itemRarityIconColor : "fg.muted"}
-                            aria-hidden
-                          />
-                        </Box>
-                      ) : null}
+                      <ItemArtwork
+                        imageUrl={row.imageUrl}
+                        icon={row.icon}
+                        rarity={row.rarity}
+                        boxSize={5}
+                        alt={row.name}
+                      />
                     </Center>
                     {row.rarity && <ItemRarityTag size={["xs", "sm"]} rarity={row.rarity} />}
                   </VStack>

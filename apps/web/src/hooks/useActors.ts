@@ -50,7 +50,7 @@ import {
   effectiveMetadataSourcesActor,
   refreshEffectiveMetadataSources,
 } from "../actors/effectiveMetadataSourcesActor"
-import type { MetadataBrowseCapabilities } from "@repo/types"
+import type { MetadataBrowseCapabilities, MyMediaShelf } from "@repo/types"
 import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { MetadataSourceType, QueueItem } from "../types/Queue"
 
@@ -633,6 +633,11 @@ export const useIsAnyModalOpen = () => {
   return useSelector(modalsActor, (s) => !s.matches("closed"))
 }
 
+/** Physical Media shelf to preselect in Add to Queue → Browse, when deep-linked. */
+export const useQueueBrowseMediaKey = (): string | null => {
+  return useSelector(modalsActor, (s) => s.context.queueBrowseMediaKey)
+}
+
 export const useModalsSend = () => sendToModals
 
 // ============================================================================
@@ -784,6 +789,10 @@ export const useBrowseableMetadataSourceIds = (): string[] | null => {
 
 export const useBrowseSourceCapabilities = (): Record<string, MetadataBrowseCapabilities> => {
   return useSelector(effectiveMetadataSourcesActor, (s) => s.context.browseSourceCapabilities)
+}
+
+export const useMyMedia = (): MyMediaShelf[] => {
+  return useSelector(effectiveMetadataSourcesActor, (s) => s.context.myMedia)
 }
 
 // ============================================================================

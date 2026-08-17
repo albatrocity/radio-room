@@ -16,6 +16,7 @@ import {
   type ItemUseResult,
   type MetadataSourceAccessGrantParams,
   type MetadataSourceAccessGrantResult,
+  type MyMediaShelf,
   type Plugin,
   type PluginActionInitiator,
   type PluginComponentSchema,
@@ -25,8 +26,6 @@ import {
   type QueueValidationResult,
   type ShoppingSessionInstance,
   type SystemEventPayload,
-  allowQueueRequest,
-  rejectQueueRequest,
 } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME, ITEM_SHOPS_TAB_ID } from "@repo/types"
 import packageJson from "./package.json"
@@ -39,23 +38,15 @@ import {
   items,
 } from "./items/index"
 import { SHOP_CATALOG } from "./shops"
+import { buildEffectiveShopCatalog } from "./localLibrary/catalog"
 import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
+import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
 import {
-  isLocalLibraryGrantShortId,
-  listHeldLocalLibraryGrants,
-  pickGrantToConsume,
-  playlistMapFromGrantConfig,
-  resolveLocalCatalogScope,
-  buildGrantCatalogEntries,
-  type LocalCatalogScope,
-} from "./localLibraryGrants"
-import {
-  buildEffectiveItemCatalog,
-  buildEffectiveShopCatalog,
   itemDefinitionAuthoringFieldMetas,
   LOCAL_LIBRARY_GRANT_USE_MESSAGE,
 } from "./catalogFromConfig"
-import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
+import { isLocalLibraryGrantShortId } from "./localLibraryGrants"
+import { LocalLibraryModule } from "./localLibrary"
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
@@ -67,8 +58,12 @@ const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
 export function getEligibleShops(
   config: ItemShopsConfig,
   playbackControllerId?: string | null,
+  derivedPhysicalMedia: readonly ItemCatalogEntry[] = [],
 ): ItemShopsShopCatalogEntry[] {
-  const shopCatalog = buildEffectiveShopCatalog(config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS)
+  const shopCatalog = buildEffectiveShopCatalog(
+    config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS,
+    derivedPhysicalMedia,
+  )
   const knownIds = new Set(shopCatalog.map((s) => s.shopId))
   const selected = new Set(config.enabledShopIds.filter((id) => knownIds.has(id)))
   return shopCatalog.filter((s) => {
@@ -95,8 +90,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
   private shopping!: ShoppingSessionHelper
 
-  /** Config-driven grant catalog (Stickers / Coupon rows). */
-  private grantCatalog: ItemCatalogEntry[] = buildGrantCatalogEntries(DEFAULT_LOCAL_LIBRARY_GRANTS)
+  private readonly localLibrary = new LocalLibraryModule(PLUGIN_NAME, () => this.context ?? undefined)
+
+  /** Static + config + derived grant catalog. */
+  private get grantCatalog(): ItemCatalogEntry[] {
+    return this.localLibrary.grantCatalog
+  }
 
   /** Per-shop state stores for `onBuy` callbacks (keyed by shopId, then by arbitrary key). */
   private shopStateStores = new Map<string, Map<string, unknown>>()
@@ -104,32 +103,42 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   async register(context: import("@repo/types").PluginContext): Promise<void> {
     await super.register(context)
     const config = await this.getConfig()
+    await this.localLibrary.refreshDerivedPhysicalMedia(config?.physicalMediaOverrides ?? [])
     const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
-    const itemCatalog = buildEffectiveItemCatalog(grants)
-    const shopCatalog = buildEffectiveShopCatalog(grants)
-    this.grantCatalog = buildGrantCatalogEntries(grants)
+    const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
     this.shopping = new ShoppingSessionHelper(this.name, context, itemCatalog, shopCatalog)
     this.context!.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
     this.on("GAME_SESSION_ENDED", this.handleGameSessionEnded.bind(this))
     this.on("USER_JOINED", this.handleUserJoined.bind(this))
+    this.on("MEDIA_BRIDGE_STATUS_CHANGED", this.handleMediaBridgeStatusChanged.bind(this))
     this.onConfigChange(async () => {
       await this.applyLocalLibraryGrantConfig()
     })
   }
 
+  private async handleMediaBridgeStatusChanged(): Promise<void> {
+    await this.applyLocalLibraryGrantConfig()
+  }
+
   private async applyLocalLibraryGrantConfig(): Promise<void> {
     if (!this.context || !this.shopping) return
     const config = await this.getConfig()
+    await this.localLibrary.refreshDerivedPhysicalMedia(config?.physicalMediaOverrides ?? [])
     const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
-    const itemCatalog = buildEffectiveItemCatalog(grants)
-    const shopCatalog = buildEffectiveShopCatalog(grants)
-    this.grantCatalog = buildGrantCatalogEntries(grants)
+    const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
     this.shopping.replaceCatalogs({ itemCatalog, shopCatalog })
     this.context.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
   }
 
   private effectiveCatalogForGive(): ItemCatalogEntry[] {
-    return [...ITEM_CATALOG, ...this.grantCatalog]
+    const seen = new Set<string>()
+    const out: ItemCatalogEntry[] = []
+    for (const e of [...ITEM_CATALOG, ...this.grantCatalog]) {
+      if (seen.has(e.definition.shortId)) continue
+      seen.add(e.definition.shortId)
+      out.push(e)
+    }
+    return out
   }
 
   private async handleGameSessionEnded(
@@ -339,7 +348,11 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     config: ItemShopsConfig,
   ): Promise<ItemShopsShopCatalogEntry[]> {
     const room = await this.context!.getRoom()
-    return getEligibleShops(config, room?.playbackControllerId)
+    return getEligibleShops(
+      config,
+      room?.playbackControllerId,
+      this.localLibrary.derivedPhysicalMedia,
+    )
   }
 
   /** Badge the Item Shop game-state tab until the user opens it. */
@@ -381,13 +394,14 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         {
           type: "text-block",
           content:
-            "Thrift Store (Library Stickers + Coupon) only appears in Media Bridge rooms. Set Library to “Admins + plugin grants only” under Content → Media sources. Configure Local library grant SKUs below — playlist shelves need a Navidrome playlist id.",
+            "Record Store (Physical Media) and Public Library (Library Card) only appear in Media Bridge rooms. Prefix Navidrome playlists with [CD], [LP], [TAPE], or [45] to stock the Record Store. Set Library to “Admins + plugin grants only” under Content → Media sources.",
           variant: "info",
         },
         "enabled",
         "enabledShopIds",
         "assignShopOnJoin",
         "localLibraryGrants",
+        "physicalMediaOverrides",
         {
           type: "action",
           action: "startShoppingSession",
@@ -408,16 +422,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
               label: "Item",
               type: "select",
               required: true,
-              options: [
-                ...ITEM_CATALOG.map((e) => ({
-                  value: e.definition.shortId,
-                  label: e.definition.name,
-                })),
-                ...DEFAULT_LOCAL_LIBRARY_GRANTS.map((g) => ({
-                  value: g.shortId,
-                  label: g.name,
-                })),
-              ],
+              options: this.effectiveCatalogForGive().map((e) => ({
+                value: e.definition.shortId,
+                label: e.definition.name,
+              })),
             },
             {
               name: "userId",
@@ -437,6 +445,16 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           confirmText: "End all",
           showWhen: { field: "enabled", value: true },
         },
+        {
+          type: "action",
+          action: "refreshLocalLibrary",
+          label: "Refresh local library",
+          variant: "outline",
+          confirmMessage:
+            "Clear the Media Bridge playlist cache so the next browse/search reloads from Navidrome?",
+          confirmText: "Refresh",
+          showWhen: { field: "enabled", value: true },
+        },
       ],
       fieldMeta: {
         enabled: {
@@ -450,7 +468,11 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           label: "Shops in rotation",
           description:
             "Only checked shops are eligible when randomly assigning a shop for a shopping session.",
-          options: SHOP_CATALOG.map((s) => ({ value: s.shopId, label: s.name })),
+          options: [
+            ...SHOP_CATALOG.map((s) => ({ value: s.shopId, label: s.name })),
+            { value: "record-store", label: "Record Store" },
+            { value: "public-library", label: "Public Library" },
+          ],
           showWhen: { field: "enabled", value: true },
         },
         assignShopOnJoin: {
@@ -462,9 +484,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         },
         localLibraryGrants: {
           type: "object-array",
-          label: "Local library grants",
+          label: "Extra local library grants",
           description:
-            "Shop SKUs that unlock restricted Local search/queue. Full-library rows need no playlist; shelf rows need a Navidrome playlist id.",
+            "Optional extra SKUs beyond derived Physical Media and the Library Card. Playlist shelves need a Navidrome playlist id.",
           itemLabel: "Grant",
           showWhen: { field: "enabled", value: true },
           itemFields: [
@@ -481,6 +503,17 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
               },
             },
             {
+              name: "redemption",
+              meta: {
+                type: "enum",
+                label: "Redemption",
+                options: [
+                  { value: "perQueue", label: "Per queue (consumable)" },
+                  { value: "durable", label: "Durable (session collection)" },
+                ],
+              },
+            },
+            {
               name: "playlistId",
               meta: {
                 type: "remote-select",
@@ -492,8 +525,42 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
             },
           ],
         },
+        physicalMediaOverrides: {
+          type: "object-array",
+          label: "Physical Media overrides",
+          description:
+            "Optional name/price/rarity/icon overrides for derived Record Store items, keyed by Navidrome playlist id.",
+          itemLabel: "Override",
+          showWhen: { field: "enabled", value: true },
+          itemFields: [
+            {
+              name: "playlistId",
+              meta: {
+                type: "remote-select",
+                label: "Navidrome playlist",
+                remoteSource: "bridgeLocalPlaylists",
+              },
+            },
+            { name: "name", meta: { type: "string", label: "Display name" } },
+            { name: "coinValue", meta: { type: "number", label: "Shop price (coins)" } },
+            {
+              name: "rarity",
+              meta: {
+                type: "enum",
+                label: "Rarity",
+                options: [
+                  { value: "common", label: "Common" },
+                  { value: "uncommon", label: "Uncommon" },
+                  { value: "rare", label: "Rare" },
+                  { value: "legendary", label: "Legendary" },
+                ],
+              },
+            },
+            { name: "icon", meta: { type: "string", label: "Icon (Lucide)" } },
+          ],
+        },
       },
-      quickAccess: ["startShoppingSession", "endShoppingSessions"],
+      quickAccess: ["startShoppingSession", "endShoppingSessions", "refreshLocalLibrary"],
     }
   }
 
@@ -545,12 +612,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!known) {
         return { success: false, message: `Unknown item: ${itemShortId}` }
       }
-      if (isLocalLibraryGrantShortId(itemShortId, this.grantCatalog)) {
+      if (this.localLibrary.isGrantShortId(itemShortId)) {
         const room = await this.context.getRoom()
         if (room?.playbackControllerId !== "bridge") {
           return {
             success: false,
-            message: "Library Stickers and Thrift Store Coupon can only be given in Media Bridge rooms.",
+            message: "Library Cards and Burned CDs can only be given in Media Bridge rooms.",
           }
         }
       }
@@ -627,6 +694,20 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       await this.shopping.clearSessionRound()
       await this.emit("SHOPPING_SESSION_ENDED", { roomId: this.context.roomId })
       return { success: true, message: "All shopping sessions ended." }
+    }
+    if (action === "refreshLocalLibrary") {
+      const room = await this.context.getRoom()
+      if (room?.playbackControllerId !== "bridge") {
+        return {
+          success: false,
+          message: "Refresh local library is only available in Media Bridge rooms.",
+        }
+      }
+      const ok = await this.context.api.invalidateLocalLibraryCache(this.context.roomId)
+      await this.applyLocalLibraryGrantConfig()
+      return ok
+        ? { success: true, message: "Local library cache cleared and Record Store restocked from Navidrome." }
+        : { success: false, message: "Could not reach the Media Bridge to refresh the library." }
     }
     /** Game Studio / sandbox: assign shops to users who joined before the shopping round (same rules as USER_JOINED). */
     if (action === "replayShopAssignmentsForExistingUsers") {
@@ -750,13 +831,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   async grantMetadataSourceAccess(
     params: MetadataSourceAccessGrantParams,
   ): Promise<MetadataSourceAccessGrantResult> {
-    if (!this.context) return "abstain"
-    const config = await this.getConfig()
-    if (!config?.enabled) return "abstain"
-    if (params.sourceId !== "local") return "abstain"
-
-    const scope = await this.resolveUserLocalCatalogScope(params.userId, config)
-    return scope.mode === "none" ? "abstain" : "grant"
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    return this.localLibrary.grantMetadataSourceAccess(params, config)
   }
 
   /**
@@ -771,99 +847,34 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     | { mode: "playlists"; playlistIds: string[] }
     | "abstain"
   > {
-    if (!this.context) return "abstain"
-    const config = await this.getConfig()
-    if (!config?.enabled) return "abstain"
-    const scope = await this.resolveUserLocalCatalogScope(params.userId, config)
-    if (scope.mode === "none") return "abstain"
-    if (scope.mode === "unrestricted") return { mode: "unrestricted" }
-    return { mode: "playlists", playlistIds: scope.playlistIds }
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    return this.localLibrary.resolveLocalLibraryCatalogFilter({
+      ...params,
+      enabled: config.enabled,
+      grants: config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS,
+    })
   }
 
-  private async resolveUserLocalCatalogScope(
-    userId: string,
-    config: ItemShopsConfig,
-  ): Promise<LocalCatalogScope> {
-    const inv = await this.context!.inventory.getInventory(userId)
-    const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
-    return resolveLocalCatalogScope({
-      pluginName: this.name,
-      items: inv.items,
-      grantCatalog: buildGrantCatalogEntries(grants),
-      localLibraryPlaylists: playlistMapFromGrantConfig(grants),
-    })
+  async listMyMediaShelves(params: { roomId: string; userId: string }): Promise<MyMediaShelf[]> {
+    return this.localLibrary.listMyMediaShelves(params.userId)
+  }
+
+  async resolveMyMediaShelf(params: {
+    roomId: string
+    userId: string
+    mediaKey: string
+  }): Promise<{ playlistId: string; shelf: MyMediaShelf } | null> {
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    return this.localLibrary.resolveHeldMediaShelf(
+      params.userId,
+      params.mediaKey,
+      config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS,
+    )
   }
 
   async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {
-    if (!this.context) return allowQueueRequest()
-    const config = await this.getConfig()
-    if (!config?.enabled) return allowQueueRequest()
-    if (params.mediaSourceType !== "local") return allowQueueRequest()
-
-    const isAdmin = await this.context.api.isRoomAdmin(params.roomId, params.userId)
-    if (isAdmin) return allowQueueRequest()
-
-    const room = await this.context.getRoom()
-    if (room?.metadataSourceAccess?.local !== "restricted") return allowQueueRequest()
-
-    const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
-    const grantCatalog = buildGrantCatalogEntries(grants)
-    const inv = await this.context.inventory.getInventory(params.userId)
-    const held = listHeldLocalLibraryGrants({
-      pluginName: this.name,
-      items: inv.items,
-      grantCatalog,
-    })
-    if (held.length === 0) return allowQueueRequest()
-
-    const playlistMap = playlistMapFromGrantConfig(grants)
-    const shelfHeld = held.filter((h) => h.grant.scope === "playlist")
-    const playlistIdsForMembership = shelfHeld
-      .map((h) =>
-        h.grant.scope === "playlist" ? playlistMap[h.grant.playlistKey]?.trim() : "",
-      )
-      .filter((id): id is string => Boolean(id))
-
-    const trackInPlaylistKey: Record<string, boolean> = {}
-    if (playlistIdsForMembership.length > 0) {
-      const memberIds = await this.context.api.checkLocalTrackPlaylistMembership({
-        roomId: params.roomId,
-        trackId: params.trackId,
-        playlistIds: playlistIdsForMembership,
-      })
-      const memberSet = new Set(memberIds)
-      for (const h of shelfHeld) {
-        if (h.grant.scope !== "playlist") continue
-        const ndId = playlistMap[h.grant.playlistKey]?.trim()
-        trackInPlaylistKey[h.grant.playlistKey] = Boolean(ndId && memberSet.has(ndId))
-      }
-    } else {
-      for (const h of shelfHeld) {
-        if (h.grant.scope === "playlist") {
-          trackInPlaylistKey[h.grant.playlistKey] = false
-        }
-      }
-    }
-
-    const pick = pickGrantToConsume({ held, trackInPlaylistKey })
-    if (!pick) {
-      const hasLibrary = held.some((h) => h.grant.scope === "library")
-      if (!hasLibrary) {
-        return rejectQueueRequest("That track isn't available on your Library shelf.")
-      }
-      return allowQueueRequest()
-    }
-
-    const removed = await this.context.inventory.removeItem(params.userId, pick.itemId, 1)
-    if (removed) {
-      await this.context.api.sendUserSystemMessage(
-        params.roomId,
-        params.userId,
-        `${pick.name} redeemed for a Library track.`,
-        { type: "alert", status: "success" },
-      )
-    }
-    return allowQueueRequest()
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    return this.localLibrary.validateQueueRequest(params, config)
   }
 
   async getSellbackValues(

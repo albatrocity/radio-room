@@ -15,6 +15,7 @@ import {
   browseAlbums as browseAlbumsOp,
   browseArtist as browseArtistOp,
   browseArtists as browseArtistsOp,
+  browseMediaItem as browseMediaItemOp,
   getEffectiveMetadataSources as getEffectiveMetadataSourcesOp,
 } from "../operations/dj/browseCatalog"
 import { searchTracksAcrossSources } from "../operations/dj/searchTracks"
@@ -470,6 +471,39 @@ export class DJHandlers {
   }
 
   /**
+   * Browse tracks on a held Physical Media item. `mediaKey` is resolved from
+   * the caller's inventory grants — never a client-supplied playlist id (ADR 0099).
+   */
+  browseMediaItem = async (
+    { socket }: HandlerConnections,
+    payload: { mediaKey: string },
+  ) => {
+    const { roomId, userId } = socket.data
+    const result = await browseMediaItemOp({
+      context: this.context,
+      roomId,
+      userId,
+      mediaKey: payload.mediaKey,
+    })
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "BROWSE_MEDIA_ITEM_FAILURE",
+        data: { message: result.message },
+      })
+      return
+    }
+    socket.emit("event", {
+      type: "BROWSE_MEDIA_ITEM_RESULTS",
+      data: {
+        source: result.source,
+        mediaKey: result.mediaKey,
+        name: result.name,
+        tracks: result.tracks,
+      },
+    })
+  }
+
+  /**
    * Search for tracks across all room metadata sources (fan-out).
    * Bridge rooms apply cross-source dedup by mediaSourcePriority.
    */
@@ -481,7 +515,7 @@ export class DJHandlers {
       roomId,
       userId,
       query,
-      searchSource: (src, q) => this.djService.searchForTrack(src, q),
+      searchSource: (src, q, options) => this.djService.searchForTrack(src, q, options),
     })
 
     if (!result.success) {

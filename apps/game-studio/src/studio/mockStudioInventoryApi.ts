@@ -42,6 +42,7 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
     if (!session) return null
 
     const maxSlots = session.config.maxInventorySlots
+    const maxCollectionSlots = session.config.maxCollectionSlots
     let inv = [...this.room.getInventory(userId)]
 
     if (def.stackable) {
@@ -61,7 +62,14 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
       }
     }
 
-    if (inv.length >= maxSlots) return null
+    const pool = def.slotPool === "collection" ? "collection" : "inventory"
+    const used = inv.filter((i) => {
+      const d = this.room.getDefinition(i.definitionId)
+      const p = d?.slotPool === "collection" ? "collection" : "inventory"
+      return p === pool
+    }).length
+    const cap = pool === "collection" ? maxCollectionSlots : maxSlots
+    if (used >= cap) return null
 
     const item: InventoryItem = {
       itemId: newId(),
@@ -143,7 +151,8 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
   async getInventory(userId: string): Promise<UserInventory> {
     const session = this.room.activeSession
     const maxSlots = session?.config.maxInventorySlots ?? 0
-    return { userId, items: [...this.room.getInventory(userId)], maxSlots }
+    const maxCollectionSlots = session?.config.maxCollectionSlots ?? 0
+    return { userId, items: [...this.room.getInventory(userId)], maxSlots, maxCollectionSlots }
   }
 
   async hasItem(userId: string, definitionId: string, minQuantity = 1): Promise<boolean> {

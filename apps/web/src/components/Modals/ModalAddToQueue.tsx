@@ -29,7 +29,7 @@ function ModalAddToQueue() {
   const room = useCurrentRoom()
   const hideEditForm = () => modalSend({ type: "CLOSE" })
 
-  // Re-evaluate plugin grants (e.g. Thrift Store Coupon) when the modal opens.
+  // Re-evaluate plugin grants (e.g. Library Card / Physical Media) when the modal opens.
   useEffect(() => {
     if (isAddingToQueue) {
       refreshEffectiveMetadataSources()

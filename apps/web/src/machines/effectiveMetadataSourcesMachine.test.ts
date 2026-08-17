@@ -26,6 +26,7 @@ describe("effectiveMetadataSourcesMachine", () => {
         metadataSourceIds: ["spotify", "local"],
         browseableSourceIds: ["local"],
         browseSourceCapabilities: { local: { entryMode: "index", albumSearch: true } },
+        myMedia: [{ mediaKey: "pm-1", name: "LP: Loveless" }],
       },
     })
 
@@ -36,6 +37,7 @@ describe("effectiveMetadataSourcesMachine", () => {
       entryMode: "index",
       albumSearch: true,
     })
+    expect(ctx.myMedia).toEqual([{ mediaKey: "pm-1", name: "LP: Loveless" }])
 
     actor.send({ type: "DEACTIVATE" })
     expect(actor.getSnapshot().matches("idle")).toBe(true)

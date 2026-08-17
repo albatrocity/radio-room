@@ -22,6 +22,8 @@ export interface CatalogBrowseContext {
   artist: MetadataBrowseArtist | null
   albums: MetadataBrowseAlbum[]
   album: MetadataBrowseAlbum | null
+  mediaKey: string | null
+  mediaName: string | null
   tracks: (MetadataSourceTrack & { source?: string })[]
   error: RequestError | null
 }
@@ -31,6 +33,7 @@ type CatalogBrowseEvent =
   | { type: "FETCH_ALBUMS"; source: string; query?: string; limit?: number }
   | { type: "FETCH_ARTIST"; source: string; artistId: string }
   | { type: "FETCH_ALBUM"; source: string; albumId: string }
+  | { type: "FETCH_MEDIA"; mediaKey: string }
   | {
       type: "BROWSE_ARTISTS_RESULTS"
       data: { source: string; items: MetadataBrowseArtist[]; total?: number }
@@ -59,6 +62,16 @@ type CatalogBrowseEvent =
       }
     }
   | { type: "BROWSE_ALBUM_FAILURE"; data: RequestError }
+  | {
+      type: "BROWSE_MEDIA_ITEM_RESULTS"
+      data: {
+        source: string
+        mediaKey: string
+        name: string
+        tracks: (MetadataSourceTrack & { source?: string })[]
+      }
+    }
+  | { type: "BROWSE_MEDIA_ITEM_FAILURE"; data: RequestError }
 
 export const catalogBrowseMachine = setup({
   types: {
@@ -99,6 +112,13 @@ export const catalogBrowseMachine = setup({
         })
       }
     },
+    sendGetMedia: ({ event }) => {
+      if (event.type === "FETCH_MEDIA") {
+        emitToSocket("BROWSE_MEDIA_ITEM", {
+          mediaKey: event.mediaKey,
+        })
+      }
+    },
     setArtists: assign(({ event }) => {
       if (event.type !== "BROWSE_ARTISTS_RESULTS") return {}
       return {
@@ -134,6 +154,19 @@ export const catalogBrowseMachine = setup({
         source: event.data.source,
         album: event.data.album,
         tracks: event.data.tracks ?? [],
+        mediaKey: null,
+        mediaName: null,
+        error: null,
+      }
+    }),
+    setMedia: assign(({ event }) => {
+      if (event.type !== "BROWSE_MEDIA_ITEM_RESULTS") return {}
+      return {
+        source: event.data.source,
+        mediaKey: event.data.mediaKey,
+        mediaName: event.data.name,
+        album: null,
+        tracks: event.data.tracks ?? [],
         error: null,
       }
     }),
@@ -142,7 +175,8 @@ export const catalogBrowseMachine = setup({
         event.type !== "BROWSE_ARTISTS_FAILURE" &&
         event.type !== "BROWSE_ALBUMS_FAILURE" &&
         event.type !== "BROWSE_ARTIST_FAILURE" &&
-        event.type !== "BROWSE_ALBUM_FAILURE"
+        event.type !== "BROWSE_ALBUM_FAILURE" &&
+        event.type !== "BROWSE_MEDIA_ITEM_FAILURE"
       ) {
         return {}
       }
@@ -162,6 +196,8 @@ export const catalogBrowseMachine = setup({
     artist: null,
     albums: [],
     album: null,
+    mediaKey: null,
+    mediaName: null,
     tracks: [],
     error: null,
   },
@@ -180,6 +216,10 @@ export const catalogBrowseMachine = setup({
     },
     FETCH_ALBUM: {
       target: ".loadingAlbum",
+      actions: ["clearError"],
+    },
+    FETCH_MEDIA: {
+      target: ".loadingMedia",
       actions: ["clearError"],
     },
   },
@@ -233,6 +273,19 @@ export const catalogBrowseMachine = setup({
           actions: ["setAlbum"],
         },
         BROWSE_ALBUM_FAILURE: {
+          target: "failure",
+          actions: ["setError"],
+        },
+      },
+    },
+    loadingMedia: {
+      entry: ["sendGetMedia"],
+      on: {
+        BROWSE_MEDIA_ITEM_RESULTS: {
+          target: "idle",
+          actions: ["setMedia"],
+        },
+        BROWSE_MEDIA_ITEM_FAILURE: {
           target: "failure",
           actions: ["setError"],
         },

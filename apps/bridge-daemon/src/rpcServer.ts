@@ -157,11 +157,25 @@ export class RpcServer {
         return this.localDriver.playlistsContainingTrack(
           String(p.trackId ?? ""),
           parsePlaylistIds(p.playlistIds) ?? [],
+          { firstMatch: p.firstMatch === true },
         )
       }
       case "listPlaylists": {
         if (String(p.source) !== "local" || !this.localDriver) return []
         return this.localDriver.listPlaylists()
+      }
+      case "listPlaylistTracks": {
+        if (String(p.source) !== "local" || !this.localDriver) return []
+        return this.localDriver.listPlaylistTracks(String(p.playlistId ?? p.id ?? ""))
+      }
+      case "getPlaylistCoverArt": {
+        if (String(p.source) !== "local" || !this.localDriver) return {}
+        return this.localDriver.getPlaylistCoverArt(parsePlaylistIds(p.playlistIds) ?? [])
+      }
+      case "invalidatePlaylistCache": {
+        if (!this.localDriver) return { ok: false }
+        this.localDriver.invalidateLocalLibraryCache()
+        return { ok: true }
       }
       case "notifyNowPlaying":
         await this.router.notifyNowPlaying({

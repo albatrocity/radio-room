@@ -18,7 +18,7 @@ function mockInventory(
   const inv = {
     items: setup.stacks.map((s) => ({ ...s, sourcePlugin: "item-shops" })),
     userId: "u1",
-    maxSlots: 20,
+    maxSlots: 20, maxCollectionSlots: 20,
   }
   vi.mocked(deps.context.inventory.getInventory).mockResolvedValue(inv as never)
   vi.mocked(deps.context.inventory.getItemDefinition).mockImplementation(async (id: string) => {
@@ -100,7 +100,7 @@ describe("buyout", () => {
     const inv = {
       items: [{ itemId: "stack-1", definitionId: "compressor-pedal", quantity: 2 }],
       userId: "u1",
-      maxSlots: 20,
+      maxSlots: 20, maxCollectionSlots: 20,
     }
     vi.mocked(deps.context.inventory.getInventory).mockResolvedValue(inv as never)
     vi.mocked(deps.context.inventory.getItemDefinition).mockImplementation(async (id: string) => {

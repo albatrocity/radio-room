@@ -27,6 +27,7 @@ interface GameStateInventoryContentProps {
   inventoryEnabled: boolean
   inventoryItems: InventoryItem[]
   maxSlots: number
+  maxCollectionSlots: number
   definitionMap: Map<string, ItemDefinition>
 }
 
@@ -36,6 +37,7 @@ function GameStateInventoryContent({
   inventoryEnabled,
   inventoryItems,
   maxSlots,
+  maxCollectionSlots,
   definitionMap,
 }: GameStateInventoryContentProps) {
   const enabledAttributesForGrid = enabledAttributes.filter(
@@ -75,6 +77,7 @@ function GameStateInventoryContent({
         <InventoryTab
           items={inventoryItems}
           maxSlots={maxSlots}
+          maxCollectionSlots={maxCollectionSlots}
           definitionMap={definitionMap}
           coinBalance={attributes.coin ?? 0}
         />

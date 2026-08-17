@@ -54,7 +54,8 @@ export { requestBridgeLink, listOnlineBridgeDaemons } from "./lib/requestBridgeL
 export type { RequestBridgeLinkResult } from "./lib/requestBridgeLink"
 export { parseBridgeMediaId } from "./lib/parseBridgeMediaId"
 export { youtubeMetadataSource, createYoutubeMetadataApi } from "./lib/youtubeMetadata"
-export { localMetadataSource, registerLocalMetadataForRoom, checkLocalTrackPlaylistMembership, listLocalPlaylists } from "./lib/localMetadata"
+export { localMetadataSource, registerLocalMetadataForRoom, checkLocalTrackPlaylistMembership, listLocalPlaylists, listLocalPlaylistTracks, fetchLocalPlaylistTracks, getLocalPlaylistCoverArt, invalidateLocalLibraryCache } from "./lib/localMetadata"
+export type { LocalPlaylistTracksResult } from "./lib/localMetadata"
 export { BridgeRpcClient } from "./lib/rpcClient"
 export {
   getOrCreateCapabilityCache,

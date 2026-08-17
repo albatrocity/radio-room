@@ -8,11 +8,30 @@ import type {
   MetadataBrowseArtist,
   MetadataBrowseCapabilities,
   MetadataSourceTrack,
+  MyMediaShelf,
 } from "@repo/types"
 
 export const STUB_METADATA_SOURCE_IDS = ["spotify", "local"] as const
 
 export const STUB_BROWSEABLE_SOURCE_IDS = ["local"] as const
+
+/** Inline cover art so the preview works offline, no image store required. */
+export const STUB_MEDIA_ARTWORK =
+  "data:image/svg+xml;utf8," +
+  "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'>" +
+  "<rect width='64' height='64' fill='%23412a5b'/>" +
+  "<circle cx='32' cy='32' r='22' fill='%23111111'/>" +
+  "<circle cx='32' cy='32' r='5' fill='%23e8d6ff'/></svg>"
+
+export const STUB_MY_MEDIA: MyMediaShelf[] = [
+  {
+    mediaKey: "pm-studio-1",
+    name: "LP: Studio Pressing",
+    icon: "Disc3",
+    imageUrl: STUB_MEDIA_ARTWORK,
+  },
+  { mediaKey: "pm-studio-2", name: "Cassette: Studio Demo", icon: "CassetteTape" },
+]
 
 export const STUB_BROWSE_SOURCE_CAPABILITIES: Record<string, MetadataBrowseCapabilities> = {
   local: { entryMode: "index", albumSearch: true },
@@ -70,6 +89,7 @@ export function buildEffectiveMetadataSourcesEvent() {
       metadataSourceIds: [...STUB_METADATA_SOURCE_IDS],
       browseableSourceIds: [...STUB_BROWSEABLE_SOURCE_IDS],
       browseSourceCapabilities: STUB_BROWSE_SOURCE_CAPABILITIES,
+      myMedia: STUB_MY_MEDIA,
     },
   }
 }
@@ -120,6 +140,21 @@ export function stubBrowseAlbum(albumId: string) {
   return {
     type: "BROWSE_ALBUM_RESULTS" as const,
     data: { source: "local", album: stubAlbum, tracks },
+  }
+}
+
+export function stubBrowseMediaItem(mediaKey: string) {
+  const match = STUB_MY_MEDIA.find((s) => s.mediaKey === mediaKey)
+  if (!match) {
+    return {
+      type: "BROWSE_MEDIA_ITEM_FAILURE" as const,
+      data: { message: "You don't have that item" },
+    }
+  }
+  const tracks = stubTracks.map((t) => ({ ...t, source: "local" }))
+  return {
+    type: "BROWSE_MEDIA_ITEM_RESULTS" as const,
+    data: { source: "local", mediaKey: match.mediaKey, name: match.name, tracks },
   }
 }
 
