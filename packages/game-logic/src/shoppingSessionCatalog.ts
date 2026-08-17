@@ -125,8 +125,18 @@ export type ShopCatalogEntry = {
   onSessionEnd?: (ctx: ShopSessionContext) => void | Promise<void>
 }
 
+export type LocalLibraryGrant =
+  | { scope: "library" }
+  | { scope: "playlist"; playlistKey: string }
+
 export type ItemCatalogEntry = {
   definition: Omit<ItemDefinition, "id" | "sourcePlugin">
+  /**
+   * When set, holding this item can unlock restricted Local (library) access.
+   * `library` = full catalog; `playlist` = scoped to a Navidrome playlist key
+   * resolved via Item Shops `localLibraryPlaylists` config.
+   */
+  localLibraryGrant?: LocalLibraryGrant
 }
 
 export const DEFAULT_RARITY_WEIGHTS: Record<ItemRarity, number> = {

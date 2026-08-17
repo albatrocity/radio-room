@@ -42,6 +42,7 @@ export async function searchTracksAcrossSources(params: {
   searchSource: (
     metadataSource: MetadataSource,
     query: string,
+    options?: { playlistIds?: string[] },
   ) => Promise<SearchSourceResult>
 }): Promise<SearchTracksResult> {
   const { context, adapterService, roomId, userId, query, searchSource } = params
@@ -86,9 +87,18 @@ export async function searchTracksAcrossSources(params: {
     return { success: false, message: "No metadata source available for search" }
   }
 
+  let localPlaylistIds: string[] | undefined
+  if (context.metadataSourceAccess?.getLocalCatalogPlaylistIds) {
+    localPlaylistIds = await context.metadataSourceAccess.getLocalCatalogPlaylistIds(roomId, userId)
+  }
+
   const settled = await Promise.allSettled(
     sourceEntries.map(async ([name, src]) => {
-      const result = await searchSource(src, query)
+      const options =
+        name === "local" && localPlaylistIds?.length
+          ? { playlistIds: localPlaylistIds }
+          : undefined
+      const result = await searchSource(src, query, options)
       if (!result.success) throw new Error(result.message)
       return (result.data ?? []).map((track) => ({
         ...(track as object),
@@ -132,8 +142,20 @@ export async function searchTracksAcrossSources(params: {
           return { artists: [] as unknown[], albums: [] as unknown[] }
         }
         const [artistResult, albumResult] = await Promise.allSettled([
-          src.api.listArtists?.({ query: trimmed, limit: 5 }) ?? Promise.resolve({ items: [] }),
-          src.api.listAlbums?.({ query: trimmed, limit: 5 }) ?? Promise.resolve({ items: [] }),
+          src.api.listArtists?.({
+            query: trimmed,
+            limit: 5,
+            ...(name === "local" && localPlaylistIds?.length
+              ? { playlistIds: localPlaylistIds }
+              : {}),
+          }) ?? Promise.resolve({ items: [] }),
+          src.api.listAlbums?.({
+            query: trimmed,
+            limit: 5,
+            ...(name === "local" && localPlaylistIds?.length
+              ? { playlistIds: localPlaylistIds }
+              : {}),
+          }) ?? Promise.resolve({ items: [] }),
         ])
         const artistItems =
           artistResult.status === "fulfilled" ? (artistResult.value.items ?? []) : []

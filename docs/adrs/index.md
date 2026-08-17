@@ -103,6 +103,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0095](0095-room-plugin-config-name-index.md) | Room plugin config name index SET (`room:{id}:plugins:index`) | Accepted |
 | [0096](0096-playlist-bingo-per-user-cards.md) | Playlist Bingo per-user cards via GET_MY_GAME_STATE | Partially superseded by [0097](0097-plugin-contribute-to-user-game-state.md) |
 | [0097](0097-plugin-contribute-to-user-game-state.md) | Plugin `contributeToUserGameState` for private per-user payloads | Accepted |
+| [0098](0098-inventory-scoped-local-library-catalog-filters.md) | Inventory-scoped Local library catalog filters (playlist shelves) | Accepted |
 
 ## Creating a New ADR
 

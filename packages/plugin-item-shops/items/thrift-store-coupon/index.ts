@@ -5,16 +5,18 @@ export const THRIFT_STORE_COUPON_SHORT_ID = "thrift-store-coupon"
 
 export const thriftStoreCoupon = createItem({
   shortId: THRIFT_STORE_COUPON_SHORT_ID,
+  localLibraryGrant: { scope: "library" },
   definition: {
     name: "Thrift Store Coupon",
-    description: "Grants access to the Thrift Store Library, allowing one song to be queued.",
+    description:
+      "Legendary full-library pass. Keep it in your inventory, then open Add to Queue and pick any Library track — spent when the song is added.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
     consumable: false,
-    coinValue: 20,
+    coinValue: 100,
     icon: "Ticket",
-    rarity: "uncommon",
+    rarity: "legendary",
   },
   use: async (): Promise<ItemUseResult> => ({
     success: false,

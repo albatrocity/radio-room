@@ -202,6 +202,17 @@ First Chrome launch uses a dedicated profile under `~/.config/listening-room-bri
 8. Empty the queue and trigger a democracy skip / scratched-cd — active daemon source should **stop**
 9. As room admin, use the **Now Playing scrubber** to seek within the track; with Volume Manager enabled, use its **broadcast volume** slider in Now Playing to change driver volume
 
+## 7b. Thrift Store Local shelves (optional)
+
+Restricted Local + inventory grants ([ADR 0098](adrs/0098-inventory-scoped-local-library-catalog-filters.md)):
+
+1. In Navidrome, create curated playlists (Bargain Bin / Out Of Print / Local Heroes / Unreleased) and copy their ids.
+2. Room admin → Item Shops → paste playlist ids; enable Item Shops; set Library to **Admins + plugin grants only**.
+3. Start a game session; give yourself a **Bargain Bin Sticker** (or buy from Thrift Store on a bridge room).
+4. Add to Queue → Library should appear; Browse/Search should only show artists/albums/tracks on that playlist. Queuing a matching track consumes the Sticker. A **Thrift Store Coupon** unlocks the full library (legendary).
+
+Playlists are never shown as a browse mode in the client.
+
 ## 8. Export / publish
 
 Post-show publish still creates Spotify/Tidal playlists from `metadataSources` IDs. YouTube/local-only tracks are skipped for those playlists (Markdown archive still lists them). Enrichment quality depends on clean title/artist from the queue item.

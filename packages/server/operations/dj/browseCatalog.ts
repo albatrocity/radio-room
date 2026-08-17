@@ -158,6 +158,11 @@ export async function browseArtists(params: {
   const resolved = await resolveBrowseSource({ context, adapterService, roomId, userId, source })
   if (!resolved.ok) return resolved
 
+  const playlistIds =
+    source === "local" && context.metadataSourceAccess?.getLocalCatalogPlaylistIds
+      ? await context.metadataSourceAccess.getLocalCatalogPlaylistIds(roomId, userId)
+      : undefined
+
   const result = await withBrowseAuthHandling({
     context,
     roomId,
@@ -168,6 +173,7 @@ export async function browseArtists(params: {
         query,
         offset,
         limit,
+        ...(playlistIds?.length ? { playlistIds } : {}),
       })
       return {
         ok: true as const,
@@ -198,6 +204,11 @@ export async function browseAlbums(params: {
     return { ok: false, message: "Metadata source does not support album browse" }
   }
 
+  const playlistIds =
+    source === "local" && context.metadataSourceAccess?.getLocalCatalogPlaylistIds
+      ? await context.metadataSourceAccess.getLocalCatalogPlaylistIds(roomId, userId)
+      : undefined
+
   const result = await withBrowseAuthHandling({
     context,
     roomId,
@@ -208,6 +219,7 @@ export async function browseAlbums(params: {
         query,
         offset,
         limit,
+        ...(playlistIds?.length ? { playlistIds } : {}),
       })
       return {
         ok: true as const,
@@ -239,13 +251,21 @@ export async function browseArtist(params: {
     return { ok: false, message: "artistId is required" }
   }
 
+  const playlistIds =
+    source === "local" && context.metadataSourceAccess?.getLocalCatalogPlaylistIds
+      ? await context.metadataSourceAccess.getLocalCatalogPlaylistIds(roomId, userId)
+      : undefined
+
   const result = await withBrowseAuthHandling({
     context,
     roomId,
     source,
     failureMessage: "Failed to browse artist",
     run: async () => {
-      const got = await resolved.metadataSource.api.getArtist!(artistId)
+      const got = await resolved.metadataSource.api.getArtist!(
+        artistId,
+        playlistIds?.length ? { playlistIds } : undefined,
+      )
       if (!got) {
         return { ok: false as const, message: "Artist not found" }
       }
@@ -284,13 +304,21 @@ export async function browseAlbum(params: {
     return { ok: false, message: "albumId is required" }
   }
 
+  const playlistIds =
+    source === "local" && context.metadataSourceAccess?.getLocalCatalogPlaylistIds
+      ? await context.metadataSourceAccess.getLocalCatalogPlaylistIds(roomId, userId)
+      : undefined
+
   const result = await withBrowseAuthHandling({
     context,
     roomId,
     source,
     failureMessage: "Failed to browse album",
     run: async () => {
-      const got = await resolved.metadataSource.api.getAlbum!(albumId)
+      const got = await resolved.metadataSource.api.getAlbum!(
+        albumId,
+        playlistIds?.length ? { playlistIds } : undefined,
+      )
       if (!got) {
         return { ok: false as const, message: "Album not found" }
       }

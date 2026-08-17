@@ -413,6 +413,26 @@ export class PluginAPIImpl implements PluginAPI {
     return access.getEffectiveSourceIdsForUser(roomId, userId, action)
   }
 
+  async checkLocalTrackPlaylistMembership(params: {
+    roomId: string
+    trackId: string
+    playlistIds: string[]
+  }): Promise<string[]> {
+    const { roomId, trackId, playlistIds } = params
+    if (!trackId || playlistIds.length === 0) return []
+    try {
+      const { getBridgeRpcClient, checkLocalTrackPlaylistMembership } = await import(
+        "@repo/adapter-bridge"
+      )
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) return []
+      return await checkLocalTrackPlaylistMembership({ rpc, trackId, playlistIds })
+    } catch (e) {
+      console.warn("[PluginAPI] checkLocalTrackPlaylistMembership failed:", e)
+      return []
+    }
+  }
+
   /**
    * Emit a custom plugin event.
    * Events are namespaced as PLUGIN:{pluginName}:{eventName}

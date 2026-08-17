@@ -71,6 +71,38 @@ export class MetadataSourceAccessService {
     return this.anyPluginGrants({ roomId, userId, sourceId, action })
   }
 
+  /**
+   * Playlist ids to pass into Local search/browse when the user has shelf-scoped grants.
+   * Returns undefined for full library (admin, open, unrestricted coupon, or no filter).
+   */
+  async getLocalCatalogPlaylistIds(roomId: string, userId: string): Promise<string[] | undefined> {
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room || room.playbackControllerId !== "bridge") return undefined
+
+    const admin = await isRoomAdmin({
+      context: this.context,
+      roomId,
+      userId,
+      roomCreator: room.creator,
+    })
+    if (admin) return undefined
+
+    const mode = room.metadataSourceAccess?.local ?? "open"
+    if (mode !== "restricted") return undefined
+
+    const registry = this.context.pluginRegistry
+    if (!registry?.resolveLocalLibraryCatalogFilter) return undefined
+    try {
+      const filter = await registry.resolveLocalLibraryCatalogFilter({ roomId, userId })
+      if (!filter) return undefined
+      if (filter.mode === "unrestricted") return undefined
+      return filter.playlistIds.length > 0 ? filter.playlistIds : undefined
+    } catch (e) {
+      console.warn("[MetadataSourceAccess] local catalog filter failed:", e)
+      return undefined
+    }
+  }
+
   private async anyPluginGrants(params: {
     roomId: string
     userId: string

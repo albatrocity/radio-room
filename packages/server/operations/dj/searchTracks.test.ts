@@ -80,7 +80,7 @@ describe("searchTracksAcrossSources", () => {
       searchSource,
     })
 
-    expect(searchSource).toHaveBeenCalledWith(spotifySource, "Neon Lights")
+    expect(searchSource).toHaveBeenCalledWith(spotifySource, "Neon Lights", undefined)
     expect(result.success).toBe(true)
     if (!result.success) return
     expect(result.items[0]).toEqual(
@@ -145,6 +145,6 @@ describe("searchTracksAcrossSources", () => {
     })
 
     expect(searchSource).toHaveBeenCalledTimes(1)
-    expect(searchSource).toHaveBeenCalledWith(tidal, "x")
+    expect(searchSource).toHaveBeenCalledWith(tidal, "x", undefined)
   })
 })

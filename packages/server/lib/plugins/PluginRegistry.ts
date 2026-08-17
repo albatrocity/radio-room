@@ -376,6 +376,72 @@ export class PluginRegistry {
   }
 
   /**
+   * Aggregate plugin Local catalog filters (ADR 0098).
+   * Any `unrestricted` wins; else union of playlist ids; all abstain → null.
+   */
+  async resolveLocalLibraryCatalogFilter(params: {
+    roomId: string
+    userId: string
+  }): Promise<
+    | { mode: "unrestricted" }
+    | { mode: "playlists"; playlistIds: string[] }
+    | null
+  > {
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+
+    if (!roomPluginMap || roomPluginMap.size === 0) {
+      return null
+    }
+
+    const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.resolveLocalLibraryCatalogFilter === "function",
+    )
+
+    if (pluginsWithHook.length === 0) {
+      return null
+    }
+
+    const playlistIds = new Set<string>()
+    let sawPlaylists = false
+
+    for (const [pluginName, { plugin }] of pluginsWithHook) {
+      try {
+        const result = await Promise.race([
+          plugin.resolveLocalLibraryCatalogFilter!(params),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+
+        if (result === "abstain") continue
+        if (result.mode === "unrestricted") {
+          return { mode: "unrestricted" }
+        }
+        if (result.mode === "playlists") {
+          sawPlaylists = true
+          for (const id of result.playlistIds) {
+            const trimmed = id.trim()
+            if (trimmed) playlistIds.add(trimmed)
+          }
+        }
+      } catch (error) {
+        console.warn(
+          `[PluginRegistry] resolveLocalLibraryCatalogFilter ${pluginName} failed (abstain):`,
+          error,
+        )
+      }
+    }
+
+    if (sawPlaylists && playlistIds.size > 0) {
+      return { mode: "playlists", playlistIds: [...playlistIds] }
+    }
+    return null
+  }
+
+  /**
    * Run beforePlayQueuedTrack on all plugins that implement it.
    * Called immediately before app-controlled playTrack(uri).
    * Fail-open on errors/timeouts.

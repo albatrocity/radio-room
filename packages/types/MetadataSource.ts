@@ -117,6 +117,11 @@ export type MetadataListArtistsParams = {
   query?: string
   offset?: number
   limit?: number
+  /**
+   * When set, Local/bridge catalog ops restrict to the union of these Navidrome
+   * playlist ids (invisible shelf grants). Omitted = full library (ADR 0098).
+   */
+  playlistIds?: string[]
 }
 
 export type MetadataListArtistsResult = {
@@ -152,9 +157,15 @@ export type MetadataBrowseCapabilities = {
 }
 
 export interface MetadataSourceApi {
-  search: (query: string) => Promise<MetadataSourceTrack[]>
+  search: (
+    query: string,
+    options?: { playlistIds?: string[] },
+  ) => Promise<MetadataSourceTrack[]>
   searchByParams: (params: MetadataSourceSearchParameters) => Promise<MetadataSourceTrack[]>
-  findById: (id: string) => Promise<MetadataSourceTrack | null>
+  findById: (
+    id: string,
+    options?: { playlistIds?: string[] },
+  ) => Promise<MetadataSourceTrack | null>
   createPlaylist?: (params: {
     title: string
     trackIds: MetadataSourceTrack["id"][]
@@ -172,8 +183,14 @@ export interface MetadataSourceApi {
   /** Optional catalog browse: Artists → Albums → Tracks (ADR 0089 / 0090). */
   listArtists?: (params?: MetadataListArtistsParams) => Promise<MetadataListArtistsResult>
   listAlbums?: (params?: MetadataListAlbumsParams) => Promise<MetadataListAlbumsResult>
-  getArtist?: (artistId: string) => Promise<MetadataGetArtistResult | null>
-  getAlbum?: (albumId: string) => Promise<MetadataGetAlbumResult | null>
+  getArtist?: (
+    artistId: string,
+    options?: { playlistIds?: string[] },
+  ) => Promise<MetadataGetArtistResult | null>
+  getAlbum?: (
+    albumId: string,
+    options?: { playlistIds?: string[] },
+  ) => Promise<MetadataGetAlbumResult | null>
   getBrowseCapabilities?: () => MetadataBrowseCapabilities
 }
 

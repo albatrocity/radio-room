@@ -10,6 +10,8 @@ import { THRIFT_STORE_SHOP_ID } from "./shops/thrift-store"
 const ROOM = "room-1"
 const COUPON_SHORT_ID = items.thriftStoreCoupon.shortId
 const COUPON_DEF_ID = `item-shops:${COUPON_SHORT_ID}`
+const BB_SHORT_ID = items.bargainBinSticker.shortId
+const BB_DEF_ID = `item-shops:${BB_SHORT_ID}`
 
 function createStorage() {
   return {
@@ -32,27 +34,44 @@ function couponStack(overrides?: Partial<InventoryItem>): InventoryItem {
   }
 }
 
+function stickerStack(overrides?: Partial<InventoryItem>): InventoryItem {
+  return {
+    itemId: "bb-stack-1",
+    definitionId: BB_DEF_ID,
+    sourcePlugin: "item-shops",
+    quantity: 1,
+    acquiredAt: Date.now(),
+    ...overrides,
+  }
+}
+
 function setup(options?: {
   enabled?: boolean
   playbackControllerId?: string
   localAccess?: "open" | "restricted"
   isAdmin?: boolean
   hasCoupon?: boolean
+  hasSticker?: boolean
   couponQuantity?: number
   removeItemSucceeds?: boolean
+  playlistIdBargainBin?: string
+  membershipPlaylistIds?: string[]
 }) {
   const enabled = options?.enabled ?? true
   const hasCoupon = options?.hasCoupon ?? true
+  const hasSticker = options?.hasSticker ?? false
   const couponQuantity = options?.couponQuantity ?? 1
-  const stack = hasCoupon ? couponStack({ quantity: couponQuantity }) : null
+  const stacks: InventoryItem[] = []
+  if (hasCoupon) stacks.push(couponStack({ quantity: couponQuantity }))
+  if (hasSticker) stacks.push(stickerStack())
 
   const inventory = {
     hasItem: vi.fn(async (_userId: string, definitionId: string) => {
-      return hasCoupon && definitionId === COUPON_DEF_ID
+      return stacks.some((s) => s.definitionId === definitionId && s.quantity > 0)
     }),
     getInventory: vi.fn(async (userId: string) => ({
       userId,
-      items: stack ? [stack] : [],
+      items: stacks,
       maxSlots: 20,
     })),
     removeItem: vi.fn(async () => options?.removeItemSucceeds ?? true),
@@ -62,12 +81,17 @@ function setup(options?: {
   }
 
   const api = {
-    getPluginConfig: vi.fn(async () => ({ ...defaultItemShopsConfig, enabled })),
+    getPluginConfig: vi.fn(async () => ({
+      ...defaultItemShopsConfig,
+      enabled,
+      playlistIdBargainBin: options?.playlistIdBargainBin ?? "nd-bb",
+    })),
     isRoomAdmin: vi.fn(async () => options?.isAdmin ?? false),
     sendUserSystemMessage: vi.fn(async () => {}),
     sendSystemMessage: vi.fn(async () => {}),
     getUsers: vi.fn(async () => [{ userId: "u1", username: "U1" }]),
     getUsersByIds: vi.fn(async (ids: string[]) => ids.map((id) => ({ userId: id, username: id }))),
+    checkLocalTrackPlaylistMembership: vi.fn(async () => options?.membershipPlaylistIds ?? ["nd-bb"]),
   }
 
   const room: Pick<Room, "playbackControllerId" | "metadataSourceAccess"> = {
@@ -126,7 +150,7 @@ describe("getEligibleShops", () => {
   })
 })
 
-describe("ItemShopsPlugin Thrift Store Coupon", () => {
+describe("ItemShopsPlugin local library grants", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -152,7 +176,39 @@ describe("ItemShopsPlugin Thrift Store Coupon", () => {
       ).resolves.toBe("grant")
     })
 
-    it("abstains without a coupon, for other sources, or when disabled", async () => {
+    it("grants when the user holds a mapped shelf sticker", async () => {
+      const { plugin } = setup({
+        hasCoupon: false,
+        hasSticker: true,
+        playlistIdBargainBin: "nd-bb",
+      })
+      await expect(
+        plugin.grantMetadataSourceAccess({
+          roomId: ROOM,
+          userId: "u1",
+          sourceId: "local",
+          action: "search",
+        }),
+      ).resolves.toBe("grant")
+    })
+
+    it("abstains when sticker playlist id is unmapped", async () => {
+      const { plugin } = setup({
+        hasCoupon: false,
+        hasSticker: true,
+        playlistIdBargainBin: "",
+      })
+      await expect(
+        plugin.grantMetadataSourceAccess({
+          roomId: ROOM,
+          userId: "u1",
+          sourceId: "local",
+          action: "search",
+        }),
+      ).resolves.toBe("abstain")
+    })
+
+    it("abstains without a grant, for other sources, or when disabled", async () => {
       const withCoupon = setup({ hasCoupon: true })
       await expect(
         withCoupon.plugin.grantMetadataSourceAccess({
@@ -206,6 +262,17 @@ describe("ItemShopsPlugin Thrift Store Coupon", () => {
       expect(api.sendUserSystemMessage).toHaveBeenCalled()
     })
 
+    it("prefers shelf sticker when the track is in that playlist", async () => {
+      const { plugin, inventory } = setup({
+        hasCoupon: true,
+        hasSticker: true,
+        membershipPlaylistIds: ["nd-bb"],
+        playlistIdBargainBin: "nd-bb",
+      })
+      await plugin.validateQueueRequest(localParams)
+      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "bb-stack-1", 1)
+    })
+
     it("does not consume for non-local tracks", async () => {
       const { plugin, inventory } = setup({ hasCoupon: true })
       await plugin.validateQueueRequest({
@@ -230,7 +297,7 @@ describe("ItemShopsPlugin Thrift Store Coupon", () => {
       expect(inventory.removeItem).not.toHaveBeenCalled()
     })
 
-    it("does not consume when the user has no coupon", async () => {
+    it("does not consume when the user has no grant", async () => {
       const { plugin, inventory } = setup({ hasCoupon: false })
       await plugin.validateQueueRequest(localParams)
       expect(inventory.removeItem).not.toHaveBeenCalled()
@@ -238,7 +305,7 @@ describe("ItemShopsPlugin Thrift Store Coupon", () => {
   })
 
   describe("giveItemToUsers", () => {
-    it("refuses the coupon off-bridge", async () => {
+    it("refuses library grants off-bridge", async () => {
       const { plugin } = setup({ playbackControllerId: "spotify" })
       const result = await plugin.executeAction("giveItemToUsers", undefined, {
         itemShortId: COUPON_SHORT_ID,
@@ -246,6 +313,12 @@ describe("ItemShopsPlugin Thrift Store Coupon", () => {
       })
       expect(result.success).toBe(false)
       expect(result.message).toMatch(/media bridge/i)
+
+      const sticker = await plugin.executeAction("giveItemToUsers", undefined, {
+        itemShortId: BB_SHORT_ID,
+        userId: "u1",
+      })
+      expect(sticker.success).toBe(false)
     })
 
     it("grants the coupon in a bridge room", async () => {

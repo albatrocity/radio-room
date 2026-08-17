@@ -31,27 +31,35 @@ export function createLocalMetadataApi(deps: {
     return fn(rpc, roomId)
   }
 
-  async function searchViaDaemon(query: string): Promise<MetadataSourceTrack[]> {
+  async function searchViaDaemon(
+    query: string,
+    playlistIds?: string[],
+  ): Promise<MetadataSourceTrack[]> {
     return withRpc(async (rpc) => {
-      const result = (await rpc.call("search", { query, source: "local" })) as MetadataSourceTrack[]
+      const result = (await rpc.call("search", {
+        query,
+        source: "local",
+        ...(playlistIds?.length ? { playlistIds } : {}),
+      })) as MetadataSourceTrack[]
       return Array.isArray(result) ? result : []
     }, [])
   }
 
   return {
-    async search(query: string) {
-      return searchViaDaemon(query)
+    async search(query: string, options?: { playlistIds?: string[] }) {
+      return searchViaDaemon(query, options?.playlistIds)
     },
     async searchByParams(params) {
       const artist = params.artists?.[0]?.title ?? ""
       return searchViaDaemon([params.title, artist].filter(Boolean).join(" "))
     },
-    async findById(id: string) {
+    async findById(id: string, options?: { playlistIds?: string[] }) {
       const fromDaemon = await withRpc(async (rpc) => {
         try {
           const track = (await rpc.call("getTrack", {
             source: "local",
             trackId: id,
+            ...(options?.playlistIds?.length ? { playlistIds: options.playlistIds } : {}),
           })) as MetadataSourceTrack | null
           return track?.id ? track : null
         } catch {
@@ -84,6 +92,7 @@ export function createLocalMetadataApi(deps: {
           query: params?.query,
           offset: params?.offset,
           limit: params?.limit,
+          ...(params?.playlistIds?.length ? { playlistIds: params.playlistIds } : {}),
         })) as MetadataListArtistsResult
         return result?.items ? result : { items: [], total: 0 }
       }, { items: [], total: 0 })
@@ -95,23 +104,32 @@ export function createLocalMetadataApi(deps: {
           query: params?.query,
           offset: params?.offset,
           limit: params?.limit,
+          ...(params?.playlistIds?.length ? { playlistIds: params.playlistIds } : {}),
         })) as MetadataListAlbumsResult
         return result?.items ? result : { items: [], total: 0 }
       }, { items: [], total: 0 })
     },
-    async getArtist(artistId: string): Promise<MetadataGetArtistResult | null> {
+    async getArtist(
+      artistId: string,
+      options?: { playlistIds?: string[] },
+    ): Promise<MetadataGetArtistResult | null> {
       return withRpc(async (rpc) => {
         return (await rpc.call("getArtist", {
           source: "local",
           artistId,
+          ...(options?.playlistIds?.length ? { playlistIds: options.playlistIds } : {}),
         })) as MetadataGetArtistResult | null
       }, null)
     },
-    async getAlbum(albumId: string): Promise<MetadataGetAlbumResult | null> {
+    async getAlbum(
+      albumId: string,
+      options?: { playlistIds?: string[] },
+    ): Promise<MetadataGetAlbumResult | null> {
       return withRpc(async (rpc) => {
         return (await rpc.call("getAlbum", {
           source: "local",
           albumId,
+          ...(options?.playlistIds?.length ? { playlistIds: options.playlistIds } : {}),
         })) as MetadataGetAlbumResult | null
       }, null)
     },
@@ -151,5 +169,25 @@ export function registerLocalMetadataForRoom(params: {
     name: "local",
     authentication: params.authentication,
     api,
+  }
+}
+
+/** Ask the daemon which of the given Navidrome playlist ids contain a local track. */
+export async function checkLocalTrackPlaylistMembership(params: {
+  rpc: BridgeRpcClient
+  trackId: string
+  playlistIds: string[]
+}): Promise<string[]> {
+  if (!params.trackId || params.playlistIds.length === 0) return []
+  if (!(await params.rpc.isPresent())) return []
+  try {
+    const result = (await params.rpc.call("checkPlaylistMembership", {
+      source: "local",
+      trackId: params.trackId,
+      playlistIds: params.playlistIds,
+    })) as unknown
+    return Array.isArray(result) ? result.map(String) : []
+  } catch {
+    return []
   }
 }

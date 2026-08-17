@@ -41,6 +41,10 @@ import type {
 } from "./shared/types"
 import { greenPeas } from "./green-peas"
 import { thriftStoreCoupon } from "./thrift-store-coupon"
+import { bargainBinSticker } from "./bargain-bin-sticker"
+import { outOfPrintSticker } from "./out-of-print-sticker"
+import { localHeroesSticker } from "./local-heroes-sticker"
+import { unreleasedSticker } from "./unreleased-sticker"
 
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
@@ -82,6 +86,10 @@ export const items = {
   privateBathroom,
   coldBeer,
   thriftStoreCoupon,
+  bargainBinSticker,
+  outOfPrintSticker,
+  localHeroesSticker,
+  unreleasedSticker,
 } as const
 
 /**

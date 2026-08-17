@@ -528,6 +528,16 @@ export interface PluginAPI {
   ): Promise<string[]>
 
   /**
+   * Which Navidrome playlist ids contain a Local track (Media Bridge RPC).
+   * Used by inventory grant redeem logic (ADR 0098). Returns [] when offline / unknown.
+   */
+  checkLocalTrackPlaylistMembership(params: {
+    roomId: string
+    trackId: string
+    playlistIds: string[]
+  }): Promise<string[]>
+
+  /**
    * Emit a custom plugin event.
    *
    * Events are automatically namespaced as `PLUGIN:{pluginName}:{eventName}`
@@ -1158,6 +1168,20 @@ export interface Plugin {
     sourceId: string
     action: "search" | "queue"
   }): Promise<"grant" | "abstain">
+
+  /**
+   * Optional catalog filter for restricted Local library search/browse (ADR 0098).
+   * Inventory grants may unlock the full library or a union of Navidrome playlist ids.
+   * Aggregation: any `unrestricted` wins; else union of `playlists`; all abstain → no plugin filter.
+   */
+  resolveLocalLibraryCatalogFilter?(params: {
+    roomId: string
+    userId: string
+  }): Promise<
+    | { mode: "unrestricted" }
+    | { mode: "playlists"; playlistIds: string[] }
+    | "abstain"
+  >
 
   /**
    * Called immediately before app-controlled playTrack(uri) in core play paths.

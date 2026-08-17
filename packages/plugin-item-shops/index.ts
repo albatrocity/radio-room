@@ -26,6 +26,7 @@ import {
   type ShoppingSessionInstance,
   type SystemEventPayload,
   allowQueueRequest,
+  rejectQueueRequest,
 } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME, ITEM_SHOPS_TAB_ID } from "@repo/types"
 import packageJson from "./package.json"
@@ -38,14 +39,16 @@ import {
   items,
 } from "./items/index"
 import { SHOP_CATALOG } from "./shops"
-import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
+import { itemShopsConfigSchema, defaultItemShopsConfig, localLibraryPlaylistsFromConfig, type ItemShopsConfig } from "./types"
+import {
+  isLocalLibraryGrantShortId,
+  listHeldLocalLibraryGrants,
+  pickGrantToConsume,
+  resolveLocalCatalogScope,
+  type LocalCatalogScope,
+} from "./localLibraryGrants"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
-const THRIFT_STORE_COUPON_SHORT_ID = items.thriftStoreCoupon.shortId
-
-function couponDefinitionId(): string {
-  return `${PLUGIN_NAME}:${THRIFT_STORE_COUPON_SHORT_ID}`
-}
 
 /**
  * Shops eligible for random assignment. `playbackControllerId` drops shops that
@@ -341,12 +344,16 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         {
           type: "text-block",
           content:
-            "Thrift Store (and its Library coupon) only appears in Media Bridge rooms. Set Library to “Admins + plugin grants only” under Content → Media sources so the coupon is what unlocks a local queue.",
+            "Thrift Store (Library Stickers + Coupon) only appears in Media Bridge rooms. Set Library to “Admins + plugin grants only” under Content → Media sources so inventory grants unlock Local search/queue. Paste Navidrome playlist ids below for shelf Stickers.",
           variant: "info",
         },
         "enabled",
         "enabledShopIds",
         "assignShopOnJoin",
+        "playlistIdBargainBin",
+        "playlistIdOutOfPrint",
+        "playlistIdLocalHeroes",
+        "playlistIdUnreleased",
         {
           type: "action",
           action: "startShoppingSession",
@@ -413,6 +420,30 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
             "If a shopping round is active, give late joiners their own random shop instance.",
           showWhen: { field: "enabled", value: true },
         },
+        playlistIdBargainBin: {
+          type: "string",
+          label: "Navidrome playlist id — Bargain Bin",
+          description: "Playlist id for Bargain Bin Sticker shelf access.",
+          showWhen: { field: "enabled", value: true },
+        },
+        playlistIdOutOfPrint: {
+          type: "string",
+          label: "Navidrome playlist id — Out Of Print",
+          description: "Playlist id for Out Of Print Sticker shelf access.",
+          showWhen: { field: "enabled", value: true },
+        },
+        playlistIdLocalHeroes: {
+          type: "string",
+          label: "Navidrome playlist id — Local Heroes",
+          description: "Playlist id for Local Heroes Sticker shelf access.",
+          showWhen: { field: "enabled", value: true },
+        },
+        playlistIdUnreleased: {
+          type: "string",
+          label: "Navidrome playlist id — Unreleased",
+          description: "Playlist id for Unreleased Sticker shelf access.",
+          showWhen: { field: "enabled", value: true },
+        },
       },
       quickAccess: ["startShoppingSession", "endShoppingSessions"],
     }
@@ -466,12 +497,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!known) {
         return { success: false, message: `Unknown item: ${itemShortId}` }
       }
-      if (itemShortId === THRIFT_STORE_COUPON_SHORT_ID) {
+      if (isLocalLibraryGrantShortId(itemShortId)) {
         const room = await this.context.getRoom()
         if (room?.playbackControllerId !== "bridge") {
           return {
             success: false,
-            message: "Thrift Store Coupon can only be given in Media Bridge rooms.",
+            message: "Library Stickers and Thrift Store Coupon can only be given in Media Bridge rooms.",
           }
         }
       }
@@ -669,8 +700,41 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     if (!config?.enabled) return "abstain"
     if (params.sourceId !== "local") return "abstain"
 
-    const hasCoupon = await this.context.inventory.hasItem(params.userId, couponDefinitionId())
-    return hasCoupon ? "grant" : "abstain"
+    const scope = await this.resolveUserLocalCatalogScope(params.userId, config)
+    return scope.mode === "none" ? "abstain" : "grant"
+  }
+
+  /**
+   * Catalog filter for restricted Local search/browse (ADR 0098).
+   * `unrestricted` = full library; `playlists` = Navidrome playlist id union.
+   */
+  async resolveLocalLibraryCatalogFilter(params: {
+    roomId: string
+    userId: string
+  }): Promise<
+    | { mode: "unrestricted" }
+    | { mode: "playlists"; playlistIds: string[] }
+    | "abstain"
+  > {
+    if (!this.context) return "abstain"
+    const config = await this.getConfig()
+    if (!config?.enabled) return "abstain"
+    const scope = await this.resolveUserLocalCatalogScope(params.userId, config)
+    if (scope.mode === "none") return "abstain"
+    if (scope.mode === "unrestricted") return { mode: "unrestricted" }
+    return { mode: "playlists", playlistIds: scope.playlistIds }
+  }
+
+  private async resolveUserLocalCatalogScope(
+    userId: string,
+    config: ItemShopsConfig,
+  ): Promise<LocalCatalogScope> {
+    const inv = await this.context!.inventory.getInventory(userId)
+    return resolveLocalCatalogScope({
+      pluginName: this.name,
+      items: inv.items,
+      localLibraryPlaylists: localLibraryPlaylistsFromConfig(config),
+    })
   }
 
   async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {
@@ -686,16 +750,56 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     if (room?.metadataSourceAccess?.local !== "restricted") return allowQueueRequest()
 
     const inv = await this.context.inventory.getInventory(params.userId)
-    const defId = couponDefinitionId()
-    const stack = inv.items.find((s) => s.definitionId === defId && s.quantity > 0)
-    if (!stack) return allowQueueRequest()
+    const held = listHeldLocalLibraryGrants({
+      pluginName: this.name,
+      items: inv.items,
+    })
+    if (held.length === 0) return allowQueueRequest()
 
-    const removed = await this.context.inventory.removeItem(params.userId, stack.itemId, 1)
+    const playlistMap = localLibraryPlaylistsFromConfig(config)
+    const shelfHeld = held.filter((h) => h.grant.scope === "playlist")
+    const playlistIdsForMembership = shelfHeld
+      .map((h) =>
+        h.grant.scope === "playlist" ? playlistMap[h.grant.playlistKey]?.trim() : "",
+      )
+      .filter((id): id is string => Boolean(id))
+
+    const trackInPlaylistKey: Record<string, boolean> = {}
+    if (playlistIdsForMembership.length > 0) {
+      const memberIds = await this.context.api.checkLocalTrackPlaylistMembership({
+        roomId: params.roomId,
+        trackId: params.trackId,
+        playlistIds: playlistIdsForMembership,
+      })
+      const memberSet = new Set(memberIds)
+      for (const h of shelfHeld) {
+        if (h.grant.scope !== "playlist") continue
+        const ndId = playlistMap[h.grant.playlistKey]?.trim()
+        trackInPlaylistKey[h.grant.playlistKey] = Boolean(ndId && memberSet.has(ndId))
+      }
+    } else {
+      for (const h of shelfHeld) {
+        if (h.grant.scope === "playlist") {
+          trackInPlaylistKey[h.grant.playlistKey] = false
+        }
+      }
+    }
+
+    const pick = pickGrantToConsume({ held, trackInPlaylistKey })
+    if (!pick) {
+      const hasLibrary = held.some((h) => h.grant.scope === "library")
+      if (!hasLibrary) {
+        return rejectQueueRequest("That track isn't available on your Library shelf.")
+      }
+      return allowQueueRequest()
+    }
+
+    const removed = await this.context.inventory.removeItem(params.userId, pick.itemId, 1)
     if (removed) {
       await this.context.api.sendUserSystemMessage(
         params.roomId,
         params.userId,
-        "Thrift Store Coupon redeemed for a Library track.",
+        `${pick.name} redeemed for a Library track.`,
         { type: "alert", status: "success" },
       )
     }

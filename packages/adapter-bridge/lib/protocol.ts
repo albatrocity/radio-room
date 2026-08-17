@@ -20,6 +20,7 @@ export const bridgeRequestSchema = z.object({
     "getArtist",
     "getAlbum",
     "notifyNowPlaying",
+    "checkPlaylistMembership",
   ]),
   params: z.record(z.string(), z.unknown()).default({}),
 })

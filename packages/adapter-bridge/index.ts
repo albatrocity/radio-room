@@ -54,7 +54,7 @@ export { requestBridgeLink, listOnlineBridgeDaemons } from "./lib/requestBridgeL
 export type { RequestBridgeLinkResult } from "./lib/requestBridgeLink"
 export { parseBridgeMediaId } from "./lib/parseBridgeMediaId"
 export { youtubeMetadataSource, createYoutubeMetadataApi } from "./lib/youtubeMetadata"
-export { localMetadataSource, registerLocalMetadataForRoom } from "./lib/localMetadata"
+export { localMetadataSource, registerLocalMetadataForRoom, checkLocalTrackPlaylistMembership } from "./lib/localMetadata"
 export { BridgeRpcClient } from "./lib/rpcClient"
 export {
   getOrCreateCapabilityCache,
