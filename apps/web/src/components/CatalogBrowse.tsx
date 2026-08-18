@@ -485,7 +485,7 @@ function CatalogBrowse({
                             onClick={() => openArtist(artist)}
                           >
                             <HStack gap={2} minW={0} w="100%">
-                              <EntityThumb images={artist.images} shape="circle" />
+                              <EntityThumb images={artist.images} shape="circle" size="track" />
                               <VStack align="start" gap={0} minW={0}>
                                 <Text fontWeight="medium" truncate>
                                   {artist.title}
@@ -524,6 +524,7 @@ function CatalogBrowse({
                                   shape="square"
                                   alt={item.name}
                                   artworkFrame={item.artworkFrame}
+                                  size="track"
                                 />
                                 <VStack align="start" gap={0} minW={0}>
                                   <Text fontWeight="medium" truncate>
@@ -549,7 +550,7 @@ function CatalogBrowse({
                             onClick={() => openAlbum(album)}
                           >
                             <HStack gap={2} minW={0} w="100%">
-                              <EntityThumb images={album.images} shape="square" />
+                              <EntityThumb images={album.images} shape="square" size="track" />
                               <VStack align="start" gap={0} minW={0}>
                                 <Text fontWeight="medium" truncate>
                                   {album.title}
@@ -585,6 +586,7 @@ function CatalogBrowse({
                           >
                             <TrackItem
                               {...track}
+                              size="row"
                               artworkOverride={selectedMedia ? mediaArtworkOverride : undefined}
                             />
                           </BrowseRowButton>

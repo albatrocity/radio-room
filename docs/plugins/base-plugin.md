@@ -143,6 +143,14 @@ Intercept queue requests before they're processed. Use this to implement rate li
 
 See [Queue Validation](queue-validation.md#queue-validation) for full documentation.
 
+#### `cancelHeldQueue(params): Promise<{ cancelled: boolean }>` (optional)
+
+Clear a deferred / held pick when the listener undoes `SONG_QUEUE_HELD` ([ADR 0101](../adrs/0101-queue-add-undo-and-round-robin-turn-restore.md)). Return `{ cancelled: true }` only if this plugin owned a hold matching `trackId`.
+
+#### `onQueueItemRemoved(params): Promise<void>` (optional)
+
+Called after a successful app-controlled `REMOVE_FROM_QUEUE`. Fail-open (500ms). Use this to restore Round Robin turns; do not treat a cancelled hold as a spent turn.
+
 #### `grantMetadataSourceAccess(params): Promise<"grant" | "abstain">` (optional)
 
 Grant a user access to a **restricted** metadata source on bridge rooms (search/queue). Any `"grant"` wins; errors/timeouts abstain (fail-closed). Discover source ids via `this.context.api.listMetadataSources(roomId)`.

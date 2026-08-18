@@ -96,7 +96,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0088](0088-metadata-source-access-grants.md) | Metadata source access (room baseline + plugin grants) | Accepted |
 | [0089](0089-metadata-source-content-browse.md) | Metadata source content browse (artists → albums → tracks) | Partially superseded by [0090](0090-hybrid-metadata-catalog-browse.md) |
 | [0090](0090-hybrid-metadata-catalog-browse.md) | Hybrid metadata catalog browse (search-entry + Search entity rows) | Accepted |
-| [0091](0091-round-robin-dj-plugin.md) | Round Robin DJ plugin (turn eligibility, Robin persona, DEPUTY_DJ_CHANGED) | Accepted |
+| [0091](0091-round-robin-dj-plugin.md) | Round Robin DJ plugin (turn eligibility, Robin persona, DEPUTY_DJ_CHANGED) | Partially superseded by [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) |
 | [0092](0092-plugin-showwhen-membership-and-add-to-queue-area.md) | Plugin showWhen membership operators and `addToQueue` area | Accepted |
 | [0093](0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md) | Client socket event allowlists + shared plugin component actors | Accepted |
 | [0094](0094-reaction-add-remove-delta-payloads.md) | Reaction add/remove emit delta only (`reaction` required; full store on INIT) | Accepted |
@@ -106,6 +106,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0098](0098-inventory-scoped-local-library-catalog-filters.md) | Inventory-scoped Local library catalog filters (playlist shelves) | Partially superseded by [0099](0099-physical-media-personal-libraries.md) |
 | [0099](0099-physical-media-personal-libraries.md) | Physical Media personal libraries (derived items, Record Store, myMedia) | Accepted |
 | [0100](0100-dual-inventory-slot-pools.md) | Dual inventory slot pools (`inventory` vs `collection`) | Accepted |
+| [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) | Queue-add undo: cancel held picks and restore Round Robin turns | Accepted |
 
 ## Creating a New ADR
 

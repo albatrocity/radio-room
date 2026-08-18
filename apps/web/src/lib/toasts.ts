@@ -10,6 +10,7 @@ type ToastOptions = {
   status?: "success" | "error" | "warning" | "info"
   id?: string
   isClosable?: boolean
+  action?: { label: string; onClick: () => void }
 }
 
 function resolveDuration(duration: number | null | undefined): number {
@@ -29,6 +30,7 @@ export function toast(options: ToastOptions) {
     description: options.description,
     type,
     duration: resolveDuration(options.duration),
+    ...(options.action ? { action: options.action } : {}),
     meta: {
       closable,
     },

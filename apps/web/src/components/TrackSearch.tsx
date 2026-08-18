@@ -252,7 +252,7 @@ function TrackSearch({
           >
             <HStack justify="space-between" w="100%" minW={0} gap={2}>
               <HStack gap={2} minW={0} flex={1}>
-                <EntityThumb images={artist.images} shape="circle" alt="" />
+                <EntityThumb images={artist.images} shape="circle" alt="" size="track" />
                 <Text fontWeight="medium" truncate>
                   {artist.title}
                 </Text>
@@ -301,7 +301,7 @@ function TrackSearch({
           >
             <HStack justify="space-between" w="100%" minW={0} gap={2}>
               <HStack gap={2} minW={0} flex={1}>
-                <EntityThumb images={album.images} shape="square" alt="" />
+                <EntityThumb images={album.images} shape="square" alt="" size="track" />
                 <VStack align="start" gap={0} minW={0}>
                   <Text fontWeight="medium" truncate>
                     {album.title}

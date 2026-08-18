@@ -1251,6 +1251,26 @@ export interface Plugin {
   beforePlayQueuedTrack?(params: BeforePlayQueuedTrackParams): Promise<void>
 
   /**
+   * Clear a deferred / held queue pick (ADR 0101). Return `{ cancelled: true }`
+   * only when this plugin owned a hold matching `trackId`.
+   */
+  cancelHeldQueue?(params: {
+    roomId: string
+    userId: string
+    trackId: string
+  }): Promise<{ cancelled: boolean }>
+
+  /**
+   * After a successful app-controlled `REMOVE_FROM_QUEUE` (ADR 0101).
+   * Fail-open on errors/timeouts (like `validateQueueRequest`).
+   */
+  onQueueItemRemoved?(params: {
+    roomId: string
+    item: QueueItem
+    remainingQueue: QueueItem[]
+  }): Promise<void>
+
+  /**
    * Transform a chat message before it is persisted and broadcast.
    * Called sequentially for each enabled plugin in the room; each sees the
    * previous plugin's result. Return `null` or `undefined` to leave the message

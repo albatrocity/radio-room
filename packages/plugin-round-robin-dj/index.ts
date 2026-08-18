@@ -42,6 +42,7 @@ import {
   createInitialState,
   isEligible,
   recordSuccessfulQueue,
+  restoreTurnToEndOfRound,
   rejectionReason,
   removeUser,
   type StateTransition,
@@ -60,6 +61,7 @@ export {
   canHold,
   canAccessSources,
   recordSuccessfulQueue,
+  restoreTurnToEndOfRound,
   addDeputy,
   removeUser,
   applyAdminRobin,
@@ -227,6 +229,37 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     }
 
     return rejectQueueRequest(rejectionReason(state))
+  }
+
+  async cancelHeldQueue(params: {
+    roomId: string
+    userId: string
+    trackId: string
+  }): Promise<{ cancelled: boolean }> {
+    const config = await this.getConfig()
+    if (!config?.enabled) return { cancelled: false }
+    const hold = await this.holds.loadHold(params.userId)
+    if (!hold || hold.trackId !== params.trackId) return { cancelled: false }
+    await this.holds.clearHold(params.userId)
+    return { cancelled: true }
+  }
+
+  async onQueueItemRemoved(params: {
+    roomId: string
+    item: QueueItem
+    remainingQueue: QueueItem[]
+  }): Promise<void> {
+    const config = await this.getConfig()
+    if (!config?.enabled) return
+    const ownerId = params.item.addedBy?.userId
+    if (!ownerId || ownerId.startsWith("plugin:")) return
+
+    const state = await this.loadState()
+    if (!state) return
+
+    const transition = restoreTurnToEndOfRound(state, ownerId, params.remainingQueue)
+    if (transition.state === state) return
+    await this.persistAndSync(transition, config)
   }
 
   async grantMetadataSourceAccess(

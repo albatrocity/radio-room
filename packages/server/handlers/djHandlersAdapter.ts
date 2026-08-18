@@ -782,6 +782,52 @@ export class DJHandlers {
     }
   }
 
+  /**
+   * Cancel a plugin-held (deferred) queue pick (ADR 0101).
+   */
+  cancelHeldQueue = async (
+    { socket }: HandlerConnections,
+    { trackId }: { trackId: string },
+  ) => {
+    try {
+      const { roomId, userId } = socket.data
+      const key = typeof trackId === "string" ? trackId.trim() : ""
+      if (!key) {
+        socket.emit("event", {
+          type: "CANCEL_HELD_QUEUE_FAILURE",
+          data: { trackId: trackId ?? "", message: "Missing track id" },
+        })
+        return
+      }
+
+      const result = this.context.pluginRegistry?.cancelHeldQueue
+        ? await this.context.pluginRegistry.cancelHeldQueue({ roomId, userId, trackId: key })
+        : { cancelled: false }
+
+      if (!result.cancelled) {
+        socket.emit("event", {
+          type: "CANCEL_HELD_QUEUE_FAILURE",
+          data: { trackId: key, message: "No held song to undo" },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "CANCEL_HELD_QUEUE_SUCCESS",
+        data: { trackId: key },
+      })
+    } catch (error: any) {
+      console.error("Error cancelling held queue:", error)
+      socket.emit("event", {
+        type: "CANCEL_HELD_QUEUE_FAILURE",
+        data: {
+          message: error?.message || "Failed to undo held song",
+          trackId,
+        },
+      })
+    }
+  }
+
   reorderQueue = async (
     { socket }: HandlerConnections,
     { orderedKeys }: { orderedKeys: string[] },

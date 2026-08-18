@@ -4,6 +4,7 @@ import type { ArtworkFrame } from "@repo/types"
 import { labelForMetadataSource, MetadataSourceTrack } from "@repo/types"
 import { toPhysicalMediaArt } from "../lib/physicalMediaArtwork"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
+import { FRAMED_ARTWORK_TRACK_PX } from "./artworkFrames/frameStyles"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
 
@@ -16,21 +17,26 @@ type ArtworkOverride = {
 type Props = TrackWithSource & {
   /** When set (Physical Media item browse), show the sleeve instead of track album art. */
   artworkOverride?: ArtworkOverride
+  /** Search hits use `"track"` (100px); drilled-in browse lists use `"row"` (40px). */
+  size?: "row" | "track"
 }
 
-const TrackItem = ({ title, album, artists, source, artworkOverride }: Props) => {
+const UNFRAMED_ROW_PX = 40
+
+const TrackItem = ({ title, album, artists, source, artworkOverride, size = "track" }: Props) => {
   const albumImage = album.images.find((img) => img.type === "image")
   const art = toPhysicalMediaArt(artworkOverride ?? {})
+  const unframedPx = size === "row" ? UNFRAMED_ROW_PX : FRAMED_ARTWORK_TRACK_PX
 
   const leadingVisual = (() => {
     if (art) {
-      return <FramedArtwork art={art} size="track" squareSlot alt="" />
+      return <FramedArtwork art={art} size={size} squareSlot alt="" />
     }
     if (artworkOverride?.imageUrl) {
       return (
         <Image
-          w={100}
-          h={100}
+          w={`${unframedPx}px`}
+          h={`${unframedPx}px`}
           flexShrink={0}
           src={artworkOverride.imageUrl}
           loading="lazy"
@@ -40,7 +46,14 @@ const TrackItem = ({ title, album, artists, source, artworkOverride }: Props) =>
     }
     if (albumImage) {
       return (
-        <Image w={100} h={100} flexShrink={0} src={albumImage.url} loading="lazy" alt="" />
+        <Image
+          w={`${unframedPx}px`}
+          h={`${unframedPx}px`}
+          flexShrink={0}
+          src={albumImage.url}
+          loading="lazy"
+          alt=""
+        />
       )
     }
     return null

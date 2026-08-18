@@ -160,6 +160,10 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
     await handlers.removeFromQueueDirect(connections, { trackId })
   })
 
+  socket.on("CANCEL_HELD_QUEUE", async ({ trackId }: { trackId: string }) => {
+    await handlers.cancelHeldQueue(connections, { trackId })
+  })
+
   socket.on("PLAY_QUEUED_TRACK", async ({ trackId }: { trackId: string }) => {
     await handlers.playQueuedTrack(connections, { trackId })
   })

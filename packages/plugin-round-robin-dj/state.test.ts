@@ -10,6 +10,7 @@ import {
   getEligibleUserIds,
   isEligible,
   recordSuccessfulQueue,
+  restoreTurnToEndOfRound,
   removeUser,
   shouldUseExclusiveRobin,
   singleNewEligible,
@@ -221,6 +222,103 @@ describe("round-robin state", () => {
       expect(canHold(state, "a", true)).toBe(true)
       expect(canHold(state, "b", true)).toBe(false) // b has not queued yet — should enqueue live
       expect(canAccessSources(state, "a", true)).toBe(true)
+    })
+  })
+
+  describe("restoreTurnToEndOfRound", () => {
+    it("drops discovery order slot so they do not keep first-slot privilege", () => {
+      let state = createInitialState("sequential", ["a", "b", "c"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      expect(state.order).toEqual(["a"])
+      const t = restoreTurnToEndOfRound(state, "a", [])
+      expect(t.state.queuedThisRound).toEqual([])
+      expect(t.state.order).toEqual([])
+      expect(getEligibleUserIds(t.state).sort()).toEqual(["a", "b", "c"])
+    })
+
+    it("moves a locked-round undoer to the end and keeps the current player", () => {
+      let state = createInitialState("sequential", ["a", "b", "c"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      state = recordSuccessfulQueue(state, "b", true).state
+      state = recordSuccessfulQueue(state, "c", true).state
+      // round 2 locked, a then b then c
+      state = recordSuccessfulQueue(state, "a", true).state
+      expect(getEligibleUserIds(state)).toEqual(["b"])
+      expect(state.queuedThisRound).toEqual(["a"])
+
+      const t = restoreTurnToEndOfRound(state, "a", [])
+      expect(t.state.queuedThisRound).toEqual([])
+      expect(t.state.order).toEqual(["b", "c", "a"])
+      expect(getEligibleUserIds(t.state)).toEqual(["b"])
+    })
+
+    it("reopens roundComplete onto the last remaining undoer", () => {
+      let state = createInitialState("sequential", ["a", "b"])
+      state = recordSuccessfulQueue(state, "a", false).state
+      state = recordSuccessfulQueue(state, "b", false).state
+      expect(state.phase).toBe("roundComplete")
+
+      const t = restoreTurnToEndOfRound(state, "b", [])
+      expect(t.state.phase).toBe("locked")
+      expect(t.state.queuedThisRound).toEqual(["a"])
+      expect(getEligibleUserIds(t.state)).toEqual(["b"])
+    })
+
+    it("rewinds auto-advance when lastTurn matches and the new round is empty", () => {
+      let state = createInitialState("sequential", ["a", "b"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      state = recordSuccessfulQueue(state, "b", true).state
+      expect(state.round).toBe(2)
+      expect(state.queuedThisRound).toEqual([])
+      expect(state.lastTurn).toEqual({
+        userId: "b",
+        completedRound: 1,
+        roundAdvanced: true,
+      })
+
+      const t = restoreTurnToEndOfRound(state, "b", [])
+      expect(t.state.round).toBe(1)
+      expect(t.state.queuedThisRound).toEqual(["a"])
+      expect(t.state.order[t.state.order.length - 1]).toBe("b")
+      expect(getEligibleUserIds(t.state)).toEqual(["b"])
+    })
+
+    it("does not rewind after someone else has queued in the new round", () => {
+      let state = createInitialState("sequential", ["a", "b"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      state = recordSuccessfulQueue(state, "b", true).state
+      state = recordSuccessfulQueue(state, "a", true).state
+      expect(state.round).toBe(2)
+      expect(state.queuedThisRound).toEqual(["a"])
+
+      const t = restoreTurnToEndOfRound(state, "b", [])
+      expect(t.state).toBe(state)
+    })
+
+    it("does not rewind after admin advanceRound (lastTurn cleared)", () => {
+      let state = createInitialState("sequential", ["a", "b"])
+      state = recordSuccessfulQueue(state, "a", false).state
+      state = recordSuccessfulQueue(state, "b", false).state
+      state = advanceRound(state).state
+      expect(state.lastTurn).toBeUndefined()
+
+      const t = restoreTurnToEndOfRound(state, "b", [])
+      expect(t.state).toBe(state)
+    })
+
+    it("unmarks only queuedThisRound in nonSequential mode", () => {
+      let state = createInitialState("nonSequential", ["a", "b", "c"])
+      state = recordSuccessfulQueue(state, "c", true).state
+      const t = restoreTurnToEndOfRound(state, "c", [])
+      expect(t.state.queuedThisRound).toEqual([])
+      expect(getEligibleUserIds(t.state).sort()).toEqual(["a", "b", "c"])
+    })
+
+    it("skips restore when the owner still has a remaining queue row", () => {
+      let state = createInitialState("nonSequential", ["a", "b"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      const t = restoreTurnToEndOfRound(state, "a", [{ addedBy: { userId: "a" } }])
+      expect(t.state).toBe(state)
     })
   })
 })

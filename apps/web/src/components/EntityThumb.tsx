@@ -2,9 +2,9 @@ import { Box, Image } from "@chakra-ui/react"
 import type { ArtworkFrame, MetadataSourceUrl } from "@repo/types"
 import { toPhysicalMediaArt } from "../lib/physicalMediaArtwork"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
-import { FRAMED_ARTWORK_BOX_SIZE } from "./artworkFrames/frameStyles"
+import { FRAMED_ARTWORK_TRACK_PX } from "./artworkFrames/frameStyles"
 
-const ENTITY_THUMB_SIZE = 40
+const ENTITY_THUMB_ROW_PX = 40
 
 function firstImageUrl(images?: MetadataSourceUrl[]): string | undefined {
   return images?.find((img) => img.type === "image")?.url
@@ -15,8 +15,8 @@ type Props = {
   shape: "circle" | "square"
   alt?: string
   artworkFrame?: ArtworkFrame
-  /** Chakra box size when framed (Physical Media). Defaults to 12. */
-  boxSize?: number
+  /** Grouping rows use `"track"` (100px); compact rows use `"row"` (40px). */
+  size?: "row" | "track"
 }
 
 /** Leading artwork for artist/album list rows (circle for artists, square for albums). */
@@ -25,24 +25,22 @@ export default function EntityThumb({
   shape,
   alt = "",
   artworkFrame,
-  boxSize,
+  size = "row",
 }: Props) {
   const url = firstImageUrl(images)
-  const framedSize = boxSize ?? FRAMED_ARTWORK_BOX_SIZE
   const radius = artworkFrame ? 0 : shape === "circle" ? "full" : "sm"
-  const pixelSize = artworkFrame ? undefined : ENTITY_THUMB_SIZE
+  const unframedPx = size === "track" ? FRAMED_ARTWORK_TRACK_PX : ENTITY_THUMB_ROW_PX
   const art = toPhysicalMediaArt({ imageUrl: url, artworkFrame })
 
   if (art) {
-    return <FramedArtwork art={art} size="row" squareSlot alt={alt} />
+    return <FramedArtwork art={art} size={size} squareSlot alt={alt} />
   }
 
   if (!url) {
     return (
       <Box
-        w={pixelSize != null ? `${pixelSize}px` : undefined}
-        h={pixelSize != null ? `${pixelSize}px` : undefined}
-        boxSize={pixelSize == null ? framedSize : undefined}
+        w={`${unframedPx}px`}
+        h={`${unframedPx}px`}
         flexShrink={0}
         borderRadius={radius}
         bg="bg.muted"
@@ -55,8 +53,8 @@ export default function EntityThumb({
     <Image
       src={url}
       alt={alt}
-      w={`${ENTITY_THUMB_SIZE}px`}
-      h={`${ENTITY_THUMB_SIZE}px`}
+      w={`${unframedPx}px`}
+      h={`${unframedPx}px`}
       flexShrink={0}
       borderRadius={radius}
       objectFit="cover"

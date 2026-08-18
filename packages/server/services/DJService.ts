@@ -733,13 +733,23 @@ export class DJService {
     const trackKey = `${queueItem.mediaSource.type}:${queueItem.mediaSource.trackId}`
     await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
 
+    let remainingQueue: QueueItem[] | undefined
     if (this.context.systemEvents) {
       const payload = await buildQueueChangedData({
         roomId,
         context: this.context,
         appControlled: true,
       })
+      remainingQueue = payload.queue
       await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
+    }
+
+    if (this.context.pluginRegistry?.notifyQueueItemRemoved) {
+      await this.context.pluginRegistry.notifyQueueItemRemoved({
+        roomId,
+        item: queueItem,
+        remainingQueue: remainingQueue ?? (await getQueue({ context: this.context, roomId })),
+      })
     }
 
     const title = queueItem.track.title || queueItem.title || "Track"

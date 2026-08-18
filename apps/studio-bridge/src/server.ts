@@ -766,6 +766,14 @@ function wireSocketHandlers(io: IOServer): void {
       /** Success/failure is emitted by Game Studio via POST `/preview/queue-remove-result`. */
     })
 
+    socket.on("CANCEL_HELD_QUEUE", async (data: { trackId?: string }) => {
+      const trackId = typeof data?.trackId === "string" ? data.trackId : ""
+      socket.emit("event", {
+        type: "CANCEL_HELD_QUEUE_SUCCESS",
+        data: { trackId },
+      })
+    })
+
     socket.on("SET_QUEUE_SPLIT", async (data: { belowKey?: string }) => {
       const roomId = socket.data.roomId as string | undefined
       const userId = socket.data.userId as string | undefined

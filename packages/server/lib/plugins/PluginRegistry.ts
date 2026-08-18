@@ -610,6 +610,80 @@ export class PluginRegistry {
     }
   }
 
+  /**
+   * Cancel a deferred queue pick (ADR 0101). First plugin returning
+   * `{ cancelled: true }` wins. Errors/timeouts fail-open (`false`).
+   */
+  async cancelHeldQueue(params: {
+    roomId: string
+    userId: string
+    trackId: string
+  }): Promise<{ cancelled: boolean }> {
+    const trackId = params.trackId.trim()
+    if (!trackId) return { cancelled: false }
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+    if (!roomPluginMap || roomPluginMap.size === 0) return { cancelled: false }
+
+    const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.cancelHeldQueue === "function",
+    )
+    if (pluginsWithHook.length === 0) return { cancelled: false }
+
+    for (const [pluginName, { plugin }] of pluginsWithHook) {
+      try {
+        const result = await Promise.race([
+          plugin.cancelHeldQueue!({ ...params, trackId }),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+        if (result?.cancelled === true) return { cancelled: true }
+      } catch (error) {
+        console.warn(`[PluginRegistry] cancelHeldQueue ${pluginName} failed:`, error)
+      }
+    }
+    return { cancelled: false }
+  }
+
+  /**
+   * Notify plugins after a successful Redis queue removal (ADR 0101). Fail-open.
+   */
+  async notifyQueueItemRemoved(params: {
+    roomId: string
+    item: QueueItem
+    remainingQueue: QueueItem[]
+  }): Promise<void> {
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+    if (!roomPluginMap || roomPluginMap.size === 0) return
+
+    const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.onQueueItemRemoved === "function",
+    )
+    if (pluginsWithHook.length === 0) return
+
+    for (const [pluginName, { plugin }] of pluginsWithHook) {
+      try {
+        await Promise.race([
+          plugin.onQueueItemRemoved!(params),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+      } catch (error) {
+        console.warn(
+          `[PluginRegistry] onQueueItemRemoved ${pluginName} failed (continuing):`,
+          error,
+        )
+      }
+    }
+  }
+
   // ============================================================================
   // Chat message transform
   // ============================================================================
