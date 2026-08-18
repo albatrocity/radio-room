@@ -19,9 +19,11 @@ import {
   type MyMediaShelf,
   type Plugin,
   type PluginActionInitiator,
+  type PluginAugmentationData,
   type PluginComponentSchema,
   type PluginConfigSchema,
   type InventoryItem,
+  type QueueItem,
   type QueueValidationParams,
   type QueueValidationResult,
   type ShoppingSessionInstance,
@@ -400,6 +402,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         "enabled",
         "enabledShopIds",
         "assignShopOnJoin",
+        "showPhysicalMediaFrameInNowPlaying",
         "localLibraryGrants",
         "physicalMediaOverrides",
         {
@@ -480,6 +483,13 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           label: "Assign shop when users join mid-session",
           description:
             "If a shopping round is active, give late joiners their own random shop instance.",
+          showWhen: { field: "enabled", value: true },
+        },
+        showPhysicalMediaFrameInNowPlaying: {
+          type: "boolean",
+          label: "Show Physical Media sleeve in Now Playing",
+          description:
+            "When a queued Local track lives on a derived record (LP, CD, cassette, or 45), Now Playing uses that sleeve or case. If the record has no cover, the track's album art fills the frame.",
           showWhen: { field: "enabled", value: true },
         },
         localLibraryGrants: {
@@ -875,6 +885,17 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {
     const config = (await this.getConfig()) ?? defaultItemShopsConfig
     return this.localLibrary.validateQueueRequest(params, config)
+  }
+
+  async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    if (!config.enabled) return {}
+    if (item.mediaSource?.type !== "local") return {}
+    const trackId = item.mediaSource.trackId?.trim()
+    if (!trackId) return {}
+    const physicalMediaFrame = await this.localLibrary.resolveNowPlayingFrame(trackId)
+    if (!physicalMediaFrame) return {}
+    return { physicalMediaFrame }
   }
 
   async getSellbackValues(

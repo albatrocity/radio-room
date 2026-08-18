@@ -6,6 +6,7 @@ import { ItemShopsPlugin, getEligibleShops, defaultItemShopsConfig } from "./ind
 import { SHOP_CATALOG } from "./shops"
 import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
 import { RECORD_STORE_SHOP_ID, PUBLIC_LIBRARY_SHOP_ID } from "./localLibrary/catalog"
+import { queueItemFactory } from "@repo/factories"
 
 const ROOM = "room-1"
 const LIBRARY_CARD_SHORT_ID = "library-card"
@@ -376,6 +377,75 @@ describe("ItemShopsPlugin local library grants", () => {
       const shelves = await plugin.listMyMediaShelves({ roomId: ROOM, userId: "u1" })
       expect(shelves[0]?.imageUrl).toBe("/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234")
       expect(shelves[0]?.artworkFrame).toBe("record-jacket")
+    })
+  })
+
+  describe("augmentNowPlaying", () => {
+    const localTrack = queueItemFactory.build({
+      mediaSource: { type: "local", trackId: "local-track-1" },
+    })
+
+    it("attaches the sleeve when the Local track is on a derived record with cover art", async () => {
+      const { plugin, api } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaImageUrl: "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234",
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      await expect(plugin.augmentNowPlaying(localTrack)).resolves.toEqual({
+        physicalMediaFrame: {
+          imageUrl: "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234",
+          artworkFrame: "record-jacket",
+        },
+      })
+      expect(api.checkLocalTrackPlaylistMembership).toHaveBeenCalledWith({
+        roomId: ROOM,
+        trackId: "local-track-1",
+        playlistIds: ["nd-lp"],
+      })
+    })
+
+    it("skips when the track is not on a derived record", async () => {
+      const { plugin } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaImageUrl: "/cover.jpg",
+        membershipPlaylistIds: [],
+      })
+      await expect(plugin.augmentNowPlaying(localTrack)).resolves.toEqual({})
+    })
+
+    it("attaches the frame without imageUrl when the record has no cover art", async () => {
+      const { plugin, api } = setup({
+        hasPhysicalMedia: true,
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      await expect(plugin.augmentNowPlaying(localTrack)).resolves.toEqual({
+        physicalMediaFrame: { artworkFrame: "record-jacket" },
+      })
+      expect(api.checkLocalTrackPlaylistMembership).toHaveBeenCalledWith({
+        roomId: ROOM,
+        trackId: "local-track-1",
+        playlistIds: ["nd-lp"],
+      })
+    })
+
+    it("skips non-Local tracks", async () => {
+      const { plugin, api } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaImageUrl: "/cover.jpg",
+      })
+      await expect(plugin.augmentNowPlaying(queueItemFactory.build())).resolves.toEqual({})
+      expect(api.checkLocalTrackPlaylistMembership).not.toHaveBeenCalled()
+    })
+
+    it("skips when Item Shops is disabled", async () => {
+      const { plugin, api } = setup({
+        enabled: false,
+        hasPhysicalMedia: true,
+        physicalMediaImageUrl: "/cover.jpg",
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      await expect(plugin.augmentNowPlaying(localTrack)).resolves.toEqual({})
+      expect(api.checkLocalTrackPlaylistMembership).not.toHaveBeenCalled()
     })
   })
 

@@ -34,6 +34,11 @@ export const itemShopsConfigSchema = z.object({
     .array(localLibraryGrantConfigSchema)
     .default(() => [...DEFAULT_LOCAL_LIBRARY_GRANTS]),
   /**
+   * When a Local track from a derived Physical Media playlist is now playing,
+   * show the sleeve/case overlay. Missing playlist cover falls back to track art.
+   */
+  showPhysicalMediaFrameInNowPlaying: z.boolean().default(false),
+  /**
    * Per-playlist overrides for derived Physical Media (name, price, rarity, icon).
    */
   physicalMediaOverrides: z.array(physicalMediaOverrideSchema).default([]),
@@ -47,4 +52,5 @@ export const defaultItemShopsConfig: ItemShopsConfig = {
   enabledShopIds: defaultEnabledShopIds(),
   localLibraryGrants: [...DEFAULT_LOCAL_LIBRARY_GRANTS],
   physicalMediaOverrides: [],
+  showPhysicalMediaFrameInNowPlaying: false,
 }

@@ -23,7 +23,9 @@ import { Room, RoomMeta } from "../../types/Room"
 import { PluginArea } from "../PluginComponents"
 import { usePluginStyles } from "../../hooks/usePluginStyles"
 import { usePluginElementProps } from "../../hooks/usePluginElementProps"
-import { usePreferredMetadataSource } from "../../hooks/useActors"
+import { usePreferredMetadataSource, usePluginConfigs } from "../../hooks/useActors"
+import { physicalMediaNowPlayingFrame } from "../../lib/physicalMediaNowPlayingArt"
+import FramedArtwork from "../artworkFrames/FramedArtwork"
 import { MetadataSourceType } from "../../types/Queue"
 import { guessTheTuneNowPlayingItemContext } from "../../lib/guessTheTunePluginItemContext"
 import { labelForMetadataSource, type PluginElementProps } from "@repo/types"
@@ -102,6 +104,7 @@ function getPreferredTrackData(
 export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   const { album, artist, track, nowPlaying, title, dj } = meta
   const preferredSource = usePreferredMetadataSource()
+  const pluginConfigs = usePluginConfigs()
 
   // Get track data based on user's preference
   const { track: preferredTrack, metadataSource: activeMetadataSource } = useMemo(
@@ -113,6 +116,7 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   const release = preferredTrack || nowPlaying?.track
 
   const coverUrl = getCoverUrl(release, room)
+  const useRoomArtwork = Boolean(room?.artwork && (!room.artworkStreamingOnly || !room.fetchMeta))
   const externalUrl = getTrackExternalUrl(release)
   const artworkSize = [24, "100%", "100%"]
 
@@ -126,6 +130,15 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   const artistElementProps = usePluginElementProps(nowPlaying?.pluginData, "artist")
   const albumElementProps = usePluginElementProps(nowPlaying?.pluginData, "album")
   const artworkElementProps = usePluginElementProps(nowPlaying?.pluginData, "artwork")
+  const sleeveFrame =
+    !useRoomArtwork && !artworkElementProps.obscured
+      ? physicalMediaNowPlayingFrame(
+          nowPlaying?.pluginData as Record<string, unknown> | undefined,
+          pluginConfigs,
+        )
+      : undefined
+  const sleeveImageUrl = sleeveFrame?.imageUrl?.trim() || coverUrl
+  const showFramedSleeve = sleeveFrame != null && Boolean(sleeveImageUrl)
 
   const nowPlayingInfoItemContext = useMemo(
     () => guessTheTuneNowPlayingItemContext(nowPlaying?.pluginData),
@@ -156,12 +169,26 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
           <VStack align="start" gap={4} w="100%" data-screen-effect-target="nowPlaying">
             <LinkBox width="100%">
               <Stack direction={["row", "column"]} gap={5} justify="center">
-                {coverUrl && (
-                  <Box position="relative" width={artworkSize} height={artworkSize} flexShrink={0}>
+                {(coverUrl || showFramedSleeve) && (
+                  <Box
+                    position="relative"
+                    width={artworkSize}
+                    // FramedArtwork sizes from height. `height: 100%` in this
+                    // column Stack collapses to 0 (parent height is content-sized);
+                    // AlbumArtwork survives because the <img> has intrinsic size.
+                    height={showFramedSleeve ? [24, "auto"] : artworkSize}
+                    aspectRatio={showFramedSleeve ? "1 / 1" : undefined}
+                    flexShrink={0}
+                  >
                     <Box position="absolute">
                       <PluginArea area="nowPlayingArt" color="primaryBg" />
                     </Box>
-                    <Box position="relative" overflow="hidden" height="100%" width="100%">
+                    <Box
+                      position="relative"
+                      overflow={showFramedSleeve ? "visible" : "hidden"}
+                      height="100%"
+                      width="100%"
+                    >
                       {artworkElementProps.obscured ? (
                         <Image
                           src={OBSCURED_ARTWORK_PLACEHOLDER}
@@ -171,8 +198,21 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
                           objectFit="cover"
                           draggable={false}
                         />
+                      ) : showFramedSleeve && sleeveFrame && sleeveImageUrl ? (
+                        <FramedArtwork
+                          imageUrl={sleeveImageUrl}
+                          artworkFrame={sleeveFrame.artworkFrame}
+                          fallbackImageUrl={
+                            sleeveFrame.imageUrl && coverUrl && sleeveFrame.imageUrl !== coverUrl
+                              ? coverUrl
+                              : undefined
+                          }
+                          height="100%"
+                          squareSlot
+                          alt=""
+                        />
                       ) : (
-                        <AlbumArtwork coverUrl={coverUrl} />
+                        <AlbumArtwork coverUrl={coverUrl!} />
                       )}
                     </Box>
                   </Box>

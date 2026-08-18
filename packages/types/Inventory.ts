@@ -82,6 +82,15 @@ export function parseArtworkFrame(value: string): ArtworkFrame | undefined {
   return undefined
 }
 
+/** pluginData payload Item Shops attaches on now-playing Local tracks that live on a derived record. */
+export type PhysicalMediaNowPlayingFrame = {
+  /** Playlist cover when Navidrome has one; omitted so the client can fall back to track art. */
+  imageUrl?: string
+  artworkFrame: ArtworkFrame
+}
+
+export const PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY = "physicalMediaFrame" as const
+
 /**
  * Static definition of an item kind, registered by the owning plugin during
  * `register()`. The `id` is namespaced as `<plugin-name>:<short-id>`.

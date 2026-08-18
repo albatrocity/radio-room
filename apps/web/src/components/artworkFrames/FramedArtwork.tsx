@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Box, Image, type BoxProps } from "@chakra-ui/react"
 import { parseArtworkFrame, type ArtworkFrame } from "@repo/types"
 import ArtworkFrameOverlay from "./ArtworkFrameOverlay"
@@ -25,6 +25,8 @@ type Props = SizeProps & {
   alt?: string
   idPrefix?: string
   flexShrink?: BoxProps["flexShrink"]
+  /** Used if `imageUrl` fails to load (e.g. playlist cover 404 → track art). */
+  fallbackImageUrl?: string
   /**
    * Occupy a square of the given size and center the physical object in it.
    * Keeps list columns aligned when a cassette is narrower than a sleeve.
@@ -43,6 +45,7 @@ export default function FramedArtwork({
   alt = "",
   idPrefix,
   flexShrink = 0,
+  fallbackImageUrl,
   squareSlot = false,
   ...size
 }: Props) {
@@ -56,6 +59,11 @@ export default function FramedArtwork({
 
   const contentRef = useRef<HTMLDivElement>(null)
   const [contentSize, setContentSize] = useState<ArtworkOverlaySize>()
+  const [src, setSrc] = useState(imageUrl)
+
+  useEffect(() => {
+    setSrc(imageUrl)
+  }, [imageUrl])
 
   useLayoutEffect(() => {
     const el = contentRef.current
@@ -101,13 +109,17 @@ export default function FramedArtwork({
           left={pct(inset.left)}
           w={pct(1 - inset.left - inset.right)}
           h={pct(1 - inset.top - inset.bottom)}
-          src={imageUrl}
+          src={src}
           alt={alt}
           borderRadius={0}
           objectFit="cover"
           objectPosition="center"
           loading="lazy"
           maxW="none"
+          onError={() => {
+            const fallback = fallbackImageUrl?.trim()
+            if (fallback && src !== fallback) setSrc(fallback)
+          }}
         />
         <ArtworkFrameOverlay frame={frame} idPrefix={idPrefix} />
       </Box>

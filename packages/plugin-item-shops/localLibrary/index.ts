@@ -1,12 +1,15 @@
-import type {
-  MetadataSourceAccessGrantParams,
-  MetadataSourceAccessGrantResult,
-  MyMediaShelf,
-  PluginContext,
-  QueueValidationParams,
-  QueueValidationResult,
+import {
+  allowQueueRequest,
+  parseArtworkFrame,
+  rejectQueueRequest,
+  type MetadataSourceAccessGrantParams,
+  type MetadataSourceAccessGrantResult,
+  type MyMediaShelf,
+  type PhysicalMediaNowPlayingFrame,
+  type PluginContext,
+  type QueueValidationParams,
+  type QueueValidationResult,
 } from "@repo/types"
-import { allowQueueRequest, rejectQueueRequest } from "@repo/types"
 import type { ItemCatalogEntry, ItemShopsShopCatalogEntry } from "@repo/plugin-base/helpers"
 import { ITEM_CATALOG } from "../items/index"
 import {
@@ -151,6 +154,46 @@ export class LocalLibraryModule {
         ...(definition?.artworkFrame ? { artworkFrame: definition.artworkFrame } : {}),
       },
     }
+  }
+
+  /**
+   * If this Local track belongs to a derived Physical Media playlist, return
+   * the sleeve to show in Now Playing. Playlist cover is optional; the client
+   * fills the frame with track album art when `imageUrl` is missing.
+   */
+  async resolveNowPlayingFrame(trackId: string): Promise<PhysicalMediaNowPlayingFrame | undefined> {
+    const context = this.getContext()
+    const id = trackId.trim()
+    if (!context || !id) return undefined
+
+    const byPlaylistId = new Map<string, (typeof this.derivedPhysicalMedia)[number]>()
+    const playlistIds: string[] = []
+    for (const entry of this.derivedPhysicalMedia) {
+      const artworkFrame = entry.definition.artworkFrame
+        ? parseArtworkFrame(entry.definition.artworkFrame)
+        : undefined
+      const ndId = this.derivedPlaylistMap[entry.definition.shortId]?.trim()
+      if (!artworkFrame || !ndId) continue
+      playlistIds.push(ndId)
+      byPlaylistId.set(ndId, entry)
+    }
+    if (playlistIds.length === 0) return undefined
+
+    const memberIds = await context.api.checkLocalTrackPlaylistMembership({
+      roomId: context.roomId,
+      trackId: id,
+      playlistIds,
+    })
+    for (const memberId of memberIds) {
+      const entry = byPlaylistId.get(memberId)
+      const artworkFrame = entry?.definition.artworkFrame
+        ? parseArtworkFrame(entry.definition.artworkFrame)
+        : undefined
+      if (!artworkFrame) continue
+      const imageUrl = entry?.definition.imageUrl?.trim()
+      return imageUrl ? { imageUrl, artworkFrame } : { artworkFrame }
+    }
+    return undefined
   }
 
   async grantMetadataSourceAccess(
