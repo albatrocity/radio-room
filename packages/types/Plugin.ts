@@ -553,7 +553,9 @@ export interface PluginAPI {
    * List Navidrome playlists on the room's Media Bridge (admin config picker).
    * Returns [] when offline / not bridge.
    */
-  listLocalPlaylists(roomId: string): Promise<Array<{ id: string; name: string; songCount?: number }>>
+  listLocalPlaylists(
+    roomId: string,
+  ): Promise<Array<{ id: string; name: string; songCount?: number; comment?: string }>>
 
   /**
    * Cover artwork URLs for Navidrome playlists, keyed by playlist id. Art is

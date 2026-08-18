@@ -91,6 +91,51 @@ describe("LocalDriver shelf browsing", () => {
     expect(urls.every((u) => u.includes("id=pl-nd-lp"))).toBe(true)
   })
 
+  it("lists playlists including comment when present", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("getPlaylists.view")) {
+          return {
+            ok: true,
+            json: async () => ({
+              "subsonic-response": {
+                playlists: {
+                  playlist: [
+                    { id: "nd-1", name: "[LP] Loveless", songCount: 11, comment: "  Discogs note  " },
+                    { id: "nd-2", name: "Favorites", songCount: 40, comment: "" },
+                    { id: "nd-3", name: "[CD] Kid A", songCount: 10 },
+                  ],
+                },
+              },
+            }),
+          } as unknown as Response
+        }
+        throw new Error(`unexpected fetch: ${url}`)
+      }),
+    )
+
+    const driver = new LocalDriver(navidrome, mpv)
+    const playlists = await driver.listPlaylists()
+
+    expect(playlists.find((p) => p.id === "nd-1")).toEqual({
+      id: "nd-1",
+      name: "[LP] Loveless",
+      songCount: 11,
+      comment: "Discogs note",
+    })
+    expect(playlists.find((p) => p.id === "nd-2")).toEqual({
+      id: "nd-2",
+      name: "Favorites",
+      songCount: 40,
+    })
+    expect(playlists.find((p) => p.id === "nd-3")).toEqual({
+      id: "nd-3",
+      name: "[CD] Kid A",
+      songCount: 10,
+    })
+  })
+
   it("skips playlists without artwork", async () => {
     vi.stubGlobal(
       "fetch",

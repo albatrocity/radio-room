@@ -22,6 +22,7 @@ import type { StudioRoom } from "../../studio/studioRoom"
 import { toaster } from "../ui/toaster"
 import { ArtifactsDrawerTab } from "./ArtifactsDrawerTab"
 import { ItemMetaLine } from "./ItemMetaLine"
+import { LinkifiedText } from "./LinkifiedText"
 
 export type AddItemDrawerProps = {
   room: StudioRoom
@@ -170,9 +171,9 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
                                       </Text>
                                       <ItemMetaLine rarity={rarity} price={price} />
                                       {desc ? (
-                                        <Text fontSize="xs" color="fg.muted">
+                                        <LinkifiedText fontSize="xs" color="fg.muted">
                                           {desc}
-                                        </Text>
+                                        </LinkifiedText>
                                       ) : null}
                                     </Stack>
                                     <Button
@@ -226,9 +227,9 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
                                       </Text>
                                       <ItemMetaLine rarity={rarity} price={price} />
                                       {desc ? (
-                                        <Text fontSize="xs" color="fg.muted">
+                                        <LinkifiedText fontSize="xs" color="fg.muted">
                                           {desc}
-                                        </Text>
+                                        </LinkifiedText>
                                       ) : null}
                                     </Stack>
                                     <Button

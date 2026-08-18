@@ -192,29 +192,39 @@ export async function checkLocalTrackPlaylistMembership(params: {
   }
 }
 
+export type LocalPlaylistListItem = {
+  id: string
+  name: string
+  songCount?: number
+  comment?: string
+}
+
+/** Map a daemon `listPlaylists` row; extra/missing fields are ignored (stale DJ Mac). */
+export function mapLocalPlaylistRow(row: unknown): LocalPlaylistListItem | null {
+  if (!row || typeof row !== "object") return null
+  const r = row as Record<string, unknown>
+  const id = r.id != null ? String(r.id) : ""
+  if (!id) return null
+  const comment = typeof r.comment === "string" ? r.comment.trim() : ""
+  return {
+    id,
+    name: r.name != null ? String(r.name) : id,
+    ...(typeof r.songCount === "number" ? { songCount: r.songCount } : {}),
+    ...(comment ? { comment } : {}),
+  }
+}
+
 /** List Navidrome playlists on the connected bridge daemon (admin shelf picker). */
 export async function listLocalPlaylists(params: {
   rpc: BridgeRpcClient
-}): Promise<Array<{ id: string; name: string; songCount?: number }>> {
+}): Promise<LocalPlaylistListItem[]> {
   if (!(await params.rpc.isPresent())) return []
   try {
     const result = (await params.rpc.call("listPlaylists", {
       source: "local",
     })) as unknown
     if (!Array.isArray(result)) return []
-    return result
-      .map((row) => {
-        if (!row || typeof row !== "object") return null
-        const r = row as Record<string, unknown>
-        const id = r.id != null ? String(r.id) : ""
-        if (!id) return null
-        return {
-          id,
-          name: r.name != null ? String(r.name) : id,
-          ...(typeof r.songCount === "number" ? { songCount: r.songCount } : {}),
-        }
-      })
-      .filter((x): x is { id: string; name: string; songCount?: number } => x != null)
+    return result.map(mapLocalPlaylistRow).filter((x): x is LocalPlaylistListItem => x != null)
   } catch {
     return []
   }

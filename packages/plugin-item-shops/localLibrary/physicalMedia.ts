@@ -13,6 +13,8 @@ export type PhysicalMediaPlaylist = {
   id: string
   name: string
   songCount?: number
+  /** Navidrome playlist comment; used as item description when non-empty. */
+  comment?: string
 }
 
 export function physicalMediaShortId(playlistId: string): string {
@@ -66,6 +68,7 @@ export function derivePhysicalMediaItems(
     const override = overrideById.get(id)
     const songCount = pl.songCount ?? 0
     const name = override?.name?.trim() || `${parsed.format}: ${parsed.title}`
+    const comment = pl.comment?.trim()
     const artwork = artworkByPlaylistId[id]
     const imageUrl = artwork?.imageUrl?.trim()
     const imageUrlLarge = artwork?.imageUrlLarge?.trim()
@@ -73,7 +76,9 @@ export function derivePhysicalMediaItems(
       definition: {
         shortId,
         name,
-        description: `A ${parsed.format} from the Record Store. Queue any track on it for the rest of the session.`,
+        description:
+          comment ||
+          `A ${parsed.format} from the Record Store. Queue any track on it for the rest of the session.`,
         icon: (override?.icon as LucideIconName | undefined) ?? parsed.icon,
         artworkFrame: parsed.artworkFrame,
         ...(imageUrl ? { imageUrl } : {}),

@@ -485,7 +485,7 @@ export class PluginAPIImpl implements PluginAPI {
 
   async listLocalPlaylists(
     roomId: string,
-  ): Promise<Array<{ id: string; name: string; songCount?: number }>> {
+  ): Promise<Array<{ id: string; name: string; songCount?: number; comment?: string }>> {
     try {
       const { getBridgeRpcClient, listLocalPlaylists } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)

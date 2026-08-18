@@ -102,4 +102,29 @@ describe("physicalMedia derivation", () => {
     expect(items[0]?.definition.artworkFrame).toBe("record-jacket")
     expect(items[0]?.definition.imageUrl).toBeUndefined()
   })
+
+  it("uses the playlist comment as description when present", () => {
+    const { items } = derivePhysicalMediaItems([
+      {
+        id: "nd-1",
+        name: "[LP] Loveless",
+        songCount: 11,
+        comment: "My Bloody Valentine, 1991.\nhttps://www.discogs.com/master/123",
+      },
+    ])
+    expect(items[0]?.definition.description).toBe(
+      "My Bloody Valentine, 1991.\nhttps://www.discogs.com/master/123",
+    )
+  })
+
+  it("falls back to the canned description when comment is missing or blank", () => {
+    const canned =
+      "A LP from the Record Store. Queue any track on it for the rest of the session."
+    const { items } = derivePhysicalMediaItems([
+      { id: "nd-1", name: "[LP] Loveless", songCount: 11 },
+      { id: "nd-2", name: "[LP] Loveless", songCount: 11, comment: "   " },
+    ])
+    expect(items[0]?.definition.description).toBe(canned)
+    expect(items[1]?.definition.description).toBe(canned)
+  })
 })

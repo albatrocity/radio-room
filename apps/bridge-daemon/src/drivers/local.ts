@@ -173,9 +173,12 @@ export class LocalDriver implements Driver {
   }
 
   /**
-   * List Navidrome playlists (admin shelf picker). Returns id + name (+ songCount when present).
+   * List Navidrome playlists (admin shelf picker / Physical Media derivation).
+   * Returns id + name (+ songCount / comment when present).
    */
-  async listPlaylists(): Promise<Array<{ id: string; name: string; songCount?: number }>> {
+  async listPlaylists(): Promise<
+    Array<{ id: string; name: string; songCount?: number; comment?: string }>
+  > {
     if (!this.navidrome.username) return []
     const url = `${this.navidrome.url}/rest/getPlaylists.view?${this.authParams()}`
     const res = await fetch(url)
@@ -186,14 +189,16 @@ export class LocalDriver implements Driver {
     const data = (await res.json()) as any
     const raw = data?.["subsonic-response"]?.playlists?.playlist
     const list = Array.isArray(raw) ? raw : raw ? [raw] : []
-    const out: Array<{ id: string; name: string; songCount?: number }> = []
+    const out: Array<{ id: string; name: string; songCount?: number; comment?: string }> = []
     for (const p of list) {
       const id = p?.id != null ? String(p.id) : ""
       if (!id) continue
+      const comment = typeof p.comment === "string" ? p.comment.trim() : ""
       out.push({
         id,
         name: String(p.name ?? id).trim() || id,
         ...(typeof p.songCount === "number" ? { songCount: p.songCount } : {}),
+        ...(comment ? { comment } : {}),
       })
     }
     out.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))

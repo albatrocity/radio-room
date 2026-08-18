@@ -18,6 +18,7 @@ import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/so
 import { useCanAddToQueue, useIsAdmin, useModalsSend, useMyMedia } from "../../../hooks/useActors"
 import { quoteItemShopsSellCoins } from "../../../lib/itemShopsSellQuote"
 import ItemArtwork from "../../ItemArtwork"
+import { LinkifiedText } from "../../LinkifiedText"
 import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
 import { getIcon } from "../../PluginComponents/icons"
 import { toaster } from "../../ui/toaster"
@@ -219,9 +220,9 @@ function InventoryRow({
           )}
         </HStack>
         {description && (
-          <Text fontSize="xs" color="fg.muted">
+          <LinkifiedText fontSize="xs" color="fg.muted">
             {description}
-          </Text>
+          </LinkifiedText>
         )}
       </VStack>
       <Stack direction="column" gap={2} flexShrink={0}>
