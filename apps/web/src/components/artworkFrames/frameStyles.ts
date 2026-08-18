@@ -8,12 +8,12 @@ export const dieCutMaskStyles: SystemStyleObject = {
 }
 
 /**
- * Row-sized framed media (shop, collection, Physical Media shelf list). Chakra
+ * Row-sized framed media (shop, collection, Physical Media item list). Chakra
  * spacing token — 12 × 4px = 48px tall.
  */
 export const FRAMED_ARTWORK_BOX_SIZE = 12
 
-/** Track-row framed media (Physical Media after opening a shelf). */
+/** Track-row framed media (Physical Media after opening an item). */
 export const FRAMED_ARTWORK_TRACK_PX = 100
 
 export type ArtworkSizePreset = "row" | "track" | "feature"

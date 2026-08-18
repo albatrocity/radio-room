@@ -294,13 +294,13 @@ export type LocalPlaylistTracksResult =
   | { ok: false; error: string }
 
 /**
- * Mapping a whole shelf reads tags off disk and fetches cover art per album, so
+ * Mapping a whole playlist reads tags off disk and fetches cover art per album, so
  * this call gets more headroom than the default RPC timeout.
  */
 const PLAYLIST_TRACKS_TIMEOUT_MS = 20000
 
 /**
- * Full track list for a Navidrome playlist (Physical Media shelf), keeping the
+ * Full track list for a Navidrome playlist (Physical Media item), keeping the
  * failure reason so callers can tell "empty record" from "bridge not answering".
  */
 export async function fetchLocalPlaylistTracks(params: {

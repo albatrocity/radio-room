@@ -159,10 +159,10 @@ export type MetadataBrowseCapabilities = {
 import type { ArtworkFrame } from "./Inventory"
 
 /**
- * A Physical Media shelf in Add to Queue. `mediaKey` is the held item shortId
- * (never a Navidrome playlist id — ADR 0099).
+ * A held Physical Media item in Add to Queue. `mediaKey` is the inventory
+ * shortId (never a Navidrome playlist id — ADR 0099).
  */
-export type MyMediaShelf = {
+export type PhysicalMediaItem = {
   mediaKey: string
   name: string
   icon?: string

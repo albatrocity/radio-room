@@ -14,7 +14,7 @@ type ArtworkOverride = {
 }
 
 type Props = TrackWithSource & {
-  /** When set (Physical Media shelf browse), show the sleeve instead of track album art. */
+  /** When set (Physical Media item browse), show the sleeve instead of track album art. */
   artworkOverride?: ArtworkOverride
 }
 

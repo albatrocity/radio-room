@@ -40,7 +40,7 @@ import type {
 } from "./Artifacts"
 import type { PersonaDefinition, UserPersona, UserPersonaAssignment } from "./Persona"
 import type { MetadataSourceAccessAction } from "./MetadataSourceAccess"
-import type { MetadataSourceTrack, MyMediaShelf } from "./MetadataSource"
+import type { MetadataSourceTrack, PhysicalMediaItem } from "./MetadataSource"
 
 // ============================================================================
 // Plugin Configuration Schema Types
@@ -574,7 +574,7 @@ export interface PluginAPI {
   invalidateLocalLibraryCache(roomId: string): Promise<boolean>
 
   /**
-   * Full track list for a Navidrome playlist (Physical Media shelf browse).
+   * Full track list for a Navidrome playlist (Physical Media item browse).
    */
   listLocalPlaylistTracks(
     roomId: string,
@@ -1228,20 +1228,20 @@ export interface Plugin {
   >
 
   /**
-   * Physical Media shelves the user currently holds (ADR 0099).
+   * Physical Media items the user currently holds (ADR 0099).
    * `mediaKey` is an inventory shortId — never a Navidrome playlist id.
    */
-  listMyMediaShelves?(params: { roomId: string; userId: string }): Promise<MyMediaShelf[]>
+  listPhysicalMediaItems?(params: { roomId: string; userId: string }): Promise<PhysicalMediaItem[]>
 
   /**
    * Resolve a held `mediaKey` to a Navidrome playlist id for BROWSE_MEDIA_ITEM.
-   * Returns null if the caller does not hold that grant.
+   * Returns null if the caller does not hold that item.
    */
-  resolveMyMediaShelf?(params: {
+  resolvePhysicalMediaItem?(params: {
     roomId: string
     userId: string
     mediaKey: string
-  }): Promise<{ playlistId: string; shelf: MyMediaShelf } | null>
+  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null>
 
   /**
    * Called immediately before app-controlled playTrack(uri) in core play paths.

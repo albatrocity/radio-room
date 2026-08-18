@@ -17,7 +17,7 @@ import type {
   MetadataBrowseArtist,
   MetadataBrowseCapabilities,
   MetadataSourceTrack,
-  MyMediaShelf,
+  PhysicalMediaItem,
 } from "@repo/types"
 import { useSocketMachine } from "../hooks/useSocketMachine"
 import { catalogBrowseMachine } from "../machines/catalogBrowseMachine"
@@ -70,10 +70,10 @@ function BrowseRowButton({ disabled, onClick, children }: BrowseRowButtonProps) 
   )
 }
 
-/** Adapt a shelf's cover art to the `EntityThumb` image list shape. */
-function shelfImages(shelf: MyMediaShelf) {
-  return shelf.imageUrl
-    ? [{ type: "image" as const, url: shelf.imageUrl, id: shelf.mediaKey }]
+/** Adapt a Physical Media item's cover art to the `EntityThumb` image list shape. */
+function physicalMediaImages(item: PhysicalMediaItem) {
+  return item.imageUrl
+    ? [{ type: "image" as const, url: item.imageUrl, id: item.mediaKey }]
     : undefined
 }
 
@@ -83,7 +83,7 @@ export type CatalogBrowseNavigation = {
   albumId?: string
   artistTitle?: string
   albumTitle?: string
-  /** Held Physical Media shelf to open directly (ADR 0099). */
+  /** Held Physical Media item to open directly (ADR 0099). */
   mediaKey?: string
 }
 
@@ -93,7 +93,7 @@ type RootKind = "artists" | "albums" | "media"
 type Props = {
   browseableSourceIds: string[]
   browseSourceCapabilities?: Record<string, MetadataBrowseCapabilities>
-  myMedia?: MyMediaShelf[]
+  myMedia?: PhysicalMediaItem[]
   /** Controlled catalog source (selected in parent). */
   sourceId: string
   onSourceIdChange?: (sourceId: string) => void
@@ -120,7 +120,7 @@ function CatalogBrowse({
   const [filter, setFilter] = useState("")
   const [selectedArtist, setSelectedArtist] = useState<MetadataBrowseArtist | null>(null)
   const [selectedAlbum, setSelectedAlbum] = useState<MetadataBrowseAlbum | null>(null)
-  const [selectedMedia, setSelectedMedia] = useState<MyMediaShelf | null>(null)
+  const [selectedMedia, setSelectedMedia] = useState<PhysicalMediaItem | null>(null)
   const skipNextFilterFetch = useRef(true)
   const appliedNavKey = useRef<string | null>(null)
 
@@ -218,14 +218,14 @@ function CatalogBrowse({
     skipNextFilterFetch.current = true
 
     if (mediaKey) {
-      const shelf = myMedia.find((s) => s.mediaKey === mediaKey) ?? {
+      const item = myMedia.find((s) => s.mediaKey === mediaKey) ?? {
         mediaKey,
         name: "Physical Media",
       }
       setRootKind("media")
       setSelectedArtist(null)
       setSelectedAlbum(null)
-      setSelectedMedia(shelf)
+      setSelectedMedia(item)
       setLevel("tracks")
       send({ type: "FETCH_MEDIA", mediaKey })
     } else if (albumId) {
@@ -335,20 +335,20 @@ function CatalogBrowse({
     send({ type: "FETCH_ALBUM", source: sourceId, albumId: album.id })
   }
 
-  const openMedia = (shelf: MyMediaShelf) => {
+  const openMedia = (item: PhysicalMediaItem) => {
     if (disabled) return
-    setSelectedMedia(shelf)
+    setSelectedMedia(item)
     setSelectedArtist(null)
     setSelectedAlbum(null)
     setLevel("tracks")
-    send({ type: "FETCH_MEDIA", mediaKey: shelf.mediaKey })
+    send({ type: "FETCH_MEDIA", mediaKey: item.mediaKey })
   }
 
   const albumsForList = level === "artistAlbums" ? artistAlbums : rootAlbums
   const showEmptySearchHint =
     searchEntry && level === "root" && rootKind !== "media" && !filter.trim()
   const mediaFilter = filter.trim().toLowerCase()
-  const mediaShelves = mediaFilter
+  const mediaItems = mediaFilter
     ? myMedia.filter((s) => s.name.toLowerCase().includes(mediaFilter))
     : myMedia
 
@@ -503,7 +503,7 @@ function CatalogBrowse({
 
                     {level === "root" &&
                       rootKind === "media" &&
-                      (mediaShelves.length === 0 ? (
+                      (mediaItems.length === 0 ? (
                         <Text fontSize="sm" color="fg.muted" py={2}>
                           No records in your collection.
                         </Text>
@@ -512,22 +512,22 @@ function CatalogBrowse({
                           <Text fontSize="xs" color="fg.muted" px={2} py={1}>
                             Yours until the game session ends.
                           </Text>
-                          {mediaShelves.map((shelf) => (
+                          {mediaItems.map((item) => (
                             <BrowseRowButton
-                              key={shelf.mediaKey}
+                              key={item.mediaKey}
                               disabled={disabled}
-                              onClick={() => openMedia(shelf)}
+                              onClick={() => openMedia(item)}
                             >
                               <HStack gap={2} minW={0} w="100%">
                                 <EntityThumb
-                                  images={shelfImages(shelf)}
+                                  images={physicalMediaImages(item)}
                                   shape="square"
-                                  alt={shelf.name}
-                                  artworkFrame={shelf.artworkFrame}
+                                  alt={item.name}
+                                  artworkFrame={item.artworkFrame}
                                 />
                                 <VStack align="start" gap={0} minW={0}>
                                   <Text fontWeight="medium" truncate>
-                                    {shelf.name}
+                                    {item.name}
                                   </Text>
                                 </VStack>
                               </HStack>

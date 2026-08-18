@@ -22,7 +22,7 @@ import {
   BeforePlayQueuedTrackParams,
   QueueValidationParams,
   QueueValidationResult,
-  MyMediaShelf,
+  PhysicalMediaItem,
   parseArtworkFrame,
   isChatMessageTransformDrop,
   isDeferredQueueRequest,
@@ -444,26 +444,26 @@ export class PluginRegistry {
   }
 
   /**
-   * Aggregate Physical Media shelves from plugins (ADR 0099). First writer of a
+   * Aggregate held Physical Media items from plugins (ADR 0099). First writer of a
    * `mediaKey` wins. Fail-open to [] on errors/timeouts.
    */
-  async listMyMediaShelves(params: {
+  async listPhysicalMediaItems(params: {
     roomId: string
     userId: string
-  }): Promise<MyMediaShelf[]> {
+  }): Promise<PhysicalMediaItem[]> {
     const roomPluginMap = this.roomPlugins.get(params.roomId)
     if (!roomPluginMap || roomPluginMap.size === 0) return []
 
     const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
-      ([, { plugin }]) => typeof plugin.listMyMediaShelves === "function",
+      ([, { plugin }]) => typeof plugin.listPhysicalMediaItems === "function",
     )
     if (pluginsWithHook.length === 0) return []
 
-    const byKey = new Map<string, MyMediaShelf>()
+    const byKey = new Map<string, PhysicalMediaItem>()
     for (const [pluginName, { plugin }] of pluginsWithHook) {
       try {
-        const shelves = await Promise.race([
-          plugin.listMyMediaShelves!(params),
+        const items = await Promise.race([
+          plugin.listPhysicalMediaItems!(params),
           new Promise<never>((_, reject) =>
             setTimeout(
               () => reject(new Error("timeout")),
@@ -471,31 +471,31 @@ export class PluginRegistry {
             ),
           ),
         ])
-        if (!Array.isArray(shelves)) continue
-        for (const shelf of shelves) {
-          const mediaKey = typeof shelf?.mediaKey === "string" ? shelf.mediaKey.trim() : ""
+        if (!Array.isArray(items)) continue
+        for (const item of items) {
+          const mediaKey = typeof item?.mediaKey === "string" ? item.mediaKey.trim() : ""
           if (!mediaKey || byKey.has(mediaKey)) continue
           const name =
-            typeof shelf.name === "string" && shelf.name.trim() ? shelf.name.trim() : mediaKey
+            typeof item.name === "string" && item.name.trim() ? item.name.trim() : mediaKey
           const artworkFrame =
-            typeof shelf.artworkFrame === "string" ? parseArtworkFrame(shelf.artworkFrame) : undefined
+            typeof item.artworkFrame === "string" ? parseArtworkFrame(item.artworkFrame) : undefined
           byKey.set(mediaKey, {
             mediaKey,
             name,
-            ...(typeof shelf.icon === "string" && shelf.icon.trim()
-              ? { icon: shelf.icon.trim() }
+            ...(typeof item.icon === "string" && item.icon.trim()
+              ? { icon: item.icon.trim() }
               : {}),
-            ...(typeof shelf.imageUrl === "string" && shelf.imageUrl.trim()
-              ? { imageUrl: shelf.imageUrl.trim() }
+            ...(typeof item.imageUrl === "string" && item.imageUrl.trim()
+              ? { imageUrl: item.imageUrl.trim() }
               : {}),
-            ...(typeof shelf.imageUrlLarge === "string" && shelf.imageUrlLarge.trim()
-              ? { imageUrlLarge: shelf.imageUrlLarge.trim() }
+            ...(typeof item.imageUrlLarge === "string" && item.imageUrlLarge.trim()
+              ? { imageUrlLarge: item.imageUrlLarge.trim() }
               : {}),
             ...(artworkFrame ? { artworkFrame } : {}),
           })
         }
       } catch (error) {
-        console.warn(`[PluginRegistry] listMyMediaShelves ${pluginName} failed:`, error)
+        console.warn(`[PluginRegistry] listPhysicalMediaItems ${pluginName} failed:`, error)
       }
     }
     return Array.from(byKey.values())
@@ -505,24 +505,24 @@ export class PluginRegistry {
    * Resolve a client `mediaKey` to a Navidrome playlist id from held grants only.
    * First plugin that returns a playlist id wins. Never trusts a client playlist id.
    */
-  async resolveMyMediaShelf(params: {
+  async resolvePhysicalMediaItem(params: {
     roomId: string
     userId: string
     mediaKey: string
-  }): Promise<{ playlistId: string; shelf: MyMediaShelf } | null> {
+  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
     const mediaKey = params.mediaKey.trim()
     if (!mediaKey) return null
     const roomPluginMap = this.roomPlugins.get(params.roomId)
     if (!roomPluginMap || roomPluginMap.size === 0) return null
 
     const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
-      ([, { plugin }]) => typeof plugin.resolveMyMediaShelf === "function",
+      ([, { plugin }]) => typeof plugin.resolvePhysicalMediaItem === "function",
     )
 
     for (const [pluginName, { plugin }] of pluginsWithHook) {
       try {
         const result = await Promise.race([
-          plugin.resolveMyMediaShelf!({ ...params, mediaKey }),
+          plugin.resolvePhysicalMediaItem!({ ...params, mediaKey }),
           new Promise<never>((_, reject) =>
             setTimeout(
               () => reject(new Error("timeout")),
@@ -534,38 +534,37 @@ export class PluginRegistry {
         const playlistId =
           typeof result.playlistId === "string" ? result.playlistId.trim() : ""
         if (!playlistId) continue
-        const shelfKey =
-          typeof result.shelf?.mediaKey === "string" && result.shelf.mediaKey.trim()
-            ? result.shelf.mediaKey.trim()
+        const itemKey =
+          typeof result.item?.mediaKey === "string" && result.item.mediaKey.trim()
+            ? result.item.mediaKey.trim()
             : mediaKey
         const name =
-          typeof result.shelf?.name === "string" && result.shelf.name.trim()
-            ? result.shelf.name.trim()
-            : shelfKey
+          typeof result.item?.name === "string" && result.item.name.trim()
+            ? result.item.name.trim()
+            : itemKey
         const artworkFrame =
-          typeof result.shelf?.artworkFrame === "string"
-            ? parseArtworkFrame(result.shelf.artworkFrame)
+          typeof result.item?.artworkFrame === "string"
+            ? parseArtworkFrame(result.item.artworkFrame)
             : undefined
         return {
           playlistId,
-          shelf: {
-            mediaKey: shelfKey,
+          item: {
+            mediaKey: itemKey,
             name,
-            ...(typeof result.shelf?.icon === "string" && result.shelf.icon.trim()
-              ? { icon: result.shelf.icon.trim() }
+            ...(typeof result.item?.icon === "string" && result.item.icon.trim()
+              ? { icon: result.item.icon.trim() }
               : {}),
-            ...(typeof result.shelf?.imageUrl === "string" && result.shelf.imageUrl.trim()
-              ? { imageUrl: result.shelf.imageUrl.trim() }
+            ...(typeof result.item?.imageUrl === "string" && result.item.imageUrl.trim()
+              ? { imageUrl: result.item.imageUrl.trim() }
               : {}),
-            ...(typeof result.shelf?.imageUrlLarge === "string" &&
-            result.shelf.imageUrlLarge.trim()
-              ? { imageUrlLarge: result.shelf.imageUrlLarge.trim() }
+            ...(typeof result.item?.imageUrlLarge === "string" && result.item.imageUrlLarge.trim()
+              ? { imageUrlLarge: result.item.imageUrlLarge.trim() }
               : {}),
             ...(artworkFrame ? { artworkFrame } : {}),
           },
         }
       } catch (error) {
-        console.warn(`[PluginRegistry] resolveMyMediaShelf ${pluginName} failed:`, error)
+        console.warn(`[PluginRegistry] resolvePhysicalMediaItem ${pluginName} failed:`, error)
       }
     }
     return null

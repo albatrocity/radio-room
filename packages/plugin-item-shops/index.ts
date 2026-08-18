@@ -16,7 +16,7 @@ import {
   type ItemUseResult,
   type MetadataSourceAccessGrantParams,
   type MetadataSourceAccessGrantResult,
-  type MyMediaShelf,
+  type PhysicalMediaItem,
   type Plugin,
   type PluginActionInitiator,
   type PluginAugmentationData,
@@ -865,17 +865,17 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     })
   }
 
-  async listMyMediaShelves(params: { roomId: string; userId: string }): Promise<MyMediaShelf[]> {
-    return this.localLibrary.listMyMediaShelves(params.userId)
+  async listPhysicalMediaItems(params: { roomId: string; userId: string }): Promise<PhysicalMediaItem[]> {
+    return this.localLibrary.listPhysicalMediaItems(params.userId)
   }
 
-  async resolveMyMediaShelf(params: {
+  async resolvePhysicalMediaItem(params: {
     roomId: string
     userId: string
     mediaKey: string
-  }): Promise<{ playlistId: string; shelf: MyMediaShelf } | null> {
+  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
     const config = (await this.getConfig()) ?? defaultItemShopsConfig
-    return this.localLibrary.resolveHeldMediaShelf(
+    return this.localLibrary.resolveHeldPhysicalMediaItem(
       params.userId,
       params.mediaKey,
       config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS,

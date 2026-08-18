@@ -6,7 +6,7 @@ import { canAddToQueue as canDjAddToQueue } from "../actors/djActor"
 
 type Context = {
   /**
-   * Physical Media shelf to open in Add to Queue → Browse (ADR 0099), set when
+   * Physical Media item to open in Add to Queue → Browse (ADR 0099), set when
    * the inventory deep-links into a held record.
    */
   queueBrowseMediaKey: string | null

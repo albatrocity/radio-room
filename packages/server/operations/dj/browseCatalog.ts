@@ -5,7 +5,7 @@ import type {
   MetadataBrowseCapabilities,
   MetadataSource,
   MetadataSourceTrack,
-  MyMediaShelf,
+  PhysicalMediaItem,
 } from "@repo/types"
 import {
   isMetadataSourceAuthFailure,
@@ -21,7 +21,7 @@ export type ResolveBrowseSourceResult =
   | { ok: false; message: string }
 
 /**
- * Shown when a Physical Media shelf resolves but the daemon never answers — most
+ * Shown when a Physical Media item resolves but the daemon never answers — most
  * often a DJ Mac daemon that is offline or running an older build.
  */
 const BRIDGE_UNREACHABLE_MESSAGE =
@@ -95,7 +95,7 @@ export async function getEffectiveMetadataSources(params: {
   metadataSourceIds: string[]
   browseableSourceIds: string[]
   browseSourceCapabilities: Record<string, MetadataBrowseCapabilities>
-  myMedia: MyMediaShelf[]
+  myMedia: PhysicalMediaItem[]
 }> {
   const { context, adapterService, roomId, userId } = params
   let metadataSourceIds: string[]
@@ -116,8 +116,8 @@ export async function getEffectiveMetadataSources(params: {
     metadataSourceIds,
   })
   const myMedia =
-    metadataSourceIds.includes("local") && context.pluginRegistry?.listMyMediaShelves
-      ? await context.pluginRegistry.listMyMediaShelves({ roomId, userId })
+    metadataSourceIds.includes("local") && context.pluginRegistry?.listPhysicalMediaItems
+      ? await context.pluginRegistry.listPhysicalMediaItems({ roomId, userId })
       : []
   return { metadataSourceIds, ...browse, myMedia }
 }
@@ -383,8 +383,8 @@ export async function browseMediaItem(params: {
     }
   }
 
-  const resolved = context.pluginRegistry?.resolveMyMediaShelf
-    ? await context.pluginRegistry.resolveMyMediaShelf({ roomId, userId, mediaKey: key })
+  const resolved = context.pluginRegistry?.resolvePhysicalMediaItem
+    ? await context.pluginRegistry.resolvePhysicalMediaItem({ roomId, userId, mediaKey: key })
     : null
   if (!resolved) {
     return { ok: false, message: "You don't have that item" }
@@ -410,8 +410,8 @@ export async function browseMediaItem(params: {
     return {
       ok: true,
       source: "local",
-      mediaKey: resolved.shelf.mediaKey,
-      name: resolved.shelf.name,
+      mediaKey: resolved.item.mediaKey,
+      name: resolved.item.name,
       tracks,
     }
   } catch (error: unknown) {

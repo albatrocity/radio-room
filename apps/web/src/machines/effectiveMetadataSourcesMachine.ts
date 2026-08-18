@@ -1,5 +1,5 @@
 import { setup, assign } from "xstate"
-import type { MetadataBrowseCapabilities, MyMediaShelf } from "@repo/types"
+import type { MetadataBrowseCapabilities, PhysicalMediaItem } from "@repo/types"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 
 export interface EffectiveMetadataSourcesContext {
@@ -8,7 +8,7 @@ export interface EffectiveMetadataSourcesContext {
   metadataSourceIds: string[] | null
   browseableSourceIds: string[] | null
   browseSourceCapabilities: Record<string, MetadataBrowseCapabilities>
-  myMedia: MyMediaShelf[]
+  myMedia: PhysicalMediaItem[]
 }
 
 type EffectiveMetadataSourcesEvent =
@@ -21,7 +21,7 @@ type EffectiveMetadataSourcesEvent =
         metadataSourceIds?: string[]
         browseableSourceIds?: string[]
         browseSourceCapabilities?: Record<string, MetadataBrowseCapabilities>
-        myMedia?: MyMediaShelf[]
+        myMedia?: PhysicalMediaItem[]
       }
     }
   | {
@@ -30,7 +30,7 @@ type EffectiveMetadataSourcesEvent =
         effectiveMetadataSourceIds?: string[]
         browseableSourceIds?: string[]
         browseSourceCapabilities?: Record<string, MetadataBrowseCapabilities>
-        myMedia?: MyMediaShelf[]
+        myMedia?: PhysicalMediaItem[]
       }
     }
   | { type: "ROOM_SETTINGS_UPDATED"; data?: unknown }

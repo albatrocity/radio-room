@@ -8,7 +8,7 @@ import type {
   MetadataBrowseArtist,
   MetadataBrowseCapabilities,
   MetadataSourceTrack,
-  MyMediaShelf,
+  PhysicalMediaItem,
 } from "@repo/types"
 
 export const STUB_METADATA_SOURCE_IDS = ["spotify", "local"] as const
@@ -23,7 +23,7 @@ export const STUB_MEDIA_ARTWORK =
   "<circle cx='32' cy='32' r='22' fill='%23111111'/>" +
   "<circle cx='32' cy='32' r='5' fill='%23e8d6ff'/></svg>"
 
-export const STUB_MY_MEDIA: MyMediaShelf[] = [
+export const STUB_MY_MEDIA: PhysicalMediaItem[] = [
   {
     mediaKey: "pm-studio-lp",
     name: "LP: Studio Pressing",

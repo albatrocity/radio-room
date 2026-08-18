@@ -131,10 +131,10 @@ Optional `MetadataSourceApi` methods `listArtists` / `getArtist` / `getAlbum` (a
 - **Local** uses index-entry browse; **Spotify** uses search-entry browse. Text Search may return additive `artists` / `albums` on `TRACK_SEARCH_RESULTS`.
 - Playlist-scoped grants still use artists → albums → tracks; raw playlists are never a client browse mode ([ADR 0098](../adrs/0098-inventory-scoped-local-library-catalog-filters.md)).
 
-## Physical Media shelves
+## Physical Media items
 
-Plugins that hand out playlist-scoped grants can expose them as browsable shelves ([ADR 0099](../adrs/0099-physical-media-personal-libraries.md)):
+Plugins that hand out playlist-scoped grants can expose them as browsable Physical Media ([ADR 0099](../adrs/0099-physical-media-personal-libraries.md)):
 
-- Implement `listMyMediaShelves` (held shelves for a user) and `resolveMyMediaShelf` (shelf → playlist id). Shelves are `{ mediaKey, name, icon?, imageUrl? }`, where `mediaKey` is the item `shortId`. They ride `EFFECTIVE_METADATA_SOURCES` / INIT as `myMedia` and become the **Physical Media** browse tab.
+- Implement `listPhysicalMediaItems` (held items for a user) and `resolvePhysicalMediaItem` (item → playlist id). Items are `{ mediaKey, name, icon?, imageUrl?, imageUrlLarge? }`, where `mediaKey` is the item `shortId`. They ride `EFFECTIVE_METADATA_SOURCES` / INIT as `myMedia` and become the **Physical Media** browse tab.
 - `BROWSE_MEDIA_ITEM` takes only `mediaKey`; the server resolves the playlist id from the caller's own grants, so a client can never name a playlist.
 - For cover art, call `api.getLocalPlaylistArtwork(roomId, playlistIds)`. It re-hosts Navidrome playlist art in the room image store and returns `{ imageUrl, imageUrlLarge? }` urls keyed by playlist id, suitable for `ItemDefinition.imageUrl` (the UI prefers `imageUrl` over `icon`; Now Playing prefers `imageUrlLarge`). Skip it when no playlists qualify — an unlinked bridge just returns `{}`.

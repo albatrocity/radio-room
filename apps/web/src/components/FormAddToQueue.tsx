@@ -69,7 +69,7 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
     }
   }, [canBrowse, mode])
 
-  // Deep-link from the inventory Collection into a held Physical Media shelf.
+  // Deep-link from the inventory Collection into a held Physical Media item.
   useEffect(() => {
     if (!queueBrowseMediaKey || !canBrowseLocal) return
     setSourceFilter("local")

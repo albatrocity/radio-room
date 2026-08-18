@@ -8,7 +8,7 @@ export const localLibraryGrantConfigSchema = itemDefinitionAuthoringSchema.exten
   playlistId: z.string().default(""),
   /**
    * `perQueue` (default) consumes one stack unit when a matching track is queued.
-   * `durable` grants unlimited queueing from the shelf for the game session.
+   * `durable` grants unlimited queueing from the record for the game session.
    */
   redemption: z.enum(["durable", "perQueue"]).default("perQueue"),
 })

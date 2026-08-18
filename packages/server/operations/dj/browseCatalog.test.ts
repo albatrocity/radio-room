@@ -91,13 +91,13 @@ describe("browseCatalog operations", () => {
     expect(result.myMedia).toEqual([])
   })
 
-  test("getEffectiveMetadataSources includes myMedia shelves when local is effective", async () => {
-    const listMyMediaShelves = vi.fn().mockResolvedValue([
+  test("getEffectiveMetadataSources includes myMedia items when local is effective", async () => {
+    const listPhysicalMediaItems = vi.fn().mockResolvedValue([
       { mediaKey: "pm-1", name: "LP: Loveless" },
     ])
     const context = {
       metadataSourceAccess: undefined,
-      pluginRegistry: { listMyMediaShelves },
+      pluginRegistry: { listPhysicalMediaItems },
     } as unknown as AppContext
 
     const result = await getEffectiveMetadataSources({
@@ -106,7 +106,7 @@ describe("browseCatalog operations", () => {
       roomId,
       userId,
     })
-    expect(listMyMediaShelves).toHaveBeenCalledWith({ roomId, userId })
+    expect(listPhysicalMediaItems).toHaveBeenCalledWith({ roomId, userId })
     expect(result.myMedia).toEqual([{ mediaKey: "pm-1", name: "LP: Loveless" }])
   })
 
@@ -163,9 +163,9 @@ describe("browseCatalog operations", () => {
   })
 
   test("browseMediaItem resolves mediaKey from held grants and never uses a client playlist id", async () => {
-    const resolveMyMediaShelf = vi.fn().mockResolvedValue({
+    const resolvePhysicalMediaItem = vi.fn().mockResolvedValue({
       playlistId: "nd-secret",
-      shelf: { mediaKey: "pm-1", name: "LP: Loveless" },
+      item: { mediaKey: "pm-1", name: "LP: Loveless" },
     })
     vi.mocked(getBridgeRpcClient).mockReturnValue({} as any)
     vi.mocked(fetchLocalPlaylistTracks).mockResolvedValue({
@@ -177,7 +177,7 @@ describe("browseCatalog operations", () => {
       metadataSourceAccess: {
         canAccess: vi.fn().mockResolvedValue(true),
       },
-      pluginRegistry: { resolveMyMediaShelf },
+      pluginRegistry: { resolvePhysicalMediaItem },
     } as unknown as AppContext
 
     const result = await browseMediaItem({
@@ -187,7 +187,7 @@ describe("browseCatalog operations", () => {
       mediaKey: "pm-1",
     })
 
-    expect(resolveMyMediaShelf).toHaveBeenCalledWith({
+    expect(resolvePhysicalMediaItem).toHaveBeenCalledWith({
       roomId,
       userId,
       mediaKey: "pm-1",
@@ -213,9 +213,9 @@ describe("browseCatalog operations", () => {
     const context = {
       metadataSourceAccess: { canAccess: vi.fn().mockResolvedValue(true) },
       pluginRegistry: {
-        resolveMyMediaShelf: vi.fn().mockResolvedValue({
+        resolvePhysicalMediaItem: vi.fn().mockResolvedValue({
           playlistId: "nd-secret",
-          shelf: { mediaKey: "pm-1", name: "LP: Loveless" },
+          item: { mediaKey: "pm-1", name: "LP: Loveless" },
         }),
       },
     } as unknown as AppContext
@@ -232,7 +232,7 @@ describe("browseCatalog operations", () => {
       metadataSourceAccess: {
         canAccess: vi.fn().mockResolvedValue(true),
       },
-      pluginRegistry: { resolveMyMediaShelf: vi.fn().mockResolvedValue(null) },
+      pluginRegistry: { resolvePhysicalMediaItem: vi.fn().mockResolvedValue(null) },
     } as unknown as AppContext
 
     await expect(

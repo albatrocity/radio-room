@@ -1,5 +1,5 @@
 import { AppContext, GameSession, Room, toAdminAssignablePersonas } from "@repo/types"
-import type { MyMediaShelf } from "@repo/types"
+import type { PhysicalMediaItem } from "@repo/types"
 import type { PersonaService } from "../../services/PersonaService"
 import {
   getAllPluginConfigs,
@@ -43,7 +43,7 @@ export type RoomInitPayload = {
     string,
     { entryMode: "index" | "search"; albumSearch: boolean }
   >
-  myMedia?: MyMediaShelf[]
+  myMedia?: PhysicalMediaItem[]
 }
 
 /**
@@ -139,7 +139,7 @@ export async function buildRoomInitPayload(params: {
         string,
         { entryMode: "index" | "search"; albumSearch: boolean }
       >
-      myMedia?: MyMediaShelf[]
+      myMedia?: PhysicalMediaItem[]
     }> => {
       if (!context.metadataSourceAccess) return {}
       try {

@@ -4,7 +4,7 @@ import {
   rejectQueueRequest,
   type MetadataSourceAccessGrantParams,
   type MetadataSourceAccessGrantResult,
-  type MyMediaShelf,
+  type PhysicalMediaItem,
   type PhysicalMediaNowPlayingFrame,
   type PluginContext,
   type QueueValidationParams,
@@ -30,7 +30,7 @@ import {
   type LocalCatalogScope,
 } from "./grants"
 
-function shelfArtworkFields(definition?: ItemCatalogEntry["definition"]): {
+function physicalMediaArtworkFields(definition?: ItemCatalogEntry["definition"]): {
   icon?: ItemCatalogEntry["definition"]["icon"]
   imageUrl?: string
   imageUrlLarge?: string
@@ -110,7 +110,7 @@ export class LocalLibraryModule {
     return { ...playlistMapFromGrantConfig(grants), ...this.derivedPlaylistMap }
   }
 
-  async listMyMediaShelves(userId: string): Promise<MyMediaShelf[]> {
+  async listPhysicalMediaItems(userId: string): Promise<PhysicalMediaItem[]> {
     const context = this.getContext()
     if (!context) return []
     const inv = await context.inventory.getInventory(userId)
@@ -121,26 +121,26 @@ export class LocalLibraryModule {
     })
     const byShort = catalogByShortId(this.grantCatalog)
     const seen = new Set<string>()
-    const shelves: MyMediaShelf[] = []
+    const items: PhysicalMediaItem[] = []
     for (const h of held) {
       if (h.grant.scope !== "playlist") continue
       if (seen.has(h.shortId)) continue
       seen.add(h.shortId)
       const definition = byShort.get(h.shortId)?.definition
-      shelves.push({
+      items.push({
         mediaKey: h.shortId,
         name: h.name,
-        ...shelfArtworkFields(definition),
+        ...physicalMediaArtworkFields(definition),
       })
     }
-    return shelves
+    return items
   }
 
-  async resolveHeldMediaShelf(
+  async resolveHeldPhysicalMediaItem(
     userId: string,
     mediaKey: string,
     grants: readonly LocalLibraryGrantConfig[],
-  ): Promise<{ playlistId: string; shelf: MyMediaShelf } | null> {
+  ): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
     const key = mediaKey.trim()
     if (!key) return null
     const context = this.getContext()
@@ -158,10 +158,10 @@ export class LocalLibraryModule {
     const definition = catalogByShortId(this.grantCatalog).get(match.shortId)?.definition
     return {
       playlistId,
-      shelf: {
+      item: {
         mediaKey: match.shortId,
         name: match.name,
-        ...shelfArtworkFields(definition),
+        ...physicalMediaArtworkFields(definition),
       },
     }
   }
@@ -279,8 +279,8 @@ export class LocalLibraryModule {
     if (held.length === 0) return allowQueueRequest()
 
     const playlistMap = this.playlistMap(grants)
-    const shelfHeld = held.filter((h) => h.grant.scope === "playlist")
-    const playlistIdsForMembership = shelfHeld
+    const physicalMediaHeld = held.filter((h) => h.grant.scope === "playlist")
+    const playlistIdsForMembership = physicalMediaHeld
       .map((h) =>
         h.grant.scope === "playlist" ? playlistMap[h.grant.playlistKey]?.trim() : "",
       )
@@ -294,13 +294,13 @@ export class LocalLibraryModule {
         playlistIds: playlistIdsForMembership,
       })
       const memberSet = new Set(memberIds)
-      for (const h of shelfHeld) {
+      for (const h of physicalMediaHeld) {
         if (h.grant.scope !== "playlist") continue
         const ndId = playlistMap[h.grant.playlistKey]?.trim()
         trackInPlaylistKey[h.grant.playlistKey] = Boolean(ndId && memberSet.has(ndId))
       }
     } else {
-      for (const h of shelfHeld) {
+      for (const h of physicalMediaHeld) {
         if (h.grant.scope === "playlist") {
           trackInPlaylistKey[h.grant.playlistKey] = false
         }

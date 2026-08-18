@@ -39,7 +39,7 @@ interface InventoryRowProps {
   allItems: InventoryItem[]
   definitionMap: Map<string, ItemDefinition>
   coinBalance: number
-  /** Physical Media shelf key when this item can be browsed in Add to Queue. */
+  /** Physical Media item key when this item can be browsed in Add to Queue. */
   mediaKey?: string
 }
 
@@ -274,7 +274,7 @@ function InventoryTab({
   const isAdmin = useIsAdmin()
   const canAddToQueue = useCanAddToQueue()
   // Browsing a record only helps if the viewer is allowed to queue from it.
-  const mediaKeys = new Set(isAdmin || canAddToQueue ? myMedia.map((shelf) => shelf.mediaKey) : [])
+  const mediaKeys = new Set(isAdmin || canAddToQueue ? myMedia.map((item) => item.mediaKey) : [])
   const inventoryItems = items.filter(
     (item) => (definitionMap.get(item.definitionId)?.slotPool ?? "inventory") !== "collection",
   )
@@ -284,7 +284,7 @@ function InventoryTab({
   const emptyInventory = maxSlots > 0 ? Math.max(0, maxSlots - inventoryItems.length) : 0
   const showInventoryGrid = maxSlots > 0
   // The collection only exists once something is in it, and unlike the inventory
-  // bag it never advertises empty shelf space.
+  // bag it never advertises empty slots.
   const showCollection = collectionItems.length > 0
   const mediaKeyForItem = (item: InventoryItem): string | undefined => {
     const shortId = definitionMap.get(item.definitionId)?.shortId

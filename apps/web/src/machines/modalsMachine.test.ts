@@ -14,7 +14,7 @@ vi.mock("../actors/djActor", () => ({
 import { modalsMachine } from "./modalsMachine"
 
 describe("modalsMachine", () => {
-  it("carries a Physical Media shelf into the queue modal and clears it on close", () => {
+  it("carries a Physical Media item into the queue modal and clears it on close", () => {
     const actor = createActor(modalsMachine).start()
 
     actor.send({ type: "EDIT_QUEUE", browseMediaKey: "pm-nd-lp" })
@@ -25,7 +25,7 @@ describe("modalsMachine", () => {
     expect(actor.getSnapshot().context.queueBrowseMediaKey).toBeNull()
   })
 
-  it("clears a stale shelf when the queue modal is opened normally", () => {
+  it("clears a stale item when the queue modal is opened normally", () => {
     const actor = createActor(modalsMachine).start()
 
     actor.send({ type: "EDIT_QUEUE", browseMediaKey: "pm-nd-lp" })

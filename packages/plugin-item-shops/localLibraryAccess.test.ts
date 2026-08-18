@@ -364,17 +364,17 @@ describe("ItemShopsPlugin local library grants", () => {
     })
   })
 
-  describe("listMyMediaShelves", () => {
-    it("returns held playlist grants as mediaKey shelves, never playlist ids", async () => {
+  describe("listPhysicalMediaItems", () => {
+    it("returns held playlist grants as mediaKey items, never playlist ids", async () => {
       const { plugin } = setup({
         hasLibraryCard: true,
         hasPhysicalMedia: true,
       })
-      const shelves = await plugin.listMyMediaShelves({ roomId: ROOM, userId: "u1" })
-      expect(shelves).toEqual([
+      const items = await plugin.listPhysicalMediaItems({ roomId: ROOM, userId: "u1" })
+      expect(items).toEqual([
         expect.objectContaining({ mediaKey: PM_SHORT_ID, name: "LP: Loveless" }),
       ])
-      expect(shelves.some((s) => s.mediaKey.includes("nd-"))).toBe(false)
+      expect(items.some((s) => s.mediaKey.includes("nd-"))).toBe(false)
     })
 
     it("carries the record's cover artwork when the definition has one", async () => {
@@ -384,12 +384,12 @@ describe("ItemShopsPlugin local library grants", () => {
         physicalMediaImageUrl: "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234",
         physicalMediaImageUrlLarge: "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234-lg",
       })
-      const shelves = await plugin.listMyMediaShelves({ roomId: ROOM, userId: "u1" })
-      expect(shelves[0]?.imageUrl).toBe("/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234")
-      expect(shelves[0]?.imageUrlLarge).toBe(
+      const items = await plugin.listPhysicalMediaItems({ roomId: ROOM, userId: "u1" })
+      expect(items[0]?.imageUrl).toBe("/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234")
+      expect(items[0]?.imageUrlLarge).toBe(
         "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234-lg",
       )
-      expect(shelves[0]?.artworkFrame).toBe("record-jacket")
+      expect(items[0]?.artworkFrame).toBe("record-jacket")
     })
   })
 
@@ -479,21 +479,21 @@ describe("ItemShopsPlugin local library grants", () => {
     })
   })
 
-  describe("resolveMyMediaShelf", () => {
+  describe("resolvePhysicalMediaItem", () => {
     it("resolves a held mediaKey to the mapped playlist id", async () => {
       const { plugin } = setup({ hasLibraryCard: false, hasPhysicalMedia: true })
       await expect(
-        plugin.resolveMyMediaShelf({ roomId: ROOM, userId: "u1", mediaKey: PM_SHORT_ID }),
+        plugin.resolvePhysicalMediaItem({ roomId: ROOM, userId: "u1", mediaKey: PM_SHORT_ID }),
       ).resolves.toEqual({
         playlistId: "nd-lp",
-        shelf: expect.objectContaining({ mediaKey: PM_SHORT_ID, name: "LP: Loveless" }),
+        item: expect.objectContaining({ mediaKey: PM_SHORT_ID, name: "LP: Loveless" }),
       })
     })
 
     it("returns null when the caller does not hold the item", async () => {
       const { plugin } = setup({ hasLibraryCard: true, hasPhysicalMedia: false })
       await expect(
-        plugin.resolveMyMediaShelf({ roomId: ROOM, userId: "u1", mediaKey: PM_SHORT_ID }),
+        plugin.resolvePhysicalMediaItem({ roomId: ROOM, userId: "u1", mediaKey: PM_SHORT_ID }),
       ).resolves.toBeNull()
     })
   })
