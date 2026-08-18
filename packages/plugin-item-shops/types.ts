@@ -34,9 +34,9 @@ export const itemShopsConfigSchema = z.object({
     .array(localLibraryGrantConfigSchema)
     .default(() => [...DEFAULT_LOCAL_LIBRARY_GRANTS]),
   /**
-   * When a Local track from a derived Physical Media playlist is now playing
-   * or queued, show the sleeve/case overlay. Missing playlist cover falls back
-   * to track art.
+   * When a Local track from a derived Physical Media playlist is now playing,
+   * queued, or in playlist history, show the sleeve/case overlay. Missing
+   * playlist cover falls back to track art.
    */
   showPhysicalMediaFrameInNowPlaying: z.boolean().default(false),
   /**

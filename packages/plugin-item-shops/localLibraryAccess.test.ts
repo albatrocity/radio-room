@@ -477,6 +477,19 @@ describe("ItemShopsPlugin local library grants", () => {
       ])
       expect(api.checkLocalTrackPlaylistMembership).toHaveBeenCalledTimes(1)
     })
+
+    it("augmentPlaylistBatch uses the same frame attachment as the queue", async () => {
+      const { plugin } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaImageUrl: "/cover.jpg",
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      const other = queueItemFactory.build()
+      await expect(plugin.augmentPlaylistBatch([localTrack, other])).resolves.toEqual([
+        { physicalMediaFrame: { imageUrl: "/cover.jpg", artworkFrame: "record-jacket" } },
+        {},
+      ])
+    })
   })
 
   describe("resolvePhysicalMediaItem", () => {

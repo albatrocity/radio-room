@@ -61,7 +61,7 @@ export function resolvePhysicalMediaArt(params: {
   pluginData: Record<string, unknown> | undefined
   pluginConfigs: Record<string, Record<string, unknown>> | undefined
   trackArtUrl?: string
-  /** Room artwork override, obscured artwork, or a non-queue row. */
+  /** Room artwork override or obscured artwork. */
   disabled?: boolean
 }): PhysicalMediaArt | undefined {
   if (params.disabled) return undefined

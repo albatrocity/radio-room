@@ -487,9 +487,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         },
         showPhysicalMediaFrameInNowPlaying: {
           type: "boolean",
-          label: "Show Physical Media sleeve in Now Playing and Queue",
+          label: "Show Physical Media sleeves in the room",
           description:
-            "When a Local track lives on a derived record (LP, CD, cassette, or 45), Now Playing and the Queue use that sleeve or case. If the record has no cover, the track's album art fills the frame.",
+            "When a Local track lives on a derived record (LP, CD, cassette, or 45), Now Playing, the Queue, and the Playlist use that sleeve or case. If the record has no cover, the track's album art fills the frame.",
           showWhen: { field: "enabled", value: true },
         },
         localLibraryGrants: {
@@ -909,6 +909,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   }
 
   async augmentQueueBatch(items: QueueItem[]): Promise<PluginAugmentationData[]> {
+    return this.augmentPhysicalMediaFrames(items)
+  }
+
+  async augmentPlaylistBatch(items: QueueItem[]): Promise<PluginAugmentationData[]> {
     return this.augmentPhysicalMediaFrames(items)
   }
 

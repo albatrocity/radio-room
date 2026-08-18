@@ -170,7 +170,7 @@ const PlaylistItem = memo(function PlaylistItem({
   const framedArt = usePhysicalMediaArt({
     pluginData: item.pluginData as Record<string, unknown> | undefined,
     trackArtUrl: artThumb,
-    disabled: !isQueueItem || artworkElementProps.obscured,
+    disabled: artworkElementProps.obscured,
   })
 
   const users = useUsers()
