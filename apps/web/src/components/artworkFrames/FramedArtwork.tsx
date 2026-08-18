@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Box, Image, type BoxProps } from "@chakra-ui/react"
-import { parseArtworkFrame, type ArtworkFrame } from "@repo/types"
+import { parseArtworkFrame } from "@repo/types"
+import type { PhysicalMediaArt } from "../../lib/physicalMediaArtwork"
 import ArtworkFrameOverlay from "./ArtworkFrameOverlay"
 import {
   ArtworkOverlaySizeContext,
@@ -10,23 +11,24 @@ import {
   dieCutMaskStyles,
   frameArtworkInset,
   frameContentRatio,
+  framedArtworkLayout,
   framedMediaShadow,
+  type ArtworkSizePreset,
 } from "./frameStyles"
 
 const pct = (fraction: number) => `${fraction * 100}%`
 
-type SizeProps =
-  | { boxSize: BoxProps["boxSize"]; width?: never; height?: never }
-  | { boxSize?: never; width?: never; height: BoxProps["height"] }
+function srcForSize(art: PhysicalMediaArt, size: ArtworkSizePreset): string {
+  if (size === "feature") return art.imageUrlLarge?.trim() || art.imageUrl
+  return art.imageUrl
+}
 
-type Props = SizeProps & {
-  imageUrl: string
-  artworkFrame: ArtworkFrame
+type Props = {
+  art: PhysicalMediaArt
+  size: ArtworkSizePreset
   alt?: string
   idPrefix?: string
   flexShrink?: BoxProps["flexShrink"]
-  /** Used if `imageUrl` fails to load (e.g. playlist cover 404 → track art). */
-  fallbackImageUrl?: string
   /**
    * Occupy a square of the given size and center the physical object in it.
    * Keeps list columns aligned when a cassette is narrower than a sleeve.
@@ -37,33 +39,35 @@ type Props = SizeProps & {
 /**
  * Cover art with a Physical Media overlay. The framed object is square for
  * sleeves/jewel cases and portrait for cassettes. Pass `squareSlot` when a list
- * needs a consistent square column.
+ * needs a consistent square column. `size` picks layout and which cover variant
+ * to load (`feature` prefers `imageUrlLarge`).
  */
 export default function FramedArtwork({
-  imageUrl,
-  artworkFrame,
+  art,
+  size,
   alt = "",
   idPrefix,
   flexShrink = 0,
-  fallbackImageUrl,
   squareSlot = false,
-  ...size
 }: Props) {
-  const frame = parseArtworkFrame(artworkFrame) ?? artworkFrame
+  const frame = parseArtworkFrame(art.artworkFrame) ?? art.artworkFrame
   const isDieCut = frame === "die-cut-jacket"
   const ratio = frameContentRatio(frame)
   const inset = frameArtworkInset(frame)
-  const height = "boxSize" in size && size.boxSize != null ? size.boxSize : size.height
+  const layout = framedArtworkLayout(size)
+  const height = layout.boxSize ?? layout.height
   const slotSize =
-    "boxSize" in size && size.boxSize != null ? { boxSize: size.boxSize } : { w: height, h: height }
+    layout.boxSize != null ? { boxSize: layout.boxSize } : { w: height, h: height }
+  const displayUrl = srcForSize(art, size)
+  const fallbackImageUrl = art.fallbackImageUrl
 
   const contentRef = useRef<HTMLDivElement>(null)
   const [contentSize, setContentSize] = useState<ArtworkOverlaySize>()
-  const [src, setSrc] = useState(imageUrl)
+  const [src, setSrc] = useState(displayUrl)
 
   useEffect(() => {
-    setSrc(imageUrl)
-  }, [imageUrl])
+    setSrc(displayUrl)
+  }, [displayUrl])
 
   useLayoutEffect(() => {
     const el = contentRef.current

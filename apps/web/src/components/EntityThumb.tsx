@@ -1,5 +1,6 @@
 import { Box, Image } from "@chakra-ui/react"
 import type { ArtworkFrame, MetadataSourceUrl } from "@repo/types"
+import { toPhysicalMediaArt } from "../lib/physicalMediaArtwork"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
 import { FRAMED_ARTWORK_BOX_SIZE } from "./artworkFrames/frameStyles"
 
@@ -30,17 +31,10 @@ export default function EntityThumb({
   const framedSize = boxSize ?? FRAMED_ARTWORK_BOX_SIZE
   const radius = artworkFrame ? 0 : shape === "circle" ? "full" : "sm"
   const pixelSize = artworkFrame ? undefined : ENTITY_THUMB_SIZE
+  const art = toPhysicalMediaArt({ imageUrl: url, artworkFrame })
 
-  if (url && artworkFrame) {
-    return (
-      <FramedArtwork
-        imageUrl={url}
-        artworkFrame={artworkFrame}
-        boxSize={framedSize}
-        squareSlot
-        alt={alt}
-      />
-    )
+  if (art) {
+    return <FramedArtwork art={art} size="row" squareSlot alt={alt} />
   }
 
   if (!url) {

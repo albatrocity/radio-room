@@ -198,6 +198,7 @@ function InventoryRow({
       <VStack align="center" justify="center" h="100%" minW="4rem">
         <ItemArtwork
           imageUrl={definition?.imageUrl}
+          imageUrlLarge={definition?.imageUrlLarge}
           icon={definition?.icon}
           rarity={definition?.rarity}
           artworkFrame={definition?.artworkFrame}

@@ -9,6 +9,7 @@ const PM_ENTRY: ItemCatalogEntry = {
     description: "A LP from the Record Store.",
     icon: "Disc3",
     imageUrl: "/api/rooms/r1/images/pl-cover",
+    imageUrlLarge: "/api/rooms/r1/images/pl-cover-lg",
     artworkFrame: "record-jacket",
     stackable: true,
     maxStack: 5,
@@ -33,5 +34,6 @@ describe("buildShoppingInstance", () => {
     const instance = buildShoppingInstance(shop, ["pm-loveless"], catalogMap, Date.now())
     expect(instance.offers[0]?.artworkFrame).toBe("record-jacket")
     expect(instance.offers[0]?.imageUrl).toBe("/api/rooms/r1/images/pl-cover")
+    expect(instance.offers[0]?.imageUrlLarge).toBe("/api/rooms/r1/images/pl-cover-lg")
   })
 })

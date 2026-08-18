@@ -6,6 +6,7 @@ import {
   type BridgeRequest,
 } from "@repo/adapter-bridge/protocol"
 import type { LocalDriver } from "./drivers/local"
+import { normalizeCoverVariants } from "./drivers/local"
 import type { Router } from "./router"
 
 type RedisLike = RedisClientType<any, any, any>
@@ -170,7 +171,10 @@ export class RpcServer {
       }
       case "getPlaylistCoverArt": {
         if (String(p.source) !== "local" || !this.localDriver) return {}
-        return this.localDriver.getPlaylistCoverArt(parsePlaylistIds(p.playlistIds) ?? [])
+        return this.localDriver.getPlaylistCoverArt(
+          parsePlaylistIds(p.playlistIds) ?? [],
+          normalizeCoverVariants(p.variants),
+        )
       }
       case "invalidatePlaylistCache": {
         if (!this.localDriver) return { ok: false }

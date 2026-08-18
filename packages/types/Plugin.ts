@@ -29,6 +29,7 @@ import type {
   ItemDefinition,
   ItemSellResult,
   ItemUseResult,
+  LocalPlaylistArtwork,
   UserInventory,
 } from "./Inventory"
 import type {
@@ -557,12 +558,14 @@ export interface PluginAPI {
   /**
    * Cover artwork URLs for Navidrome playlists, keyed by playlist id. Art is
    * cached in the room image store so wire payloads carry a short URL rather
-   * than a data URI (ADR 0099). Playlists without art are omitted.
+   * than a data URI (ADR 0099). Playlists without art are omitted. Each entry
+   * may include a row-sized `imageUrl` (~384px) and a feature-sized
+   * `imageUrlLarge` (~1200px).
    */
   getLocalPlaylistArtwork(
     roomId: string,
     playlistIds: string[],
-  ): Promise<Record<string, string>>
+  ): Promise<Record<string, LocalPlaylistArtwork>>
 
   /**
    * Drop the Media Bridge daemon's playlist membership + cover-art caches
@@ -1279,6 +1282,15 @@ export interface Plugin {
    * }
    */
   augmentPlaylistBatch?(items: QueueItem[]): Promise<PluginAugmentationData[]>
+
+  /**
+   * Optional method to augment queued tracks with plugin-specific metadata.
+   * Called at read-time for INIT / QUEUE_CHANGED wire payloads (not persisted).
+   *
+   * @param items - Array of queue items to augment
+   * @returns Array of augmentation data objects, one per item (in same order)
+   */
+  augmentQueueBatch?(items: QueueItem[]): Promise<PluginAugmentationData[]>
 
   /**
    * Augment the now playing track with plugin-specific data and style hints.

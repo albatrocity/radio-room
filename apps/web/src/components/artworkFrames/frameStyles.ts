@@ -16,6 +16,26 @@ export const FRAMED_ARTWORK_BOX_SIZE = 12
 /** Track-row framed media (Physical Media after opening a shelf). */
 export const FRAMED_ARTWORK_TRACK_PX = 100
 
+export type ArtworkSizePreset = "row" | "track" | "feature"
+
+/**
+ * Layout size FramedArtwork applies for each named preset. `feature` fills its
+ * parent (Now Playing supplies a square slot); row/track are fixed.
+ */
+export function framedArtworkLayout(size: ArtworkSizePreset): {
+  boxSize?: number
+  height?: string
+} {
+  switch (size) {
+    case "row":
+      return { boxSize: FRAMED_ARTWORK_BOX_SIZE }
+    case "track":
+      return { height: `${FRAMED_ARTWORK_TRACK_PX}px` }
+    case "feature":
+      return { height: "100%" }
+  }
+}
+
 /**
  * Anchors framed media to the page. `drop-shadow` follows the element's alpha, so
  * cassette cases and die-cut 45s keep their silhouette (including the spindle hole).

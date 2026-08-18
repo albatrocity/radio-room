@@ -34,17 +34,22 @@ import {
   type PlaylistMembership,
 } from "./localPlaylistCache"
 import { CoverArtCache, coverCacheKey, mapWithConcurrency } from "./localCoverCache"
-
-const MAP_SONG_CONCURRENCY = 4
-const COVER_ART_CONCURRENCY = 4
-/** Long-edge px for data-URI covers (playlist sleeves + local track art). */
-const COVER_ART_DATA_URI_SIZE = 640
 import {
   collectPublicUrlCandidates,
   pickPublicUrl,
   readPublicUrlCandidatesFromFile,
   resolveSongFilePath,
 } from "./publicUrlTags"
+
+const MAP_SONG_CONCURRENCY = 4
+const COVER_ART_CONCURRENCY = 4
+/** Long-edge px for per-track data-URI covers (`mapSong` / Now Playing fallback). */
+export const COVER_ART_TRACK_SIZE = 640
+export type CoverArtVariant = "sm" | "lg"
+/** Playlist-sleeve sizes requested from Navidrome when the server asks for variants. */
+export const COVER_ART_VARIANTS: Record<CoverArtVariant, number> = { sm: 384, lg: 1200 }
+/** Flat `getPlaylistCoverArt` (no `variants` param) keeps the historical 640px size. */
+export const COVER_ART_LEGACY_PLAYLIST_SIZE = 640
 
 // Re-export pure helpers so existing tests keep importing from `./local`.
 export {
@@ -68,6 +73,15 @@ function normalizePlaylistIds(playlistIds?: string[]): string[] {
   return [...new Set(playlistIds.map((p) => p.trim()).filter(Boolean))]
 }
 
+export function normalizeCoverVariants(raw: unknown): CoverArtVariant[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  const out: CoverArtVariant[] = []
+  for (const value of raw) {
+    if ((value === "sm" || value === "lg") && !out.includes(value)) out.push(value)
+  }
+  return out.length > 0 ? out : undefined
+}
+
 export class LocalDriver implements Driver {
   readonly source = "local" as const
   private readonly playback: MpvPlayback
@@ -82,7 +96,7 @@ export class LocalDriver implements Driver {
     this.playlistCache = new PlaylistMembershipCache((playlistId) =>
       this.fetchPlaylistEntries(playlistId),
     )
-    this.coverCache = new CoverArtCache((coverKey) => this.fetchCoverDataUri(coverKey))
+    this.coverCache = new CoverArtCache((coverKey, sizePx) => this.fetchCoverDataUri(coverKey, sizePx))
   }
 
   async start(): Promise<void> {
@@ -190,22 +204,42 @@ export class LocalDriver implements Driver {
    * Cover art (data URIs) for the given playlists, keyed by playlist id. Navidrome
    * exposes playlist art under a `pl-<id>` cover key; playlists without art are
    * omitted from the result.
+   *
+   * When `variants` is omitted, returns today's flat `Record<id, dataUri>` at 640px
+   * so an old adapter talking to a new daemon still works. When `variants` is set,
+   * returns `Record<id, { sm?, lg? }>`.
    */
-  async getPlaylistCoverArt(playlistIds: string[]): Promise<Record<string, string>> {
+  async getPlaylistCoverArt(
+    playlistIds: string[],
+    variants?: CoverArtVariant[],
+  ): Promise<Record<string, string> | Record<string, { sm?: string; lg?: string }>> {
     if (!this.navidrome.username) return {}
     const ids = normalizePlaylistIds(playlistIds)
     if (ids.length === 0) return {}
-    const out: Record<string, string> = {}
+    const requested = normalizeCoverVariants(variants)
+    if (!requested) {
+      const out: Record<string, string> = {}
+      await mapWithConcurrency(ids, COVER_ART_CONCURRENCY, async (id) => {
+        const dataUri = await this.coverCache.get(`pl-${id}`, COVER_ART_LEGACY_PLAYLIST_SIZE)
+        if (dataUri) out[id] = dataUri
+      })
+      return out
+    }
+    const out: Record<string, { sm?: string; lg?: string }> = {}
     await mapWithConcurrency(ids, COVER_ART_CONCURRENCY, async (id) => {
-      const dataUri = await this.coverCache.get(`pl-${id}`)
-      if (dataUri) out[id] = dataUri
+      const bag: { sm?: string; lg?: string } = {}
+      for (const variant of requested) {
+        const dataUri = await this.coverCache.get(`pl-${id}`, COVER_ART_VARIANTS[variant])
+        if (dataUri) bag[variant] = dataUri
+      }
+      if (bag.sm || bag.lg) out[id] = bag
     })
     return out
   }
 
-  private async fetchCoverDataUri(coverKey: string): Promise<string | undefined> {
+  private async fetchCoverDataUri(coverKey: string, sizePx: number): Promise<string | undefined> {
     try {
-      const coverUrl = `${this.navidrome.url}/rest/getCoverArt.view?id=${encodeURIComponent(coverKey)}&size=${COVER_ART_DATA_URI_SIZE}&${this.authParams()}`
+      const coverUrl = `${this.navidrome.url}/rest/getCoverArt.view?id=${encodeURIComponent(coverKey)}&size=${sizePx}&${this.authParams()}`
       const coverRes = await fetch(coverUrl)
       if (!coverRes.ok) return undefined
       const buf = Buffer.from(await coverRes.arrayBuffer())
@@ -233,7 +267,7 @@ export class LocalDriver implements Driver {
   private async mapSong(song: NavidromeSong): Promise<MetadataSourceTrack> {
     const id = String(song.id ?? "")
     const coverKey = coverCacheKey(song)
-    const coverDataUri = coverKey ? await this.coverCache.get(coverKey) : undefined
+    const coverDataUri = coverKey ? await this.coverCache.get(coverKey, COVER_ART_TRACK_SIZE) : undefined
     const images = coverDataUri
       ? [{ type: "image" as const, url: coverDataUri, id }]
       : []

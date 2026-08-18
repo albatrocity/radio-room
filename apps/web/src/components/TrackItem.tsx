@@ -2,13 +2,14 @@ import { Box, HStack, Image, Text, Badge } from "@chakra-ui/react"
 import React from "react"
 import type { ArtworkFrame } from "@repo/types"
 import { labelForMetadataSource, MetadataSourceTrack } from "@repo/types"
+import { toPhysicalMediaArt } from "../lib/physicalMediaArtwork"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
-import { FRAMED_ARTWORK_TRACK_PX } from "./artworkFrames/frameStyles"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
 
 type ArtworkOverride = {
   imageUrl: string
+  imageUrlLarge?: string
   artworkFrame?: ArtworkFrame
 }
 
@@ -19,18 +20,11 @@ type Props = TrackWithSource & {
 
 const TrackItem = ({ title, album, artists, source, artworkOverride }: Props) => {
   const albumImage = album.images.find((img) => img.type === "image")
+  const art = toPhysicalMediaArt(artworkOverride ?? {})
 
   const leadingVisual = (() => {
-    if (artworkOverride?.imageUrl && artworkOverride.artworkFrame) {
-      return (
-        <FramedArtwork
-          imageUrl={artworkOverride.imageUrl}
-          artworkFrame={artworkOverride.artworkFrame}
-          height={`${FRAMED_ARTWORK_TRACK_PX}px`}
-          squareSlot
-          alt=""
-        />
-      )
+    if (art) {
+      return <FramedArtwork art={art} size="track" squareSlot alt="" />
     }
     if (artworkOverride?.imageUrl) {
       return (

@@ -51,7 +51,7 @@ export function derivePhysicalMediaItems(
   playlists: readonly PhysicalMediaPlaylist[],
   overrides: readonly PhysicalMediaOverride[] = [],
   /** Playlist cover art URLs keyed by Navidrome playlist id. */
-  artworkByPlaylistId: Readonly<Record<string, string>> = {},
+  artworkByPlaylistId: Readonly<Record<string, { imageUrl?: string; imageUrlLarge?: string }>> = {},
 ): { items: ItemCatalogEntry[]; playlistMap: Record<string, string> } {
   const overrideById = new Map(overrides.map((o) => [o.playlistId.trim(), o]))
   const items: ItemCatalogEntry[] = []
@@ -66,7 +66,9 @@ export function derivePhysicalMediaItems(
     const override = overrideById.get(id)
     const songCount = pl.songCount ?? 0
     const name = override?.name?.trim() || `${parsed.format}: ${parsed.title}`
-    const imageUrl = artworkByPlaylistId[id]?.trim()
+    const artwork = artworkByPlaylistId[id]
+    const imageUrl = artwork?.imageUrl?.trim()
+    const imageUrlLarge = artwork?.imageUrlLarge?.trim()
     items.push({
       definition: {
         shortId,
@@ -75,6 +77,7 @@ export function derivePhysicalMediaItems(
         icon: (override?.icon as LucideIconName | undefined) ?? parsed.icon,
         artworkFrame: parsed.artworkFrame,
         ...(imageUrl ? { imageUrl } : {}),
+        ...(imageUrlLarge ? { imageUrlLarge } : {}),
         stackable: true,
         maxStack: 5,
         tradeable: true,

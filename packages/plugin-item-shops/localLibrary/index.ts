@@ -30,6 +30,20 @@ import {
   type LocalCatalogScope,
 } from "./grants"
 
+function shelfArtworkFields(definition?: ItemCatalogEntry["definition"]): {
+  icon?: ItemCatalogEntry["definition"]["icon"]
+  imageUrl?: string
+  imageUrlLarge?: string
+  artworkFrame?: ItemCatalogEntry["definition"]["artworkFrame"]
+} {
+  return {
+    ...(definition?.icon ? { icon: definition.icon } : {}),
+    ...(definition?.imageUrl ? { imageUrl: definition.imageUrl } : {}),
+    ...(definition?.imageUrlLarge ? { imageUrlLarge: definition.imageUrlLarge } : {}),
+    ...(definition?.artworkFrame ? { artworkFrame: definition.artworkFrame } : {}),
+  }
+}
+
 /**
  * Extraction-ready local-library surface. ItemShopsPlugin delegates grant
  * access, catalog filters, and queue redemption here so the module can later
@@ -116,9 +130,7 @@ export class LocalLibraryModule {
       shelves.push({
         mediaKey: h.shortId,
         name: h.name,
-        ...(definition?.icon ? { icon: definition.icon } : {}),
-        ...(definition?.imageUrl ? { imageUrl: definition.imageUrl } : {}),
-        ...(definition?.artworkFrame ? { artworkFrame: definition.artworkFrame } : {}),
+        ...shelfArtworkFields(definition),
       })
     }
     return shelves
@@ -149,22 +161,22 @@ export class LocalLibraryModule {
       shelf: {
         mediaKey: match.shortId,
         name: match.name,
-        ...(definition?.icon ? { icon: definition.icon } : {}),
-        ...(definition?.imageUrl ? { imageUrl: definition.imageUrl } : {}),
-        ...(definition?.artworkFrame ? { artworkFrame: definition.artworkFrame } : {}),
+        ...shelfArtworkFields(definition),
       },
     }
   }
 
   /**
-   * If this Local track belongs to a derived Physical Media playlist, return
-   * the sleeve to show in Now Playing. Playlist cover is optional; the client
-   * fills the frame with track album art when `imageUrl` is missing.
+   * If these Local tracks belong to a derived Physical Media playlist, return
+   * the sleeve for each. Playlist cover is optional; the client fills the frame
+   * with track album art when `imageUrl` is missing. Duplicate ids share one RPC.
    */
-  async resolveNowPlayingFrame(trackId: string): Promise<PhysicalMediaNowPlayingFrame | undefined> {
+  async resolveNowPlayingFrames(
+    trackIds: readonly string[],
+  ): Promise<Map<string, PhysicalMediaNowPlayingFrame>> {
+    const out = new Map<string, PhysicalMediaNowPlayingFrame>()
     const context = this.getContext()
-    const id = trackId.trim()
-    if (!context || !id) return undefined
+    if (!context) return out
 
     const byPlaylistId = new Map<string, (typeof this.derivedPhysicalMedia)[number]>()
     const playlistIds: string[] = []
@@ -177,23 +189,39 @@ export class LocalLibraryModule {
       playlistIds.push(ndId)
       byPlaylistId.set(ndId, entry)
     }
-    if (playlistIds.length === 0) return undefined
+    if (playlistIds.length === 0) return out
 
-    const memberIds = await context.api.checkLocalTrackPlaylistMembership({
-      roomId: context.roomId,
-      trackId: id,
-      playlistIds,
-    })
-    for (const memberId of memberIds) {
-      const entry = byPlaylistId.get(memberId)
-      const artworkFrame = entry?.definition.artworkFrame
-        ? parseArtworkFrame(entry.definition.artworkFrame)
-        : undefined
-      if (!artworkFrame) continue
-      const imageUrl = entry?.definition.imageUrl?.trim()
-      return imageUrl ? { imageUrl, artworkFrame } : { artworkFrame }
-    }
-    return undefined
+    const uniqueIds = [...new Set(trackIds.map((id) => id.trim()).filter(Boolean))]
+    await Promise.all(
+      uniqueIds.map(async (id) => {
+        const memberIds = await context.api.checkLocalTrackPlaylistMembership({
+          roomId: context.roomId,
+          trackId: id,
+          playlistIds,
+        })
+        for (const memberId of memberIds) {
+          const entry = byPlaylistId.get(memberId)
+          const artworkFrame = entry?.definition.artworkFrame
+            ? parseArtworkFrame(entry.definition.artworkFrame)
+            : undefined
+          if (!artworkFrame) continue
+          const imageUrl = entry?.definition.imageUrl?.trim()
+          const imageUrlLarge = entry?.definition.imageUrlLarge?.trim()
+          out.set(id, {
+            artworkFrame,
+            ...(imageUrl ? { imageUrl } : {}),
+            ...(imageUrlLarge ? { imageUrlLarge } : {}),
+          })
+          return
+        }
+      }),
+    )
+    return out
+  }
+
+  async resolveNowPlayingFrame(trackId: string): Promise<PhysicalMediaNowPlayingFrame | undefined> {
+    const frames = await this.resolveNowPlayingFrames([trackId])
+    return frames.get(trackId.trim())
   }
 
   async grantMetadataSourceAccess(

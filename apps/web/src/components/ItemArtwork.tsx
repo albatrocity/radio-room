@@ -1,14 +1,15 @@
 import { Box, Image } from "@chakra-ui/react"
 import type { ArtworkFrame, ItemRarity } from "@repo/types"
 import { getItemRarityColorPalette, itemRarityIconColor } from "../lib/itemRarityPalette"
+import { toPhysicalMediaArt } from "../lib/physicalMediaArtwork"
 import { getIcon } from "./PluginComponents/icons"
 import { SvgIcon } from "./ui/svg-icon"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
-import { FRAMED_ARTWORK_BOX_SIZE } from "./artworkFrames/frameStyles"
 
 type Props = {
   /** Artwork URL (e.g. Physical Media cover art); wins over `icon`. */
   imageUrl?: string
+  imageUrlLarge?: string
   icon?: string
   rarity?: ItemRarity
   /** Chakra box size token for both the image and the icon glyph. */
@@ -24,21 +25,16 @@ type Props = {
  */
 export default function ItemArtwork({
   imageUrl,
+  imageUrlLarge,
   icon,
   rarity,
   boxSize = 7,
   alt = "",
   artworkFrame,
 }: Props) {
-  if (imageUrl && artworkFrame) {
-    return (
-      <FramedArtwork
-        imageUrl={imageUrl}
-        artworkFrame={artworkFrame}
-        boxSize={FRAMED_ARTWORK_BOX_SIZE}
-        alt={alt}
-      />
-    )
+  const art = toPhysicalMediaArt({ imageUrl, imageUrlLarge, artworkFrame })
+  if (art) {
+    return <FramedArtwork art={art} size="row" alt={alt} />
   }
 
   if (imageUrl) {

@@ -106,6 +106,7 @@ function setup(options?: {
   hasBurnedCd?: boolean
   hasPhysicalMedia?: boolean
   physicalMediaImageUrl?: string
+  physicalMediaImageUrlLarge?: string
   libraryCardQuantity?: number
   removeItemSucceeds?: boolean
   playlistIdBargainBin?: string
@@ -195,10 +196,18 @@ function setup(options?: {
   ).localLibrary
   if (hasPhysicalMedia) {
     localLibrary.derivedPhysicalMedia = [
-      options?.physicalMediaImageUrl
+      options?.physicalMediaImageUrl || options?.physicalMediaImageUrlLarge
         ? {
             ...DERIVED_PM,
-            definition: { ...DERIVED_PM.definition, imageUrl: options.physicalMediaImageUrl },
+            definition: {
+              ...DERIVED_PM.definition,
+              ...(options?.physicalMediaImageUrl
+                ? { imageUrl: options.physicalMediaImageUrl }
+                : {}),
+              ...(options?.physicalMediaImageUrlLarge
+                ? { imageUrlLarge: options.physicalMediaImageUrlLarge }
+                : {}),
+            },
           }
         : DERIVED_PM,
     ]
@@ -373,9 +382,13 @@ describe("ItemShopsPlugin local library grants", () => {
         hasLibraryCard: false,
         hasPhysicalMedia: true,
         physicalMediaImageUrl: "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234",
+        physicalMediaImageUrlLarge: "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234-lg",
       })
       const shelves = await plugin.listMyMediaShelves({ roomId: ROOM, userId: "u1" })
       expect(shelves[0]?.imageUrl).toBe("/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234")
+      expect(shelves[0]?.imageUrlLarge).toBe(
+        "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234-lg",
+      )
       expect(shelves[0]?.artworkFrame).toBe("record-jacket")
     })
   })
@@ -389,11 +402,13 @@ describe("ItemShopsPlugin local library grants", () => {
       const { plugin, api } = setup({
         hasPhysicalMedia: true,
         physicalMediaImageUrl: "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234",
+        physicalMediaImageUrlLarge: "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234-lg",
         membershipPlaylistIds: ["nd-lp"],
       })
       await expect(plugin.augmentNowPlaying(localTrack)).resolves.toEqual({
         physicalMediaFrame: {
           imageUrl: "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234",
+          imageUrlLarge: "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234-lg",
           artworkFrame: "record-jacket",
         },
       })
@@ -446,6 +461,21 @@ describe("ItemShopsPlugin local library grants", () => {
       })
       await expect(plugin.augmentNowPlaying(localTrack)).resolves.toEqual({})
       expect(api.checkLocalTrackPlaylistMembership).not.toHaveBeenCalled()
+    })
+
+    it("augmentQueueBatch attaches frames per Local item and skips others", async () => {
+      const { plugin, api } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaImageUrl: "/cover.jpg",
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      const other = queueItemFactory.build()
+      await expect(plugin.augmentQueueBatch([localTrack, other, localTrack])).resolves.toEqual([
+        { physicalMediaFrame: { imageUrl: "/cover.jpg", artworkFrame: "record-jacket" } },
+        {},
+        { physicalMediaFrame: { imageUrl: "/cover.jpg", artworkFrame: "record-jacket" } },
+      ])
+      expect(api.checkLocalTrackPlaylistMembership).toHaveBeenCalledTimes(1)
     })
   })
 

@@ -82,11 +82,19 @@ export function parseArtworkFrame(value: string): ArtworkFrame | undefined {
   return undefined
 }
 
-/** pluginData payload Item Shops attaches on now-playing Local tracks that live on a derived record. */
+/** pluginData payload Item Shops attaches on Local tracks that live on a derived record. */
 export type PhysicalMediaNowPlayingFrame = {
-  /** Playlist cover when Navidrome has one; omitted so the client can fall back to track art. */
+  /** ~384px playlist cover when Navidrome has one; omitted so the client can fall back to track art. */
   imageUrl?: string
+  /** ~1200px playlist cover for feature-sized display (Now Playing). */
+  imageUrlLarge?: string
   artworkFrame: ArtworkFrame
+}
+
+/** Hosted playlist-sleeve URLs from `PluginAPI.getLocalPlaylistArtwork` (ADR 0099). */
+export type LocalPlaylistArtwork = {
+  imageUrl?: string
+  imageUrlLarge?: string
 }
 
 export const PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY = "physicalMediaFrame" as const
@@ -109,9 +117,11 @@ export interface ItemDefinition {
   icon?: LucideIconName
   /**
    * Artwork URL rendered instead of `icon` when present (e.g. Physical Media
-   * cover art served from the room image store — ADR 0099).
+   * cover art served from the room image store — ADR 0099). Row-sized (~384px).
    */
   imageUrl?: string
+  /** Feature-sized (~1200px) cover for Now Playing; falls back to `imageUrl`. */
+  imageUrlLarge?: string
   /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
   artworkFrame?: ArtworkFrame
 

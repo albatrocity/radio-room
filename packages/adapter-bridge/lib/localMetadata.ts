@@ -222,12 +222,41 @@ export async function listLocalPlaylists(params: {
 
 /**
  * Playlist cover art as data URIs keyed by playlist id (Physical Media artwork).
- * Playlists without art are omitted.
+ * Playlists without art are omitted. Values are `{ sm?, lg? }` after normalization
+ * so a stale daemon that still returns a flat `Record<id, dataUri>` degrades to
+ * row-quality art rather than failing.
  */
+export type PlaylistCoverArtVariants = { sm?: string; lg?: string }
+
+function isDataUri(value: unknown): value is string {
+  return typeof value === "string" && value.startsWith("data:")
+}
+
+/** Accept both the nested `{ sm, lg }` shape and a legacy flat data-URI string. */
+export function normalizePlaylistCoverArtResult(
+  result: unknown,
+): Record<string, PlaylistCoverArtVariants> {
+  if (!result || typeof result !== "object") return {}
+  const out: Record<string, PlaylistCoverArtVariants> = {}
+  for (const [id, value] of Object.entries(result as Record<string, unknown>)) {
+    if (isDataUri(value)) {
+      out[id] = { sm: value }
+      continue
+    }
+    if (!value || typeof value !== "object") continue
+    const rec = value as { sm?: unknown; lg?: unknown }
+    const sm = isDataUri(rec.sm) ? rec.sm : undefined
+    const lg = isDataUri(rec.lg) ? rec.lg : undefined
+    if (!sm && !lg) continue
+    out[id] = { ...(sm ? { sm } : {}), ...(lg ? { lg } : {}) }
+  }
+  return out
+}
+
 export async function getLocalPlaylistCoverArt(params: {
   rpc: BridgeRpcClient
   playlistIds: string[]
-}): Promise<Record<string, string>> {
+}): Promise<Record<string, PlaylistCoverArtVariants>> {
   const playlistIds = Array.from(
     new Set(params.playlistIds.map((id) => id.trim()).filter(Boolean)),
   )
@@ -237,13 +266,9 @@ export async function getLocalPlaylistCoverArt(params: {
     const result = (await params.rpc.call("getPlaylistCoverArt", {
       source: "local",
       playlistIds,
+      variants: ["sm", "lg"],
     })) as unknown
-    if (!result || typeof result !== "object") return {}
-    const out: Record<string, string> = {}
-    for (const [id, dataUri] of Object.entries(result as Record<string, unknown>)) {
-      if (typeof dataUri === "string" && dataUri.startsWith("data:")) out[id] = dataUri
-    }
-    return out
+    return normalizePlaylistCoverArtResult(result)
   } catch {
     return {}
   }

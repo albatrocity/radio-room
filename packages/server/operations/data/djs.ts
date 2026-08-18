@@ -463,7 +463,11 @@ export async function buildQueueChangedData({
   const queue = appControlled
     ? await getQueueWithDispatched({ roomId, context })
     : await getQueue({ roomId, context })
-  return { roomId, queue, splitKey }
+  const augmentedQueue =
+    context.pluginRegistry && queue.length > 0
+      ? await context.pluginRegistry.augmentQueueItems(roomId, queue)
+      : queue
+  return { roomId, queue: augmentedQueue, splitKey }
 }
 
 /**

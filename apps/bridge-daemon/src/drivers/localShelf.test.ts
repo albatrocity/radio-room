@@ -71,6 +71,26 @@ describe("LocalDriver shelf browsing", () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("size=640")
   })
 
+  it("fetches sm and lg variants when requested", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("getCoverArt.view")) return coverResponse()
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const driver = new LocalDriver(navidrome, mpv)
+    const covers = await driver.getPlaylistCoverArt(["nd-lp"], ["sm", "lg"])
+
+    expect(covers["nd-lp"]).toEqual({
+      sm: expect.stringMatching(/^data:image\/jpeg;base64,/),
+      lg: expect.stringMatching(/^data:image\/jpeg;base64,/),
+    })
+    const urls = fetchMock.mock.calls.map((call) => String(call[0]))
+    expect(urls.some((u) => u.includes("size=384"))).toBe(true)
+    expect(urls.some((u) => u.includes("size=1200"))).toBe(true)
+    expect(urls.every((u) => u.includes("id=pl-nd-lp"))).toBe(true)
+  })
+
   it("skips playlists without artwork", async () => {
     vi.stubGlobal(
       "fetch",

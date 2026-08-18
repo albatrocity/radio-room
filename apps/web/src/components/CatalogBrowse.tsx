@@ -356,6 +356,9 @@ function CatalogBrowse({
     selectedMedia?.imageUrl != null
       ? {
           imageUrl: selectedMedia.imageUrl,
+          ...(selectedMedia.imageUrlLarge
+            ? { imageUrlLarge: selectedMedia.imageUrlLarge }
+            : {}),
           ...(selectedMedia.artworkFrame ? { artworkFrame: selectedMedia.artworkFrame } : {}),
         }
       : undefined

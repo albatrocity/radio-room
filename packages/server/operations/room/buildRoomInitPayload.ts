@@ -171,7 +171,10 @@ export async function buildRoomInitPayload(params: {
     meta,
     reactions,
     pluginConfigs,
-    queue,
+    queue:
+      context.pluginRegistry && queue.length > 0
+        ? await context.pluginRegistry.augmentQueueItems(roomId, queue)
+        : queue,
     splitKey,
     streamHealthStatus,
     webrtcStreamHealthStatus,

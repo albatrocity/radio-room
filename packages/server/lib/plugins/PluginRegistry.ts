@@ -488,6 +488,9 @@ export class PluginRegistry {
             ...(typeof shelf.imageUrl === "string" && shelf.imageUrl.trim()
               ? { imageUrl: shelf.imageUrl.trim() }
               : {}),
+            ...(typeof shelf.imageUrlLarge === "string" && shelf.imageUrlLarge.trim()
+              ? { imageUrlLarge: shelf.imageUrlLarge.trim() }
+              : {}),
             ...(artworkFrame ? { artworkFrame } : {}),
           })
         }
@@ -553,6 +556,10 @@ export class PluginRegistry {
               : {}),
             ...(typeof result.shelf?.imageUrl === "string" && result.shelf.imageUrl.trim()
               ? { imageUrl: result.shelf.imageUrl.trim() }
+              : {}),
+            ...(typeof result.shelf?.imageUrlLarge === "string" &&
+            result.shelf.imageUrlLarge.trim()
+              ? { imageUrlLarge: result.shelf.imageUrlLarge.trim() }
               : {}),
             ...(artworkFrame ? { artworkFrame } : {}),
           },
@@ -694,6 +701,22 @@ export class PluginRegistry {
    * @returns Items with merged pluginData from all plugins
    */
   async augmentPlaylistItems(roomId: string, items: QueueItem[]): Promise<QueueItem[]> {
+    return this.augmentItemsWithPluginBatch(roomId, items, "augmentPlaylistBatch")
+  }
+
+  /**
+   * Augment queued tracks for INIT / QUEUE_CHANGED. Does not persist to Redis.
+   * Calls augmentQueueBatch on plugins that implement it (not playlist-history hooks).
+   */
+  async augmentQueueItems(roomId: string, items: QueueItem[]): Promise<QueueItem[]> {
+    return this.augmentItemsWithPluginBatch(roomId, items, "augmentQueueBatch")
+  }
+
+  private async augmentItemsWithPluginBatch(
+    roomId: string,
+    items: QueueItem[],
+    method: "augmentPlaylistBatch" | "augmentQueueBatch",
+  ): Promise<QueueItem[]> {
     if (items.length === 0) {
       return items
     }
@@ -703,32 +726,26 @@ export class PluginRegistry {
       return items
     }
 
-    // Get plugins for this room that have augmentation
     const pluginsWithAugmentation = Array.from(roomPluginMap.entries()).filter(
-      ([, { plugin }]) => typeof plugin.augmentPlaylistBatch === "function",
+      ([, { plugin }]) => typeof plugin[method] === "function",
     )
 
     if (pluginsWithAugmentation.length === 0) {
       return items
     }
 
-    // Call all augmentation methods in parallel
     const augmentationResults = await Promise.all(
       pluginsWithAugmentation.map(async ([pluginName, { plugin }]) => {
         try {
-          const augmentations = await plugin.augmentPlaylistBatch!(items)
+          const augmentations = await plugin[method]!(items)
           return { pluginName, augmentations }
         } catch (error) {
-          console.error(
-            `[PluginRegistry] Error in augmentPlaylistBatch for plugin ${pluginName}:`,
-            error,
-          )
+          console.error(`[PluginRegistry] Error in ${method} for plugin ${pluginName}:`, error)
           return { pluginName, augmentations: items.map(() => ({})) }
         }
       }),
     )
 
-    // Merge augmentation data into items
     return items.map((item, index) => {
       const pluginData: Record<string, any> = { ...(item.pluginData || {}) }
 
@@ -739,7 +756,6 @@ export class PluginRegistry {
         }
       }
 
-      // Only add pluginData if there's data to add
       if (Object.keys(pluginData).length > 0) {
         return { ...item, pluginData }
       }

@@ -2,6 +2,7 @@ import { shuffleQueueItems } from "@repo/game-logic"
 import { queueItemFactory } from "@repo/factories/queueItem"
 import type {
   ChatMessage,
+  LocalPlaylistArtwork,
   MetadataSourceAccessAction,
   MoveTrackResult,
   PluginAPI,
@@ -353,7 +354,7 @@ export class MockStudioPluginApi implements PluginAPI {
   async getLocalPlaylistArtwork(
     _roomId: string,
     _playlistIds: string[],
-  ): Promise<Record<string, string>> {
+  ): Promise<Record<string, LocalPlaylistArtwork>> {
     return {}
   }
 

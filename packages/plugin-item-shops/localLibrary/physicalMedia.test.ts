@@ -57,13 +57,29 @@ describe("physicalMedia derivation", () => {
         { id: "nd-2", name: "[CD] Kid A", songCount: 10 },
       ],
       [],
-      { "nd-1": "https://api.example/api/rooms/r1/images/pl-cover-nd-1-abcd1234" },
+      { "nd-1": { imageUrl: "https://api.example/api/rooms/r1/images/pl-cover-nd-1-abcd1234" } },
     )
     expect(items[0]?.definition.imageUrl).toBe(
       "https://api.example/api/rooms/r1/images/pl-cover-nd-1-abcd1234",
     )
+    expect(items[0]?.definition.imageUrlLarge).toBeUndefined()
     expect(items[1]?.definition.imageUrl).toBeUndefined()
     expect(items[1]?.definition.icon).toBe("Disc")
+  })
+
+  it("attaches both cover variants when available", () => {
+    const { items } = derivePhysicalMediaItems(
+      [{ id: "nd-1", name: "[LP] Loveless", songCount: 11 }],
+      [],
+      {
+        "nd-1": {
+          imageUrl: "https://api.example/sm",
+          imageUrlLarge: "https://api.example/lg",
+        },
+      },
+    )
+    expect(items[0]?.definition.imageUrl).toBe("https://api.example/sm")
+    expect(items[0]?.definition.imageUrlLarge).toBe("https://api.example/lg")
   })
 
   it("maps each prefix to the correct artworkFrame", () => {

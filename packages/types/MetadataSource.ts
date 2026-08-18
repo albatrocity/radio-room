@@ -166,8 +166,10 @@ export type MyMediaShelf = {
   mediaKey: string
   name: string
   icon?: string
-  /** Cover artwork URL, preferred over `icon` when present. */
+  /** Cover artwork URL, preferred over `icon` when present. Row-sized (~384px). */
   imageUrl?: string
+  /** Feature-sized (~1200px) cover; omitted when the record has no large variant. */
+  imageUrlLarge?: string
   /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
   artworkFrame?: ArtworkFrame
 }

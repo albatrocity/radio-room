@@ -487,9 +487,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         },
         showPhysicalMediaFrameInNowPlaying: {
           type: "boolean",
-          label: "Show Physical Media sleeve in Now Playing",
+          label: "Show Physical Media sleeve in Now Playing and Queue",
           description:
-            "When a queued Local track lives on a derived record (LP, CD, cassette, or 45), Now Playing uses that sleeve or case. If the record has no cover, the track's album art fills the frame.",
+            "When a Local track lives on a derived record (LP, CD, cassette, or 45), Now Playing and the Queue use that sleeve or case. If the record has no cover, the track's album art fills the frame.",
           showWhen: { field: "enabled", value: true },
         },
         localLibraryGrants: {
@@ -887,15 +887,29 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     return this.localLibrary.validateQueueRequest(params, config)
   }
 
-  async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
+  private async augmentPhysicalMediaFrames(
+    items: QueueItem[],
+  ): Promise<PluginAugmentationData[]> {
     const config = (await this.getConfig()) ?? defaultItemShopsConfig
-    if (!config.enabled) return {}
-    if (item.mediaSource?.type !== "local") return {}
-    const trackId = item.mediaSource.trackId?.trim()
-    if (!trackId) return {}
-    const physicalMediaFrame = await this.localLibrary.resolveNowPlayingFrame(trackId)
-    if (!physicalMediaFrame) return {}
-    return { physicalMediaFrame }
+    if (!config.enabled || items.length === 0) return items.map(() => ({}))
+
+    const localIds = items.map((item) =>
+      item.mediaSource?.type === "local" ? (item.mediaSource.trackId?.trim() ?? "") : "",
+    )
+    const frames = await this.localLibrary.resolveNowPlayingFrames(localIds.filter(Boolean))
+    return localIds.map((id) => {
+      const physicalMediaFrame = id ? frames.get(id) : undefined
+      return physicalMediaFrame ? { physicalMediaFrame } : {}
+    })
+  }
+
+  async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
+    const [augmentation] = await this.augmentPhysicalMediaFrames([item])
+    return augmentation ?? {}
+  }
+
+  async augmentQueueBatch(items: QueueItem[]): Promise<PluginAugmentationData[]> {
+    return this.augmentPhysicalMediaFrames(items)
   }
 
   async getSellbackValues(

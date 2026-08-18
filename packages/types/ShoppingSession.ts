@@ -18,8 +18,10 @@ export interface ShopOffer {
   name: string
   description: string
   icon: LucideIconName
-  /** Artwork URL rendered instead of `icon` when present (e.g. record covers). */
+  /** Artwork URL rendered instead of `icon` when present (e.g. record covers). Row-sized (~384px). */
   imageUrl?: string
+  /** Feature-sized (~1200px) cover; omitted when the record has no large variant. */
+  imageUrlLarge?: string
   /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
   artworkFrame?: ArtworkFrame
   price: number
