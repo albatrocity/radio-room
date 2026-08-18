@@ -52,7 +52,7 @@ function BrowseRowButton({ disabled, onClick, children }: BrowseRowButtonProps) 
       minW={0}
       h="auto"
       p={2}
-      overflow="hidden"
+      overflow="visible"
       textAlign="left"
       borderRadius="md"
       bg="transparent"

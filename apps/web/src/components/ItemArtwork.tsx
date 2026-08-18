@@ -4,6 +4,7 @@ import { getItemRarityColorPalette, itemRarityIconColor } from "../lib/itemRarit
 import { getIcon } from "./PluginComponents/icons"
 import { SvgIcon } from "./ui/svg-icon"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
+import { FRAMED_ARTWORK_BOX_SIZE } from "./artworkFrames/frameStyles"
 
 type Props = {
   /** Artwork URL (e.g. Physical Media cover art); wins over `icon`. */
@@ -34,7 +35,7 @@ export default function ItemArtwork({
       <FramedArtwork
         imageUrl={imageUrl}
         artworkFrame={artworkFrame}
-        boxSize={boxSize}
+        boxSize={FRAMED_ARTWORK_BOX_SIZE}
         alt={alt}
       />
     )

@@ -3,6 +3,7 @@ import React from "react"
 import type { ArtworkFrame } from "@repo/types"
 import { labelForMetadataSource, MetadataSourceTrack } from "@repo/types"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
+import { FRAMED_ARTWORK_TRACK_PX } from "./artworkFrames/frameStyles"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
 
@@ -25,8 +26,8 @@ const TrackItem = ({ title, album, artists, source, artworkOverride }: Props) =>
         <FramedArtwork
           imageUrl={artworkOverride.imageUrl}
           artworkFrame={artworkOverride.artworkFrame}
-          width="100px"
-          height="100px"
+          height={`${FRAMED_ARTWORK_TRACK_PX}px`}
+          squareSlot
           alt=""
         />
       )

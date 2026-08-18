@@ -23,7 +23,7 @@ import {
   QueueValidationParams,
   QueueValidationResult,
   MyMediaShelf,
-  isArtworkFrame,
+  parseArtworkFrame,
   isChatMessageTransformDrop,
   isDeferredQueueRequest,
 } from "@repo/types"
@@ -477,6 +477,8 @@ export class PluginRegistry {
           if (!mediaKey || byKey.has(mediaKey)) continue
           const name =
             typeof shelf.name === "string" && shelf.name.trim() ? shelf.name.trim() : mediaKey
+          const artworkFrame =
+            typeof shelf.artworkFrame === "string" ? parseArtworkFrame(shelf.artworkFrame) : undefined
           byKey.set(mediaKey, {
             mediaKey,
             name,
@@ -486,9 +488,7 @@ export class PluginRegistry {
             ...(typeof shelf.imageUrl === "string" && shelf.imageUrl.trim()
               ? { imageUrl: shelf.imageUrl.trim() }
               : {}),
-            ...(typeof shelf.artworkFrame === "string" && isArtworkFrame(shelf.artworkFrame.trim())
-              ? { artworkFrame: shelf.artworkFrame.trim() }
-              : {}),
+            ...(artworkFrame ? { artworkFrame } : {}),
           })
         }
       } catch (error) {
@@ -539,6 +539,10 @@ export class PluginRegistry {
           typeof result.shelf?.name === "string" && result.shelf.name.trim()
             ? result.shelf.name.trim()
             : shelfKey
+        const artworkFrame =
+          typeof result.shelf?.artworkFrame === "string"
+            ? parseArtworkFrame(result.shelf.artworkFrame)
+            : undefined
         return {
           playlistId,
           shelf: {
@@ -550,10 +554,7 @@ export class PluginRegistry {
             ...(typeof result.shelf?.imageUrl === "string" && result.shelf.imageUrl.trim()
               ? { imageUrl: result.shelf.imageUrl.trim() }
               : {}),
-            ...(typeof result.shelf?.artworkFrame === "string" &&
-            isArtworkFrame(result.shelf.artworkFrame.trim())
-              ? { artworkFrame: result.shelf.artworkFrame.trim() }
-              : {}),
+            ...(artworkFrame ? { artworkFrame } : {}),
           },
         }
       } catch (error) {

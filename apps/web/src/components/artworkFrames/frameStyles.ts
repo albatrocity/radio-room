@@ -7,6 +7,24 @@ export const dieCutMaskStyles: SystemStyleObject = {
   maskImage: "radial-gradient(circle at 50% 50%, transparent 20%, #000 20.5%)",
 }
 
+/**
+ * Row-sized framed media (shop, collection, Physical Media shelf list). Chakra
+ * spacing token — 12 × 4px = 48px tall.
+ */
+export const FRAMED_ARTWORK_BOX_SIZE = 12
+
+/** Track-row framed media (Physical Media after opening a shelf). */
+export const FRAMED_ARTWORK_TRACK_PX = 100
+
+/**
+ * Anchors framed media to the page. `drop-shadow` follows the element's alpha, so
+ * cassette cases and die-cut 45s keep their silhouette (including the spindle hole).
+ */
+export const framedMediaShadow: SystemStyleObject = {
+  filter:
+    "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.28)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.14))",
+}
+
 /** Cassette case outer size in mm; `CassetteCaseOverlay` draws in these units. */
 export const CASSETTE_CASE_MM = { width: 70, height: 110 } as const
 
@@ -16,9 +34,8 @@ export const CASSETTE_INSERT_MM = { x: 4.5, y: 3, width: 62.5, height: 104 } as 
 export type FrameContentRatio = { width: number; height: number }
 
 /**
- * Fraction of the square artwork box the framed media actually occupies. Sleeves
- * and jewel cases are square, so they fill it; a cassette is cropped to a portrait
- * case so its silhouette reads as a tape.
+ * Aspect ratio of the physical object. Sleeves and jewel cases are square;
+ * a cassette is a portrait 70:110 case so the layout box itself is tape-shaped.
  */
 export function frameContentRatio(frame: ArtworkFrame): FrameContentRatio {
   return frame === "cassette-case"

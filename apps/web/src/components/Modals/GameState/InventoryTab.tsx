@@ -18,6 +18,7 @@ import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/so
 import { useCanAddToQueue, useIsAdmin, useModalsSend, useMyMedia } from "../../../hooks/useActors"
 import { quoteItemShopsSellCoins } from "../../../lib/itemShopsSellQuote"
 import ItemArtwork from "../../ItemArtwork"
+import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
 import { getIcon } from "../../PluginComponents/icons"
 import { toaster } from "../../ui/toaster"
 import { useUserGameState } from "../UserGameStateContext"
@@ -200,7 +201,7 @@ function InventoryRow({
           icon={definition?.icon}
           rarity={definition?.rarity}
           artworkFrame={definition?.artworkFrame}
-          boxSize={definition?.slotPool === "collection" ? 12 : 7}
+          boxSize={definition?.slotPool === "collection" ? FRAMED_ARTWORK_BOX_SIZE : 7}
           alt={name}
         />
         {definition != null && (

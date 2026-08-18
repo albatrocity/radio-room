@@ -71,7 +71,15 @@ export const ARTWORK_FRAMES: readonly ArtworkFrame[] = [
 ] as const
 
 export function isArtworkFrame(value: string): value is ArtworkFrame {
-  return (ARTWORK_FRAMES as readonly string[]).includes(value)
+  return parseArtworkFrame(value) != null
+}
+
+/** Normalize a wire/token value, including the retired `"j-card"` alias. */
+export function parseArtworkFrame(value: string): ArtworkFrame | undefined {
+  const trimmed = value.trim()
+  if (trimmed === "j-card") return "cassette-case"
+  if ((ARTWORK_FRAMES as readonly string[]).includes(trimmed)) return trimmed as ArtworkFrame
+  return undefined
 }
 
 /**

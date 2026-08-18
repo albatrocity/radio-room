@@ -6,6 +6,7 @@ import { usePluginComponentContext } from "../context"
 import { getIcon } from "../icons"
 import { SvgIcon } from "../../ui/svg-icon"
 import ItemArtwork from "../../ItemArtwork"
+import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
 import { ButtonTemplateComponent } from "./ButtonComponent"
 import { ItemRarityTag } from "../ItemRarityTag"
 
@@ -74,7 +75,7 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
           borderBottomColor="primary.muted"
         >
           <Table.Row>
-            <Table.ColumnHeader w={hasFramedOffer ? "3rem" : "52px"} aria-label="Icon" />
+            <Table.ColumnHeader w={hasFramedOffer ? "4rem" : "52px"} aria-label="Icon" />
             <Table.ColumnHeader>Item</Table.ColumnHeader>
             <Table.ColumnHeader textAlign="end" w="min-content">
               Price
@@ -90,15 +91,15 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
 
             return (
               <Table.Row key={offerId} opacity={outOfStock ? 0.55 : 1}>
-                <Table.Cell verticalAlign="middle" w={hasFramedOffer ? "3rem" : "52px"}>
-                  <VStack>
-                    <Center width="full" height="full">
+                <Table.Cell verticalAlign="middle" w={hasFramedOffer ? "4rem" : "52px"}>
+                  <VStack align="center">
+                    <Center>
                       <ItemArtwork
                         imageUrl={row.imageUrl}
                         icon={row.icon}
                         rarity={row.rarity}
                         artworkFrame={row.artworkFrame}
-                        boxSize={row.artworkFrame ? 12 : 5}
+                        boxSize={row.artworkFrame ? FRAMED_ARTWORK_BOX_SIZE : 5}
                         alt={row.name}
                       />
                     </Center>

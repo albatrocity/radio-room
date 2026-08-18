@@ -1,6 +1,7 @@
 import { Box, Image } from "@chakra-ui/react"
 import type { ArtworkFrame, MetadataSourceUrl } from "@repo/types"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
+import { FRAMED_ARTWORK_BOX_SIZE } from "./artworkFrames/frameStyles"
 
 const ENTITY_THUMB_SIZE = 40
 
@@ -26,7 +27,7 @@ export default function EntityThumb({
   boxSize,
 }: Props) {
   const url = firstImageUrl(images)
-  const framedSize = boxSize ?? 12
+  const framedSize = boxSize ?? FRAMED_ARTWORK_BOX_SIZE
   const radius = artworkFrame ? 0 : shape === "circle" ? "full" : "sm"
   const pixelSize = artworkFrame ? undefined : ENTITY_THUMB_SIZE
 
@@ -36,6 +37,7 @@ export default function EntityThumb({
         imageUrl={url}
         artworkFrame={artworkFrame}
         boxSize={framedSize}
+        squareSlot
         alt={alt}
       />
     )
