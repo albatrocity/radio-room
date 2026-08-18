@@ -262,6 +262,7 @@ export function buildShoppingInstance(
       description,
       icon = "package" as LucideIconName,
       imageUrl,
+      artworkFrame,
       rarity,
     } = entry.definition
     return {
@@ -271,6 +272,7 @@ export function buildShoppingInstance(
       description,
       icon,
       ...(imageUrl ? { imageUrl } : {}),
+      ...(artworkFrame ? { artworkFrame } : {}),
       price: resolveShopItemPrice(shop, sid, catalogByShortId),
       available: true,
       rarity: rarity ?? "common",

@@ -42,6 +42,7 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
   const listedRate = instance.listedBuybackRate
   const unlistedRate = instance.unlistedBuybackRate
   const showBuybackMeta = listedRate != null && unlistedRate != null
+  const hasFramedOffer = instance.offers.some((row) => row.artworkFrame != null)
 
   return (
     <Box overflowX="auto" w="full">
@@ -73,7 +74,7 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
           borderBottomColor="primary.muted"
         >
           <Table.Row>
-            <Table.ColumnHeader w="52px" aria-label="Icon" />
+            <Table.ColumnHeader w={hasFramedOffer ? "3rem" : "52px"} aria-label="Icon" />
             <Table.ColumnHeader>Item</Table.ColumnHeader>
             <Table.ColumnHeader textAlign="end" w="min-content">
               Price
@@ -89,14 +90,15 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
 
             return (
               <Table.Row key={offerId} opacity={outOfStock ? 0.55 : 1}>
-                <Table.Cell verticalAlign="middle" w="52px">
+                <Table.Cell verticalAlign="middle" w={hasFramedOffer ? "3rem" : "52px"}>
                   <VStack>
                     <Center width="full" height="full">
                       <ItemArtwork
                         imageUrl={row.imageUrl}
                         icon={row.icon}
                         rarity={row.rarity}
-                        boxSize={5}
+                        artworkFrame={row.artworkFrame}
+                        boxSize={row.artworkFrame ? 12 : 5}
                         alt={row.name}
                       />
                     </Center>

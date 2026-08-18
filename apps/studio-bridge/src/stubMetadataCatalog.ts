@@ -25,12 +25,33 @@ export const STUB_MEDIA_ARTWORK =
 
 export const STUB_MY_MEDIA: MyMediaShelf[] = [
   {
-    mediaKey: "pm-studio-1",
+    mediaKey: "pm-studio-lp",
     name: "LP: Studio Pressing",
     icon: "Disc3",
     imageUrl: STUB_MEDIA_ARTWORK,
+    artworkFrame: "record-jacket",
   },
-  { mediaKey: "pm-studio-2", name: "Cassette: Studio Demo", icon: "CassetteTape" },
+  {
+    mediaKey: "pm-studio-cd",
+    name: "CD: Studio Album",
+    icon: "Disc",
+    imageUrl: STUB_MEDIA_ARTWORK,
+    artworkFrame: "jewel-case",
+  },
+  {
+    mediaKey: "pm-studio-45",
+    name: "45: Studio Single",
+    icon: "DiscAlbum",
+    imageUrl: STUB_MEDIA_ARTWORK,
+    artworkFrame: "die-cut-jacket",
+  },
+  {
+    mediaKey: "pm-studio-tape",
+    name: "Cassette: Studio Demo",
+    icon: "CassetteTape",
+    imageUrl: STUB_MEDIA_ARTWORK,
+    artworkFrame: "cassette-case",
+  },
 ]
 
 export const STUB_BROWSE_SOURCE_CAPABILITIES: Record<string, MetadataBrowseCapabilities> = {

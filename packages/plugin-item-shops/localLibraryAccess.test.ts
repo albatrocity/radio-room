@@ -80,6 +80,7 @@ const DERIVED_PM: ItemCatalogEntry = {
     name: "LP: Loveless",
     description: "",
     icon: "Disc3",
+    artworkFrame: "record-jacket",
     stackable: true,
     maxStack: 5,
     tradeable: true,
@@ -374,6 +375,7 @@ describe("ItemShopsPlugin local library grants", () => {
       })
       const shelves = await plugin.listMyMediaShelves({ roomId: ROOM, userId: "u1" })
       expect(shelves[0]?.imageUrl).toBe("/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234")
+      expect(shelves[0]?.artworkFrame).toBe("record-jacket")
     })
   })
 

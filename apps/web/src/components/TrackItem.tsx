@@ -1,15 +1,59 @@
 import { Box, HStack, Image, Text, Badge } from "@chakra-ui/react"
 import React from "react"
+import type { ArtworkFrame } from "@repo/types"
 import { labelForMetadataSource, MetadataSourceTrack } from "@repo/types"
+import FramedArtwork from "./artworkFrames/FramedArtwork"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
 
-const TrackItem = ({ title, album, artists, source }: TrackWithSource) => {
-  const image = album.images.find((img) => img.type === "image")
+type ArtworkOverride = {
+  imageUrl: string
+  artworkFrame?: ArtworkFrame
+}
+
+type Props = TrackWithSource & {
+  /** When set (Physical Media shelf browse), show the sleeve instead of track album art. */
+  artworkOverride?: ArtworkOverride
+}
+
+const TrackItem = ({ title, album, artists, source, artworkOverride }: Props) => {
+  const albumImage = album.images.find((img) => img.type === "image")
+
+  const leadingVisual = (() => {
+    if (artworkOverride?.imageUrl && artworkOverride.artworkFrame) {
+      return (
+        <FramedArtwork
+          imageUrl={artworkOverride.imageUrl}
+          artworkFrame={artworkOverride.artworkFrame}
+          width="100px"
+          height="100px"
+          alt=""
+        />
+      )
+    }
+    if (artworkOverride?.imageUrl) {
+      return (
+        <Image
+          w={100}
+          h={100}
+          flexShrink={0}
+          src={artworkOverride.imageUrl}
+          loading="lazy"
+          alt=""
+        />
+      )
+    }
+    if (albumImage) {
+      return (
+        <Image w={100} h={100} flexShrink={0} src={albumImage.url} loading="lazy" alt="" />
+      )
+    }
+    return null
+  })()
 
   return (
     <HStack gap={2} w="100%" minW={0} align="flex-start">
-      {image && <Image w={100} h={100} flexShrink={0} src={image.url} loading="lazy" />}
+      {leadingVisual}
       <Box overflow="hidden" minW={0} flex="1">
         <HStack gap={2} align="flex-start" minW={0} justify="space-between">
           <Text fontWeight="bold" lineClamp={2} wordBreak="break-word" minW={0} flex="1">

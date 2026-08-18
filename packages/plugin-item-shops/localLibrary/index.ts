@@ -115,6 +115,7 @@ export class LocalLibraryModule {
         name: h.name,
         ...(definition?.icon ? { icon: definition.icon } : {}),
         ...(definition?.imageUrl ? { imageUrl: definition.imageUrl } : {}),
+        ...(definition?.artworkFrame ? { artworkFrame: definition.artworkFrame } : {}),
       })
     }
     return shelves
@@ -147,6 +148,7 @@ export class LocalLibraryModule {
         name: match.name,
         ...(definition?.icon ? { icon: definition.icon } : {}),
         ...(definition?.imageUrl ? { imageUrl: definition.imageUrl } : {}),
+        ...(definition?.artworkFrame ? { artworkFrame: definition.artworkFrame } : {}),
       },
     }
   }

@@ -58,6 +58,23 @@ export interface DefenseSpec {
 // ============================================================================
 
 /**
+ * CSS/SVG overlay token for Physical Media cover art (ADR 0099). Derived from
+ * the Navidrome playlist prefix only — never inferred from display name/icon.
+ */
+export type ArtworkFrame = "jewel-case" | "record-jacket" | "die-cut-jacket" | "cassette-case"
+
+export const ARTWORK_FRAMES: readonly ArtworkFrame[] = [
+  "jewel-case",
+  "record-jacket",
+  "die-cut-jacket",
+  "cassette-case",
+] as const
+
+export function isArtworkFrame(value: string): value is ArtworkFrame {
+  return (ARTWORK_FRAMES as readonly string[]).includes(value)
+}
+
+/**
  * Static definition of an item kind, registered by the owning plugin during
  * `register()`. The `id` is namespaced as `<plugin-name>:<short-id>`.
  */
@@ -78,6 +95,8 @@ export interface ItemDefinition {
    * cover art served from the room image store — ADR 0099).
    */
   imageUrl?: string
+  /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
+  artworkFrame?: ArtworkFrame
 
   /** When `true`, multiple acquisitions combine into a single stack. */
   stackable: boolean

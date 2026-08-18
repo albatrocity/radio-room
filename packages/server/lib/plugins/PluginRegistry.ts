@@ -23,6 +23,7 @@ import {
   QueueValidationParams,
   QueueValidationResult,
   MyMediaShelf,
+  isArtworkFrame,
   isChatMessageTransformDrop,
   isDeferredQueueRequest,
 } from "@repo/types"
@@ -485,6 +486,9 @@ export class PluginRegistry {
             ...(typeof shelf.imageUrl === "string" && shelf.imageUrl.trim()
               ? { imageUrl: shelf.imageUrl.trim() }
               : {}),
+            ...(typeof shelf.artworkFrame === "string" && isArtworkFrame(shelf.artworkFrame.trim())
+              ? { artworkFrame: shelf.artworkFrame.trim() }
+              : {}),
           })
         }
       } catch (error) {
@@ -545,6 +549,10 @@ export class PluginRegistry {
               : {}),
             ...(typeof result.shelf?.imageUrl === "string" && result.shelf.imageUrl.trim()
               ? { imageUrl: result.shelf.imageUrl.trim() }
+              : {}),
+            ...(typeof result.shelf?.artworkFrame === "string" &&
+            isArtworkFrame(result.shelf.artworkFrame.trim())
+              ? { artworkFrame: result.shelf.artworkFrame.trim() }
               : {}),
           },
         }

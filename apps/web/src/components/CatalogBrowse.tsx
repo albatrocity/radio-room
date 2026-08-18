@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   Center,
+  chakra,
   HStack,
   Input,
   ScrollArea,
@@ -22,9 +23,52 @@ import { useSocketMachine } from "../hooks/useSocketMachine"
 import { catalogBrowseMachine } from "../machines/catalogBrowseMachine"
 import EntityThumb from "./EntityThumb"
 import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
+import ScrollShadowViewport from "./ScrollShadowViewport"
 import TrackItem from "./TrackItem"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
+
+type BrowseRowButtonProps = {
+  disabled?: boolean
+  onClick: () => void
+  children: React.ReactNode
+}
+
+/**
+ * Row trigger for browse lists. Deliberately a plain button rather than Chakra's
+ * `Button`, whose recipe sizes every nested `svg` down to icon size and would
+ * shrink artwork frame overlays.
+ */
+function BrowseRowButton({ disabled, onClick, children }: BrowseRowButtonProps) {
+  return (
+    <chakra.button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      display="flex"
+      alignItems="center"
+      justifyContent="flex-start"
+      w="100%"
+      minW={0}
+      h="auto"
+      p={2}
+      overflow="hidden"
+      textAlign="left"
+      borderRadius="md"
+      bg="transparent"
+      borderWidth={0}
+      color="inherit"
+      fontFamily="inherit"
+      fontSize="inherit"
+      lineHeight="inherit"
+      cursor={disabled ? "not-allowed" : "pointer"}
+      opacity={disabled ? 0.6 : 1}
+      _hover={disabled ? undefined : { bg: "actionBgLite" }}
+    >
+      {children}
+    </chakra.button>
+  )
+}
 
 /** Adapt a shelf's cover art to the `EntityThumb` image list shape. */
 function shelfImages(shelf: MyMediaShelf) {
@@ -278,6 +322,7 @@ function CatalogBrowse({
     if (!sourceId || disabled) return
     setSelectedArtist(artist)
     setSelectedAlbum(null)
+    setSelectedMedia(null)
     setLevel("artistAlbums")
     send({ type: "FETCH_ARTIST", source: sourceId, artistId: artist.id })
   }
@@ -285,6 +330,7 @@ function CatalogBrowse({
   const openAlbum = (album: MetadataBrowseAlbum) => {
     if (!sourceId || disabled) return
     setSelectedAlbum(album)
+    setSelectedMedia(null)
     setLevel("tracks")
     send({ type: "FETCH_ALBUM", source: sourceId, albumId: album.id })
   }
@@ -305,6 +351,14 @@ function CatalogBrowse({
   const mediaShelves = mediaFilter
     ? myMedia.filter((s) => s.name.toLowerCase().includes(mediaFilter))
     : myMedia
+
+  const mediaArtworkOverride =
+    selectedMedia?.imageUrl != null
+      ? {
+          imageUrl: selectedMedia.imageUrl,
+          ...(selectedMedia.artworkFrame ? { artworkFrame: selectedMedia.artworkFrame } : {}),
+        }
+      : undefined
 
   return (
     <VStack align="stretch" gap={3} w="100%">
@@ -411,7 +465,7 @@ function CatalogBrowse({
             </Center>
           ) : (
             <ScrollArea.Root maxH="320px" size="sm" variant="hover" w="100%">
-              <ScrollArea.Viewport>
+              <ScrollShadowViewport>
                 <ScrollArea.Content>
                   <VStack align="stretch" gap={0} w="100%">
                     {level === "root" &&
@@ -422,18 +476,9 @@ function CatalogBrowse({
                         </Text>
                       ) : (
                         artists.map((artist) => (
-                          <Button
+                          <BrowseRowButton
                             key={artist.id}
-                            type="button"
-                            variant="ghost"
                             disabled={disabled}
-                            justifyContent="flex-start"
-                            h="auto"
-                            w="100%"
-                            p={2}
-                            textAlign="left"
-                            borderRadius="md"
-                            _hover={{ bg: "actionBgLite" }}
                             onClick={() => openArtist(artist)}
                           >
                             <HStack gap={2} minW={0} w="100%">
@@ -449,7 +494,7 @@ function CatalogBrowse({
                                 )}
                               </VStack>
                             </HStack>
-                          </Button>
+                          </BrowseRowButton>
                         ))
                       ))}
 
@@ -465,18 +510,9 @@ function CatalogBrowse({
                             Yours until the game session ends.
                           </Text>
                           {mediaShelves.map((shelf) => (
-                            <Button
+                            <BrowseRowButton
                               key={shelf.mediaKey}
-                              type="button"
-                              variant="ghost"
                               disabled={disabled}
-                              justifyContent="flex-start"
-                              h="auto"
-                              w="100%"
-                              p={2}
-                              textAlign="left"
-                              borderRadius="md"
-                              _hover={{ bg: "actionBgLite" }}
                               onClick={() => openMedia(shelf)}
                             >
                               <HStack gap={2} minW={0} w="100%">
@@ -484,6 +520,7 @@ function CatalogBrowse({
                                   images={shelfImages(shelf)}
                                   shape="square"
                                   alt={shelf.name}
+                                  artworkFrame={shelf.artworkFrame}
                                 />
                                 <VStack align="start" gap={0} minW={0}>
                                   <Text fontWeight="medium" truncate>
@@ -491,7 +528,7 @@ function CatalogBrowse({
                                   </Text>
                                 </VStack>
                               </HStack>
-                            </Button>
+                            </BrowseRowButton>
                           ))}
                         </>
                       ))}
@@ -503,18 +540,9 @@ function CatalogBrowse({
                         </Text>
                       ) : (
                         albumsForList.map((album) => (
-                          <Button
+                          <BrowseRowButton
                             key={album.id}
-                            type="button"
-                            variant="ghost"
                             disabled={disabled}
-                            justifyContent="flex-start"
-                            h="auto"
-                            w="100%"
-                            p={2}
-                            textAlign="left"
-                            borderRadius="md"
-                            _hover={{ bg: "actionBgLite" }}
                             onClick={() => openAlbum(album)}
                           >
                             <HStack gap={2} minW={0} w="100%">
@@ -534,7 +562,7 @@ function CatalogBrowse({
                                 </Text>
                               </VStack>
                             </HStack>
-                          </Button>
+                          </BrowseRowButton>
                         ))
                       ))}
 
@@ -547,29 +575,21 @@ function CatalogBrowse({
                         )
                       ) : (
                         tracks.map((track, index) => (
-                          <Button
+                          <BrowseRowButton
                             key={`${track.source ?? sourceId}-${track.id}-${index}`}
-                            type="button"
-                            variant="ghost"
                             disabled={disabled}
-                            justifyContent="flex-start"
-                            h="auto"
-                            w="100%"
-                            minW={0}
-                            overflow="hidden"
-                            p={2}
-                            textAlign="left"
-                            borderRadius="md"
-                            _hover={{ bg: "actionBgLite" }}
                             onClick={() => onChoose(track)}
                           >
-                            <TrackItem {...track} />
-                          </Button>
+                            <TrackItem
+                              {...track}
+                              artworkOverride={selectedMedia ? mediaArtworkOverride : undefined}
+                            />
+                          </BrowseRowButton>
                         ))
                       ))}
                   </VStack>
                 </ScrollArea.Content>
-              </ScrollArea.Viewport>
+              </ScrollShadowViewport>
               <ScrollArea.Scrollbar>
                 <ScrollArea.Thumb />
               </ScrollArea.Scrollbar>

@@ -156,6 +156,8 @@ export type MetadataBrowseCapabilities = {
   albumSearch: boolean
 }
 
+import type { ArtworkFrame } from "./Inventory"
+
 /**
  * A Physical Media shelf in Add to Queue. `mediaKey` is the held item shortId
  * (never a Navidrome playlist id — ADR 0099).
@@ -166,6 +168,8 @@ export type MyMediaShelf = {
   icon?: string
   /** Cover artwork URL, preferred over `icon` when present. */
   imageUrl?: string
+  /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
+  artworkFrame?: ArtworkFrame
 }
 
 export interface MetadataSourceApi {

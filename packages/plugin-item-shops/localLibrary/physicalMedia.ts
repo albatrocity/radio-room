@@ -1,12 +1,12 @@
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
-import type { ItemRarity, LucideIconName } from "@repo/types"
+import type { ArtworkFrame, ItemRarity, LucideIconName } from "@repo/types"
 import type { PhysicalMediaOverride } from "./config"
 
 export const PHYSICAL_MEDIA_PREFIXES = [
-  { prefix: "[CD]", format: "CD", icon: "Disc" as LucideIconName },
-  { prefix: "[LP]", format: "LP", icon: "Disc3" as LucideIconName },
-  { prefix: "[TAPE]", format: "Cassette", icon: "CassetteTape" as LucideIconName },
-  { prefix: "[45]", format: "45", icon: "DiscAlbum" as LucideIconName },
+  { prefix: "[CD]", format: "CD", icon: "Disc" as LucideIconName, artworkFrame: "jewel-case" as ArtworkFrame },
+  { prefix: "[LP]", format: "LP", icon: "Disc3" as LucideIconName, artworkFrame: "record-jacket" as ArtworkFrame },
+  { prefix: "[TAPE]", format: "Cassette", icon: "CassetteTape" as LucideIconName, artworkFrame: "cassette-case" as ArtworkFrame },
+  { prefix: "[45]", format: "45", icon: "DiscAlbum" as LucideIconName, artworkFrame: "die-cut-jacket" as ArtworkFrame },
 ] as const
 
 export type PhysicalMediaPlaylist = {
@@ -22,12 +22,12 @@ export function physicalMediaShortId(playlistId: string): string {
 
 export function parsePhysicalMediaName(
   name: string,
-): { format: string; title: string; icon: LucideIconName } | null {
+): { format: string; title: string; icon: LucideIconName; artworkFrame: ArtworkFrame } | null {
   const trimmed = name.trim()
   for (const row of PHYSICAL_MEDIA_PREFIXES) {
     if (trimmed.toUpperCase().startsWith(row.prefix)) {
       const title = trimmed.slice(row.prefix.length).trim() || trimmed
-      return { format: row.format, icon: row.icon, title }
+      return { format: row.format, icon: row.icon, title, artworkFrame: row.artworkFrame }
     }
   }
   return null
@@ -73,6 +73,7 @@ export function derivePhysicalMediaItems(
         name,
         description: `A ${parsed.format} from the Record Store. Queue any track on it for the rest of the session.`,
         icon: (override?.icon as LucideIconName | undefined) ?? parsed.icon,
+        artworkFrame: parsed.artworkFrame,
         ...(imageUrl ? { imageUrl } : {}),
         stackable: true,
         maxStack: 5,

@@ -13,11 +13,13 @@ describe("physicalMedia derivation", () => {
       format: "LP",
       title: "Loveless",
       icon: "Disc3",
+      artworkFrame: "record-jacket",
     })
     expect(parsePhysicalMediaName("[cd] Kid A")).toEqual({
       format: "CD",
       title: "Kid A",
       icon: "Disc",
+      artworkFrame: "jewel-case",
     })
     expect(parsePhysicalMediaName("Just a mixtape")).toBeNull()
   })
@@ -62,5 +64,26 @@ describe("physicalMedia derivation", () => {
     )
     expect(items[1]?.definition.imageUrl).toBeUndefined()
     expect(items[1]?.definition.icon).toBe("Disc")
+  })
+
+  it("maps each prefix to the correct artworkFrame", () => {
+    const { items } = derivePhysicalMediaItems([
+      { id: "cd", name: "[CD] Album", songCount: 10 },
+      { id: "lp", name: "[LP] Album", songCount: 10 },
+      { id: "tape", name: "[TAPE] Mix", songCount: 10 },
+      { id: "45", name: "[45] Single", songCount: 2 },
+    ])
+    expect(items.map((e) => e.definition.artworkFrame)).toEqual([
+      "jewel-case",
+      "record-jacket",
+      "cassette-case",
+      "die-cut-jacket",
+    ])
+  })
+
+  it("sets artworkFrame even when cover art is missing", () => {
+    const { items } = derivePhysicalMediaItems([{ id: "nd-1", name: "[LP] Loveless", songCount: 11 }])
+    expect(items[0]?.definition.artworkFrame).toBe("record-jacket")
+    expect(items[0]?.definition.imageUrl).toBeUndefined()
   })
 })

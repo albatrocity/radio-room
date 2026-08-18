@@ -199,6 +199,8 @@ function InventoryRow({
           imageUrl={definition?.imageUrl}
           icon={definition?.icon}
           rarity={definition?.rarity}
+          artworkFrame={definition?.artworkFrame}
+          boxSize={definition?.slotPool === "collection" ? 12 : 7}
           alt={name}
         />
         {definition != null && (
