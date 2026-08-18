@@ -68,6 +68,7 @@ describe("LocalDriver shelf browsing", () => {
     // Deduplicated: one cover fetch, addressed by the playlist cover key.
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("id=pl-nd-lp")
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("size=640")
   })
 
   it("skips playlists without artwork", async () => {

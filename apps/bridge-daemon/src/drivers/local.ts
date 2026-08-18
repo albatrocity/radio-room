@@ -37,6 +37,8 @@ import { CoverArtCache, coverCacheKey, mapWithConcurrency } from "./localCoverCa
 
 const MAP_SONG_CONCURRENCY = 4
 const COVER_ART_CONCURRENCY = 4
+/** Long-edge px for data-URI covers (playlist sleeves + local track art). */
+const COVER_ART_DATA_URI_SIZE = 640
 import {
   collectPublicUrlCandidates,
   pickPublicUrl,
@@ -203,7 +205,7 @@ export class LocalDriver implements Driver {
 
   private async fetchCoverDataUri(coverKey: string): Promise<string | undefined> {
     try {
-      const coverUrl = `${this.navidrome.url}/rest/getCoverArt.view?id=${encodeURIComponent(coverKey)}&size=256&${this.authParams()}`
+      const coverUrl = `${this.navidrome.url}/rest/getCoverArt.view?id=${encodeURIComponent(coverKey)}&size=${COVER_ART_DATA_URI_SIZE}&${this.authParams()}`
       const coverRes = await fetch(coverUrl)
       if (!coverRes.ok) return undefined
       const buf = Buffer.from(await coverRes.arrayBuffer())
