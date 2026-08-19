@@ -1,12 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Box, Image, type BoxProps } from "@chakra-ui/react"
 import { parseArtworkFrame } from "@repo/types"
 import type { PhysicalMediaArt } from "../../lib/physicalMediaArtwork"
 import ArtworkFrameOverlay from "./ArtworkFrameOverlay"
-import {
-  ArtworkOverlaySizeContext,
-  type ArtworkOverlaySize,
-} from "./ArtworkOverlaySizeContext"
 import {
   dieCutMaskStyles,
   frameArtworkInset,
@@ -38,9 +34,9 @@ type Props = {
 
 /**
  * Cover art with a Physical Media overlay. The framed object is square for
- * sleeves/jewel cases and portrait for cassettes. Pass `squareSlot` when a list
- * needs a consistent square column. `size` picks layout and which cover variant
- * to load (`feature` prefers `imageUrlLarge`).
+ * sleeves, landscape for jewel cases (spine) and portrait for cassettes. Pass
+ * `squareSlot` when a list needs a consistent square column. `size` picks layout
+ * and which cover variant to load (`feature` prefers `imageUrlLarge`).
  */
 export default function FramedArtwork({
   art,
@@ -56,44 +52,50 @@ export default function FramedArtwork({
   const inset = frameArtworkInset(frame)
   const layout = framedArtworkLayout(size)
   const height = layout.boxSize ?? layout.height
+  const width = layout.width
   const slotSize =
-    layout.boxSize != null ? { boxSize: layout.boxSize } : { w: height, h: height }
+    layout.boxSize != null
+      ? { boxSize: layout.boxSize }
+      : width != null
+        ? { w: width, aspectRatio: "1 / 1" }
+        : { w: height, h: height }
   const displayUrl = srcForSize(art, size)
   const fallbackImageUrl = art.fallbackImageUrl
 
   const contentRef = useRef<HTMLDivElement>(null)
-  const [contentSize, setContentSize] = useState<ArtworkOverlaySize>()
   const [src, setSrc] = useState(displayUrl)
 
   useEffect(() => {
     setSrc(displayUrl)
   }, [displayUrl])
 
-  useLayoutEffect(() => {
-    const el = contentRef.current
-    if (!el) return
+  // A jewel case is wider than it is tall, so a square slot has to constrain it
+  // by width; sizing by height would push the spine outside the slot.
+  const widerThanTall = ratio.width > ratio.height
+  const isFeatureMode = size === "feature"
 
-    const sync = () => {
-      const { width, height: measuredHeight } = el.getBoundingClientRect()
-      if (width > 0 && measuredHeight > 0) {
-        setContentSize({ width: Math.round(width), height: Math.round(measuredHeight) })
-      }
-    }
-
-    sync()
-    const observer = new ResizeObserver(sync)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
+  const fillParent = isFeatureMode && !squareSlot
 
   const object = (
     <Box
       position="relative"
-      display="inline-block"
+      display={fillParent ? "block" : "inline-block"}
       flexShrink={squareSlot ? undefined : flexShrink}
-      h={squareSlot ? "100%" : height}
-      w="auto"
-      aspectRatio={`${ratio.width} / ${ratio.height}`}
+      h={
+        fillParent
+          ? "100%"
+          : width
+            ? "auto"
+            : squareSlot
+              ? widerThanTall
+                ? "auto"
+                : "100%"
+              : height
+      }
+      w={width ?? (squareSlot && widerThanTall ? "100%" : "auto")}
+      maxW={isFeatureMode || squareSlot ? "100%" : undefined}
+      maxH={isFeatureMode || squareSlot ? "100%" : undefined}
+      aspectRatio={fillParent ? undefined : `${ratio.width} / ${ratio.height}`}
       verticalAlign="middle"
       lineHeight={0}
       {...framedMediaShadow}
@@ -130,22 +132,18 @@ export default function FramedArtwork({
     </Box>
   )
 
-  return (
-    <ArtworkOverlaySizeContext.Provider value={contentSize}>
-      {squareSlot ? (
-        <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          flexShrink={flexShrink}
-          overflow="visible"
-          {...slotSize}
-        >
-          {object}
-        </Box>
-      ) : (
-        object
-      )}
-    </ArtworkOverlaySizeContext.Provider>
+  return squareSlot ? (
+    <Box
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      flexShrink={flexShrink}
+      overflow="visible"
+      {...slotSize}
+    >
+      {object}
+    </Box>
+  ) : (
+    object
   )
 }

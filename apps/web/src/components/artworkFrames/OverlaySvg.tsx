@@ -1,5 +1,4 @@
 import type { ReactNode, SVGAttributes } from "react"
-import { useArtworkOverlaySize } from "./ArtworkOverlaySizeContext"
 
 type Props = SVGAttributes<SVGSVGElement> & {
   children: ReactNode
@@ -7,8 +6,6 @@ type Props = SVGAttributes<SVGSVGElement> & {
 
 /** Full-bleed overlay SVG scaled to the artwork bounds (viewBox 0–100 unless overridden). */
 export default function OverlaySvg({ children, style, ...rest }: Props) {
-  const size = useArtworkOverlaySize()
-
   return (
     <svg
       viewBox="0 0 100 100"
@@ -20,11 +17,13 @@ export default function OverlaySvg({ children, style, ...rest }: Props) {
         position: "absolute",
         top: 0,
         left: 0,
+        width: "100%",
+        height: "100%",
         pointerEvents: "none",
-        // Explicit px beats Chakra recipes that size nested svg down to icon dimensions.
+        // Chakra recipes size nested svg down to icon dimensions; percentages keep
+        // the overlay locked to the case even when the preview dialog resizes.
         maxWidth: "none",
         maxHeight: "none",
-        ...(size ? { width: size.width, height: size.height } : { width: "100%", height: "100%" }),
         ...style,
       }}
     >

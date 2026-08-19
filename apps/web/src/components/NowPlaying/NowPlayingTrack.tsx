@@ -134,7 +134,6 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
     trackArtUrl: coverUrl,
     disabled: useRoomArtwork || artworkElementProps.obscured,
   })
-
   const nowPlayingInfoItemContext = useMemo(
     () => guessTheTuneNowPlayingItemContext(nowPlaying?.pluginData),
     [nowPlaying?.pluginData],
@@ -165,25 +164,11 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
             <LinkBox width="100%">
               <Stack direction={["row", "column"]} gap={5} justify="center">
                 {(coverUrl || framedArt) && (
-                  <Box
-                    position="relative"
-                    width={artworkSize}
-                    // FramedArtwork sizes from height. `height: 100%` in this
-                    // column Stack collapses to 0 (parent height is content-sized);
-                    // AlbumArtwork survives because the <img> has intrinsic size.
-                    height={framedArt ? [24, "auto"] : artworkSize}
-                    aspectRatio={framedArt ? "1 / 1" : undefined}
-                    flexShrink={0}
-                  >
+                  <Box position="relative" width={artworkSize} flexShrink={0}>
                     <Box position="absolute">
                       <PluginArea area="nowPlayingArt" color="primaryBg" />
                     </Box>
-                    <Box
-                      position="relative"
-                      overflow={framedArt ? "visible" : "hidden"}
-                      height="100%"
-                      width="100%"
-                    >
+                    <Box position="relative" overflow={framedArt ? "visible" : "hidden"} width="100%">
                       {artworkElementProps.obscured ? (
                         <Image
                           src={OBSCURED_ARTWORK_PLACEHOLDER}

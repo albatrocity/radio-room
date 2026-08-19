@@ -1,6 +1,8 @@
 import { Box, Dialog, Portal } from "@chakra-ui/react"
+import { parseArtworkFrame } from "@repo/types"
 import type { PhysicalMediaArt } from "../lib/physicalMediaArtwork"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
+import { frameContentRatio } from "./artworkFrames/frameStyles"
 
 type Props = {
   art: PhysicalMediaArt
@@ -11,6 +13,10 @@ type Props = {
 
 /** Viewport-fitted framed sleeve/case preview (ADR 0099 `feature` size). */
 export function ArtworkPreviewDialog({ art, alt = "", open, onOpenChange }: Props) {
+  const frame = parseArtworkFrame(art.artworkFrame) ?? art.artworkFrame
+  const ratio = frameContentRatio(frame)
+  const ratioValue = ratio.width / ratio.height
+
   return (
     <Dialog.Root
       open={open}
@@ -27,9 +33,9 @@ export function ArtworkPreviewDialog({ art, alt = "", open, onOpenChange }: Prop
             boxShadow="none"
             p="0"
             maxW="none"
-            w="min(90vw, 90vh)"
-            h="min(90vw, 90vh)"
-            overflow="visible"
+            w={`min(90vw, calc(90vh * ${ratioValue}))`}
+            aspectRatio={`${ratio.width} / ${ratio.height}`}
+            overflow="hidden"
           >
             <Dialog.Header p="0" m="0" h="0" overflow="hidden" border="none">
               <Dialog.Title>{alt.trim() || "Artwork"}</Dialog.Title>
@@ -38,7 +44,6 @@ export function ArtworkPreviewDialog({ art, alt = "", open, onOpenChange }: Prop
               <FramedArtwork
                 art={art}
                 size="feature"
-                squareSlot
                 alt={alt}
                 idPrefix="artwork-preview"
               />
