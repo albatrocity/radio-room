@@ -30,7 +30,7 @@ export default function EntityThumb({
   const url = firstImageUrl(images)
   const radius = artworkFrame ? 0 : shape === "circle" ? "full" : "sm"
   const unframedPx = size === "track" ? FRAMED_ARTWORK_TRACK_PX : ENTITY_THUMB_ROW_PX
-  const art = toPhysicalMediaArt({ imageUrl: url, artworkFrame })
+  const art = toPhysicalMediaArt({ imageUrl: url, artworkFrame, name: alt })
 
   if (art) {
     return <FramedArtwork art={art} size={size} squareSlot alt={alt} />

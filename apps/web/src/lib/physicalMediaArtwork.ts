@@ -13,11 +13,21 @@ type ItemShopsNowPlayingData = {
 export type PhysicalMediaArt = {
   artworkFrame: ArtworkFrame
   /** Row-sized cover (~384px), or the track's own art when the record has no cover. */
-  imageUrl: string
+  imageUrl?: string
   /** Feature-sized cover (~1200px); absent for track-art fallback or a stale daemon. */
   imageUrlLarge?: string
   /** Track art, set only when it differs from the sleeve, for FramedArtwork onError. */
   fallbackImageUrl?: string
+  /** Hand-lettered title on a coverless jewel-case disc. */
+  discLabel?: string
+}
+
+/** Strip the derived `CD: ` prefix from default item names; operator overrides pass through. */
+export function deriveDiscLabel(name?: string): string | undefined {
+  const trimmed = name?.trim()
+  if (!trimmed) return undefined
+  const stripped = trimmed.replace(/^CD:\s+/i, "").trim()
+  return stripped || trimmed
 }
 
 function readFrame(value: unknown): PhysicalMediaNowPlayingFrame | undefined {
@@ -82,22 +92,35 @@ export function resolvePhysicalMediaArt(params: {
 }
 
 /**
- * Adapter for shop/collection/browse payloads that already carry `imageUrl` +
- * `artworkFrame` (both required). Does not apply the Now Playing config gate.
+ * Adapter for shop/collection/browse payloads that carry `artworkFrame` and
+ * optionally `imageUrl`. Coverless jewel cases with a `name` get a hand-lettered
+ * disc instead. Does not apply the Now Playing config gate.
  */
 export function toPhysicalMediaArt(source: {
   imageUrl?: string
   imageUrlLarge?: string
   artworkFrame?: ArtworkFrame | string
+  name?: string
 }): PhysicalMediaArt | undefined {
-  const imageUrl = source.imageUrl?.trim()
   const artworkFrame =
     typeof source.artworkFrame === "string" ? parseArtworkFrame(source.artworkFrame) : undefined
-  if (!imageUrl || !artworkFrame) return undefined
+  if (!artworkFrame) return undefined
+
+  const imageUrl = source.imageUrl?.trim()
   const imageUrlLarge = source.imageUrlLarge?.trim()
-  return {
-    artworkFrame,
-    imageUrl,
-    ...(imageUrlLarge ? { imageUrlLarge } : {}),
+
+  if (imageUrl) {
+    return {
+      artworkFrame,
+      imageUrl,
+      ...(imageUrlLarge ? { imageUrlLarge } : {}),
+    }
   }
+
+  if (artworkFrame === "jewel-case") {
+    const discLabel = deriveDiscLabel(source.name)
+    if (discLabel) return { artworkFrame, discLabel }
+  }
+
+  return undefined
 }

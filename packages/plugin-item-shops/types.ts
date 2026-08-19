@@ -40,7 +40,7 @@ export const itemShopsConfigSchema = z.object({
    */
   showPhysicalMediaFrameInNowPlaying: z.boolean().default(false),
   /**
-   * Per-playlist overrides for derived Physical Media (name, price, rarity, icon).
+   * Per-playlist overrides for derived Physical Media (name, price, rarity, icon, blankDisc).
    */
   physicalMediaOverrides: z.array(physicalMediaOverrideSchema).default([]),
 })

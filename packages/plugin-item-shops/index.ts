@@ -538,7 +538,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           type: "object-array",
           label: "Physical Media overrides",
           description:
-            "Optional name/price/rarity/icon overrides for derived Record Store items, keyed by Navidrome playlist id.",
+            "Optional name/price/rarity/icon overrides for derived Record Store items, keyed by Navidrome playlist id. Use Blank disc for jewel-case CDs without a real sleeve.",
           itemLabel: "Override",
           showWhen: { field: "enabled", value: true },
           itemFields: [
@@ -566,6 +566,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
               },
             },
             { name: "icon", meta: { type: "string", label: "Icon (Lucide)" } },
+            {
+              name: "blankDisc",
+              meta: {
+                type: "boolean",
+                label: "Blank disc",
+                description:
+                  "Ignore Navidrome playlist art and show the title hand-lettered on the CD (jewel case only).",
+              },
+            },
           ],
         },
       },

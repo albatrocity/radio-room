@@ -4,6 +4,8 @@ import { JEWEL_CASE_BEVEL_MM, JEWEL_CASE_INSERT_MM, JEWEL_CASE_MM } from "./fram
 type Props = {
   /** Unique id prefix for SVG defs (gradients). */
   idPrefix?: string
+  /** No booklet cover: omit insert window chrome. */
+  coverless?: boolean
 }
 
 const CASE = JEWEL_CASE_MM
@@ -34,7 +36,7 @@ const spineRidges = Array.from(
  * render on `JewelCaseUnderlay` beneath the cover art. Drawn in case
  * millimetres; `frameArtworkInset` puts the cover art in the same window.
  */
-export default function JewelCaseOverlay({ idPrefix = "jc" }: Props) {
+export default function JewelCaseOverlay({ idPrefix = "jc", coverless = false }: Props) {
   const sheenId = `${idPrefix}-sheen`
   const edgeId = `${idPrefix}-edge`
 
@@ -90,36 +92,40 @@ export default function JewelCaseOverlay({ idPrefix = "jc" }: Props) {
         strokeWidth="0.7"
       />
 
-      <rect
-        x={INSERT.x}
-        y={INSERT.y}
-        width={INSERT.width}
-        height={INSERT.height}
-        fill="none"
-        stroke="#fff"
-        strokeOpacity="0.18"
-        strokeWidth="1.2"
-      />
-      <rect
-        x={INSERT.x}
-        y={INSERT.y}
-        width={INSERT.width}
-        height={INSERT.height}
-        fill="none"
-        stroke="#000"
-        strokeOpacity="0.2"
-        strokeWidth="0.6"
-      />
+      {!coverless && (
+        <>
+          <rect
+            x={INSERT.x}
+            y={INSERT.y}
+            width={INSERT.width}
+            height={INSERT.height}
+            fill="none"
+            stroke="#fff"
+            strokeOpacity="0.18"
+            strokeWidth="1.2"
+          />
+          <rect
+            x={INSERT.x}
+            y={INSERT.y}
+            width={INSERT.width}
+            height={INSERT.height}
+            fill="none"
+            stroke="#000"
+            strokeOpacity="0.2"
+            strokeWidth="0.6"
+          />
 
-      <polygon
-        points={`${INSERT.x},${INSERT.y} ${INSERT_RIGHT},${INSERT.y} ${INSERT_RIGHT - 25},${INSERT.y + 48} ${INSERT.x},${INSERT.y + 48}`}
-        fill={`url(#${sheenId})`}
-      />
-      <polygon
-        points={`${INSERT.x},${INSERT_BOTTOM - 48} ${INSERT.x + 60},${INSERT_BOTTOM - 48} ${INSERT.x + 40},${INSERT_BOTTOM - 25} ${INSERT.x},${INSERT_BOTTOM - 25}`}
-        fill="#fff"
-        opacity="0.08"
-      />
+          <polygon
+            points={`${INSERT.x},${INSERT.y} ${INSERT_RIGHT},${INSERT.y} ${INSERT_RIGHT - 25},${INSERT.y + 48} ${INSERT.x},${INSERT.y + 48}`}
+            fill={`url(#${sheenId})`}
+          />
+          <polygon
+            points={`${INSERT.x},${INSERT_BOTTOM - 48} ${INSERT.x + 60},${INSERT_BOTTOM - 48} ${INSERT.x + 40},${INSERT_BOTTOM - 25} ${INSERT.x},${INSERT_BOTTOM - 25}`}
+            fill="#fff"
+            opacity="0.08"
+          />
+        </>
+      )}
 
       <rect
         x="0"

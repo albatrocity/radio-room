@@ -9,9 +9,10 @@ import { FRAMED_ARTWORK_TRACK_PX } from "./artworkFrames/frameStyles"
 type TrackWithSource = MetadataSourceTrack & { source?: string }
 
 type ArtworkOverride = {
-  imageUrl: string
+  imageUrl?: string
   imageUrlLarge?: string
   artworkFrame?: ArtworkFrame
+  name?: string
 }
 
 type Props = TrackWithSource & {

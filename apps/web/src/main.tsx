@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 
+import '@fontsource/caveat/600.css'
 import './styles/roomTransition.css'
 
 // Import the generated route tree

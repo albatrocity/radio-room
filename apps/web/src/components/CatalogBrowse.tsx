@@ -353,13 +353,13 @@ function CatalogBrowse({
     : myMedia
 
   const mediaArtworkOverride =
-    selectedMedia?.imageUrl != null
+    selectedMedia?.artworkFrame != null &&
+    (selectedMedia.imageUrl != null || selectedMedia.artworkFrame === "jewel-case")
       ? {
-          imageUrl: selectedMedia.imageUrl,
-          ...(selectedMedia.imageUrlLarge
-            ? { imageUrlLarge: selectedMedia.imageUrlLarge }
-            : {}),
-          ...(selectedMedia.artworkFrame ? { artworkFrame: selectedMedia.artworkFrame } : {}),
+          ...(selectedMedia.imageUrl ? { imageUrl: selectedMedia.imageUrl } : {}),
+          ...(selectedMedia.imageUrlLarge ? { imageUrlLarge: selectedMedia.imageUrlLarge } : {}),
+          artworkFrame: selectedMedia.artworkFrame,
+          name: selectedMedia.name,
         }
       : undefined
 

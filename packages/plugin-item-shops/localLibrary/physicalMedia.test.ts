@@ -103,6 +103,17 @@ describe("physicalMedia derivation", () => {
     expect(items[0]?.definition.imageUrl).toBeUndefined()
   })
 
+  it("omits cover art when blankDisc override is set", () => {
+    const { items } = derivePhysicalMediaItems(
+      [{ id: "nd-1", name: "[CD] Kid A", songCount: 10 }],
+      [{ playlistId: "nd-1", blankDisc: true }],
+      { "nd-1": { imageUrl: "https://api.example/sm", imageUrlLarge: "https://api.example/lg" } },
+    )
+    expect(items[0]?.definition.artworkFrame).toBe("jewel-case")
+    expect(items[0]?.definition.imageUrl).toBeUndefined()
+    expect(items[0]?.definition.imageUrlLarge).toBeUndefined()
+  })
+
   it("uses the playlist comment as description when present", () => {
     const { items } = derivePhysicalMediaItems([
       {

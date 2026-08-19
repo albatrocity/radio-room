@@ -36,7 +36,7 @@ export default function ItemArtwork({
   artworkFrame,
 }: Props) {
   const [previewOpen, setPreviewOpen] = useState(false)
-  const art = toPhysicalMediaArt({ imageUrl, imageUrlLarge, artworkFrame })
+  const art = toPhysicalMediaArt({ imageUrl, imageUrlLarge, artworkFrame, name: alt })
   if (art) {
     const label = alt.trim() ? `View artwork for ${alt.trim()}` : "View artwork"
     return (

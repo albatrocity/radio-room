@@ -1,4 +1,10 @@
+import { useEffect, useState } from "react"
 import OverlaySvg from "./OverlaySvg"
+import {
+  DISC_LABEL_PATH_RADIUS,
+  fitDiscLabel,
+} from "../../lib/fitDiscLabel"
+import { discLabelFontStyles, loadDiscLabelFont } from "../../lib/discLabelFont"
 import {
   JEWEL_CASE_BEVEL_INNER_MM,
   JEWEL_CASE_INSERT_MM,
@@ -8,6 +14,8 @@ import {
 type Props = {
   /** Unique id prefix for SVG defs (gradients). */
   idPrefix?: string
+  /** Hand-lettered title on the disc when there is no booklet cover. */
+  label?: string
 }
 
 const CASE = JEWEL_CASE_MM
@@ -126,13 +134,30 @@ const DISC_EDGE = "#c6ccd6"
  * Tray, disc, and plastic corner tabs beneath the booklet art. Drawn on a layer
  * below the cover image in `FramedArtwork`; the case margin exposes the tray.
  */
-export default function JewelCaseUnderlay({ idPrefix = "jc" }: Props) {
+export default function JewelCaseUnderlay({ idPrefix = "jc", label }: Props) {
   const tabId = `${idPrefix}-tab`
   const discLeftId = `${idPrefix}-disc-left`
   const discRightId = `${idPrefix}-disc-right`
   const discIridescentId = `${idPrefix}-disc-iridescent`
   const discMaskId = `${idPrefix}-disc-mask`
   const hubId = `${idPrefix}-hub`
+  const labelPathId = `${idPrefix}-disc-label-path`
+  const fittedLabel = label ? fitDiscLabel(label) : undefined
+  const [labelFontReady, setLabelFontReady] = useState(!fittedLabel)
+
+  useEffect(() => {
+    if (!fittedLabel) {
+      setLabelFontReady(true)
+      return
+    }
+    let cancelled = false
+    void loadDiscLabelFont(fittedLabel.fontSize).finally(() => {
+      if (!cancelled) setLabelFontReady(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [fittedLabel?.fontSize, fittedLabel?.text])
 
   const tabArcs = [
     topTabArc(INSERT.x + TAB_OFFSET),
@@ -144,6 +169,7 @@ export default function JewelCaseUnderlay({ idPrefix = "jc" }: Props) {
   return (
     <OverlaySvg viewBox={`0 0 ${CASE.width} ${CASE.height}`}>
       <defs>
+        {fittedLabel && <style>{discLabelFontStyles}</style>}
         <linearGradient id={tabId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#fff" stopOpacity="0.34" />
           <stop offset="100%" stopColor="#fff" stopOpacity="0.1" />
@@ -195,6 +221,12 @@ export default function JewelCaseUnderlay({ idPrefix = "jc" }: Props) {
           <stop offset="60%" stopColor="#0b0e13" />
           <stop offset="100%" stopColor="#14181e" />
         </radialGradient>
+        {fittedLabel && (
+          <path
+            id={labelPathId}
+            d={`M ${DISC_CX - DISC_LABEL_PATH_RADIUS} ${DISC_CY} A ${DISC_LABEL_PATH_RADIUS} ${DISC_LABEL_PATH_RADIUS} 0 0 1 ${DISC_CX + DISC_LABEL_PATH_RADIUS} ${DISC_CY}`}
+          />
+        )}
       </defs>
 
       <rect
@@ -252,6 +284,14 @@ export default function JewelCaseUnderlay({ idPrefix = "jc" }: Props) {
         strokeOpacity="0.45"
         strokeWidth="0.3"
       />
+
+      {fittedLabel && labelFontReady && (
+        <text className="disc-label-text" fill="#1a1f28" fontSize={fittedLabel.fontSize}>
+          <textPath href={`#${labelPathId}`} startOffset="50%" textAnchor="middle">
+            {fittedLabel.text}
+          </textPath>
+        </text>
+      )}
 
       <circle cx={DISC_CX} cy={DISC_CY} r={HUB_OUTER} fill={`url(#${hubId})`} />
       {hubTeeth.map(({ x1, y1, x2, y2 }, i) => (

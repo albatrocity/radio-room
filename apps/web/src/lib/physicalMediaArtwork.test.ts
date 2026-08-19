@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { resolvePhysicalMediaArt, toPhysicalMediaArt } from "./physicalMediaArtwork"
+import { deriveDiscLabel, resolvePhysicalMediaArt, toPhysicalMediaArt } from "./physicalMediaArtwork"
 
 const enabledConfig = {
   "item-shops": { enabled: true, showPhysicalMediaFrameInNowPlaying: true },
@@ -134,9 +134,8 @@ describe("resolvePhysicalMediaArt", () => {
 })
 
 describe("toPhysicalMediaArt", () => {
-  it("requires both imageUrl and a valid artworkFrame", () => {
+  it("requires a valid artworkFrame when a cover is present", () => {
     expect(toPhysicalMediaArt({ imageUrl: "/cover.jpg" })).toBeUndefined()
-    expect(toPhysicalMediaArt({ artworkFrame: "record-jacket" })).toBeUndefined()
     expect(toPhysicalMediaArt({ imageUrl: "/cover.jpg", artworkFrame: "nope" })).toBeUndefined()
   })
 
@@ -152,5 +151,45 @@ describe("toPhysicalMediaArt", () => {
       imageUrl: "/cover.jpg",
       imageUrlLarge: "/cover-lg.jpg",
     })
+  })
+
+  it("returns coverless jewel-case art with a hand-lettered disc label", () => {
+    expect(
+      toPhysicalMediaArt({
+        artworkFrame: "jewel-case",
+        name: "CD: Kid A",
+      }),
+    ).toEqual({
+      artworkFrame: "jewel-case",
+      discLabel: "Kid A",
+    })
+  })
+
+  it("passes operator name overrides through without stripping", () => {
+    expect(
+      toPhysicalMediaArt({
+        artworkFrame: "jewel-case",
+        name: "My Bloody Valentine — Loveless",
+      }),
+    ).toEqual({
+      artworkFrame: "jewel-case",
+      discLabel: "My Bloody Valentine — Loveless",
+    })
+  })
+
+  it("returns undefined for coverless non-jewel frames", () => {
+    expect(
+      toPhysicalMediaArt({
+        artworkFrame: "record-jacket",
+        name: "LP: Loveless",
+      }),
+    ).toBeUndefined()
+  })
+})
+
+describe("deriveDiscLabel", () => {
+  it("strips the derived CD prefix only", () => {
+    expect(deriveDiscLabel("CD: Kid A")).toBe("Kid A")
+    expect(deriveDiscLabel("cd: ok computer")).toBe("ok computer")
   })
 })

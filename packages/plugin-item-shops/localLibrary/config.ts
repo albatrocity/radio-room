@@ -27,6 +27,8 @@ export const physicalMediaOverrideSchema = z.object({
   coinValue: z.number().int().nonnegative().optional(),
   rarity: itemRaritySchema.optional(),
   icon: z.string().optional(),
+  /** Treat the record as unlabelled: ignore Navidrome art and hand-letter the disc. */
+  blankDisc: z.boolean().optional(),
 })
 
 export type PhysicalMediaOverride = z.infer<typeof physicalMediaOverrideSchema>

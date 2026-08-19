@@ -8,12 +8,14 @@ type Props = {
   frame: ArtworkFrame
   /** Stable prefix for SVG def ids when multiple overlays mount on one page. */
   idPrefix?: string
+  /** Jewel case without a booklet cover (hand-lettered disc visible). */
+  coverless?: boolean
 }
 
-export default function ArtworkFrameOverlay({ frame, idPrefix = "af" }: Props) {
+export default function ArtworkFrameOverlay({ frame, idPrefix = "af", coverless = false }: Props) {
   switch (frame) {
     case "jewel-case":
-      return <JewelCaseOverlay idPrefix={`${idPrefix}-jc`} />
+      return <JewelCaseOverlay idPrefix={`${idPrefix}-jc`} coverless={coverless} />
     case "record-jacket":
       return <RecordJacketOverlay idPrefix={`${idPrefix}-rj`} />
     case "die-cut-jacket":

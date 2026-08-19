@@ -15,7 +15,8 @@ import {
 
 const pct = (fraction: number) => `${fraction * 100}%`
 
-function srcForSize(art: PhysicalMediaArt, size: ArtworkSizePreset): string {
+function srcForSize(art: PhysicalMediaArt, size: ArtworkSizePreset): string | undefined {
+  if (!art.imageUrl?.trim()) return undefined
   if (size === "feature") return art.imageUrlLarge?.trim() || art.imageUrl
   return art.imageUrl
 }
@@ -50,6 +51,7 @@ export default function FramedArtwork({
   const frame = parseArtworkFrame(art.artworkFrame) ?? art.artworkFrame
   const isDieCut = frame === "die-cut-jacket"
   const isJewelCase = frame === "jewel-case"
+  const hasCover = Boolean(art.imageUrl?.trim())
   const ratio = frameContentRatio(frame)
   const inset = frameArtworkInset(frame)
   const layout = framedArtworkLayout(size)
@@ -113,30 +115,35 @@ export default function FramedArtwork({
       >
         {isJewelCase && (
           <Box position="absolute" inset={0} zIndex={0} pointerEvents="none">
-            <JewelCaseUnderlay idPrefix={idPrefix ? `${idPrefix}-jc` : "jc"} />
+            <JewelCaseUnderlay
+              idPrefix={idPrefix ? `${idPrefix}-jc` : "jc"}
+              label={art.discLabel}
+            />
           </Box>
         )}
-        <Image
-          position="absolute"
-          top={pct(inset.top)}
-          left={pct(inset.left)}
-          w={pct(1 - inset.left - inset.right)}
-          h={pct(1 - inset.top - inset.bottom)}
-          zIndex={1}
-          src={src}
-          alt={alt}
-          borderRadius={0}
-          objectFit="cover"
-          objectPosition="center"
-          loading="lazy"
-          maxW="none"
-          onError={() => {
-            const fallback = fallbackImageUrl?.trim()
-            if (fallback && src !== fallback) setSrc(fallback)
-          }}
-        />
+        {src && (
+          <Image
+            position="absolute"
+            top={pct(inset.top)}
+            left={pct(inset.left)}
+            w={pct(1 - inset.left - inset.right)}
+            h={pct(1 - inset.top - inset.bottom)}
+            zIndex={1}
+            src={src}
+            alt={alt}
+            borderRadius={0}
+            objectFit="cover"
+            objectPosition="center"
+            loading="lazy"
+            maxW="none"
+            onError={() => {
+              const fallback = fallbackImageUrl?.trim()
+              if (fallback && src !== fallback) setSrc(fallback)
+            }}
+          />
+        )}
         <Box position="absolute" inset={0} zIndex={2} pointerEvents="none">
-          <ArtworkFrameOverlay frame={frame} idPrefix={idPrefix} />
+          <ArtworkFrameOverlay frame={frame} idPrefix={idPrefix} coverless={!hasCover} />
         </Box>
       </Box>
     </Box>

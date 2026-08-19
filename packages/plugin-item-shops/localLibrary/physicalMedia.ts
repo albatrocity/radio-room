@@ -69,7 +69,7 @@ export function derivePhysicalMediaItems(
     const songCount = pl.songCount ?? 0
     const name = override?.name?.trim() || `${parsed.format}: ${parsed.title}`
     const comment = pl.comment?.trim()
-    const artwork = artworkByPlaylistId[id]
+    const artwork = override?.blankDisc ? undefined : artworkByPlaylistId[id]
     const imageUrl = artwork?.imageUrl?.trim()
     const imageUrlLarge = artwork?.imageUrlLarge?.trim()
     items.push({

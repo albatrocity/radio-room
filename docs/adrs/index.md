@@ -107,6 +107,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0099](0099-physical-media-personal-libraries.md) | Physical Media personal libraries (derived items, Record Store, myMedia) | Accepted |
 | [0100](0100-dual-inventory-slot-pools.md) | Dual inventory slot pools (`inventory` vs `collection`) | Accepted |
 | [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) | Queue-add undo: cancel held picks and restore Round Robin turns | Accepted |
+| [0102](0102-handwritten-disc-label-for-coverless-jewel-cases.md) | Handwritten disc label for coverless jewel cases | Accepted |
 
 ## Creating a New ADR
 
