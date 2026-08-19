@@ -82,6 +82,29 @@ describe("collectPublicUrlCandidates", () => {
     )
   })
 
+  it("extracts an embedded public URL from comment text", () => {
+    const out = collectPublicUrlCandidates({
+      comment: "Buy here: https://artist.bandcamp.com/album/demo",
+    })
+    expect(out.comment).toBe("https://artist.bandcamp.com/album/demo")
+  })
+
+  it("extracts the first valid URL from multiline comment text", () => {
+    const out = collectPublicUrlCandidates({
+      comment:
+        "Recorded live in 2019\nMore info: https://artist.example/releases/demo\nSecond: https://example.com/other",
+    })
+    expect(out.comment).toBe("https://artist.example/releases/demo")
+  })
+
+  it("skips invalid or private embedded URLs and falls through to the first public one", () => {
+    const out = collectPublicUrlCandidates({
+      comment:
+        "Local ref http://127.0.0.1/demo then public https://artist.bandcamp.com/album/demo",
+    })
+    expect(out.comment).toBe("https://artist.bandcamp.com/album/demo")
+  })
+
   it("ignores non-URL comments", () => {
     const out = collectPublicUrlCandidates({ comment: "Recorded live in 2019" })
     expect(out.comment).toBeUndefined()

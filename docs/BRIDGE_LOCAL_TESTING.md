@@ -96,7 +96,7 @@ Recommended tags for library managers:
 | Best (FLAC) | Vorbis **`PURCHASEURL`** or **`BANDCAMP`** | same |
 | Also fine | **WXXX** with description `Bandcamp`, **WOAF**, **WPAY** | |
 | Artist site | **WOAR** / Vorbis **WEBSITE** | Lower priority by default |
-| Fragile | Comment field containing only a URL | Used only if nothing else matches |
+| Fragile | Comment field containing a public URL anywhere in the text | First public URL is used only if nothing else matches |
 
 `publicUrlTagPriority` controls which tag wins when several are present. Default is purchase-oriented (`wcom` first). To prefer official artist pages after testing:
 
