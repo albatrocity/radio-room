@@ -156,8 +156,8 @@ export function resolveLocalCatalogScope(params: {
 }
 
 /**
- * Prefer a per-queue burned CD whose playlist contains the track; else a
- * per-queue Library Card. Durable grants are never consumed.
+ * Prefer a per-queue burned CD whose playlist contains the track; else another
+ * per-queue library-scope grant. Durable grants are never consumed.
  */
 export function pickGrantToConsume(params: {
   held: HeldLocalLibraryGrant[]

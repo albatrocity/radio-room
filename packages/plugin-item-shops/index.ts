@@ -396,7 +396,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         {
           type: "text-block",
           content:
-            "Record Store (Physical Media) and Public Library (Library Card) only appear in Media Bridge rooms. Prefix Navidrome playlists with [CD], [LP], [TAPE], or [45] to stock the Record Store. Set Library to “Admins + plugin grants only” under Content → Media sources.",
+            "Record Store (Physical Media) only appears in Media Bridge rooms. Prefix Navidrome playlists with [CD], [LP], [TAPE], or [45] to stock it. Set Library to “Admins + plugin grants only” under Content → Media sources if you want Local access to flow through held items.",
           variant: "info",
         },
         "enabled",
@@ -474,7 +474,6 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           options: [
             ...SHOP_CATALOG.map((s) => ({ value: s.shopId, label: s.name })),
             { value: "record-store", label: "Record Store" },
-            { value: "public-library", label: "Public Library" },
           ],
           showWhen: { field: "enabled", value: true },
         },
@@ -496,7 +495,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           type: "object-array",
           label: "Extra local library grants",
           description:
-            "Optional extra SKUs beyond derived Physical Media and the Library Card. Playlist shelves need a Navidrome playlist id.",
+            "Optional extra SKUs beyond derived Physical Media. Playlist shelves need a Navidrome playlist id.",
           itemLabel: "Grant",
           showWhen: { field: "enabled", value: true },
           itemFields: [
@@ -627,7 +626,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         if (room?.playbackControllerId !== "bridge") {
           return {
             success: false,
-            message: "Library Cards and Burned CDs can only be given in Media Bridge rooms.",
+            message: "Local library grant items can only be given in Media Bridge rooms.",
           }
         }
       }

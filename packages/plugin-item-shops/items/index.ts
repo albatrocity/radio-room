@@ -24,7 +24,6 @@ import { blueberries } from "./blueberries"
 import { rubberBand } from "./rubber-band"
 import { disguise } from "./disguise"
 import { scratchedCd } from "./scratched-cd"
-import { libraryCard } from "./library-card"
 import { tubeOverdrive } from "./tube-overdrive"
 import { warranty } from "./warranty"
 import { vanCubby } from "./van-cubby"
@@ -45,12 +44,11 @@ import { greenPeas } from "./green-peas"
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
  * `../../items` depending on depth — then use `items.boostPedal.shortId`.
- * Local library grant SKUs: Library Card is a static item; Physical Media is
- * derived from Navidrome playlists (see `localLibrary/` and ADR 0099).
+ * Local library grant SKUs: Physical Media is derived from Navidrome playlists
+ * (see `localLibrary/` and ADR 0099).
  */
 export const items = {
   scratchedCd,
-  libraryCard,
   analogDelayPedal,
   fuzzPedal,
   tubeOverdrive,

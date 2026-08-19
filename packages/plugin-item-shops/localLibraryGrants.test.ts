@@ -10,7 +10,7 @@ import type { LocalLibraryGrantConfig } from "./types"
 
 const PLUGIN = "item-shops"
 const BB = "burned-cd-bargain-bin"
-const CARD = "library-card"
+const CARD = "library-pass"
 const POETRY = "burned-cd-poetry"
 const PM = "pm-loveless"
 
@@ -32,7 +32,7 @@ function grant(
 
 const CARD_GRANT = grant({
   shortId: CARD,
-  name: "Library Card",
+  name: "Library Pass",
   scope: "library",
   icon: "IdCard",
   coinValue: 100,
@@ -117,7 +117,7 @@ describe("localLibraryGrants", () => {
     expect(scope).toEqual({ mode: "none" })
   })
 
-  it("prefers a matching burned CD over the Library Card", () => {
+  it("prefers a matching burned CD over a library-scope grant", () => {
     const held = listHeldLocalLibraryGrants({
       pluginName: PLUGIN,
       items: [stack(CARD, 1, "card"), stack(BB, 1, "bb")],
@@ -130,7 +130,7 @@ describe("localLibraryGrants", () => {
     expect(pick?.shortId).toBe(BB)
   })
 
-  it("falls back to Library Card when track is not on a shelf", () => {
+  it("falls back to a library-scope grant when track is not on a shelf", () => {
     const held = listHeldLocalLibraryGrants({
       pluginName: PLUGIN,
       items: [stack(CARD, 1, "card"), stack(BB, 1, "bb")],

@@ -5,12 +5,12 @@ import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 import { ItemShopsPlugin, getEligibleShops, defaultItemShopsConfig } from "./index"
 import { SHOP_CATALOG } from "./shops"
 import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
-import { RECORD_STORE_SHOP_ID, PUBLIC_LIBRARY_SHOP_ID } from "./localLibrary/catalog"
+import { RECORD_STORE_SHOP_ID } from "./localLibrary/catalog"
 import { queueItemFactory } from "@repo/factories"
 
 const ROOM = "room-1"
-const LIBRARY_CARD_SHORT_ID = "library-card"
-const LIBRARY_CARD_DEF_ID = `item-shops:${LIBRARY_CARD_SHORT_ID}`
+const LIBRARY_GRANT_SHORT_ID = "library-pass"
+const LIBRARY_GRANT_DEF_ID = `item-shops:${LIBRARY_GRANT_SHORT_ID}`
 const BURNED_CD_SHORT_ID = "burned-cd-bargain-bin"
 const BURNED_CD_DEF_ID = `item-shops:${BURNED_CD_SHORT_ID}`
 const PM_SHORT_ID = "pm-loveless"
@@ -26,10 +26,10 @@ function createStorage() {
   }
 }
 
-function libraryCardStack(overrides?: Partial<InventoryItem>): InventoryItem {
+function libraryGrantStack(overrides?: Partial<InventoryItem>): InventoryItem {
   return {
-    itemId: "library-card-stack-1",
-    definitionId: LIBRARY_CARD_DEF_ID,
+    itemId: "library-grant-stack-1",
+    definitionId: LIBRARY_GRANT_DEF_ID,
     sourcePlugin: "item-shops",
     quantity: 1,
     acquiredAt: Date.now(),
@@ -57,6 +57,22 @@ function physicalMediaStack(overrides?: Partial<InventoryItem>): InventoryItem {
     acquiredAt: Date.now(),
     ...overrides,
   }
+}
+
+const LIBRARY_GRANT = {
+  shortId: LIBRARY_GRANT_SHORT_ID,
+  name: "Library Pass",
+  description: "",
+  icon: "IdCard",
+  stackable: true,
+  maxStack: 3,
+  tradeable: true,
+  consumable: false,
+  coinValue: 100,
+  rarity: "legendary" as const,
+  scope: "library" as const,
+  playlistId: "",
+  redemption: "perQueue" as const,
 }
 
 const BURNED_CD_GRANT = {
@@ -102,34 +118,37 @@ function setup(options?: {
   playbackControllerId?: string
   localAccess?: "open" | "restricted"
   isAdmin?: boolean
-  hasLibraryCard?: boolean
+  hasLibraryGrant?: boolean
   hasBurnedCd?: boolean
   hasPhysicalMedia?: boolean
   physicalMediaImageUrl?: string
   physicalMediaImageUrlLarge?: string
-  libraryCardQuantity?: number
+  libraryGrantQuantity?: number
   removeItemSucceeds?: boolean
   playlistIdBargainBin?: string
   membershipPlaylistIds?: string[]
 }) {
   const enabled = options?.enabled ?? true
-  const hasLibraryCard = options?.hasLibraryCard ?? true
+  const hasLibraryGrant = options?.hasLibraryGrant ?? false
   const hasBurnedCd = options?.hasBurnedCd ?? false
   const hasPhysicalMedia = options?.hasPhysicalMedia ?? false
-  const libraryCardQuantity = options?.libraryCardQuantity ?? 1
+  const libraryGrantQuantity = options?.libraryGrantQuantity ?? 1
   const stacks: InventoryItem[] = []
-  if (hasLibraryCard) stacks.push(libraryCardStack({ quantity: libraryCardQuantity }))
+  if (hasLibraryGrant) stacks.push(libraryGrantStack({ quantity: libraryGrantQuantity }))
   if (hasBurnedCd) stacks.push(burnedCdStack())
   if (hasPhysicalMedia) stacks.push(physicalMediaStack())
 
-  const grants = hasBurnedCd || options?.playlistIdBargainBin != null
-    ? [
-        {
-          ...BURNED_CD_GRANT,
-          playlistId: options?.playlistIdBargainBin ?? "nd-bb",
-        },
-      ]
-    : [...DEFAULT_LOCAL_LIBRARY_GRANTS]
+  const grants = [
+    ...(hasLibraryGrant ? [LIBRARY_GRANT] : []),
+    ...(hasBurnedCd || options?.playlistIdBargainBin != null
+      ? [
+          {
+            ...BURNED_CD_GRANT,
+            playlistId: options?.playlistIdBargainBin ?? "nd-bb",
+          },
+        ]
+      : []),
+  ]
 
   const inventory = {
     hasItem: vi.fn(async (_userId: string, definitionId: string) => {
@@ -142,7 +161,7 @@ function setup(options?: {
       maxCollectionSlots: 20,
     })),
     removeItem: vi.fn(async () => options?.removeItemSucceeds ?? true),
-    giveItem: vi.fn(async () => libraryCardStack()),
+    giveItem: vi.fn(async () => libraryGrantStack()),
     registerItemDefinitions: vi.fn(),
     getItemDefinition: vi.fn(),
   }
@@ -236,7 +255,7 @@ describe("getEligibleShops", () => {
     expect(shops.some((s) => s.shopId === RECORD_STORE_SHOP_ID)).toBe(true)
     const recordStore = shops.find((s) => s.shopId === RECORD_STORE_SHOP_ID)!
     expect(recordStore.availableItems.some((i) => i.shortId === PM_SHORT_ID)).toBe(true)
-    expect(recordStore.availableItems.some((i) => i.shortId === "scratched-cd")).toBe(true)
+    expect(recordStore.availableItems.some((i) => i.shortId === "scratched-cd")).toBe(false)
   })
 
   it("omits Record Store when no records derive", () => {
@@ -244,17 +263,9 @@ describe("getEligibleShops", () => {
     expect(shops.some((s) => s.shopId === RECORD_STORE_SHOP_ID)).toBe(false)
   })
 
-  it("includes Public Library in bridge rooms", () => {
-    const shops = getEligibleShops(config, "bridge", [])
-    expect(shops.some((s) => s.shopId === PUBLIC_LIBRARY_SHOP_ID)).toBe(true)
-    const library = shops.find((s) => s.shopId === PUBLIC_LIBRARY_SHOP_ID)!
-    expect(library.availableItems.some((i) => i.shortId === LIBRARY_CARD_SHORT_ID)).toBe(true)
-  })
-
-  it("excludes Record Store and Public Library when not on bridge", () => {
+  it("excludes Record Store when not on bridge", () => {
     const shops = getEligibleShops(config, "spotify", [DERIVED_PM])
     expect(shops.some((s) => s.shopId === RECORD_STORE_SHOP_ID)).toBe(false)
-    expect(shops.some((s) => s.shopId === PUBLIC_LIBRARY_SHOP_ID)).toBe(false)
   })
 
   it("still includes shops without a controller requirement off-bridge", () => {
@@ -272,8 +283,8 @@ describe("ItemShopsPlugin local library grants", () => {
   })
 
   describe("grantMetadataSourceAccess", () => {
-    it("grants local search and queue when the user holds a Library Card", async () => {
-      const { plugin } = setup({ hasLibraryCard: true })
+    it("grants local search and queue when the user holds a library-scope grant", async () => {
+      const { plugin } = setup({ hasLibraryGrant: true })
       await expect(
         plugin.grantMetadataSourceAccess({
           roomId: ROOM,
@@ -286,7 +297,7 @@ describe("ItemShopsPlugin local library grants", () => {
 
     it("grants when the user holds a mapped burned CD", async () => {
       const { plugin } = setup({
-        hasLibraryCard: false,
+        hasLibraryGrant: false,
         hasBurnedCd: true,
         playlistIdBargainBin: "nd-bb",
       })
@@ -302,7 +313,7 @@ describe("ItemShopsPlugin local library grants", () => {
 
     it("grants when the user holds Physical Media", async () => {
       const { plugin } = setup({
-        hasLibraryCard: false,
+        hasLibraryGrant: false,
         hasPhysicalMedia: true,
       })
       await expect(
@@ -317,7 +328,7 @@ describe("ItemShopsPlugin local library grants", () => {
 
     it("abstains when burned CD playlist id is unmapped", async () => {
       const { plugin } = setup({
-        hasLibraryCard: false,
+        hasLibraryGrant: false,
         hasBurnedCd: true,
         playlistIdBargainBin: "",
       })
@@ -332,9 +343,9 @@ describe("ItemShopsPlugin local library grants", () => {
     })
 
     it("abstains without a grant, for other sources, or when disabled", async () => {
-      const withCard = setup({ hasLibraryCard: true })
+      const withGrant = setup({ hasLibraryGrant: true })
       await expect(
-        withCard.plugin.grantMetadataSourceAccess({
+        withGrant.plugin.grantMetadataSourceAccess({
           roomId: ROOM,
           userId: "u1",
           sourceId: "spotify",
@@ -342,9 +353,9 @@ describe("ItemShopsPlugin local library grants", () => {
         }),
       ).resolves.toBe("abstain")
 
-      const noCard = setup({ hasLibraryCard: false })
+      const noGrant = setup({ hasLibraryGrant: false })
       await expect(
-        noCard.plugin.grantMetadataSourceAccess({
+        noGrant.plugin.grantMetadataSourceAccess({
           roomId: ROOM,
           userId: "u1",
           sourceId: "local",
@@ -352,7 +363,7 @@ describe("ItemShopsPlugin local library grants", () => {
         }),
       ).resolves.toBe("abstain")
 
-      const disabled = setup({ enabled: false, hasLibraryCard: true })
+      const disabled = setup({ enabled: false, hasLibraryGrant: true })
       await expect(
         disabled.plugin.grantMetadataSourceAccess({
           roomId: ROOM,
@@ -367,7 +378,7 @@ describe("ItemShopsPlugin local library grants", () => {
   describe("listPhysicalMediaItems", () => {
     it("returns held playlist grants as mediaKey items, never playlist ids", async () => {
       const { plugin } = setup({
-        hasLibraryCard: true,
+        hasLibraryGrant: true,
         hasPhysicalMedia: true,
       })
       const items = await plugin.listPhysicalMediaItems({ roomId: ROOM, userId: "u1" })
@@ -379,7 +390,7 @@ describe("ItemShopsPlugin local library grants", () => {
 
     it("carries the record's cover artwork when the definition has one", async () => {
       const { plugin } = setup({
-        hasLibraryCard: false,
+        hasLibraryGrant: false,
         hasPhysicalMedia: true,
         physicalMediaImageUrl: "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234",
         physicalMediaImageUrlLarge: "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234-lg",
@@ -494,7 +505,7 @@ describe("ItemShopsPlugin local library grants", () => {
 
   describe("resolvePhysicalMediaItem", () => {
     it("resolves a held mediaKey to the mapped playlist id", async () => {
-      const { plugin } = setup({ hasLibraryCard: false, hasPhysicalMedia: true })
+      const { plugin } = setup({ hasLibraryGrant: false, hasPhysicalMedia: true })
       await expect(
         plugin.resolvePhysicalMediaItem({ roomId: ROOM, userId: "u1", mediaKey: PM_SHORT_ID }),
       ).resolves.toEqual({
@@ -504,7 +515,7 @@ describe("ItemShopsPlugin local library grants", () => {
     })
 
     it("returns null when the caller does not hold the item", async () => {
-      const { plugin } = setup({ hasLibraryCard: true, hasPhysicalMedia: false })
+      const { plugin } = setup({ hasLibraryGrant: false, hasPhysicalMedia: false })
       await expect(
         plugin.resolvePhysicalMediaItem({ roomId: ROOM, userId: "u1", mediaKey: PM_SHORT_ID }),
       ).resolves.toBeNull()
@@ -520,21 +531,21 @@ describe("ItemShopsPlugin local library grants", () => {
       mediaSourceType: "local" as const,
     }
 
-    it("consumes one Library Card for a non-admin local queue when Local is restricted", async () => {
+    it("consumes one library-scope grant for a non-admin local queue when Local is restricted", async () => {
       const { plugin, inventory, api } = setup({
-        hasLibraryCard: true,
+        hasLibraryGrant: true,
         localAccess: "restricted",
         isAdmin: false,
       })
       const result = await plugin.validateQueueRequest(localParams)
       expect(result).toEqual({ allowed: true })
-      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "library-card-stack-1", 1)
+      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "library-grant-stack-1", 1)
       expect(api.sendUserSystemMessage).toHaveBeenCalled()
     })
 
     it("prefers burned CD when the track is in that playlist", async () => {
       const { plugin, inventory } = setup({
-        hasLibraryCard: true,
+        hasLibraryGrant: true,
         hasBurnedCd: true,
         membershipPlaylistIds: ["nd-bb"],
         playlistIdBargainBin: "nd-bb",
@@ -545,7 +556,7 @@ describe("ItemShopsPlugin local library grants", () => {
 
     it("does not consume durable Physical Media", async () => {
       const { plugin, inventory } = setup({
-        hasLibraryCard: false,
+        hasLibraryGrant: false,
         hasPhysicalMedia: true,
         membershipPlaylistIds: ["nd-lp"],
       })
@@ -555,7 +566,7 @@ describe("ItemShopsPlugin local library grants", () => {
     })
 
     it("does not consume for non-local tracks", async () => {
-      const { plugin, inventory } = setup({ hasLibraryCard: true })
+      const { plugin, inventory } = setup({ hasLibraryGrant: true })
       await plugin.validateQueueRequest({
         ...localParams,
         mediaSourceType: "spotify",
@@ -564,14 +575,14 @@ describe("ItemShopsPlugin local library grants", () => {
     })
 
     it("does not consume for room admins", async () => {
-      const { plugin, inventory } = setup({ hasLibraryCard: true, isAdmin: true })
+      const { plugin, inventory } = setup({ hasLibraryGrant: true, isAdmin: true })
       await plugin.validateQueueRequest(localParams)
       expect(inventory.removeItem).not.toHaveBeenCalled()
     })
 
     it("does not consume when Local is open", async () => {
       const { plugin, inventory } = setup({
-        hasLibraryCard: true,
+        hasLibraryGrant: true,
         localAccess: "open",
       })
       await plugin.validateQueueRequest(localParams)
@@ -579,7 +590,7 @@ describe("ItemShopsPlugin local library grants", () => {
     })
 
     it("does not consume when the user has no grant", async () => {
-      const { plugin, inventory } = setup({ hasLibraryCard: false })
+      const { plugin, inventory } = setup({ hasLibraryGrant: false })
       await plugin.validateQueueRequest(localParams)
       expect(inventory.removeItem).not.toHaveBeenCalled()
     })
@@ -587,19 +598,19 @@ describe("ItemShopsPlugin local library grants", () => {
 
   describe("giveItemToUsers", () => {
     it("refuses library grants off-bridge", async () => {
-      const { plugin } = setup({ playbackControllerId: "spotify" })
+      const { plugin } = setup({ playbackControllerId: "spotify", hasLibraryGrant: true })
       const result = await plugin.executeAction("giveItemToUsers", undefined, {
-        itemShortId: LIBRARY_CARD_SHORT_ID,
+        itemShortId: LIBRARY_GRANT_SHORT_ID,
         userId: "u1",
       })
       expect(result.success).toBe(false)
       expect(result.message).toMatch(/media bridge/i)
     })
 
-    it("grants a Library Card in a bridge room", async () => {
-      const { plugin, inventory } = setup({ playbackControllerId: "bridge" })
+    it("grants a library-scope item in a bridge room", async () => {
+      const { plugin, inventory } = setup({ playbackControllerId: "bridge", hasLibraryGrant: true })
       const result = await plugin.executeAction("giveItemToUsers", undefined, {
-        itemShortId: LIBRARY_CARD_SHORT_ID,
+        itemShortId: LIBRARY_GRANT_SHORT_ID,
         userId: "u1",
       })
       expect(result.success).toBe(true)

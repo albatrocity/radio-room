@@ -16,8 +16,8 @@ export const localLibraryGrantConfigSchema = itemDefinitionAuthoringSchema.exten
 export type LocalLibraryGrantConfig = z.infer<typeof localLibraryGrantConfigSchema>
 
 /**
- * Extra operator-authored grants. Physical Media is derived from Navidrome;
- * Library Card is a static catalog item. Defaults are empty.
+ * Extra operator-authored grants. Physical Media is derived from Navidrome.
+ * Defaults are empty.
  */
 export const DEFAULT_LOCAL_LIBRARY_GRANTS: LocalLibraryGrantConfig[] = []
 

@@ -1,8 +1,9 @@
 import React, { useMemo } from "react"
-import { Stack, Wrap } from "@chakra-ui/react"
+import { Wrap } from "@chakra-ui/react"
+import { checkShowWhenConditions } from "@repo/utils"
 import { PluginComponentProvider, PluginComponentRenderer } from "./PluginComponentRenderer"
 import { usePluginSchemas } from "../../hooks/usePluginSchemas"
-import { usePluginConfigs } from "../../hooks/useActors"
+import { useCurrentUser, useIsAdmin, usePluginConfigs } from "../../hooks/useActors"
 import type { PluginComponentArea, PluginComponentDefinition } from "../../types/PluginComponent"
 
 interface PluginAreaProps {
@@ -51,6 +52,15 @@ export function PluginArea({
 }: PluginAreaProps) {
   const { schemas, isLoading } = usePluginSchemas()
   const pluginConfigs = usePluginConfigs() || {}
+  const isAdmin = useIsAdmin()
+  const currentUser = useCurrentUser()
+  const viewerContext = useMemo(
+    () => ({
+      userId: currentUser?.userId,
+      isAdmin,
+    }),
+    [currentUser?.userId, isAdmin],
+  )
 
   // Build list of plugins with components for this area
   const pluginsForArea = useMemo(() => {
@@ -60,25 +70,42 @@ export function PluginArea({
       if (!schema.componentSchema?.components) continue
 
       // Filter to components for this area
-      const componentsInArea = schema.componentSchema.components.filter(
-        (comp) => comp.area === area,
-      )
+      const componentsInArea = schema.componentSchema.components.filter((comp) => {
+        if (comp.area !== area) return false
+        if (comp.type === "modal" || comp.type === "tab") return false
+        if (
+          (comp.type === "button" || comp.type === "slider") &&
+          "adminOnly" in comp &&
+          comp.adminOnly &&
+          !isAdmin
+        ) {
+          return false
+        }
+        return true
+      })
 
       if (componentsInArea.length === 0) continue
 
       const config = pluginConfigs[schema.name] || schema.defaultConfig || {}
       const storeKeys = schema.componentSchema.storeKeys || []
+      const visibleComponents = componentsInArea.filter(
+        (comp) =>
+          !comp.showWhen ||
+          checkShowWhenConditions(comp.showWhen, config, {}, itemContext, viewerContext),
+      )
+
+      if (visibleComponents.length === 0) continue
 
       result.push({
         pluginName: schema.name,
         config,
         storeKeys,
-        components: componentsInArea,
+        components: visibleComponents,
       })
     }
 
     return result
-  }, [schemas, area, pluginConfigs])
+  }, [schemas, area, pluginConfigs, isAdmin, itemContext, viewerContext])
 
   if (isLoading || pluginsForArea.length === 0) {
     return null
@@ -101,11 +128,9 @@ export function PluginArea({
           textColor={color}
           itemContext={itemContext}
         >
-          {components
-            .filter((c) => c.type !== "modal")
-            .map((comp) => (
-              <PluginComponentRenderer key={comp.id} component={comp} />
-            ))}
+          {components.map((comp) => (
+            <PluginComponentRenderer key={comp.id} component={comp} />
+          ))}
         </PluginComponentProvider>
       ))}
     </Wrap>

@@ -28,7 +28,7 @@ export const itemShopsConfigSchema = z.object({
   enabledShopIds: z.array(z.string()).default(() => defaultEnabledShopIds()),
   /**
    * Extra operator-authored Local library grants (optional playlist shelves).
-   * Physical Media is derived from Navidrome; Library Card is a static item.
+   * Physical Media is derived from Navidrome; extra grants are operator-authored.
    */
   localLibraryGrants: z
     .array(localLibraryGrantConfigSchema)

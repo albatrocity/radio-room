@@ -5,8 +5,8 @@ import { FARMERS_MARKET_SHOP } from "./farmers-market"
 
 /**
  * Master shop definitions — random shop per user each shopping round.
- * Record Store and Public Library are contributed by `localLibrary/` when the
- * room is on the Media Bridge.
+ * Record Store is contributed by `localLibrary/` when the room is on the
+ * Media Bridge and derived Physical Media exists.
  */
 export const SHOP_CATALOG: readonly ItemShopsShopCatalogEntry[] = [
   SWEETWATER_SHOP,
