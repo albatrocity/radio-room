@@ -24,7 +24,9 @@ import { catalogBrowseMachine } from "../machines/catalogBrowseMachine"
 import EntityThumb from "./EntityThumb"
 import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
 import ScrollShadowViewport from "./ScrollShadowViewport"
-import TrackItem from "./TrackItem"
+import TrackActionRow from "./TrackActionRow"
+import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
+import { useTrackPreviewStatus } from "../hooks/useActors"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
 
@@ -123,6 +125,46 @@ function CatalogBrowse({
   const [selectedMedia, setSelectedMedia] = useState<PhysicalMediaItem | null>(null)
   const skipNextFilterFetch = useRef(true)
   const appliedNavKey = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (level !== "tracks") {
+      stopTrackPreview()
+    }
+  }, [level])
+
+  const previewTrackKey = (track: TrackWithSource) => `${track.source ?? sourceId}-${track.id}`
+
+  const handlePreview = (track: TrackWithSource) => {
+    toggleTrackPreview({
+      trackKey: previewTrackKey(track),
+      trackId: track.id,
+      source: track.source ?? sourceId,
+      ...(selectedMedia?.mediaKey ? { mediaKey: selectedMedia.mediaKey } : {}),
+    })
+  }
+
+  function CatalogBrowseTrackRow({
+    track,
+    index,
+  }: {
+    track: TrackWithSource
+    index: number
+  }) {
+    const id = previewTrackKey(track)
+    const previewStatus = useTrackPreviewStatus(id)
+    return (
+      <TrackActionRow
+        key={`${track.source ?? sourceId}-${track.id}-${index}`}
+        track={track}
+        artworkOverride={selectedMedia ? mediaArtworkOverride : undefined}
+        disabled={disabled}
+        previewStatus={previewStatus}
+        canPreview={(track.source ?? sourceId) === "local"}
+        onPreview={() => handlePreview(track)}
+        onAddToQueue={() => onChoose(track)}
+      />
+    )
+  }
 
   const caps = browseSourceCapabilities[sourceId] ?? {
     entryMode: "index" as const,
@@ -579,17 +621,7 @@ function CatalogBrowse({
                         )
                       ) : (
                         tracks.map((track, index) => (
-                          <BrowseRowButton
-                            key={`${track.source ?? sourceId}-${track.id}-${index}`}
-                            disabled={disabled}
-                            onClick={() => onChoose(track)}
-                          >
-                            <TrackItem
-                              {...track}
-                              size="row"
-                              artworkOverride={selectedMedia ? mediaArtworkOverride : undefined}
-                            />
-                          </BrowseRowButton>
+                          <CatalogBrowseTrackRow key={`${track.source ?? sourceId}-${track.id}-${index}`} track={track} index={index} />
                         ))
                       ))}
                   </VStack>

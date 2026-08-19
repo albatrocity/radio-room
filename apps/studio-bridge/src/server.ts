@@ -51,6 +51,8 @@ import {
   stubBrowseArtist,
   stubBrowseArtists,
   stubBrowseMediaItem,
+  stubGetTrackPreview,
+  stubListMediaItemTracks,
   stubSearchTracks,
 } from "./stubMetadataCatalog.js"
 import {
@@ -1079,6 +1081,33 @@ function wireSocketHandlers(io: IOServer): void {
       }
       socket.emit("event", stubBrowseMediaItem(mediaKey))
     })
+
+    socket.on("LIST_MEDIA_ITEM_TRACKS", (payload: { mediaKey?: string }) => {
+      const mediaKey = typeof payload?.mediaKey === "string" ? payload.mediaKey : ""
+      if (!mediaKey) {
+        socket.emit("event", {
+          type: "LIST_MEDIA_ITEM_TRACKS_FAILURE",
+          data: { message: "mediaKey is required" },
+        })
+        return
+      }
+      socket.emit("event", stubListMediaItemTracks(mediaKey))
+    })
+
+    socket.on(
+      "GET_TRACK_PREVIEW",
+      (payload: { trackId?: string; mediaKey?: string; source?: string }) => {
+        const trackId = typeof payload?.trackId === "string" ? payload.trackId : ""
+        if (!trackId) {
+          socket.emit("event", {
+            type: "GET_TRACK_PREVIEW_FAILURE",
+            data: { message: "trackId is required" },
+          })
+          return
+        }
+        socket.emit("event", stubGetTrackPreview())
+      },
+    )
 
     socket.on("SEARCH_TRACK", (payload: { query?: string }) => {
       const query = typeof payload?.query === "string" ? payload.query : ""

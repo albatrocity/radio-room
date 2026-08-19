@@ -571,6 +571,75 @@ export class PluginRegistry {
   }
 
   /**
+   * Resolve a client `mediaKey` for preview authz (held item or current shop offer).
+   * First plugin that returns a playlist id wins.
+   */
+  async resolvePreviewableMediaItem(params: {
+    roomId: string
+    userId: string
+    mediaKey: string
+  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
+    const mediaKey = params.mediaKey.trim()
+    if (!mediaKey) return null
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+    if (!roomPluginMap || roomPluginMap.size === 0) return null
+
+    const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.resolvePreviewableMediaItem === "function",
+    )
+
+    for (const [pluginName, { plugin }] of pluginsWithHook) {
+      try {
+        const result = await Promise.race([
+          plugin.resolvePreviewableMediaItem!({ ...params, mediaKey }),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+        if (!result) continue
+        const playlistId =
+          typeof result.playlistId === "string" ? result.playlistId.trim() : ""
+        if (!playlistId) continue
+        const itemKey =
+          typeof result.item?.mediaKey === "string" && result.item.mediaKey.trim()
+            ? result.item.mediaKey.trim()
+            : mediaKey
+        const name =
+          typeof result.item?.name === "string" && result.item.name.trim()
+            ? result.item.name.trim()
+            : itemKey
+        const artworkFrame =
+          typeof result.item?.artworkFrame === "string"
+            ? parseArtworkFrame(result.item.artworkFrame)
+            : undefined
+        return {
+          playlistId,
+          item: {
+            mediaKey: itemKey,
+            name,
+            ...(typeof result.item?.icon === "string" && result.item.icon.trim()
+              ? { icon: result.item.icon.trim() }
+              : {}),
+            ...(typeof result.item?.imageUrl === "string" && result.item.imageUrl.trim()
+              ? { imageUrl: result.item.imageUrl.trim() }
+              : {}),
+            ...(typeof result.item?.imageUrlLarge === "string" && result.item.imageUrlLarge.trim()
+              ? { imageUrlLarge: result.item.imageUrlLarge.trim() }
+              : {}),
+            ...(artworkFrame ? { artworkFrame } : {}),
+          },
+        }
+      } catch (error) {
+        console.warn(`[PluginRegistry] resolvePreviewableMediaItem ${pluginName} failed:`, error)
+      }
+    }
+    return null
+  }
+
+  /**
    * Run beforePlayQueuedTrack on all plugins that implement it.
    * Called immediately before app-controlled playTrack(uri).
    * Fail-open on errors/timeouts.

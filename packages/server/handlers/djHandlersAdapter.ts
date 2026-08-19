@@ -18,6 +18,10 @@ import {
   browseMediaItem as browseMediaItemOp,
   getEffectiveMetadataSources as getEffectiveMetadataSourcesOp,
 } from "../operations/dj/browseCatalog"
+import {
+  getTrackPreview as getTrackPreviewOp,
+  listMediaItemTracks as listMediaItemTracksOp,
+} from "../operations/dj/trackPreview"
 import { searchTracksAcrossSources } from "../operations/dj/searchTracks"
 
 /**
@@ -499,6 +503,64 @@ export class DJHandlers {
         mediaKey: result.mediaKey,
         name: result.name,
         tracks: result.tracks,
+      },
+    })
+  }
+
+  listMediaItemTracks = async (
+    { socket }: HandlerConnections,
+    payload: { mediaKey: string },
+  ) => {
+    const { roomId, userId } = socket.data
+    const result = await listMediaItemTracksOp({
+      context: this.context,
+      roomId,
+      userId,
+      mediaKey: payload.mediaKey,
+    })
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "LIST_MEDIA_ITEM_TRACKS_FAILURE",
+        data: { message: result.message },
+      })
+      return
+    }
+    socket.emit("event", {
+      type: "LIST_MEDIA_ITEM_TRACKS_RESULTS",
+      data: {
+        mediaKey: result.mediaKey,
+        name: result.name,
+        tracks: result.tracks,
+      },
+    })
+  }
+
+  getTrackPreview = async (
+    { socket }: HandlerConnections,
+    payload: { mediaKey?: string; trackId: string; source?: string },
+  ) => {
+    const { roomId, userId } = socket.data
+    const result = await getTrackPreviewOp({
+      context: this.context,
+      roomId,
+      userId,
+      trackId: payload.trackId,
+      mediaKey: payload.mediaKey,
+      source: payload.source,
+    })
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "GET_TRACK_PREVIEW_FAILURE",
+        data: { message: result.message },
+      })
+      return
+    }
+    socket.emit("event", {
+      type: "GET_TRACK_PREVIEW_RESULTS",
+      data: {
+        url: result.url,
+        durationMs: result.durationMs,
+        cached: result.cached,
       },
     })
   }

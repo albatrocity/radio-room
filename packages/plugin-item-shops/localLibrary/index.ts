@@ -167,6 +167,46 @@ export class LocalLibraryModule {
   }
 
   /**
+   * Resolve a catalog Physical Media item by shortId (no inventory check).
+   * Used for Record Store preview authz when the item is on the shopper's offers.
+   */
+  resolveCatalogPhysicalMediaItem(
+    mediaKey: string,
+    grants: readonly LocalLibraryGrantConfig[],
+  ): { playlistId: string; item: PhysicalMediaItem } | null {
+    const key = mediaKey.trim()
+    if (!key) return null
+    const entry = catalogByShortId(this.grantCatalog).get(key)
+    if (!entry) return null
+    const playlistId = this.playlistMap(grants)[key]?.trim()
+    if (!playlistId) return null
+    return {
+      playlistId,
+      item: {
+        mediaKey: key,
+        name: entry.definition.name ?? key,
+        ...physicalMediaArtworkFields(entry.definition),
+      },
+    }
+  }
+
+  /**
+   * Preview authz: held item OR caller-supplied shop offer shortIds (ADR 0103).
+   */
+  async resolvePreviewablePhysicalMediaItem(
+    userId: string,
+    mediaKey: string,
+    grants: readonly LocalLibraryGrantConfig[],
+    shopOfferShortIds?: readonly string[],
+  ): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
+    const held = await this.resolveHeldPhysicalMediaItem(userId, mediaKey, grants)
+    if (held) return held
+    const key = mediaKey.trim()
+    if (!key || !shopOfferShortIds?.includes(key)) return null
+    return this.resolveCatalogPhysicalMediaItem(key, grants)
+  }
+
+  /**
    * If these Local tracks belong to a derived Physical Media playlist, return
    * the sleeve for each. Playlist cover is optional; the client fills the frame
    * with track album art when `imageUrl` is missing. Duplicate ids share one RPC.

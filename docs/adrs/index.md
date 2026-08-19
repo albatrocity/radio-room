@@ -108,6 +108,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0100](0100-dual-inventory-slot-pools.md) | Dual inventory slot pools (`inventory` vs `collection`) | Accepted |
 | [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) | Queue-add undo: cancel held picks and restore Round Robin turns | Accepted |
 | [0102](0102-handwritten-disc-label-for-coverless-jewel-cases.md) | Handwritten disc label for coverless jewel cases | Accepted |
+| [0103](0103-physical-media-track-previews.md) | Physical Media track previews (ffmpeg RPC, Redis cache, client ducking) | Accepted |
 
 ## Creating a New ADR
 

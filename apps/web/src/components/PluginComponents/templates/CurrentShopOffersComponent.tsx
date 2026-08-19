@@ -1,5 +1,6 @@
-import { Box, Center, Heading, HStack, Stack, Table, Text, VStack } from "@chakra-ui/react"
-import type { ItemShopsUserGameState, ShoppingSessionInstance } from "@repo/types"
+import { useState } from "react"
+import { Box, Button, Center, Heading, HStack, Stack, Table, Text, VStack } from "@chakra-ui/react"
+import type { ItemShopsUserGameState, ShopOffer, ShoppingSessionInstance } from "@repo/types"
 import type { CurrentShopOffersComponentProps } from "../../../types/PluginComponent"
 import { useUserGameState } from "../../Modals/UserGameStateContext"
 import { usePluginComponentContext } from "../context"
@@ -7,6 +8,10 @@ import { getIcon } from "../icons"
 import { SvgIcon } from "../../ui/svg-icon"
 import ItemArtwork from "../../ItemArtwork"
 import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
+import {
+  MediaItemPreviewDialog,
+  shopOfferPreviewTarget,
+} from "../../MediaItemPreviewDialog"
 import { ButtonTemplateComponent } from "./ButtonComponent"
 import { ItemRarityTag } from "../ItemRarityTag"
 import { LinkifiedText } from "../../LinkifiedText"
@@ -31,6 +36,7 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
   const gameState = useUserGameState()
   const bag = gameState?.getPluginState<ItemShopsUserGameState>(pluginName) ?? null
   const instance: ShoppingSessionInstance | null = bag?.currentShopInstance ?? null
+  const [previewOffer, setPreviewOffer] = useState<ShopOffer | null>(null)
 
   if (!instance) {
     return (
@@ -141,6 +147,15 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                       confirmText="Buy"
                       disabled={cannotAfford || outOfStock}
                     />
+                    {row.artworkFrame && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPreviewOffer(row)}
+                      >
+                        Preview
+                      </Button>
+                    )}
                   </Stack>
                 </Table.Cell>
               </Table.Row>
@@ -148,6 +163,13 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
           })}
         </Table.Body>
       </Table.Root>
+      <MediaItemPreviewDialog
+        open={previewOffer != null}
+        onOpenChange={(next) => {
+          if (!next) setPreviewOffer(null)
+        }}
+        item={previewOffer ? shopOfferPreviewTarget(previewOffer) : null}
+      />
     </Box>
   )
 }

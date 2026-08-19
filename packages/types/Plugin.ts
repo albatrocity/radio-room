@@ -1246,6 +1246,16 @@ export interface Plugin {
   }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null>
 
   /**
+   * Resolve a `mediaKey` for track preview listing/generation when the caller
+   * holds the item or it is on their current shopping-instance offers (ADR 0103).
+   */
+  resolvePreviewableMediaItem?(params: {
+    roomId: string
+    userId: string
+    mediaKey: string
+  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null>
+
+  /**
    * Called immediately before app-controlled playTrack(uri) in core play paths.
    * Plugins may perform side effects (e.g. set volume) before playback starts.
    * Fail-open on errors/timeouts (like validateQueueRequest).

@@ -22,6 +22,7 @@ import { userGameStateActor } from "./userGameStateActor"
 import { roomGameStateActor } from "./roomGameStateActor"
 import { metadataSourceAuthActor } from "./metadataSourceAuthActor"
 import { soundEffectsActor } from "./soundEffectsActor"
+import { trackPreviewActor } from "./trackPreviewActor"
 import { screenEffectsActor } from "./screenEffectsActor"
 import { pollActor } from "./pollActor"
 import { quickAccessPanelsActor } from "./quickAccessPanelsActor"
@@ -98,6 +99,7 @@ export function initializeRoom(roomId: string): void {
   roomGameStateActor.send({ type: "ACTIVATE" })
   metadataSourceAuthActor.send({ type: "ACTIVATE" })
   soundEffectsActor.send({ type: "ACTIVATE" })
+  trackPreviewActor.send({ type: "ACTIVATE" })
   screenEffectsActor.send({ type: "ACTIVATE" })
   pollActor.send({ type: "ACTIVATE" })
   quickAccessPanelsActor.send({ type: "ACTIVATE", roomId })
@@ -152,6 +154,7 @@ export function teardownRoom(): void {
   roomGameStateActor.send({ type: "DEACTIVATE" })
   metadataSourceAuthActor.send({ type: "DEACTIVATE" })
   soundEffectsActor.send({ type: "DEACTIVATE" })
+  trackPreviewActor.send({ type: "DEACTIVATE" })
   screenEffectsActor.send({ type: "DEACTIVATE" })
   pollActor.send({ type: "DEACTIVATE" })
   quickAccessPanelsActor.send({ type: "DEACTIVATE" })

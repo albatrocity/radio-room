@@ -17,7 +17,10 @@ import ButtonSchedule from "./ButtonSchedule"
 interface RadioPlayerProps {
   volume: number
   playing: boolean
+  /** Mute the stream element (user mute or preview ducking). */
   muted: boolean
+  /** User-initiated mute — controls slider display and mute button state. */
+  volumeMuted?: boolean
   onVolume: (volume: number) => void
   onPlayPause: () => void
   onMute: () => void
@@ -34,6 +37,7 @@ const RadioPlayer = ({
   volume,
   playing,
   muted,
+  volumeMuted,
   onVolume,
   onPlayPause,
   onLoad,
@@ -47,6 +51,7 @@ const RadioPlayer = ({
 }: RadioPlayerProps) => {
   const player = useRef<ReactHowler>(null)
   const isAdmin = useIsAdmin()
+  const showVolumeMuted = volumeMuted ?? muted
 
   useHotkeys("space", () => {
     onPlayPause()
@@ -110,11 +115,11 @@ const RadioPlayer = ({
               {!isAdmin && (
                 <IconButton
                   size="md"
-                  aria-label={muted ? "Unmute" : "Mute"}
+                  aria-label={showVolumeMuted ? "Unmute" : "Mute"}
                   variant="ghost"
                   onClick={() => onMute()}
                 >
-                  {muted ? (
+                  {showVolumeMuted ? (
                     <Icon as={LuVolumeX} boxSize={5} />
                   ) : (
                     <Icon as={LuVolume2} boxSize={5} />
@@ -125,7 +130,7 @@ const RadioPlayer = ({
             <Box hideBelow="sm" w="100%" pr={3}>
               <Slider.Root
                 aria-label={["Volume"]}
-                value={[muted ? 0 : volume]}
+                value={[showVolumeMuted ? 0 : volume]}
                 max={1.0}
                 min={0}
                 step={0.1}

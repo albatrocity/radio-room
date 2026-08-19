@@ -34,6 +34,10 @@ export default defineConfig(({ mode }) => ({
         target: process.env.API_INTERNAL_URL || 'http://127.0.0.1:3000',
         changeOrigin: true,
       },
+      '/api/rooms': {
+        target: process.env.API_INTERNAL_URL || 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
     },
   },
   envPrefix: 'VITE_',

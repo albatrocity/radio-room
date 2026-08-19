@@ -344,3 +344,41 @@ export async function listLocalPlaylistTracks(params: {
   const result = await fetchLocalPlaylistTracks(params)
   return result.ok ? result.tracks : []
 }
+
+const TRACK_PREVIEW_TIMEOUT_MS = 20000
+
+export type TrackPreviewRpcResult =
+  | { ok: true; mimeType: string; data: string; durationMs: number }
+  | { ok: false; error: string }
+
+/**
+ * Fetch a ~15s mid-track MP3 preview from the bridge daemon (ADR 0103).
+ */
+export async function fetchTrackPreview(params: {
+  rpc: BridgeRpcClient
+  trackId: string
+}): Promise<TrackPreviewRpcResult> {
+  const trackId = params.trackId.trim()
+  if (!trackId) return { ok: false, error: "trackId is required" }
+  if (!(await params.rpc.isPresent())) {
+    return { ok: false, error: "Media Bridge is not connected" }
+  }
+  try {
+    const result = (await params.rpc.call(
+      "getTrackPreview",
+      { source: "local", trackId },
+      { timeoutMs: TRACK_PREVIEW_TIMEOUT_MS },
+    )) as unknown
+    if (!result || typeof result !== "object") {
+      return { ok: false, error: "Media Bridge returned no preview data" }
+    }
+    const rec = result as { mimeType?: unknown; data?: unknown; durationMs?: unknown }
+    const data = typeof rec.data === "string" ? rec.data : ""
+    const mimeType = typeof rec.mimeType === "string" ? rec.mimeType : "audio/mpeg"
+    const durationMs = typeof rec.durationMs === "number" ? rec.durationMs : 15000
+    if (!data) return { ok: false, error: "Media Bridge returned empty preview data" }
+    return { ok: true, mimeType, data, durationMs }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}

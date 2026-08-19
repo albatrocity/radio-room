@@ -890,6 +890,28 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     )
   }
 
+  async resolvePreviewableMediaItem(params: {
+    roomId: string
+    userId: string
+    mediaKey: string
+  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
+    let shopOfferShortIds: string[] | undefined
+    if (this.shopping && (await this.shopping.isActive())) {
+      const inst = await this.shopping.getInstance(params.userId)
+      if (inst) {
+        shopOfferShortIds = inst.offers.map((o) => o.shortId)
+      }
+    }
+    return this.localLibrary.resolvePreviewablePhysicalMediaItem(
+      params.userId,
+      params.mediaKey,
+      grants,
+      shopOfferShortIds,
+    )
+  }
+
   async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {
     const config = (await this.getConfig()) ?? defaultItemShopsConfig
     return this.localLibrary.validateQueueRequest(params, config)

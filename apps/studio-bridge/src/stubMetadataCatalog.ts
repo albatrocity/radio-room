@@ -179,6 +179,32 @@ export function stubBrowseMediaItem(mediaKey: string) {
   }
 }
 
+export function stubListMediaItemTracks(mediaKey: string) {
+  const match = STUB_MY_MEDIA.find((s) => s.mediaKey === mediaKey)
+  if (!match) {
+    return {
+      type: "LIST_MEDIA_ITEM_TRACKS_FAILURE" as const,
+      data: { message: "You can't preview that item" },
+    }
+  }
+  const tracks = stubTracks.map((t) => ({ ...t, source: "local" }))
+  return {
+    type: "LIST_MEDIA_ITEM_TRACKS_RESULTS" as const,
+    data: { mediaKey: match.mediaKey, name: match.name, tracks },
+  }
+}
+
+export function stubGetTrackPreview() {
+  return {
+    type: "GET_TRACK_PREVIEW_RESULTS" as const,
+    data: {
+      url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+      durationMs: 15000,
+      cached: false,
+    },
+  }
+}
+
 /** Minimal SEARCH_TRACK response so Add-to-Queue search mode does not hang. */
 export function stubSearchTracks(query: string) {
   const q = query.trim().toLowerCase()

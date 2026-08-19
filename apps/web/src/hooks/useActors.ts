@@ -19,6 +19,8 @@ import { reactionsActor } from "../actors/reactionsActor"
 import { settingsActor } from "../actors/settingsActor"
 import { roomActor } from "../actors/roomActor"
 import { audioActor } from "../actors/audioActor"
+import { trackPreviewActor } from "../actors/trackPreviewActor"
+import type { TrackPreviewStatus } from "../machines/trackPreviewMachine"
 import { djActor } from "../actors/djActor"
 import { adminActor } from "../actors/adminActor"
 import { gameSessionActor } from "../actors/gameSessionActor"
@@ -423,6 +425,17 @@ export const useIsPlaying = () => {
 
 export const useIsMuted = () => {
   return useSelector(audioActor, (s) => s.matches({ active: { online: { volume: "muted" } } }))
+}
+
+export const useIsPreviewDucked = () => {
+  return useSelector(audioActor, (s) => s.context.previewDucked)
+}
+
+export const useTrackPreviewStatus = (trackKey: string): TrackPreviewStatus => {
+  return useSelector(trackPreviewActor, (s) => {
+    if (s.context.trackKey !== trackKey) return "idle"
+    return s.context.status
+  })
 }
 
 export const useIsAudioOnline = () => {

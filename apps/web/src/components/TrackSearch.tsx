@@ -22,7 +22,9 @@ import type { MetadataSourceTrack } from "@repo/types"
 import { metadataSourceLabel } from "../lib/metadataSourceLabels"
 import EntityThumb from "./EntityThumb"
 import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
-import TrackItem from "./TrackItem"
+import TrackActionRow from "./TrackActionRow"
+import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
+import { useTrackPreviewStatus } from "../hooks/useActors"
 import type { CatalogBrowseNavigation } from "./CatalogBrowse"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
@@ -52,7 +54,11 @@ function TrackSearch({
   const [state, send] = useSocketMachine(trackSearchMachine)
   const [resultTab, setResultTab] = useState<"tracks" | "artists" | "albums">("tracks")
   const [activeIndex, setActiveIndex] = useState(-1)
-  const optionRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const optionRefs = useRef<(HTMLDivElement | null)[]>([])
+
+  useEffect(() => {
+    return () => stopTrackPreview()
+  }, [])
 
   const handleSearchChange = useCallback(
     (value: string) => {
@@ -172,6 +178,45 @@ function TrackSearch({
       ? `${listboxId}-option-${activeIndex}`
       : undefined
 
+  const previewTrackKey = (track: TrackWithSource) => `${track.source ?? "unknown"}-${track.id}`
+
+  function SearchTrackRow({
+    track,
+    index,
+    isActive,
+  }: {
+    track: TrackWithSource
+    index: number
+    isActive: boolean
+  }) {
+    const previewStatus = useTrackPreviewStatus(previewTrackKey(track))
+    return (
+      <TrackActionRow
+        track={track}
+        size="track"
+        disabled={disabled}
+        previewStatus={previewStatus}
+        canPreview={track.source === "local"}
+        onPreview={() =>
+          toggleTrackPreview({
+            trackKey: previewTrackKey(track),
+            trackId: track.id,
+            source: track.source ?? "local",
+          })
+        }
+        onAddToQueue={() => chooseTrack(track)}
+        isActive={isActive}
+        optionId={`${listboxId}-option-${index}`}
+        role="option"
+        aria-selected={isActive}
+        onMouseEnter={() => setActiveIndex(index)}
+        rowRef={(el: HTMLDivElement | null) => {
+          optionRefs.current[index] = el
+        }}
+      />
+    )
+  }
+
   const tracksList = (
     <VStack
       id={listboxId}
@@ -190,32 +235,12 @@ function TrackSearch({
         filteredResults.map((track, index) => {
           const isActive = index === activeIndex
           return (
-            <Button
+            <SearchTrackRow
               key={`${track.source ?? "unknown"}-${track.id}-${index}`}
-              ref={(el: HTMLButtonElement | null) => {
-                optionRefs.current[index] = el
-              }}
-              id={`${listboxId}-option-${index}`}
-              role="option"
-              aria-selected={isActive}
-              type="button"
-              variant="ghost"
-              disabled={disabled}
-              justifyContent="flex-start"
-              h="auto"
-              w="100%"
-              minW={0}
-              overflow="hidden"
-              p={2}
-              textAlign="left"
-              borderRadius="md"
-              bg={isActive ? "actionBgLite" : "transparent"}
-              _hover={{ bg: "actionBgLite" }}
-              onMouseEnter={() => setActiveIndex(index)}
-              onClick={() => chooseTrack(track)}
-            >
-              <TrackItem {...track} />
-            </Button>
+              track={track}
+              index={index}
+              isActive={isActive}
+            />
           )
         })
       )}

@@ -22,6 +22,8 @@ export interface AudioContext {
   streamBufferReady: boolean
   /** User requested play while still offline (e.g. username submit before INIT). */
   playOnReady: boolean
+  /** Track preview is playing — duck the radio stream without flipping mute (ADR 0103). */
+  previewDucked: boolean
 }
 
 type AudioEvent =
@@ -57,6 +59,8 @@ type AudioEvent =
   | { type: "TOGGLE" }
   | { type: "TOGGLE_MUTE" }
   | { type: "CHANGE_VOLUME"; volume: number }
+  | { type: "START_PREVIEW" }
+  | { type: "END_PREVIEW" }
 
 // ============================================================================
 // Machine
@@ -73,6 +77,7 @@ const defaultContext: AudioContext = {
   subscriptionId: null,
   streamBufferReady: false,
   playOnReady: false,
+  previewDucked: false,
 }
 
 export const audioMachine = setup({
@@ -211,6 +216,8 @@ export const audioMachine = setup({
     clearStreamBufferReady: assign({ streamBufferReady: false }),
     setPlayOnReady: assign({ playOnReady: true }),
     clearPlayOnReady: assign({ playOnReady: false }),
+    setPreviewDucked: assign({ previewDucked: true }),
+    clearPreviewDucked: assign({ previewDucked: false }),
   },
   guards: {
     shouldAutoPlayFromReady: ({ context }) => context.playOnReady,
@@ -275,6 +282,12 @@ export const audioMachine = setup({
         DEACTIVATE: {
           target: "idle",
           actions: ["resetAudio"],
+        },
+        START_PREVIEW: {
+          actions: ["setPreviewDucked"],
+        },
+        END_PREVIEW: {
+          actions: ["clearPreviewDucked"],
         },
         ROOM_SETTINGS_UPDATED: {
           actions: ["clearDisabledPluginDataFromNowPlaying"],

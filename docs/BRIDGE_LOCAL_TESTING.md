@@ -109,6 +109,15 @@ Recommended tags for library managers:
 
 Tokens: `wcom`, `wpay`, `woaf`, `woas`, `wxxx`, `woar`, `purchaseurl`, `bandcamp`, `url`, `website`, `comment`, `musicbrainz`. Omit the array to use the default. Without `musicFolder`, file tags are skipped (OpenSubsonic comment / MusicBrainz id can still supply a URL).
 
+**Track previews (ADR 0103):** Physical Media / Local track previews encode a ~15s mid-track MP3 clip with **ffmpeg** from the file on disk. This is separate from mpv playback (which uses Navidrome `stream.view` and does not require `musicFolder`). For previews you must:
+
+1. Install **ffmpeg** on the DJ Mac and ensure it is on `PATH` (`ffmpeg -version`).
+2. Set **`navidrome.musicFolder`** to the same absolute MusicFolder Navidrome scans (required so the daemon can resolve each song’s `path` to a file).
+
+If either is missing, preview RPC returns a clear host-facing error instead of falling back to streaming.
+
+When `musicFolder` is unset or the song path does not resolve on disk, the daemon falls back to the same authenticated **`stream.view`** URL mpv uses for playback, then ffmpeg encodes the mid-track clip from that stream. Setting `musicFolder` correctly is still recommended (faster, no HTTP hop).
+
 **Spotify Web Playback SDK (opt-in):** Include `"spotify"` in `services` to host a Connect device in bridge Chrome (see [ADR 0078](adrs/0078-spotify-web-playback-sdk-device.md)). The room creator must **re-link Spotify** once so the OAuth token includes the `streaming` scope. Without `"spotify"` in services, behavior stays on Spotify.app. SDK audio is ~256kbps AAC (fine for a transcoded stream).
 
 The daemon always writes Audio Hijack’s labeled format (same as local-remote):

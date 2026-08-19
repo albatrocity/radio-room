@@ -101,6 +101,15 @@ export {
   toggleMute,
 } from "./audioActor"
 
+// Track Preview Actor
+export {
+  trackPreviewActor,
+  toggleTrackPreview,
+  stopTrackPreview,
+  getActivePreviewTrackKey,
+  getTrackPreviewStatusForKey,
+} from "./trackPreviewActor"
+
 // Sound Effects Actor
 export {
   soundEffectsActor,

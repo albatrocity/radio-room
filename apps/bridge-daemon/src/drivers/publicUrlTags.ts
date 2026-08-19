@@ -118,11 +118,21 @@ export function resolveSongFilePath(
   relativePath: string | undefined | null,
 ): string | null {
   if (!relativePath?.trim()) return null
-  const path = relativePath.trim()
+  let path = relativePath.trim()
+  try {
+    path = decodeURIComponent(path)
+  } catch {
+    /* keep raw path */
+  }
+  path = path.replace(/\\/g, "/")
   if (isAbsolute(path) && existsSync(path)) return path
   if (!musicFolder?.trim()) return null
-  const abs = join(musicFolder.trim(), path)
-  return existsSync(abs) ? abs : null
+  const root = musicFolder.trim()
+  const candidates = [join(root, path), join(root, path.replace(/^\/+/, ""))]
+  for (const abs of candidates) {
+    if (existsSync(abs)) return abs
+  }
+  return null
 }
 
 export async function readPublicUrlCandidatesFromFile(

@@ -176,6 +176,12 @@ export class RpcServer {
           normalizeCoverVariants(p.variants),
         )
       }
+      case "getTrackPreview": {
+        if (String(p.source) !== "local" || !this.localDriver) {
+          throw new Error("Local metadata source is not available")
+        }
+        return this.localDriver.getTrackPreview(String(p.trackId ?? p.id ?? ""))
+      }
       case "invalidatePlaylistCache": {
         if (!this.localDriver) return { ok: false }
         this.localDriver.invalidateLocalLibraryCache()

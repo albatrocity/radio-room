@@ -20,11 +20,34 @@ type Props = TrackWithSource & {
   artworkOverride?: ArtworkOverride
   /** Search hits use `"track"` (100px); drilled-in browse lists use `"row"` (40px). */
   size?: "row" | "track"
+  /**
+   * Where the metadata-source badge renders.
+   * `inline` (default) sits beside the title; `below` stacks under album info
+   * on small screens (parent should render a desktop-centered badge);
+   * `none` omits it so a parent can place it.
+   */
+  sourcePlacement?: "inline" | "below" | "none"
 }
 
 const UNFRAMED_ROW_PX = 40
 
-const TrackItem = ({ title, album, artists, source, artworkOverride, size = "track" }: Props) => {
+function SourceBadge({ source }: { source: string }) {
+  return (
+    <Badge size="sm" variant="subtle" flexShrink={0}>
+      {labelForMetadataSource(source)}
+    </Badge>
+  )
+}
+
+const TrackItem = ({
+  title,
+  album,
+  artists,
+  source,
+  artworkOverride,
+  size = "track",
+  sourcePlacement = "inline",
+}: Props) => {
   const albumImage = album.images.find((img) => img.type === "image")
   const art = toPhysicalMediaArt(artworkOverride ?? {})
   const unframedPx = size === "row" ? UNFRAMED_ROW_PX : FRAMED_ARTWORK_TRACK_PX
@@ -68,11 +91,7 @@ const TrackItem = ({ title, album, artists, source, artworkOverride, size = "tra
           <Text fontWeight="bold" lineClamp={2} wordBreak="break-word" minW={0} flex="1">
             {title}
           </Text>
-          {source && (
-            <Badge size="sm" variant="subtle" flexShrink={0}>
-              {labelForMetadataSource(source)}
-            </Badge>
-          )}
+          {source && sourcePlacement === "inline" && <SourceBadge source={source} />}
         </HStack>
         <Text fontSize="sm" lineClamp={1} wordBreak="break-word">
           {artists.map((artist) => artist.title).join(", ")}
@@ -80,6 +99,11 @@ const TrackItem = ({ title, album, artists, source, artworkOverride, size = "tra
         <Text fontSize="xs" as="i" truncate>
           {album.title} {album.releaseDate ? `(${album.releaseDate.split("-")[0]})` : null}
         </Text>
+        {source && sourcePlacement === "below" && (
+          <Box mt={1} hideFrom="md">
+            <SourceBadge source={source} />
+          </Box>
+        )}
       </Box>
     </HStack>
   )

@@ -40,6 +40,7 @@ import {
   readPublicUrlCandidatesFromFile,
   resolveSongFilePath,
 } from "./publicUrlTags"
+import { assertFfmpegAvailable, encodeTrackPreviewClip } from "./trackPreviewClip"
 
 const MAP_SONG_CONCURRENCY = 4
 const COVER_ART_CONCURRENCY = 4
@@ -301,6 +302,40 @@ export class LocalDriver implements Driver {
       popularity: 0,
       images,
     }
+  }
+
+  /**
+   * Encode a ~15s mid-track MP3 preview (ADR 0103).
+   * Prefers the file on disk via musicFolder + song path; falls back to authenticated
+   * stream.view (same URL mpv uses) when the path cannot be resolved.
+   */
+  async getTrackPreview(
+    trackId: string,
+  ): Promise<{ mimeType: "audio/mpeg"; data: string; durationMs: number }> {
+    await assertFfmpegAvailable()
+    const id = trackId.trim()
+    if (!this.navidrome.username || !id) {
+      throw new Error("Track id is required")
+    }
+    const url = `${this.navidrome.url}/rest/getSong.view?id=${encodeURIComponent(id)}&${this.authParams()}`
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Navidrome getSong failed: ${res.status}`)
+    const data = (await res.json()) as any
+    const song = data?.["subsonic-response"]?.song as NavidromeSong | undefined
+    if (!song?.id) throw new Error("Track not found")
+    const diskPath = resolveSongFilePath(this.navidrome.musicFolder, song.path)
+    const input = diskPath ?? this.streamUrl(id)
+    if (!diskPath) {
+      console.warn(
+        `[local] preview ${id}: using stream.view (song.path=${song.path ?? "?"}, musicFolder=${this.navidrome.musicFolder ? "set" : "unset"})`,
+      )
+    }
+    const durationSec = song.duration ?? 0
+    return encodeTrackPreviewClip({
+      trackId: id,
+      input,
+      durationSec: durationSec > 0 ? durationSec : 15,
+    })
   }
 
   async findById(id: string, playlistIds?: string[]): Promise<MetadataSourceTrack | null> {

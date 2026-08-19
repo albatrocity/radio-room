@@ -24,6 +24,7 @@ export const bridgeRequestSchema = z.object({
     "listPlaylists",
     "listPlaylistTracks",
     "getPlaylistCoverArt",
+    "getTrackPreview",
     "invalidatePlaylistCache",
   ]),
   params: z.record(z.string(), z.unknown()).default({}),
