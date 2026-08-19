@@ -1,5 +1,5 @@
 import OverlaySvg from "./OverlaySvg"
-import { JEWEL_CASE_INSERT_MM, JEWEL_CASE_MM } from "./frameStyles"
+import { JEWEL_CASE_BEVEL_MM, JEWEL_CASE_INSERT_MM, JEWEL_CASE_MM } from "./frameStyles"
 
 type Props = {
   /** Unique id prefix for SVG defs (gradients). */
@@ -11,12 +11,27 @@ const INSERT = JEWEL_CASE_INSERT_MM
 const INSERT_RIGHT = INSERT.x + INSERT.width
 const INSERT_BOTTOM = INSERT.y + INSERT.height
 
-/** Hinge strip left of the booklet, with a highlight along its inner edge. */
-const SPINE_HIGHLIGHT = 1.5
-const SPINE_WIDTH = INSERT.x - SPINE_HIGHLIGHT
+/** Opaque hinge spine; artwork insert starts at `INSERT.x`. */
+const SPINE_WIDTH = INSERT.x
+const SPINE_BASE = "#23262b"
+const SPINE_RIDGE = "#14171c"
+const SPINE_RIDGE_SPACING = 1.05
+
+const BEVEL_RECT = {
+  x: JEWEL_CASE_BEVEL_MM.offset,
+  y: JEWEL_CASE_BEVEL_MM.offset,
+  width: CASE.width - JEWEL_CASE_BEVEL_MM.offset * 2,
+  height: CASE.height - JEWEL_CASE_BEVEL_MM.offset * 2,
+} as const
+
+const spineRidges = Array.from(
+  { length: Math.ceil(SPINE_WIDTH / SPINE_RIDGE_SPACING) },
+  (_, i) => i * SPINE_RIDGE_SPACING + 0.4,
+)
 
 /**
- * CD jewel case: hinge spine, plastic bevel, diagonal sheen. Drawn in case
+ * CD jewel case: opaque ridged spine, bevel, diagonal sheen. Tray, disc, and tabs
+ * render on `JewelCaseUnderlay` beneath the cover art. Drawn in case
  * millimetres; `frameArtworkInset` puts the cover art in the same window.
  */
 export default function JewelCaseOverlay({ idPrefix = "jc" }: Props) {
@@ -38,31 +53,37 @@ export default function JewelCaseOverlay({ idPrefix = "jc" }: Props) {
         </linearGradient>
       </defs>
 
-      <rect x="0" y="0" width={SPINE_WIDTH} height={CASE.height} fill="#000" opacity="0.35" />
-      <rect
-        x={SPINE_WIDTH}
-        y="0"
-        width={SPINE_HIGHLIGHT}
-        height={CASE.height}
-        fill="#fff"
-        opacity="0.12"
+      <rect x="0" y="0" width={SPINE_WIDTH} height={CASE.height} fill={SPINE_BASE} />
+      {spineRidges.map((x) => (
+        <line
+          key={x}
+          x1={x}
+          y1={0}
+          x2={x}
+          y2={CASE.height}
+          stroke={SPINE_RIDGE}
+          strokeWidth="0.45"
+        />
+      ))}
+      <line
+        x1={SPINE_WIDTH}
+        y1={0.8}
+        x2={SPINE_WIDTH}
+        y2={CASE.height - 0.8}
+        stroke="#fff"
+        strokeOpacity="0.14"
+        strokeWidth="0.6"
       />
 
       <rect
-        x="0.6"
-        y="0.6"
-        width={CASE.width - 1.2}
-        height={CASE.height - 1.2}
+        {...BEVEL_RECT}
         fill="none"
         stroke="#fff"
         strokeOpacity="0.18"
-        strokeWidth="1"
+        strokeWidth={JEWEL_CASE_BEVEL_MM.width}
       />
       <rect
-        x="0.6"
-        y="0.6"
-        width={CASE.width - 1.2}
-        height={CASE.height - 1.2}
+        {...BEVEL_RECT}
         fill="none"
         stroke="#000"
         strokeOpacity="0.28"

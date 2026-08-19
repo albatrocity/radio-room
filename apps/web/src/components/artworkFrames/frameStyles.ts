@@ -73,6 +73,16 @@ export const JEWEL_CASE_MM = {
   height: JEWEL_CASE_MARGIN_MM * 2 + JEWEL_CASE_BOOKLET_MM,
 } as const
 
+/** Outer bevel of the shell, in mm: stroke centreline offset and its width. */
+export const JEWEL_CASE_BEVEL_MM = { offset: 0.6, width: 1 } as const
+
+/**
+ * Inner edge of that bevel. Moulded parts of the case sit against this line
+ * rather than the outer edge, because the bevel itself is the wall thickness.
+ */
+export const JEWEL_CASE_BEVEL_INNER_MM =
+  JEWEL_CASE_BEVEL_MM.offset + JEWEL_CASE_BEVEL_MM.width / 2
+
 /** Printed insert inside the case, in mm. Extra room on the left for the hinge. */
 export const CASSETTE_INSERT_MM = { x: 4.5, y: 3, width: 62.5, height: 104 } as const
 

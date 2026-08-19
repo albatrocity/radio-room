@@ -3,6 +3,7 @@ import { Box, Image, type BoxProps } from "@chakra-ui/react"
 import { parseArtworkFrame } from "@repo/types"
 import type { PhysicalMediaArt } from "../../lib/physicalMediaArtwork"
 import ArtworkFrameOverlay from "./ArtworkFrameOverlay"
+import JewelCaseUnderlay from "./JewelCaseUnderlay"
 import {
   dieCutMaskStyles,
   frameArtworkInset,
@@ -48,6 +49,7 @@ export default function FramedArtwork({
 }: Props) {
   const frame = parseArtworkFrame(art.artworkFrame) ?? art.artworkFrame
   const isDieCut = frame === "die-cut-jacket"
+  const isJewelCase = frame === "jewel-case"
   const ratio = frameContentRatio(frame)
   const inset = frameArtworkInset(frame)
   const layout = framedArtworkLayout(size)
@@ -106,15 +108,21 @@ export default function FramedArtwork({
         w="100%"
         h="100%"
         borderRadius={0}
-        overflow="hidden"
+        overflow={isJewelCase ? "visible" : "hidden"}
         {...(isDieCut ? dieCutMaskStyles : {})}
       >
+        {isJewelCase && (
+          <Box position="absolute" inset={0} zIndex={0} pointerEvents="none">
+            <JewelCaseUnderlay idPrefix={idPrefix ? `${idPrefix}-jc` : "jc"} />
+          </Box>
+        )}
         <Image
           position="absolute"
           top={pct(inset.top)}
           left={pct(inset.left)}
           w={pct(1 - inset.left - inset.right)}
           h={pct(1 - inset.top - inset.bottom)}
+          zIndex={1}
           src={src}
           alt={alt}
           borderRadius={0}
@@ -127,7 +135,9 @@ export default function FramedArtwork({
             if (fallback && src !== fallback) setSrc(fallback)
           }}
         />
-        <ArtworkFrameOverlay frame={frame} idPrefix={idPrefix} />
+        <Box position="absolute" inset={0} zIndex={2} pointerEvents="none">
+          <ArtworkFrameOverlay frame={frame} idPrefix={idPrefix} />
+        </Box>
       </Box>
     </Box>
   )
