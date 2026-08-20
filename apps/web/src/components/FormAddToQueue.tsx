@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo } from "react"
 import {
   Box,
   createListCollection,
@@ -7,23 +7,30 @@ import {
   Select,
   Stack,
   Tabs,
-  Text,
 } from "@chakra-ui/react"
 import TrackSearch from "./TrackSearch"
-import CatalogBrowse, { type CatalogBrowseNavigation } from "./CatalogBrowse"
+import CatalogBrowse, { type CatalogBrowseLocation } from "./CatalogBrowse"
 import type { MetadataSourceTrack } from "@repo/types"
 import { filterMetadataSourcesByBridgeCapability } from "@repo/utils"
 import {
+  useAddToQueueUi,
+  useAddToQueueUiSend,
   useBrowseableMetadataSourceIds,
   useBrowseSourceCapabilities,
   useCurrentRoom,
   useEffectiveMetadataSourceIds,
+  useIsModalOpen,
   useMediaBridgeConnected,
   useMediaBridgeServices,
   useMyMedia,
   useQueueBrowseMediaKey,
 } from "../hooks/useActors"
 import { metadataSourceLabel } from "../lib/metadataSourceLabels"
+import type {
+  AddToQueueBrowseLocation,
+  AddToQueueMode,
+  AddToQueueNavigation,
+} from "../machines/addToQueueUiMachine"
 
 type Props = {
   onAddToQueue: (track: MetadataSourceTrack) => void
@@ -33,7 +40,16 @@ type Props = {
   fillHeight?: boolean
 }
 
-type Mode = "search" | "browse"
+function toBrowseLocation(location: CatalogBrowseLocation): AddToQueueBrowseLocation {
+  return {
+    source: location.source,
+    rootKind: location.rootKind,
+    level: location.level,
+    ...(location.artistId ? { artistId: location.artistId, artistTitle: location.artistTitle } : {}),
+    ...(location.albumId ? { albumId: location.albumId, albumTitle: location.albumTitle } : {}),
+    ...(location.mediaKey ? { mediaKey: location.mediaKey } : {}),
+  }
+}
 
 const FormAddToQueue = ({
   onAddToQueue,
@@ -49,9 +65,9 @@ const FormAddToQueue = ({
   const browseSourceCapabilities = useBrowseSourceCapabilities()
   const myMedia = useMyMedia()
   const queueBrowseMediaKey = useQueueBrowseMediaKey()
-  const [mode, setMode] = useState<Mode>("search")
-  const [browseNav, setBrowseNav] = useState<CatalogBrowseNavigation | null>(null)
-  const [sourceFilter, setSourceFilter] = useState("all")
+  const isQueueModalOpen = useIsModalOpen("queue")
+  const { mode, sourceFilter, pendingNavigation, canBrowse } = useAddToQueueUi()
+  const send = useAddToQueueUiSend()
 
   const fallbackSourceIds = useMemo(() => {
     const policy = (room?.metadataSourceIds ?? []).filter(Boolean)
@@ -66,43 +82,34 @@ const FormAddToQueue = ({
   }, [room?.metadataSourceIds, room?.playbackControllerId, bridgeConnected, bridgeServices])
 
   const metadataSourceIds = effectiveSourceIds ?? fallbackSourceIds
-
-  const canBrowse = (browseableSourceIds?.length ?? 0) > 0
   const canBrowseLocal = (browseableSourceIds ?? []).includes("local")
 
   useEffect(() => {
-    if (!canBrowse && mode === "browse") {
-      setMode("search")
-    }
-  }, [canBrowse, mode])
+    if (browseableSourceIds === null) return
+    send({
+      type: "SET_CAPABILITIES",
+      canBrowse: browseableSourceIds.length > 0,
+      browseableSourceIds,
+      metadataSourceIds,
+    })
+  }, [browseableSourceIds, metadataSourceIds, send])
 
-  // Deep-link from the inventory Collection into a held Physical Media item.
+  // Before CatalogBrowse's mount effects: re-apply saved album/artist when the dialog remounts.
+  useLayoutEffect(() => {
+    if (!isQueueModalOpen) return
+    send({ type: "RESTORE_BROWSE_VIEW" })
+  }, [isQueueModalOpen, send])
+
   useEffect(() => {
     if (!queueBrowseMediaKey || !canBrowseLocal) return
-    setSourceFilter("local")
-    setBrowseNav({ source: "local", mediaKey: queueBrowseMediaKey })
-    setMode("browse")
-  }, [queueBrowseMediaKey, canBrowseLocal])
+    send({ type: "DEEP_LINK_MEDIA", mediaKey: queueBrowseMediaKey })
+  }, [queueBrowseMediaKey, canBrowseLocal, send])
 
   useEffect(() => {
     if (mode === "browse") {
       onSearchActiveChange?.(true)
     }
   }, [mode, onSearchActiveChange])
-
-  // Keep source selection valid for the active mode
-  useEffect(() => {
-    if (mode === "browse") {
-      const browseSources = browseableSourceIds ?? []
-      if (sourceFilter !== "all" && browseSources.includes(sourceFilter)) return
-      if (browseSources[0]) setSourceFilter(browseSources[0])
-      return
-    }
-    if (sourceFilter === "all") return
-    if (!metadataSourceIds.includes(sourceFilter)) {
-      setSourceFilter("all")
-    }
-  }, [mode, sourceFilter, browseableSourceIds, metadataSourceIds])
 
   const sourceCollection = useMemo(() => {
     if (mode === "browse") {
@@ -131,26 +138,19 @@ const FormAddToQueue = ({
     onAddToQueue(track)
   }
 
-  const handleOpenBrowse = useCallback((nav: CatalogBrowseNavigation) => {
-    setSourceFilter(nav.source)
-    setBrowseNav(nav)
-    setMode("browse")
-  }, [])
+  const handleOpenBrowse = useCallback(
+    (nav: AddToQueueNavigation) => {
+      send({ type: "OPEN_BROWSE", nav })
+    },
+    [send],
+  )
 
-  const clearBrowseNav = useCallback(() => {
-    setBrowseNav(null)
-  }, [])
-
-  const handleModeChange = (next: Mode) => {
-    if (next === "browse") {
-      const browseSources = browseableSourceIds ?? []
-      if (sourceFilter === "all" || !browseSources.includes(sourceFilter)) {
-        const fallback = browseSources[0]
-        if (fallback) setSourceFilter(fallback)
-      }
-    }
-    setMode(next)
-  }
+  const handleBrowseLocationChange = useCallback(
+    (location: CatalogBrowseLocation) => {
+      send({ type: "BROWSE_LOCATION", location: toBrowseLocation(location) })
+    },
+    [send],
+  )
 
   return (
     <Stack
@@ -164,7 +164,9 @@ const FormAddToQueue = ({
           {canBrowse ? (
             <Tabs.Root
               value={mode}
-              onValueChange={(details) => handleModeChange(details.value as Mode)}
+              onValueChange={(details) =>
+                send({ type: "SET_MODE", mode: details.value as AddToQueueMode })
+              }
               variant="enclosed"
               colorPalette="action"
               size="sm"
@@ -188,7 +190,7 @@ const FormAddToQueue = ({
               disabled={isDisabled}
               onValueChange={(details) => {
                 const next = details.value[0]
-                if (next) setSourceFilter(next)
+                if (next) send({ type: "SET_SOURCE", sourceFilter: next })
               }}
               positioning={{ sameWidth: true }}
             >
@@ -253,9 +255,10 @@ const FormAddToQueue = ({
             browseSourceCapabilities={browseSourceCapabilities}
             myMedia={myMedia}
             sourceId={sourceFilter === "all" ? browseableSourceIds?.[0] ?? "" : sourceFilter}
-            onSourceIdChange={setSourceFilter}
-            initialNavigation={browseNav}
-            onNavigationApplied={clearBrowseNav}
+            onSourceIdChange={(id) => send({ type: "SET_SOURCE", sourceFilter: id })}
+            initialNavigation={pendingNavigation}
+            onNavigationApplied={() => send({ type: "NAVIGATION_APPLIED" })}
+            onBrowseLocationChange={handleBrowseLocationChange}
             onChoose={handleSelect}
             disabled={isDisabled}
             fillHeight={fillHeight}

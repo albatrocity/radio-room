@@ -26,6 +26,7 @@ import { trackPreviewActor } from "./trackPreviewActor"
 import { screenEffectsActor } from "./screenEffectsActor"
 import { pollActor } from "./pollActor"
 import { quickAccessPanelsActor } from "./quickAccessPanelsActor"
+import { addToQueueUiActor } from "./addToQueueUiActor"
 import { mediaBridgeActor } from "./mediaBridgeActor"
 import { effectiveMetadataSourcesActor } from "./effectiveMetadataSourcesActor"
 import { teardownPluginComponentActors } from "./pluginComponentRegistry"
@@ -103,6 +104,7 @@ export function initializeRoom(roomId: string): void {
   screenEffectsActor.send({ type: "ACTIVATE" })
   pollActor.send({ type: "ACTIVATE" })
   quickAccessPanelsActor.send({ type: "ACTIVATE", roomId })
+  addToQueueUiActor.send({ type: "ACTIVATE", roomId })
   mediaBridgeActor.send({ type: "ACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "ACTIVATE" })
 
@@ -158,6 +160,7 @@ export function teardownRoom(): void {
   screenEffectsActor.send({ type: "DEACTIVATE" })
   pollActor.send({ type: "DEACTIVATE" })
   quickAccessPanelsActor.send({ type: "DEACTIVATE" })
+  addToQueueUiActor.send({ type: "DEACTIVATE" })
   mediaBridgeActor.send({ type: "DEACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "DEACTIVATE" })
   teardownPluginComponentActors()

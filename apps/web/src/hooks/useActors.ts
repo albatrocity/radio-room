@@ -47,6 +47,7 @@ import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
 import { lobbyActor } from "../actors/lobbyActor"
 import { pollActor } from "../actors/pollActor"
 import { quickAccessPanelsActor } from "../actors/quickAccessPanelsActor"
+import { addToQueueUiActor } from "../actors/addToQueueUiActor"
 import { mediaBridgeActor } from "../actors/mediaBridgeActor"
 import {
   effectiveMetadataSourcesActor,
@@ -95,6 +96,7 @@ const sendToLobby = boundSendRef(lobbyActor)
 const sendToAdminListener = boundSendRef(adminListenerStateActor)
 const sendToPoll = boundSendRef(pollActor)
 const sendToQuickAccessPanels = boundSendRef(quickAccessPanelsActor)
+const sendToAddToQueueUi = boundSendRef(addToQueueUiActor)
 const sendToMediaBridge = boundSendRef(mediaBridgeActor)
 
 // ============================================================================
@@ -770,6 +772,16 @@ export const useQuickAccessPanels = () => {
 }
 
 export const useQuickAccessPanelsSend = () => sendToQuickAccessPanels
+
+// ============================================================================
+// Add to Queue UI Hooks (ADR 0105)
+// ============================================================================
+
+export const useAddToQueueUi = () => {
+  return useSelector(addToQueueUiActor, (s) => s.context)
+}
+
+export const useAddToQueueUiSend = () => sendToAddToQueueUi
 
 // ============================================================================
 // Media Bridge Hooks

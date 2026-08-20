@@ -78,6 +78,9 @@ function physicalMediaImages(item: PhysicalMediaItem) {
     : undefined
 }
 
+type BrowseLevel = "root" | "artistAlbums" | "tracks"
+type RootKind = "artists" | "albums" | "media"
+
 export type CatalogBrowseNavigation = {
   source: string
   artistId?: string
@@ -86,10 +89,20 @@ export type CatalogBrowseNavigation = {
   albumTitle?: string
   /** Held Physical Media item to open directly (ADR 0099). */
   mediaKey?: string
+  /** Root tab to open when not drilling into an artist/album/media (ADR 0105). */
+  rootKind?: RootKind
 }
 
-type BrowseLevel = "root" | "artistAlbums" | "tracks"
-type RootKind = "artists" | "albums" | "media"
+export type CatalogBrowseLocation = {
+  source: string
+  rootKind: RootKind
+  level: BrowseLevel
+  artistId?: string
+  artistTitle?: string
+  albumId?: string
+  albumTitle?: string
+  mediaKey?: string
+}
 
 type Props = {
   browseableSourceIds: string[]
@@ -100,6 +113,8 @@ type Props = {
   onSourceIdChange?: (sourceId: string) => void
   initialNavigation?: CatalogBrowseNavigation | null
   onNavigationApplied?: () => void
+  /** Fires when drill-down location changes (for session restore, ADR 0105). */
+  onBrowseLocationChange?: (location: CatalogBrowseLocation) => void
   onChoose: (track: MetadataSourceTrack) => void
   disabled?: boolean
   /** Stretch list scrollports to fill a flex parent (Add to Queue modal). */
@@ -114,6 +129,7 @@ function CatalogBrowse({
   onSourceIdChange,
   initialNavigation = null,
   onNavigationApplied,
+  onBrowseLocationChange,
   onChoose,
   disabled = false,
   fillHeight = false,
@@ -172,7 +188,9 @@ function CatalogBrowse({
     }
   }
 
-  // Source / capability change → reset to root (unless deep-link will apply)
+  // Source change → reset to root (unless a deep-link/restore will apply).
+  // Do not depend on capability flags: modal open refreshes sources and would
+  // wipe album/artist drill-down (ADR 0105).
   useEffect(() => {
     if (!sourceId) return
     if (
@@ -193,8 +211,8 @@ function CatalogBrowse({
       return
     }
     loadRoot(sourceId, "artists")
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional reset on source/caps
-  }, [sourceId, searchEntry, albumSearch])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when catalog source changes
+  }, [sourceId])
 
   // Debounced root filter
   useEffect(() => {
@@ -225,14 +243,30 @@ function CatalogBrowse({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showMediaTab, rootKind, sourceId, searchEntry])
 
-  // Deep-link from Search
+  // Deep-link from Search / session restore (ADR 0105)
   useEffect(() => {
     if (!initialNavigation) return
     const key = JSON.stringify(initialNavigation)
-    if (appliedNavKey.current === key) return
+    const { source, artistId, albumId, artistTitle, albumTitle, mediaKey, rootKind: navRootKind } =
+      initialNavigation
+
+    const viewMatchesNav =
+      (mediaKey != null && selectedMedia?.mediaKey === mediaKey && level === "tracks") ||
+      (albumId != null && selectedAlbum?.id === albumId && level === "tracks") ||
+      (artistId != null &&
+        albumId == null &&
+        selectedArtist?.id === artistId &&
+        level === "artistAlbums") ||
+      (navRootKind != null &&
+        mediaKey == null &&
+        albumId == null &&
+        artistId == null &&
+        level === "root" &&
+        rootKind === navRootKind)
+
+    if (appliedNavKey.current === key && viewMatchesNav) return
     appliedNavKey.current = key
 
-    const { source, artistId, albumId, artistTitle, albumTitle, mediaKey } = initialNavigation
     if (!browseableSourceIds.includes(source)) {
       onNavigationApplied?.()
       return
@@ -253,22 +287,60 @@ function CatalogBrowse({
       setLevel("tracks")
       send({ type: "FETCH_MEDIA", mediaKey })
     } else if (albumId) {
+      setRootKind(navRootKind === "albums" ? "albums" : "artists")
       setSelectedArtist(artistId ? { id: artistId, title: artistTitle ?? artistId } : null)
       setSelectedAlbum({
         id: albumId,
         title: albumTitle ?? albumId,
         artists: [],
       })
+      setSelectedMedia(null)
       setLevel("tracks")
       send({ type: "FETCH_ALBUM", source, albumId })
     } else if (artistId) {
+      setRootKind("artists")
       setSelectedArtist({ id: artistId, title: artistTitle ?? artistId })
       setSelectedAlbum(null)
+      setSelectedMedia(null)
       setLevel("artistAlbums")
       send({ type: "FETCH_ARTIST", source, artistId })
+    } else if (navRootKind) {
+      setRootKind(navRootKind)
+      setSelectedArtist(null)
+      setSelectedAlbum(null)
+      setSelectedMedia(null)
+      setLevel("root")
+      const navSearchEntry =
+        (browseSourceCapabilities[source] ?? { entryMode: "index" as const }).entryMode === "search"
+      if (navRootKind !== "media" && !navSearchEntry) {
+        loadRoot(source, navRootKind)
+      }
     }
     onNavigationApplied?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- apply when nav payload or view drift requires it
   }, [initialNavigation, browseableSourceIds, myMedia, send, onNavigationApplied, onSourceIdChange])
+
+  useEffect(() => {
+    if (!sourceId || !onBrowseLocationChange) return
+    onBrowseLocationChange({
+      source: sourceId,
+      rootKind,
+      level,
+      ...(selectedArtist
+        ? { artistId: selectedArtist.id, artistTitle: selectedArtist.title }
+        : {}),
+      ...(selectedAlbum ? { albumId: selectedAlbum.id, albumTitle: selectedAlbum.title } : {}),
+      ...(selectedMedia ? { mediaKey: selectedMedia.mediaKey } : {}),
+    })
+  }, [
+    sourceId,
+    rootKind,
+    level,
+    selectedArtist,
+    selectedAlbum,
+    selectedMedia,
+    onBrowseLocationChange,
+  ])
 
   const isLoading =
     state.matches("loadingArtists") ||

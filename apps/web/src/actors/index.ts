@@ -197,6 +197,10 @@ export {
 
 // Quick Access Panels Actor
 export { quickAccessPanelsActor } from "./quickAccessPanelsActor"
+
+// Add to Queue UI Actor
+export { addToQueueUiActor } from "./addToQueueUiActor"
+
 export {
   mediaBridgeActor,
   linkMediaBridge,
