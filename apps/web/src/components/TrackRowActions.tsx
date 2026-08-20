@@ -31,9 +31,7 @@ export function TrackRowActions({
     <HStack gap={1} flexShrink={0} align="center">
       {canPreview && (
         <IconButton
-          size={{ base: "sm", md: "xs" }}
-          minH={{ base: "11", md: undefined }}
-          minW={{ base: "11", md: undefined }}
+          size="sm"
           variant={previewStatus === "playing" ? "solid" : "ghost"}
           colorPalette="action"
           aria-label={previewLabel}
@@ -44,9 +42,9 @@ export function TrackRowActions({
           {previewStatus === "loading" ? (
             <Spinner size="sm" />
           ) : previewStatus === "playing" && StopIcon ? (
-            <SvgIcon icon={StopIcon} boxSize={{ base: "1rem", md: "0.85rem" }} />
+            <SvgIcon icon={StopIcon} />
           ) : PlayIcon ? (
-            <SvgIcon icon={PlayIcon} boxSize={{ base: "1rem", md: "0.85rem" }} />
+            <SvgIcon icon={PlayIcon} />
           ) : (
             "Play"
           )}
@@ -54,8 +52,7 @@ export function TrackRowActions({
       )}
       {onAddToQueue && (
         <Button
-          size={{ base: "sm", md: "xs" }}
-          minH={{ base: "11", md: undefined }}
+          size="sm"
           variant="outline"
           colorPalette="action"
           disabled={disabled}

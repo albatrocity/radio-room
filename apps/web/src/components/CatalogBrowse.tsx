@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import {
-  Badge,
   Box,
   Center,
   chakra,
@@ -13,25 +12,20 @@ import {
   VStack,
 } from "@chakra-ui/react"
 import type {
-  ArtworkFrame,
   MetadataBrowseAlbum,
   MetadataBrowseArtist,
   MetadataBrowseCapabilities,
   MetadataSourceTrack,
-  MetadataSourceUrl,
   PhysicalMediaItem,
 } from "@repo/types"
-import { labelForMetadataSource } from "@repo/types"
 import { useSocketMachine } from "../hooks/useSocketMachine"
 import { catalogBrowseMachine } from "../machines/catalogBrowseMachine"
 import EntityThumb from "./EntityThumb"
-import ItemArtwork from "./ItemArtwork"
+import AlbumTrackListView, { type AlbumViewHeader } from "./AlbumTrackListView"
 import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
 import PathBreadcrumb from "./PathBreadcrumb"
 import ScrollShadowViewport from "./ScrollShadowViewport"
-import TrackActionRow from "./TrackActionRow"
 import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
-import { useTrackPreviewStatus } from "../hooks/useActors"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
 
@@ -82,60 +76,6 @@ function physicalMediaImages(item: PhysicalMediaItem) {
   return item.imageUrl
     ? [{ type: "image" as const, url: item.imageUrl, id: item.mediaKey }]
     : undefined
-}
-
-type TracksHeroModel = {
-  title: string
-  artists?: string
-  year?: string
-  sourceId: string
-  images?: MetadataSourceUrl[]
-  imageUrl?: string
-  imageUrlLarge?: string
-  artworkFrame?: ArtworkFrame
-}
-
-/** Album / Physical Media header above the track list (ADR-style album browse). */
-function CatalogTracksHero({ hero }: { hero: TracksHeroModel }) {
-  const framed = hero.artworkFrame != null
-
-  return (
-    <HStack align="start" gap={3} px={1} pb={2} w="100%" minW={0}>
-      <Box w="28" flexShrink={0}>
-        {framed ? (
-          <ItemArtwork
-            imageUrl={hero.imageUrl}
-            imageUrlLarge={hero.imageUrlLarge}
-            artworkFrame={hero.artworkFrame}
-            size="feature"
-            alt={hero.title}
-          />
-        ) : (
-          <EntityThumb images={hero.images} shape="square" size="track" alt={hero.title} />
-        )}
-      </Box>
-      <VStack align="start" gap={1} minW={0} flex="1" pt={1}>
-        <Text fontWeight="semibold" lineClamp={2}>
-          {hero.title}
-        </Text>
-        {hero.artists ? (
-          <Text fontSize="sm" color="fg.muted" lineClamp={2}>
-            {hero.artists}
-          </Text>
-        ) : null}
-        <HStack gap={2} flexWrap="wrap" align="center">
-          {hero.year ? (
-            <Text fontSize="xs" color="fg.muted">
-              {hero.year}
-            </Text>
-          ) : null}
-          <Badge size="sm" variant="subtle">
-            {labelForMetadataSource(hero.sourceId)}
-          </Badge>
-        </HStack>
-      </VStack>
-    </HStack>
-  )
 }
 
 export type CatalogBrowseNavigation = {
@@ -200,24 +140,6 @@ function CatalogBrowse({
       source: track.source ?? sourceId,
       ...(selectedMedia?.mediaKey ? { mediaKey: selectedMedia.mediaKey } : {}),
     })
-  }
-
-  function CatalogBrowseTrackRow({ track, index }: { track: TrackWithSource; index: number }) {
-    const id = previewTrackKey(track)
-    const previewStatus = useTrackPreviewStatus(id)
-    return (
-      <TrackActionRow
-        key={`${track.source ?? sourceId}-${track.id}-${index}`}
-        track={track}
-        showArtwork={false}
-        detailLevel="titleDuration"
-        disabled={disabled}
-        previewStatus={previewStatus}
-        canPreview={(track.source ?? sourceId) === "local"}
-        onPreview={() => handlePreview(track)}
-        onAddToQueue={() => onChoose(track)}
-      />
-    )
   }
 
   const caps = browseSourceCapabilities[sourceId] ?? {
@@ -461,7 +383,7 @@ function CatalogBrowse({
 
   const browseAlbum = state.context.album ?? selectedAlbum
   const firstTrack = tracks[0]
-  const tracksHero = useMemo((): TracksHeroModel | null => {
+  const albumHeader = useMemo((): AlbumViewHeader | null => {
     if (level !== "tracks") return null
     if (selectedMedia) {
       const artists =
@@ -586,14 +508,24 @@ function CatalogBrowse({
         <Text fontSize="sm" color="fg.muted" py={4}>
           Search for artists or albums to browse this catalog.
         </Text>
+      ) : level === "tracks" ? (
+        <AlbumTrackListView
+          header={albumHeader}
+          tracks={tracks}
+          loading={isLoading && tracks.length === 0}
+          emptyMessage={state.matches("failure") ? undefined : "No tracks found."}
+          disabled={disabled}
+          defaultSourceId={sourceId}
+          canPreviewTrack={(track) => (track.source ?? sourceId) === "local"}
+          onPreview={handlePreview}
+          onAddToQueue={onChoose}
+        />
       ) : (
         <Box>
-          {tracksHero ? <CatalogTracksHero hero={tracksHero} /> : null}
           {isLoading &&
           ((level === "root" && rootKind === "artists" && artists.length === 0) ||
             (level === "root" && rootKind === "albums" && rootAlbums.length === 0) ||
-            (level === "artistAlbums" && artistAlbums.length === 0) ||
-            (level === "tracks" && tracks.length === 0)) ? (
+            (level === "artistAlbums" && artistAlbums.length === 0)) ? (
             <Center py={6}>
               <Spinner size="sm" />
             </Center>
@@ -698,23 +630,6 @@ function CatalogBrowse({
                               </VStack>
                             </HStack>
                           </BrowseRowButton>
-                        ))
-                      ))}
-
-                    {level === "tracks" &&
-                      (tracks.length === 0 ? (
-                        state.matches("failure") ? null : (
-                          <Text fontSize="sm" color="fg.muted" py={2}>
-                            No tracks found.
-                          </Text>
-                        )
-                      ) : (
-                        tracks.map((track, index) => (
-                          <CatalogBrowseTrackRow
-                            key={`${track.source ?? sourceId}-${track.id}-${index}`}
-                            track={track}
-                            index={index}
-                          />
                         ))
                       ))}
                   </VStack>

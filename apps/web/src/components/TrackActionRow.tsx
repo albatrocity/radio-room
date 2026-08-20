@@ -1,5 +1,5 @@
 import type { Ref } from "react"
-import { Badge, HStack } from "@chakra-ui/react"
+import { Badge, HStack, Text } from "@chakra-ui/react"
 import { labelForMetadataSource, type ArtworkFrame, type MetadataSourceTrack } from "@repo/types"
 import TrackItem from "./TrackItem"
 import { TrackRowActions } from "./TrackRowActions"
@@ -64,8 +64,8 @@ function TrackActionRow({
     previewStatus === "playing"
       ? `Stop preview of ${track.title}`
       : previewStatus === "loading"
-        ? `Loading preview of ${track.title}`
-        : `Preview ${track.title}`
+      ? `Loading preview of ${track.title}`
+      : `Preview ${track.title}`
   const compact = detailLevel === "titleDuration"
 
   return (
@@ -74,7 +74,7 @@ function TrackActionRow({
       id={optionId}
       role={role}
       aria-selected={ariaSelected}
-      gap={2}
+      gap={4}
       w="100%"
       minW={0}
       p={2}
@@ -83,14 +83,21 @@ function TrackActionRow({
       bg={isActive ? "actionBgLite" : undefined}
       onMouseEnter={onMouseEnter}
     >
-      <TrackItem
-        {...track}
-        size={size}
-        artworkOverride={artworkOverride}
-        showArtwork={showArtwork}
-        detailLevel={detailLevel}
-        sourcePlacement={compact ? "none" : "below"}
-      />
+      <HStack align="flex-start" gap={2} flex="1">
+        {track.trackNumber ? (
+          <Text fontSize="xs" color="fg.subtle" flexShrink={0}>
+            {track.trackNumber}
+          </Text>
+        ) : null}
+        <TrackItem
+          {...track}
+          size={size}
+          artworkOverride={artworkOverride}
+          showArtwork={showArtwork}
+          detailLevel={detailLevel}
+          sourcePlacement={compact ? "none" : "below"}
+        />
+      </HStack>
       {!compact && track.source && (
         <Badge size="sm" variant="subtle" flexShrink={0} hideBelow="md">
           {labelForMetadataSource(track.source)}

@@ -57,8 +57,8 @@ export default function ItemArtwork({
         ? `View details for ${alt.trim()}`
         : "View details"
       : alt.trim()
-        ? `View artwork for ${alt.trim()}`
-        : "View artwork"
+      ? `View artwork for ${alt.trim()}`
+      : "View artwork"
     return (
       <>
         <Box
@@ -112,7 +112,6 @@ export default function ItemArtwork({
         w={fill ? "100%" : undefined}
         aspectRatio={fill ? "1 / 1" : undefined}
         flexShrink={0}
-        borderRadius="sm"
         objectFit="cover"
         loading="lazy"
       />

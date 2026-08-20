@@ -89,13 +89,9 @@ function TrackSearch({
     const artistsRaw = state.context.artists ?? []
     const albumsRaw = state.context.albums ?? []
     const artistsFiltered =
-      sourceFilter === "all"
-        ? artistsRaw
-        : artistsRaw.filter((a) => a.source === sourceFilter)
+      sourceFilter === "all" ? artistsRaw : artistsRaw.filter((a) => a.source === sourceFilter)
     const albumsFiltered =
-      sourceFilter === "all"
-        ? albumsRaw
-        : albumsRaw.filter((a) => a.source === sourceFilter)
+      sourceFilter === "all" ? albumsRaw : albumsRaw.filter((a) => a.source === sourceFilter)
 
     if (sourceFilter === "all") {
       return {
@@ -265,7 +261,6 @@ function TrackSearch({
             w="100%"
             p={2}
             textAlign="left"
-            borderRadius="md"
             _hover={{ bg: "actionBgLite" }}
             onClick={() =>
               onOpenBrowse?.({
@@ -312,7 +307,6 @@ function TrackSearch({
             w="100%"
             p={2}
             textAlign="left"
-            borderRadius="md"
             _hover={{ bg: "actionBgLite" }}
             onClick={() =>
               onOpenBrowse?.({

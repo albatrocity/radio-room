@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from "react"
-import { Box, Center, Spinner, Stack, Text, VStack } from "@chakra-ui/react"
+import { Box, Stack, Text, VStack } from "@chakra-ui/react"
 import type { ItemDefinition, MetadataSourceTrack } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
+import AlbumTrackListView, { type AlbumViewHeader } from "../../AlbumTrackListView"
 import ItemArtwork from "../../ItemArtwork"
 import { LinkifiedText } from "../../LinkifiedText"
-import TrackActionRow from "../../TrackActionRow"
+import PathBreadcrumb from "../../PathBreadcrumb"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
 import { stopTrackPreview, toggleTrackPreview } from "../../../actors/trackPreviewActor"
-import { useCanAddToQueue, useIsAdmin, useTrackPreviewStatus } from "../../../hooks/useActors"
+import { useCanAddToQueue, useIsAdmin } from "../../../hooks/useActors"
 import useAddToQueue from "../../useAddToQueue"
 import type { GameStateDetailFrame } from "../../../types/GameStateDetail"
-import PathBreadcrumb from "../../PathBreadcrumb"
 import { LuArrowLeft } from "react-icons/lu"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
@@ -21,45 +21,8 @@ type Props = {
   definition?: ItemDefinition
 }
 
-function trackKey(track: TrackWithSource) {
-  return `${track.source ?? "local"}-${track.id}`
-}
-
-function DetailTrackRow({
-  track,
-  mediaKey,
-  canAdd,
-  onAdd,
-}: {
-  track: TrackWithSource
-  mediaKey: string
-  canAdd: boolean
-  onAdd: (track: TrackWithSource) => void
-}) {
-  const key = trackKey(track)
-  const previewStatus = useTrackPreviewStatus(key)
-
-  return (
-    <TrackActionRow
-      track={track}
-      showArtwork={false}
-      previewStatus={previewStatus}
-      canPreview
-      onPreview={() =>
-        toggleTrackPreview({
-          trackKey: key,
-          trackId: track.id,
-          mediaKey,
-          source: "local",
-        })
-      }
-      onAddToQueue={canAdd ? () => onAdd(track) : undefined}
-    />
-  )
-}
-
 /**
- * Game State item detail body (ADR 0104): lore + optional trackList.
+ * Game State item detail body (ADR 0104): lore + optional trackList album view.
  */
 export default function GameStateItemDetail({ frame, definition }: Props) {
   const isAdmin = useIsAdmin()
@@ -111,69 +74,86 @@ export default function GameStateItemDetail({ frame, definition }: Props) {
 
   const name = definition?.name ?? frame.title
   const description = definition?.description
+  const firstTrack = tracks[0]
 
-  return (
-    <Stack gap={4} pt={2}>
-      <Stack direction="column" align="center" gap={4}>
-        <Box w="full" maxW="sm">
-          <ItemArtwork
-            imageUrl={definition?.imageUrl}
-            imageUrlLarge={definition?.imageUrlLarge}
-            icon={definition?.icon}
-            rarity={definition?.rarity}
-            artworkFrame={definition?.artworkFrame}
-            size="feature"
-            alt={name}
-          />
-        </Box>
-        <VStack gap={4} w="100%" flex="1">
-          <Text fontWeight="semibold" fontSize="lg" textAlign="center">
-            {name}
-          </Text>
-          {definition != null && <ItemRarityTag size="sm" rarity={resolveItemRarity(definition)} />}
-          {description ? (
-            <LinkifiedText fontSize="sm" color="fg.muted">
-              {description}
-            </LinkifiedText>
-          ) : null}
-        </VStack>
-      </Stack>
+  const albumHeader = useMemo((): AlbumViewHeader => {
+    const artists =
+      firstTrack?.artists
+        ?.map((a) => a.title)
+        .filter(Boolean)
+        .join(", ") || undefined
+    const year = firstTrack?.album?.releaseDate?.split("-")[0] || undefined
+    return {
+      title: name,
+      artists,
+      year,
+      sourceId: "local",
+      imageUrl: definition?.imageUrl,
+      imageUrlLarge: definition?.imageUrlLarge,
+      artworkFrame: definition?.artworkFrame,
+      icon: definition?.icon,
+      rarity: definition != null ? resolveItemRarity(definition) : undefined,
+      description,
+    }
+  }, [name, description, definition, firstTrack])
 
-      {showTrackList && !mediaKey ? (
-        <Text fontSize="sm" color="fg.muted">
+  if (showTrackList) {
+    if (!mediaKey) {
+      return (
+        <Text fontSize="sm" color="fg.muted" pt={2}>
           No track list is available for this item.
         </Text>
-      ) : null}
+      )
+    }
 
-      {showTrackList && mediaKey ? (
-        <Box>
-          {loading ? (
-            <Center py={6}>
-              <Spinner size="sm" />
-            </Center>
-          ) : error ? (
-            <Text fontSize="sm" color="fg.muted" py={2}>
-              {error}
-            </Text>
-          ) : tracks.length === 0 ? (
-            <Text fontSize="sm" color="fg.muted" py={2}>
-              No tracks found.
-            </Text>
-          ) : (
-            <VStack align="stretch" gap={0}>
-              {tracks.map((track) => (
-                <DetailTrackRow
-                  key={track.id}
-                  track={track}
-                  mediaKey={mediaKey}
-                  canAdd={canAdd}
-                  onAdd={(t) => addToQueue({ ...t, source: "local" } as MetadataSourceTrack)}
-                />
-              ))}
-            </VStack>
-          )}
-        </Box>
-      ) : null}
+    return (
+      <AlbumTrackListView
+        header={albumHeader}
+        tracks={tracks}
+        loading={loading}
+        error={error}
+        maxH="min(60vh, 28rem)"
+        defaultSourceId="local"
+        canPreviewTrack={() => true}
+        onPreview={(track) =>
+          toggleTrackPreview({
+            trackKey: `${track.source ?? "local"}-${track.id}`,
+            trackId: track.id,
+            mediaKey,
+            source: "local",
+          })
+        }
+        onAddToQueue={(track) => addToQueue({ ...track, source: "local" } as MetadataSourceTrack)}
+        showAddToQueue={canAdd}
+      />
+    )
+  }
+
+  // Lore-only (`layout: "default"`): compact artwork + description.
+  return (
+    <Stack gap={4} pt={2} direction="column" align="center">
+      <Box w="28">
+        <ItemArtwork
+          imageUrl={definition?.imageUrl}
+          imageUrlLarge={definition?.imageUrlLarge}
+          icon={definition?.icon}
+          rarity={definition?.rarity}
+          artworkFrame={definition?.artworkFrame}
+          size="feature"
+          alt={name}
+        />
+      </Box>
+      <VStack gap={2} w="100%" maxW="sm" align="center">
+        <Text fontWeight="semibold" fontSize="lg" textAlign="center">
+          {name}
+        </Text>
+        {definition != null && <ItemRarityTag size="sm" rarity={resolveItemRarity(definition)} />}
+        {description ? (
+          <LinkifiedText fontSize="sm" color="fg.muted" textAlign="center">
+            {description}
+          </LinkifiedText>
+        ) : null}
+      </VStack>
     </Stack>
   )
 }

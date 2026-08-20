@@ -28,7 +28,7 @@ export default function EntityThumb({
   size = "row",
 }: Props) {
   const url = firstImageUrl(images)
-  const radius = artworkFrame ? 0 : shape === "circle" ? "full" : "sm"
+  const radius = artworkFrame ? 0 : shape === "circle" ? "full" : 0
   const unframedPx = size === "track" ? FRAMED_ARTWORK_TRACK_PX : ENTITY_THUMB_ROW_PX
   const art = toPhysicalMediaArt({ imageUrl: url, artworkFrame, name: alt })
 
