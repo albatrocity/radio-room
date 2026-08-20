@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { deriveDiscLabel, resolvePhysicalMediaArt, toPhysicalMediaArt } from "./physicalMediaArtwork"
-
-const enabledConfig = {
-  "item-shops": { enabled: true, showPhysicalMediaFrameInNowPlaying: true },
-}
+import {
+  deriveDiscLabel,
+  physicalMediaFramesEnabled,
+  resolvePhysicalMediaArt,
+  toPhysicalMediaArt,
+} from "./physicalMediaArtwork"
 
 const sleeve = {
   imageUrl: "/api/rooms/r1/images/cover",
@@ -13,26 +14,49 @@ const sleeve = {
 
 const pluginData = { "item-shops": { physicalMediaFrame: sleeve } }
 
-describe("resolvePhysicalMediaArt", () => {
-  it("returns undefined when the Item Shops toggle is off", () => {
+describe("physicalMediaFramesEnabled", () => {
+  it("requires both the plugin and the frame toggle to be on", () => {
     expect(
-      resolvePhysicalMediaArt({
-        pluginData,
-        pluginConfigs: {
-          "item-shops": { enabled: true, showPhysicalMediaFrameInNowPlaying: false },
-        },
-        trackArtUrl: "/track.jpg",
+      physicalMediaFramesEnabled({
+        "item-shops": { enabled: true, showPhysicalMediaFrameInNowPlaying: true },
       }),
-    ).toBeUndefined()
+    ).toBe(true)
+    expect(
+      physicalMediaFramesEnabled({
+        "item-shops": { enabled: true, showPhysicalMediaFrameInNowPlaying: false },
+      }),
+    ).toBe(false)
+    expect(
+      physicalMediaFramesEnabled({
+        "item-shops": { enabled: false, showPhysicalMediaFrameInNowPlaying: true },
+      }),
+    ).toBe(false)
   })
 
-  it("returns undefined when Item Shops is disabled", () => {
+  it("is false when Item Shops is absent or configs are missing", () => {
+    expect(physicalMediaFramesEnabled({ "playlist-bingo": { enabled: true } })).toBe(false)
+    expect(physicalMediaFramesEnabled(undefined)).toBe(false)
+  })
+
+  it("ignores unrelated plugin config churn", () => {
+    const before = physicalMediaFramesEnabled({
+      "item-shops": { enabled: true, showPhysicalMediaFrameInNowPlaying: true },
+      "playlist-bingo": { enabled: false },
+    })
+    const after = physicalMediaFramesEnabled({
+      "item-shops": { enabled: true, showPhysicalMediaFrameInNowPlaying: true },
+      "playlist-bingo": { enabled: true, boardSize: 5 },
+    })
+    expect(before).toBe(after)
+  })
+})
+
+describe("resolvePhysicalMediaArt", () => {
+  it("returns undefined when frames are not enabled", () => {
     expect(
       resolvePhysicalMediaArt({
         pluginData,
-        pluginConfigs: {
-          "item-shops": { enabled: false, showPhysicalMediaFrameInNowPlaying: true },
-        },
+        framesEnabled: false,
         trackArtUrl: "/track.jpg",
       }),
     ).toBeUndefined()
@@ -42,7 +66,7 @@ describe("resolvePhysicalMediaArt", () => {
     expect(
       resolvePhysicalMediaArt({
         pluginData,
-        pluginConfigs: enabledConfig,
+        framesEnabled: true,
         trackArtUrl: "/track.jpg",
         disabled: true,
       }),
@@ -53,7 +77,7 @@ describe("resolvePhysicalMediaArt", () => {
     expect(
       resolvePhysicalMediaArt({
         pluginData,
-        pluginConfigs: enabledConfig,
+        framesEnabled: true,
         trackArtUrl: "/track.jpg",
       }),
     ).toEqual({
@@ -68,7 +92,7 @@ describe("resolvePhysicalMediaArt", () => {
     expect(
       resolvePhysicalMediaArt({
         pluginData,
-        pluginConfigs: enabledConfig,
+        framesEnabled: true,
         trackArtUrl: sleeve.imageUrl,
       }),
     ).toEqual({
@@ -86,7 +110,7 @@ describe("resolvePhysicalMediaArt", () => {
             physicalMediaFrame: { imageUrl: "/tape.jpg", artworkFrame: "j-card" },
           },
         },
-        pluginConfigs: enabledConfig,
+        framesEnabled: true,
       }),
     ).toEqual({ imageUrl: "/tape.jpg", artworkFrame: "cassette-case" })
   })
@@ -95,7 +119,7 @@ describe("resolvePhysicalMediaArt", () => {
     expect(
       resolvePhysicalMediaArt({
         pluginData: { "item-shops": { physicalMediaFrame: { artworkFrame: "jewel-case" } } },
-        pluginConfigs: enabledConfig,
+        framesEnabled: true,
         trackArtUrl: "/track.jpg",
       }),
     ).toEqual({ artworkFrame: "jewel-case", imageUrl: "/track.jpg" })
@@ -105,7 +129,7 @@ describe("resolvePhysicalMediaArt", () => {
     expect(
       resolvePhysicalMediaArt({
         pluginData: { "item-shops": { physicalMediaFrame: { artworkFrame: "jewel-case" } } },
-        pluginConfigs: enabledConfig,
+        framesEnabled: true,
       }),
     ).toBeUndefined()
   })
@@ -121,7 +145,7 @@ describe("resolvePhysicalMediaArt", () => {
             },
           },
         },
-        pluginConfigs: enabledConfig,
+        framesEnabled: true,
         trackArtUrl: "/track.jpg",
       }),
     ).toEqual({

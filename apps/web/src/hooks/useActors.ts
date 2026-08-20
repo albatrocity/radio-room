@@ -9,6 +9,8 @@
 
 import { useSelector } from "@xstate/react"
 
+import { physicalMediaFramesEnabled } from "../lib/physicalMediaArtwork"
+
 // Import all actors
 import { authActor, sendAuthEvent } from "../actors/authActor"
 import { chatActor } from "../actors/chatActor"
@@ -198,7 +200,9 @@ export const useSortedChatMessages = () => {
       cachedExpiryBucket = expiryBucket
       cachedHasExpirable = messages.some((m) => m.expiresAt != null)
       cachedSorted = cachedHasExpirable
-        ? [...messages].filter((m) => m.expiresAt == null || m.expiresAt > now).sort(sortByTimestamp)
+        ? [...messages]
+            .filter((m) => m.expiresAt == null || m.expiresAt > now)
+            .sort(sortByTimestamp)
         : [...messages].sort(sortByTimestamp)
       return cachedSorted
     }
@@ -363,6 +367,14 @@ export const useDeputizeOnJoin = () => {
 
 export const usePluginConfigs = () => {
   return useSelector(settingsActor, (s) => s.context.pluginConfigs)
+}
+
+/**
+ * Item Shops' Physical Media sleeve toggle, as a boolean so per-row artwork
+ * hooks do not re-render on unrelated plugin config changes.
+ */
+export const usePhysicalMediaFramesEnabled = () => {
+  return useSelector(settingsActor, (s) => physicalMediaFramesEnabled(s.context.pluginConfigs))
 }
 
 export const useSettingsSend = () => sendToSettings
@@ -543,9 +555,7 @@ export const useUserGameStatePayload = () => {
 }
 
 export const useUserGameStateLoading = () => {
-  return useSelector(userGameStateActor, (s) =>
-    s.matches("loading") || s.matches("refreshing"),
-  )
+  return useSelector(userGameStateActor, (s) => s.matches("loading") || s.matches("refreshing"))
 }
 
 export const useUserGameStateError = () => {

@@ -41,8 +41,7 @@ function readFrame(value: unknown): PhysicalMediaNowPlayingFrame | undefined {
   const artworkFrame = parseArtworkFrame(record.artworkFrame)
   if (!artworkFrame) return undefined
   const imageUrl = typeof record.imageUrl === "string" ? record.imageUrl.trim() : ""
-  const imageUrlLarge =
-    typeof record.imageUrlLarge === "string" ? record.imageUrlLarge.trim() : ""
+  const imageUrlLarge = typeof record.imageUrlLarge === "string" ? record.imageUrlLarge.trim() : ""
   return {
     artworkFrame,
     ...(imageUrl ? { imageUrl } : {}),
@@ -50,14 +49,23 @@ function readFrame(value: unknown): PhysicalMediaNowPlayingFrame | undefined {
   }
 }
 
+/**
+ * Whether the operator opted Local tracks into sleeve/case artwork.
+ *
+ * Kept as a standalone predicate so rows can subscribe to this one boolean
+ * instead of the whole plugin config record (which would re-render every
+ * playlist row whenever any unrelated plugin's config changed).
+ */
+export function physicalMediaFramesEnabled(
+  pluginConfigs: Record<string, Record<string, unknown>> | undefined,
+): boolean {
+  const config = pluginConfigs?.[ITEM_SHOPS_PLUGIN_NAME]
+  return config?.enabled === true && config?.showPhysicalMediaFrameInNowPlaying === true
+}
+
 function readNowPlayingFrame(
   pluginData: Record<string, unknown> | undefined,
-  pluginConfigs: Record<string, Record<string, unknown>> | undefined,
 ): PhysicalMediaNowPlayingFrame | undefined {
-  const config = pluginConfigs?.[ITEM_SHOPS_PLUGIN_NAME]
-  if (config?.enabled !== true) return undefined
-  if (config?.showPhysicalMediaFrameInNowPlaying !== true) return undefined
-
   const data = pluginData?.[ITEM_SHOPS_PLUGIN_NAME] as ItemShopsNowPlayingData | undefined
   return readFrame(data?.[PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY])
 }
@@ -69,13 +77,14 @@ function readNowPlayingFrame(
  */
 export function resolvePhysicalMediaArt(params: {
   pluginData: Record<string, unknown> | undefined
-  pluginConfigs: Record<string, Record<string, unknown>> | undefined
+  /** Result of `physicalMediaFramesEnabled` for the room. */
+  framesEnabled: boolean
   trackArtUrl?: string
   /** Room artwork override or obscured artwork. */
   disabled?: boolean
 }): PhysicalMediaArt | undefined {
-  if (params.disabled) return undefined
-  const frame = readNowPlayingFrame(params.pluginData, params.pluginConfigs)
+  if (params.disabled || !params.framesEnabled) return undefined
+  const frame = readNowPlayingFrame(params.pluginData)
   if (!frame) return undefined
 
   const trackUrl = params.trackArtUrl?.trim() || ""
