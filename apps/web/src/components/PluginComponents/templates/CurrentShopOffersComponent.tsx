@@ -1,5 +1,4 @@
 import { Box, Center, Heading, HStack, Stack, Table, Text, VStack } from "@chakra-ui/react"
-import type { KeyboardEvent, MouseEvent } from "react"
 import type {
   ItemDefinition,
   ItemShopsUserGameState,
@@ -8,10 +7,11 @@ import type {
 } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME, ITEM_SHOPS_TAB_ID } from "@repo/types"
 import type { CurrentShopOffersComponentProps } from "../../../types/PluginComponent"
-import { openGameStateItemDetail } from "../../../actors/modalsActor"
 import { useUserGameState } from "../../Modals/UserGameStateContext"
-import { useGameStateNavOptional } from "../../Modals/GameState/GameStateNavContext"
 import { ItemDetailActionButton } from "../../Modals/GameState/ItemDetailActionButton"
+import { itemDetailClickableProps } from "../../Modals/GameState/itemDetailClickableProps"
+import { buildItemDetailFrame } from "../../Modals/GameState/itemDetailFrame"
+import { useOpenItemDetail } from "../../Modals/GameState/useOpenItemDetail"
 import { usePluginComponentContext } from "../context"
 import { getIcon } from "../icons"
 import { SvgIcon } from "../../ui/svg-icon"
@@ -20,7 +20,6 @@ import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
 import { ButtonTemplateComponent } from "./ButtonComponent"
 import { ItemRarityTag } from "../ItemRarityTag"
 import { LinkifiedText } from "../../LinkifiedText"
-import type { GameStateDetailFrame } from "../../../types/GameStateDetail"
 
 type Props = CurrentShopOffersComponentProps
 
@@ -42,17 +41,6 @@ function definitionForOffer(
   return definitions.find((d) => d.shortId === offer.shortId)
 }
 
-function openShopItemDetail(
-  nav: ReturnType<typeof useGameStateNavOptional>,
-  frame: GameStateDetailFrame,
-) {
-  if (nav) {
-    nav.pushDetail(frame)
-    return
-  }
-  openGameStateItemDetail({ tabId: SHOP_TAB_ID, frame })
-}
-
 /**
  * Renders the current user's shop instance from `pluginUserState` (ADR 0097).
  * (Props are intentionally empty — data comes from `UserGameStateContext`.)
@@ -60,7 +48,7 @@ function openShopItemDetail(
 export function CurrentShopOffersTemplateComponent(_props: Props) {
   const { pluginName } = usePluginComponentContext()!
   const gameState = useUserGameState()
-  const nav = useGameStateNavOptional()
+  const openDetail = useOpenItemDetail(SHOP_TAB_ID)
   const bag =
     pluginName != null
       ? (gameState?.getPluginState<ItemShopsUserGameState>(pluginName) ?? null)
@@ -128,18 +116,17 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
             const definition = definitionForOffer(row, definitions)
             const detailView = definition?.detailView
             const openOfferDetail = detailView
-              ? () => {
-                  const frame: GameStateDetailFrame = {
-                    kind: "item",
-                    shortId: row.shortId,
-                    title: row.name,
-                    source: "shop",
-                    definitionId: definition?.id,
-                    shopOfferId: offerId,
-                    ...(detailView.layout === "trackList" ? { mediaKey: row.shortId } : {}),
-                  }
-                  openShopItemDetail(nav, frame)
-                }
+              ? () =>
+                  openDetail(
+                    buildItemDetailFrame({
+                      shortId: row.shortId,
+                      title: row.name,
+                      source: "shop",
+                      detailView,
+                      definitionId: definition?.id,
+                      shopOfferId: offerId,
+                    }),
+                  )
               : undefined
 
             return (
@@ -165,25 +152,11 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                   <VStack
                     align="start"
                     gap={0}
-                    {...(openOfferDetail
-                      ? {
-                          cursor: "pointer",
-                          role: "button",
-                          tabIndex: 0,
-                          "aria-label":
-                            detailView?.actionLabel ?? `View details for ${row.name}`,
-                          onClick: (event: MouseEvent) => {
-                            if ((event.target as HTMLElement).closest("a")) return
-                            openOfferDetail()
-                          },
-                          onKeyDown: (event: KeyboardEvent) => {
-                            if (event.key !== "Enter" && event.key !== " ") return
-                            event.preventDefault()
-                            openOfferDetail()
-                          },
-                          _hover: { opacity: 0.9 },
-                        }
-                      : {})}
+                    {...itemDetailClickableProps({
+                      detailView,
+                      name: row.name,
+                      onOpen: openOfferDetail,
+                    })}
                   >
                     <Text fontWeight="bold">{row.name}</Text>
                     <LinkifiedText fontSize="xs" color="fg.muted" lineHeight="short">

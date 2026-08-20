@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   Badge,
   Box,
@@ -24,10 +24,10 @@ import { toaster } from "../../ui/toaster"
 import { useUserGameState } from "../UserGameStateContext"
 import { InventoryUseButton } from "./InventoryUseButton"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
-import { useGameStateNavOptional } from "./GameStateNavContext"
 import { ItemDetailActionButton } from "./ItemDetailActionButton"
-import { openGameStateItemDetail } from "../../../actors/modalsActor"
-import type { GameStateDetailFrame } from "../../../types/GameStateDetail"
+import { itemDetailClickableProps } from "./itemDetailClickableProps"
+import { buildItemDetailFrame } from "./itemDetailFrame"
+import { useOpenItemDetail } from "./useOpenItemDetail"
 
 interface InventoryTabProps {
   items: InventoryItem[]
@@ -77,17 +77,6 @@ function EmptyInventorySlot() {
   )
 }
 
-function openInventoryItemDetail(
-  nav: ReturnType<typeof useGameStateNavOptional>,
-  frame: GameStateDetailFrame,
-) {
-  if (nav) {
-    nav.pushDetail(frame)
-    return
-  }
-  openGameStateItemDetail({ tabId: "inventory", frame })
-}
-
 function InventoryRow({
   item,
   definition,
@@ -96,7 +85,7 @@ function InventoryRow({
   coinBalance,
 }: InventoryRowProps) {
   const gameState = useUserGameState()
-  const nav = useGameStateNavOptional()
+  const openDetail = useOpenItemDetail("inventory")
   const name = definition?.name ?? item.definitionId
   const description = definition?.description
   const consumable = definition?.consumable ?? false
@@ -208,16 +197,16 @@ function InventoryRow({
 
   const handleDetails = () => {
     if (!definition?.shortId || !detailView) return
-    const frame: GameStateDetailFrame = {
-      kind: "item",
-      shortId: definition.shortId,
-      title: name,
-      source: "inventory",
-      definitionId: definition.id,
-      inventoryItemId: item.itemId,
-      ...(detailView.layout === "trackList" ? { mediaKey: definition.shortId } : {}),
-    }
-    openInventoryItemDetail(nav, frame)
+    openDetail(
+      buildItemDetailFrame({
+        shortId: definition.shortId,
+        title: name,
+        source: "inventory",
+        detailView,
+        definitionId: definition.id,
+        inventoryItemId: item.itemId,
+      }),
+    )
   }
 
   return (
@@ -242,24 +231,7 @@ function InventoryRow({
         gap={0}
         flex="1"
         minW={0}
-        {...(detailView
-          ? {
-              cursor: "pointer",
-              role: "button",
-              tabIndex: 0,
-              "aria-label": detailView.actionLabel ?? `View details for ${name}`,
-              onClick: (event: MouseEvent) => {
-                if ((event.target as HTMLElement).closest("a")) return
-                handleDetails()
-              },
-              onKeyDown: (event: KeyboardEvent) => {
-                if (event.key !== "Enter" && event.key !== " ") return
-                event.preventDefault()
-                handleDetails()
-              },
-              _hover: { opacity: 0.9 },
-            }
-          : {})}
+        {...itemDetailClickableProps({ detailView, name, onOpen: handleDetails })}
       >
         <HStack gap={2} flexWrap="wrap">
           <Text fontWeight="medium">{name}</Text>
