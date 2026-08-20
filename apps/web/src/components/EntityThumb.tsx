@@ -1,14 +1,11 @@
 import { Box, Image } from "@chakra-ui/react"
 import type { ArtworkFrame, MetadataSourceUrl } from "@repo/types"
+import { firstImageUrl } from "../lib/metadataImages"
 import { toPhysicalMediaArt } from "../lib/physicalMediaArtwork"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
 import { FRAMED_ARTWORK_TRACK_PX } from "./artworkFrames/frameStyles"
 
 const ENTITY_THUMB_ROW_PX = 40
-
-function firstImageUrl(images?: MetadataSourceUrl[]): string | undefined {
-  return images?.find((img) => img.type === "image")?.url
-}
 
 type Props = {
   images?: MetadataSourceUrl[]

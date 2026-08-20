@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { Box, Image } from "@chakra-ui/react"
 import type { ArtworkFrame, ItemRarity } from "@repo/types"
 import { getItemRarityColorPalette, itemRarityIconColor } from "../lib/itemRarityPalette"
@@ -26,16 +26,68 @@ type Props = {
   /** Physical Media presentation overlay when cover art is present. */
   artworkFrame?: ArtworkFrame
   /**
-   * When set, framed artwork click calls this instead of opening the full-size
+   * Open the full-size preview when an unframed cover is clicked. Framed
+   * artwork is always previewable; plain covers opt in (album heroes, not rows).
+   */
+  previewable?: boolean
+  /**
+   * When set, artwork click calls this instead of opening the full-size
    * preview dialog (e.g. navigate to Game State item detail).
    */
   onClick?: () => void
 }
 
+function artworkButtonLabel(alt: string, isDetailAction: boolean): string {
+  const name = alt.trim()
+  if (isDetailAction) return name ? `View details for ${name}` : "View details"
+  return name ? `View artwork for ${name}` : "View artwork"
+}
+
+function ArtworkButton({
+  label,
+  fill,
+  onClick,
+  children,
+}: {
+  label: string
+  fill: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <Box
+      asChild
+      display={fill ? "block" : "inline-flex"}
+      w={fill ? "100%" : undefined}
+      lineHeight="0"
+      cursor="pointer"
+      bg="transparent"
+      border="none"
+      p="0"
+      _focusVisible={{
+        outline: "2px solid",
+        outlineColor: "colorPalette.focusRing",
+        outlineOffset: "2px",
+      }}
+    >
+      <button
+        type="button"
+        aria-label={label}
+        onClick={(event) => {
+          event.stopPropagation()
+          onClick()
+        }}
+      >
+        {children}
+      </button>
+    </Box>
+  )
+}
+
 /**
  * Leading visual for an item row: cover artwork when the item has some,
- * otherwise its Lucide glyph tinted by rarity. Framed covers open a
- * viewport-scaled preview on click unless `onClick` overrides that.
+ * otherwise its Lucide glyph tinted by rarity. Framed covers (and `previewable`
+ * plain covers) open a viewport-scaled preview unless `onClick` overrides that.
  */
 export default function ItemArtwork({
   imageUrl,
@@ -46,51 +98,22 @@ export default function ItemArtwork({
   size = "row",
   alt = "",
   artworkFrame,
+  previewable = false,
   onClick,
 }: Props) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const fill = size === "feature"
   const art = toPhysicalMediaArt({ imageUrl, imageUrlLarge, artworkFrame, name: alt })
   if (art) {
-    const label = onClick
-      ? alt.trim()
-        ? `View details for ${alt.trim()}`
-        : "View details"
-      : alt.trim()
-      ? `View artwork for ${alt.trim()}`
-      : "View artwork"
     return (
       <>
-        <Box
-          asChild
-          display={fill ? "block" : "inline-flex"}
-          w={fill ? "100%" : undefined}
-          lineHeight="0"
-          cursor="pointer"
-          bg="transparent"
-          border="none"
-          p="0"
-          _focusVisible={{
-            outline: "2px solid",
-            outlineColor: "colorPalette.focusRing",
-            outlineOffset: "2px",
-          }}
+        <ArtworkButton
+          label={artworkButtonLabel(alt, Boolean(onClick))}
+          fill={fill}
+          onClick={onClick ?? (() => setPreviewOpen(true))}
         >
-          <button
-            type="button"
-            aria-label={label}
-            onClick={(event) => {
-              event.stopPropagation()
-              if (onClick) {
-                onClick()
-                return
-              }
-              setPreviewOpen(true)
-            }}
-          >
-            <FramedArtwork art={art} size={size} squareSlot={fill} alt="" />
-          </button>
-        </Box>
+          <FramedArtwork art={art} size={size} squareSlot={fill} alt="" />
+        </ArtworkButton>
         {!onClick ? (
           <ArtworkPreviewDialog
             art={art}
@@ -104,7 +127,7 @@ export default function ItemArtwork({
   }
 
   if (imageUrl) {
-    return (
+    const image = (
       <Image
         src={imageUrl}
         alt={alt}
@@ -115,6 +138,28 @@ export default function ItemArtwork({
         objectFit="cover"
         loading="lazy"
       />
+    )
+
+    if (!onClick && !previewable) return image
+
+    return (
+      <>
+        <ArtworkButton
+          label={artworkButtonLabel(alt, Boolean(onClick))}
+          fill={fill}
+          onClick={onClick ?? (() => setPreviewOpen(true))}
+        >
+          {image}
+        </ArtworkButton>
+        {!onClick ? (
+          <ArtworkPreviewDialog
+            imageUrl={imageUrlLarge?.trim() || imageUrl}
+            alt={alt}
+            open={previewOpen}
+            onOpenChange={setPreviewOpen}
+          />
+        ) : null}
+      </>
     )
   }
 

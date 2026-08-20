@@ -18,6 +18,7 @@ import { ItemRarityTag } from "./PluginComponents/ItemRarityTag"
 import ScrollShadowViewport from "./ScrollShadowViewport"
 import TrackActionRow from "./TrackActionRow"
 import { useTrackPreviewStatus } from "../hooks/useActors"
+import { firstImageUrl, largestImageUrl } from "../lib/metadataImages"
 
 export type AlbumViewTrack = MetadataSourceTrack & { source?: string }
 
@@ -58,10 +59,6 @@ type Props = {
   showAddToQueue?: boolean | ((track: AlbumViewTrack) => boolean)
 }
 
-function firstImageUrl(images?: MetadataSourceUrl[]): string | undefined {
-  return images?.find((img) => img.type === "image")?.url
-}
-
 function AlbumTrackRow({
   track,
   disabled,
@@ -92,18 +89,21 @@ function AlbumTrackRow({
 
 function AlbumHeader({ header }: { header: AlbumViewHeader }) {
   const coverUrl = header.imageUrl?.trim() || firstImageUrl(header.images)
+  // Browse albums (Spotify, Local) only carry `images`; pick the biggest for preview.
+  const largeCoverUrl = header.imageUrlLarge?.trim() || largestImageUrl(header.images)
 
   return (
     <HStack align="start" gap={3} px={1} pb={2} w="100%" minW={0}>
       <Box w="28" flexShrink={0}>
         <ItemArtwork
           imageUrl={coverUrl}
-          imageUrlLarge={header.imageUrlLarge}
+          imageUrlLarge={largeCoverUrl}
           icon={header.icon}
           rarity={header.rarity}
           artworkFrame={header.artworkFrame}
           size="feature"
           alt={header.title}
+          previewable
         />
       </Box>
       <VStack align="start" gap={1} minW={0} flex="1" pt={1}>
