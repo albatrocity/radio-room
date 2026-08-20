@@ -1,46 +1,53 @@
-// Compute the date for the third Thursday of the current month,
-// or next month if today is after that date.
+const SHOW_TIME_ZONE = "America/Chicago"
+const SHOW_WEEKDAY = 4 // Thursday
+const SHOW_WEEK_OF_MONTH = 3
+
+function zonedYmd(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(date)
+  const num = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value)
+  return { year: num("year"), month: num("month") - 1, day: num("day") }
+}
+
+function nthWeekdayOfMonth(year: number, month: number, weekday: number, n: number) {
+  const firstWeekday = new Date(Date.UTC(year, month, 1)).getUTCDay()
+  const daysUntilWeekday = (weekday - firstWeekday + 7) % 7
+  return 1 + daysUntilWeekday + (n - 1) * 7
+}
+
+function ymdKey(year: number, month: number, day: number) {
+  return year * 10000 + (month + 1) * 100 + day
+}
+
+function formatShowTime(year: number, month: number, day: number) {
+  const dateLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    dateStyle: "long",
+  }).format(new Date(Date.UTC(year, month, day)))
+  return `${dateLabel} at 8:00 PM`
+}
+
+// Third Thursday of the current month in America/Chicago, or next month if
+// that calendar day has already passed there. Show night itself is included.
 export function getNextShowTime(date: Date) {
-  const year = date.getFullYear()
-  let month = date.getMonth()
-  // Find the first day of the current month
-  let firstOfMonth = new Date(year, month, 1)
+  const today = zonedYmd(date, SHOW_TIME_ZONE)
+  let year = today.year
+  let month = today.month
+  let day = nthWeekdayOfMonth(year, month, SHOW_WEEKDAY, SHOW_WEEK_OF_MONTH)
 
-  // Day of the week for the 1st: 0 = Sunday, ... 4 = Thursday
-  const firstDayOfWeek = firstOfMonth.getDay()
-
-  // 4 is Thursday
-  const daysUntilThursday = (4 - firstDayOfWeek + 7) % 7
-  // 3rd Thursday is the first Thursday + 14 days
-  const thirdThursdayDate = 1 + daysUntilThursday + 14
-  let thirdThursday = new Date(year, month, thirdThursdayDate)
-
-  // If today is after the third Thursday, get next month's third Thursday
-  if (date > thirdThursday) {
-    // Go to next month
+  if (ymdKey(today.year, today.month, today.day) > ymdKey(year, month, day)) {
     month += 1
     if (month > 11) {
       month = 0
-      firstOfMonth = new Date(year + 1, 0, 1)
-    } else {
-      firstOfMonth = new Date(year, month, 1)
+      year += 1
     }
-    // Recalculate
-    const firstDayOfWeekNext = firstOfMonth.getDay()
-    const daysUntilThursdayNext = (4 - firstDayOfWeekNext + 7) % 7
-    const thirdThursdayDateNext = 1 + daysUntilThursdayNext + 14
-    thirdThursday = new Date(firstOfMonth.getFullYear(), month, thirdThursdayDateNext)
+    day = nthWeekdayOfMonth(year, month, SHOW_WEEKDAY, SHOW_WEEK_OF_MONTH)
   }
-  // Set time to 8:00pm Central Time (America/Chicago)
-  // First, create an ISO date string for the date at 20:00:00 in America/Chicago
-  const centralDateLocal = new Date(
-    // Get yyyy-mm-dd part for central time
-    thirdThursday.toLocaleDateString("en-CA", { timeZone: "America/Chicago" }) + "T20:00:00",
-  )
-  // Now, treat that local time as America/Chicago and output localized string
-  return centralDateLocal.toLocaleString("en-US", {
-    timeZone: "America/Chicago",
-    dateStyle: "long",
-    timeStyle: "short",
-  })
+
+  return formatShowTime(year, month, day)
 }
